@@ -10,7 +10,10 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.platform.PlatformApplications
+import com.digitalasset.platform.apitesting.LedgerFactories.SandboxStore.InMemory
 import com.digitalasset.platform.damllf.PackageParser
+import com.digitalasset.platform.sandbox.SandboxApplication.SandboxServer
+import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresResource}
 
 import scala.util.control.NonFatal
 
@@ -37,18 +40,61 @@ object LedgerFactories {
   private def getPackageIdOrThrow(path: Path): Ref.PackageId =
     getPackageId(path).fold(t => throw t, identity)
 
-  def createSandboxResource(config: PlatformApplications.Config)(
+  sealed abstract class SandboxStore
+
+  object SandboxStore {
+
+    object InMemory extends SandboxStore
+
+    object Postgres extends SandboxStore
+
+  }
+
+  def createSandboxResource(config: PlatformApplications.Config, store: SandboxStore = InMemory)(
       implicit esf: ExecutionSequencerFactory): Resource[LedgerContext.SingleChannelContext] = {
     val packageIds = config.darFiles.map(getPackageIdOrThrow)
-    SandboxServerResource(PlatformApplications.sandboxApplication(config)).map {
-      case PlatformChannels(channel) =>
-        LedgerContext.SingleChannelContext(channel, config.ledgerId, packageIds)
+
+    def createResource(server: SandboxServer) =
+      SandboxServerResource(server).map {
+        case PlatformChannels(channel) =>
+          LedgerContext.SingleChannelContext(channel, config.ledgerId, packageIds)
+      }
+
+    store match {
+      case SandboxStore.InMemory =>
+        createResource(PlatformApplications.sandboxApplication(config, None))
+      case SandboxStore.Postgres =>
+        new Resource[LedgerContext.SingleChannelContext] {
+          @volatile
+          private var postgres: Resource[PostgresFixture] = null
+
+          @volatile
+          private var sandbox: Resource[LedgerContext.SingleChannelContext] = null
+
+          override def value(): LedgerContext.SingleChannelContext = sandbox.value
+
+          override def setup(): Unit = {
+            postgres = PostgresResource()
+            postgres.setup()
+            sandbox = createResource(
+              PlatformApplications.sandboxApplication(config, Some(postgres.value.jdbcUrl)))
+            sandbox.setup()
+          }
+
+          override def close(): Unit = {
+            sandbox.close()
+            postgres.close()
+
+            sandbox = null
+            postgres = null
+          }
+        }
     }
+
   }
 
   def createRemoteServerResource(config: PlatformApplications.Config, host: String, port: Int)(
       implicit esf: ExecutionSequencerFactory): Resource[LedgerContext.SingleChannelContext] = {
-
     val packageIds = config.darFiles.map(getPackageIdOrThrow)
     RemoteServerResource(host, port).map {
       case PlatformChannels(channel) =>

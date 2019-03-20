@@ -3,10 +3,11 @@
 
 package com.digitalasset.ledger.api.testing.utils
 
-final case class ProjectedResource[Source, +Target](
+final case class MappedResource[Source, +Target](
     underlying: Resource[Source],
     transform: Source => Target)
     extends Resource[Target] {
+
   override def value: Target = transform(underlying.value)
 
   override def setup(): Unit = underlying.setup()
