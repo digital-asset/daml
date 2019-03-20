@@ -2,26 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.stores
+
 import java.time.Instant
 
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
-import ActiveContracts._
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.{Node => N}
-import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
+import com.digitalasset.daml.lf.transaction.{GenTransaction, Node => N}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
+import com.digitalasset.platform.sandbox.stores.ActiveContracts._
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
+import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.PredicateType.{
+  Exercise,
+  Fetch
+}
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.{
   DuplicateKey,
   InactiveDependencyError,
   PredicateType,
   TimeBeforeError
-}
-import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.PredicateType.{
-  Exercise,
-  Fetch
 }
 
 case class ActiveContracts(
@@ -56,6 +56,7 @@ case class ActiveContracts(
                   None
                 }
             }
+
           node match {
             case nf: N.NodeFetch[AbsoluteContractId] =>
               val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nf.coid)
@@ -98,7 +99,19 @@ case class ActiveContracts(
 
 }
 
+sealed abstract class ActiveContractsAction
+
+final case class ActiveContractsAdd(abcCoid: AbsoluteContractId, contract: ActiveContract)
+    extends ActiveContractsAction
+
+final case class ActiveContractsRemove(abcCoid: AbsoluteContractId) extends ActiveContractsAction
+
+/** If some node requires a contract, check that we have that contract, and check that that contract is not created after the given transaction. */
+final case class ActiveContractsCheck(cid: AbsoluteContractId, let: Instant)
+    extends ActiveContractsAction
+
 object ActiveContracts {
+
   private case class AddTransactionAcc(
       contracts: Map[AbsoluteContractId, ActiveContract],
       keys: Map[GlobalKey, AbsoluteContractId])
@@ -155,4 +168,49 @@ object ActiveContracts {
       key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])
 
   def empty: ActiveContracts = ActiveContracts(Map(), Map())
+
+  /**
+    * Processes a transaction, returning a list of actions that a persistence layer needs to perform.
+    * The reason why a list of actions is returned is that some persistence layers may want to batch these
+    * operations, or execute them asynchronously.
+    */
+  def addAcsActions[Nid](
+      let: Instant,
+      transactionId: String,
+      workflowId: String,
+      transaction: GenTransaction[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
+      explicitDisclosure: Relation[Nid, Ref.Party],
+  ): List[ActiveContractsAction] = {
+    type Acc = List[ActiveContractsAction]
+    transaction.fold[Acc](GenTransaction.TopDown, List.empty) {
+      case (changes, (nodeId, node)) =>
+        node match {
+          case nf: N.NodeFetch[AbsoluteContractId] =>
+            val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nf.coid)
+            changes :+ ActiveContractsCheck(absCoid, let)
+          case nc: N.NodeCreate[AbsoluteContractId, VersionedValue[AbsoluteContractId]] =>
+            val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
+            val activeContract = ActiveContract(
+              let,
+              transactionId,
+              workflowId,
+              nc.coinst.mapValue(
+                _.mapContractId(SandboxEventIdFormatter.makeAbsCoid(transactionId))),
+              explicitDisclosure(nodeId).intersect(nc.stakeholders),
+              None
+            )
+            changes :+ ActiveContractsAdd(absCoid, activeContract)
+          case ne: N.NodeExercises[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]] =>
+            val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(ne.targetCoid)
+            if (ne.consuming) {
+              changes :+ ActiveContractsCheck(absCoid, let) :+ ActiveContractsRemove(absCoid)
+            } else {
+              changes :+ ActiveContractsCheck(absCoid, let)
+            }
+          case _: N.NodeLookupByKey[AbsoluteContractId, VersionedValue[AbsoluteContractId]] =>
+            sys.error("Contract Keys are not implemented yet")
+        }
+    }
+  }
+
 }

@@ -10,7 +10,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain._
 import com.digitalasset.ledger.api.messages.transaction._
 import com.digitalasset.ledger.api.v1.transaction.{Transaction => PTransaction}
@@ -134,10 +133,6 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
     val eventFilter = TransactionFilter(request.parties.map(_ -> Filters.noFilter)(breakOut))
     val withMeta = toTransactionWithMeta(trans)
     VisibleTransaction.toVisibleTransaction(eventFilter, withMeta)
-  }
-
-  private def isMultiPartySubscription(filter: domain.TransactionFilter): Boolean = {
-    filter.filtersByParty.size > 1
   }
 
   def getTransactionByEventId(

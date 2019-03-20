@@ -6,22 +6,23 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicLong
 
-import com.digitalasset.daml.lf.data.Ref
+import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.lf.data.Ref.{Identifier, SimpleString}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
+import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
   ValueText,
   VersionedValue
 }
-import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.digitalasset.daml.lf.value.ValueVersions
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.EventId
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{Contract, PostgresLedgerDao}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
@@ -32,33 +33,20 @@ import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 
 //TODO: use scalacheck when we have generators available for contracts and transactions
 class PostgresDaoSpec
     extends AsyncWordSpec
     with Matchers
+    with AkkaBeforeAndAfterAll
     with PostgresAroundAll
     with PropertyChecks {
 
-  private val mockTransactionSerialiser = new TransactionSerializer {
-    override def serialiseTransaction(
-        transaction: GenTransaction[
-          EventId,
-          AbsoluteContractId,
-          VersionedValue[AbsoluteContractId]]): Either[EncodeError, Array[Byte]] =
-      Right(Array.empty)
-
-    override def deserializeTransaction(blob: Array[Byte]): Either[
-      DecodeError,
-      GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]] =
-      Right(null)
-  }
-
-  private lazy val dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, testUser, 4)
+  private lazy val dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, 4, 4)
   private lazy val ledgerDao =
-    PostgresLedgerDao(dbDispatcher, ContractSerializer, mockTransactionSerialiser)
+    PostgresLedgerDao(dbDispatcher, ContractSerializer, TransactionSerializer)
 
   private val nextOffset: () => Long = {
     val counter = new AtomicLong(0)
@@ -74,20 +62,8 @@ class PostgresDaoSpec
   "Postgres Ledger DAO" should {
     "be able to persist and load contracts" in {
       val offset = nextOffset()
-
-      val transaction = LedgerEntry.Transaction(
-        "commandId1",
-        "trId1",
-        "appID1",
-        "Alice",
-        "workflowId",
-        Instant.now,
-        Instant.now,
-        null,
-        Map("event1" -> Set("Alice", "Bob"), "event2" -> Set("Alice", "In", "Chains"))
-      )
-
-      val absCid = AbsoluteContractId("cId")
+      val absCid = AbsoluteContractId("cId1")
+      val let = Instant.now
       val contractInstance = ContractInst(
         Identifier(
           Ref.PackageId.assertFromString("packageId"),
@@ -97,18 +73,41 @@ class PostgresDaoSpec
         VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some text")),
         "agreement"
       )
+
       val contract = Contract(
         absCid,
-        Instant.EPOCH,
+        let,
         "trId1",
         "workflowId",
         Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
         contractInstance)
 
+      val transaction = LedgerEntry.Transaction(
+        "commandId1",
+        "trId1",
+        "appID1",
+        "Alice",
+        "workflowId",
+        let,
+        let,
+        GenTransaction(
+          Map(
+            "event1" -> NodeCreate(
+              absCid,
+              contractInstance,
+              None,
+              Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+              Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+              None
+            )),
+          ImmArray("event1")
+        ),
+        Map("event1" -> Set("Alice", "Bob"), "event2" -> Set("Alice", "In", "Chains"))
+      )
+
       for {
-        _ <- ledgerDao.storeLedgerEntry(offset, transaction)
         result1 <- ledgerDao.lookupActiveContract(absCid)
-        _ <- ledgerDao.storeContract(contract)
+        _ <- ledgerDao.storeLedgerEntry(offset, offset + 1, transaction)
         result2 <- ledgerDao.lookupActiveContract(absCid)
       } yield {
         result1 shouldEqual None
@@ -122,7 +121,7 @@ class PostgresDaoSpec
 
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
-        _ <- ledgerDao.storeLedgerEntry(offset, checkpoint)
+        _ <- ledgerDao.storeLedgerEntry(offset, offset + 1, checkpoint)
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
@@ -158,7 +157,7 @@ class PostgresDaoSpec
 
         val resultF = for {
           startingOffset <- ledgerDao.lookupLedgerEnd()
-          _ <- ledgerDao.storeLedgerEntry(offset, rejection)
+          _ <- ledgerDao.storeLedgerEntry(offset, offset + 1, rejection)
           entry <- ledgerDao.lookupLedgerEntry(offset)
           endingOffset <- ledgerDao.lookupLedgerEnd()
         } yield {
@@ -172,6 +171,25 @@ class PostgresDaoSpec
 
     "be able to persist and load a transaction" in {
       val offset = nextOffset()
+      val absCid = AbsoluteContractId("cId2")
+      val let = Instant.now
+      val contractInstance = ContractInst(
+        Identifier(
+          Ref.PackageId.assertFromString("packageId"),
+          Ref.QualifiedName(
+            Ref.ModuleName.assertFromString("moduleName"),
+            Ref.DottedName.assertFromString("name"))),
+        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some text")),
+        "agreement"
+      )
+
+      val contract = Contract(
+        absCid,
+        let,
+        "trId2",
+        "workflowId",
+        Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+        contractInstance)
 
       val transaction = LedgerEntry.Transaction(
         "commandId2",
@@ -179,20 +197,166 @@ class PostgresDaoSpec
         "appID2",
         "Alice",
         "workflowId",
-        Instant.now,
-        Instant.now,
-        null,
+        let,
+        let,
+        GenTransaction(
+          Map(
+            "event1" -> NodeCreate(
+              absCid,
+              contractInstance,
+              None,
+              Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+              Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+              None
+            )),
+          ImmArray("event1")
+        ),
         Map("event1" -> Set("Alice", "Bob"), "event2" -> Set("Alice", "In", "Chains"))
       )
 
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
-        _ <- ledgerDao.storeLedgerEntry(offset, transaction)
+        _ <- ledgerDao.storeLedgerEntry(offset, offset + 1, transaction)
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
         entry shouldEqual Some(transaction)
         endingOffset shouldEqual (startingOffset + 1)
+      }
+    }
+
+    //TODO write tests for getActiveContractSnapshot
+    "be able to produce a valid snapshot" in {
+      val templateId = Identifier(
+        Ref.PackageId.assertFromString("packageId"),
+        Ref.QualifiedName(
+          Ref.ModuleName.assertFromString("moduleName"),
+          Ref.DottedName.assertFromString("name")))
+
+      def genCreateTransaction(id: Long) = {
+        val txId = s"trId$id"
+        val absCid = AbsoluteContractId(s"cId$id")
+        val let = Instant.now
+        val contractInstance = ContractInst(
+          templateId,
+          VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some text")),
+          "agreement"
+        )
+        val contract = Contract(
+          absCid,
+          let,
+          txId,
+          "workflowId",
+          Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+          contractInstance
+        )
+
+        LedgerEntry.Transaction(
+          s"commandId$id",
+          txId,
+          "appID1",
+          "Alice",
+          "workflowId",
+          let,
+          let,
+          GenTransaction(
+            Map(
+              s"event$id" -> NodeCreate(
+                absCid,
+                contractInstance,
+                None,
+                Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+                Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+                None
+              )),
+            ImmArray(s"event$id")
+          ),
+          Map(s"event$id" -> Set("Alice", "Bob"))
+        )
+      }
+
+      def genExerciseTransaction(id: Long, targetCid: AbsoluteContractId) = {
+        val txId = s"trId$id"
+        val absCid = AbsoluteContractId(s"cId$id")
+        val let = Instant.now
+        LedgerEntry.Transaction(
+          s"commandId$id",
+          txId,
+          "appID1",
+          "Alice",
+          "workflowId",
+          let,
+          let,
+          GenTransaction(
+            Map(
+              s"event$id" -> NodeExercises(
+                targetCid,
+                templateId,
+                "choice",
+                None,
+                true,
+                Set(SimpleString.assertFromString("Alice")),
+                VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some choice value")),
+                Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+                Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+                Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+                ImmArray.empty
+              )),
+            ImmArray(s"event$id")
+          ),
+          Map(s"event$id" -> Set("Alice", "Bob"))
+        )
+      }
+
+      def storeCreateTransaction = {
+        val offset = nextOffset()
+        val t = genCreateTransaction(offset)
+        ledgerDao.storeLedgerEntry(offset, offset + 1, t)
+      }
+
+      def storeExerciseTransaction(targetCid: AbsoluteContractId) = {
+        val offset = nextOffset()
+        val t = genExerciseTransaction(offset, targetCid)
+        ledgerDao.storeLedgerEntry(offset, offset + 1, t)
+      }
+
+      val sumSink = Sink.fold[Int, Int](0)(_ + _)
+      val N = 1000
+      val M = 10
+
+      // Perform the following operations:
+      // - Create N contracts
+      // - Archive 1 contract
+      // - Take a snapshot
+      // - Create another M contracts
+      // The resulting snapshot should contain N-1 contracts
+      for {
+        startingOffset <- ledgerDao.lookupLedgerEnd()
+        startingSnapshot <- ledgerDao.getActiveContractSnapshot()
+        _ <- Future.traverse(1 to N)(_ => storeCreateTransaction)
+        _ <- storeExerciseTransaction(AbsoluteContractId(s"cId$startingOffset"))
+        snapshotOffset <- ledgerDao.lookupLedgerEnd()
+        snapshot <- ledgerDao.getActiveContractSnapshot()
+        _ <- Future.traverse(1 to M)(_ => storeCreateTransaction)
+        endingOffset <- ledgerDao.lookupLedgerEnd()
+        startingSnapshotSize <- startingSnapshot.acs.map(t => 1).runWith(sumSink)
+        snapshotSize <- snapshot.acs.map(t => 1).runWith(sumSink)
+      } yield {
+        withClue("starting offset: ") {
+          startingSnapshot.offset shouldEqual startingOffset
+        }
+        withClue("snapshot offset: ") {
+          snapshot.offset shouldEqual snapshotOffset
+        }
+        withClue("snapshot offset (2): ") {
+          snapshotOffset shouldEqual (startingOffset + N + 1)
+        }
+        withClue("ending offset: ") {
+          endingOffset shouldEqual (snapshotOffset + M)
+        }
+        withClue("snapshot size: ") {
+          (snapshotSize - startingSnapshotSize) shouldEqual (N - 1)
+        }
       }
     }
 

@@ -29,7 +29,8 @@ final case class SandboxConfig(
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     ledgerIdMode: LedgerIdMode,
-    jdbcUrl: Option[String])
+    jdbcUrl: Option[String]
+)
 
 final case class CommandConfiguration(
     inputBufferSize: Int,

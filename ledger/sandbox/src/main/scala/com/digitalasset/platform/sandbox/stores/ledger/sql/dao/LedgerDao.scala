@@ -5,12 +5,15 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.time.Instant
 
+import akka.NotUsed
+import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 
-import scala.collection.immutable
 import scala.concurrent.Future
 
 final case class Contract(
@@ -19,7 +22,17 @@ final case class Contract(
     transactionId: String,
     workflowId: String,
     witnesses: Set[Ref.Party],
-    coinst: ContractInst[VersionedValue[AbsoluteContractId]])
+    coinst: ContractInst[VersionedValue[AbsoluteContractId]]) {
+  def toActiveContract: ActiveContract =
+    ActiveContract(let, transactionId, workflowId, coinst, witnesses, None)
+}
+
+object Contract {
+  def fromActiveContract(cid: AbsoluteContractId, ac: ActiveContract): Contract =
+    Contract(cid, ac.let, ac.transactionId, ac.workflowId, ac.witnesses, ac.contract)
+}
+
+case class LedgerSnapshot(offset: Long, acs: Source[Contract, NotUsed])
 
 trait LedgerDao {
 
@@ -51,6 +64,14 @@ trait LedgerDao {
       _.getOrElse(sys.error(s"ledger entry not found for offset: $offset")))(DirectExecutionContext)
 
   /**
+    * Returns a snapshot of the ledger.
+    * The snapshot consists of an offset, and a stream of contracts that were active at that offset.
+    *
+    * @param mat the Akka stream materializer to be used for the contract stream.
+    */
+  def getActiveContractSnapshot()(implicit mat: Materializer): Future[LedgerSnapshot]
+
+  /**
     * Stores the initial ledger end. Can be called only once.
     *
     * @param ledgerEnd the ledger end to be stored
@@ -65,25 +86,12 @@ trait LedgerDao {
   def storeLedgerId(ledgerId: String): Future[Unit]
 
   /**
-    * Stores an active contract
-    *
-    * @param contract the contract to be stored
-    */
-  def storeContract(contract: Contract): Future[Unit]
-
-  /**
-    * Stores a collection of active contracts. The query is executed as a batch insert.
-    *
-    * @param contracts the collection of contracts to be stored
-    */
-  def storeContracts(contracts: immutable.Seq[Contract]): Future[Unit]
-
-  /**
     * Stores a ledger entry. The ledger end gets updated as well in the same transaction.
     *
     * @param offset the offset to store the ledger entry
+    * @param newLedgerEnd the new ledger end, valid after this operation finishes
     * @param ledgerEntry the LedgerEntry to be stored
     */
-  def storeLedgerEntry(offset: Long, ledgerEntry: LedgerEntry): Future[Unit]
+  def storeLedgerEntry(offset: Long, newLedgerEnd: Long, ledgerEntry: LedgerEntry): Future[Unit]
 
 }

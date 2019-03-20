@@ -17,6 +17,7 @@ import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.sandbox.SandboxApplication
 import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, LedgerIdMode, SandboxConfig}
+import com.digitalasset.platform.sandbox.persistence.PostgresAround
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import io.grpc.Channel
 import org.scalatest.Suite
@@ -25,13 +26,13 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Try
 
-trait SandboxFixture extends SuiteResource[Channel] {
+trait SandboxFixtureSQL extends SuiteResource[Channel] with PostgresAround {
   self: Suite =>
 
   protected def darFile = new File("ledger/sandbox/Test.dalf")
 
   protected def ghcPrimFile =
-    new File("daml-foundations/daml-ghc/package-database/daml-prim-1.3.dalf")
+    new File("daml-foundations/daml-ghc/package-database/daml-prim-1.2.dalf")
 
   protected def channel: Channel = suiteResource.value
 
@@ -53,7 +54,7 @@ trait SandboxFixture extends SuiteResource[Channel] {
     SandboxConfig.default
       .copy(
         port = 0, //dynamic port allocation
-        damlPackageContainer = DamlPackageContainer(files = packageFiles),
+        damlPackageContainer = DamlPackageContainer(packageFiles),
         timeProviderType = TimeProviderType.Static,
         timeModel = TimeModel.reasonableDefault,
         scenario = scenario,
@@ -66,7 +67,11 @@ trait SandboxFixture extends SuiteResource[Channel] {
 
   protected def ledgerId: String = ledgerIdOnServer
 
-  private lazy val sandboxResource = new SandboxServerResource(SandboxApplication(config))
+  private lazy val sandboxResource = new SandboxServerResource(
+    SandboxApplication(
+      config.copy(
+        jdbcUrl = Some(postgresFixture.jdbcUrl)
+      )))
 
   protected override lazy val suiteResource: Resource[Channel] = sandboxResource
 
