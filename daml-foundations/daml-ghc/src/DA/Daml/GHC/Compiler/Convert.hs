@@ -1203,8 +1203,9 @@ mkPure env monad dict t x = do
       TBuiltin BTScenario -> pure $ EScenario (SPure t x)
       _ -> do
         dict' <- convertExpr env dict
+        pkgRef <- packageNameToPkgRef env "daml-stdlib"
         -- TODO (drsk): Package reference will change to package that contains DA.Internal.Prelude
-        pure $ EVal (Qualified PRSelf (mkModName ["DA", "Internal", "Prelude"]) (mkVal "pure"))
+        pure $ EVal (Qualified pkgRef (mkModName ["DA", "Internal", "Prelude"]) (mkVal "pure"))
           `ETyApp` monad'
           `ETmApp` dict'
           `ETyApp` t

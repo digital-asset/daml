@@ -111,9 +111,8 @@ mkOptions opts@Options{..} = do
 -- version.
 defaultOptionsIO :: Maybe LF.Version -> IO Options
 defaultOptionsIO mbVersion = do
-    baseDir <- getBaseDir
     mkOptions Options
-        { optImportPath = [baseDir </> "daml-stdlib-src"]
+        { optImportPath = []
         , optPackageDbs = []
         , optMbPackageName = Nothing
         , optWriteInterface = False

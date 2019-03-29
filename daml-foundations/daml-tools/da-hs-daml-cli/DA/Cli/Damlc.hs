@@ -85,8 +85,8 @@ cmdLicense =
         "Show the licensing information!"
     <> fullDesc
 
-cmdCompile :: FilePath -> Int -> Mod CommandFields Command
-cmdCompile baseDir numProcessors =
+cmdCompile :: Int -> Mod CommandFields Command
+cmdCompile numProcessors =
     command "compile" $ info (helper <*> cmd) $
         progDesc "Compile the DAML program into a Core/DAML-LF archive."
     <> fullDesc
@@ -94,10 +94,10 @@ cmdCompile baseDir numProcessors =
     cmd = execCompile
         <$> inputFileOpt
         <*> outputFileOpt
-        <*> optionsParser baseDir numProcessors optPackageName
+        <*> optionsParser numProcessors optPackageName
 
-cmdTest :: FilePath -> Int -> Mod CommandFields Command
-cmdTest baseDir numProcessors =
+cmdTest :: Int -> Mod CommandFields Command
+cmdTest numProcessors =
     command "test" $ info (helper <*> cmd) $
        progDesc "Test the given DAML file by running all test declarations."
     <> fullDesc
@@ -105,7 +105,7 @@ cmdTest baseDir numProcessors =
     cmd = execTest
       <$> inputFileOpt
       <*> junitOutput
-      <*> optionsParser baseDir numProcessors optPackageName
+      <*> optionsParser numProcessors optPackageName
     junitOutput = optional $ strOption $
         long "junit" <>
         metavar "FILENAME" <>
@@ -121,8 +121,8 @@ cmdInspect =
     cmd = execInspect <$> inputFileOpt <*> outputFileOpt <*> jsonOpt
 
 
-cmdPackage :: FilePath -> Int -> Mod CommandFields Command
-cmdPackage baseDir numProcessors =
+cmdPackage :: Int -> Mod CommandFields Command
+cmdPackage numProcessors =
     command "package" $ info (helper <*> cmd) $
        progDesc "Compile the DAML program into a DAML ARchive (DAR)"
     <> fullDesc
@@ -130,7 +130,7 @@ cmdPackage baseDir numProcessors =
     dumpPom = fmap DumpPom $ switch $ help "Write out pom and sha256 files" <> long "dump-pom"
     cmd = execPackage
         <$> inputFileOpt
-        <*> optionsParser baseDir numProcessors (Just <$> packageNameOpt)
+        <*> optionsParser numProcessors (Just <$> packageNameOpt)
         <*> optionalOutputFileOpt
         <*> dumpPom
         <*> optUseDalf
@@ -463,8 +463,8 @@ optPackageName = optional $ strOption $
 
 -- | Parametrized by the type of pkgname parser since we want that to be different for
 -- "package"
-optionsParser :: FilePath -> Int -> Parser (Maybe String) -> Parser Compiler.Options
-optionsParser baseDir numProcessors parsePkgName = Compiler.Options
+optionsParser :: Int -> Parser (Maybe String) -> Parser Compiler.Options
+optionsParser numProcessors parsePkgName = Compiler.Options
     <$> optImportPath
     <*> optPackageDir
     <*> parsePkgName
@@ -477,12 +477,12 @@ optionsParser baseDir numProcessors parsePkgName = Compiler.Options
     <*> optDebugLog
   where
     optImportPath :: Parser [FilePath]
-    optImportPath = fmap (pure . fromMaybe (baseDir </> "daml-stdlib-src")) optStdLib
-    optStdLib :: Parser (Maybe FilePath)
-    optStdLib = optional $ strOption $
-           metavar "LOC-OF-STDLIB"
-        <> help "use std. library location from a custom location"
-        <> long "stdlib"
+    optImportPath =
+        many $
+        strOption $
+        metavar "INCLUDE-PATH" <>
+        help "Path to an additional source directory to be included" <>
+        long "include"
 
     optPackageDir :: Parser [FilePath]
     optPackageDir = many $ strOption $ metavar "LOC-OF-PACKAGE-DB"
@@ -538,14 +538,14 @@ optionsParser baseDir numProcessors parsePkgName = Compiler.Options
             , "Note that the output is not deterministic for > 1 job."
             ]
 
-options :: FilePath -> Int -> Parser Command
-options baseDir numProcessors =
+options :: Int -> Parser Command
+options numProcessors =
     subparser
       (  cmdIde
       <> cmdLicense
-      <> cmdCompile baseDir numProcessors
-      <> cmdPackage baseDir numProcessors
-      <> cmdTest baseDir numProcessors
+      <> cmdCompile numProcessors
+      <> cmdPackage numProcessors
+      <> cmdTest numProcessors
       <> cmdDamlDoc
       <> cmdInspectDar
       )
@@ -554,9 +554,9 @@ options baseDir numProcessors =
         <> cmdInspect
       )
 
-parserInfo :: FilePath -> Int -> ParserInfo Command
-parserInfo baseDir numProcessors =
-  info (helper <*> options baseDir numProcessors)
+parserInfo :: Int -> ParserInfo Command
+parserInfo numProcessors =
+  info (helper <*> options numProcessors)
     (  fullDesc
     <> progDesc "Invoke the DAML compiler. Use -h for help."
     <> headerDoc (Just $ PP.vcat
@@ -567,9 +567,8 @@ parserInfo baseDir numProcessors =
 
 main :: IO ()
 main = do
-    baseDir <- getBaseDir
     numProcessors <- getNumProcessors
-    withProgName "damlc" $ join $ execParserLax (parserInfo baseDir numProcessors)
+    withProgName "damlc" $ join $ execParserLax (parserInfo numProcessors)
 
 ------------------
 -- Error reporting

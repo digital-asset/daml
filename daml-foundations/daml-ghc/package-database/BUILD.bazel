@@ -123,9 +123,25 @@ daml_package_db(
   visibility = ["//visibility:public"]
 )
 
+daml_package_db(
+  name = "package_db_for_damlc",
+  pkgs =  [":daml-prim-1.0"
+          ,":daml-prim-1.1"
+          ,":daml-prim-1.2"
+          ,":daml-prim-1.3"
+          ,":daml-prim-dev"
+          ,":daml-stdlib-1.0"
+          ,":daml-stdlib-1.1"
+          ,":daml-stdlib-1.2"
+          ,":daml-stdlib-1.3"
+          ,":daml-stdlib-dev"
+          ],
+  visibility = ["//visibility:public"]
+)
+
 bundled_package_db(
     name = "package-db",
-    pkg_db = ":package_db_for_daml-stdlib",
+    pkg_db = ":package_db_for_damlc",
     daml_lf_versions = ["1.0", "1.1", "1.2", "1.3", "dev"],
     visibility = ["//visibility:public"],
 )
