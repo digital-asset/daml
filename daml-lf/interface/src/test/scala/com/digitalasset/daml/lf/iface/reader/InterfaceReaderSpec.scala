@@ -16,6 +16,8 @@ import com.digitalasset.daml.lf.data.Ref.{
 import com.digitalasset.daml_lf.DamlLf1
 import org.scalatest.{Inside, Matchers, WordSpec}
 import scalaz.\/-
+import scala.collection.JavaConverters._
+
 
 class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
 
@@ -115,6 +117,28 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
     actual shouldBe \/-(expectedRecord)
   }
 
+  "map should extract a map" in {
+    val recordDataType = DamlLf1.DefDataType
+      .newBuilder()
+      .setName(dottedName("MapRecord"))
+      .setRecord(
+        DamlLf1.DefDataType.Fields
+          .newBuilder()
+          .addFields(primField("map", DamlLf1.PrimType.MAP, DamlLf1.Type.newBuilder().setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.INT64)).build()))
+          .build())
+      .build()
+
+    val actual = InterfaceReader.record(moduleName, ctx)(recordDataType)
+    actual shouldBe \/-((
+      QualifiedName(moduleName, dnfs("MapRecord")),
+      ImmArraySeq(),
+      Record(
+        ImmArraySeq(
+          ("map", TypePrim(PrimTypeMap, ImmArraySeq(TypePrim(PrimTypeInt64, ImmArraySeq()))))
+      )))
+    )
+  }
+
   private def dottedName(str: String): DamlLf1.DottedName =
     DamlLf1.DottedName.newBuilder().addSegments(str).build()
 
@@ -138,12 +162,15 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
       .setType(DamlLf1.Type.newBuilder().setVar(DamlLf1.Type.Var.newBuilder.setVar(var_).build))
       .build()
 
-  private def primField(field: String, type_ : DamlLf1.PrimType): DamlLf1.FieldWithType =
+  private def primField(field: String, primType : DamlLf1.PrimType, args: DamlLf1.Type*): DamlLf1.FieldWithType = {
+    val typ = DamlLf1.Type.Prim.newBuilder.setPrim(primType).addAllArgs(args.asJava).build()
     DamlLf1.FieldWithType
       .newBuilder()
       .setField(field)
-      .setType(DamlLf1.Type.newBuilder().setPrim(DamlLf1.Type.Prim.newBuilder.setPrim(type_).build))
+      .setType(DamlLf1.Type.newBuilder().setPrim(typ).build)
       .build()
+  }
+
 
   private def typeConstructorField(field: String, segments: List[String]): DamlLf1.FieldWithType =
     DamlLf1.FieldWithType
