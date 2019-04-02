@@ -3,23 +3,23 @@
 
 .. _daml-codegen-java:
 
-Generating Java code from DAML
-##############################
+Generate Java code from DAML
+############################
 
 Introduction
 ============
 
 When writing applications for the ledger in Java, you want to work with a representation of DAML templates and data types in Java that closely resemble the original DAML code while still being as true to the native types in Java as possible. To achieve this, you can use DAML to Java code generator ("Java codegen") to generate Java types based on a DAML model. You can then use these types in your Java code when reading information from and sending data to the ledger.
 
-Downloading
-===========
+Download
+========
 
 You can download the `latest version <https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/java/codegen/$latest/codegen-$latest.jar?bt_package=sdk-components>`__  of the Java codegen.
 
 .. _daml-codegen-java-running:
 
-Running the Java codegen
-========================
+Run the Java codegen
+====================
 
 The Java codegen takes DAML archive (DAR) files as input and generates Java files for DAML templates, records, and variants. For information on creating DAR files see :ref:`assistant-manual-building-dars`. To use the Java codegen, run this command in a terminal:
 
@@ -27,14 +27,14 @@ The Java codegen takes DAML archive (DAR) files as input and generates Java file
   
   java -jar <path-to-codegen-jar>
 
-Use this command to display the helptext:
+Use this command to display the help text:
 
 .. code-block:: none
   
   java -jar codegen.jar --help
 
-Generating Java code from DAR files
------------------------------------
+Generate Java code from DAR files
+---------------------------------
 
 Pass one or more DAR files as arguments to the Java codegen. Use the ``-o`` or ``--output-directory`` parameter for specifying the directory for the generated Java files.
 
@@ -53,8 +53,8 @@ To avoid possible name clashes in the generated Java sources, you should specify
       daml/project2.dar=com.example.daml.project2
                        ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Generating the decoder utility class
-------------------------------------
+Generate the decoder utility class
+----------------------------------
 
 When reading transactions from the ledger, you typically want to convert a `CreatedEvent <https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/CreatedEvent.html>`__ from the Ledger API to the corresponding generated ``Contract`` class. The Java codegen can optionally generate a decoder class based on the input DAR files that calls the ``fromIdAndRecord`` method of the respective generated ``Contract`` class (see :ref:`daml-codegen-java-templates`). The decoder class can do this for all templates in the input DAR files. 
 
@@ -66,8 +66,46 @@ To generate such a decoder class, provide the command line parameter ``-d`` or `
       -d com.myproject.DamModelDecoder daml/my-project.dar
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Integration with build tools
-----------------------------
+Configure logging
+-----------------
+
+The Java codegen uses `Logback <https://logback.qos.ch/>`_ for logging. Refer to `its documentation <https://logback.qos.ch/manual/configuration.html>`_ to configure it.
+
+In configuring logging, you are encouraged to use the available `Mapped Diagnostic Context <https://logback.qos.ch/manual/mdc.html>`_ keys to display useful information about the DAML code being processed. The following keys are available:
+
++--------------------+--------------------------------------------------------------------+
+| ``packageId``      | The full-length identifier of the package being processed          |
++--------------------+--------------------------------------------------------------------+
+| ``packageIdShort`` | The first seven characters of the ``packageId``                    |
++--------------------+--------------------------------------------------------------------+
+| ``moduleName``     | The fully-qualified name of the module being processed             |
++--------------------+--------------------------------------------------------------------+
+| ``entityType``     | The type of entity being processed (record, template, or variant)  |
++--------------------+--------------------------------------------------------------------+
+| ``entityName``     | The fully-qualified name of the entity being processed             |
++--------------------+--------------------------------------------------------------------+
+
+The following is an example of a `Logback layout pattern <https://logback.qos.ch/manual/layouts.html>`_ that displays regular information (timestamp, thread name, etc.) along with relevant MDC keys:
+
+.. code-block:: none
+
+    %d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} [ %X{packageIdShort} %X{moduleName}:%X{entityName} - %X{entityType} ] - %msg%n
+
+Once you have produced your configuration file, the simplest way to enable logging is to run the Java codegen while specifying the `logback.configurationFile` system property, as in the following example:
+
+.. code-block:: none
+
+  java -Dlogback.configurationFile=/path/to/logback.xml -jar java-codegen.jar -o target/generated-source/daml
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+
+  Make sure to specify the logging configuration file system property before the ``-jar`` option, otherwise the option will be passed to the program itself rather than the JVM, causing the codegen to fail with the following error message:
+
+  ``Error: Unknown option -Dlogback.configurationFile=/path/to/logback.xml``
+
+Integrate with build tools
+--------------------------
 
 While we currently don’t provide direct integration with Maven, Groovy, SBT, etc., you can run the Java codegen as described in :ref:`daml-codegen-java-running` just like any other external process (for example the protobuf compiler). Alternatively you can integrate it as a runnable dependency in your ``pom.xml`` file for Maven.
 
@@ -78,14 +116,13 @@ The following snippet is an excerpt from the ``pom.xml`` that is part of the :re
     :lines: 73-105,121-122
     :dedent: 12
 
+Understand the generated Java model
+===================================
 
-Generated Java model
-====================
+The Java codegen generates source files in a directory tree under the output directory specified on the command line.
 
-The Java codegen generates Java source files in a directory tree under the output directory specified on the command line.
-
-How DAML built-in types map to Java types
------------------------------------------
+Map DAML primitives to Java types
+---------------------------------
 
 DAML built-in types are translated to the following equivalent types in
 Java:
@@ -125,12 +162,12 @@ Java:
 
 .. _com.daml.ledger.javaapi.data.Unit: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Unit.html
 
-Generated class details
------------------------
+Understand the generated classes
+--------------------------------
 
 Every user-defined data type in DAML (template, record, and variant) is represented by one or more Java classes as described in this section.
 
-The java package for the generated classes is the equivalent of the lowercase DAML module name.
+The Java package for the generated classes is the equivalent of the lowercase DAML module name.
 
 .. code-block:: daml
   :caption: DAML
@@ -142,8 +179,8 @@ The java package for the generated classes is the equivalent of the lowercase DA
 
   package foo.bar.baz;
 
-Records or product types
-~~~~~~~~~~~~~~~~~~~~~~~~
+Records (a.k.a product types)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A :ref:`DAML record <daml-ref-record-types>` is represented by a Java class with fields that have the same name as the DAML record fields. A DAML field having the type of another record is represented as a field having the type of the generated class for that record.
 
@@ -155,7 +192,6 @@ A :ref:`DAML record <daml-ref-record-types>` is represented by a Java class with
 
   data Person = Person with name : Name; age : Decimal
   data Name = Name with firstName : Text; lastName : Text
-
 
 A Java file is generated that defines the class for the type ``Person``:
 
@@ -175,7 +211,6 @@ A Java file is generated that defines the class for the type ``Person``:
   }
 
 A Java file is generated that defines the class for the type ``Name``:
-
 
   .. code-block:: java
     :caption: com/acme/Name.java
@@ -227,7 +262,7 @@ The Java codegen generates three classes for a DAML template:
           aName: Text
         do return True
 
-A file Java file is generated that defines three Java classes:
+A file is generated that defines three Java classes:
 
 #. ``Bar``
 #. ``Bar.ContractId``
@@ -264,8 +299,8 @@ A file Java file is generated that defines three Java classes:
     }
   }
 
-Variants or sum types
-~~~~~~~~~~~~~~~~~~~~~
+Variants (a.k.a sum types)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A :ref:`variant or sum type <daml-ref-sum-types>` is a type with multiple constructors, where each constructor wraps a value of another type. The generated code is comprised of an abstract class for the variant type itself and a subclass thereof for each constructor. Classes for variant constructors are similar to classes for records.
 
