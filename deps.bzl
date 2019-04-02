@@ -191,6 +191,14 @@ java_import(
             """,
         )
 
+    if "com_github_googleapis_googleapis" not in native.existing_rules():
+      http_archive(
+          name = "com_github_googleapis_googleapis",
+          strip_prefix = "googleapis-6c48ab5aef47dc14e02e2dc718d232a28067129d",
+          urls = ["https://github.com/googleapis/googleapis/archive/6c48ab5aef47dc14e02e2dc718d232a28067129d.tar.gz"],
+          sha256 = "70d7be6ad49b4424313aad118c8622aab1c5fdd5a529d4215d3884ff89264a71",
+       )
+
   native.bind(
     name = "guava",
     actual = "@com_google_guava_guava//jar",
