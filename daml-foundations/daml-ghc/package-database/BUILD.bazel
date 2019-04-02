@@ -10,6 +10,7 @@ load ("//daml-foundations/daml-ghc/package-database:util.bzl"
 daml_package_db(
     name = "package_db_for_daml-prim",
     pkgs = [],
+    visibility = ["//visibility:public"],
 )
 
 daml_package_rule(
@@ -162,9 +163,3 @@ genrule(
   visibility = ["//visibility:public"],
 )
 
-# TODO Make sure that tools no longer rely on this.
-alias(
-    name = "daml-prim.dalf",
-    actual = ":daml-prim-1.1.dalf",
-    visibility = ["//visibility:public"],
-)

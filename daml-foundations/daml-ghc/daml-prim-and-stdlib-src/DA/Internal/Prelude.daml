@@ -1,0 +1,605 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+
+daml 1.2
+-- | MOVE Prelude Our Prelude, extending WiredIn with things that don't need special treatment.
+
+module DA.Internal.Prelude
+  ( module DA.Internal.Prelude
+  , module GHC
+  ) where
+
+import Control.Exception.Base ()
+import GHC.Base as GHC hiding ((++), getTag)
+import GHC.Classes as GHC
+import GHC.CString as GHC (fromString)
+import GHC.Enum as GHC
+import GHC.Err as GHC
+import GHC.Integer.Type as GHC (fromInteger)
+import GHC.Num as GHC
+import GHC.Real as GHC (fromRational)
+import GHC.Show as GHC
+import GHC.Tuple()
+import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, ifThenElse, primitive, Proxy (..))
+
+infixr 0 $
+($) : (a -> b) -> a -> b
+f $ x =  f x
+
+-- | Turn a function that takes a pair into a function that takes two arguments.
+curry : ((a, b) -> c) -> a -> b -> c
+curry f x y = f (x, y)
+
+-- | Turn a function that takes two arguments into a function that takes a pair.
+uncurry : (a -> b -> c) -> (a, b) -> c
+uncurry f (x, y) = f x y
+
+infixr 8 ^
+-- | `x ^ n` raises `x` to the power of `n`.
+(^) : Int -> Int -> Int
+(^) = primitive @"BEExpInt64"
+
+infixl 7 /
+class (Multiplicative a) => Fractional a where
+    -- | `x / y` divides `x` by `y`.
+    (/)                 : a -> a -> a
+
+    -- | Calculate the reciprocal: `recip x` is `1/x`.
+    recip               : a -> a
+    x / y               = x * recip y
+
+instance Fractional Decimal where
+    (/) = primitive @"BEDivDecimal"
+    recip x = 1.0 / x
+
+instance Fractional Int where
+    (/) = primitive @"BEDivInt64"
+    recip x = 1 / x
+
+infixl 7 %
+-- | `x % y` calculates the remainder of `x` by `y`
+(%) : Int -> Int -> Int
+(%) = primitive @"BEModInt64"
+
+infixl 4 <*>
+infixl 4 *>
+infixl 4 <*
+class Functor f => Applicative f where
+    {-# MINIMAL pure, ((<*>) | liftA2) #-}
+    -- | Lift a value.
+    pure : a -> f a
+
+    -- | Sequential application.
+    --
+    -- A few functors support an implementation of '<*>' that is more
+    -- efficient than the default one.
+    (<*>) : f (a -> b) -> f a -> f b
+    (<*>) = liftA2 identity
+
+    -- | Lift a binary function to actions.
+    --
+    -- Some functors support an implementation of 'liftA2' that is more
+    -- efficient than the default one. In particular, if 'fmap' is an
+    -- expensive operation, it is likely better to use 'liftA2' than to
+    -- 'fmap' over the structure and then use '<*>'.
+    liftA2 : (a -> b -> c) -> f a -> f b -> f c
+    liftA2 f x = (<*>) (fmap f x)
+
+    -- | Sequence actions, discarding the value of the first argument.
+    (*>) : f a -> f b -> f b
+    a1 *> a2 = (identity <$ a1) <*> a2
+    -- This is essentially the same as liftA2 (flip const), but if the
+    -- Functor instance has an optimized (<$), it may be better to use
+    -- that instead. Before liftA2 became a method, this definition
+    -- was strictly better, but now it depends on the functor. For a
+    -- functor supporting a sharing-enhancing (<$), this definition
+    -- may reduce allocation by preventing a1 `from` ever being fully
+    -- realized. In an implementation with a boring (<$) but an optimizing
+    -- liftA2, it would likely be better to define (*>) using liftA2.
+
+    -- | Sequence actions, discarding the value of the second argument.
+    (<*) : f a -> f b -> f a
+    (<*) = liftA2 const
+
+-- | Sequentially compose two actions, discarding any value produced
+-- by the first, like sequencing operators (such as the semicolon)
+-- in imperative languages.
+(>>) : Applicative m => m a -> m b -> m b
+(>>) = (*>)
+
+-- | Synonym for `<*>`.
+ap : Applicative f => f (a -> b) -> f a -> f b
+ap = (<*>)
+
+-- | Inject a value into the monadic type.
+return      : Applicative m => a -> m a
+return      = pure
+
+infixl 1 >>=
+class Applicative m => Action m where
+    -- | Sequentially compose two actions, passing any value produced
+    -- by the first as an argument to the second.
+    (>>=)       : forall a b. m a -> (a -> m b) -> m b
+
+-- | Collapses nested actions into a single action.
+join              : (Action m) => m (m a) -> m a
+join x            =  x >>= identity
+
+class Action m => ActionFail m where
+    -- | Fail with an error message.
+    fail : Text -> m a
+
+-- | The identity function.
+identity : a -> a
+identity x = x
+
+instance Functor ((,) a) where
+  fmap f (x, y) = (x, f y)
+  v <$ (x, y) = (x, v)
+
+instance Functor [] where
+    fmap = map
+instance Applicative [] where
+    pure x    = [x]
+    fs <*> xs = concatMap (\f -> map f xs) fs
+instance Action [] where
+    xs >>= f = concatMap f xs
+instance ActionFail [] where
+    fail _   = []
+
+guard : ActionFail m => Bool -> m ()
+guard False = fail "guard is false"
+guard True = pure ()
+
+-- | `foldl f i xs` performs a left fold over `xs` using `f` with the starting value `i`.
+--
+-- #### Examples
+--
+-- ```
+-- >>> foldl (+) 0 [1,2,3]
+-- 6
+-- >>> foldl (^) 10 [2,3]
+-- 1000000
+-- ```
+--
+foldl : (b -> a -> b) -> b -> [a] -> b
+foldl = primitive @"BEFoldl"
+
+-- | `find p xs` finds the first element of `xs` where the predicate `p` holds.
+find : (a -> Bool) -> [a] -> Optional a
+find p [] = None
+find p (x::xs) = if p x then Some x else find p xs
+
+-- | Calculate the length of a list.
+length : [a] -> Int
+length = foldl (\l _ -> l + 1) 0
+
+-- | `any p xs` is `True` if `p` holds for at least one element of `xs`.
+any : (a -> Bool) -> [a] -> Bool
+any f = foldl (\b x -> b || f x) False
+
+-- | `all p xs` is `True` if `p` holds for every element of `xs`.
+all : (a -> Bool) -> [a] -> Bool
+all f = foldl (\b x -> b && f x) True
+
+-- | `or bs` is `True` if at least one element of `bs` is `True`.
+or : [Bool] -> Bool
+or = any identity
+
+-- | `and bs` is `True` if every element of `bs` is `True`.
+and : [Bool] -> Bool
+and = all identity
+
+-- | `elem x xs` is `True` if `x` is an element of the list `xs`.
+elem : Eq a => a -> [a] -> Bool
+elem x = any (== x)
+
+-- | Negation of `elem`.
+notElem : Eq a => a ->  [a] -> Bool
+notElem x = not . elem x
+
+infixl 4 <$>
+-- | Synonym for `fmap`.
+(<$>) : Functor f => (a -> b) -> f a -> f b
+(<$>) = fmap
+
+-- | The `Optional` type encapsulates an optional value.  A value of type
+-- `Optional a` either contains a value of type `a` (represented as `Some a`),
+-- or it is empty (represented as `None`).  Using `Optional` is a good way to
+-- deal with errors or exceptional cases without resorting to drastic
+-- measures such as `error`.
+--
+-- The `Optional` type is also a monad.  It is a simple kind of error
+-- monad, where all errors are represented by `None`.  A richer
+-- error monad can be built using the `Data.Either.Either` type.
+--
+data Optional a  =  None | Some a
+    deriving (Eq, Ord, Show)
+
+-- | The type of a `TextMap` from keys of type Text to values of type `v`.
+data TextMap a =
+  -- | HIDE
+  TextMap
+
+instance Functor Optional where
+    fmap _ None       = None
+    fmap f (Some a)      = Some (f a)
+
+-- | @since 2.01
+instance Applicative Optional where
+    pure = Some
+
+    Some f  <*> m       = fmap f m
+    None <*> _m      = None
+
+    liftA2 f (Some x) (Some y) = Some (f x y)
+    liftA2 _ _ _ = None
+
+    Some _m1 *> m2      = m2
+    None  *> _m2     = None
+
+-- | @since 2.01
+instance Action Optional where
+    (Some x) >>= k      = k x
+    None  >>= _      = None
+
+instance ActionFail Optional where
+    fail _              = None
+
+
+-- | The `optional` function takes a default value, a function, and a `Optional`
+-- value.  If the `Optional` value is `None`, the function returns the
+-- default value.  Otherwise, it applies the function to the value inside
+-- the `Some` and returns the result.
+--
+-- #### Examples
+--
+-- Basic usage:
+--
+-- ```
+-- >>> optional False odd (Some 3)
+-- True
+-- ```
+--
+-- ```
+-- >>> optional False odd None
+-- False
+-- ```
+--
+-- Read an Int from a string using `readOptional`. If we succeed,
+-- return twice the Int; that is, apply `(*2)` to it. If instead
+-- we fail to parse an Int, return `0` by default:
+--
+-- ```
+-- >>> import Text.Read ( readOptional )
+-- >>> optional 0 (*2) (readOptional "5")
+-- 10
+-- >>> optional 0 (*2) (readOptional "")
+-- 0
+-- ```
+--
+-- Apply `show` to a `Optional Int`. If we have `Some n`, we want to show
+-- the underlying `Int`, `n`. But if we have `None`, we return the
+-- empty string instead of (for example) `None`:
+--
+-- ```
+-- >>> optional "" show (Some 5)
+-- "5"
+-- >>> optional "" show None
+-- ""
+-- ```
+--
+optional : b -> (a -> b) -> Optional a -> b
+optional n _ None  = n
+optional _ f (Some x) = f x
+
+
+-- | The `Either` type represents values with two possibilities: a value of
+-- type `Either a b` is either `Left a` or `Right b`.
+--
+-- The `Either` type is sometimes used to represent a value which is
+-- either correct or an error; by convention, the `Left` constructor is
+-- used to hold an error value and the `Right` constructor is used to
+-- hold a correct value (mnemonic: "right" also means "correct").
+data Either a b = Left a | Right b
+    deriving (Eq, Ord, Show)
+
+instance Functor (Either e) where
+  fmap f (Left e) = Left e
+  fmap f (Right a) = Right (f a)
+
+instance Applicative (Either e) where
+  pure = Right
+
+  Left e <*> a = Left e
+  Right f <*> a = fmap f a
+
+instance Action (Either e) where
+  Left e >>= f = Left e
+  Right a >>= f = f a
+
+instance ActionFail (Either Text) where
+  fail = Left
+
+-- | Case analysis for the `Either` type.
+-- If the value is `Left a`, apply the first function to `a`;
+-- if it is `Right b`, apply the second function to `b`.
+--
+-- #### Examples
+--
+-- We create two values of type `Either String Int`, one using the
+-- `Left` constructor and another using the `Right` constructor. Then
+-- we apply "either" the `length` function (if we have a `String`)
+-- or the "times-two" function (if we have an `Int`):
+--
+-- ```
+-- >>> let s = Left "foo" :: Either String Int
+-- >>> let n = Right 3 :: Either String Int
+-- >>> either length (*2) s
+-- 3
+-- >>> either length (*2) n
+-- 6
+-- ```
+--
+either : (a -> c) -> (b -> c) -> Either a b -> c
+either f g (Left x) = f x
+either f g (Right x) = g x
+
+infixr 6 <>
+-- | The class of semigroups (types with an associative binary operation).
+class Semigroup a where
+  -- | An associative operation.
+  (<>): a -> a -> a
+
+instance Semigroup Text where
+  -- | Concatenate two strings.
+  (<>) = primitive @"BEAppendText"
+
+instance Semigroup [a] where
+  (<>) = (++)
+
+instance Semigroup Ordering where
+  LT <> _ = LT
+  EQ <> y = y
+  GT <> _ = GT
+
+-- | The class of monoids (types with an associative binary operation that has an identity).
+class Semigroup a => Monoid a where
+  -- | Identity of `(<>)`
+  mempty : a
+
+  -- | Fold a list using the monoid.
+  -- For example using `mconcat` on a list of strings would concatenate all strings to one lone string.
+  mconcat : [a] -> a
+  mconcat = foldr (<>) mempty
+
+instance Monoid [a] where
+  mempty = []
+
+instance Monoid Text where
+  mempty = ""
+
+instance Monoid Ordering where
+  mempty = EQ
+
+concat : [[a]] -> [a]
+concat = mconcat
+
+infixr 5 ++
+-- | Concatenate two lists.
+(++) : [a] -> [a] -> [a]
+xs ++ ys = foldr (::) ys xs
+
+-- | Flip the order of the arguments of a two argument function.
+flip                    : (a -> b -> c) -> b -> a -> c
+flip f x y              =  f y x
+
+-- | Reverse a list.
+reverse : [a] -> [a]
+reverse =  foldl (flip (::)) []
+
+-- | Apply an applicative function to each element of a list.
+mapA : Applicative m => (a -> m b) -> [a] -> m [b]
+mapA f = foldr (\x y -> liftA2 (::) (f x) y) (pure [])
+
+-- | `forA` is `mapA` with its arguments flipped.
+forA : Applicative m => [a] -> (a -> m b) -> m [b]
+forA = flip mapA
+
+-- | Perform a list of actions in sequence and collect the results.
+sequence : Applicative m => [m a] -> m [a]
+sequence = foldr (liftA2 (::)) (pure [])
+
+infixr 1 =<<
+-- | `=<<` is `>>=` with its arguments flipped.
+(=<<) : Action m => (a -> m b) -> m a -> m b
+(=<<) = flip (>>=)
+
+-- | Map a function over each element of a list, and concatenate all the results.
+concatMap : (a -> [b]) -> [a] -> [b]
+concatMap f = concat . map f
+
+-- | `replicate i x` is the list `[x, x, x, ..., x]` with `i` copies of `x`.
+replicate : Int -> a -> [a]
+replicate i x | i <= 0 = []
+              | otherwise = x :: replicate (i-1) x
+
+-- | Take the first `n` elements of a list.
+take : Int -> [a] -> [a]
+take n _      | n <= 0 =  []
+take _ []              =  []
+take n (x :: xs)       =  x :: take (n-1) xs
+
+-- | Drop the first `n` elements of a list.
+drop : Int -> [a] -> [a]
+drop n xs     | n <= 0 =  xs
+drop _ []              =  []
+drop n (_ :: xs)       =  drop (n-1) xs
+
+-- | Split a list at a given index.
+splitAt : Int -> [a] -> ([a], [a])
+splitAt i x = (take i x, drop i x)
+
+-- | Take elements from a list while the predicate holds.
+takeWhile : (a -> Bool) -> [a] -> [a]
+takeWhile _ []          =  []
+takeWhile p (x :: xs)
+            | p x       =  x :: takeWhile p xs
+            | otherwise =  []
+
+-- | Drop elements from a list while the predicate holds.
+dropWhile : (a -> Bool) -> [a] -> [a]
+dropWhile _ []          =  []
+dropWhile p xs@(x :: xs')
+            | p x       =  dropWhile p xs'
+            | otherwise =  xs
+
+-- | `span p xs` is equivalent to `(takeWhile p xs, dropWhile p xs)`.
+span : (a -> Bool) -> [a] -> ([a], [a])
+span _ xs@[]            =  (xs, xs)
+span p xs@(x::xs')
+         | p x          =  let (ys,zs) = span p xs' in (x::ys,zs)
+         | otherwise    =  ([],xs)
+
+-- | Break a list into two, just before the first element where the predicate holds.
+-- `break p xs` is equivalent to `span (not . p) xs`.
+break : (a -> Bool) -> [a] -> ([a], [a])
+break f = span (not . f)
+
+-- | Look up the first element with a matching key.
+lookup : Eq a => a -> [(a, b)] -> Optional b
+lookup _key []          =  None
+lookup  key ((x,y)::xys)
+    | key == x          =  Some y
+    | otherwise         =  lookup key xys
+
+-- | `zip` takes two lists and returns a list of corresponding pairs.
+-- If one list is shorter, the excess elements of the longer list are discarded.
+zip : [a] -> [b] -> [(a, b)]
+zip (a::as) (b::bs) = (a,b) :: zip as bs
+zip _      _    = []
+
+-- | `zip3` takes three lists and returns a list of triples, analogous to `zip`.
+zip3 : [a] -> [b] -> [c] -> [(a, b, c)]
+zip3 (a::as) (b::bs) (c::cs) = (a,b,c) :: zip3 as bs cs
+zip3 _ _ _ = []
+
+-- | `zipWith` generalises `zip` by combining elements using the function, instead of making pairs.
+-- If one list is shorter, the excess elements of the longer list are discarded.
+zipWith : (a -> b -> c) -> [a] -> [b] -> [c]
+zipWith f (a::as) (b::bs) = f a b :: zipWith f as bs
+zipWith _ _ _ = []
+
+-- | `zipWith3` generalises `zip3` by combining elements using the function, instead of making pairs.
+zipWith3 : (a -> b -> c -> d) -> [a] -> [b] -> [c] -> [d]
+zipWith3 f (a::as) (b::bs) (c::cs) = f a b c :: zipWith3 f as bs cs
+zipWith3 _ _ _ _ = []
+
+-- | Turn a list of pairs into a pair of lists.
+unzip : [(a, b)] -> ([a], [b])
+unzip = foldr (\(a,b) ~(as,bs) -> (a::as,b::bs)) ([],[])
+
+-- | Turn a list of triples into a triple of lists.
+unzip3 : [(a, b, c)] -> ([a], [b], [c])
+unzip3 = foldr (\(a,b,c) ~(as,bs,cs) -> (a::as,b::bs,c::cs))
+                  ([],[],[])
+
+-- | `traceRaw msg a` prints `msg` and returns `a`, for debugging purposes.
+traceRaw : Text -> a -> a
+traceRaw = primitive @"BETrace"
+
+-- | `trace b a` prints `b` and returns `a`, for debugging purposes.
+trace : Show b => b -> a -> a
+trace = traceRaw . show
+
+-- | `traceId a` prints `a` and returns `a`, for debugging purposes.
+traceId : Show b => b -> b
+traceId x = trace x x
+
+-- | `debug x` prints `x` for debugging purposes.
+debug : (Show b, Applicative m) => b -> m ()
+debug x = trace x (pure ())
+
+-- | Return the first element of a pair.
+fst : (a, b) -> a
+fst (x, _) = x
+
+-- | Return the second element of a pair.
+snd : (a, b) -> b
+snd (_, x) = x
+
+-- | `truncate x` rounds `x` toward zero.
+truncate : Decimal -> Int
+truncate = primitive @"BEDecimalToInt64"
+
+-- | Convert an `Int` to a `Decimal`.
+intToDecimal : Int -> Decimal
+intToDecimal = primitive @"BEInt64ToDecimal"
+
+-- | Bankers' Rounding: `roundBankers dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded to the nearest even digit.
+roundBankers : Int -> Decimal -> Decimal
+roundBankers = primitive @"BERoundDecimal"
+
+-- | Commercial Rounding: `roundCommercial dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded away from zero.
+roundCommercial : Int -> Decimal -> Decimal
+roundCommercial d x =
+  let t = intToDecimal (10 ^ d)
+      v = round (x * t)
+      w = intToDecimal v
+  in w / t
+
+-- | Round to nearest integer, where a `.5` is rounded away from zero.
+round : Decimal -> Int
+round x = if x > 0.0
+    then truncate (x + 0.5)
+    else truncate (x - 0.5)
+
+-- | Round down to nearest integer.
+floor : Decimal -> Int
+floor x =
+  let i = truncate x
+  in if intToDecimal i <= x then i else i - 1
+
+-- | Round up to nearest integer.
+ceiling : Decimal -> Int
+ceiling x =
+  let i = truncate x
+  in if intToDecimal i < x then i + 1 else i
+
+-- | `null xs` is true if `xs` is the empty list.
+null : [a] -> Bool
+null [] = True
+null _ = False
+
+-- | Keep only the elements where the predicate holds.
+filter : (a -> Bool) -> [a] -> [a]
+filter p = foldr (\x xs -> if p x then x :: xs else xs) []
+
+-- | HIDE
+fixedpoint : ((a -> b) -> a -> b) -> a -> b
+fixedpoint g v = g ( fixedpoint g ) v
+
+-- | The `Down` type can be used for reversing sorting order.
+--   For example, `sortOn (\x -> Down x.field)` would sort by descending `field`.
+newtype Down a = Down a
+    deriving (Eq, Show, Functor)
+
+instance Ord a => Ord (Down a) where
+    compare (Down x) (Down y) = compare y x
+
+instance Applicative Down where
+    pure = Down
+    Down f <*> Down x = Down (f x)
+
+instance Action Down where
+    Down a >>= k = k a
+
+-- | Calculate the sum over all elements
+sum : Additive a => [a] -> a
+sum = foldl (+) aunit
+
+-- | Calculate the product over all elements
+product : Multiplicative a => [a] -> a
+product = foldl (*) munit

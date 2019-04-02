@@ -46,7 +46,7 @@ class EngineTest extends WordSpec with Matchers {
   private val (basicTestsPkgId, basicTestsPkg) =
     loadPackage("daml-lf/tests/BasicTests.dalf")
   private val (ghcPrimPkgId, ghcPrimPkg) =
-    loadPackage("daml-foundations/daml-ghc/package-database/daml-prim-1.1.dalf")
+    loadPackage("daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.1.dalf")
 
   private[this] def makeAbsoluteContractId(coid: ContractId): AbsoluteContractId =
     coid match {

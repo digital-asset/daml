@@ -17,6 +17,7 @@ daml_compile(
   name = 'MyMain',
   main_src = 'src/main/daml/MyMain.daml',
   target = '1.1',
+  damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated"
 )
 
 genrule(
@@ -25,11 +26,11 @@ genrule(
   outs = ['MyMain-codegen-out'],
   cmd = '$(execpath //language-support/scala/codegen:codegen-main) \
   --input-file $(location :MyMain.dalf) \
-  --dependencies $(location //daml-foundations/daml-ghc/package-database:daml-prim-1.1.dalf) \
+  --dependencies $(location //daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.1.dalf) \
   --package-name com.digitalasset.sample \
   --output-dir $@',
   tools = [
-    '//daml-foundations/daml-ghc/package-database:daml-prim-1.1.dalf',
+    '//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.1.dalf',
     '//language-support/scala/codegen:codegen-main',
     ':MyMain.dalf',
   ],
@@ -163,7 +164,7 @@ da_scala_test(
   data = [
     'src/test/resources/logback-sandbox.xml',
     ':MyMain.dalf',
-    '//daml-foundations/daml-ghc/package-database:daml-prim-1.1.dalf',
+    '//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.1.dalf',
     '//ledger/sandbox:sandbox-binary_deploy.jar',
   ],
   jvm_flags = [

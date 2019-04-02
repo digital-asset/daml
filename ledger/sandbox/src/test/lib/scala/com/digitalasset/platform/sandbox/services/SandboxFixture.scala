@@ -31,7 +31,7 @@ trait SandboxFixture extends SuiteResource[Channel] {
   protected def darFile = new File("ledger/sandbox/Test.dalf")
 
   protected def ghcPrimFile =
-    new File("daml-foundations/daml-ghc/package-database/daml-prim-1.3.dalf")
+    new File("daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.3.dalf")
 
   protected def channel: Channel = suiteResource.value
 

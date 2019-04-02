@@ -1,0 +1,146 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+
+daml 1.2
+-- | MOVE Prelude DAML-LF primitives, just templates/contracts
+module DA.Internal.Template(
+    Template(ensure, signatory, observer, agreement),
+    Choice(consuming, choiceController, choice), nonconsuming, NoEvent(..),
+    stakeholder,
+    create, exercise, fetch,
+    archive, Archive(..),
+    lookupByKey, fetchByKey,
+    exerciseExplicit,
+    IsParties(toParties),
+    Key(..)
+    ) where
+
+import GHC.Types (magic)
+import DA.Internal.LF
+import DA.Internal.Prelude
+
+-- NOTE: use internalCreate vs create so that people implementing Template can't override create/fetch/exercise
+
+-- | Create a contract based on a template.
+create : Template c => c -> Update (ContractId c)
+create = internalCreate
+
+-- | HIDE
+exerciseExplicit : Choice c e r => [Party] -> ContractId c -> e -> Update r
+exerciseExplicit = internalExercise
+
+-- | Exercise a contract choice.
+exercise : forall c e r . Choice c e r => ContractId c -> e -> Update r
+exercise c e = do
+    cc <- fetch c
+    exerciseExplicit (choiceController cc e) c e
+
+-- | Fetch the contract data associated with the given contract id.
+fetch : Template c => ContractId c -> Update c
+fetch = internalFetch
+
+-- | Archive the contract.
+archive : Template c => ContractId c -> Update ()
+archive c = exercise c Archive
+
+-- | The stakeholders of a contract, i.e. its signatories and observers.
+stakeholder : Template c => c -> [Party]
+stakeholder c = signatory c ++ observer c
+
+-- | HIDE pass the @c@ using type applications, otherwise it's ambiguous
+lookupByKey : forall c k. Key c k => k -> Update (Optional (ContractId c))
+lookupByKey = internalLookupByKey
+
+-- | HIDE pass the @c@ using type applications, otherwise it's ambiguous
+fetchByKey : Key c k => k -> Update (ContractId c, c)
+fetchByKey = internalFetchByKey
+
+class Template c where
+
+    -- | Predicate that must hold for the succesful creation of the contract.
+    ensure : c -> Bool
+    ensure _ = True
+
+    -- | The signatories of a contract.
+    signatory : c -> [Party]
+
+    -- | The observers of a contract.
+    observer : c -> [Party]
+    observer _ = []
+
+    -- | The agreement text of a contract.
+    agreement : c -> Text
+    agreement _ = ""
+
+    -- | HIDE
+    internalCreate : c -> Update (ContractId c)
+    internalCreate = magic @"create"
+
+    -- | HIDE
+    internalFetch : ContractId c -> Update c
+    internalFetch = magic @"fetch"
+
+    -- | HIDE
+    internalArchive : [Party] -> ContractId c -> Update ()
+    internalArchive = magic @"archive"
+
+
+class Template c => Choice c e r | c e -> r where
+    -- | HIDE
+    consuming : NoEvent c e -> ChoiceType
+    -- must be a lambda since otherwise the default-dictionary method causes a runtime loop as the method
+    -- exists in the dictionary, takes the dictionary, and can't be eta expanded.
+    consuming _ = Consuming
+
+    choiceController : c -> e -> [Party]
+    choice : c -> ContractId c -> e -> Update r
+
+    -- | HIDE
+    internalExercise : [Party] -> ContractId c -> e -> Update r
+    internalExercise = magic @"exercise"
+
+data Archive = Archive
+
+instance Template c => Choice c Archive () where
+    choiceController c _ = signatory c
+    choice _ _ _ = return ()
+
+    internalExercise p c _ = internalArchive p c
+
+
+-- Deliberately not exported, they either have to use the default, or 'nonconsuming' below.
+data ChoiceType = Consuming | NonConsuming
+
+-- | HIDE
+nonconsuming : NoEvent c e -> ChoiceType
+nonconsuming _ = NonConsuming
+
+-- | HIDE
+data NoEvent c e = NoEvent
+
+-- | Accepted ways to specify a list of parties: either a single party, or a list of parties.
+class IsParties a where
+  -- | Convert to list of parties.
+  toParties : a -> [Party]
+
+instance IsParties Party where
+  toParties p = [p]
+
+instance IsParties [Party] where
+  toParties ps = ps
+
+-- | HIDE
+class Template c => Key c k | c -> k where
+    key : c -> k
+
+    keyMaintainers : Proxy c -> k -> [Party]
+
+    -- | HIDE
+    internalFetchByKey : k -> Update (ContractId c, c)
+    internalFetchByKey = magic @"fetchByKey"
+
+    -- | HIDE
+    internalLookupByKey : k -> Update (Optional (ContractId c))
+    internalLookupByKey = magic @"lookupByKey"

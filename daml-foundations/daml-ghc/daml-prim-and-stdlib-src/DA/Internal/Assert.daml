@@ -1,0 +1,37 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+
+daml 1.2
+-- | MOVE Prelude
+module DA.Internal.Assert where
+
+import DA.Internal.Prelude
+import DA.Internal.LF
+
+-- | Check whether a condition is true, and otherwise abort.
+assert : CanAbort m => Bool -> m ()
+assert = assertMsg "Assertion failed"
+
+-- | Check whether a condition is true, and otherwise abort with a message.
+assertMsg : CanAbort m => Text -> Bool -> m ()
+assertMsg msg b = if b then return () else abort msg
+
+-- | Check whether the given time is in the future, and otherwise abort.
+assertAfter : (CanAbort m, HasTime m) => Time -> m ()
+assertAfter time = do
+  now <- getTime
+  if time > now
+    then abort ("assertAfter: expected time " <> show time <>
+                " before current ledger time, but ledger time is " <> show now)
+    else return ()
+
+-- | Check whether the given time is in the past, and otherwise abort.
+assertBefore : (CanAbort m, HasTime m) => Time -> m ()
+assertBefore time = do
+  now <- getTime
+  if time < now
+    then abort ("assertBefore: expected time " <> show time <>
+                " after current ledger time, but ledger time is " <> show now)
+    else return ()

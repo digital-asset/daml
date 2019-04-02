@@ -1,0 +1,153 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Based on https://github.com/ghc/ghc/blob/23f6f31dd66d7c370cb8beec3f1d96a0cb577393/libraries/ghc-prim/GHC/Types.hs
+
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE MagicHash #-}
+{-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
+daml 1.2
+
+-- | MOVE Prelude
+module GHC.Types (
+        -- Data types that are built-in syntax
+        -- They are defined here, but not explicitly exported
+        --
+        --    Lists:          []( [], (::) )
+
+        Bool(..), Int (..), Word, TextLit,
+        Ordering(..),
+        Symbol,
+        Text, Decimal,
+        Opaque,
+        ifThenElse,
+        primitive, magic,
+        Proxy(..)
+    ) where
+
+import GHC.Prim
+
+infixr 5 ::
+
+-- | The kind of constraints, like `Show a`
+data Constraint
+
+-- | (Kind) This is the kind of type-level symbols.
+-- Declared here because class IP needs it
+data Symbol
+
+-- | Documentation for lists
+data [] a = [] | a :: [a]
+
+
+-- | Information about ordering
+data Ordering = LT | EQ | GT
+
+-- | A 64-bit integer.
+data Int =
+  -- | HIDE
+  I# Int#
+
+-- | HIDE
+-- This is a dummy type we need for string literals.
+data Char
+
+-- | HIDE The type of string literals.
+type TextLit = [Char]
+
+-- | HIDE
+-- A dummy type for Word.
+data Word
+
+data Bool = False | True
+
+-- | HIDE
+isTrue# : Int# -> Bool
+{-# INLINE isTrue# #-}
+isTrue# x = tagToEnum# x
+
+-- | HIDE
+ifThenElse : Bool -> a -> a -> a
+ifThenElse c t f = case c of True -> t; False -> f
+
+
+-- NOTE(MH): We're remove all the produced runtime represenations when
+-- converting to DAML-LF but still need them here for type checking.
+
+{- Note [Runtime representation of modules and tycons]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+We generate a binding for M.$modName and M.$tcT for every module M and
+data type T.  Things to think about
+
+  - We want them to be economical on space; ideally pure data with no thunks.
+
+  - We do this for every module (except this module GHC.Types), so we can't
+    depend on anything else (eg string unpacking code)
+
+That's why we have these terribly low-level representations.  The TrName
+type lets us use the TrNameS constructor when allocating static data;
+but we also need TrNameD for the case where we are deserialising a TyCon
+or Module (for example when deserialising a TypeRep), in which case we
+can't conveniently come up with an Addr#.
+-}
+
+-- | HIDE
+data Module = Module
+                TrName   -- Package name
+                TrName   -- Module name
+
+-- | HIDE
+data TrName
+  = TrNameS Addr#  -- Static
+  | TrNameD [Char] -- Dynamic
+
+-- | HIDE A de Bruijn index for a binder within a 'KindRep'.
+type KindBndr = Int
+
+-- | HIDE
+data RuntimeRep
+
+-- | HIDE The representation produced by GHC for conjuring up the kind of a
+-- 'TypeRep'.  See Note [Representing TyCon kinds: KindRep] in TcTypeable.
+data KindRep = KindRepTyConApp TyCon [KindRep]
+             | KindRepVar !KindBndr
+             | KindRepApp KindRep KindRep
+             | KindRepFun KindRep KindRep
+             | KindRepTYPE !RuntimeRep
+             | KindRepTypeLitS TypeLitSort Addr#
+             | KindRepTypeLitD TypeLitSort [Char]
+
+-- | HIDE
+data TypeLitSort = TypeLitSymbol
+                 | TypeLitNat
+
+-- | HIDE Show instance for TyCon found in GHC.Show
+data TyCon = TyCon Word# Word#           -- Fingerprint
+                   Module                -- Module in which this is defined
+                   TrName                -- Type constructor name
+                   Int#                  -- How many kind variables do we accept?
+                   KindRep               -- A representation of the type's kind
+
+
+-- | HIDE A DAML-LF primitive
+primitive : forall (f : Symbol) b. b
+primitive = primitive -- deleted by the compiler
+
+-- | HIDE Handled actually in the guts of the compiler
+magic : forall (f : Symbol) b. b
+magic = magic -- deleted by the compiler
+
+-- | HIDE Dummy type to mark types built into DAML-LF.
+data Opaque = Opaque
+
+-- Text type built into DAML-LF.
+data Text =
+  -- | HIDE
+  Text Opaque
+
+-- Decimal type built into DAML-LF.
+data Decimal =
+  -- | HIDE
+  Decimal Opaque
+
+data Proxy a = Proxy

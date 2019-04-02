@@ -1,0 +1,39 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+-- | Assert
+module DA.Assert
+  ( module DA.Assert
+  , assert
+  , assertMsg
+  , assertAfter
+  , assertBefore
+  ) where
+
+infix 4 ===
+
+-- | Check two values for equivalence and fail with a message if they
+-- are not.
+(===) : (CanAbort m, Show a, Eq a) => a -> a -> m ()
+-- NOTE(MH): We do not define `(===)` in terms of `assertMsg` to avoid
+-- constructing the error message in the successful case.
+(===) x y
+  | x == y = return ()
+  | otherwise = abort ("Failure, expected " <> show x <> " === " <> show y)
+
+-- | Check whether the given time is in the future, and otherwise abort with a message.
+assertAfterMsg : (CanAbort m, HasTime m) => Text -> Time -> m ()
+assertAfterMsg msg time = do
+  now <- getTime
+  if time > now
+    then abort msg
+    else return ()
+
+-- | Check whether the given time is in the past, and otherwise abort with a message.
+assertBeforeMsg : (CanAbort m, HasTime m) => Text -> Time -> m ()
+assertBeforeMsg msg time = do
+  now <- getTime
+  if time < now
+    then abort msg
+    else return ()

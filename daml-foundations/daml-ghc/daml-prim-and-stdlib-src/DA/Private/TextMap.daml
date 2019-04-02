@@ -1,0 +1,95 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+-- | TextMap - A map is an associative array data type composed of a
+-- collection of key/value pairs such that, each possible key appears
+-- at most once in the collection.
+module DA.Private.TextMap
+  ( TextMap
+  , empty
+  , size
+  , toList
+  , fromList
+  , null
+  , lookup
+  , member
+  , filter
+  , delete
+  , insert
+  , union
+  ) where
+
+import Prelude hiding (lookup, null, filter, empty)
+import DA.List qualified as L
+import DA.Optional qualified as M
+
+-- | Create a map from a list of key/value pairs.
+fromList : [(Text, a)] -> TextMap a
+fromList list = foldl (\acc (key, value) -> (insert key value acc)) empty list
+
+-- | Convert the map to a list of key/value pairs where the keys are
+-- in ascending order.
+toList : TextMap a -> [(Text, a)]
+toList textMap =
+ -- FixMe: implement toList
+ error "not yet implemented"
+
+-- | The empty map.
+empty : TextMap a
+empty = primitive @"BEMapEmpty"
+
+-- | Number of elements in the map.
+size : TextMap a -> Int
+size = primitive @"BEMapSize"
+
+-- | Is the map empty?
+null : TextMap v -> Bool
+null m = size m == 0
+
+-- | Lookup the value at a key in the map.
+lookup : Text -> TextMap a -> Optional a
+lookup = primitive @"BEMapLookup"
+
+-- | Is the key a member of the map?
+member : Text -> TextMap v -> Bool
+member x m = M.isSome $ lookup x m
+
+-- | Filter all values that satisfy some predicate.
+filter : (Text -> v -> Bool) -> TextMap v -> TextMap v
+filter p m = fromList $ L.filter (uncurry p) (toList m)
+
+-- | Delete a key and its value from the map. When the key is not a
+-- member of the map, the original map is returned.
+delete : Text -> TextMap a ->  TextMap a
+delete = primitive @"BEMapDelete"
+
+-- | Insert a new key/value pair in the map. If the key is already
+-- present in the map, the associated value is replaced with the
+-- supplied value.
+insert : Text -> a -> TextMap a -> TextMap a
+insert = primitive @"BEMapInsert"
+
+-- | The union of two maps, preferring the first map when equal
+-- keys are encountered.
+union : TextMap a -> TextMap a -> TextMap a
+union m1 m2 = foldl (\a b -> (uncurry insert) b a) m2 (toList m1)
+
+instance (Show a) => Show (TextMap a) where
+  show m = "TextMap(" <> show (toList m) <> ")"
+
+
+instance (Eq a) => Eq (TextMap a) where
+  (==) m1 m2 =
+-- FixMe should use (toList m1 == toList m2)
+     False
+
+instance (Ord a) => Ord (TextMap a) where
+  compare = \m1 m2 -> compare (toList m1) (toList m2)
+
+instance Semigroup (TextMap b) where
+  (<>) = union
+
+instance Monoid (TextMap b) where
+  mempty = empty
+

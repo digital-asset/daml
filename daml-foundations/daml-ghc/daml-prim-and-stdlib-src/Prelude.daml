@@ -1,0 +1,13 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+daml 1.2
+-- | The pieces that make up the DAML language.
+module Prelude (module X) where
+
+import DA.Internal.Prelude as X
+import DA.Internal.LF as X
+import DA.Internal.Template as X
+import DA.Internal.Compatible as X
+import DA.Internal.Assert as X

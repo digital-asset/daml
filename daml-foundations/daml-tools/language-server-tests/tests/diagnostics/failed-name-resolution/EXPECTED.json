@@ -13,7 +13,7 @@
         }
       },
       "source": "Compiler",
-      "message": "/tests/diagnostics/failed-name-resolution/Main.daml:8:11: error:\n    • Variable not in scope: ab : Int\n    • Perhaps you meant one of these:\n        ‘a’ (line 8), ‘b’ (line 8), ‘ap’ (imported from Prelude)"
+      "message": "/tests/diagnostics/failed-name-resolution/Main.daml:8:11: error:\n    • Variable not in scope: ab : Int\n    • Perhaps you meant one of these:\n        ‘a’ (line 8), ‘b’ (line 8), ‘abs’ (imported from Prelude)"
     },
     {
       "severity": 1,

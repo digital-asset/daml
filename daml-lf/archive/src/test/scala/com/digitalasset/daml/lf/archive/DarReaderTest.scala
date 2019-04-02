@@ -33,11 +33,15 @@ class DarReaderTest extends WordSpec with Matchers with Inside {
       case Success(
           Dar(
             ((packageId1, archive1), LanguageMajorVersion.V1),
-            ((packageId2, archive2), LanguageMajorVersion.V1) :: Nil)) =>
+            ((packageId2, archive2), LanguageMajorVersion.V1) :: (
+              (packageId3, archive3),
+              LanguageMajorVersion.V1) :: Nil)) =>
         packageId1.underlyingString shouldNot be('empty)
         packageId2.underlyingString shouldNot be('empty)
+        packageId3.underlyingString shouldNot be('empty)
         archive1.getDamlLf1.getModulesCount should be > 0
         archive2.getDamlLf1.getModulesCount should be > 0
+        archive3.getDamlLf1.getModulesCount should be > 0
 
         val archive1Modules = archive1.getDamlLf1.getModulesList.asScala
         inside(archive1Modules.find(m => name(m.getName) == "DarReaderTest")) {
