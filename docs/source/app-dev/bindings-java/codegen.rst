@@ -66,43 +66,19 @@ To generate such a decoder class, provide the command line parameter ``-d`` or `
       -d com.myproject.DamModelDecoder daml/my-project.dar
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Configure logging
------------------
+Receive feedback
+----------------
 
-The Java codegen uses `Logback <https://logback.qos.ch/>`_ for logging. Refer to `its documentation <https://logback.qos.ch/manual/configuration.html>`_ to configure it.
+By default, the logging is configured so that you'll only see error messages.
 
-In configuring logging, you are encouraged to use the available `Mapped Diagnostic Context <https://logback.qos.ch/manual/mdc.html>`_ keys to display useful information about the DAML code being processed. The following keys are available:
+If you want to change this behavior, you can ask to receive more extensive feedback using the ``-V`` or ``--verbosity`` command-line option. This option takes a numeric parameter from 0 to 4, where 0 corresponds to the default quiet behavior and 4 represents the most verbose output possible.
 
-+--------------------+--------------------------------------------------------------------+
-| ``packageId``      | The full-length identifier of the package being processed          |
-+--------------------+--------------------------------------------------------------------+
-| ``packageIdShort`` | The first seven characters of the ``packageId``                    |
-+--------------------+--------------------------------------------------------------------+
-| ``moduleName``     | The fully-qualified name of the module being processed             |
-+--------------------+--------------------------------------------------------------------+
-| ``entityType``     | The type of entity being processed (record, template, or variant)  |
-+--------------------+--------------------------------------------------------------------+
-| ``entityName``     | The fully-qualified name of the entity being processed             |
-+--------------------+--------------------------------------------------------------------+
-
-The following is an example of a `Logback layout pattern <https://logback.qos.ch/manual/layouts.html>`_ that displays regular information (timestamp, thread name, etc.) along with relevant MDC keys:
+In the following example the logging is set to print most of the output with detailed debugging information:
 
 .. code-block:: none
 
-    %d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} [ %X{packageIdShort} %X{moduleName}:%X{entityName} - %X{entityType} ] - %msg%n
-
-Once you have produced your configuration file, the simplest way to enable logging is to run the Java codegen while specifying the `logback.configurationFile` system property, as in the following example:
-
-.. code-block:: none
-
-  java -Dlogback.configurationFile=/path/to/logback.xml -jar java-codegen.jar -o target/generated-source/daml
-       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. attention::
-
-  Make sure to specify the logging configuration file system property before the ``-jar`` option, otherwise the option will be passed to the program itself rather than the JVM, causing the codegen to fail with the following error message:
-
-  ``Error: Unknown option -Dlogback.configurationFile=/path/to/logback.xml``
+  java -jar java-codegen.jar -o target/generated-sources/daml -V 3
+                                                              ^^^^
 
 Integrate with build tools
 --------------------------
