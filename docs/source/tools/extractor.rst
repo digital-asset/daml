@@ -41,14 +41,14 @@ This example extracts:
 
 - all contract data from the beginning of the ledger to the current latest transaction
 - for the party ``Scrooge_McDuck``
-- from a Ledger node or Sandbox running on host ``192.168.1.12`` on port ``7600``
+- from a Ledger node or Sandbox running on host ``192.168.1.12`` on port ``6865``
 - to PostgreSQL instance running on localhost
 - identified by the user ``postgres`` without a password set
 - into a database called ``daml_export``
 
   .. code-block:: none
 
-    $ da run extractor -- postgresql --user postgres --connecturl jdbc:postgresql:daml_export --party Scrooge_McDuck -h 192.168.1.12 -p 7600 --to head
+    $ da run extractor -- postgresql --user postgres --connecturl jdbc:postgresql:daml_export --party Scrooge_McDuck -h 192.168.1.12 -p 6865 --to head
 
 This terminates after reaching the transaction which was the latest at the time the Extractor started streaming. 
 
@@ -66,7 +66,7 @@ For what options to use, see the next sections.
 Connecting the Extractor to a ledger
 ************************************
 
-To connect to the Sandbox, provide separate address and port parameters. For example, ``--host 10.1.1.10 --port 7600``, or in short form ``-h 10.1.1.168 -p 7600``.
+To connect to the Sandbox, provide separate address and port parameters. For example, ``--host 10.1.1.10 --port 6865``, or in short form ``-h 10.1.1.168 -p 6865``.
 
 The default host is ``localhost`` and the default port is ``6865``, so you don’t need to pass those.
 

@@ -86,7 +86,7 @@ The second one introduces a dependency that is going to be later used to generat
     let [, , host, port] = process.argv;
 
     host = host || 'localhost';
-    port = port || 7600;
+    port = port || 6865;
 
 These lines read the command-line arguments and provide some sensible defaults.
 
@@ -196,7 +196,7 @@ Read those from the command line by editing the part where the arguments are rea
 
     let [, , sender, receiver, host, port] = process.argv;
     host = host || 'localhost';
-    port = port || 7600;
+    port = port || 6865;
     if (!sender || !receiver) {
         console.log('Missing sender and/or receiver arguments, exiting.');
         process.exit(-1);
@@ -763,7 +763,7 @@ Note that the transaction filter was factored out as it can be shared. The final
 
     let [, , sender, receiver, host, port] = process.argv;
     host = host || 'localhost';
-    port = port || 7600;
+    port = port || 6865;
     if (!sender || !receiver) {
         console.log('Missing sender and/or receiver arguments, exiting.');
         process.exit(-1);

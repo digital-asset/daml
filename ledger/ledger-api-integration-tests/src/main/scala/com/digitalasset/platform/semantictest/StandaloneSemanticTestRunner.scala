@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.platform.apitesting.{LedgerContext, PlatformChannels, RemoteServerResource}
-import com.digitalasset.platform.sandbox.config.DamlPackageContainer
+import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
 
 import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
@@ -84,7 +84,7 @@ object StandaloneSemanticTestRunner {
 
   private val defaultConfig = Config(
     host = "localhost",
-    port = 6865,
+    port = SandboxConfig.DefaultPort,
     packageContainer = DamlPackageContainer(),
     performReset = false,
   )
@@ -93,7 +93,7 @@ object StandaloneSemanticTestRunner {
     head("Semantic test runner")
     opt[Int]('p', "port")
       .action((x, c) => c.copy(port = x))
-      .text("Ledger API server port. Defaults to 6865.")
+      .text(s"Ledger API server port. Defaults to ${SandboxConfig.DefaultPort}.")
 
     opt[String]('h', "host")
       .action((x, c) => c.copy(host = x))
