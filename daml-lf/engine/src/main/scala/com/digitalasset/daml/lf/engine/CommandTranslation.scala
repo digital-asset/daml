@@ -14,9 +14,41 @@ private[engine] object CommandTranslation {
   def apply(compiledPackages: ConcurrentCompiledPackages): CommandTranslation = {
     new CommandTranslation(compiledPackages)
   }
+
+  private def tEntry(elemType: Type) =
+    TTuple(ImmArray(("key",TBuiltin(BTText)),("value",elemType)))
+
+  private def entry(key: String, value: Expr): Expr =
+    ETupleCon(ImmArray("key" -> EPrimLit(PLText(key)), "value" -> value))
+
+  private def emptyMap(elemType: Type) =
+    ETyApp(EBuiltin(BMapEmpty),elemType)
+
+  private def fold(aType: Type, bType:Type, f: Expr, b: Expr, as : Expr) =
+    EApp(EApp(EApp(ETyApp(ETyApp(EBuiltin(BFoldl), aType), bType), f), b), as)
+
+  private def insert(elemType: Type, key: Expr, value: Expr, map: Expr) =
+    EApp(EApp(EApp(ETyApp(EBuiltin(BMapInsert), elemType), key), value), map)
+
+  private def get(key: String, tuple: Expr) =
+    ETupleProj(key, tuple)
+
+  private def buildList(elemType: Type, list: ImmArray[Expr]) =
+    ECons(elemType, list, ENil(elemType))
+
+  private def buildMap(elemType: Type, list: Expr): Expr = {
+    val f =
+      EAbs("acc" -> TMap(elemType),
+        EAbs("entry" -> tEntry(elemType),
+          insert(elemType, get("key", EVar("entry")), get("value", EVar("entry")), EVar("acc")), None), None)
+    fold(tEntry(elemType), TMap(elemType), f, emptyMap(elemType), list)
+  }
+
 }
 
 private[engine] class CommandTranslation(compiledPackages: ConcurrentCompiledPackages) {
+  import CommandTranslation._
+
   // we use this for easier error handling in translateValues
   private[this] case class CommandTranslationException(err: Error)
       extends RuntimeException(err.toString, null, true, false)
@@ -117,6 +149,17 @@ private[engine] class CommandTranslation(compiledPackages: ConcurrentCompiledPac
                 .traverseU(go(newNesting, elemType, _))
                 .map(es => ECons(elemType, es, ENil(elemType)))
             }
+
+          // map
+          case (TMap(elemType), ValueMap(map)) =>
+            if (map.isEmpty){
+              ResultDone(ETyApp(EBuiltin(BMapInsert),elemType))
+            } else {
+              ImmArray(map.toList)
+                .traverseU { case (key0, value0) => go(newNesting, elemType, value0).map(entry(key0, _)) }
+                .map(l => buildMap(elemType, buildList(tEntry(elemType), l)))
+            }
+
           // variants
           case (TTyConApp(tyCon, tyConArgs), ValueVariant(mbVariantId, constructorName, value)) =>
             val variantId = tyCon

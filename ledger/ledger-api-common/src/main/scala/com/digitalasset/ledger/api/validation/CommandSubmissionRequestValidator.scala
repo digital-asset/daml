@@ -158,14 +158,14 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
     case Sum.Map(m) =>
       m.entries
         .foldLeft[Either[StatusRuntimeException, Map[String, domain.Value]]](Right(Map.empty)) {
-          case (acc, ApiMap.Entry(k, value0)) =>
+          case (acc, ApiMap.Entry(key0, value0)) =>
             for {
               map <- acc
-              k <- requirePresence(value0, "key")
-              key <- validateMapKey(k)
+              key <- requirePresence(key0, "key")
+              validatedKey <- validateMapKey(key)
               v <- requirePresence(value0, "value")
               validatedValue <- validateValue(v)
-            } yield map + (key -> validatedValue)
+            } yield map + (validatedKey -> validatedValue)
         }
         .map(domain.Value.MapValue)
     case Sum.Empty => Left(missingField("value"))

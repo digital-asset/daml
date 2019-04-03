@@ -111,6 +111,9 @@ final case class LFUtil(
       case TypePrim(PTOptional, ImmArraySeq(typ)) =>
         val optType = genTypeToScalaType(typ)
         q"$primitiveObject.Optional[$optType]"
+      case TypePrim(PTMap, ImmArraySeq(typ)) =>
+        val optType = genTypeToScalaType(typ)
+        q"$primitiveObject.Map[$optType]"
       case TypePrim(refType, ImmArraySeq()) => refTypeToIdent(refType)
       case TypeCon(name, ImmArraySeq()) => refTypeToIdent(name)
       case TypePrim(refType, typeArgs) =>

@@ -468,8 +468,9 @@ template TextMaps
    with
       party: Party
       intPlusOne: TextMap Int
-      intPlusTwo: TextMap (Optional Int)
-      listOfEm: List (TextMap Int)
-      optList: Optional (TextMap Int)
+-- (RH) the two next lines are two slow.
+--      intPlusTwo: TextMap (TextMap Int)
+--      listOfEm: List (TextMap Int)
+      optMap: Optional (TextMap Int)
     where
       signatory party
