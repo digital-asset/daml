@@ -665,12 +665,3 @@ jar_jar_repositories()
 # dependencies.
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 grpc_deps()
-
-
-# NOTE:
-# this_breaks_windows_start
-#
-# wrap problematic parts of the WORKSPACE file with these markers /\--\/
-# to get the middle part excluded for Windows builds on CI
-#
-# this_breaks_windows_stop
