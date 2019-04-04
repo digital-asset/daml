@@ -77,9 +77,9 @@ showSemVersion (SemVersion major minor patch mbPreRelease) =
         Nothing ->
             format (d%"."%d%"."%d) major minor patch
 
--- | Format a semantic version according to spec compatable for new daml-assitant.
-showSemVersionCompatable :: SemVersion -> T.Text
-showSemVersionCompatable (SemVersion _ minor patch mbPreRelease) =
+-- | Format a semantic version according to spec Compatible for new daml-assitant.
+showSemVersionCompatible :: SemVersion -> T.Text
+showSemVersionCompatible (SemVersion _ minor patch mbPreRelease) =
     case mbPreRelease of
         Just preRelease ->
             format (s%"-"%d%"."%d%"-"%s) "nightly-100" minor patch preRelease
