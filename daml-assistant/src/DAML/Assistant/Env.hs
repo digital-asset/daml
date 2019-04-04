@@ -17,10 +17,10 @@ module DAML.Assistant.Env
     , getDispatchEnv
     ) where
 
-import DAML.Assistant.Types
-import DAML.Assistant.Consts
-import DAML.Assistant.Util
-import DAML.Assistant.Config
+import DAML.Project.Config
+import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
+import DAML.Project.Types
+import DAML.Project.Util
 import System.Directory
 import System.FilePath
 import System.Environment

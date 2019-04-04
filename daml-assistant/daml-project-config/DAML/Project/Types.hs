@@ -3,8 +3,8 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module DAML.Assistant.Types
-    ( module DAML.Assistant.Types
+module DAML.Project.Types
+    ( module DAML.Project.Types
     , Text, pack, unpack -- convenient re-exports
     ) where
 
