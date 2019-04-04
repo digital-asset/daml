@@ -8,7 +8,7 @@ module DA.Sdk.Version
   ( SemVersion(..)
   , showSemVersion
   , parseSemVersion
-  , showSemVersionCompatable
+  , showSemVersionCompatible
   , semVersionParser
   , BuildVersion(..)
   , showBuildVersion

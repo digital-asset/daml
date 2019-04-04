@@ -574,7 +574,7 @@ copyDetailsFromOldConf :: Maybe Project -> IO (Either IOException ())
 copyDetailsFromOldConf mbProject = do
   case mbProject of
     Just proj -> do
-      let sdkVersion = V.showSemVersionCompatable $ projectSDKVersion proj
+      let sdkVersion = V.showSemVersionCompatible $ projectSDKVersion proj
       let versionObject = Y.object [("sdk-version", Y.String sdkVersion)]
       try $ liftIO (Y.encodeFileWith Y.defaultEncodeOptions "daml.yaml" versionObject)
     Nothing -> return $ Left (userError "Command must be run from within a project")
