@@ -96,6 +96,7 @@ data NormalAction
   | TemplateInfo (Rty.NameSpace, Rty.TemplateName, Rty.ReleaseLine)
   | SendFeedback
   | Studio
+  | Migrate
   | Navigator
   | Sandbox
   | Compile
