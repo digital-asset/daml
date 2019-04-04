@@ -293,7 +293,7 @@ handle env configFile action = do
             deprecated $ runJob (JobStudio ".")
         Migrate -> do
             res <- liftIO $ copyDetailsFromOldConf proj
-            whenLeft res $ \ex -> throwCliError (CliTextError (DT.pack $ "Could no copy over the details from da.yml" ++ show ex))
+            whenLeft res $ \ex -> throwCliError (CliTextError (DT.pack $ "Could no copy over the details from da.yaml" ++ show ex))
         Navigator              ->
             deprecated runNavigator
         Sandbox                ->
