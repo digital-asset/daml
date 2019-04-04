@@ -15,7 +15,7 @@
   "scripts": {
     "start": "webpack-dev-server",
     "start-ui-core": "webpack-dev-server --config webpack.ui-core.js",
-    "build": "webpack --env=production",
+    "build": "webpack --env.prod",
     "test": "echo 'No frontend tests exist yet.'",
     "lint": "tslint --project tslint.json"
   },
