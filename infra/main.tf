@@ -13,6 +13,11 @@ provider "google" {
   region  = "us-east4"
 }
 
+provider "google-beta" {
+  project = "da-dev-gcp-daml-language"
+  region  = "us-east4"
+}
+
 locals {
   labels = {
     cost-allocation = "daml-language"

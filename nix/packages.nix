@@ -264,7 +264,10 @@ in rec {
     gsutil = gcloud;
     terraform = pkgs-1903.terraform.withPlugins (p: with p; [
       google
+      google-beta
       random
+      secret
+      template
     ]);
     nix-store-gcs-proxy = pkgs.callPackage ./tools/nix-store-gcs-proxy {};
   });
