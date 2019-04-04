@@ -47,7 +47,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "owner",
+        key: "argument.owner",
         title: "Owner",
         createCell: ({rowData}) => ({
           type: "text",
@@ -59,7 +59,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "ccy",
+        key: "argument.currency",
         title: "Currency",
         createCell: ({rowData}) => ({
           type: "text",
@@ -71,7 +71,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "amount",
+        key: "argument.amount",
         title: "Amount",
         createCell: ({rowData}) => ({
           type: "text",
@@ -121,7 +121,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "issuer",
+        key: "argument.issuer",
         title: "Issuer",
         createCell: ({rowData}) => ({
           type: "text",
@@ -133,7 +133,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "ccy",
+        key: "argument.currency",
         title: "Currency",
         createCell: ({rowData}) => ({
           type: "text",
@@ -145,7 +145,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "amount",
+        key: "argument.amount",
         title: "Amount",
         createCell: ({rowData}) => ({
           type: "text",
@@ -191,7 +191,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "sender",
+        key: "argument.iou.owner",
         title: "Sender",
         createCell: ({rowData}) => ({
           type: "text",
@@ -203,7 +203,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "receiver",
+        key: "argument.iou.newOwner",
         title: "Receiver",
         createCell: ({rowData}) => ({
           type: "text",
@@ -215,7 +215,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "issuer",
+        key: "argument.iou.issuer",
         title: "Issuer",
         createCell: ({rowData}) => ({
           type: "text",
@@ -227,7 +227,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "ccy",
+        key: "argument.iou.currency",
         title: "Currency",
         createCell: ({rowData}) => ({
           type: "text",
@@ -239,7 +239,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "amount",
+        key: "argument.iou.amount",
         title: "Amount",
         createCell: ({rowData}) => ({
           type: "text",
@@ -285,7 +285,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "buyer",
+        key: "argument.buyer",
         title: "Buyer",
         createCell: ({rowData}) => ({
           type: "text",
@@ -297,7 +297,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "seller",
+        key: "argument.seller",
         title: "Seller",
         createCell: ({rowData}) => ({
           type: "text",
@@ -309,7 +309,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "baseIssuer",
+        key: "argument.baseIssuer",
         title: "Base Issuer",
         createCell: ({rowData}) => ({
           type: "text",
@@ -321,7 +321,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "baseccy",
+        key: "argument.baseCurrency",
         title: "Base Currency",
         createCell: ({rowData}) => ({
           type: "text",
@@ -333,7 +333,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "baseamount",
+        key: "argument.baseAmount",
         title: "Base Amount",
         createCell: ({rowData}) => ({
           type: "text",
@@ -345,7 +345,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "quoteIssuer",
+        key: "argument.quoteIssuer",
         title: "Quote Issuer",
         createCell: ({rowData}) => ({
           type: "text",
@@ -357,7 +357,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "quoteccy",
+        key: "argument.quoteCurrency",
         title: "Quote Currency",
         createCell: ({rowData}) => ({
           type: "text",
@@ -369,7 +369,7 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "quoteamount",
+        key: "argument.quoteAmount",
         title: "Quote Amount",
         createCell: ({rowData}) => ({
           type: "text",
