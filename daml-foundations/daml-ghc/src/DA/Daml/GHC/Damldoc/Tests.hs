@@ -226,7 +226,7 @@ damldocExpect testname input check =
     -- write input to a file
     T.writeFileUtf8 testfile (T.unlines input)
 
-    opts <- defaultOptionsIO
+    opts <- defaultOptionsIO Nothing
 
     -- run the doc generator on that file
     mbResult <- runExceptT $ mkDocs (toCompileOpts opts) [testfile]

@@ -181,7 +181,7 @@ execIde (Telemetry telemetry) (Debug debug) = NS.withSocketsDo $ Managed.runMana
       then Logger.GCP.gcpLogger (>= Logger.Warning) loggerH
       else pure loggerH
 
-    opts <- liftIO defaultOptionsIO
+    opts <- liftIO $ defaultOptionsIO Nothing
 
     Managed.liftIO $
       Daml.LanguageServer.runLanguageServer

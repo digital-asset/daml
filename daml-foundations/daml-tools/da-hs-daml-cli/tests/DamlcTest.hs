@@ -24,10 +24,10 @@ tests :: TestTree
 tests = testGroup
     "damlc test"
     [ testCase "Non-existent file" $ do
-        opts <- defaultOptionsIO
+        opts <- defaultOptionsIO Nothing
         shouldThrow (Damlc.execTest "foobar" Nothing opts)
     , testCase "File with compile error" $ do
-        opts <- defaultOptionsIO
+        opts <- defaultOptionsIO Nothing
         withTempFile $ \path -> do
             T.writeFileUtf8 path $ T.unlines
               [ "daml 1.2"
