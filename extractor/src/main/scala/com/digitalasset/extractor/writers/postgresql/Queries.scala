@@ -312,8 +312,11 @@ object Queries {
         case LedgerValue.Party(value) => Fragment("?", value)
         case LedgerValue.Unit => Fragment.const("FALSE")
         case LedgerValue.Date(value) => Fragment("?", LocalDate.ofEpochDay(value.toLong))
-        case LedgerValue.ValueMap(_) =>
-          throw new RuntimeException("persistence of Map not implemented yet!")
+        case LedgerValue.ValueMap(m) =>
+          Fragment(
+            "?::jsonb",
+            toJsonString(m)
+          )
       }
     }
   }

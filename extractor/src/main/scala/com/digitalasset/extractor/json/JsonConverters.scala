@@ -3,10 +3,10 @@
 
 package com.digitalasset.extractor.json
 
-import com.digitalasset.extractor.ledger.types.{LedgerValue, Identifier}
+import com.digitalasset.daml.lf.data.UTF8
+import com.digitalasset.extractor.ledger.types.{Identifier, LedgerValue}
 import com.digitalasset.extractor.ledger.types.LedgerValue._
 import com.digitalasset.extractor.writers.postgresql.DataFormatState.MultiTableState
-
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.generic.semiauto._
@@ -34,6 +34,7 @@ object JsonConverters {
     case v @ LedgerValue.Variant(_, _) => v.asJson
     case LedgerValue.ValueList(value) => value.asJson
     case LedgerValue.Optional(value) => value.asJson
+    case LedgerValue.ValueMap(value) => value.asJson
     case LedgerValue.Bool(value) => value.asJson
     case LedgerValue.ContractId(value) => value.asJson
     case LedgerValue.Int64(value) => value.asJson
@@ -61,6 +62,15 @@ object JsonConverters {
       JsonObject("None" -> emptyRecord).asJson
     case Some(value) =>
       JsonObject("Some" -> value.asJson).asJson
+  }
+
+  implicit val mapEncoder: Encoder[Map[String, LedgerValue]] = m => {
+    JsonObject(
+      "Map" ->
+        m.toList
+          .sortBy(_._1)(UTF8.ordering)
+          .map { case (k, v) => JsonObject("key" -> k.asJson, "value" -> v.asJson) }
+          .asJson).asJson
   }
 
   implicit val idKeyEncoder: KeyEncoder[Identifier] = id => s"${id.packageId}@${id.name}"

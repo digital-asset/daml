@@ -18,7 +18,6 @@ import org.scalatest.{Inside, Matchers, WordSpec}
 import scalaz.\/-
 import scala.collection.JavaConverters._
 
-
 class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
 
   private def dnfs(args: String*): DottedName = DottedName.assertFromSegments(args)
@@ -124,19 +123,26 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
       .setRecord(
         DamlLf1.DefDataType.Fields
           .newBuilder()
-          .addFields(primField("map", DamlLf1.PrimType.MAP, DamlLf1.Type.newBuilder().setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.INT64)).build()))
+          .addFields(
+            primField(
+              "map",
+              DamlLf1.PrimType.MAP,
+              DamlLf1.Type
+                .newBuilder()
+                .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.INT64))
+                .build()))
           .build())
       .build()
 
     val actual = InterfaceReader.record(moduleName, ctx)(recordDataType)
-    actual shouldBe \/-((
-      QualifiedName(moduleName, dnfs("MapRecord")),
-      ImmArraySeq(),
-      Record(
-        ImmArraySeq(
-          ("map", TypePrim(PrimTypeMap, ImmArraySeq(TypePrim(PrimTypeInt64, ImmArraySeq()))))
-      )))
-    )
+    actual shouldBe \/-(
+      (
+        QualifiedName(moduleName, dnfs("MapRecord")),
+        ImmArraySeq(),
+        Record(
+          ImmArraySeq(
+            ("map", TypePrim(PrimTypeMap, ImmArraySeq(TypePrim(PrimTypeInt64, ImmArraySeq()))))
+          ))))
   }
 
   private def dottedName(str: String): DamlLf1.DottedName =
@@ -162,7 +168,10 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
       .setType(DamlLf1.Type.newBuilder().setVar(DamlLf1.Type.Var.newBuilder.setVar(var_).build))
       .build()
 
-  private def primField(field: String, primType : DamlLf1.PrimType, args: DamlLf1.Type*): DamlLf1.FieldWithType = {
+  private def primField(
+      field: String,
+      primType: DamlLf1.PrimType,
+      args: DamlLf1.Type*): DamlLf1.FieldWithType = {
     val typ = DamlLf1.Type.Prim.newBuilder.setPrim(primType).addAllArgs(args.asJava).build()
     DamlLf1.FieldWithType
       .newBuilder()
@@ -170,7 +179,6 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
       .setType(DamlLf1.Type.newBuilder().setPrim(typ).build)
       .build()
   }
-
 
   private def typeConstructorField(field: String, segments: List[String]): DamlLf1.FieldWithType =
     DamlLf1.FieldWithType

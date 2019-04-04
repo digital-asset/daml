@@ -16,15 +16,15 @@ private[engine] object CommandTranslation {
   }
 
   private def tEntry(elemType: Type) =
-    TTuple(ImmArray(("key",TBuiltin(BTText)),("value",elemType)))
+    TTuple(ImmArray(("key", TBuiltin(BTText)), ("value", elemType)))
 
   private def entry(key: String, value: Expr): Expr =
     ETupleCon(ImmArray("key" -> EPrimLit(PLText(key)), "value" -> value))
 
   private def emptyMap(elemType: Type) =
-    ETyApp(EBuiltin(BMapEmpty),elemType)
+    ETyApp(EBuiltin(BMapEmpty), elemType)
 
-  private def fold(aType: Type, bType:Type, f: Expr, b: Expr, as : Expr) =
+  private def fold(aType: Type, bType: Type, f: Expr, b: Expr, as: Expr) =
     EApp(EApp(EApp(ETyApp(ETyApp(EBuiltin(BFoldl), aType), bType), f), b), as)
 
   private def insert(elemType: Type, key: Expr, value: Expr, map: Expr) =
@@ -38,9 +38,13 @@ private[engine] object CommandTranslation {
 
   private def buildMap(elemType: Type, list: Expr): Expr = {
     val f =
-      EAbs("acc" -> TMap(elemType),
-        EAbs("entry" -> tEntry(elemType),
-          insert(elemType, get("key", EVar("entry")), get("value", EVar("entry")), EVar("acc")), None), None)
+      EAbs(
+        "acc" -> TMap(elemType),
+        EAbs(
+          "entry" -> tEntry(elemType),
+          insert(elemType, get("key", EVar("entry")), get("value", EVar("entry")), EVar("acc")),
+          None),
+        None)
     fold(tEntry(elemType), TMap(elemType), f, emptyMap(elemType), list)
   }
 
@@ -152,11 +156,13 @@ private[engine] class CommandTranslation(compiledPackages: ConcurrentCompiledPac
 
           // map
           case (TMap(elemType), ValueMap(map)) =>
-            if (map.isEmpty){
-              ResultDone(ETyApp(EBuiltin(BMapInsert),elemType))
+            if (map.isEmpty) {
+              ResultDone(ETyApp(EBuiltin(BMapInsert), elemType))
             } else {
               ImmArray(map.toList)
-                .traverseU { case (key0, value0) => go(newNesting, elemType, value0).map(entry(key0, _)) }
+                .traverseU {
+                  case (key0, value0) => go(newNesting, elemType, value0).map(entry(key0, _))
+                }
                 .map(l => buildMap(elemType, buildList(tEntry(elemType), l)))
             }
 
