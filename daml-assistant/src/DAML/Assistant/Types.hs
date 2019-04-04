@@ -161,18 +161,19 @@ data SdkCommandInfo = SdkCommandInfo
 
 instance Y.FromJSON SdkCommandInfo where
     parseJSON = Y.withObject "SdkCommandInfo" $ \p ->
-        SdkCommandInfo <$> (p Y..: "name")
-                       <*> (p Y..: "path")
-                       <*> fmap (fromMaybe (SdkCommandArgs [])) (p Y..:? "args")
-                       <*> (p Y..:? "desc")
+        SdkCommandInfo
+            <$> (p Y..: "name")
+            <*> (p Y..: "path")
+            <*> fmap (fromMaybe (SdkCommandArgs [])) (p Y..:? "args")
+            <*> (p Y..:? "desc")
 
 
 data InstallOptions = InstallOptions
-    { iTargetM  :: Maybe RawInstallTarget
+    { iTargetM :: Maybe RawInstallTarget
     , iActivate :: ActivateInstall
-    , iInitial  :: InitialInstall
-    , iForce    :: ForceInstall
-    , iQuiet    :: QuietInstall
+    , iInitial :: InitialInstall
+    , iForce :: ForceInstall
+    , iQuiet :: QuietInstall
     } deriving (Eq, Show)
 
 newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
@@ -184,5 +185,5 @@ newtype InitialInstall = InitialInstall Bool deriving (Eq, Show)
 data InstallTarget
     = InstallChannel SdkChannel
     | InstallVersion SdkVersion
-    | InstallPath    FilePath
+    | InstallPath FilePath
     deriving (Eq, Show)
