@@ -15,12 +15,9 @@ module DAML.Assistant.Command
     ) where
 
 import DAML.Assistant.Types
-import Control.Monad
 import Data.List
 import Data.Maybe
 import Data.Foldable
-import qualified Data.Text as T
-
 import Options.Applicative
 
 getCommand :: [SdkCommandInfo] -> IO Command
@@ -57,49 +54,13 @@ commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
         <> foldMap dispatch hidden
     ]
 
+
 installParser :: Parser InstallOptions
 installParser = InstallOptions
-    <$> optional (argument readInstallTarget (metavar "CHANNEL|VERSION|PATH"))
-    <*> switch (long "force" <> short 'f' <> help "Overwrite existing installation")
-    <*> switch (long "quiet" <> short 'q' <> help "Do not show informative messages")
-    <*> switch (long "activate" <> help "Activate the installed version of daml")
-    <*> switch (long "initial" <> help "Perform initial installation of daml home folder")
-
-readInstallTarget :: ReadM InstallTarget
-readInstallTarget =
-    InstallVersion <$> readVersion
-    <|> InstallChannel <$> readChannel
-    <|> InstallPath <$> readPath
-
-validSdkVersion :: SdkVersion -> Bool
-validSdkVersion v =
-    let (c,sv) = splitVersion v
-    in validSdkChannel c && validSdkSubVersion sv
-
-validSdkChannel :: SdkChannel -> Bool
-validSdkChannel (SdkChannel ch)
-    =  not (T.null ch)
-    && ch == T.strip ch
-    && and ['a' <= c && c <= 'z' | c <- unpack ch]
-
-validSdkSubVersion :: SdkSubVersion -> Bool
-validSdkSubVersion (SdkSubVersion sv)
-    =  not (T.null sv)
-    && sv == T.strip sv
-    && and [ not (T.null p) && and ['0' <= c && c <= '9' | c <- unpack p]
-           | p <- T.splitOn "." sv ]
-
-readVersion :: ReadM SdkVersion
-readVersion = do
-    v <- SdkVersion . pack <$> str
-    guard (validSdkVersion v)
-    pure v
-
-readChannel :: ReadM SdkChannel
-readChannel = do
-    c <- SdkChannel . pack <$> str
-    guard (validSdkChannel c)
-    pure c
-
-readPath :: ReadM FilePath
-readPath = str
+    <$> optional (RawInstallTarget <$> argument str (metavar "CHANNEL|VERSION|PATH"))
+    <*> iflag ActivateInstall "activate" mempty "Activate installed version of daml"
+    <*> iflag InitialInstall "initial" mempty "Create daml home folder as well"
+    <*> iflag ForceInstall "force" (short 'f') "Overwrite existing installation"
+    <*> iflag QuietInstall "quiet" (short 'q') "Quiet verbosity"
+    where
+        iflag p name opts desc = fmap p (switch (long name <> help desc <> opts))

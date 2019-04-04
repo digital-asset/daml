@@ -81,8 +81,9 @@ newtype SdkSubVersion = SdkSubVersion
 
 splitVersion :: SdkVersion -> (SdkChannel, SdkSubVersion)
 splitVersion (SdkVersion v) =
-    let (a,b) = T.breakOn "-" v
-    in (SdkChannel a, SdkSubVersion b)
+    case T.splitOn "-" v of
+        [] -> error "Logic error: empty version name."
+        (ch : rest) -> (SdkChannel ch, SdkSubVersion (T.intercalate "-" rest))
 
 joinVersion :: (SdkChannel, SdkSubVersion) -> SdkVersion
 joinVersion (SdkChannel a, SdkSubVersion "") = SdkVersion a
@@ -167,12 +168,18 @@ instance Y.FromJSON SdkCommandInfo where
 
 
 data InstallOptions = InstallOptions
-    { iTargetM  :: Maybe InstallTarget
-    , iForce    :: Bool -- ^ proceed with install even if sdk directory exists
-    , iQuiet    :: Bool -- ^ be very quiet
-    , iActivate :: Bool -- ^ activate the installed sdk by linking the assistant to .daml/bin
-    , iInitial  :: Bool -- ^ create .daml folder structure before installing
+    { iTargetM  :: Maybe RawInstallTarget
+    , iActivate :: ActivateInstall
+    , iInitial  :: InitialInstall
+    , iForce    :: ForceInstall
+    , iQuiet    :: QuietInstall
     } deriving (Eq, Show)
+
+newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
+newtype ForceInstall = ForceInstall Bool deriving (Eq, Show)
+newtype QuietInstall = QuietInstall Bool deriving (Eq, Show)
+newtype ActivateInstall = ActivateInstall Bool deriving (Eq, Show)
+newtype InitialInstall = InitialInstall Bool deriving (Eq, Show)
 
 data InstallTarget
     = InstallChannel SdkChannel

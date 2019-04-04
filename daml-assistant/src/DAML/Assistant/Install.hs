@@ -67,6 +67,33 @@ knownChannels =
         }
     ]
 
+data InstallEnv = InstallEnv
+    { options :: InstallOptions
+    , targetM :: Maybe InstallTarget
+    , damlPath :: DamlPath
+    }
+
+-- | Perform action unless user has passed --force flag.
+unlessForce :: InstallEnv -> IO () -> IO ()
+unlessForce InstallEnv{..} | ForceInstall b <- iForce options =
+    unless b
+
+-- | Perform action unless user has passed --quiet flag.
+unlessQuiet :: InstallEnv -> IO () -> IO ()
+unlessQuiet InstallEnv{..} | QuietInstall b <- iQuiet options =
+    unless b
+
+-- | Execute action if --initial flag is set.
+whenInitial :: InstallEnv -> IO () -> IO ()
+whenInitial InstallEnv{..} | InitialInstall b <- iInitial options =
+    when b
+
+-- | Execute action if --activate flag is set.
+whenActivate :: InstallEnv -> IO () -> IO ()
+whenActivate InstallEnv{..} | ActivateInstall b <- iActivate options =
+    when b
+
+
 lookupChannel :: SdkChannel -> [SdkChannelInfo] -> Maybe SdkChannelInfo
 lookupChannel ch = find ((== ch) . channelName)
 
@@ -88,6 +115,7 @@ osName = case System.Info.os of
     p -> error ("daml: Unknown operating system " ++ p)
 
 
+
 bintrayVersionURL :: SdkSubVersion -> InstallURL
 bintrayVersionURL (SdkSubVersion subVersion) = InstallURL $ T.concat
     [ "https://bintray.com/api/v1/content"  -- api call
@@ -107,14 +135,14 @@ bintrayLatestURL = bintrayVersionURL (SdkSubVersion "$latest")
 
 -- | Install (extracted) SDK directory to the correct place, after performing
 -- a version sanity check. Then run the sdk install hook if applicable.
-installExtracted :: InstallOptions -> DamlPath -> SdkPath -> IO ()
-installExtracted InstallOptions{..} damlPath sourcePath =
+installExtracted :: InstallEnv -> SdkPath -> IO ()
+installExtracted env@InstallEnv{..} sourcePath =
     wrapErr "Installing extracted SDK tarball." $ do
         sourceConfig <- readSdkConfig sourcePath
         sourceVersion <- fromRightM throwIO (sdkVersionFromSdkConfig sourceConfig)
 
 
-        whenJust iTargetM $ \target ->
+        whenJust targetM $ \target ->
             unless (versionMatchesTarget sourceVersion target) $
                 throwIO (assistantErrorBecause "SDK release version mismatch."
                     ("Expected " <> displayInstallTarget target
@@ -146,7 +174,7 @@ installExtracted InstallOptions{..} damlPath sourcePath =
         requiredIO "Failed to set file mode of installed SDK directory." $
             setSdkFileMode (unwrapSdkPath targetPath)
 
-        when iActivate $ do
+        whenActivate env $ do
             let damlBinarySourcePath = unwrapSdkPath targetPath </> "daml" </> "daml"
                 damlBinaryTargetDir  = unwrapDamlPath damlPath </> "bin"
                 damlBinaryTargetPath = damlBinaryTargetDir </> "daml"
@@ -163,7 +191,7 @@ installExtracted InstallOptions{..} damlPath sourcePath =
             requiredIO ("Failed to link daml binary in " <> pack damlBinaryTargetDir) $
                 createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
 
-            unless iQuiet $ do -- Ask user to add .daml/bin to PATH if it is absent.
+            unlessQuiet env $ do -- Ask user to add .daml/bin to PATH if it is absent.
                 searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
                 when (damlBinaryTargetDir `notElem` searchPaths) $ do
                     putStrLn ("Please add " <> damlBinaryTargetDir <> " to your PATH.")
@@ -215,8 +243,8 @@ fileModeMask = foldl1 unionFileModes
     ]
 
 -- | Copy an extracted SDK release directory and install it.
-copyAndInstall :: InstallOptions -> DamlPath -> FilePath -> IO ()
-copyAndInstall options damlPath sourcePath =
+copyAndInstall :: InstallEnv -> FilePath -> IO ()
+copyAndInstall env sourcePath =
     wrapErr "Copying SDK release directory." $ do
         withSystemTempDirectory "daml-update" $ \tmp -> do
             let copyPath = tmp </> "release"
@@ -229,13 +257,13 @@ copyAndInstall options damlPath sourcePath =
                 , walkOnDirectoryPost = \_ -> pure ()
                 }
 
-            installExtracted options damlPath (SdkPath copyPath)
+            installExtracted env (SdkPath copyPath)
 
 
 -- | Extract a tarGz bytestring and install it.
-extractAndInstall :: InstallOptions -> DamlPath
+extractAndInstall :: InstallEnv
     -> ConduitT () BS.ByteString (ResourceT IO) () -> IO ()
-extractAndInstall options damlPath source =
+extractAndInstall env source =
     wrapErr "Extracting SDK release tarball." $ do
         withSystemTempDirectory "daml-update" $ \tmp -> do
             let extractPath = tmp </> "release"
@@ -244,7 +272,7 @@ extractAndInstall options damlPath source =
                 $ source
                 .| Zlib.ungzip
                 .| Tar.untar (restoreFile extractPath)
-            installExtracted options damlPath (SdkPath extractPath)
+            installExtracted env (SdkPath extractPath)
     where
         restoreFile :: MonadResource m => FilePath -> Tar.FileInfo
             -> ConduitT BS.ByteString Void m ()
@@ -272,9 +300,9 @@ extractAndInstall options damlPath source =
         dropDirectory1 = joinPath . tail . splitPath
 
 -- | Download an sdk tarball and install it.
-httpInstall :: InstallOptions -> DamlPath -> InstallURL -> IO ()
-httpInstall options@InstallOptions{..} damlPath (InstallURL url) = do
-    unless iQuiet $ putStrLn "Downloading SDK release."
+httpInstall :: InstallEnv -> InstallURL -> IO ()
+httpInstall env (InstallURL url) = do
+    unlessQuiet env $ putStrLn "Downloading SDK release."
     request <- parseRequest ("GET " <> unpack url)
     withResponse request $ \response -> do
         when (getResponseStatusCode response /= 200) $
@@ -282,7 +310,7 @@ httpInstall options@InstallOptions{..} damlPath (InstallURL url) = do
                     . pack . show $ getResponseStatus response
         let totalSizeM = readMay . BS.UTF8.toString =<< headMay
                 (getResponseHeader "Content-Length" response)
-        extractAndInstall options damlPath
+        extractAndInstall env
             . maybe id (\s -> (.| observeProgress s)) totalSizeM
             $ getResponseBody response
     where
@@ -295,51 +323,66 @@ httpInstall options@InstallOptions{..} damlPath (InstallURL url) = do
                 pure bs
 
 -- | Install SDK from a path. If the path is a tarball, extract it first.
-pathInstall :: InstallOptions -> DamlPath -> FilePath -> IO ()
-pathInstall options@InstallOptions{..} damlPath sourcePath = do
+pathInstall :: InstallEnv -> FilePath -> IO ()
+pathInstall env sourcePath = do
     isDirectory <- doesDirectoryExist sourcePath
     if isDirectory
         then do
-            unless iQuiet $ putStrLn "Installing SDK release from directory."
-            copyAndInstall options damlPath sourcePath
+            unlessQuiet env $ putStrLn "Installing SDK release from directory."
+            copyAndInstall env sourcePath
         else do
-            unless iQuiet $ putStrLn "Installing SDK release from tarball."
-            extractAndInstall options damlPath (sourceFileBS sourcePath)
+            unlessQuiet env $ putStrLn "Installing SDK release from tarball."
+            extractAndInstall env (sourceFileBS sourcePath)
 
 -- | Set up initial .daml directory.
-initialInstall :: InstallOptions -> DamlPath -> IO ()
-initialInstall InstallOptions{..} (DamlPath damlPath) = do
-    whenM (doesDirectoryExist damlPath) $ do
-        unless iForce $ do
+initialInstall :: InstallEnv -> IO ()
+initialInstall env@InstallEnv{..} = do
+    let path = unwrapDamlPath damlPath
+    whenM (doesDirectoryExist path) $ do
+        unlessForce env $ do
             throwIO $ assistantErrorBecause
-                ("DAML home directory " <> pack damlPath <> " already exists. "
+                ("DAML home directory " <> pack path <> " already exists. "
                     <> "Please remove it or use --force to continue.")
-                ("path = " <> pack damlPath)
-    createDirectoryIfMissing True (damlPath </> "bin")
-    createDirectoryIfMissing True (damlPath </> "sdk")
+                ("path = " <> pack path)
+    createDirectoryIfMissing True (path </> "bin")
+    createDirectoryIfMissing True (path </> "sdk")
     -- For now, we only ensure that the file exists.
-    appendFile (damlPath </> damlConfigName) ""
+    appendFile (path </> damlConfigName) ""
+
+-- | Disambiguate install target.
+decideInstallTarget :: RawInstallTarget -> IO InstallTarget
+decideInstallTarget (RawInstallTarget arg) = do
+    testD <- doesDirectoryExist arg
+    testF <- doesFileExist arg
+    if testD || testF then
+        pure (InstallPath arg)
+    else if SdkChannel (pack arg) `elem` map channelName knownChannels then
+        pure . InstallChannel . SdkChannel $ pack arg
+    else
+        pure . InstallVersion . SdkVersion $ pack arg
 
 -- | Run install command.
 install :: InstallOptions -> DamlPath -> IO ()
 install options damlPath = do
-    when (iInitial options) $ do
-        initialInstall options damlPath
+    targetM <- mapM decideInstallTarget (iTargetM options)
+    let env = InstallEnv {..}
+    whenInitial env $ do
+        initialInstall env
 
-    case iTargetM options of
+    case targetM of
         Nothing ->
-            httpInstall options damlPath defaultInstallURL
+            httpInstall env defaultInstallURL
 
         Just (InstallPath tarballPath) ->
-            pathInstall options damlPath tarballPath
+            pathInstall env tarballPath
 
         Just (InstallChannel channel) -> do
             channelInfo <- required ("Unknown channel " <> unwrapSdkChannel channel) $
                 lookupChannel channel knownChannels
-            httpInstall options damlPath (channelLatestURL channelInfo)
+            httpInstall env (channelLatestURL channelInfo)
 
         Just (InstallVersion version) -> do
             let (channel, subVersion) = splitVersion version
             channelInfo <- required ("Unknown channel " <> unwrapSdkChannel channel) $
                 lookupChannel channel knownChannels
-            httpInstall options damlPath (channelVersionURL channelInfo subVersion)
+            httpInstall env (channelVersionURL channelInfo subVersion)
