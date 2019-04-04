@@ -27,13 +27,13 @@ getCommand sdkCommands =
 
 subcommand :: Text -> Text -> InfoMod Command -> Parser Command -> Mod CommandFields Command
 subcommand name desc infoMod parser =
-    command (unpack name) (info (parser <**> helper) (infoMod <> progDesc (unpack desc)))
+    command (unpack name) (info parser (infoMod <> progDesc (unpack desc)))
 
 commandParser :: [SdkCommandInfo] -> Parser Command
 commandParser sdkCommands = asum
     [ subparser . fold $ -- visible commands
-        [ subcommand "version" "Display SDK version" mempty versionCommandParser
-        , subcommand "install" "Install SDK version" mempty installCommandParser ] ++
+        [ subcommand "version" "Display SDK version" mempty (versionCommandParser <**> helper)
+        , subcommand "install" "Install SDK version" mempty (installCommandParser <**> helper) ] ++
         [ subcommand name desc forwardOptions (sdkCommandParser cmd)
         | cmd <- sdkCommands
         , SdkCommandName name <- pure (sdkCommandName cmd)
