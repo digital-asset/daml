@@ -2,13 +2,14 @@ steps:
   - checkout: self
     fetchDepth: 2 # speed up checkout from 30sec to 7sec
 
-  - bash: ci/install-nix.sh
-    displayName: 'Install Nix'
+  - bash: ci/dev-env-install.sh
+    displayName: 'Build/Install the Developer Environment'
 
   - bash: |
       source dev-env/lib/ensure-nix
-      ci/build-dev-env.py 2>&1
-    displayName: 'Build the dev-env'
+      ci/dev-env-push.py
+    displayName: 'Push Developer Environment build results'
+    condition: eq(variables['System.PullRequest.IsFork'], 'False')
     env:
       # to upload to the Nix cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
@@ -17,6 +18,7 @@ steps:
   - bash: ci/build.sh
     displayName: 'Build'
     env:
+      IS_FORK: variables['System.PullRequest.IsFork']
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
@@ -28,6 +30,7 @@ steps:
 
   - bash: ci/release.sh
     displayName: 'Release'
+    condition: eq(variables['System.PullRequest.IsFork'], 'False')
     env:
       # to connect to bintray
       JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)

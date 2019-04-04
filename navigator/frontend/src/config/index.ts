@@ -10,8 +10,9 @@ import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import * as Link from '../components/Link';
 import * as Routes from '../routes';
-import * as V1 from './api/v1';
-import { load } from './api/v1-load';
+import { load as load_v1 } from './api/v1-load';
+import * as V2 from './api/v2';
+import { load as load_v2 } from './api/v2-load';
 import { Either, left, right } from './either';
 import { catchToError } from './utils';
 
@@ -30,23 +31,23 @@ export const schema = 'navigator-config';
 
 const latestVersion = {
   schema,
-  major: 1,
+  major: 2,
   minor: 0,
 }
 
 export const configFileAPI: string = configAPISource as string;
 
 export interface ConfigFunctions {
-  theme(userId: string, party: string, role: string): V1.Theme;
-  customViews(userId: string, party: string, role: string): {[id: string]: V1.CustomView};
+  theme(userId: string, party: string, role: string): V2.Theme;
+  customViews(userId: string, party: string, role: string): {[id: string]: V2.CustomView};
 }
 
 export interface ConfigType {
-  theme: V1.Theme;
-  customViews: {[id: string]: V1.CustomView};
+  theme: V2.Theme;
+  customViews: {[id: string]: V2.CustomView};
 }
 
-export { V1 as ConfigInterface }
+export { V2 as ConfigInterface }
 
 export type LoadConfigResult = Either<Error, ConfigFunctions>;
 export type EvalConfigResult = Either<Error, ConfigType>;
@@ -109,8 +110,10 @@ export function loadConfig(source: string): LoadConfigResult {
 
     // Load content depending on version
     if (major === 1) {
-      return right(load(configExports, major, minor));
-    } else {
+      return right(load_v1(configExports, major, minor));
+    } else if (major === 2) {
+      return right(load_v2(configExports, major, minor));
+    }  else {
       return left(new Error(
         `Don't know how to load version ${major}.${minor}.
         Latest known version is ${latestVersion.major}.${latestVersion.minor}.`));

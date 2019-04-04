@@ -46,7 +46,7 @@ go_library(
     srcs = [
         "protoc-gen-scala-akka.go",
     ],
-    importpath = "github.com/DACH-NY/daml/scala/protoc-gen-scala-akka",
+    importpath = "github.com/digital-asset/daml/scala/protoc-gen-scala-akka",
     visibility = ["//visibility:public"],
 )
 

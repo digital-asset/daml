@@ -1,4 +1,4 @@
-module github.com/DACH-NY/daml/nix/tools/nix-store-gcs-proxy
+module github.com/digital-asset/daml/nix/tools/nix-store-gcs-proxy
 
 require (
 	cloud.google.com/go v0.37.2

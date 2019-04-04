@@ -1,9 +1,11 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import { DamlLfValue } from '@da/ui-core';
+
 export const version = {
   schema: 'navigator-config',
-  major: 1,
+  major: 2,
   minor: 0,
 };
 
@@ -20,7 +22,7 @@ export const customViews = (userId, party, role) => ({
         },
         {
           field: "template.id",
-          value: "Iou.Iou",
+          value: "Iou:Iou",
         }
       ],
       search: "",
@@ -45,11 +47,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "owner",
+        key: "argument.owner",
         title: "Owner",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.owner
+          value: DamlLfValue.toJSON(rowData.argument).owner
         }),
         sortable: true,
         width: 80,
@@ -57,11 +59,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "ccy",
+        key: "argument.currency",
         title: "Currency",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.currency
+          value: DamlLfValue.toJSON(rowData.argument).currency
         }),
         sortable: true,
         width: 80,
@@ -69,11 +71,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "amount",
+        key: "argument.amount",
         title: "Amount",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.amount
+          value: DamlLfValue.toJSON(rowData.argument).amount
         }),
         sortable: true,
         width: 80,
@@ -94,7 +96,7 @@ export const customViews = (userId, party, role) => ({
         },
         {
           field: "template.id",
-          value: "Iou.Iou",
+          value: "Iou:Iou",
         }
       ],
       search: "",
@@ -119,11 +121,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "issuer",
+        key: "argument.issuer",
         title: "Issuer",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.issuer
+          value: DamlLfValue.toJSON(rowData.argument).issuer
         }),
         sortable: true,
         width: 80,
@@ -131,11 +133,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "ccy",
+        key: "argument.currency",
         title: "Currency",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.currency
+          value: DamlLfValue.toJSON(rowData.argument).currency
         }),
         sortable: true,
         width: 80,
@@ -143,11 +145,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "amount",
+        key: "argument.amount",
         title: "Amount",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.amount
+          value: DamlLfValue.toJSON(rowData.argument).amount
         }),
         sortable: true,
         width: 80,
@@ -164,7 +166,7 @@ export const customViews = (userId, party, role) => ({
       filter: [
         {
           field: "template.id",
-          value: "Iou.IouTransfer",
+          value: "Iou:IouTransfer",
         }
       ],
       search: "",
@@ -189,11 +191,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "sender",
+        key: "argument.iou.owner",
         title: "Sender",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.iou.owner
+          value: DamlLfValue.toJSON(rowData.argument).iou.owner
         }),
         sortable: true,
         width: 80,
@@ -201,11 +203,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "receiver",
+        key: "argument.iou.newOwner",
         title: "Receiver",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.newOwner
+          value: DamlLfValue.toJSON(rowData.argument).newOwner
         }),
         sortable: true,
         width: 80,
@@ -213,11 +215,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "issuer",
+        key: "argument.iou.issuer",
         title: "Issuer",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.iou.issuer
+          value: DamlLfValue.toJSON(rowData.argument).iou.issuer
         }),
         sortable: true,
         width: 80,
@@ -225,11 +227,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "ccy",
+        key: "argument.iou.currency",
         title: "Currency",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.iou.currency
+          value: DamlLfValue.toJSON(rowData.argument).iou.currency
         }),
         sortable: true,
         width: 80,
@@ -237,11 +239,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "amount",
+        key: "argument.iou.amount",
         title: "Amount",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.iou.amount
+          value: DamlLfValue.toJSON(rowData.argument).iou.amount
         }),
         sortable: true,
         width: 80,
@@ -283,11 +285,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "buyer",
+        key: "argument.buyer",
         title: "Buyer",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.buyer
+          value: DamlLfValue.toJSON(rowData.argument).buyer
         }),
         sortable: true,
         width: 80,
@@ -295,11 +297,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "seller",
+        key: "argument.seller",
         title: "Seller",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.seller
+          value: DamlLfValue.toJSON(rowData.argument).seller
         }),
         sortable: true,
         width: 80,
@@ -307,11 +309,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "baseIssuer",
+        key: "argument.baseIssuer",
         title: "Base Issuer",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.baseIssuer
+          value: DamlLfValue.toJSON(rowData.argument).baseIssuer
         }),
         sortable: true,
         width: 80,
@@ -319,11 +321,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "baseccy",
+        key: "argument.baseCurrency",
         title: "Base Currency",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.baseCurrency
+          value: DamlLfValue.toJSON(rowData.argument).baseCurrency
         }),
         sortable: true,
         width: 80,
@@ -331,11 +333,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "baseamount",
+        key: "argument.baseAmount",
         title: "Base Amount",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.baseAmount
+          value: DamlLfValue.toJSON(rowData.argument).baseAmount
         }),
         sortable: true,
         width: 80,
@@ -343,11 +345,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "quoteIssuer",
+        key: "argument.quoteIssuer",
         title: "Quote Issuer",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.quoteIssuer
+          value: DamlLfValue.toJSON(rowData.argument).quoteIssuer
         }),
         sortable: true,
         width: 80,
@@ -355,11 +357,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "quoteccy",
+        key: "argument.quoteCurrency",
         title: "Quote Currency",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.quoteCurrency
+          value: DamlLfValue.toJSON(rowData.argument).quoteCurrency
         }),
         sortable: true,
         width: 80,
@@ -367,11 +369,11 @@ export const customViews = (userId, party, role) => ({
         alignment: "left"
       },
       {
-        key: "quoteamount",
+        key: "argument.quoteAmount",
         title: "Quote Amount",
         createCell: ({rowData}) => ({
           type: "text",
-          value: rowData.argument.quoteAmount
+          value: DamlLfValue.toJSON(rowData.argument).quoteAmount
         }),
         sortable: true,
         width: 80,

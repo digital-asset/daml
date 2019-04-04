@@ -23,4 +23,4 @@ mkdir $BUILD_DIR
 bazel build //docs:docs
 tar -zxf ../../bazel-genfiles/docs/html.tar.gz -C $BUILD_DIR
 cd $BUILD_DIR/html
-python -m SimpleHTTPServer 8000
+python -m http.server 8000
