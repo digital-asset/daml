@@ -3,6 +3,6 @@
 
 package com.digitalasset.platform.sandbox
 
-class DeprecatedScenarioLoadingIT extends ScenarioLoadingITBase {
-  override def scenario: Option[String] = Some("Test.testScenario")
+class ScenarioLoadingITNewIdentifier extends ScenarioLoadingITBase {
+  override def scenario: Option[String] = Some("Test:testScenario")
 }
