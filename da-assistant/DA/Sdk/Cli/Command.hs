@@ -114,6 +114,7 @@ actionParser = subparser
   <> subcommand "stop" (Normal . Stop <$> servicesParser) "Stop a given service"
   <> subcommand "feedback" (pure $ Normal SendFeedback) "Send us feedback!"
   <> subcommand "studio" (pure $ Normal Studio) "Start DAML Studio in the current project"
+  <> subcommand "migrate" (pure $ Normal Migrate) "Migrate project config to new daml-assistant"
   <> subcommand "navigator" (pure $ Normal Navigator) "Start Navigator (also runs Sandbox if needed)"
   <> subcommand "sandbox" (pure $ Normal Sandbox) "Start Sandbox process in current project"
   <> subcommand "compile" (pure $ Normal Compile) "Compile DAML project into a DAR package"

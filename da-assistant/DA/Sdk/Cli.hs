@@ -21,7 +21,7 @@ import           DA.Sdk.Cli.Conf         (Conf (..), NameSpace(..),
                                           requireConf, prettyConfError, projectSDKVersion)
 import           DA.Sdk.Cli.Conf.Migrate (migrateConfigFile)
 import           DA.Sdk.Cli.Job          (Job (..), JobException, UserMessage(..), runJob, runSandbox,
-                                          runCompile, runNavigator, start, stop, restart)
+                                          runCompile, runNavigator, start, stop, restart, copyDetailsFromOldConf)
 import           DA.Sdk.Cli.Monad
 import qualified DA.Sdk.Cli.Message      as M
 import qualified DA.Sdk.Cli.Management      as Management
@@ -60,6 +60,8 @@ import qualified Data.Text.Extended as T
 import           DA.Sdk.Cli.Package
 import           Control.Monad.Extra (whenM)
 import DA.Sdk.Cli.Monad.Locations
+import qualified Data.Text as DT
+import Data.Either.Combinators
 
 main :: IO ()
 main = runAssistant `catches`
@@ -289,6 +291,9 @@ handle env configFile action = do
             deprecated $ restart svc
         Studio                 ->
             deprecated $ runJob (JobStudio ".")
+        Migrate -> do
+            res <- liftIO $ copyDetailsFromOldConf proj
+            whenLeft res $ \ex -> throwCliError (CliTextError (DT.pack $ "Could no copy over the details from da.yml" ++ show ex))
         Navigator              ->
             deprecated runNavigator
         Sandbox                ->
