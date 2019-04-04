@@ -52,19 +52,19 @@ can be added to an existing SDK project by running
 a wide range of programming languages, the DAML SDK provides
 pre-compiled client bindings for the Ledger API for Java. If
 you are using a different programming language, please see the
-`Quickstart <https://grpc.io/docs/quickstart/>`__
-and `Tutorials <https://grpc.io/docs/tutorials/>`__
+`gRPC quickstart <https://grpc.io/docs/quickstart/>`__
+and `gRPC tutorials <https://grpc.io/docs/tutorials/>`__
 section in the official gRPC documentation.
 
 Example project - Ping Pong
 ===========================
 
-The SDK provides an example project demonstrating the use of the Ledger API.
+The SDK provides an example project demonstrating the use of the Ledger API with gRPC.
 Read :ref:`setup-maven-project` to configure your machine to use the examples.
 
-To get the example project:
+To get the example project, ``PingPongGrpc``:
 
-1. Clone the `example project from GitHub <https://github.com/digital-asset/ex-java-bindings>`__. 
+1. Clone the `repository from GitHub <https://github.com/digital-asset/ex-java-bindings>`__. 
 
 2. Follow the `setup instructions in the README <https://github.com/digital-asset/ex-java-bindings/blob/master/README.rst#setting-up-the-example-projects>`__. Use ``examples.pingpong.grpc.PingPongGrpcMain`` as the main class.
 
