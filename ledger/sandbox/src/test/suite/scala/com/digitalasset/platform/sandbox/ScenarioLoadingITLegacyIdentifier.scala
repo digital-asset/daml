@@ -3,6 +3,6 @@
 
 package com.digitalasset.platform.sandbox
 
-class NewScenarioLoadingIT extends ScenarioLoadingITBase {
-  override def scenario: Option[String] = Some("Test:testScenario")
+class ScenarioLoadingITLegacyIdentifier extends ScenarioLoadingITBase {
+  override def scenario: Option[String] = Some("Test.testScenario")
 }
