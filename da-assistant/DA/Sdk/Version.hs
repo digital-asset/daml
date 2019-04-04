@@ -77,7 +77,6 @@ showSemVersion (SemVersion major minor patch mbPreRelease) =
         Nothing ->
             format (d%"."%d%"."%d) major minor patch
 
--- | Parse a semantic version.
 -- | Format a semantic version according to spec compatable for new daml-assitant.
 showSemVersionCompatable :: SemVersion -> T.Text
 showSemVersionCompatable (SemVersion _ minor patch mbPreRelease) =
@@ -87,6 +86,7 @@ showSemVersionCompatable (SemVersion _ minor patch mbPreRelease) =
         Nothing ->
             format (s%"."%d%"."%d) "nightly-100" minor patch
 
+-- | Parse a semantic version.
 -- Note: Versions of the form "0.8" will get parsed as version "0.8.0".
 parseSemVersion :: T.Text -> Maybe SemVersion
 parseSemVersion versionText = case parseOnly semVersionParser versionText of
