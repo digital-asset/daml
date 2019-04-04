@@ -20,7 +20,7 @@ If you have questions about how to use DAML or how to build DAML-based solutions
 We warmly welcome [contributions](./CONTRIBUTING.md).
 
 ### Cloning this repository
-`git clone git@github.com:DACH-NY/daml.git`.
+`git clone git@github.com:digital-asset/daml.git`.
 
 ### Setting up the DA Development Environment (also known as `dev-env`)
 dev-env is used to provide dependencies required during build phase, like java,
@@ -47,7 +47,7 @@ You have now built the code and run the tests. Rebuilding the code after a chang
 
 4. Run the tests: `bazel test //...`
 
-If you are looking for ideas on how to contribute, please browse our [issues](https://github.com/DACH-NY/daml/issues).
+If you are looking for ideas on how to contribute, please browse our [issues](https://github.com/digital-asset/daml/issues).
 
 ### Caching: build speed and disk space considerations
 
