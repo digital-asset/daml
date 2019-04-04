@@ -26,7 +26,7 @@ eval "$(dev-env/bin/dade assist)"
 
 step "configuring bazel"
 
-# setups the shared remote cache if the branch is not a fork
+# sets up write access to the shared remote cache if the branch is not a fork
 if [[ "${IS_FORK}" = False ]]; then
   step "configuring write access to the remote cache"
   GOOGLE_APPLICATION_CREDENTIALS=$(mktemp)
