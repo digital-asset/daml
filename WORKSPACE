@@ -390,6 +390,7 @@ hazel_repositories(
         , ("js-dgtable", {"version": "0.5.2", "sha256": "e28dd65bee8083b17210134e22e01c6349dc33c3b7bd17705973cd014e9f20ac"})
         , ("shake", {"version": "0.17.8", "sha256": "ade4162f7540f044f0446981120800076712d1f98d30c5b5344c0f7828ec49a2"})
         , ("filepattern", {"version": "0.1.1", "sha256": "f7fc5bdcfef0d43a793a3c64e7c0fd3b1d35eea97a37f0e69d6612ab255c9b4b"})
+        , ("terminal-progress-bar", {"version": "0.4.0.1", "sha256": "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277"})
         ]
   ),
   exclude_packages = [
