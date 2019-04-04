@@ -576,7 +576,7 @@ copyDetailsFromOldConf mbProject = do
     Just proj -> do
       let sdkVersion = V.showSemVersionCompatable $ projectSDKVersion proj
       let versionObject = Y.object [("sdk-version", Y.String sdkVersion)]
-      try $ liftIO (Y.encodeFileWith Y.defaultEncodeOptions "daml.yaml"  versionObject )
+      try $ liftIO (Y.encodeFileWith Y.defaultEncodeOptions "daml.yaml" versionObject)
     Nothing -> return $ Left (userError "Command must be run from within a project")
 
 -- Find the next free TCP port
