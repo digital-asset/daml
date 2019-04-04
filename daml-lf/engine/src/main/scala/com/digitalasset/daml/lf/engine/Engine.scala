@@ -196,11 +196,11 @@ final class Engine {
     // but the input has non-empty location, so when not given both locations we won't compare
     // this is not part of the generic utilities because it only valid in this context
     def nodeEqualityWithoutLocation(
-        n1: GenNode[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]],
-        n2: GenNode[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]]) = {
+        n1: GenNode.WithTxValue[Tx.NodeId, AbsoluteContractId],
+        n2: GenNode.WithTxValue[Tx.NodeId, AbsoluteContractId]) = {
 
-      def removeLocation(n: GenNode[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]])
-        : GenNode[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]] = {
+      def removeLocation(n: GenNode.WithTxValue[Tx.NodeId, AbsoluteContractId])
+        : GenNode.WithTxValue[Tx.NodeId, AbsoluteContractId] = {
         n match {
           case c: NodeCreate[_, _] => c.copy(optLocation = None)
           case e: NodeExercises[_, _, _] => e.copy(optLocation = None)
@@ -257,7 +257,7 @@ final class Engine {
 
   // Translate a GenNode into an expression re-interpretable by the interpreter
   private[this] def translateNode[Cid <: ContractId](commandTranslation: CommandTranslation)(
-      node: GenNode[Transaction.NodeId, Cid, Transaction.Value[Cid]]): Result[(Type, Expr)] = {
+      node: GenNode.WithTxValue[Transaction.NodeId, Cid]): Result[(Type, Expr)] = {
 
     node match {
       case NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
