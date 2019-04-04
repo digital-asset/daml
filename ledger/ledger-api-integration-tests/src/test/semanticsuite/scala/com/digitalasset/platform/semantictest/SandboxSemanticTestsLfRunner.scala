@@ -29,7 +29,7 @@ class SandboxSemanticTestsLfRunner
 
   // a blacklist of tests that are currently failing
   val knownFailures = Set(
-    "Test:test_divulgence_of_token" // FIXME https://github.com/DACH-NY/daml/issues/1323
+    "Test:test_divulgence_of_token" // FIXME https://github.com/digital-asset/daml/issues/157
   )
 
   override protected lazy val config: Config = Config.default
