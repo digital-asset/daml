@@ -855,7 +855,7 @@ object Ledger {
         tr.nodes
           .getOrElse(nodeId, crash(s"enrichNode - precondition violated: node $nodeId not present"))
       node match {
-        case create: NodeCreate[ContractId, Transaction.Value[ContractId]] =>
+        case create: NodeCreate.WithTxValue[ContractId] =>
           // ------------------------------------------------------------------
           // witnesses            : stakeholders union witnesses of parent exercise
           //                        node
@@ -898,7 +898,7 @@ object Ledger {
               authorization = authorization)
           else state1
 
-        case ex: NodeExercises[Transaction.NodeId, ContractId, Transaction.Value[ContractId]] =>
+        case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
           // ------------------------------------------------------------------
           // witnesses:
           //  | default: stakeholders(targetId) union witnesses of parent exercise node
