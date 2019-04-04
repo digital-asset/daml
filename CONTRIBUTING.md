@@ -2,7 +2,7 @@
 
 Welcome! This page gives a high-level overview of how to contribute to the development of DAML.
 
-There are many ways you can contribute beyond coding. For example, you can report problems, report and clarify issues, and write documentation. If you're completely new to open source development, the [Open Source Guides](https://opensource.guide) is a great place to start.
+There are many ways you can contribute beyond coding. For example, you can report problems, clarify [issues](https://github.com/digital-asset/daml/issues), and write documentation. If you're completely new to open source development, the [Open Source Guides](https://opensource.guide) is a great place to start.
 
 ## Working on the codebase
 
