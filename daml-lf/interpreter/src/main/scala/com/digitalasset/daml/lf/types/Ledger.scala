@@ -97,7 +97,7 @@ object Ledger {
     * words, all AbsoluteContractIds are also NodeIds (but not the
     * reverse, node ids might be exercises)
     */
-  type Node = GenNode[NodeId, AbsoluteContractId, Transaction.Value[AbsoluteContractId]]
+  type Node = GenNode.WithTxValue[NodeId, AbsoluteContractId]
 
   /** Feature flags that apply across an entire ledger.
     * They must be the same across all packages in a single ledger. */
@@ -429,7 +429,7 @@ object Ledger {
         case None => LookupContractNotFound(coid)
         case Some(info) =>
           info.node match {
-            case create: NodeCreate[AbsoluteContractId, Transaction.Value[AbsoluteContractId]] =>
+            case create: NodeCreate.WithTxValue[AbsoluteContractId] =>
               if (info.effectiveAt.compareTo(effectiveAt) > 0)
                 LookupContractNotEffective(coid, create.coinst.template, info.effectiveAt)
               else if (info.consumedBy.nonEmpty)
@@ -445,11 +445,7 @@ object Ledger {
               else
                 LookupOk(coid, create.coinst)
 
-            case _: NodeExercises[_, _, _] =>
-              LookupContractNotFound(coid)
-            case _: NodeFetch[_] =>
-              LookupContractNotFound(coid)
-            case _: NodeLookupByKey[_, _] =>
+            case _: NodeExercises[_, _, _] | _: NodeFetch[_] | _: NodeLookupByKey[_, _] =>
               LookupContractNotFound(coid)
           }
       }
