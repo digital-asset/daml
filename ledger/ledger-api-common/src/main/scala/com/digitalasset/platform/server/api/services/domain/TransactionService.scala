@@ -26,7 +26,7 @@ trait TransactionService {
   def getTransactionTrees(
       req: GetTransactionTreesRequest): Source[WithOffset[VisibleTransaction], NotUsed]
 
-  def getLedgerEnd(): Future[LedgerOffset.Absolute]
+  def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute]
 
   def offsetOrdering: Ordering[LedgerOffset.Absolute]
 

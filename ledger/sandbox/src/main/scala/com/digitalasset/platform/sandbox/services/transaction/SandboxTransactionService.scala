@@ -167,7 +167,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       lookUpByTransactionId(request.transactionId, request.requestingParties, le, true))
   }
 
-  def getLedgerEnd(): Future[LedgerOffset.Absolute] =
+  def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     ledgerBackend.getCurrentLedgerEnd.map(LedgerOffset.Absolute)
 
   override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
