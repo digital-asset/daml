@@ -52,51 +52,12 @@ can be added to an existing SDK project by running
 a wide range of programming languages, the DAML SDK provides
 pre-compiled client bindings for the Ledger API for Java. If
 you are using a different programming language, please see the
-`Quickstart <https://grpc.io/docs/quickstart/>`__
-and `Tutorials <https://grpc.io/docs/tutorials/>`__
+`gRPC Quickstart <https://grpc.io/docs/quickstart/>`__
+and `gRPC Tutorials <https://grpc.io/docs/tutorials/>`__
 section in the official gRPC documentation.
 
-Example project - Ping Pong
-===========================
-
-The SDK provides an example project demonstrating the use of the Ledger API.
-Read :ref:`setup-maven-project` to configure your machine to use the examples.
-
-1. Start a new project with ``da new example-ping-pong-grpc-java ping-pong-java``. This creates a new SDK project in the folder ``./ping-pong-java`` that is comprised of a DAML model in ``daml/PingPong.daml`` and Java source code.
-2. Run ``mvn compile`` to build the Java code with `Maven <https://maven.apache.org/>`__.
-3. Run ``da sandbox`` to start the sandbox.
-4. Run ``mvn exec:java`` to run the application.
-
-The DAML model contains two contract templates ``Ping`` and ``Pong`` to showcase how two parties
-can interact via the ledger. Party ``Alice`` creates a ``Ping`` contract
-with Party ``Bob`` as the ``receiver``, who will exercise the ``RespondPong`` choice on that contract.
-The execution of the choice results in a ``Pong`` contract being created with ``Alice`` as the ``receiver``,
-who can choose to exercise the ``RespondPing`` choice on that contract. This creates another ``Ping`` contract,
-effectively starting a new ping pong cycle, until this has happened a number of times, as defined within
-the DAML model.
-
-The entry point for the Java code is the main class ``src/main/java/examples/pingpong/PingPongMain.java``.
-It shows how to connect to and interact with the DML Ledger via the gRPC API.
-The code is augmented with comments that describe the various parts of the code.
-Each party will connect to the ledger, subscribe to the transaction stream, and send initial ``Ping`` contracts.
-The application prints statements similar to the ones shown below.
-
-.. code-block:: text
-
-    Bob is exercising RespondPong on #1:0 in workflow Ping-Alice-1 at count 0
-    Alice is exercising RespondPing on #344:1 in workflow Ping-Alice-7 at count 9
-
-The first line shows that ``Bob`` is exercising the ``RespondPong`` choice on the contract
-with ID ``#1:0`` for the workflow ``Ping-Alice-1``. Count ``0`` means that this is the
-first choice after the initial ``Ping`` contract. The workflow ID  ``Ping-Alice-1`` conveys
-that this is the workflow triggered by the second initial ``Ping`` contract that was created by ``Alice``.
-The second line is analoguous to the first one.
-
-Note that the Ping Pong example subscribes to transactions for a single party, as different parties typically live on
-different participant nodes. However, if you have multiple parties registered on the same node, or are running an
-application against the Sandbox, you can subscribe to transactions for multiple parties in a single subscription by putting
-multiple entries into the ``filters_by_party`` field of the ``TransactionFilter`` message. Subscribing to transactions for an unknown
-party will result in an error.
+For an example on how to use the Ledger API with the :ref:`Java Bindings <bindings-java-tutorial>`,
+please see the :ref:`DAML Quickstart <quickstart>`.
 
 Service layers
 **************
