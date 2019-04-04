@@ -25,8 +25,9 @@ eval "$(dev-env/bin/dade assist)"
 
 step "configuring bazel"
 
+# FIXME(zimbatm): handle secrets on forks
 # If GOOGLE_APPLICATION_CREDENTIALS were provided, access the bucket directly and upload
-if [[ -e "${GOOGLE_APPLICATION_CREDENTIALS_CONTENT:-}" ]];then
+if false; then # [[ -n "${GOOGLE_APPLICATION_CREDENTIALS_CONTENT:-}" ]]; then
   GOOGLE_APPLICATION_CREDENTIALS=$(mktemp)
   echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > "$GOOGLE_APPLICATION_CREDENTIALS"
   unset GOOGLE_APPLICATION_CREDENTIALS_CONTENT

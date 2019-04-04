@@ -43,8 +43,8 @@ def log_cmd(cmd):
 # doesn't exist.
 def get_secret(workdir, key):
     value = os.environ.pop(key, None)
-    if value is None:
-        log("%s is empty, skipping uploads" % key)
+    if value is None or value is ("$(%s)" % key):
+        log("%s is unset, skipping uploads" % key)
         sys.exit()
 
     filepath = os.path.join(workdir, key)
@@ -93,6 +93,9 @@ def main():
         log(path)
 
     workdir = make_workdir()
+
+    # FIXME(zimbatm): figure out secret handling with forks
+    return
 
     nix_secret_key = get_secret(workdir, "NIX_SECRET_KEY_CONTENT")
     google_creds = get_secret(workdir, "GOOGLE_APPLICATION_CREDENTIALS_CONTENT")
