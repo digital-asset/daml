@@ -1,0 +1,52 @@
+daml 1.2
+module DisjunctionChoices where
+
+template FeatureAssignment with
+    employee: Party
+    sponsor: Party
+    description: Text
+  where
+    signatory [employee, sponsor]
+
+template FeatureSuggestion with
+    employee: Party
+    founders: [Party]
+    description: Text
+  where
+    signatory employee
+    observer founders
+
+    choice AcceptFeature: ContractId FeatureAssignment with
+        sponsor: Party
+      controller sponsor
+      do
+        assert $ elem sponsor founders
+        create FeatureAssignment with employee, description, sponsor
+
+    controller employee can
+      Revoke: ()
+        do pure ()
+
+
+test = scenario do
+    drWho <- getParty "Dr Who"
+    founders@[eric, shaul, yuval] <- mapA getParty ["Eric", "Shaul", "Yuval"]
+
+    suggestion <- submit drWho do
+        create FeatureSuggestion with
+            employee = drWho
+            description = "Implement Splitwise on DaaS"
+            founders
+
+    -- Despite being the CEO, Yuval can't exercise on Shaul's behalf
+    -- due to a missing authorization.
+    submitMustFail yuval do
+        exercise suggestion AcceptFeature with sponsor = shaul
+
+    -- Dr. Who can't make themselves the sponsor of their own suggestion
+    -- because they are not a founder.
+    submitMustFail drWho do
+        exercise suggestion AcceptFeature with sponsor = drWho
+
+    submit eric do
+        exercise suggestion AcceptFeature with sponsor = eric
