@@ -47,12 +47,12 @@ We're working on Windows support (for both end users and developers), but it's n
 
 Run `bazel build //...`
 
-This builds the code and runs the tests, and will likely take an hour or more.
+This builds the code, and will likely take an hour or more.
 
 Now you've built, rebuilding the code after a change will be much faster because Bazel caches
 unchanged build artefacts. To read more about Bazel and how to use it, see [the Bazel site](https://bazel.build).
 
-To just run the tests, run `bazel test //...`
+To run the tests, run `bazel test //...`
 
 ### 4. Contribute!
 
