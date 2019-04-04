@@ -10,6 +10,8 @@ exports_files(
       "haskell-arx.patch",
       "haskell-win-sys-includes.patch",
       "hackage_mirror.patch",
+      "haskell-ld-library-path.patch",
+      "haskell-win-so-name.patch"
     ],
     visibility = ["//bazel_tools/docs:__pkg__"]
 )
