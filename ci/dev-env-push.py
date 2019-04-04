@@ -43,7 +43,7 @@ def log_cmd(cmd):
 # doesn't exist.
 def get_secret(workdir, key):
     value = os.environ.pop(key, None)
-    if value is None or value == ("$(%s)" % key):
+    if value is None or value == f'$({key})':
         log("could not find secret %s" % key)
         sys.exit(1)
 
