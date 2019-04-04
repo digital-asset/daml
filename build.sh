@@ -7,9 +7,7 @@ set -euxo pipefail
 
 execution_log_postfix=${1:-}
 
-locale -a
 export LC_ALL=en_US.UTF-8
-env
 
 # check for scala code style
 scalafmt_ret=0
