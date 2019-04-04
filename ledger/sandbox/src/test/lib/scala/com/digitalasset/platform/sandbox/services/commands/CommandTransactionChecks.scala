@@ -87,6 +87,8 @@ class CommandTransactionChecks(
   private val operator = "operator"
   private val receiver = "receiver"
   private val giver = "giver"
+  private val owner = "owner"
+  private val delegate = "delegate"
   private val observers = List("observer1", "observer2")
 
   private def newCommandClient(applicationId: String = M.applicationId) =
@@ -410,6 +412,40 @@ class CommandTransactionChecks(
         } yield {
           assertion
         })(identity)
+      }
+
+      "reject fetching an undisclosed contract" in {
+        def pf(label: String, party: String) =
+          RecordField(label, Some(Value(Value.Sum.Party(party))))
+        val delegatedCreate = simpleCreate(
+          cid("TDVl3"),
+          owner,
+          templateIds.delegated,
+          Record(Some(templateIds.delegated), Seq(pf("owner", owner))))
+        val delegationCreate = simpleCreate(
+          cid("TDVl4"),
+          owner,
+          templateIds.delegation,
+          Record(Some(templateIds.delegation), Seq(pf("owner", owner), pf("delegate", delegate))))
+        val exerciseOfFetch = for {
+          delegatedEv <- delegatedCreate
+          delegationEv <- delegationCreate
+          fetchArg = Record(
+            None,
+            Seq(RecordField("", Some(Value(Value.Sum.ContractId(delegatedEv.contractId))))))
+          fetchResult <- failingExercise(
+            cid("TDVl5"),
+            submitter = delegate,
+            template = templateIds.delegation,
+            contractId = delegationEv.contractId,
+            choice = "FetchDelegated",
+            arg = Value(Value.Sum.Record(fetchArg)),
+            // TODO SC proper error spec here
+            Code.UNKNOWN,
+            pattern = "foobar"
+          )
+        } yield fetchResult
+        whenReady(exerciseOfFetch)(identity)
       }
 
       "DAML engine returns Unit as argument to Nothing" in {

@@ -96,6 +96,8 @@ class TestTemplateIdentifiers(testPackageId: String) {
       "Test.TextKeyOperations",
       moduleName = "Test",
       entityName = "TextKeyOperations")
+  val delegated = Identifier(testPackageId, moduleName = "Test", entityName = "Delegated")
+  val delegation = Identifier(testPackageId, moduleName = "Test", entityName = "Delegation")
   val allTemplates =
     List(
       dummy,
