@@ -9,7 +9,7 @@ set -euxo pipefail
 PATH="${PATH}:/usr/sbin" #lsof is not on the PATH by default
 
 WORKING_DIR=$(pwd)
-PORT=8080
+PORT=6865
 
 function get_pid_listening_on_port () {
   echo $(lsof -i:${PORT} -t)

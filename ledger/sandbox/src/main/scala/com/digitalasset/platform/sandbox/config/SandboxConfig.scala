@@ -41,10 +41,13 @@ final case class CommandConfiguration(
     commandTtl: FiniteDuration)
 
 object SandboxConfig {
+
+  val DefaultPort = 6865
+
   def default: SandboxConfig = {
     SandboxConfig(
       None,
-      6865,
+      DefaultPort,
       DamlPackageContainer(Nil),
       TimeProviderType.Static,
       TimeModel.reasonableDefault,

@@ -38,6 +38,6 @@ RUN set -eux; \
     chmod u+x $START
 
 EXPOSE 7500
-EXPOSE 7600
+EXPOSE 6865
 
 CMD ./$START
