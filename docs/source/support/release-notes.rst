@@ -86,7 +86,7 @@ Changes:
 
 - Documentation: :doc:`DAML documentation </daml/reference/index>` and :doc:`examples </examples/examples>` now use DAML 1.2.
 
-  To convert your code to DAML 1.2, see the :doc:`conversion guide </daml//1-2-conversion>`.
+  To convert your code to DAML 1.2, see the :doc:`conversion guide </daml/1-2-conversion>`.
 - Documentation: Added a comprehensive :doc:`quickstart guide </getting-started/quickstart>` that replaces the old "My first project" example.
 
 	As part of this, removed the My first project, IOU and PvP examples.
@@ -100,3 +100,9 @@ Changes:
 - Java Bindings: Examples updated to use version 2.5.2 which implements Ledger API version 1.4.0.
 
 .. - TODO: add changes here
+
+
+.. toctree::
+   :hidden:
+
+   daml/1-2-conversion

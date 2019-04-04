@@ -492,3 +492,8 @@ To run Navigator against a secured Digital Asset Ledger, configure TLS certifica
 Details of these parameters are explained in the command line help::
 
   da run navigator -- --help
+
+.. toctree::
+   :hidden:
+
+   Navigator Database </tools/navigator/database>

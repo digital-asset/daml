@@ -12,5 +12,4 @@ The tools described in this section are actively being designed and are subject 
 
    /app-dev/bindings-js/index
    Navigator Console </tools/navigator/console>
-   Navigator Database </tools/navigator/database>
    Extractor </tools/extractor>
