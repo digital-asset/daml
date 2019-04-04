@@ -29,29 +29,25 @@ class CommandExecutorImpl(engine: Engine, packageContainer: DamlPackageContainer
       lookupKey: GlobalKey => Future[Option[AbsoluteContractId]],
       commands: LfCommands): Future[Either[ErrorCause, TransactionSubmission]] = {
     SandboxDamle.consume(engine.submit(commands))(packageContainer, getContract, lookupKey).map {
-      case Left(err) =>
-        Left(ErrorCause.DamlLf(err))
-      case Right(updateTx) =>
-        Blinding
-          .checkAuthorizationAndBlind(
-            engine.ledgerFeatureFlags(),
-            updateTx,
-            Set(Ref.Party.assertFromString(submitter.unwrap)))
-          .fold(
-            e => Left(ErrorCause.DamlLf(e)),
-            blindingInfo =>
-              Right(TransactionSubmission(
-                submitted.commandId.unwrap,
-                submitted.workflowId.fold("")(_.unwrap),
-                submitted.submitter.unwrap,
-                submitted.ledgerEffectiveTime,
-                submitted.maximumRecordTime,
-                submitted.applicationId.unwrap,
-                blindingInfo,
-                updateTx
-              ))
-          )
+      submission =>
+        (for {
+          updateTx <- submission
+          blindingInfo <- Blinding
+            .checkAuthorizationAndBlind(
+              engine.ledgerFeatureFlags(),
+              updateTx,
+              Set(Ref.Party.assertFromString(submitter.unwrap)))
+        } yield
+          TransactionSubmission(
+            submitted.commandId.unwrap,
+            submitted.workflowId.fold("")(_.unwrap),
+            submitted.submitter.unwrap,
+            submitted.ledgerEffectiveTime,
+            submitted.maximumRecordTime,
+            submitted.applicationId.unwrap,
+            blindingInfo,
+            updateTx
+          )).left.map(ErrorCause.DamlLf)
     }
-
   }
 }
