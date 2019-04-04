@@ -15,6 +15,7 @@ import com.digitalasset.daml.lf.iface.reader.{Interface, InterfaceReader}
 import com.digitalasset.daml.lf.iface.{Type => _, _}
 import com.digitalasset.daml_lf.DamlLf
 import com.typesafe.scalalogging.StrictLogging
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -22,6 +23,16 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 private[codegen] object CodeGenRunner extends StrictLogging {
 
   def run(conf: Conf): Unit = {
+
+    LoggerFactory
+      .getLogger(Logger.ROOT_LOGGER_NAME)
+      .asInstanceOf[ch.qos.logback.classic.Logger]
+      .setLevel(conf.verbosity)
+    LoggerFactory
+      .getLogger("com.digitalasset.daml.lf.codegen.backend.java.inner")
+      .asInstanceOf[ch.qos.logback.classic.Logger]
+      .setLevel(conf.verbosity)
+
     conf.darFiles.foreach {
       case (path, _) =>
         assertInputFileExists(path)

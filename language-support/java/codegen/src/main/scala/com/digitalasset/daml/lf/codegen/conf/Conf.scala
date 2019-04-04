@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.codegen.conf
 
 import java.nio.file.{Path, Paths}
 
+import ch.qos.logback.classic.Level
 import com.digitalasset.daml.lf.codegen.backend.Backend
 import com.digitalasset.daml.lf.codegen.backend.java.JavaBackend
 import scopt.Read
@@ -17,13 +18,15 @@ import scala.util.Try
   * @param darFiles The [[Set]] of DAML-LF [[Path]]s to convert into code. It MUST contain
   *                        all the DAML-LF packages dependencies.
   * @param outputDirectory The directory where the code will be generated
-  * @param backend The backend that will be used to generate code
+  * @param backend The backend that will be used to generate code (currently not exposed)
+  * @param decoderPkgAndClass the fully qualified name of the generated decoder class (optional)
   */
 final case class Conf(
     darFiles: Map[Path, Option[String]] = Map(),
     outputDirectory: Path,
     backend: Backend = JavaBackend,
-    decoderPkgAndClass: Option[(String, String)] = None
+    decoderPkgAndClass: Option[(String, String)] = None,
+    verbosity: Level = Level.ERROR
 )
 
 object Conf {
@@ -54,6 +57,10 @@ object Conf {
       .action((className, c) => c.copy(decoderPkgAndClass = Some(className)))
       .text("Fully Qualified Class Name of the optional Decoder utility")
 
+    opt[Level]('V', "verbosity")(readVerbosity)
+      .action((l, c) => c.copy(verbosity = l))
+      .text("Verbosity between 0 (only show errors) and 4 (show all messages) -- defaults to 0")
+
     help("help").text("This help text")
 
   }
@@ -64,6 +71,17 @@ object Conf {
     case PackageAndClassRegex(p, c) => (p, c)
     case _ =>
       throw new IllegalArgumentException("Expected a Full Qualified Class Name")
+  }
+
+  private[conf] val readVerbosity: scopt.Read[Level] = scopt.Read.stringRead.map {
+    case "0" => Level.ERROR
+    case "1" => Level.WARN
+    case "2" => Level.INFO
+    case "3" => Level.DEBUG
+    case "4" => Level.TRACE
+    case _ =>
+      throw new IllegalArgumentException(
+        "Expected a verbosity value between 0 (quieter) and 4 (louder)")
   }
 
   private[conf] def optTupleRead[A: Read, B: Read]: Read[(A, Option[B])] =
