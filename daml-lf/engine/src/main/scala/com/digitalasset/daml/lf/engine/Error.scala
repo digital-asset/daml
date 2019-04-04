@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.engine
 import com.digitalasset.daml.lf.value.Value._
 
 //TODO: Errors
-trait Error {
+sealed trait Error {
   // msg is intended to be a single line message
   def msg: String
 
@@ -37,17 +37,17 @@ object Error {
 
 }
 
-case class ContractNotFound(ci: ContractId) extends Error {
+final case class ContractNotFound(ci: ContractId) extends Error {
   override def msg = s"Contract could not be found with id $ci"
   override def detailMsg = msg
 }
 
-case class ValidationError(override val msg: String)
+final case class ValidationError(override val msg: String)
     extends RuntimeException(s"ValidationError: $msg", null, true, false)
     with Error {
   override def detailMsg = msg
 }
 
-case class AuthorizationError(override val msg: String) extends Error {
+final case class AuthorizationError(override val msg: String) extends Error {
   override def detailMsg = msg
 }
