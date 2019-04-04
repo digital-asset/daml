@@ -154,6 +154,7 @@ object DamlLfCodec {
     case `tagTypeTimestamp` => Model.DamlLfPrimType.Timestamp
     case `tagTypeUnit` => Model.DamlLfPrimType.Unit
     case `tagTypeOptional` => Model.DamlLfPrimType.Optional
+    case `tagTypeMap` => Model.DamlLfPrimType.Map
   }
 
   def jsValueToDamlLfDataType(value: JsValue): Model.DamlLfDataType =

@@ -3,6 +3,7 @@
 
 package com.digitalasset.navigator.json
 
+import com.digitalasset.daml.lf.data.UTF8
 import com.digitalasset.navigator.model.DamlLfIdentifier
 import com.digitalasset.navigator.{model => Model}
 import spray.json._
@@ -42,6 +43,8 @@ object ApiCodecCompressed {
     // None, Some(None), Some(Some(None)), ...
     case Model.ApiOptional(None) => JsObject(fieldNone -> JsObject.empty)
     case Model.ApiOptional(Some(v)) => JsObject(fieldSome -> apiValueToJsValue(v))
+    case v: Model.ApiMap =>
+      apiMapToJsValue(v)
   }
 
   def apiListToJsValue(value: Model.ApiList): JsValue =
@@ -52,6 +55,14 @@ object ApiCodecCompressed {
 
   def apiRecordToJsValue(value: Model.ApiRecord): JsValue =
     JsObject(value.fields.map(f => f.label -> apiValueToJsValue(f.value)).toMap)
+
+  private[this] val fieldKey = "key"
+  private[this] val fieldValue = "value"
+
+  def apiMapToJsValue(value: Model.ApiMap): JsValue =
+    JsArray(value.value.toVector.sortBy(_._1)(UTF8.ordering).map{
+      case (k, v) => JsObject(fieldKey -> JsString(k), fieldValue -> apiValueToJsValue(v))
+    })
 
   // ------------------------------------------------------------------------------------------------------------------
   // Decoding - this needs access to DAML-LF types
@@ -81,6 +92,8 @@ object ApiCodecCompressed {
           case Some(_) => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
           case None => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
         }
+      case (JsArray(a), Model.DamlLfPrimType.Map) =>
+        Model.ApiMap(a.map(jsValueToMapEntry(_, prim.typArgs.head, defs)).toMap)
       case _ => deserializationError(s"Can't read ${value.prettyPrint} as $prim")
     }
   }
@@ -126,11 +139,27 @@ object ApiCodecCompressed {
     }
   }
 
-  /** Deserialize a value, given the type */
-  def jsValueToApiType(
+  /** Deserialize a value, to a map entry give the type */
+  def jsValueToMapEntry(
       value: JsValue,
       typ: Model.DamlLfType,
-      defs: Model.DamlLfTypeLookup): Model.ApiValue = {
+      defs: Model.DamlLfTypeLookup): (String,  Model.ApiValue) = {
+    val translation = value match {
+      case JsObject(map)  => for {
+        key <- map.get(fieldKey).collect { case JsString(s) => s }
+        value <- map.get(fieldValue).map(jsValueToApiType(_, typ, defs))
+      } yield key -> value
+      case _ => None
+    }
+
+    translation.getOrElse( deserializationError(s"Can't read ${value.prettyPrint} as a map entry"))
+  }
+
+  /** Deserialize a value, given the type */
+  def jsValueToApiType(
+                        value: JsValue,
+                        typ: Model.DamlLfType,
+                        defs: Model.DamlLfTypeLookup): Model.ApiValue = {
     typ match {
       case prim: Model.DamlLfTypePrim =>
         jsValueToApiPrimitive(value, prim, defs)
@@ -147,6 +176,8 @@ object ApiCodecCompressed {
         deserializationError(s"Can't read ${value.prettyPrint} as DamlLfTypeVar")
     }
   }
+
+
 
   /** Deserialize a value, given the ID of the corresponding closed type */
   def jsValueToApiType(

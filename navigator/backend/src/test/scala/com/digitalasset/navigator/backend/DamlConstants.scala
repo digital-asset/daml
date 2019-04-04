@@ -37,7 +37,12 @@ case object DamlConstants {
   val simpleUnitT = DamlLfTypePrim(DamlLfPrimType.Unit, DamlLfImmArraySeq())
   val simpleDateT = DamlLfTypePrim(DamlLfPrimType.Date, DamlLfImmArraySeq())
   val simpleTimestampT = DamlLfTypePrim(DamlLfPrimType.Timestamp, DamlLfImmArraySeq())
-  val simpleOptionalT = DamlLfTypePrim(DamlLfPrimType.Optional, DamlLfImmArraySeq(simpleTextT))
+  val simpleBoolT = DamlLfTypePrim(DamlLfPrimType.Bool, DamlLfImmArraySeq())
+  val simplePartyT = DamlLfTypePrim(DamlLfPrimType.Party, DamlLfImmArraySeq())
+  val simpleContractIdT = DamlLfTypePrim(DamlLfPrimType.ContractId, DamlLfImmArraySeq())
+  def simpleOptionalT(typ: DamlLfIface.Type) = DamlLfTypePrim(DamlLfPrimType.Optional, DamlLfImmArraySeq(typ))
+  def simpleListT(typ: DamlLfIface.Type) = DamlLfTypePrim(DamlLfPrimType.List, DamlLfImmArraySeq(typ))
+  def simpleMapT(typ: DamlLfIface.Type) = DamlLfTypePrim(DamlLfPrimType.Map, DamlLfImmArraySeq(typ))
 
   val simpleTextV = ApiText("foo")
   val simpleInt64V = ApiInt64(100)
@@ -46,6 +51,7 @@ case object DamlConstants {
   val simpleDateV = ApiDate.fromIso8601("2019-01-28")
   val simpleTimestampV = ApiTimestamp.fromIso8601("2019-01-28T12:44:33.22Z")
   val simpleOptionalV = ApiOptional(Some(ApiText("foo")))
+  val simpleMapV = ApiMap(Map("1"-> ApiInt64(1), "2" -> ApiInt64(2), "3" -> ApiInt64(3)))
 
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: empty record
@@ -170,24 +176,21 @@ case object DamlConstants {
   val complexRecordId: DamlLfIdentifier = id("ComplexRecord")
   val complexRecordGD = DamlLfRecord(
     DamlLfImmArraySeq(
-      "fText" -> DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq()),
-      "fBool" -> DamlLfTypePrim(DamlLfPrimType.Bool, DamlLfImmArraySeq()),
-      "fDecimal" -> DamlLfTypePrim(DamlLfPrimType.Decimal, DamlLfImmArraySeq()),
-      "fUnit" -> DamlLfTypePrim(DamlLfPrimType.Unit, DamlLfImmArraySeq()),
-      "fInt64" -> DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq()),
-      "fParty" -> DamlLfTypePrim(DamlLfPrimType.Party, DamlLfImmArraySeq()),
-      "fContractId" -> DamlLfTypePrim(DamlLfPrimType.ContractId, DamlLfImmArraySeq()),
-      "fListOfText" -> DamlLfTypePrim(DamlLfPrimType.List, DamlLfImmArraySeq(simpleTextT)),
-      "fListOfUnit" -> DamlLfTypePrim(DamlLfPrimType.List, DamlLfImmArraySeq(simpleUnitT)),
-      "fDate" -> DamlLfTypePrim(DamlLfPrimType.Date, DamlLfImmArraySeq()),
-      "fTimestamp" -> DamlLfTypePrim(DamlLfPrimType.Timestamp, DamlLfImmArraySeq()),
-      "fOptionalText" -> DamlLfTypePrim(DamlLfPrimType.Optional, DamlLfImmArraySeq(simpleTextT)),
-      "fOptionalUnit" -> DamlLfTypePrim(DamlLfPrimType.Optional, DamlLfImmArraySeq(simpleUnitT)),
-      "fOptOptText" -> DamlLfTypePrim(
-        DamlLfPrimType.Optional,
-        DamlLfImmArraySeq(
-          DamlLfTypePrim(DamlLfPrimType.Optional, DamlLfImmArraySeq(simpleTextT))
-        )),
+      "fText" -> simpleTextT,
+      "fBool" -> simpleBoolT,
+      "fDecimal" -> simpleDecimalT,
+      "fUnit" -> simpleUnitT,
+      "fInt64" -> simpleInt64T,
+      "fParty" -> simplePartyT,
+      "fContractId" -> simpleContractIdT,
+      "fListOfText" -> simpleListT(simpleTextT),
+      "fListOfUnit" -> simpleListT(simpleUnitT),
+      "fDate" -> simpleDateT,
+      "fTimestamp" -> simpleTimestampT,
+      "fOptionalText" -> simpleOptionalT(simpleTextT),
+      "fOptionalUnit" -> simpleOptionalT(simpleUnitT),
+      "fOptOptText" -> simpleOptionalT(simpleOptionalT(simpleTextT)),
+      "fMap" -> simpleMapT(simpleInt64T),
       "fVariant" -> simpleVariantTC,
       "fRecord" -> simpleRecordTC
     ))
@@ -211,6 +214,7 @@ case object DamlConstants {
       ApiRecordField("fOptionalText", ApiOptional(None)),
       ApiRecordField("fOptionalUnit", ApiOptional(Some(ApiUnit()))),
       ApiRecordField("fOptOptText", ApiOptional(Some(ApiOptional(Some(ApiText("foo")))))),
+      ApiRecordField("fMap", ApiMap(Map("1"-> ApiInt64(1), "2" -> ApiInt64(2), "3" -> ApiInt64(3)))),
       ApiRecordField("fVariant", simpleVariantV),
       ApiRecordField("fRecord", simpleRecordV)
     )

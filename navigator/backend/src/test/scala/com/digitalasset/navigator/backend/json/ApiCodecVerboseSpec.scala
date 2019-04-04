@@ -49,7 +49,7 @@ class ApiCodecVerboseSpec extends WordSpec with Matchers {
           C.simpleTimestampV)
       }
       "work for Optional" in {
-        serializeAndParse(C.simpleOptionalV, C.simpleOptionalT) shouldBe Success(C.simpleOptionalV)
+        serializeAndParse(C.simpleOptionalV, C.simpleOptionalT(C.simpleTextT)) shouldBe Success(C.simpleOptionalV)
       }
       "work for EmptyRecord" in {
         serializeAndParse(C.emptyRecordV, C.emptyRecordTC) shouldBe Success(C.emptyRecordV)
@@ -65,6 +65,9 @@ class ApiCodecVerboseSpec extends WordSpec with Matchers {
       }
       "work for Tree" in {
         serializeAndParse(C.treeV, C.treeTC) shouldBe Success(C.treeV)
+      }
+      "work for Map" in {
+        serializeAndParse(C.simpleMapV, C.simpleMapT(C.simpleTextT)) shouldBe Success(C.simpleMapV)
       }
     }
   }

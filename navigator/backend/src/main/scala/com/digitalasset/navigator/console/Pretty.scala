@@ -235,6 +235,15 @@ object Pretty {
     case model.ApiUnit() => PrettyPrimitive("<unit>")
     case model.ApiOptional(None) => PrettyPrimitive("<none>")
     case model.ApiOptional(Some(v)) => PrettyObject(PrettyField("value", argument(v)))
+    case model.ApiMap(map) =>
+      PrettyArray(
+        map.toList.map{case (key, value) =>
+          PrettyObject(
+            PrettyField("key", PrettyPrimitive(key.toString)),
+            PrettyField("value", argument(arg)
+            )
+          )
+        })
   }
 
   /** Outputs an object in YAML format */

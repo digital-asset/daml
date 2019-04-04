@@ -3,6 +3,7 @@
 
 package com.digitalasset.navigator.json
 
+import com.digitalasset.daml.lf.data.UTF8
 import com.digitalasset.navigator.{model => Model}
 import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
 import com.digitalasset.navigator.json.Util._
@@ -36,6 +37,7 @@ object ApiCodecVerbose {
   private[this] final val tagUnit: String = "unit"
   private[this] final val tagOptional: String = "optional"
   private[this] final val tagList: String = "list"
+  private[this] final val tagMap: String = "map"
   private[this] final val tagRecord: String = "record"
   private[this] final val tagVariant: String = "variant"
 
@@ -63,12 +65,24 @@ object ApiCodecVerbose {
     case Model.ApiOptional(None) => JsObject(propType -> JsString(tagOptional), propValue -> JsNull)
     case Model.ApiOptional(Some(v)) =>
       JsObject(propType -> JsString(tagOptional), propValue -> apiValueToJsValue(v))
+    case v: Model.ApiMap => apiMapToJsValue(v)
   }
 
   def apiListToJsValue(value: Model.ApiList): JsValue =
     JsObject(
       propType -> JsString(tagList),
       propValue -> JsArray(value.elements.map(apiValueToJsValue).toVector)
+    )
+
+  private[this] val fieldKey = "key"
+  private[this] val fieldValue = "value"
+
+  def apiMapToJsValue(value: Model.ApiMap): JsValue =
+    JsObject(
+      propType -> JsString(tagMap),
+      propValue -> JsArray(value.value.toVector.sortBy(_._1)(UTF8.ordering).map{
+        case (k, v) => JsObject(fieldKey -> JsString(k), fieldValue -> apiValueToJsValue(v))
+      })
     )
 
   def apiVariantToJsValue(value: Model.ApiVariant): JsValue =
@@ -125,6 +139,8 @@ object ApiCodecVerbose {
           case JsNull => Model.ApiOptional(None)
           case v => Model.ApiOptional(Some(jsValueToApiValue(v)))
         }
+      case `tagMap` =>
+        Model.ApiMap(arrayField(value, propValue, "ApiMap").map(jsValueToMapEntry).toMap)
       case t =>
         deserializationError(s"Can't read ${value.prettyPrint} as ApiValue, unknown type '$t'")
     }
@@ -142,6 +158,19 @@ object ApiCodecVerbose {
         deserializationError(
           s"Can't read ${value.prettyPrint} as ApiRecord, type '$t' is not a record")
     }
+
+  def jsValueToMapEntry(value: JsValue): (String, Model.ApiValue) = {
+    val translation = value match {
+      case JsObject(map)  => for {
+        key <- map.get(fieldKey).collect { case JsString(s) => s }
+        value <- map.get(fieldValue).map(jsValueToApiValue)
+      } yield key -> value
+      case _ => None
+    }
+
+    translation.getOrElse( deserializationError(s"Can't read ${value.prettyPrint} as a map entry"))
+  }
+
 
   def jsValueToApiVariant(value: JsValue): Model.ApiVariant =
     strField(value, propType, "ApiVariant") match {

@@ -392,6 +392,8 @@ case object LedgerApiV1 {
       case Model.ApiOptional(None) => Right(Value(Value.Sum.Optional(V1.value.Optional(None))))
       case Model.ApiOptional(Some(v)) =>
         writeArgument(v).map(a => Value(Value.Sum.Optional(V1.value.Optional(Some(a)))))
+      case arg: Model.ApiMap =>
+        writeMapArgument(arg).map(a => Value(Value.Sum.Map(a)))
     }
   }
 
@@ -405,6 +407,14 @@ case object LedgerApiV1 {
     }
   }
 
+  def writeVariantArgument(value: Model.ApiVariant): Either[ConversionError, V1.value.Variant] = {
+    for {
+      arg <- writeArgument(value.value)
+    } yield {
+      V1.value.Variant(value.variantId.map(_.asApi), value.constructor, Some(arg))
+    }
+  }
+
   def writeListArgument(value: Model.ApiList): Either[ConversionError, V1.value.List] = {
     for {
       values <- Converter.sequence(value.elements.map(e => writeArgument(e)))
@@ -413,13 +423,21 @@ case object LedgerApiV1 {
     }
   }
 
-  def writeVariantArgument(value: Model.ApiVariant): Either[ConversionError, V1.value.Variant] = {
+
+  def writeMapArgument(value: Model.ApiMap): Either[ConversionError, V1.value.Map] = {
     for {
-      arg <- writeArgument(value.value)
+      values <- Converter.sequence(
+        value.value.toSeq.map{case (k, v) => writeArgument(v).map(k -> _)}
+      )
     } yield {
-      V1.value.Variant(value.variantId.map(_.asApi), value.constructor, Some(arg))
+      V1.value.Map(values.map{case (k, v) =>
+        V1.value.Map.Entry(
+          Some(V1.value.Value(V1.value.Value.Sum.Text(k))),
+          Some(v)
+        )})
     }
   }
+
 
   /** Write a composite command consisting of just the given command */
   def writeCommands(
