@@ -1,0 +1,173 @@
+name:          semigroups
+category:      Algebra, Data, Data Structures, Math
+version:       0.18.5
+license:       BSD3
+cabal-version: >= 1.10
+license-file:  LICENSE
+author:        Edward A. Kmett
+maintainer:    Edward A. Kmett <ekmett@gmail.com>
+stability:     provisional
+homepage:      http://github.com/ekmett/semigroups/
+bug-reports:   http://github.com/ekmett/semigroups/issues
+copyright:     Copyright (C) 2011-2015 Edward A. Kmett
+synopsis:      Anything that associates
+description:
+    In mathematics, a semigroup is an algebraic structure consisting of a set together with an associative binary operation. A semigroup generalizes a monoid in that there might not exist an identity element. It also (originally) generalized a group (a monoid with all inverses) to a type where every element did not have to have an inverse, thus the name semigroup.
+build-type:    Simple
+extra-source-files: .travis.yml README.markdown CHANGELOG.markdown
+tested-with:   GHC == 7.0.4
+             , GHC == 7.2.2
+             , GHC == 7.4.2
+             , GHC == 7.6.3
+             , GHC == 7.8.4
+             , GHC == 7.10.3
+             , GHC == 8.0.2
+             , GHC == 8.2.2
+             , GHC == 8.4.3
+             , GHC == 8.6.1
+
+source-repository head
+  type: git
+  location: git://github.com/ekmett/semigroups.git
+
+flag hashable
+  description:
+    You can disable the use of the `hashable` package using `-f-hashable`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+    .
+    If disabled we will not supply instances of `Hashable`
+    .
+    Note: `-f-hashable` implies `-f-unordered-containers`, as we are necessarily not able to supply those instances as well.
+  default: True
+  manual: True
+
+flag binary
+  description:
+    You can disable the use of the `binary` package using `-f-binary`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+flag bytestring
+  description:
+    You can disable the use of the `bytestring` package using `-f-bytestring`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+flag bytestring-builder
+  description:
+    Decides whether to use an older version of bytestring along with bytestring-builder or just a newer version of bytestring.
+    .
+    This flag normally toggles automatically but you can use `-fbytestring-builder` or `-f-bytestring-builder` to explicitly change it.
+  default: False
+  manual: False
+
+flag containers
+  description:
+    You can disable the use of the `containers` package using `-f-containers`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+flag deepseq
+  description:
+    You can disable the use of the `deepseq` package using `-f-deepseq`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+flag tagged
+  description:
+    You can disable the use of the `tagged` package using `-f-tagged`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+flag text
+  description:
+    You can disable the use of the `text` package using `-f-text`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+flag transformers
+  description:
+    You can disable the use of the `transformers` and `transformers-compat` packages using `-f-transformers`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+flag unordered-containers
+  description:
+    You can disable the use of the `unordered-containers` package using `-f-unordered-containers`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+library
+  default-language: Haskell98
+  hs-source-dirs: src
+  ghc-options: -Wall
+
+  build-depends: base >= 2 && < 5
+
+  if impl(ghc >= 7.2)
+    exposed-modules:
+      Data.Semigroup.Generic
+
+  -- legacy configuration
+  if impl(ghc < 7.11.20151002)
+    -- starting with GHC 8 these modules are provided by `base`
+    hs-source-dirs: src-ghc7
+    exposed-modules:
+      Data.Semigroup
+      Data.List.NonEmpty
+
+    -- Not needed anymore since GHC 7.10
+    if impl(ghc < 7.10)
+      build-depends: nats >= 0.1 && < 2
+
+    if impl(ghc >= 7.2 && < 7.5)
+      build-depends: ghc-prim
+
+    if flag(binary)
+      build-depends: binary
+
+    if flag(bytestring)
+      if flag(bytestring-builder)
+        build-depends: bytestring         >= 0.9    && < 0.10.4,
+                       bytestring-builder >= 0.10.4 && < 1
+      else
+        build-depends: bytestring         >= 0.10.4 && < 1
+
+    if flag(containers)
+      build-depends: containers >= 0.3 && < 0.7
+
+    if flag(deepseq)
+      build-depends: deepseq >= 1.1 && < 1.5
+
+    if flag(tagged)
+      build-depends: tagged >= 0.4.4 && < 1
+
+    if flag(text)
+      build-depends: text >= 0.10 && < 2
+
+    if flag(hashable)
+      build-depends: hashable >= 1.1  && < 1.3
+
+    if flag(hashable) && flag(unordered-containers)
+      build-depends: unordered-containers >= 0.2  && < 0.3
+
+    if flag(transformers)
+      build-depends: transformers        >= 0.2 && < 0.6
+                   , transformers-compat >= 0.5 && < 1

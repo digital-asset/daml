@@ -1,0 +1,16 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- DEL-6902: This used to clash with GHC.Types.Symbol.
+daml 1.2
+module Symbol where
+
+template Symbol with
+    p : Party
+  where
+    signatory p
+
+test = scenario do
+  alice <- getParty "Alice"
+  submit alice do
+    create Symbol with p = alice

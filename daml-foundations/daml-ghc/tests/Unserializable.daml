@@ -1,0 +1,11 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR expected serializable type
+daml 1.2
+module Unserializable where
+
+data Unserializable = Unserializable{f : Text -> Text}
+
+instance Template Unserializable where
+    signatory Unserializable{} = []

@@ -1,0 +1,84 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+  '//bazel_tools:scala.bzl',
+  'da_scala_library',
+  'da_scala_test_suite',
+)
+
+
+da_scala_library(
+  name = 'codegen-testing',
+  deps = [
+    '//language-support/scala/bindings',
+    '//ledger/ledger-api-client',
+    '//3rdparty/jvm/org/scalacheck:scalacheck',
+    '//3rdparty/jvm/org/scalaz:scalaz_core',
+    '//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding',
+  ],
+  plugins = [
+    # Plugins have to be specified as JARs.
+    '//external:jar/org/spire_math/kind_projector_2_12',
+  ],
+  runtime_deps = [],
+  exports = [],
+  visibility = [
+    '//visibility:public',
+  ],
+  srcs = glob(['src/main/**/*.scala']),
+)
+
+# Sources that do not define test-cases but utilities
+# that are used by one or more test-cases.
+#
+# Consider moving these files into a separate sub-directory
+# to enable source globbing for them.
+testing_utils = [
+  'src/test/scala/com/digitalasset/scalatest/CustomMatcher.scala',
+  'src/test/scala/com/digitalasset/ledger/client/binding/encoding/LfTypeEncodingSpec.scala',
+  'src/test/scala/com/digitalasset/ledger/client/binding/EncodingTestUtil.scala',
+  'src/test/scala/com/digitalasset/ledger/client/binding/ValueSpec.scala',
+]
+
+da_scala_library(
+  name = 'codegen-testing-testing',
+  deps = [
+    '//language-support/scala/bindings',
+    '//ledger/ledger-api-client',
+    '//3rdparty/jvm/org/scalacheck:scalacheck',
+    '//3rdparty/jvm/org/scalatest:scalatest',
+    '//3rdparty/jvm/org/scalaz:scalaz_core',
+    ':codegen-testing',
+  ],
+  plugins = [
+    # Plugins have to be specified as JARs.
+    '//external:jar/org/spire_math/kind_projector_2_12',
+  ],
+  runtime_deps = [],
+  exports = [],
+  visibility = [
+    '//visibility:public',
+  ],
+  srcs = testing_utils,
+)
+
+da_scala_test_suite(
+  name = 'tests',
+  size = 'small',
+  deps = [
+    '//3rdparty/jvm/com/chuusai:shapeless',
+    '//language-support/scala/bindings',
+    '//3rdparty/jvm/org/apache/commons:commons_text',
+    '//3rdparty/jvm/org/scalacheck:scalacheck',
+    '//3rdparty/jvm/org/scalatest:scalatest',
+    '//3rdparty/jvm/org/scalaz:scalaz_core',
+    ':codegen-testing',
+    ':codegen-testing-testing',
+  ],
+  srcs = glob([
+    'src/test/**/*.scala'
+  ], exclude = testing_utils
+  ),
+)
+

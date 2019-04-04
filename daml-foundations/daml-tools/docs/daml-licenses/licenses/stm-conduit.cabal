@@ -1,0 +1,81 @@
+Name:                stm-conduit
+Version:             4.0.1
+Synopsis:            Introduces conduits to channels, and promotes using conduits concurrently.
+Description:         Provides two simple conduit wrappers around STM channels - a source and a sink.
+                     
+Homepage:            https://github.com/cgaebel/stm-conduit
+License:             BSD3
+License-file:        LICENSE
+Author:              Clark Gaebel
+Maintainer:          cg.wowus.cg@gmail.com
+Category:            Concurrency, Conduit
+
+Build-type:          Simple
+
+tested-with: GHC == 8.0.1, GHC == 8.2.1
+
+Cabal-version:       >=1.8
+
+Library
+    exposed-modules:
+        Data.Conduit.Async
+        Data.Conduit.TMChan
+        Data.Conduit.TQueue
+        Data.Conduit.Utils
+
+    other-modules:
+        Data.Conduit.Async.Composition
+
+    build-depends:
+        base                == 4.*
+      , transformers        >= 0.2 && < 0.6
+      , stm                 >= 2.4 && < 2.6
+      , stm-chans           >= 2.0 && < 3.1
+      , cereal              >= 0.4.0.1
+      , cereal-conduit      >= 0.8
+      , conduit             >= 1.0 && < 1.4
+      , conduit-extra       >= 1.0 && < 1.4
+      , directory           >= 1.1
+      , exceptions
+      , resourcet           >= 0.3 && < 1.3
+      , async               >= 2.0.1
+      , monad-loops         >= 0.4.2
+      , unliftio            >= 0.2.0 && < 0.3.0
+
+    ghc-options: -Wall -fwarn-tabs -fwarn-unused-imports
+
+test-suite stm-conduit-doctests
+    type:           exitcode-stdio-1.0
+    main-is:        DocTests.hs
+    ghc-options:    -threaded
+    hs-source-dirs: test/
+                    ./
+    build-depends:  base
+                  , doctest
+
+test-suite stm-conduit-tests
+    type:           exitcode-stdio-1.0
+    main-is:        Test.hs
+    hs-source-dirs: test/
+
+    ghc-options:    -rtsopts=all -threaded
+
+    build-Depends:
+        base       == 4.*
+      , QuickCheck >= 2
+      , HUnit
+      , test-framework
+      , test-framework-hunit
+      , test-framework-quickcheck2
+      , stm
+      , stm-conduit
+      , conduit
+      , transformers
+      , stm-chans
+      , resourcet
+      , directory
+      , unliftio
+
+source-repository head
+    type:     git
+    location: git://github.com/cgaebel/stm-conduit.git

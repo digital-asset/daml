@@ -1,0 +1,48 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Iou_new where
+
+-- Exercise the new 'choice' syntax ("flexible controllers").
+
+template Iou
+  with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+    regulators : [Party]
+  where
+    ensure amount > 0.0
+    signatory [issuer, owner]
+    observer regulators
+    agreement show issuer <> " will pay " <> show owner <> " " <> show amount
+
+    choice Transfer : ContractId Iou
+      with
+        newOwner : Party
+      controller owner
+      do
+        create this with owner = newOwner
+
+    choice Split : (ContractId Iou, ContractId Iou) with
+        splitAmount : Decimal
+      controller owner
+      do
+          let restAmount = amount - splitAmount
+          splitCid <- create this with amount = splitAmount
+          restCid <- create this with amount = restAmount
+          return (splitCid, restCid)
+
+    -- Test also that the new plays nicely with the old.
+
+    controller owner can
+      Merge : ContractId Iou
+        with otherCid : ContractId Iou
+        do
+          otherIou <- fetch otherCid
+          assert $ this == otherIou with amount
+          transferCid <-
+            exercise otherCid Transfer with newOwner = issuer
+          archive transferCid
+          create this with amount = amount + otherIou.amount

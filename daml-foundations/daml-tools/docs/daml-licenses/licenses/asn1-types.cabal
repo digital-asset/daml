@@ -1,0 +1,32 @@
+Name:                asn1-types
+Version:             0.3.2
+Description:         ASN.1 standard types
+License:             BSD3
+License-file:        LICENSE
+Copyright:           Vincent Hanquez <vincent@snarc.org>
+Author:              Vincent Hanquez <vincent@snarc.org>
+Maintainer:          Vincent Hanquez <vincent@snarc.org>
+Synopsis:            ASN.1 types
+Build-Type:          Simple
+Category:            Data
+stability:           experimental
+Cabal-Version:       >=1.6
+Homepage:            http://github.com/vincenthz/hs-asn1-types
+
+Library
+  Build-Depends:     base >= 3 && < 5
+                   , bytestring
+                   , memory
+                   , hourglass
+
+  Exposed-modules:   Data.ASN1.BitArray
+                     Data.ASN1.OID
+                     Data.ASN1.Pretty
+                     Data.ASN1.Types
+                     Data.ASN1.Types.String
+                     Data.ASN1.Types.Lowlevel
+  ghc-options:       -Wall
+
+source-repository head
+  type:     git
+  location: git://github.com/vincenthz/hs-asn1-types

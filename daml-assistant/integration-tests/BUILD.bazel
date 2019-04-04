@@ -1,0 +1,20 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+sh_test(
+    name = "integration-tests",
+    srcs = ["integration-test.sh"],
+    args = [
+        "$(location @docker_nix//:bin/docker)",
+        "$(location :Dockerfile)",
+        "$(location //release:sdk-release-tarball)",
+        "$(location :run-test.sh)",
+    ],
+    data = [
+        "@docker_nix//:bin/docker",
+        ":Dockerfile",
+        "//release:sdk-release-tarball",
+        ":run-test.sh",
+    ],
+    timeout = "long",
+)

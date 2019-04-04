@@ -1,0 +1,19 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+{-# LANGUAGE ExistentialQuantification #-}
+
+-- @ ERROR range=15:1-15:7; Pattern match with existential type.
+-- @ TODO Existential quantification
+
+daml 1.2
+module Existential where
+
+data Foo = forall a . Foo (a, a -> Int)
+
+runFoo : Foo -> Int
+runFoo (Foo (a, b)) = b a
+
+main = scenario do
+    alice <- getParty "alice"
+    submit alice $ assert (runFoo (Foo (12, (+1))) == 13)

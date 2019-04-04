@@ -1,0 +1,136 @@
+name:          free
+category:      Control, Monads
+version:       5.1
+license:       BSD3
+cabal-version: 1.18
+license-file:  LICENSE
+author:        Edward A. Kmett
+maintainer:    Edward A. Kmett <ekmett@gmail.com>
+stability:     provisional
+homepage:      http://github.com/ekmett/free/
+bug-reports:   http://github.com/ekmett/free/issues
+copyright:     Copyright (C) 2008-2015 Edward A. Kmett
+tested-with:   GHC == 7.4.2
+             , GHC == 7.6.3
+             , GHC == 7.8.4
+             , GHC == 7.10.3
+             , GHC == 8.0.2
+             , GHC == 8.2.2
+             , GHC == 8.4.3
+             , GHC == 8.6.1
+synopsis:      Monads for free
+description:
+  Free monads are useful for many tree-like structures and domain specific languages.
+  .
+  If @f@ is a 'Functor' then the free 'Monad' on @f@ is the type
+  of trees whose nodes are labeled with the constructors of @f@. The word
+  \"free\" is used in the sense of \"unrestricted\" rather than \"zero-cost\":
+  @Free f@ makes no constraining assumptions beyond those given by @f@ and the
+  definition of 'Monad'. As used here it is a standard term from the
+  mathematical theory of adjoint functors.
+  .
+  Cofree comonads are dual to free monads. They provide convenient ways to talk
+  about branching streams and rose-trees, and can be used to annotate syntax
+  trees. The cofree comonad can be seen as a stream parameterized by a 'Functor'
+  that controls its branching factor.
+  .
+  More information on free monads, including examples, can be found in the
+  following blog posts:
+  <http://comonad.com/reader/2008/monads-for-free/>
+  <http://comonad.com/reader/2011/free-monads-for-less/>
+
+build-type:    Simple
+extra-source-files:
+  .ghci
+  .gitignore
+  .travis.yml
+  .vim.custom
+  README.markdown
+  CHANGELOG.markdown
+  HLint.hs
+  doc/proof/Control/Comonad/Cofree/*.md
+  doc/proof/Control/Comonad/Trans/Cofree/*.md
+  examples/free-examples.cabal
+  examples/LICENSE
+  examples/*.hs
+  examples/*.lhs
+  include/free-common.h
+extra-doc-files:
+  examples/*.hs
+  examples/*.lhs
+
+source-repository head
+  type: git
+  location: git://github.com/ekmett/free.git
+
+library
+  hs-source-dirs: src
+  include-dirs: include
+  includes: free-common.h
+
+  default-language:   Haskell2010
+  default-extensions: CPP
+  other-extensions:
+    MultiParamTypeClasses
+    FunctionalDependencies
+    FlexibleInstances
+    UndecidableInstances
+    Rank2Types
+    GADTs
+
+  build-depends:
+    base                 == 4.*,
+    comonad              >= 4 && < 6,
+    distributive         >= 0.2.1,
+    mtl                  >= 2.0.1.0 && < 2.3,
+    profunctors          >= 4 && < 6,
+    semigroupoids        >= 4 && < 6,
+    transformers         >= 0.2.0   && < 0.6,
+    transformers-base    >= 0.4 && < 0.5,
+    template-haskell     >= 2.7.0.0 && < 3,
+    exceptions           >= 0.6 && < 0.11,
+    containers           < 0.7
+
+  if !impl(ghc >= 8.2)
+    build-depends: bifunctors >= 4 && < 6
+
+  if !impl(ghc >= 8.0)
+    build-depends: semigroups >= 0.8.3.1 && < 1
+
+  -- Ensure Data.Functor.Classes is always available
+  if impl(ghc >= 7.10)
+    build-depends: transformers >= 0.4.2.0
+  else
+    build-depends: transformers-compat >= 0.5.1.0 && <0.7
+
+  exposed-modules:
+    Control.Applicative.Free
+    Control.Applicative.Free.Fast
+    Control.Applicative.Free.Final
+    Control.Applicative.Trans.Free
+    Control.Alternative.Free
+    Control.Alternative.Free.Final
+    Control.Comonad.Cofree
+    Control.Comonad.Cofree.Class
+    Control.Comonad.Trans.Cofree
+    Control.Comonad.Trans.Coiter
+    Control.Monad.Free
+    Control.Monad.Free.Ap
+    Control.Monad.Free.Church
+    Control.Monad.Free.Class
+    Control.Monad.Free.TH
+    Control.Monad.Trans.Free
+    Control.Monad.Trans.Free.Ap
+    Control.Monad.Trans.Free.Church
+    Control.Monad.Trans.Iter
+
+  other-modules:
+    Data.Functor.Classes.Compat
+
+  ghc-options: -Wall
+
+  -- See https://ghc.haskell.org/trac/ghc/wiki/Migration/8.0#base-4.9.0.0
+  if impl(ghc >= 8.0)
+    ghc-options: -Wcompat -Wnoncanonical-monad-instances -Wnoncanonical-monadfail-instances
+  else
+    build-depends: fail == 4.9.*

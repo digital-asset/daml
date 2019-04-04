@@ -1,0 +1,9 @@
+-- @IGNORE-LF 1.0
+-- @IGNORE-LF 1.1
+daml 1.2
+module Sha256 where
+
+import DA.Text as T
+
+test = scenario do
+  assert (T.sha256 "foo" == "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae")

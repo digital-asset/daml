@@ -1,0 +1,30 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Previously failed due to:
+-- + DEL-5923 return not in scope
+-- + DEL-5955 Template not in scope
+-- + DEL-5958 ApplicativeDo pieces
+{-# LANGUAGE ApplicativeDo #-}
+
+daml 1.2
+module QualifiedPrelude where
+
+import qualified Prelude as P
+
+main = P.scenario do P.assert P.True
+
+template T
+  with
+    p : P.Party
+  where
+    signatory p
+    controller p can
+      Test : P.Int
+        with argument : ()
+        do return 1
+
+foo a b f = do
+  x <- a
+  y <- b
+  f x y

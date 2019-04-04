@@ -1,0 +1,34 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Structure where
+
+-- start of template outline snippet
+template NameOfTemplate
+  with
+    exampleParty : Party
+    exampleParty2 : Party
+    exampleParty3 : Party
+    exampleParameter : Text
+    -- more parameters here
+  where
+    signatory exampleParty
+    observer exampleParty2
+    agreement
+      -- some text
+      ""
+    ensure
+      -- boolean condition
+      True
+    controller exampleParty3 can
+      -- a choice goes here; see next section
+      -- end of template outline snippet
+      NameOfChoice : -- return type here
+          ()
+        with
+          -- parameters here
+          party : Party
+        do
+          -- choice body; see next section
+          return ()

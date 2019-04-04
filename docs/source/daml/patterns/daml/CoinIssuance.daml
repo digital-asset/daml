@@ -1,0 +1,164 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+daml 1.2
+module CoinIssuance where
+
+import DA.Time
+import Utilities
+
+template CoinMaster
+  with
+    issuer: Party
+  where
+    signatory issuer
+
+    controller issuer can
+      nonconsuming Invite : ContractId CoinIssueProposal
+        with owner: Party
+        do create CoinIssueProposal
+             with coinAgreement = CoinIssueAgreement with issuer; owner
+
+--the initiate/accept pattern moves the workflow forward
+template CoinIssueProposal
+  with
+    coinAgreement: CoinIssueAgreement
+  where
+    signatory coinAgreement.issuer
+
+    controller coinAgreement.owner can
+      AcceptCoinProposal
+        : ContractId CoinIssueAgreement
+        do create coinAgreement
+
+--the result contract of Initiate/Accept pattern
+template CoinIssueAgreement
+  with
+    issuer: Party
+    owner: Party
+  where
+    signatory issuer, owner
+
+    controller issuer can
+      nonconsuming Issue : ContractId Coin
+        with amount: Decimal
+        do create Coin with issuer; owner; amount; delegates = []
+
+
+--the original contract
+template Coin
+  with
+    owner: Party
+    issuer: Party
+    amount: Decimal
+    delegates : [Party]
+  where
+    signatory issuer, owner
+    observer delegates
+
+    controller owner can
+
+      Transfer : ContractId TransferProposal
+        with newOwner: Party
+        do   
+            create TransferProposal
+             with coin=this; newOwner
+
+      Lock : ContractId LockedCoin
+        with maturity: Time; locker: Party
+        do create LockedCoin with coin=this; maturity; locker
+
+      Disclose : ContractId Coin
+        with p : Party
+        do create this with delegates = p :: delegates
+
+    --a coin can only be archived by the issuer under the condition that the issuer is the owner of the coin. This ensures the issuer cannot archive coins at will.
+    controller issuer can
+      Archives
+        : ()
+        do assert (issuer == owner)
+
+
+--the Coin contract in the locked state
+template LockedCoin
+  with
+    coin: Coin
+    maturity: Time
+    locker: Party
+  where
+    signatory coin.issuer, coin.owner
+
+    controller locker can
+      Unlock
+        : ContractId Coin
+        do create coin
+
+    controller coin.owner can
+      Clawback
+        : ContractId Coin
+        do   
+          currTime <- getTime
+          assert (currTime >= maturity)
+          create coin
+
+
+--TransferProposal
+template TransferProposal
+  with
+    coin: Coin
+    newOwner: Party
+  where
+    signatory coin.owner, coin.issuer
+
+    controller coin.owner can
+      WithdrawProposal
+        : ContractId Coin
+        do create coin
+
+    controller newOwner can
+      AcceptTransfer
+        : ContractId Coin
+        do create coin with owner = newOwner
+
+      RejectTransfer
+        : ()
+        do return ()
+
+createCoin : Party -> Party -> Decimal -> Scenario (ContractId Coin)
+createCoin issuer owner amount =
+  do
+    masterId <- issuer `submit` create CoinMaster with issuer
+    coinAgmProp <- issuer `submit` exercise masterId Invite with owner
+    coinAgmId <- owner `submit` exercise coinAgmProp AcceptCoinProposal
+    coinId <- issuer `submit` exercise coinAgmId Issue with amount
+    return coinId
+
+coinIssuance : Scenario (ContractId TransferProposal)  -- test
+coinIssuance = 
+  scenario
+    do
+
+      [issuer, owner, newOwner] <- makePartiesFrom ["Bank", "Me", "You"]
+      now <- pass (days 0)
+      --CoinMaster
+      masterId <- issuer `submit` do create CoinMaster with issuer
+      coinAgmProp <- issuer `submit` do exercise masterId Invite with owner
+      coinAgmId <- owner `submit` do exercise coinAgmProp AcceptCoinProposal
+      coinId <- issuer `submit` do exercise coinAgmId Issue with amount = 100.0
+
+      --Coin transfer test
+      coinTransferPropId <- owner `submit` do exercise coinId Transfer with newOwner
+      coinId <- newOwner `submit` do exercise coinTransferPropId AcceptTransfer
+
+      --Coin lock test
+      lockedCoinId <- newOwner `submit` do exercise coinId Lock with maturity= (addRelTime now (days 2)); locker=issuer
+
+      --since it is locked and maturity time hasn't elapsed yet, owner cannot clawback
+      newOwner `submitMustFail` do exercise lockedCoinId Clawback
+
+      --only after unlock, owner can access the coin
+      unlockedCoin <- issuer `submit` do exercise lockedCoinId Unlock
+      newOwner `submit` do exercise unlockedCoin Transfer with newOwner=owner

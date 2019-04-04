@@ -1,0 +1,19 @@
+{
+  "homepage": "https://curl.haxx.se/",
+  "description": "Command line tool and library for transferring data with URLs",
+  "version": "7.64.0",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://curl.haxx.se/windows/dl-7.64.0_3/curl-7.64.0_3-win64-mingw.zip",
+      "hash": "d24801c78fa3ebdc1b8df4ac18740eddc7a47b882c923dd2796ef6152b15aab0",
+      "extract_dir": "curl-7.64.0-win64-mingw"
+    },
+    "32bit": {
+      "url": "https://curl.haxx.se/windows/dl-7.64.0_3/curl-7.64.0_3-win32-mingw.zip",
+      "hash": "602d5caa7bdda1cbf437c35c781110cf84ece24439157a46ceac5d06bade9c98",
+      "extract_dir": "curl-7.64.0-win32-mingw"
+    }
+  },
+  "bin": "bin\\curl.exe"
+}

@@ -1,0 +1,291 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@build_bazel_rules_nodejs//:defs.bzl", "nodejs_binary")
+load("@os_info//:os_info.bzl", "is_linux")
+load("//rules_daml:daml.bzl", "daml_test")
+
+nodejs_binary(
+    name="grunt",
+    data=['@npm//matchdep', '@npm//grunt-cli'],
+    entry_point='grunt-cli/bin/grunt'
+)
+
+genrule(
+    name = "theme",
+    srcs = glob(["theme/**"], exclude=["theme/bower_components/**", "theme/node_modules/**", "theme/da_theme/**"]) +
+        ['@npm//browserify', '@npm//grunt-banner', '@npm//grunt-browserify', '@npm//grunt-contrib-clean'
+        , '@npm//grunt-contrib-connect', '@npm//grunt-contrib-copy', '@npm//grunt-contrib-sass', '@npm//grunt-contrib-uglify'
+        , '@npm//grunt-contrib-watch', '@npm//grunt-exec', '@npm//grunt-open', '@npm//matchdep'],
+    tools = ["@sass_nix//:bin/sass", ':grunt'],
+    outs = ["da_theme.tar.gz"],
+    cmd = """
+        cp -rL docs/theme theme
+        cd theme
+
+        # Make the node_modules available
+        ln -s ../external/npm/node_modules .
+
+        # Run sass and grunt
+        ../$(location @sass_nix//:bin/sass) \
+            -I bower_components_static/bourbon/dist \
+            -I bower_components_static/neat/app/assets/stylesheets \
+            -I bower_components_static/font-awesome/scss \
+            -I bower_components_static/wyrm/sass \
+            --style compressed \
+            --sourcemap=none \
+            --update \
+            sass:da_theme/static/css
+        ../$(location :grunt) build
+
+        tar -zcf ../$(location da_theme.tar.gz) da_theme
+    """
+)
+
+genrule(
+    name = "sources",
+    srcs = glob(["source/**"]) +
+        [ "//daml-foundations/daml-ghc:daml-base-rst-docs"
+        , "//ledger-api/grpc-definitions:docs"
+        , "//:LICENSE"
+        , "//:NOTICES"],
+    outs = ["source.tar.gz"],
+    cmd = """
+        cp -rL docs/source source
+
+        # Copy in Stdlib
+        cp -rL $(location //daml-foundations/daml-ghc:daml-base-rst-docs) source/daml/stdlib/base.rst
+
+        # Copy in Protobufs
+        cp -rL $(location //ledger-api/grpc-definitions:docs) source/app-dev/ledger-api-introduction/proto-docs.rst
+
+        # Copy in License and Notices
+        cp -L $(location //:LICENSE) source/LICENSE
+        cp -L $(location //:NOTICES) source/NOTICES
+
+        tar -zcf $(location source.tar.gz) source
+    """
+)
+
+genrule(
+    name = "pdf-docs",
+    srcs = glob(["configs/pdf/**", "configs/static/pygments_daml_lexer.py"]) +
+        [":sources"],
+    tools =
+        ["@texlive_nix//:bin/lualatex", "@sphinx_nix//:bin/sphinx-build", "@imagemagick_nix//:bin/convert"] +
+        (["@glibc_locales//:locale-archive"] if is_linux else []),
+    outs = ["DigitalAssetSDK.pdf"],
+    cmd = ("""
+        export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
+    """ if is_linux else "") + """
+        # Set up tools
+        export PATH="$$( cd "$$(dirname "$(location @imagemagick_nix//:bin/convert)")" ; pwd -P )":$$PATH
+
+        # Copy files into the right structure and remove symlinks
+        tar -zxf $(location sources) -C .
+        cp -L docs/configs/pdf/index.rst source/
+        cp -L docs/configs/pdf/conf.py source/
+        cp -L docs/configs/pdf/logo.png source/
+        cp -rL docs/configs/static ./
+
+        # Build with Sphinx
+        DATE=$$(date +"%Y-%m-%d")
+        sed -i "s,__VERSION__,"$$DATE"," source/conf.py
+        export LC_ALL=en_US.UTF-8
+        export LANG=en_US.UTF-8
+        $(location @sphinx_nix//:bin/sphinx-build) -b latex source out
+
+        # Copy in fonts and build with lualatex
+        cp -L docs/configs/pdf/fonts/* out/
+        cd out
+        # run twice to generate all references properly (this is a latex thing...)
+        ../$(location @texlive_nix//:bin/lualatex) --shell-escape *.tex
+        ../$(location @texlive_nix//:bin/lualatex) --shell-escape *.tex
+
+        # Move output to target
+        mv DigitalAssetSDK.pdf ../$(location DigitalAssetSDK.pdf)"""
+)
+
+genrule(
+    name = "docs-no-pdf",
+    srcs = glob(["configs/html/**", "configs/static/pygments_daml_lexer.py"]) +
+        [ ":sources"
+        , ":theme"
+        , "//daml-foundations/daml-ghc:daml-base-rst-docs"
+        , "//daml-foundations/daml-ghc:daml-base-hoogle-docs"
+        , "//language-support/java:javadocs"
+        , "//language-support/js/docs"
+        ],
+    tools =
+        ["@sphinx_nix//:bin/sphinx-build"] +
+        (["@glibc_locales//:locale-archive"] if is_linux else []),
+    outs = ["html-only.tar.gz"],
+    cmd = ("""
+        export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
+    """ if is_linux else "") + """
+        # Copy files into the right structure and remove symlinks
+        mkdir build
+        cp -rL docs build
+        tar -zxf $(location sources) -C build/docs
+
+        # Copy in theme
+        mkdir -p build/docs/theme
+        tar -zxf $(location :theme) -C build/docs/theme
+
+        # Build with Sphinx
+        cd build
+        DATE=$$(date +"%Y-%m-%d")
+        sed -i "s,__VERSION__,"$$DATE"," docs/configs/html/conf.py
+        export LC_ALL=en_US.UTF-8
+        export LANG=en_US.UTF-8
+        WARNINGS=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1 | \
+            grep -Ei "warning:" || true)
+
+        if [ "$$WARNINGS" != "" ]; then
+            echo "$$WARNINGS"
+            exit 1
+        fi
+
+        # Copy Javadoc
+        tar -zxf ../$(locations //language-support/java:javadocs) -C html/app-dev/bindings-java
+
+        # Copy in JS docs
+        tar -zxf ../$(location //language-support/js/docs) -C html/app-dev/bindings-js
+        mv html/app-dev/bindings-js/docs html/app-dev/bindings-js/reference
+
+        # Copy in hoogle DB
+        mkdir -p html/hoogle_db
+        cp -rL ../$(location //daml-foundations/daml-ghc:daml-base-hoogle-docs) html/hoogle_db/base.txt
+
+        tar -zcf ../$(location html-only.tar.gz) html
+        """
+)
+
+genrule(
+    name = "redirects",
+    srcs = ["redirects.map", "redirect_template.html"],
+    outs = ["redirects.tar.gz"],
+    cmd = """
+        mkdir redirects
+        while read l; do
+            from=$$(awk -F' -> ' '{print $$1}' <<<$$l)
+            to=$$(awk -F' -> ' '{print $$2}' <<<"$$l")
+            if [ $$to ]
+            then
+                mkdir -p redirects/$$(dirname $$from)
+                cp -L docs/redirect_template.html redirects/$$from
+                sed -i -e "s,__URL__,$${to}," redirects/$$from
+            fi
+        done <docs/redirects.map
+        tar -zcf $(location redirects.tar.gz) redirects
+    """
+)
+
+genrule(
+    name = "docs",
+    srcs = [":docs-no-pdf", ":pdf-docs", ":redirects", "error.html"],
+    outs = ["html.tar.gz"],
+    cmd = """
+        tar -zxf $(location :redirects)
+        tar -zxf $(location :docs-no-pdf)
+        cp -rn redirects/* html
+        cp -L docs/error.html html
+        cd html
+        find . -name '*.html' | sed -e 's,^\\./,https://docs.daml.com/,' > sitemap
+        SMHEAD=\"{}\"
+        SMITEM=\"{}\"
+        SMFOOT=\"{}\"
+        DATE=$$(date +"%Y-%m-%d")
+        echo $$SMHEAD > sitemap.xml
+        while read item; do
+            echo $$SMITEM | sed -e "s,%DATE%,$${{DATE}}," | sed -e "s,%LOC%,$${{item}}," >> sitemap.xml
+        done < sitemap
+        echo $$SMFOOT >> sitemap.xml
+        echo {{ \\"$$DATE\\" : \\"$$DATE\\" }} > versions.json
+        cd ..
+        cp -L $(location :pdf-docs) html/_downloads
+        tar -zcf $(location html.tar.gz) html
+    """.format(
+            """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
+            """<url><loc>%LOC%</loc><lastmod>%DATE%</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>""",
+            """</urlset>"""
+        )
+)
+
+genrule(
+    name = "quickstart-java",
+    srcs = ["//:component-version"] + glob(["source/getting-started/quickstart/template-root/**"]),
+    outs = ["quickstart-java.tar.gz"],
+    cmd = """
+        mkdir -p quickstart-java
+        cp -rL docs/source/getting-started/quickstart/template-root/* quickstart-java/
+        VERSION=$$(cat $(location //:component-version))
+        sed -i "s/__VERSION__/$$VERSION/" quickstart-java/pom.xml
+        tar zcf $@ quickstart-java
+    """,
+    visibility = ["//visibility:public"],
+)
+
+load("//language-support/java/codegen:codegen.bzl", "daml_to_java")
+
+daml_to_java(
+    name = "quickstart-model",
+    main_src = "source/getting-started/quickstart/template-root/daml/Main.daml",
+    srcs = glob(["source/getting-started/quickstart/template-root/**/*.daml"]),
+    target = "1.1",
+    package_prefix = "com.digitalasset.quickstart.model"
+)
+
+java_binary(
+    name = "quickstart-java-lib",
+    srcs = glob(["source/getting-started/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-srcjar"],
+    main_class = "com.digitalasset.quickstart.iou.IouMain",
+    deps = [
+        "//3rdparty/jvm/ch/qos/logback:logback_classic",
+        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+        "//3rdparty/jvm/com/sparkjava:spark_core",
+        "//3rdparty/jvm/com/google/guava:guava",
+        "//3rdparty/jvm/com/google/code/gson:gson",
+        "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//language-support/java/bindings-rxjava:bindings-rxjava",
+        "//language-support/java/bindings:bindings-java",
+    ]
+)
+
+
+
+daml_test(
+    name = "ledger-api-introduction-daml-test",
+    srcs = glob(["source/app-dev/ledger-api-introduction/code-snippets/**/*.daml"])
+)
+
+daml_test(
+    name = "patterns-daml-test",
+    srcs = glob(["source/daml/patterns/daml/**/*.daml"])
+)
+
+daml_test(
+    name = "daml-studio-daml-test",
+    srcs = glob(["source/daml/daml-studio/daml/**/*.daml"])
+)
+
+daml_test(
+    name = "daml-ref-daml-test",
+    srcs = glob(["source/daml/code-snippets/**/*.daml"])
+)
+
+daml_test(
+    name = "introduction-daml-test",
+    srcs = glob(["source/getting-started/introduction/code/**/*.daml"])
+)
+
+daml_test(
+    name = "quickstart-daml-test",
+    srcs = glob(["source/getting-started/quickstart/template-root/daml/**/*.daml"])
+)
+
+daml_test(
+    name = "ledger-model-daml-test",
+    srcs = glob(["source/concepts/ledger-model/daml/**/*.daml"])
+)

@@ -1,0 +1,16 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module SumProducts where
+
+data SumOfProducts
+    = Sum1 {field1 : Int, field2 : Text}
+    | Sum2
+    | Sum3 {field1 : Int, field3 : Optional Text, field4 : Bool}
+      deriving (Eq,Ord)
+
+main = scenario do
+    alice <- getParty "alice"
+    submit alice $ assert $ Sum1 3 "test" /= Sum2
+    submit alice $ assert $ Sum1 3 "test" < Sum2

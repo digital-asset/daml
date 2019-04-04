@@ -1,0 +1,185 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:pkg.bzl", "pkg_tar")
+load("//bazel_tools:proto.bzl", "proto_gen")
+
+load(
+  "//bazel_tools:scala.bzl",
+  "lf_scalacopts",
+  "da_scala_library",
+  "da_scala_binary",
+  "da_scala_test_suite",
+)
+
+load(
+  '//rules_daml:daml.bzl',
+  'daml_compile',
+)
+
+load("@os_info//:os_info.bzl", "is_windows")
+
+LF_MAJOR_VERSIONS = ['0', '1', 'dev']
+
+filegroup(
+    name = "daml-lf-archive-srcs",
+    srcs = ["da/daml_lf.proto"] + ["da/daml_lf_%s.proto" % v for v in LF_MAJOR_VERSIONS],
+    visibility = ["//visibility:public"],
+)
+
+exports_files (
+  ['da/daml_lf_%s.proto' % v for v in LF_MAJOR_VERSIONS]
+)
+
+
+proto_library(
+  name = 'daml_lf_proto',
+  srcs = [':daml-lf-archive-srcs'],
+  proto_source_root = "daml-lf/archive"
+)
+
+proto_gen(
+  name = 'daml_lf_java_proto_srcs',
+  srcs = [ ':daml_lf_proto' ],
+  plugin_name = "java",
+)
+
+java_library(
+  name = "daml_lf_java_proto",
+  srcs = [':daml_lf_java_proto_srcs'],
+  deps = ['//3rdparty/jvm/com/google/protobuf:protobuf_java'],
+  exports = ['//3rdparty/jvm/com/google/protobuf:protobuf_java'],
+  visibility = ['//visibility:public']
+)
+
+
+
+# FIXME(JM): Clean this up
+genrule(
+  name = 'daml_lf_haskell_proto_src',
+  srcs = glob(['da/*.proto']),
+  outs = ['Da/DamlLf.hs'] + [ 'Da/DamlLf%s.hs' % v.title() for v in LF_MAJOR_VERSIONS ],
+  tools = [
+    '//nix/third-party/proto3-suite:compile-proto-file'
+  ],
+  cmd =
+    "ORIGPWD=`pwd`\ncd daml-lf/archive\n" +
+    "\n".join(
+      ['$$ORIGPWD/$(location //nix/third-party/proto3-suite:compile-proto-file) --proto da/daml_lf%s.proto --out $$ORIGPWD/$(@D)' % vx
+       for vx in [''] + ['_%s' % v for v in LF_MAJOR_VERSIONS]
+      ]
+    ),
+)
+
+da_haskell_library(
+  name = 'daml_lf_haskell_proto',
+  srcs = [':daml_lf_haskell_proto_src'],
+  deps = [
+    '//nix/third-party/proto3-suite:proto3-suite',
+    '//nix/third-party/proto3-wire:proto3-wire'
+  ],
+  compiler_flags = ["-O0"], # disable optimization as this is otherwise way too slow to compile.
+  hazel_deps = [
+    'base',
+    'bytestring',
+    'deepseq',
+    'text',
+    'vector',
+  ],
+  visibility = ["//visibility:public"]
+)
+
+
+
+da_scala_library(
+  name = "daml_lf_archive_scala",
+  srcs = glob(['src/main/**/*.scala']),
+  # The daml_lf_dev.proto file is required for the 'dev' version
+  # has check.
+  resources = ['da/daml_lf_dev.proto'],
+  deps = [
+    "//daml-lf/data",
+    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    ":daml_lf_java_proto"
+  ],
+  scalacopts = lf_scalacopts,
+  visibility = ['//visibility:public'],
+)
+
+da_scala_test_suite(
+  name = "daml_lf_archive_scala_tests",
+  srcs = glob(['src/test/**/*.scala']),
+  size = "small",
+  deps = [
+    ":daml_lf_archive_scala",
+    ":daml_lf_java_proto",
+    "//daml-lf/data",
+    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+    "//3rdparty/jvm/org/scalatest:scalatest",
+  ],
+  data = [
+    ":DarReaderTest.dar",
+  ],
+  scalacopts = lf_scalacopts,
+)
+
+daml_compile(
+  name = "DarReaderTest",
+  main_src = "src/test/daml/DarReaderTest.daml",
+)
+
+filegroup(
+  name = "proto_srcs",
+  srcs = ['da/daml_lf.proto' ] + ['da/daml_lf_%s.proto' % v for v in LF_MAJOR_VERSIONS]
+)
+
+proto_library(
+  name = "daml_lf_proto_lib",
+  srcs = [':proto_srcs'],
+  proto_source_root = "daml-lf/archive"
+)
+
+java_proto_library(
+  name = 'daml_lf_proto_lib_java',
+  deps = [':daml_lf_proto_lib'],
+  visibility = ['//visibility:public']
+)
+
+# NOTE(MH): The pre-bazel release process put the `.proto` files in
+# `daml-lf-archive.jar` as well. This rule is replicating this old behavior.
+# This will very likely change in the future to not include the `.proto` files.
+genrule(
+  name = 'daml_lf_archive_java',
+  srcs = [':proto_srcs', ':daml_lf_proto_lib_java'],
+  outs = ['daml_lf_archive_java.jar'],
+  tools = ["@zip_dev_env//:zip"],
+  cmd = """
+    INPUT=$$(echo "$(locations :daml_lf_proto_lib_java)" | cut -d ' ' -f 1)
+    cp -L $$INPUT $@
+    chmod u+w $@
+    $(location @zip_dev_env//:zip) -g $@ $(locations :proto_srcs)
+  """,
+)
+
+genrule(
+  name = 'daml_lf_archive_protos_zip',
+  srcs = [':proto_srcs'],
+  outs= ['daml_lf_archive_protos_zip.zip'],
+  tools = ["@zip_dev_env//:zip"],
+  cmd = '''
+    mkdir -p daml-lf-archive-protos/protobuf/com/digitalasset/daml_lf
+    cp $(SRCS) daml-lf-archive-protos/protobuf/com/digitalasset/daml_lf
+    $(location @zip_dev_env//:zip) -r $@ daml-lf-archive-protos
+  ''',
+  visibility = ['//visibility:public'],
+)
+
+pkg_tar(
+  name = 'daml_lf_archive_protos_tarball',
+  extension = "tar.gz",
+  package_dir = "daml-lf-archive-protos/protobuf/com/digitalasset/daml_lf",
+  srcs = [':proto_srcs'],
+  visibility = ['//visibility:public'],
+)

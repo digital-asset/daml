@@ -1,0 +1,35 @@
+syntax = "proto3";
+package hellos;
+
+service Hellos {
+
+  // Server streaming: Request n repetitions of a greeting be sent, based off of a given name
+  rpc HelloSS(SSRqt) returns (stream SSRpy) {}
+
+  // Client streaming: Send n requests and receive a total request count when done
+  rpc HelloCS(stream CSRqt) returns (CSRpy) {}
+
+  // Simple bidi streaming: ping-pong echo
+  rpc HelloBi(stream BiRqtRpy) returns (stream BiRqtRpy) {}
+}
+
+message SSRqt {
+  string name = 1;
+  uint32 num_replies = 2;
+}
+
+message SSRpy {
+  string greeting = 1;
+}
+
+message CSRqt {
+  string message = 1;
+}
+
+message CSRpy {
+  uint32 num_requests = 1;
+}
+
+message BiRqtRpy {
+  string message = 1;
+}

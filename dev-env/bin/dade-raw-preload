@@ -1,0 +1,209 @@
+#!/usr/bin/env bash
+
+# This script preloads system-speific packages to Nix store (a cache). It
+# downloads it from `master-dade-{darwin,linux}` Hydra jobset.
+
+set -Eeuo pipefail
+
+{ # Prevent execution if this script was only partially downloaded
+
+version=1.0.2
+
+# Extract the name of this script, without the extension, to use in output and related files
+me=$(basename -- "${0%%.*}")
+
+type 'uname' >/dev/null 2>&1 || which 'uname' >/dev/null 2>&1 || (
+    >&2 echo "[dev-env] ${me}:" "uname is not present";
+    exit 1
+)
+
+# Do not use syslog by default, unless it's running on MacOS. To see the content
+# on macOS run:
+#     $ log show --predicate 'eventMessage contains "dev-env"' --last 30m
+logger=0
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    logger=1
+fi
+
+# use MASTER_STORE_PATHS_URL only
+# this is the use case when populating docker container for ci builds
+include_next=1
+
+function usage
+{
+    echo "Usage: ${me} [-s]"
+    echo "    -s - output to standard error instead of system logger"
+    exit 0
+}
+
+function errcho() {
+    if (( logger )); then
+        logger -s -p local0.notice -t "${me}[$$]" -- "[dev-env] ${me}:" "$@"
+    else
+        >&2 echo "[dev-env] ${me}:" "$@";
+    fi
+}
+
+errcho "Outer environment (for debugging of DEL-2933):"
+env | while IFS='' read -r line || [[ -n "$line" ]]; do
+    errcho "env:" "$line"
+done
+
+# Exits script with 1 with an error message ($@) sent to stderr.
+function oops() {
+    stop 1 "$@"
+}
+
+# Exits script with specified code ($1) with an error message ($[1:]) sent to stderr.
+function stop() {
+    code=$1
+    shift
+    errcho "$@"
+    exit "$code"
+}
+
+# Exit script with exit code 1 if a tool does not exist on $PATH.
+function require_util() {
+    local util_path=$(which "$1" 2>/dev/null)
+    if [ $? -eq 0 ]
+    then
+        errcho "you have '$1' installed at '$util_path', which $2"
+    else
+        oops "you do not have '$1' installed, which $2"
+    fi
+}
+
+# Exit script with exit code 1 if a file or directory does not exist.
+function require_exists() {
+    test -e "$1" >/dev/null 2>&1 ||
+        oops "you do not have '$1' present, which $2"
+}
+
+# Exit script gracefully if a file or directory does not exist.
+function check_exists() {
+    test -e "$1" >/dev/null 2>&1 ||
+        stop 0 "you do not have '$1' present, which $2"
+}
+
+while getopts "sm" opt; do
+    case "$opt" in
+        s)
+            logger=0
+            ;;
+        m)
+            include_next=0
+            ;;
+        \?)
+            echo "Invalid option: -$OPTARG" >&2
+            usage
+            ;;
+    esac
+done
+
+errcho "Starting: version ${version}"
+
+check_exists "/nix/store" "is what we want to prewarm!"
+
+case "$(uname -s)" in
+    Linux)  SYSTEM=linux;;
+    Darwin) SYSTEM=darwin;;
+    *) oops "sorry, there is no automatic preload implemented for your platform";;
+esac
+
+
+errcho "Detecting the Nix store owner..."
+
+NIX_OWNER=$(ls -ld /nix/store | awk '{print $3}')
+NIX_OWNER_HOME=$(eval echo "~$NIX_OWNER")
+SKIP_MARKER_FILE="${NIX_OWNER_HOME}/.dade-raw-preload.skip"
+CURRENT_USER=$(id -un)
+SUDO=
+
+if [ "$NIX_OWNER" != "$CURRENT_USER" ]; then
+    errcho "Running as $CURRENT_USER"
+    if [ "$CURRENT_USER" != "root" ]; then
+        errcho "ERROR: Script can be run only by either root or owner of /nix/store (${NIX_OWNER}), instead current user is $CURRENT_USER."
+        exit 987;
+    fi
+    SUDO="sudo -E -u $NIX_OWNER LC_CTYPE= LANG=C" ;
+fi
+
+errcho "Checking available tools in the system..."
+[ ! -z "$SUDO" ] && require_util sudo "needed to run the script from a user."
+require_util awk "needed to detect owner of the Nix store."
+
+errcho "Checking for marker file ${SKIP_MARKER_FILE}..."
+
+if [[ -f "${SKIP_MARKER_FILE}" ]]; then
+    errcho "Skipping preloading due to existence of marker file ${SKIP_MARKER_FILE}!"
+    exit 0
+fi
+
+errcho "Finding that user's Nix profile..."
+
+(   # Running in a subshell to avoid leaking exported variables.
+    errcho "Sourcing Nix profile..."
+
+    export HOME="${NIX_OWNER_HOME}"
+    export include_next
+    # shellcheck source=../lib/ensure-nix
+    source "$(dirname "${BASH_SOURCE[0]}")/../lib/ensure-nix"
+
+    errcho "Validating Nix profile..."
+
+    require_util nix-shell "needed to setup environment where the preloading logic runs."
+
+    NIX_SHELL=$(which nix-shell)
+
+    errcho "Setting up ephemeral Nix configuration..."
+    tmpDir="$(${SUDO} mktemp -d -t dade-raw-preload.XXXXXXXXXX || \
+          oops "Could not create temporary directory to set up an ephemeral nix.conf")"
+    errcho "Using $tmpDir as temporary directory for ephemeral nix.conf."
+    cleanup() {
+        errcho "Cleaning up temporary directory $tmpDir"
+        rm -rf "$tmpDir"
+    }
+    ${SUDO} tee "$tmpDir/nix.conf" >/dev/null <<EOF
+binary-caches = http://cache.da-int.net http://cache.nixos.org
+binary-cache-public-keys = hydra.da-int.net-1:6Oy2+KYvI7xkAOg0gJisD7Nz/6m8CmyKMbWfSKUe03g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs=
+EOF
+
+    trap cleanup INT QUIT TERM
+
+    MASTER_STORE_PATHS_URL="http://hydra.da-int.net/jobset/da/master-dade-${SYSTEM}/latest-eval/store-paths"
+    NEXT_STORE_PATHS_URL="http://hydra.da-int.net/jobset/da/dev-env-next-dade-${SYSTEM}/latest-eval/store-paths"
+
+    errcho "Setting up ephemeral shell with required tools..."
+
+    # Set cache configuration before creating the shell so it is also used by
+    # the shell setup itself, i.e. hopefully we get bash, curl, jq, and nix
+    # from the cache and we don't build them ourselves.
+    export NIX_CONF_DIR=$tmpDir
+    # - `nix` attribute used below refers to nix 2.0 as added in nixpkgs 18.03.
+    # - NIX_PATH is pinned to a release to ensure consistency.
+    # - ${SUDO:-env} is there to ensure that if we don't run a sudo, we preface
+    # the command with `env`, otherwise the invocation fails.
+    ${SUDO:-env} NIX_PATH="nixpkgs=https://github.com/NixOS/nixpkgs-channels/archive/nixos-18.03.tar.gz" "$NIX_SHELL" \
+                 -p curl jq nix --timeout 120 -vvv \
+                 --run bash <<EOF
+            set -Eeuo pipefail
+            errcho() { >&2 echo "[dev-env] \$@"; }
+            errcho "Inner environment (for debugging of DEL-2933):"
+            env >&2
+            errcho "Precaching dev-env tools from master branch..."
+            curl -s -L -H"Accept: application/json" "$MASTER_STORE_PATHS_URL" | \
+                jq -r ".|arrays[]" | xargs nix-store --timeout 360 -r
+            if (( include_next )); then
+                errcho "Precaching dev-env tools from dev-env-branch branch..."
+                curl -s -L -H"Accept: application/json" "$NEXT_STORE_PATHS_URL" | \
+                    jq -r ".|arrays[]" | xargs nix-store --timeout 360 -r
+            fi
+EOF
+
+    # do cleanup at the end
+    cleanup
+)
+
+errcho "Preloading completed!"
+
+}

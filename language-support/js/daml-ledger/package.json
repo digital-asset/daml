@@ -1,0 +1,21 @@
+{
+  "name": "daml-ledger",
+  "version": "0.5.0",
+  "description": "DAML Ledger API Node.js bindings",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DACH-NY/daml",
+    "directory": "language-support/js/daml-ledger"
+  },
+  "license": "Apache-2.0",
+  "author": "Digital Asset (Switzerland) GmbH and/or its affiliates",
+  "contributors": [
+    "Stefano Baghino <stefano.baghino@daml.com>",
+    "Mario Pastorelli <mario.pastorelli@daml.com>"
+  ],
+  "dependencies": {
+    "daml-grpc": "0.5.0"
+  }
+}

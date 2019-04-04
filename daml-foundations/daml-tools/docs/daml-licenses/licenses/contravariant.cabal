@@ -1,0 +1,103 @@
+name:          contravariant
+category:      Control, Data
+version:       1.5
+license:       BSD3
+cabal-version: >= 1.6
+license-file:  LICENSE
+author:        Edward A. Kmett
+maintainer:    Edward A. Kmett <ekmett@gmail.com>
+stability:     provisional
+homepage:      http://github.com/ekmett/contravariant/
+bug-reports:   http://github.com/ekmett/contravariant/issues
+copyright:     Copyright (C) 2007-2015 Edward A. Kmett
+synopsis:      Contravariant functors
+description:   Contravariant functors.
+build-type:    Simple
+tested-with:   GHC == 7.0.4
+             , GHC == 7.2.2
+             , GHC == 7.4.2
+             , GHC == 7.6.3
+             , GHC == 7.8.4
+             , GHC == 7.10.3
+             , GHC == 8.0.2
+             , GHC == 8.2.2
+             , GHC == 8.4.3
+             , GHC == 8.6.1
+extra-source-files:
+  .travis.yml
+  CHANGELOG.markdown
+  README.markdown
+  HLint.hs
+
+source-repository head
+  type: git
+  location: git://github.com/ekmett/contravariant.git
+
+flag tagged
+  description:
+    You can disable the use of the `tagged` package using `-f-tagged`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+flag semigroups
+  description:
+    You can disable the use of the `semigroups` package using `-f-semigroups`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+flag safe
+  description: Get Safe guarantees rather than merely Trustworthy, but with worse constant factors.
+  default: False
+  manual: True
+
+flag StateVar
+  description:
+    You can disable the use of the `StateVar` package using `-f-StateVar`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+library
+  hs-source-dirs: src
+  build-depends:
+    base                              < 5,
+    transformers        >= 0.2 &&     < 0.6
+
+  if !impl(ghc > 7.10)
+    build-depends: transformers-compat >= 0.3 && < 1
+
+  if !impl(ghc >= 7.9)
+    build-depends: void >= 0.6 &&     < 1
+
+  if flag(tagged) && !impl(ghc >= 7.7)
+    build-depends: tagged >= 0.4.4 && < 1
+
+  if flag(semigroups) && !impl(ghc >= 7.11)
+    build-depends: semigroups >= 0.15.2 && < 1
+
+  if flag(StateVar)
+    build-depends: StateVar >= 1.1.1 && < 1.2
+
+  if impl(ghc >= 7.2 && < 7.6)
+    build-depends: ghc-prim
+
+  if flag(safe)
+    cpp-options: -DSAFE
+
+  exposed-modules:
+    Data.Functor.Contravariant.Compose
+    Data.Functor.Contravariant.Divisible
+
+  if impl(ghc < 8.5)
+    hs-source-dirs: old-src
+    exposed-modules: Data.Functor.Contravariant
+
+  if impl(ghc >= 7.4)
+    exposed-modules: Data.Functor.Contravariant.Generic
+
+  ghc-options: -Wall

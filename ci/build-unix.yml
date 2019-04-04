@@ -1,0 +1,33 @@
+steps:
+  - checkout: self
+    fetchDepth: 2 # speed up checkout from 30sec to 7sec
+
+  - bash: ci/install-nix.sh
+    displayName: 'Install Nix'
+
+  - bash: |
+      source dev-env/lib/ensure-nix
+      ci/build-dev-env.py 2>&1
+    displayName: 'Build the dev-env'
+    env:
+      # to upload to the Nix cache
+      GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
+
+  - bash: ci/build.sh
+    displayName: 'Build'
+    env:
+      # to upload to the bazel cache
+      GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+
+  - task: PublishBuildArtifacts@1
+    condition: succeededOrFailed()
+    inputs:
+      pathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      artifactName: 'Bazel execution logs'
+
+  - bash: ci/release.sh
+    displayName: 'Release'
+    env:
+      # to connect to bintray
+      JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)

@@ -1,0 +1,27 @@
+{
+  "classPrefix": "",
+  "enableJSClass": false,
+  "enableClasses": false,
+  "options": [
+    "testAllProps",
+    "testProp"
+  ],
+  "feature-detects": [
+    "css/calc",
+    "css/flexbox",
+    "css/nthchild",
+    "es5/array",
+    "es5/date",
+    "es5/function",
+    "es5/object",
+    "es5/specification",
+    "es5/strictmode",
+    "es5/string",
+    "es5/syntax",
+    "es5/undefined",
+    "es6/promises",
+    "history",
+    "json",
+    "network/fetch"
+  ]
+}

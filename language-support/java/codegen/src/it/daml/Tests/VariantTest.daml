@@ -1,0 +1,21 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Tests.VariantTest where
+
+data VariantItem x = EmptyVariant
+                   | PrimVariant Int
+                   | RecordVariant with x : Int
+                   | RecordVariantRecord with y: VariantItem Int
+                   | ParameterizedRecordVariant with x1: x, x2: x, x3: [x]
+                   | CustomVariant Custom
+                   | CustomParametricVariant (CustomParametric x)
+
+data Custom = CustomCons {}
+
+data CustomParametric x = CustomParametricCons x
+
+data Foo = Bar Int
+
+data Bar = Baz Int

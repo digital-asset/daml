@@ -1,0 +1,44 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Reference where
+type ExampleReturnType = ()
+template NameOfTemplate
+  with
+    exampleParty : Party
+    exampleParty2 : Party
+    exampleParty3 : Party
+    -- more parameters here
+  where
+    signatory exampleParty
+    observer exampleParty2
+    ensure
+      -- boolean condition
+      True
+    agreement
+      -- text representing the contract
+      ""
+    controller exampleParty can
+      -- a choice goes here; see next page
+      NameOfChoice
+          : ()
+        do
+          return ()
+
+      nonconsuming NameOfChoice2
+          : ()
+        do
+          return ()
+
+
+      NameOfChoice3 : ExampleReturnType
+        with
+          exampleParameter : Text
+        do
+          -- choice body goes here
+          return ()
+
+      NameOfChoice4 : ContractId NameOfTemplate
+        do
+          create NameOfTemplate with exampleParty; exampleParty2; exampleParty3

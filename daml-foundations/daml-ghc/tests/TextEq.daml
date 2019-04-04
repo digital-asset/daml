@@ -1,0 +1,16 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module TextEq where -- test of DEL-3881
+
+stringEdit x = case x of
+  "USD" -> "JPY"
+  "JPY" -> "USD"
+  x -> x
+
+main = scenario do
+    alice <- getParty "alice"
+    submit alice $ assert $ stringEdit "USD" == "JPY"
+    submit alice $ assert $ stringEdit "JPY" == "USD"
+    submit alice $ assert $ stringEdit "DAML" == "DAML"

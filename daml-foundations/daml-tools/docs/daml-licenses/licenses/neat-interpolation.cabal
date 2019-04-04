@@ -1,0 +1,77 @@
+name:
+  neat-interpolation
+version:
+  0.3.2.4
+synopsis:
+  A quasiquoter for neat and simple multiline text interpolation
+description:
+  A quasiquoter for producing Text values with support for
+  a simple interpolation of input values.
+  It removes the excessive indentation from the input and
+  accurately manages the indentation of all lines of the interpolated variables.
+category:
+  String, QuasiQuotes
+license:
+  MIT
+license-file:
+  LICENSE
+copyright:
+  (c) 2013, Nikita Volkov
+author:
+  Nikita Volkov <nikita.y.volkov@mail.ru>
+maintainer:
+  Nikita Volkov <nikita.y.volkov@mail.ru>
+homepage:
+  https://github.com/nikita-volkov/neat-interpolation
+bug-reports:
+  https://github.com/nikita-volkov/neat-interpolation/issues
+build-type:
+  Simple
+cabal-version:
+  >=1.10
+
+
+source-repository head
+  type:
+    git
+  location:
+    git://github.com/nikita-volkov/neat-interpolation.git
+
+
+library
+  hs-source-dirs:
+    library
+  exposed-modules:
+    NeatInterpolation
+  other-modules:
+    NeatInterpolation.Parsing
+    NeatInterpolation.String
+  build-depends:
+    text == 1.*,
+    megaparsec >= 7 && < 8,
+    template-haskell >= 2.8 && < 3,
+    base-prelude < 2,
+    base >= 4.9 && < 5
+  ghc-options:
+    -funbox-strict-fields
+  default-extensions:
+    Arrows, BangPatterns, ConstraintKinds, DataKinds, DefaultSignatures, DeriveDataTypeable, DeriveFunctor, DeriveGeneric, EmptyDataDecls, FlexibleContexts, FlexibleInstances, FunctionalDependencies, GADTs, GeneralizedNewtypeDeriving, LambdaCase, LiberalTypeSynonyms, MagicHash, MultiParamTypeClasses, MultiWayIf, NoImplicitPrelude, NoMonomorphismRestriction, OverloadedStrings, PatternGuards, ParallelListComp, QuasiQuotes, RankNTypes, RecordWildCards, ScopedTypeVariables, StandaloneDeriving, TemplateHaskell, TupleSections, TypeFamilies, TypeOperators, UnboxedTuples
+  default-language:
+    Haskell2010
+
+
+test-suite api-tests
+  type:
+    exitcode-stdio-1.0
+  hs-source-dirs:
+    executables
+  main-is:
+    APITests.hs
+  build-depends:
+    neat-interpolation,
+    HTF >= 0.11 && < 0.14,
+    base-prelude
+  default-extensions:
+    Arrows, BangPatterns, ConstraintKinds, DataKinds, DefaultSignatures, DeriveDataTypeable, DeriveFunctor, DeriveGeneric, EmptyDataDecls, FlexibleContexts, FlexibleInstances, FunctionalDependencies, GADTs, GeneralizedNewtypeDeriving, LambdaCase, LiberalTypeSynonyms, MagicHash, MultiParamTypeClasses, MultiWayIf, NoImplicitPrelude, NoMonomorphismRestriction, OverloadedStrings, PatternGuards, ParallelListComp, QuasiQuotes, RankNTypes, RecordWildCards, ScopedTypeVariables, StandaloneDeriving, TemplateHaskell, TupleSections, TypeFamilies, TypeOperators, UnboxedTuples
+  default-language:
+    Haskell2010

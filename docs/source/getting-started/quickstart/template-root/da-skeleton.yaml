@@ -1,0 +1,8 @@
+project:
+  source: daml/Main.daml
+  scenario: Main:setup
+  parties:
+    - Alice
+    - Bob
+    - USD_Bank
+    - EUR_Bank

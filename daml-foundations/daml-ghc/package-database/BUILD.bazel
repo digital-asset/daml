@@ -1,0 +1,154 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load ("//bazel_tools:haskell.bzl"
+      , "da_haskell_library", "da_haskell_binary", "da_haskell_test")
+
+load ("//daml-foundations/daml-ghc/package-database:util.bzl"
+      , "daml_package_rule", "daml_package_db", "bundled_package_db")
+
+daml_package_db(
+    name = "package_db_for_daml-prim",
+    pkgs = [],
+)
+
+daml_package_rule(
+  name = "daml-prim-1.0",
+  pkg_name = "daml-prim",
+  srcs = "//daml-foundations/daml-ghc/daml-prim-src",
+  pkg_root = "daml-foundations/daml-ghc/daml-prim-src",
+  package_db = ":package_db_for_daml-prim",
+  visibility = ["//visibility:public"],
+  daml_lf_version = "1.0",
+)
+
+daml_package_rule(
+  name = "daml-prim-1.1",
+  pkg_name = "daml-prim",
+  srcs = "//daml-foundations/daml-ghc/daml-prim-src",
+  pkg_root = "daml-foundations/daml-ghc/daml-prim-src",
+  package_db = ":package_db_for_daml-prim",
+  visibility = ["//visibility:public"],
+  daml_lf_version = "1.1",
+)
+
+daml_package_rule(
+  name = "daml-prim-1.2",
+  pkg_name = "daml-prim",
+  srcs = "//daml-foundations/daml-ghc/daml-prim-src",
+  pkg_root = "daml-foundations/daml-ghc/daml-prim-src",
+  package_db = ":package_db_for_daml-prim",
+  visibility = ["//visibility:public"],
+  daml_lf_version = "1.2",
+)
+
+daml_package_rule(
+  name = "daml-prim-1.3",
+  pkg_name = "daml-prim",
+  srcs = "//daml-foundations/daml-ghc/daml-prim-src",
+  pkg_root = "daml-foundations/daml-ghc/daml-prim-src",
+  package_db = ":package_db_for_daml-prim",
+  visibility = ["//visibility:public"],
+  daml_lf_version = "1.3",
+)
+
+daml_package_rule(
+  name = "daml-prim-dev",
+  pkg_name = "daml-prim",
+  srcs = "//daml-foundations/daml-ghc/daml-prim-src",
+  pkg_root = "daml-foundations/daml-ghc/daml-prim-src",
+  package_db = ":package_db_for_daml-prim",
+  visibility = ["//visibility:public"],
+  daml_lf_version = "dev",
+)
+
+daml_package_rule(
+  name = "daml-stdlib-1.0",
+  pkg_name = "daml-stdlib",
+  srcs = "//daml-foundations/daml-ghc/daml-stdlib-src",
+  pkg_root = "daml-foundations/daml-ghc/daml-stdlib-src",
+  package_db = ":package_db_for_daml-stdlib",
+  daml_lf_version = "1.0",
+  dependencies = [":daml-prim-1.0"],
+  visibility = ["//visibility:public"]
+)
+
+daml_package_rule(
+  name = "daml-stdlib-1.1",
+  pkg_name = "daml-stdlib",
+  srcs = "//daml-foundations/daml-ghc/daml-stdlib-src",
+  pkg_root = "daml-foundations/daml-ghc/daml-stdlib-src",
+  package_db = ":package_db_for_daml-stdlib",
+  daml_lf_version = "1.1",
+  dependencies = [":daml-prim-1.1"],
+  visibility = ["//visibility:public"]
+)
+
+daml_package_rule(
+  name = "daml-stdlib-1.2",
+  pkg_name = "daml-stdlib",
+  srcs = "//daml-foundations/daml-ghc/daml-stdlib-src",
+  pkg_root = "daml-foundations/daml-ghc/daml-stdlib-src",
+  package_db = ":package_db_for_daml-stdlib",
+  daml_lf_version = "1.2",
+  dependencies = [":daml-prim-1.2"],
+  visibility = ["//visibility:public"]
+)
+
+daml_package_rule(
+  name = "daml-stdlib-1.3",
+  pkg_name = "daml-stdlib",
+  srcs = "//daml-foundations/daml-ghc/daml-stdlib-src",
+  pkg_root = "daml-foundations/daml-ghc/daml-stdlib-src",
+  package_db = ":package_db_for_daml-stdlib",
+  daml_lf_version = "1.3",
+  dependencies = [":daml-prim-1.3"],
+  visibility = ["//visibility:public"]
+)
+
+daml_package_rule(
+  name = "daml-stdlib-dev",
+  pkg_name = "daml-stdlib",
+  srcs = "//daml-foundations/daml-ghc/daml-stdlib-src",
+  pkg_root = "daml-foundations/daml-ghc/daml-stdlib-src",
+  package_db = ":package_db_for_daml-stdlib",
+  daml_lf_version = "dev",
+  dependencies = [":daml-prim-dev"],
+  visibility = ["//visibility:public"]
+)
+
+daml_package_db(
+  name = "package_db_for_daml-stdlib",
+  pkgs = [":daml-prim-1.0", ":daml-prim-1.1", ":daml-prim-1.2", ":daml-prim-1.3", ":daml-prim-dev"],
+  visibility = ["//visibility:public"]
+)
+
+bundled_package_db(
+    name = "package-db",
+    pkg_db = ":package_db_for_daml-stdlib",
+    daml_lf_versions = ["1.0", "1.1", "1.2", "1.3", "dev"],
+    visibility = ["//visibility:public"],
+)
+
+
+# TODO Make sure that tools no longer rely on this.
+# The daml-prim .dar archive. It is shipped as DAML-LF 1.0 such that we can link it from DAML-LF 1.0
+# as well as DAML-LF 1.1 dalfs.
+genrule(
+  name = "gen-daml-prim.dar",
+  outs = ["daml-prim.dar"],
+  tools = ["//daml-foundations/daml-tools/da-hs-damlc-app"],
+  srcs = ["//daml-foundations/daml-ghc/daml-prim-src"],
+  cmd = """
+    $(location //daml-foundations/daml-tools/da-hs-damlc-app) \
+      package daml-foundations/daml-ghc/daml-prim-src/LibraryModules.daml daml-prim --target 1.0 -o $(location daml-prim.dar)
+  """,
+  visibility = ["//visibility:public"],
+)
+
+# TODO Make sure that tools no longer rely on this.
+alias(
+    name = "daml-prim.dalf",
+    actual = ":daml-prim-1.1.dalf",
+    visibility = ["//visibility:public"],
+)

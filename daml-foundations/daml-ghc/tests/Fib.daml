@@ -1,0 +1,14 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Fib where
+
+fib : Int -> Int
+fib 0 = 0
+fib 1 = 1
+fib n = fib (n-1) + fib (n-2)
+
+main = scenario do
+    alice <- getParty "alice"
+    submit alice $ assert (fib 10 == 55)

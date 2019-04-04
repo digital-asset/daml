@@ -1,0 +1,30 @@
+transactions:
+TX #0 1970-01-01T00:00:00Z [unknown source]
+#0:0
+│   referenced by #2:2
+│   known to (since): Alice (#0), AlicesBank (#0), Bob (#2)
+└─> create Test:Iou@XXXXXXXX
+    with: { payer = 'AlicesBank', owner = 'Alice', amount = Test:Amount@XXXXXXXX{ value = 1.0000000000, currency = "USD" } } value-version: 1
+
+TX #1 1970-01-01T00:00:00Z [unknown source]
+#1:0
+│   referenced by #2:0, #2:1
+│   known to (since): AlicesBank (#1), Bob (#1)
+└─> create Test:DivulgeIouByExercise@XXXXXXXX
+    with: { payer = 'AlicesBank', divulgee = 'Bob' } value-version: 1
+
+TX #2 1970-01-01T00:00:00Z [unknown source]
+#2:0
+└─> ensure active #1:0
+
+#2:1
+│   known to (since): AlicesBank (#2), Bob (#2)
+└─> AlicesBank exercises Divulge:Test:DivulgeIouByExercise@XXXXXXXX on #1:0
+    with { ref = #0:0 } value-version: 1
+    children:
+    #2:2
+    │   known to (since): AlicesBank (#2), Bob (#2)
+    └─> ensure active #0:0
+
+active contracts:
+   #0:0, #1:0

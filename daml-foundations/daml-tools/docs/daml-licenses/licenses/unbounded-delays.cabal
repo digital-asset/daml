@@ -1,0 +1,31 @@
+name:          unbounded-delays
+version:       0.1.1.0
+cabal-version: >= 1.6
+build-type:    Simple
+author:        Bas van Dijk <v.dijk.bas@gmail.com>
+               Roel van Dijk <vandijk.roel@gmail.com>
+maintainer:    Bas van Dijk <v.dijk.bas@gmail.com>
+               Roel van Dijk <vandijk.roel@gmail.com>
+copyright:     2011-2012 Bas van Dijk & Roel van Dijk
+license:       BSD3
+license-file:  LICENSE
+homepage:      https://github.com/basvandijk/unbounded-delays
+bug-reports:   https://github.com/basvandijk/unbounded-delays/issues
+category:      Concurrency
+synopsis:      Unbounded thread delays and timeouts
+description:   The @threadDelay@ and @timeout@ functions from the @base@ library
+               use the bounded @Int@ type for specifying the delay or timeout
+               period. This packages provides alternatives which use the
+               unbounded @Integer@ type.
+
+extra-source-files: README.markdown
+
+source-repository head
+  Type: git
+  Location: git://github.com/basvandijk/unbounded-delays.git
+
+library
+  build-depends: base >= 4 && < 5
+  exposed-modules: Control.Concurrent.Thread.Delay
+                 , Control.Concurrent.Timeout
+  ghc-options: -Wall

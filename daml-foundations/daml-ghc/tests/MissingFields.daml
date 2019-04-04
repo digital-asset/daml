@@ -1,0 +1,10 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ ERROR range=10:10-10:22; does not have the required strict field(s): baz
+
+daml 1.2 module MissingFields where
+
+data Foo = Foo {bar : Int, baz : Int}
+
+tester = Foo{bar = 1}

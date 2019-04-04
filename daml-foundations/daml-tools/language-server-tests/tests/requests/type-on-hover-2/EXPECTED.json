@@ -1,0 +1,18 @@
+{
+  "contents": [
+    {
+      "value": ": Decimal",
+      "language": "daml"
+    }
+  ],
+  "range": {
+    "start": {
+      "line": 8,
+      "character": 2
+    },
+    "end": {
+      "line": 10,
+      "character": 15
+    }
+  }
+}

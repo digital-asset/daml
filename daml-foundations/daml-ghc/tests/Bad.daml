@@ -1,0 +1,10 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Bad where -- Used by test `Import.daml`
+
+data T = T {}
+
+main = scenario do
+  assert True

@@ -1,0 +1,155 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.ledger.api.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+
+option java_outer_classname = "ValueOuterClass";
+option java_package = "com.digitalasset.ledger.api.v1";
+
+// Encodes values that the ledger accepts as command arguments and emits as contract arguments.
+message Value {
+  oneof Sum {
+
+    Record record = 1;
+
+    Variant variant = 2;
+
+    // Identifier of an on-ledger contract. Commands which reference an unknown or already archived contract ID will fail.
+    string contract_id = 3;
+
+    // Represents a homogenous list of values.
+    List list = 4;
+
+    sint64 int64 = 5;
+
+    // A decimal value with precision 38 (38 decimal digits), of which
+    // 10 after the comma / period. in other words a decimal is a number
+    // of the form `x / 10^10` where `|x| < 10^38`.
+    // The number can start with a leading sign [+-] followed by digits
+    string decimal = 6;
+
+    // A string.
+    string text = 8;
+
+    // microseconds since the UNIX epoch. can go backwards. fixed
+    // since the vast majority of values will be greater than
+    // 2^28, since currently the number of microseconds since the
+    // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
+    // 9999-12-31T23:59:59.999999Z, so that we can convert to/from
+    // https://www.ietf.org/rfc/rfc3339.txt
+    sfixed64 timestamp = 9;
+
+    // An agent operating on the ledger.
+    string party = 11;
+
+    // True or false.
+    bool bool = 12;
+
+    // This value is used for example for choices that don't take any arguments.
+    google.protobuf.Empty unit = 13;
+
+    // days since the unix epoch. can go backwards. limited from
+    // 0001-01-01 to 9999-12-31, also to be compatible with
+    // https://www.ietf.org/rfc/rfc3339.txt
+    int32 date = 14;
+
+    // The Optional type, None or Some
+    Optional optional = 15;
+
+    // The Map type
+    Map map = 16;
+  }
+}
+
+// Contains nested values.
+message Record {
+
+  // Omitted from the transaction stream when verbose streaming is not enabled.
+  // Optional when submitting commands.
+  Identifier record_id = 1;
+
+  // The nested values of the record.
+  // Required
+  repeated RecordField fields = 2;
+}
+
+// A named nested value within a record.
+message RecordField {
+
+  // Omitted from the transaction stream when verbose streaming is not enabled.
+  // If any of the keys are omitted within a single record, the order of fields MUST match the order of declaration in the DAML template.
+  // Optional, when submitting commands.
+  string label = 1;
+
+  // A nested value of a record.
+  // Required
+  Value value = 2;
+}
+
+// Unique identifier of an entity.
+message Identifier {
+
+  // The identifier of the DAML package that contains the entity.
+  // Required
+  string package_id = 1;
+
+  // The identifier of the entity (unique within the package)
+  // DEPRECATED: use module_name and entity_name instead
+  // Optional
+  string name = 2 [deprecated=true];
+
+  // The dot-separated module name of the identifier.
+  // Required
+  string module_name = 3;
+
+  // The dot-separated name of the entity (e.g. record, template, ...) within the module.
+  // Required
+  string entity_name = 4;
+}
+
+// A value with alternative representations.
+message Variant {
+
+  // Omitted from the transaction stream when verbose streaming is not enabled.
+  // Optional when submitting commands.
+  Identifier variant_id = 1;
+
+  // Determines which of the Variant's alternatives is encoded in this message.
+  // Required
+  string constructor = 2;
+
+  // The value encoded within the Variant.
+  // Required
+  Value value = 3;
+}
+
+// A homogenous collection of values.
+message List {
+  // The elements must all be of the same concrete value type.
+  // Optional
+  repeated Value elements = 1;
+}
+
+// Corresponds to Java's Optional type, Scala's Option, and Haskell's Maybe.
+// The reason why we need to wrap this in an additional `message` is that we
+// need to be able to encode the `None` case in the `Value` oneof.
+message Optional {
+  Value value = 1; // optional
+}
+
+
+message Map {
+    message Entry {
+        Value key = 1; // key must be of type Text
+        Value value = 2;
+    }
+
+    repeated Entry entries = 1;
+}

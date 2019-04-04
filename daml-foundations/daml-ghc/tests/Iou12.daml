@@ -1,0 +1,172 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Iou12 where
+
+template Iou
+  with
+    issuer : Party
+    owner : Party
+    currency : Text
+    amount : Decimal
+  where
+    signatory issuer
+    ensure amount > 0.0
+
+    agreement show issuer <> " promises to pay " <>
+              show amount <> " " <> currency <>
+              " on demand to " <> show owner
+
+    let updateOwner : Party -> Update (ContractId Iou)
+        updateAmount : Decimal -> Update (ContractId Iou)
+        updateOwner o = create this with owner  = o
+        updateAmount a = create this with amount = a
+
+    controller owner can
+      nonconsuming DoNothing : () -- DEL-6496
+        do
+          return ()
+
+      Transfer : ContractId Iou
+        with newOwner : Party
+        do
+          updateOwner newOwner
+
+      Split : (ContractId Iou, ContractId Iou)
+        with splitAmount : Decimal
+        do
+          -- Split the IOU by dividing the amount.
+          let restAmount = amount - splitAmount
+          splitCid <- updateAmount splitAmount
+          restCid  <- updateAmount restAmount
+          return (splitCid, restCid)
+
+      Merge : ContractId Iou
+        with otherCid : ContractId Iou
+        do
+          -- Merge two IOUs by aggregating their amounts.
+          otherIou <- fetch otherCid
+          -- Check the two IOU's are compatible
+          assert $ this == otherIou with amount
+          -- Retire the old Iou by transferring to the
+          -- issuer and archiving
+          transferCid <-
+            exercise otherCid Transfer with newOwner = issuer
+          archive transferCid
+          -- Return the merged Iou
+          updateAmount (amount + otherIou.amount)
+
+
+main = scenario do
+  bank <- getParty "Acme Bank"
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+  charlie <- getParty "Charlie"
+
+  -- Bank creates Iou's for Alice and Bob
+
+  iouAliceCid <- submit bank do
+    create Iou with
+      issuer   = bank
+      owner    = alice
+      currency = "USD"
+      amount   = 100.0
+
+  iouBobCid <- submit bank do
+    create Iou with
+      issuer   = bank
+      owner    = bob
+      currency = "USD"
+      amount   = 30.0
+
+  -- Alice transfers some Iou's to Bob
+  (split, rest) <- submit alice do
+    exercise iouAliceCid Split with splitAmount = 40.0
+  iouOtherCid <- submit alice do
+    exercise split Transfer with newOwner = bob
+
+  -- Bob merges them with the ones he had already.
+  iouTotalCid <- submit bob do
+    exercise iouBobCid Merge with otherCid = iouOtherCid
+
+  -- Assert things are as they should be
+  submit alice do
+    aliceIou <- fetch rest
+    assert $ aliceIou == Iou with
+      issuer   = bank
+      owner    = alice
+      currency = "USD"
+      amount   = 60.0
+
+
+  submit bob do
+    bobIou <- fetch iouTotalCid
+    assert $ bobIou == Iou with
+      issuer   = bank
+      owner    = bob
+      currency = "USD"
+      amount   = 70.0
+
+  -- Issuer can archive Iou's they own
+  iouBankCid <- submit bank do
+    create Iou with
+      issuer   = bank
+      owner    = bank
+      currency = "USD"
+      amount   = 100.0
+
+  submit bank do exercise iouBankCid Archive
+  submitMustFail bank do fetch iouBankCid
+
+  -- some things are broken because we have had to hack signatories
+  -- scheduled fix in DAML-LF for next week
+  let broken x = return ()
+
+  -- Alice can't create IOUs that are backed by Acme Bank.
+  broken $ submitMustFail alice do
+    create Iou with
+      issuer   = bank
+      owner    = alice
+      currency = "USD"
+      amount   = 50.0
+
+  -- Acme Bank can't create IOUs with a negative amount.
+  submitMustFail bank do
+    create Iou with
+      issuer   = bank
+      owner    = alice
+      currency = "USD"
+      amount   = -20.0
+
+  -- SplitAmount needs to be between 0 and amount.
+  submitMustFail alice do exercise rest Split with splitAmount = 80.0
+
+  -- Double spend gets prevented by archiving the contract.
+  submitMustFail alice do exercise split Transfer with newOwner = charlie
+
+  -- Similarly a merged contract gets archived as well.
+  submitMustFail bob do exercise iouOtherCid Transfer with newOwner = charlie
+
+  -- Only the owner can exercise the transfer choice.
+  submitMustFail bank do exercise rest Transfer with newOwner = charlie
+
+  -- Alice can't archive something where issuer is a signatory
+  submitMustFail alice do exercise rest Archive
+
+  -- Alice didn't disclose her remaining IOUs to Bob.
+  submitMustFail bob do fetch rest
+
+  -- Issuer can archive
+  submit bank do archive rest
+
+  -- Only matching IOUs can be merged.
+  iouEURCid <- submit bank do
+    create Iou with
+      issuer   = bank
+      owner    = alice
+      currency = "EUR"
+      amount   = 60.0
+
+  submitMustFail alice do
+    exercise rest Merge with otherCid = iouEURCid

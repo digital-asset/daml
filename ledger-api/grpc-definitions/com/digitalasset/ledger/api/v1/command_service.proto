@@ -1,0 +1,39 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.ledger.api.v1;
+
+import "com/digitalasset/ledger/api/v1/commands.proto";
+import "com/digitalasset/ledger/api/v1/trace_context.proto";
+
+import "google/protobuf/empty.proto";
+
+
+option java_outer_classname = "CommandServiceOuterClass";
+option java_package = "com.digitalasset.ledger.api.v1";
+
+// Command Service is able to correlate submitted commands with completion data, identify timeouts, and return contextual
+// information with each tracking result. This supports the implementation of stateless clients.
+service CommandService {
+
+  // Submits a single composite command and waits for its result.
+  // Returns RESOURCE_EXHAUSTED if the number of in-flight commands reached the maximum (if a limit is configured).
+  // Propagates the gRPC error of failed submissions including DAML interpretation errors.
+  rpc SubmitAndWait (SubmitAndWaitRequest) returns (google.protobuf.Empty);
+}
+
+// These commands are atomic, and will become transactions.
+message SubmitAndWaitRequest {
+
+  // The commands to be submitted.
+  // Required
+  Commands commands = 1;
+
+  // Server side tracing will be registered as a child of the submitted context.
+  // This field is a future extension point and is currently not supported.
+  // Optional
+  TraceContext trace_context = 1000;
+
+}

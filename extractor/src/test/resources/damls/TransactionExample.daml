@@ -1,0 +1,53 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module TransactionExample where
+
+import DA.Date
+
+template RightOfUseAgreement
+  with
+    landlord: Party
+    tenant: Party
+    address: Text
+    expirationDate: Date
+  where
+    signatory landlord
+    signatory tenant
+
+    agreement
+      show landlord <> " promises to let "
+      <> show tenant <> " live at " <> address
+      <> " until " <> show expirationDate
+
+template RightOfUseOffer
+  with
+    landlord: Party
+    tenant: Party
+    address: Text
+    expirationDate: Date
+  where
+    signatory landlord
+
+    controller tenant can
+      Accept: ContractId RightOfUseAgreement
+        do
+          create RightOfUseAgreement
+            with landlord; tenant; address; expirationDate
+
+example = scenario do
+  bob <- getParty "Bob"
+  alice <- getParty "Alice"
+
+  -- Alice offers Bob room at Blaha Lujza Square, Budapest
+  offer <- submit alice do
+    create RightOfUseOffer with
+      landlord = alice
+      tenant = bob
+      address = "Blaha Lujza Square, Budapest"
+      expirationDate = date 2020 Jan 1
+
+  -- Bob accepts the offer, which creates a RightOfUseAgreement
+  submit bob do
+    exercise offer Accept

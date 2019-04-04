@@ -1,0 +1,26 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ QUERY-LF (.packageModules[] | .moduleDataTypes[] | select(.dataTypeCon == ["Unserializable" ]) | .dataSerializable["getIsSerializable"]) == false
+-- @ QUERY-LF (.packageModules[] | .moduleDataTypes[] | select(.dataTypeCon == ["UnserializableReferenced" ]) | .dataSerializable["getIsSerializable"]) == false
+-- @ QUERY-LF (.packageModules[] | .moduleDataTypes[] | select(.dataTypeCon == ["UnserializableImported" ]) | .dataSerializable["getIsSerializable"]) == false
+-- @ QUERY-LF (.packageModules[] | .moduleDataTypes[] | select(.dataTypeCon == ["Serializable" ]) | .dataSerializable["getIsSerializable"]) == true
+-- @ QUERY-LF (.packageModules[] | .moduleDataTypes[] | select(.dataTypeCon == ["SerializableReferenced" ]) | .dataSerializable["getIsSerializable"]) == true
+-- @ QUERY-LF (.packageModules[] | .moduleDataTypes[] | select(.dataTypeCon == ["SerializableImported" ]) | .dataSerializable["getIsSerializable"]) == true
+
+daml 1.2
+module SerializableAnnotation where
+
+import SerializableAnnotation.Imported qualified as I
+
+data UnserializableImported =
+  UnserializableImported I.Unserializable
+
+data UnserializableReferenced =
+  UnseriabliableReferenced UnserializableImported
+
+data SerializableImported =
+  SerializableImported I.Serializable
+
+data SerializableReferenced =
+  SerializableReferenced SerializableImported

@@ -1,0 +1,7 @@
+{
+    "version": "0.0.1",
+    "tools": [
+        "java-openjdk-8u201",
+        "groovy-2.5.3"
+    ]
+}

@@ -1,0 +1,131 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Bond where
+
+type BondId = ContractId Bond
+
+template Bond
+  with
+    issuer : Party
+    owner : Party
+    isin : Text
+    amount : Decimal
+  where
+    ensure amount > 0.0
+    signatory issuer, owner
+
+    controller owner can
+      Transfer : BondTransferRequestId
+        with newOwner : Party
+        do
+          create BondTransferRequest with newOwner, ..
+
+      Split : (BondId, BondId)
+        with splitAmount : Decimal
+        do
+          f <- create this with amount = splitAmount
+          s <- create this with amount = amount - splitAmount
+          return (f, s)
+
+      Merge : BondId
+        with otherCid : BondId
+        do
+          otherBond <- fetch otherCid
+          assert $ this == otherBond with amount
+          archive otherCid
+          create this with amount = amount + otherBond.amount
+
+type BondTransferRequestId = ContractId BondTransferRequest
+
+template BondTransferRequest
+  with
+    issuer : Party
+    owner : Party
+    newOwner : Party
+    isin : Text
+    amount : Decimal
+  where
+    signatory issuer, owner
+
+    ensure amount > 0.0
+
+    controller newOwner can
+      Accept : BondId
+        do
+          create Bond with owner = newOwner, ..
+
+      Reject : BondId
+        do
+          create Bond with ..
+
+    controller owner can
+      Withdraw : BondId
+        do
+          create Bond with ..
+
+bondSplitMay : Party -> BondId -> Decimal -> Update (BondId, Optional BondId)
+bondSplitMay owner bondCid splitAmount = do
+  bond <- fetch bondCid
+  assert $ bond.owner == owner
+  if bond.amount == splitAmount
+    then return (bondCid, None)
+    else do
+      r <- exercise bondCid Split with splitAmount
+      return (fst r, Some $ snd r)
+
+main = scenario do
+  acmeBank <- getParty "AcmeBank"
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+
+  bondAlice1Cid <-
+    submit acmeBank do
+      create BondTransferRequest with
+        issuer = acmeBank
+        owner = acmeBank
+        newOwner = alice
+        isin = "1234"
+        amount = 100.0
+
+  bondAlice1Cid <-
+    submit alice do exercise bondAlice1Cid Accept
+
+  bondBob1Cid <-
+    submit acmeBank do
+      create BondTransferRequest with
+        issuer = acmeBank
+        owner = acmeBank
+        newOwner = bob
+        isin = "1234"
+        amount = 20.0
+
+  bondBob1Cid <-
+    submit bob do exercise bondBob1Cid Accept
+
+  (bondAlice1Cid, bondAlice2Cid) <-
+    submit alice do exercise bondAlice1Cid Split with splitAmount = 30.0
+
+  bondBob2Cid <-
+    submit alice do exercise bondAlice1Cid Transfer with newOwner = bob
+
+  bondBob2Cid <-
+    submit bob do exercise bondBob2Cid Accept
+
+  bondBob2Cid <-
+    submit bob do exercise bondBob1Cid Merge with otherCid = bondBob2Cid
+
+  submit alice do
+    c <- fetch bondAlice2Cid
+    assertMsg "unexpected issuer" $ c.issuer == acmeBank
+    assertMsg "unexpected owner" $ c.owner == alice
+    assertMsg "unexpected isin" $ c.isin == "1234"
+    assertMsg "unexpected amount" $ c.amount == 70.0
+
+  submit bob do
+    c <- fetch bondBob2Cid
+    assertMsg "unexpected issuer" $ c.issuer == acmeBank
+    assertMsg "unexpected owner" $ c.owner == bob
+    assertMsg "unexpected isin" $ c.isin == "1234"
+    assertMsg "unexpected amount" $ c.amount == 50.0

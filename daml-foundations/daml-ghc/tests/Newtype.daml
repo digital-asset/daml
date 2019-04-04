@@ -1,0 +1,36 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Newtype where
+
+newtype Nat = Nat{unNat : Int}
+
+mkNat : Int -> Nat
+mkNat i
+  | i >= 0 = Nat i
+  | otherwise = error "mkNat: negative"
+
+unsafeMkNat : Int -> Nat
+unsafeMkNat = Nat
+
+zero0 : Nat
+zero0 = Nat 0
+
+one1 : Nat
+one1 = Nat{unNat = 1}
+
+unNat1 : Nat -> Int
+unNat1 (Nat i) = i
+
+unNat2 : Nat -> Int
+unNat2 = unNat
+
+unNat3 : Nat -> Int
+unNat3 n = unNat n
+
+main = scenario do
+  assert $ unNat zero0 == 0
+  assert $ unNat1 one1 == 1
+  assert $ unNat2 (mkNat 2) == 2
+  assert $ unNat3 (unsafeMkNat 3) == 3

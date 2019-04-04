@@ -1,0 +1,45 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ IGNORE
+
+daml 1.2
+module Examples where
+
+-- commented modules currently fail to compile or type-check in LF
+
+-- import DataRecursion()
+import Empty()
+import EqContractId()
+import EqPoly()
+-- import Existential()
+import Fib()
+-- import FibPoly()
+import GetParty()
+import GetPartyError()
+import HelloWorld()
+import Iou12()
+import Lazy()
+import ListEq()
+import Actions()
+-- import Nat()
+import Phantom()
+import Rank2()
+import Records()
+import Simple()
+import SumProducts()
+import TextEq()
+import Trace()
+-- import Unserializable()
+-- import ValueRecursion()
+
+import PreludeTest()
+import Text()
+import Optional()
+import Map()
+import Set()
+import List()
+import Either()
+import Optional_Total()
+import Tuple()
+import Self2()

@@ -1,0 +1,31 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+  "//bazel_tools:scala.bzl",
+  "da_scala_binary",
+)
+
+da_scala_binary(
+  name = "repl",
+  srcs = glob(["src/main/**/*.scala"]),
+  main_class = 'com.digitalasset.daml.lf.speedy.Main',
+  deps = [
+    "//daml-lf/archive:daml_lf_java_proto",
+    "//daml-lf/archive:daml_lf_archive_scala",
+    "//daml-lf/data",
+    "//daml-lf/transaction",
+    "//daml-lf/lfpackage",
+    "//daml-lf/interpreter",
+    "//daml-lf/validation",
+    "//daml-lf/scenario-interpreter",
+
+    "//3rdparty/jvm/org/typelevel:paiges_core",
+    "//3rdparty/jvm/org/jline:jline",
+    "//3rdparty/jvm/org/scala_lang/modules:scala_parser_combinators",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+  ],
+  visibility = ['//visibility:public'],
+)
+

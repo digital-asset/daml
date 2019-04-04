@@ -1,0 +1,72 @@
+name:                invariant
+version:             0.5.1
+synopsis:            Haskell98 invariant functors
+description:         Haskell98 invariant functors (also known as exponential functors).
+                     .
+                     For more information, see Edward Kmett's article \"Rotten Bananas\":
+                     .
+                     <http://comonad.com/reader/2008/rotten-bananas/>
+category:            Control, Data
+license:             BSD2
+license-file:        LICENSE
+homepage:            https://github.com/nfrisby/invariant-functors
+bug-reports:         https://github.com/nfrisby/invariant-functors/issues
+author:              Nicolas Frisby <nicolas.frisby@gmail.com>
+maintainer:          Nicolas Frisby <nicolas.frisby@gmail.com>,
+                     Ryan Scott <ryan.gl.scott@gmail.com>
+build-type:          Simple
+cabal-version:       >= 1.9.2
+tested-with:         GHC == 7.0.4
+                   , GHC == 7.2.2
+                   , GHC == 7.4.2
+                   , GHC == 7.6.3
+                   , GHC == 7.8.4
+                   , GHC == 7.10.3
+                   , GHC == 8.0.2
+                   , GHC == 8.2.2
+                   , GHC == 8.4.3
+                   , GHC == 8.6.1
+extra-source-files:  CHANGELOG.md, README.md
+
+source-repository head
+  type:                git
+  location:            https://github.com/nfrisby/invariant-functors
+
+library
+  exposed-modules:     Data.Functor.Invariant
+                     , Data.Functor.Invariant.TH
+  other-modules:       Data.Functor.Invariant.TH.Internal
+                     , Paths_invariant
+  hs-source-dirs:      src
+  build-depends:       array                >= 0.3    && < 0.6
+                     , base                 >= 4      && < 5
+                     , bifunctors           >= 5.2    && < 6
+                     , comonad              >= 5      && < 6
+                     , containers           >= 0.1    && < 0.7
+                     , contravariant        >= 0.5    && < 2
+                     , ghc-prim
+                     , profunctors          >= 5.2.1  && < 6
+                     , semigroups           >= 0.16.2 && < 1
+                     , StateVar             >= 1.1    && < 2
+                     , stm                  >= 2.2    && < 3
+                     , tagged               >= 0.7.3  && < 1
+                     , template-haskell     >= 2.4    && < 2.15
+                     , th-abstraction       >= 0.2.2  && < 1
+                     , transformers         >= 0.2    && < 0.6
+                     , transformers-compat  >= 0.3    && < 1
+                     , unordered-containers >= 0.2.4  && < 0.3
+  ghc-options:         -Wall
+
+test-suite spec
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  other-modules:       InvariantSpec
+                       THSpec
+  build-depends:       base             >= 4    && < 5
+                     , hspec            >= 1.8
+                     , invariant
+                     , QuickCheck       >= 2.11 && < 3
+                     , template-haskell >= 2.4  && < 2.15
+  build-tool-depends:  hspec-discover:hspec-discover
+  ghc-options:         -Wall

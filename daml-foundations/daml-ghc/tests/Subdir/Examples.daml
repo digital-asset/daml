@@ -1,0 +1,10 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- DEL-4390: module search path must be adjusted if top module is in a
+-- subdirectory. Test: compile this file which imports a module from above.
+
+daml 1.2
+module Subdir.Examples where
+
+import Examples()

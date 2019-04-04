@@ -1,0 +1,548 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+// DAML-LF-0 is simply a .proto representation of the DAML core stored
+// in the legacy sdaml format. We use it to ease transition between
+// sdaml and DAML-LF archives.
+
+syntax = "proto3";
+package daml_lf_0;
+
+option java_package = "com.digitalasset.daml_lf";
+
+message Unit {};
+
+message Package {
+  Library library = 1;
+  TemplateStoreStakeholders stakeholders = 2;
+}
+
+message Library {
+  repeated TemplateGroup template_store = 1;
+  repeated Decl decl_store = 2;
+  repeated string module_template_group_ids = 3;
+}
+
+message TemplateGroup {
+  string id = 1;
+  repeated Template templates = 2;
+}
+
+message Template {
+  string id = 1;
+  repeated LetBinder lets = 2;
+  repeated TypedBinder params = 3;
+  ContractExpr contract_expr = 4;
+  string topLevelDef = 5;
+};
+
+message LetBinder {
+  string var = 1;
+  Expr expr = 2;
+}
+
+message Expr {
+  message App {
+    Expr fun = 1;
+    repeated Expr args = 2; // length > 0
+  }
+
+  message Lambda {
+    repeated TypedBinder params = 1; // length > 0
+    Expr body = 2;
+  }
+
+  message Let {
+    repeated LetBinder bindings = 1; // length > 0
+    Expr body = 2;
+  }
+
+  message If {
+    Expr cond = 1;
+    Expr then = 2;
+    Expr else = 3;
+  }
+
+  message ExtendField {
+    string name = 1;
+    Expr expr = 2;
+  }
+
+  message Extend {
+    repeated ExtendField fields = 1;
+    Expr record = 2;
+  }
+
+  message List {
+    repeated Expr heads = 1;
+    Expr tail = 2;
+  }
+
+  oneof Sum {
+    RefTerm ref = 1;
+    Literal lit = 2;
+    App app = 3;
+    Lambda lam = 4;
+    Let let = 5;
+    If if = 6;
+    Case case = 7;
+    Choice choice = 8;
+    Update update = 9;
+    PatternMatch pattern_match = 10;
+    Scenario scenario = 11;
+    // we keep extend as a special case rather than as a
+    // builtin because we want to keep repeated applications
+    // of extend flat.
+    Extend extend = 12;
+    // we also keep list literals as a special case to remove deeply
+    // nested conses
+    List list = 13;
+  }
+};
+
+message Choice {
+  ChoiceKind kind = 1;
+  Expr controller = 2;
+  repeated TypedBinder values = 3;
+  string exercised_at = 4; // optional
+  Expr after = 5; // optional
+  Expr until = 6; // optional
+  Expr cond = 7; // optional
+  Expr follow_up = 8; // optional
+  Type result_ty = 9; // optional
+}
+
+enum ChoiceKind {
+  MAY_CHOOSE_CONSUMING = 0;
+  MAY_CHOOSE_NONCONSUMING = 1;
+  MUST_CHOOSE = 2;
+}
+
+message CasePat {
+  message Variant {
+    string label = 1;
+    string binder = 2;
+  }
+
+  message Data {
+    Builtin constructor = 1;
+    repeated string args = 2;
+  }
+
+  oneof Sum {
+    Unit default = 1;
+    Variant variant = 2;
+    Literal literal = 3;
+    Data data = 4;
+  }
+}
+
+message Case {
+  message Alt {
+    CasePat pat = 1;
+    Expr expr = 2;
+  }
+
+  Expr scrut = 1;
+  repeated Alt alts = 2;
+}
+
+message Literal {
+  oneof Sum {
+    bool bool = 1;
+    string integer = 2;
+    string decimal = 3;
+    string rel_time = 4;
+    string char = 5;
+    string text = 6;
+    string time = 10;
+    string party = 7;
+    ContractId contract_id = 8;
+    Unit empty_record = 9;
+    Unit unit = 11;
+  }
+}
+
+message ContractId {
+  oneof Sum {
+    string absolute = 1;
+    int32 relative = 2;
+  }
+}
+
+message RecordPattern {
+  message LabelWithPattern {
+    string label = 1;
+    RecordPattern pattern = 2;
+  }
+
+  message Record {
+    repeated LabelWithPattern pats = 1;
+  }
+
+  oneof Sum {
+    string var = 1;
+    Record record = 2;
+  }
+}
+
+message Update {
+  message UpdateStep {
+    Expr expr = 1;
+    RecordPattern pat = 2; // optional
+  }
+
+  repeated UpdateStep steps = 1;
+}
+
+message RefTerm {
+  oneof Sum {
+    Builtin builtin = 1;
+    Op op = 2;
+    string binder = 3;
+    RefTemplate template = 4;
+    string top_level_decl = 5;
+  }
+}
+
+message RefTemplate {
+  message External {
+    string group_id = 1;
+    string tpl_id = 2;
+  }
+
+  oneof Sum {
+    string internal = 1;
+    External external = 2;
+  }
+}
+
+message TypedBinder {
+  string binder = 1;
+  Type type = 2;
+};
+
+enum Op {
+  OP_ADD = 0;
+  OP_SUB = 1;
+  OP_MULT = 2;
+  OP_DIV = 3;
+  OP_INTMOD = 4;
+  OP_EXP = 5;
+  OP_LESS = 6;
+  OP_LEQ = 7;
+  OP_GREATER = 8;
+  OP_GEQ = 9;
+  OP_EQ = 10;
+  OP_NEQ = 11;
+  OP_AND = 12;
+  OP_OR = 13;
+  OP_APPEND = 14;
+  OP_OVERLAY = 15;
+}
+
+message Type {
+  message Arr {
+    repeated Type args = 1;
+    Type result = 2;
+  }
+
+  message App {
+    RefType ref = 1;
+    repeated Type args = 2;
+  }
+
+  message Abs {
+    repeated string binders = 1;
+    Type body = 2;
+  }
+
+  message Data {
+    BuiltinType builtin = 1;
+    repeated Type args = 2;
+  }
+
+  message Record {
+    repeated TypeField fields = 1;
+  }
+
+  message Variant {
+    repeated TypeField tags = 1;
+  }
+
+  message Contract {
+    repeated TypeField args = 1;
+    repeated TypeChoice choices = 2;
+  }
+
+  message Await {
+    repeated TypeChoice choices = 3;
+  }
+
+  oneof Sum {
+    RefType ref = 1;
+    Arr arr = 2;
+    App app = 3;
+    Abs abs = 4;
+    Data data = 5;
+    Record record = 6;
+    Variant variant = 7;
+    Contract contract = 8;
+    Await await = 9;
+  }
+};
+
+message RefType {
+  oneof Sum {
+    BuiltinType builtin = 1;
+    string top_level_decl = 2;
+    string var = 3;
+  }
+};
+
+enum BuiltinType {
+  // Ambient types.
+  BT_DATA = 0;        // The kind of data types.
+  BT_ANY = 1;         // The supertype of all data types.
+  BT_VOID = 2;        // The subtype   of all data types.
+
+  // Generic primitive types.
+  BT_BOOL = 3;        // Type of boolean values.
+  BT_INTEGER = 4;     // Type of integers with infinite precision.
+  BT_DECIMAL = 5;     // Type of decimal values with infinite precision.
+  BT_CHAR = 6;        // Type of chars.
+  BT_TEXT = 7;        // Type of text strings.
+  BT_TIME = 8;        // Type of times.
+  BT_RELTIME = 9;     // Type of relative times.
+
+  BT_LIST = 10;        // Type of lists (arity 1)
+
+  // Application specific types.
+  BT_PARTY = 11;       // Type of parties.
+  BT_CONTRACTID = 12;  // Type of contract ids.
+  BT_UPDATE = 13;      // Type of an update action.
+  BT_SCENARIO = 14;    // Type of a scenario action.
+
+  // Abominations
+  //  These are placeholder types that were used in DAML Classic
+  //  the type system was under development.
+  BT_CHOICE = 15;      // An opqaue type of choices.
+  BT_CONTRACT = 16;    // An opaque type of contracts.
+  BT_RECORD = 17;      // Placeholder type of records.
+  BT_PUREVALUE = 18;   // An opaque type of 'pure x'.
+  BT_ASSERTION = 19;   // Type of an 'assert cond'.
+  BT_TEMPLATE = 20;    // The kind of templates.
+  BT_UNIT = 21;
+};
+
+message TypeField {
+  string field = 1;
+  Type type = 2;
+}
+
+message TypeChoice {
+  string label = 1;
+  repeated TypeField params = 2;
+  Type result = 3;
+};
+
+message ContractExpr {
+  Expr precondition = 1; // optional
+  Agreement agreement = 2; // optional
+  Await await = 3;
+};
+
+message Await {
+  message Choice {
+    string label = 1;
+    Expr body = 2;
+  }
+
+  repeated Choice choices = 1;
+}
+
+message Agreement {
+  repeated Expr parties = 1;
+  Expr text = 2;
+  repeated Expr observers = 3;  // Each expresion is of type `List Party`.
+}
+
+message TemplateStoreStakeholders {
+  repeated TemplateGroupStakeholders stakeholders = 1;
+};
+
+message TemplateGroupStakeholders {
+  string id = 1;
+  repeated TemplateStakeholders group_stakeholders = 2;
+}
+
+message TemplateStakeholders {
+  string id = 1;
+  repeated string params = 2;
+  Obligables obligables = 3;
+  Controllers controllers = 4;
+  bool is_daml1x = 5;
+}
+
+message Controllers {
+  message Controller {
+    string choice = 1;
+    repeated AbstractParty parties = 2;
+  }
+
+  message DeterminedControllers {
+    repeated Controller controllers = 1;
+  }
+
+  oneof Sum {
+    DeterminedControllers determined = 1;
+    string not_determined = 2;
+  }
+}
+
+message AbstractParty {
+  message Elim {
+    oneof Sum {
+      string projection = 1;
+      string variant = 2;
+      Unit head = 3;
+      Unit tail = 4;
+    }
+  }
+
+  message Neutral {
+    string head = 1;
+    repeated Elim elims = 2;
+  }
+
+  oneof Sum {
+    string literal = 1;
+    Neutral neutral = 2;
+  }
+}
+
+message Obligables {
+  message ObligableClause {
+    repeated AbstractParty controlling = 1;
+    repeated AbstractParty obligables = 2;
+  }
+
+  message DeterminedObligables {
+    repeated ObligableClause clauses = 1;
+  }
+
+  oneof Sum {
+    DeterminedObligables determined = 1;
+    string not_determined = 2;
+  }
+};
+
+enum Builtin {
+  B_TOTEXT = 0;
+  // Text <-> [Char] conversions
+  B_SINGLETON = 1;
+  B_UNPACK = 2;
+
+  // RelTime<->Decimal conversions
+  B_FROMRELTIME = 3;
+  B_TORELTIME = 4;
+  B_SUBTIME = 5;
+
+  // Integer<->Decimal conversions
+  B_FROMINTEGER = 6;
+  B_TOINTEGER = 7;
+
+  // scenario actions
+  B_PURE = 8;
+  B_PASS = 9;
+  B_CREATE = 10;
+  B_CREATETRANSIENT = 11;
+  B_DELETE = 12;
+  B_ASSERT = 13;
+  B_ASSERTISACTIVEAT = 14;
+  B_MUSTFAILAT = 15;
+
+  // numeric functions
+  B_ROUND = 16;    //   Rounding of decimals in 'banker's round mode'.
+  B_DIVD = 17;     //   Decimal division. Fails on divide by zero.
+  B_REMD = 18;     //   Decimal remainder computation. Fails on divide by zero.
+
+  B_NOT = 19;      //   Boolean 'not'
+  B_OR = 20;       //   Boolean 'or' function.
+  B_AND = 21;      //   Boolean 'and' function.
+
+  B_NIL = 22;      //   Nil  constructor for lists
+  B_CONS = 23;     //   Cons constructor for lists
+  B_FOLDL = 24;    //   left  fold over lists
+  B_FOLDR = 25;    //   right fold over lists
+
+  // NOTE(JM): Built-ins bellow this comment are only used in the Core
+  // representation and are explicit in the DAML AST.
+  B_LOOKUP = 26;
+  // we keep this here as well that as in the expressions so that the
+  // conversion is more robust and agnostic to how the AST is constructed
+  B_EXTEND = 27;
+  B_TAG = 28;
+  B_EXERCISES = 29;
+  B_COMMIT = 30;
+  B_FIX = 31;
+
+  B_FETCH = 32; // new built-ins in the context of 1.0
+  B_GETTIME = 33;
+  B_ABORT = 34;
+  B_ADDRELTIME = 35;
+
+  B_EXPLODE_TEXT = 36;
+  B_TIME_TO_UNIX_MICROSECONDS = 37;
+  B_UNIX_MICROSECONDS_TO_TIME = 38;
+  B_IMPLODE_TEXT = 39;
+};
+
+message PatternMatch {
+  Expr contract_id = 1;
+  Expr pattern = 2;
+  Expr body = 3;
+}
+
+message Scenario {
+  message ScenarioStep {
+    Expr expr = 1;
+    RecordPattern pat = 2; // optional
+  }
+
+  repeated ScenarioStep steps = 1;
+}
+
+message Decl {
+  oneof Sum {
+    DeclType type = 1;
+    DeclTerm term = 2;
+  }
+}
+
+message DeclType {
+  string name = 1;
+  repeated string params = 3;
+  Type body = 4;
+}
+
+enum DeclTermKind {
+  TEMPLATE = 0;
+  FUNCTION = 1;
+  TEST = 2;
+  LET = 3;
+}
+
+message DeclTerm {
+  string name = 1;
+  DeclTermKind kind = 2;
+  repeated TypedBinder params = 3;
+  Type result_type = 4; // optional
+  Expr body = 5;
+  ScenarioTopology topology = 6; // optional
+}
+
+message ScenarioTopology {
+  Expr writer = 1;
+  repeated Expr reader = 2;
+}

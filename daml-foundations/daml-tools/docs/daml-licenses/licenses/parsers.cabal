@@ -1,0 +1,95 @@
+name:          parsers
+category:      Text, Parsing
+version:       0.12.9
+license:       BSD3
+cabal-version: >= 1.10
+license-file:  LICENSE
+author:        Edward A. Kmett
+maintainer:    Edward A. Kmett <ekmett@gmail.com>
+stability:     experimental
+homepage:      http://github.com/ekmett/parsers/
+bug-reports:   http://github.com/ekmett/parsers/issues
+copyright:     Copyright (C) 2010-2013 Edward A. Kmett
+synopsis:      Parsing combinators
+description:
+  This library provides convenient combinators for working with and building parsing combinator libraries.
+  .
+  Given a few simple instances, e.g. for the class 'Text.Parser.Combinators.Parsing' in "Text.Parser.Combinators.Parsing" you
+  get access to a large number of canned definitions. Instances exist for the parsers provided by @parsec@,
+  @attoparsec@ and base’s "Text.Read".
+build-type:    Simple
+tested-with:   GHC==7.0.4
+             , GHC==7.2.2
+             , GHC==7.4.2
+             , GHC==7.6.3
+             , GHC==7.8.4
+             , GHC==7.10.3
+             , GHC==8.0.2
+             , GHC==8.2.2
+             , GHC==8.4.3
+             , GHC==8.6.1
+
+extra-source-files:
+  .travis.yml
+  CHANGELOG.markdown
+  README.markdown
+  HLint.hs
+
+source-repository head
+  type: git
+  location: git://github.com/ekmett/parsers.git
+
+flag binary
+  default: True
+  description:
+    You can disable the use of the `binary` package using `-f-binary`.
+
+library
+  default-language: Haskell2010
+  exposed-modules:
+    Text.Parser.Char
+    Text.Parser.Combinators
+    Text.Parser.LookAhead
+    Text.Parser.Permutation
+    Text.Parser.Expression
+    Text.Parser.Token
+    Text.Parser.Token.Style
+    Text.Parser.Token.Highlight
+
+  hs-source-dirs: src
+
+  ghc-options: -Wall -fno-warn-wrong-do-bind -fwarn-monomorphism-restriction -fwarn-incomplete-record-updates
+  if impl(ghc >= 7.2)
+    ghc-options: -fwarn-identities -fwarn-incomplete-uni-patterns
+
+  build-depends:
+    base                 >= 4.3      && < 5,
+    base-orphans         >= 0.3      && < 1,
+    charset              >= 0.3      && < 1,
+    containers           >= 0.4      && < 0.7,
+    semigroups           >= 0.12     && < 1,
+    parsec               >= 3.1      && < 3.2,
+    attoparsec           >= 0.12.1.4 && < 0.14,
+    text                 >= 0.10     && < 1.3,
+    transformers         >= 0.2      && < 0.6,
+    mtl                  >= 2.0.1    && < 2.3,
+    scientific           >= 0.3      && < 0.4,
+    unordered-containers >= 0.2      && < 0.3
+
+  if flag(binary)
+    build-depends: binary >= 0.7.2 && < 1
+
+test-suite quickcheck
+  type:    exitcode-stdio-1.0
+  main-is: QuickCheck.hs
+  default-language: Haskell2010
+  build-depends:
+    attoparsec,
+    base == 4.*,
+    bytestring,
+    parsec >= 3,
+    parsers,
+    QuickCheck,
+    quickcheck-instances
+  ghc-options: -Wall -threaded
+  hs-source-dirs: tests

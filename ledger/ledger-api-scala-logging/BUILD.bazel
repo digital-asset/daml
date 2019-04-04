@@ -1,0 +1,56 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test_suite")
+load("//bazel_tools:proto.bzl", "proto_gen")
+
+proto_gen(
+    name = "ledger-api-scala-logging-srcs",
+    srcs = ['//ledger-api/grpc-definitions:protos'],
+    deps = [
+        '@com_google_protobuf//:empty_proto',
+        '@com_google_protobuf//:timestamp_proto',
+        '@com_google_protobuf//:duration_proto',
+        '@com_google_protobuf//:wrappers_proto',
+        '@com_google_protobuf//:any_proto',
+        '@com_google_protobuf//:descriptor_proto',
+    ],
+    plugin_name = 'scala-logging',
+    plugin_exec = '//scala-protoc-plugins/scala-logging:protoc-gen-scala-logging',
+)
+
+da_scala_library(
+    name = "ledger-api-scala-logging",
+    srcs = [":ledger-api-scala-logging-srcs"] + glob(['src/main/scala/**/*.scala']),
+    deps = [
+        "//scala-protoc-plugins/scala-logging:scala-logging-lib",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        '//3rdparty/jvm/org/slf4j:slf4j_api',
+        '//3rdparty/jvm/io/grpc:grpc_stub',
+    ],
+    visibility = [
+        '//visibility:public',
+    ]
+)
+
+testDependencies = [
+    '//3rdparty/jvm/io/grpc:grpc_stub',
+    "//ledger-api/grpc-definitions:ledger-api-scalapb",
+    "//scala-protoc-plugins/scala-logging:scala-logging-lib",
+    ":ledger-api-scala-logging",
+    "//3rdparty/jvm/org/scalatest:scalatest",
+    "//3rdparty/jvm/ch/qos/logback:logback_classic",
+]
+
+da_scala_library(
+    name = "ledger-api-scala-logging-test-lib",
+    srcs = glob(['src/test/scala/**/*.scala'], exclude = ['src/test/scala/**/*Test.scala']),
+    deps = testDependencies,
+    resources = ["src/test/resources/logback-test.xml"]
+)
+
+da_scala_test_suite(
+    name = "ledger-api-scala-logging-test",
+    srcs = glob(['src/test/scala/**/*Test.scala']),
+    deps = [':ledger-api-scala-logging-test-lib'] + testDependencies
+)

@@ -1,0 +1,21 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+-- big records (3 fields or more) use primitives for set/update, as per DEL-5490
+module RecordBig where
+
+import DA.Assert
+
+data Foo = Foo with
+    foo1 : Int
+    foo2 : Int
+    foo3 : Int
+    foo4 : Int
+    foo5 : Int
+    foo6 : Int
+  deriving Show
+
+main = scenario do
+  let x = Foo 1 2 3 4 5 6
+  (x with foo4 = 42).foo4 === 42

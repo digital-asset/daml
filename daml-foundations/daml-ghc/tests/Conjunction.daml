@@ -1,0 +1,75 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Conjunction where
+
+template Foo
+  with
+    p : Party
+    q : Party
+    ps : [Party]
+  where
+    signatory p
+
+    controller p, q can
+      nonconsuming Call1 : Int
+        do
+          return 41
+
+    controller [p, q] can
+      nonconsuming Call2 : Int
+        do
+          return 42
+
+    controller ps can
+      Call3 : Int
+        do
+          return 43
+
+template Bar
+  with
+    p : Party
+    q : Party
+  where
+    signatory p
+
+    controller q can
+      nonconsuming DelegatedCall1 : Int
+        with cid : ContractId Foo
+        do
+          r <- exercise cid Call1
+          return r
+
+      nonconsuming DelegatedCall2 : Int
+        with cid : ContractId Foo
+        do
+          r <- exercise cid Call2
+          return r
+
+      DelegatedCall3 : Int
+        with cid : ContractId Foo
+        do
+          r <- exercise cid Call3
+          return r
+
+main = scenario do
+
+  p <- getParty "p"
+  q <- getParty "q"
+
+  fooCid <- submit p $ create Foo with p; q; ps = [p, q]
+  barCid <- submit p $ create Bar with p; q
+
+  submitMustFail p $ exercise fooCid Call1
+  submitMustFail q $ exercise fooCid Call1
+  submitMustFail p $ exercise fooCid Call2
+  submitMustFail q $ exercise fooCid Call2
+  submitMustFail p $ exercise fooCid Call3
+  submitMustFail q $ exercise fooCid Call3
+
+  41 <- submit q $ exercise barCid DelegatedCall1 with cid = fooCid
+  42 <- submit q $ exercise barCid DelegatedCall2 with cid = fooCid
+  43 <- submit q $ exercise barCid DelegatedCall3 with cid = fooCid
+
+  return ()

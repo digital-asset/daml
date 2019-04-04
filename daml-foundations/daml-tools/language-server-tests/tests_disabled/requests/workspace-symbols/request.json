@@ -1,0 +1,6 @@
+{
+  "method": "workspace/symbol",
+  "payload": {
+    "query": "a"
+  }
+}

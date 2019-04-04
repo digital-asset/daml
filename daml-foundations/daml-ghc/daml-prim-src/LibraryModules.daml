@@ -1,0 +1,25 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# OPTIONS_GHC -fno-warn-unused-imports #-}
+
+daml 1.2
+
+-- Remove this module when DEL-6311 is done.
+module LibraryModules where
+
+import Data.String
+import Control.Exception.Base
+import GHC.Base
+import GHC.Classes
+import GHC.CString
+import GHC.Enum
+import GHC.Err
+import GHC.Integer.Type
+import GHC.Natural
+import GHC.Num
+import GHC.Real
+import GHC.Show
+import GHC.Tuple
+import GHC.Types

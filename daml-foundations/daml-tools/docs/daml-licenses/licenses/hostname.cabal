@@ -1,0 +1,22 @@
+Name:               hostname
+Version:            1.0
+Cabal-Version:      >= 1.2
+Category:           Network
+Synopsis:           A very simple package providing a cross-platform means of determining the hostname
+License:            BSD3
+License-File:       LICENSE
+Author:             Max Bolingbroke <batterseapower@hotmail.com>
+Maintainer:         Max Bolingbroke <batterseapower@hotmail.com>
+Build-Type:         Simple
+
+Library
+        Exposed-Modules: Network.HostName
+                         
+        Build-Depends:   base >= 3 && < 5
+                         
+        Extensions:      CPP, ForeignFunctionInterface
+        
+        if os(windows)
+                         Build-Depends:   Win32 >= 2.0
+                         Cpp-Options:     -DWINDOWS
+                         Extra-Libraries: "kernel32"

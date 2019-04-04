@@ -1,0 +1,29 @@
+Name:           haskell-lexer
+Version:        1.0.2
+License:        BSD3
+License-file:   LICENSE
+Author:         Thomas Hallgren
+Maintainer:     diatchki@galois.com
+Category:       Language
+Synopsis:       A fully compliant Haskell 98 lexer.
+Description:    A fully compliant Haskell 98 lexer.
+Build-type:     Simple
+Cabal-version:  >= 1.6
+
+Homepage:            https://github.com/yav/haskell-lexer
+Bug-reports:         https://github.com/yav/haskell-lexer/issues
+
+Library
+  Build-Depends:  base < 5
+  Exposed-modules:  Language.Haskell.Lexer
+  Other-modules:    Language.Haskell.Lexer.Layout,
+                    Language.Haskell.Lexer.Tokens,
+                    Language.Haskell.Lexer.Lex,
+                    Language.Haskell.Lexer.Utils,
+                    Language.Haskell.Lexer.Position
+
+  GHC-options:    -O2 -Wall
+
+source-repository head
+  type:     git
+  location: https://github.com/yav/haskell-lexer.git

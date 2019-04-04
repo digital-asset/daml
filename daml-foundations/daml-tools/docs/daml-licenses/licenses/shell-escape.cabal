@@ -1,0 +1,34 @@
+name                          : shell-escape
+version                       : 0.2.0
+category                      : Text
+license                       : BSD3
+license-file                  : LICENSE
+author                        : Jason Dusek
+maintainer                    : oss@solidsnack.be
+homepage                      : http://github.com/solidsnack/shell-escape
+synopsis                      : Shell escaping library.
+description                   :
+  Shell escaping library, offering both Bourne shell and Bash style escaping
+  of ByteStrings.
+
+cabal-version                 : >= 1.6
+build-type                    : Simple
+extra-source-files            : README
+                              , bench/Bench.hs
+                              , test/Echo.hs
+                              , Makefile
+
+library
+  build-depends               : base >= 2 && <= 5
+                              , binary
+                              , containers
+                              , vector >= 0.6.0.2
+                              , bytestring >= 0.9
+  exposed-modules             : Data.ByteString.ShellEscape
+                                Text.ShellEscape
+  other-modules               : Data.ByteString.ShellEscape.Escape
+                                Data.ByteString.ShellEscape.EscapeVector
+                                Data.ByteString.ShellEscape.Sh
+                                Data.ByteString.ShellEscape.Bash
+                                Data.ByteString.ShellEscape.Put
+

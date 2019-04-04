@@ -1,0 +1,91 @@
+transactions:
+mustFailAt 'Alice' [unknown source]
+
+mustFailAt 'Alice' [unknown source]
+
+mustFailAt 'Alice' [unknown source]
+
+mustFailAt 'Alice' [unknown source]
+
+TX #4 1970-01-01T00:00:00Z [unknown source]
+#4:0
+│   known to (since): Alice (#4), Bob (#4)
+└─> create Test:X@XXXXXXXX
+    with: { p = 'Alice', p2 = 'Bob' } value-version: 1
+
+pass -100000000
+
+mustFailAt 'Bob' [unknown source]
+
+TX #7 1969-12-31T23:58:20Z [unknown source]
+#7:0
+│   known to (since): Alice (#7)
+└─> create Test:TwoParties@XXXXXXXX
+    with: { p = 'Alice', p2 = 'Alice' } value-version: 1
+
+mustFailAt 'Bob' [unknown source]
+
+mustFailAt 'Alice' [unknown source]
+
+TX #10 1969-12-31T23:58:20Z [unknown source]
+#10:0
+│   archived by #11:1
+│   referenced by #11:0, #11:1
+│   known to (since): Alice (#10), Bob (#10)
+└─> create Test:ToTwoParties@XXXXXXXX
+    with: { p = 'Alice', p2 = 'Bob' } value-version: 1
+
+TX #11 1969-12-31T23:58:20Z [unknown source]
+#11:0
+└─> ensure active #10:0
+
+#11:1
+│   known to (since): Alice (#11), Bob (#11)
+└─> Bob exercises Convert:Test:ToTwoParties@XXXXXXXX on #10:0
+    with {  } value-version: 1
+    children:
+    #11:2
+    │   known to (since): Alice (#11), Bob (#11)
+    └─> create Test:TwoParties@XXXXXXXX
+        with: { p = 'Alice', p2 = 'Bob' } value-version: 1
+
+mustFailAt 'Bob' [unknown source]
+
+TX #13 1969-12-31T23:58:20Z [unknown source]
+#13:0
+│   known to (since): Alice (#13)
+└─> create Test:NoCtrls@XXXXXXXX
+    with: { p = 'Alice', xs = [] } value-version: 1
+
+mustFailAt 'Alice' [unknown source]
+
+mustFailAt 'Alice' [unknown source]
+
+TX #16 1969-12-31T23:58:20Z [unknown source]
+#16:0
+│   known to (since): Alice (#16), Bob (#16)
+└─> create Test:X@XXXXXXXX
+    with: { p = 'Alice', p2 = 'Bob' } value-version: 1
+
+mustFailAt 'Alice' [unknown source]
+
+TX #18 1969-12-31T23:58:20Z [unknown source]
+#18:0
+│   known to (since): Alice (#18)
+└─> create Test:Recursive@XXXXXXXX
+    with: { p = 'Alice' } value-version: 1
+
+mustFailAt 'Alice' [unknown source]
+
+mustFailAt 'Alice' [unknown source]
+
+TX #21 1969-12-31T23:58:20Z [unknown source]
+#21:0
+│   known to (since): Alice (#21)
+└─> create Test:NestingLimitExercise@XXXXXXXX
+    with: { p = 'Alice' } value-version: 1
+
+mustFailAt 'Alice' [unknown source]
+
+active contracts:
+   #4:0, #7:0, #11:2, #13:0, #16:0, #18:0, #21:0

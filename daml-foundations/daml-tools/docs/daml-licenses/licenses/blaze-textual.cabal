@@ -1,0 +1,104 @@
+name:            blaze-textual
+version:         0.2.1.0
+license:         BSD3
+license-file:    LICENSE
+category:        Text
+copyright:       Copyright 2011 MailRank, Inc.
+author:          Bryan O'Sullivan <bos@serpentine.com>
+maintainer:      Bryan O'Sullivan <bos@serpentine.com>
+stability:       experimental
+synopsis:        Fast rendering of common datatypes
+cabal-version:   >= 1.8
+homepage:        http://github.com/bos/blaze-textual
+bug-reports:     http://github.com/bos/blaze-textual/issues
+build-type:      Simple
+description:
+    A library for efficiently rendering Haskell datatypes to
+    bytestrings.
+    .
+    /Note/: if you use GHCi or Template Haskell, please see the
+    @README@ file for important details about building this package,
+    and other packages that depend on it:
+    <https://github.com/bos/blaze-textual#readme>
+
+extra-source-files:
+    README.markdown
+    changelog.md
+    tests/*.hs
+
+flag developer
+  description: operate in developer mode
+  default: False
+  manual: True
+
+flag native
+  description: use slow native code for double conversion
+  default: True
+  manual: True
+
+flag integer-simple
+  description: use integer-simple instead of integer-gmp
+  default: False
+  manual: True
+
+library
+  exposed-modules:
+    Blaze.Text
+    Blaze.Text.Double
+    Blaze.Text.Int
+
+  if flag(native)
+    other-modules: Blaze.Text.Double.Native
+
+  build-depends:
+    base == 4.*,
+    blaze-builder >= 0.2.1.4,
+    bytestring,
+    ghc-prim,
+    old-locale,
+    text >= 0.11.0.2,
+    time,
+    vector
+
+  if !flag(native)
+    build-depends:
+      double-conversion >= 0.2.0.1
+
+  if flag(developer)
+    ghc-options: -Werror
+    ghc-prof-options: -auto-all
+
+  if flag(native)
+    cpp-options: -DNATIVE
+
+  ghc-options:      -Wall
+
+  if flag(integer-simple)
+    cpp-options: -DINTEGER_SIMPLE
+    build-depends: integer-simple
+  else
+    cpp-options: -DINTEGER_GMP
+    build-depends: integer-gmp >= 0.2
+
+test-suite tests
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: tests
+  main-is:        QC.hs
+  ghc-options:    -Wall -threaded -rtsopts
+  build-depends:
+    QuickCheck >= 2.4.0.1,
+    base,
+    blaze-builder,
+    blaze-textual,
+    bytestring,
+    double-conversion,
+    test-framework >= 0.3.3,
+    test-framework-quickcheck2 >= 0.2.9
+
+source-repository head
+  type:     git
+  location: http://github.com/bos/blaze-textual
+
+source-repository head
+  type:     mercurial
+  location: http://bitbucket.org/bos/blaze-textual

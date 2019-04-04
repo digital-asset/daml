@@ -1,0 +1,65 @@
+cabal-version:      >= 1.10
+build-type:         Simple
+name:               js-flot
+version:            0.8.3
+license:            MIT
+license-file:       LICENSE
+category:           Javascript
+author:             Neil Mitchell <ndmitchell@gmail.com>
+maintainer:         Neil Mitchell <ndmitchell@gmail.com>
+copyright:          Neil Mitchell 2014
+synopsis:           Obtain minified flot code
+description:
+    This package bundles the minified <http://www.flotcharts.org/ Flot> code
+    (a jQuery plotting library) into a Haskell package,
+    so it can be depended upon by Cabal packages. The first three components of
+    the version number match the upstream flot version. The package is designed
+    to meet the redistribution requirements of downstream users (e.g. Debian).
+homepage:           https://github.com/ndmitchell/js-flot#readme
+bug-reports:        https://github.com/ndmitchell/js-flot/issues
+tested-with:        GHC==7.8.3, GHC==7.6.3, GHC==7.4.2, GHC==7.2.2
+extra-source-files:
+    javascript/flot-0.8.3.zip
+    CHANGES.txt
+    README.md
+
+data-dir: javascript
+data-files:
+    jquery.flot.min.js
+    jquery.flot.canvas.min.js
+    jquery.flot.categories.min.js
+    jquery.flot.crosshair.min.js
+    jquery.flot.errorbars.min.js
+    jquery.flot.fillbetween.min.js
+    jquery.flot.image.min.js
+    jquery.flot.navigate.min.js
+    jquery.flot.pie.min.js
+    jquery.flot.resize.min.js
+    jquery.flot.selection.min.js
+    jquery.flot.stack.min.js
+    jquery.flot.symbol.min.js
+    jquery.flot.threshold.min.js
+    jquery.flot.time.min.js
+
+source-repository head
+    type:     git
+    location: https://github.com/ndmitchell/js-flot.git
+
+library
+    default-language: Haskell2010
+    build-depends:
+        base == 4.*
+
+    exposed-modules:
+        Language.Javascript.Flot
+
+    other-modules:
+        Paths_js_flot
+
+test-suite js-flot-test
+    default-language: Haskell2010
+    type: exitcode-stdio-1.0
+    main-is: Test.hs
+    build-depends:
+        base == 4.*,
+        HTTP

@@ -1,0 +1,66 @@
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash -p curl jq nix --pure
+set -euo pipefail
+
+USAGEMSG="
+Usage: $0 <SRC_JSON>
+
+Updates the given SRC_JSON to the latest commit on its branch on GitHub.
+SRC_JSON must be a JSON file matching '*.src.json' or a directory containing a
+file 'default.src.json'.
+"
+
+usage() {
+  echo "$USAGEMSG" >&2
+  exit 1
+}
+
+source=${1:-}
+
+if [[ -z $source ]]; then
+  echo "SRC_JSON argument missing" >&2
+  usage
+fi
+
+# Heuristic
+if [[ ! $source =~ \.src\.json$ ]]; then
+  if [[ -d $source ]]; then
+    source=$source/default.src.json
+  fi
+fi
+
+if ! [[ -f $source ]]; then
+  echo "SRC_JSON file $source missing" >&2
+  exit 1
+fi
+
+echo "updating $source..." >&2
+
+owner=$(jq -er '.owner' < "$source")
+repo=$(jq -er '.repo' < "$source")
+branch=$(jq -er '.branch // ""' < "$source")
+
+if [[ -n $branch ]]; then
+  rev=$(curl -sfL "https://api.github.com/repos/$owner/$repo/git/refs/heads/$branch" | jq -r .object.sha)
+else
+  rev=$(jq -er '.rev' < "$source")
+fi
+
+url=https://github.com/$owner/$repo/archive/$rev.tar.gz
+
+echo "fetching $url..." >&2
+
+# don't unpack for the bootstrap version
+release_sha256=$(nix-prefetch-url --unpack "$url")
+
+cat <<NEW_SOURCE | tee "$source"
+{
+  "owner": "$owner",
+  "repo": "$repo",
+  "branch": "$branch",
+  "rev": "$rev",
+  "sha256": "$release_sha256"
+}
+NEW_SOURCE
+
+# vim: ft=sh

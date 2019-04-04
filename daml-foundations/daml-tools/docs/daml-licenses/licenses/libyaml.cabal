@@ -1,0 +1,80 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.1.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: d20fe3a9f7ef759a6555e0219f0728d8a3d1f073384d6d705d588c1160f3743e
+
+name:           libyaml
+version:        0.1.1.0
+synopsis:       Low-level, streaming YAML interface.
+description:    README and API documentation are available at <https://www.stackage.org/package/libyaml>
+category:       Text
+stability:      stable
+homepage:       https://github.com/snoyberg/yaml#readme
+bug-reports:    https://github.com/snoyberg/yaml/issues
+author:         Michael Snoyman <michael@snoyman.com>, Anton Ageev <antage@gmail.com>,Kirill Simonov
+maintainer:     Michael Snoyman <michael@snoyman.com>
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    c/helper.h
+    libyaml_src/yaml_private.h
+    libyaml_src/yaml.h
+    libyaml_src/LICENSE
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/snoyberg/yaml
+
+flag no-unicode
+  description: Don't enable unicode output. Instead, unicode characters will be escaped.
+  manual: False
+  default: False
+
+flag system-libyaml
+  description: Use the system-wide libyaml instead of the bundled copy
+  manual: False
+  default: False
+
+library
+  exposed-modules:
+      Text.Libyaml
+  other-modules:
+      Paths_libyaml
+  hs-source-dirs:
+      src
+  ghc-options: -Wall
+  include-dirs:
+      c
+  c-sources:
+      c/helper.c
+  build-depends:
+      base >=4.9.1 && <5
+    , bytestring >=0.9.1.4
+    , conduit >=1.2.8 && <1.4
+    , resourcet >=0.3 && <1.3
+  if flag(no-unicode)
+    cpp-options: -D__NO_UNICODE__
+  if !(flag(system-libyaml))
+    include-dirs:
+        libyaml_src
+    c-sources:
+        libyaml_src/api.c
+        libyaml_src/dumper.c
+        libyaml_src/emitter.c
+        libyaml_src/loader.c
+        libyaml_src/parser.c
+        libyaml_src/reader.c
+        libyaml_src/scanner.c
+        libyaml_src/writer.c
+  else
+    extra-libraries:
+        yaml
+  if os(windows)
+    cpp-options: -DWINDOWS
+  default-language: Haskell2010

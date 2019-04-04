@@ -1,0 +1,48 @@
+name:                time-locale-compat
+version:             0.1.1.5
+synopsis:            Compatibile module for time-format locale
+description:         This package contains wrapped name module for time-format locale between old-locale and time-1.5.
+homepage:            https://github.com/khibino/haskell-time-locale-compat
+license:             BSD3
+license-file:        LICENSE
+author:              Kei Hibino
+maintainer:          ex8k.hibino@gmail.com
+copyright:           Copyright (c) 2014-2018 Kei Hibino
+category:            System
+build-type:          Simple
+cabal-version:       >=1.10
+tested-with:           GHC == 8.4.1, GHC == 8.4.2, GHC == 8.4.3
+                     , GHC == 8.2.1, GHC == 8.2.2
+                     , GHC == 8.0.1, GHC == 8.0.2
+                     , GHC == 7.10.1, GHC == 7.10.2, GHC == 7.10.3
+                     , GHC == 7.8.1, GHC == 7.8.2, GHC == 7.8.3, GHC == 7.8.4
+                     , GHC == 7.6.1, GHC == 7.6.2, GHC == 7.6.3
+                     , GHC == 7.4.1, GHC == 7.4.2
+
+flag old-locale
+  description: If true, use old-locale, otherwise use time 1.5 or newer.
+  default:     True
+
+library
+  exposed-modules:     Data.Time.Locale.Compat
+
+  build-depends:         base <5
+
+  if flag(old-locale)
+    build-depends:       old-locale
+                       , time <1.5
+  else
+    build-depends:       time >=1.5
+
+  hs-source-dirs:      src
+
+  default-language:    Haskell2010
+
+
+source-repository head
+  type:       git
+  location:   https://github.com/khibino/haskell-time-locale-compat
+
+source-repository head
+  type:       mercurial
+  location:   https://bitbucket.org/khibino/haskell-time-locale-compat

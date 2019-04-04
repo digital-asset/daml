@@ -1,0 +1,43 @@
+Name:                x509-system
+version:             1.6.6
+Description:         System X.509 handling
+License:             BSD3
+License-file:        LICENSE
+Copyright:           Vincent Hanquez <vincent@snarc.org>
+Author:              Vincent Hanquez <vincent@snarc.org>
+Maintainer:          Vincent Hanquez <vincent@snarc.org>
+Synopsis:            Handle per-operating-system X.509 accessors and storage
+Build-Type:          Simple
+Category:            Data
+stability:           experimental
+Homepage:            http://github.com/vincenthz/hs-certificate
+Cabal-Version:       >= 1.10
+
+Library
+  Default-Language:  Haskell2010
+  Build-Depends:     base >= 3 && < 5
+                   , bytestring
+                   , mtl
+                   , containers
+                   , directory
+                   , filepath
+                   , process
+                   , pem >= 0.1 && < 0.3
+                   , x509 >= 1.6
+                   , x509-store >= 1.6.2
+  Exposed-modules:   System.X509
+                     System.X509.Unix
+                     System.X509.MacOS
+  ghc-options:       -Wall
+  if os(windows)
+     cpp-options:     -DWINDOWS
+     Build-Depends:   Win32, asn1-encoding
+     extra-libraries: Crypt32
+     Exposed-modules: System.X509.Win32
+  if os(OSX)
+     cpp-options: -DMACOSX
+
+source-repository head
+  type:     git
+  location: git://github.com/vincenthz/hs-certificate
+  subdir:   x509-system

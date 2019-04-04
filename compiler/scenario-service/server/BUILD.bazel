@@ -1,0 +1,41 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+  "//bazel_tools:scala.bzl",
+  "da_scala_library",
+  "da_scala_binary",
+  "da_scala_test_suite",
+)
+
+genrule(
+  name = "scenario_service_jar",
+  srcs = [":scenario-service-raw_deploy.jar"],
+  outs = ["scenario-service.jar"],
+  cmd = "cp $< $@",
+  visibility = ['//visibility:public']
+)
+
+da_scala_binary(
+  name = "scenario-service-raw",
+  srcs = glob(["src/main/scala/**/*.scala"]),
+  main_class = "com.digitalasset.daml.lf.scenario.ScenarioServiceMain",
+  deps = [
+    "//compiler/scenario-service/protos:scenario_service_java_proto",
+
+    "//daml-lf/archive:daml_lf_java_proto",
+    "//daml-lf/archive:daml_lf_archive_scala",
+    "//daml-lf/data",
+    "//daml-lf/transaction",
+    "//daml-lf/lfpackage",
+    "//daml-lf/interpreter",
+    "//daml-lf/validation",
+    "//daml-lf/scenario-interpreter",
+    "//3rdparty/jvm/io/grpc:grpc_protobuf",
+    "//3rdparty/jvm/io/grpc:grpc_netty",
+    "//3rdparty/jvm/io/grpc:grpc_core",
+    "//3rdparty/jvm/io/grpc:grpc_stub",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+  ],
+)
+

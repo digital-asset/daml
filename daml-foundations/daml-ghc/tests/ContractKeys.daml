@@ -1,0 +1,50 @@
+-- Check that the compiler bits of contract keys work.
+-- @TODO (#177): Fix the engine such that this test passes. Remove `ContractKeysSimple.daml` when it does.
+-- @IGNORE-LF 1.0
+-- @IGNORE-LF 1.1
+-- @IGNORE-LF 1.2
+-- @ERROR CRASH: RecProj on non-record
+daml 1.2
+module ContractKeys where
+
+template AccountInvitation with
+    account : Account
+  where
+    signatory account.bank
+
+    controller account.accountHolder can
+      Accept : ContractId Account
+        do create account
+
+template Account with
+    bank : Party
+    accountHolder : Party
+    accountNumber : (Text, Int)
+  where
+    signatory [bank, accountHolder]
+
+instance Key Account (Party, Text, Int) where
+    key acc = (acc.bank, acc.accountNumber._1, acc.accountNumber._2)
+    keyMaintainers Proxy (bank, _, _) = [bank]
+
+test = scenario do
+    bank <- getParty "Bank"
+    alice <- getParty "Alice"
+    let account = Account with
+            bank
+            accountHolder = alice
+            accountNumber = ("CH", 123)
+    let accountKey = (bank, "CH", 123)
+    invitationCid <- submit bank do
+        create AccountInvitation with account
+    accountCid <- submit alice do
+        exercise invitationCid Accept
+
+    accountCid' <- submit bank do
+        lookupByKey accountKey
+    assert $ accountCid' == Some accountCid
+
+    (accountCid', account') <- submit bank do
+        fetchByKey accountKey
+    assert $ accountCid' == accountCid
+    assert $ account' == account

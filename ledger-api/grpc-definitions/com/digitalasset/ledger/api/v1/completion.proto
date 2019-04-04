@@ -1,0 +1,32 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.ledger.api.v1;
+
+import "com/digitalasset/ledger/api/v1/trace_context.proto";
+import "google/rpc/status.proto";
+
+
+option java_outer_classname = "CompletionOuterClass";
+option java_package = "com.digitalasset.ledger.api.v1";
+
+// A completion represents the status of a submitted command on the ledger, i.e. it can be successful or failed.
+message Completion {
+  // The ID of the succeeded or failed command.
+  // Required
+  string command_id = 1;
+
+  // Identifies the exact type of the error.
+  // Documentation for how command submission errors map to grpc status codes will be provided.
+  // e.g. malformed or double spend transactions will result in a INVALID_ARGUMENT status.
+  // transactions with invalid time time windows but may be valid at a later date will result in an ABORTED error.
+  // Optional
+  google.rpc.Status status = 2;
+
+  // The trace context submitted with the command.
+  // This field is a future extension point and is currently not supported.
+  // Optional
+  TraceContext trace_context = 1000;
+}

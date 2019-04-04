@@ -1,0 +1,10 @@
+dist
+.stack-work/
+*.pyc
+*.pyo
+*.o
+examples/echo/echo-cpp/echo-client
+examples/echo/echo-cpp/echo-server
+benchmarks.html
+result
+

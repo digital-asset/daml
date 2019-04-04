@@ -1,0 +1,24 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Enum where
+
+data Days = Mon | Tue | Wed | Thu | Fri | Sat | Sun
+  deriving (Eq,Bounded,Enum)
+
+main = scenario do
+  assert $ show (minBound : Int) == "-9223372036854775808"
+  assert $ show (maxBound : Int) == "9223372036854775807"
+  assert $ minBound == Mon
+  assert $ maxBound == Sun
+  assert $ succ Mon == Tue
+  assert $ pred Thu == Wed
+  assert $ [Fri ..] == [Fri,Sat,Sun]
+  assert $ [Tue .. Thu] == [Tue,Wed,Thu]
+  assert $ [Mon, Wed ..] == [Mon,Wed,Fri,Sun]
+  assert $ [Mon,Wed .. Sat] == [Mon,Wed,Fri]
+  alice <- getParty "alice"
+  submitMustFail alice $ do
+    () <- return () -- otherwise succ raises the error too early
+    assert $ succ Sun == Mon

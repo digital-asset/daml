@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+#
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Bazel aware wrapper for ghcid
+"""
+
+import argparse
+import subprocess
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+
+    parser.add_argument(
+            "--data",
+            action="store",
+            dest="data",
+            choices=["yes","no"],
+            help="Whether to load data dependencies into the REPL.")
+
+    args, remainingArgs = parser.parse_known_args()
+
+    if args.data == None:
+        ghciCmd = "da-ghci"
+    else:
+        ghciCmd = f"da-ghci --data {args.data}"
+
+    try:
+        subprocess.call(["ghcid","-c",ghciCmd] + remainingArgs)
+    except KeyboardInterrupt:
+        return # don't give a trace back, just exit
+
+if __name__ == "__main__":
+    main()

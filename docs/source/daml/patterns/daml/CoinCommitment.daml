@@ -1,0 +1,39 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+daml 1.2
+module CoinCommitment where
+
+import CoinIssuance
+
+--owner can commit to lock. Once he commits, the original coin is archived.
+template CoinCommitment
+  with
+    owner: Party
+    issuer: Party
+    amount: Decimal
+   where
+    signatory issuer
+
+    controller owner can
+      nonconsuming LockCoin
+        : ContractId LockedCoin
+        with coinCid: ContractId Coin
+             maturity: Time
+             locker: Party
+        do   
+          inputCoin <- fetch coinCid
+          assert (inputCoin.owner == owner && inputCoin.issuer == issuer && inputCoin.amount == amount )
+          --the original coin firstly transferred to issuer and then archivaed
+          prop <- exercise coinCid Transfer with newOwner = issuer
+          do          
+            id <- exercise prop AcceptTransfer
+            exercise id Archives
+          --create a lockedCoin to represent the coin in locked state 
+          create LockedCoin with 
+            coin=inputCoin with owner; issuer; amount
+            maturity; locker
+

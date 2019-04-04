@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+#
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Bazel-aware wrapper for GHCi.
+
+This script invokes GHCi loading a Haskell Bazel target and all its local
+dependencies by source. If a source file is specified, then its Bazel target
+will be determined automatically.
+
+All externall Haskell dependencies and C library dependencies will be loaded
+as binaries.
+
+The REPL will be executed in the repository root.
+
+"""
+
+import argparse
+import os
+import re
+import signal
+import subprocess
+import sys
+import tempfile
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+            "--data",
+            action="store",
+            dest="data",
+            choices=["yes","no"],
+            default="yes",
+            help="Whether to load data dependencies into the REPL.")
+    parser.add_argument(
+            "target",
+            metavar="TARGET",
+            nargs="?",
+            default="//:damlc",
+            help="Bazel target or source file to load into GHCi. Default: damlc")
+    parser.add_argument(
+            "ghci_args",
+            metavar="...",
+            nargs=argparse.REMAINDER,
+            help="Forward remaining arguments to GHCi.")
+    args = parser.parse_args()
+
+    if os.path.isfile(args.target):
+        # Loading a source file.
+        source_file = args.target
+
+        # Discover the source file's module name.
+        module_name = parse_module_name(source_file)
+
+        # Discover the Haskell target.
+        target = query_haskell_target(source_file)
+    else:
+        # No specific module to load.
+        module_name = None
+
+        # Assume we were given a Bazel target.
+        target = args.target
+
+    try:
+        bazel_args = ["{}@ghci".format(target)]
+        if args.data == "yes":
+            bazel_args += ["--define", "ghci_data=True"]
+
+        ghci_args = args.ghci_args
+        if module_name:
+            # Generate a -ghci-script that loads the module.
+            script_fd, script_path = tempfile.mkstemp(text=True)
+            os.write(script_fd, ":m {}".format(module_name).encode())
+            ghci_args = ["-ghci-script", script_path] + ghci_args
+
+        # Ignore SIGINT, so that Ctrl-C in GHCi doesn't kill the outer process.
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+        # Start GHCi.
+        subprocess.run(
+                ["bazel", "run"] +
+                bazel_args +
+                ["--"] + ghci_args
+        )
+    finally:
+        if module_name:
+            os.close(script_fd)
+            os.remove(script_path)
+
+
+def query_haskell_target(source_file):
+    # If Bazel needs to reload external dependencies, e.g. on a fresh checkout,
+    # this could trigger additional output on stdout, e.g. due to Nix, or a
+    # configure script. Here, we explicitly fetch all external dependencies, so
+    # that no output from fetching leaks into the bazel query output below.
+    # Bazel does not seem to have a dedicated flag to prevent such output. If
+    # no fetch is necessary this call costs around a second.
+    subprocess.run(
+            ["bazel", "fetch", "--keep_going", "//..."],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL)
+
+    query = 'kind("haskell_*", allrdeps({}, 1))'.format(source_file)
+    args = [
+            "bazel", "query",
+            "--universe_scope=//...", "--order_output=no",
+            "--output", "label",
+            "--keep_going",
+            query,
+            ]
+
+    ret = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    targets = ret.stdout.decode().splitlines()
+
+    if ret.returncode != 0 or len(targets) == 0:
+        print("ERROR: No Haskell target found for the given source file.", file=sys.stderr)
+        sys.exit(1)
+    elif len(targets) > 1:
+        print("WARNING: Found more than one Haskell target:", file=sys.stderr)
+        print("\n".join("  " + t for t in targets))
+        print("Loading {}".format(targets[0]))
+
+    return targets[0]
+
+
+def parse_module_name(source_file):
+    prog = re.compile(".*^\s*module\s+([a-zA-Z._']+)", re.DOTALL|re.MULTILINE)
+    with open(source_file, "r") as f:
+        match = prog.match(f.read())
+    if match:
+        return match.group(1)
+    else:
+        print("WARNING: Could not identify module name. Will just load target.", file=sys.stderr)
+        return None
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,56 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Check that various ways to define data types work. We're mostly interested
+-- in the generated DAML-LF. Unfortunately, we don't have a way to test for
+-- properties of the generated DAML-LF, cf. DEL-6418.
+daml 1.2
+module DataTypes where
+
+data Rec = MkRec with x: Int
+
+newtype RecNT = MkRecNT with x: Int
+
+-- NOTE(MH): This is translted to a variant with one constructor and _not_
+-- to a record.
+data Unit = MkUnit{}
+
+data Tag = MkTag Int
+
+untag (MkTag  n) = n
+
+-- NOTE(MH): This is treated like
+--
+--     data MkTagNT = MkTagNT{unwrap: Int}
+newtype MkTagNT = MkTagNT Int
+
+untagNT (MkTagNT n) = n
+
+data Sum
+  = Zero
+  | Num1 Int
+  | Num2 with x: Int
+  | Plus with x: Int; y: Int
+
+eval = \case
+  Zero -> 0
+  Num1 x -> x
+  Num2 x -> x
+  Plus x y -> x+y
+
+
+main = scenario do
+  assert $ (MkRec with x = 5).x == 5
+
+  assert $ (MkRecNT with x = 7).x == 7
+
+  assert $ case MkUnit of {MkUnit -> True}
+
+  assert $ untag (MkTag 3) == 3
+
+  assert $ untagNT (MkTagNT 11) == 11
+
+  assert $ eval Zero == 0
+  assert $ eval (Num1 13) == 13
+  assert $ eval (Num2 with x = 17) == 17
+  assert $ eval (Plus with x = 19; y = 23) == 42

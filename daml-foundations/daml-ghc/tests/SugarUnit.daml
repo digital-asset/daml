@@ -1,0 +1,21 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test that the type `GHC.Tuple.Unit`, which is only produced by ghc's
+-- desugarer, works correctly (cf. DEL-6656).
+-- Test that the generated code actually uses `GHC.Tuple.Unit`.
+-- @ QUERY-LF [.packageModules[] | .moduleValues[] | .dvalBody | .. | .TCon? | objects |select(.qualObject == ["Unit"]) | .qualModule == ["GHC", "Tuple"], length > 0] | all
+
+daml 1.2
+module SugarUnit where
+
+range : [a] -> (a -> a) -> Int -> [a]
+range xs next n =
+  if n <= 0 then xs
+  else
+    let h0 :: _ = xs
+        h1 = next h0
+    in range (h1 :: xs) next (n - 1)
+
+main = scenario do
+  assert $ range [1] (+1) 2 == [3, 2, 1]

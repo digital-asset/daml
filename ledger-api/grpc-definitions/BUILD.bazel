@@ -1,0 +1,116 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:pkg.bzl", "pkg_tar")
+load("//bazel_tools:proto.bzl", "proto_gen")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
+
+proto_library(
+     name = 'protos',
+     proto_source_root = 'ledger-api/grpc-definitions',
+     srcs = glob(["**/*.proto"]),
+     deps = ['@com_google_protobuf//:empty_proto',
+            '@com_google_protobuf//:timestamp_proto',
+            '@com_google_protobuf//:duration_proto',
+            '@com_google_protobuf//:wrappers_proto',
+            '@com_google_protobuf//:any_proto',
+            '@com_google_protobuf//:descriptor_proto',
+    ],
+    visibility = [
+        '//visibility:public',
+    ]
+)
+
+pkg_tar(
+    name = 'ledger-api-protos',
+    strip_prefix = './',
+    srcs = glob(['**/*.proto']),
+    extension = 'tar.gz',
+    visibility = [
+        '//visibility:public',
+    ]
+)
+
+# FIXME(#448): This has the same contents as `:ledger-api-protos` but a
+# directory structure which is suitable for the SDK.
+pkg_tar(
+    name = 'ledger-api-protos-tarball',
+    strip_prefix = './',
+    package_dir = 'grpc-definitions',
+    srcs = glob(['**/*.proto']),
+    extension = 'tar.gz',
+    visibility = [
+        '//visibility:public',
+    ]
+)
+
+proto_gen(
+    name = "ledger-api-scalapb-sources",
+    srcs = [":protos"],
+    deps = [
+        '@com_google_protobuf//:empty_proto',
+        '@com_google_protobuf//:timestamp_proto',
+        '@com_google_protobuf//:duration_proto',
+        '@com_google_protobuf//:wrappers_proto',
+        '@com_google_protobuf//:any_proto',
+        '@com_google_protobuf//:descriptor_proto',
+    ],
+    plugin_name = "scalapb",
+    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_options = ["grpc"],
+    visibility = [
+        '//visibility:public',
+    ],
+)
+
+scalapb_deps = [
+    '//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime',
+    '//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime_grpc',
+    '//3rdparty/jvm/com/thesamet/scalapb:lenses',
+    '//3rdparty/jvm/com/google/protobuf:protobuf_java',
+    '//3rdparty/jvm/io/grpc:grpc_stub',
+    '//3rdparty/jvm/io/grpc:grpc_protobuf',
+]
+
+scala_library(
+    name = "ledger-api-scalapb",
+    srcs = [':ledger-api-scalapb-sources'],
+    deps = scalapb_deps,
+    exports = scalapb_deps,
+    visibility = ['//visibility:public', ],
+)
+
+genrule(
+    name = 'docs',
+    srcs = glob(['**']) + ['@com_google_protobuf//:well_known_protos'],
+    tools = ["@docker_nix//:bin/docker", "@pandoc_nix//:bin/pandoc", "@com_google_protobuf//:protoc", "@com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc"],
+    outs = ['proto-docs.rst'],
+    cmd = """
+        export PATH="$$( cd "$$(dirname "$(location @docker_nix//:bin/docker)")" ; pwd -P )":$$PATH
+        export PATH="$$( cd "$$(dirname "$(location @pandoc_nix//:bin/pandoc)")" ; pwd -P )":$$PATH
+        export PATH="$$( cd "$$(dirname "$(location @com_google_protobuf//:protoc)")" ; pwd -P )":$$PATH
+        export PATH="$$( cd "$$(dirname "$(location @com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc)")" ; pwd -P )":$$PATH
+
+        mkdir tmp
+        mkdir out
+        mkdir -p imports/google/protobuf
+
+        cp -L ledger-api/grpc-definitions/post-process.sh out
+        cp -RL ledger-api/grpc-definitions/* tmp
+        cp -L ledger-api/grpc-definitions/rst_mmd.tmpl tmp
+        cp $(locations @com_google_protobuf//:well_known_protos) imports/google/protobuf
+
+        cd tmp
+        PROTOS=$$(find . -name '*.proto' -print0 | xargs -0 echo)
+
+        protoc -I../imports -I. --plugin=../$(location @com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc) --doc_out=../out --doc_opt=rst_mmd.tmpl,docs_rst_mmd.md $$PROTOS
+
+        cd ../out
+        ./post-process.sh
+
+        mv docs_rst_mmd.rst ../$(location proto-docs.rst)
+    """,
+    visibility = [
+        '//visibility:public',
+    ]
+)

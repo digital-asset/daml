@@ -1,0 +1,40 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+  '//bazel_tools:scala.bzl',
+  'da_scala_test_suite',
+  'da_scala_library'
+)
+
+da_scala_library(
+  name = 'ledger-api-client',
+  srcs = glob(['src/main/scala/**/*.scala']),
+  deps = [
+    '//ledger-api/rs-grpc-bridge',
+    '//ledger-api/rs-grpc-akka',
+    '//language-support/scala/bindings',
+    '//3rdparty/jvm/org/slf4j:slf4j_api',
+    '//3rdparty/jvm/com/typesafe/akka:akka_stream',
+    "//3rdparty/jvm/io/grpc:grpc_netty",
+    "//3rdparty/jvm/io/netty:netty_handler",
+	],
+  visibility = [
+		'//visibility:public',
+  ]
+)
+
+da_scala_test_suite(
+    name = 'ledger-api-client-tests',
+    srcs = glob(['src/test/suite/**/*.scala']),
+    deps = [
+        ':ledger-api-client',
+        '//ledger-api/testing-utils',
+        '//ledger-api/rs-grpc-bridge',
+        '//ledger-api/rs-grpc-akka',
+        '//language-support/scala/bindings',
+        '//3rdparty/jvm/org/scalatest:scalatest',
+        '//3rdparty/jvm/org/awaitility:awaitility',
+        '//3rdparty/jvm/com/typesafe/akka:akka_stream_testkit',
+    ]
+)

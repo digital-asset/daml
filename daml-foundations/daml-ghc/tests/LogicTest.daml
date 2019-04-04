@@ -1,0 +1,44 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module LogicTest where
+
+import DA.Logic
+import DA.Assert
+
+proposition_test = do
+  let
+    p = Proposition 1
+    q = Proposition 2
+    r = Proposition 3
+    f : Formula Int = false
+    t : Formula Int = true
+    truth i = if i == 1 then Some True else if i == 2 then Some False else None
+  neg p === Negation (Proposition 1)
+  (p &&& q) === (Conjunction [Proposition 1, Proposition 2])
+  disj [p, q] === Disjunction [Proposition 1, Proposition 2]
+  (t &&& f) === substitute truth (p &&& q)
+  (t &&& f) === Conjunction [Conjunction [], Disjunction []]
+  [t,f] === (reduce <$> [t,f])
+  f === reduce (true &&& false)
+  Right False === interpret truth (p &&& q)
+  Right True === interpret truth (neg (p &&& q))
+  Right True === interpret truth (p ||| q)
+  Right True === interpret truth (p ||| r)
+  Right False === interpret truth (q &&& r)
+  Disjunction [f, r] === substitute truth (q ||| r)
+  Left r === interpret truth (q ||| r)
+  interpret truth ( p &&& r) === Left r
+
+dnf_test = do
+  Disjunction [Conjunction[Proposition 1]] === (toDNF $ Proposition 1)
+  Disjunction [Conjunction[Proposition 1]] === (toDNF $ Conjunction[Proposition 1])
+  Disjunction [Conjunction[Negation $ Proposition 1]] === (toDNF $ Negation . Proposition $ 1)
+  Disjunction [Conjunction[Negation $ Proposition 1]] === (toDNF $ Conjunction [Negation . Proposition $ 1])
+  (toDNF . neg . Conjunction $ Proposition <$> [1, 2, 3]) ===
+    (Disjunction $ Conjunction . (:: []) . Negation . Proposition <$> [1,2,3])
+
+main = scenario do
+  proposition_test
+  dnf_test

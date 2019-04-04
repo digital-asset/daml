@@ -1,0 +1,24 @@
+syntax = "proto3";
+package simple;
+
+service SimpleService {
+  rpc normalCall (SimpleServiceRequest) returns (SimpleServiceResponse) {}
+  rpc clientStreamingCall (stream SimpleServiceRequest) returns (SimpleServiceResponse) {}
+  rpc serverStreamingCall (SimpleServiceRequest) returns (stream SimpleServiceResponse) {}
+  rpc biDiStreamingCall (stream SimpleServiceRequest) returns (stream SimpleServiceResponse) {}
+
+  rpc done (SimpleServiceDone) returns (SimpleServiceDone) {}
+}
+
+message SimpleServiceDone {
+}
+
+message SimpleServiceRequest {
+  string request = 1;
+  repeated fixed32 num = 2;
+}
+
+message SimpleServiceResponse {
+  string response = 1;
+  fixed32 num = 2;
+}

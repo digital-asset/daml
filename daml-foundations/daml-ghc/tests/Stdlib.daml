@@ -1,0 +1,31 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Check all the modules in stdlib compile without warnings
+daml 1.2
+module Stdlib where
+
+import DA.Action()
+import DA.Assert()
+import DA.Bifunctor()
+import DA.Date()
+import DA.Either()
+import DA.Foldable()
+import DA.Functor()
+import DA.HKTemplate()
+import DA.List()
+import DA.Logic()
+import DA.Map()
+import DA.Maybe()
+import DA.Monoid()
+import DA.Newtype()
+import DA.NonEmpty()
+import DA.Optional()
+import DA.Random()
+import DA.Record()
+import DA.Set()
+import DA.Text()
+import DA.Time()
+import DA.Traversable()
+import DA.Tuple()
+import DA.Validation()

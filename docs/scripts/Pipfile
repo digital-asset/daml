@@ -1,0 +1,13 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+sphinx-autobuild = "*"
+sphinx = "*"
+
+[requires]
+python_version = "3.6"

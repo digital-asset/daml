@@ -1,0 +1,22 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_tweag_rules_haskell//haskell:haskell.bzl", "haskell_binary")
+load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
+haskell_binary(
+  name = "arx_bin",
+  visibility = ["//visibility:public"],
+  srcs = glob(["**/*.hs"], exclude = ["Setup.hs"]),
+  extra_srcs = glob(["LICENSE", "README", "docs/blessed/arx.man", "docs/blessed/arx.txt", "model-scripts/tmpx.sh", "version"]),
+  deps = [
+      hazel_library("base"), hazel_library("bytestring"), hazel_library("containers"),
+      hazel_library("attoparsec"), hazel_library("blaze-builder"),
+      hazel_library("bytestring-nums"), hazel_library("file-embed"),
+      hazel_library("parsec"), hazel_library("process"), hazel_library("shell-escape"),
+      hazel_library("template-haskell"), hazel_library("hashable")
+  ],
+  compiler_flags =
+    ["-XHaskell98", "-XFlexibleInstances", "-XFunctionalDependencies",
+     "-XMultiParamTypeClasses", "-XOverloadedStrings", "-XStandaloneDeriving",
+     "-XTupleSections", "-w", "-Wwarn"
+    ],
+)

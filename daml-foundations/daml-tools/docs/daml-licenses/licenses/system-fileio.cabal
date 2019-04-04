@@ -1,0 +1,91 @@
+name: system-fileio
+version: 0.3.16.4
+license: MIT
+license-file: license.txt
+author: John Millikin <jmillikin@gmail.com>
+maintainer: FP Complete <michael@fpcomplete.com>
+build-type: Simple
+cabal-version: >= 1.8
+category: System
+stability: experimental
+homepage: https://github.com/fpco/haskell-filesystem
+bug-reports: https://github.com/fpco/haskell-filesystem/issues
+
+synopsis: Consistent filesystem interaction across GHC versions (deprecated)
+description: Please see: https://plus.google.com/+MichaelSnoyman/posts/Ft5hnPqpgEx
+
+extra-source-files:
+  README.md
+  ChangeLog.md
+  lib/hssystemfileio-unix.h
+  lib/hssystemfileio-win32.h
+  --
+  tests/system-fileio-tests.cabal
+  tests/FilesystemTests.hs
+  tests/FilesystemTests/Posix.hs
+  tests/FilesystemTests/Util.hs
+  tests/FilesystemTests/Windows.hs
+
+source-repository head
+  type: git
+  location: https://github.com/fpco/haskell-filesystem.git
+
+library
+  ghc-options: -Wall -O2
+  hs-source-dirs: lib
+
+  build-depends:
+      base >= 4.0 && < 5.0
+    , bytestring >= 0.9
+    , system-filepath >= 0.3.1 && < 0.5
+    , text >= 0.7.1
+    , time >= 1.0 && < 2.0
+
+  if os(windows)
+    cpp-options: -DCABAL_OS_WINDOWS
+    build-depends:
+        Win32 >= 2.2
+      , directory >= 1.0
+    c-sources: lib/hssystemfileio-win32.c
+  else
+    build-depends:
+        unix >= 2.3
+    c-sources: lib/hssystemfileio-unix.c
+    if impl(ghc >= 7.2.0) && impl(ghc < 7.4.0)
+      cpp-options: -DSYSTEMFILEIO_LOCAL_OPEN_FILE
+
+  exposed-modules:
+    Filesystem
+
+test-suite filesystem_tests
+  type: exitcode-stdio-1.0
+  main-is: FilesystemTests.hs
+
+  ghc-options: -Wall -O2
+  cc-options: -Wall
+  hs-source-dirs: tests
+
+  build-depends:
+      base >= 4.0 && < 5.0
+    , bytestring >= 0.9
+    , chell >= 0.4 && < 0.5
+    , system-fileio
+    , system-filepath
+    , temporary >= 1.1 && < 2.0
+    , text
+    , time >= 1.0 && < 2.0
+    , transformers >= 0.2
+
+  if os(windows)
+    cpp-options: -DCABAL_OS_WINDOWS
+  else
+    build-depends:
+        unix >= 2.3
+
+  if os(darwin)
+    cpp-options: -DCABAL_OS_DARWIN
+
+  other-modules:
+    FilesystemTests.Posix
+    FilesystemTests.Util
+    FilesystemTests.Windows

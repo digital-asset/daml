@@ -1,0 +1,19 @@
+{
+  "contents": [
+    {
+      "value": "Main.add\n  : Int -> Int -> Int",
+      "language": "daml"
+    },
+    "***Defined at /tests/requests/type-on-hover/Main.daml:8:1***:"
+  ],
+  "range": {
+    "start": {
+      "line": 20,
+      "character": 19
+    },
+    "end": {
+      "line": 20,
+      "character": 22
+    }
+  }
+}

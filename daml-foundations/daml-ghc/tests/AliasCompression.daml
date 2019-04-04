@@ -1,0 +1,15 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Check that alias compresion during the conversion to DAML-LF works properly
+-- with chains of aliases.
+daml 1.2
+module AliasCompression where
+
+f : a -> a
+f x0 =
+  let x1 = x0 in
+  let x2 = x1 in
+  x2
+
+main = scenario do f (pure ())

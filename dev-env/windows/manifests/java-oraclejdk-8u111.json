@@ -1,0 +1,59 @@
+{
+  "description": "Oracle JDK 8",
+  "homepage": "http://www.oracle.com/technetwork/java/javase/overview/index.html",
+  "version": "8u111-b14",
+  "license": "http://www.oracle.com/technetwork/java/javase/terms/license",
+  "architecture": {
+    "64bit": {
+      "url": "https://engineering.da-int.net/nix-vendored/jdk-8u111-windows-x64.exe#/dl.7z",
+      "hash": "259caf1052673573096bb27b0ee10a8e97734461483856be1a81aa4130c3fe29"
+    },
+    "32bit": {
+      "url": "https://engineering.da-int.net/nix-vendored/jdk-8u111-windows-i586.exe#/dl.7z",
+      "hash": "2bc788869fe09b073067592021ab9f93d2407a078826138a49297badb6b0a06d"
+    }
+  },
+  "extract_to": "tmp",
+  "installer": {
+    "script": [
+      "If (Test-Path -Path \"$dir\\tmp\\.rsrc\") {",
+      "  # Java Source (src.zip)",
+      "   extract_7zip \"$dir\\tmp\\.rsrc\\1033\\JAVA_CAB9\\110\" \"$dir\"",
+      "   # JDK (tools.zip)",
+      "   extract_7zip \"$dir\\tmp\\.rsrc\\1033\\JAVA_CAB10\\111\" \"$dir\\tmp\"",
+      "   # Copyright (COPYRIGHT)",
+      "   extract_7zip \"$dir\\tmp\\.rsrc\\1033\\JAVA_CAB11\\112\" \"$dir\"",
+      "}",
+
+      "extract_7zip \"$dir\\tmp\\tools.zip\" \"$dir\"",
+
+      "# Convert .pack to .jar, and remove .pack",
+      "pushd \"$dir\"",
+      "ls \"$dir\" -recurse | ? name -match '^[^_].*?\\.(?i)pack$' | % {",
+      "    $name = $_.fullname -replace '\\.(?i)pack$', ''",
+      "    $pack = \"$name.pack\"",
+      "    $jar = \"$name.jar\"",
+      "    & \"bin\\unpack200.exe\" \"-r\" \"$pack\" \"$jar\"",
+      "}",
+      "popd",
+
+      "dl https://engineering.da-int.net/nix-vendored/jce_policy-8.zip \"$dir\\tmp\\jce_policy-8.zip\"",
+      "extract_7zip \"$dir\\tmp\\jce_policy-8.zip\" \"$dir\\tmp\\jce_policy-8\"",
+      "Copy-Item -Path \"$dir\\tmp\\jce_policy-8\\UnlimitedJCEPolicyJDK8\\*.jar\" \"$dir\\jre\\lib\\security\" -Force",
+
+      "rm -r \"$dir\\tmp\" | out-null"
+    ]
+  },
+  "bin": [
+    "bin\\java.exe",
+    "bin\\javac.exe",
+    "bin\\jps.exe",
+    "bin\\jhat.exe",
+    "bin\\jstack.exe",
+    "bin\\jstat.exe",
+    "bin\\keytool.exe"
+  ],
+  "env_set": {
+    "JAVA_HOME": "$dir"
+  }
+}

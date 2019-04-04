@@ -1,0 +1,54 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2 module RecordsAndVariants where
+
+data EitherM a b = LeftM a | RightM b deriving (Eq, Show)
+
+data Maybe a = Nope | Just a deriving (Eq, Show)
+
+data SimpleRecord = SimpleRecord { foo: Bool } deriving (Eq, Show)
+
+data RecordAB a b = RecordAB { foo: a; baz: b } deriving (Eq, Show)
+
+data MaybeRec = JustRec SimpleRecord | NotRec deriving (Eq, Show)
+
+data MaybeRecA a b = JustRecA (RecordAB a b) | NotRecA deriving (Eq, Show)
+
+data HRec = HRec { foo: Bool; mrea: MaybeRecA Text Bool } deriving (Eq, Show)
+
+data MaybeRecRecordAB a b c d = MaybeRecRecordABLeft (MaybeRecA a [c]) | MaybeRecRecordABRight (RecordAB c d)  deriving (Eq, Show)
+
+data EitherSimple = EitherLeft | EitherRight deriving (Eq, Show)
+
+template RecordsAndVariants
+  with
+    reference: Text
+    party: Party
+    simpleRecord: SimpleRecord
+    recordTextInt: RecordAB Text Int
+    eitherVariant: EitherM Text Int
+    enumVariant: EitherSimple
+    deepNested: MaybeRecRecordAB Text Text [Optional [Int]] (RecordAB Text Bool)
+  where
+    signatory party
+
+    agreement
+      "whatevs"
+
+suite =
+  scenario do
+    bob <- getParty "Bob"
+    submit bob do
+      create RecordsAndVariants with
+        reference = "All-in-one"
+        party = bob
+        simpleRecord = SimpleRecord with foo = True
+        recordTextInt = RecordAB with foo = "Foo", baz = 6
+        eitherVariant = RightM 7
+        enumVariant = EitherRight
+        deepNested = MaybeRecRecordABRight $ RecordAB with
+          foo = [Some [1, 2, 3], None, Some [4, 5, 6], None, Some [7, 8, 9]]
+          baz = RecordAB with
+            foo = "foo"
+            baz = False

@@ -1,0 +1,288 @@
+# Format 2:
+# # COMMENTS OR BLANK LINES
+# <<<
+# INPUT
+# $$$ COMMAND LINE
+# >>>
+# EXPECTED OUTPUT (OR >>> /REGEX/)
+# >>>2
+# EXPECTED STDERR (OR >>>2 /REGEX/)
+# >>>= EXPECTED EXIT STATUS (OR >>>= /REGEX/ OR >>>=)
+
+#-----------------------------------------
+# Setup
+<<<
+$$$ da setup < input_file.txt
+>>> /.*Downloading latest SDK release.*/
+>>>2 !/.*(ERROR|Error|error).*/
+>>>= 0
+#-----------
+<<<
+$$$ da config set update-setting Never
+>>>
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ da config get update-setting
+>>> /.*Never.*/
+>>>2
+>>>= 0
+#-----------------------------------------
+# Create a new project
+<<<
+$$$ da new apple-project
+>>> /Creating a project called apple-project.*/
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ cd apple-project && dir /b
+>>>
+da.yaml
+daml
+>>>2
+>>>= 0
+#-----------------------------------------
+# Process management is switched off
+<<<
+$$$ da start
+>>>
+>>>2
+[Warn] This operation is not supported on Windows.
+>>>= 0
+#-----------
+<<<
+$$$ da stop
+>>>
+>>>2
+[Warn] This operation is not supported on Windows.
+>>>= 0
+#-----------
+<<<
+$$$ da restart
+>>>
+>>>2
+[Warn] This operation is not supported on Windows.
+>>>= 0
+#-----------
+<<<
+$$$ da sandbox
+>>>
+>>>2
+[Warn] This operation is not supported on Windows.
+>>>= 0
+#-----------
+<<<
+$$$ da navigator
+>>>
+>>>2
+[Warn] This operation is not supported on Windows.
+>>>= 0
+#-----------
+<<<
+$$$ da shell
+>>>
+>>>2
+[Warn] This operation is not supported on Windows.
+>>>= 0
+#-----------
+<<<
+$$$ da compile
+>>>
+>>>2
+[Warn] This operation is not supported on Windows.
+>>>= 0
+#-----------
+# TODO: decide whether we should keep this
+<<<
+$$$ cd apple-project && da status
+>>> /.*No processes are running.*/
+>>>2
+>>>= 0
+#-----------------------------------------
+# SDK version management works
+<<<
+$$$ da use 0.10.5
+>>> /.*Installing packages:.*/
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ da list
+>>>
+Installed SDK releases:
+  0.10.5 (active, default)
+  0.11.2 
+>>>2
+>>>= 0
+#-----------------------------------------
+# Template management works (0.10.0)
+<<<
+$$$ da new
+>>> /.*example-ping-pong-reactive-components-java.*/
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ da config get templates.namespaces
+>>>
+- sdk
+
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ da subscribe xyz
+>>>
+>>>2
+[Error] Namespace does not exist: xyz
+>>>= 0
+#-----------
+<<<
+$$$ da subscribe templates-test
+>>>
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ da config get templates.namespaces
+>>>
+- templates-test
+- sdk
+
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ da unsubscribe xyz
+>>>
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ da config get templates.namespaces
+>>>
+- templates-test
+- sdk
+
+>>>2
+>>>= 0
+#-----------
+# Note that there should be a template:
+# simple-test Template package: simple-test-0.10.x
+# in repo templates-test
+# One can publish this using:
+# da template publish templates-test/simple-test/0.10.x
+<<<
+$$$ da new
+>>> /.*simple-test( )*Template package: simple-test-0.10.x.*/
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ da new templates-test/simple-test mytest002
+>>>
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ cd mytest002 && dir /b
+>>>
+da.yaml
+daml
+README.md
+>>>2
+>>>= 0
+#-----------
+# Note that there should be another template:
+# simple-addon Template package: simple-addon-0.10.x
+# in repo templates-test
+# One can publish this using:
+# da template publish templates-test/simple-addon/0.10.x
+<<<
+$$$ da add
+>>> /.*simple-addon( )*Template package: simple-addon-0.10.x.*/
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ cd mytest002 && da add templates-test/simple-addon myfolder
+>>>
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ cd mytest002/myfolder && dir /b
+>>>
+daml
+README.md
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ da unsubscribe templates-test
+>>>
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ da config get templates.namespaces
+>>>
+- sdk
+
+>>>2
+>>>= 0
+#-----------------------------------------
+# Misc functions work
+<<<
+$$$ cd mytest002 && da changelog
+>>> /0.10.6.*/
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ da update-info
+>>> /The SDK Assistant has a built-in auto-update feature,.*/
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ da docs
+>>> /The DAML SDK documentation is no longer available offline. Please go to .* to read the latest documentation.*/
+>>>2
+>>>= 0
+#-----------
+<<<
+$$$ da feedback
+>>>
+>>>2 /.*mailto:sdk-feedback@digitalasset.com.*/
+>>>= 0
+#-----------
+<<<
+$$$ da studio
+>>>
+>>>2 /.*DAML Studio.*/
+>>>= 0
+#-----------
+<<<
+$$$ da path
+>>> /.*sandbox:.*/
+>>>2
+>>>= 0
+#-----------------------------------------
+# Run works
+<<<
+$$$ da run sandbox -- --help
+>>> /Sandbox.*/
+>>>2
+>>>= 0
+#-----------------------------------------
+# Uninstall works
+<<<
+y
+y
+$$$ da uninstall all
+>>> /Do you really want to.*/
+>>>2
+>>>= 0

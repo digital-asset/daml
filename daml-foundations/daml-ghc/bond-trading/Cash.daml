@@ -1,0 +1,195 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Cash where
+
+import DA.Optional
+import DA.Time
+
+isLocked : Cash -> Bool
+isLocked this = this.owner /= this.locker
+
+assertUnlocked : Cash -> Update ()
+assertUnlocked this = whenSome this.lockMaturity assertAfter
+
+type CashId = ContractId Cash
+
+template Cash
+  with
+    issuer : Party
+    owner : Party
+    currency : Text
+    amount : Decimal
+    locker : Party
+    lockMaturity : Optional Time
+  where
+    signatory issuer, owner, locker
+
+    ensure amount > 0.0
+
+    controller owner can
+      Transfer : CashTransferRequestId
+        with newOwner : Party
+        do
+          assertUnlocked this
+          create CashTransferRequest with receiver = newOwner; ..
+
+      TransferToLocker : CashId
+        do
+          assert $ locker /= owner
+          create this with owner = locker; lockMaturity = None
+
+      Split : (CashId, CashId)
+        with splitAmount : Decimal
+        do
+          f <- create this with amount = splitAmount
+          s <- create this with amount = amount - splitAmount
+          return (f, s)
+
+      Merge : CashId
+        with otherCid : CashId
+        do
+          assertUnlocked this
+          c <- fetch otherCid
+          assertUnlocked c
+          assert $ this == c with amount
+          exercise otherCid Archive
+          create this with amount = amount + c.amount
+
+      Lock : CashId
+        with lid : ContractId LockPoA
+             _lockMaturity : Time
+        do
+          assertUnlocked this
+          exercise lid IssueLocked with cash = this; lockMaturity = _lockMaturity
+
+template LockPoA
+  with
+    locker : Party
+    issuer : Party
+    owner : Party
+  where
+    signatory locker
+
+    controller issuer, owner can
+      IssueLocked : CashId
+        with
+          cash : Cash
+          lockMaturity : Time
+        do
+          create cash with locker; lockMaturity = Some lockMaturity
+
+
+type CashTransferRequestId = ContractId CashTransferRequest
+
+template CashTransferRequest
+  with
+    receiver : Party
+    issuer : Party
+    owner : Party
+    currency : Text
+    amount : Decimal
+    locker : Party
+    lockMaturity : Optional Time
+  where
+    signatory issuer, owner, locker
+
+    controller receiver can
+      Accept : CashId
+        do
+          create Cash with owner = receiver, locker = receiver, lockMaturity = None, ..
+
+      Reject : CashId
+        do
+          create Cash with lockMaturity = None, ..
+
+    controller owner can
+      Withdraw : CashId
+        do
+          whenSome lockMaturity assertAfter
+          create Cash with lockMaturity = None, ..
+
+
+cashSplitMay : Party -> CashId -> Decimal -> Update (CashId, Optional CashId)
+cashSplitMay owner cashCid splitAmount = do
+  cash <- fetch cashCid
+  assert $ cash.owner == owner
+  if cash.amount == splitAmount
+    then return (cashCid, None)
+    else do
+      r <- exercise cashCid Split with splitAmount
+      return (fst r, Some $ snd r)
+
+main = scenario do
+  acmeBank <- getParty "AcmeBank"
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+
+  today <- pass $ days 0
+
+  cashAlice1Cid <-
+    submit acmeBank do create CashTransferRequest with
+                              issuer = acmeBank
+                              owner = acmeBank
+                              receiver = alice
+                              currency = "USD"
+                              amount = 100.0
+                              locker = acmeBank
+                              lockMaturity = None
+
+  cashAlice1Cid <-
+    submit alice do exercise cashAlice1Cid Accept
+
+  cashBob1Cid <-
+    submit acmeBank do create CashTransferRequest with
+                              issuer = acmeBank
+                              owner = acmeBank
+                              receiver = bob
+                              currency = "USD"
+                              amount = 20.0
+                              locker = acmeBank
+                              lockMaturity = None
+
+  cashBob1Cid <-
+    submit bob do exercise cashBob1Cid Accept
+
+  (cashAlice1Cid, cashAlice2Cid) <-
+    submit alice do exercise cashAlice1Cid Split with splitAmount = 30.0
+
+  cashBob2Cid <-
+    submit alice do exercise cashAlice1Cid Transfer with newOwner = bob
+
+  cashBob2Cid <-
+    submit bob do exercise cashBob2Cid Accept
+
+  cashBob2Cid <-
+    submit bob do exercise cashBob1Cid Merge with otherCid = cashBob2Cid
+
+  submit alice do
+    c <- fetch cashAlice2Cid
+    assertMsg "unexpected issuer" $ c.issuer == acmeBank
+    assertMsg "unexpected owner" $ c.owner == alice
+    assertMsg "unexpected currency" $ c.currency == "USD"
+    assertMsg "unexpected amount" $ c.amount == 70.0
+
+  submit bob do
+    c <- fetch cashBob2Cid
+    assertMsg "unexpected issuer" $ c.issuer == acmeBank
+    assertMsg "unexpected owner" $ c.owner == bob
+    assertMsg "unexpected currency" $ c.currency == "USD"
+    assertMsg "unexpected amount" $ c.amount == 50.0
+
+  lid <- submit alice do create LockPoA with locker = alice; issuer = acmeBank; owner = bob
+
+  lockedCash <- submit bob do exercise cashBob2Cid Lock with lid; _lockMaturity = addRelTime today (days 1)
+
+  cashAlice3Cid <- submit bob do exercise lockedCash TransferToLocker
+
+  submit alice do
+    c <- fetch cashAlice3Cid
+    assertMsg "unexpected issuer" $ c.issuer == acmeBank
+    assertMsg "unexpected owner" $ c.owner == alice
+    assertMsg "unexpected currency" $ c.currency == "USD"
+    assertMsg "unexpected amount" $ c.amount == 50.0
+

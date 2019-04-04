@@ -1,0 +1,95 @@
+daml 1.2 module Iou_template where
+
+template Iou
+  with
+    issuer : Party
+    owner : Party
+    currency : Text      -- ^ only 3-letter symbols are allowed
+    amount : Decimal     -- ^ must be positive
+    regulators : [Party] -- ^ `regulators` may observe any use of the `Iou`
+  where
+    ensure amount > 0.0
+    signatory issuer
+    observer regulators
+    agreement
+      show issuer <>
+      " promises to pay " <>
+      show amount <> " " <> currency <>
+      " on demand to " <> show owner
+    controller owner can
+
+      Split : (ContractId Iou, ContractId Iou) -- ^ splits into two `Iou`s with
+                                               --   smaller amounts
+        with
+          splitAmount : Decimal -- ^ must be between zero and original amount
+        do
+          let restAmount = amount - splitAmount
+          splitCid <- create this with amount = splitAmount
+          restCid <- create this with amount = restAmount
+          return (splitCid, restCid)
+
+      Transfer : ContractId Iou -- ^ changes the owner
+        with newOwner : Party
+        do
+          create this with owner = newOwner
+
+      Merge : ContractId Iou
+        -- ^ merges two "compatible" `Iou`s
+        with otherCid : ContractId Iou -- ^ Must have same owner, issuer, and
+                                       --   currency. The regulators may
+                                       --   differ, and are taken from the
+                                       --   original `Iou`.
+        do
+          otherIou <- fetch otherCid
+          -- Check the two IOUs are compatible
+          assert ( currency == otherIou.currency
+                  &&  owner == otherIou.owner
+                  && issuer == otherIou.issuer )
+          -- Retire the old IOU by transferring to the
+          -- issuer and archiving
+          transferCid <- exercise otherCid Transfer with newOwner = issuer
+          exercise transferCid Archive
+          -- Return the merged IOU
+          create this with amount = amount + otherIou.amount
+
+main = scenario do
+  bank <- getParty "Acme Bank"
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+  sec <- getParty "Securities Exchange Commission"
+
+  -- Bank creates Iou's for Alice and Bob
+  iouAliceCid <- submit bank do
+    create Iou with
+      issuer     = bank
+      owner      = alice
+      currency   = "USD"
+      amount     = 100.0
+      regulators = [sec]
+  iouBobCid   <- submit bank do
+    create Iou with
+      issuer     = bank
+      owner      = bob
+      currency   = "USD"
+      amount     = 30.0
+      regulators = [sec]
+
+  -- Alice transfers some Iou's to Bob
+  (split, rest) <- submit alice do
+    exercise iouAliceCid Split with splitAmount = 40.0
+  iouOtherCid <- submit alice do
+    exercise split Transfer with newOwner = bob
+
+  -- Bob merges them with the ones he had already.
+  iouTotalCid <- submit bob do
+    exercise iouBobCid Merge with otherCid = iouOtherCid
+
+  -- Assert things are as they should be
+  submit alice do
+    aliceIou <- fetch rest
+    assert $ aliceIou == Iou with
+      issuer    = bank
+      owner     = alice
+      currency  = "USD"
+      amount    = 60.0
+      regulators = [sec]

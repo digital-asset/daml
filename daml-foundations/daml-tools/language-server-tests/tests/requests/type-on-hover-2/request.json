@@ -1,0 +1,12 @@
+{
+  "method": "textDocument/hover",
+  "payload": {
+    "textDocument": {
+      "uri": "Main.daml"
+    },
+    "position": {
+      "line": 8,
+      "character": 13
+    }
+  }
+}

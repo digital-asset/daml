@@ -1,0 +1,20 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+
+-- GHC desugars Decimal literals to this type
+daml 1.2
+-- | HIDE
+module GHC.Real where
+
+import GHC.Integer.Type
+import GHC.Types
+
+data Ratio a = !a :% !a
+
+type Rational = Ratio Integer
+
+fromRational : Rational -> Decimal
+fromRational = magic @"fromRational"
+{-# NOINLINE fromRational #-}

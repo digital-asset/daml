@@ -1,0 +1,69 @@
+# Metadata format version
+metadata_version: 1
+
+# Release groups define a set of related packages that share the
+# same group and version.
+groups:
+  # DAML foundations
+  daml-tools:
+    group-id: com.digitalasset
+    version: __VERSION__
+    packages:
+      damlc:
+        packaging: tar.gz
+        main: da-hs-damlc-app
+
+      daml-extension:
+        packaging: tar.gz
+
+  # Navigator
+  navigator:
+    group-id: com.digitalasset
+    version: __VERSION__
+    packages:
+      navigator:
+        packaging: jar
+        main: navigator-__VERSION__.jar
+
+  # Extractor
+  extractor:
+    group-id: com.digitalasset
+    version: __VERSION__
+    packages:
+      extractor:
+        packaging: jar
+        main: extractor-__VERSION__.jar
+
+  # DAML-LF
+  daml-lf-archive:
+    group-id: com.digitalasset
+    version: __VERSION__
+    packages:
+      daml-lf-archive-protos:
+        packaging: tar.gz
+
+  # ledger-api
+  ledger-api:
+    group-id: com.digitalasset
+    version:  __VERSION__
+    packages:
+      ledger-api-protos:
+        packaging: tar.gz
+        template: true
+
+  # Sandbox
+  sandbox:
+    group-id: com.digitalasset
+    version: __VERSION__
+    packages:
+      sandbox:
+        packaging: tar.gz
+
+  # Quickstart example
+  quickstart:
+    group-id: com.digitalasset.docs
+    version: __VERSION__
+    packages:
+      quickstart-java:
+        packaging: tar.gz
+        template: true

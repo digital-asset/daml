@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration debug="true">
+    <!--<appender name="file-appender" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+        <!--<filter class="ch.qos.logback.classic.filter.ThresholdFilter">-->
+            <!--<level>debug</level>-->
+        <!--</filter>-->
+        <!--<file>${logFileLocation}/${logFileName}</file>-->
+        <!--<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">-->
+            <!--<fileNamePattern>logs/viper-test_%d{yyyy-MM-dd}.log</fileNamePattern>-->
+            <!--<maxHistory>30</maxHistory>-->
+        <!--</rollingPolicy>-->
+        <!--<encoder class="net.logstash.logback.encoder.LogstashEncoder">-->
+            <!--<timeZone>UTC</timeZone>-->
+            <!--<provider class="net.logstash.logback.composite.loggingevent.ArgumentsJsonProvider" />-->
+            <!--<shortenedLoggerNameLength>36</shortenedLoggerNameLength>-->
+            <!--<throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">-->
+                <!--<rootCauseFirst>true</rootCauseFirst>-->
+            <!--</throwableConverter>-->
+            <!--<fieldNames>-->
+                <!--<timestamp>timestamp</timestamp>-->
+                <!--<level>level</level>-->
+                <!--<levelValue>[ignore]</levelValue>-->
+                <!--<logger>logger</logger>-->
+                <!--<thread>thread</thread>-->
+                <!--<version>[ignore]</version>-->
+            <!--</fieldNames>-->
+            <!--<includeContext>false</includeContext>-->
+        <!--</encoder>-->
+    <!--</appender>-->
+
+    <!--Added because values passed in through markers do not get logged to standard console logger-->
+    <!--<appender name="JSON-STDOUT" class="ch.qos.logback.core.ConsoleAppender">-->
+        <!--<encoder class="net.logstash.logback.encoder.LogstashEncoder">-->
+            <!--<timeZone>UTC</timeZone>-->
+            <!--<provider class="net.logstash.logback.composite.loggingevent.ArgumentsJsonProvider" />-->
+            <!--<shortenedLoggerNameLength>36</shortenedLoggerNameLength>-->
+            <!--<throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">-->
+                <!--<rootCauseFirst>true</rootCauseFirst>-->
+            <!--</throwableConverter>-->
+            <!--<fieldNames>-->
+                <!--<timestamp>timestamp</timestamp>-->
+                <!--<level>level</level>-->
+                <!--<levelValue>[ignore]</levelValue>-->
+                <!--<logger>logger</logger>-->
+                <!--<thread>thread</thread>-->
+                <!--<version>[ignore]</version>-->
+            <!--</fieldNames>-->
+            <!--<includeContext>false</includeContext>-->
+        <!--</encoder>-->
+    <!--</appender>-->
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg %mdc%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com.digitalasset.platform.api.rest" level="warn" />
+    <logger name="org.flywaydb" level="warn"/>
+    <logger name="org.hibernate" level="warn"/>
+    <logger name="org.springframework" level="warn"/>
+    <logger name="org.apache.cassandra" level="warn"/>
+    <logger name="com.digitalasset.grpc" level="warn"/>
+    <logger name="io.grpc.netty" level="warn"/>
+
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT" />
+    </root>
+</configuration>

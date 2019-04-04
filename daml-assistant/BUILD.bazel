@@ -1,0 +1,80 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load('//bazel_tools:haskell.bzl', 'da_haskell_binary', 'da_haskell_library', 'da_haskell_test')
+load('//bazel_tools:packaging/packaging.bzl', 'package_app')
+
+deps = [
+    'base',
+    'bytestring',
+    'conduit',
+    'conduit-extra',
+    'directory',
+    'extra',
+    'filepath',
+    'http-conduit',
+    'main-tester',
+    'optparse-applicative',
+    'process',
+    'safe',
+    'safe-exceptions',
+    'tar-conduit',
+    'tasty',
+    'tasty-hunit',
+    'tasty-quickcheck',
+    'temporary',
+    'text',
+    'unix',
+    'yaml',
+]
+
+# This library is intended to be used by applications called by the assistant,
+# e.g., damlc, to get the names of the various environment variables set by the assistant.
+da_haskell_library(
+    name = 'daml-project-config',
+    srcs = native.glob(['daml-project-config/**/*.hs']),
+    src_strip_prefix = 'daml-project-config',
+    deps = [],
+    hazel_deps = [
+        "base",
+        "directory",
+        "filepath",
+        "safe-exceptions",
+    ],
+    visibility = ["//visibility:public"]
+)
+
+# TODO Factor shared code between the binary and the test suite into a library
+# instead of compiling it twice.
+
+da_haskell_binary (
+    name = 'daml',
+    srcs = native.glob(['src/**/*.hs']),
+    main_function = "DAML.Assistant.main",
+    deps = [
+        "//libs-haskell/da-hs-base",
+        ":daml-project-config",
+    ],
+    hazel_deps = deps,
+    visibility = ["//visibility:public"],
+)
+
+package_app(
+    name = "daml-dist",
+    binary = ":daml",
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_test(
+    name = 'test',
+    srcs = native.glob(['src/**/*.hs']),
+    main_function = "DAML.Assistant.runTests",
+    deps = [
+        "//libs-haskell/da-hs-base",
+        ":daml-project-config",
+    ],
+    hazel_deps = deps,
+    visibility = ["//visibility:public"],
+)
+
+exports_files(["daml-studio.py"])

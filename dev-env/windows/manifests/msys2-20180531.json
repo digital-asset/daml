@@ -1,0 +1,29 @@
+{
+    "homepage": "http://msys2.github.io",
+    "version": "20180531",
+    "url": "http://repo.msys2.org/distrib/x86_64/msys2-base-x86_64-20180531.tar.xz",
+    "extract_dir": "msys64",
+    "hash": "4e799b5c3efcf9efcb84923656b7bcff16f75a666911abd6620ea8e5e1e9870c",
+    "bin": [
+        [
+            "msys2_shell.cmd",
+            "msys2"
+        ],
+        "usr\\bin\\bash.exe",
+        "usr\\bin\\cat.exe",
+        "usr\\bin\\expr.exe",
+        "usr\\bin\\ln.exe",
+        "usr\\bin\\ls.exe",
+        "usr\\bin\\rm.exe",
+        "usr\\bin\\sed.exe",
+        "usr\\bin\\sh.exe"
+    ],
+    "env_add_path": ".",
+    "post_install": [
+      "try { bash.exe -lc 'pacman --version' } catch { }",
+      "bash.exe -lc 'pacman -S --noconfirm patch unzip zip vim mingw-w64-x86_64-gcc'",
+      "try { bash.exe -lc 'pacman -S --noconfirm tar' } catch { }",
+      "mkdir $dir\\bin",
+      "cp $dir\\mingw64\\bin\\*.dll $dir\\bin"
+    ]
+}

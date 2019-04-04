@@ -1,0 +1,69 @@
+load("//bazel_tools:haskell.bzl",
+  "da_haskell_library", "da_haskell_binary", "da_haskell_test",
+  "c2hs_suite"
+)
+load(
+  "@io_tweag_rules_haskell//haskell:haskell.bzl",
+  "haskell_cc_import"
+)
+load("//bazel_tools:fat_cc_library.bzl", "fat_cc_library")
+
+c2hs_suite(
+  name = "grpc-haskell-core",
+  srcs = [
+    "src/Network/GRPC/Unsafe/Constants.hsc"
+  ] + glob(["src/**/*.hs"]),
+
+  # NOTE(JM): Order matters, later .chs files can import earlier ones.
+  c2hs_srcs = [
+    "src/Network/GRPC/Unsafe/Time.chs",
+    "src/Network/GRPC/Unsafe/ChannelArgs.chs",
+    "src/Network/GRPC/Unsafe/Slice.chs",
+    "src/Network/GRPC/Unsafe/ByteBuffer.chs",
+    "src/Network/GRPC/Unsafe/Metadata.chs",
+    "src/Network/GRPC/Unsafe/Op.chs",
+    "src/Network/GRPC/Unsafe.chs",
+    "src/Network/GRPC/Unsafe/Security.chs"
+  ],
+  c2hs_src_strip_prefix = "src",
+  deps = [
+      ":fat_cbits",
+      "//nix/third-party/proto3-suite",
+      "//nix/third-party/proto3-wire",
+  ],
+  compiler_flags = ["-XCPP"],
+  hazel_deps = [
+    "async",
+    "base",
+    "bytestring",
+    "clock",
+    "containers",
+    "managed",
+    "pipes",
+    "safe",
+    "sorted-list",
+    "stm",
+    "tasty",
+    "tasty-hunit",
+    "tasty-quickcheck",
+    "transformers",
+    "vector",
+  ],
+  visibility = ["//visibility:public"],
+)
+
+cc_library(
+  name = "cbits",
+  srcs = glob(["cbits/*.c"]),
+  hdrs = glob(["include/*.h"]),
+  includes = ["include/"],
+  deps = [
+    "@com_github_grpc_grpc//:grpc",
+  ],
+  visibility = ["//visibility:public"],
+)
+
+fat_cc_library(
+    name = "fat_cbits",
+    input_lib = ":cbits"
+)

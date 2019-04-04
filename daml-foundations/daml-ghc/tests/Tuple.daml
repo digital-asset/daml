@@ -1,0 +1,38 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Tuple where
+
+import DA.Tuple
+import DA.Assert
+
+testFirst = scenario do
+  (12, "abc") === first (*4) (3, "abc")
+  (3, "abc") === first length ([1,2,3], "abc")
+
+testSecond = scenario do
+  (5.0, 12) === second (*4) (5.0, 3)
+  (5.0, 3) === second length (5.0, [1,2,3])
+
+testBoth = scenario do
+  (3, 1) === both length ([1,2,3], [1])
+  (12, 9) === both (*3) (4, 3)
+
+testSwap = scenario do
+  (12, "abc") === swap ("abc", 12)
+
+testTuple = scenario do
+  let [a,b,c,d] = f 4
+  (a,b,c,d) === (4,3,2,1)
+
+f : Int -> [Int]
+f 0 = []
+f i = i :: f (i-1)
+
+main = scenario do
+  testFirst
+  testSecond
+  testBoth
+  testSwap
+  testTuple

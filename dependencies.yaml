@@ -1,0 +1,572 @@
+# This file is read by bazel-deps to generate Bazel definitions under
+# `3rdparty/jvm/` and in `3rdparty/workspace.bzl`. Execute the command
+# update-bazel-deps (provided in the dev-env) to re-generate these files.
+
+options:
+  buildHeader:
+    - "# Do not edit. bazel-deps autogenerates this file from dependencies.yaml."
+    - "# See 3rdparty/README.md"
+    # Remove once https://github.com/johnynek/bazel-deps/issues/86 is resolved.
+    - "load(\"@io_bazel_rules_scala//scala:scala.bzl\", \"scala_library\")"
+    - "load(\"@io_bazel_rules_scala//scala:scala_import.bzl\", \"scala_import\")"
+  languages: [ "java", "scala:2.12.6" ]
+  resolverType: "coursier"
+
+dependencies:
+
+  com.google.code.findbugs:
+    jsr305:
+      lang: java
+      version: "3.0.2"
+
+  com.google.protobuf:
+    protobuf-java:
+      lang: java
+      version: "3.6.1"
+
+  io.grpc:
+    grpc-core:
+      lang: java
+      version: "1.18.0"
+    grpc-stub:
+      lang: java
+      version: "1.18.0"
+    grpc-protobuf:
+      lang: java
+      version: "1.18.0"
+    grpc-netty:
+      lang: java
+      version: "1.18.0"
+    grpc-services:
+      lang: java
+      version: "1.18.0"
+
+  com.chuusai:
+    shapeless:
+      lang: scala
+      version: "2.3.2"
+
+  com.github.zafarkhaja:
+    java-semver:
+      lang: java
+      version: "0.9.0"
+
+  com.typesafe.scala-logging:
+    scala-logging:
+      lang: scala
+      version: "3.5.0"
+
+  org.scalaz:
+    scalaz-core:
+      lang: scala
+      version: "7.2.24"
+    scalaz-concurrent:
+      lang: scala
+      version: "7.2.24"
+    scalaz-scalacheck-binding:
+      lang: scala
+      version: "7.2.24-scalacheck-1.14"
+    scalaz-concurrent:
+      lang: scala
+      version: "7.2.24"
+
+  org.typelevel:
+    paiges-core:
+      lang: scala
+      version: "0.2.1"
+
+  org.jline:
+    jline:
+      lang: java
+      version: "3.7.1"
+    jline-reader:
+      lang: java
+      version: "3.7.1"
+
+  ch.qos.logback:
+    logback-core:
+      lang: java
+      version: "1.2.3"
+    logback-classic:
+      lang: java
+      version: "1.2.3"
+
+  org.slf4j:
+    slf4j-api:
+      lang: java
+      version: "1.7.25"
+    slf4j-simple:
+      lang: java
+      version: "1.7.25"
+
+  commons-io:
+    commons-io:
+      lang: java
+      version: "2.5"
+
+  com.google.guava:
+    guava:
+      lang: java
+      version: "24.0-jre"
+
+  org.freemarker:
+    freemarker-gae:
+      lang: java
+      version: "2.3.28"
+
+  org.jooq:
+    jool:
+      lang: java
+      version: 0.9.11
+
+  args4j:
+    args4j:
+      lang: java
+      version: "2.33"
+
+  com.github.scopt:
+    scopt:
+      lang: scala
+      version: "3.7.1"
+
+  com.sparkjava:
+    spark-core:
+      lang: java
+      version: "2.7.2"
+
+  com.storm-enroute:
+    scalameter:
+      lang: scala
+      version: "0.10.1"
+    scalameter-core:
+      lang: scala
+      version: "0.10.1"
+
+  org.scalatest:
+    scalatest:
+      lang: scala
+      version: "3.0.5"
+
+  org.scalactic:
+    scalactic:
+      lang: scala
+      version: "3.0.5"
+
+  org.scalacheck:
+    scalacheck:
+      lang: scala
+      version: "1.14.0"
+
+  junit:
+    junit:
+      lang: java
+      version: "4.12"
+    # TODO: Remove when https://github.com/johnynek/bazel-deps/issues/46 is fixed
+    junit-dep:
+      lang: java
+      version: "4.10"
+
+  com.google.code.gson:
+    gson:
+      lang: java
+      version: "2.8.2"
+
+
+  org.mockito:
+    mockito-core:
+      lang: java
+      version: "2.25.0"
+    mockito-inline:
+      lang: java
+      version: "2.25.0"
+
+  org.mongodb:
+    casbah-commons_2.12.0-RC1:
+      lang: scala/unmangled
+      version: "3.1.1"
+    casbah-core_2.12.0-RC1:
+      lang: scala/unmangled
+      version: "3.1.1"
+    casbah-query_2.12.0-RC1:
+      lang: scala/unmangled
+      version: "3.1.1"
+    casbah-gridfs_2.12.0-RC1:
+      lang: scala/unmangled
+      version: "3.1.1"
+    bson:
+      lang: java
+      version: "3.6.4"
+    mongodb-driver-async:
+      lang: java
+      version: "3.6.4"
+    mongodb-driver-core:
+      lang: java
+      version: "3.6.4"
+
+  org.junit.jupiter:
+    junit-jupiter-api:
+      lang: java
+      version: "5.0.0"
+    junit-jupiter-engine:
+      lang: java
+      version: "5.0.0"
+
+  org.junit.platform:
+    junit-platform-engine:
+      lang: java
+      version: "1.0.0"
+    junit-platform-runner:
+      lang: java
+      version: "1.0.0"
+
+  org.hamcrest:
+    hamcrest-all:
+      lang: java
+      version: "1.3"
+
+  uk.co.datumedge:
+    hamcrest-json:
+      lang: java
+      version: "0.2"
+
+  com.github.pureconfig:
+    pureconfig:
+      lang: scala
+      version: "0.8.0"
+
+  com.typesafe.akka:
+    akka-slf4j:
+      lang: scala
+      version: "2.5.13"
+    akka-stream:
+      lang: scala
+      version: "2.5.13"
+    akka-stream-testkit:
+      lang: scala
+      version: "2.5.13"
+    akka-actor:
+      lang: scala
+      version: "2.5.13"
+    akka-http:
+      lang: scala
+      version: "10.0.13"
+    akka-http-spray-json:
+      lang: scala
+      version: "10.0.13"
+    akka-http-testkit:
+      lang: scala
+      version: "10.0.13"
+
+  com.typesafe.play:
+    anorm:
+      lang: scala
+      version: "2.5.3"    
+
+  com.typesafe.slick:
+    slick:
+      lang: scala
+      version: "3.3.0"
+    slick-hikaricp:
+      lang: scala
+      version: "3.3.0"
+
+  com.h2database:
+    h2:
+      lang: java
+      version: "1.4.198"
+
+  org.testcontainers:
+    postgresql:
+      lang: java
+      version: "1.4.2"
+
+  org.postgresql:
+    postgresql:
+      lang: java
+      version: "9.4.1212"
+
+  io.spray:
+    spray-json:
+      lang: scala
+      version: "1.3.3"
+
+  com.fasterxml.jackson.core:
+    jackson-core:
+      lang: java
+      version: "2.9.8"
+    jackson-databind:
+      lang: java
+      version: "2.9.8"
+    jackson-annotations:
+      lang: java
+      version: "2.9.8"
+
+  com.fasterxml.jackson.dataformat:
+    jackson-dataformat-yaml:
+      lang: java
+      version: "2.9.8"
+
+  com.fasterxml.jackson.module:
+    jackson-module-parameter-names:
+      lang: java
+      version: "2.9.8"
+    jackson-module-scala:
+      lang: scala
+      version: "2.9.8"
+
+  io.zipkin.reporter:
+    zipkin-sender-okhttp3:
+      lang: java
+      version: "1.0.4"
+
+  io.zipkin.brave:
+    brave:
+      lang: java
+      version: "4.6.0"
+
+  io.dropwizard.metrics:
+    metrics-core:
+      lang: java
+      version: "3.1.2"
+
+  com.squareup:
+    javapoet:
+      lang: java
+      version: "1.11.1"
+
+  io.circe:
+    circe-core:
+      lang: scala
+      version: "0.10.0"
+    circe-generic:
+      lang: scala
+      version: "0.10.0"
+    circe-parser:
+      lang: scala
+      version: "0.10.0"
+
+  org.seleniumhq.selenium:
+    selenium-java:
+      lang: java
+      version: "3.12.0"
+
+  # WARNING: In Dependencies.scala, there are explicit exclusion rules for
+  # jackson-databind and jackson-core for the following two dependencies. I
+  # don't know how to translate this for bazel-deps.
+
+  javax.ws.rs:
+    javax.ws.rs-api:
+      lang: java
+      version: "2.1"
+
+  org.apache.commons:
+    commons-text:
+      lang: java
+      version: "1.4"
+
+  org.jboss.logging:
+    jboss-logging:
+      lang: java
+      version: "3.3.0.Final"
+
+  org.spire-math:
+    kind-projector:
+      lang: scala
+      version: "0.9.3"
+
+  com.github.mpilquist:
+    simulacrum:
+      lang: scala
+      version: "0.10.0"
+
+  org.scala-lang.modules:
+    scala-java8-compat:
+      lang: scala
+      version: 0.9.0
+    scala-parser-combinators:
+      lang: scala
+      version: "1.0.4"
+
+  com.google.j2objc:
+    j2objc-annotations:
+      lang: java
+      version: "1.1"
+
+  javax.annotation:
+    javax.annotation-api:
+      lang: java
+      version: "1.2"
+
+  org.scalameta:
+    paradise_2.12.6:
+      # Appends 2.12.6 instead of just 2.12,
+      # so default mangling fails.
+      lang: scala/unmangled
+      version: "3.0.0-M11"
+    scalameta:
+      lang: scala
+      version: "1.8.0"
+    contrib:
+      lang: scala
+      version: "1.8.0"
+
+  org.wartremover:
+    wartremover:
+      lang: scala
+      version: 2.2.0
+
+  io.netty:
+    netty-codec-http2:
+      lang: java
+      version: "4.1.33.Final"
+    netty-tcnative-boringssl-static:
+      lang: java
+      version: "2.0.20.Final"
+    netty-handler:
+      lang: java
+      version: "4.1.33.Final"
+    netty-handler-proxy:
+      lang: java
+      version: "4.1.33.Final"
+    netty-resolver:
+      lang: java
+      version: "4.1.33.Final"
+
+  io.protostuff:
+    protostuff-core:
+      lang: java
+      version: "1.5.2"
+
+  com.github.stefanbirkner:
+    system-rules:
+      lang: java
+      version: "1.17.2"
+
+  io.reactivex.rxjava2:
+    rxjava:
+      lang: java
+      version: "2.2.1"
+
+  org.pcollections:
+    pcollections:
+      lang: java
+      version: "2.1.3"
+
+  org.checkerframework:
+    checker:
+      lang: java
+      version: "2.5.4"
+
+  org.reactivestreams:
+    reactive-streams:
+      lang: java
+      version: "1.0.2"
+    reactive-streams-tck:
+      lang: java
+      version: "1.0.2"
+
+  org.awaitility:
+    awaitility:
+      lang: java
+      version: "3.1.6"
+
+  com.thesamet.scalapb:
+    protoc-bridge:
+      lang: scala
+      version: "0.7.4"
+    compilerplugin:
+      lang: scala
+      version: "0.8.4"
+    lenses:
+      lang: scala
+      version: "0.8.4"
+    scalapb-runtime:
+      lang: scala
+      version: "0.8.4"
+    scalapb-runtime-grpc:
+      lang: scala
+      version: "0.8.4"
+
+  com.github.blemale:
+    scaffeine:
+      lang: scala
+      version: "2.5.0"
+
+  org.scala-sbt:
+    sbt:
+      lang: java
+      version: "1.1.4"
+
+  com.zaxxer:
+    HikariCP:
+      lang: java
+      version: "3.2.0"
+      
+  org.flywaydb:
+    flyway-core:
+      lang: "java"
+      version: "5.2.4"
+
+  com.lihaoyi:
+    pprint:
+      lang: scala
+      version: "0.5.3"
+
+  org.tpolecat:
+    doobie-core:
+      lang: scala
+      version: "0.6.0"
+    doobie-postgres:
+      lang: scala
+      version: "0.6.0"
+
+  org.sangria-graphql:
+    sangria:
+      lang: scala
+      version: "1.4.2"
+    sangria-spray-json:
+      lang: scala
+      version: "1.0.1"
+
+  org.gnieh:
+    diffson-spray-json:
+      lang: scala
+      version: "3.1.0"
+
+  org.xerial:
+    sqlite-jdbc:
+      lang: java
+      version: "3.25.2"
+
+  com.github.ghik:
+    silencer-plugin:
+      lang: scala
+      version: "1.3.1"
+
+    silencer-lib:
+      lang: scala
+      version: "1.3.1"
+
+# Packages listed here will not be resolved as part of regular dependency
+# resolution. Instead, the generated bazel targets will redirect to whichever
+# target is specified here.
+replacements:
+  # Replacements for core Scala libraries.
+  # These libraries must be provided by the Scala toolchain.
+  #
+  # Without these you may get obscure compiler errors about missing implicits,
+  # or types that should be `Any`.
+  org.scala-lang:
+    scala-compiler:
+      lang: scala/unmangled
+      target: "@io_bazel_rules_scala_scala_compiler//:io_bazel_rules_scala_scala_compiler"
+    scala-library:
+      lang: scala/unmangled
+      target: "@io_bazel_rules_scala_scala_library//:io_bazel_rules_scala_scala_library"
+    scala-reflect:
+      lang: scala/unmangled
+      target: "@io_bazel_rules_scala_scala_reflect//:io_bazel_rules_scala_scala_reflect"
+  org.scala-lang.modules:
+    scala-parser-combinators:
+      lang: scala
+      target: "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators"

@@ -1,0 +1,128 @@
+# HLint configuration file
+# https://github.com/ndmitchell/hlint
+##########################
+
+# To run HLint do:
+# $ hlint --git -j4
+
+# Warnings currently triggered by our code
+- ignore: {name: "Use <$>"}
+- ignore: {name: "Use :"}
+- ignore: {name: "Redundant do"}
+- ignore: {name: "Avoid lambda"}
+- ignore: {name: "Use newtype instead of data"}
+- ignore: {name: "Use fromMaybe"}
+- ignore: {name: "Use unless"}
+- ignore: {name: "Move brackets to avoid $"}
+- ignore: {name: "Eta reduce"}
+- ignore: {name: "Parse error"}
+- ignore: {name: "Reduce duplication"}
+- ignore: {name: "Use ++"}
+- ignore: {name: "Use list comprehension"}
+- ignore: {name: "Use lambda-case"}
+- ignore: {name: "Use $>"}
+- ignore: {name: "Use section"}
+- ignore: {name: "Use forM_"}
+- ignore: {name: "Use record patterns"}
+- ignore: {name: "Use camelCase"}
+- ignore: {name: "Use >=>"}
+- ignore: {name: "Use uncurry"}
+- ignore: {name: "Redundant lambda"}
+- ignore: {name: "Avoid lambda using `infix`"}
+
+# Warnings triggered by our code only very locally
+- ignore: {name: "Redundant if", within: DA.Service.Daml.Compiler.Impl.VersionCheck}
+- ignore: {name: "Redundant compare", within: DA.Daml.CSP}
+- ignore: {name: "Take on a non-positive", within: DA.Daml.Parser.Tests}
+- ignore: {name: "Use head", within: EDSL}
+- ignore: {name: "Redundant return", within: DA.Daml.Renamer.Check.Judge.Eq}
+- ignore: {name: "Redundant return", within: DA.Daml.Renamer.Check.Judge.Inst}
+- ignore: {name: "Redundant return", within: DA.Daml.Renamer.Check.Judge.Sub}
+- ignore: {name: "Redundant return", within: DA.Daml.LF.TypeChecker.Check.typeOfTupleProj}
+- ignore: {name: "Unused LANGUAGE pragma", within: Intero.GhciMonad}
+# Under Linux/MacOS, Foreign function interface language pragma is unused.
+- ignore: {name: Unused LANGUAGE pragma, within: DA.Sdk.Cli.System}
+
+# Condemn nub and friends
+- warn: {lhs: nub (sort x), rhs: Data.List.Extended.nubSort x}
+- warn: {lhs: nub, rhs: Data.List.Extended.nubOrd}
+- warn: {lhs: nubBy, rhs: Data.List.Extended.nubOrdBy}
+- warn: {lhs: Data.List.Extra.nubOn, rhs: Data.List.Extended.nubOrdOn}
+
+# DA specific hints
+- warn: {lhs: Data.Text.pack (DA.Pretty.renderPlain x), rhs: DA.Pretty.renderPlain x}
+- warn: {lhs: Data.Text.Extended.pack (DA.Pretty.renderPlain x), rhs: DA.Pretty.renderPlain x}
+- warn: {lhs: DA.Pretty.renderPlain (DA.Pretty.pretty x), rhs: DA.Pretty.renderPretty x}
+- warn: {lhs: Data.Text.readFile, rhs: Data.Text.Extended.readFileUtf8}
+- warn: {lhs: Data.Text.writeFile, rhs: Data.Text.Extended.writeFileUtf8}
+- warn: {lhs: Data.Text.Lazy.readFile, rhs: Data.Text.Extended.readFileUtf8}
+- warn: {lhs: Data.Text.Lazy.writeFile, rhs: Data.Text.Extended.writeFileUtf8}
+
+# Specify additional command line arguments
+#
+# - arguments: [--color, --cpp-simple, -XQuasiQuotes]
+
+- extensions:
+  - default: true
+
+  # Extensions enabled by `bazel` and `da-ghci` by default.  We ban them here
+  # to avoid useless pragmas piling up on the top of files.
+  - {name: BangPatterns, within: []}
+  - {name: DeriveDataTypeable, within: []}
+  - {name: DeriveFoldable, within: []}
+  - {name: DeriveFunctor, within: []}
+  - {name: DeriveGeneric, within: []}
+  - {name: DeriveTraversable, within: []}
+  - {name: FlexibleContexts, within: []}
+  - {name: GeneralizedNewtypeDeriving, within: []}
+  - {name: LambdaCase, within: []}
+  - {name: NamedFieldPuns, within: []}
+  - {name: PackageImports, within: []}
+  - {name: RecordWildCards, within: []}
+  - {name: ScopedTypeVariables, within: []}
+  - {name: StandaloneDeriving, within: []}
+  - {name: TupleSections, within: []}
+  - {name: TypeApplications, within: []}
+  - {name: ViewPatterns, within: []}
+
+  # Shady extensions
+  - {name: CPP, within: [DA.Sdk.Cli.System, DA.Sdk.Cli.Version]}
+  - {name: ImplicitParams, within: []}
+
+- flags:
+  - default: false
+  - {name: [-Wno-missing-signatures, -Wno-orphans, -Wno-overlapping-patterns, -Wno-incomplete-patterns, -Wno-missing-fields, -Wno-unused-matches]}
+
+# - modules:
+#   - {name: [Data.Set, Data.HashSet], as: Set} # if you import Data.Set qualified, it must be as 'Set'
+#   - {name: Control.Arrow, within: []} # Certain modules are banned entirely
+#
+# - functions:
+#   - {name: unsafePerformIO, within: []} # unsafePerformIO can only appear in no modules
+
+
+# Add custom hints for this project
+#
+# Will suggest replacing "wibbleMany [myvar]" with "wibbleOne myvar"
+# - error: {lhs: "wibbleMany [x]", rhs: wibbleOne x}
+
+
+# Turn on hints that are off by default
+#
+# Ban "module X(module X) where", to require a real export list
+# - warn: {name: Use explicit module export list}
+#
+# Replace a $ b $ c with a . b $ c
+# - group: {name: dollar, enabled: true}
+#
+# Generalise map to fmap, ++ to <>
+# - group: {name: generalise, enabled: true}
+
+
+# Ignore some builtin hints
+# - ignore: {name: Use let}
+# - ignore: {name: Use const, within: SpecialModule} # Only within certain modules
+
+
+# Define some custom infix operators
+# - fixity: infixr 3 ~^#^~

@@ -1,0 +1,39 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Main where
+
+template PayOut
+  with
+    receiver: Party
+    giver: Party
+  where
+    signatory receiver
+    signatory giver
+    agreement
+      show giver <> " must pay to " <>
+      show receiver <> " the sum of five pounds."
+
+template CallablePayout
+  with
+    giver: Party
+    receiver: Party
+  where
+    signatory giver
+    controller receiver can
+      Call: ContractId PayOut
+        do create PayOut with receiver; giver
+      Transfer: ContractId CallablePayout
+        with newReceiver: Party
+        do create this with receiver = newReceiver
+
+
+s0 = scenario do
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+  charlie <- getParty "Charlie"
+  c1 <- submit alice do create CallablePayout with giver = alice; receiver = bob
+  c1 <- submit bob do exercise c1 Transfer with newReceiver = charlie
+  submitMustFail bob do exercise c1 Transfer with newReceiver = charlie
+  submit charlie do exercise c1 Call

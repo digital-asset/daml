@@ -1,0 +1,33 @@
+diff --git a/System/Posix/ARX/TMPXTools.hs b/System/Posix/ARX/TMPXTools.hs
+index bf0cbd9..65a9e09 100644
+--- a/System/Posix/ARX/TMPXTools.hs
++++ b/System/Posix/ARX/TMPXTools.hs
+@@ -54,7 +54,7 @@ render Template{..}          =  mconcat [ blaze a,
+   blaze                      =  Blaze.fromByteString
+   tf True                    =  "true"
+   tf False                   =  "false"
+-  a : b : c : d : e : [] = findChunks $(embedFile "./model-scripts/tmpx.sh")
++  a : b : c : d : e : [] = findChunks $(embedFile "external/haskell_arx/model-scripts/tmpx.sh")
+ 
+ findChunks                  ::  ByteString -> [ByteString]
+ findChunks                   =  coalesce . markHoles
+diff --git a/arx.hs b/arx.hs
+index 641bf7b..ef2304e 100755
+--- a/arx.hs
++++ b/arx.hs
+@@ -26,6 +26,5 @@ checkHelp                    =  checkOne ["-h", "-?", "--help"]
+ checkVersion                 =  checkOne ["-v", "--version"]
+ checkOne list                =  any (`elem` list) . take 1 <$> getArgs
+ 
+-usage                        =  $(embedFile "./docs/blessed/arx.txt")
+-version                      =  $(embedFile "./version")
+-
++usage                        =  $(embedFile "external/haskell_arx/docs/blessed/arx.txt")
++version                      =  $(embedFile "external/haskell_arx/version")
+diff --git a/version b/version
+new file mode 100644
+index 0000000..096730b
+--- /dev/null
++++ b/version
+@@ -0,0 +1 @@
++0.2.3-3-gf9a10f1

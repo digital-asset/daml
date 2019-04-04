@@ -1,0 +1,64 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Tests.Wolpertinger where
+
+import DA.Date
+import DA.Time
+import DA.List (dedup)
+
+data Color = Grey
+           | RGB
+                with r: Int; g: Int; b: Int
+           | Custom Text
+           deriving (Eq, Show, Ord)
+
+template Wolpertinger
+    with
+        owner : Party
+        wings : Int
+        age : Decimal
+        name : Text
+        alive : Bool
+        dayOfBirth : Date
+        timeOfBirth : Time
+        parents: [ContractId Wolpertinger]
+        colors: [Color]
+    where
+        signatory owner
+
+        controller owner can
+            Reproduce : ContractId Wolpertinger
+                with mateId : ContractId Wolpertinger
+                     tob : Time
+                do
+                    mate <- fetch mateId
+                    create Wolpertinger with
+                        owner = owner
+                        wings = this.wings + mate.wings
+                        age = 0.0
+                        name = this.name <> "-" <> mate.name
+                        alive = True
+                        dayOfBirth = toDateUTC tob
+                        timeOfBirth = tob
+                        parents = [self, mateId]
+                        colors = dedup (this.colors ++ mate.colors)
+
+
+primitiveTest =
+    scenario do
+        alice <- getParty "Alice"
+        let dob = date 2001 Feb 02
+        submit alice do
+            create Wolpertinger
+                with
+                    owner = alice
+                    wings = 3
+                    age = 17.42
+                    name = "Crocoduck"
+                    alive = True
+                    dayOfBirth = dob
+                    timeOfBirth = time dob 04 05 06
+                    parents = []
+                    colors = [RGB 17 19 23]

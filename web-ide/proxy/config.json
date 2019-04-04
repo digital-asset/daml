@@ -1,0 +1,15 @@
+{
+    "http" : {
+        "port" : 80
+    },
+    "session" : {
+        "name" : "webide.connect.sid",
+        "secret" : "super-safe",
+        "cookie" : { "path": "/", "httpOnly": false, "secure": false, "maxAge": 43200},
+        "inactiveTimeout" : "3600"
+    },
+    "docker" : {
+        "image" : "digitalasset/daml-webide:0.11.19-master",
+        "maxInstances" : 100
+    }
+}

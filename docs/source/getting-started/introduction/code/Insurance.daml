@@ -1,0 +1,70 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Insurance where
+
+import DA.Time
+
+
+template Policy
+  with
+    patient    : Party
+    insurer    : Party
+    doctor     : Party
+    deductible : Decimal
+    feeAmount  : Decimal
+    feeNext    : Time
+  where
+    ensure deductible > 0.0 && feeAmount > 0.0
+
+    signatory patient, insurer, doctor
+
+    agreement show doctor  <> " must treat " <>
+              show patient <> " whenever requested."
+
+    controller insurer can
+      InvoiceFee : ContractId Policy
+        do
+          after feeNext
+          create Invoice with
+            payer    = patient
+            receiver = insurer
+            amount   = feeAmount
+          create this with
+            feeNext  = addRelTime feeNext (days 30)
+
+    controller doctor can
+      nonconsuming InvoiceTreatment : ()
+        with
+          amount : Decimal
+        do
+          create Invoice with
+            payer    = insurer
+            receiver = doctor
+            amount
+          create Invoice with
+            payer    = patient
+            receiver = insurer
+            amount   = min amount deductible
+          return ()
+
+
+template Invoice
+  with
+    payer    : Party
+    receiver : Party
+    amount   : Decimal
+  where
+    ensure amount > 0.0
+
+    signatory payer, receiver
+
+    agreement show payer  <> " has to pay " <>
+              show amount <> " to " <> show receiver <> "."
+
+
+after : Time -> Update ()
+after time = do
+  now <- getTime
+  assert (time < now)

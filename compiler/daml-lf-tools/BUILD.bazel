@@ -1,0 +1,30 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load ("//bazel_tools:haskell.bzl", "da_haskell_library")
+
+da_haskell_library (
+    name = "daml-lf-tools",
+    src_strip_prefix = "src",
+    srcs = glob (["src/**/*.hs"]),
+    deps = [
+        "//libs-haskell/da-hs-pretty",
+        "//libs-haskell/da-hs-base",
+        "//compiler/daml-lf-ast",
+    ],
+    hazel_deps = [
+        "base",
+        "containers",
+        "either",
+        "extra",
+        "lens",
+        "mtl",
+        "recursion-schemes",
+        "safe",
+        "tagged",
+        "text",
+        "uniplate",
+        "unordered-containers",
+    ],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
+module DA.Sdk.Cli.Version where
+import Data.Text (Text)
+version :: Text
+version = "<VERSION-VAR>"
+longVersion :: Text
+longVersion = version

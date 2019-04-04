@@ -1,0 +1,42 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Show where
+
+import DA.Assert
+
+data Color = Red | Green | Blue | Dbl {dbl1 : Int, dbl2 : Int}
+  deriving Show
+
+data Foo = Bar | Baz
+
+instance Show Foo where
+  show Bar = "bar"
+  show Baz = "baz"
+
+data Ones = Zero | One Ones
+  deriving Show
+
+data Fields a = Field1 {foo : Foo, color : Optional Color} | Field2 [a]
+  deriving Show
+
+main = scenario do
+  p <- getParty "alice"
+  show p === "'alice'"
+  partyToText p === "alice"
+  show Bar === "bar"
+  show Green === "Green"
+  show (Field2 ["test"]) === "Field2 [\"test\"]"
+  show (Field1 Bar (Some Blue) : Fields Int) === "Field1 {foo = bar, color = Some Blue}"
+  show (Some (Some Red)) === "Some (Some Red)"
+  show 1 === "1"
+  show 1.0 === "1.0"
+  show 1.1 === "1.1"
+  show "test" === "\"test\""
+  show True === "True"
+  show False === "False"
+  show () === "()"
+  show (True, 1) === "(True,1)"
+  show [1,2] === "[1,2]"
+  show (Dbl 42 109) === "Dbl {dbl1 = 42, dbl2 = 109}"

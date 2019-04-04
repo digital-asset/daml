@@ -1,0 +1,44 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+  "//bazel_tools:scala.bzl",
+  "da_scala_library",
+  'da_scala_test',
+)
+
+da_scala_library(
+  name = "codegen-sql-contract-query-framework",
+  deps = [
+    "//language-support/scala/bindings",
+    "//3rdparty/jvm/com/typesafe/slick:slick",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//language-support/scala/codegen-sql-support",
+  ],
+  unused_dependency_checker_mode = "error",
+  scalac_jvm_flags = ["-Xmx2G"],
+  runtime_deps = [],
+  visibility = [
+    "//visibility:public",
+  ],
+  srcs = glob([
+    "src/main/**/*.scala"
+  ]),
+  resources = glob(["src/main/resources/**/*"]),
+)
+
+da_scala_test(
+  name = "tests",
+  size = 'small',
+  srcs = glob(['src/test/**/*.scala']),
+  scalacopts = ['-Xsource:2.13'],
+  deps = [
+    ":codegen-sql-contract-query-framework",
+    "//language-support/scala/bindings",
+    "//3rdparty/jvm/com/typesafe/slick:slick",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//language-support/scala/codegen-sql-support",
+    "//3rdparty/jvm/org/scalacheck:scalacheck",
+    '//3rdparty/jvm/com/typesafe/scala_logging:scala_logging',
+  ]
+)

@@ -1,0 +1,24 @@
+From 6b26f94f159b1c722348200b09ea7f3e0e9f9e13 Mon Sep 17 00:00:00 2001
+From: Florian Klink <flokli@flokli.de>
+Date: Tue, 26 Mar 2019 18:55:18 +0100
+Subject: [PATCH] Set use_default_shell_env
+
+---
+ internal/npm_package/npm_package.bzl | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/internal/npm_package/npm_package.bzl b/internal/npm_package/npm_package.bzl
+index 3e20fd0..df5974a 100644
+--- a/internal/npm_package/npm_package.bzl
++++ b/internal/npm_package/npm_package.bzl
+@@ -70,6 +70,7 @@ def create_package(ctx, deps_sources, nested_packages):
+         inputs = inputs,
+         outputs = [package_dir, ctx.outputs.pack, ctx.outputs.publish],
+         arguments = [args],
++        use_default_shell_env = True,
+         execution_requirements = {
+             # Never schedule this action remotely because it's not computationally expensive.
+             # It just copies files into a directory; it's not worth copying inputs and outputs to a remote worker.
+-- 
+2.19.2
+

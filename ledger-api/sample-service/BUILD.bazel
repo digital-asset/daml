@@ -1,0 +1,53 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:scala.bzl", "da_scala_library")
+load("//bazel_tools:proto.bzl", "proto_gen")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
+
+proto_library(
+    name = "sample-service-proto",
+    srcs = ["src/main/protobuf/hello.proto"],
+)
+
+proto_gen(
+    name = "sample-service-scalapb-sources",
+    srcs = [":sample-service-proto"],
+    plugin_name = "scalapb",
+    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_options = ["grpc"],
+    visibility = [
+        '//visibility:public',
+    ]
+)
+
+scalapb_deps = [
+    '//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime',
+    '//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime_grpc',
+    '//3rdparty/jvm/com/google/protobuf:protobuf_java',
+    '//3rdparty/jvm/io/grpc:grpc_stub',
+    '//3rdparty/jvm/io/grpc:grpc_protobuf',
+    '//3rdparty/jvm/com/thesamet/scalapb:lenses',
+]
+
+scala_library(
+    name = "sample-service-scalapb",
+    srcs = [":sample-service-scalapb-sources"],
+    deps = scalapb_deps
+)
+
+da_scala_library(
+    name = "sample-service",
+    srcs = glob(['src/**/*.scala']),
+    exports = [
+        ':sample-service-scalapb'
+    ],
+    deps = [
+        ':sample-service-scalapb',
+        "//3rdparty/jvm/org/scalatest:scalatest",
+        '//ledger-api/testing-utils:testing-utils',
+    ] + scalapb_deps,
+    visibility = [
+        '//visibility:public',
+    ]
+)

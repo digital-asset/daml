@@ -1,0 +1,21 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Validation where
+
+import DA.NonEmpty
+import DA.Validation
+import DA.List.Total
+import DA.Assert
+
+l : [Int]
+l = []
+
+main = scenario do
+  let v = run do
+      head l <?> "fail"
+      y <- tail l <?> "fail"
+      pure $ length y
+  v === Left (NonEmpty with hd = "fail"; tl = ["fail"])
+  pure ()

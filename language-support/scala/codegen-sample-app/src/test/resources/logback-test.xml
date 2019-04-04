@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration debug="true">
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <filter class="com.digitalasset.ledger.client.binding.log.LogbackThresholdFilterWithExclusion">
+            <level>INFO</level>
+            <excludeLogger>com.digitalasset.nanobot.log</excludeLogger>
+        </filter>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <jsonGeneratorDecorator class="com.digitalasset.logging.JsonPrettyPrinter"/>
+            <timeZone>UTC</timeZone>
+            <provider class="net.logstash.logback.composite.loggingevent.ArgumentsJsonProvider"/>
+            <shortenedLoggerNameLength>36</shortenedLoggerNameLength>
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <rootCauseFirst>true</rootCauseFirst>
+            </throwableConverter>
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <level>level</level>
+                <levelValue>[ignore]</levelValue>
+                <logger>logger</logger>
+                <thread>thread</thread>
+                <version>[ignore]</version>
+            </fieldNames>
+            <includeContext>false</includeContext>
+        </encoder>
+    </appender>
+
+
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>target/nanobot-framework-test.log</file>
+        <!-- logs at specific level specified, except for the excluded logger which inherits the level from root -->
+        <filter class="com.digitalasset.ledger.client.binding.log.LogbackThresholdFilterWithExclusion">
+            <level>INFO</level>
+            <excludeLogger>com.digitalasset.platform.client.remoting.events</excludeLogger>
+        </filter>
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg %X{context}%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com.digitalasset.ledger" level="INFO"/>
+    <logger name="test-akka" level="ERROR"/>
+
+    <!-- STDOUT and FILE appender both have different log levels, see above -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>

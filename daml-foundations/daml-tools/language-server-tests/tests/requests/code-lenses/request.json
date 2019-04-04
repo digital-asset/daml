@@ -1,0 +1,9 @@
+{
+  "method": "textDocument/codeLens",
+  "payload": {
+    "textDocument": {
+      "uri": "Main.daml"
+    }
+  }
+}
+

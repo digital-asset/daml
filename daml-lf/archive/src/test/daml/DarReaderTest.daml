@@ -1,0 +1,31 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module DarReaderTest where
+
+
+template PayOut
+  with
+    receiver: Party
+    giver: Party
+  where
+    signatory receiver
+    signatory giver
+    agreement
+      toText giver <> " must pay to "
+      <> toText receiver <> " the sum of five pounds."
+
+
+template CallablePayout
+  with
+    giver: Party
+    receiver: Party
+  where
+    signatory giver
+    controller receiver can
+      Call2 : ContractId PayOut
+        do create PayOut with receiver; giver
+      Transfer : ContractId CallablePayout
+        with newReceiver: Party
+        do create this with receiver = newReceiver

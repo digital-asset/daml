@@ -1,0 +1,182 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+  '//bazel_tools:scala.bzl',
+  'da_scala_binary',
+  'da_scala_library',
+  'da_scala_test',
+)
+load(
+  '//rules_daml:daml.bzl',
+  'daml_compile',
+)
+load("@os_info//:os_info.bzl", "is_linux")
+
+daml_compile(
+  name = 'MyMain',
+  main_src = 'src/main/daml/MyMain.daml',
+  target = '1.1',
+)
+
+genrule(
+  name = 'MyMain-codegen',
+  srcs = [':MyMain'],
+  outs = ['MyMain-codegen-out'],
+  cmd = '$(execpath //language-support/scala/codegen:codegen-main) \
+  --input-file $(location :MyMain.dalf) \
+  --dependencies $(location //daml-foundations/daml-ghc/package-database:daml-prim-1.1.dalf) \
+  --package-name com.digitalasset.sample \
+  --output-dir $@',
+  tools = [
+    '//daml-foundations/daml-ghc/package-database:daml-prim-1.1.dalf',
+    '//language-support/scala/codegen:codegen-main',
+    ':MyMain.dalf',
+  ],
+)
+
+genrule(
+  name = 'MyMain-codegen.srcjar',
+  srcs = [':MyMain-codegen'],
+  outs = ['MyMain-codegen-out.srcjar'],
+  cmd = '$(execpath @local_jdk//:bin/jar) -cf $@ -C $(location :MyMain-codegen) .',
+  tools = [
+    '@local_jdk//:bin/jar',
+  ],
+)
+
+da_scala_library(
+  name = 'daml-lf-codegen-sample-app',
+  srcs = ['MyMain-codegen-out.srcjar'] + glob(['src/main/**/*.scala']),
+  plugins = [
+    # Plugins have to be specified as JARs.
+    '//external:jar/org/spire_math/kind_projector_2_12',
+  ],
+  # Bump stack size to avoid stack overflow in reflection.
+  scalac_jvm_flags = [
+    '-Xmx2G',
+    '-Xss2M',
+  ],
+  visibility = [
+    '//visibility:public',
+  ],
+  exports = [],
+  runtime_deps = [],
+  deps = [
+    '//3rdparty/jvm/ch/qos/logback:logback_classic',
+    '//3rdparty/jvm/com/typesafe/scala_logging:scala_logging',
+    '//3rdparty/jvm/org/scalaz:scalaz_core',
+    '//3rdparty/jvm/org/slf4j:slf4j_api',
+    '//daml-foundations/daml-tools/da-hs-damlc-app',
+    '//language-support/scala/codegen-testing',
+    '//language-support/scala/codegen-sql-support',
+    '//language-support/scala/bindings-akka',
+    '//language-support/scala/bindings',
+    '//ledger/ledger-api-client',
+  ],
+)
+
+# Sources that do not define test-cases but utilities
+# that are used by one or more test-cases.
+#
+# Consider moving these files into a separate sub-directory
+# to enable source globbing for them.
+testing_utils = [
+  'src/test/scala/com/digitalasset/codegen/GenericMultiTableScenario.scala',
+  'src/test/scala/com/digitalasset/codegen/util/TestUtil.scala',
+]
+
+da_scala_library(
+  name = 'daml-lf-codegen-sample-app-testing',
+  srcs = testing_utils,
+  resources = glob(['src/test/resources/**/*']),
+  scalacopts = ['-Xsource:2.13'],
+  deps = [
+    '//3rdparty/jvm/com/typesafe/slick:slick',
+    '//3rdparty/jvm/org/scalacheck:scalacheck',
+    '//3rdparty/jvm/org/scalatest:scalatest',
+    '//3rdparty/jvm/org/scalaz:scalaz_core',
+    '//language-support/scala/codegen-sql-support',
+    '//language-support/scala/codegen-sql-support:codegen-sql-support-testing',
+    '//language-support/scala/codegen-sql-support-testing',
+    '//language-support/scala/bindings-akka',
+    '//language-support/scala/bindings',
+
+    ':daml-lf-codegen-sample-app',
+  ],
+)
+
+test_dependencies = [
+  '//3rdparty/jvm/com/typesafe/slick:slick',
+  '//3rdparty/jvm/io/spray:spray_json',
+  '//3rdparty/jvm/org/scalacheck:scalacheck',
+  '//3rdparty/jvm/org/scalaz:scalaz_core',
+  '//language-support/scala/codegen-testing',
+  '//language-support/scala/codegen-sql-support',
+  '//language-support/scala/codegen-sql-contract-query-framework',
+  '//language-support/scala/codegen-sql-support:codegen-sql-support-testing',
+  '//language-support/scala/codegen-sql-support-testing',
+  '//language-support/scala/bindings',
+  ':daml-lf-codegen-sample-app',
+  ':daml-lf-codegen-sample-app-testing',
+]
+
+medium_tests = [
+  'src/test/scala/com/digitalasset/codegen/SlickIntegrationPostgreSqlSpec.scala',
+  'src/test/scala/com/digitalasset/codegen/problems/PostgreSqlKnownProblemSpec.scala',
+]
+
+da_scala_test(
+  name = 'tests',
+  size = 'small',
+  srcs = glob(
+    [
+      'src/test/**/*.scala',
+    ],
+    exclude = testing_utils + medium_tests + [
+      'src/test/scala/com/digitalasset/codegen/ScalaCodeGenIT.scala',
+    ],
+  ),
+  scalacopts = ['-Xsource:2.13'],
+  deps = test_dependencies,
+)
+
+da_scala_test(
+  name = 'medium_tests',
+  size = 'medium',
+  srcs = medium_tests,
+  scalacopts = ['-Xsource:2.13'],
+  deps = test_dependencies,
+  # the tests are currently depending on docker, which is only available on
+  # the Linux Azure hosted runner.
+  #
+  # see https://github.com/DACH-NY/daml/issues/853
+) if is_linux else None
+
+da_scala_test(
+  name = 'ScalaCodeGenIT',
+  size = 'large',
+  timeout = 'moderate',
+  srcs = [
+    'src/test/scala/com/digitalasset/codegen/ScalaCodeGenIT.scala',
+  ],
+  data = [
+    'src/test/resources/logback-sandbox.xml',
+    ':MyMain.dalf',
+    '//daml-foundations/daml-ghc/package-database:daml-prim-1.1.dalf',
+    '//ledger/sandbox:sandbox-binary_deploy.jar',
+  ],
+  jvm_flags = [
+    '-Dcom.digitalasset.sandbox.jar=ledger/sandbox/sandbox-binary_deploy.jar',
+  ],
+  scalacopts = ['-Xsource:2.13'],
+  deps = test_dependencies + [
+    '//3rdparty/jvm/com/typesafe/akka:akka_stream_testkit',
+    '//language-support/scala/bindings-akka',
+    '//ledger-api/rs-grpc-bridge:rs-grpc-bridge',
+    '//ledger-api/rs-grpc-akka',
+    '//ledger/ledger-api-client',
+    '//ledger/ledger-api-common',
+    '//ledger/sandbox',
+  ],
+)

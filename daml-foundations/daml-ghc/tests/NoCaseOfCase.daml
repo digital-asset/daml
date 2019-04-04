@@ -1,0 +1,25 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module NoCaseOfCase where
+
+-- GHC's case-of-case transformation would turn this into something like
+--
+-- > f x y =
+-- >   join $j = error ... in
+-- >   case x of
+-- >   True -> jump $j
+-- >   False -> case y of
+-- >     None -> jump $j
+-- >     Some z -> z
+--
+-- We're curently translating join points to simple lets. Hence, this
+-- code would always blow up, even when @x == False@ and @y == Some _@.
+f : Bool -> Optional Int -> Int
+f x y = case case x of { True -> None; False -> y } of
+  None -> error "this should not happen"
+  Some z -> z
+
+main = scenario do
+  pure (f False (Some 0))

@@ -1,0 +1,547 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.digitalasset.daml.lf.scenario.api.v1";
+option java_outer_classname = "ScenarioServiceProto";
+
+package scenarioservice;
+
+service ScenarioService {
+  // Run a scenario, returning the scenario results or an error.
+  rpc RunScenario (RunScenarioRequest) returns (RunScenarioResponse);
+
+  // Allocate a new scenario interpretation context.
+  // The context essentially defines the state consisting of a set of
+  // project's modules and a set of external packages.
+  rpc NewContext (NewContextRequest) returns (NewContextResponse);
+
+  // Clone a context returning a new context with the same set of
+  // modules and packages.
+  rpc CloneContext (CloneContextRequest) returns (CloneContextResponse);
+
+  // Deallocate a scenario interpretation context.
+  rpc DeleteContext (DeleteContextRequest) returns (DeleteContextResponse);
+
+  // Deallocate all scenario contexts except for the ones listed in the request.
+  rpc GCContexts (GCContextsRequest) returns (GCContextsResponse);
+
+  // Update the modules and packages in a context.
+  rpc UpdateContext (UpdateContextRequest) returns (UpdateContextResponse);
+}
+
+//
+// Requests and responses.
+//
+
+message NewContextRequest {
+}
+
+message NewContextResponse {
+  // Opaque server-allocated context identifier
+  int64 context_id = 1;
+}
+
+message CloneContextRequest {
+  int64 context_id = 1;
+}
+
+message CloneContextResponse {
+  int64 context_id = 1;
+}
+
+message DeleteContextRequest {
+  int64 context_id = 1;
+}
+
+message DeleteContextResponse {
+}
+
+message GCContextsRequest {
+  repeated int64 context_ids = 1;
+}
+
+message GCContextsResponse {
+}
+
+// Note that the client must do all the type checking and dependency
+// handling. In other words, the server assumes that the uploaded
+// modules are already validated -- they're type checked, they only
+// refer to existing modules, etc.
+//
+// If that's not the case the server will fail at runtime and return a
+// `crash` error (see `ScenarioError`).
+message UpdateContextRequest {
+  // loads and then unloads -- if a module is both in load_modules and
+  // unload_modules unload_modules will win
+  message UpdateModules {
+    // Modules to load in to the context.
+    // Existing modules with the same name are replaced.
+    repeated Module load_modules = 2;
+
+    // Modules to remove.
+    repeated string unload_modules = 3;
+  }
+
+  // loads and then unloads -- if a package is both in load_packages and
+  // unload_packages unload_packages will win
+  message UpdatePackages {
+    // The new packages to load.
+    repeated bytes load_packages = 2;
+
+    // The packages to unload.
+    repeated string unload_packages = 3;
+  }
+
+  int64 context_id = 1;
+  UpdateModules update_modules = 2;
+  UpdatePackages update_packages = 3;
+  bool lightValidation = 4; // if true runs only a subset of the validations
+}
+
+message UpdateContextResponse {
+  int64 context_id = 1;
+  repeated string loaded_modules = 2;
+  repeated string loaded_packages = 3;
+}
+
+
+message RunScenarioRequest {
+  int64 context_id = 1;
+  Identifier scenario_id = 2;
+}
+
+//
+// Payloads
+//
+
+message Empty {}
+
+message PackageIdentifier {
+  oneof sum {
+    Empty self = 1;
+    string package_id = 2;
+  }
+}
+
+// Definition name. Can refer to a value, type or template.
+message Identifier {
+  PackageIdentifier package = 1;
+  string name = 2;
+}
+
+// Source location
+message Location {
+  PackageIdentifier package = 1;
+  string module = 2;
+  int32 start_line = 3;
+  int32 start_col = 4;
+  int32 end_line = 5;
+  int32 end_col = 6;
+}
+
+message CallStackEntry {
+  Identifier defn = 1;
+  Location location = 2; // optional
+  string binder = 3;
+  Value arg = 4;
+}
+
+// Reference to a contract instance.
+message ContractRef {
+  bool relative = 1; // True if the contract id is relative.
+  string contract_id = 2;
+  Identifier template_id = 3;
+}
+
+message ScenarioError {
+  message TemplatePreconditionViolated {
+    Identifier template_id = 1;
+    Value arg = 2;
+    // Optional location of the update expression leading
+    // to the violation.
+    Location location = 3;
+  }
+
+  message ContractNotActive {
+    ContractRef contract_ref = 1;
+    NodeId consumed_by = 2;
+  }
+
+  message ContractNotVisible {
+    ContractRef contract_ref = 1;
+    Party committer = 2;
+    repeated Party observers = 3;
+  }
+
+  message ContractNotEffective {
+    ContractRef contract_ref = 1;
+    sfixed64 effective_at = 2;
+  }
+
+  // The state of the ledger at the time of the error
+  repeated ScenarioStep scenario_steps = 1;
+  repeated Node nodes = 2;
+
+  reserved 3; // was environment
+  reserved 4; // was call stack
+
+  // Location of the commit/mustFail if applicable.
+  Location commit_loc = 5;
+
+  // Last seen location, if any.
+  Location last_loc = 6;
+
+  // The current partial transaction if any.
+  PartialTransaction partial_transaction = 7;
+
+  // Trace log. Most recent entry is first.
+  repeated TraceMessage trace_log = 8;
+
+  // The ledger time at the time of the error.
+  sfixed64 ledger_time = 9;
+
+  oneof error {
+    // The interpretation context is unknown.
+    int64 unknown_context = 10;
+
+    // The scenario is unknown within the interpretation context.
+    Identifier unknown_scenario = 11;
+
+    // Unexpected error in the interpreter, this happens when some precondition
+    // is violated. For example, you'll get this if the interpreter encounters
+    // ill-typed expressions (which should never happen if the packages are
+    // validated).
+    string crash = 12;
+
+    // Error was raised via the error builtin
+    string user_error = 13;
+
+    // Errors related to update interpretation.
+    TemplatePreconditionViolated template_precond_violated = 14;
+    ContractNotActive update_local_contract_not_active = 15;
+
+    // Errors related to scenario interpretation
+    ContractNotEffective scenario_contract_not_effective = 16;
+    ContractNotActive scenario_contract_not_active = 17;
+    ContractNotVisible scenario_contract_not_visible = 18;
+    CommitError scenario_commit_error = 19;
+    Empty scenario_mustfail_succeeded = 20;
+    string scenario_invalid_party_name = 21;
+
+  }
+}
+
+message PartialTransaction {
+  repeated Node nodes = 1;
+  repeated NodeId roots = 2;
+  ExerciseContext exercise_context = 3; // Top-most exercise context if any.
+}
+
+message ExerciseContext {
+  ContractRef target_id = 1;
+  string choice_id = 2;
+  Location exercise_location = 3; // Location of the 'exercise' expression
+  Value chosen_value = 4;
+}
+
+message Field {
+  string label = 1;
+  Value value = 2;
+}
+
+message Record {
+  Identifier record_id = 1;
+  repeated Field fields = 2;
+}
+
+message Tuple {
+  repeated Field fields = 1;
+}
+
+message Variant {
+  Identifier variant_id = 1;
+  string constructor = 2;
+  Value value = 3;
+}
+
+message List {
+  repeated Value elements = 1;
+}
+
+message Environment {
+  message Entry {
+    string key = 1;
+    Value value = 2;
+  }
+  repeated Entry entries = 1;
+}
+
+// NOTE(JM): Copy of the ledger-api value, with the addition of tuple and
+// "unserializable".
+message Value {
+  oneof Sum {
+    Record record = 1;
+    Tuple tuple = 2;
+    Variant variant = 3;
+    string contract_id = 4;
+    List list = 5;
+    sint64 int64 = 6;
+    string decimal = 7;
+    string text = 8;
+    sfixed64 timestamp = 9;
+    string party = 10;
+    bool bool = 11;
+    Empty unit = 12;
+    int32 date = 13;
+    Optional optional = 15;
+    Map map = 16;
+
+    // An unserializable value, e.g. closure. Contains a description of the value.
+    string unserializable = 14;
+  }
+}
+
+message Optional {
+  Value value = 1; // optional
+}
+
+message Map {
+    message Entry {
+        string key = 1;
+        Value value = 2;
+    }
+
+    repeated Entry entries = 1;
+}
+// Modules that can be loaded. The actual message types are not
+// used here as LF modules can have deep nesting depth and it is
+// not easy to change the recursion depth limit in gRPC.
+message Module {
+  oneof module {
+    bytes daml_lf_1 = 2;
+    bytes daml_lf_dev = 3;
+  }
+
+  // for daml_lf_dev the minor version is ignored by the scenario service.
+  string minor = 1;
+}
+
+message RunScenarioResponse {
+  oneof response {
+    ScenarioError error = 1;
+    ScenarioResult result = 2;
+  }
+}
+
+message TraceMessage {
+  Location location = 1; // optional
+  string message = 2;
+}
+
+// The scenario interpretation result.
+// This is roughly a reproduction of the reference ledger.
+message ScenarioResult {
+  repeated ScenarioStep scenario_steps = 1;
+  repeated Node nodes = 2;
+  Value return_value = 3;
+  sfixed64 final_time = 4;
+  repeated TraceMessage trace_log = 5;
+}
+
+message ScenarioStep {
+  message Commit {
+    int32 tx_id = 1;
+    Transaction tx = 2;
+    Location location = 3;
+  }
+
+  message AssertMustFail {
+    Party actor = 1;
+    sfixed64 time = 2;
+    int32 tx_id = 3;
+    Location location = 4;
+  }
+
+  int32 step_id = 1;
+  oneof step {
+     Commit commit = 2;
+     int64 pass_time = 3;
+     AssertMustFail assert_must_fail = 4;
+  }
+}
+
+message NodeId {
+  string id = 1;
+}
+
+message Party {
+  string party = 1;
+}
+
+message NodeAndParties {
+  NodeId node_id = 1;
+  repeated Party parties = 2;
+}
+message PartyAndTransactionId {
+  Party party = 1;
+  int32 tx_id = 2;
+}
+
+message FailedAuthorization {
+  message CreateMissingAuthorization {
+    Identifier template_id = 1;
+    Location location = 2; // optional
+    repeated Party authorizing_parties = 3;
+    repeated Party required_authorizers = 4;
+  }
+
+  message ExerciseMissingAuthorization {
+    Identifier template_id = 1;
+    string choice_id = 2;
+    Location location = 3; // optional
+    repeated Party authorizing_parties = 4;
+    repeated Party required_authorizers = 5;
+  }
+  message ActorMismatch {
+    Identifier template_id = 1;
+    string choice_id = 2;
+    Location location = 3; // optional
+    repeated Party controllers = 4;
+    repeated Party given_actors = 5;
+  }
+
+  message NoControllers {
+    Identifier template_id = 1;
+    string choice_id = 2;
+    Location location = 3; // optional
+  }
+
+  message NoSignatories {
+    Identifier template_id = 1;
+    Location location = 2; // optional
+  }
+
+  message FetchMissingAuthorization {
+    Identifier template_id = 1;
+    Location location = 2; // optional
+    repeated Party authorizing_parties = 3;
+    repeated Party stakeholders = 4;
+  }
+
+  message LookupByKeyMissingAuthorization {
+    Identifier template_id = 1;
+    Location location = 2; // optional
+    repeated Party authorizing_parties = 3;
+    repeated Party maintainers = 4;
+  }
+
+  NodeId node_id = 1; // points to a node in the partial transaction.
+  oneof sum {
+    CreateMissingAuthorization create_missing_authorization = 2;
+    ExerciseMissingAuthorization exercise_missing_authorization = 3;
+    ActorMismatch actor_mismatch = 4;
+    NoSignatories no_signatories = 5;
+    NoControllers no_controllers = 6;
+    FetchMissingAuthorization fetch_missing_authorization = 7;
+    LookupByKeyMissingAuthorization lookup_by_key_missing_authorization = 8;
+  }
+}
+
+message FailedAuthorizations {
+  repeated FailedAuthorization failed_authorizations = 1;
+}
+
+message GlobalKey {
+  Identifier template_id = 1;
+  Value key = 2;
+}
+
+message CommitError {
+  oneof sum {
+    FailedAuthorizations failed_authorizations = 1;
+    GlobalKey unique_key_violation = 2;
+  }
+}
+
+message Transaction {
+  Party committer = 1;
+  sfixed64 effectiveAt = 2;
+  repeated NodeId roots = 3;
+  repeated NodeId nodes = 4;
+
+  // Transaction nodes that must be disclosed to individual parties
+  // to make this transaction valid.
+  repeated NodeAndParties disclosures = 5;
+
+  // If non-empty, the transaction failed due to these failed authorizations.
+  FailedAuthorizations failed_authorizations = 6;
+}
+
+message ContractInstance {
+  Identifier template_id = 1;
+  Value value = 2;
+}
+
+message KeyWithMaintainers {
+  Value key = 1;
+  repeated Party maintainers = 2;
+}
+
+// Nodes in the transaction graph. This is a composite of Node and NodeInfo
+// from the reference ledger.
+message Node {
+  message Create {
+    ContractInstance contract_instance = 1;
+    repeated Party signatories = 2;
+    repeated Party stakeholders = 3;
+    KeyWithMaintainers key_with_maintainers = 4; // optional
+  }
+
+  message Fetch {
+    string contract_id = 1;
+    Identifier template_id = 2;
+    repeated Party signatories = 3;
+    repeated Party stakeholders = 4;
+  }
+
+  message Exercise {
+    string target_contract_id = 1;
+    Identifier template_id = 2;
+    string choice_id = 3;
+    bool consuming = 4;
+    repeated Party acting_parties = 5;
+    Value chosen_value = 6;
+    repeated Party observers = 7;
+    repeated Party signatories = 8;
+    repeated Party stakeholders = 9;
+    repeated Party controllers = 10;
+    repeated NodeId children = 11;
+  }
+
+  message LookupByKey {
+    Identifier template_id = 1;  
+    KeyWithMaintainers key_with_maintainers = 2; 
+    string contract_id = 3; // optional, if empty, we haven't found a contract
+  }
+
+  NodeId node_id = 1;
+  sfixed64 effective_at = 2;
+  repeated PartyAndTransactionId observing_since = 3;
+  repeated NodeId referenced_by = 4;
+  NodeId consumed_by = 5; // optional
+  NodeId parent = 6; // optional
+
+  // The location of the update expression
+  Location location = 7; // optional
+
+  oneof node {
+    Create create = 8;
+    Fetch fetch = 9;
+    Exercise exercise = 10;
+    LookupByKey lookup_by_key = 11;
+  }
+}
+

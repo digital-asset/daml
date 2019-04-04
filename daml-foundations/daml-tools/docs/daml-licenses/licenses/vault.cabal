@@ -1,0 +1,59 @@
+Name:               vault
+Version:            0.3.1.2
+Synopsis:           a persistent store for values of arbitrary types
+Description:
+  A /vault/ is a persistent store for values of arbitrary types.
+  It's like having first-class access to the storage space behind IORefs.
+  .
+  The data structure is analogous to a bank vault,
+  where you can access different bank boxes with different keys;
+  hence the name.
+  .
+  Also provided is a /locker/ type, representing a store for a single element.
+
+Category:           Data
+License:            BSD3
+License-file:       LICENSE
+Author:             Heinrich Apfelmus, Elliott Hird
+Maintainer:         Heinrich Apfelmus <apfelmus at quantentunnel de>
+Homepage:           https://github.com/HeinrichApfelmus/vault
+Copyright:          (c) Heinrich Apfelmus 2011-2013
+
+build-type:         Simple
+cabal-version:      >= 1.6
+
+extra-source-files:
+    CHANGELOG.md
+    README.md
+    src/Data/Vault/IO.h
+    src/Data/Vault/ST/ST.h
+    src/Data/Vault/ST/backends/GHC.h
+
+source-repository head
+    type:           git
+    location:       git://github.com/HeinrichApfelmus/vault.git
+
+flag UseGHC
+    description: Use GHC-specific packages and extensions.
+    default:     True
+
+Library
+    hs-source-dirs:     src
+    build-depends:      base >= 4.5 && < 4.13,
+                        containers >= 0.4 && < 0.7,
+                        semigroups >= 0.1 && < 1.0,
+                        unordered-containers >= 0.2.3.0 && < 0.3,
+                        hashable >= 1.1.2.5 && < 1.3
+
+    extensions:         CPP
+    ghc-options:        -Wall -fno-warn-missing-signatures
+
+    exposed-modules:
+                        Data.Vault.Lazy,
+                        Data.Vault.Strict,
+                        Data.Vault.ST.Lazy,
+                        Data.Vault.ST.Strict,
+                        Data.Unique.Really
+
+    if impl(ghc) && flag(UseGHC)
+        CPP-options:    -DUseGHC

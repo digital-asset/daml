@@ -1,0 +1,25 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Check that default implementations for type class methods can be translated
+-- even in corner cases.
+daml 1.2
+module DefaultMethods where
+
+-- Default implementation for method without arguments.
+class D a where
+  x : a
+  y : a
+  y = x
+
+-- Default implementation for method with additional type class
+-- constraints in a type class with a super class.
+class FoldableX t where
+  foldrX : (a -> b -> b) -> b -> t a -> b
+
+class (Functor t, FoldableX t) => TraversableX t where
+  traverseX : Applicative m => (a -> m b) -> t a -> m (t b)
+  traverseX f = sequenceX . fmap f
+
+  sequenceX : Applicative m => t (m a) -> m (t a)
+  sequenceX = traverseX identity

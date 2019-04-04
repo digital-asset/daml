@@ -1,0 +1,14 @@
+{ // CreateCommand
+  template_id { // Identifier
+    package_id: "some-hash"
+    name: "Templates.MySimpleTemplate"
+  }
+  create_arguments { // Record
+    fields { // RecordField
+      label: "owner"
+      value { // Value
+        party: "Alice"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test that we fail for overflowing integer literals at runtime.
+daml 1.2
+module IntBoundsDynamic where
+
+maxInt : Int
+maxInt = 9223372036854775807
+
+minInt : Int
+minInt = -9223372036854775808
+
+test = scenario do
+    p <- getParty "p"
+    assert $ negate maxInt - 1 == minInt
+    submitMustFail p $ pure $ maxInt+1
+    submitMustFail p $ pure $ minInt-1

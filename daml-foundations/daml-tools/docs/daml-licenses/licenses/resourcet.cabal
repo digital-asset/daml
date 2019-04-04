@@ -1,0 +1,44 @@
+Name:                resourcet
+Version:             1.2.2
+Synopsis:            Deterministic allocation and freeing of scarce resources.
+description:         Hackage documentation generation is not reliable. For up to date documentation, please see: <http://www.stackage.org/package/resourcet>.
+License:             BSD3
+License-file:        LICENSE
+Author:              Michael Snoyman
+Maintainer:          michael@snoyman.com
+Category:            Data, Conduit
+Build-type:          Simple
+Cabal-version:       >=1.8
+Homepage:            http://github.com/snoyberg/conduit
+extra-source-files:  ChangeLog.md, README.md
+
+Library
+  Exposed-modules:     Control.Monad.Trans.Resource
+                       Control.Monad.Trans.Resource.Internal
+                       Data.Acquire
+                       Data.Acquire.Internal
+                       UnliftIO.Resource
+  Build-depends:       base                     >= 4.9          && < 5
+                     , containers
+                     , transformers             >= 0.4
+                     , mtl                      >= 2.0          && < 2.3
+                     , exceptions               (== 0.8.* || == 0.10.*)
+                     , unliftio-core
+                     , primitive
+  ghc-options:     -Wall
+
+test-suite test
+    hs-source-dirs: test
+    main-is: main.hs
+    type: exitcode-stdio-1.0
+    cpp-options:   -DTEST
+    build-depends:   resourcet
+                   , base
+                   , exceptions
+                   , hspec >= 1.3
+                   , transformers
+    ghc-options:     -Wall
+
+source-repository head
+  type:     git
+  location: git://github.com/snoyberg/conduit.git

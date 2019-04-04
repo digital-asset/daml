@@ -1,0 +1,119 @@
+name:          distributive
+category:      Data Structures
+version:       0.6
+license:       BSD3
+cabal-version: >= 1.8
+license-file:  LICENSE
+author:        Edward A. Kmett
+maintainer:    Edward A. Kmett <ekmett@gmail.com>
+stability:     provisional
+homepage:      http://github.com/ekmett/distributive/
+bug-reports:   http://github.com/ekmett/distributive/issues
+copyright:     Copyright (C) 2011-2016 Edward A. Kmett
+synopsis:      Distributive functors -- Dual to Traversable
+description:   Distributive functors -- Dual to @Traversable@
+build-type:    Custom
+tested-with:   GHC == 7.0.4
+             , GHC == 7.2.2
+             , GHC == 7.4.2
+             , GHC == 7.6.3
+             , GHC == 7.8.4
+             , GHC == 7.10.3
+             , GHC == 8.0.2
+             , GHC == 8.2.2
+             , GHC == 8.4.3
+             , GHC == 8.6.1
+extra-source-files:
+  .travis.yml
+  .vim.custom
+  config
+  travis-cabal-apt-install
+  CHANGELOG.markdown
+  README.markdown
+  Warning.hs
+
+source-repository head
+  type: git
+  location: git://github.com/ekmett/distributive.git
+
+custom-setup
+  setup-depends:
+    base >= 4 && <5,
+    Cabal,
+    cabal-doctest >= 1 && <1.1
+
+flag semigroups
+  manual: True
+  default: True
+  description:
+    You can disable the use of the `semigroups` package using `-f-semigroups`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+
+flag tagged
+  manual: True
+  default: True
+  description:
+    You can disable the use of the `tagged` package using `-f-tagged`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+
+library
+  build-depends:
+    base                >= 4   && < 5,
+    base-orphans        >= 0.5.2 && < 1,
+    transformers        >= 0.2 && < 0.6
+
+  if !impl(ghc >= 7.8) && !impl(ghcjs)
+    build-depends: transformers-compat >= 0.3 && < 1
+
+  hs-source-dirs:  src
+  exposed-modules:
+    Data.Distributive
+
+  if impl(ghc>=7.2)
+    exposed-modules: Data.Distributive.Generic
+
+  if flag(tagged)
+    build-depends: tagged >= 0.7 && < 1
+
+  if impl(ghc>=7.2 && < 7.6)
+    build-depends: ghc-prim
+
+  if impl(ghc < 8.0)
+    if flag(semigroups)
+      build-depends: semigroups >= 0.13 && < 1
+
+  if impl(ghc < 7.8)
+    hs-source-dirs: src-compat
+    other-modules: Data.Coerce
+
+  ghc-options: -Wall
+
+-- Verify the results of the examples
+test-suite doctests
+  type:    exitcode-stdio-1.0
+  main-is: doctests.hs
+  build-depends:
+    base      >= 4,
+    distributive,
+    doctest   >= 0.11.1 && <0.17
+  ghc-options: -Wall -threaded
+  hs-source-dirs: tests
+
+test-suite spec
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: tests
+  build-tool-depends:
+    hspec-discover:hspec-discover
+
+  build-depends:
+    base             >= 4    && < 5,
+    distributive,
+    generic-deriving >= 1.11 && < 2,
+    hspec            >= 2    && < 3
+
+  main-is: Spec.hs
+  other-modules: GenericsSpec
+
+  ghc-options: -Wall -threaded -rtsopts

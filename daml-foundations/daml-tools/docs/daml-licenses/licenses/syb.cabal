@@ -1,0 +1,65 @@
+name:                 syb
+version:              0.7
+license:              BSD3
+license-file:         LICENSE
+author:               Ralf Lammel, Simon Peyton Jones, Jose Pedro Magalhaes
+maintainer:           generics@haskell.org
+homepage:             http://www.cs.uu.nl/wiki/GenericProgramming/SYB
+bug-reports:          http://code.google.com/p/scrapyourboilerplate/issues/list
+synopsis:             Scrap Your Boilerplate
+description:
+    This package contains the generics system described in the
+    /Scrap Your Boilerplate/ papers (see
+    <http://www.cs.uu.nl/wiki/GenericProgramming/SYB>).
+    It defines the @Data@ class of types permitting folding and unfolding
+    of constructor applications, instances of this class for primitive
+    types, and a variety of traversals.
+
+category:               Generics
+stability:              provisional
+build-type:             Simple
+cabal-version:          >= 1.8
+tested-with:            GHC >=7.0 && <=7.10.2, GHC==7.11.*
+
+extra-source-files:     tests/*.hs,
+                        README
+
+source-repository head
+  type:                 git
+  location:             https://github.com/dreixel/syb
+
+Library
+  hs-source-dirs:         src
+  build-depends:          base >= 4.0 && < 5.0
+  exposed-modules:        Data.Generics,
+                          Data.Generics.Basics,
+                          Data.Generics.Instances,
+                          Data.Generics.Aliases,
+                          Data.Generics.Schemes,
+                          Data.Generics.Text,
+                          Data.Generics.Twins,
+                          Data.Generics.Builders,
+
+                          Generics.SYB,
+                          Generics.SYB.Basics,
+                          Generics.SYB.Instances,
+                          Generics.SYB.Aliases,
+                          Generics.SYB.Schemes,
+                          Generics.SYB.Text,
+                          Generics.SYB.Twins,
+                          Generics.SYB.Builders
+
+  if impl(ghc < 6.12)
+    ghc-options:          -package-name syb
+
+  ghc-options:            -Wall
+
+test-suite unit-tests
+  type:                   exitcode-stdio-1.0
+  hs-source-dirs:         tests
+  main-is:                Main.hs
+  build-depends:          base
+                        , syb
+                        , HUnit
+                        , containers
+                        , mtl

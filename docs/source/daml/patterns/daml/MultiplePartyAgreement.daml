@@ -1,0 +1,68 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+daml 1.2
+module MultiplePartyAgreement where
+
+import Utilities
+
+--multiple party agreement contract.
+template Agreement
+  with
+    person1: Party
+    person2: Party
+    person3: Party
+    person4: Party
+    agree: Text
+  where
+    signatory person1, person2, person3, person4
+    agreement agree
+
+template Pending
+  with
+    agree: Agreement
+    person1: Party
+    person2: Party
+    person3: Party
+    person4: Party
+  where
+    signatory person1, person2, person3, person4
+
+    controller agree.person2 can
+      Sign2 : ContractId Pending
+            do 
+              create this with person2 = agree.person2
+    controller agree.person3 can
+      Sign3 : ContractId Pending
+            do create this with person3 = agree.person3
+    controller agree.person4 can
+      Sign4 : ContractId Pending
+            do create this with person4 = agree.person4
+
+
+    controller person1 can
+      Finalize : ContractId Agreement
+               do   
+        assert (person1 == agree.person1 && person2 == agree.person2
+             && person3 == agree.person3 && person4 == agree.person4)
+        create agree with
+             person1; person2; person3; person4
+
+
+multiplePartyAgreementTest2 : Scenario (ContractId Agreement)  -- test
+multiplePartyAgreementTest2 = do
+
+  [person1, person2, person3, person4] <- makePartiesFrom ["Alice", "Bob", "Clare", "Dave"]
+  let agree =  Agreement with person1; person2; person3; person4; agree = "Have a party"
+
+  agree <- person1 `submit` do
+    create Pending with agree; person1; person2 = person1; person3 = person1; person4 = person1
+
+  agree <- person2 `submit` do exercise agree Sign2
+  agree <- person3 `submit` do exercise agree Sign3
+  agree <- person4 `submit` do exercise agree Sign4
+
+  person1 `submit` do exercise agree Finalize

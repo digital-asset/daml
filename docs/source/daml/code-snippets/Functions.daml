@@ -1,0 +1,50 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- The Functions example.
+daml 1.2
+module Functions where
+
+import DA.Text
+
+multiplyThreeNumbers : Int -> Int -> Int -> Int
+multiplyThreeNumbers xx yy zz =
+  xx * yy * zz
+
+multiplyTwoNumbersWith7 = multiplyThreeNumbers 7
+
+multiplyWith21 = multiplyTwoNumbersWith7 3
+
+multiplyWith18 = multiplyThreeNumbers 3 6
+
+multiplyWith18_v2 : Int -> Int
+multiplyWith18_v2 xx = 
+  multiplyThreeNumbers 3 6 xx
+
+
+-- Higher order function
+applyFilter (filter : Int -> Int -> Bool)
+    (x : Int)
+    (y : Int) = filter x y
+
+compute = scenario do
+    assert (applyFilter (<) 3 2 == False)
+    assert (applyFilter (/=) 3 2 == True)
+
+    assert (round 2.5 == 3)
+    assert (round 3.5 == 4)
+
+    assert (explode "me" == ["m", "e"])
+
+    assert (applyFilter (\a b -> a /= b) 3 2 == True)
+
+
+
+
+compose (f : b -> c) (g : a -> b) (x : a) : c = f (g x)
+
+
+t = scenario do
+  assert (compose ((+) 4) ((*) 2) 3 == 10)
+  assert (compose not ((&&) True) False)
+  assert (or [True, True])

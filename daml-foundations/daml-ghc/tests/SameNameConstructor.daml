@@ -1,0 +1,14 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- We want to ensure that data types with a constructor of the same
+-- name as the data type work.
+daml 1.2
+module SameNameConstructor where
+
+data X = X | Y
+
+test = scenario do
+  assert $ case X of
+    X -> True
+    Y -> False

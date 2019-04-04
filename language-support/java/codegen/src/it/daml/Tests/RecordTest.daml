@@ -1,0 +1,46 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Tests.RecordTest where
+
+data MyRecord = MyRecord
+  with
+    int_: Int
+    decimal : Decimal
+    text : Text
+    bool : Bool
+    party : Party
+    date : Date
+    time : Time
+    void : Bool
+    list : [()]
+    nestedList : [[Int]]
+    unit : ()
+    nestedRecord: NestedRecord
+    nestedVariant: NestedVariant
+
+
+data ParametricRecord x y = ParametricRecord
+    with
+        fieldX1 : x
+        fieldX2 : x
+        fieldY : y
+        fieldInt: Int
+
+data OuterRecord x y = OuterRecord
+    with
+        inner : ParametricRecord x y
+        innerFixed : ParametricRecord Int Text
+
+data NestedRecord = NestedRecord
+  with
+     value: Int
+
+data NestedVariant = Nested Int
+
+template Foo
+    with
+        owner : Party
+    where
+        signatory owner

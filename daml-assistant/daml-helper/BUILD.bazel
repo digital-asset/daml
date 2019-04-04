@@ -1,0 +1,28 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load('//bazel_tools:haskell.bzl', 'da_haskell_binary', 'da_haskell_library', 'da_haskell_test')
+load('//bazel_tools:packaging/packaging.bzl', 'package_app')
+
+da_haskell_binary(
+    name = "daml-helper",
+    srcs = ["DamlHelper.hs"],
+    deps = [
+        "//daml-assistant:daml-project-config",
+    ],
+    hazel_deps = [
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "optparse-applicative",
+        "process",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+package_app(
+    name = "daml-helper-dist",
+    binary = ":daml-helper",
+    visibility = ["//visibility:public"],
+)

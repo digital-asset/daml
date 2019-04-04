@@ -1,0 +1,19 @@
+{
+  "homepage": "https://bazel.build",
+  "version": "0.23.2",
+  "license": "Apache-2.0",
+  "bin": "bazel.exe",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/bazelbuild/bazel/releases/download/0.23.2/bazel-0.23.2-windows-x86_64.zip",
+      "hash": "a91c8c2b8d31709e74310e31d0a11ba237c4f4dcff7adc0e1102fbb66a489ffe"
+    }
+  },
+  "depends": [
+    "msys2-20180531",
+    "vcredist-14.0.23026"
+  ],
+  "env_set": {
+    "BAZEL_SH": "$(appdir msys2-20180531)\\current\\usr\\bin\\bash.exe"
+  }
+}

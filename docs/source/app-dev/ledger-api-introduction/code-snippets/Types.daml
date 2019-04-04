@@ -1,0 +1,46 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Types where
+
+import DA.Date
+
+data MyProductType = MyProductType {
+  intField: Int;
+  textField: Text;
+  decimalField: Decimal;
+  boolField: Bool;
+  partyField: Party;
+  timeField: Time;
+  listField: List Int;
+  contractIdField: ContractId SomeTemplate
+}
+
+data MySumType = MySumConstructor1 Int |
+                 MySumConstructor2 (Text, Bool)
+
+template SomeTemplate
+  with owner: Party
+  where
+    signatory owner
+
+myTest = scenario do
+    alice <- getParty "Alice"
+    bob <- getParty "Bob"
+    someCid <- submit alice do create SomeTemplate with owner=alice
+
+    let myProduct = MyProductType with
+                intField = 17
+                textField = "some text"
+                decimalField = 17.42
+                boolField = False
+                partyField = bob
+                timeField = datetime 2018 May 16 0 0 0
+                listField = [1,2,3]
+                contractIdField = someCid
+
+    let mySum1 = MySumConstructor1 17
+    let mySum2 = MySumConstructor2 ("it's a sum", True)
+
+    return ()

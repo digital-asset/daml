@@ -1,0 +1,80 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE AllowAmbiguousTypes #-} -- setField doesn't mention x, because we pass it as a type application
+
+daml 1.2
+module DA.Internal.Record(HasField(..), Symbol, getFieldPrim, setFieldPrim) where
+
+import GHC.Types
+import GHC.Tuple() -- reqired for Tuple's themselves
+import GHC.Integer.Type() -- required for Integer primitives
+
+class HasField (x : Symbol) r a | x r -> a where
+    getField : r -> a
+    setField : a -> r -> r
+
+getFieldPrim : forall (f : Symbol) rec fld. rec -> fld
+getFieldPrim = getFieldPrim
+
+setFieldPrim : forall (f : Symbol) rec fld. fld -> rec -> rec
+setFieldPrim = setFieldPrim
+
+-- we have _1/.. for pairs to quintuples
+
+instance HasField "_1" (a,b) a where
+    getField (a,_) = a
+    setField a (_,b) = (a,b)
+
+instance HasField "_2" (a,b) b where
+    getField (_,b) = b
+    setField b (a,_) = (a,b)
+
+instance HasField "_1" (a,b,c) a where
+    getField (a,_,_) = a
+    setField a (_,b,c) = (a,b,c)
+
+instance HasField "_2" (a,b,c) b where
+    getField (_,b,_) = b
+    setField b (a,_,c) = (a,b,c)
+
+instance HasField "_3" (a,b,c) c where
+    getField (_,_,c) = c
+    setField c (a,b,_) = (a,b,c)
+
+instance HasField "_1" (a,b,c,d) a where
+    getField (a,_,_,_) = a
+    setField a (_,b,c,d) = (a,b,c,d)
+
+instance HasField "_2" (a,b,c,d) b where
+    getField (_,b,_,_) = b
+    setField b (a,_,c,d) = (a,b,c,d)
+
+instance HasField "_3" (a,b,c,d) c where
+    getField (_,_,c,_) = c
+    setField c (a,b,_,d) = (a,b,c,d)
+
+instance HasField "_4" (a,b,c,d) d where
+    getField (_,_,_,d) = d
+    setField d (a,b,c,_) = (a,b,c,d)
+
+instance HasField "_1" (a,b,c,d,e) a where
+    getField (a,_,_,_,_) = a
+    setField a (_,b,c,d,e) = (a,b,c,d,e)
+
+instance HasField "_2" (a,b,c,d,e) b where
+    getField (_,b,_,_,_) = b
+    setField b (a,_,c,d,e) = (a,b,c,d,e)
+
+instance HasField "_3" (a,b,c,d,e) c where
+    getField (_,_,c,_,_) = c
+    setField c (a,b,_,d,e) = (a,b,c,d,e)
+
+instance HasField "_4" (a,b,c,d,e) d where
+    getField (_,_,_,d,_) = d
+    setField d (a,b,c,_,e) = (a,b,c,d,e)
+
+instance HasField "_5" (a,b,c,d,e) e where
+    getField (_,_,_,_,e) = e
+    setField e (a,b,c,d,_) = (a,b,c,d,e)

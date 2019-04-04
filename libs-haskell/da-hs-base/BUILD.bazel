@@ -1,0 +1,72 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
+
+da_haskell_library(
+    name = "da-hs-base",
+    src_strip_prefix = "src",
+    srcs = glob(["src/**/*.hs"]),
+    deps = [
+        "//daml-assistant:daml-project-config",
+    ],
+    hazel_deps = [
+        "aeson",
+        "aeson-pretty",
+        "base",
+        "base16-bytestring",
+        "binary",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "directory",
+        "dlist",
+        "extra",
+        "filepath",
+        "hashable",
+        "http-conduit",
+        "http-types",
+        "lens",
+        "managed",
+        "monad-control",
+        "mtl",
+        "random",
+        "safe",
+        "stm",
+        "tagged",
+        "tasty",
+        "tasty-hunit",
+        "tasty-quickcheck",
+        "uuid",
+        "pretty",
+        "pretty-show",
+        "utf8-string",
+        "template-haskell",
+        "text",
+        "time",
+        "transformers",
+        "transformers-base",
+        "unordered-containers",
+        "vector",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_test(
+    name = "da-hs-base-tests",
+    srcs = glob(["tests/**/*.hs"]),
+    deps = [
+           ":da-hs-base",
+    ],
+    hazel_deps = [
+         "aeson",
+         "managed",
+         "tasty",
+         "base",
+         "directory",
+         "tasty-hunit",
+         "text",
+    ],
+    visibility = ["//visibility:public"],
+    main_function = "DataLimit.main",
+)

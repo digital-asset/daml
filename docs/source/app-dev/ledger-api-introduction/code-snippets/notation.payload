@@ -1,0 +1,8 @@
+{ // Foo
+  field_with_primitive_type: "some string"
+  field_with_message_type { // Bar
+    repeated_field_inside_bar: 17
+    repeated_field_inside_bar: 42
+    repeated_field_inside_bar: 3
+  }
+}

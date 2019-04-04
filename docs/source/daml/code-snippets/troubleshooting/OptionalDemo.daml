@@ -1,0 +1,30 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module OptionalDemo where
+
+import DA.Optional
+
+optionalDemo = scenario do
+  let
+    j =
+      Some "Some text"    -- Optional value exists
+    m : Optional Text =
+      None             -- Optional value does not exist
+    yn =
+      -- isJust returns True if there is a value
+      if isSome m
+        then "Yes"
+        else "No"
+    ny =
+      -- The inverse is isNone
+      if isNone m
+        then "No"
+        else "Yes"
+    someValue = Some 5
+
+  let f = \ (i : Int) -> "The number is " <> (show i)
+  let t = optional "No number" f someValue
+
+  return ()

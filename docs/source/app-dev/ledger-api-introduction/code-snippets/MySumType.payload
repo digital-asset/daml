@@ -1,0 +1,38 @@
+{ // Value
+  variant { // Variant
+    variant_id { // Identifier
+      package_id: "some-hash"
+      name: "Types.MySumType"
+    }
+    constructor: "MyConstructor1"
+    value { // Value
+      int64:  17
+    }
+  }
+}
+
+{ // Value
+  variant { // Variant
+    variant_id { // Identifier
+      package_id: "some-hash"
+      name: "Types.MySumType"
+    }
+    constructor: "MyConstructor2"
+    value { // Value
+      record { // Record
+        fields { // RecordField
+          label: "sumTextField"
+          value { // Value
+            text: "it's a sum"
+          }
+        }
+        fields { // RecordField
+          label: "sumBoolField"
+          value { // Value
+            bool: true
+          }
+        }
+      }
+    }
+  }
+}

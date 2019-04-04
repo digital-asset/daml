@@ -1,0 +1,138 @@
+{
+    "name": "da-vscode-daml-extension",
+    "displayName": "DAML Studio",
+    "description": "DAML editing and analysis tools",
+    "version": "1.0.0",
+    "publisher": "Digital Asset",
+    "icon": "images/daml-studio.png",
+    "engines": {
+        "vscode": "^1.32.0"
+    },
+    "license": "All Rights Reserved",
+    "private": true,
+    "activationEvents": [
+        "onLanguage:daml",
+        "onCommand:daml.showResource",
+        "onCommand:daml.showDamlUserGuide"
+    ],
+    "main": "./out/src/extension",
+    "contributes": {
+        "languages": [
+            {
+                "id": "daml",
+                "extensions": [
+                    ".daml"
+                ],
+                "aliases": [
+                    "DAML"
+                ],
+                "configuration": "./daml12.configuration.json"
+            },
+            {
+                "id": "daml-core",
+                "extensions": [
+                    ".daml-core"
+                ],
+                "aliases": [
+                    "DAML CORE"
+                ],
+                "configuration": "./daml12.configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "daml-core",
+                "scopeName": "source.daml",
+                "path": "./syntaxes/daml12.tmLanguage.xml"
+            },
+            {
+                "language": "daml",
+                "scopeName": "source.daml",
+                "path": "./syntaxes/daml12.tmLanguage.xml"
+            }
+        ],
+        "commands": [
+            {
+                "command": "daml.showResource",
+                "title": "Open DAML virtual resource"
+            },
+            {
+                "command": "daml.showDamlUserGuide",
+                "title": "[DAML User's Guide]"
+            },
+            {
+                "command": "daml.resetTelemetryConsent",
+                "title": "Ask me about DAML telemetry again on startup"
+            }
+        ],
+        "keybindings": [
+            {
+                "command": "daml.showDamlUserGuide",
+                "key": "ctrl+f1",
+                "mac": "cmd+f1"
+            }
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "DAML Studio configuration",
+            "properties": {
+                "daml.debug": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable debug logging in the DAML Language Server."
+                },
+                "daml.experimental": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable experimental features in the IDE, this may break things"
+                },
+                "daml.profile": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Profile the daml ide plugin, may effect performance"
+                },
+                "daml.telemetry": {
+                    "enum": [
+                        "Enable",
+                        "Disable",
+                        "From consent popup"
+                    ],
+                    "default": "From consent popup",
+                    "description": "Controls whether you send DAML usage data to Digital Asset"
+                }
+            }
+        },
+        "menus": {
+            "editor/title": [
+                {
+                    "when": "resourceLangId == daml",
+                    "command": "daml.showDamlUserGuide",
+                    "group": "navigation"
+                }
+            ]
+        },
+        "snippets": [
+            {
+                "language": "daml",
+                "path": "./snippets/daml.json"
+            }
+        ]
+    },
+    "scripts": {
+        "postinstall": "node ./node_modules/vscode/bin/install",
+        "compile": "node ./node_modules/typescript/bin/tsc -p ./",
+        "build": "node ./node_modules/typescript/bin/tsc -p ./"
+    },
+    "dependencies": {
+        "vscode-languageclient": "3.2.0",
+        "vscode-languageserver-types": "3.2.0",
+        "vscode-jsonrpc": "3.2.0",
+        "which": "1.3.1",
+        "@types/which": "1.3.1"
+    },
+    "devDependencies": {
+        "typescript": "3.3.3",
+        "@types/node": "6.0.42",
+        "vscode": "^1.1.24"
+    }
+}

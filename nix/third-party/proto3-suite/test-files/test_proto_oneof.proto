@@ -1,0 +1,54 @@
+syntax = "proto3";
+package TestProtoOneof;
+import "test_proto_oneof_import.proto";
+
+message DummyMsg {
+  int32 dummy = 1;
+}
+
+enum DummyEnum {
+  DUMMY0 = 0;
+  DUMMY1 = 1;
+}
+
+// Also handles the case where the oneof field is syntatically the last one in
+// the message (this exercises field ordering logic in the code generator)
+message Something {
+  sint64 value          = 1;
+  sint32 another        = 2;
+  oneof  pickOne {
+    string    name      = 4;
+    int32     someid    = 9;
+    DummyMsg  dummyMsg1 = 10;
+    DummyMsg  dummyMsg2 = 11;
+    DummyEnum dummyEnum = 12;
+  }
+}
+
+// Handles the case where the oneof field is syntatically the first one in the
+// message (this exercises field ordering logic in the code generator)
+message OneofFirst {
+  oneof first {
+    string choice1 = 1;
+    string choice2 = 2;
+  }
+  int32 last = 3;
+}
+
+// Handles the case where the oneof field is syntatically between other fields
+// in the message (this exercises field ordering logic in the code generator)
+message OneofMiddle {
+  int32 first = 1;
+  oneof middle {
+    string choice1 = 2;
+    string choice2 = 3;
+  }
+  int32 last = 4;
+}
+
+message WithImported {
+  oneof pickOne {
+    DummyMsg                       dummyMsg1 = 1;
+    TestProtoOneofImport.WithOneof withOneof = 2;
+  }
+}

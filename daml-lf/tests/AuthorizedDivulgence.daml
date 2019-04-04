@@ -1,0 +1,189 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+
+module AuthorizedDivulgence where
+
+----------------------------------------------------------------------------------------------------
+-- Authorized fetch
+----------------------------------------------------------------------------------------------------
+
+data Secret = Secret
+  { p : Party
+  , mySecret : Text
+  }
+
+instance Template Secret where
+  signatory this@Secret{..} = [p]
+  observer this@Secret{..} = []
+  agreement this@Secret{..} = ""
+
+data RevealYourSecret = RevealYourSecret
+  { p : Party
+  , secretCid : ContractId Secret
+  }
+
+instance Template RevealYourSecret where
+  signatory this@RevealYourSecret{..} = [p]
+  observer this@RevealYourSecret{..} = []
+  agreement this@RevealYourSecret{..} = ""
+
+-- This scenario succeeds only if the flag +DontDivulgeContractIdsInCreateArguments is turned on
+test_authorizedFetch = test do
+  me <- getParty "Me"
+  spy <- getParty "Spy"
+  secretCid <- submit me (create Secret {p = me, mySecret = "Password for my Swiss bank account is 874321"})
+  submit spy (create RevealYourSecret {p = spy, secretCid = secretCid})
+  submitMustFail spy do
+    fetch secretCid
+    -- secret <- fetch secretCid
+    -- assert(secret.mySecret == "Password for my Swiss bank account is 874321")
+
+----------------------------------------------------------------------------------------------------
+-- Testing no divulgence of create arguments. We test with the classic swap scenario.
+----------------------------------------------------------------------------------------------------
+
+data Iou = Iou
+  { owner : Party
+  , obligor : Party
+  }
+
+
+instance Template Iou where
+  signatory Iou{..} = [obligor]
+  observer Iou{..} = [owner]
+  agreement _ = ""
+
+data Sell = Sell
+  { newOwner : Party
+  }
+
+instance Choice Iou Sell (ContractId Iou) where
+  choiceController Iou{..} _ = [owner]
+  choice this@Iou{..} self Sell{..} = create this{owner = newOwner}
+
+data Swap1 = Swap1
+  { p1 : Party
+  , p2 : Party
+  }
+
+instance Template Swap1 where
+  signatory Swap1{..} = [p1]
+  observer Swap1{..} = [p2]
+  agreement _ = ""
+
+data Swap2 = Swap2
+  { p1 : Party
+  , p2 : Party
+  , cid1 : ContractId Iou
+  }
+
+instance Template Swap2 where
+  signatory Swap2{..} = [p1]
+  observer Swap2{..} = [p2]
+  agreement _ = ""
+
+data GoSwap1 = GoSwap1
+  { cid1 : ContractId Iou
+  }
+
+instance Choice Swap1 GoSwap1 (ContractId Swap2) where
+  choiceController Swap1{..} _ = [p1]
+  choice Swap1{..} _self GoSwap1{..} = do
+    create Swap2{p1 = p1, p2 = p2, cid1 = cid1}
+
+data GoSwap1WithFetch = GoSwap1WithFetch
+  { cid1 : ContractId Iou
+  }
+
+instance Choice Swap1 GoSwap1WithFetch (ContractId Swap2) where
+  choiceController Swap1{..} _ = [p1]
+  choice Swap1{..} _self GoSwap1WithFetch{..} = do
+    fetch cid1
+    create Swap2{p1 = p1, p2 = p2, cid1 = cid1}
+
+data GoSwap2 = GoSwap2
+  { cid2 : ContractId Iou
+  }
+
+instance Choice Swap2 GoSwap2  () where
+  choiceController Swap2{..} _ = [p2]
+  choice Swap2{..} _self GoSwap2{..} = do
+    exerciseExplicit [p1] cid1 Sell {newOwner = p2}
+    exerciseExplicit [p2] cid2 Sell {newOwner = p1}
+    pure ()
+
+-- We're testing the classic swap example.
+-- This scenario should fail now if the DontDivulgeContractIdsInCreateArguments flag is set because
+-- the cidIouAlice is not divulged to Bob.
+test_noDivulgenceOfCreateArguments = test do
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+  cidIouAlice <- submit alice $ create $ Iou {owner = alice, obligor = alice}
+  cidIouBob <- submit bob $ create $ Iou {owner = bob, obligor = bob}
+  cidSwap1 <- submit alice $ create $ (Swap1 alice bob)
+  cidSwap2 <- submit alice $ exercise cidSwap1 (GoSwap1 cidIouAlice)
+  submitMustFail bob $ exercise cidSwap2 (GoSwap2 cidIouBob)
+
+-- If we fetch the contract in the GoSwap1 choice, then the contract will be divulged to Bob and the
+-- swap scenario passes.
+test_noDivulgenceForFetch = test do
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+  cidIouAlice <- submit alice $ create $ Iou {owner = alice, obligor = alice}
+  cidIouBob <- submit bob $ create $ Iou {owner = bob, obligor = bob}
+  cidSwap1 <- submit alice $ create $ (Swap1 alice bob)
+  cidSwap2 <- submit alice $ exercise cidSwap1 (GoSwap1WithFetch cidIouAlice)
+  submit bob $ exercise cidSwap2 (GoSwap2 cidIouBob)
+
+----------------------------------------------------------------------------------------------------
+-- Testing divulgence of target contract ids of choices.
+----------------------------------------------------------------------------------------------------
+
+template C
+  with
+    p1: Party
+    p2: Party
+  where
+    signatory p1
+
+    controller p2 can
+      Delegate : ContractId D do
+        create $ D p1 p2
+
+
+template D
+  with
+    p1: Party
+    p2: Party
+  where
+    signatory p1, p2
+    controller p1 can
+      GoD : ContractId E do
+        -- We create a contract right before exercising. p2 can't know about it and will only learn of
+        -- it when he exercises the choice in the validation.
+        cid <- create $ E p1 p2
+        exerciseExplicit [p2] cid DoSomething
+        pure cid
+
+template E
+  with
+    p1: Party
+    p2: Party
+  where
+    signatory p1
+
+    controller p2 can
+      nonconsuming DoSomething : () do
+        pure ()
+
+-- We test that target contract id's of choices are divulged to parties. This will only pass if the
+-- DontDivulgeContractIdsInCreateArguments flag is turned on.
+test_divulgeChoiceTargetContractId = test do
+  alice <- getParty "alice"
+  bob <- getParty "bob"
+  cidC <- submit alice $ create $ C alice bob
+  cidD <- submit bob $ exercise cidC Delegate
+  cidE <- submit alice $ exercise cidD GoD
+  submit bob $ fetch cidE

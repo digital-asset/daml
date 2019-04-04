@@ -1,0 +1,13 @@
+-- @IGNORE-LF 1.0
+-- @IGNORE-LF 1.1
+daml 1.2
+module PartyFromText where
+
+import DA.Assert
+
+test = scenario do
+  p <- getParty "alice"
+  show p === "'alice'"
+  partyToText p === "alice"
+  partyFromText "alice" === Some p
+  partyFromText "bad$character" === None

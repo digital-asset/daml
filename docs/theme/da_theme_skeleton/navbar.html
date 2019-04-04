@@ -1,0 +1,15 @@
+<!-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+<div class="navbar">
+    <h1><img src="{{ pathto('_static/images/DAML_Logo_Blue.svg', 1) }}"></h1>
+    <div class="navbar-menu">
+        <ul>
+            {%- if url_root == './' %}
+            {%- set addClass = 'landing ' %}
+            {% endif %}
+            <li class="{{addClass}}documentation active"><a href="#">Documentation</a></li>
+            <li><a href="https://www.digitalasset.com">Digital Asset</a></li>
+        </ul>
+    </div>
+</div>

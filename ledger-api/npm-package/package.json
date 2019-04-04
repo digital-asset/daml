@@ -1,0 +1,20 @@
+{
+  "name": "@da/ledger-api",
+  "version": "1.5.0",
+  "description": "Digital Asset Ledger API",
+  "repository": "https://github.com/DACH-NY/da",
+  "license": "SEE LICENSE IN LICENSE.txt",
+  "author": "Digital Asset (Switzerland) GmbH and/or its affiliates",
+  "files": [
+    "/dist",
+    "CHANGELOG.md",
+    "LICENSE.txt",
+    "package.json"
+  ],
+  "publishConfig": {
+    "registry": "https://api.bintray.com/npm/digitalassetsdk/npm"
+  },
+  "scripts": {
+    "prepack": "cp -r ../grpc-definitions/src/main/protobuf dist && cp ../CHANGELOG.md ."
+  }
+}

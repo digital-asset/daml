@@ -1,0 +1,21 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module PartyCompare where
+
+test = scenario do
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+  assert $ alice < bob
+  assert $ not (alice < alice)
+  assert $ not (bob < alice)
+  assert $ alice <= alice
+  assert $ alice <= bob
+  assert $ not (bob <= alice)
+  assert $ bob >= bob
+  assert $ bob >= alice
+  assert $ not (alice >= bob)
+  assert $ bob > alice
+  assert $ not (alice > bob)
+  assert $ not (bob > bob)

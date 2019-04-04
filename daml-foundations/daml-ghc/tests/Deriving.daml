@@ -1,0 +1,17 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- We're testing that `deriving` is working for complicated enough types.
+daml 1.2
+module Deriving where
+
+data Formula t
+  = Tautology
+  | Contradiction
+  | Proposition t
+  | Negation (Formula t)
+  | Conjunction [Formula t]
+  | Disjunction [Formula t]
+  deriving (Eq, Ord, Show, Functor)
+
+main = scenario (pure ())

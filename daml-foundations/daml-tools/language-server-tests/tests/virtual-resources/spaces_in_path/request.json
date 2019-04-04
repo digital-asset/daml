@@ -1,0 +1,3 @@
+{
+  "document": "daml://compiler?file=tests/virtual-resources/spaces%20in%20path/Main.daml&top-level-decl=main"
+}

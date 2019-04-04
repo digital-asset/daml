@@ -1,0 +1,50 @@
+Name:                x509-store
+version:             1.6.7
+Description:         X.509 collection accessing and storing methods for certificate, crl, exception list
+License:             BSD3
+License-file:        LICENSE
+Copyright:           Vincent Hanquez <vincent@snarc.org>
+Author:              Vincent Hanquez <vincent@snarc.org>
+Maintainer:          Vincent Hanquez <vincent@snarc.org>
+Synopsis:            X.509 collection accessing and storing methods
+Build-Type:          Simple
+Category:            Data
+stability:           experimental
+Homepage:            http://github.com/vincenthz/hs-certificate
+Cabal-Version:       >= 1.10
+
+Library
+  Default-Language:  Haskell2010
+  Build-Depends:     base >= 3 && < 5
+                   , bytestring
+                   , mtl
+                   , containers
+                   , directory
+                   , filepath
+                   , pem >= 0.1 && < 0.3
+                   , asn1-types >= 0.3 && < 0.4
+                   , asn1-encoding >= 0.9 && < 0.10
+                   , cryptonite
+                   , x509 >= 1.7.2
+  Exposed-modules:   Data.X509.CertificateStore
+                     Data.X509.File
+                     Data.X509.Memory
+  ghc-options:       -Wall
+
+Test-Suite test-x509-store
+  Default-Language:  Haskell2010
+  type:              exitcode-stdio-1.0
+  hs-source-dirs:    Tests
+  Main-is:           Tests.hs
+  Build-Depends:     base >= 3 && < 5
+                   , bytestring
+                   , tasty
+                   , tasty-hunit
+                   , x509
+                   , x509-store
+  ghc-options:       -Wall
+
+source-repository head
+  type:     git
+  location: git://github.com/vincenthz/hs-certificate
+  subdir:   x509-store

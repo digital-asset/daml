@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "$BIN_DIR/../lib/dade-common"
+
+set -Eeuo pipefail
+
+if [ $# -ne 1 ] || [ "$1" == "-?" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+  cat <<-'USAGE'
+Usage: buck-out <target>
+
+This tool will print the output file or directory of the specified target. The
+form of the <target> matches that of `buck query` for a single target. e.g.
+
+$ buck-out //ledger-client/python:VERSION
+/Users/user/code/da/dev-env/../buck-out/gen/ledger-client/python/VERSION/VERSION
+
+WARNING! Instead of using this tool in scripts or Makefiles, instead use `--out`
+argument to make Buck copy the resulting file to a location of your choosing:
+
+$ buck build --out some-path //ledger-client/python:VERSION
+USAGE
+  exit 0
+else
+  TARGET="$1"
+fi
+
+buck build "$TARGET"
+buck targets -v 0 --json --show-full-output "$TARGET" \
+    | jq -r '.[0]["buck.outputPath"]'

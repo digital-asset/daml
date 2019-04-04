@@ -1,0 +1,49 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Hack where
+
+data Iou = Iou with
+    issuer : Party
+    owner : Party
+    currency : Text
+    amount : Decimal
+  deriving Eq
+
+instance Template Iou where
+  ensure this = this.amount > 0.0
+  signatory this = [this.issuer]
+
+{-data Fungible a = Split with splitAmount : Decimal
+                | Merge with otherCid : ContractId a
+
+data FungibleRv a = SplitRv (ContractId a)
+                  | MergeRv (ContractId a, ContractId a)
+-}
+
+{-instance Choice Iou (Fungible Iou) (FungibleRv Iou) where
+  choiceController Iou {..} _ = [owner]
+  choice this@Iou {..} self arg@Split{..} = do
+    f <- create this with amount = splitAmount
+    s <- create this with amount = amount - splitAmount
+    return (f, s)
+-}
+--data Split = ...
+--data Merge = ...
+
+--class (Choice tpl Split _, Choice tpl Merge _) => Fungible tpl where
+
+--type Fungible tpl = (Choice tpl Split _, Choice tpl Merge _)
+-- data Merge =
+{-instance Choice Iou Fungible (ContractId Iou) where
+  choiceController Iou {..} _ = [owner]
+  choice this@Iou {..} self arg@Merge {..} = do
+    otherBond <- fetch otherCid
+    assert $ this == otherBond with amount
+    archive otherCid
+    create this with amount = amount + otherBond.amount
+-}
+
+main = scenario do
+  pure ()

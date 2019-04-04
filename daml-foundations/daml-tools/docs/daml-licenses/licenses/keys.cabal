@@ -1,0 +1,68 @@
+name:          keys
+category:      Data Structures, Containers
+version:       3.12.1
+license:       BSD3
+cabal-version: >= 1.10
+license-file:  LICENSE
+author:        Edward A. Kmett
+maintainer:    Edward A. Kmett <ekmett@gmail.com>
+stability:     provisional
+homepage:      http://github.com/ekmett/keys/
+bug-reports:   http://github.com/ekmett/keys/issues
+copyright:     Copyright (C) 2011-2016 Edward A. Kmett
+synopsis:      Keyed functors and containers
+description:   This package provides a bunch of ad hoc classes for accessing parts of a container.
+               .
+               In practice this package is largely subsumed by the
+               <https://hackage.haskell.org/package/lens lens package>,
+               but it is maintained for now as it has much
+               simpler dependencies.
+
+build-type:    Simple
+extra-source-files: .travis.yml CHANGELOG.markdown README.markdown cabal.project
+tested-with:   GHC == 8.6.1
+             , GHC == 8.4.3
+             , GHC == 8.2.2
+             , GHC == 8.0.2
+             , GHC == 7.10.3
+             , GHC == 7.8.4
+             , GHC == 7.6.3
+             , GHC == 7.4.2
+
+source-repository head
+  type: git
+  location: git://github.com/ekmett/keys.git
+
+library
+  default-language: Haskell2010
+  other-extensions: CPP, FlexibleInstances, TypeOperators, TypeFamilies
+
+  build-depends:
+    array                >= 0.3.0.2 && < 0.6,
+    base                 >= 4.5     && < 5,
+    comonad              >= 4       && < 6,
+    containers           >= 0.3     && < 0.7,
+    free                 >= 4       && < 6,
+    hashable             >= 1.1.2.3 && < 1.3,
+    semigroupoids        >= 5.2     && < 6,
+    semigroups           >= 0.8.3.1 && < 1,
+    tagged               >= 0.7.3   && < 1,
+    transformers         >= 0.2     && < 0.6,
+    transformers-compat  >= 0.3     && < 1,
+    unordered-containers >= 0.2.4   && < 0.3
+
+  if !impl(ghc >= 7.10)
+    build-depends: void >= 0.4 && < 0.8
+
+  if impl(ghc < 7.6)
+    -- GHC.Generics lived in ghc-prim initially
+    build-depends: ghc-prim == 0.2.*
+
+  if !impl(ghc >= 8.0)
+    build-depends: base-orphans >= 0.5.4 && < 0.9
+
+  exposed-modules:
+    Data.Key
+
+  ghc-options: -Wall
+  hs-source-dirs: src

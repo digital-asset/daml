@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+    <!-- SDK Assistant Installer (MSI)
+         Language:                           US English (1033)
+
+         SDK Assistant product GUID:         3eb2ca44-e400-4975-acbd-9cc1292d935a
+         UpgradeCode GUID:                   f15fde90-1017-4593-a68b-cae1d6869d81
+         Component (only one, the exe) GUID: 2c6f5b3f-e43c-4ae7-a58a-ade945f7e379
+                                             977b85f9-a017-4afb-aafd-3124cf3abfcc
+         
+         Note: Use * to generate product ID on every build
+    -->
+    <Product Id="3eb2ca44-e400-4975-acbd-9cc1292d935a"
+             Name="Digital Asset SDK Assistant"
+             Language="1033"
+             Version="0.1"
+             Manufacturer="Digital Asset"
+             UpgradeCode="f15fde90-1017-4593-a68b-cae1d6869d81">
+
+        <!--Elevated permissions needed by: appending PATH. -->
+        <Package Compressed="yes"
+                 Manufacturer="Digital Asset"
+                 Description="SDK Assistant for Windows"
+                 Comments="SDK Assistant for Windows"
+                 InstallPrivileges="elevated"
+                 AdminImage="yes"/>
+
+        <!--The archive file containing SDK Assistant executable will be embedded.-->
+        <MediaTemplate EmbedCab="yes" />
+
+        <!-- A property which reads a registry key at uninstallation (at installation,
+             it doesn't exist yet) to get the installation path. -->
+        <Property Id="PROP_APP_FOLDER" Secure="yes">
+            <RegistrySearch Key="Software\[Manufacturer]\[ProductName]"
+                            Root="HKCU" Type="directory" Id="APPLICATIONFOLDER_REGSEARCH_1" />
+        </Property>
+
+        <!--Directory structure-->
+        <Directory Id="TARGETDIR"
+                   Name="SourceDir">
+            <Directory Id="LocalAppDataFolder">
+                <Directory Id="DIR_da_dir"
+                           Name="damlsdk">
+                    <Directory Id="DIR_da_cli_exe_dir"
+                           Name="cli" />
+                </Directory>
+            </Directory>
+        </Directory>
+
+        <!--Components: we only have one, which is the da.exe itself-->
+        <DirectoryRef Id="DIR_da_cli_exe_dir">
+            <Component Id="CMP_da_cli"
+                       Guid="2c6f5b3f-e43c-4ae7-a58a-ade945f7e379">
+                <!-- Without these, the installer builder will complain about installed directories
+                     not marked for installation. -->
+                <RemoveFolder Id='Remove_DIR_da_cli_exe_dir' Directory='DIR_da_cli_exe_dir' On='uninstall' />
+                <RemoveFolder Id='Remove_DIR_da_dir' Directory='DIR_da_dir' On='uninstall' />
+                <!-- We need to use PROP_APP_FOLDER variable here that reads a registry key
+                     that contains the installation folder. This is needed because simple "RemoveFolder"
+                     won't remove non-empty folders (e.g. ones that contain files added after installation,
+                     in this case packages and tmp). -->
+                <util:RemoveFolderEx On="uninstall" Property="PROP_APP_FOLDER" />
+
+                <!-- A registry value set at installation holding the install directory. -->
+                <RegistryValue Root="HKCU" Key="Software\[Manufacturer]\[ProductName]" Type="string" Value="[DIR_da_dir]" KeyPath="yes"/>
+                <!-- We add da.exe to PATH. This needs ELEVATED PERMISSIONS. -->
+                <Environment Id="ENV_ADD_TO_PATH" Name="PATH" Value="[LocalAppDataFolder]\damlsdk\cli" Permanent="no" Part="last" Action="set" System="no" />
+                <File Id="FILE_da_exe"
+                      Source="da.exe"/>
+            </Component>
+        </DirectoryRef>
+
+        <!--Features: one feature which installs all the (1) components -->
+        <Feature Id="FEA_install_all"
+                 Title="SDK Assistant"
+                 Level="1">
+            <ComponentRef Id="CMP_da_cli" />
+        </Feature>
+    </Product>
+</Wix>

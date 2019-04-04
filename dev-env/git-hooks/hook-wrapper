@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+# Git hooks should be linked to this file. This file will run first the hook in CUSTOM_HOOKS_DIR
+# and then a local hook in NATIVE_HOOKS_DIR. A local hook is the hook not installed by `da-install-git-hooks`
+# script, added by the developer locally.
+#
+# It will run these two hooks and then exit with the joint error code (failure if any of them fails)
+#
+# Based on
+# https://github.com/ELLIOTTCABLE/Paws.js/blob/Master/Scripts/git-hooks/chain-hooks.sh
+# http://osdir.com/ml/git/2009-01/msg00308.html
+#
+# assumes your scripts are located at <repo-root>/dev-env/git-hooks
+
+exitcodes=()
+hookname=$(basename $0)
+# our special hooks folder
+CUSTOM_HOOKS_DIR=$(git rev-parse --show-toplevel)/dev-env/git-hooks
+# find gits native hooks folder
+NATIVE_HOOKS_DIR=$(git rev-parse --show-toplevel)/.git/hooks
+
+# Run each hook, passing through STDIN and storing the exit code.
+# We don't want to bail at the first failure, as the user might
+# then bypass the hooks without knowing about additional issues.
+
+if [[ -f "$CUSTOM_HOOKS_DIR/$hookname" && -x "$CUSTOM_HOOKS_DIR/$hookname" ]]; then
+  "$CUSTOM_HOOKS_DIR/$hookname" "$@"
+  exitcodes+=($?)
+fi
+
+# check if there was a local hook that was moved previously
+if [[ -f "$NATIVE_HOOKS_DIR/$hookname.local" && -x "$NATIVE_HOOKS_DIR/$hookname.local" ]]; then
+    "$NATIVE_HOOKS_DIR/$hookname.local" "$@"
+    exitcodes+=($?)
+fi
+
+# If any exit code isn't 0, bail.
+for i in "${exitcodes[@]}"; do
+  (( ! $i )) || exit $i
+done
+
+exit 0

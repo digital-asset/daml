@@ -1,0 +1,24 @@
+{
+  "homepage": "https://eternallybored.org/misc/wget/",
+  "license": "GPL-3.0",
+  "version": "1.19.2",
+  "architecture": {
+    "64bit": {
+      "url": [
+        "https://eternallybored.org/misc/wget/releases/old/wget-1.19.2-win64.zip"
+      ],
+      "hash": [
+        "34d76a8a75315ccacf9fdd6f0d928b663f74d8ff641de3bbc822f704b82e57ad"
+      ]
+    },
+    "32bit": {
+      "url": [
+        "https://eternallybored.org/misc/wget/releases/old/wget-1.19.2-win32.zip"
+      ],
+      "hash": [
+        "2350a4391c6c3b666b6aaf11842009869fba1deae1dfbf4c005e2dc135c69148"
+      ]
+    }
+  },
+  "bin": "wget.exe"
+}

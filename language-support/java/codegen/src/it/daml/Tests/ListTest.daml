@@ -1,0 +1,23 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Tests.ListTest where
+
+data MyListRecord = MyListRecord
+    with
+        intList: [Int]
+        unitList: [()]
+        itemList: [ListItem Int]
+
+data MyListOfListRecord = MyListOfListRecord
+    with
+        itemList: [[ListItem Int]]
+
+data ListItem x = Node x
+
+data Color = Red | Green | Blue | Indigo | Violet
+
+data ColorListRecord = ColorListRecord
+    with
+        colors: [Color]

@@ -1,0 +1,482 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+-- | These DAML scenarios test, where possible, the semantics of the underlying ledger API implementation
+-- with respect to consistency, authorization and privacy (including divulgence).
+--
+-- Notes:
+-- 1) Many of the ledger model properties are correct-by-construction
+-- in DAML, therefore we do not test model conformance such as the
+-- behaviour of malformed transactions or transactions with exercise
+-- before create inconsistency.
+-- 2) Contract key lookup is not yet tested. See
+-- https://github.com/DACH-NY/daml/issues/1281
+--
+module Test where
+import DA.Time
+import DA.Date
+
+------------------------------------------------------------
+-- Consistency
+--
+-- A transaction is internally consistent for a contract c if the
+-- following holds for all of its subactions act on the contract c
+--
+-- 1) act does not happen before any Create c action. (correct by construction in DAML)
+-- 2) act does not happen after any exercise consuming c. (a.k.a. Double spend rule)
+
+-- | Double-spend across two transactions
+consistency_doublespend1 = scenario do
+    bank  <- getParty "Bank"
+    alice <- getParty "Alice"
+    bob   <- getParty "Bob"
+    peggy <- getParty "Peggy"
+
+    iouCid <-
+        submit bank do create Iou with
+                           owner = alice
+                           payer = bank
+                           amount = Amount {value = 1.0; currency = "GBP"}
+
+    submit alice do exercise iouCid Transfer with newOwner = bob
+    submitMustFail alice do exercise iouCid Transfer with newOwner = peggy
+
+-- | Double-spend inside one transaction
+consistency_doublespend2 = scenario do
+    bank  <- getParty "Bank"
+    alice <- getParty "Alice"
+    bob   <- getParty "Bob"
+    peggy <- getParty "Peggy"
+
+    iouCid <-
+        submit bank do create Iou with
+                           owner = alice
+                           payer = bank
+                           amount = Amount {value = 1.0; currency = "GBP"}
+
+    submitMustFail alice do
+      exercise iouCid Transfer with newOwner = bob
+      exercise iouCid Transfer with newOwner = peggy
+
+-- | Different parties spend the same the same contract.
+-- Ideally these parties would be hosted on different participant nodes.
+consistency_doublespend3 = scenario do
+    bank  <- getParty "Bank"
+    alice <- getParty "Alice"
+    bob   <- getParty "Bob"
+
+    cid <-
+        submit bank do create SharedContract with
+                           owner1 = alice
+                           owner2 = bob
+                           payer = bank
+
+    submit alice do exercise cid SharedContract_Consume1
+    submitMustFail bob do exercise cid SharedContract_Consume2
+
+
+------------------------------------------------------------
+-- Authorization
+--
+-- A commit is well-authorized if every subaction act of the commit is
+-- authorized by at least all of the required authorizers of act,
+-- where:
+--
+-- 1) the required authorizers of a Create action on a contract c are the signatories of c.
+-- 2) the required authorizers of an Exercise or a Fetch action are its actors.
+
+-- | The successful paint-offer flow.
+authorization_success1 = scenario do
+    bank  <- getParty "Bank"
+    alice <- getParty "Alice"
+    peggy <- getParty "Peggy"
+
+    let one_pound = Amount {value = 1.0; currency = "GBP"}
+
+    iouCid <-
+        submit bank do create Iou with
+                           owner = alice
+                           payer = bank
+                           amount = one_pound
+
+    offerCid <-
+        submit peggy do create PaintOffer with
+                            houseOwner = alice
+                            painter = peggy
+                            obligor = bank
+                            amount = one_pound
+
+    submit alice do exercise offerCid PaintOffer_Accept with iouCid
+
+-- | The successful paint-counteroffer flow, which involves delegation.
+authorization_success2_delegation = scenario do
+    bank  <- getParty "Bank"
+    alice <- getParty "Alice"
+    peggy <- getParty "Peggy"
+
+    let toPounds x = Amount {value = x; currency = "GBP"}
+
+    iouCid <-
+        submit bank do create Iou with
+                           owner = alice
+                           payer = bank
+                           amount = toPounds 1.0
+
+    offerCid <-
+        submit peggy do create PaintOffer with
+                            houseOwner = alice
+                            painter = peggy
+                            obligor = bank
+                            amount = toPounds 2.0
+
+    -- Alice counter offers, delegating the right to create the PaintAgree contract
+    -- to Peggy the painter.
+    counterCid <-
+        submit alice $ exercise offerCid PaintOffer_Counter with iouCid
+
+    -- Peggy accepts the counter offer with the same consequences as before.
+    submit peggy $ exercise counterCid PaintCounterOffer_Accept
+
+-- | Painter did not authorise the PaintAgree contract created by Alice
+authorization_rule1_failure = scenario do
+    alice <- getParty "Alice"
+    peggy <- getParty "Peggy"
+
+    submitMustFail alice do create PaintAgree with
+                                houseOwner = alice
+                                painter = peggy
+
+-- | Painter tries to accept the offer on Alice's behalf
+authorization_rule2_failure = scenario do
+    bank  <- getParty "Bank"
+    alice <- getParty "Alice"
+    peggy <- getParty "Peggy"
+
+    let one_pound = Amount {value = 1.0; currency = "GBP"}
+
+    iouCid <-
+        submit bank do create Iou with
+                           owner = alice
+                           payer = bank
+                           amount = one_pound
+
+    offerCid <-
+        submit peggy do create PaintOffer with
+                            houseOwner = alice
+                            painter = peggy
+                            obligor = bank
+                            amount = one_pound
+
+    -- Peggy the Painter tries to accept the offer
+    -- on Alice's behalf
+    submitMustFail peggy do
+       exercise offerCid PaintOffer_Accept with iouCid
+
+------------------------------------------------------------
+-- Privacy
+--
+-- Here we test "projections" in the DAML scenario sense, i.e. what
+-- contracts can we see using fetch.
+--
+-- NOTE: There is no ledger API command to fetch a contract, so
+-- we need to wrap up the fetch into a contract with a choice
+-- that we can exercise.
+--
+-- | Test visiblity via contract fetches for the paint-offer flow.
+privacy_projections1 = scenario do
+    bank  <- getParty "Bank"
+    alice <- getParty "Alice"
+    peggy <- getParty "Peggy"
+
+    let one_pound = Amount {value = 1.0; currency = "GBP"}
+
+    iouCid <-
+        submit bank do create Iou with
+                           owner = alice
+                           payer = bank
+                           amount = one_pound
+
+    -- Alice and the bank can see this IOU, Peggy the painter cannot.
+    submit alice $ fetchIou alice iouCid
+    submit bank $ fetchIou bank iouCid
+    submitMustFail peggy $ fetchIou peggy iouCid
+
+    offerCid <-
+        submit peggy do create PaintOffer with
+                            houseOwner = alice
+                            painter = peggy
+                            obligor = bank
+                            amount = one_pound
+
+    -- Alice and Peggy can see this offer, the bank cannot.
+    submit alice $ fetchPaintOffer alice offerCid
+    submit peggy $ fetchPaintOffer peggy offerCid
+    submitMustFail bank $ fetchPaintOffer peggy offerCid
+
+    -- Note that the new IOU was divulged to Alice.
+    (iouCid', agreeCid) <- submit alice do exercise offerCid PaintOffer_Accept with iouCid
+
+    -- The Bank can see the new IOU, but it cannot see the PaintAgree contract.
+    submit bank $ fetchIou bank iouCid'
+    submitMustFail bank $ fetchPaintAgree bank agreeCid
+
+    -- Peggy and Alice see the new PaintAgree contract.
+    submit peggy $ fetchPaintAgree peggy agreeCid
+    submit alice $ fetchPaintAgree alice agreeCid
+
+    -- Peggy sees the new IOU transferred to her, but Alice can no longer see it.
+    submit peggy $ fetchIou peggy iouCid'
+    submitMustFail alice $ fetchIou alice iouCid'
+
+------------------------------------------------------------
+-- Divulgence Tests
+
+-- | Divulgence of a token
+--
+test_divulgence_of_token : Scenario ()
+test_divulgence_of_token = do
+    bank  <- getParty "Bank"
+    alice <- getParty "Alice"
+    bob   <- getParty "Bob"
+
+    -- Create a token for Alice
+    tokenId <- submit bank do
+      create Token with issuer = bank; owner = alice; id = 1
+
+    -- Create a delegation on tokens from Alice to Bob
+    delegationId <- submit alice do
+      create Delegation with owner = alice; delegate = bob
+
+    -- Alice uses the wrong way to divulge token to Bob
+    -- (a nonconsuming choice)
+    submit alice $ wrongDivulgeTokenTo tokenId bob
+
+    let testSuccessfulDivulgence =
+          exercise delegationId Delegation_Token_Consume with tokenId
+    submitMustFail bob testSuccessfulDivulgence
+
+    -- Alice divulges to bob
+    submit alice $ divulgeTokenTo tokenId bob
+    submit bob testSuccessfulDivulgence
+
+    -- Bob
+    pure ()
+
+
+------------------------------------------------------------
+-- Time provider tests
+
+-- | Test that the time can be successfully set.
+timeTravel = scenario do
+  t1 <- getTime
+  assert (t1 == datetime 1970 Jan 1 0 0 0)
+  pass (days 1)
+  t2 <- getTime
+  assert (t2 == datetime 1970 Jan 2 0 0 0)
+
+-- | Test that the time defaults to the epoch.
+startsAtEpoch = scenario do
+  t1 <- getTime
+  assert (t1 == datetime 1970 Jan 1 0 0 0)
+
+
+------------------------------------------------------------
+-- Templates used by the Scenarios
+
+data Amount = Amount {value: Decimal; currency: Text} deriving (Eq, Show)
+
+amountAsText (amount : Amount) : Text = show amount.value <> amount.currency
+
+template GetCash
+ with
+   payer: Party
+   owner: Party
+   amount: Amount
+ where
+   signatory payer, owner
+   agreement
+     show payer <> " pays " <> amountAsText amount <>" to " <> show owner
+
+template Iou
+ with
+   payer: Party
+   owner: Party
+   amount: Amount
+ where
+   signatory payer
+   controller owner can
+     Call: ContractId GetCash
+       do create GetCash with payer; owner; amount
+     Transfer: ContractId Iou with newOwner: Party
+       do create Iou with payer; owner = newOwner; amount
+
+-- Needed to test fetch via the ledger API
+template FetchIou
+  with
+    fetcher : Party
+    iouCid : ContractId Iou
+  where
+    signatory fetcher
+    controller fetcher can
+      FetchIou_Fetch: Iou
+        do fetch iouCid
+
+fetchIou : Party -> ContractId Iou -> Update Iou
+fetchIou fetcher iouCid = do
+    cid <- create FetchIou with fetcher; iouCid
+    exercise cid FetchIou_Fetch
+
+template SharedContract
+ with
+   payer: Party
+   owner1: Party
+   owner2: Party
+ where
+   signatory payer
+   controller owner1 can
+       SharedContract_Consume1: () do pure ()
+   controller owner2 can
+       SharedContract_Consume2: () do pure ()
+   controller [owner1, owner2] can
+       SharedContract_BothConsume: () do pure ()
+
+------------------------------------------------------------
+-- Validity testing templates
+
+template PaintOffer
+  with
+    painter : Party
+    houseOwner : Party
+    obligor : Party
+    amount: Amount
+  where
+    signatory painter
+    controller houseOwner can
+      PaintOffer_Accept: (ContractId Iou, ContractId PaintAgree)
+        with iouCid: ContractId Iou
+          do (,) <$> exercise iouCid Transfer with newOwner = painter
+                 <*> create PaintAgree with painter; houseOwner
+      PaintOffer_Counter: ContractId PaintCounterOffer
+        with iouCid: ContractId Iou
+          do iou <- fetch iouCid
+             assert $ obligor == iou.payer
+             assert $ houseOwner == iou.owner
+             create PaintCounterOffer with iouCid; painter; houseOwner; obligor; amount = iou.amount
+
+-- Needed to test fetch via the ledger API
+template FetchPaintOffer
+  with
+    fetcher : Party
+    offerCid : ContractId PaintOffer
+  where
+    signatory fetcher
+    controller fetcher can
+      FetchPaintOffer_Fetch: PaintOffer
+          do fetch offerCid
+
+fetchPaintOffer : Party -> ContractId PaintOffer -> Update PaintOffer
+fetchPaintOffer fetcher offerCid = do
+    cid <- create FetchPaintOffer with fetcher; offerCid
+    exercise cid FetchPaintOffer_Fetch
+
+template PaintCounterOffer
+  with
+    iouCid : ContractId Iou
+    painter : Party
+    houseOwner : Party
+    obligor : Party
+    amount: Amount
+  where
+    signatory houseOwner
+    controller painter can
+      PaintCounterOffer_Accept: (ContractId Iou, ContractId PaintAgree)
+        do offerCid <- create PaintOffer with painter; houseOwner; obligor; amount
+           -- This is delegation, the painter exercises the offer on behalf of the houseOwner.
+           -- exerciseExplicit [houseOwner] offerCid PaintOffer_Accept with iouCid
+           exercise offerCid PaintOffer_Accept with iouCid
+
+template PaintAgree
+  with
+    painter : Party
+    houseOwner : Party
+  where
+    signatory painter, houseOwner
+
+-- Needed to test fetch via the ledger API
+template FetchPaintAgree
+  with
+    fetcher : Party
+    agreeCid : ContractId PaintAgree
+  where
+    signatory fetcher
+    controller fetcher can
+      FetchPaintAgree_Fetch: PaintAgree
+        do fetch agreeCid
+
+fetchPaintAgree : Party -> ContractId PaintAgree -> Update PaintAgree
+fetchPaintAgree fetcher agreeCid = do
+    cid <- create FetchPaintAgree with fetcher; agreeCid
+    exercise cid FetchPaintAgree_Fetch
+
+
+------------------------------------------------------------
+-- Divulgence testing templates
+
+template Token
+  with
+    issuer: Party
+    owner: Party
+    id: Int
+  where
+    signatory issuer
+    observer owner
+
+    controller owner can
+      Token_Transfer : ContractId Token
+        with newOwner : Party
+        do create Token with issuer; owner = newOwner; id
+
+      Token_Consume: () do pure ()
+
+template Delegation
+  with
+    owner: Party
+    delegate: Party
+  where
+    signatory owner
+    observer delegate
+
+    controller delegate can
+      Delegation_Token_Consume: ()
+        with tokenId: ContractId Token
+        do exercise tokenId Token_Consume
+
+    controller owner can
+      -- Divulgance to delegate as a consuming choice is
+      -- visible to the observer.
+      Delegation_Divulge_Token: ()
+        with tokenId: ContractId Token
+        do fetch tokenId
+           pure ()
+
+      nonconsuming Delegation_Wrong_Divulge_Token: ()
+        with tokenId: ContractId Token
+        do fetch tokenId
+           pure ()
+
+-- | Divulge a token to a specific party. Requires authorization from
+-- the token owner.
+divulgeTokenTo : ContractId Token -> Party -> Update ()
+divulgeTokenTo tokenId p = do
+    t <- fetch tokenId
+    delegationId <- create Delegation with owner = t.owner; delegate = p
+    exercise delegationId Delegation_Divulge_Token with tokenId
+
+-- | Divulge a token to a specific party. Requires authorization from
+-- the token owner.
+wrongDivulgeTokenTo : ContractId Token -> Party -> Update ()
+wrongDivulgeTokenTo tokenId p = do
+    t <- fetch tokenId
+    delegationId <- create Delegation with owner = t.owner; delegate = p
+    exercise delegationId Delegation_Wrong_Divulge_Token with tokenId

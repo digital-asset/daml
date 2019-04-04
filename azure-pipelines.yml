@@ -1,0 +1,38 @@
+# Azure Pipelines file, see https://aka.ms/yaml
+
+# Enable builds on all branches
+trigger:
+  # Build every commit as our release process relies on
+  # the release process being built alone.
+  batch: false
+  branches:
+    include:
+      - master
+
+# Enable PR triggers that target the master branch
+pr:
+  autoCancel: true # cancel previous builds on push
+  branches:
+    include:
+      - master
+
+jobs:
+  - job: Linux
+    timeoutInMinutes: 360
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - template: ci/build-unix.yml
+
+  - job: macOS
+    timeoutInMinutes: 360
+    pool:
+      vmImage: 'macOS-10.13'
+    steps:
+      - template: ci/build-unix.yml
+
+  # - job: Windows
+  #   pool:
+  #     vmImage: 'windows-2019'
+  #   steps:
+  #     - template: ci/build-windows.yml

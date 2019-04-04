@@ -1,0 +1,45 @@
+name: natural-sort
+version: 0.1.2
+license: BSD3
+license-File: license.txt
+author: John Millikin <jmillikin@gmail.com>
+maintainer: John Millikin <jmillikin@gmail.com>
+build-type: Simple
+cabal-version: >= 1.6
+category: Algorithms
+homepage: https://john-millikin.com/software/natural-sort/
+bug-reports: mailto:jmillikin@gmail.com
+
+synopsis: User-friendly text collation
+description:
+  The built-in comparisons for textual data are based on Unicode ordinals. This
+  does not match most every-day sorting algorithms. For example,
+  \"z10.txt\" is sorted after \"z2.txt\" by users, but before it by
+  na&#239;ve algorithms.
+  .
+  This package provides an implementation of \"natural sort\", which more
+  closely matches user expectations.
+  .
+  See also: <http://www.davekoelle.com/alphanum.html>
+
+source-repository head
+  type: bazaar
+  location: https://john-millikin.com/branches/natural-sort/0.1/
+
+source-repository this
+  type: bazaar
+  location: https://john-millikin.com/branches/natural-sort/0.1/
+  tag: natural-sort_0.1.2
+
+library
+  ghc-options: -Wall -O2
+  hs-source-dirs: lib
+
+  build-depends:
+      base >= 4.0 && < 5.0
+    , parsec >= 3.0 && < 4.0
+    , text
+    , bytestring
+
+  exposed-modules:
+    Algorithms.NaturalSort

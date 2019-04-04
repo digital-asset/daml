@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+terraform fmt
+terraform init
+terraform apply

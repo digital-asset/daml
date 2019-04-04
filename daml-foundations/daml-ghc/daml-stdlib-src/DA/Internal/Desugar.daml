@@ -1,0 +1,19 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+
+daml 1.2
+
+-- | Automatically imported qualified in every module.
+module DA.Internal.Desugar (
+    concat,
+    Template(ensure, signatory, observer, agreement),
+    Choice(consuming, choiceController, choice), nonconsuming, NoEvent(..),
+    IsParties(toParties),
+    Eq(..),
+    Show(..)
+) where
+
+import DA.Internal.Prelude
+import DA.Internal.Template

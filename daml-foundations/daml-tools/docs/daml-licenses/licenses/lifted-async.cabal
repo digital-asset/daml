@@ -1,0 +1,108 @@
+name:                lifted-async
+version:             0.10.0.3
+synopsis:            Run lifted IO operations asynchronously and wait for their results
+homepage:            https://github.com/maoe/lifted-async
+bug-reports:         https://github.com/maoe/lifted-async/issues
+license:             BSD3
+license-file:        LICENSE
+author:              Mitsutoshi Aoe
+maintainer:          Mitsutoshi Aoe <maoe@foldr.in>
+copyright:           Copyright (C) 2012-2018 Mitsutoshi Aoe
+category:            Concurrency
+build-type:          Simple
+cabal-version:       >= 1.8
+tested-with:
+    GHC == 8.6.1
+  , GHC == 8.4.3
+  , GHC == 8.2.2
+  , GHC == 8.0.2
+  , GHC == 7.10.2
+
+extra-source-files:
+  README.md
+  CHANGELOG.md
+
+description:
+  This package provides IO operations from @async@ package lifted to any
+  instance of 'MonadBase' or 'MonadBaseControl'.
+
+library
+  exposed-modules:
+    Control.Concurrent.Async.Lifted
+    Control.Concurrent.Async.Lifted.Safe
+  build-depends:
+      base >= 4.5 && < 4.13
+    , async >= 2.2 && < 2.3
+    , lifted-base >= 0.2 && < 0.3
+    , transformers-base >= 0.4 && < 0.5
+    , monad-control == 1.0.*
+  if impl(ghc >= 7.8)
+    build-depends: constraints >= 0.2 && < 0.11
+  else
+    build-depends: constraints >= 0.2 && < 0.6
+  ghc-options: -Wall
+  hs-source-dirs: src
+
+test-suite test-lifted-async
+  type: exitcode-stdio-1.0
+  hs-source-dirs: tests
+  main-is: TestSuite.hs
+  other-modules:
+    Test.Async.Common
+    Test.Async.IO
+    Test.Async.State
+    Test.Async.Reader
+  ghc-options: -Wall -threaded
+  build-depends:
+      base
+    , HUnit
+    , lifted-async
+    , lifted-base
+    , monad-control
+    , mtl
+    , tasty
+    , tasty-expected-failure < 0.12
+    , tasty-hunit >= 0.9 && < 0.11
+    , tasty-th
+
+test-suite regression-tests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: tests
+  main-is: RegressionTests.hs
+  ghc-options: -Wall -threaded
+  build-depends:
+      base
+    , async
+    , lifted-async
+    , mtl
+    , tasty-hunit >= 0.9 && < 0.11
+    , tasty-th
+
+benchmark benchmark-lifted-async
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmarks
+  main-is: Benchmarks.hs
+  ghc-options: -Wall
+  build-depends:
+      base
+    , async
+    , criterion
+    , deepseq
+    , lifted-async
+
+benchmark benchmark-lifted-async-threaded
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmarks
+  main-is: Benchmarks.hs
+  ghc-options: -Wall -threaded
+  build-depends:
+      base
+    , async
+    , criterion
+    , deepseq
+    , lifted-async
+
+source-repository head
+  type: git
+  branch: develop
+  location: https://github.com/maoe/lifted-async.git

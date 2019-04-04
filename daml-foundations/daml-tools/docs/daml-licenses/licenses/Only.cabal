@@ -1,0 +1,32 @@
+name:                Only
+version:             0.1
+synopsis:            The 1-tuple type or single-value "collection"
+license:             BSD3
+license-file:        LICENSE
+author:              Herbert Valerio Riedel
+maintainer:          hvr@gnu.org
+bug-reports:         https://github.com/hvr/Only/issues
+category:            Data
+build-type:          Simple
+cabal-version:       >=1.10
+description:         This package provides the canonical anonymous 1-tuple type missing from Haskell for attaching typeclass instances.
+
+Source-Repository head
+  Type:              git
+  Location:          https://github.com/hvr/Only.git
+
+library
+  hs-source-dirs:    src
+  exposed-modules:   Data.Tuple.Only
+
+  default-language:  Haskell2010
+  other-extensions:  DeriveGeneric
+                   , DeriveDataTypeable
+                   , DeriveFunctor
+                   , Safe
+
+  build-depends:     base    >= 4.5 && <5
+                   , deepseq >= 1.1 && <1.5
+
+  if impl(ghc == 7.4.*)
+     build-depends: ghc-prim

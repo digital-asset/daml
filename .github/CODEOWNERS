@@ -1,0 +1,94 @@
+# This file is used to automatically assign reviewers based on
+#    a) specific files
+#    b) subtrees in the repository
+
+# For more documentation, see the announcement and help page on github:
+# https://github.com/blog/2392-introducing-code-owners
+# https://help.github.com/articles/about-codeowners/
+
+# GitHub teams must also be added explicitly as contributors with WRITE access to the DACH-NY/da repository on github.com
+# Ask one of the github admin to add the team to https://github.com/DACH-NY/da/settings/collaboration
+
+* @DACH-NY/daml-infrastructure
+CODEOWNERS @DACH-NY/daml-infrastructure
+/.github @DACH-NY/daml-infrastructure
+/.vscode @DACH-NY/daml-infrastructure
+
+/ledger @DACH-NY/daml-runtime
+/ledger-client @DACH-NY/daml-runtime
+/ledger-api @DACH-NY/daml-runtime
+/ledger-tools @DACH-NY/daml-runtime
+
+/reference-apps @DACH-NY/daml-infrastructure
+
+/sdk @DACH-NY/daml-runtime @DACH-NY/daml-infrastructure
+
+/docs @DACH-NY/daml-docs
+
+/3rdparty @DACH-NY/tweag 
+/bazel_tools @DACH-NY/tweag
+/.bazelrc @DACH-NY/tweag
+/.bazelignore @DACH-NY/tweag
+/buck-core @DACH-NY/daml-infrastructure
+/.buckconfig @DACH-NY/daml-infrastructure
+/build-scripts @DACH-NY/daml-infrastructure
+/dev-env @DACH-NY/daml-infrastructure
+/hazel @DACH-NY/tweag
+
+/nix @DACH-NY/daml-infrastructure @DACH-NY/tweag
+/pipeline @DACH-NY/daml-infrastructure
+/replacements @DACH-NY/daml-infrastructure
+/rules_daml @DACH-NY/daml-infrastructure
+
+
+/daml-foundations @DACH-NY/daml-infrastructure @DACH-NY/daml-runtime
+/daml-foundations/ci @DACH-NY/daml-infrastructure
+/daml-foundations/da-haskell-tests @DACH-NY/daml-infrastructure
+/daml-foundations/daml-compiler @DACH-NY/daml-compiler-10 @DACH-NY/daml-ide
+/daml-foundations/daml-compiler/da-hs-daml-compiler-service @DACH-NY/daml-compiler-10 @DACH-NY/daml-ide
+/daml-foundations/daml-compiler/da-hs-daml-compiler @DACH-NY/daml-compiler-10
+/daml-foundations/daml-compiler/da-hs-daml-language-server @DACH-NY/daml-ide
+/daml-foundations/daml-compiler/da-hs-json-rpc @DACH-NY/daml-ide
+/daml-foundations/daml-compiler/da-hs-language-server @DACH-NY/daml-ide
+/daml-foundations/daml-compiler/da-hs-shake-in-memory @DACH-NY/daml-compiler-10 @DACH-NY/daml-ide
+/daml-foundations/daml-core-package @DACH-NY/daml-core-package
+/daml-foundations/daml-core-package/da-hs-daml-core/ @DACH-NY/daml-core-package
+/daml-foundations/daml-ghc @DACH-NY/daml-compiler
+/daml-foundations/daml-lf @DACH-NY/daml-engine
+/daml-foundations/daml-maven-plugin @DACH-NY/daml-packaging
+/daml-foundations/daml-research @DACH-NY/daml-research
+/daml-foundations/daml-stdlib @DACH-NY/daml-stdlib-10
+/daml-foundations/daml-test @DACH-NY/daml-compiler
+/daml-foundations/daml-tools @DACH-NY/daml-infrastructure
+/daml-foundations/daml-tools/da-daml-test-cases @DACH-NY/daml-engine
+/daml-foundations/daml-tools/da-docs-daml-user-guide @DACH-NY/daml-docs
+/daml-foundations/daml-tools/da-hs-compiler-tests @DACH-NY/daml-compiler-10
+/daml-foundations/daml-tools/da-hs-daml-cli @DACH-NY/daml-cli
+/daml-foundations/daml-tools/da-hs-daml-parser-cli @DACH-NY/daml-compiler-10
+/daml-foundations/daml-tools/da-hs-daml-renamer-cli @DACH-NY/daml-compiler-10
+/daml-foundations/daml-tools/da-hs-damlc-app @DACH-NY/daml-cli
+/daml-foundations/daml-tools/da-hs-damli-app @DACH-NY/daml-cli
+/daml-foundations/daml-tools/da-scala-lf-tests @DACH-NY/daml-engine
+/daml-foundations/daml-tools/daml-extension @DACH-NY/daml-ide
+/daml-foundations/daml-tools/daml-package-integration-test @DACH-NY/daml-packaging
+/daml-foundations/daml-tools/damli-jar @DACH-NY/daml-infrastructure
+/daml-foundations/daml-tools/docs @DACH-NY/daml-docs
+/daml-foundations/daml-tools/language-server-tests@DACH-NY/daml-ide
+/daml-foundations/haskell-libraries @DACH-NY/haskell-commons
+/daml-foundations/integration-tests @DACH-NY/daml-infrastructure
+/daml-foundations/scripts @DACH-NY/daml-infrastructure
+/daml-foundations/third-party @DACH-NY/daml-infrastructure
+
+# Architecture governed interfaces/APIs
+/ledger-api/grpc-definitions @DACH-NY/ledger-api
+/ledger/ledger-sync-api @DACH-NY/ledger-api
+/daml-lf/archive/da @DACH-NY/daml-engine
+/daml-foundations/daml-lf/spec @DACH-NY/daml-engine
+/daml-lf/transaction/src/main/protobuf @DACH-NY/daml-engine
+
+/ledger-bindings @DACH-NY/ledger-api-bindings
+/sdk/templates/example-ping-pong-reactive-java @DACH-NY/ledger-api-bindings
+/sdk/templates/example-ping-pong-reactive-components-java @DACH-NY/ledger-api-bindings
+/sdk/templates/example-ping-pong-grpc-java @DACH-NY/ledger-api-bindings
+
+/language-support/java @gerolf-da @nicholassmith-da

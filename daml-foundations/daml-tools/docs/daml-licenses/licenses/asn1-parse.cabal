@@ -1,0 +1,26 @@
+Name:                asn1-parse
+Version:             0.9.4
+Description:         Simple monadic parser for ASN1 stream types, when ASN1 pattern matching is not convenient.
+License:             BSD3
+License-file:        LICENSE
+Copyright:           Vincent Hanquez <vincent@snarc.org>
+Author:              Vincent Hanquez <vincent@snarc.org>
+Maintainer:          Vincent Hanquez <vincent@snarc.org>
+Synopsis:            Simple monadic parser for ASN1 stream types.
+Build-Type:          Simple
+Category:            Data
+stability:           experimental
+Cabal-Version:       >=1.6
+Homepage:            https://github.com/vincenthz/hs-asn1
+
+Library
+  Build-Depends:     base >= 3 && < 5
+                   , bytestring
+                   , asn1-types >= 0.3 && < 0.4
+                   , asn1-encoding >= 0.9
+  Exposed-modules:   Data.ASN1.Parse
+  ghc-options:       -Wall
+
+source-repository head
+  type:     git
+  location: https://github.com/vincenthz/hs-asn1

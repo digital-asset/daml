@@ -1,0 +1,85 @@
+# Ledger API Reference [Ledger API Reference]
+
+.. contents:: Table of Contents
+
+{{range .Files}}
+{{$file_name := .Name}}
+
+## {{.Name}} [{{.Name}}]
+
+{{.Description}}
+
+{{range .Messages}}
+### {{.LongName}} [{{.FullName}}]
+{{$full_name := .FullName}}
+
+{{.Description}}
+
+{{if .HasFields}}
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+{{range .Fields -}}
+  | .. _{{$full_name}}.{{.Name}}:
+
+{{.Name}} | [{{.LongType}}][{{.FullType}}] | {{.Label}} | {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}} |
+{{end}}
+{{end}}
+
+{{if .HasExtensions}}
+| Extension | Type | Base | Number | Description |
+| --------- | ---- | ---- | ------ | ----------- |
+{{range .Extensions -}}
+  | {{.Name}} | {{.LongType}} | {{.ContainingLongType}} | {{.Number}} | {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}} |
+{{end}}
+{{end}}
+
+{{end}}
+
+{{range .Enums}}
+### {{.LongName}} [{{.FullName}}]
+{{$full_name := .FullName}}
+
+{{.Description}}
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+{{range .Values -}}
+  | .. _{{$full_name}}.{{.Name}}:
+
+{{.Name}}  | {{.Number}} | {{nobr .Description}} |
+{{end}}
+
+{{end}}
+
+{{if .HasExtensions}}
+### File-level Extensions [{{$file_name}}-extensions]
+| Extension | Type | Base | Number | Description |
+| --------- | ---- | ---- | ------ | ----------- |
+{{range .Extensions -}}
+  | {{.Name}}  | {{.LongType}} | {{.ContainingLongType}} | {{.Number}} | {{nobr .Description}}{{if .DefaultValue}} Default: `{{.DefaultValue}}`{{end}} |
+{{end}}
+{{end}}
+
+{{range .Services}}
+### {{.LongName}} [{{.FullName}}]
+
+{{.Description}}
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ----------- |
+{{range .Methods -}}
+  | {{.Name}} | [{{.RequestLongType}}][{{.RequestFullType}}] | [{{.ResponseLongType}}][{{.ResponseFullType}}] | {{nobr .Description}} |
+{{end}}
+{{end}}
+
+{{end}}
+
+## Scalar Value Types [Scalar Value Types]
+
+| .proto Type | Notes | C++ Type | Java Type | Python Type |
+| ----------- | ----- | -------- | --------- | ----------- |
+{{range .Scalars -}}
+  | .. _{{.ProtoType}}:
+
+{{.ProtoType}} | {{.Notes}} | {{.CppType}} | {{.JavaType}} | {{.PythonType}} |
+{{end}}

@@ -1,0 +1,66 @@
+name:          either
+category:      Control, Monads
+version:       5.0.1
+license:       BSD3
+cabal-version: >= 1.10
+license-file:  LICENSE
+author:        Edward A. Kmett
+maintainer:    Edward A. Kmett <ekmett@gmail.com>
+stability:     provisional
+homepage:      http://github.com/ekmett/either/
+bug-reports:   http://github.com/ekmett/either/issues
+copyright:     Copyright (C) 2008-2017 Edward A. Kmett
+synopsis:      Combinators for working with sums
+description:   Combinators for working with sums.
+build-type:    Simple
+tested-with:   GHC == 7.0.4
+             , GHC == 7.2.2
+             , GHC == 7.4.2
+             , GHC == 7.6.3
+             , GHC == 7.8.4
+             , GHC == 7.10.3
+             , GHC == 8.0.2
+             , GHC == 8.2.2
+             , GHC == 8.4.3
+             , GHC == 8.6.1
+extra-source-files:
+  .gitignore
+  .ghci
+  .vim.custom
+  .travis.yml
+  CHANGELOG.markdown
+  README.markdown
+
+source-repository head
+  type: git
+  location: git://github.com/ekmett/either.git
+
+library
+  build-depends:
+    base              >= 4       && < 5,
+    bifunctors        >= 4       && < 6,
+    mtl               >= 2.0     && < 2.3,
+    profunctors       >= 4       && < 6,
+    semigroups        >= 0.8.3.1 && < 1,
+    semigroupoids     >= 4       && < 6
+
+  other-extensions: CPP Rank2Types
+  ghc-options: -Wall
+  hs-source-dirs: src
+  default-language: Haskell2010
+  exposed-modules:
+    Data.Either.Combinators
+    Data.Either.Validation
+
+test-suite tests
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: tests
+  build-depends:
+    base,
+    either,
+    test-framework             >= 0.8.1.1 && < 0.9,
+    test-framework-quickcheck2 >= 0.3.0.3 && < 0.4,
+    QuickCheck                 >= 2.9     && < 2.12
+  default-language: Haskell2010

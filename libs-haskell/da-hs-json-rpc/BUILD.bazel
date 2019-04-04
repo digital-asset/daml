@@ -1,0 +1,33 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load ("//bazel_tools:haskell.bzl", "da_haskell_library")
+
+da_haskell_library (
+  name = "da-hs-json-rpc"
+  , src_strip_prefix = "src"
+  , srcs = glob (["src/**/*.hs"])
+  , deps = [
+      "//libs-haskell/da-hs-base"
+  ]
+  , hazel_deps = [
+      "aeson",
+      "attoparsec",
+      "base",
+      "bytestring",
+      "conduit",
+      "containers",
+      "deepseq",
+      "hashable",
+      "lifted-async",
+      "mtl",
+      "QuickCheck",
+      "stm",
+      "stm-conduit",
+      "text",
+      "transformers",
+      "unordered-containers",
+      "vector",
+  ]
+  , visibility = ["//visibility:public"]
+)

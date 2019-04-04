@@ -1,0 +1,39 @@
+name:            file-embed
+version:         0.0.11
+license:         BSD3
+license-file:    LICENSE
+author:          Michael Snoyman <michael@snoyman.com>
+maintainer:      Michael Snoyman <michael@snoyman.com>
+synopsis:        Use Template Haskell to embed file contents directly.
+description:     Use Template Haskell to read a file or all the files in a
+                 directory, and turn them into (path, bytestring) pairs
+                 embedded in your Haskell code.
+category:        Data
+stability:       Stable
+cabal-version:   >= 1.8
+build-type:      Simple
+homepage:        https://github.com/snoyberg/file-embed
+extra-source-files: test/main.hs, test/sample/foo, test/sample/bar/baz,
+                    ChangeLog.md
+                    README.md
+
+library
+    build-depends:   base               >= 4       && < 5
+                   , bytestring         >= 0.9.1.4
+                   , directory          >= 1.0.0.3
+                   , template-haskell
+                   , filepath
+    exposed-modules: Data.FileEmbed
+    ghc-options:     -Wall
+
+test-suite test
+    type: exitcode-stdio-1.0
+    main-is: main.hs
+    hs-source-dirs: test
+    build-depends: base
+                 , file-embed
+                 , filepath
+
+source-repository head
+  type:     git
+  location: https://github.com/snoyberg/file-embed

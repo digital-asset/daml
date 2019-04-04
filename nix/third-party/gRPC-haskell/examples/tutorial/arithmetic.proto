@@ -1,0 +1,17 @@
+syntax = "proto3";
+package arithmetic;
+
+service Arithmetic {
+  rpc Add (TwoInts) returns (OneInt) {}
+
+  rpc RunningSum (stream OneInt) returns (OneInt) {}
+}
+
+message TwoInts {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+message OneInt {
+  int32 result = 1;
+}

@@ -1,0 +1,22 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module DvpNotification
+where
+
+import DvpTerms
+
+type DvpNotificationId = ContractId DvpNotification
+
+template DvpNotification
+  with
+    c : DvpTerms
+  where
+    ensure isValidDvp c
+    signatory c.seller
+
+    controller c.buyer can
+      Accept : ()
+        do
+          return ()

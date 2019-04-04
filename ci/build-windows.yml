@@ -1,0 +1,9 @@
+steps:
+  - checkout: self
+    fetchDepth: 1 # speed up checkout from 30sec to 7sec
+  - powershell: '.\dev-env\windows\dadew-installer.ps1'
+    displayName: 'Install dev-env'
+    #- script: ./ci/configure-bazel.ps1
+    #  displayName: 'Configure Bazel'
+  - powershell: '.\build.ps1'
+    displayName: 'Bazel Build'

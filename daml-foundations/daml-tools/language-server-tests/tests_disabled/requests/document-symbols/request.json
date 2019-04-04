@@ -1,0 +1,8 @@
+{
+  "method": "textDocument/documentSymbol",
+  "payload": {
+    "textDocument": {
+      "uri": "Main.daml"
+    }
+  }
+}

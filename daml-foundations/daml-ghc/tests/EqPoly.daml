@@ -1,0 +1,20 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+{-# OPTIONS_GHC -Wno-type-defaults #-}
+
+daml 1.2
+module EqPoly where
+
+data Foo a b = Foo {a : a, b : b}
+
+instance (Eq a, Eq b) => Eq (Foo a b) where
+    Foo x1 x2 == Foo y1 y2 = x1 == y1 && x2 == y2
+
+-- Tricks to ensure GHC goes through the polymorphic Eq dictionary and doesn't cheat
+{-# NOINLINE eq #-}
+eq a b = a == b
+
+main = scenario do
+    alice <- getParty "alice"
+    submit alice $ assert $ eq (Foo 1 2) (Foo 1 2)

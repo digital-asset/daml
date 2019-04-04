@@ -1,0 +1,8 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Export Bazel sources for Bazel API docs.
+exports_files(
+    ["haskell.bzl", "scala.bzl", "haskell-static-linking.patch", "haskell-hazel-shorten-source-dirs.patch", "haskell-arx.patch", "haskell-win-sys-includes.patch", "hackage_mirror.patch"],
+    visibility = ["//bazel_tools/docs:__pkg__"]
+)

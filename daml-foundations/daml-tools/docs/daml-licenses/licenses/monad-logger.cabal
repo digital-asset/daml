@@ -1,0 +1,67 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.30.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 22d960dbb396a0334ad3bd72ffff312759a58fd3a9d0308d81ec36ab8649c961
+
+name:           monad-logger
+version:        0.3.30
+synopsis:       A class of monads which can log messages.
+description:    See README and Haddocks at <https://www.stackage.org/package/monad-logger>
+category:       System
+homepage:       https://github.com/snoyberg/monad-logger#readme
+bug-reports:    https://github.com/snoyberg/monad-logger/issues
+author:         Michael Snoyman
+maintainer:     michael@snoyman.com
+license:        MIT
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    ChangeLog.md
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/snoyberg/monad-logger
+
+flag template_haskell
+  description: Enable Template Haskell support
+  manual: True
+  default: True
+
+library
+  exposed-modules:
+      Control.Monad.Logger
+  other-modules:
+      Paths_monad_logger
+  build-depends:
+      base >=4.8 && <5
+    , bytestring >=0.10.2
+    , conduit >=1.0 && <1.4
+    , conduit-extra >=1.1 && <1.4
+    , exceptions >=0.6 && <0.11
+    , fast-logger >=2.1 && <2.5
+    , lifted-base
+    , monad-control >=1.0
+    , monad-loops
+    , mtl
+    , resourcet >=1.1 && <1.3
+    , stm
+    , stm-chans
+    , text
+    , transformers
+    , transformers-base
+    , transformers-compat >=0.3
+    , unliftio-core
+  if impl(ghc >=8.0.1)
+    exposed-modules:
+        Control.Monad.Logger.CallStack
+    cpp-options: -DWITH_CALLSTACK
+  if flag(template_haskell)
+    build-depends:
+        template-haskell
+  if flag(template_haskell)
+    cpp-options: -DWITH_TEMPLATE_HASKELL
+  default-language: Haskell2010

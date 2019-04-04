@@ -1,0 +1,208 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Helper where
+
+import Bond
+import Cash
+import Dvp
+import DvpTerms
+
+import DA.Action
+import DA.Date
+
+data HandleCashResult = HandleCashResult
+  with
+    restCid : Optional CashId
+    dvpAllocatedCids : [DvpAllocatedId]
+
+data HandleBondResult = HandleBondResult
+  with
+    restCid : Optional BondId
+    settleResults : [SettleResult]
+
+type HelperId = ContractId Helper
+
+template Helper
+  with
+    party : Party
+  where
+    signatory party
+
+    controller party can
+
+      nonconsuming HandleCash : HandleCashResult
+        with
+          cashCids : [CashId]
+          dvpCids : [DvpId]
+        do
+          time <- getTime
+
+          let allocateDvp (dvpCid : DvpId) (prev : HandleCashResult) = do
+              dvp <- fetch dvpCid
+              assertMsg "party isn't buyer" $ dvp.c.buyer == party
+              assertMsg "settlment time is in the future" $ dvp.c.settleTime <= time
+              cashCid <- optional (fail "insufficient cash") pure prev.restCid
+              r <- cashSplitMay party cashCid dvp.c.cashAmount
+              allocated <- exercise dvpCid Allocate with cashCid = fst r
+              return HandleCashResult with restCid = snd r; dvpAllocatedCids = (fst allocated) :: prev.dvpAllocatedCids
+
+          cashCid <- foldl1A (\cid otherCid -> exercise cid Cash.Merge with otherCid) cashCids
+          foldrA allocateDvp (HandleCashResult with restCid = Some cashCid; dvpAllocatedCids = []) dvpCids
+
+      nonconsuming HandleBond : HandleBondResult
+        with
+          bondCids : [BondId]
+          dvpAllocatedCids : [DvpAllocatedId]
+        do
+          time <- getTime
+
+          someDate <- pure $ date 2018 May 14
+
+          let settleDvp (dvpAllocatedCid: DvpAllocatedId) (prev: HandleBondResult) = do
+              dvpAllocated <- fetch dvpAllocatedCid
+              assertMsg "settlement time is in the future" $ dvpAllocated.c.settleTime <= time
+              assertMsg "party isn't seller" $ dvpAllocated.c.seller == party
+              bondCid <- optional (fail "insufficient bonds") pure prev.restCid
+              r <- bondSplitMay party bondCid dvpAllocated.c.bondAmount
+              settleResult <- exercise dvpAllocatedCid Settle with bondCid = fst r
+              return HandleBondResult with restCid = snd r; settleResults = settleResult :: prev.settleResults
+
+          bondCid <- foldl1A (\cid otherCid -> exercise cid Bond.Merge with otherCid) bondCids
+          foldrA settleDvp (HandleBondResult with restCid = Some bondCid; settleResults = []) dvpAllocatedCids
+
+main = scenario do
+  acmeBank <- getParty "Acme Bank"
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+
+  now <- passToDate $ date 2018 May 14
+
+  cashAlice1Cid <- submit acmeBank do
+    create CashTransferRequest with
+      issuer = acmeBank
+      owner = acmeBank
+      receiver = alice
+      currency = "USD"
+      amount = 60.0
+      locker = acmeBank
+      lockMaturity = None
+
+  cashAlice2Cid <- submit acmeBank do
+    create CashTransferRequest with
+      issuer = acmeBank
+      owner = acmeBank
+      receiver = alice
+      currency = "USD"
+      amount = 40.0
+      locker = acmeBank
+      lockMaturity = None
+
+  cashAlice1Cid <- submit alice do exercise cashAlice1Cid Cash.Accept
+  cashAlice2Cid <- submit alice do exercise cashAlice2Cid Cash.Accept
+
+  bondBob1Cid <- submit acmeBank do
+    create BondTransferRequest with
+      issuer = acmeBank
+      owner = acmeBank
+      newOwner = bob
+      isin = "1234"
+      amount = 60.0
+
+  bondBob2Cid <- submit acmeBank do
+    create BondTransferRequest with
+      issuer = acmeBank
+      owner = acmeBank
+      newOwner = bob
+      isin = "1234"
+      amount = 40.0
+
+  bondBob1Cid <- submit bob do exercise bondBob1Cid Bond.Accept
+  bondBob2Cid <- submit bob do exercise bondBob2Cid Bond.Accept
+
+  dvp1Cid <- submit alice do
+    create DvpProposal with
+      c = DvpTerms with
+        buyer = alice
+        seller = bob
+        bondIssuer = acmeBank
+        bondIsin = "1234"
+        bondAmount = 50.0
+        cashIssuer = acmeBank
+        cashCurrency = "USD"
+        cashAmount = 50.0
+        settleTime = datetime 2018 May 16 0 0 0
+        dvpId = "abc"
+
+  dvp2Cid <- submit alice do
+    create DvpProposal with
+      c = DvpTerms with
+        buyer = alice
+        seller = bob
+        bondIssuer = acmeBank
+        bondIsin = "1234"
+        bondAmount = 20.0
+        cashIssuer = acmeBank
+        cashCurrency = "USD"
+        cashAmount = 20.0
+        settleTime = datetime 2018 May 16 0 0 0
+        dvpId = "abc"
+
+  dvp1Cid <- submit bob do exercise dvp1Cid Dvp.Accept
+  dvp2Cid <- submit bob do exercise dvp2Cid Dvp.Accept
+
+  helperAliceCid <- submit alice do create Helper with party = alice
+  helperBobCid <- submit bob do create Helper with party = bob
+
+  passToDate $ date 2018 May 16
+
+  r <- submit alice do
+      exercise helperAliceCid HandleCash with
+          cashCids = [ cashAlice1Cid, cashAlice2Cid ]
+          dvpCids = [ dvp1Cid, dvp2Cid ]
+
+  submit alice do
+      c <- optional (fail "unexpected rest") fetch r.restCid
+      assert $ c.issuer == acmeBank
+      assert $ c.owner == alice
+      assert $ c.currency == "USD"
+      assert $ c.amount == 30.0
+
+  r <- submit bob do
+      exercise helperBobCid HandleBond with
+          bondCids = [ bondBob1Cid, bondBob2Cid ]
+          dvpAllocatedCids = r.dvpAllocatedCids
+
+  submit bob do
+    c <- optional (fail "unexpected rest") fetch r.restCid
+    assert $ c.issuer == acmeBank
+    assert $ c.owner == bob
+    assert $ c.isin == "1234"
+    assert $ c.amount == 30.0
+
+  let settleResults = r.settleResults
+
+  r <- submit alice do
+      exercise helperAliceCid HandleBond with
+        bondCids = map (\r -> r.bondCid) settleResults
+        dvpAllocatedCids = []
+
+  submit alice do
+    c <- optional (fail "unexpected rest") fetch r.restCid
+    assert $ c.issuer == acmeBank
+    assert $ c.owner == alice
+    assert $ c.isin == "1234"
+    assert $ c.amount == 70.0
+
+  r <- submit bob do
+      exercise helperBobCid HandleCash with
+        cashCids = map (\r -> r.cashCid) settleResults
+        dvpCids = []
+
+  submit bob do
+    c <- optional (fail "unexpected rest") fetch r.restCid
+    assert $ c.issuer == acmeBank
+    assert $ c.owner == bob
+    assert $ c.currency == "USD"
+    assert $ c.amount == 70.0

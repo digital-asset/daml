@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source "$BIN_DIR/../lib/dade-common"
+buildTool cassandra out 0
+
+export CASSANDRA_HOME=$DADE_BUILD_RESULT
+export CASSANDRA_CONF=$BIN_DIR/../etc/cassandra
+export CASSANDRA_RUN=${CASSANDRA_RUN_OVERRIDE:-/tmp/da-cassandra}
+export CASSANDRA_HEAPDUMP_DIR=/tmp/da-cassandra/heapdumps
+source "$BIN_DIR/../etc/cassandra/cassandra-env.sh"
+CASSANDRA_LOG=${CASSANDRA_LOG_OVERRIDE:-/tmp/da-cassandra/cassandra.log}
+
+mkdir -p $CASSANDRA_RUN
+echo "Cassandra running. Log output written to $CASSANDRA_LOG. Press Ctrl-C to stop."
+exec $CASSANDRA_HOME/bin/cassandra -f &> $CASSANDRA_LOG

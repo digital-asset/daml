@@ -1,0 +1,35 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test_suite")
+load("//bazel_tools:proto.bzl", "proto_gen")
+
+proto_gen(
+    name = "ledger-api-akka-srcs",
+    srcs = ['//ledger-api/grpc-definitions:protos'],
+    deps = [
+        '@com_google_protobuf//:empty_proto',
+        '@com_google_protobuf//:timestamp_proto',
+        '@com_google_protobuf//:duration_proto',
+        '@com_google_protobuf//:wrappers_proto',
+        '@com_google_protobuf//:any_proto',
+        '@com_google_protobuf//:descriptor_proto',
+    ],
+    plugin_name = 'scala-akka',
+    plugin_exec = '//scala-protoc-plugins/scala-akka:protoc-gen-scala-akka',
+)
+
+da_scala_library(
+    name = "ledger-api-akka",
+    srcs = [":ledger-api-akka-srcs"],
+    deps = [
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//ledger-api/rs-grpc-akka:rs-grpc-akka",
+        "//ledger-api/rs-grpc-bridge:rs-grpc-bridge",
+        '//3rdparty/jvm/com/typesafe/akka:akka_stream',
+        '//3rdparty/jvm/io/grpc:grpc_stub',
+    ],
+    visibility = [
+        '//visibility:public',
+    ]
+)

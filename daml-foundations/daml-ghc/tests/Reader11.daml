@@ -1,0 +1,20 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- DAML-LF 1.0 does not support partial applications of (->),
+-- DAML-LF 1.1 does support it.
+-- @IGNORE-LF 1.0
+daml 1.2
+module Reader11 where
+
+class FunctorX f where
+  xmap : (a -> b) -> f a -> f b
+
+instance FunctorX ((->) r) where
+  xmap = (.)
+
+class Profunctor p where
+  dimap : (a2 -> a1) -> (b1 -> b2) -> p a1 b1 -> p a2 b2
+
+instance Profunctor (->) where
+  dimap f g h = g . h . f

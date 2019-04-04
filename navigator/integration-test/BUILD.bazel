@@ -1,0 +1,28 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load ('//bazel_tools:scala.bzl', 'da_scala_binary')
+
+da_scala_binary(
+  name = 'navigatortest-jar',
+  deps = [
+      '//3rdparty/jvm/ch/qos/logback:logback_classic',
+      '//3rdparty/jvm/com/github/scopt',
+      '//3rdparty/jvm/io/circe:circe_core',
+      '//3rdparty/jvm/io/circe:circe_generic',
+      '//3rdparty/jvm/io/circe:circe_parser',
+      '//3rdparty/jvm/org/seleniumhq/selenium:selenium_java',
+      '//3rdparty/jvm/org/scalatest:scalatest',
+      '//3rdparty/jvm/com/typesafe/scala_logging:scala_logging',
+      '//ledger/sandbox:sandbox',
+      '//daml-foundations/daml-tools/damlc-jar:damlc_library_jar',
+  ],
+  main_class = "com.digitalasset.navigator.test.Main",
+  srcs = glob(
+    [
+      'src/**/*.scala'
+    ]),
+  resources = ["src/main/resources/Main.daml"],
+  resource_strip_prefix = "navigator/integration-test/src/main/resources/",
+  visibility = ['//visibility:public']
+)

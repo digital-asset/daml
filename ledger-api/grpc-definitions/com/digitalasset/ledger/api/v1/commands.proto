@@ -1,0 +1,94 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.ledger.api.v1;
+
+import "com/digitalasset/ledger/api/v1/value.proto";
+
+import "google/protobuf/timestamp.proto";
+
+
+option java_outer_classname = "CommandsOuterClass";
+option java_package = "com.digitalasset.ledger.api.v1";
+
+// A composite command that groups multiple commands together.
+message Commands {
+
+  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Required
+  string ledger_id = 1;
+
+  // Identifier of the on-ledger workflow that this command is a part of.
+  // Optional
+  string workflow_id = 2;
+
+  // Uniquely identifies the application (or its part) that issued the command. This is used in tracing
+  // across different components and to let applications subscribe to their own submissions only.
+  // Required
+  string application_id = 3;
+
+  // Unique command id. This number should be unique for each new command within an application domain. It can be used for matching
+  // the requests with their respective completions.
+  // Required
+  string command_id = 4;
+
+  // Party on whose behalf the command should be executed. It is up to the server to verify that the
+  // authorisation can be granted and that the connection has been authenticated for that party.
+  // Required
+  string party = 5;
+
+  // MUST be an approximation of the wall clock time on the ledger server.
+  // Required
+  google.protobuf.Timestamp ledger_effective_time = 6;
+
+  // The deadline for observing this command in the completion stream before it can be considered to have timed out.
+  // Required
+  google.protobuf.Timestamp maximum_record_time = 7;
+
+  // Individual elements of this atomic command. Must be non-empty.
+  // Required
+  repeated Command commands = 8;
+
+}
+
+// A command can either create a new contract or exercise a choice on an existing contract.
+message Command {
+  oneof command {
+    CreateCommand create = 1;
+    ExerciseCommand exercise = 2;
+  }
+}
+
+// Create a new contract instance based on a template.
+message CreateCommand {
+
+  // The template of contract the client wants to create.
+  // Required
+  Identifier template_id = 1;
+
+  // The arguments required for creating a contract from this template.
+  // Required
+  Record create_arguments = 2;
+}
+
+// Exercise a choice on an existing contract.
+message ExerciseCommand {
+
+  // The template of contract the client wants to exercise.
+  // Required
+  Identifier template_id = 1;
+
+  // The ID of the contract the client wants to exercise upon.
+  // Required
+  string contract_id = 2;
+
+  // The name of the choice the client wants to exercise.
+  // Required
+  string choice = 3;
+
+  // The argument for this choice.
+  // Required
+  Value choice_argument = 4;
+}

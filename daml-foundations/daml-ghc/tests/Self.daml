@@ -1,0 +1,21 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Self where
+
+data Self = Self {p : Party}
+
+instance Template Self where
+  signatory Self {p} = [p]
+
+data Same = Same (ContractId Self)
+instance Choice Self Same () where
+  choiceController Self{p} _ = [p]
+  choice _ self (Same other) = assert (self == other)
+
+main = scenario do
+  alice <- getParty "Alice"
+  submit alice do
+    cid1 <- create Self{p = alice}
+    exercise cid1 (Same cid1)

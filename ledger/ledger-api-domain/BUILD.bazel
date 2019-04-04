@@ -1,0 +1,31 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+  '//bazel_tools:scala.bzl',
+  'da_scala_library'
+)
+
+da_scala_library(
+  name = 'ledger-api-domain',
+  srcs = glob(['src/main/scala/**/*.scala']),
+  deps = [
+		'//3rdparty/jvm/org/scalaz:scalaz_core',		
+		'//3rdparty/jvm/io/zipkin/brave:brave',
+	],
+  visibility = [
+		'//visibility:public',
+  ]
+)
+
+da_scala_library(
+  name = "ledger-api-domain-tests-lib",
+  srcs = glob(['src/test/**/*.scala'], exclude = ['src/test/**/*Spec.scala', 'src/test/**/*Test.scala']),
+  deps = [
+    ':ledger-api-domain',
+    '//3rdparty/jvm/org/scalaz:scalaz_core'
+    ],
+  visibility = [
+		'//visibility:public',
+  ]
+)

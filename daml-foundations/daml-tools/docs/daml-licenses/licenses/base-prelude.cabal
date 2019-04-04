@@ -1,0 +1,61 @@
+name:
+  base-prelude
+version:
+  1.3
+synopsis:
+  The most complete prelude formed solely from the "base" package
+description:
+  A library which aims to reexport all the non-conflicting and
+  most general definitions from the \"base\" package.
+  This includes APIs for applicatives, arrows, monoids, foldables, traversables,
+  exceptions, generics, ST, MVars and STM.
+  .
+  This package will never have any dependencies other than \"base\".
+  .
+  /Versioning policy/
+  .
+  The versioning policy of this package deviates from PVP in the sense
+  that its exports in part are transitively determined by the version of \"base\".
+  Therefore it's recommended for the users of \"base-prelude\" to specify
+  the bounds of \"base\" as well.
+category:
+  Prelude
+homepage:
+  https://github.com/nikita-volkov/base-prelude 
+bug-reports:
+  https://github.com/nikita-volkov/base-prelude/issues 
+author:
+  Nikita Volkov <nikita.y.volkov@mail.ru>
+maintainer:
+  Nikita Volkov <nikita.y.volkov@mail.ru>
+copyright:
+  (c) 2014, Nikita Volkov
+license:
+  MIT
+license-file:
+  LICENSE
+build-type:
+  Simple
+extra-source-files:
+  CHANGELOG.md
+cabal-version:
+  >=1.10
+
+
+source-repository head
+  type:
+    git
+  location:
+    git://github.com/nikita-volkov/base-prelude.git
+
+
+library
+  hs-source-dirs:
+    library
+  other-modules:
+  exposed-modules:
+    BasePrelude
+  build-depends:
+    base >= 4.6 && < 5
+  default-language:
+    Haskell2010

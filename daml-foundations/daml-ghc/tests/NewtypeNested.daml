@@ -1,0 +1,18 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module NewtypeNested where
+
+import Newtype
+
+newtype Nat' = Nat' Nat
+
+mkNat' : Nat -> Nat'
+mkNat' = Nat'
+
+unNat' : Nat' -> Nat
+unNat' (Nat' n) = n
+
+main = scenario do
+  assert $ unNat (unNat' (mkNat' (mkNat 1))) == 1

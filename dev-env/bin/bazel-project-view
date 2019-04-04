@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+USAGEMSG="USAGE: $0 [-o OUTPUT] PROJECT
+
+Generate a default project view file for the specified Bazel package for the
+IntelliJ Bazel plugin. PROJECT must be a valid Bazel package without the
+leading '//'. For example 'ledger-client/ods'.
+
+Example usage:
+
+    bazel-project-view -o ledger-client/ods/.bazelproject ledger-client/ods
+
+"
+
+usage() {
+    echo "$USAGEMSG"
+    exit $1
+}
+
+OUTPUT="-"
+while getopts "ho:" flag; do
+  case "$flag" in
+    h)
+      usage 0
+      ;;
+    o)
+      OUTPUT="$OPTARG"
+      ;;
+    *)
+      usage 1
+      ;;
+    esac
+done
+shift $((OPTIND-1))
+
+if [[ $# -ne 1 ]]; then
+    usage 1
+fi
+
+PROJECT="$1"
+
+# Run Bazel query, return results sorted and indented.
+query() {
+  bazel query "$1" | sort | sed 's/^/  /'
+}
+
+echo "Querying library targets..." >&2
+LIB_TARGETS="$(query 'kind("library rule", //'"$PROJECT"'/...)')"
+echo "Querying test targets..." >&2
+TEST_TARGETS="$(query 'tests(//'"$PROJECT"'/...)')"
+echo "Querying executable targets..." >&2
+EXE_TARGETS="$(query 'kind("binary rule", //'"$PROJECT"'/...)')"
+
+PROJET_VIEW="directories:
+  $PROJECT
+
+targets:
+  # Library targets
+$LIB_TARGETS
+
+  # Test targets
+$TEST_TARGETS
+
+  # Executable targets
+$EXE_TARGETS
+
+additional_languages:
+  scala
+"
+
+if [[ "$OUTPUT" == "-" ]]; then
+  echo "$PROJET_VIEW"
+else
+  echo "$PROJET_VIEW" > "$OUTPUT"
+fi

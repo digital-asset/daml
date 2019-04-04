@@ -1,0 +1,94 @@
+name:          kan-extensions
+category:      Data Structures, Monads, Comonads, Functors
+version:       5.2
+license:       BSD3
+cabal-version: >= 1.6
+license-file:  LICENSE
+author:        Edward A. Kmett
+maintainer:    Edward A. Kmett <ekmett@gmail.com>
+stability:     provisional
+homepage:      http://github.com/ekmett/kan-extensions/
+bug-reports:   http://github.com/ekmett/kan-extensions/issues
+copyright:     Copyright (C) 2008-2016 Edward A. Kmett
+synopsis:      Kan extensions, Kan lifts, the Yoneda lemma, and (co)density (co)monads
+description:   Kan extensions, Kan lifts, various forms of the Yoneda lemma, and (co)density (co)monads.
+build-type:    Simple
+tested-with:   GHC == 7.4.2
+             , GHC == 7.6.3
+             , GHC == 7.8.4
+             , GHC == 7.10.3
+             , GHC == 8.0.2
+             , GHC == 8.2.2
+             , GHC == 8.4.3
+             , GHC == 8.6.1
+
+extra-source-files:
+  .travis.yml
+  .gitignore
+  .ghci
+  .vim.custom
+  CHANGELOG.markdown
+  README.markdown
+  include/kan-extensions-common.h
+
+source-repository head
+  type: git
+  location: git://github.com/ekmett/kan-extensions.git
+
+library
+  hs-source-dirs: src
+  include-dirs: include
+  includes: kan-extensions-common.h
+
+  other-extensions:
+    CPP
+    MultiParamTypeClasses
+    GADTs
+    Rank2Types,
+    FlexibleInstances
+    FlexibleContexts
+    UndecidableInstances
+    TypeFamilies
+
+  build-depends:
+    adjunctions         >= 4.2     && < 5,
+    array               >= 0.3.0.2 && < 0.6,
+    base                >= 4.4     && < 5,
+    comonad             >= 4       && < 6,
+    containers          >= 0.4     && < 0.7,
+    contravariant       >= 1       && < 2,
+    distributive        >= 0.2.2   && < 1,
+    invariant           >= 0.1     && < 1,
+    free                >= 4       && < 6,
+    mtl                 >= 2.0.1   && < 2.3,
+    profunctors         >= 5       && < 6,
+    semigroupoids       >= 4       && < 6,
+    tagged              >= 0.7.2   && < 1,
+    transformers        >= 0.2     && < 0.6,
+    transformers-compat >= 0.3     && < 0.7
+
+  exposed-modules:
+    Control.Comonad.Density
+    Control.Monad.Co
+    Control.Monad.Codensity
+    Data.Functor.Contravariant.Day
+    Data.Functor.Contravariant.Yoneda
+    Data.Functor.Contravariant.Coyoneda
+    Data.Functor.Day
+    Data.Functor.Day.Curried
+    Data.Functor.Invariant.Day
+    Data.Functor.Kan.Lan
+    Data.Functor.Kan.Ran
+    Data.Functor.Yoneda
+    Data.Functor.Coyoneda
+
+  ghc-options: -Wall
+
+  if impl(ghc >= 7.10)
+    ghc-options: -fno-warn-trustworthy-safe
+
+  -- See https://ghc.haskell.org/trac/ghc/wiki/Migration/8.0#base-4.9.0.0
+  if impl(ghc >= 8.0)
+    ghc-options: -Wcompat -Wnoncanonical-monad-instances -Wnoncanonical-monadfail-instances
+  else
+    build-depends: fail >= 4.9 && < 5

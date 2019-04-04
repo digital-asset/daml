@@ -1,0 +1,13 @@
+
+Forked third-party libraries
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The libraries are located here as they are exposed via Nix, and since the
+dev-env hashes `dev-env` and `nix` to initiate a new nix-build we need to store
+them here.
+
+gRPC-haskell, proto3-suite, proto3-wire:
+
+Haskell protocol buffer and gRPC libraries. Forked as the upstream is behind
+on supporting latest GHC versions, and gRPC-haskell was using old grpc C library.
+

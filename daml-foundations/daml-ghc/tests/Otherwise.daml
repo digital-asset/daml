@@ -1,0 +1,18 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+{-# OPTIONS_GHC -Wincomplete-patterns #-}
+-- DEL-4670: This used to erroneously warn about non-exhaustive pattern matches.
+daml 1.2
+module Otherwise where
+
+warning : Bool -> [a] -> [a]
+warning b [] = []
+warning b (x :: xs')
+  | b = warning b xs'
+  | otherwise = x :: xs'
+
+warning3 : Optional a -> [a]
+warning3 mX
+  | Some _ <- mX = warning3 None
+  | otherwise = []

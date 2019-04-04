@@ -1,0 +1,49 @@
+Name:                   http-date
+Version:                0.0.8
+Author:                 Kazu Yamamoto <kazu@iij.ad.jp>
+Maintainer:             Kazu Yamamoto <kazu@iij.ad.jp>
+License:                BSD3
+License-File:           LICENSE
+Synopsis:               HTTP Date parser/formatter
+Description:            Fast parser and formatter for HTTP Date
+Category:               Network, Web
+Cabal-Version:          >= 1.8
+Build-Type:             Simple
+
+Library
+  GHC-Options:          -Wall
+  Exposed-Modules:      Network.HTTP.Date
+  Other-Modules:        Network.HTTP.Date.Converter
+                        Network.HTTP.Date.Formatter
+                        Network.HTTP.Date.Types
+                        Network.HTTP.Date.Parser
+  Build-Depends:        base >= 4 && < 5
+                      , array
+                      , attoparsec
+                      , bytestring
+                      , time
+
+Test-Suite spec
+  Type:                 exitcode-stdio-1.0
+  HS-Source-Dirs:       test
+  Main-Is:              Spec.hs
+  Other-Modules:        DateSpec
+                        Model
+  Build-Depends:        base >= 4 && < 5
+                      , bytestring
+                      , hspec
+                      , http-date
+                      , old-locale
+                      , time
+
+Test-Suite doctests
+  Type:                 exitcode-stdio-1.0
+  HS-Source-Dirs:       test
+  Ghc-Options:          -threaded
+  Main-Is:              doctests.hs
+  Build-Depends:        base
+                      , doctest >= 0.8
+
+Source-Repository head
+  Type:                 git
+  Location:             git://github.com/kazu-yamamoto/http-date

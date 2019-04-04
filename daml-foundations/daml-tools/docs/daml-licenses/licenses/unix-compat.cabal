@@ -1,0 +1,72 @@
+name:           unix-compat
+version:        0.5.1
+synopsis:       Portable POSIX-compatibility layer.
+description:    This package provides portable implementations of parts
+                of the unix package. This package re-exports the unix
+                package when available. When it isn't available,
+                portable implementations are used.
+
+homepage:       http://github.com/jystic/unix-compat
+license:        BSD3
+license-file:   LICENSE
+author:         Björn Bringert, Duncan Coutts, Jacob Stanley, Bryan O'Sullivan
+maintainer:     Jacob Stanley <jacob@stanley.io>
+category:       System
+build-type:     Simple
+cabal-version:  >= 1.6
+
+source-repository head
+  type:     git
+  location: git://github.com/jystic/unix-compat.git
+
+flag old-time
+  description: build against old-time package
+  default: False
+
+Library
+  hs-source-dirs: src
+  ghc-options: -Wall
+  build-depends: base == 4.*
+
+  exposed-modules:
+    System.PosixCompat
+    System.PosixCompat.Extensions
+    System.PosixCompat.Files
+    System.PosixCompat.Temp
+    System.PosixCompat.Time
+    System.PosixCompat.Types
+    System.PosixCompat.Unistd
+    System.PosixCompat.User
+
+  if os(windows)
+    c-sources:
+      cbits/HsUname.c
+      cbits/mktemp.c
+
+    extra-libraries: msvcrt
+    build-depends: Win32 >= 2.5.0.0
+
+    if flag(old-time)
+      build-depends: old-time >= 1.0.0.0 && < 1.2.0.0
+      cpp-options: -DOLD_TIME
+
+      if impl(ghc < 7)
+        build-depends: directory == 1.0.*
+        cpp-options: -DDIRECTORY_1_0
+      else
+        build-depends: directory == 1.1.*
+    else
+      build-depends: time >= 1.0 && < 1.9
+      build-depends: directory >= 1.2 && < 1.4
+
+    other-modules:
+      System.PosixCompat.Internal.Time
+
+  else
+    build-depends: unix >= 2.4 && < 2.9
+    include-dirs: include
+    includes: HsUnixCompat.h
+    install-includes: HsUnixCompat.h
+    c-sources: cbits/HsUnixCompat.c
+    if os(solaris)
+      cc-options: -DSOLARIS

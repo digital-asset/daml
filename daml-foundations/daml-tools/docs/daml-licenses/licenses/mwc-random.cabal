@@ -1,0 +1,52 @@
+name:           mwc-random
+version:        0.14.0.0
+synopsis:       Fast, high quality pseudo random number generation
+description:
+  This package contains code for generating high quality random
+  numbers that follow either a uniform or normal distribution.  The
+  generated numbers are suitable for use in statistical applications.
+  .
+  The uniform PRNG uses Marsaglia's MWC256 (also known as MWC8222)
+  multiply-with-carry generator, which has a period of 2^8222 and
+  fares well in tests of randomness.  It is also extremely fast,
+  between 2 and 3 times faster than the Mersenne Twister.
+  .
+  Compared to the mersenne-random package, this package has a more
+  convenient API, is faster, and supports more statistical
+  distributions.
+
+license:        BSD3
+license-file:   LICENSE
+homepage:       https://github.com/bos/mwc-random
+bug-reports:    https://github.com/bos/mwc-random/issues
+author:         Bryan O'Sullivan <bos@serpentine.com>
+maintainer:     Bryan O'Sullivan <bos@serpentine.com>
+copyright:      2009, 2010, 2011 Bryan O'Sullivan
+category:       Math, Statistics
+build-type:     Simple
+cabal-version:  >= 1.8.0.4
+extra-source-files:
+  changelog.md
+  README.markdown
+
+library
+  exposed-modules: System.Random.MWC
+                   System.Random.MWC.Distributions
+                   System.Random.MWC.CondensedTable
+                   System.Random.MWC.SeedSource
+  build-depends: base           >= 4.5 && < 5
+               , primitive      >= 0.6
+               , time
+               , vector         >= 0.7
+               , math-functions >= 0.2.1.0
+
+  ghc-options: -Wall -funbox-strict-fields -fwarn-tabs
+
+
+source-repository head
+  type:     git
+  location: git://github.com/bos/mwc-random
+
+source-repository head
+  type:     mercurial
+  location: https://bitbucket.org/bos/mwc-random

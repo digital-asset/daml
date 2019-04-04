@@ -1,0 +1,35 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Iou where
+
+template Iou
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+    currency : Text
+  where
+    signatory issuer
+
+    controller owner can
+      Transfer : ContractId Iou
+        with newOwner : Party
+        do create this with owner = newOwner
+
+run = scenario do
+    bank <- getParty "Bank"
+    alice <- getParty "Alice"
+    bob <- getParty "Bob"
+    cid <- submit bank do
+      create Iou with
+       issuer = bank
+       owner = alice
+       amount = 10
+       currency = "USD"
+    submit alice do
+      exercise cid Transfer with
+       newOwner = bob
+
+

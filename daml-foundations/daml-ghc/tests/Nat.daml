@@ -1,0 +1,18 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ TODO Recursive data types
+daml 1.2
+module Nat where
+
+data Nat = Z | S Nat
+      deriving (Eq,Ord)
+
+
+add : Nat -> Nat -> Nat
+add Z x = x
+add (S x) y = add x (S y)
+
+main = scenario do
+    alice <- getParty "alice"
+    submit alice $ assert $ add (S (S Z)) (S Z) == (S (S (S Z)))

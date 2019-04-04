@@ -1,0 +1,80 @@
+transactions:
+TX #0 1970-01-01T00:00:00Z [unknown source]
+#0:0
+│   archived by #8:1
+│   referenced by #4:0, #5:0, #8:0, #8:1
+│   known to (since): Alice (#0)
+└─> create Test:TextKey@XXXXXXXX
+    with: { p = 'Alice', tkKey = "some-key" } value-version: 1
+key { _1 = 'Alice', _2 = "some-key" } value-version: 1
+
+mustFailAt 'Alice' [unknown source]
+
+mustFailAt 'Bob' [unknown source]
+
+mustFailAt 'Bob' [unknown source]
+
+TX #4 1970-01-01T00:00:00Z [unknown source]
+#4:0
+└─> lookup by key Test:TextKey@XXXXXXXX
+key { _1 = 'Alice', _2 = "some-key" } value-version: 1
+found #0:0
+
+TX #5 1970-01-01T00:00:00Z [unknown source]
+#5:0
+└─> ensure active #0:0
+
+TX #6 1970-01-01T00:00:00Z [unknown source]
+#6:0
+└─> lookup by key Test:TextKey@XXXXXXXX
+key { _1 = 'Alice', _2 = "blah" } value-version: 1
+not found
+
+TX #7 1970-01-01T00:00:00Z [unknown source]
+#7:0
+└─> lookup by key Test:TextKey@XXXXXXXX
+key { _1 = 'Bob', _2 = "some-key" } value-version: 1
+not found
+
+TX #8 1970-01-01T00:00:00Z [unknown source]
+#8:0
+└─> ensure active #0:0
+
+#8:1
+│   known to (since): Alice (#8)
+└─> Alice exercises TextKeyChoice:Test:TextKey@XXXXXXXX on #0:0
+    with {  } value-version: 1
+    
+
+TX #9 1970-01-01T00:00:00Z [unknown source]
+#9:0
+└─> lookup by key Test:TextKey@XXXXXXXX
+key { _1 = 'Alice', _2 = "some-key" } value-version: 1
+not found
+
+TX #10 1970-01-01T00:00:00Z [unknown source]
+#10:0
+│   archived by #11:1
+│   referenced by #11:0, #11:1
+│   known to (since): Alice (#10)
+└─> create Test:TextKey@XXXXXXXX
+    with: { p = 'Alice', tkKey = "some-key-2" } value-version: 1
+key { _1 = 'Alice', _2 = "some-key-2" } value-version: 1
+
+TX #11 1970-01-01T00:00:00Z [unknown source]
+#11:0
+└─> ensure active #10:0
+
+#11:1
+│   known to (since): Alice (#11)
+└─> Alice exercises TextKeyChoice:Test:TextKey@XXXXXXXX on #10:0
+    with {  } value-version: 1
+    
+
+#11:2
+└─> lookup by key Test:TextKey@XXXXXXXX
+key { _1 = 'Alice', _2 = "some-key-2" } value-version: 1
+not found
+
+active contracts:
+   

@@ -1,0 +1,18 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2 module ActionFail where
+
+catOptionalsComp : [Optional a] -> [a]
+catOptionalsComp l = [x | Some x <- l]
+
+catOptionalsMonad : [Optional a] -> [a]
+catOptionalsMonad l = do
+  Some x <- l
+  return x
+
+main = scenario do
+  alice <- getParty "alice"
+  submit alice do
+    assert $ catOptionalsComp [None,Some 1,Some 2] == [1,2]
+    assert $ catOptionalsMonad [None,Some 1,Some 2] == [1,2]

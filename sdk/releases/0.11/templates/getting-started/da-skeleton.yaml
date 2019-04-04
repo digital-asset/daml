@@ -1,0 +1,6 @@
+project:
+  scenario: Main.example
+  source: daml/Main.daml
+  parties:
+  - Scrooge_McDuck
+  - Betina_Beakley

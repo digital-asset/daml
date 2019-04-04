@@ -1,0 +1,37 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Self2 where
+
+template Self2
+  with
+    p : Party
+  where
+    signatory p
+
+    controller p can
+      nonconsuming Foo : Text
+        do
+          exercise self Bar
+
+      Bar : Text
+        do
+          return "ok"
+
+      Baz : Text
+        do
+          exercise self Bar
+
+main = scenario do
+  alice <- getParty "Alice"
+
+  submitMustFail alice do
+    cid <- create $ Self2 alice
+    exercise cid Baz -- Attempt to exercise a contract that was consumed in same transaction.
+
+  r <- submit alice do
+    cid <- create $ Self2 alice
+    exercise cid Foo
+  assert $ r == "ok"
+

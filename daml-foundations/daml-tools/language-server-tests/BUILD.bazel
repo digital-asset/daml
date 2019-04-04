@@ -1,0 +1,43 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@build_bazel_rules_typescript//:defs.bzl", "ts_library")
+load("@build_bazel_rules_nodejs//:defs.bzl", "npm_package", "nodejs_test")
+
+ts_library(
+    name = "lib",
+    srcs = glob(["src/**/*.ts"]),
+    tsconfig = "src/tsconfig.json",
+    node_modules = "@language_server_tests_deps//:node_modules",
+)
+
+# Wrap it in an npm package to make sure we get the generated JS.
+npm_package(
+    name = "lib-js",
+    deps = [":lib"],
+)
+
+nodejs_test(
+    name = "language-server-tests",
+    node_modules = "@language_server_tests_deps//:node_modules",
+    entry_point = "com_github_digital_asset_daml/daml-foundations/daml-tools/language-server-tests/runner.js",
+    data = [
+        ":lib-js",
+        "runner.js",
+        ":tests",
+        "//daml-foundations/daml-tools/da-hs-damlc-app",
+    ],
+    templated_args = [
+        "daml-foundations/daml-tools/language-server-tests/",
+        "$(location //daml-foundations/daml-tools/da-hs-damlc-app)",
+        "$(location :lib-js)/src/tests",
+    ],
+    # this test is fantastically unreliably, even with flaky TODO fix the flakyness
+   timeout = "long",
+   flaky = True,
+)
+
+filegroup(
+    name = "tests",
+    srcs = glob(["tests/**"]),
+)

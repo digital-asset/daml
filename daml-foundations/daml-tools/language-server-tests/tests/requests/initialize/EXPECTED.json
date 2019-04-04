@@ -1,0 +1,17 @@
+{
+  "capabilities": {
+    "workspaceSymbolProvider": false,
+    "textDocumentSync": 1,
+    "documentRangeFormattingProvider": false,
+    "documentHighlightProvider": false,
+    "renameProvider": false,
+    "definitionProvider": true,
+    "hoverProvider": true,
+    "codeActionProvider": false,
+    "codeLensProvider": true,
+    "documentOnTypeFormattingProvider": false,
+    "documentSymbolProvider": false,
+    "documentFormattingProvider": false,
+    "referencesProvider": false
+  }
+}

@@ -1,0 +1,92 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Divulgence where
+
+template Secret
+  with
+    p : Party
+    mySecret : Text
+  where
+    signatory p
+
+template RevealYourSecret
+  with
+    p : Party
+    secretCid : ContractId Secret
+  where
+    signatory p
+
+template DelegatedAccess
+  with
+    p : Party
+    spy : Party
+  where
+    signatory p
+
+    controller spy can
+      ReadSecret : Secret
+        with secretCid : ContractId Secret
+        do
+          fetch secretCid -- use p's authority to fetch secretCid
+
+template DisclosureDelegation
+  with
+    p : Party
+    actor : Party
+  where
+    signatory p
+
+    controller actor can
+      Disclose : Secret
+        with secretCid : ContractId Secret
+        do
+          fetch secretCid -- actor will divulge secretCid to p
+
+
+main = scenario do
+  me <- getParty "Me"
+  spy <- getParty "Spy"
+  secretCid <- submit me do
+    create Secret with
+           p = me
+           mySecret = "Password for my Swiss bank account is 874321"
+
+  accCid <-
+    submit me do create DelegatedAccess with p = me; spy
+
+  submit spy do create RevealYourSecret with p = spy; secretCid = secretCid
+
+  -- me can fetch
+  submit me do
+    fetch secretCid
+
+  -- spy cannot fetch
+  submitMustFail spy do
+    fetch secretCid
+
+  -- spy cannot fetch even via delegation
+  submitMustFail spy do
+    exercise accCid ReadSecret with secretCid
+
+  -- lets divulge the secret with spy
+  disCid <-
+    submit spy do create DisclosureDelegation with p = spy; actor = me
+  submit me do exercise disCid Disclose with secretCid
+
+  -- me can still fetch
+  submit me do
+    fetch secretCid
+
+  -- spy still cannot fetch
+  submitMustFail spy do
+    fetch secretCid
+
+  -- now spy can fetch using delegation from me
+  submit spy do
+    exercise accCid ReadSecret with secretCid
+
+
+
+

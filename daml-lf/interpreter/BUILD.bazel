@@ -1,0 +1,55 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+    "lf_scalacopts",
+)
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repl")
+
+da_scala_library(
+    name = "interpreter",
+    srcs = glob(["src/main/**/*.scala"]),
+    scalacopts = lf_scalacopts,
+    visibility = [
+        "//compiler/scenario-service:__subpackages__",
+        "//daml-lf:__subpackages__",
+        "//ledger:__subpackages__",
+    ],
+    deps = [
+        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/typelevel:paiges_core",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/lfpackage",
+        "//daml-lf/transaction",
+        "//daml-lf/validation",
+    ],
+)
+
+da_scala_test_suite(
+    name = "tests",
+    size = "small",
+    srcs = glob(["src/test/**/*.scala"]),
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":interpreter",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//daml-lf/archive:daml_lf_archive_scala",
+        "//daml-lf/data",
+        "//daml-lf/lfpackage",
+        "//daml-lf/parser",
+    ],
+)
+
+scala_repl(
+    name = "interpreter@repl",
+    deps = [
+        ":interpreter",
+    ],
+)

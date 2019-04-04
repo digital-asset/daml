@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+if [[ "$DADE_CURRENT_SCRIPT_DIR" =~ ^/nix/store/.* ]]; then
+    echo "Unable to release dev-env from Nix store. Are you running this from another repository than `da`?"
+    exit 1
+fi
+
+if [ $# -eq 1 ]; then
+    BUMP=$1
+else
+    BUMP=patch
+fi
+
+DADE_REPO_ROOT="$DADE_CURRENT_SCRIPT_DIR/../../"
+VERSION=$(cat "$DADE_REPO_ROOT/dev-env/VERSION")
+semver bump $BUMP $VERSION > "$DADE_REPO_ROOT/dev-env/VERSION"
+nix-build "$DADE_REPO_ROOT/nix" -A cached.dev-env --no-out-link

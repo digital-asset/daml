@@ -1,0 +1,21 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load ("//bazel_tools:haskell.bzl", "da_haskell_binary")
+
+da_haskell_binary(
+    name = "notices-gen",
+    srcs = glob(["src/**/*.hs"]),
+    src_strip_prefix = "src",
+    deps = [],
+    hazel_deps = [
+        "base",
+        "bytestring",
+        "http-conduit",
+        "utf8-string",
+        "Cabal",
+        "process",
+        "xml",
+    ],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,31 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+  '//bazel_tools:scala.bzl',
+  'da_scala_library',
+)
+
+da_scala_library(
+  name = 'bindings-akka-testing',
+  deps = [
+    '//3rdparty/jvm/com/typesafe/akka:akka_http',
+    '//3rdparty/jvm/com/typesafe/akka:akka_stream',
+    '//3rdparty/jvm/org/scalatest:scalatest',
+    '//3rdparty/jvm/com/typesafe/scala_logging:scala_logging',
+    '//3rdparty/jvm/ch/qos/logback:logback_classic',
+    '//3rdparty/jvm/org/slf4j:slf4j_api',
+    '//3rdparty/jvm/com/typesafe/akka:akka_slf4j',
+    '//3rdparty/jvm/com/github/pureconfig:pureconfig',
+    '//3rdparty/jvm/com/github/zafarkhaja:java_semver',
+    '//ledger/ledger-api-client',
+    '//ledger-api/rs-grpc-bridge',
+  ],
+  runtime_deps = [],
+  exports = [],
+  visibility = [
+    '//visibility:public',
+  ],
+  srcs = glob(['src/main/scala/**/*.scala']),
+  resources = glob(['src/main/resources/**/*']),
+)

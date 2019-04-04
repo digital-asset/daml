@@ -1,0 +1,63 @@
+.rst-content
+
+  div > .highlight
+    padding-left: 47px !important
+    margin-left: -56px
+
+  dd, li
+    div > .highlight
+      padding-left: calc(47px + 1.6em) !important
+      margin-left: calc(-56px - 1.6em)
+    div[class^='highlight']
+      margin-left: calc(-56px - 1.6em)
+
+    dd, li
+      div > .highlight
+        padding-left: calc(47px + 2 * 1.6em) !important
+        margin-left: calc(-56px - 2 * 1.6em)
+      div[class^='highlight']
+        margin-left: calc(-56px - 2 * 1.6em)
+
+  .linenos
+    padding-left: 11px
+
+  div[class^="highlight"]
+    padding-left: 18px
+    background-color: #171B26
+    overflow-x: hidden !important
+    width: 160%
+
+    .linenodiv
+      color: #ffffff
+
+  .literal-block-wrapper, .literal-block-wrapper:last-child
+    margin-top: 35px
+    margin-bottom: 35px
+
+    div[class^="highlight"]
+      margin-top: 0
+      margin-bottom: 0
+
+
+  .highlight, .highlight:last-child
+    background-color: #171B26
+    color: #eeeeee
+    margin-top: 35px
+    margin-bottom: 35px
+
+    .hll
+      background-color: #2F3649
+
+    .kr, .k, .kd
+      color: #cf82c7
+    .kt, .si, .p
+      color: #2A95E0
+    .kc, .mf, .s1, .mi, .sb, .s
+      color: #AFD0A1
+    .m
+      color: #4ae0b3
+    .c1
+      color: #508D3E
+    .n, .o, .nt, .nf, .ow, .nb
+      color: #FFFFFF
+

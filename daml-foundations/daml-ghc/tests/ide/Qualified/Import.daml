@@ -1,0 +1,13 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ ERROR Couldn't match expected type ‘Good.T’ with actual type ‘Bad.T’
+daml 1.2
+module Import where
+
+import qualified Good
+import qualified Bad
+
+-- this checks that qualified names show up in error messages
+a : Good.T
+a = Bad.T

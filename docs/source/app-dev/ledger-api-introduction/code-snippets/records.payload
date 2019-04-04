@@ -1,0 +1,64 @@
+{ // Record
+  record_id { // Identifier
+    package_id: "some-hash"
+    name: "Types.MyProductType"
+  }
+  fields { // RecordField
+    label: "intField"
+    value { // Value
+      int64: 17
+    }
+  }
+  fields { // RecordField
+    label: "textField"
+    value { // Value
+      text: "some text"
+    }
+  }
+  fields { // RecordField
+    label: "decimalField"
+    value { // Value
+      decimal: "17.42"
+    }
+  }
+  fields { // RecordField
+    label: "boolField"
+    value { // Value
+      bool: false
+    }
+  }
+  fields { // RecordField
+    label: "partyField"
+    value { // Value
+      party: "Bob"
+    }
+  }
+  fields { // RecordField
+    label: "timeField"
+    value { // Value
+      timestamp: 1526428800000000
+    }
+  }
+  fields { // RecordField
+    label: "listField"
+    value { // Value
+      list { // List
+        elements { // Value
+          int64: 1
+        }
+        elements { // Value
+          int64: 2
+        }
+        elements { // Value
+          int64: 3
+        }
+      }
+    }
+  }
+  fields { // RecordField
+    label: "contractIdField"
+    value { // Value
+      contract_id: "some-contract-id" 
+    }
+  }
+}

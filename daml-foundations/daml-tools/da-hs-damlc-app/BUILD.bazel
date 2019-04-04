@@ -1,0 +1,68 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load ("//bazel_tools:haskell.bzl", "da_haskell_binary")
+load ("//bazel_tools:packaging/packaging.bzl", "package_app")
+
+da_haskell_binary (
+    name = "da-hs-damlc-app"
+  , src_strip_prefix = "src"
+  , srcs = ['src/Main.hs']
+  , deps = [
+    "//daml-foundations/daml-tools/da-hs-daml-cli"
+  ]
+  , hazel_deps = [
+      "base"
+  ]
+  , data = [
+      "//daml-foundations/daml-ghc/daml-stdlib-src"
+    , "//daml-foundations/daml-ghc/package-database:package-db"
+    , "//compiler/scenario-service/server:scenario_service_jar"
+  ]
+  , visibility = ["//visibility:public"]
+  , linkstatic = True
+)
+
+da_haskell_binary (
+    name = "damlc_bootstrap"
+  , src_strip_prefix = "src"
+  , srcs = ['src/Main.hs']
+  , deps = [
+    "//daml-foundations/daml-tools/da-hs-daml-cli"
+  ]
+  , hazel_deps = [
+      "base"
+  ]
+  , visibility = ["//visibility:public"]
+)
+
+
+package_app(
+    name = "damlc-dist"
+  , binary = ":da-hs-damlc-app"
+  , resources = [
+      "//compiler/scenario-service/server:scenario_service_jar"
+    , "//daml-foundations/daml-ghc/daml-stdlib-src"
+    , "//daml-foundations/daml-ghc/package-database:package-db"
+    , "//daml-foundations/daml-ghc/package-database:gen-daml-prim.dar"
+  ]
+  , visibility = ["//visibility:public"]
+  , tags = ["no-cache"]
+)
+
+sh_test(
+    name = "dist-test"
+  , srcs = ["test/check-dist.sh"]
+  , data = [
+      ":damlc-dist.tar.gz"
+    , ":test/Main.daml"
+    , "@tar_nix//:bin/tar"
+    , "@gzip_nix//:bin/gzip"
+  ]
+  , args = [
+      "$(location :damlc-dist.tar.gz)"
+    , "$(location :test/Main.daml)"
+    , "$(location @tar_nix//:bin/tar)"
+    , "$(location @gzip_nix//:bin/gzip)"
+  ]
+)

@@ -1,0 +1,13 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2 module Choice_superfluous_with where
+
+template W with
+    owner : Party
+  where
+    signatory owner
+    controller owner can
+      F : () with -- a `with` but an empty field list! Used to fail as per DEL-6341.
+        do
+          pure ()

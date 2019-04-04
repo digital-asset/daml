@@ -1,0 +1,26 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- The PatternMatching example.
+daml 1.2
+module PatternMatching where
+
+optionalIntegerToText (x : Optional Int) : Text =
+  case x of
+    None -> "Box is empty"
+    Some val -> "The content of the box is " <> show val
+
+optionalIntegerToTextTest =
+  scenario do
+    let
+      x = Some 3
+    assert (optionalIntegerToText x == "The content of the box is 3")
+
+
+tmp =
+  let
+    l = [1, 2, 3]
+  in case l of
+    [] -> "List is empty"
+    _ :: [] -> "List has one element"
+    _ :: _ :: [] -> "List has at least two elements"

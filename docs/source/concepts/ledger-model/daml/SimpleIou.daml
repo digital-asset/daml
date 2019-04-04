@@ -1,0 +1,41 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module SimpleIou where
+
+-- SNIPPET-START
+template MustPay with
+    obligor : Party
+    owner : Party
+  where
+    signatory obligor, owner
+    agreement
+      show obligor <> " must pay " <>
+      show owner <> " one unit of value"
+
+template Iou with
+    obligor : Party
+    owner : Party
+  where
+    signatory obligor
+
+    controller owner can
+      Transfer
+        : ContractId Iou
+        with newOwner : Party
+        do create Iou with obligor; owner = newOwner
+
+    controller owner can
+      Settle
+        : ContractId MustPay
+        do create MustPay with obligor; owner
+-- SNIPPET-END
+
+iou = scenario do
+    p1 <- getParty "Alice"
+    p2 <- getParty "Bob"
+    b <- getParty "Bank"
+    cashContract <- submit b do create Iou with obligor = b; owner = p1
+    newContract <- submit p1 do exercise cashContract Transfer with newOwner = p2
+    submit p2 do exercise newContract Settle

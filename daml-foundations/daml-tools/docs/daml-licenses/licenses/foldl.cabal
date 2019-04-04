@@ -1,0 +1,61 @@
+Name: foldl
+Version: 1.4.5
+Cabal-Version: >=1.8.0.2
+Build-Type: Simple
+License: BSD3
+License-File: LICENSE
+Copyright: 2013 Gabriel Gonzalez
+Author: Gabriel Gonzalez
+Maintainer: Gabriel439@gmail.com
+Bug-Reports: https://github.com/Gabriel439/Haskell-Foldl-Library/issues
+Synopsis: Composable, streaming, and efficient left folds
+Description: This library provides strict left folds that stream in constant
+  memory, and you can combine folds using @Applicative@ style to derive new
+  folds.  Derived folds still traverse the container just once and are often as
+  efficient as hand-written folds.
+Category: Control
+Extra-Source-Files:
+    CHANGELOG.md
+    README.md
+Source-Repository head
+    Type: git
+    Location: https://github.com/Gabriel439/Haskell-Foldl-Library
+
+Library
+    HS-Source-Dirs: src
+    Build-Depends:
+        base         >= 4.8      && < 5   ,
+        bytestring   >= 0.9.2.1  && < 0.11,
+        mwc-random   >= 0.13.1.0 && < 0.15,
+        primitive                   < 0.7 ,
+        text         >= 0.11.2.0 && < 1.3 ,
+        transformers >= 0.2.0.0  && < 0.6 ,
+        vector       >= 0.7      && < 0.13,
+        containers   >= 0.5.0.0  && < 0.7 ,
+        unordered-containers        < 0.3 ,
+        hashable                    < 1.3 ,
+        contravariant               < 1.6 ,
+        semigroups   >= 0.17     && < 1.19,
+        profunctors                 < 5.4 ,
+        semigroupoids >= 1.0     && < 5.4 ,
+        comonad      >= 4.0      && < 6   ,
+        vector-builder              < 0.4
+    Exposed-Modules:
+        Control.Foldl,
+        Control.Foldl.ByteString,
+        Control.Foldl.Text,
+        Control.Scanl
+    Other-Modules:
+        Control.Foldl.Optics
+        Control.Foldl.Internal
+    GHC-Options: -O2 -Wall
+
+Benchmark benchmarks
+    Type: exitcode-stdio-1.0
+    HS-Source-Dirs: bench
+    Main-Is: benchmarks.hs
+    Build-Depends:
+        base,
+        criterion,
+        foldl
+    GHC-Options: -O2 -Wall -rtsopts

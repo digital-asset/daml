@@ -1,0 +1,13 @@
+{
+  "method": "textDocument/rename",
+  "payload": {
+    "textDocument": {
+      "uri": "Main.daml"
+    },
+    "position": {
+      "line": 9,
+      "character": 18
+    },
+    "newName": "aNewName"
+  }
+}

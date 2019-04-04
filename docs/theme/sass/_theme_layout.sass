@@ -1,0 +1,2335 @@
+// Set uniform (but not relative) base font size
+html
+  font-size: $base-font-size
+
+  a, a:visited
+    color: $lighter-blue
+
+.wy-affix
+  position: fixed
+  top: $gutter
+
+.wy-menu
+  a:hover
+    text-decoration: none
+
+.wy-menu-horiz
+  +clearfix
+
+  ul, li
+    display: inline-block
+
+  li:hover
+    background: rgba(255, 255, 255, .1)
+
+  li
+    &.divide-left
+      border-left: solid 1px hsl(0, 0%, 25%)
+
+    &.divide-right
+      border-right: solid 1px hsl(0, 0%, 25%)
+
+  a
+    height: $base-font-size * 2
+    display: inline-block
+    padding: 0 $base-font-size
+
+.rst-content code
+  color: #3A478F
+  background-color: #CCDCEC
+  font-family: Courier New, Courier, monospace
+  font-size: 14px
+  position: relative
+  top: -1px
+  font-weight: 400
+
+.wy-menu-vertical
+  width: $nav-desktop-width
+
+  header, p.caption
+    color: $nav-caption
+    height: $base-font-size * 2
+    display: inline-block
+    padding: 0 $gutter
+    margin: $base-line-height / 2 0 0 0
+    display: block
+    font-weight: bold
+    text-transform: uppercase
+
+  ul
+    margin-bottom: 0
+
+  li
+    &.divide-top
+      border-top: solid 1px hsl(0, 0%, 25%)
+
+    &.divide-bottom
+      border-bottom: solid 1px hsl(0, 0%, 25%)
+
+    &.current
+      background: darken($menu-vertical-background-color, 10%)
+
+      a
+        color: $menu-link-medium
+        border-right: solid 1px darken($menu-vertical-background-color, 20%)
+        padding: $gutter / 4 $gutter * 1.5
+
+        &:hover
+          background: darken($menu-vertical-background-color, 15%)
+
+    code
+      border: none
+      background: inherit
+      color: inherit
+      padding-left: 0
+      padding-right: 0
+    // Expand links
+    span.toctree-expand
+      display: block
+      float: left
+      margin-left: -1.2em
+      @extend .fa
+      @extend .fa-plus-square-o
+      font-size: .8em
+      color: darken($menu-link-medium, 20%)
+
+  // On state for the first level
+  li.on a, li.current > a
+    color: $menu-link-color
+    padding: $gutter / 4 $gutter
+    font-weight: bold
+    position: relative
+    background: $menu-vertical-background-color
+    border: none
+    padding-left: $gutter -4px
+    +font-smooth
+
+    &:hover
+      background: $menu-vertical-background-color
+
+      span.toctree-expand
+        color: $menu-link-medium
+
+    span.toctree-expand
+      @extend .fa
+      @extend .fa-minus-square-o
+      display: block
+      font-size: .8em
+      color: darken($menu-link-medium, 30%)
+
+  li.toctree-l1.current > a
+    border-bottom: solid 1px darken($menu-vertical-background-color, 20%)
+    border-top: solid 1px darken($menu-vertical-background-color, 20%)
+
+  // This is the on state for pages beyond second level
+  li.toctree-l2 a, li.toctree-l3 a, li.toctree-l4 a
+    color: $menu-link-color
+
+  li.toctree-l1.current li.toctree-l2, li.toctree-l2.current li.toctree-l3
+    > ul
+      display: none
+
+    &.current > ul
+      display: block
+
+  li.toctree-l2
+    &.current
+      > a
+        background: darken($menu-vertical-background-color, 20%)
+        padding: $gutter / 4 $gutter * 1.5
+
+      li.toctree-l3 > a
+        display: block
+        background: darken($menu-vertical-background-color, 20%)
+        padding: $gutter / 4 $gutter * 2.5
+
+    a:hover span.toctree-expand
+      color: $menu-link-medium
+
+    span.toctree-expand
+      color: darken($menu-vertical-background-color, 35%)
+
+  li.toctree-l3
+    font-size: .9em
+
+    &.current
+      > a
+        background: darken($menu-vertical-background-color, 25%)
+        padding: $gutter / 4 $gutter * 2.5
+
+      li.toctree-l4 > a
+        display: block
+        background: darken($menu-vertical-background-color, 25%)
+        padding: $gutter / 4 $gutter * 3.5
+
+    a:hover span.toctree-expand
+      color: $menu-link-medium
+
+    span.toctree-expand
+      color: darken($menu-vertical-background-color, 40%)
+
+  li.toctree-l4
+    font-size: .9em
+
+  li.current ul
+    display: block
+
+  li ul
+    margin-bottom: 0
+    display: none
+
+  li ul li a
+    margin-bottom: 0
+    color: $menu-link-light
+    font-weight: normal
+
+  a
+    display: inline-block
+    line-height: 12px
+    padding: $gutter / 4 $gutter
+    display: block
+    position: relative
+    color: $menu-link-light
+
+    &:hover
+      background-color: lighten($menu-background-color, 10%)
+      cursor: pointer
+
+      span.toctree-expand
+        color: $menu-link-light
+
+    &:active
+      background-color: $menu-logo-color
+      cursor: pointer
+      color: $menu-link-active
+
+      span.toctree-expand
+        color: $menu-link-active
+
+.wy-side-nav-search
+  display: block
+  width: $nav-desktop-width
+  padding: $gutter / 2
+  margin-bottom: $gutter / 2
+  z-index: $z-index-popover
+  background-color: $nav-search-background-color
+  text-align: center
+  padding: $gutter / 2
+  display: block
+  color: $nav-search-color
+  margin-bottom: $gutter / 2
+
+  input[type=text]
+    width: 100%
+    border-radius: 50px
+    padding: 6px 12px
+    border-color: darken($link-color, 5%)
+
+  img
+    display: block
+    margin: auto auto $gutter / 2 auto
+    height: 45px
+    width: 45px
+    background-color: $menu-logo-color
+    padding: 5px
+    border-radius: 100%
+
+  > a, .wy-dropdown > a
+    color: $nav-search-color
+    font-size: 100%
+    font-weight: bold
+    display: inline-block
+    padding: $base-line-height / 6 $base-line-height / 4
+    margin-bottom: $gutter / 2
+    +font-smooth
+
+    &:hover
+      background: rgba(255, 255, 255, .1)
+
+    img.logo
+      display: block
+      // display on its own line all the time
+      margin: 0 auto
+      height: auto
+      // undo badge styling above
+      width: auto
+      border-radius: 0
+      max-width: 100%
+      // shrink on mobile, if appropriate
+      background: rgba(0, 0, 0, 0)
+    // make hover background of parent show up properly
+    &.icon
+      img.logo
+        margin-top: 0.85em
+  // space it away from the title text
+  > div.version
+    margin-top: -1 * ($gutter / 4)
+    margin-bottom: $gutter / 2
+    font-weight: normal
+    color: rgba(255, 255, 255, .3)
+
+
+.wy-nav .wy-menu-vertical
+  header
+    color: $link-color
+
+  a
+    color: $text-light
+
+    &:hover
+      background-color: $link-color
+      color: $white
+
+[data-menu-wrap]
+  +transition(all .2s ease-in)
+  position: absolute
+  opacity: 1
+  width: 100%
+  opacity: 0
+
+  &.move-center
+    left: 0
+    right: auto
+    opacity: 1
+
+  &.move-left
+    right: auto
+    left: -100%
+    opacity: 0
+
+  &.move-right
+    right: -100%
+    left: auto
+    opacity: 0
+
+
+.wy-body-for-nav
+  background: $section-background-color
+
+.wy-grid-for-nav
+  position: absolute
+  width: 100%
+  height: 100%
+
+.wy-nav-side
+  position: fixed
+  top: 0
+  bottom: 0
+  left: 0
+  padding-bottom: 2em
+  width: $nav-desktop-width
+  overflow-x: hidden
+  overflow-y: hidden
+  min-height: 100%
+  color: $menu-medium
+  background: $nav-background-color
+  z-index: $z-index-popover
+
+.wy-side-scroll
+  width: $nav-desktop-width + 20px
+  position: relative
+  overflow-x: hidden
+  overflow-y: scroll
+  height: 100%
+
+.wy-nav-top
+  display: none
+  background: $link-color
+  color: $white
+  padding: $gutter / 4 $gutter / 2
+  position: relative
+  text-align: center
+  font-size: 100%
+  +clearfix
+
+  a
+    color: $white
+    font-weight: bold
+    +font-smooth
+
+  img
+    margin-right: $base-line-height / 2
+    height: 45px
+    width: 45px
+    background-color: $menu-logo-color
+    padding: 5px
+    border-radius: 100%
+
+  i
+    font-size: 30px
+    float: left
+    cursor: pointer
+    padding-top: inherit
+
+.wy-nav-content-wrap
+  margin-left: $nav-desktop-width
+  background: $section-background-color
+  min-height: 100%
+  background: radial-gradient(45% 110% at bottom right, #e8e9f2, #ffffff)
+  background-attachment: fixed
+  line-height: 1.6em
+
+.wy-nav-content
+  padding: 47px 53px
+
+  height: 100%
+  margin: auto
+  overflow-x: hidden
+
+.wy-body-mask
+  position: fixed
+  width: 100%
+  height: 100%
+  background: rgba(0, 0, 0, .2)
+  display: none
+  z-index: $z-index-modal - 1
+
+  &.on
+    display: block
+
+footer
+  color: $footer-color
+
+  p
+    margin-bottom: $base-line-height / 2
+
+  span.commit code
+    padding: 0px
+    font-family: $code-font-family
+    font-size: 1em
+    background: none
+    border: none
+    color: $footer-color
+
+.rst-footer-buttons
+  &:before, &:after
+    width: 100%
+  +clearfix
+
+.rst-breadcrumbs-buttons
+  margin-top: 12px
+  +clearfix
+
+#search-inline-results
+  .search li
+    margin-bottom: $base-line-height
+    border-bottom: solid 1px $table_border_color
+    padding-bottom: $base-line-height
+    cursor: pointer
+
+  .search li:first-child
+    border-top: solid 1px $table_border_color
+    padding-top: $base-line-height
+
+  .search li a
+    display: inline-block
+    color: #3A478F
+
+  .context
+    color: $blue
+
+.genindextable li > ul
+  margin-left: $base-line-height
+
+
++media($tablet)
+  .wy-body-for-nav
+    background: $section-background-color
+  .wy-nav-top
+    display: block
+  .wy-nav-side
+    @if $nav-desktop-position == left
+      left: -$nav-desktop-width
+    @else
+      right: -$nav-desktop-width
+
+    &.shift
+      width: 85%
+      left: 0
+  .wy-side-scroll
+    width: auto
+  .wy-side-nav-search
+    width: auto
+  .wy-menu.wy-menu-vertical
+    width: auto
+  .wy-nav-content-wrap
+    margin-left: 0
+
+    .wy-nav-content
+      padding: $gutter
+
+    &.shift
+      position: fixed
+      min-width: 100%
+      left: 85%
+      top: 0
+      height: 100%
+      overflow: hidden
+
+@media screen and (min-width: $nav-media-query)
+  .wy-nav-content
+    margin: 0
+
+@media print
+  .rst-versions, footer, .wy-nav-side
+    display: none
+  .wy-nav-content-wrap
+    margin-left: 0
+
+
+// overdrives
+
+body
+  font-family: 'Karla'
+  color: $text-basic
+
+.wy-nav-content
+  padding: 53px 47px
+  margin: 0
+
+  .wy-grid-for-nav
+    &.custom-scroll
+      ::-webkit-scrollbar
+        width: 7px
+
+      ::-webkit-scrollbar-track
+        box-shadow: inset 0 0 5px grey
+        border-radius: 3px
+
+      ::-webkit-scrollbar-thumb
+        background: $content-menu-shadow
+        border-radius: 3px
+
+  .rst-content
+
+    line-height: 1.6em
+
+    *:last-child
+      margin-bottom: 0
+
+    h1
+      font-size: 14pt
+      color: $search-header
+      font-family: 'Montserrat'
+      margin-bottom: 25px
+
+      +media($desktop-wide)
+        margin-bottom: 35px
+
+      position: relative
+      padding-left: 70px
+      font-weight: bold
+
+      &:before
+        content: ''
+        background: $header-line
+        display: block
+        position: absolute
+        left: 0
+        width: 60px
+        height: 1px
+        top: 10px
+
+    h2
+      font-size: 20pt
+      color: $text-lighter
+      font-family: 'Montserrat'
+      font-weight: bold
+      margin-bottom: 32px
+
+    h3
+      font-size: 16pt
+      color: $text-lighter
+      font-family: 'Montserrat'
+      margin-bottom: 32px
+      font-weight: bold
+
+    h4
+      font-size: 14pt
+      color: $text-lighter
+      font-family: 'Montserrat'
+      margin-bottom: 32px
+      font-weight: bold
+
+    h5
+      font-size: 12pt
+      color: $text-lighter
+      font-family: 'Montserrat'
+      margin-bottom: 32px
+      font-weight: bold
+
+    h6
+      font-size: 10pt
+      color: $text-lighter
+      font-family: 'Montserrat'
+      margin-bottom: 32px
+      font-weight: bold
+
+    p
+      margin-bottom: 18px
+      line-height: inherit
+      &:last-child
+        margin-bottom: 35px
+
+    a
+      position: relative
+      font-weight: bold
+      color: $link-color
+
+      span
+        color: $link-color
+
+      &:hover
+        &:before
+          display: block
+          content: ""
+          position: absolute
+          left: 0
+          right: 0
+          height: 2px
+          bottom: -3px
+          background: $link-color
+
+      &:visited
+        color: $link-visited-color
+
+        span
+          color: $link-visited-color
+
+        &:hover
+          &:before
+            background: $link-visited-color
+
+    img
+      margin-bottom: 38px
+
+    .admonition
+      background: unset
+      position: relative
+      margin-left: 50px
+      padding-left: 20px
+      margin-top: 18px
+
+      p
+        margin-bottom: 12px
+
+      p.last
+        margin-bottom: 0
+
+      &:before
+        content: ''
+        background: unset
+        width: 5px
+        display: block
+        position: absolute
+        border-radius: 5px
+        left: -3px
+        top: 10px
+        bottom: 16px
+
+      .admonition-title
+        background: unset
+        font-family: 'Karla'
+        font-weight: bold
+        font-size: 16px
+        color: $text-basic
+        margin-bottom: -8px
+
+        &:before
+          content: ''
+          position: absolute
+          width: 27px
+          height: 27px
+          top: 9px
+          left: -50px
+
+      .last
+        color: $text-basic
+        font-family: 'Karla'
+        font-size: 16px
+
+      &.attention
+        background: unset
+
+        &:before
+          background: $admonition-attention
+
+        .admonition-title
+          background: unset
+
+          &:before
+            background: url("../images/AdmonitionWarning.svg") no-repeat
+
+      &.caution
+        background: unset
+
+        &:before
+          background: $admonition-attention
+
+        .admonition-title
+          background: unset
+
+          &:before
+            background: url("../images/AdmonitionWarning.svg") no-repeat
+
+      &.warning
+        background: unset
+
+        &:before
+          background: $admonition-attention
+
+        .admonition-title
+          background: unset
+
+          &:before
+            background: url("../images/AdmonitionWarning.svg") no-repeat
+
+      &.danger
+        background: unset
+
+        &:before
+          background: $admonition-danger-error
+
+        .admonition-title
+          background: unset
+
+          &:before
+            background: url("../images/AdmonitionDangerError.svg") no-repeat
+
+      &.error
+        background: unset
+
+        &:before
+          background: $admonition-danger-error
+
+        .admonition-title
+          background: unset
+
+          &:before
+            background: url("../images/AdmonitionDangerError.svg") no-repeat
+
+      &.hint
+        background: unset
+
+        &:before
+          background: $admonition-hint
+
+        .admonition-title
+          background: unset
+
+          &:before
+            background: url("../images/AdmonitionHint.svg") no-repeat
+
+      &.important
+        background: unset
+
+        &:before
+          background: $admonition-hint
+
+        .admonition-title
+          background: unset
+
+          &:before
+            background: url("../images/AdmonitionHint.svg") no-repeat
+
+      &.tip, &.seealso
+        background: unset
+
+        &:before
+          background: $admonition-hint
+
+        .admonition-title
+          background: unset
+
+          &:before
+            background: url("../images/AdmonitionHint.svg") no-repeat
+
+      &.note
+        background: unset
+
+        &:before
+          background: $admonition-note
+
+        .admonition-title
+          background: unset
+
+          &:before
+            background: url("../images/AdmonitionNote.svg") no-repeat
+
+.hidden-search
+  display: none
+
+.topbar.fixed
+  position: fixed
+  z-index: 10000
+  background: linear-gradient(90deg, #FBFBFD, #EFF0F6)
+  width: 100%
+
+  @media(max-width: 768px)
+    background: radial-gradient(29% 122% at bottom right, #F7F8FB, #ffffff)
+
+.topbar
+  .navbar
+    h1
+      &:before
+        padding-left: 0
+        margin-bottom: initial
+        display: none
+
+    .navbar-menu
+      .documentation
+        display: none
+
+        &.landing
+          display: block
+
+  .version
+    border-top: 3px solid #5C86DF
+    padding-top: 16px
+    padding-left: 10px
+    top: 0
+    position: absolute
+    right: 210px
+    font-family: 'Montserrat'
+    font-weight: bold
+    color: #687BA3
+    display: flex
+    align-items: center
+    color: $text-lighter
+
+    .version_switcher_placeholder
+      height: 42px
+      padding-left: 12px
+
+    &.landing
+      border-top: none
+      padding-top: 14px
+      padding-left: 47px
+      padding-bottom: 27px
+      color: $text-lighter
+      position: relative
+      top: initial
+      right: initial
+      font-size: 20pt
+
+      +media($desktop-wide)
+        font-size: 26pt
+
+      .nice-select
+        font-size: 20pt
+
+        +media($desktop-wide)
+          font-size: 26pt
+
+        &:after
+          background-size: 20px
+          right: -8px
+          top: 5px
+
+    select.da-version-switcher
+      -webkit-appearance: none
+      background: transparent
+      border: none
+      outline: none
+      box-shadow: none
+      color: #3A478F
+      text-transform: uppercase
+      font-weight: bold
+      font-size: 100%
+      padding: 0
+
+      &:after
+        content: "* * *"
+        background-image: url('../images/LightBluePixelatedArrow.svg')
+
+    .nice-select
+      padding-left: 6px
+      font-size: 18px
+
+      .list
+        position: absolute
+        right: 0
+        left: initial
+        width: 200px
+
+      &:after
+        background-size: 10px
+        right: 2px
+        top: 10px
+
+  .version-switcher-arrow
+    position: relative
+    top: -2px
+
+
+.wy-nav-side
+  background-color: $menu-background-color
+
+  .wy-nav-side-shadow
+    z-index: 9999
+    width: 12px
+    height: 100%
+    position: absolute
+    right: 0
+    top: 0
+    box-shadow: inset -6px 0 12px -5px $nav-shadow
+    -moz-box-shadow: inset -6px 0 12px -5px $nav-shadow
+    -webkit-box-shadow: inset -6px 0 12px -5px $nav-shadow
+
+.wy-menu-vertical
+  font-family: 'Montserrat'
+  font-size: 16px
+
+  .fa
+    display: none
+
+  p.caption
+    position: relative
+    padding-right: 0
+    padding-left: 29px
+    margin-top: 0
+    height: auto
+    padding-right: 50px
+    padding-bottom: 10px
+    padding-top: 10px
+
+    +media($tablet)
+      padding-bottom: 8px
+      padding-top: 8px
+
+
+    &:hover
+      background-color: $menu-background-hover-color
+      cursor: pointer
+
+    &:active
+      background-color: $menu-logo-color
+      cursor: pointer
+
+      span.caption-text
+        color: $menu-link-active
+
+    &:before
+      content: ""
+      display: block
+      background: url("../images/LightBluePixelatedArrow.svg") no-repeat
+      width: 35px
+      height: 23px
+      background-size: 15px
+      background-position-x: center
+      background-position-y: center
+      position: absolute
+      right: 17px
+      top: 12px
+
+      +media($tablet)
+        top: 14px
+
+      -webkit-transform: none
+      -moz-transform: none
+      -o-transform: none
+      -ms-transform: none
+      transform: none
+      pointer-events: all
+
+    &.open
+      &:before
+        content: ""
+        display: block
+        background: url("../images/LightBluePixelatedArrow.svg") no-repeat
+        width: 35px
+        height: 23px
+        background-size: 15px
+        background-position-x: center
+        background-position-y: center
+        position: absolute
+        right: 17px
+        top: 12px
+        -webkit-transform: rotate(180deg)
+        -moz-transform: rotate(180deg)
+        -o-transform: rotate(180deg)
+        -ms-transform: rotate(180deg)
+        transform: rotate(180deg)
+        pointer-events: all
+
+    span.caption-text
+      background-color: unset
+      color: $menu-link-light
+      font-size: 16px
+      padding-top: 0
+      padding-bottom: 0
+
+      text-transform: none
+      pointer-events: all
+
+  > ul
+    display: none
+
+    &.open
+      display: block
+
+    &:first-of-type
+      display: block
+
+  ul
+    &:first-of-type
+      li.toctree-l1:first-of-type
+        a.reference
+          color: $nav-caption
+          height: 44px
+          font-size: 18px
+          padding-top: 10px
+          padding-bottom: 10px
+
+          +media($tablet)
+            padding-top: 8px
+            padding-bottom: 8px
+
+
+          display: block
+          font-weight: bold
+          white-space: nowrap
+          position: relative
+          border: none
+          padding-left: 29px
+          margin-top: 15px
+          margin-bottom: 14px
+
+          &:hover
+            background-color: $menu-background-hover-color
+
+          &:after
+            display: none
+
+        &.current
+          a.reference
+            background-color: $white
+            padding-left: 27px
+
+
+            margin-top: 15px
+            margin-bottom: 14px
+            padding-top: 10px
+
+            +media($tablet)
+              margin-top: 0px
+              margin-bottom: 0px
+              padding-top: 6px
+
+
+            &:after
+              content: ""
+              display: block
+              background: url("../images/DarkBlueArrow.svg") no-repeat
+              width: 14px
+              height: 17px
+              background-size: 14px
+              position: absolute
+              right: 29px
+              top: 15px
+
+            &:hover
+              background-color: $menu-background-hover-color
+
+    li[class^="toctree-l"]
+      font-size: 100%
+
+      a
+        padding-top: 6px
+        padding-bottom: 6px
+
+        +media($tablet)
+          padding-top: 8px
+          padding-bottom: 8px
+
+        padding-left: 35px
+        padding-right: 45px
+        margin-top: 0
+        margin-bottom: 0
+        display: block
+        position: relative
+        font-size: 90%
+        color: $menu-link-light
+        border: none
+        font-weight: unset
+        background-color: unset
+        line-height: 1.6em
+
+      &.current
+        background-color: unset
+
+        a.reference
+          padding-top: 6px
+          padding-bottom: 6px
+
+          +media($tablet)
+            padding-top: 8px
+            padding-bottom: 8px
+
+          display: block
+          position: relative
+          font-size: 90%
+          color: $menu-link-light
+          border: none
+          font-weight: unset
+          line-height: 1.6em
+          background-color: unset
+          padding-left: 35px
+
+    li
+      li
+        a
+          padding-left: 63px !important
+
+        li
+          a
+            padding-left: 80px !important
+
+          li
+            a
+              padding-left: 97px !important
+
+    > li[class^="toctree-l"]
+      > a.reference
+        &.current
+          background-color: $white
+          border: none
+
+          > span.toctree-expand
+            &:before
+              -webkit-transform: none
+              -moz-transform: none
+              -o-transform: none
+              -ms-transform: none
+              transform: none
+
+          &:after
+            content: ""
+            display: block
+            background: url("../images/DarkBlueArrow.svg") no-repeat
+            width: 14px
+            height: 17px
+            background-size: 14px
+            position: absolute
+            right: 28px
+            top: 9px
+            z-index: 3
+
+          &:hover
+            span.toctree-expand
+              &:after
+                background: $menu-background-hover-color
+
+        &:hover
+          background-color: $menu-background-hover-color
+          cursor: pointer
+
+        &:active
+          background-color: $menu-logo-color
+          cursor: pointer
+          color: $menu-link-active
+
+      &:not(.current)
+        > a.reference
+          &.current
+            > span.toctree-expand
+              &:before
+                -webkit-transform: none
+                -moz-transform: none
+                -o-transform: none
+                -ms-transform: none
+                transform: none
+
+      &.current
+        > a.reference
+          border: none
+
+          span.toctree-expand
+            display: block
+
+            &:before
+              content: ""
+              display: block
+              background: url("../images/LightBluePixelatedArrow.svg") no-repeat
+              width: 35px
+              height: 23px
+              background-size: 15px
+              background-position-x: center
+              background-position-y: center
+              position: absolute
+              right: 18px
+              top: 6px
+              -webkit-transform: rotate(180deg)
+              -moz-transform: rotate(180deg)
+              -o-transform: rotate(180deg)
+              -ms-transform: rotate(180deg)
+              transform: rotate(180deg)
+
+      > a.reference
+        span.toctree-expand
+          &:before
+            content: ""
+            display: block
+            background: url("../images/LightBluePixelatedArrow.svg") no-repeat
+            width: 35px
+            height: 23px
+            background-size: 15px
+            background-position-x: center
+            background-position-y: center
+            position: absolute
+            right: 18px
+            top: 6px
+            -webkit-transform: none
+            -moz-transform: none
+            -o-transform: none
+            -ms-transform: none
+            transform: none
+
+        &.current
+          span.toctree-expand
+            &:after
+              content: ""
+              display: block
+              background: $white
+              width: 18px
+              height: 17px
+              background-size: 14px
+              position: absolute
+              right: 16px
+              top: 10px
+              z-index: 2
+
+            &:before
+              content: ""
+              display: block
+              background: url("../images/LightBluePixelatedArrow.svg") no-repeat
+              width: 35px
+              height: 23px
+              background-size: 15px
+              background-position-x: center
+              background-position-y: center
+              position: absolute
+              right: 18px
+              top: 8px
+              visibility: hidden
+              -webkit-transform: rotate(180deg)
+              -moz-transform: rotate(180deg)
+              -o-transform: rotate(180deg)
+              -ms-transform: rotate(180deg)
+              transform: rotate(180deg)
+              z-index: 1
+
+.shift
+  .search-inline
+    input[type="text"].search-inline-input
+      padding-left: 23px
+
+.wy-nav-content-wrap
+  .search-inline
+    position: relative
+    display: inline-block
+    width: calc(100% - 384px)
+
+    &.landing
+      display: block
+      width: 100%
+      margin-top: 16px
+
+    img.search-inline-img
+      position: absolute
+      left: 47px
+      top: 20%
+      width: 26px
+      height: 29px
+      cursor: pointer
+
+    input[type="text"].search-inline-input
+      font-family: "Karla"
+      font-size: 16px
+      border: none
+      outline: none
+      box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+      -moz-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+      -webkit-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+
+      width: 100%
+      height: 50px
+      color: $blue
+      padding-left: 85px
+
+    input[type="text"].search-inline-input:-ms-input-placeholder
+      color: $blue
+
+    input[type="text"].search-inline-input::-webkit-input-placeholder
+      color: $blue
+
+    input[type="text"].search-inline-input:-moz-placeholder
+      color: $blue
+
+    input[type="text"].search-inline-input::-moz-placeholder
+      color: $blue
+
+    .search-alert
+      display: none
+      position: absolute
+      border: 1px solid grey
+      width: 100%
+      background: white
+      overflow: scroll
+      z-index: 200
+      top: 50px
+      overflow: hidden
+      padding: 20px 47px
+      color: $text-lighter
+
+      &.active
+        display: block
+
+    #search-inline-results.search-inline-results
+      display: none
+      position: absolute
+      width: 100%
+      background: $white
+      overflow: scroll
+      z-index: 200
+      top: 50px
+      overflow: hidden
+      box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+      -moz-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+      -webkit-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+
+      &.active
+        display: block
+
+      h2
+        display: none
+
+      p
+        color: $blue
+        bottom: 0
+        margin-top: 15px
+        margin-bottom: 20px
+        padding-left: 52px
+        font-weight: bold
+
+        a
+          margin-left: 5px
+          color: $lighter-blue
+
+      ul
+        max-height: 155px
+        overflow: hidden
+
+        li
+          margin-bottom: 0
+          margin-top: 0
+          border: none
+          padding-bottom: 12px
+          padding-left: 47px
+          padding-right: 25px
+          padding-top: 12px
+
+          a
+            font-weight: bold
+
+          &.active
+            background-color: $menu-background-color
+            border-left: 5px solid $lighter-blue
+            padding-left: 42px
+
+          &:hover
+            background-color: $menu-background-color
+            border-left: 5px solid $lighter-blue
+            padding-left: 42px
+
+          &:active
+            background-color: $menu-logo-color
+            border-left: 5px solid $lighter-blue
+            padding-left: 42px
+
+            a
+              color: $white
+
+            .context
+              color: $white
+
+          a
+            float: left
+            margin-right: 10px
+            white-space: nowrap
+            padding-left: 5px
+
+          .context
+            height: 28px
+            overflow: hidden
+
+  #search-results
+    width: 95%
+
+    h2
+      font-size: 14px
+      color: $text-lighter
+      font-family: 'Montserrat'
+      margin-bottom: 25px
+
+      +media($desktop-wide)
+        margin-bottom: 35px
+
+      position: relative
+      padding-left: 70px
+      font-weight: bold
+
+      &:before
+        content: ''
+        background: $header-line
+        display: block
+        position: absolute
+        left: 0
+        width: 60px
+        height: 1px
+        top: 9px
+
+    ul.search
+      margin-top: -28px
+
+      li
+        a
+          font-family: 'Karla'
+          margin-top: 18px
+          display: inline-block
+          position: relative
+          color: $lighter-blue
+
+          span
+            color: $lighter-blue
+
+          &:hover
+            &:before
+              display: block
+              content: ""
+              position: absolute
+              left: 0
+              right: 0
+              height: 2px
+              bottom: -3px
+              background: $lighter-blue
+
+          &:visited
+            color: $link-visited-color
+
+            span
+              color: $link-visited-color
+
+            &:hover
+              &:before
+                background: $link-visited-color
+
+        .context
+          font-family: 'Karla'
+          color: $search-results
+          margin-top: 8px
+
+          .highlighted
+            color: $lighter-blue
+            background: $serach-highlighted
+            display: inline-block
+            font-weight: bold
+            padding: 0 6px
+
+
+.content-menu
+  position: relative
+  right: initial
+  top: initial
+  display: inline-block
+  width: 380px
+  vertical-align: top
+  -webkit-box-shadow: 2px 3px 6px 0 $content-menu-shadow
+  -moz-box-shadow: 2px 3px 6px 0 $content-menu-shadow
+  box-shadow: 2px 3px 6px 0 $content-menu-shadow
+
+
+  &.collapsed
+    .content-menu-expand
+      &:before
+        background: url("../images/Expand.svg") no-repeat
+
+    .content-menu-wrapper
+      display: none
+
+  .content-menu-title
+    font-family: 'Montserrat'
+    font-weight: bold
+    color: $menu-link-light
+    font-size: 16px
+    padding-left: 42px
+    padding-top: 15px
+    padding-bottom: 10px
+    display: block
+    background: $white
+    width: 100%
+
+  .content-menu-expand
+    &:before
+      content: ""
+      display: block
+      background: url("../images/Collapse.svg") no-repeat
+      width: 20px
+      height: 20px
+      background-size: 20px
+      background-position-x: center
+      background-position-y: center
+      position: absolute
+      right: 32px
+      top: 14px
+
+  .content-menu-wrapper
+    position: absolute
+    padding-left: 42px
+    padding-right: 30px
+    padding-top: 0
+    margin-top: -12px
+    border-bottom: 26px solid $white
+    overflow-y: auto
+    overflow-x: hidden
+    z-index: 200
+
+    +media($desktop-wider)
+      padding-bottom: 15px
+    width: 100%
+    background-color: $white
+
+    box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+    -moz-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+    -webkit-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+
+    +media($desktop-wider)
+      -webkit-box-shadow: 2px 3px 6px 0 $content-menu-shadow
+      -moz-box-shadow: 2px 3px 6px 0 $content-menu-shadow
+      box-shadow: 2px 3px 6px 0 $content-menu-shadow
+
+    .content-menu-toc
+      code
+        color: $text-lighter
+        background-color: $serach-highlighted
+        font-family: Courier New, Courier, monospace
+        font-size: 80%
+        position: relative
+        top: -1px
+
+      ul
+        ul
+          padding-left: 10px
+
+      ul
+        > li
+          position: relative
+
+          > a
+            margin-top: 10px
+            display: block
+            color: $lighter-blue
+            font-size: 16px
+
+          &.active
+            &:before
+              display: block
+              content: '\2022'
+              position: absolute
+              font-size: 1em
+              left: -15px
+              top: -1px
+
+              +media($desktop-wider)
+                left: -20px
+                top: -4px
+
+
+              color: $menu-link-light
+
+.content-menu
+  -webkit-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+  -moz-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+  box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+
++media($desktop-wide)
+  html, p
+    font-size: 18px
+
+  .topbar
+    .version
+
+      .nice-select
+        .list
+          width: 250px
+  .wy-nav-content
+    .rst-content
+
+      h1, h2, h3, h4, h5, h6, h7
+        margin-bottom: 35px
+
+      .h1-section
+        max-width: 745px
+
+      .h2-section,
+      .h3-section,
+      .h4-section,
+      .h5-section,
+      .h6-section
+        max-width: 745px
+        margin-top: 35px
+
+    max-width: initial
+    padding-right: 400px
+
+    &.landing
+      padding-right: 47px
+
++media($desktop-wider)
+  .wy-nav-content-wrap
+    .search-inline
+      position: relative
+      display: block
+      width: 100%
+  .content-menu
+    position: fixed
+    right: 27px
+    top: 172px
+    width: 380px
+    display: block
+    font-family: 'Karla'
+
+    &.collapsed
+      bottom: unset
+      height: 70px !important
+
+      .content-menu-expand
+        &:before
+          background: url("../images/Expand.svg") no-repeat
+
+      .content-menu-wrapper
+        display: none
+
+    .content-menu-title
+      font-weight: bold
+      color: $menu-link-light
+      font-size: 16px
+      position: absolute
+      z-index: 2
+      padding-left: 42px
+      padding-top: 24px
+      padding-bottom: 19px
+      display: block
+      background: $white
+      width: 100%
+      z-index: 300
+
+    .content-menu-expand
+      &:before
+        content: ""
+        display: block
+        background: url("../images/Collapse.svg") no-repeat
+        width: 20px
+        height: 20px
+        background-size: 20px
+        background-position-x: center
+        background-position-y: center
+        position: absolute
+        right: 32px
+        top: 25px
+        z-index: 4
+
+    .content-menu-wrapper
+      padding-left: 42px
+      padding-right: 30px
+      padding-top: 50px
+      margin-top: 6px
+      width: 380px
+      background-color: $white
+
+      .content-menu-toc
+        ul
+          ul
+            padding-left: 10px
+
+        ul
+          > li
+            position: relative
+
+            > a
+              margin-top: 6px
+              display: block
+              color: $lighter-blue
+              font-size: 16px
+
+            &.active
+              &:before
+                display: block
+                content: '\2022'
+                position: absolute
+                font-size: 1.2em
+                left: -20px
+                top: -2px
+                color: $menu-link-light
+
+
++media($tablet)
+  .wy-nav-content-wrap
+    .wy-nav-content
+      padding: 25px
+      max-width: unset
+
+      .rst-content
+        h1, h2, h3, h4, h5, h6, h7
+          margin-bottom: 25px
+
+        .h1-section
+          max-width: 745px
+
+        .h2-section,
+        .h3-section,
+        .h4-section,
+        .h5-section,
+        .h6-section
+          max-width: 745px
+          margin-top: 25px
+
+        p
+          margin-bottom: 13px
+
+          &:last-child
+            margin-bottom: 25px
+
+            +media($desktop-wide)
+              margin-bottom: 35px
+
+        .admonition
+          .admonition-title
+            font-size: 14px
+
+          .last
+            font-size: 14px
+  .topbar
+    .version
+      .hide-mobile
+        display: none
+
+      &.landing
+        padding-left: 65px
+        align-items: baseline
+
+  .wy-nav-side
+    .wy-side-scroll
+      .wy-menu
+        &.wy-menu-vertical
+          .fa
+            display: block
+  .wy-nav-side
+    &.shift
+      width: 350px
+  .wy-menu-vertical
+    margin-top: 10px
+
+    i.fa
+      font-size: 30px
+      cursor: pointer
+      color: $text-lighter
+      background: unset
+      display: inline-block
+      margin-left: 63px
+      margin-top: 17px
+      position: static
+      margin-bottom: 34px
+
+      &:before
+        content: ""
+        display: block
+        background: url("../images/Close.svg") no-repeat
+        width: 35px
+        height: 31px
+        background-size: 22px
+        background-position-x: center
+        background-position-y: center
+        position: absolute
+        left: 19px
+        top: 26px
+        z-index: 9999
+
+      .wy-menu-vertical-title
+        position: relative
+        font-weight: bold
+        top: 15px
+        left: 12px
+
+        +media($tablet)
+          display: none
+
+    p.caption
+      padding-left: 75px
+
+      span.caption-text
+        font-size: 14px
+
+    ul
+
+      &:first-of-type
+        margin-top: -14px
+
+        > li.toctree-l1:first-of-type
+          > a.reference
+            &.current
+              padding-left: 75px
+            font-size: 16px
+            padding-left: 75px
+            padding-top: 10px
+
+            &:before
+              display: none
+
+      &.open
+        > li[class^="toctree-l"]
+          > a.reference
+            padding-left: 91px
+            font-size: 14px
+
+          ul
+            margin-top: 0
+
+            li
+              > a.reference
+                padding-left: 106px !important
+                font-size: 14px
+
+              ul
+                li
+                  > a.reference
+                    padding-left: 121px !important
+                    font-size: 14px
+  .wy-nav-content-wrap
+    .wy-nav-top
+      color: $text-lighter
+      background: unset
+      margin-left: 13px
+      margin-top: 13px
+      position: fixed
+      z-index: 10001
+
+      i.fa
+        margin-left: 35px
+        margin-top: -1px
+        position: relative
+
+        &:before
+          content: ""
+          display: block
+          background: url("../images/Hamburger.svg") no-repeat
+          width: 35px
+          height: 31px
+          background-size: 22px
+          background-position-x: center
+          background-position-y: center
+          position: absolute
+          right: 18px
+          top: 8px
+
+      a
+        display: none
+
+    &.shift
+      left: 350px
+
+      .wy-nav-top
+        display: none
+
++media($mobile)
+  .wy-nav-side
+    .wy-nav-side-shadow
+      display: none
+
+
+  .wy-nav-content-wrap
+    .wy-nav-content
+      padding-left: 30px
+      padding-top: 23px
+
+      &.landing
+        padding-left: 10px
+
+      .rst-content
+        h1, h2, h3, h4, h5, h6
+          margin-bottom: 25px
+
+        .h1-section
+          max-width: 745px
+
+        .h2-section,
+        .h3-section,
+        .h4-section,
+        .h5-section,
+        .h6-section
+          max-width: 745px
+          margin-top: 25px
+
+        h1
+          font-size: 10pt
+
+          &:before
+            top: 9px
+
+        p
+          margin-bottom: 25px
+
+        .admonition
+          .admonition-title
+            font-size: 14px
+
+          .last
+            font-size: 14px
+  .topbar
+    .version
+      position: absolute
+      right: 23px
+      top: 30px
+      font-size: 14px
+      border-top: none
+      padding-top: 0
+      padding-left: 0
+
+      .nice-select
+        font-size: 14px
+        margin-top: -20px
+
+        .list
+          width: 150px
+
+        .current
+          margin-top: 10px
+          display: inline-block
+
+        &:after
+          top: 20px
+
+      .hide-mobile
+        display: none
+
+      .version_switcher_placeholder
+        height: auto
+        padding-left: initial
+
+      &.landing
+        position: absolute
+        font-size: 12px
+        right: 23px
+        top: 17px
+
+        .version_switcher_placeholder
+          padding-left: 12px
+
+        .nice-select
+          font-size: 12px
+          margin-top: -21px
+
+          &:after
+            background-size: 10px
+            right: 2px
+            top: 21px
+
+        .list
+          position: absolute
+          right: 0
+          left: initial
+
+    .navbar
+      h1
+        max-width: 109px
+        margin-top: 11px
+        margin-left: -85px
+
+      .navbar-menu
+        .documentation
+          display: block
+
+  .wy-nav-side
+    overflow-y: unset
+    overflow-x: unset
+    box-shadow: none
+    -moz-box-shadow: none
+    -webkit-box-shadow: none
+
+    &.shift
+      width: 100%
+      position: fixed
+      top: 236px
+      padding-bottom: 262px
+      z-index: 1
+
+    .wy-side-scroll
+      width: 100%
+      position: relative
+      overflow-y: unset
+      overflow-x: unset
+      height: 100%
+
+      .wy-menu
+        &.wy-menu-vertical
+          overflow: scroll
+          height: 100%
+          padding-top: 0px
+
+          .wy-menu-vertical-title
+            display: none
+
+          i.fa
+            font-size: 30px
+            cursor: pointer
+            color: #3A478F
+            background: unset
+            display: inline-block
+            margin-left: 0px
+            top: -275px
+            position: absolute
+            margin-bottom: 34px
+
+            &:before
+              content: ""
+              display: block
+              background: url("../images/Close.svg") no-repeat
+              width: 35px
+              height: 31px
+              background-size: 22px
+              background-position-x: center
+              background-position-y: center
+              position: absolute
+              left: 19px
+              top: 37px
+
+          .caption
+            padding-left: 70px
+            box-shadow: none
+            -moz-box-shadow: none
+            -webkit-box-shadow: none
+
+            .caption-text
+              font-size: 14px
+              text-indent: -10px
+              display: inline-block
+              margin-left: 10px
+
+          ul
+
+            &:first-of-type
+              li.toctree-l1:first-of-type
+                a.reference
+                  font-size: 16px
+                  padding-left: 70px
+                  margin-top: 40px
+
+                  &:before
+                    left: 44px
+                    display: block
+
+                  &:hover
+                    box-shadow: none
+                    -moz-box-shadow: none
+                    -webkit-box-shadow: none
+
+                &.current
+                  a.reference
+                    box-shadow: none
+                    -moz-box-shadow: none
+                    -webkit-box-shadow: none
+
+            > li[class^="toctree-l"]
+              > a.reference
+                font-size: 14px
+                padding-left: 86px
+
+                &.current
+                  box-shadow: none
+                  -moz-box-shadow: none
+                  -webkit-box-shadow: none
+
+                &:hover
+                  box-shadow: none
+                  -moz-box-shadow: none
+                  -webkit-box-shadow: none
+
+              ul
+                li
+                  > a.reference
+                    padding-left: 102px !important
+
+                  ul
+                    li
+                      > a.reference
+                        padding-left: 118px !important
+  .wy-nav-content-wrap
+    .search-inline
+      display: none
+
+      &.landing
+        display: none
+
+      .search-inline-input
+        height: 60px
+        padding-left: 27px
+
+      img
+        right: 17px
+        top: 21px
+        width: 19px
+        height: 21px
+
+    .wy-breadcrumbs
+      display: none
+
+    .navbar
+      .navbar-menu
+        display: none
+        align-items: start
+        position: absolute
+        top: 132px
+        left: 0
+        width: 100%
+
+        ul
+          display: flex
+          flex-direction: column
+          height: auto
+          width: 100%
+          justify-content: space-around
+
+    &.shift
+      left: 0
+      width: 100%
+      position: relative
+      background: $menu-background-color
+
+      .search-inline
+        display: block
+        width: 100%
+        top: -2px
+        margin-top: 16px
+
+      .navbar
+        background: $nav-background-color
+
+        .navbar-menu
+          display: block
+          font-size: 14px
+          //box-shadow: 0 2px 2px -1px $content-menu-shadow
+          //-moz-box-shadow: 0 2px 2px -1px $content-menu-shadow
+          //-webkit-box-shadow: 0 2px 2px -1px $content-menu-shadow
+          box-shadow: none
+          -moz-box-shadow: none
+          -webkit-box-shadow: none
+          width: 95%
+          margin-left: 2.5%
+          border-bottom: 0.5px solid #AEC0D2
+
+          // todo - add color variable
+          height: 120px
+          background-color: $menu-background-color
+          z-index: 2
+
+          ul
+            li
+              padding-left: 30px
+
+              a
+                font-weight: 400
+                color: $text-lighter
+
+              &.active
+                padding-top: 25px
+                border: none
+
+                a
+                  position: relative
+
+                  font-weight: bold
+
+                  &:after
+                    content: ""
+                    display: block
+                    background: url("../images/Check.svg") no-repeat
+                    width: 14px
+                    height: 17px
+                    background-size: 14px
+                    position: absolute
+                    left: -20px
+                    top: 3px
+
+      .wy-nav-content
+        margin-top: 110px
+  .content-menu
+    display: none
+
+
+.wy-table-responsive
+  overflow: visible
+  table-layout: fixed
+
+  table
+    box-shadow: 2px 2px 4px $table-shadow
+    -moz-box-shadow: 2px 2px 4px $table-shadow
+    -webkit-box-shadow: 2px 2px 4px $table-shadow
+
+.wy-nav-content
+  .rst-content
+
+    .section[id], dl[id]
+      &:before
+        display: block
+        content: " "
+        margin-top: -150px
+        height: 150px
+        visibility: hidden
+        pointer-events: none
+
+    .section
+      max-width: 745px
+
+    h1, h2, h3, h4, h5, h6
+      a, a:visited
+        color: $blue
+        cursor: default
+
+        &:hover
+          &:before
+            display:none
+
+    table.docutils:not(.field-list)
+
+      border: none
+      width: 100%
+
+      thead
+        th
+          border: none
+          text-transform: uppercase
+          border-bottom: 1px solid #dddddd
+          color: #3A478F
+          padding: 22px 23px 22px 0
+          background-color: #ffffff
+
+          &:first-child
+            padding-left: 23px
+
+      tr
+        td
+          border: none
+          padding: 27px 23px 27px 0
+          color: #3A478F
+          white-space: normal
+          vertical-align: top
+
+          &:first-child
+            padding-left: 23px
+
+      tr:nth-child(2n+1)
+        td
+          background-color: white
+
+      tr:nth-child(2n)
+        td
+          background-color: #F2F3F7
+
+    .section
+
+      ul
+
+        li
+          list-style: none
+
+          &:before
+            content: "\2022"
+            color: $lighter-blue
+            position: absolute
+            left: -0.8em
+            font-size: 1.4em
+
+      ul, ol
+        color: #2980B9
+        margin-bottom: 25px !important
+
+        +media($desktop-wide)
+          margin-bottom: 35px !important
+
+        li
+          margin-top: $base-line-height / 2
+          color: #4E5F8B
+          position: relative
+
+          p
+            margin-bottom: 5px
+
+          ul, ol
+            margin-bottom: 12px !important
+
+            &:last-child
+              margin-bottom: 0px !important
+
+
+            li
+              margin-top: $base-line-height / 4
+
+          ul
+
+            li
+              list-style: none
+
+              &:before
+                content: "\25e6"
+                color: $lighter-blue
+                position: absolute
+                left: -1.2em
+                font-size: 1em
+
+        a
+          &:hover
+            text-decoration: none
+
+          &:visited
+            color: $link-visited-color
+
+ul.search
+  em, .name, .ss360-highlight
+    font-style: inherit
+    color: $blue
+    background-color: $serach-highlighted
+    padding-right: 3px
+    margin-right: -3px
+    padding-left: 3px
+    margin-left: -3px
+
+div.pdf-download
+  margin-top: 30px
+
+  a, a:visited
+    color: $blue
+    &:before
+      color: $blue
+      display: inline-block
+      margin-right: 4px
+      content: ""
+      background: url(../images/DownloadDarkBlue.svg) no-repeat
+      width: 14px
+      height: 14px
+      position: relative
+      top: 2px
+      background-size: 11px
+
+#feedback-container
+  float: right
+  padding: 150px 0 30px 40px
+  margin-right: calc(100% - 745px)
+
+  +media($mobile)
+    display: none
+
+  a
+    font-size: 14px
+
+.cta-alt
+  display: none

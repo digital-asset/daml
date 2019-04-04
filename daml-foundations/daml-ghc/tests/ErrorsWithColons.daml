@@ -1,0 +1,10 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR range=8:35-8:42; In the expression: (1 :: [])
+-- @ERROR range=10:13-10:14; In the expression: 1 : Text
+daml 1.2 module ErrorsWithColons where
+
+badIf = if True then Some 1 else (1 :: [])
+
+notString = 1 : Text

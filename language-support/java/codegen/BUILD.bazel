@@ -1,0 +1,151 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+)
+
+load(
+    "//rules_daml:daml.bzl",
+    "dalf_compile",
+)
+
+load(
+    ":codegen.bzl",
+    "daml_to_java"
+)
+
+load(
+    "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
+    "jar_jar"
+)
+
+da_scala_binary(
+    name = "codegen",
+    main_class = "com.digitalasset.daml.lf.codegen.StandaloneMain",
+    visibility = ["//visibility:public"],
+    deps = [":lib"],
+    data = [ "//:COMPONENT-VERSION" ]
+)
+
+da_scala_library(
+    name = "lib",
+    srcs = glob(["src/main/**/*.scala"]),
+    resources = ["src/main/resources/logback.xml", "//:COMPONENT-VERSION" ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//3rdparty/jvm/ch/qos/logback:logback_classic",
+        "//3rdparty/jvm/com/github/scopt",
+        "//3rdparty/jvm/com/squareup:javapoet",
+        "//3rdparty/jvm/com/typesafe/scala_logging",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//language-support/java/bindings:bindings-java",
+    ],
+)
+
+test_deps = [
+    ":lib",
+    "//3rdparty/jvm/ch/qos/logback:logback_classic",
+    "//3rdparty/jvm/com/github/scopt",
+    "//3rdparty/jvm/com/squareup:javapoet",
+    "//3rdparty/jvm/com/typesafe/scala_logging",
+    "//3rdparty/jvm/org/scalacheck",
+    "//3rdparty/jvm/org/scalatest",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+    "//daml-lf/archive:daml_lf_java_proto",
+    "//daml-lf/data",
+    "//daml-lf/interface",
+    "//language-support/java/bindings:bindings-java"
+]
+
+########################################################
+####  Unit Tests
+########################################################
+da_scala_test(
+    name = "test",
+    srcs = glob(["src/test/**/*.scala"]),
+    resource_strip_prefix = "language-support/java/codegen/src/test/resources",
+    resources = glob(["src/test/resources/**/*"]),
+    data = glob(["src/test/resources/**/*"]),
+    deps = test_deps,
+)
+
+jar_jar(
+    name = "shaded_binary",
+    input_jar = "//language-support/java/codegen:codegen_deploy.jar",
+    rules = "shade_rule"
+)
+
+daml_lf_target_versions = ["1.0", "1.1"]
+
+########################################################
+####  Integration Tests
+########################################################
+[
+    daml_to_java(
+        name = "integration-tests-model-%s" % target,
+        main_src = "src/it/daml/Lib.daml",
+        srcs = glob(["src/it/daml/**/*.daml"]),
+        target = target,
+    )
+    for target in daml_lf_target_versions
+]
+
+[
+    java_test(
+        name = "integration-tests-%s" % target,
+        srcs = glob(["src/it/java-%s/**/*.java" % target, "src/it/java/**/*.java"]),
+        test_class = "com.digitalasset.AllTests",
+        deps = [
+            ":integration-tests-model-%s.jar" % target,
+            "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_api",
+            "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_engine",
+            "//3rdparty/jvm/org/junit/platform:junit_platform_runner",
+            "//language-support/java/bindings:bindings-java",
+            "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+            "//ledger/sandbox:sandbox-scala-tests-lib",
+        ],
+    )
+    for target in daml_lf_target_versions
+]
+
+
+########################################################
+####  Ledger Tests
+########################################################
+
+daml_to_java(
+    name = "ledger-tests-model",
+    main_src = "src/ledger-tests/daml/Wolpertinger.daml",
+    srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
+    target = "1.1",
+)
+
+da_scala_test(
+    name = "ledger-tests",
+    srcs = glob(["src/ledger-tests/scala/**/*.scala"]),
+    resource_strip_prefix = "language-support/java/codegen/src/ledger-tests/resources",
+    resources = glob(["src/it/resources/**/*"]),
+    deps = test_deps + [
+        ":ledger-tests-model.jar",
+        "//ledger/sandbox:sandbox",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-common:ledger-api-common",
+        "//3rdparty/jvm/io/grpc:grpc_core",
+        "//3rdparty/jvm/io/grpc:grpc_stub",
+        "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
+    ],
+    data = [
+        ":ledger-tests-model.dar"
+    ]
+)
+

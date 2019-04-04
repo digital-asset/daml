@@ -1,0 +1,23 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Phantom where
+
+data Phantom a = Phantom {}
+    deriving Eq
+phantom : Phantom (Party -> Party)
+phantom = Phantom {}
+
+
+showOptional : (a -> Text) -> Optional a -> Text
+showOptional f x = case x of
+    Some v -> f v
+    None -> "None"
+
+
+main = scenario do
+    alice <- getParty "alice"
+    submit alice do
+        assert $ phantom == Phantom {}
+        assert $ showOptional show (None : Optional Int) == "None"

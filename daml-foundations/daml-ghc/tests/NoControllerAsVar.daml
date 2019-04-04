@@ -1,0 +1,16 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ ERROR parse error on input ‘controller’
+
+daml 1.2
+module NoControllerAsVar where
+
+newtype Void = Void Void
+
+-- `controller` used as an OccName is an intentional parse error (see
+-- "remove 'controller' from the varid production"
+-- https://github.com/digital-asset/ghc/pull/4).
+
+controller : forall a. Void -> a
+controller = error "this function can't be called"

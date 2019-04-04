@@ -1,0 +1,194 @@
+Name: QuickCheck
+Version: 2.12.6.1
+Cabal-Version: >= 1.8
+Build-type: Simple
+License: BSD3
+License-file: LICENSE
+Copyright: 2000-2018 Koen Claessen, 2006-2008 Björn Bringert, 2009-2018 Nick Smallbone
+Author: Koen Claessen <koen@chalmers.se>
+Maintainer: Nick Smallbone <nick@smallbone.se>
+Bug-reports: https://github.com/nick8325/quickcheck/issues
+Tested-with: GHC >= 7.0
+Homepage: https://github.com/nick8325/quickcheck
+Category:       Testing
+Synopsis:       Automatic testing of Haskell programs
+Description:
+  QuickCheck is a library for random testing of program properties.
+  The programmer provides a specification of the program, in the form of
+  properties which functions should satisfy, and QuickCheck then tests that the
+  properties hold in a large number of randomly generated cases.
+  Specifications are expressed in Haskell, using combinators provided by
+  QuickCheck. QuickCheck provides combinators to define properties, observe the
+  distribution of test data, and define test data generators.
+  .
+  Most of QuickCheck's functionality is exported by the main "Test.QuickCheck"
+  module. The main exception is the monadic property testing library in
+  "Test.QuickCheck.Monadic".
+  .
+  If you are new to QuickCheck, you can try looking at the following resources:
+  .
+  * The <http://www.cse.chalmers.se/~rjmh/QuickCheck/manual.html official QuickCheck manual>.
+    It's a bit out-of-date in some details and doesn't cover newer QuickCheck features,
+    but is still full of good advice.
+  * <https://begriffs.com/posts/2017-01-14-design-use-quickcheck.html>,
+    a detailed tutorial written by a user of QuickCheck.
+  .
+  The <http://hackage.haskell.org/package/quickcheck-instances quickcheck-instances>
+  companion package provides instances for types in Haskell Platform packages
+  at the cost of additional dependencies.
+
+extra-source-files:
+  README
+  changelog
+  examples/Heap.hs
+  examples/Heap_Program.hs
+  examples/Heap_ProgramAlgebraic.hs
+  examples/Lambda.hs
+  examples/Merge.hs
+  examples/Set.hs
+  examples/Simple.hs
+
+source-repository head
+  type:     git
+  location: https://github.com/nick8325/quickcheck
+
+source-repository this
+  type:     git
+  location: https://github.com/nick8325/quickcheck
+  tag:      2.12.6.1
+
+flag templateHaskell
+  Description: Build Test.QuickCheck.All, which uses Template Haskell.
+  Default: True
+
+library
+  Build-depends: base >=4.3 && <5, random, containers, erf >= 2
+
+  -- Modules that are always built.
+  Exposed-Modules:
+    Test.QuickCheck,
+    Test.QuickCheck.Arbitrary,
+    Test.QuickCheck.Gen,
+    Test.QuickCheck.Gen.Unsafe,
+    Test.QuickCheck.Monadic,
+    Test.QuickCheck.Modifiers,
+    Test.QuickCheck.Property,
+    Test.QuickCheck.Test,
+    Test.QuickCheck.Text,
+    Test.QuickCheck.Poly,
+    Test.QuickCheck.State,
+    Test.QuickCheck.Random,
+    Test.QuickCheck.Exception,
+    Test.QuickCheck.Features
+
+  -- GHC-specific modules.
+  if impl(ghc)
+    Exposed-Modules: Test.QuickCheck.Function
+    Build-depends: transformers >= 0.3, deepseq
+  else
+    cpp-options: -DNO_TRANSFORMERS -DNO_DEEPSEQ
+
+  if impl(ghc) && flag(templateHaskell)
+    Build-depends: template-haskell >= 2.4
+    Other-Extensions: TemplateHaskell
+    Exposed-Modules: Test.QuickCheck.All
+  else
+    cpp-options: -DNO_TEMPLATE_HASKELL
+
+  if !impl(ghc >= 7.4)
+    cpp-options: -DNO_CTYPES_CONSTRUCTORS -DNO_FOREIGN_C_USECONDS
+
+  -- The new generics appeared in GHC 7.2...
+  if impl(ghc < 7.2)
+    cpp-options: -DNO_GENERICS
+  -- ...but in 7.2-7.4 it lives in the ghc-prim package.
+  if impl(ghc >= 7.2) && impl(ghc < 7.6)
+    Build-depends: ghc-prim
+
+  -- Safe Haskell appeared in GHC 7.2, but GHC.Generics isn't safe until 7.4.
+  if impl (ghc < 7.4)
+    cpp-options: -DNO_SAFE_HASKELL
+
+  -- Use tf-random on newer GHCs.
+  if impl(ghc)
+    Build-depends: tf-random >= 0.4
+  else
+    cpp-options: -DNO_TF_RANDOM
+
+  if !impl(ghc >= 7.6)
+      cpp-options: -DNO_POLYKINDS
+
+  if !impl(ghc >= 8.0)
+    cpp-options: -DNO_MONADFAIL
+
+  -- Switch off most optional features on non-GHC systems.
+  if !impl(ghc)
+    -- If your Haskell compiler can cope without some of these, please
+    -- send a message to the QuickCheck mailing list!
+    cpp-options: -DNO_TIMEOUT -DNO_NEWTYPE_DERIVING -DNO_GENERICS -DNO_TEMPLATE_HASKELL -DNO_SAFE_HASKELL -DNO_TYPEABLE
+    if !impl(hugs) && !impl(uhc)
+      cpp-options: -DNO_ST_MONAD -DNO_MULTI_PARAM_TYPE_CLASSES
+
+  -- LANGUAGE pragmas don't have any effect in Hugs.
+  if impl(hugs)
+    Extensions: CPP
+
+  if impl(uhc)
+    -- Cabal under UHC needs pointing out all the dependencies of the
+    -- random package.
+    Build-depends: old-time, old-locale
+    -- Plus some bits of the standard library are missing.
+    cpp-options: -DNO_FIXED -DNO_EXCEPTIONS
+
+Test-Suite test-quickcheck
+    type: exitcode-stdio-1.0
+    hs-source-dirs:
+        examples
+    main-is: Heap.hs
+    build-depends: base, QuickCheck
+    if !flag(templateHaskell)
+        Buildable: False
+
+Test-Suite test-quickcheck-gcoarbitrary
+    type: exitcode-stdio-1.0
+    hs-source-dirs: tests
+    main-is: GCoArbitraryExample.hs
+    build-depends: base, QuickCheck
+    if !impl(ghc >= 7.2)
+        buildable: False
+    if impl(ghc >= 7.2) && impl(ghc < 7.6)
+        build-depends: ghc-prim
+
+Test-Suite test-quickcheck-generators
+    type: exitcode-stdio-1.0
+    hs-source-dirs: tests
+    main-is: Generators.hs
+    build-depends: base, QuickCheck
+    if !flag(templateHaskell)
+        Buildable: False
+
+Test-Suite test-quickcheck-gshrink
+    type: exitcode-stdio-1.0
+    hs-source-dirs: tests
+    main-is: GShrinkExample.hs
+    build-depends: base, QuickCheck
+    if !impl(ghc >= 7.2)
+        buildable: False
+    if impl(ghc >= 7.2) && impl(ghc < 7.6)
+        build-depends: ghc-prim
+
+Test-Suite test-quickcheck-terminal
+    type: exitcode-stdio-1.0
+    hs-source-dirs: tests
+    main-is: Terminal.hs
+    build-depends: base, process, deepseq, QuickCheck
+    if !impl(ghc >= 7.10)
+        buildable: False
+
+Test-Suite test-quickcheck-monadfix
+    type: exitcode-stdio-1.0
+    hs-source-dirs: tests
+    main-is: MonadFix.hs
+    build-depends: base, QuickCheck
+    if !impl(ghc >= 7.10)
+        buildable: False

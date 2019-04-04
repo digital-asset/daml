@@ -1,0 +1,14 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test that overflowing integer literals are detected at compile time.
+-- @ ERROR Literal 9223372036854775808
+-- @ ERROR Literal -9223372036854775809
+daml 1.2
+module IntBoundsStatic where
+
+tooBig : Int
+tooBig = 9223372036854775808
+
+tooSmall : Int
+tooSmall = -9223372036854775809

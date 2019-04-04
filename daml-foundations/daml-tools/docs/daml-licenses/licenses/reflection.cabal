@@ -1,0 +1,107 @@
+name:           reflection
+version:        2.1.4
+license:        BSD3
+license-file:   LICENSE
+author:         Edward A. Kmett, Elliott Hird, Oleg Kiselyov and Chung-chieh Shan
+maintainer:     Edward A. Kmett <ekmett@gmail.com>
+stability:      experimental
+homepage:       http://github.com/ekmett/reflection
+bug-reports:    http://github.com/ekmett/reflection/issues
+category:       Data, Reflection, Dependent Types
+synopsis:       Reifies arbitrary terms into types that can be reflected back into terms
+copyright:      2009-2013 Edward A. Kmett,
+                2012 Elliott Hird,
+                2004 Oleg Kiselyov and Chung-chieh Shan
+build-type:     Simple
+cabal-version:  >= 1.10
+description:
+  This package addresses the /configuration problem/ which is
+  propagating configurations that are available at run-time, allowing
+  multiple configurations to coexist without resorting to mutable
+  global variables or 'System.IO.Unsafe.unsafePerformIO'.
+  .
+  That package is an implementation of the ideas presented in the
+  paper \"Functional Pearl: Implicit Configurations\" by Oleg Kiselyov
+  and Chung-chieh Shan (<http://okmij.org/ftp/Haskell/tr-15-04.pdf original paper>).
+  However, the API has been streamlined to improve performance.
+  .
+  Austin Seipp's tutorial <https://www.schoolofhaskell.com/user/thoughtpolice/using-reflection Reflecting values to types and back> provides a summary of the
+  approach taken by this library, along with more motivating examples.
+tested-with:   GHC == 7.0.4
+             , GHC == 7.2.2
+             , GHC == 7.4.2
+             , GHC == 7.6.3
+             , GHC == 7.8.4
+             , GHC == 7.10.3
+             , GHC == 8.0.2
+             , GHC == 8.2.2
+             , GHC == 8.4.3
+             , GHC == 8.6.1
+
+extra-source-files:
+  examples/reflection-examples.cabal
+  examples/LICENSE
+  examples/*.hs
+  CHANGELOG.markdown
+  README.markdown
+  slow/Data/Reflection.hs
+  fast/Data/Reflection.hs
+  .travis.yml
+
+flag slow
+  description:
+    If you enable this flag, we use a more portable much much slower implementation. Moreover, the 'Given' API is broken, so this is currently an unsupported configuration. If you feel the need to turn on this flag for any reason, please email the maintainer!
+  default: False
+  manual: False
+
+flag template-haskell
+  description:
+    You can disable the use of the `template-haskell` package using `-f-template-haskell`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+source-repository head
+  type: git
+  location: git://github.com/ekmett/reflection.git
+
+library
+  ghc-options: -Wall
+
+  if impl(ghc >= 7.2)
+    default-extensions: Trustworthy
+
+  build-depends:
+    base >= 2 && < 5
+
+  if impl(ghc < 7.8)
+    build-depends:
+      tagged >= 0.4.4 && < 1
+
+  if !impl(ghc >= 8.0)
+    build-depends:
+      semigroups >= 0.11 && < 0.19
+
+  default-language: Haskell98
+
+  if flag(template-haskell) && impl(ghc)
+    if !impl(ghc >= 8.0)
+      other-extensions: TemplateHaskell
+    -- else
+    --   other-extensions: TemplateHaskellQuotes -- Hackage doesn't know this extension yet
+    build-depends: template-haskell
+
+  if !flag(slow) && (impl(ghc) || impl(hugs))
+    hs-source-dirs: fast
+  else
+    other-extensions: ScopedTypeVariables, FlexibleInstances
+    hs-source-dirs: slow
+
+  other-extensions:
+    MultiParamTypeClasses,
+    FunctionalDependencies,
+    Rank2Types,
+    CPP
+
+  exposed-modules: Data.Reflection

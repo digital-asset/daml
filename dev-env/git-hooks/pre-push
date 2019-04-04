@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+# This hook is called with the following parameters:
+#
+# $1 -- Name of the remote to which the push is being done
+# $2 -- URL to which the push is being done
+#
+# If pushing without using a named remote those arguments will be equal.
+#
+# Information about the commits which are being pushed is supplied as lines to
+# the standard input in the form:
+#
+#   <local ref> <local sha1> <remote ref> <remote sha1>
+#
+
+protected_branches=('master')
+
+IFS=' '
+while read local_ref local_sha remote_ref remote_sha
+do
+    for protected_branch in "${protected_branches[@]}"; do
+        if [[ $remote_ref == "refs/heads/$protected_branch" ]]; then
+            echo -en "\033[31mYou're about to push master, that is verboten!\033[0m"
+            echo
+            exit 1 # push will not execute
+        fi
+    done
+done
+
+# nothing wrong, let push execute
+exit 0

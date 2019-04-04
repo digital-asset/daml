@@ -1,0 +1,28 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+declare module '*.png';
+declare module "recharts";
+
+declare module 'babel-standalone' {
+  export * from 'babel-core';
+}
+
+declare module '@babel/standalone' {
+  export * from 'babel-core';
+}
+
+// Webpack loader to load the content of a file as a string
+declare module "!raw-loader!*" {
+
+}
+
+declare module "modernizr" {
+  // tslint:disable-next-line:no-any
+  var _a: any;
+  export = _a;
+}
+
+// Constants injected by Webpack
+declare const __BUILD_VERSION__: string;
+declare const __BUILD_COMMIT__: string;

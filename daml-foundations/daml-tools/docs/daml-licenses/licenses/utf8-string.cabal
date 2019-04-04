@@ -1,0 +1,29 @@
+Name:               utf8-string
+Version:            1.0.1.1
+Author:             Eric Mertens
+Maintainer:         emertens@galois.com
+License:            BSD3
+License-file:       LICENSE
+Homepage:           http://github.com/glguy/utf8-string/
+Synopsis:           Support for reading and writing UTF8 Strings
+Description:        A UTF8 layer for Strings. The utf8-string
+                    package provides operations for encoding UTF8
+                    strings to Word8 lists and back, and for reading and
+                    writing UTF8 without truncation.
+Category:           Codec
+Build-type:         Simple
+cabal-version:      >= 1.2
+Extra-Source-Files: CHANGELOG.markdown
+Tested-With:        GHC==7.0.4, GHC==7.4.2, GHC==7.6.3, GHC==7.8.4, GHC==7.10.2
+
+library
+  Ghc-options:        -W -O2
+
+  build-depends: base >= 4.3 && < 4.9, bytestring >= 0.9
+
+  Extensions:         CPP
+  Exposed-modules:    Codec.Binary.UTF8.String
+                      Codec.Binary.UTF8.Generic
+                      Data.String.UTF8
+                      Data.ByteString.UTF8
+                      Data.ByteString.Lazy.UTF8

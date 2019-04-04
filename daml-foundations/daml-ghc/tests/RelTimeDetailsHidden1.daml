@@ -1,0 +1,11 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ ERROR No instance for (DA.Internal.Record.HasField "microseconds" RelTime Int)
+
+daml 1.2 module RelTimeDetailsHidden1 where
+
+import DA.Time
+
+foo : RelTime -> Int
+foo rt = rt.microseconds

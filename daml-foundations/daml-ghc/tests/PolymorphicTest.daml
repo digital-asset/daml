@@ -1,0 +1,10 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR Aborted: boom
+daml 1.2
+module PolymorphicTest where
+
+main : Scenario a
+main = scenario do
+  abort "boom"

@@ -1,0 +1,11 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module GetParty where
+
+main = scenario do
+    alice <- getParty "alice"
+    alice' <- getParty "alice"
+    bob <- getParty "bob"
+    assert $ alice == alice' && alice /= bob

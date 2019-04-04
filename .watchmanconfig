@@ -1,0 +1,10 @@
+{
+  "ignore_dirs": [
+      "buck-out",
+      ".idea",
+      ".buckd",
+      "dist",
+      "distribution-work",
+      ".stack-work"
+  ]
+}

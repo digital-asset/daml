@@ -1,0 +1,101 @@
+.navbar h1
+    margin: 0
+    margin-top: 4px
+
+    img
+        max-height: 30px
+
+.navbar
+    display: flex
+    height: 65px
+    padding-left: 47px
+    justify-content: space-between
+    width: 100%
+    align-items: center
+
+.navbar-menu
+    display: flex
+    align-items: center
+    color: #687BA3
+    font-weight: bold
+    height: 100%
+
+    font-size: 18px
+
+.navbar-menu > ul
+    display: flex
+    flex-direction: row
+    height: 100%
+    justify-content: flex-end
+
+.navbar-menu ul li
+    height: 100%
+    padding: 29px 18px 0
+    margin-left: 37px
+    margin-right: 10px
+
+.navbar-menu ul li a
+    color: #687BA3
+    font-family: 'Montserrat'
+
+.navbar-menu ul li.active
+    border-top: 3px solid #5C86DF
+    padding-top: 26px
+
+.navbar-menu ul li.active a
+    color: #3A478F
+
+
+.navbar-menu 
+
+    .version
+        padding: 0
+        padding-left: 14px
+        border-top: 3px solid #5C86DF
+
+        span 
+            font-size: 12pt
+            position: relative
+            top: -4px
+
+        .nice-select
+            padding-left: 6px
+            font-size: 12pt
+
+            .list
+                left: auto
+                right: 11%
+
+            .option
+                padding-top: 0
+            
+            &.open
+
+                &:after
+                    top: 40%
+                    right: 14px
+
+            &:after
+                background-size: contain
+                width: 12px
+                height: 7px
+                top: 46%
+                right: 11px
+
+
+
++media($tablet)
+    .navbar
+        padding-left: 150px
+        h1
+            margin-top: 12px
+            max-width: 141px
+            margin-left: -85px
+
+    .shift
+        .navbar
+            h1
+                +media($mobile)
+                    margin-left: -85px
+
+                margin-left: -130px

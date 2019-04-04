@@ -1,0 +1,61 @@
+name: StateVar
+version: 1.1.1.1
+synopsis: State variables
+description:
+  This package contains state variables, which are references in the IO monad,
+  like IORefs or parts of the OpenGL state.
+homepage: https://github.com/haskell-opengl/StateVar
+bug-reports: https://github.com/haskell-opengl/StateVar/issues
+copyright: Copyright (C) 2014-2015 Edward A. Kmett, 2009-2018 Sven Panne
+license: BSD3
+license-file: LICENSE
+author: Sven Panne and Edward Kmett
+maintainer: Sven Panne <svenpanne@gmail.com>
+category: Data
+build-type: Simple
+tested-with:
+  GHC == 7.0.4
+  GHC == 7.2.2
+  GHC == 7.4.2
+  GHC == 7.6.3
+  GHC == 7.8.4
+  GHC == 7.10.3
+  GHC == 8.0.2
+  GHC == 8.2.2
+  GHC == 8.4.3
+  GHC == 8.6.1
+  GHC == 8.7.*
+cabal-version: >= 1.10
+extra-source-files:
+  README.md
+  CHANGELOG.md
+
+library
+  exposed-modules:
+    Data.StateVar
+
+  build-depends:
+    base         >= 4   && < 5,
+    stm          >= 2.2.0.1 && < 2.6,
+    transformers >= 0.2 && < 0.6
+
+  default-language: Haskell2010
+  other-extensions:
+    CPP
+    DeriveDataTypeable
+    MultiParamTypeClasses
+    FunctionalDependencies
+    FlexibleInstances
+    TypeFamilies
+
+  hs-source-dirs: src
+  ghc-options: -Wall
+  if impl(ghc > 8)
+    ghc-options: -Wcompat
+  if impl(ghc>=7.4)
+    -- other-extensions: DefaultSignatures
+    cpp-options: -DUSE_DEFAULT_SIGNATURES=1
+
+source-repository head
+  type: git
+  location: https://github.com/haskell-opengl/StateVar.git

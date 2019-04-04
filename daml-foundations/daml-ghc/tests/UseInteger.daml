@@ -1,0 +1,19 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test that foo is not overflowed
+-- @ QUERY-LF .packageModules[] | .moduleValues[] | .. | objects | select(.dvalBinder? | .[0]? == "foo") | .dvalBody.EBuiltin.BEInt64 == "1.0"
+
+-- Test that we daml-lf can hold maxBound :: Int64
+-- @ QUERY-LF .packageModules[] | .moduleValues[] | .. | objects | select(.dvalBinder? | .[0]?=="bar") | .dvalBody.EBuiltin.BEInt64 == "9.223372036854775807e18"
+
+daml 1.2 module UseInteger where
+
+foo = 1
+bar = 9223372036854775807 -- maxBound :: Int64 (*)
+
+main = scenario do
+  alice <- getParty "alice"
+  submit alice do
+      assertMsg "Was not one" (foo == 1)
+      assert $ 0 - foo - bar == 0 - 2^62 - 2^62 -- minBound :: Int64

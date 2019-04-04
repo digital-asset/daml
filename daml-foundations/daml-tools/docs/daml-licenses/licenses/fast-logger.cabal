@@ -1,0 +1,55 @@
+Name:                   fast-logger
+Version:                2.4.13
+Author:                 Kazu Yamamoto <kazu@iij.ad.jp>
+Maintainer:             Kazu Yamamoto <kazu@iij.ad.jp>
+License:                BSD3
+License-File:           LICENSE
+Synopsis:               A fast logging system
+Description:            A fast logging system
+Homepage:               https://github.com/kazu-yamamoto/logger
+Category:               System
+Cabal-Version:          >= 1.8
+Build-Type:             Simple
+Extra-Source-Files:     README.md ChangeLog.md
+Tested-With:            GHC ==7.8.4 || ==7.10.3 || ==8.0.2 || ==8.2.2 || ==8.4.4 || ==8.6.3
+
+Library
+  GHC-Options:          -Wall
+  Exposed-Modules:      System.Log.FastLogger
+                        System.Log.FastLogger.File
+                        System.Log.FastLogger.Date
+                        System.Log.FastLogger.Types
+  Other-Modules:        System.Log.FastLogger.IO
+                        System.Log.FastLogger.FileIO
+                        System.Log.FastLogger.IORef
+                        System.Log.FastLogger.LogStr
+                        System.Log.FastLogger.Logger
+  Build-Depends:        base >= 4.5 && < 5
+                      , array
+                      , auto-update >= 0.1.2
+                      , easy-file >= 0.2
+                      , bytestring
+                      , directory
+                      , filepath
+                      , text
+                      , unix-time >= 0.4.4
+                      , unix-compat
+  if impl(ghc < 7.8)
+      Build-Depends:    bytestring-builder
+
+Test-Suite spec
+    Main-Is:         Spec.hs
+    Hs-Source-Dirs:  test
+    Type:            exitcode-stdio-1.0
+
+    Ghc-Options:     -Wall -threaded
+    Other-Modules:   FastLoggerSpec
+    Build-Depends:   base >= 4 && < 5
+                   , bytestring
+                   , directory
+                   , fast-logger
+                   , hspec
+
+Source-Repository head
+  Type:                 git
+  Location:             git://github.com/kazu-yamamoto/logger.git

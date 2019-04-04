@@ -1,0 +1,137 @@
+name:                cmark-gfm
+version:             0.1.6
+synopsis:            Fast, accurate GitHub Flavored Markdown parser and renderer
+description:
+  This package provides Haskell bindings for
+  <https://github.com/github/cmark libcmark-gfm>, the reference
+  parser for <https://github.github.com/gfm/ GitHub Flavored Markdown>, a fully
+  specified variant of Markdown. It includes sources for
+  libcmark-gfm (0.28.0) and does not require prior installation of the
+  C library.
+
+homepage:            https://github.com/kivikakk/cmark-gfm-hs
+license:             BSD3
+license-file:        LICENSE
+author:              Ashe Connor
+maintainer:          kivikakk@github.com
+copyright:           (C) 2015--17 John MacFarlane, (C) 2017 Ashe Connor
+category:            Text
+tested-with:         GHC == 7.4.2, GHC == 7.6.3, GHC == 7.8.2, GHC == 7.10.3
+build-type:          Simple
+extra-source-files:  README.md
+                     changelog
+                     cbits/chunk.h
+                     cbits/cmark-gfm_export.h
+                     cbits/debug.h
+                     cbits/inlines.h
+                     cbits/cmark-gfm.h
+                     cbits/houdini.h
+                     cbits/references.h
+                     cbits/utf8.h
+                     cbits/parser.h
+                     cbits/cmark-gfm_version.h
+                     cbits/html_unescape.h
+                     cbits/iterator.h
+                     cbits/node.h
+                     cbits/buffer.h
+                     cbits/render.h
+                     cbits/cmark_ctype.h
+                     cbits/config.h
+                     cbits/scanners.h
+                     cbits/case_fold_switch.inc
+                     cbits/entities.inc
+                     cbits/cmark-gfm-extension_api.h
+                     cbits/html.h
+                     cbits/plugin.h
+                     cbits/registry.h
+                     cbits/syntax_extension.h
+                     cbits/autolink.h
+                     cbits/cmark-gfm-core-extensions.h
+                     cbits/ext_scanners.h
+                     cbits/strikethrough.h
+                     cbits/table.h
+                     cbits/tagfilter.h
+                     cbits/cmark-gfm-extensions_export.h
+                     cbits/map.h
+                     cbits/footnotes.h
+                     bench/sample.md
+                     bench/full-sample.md
+cabal-version:       >=1.14
+
+Source-repository head
+  type:              git
+  location:          git://github.com/kivikakk/cmark-gfm-hs.git
+
+flag pkgconfig
+  default:     False
+  description: Use system libcmark-gfm via pkgconfig
+
+library
+  exposed-modules:     CMarkGFM
+  build-depends:       base >=4.5 && < 5.0,
+                       text >= 1.0 && < 1.3,
+                       bytestring
+  if impl(ghc < 7.6)
+    build-depends:     ghc-prim >= 0.2
+  default-language:    Haskell2010
+  ghc-options:         -Wall -fno-warn-unused-do-bind
+  if flag(pkgconfig)
+    Extra-Libraries: cmark-gfm cmark-gfm-extensions
+  else
+    cc-options:        -Wall -std=c99
+    Include-dirs:      cbits
+    Includes:          cmark-gfm.h
+    c-sources:         cbits/houdini_html_u.c
+                       cbits/references.c
+                       cbits/utf8.c
+                       cbits/inlines.c
+                       cbits/blocks.c
+                       cbits/cmark.c
+                       cbits/iterator.c
+                       cbits/node.c
+                       cbits/buffer.c
+                       cbits/cmark_ctype.c
+                       cbits/houdini_html_e.c
+                       cbits/houdini_href_e.c
+                       cbits/scanners.c
+                       cbits/html.c
+                       cbits/man.c
+                       cbits/commonmark.c
+                       cbits/latex.c
+                       cbits/xml.c
+                       cbits/render.c
+                       cbits/arena.c
+                       cbits/linked_list.c
+                       cbits/plaintext.c
+                       cbits/plugin.c
+                       cbits/registry.c
+                       cbits/syntax_extension.c
+                       cbits/autolink.c
+                       cbits/core-extensions.c
+                       cbits/ext_scanners.c
+                       cbits/strikethrough.c
+                       cbits/table.c
+                       cbits/tagfilter.c
+                       cbits/footnotes.c
+                       cbits/map.c
+
+benchmark bench-cmark-gfm
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   bench
+  main-is:          bench-cmark.hs
+  build-depends:    base, text, cmark-gfm, criterion,
+                    sundown >= 0.6 && < 0.7,
+                    cheapskate >= 0.1 && < 0.2,
+                    markdown >= 0.1 && < 0.2,
+                    discount >= 0.1 && < 0.2,
+                    blaze-html >= 0.7 && < 0.10
+  ghc-options:      -O2
+  default-language: Haskell2010
+
+Test-Suite test-cmark-gfm
+  type:           exitcode-stdio-1.0
+  main-is:        test-cmark.hs
+  hs-source-dirs: test
+  build-depends:  base, cmark-gfm, text, HUnit >= 1.2 && < 1.7
+  ghc-options:    -Wall -fno-warn-unused-do-bind -threaded
+  default-language: Haskell98

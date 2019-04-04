@@ -1,0 +1,45 @@
+Name:                   word8
+Version:                0.1.3
+Author:                 Kazu Yamamoto <kazu@iij.ad.jp>
+Maintainer:             Kazu Yamamoto <kazu@iij.ad.jp>
+License:                BSD3
+License-File:           LICENSE
+Synopsis:               Word8 library
+Description:            Word8 library to be used with Data.ByteString
+Category:               Data
+Cabal-Version:          >= 1.10
+Build-Type:             Simple
+
+Library
+  Default-Language:     Haskell2010
+  GHC-Options:          -Wall
+  Exposed-Modules:      Data.Char8
+                        Data.Word8
+  Build-Depends:        base >= 4 && < 5
+
+Test-Suite spec
+  Type:                 exitcode-stdio-1.0
+  Default-Language:     Haskell2010
+  Hs-Source-Dirs:       test
+  Ghc-Options:          -Wall
+  Main-Is:              Spec.hs
+  Other-Modules:        Char8Spec
+                        Word8Spec
+  Build-Depends:        base
+                      , word8
+                      , hspec
+
+Benchmark criterion
+  Type:                 exitcode-stdio-1.0
+  Default-Language:     Haskell2010
+  Hs-Source-Dirs:       bench
+  Ghc-Options:          -Wall
+  Main-Is:              Bench.hs
+  Build-Depends:        base
+                      , bytestring
+                      , criterion
+                      , word8
+
+Source-Repository head
+  Type:                 git
+  Location:             https://github.com/kazu-yamamoto/word8

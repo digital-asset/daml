@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOT_DIR="$( cd "${BIN_DIR}/../../" && pwd )"
+
+USAGEMSG="USAGE: $0 [FLAGS]
+
+Update Bazel dependency definitions based on dependency specification files.
+
+Updating dependencies can be a long running process. For this reason we avoid
+unnecessary repetition by taking a digest of the dependency specification and,
+if known, comparing against the last digest.
+
+In case of JVM projects. Dependencies are specified in 'dependencies.yaml', the
+digest is stored in '3rdparty/dependencies.digest', and the Bazel dependency
+definitions are generated underneath '3rdparty/'. These generated files should
+be checked in into version control.
+
+FLAGS:
+  -c  Only check if dependencies are up to date. Do not perform dependency
+      definition updates. Exit code is zero if dependencies are up to date,
+      otherwise non-zero.
+  -f  Always update Bazel dependency definitions regardless of whether the
+      dependency specification changed.
+
+"
+
+usage() {
+    echo "$USAGEMSG"
+    exit $1
+}
+
+# The list of projects to check dependencies for.
+#
+# NOTE: If you are adding a new dependencies.yaml file for JAR dependencies,
+#   then the relative path to the containing directory must be added to this
+#   list.
+JVM_PROJECTS=(
+  .
+)
+
+# Global flag deciding whether to check if the dependencies.yaml file changed
+# before updating the Bazel dependencies using bazel-deps.
+# 0 - don't check and always run bazel-deps
+# 1 - do check for changes (default)
+CHECK_DIGEST=1
+
+# Global flag deciding whether to perform dependency definition updates or not.
+# 0 - don't update dependencies, even if they are outdated
+# 1 - do update dependencies if they are outdated (default)
+DO_UPDATE=1
+
+while getopts "hcf" flag; do
+  case "$flag" in
+    h)
+      usage 0
+      ;;
+    c)
+      DO_UPDATE=0
+      ;;
+    f)
+      CHECK_DIGEST=0
+      ;;
+    *)
+      usage 1
+      ;;
+    esac
+done
+shift $((OPTIND-1))
+
+if [[ $# -ne 0 ]]; then
+    usage 1
+fi
+
+# --------------------------------------------------------------------
+# Utility functions
+# --------------------------------------------------------------------
+
+# project_dir PROJECT
+#
+# Return the absolute path to PROJECT underneath the repository root.
+# Pass '.' for the repository root itself.
+project_dir() {
+  if [[ "$1" = "." ]]; then
+    echo "${ROOT_DIR}"
+  else
+    echo "${ROOT_DIR}/$1"
+  fi
+}
+
+# project_file PROJECT FILE
+#
+# Return the relative path to FILE in PROJECT underneath the repository root.
+# Pass '.' for the repository root itself.
+project_file() {
+  if [[ "$1" = "." ]]; then
+    echo "$2"
+  else
+    echo "$1/$2"
+  fi
+}
+
+# jvm_check_deps_exist PROJECT
+#
+# Ensure that a dependencies.yaml file exists in the given project.
+# Fail if not.
+jvm_check_deps_exist() {
+  if [[ ! -f "$(project_dir "$1")/dependencies.yaml" ]]; then
+    echo "ERROR: Dependencies file not found: '$(project_file "$1" dependencies.yaml)'" >&2
+    exit 1
+  fi
+}
+
+# jvm_deps_changed PROJECT
+#
+# Check if the dependencies specified in PROJECT/dependencies.yaml changed.
+jvm_deps_changed() (
+  # Executing in a sub-shell, so it's safe to change directory.
+  # Change directory, so it's easy to use relative paths in the digest file.
+  # Use relative paths in the digest file, so that it is independent of the repository root.
+  cd "$(project_dir "$1")"
+  local DIGEST="3rdparty/dependencies.digest"
+  if [[ -f "$DIGEST" ]] && sha1sum --status -c "$DIGEST"; then
+    # Digest file exists and dependencies have not changed.
+    return 1
+  else
+    # Dependencies have changed or no digest file exists, yet.
+    return 0
+  fi
+)
+
+# jvm_update_deps PROJECT
+#
+# Run bazel-deps on the given project to update the Bazel dependencies based
+# on the dependencies.yaml file.
+jvm_update_deps() {
+  bazel-deps generate \
+    --repo-root "$ROOT_DIR" \
+    --sha-file "$(project_file "$1" 3rdparty/workspace.bzl)" \
+    --deps "$(project_file "$1" dependencies.yaml)"
+}
+
+# jvm_update_digest PROJECT
+#
+# Update the digest file for the given PROJECT.
+# The digest file is stored in PROJECT/3rdparty and is used to check if the
+# dependencies file changed.
+jvm_update_digest() (
+  # Executing in a sub-shell, so it's safe to change directory.
+  # Change directory, so it's easy to use relative paths in the digest file.
+  # Use relative paths in the digest file, so that it is independent of the repository root.
+  cd "$(project_dir "$1")"
+  local DEPS="dependencies.yaml"
+  local DIGEST="3rdparty/dependencies.digest"
+  mkdir -p 3rdparty
+  sha1sum "$DEPS" > "$DIGEST"
+)
+
+# jvm_update_project PROJECT
+#
+# Check if the project's dependencies.yaml file changed.
+# If so, run bazel-deps to update the Bazel definitions of those dependencies.
+# Skip the check if CHECK_DIGEST says so.
+jvm_update_project() {
+  jvm_check_deps_exist "$1"
+  if [[ "$CHECK_DIGEST" = "0" ]] || jvm_deps_changed "$1"; then
+    echo "Updating JVM dependencies for '$1' ..." >&2
+    # Update digest after running bazel-deps. So that if bazel-deps fails
+    # rerunning this script will still attempt to update the dependencies.
+    jvm_update_deps "$1" && jvm_update_digest "$1" || {
+        echo "Failed to update dependencies for '$1'." >&2
+        return 1
+    }
+    echo "Done. Please check in the resulting files." >&2
+  else
+    echo "JVM dependencies for '$1' are up to date." >&2
+  fi
+}
+
+# jvm_check_project PROJECT
+#
+# Check if the project's dependencies.yaml file changed.
+# If so, print a message and return a non-zero code.
+# Return zero if the digest matches the dependencies.yaml file.
+jvm_check_project() {
+  jvm_check_deps_exist "$1"
+  if jvm_deps_changed "$1"; then
+    echo "JVM dependencies for '$1' are outdated." >&2
+    return 1
+  else
+    return 0
+  fi
+}
+
+# update_deps
+#
+# For each dependency specification, check if it was changed and if so update
+# the Bazel dependency definitions. 
+# Skip the check if CHECK_DIGEST says so.
+update_deps () {
+  for project in ${JVM_PROJECTS[@]}; do
+    jvm_update_project "$project"
+  done
+}
+
+# check_deps
+#
+# For each dependency specification, check if it was changed and if so prompt
+# the user to update them and exit with a non-zero exit code.
+check_deps () {
+  local OUTDATED="0"
+  for project in ${JVM_PROJECTS[@]}; do
+    jvm_check_project "$project" || OUTDATED="1"
+  done
+  if [[ "$OUTDATED" = "0" ]]; then
+    echo "Bazel dependencies are up to date." >&2
+  else
+    echo "Please run 'update-bazel-deps'." >&2
+    exit 1
+  fi
+}
+
+# --------------------------------------------------------------------
+# Main Script
+# --------------------------------------------------------------------
+
+if [[ "$DO_UPDATE" = "1" ]]; then
+  update_deps
+else
+  check_deps
+fi

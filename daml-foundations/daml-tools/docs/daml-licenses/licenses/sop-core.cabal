@@ -1,0 +1,76 @@
+name:                sop-core
+version:             0.4.0.0
+synopsis:            True Sums of Products
+description:
+  Implementation of n-ary sums and n-ary products.
+  .
+  The module "Data.SOP" is the main module of this library and contains
+  more detailed documentation.
+  .
+  The main use case of this package is to serve as the core of
+  @<https://hackage.haskell.org/package/generics-sop generics-sop>@.
+  .
+  A detailed description of the ideas behind this library is provided by
+  the paper:
+  .
+    * Edsko de Vries and Andres Löh.
+      <http://www.andres-loeh.de/TrueSumsOfProducts True Sums of Products>.
+      Workshop on Generic Programming (WGP) 2014.
+  .
+license:             BSD3
+license-file:        LICENSE
+author:              Edsko de Vries <edsko@well-typed.com>, Andres Löh <andres@well-typed.com>
+maintainer:          andres@well-typed.com
+category:            Data
+build-type:          Simple
+cabal-version:       >=1.10
+extra-source-files:  CHANGELOG.md doctest.sh
+tested-with:         GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.3, GHC == 8.6.1
+
+source-repository head
+  type:                git
+  location:            https://github.com/well-typed/generics-sop
+
+library
+  exposed-modules:     Data.SOP
+                       Data.SOP.Dict
+                       -- exposed via Data.SOP:
+                       Data.SOP.BasicFunctors
+                       Data.SOP.Classes
+                       Data.SOP.Constraint
+                       Data.SOP.NP
+                       Data.SOP.NS
+                       Data.SOP.Sing
+  build-depends:       base                 >= 4.9  && < 5,
+                       deepseq              >= 1.3  && < 1.5
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+  default-extensions:  CPP
+                       ScopedTypeVariables
+                       TypeFamilies
+                       RankNTypes
+                       TypeOperators
+                       GADTs
+                       ConstraintKinds
+                       MultiParamTypeClasses
+                       TypeSynonymInstances
+                       FlexibleInstances
+                       FlexibleContexts
+                       DeriveFunctor
+                       DeriveFoldable
+                       DeriveTraversable
+                       DefaultSignatures
+                       KindSignatures
+                       DataKinds
+                       FunctionalDependencies
+                       AutoDeriveTypeable
+  -- if impl(ghc >= 8.6)
+  --   default-extensions: NoStarIsType
+  other-extensions:    PolyKinds
+                       UndecidableInstances
+                       DeriveGeneric
+                       StandaloneDeriving
+                       EmptyCase
+                       UndecidableSuperClasses
+                       BangPatterns

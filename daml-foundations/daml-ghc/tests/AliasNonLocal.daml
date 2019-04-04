@@ -1,0 +1,21 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Check that aliases for-top level functions and constructors work.
+daml 1.2
+module AliasNonLocal where
+
+data Coin = BTC | Other Text
+  deriving (Eq)
+
+btc = BTC
+
+other = Other
+
+main = scenario do
+  let btc1 = btc
+  let btc2 = BTC
+  let other1 = other
+  let other2 = Other
+  assert (btc1 == btc2)
+  assert (other1 "ETH" == other2 "ETH")

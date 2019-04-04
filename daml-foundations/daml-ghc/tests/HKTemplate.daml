@@ -1,0 +1,80 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+-- @IGNORE-LF 1.0
+-- @IGNORE-LF 1.1
+
+{-# LANGUAGE FlexibleContexts #-}
+
+daml 1.2
+module HKTemplate where
+
+import DA.Newtype
+import DA.HKTemplate
+
+---------------------------------------------------------------------
+-- TEMPLATE WE'D LIKE TO ABSTRACT
+
+type A = Text
+
+template OwnedA
+  with
+    owner : Party
+    asset : A
+  where
+    signatory owner
+    controller owner can
+      SubstituteA : ContractId OwnedA
+        with newAsset : A
+        do create this with asset = newAsset
+
+---------------------------------------------------------------------
+-- GENERIC INSTANCE
+
+data Owned a = Owned with
+  owner : Party
+  asset : a
+
+instance HKTemplate (Owned a) where
+  hkSignatory this = [this.owner]
+
+data Substitute a = Substitute with newAsset : a
+
+instance (Template nc, Newtype1 nc (Owned a)) => HKChoice nc (Owned a) (Substitute a) (ContractId nc) where
+  hkController this _ = [this.owner]
+  hkChoice this _ chc = hkCreate this with asset = chc.newAsset
+
+---------------------------------------------------------------------
+-- INSTANTIATION
+
+newtype Owned_Text = Owned_Text (Owned Text)
+instance Newtype1 Owned_Text (Owned Text) where
+  pack1 = Owned_Text
+  unpack1 (Owned_Text x) = x
+
+newtype Substitute_Text = Substitute_Text (Substitute Text)
+instance Newtype1 Substitute_Text (Substitute Text) where
+  pack1 = Substitute_Text
+  unpack1 (Substitute_Text x) = x
+
+instance Template Owned_Text where
+  ensure = lkEnsure
+  signatory = lkSignatory
+  observer = lkObserver
+  agreement = lkAgreement
+
+instance Choice Owned_Text Substitute_Text (ContractId Owned_Text) where
+  choiceController = lkController
+  choice = lkChoice
+
+
+---------------------------------------------------------------------
+-- TESTS
+
+main = scenario do
+  me <- getParty "me"
+  submit me $ do
+    c <- create $ OwnedA me "test"
+    exercise c $ SubstituteA "pass"
+  submit me $ do
+    c <- hkCreate $ Owned me "test"
+    hkExercise c $ Substitute "pass"

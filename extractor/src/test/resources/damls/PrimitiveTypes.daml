@@ -1,0 +1,113 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2 module PrimitiveTypes where
+
+import DA.Date
+
+template BasicPrimitiveTypes
+  with
+    reference: Text
+    int_field: Int
+    decimal_field: Decimal
+    text_field: Text
+    bool_field: Bool
+    party_field: Party
+    date_field: Date
+    time_field: Time
+  where
+    signatory party_field
+
+    agreement
+      "whatevs"
+
+template Lists
+  with
+    reference: Text
+    int_list: [Int]
+    text_list: [Text]
+    party: Party
+  where
+    signatory party
+
+    agreement
+      "whatevs"
+
+template Optionals
+  with
+    reference: Text
+    optional: Optional Text
+    deep_optional: Optional (Optional Text)
+    party: Party
+  where
+    signatory party
+
+    agreement
+      "whatevs"
+
+primitives =
+  scenario do
+    bob <- getParty "Bob"
+    submit bob do
+      create BasicPrimitiveTypes with
+        reference = "Simple values"
+        int_field = 5
+        decimal_field = 5.5
+        text_field = "Hey"
+        bool_field = True
+        party_field = bob
+        date_field = date 2020 Feb 22
+        time_field = datetime 2020 Feb 22 12 13 14
+      create BasicPrimitiveTypes with
+        reference = "Positive extremes"
+        int_field = 9223372036854775807
+        decimal_field = 9999999999999999999999999999.9999999999
+        text_field = "Hey"
+        bool_field = True
+        party_field = bob
+        date_field = date 9999 Dec 31
+        time_field = datetime 9999 Dec 31 23 59 59
+      create BasicPrimitiveTypes with
+        reference = "Negative extremes"
+        int_field = -9223372036854775808
+        decimal_field = -9999999999999999999999999999.9999999999
+        text_field = "Hey"
+        bool_field = True
+        party_field = bob
+        date_field = date 0001 Jan 01
+        time_field = datetime 0001 Jan 01 00 00 00
+
+lists =
+  scenario do
+    bob <- getParty "Bob"
+    submit bob do
+      create Lists with
+        reference = "Empty lists"
+        int_list = []
+        text_list = []
+        party = bob
+      create Lists with
+        reference = "Non-empty lists"
+        int_list = [1, 2, 3, 4, 5]
+        text_list = ["foo", "bar", "baz"]
+        party = bob
+
+optionals =
+  scenario do
+    bob <- getParty "Bob"
+    submit bob do
+      create Optionals with
+        reference = "Nones"
+        optional = None
+        deep_optional = None
+        party = bob
+      create Optionals with
+        reference = "Somes"
+        optional = Some "foo"
+        deep_optional = Some (Some "foo")
+        party = bob
+      create Optionals with
+        reference = "Some None"
+        optional = Some "foo"
+        deep_optional = Some None
+        party = bob

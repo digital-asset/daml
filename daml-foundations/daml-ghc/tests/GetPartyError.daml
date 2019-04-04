@@ -1,0 +1,10 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ ERROR Invalid party name: #party
+daml 1.2
+module GetPartyError where
+
+main = scenario do
+    _ <- getParty "#party"
+    pure ()

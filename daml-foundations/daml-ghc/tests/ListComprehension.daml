@@ -1,0 +1,8 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module ListComprehension where
+
+test = scenario do
+  assert $ [n | n <- [1..10], n % 2 == 0] == [2*n | n <- [1..5]]

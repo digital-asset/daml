@@ -1,0 +1,61 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2 module Choice_no_params_template where
+
+template Bond
+  with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+  where
+    ensure amount > 0.0
+    signatory issuer
+    signatory owner
+
+    controller owner can
+      Transfer : ContractId BondTransferRequest
+        with newOwner : Party
+        do
+          create BondTransferRequest with ..
+
+      Split : (ContractId Bond, ContractId Bond)
+        with splitAmount : Decimal
+        do
+          f <- create $ this with amount = splitAmount
+          s <- create $ this with amount = amount - splitAmount
+          return (f, s)
+
+      Merge : ContractId Bond
+        with otherCid : ContractId Bond
+        do
+          otherBond <- fetch otherCid
+          assert $ this == otherBond with amount
+          archive otherCid
+          create $ Bond with amount = amount + otherBond.amount, ..
+
+template BondTransferRequest
+  with
+    issuer : Party
+    owner : Party
+    newOwner : Party
+    amount : Decimal
+  where
+    signatory owner
+    ensure amount > 0.0
+
+    controller newOwner can
+      Accept : ContractId Bond
+        do
+          create Bond with owner = newOwner, ..
+      Reject : ContractId Bond
+        do
+          create Bond with ..
+
+    controller owner can
+      Withdraw : ContractId Bond
+        do
+          create Bond with ..
+
+main = scenario do
+  assert True

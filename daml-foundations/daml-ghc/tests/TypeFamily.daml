@@ -1,0 +1,12 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+{-# LANGUAGE TypeFamilies #-}
+
+-- @ERROR range=11:1-11:16; Data definition, of type type family.
+
+daml 1.2
+module TypeFamily where
+
+type family T a where
+  T a = a

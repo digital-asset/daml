@@ -1,0 +1,16 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module NonEmpty where
+
+import DA.NonEmpty
+import DA.Assert
+
+testApplicative = scenario do
+  let l = NonEmpty 1 [2, 3, 4]
+  let fs = NonEmpty (*2) [(*3)]
+  (fs <*> l) === NonEmpty 2 [4, 6, 8, 3, 6, 9, 12]
+
+main = scenario do
+    testApplicative

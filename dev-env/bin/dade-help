@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+cat <<EOF
+Usage: $0 <command>
+
+The following commands are supported:
+
+dade help:                  This help page.
+dade init:                  Initialize the DA development environment.
+dade info:                  Prints out information about DA development environment.
+dade list:                  Print names of all tools in DA development environment.
+dade preload:               Preload the development environment by building
+                            all tools.
+dade prepare-for-update:    Downloads all dev-env tools from 'dev-env-next' branch.
+dade closure-size:          Compute the size of the development environment
+                            tools' closures.
+dade collect-garbage:       Garbage collect the development environment.
+
+dade freeze                 Snapshots current dev-env definitions and builds a
+                            Nix pacakge out of it.
+
+dade test-sh:               Tests all OSHT and Bats tests in provided directories.
+
+dade copyright-headers:     Update copyright headers on our source files.
+
+da-ghci:                    Run GHCi with import paths to our packages.
+da-watch-tests:             Watch source files for changes and run tests.
+da-test-daml-foundations:   Run the test suite for DAML Foundations
+
+EOF
+
+

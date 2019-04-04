@@ -1,0 +1,23 @@
+{
+  "file:/tests/diagnostics/scenario-error/Main.daml": [
+    {
+      "severity": 1,
+      "range": {
+        "start": {
+          "line": 24,
+          "character": 0
+        },
+        "end": {
+          "line": 24,
+          "character": 10
+        }
+      },
+      "source": "Scenario",
+      "message": "Scenario execution failed:\n  #0: create of Main:Agree at unknown source\n      failed due to a missing authorization from 'Alice'\n\nLedger time: 1970-01-01T00:00:00Z\n\nPartial transaction:\n  Sub-transactions:\n     #0\n     └─> create Main:Agree\n         with\n           p1 = 'Foo'; p2 = 'Alice'"
+    }
+  ],
+  "file:/tests/diagnostics/scenario-error/Prelude.daml": [],
+  "file:/tests/diagnostics/scenario-error/DA/Internal/Desugar.daml": [],
+  "file:/tests/diagnostics/scenario-error/DA/Internal/Record.daml": [],
+  "file:/tests/diagnostics/scenario-error/DA/Internal/RebindableSyntax.daml": []
+}

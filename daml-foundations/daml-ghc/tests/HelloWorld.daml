@@ -1,0 +1,11 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ ERROR Hello World!
+
+daml 1.2
+module HelloWorld where
+
+main = scenario do
+    alice <- getParty "alice"
+    submit alice $ abort "Hello World!"

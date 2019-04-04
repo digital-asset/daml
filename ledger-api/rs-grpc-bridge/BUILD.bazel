@@ -1,0 +1,44 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:scala.bzl", "da_scala_library")
+
+java_library(
+    name = 'rs-grpc-bridge',
+
+    srcs = glob(['src/main/java/**/*.java']),
+
+    deps = [
+        '//3rdparty/jvm/org/slf4j:slf4j_api',
+        '//3rdparty/jvm/io/grpc:grpc_stub',
+        "//3rdparty/jvm/com/google/code/findbugs:jsr305",
+        '//3rdparty/jvm/org/reactivestreams:reactive_streams',
+    ],
+
+    visibility = [
+        '//visibility:public',
+    ]
+)
+
+
+da_scala_library(
+    name = 'rs-grpc-bridge-test',
+
+    srcs = glob(['src/test/java/**/*.java', 'src/test/scala/**/*.scala']),
+
+    resources = glob(["src/test/resources/**/*"]),
+    resource_strip_prefix = "ledger-api/rs-grpc-bridge/src/test/resources",
+    deps = [
+        ':rs-grpc-bridge',
+        '//3rdparty/jvm/org/slf4j:slf4j_api',
+        '//3rdparty/jvm/io/grpc:grpc_stub',
+        "//3rdparty/jvm/com/google/code/findbugs:jsr305",
+        '//3rdparty/jvm/org/reactivestreams:reactive_streams',
+        '//3rdparty/jvm/org/reactivestreams:reactive_streams_tck',
+        "//3rdparty/jvm/org/scalatest:scalatest",
+    ],
+
+    visibility = [
+        '//visibility:public',
+    ]
+)

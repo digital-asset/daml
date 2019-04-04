@@ -1,0 +1,132 @@
+name:                scientific
+version:             0.3.6.2
+synopsis:            Numbers represented using scientific notation
+description:
+  "Data.Scientific" provides the number type 'Scientific'. Scientific numbers are
+  arbitrary precision and space efficient. They are represented using
+  <http://en.wikipedia.org/wiki/Scientific_notation scientific notation>.
+  The implementation uses a coefficient @c :: 'Integer'@ and a base-10 exponent
+  @e :: 'Int'@. A scientific number corresponds to the
+  'Fractional' number: @'fromInteger' c * 10 '^^' e@.
+  .
+  Note that since we're using an 'Int' to represent the exponent these numbers
+  aren't truly arbitrary precision. I intend to change the type of the exponent
+  to 'Integer' in a future release.
+  .
+  The main application of 'Scientific' is to be used as the target of parsing
+  arbitrary precision numbers coming from an untrusted source. The advantages
+  over using 'Rational' for this are that:
+  .
+  * A 'Scientific' is more efficient to construct. Rational numbers need to be
+  constructed using '%' which has to compute the 'gcd' of the 'numerator' and
+  'denominator'.
+  .
+  * 'Scientific' is safe against numbers with huge exponents. For example:
+  @1e1000000000 :: 'Rational'@ will fill up all space and crash your
+  program. Scientific works as expected:
+  .
+  >>> read "1e1000000000" :: Scientific
+  1.0e1000000000
+  .
+  * Also, the space usage of converting scientific numbers with huge exponents to
+  @'Integral's@ (like: 'Int') or @'RealFloat's@ (like: 'Double' or 'Float')
+  will always be bounded by the target type.
+
+homepage:            https://github.com/basvandijk/scientific
+bug-reports:         https://github.com/basvandijk/scientific/issues
+license:             BSD3
+license-file:        LICENSE
+author:              Bas van Dijk
+maintainer:          Bas van Dijk <v.dijk.bas@gmail.com>
+category:            Data
+build-type:          Simple
+cabal-version:       >=1.10
+
+extra-source-files:
+  changelog
+
+Tested-With: GHC == 7.6.3
+           , GHC == 7.8.4
+           , GHC == 7.10.3
+           , GHC == 8.0.2
+           , GHC == 8.2.2
+           , GHC == 8.4.1
+
+source-repository head
+  type:     git
+  location: git://github.com/basvandijk/scientific.git
+
+flag bytestring-builder
+  description: Depend on the bytestring-builder package for backwards compatibility.
+  default:     False
+  manual:      False
+
+flag integer-simple
+  description: Use the integer-simple package instead of integer-gmp
+  default:     False
+
+library
+  exposed-modules:     Data.ByteString.Builder.Scientific
+                       Data.Scientific
+                       Data.Text.Lazy.Builder.Scientific
+  other-modules:       GHC.Integer.Compat
+                       Utils
+  other-extensions:    DeriveDataTypeable, BangPatterns
+  ghc-options:         -Wall
+  build-depends:       base        >= 4.3 && < 5
+                     , integer-logarithms >= 1
+                     , deepseq     >= 1.3
+                     , text        >= 0.8
+                     , hashable    >= 1.1.2
+                     , primitive   >= 0.1
+                     , containers  >= 0.1
+                     , binary      >= 0.4.1
+
+  if flag(bytestring-builder)
+      build-depends: bytestring         >= 0.9    && < 0.10.4
+                   , bytestring-builder >= 0.10.4 && < 0.11
+  else
+      build-depends: bytestring         >= 0.10.4
+
+  if flag(integer-simple)
+      build-depends: integer-simple
+  else
+      build-depends: integer-gmp
+
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+test-suite test-scientific
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          test.hs
+  default-language: Haskell2010
+  ghc-options:      -Wall
+
+  build-depends: scientific
+               , base             >= 4.3 && < 5
+               , binary           >= 0.4.1
+               , tasty            >= 0.5
+               , tasty-ant-xml    >= 1.0
+               , tasty-hunit      >= 0.8
+               , tasty-smallcheck >= 0.2
+               , tasty-quickcheck >= 0.8
+               , smallcheck       >= 1.0
+               , QuickCheck       >= 2.5
+               , text             >= 0.8
+
+  if flag(bytestring-builder)
+      build-depends: bytestring         >= 0.9    && < 0.10.4
+                   , bytestring-builder >= 0.10.4 && < 0.11
+  else
+      build-depends: bytestring         >= 0.10.4
+
+benchmark bench-scientific
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   bench
+  main-is:          bench.hs
+  default-language: Haskell2010
+  ghc-options:      -O2
+  build-depends:    scientific
+                  , base        >= 4.3 && < 5
+                  , criterion   >= 0.5

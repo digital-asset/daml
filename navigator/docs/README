@@ -1,0 +1,16 @@
+Navigator documentation package
+===============================
+
+License listings
+----------------
+
+This documentation package contains listings of the
+licenses used in the Navigator.
+
+To re-generate the license listings run:
+
+  $ cd licenses
+  $ ./extract-sbt.py
+  $ ./extract-js.py
+
+And commit the result.

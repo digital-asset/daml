@@ -1,0 +1,38 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.digitalasset.daml.lf.validation
+
+import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.validation.Util._
+
+private[validation] object AlphaEquiv {
+
+  def alphaEquiv(t1: Type, t2: Type): Boolean = Env().alphaEquiv(t1, t2)
+
+  private case class Env(
+      currentDepth: Int = 0,
+      binderDepthLhs: Map[TypeVarName, Int] = Map.empty,
+      binderDepthRhs: Map[TypeVarName, Int] = Map.empty,
+  ) {
+
+    def alphaEquiv(t1: Type, t2: Type): Boolean = (t1, t2) match {
+      case (TVar(x1), TVar(x2)) =>
+        binderDepthLhs.get(x1).toLeft(t1) == binderDepthRhs.get(x2).toLeft(t2)
+      case (TTyCon(c1), TTyCon(c2)) => c1 == c2
+      case (TApp(f1, a1), TApp(f2, a2)) => alphaEquiv(f1, f2) && alphaEquiv(a1, a2)
+      case (TBuiltin(b1), TBuiltin(b2)) => b1 == b2
+      case (TForall((varName1, kind1), b1), TForall((varName2, kind2), b2)) =>
+        kind1 == kind2 &&
+          Env(
+            currentDepth + 1,
+            binderDepthLhs + (varName1 -> currentDepth),
+            binderDepthRhs + (varName2 -> currentDepth)
+          ).alphaEquiv(b1, b2)
+      case (TTuple(fs1), TTuple(fs2)) =>
+        (fs1.keys sameElements fs1.keys) &&
+          (fs1.values zip fs2.values).forall((alphaEquiv _).tupled)
+      case _ => false
+    }
+  }
+}

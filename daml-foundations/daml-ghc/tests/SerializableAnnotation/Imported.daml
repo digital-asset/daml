@@ -1,0 +1,10 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+
+module SerializableAnnotation.Imported where
+
+data Serializable = Serializable{x : Int}
+
+data Unserializable = Foo Int | Bar (Text -> Text)

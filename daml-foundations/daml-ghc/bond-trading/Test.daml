@@ -1,0 +1,18 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Test where
+
+import qualified Bond
+import qualified Cash
+import qualified Dvp
+import qualified Helper
+import qualified Setup
+
+main = scenario do
+  Bond.main
+  Cash.main
+  Setup.main
+  Dvp.main
+  Helper.main

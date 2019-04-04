@@ -1,0 +1,42 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+
+module DontDiscloseNonConsumingExercisesToObservers where
+
+data NonObservable = NonObservable
+  { p : Party
+  , obs : Party
+  }
+
+
+instance Template NonObservable where
+  signatory NonObservable{..} = [p]
+  observer NonObservable{..} = [obs]
+
+data Event = Event
+  { p : Party
+  }
+
+instance Template Event where
+  signatory Event{..} = [p]
+
+data CreateEvent = CreateEvent {}
+
+instance Choice NonObservable CreateEvent (ContractId Event) where
+  choiceController NonObservable{..} _ = [p]
+  consuming = nonconsuming
+  choice NonObservable{..} _self CreateEvent =
+    create $ Event p
+
+
+-- Bob should not be able to fetch when DontDiscloseNonConsumingExercisesToObservers is set,
+-- because he is only an observer and the choice CreateEventis non-consuming.
+test_DontDiscloseNonConsumingExercisesToObervers = test do
+  alice <- getParty "alice"
+  bob <- getParty "bob"
+  cid <- submit alice $ do
+    c <- create $ NonObservable alice bob
+    exercise c CreateEvent
+  submitMustFail bob $ fetch cid

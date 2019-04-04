@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+#
+# Run Black Duck's Hub Detect tool against the current working directory.
+#
+# Hub Detect documentation: https://synopsys.atlassian.net/wiki/spaces/INTDOCS/pages/622633/Hub+Detect
+# Based on the Black Duck hub-detect.sh script, https://blackducksoftware.github.io/hub-detect/hub-detect.sh
+
+set -Eeuo pipefail
+
+USAGEMSG="USAGE: $0 scan_type ...
+
+Run Black Duck Hub Detect against the current working directory. Uses Digital
+Asset's Black Duck server and scans based on conventions established for our
+workflows.
+
+Environment variables:
+  BLACKDUCK_HUBDETECT_TOKEN  Mandatory; API token to access Black Duck.
+
+Scan types:
+  ci-build    Building in Jenkins
+  ci-release  Packaging a release from Jenkins
+
+ci-build scan arguments:
+  project  Mandatory; The project name in Black Duck
+  branch   Mandatory; The branch the scan is being run in
+
+ci-release scan type arguments:
+  project  Mandatory; The project name in Black Duck
+  version  Mandatory; Release version (from release tag)
+"
+
+# The path to the Hub Detect JAR in our Artifactory
+HUB_DETECT_REPO_PATH="BlackDuckSoftware-cache/5.0.0/hub-detect-5.0.0.jar"
+
+# The local directory for the Hub Direct JAR
+HUB_DETECT_JAR_PATH="${DADE_VAR_DIR}/lib"
+
+# If you want to pass any java options to the invocation, specify this variable.
+# For example to specify a 6 gigabyte heap size, you would set
+# DETECT_JAVA_OPTS=-Xmx6G.
+HUB_DETECT_JAVA_OPTS=${DETECT_JAVA_OPTS:-}
+
+# URL for our Black Duck
+HUB_DETECT_URL="https://digitalasset.blackducksoftware.com/"
+
+# Timeout to wait for connections to Black Duck to complete. The Hub Detect tool
+# default is 120 seconds.
+HUB_DETECT_TIMEOUT="60"
+
+# The depth from directory this script is run from to search for files (such as
+# manifest files) for detectors to publish
+HUB_DETECT_DETECTOR_SEARCH_DEPTH="8"
+
+errcho() {
+  >&2 echo "ERROR: $*"
+}
+
+usage() {
+  >&2 echo "${USAGEMSG}"
+  exit 1
+}
+
+# Sanity check arguments to the script and Hub Detect
+check_args() {
+  set +u
+  if [[ -z "${BLACKDUCK_HUBDETECT_TOKEN}" ]]; then
+    errcho "BLACKDUCK_HUBDETECT_TOKEN must be set"
+    usage
+  fi
+
+  # Ensure SPRING_APPLICATION_JSON does not contain settings that might conflict
+  # with our defaults for running this at DA
+  if [[ -n "${SPRING_APPLICATION_JSON}" ]]; then
+    match=$(echo "${SPRING_APPLICATION_JSON}" | jq '[."blackduck.hub.url", ."blackduck.hub.api.token", ."blackduck.hub.username", ."blackduck.hub.password", ."blackduck.url", ."blackduck.api.token"] | any')
+    if [[ $match != "false" ]]; then
+      errcho "SPRING_APPLICATION_JSON must not contain blackduck settings"
+      exit 1
+    fi
+  fi
+  set -u
+
+  # make sure we have at least one argument for scan type
+  if [[ "$#" -lt 1 ]]; then usage; fi
+}
+
+# Get the Hub Detect JAR from Artifactory if it doesn't already exist locally
+get_hub_detect_jar() {
+  if [[ ! -d "${HUB_DETECT_JAR_PATH}" ]]; then
+    errcho "HUB_DETECT_JAR_PATH ${HUB_DETECT_JAR_PATH} does not exist, creating"
+    mkdir -p "${HUB_DETECT_JAR_PATH}"
+  fi
+
+  HUB_DETECT_FILENAME=$(awk -F "/" '{print $NF}' <<< ${HUB_DETECT_REPO_PATH})
+  HUB_DETECT_PATH="${HUB_DETECT_JAR_PATH}/${HUB_DETECT_FILENAME}"
+
+  if [[ ! -f ${HUB_DETECT_PATH} ]]; then
+    echo "Downloading ${HUB_DETECT_REPO_PATH} from Artifactory to ${HUB_DETECT_PATH}"
+    if ! jfrog rt dl "${HUB_DETECT_REPO_PATH}" "${HUB_DETECT_PATH}" --server-id=DA-Artifactory --flat --fail-no-op; then
+      errcho "Download from Artifactory failed"
+      exit 1
+    fi
+  else
+    echo "Hub Detect already exists as ${HUB_DETECT_PATH} and will not be downloaded"
+  fi
+}
+
+# Set config variables for Hub Detect
+set_hub_detect_config() {
+  local config="{\"blackduck.url\": \"${HUB_DETECT_URL}\", \"blackduck.api.token\": \"${BLACKDUCK_HUBDETECT_TOKEN}\"}"
+  SPRING_APPLICATION_JSON=$(echo "${SPRING_APPLICATION_JSON:-"{}"}" | jq ". + ${config}")
+  export SPRING_APPLICATION_JSON
+}
+
+# Set variables for the Hub Detect invocation based on our scan type
+set_scan_vars() {
+  SCAN_TYPE="$1"
+  local ret_val
+  case "${SCAN_TYPE}" in
+    ci-build)
+      set_scan_vars_ci_build "${@:2}"
+      ;;
+    ci-release)
+      set_scan_vars_ci_release "${@:2}"
+      ;;
+    *)
+      errcho "Unknown scan type: ${SCAN_TYPE}"
+      usage
+      ;;
+  esac
+  scan_vars_arg_count=$((1+ret_val))
+}
+
+# Set scan variables for a CI build
+set_scan_vars_ci_build() {
+  if [[ "$#" -lt 2 ]]; then
+    errcho "ci-build requires two arguments"
+    usage
+  fi
+
+  local project_name="$1"
+  local branch_name="$2"
+  HUB_DETECT_ARGS+=("--detect.project.name=${project_name}")
+  HUB_DETECT_ARGS+=("--detect.code.location.name=${project_name}_${branch_name}")
+  HUB_DETECT_ARGS+=("--detect.project.version.name=${branch_name}")
+  HUB_DETECT_ARGS+=("--detect.project.version.phase=development")
+  ret_val=2
+}
+
+# Set scan variables for a CI-triggered release
+set_scan_vars_ci_release() {
+  if [[ "$#" -lt 2 ]]; then
+    errcho "ci-release requires two arguments"
+    usage
+  fi
+
+  local project_name="$1"
+  local release_version="$2"
+  HUB_DETECT_ARGS+=("--detect.project.name=${project_name}")
+  HUB_DETECT_ARGS+=("--detect.code.location.name=${project_name}_${release_version}")
+  HUB_DETECT_ARGS+=("--detect.project.version.name=${release_version}")
+  HUB_DETECT_ARGS+=("--detect.project.version.phase=released")
+  ret_val=2
+}
+
+# Run Hub Detect and exit
+run_hub_detect() {
+  cmd="java ${HUB_DETECT_JAVA_OPTS} -jar ${HUB_DETECT_PATH} ${HUB_DETECT_ARGS[*]} ${SCRIPT_ARGS[*]}"
+  echo "Running $cmd"
+  ($cmd)
+  RESULT=$?
+  if [[ $RESULT -ne 0 ]]; then
+    errcho "Hub Detect exited with non-zero code $RESULT"
+    exit $RESULT
+  else
+    echo "Black Duck Hub Detect run successfully completed"
+  fi
+}
+
+HUB_DETECT_ARGS=("--blackduck.timeout=${HUB_DETECT_TIMEOUT}")
+HUB_DETECT_ARGS+=("--detect.blackduck.signature.scanner.parallel.processors=-1")
+HUB_DETECT_ARGS+=("--detect.detector.search.depth=${HUB_DETECT_DETECTOR_SEARCH_DEPTH}")
+HUB_DETECT_ARGS+=("--detect.blackduck.signature.scanner.exclusion.pattern.search.depth=${HUB_DETECT_DETECTOR_SEARCH_DEPTH}")
+
+check_args "$@"
+set_scan_vars "$@"
+shift ${scan_vars_arg_count}
+SCRIPT_ARGS=("${@:-""}")
+set_hub_detect_config
+get_hub_detect_jar
+run_hub_detect

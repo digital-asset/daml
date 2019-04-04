@@ -1,0 +1,18 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+
+da_haskell_library(
+  name = "bazel-runfiles",
+  srcs = glob(["src/DA/Bazel/Runfiles.hs"]),
+  src_strip_prefix = "src",
+  deps = [],
+  hazel_deps = [
+    "base",
+    "directory",
+    "filepath",
+    "transformers",
+  ],
+  visibility = ['//visibility:public'],
+)

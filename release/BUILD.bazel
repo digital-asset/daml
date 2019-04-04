@@ -1,0 +1,142 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load ("//bazel_tools:haskell.bzl", "da_haskell_binary")
+
+da_haskell_binary(
+    name = "release",
+    srcs = glob(["src/**/*.hs"]),
+    src_strip_prefix = "src",
+    deps = [],
+    hazel_deps = [
+        "aeson",
+        "ansi-terminal",
+        "base",
+        "bytestring",
+        "conduit",
+        "conduit-extra",
+        "containers",
+        "directory",
+        "exceptions",
+        "fast-logger",
+        "filepath",
+        "lifted-async",
+        "lifted-base",
+        "monad-control",
+        "monad-logger",
+        "optparse-applicative",
+        "path",
+        "path-io",
+        "safe",
+        "safe-exceptions",
+        "text",
+        "transformers",
+        "unliftio-core",
+        "unordered-containers",
+        "yaml",
+        "mtl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# NOTE(MH): This tarball contains only metadata for an SDK release. The SDK
+# assistant uses this metadata to download the actual data.
+# TODO(#520): Put changelog in tarball.
+genrule(
+    name = "sdk-metadata-tarball",
+    srcs = [
+        "//:LICENSE",
+        "//:NOTICES",
+        "//:VERSION",
+        "//:component-version",
+        "//:git-revision",
+        "//:CHANGELOG",
+        "sdk.yaml"
+    ],
+    outs = ["sdk-metadata-tarball.tar.gz"],
+    cmd = """
+        VERSION=$$(cat $(location //:VERSION))
+        COMPONENT_VERSION=$$(cat $(location //:component-version))
+        DIR=tmp/sdk
+        mkdir -p $$DIR
+        # NOTE(MH): The sdk assistant operates under the assumption that
+        # there is a template directory. We don't populate it anymore though.
+        mkdir -p $$DIR/templates
+        cp -L $(SRCS) $$DIR
+        rm $$DIR/$$(basename $(location //:component-version))
+        sed -i "s/__VERSION__/$$COMPONENT_VERSION/" $$DIR/sdk.yaml
+        tar zcf $@ -C tmp sdk
+    """,
+)
+
+# This tarball is used by the new daml assistant.sdk
+genrule(
+    name = "sdk-release-tarball",
+    srcs = [
+        ":config.yaml.tmpl",
+        ":install.sh",
+        "//:component-version",
+        "//daml-assistant:daml-dist",
+        "//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist",
+        "//daml-foundations/daml-tools/daml-extension:dist",
+        "//daml-assistant/daml-helper:daml-helper-dist",
+        "//ledger/sandbox:sandbox-binary_deploy.jar",
+        "//navigator/backend:navigator-binary_deploy.jar",
+        "//extractor:extractor-binary_deploy.jar",
+        "//docs:quickstart-java.tar.gz",
+    ],
+    outs = ["sdk-release-tarball.tar.gz"],
+    cmd = """
+      # damlc
+      VERSION=$$(cat $(location //:component-version))
+      OUT=sdk-$$VERSION
+      mkdir -p $$OUT
+
+      cp $(location :install.sh) $$OUT/install.sh
+
+      cp $(location :config.yaml.tmpl) $$OUT/config.yaml
+      # For now the DAML assistant expects versions to be prefixed with nightly
+      sed -i "s/__VERSION__/nightly-$$VERSION/" $$OUT/config.yaml
+
+      mkdir -p $$OUT/daml
+      tar xf $(location //daml-assistant:daml-dist) --strip-components=1 -C $$OUT/daml
+
+      mkdir -p $$OUT/damlc
+      tar xf $(location //daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist) --strip-components=1 -C $$OUT/damlc
+
+      mkdir -p $$OUT/daml-helper
+      tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper
+
+      mkdir -p $$OUT/studio
+      tar xf $(location //daml-foundations/daml-tools/daml-extension:dist) --strip-components=1 -C $$OUT/studio
+
+      mkdir -p $$OUT/sandbox
+      cp $(location //ledger/sandbox:sandbox-binary_deploy.jar) $$OUT/sandbox/sandbox.jar
+
+      mkdir -p $$OUT/navigator
+      cp $(location //navigator/backend:navigator-binary_deploy.jar) $$OUT/navigator/navigator.jar
+
+      mkdir -p $$OUT/extractor
+      cp $(location //extractor:extractor-binary_deploy.jar) $$OUT/extractor/extractor.jar
+
+      mkdir -p $$OUT/templates/quickstart-java
+      tar xf $(location //docs:quickstart-java.tar.gz) --strip-components=1 -C $$OUT/templates/quickstart-java
+      # While we use this template for both da-assistant and daml-assistant we do some manual patching here.
+      # Once da-assistant is dead, the quickstart-java rule should produce the final version.
+      rm $$OUT/templates/quickstart-java/da-skeleton.yaml
+      cat > $$OUT/templates/quickstart-java/da.yaml << EOF
+sdk-version: $$VERSION
+name: quickstart
+source: daml/Main.daml
+scenario: Main:setup
+parties:
+  - Alice
+  - Bob
+  - USD_Bank
+  - EUR_Bank
+EOF
+
+      tar zcf $(location sdk-release-tarball.tar.gz) --format=ustar $$OUT
+    """,
+    visibility = ["//visibility:public"],
+)

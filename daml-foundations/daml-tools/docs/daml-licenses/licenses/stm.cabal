@@ -1,0 +1,66 @@
+cabal-version:  >=1.10
+name:           stm
+version:        2.5.0.0
+-- don't forget to update changelog.md file!
+
+license:        BSD3
+license-file:   LICENSE
+maintainer:     libraries@haskell.org
+homepage:       https://wiki.haskell.org/Software_transactional_memory
+bug-reports:    https://github.com/haskell/stm/issues
+synopsis:       Software Transactional Memory
+category:       Concurrency
+build-type:     Simple
+tested-with:    GHC==8.6.*, GHC==8.4.*, GHC==8.2.*, GHC==8.0.*, GHC==7.10.*, GHC==7.8.*, GHC==7.6.*, GHC==7.4.*, GHC==7.2.*, GHC==7.0.*
+description:
+    Software Transactional Memory, or STM, is an abstraction for
+    concurrent communication. The main benefits of STM are
+    /composability/ and /modularity/. That is, using STM you can write
+    concurrent abstractions that can be easily composed with any other
+    abstraction built using STM, without exposing the details of how
+    your abstraction ensures safety. This is typically not the case
+    with other forms of concurrent communication, such as locks or
+    'MVar's.
+
+extra-source-files:
+    changelog.md
+
+source-repository head
+    type:     git
+    location: https://github.com/haskell/stm.git
+
+library
+    default-language: Haskell2010
+    other-extensions:
+        CPP
+        DeriveDataTypeable
+        FlexibleInstances
+        MagicHash
+        MultiParamTypeClasses
+        UnboxedTuples
+    if impl(ghc >= 7.2)
+        other-extensions: Trustworthy
+    if impl(ghc >= 7.9)
+        other-extensions: Safe
+
+    if !impl(ghc >= 7.10)
+        build-depends: nats (>= 0.1.3 && < 0.3) || (>= 1 && < 1.2)
+
+    build-depends:
+        base  >= 4.3 && < 4.13,
+        array >= 0.3 && < 0.6
+
+    exposed-modules:
+        Control.Concurrent.STM
+        Control.Concurrent.STM.TArray
+        Control.Concurrent.STM.TVar
+        Control.Concurrent.STM.TChan
+        Control.Concurrent.STM.TMVar
+        Control.Concurrent.STM.TQueue
+        Control.Concurrent.STM.TBQueue
+        Control.Concurrent.STM.TSem
+        Control.Monad.STM
+    other-modules:
+        Control.Sequential.STM
+
+    ghc-options: -Wall

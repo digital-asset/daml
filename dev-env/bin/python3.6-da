@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+# This is a helper script for running python scripts in DA environment. It relies on presence of Nix.
+# To use it, reference it in shebang line. Then, if you need some additional, non-standard python packages,
+# reference them on the second shebang line:
+#
+# #!/usr/bin/env python3.6-da
+# #! python3.6-da pyyaml semver GitPython
+#
+
+# - check if invoked via shebang line
+# - check if the second line is present
+#   - if second line is present, prepare environment
+#   - if not, just invoke python3.6
+
+# invoked via shebang line:
+# - one argument, which is either name of this script (via /usr/bin/env)
+# - or $0 which is the name of the script
+
+# get the standard DA preamble for dev-env
+set -e
+BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "$BIN_DIR/../lib/dade-common"
+
+script_name='python3.6-da'
+
+if [[ $0 =~ ${script_name}$ && $1 ]]; then
+    # it's called from shebang, we need to parse the file
+    args=()
+    script=$1
+    if [[ -f "$script" && -x "$script" ]]; then
+        in_shebang=0
+        first=1
+        regex="^\#\! *${script_name} "
+        ends_with_script="${script_name}$"
+        while read -r line
+        do
+            if (( first )); then
+                if [[ $line =~ ^\#\! ]]; then
+                    in_shebang=1
+                    first=0
+                    continue
+                fi
+            fi
+            if [[ $in_shebang && $line =~ $regex ]]; then
+                # need to skip over shebang and script name
+                do_add=0
+                for item in $line;
+                do
+                    if (( do_add )); then
+                        args+=($item)
+                    elif [[ $item =~ $ends_with_script ]]; then
+                        do_add=1
+                    fi
+                done
+            elif (( in_shebang )); then
+                break
+            fi
+        done < "$script"
+    fi
+    if [[ -z "${args[@]}" ]]; then
+        # with empty array just call python36
+        execTool python36 out python3.6 "$@"
+    else
+        # otherwise construct args and bootstrap packages
+        # We use Python to turn the positional arguments to this script into a
+        # string that we can pass to the --run command below. This is
+        # necessary to handle things like spaces in filenames.
+        cmd_args=$(python3 -c 'import sys, shlex; print(" ".join(map(shlex.quote, sys.argv[1:])))' "$@")
+        nix="$BIN_DIR/../../nix"
+        nix-shell -p "with import $nix/nixpkgs.nix { }; nixpkgs.pkgs.python36.withPackages(ps: with ps; [ ${args[*]} ])" --run "python3.6 $cmd_args"
+    fi
+else
+    # not called, just invoke python3.6 with no bells and whistles
+    execTool python36 out python3.6 "$@"
+fi
