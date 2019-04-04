@@ -28,7 +28,7 @@ def make_workdir():
 
     def unlink_workdir():
         shutil.rmtree(workdir)
-        log("%s cleaned" % workdir)
+        log("{} cleaned".format(workdir))
     atexit.register(unlink_workdir)
 
     return workdir
