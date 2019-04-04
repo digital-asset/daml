@@ -16,11 +16,11 @@ This page contains release notes for the SDK.
 
     .. code-block:: javascript
 
-        argument.fields.find(f => f.label === "foo").fields.find(f => f.label === "bar").value
+       import { DamlLfValue } from '@da/ui-core';
+       // Accessing field 'bar' of field 'foo' of the argument
+       DamlLfValue.evalPath(argument, ["foo", "bar"])
+       DamlLfValue.toJSON(argument).foo.bar
 
-        // Or using a helper function
-        DamlLfValue.evalPath(argument, ["foo", "bar"])
-        DamlLfValue.toJSON(argument).foo.bar
 
 0.11.32
 -------
