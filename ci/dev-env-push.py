@@ -44,7 +44,7 @@ def log_cmd(cmd):
 def get_secret(workdir, key):
     value = os.environ.pop(key, None)
     if value is None or value == f'$({key})':
-        log("could not find secret %s" % key)
+        log(f'could not find secret {key}')
         sys.exit(1)
 
     filepath = os.path.join(workdir, key)
