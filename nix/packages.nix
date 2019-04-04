@@ -56,6 +56,12 @@ in rec {
     hlint           = bazel_dependencies.hlint;
     ghci            = bazel_dependencies.ghc.ghc;
 
+    # Hazel’s configure step currently searches for the C compiler in
+    # PATH instead of taking it from our cc toolchain so we have to add
+    # it to dev-env. See https://github.com/FormationAI/hazel/issues/80
+    # for the upstream issue.
+    cc = bazel_dependencies.bazel-cc-toolchain;
+
     # TLA+ with the command-line model checker TLC
     tlc2            = pkgs.tlaplus;
 

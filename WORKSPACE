@@ -364,7 +364,7 @@ load("//hazel:packages.bzl", "core_packages", "packages")
 load("//bazel_tools:haskell.bzl", "add_extra_packages")
 
 # XXX: We do not have access to an integer-simple version of GHC on Windows.
-# For the time being we build with GMP. See https://github.com/DACH-NY/daml/issues/1096
+# For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
 hazel_repositories(

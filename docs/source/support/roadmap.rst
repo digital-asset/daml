@@ -12,57 +12,52 @@ We plan to update this roadmap roughly every three months.
 
   Support for installing and running the SDK on Windows.
 
-  `More about this on GitHub <https://github.com/DACH-NY/daml/issues/1147>`__.
-- **Java ecosystem**
-  
-  Improve the :doc:`Java bindings </app-dev/bindings-java/index>` and add code generation that generates Java classes from DAML types.
-
-  `More about this on GitHub <https://github.com/DACH-NY/daml/milestone/3>`__.
+  `More about this on GitHub <https://github.com/digital-asset/daml/issues/116>`__.
 - **JavaScript / TypeScript ecosystem**
 
   Improve the currently experimental :doc:`JavaScript bindings </app-dev/bindings-js/index>` so they are stable, and add TypeScript code generation to generate code from DAML types.
 
-  `More about this on GitHub <https://github.com/DACH-NY/daml/milestone/5>`__.
+  `More about this on GitHub <https://github.com/digital-asset/daml/milestone/8>`__.
 - **Simplified da assistant**
 
   Rewritten :doc:`command line for the SDK </tools/assistant>` with improved usability.
 
-  `More about this on GitHub <https://github.com/DACH-NY/daml/issues/210>`__.
+  `More about this on GitHub <https://github.com/digital-asset/daml/issues/11>`__.
 - **Native installers**
 
   Allow users to install the SDK using native installers like ``homebrew`` and ``apt-get``.
 
-  `More about this on GitHub <https://github.com/DACH-NY/daml/issues/1148>`__.
+  `More about this on GitHub <https://github.com/digital-asset/daml/issues/117>`__.
 - **Ledger SQL backend**
 
   Replace the in-memory store used by the Sandbox with a SQL backend, so it’s not just a development tool but also a persistent ledger you could deploy.
 
-  `More about this on GitHub <https://github.com/DACH-NY/daml/milestone/2>`__.
+  `More about this on GitHub <https://github.com/digital-asset/daml/milestone/10>`__.
 - **Contract keys in SDK**
 
   Contract keys are a subset of fields in a contract that allow you to look it up uniquely. Building on top of the experimental contract keys feature in DAML, give contract keys full SDK support and write documentation.
 
-  `More about this on GitHub <https://github.com/DACH-NY/daml/milestone/13>`__.
+  `More about this on GitHub <https://github.com/digital-asset/daml/milestone/9>`__.
 
 - **Map and Enum types in DAML-LF**
 
   Add ``Map`` and ``Enum`` types to DAML-LF (which is what DAML gets compiled to - it’s used by the Ledger API).
 
-  `More about Map on GitHub <https://github.com/DACH-NY/daml/issues/1078>`__.
+  ``Map`` has already been added in DAML-LF 1.3.
 
-  `More about Enum on GitHub <https://github.com/DACH-NY/daml/issues/1081>`__.
+  `More about Enum on GitHub <https://github.com/digital-asset/daml/issues/105>`__.
 - **Better package management**
 
   Make it easier to create packages and use packages.
 
-  `More about this on GitHub <https://github.com/DACH-NY/daml/issues/1198>`__.
+  `More about this on GitHub <https://github.com/digital-asset/daml/issues/125>`__.
 - **Web IDE**
 
   Provide a browser-based version of :doc:`DAML Studio </daml/daml-studio>` to make it easier to try DAML out.
 
-  `More about this on GitHub <https://github.com/DACH-NY/daml/issues/1149>`__.
+  `More about this on GitHub <https://github.com/digital-asset/daml/issues/118>`__.
 - **DAML-on-X self-service package**
 
   Make it easier for external developers to integrate DAML with other ledgers.
 
-  `More about this on GitHub <https://github.com/DACH-NY/daml/issues/1154>`__. 
+  `More about this on GitHub <https://github.com/digital-asset/daml/issues/121>`__. 

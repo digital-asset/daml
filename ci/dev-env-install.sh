@@ -5,6 +5,26 @@
 # Installs nix on a fresh machine
 set -exuo pipefail
 
+## Functions ##
+
+step() {
+  echo "step: $*" >&2
+}
+
+## Main ##
+
+cd "$(dirname "$0")/.."
+
+step "Installing Nix"
+
 sudo mkdir -p /nix
 sudo chown "$(id -u):$(id -g)" /nix
 curl -sfL https://nixos.org/nix/install | bash
+
+# shellcheck source=../dev-env/lib/ensure-nix
+source dev-env/lib/ensure-nix
+
+export NIX_CONF_DIR=$PWD/dev-env/etc
+
+step "Building dev-env dependencies"
+nix-build nix -A tools -A cached

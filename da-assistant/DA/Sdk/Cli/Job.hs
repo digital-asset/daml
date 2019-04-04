@@ -18,6 +18,7 @@ module DA.Sdk.Cli.Job
   , start
   , stop
   , restart
+  ,copyDetailsFromOldConf
 
   , isSDKVersionEligibleForNewApiUsage
   , module DA.Sdk.Cli.Job.Types
@@ -568,6 +569,15 @@ openResource resourceName = do
           display $ DT.pack ("Failed with " ++ show err ++  
           " \n To access the resource, try pointing the browser to " ++ strRes)
 
+-- copy details from da.yml to daml-project.daml
+copyDetailsFromOldConf :: Maybe Project -> IO (Either IOException ())
+copyDetailsFromOldConf mbProject = do
+  case mbProject of
+    Just proj -> do
+      let sdkVersion = V.showSemVersionCompatible $ projectSDKVersion proj
+      let versionObject = Y.object [("sdk-version", Y.String sdkVersion)]
+      try $ liftIO (Y.encodeFileWith Y.defaultEncodeOptions "daml.yaml" versionObject)
+    Nothing -> return $ Left (userError "Command must be run from within a project")
 
 -- Find the next free TCP port
 findFreePort :: Int -> Int -> IO (Maybe Int)

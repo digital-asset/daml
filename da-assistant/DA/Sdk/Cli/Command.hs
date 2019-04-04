@@ -133,6 +133,7 @@ actionParser = subparser
         subcommand "test" (Primitive <$> testParser) "Test commands"
      <> subcommand "test-templates" (pure $ Normal TestTemplates) "Test templates in current active SDK version"
      <> subcommand "changelog" (Normal <$> changelog) "Show the changelog of an SDK version"
+     <> subcommand "migrate" (pure $ Normal Migrate) "Migrate project config to new daml-assistant"
      <> subcommand "sdk-package" (Normal <$> sdk) "SDK maintenance commands."
      <> subcommand "use-experimental" (Normal <$> sdkUseExperimentalParser) "Set the default SDK version using the experimental repo"
      <> subcommand "docs" (pure $ Normal ShowDocs) docsHelp

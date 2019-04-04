@@ -100,7 +100,7 @@ newtype ShakeTest t = ShakeTest (ExceptT ShakeTestError (ReaderT ShakeTestEnv IO
 -- | Run shake test on freshly initialised shake service.
 runShakeTest :: Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
 runShakeTest mbScenarioService (ShakeTest m) = do
-    options <- defaultOptionsIO -- TODO: improve?
+    options <- defaultOptionsIO Nothing -- TODO: improve?
     virtualResources <- newTVarIO Map.empty
     let eventLogger (EventVirtualResourceChanged vr doc) = modifyTVar' virtualResources(Map.insert vr doc)
         eventLogger _ = pure ()

@@ -7,7 +7,7 @@ import akka.actor.ActorSystem
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import org.scalatest.{BeforeAndAfterAll, Suite}
 
-//TODO: use the shared one. see https://github.com/DACH-NY/daml/issues/193
+//TODO: use the shared one. see https://github.com/digital-asset/daml/issues/9
 trait TestExecutionSequencerFactory extends BeforeAndAfterAll { self: Suite =>
 
   private lazy val executionSequencerFactory: ExecutionSequencerFactory = {

@@ -19,6 +19,7 @@ import DA.Daml.GHC.Compiler.Preprocessor
 
 import           Control.Monad.Reader
 import qualified Data.List.Extra as List
+import Data.Maybe (fromMaybe)
 import qualified "ghc-lib" GHC
 import "ghc-lib-parser" Module (moduleNameSlashes)
 import qualified System.Directory as Dir
@@ -105,11 +106,11 @@ mkOptions opts@Options{..} = do
             LF.VDev _ -> "dev"
             _ -> renderPretty optDamlLfVersion
 
--- | Default configuration for the compiler, in particular the standard library
---   and configuration directory `daml-stdlib`.
---   By default, the directories are expected in the executable's location under resources.
-defaultOptionsIO :: IO Options
-defaultOptionsIO = do
+-- | Default configuration for the compiler with package database set according to daml-lf version
+-- and located runfiles. If the version argument is Nothing it is set to the default daml-lf
+-- version.
+defaultOptionsIO :: Maybe LF.Version -> IO Options
+defaultOptionsIO mbVersion = do
     baseDir <- getBaseDir
     mkOptions Options
         { optImportPath = [baseDir </> "daml-stdlib-src"]
@@ -120,7 +121,7 @@ defaultOptionsIO = do
         , optPackageImports = []
         , optShakeProfiling = Nothing
         , optThreads = 1
-        , optDamlLfVersion = LF.versionDefault
+        , optDamlLfVersion = fromMaybe LF.versionDefault mbVersion
         , optDebug = False
         }
 
