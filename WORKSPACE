@@ -395,7 +395,6 @@ hazel_repositories(
   exclude_packages = [
     "arx",
     "clock",
-    "streaming-commons",
     "wai-app-static",
     "zlib",
   ] + (["network"] if is_windows else []),
@@ -441,13 +440,6 @@ hazel_custom_package_hackage(
   version = "0.6.2",
   sha256 = "0dcc7d925769bdbeb323f83b66884101084167501f11d74d21eb9bc515707fed",
   build_file = "//3rdparty/haskell:BUILD.zlib",
-)
-
-hazel_custom_package_hackage(
-  package_name = "streaming-commons",
-  version = "0.2.1.0",
-  sha256 = "d8d1fe588924479ea7eefce8c6af77dfb373ee6bde7f4691bdfcbd782b36d68d",
-  build_file = "//3rdparty/haskell:BUILD.streaming-commons",
 )
 
 hazel_custom_package_github(
