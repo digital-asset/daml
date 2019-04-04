@@ -1,0 +1,34 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+  '//bazel_tools:scala.bzl',
+  'da_scala_binary',
+)
+
+da_scala_binary(
+  name = 'reference',
+  srcs = glob(['src/main/scala/**/*.scala']),
+  resources = glob(['src/main/resources/**/*']),
+  main_class = 'com.daml.ledger.api.server.damlonx.reference.ReferenceServer',
+  deps = [
+    '//ledger/api-server-damlonx',
+    '//ledger/participant-state',
+    '//ledger/participant-state-index',
+    '//ledger/ledger-api-common:ledger-api-common',
+    '//language-support/scala/bindings',
+
+    '//daml-lf/lfpackage',
+    '//daml-lf/archive:daml_lf_java_proto',
+    '//daml-lf/archive:daml_lf_archive_scala',
+
+    '//3rdparty/jvm/org/slf4j:slf4j_api',
+    '//3rdparty/jvm/com/typesafe/akka:akka_stream',
+    ],
+
+  runtime_deps = [
+    '//3rdparty/jvm/ch/qos/logback:logback_core',
+    '//3rdparty/jvm/ch/qos/logback:logback_classic'
+  ],
+)
+
