@@ -8,13 +8,18 @@ $ErrorActionPreference = 'Stop'
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
-    . bazel.exe --bazelrc=.\nix\bazelrc @args
+    $backupErrorActionPreference = $script:ErrorActionPreference
+    $script:ErrorActionPreference = "Continue"
+    & bazel.exe --bazelrc=.\nix\bazelrc @args 2>&1 | %{ "$_" }
+    $script:ErrorActionPreference = $backupErrorActionPreference
     if ($global:lastexitcode -ne 0) {
         Write-Output "<< bazel $args (failed, exit code: $global:lastexitcode)"
         throw ("Bazel returned non-zero exit code: $global:lastexitcode")
     }
     Write-Output "<< bazel $args (ok)"
 }
+
+$dadeRoot = (dadew where) | Out-String
 
 # FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
 

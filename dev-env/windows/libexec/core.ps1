@@ -28,6 +28,8 @@ function da_reset_path {
 
 function da_enable_win_dev_env {
     da_enable_scoop
+    # also add dadew to the PATH
+    $env:PATH = "$PSScriptRoot\..\bin;$env:PATH"
     if (da_is_scoop_installed) {
         da_auto_prevent_update
     } else {
