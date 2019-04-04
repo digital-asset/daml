@@ -62,7 +62,7 @@ The DAML Language team uses labels to indicate priority (the DAML Runtime team d
 - `language/soon`
 - `language/later`
 
-You can see all labels [here](https://github.com/DACH-NY/daml/labels).
+You can see all labels [here](https://github.com/digital-asset/daml/labels).
 
 ### Milestones
 
@@ -70,7 +70,7 @@ In addition to labels, we group issues into *milestones*. The DAML Language team
 
 Issues without a milestone are treated as in need of triaging.
 
-You can see all the active milestones [here](https://github.com/DACH-NY/daml/milestones).
+You can see all the active milestones [here](https://github.com/digital-asset/daml/milestones).
 
 ## Discussions
 

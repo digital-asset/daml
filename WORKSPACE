@@ -364,7 +364,7 @@ load("//hazel:packages.bzl", "core_packages", "packages")
 load("//bazel_tools:haskell.bzl", "add_extra_packages")
 
 # XXX: We do not have access to an integer-simple version of GHC on Windows.
-# For the time being we build with GMP. See https://github.com/DACH-NY/daml/issues/1096
+# For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
 hazel_repositories(
@@ -381,7 +381,7 @@ hazel_repositories(
       pkgs = packages,
       extra =
         [ # Read [Working on ghc-lib] for ghc-lib update instructions at
-          # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
+          # https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md
           ("ghc-lib-parser", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-0.20190401.1.tar.gz", "stripPrefix": "ghc-lib-parser-0.20190401.1", "sha256": "3036ed084ca57668faab25f8ae0420a992e21ad484c6f82acce73705dfed9e33"})
         , ("ghc-lib", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-0.20190401.1.tar.gz", "stripPrefix": "ghc-lib-0.20190401.1", "sha256": "82e94f26729c35fddc7a3d7d6b0c89f397109342b2c092c70173bb537af6f5c9"})
         , ("bytestring-nums", {"version": "0.3.6", "sha256": "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd"})
