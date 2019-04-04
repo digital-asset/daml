@@ -3,6 +3,24 @@ Navigator Frontend
 
 The Navigator frontend is based on the [ui-core](./src/ui-core/src) library.
 
+Developing Navigator Frontend
+-----------------------------
+
+To build the bundled frontend files, use Bazel:
+```bash
+bazel build //navigator/frontend:frontend.jar
+```
+
+To test the frontend during development, start the backend at port 4000 (defined in [webpack.config.js](./webpack.config.js)), run the following command, and open a web browser at the address indicated in the command output:
+```bash
+make start
+```
+
+This will start an interactive build using `webpack-dev-server`.
+Every time you save a file, the frontend assets will be rebuilt, and a push notification will be sent to the browser, prompting it to reload the page.
+
+See the ui-core [README](./src/ui-core/README.md) for information about the design of some of the core components of Navigator.
+
 
 Configurable table views
 ------------------------
