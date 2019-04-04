@@ -6,6 +6,25 @@ Release notes
 
 This page contains release notes for the SDK.
 
+0.12.0
+------
+
+- Change in how values are addressed in Navigator's `frontend-config.js`.
+  
+  - Old syntax for accessing values: `argument.foo.bar`
+  - New syntax: 
+
+    .. code-block:: javascript
+
+        argument.fields.find(f => f.label === "foo").fields.find(f => f.label === "bar").value
+
+        // Or using a helper function
+        DamlLfValue.evalPath(argument, ["foo", "bar"])
+        DamlLfValue.toJSON(argument).foo.bar
+
+0.11.32
+-------
+
 - DAML standard library (breaking change): Removed ``DA.List.split`` function, which was never intended to be
   exposed and doesn't do what the name suggests.
 - Java Bindings (breaking change): Removed type parameter for ``DamlList`` and ``DamlOptional`` classes.
