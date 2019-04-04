@@ -135,8 +135,8 @@ data BuiltinCommand
     deriving (Eq, Show)
 
 data Command
-    = BuiltinCommand BuiltinCommand
-    | SdkCommand SdkCommandInfo UserCommandArgs
+    = Builtin BuiltinCommand
+    | Dispatch SdkCommandInfo UserCommandArgs
     deriving (Eq, Show)
 
 newtype UserCommandArgs = UserCommandArgs
