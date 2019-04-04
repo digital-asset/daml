@@ -33,7 +33,7 @@ for some tooling scripts. The code itself is built using Bazel.
 1. Install Nix: `bash <(curl https://nixos.org/nix/install)`
 2. Enter `dev-env`: `eval "$(dev-env/bin/dade assist)"`
 
-If you don't want to `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
+If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
 you can also install [direnv](https://direnv.net). This repo already provides a `.envrc`
 file, with an option to add more in a `.envrc.private` file.
 
