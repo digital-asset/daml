@@ -1,14 +1,17 @@
 # Making a Release
 
-1. Make a PR that only bumps the version number in the VERSION
+1. Update https://github.com/digital-asset/daml/docs/support/release-notes.rst
+   by adding a new header for the new version above any changes since the last
+   version.
+2. Make a PR that only bumps the version number in the VERSION
    file. It is important that the PR only changes the VERSION file.
-2. Merge the PR using a rebase merge.
-3. Once CI has passed for the merged PR, the release should be
+3. Merge the PR using a rebase merge.
+4. Once CI has passed for the merged PR, the release should be
    available on bintray.
-4. Activate the new version with `da use VERSION`. Note that it will
+5. Activate the new version with `da use VERSION`. Note that it will
    not be picked up by `da upgrade` at this point.
-5. Run through the manual test plan described in https://docs.google.com/document/d/16amcy7bQodXSHjEmKhAUiaPf6O92gUbch1OyixDEvSM/edit?ts=5ca5be00.
-6. If it passes the release should be made public. This currently
+6. Run through the manual test plan described in https://docs.google.com/document/d/16amcy7bQodXSHjEmKhAUiaPf6O92gUbch1OyixDEvSM/edit?ts=5ca5be00.
+7. If it passes the release should be made public. This currently
    consists of three steps.
 
    1. Tag the release as `visible-external` on Bintray. This step can
