@@ -272,7 +272,8 @@ daml_test(
 
 daml_test(
     name = "daml-ref-daml-test",
-    srcs = glob(["source/daml/code-snippets/**/*.daml"])
+    srcs = glob(["source/daml/code-snippets/**/*.daml"]),
+    timeout = "long",
 )
 
 daml_test(
