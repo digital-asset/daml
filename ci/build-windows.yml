@@ -1,9 +1,23 @@
 steps:
   - checkout: self
-    fetchDepth: 1 # speed up checkout from 30sec to 7sec
-  - powershell: '.\dev-env\windows\dadew-installer.ps1'
-    displayName: 'Install dev-env'
-    #- script: ./ci/configure-bazel.ps1
-    #  displayName: 'Configure Bazel'
-  - powershell: '.\build.ps1'
-    displayName: 'Bazel Build'
+    fetchDepth: 2 # speed up checkout from 30sec to 7sec
+
+  - powershell: |
+      # FIXME: make this the default once Jenkins is not longer in use
+      Copy-Item ".dadew_azure" -Destination ".dadew"
+      .\dev-env\windows\bin\dadew.ps1 install
+      .\dev-env\windows\bin\dadew.ps1 enable
+      .\dev-env\windows\bin\dadew.ps1 sync
+    displayName: 'Install the Developer Environment'
+
+  - bash: ci/configure-bazel.sh
+    displayName: 'Configure Bazel'
+    env:
+      IS_FORK: variables['System.PullRequest.IsFork']
+      # to upload to the bazel cache
+      GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+
+  - powershell: |
+      .\dev-env\windows\bin\dadew.ps1 enable
+      .\build.ps1
+    displayName: 'Build'

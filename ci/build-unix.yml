@@ -15,12 +15,17 @@ steps:
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
 
-  - bash: ci/build.sh
-    displayName: 'Build'
+  - bash: ci/configure-bazel.sh
+    displayName: 'Configure Bazel'
     env:
       IS_FORK: variables['System.PullRequest.IsFork']
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+
+  - bash: |
+      eval "$(dev-env/bin/dade assist)"
+      ./build.sh "_$(uname)"
+    displayName: 'Build'
 
   - task: PublishBuildArtifacts@1
     condition: succeededOrFailed()

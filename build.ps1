@@ -4,11 +4,16 @@ $ErrorActionPreference = 'Stop'
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
-    . bazel.exe --bazelrc=.\nix\bazelrc --host_jvm_args=-Djavax.net.ssl.trustStore="$(dadew where)\current\apps\da-truststore\cacerts" @args
+    $backupErrorActionPreference = $script:ErrorActionPreference
+    $script:ErrorActionPreference = "Continue"
+    & bazel.exe --bazelrc=.\nix\bazelrc --host_jvm_args=-Djavax.net.ssl.trustStore="$dadeRoot\current\apps\da-truststore\cacerts" @args 2>&1 | %{ "$_" }
+    $script:ErrorActionPreference = $backupErrorActionPreference
     if ($global:lastexitcode -ne 0) {
         throw ("Bazel returned non-zero exit code: $global:lastexitcode")
     }
 }
+
+$dadeRoot = (dadew where) | Out-String
 
 $env:BAZEL_SH = [Environment]::GetEnvironmentVariable("BAZEL_SH", [System.EnvironmentVariableTarget]::User)
 

@@ -31,8 +31,8 @@ jobs:
     steps:
       - template: ci/build-unix.yml
 
-  # - job: Windows
-  #   pool:
-  #     vmImage: 'windows-2019'
-  #   steps:
-  #     - template: ci/build-windows.yml
+  - job: Windows
+    pool:
+      vmImage: 'vs2017-win2016'
+    steps:
+      - template: ci/build-windows.yml
