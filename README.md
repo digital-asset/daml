@@ -25,7 +25,7 @@ We warmly welcome [contributions](./CONTRIBUTING.md).
 
 ### 2. Set up the DA Development Environment ("`dev-env`")
 
-`dev-env` provides dependencies required during build phase, like Java, Bazel, and Python
+`dev-env` provides dependencies required during the build phase, like Java, Bazel, and Python
 for some tooling scripts. The code itself is built using Bazel.
 
 #### Set up `dev-env` on Linux or macOS
