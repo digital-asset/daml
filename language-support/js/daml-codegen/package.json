@@ -6,7 +6,7 @@
   "types": "./dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/DACH-NY/daml",
+    "url": "https://github.com/digital-asset/daml",
     "directory": "language-support/js/daml-codegen"
   },
   "license": "Apache-2.0",

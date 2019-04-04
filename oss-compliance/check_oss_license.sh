@@ -35,8 +35,8 @@ DUMMYPOM="<?xml version="1.0" encoding="UTF-8"?>
   <description>dummy-pom</description>
   <scm>
     <url>http://github.com/DACH-NY/da</url>
-    <connection>scm:git:git://github.com/DACH-NY/daml.git</connection>
-    <developerConnection>scm:git:ssh://git@github.com/DACH-NY/daml.git</developerConnection>
+    <connection>scm:git:git://github.com/digital-asset/daml.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/digital-asset/daml.git</developerConnection>
     <tag>HEAD</tag>
   </scm>
   <dependencies>

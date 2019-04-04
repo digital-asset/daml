@@ -135,7 +135,7 @@ hazel_repositories(
   ...
 )
 ```
-Note that [`ghc-lib`](https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md) is added here as one such "extra package".
+Note that [`ghc-lib`](https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md) is added here as one such "extra package".
 
 We use `hazel_custom_package_hackage` if the default Bazel build that Hazel generates won't quite work and needs some overrides. The overrides go into a file that is pointed at by the `build_file` attribute:
 ```

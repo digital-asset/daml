@@ -115,7 +115,7 @@ getIntegrationTests registerTODO scenarioService version = do
     -- test files are declared as data in BUILD.bazel and are copied over relative to the current run file tree
     -- this is equivalent to PWD env variable
     files1 <- filter (".daml" `isExtensionOf`) <$> listFiles "daml-foundations/daml-ghc/tests"
-    let files2 = ["daml-foundations/daml-ghc/bond-trading/Test.daml"] -- only run Test.daml (see https://github.com/DACH-NY/daml/issues/726)
+    let files2 = ["daml-foundations/daml-ghc/bond-trading/Test.daml"] -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
     let files = files1 ++ files2
 
     let outdir = "daml-foundations/daml-ghc/output"
