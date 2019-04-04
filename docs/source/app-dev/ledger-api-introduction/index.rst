@@ -62,10 +62,11 @@ Example project - Ping Pong
 The SDK provides an example project demonstrating the use of the Ledger API.
 Read :ref:`setup-maven-project` to configure your machine to use the examples.
 
-1. Start a new project with ``da new example-ping-pong-grpc-java ping-pong-java``. This creates a new SDK project in the folder ``./ping-pong-java`` that is comprised of a DAML model in ``daml/PingPong.daml`` and Java source code.
-2. Run ``mvn compile`` to build the Java code with `Maven <https://maven.apache.org/>`__.
-3. Run ``da sandbox`` to start the sandbox.
-4. Run ``mvn exec:java`` to run the application.
+To get the example project:
+
+1. Clone the `example project from GitHub <https://github.com/digital-asset/ex-java-bindings>`__. 
+
+2. Follow the `setup instructions in the README <https://github.com/digital-asset/ex-java-bindings/blob/master/README.rst#setting-up-the-example-projects>`__. Use ``examples.pingpong.grpc.PingPongGrpcMain`` as the main class.
 
 The DAML model contains two contract templates ``Ping`` and ``Pong`` to showcase how two parties
 can interact via the ledger. Party ``Alice`` creates a ``Ping`` contract
@@ -75,7 +76,7 @@ who can choose to exercise the ``RespondPing`` choice on that contract. This cre
 effectively starting a new ping pong cycle, until this has happened a number of times, as defined within
 the DAML model.
 
-The entry point for the Java code is the main class ``src/main/java/examples/pingpong/PingPongMain.java``.
+The entry point for the Java code is the main class ``src/main/java/examples/pingpong/grpc/PingPongGrpcMain.java``.
 It shows how to connect to and interact with the DML Ledger via the gRPC API.
 The code is augmented with comments that describe the various parts of the code.
 Each party will connect to the ledger, subscribe to the transaction stream, and send initial ``Ping`` contracts.
