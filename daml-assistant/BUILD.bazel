@@ -23,8 +23,10 @@ deps = [
     'tasty-hunit',
     'tasty-quickcheck',
     'temporary',
+    'terminal-progress-bar',
     'text',
     'unix',
+    'utf8-string',
     'yaml',
 ]
 

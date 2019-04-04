@@ -18,18 +18,21 @@ import DAML.Assistant.Types
 import DAML.Assistant.Consts
 import DAML.Assistant.Util
 import DAML.Assistant.Config
+import Safe
 import Conduit
 import qualified Data.Conduit.List as List
 import qualified Data.Conduit.Tar as Tar
 import qualified Data.Conduit.Zlib as Zlib
 import Network.HTTP.Simple
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.UTF8 as BS.UTF8
 import Data.List.Extra
 import System.IO.Temp
 import System.FilePath
 import System.Directory
 import Control.Monad.Extra
 import Control.Exception.Safe
+import System.ProgressBar
 import System.Posix.Types
 import System.Posix.Files -- forget windows for now
 import qualified System.Info
@@ -228,28 +231,26 @@ copyAndInstall options damlPath sourcePath =
 
             installExtracted options damlPath (SdkPath copyPath)
 
-type ExtractM = ResourceT IO
 
 -- | Extract a tarGz bytestring and install it.
-extractAndInstall :: InstallOptions -> DamlPath -> ConduitT () BS.ByteString ExtractM () -> IO ()
+extractAndInstall :: InstallOptions -> DamlPath
+    -> ConduitT () BS.ByteString (ResourceT IO) () -> IO ()
 extractAndInstall options damlPath source =
     wrapErr "Extracting SDK release tarball." $ do
         withSystemTempDirectory "daml-update" $ \tmp -> do
             let extractPath = tmp </> "release"
             createDirectory extractPath
-            filesAndModes <- runConduitRes
+            runConduitRes
                 $ source
                 .| Zlib.ungzip
                 .| Tar.untar (restoreFile extractPath)
-                .| List.consume
-            forM_ filesAndModes (uncurry setFileMode)
             installExtracted options damlPath (SdkPath extractPath)
     where
-        restoreFile :: FilePath -> Tar.FileInfo
-            -> ConduitT BS.ByteString (FilePath, FileMode) ExtractM ()
+        restoreFile :: MonadResource m => FilePath -> Tar.FileInfo
+            -> ConduitT BS.ByteString Void m ()
         restoreFile extractPath info = do
             let oldPath = Tar.decodeFilePath (Tar.filePath info)
-                newPath = stripPath oldPath
+                newPath = dropDirectory1 oldPath
                 targetPath = extractPath </> dropTrailingPathSeparator newPath
                 parentPath = takeDirectory targetPath
 
@@ -257,17 +258,18 @@ extractAndInstall options damlPath source =
                 case Tar.fileType info of
                     Tar.FTNormal -> do
                         liftIO $ createDirectoryIfMissing True parentPath
-                        sinkFileBS targetPath >> yield (targetPath, Tar.fileMode info)
+                        sinkFileBS targetPath
+                        liftIO $ setFileMode targetPath (Tar.fileMode info)
                     Tar.FTDirectory -> do
                         liftIO $ createDirectoryIfMissing True targetPath
-                    unsupported  ->
+                    unsupported ->
                         liftIO $ throwIO $ assistantErrorBecause
                             "Invalid SDK release: unsupported file type."
                             ("type = " <> pack (show unsupported) <>  ", path = " <> pack oldPath)
 
-        -- | strip first component from path
-        stripPath :: FilePath -> FilePath
-        stripPath = joinPath . tail . splitPath
+        -- | Drop first component from path
+        dropDirectory1 :: FilePath -> FilePath
+        dropDirectory1 = joinPath . tail . splitPath
 
 -- | Download an sdk tarball and install it.
 httpInstall :: InstallOptions -> DamlPath -> InstallURL -> IO ()
@@ -278,7 +280,19 @@ httpInstall options@InstallOptions{..} damlPath (InstallURL url) = do
         when (getResponseStatusCode response /= 200) $
             throwIO . assistantErrorBecause "Failed to download release."
                     . pack . show $ getResponseStatus response
-        extractAndInstall options damlPath (getResponseBody response)
+        let totalSizeM = readMay . BS.UTF8.toString =<< headMay
+                (getResponseHeader "Content-Length" response)
+        extractAndInstall options damlPath
+            . maybe id (\s -> (.| observeProgress s)) totalSizeM
+            $ getResponseBody response
+    where
+        observeProgress :: MonadResource m =>
+            Int -> ConduitT BS.ByteString BS.ByteString m ()
+        observeProgress totalSize = do
+            pb <- liftIO $ newProgressBar defStyle 10 (Progress 0 totalSize ())
+            List.mapM $ \bs -> do
+                liftIO $ incProgress pb (BS.length bs)
+                pure bs
 
 -- | Install SDK from a path. If the path is a tarball, extract it first.
 pathInstall :: InstallOptions -> DamlPath -> FilePath -> IO ()
