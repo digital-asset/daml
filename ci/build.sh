@@ -28,7 +28,7 @@ step "configuring bazel"
 
 # setups the shared remote cache if the branch is not a fork
 if [[ "${IS_FORK}" = False ]]; then
-  step "configuring remote cache"
+  step "configuring write access to the remote cache"
   GOOGLE_APPLICATION_CREDENTIALS=$(mktemp)
   echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > "$GOOGLE_APPLICATION_CREDENTIALS"
   unset GOOGLE_APPLICATION_CREDENTIALS_CONTENT
