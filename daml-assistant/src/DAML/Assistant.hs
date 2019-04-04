@@ -30,14 +30,14 @@ main = do
     userCommand <- getCommand (fromMaybe [] sdkCommandsM)
     case userCommand of
 
-        BuiltinCommand Version -> do
+        Builtin Version -> do
             version <- required "Could not determine SDK version." envSdkVersion
             T.putStrLn (unwrapSdkVersion version)
 
-        BuiltinCommand (Install options) -> wrapErr "Installing the SDK." $ do
+        Builtin (Install options) -> wrapErr "Installing the SDK." $ do
             install options envDamlPath
 
-        SdkCommand SdkCommandInfo{..} cmdArgs ->
+        Dispatch SdkCommandInfo{..} cmdArgs ->
             wrapErr ("Running " <> unwrapSdkCommandName sdkCommandName <> " command.") $ do
                 sdkPath <- required "Could not determine SDK path." envSdkPath
                 dispatchEnv <- getDispatchEnv env
