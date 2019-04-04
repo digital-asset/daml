@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
+cd "$(dirname "$0")/.."
 
 ## Functions
 
@@ -25,14 +26,13 @@ eval "$(dev-env/bin/dade assist)"
 
 step "configuring bazel"
 
-# FIXME(zimbatm): handle secrets on forks
-# If GOOGLE_APPLICATION_CREDENTIALS were provided, access the bucket directly and upload
-if false; then # [[ -n "${GOOGLE_APPLICATION_CREDENTIALS_CONTENT:-}" ]]; then
+# setups the shared remote cache if the branch is not a fork
+if [[ "${IS_FORK}" = False ]]; then
+  step "configuring remote cache"
   GOOGLE_APPLICATION_CREDENTIALS=$(mktemp)
   echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > "$GOOGLE_APPLICATION_CREDENTIALS"
   unset GOOGLE_APPLICATION_CREDENTIALS_CONTENT
   export GOOGLE_APPLICATION_CREDENTIALS
-  step "configuring remote cache"
   echo "build --remote_http_cache=https://storage.googleapis.com/daml-bazel-cache --remote_upload_local_results=true --google_credentials=${GOOGLE_APPLICATION_CREDENTIALS}" >> .bazelrc.local
 fi
 

@@ -43,9 +43,9 @@ def log_cmd(cmd):
 # doesn't exist.
 def get_secret(workdir, key):
     value = os.environ.pop(key, None)
-    if value is None or value is ("$(%s)" % key):
-        log("%s is unset, skipping uploads" % key)
-        sys.exit()
+    if value is None or value == ("$(%s)" % key):
+        log("could not find secret %s" % key)
+        sys.exit(1)
 
     filepath = os.path.join(workdir, key)
     with open(filepath, "w") as file:
@@ -87,15 +87,7 @@ def start_nix_gcs(google_creds):
 
 
 def main():
-    out_paths = nix_build("./nix", "-A", "tools", "-A", "cached")
-    log("outputs:")
-    for path in out_paths:
-        log(path)
-
     workdir = make_workdir()
-
-    # FIXME(zimbatm): figure out secret handling with forks
-    return
 
     nix_secret_key = get_secret(workdir, "NIX_SECRET_KEY_CONTENT")
     google_creds = get_secret(workdir, "GOOGLE_APPLICATION_CREDENTIALS_CONTENT")
