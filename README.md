@@ -21,7 +21,8 @@ them on [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml
 We warmly welcome [contributions](./CONTRIBUTING.md).
 
 ### 1. Clone this repository
-`git clone git@github.com:DACH-NY/daml.git`.
+
+`git clone git@github.com:digital-asset/daml.git`.
 
 ### 2. Set up the DA Development Environment ("`dev-env`")
 
@@ -56,7 +57,7 @@ To just run the tests, run `bazel test //...`
 ### 4. Contribute!
 
 If you are looking for ideas on how to contribute, please browse our
-[issues](https://github.com/DACH-NY/daml/issues).
+[issues](https://github.com/digital-asset/daml/issues).
 
 ### Caching: build speed and disk space considerations
 

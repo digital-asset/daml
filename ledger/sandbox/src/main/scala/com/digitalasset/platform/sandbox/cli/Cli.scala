@@ -35,7 +35,7 @@ object Cli {
 
     opt[Int]('p', "port")
       .action((x, c) => c.copy(port = x))
-      .text("Sandbox service port. Defaults to 8080.")
+      .text(s"Sandbox service port. Defaults to ${SandboxConfig.DefaultPort}.")
 
     opt[String]('a', "address")
       .action((x, c) => c.copy(addressOption = Some(x)))

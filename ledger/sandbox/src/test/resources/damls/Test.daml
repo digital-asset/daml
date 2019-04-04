@@ -346,6 +346,49 @@ template TextKeyOperations
           mbCid2 <- lookupByKey @TextKey keyToLookup
           assertMsg "does not get contract after exercise" (mbCid2 == Nothing)
 
+
+-- dummy contract to be divulged out-of-band
+template Divulgence1
+  with
+    div1Party: Party
+  where
+    signatory div1Party
+
+-- contract to be used to divulge out of band. the owner of the
+-- `Divulgence1` contract should be the fetcher, and the party
+-- to disclose to the signatory.
+template Divulgence2
+  with
+    div2Signatory: Party
+    div2Fetcher: Party
+  where
+    signatory div2Signatory
+
+    controller div2Fetcher can
+      nonconsuming Divulgence2Fetch: ()
+        with
+          div1ToFetch: ContractId Divulgence1
+        do
+          _ <- fetch div1ToFetch
+          return ()
+
+    controller div2Fetcher can
+      nonconsuming Divulgence2Archive: ()
+        with
+          div1ToArchive: ContractId Divulgence1
+        do
+          archive div1ToArchive
+
+{-
+testDivulgence : Scenario ()
+testDivulgence = test do
+  alice <- getParty "alice"
+  bob <- getParty "bob"
+  div1Cid <- submit alice (create Divulgence1 with div1Party = alice)
+  div2Cid <- submit bob (create Divulgence2 with div2Signatory = bob, div2Fetcher = alice)
+  submit alice (exercise div2Cid Divulgence2Fetch with div1ToFetch = div1Cid)
+-}
+
 testScenario : Scenario ()
 testScenario = do
   party <- getParty "party"

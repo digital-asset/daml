@@ -46,7 +46,7 @@ object LedgerApiServer {
       ledgerBackend: LedgerBackend,
       timeProvider: TimeProvider,
       config: => SandboxConfig,
-      serverPort: Int = 8080,
+      serverPort: Int, //TODO: why do we need this if we already have a SandboxConfig?
       optTimeServiceBackend: Option[TimeServiceBackend],
       optResetService: Option[SandboxResetService])(
       implicit materializer: ActorMaterializer): LedgerApiServer = {
@@ -185,7 +185,7 @@ class LedgerApiServer(
     services: (ActorMaterializer, ExecutionSequencerFactory) => Iterable[BindableService],
     optResetService: Option[SandboxResetService],
     addressOption: Option[String],
-    serverPort: Int = 8080,
+    serverPort: Int,
     maybeBundle: Option[SslContext] = None)(implicit materializer: ActorMaterializer)
     extends AutoCloseable {
 
@@ -215,6 +215,7 @@ class LedgerApiServer(
   private var runningServices: Iterable[BindableService] = services(materializer, serverEsf)
 
   def getServer = server
+
   private var server: Server = _
 
   private def start(): LedgerApiServer = {

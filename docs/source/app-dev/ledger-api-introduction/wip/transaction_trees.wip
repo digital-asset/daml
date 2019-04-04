@@ -1,6 +1,6 @@
 The following example opens a transaction tree stream for Bob::
 
-    grpcurl -import-path . -proto com/digitalasset/ledger/api/v1/transaction_service.proto  -plaintext -d '{"ledgerId" : "sandbox-0ed644f5-9451-4bb4-bd4f-f8900cd74df5", "filter": {"filtersByParty":{"Bob":{}}}, "begin": {"boundary":0 } }' localhost:8080 com.digitalasset.ledger.api.v1.TransactionService.GetTransactionTrees
+    grpcurl -import-path . -proto com/digitalasset/ledger/api/v1/transaction_service.proto  -plaintext -d '{"ledgerId" : "sandbox-0ed644f5-9451-4bb4-bd4f-f8900cd74df5", "filter": {"filtersByParty":{"Bob":{}}}, "begin": {"boundary":0 } }' localhost:6865 com.digitalasset.ledger.api.v1.TransactionService.GetTransactionTrees
     {
       "transactions": [
         {

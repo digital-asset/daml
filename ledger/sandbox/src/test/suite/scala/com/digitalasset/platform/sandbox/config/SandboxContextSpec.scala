@@ -13,7 +13,7 @@ class SandboxContextSpec extends WordSpec with Matchers with TestHelpers {
 
   "SandboxContext" should {
     "parse command line arguments" in {
-      val port = Array("--port", "8080")
+      val port = Array("--port", "6865")
       val time = Array("--static-time")
       val dar = Array(TestDar.dalfFile.toString)
 
@@ -22,7 +22,7 @@ class SandboxContextSpec extends WordSpec with Matchers with TestHelpers {
 
       val Some(ctx) = SandboxContext(port ++ time ++ dar ++ dalf)
       val config = ctx.config
-      config.port shouldEqual 8080
+      config.port shouldEqual 6865
       config.damlPackageContainer.files should contain theSameElementsAs List(
         TestDar.dalfFile,
         new File(dalfFileName))

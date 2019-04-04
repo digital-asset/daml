@@ -16,7 +16,7 @@ java -jar sandbox-<version>-SNAPSHOT.jar [options] <archive>
 ## Command line arguments
 
 ```
-  -p, --port <value>       Sandbox service port. Defaults to 8080.
+  -p, --port <value>       Sandbox service port. Defaults to 6865.
   -a, --address <value>    Sandbox service host. Defaults to binding on all addresses.
   --dalf                   Parse provided archives as DAML-LF Archives instead of DARs.
   --static-time            Use static time, configured with TimeService through gRPC.

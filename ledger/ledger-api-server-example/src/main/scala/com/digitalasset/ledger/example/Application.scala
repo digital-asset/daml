@@ -35,7 +35,7 @@ object Application {
   class Server(
       actorSystemName: String,
       addressOption: Option[String],
-      serverPort: Int = 8080,
+      serverPort: Int,
       config: => SandboxConfig,
       maybeBundle: Option[SslContext] = None)
       extends AutoCloseable {

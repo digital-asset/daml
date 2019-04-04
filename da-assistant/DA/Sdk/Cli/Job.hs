@@ -248,8 +248,8 @@ projectJobs proj = do
             P.renderPlain $ NavConf.navigatorConfig (fmap NavConf.partyToUser (projectParties proj))
         confFile = projectPath proj </> ".navigator.conf"
   mbNewNavPort  <- liftIO $ findFreePort 20 7500
-  mbSandboxPort <- liftIO $ findFreePort 20 7600
-  sandboxPort   <- liftIO $ maybe (throwIO $ NoFreePortFound 7600 20) return (runningSandboxPort <|> mbSandboxPort)
+  mbSandboxPort <- liftIO $ findFreePort 20 6865
+  sandboxPort   <- liftIO $ maybe (throwIO $ NoFreePortFound 6865 20) return (runningSandboxPort <|> mbSandboxPort)
   navPort       <- liftIO $ maybe (throwIO $ NoFreePortFound 7500 20) return (runningNavPort <|> mbNewNavPort)
   let useNewApiComponents = isSDKVersionEligibleForNewApiUsage proj
       navigatorApiUrl     = if useNewApiComponents then NewApiUrlAndPort "localhost" sandboxPort else OldApiUrlWithPort ("http://localhost:" <> (T.pack $ show sandboxPort) <> "/v0")
@@ -272,8 +272,8 @@ projectSandbox = do
     Just p -> do
        mbPort <- getProjectSandboxPort p
        damlEntryFile <- getDAMLEntryFile p
-       mbNewSandboxPort <- liftIO $ findFreePort 20 7600
-       sandboxPort <- liftIO $ maybe (throwIO $ NoFreePortFound 7600 20) return (mbPort <|> mbNewSandboxPort)
+       mbNewSandboxPort <- liftIO $ findFreePort 20 6865
+       sandboxPort <- liftIO $ maybe (throwIO $ NoFreePortFound 6865 20) return (mbPort <|> mbNewSandboxPort)
        let useJavaSandbox = isSDKVersionEligibleForNewApiUsage p
        return [JobSandbox $ Sandbox useJavaSandbox (projectProjectName p) (pathToText $ projectPath p)
                                 (pathToText damlEntryFile) (map pathToText $ projectDarDependencies p)
@@ -311,7 +311,7 @@ runJob job = do
                 [ Env.Javac Env.requiredMinJdkVersion
                 ]
             navigatorJarPath <- findPath "navigator" Command.Types.PPQExecutable
-            -- java -jar navigator server localhost 8080
+            -- java -jar navigator server localhost 6865
             let args  =
                     [ "java", "-jar", pathToText navigatorJarPath
                     , "server"

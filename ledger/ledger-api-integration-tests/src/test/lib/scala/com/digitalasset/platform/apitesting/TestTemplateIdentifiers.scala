@@ -26,6 +26,10 @@ final case class TestTemplateIdentifiers(testPackageId: String) {
     Identifier(testPackageId, "Test.BranchingSignatories", "Test", "BranchingSignatories")
   val branchingControllers =
     Identifier(testPackageId, "Test.BranchingControllers", "Test", "BranchingControllers")
+  val divulgence1 =
+    Identifier(testPackageId, "Test.Divulgence1", "Test", "Divulgence1")
+  val divulgence2 =
+    Identifier(testPackageId, "Test.Divulgence2", "Test", "Divulgence2")
   val allTemplates =
     List(
       dummy,
@@ -35,5 +39,7 @@ final case class TestTemplateIdentifiers(testPackageId: String) {
       agreementFactory,
       triProposal,
       triAgreement,
-      textContainer)
+      textContainer,
+      divulgence1,
+      divulgence2)
 }
