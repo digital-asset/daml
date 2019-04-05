@@ -31,7 +31,7 @@ for some tooling scripts. The code itself is built using Bazel.
 
 #### Set up `dev-env` on Linux or macOS
 
-1. `cd` into the new `daml` repository you just cloned
+1. Use `cd daml` to switch into the new `daml` repository you just cloned
 2. Install Nix by running: `bash <(curl https://nixos.org/nix/install)`
 3. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
 
