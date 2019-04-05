@@ -211,7 +211,9 @@ waitForConnectionOnPort sleep port = do
     addr : _ <- getAddrInfo (Just hints) (Just "127.0.0.1") (Just $ show port)
     untilJust $ do
         r <- tryIO $ checkConnection addr
-        either (const $ Nothing <$ sleep) (const $ pure $ Just ()) r
+        case r of
+            Left _ -> sleep *> pure Nothing
+            Right _ -> pure $ Just ()
     where
         checkConnection addr = bracket
               (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
@@ -229,7 +231,7 @@ waitForHttpServer sleep url = do
         case r of
             Right resp
                 | HTTP.statusCode (HTTP.responseStatus resp) == 200 -> pure $ Just ()
-            _ -> Nothing <$ sleep
+            _ -> sleep *> pure Nothing
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)
 
