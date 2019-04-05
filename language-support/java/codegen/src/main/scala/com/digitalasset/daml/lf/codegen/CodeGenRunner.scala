@@ -120,7 +120,7 @@ private[codegen] object CodeGenRunner extends StrictLogging {
       interfaces: Seq[Interface],
       conf: Conf,
       pkgPrefixes: Map[PackageId, String])(implicit ec: ExecutionContext): Unit = {
-    logger.warn(
+    logger.info(
       s"Start processing packageIds '${interfaces.map(_.packageId.underlyingString).mkString(", ")}' in directory '${conf.outputDirectory}'")
 
     // TODO (mp): pre-processing and escaping
@@ -137,7 +137,7 @@ private[codegen] object CodeGenRunner extends StrictLogging {
 
     // TODO (mp): make the timeout configurable
     val _ = Await.result(future, Duration.create(10l, TimeUnit.MINUTES))
-    logger.warn(
+    logger.info(
       s"Finish processing packageIds ''${interfaces.map(_.packageId.underlyingString).mkString(", ")}''")
   }
 
