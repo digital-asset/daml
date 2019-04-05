@@ -156,15 +156,11 @@ private[engine] class CommandTranslation(compiledPackages: ConcurrentCompiledPac
 
           // map
           case (TMap(elemType), ValueMap(map)) =>
-            if (map.isEmpty) {
-              ResultDone(ETyApp(EBuiltin(BMapInsert), elemType))
-            } else {
-              ImmArray(map.toList)
-                .traverseU {
-                  case (key0, value0) => go(newNesting, elemType, value0).map(entry(key0, _))
-                }
-                .map(l => buildMap(elemType, buildList(tEntry(elemType), l)))
-            }
+            ImmArray(map.toList)
+              .traverseU {
+                case (key0, value0) => go(newNesting, elemType, value0).map(entry(key0, _))
+              }
+              .map(l => buildMap(elemType, buildList(tEntry(elemType), l)))
 
           // variants
           case (TTyConApp(tyCon, tyConArgs), ValueVariant(mbVariantId, constructorName, value)) =>
