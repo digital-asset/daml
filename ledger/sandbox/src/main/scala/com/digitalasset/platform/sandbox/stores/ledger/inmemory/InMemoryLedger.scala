@@ -104,11 +104,9 @@ class InMemoryLedger(
     )
     acsRes match {
       case Left(err) =>
-        //TODO: this is sloppy here, errors can be TimeBeforeErrors as well
         handleError(
           tx,
-          RejectionReason.Inconsistent(
-            s"Contract dependencies inactive: ${err.mkString("[", ", ", "]")}"))
+          RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
       case Right(newAcs) =>
         acs = newAcs
         val recordTx = mappedTx

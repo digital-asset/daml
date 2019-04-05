@@ -148,19 +148,15 @@ object ActiveContracts {
                 witnesses = explicitDisclosure(nodeId).intersect(nc.stakeholders),
                 key = nc.key
               )
-              acc match {
-                case None => ats
-                case Some(acs) =>
-                  activeContract.key match {
-                    case None =>
-                      ats.copy(acc = Some(addContract(acc, absCoid, activeContract, None)))
-                    case Some(key) =>
-                      val gk = GlobalKey(activeContract.contract.template, key.key)
-                      if (keyExists(acc, gk)) {
-                        AddTransactionState(None, errs + DuplicateKey(gk))
-                      } else {
-                        ats.copy(acc = Some(addContract(acc, absCoid, activeContract, Some(gk))))
-                      }
+              activeContract.key match {
+                case None =>
+                  ats.copy(acc = Some(addContract(acc, absCoid, activeContract, None)))
+                case Some(key) =>
+                  val gk = GlobalKey(activeContract.contract.template, key.key)
+                  if (keyExists(acc, gk)) {
+                    AddTransactionState(None, errs + DuplicateKey(gk))
+                  } else {
+                    ats.copy(acc = Some(addContract(acc, absCoid, activeContract, Some(gk))))
                   }
               }
             case ne: N.NodeExercises[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]] =>

@@ -13,26 +13,18 @@ import anorm.SqlParser.{str, _}
 import anorm.{AkkaStream, BatchSql, NamedParameter, SQL, SqlParser}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.NodeCreate
+import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.ledger.backend.api.v1.RejectionReason._
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{
-  Checkpoint,
-  Rejection,
-  Transaction
-}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  ContractSerializer,
-  TransactionSerializer
-}
+import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection, Transaction}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, TransactionSerializer}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.google.common.io.ByteStreams
 
-import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.concurrent.Future
 
@@ -94,6 +86,15 @@ private class PostgresLedgerDao(
 
   private def storeContract(offset: Long, contract: Contract)(
       implicit connection: Connection): Unit = storeContracts(offset, List(contract))
+
+  private def archiveContract(offset: Long, cid: AbsoluteContractId)(
+    implicit connection: Connection): Boolean =
+    SQL_ARCHIVE_CONTRACT
+    .on(
+      "id" -> cid.coid,
+      "archive_offset" -> offset
+    )
+    .execute()
 
   private val SQL_INSERT_CONTRACT =
     """insert into contracts(id, transaction_id, workflow_id, package_id, module_name, entity_name, create_offset, contract)
@@ -192,59 +193,33 @@ private class PostgresLedgerDao(
             nodeId -> party.map(p => Ref.Party.assertFromString(p))
         }
 
-      //TODO (robert): check that this does not deadlock. While updating the ACS, we need to run queries to validate the transaction. See comment in runSQL()
+      def acsLookupContract(acs: Unit, cid: AbsoluteContractId) = lookupActiveContractSync(cid).map(_.toActiveContract)
+      //TODO: Implement check whether the given contract key exists
+      def acsKeyExists(acc: Unit, key: GlobalKey): Boolean = false
+      //TODO: store contract key
+      def acsAddContract(acs: Unit, cid: AbsoluteContractId, c: ActiveContracts.ActiveContract, keyO: Option[GlobalKey]): Unit = storeContract(offset, Contract.fromActiveContract(cid, c))
+      //TODO: remove contract key
+      def acsRemoveContract(acs: Unit, cid: AbsoluteContractId, keyO: Option[GlobalKey]): Unit = { archiveContract(offset, cid) ; () }
 
-      // Note: ACS typed as Unit, as the ACS is given implicitly by the current database state within the current SQL transaction.
-      val acsActions = ActiveContracts.addTransaction(
+      // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
+      // within the current SQL transaction. All of the given functions perform side effects to update the database.
+      val atr = ActiveContracts.addTransaction(
         ledgerEffectiveTime,
         transactionId,
         workflowId,
         transaction,
         mappedDisclosure,
-        ???, // lookupContract: (ACS, AbsoluteContractId) => Option[ActiveContract],
-        ???, // keyExists: (ACS, GlobalKey) => Boolean,
-        ???, // addContract: (ACS, AbsoluteContractId, ActiveContract, Option[GlobalKey]) => ACS,
-        ???, // removeContract: (ACS, AbsoluteContractId, Option[GlobalKey]) => ACS,
+        acsLookupContract,
+        acsKeyExists,
+        acsAddContract,
+        acsRemoveContract,
         ()
       )
 
-      @tailrec
-      def go(actions: List[ActiveContractsAction]): Option[RejectionReason] = actions match {
-        case Nil => None
-        case head :: tail =>
-          head match {
-            case ActiveContractsAdd(cid, c) =>
-              storeContract(offset, Contract.fromActiveContract(cid, c))
-              go(tail)
-
-            case ActiveContractsRemove(cid) =>
-              SQL_ARCHIVE_CONTRACT
-                .on(
-                  "id" -> cid.coid,
-                  "archive_offset" -> offset
-                )
-                .execute()
-              go(tail)
-
-            case ActiveContractsCheck(cid, let) =>
-              val contractO = SQL_SELECT_CONTRACT
-                .on("contract_id" -> cid.coid)
-                .as(ContractDataParser.singleOpt)
-                .map(mapContractDetails)
-
-              contractO match {
-                case Some(c) =>
-                  if (c.let.isAfter(let)) {
-                    Some(RejectionReason.TimedOut(
-                      s"Dependency contract ${c.contractId.coid} has higher time (${c.let}) than current let ($let)"))
-                  } else go(tail)
-                case None =>
-                  Some(RejectionReason.Inconsistent(s"Contract ${cid.coid} was not found in ACS"))
-              }
-          }
+      atr match {
+        case Left(err) => Some(RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
+        case Right(_) => None
       }
-
-      go(acsActions)
   }
 
   //TODO: test it for failures..
@@ -477,14 +452,14 @@ private class PostgresLedgerDao(
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
 
+  private def lookupActiveContractSync(contractId: AbsoluteContractId)(implicit conn: Connection): Option[Contract] =
+    SQL_SELECT_CONTRACT
+      .on("contract_id" -> contractId.coid)
+      .as(ContractDataParser.singleOpt)
+      .map(mapContractDetails)
+
   override def lookupActiveContract(contractId: AbsoluteContractId): Future[Option[Contract]] =
-    dbDispatcher
-      .executeSql { implicit conn =>
-        SQL_SELECT_CONTRACT
-          .on("contract_id" -> contractId.coid)
-          .as(ContractDataParser.singleOpt)
-          .map(mapContractDetails)
-      }
+    dbDispatcher.executeSql { implicit conn => lookupActiveContractSync(contractId)}
 
   private def mapContractDetails(contractResult: (String, String, String, Date, InputStream))(
       implicit conn: Connection) =
