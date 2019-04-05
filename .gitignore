@@ -38,6 +38,7 @@ tags
 **/.classpath
 **/.factorypath
 *.tgz
+*.tar.gz
 ghc-bindist
 *.result.xml
 **/.ensime
@@ -76,6 +77,7 @@ ledger-api/.bin
 .vscode
 .m2/
 .history/
+**/.history/
 ### Bazel: https://www.gitignore.io/api/bazel ###
 /bazel-*
 .bazelrc.local

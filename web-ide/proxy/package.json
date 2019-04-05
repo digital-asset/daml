@@ -1,0 +1,19 @@
+{
+  "name": "web-ide-proxy",
+  "version": "1.0.0",
+  "description": "Spins up docker images hosting code-server ide and routes traffic",
+  "main": "proxy.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Digital Asset",
+  "license": "",
+  "dependencies": {
+    "cookie": "^0.3.1",
+    "cookie-signature": "^1.1.0",
+    "dockerode": "^2.5.8",
+    "http-proxy": "^1.17.0",
+    "node-cache": "^4.2.0",
+    "uid-safe": "^2.1.5"
+  }
+}
