@@ -1,9 +1,9 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module DAML.Assistant.Util where
+module DAML.Project.Util where
 
-import DAML.Assistant.Types
+import DAML.Project.Types
 import System.FilePath
 import Control.Exception.Safe
 import Control.Applicative

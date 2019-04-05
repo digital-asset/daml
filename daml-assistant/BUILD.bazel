@@ -40,8 +40,11 @@ da_haskell_library(
     hazel_deps = [
         "base",
         "directory",
+        "extra",
         "filepath",
         "safe-exceptions",
+        "text",
+        "yaml",
     ],
     visibility = ["//visibility:public"]
 )

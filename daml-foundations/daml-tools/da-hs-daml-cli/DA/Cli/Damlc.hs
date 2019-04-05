@@ -31,7 +31,7 @@ import qualified DA.Service.Logger                 as Logger
 import qualified DA.Service.Logger.Impl.IO         as Logger.IO
 import qualified DA.Service.Logger.Impl.GCP        as Logger.GCP
 import qualified DA.Service.Logger.Impl.Pure as Logger.Pure
-import DAML.Project.Config
+import DAML.Project.Consts
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import Data.ByteArray.Encoding (Base (Base16), convertToBase)
 import qualified Data.ByteString                   as B

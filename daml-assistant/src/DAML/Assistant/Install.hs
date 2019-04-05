@@ -14,10 +14,10 @@ module DAML.Assistant.Install
     , install
     ) where
 
-import DAML.Assistant.Types
-import DAML.Assistant.Consts
-import DAML.Assistant.Util
-import DAML.Assistant.Config
+import DAML.Project.Types
+import DAML.Project.Consts
+import DAML.Project.Util
+import DAML.Project.Config
 import Safe
 import Conduit
 import qualified Data.Conduit.List as List
