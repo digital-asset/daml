@@ -381,9 +381,9 @@ hazel_repositories(
       pkgs = packages,
       extra =
         [ # Read [Working on ghc-lib] for ghc-lib update instructions at
-          # https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-          ("ghc-lib-parser", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-0.20190401.1.tar.gz", "stripPrefix": "ghc-lib-parser-0.20190401.1", "sha256": "3036ed084ca57668faab25f8ae0420a992e21ad484c6f82acce73705dfed9e33"})
-        , ("ghc-lib", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-0.20190401.1.tar.gz", "stripPrefix": "ghc-lib-0.20190401.1", "sha256": "82e94f26729c35fddc7a3d7d6b0c89f397109342b2c092c70173bb537af6f5c9"})
+          # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
+          ("ghc-lib-parser", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-0.20190405.tar.gz", "stripPrefix": "ghc-lib-parser-0.20190405", "sha256": "61bb998ea10a8189b5f5cdae41e7ee6c6329bd8f7f81276e65d0d592b5a69b79"})
+        , ("ghc-lib", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-0.20190405.tar.gz", "stripPrefix": "ghc-lib-0.20190405", "sha256": "d656919c8c6f6e0c4d6307ef51f89b44d7c218b8261b750bbe8e73127865a6f5"})
         , ("bytestring-nums", {"version": "0.3.6", "sha256": "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd"})
         , ("unix-time", {"version": "0.4.5", "sha256": "fe7805c62ad682589567afeee265e6e230170c3941cdce479a2318d1c5088faf"})
         , ("zip-archive", {"version": "0.3.3", "sha256": "988adee77c806e0b497929b24d5526ea68bd3297427da0d0b30b99c094efc84d"})
