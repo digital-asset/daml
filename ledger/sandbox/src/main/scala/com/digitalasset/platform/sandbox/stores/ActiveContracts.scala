@@ -50,17 +50,6 @@ case class ActiveContracts(
 
 }
 
-sealed abstract class ActiveContractsAction
-
-final case class ActiveContractsAdd(abcCoid: AbsoluteContractId, contract: ActiveContract)
-  extends ActiveContractsAction
-
-final case class ActiveContractsRemove(abcCoid: AbsoluteContractId) extends ActiveContractsAction
-
-/** If some node requires a contract, check that we have that contract, and check that that contract is not created after the given transaction. */
-final case class ActiveContractsCheck(cid: AbsoluteContractId, let: Instant)
-  extends ActiveContractsAction
-
 class ActiveContractsManager[ACS](lookupContract: (ACS, AbsoluteContractId) => Option[ActiveContract],
                                   keyExists: (ACS, GlobalKey) => Boolean,
                                   addContract: (ACS, AbsoluteContractId, ActiveContract, Option[GlobalKey]) => ACS,
@@ -94,6 +83,7 @@ class ActiveContractsManager[ACS](lookupContract: (ACS, AbsoluteContractId) => O
 
   /**
     * A higher order function to update an abstract active contract set (ACS) with the effects of the given transaction.
+    * Makes sure that there are no double spends or timing errors.
     */
   def addTransaction[Nid](let: Instant,
                           transactionId: String,
