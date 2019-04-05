@@ -18,7 +18,7 @@ steps:
   - bash: ci/build.sh
     displayName: 'Build'
     env:
-      IS_FORK: variables['System.PullRequest.IsFork']
+      IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 

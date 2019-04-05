@@ -5,8 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # Welcome to the DAML repository!
 
-This repository hosts all code for the DAML smart contract language, originally created by
-[Digital Asset](https://www.digitalasset.com).
+This repository hosts all code for the [DAML smart contract language and SDK](https://daml.com/), originally created by
+[Digital Asset](https://www.digitalasset.com). DAML is an open-source smart contract language for building future-proof distributed applications on a safe, privacy-aware runtime. The DAML SDK is a set of tools to help you develop applications based on DAML.
 
 ## To start using DAML
 
@@ -16,9 +16,9 @@ To try out using it, follow the [quickstart guide](https://docs.daml.com/getting
 If you have questions about how to use DAML or how to build DAML-based solutions, please ask
 them on [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
 
-## To start contributing to DAML
+## To start contributing to the DAML SDK
 
-We warmly welcome [contributions](./CONTRIBUTING.md).
+We warmly welcome [contributions](./CONTRIBUTING.md). To get set up for contributing to the SDK, follow these instructions:
 
 ### 1. Clone this repository
 
@@ -31,8 +31,9 @@ for some tooling scripts. The code itself is built using Bazel.
 
 #### Set up `dev-env` on Linux or macOS
 
-1. Install Nix: `bash <(curl https://nixos.org/nix/install)`
-2. Enter `dev-env`: `eval "$(dev-env/bin/dade assist)"`
+1. Use `cd daml` to switch into the new `daml` repository you just cloned
+2. Install Nix by running: `bash <(curl https://nixos.org/nix/install)`
+3. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
 
 If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
 you can also install [direnv](https://direnv.net). This repo already provides a `.envrc`

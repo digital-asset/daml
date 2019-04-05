@@ -179,9 +179,9 @@ Sometimes the default settings for gRPC connections/channels are not suitable fo
 Example
 =======
 
-To try out the Java Binding library, use one of the two example projects.
+To try out the Java Binding library, use the `examples on GitHub <https://github.com/digital-asset/ex-java-bindings>`__: ``PingPongReactive`` or ``PingPongComponents``.
 
-There's one with and one without the Reactive Components.
+The former example does not use the Reactive Components, and the latter example does.
 Both examples implement the ``PingPong`` application, which consists of:
 
 - a DAML model with two contract templates, ``Ping`` and ``Pong``
@@ -200,8 +200,8 @@ The logic of the application is the following:
 Setting up the example projects
 ===============================
 
-To set up the examples project, clone the public GitHub repository at: https://github.com/digital-asset/ex-java-bindings
-and follow the setup instruction in the README file. This project contains three examples of the PingPong application, built
+To set up the example projects, clone the public GitHub repository at `github.com/digital-asset/ex-java-bindings <https://github.com/digital-asset/ex-java-bindings>`__
+and follow the setup instruction in the `README file <https://github.com/digital-asset/ex-java-bindings/blob/master/README.rst#setting-up-the-example-projects>`__. This project contains three examples of the PingPong application, built
 with gRPC (non-Reactive), Reactive and Reactive Component bindings respectively.
 
 Example project -- Ping Pong without reactive components

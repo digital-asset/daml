@@ -21,3 +21,7 @@ data Color = Red | Green | Blue | Indigo | Violet
 data ColorListRecord = ColorListRecord
     with
         colors: [Color]
+
+data ParameterizedListRecord a = ParameterizedListRecord
+    with
+        list: [a]

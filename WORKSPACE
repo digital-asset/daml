@@ -418,8 +418,6 @@ hazel_repositories(
     # although windows is not quite supported yet
     "x64_windows": "@io_tweag_rules_haskell_ghc_windows_amd64",
   },
-
-  shorten_source_dirs_for = ["ghc-lib"] if is_windows else [],
 )
 
 hazel_custom_package_hackage(

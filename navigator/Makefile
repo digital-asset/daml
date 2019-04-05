@@ -1,29 +1,12 @@
-.PHONY: clean build publish bundle-frontend test
+.PHONY: build test start-frontend start-ui-core
 
 default: build
 
-clean:
-	rm -rf dist
-
-build: clean bundle-frontend
-	$(MAKE) -C backend build
-	mkdir -p dist
-	mv backend/target/navigator-*.jar dist/
-	$(MAKE) -C integration-test build
-
-publish: bundle-frontend
-	$(MAKE) -C backend publish
-	$(MAKE) -C integration-test publish
-
-bundle-frontend:
-	$(MAKE) -C frontend build
-	rm -rf backend/src/main/resources/frontend
-	mv frontend/dist backend/src/main/resources/frontend
+build:
+	bazel build //navigator/...
 
 test:
-	$(MAKE) -C backend test
-	$(MAKE) -C frontend test
-	$(MAKE) -C integration-test test
+	bazel test //navigator/...
 
 start-backend:
 	$(MAKE) -C backend start
