@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Language reference
-#################
+##################
 
 This section contains a reference to writing templates for DAML contracts. It includes:
 
