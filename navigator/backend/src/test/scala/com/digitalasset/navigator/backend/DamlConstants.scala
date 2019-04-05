@@ -40,8 +40,10 @@ case object DamlConstants {
   val simpleBoolT = DamlLfTypePrim(DamlLfPrimType.Bool, DamlLfImmArraySeq())
   val simplePartyT = DamlLfTypePrim(DamlLfPrimType.Party, DamlLfImmArraySeq())
   val simpleContractIdT = DamlLfTypePrim(DamlLfPrimType.ContractId, DamlLfImmArraySeq())
-  def simpleOptionalT(typ: DamlLfIface.Type) = DamlLfTypePrim(DamlLfPrimType.Optional, DamlLfImmArraySeq(typ))
-  def simpleListT(typ: DamlLfIface.Type) = DamlLfTypePrim(DamlLfPrimType.List, DamlLfImmArraySeq(typ))
+  def simpleOptionalT(typ: DamlLfIface.Type) =
+    DamlLfTypePrim(DamlLfPrimType.Optional, DamlLfImmArraySeq(typ))
+  def simpleListT(typ: DamlLfIface.Type) =
+    DamlLfTypePrim(DamlLfPrimType.List, DamlLfImmArraySeq(typ))
   def simpleMapT(typ: DamlLfIface.Type) = DamlLfTypePrim(DamlLfPrimType.Map, DamlLfImmArraySeq(typ))
 
   val simpleTextV = ApiText("foo")
@@ -51,7 +53,7 @@ case object DamlConstants {
   val simpleDateV = ApiDate.fromIso8601("2019-01-28")
   val simpleTimestampV = ApiTimestamp.fromIso8601("2019-01-28T12:44:33.22Z")
   val simpleOptionalV = ApiOptional(Some(ApiText("foo")))
-  val simpleMapV = ApiMap(Map("1"-> ApiInt64(1), "2" -> ApiInt64(2), "3" -> ApiInt64(3)))
+  val simpleMapV = ApiMap(Map("1" -> ApiInt64(1), "2" -> ApiInt64(2), "3" -> ApiInt64(3)))
 
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: empty record
@@ -214,7 +216,9 @@ case object DamlConstants {
       ApiRecordField("fOptionalText", ApiOptional(None)),
       ApiRecordField("fOptionalUnit", ApiOptional(Some(ApiUnit()))),
       ApiRecordField("fOptOptText", ApiOptional(Some(ApiOptional(Some(ApiText("foo")))))),
-      ApiRecordField("fMap", ApiMap(Map("1"-> ApiInt64(1), "2" -> ApiInt64(2), "3" -> ApiInt64(3)))),
+      ApiRecordField(
+        "fMap",
+        ApiMap(Map("1" -> ApiInt64(1), "2" -> ApiInt64(2), "3" -> ApiInt64(3)))),
       ApiRecordField("fVariant", simpleVariantV),
       ApiRecordField("fRecord", simpleRecordV)
     )

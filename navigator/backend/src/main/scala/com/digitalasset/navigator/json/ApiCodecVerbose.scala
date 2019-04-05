@@ -80,7 +80,7 @@ object ApiCodecVerbose {
   def apiMapToJsValue(value: Model.ApiMap): JsValue =
     JsObject(
       propType -> JsString(tagMap),
-      propValue -> JsArray(value.value.toVector.sortBy(_._1)(UTF8.ordering).map{
+      propValue -> JsArray(value.value.toVector.sortBy(_._1)(UTF8.ordering).map {
         case (k, v) => JsObject(fieldKey -> JsString(k), fieldValue -> apiValueToJsValue(v))
       })
     )
@@ -161,16 +161,16 @@ object ApiCodecVerbose {
 
   def jsValueToMapEntry(value: JsValue): (String, Model.ApiValue) = {
     val translation = value match {
-      case JsObject(map)  => for {
-        key <- map.get(fieldKey).collect { case JsString(s) => s }
-        value <- map.get(fieldValue).map(jsValueToApiValue)
-      } yield key -> value
+      case JsObject(map) =>
+        for {
+          key <- map.get(fieldKey).collect { case JsString(s) => s }
+          value <- map.get(fieldValue).map(jsValueToApiValue)
+        } yield key -> value
       case _ => None
     }
 
-    translation.getOrElse( deserializationError(s"Can't read ${value.prettyPrint} as a map entry"))
+    translation.getOrElse(deserializationError(s"Can't read ${value.prettyPrint} as a map entry"))
   }
-
 
   def jsValueToApiVariant(value: JsValue): Model.ApiVariant =
     strField(value, propType, "ApiVariant") match {

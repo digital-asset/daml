@@ -60,7 +60,7 @@ object ApiCodecCompressed {
   private[this] val fieldValue = "value"
 
   def apiMapToJsValue(value: Model.ApiMap): JsValue =
-    JsArray(value.value.toVector.sortBy(_._1)(UTF8.ordering).map{
+    JsArray(value.value.toVector.sortBy(_._1)(UTF8.ordering).map {
       case (k, v) => JsObject(fieldKey -> JsString(k), fieldValue -> apiValueToJsValue(v))
     })
 
@@ -143,23 +143,24 @@ object ApiCodecCompressed {
   def jsValueToMapEntry(
       value: JsValue,
       typ: Model.DamlLfType,
-      defs: Model.DamlLfTypeLookup): (String,  Model.ApiValue) = {
+      defs: Model.DamlLfTypeLookup): (String, Model.ApiValue) = {
     val translation = value match {
-      case JsObject(map)  => for {
-        key <- map.get(fieldKey).collect { case JsString(s) => s }
-        value <- map.get(fieldValue).map(jsValueToApiType(_, typ, defs))
-      } yield key -> value
+      case JsObject(map) =>
+        for {
+          key <- map.get(fieldKey).collect { case JsString(s) => s }
+          value <- map.get(fieldValue).map(jsValueToApiType(_, typ, defs))
+        } yield key -> value
       case _ => None
     }
 
-    translation.getOrElse( deserializationError(s"Can't read ${value.prettyPrint} as a map entry"))
+    translation.getOrElse(deserializationError(s"Can't read ${value.prettyPrint} as a map entry"))
   }
 
   /** Deserialize a value, given the type */
   def jsValueToApiType(
-                        value: JsValue,
-                        typ: Model.DamlLfType,
-                        defs: Model.DamlLfTypeLookup): Model.ApiValue = {
+      value: JsValue,
+      typ: Model.DamlLfType,
+      defs: Model.DamlLfTypeLookup): Model.ApiValue = {
     typ match {
       case prim: Model.DamlLfTypePrim =>
         jsValueToApiPrimitive(value, prim, defs)
@@ -176,8 +177,6 @@ object ApiCodecCompressed {
         deserializationError(s"Can't read ${value.prettyPrint} as DamlLfTypeVar")
     }
   }
-
-
 
   /** Deserialize a value, given the ID of the corresponding closed type */
   def jsValueToApiType(

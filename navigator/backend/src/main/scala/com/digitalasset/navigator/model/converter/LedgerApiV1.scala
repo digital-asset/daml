@@ -423,21 +423,21 @@ case object LedgerApiV1 {
     }
   }
 
-
   def writeMapArgument(value: Model.ApiMap): Either[ConversionError, V1.value.Map] = {
     for {
       values <- Converter.sequence(
-        value.value.toSeq.map{case (k, v) => writeArgument(v).map(k -> _)}
+        value.value.toSeq.map { case (k, v) => writeArgument(v).map(k -> _) }
       )
     } yield {
-      V1.value.Map(values.map{case (k, v) =>
-        V1.value.Map.Entry(
-          Some(V1.value.Value(V1.value.Value.Sum.Text(k))),
-          Some(v)
-        )})
+      V1.value.Map(values.map {
+        case (k, v) =>
+          V1.value.Map.Entry(
+            Some(V1.value.Value(V1.value.Value.Sum.Text(k))),
+            Some(v)
+          )
+      })
     }
   }
-
 
   /** Write a composite command consisting of just the given command */
   def writeCommands(
