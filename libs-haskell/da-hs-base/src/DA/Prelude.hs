@@ -1,8 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Custom Prelude without partial functions and a more extensive default
 -- export list.
 module DA.Prelude
