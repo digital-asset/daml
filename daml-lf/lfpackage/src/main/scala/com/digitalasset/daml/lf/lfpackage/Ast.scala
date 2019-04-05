@@ -40,13 +40,14 @@ object Ast {
   //
 
   sealed abstract class Expr extends Product with Serializable {
+
     /** Infix alias for repeated [[EApp]] application. */
     @inline final def eApp(arg: Expr, args: Expr*): EApp =
-    (EApp(this, arg) /: args) (EApp)
+      (EApp(this, arg) /: args)(EApp)
 
     /** Infix alias for repeated [[ETyApp]] application. */
     @inline final def eTyApp(typ: Type, typs: Type*): ETyApp =
-    (ETyApp(this, typ) /: typs) (ETyApp)
+      (ETyApp(this, typ) /: typs)(ETyApp)
   }
 
   /** Reference to a variable in current lexical scope. */
