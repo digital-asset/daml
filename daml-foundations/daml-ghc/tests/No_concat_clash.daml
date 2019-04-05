@@ -14,7 +14,7 @@ import DA.Foldable  -- for `concat`.
 
 template T
   with
-    ps : [Prelude.Party]
+    ps, qs : [Prelude.Party]
   where
-    signatory ps
+    signatory ps, qs
     observer (concat [Prelude.signatory this])
