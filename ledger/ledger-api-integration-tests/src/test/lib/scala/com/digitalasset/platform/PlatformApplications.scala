@@ -68,7 +68,8 @@ object PlatformApplications {
     val defaultLedgerId = "ledger server"
 
     val defaultDarFile = new File("ledger/sandbox/Test.dalf")
-    val ghcPrimFileName = new File("daml-foundations/daml-ghc/package-database/daml-prim-1.3.dalf")
+    val ghcPrimFileName = new File(
+      "daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.3.dalf")
 
     val defaultParties = NonEmptyList("party", "Alice", "Bob")
     val defaultTimeProviderType = TimeProviderType.Static

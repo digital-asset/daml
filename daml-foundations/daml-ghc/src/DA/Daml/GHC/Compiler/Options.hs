@@ -88,16 +88,19 @@ moduleImportPaths pm =
 -- | Check that import paths and package db directories exist
 -- and add the default package db if it exists
 mkOptions :: Options -> IO Options
-mkOptions opts@Options{..} = do
+mkOptions opts@Options {..} = do
     baseDir <- getBaseDir
     mapM_ checkDirExists $ optImportPath <> optPackageDbs
     let defaultPkgDb = baseDir </> "package-database"
+    let deprecatedPkgDb = baseDir </> "package-database" </> "deprecated"
     hasDefaultPkgDb <- Dir.doesDirectoryExist defaultPkgDb
-    pure opts
-            { optPackageDbs =
-                  map (</> versionSuffix) $
-                  [defaultPkgDb | hasDefaultPkgDb] ++ optPackageDbs
-            }
+    hasDepreceatedPkgDb <- Dir.doesDirectoryExist deprecatedPkgDb
+    let pkgDb
+            | hasDepreceatedPkgDb = [deprecatedPkgDb]
+            | hasDefaultPkgDb = [defaultPkgDb]
+            | otherwise = []
+    when hasDepreceatedPkgDb $ putStrLn "DEPRECATED: Please use fat dars instead of dalfs in tests"
+    pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDb ++ optPackageDbs}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
           unless ok $ error $
@@ -111,9 +114,8 @@ mkOptions opts@Options{..} = do
 -- version.
 defaultOptionsIO :: Maybe LF.Version -> IO Options
 defaultOptionsIO mbVersion = do
-    baseDir <- getBaseDir
     mkOptions Options
-        { optImportPath = [baseDir </> "daml-stdlib-src"]
+        { optImportPath = []
         , optPackageDbs = []
         , optMbPackageName = Nothing
         , optWriteInterface = False

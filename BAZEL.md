@@ -627,7 +627,6 @@ da_haskell_binary (
   hazel_deps = [ "base", "time", ...],
   data = [
     "//daml-foundations/daml-ghc/package-database:package-db"
-    , "//daml-foundations/daml-ghc/daml-stdlib-src"
     , ...
   ],
   deps = [
