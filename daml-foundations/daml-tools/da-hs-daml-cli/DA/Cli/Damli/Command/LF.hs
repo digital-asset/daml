@@ -5,7 +5,6 @@
 
 module DA.Cli.Damli.Command.LF
   ( cmdRoundtripLF1
-  , valueCheckOpt
   ) where
 
 import           Control.Monad.Except
@@ -29,11 +28,7 @@ cmdRoundtripLF1 =
       $    progDesc "Load a DAML-LF v1 archive, type-check it and dump it again, verifying that output matches."
         <> fullDesc
   where
-    cmd = execRoundtripLF1 <$> lfTypeCheckOpt <*> inputFileOpt <*> outputFileOpt <*> valueCheckOpt
-
-valueCheckOpt :: Parser LF.ValueCheck
-valueCheckOpt =
-  (\b -> if b then LF.PerformValueCheck else LF.UnsafeSkipValueCheck) <$> switch (long "value-check" <> help "Run DAML-LF value checker")
+    cmd = execRoundtripLF1 <$> lfTypeCheckOpt <*> inputFileOpt <*> outputFileOpt
 
 lfTypeCheckOpt :: Parser Bool
 lfTypeCheckOpt =
@@ -55,11 +50,11 @@ loadLFPackage inFile = do
         errorOnLeft _ (Right x)   = pure x
 
 
-execRoundtripLF1 :: Bool -> FilePath -> FilePath -> LF.ValueCheck -> Command
-execRoundtripLF1 _check inFile outFile valueCheck = do
+execRoundtripLF1 :: Bool -> FilePath -> FilePath -> Command
+execRoundtripLF1 _check inFile outFile = do
     (package, bytes) <- loadLFPackage inFile
     -- Type-check
-    case LF.checkPackage [] package valueCheck of
+    case LF.checkPackage [] package of
       Left err -> do
         error $ T.unpack $ "Type-check failed:\n" <> DA.Pretty.renderPretty err
       Right () ->
