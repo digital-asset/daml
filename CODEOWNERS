@@ -1,0 +1,75 @@
+# https://help.github.com/articles/about-codeowners/
+# Note that accounts or teams mentioned must have WRITE access to the repository.
+
+# Only files explicitly mentioned are guarded by code owners (no * rule).
+
+*           @digital-asset/daml
+CODEOWNERS  @bitonic @neil-da @hurryabit @cbaatz-da
+VERSION     @digital-asset/daml
+
+# Build / CI / environment
+/3rdparty/          @digital-asset/daml
+/bazel_tools/       @digital-asset/daml
+/build-scripts/     @digital-asset/daml
+/ci/                @digital-asset/daml
+/dev-env/           @digital-asset/daml
+/dotfiles/          @digital-asset/daml
+/hazel/             @digital-asset/daml
+/nix/               @digital-asset/daml
+/infra/             @digital-asset/daml
+/rattle/            @digital-asset/daml
+/replacements/      @digital-asset/daml
+/rules_daml/        @digital-asset/daml
+BAZEL-JVM.md        @digital-asset/daml
+BAZEL-haskell.md    @digital-asset/daml
+BAZEL.md            @digital-asset/daml
+BUILD               @digital-asset/daml
+WORKSPACE           @digital-asset/daml
+azure-pipelines.yml @digital-asset/daml
+build.ps1           @digital-asset/daml
+build.sh            @digital-asset/daml
+deps.bzl            @digital-asset/daml
+
+# Language
+/compiler/          @digital-asset/daml
+/daml-foundations/  @digital-asset/daml
+/libs-haskell/      @digital-asset/daml
+/ghc-lib/           @digital-asset/daml
+
+# SDK
+/release/           @digital-asset/daml
+/sdk/               @digital-asset/daml
+/da-assistant/      @digital-asset/daml
+/daml-assistant/    @digital-asset/daml
+/templates/         @digital-asset/daml
+
+# Runtime
+/daml-lf/           @digital-asset/daml
+/ledger/            @digital-asset/daml
+/ledger-api/        @digital-asset/daml
+
+# Ecosystems
+/language-support/          @digital-asset/daml
+/language-support/java/     @digital-asset/daml
+/language-support/js/       @digital-asset/daml
+/language-support/scala/    @digital-asset/daml
+/scala-protoc-plugins/      @digital-asset/daml
+
+# Tools
+/extractor/         @digital-asset/daml
+/navigator/         @digital-asset/daml
+/web-ide/           @digital-asset/daml
+
+# Misc
+/docs/              @digital-asset/daml
+/notices-gen/       @digital-asset/daml
+/oss-compliance/    @digital-asset/daml
+
+CHANGELOG           @digital-asset/daml
+CODE_OF_CONDUCT.md  @digital-asset/daml
+CONTRIBUTING.md     @digital-asset/daml
+COPY                @digital-asset/daml
+LICENSE             @digital-asset/daml
+NOTICES             @digital-asset/daml
+README.md           @digital-asset/daml
+daml-logo.png       @digital-asset/daml
