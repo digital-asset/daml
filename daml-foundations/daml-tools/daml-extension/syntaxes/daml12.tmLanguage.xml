@@ -48,7 +48,7 @@
       </dict>
       <dict>
         <key>match</key>
-        <string>\b(choice)\b</string>
+        <string>\bchoice\b</string>
         <key>name</key>
         <string>constant.language.daml</string>
       </dict>
