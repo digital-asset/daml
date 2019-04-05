@@ -1,0 +1,22 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its
+-- affiliates.  All rights reserved.
+
+-- This is a compile-time test.
+
+{-# LANGUAGE NoImplicitPrelude #-}
+
+-- Show that if the names of `Prelude` are not in scope, then there
+-- should be no ambiguity about `concat` introduced by `DA.Foldable`.
+
+daml 1.2
+module No_concat_clash where
+
+import Prelude qualified
+import DA.Foldable  -- for `concat`.
+
+template T
+  with
+    ps : [Prelude.Party]
+  where
+    signatory ps
+    observer (concat [Prelude.signatory this])
