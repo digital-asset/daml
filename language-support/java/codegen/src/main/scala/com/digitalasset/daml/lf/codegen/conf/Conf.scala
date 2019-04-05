@@ -81,7 +81,7 @@ object Conf {
     case "4" => Level.TRACE
     case _ =>
       throw new IllegalArgumentException(
-        "Expected a verbosity value between 0 (quieter) and 4 (louder)")
+        "Expected a verbosity value between 0 (least verbose) and 4 (most verbose)")
   }
 
   private[conf] def optTupleRead[A: Read, B: Read]: Read[(A, Option[B])] =
