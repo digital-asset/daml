@@ -370,7 +370,7 @@
       </dict>
       <dict>
         <key>match</key>
-        <string>\b(submit|submitMustFail|fetch|exercise|create|test|pure|return)\b</string>
+        <string>\b(assert|submit|submitMustFail|fetch|exercise|create|test|pure|return)\b</string>
         <key>name</key>
         <string>entity.name.function</string>
       </dict>
