@@ -48,6 +48,18 @@
       </dict>
       <dict>
         <key>match</key>
+        <string>\b(choice)\b</string>
+        <key>name</key>
+        <string>constant.language.daml</string>
+      </dict>
+      <dict>
+        <key>match</key>
+        <string>\bthis\b</string>
+        <key>name</key>
+        <string>variable.language</string>
+      </dict>
+      <dict>
+        <key>match</key>
         <string>\b(True|False)\b</string>
         <key>name</key>
         <string>constant.language.daml</string>
