@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 module DA.Daml.LF.Ast.Version where
@@ -8,13 +9,14 @@ module DA.Daml.LF.Ast.Version where
 import           DA.Prelude
 import           DA.Pretty
 import           Control.DeepSeq
-import           Data.Aeson (FromJSON, ToJSON)
+import           Data.Aeson
 import qualified Data.Text as T
 
 -- | DAML-LF version of an archive payload.
 data Version
   = V1{versionMinor :: Int}
   | VDev T.Text
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | DAML-LF version 1.0.
 version1_0 :: Version
@@ -83,16 +85,7 @@ featurePartyFromText = Feature "partyFromText function" version1_2
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature
 
-concatSequenceA $
-  map (makeInstancesExcept [''FromJSON, ''ToJSON])
-  [ ''Version
-  ]
-
-instance NFData Version
-
 instance Pretty Version where
   pPrint = \case
     V1 minor -> "1." <> pretty minor
     VDev hash -> "dev-" <> pretty hash
-
-instance ToJSON Version

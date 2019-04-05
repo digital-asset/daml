@@ -43,10 +43,7 @@ import           Data.Ratio((%))
 -- | A decimal `d` is represented as a tuple `(n :: Integer, k :: Natural)`
 -- such that `d = n / 10 ^^ k = n * 10 ^^ -k`.
 data Decimal = Decimal {_mantissa :: Integer, _exponent :: Integer}
-  deriving (Read)
-
-makeInstancesExcept [''Ord, ''Eq, ''Aeson.FromJSON, ''Aeson.ToJSON] ''Decimal
-deriving instance NFData Decimal
+  deriving (Generic, NFData, Show)
 
 
 instance Num Decimal where

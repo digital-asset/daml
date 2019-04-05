@@ -2,6 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds          #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -12,7 +14,7 @@ import DA.Prelude
 
 import           Control.DeepSeq
 import           Control.Lens
-import           Data.Aeson (FromJSON)
+import           Data.Aeson
 import qualified Data.NameMap as NM
 import qualified Data.Text          as T
 import Data.Fixed
@@ -106,6 +108,7 @@ data PackageRef
     -- ^ Reference to the package being currently handled.
   | PRImport !PackageId
     -- ^ Reference to the package with the given id.
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Something qualified by a package and a module within that package.
 data Qualified a = Qualified
@@ -113,6 +116,7 @@ data Qualified a = Qualified
   , qualModule  :: !ModuleName
   , qualObject  :: !a
   }
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Source location annotation.
 data SourceLoc = SourceLoc
@@ -125,16 +129,19 @@ data SourceLoc = SourceLoc
   , slocEndLine :: !Int
   , slocEndCol :: !Int
   }
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Kinds.
 data Kind
   = KStar
   | KArrow Kind Kind
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Enumeration types like Bool and Unit.
 data EnumType
   = ETUnit
   | ETBool
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Builtin type.
 data BuiltinType
@@ -152,6 +159,7 @@ data BuiltinType
   | BTOptional
   | BTMap
   | BTArrow
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Type as used in typed binders.
 data Type
@@ -174,6 +182,7 @@ data Type
   -- | Type for tuples aka structural records. Parameterized by the names of the
   -- fields and their types.
   | TTuple      ![(FieldName, Type)]
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Fully applied qualified type constructor.
 data TypeConApp = TypeConApp
@@ -182,12 +191,14 @@ data TypeConApp = TypeConApp
   , tcaArgs    :: ![Type]
     -- ^ Type arguments which are applied to the type constructor.
   }
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Constructors of builtin 'EnumType's.
 data EnumCon
   = ECUnit   -- ∷ Unit
   | ECFalse  -- ∷ Bool
   | ECTrue   -- ∷ Bool
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 data E10
 instance HasResolution E10 where
@@ -261,12 +272,14 @@ data BuiltinExpr
 
   | BETrace                      -- :: forall a. Text -> a -> a
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 
 data Binding = Binding
   { bindingBinder :: !(ExprVarName, Type)
   , bindingBound  :: !Expr
   }
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Expression.
 data Expr
@@ -414,6 +427,7 @@ data Expr
   | EScenario !Scenario
   -- | An expression annotated with a source location.
   | ELocation !SourceLoc !Expr
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Pattern matching alternative.
 data CaseAlternative = CaseAlternative
@@ -422,6 +436,7 @@ data CaseAlternative = CaseAlternative
   , altExpr    :: !Expr
     -- ^ Expression to evaluate in case of a match.
   }
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 data CasePattern
   -- | Match on constructor of variant type.
@@ -450,6 +465,7 @@ data CasePattern
   -- | Match on anything. Should be the last alternative. Also note that 'ECase'
   -- bind the value of the scrutinee to a variable.
   | CPDefault
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Expression in the update monad.
 data Update
@@ -505,6 +521,7 @@ data Update
     }
   | ULookupByKey !RetrieveByKey
   | UFetchByKey !RetrieveByKey
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Expression in the scenario monad
 data Scenario
@@ -567,13 +584,17 @@ data Scenario
     { scenarioEmbedType :: !Type
     , scenarioEmbedExpr :: !Expr
     }
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 data RetrieveByKey = RetrieveByKey
   { retrieveByKeyTemplate :: !(Qualified TypeConName)
   , retrieveByKeyKey :: !Expr
   }
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 newtype IsSerializable = IsSerializable{getIsSerializable :: Bool}
+  deriving stock (Eq, Generic, Ord, Show)
+  deriving anyclass (NFData, ToJSON)
 
 -- | Definition of a data type.
 data DefDataType = DefDataType
@@ -588,6 +609,7 @@ data DefDataType = DefDataType
   , dataCons    :: !DataCons
     -- ^ Data constructor of the type.
   }
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Data constructors for a data type definition.
 data DataCons
@@ -595,10 +617,15 @@ data DataCons
   = DataRecord  ![(FieldName, Type)]
   -- | A variant type given by its construtors and their payload types.
   | DataVariant ![(VariantConName, Type)]
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 newtype HasNoPartyLiterals = HasNoPartyLiterals{getHasNoPartyLiterals :: Bool}
+  deriving stock (Eq, Generic, Ord, Show)
+  deriving anyclass (NFData, ToJSON)
 
 newtype IsTest = IsTest{getIsTest :: Bool}
+  deriving stock (Eq, Generic, Ord, Show)
+  deriving anyclass (NFData, ToJSON)
 
 -- | Definition of a value.
 data DefValue = DefValue
@@ -614,6 +641,7 @@ data DefValue = DefValue
   , dvalBody   :: !Expr
     -- ^ Expression whose value to bind to the name.
   }
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 data TemplateKey = TemplateKey
   { tplKeyType :: !Type
@@ -624,6 +652,7 @@ data TemplateKey = TemplateKey
   -- of that fragment in DAML-LF directly.
   , tplKeyMaintainers :: !Expr
   }
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Definition of a contract template.
 data Template = Template
@@ -650,6 +679,7 @@ data Template = Template
   , tplKey             :: !(Maybe TemplateKey)
     -- ^ Template key definition, if any.
   }
+  deriving (Eq, Generic, NFData, Show, ToJSON)
 
 -- | Single choice of a contract template.
 data TemplateChoice = TemplateChoice
@@ -674,6 +704,7 @@ data TemplateChoice = TemplateChoice
     -- ^ Follow-up update of the choice. It has type @Update <ret_type>@ and
     -- both the template parameter and the choice parameter in scope.
   }
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 -- | Feature flags for a module.
 data FeatureFlags = FeatureFlags
@@ -689,6 +720,7 @@ data FeatureFlags = FeatureFlags
   -- and controllers of the target contract/choice and not to the observers of the target contract.
   -}
   }
+  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
 
 defaultFeatureFlags :: FeatureFlags
 defaultFeatureFlags = FeatureFlags
@@ -717,12 +749,14 @@ data Module = Module
   , moduleTemplates :: !(NM.NameMap Template)
     -- ^ Template definitions.
   }
+  deriving (Eq, Generic, NFData, Show, ToJSON)
 
 -- | A package.
 data Package = Package
     { packageLfVersion :: Version
     , packageModules :: NM.NameMap Module
     }
+  deriving (Eq, Generic, NFData, Show, ToJSON)
 
 -- | Type synonym for a reference to an LF value.
 type ValueRef = Qualified ExprValName
@@ -730,56 +764,6 @@ type ValueRef = Qualified ExprValName
 deriving instance Foldable    Qualified
 deriving instance Functor     Qualified
 deriving instance Traversable Qualified
-
-concatSequenceA $
-  [ makePrisms ''Kind
-  , makePrisms ''Type
-  , makePrisms ''Expr
-  , makePrisms ''Update
-  , makePrisms ''Scenario
-  , makePrisms ''DataCons
-  , makePrisms ''Package
-  , makeUnderscoreLenses ''DefDataType
-  , makeUnderscoreLenses ''DefValue
-  , makeUnderscoreLenses ''TemplateChoice
-  , makeUnderscoreLenses ''Template
-  , makeUnderscoreLenses ''Module
-  , makeUnderscoreLenses ''Package
-  , makeUnderscoreLenses ''TemplateKey
-  ] ++
-  map (makeInstancesExcept [''FromJSON])
-  [ ''PackageRef
-  , ''Qualified
-  , ''SourceLoc
-  , ''Kind
-  , ''EnumType
-  , ''BuiltinType
-  , ''Type
-  , ''TypeConApp
-  , ''EnumCon
-  , ''BuiltinExpr
-  , ''Binding
-  , ''Expr
-  , ''CaseAlternative
-  , ''CasePattern
-  , ''RetrieveByKey
-  , ''Update
-  , ''Scenario
-  , ''IsSerializable
-  , ''DefDataType
-  , ''DataCons
-  , ''HasNoPartyLiterals
-  , ''IsTest
-  , ''DefValue
-  , ''TemplateChoice
-  , ''FeatureFlags
-  , ''TemplateKey
-  ] ++
-  map (makeInstancesExcept [''Ord, ''FromJSON])
-  [ ''Template
-  , ''Module
-  , ''Package
-  ]
 
 instance Hashable PackageRef
 instance Hashable a => Hashable (Qualified a)
@@ -804,33 +788,19 @@ instance NM.Named Module where
   type Name Module = ModuleName
   name = moduleName
 
-instance NFData Binding
-instance NFData BuiltinExpr
-instance NFData BuiltinType
-instance NFData CaseAlternative
-instance NFData CasePattern
-instance NFData DataCons
-instance NFData DefDataType
-instance NFData DefValue
-instance NFData EnumCon
-instance NFData EnumType
-instance NFData Expr
-instance NFData FeatureFlags
-instance NFData HasNoPartyLiterals
-instance NFData IsSerializable
-instance NFData IsTest
-instance NFData Kind
-instance NFData Module
-instance NFData Package
-instance NFData PackageRef
-instance NFData Scenario
-instance NFData SourceLoc
-instance NFData TemplateKey
-instance NFData Template
-instance NFData TemplateChoice
-instance NFData Type
-instance NFData TypeConApp
-instance NFData RetrieveByKey
-instance NFData Update
-
-instance NFData a => NFData (Qualified a)
+concatSequenceA $
+  [ makePrisms ''Kind
+  , makePrisms ''Type
+  , makePrisms ''Expr
+  , makePrisms ''Update
+  , makePrisms ''Scenario
+  , makePrisms ''DataCons
+  , makePrisms ''Package
+  , makeUnderscoreLenses ''DefDataType
+  , makeUnderscoreLenses ''DefValue
+  , makeUnderscoreLenses ''TemplateChoice
+  , makeUnderscoreLenses ''Template
+  , makeUnderscoreLenses ''Module
+  , makeUnderscoreLenses ''Package
+  , makeUnderscoreLenses ''TemplateKey
+  ]
