@@ -29,10 +29,10 @@ import scala.collection.immutable
 import scala.concurrent.Future
 
 private class PostgresLedgerDao(
-    dbDispatcher: DbDispatcher,
-    contractSerializer: ContractSerializer,
-    transactionSerializer: TransactionSerializer)
-    extends LedgerDao {
+                                 dbDispatcher: DbDispatcher,
+                                 contractSerializer: ContractSerializer,
+                                 transactionSerializer: TransactionSerializer)
+  extends LedgerDao {
 
   private val LedgerIdKey = "LedgerId"
   private val LedgerEndKey = "LedgerEnd"
@@ -85,16 +85,16 @@ private class PostgresLedgerDao(
     )
 
   private def storeContract(offset: Long, contract: Contract)(
-      implicit connection: Connection): Unit = storeContracts(offset, List(contract))
+    implicit connection: Connection): Unit = storeContracts(offset, List(contract))
 
   private def archiveContract(offset: Long, cid: AbsoluteContractId)(
     implicit connection: Connection): Boolean =
     SQL_ARCHIVE_CONTRACT
-    .on(
-      "id" -> cid.coid,
-      "archive_offset" -> offset
-    )
-    .execute()
+      .on(
+        "id" -> cid.coid,
+        "archive_offset" -> offset
+      )
+      .execute()
 
   private val SQL_INSERT_CONTRACT =
     """insert into contracts(id, transaction_id, workflow_id, package_id, module_name, entity_name, create_offset, contract)
@@ -104,7 +104,7 @@ private class PostgresLedgerDao(
     "insert into contract_witnesses(contract_id, witness) values({contract_id}, {witness})"
 
   private def storeContracts(offset: Long, contracts: immutable.Seq[Contract])(
-      implicit connection: Connection): Unit = {
+    implicit connection: Connection): Unit = {
     val namedContractParams = contracts
       .map(
         c =>
@@ -119,7 +119,7 @@ private class PostgresLedgerDao(
             "contract" -> contractSerializer
               .serialiseContractInstance(c.coinst)
               .getOrElse(sys.error(s"failed to serialise contract! cid:${c.contractId.coid}"))
-        )
+          )
       )
 
     val batchInsertContracts = BatchSql(
@@ -135,7 +135,7 @@ private class PostgresLedgerDao(
               Seq[NamedParameter](
                 "contract_id" -> c.contractId.coid,
                 "witness" -> w.underlyingString
-            ))
+              ))
       )
       .toArray
 
@@ -176,17 +176,17 @@ private class PostgresLedgerDao(
     * Invalid transactions trigger a rollback of the current SQL transaction.
     */
   private def updateActiveContractSet(offset: Long, tx: Transaction)(
-      implicit connection: Connection): Option[RejectionReason] = tx match {
+    implicit connection: Connection): Option[RejectionReason] = tx match {
     case Transaction(
-        _,
-        transactionId,
-        _,
-        _,
-        workflowId,
-        ledgerEffectiveTime,
-        _,
-        transaction,
-        explicitDisclosure) =>
+    _,
+    transactionId,
+    _,
+    _,
+    workflowId,
+    ledgerEffectiveTime,
+    _,
+    transaction,
+    explicitDisclosure) =>
       val mappedDisclosure = explicitDisclosure
         .map {
           case (nodeId, party) =>
@@ -199,21 +199,28 @@ private class PostgresLedgerDao(
       //TODO: store contract key
       def acsAddContract(acs: Unit, cid: AbsoluteContractId, c: ActiveContracts.ActiveContract, keyO: Option[GlobalKey]): Unit = storeContract(offset, Contract.fromActiveContract(cid, c))
       //TODO: remove contract key
-      def acsRemoveContract(acs: Unit, cid: AbsoluteContractId, keyO: Option[GlobalKey]): Unit = { archiveContract(offset, cid) ; () }
+      def acsRemoveContract(acs: Unit, cid: AbsoluteContractId, keyO: Option[GlobalKey]): Unit = {
+        archiveContract(offset, cid)
+        ()
+      }
+
+      //this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
+      val acsManager = new ActiveContractsManager(
+        acsLookupContract,
+        acsKeyExists,
+        acsAddContract,
+        acsRemoveContract,
+        ())
 
       // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
       // within the current SQL transaction. All of the given functions perform side effects to update the database.
-      val atr = ActiveContracts.addTransaction(
+      val atr = acsManager.addTransaction(
         ledgerEffectiveTime,
         transactionId,
         workflowId,
         transaction,
         mappedDisclosure,
-        acsLookupContract,
-        acsKeyExists,
-        acsAddContract,
-        acsRemoveContract,
-        ()
+
       )
 
       atr match {
@@ -224,20 +231,20 @@ private class PostgresLedgerDao(
 
   //TODO: test it for failures..
   override def storeLedgerEntry(
-      offset: Long,
-      newLedgerEnd: Long,
-      ledgerEntry: LedgerEntry): Future[Unit] = {
+                                 offset: Long,
+                                 newLedgerEnd: Long,
+                                 ledgerEntry: LedgerEntry): Future[Unit] = {
     def insertEntry(le: LedgerEntry)(implicit conn: Connection): Option[Rejection] = le match {
-      case tx @ Transaction(
-            commandId,
-            transactionId,
-            applicationId,
-            submitter,
-            workflowId,
-            ledgerEffectiveTime,
-            recordedAt,
-            transaction,
-            explicitDisclosure) =>
+      case tx@Transaction(
+      commandId,
+      transactionId,
+      applicationId,
+      submitter,
+      workflowId,
+      ledgerEffectiveTime,
+      recordedAt,
+      transaction,
+      explicitDisclosure) =>
         // we do not support contract keys, for now
         // TODO for some reason the tests use null transactions sometimes, remove this check
         if (transaction != null) {
@@ -264,7 +271,7 @@ private class PostgresLedgerDao(
                   "transaction_id" -> transactionId,
                   "event_id" -> eventId,
                   "party" -> p
-              ))
+                ))
         }
 
         val batchInsertDisclosures =
@@ -380,17 +387,17 @@ private class PostgresLedgerDao(
           .as(EntryParser.singleOpt)
           .map {
             case (
-                "transaction",
-                Some(transactionId),
-                Some(commandId),
-                Some(applicationId),
-                Some(submitter),
-                Some(workflowId),
-                Some(effectiveAt),
-                recordedAt,
-                Some(transactionStream),
-                None,
-                None) =>
+              "transaction",
+              Some(transactionId),
+              Some(commandId),
+              Some(applicationId),
+              Some(submitter),
+              Some(workflowId),
+              Some(effectiveAt),
+              recordedAt,
+              Some(transactionStream),
+              None,
+              None) =>
               val disclosure = SQL_SELECT_DISCLOSURE
                 .on("transaction_id" -> transactionId)
                 .as(DisclosureParser.*)
@@ -412,17 +419,17 @@ private class PostgresLedgerDao(
                 disclosure
               )
             case (
-                "rejection",
-                None,
-                Some(commandId),
-                Some(applicationId),
-                Some(submitter),
-                None,
-                None,
-                recordedAt,
-                None,
-                Some(rejectionType),
-                Some(rejectionDescription)) =>
+              "rejection",
+              None,
+              Some(commandId),
+              Some(applicationId),
+              Some(submitter),
+              None,
+              None,
+              recordedAt,
+              None,
+              Some(rejectionType),
+              Some(rejectionDescription)) =>
               val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
               LedgerEntry.Rejection(
                 recordedAt.toInstant,
@@ -459,10 +466,10 @@ private class PostgresLedgerDao(
       .map(mapContractDetails)
 
   override def lookupActiveContract(contractId: AbsoluteContractId): Future[Option[Contract]] =
-    dbDispatcher.executeSql { implicit conn => lookupActiveContractSync(contractId)}
+    dbDispatcher.executeSql { implicit conn => lookupActiveContractSync(contractId) }
 
   private def mapContractDetails(contractResult: (String, String, String, Date, InputStream))(
-      implicit conn: Connection) =
+    implicit conn: Connection) =
     contractResult match {
       case (coid, transactionId, workflowId, createdAt, contractStream) =>
         val witnesses = lookupWitnesses(coid)
@@ -514,8 +521,8 @@ private class PostgresLedgerDao(
 
 object PostgresLedgerDao {
   def apply(
-      dbDispatcher: DbDispatcher,
-      contractSerializer: ContractSerializer,
-      transactionSerializer: TransactionSerializer): LedgerDao =
+             dbDispatcher: DbDispatcher,
+             contractSerializer: ContractSerializer,
+             transactionSerializer: TransactionSerializer): LedgerDao =
     new PostgresLedgerDao(dbDispatcher, contractSerializer, transactionSerializer)
 }
