@@ -39,7 +39,15 @@ object Ast {
   // Expressions
   //
 
-  sealed trait Expr extends Product with Serializable
+  sealed abstract class Expr extends Product with Serializable {
+    /** Infix alias for repeated [[EApp]] application. */
+    @inline final def eApp(arg: Expr, args: Expr*): EApp =
+    (EApp(this, arg) /: args) (EApp)
+
+    /** Infix alias for repeated [[ETyApp]] application. */
+    @inline final def eTyApp(typ: Type, typs: Type*): ETyApp =
+    (ETyApp(this, typ) /: typs) (ETyApp)
+  }
 
   /** Reference to a variable in current lexical scope. */
   final case class EVar(value: ExprVarName) extends Expr
@@ -137,7 +145,7 @@ object Ast {
   // Kinds
   //
 
-  sealed trait Kind extends Product with Serializable {
+  sealed abstract class Kind extends Product with Serializable {
     def pretty: String = Kind.prettyKind(this)
   }
 
@@ -163,7 +171,7 @@ object Ast {
   // Types
   //
 
-  sealed trait Type extends Product with Serializable {
+  sealed abstract class Type extends Product with Serializable {
     def pretty: String = Type.prettyType(this)
   }
 
@@ -232,7 +240,7 @@ object Ast {
       new TTuple(ImmArray(fields.toSeq.sortBy(_._1)))
   }
 
-  sealed trait BuiltinType extends Product with Serializable
+  sealed abstract class BuiltinType extends Product with Serializable
 
   case object BTInt64 extends BuiltinType
   case object BTDecimal extends BuiltinType
@@ -254,7 +262,7 @@ object Ast {
   // Primitive literals
   //
 
-  sealed trait PrimLit extends Equals with Product with Serializable {
+  sealed abstract class PrimLit extends Equals with Product with Serializable {
     def value: Any
   }
 
@@ -269,7 +277,7 @@ object Ast {
   // Primitive constructors
   //
 
-  sealed trait PrimCon extends Product with Serializable
+  sealed abstract class PrimCon extends Product with Serializable
 
   case object PCTrue extends PrimCon
   case object PCFalse extends PrimCon
@@ -382,7 +390,7 @@ object Ast {
 
   case class RetrieveByKey(templateId: TypeConName, key: Expr)
 
-  sealed trait Update extends Product with Serializable
+  sealed abstract class Update extends Product with Serializable
 
   final case class UpdatePure(t: Type, expr: Expr) extends Update
   final case class UpdateBlock(bindings: ImmArray[Binding], body: Expr) extends Update
@@ -404,7 +412,7 @@ object Ast {
   // Scenario expressions
   //
 
-  sealed trait Scenario extends Product with Serializable
+  sealed abstract class Scenario extends Product with Serializable
 
   final case class ScenarioPure(t: Type, expr: Expr) extends Scenario
   final case class ScenarioBlock(bindings: ImmArray[Binding], body: Expr) extends Scenario
@@ -419,7 +427,7 @@ object Ast {
   // Pattern matching
   //
 
-  sealed trait CasePat extends Product with Serializable
+  sealed abstract class CasePat extends Product with Serializable
 
   // Match on variant
   final case class CPVariant(tycon: TypeConName, variant: VariantConName, binder: ExprVarName)
@@ -444,7 +452,7 @@ object Ast {
   // Definitions
   //
 
-  sealed trait Definition extends Product with Serializable
+  sealed abstract class Definition extends Product with Serializable
 
   final case class DDataType(
       serializable: Boolean,
@@ -459,7 +467,7 @@ object Ast {
   ) extends Definition
 
   // Data constructor in data type definition.
-  sealed trait DataCons extends Product with Serializable
+  sealed abstract class DataCons extends Product with Serializable
   final case class DataRecord(fields: ImmArray[(FieldName, Type)], optTemplate: Option[Template])
       extends DataCons
   final case class DataVariant(variants: ImmArray[(VariantConName, Type)]) extends DataCons

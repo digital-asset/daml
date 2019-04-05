@@ -22,13 +22,13 @@ private[engine] object CommandTranslation {
     ETupleCon(ImmArray("key" -> EPrimLit(PLText(key)), "value" -> value))
 
   private def emptyMap(elemType: Type) =
-    ETyApp(EBuiltin(BMapEmpty), elemType)
+    EBuiltin(BMapEmpty) eTyApp elemType
 
   private def fold(aType: Type, bType: Type, f: Expr, b: Expr, as: Expr) =
-    EApp(EApp(EApp(ETyApp(ETyApp(EBuiltin(BFoldl), aType), bType), f), b), as)
+    EBuiltin(BFoldl) eTyApp (aType, bType) eApp (f, b, as)
 
   private def insert(elemType: Type, key: Expr, value: Expr, map: Expr) =
-    EApp(EApp(EApp(ETyApp(EBuiltin(BMapInsert), elemType), key), value), map)
+    EBuiltin(BMapInsert) eTyApp elemType eApp (key, value, map)
 
   private def get(key: String, tuple: Expr) =
     ETupleProj(key, tuple)
