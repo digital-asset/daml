@@ -3,8 +3,6 @@
 
 -- This is a compile-time test.
 
-{-# LANGUAGE NoImplicitPrelude #-}
-
 -- Show that if the names of `Prelude` are not in scope, then there
 -- should be no ambiguity about `concat` introduced by `DA.Foldable`.
 
