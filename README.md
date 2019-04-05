@@ -1,7 +1,7 @@
 [![DAML logo](daml-logo.png)](https://www.daml.com)
 
 
-[![Build Status](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=master&jobName=Linux&label=linux)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=master) [![Build Status](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=master&jobName=macOS&label=macOS)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=master)
+[![Build Status](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=master&jobName=Linux&label=Linux)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=master) [![Build Status](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=master&jobName=macOS&label=macOS)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=master)
 
 Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
