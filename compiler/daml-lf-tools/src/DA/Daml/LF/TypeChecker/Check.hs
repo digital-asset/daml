@@ -488,7 +488,7 @@ checkDefDataType (DefDataType _loc _name _serializable params dataCons) =
         traverse_ (`checkType` KStar) types
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
-checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr _info) = do
+checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do
   checkType typ KStar
   checkExpr expr typ
   when isTest $
