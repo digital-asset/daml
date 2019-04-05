@@ -260,8 +260,8 @@ public class MapTest {
 
         ValueOuterClass.Record protoRecord = ValueOuterClass.Record.newBuilder()
                 .addFields(ValueOuterClass.RecordField.newBuilder()
-                        .setLabel("party")
-                        .setValue(ValueOuterClass.Value.newBuilder().setText("party1").build())
+                        .setLabel("owner")
+                        .setValue(ValueOuterClass.Value.newBuilder().setParty("party1").build())
                         .build())
                 .addFields(ValueOuterClass.RecordField.newBuilder()
                         .setLabel("valueMap")
@@ -278,7 +278,7 @@ public class MapTest {
 
         Record dataRecord = Record.fromProto(protoRecord);
         TemplateWithMap fromValue = TemplateWithMap.fromValue(dataRecord);
-        TemplateWithMap fromConstructor = new TemplateWithMap("party", Collections.singletonMap("key", 42L));
+        TemplateWithMap fromConstructor = new TemplateWithMap("party1", Collections.singletonMap("key", 42L));
         TemplateWithMap fromRoundtrip = TemplateWithMap.fromValue(fromConstructor.toValue());
 
         assertEquals(fromValue, fromConstructor);
