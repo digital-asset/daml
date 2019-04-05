@@ -18,6 +18,6 @@ This section contains a reference to writing templates for DAML contracts. It in
    Expressions <expressions>
    Functions <functions>
    Scenarios <scenarios>
-   daml/stdlib/index
+   daml/stdlib/base
    File structure <file-structure>
 
