@@ -3,7 +3,6 @@
 
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 module DA.Daml.LF.Ast.Version where
 
 import           DA.Prelude

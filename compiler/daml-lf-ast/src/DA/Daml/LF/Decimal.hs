@@ -3,7 +3,6 @@
 
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE MultiWayIf         #-}
-{-# LANGUAGE TemplateHaskell    #-}
 
 -- | The model of our floating point decimal numbers.
 module DA.Daml.LF.Decimal
