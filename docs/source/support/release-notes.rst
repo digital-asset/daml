@@ -6,6 +6,8 @@ Release notes
 
 This page contains release notes for the SDK.
 
+- Java Codegen: Leaner log output and flag for log verbosity ``-V LEVEL`` or ``--verbosity LEVEL``, where ``LEVEL`` is a number between ``0`` (least verbose) and ``4`` (most verbose).
+
 0.12.0
 ------
 
