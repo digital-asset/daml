@@ -343,10 +343,8 @@
 			| rec
       | template
       | with
-      | pure
       | controller
       | choice
-      | return
 			)(\b(?!'))
 			</string>
         <key>name</key>
@@ -372,7 +370,7 @@
       </dict>
       <dict>
         <key>match</key>
-        <string>\b(submit|submitMustFail|fetch|exercise|create|test)\b</string>
+        <string>\b(submit|submitMustFail|fetch|exercise|create|test|pure|return)\b</string>
         <key>name</key>
         <string>entity.name.function</string>
       </dict>
