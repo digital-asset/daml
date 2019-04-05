@@ -4,42 +4,7 @@
 Introduction to DAML
 ####################
 
-DAML -- Digital Asset's language for smart contracts.
-
-- the language
-- the runtime
-- writing applications
-
-Language:
-- write templates for contracts
-- data schema, permissions, and what can happen to that data (choices)
-- show some code for nice example
-- use this to write *workflows* that form the core of an application, independent of architecture underlying it
-
-Runtime:
-- DAML can run on various things. All connected by the runtime
-- ensure privacy, etc etc
-- 
-
-Application writing:
-- When you're writing DAML, you're writing the core, but something needs to actually make it go
-- Use the ledger API to create contracts and exercise choices on them
-- Build applications on top of ledger API, both write automations and to allow user input
-- Base uses gRPC, so you can write in any of the languages supported by grpc
-- but that's raw / low-level, and we've also provided bindings into some languages to make writing applications easier. JAva and experimental node.js.
-
-DAML SDK:
-- is the set of tools around DAML.
-- DAML assistant, for versioning
-- DAML studio for IDE, in Visual Studio Code
-- Sandbox, so you can develop against a ledger
-- Navigator, to explore that ledger
-  (experimental navigator console and extractor)
-- 
-
-
-
-
+DAML -- Digital Asset's language for smart contracts -- is a new paradigm for thinking about, designing, and writing software for multi-party business processes.
 
 This page explains this paradigm and its benefits.
 
@@ -90,7 +55,7 @@ DAML is a smart contract language for modeling multi-party business processes th
 .. literalinclude:: introduction/code/Insurance.daml
   :language: daml
 
-To try out the above code in :doc:`DAML Studio </daml/daml-studio>`, you need to add the :doc:`DAML Standard Library </daml/stdlib/index>` to your project.
+To try out the above code in :doc:`DAML Studio </daml/daml-studio>`, you need to add the :doc:`DAML Standard Library </daml/stdlib/base>` to your project.
 
 A DAML library describes how parties can interact in a business process using DAML contract templates. DAML contracts encode the rights of the parties as choices that they can exercise, and obligations as agreements that they agree to. DAML does not have any notion of databases, storage schemas, nodes, network addresses, cryptographic keys, or similar concepts. Instead, the secure, distributed execution of a business process modeled in DAML is performed by the Digital Asset Ledger Server.
 
