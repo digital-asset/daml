@@ -31,8 +31,9 @@ for some tooling scripts. The code itself is built using Bazel.
 
 #### Set up `dev-env` on Linux or macOS
 
-1. Install Nix: `bash <(curl https://nixos.org/nix/install)`
-2. Enter `dev-env`: `eval "$(dev-env/bin/dade assist)"`
+1. Use `cd daml` to switch into the new `daml` repository you just cloned
+2. Install Nix by running: `bash <(curl https://nixos.org/nix/install)`
+3. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
 
 If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
 you can also install [direnv](https://direnv.net). This repo already provides a `.envrc`
