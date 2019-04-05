@@ -10,7 +10,7 @@ load(
 
 load(
     "//rules_daml:daml.bzl",
-    "dalf_compile",
+    "daml_compile",
 )
 
 load(
@@ -45,6 +45,7 @@ da_scala_library(
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
+        "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/interface",
         "//language-support/java/bindings:bindings-java",
     ],
@@ -74,8 +75,14 @@ da_scala_test(
     srcs = glob(["src/test/**/*.scala"]),
     resource_strip_prefix = "language-support/java/codegen/src/test/resources",
     resources = glob(["src/test/resources/**/*"]),
-    data = glob(["src/test/resources/**/*"]),
+    data = [":test-daml.dar"],
     deps = test_deps,
+)
+
+daml_compile(
+    name = "test-daml",
+    main_src = "src/test/daml/test.daml",
+    target = "1.3"
 )
 
 jar_jar(
