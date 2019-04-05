@@ -349,6 +349,10 @@
 			| rec
       | template
       | with
+      | pure
+      | controller
+      | choice
+      | return
 			)(\b(?!'))
 			</string>
         <key>name</key>
@@ -362,7 +366,7 @@
       </dict>
       <dict>
         <key>match</key>
-        <string>\b(m?do|if|then|else|case|of|ensure|daml|observer|signatory|agreement|controller|choice |can|nonconsuming|return)(\b(?!'))</string>
+        <string>\b(m?do|if|then|else|case|of|ensure|daml|observer|signatory|agreement|can|nonconsuming)(\b(?!'))</string>
         <key>name</key>
         <string>keyword.control.daml</string>
       </dict>
