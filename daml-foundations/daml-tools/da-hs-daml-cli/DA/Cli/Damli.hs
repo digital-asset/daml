@@ -22,9 +22,7 @@ options :: Parser Command
 options =
     flag' (PP.putDoc buildInfo) (short 'v' <> long "version" <> help "Show version information")
     <|>
-    subparser
-      (    cmdRoundtripLF1
-      )
+    subparser cmdRoundtripLF1
 
 parserInfo :: ParserInfo Command
 parserInfo =
