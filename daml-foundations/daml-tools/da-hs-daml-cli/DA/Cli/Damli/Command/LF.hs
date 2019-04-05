@@ -5,7 +5,6 @@
 
 module DA.Cli.Damli.Command.LF
   ( cmdRoundtripLF1
-  , cmdAuth
   , valueCheckOpt
   ) where
 
@@ -14,7 +13,6 @@ import           DA.Cli.Damli.Base
 import qualified DA.Daml.LF.Ast                   as LF
 import qualified DA.Daml.LF.Proto3.Archive        as Archive
 import qualified DA.Daml.LF.TypeChecker           as LF
-import qualified DA.Daml.LF.Auth                  as LF
 import qualified Data.Text as T
 import qualified DA.Pretty
 import qualified Data.ByteString                  as BS
@@ -40,16 +38,6 @@ valueCheckOpt =
 lfTypeCheckOpt :: Parser Bool
 lfTypeCheckOpt =
   not <$> switch (long "unsafe" <> short 'u' <> help "Skip DAML-LF type checker")
-
--- | Check a DAML-LF module for static authorisation errors.
-cmdAuth :: Mod CommandFields Command
-cmdAuth
- =  command "auth"
-        $ info (helper <*> cmd)
-        $ progDesc "Check a DAML-LF module for static authorisation errors."
-        <> fullDesc
- where
-    cmd = execAuth <$> inputFileOpt
 
 -------------------------------------------------------------------------
 -- Implementation
@@ -87,12 +75,3 @@ execRoundtripLF1 _check inFile outFile valueCheck = do
   where
     write | outFile == "-" = BS.putStr
           | otherwise = BS.writeFile outFile
-
-execAuth :: FilePath -> Command
-execAuth inFile = do
-    (package, _) <- loadLFPackage inFile
-
-    -- Auth-check
-    let errs = LF.checkAuth [] package
-    unless (null errs) $
-      error $ unlines $ "Static authorisation check failed:" : map (('\n':) . DA.Pretty.renderPretty) errs
