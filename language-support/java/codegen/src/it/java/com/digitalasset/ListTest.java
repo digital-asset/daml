@@ -13,9 +13,12 @@ import tests.listtest.*;
 import tests.listtest.color.Green;
 import tests.listtest.color.Red;
 import tests.listtest.listitem.Node;
+import tests.varianttest.variantitem.ParameterizedRecordVariant;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -143,6 +146,80 @@ public class ListTest {
 
         assertEquals(fromRecord, fromCodegen);
         assertEquals(fromCodegen.toValue().toProtoRecord(), protoColorListRecord);
+
+    }
+
+    @Test
+    void parameterizedListTestRoundTrip() {
+
+        ValueOuterClass.Record protoRecord =  ValueOuterClass.Record.newBuilder()
+                .addFields(
+                        ValueOuterClass.RecordField.newBuilder()
+                                .setLabel("list")
+                                .setValue(
+                                        ValueOuterClass.Value.newBuilder()
+                                                .setList(ValueOuterClass.List.newBuilder().addAllElements(Arrays.asList(
+                                                        ValueOuterClass.Value.newBuilder().setText("Element1").build(),
+                                                        ValueOuterClass.Value.newBuilder().setText("Element2").build())
+                                                ))
+                                                .build()
+                                )
+                                .build()
+                )
+                .build();
+
+        Record dataRecord = Record.fromProto(protoRecord);
+        ParameterizedListRecord<String> fromValue = ParameterizedListRecord.<String>fromValue(dataRecord, f -> f.asText().get().getValue());
+        ParameterizedListRecord<String> fromConstructor = new ParameterizedListRecord<>(Arrays.asList("Element1", "Element2"));
+        ParameterizedListRecord<String> fromRoundTrip = ParameterizedListRecord.fromValue(fromConstructor.toValue(Text::new), f -> f.asText().get().getValue());
+
+        assertEquals(fromValue, fromConstructor);
+        assertEquals(fromConstructor.toValue(Text::new), dataRecord);
+        assertEquals(fromConstructor.toValue(Text::new).toProtoRecord(), protoRecord);
+        assertEquals(fromRoundTrip, fromConstructor);
+
+    }
+
+    @Test
+    void parameterizedListOfListTestRoundTrip() {
+
+        ValueOuterClass.Record protoRecord =  ValueOuterClass.Record.newBuilder()
+                .addFields(
+                        ValueOuterClass.RecordField.newBuilder()
+                                .setLabel("list")
+                                .setValue(
+                                        ValueOuterClass.Value.newBuilder()
+                                                .setList(ValueOuterClass.List.newBuilder().addAllElements(Arrays.asList(
+                                                        ValueOuterClass.Value.newBuilder().setList(
+                                                                ValueOuterClass.List.newBuilder().addAllElements(Arrays.asList(
+                                                                        ValueOuterClass.Value.newBuilder().setText("Element1").build(),
+                                                                        ValueOuterClass.Value.newBuilder().setText("Element2").build())
+                                                                ).build()
+                                                        ).build(),
+                                                        ValueOuterClass.Value.newBuilder().setList(
+                                                                ValueOuterClass.List.newBuilder().addAllElements(Arrays.asList(
+                                                                        ValueOuterClass.Value.newBuilder().setText("Element3").build(),
+                                                                        ValueOuterClass.Value.newBuilder().setText("Element4").build())
+                                                                ).build()
+                                                        ).build()
+                                                ))
+                                                .build()
+                                ))
+                                .build()
+                )
+                .build();
+
+        Record dataRecord = Record.fromProto(protoRecord);
+        ParameterizedListRecord<List<String>> fromValue = ParameterizedListRecord.<List<String>>fromValue(dataRecord,
+                f -> f.asList().orElseThrow(() -> new IllegalArgumentException("Expected list to be of type com.daml.ledger.javaapi.data.DamlList")).getValues().stream()
+                        .map(f1 -> f1.asText().orElseThrow(() -> new IllegalArgumentException("Expected list to be of type com.daml.ledger.javaapi.data.Text")).getValue()).collect(Collectors.toList()));
+        ParameterizedListRecord<List<String>> fromConstructor = new ParameterizedListRecord<List<String>>(Arrays.asList(
+            Arrays.asList("Element1", "Element2"),
+            Arrays.asList("Element3", "Element4")
+        ));
+
+        assertEquals(fromValue, fromConstructor);
+        assertEquals(fromConstructor.toValue(f -> new DamlList(f.stream().map(Text::new).collect(Collectors.<Value>toList()))), dataRecord);
 
     }
 
