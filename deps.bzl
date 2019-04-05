@@ -65,7 +65,6 @@ def daml_deps():
       urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
       sha256 = rules_haskell_sha256,
       patches = [
-        "@com_github_digital_asset_daml//bazel_tools:haskell-hazel-shorten-source-dirs.patch",
         "@com_github_digital_asset_daml//bazel_tools:hackage_mirror.patch",
       ],
       patch_args = ["-p2"],
