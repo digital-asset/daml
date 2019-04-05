@@ -99,7 +99,7 @@ mkOptions opts@Options {..} = do
             | hasDepreceatedPkgDb = [deprecatedPkgDb]
             | hasDefaultPkgDb = [defaultPkgDb]
             | otherwise = []
-    when hasDepreceatedPkgDb $ putStrLn "DEPRECEATED: Please use fat dars instead of dalfs in tests"
+    when hasDepreceatedPkgDb $ putStrLn "DEPRECATED: Please use fat dars instead of dalfs in tests"
     pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDb ++ optPackageDbs}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
