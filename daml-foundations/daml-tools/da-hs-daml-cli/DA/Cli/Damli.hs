@@ -24,7 +24,6 @@ options =
     <|>
     subparser
       (    cmdRoundtripLF1
-        <> cmdAuth
       )
 
 parserInfo :: ParserInfo Command
