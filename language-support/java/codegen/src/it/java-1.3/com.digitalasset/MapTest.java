@@ -14,6 +14,7 @@ import org.junit.runner.RunWith;
 import tests.maptest.MapItem;
 import tests.maptest.MapItemMapRecord;
 import tests.maptest.MapRecord;
+import tests.maptest.TemplateWithMap;
 import tests.maptest.mapvariant.ParameterizedVariant;
 import tests.maptest.mapvariant.RecordVariant;
 import tests.maptest.mapvariant.TextVariant;
@@ -251,6 +252,39 @@ public class MapTest {
         assertEquals(fromValue, fromConstructor);
         assertEquals(fromConstructor.toValue(f -> new Int64(f)), dataVariant);
         assertEquals(fromValue.toValue(f -> new Int64(f)), dataVariant);
+
+    }
+
+    @Test
+    public void mapTemplateRoundtripTest() {
+
+        ValueOuterClass.Record protoRecord = ValueOuterClass.Record.newBuilder()
+                .addFields(ValueOuterClass.RecordField.newBuilder()
+                        .setLabel("party")
+                        .setValue(ValueOuterClass.Value.newBuilder().setText("party1").build())
+                        .build())
+                .addFields(ValueOuterClass.RecordField.newBuilder()
+                        .setLabel("valueMap")
+                        .setValue(ValueOuterClass.Value.newBuilder()
+                                .setMap(ValueOuterClass.Map.newBuilder().addEntries(
+                                        ValueOuterClass.Map.Entry.newBuilder()
+                                                .setKey(ValueOuterClass.Value.newBuilder().setText("key").build())
+                                                .setValue(ValueOuterClass.Value.newBuilder().setInt64(42L).build())
+                                                .build())
+                                        .build())
+                                .build())
+                        .build())
+                .build();
+
+        Record dataRecord = Record.fromProto(protoRecord);
+        TemplateWithMap fromValue = TemplateWithMap.fromValue(dataRecord);
+        TemplateWithMap fromConstructor = new TemplateWithMap("party", Collections.singletonMap("key", 42L));
+        TemplateWithMap fromRoundtrip = TemplateWithMap.fromValue(fromConstructor.toValue());
+
+        assertEquals(fromValue, fromConstructor);
+        assertEquals(fromConstructor.toValue(), dataRecord);
+        assertEquals(fromValue.toValue(), dataRecord);
+        assertEquals(fromConstructor, fromRoundtrip);
 
     }
 }
