@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset;
+package com.digitalasset.lf1_1;
 
 import com.daml.ledger.javaapi.data.*;
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
@@ -9,10 +9,9 @@ import com.google.protobuf.Empty;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
-import tests.optionaltest.*;
-import tests.optionaltest.optionalvariant.OptionalParametricVariant;
-import tests.optionaltest.optionalvariant.OptionalPrimVariant;
-import tests.varianttest.*;
+import lf1_1.tests.optionaltest.*;
+import lf1_1.tests.optionaltest.optionalvariant.OptionalParametricVariant;
+import lf1_1.tests.optionaltest.optionalvariant.OptionalPrimVariant;
 
 import java.util.Arrays;
 import java.util.Optional;

@@ -1,21 +1,21 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset;
+package com.digitalasset.lf1_0;
 
 import com.daml.ledger.javaapi.data.*;
-import da.internal.prelude.optional.Some;
-import da.internal.prelude.Optional;
+import lf1_0.da.internal.prelude.optional.Some;
+import lf1_0.da.internal.prelude.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
-import tests.optionaltest.MyListOfOptionalsRecord;
-import tests.optionaltest.MyOptionalListRecord;
-import tests.optionaltest.MyOptionalRecord;
-import tests.optionaltest.NestedOptionalRecord;
-import tests.optionaltest.optionalvariant.OptionalParametricVariant;
-import tests.optionaltest.optionalvariant.OptionalPrimVariant;
+import lf1_0.tests.optionaltest.MyListOfOptionalsRecord;
+import lf1_0.tests.optionaltest.MyOptionalListRecord;
+import lf1_0.tests.optionaltest.MyOptionalRecord;
+import lf1_0.tests.optionaltest.NestedOptionalRecord;
+import lf1_0.tests.optionaltest.optionalvariant.OptionalParametricVariant;
+import lf1_0.tests.optionaltest.optionalvariant.OptionalPrimVariant;
 
 import java.util.Arrays;
 import java.util.List;

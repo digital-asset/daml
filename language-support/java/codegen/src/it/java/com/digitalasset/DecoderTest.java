@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @RunWith(JUnitPlatform.class)
 public class DecoderTest {
 
+    @org.junit.jupiter.api.Disabled
     @Test
     void containsAllKnownTemplates() {
         assertTrue(TestDecoder.getDecoder(tests.template1.TestTemplate.TEMPLATE_ID).isPresent());

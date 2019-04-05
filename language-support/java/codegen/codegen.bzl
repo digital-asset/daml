@@ -9,6 +9,9 @@ load(
 def mangle(name):
     return ".".join(name.rsplit("-", 1))
 
+def mangle_for_java(name):
+    return name.replace(".", "_")
+
 def daml_to_java(**kwargs):
     base_name = kwargs["name"]
 
