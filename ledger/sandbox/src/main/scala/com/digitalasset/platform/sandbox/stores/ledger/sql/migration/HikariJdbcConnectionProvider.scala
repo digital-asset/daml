@@ -25,10 +25,10 @@ trait JdbcConnectionProvider {
 }
 
 class HikariJdbcConnectionProvider(
-    jdbcUrl: String,
-    noOfShortLivedConnections: Int,
-    noOfStreamingConnections: Int)
-    extends JdbcConnectionProvider {
+                                    jdbcUrl: String,
+                                    noOfShortLivedConnections: Int,
+                                    noOfStreamingConnections: Int)
+  extends JdbcConnectionProvider {
 
   private val logger = LoggerFactory.getLogger(getClass)
   // these connections should never timeout as we have exactly the same number of threads using them as many connections we have
@@ -40,9 +40,9 @@ class HikariJdbcConnectionProvider(
     createDataSource(1, noOfStreamingConnections, 60.seconds)
 
   private def createDataSource(
-      minimumIdle: Int,
-      maxPoolSize: Int,
-      connectionTimeout: FiniteDuration) = {
+                                minimumIdle: Int,
+                                maxPoolSize: Int,
+                                connectionTimeout: FiniteDuration) = {
     val config = new HikariConfig
     config.setJdbcUrl(jdbcUrl)
     //TODO put these defaults out to a config file
@@ -52,6 +52,8 @@ class HikariJdbcConnectionProvider(
     config.addDataSourceProperty("minimumIdle", minimumIdle)
     config.addDataSourceProperty("maximumPoolSize", maxPoolSize)
     config.addDataSourceProperty("connectionTimeout", connectionTimeout.toMillis)
+    config.addDataSourceProperty("autoCommit", false)
+
     //note that Hikari uses auto-commit by default.
     //in `runSql` below, the `.close()` will automatically trigger a commit.
     new HikariDataSource(config)
@@ -62,8 +64,11 @@ class HikariJdbcConnectionProvider(
 
   override def runSQL[T](block: Connection => T): T = {
     val conn = shortLivedDataSource.getConnection()
+    conn.setAutoCommit(false)
     try {
-      block(conn)
+      val res = block(conn)
+      conn.commit()
+      res
     } catch {
       case NonFatal(t) =>
         logger.error(
@@ -83,8 +88,8 @@ class HikariJdbcConnectionProvider(
 
 object HikariJdbcConnectionProvider {
   def apply(
-      jdbcUrl: String,
-      noOfShortLivedConnections: Int,
-      noOfStreamingConnections: Int): JdbcConnectionProvider =
+             jdbcUrl: String,
+             noOfShortLivedConnections: Int,
+             noOfStreamingConnections: Int): JdbcConnectionProvider =
     new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
 }
