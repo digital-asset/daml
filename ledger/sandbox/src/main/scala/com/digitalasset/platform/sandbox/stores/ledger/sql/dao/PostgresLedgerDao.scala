@@ -192,12 +192,21 @@ private class PostgresLedgerDao(
             nodeId -> party.map(p => Ref.Party.assertFromString(p))
         }
 
-      val acsActions = ActiveContracts.addAcsActions(
+      //TODO (robert): check that this does not deadlock. While updating the ACS, we need to run queries to validate the transaction. See comment in runSQL()
+
+      // Note: ACS typed as Unit, as the ACS is given implicitly by the current database state within the current SQL transaction.
+      val acsActions = ActiveContracts.addTransaction(
         ledgerEffectiveTime,
         transactionId,
         workflowId,
         transaction,
-        mappedDisclosure)
+        mappedDisclosure,
+        ???, // lookupContract: (ACS, AbsoluteContractId) => Option[ActiveContract],
+        ???, // keyExists: (ACS, GlobalKey) => Boolean,
+        ???, // addContract: (ACS, AbsoluteContractId, ActiveContract, Option[GlobalKey]) => ACS,
+        ???, // removeContract: (ACS, AbsoluteContractId, Option[GlobalKey]) => ACS,
+        ()
+      )
 
       @tailrec
       def go(actions: List[ActiveContractsAction]): Option[RejectionReason] = actions match {

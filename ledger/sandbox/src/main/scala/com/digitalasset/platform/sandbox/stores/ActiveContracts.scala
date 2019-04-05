@@ -13,16 +13,8 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, V
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts._
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
-import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.PredicateType.{
-  Exercise,
-  Fetch
-}
-import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.{
-  DuplicateKey,
-  InactiveDependencyError,
-  PredicateType,
-  TimeBeforeError
-}
+import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.PredicateType.{Exercise, Fetch}
+import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.{DuplicateKey, InactiveDependencyError, PredicateType, TimeBeforeError}
 
 case class ActiveContracts(
     contracts: Map[AbsoluteContractId, ActiveContract],
@@ -38,16 +30,100 @@ case class ActiveContracts(
       transaction: GenTransaction[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
       explicitDisclosure: Relation[Nid, Ref.Party])
     : Either[Set[SequencingError], ActiveContracts] = {
+
+    def lookupContract(acs: ActiveContracts, cid: AbsoluteContractId) = acs.contracts.get(cid)
+
+    def keyExists(acs: ActiveContracts, key: GlobalKey) = acs.keys.contains(key)
+
+    def addContract(acs: ActiveContracts, cid: AbsoluteContractId, c: ActiveContract, keyO: Option[GlobalKey]) = keyO match {
+      case None => acs.copy(contracts = acs.contracts + (cid -> c))
+      case Some(key) => acs.copy(contracts = acs.contracts + (cid -> c), keys = acs.keys + (key -> cid))
+    }
+
+    def removeContract(acs: ActiveContracts, cid: AbsoluteContractId, keyO: Option[GlobalKey]) = keyO match {
+      case None => acs.copy(contracts = acs.contracts - cid)
+      case Some(key) => acs.copy(contracts = acs.contracts - cid, keys = acs.keys - key)
+    }
+
+    ActiveContracts.addTransaction(let, transactionId, workflowId, transaction, explicitDisclosure, lookupContract, keyExists, addContract, removeContract, this)
+  }
+
+}
+
+sealed abstract class ActiveContractsAction
+
+final case class ActiveContractsAdd(abcCoid: AbsoluteContractId, contract: ActiveContract)
+    extends ActiveContractsAction
+
+final case class ActiveContractsRemove(abcCoid: AbsoluteContractId) extends ActiveContractsAction
+
+/** If some node requires a contract, check that we have that contract, and check that that contract is not created after the given transaction. */
+final case class ActiveContractsCheck(cid: AbsoluteContractId, let: Instant)
+    extends ActiveContractsAction
+
+object ActiveContracts {
+
+  private case class AddTransactionState[ACS](
+      acc: Option[ACS],
+      errs: Set[SequencingError]) {
+    def result: Either[Set[SequencingError], ACS] = {
+      acc match {
+        case None =>
+          if (errs.isEmpty) {
+            sys.error(s"IMPOSSIBLE no acc and no errors either!")
+          }
+          Left(errs)
+        case Some(acc_) =>
+          if (errs.isEmpty) {
+            Right(acc_)
+          } else {
+            Left(errs)
+          }
+      }
+    }
+  }
+
+  private object AddTransactionState {
+    def apply[ACS](acs: ACS): AddTransactionState[ACS] =
+      AddTransactionState(Some(acs), Set())
+  }
+
+  case class ActiveContract(
+      let: Instant, // time when the contract was committed
+      transactionId: String, // transaction id where the contract originates
+      workflowId: String, // workflow id from where the contract originates
+      contract: ContractInst[VersionedValue[AbsoluteContractId]],
+      witnesses: Set[Ref.Party],
+      key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])
+
+  def empty: ActiveContracts = ActiveContracts(Map(), Map())
+
+  /**
+    * A higher order function to update an abstract active contract set (ACS) with the effects of the given transaction.
+    */
+  def addTransaction[Nid, ACS](
+    let: Instant,
+    transactionId: String,
+    workflowId: String,
+    transaction: GenTransaction[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
+    explicitDisclosure: Relation[Nid, Ref.Party],
+    lookupContract: (ACS, AbsoluteContractId) => Option[ActiveContract],
+    keyExists: (ACS, GlobalKey) => Boolean,
+    addContract: (ACS, AbsoluteContractId, ActiveContract, Option[GlobalKey]) => ACS,
+    removeContract: (ACS, AbsoluteContractId, Option[GlobalKey]) => ACS,
+    initialState: => ACS
+  )
+  : Either[Set[SequencingError], ACS] = {
     val st =
-      transaction.fold[AddTransactionState](GenTransaction.TopDown, AddTransactionState(this)) {
+      transaction.fold[AddTransactionState[ACS]](GenTransaction.TopDown, AddTransactionState(initialState)) {
         case (ats @ AddTransactionState(None, _), _) => ats
         case (ats @ AddTransactionState(Some(acc), errs), (nodeId, node)) =>
           // if some node requires a contract, check that we have that contract, and check that that contract is not
           // created after the current let.
           def contractCheck(
-              cid: AbsoluteContractId,
-              predType: PredicateType): Option[SequencingError] =
-            acc.contracts.get(cid) match {
+            cid: AbsoluteContractId,
+            predType: PredicateType): Option[SequencingError] =
+            lookupContract(acc, cid) match {
               case None => Some(InactiveDependencyError(cid, predType))
               case Some(otherTx) =>
                 if (otherTx.let.isAfter(let)) {
@@ -72,15 +148,29 @@ case class ActiveContracts(
                 witnesses = explicitDisclosure(nodeId).intersect(nc.stakeholders),
                 key = nc.key
               )
-              ats.addContract(absCoid, activeContract)
+              acc match {
+                case None => ats
+                case Some(acs) =>
+                  activeContract.key match {
+                    case None =>
+                      ats.copy(acc = Some(addContract(acc, absCoid, activeContract, None)))
+                    case Some(key) =>
+                      val gk = GlobalKey(activeContract.contract.template, key.key)
+                      if (keyExists(acc, gk)) {
+                        AddTransactionState(None, errs + DuplicateKey(gk))
+                      } else {
+                        ats.copy(acc = Some(addContract(acc, absCoid, activeContract, Some(gk))))
+                      }
+                  }
+              }
             case ne: N.NodeExercises[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]] =>
               val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(ne.targetCoid)
               ats.copy(
                 errs = contractCheck(absCoid, Exercise).fold(errs)(errs + _),
                 acc = Some(if (ne.consuming) {
-                  AddTransactionAcc(acc.contracts - absCoid, acc.contracts(absCoid).key match {
-                    case None => acc.keys
-                    case Some(key) => acc.keys - GlobalKey(ne.templateId, key.key)
+                  removeContract(acc, absCoid, lookupContract(acc, absCoid).flatMap(_.key) match {
+                    case None => None
+                    case Some(key) => Some(GlobalKey(ne.templateId, key.key))
                   })
                 } else {
                   acc
@@ -97,120 +187,5 @@ case class ActiveContracts(
     st.result
   }
 
-}
-
-sealed abstract class ActiveContractsAction
-
-final case class ActiveContractsAdd(abcCoid: AbsoluteContractId, contract: ActiveContract)
-    extends ActiveContractsAction
-
-final case class ActiveContractsRemove(abcCoid: AbsoluteContractId) extends ActiveContractsAction
-
-/** If some node requires a contract, check that we have that contract, and check that that contract is not created after the given transaction. */
-final case class ActiveContractsCheck(cid: AbsoluteContractId, let: Instant)
-    extends ActiveContractsAction
-
-object ActiveContracts {
-
-  private case class AddTransactionAcc(
-      contracts: Map[AbsoluteContractId, ActiveContract],
-      keys: Map[GlobalKey, AbsoluteContractId])
-
-  private case class AddTransactionState(
-      acc: Option[AddTransactionAcc],
-      errs: Set[SequencingError]) {
-    def addContract(coid: AbsoluteContractId, contract: ActiveContract): AddTransactionState =
-      acc match {
-        case None => this
-        case Some(AddTransactionAcc(contracts, keys)) =>
-          contract.key match {
-            case None =>
-              this.copy(acc = Some(AddTransactionAcc(contracts + (coid -> contract), keys)))
-            case Some(key) =>
-              val gk = GlobalKey(contract.contract.template, key.key)
-              if (keys.contains(gk)) {
-                AddTransactionState(None, errs + DuplicateKey(gk))
-              } else {
-                this.copy(acc =
-                  Some(AddTransactionAcc(contracts + (coid -> contract), keys + (gk -> coid))))
-              }
-          }
-      }
-
-    def result: Either[Set[SequencingError], ActiveContracts] = {
-      acc match {
-        case None =>
-          if (errs.isEmpty) {
-            sys.error(s"IMPOSSIBLE no acc and no errors either!")
-          }
-          Left(errs)
-        case Some(acc_) =>
-          if (errs.isEmpty) {
-            Right(ActiveContracts(acc_.contracts, acc_.keys))
-          } else {
-            Left(errs)
-          }
-      }
-    }
-  }
-
-  private object AddTransactionState {
-    def apply(acs: ActiveContracts): AddTransactionState =
-      AddTransactionState(Some(AddTransactionAcc(acs.contracts, acs.keys)), Set())
-  }
-
-  case class ActiveContract(
-      let: Instant, // time when the contract was committed
-      transactionId: String, // transaction id where the contract originates
-      workflowId: String, // workflow id from where the contract originates
-      contract: ContractInst[VersionedValue[AbsoluteContractId]],
-      witnesses: Set[Ref.Party],
-      key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])
-
-  def empty: ActiveContracts = ActiveContracts(Map(), Map())
-
-  /**
-    * Processes a transaction, returning a list of actions that a persistence layer needs to perform.
-    * The reason why a list of actions is returned is that some persistence layers may want to batch these
-    * operations, or execute them asynchronously.
-    */
-  def addAcsActions[Nid](
-      let: Instant,
-      transactionId: String,
-      workflowId: String,
-      transaction: GenTransaction[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
-      explicitDisclosure: Relation[Nid, Ref.Party],
-  ): List[ActiveContractsAction] = {
-    type Acc = List[ActiveContractsAction]
-    transaction.fold[Acc](GenTransaction.TopDown, List.empty) {
-      case (changes, (nodeId, node)) =>
-        node match {
-          case nf: N.NodeFetch[AbsoluteContractId] =>
-            val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nf.coid)
-            changes :+ ActiveContractsCheck(absCoid, let)
-          case nc: N.NodeCreate[AbsoluteContractId, VersionedValue[AbsoluteContractId]] =>
-            val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
-            val activeContract = ActiveContract(
-              let,
-              transactionId,
-              workflowId,
-              nc.coinst.mapValue(
-                _.mapContractId(SandboxEventIdFormatter.makeAbsCoid(transactionId))),
-              explicitDisclosure(nodeId).intersect(nc.stakeholders),
-              None
-            )
-            changes :+ ActiveContractsAdd(absCoid, activeContract)
-          case ne: N.NodeExercises[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]] =>
-            val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(ne.targetCoid)
-            if (ne.consuming) {
-              changes :+ ActiveContractsCheck(absCoid, let) :+ ActiveContractsRemove(absCoid)
-            } else {
-              changes :+ ActiveContractsCheck(absCoid, let)
-            }
-          case _: N.NodeLookupByKey[AbsoluteContractId, VersionedValue[AbsoluteContractId]] =>
-            sys.error("Contract Keys are not implemented yet")
-        }
-    }
-  }
 
 }
