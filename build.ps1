@@ -1,16 +1,20 @@
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
+.\dev-env\windows\bin\dadew.ps1 install
+.\dev-env\windows\bin\dadew.ps1 sync
+.\dev-env\windows\bin\dadew.ps1 enable
+
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
     . bazel.exe --bazelrc=.\nix\bazelrc --host_jvm_args=-Djavax.net.ssl.trustStore="$(dadew where)\current\apps\da-truststore\cacerts" @args
     if ($global:lastexitcode -ne 0) {
+        Write-Output "<< bazel $args (failed, exit code: $global:lastexitcode)"
         throw ("Bazel returned non-zero exit code: $global:lastexitcode")
     }
+    Write-Output "<< bazel $args (ok)"
 }
-
-$env:BAZEL_SH = [Environment]::GetEnvironmentVariable("BAZEL_SH", [System.EnvironmentVariableTarget]::User)
 
 # FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
 

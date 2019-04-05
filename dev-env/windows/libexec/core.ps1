@@ -17,7 +17,7 @@ function da_is_scoop_installed {
 function da_enable_scoop {
     if (-Not (da_is_scoop_on_path)) {
         da_reset_path
-        $env:PATH = "$scoopShimDir;$env:PATH" # for this session
+        $env:PATH = "$PSScriptRoot\..\bin;$scoopShimDir;$env:PATH" # for this session
         . "$PSScriptRoot\profile.ps1"
     }
 }
