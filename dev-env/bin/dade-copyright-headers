@@ -251,7 +251,7 @@ def usage():
   sys.exit(1)
 
 chdir_to_toplevel()
-with open('COPYRIGHT', 'r') as f:
+with open('COPY', 'r') as f:
   LEGAL_NOTICES = list(map(lambda x: x.strip(), f.readlines()))
 
 if len(sys.argv) != 2 and len(sys.argv) != 3:
