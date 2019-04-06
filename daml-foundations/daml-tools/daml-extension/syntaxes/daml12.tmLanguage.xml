@@ -343,7 +343,6 @@
 			| rec
       | template
       | with
-      | controller
       | choice
 			)(\b(?!'))
 			</string>
@@ -358,7 +357,7 @@
       </dict>
       <dict>
         <key>match</key>
-        <string>\b(m?do|if|then|else|case|of|ensure|daml|observer|signatory|agreement|can|nonconsuming)(\b(?!'))</string>
+        <string>\b(m?do|if|then|else|case|of|ensure|daml|observer|signatory|agreement|controller|can|nonconsuming|return)(\b(?!'))</string>
         <key>name</key>
         <string>keyword.control.daml</string>
       </dict>
@@ -370,7 +369,7 @@
       </dict>
       <dict>
         <key>match</key>
-        <string>\b(assert|elem|submit|submitMustFail|fetch|exercise|create|test|pure|return)\b</string>
+        <string>\b(submit|submitMustFail|fetch|exercise|create|test)\b</string>
         <key>name</key>
         <string>entity.name.function</string>
       </dict>
