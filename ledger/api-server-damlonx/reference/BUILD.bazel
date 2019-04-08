@@ -18,6 +18,7 @@ da_scala_binary(
     '//ledger/ledger-api-common:ledger-api-common',
     '//language-support/scala/bindings',
 
+    '//daml-lf/data',
     '//daml-lf/lfpackage',
     '//daml-lf/archive:daml_lf_java_proto',
     '//daml-lf/archive:daml_lf_archive_scala',

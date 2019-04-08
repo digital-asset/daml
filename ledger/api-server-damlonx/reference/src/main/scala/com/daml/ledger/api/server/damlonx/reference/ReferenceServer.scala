@@ -16,13 +16,12 @@ import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
+import scala.util.Try
 
 object ReferenceServer extends App {
   val logger = LoggerFactory.getLogger(this.getClass)
 
   implicit val system = ActorSystem("ReferenceServer")
-  //implicit val materializer = ActorMaterializer()(system)
-
   implicit val materializer = ActorMaterializer(
     ActorMaterializerSettings(system)
       .withSupervisionStrategy { e =>
@@ -36,9 +35,9 @@ object ReferenceServer extends App {
     new com.daml.ledger.participant.state.v1.impl.reference.Ledger(timeModel, tsb)
 
   def archivesFromDar(file: File): List[Archive] = {
-    new DarReader[Archive](Archive.parseFrom)
+    DarReader[Archive](x => Try(Archive.parseFrom(x)))
       .readArchive(new ZipFile(file))
-      .fold(t => throw new RuntimeException(s"Failed to parse DAR from $file", t), identity)
+      .fold(t => throw new RuntimeException(s"Failed to parse DAR from $file", t), dar => dar.all)
   }
 
   args.foreach { arg =>
