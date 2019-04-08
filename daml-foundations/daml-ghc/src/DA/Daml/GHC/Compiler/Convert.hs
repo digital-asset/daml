@@ -1203,7 +1203,7 @@ rewriteMaintainer key maintainer = do
             keyMaps <- forM fields $ \(fieldName, fieldExpr) ->
                 MS.map (ERecProj typ fieldName) <$> buildKeyMap fieldExpr
             pure $ MS.unions keyMaps
-        expr@ERecProj{}
+        expr
             | (EVar "this", fields) <- unwindProjections expr -> pure $ MS.singleton fields (EVar "$key")
         o -> unhandled "Template key expression" o
 
