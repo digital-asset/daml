@@ -302,7 +302,7 @@ buildDar service file pkgName dalfInput = do
               dalf
               (takeDirectory file)
               dalfDependencies
-              fileDependencies
+              (file:fileDependencies)
               pkgName
 
 -- | Get the transitive package dependencies on other dalfs.
