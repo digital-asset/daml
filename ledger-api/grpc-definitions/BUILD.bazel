@@ -55,6 +55,8 @@ proto_gen(
         '@com_google_protobuf//:wrappers_proto',
         '@com_google_protobuf//:any_proto',
         '@com_google_protobuf//:descriptor_proto',
+        '@com_github_googleapis_googleapis//google/rpc:status_proto',
+        '@com_github_googleapis_googleapis//google/rpc:code_proto',
     ],
     plugin_name = "scalapb",
     plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
@@ -76,6 +78,31 @@ scalapb_deps = [
 scala_library(
     name = "ledger-api-scalapb",
     srcs = [':ledger-api-scalapb-sources'],
+    deps = scalapb_deps + [':google-rpc-scalapb'],
+    exports = scalapb_deps + [':google-rpc-scalapb'],
+    visibility = ['//visibility:public', ],
+)
+
+proto_gen(
+    name = "google-rpc-sources",
+    srcs = [
+        '@com_github_googleapis_googleapis//google/rpc:status_proto',
+        '@com_github_googleapis_googleapis//google/rpc:code_proto',
+    ],
+    deps = [
+        '@com_google_protobuf//:any_proto',
+    ],
+    plugin_name = "scalapb",
+    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_options = ["grpc"],
+    visibility = [
+        '//visibility:public',
+    ],
+)
+
+scala_library(
+    name = "google-rpc-scalapb",
+    srcs = [':google-rpc-sources'],
     deps = scalapb_deps,
     exports = scalapb_deps,
     visibility = ['//visibility:public', ],
