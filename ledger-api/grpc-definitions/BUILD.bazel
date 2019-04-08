@@ -108,37 +108,39 @@ scala_library(
     visibility = ['//visibility:public', ],
 )
 
-genrule(
-    name = 'docs',
-    srcs = glob(['**']) + ['@com_google_protobuf//:well_known_protos'],
-    tools = ["@docker_nix//:bin/docker", "@pandoc_nix//:bin/pandoc", "@com_google_protobuf//:protoc", "@com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc"],
-    outs = ['proto-docs.rst'],
-    cmd = """
-        export PATH="$$( cd "$$(dirname "$(location @docker_nix//:bin/docker)")" ; pwd -P )":$$PATH
-        export PATH="$$( cd "$$(dirname "$(location @pandoc_nix//:bin/pandoc)")" ; pwd -P )":$$PATH
-        export PATH="$$( cd "$$(dirname "$(location @com_google_protobuf//:protoc)")" ; pwd -P )":$$PATH
-        export PATH="$$( cd "$$(dirname "$(location @com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc)")" ; pwd -P )":$$PATH
-
-        mkdir tmp
-        mkdir out
-        mkdir -p imports/google/protobuf
-
-        cp -L ledger-api/grpc-definitions/post-process.sh out
-        cp -RL ledger-api/grpc-definitions/* tmp
-        cp -L ledger-api/grpc-definitions/rst_mmd.tmpl tmp
-        cp $(locations @com_google_protobuf//:well_known_protos) imports/google/protobuf
-
-        cd tmp
-        PROTOS=$$(find . -name '*.proto' -print0 | xargs -0 echo)
-
-        protoc -I../imports -I. --plugin=../$(location @com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc) --doc_out=../out --doc_opt=rst_mmd.tmpl,docs_rst_mmd.md $$PROTOS
-
-        cd ../out
-        ./post-process.sh
-
-        mv docs_rst_mmd.rst ../$(location proto-docs.rst)
-    """,
+proto_gen(
+    name = "ledger-api-docs",
+    srcs = [':protos'],
+    deps = [
+        '@com_google_protobuf//:empty_proto',
+        '@com_google_protobuf//:timestamp_proto',
+        '@com_google_protobuf//:duration_proto',
+        '@com_google_protobuf//:wrappers_proto',
+        '@com_google_protobuf//:any_proto',
+        '@com_google_protobuf//:descriptor_proto',
+        '@com_github_googleapis_googleapis//google/rpc:status_proto',
+        '@com_github_googleapis_googleapis//google/rpc:code_proto',
+    ],
+    plugin_name = "doc",
+    plugin_exec = "@com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc",
+    # this is _slightly_ hacky. we need to include the markdown template in the plugin_runfiles
+    # and refer to the file with a workspace relative path in plugin_options
+    plugin_runfiles = ["rst_mmd.tmpl"],
+    plugin_options = ["ledger-api/grpc-definitions/rst_mmd.tmpl", "docs_rst_mmd.md"],
     visibility = [
         '//visibility:public',
-    ]
+    ],
+)
+
+genrule(
+    name = 'docs',
+    srcs = [':ledger-api-docs'],
+    tools = ["@pandoc_nix//:bin/pandoc", "post-process.sh"],
+    outs = ['proto-docs.rst'],
+    cmd = """
+        export PATH="$$( cd "$$(dirname "$(location @pandoc_nix//:bin/pandoc)")" ; pwd -P )":$$PATH
+        unzip $(location :ledger-api-docs)
+        $(location post-process.sh)
+        mv docs_rst_mmd.rst '$@'
+    """
 )
