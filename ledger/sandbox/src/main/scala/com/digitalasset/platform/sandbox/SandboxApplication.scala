@@ -27,6 +27,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 object SandboxApplication {
   private val logger = LoggerFactory.getLogger(this.getClass)
+  private val asyncTolerance = 30.seconds
 
   class SandboxServer(
       actorSystemName: String,
@@ -82,12 +83,16 @@ object SandboxApplication {
             (ts, Some(ts))
         }
 
-      val ledger: Ledger = config.jdbcUrl match {
-        case None => Ledger.inMemory(ledgerId, timeProvider, acs, records)
+      val (ledgerType, ledger) = config.jdbcUrl match {
+        case None => ("in-memory", Ledger.inMemory(ledgerId, timeProvider, acs, records))
         case Some(jdbcUrl) =>
           sys.error("Postgres persistence is not supported yet.") //TODO: remove this when we do
-        //Ledger.postgres(jdbcUrl ...)
+//          val ledgerF = Ledger.postgres(jdbcUrl, ledgerId, timeProvider, records)
+//          val ledger = Try(Await.result(ledgerF, asyncTolerance))
+//            .getOrElse(sys.error("Could not start PostgreSQL persistence layer"))
+//          (s"sql", ledger)
       }
+
       val ledgerBackend = new SandboxLedgerBackend(ledger)
 
       stopHeartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
@@ -98,7 +103,7 @@ object SandboxApplication {
         config,
         port,
         timeServiceBackendO.map(TimeServiceBackend.withObserver(_, ledger.publishHeartbeat)),
-        Some(resetService),
+        Some(resetService)
       )
 
       // NOTE(JM): Re-use the same port after reset.
@@ -106,12 +111,13 @@ object SandboxApplication {
 
       Banner.show(Console.out)
       logger.info(
-        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, daml-engine = {}",
+        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, daml-engine = {}",
         BuildInfo.Version,
         ledgerId,
         port.toString,
         config.damlPackageContainer: AnyRef,
-        config.timeProviderType
+        config.timeProviderType,
+        ledgerType
       )
     }
 
@@ -125,7 +131,7 @@ object SandboxApplication {
       stopHeartbeats()
       Option(server).foreach(_.close())
       Option(materializer).foreach(_.shutdown())
-      Option(system).foreach(s => Await.result(s.terminate(), 30.seconds))
+      Option(system).foreach(s => Await.result(s.terminate(), asyncTolerance))
     }
   }
 

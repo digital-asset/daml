@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import akka.NotUsed
+import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
@@ -15,7 +16,9 @@ import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger
 
+import scala.collection.immutable
 import scala.concurrent.Future
 
 trait Ledger {
@@ -52,8 +55,9 @@ object Ledger {
       jdbcUrl: String,
       ledgerId: String,
       timeProvider: TimeProvider,
-      acs: ActiveContracts,
-      ledgerEntries: Seq[LedgerEntry]): Ledger =
-    ??? //TODO: implement Postgres version of Ledger
+      ledgerEntries: Seq[LedgerEntry],
+  )(implicit mat: Materializer): Future[Ledger] =
+    //TODO (robert): casting from Seq to immutable.Seq, make ledgerEntries immutable throughout the Sandbox?
+    SqlLedger(jdbcUrl, Some(ledgerId), timeProvider, immutable.Seq(ledgerEntries: _*))
 
 }
