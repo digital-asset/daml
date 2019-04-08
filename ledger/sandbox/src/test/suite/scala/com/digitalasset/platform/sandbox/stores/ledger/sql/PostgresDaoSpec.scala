@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicLong
 
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, SimpleString}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
@@ -35,7 +35,6 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
-
 //TODO: use scalacheck when we have generators available for contracts and transactions
 class PostgresDaoSpec
     extends AsyncWordSpec
@@ -56,7 +55,7 @@ class PostgresDaoSpec
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    Await.result(ledgerDao.storeInitialLedgerEnd(nextOffset()), Duration.Inf)
+    Await.result(ledgerDao.storeInitialLedgerEnd(0), Duration.Inf)
   }
 
   "Postgres Ledger DAO" should {
@@ -225,7 +224,6 @@ class PostgresDaoSpec
       }
     }
 
-    //TODO write tests for getActiveContractSnapshot
     "be able to produce a valid snapshot" in {
       val templateId = Identifier(
         Ref.PackageId.assertFromString("packageId"),
@@ -308,7 +306,7 @@ class PostgresDaoSpec
         )
       }
 
-      def storeCreateTransaction = {
+      def storeCreateTransaction() = {
         val offset = nextOffset()
         val t = genCreateTransaction(offset)
         ledgerDao.storeLedgerEntry(offset, offset + 1, t)
@@ -324,6 +322,9 @@ class PostgresDaoSpec
       val N = 1000
       val M = 10
 
+      def runSequentially(n: Int, f: Int => Future[Unit]) =
+        Source(1 to n).mapAsync(1)(f).runWith(Sink.ignore)
+
       // Perform the following operations:
       // - Create N contracts
       // - Archive 1 contract
@@ -333,11 +334,11 @@ class PostgresDaoSpec
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
         startingSnapshot <- ledgerDao.getActiveContractSnapshot()
-        _ <- Future.traverse(1 to N)(_ => storeCreateTransaction)
+        _ <- runSequentially(N, _ => storeCreateTransaction())
         _ <- storeExerciseTransaction(AbsoluteContractId(s"cId$startingOffset"))
         snapshotOffset <- ledgerDao.lookupLedgerEnd()
         snapshot <- ledgerDao.getActiveContractSnapshot()
-        _ <- Future.traverse(1 to M)(_ => storeCreateTransaction)
+        _ <- runSequentially(M, _ => storeCreateTransaction)
         endingOffset <- ledgerDao.lookupLedgerEnd()
         startingSnapshotSize <- startingSnapshot.acs.map(t => 1).runWith(sumSink)
         snapshotSize <- snapshot.acs.map(t => 1).runWith(sumSink)
@@ -351,10 +352,9 @@ class PostgresDaoSpec
         withClue("snapshot offset (2): ") {
           snapshotOffset shouldEqual (startingOffset + N + 1)
         }
-        //TODO: Robert. A. please investigate why this was failing
-        //        withClue("ending offset: ") {
-        //          endingOffset shouldEqual (snapshotOffset + M)
-        //        }
+        withClue("ending offset: ") {
+          endingOffset shouldEqual (snapshotOffset + M)
+        }
         withClue("snapshot size: ") {
           (snapshotSize - startingSnapshotSize) shouldEqual (N - 1)
         }
