@@ -47,7 +47,7 @@ CREATE TABLE contracts (
   package_id     varchar                                            not null,
   module_name    varchar                                            not null,
   entity_name    varchar                                            not null,
-  create_offset  bigint references ledger_entries (ledger_offset)   not null,--TODO this is also denormalisation, do we need it?
+  create_offset  bigint references ledger_entries (ledger_offset)   not null,--TODO this is also denormalisation, as we could get this data from ledger_entries table too. We might not need this, this should be reviewed later.
   archive_offset bigint references ledger_entries (ledger_offset),
   contract       bytea                                              not null --this will be changed to a json representation later with flattened args
 );
