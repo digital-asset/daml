@@ -350,7 +350,7 @@ object InterfaceReader {
       case PT.LIST => \/-((1, PrimType.List))
       case PT.CONTRACT_ID => \/-((1, PrimType.ContractId))
       case PT.OPTIONAL => \/-((1, PrimType.Optional))
-      case PT.MAP => \/-((4, PrimType.Map))
+      case PT.MAP => \/-((1, PrimType.Map))
       case PT.UPDATE | PT.SCENARIO | PT.ARROW =>
         -\/(unserializableDataType(a, s"Unserializable data type: DamlLf1.PrimType.${pt.name}"))
       case PT.UNRECOGNIZED =>
