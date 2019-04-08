@@ -23,6 +23,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.Predicate
   Exercise,
   Fetch
 }
+import scalaz.syntax.std.map._
 
 case class ActiveContracts(
     contracts: Map[AbsoluteContractId, ActiveContract],
@@ -36,7 +37,8 @@ case class ActiveContracts(
       transactionId: String,
       workflowId: String,
       transaction: GenTransaction[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
-      explicitDisclosure: Relation[Nid, Ref.Party])
+      explicitDisclosure: Relation[Nid, Ref.Party],
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party])
     : Either[Set[SequencingError], ActiveContracts] = {
     val st =
       transaction.fold[AddTransactionState](GenTransaction.TopDown, AddTransactionState(this)) {
@@ -93,7 +95,7 @@ case class ActiveContracts(
           }
       }
 
-    st.result
+    st.implicitlyDisclose(globalImplicitDisclosure).result
   }
 
 }
@@ -123,6 +125,16 @@ object ActiveContracts {
               }
           }
       }
+
+    def implicitlyDisclose(global: Relation[AbsoluteContractId, Ref.Party]): AddTransactionState =
+      if (global.nonEmpty)
+        copy(
+          acc = acc map (ata =>
+            ata copy (contracts = ata.contracts ++
+              ata.contracts.intersectWith(global) { (ac, parties) =>
+                ac copy (witnesses = ac.witnesses union parties)
+              })))
+      else this
 
     def result: Either[Set[SequencingError], ActiveContracts] = {
       acc match {

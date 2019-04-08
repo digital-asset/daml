@@ -101,7 +101,8 @@ class InMemoryLedger(
       workflowId = tx.workflowId,
       transactionId = transactionId,
       transaction = mappedTx,
-      explicitDisclosure = tx.blindingInfo.explicitDisclosure
+      explicitDisclosure = tx.blindingInfo.explicitDisclosure,
+      globalImplicitDisclosure = tx.blindingInfo.globalImplicitDisclosure,
     )
     acsRes match {
       case Left(err) =>
