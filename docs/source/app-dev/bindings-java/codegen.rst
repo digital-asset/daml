@@ -148,11 +148,11 @@ Understand escaping rules
 
 To avoid clashes with Java keywords, the Java codegen applies escaping rules to the following DAML identifiers:
 
-#. Type names (except the already mapped :ref:`built-in types <daml-codegen-java-primitive-types>`)
-#. Constructor names
-#. Type parameters
-#. Module names
-#. Field names
+* Type names (except the already mapped :ref:`built-in types <daml-codegen-java-primitive-types>`)
+* Constructor names
+* Type parameters
+* Module names
+* Field names
 
 If any of these identifiers match one of the `Java reserved keywords <https://docs.oracle.com/javase/specs/jls/se12/html/jls-3.html#jls-3.9>`__, the Java codegen appends a dollar sign ``$`` to the name. For example, a field with the name ``import`` will be generated as a Java field with the name ``import$``.
 
