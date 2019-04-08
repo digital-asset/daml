@@ -12,7 +12,7 @@ import com.google.protobuf.empty.Empty
 import io.grpc.{BindableService, Server, ServerServiceDefinition, Status}
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
 class SandboxResetService(
     getLedgerId: () => String,
@@ -42,8 +42,9 @@ class SandboxResetService(
         Future.failed[Empty], { _ =>
           Option(getServer())
             .fold(Future.failed[Empty](
-              new ApiException(Status.ABORTED.withDescription("Server is not live"))))({
-              actuallyReset
+              new ApiException(Status.ABORTED.withDescription("Server is not live"))))({ server =>
+              actuallyReset(server)
+              Future.successful(new Empty())
             })
         }
       )
@@ -55,26 +56,21 @@ class SandboxResetService(
     logger.info("Closing all services...")
     closeAllServices()
 
-    // If completing the returned future races with andThen (or its execution), the shutdown will hang.
-    // This is why we complete the Future after the callback.
-    // The root cause of this behavior has been investigated yet.
-    val p = Promise[Empty]()
-    p.future
-      .andThen({
-        case _ =>
-          logger.info("Awaiting termination...")
-          if (!server.awaitTermination(1L, TimeUnit.SECONDS)) {
-            logger.warn(
-              "Server did not terminate gracefully in one second. " +
-                "Clients probably did not disconnect. " +
-                "Proceeding with forced termination.")
-            server.shutdownNow()
-          }
-          logger.info("Rebuilding server...")
-          buildAndStartServer()
-          logger.info("Server reset complete.")
-      })(getEc())
-    p.success(Empty())
-    p.future
+    // We need to run this asynchronously since otherwise we have a deadlock: `buildAndStartServer` will block
+    // until all the in flight requests have been served, so we need to schedule this in another thread so that
+    // the code that clears the in flight request is not in an in flight request itself.
+    getEc().execute({ () =>
+      logger.info(s"Awaiting termination...")
+      if (!server.awaitTermination(1L, TimeUnit.SECONDS)) {
+        logger.warn(
+          "Server did not terminate gracefully in one second. " +
+            "Clients probably did not disconnect. " +
+            "Proceeding with forced termination.")
+        server.shutdownNow()
+      }
+      logger.info(s"Rebuilding server...")
+      buildAndStartServer()
+      logger.info(s"Server reset complete.")
+    })
   }
 }
