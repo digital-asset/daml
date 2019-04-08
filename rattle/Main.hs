@@ -98,5 +98,4 @@ haskellFlags =
     ,"-threaded", "-rtsopts"
     -- run on two cores, disable idle & parallel GC
     ,"-with-rtsopts=-N2 -qg -I0"
-    ,"-v"
     ]
