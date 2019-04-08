@@ -97,7 +97,11 @@ Understand the generated Java model
 
 The Java codegen generates source files in a directory tree under the output directory specified on the command line.
 
+<<<<<<< Updated upstream
 .. _daml-codegen-java-primitive-types:
+=======
+.. _daml-codegen-java-types:
+>>>>>>> Stashed changes
 
 Map DAML primitives to Java types
 ---------------------------------
@@ -105,43 +109,53 @@ Map DAML primitives to Java types
 DAML built-in types are translated to the following equivalent types in
 Java:
 
-+-----------------------------------+---------------------------------------+
-| DAML type                         | Java type                             |
-+===================================+=======================================+
-| ``Int``                           | ``java.lang.Long``                    |
-+-----------------------------------+---------------------------------------+
-| ``Decimal``                       | ``java.math.BigDecimal``              |
-+-----------------------------------+---------------------------------------+
-| ``Text``                          | ``java.lang.String``                  |
-+-----------------------------------+---------------------------------------+
-| ``Bool``                          | ``java.util.Boolean``                 |
-+-----------------------------------+---------------------------------------+
-| ``Party``                         | ``java.lang.String``                  |
-+-----------------------------------+---------------------------------------+
-| ``Date``                          | ``java.time.LocalDate``               |
-+-----------------------------------+---------------------------------------+
-| ``Time``                          | ``java.time.Instant``                 |
-+-----------------------------------+---------------------------------------+
-| ``List`` or ``[]``                | ``java.util.List``                    |
-+-----------------------------------+---------------------------------------+
-| ``TextMap``                       | ``java.util.Map``                     |
-|                                   | Restricted to using ``String`` keys.  |
-+-----------------------------------+---------------------------------------+
-| ``Optional``                      | ``java.util.Optional``                |
-+-----------------------------------+---------------------------------------+
-| ``()`` (Unit)                     | Since Java doesn’t have an            |
-|                                   | equivalent of DAML’s Unit type        |
-|                                   | ``()`` in the standard library,       |
-|                                   | the generated code uses               |
-|                                   | `com.daml.ledger.javaapi.data.Unit`_  |
-|                                   | from the Java Bindings library.       |
-+-----------------------------------+---------------------------------------+
-| ``ContractId``                    | Fields of type ``ContractId X`` refer |
-|                                   | to the generated ``ContractId`` class |
-|                                   | of the respective template ``X``.     |
-+-----------------------------------+---------------------------------------+
++--------------------------------+--------------------------------------------+------------------------+
+| DAML type                      | Java type                                  | Java Bindings          |
+|                                |                                            | Value Type             |
++================================+============================================+========================+
+| ``Int``                        | ``java.lang.Long``                         | `Int64`_               |
++--------------------------------+--------------------------------------------+------------------------+
+| ``Decimal``                    | ``java.math.BigDecimal``                   | `Decimal`_             |
++--------------------------------+--------------------------------------------+------------------------+
+| ``Text``                       | ``java.lang.String``                       | `Text`_                |
++--------------------------------+--------------------------------------------+------------------------+
+| ``Bool``                       | ``java.util.Boolean``                      | `Bool`_                |
++--------------------------------+--------------------------------------------+------------------------+
+| ``Party``                      | ``java.lang.String``                       | `Party`_               |
++--------------------------------+--------------------------------------------+------------------------+
+| ``Date``                       | ``java.time.LocalDate``                    | `Date`_                |
++--------------------------------+--------------------------------------------+------------------------+
+| ``Time``                       | ``java.time.Instant``                      | `Timestamp`_           |
++--------------------------------+--------------------------------------------+------------------------+
+| ``List`` or ``[]``             | ``java.util.List``                         | `DamlList`_            |
++--------------------------------+--------------------------------------------+------------------------+
+| ``TextMap``                    | ``java.util.Map``                          | `TextMap`_             |
+|                                | Restricted to using ``String`` keys.       |                        |
++--------------------------------+--------------------------------------------+------------------------+
+| ``Optional``                   | ``java.util.Optional``                     | `DamlOptional`_        |
++--------------------------------+--------------------------------------------+------------------------+
+| ``()`` (Unit)                  | **None** since the Java language doesn’t   | `DamlUnit`_            |
+|                                | have a direct equivalent of DAML’s Unit    |                        |
+|                                | type ``()``, the generated code uses the   |                        |
+|                                | Java Bindings value type.                  |                        |
++--------------------------------+--------------------------------------------+------------------------+
+| ``ContractId``                 | Fields of type ``ContractId X`` refer to   | `ContractId`_          |
+|                                | the generated ``ContractId`` class of the  |                        |
+|                                | respective template ``X``.                 |                        |
++--------------------------------+--------------------------------------------+------------------------+
 
-.. _com.daml.ledger.javaapi.data.Unit: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Unit.html
+.. _Int64: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Int64.html
+.. _Decimal: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Decimal.html
+.. _Text: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Text.html
+.. _Bool: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Bool.html
+.. _Party: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Party.html
+.. _Date: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Date.html
+.. _Timestamp: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Timestamp.html
+.. _DamlList: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlList.html
+.. _TextMap: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/TextMap.html
+.. _DamlOptional: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlOptional.html
+.. _Unit: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Unit.html
+.. _ContractId: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/ContractId.html
 
 Understand escaping rules
 -------------------------
@@ -380,3 +394,99 @@ The Java code generated for this variant is:
     public Published(Long year, String publisher) { /* ... */ }
     public Record toValue() { /* ... */ }
   }
+
+Parameterized types
+~~~~~~~~~~~~~~~~~~~
+
+A :ref:`parameterized type <daml-ref-parameterized-types>` is where the actual type is specified at instantiation as *type parameters* and not as part of type definition.
+The Java Code Generator uses Java Generic types to represent the DAML parameterized type.
+
+Below is a DAML fragment defining the parameterized type `Attribute` for use by the `
+
+.. code-block:: daml
+  :caption: Com/Acme.daml
+
+  daml 1.2
+  module Com.Acme where
+
+  data Attribute a = Attribute
+      with v : a
+
+  data BookAttributes = BookAttributes with
+     pages : (Attribute Int)
+     authors : (Attribute [Text])
+     title : (Attribute Text)
+
+A file Java file is generated for the `Attribute` data type that defines the Java Generic class:
+
+Note: If the parameterized type is contained in a type where the *actual* type is specified (as in the `BookAttributes` type above), then the serialization
+and deserialization of the enclosing type provides the necessary methods for serialization and deserialization.
+
+.. code-block:: java
+  :caption: com/acme/Attribute.java
+  :emphasize-lines: 3,8,10
+
+  package com.acme;
+
+  public class Attribute<a> {
+    public final a value;
+
+    public Attribute(a value) { /* ... */  }
+
+    public Record toValue(Function<a, Value> toValuea) { /* ... */ }
+
+    public static <a> Attribute<a> fromValue(Value value$, Function<Value, a> fromValuea) { /* ... */ }
+  }
+
+**Serializing**
+
+To serialize an instance of the `Attribute<a>` data type function for creating the Ledger API equivalent of the attribute value
+is passed to the `toValue` method as the `fromValuea` argument (see the above `com/acme/Attribute.java` source extract).
+
+Below is a Java fragment to serialize an attribute with a `java.lang.Long` value to Ledger API representation using the *method reference*
+`Int64::new` to create a new instance of the Java Bindings value type.
+
+.. code-block:: java
+
+  Attribute<Long> pagesAttribute = new Attributes<>(42L);
+
+  Value serializedPages = pagesAttribute.toValue(Int64::new);
+
+See :ref:`daml-codegen-java-types` for the Java Bindings value types need to be created in the `fromValue` method.
+
+Note: That if the DAML type is a record that has more that one parameterized field, then a function for creating the
+Java Binding values must be supplied for *each* such fields.
+
+**Deserializing**
+
+The deserialization method `fromValue` requires in a similar manner, a function to convert the Java Bindings value types to it's corresponding Java type.
+
+.. code-block:: java
+
+  Attribute<Long> pagesAttribute = Attribute.<Long>fromValue(serializedPages,
+      f -> f.asInt64().getOrElseThrow(() -> throw new IllegalArgumentException("Expected Int field").getValue());
+
+See Java Bindings `Value`_ class for the methods to transform the Java Bindings types into corresponding Java types.
+
+.. _Value: https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/Value.html
+
+**Parameterized product types**
+
+The serialization of parameterized product types require a multiple stage conversion function where the elements must be
+converted to the Java Binding Java Types before the creating the product type.
+
+.. code-block:: java
+
+  Attribute<List<String>> authorsAttribute = new Attribute<List<String>>(Arrays.asList("Homer", "Ovid", "Vergil"));
+
+  Value serializedAuthors = authorsAttribute.toValue(f -> new DamlList(f.stream().map(Text::new).collect(Collectors.<Value>toList())));
+
+The deserialization of parameterized product types similarly require that the Java Bindings product type is converted to it's Java
+equivalent and then all the contained elements are converted to Java types.
+
+.. code-block:: java
+
+  Attribute<List<String>> authorsAttribute = Attribute.<List<String>>fromValue(serializedAuthors,
+      f0 -> f0.asList().orElseThrow(() -> new IllegalArgumentException("Expected DamlList field")).getValues().stream()
+          .map(f1 -> f1.asText().orElseThrow(() -> new IllegalArgumentException("Expected Text element")).getValue())
+              .collect(Collectors.toList()));
