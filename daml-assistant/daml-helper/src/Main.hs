@@ -3,7 +3,7 @@ module Main (main) where
 import Data.Foldable
 import Options.Applicative
 
-import DAMLHelper
+import DamlHelper
 
 main :: IO ()
 main = runCommand =<< execParser (info (commandParser <**> helper) idm)
