@@ -97,11 +97,7 @@ Understand the generated Java model
 
 The Java codegen generates source files in a directory tree under the output directory specified on the command line.
 
-<<<<<<< Updated upstream
 .. _daml-codegen-java-primitive-types:
-=======
-.. _daml-codegen-java-types:
->>>>>>> Stashed changes
 
 Map DAML primitives to Java types
 ---------------------------------
@@ -134,7 +130,7 @@ Java:
 +--------------------------------+--------------------------------------------+------------------------+
 | ``Optional``                   | ``java.util.Optional``                     | `DamlOptional`_        |
 +--------------------------------+--------------------------------------------+------------------------+
-| ``()`` (Unit)                  | **None** since the Java language doesn’t   | `DamlUnit`_            |
+| ``()`` (Unit)                  | **None** since the Java language doesn’t   | `Unit`_                |
 |                                | have a direct equivalent of DAML’s Unit    |                        |
 |                                | type ``()``, the generated code uses the   |                        |
 |                                | Java Bindings value type.                  |                        |
@@ -452,7 +448,7 @@ Below is a Java fragment to serialize an attribute with a `java.lang.Long` value
 
   Value serializedPages = pagesAttribute.toValue(Int64::new);
 
-See :ref:`daml-codegen-java-types` for the Java Bindings value types need to be created in the `fromValue` method.
+See :ref:`DAML To Java Type Mapping <daml-codegen-java-primitive-types>` for the Java Bindings value types need to be created in the `fromValue` method.
 
 Note: That if the DAML type is a record that has more that one parameterized field, then a function for creating the
 Java Binding values must be supplied for *each* such fields.
