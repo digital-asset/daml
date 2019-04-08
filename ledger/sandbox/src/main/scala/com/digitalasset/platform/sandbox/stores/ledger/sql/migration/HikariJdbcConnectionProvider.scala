@@ -25,10 +25,10 @@ trait JdbcConnectionProvider {
 }
 
 class HikariJdbcConnectionProvider(
-                                    jdbcUrl: String,
-                                    noOfShortLivedConnections: Int,
-                                    noOfStreamingConnections: Int)
-  extends JdbcConnectionProvider {
+    jdbcUrl: String,
+    noOfShortLivedConnections: Int,
+    noOfStreamingConnections: Int)
+    extends JdbcConnectionProvider {
 
   private val logger = LoggerFactory.getLogger(getClass)
   // these connections should never timeout as we have exactly the same number of threads using them as many connections we have
@@ -40,9 +40,9 @@ class HikariJdbcConnectionProvider(
     createDataSource(1, noOfStreamingConnections, 60.seconds)
 
   private def createDataSource(
-                                minimumIdle: Int,
-                                maxPoolSize: Int,
-                                connectionTimeout: FiniteDuration) = {
+      minimumIdle: Int,
+      maxPoolSize: Int,
+      connectionTimeout: FiniteDuration) = {
     val config = new HikariConfig
     config.setJdbcUrl(jdbcUrl)
     //TODO put these defaults out to a config file
@@ -88,8 +88,8 @@ class HikariJdbcConnectionProvider(
 
 object HikariJdbcConnectionProvider {
   def apply(
-             jdbcUrl: String,
-             noOfShortLivedConnections: Int,
-             noOfStreamingConnections: Int): JdbcConnectionProvider =
+      jdbcUrl: String,
+      noOfShortLivedConnections: Int,
+      noOfStreamingConnections: Int): JdbcConnectionProvider =
     new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
 }
