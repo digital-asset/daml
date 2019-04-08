@@ -105,7 +105,7 @@ generateDalfRule =
 
         withExceptT (pure . ideErrorPretty file)
           $ liftEither
-          $ LF.checkModule world lfVersion dalf LF.defaultValueCheck
+          $ LF.checkModule world lfVersion dalf
 
         pure dalf
 
