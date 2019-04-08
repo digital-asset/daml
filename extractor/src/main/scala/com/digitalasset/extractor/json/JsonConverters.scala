@@ -12,6 +12,8 @@ import io.circe.generic.auto._
 import io.circe.generic.semiauto._
 import io.circe.syntax._
 
+import scala.collection.immutable.HashMap
+
 object JsonConverters {
   def toJsonString[A: Encoder](a: A): String = {
     a.asJson.noSpaces
@@ -64,7 +66,7 @@ object JsonConverters {
       JsonObject("Some" -> value.asJson).asJson
   }
 
-  implicit val mapEncoder: Encoder[Map[String, LedgerValue]] = m => {
+  implicit val mapEncoder: Encoder[HashMap[String, LedgerValue]] = m => {
     JsonObject(
       "Map" ->
         m.toList

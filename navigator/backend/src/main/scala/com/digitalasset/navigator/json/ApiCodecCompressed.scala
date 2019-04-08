@@ -8,6 +8,8 @@ import com.digitalasset.navigator.model.DamlLfIdentifier
 import com.digitalasset.navigator.{model => Model}
 import spray.json._
 
+import scala.collection.immutable.HashMap
+
 /**
   * A compressed encoding of API values.
   *
@@ -93,7 +95,7 @@ object ApiCodecCompressed {
           case None => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
         }
       case (JsArray(a), Model.DamlLfPrimType.Map) =>
-        Model.ApiMap(a.map(jsValueToMapEntry(_, prim.typArgs.head, defs)).toMap)
+        Model.ApiMap(HashMap(a.map(jsValueToMapEntry(_, prim.typArgs.head, defs)): _*))
       case _ => deserializationError(s"Can't read ${value.prettyPrint} as $prim")
     }
   }

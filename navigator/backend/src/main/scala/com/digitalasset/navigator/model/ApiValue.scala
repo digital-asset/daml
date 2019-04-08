@@ -7,6 +7,8 @@ import java.time.{Instant, LocalDate}
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.util.concurrent.TimeUnit
 
+import scala.collection.immutable.HashMap
+
 sealed trait ApiValue
 
 final case class ApiRecordField(label: String, value: ApiValue)
@@ -36,7 +38,7 @@ final case class ApiVariant(
     extends ApiValue
 final case class ApiList(elements: List[ApiValue]) extends ApiValue
 final case class ApiOptional(value: Option[ApiValue]) extends ApiValue
-final case class ApiMap(value: Map[String, ApiValue]) extends ApiValue
+final case class ApiMap(value: HashMap[String, ApiValue]) extends ApiValue
 final case class ApiContractId(value: String) extends ApiValue
 final case class ApiInt64(value: Long) extends ApiValue
 final case class ApiDecimal(value: String) extends ApiValue

@@ -6,6 +6,8 @@ package com.digitalasset.navigator
 import com.digitalasset.navigator.model._
 import com.digitalasset.daml.lf.{iface => DamlLfIface}
 
+import scala.collection.immutable.HashMap
+
 case class DamlConstants()
 
 /**
@@ -53,7 +55,7 @@ case object DamlConstants {
   val simpleDateV = ApiDate.fromIso8601("2019-01-28")
   val simpleTimestampV = ApiTimestamp.fromIso8601("2019-01-28T12:44:33.22Z")
   val simpleOptionalV = ApiOptional(Some(ApiText("foo")))
-  val simpleMapV = ApiMap(Map("1" -> ApiInt64(1), "2" -> ApiInt64(2), "3" -> ApiInt64(3)))
+  val simpleMapV = ApiMap(HashMap("1" -> ApiInt64(1), "2" -> ApiInt64(2), "3" -> ApiInt64(3)))
 
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: empty record
@@ -218,7 +220,7 @@ case object DamlConstants {
       ApiRecordField("fOptOptText", ApiOptional(Some(ApiOptional(Some(ApiText("foo")))))),
       ApiRecordField(
         "fMap",
-        ApiMap(Map("1" -> ApiInt64(1), "2" -> ApiInt64(2), "3" -> ApiInt64(3)))),
+        ApiMap(HashMap("1" -> ApiInt64(1), "2" -> ApiInt64(2), "3" -> ApiInt64(3)))),
       ApiRecordField("fVariant", simpleVariantV),
       ApiRecordField("fRecord", simpleRecordV)
     )

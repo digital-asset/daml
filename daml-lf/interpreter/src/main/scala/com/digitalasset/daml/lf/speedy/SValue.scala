@@ -3,13 +3,14 @@
 
 package com.digitalasset.daml.lf.speedy
 
+import java.util.ArrayList
+
 import com.digitalasset.daml.lf.data.Decimal.Decimal
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Time}
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Time}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
 import com.digitalasset.daml.lf.value.{Value => V}
-import java.util.ArrayList
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.HashMap

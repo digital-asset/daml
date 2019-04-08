@@ -10,6 +10,8 @@ import com.digitalasset.navigator.json.Util._
 import com.digitalasset.navigator.model.DamlLfIdentifier
 import spray.json._
 
+import scala.collection.immutable.HashMap
+
 /**
   * A verbose encoding of API values.
   *
@@ -140,7 +142,7 @@ object ApiCodecVerbose {
           case v => Model.ApiOptional(Some(jsValueToApiValue(v)))
         }
       case `tagMap` =>
-        Model.ApiMap(arrayField(value, propValue, "ApiMap").map(jsValueToMapEntry).toMap)
+        Model.ApiMap(HashMap(arrayField(value, propValue, "ApiMap").map(jsValueToMapEntry): _*))
       case t =>
         deserializationError(s"Can't read ${value.prettyPrint} as ApiValue, unknown type '$t'")
     }

@@ -9,6 +9,8 @@ import RecordField._
 
 import scalaz.{Optional => _, _}, Scalaz._
 
+import scala.collection.immutable.HashMap
+
 sealed trait LedgerValue
 
 object LedgerValue {
@@ -18,7 +20,7 @@ object LedgerValue {
   final case class Variant(constructor: String, value: LedgerValue) extends LedgerValue
   final case class ContractId(value: String) extends LedgerValue
   final case class ValueList(elements: List[LedgerValue]) extends LedgerValue
-  final case class ValueMap(map: Map[String, LedgerValue]) extends LedgerValue
+  final case class ValueMap(map: HashMap[String, LedgerValue]) extends LedgerValue
   final case class Int64(value: Long) extends LedgerValue
   final case class Decimal(value: String) extends LedgerValue
   final case class Text(value: String) extends LedgerValue
@@ -103,7 +105,7 @@ object LedgerValue {
           value <- v.fold(\/.right[String, LedgerValue](Empty))(_.sum.convert)
         } yield key -> value
     }
-    entries.map(s => ValueMap(s.toMap))
+    entries.map(s => ValueMap(HashMap(s: _*)))
   }
 
 }
