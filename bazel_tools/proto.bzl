@@ -50,13 +50,8 @@ def _proto_gen_impl(ctx):
         "--descriptor_set_in=" + descriptor_set_delim.join([d.path for d in descriptors])
     ]
     args += [
-        "--{}_out={}".format(ctx.attr.plugin_name, sources_out.path)
+        "--{}_out={}:{}".format(ctx.attr.plugin_name, ",".join(ctx.attr.plugin_options), sources_out.path)
     ]
-    if ctx.attr.plugin_options:
-        args += [
-            "--{}_opt={}".format(ctx.attr.plugin_name, ",".join(ctx.attr.plugin_options))
-        ]
-
     plugins = []
     plugin_runfiles = []
     if ctx.attr.plugin_name not in ["java", "python"]:
