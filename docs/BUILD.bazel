@@ -99,8 +99,8 @@ genrule(
         cp -L docs/configs/pdf/fonts/* out/
         cd out
         # run twice to generate all references properly (this is a latex thing...)
-        ../$(location @texlive_nix//:bin/lualatex) --shell-escape *.tex
-        ../$(location @texlive_nix//:bin/lualatex) --shell-escape *.tex
+        ../$(location @texlive_nix//:bin/lualatex) -interaction=batchmode --shell-escape *.tex
+        ../$(location @texlive_nix//:bin/lualatex) -interaction=batchmode --shell-escape *.tex
 
         # Move output to target
         mv DigitalAssetSDK.pdf ../$(location DigitalAssetSDK.pdf)"""
