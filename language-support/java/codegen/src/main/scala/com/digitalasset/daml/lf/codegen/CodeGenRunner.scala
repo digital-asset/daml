@@ -3,12 +3,13 @@
 
 package com.digitalasset.daml.lf.codegen
 
-import java.io.{BufferedInputStream, InputStream}
-import java.nio.file.{FileSystems, Files, Path, StandardOpenOption}
+import java.nio.file.{Files, Path, StandardOpenOption}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
-import java.util.jar.Manifest
+import java.util.zip.ZipFile
 
+import com.digitalasset.daml.lf.DarManifestReader
+import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.codegen.conf.Conf
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.iface.reader.{Interface, InterfaceReader}
@@ -19,6 +20,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.Try
 
 private[codegen] object CodeGenRunner extends StrictLogging {
 
@@ -62,40 +64,23 @@ private[codegen] object CodeGenRunner extends StrictLogging {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[codegen] def collectDamlLfInterfaces(
       conf: Conf): (Seq[Interface], Map[PackageId, String]) = {
-    val interfacesAndPrefixes = conf.darFiles.flatMap {
+    val interfacesAndPrefixes = conf.darFiles.toList.flatMap {
       case (path, pkgPrefix) =>
-        if (path.getFileName().toString.toLowerCase().endsWith(".dar")) {
-          logger.trace(s"Opening DAR '$path'")
-          ResourceManagement.withResources(FileSystems.newFileSystem(path, null)) { zipFileSystem =>
-            {
-              val manifestPath = zipFileSystem.getPath("META-INF/MANIFEST.MF")
-              val locations = ResourceManagement.withResources(Files.newInputStream(manifestPath)) {
-                inputStream =>
-                  getDamlLfPathsFromManifest(inputStream)
-              }
-              locations
-                .map(path => {
-                  logger.trace(s"Opening DamlLf file '$path'")
-                  ResourceManagement.withResources(
-                    Files.newInputStream(zipFileSystem.getPath(path))) { fileInputStream =>
-                    readDamlLfInterface(fileInputStream, pkgPrefix)
-                  }
-                })
-                .toIndexedSeq
-            }
-          }
-
-        } else {
-          logger.trace(s"Opening DamlLf file '$path'")
-          List(ResourceManagement.withResources(Files.newInputStream(path)) { fileInputStream =>
-            readDamlLfInterface(fileInputStream, pkgPrefix)
-          })
+        // Explicitly calling `get` to bubble up any exception when reading the dar
+        val dar = ArchiveReader.readArchive(new ZipFile(path.toFile)).get
+        dar.all.map { archive =>
+          val (_, interface) = InterfaceReader.readInterface(archive)
+          logger.trace(
+            s"DAML-LF Archive decoded, packageId '${interface.packageId.underlyingString}'")
+          (interface, interface.packageId -> pkgPrefix)
         }
-    }(collection.breakOut)
+    }
 
-    (interfacesAndPrefixes.map(_._1), interfacesAndPrefixes.collect {
+    val interfaces = interfacesAndPrefixes.map(_._1)
+    val prefixes = interfacesAndPrefixes.collect {
       case (_, (key, Some(value))) => (key, value)
-    }.toMap)
+    }.toMap
+    (interfaces, prefixes)
   }
 
   private[CodeGenRunner] def generateFile(
@@ -181,26 +166,9 @@ private[codegen] object CodeGenRunner extends StrictLogging {
     }
   }
 
-  private[CodeGenRunner] def readDamlLfInterface(
-      inputStream: InputStream,
-      pkgPrefix: Option[String]) = {
-    val buffered = new BufferedInputStream(inputStream)
-    val archive = DamlLf.Archive.parseFrom(buffered)
-    // TODO (mp): errors
-    val (_, interface) = InterfaceReader.readInterface(archive)
-    logger.trace(s"DAML-LF Archive decoded, packageId '${interface.packageId.underlyingString}'")
-    (interface, interface.packageId -> pkgPrefix)
-  }
-
-  private[CodeGenRunner] def getDamlLfPathsFromManifest(inputStream: InputStream) = {
-    val manifest = new Manifest(inputStream).getMainAttributes
-    (
-      Option(manifest.getValue("Format")),
-      Option(manifest.getValue("Location")),
-      Option(manifest.getValue("Dalfs"))) match {
-      case (Some("daml-lf"), None, Some(dalfList)) => dalfList.split(',').map(_.trim).toList
-      case (Some("daml-lf"), Some(location), None) => List(location)
-      case _ => throw new IllegalArgumentException("Invalid DAR Manifest")
-    }
-  }
+  object ArchiveReader
+      extends DarReader[DamlLf.Archive](
+        DarManifestReader.dalfNames,
+        is => Try(DamlLf.Archive.parseFrom(is))
+      )
 }
