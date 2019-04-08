@@ -91,16 +91,16 @@ mkOptions :: Options -> IO Options
 mkOptions opts@Options {..} = do
     baseDir <- getBaseDir
     mapM_ checkDirExists $ optImportPath <> optPackageDbs
-    let defaultPkgDb = baseDir </> "package-database"
     let deprecatedPkgDb = baseDir </> "package-database" </> "deprecated"
-    hasDefaultPkgDb <- Dir.doesDirectoryExist defaultPkgDb
-    hasDepreceatedPkgDb <- Dir.doesDirectoryExist deprecatedPkgDb
-    let pkgDb
-            | hasDepreceatedPkgDb = [deprecatedPkgDb]
-            | hasDefaultPkgDb = [defaultPkgDb]
-            | otherwise = []
-    when hasDepreceatedPkgDb $ putStrLn "DEPRECATED: Please use fat dars instead of dalfs in tests"
-    pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDb ++ optPackageDbs}
+    deprecatedPkgDbExists <- Dir.doesDirectoryExist deprecatedPkgDb
+    when deprecatedPkgDbExists $
+      putStrLn "DEPRECATED: Please use fat dars instead of dalfs in tests"
+    let defaultPkgDb
+          | deprecatedPkgDbExists = deprecatedPkgDb
+          | otherwise = baseDir </> "package-database"
+    let projectPkgDb = ".package-database"
+    pkgDbs <- filterM Dir.doesDirectoryExist [projectPkgDb, defaultPkgDb]
+    pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
           unless ok $ error $
