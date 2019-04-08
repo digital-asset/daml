@@ -11,6 +11,7 @@ import Data.List
 
 
 main = rattle $ do
+    print "Starting rattle build"
     src <- lines <$> readFile' "rattle/haskell-dependencies.txt"
     cmd_ "stack build --stack-yaml=rattle/stack.yaml" src
     buildHaskellPackage [] "libs-haskell/prettyprinter-syntax"
