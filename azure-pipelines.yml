@@ -23,6 +23,9 @@ jobs:
       vmImage: 'ubuntu-16.04'
     steps:
       - template: ci/build-unix.yml
+      - script: |
+          stack setup --resolver=lts-12.10
+          stack runhaskell ghc-lib/ci/jenkins/CI.hs --package=extra
 
   - job: macOS
     timeoutInMinutes: 360
