@@ -1,7 +1,23 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE OverloadedStrings #-}
-module Main (main) where
+module DAMLHelper
+    ( runDamlStudio
+    , runNew
+    , runJar
+    , runListTemplates
+    , runSandbox
+    , runStart
+
+    , withJar
+    , withNavigator
+
+    , waitForConnectionOnPort
+    , waitForHttpServer
+
+    , NavigatorPort(..)
+    , SandboxPort(..)
+    ) where
 
 import Control.Concurrent
 import Control.Concurrent.Async
@@ -11,14 +27,12 @@ import Control.Monad.Extra
 import Control.Monad.Loops (untilJust)
 import Data.Aeson
 import Data.Aeson.Text
-import Data.Foldable
 import Data.Maybe
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as T (toStrict)
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Types as HTTP
 import Network.Socket
-import Options.Applicative
 import System.FilePath
 import System.Directory.Extra
 import System.Exit
@@ -32,51 +46,6 @@ import DAML.Project.Consts
 import DAML.Project.Types (ProjectPath(..))
 import DAML.Project.Util
 
-data Command
-    = DamlStudio { overwriteExtension :: Bool, remainingArguments :: [String] }
-    | RunJar { jarPath :: FilePath, remainingArguments :: [String] }
-    | New { targetFolder :: FilePath, templateName :: String }
-    | ListTemplates
-    | Sandbox { port :: SandboxPort, remainingArguments :: [String] }
-    | Start { darPath :: FilePath }
-
-commandParser :: Parser Command
-commandParser =
-    subparser $ foldMap
-         (\(name, opts) -> command name (info (opts <**> helper) idm))
-         [ ("studio", damlStudioCmd)
-         , ("run-jar", runJarCmd)
-         , ("new", newCmd)
-         , ("sandbox", sandboxCmd)
-         , ("start", startCmd)
-         ]
-    where damlStudioCmd = DamlStudio
-              <$> switch (long "overwrite" <> help "Overwrite the VSCode extension if it already exists")
-              <*> many (argument str (metavar "ARG"))
-          runJarCmd = RunJar
-              <$> argument str (metavar "JAR" <> help "Path to JAR relative to SDK path")
-              <*> many (argument str (metavar "ARG"))
-          newCmd = asum
-              [ ListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
-              , New
-                  <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-                  <*> argument str (metavar "TEMPLATE" <> help "Name of the template used to create the project (default: quickstart-java)" <> value "quickstart-java")
-              ]
-          sandboxCmd = Sandbox
-              <$> option sandboxPortReader (long "port" <> help "Port used by the sandbox")
-              <*> many (argument str (metavar "ARG"))
-          startCmd = Start <$> argument str (metavar "DAR_PATH" <> help "Path to DAR that should be loaded")
-
-main :: IO ()
-main = runCommand =<< execParser (info (commandParser <**> helper) idm)
-
-runCommand :: Command -> IO ()
-runCommand DamlStudio {..} = runDamlStudio overwriteExtension remainingArguments
-runCommand RunJar {..} = runJar jarPath remainingArguments
-runCommand New {..} = runNew targetFolder templateName
-runCommand ListTemplates = runListTemplates
-runCommand Sandbox {..} = runSandbox port remainingArguments
-runCommand Start {..} = runStart darPath
 
 runDamlStudio :: Bool -> [String] -> IO ()
 runDamlStudio overwriteExtension remainingArguments = do
@@ -135,9 +104,6 @@ runListTemplates = do
 
 newtype SandboxPort = SandboxPort Int
 newtype NavigatorPort = NavigatorPort Int
-
-sandboxPortReader :: ReadM SandboxPort
-sandboxPortReader = SandboxPort <$> auto
 
 withSandbox :: SandboxPort -> [String] -> (ProcessHandle -> IO a) -> IO a
 withSandbox (SandboxPort port) args a = do
