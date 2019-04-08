@@ -1,8 +1,10 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ViewPatterns, RecordWildCards #-}
 
 module Main(main) where
 
 import Rattle
+import Metadata
+import Util
 import System.IO.Extra
 import System.Info.Extra
 import System.Process.Extra
@@ -15,50 +17,53 @@ import Data.List.Extra
 
 main = rattle $ do
     print "Starting rattle build"
-    src <- lines <$> readFile' "rattle/haskell-dependencies.txt"
-    cmd_ "stack build --stack-yaml=rattle/stack.yaml" $ delete "" $ nubOrd src
-    pp_syntax <- buildHaskellLibrary True [] "libs-haskell/prettyprinter-syntax"
-    config <- buildHaskellLibrary False [] "daml-assistant/daml-project-config"
-    buildHaskellLibrary True pp_syntax "compiler/haskell-ide-core"
-    base <- buildHaskellLibrary True config "libs-haskell/da-hs-base"
-    pretty <- buildHaskellLibrary True (base++pp_syntax) "libs-haskell/da-hs-pretty"
-    buildHaskellLibrary True (pretty++base) "compiler/daml-lf-ast"
-    return ()
+    metadata <- concatMapM (\x -> readMetadata $ x </> "BUILD.bazel")
+        ["libs-haskell/prettyprinter-syntax"
+        ,"daml-assistant"
+        ,"compiler/haskell-ide-core"
+        ,"libs-haskell/da-hs-base"
+        ,"libs-haskell/da-hs-pretty"
+        ,"compiler/daml-lf-ast"
+        ]
+    metadata <- return $ topSort [(dhl_name, dhl_deps, x) | x@Da_haskell_library{..} <- metadata]
+    cmd_ "stack build --stack-yaml=rattle/stack.yaml" $ nubSort (concatMap dhl_hazel_deps metadata) \\ ["ghc-lib","ghc-lib-parser"]
+
+    let trans = transitive [(dhl_name, dhl_deps) | Da_haskell_library{..} <- metadata]
+    forM_ metadata $ \m -> buildHaskellLibrary m{dhl_deps = nubSort $ concatMap trans $ dhl_deps m}
 
 
-buildHaskellLibrary :: Bool -> [String] -> FilePath -> IO [String]
-buildHaskellLibrary useSrc (nubOrd -> deps) source = do
-    print ("buildHaskellPackage",useSrc,deps,source)
-    let addSrc x = if useSrc then x </> "src" else x
-    let name = takeFileName source
-    files <- getDirectoryFiles (addSrc source) ["**/*.hs"]
+buildHaskellLibrary :: Metadata -> IO ()
+buildHaskellLibrary o@Da_haskell_library{..} = do
+    print ("buildHaskellPackage",o)
+    files <- map (drop $ if null dhl_src_strip_prefix then 0 else length dhl_src_strip_prefix + 1) <$>
+             getDirectoryFiles dhl_dir dhl_srcs
     let modules = map (intercalate "." . splitDirectories . dropExtension) files
     cmd_ "ghc"
-        [flag ++ "=.rattle/haskell" </> name | flag <- ["-outputdir","-odir","-hidir","-stubdir"]]
-        ["-i" ++ addSrc source]
+        [flag ++ "=.rattle/haskell" </> dhl_name | flag <- ["-outputdir","-odir","-hidir","-stubdir"]]
+        ["-i" ++ dhl_dir </> dhl_src_strip_prefix]
         "-dynosuf=dyn_o -dynhisuf=dyn_hi"
         ["-static"] ["-dynamic-too" | not isWindows]
-        ["-package-db=.rattle/haskell" </> d </> "pkg.db" | d <- deps]
-        modules ["-this-unit-id=" ++ name]
+        ["-package-db=.rattle/haskell" </> d </> "pkg.db" | d <- dhl_deps]
+        modules ["-this-unit-id=" ++ dhl_name]
         (map ("-X"++) haskellExts) haskellFlags
-    cmd_ "ar -r -s" [".rattle/haskell" </> name </> "libHS" ++ name ++ ".a"]
-        [".rattle/haskell" </> name </> x -<.> "o" | x <- files]
+    cmd_ "ar -r -s" [".rattle/haskell" </> dhl_name </> "libHS" ++ dhl_name ++ ".a"]
+        [".rattle/haskell" </> dhl_name </> x -<.> "o" | x <- files]
     if isWindows then
-        cmd_ "ld -x -r -o" [".rattle/haskell" </> name </> "HS" ++ name ++ ".o"]
-            [".rattle/haskell" </> name </> x -<.> "o" | x <- files]
+        cmd_ "ld -x -r -o" [".rattle/haskell" </> dhl_name </> "HS" ++ dhl_name ++ ".o"]
+            [".rattle/haskell" </> dhl_name </> x -<.> "o" | x <- files]
     else
-        cmd_ "ghc -shared -dynamic" ["-dynload deploy"] "-o" [".rattle/haskell" </> name </> "libHS" ++ name ++ ".dylib"]
-            [".rattle/haskell" </> name </> x -<.> "dyn_o" | x <- files]
-    unlessM (doesDirectoryExist $ ".rattle/haskell" </> name </> "pkg.db") $
-        cmd_ "ghc-pkg init" [".rattle/haskell" </> name </> "pkg.db"]
+        cmd_ "ghc -shared -dynamic" ["-dynload deploy"] "-o" [".rattle/haskell" </> dhl_name </> "libHS" ++ dhl_name ++ ".dylib"]
+            [".rattle/haskell" </> dhl_name </> x -<.> "dyn_o" | x <- files]
+    unlessM (doesDirectoryExist $ ".rattle/haskell" </> dhl_name </> "pkg.db") $
+        cmd_ "ghc-pkg init" [".rattle/haskell" </> dhl_name </> "pkg.db"]
     keys <- map (drop 4) . filter (not . isInfixOf "haskeline") . filter (not . isInfixOf "ghc-lib") . lines <$>
         systemOutput_ "ghc-pkg field \"*\" key"
-    writeFile (".rattle/haskell" </> name </> "pkg.db" </> name <.> "conf") $ unlines $
-        ["name: " ++ name
+    writeFile (".rattle/haskell" </> dhl_name </> "pkg.db" </> dhl_name <.> "conf") $ unlines $
+        ["name: " ++ dhl_name
         ,"version: 0"
-        ,"id: " ++ name
-        ,"key: " ++ name
-        ,"hs-libraries: HS" ++ name
+        ,"id: " ++ dhl_name
+        ,"key: " ++ dhl_name
+        ,"hs-libraries: HS" ++ dhl_name
         ,"import-dirs: ${pkgroot}"
         ,"library-dirs: ${pkgroot}"
         ,"dynamic-library-dirs: ${pkgroot}"
@@ -66,9 +71,8 @@ buildHaskellLibrary useSrc (nubOrd -> deps) source = do
         ,"exposed-modules:"] ++
         map (" "++) modules ++
         ["depends:"] ++
-        keys ++ map (" "++) deps
-    cmd_ "ghc-pkg recache" ["--package-db=" ++ ".rattle/haskell" </> name </> "pkg.db"]
-    return $ name : deps
+        keys ++ map (" " ++) dhl_deps
+    cmd_ "ghc-pkg recache" ["--package-db=" ++ ".rattle/haskell" </> dhl_name </> "pkg.db"]
 
 
 haskellExts =
