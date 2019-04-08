@@ -19,13 +19,13 @@ import {
   DamlLfValueBool,
   DamlLfValueDecimal,
   DamlLfValueInt64,
-  DamlLfValueList,
+  DamlLfValueList, DamlLfValueMap,
   DamlLfValueOptional,
   DamlLfValueParty,
   DamlLfValueRecord,
   DamlLfValueText,
   DamlLfValueUnit,
-  DamlLfValueVariant,
+  DamlLfValueVariant, mapEntry,
 } from '../api/DamlLfValue';
 import * as DamlLfValueF from '../api/DamlLfValue';
 import Button from '../Button';
@@ -530,6 +530,14 @@ interface ListInputProps extends InputProps<DamlLfValueList> {
   typeProvider: TypeProvider
 }
 
+interface MapInputProps extends InputProps<DamlLfValueMap> {
+  parameter: DamlLfTypePrim;
+  name: string;
+  level: number
+  contractIdProvider?: ContractIdProvider
+  typeProvider: TypeProvider
+}
+
 const ListInput = (props: ListInputProps): JSX.Element => {
   const { argument, parameter, level, name, onChange, disabled, contractIdProvider, typeProvider } = props;
   if (matchPrimitiveType(argument, parameter, 'list')) {
@@ -574,6 +582,77 @@ const ListInput = (props: ListInputProps): JSX.Element => {
             disabled={elements.length === 0}
           >
             Delete last element
+          </ListControlButton>
+        </ListControls>
+      </NestedForm>
+    );
+  } else {
+    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+  }
+};
+
+const MapInput = (props: MapInputProps): JSX.Element => {
+  const { argument, parameter, level, onChange, disabled, contractIdProvider, typeProvider } = props;
+  if (matchPrimitiveType(argument, parameter, 'map')) {
+    const elements = argument && argument.type === 'map' ? argument.value : [];
+    const elementType = parameter.args[0] || DamlLfTypeF.unit();
+    return (
+      <NestedForm level={level}>
+        {elements.map((entry, i) => (
+          <LabeledElement label={`entry[${i}]`} key={`entry[${i}]`}>
+            <NestedForm level={level + 1}>
+              <LabeledElement label={`key`} key={`key[${i}]`}>
+                <StyledTextInput
+                  type="string"
+                  disabled={disabled}
+                  placeholder="String"
+                  step="any"
+                  value={elements[i].key}
+                  onChange={(key) => {
+                    const newElements = elements.slice(0);
+                    newElements[i] = mapEntry((key.target as HTMLInputElement).value, newElements[i].value);
+                    onChange(DamlLfValueF.map(newElements));
+                  }}
+                />
+              </LabeledElement>
+              <LabeledElement label={`value`} key={`value[${i}]`}>
+                <ParameterInput
+                  contractIdProvider={contractIdProvider}
+                  typeProvider={typeProvider}
+                  parameter={elementType}
+                  name={`value[${i}]`}
+                  argument={entry.value}
+                  disabled={disabled}
+                  onChange={(val) => {
+                    const newElements = elements.slice(0);
+                    newElements[i] = mapEntry(elements[i].key, val);
+                    onChange(DamlLfValueF.map(newElements));
+                  }}
+                  level={level + 2}
+                />
+              </LabeledElement>
+            </NestedForm>
+          </LabeledElement>
+        ))}
+        <ListControls>
+          <ListControlButton
+            type="main"
+            onClick={(_) => {
+              const newElements = elements.slice(0);
+              newElements.push(DamlLfValueF.mapEntry('', DamlLfValueF.initialValue(elementType)));
+              onChange(DamlLfValueF.map(newElements));
+            }}
+          >
+            Add new ebtry
+          </ListControlButton>
+          <ListControlButton
+            type="main"
+            onClick={(_) => {
+              onChange(DamlLfValueF.map(elements.slice(0, - 1)))
+            }}
+            disabled={elements.length === 0}
+          >
+            Delete last entry
           </ListControlButton>
         </ListControls>
       </NestedForm>
@@ -837,6 +916,19 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
             level={level}
             typeProvider={typeProvider}
           />
+        );
+      }
+      case 'map': {
+        return (
+        <MapInput
+          parameter={parameter}
+          name={'nmap'}
+          level={level}
+          typeProvider={typeProvider}
+          disabled={disabled}
+          onChange={onChange}
+          argument={argument}
+        />
         );
       }
       default: throw new NonExhaustiveMatch(parameter.name)

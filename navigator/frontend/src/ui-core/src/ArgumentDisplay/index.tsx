@@ -99,6 +99,18 @@ const ArgumentDisplay = (props: Props): JSX.Element => {
     }
     case 'bool': return <span>{argument.value ? 'TRUE' : 'FALSE'}</span>;
     case 'unit': return <span>unit</span>;
+    case 'map' : return (
+      <NestedForm level={level}>
+        {argument.value.length > 0 ? argument.value.map((entry, _) => (
+          <LabeledElement key={entry.key} label={` value for key '${entry.key}'`} className={className}>
+            <ArgumentDisplay
+              argument={entry.value}
+              level={level + 1}
+            />
+          </LabeledElement>
+        )) : <span>(empty map)</span>}
+      </NestedForm>
+    );
     case 'undefined': return <span>???</span>;
   }
   throw new NonExhaustiveMatch(argument);

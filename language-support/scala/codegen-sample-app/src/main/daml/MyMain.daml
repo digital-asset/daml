@@ -361,6 +361,7 @@ template TemplateWithUnusedTypeParam
   where signatory party
 
 
+
 {-
 SC commented out with DEL-6727's daml 1.2 port as we don't run them anyway
 
@@ -464,13 +465,36 @@ template Maybes
   where
     signatory party
 
-template TextMaps
+template OptTextMapInt
    with
       party: Party
-      intPlusOne: TextMap Int
+--      intPlusOne: TextMap Int
 -- (RH) the two next lines are two slow.
 --      intPlusTwo: TextMap (TextMap Int)
 --      listOfEm: List (TextMap Int)
       optMap: Optional (TextMap Int)
+    where
+      signatory party
+
+template TextMapInt
+   with
+      party: Party
+--      intPlusOne: TextMap Int
+-- (RH) the two next lines are two slow.
+--      intPlusTwo: TextMap (TextMap Int)
+--      listOfEm: List (TextMap Int)
+      aMap: TextMap Int
+    where
+      signatory party
+
+
+template TextMapText
+   with
+      party: Party
+--      intPlusOne: TextMap Int
+-- (RH) the two next lines are two slow.
+--      intPlusTwo: TextMap (TextMap Int)
+--      listOfEm: List (TextMap Int)
+      aMap: TextMap Text
     where
       signatory party

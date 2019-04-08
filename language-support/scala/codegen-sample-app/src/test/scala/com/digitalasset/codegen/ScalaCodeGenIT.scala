@@ -39,7 +39,7 @@ import com.digitalasset.sample.MyMain.NameClashRecordVariant.NameClashRecordVari
 import com.digitalasset.sample.MyMain.{
   CallablePayout,
   Maybes,
-  TextMaps,
+  TextMapInt,
   MkListExample,
   MyRecord,
   MyVariant,
@@ -329,7 +329,7 @@ class ScalaCodeGenIT
 
   "alice creates TextMaybes contract and receives corresponding event" in {
     import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
-    val contract = arbitrary[TextMaps].sample getOrElse sys.error("random TexMap failed")
+    val contract = arbitrary[TextMapInt].sample getOrElse sys.error("random TexMap failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 

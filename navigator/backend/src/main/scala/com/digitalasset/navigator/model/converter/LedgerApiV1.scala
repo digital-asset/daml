@@ -15,6 +15,7 @@ import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code.Code
 import scalaz.Tag
 
+import scala.collection.immutable.HashMap
 import scala.util.Try
 
 case object LedgerApiV1 {
@@ -22,6 +23,8 @@ case object LedgerApiV1 {
   // Types
   // ------------------------------------------------------------------------------------------------------------------
   case class Context(party: ApiTypes.Party, templates: Model.PackageRegistry)
+
+  private type Result[X] = Either[ConversionError, X]
 
   // ------------------------------------------------------------------------------------------------------------------
   // Read methods (V1 -> Model)
@@ -286,6 +289,33 @@ case object LedgerApiV1 {
     }
   }
 
+  private def readMapArgument(
+      list: V1.value.Map,
+      typ: Model.DamlLfType,
+      ctx: Context
+  ): Result[Model.ApiMap] = {
+    for {
+      elementType <- typ match {
+        case Model.DamlLfTypePrim(Model.DamlLfPrimType.Map, t) =>
+          t.headOption.toRight(GenericConversionError("List type parameter missing"))
+        case _ => Left(GenericConversionError(s"Cannot read $list as $typ"))
+      }
+      values <- Converter.sequence(list.entries.map {
+        case entry @ V1.value.Map.Entry(optKey, optValue) =>
+          for {
+            keyValue <- optKey.toRight(GenericConversionError(s"Field 'key' required in $entry"))
+            key <- keyValue.sum.text
+              .toRight(GenericConversionError(s"Cannot read $keyValue as Text"))
+            valueValue <- optValue.toRight(
+              GenericConversionError(s"Field 'value' required in $entry"))
+            value <- readArgument(valueValue, elementType, ctx)
+          } yield key -> value
+      })
+    } yield {
+      Model.ApiMap(HashMap(values: _*))
+    }
+  }
+
   private def readOptionalArgument(
       opt: V1.value.Optional,
       typ: Model.DamlLfType,
@@ -347,6 +377,7 @@ case object LedgerApiV1 {
       case (VS.ContractId(v), _) => Right(Model.ApiContractId(v))
       case (VS.Optional(v), t) => readOptionalArgument(v, t, ctx)
       case (VS.List(v), t) => readListArgument(v, t, ctx)
+      case (VS.Map(v), t) => readMapArgument(v, t, ctx)
       case (VS.Record(v), t) => readRecordArgument(v, t, ctx)
       case (VS.Variant(v), t) => readVariantArgument(v, t, ctx)
       case (VS.Empty, _) => Left(GenericConversionError("Argument value is empty"))
