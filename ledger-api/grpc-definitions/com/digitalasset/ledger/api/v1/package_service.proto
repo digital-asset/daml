@@ -11,13 +11,13 @@ import "com/digitalasset/ledger/api/v1/trace_context.proto";
 option java_outer_classname = "PackageServiceOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1";
 
-// Allows clients to query the DAML LF packages that are supported by the server.
+// Allows clients to query the DAML-LF packages that are supported by the server.
 service PackageService {
 
   // Returns the identifiers of all supported packages.
   rpc ListPackages (ListPackagesRequest) returns (ListPackagesResponse);
 
-  // Returns the contents of a single package, or a NOT_FOUND error if the requested package is unknown.
+  // Returns the contents of a single package, or a `NOT_FOUND` error if the requested package is unknown.
   rpc GetPackage (GetPackageRequest) returns (GetPackageResponse);
 
   // Returns the status of a single package.
@@ -27,7 +27,7 @@ service PackageService {
 
 message ListPackagesRequest {
 
-  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Required
   string ledger_id = 1;
 
@@ -39,14 +39,14 @@ message ListPackagesRequest {
 
 message ListPackagesResponse {
 
-  // The IDs of all DAML LF packages supported by the server.
+  // The IDs of all DAML-LF packages supported by the server.
   // Required
   repeated string package_ids = 1;
 }
 
 message GetPackageRequest {
 
-  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Required
   string ledger_id = 1;
 
@@ -62,22 +62,22 @@ message GetPackageRequest {
 
 message GetPackageResponse {
 
-  // The hash function we use to calculate the hash
+  // The hash function we use to calculate the hash.
   // Required
   HashFunction hash_function = 1;
 
-  // Contains a daml_lf ArchivePayload. See further details in daml_lf.proto.
+  // Contains a `daml_lf` ArchivePayload. See further details in `daml_lf.proto`.
   // Required
   bytes archive_payload = 2;
 
-  // The hash of the archive payload, can also used as a package_id.
+  // The hash of the archive payload, can also used as a `package_id`.
   // Required
   string hash = 3;
 }
 
 message GetPackageStatusRequest {
 
-  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Required
   string ledger_id = 1;
 
