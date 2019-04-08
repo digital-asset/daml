@@ -14,31 +14,8 @@ da_scala_library(
   deps = [
     '//daml-lf/transaction',
     '//daml-lf/data',
-    '//daml-lf/lfpackage',
     '//daml-lf/archive:daml_lf_java_proto',
-    '//daml-lf/archive:daml_lf_archive_scala',
-
-    '//3rdparty/jvm/org/slf4j:slf4j_api',
     '//3rdparty/jvm/com/typesafe/akka:akka_stream',
-    '//3rdparty/jvm/com/google/protobuf:protobuf_java',
-
-    # Used by reference implementation. Consider separating into its
-    # own package.
-    '//ledger/ledger-api-domain',
-    '//ledger/ledger-api-common',
-    '//ledger/ledger-api-client',
-    '//language-support/scala/bindings',
-    '//daml-lf/engine',
-    '//daml-lf/interpreter',
-    '//3rdparty/jvm/org/scalaz:scalaz_core',
-
-    # FIXME(JM): Why aren't these pulled in by //daml-lf/transaction?
-    "//daml-lf/transaction/src/main/protobuf:value_java_proto",
-    "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
-    "//daml-lf/transaction/src/main/protobuf:blindinginfo_java_proto",
-
-
-
   ],
   runtime_deps = [],
   visibility = [

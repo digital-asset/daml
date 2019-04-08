@@ -14,6 +14,7 @@ da_scala_binary(
   deps = [
     '//ledger/api-server-damlonx',
     '//ledger/participant-state',
+    '//ledger/participant-state/reference',
     '//ledger/participant-state-index',
     '//ledger/ledger-api-common:ledger-api-common',
     '//language-support/scala/bindings',
@@ -32,4 +33,3 @@ da_scala_binary(
     '//3rdparty/jvm/ch/qos/logback:logback_classic'
   ],
 )
-
