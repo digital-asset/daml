@@ -70,7 +70,6 @@ da_scala_library(
     '//3rdparty/jvm/org/slf4j:slf4j_api',
     '//daml-foundations/daml-tools/da-hs-damlc-app',
     '//language-support/scala/codegen-testing',
-    '//language-support/scala/codegen-sql-support',
     '//language-support/scala/bindings-akka',
     '//language-support/scala/bindings',
     '//ledger/ledger-api-client',
@@ -83,7 +82,6 @@ da_scala_library(
 # Consider moving these files into a separate sub-directory
 # to enable source globbing for them.
 testing_utils = [
-  'src/test/scala/com/digitalasset/codegen/GenericMultiTableScenario.scala',
   'src/test/scala/com/digitalasset/codegen/util/TestUtil.scala',
 ]
 
@@ -93,13 +91,9 @@ da_scala_library(
   resources = glob(['src/test/resources/**/*']),
   scalacopts = ['-Xsource:2.13'],
   deps = [
-    '//3rdparty/jvm/com/typesafe/slick:slick',
     '//3rdparty/jvm/org/scalacheck:scalacheck',
     '//3rdparty/jvm/org/scalatest:scalatest',
     '//3rdparty/jvm/org/scalaz:scalaz_core',
-    '//language-support/scala/codegen-sql-support',
-    '//language-support/scala/codegen-sql-support:codegen-sql-support-testing',
-    '//language-support/scala/codegen-sql-support-testing',
     '//language-support/scala/bindings-akka',
     '//language-support/scala/bindings',
 
@@ -108,23 +102,13 @@ da_scala_library(
 )
 
 test_dependencies = [
-  '//3rdparty/jvm/com/typesafe/slick:slick',
   '//3rdparty/jvm/io/spray:spray_json',
   '//3rdparty/jvm/org/scalacheck:scalacheck',
   '//3rdparty/jvm/org/scalaz:scalaz_core',
   '//language-support/scala/codegen-testing',
-  '//language-support/scala/codegen-sql-support',
-  '//language-support/scala/codegen-sql-contract-query-framework',
-  '//language-support/scala/codegen-sql-support:codegen-sql-support-testing',
-  '//language-support/scala/codegen-sql-support-testing',
   '//language-support/scala/bindings',
   ':daml-lf-codegen-sample-app',
   ':daml-lf-codegen-sample-app-testing',
-]
-
-medium_tests = [
-  'src/test/scala/com/digitalasset/codegen/SlickIntegrationPostgreSqlSpec.scala',
-  'src/test/scala/com/digitalasset/codegen/problems/PostgreSqlKnownProblemSpec.scala',
 ]
 
 da_scala_test(
@@ -134,25 +118,13 @@ da_scala_test(
     [
       'src/test/**/*.scala',
     ],
-    exclude = testing_utils + medium_tests + [
+    exclude = testing_utils + [
       'src/test/scala/com/digitalasset/codegen/ScalaCodeGenIT.scala',
     ],
   ),
   scalacopts = ['-Xsource:2.13'],
   deps = test_dependencies,
 )
-
-da_scala_test(
-  name = 'medium_tests',
-  size = 'medium',
-  srcs = medium_tests,
-  scalacopts = ['-Xsource:2.13'],
-  deps = test_dependencies,
-  # the tests are currently depending on docker, which is only available on
-  # the Linux Azure hosted runner.
-  #
-  # see https://github.com/digital-asset/daml/issues/853
-) if is_linux else None
 
 da_scala_test(
   name = 'ScalaCodeGenIT',
