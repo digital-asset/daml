@@ -321,7 +321,7 @@ isTemplate ClsInstDecl{..}
   , HsAppTy _ (L _ t1) (L _ t2) <- ty
   , HsTyVar _ _ (L _ tmplClass) <- t1
   , HsTyVar _ _ (L _ tmplName) <- t2
-  , toText tmplClass == "Template"
+  , toText tmplClass == "DA.Internal.Desugar.Template"
   = Just tmplName
 
   | otherwise = Nothing
@@ -339,7 +339,7 @@ isChoice ClsInstDecl{..}
   , HsTyVar _ _ (L _ choiceClass) <- choice
   , HsTyVar _ _ (L _ choiceName) <- cName
   , HsTyVar _ _ (L _ tmplName) <- cTmpl
-  , toText choiceClass == "Choice"
+  , toText choiceClass == "DA.Internal.Desugar.Choice"
   = Just (tmplName, choiceName)
 
   | otherwise = Nothing

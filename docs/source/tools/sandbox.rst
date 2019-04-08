@@ -20,9 +20,9 @@ Sandbox can also be run manually as in this example::
     / __/__ ____  ___/ / /  ___ __ __
    _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
   /___/\_,_/_//_/\_,_/_.__/\___/_\_\
-  initialized sandbox with ledger-id = sandbox-16ae201c-b2fd-45e0-af04-c61abe13fed7, port = 8080, dar file = DAR files at List(/Users/donkeykong/temp/da-sdk/test/Main.dar), time mode = Static, daml-engine = {}
+  initialized sandbox with ledger-id = sandbox-16ae201c-b2fd-45e0-af04-c61abe13fed7, port = 6865, dar file = DAR files at List(/Users/donkeykong/temp/da-sdk/test/Main.dar), time mode = Static, daml-engine = {}
   Initialized Static time provider, starting from 1970-01-01T00:00:00Z
-  listening on localhost:8080
+  listening on localhost:6865
 
 Here, ``da run sandbox --`` tells the SDK Assistant to run ``sandbox`` from the active SDK release and pass it any arguments that follow. The example passes the DAR file to load (``Main.dar``) and the optional ``--scenario`` flag tells Sandbox to run the ``Main:example`` scenario on startup. The scenario must be fully qualified; here ``Main`` is the module and ``example`` is the name of the scenario, separated by a ``:``. The scenario is used for testing and development; it is not run in production.
 
@@ -32,7 +32,7 @@ Command-line reference
 Sandbox requires the names of the input ``.dar`` or ``.dalf`` files as arguments to start.
 The available command line options are listed here::
 
-    -p, --port <value>       Sandbox service port. Defaults to 8080.
+    -p, --port <value>       Sandbox service port. Defaults to 6865.
     -a, --address <value>    Sandbox service host. Defaults to binding on all addresses.
     --dalf                   This argument is present for backwards compatibility. DALF and DAR archives are now identified by their extensions.
     --static-time            Use static time, configured with TimeService through gRPC.

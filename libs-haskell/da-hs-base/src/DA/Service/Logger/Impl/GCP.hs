@@ -36,7 +36,7 @@ import System.Random
 import qualified DA.Service.Logger as Lgr
 import qualified DA.Service.Logger.Impl.IO as Lgr.IO
 import qualified DA.Service.Logger.Impl.Pure as Lgr.Pure
-import DAML.Project.Config
+import DAML.Project.Consts
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8, decodeUtf8)

@@ -23,7 +23,7 @@ Try out the Navigator Console on the Quickstart
 
 With the sandbox running the :doc:`quickstart application </getting-started/quickstart>`
 
-#. To start the shell, run ``da run navigator -- console localhost 7600``
+#. To start the shell, run ``da run navigator -- console localhost 6865``
 
    This connects Navigator Console to the sandbox, which is still running.
 

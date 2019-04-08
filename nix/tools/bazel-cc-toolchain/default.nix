@@ -8,6 +8,7 @@
 , runCommand
 }:
 
+
 # XXX On Darwin, workaround
 # https://github.com/NixOS/nixpkgs/issues/42059. See also
 # https://github.com/NixOS/nixpkgs/pull/41589.
@@ -31,6 +32,7 @@ let cc-darwin =
 
     makeWrapper ${stdenv.cc}/bin/clang $out/bin/clang \
       --add-flags "-Wno-unused-command-line-argument \
+                   -mmacosx-version-min=10.13 \
                    -isystem ${llvmPackages.libcxx}/include/c++/v1 \
                    -F${CoreFoundation}/Library/Frameworks \
                    -F${CoreServices}/Library/Frameworks \

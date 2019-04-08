@@ -22,7 +22,7 @@ def _daml_impl_compile_dalf(ctx):
         outputs = [ctx.outputs.dalf],
         arguments = [compile_args],
         progress_message = "Compiling DAML into DAML-LF archive %s" % ctx.outputs.dalf.short_path,
-        executable = ctx.executable._damlc,
+        executable = ctx.executable.damlc,
     )
 
 def _daml_impl_package_dar(ctx):
@@ -40,7 +40,7 @@ def _daml_impl_package_dar(ctx):
         outputs = [ctx.outputs.dar],
         arguments = [package_args],
         progress_message = "Creating DAR package %s" % ctx.outputs.dar.basename,
-        executable = ctx.executable._damlc,
+        executable = ctx.executable.damlc,
     )
 
 def _daml_impl_generate_scala(ctx):
@@ -140,7 +140,7 @@ daml_compile = rule(
         ),
 
         "target": attr.string(doc="DAML-LF version to output"),
-        "_damlc": attr.label(
+        "damlc": attr.label(
             executable = True,
             cfg = "host",
             allow_files = True,
@@ -159,13 +159,13 @@ def _daml_test_impl(ctx):
       echo "running damlc test on " $PWD/$f
       {damlc} test $PWD/$f
       done
-    """.format(damlc = ctx.executable._damlc.short_path, files = " ".join([f.short_path for f in ctx.files.srcs]))
+    """.format(damlc = ctx.executable.damlc.short_path, files = " ".join([f.short_path for f in ctx.files.srcs]))
 
     ctx.actions.write(
         output = ctx.outputs.executable,
         content = script,
     )
-    runfiles = ctx.runfiles(files = ctx.files.srcs + [ctx.executable._damlc])
+    runfiles = ctx.runfiles(files = ctx.files.srcs + [ctx.executable.damlc])
     return [DefaultInfo(runfiles = runfiles)]
 
 daml_test = rule(
@@ -176,7 +176,7 @@ daml_test = rule(
               default = [],
               doc = "DAML source files to test."
           ),
-          "_damlc": attr.label(
+          "damlc": attr.label(
               executable = True,
               cfg = "host",
               allow_files = True,
@@ -204,7 +204,7 @@ daml = rule(
         ),
         "target": attr.string(doc="DAML-LF version to output"),
         "package": attr.string(mandatory=True, doc="Package name e.g. com.digitalasset.mypackage."),
-        "_damlc": attr.label(
+        "damlc": attr.label(
             executable = True,
             cfg = "host",
             allow_files = True,
@@ -336,7 +336,7 @@ dalf_compile = rule(
             doc = "Other DAML files that compilation depends on.",
         ),
         "target": attr.string(doc = "DAML-LF version to output"),
-        "_damlc": attr.label(
+        "damlc": attr.label(
             executable = True,
             cfg = "host",
             allow_files = True,

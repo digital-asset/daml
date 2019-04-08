@@ -23,8 +23,10 @@ deps = [
     'tasty-hunit',
     'tasty-quickcheck',
     'temporary',
+    'terminal-progress-bar',
     'text',
     'unix',
+    'utf8-string',
     'yaml',
 ]
 
@@ -38,8 +40,11 @@ da_haskell_library(
     hazel_deps = [
         "base",
         "directory",
+        "extra",
         "filepath",
         "safe-exceptions",
+        "text",
+        "yaml",
     ],
     visibility = ["//visibility:public"]
 )

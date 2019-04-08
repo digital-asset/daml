@@ -37,7 +37,7 @@ da_scala_test(
     timeout = "moderate",
     srcs = glob(["src/test/**/*.scala"]),
     resources = [
-        "//daml-foundations/daml-ghc/package-database:daml-prim.dalf",
+        "//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.1.dalf",
         "//daml-lf/tests:BasicTests.dalf",
         "//daml-lf/tests:LargeTransaction.dalf",
         "//daml-lf/tests:Optional.dalf",

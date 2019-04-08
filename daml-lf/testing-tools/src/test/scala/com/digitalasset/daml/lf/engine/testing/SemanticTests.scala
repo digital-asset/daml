@@ -24,7 +24,7 @@ class SemanticTests extends WordSpec with Matchers with ScalaFutures with Integr
   )
 
   val libraryDalfs = List(
-    "daml-foundations/daml-ghc/package-database/daml-prim-1.1.dalf"
+    "daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.1.dalf"
   )
 
   val testPkgs = dalfFiles.map(file => {
@@ -37,7 +37,9 @@ class SemanticTests extends WordSpec with Matchers with ScalaFutures with Integr
   val libraryPkgs = libraryDalfs.map(file => {
     val stream = loader.getResourceAsStream(file)
     (
-      file.stripPrefix("daml-foundations/daml-ghc/package-database").stripSuffix(".dalf"),
+      file
+        .stripPrefix("daml-foundations/daml-ghc/package-database/deprecated")
+        .stripSuffix(".dalf"),
       Decode.decodeArchiveFromInputStream(stream))
   })
 

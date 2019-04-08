@@ -19,7 +19,7 @@ trait MultiLedgerFixture
 
   protected def config: Config
 
-  protected def basePort = 8080
+  protected def basePort = 6865
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */
   override protected def fixtureIdsEnabled: Set[LedgerBackend] = LedgerBackend.allBackends

@@ -7,17 +7,18 @@ import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.StringJoiner;
 
 public class DamlMap extends Value {
 
-    private static DamlMap EMPTY = new DamlMap(new java.util.HashMap<String, Value>());
+    private static DamlMap EMPTY = new DamlMap(Collections.emptyMap());
 
-    private final java.util.HashMap<String, Value> value;
+    private final java.util.Map<String, Value> value;
 
-    public DamlMap(java.util.HashMap<String, Value> value) {
+    public DamlMap(java.util.Map<String, Value> value) {
         this.value = value;
     }
 

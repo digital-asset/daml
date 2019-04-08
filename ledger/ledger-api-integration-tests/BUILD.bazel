@@ -61,7 +61,7 @@ da_scala_test_suite(
   name = "ledger-api-integration-tests",
   srcs = glob(['src/test/itsuite/**/*.scala']),
   data = [
-      '//daml-foundations/daml-ghc/package-database:daml-prim-1.3.dalf',
+      '//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf',
       '//ledger/sandbox:Test.dalf'],
   deps = [
     ':ledger-api-integration-tests-lib'
@@ -96,7 +96,7 @@ da_scala_test_suite(
   name = "ledger-api-semantic-tests",
   srcs = glob(['src/test/semanticsuite/**/*.scala']),
   data = [
-    '//daml-foundations/daml-ghc/package-database:daml-prim-1.3.dalf',
+    '//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf',
     ':SemanticTests.dalf'
   ],
   deps = [
@@ -116,6 +116,7 @@ TEST_FILES = [
     , main_src = "src/test/semanticsuite/daml/%s.daml" % name
     , visibility = ["//visibility:public"]
     , target = "1.3"
+    , damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated"
   )
   for name in TEST_FILES
 ]

@@ -98,6 +98,6 @@ final class RecordLikeMethodsSpec extends FlatSpec with Matchers with OptionValu
     name,
     IndexedSeq.empty,
     Map())
-  private val Vector(constructor, toValue, fromValue) = methods.take(3)
+  private val Vector(constructor, fromValue, toValue) = methods.take(3)
 
 }

@@ -32,10 +32,9 @@ object EventFilter {
       specificSubscriptions
         .groupBy(_._1)
         .map { // Intentionally not using .mapValues to fully materialize the map
-          case (templateId, pairs) => {
+          case (templateId, pairs) =>
             val setOfParties: Set[Party] = pairs.map(_._2)(breakOut)
             templateId -> (setOfParties union globalSubscriptions)
-          }
         }
         .withDefaultValue(globalSubscriptions)
     }

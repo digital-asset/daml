@@ -37,7 +37,7 @@ da_scala_test(
     "//daml-lf/tests:AuthorizedDivulgence.dalf",
     "//daml-lf/tests:DontDiscloseNonConsumingChoicesToObservers.dalf",
     "//daml-lf/tests:LargeTransaction.dalf",
-    "//daml-foundations/daml-ghc/package-database:daml-prim.dalf",
+    "//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.1.dalf",
   ],
   deps = [
     ":testing-tools",

@@ -3,7 +3,7 @@
 ## Vim
 
 In order to enable vim syntax highlighting for our DSLs, execute the following
-two lines in your terminal (assuming `~/dev` is where you've checked out DACH-NY/daml)
+two lines in your terminal (assuming `~/dev` is where you've checked out digital-asset/daml)
 
 ```
 mkdir -p ~/.vim/syntax

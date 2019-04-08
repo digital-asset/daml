@@ -30,7 +30,6 @@ genrule(
         ":src",
         "//language-support/js/daml-grpc",
         "package.json",
-        "CHANGELOG.md",
         ":tsconfig",
         "@npm//@types/google-protobuf",
         "@npm//@types/node",
@@ -47,7 +46,6 @@ genrule(
       mkdir -p package
       cp -R language-support/js/daml-ledger/dist package
       cp $(location package.json) package
-      cp $(location CHANGELOG.md) package
       tar czf $@ package
     """,
     tools = [

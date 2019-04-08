@@ -2,36 +2,59 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.archive
-import java.io.InputStream
-import java.util
+
+import java.io.{BufferedInputStream, InputStream}
 import java.util.zip.{ZipEntry, ZipFile}
 
-import scala.collection.JavaConverters._
+import com.digitalasset.daml.lf.{Dar, DarManifestReader}
+import com.digitalasset.daml.lf.data.TryOps.sequence
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
+
 import scala.util.Try
 
-class DarReader[A](parse: InputStream => A) {
-  def readArchive(darFile: ZipFile): Try[List[A]] = {
-    import com.digitalasset.daml.lf.archive.TryOps.sequence
-    val collector = util.stream.Collectors.toList[Try[A]]
-    val list: util.List[Try[A]] = darFile.stream
-      .filter(isDalfEntry)
-      .map[Try[A]](e => parseEntry(darFile, e))
-      .collect(collector)
-    sequence(list.asScala.toList)
-  }
+class DarReader[A](
+    readDalfNamesFromManifest: InputStream => Try[Dar[String]],
+    parseDalf: InputStream => Try[A]) {
 
-  private def isDalfEntry(e: ZipEntry): Boolean = e.getName.endsWith(".dalf")
+  private val manifestEntry = new ZipEntry("META-INF/MANIFEST.MF")
 
-  private def parseEntry(f: ZipFile, e: ZipEntry): Try[A] = Try {
-    val is = f.getInputStream(e)
-    try {
-      parse(is)
-    } finally {
-      is.close()
-    }
-  }
+  def readArchive(darFile: ZipFile): Try[Dar[A]] =
+    for {
+      names <- parseDalfNamesFromManifest(darFile): Try[Dar[String]]
+      main <- parseOne(darFile)(names.main): Try[A]
+      deps <- parseAll(darFile)(names.dependencies): Try[List[A]]
+    } yield Dar(main, deps)
+
+  private def parseDalfNamesFromManifest(darFile: ZipFile): Try[Dar[String]] =
+    bracket(Try(darFile.getInputStream(manifestEntry)))(close)
+      .flatMap(is => readDalfNamesFromManifest(is))
+
+  private def parseAll(f: ZipFile)(names: List[String]): Try[List[A]] =
+    sequence(names.map(parseOne(f)))
+
+  private def parseOne(f: ZipFile)(s: String): Try[A] =
+    bracket(getZipEntryInputStream(f, s))(close).flatMap(parseDalf)
+
+  private def getZipEntryInputStream(f: ZipFile, name: String): Try[InputStream] =
+    for {
+      e <- Try(new ZipEntry(name))
+      is <- Try(new BufferedInputStream(f.getInputStream(e)))
+    } yield is
+
+  private def close(is: InputStream): Try[Unit] = Try(is.close())
 }
 
-object DarReader extends DarReader(Reader.decodeArchiveFromInputStream)
+object DarReader {
+  def apply(): DarReader[(Ref.PackageId, DamlLf.ArchivePayload)] =
+    new DarReader(DarManifestReader.dalfNames, a => Try(Reader.decodeArchiveFromInputStream(a)))
 
-object DarReaderWithVersion extends DarReader(Reader.readArchiveAndVersion)
+  def apply[A](parseDalf: InputStream => Try[A]): DarReader[A] =
+    new DarReader(DarManifestReader.dalfNames, parseDalf)
+}
+
+object DarReaderWithVersion
+    extends DarReader[((Ref.PackageId, DamlLf.ArchivePayload), LanguageMajorVersion)](
+      DarManifestReader.dalfNames,
+      a => Try(Reader.readArchiveAndVersion(a)))

@@ -129,7 +129,7 @@ In this section, you will run the quickstart application and get introduced to t
    
    .. _quickstart-sandbox:
    
-#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``da run sandbox -- --port 7600 --scenario Main:setup target/daml/*``
+#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``da run sandbox -- --port 6865 --scenario Main:setup target/daml/*``
 
    The output should look like this:
    
@@ -140,13 +140,13 @@ In this section, you will run the quickstart application and get introduced to t
        _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
       /___/\_,_/_//_/\_,_/_.__/\___/_\_\
 
-      Initialized sandbox version 3.0.3 with ledger-id = sandbox-bb4a19ee-c0f8-444e-825a-1eb3c1ecd401, port = 7600, dar file = DamlPackageContainer(List(target/daml/qs.dar)), time mode = Static, daml-engine = {}
+      Initialized sandbox version 3.0.3 with ledger-id = sandbox-bb4a19ee-c0f8-444e-825a-1eb3c1ecd401, port = 6865, dar file = DamlPackageContainer(List(target/daml/qs.dar)), time mode = Static, daml-engine = {}
       Initialized Static time provider, starting from 1970-01-01T00:00:00Z
       DAML LF Engine supports LF versions: 1.0, 0; Transaction versions: 1; Value versions: 1
       Starting plainText server
-      listening on localhost:7600
+      listening on localhost:6865
    
-   The sandbox is now running, and you can access its :ref:`ledger API <ledger-api-introduction>` on port ``7600``.
+   The sandbox is now running, and you can access its :ref:`ledger API <ledger-api-introduction>` on port ``6865``.
    
    .. note::
 
@@ -155,7 +155,7 @@ In this section, you will run the quickstart application and get introduced to t
    .. _quickstart-navigator:
    
 #. Open a new terminal window and navigate to your project directory.
-#. Start the :doc:`Navigator </tools/navigator/index>`, a browser-based leger front-end, by running ``da run navigator -- server localhost 7600 --port 7500``
+#. Start the :doc:`Navigator </tools/navigator/index>`, a browser-based leger front-end, by running ``da run navigator -- server localhost 6865 --port 7500``
 
    The Navigator automatically connects the sandbox. You can access it on port ``7500``.
 
@@ -490,7 +490,7 @@ To build automations and integrations around the ledger, the SDK has :doc:`langu
 
 To start the Java integration in the quickstart application, run ``mvn compile exec:java@run-quickstart``
 
-The application provides REST services on port ``8080`` to perform basic operations on behalf on ``Alice``.
+The application provides REST services on port ``6865`` to perform basic operations on behalf on ``Alice``.
 
 .. note::
 
@@ -500,24 +500,24 @@ The application provides REST services on port ``8080`` to perform basic operati
 
 The following REST services are included:
 
-- ``GET`` on ``http://localhost:8080/iou`` lists all active Ious, and their Ids.
+- ``GET`` on ``http://localhost:6865/iou`` lists all active Ious, and their Ids.
   
-  Note that the Ids exposed by the REST API are not the ledger contract Ids, but integers. You can open the address in your browser or run ``curl -X GET http://localhost:8080/iou``.
-- ``GET`` on ``http://localhost:8080/iou/ID`` returns the Iou with Id ``ID``.
+  Note that the Ids exposed by the REST API are not the ledger contract Ids, but integers. You can open the address in your browser or run ``curl -X GET http://localhost:6865/iou``.
+- ``GET`` on ``http://localhost:6865/iou/ID`` returns the Iou with Id ``ID``.
 
   For example, to get the content of the Iou with Id 0, run:
 
-  ``curl -X GET http://localhost:8080/iou/0``
-- ``PUT`` on ``http://localhost:8080/iou`` creates a new Iou on the ledger.
+  ``curl -X GET http://localhost:6865/iou/0``
+- ``PUT`` on ``http://localhost:6865/iou`` creates a new Iou on the ledger.
 
   To create another *AliceCoin*, run:
 
-  ``curl -X PUT -d '{"issuer":"Alice","owner":"Alice","currency":"AliceCoin","amount":1.0,"observers":[]}' http://localhost:8080/iou``
-- ``POST`` on ``http://localhost:8080/iou/ID/transfer`` transfers the Iou with Id ``ID``.
+  ``curl -X PUT -d '{"issuer":"Alice","owner":"Alice","currency":"AliceCoin","amount":1.0,"observers":[]}' http://localhost:6865/iou``
+- ``POST`` on ``http://localhost:6865/iou/ID/transfer`` transfers the Iou with Id ``ID``.
 
   Find out the Id of your new *AliceCoin* using step 1. and then run:
 
-  ``curl -X POST -d '{ "newOwner":"Bob" }' http://localhost:8080/iou/ID/transfer``
+  ``curl -X POST -d '{ "newOwner":"Bob" }' http://localhost:6865/iou/ID/transfer``
 
   to transfer it to Bob.
 

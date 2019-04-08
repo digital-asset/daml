@@ -8,8 +8,8 @@ module DAML.Assistant
     , runTests
     ) where
 
-import DAML.Assistant.Util
-import DAML.Assistant.Config
+import DAML.Project.Util
+import DAML.Project.Config
 import DAML.Assistant.Env
 import DAML.Assistant.Tests
 import DAML.Assistant.Command
@@ -30,14 +30,14 @@ main = do
     userCommand <- getCommand (fromMaybe [] sdkCommandsM)
     case userCommand of
 
-        BuiltinCommand Version -> do
+        Builtin Version -> do
             version <- required "Could not determine SDK version." envSdkVersion
             T.putStrLn (unwrapSdkVersion version)
 
-        BuiltinCommand (Install options) -> wrapErr "Installing the SDK." $ do
+        Builtin (Install options) -> wrapErr "Installing the SDK." $ do
             install options envDamlPath
 
-        SdkCommand SdkCommandInfo{..} cmdArgs ->
+        Dispatch SdkCommandInfo{..} cmdArgs ->
             wrapErr ("Running " <> unwrapSdkCommandName sdkCommandName <> " command.") $ do
                 sdkPath <- required "Could not determine SDK path." envSdkPath
                 dispatchEnv <- getDispatchEnv env

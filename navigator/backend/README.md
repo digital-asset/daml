@@ -3,11 +3,10 @@ Navigator Backend
 
 The Navigator backend is a Scala application providing
 
-- a web server base that exposes a GraphQL API with some predefined endpoints,
+- a web server that exposes a GraphQL API with some predefined endpoints,
   such as returning all visible contracts.
 - a platform client that reacts to events happening in the platform
 - a simple sign-in API
-- a default backend that exposes contracts and templates
 
 Usage
 -----
@@ -16,12 +15,14 @@ The Navigator backend is written in Scala, making heavy use of
 [Akka](http://akka.io/) and [Sangria](http://sangria-graphql.org/) (for
 GraphQL). It uses the [Scala Build Tool](http://www.scala-sbt.org/).
 
-We can build and run a basic (not extended) backend using `sbt` (which is
-assumed to be installed):
+We can build and run a basic the backend using the following commands:
 
 ```bash
+# Build a distribution archive ("fat jar"):
+bazel build //navigator/backend/navigator-binary_deploy.jar
+
 # Run without arguments to show usage:
-sbt "run --help"
+java -jar navigator-binary_deploy.jar --help
 
 # Create a dummy configuration file
 cat << EOF > navigator.conf
@@ -33,13 +34,8 @@ users {
 }
 EOF
 
-# Pass command line arguments. By default the server looks for the platform API
-# at localhost:8081, binds to port 4000 and reads the configuration for the local
-navigator.conf file:
-sbt "run server"
-
-# Build a distribution archive ("fat jar") in build/distributions:
-sbt assembly
+# Start the web server
+java -jar navigator-binary_deploy.jar server
 ```
 
 If you start the server and the configuration file doesn't exist, the server will
@@ -64,6 +60,8 @@ additions:
 object DefaultUIBackend extends UIBackend {
   override def customEndpoints: Set[CustomEndpoint[_]] = Set()
   override val defaultConfigFile: Path = Paths.get("my-app.conf")
+  override def applicationInfo: ApplicationInfo = ApplicationInfo(...)
+  override def banner: Option[String] = Some(...)
 }
 ```
 
@@ -158,15 +156,6 @@ for complex types which have fields.
 
 Common tasks
 ------------
-
-## How do I run a particular UI backend using sbt?
-
-Here's an example of how you might run a particular UI backend subclass in
-development using sbt:
-
-```bash
-sbt "run-main com.digitalasset.ui.backend.DefaultNavigatorBackend server --help"
-```
 
 ## How do I query the Backend without a frontend?
 

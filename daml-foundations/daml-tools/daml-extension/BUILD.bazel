@@ -44,7 +44,6 @@ pkg_tar(
     "images/*",
     "*.json",
     "README.md",
-    "CHANGELOG.md"
   ]) + [
     ":out",
     "@daml_extension_deps//vscode-jsonrpc:vscode-jsonrpc",

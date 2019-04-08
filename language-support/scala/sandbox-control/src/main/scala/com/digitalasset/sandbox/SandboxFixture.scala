@@ -11,7 +11,8 @@ import com.digitalasset.testing.BuildSystemSupport
 import com.typesafe.scalalogging.LazyLogging
 
 object SandboxFixture {
-  private val ghcPrimDar = new File("daml-foundations/daml-ghc/package-database/daml-prim.dar")
+  private val ghcPrimDar = new File(
+    "daml-foundations/daml-ghc/package-database/deprecated/daml-prim.dar")
 
   class SandboxContext(
       val host: String,

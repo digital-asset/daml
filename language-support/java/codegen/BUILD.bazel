@@ -84,7 +84,7 @@ jar_jar(
     rules = "shade_rule"
 )
 
-daml_lf_target_versions = ["1.0", "1.1"]
+daml_lf_target_versions = ["1.0", "1.1", "1.3"]
 
 ########################################################
 ####  Integration Tests
