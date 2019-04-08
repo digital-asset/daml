@@ -14,6 +14,7 @@ module.exports = {
   allSessionIds: allSessionIds,
   allSessionEntries: allSessionEntries,
   close: close,
+  remove: remove,
   keepActive: keepActive,
   session: session,
   readSession: readSession,
@@ -26,9 +27,13 @@ module.exports = {
  */
 function onTimeout(callback) {
   store.on( "del", function( key, value ){
-    console.log("inactive session occured: %s", key)
+    console.log("session removed: %s", key)
     callback(value || {})
   });
+}
+
+function remove(sessionId) {
+  store.del(sessionId)
 }
 
 /**
@@ -41,7 +46,14 @@ function allSessionEntries() {
       if (!keys) resolve([])
       store.mget(keys, (err2, storeObj) => {
         if (err2) reject(err2)
-        resolve(storeObj.entries)
+        
+        resolve(Object.entries(storeObj).map(e => {
+          return {
+            sessionId : e[0],
+            container : e[1],
+            ttl : store.getTtl(e[0])
+          }
+        }))
       })
     })
   })
@@ -89,22 +101,33 @@ function session(req, res, callback) {
 function readSession(req, callback) {
   const sessionId = getSessionIdFromCookie(req)
   keepActive(sessionId)
-  store.get(sessionId, function(err, value) {
+  store.get(sessionId, (err, value) => {
     const state = (value || {})
     callback(err, state, sessionId)
   })
 }
 
 function handleSessionCallback(sessionId, callback) {
-  store.get(sessionId, function (err, value) {
+  store.get(sessionId, (err, value) => {
     keepActive(sessionId);
     callback(err, (value || {}), sessionId, (state) => {
+      //console.log("saving state %s : %O", sessionId, state)
       save(sessionId, state);
     });
   });
 }
 
 function save(sessionId, state) {
+    if (config.session.timeout && !state._started) {
+      state._started = Date.now()
+      const delay = config.session.timeout * 1000
+      //console.log("session started %s, ending in %s seconds", state._started, config.session.timeout)
+      const timeout = setTimeout(() => {
+        console.log("session timeout occured, started %s", state._started)
+        clearTimeout(timeout)
+        store.del(sessionId)
+      }, delay)
+    }
     store.set(sessionId, state)
 }
 
