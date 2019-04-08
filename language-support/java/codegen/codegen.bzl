@@ -26,7 +26,7 @@ def dar_to_java(**kwargs):
             $(execpath //language-support/java/codegen:codegen) -o {gen_out} -d com.daml.ledger.javaapi.TestDecoder {gen_in}
             $(execpath @local_jdk//:bin/jar) -cf $@ -C {gen_out} .
         """.format(
-            gen_in = "$(location :%s)=%s" % (dar, package_prefix),
+            gen_in = "$(location %s)=%s" % (dar, package_prefix),
             gen_out = src_out
         ),
         tools = [
