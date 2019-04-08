@@ -1,4 +1,4 @@
 @echo off
 setlocal
 cd %~dp0\..
-stack exec sh rattle/build.sh
+stack exec --stack-yaml=rattle/stack.yaml sh rattle/build.sh
