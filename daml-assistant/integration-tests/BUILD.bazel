@@ -1,14 +1,29 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+load("//bazel_tools:haskell.bzl", "da_haskell_test")
 
-sh_test(
+da_haskell_test(
     name = "integration-tests",
-    srcs = ["run-test.sh"],
-    args = [
-        "$(location //release:sdk-release-tarball)",
+    srcs = ["src/Main.hs"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//daml-assistant/daml-helper:daml-helper-lib",
+    ],
+    hazel_deps = [
+        "async",
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "main-tester",
+        "network",
+        "process",
+        "tasty",
+        "tasty-hunit",
     ],
     data = [
         "//release:sdk-release-tarball",
+        "@local_jdk//:bin/java",
     ],
     timeout = "long",
 )
