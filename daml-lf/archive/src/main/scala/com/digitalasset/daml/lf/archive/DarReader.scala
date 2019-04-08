@@ -12,7 +12,8 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 
-import scala.util.Try
+import scala.collection.JavaConverters._
+import scala.util.{Failure, Success, Try}
 
 class DarReader[A](
     readDalfNamesFromManifest: InputStream => Try[Dar[String]],
@@ -22,14 +23,39 @@ class DarReader[A](
 
   def readArchive(darFile: ZipFile): Try[Dar[A]] =
     for {
-      names <- parseDalfNamesFromManifest(darFile): Try[Dar[String]]
+      names <- readDalfNames(darFile): Try[Dar[String]]
       main <- parseOne(darFile)(names.main): Try[A]
       deps <- parseAll(darFile)(names.dependencies): Try[List[A]]
     } yield Dar(main, deps)
 
+  private def readDalfNames(darFile: ZipFile): Try[Dar[String]] = {
+    val entries: List[ZipEntry] = darFile.entries.asScala.toList
+
+    if (entries.count(e => e.getName == manifestEntry.getName) == 0)
+      findDalfNames(entries)
+    else
+      parseDalfNamesFromManifest(darFile)
+  }
+
   private def parseDalfNamesFromManifest(darFile: ZipFile): Try[Dar[String]] =
     bracket(Try(darFile.getInputStream(manifestEntry)))(close)
       .flatMap(is => readDalfNamesFromManifest(is))
+
+  private def findDalfNames(entries: List[ZipEntry]): Try[Dar[String]] = {
+    val dalfs: List[String] = entries.filter(isDalf).map(_.getName)
+    dalfs.partition(isPrimDalf) match {
+      case (List(prim), List(main)) => Success(Dar(main, List(prim)))
+      case (List(prim), List()) => Success(Dar(prim, List.empty))
+      case (List(), List(main)) => Success(Dar(main, List.empty))
+      case _ => Failure(InvalidLegacyDarFormat(dalfs))
+    }
+  }
+
+  private def isDalf(e: ZipEntry): Boolean = isDalf(e.getName)
+
+  private def isDalf(s: String): Boolean = s.toLowerCase.endsWith(".dalf")
+
+  private def isPrimDalf(s: String): Boolean = s.toLowerCase.contains("-prim") && isDalf(s)
 
   private def parseAll(f: ZipFile)(names: List[String]): Try[List[A]] =
     sequence(names.map(parseOne(f)))
@@ -45,6 +71,11 @@ class DarReader[A](
 
   private def close(is: InputStream): Try[Unit] = Try(is.close())
 }
+
+case class InvalidLegacyDarFormat(dalfNames: List[String])
+    extends RuntimeException(
+      s"Invalid Legacy DAR. Legacy DAR can contain: one main DALF and an optional *-prim* DALF." +
+        s" This DAR contains: [${dalfNames.mkString(", "): String}]")
 
 object DarReader {
   def apply(): DarReader[(Ref.PackageId, DamlLf.ArchivePayload)] =
