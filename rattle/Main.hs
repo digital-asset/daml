@@ -7,25 +7,31 @@ import System.FilePattern.Directory
 import System.FilePath
 import System.Directory
 import Control.Monad.Extra
-import Data.List
+import Data.List.Extra
 
 
 main = rattle $ do
     print "Starting rattle build"
     src <- lines <$> readFile' "rattle/haskell-dependencies.txt"
-    cmd_ "stack build --stack-yaml=rattle/stack.yaml" src
-    buildHaskellPackage [] "libs-haskell/prettyprinter-syntax"
-    buildHaskellPackage ["prettyprinter-syntax"] "compiler/haskell-ide-core"
+    cmd_ "stack build --stack-yaml=rattle/stack.yaml" $ delete "" $ nubOrd src
+    pp_syntax <- buildHaskellLibrary True [] "libs-haskell/prettyprinter-syntax"
+    config <- buildHaskellLibrary False [] "daml-assistant/daml-project-config"
+    buildHaskellLibrary True [pp_syntax] "compiler/haskell-ide-core"
+    base <- buildHaskellLibrary True [config] "libs-haskell/da-hs-base"
+    pretty <- buildHaskellLibrary True [base,pp_syntax] "libs-haskell/da-hs-pretty"
+    buildHaskellLibrary True [pretty,base] "compiler/daml-lf-ast"
+    return ()
 
 
-buildHaskellPackage :: [String] -> FilePath -> IO ()
-buildHaskellPackage deps src = do
-    print ("buildHaskellPackage",deps,src)
-    let name = takeFileName src
-    files <- getDirectoryFiles (src </> "src") ["**/*.hs"]
+buildHaskellLibrary :: Bool -> [String] -> FilePath -> IO String
+buildHaskellLibrary useSrc deps source = do
+    print ("buildHaskellPackage",useSrc,deps,source)
+    let addSrc x = if useSrc then x </> "src" else x
+    let name = takeFileName source
+    files <- getDirectoryFiles (addSrc source) ["**/*.hs"]
     let modules = map (intercalate "." . splitDirectories . dropExtension) files
     cmd_ "ghc" ["-hidir=.rattle/haskell" </> name, "-odir=.rattle/haskell" </> name]
-        ["-i" ++ src </> "src"]
+        ["-i" ++ addSrc source]
         ["-package-db=.rattle/haskell" </> d </> "pkg.db" | d <- deps]
         modules ["-this-unit-id=" ++ name]
         (map ("-X"++) haskellExts) haskellFlags
@@ -43,7 +49,8 @@ buildHaskellPackage deps src = do
         ,"exposed: True"
         ,"exposed-modules:"] ++
         map (" "++) modules
-    cmd "ghc-pkg recache" ["--package-db=" ++ ".rattle/haskell" </> name </> "pkg.db"]
+    cmd_ "ghc-pkg recache" ["--package-db=" ++ ".rattle/haskell" </> name </> "pkg.db"]
+    return name
 
 
 haskellExts =
