@@ -84,3 +84,4 @@ ledger-api/.bin
 .ijwb
 .bazelproject
 .bazel-cache
+.rattle
