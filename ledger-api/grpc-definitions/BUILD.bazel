@@ -142,5 +142,6 @@ genrule(
         unzip $(location :ledger-api-docs)
         $(location post-process.sh)
         mv docs_rst_mmd.rst '$@'
-    """
+    """,
+    visibility = ['//visibility:public', ],
 )
