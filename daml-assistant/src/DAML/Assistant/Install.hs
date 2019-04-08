@@ -15,9 +15,9 @@ module DAML.Assistant.Install
     , install
     ) where
 
-import DAML.Project.Types
+import DAML.Assistant.Types
+import DAML.Assistant.Util
 import DAML.Project.Consts
-import DAML.Project.Util
 import DAML.Project.Config
 import Safe
 import Conduit

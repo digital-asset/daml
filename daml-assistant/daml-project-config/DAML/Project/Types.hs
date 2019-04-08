@@ -5,55 +5,31 @@
 
 module DAML.Project.Types
     ( module DAML.Project.Types
-    , Text, pack, unpack -- convenient re-exports
     ) where
 
 import qualified Data.Yaml as Y
 import qualified Data.Text as T
-import Data.Text (Text, pack, unpack)
+import Data.Text (Text)
 import Data.Maybe
-import Control.Exception.Safe
 import System.FilePath
 import Control.Monad
+import Control.Exception.Safe
 
-data AssistantError = AssistantError
-    { errContext  :: Maybe Text -- ^ Context in which error occurs.
-    , errMessage  :: Maybe Text -- ^ User-friendly error message.
-    , errInternal :: Maybe Text -- ^ Internal error message, i.e. what actually happened.
-    } deriving (Eq, Show)
+data ConfigError
+    = ConfigFileInvalid Text Y.ParseException
+    | ConfigFieldInvalid Text [Text] String
+    | ConfigFieldMissing Text [Text]
+    deriving (Show)
 
-instance Exception AssistantError where
-    displayException AssistantError {..} = unpack . T.unlines . catMaybes $
-        [ Just ("daml: " <> fromMaybe "An unknown error has occured" errMessage)
-        , fmap ("   context: " <>) errContext
-        , fmap ("   reason:  " <>) errInternal
-        ]
-
--- | Standard error message.
-assistantError :: Text -> AssistantError
-assistantError msg = AssistantError
-    { errContext = Nothing
-    , errMessage = Just msg
-    , errInternal = Nothing
-    }
-
--- | Standard error message with additional internal cause.
-assistantErrorBecause ::  Text -> Text -> AssistantError
-assistantErrorBecause msg e = (assistantError msg) { errInternal = Just e }
-
-data CommandError = CommandError
-    { cmdErrCommand :: Maybe Text
-    , cmdErrMessage :: Text
-    } deriving (Eq, Show)
-
-instance Exception CommandError
-
-data Env = Env
-    { envDamlPath      :: DamlPath
-    , envProjectPath   :: Maybe ProjectPath
-    , envSdkPath       :: Maybe SdkPath
-    , envSdkVersion    :: Maybe SdkVersion
-    } deriving (Eq, Show)
+instance Exception ConfigError where
+    displayException (ConfigFileInvalid name err) =
+        concat ["Invalid ", T.unpack name, " config file:", displayException err]
+    displayException (ConfigFieldInvalid name path msg) =
+        concat ["Invalid ", T.unpack (T.intercalate "." path)
+            , " field in ", T.unpack name, " config: ", msg]
+    displayException (ConfigFieldMissing name path) =
+        concat ["Missing required ", T.unpack (T.intercalate "." path)
+            , " field in ", T.unpack name, " config."]
 
 newtype DamlConfig = DamlConfig
     { unwrapDamlConfig :: Y.Value
@@ -108,7 +84,7 @@ newtype SdkPath = SdkPath
 -- | Default way of constructing sdk paths.
 defaultSdkPath :: DamlPath -> SdkVersion -> SdkPath
 defaultSdkPath (DamlPath root) (SdkVersion version) =
-    SdkPath (root </> "sdk" </> unpack version)
+    SdkPath (root </> "sdk" </> T.unpack version)
 
 -- | File path of sdk command binary, relative to sdk root.
 newtype SdkCommandPath = SdkCommandPath
@@ -121,28 +97,6 @@ instance Y.FromJSON SdkCommandPath where
         unless (isRelative path) $
             fail "SDK command path must be relative."
         pure $ SdkCommandPath path
-
--- | Absolute file path of binary to dispatch.
-newtype DispatchPath = DispatchPath
-    { unwrapDispatchPath :: FilePath
-    } deriving (Eq, Show)
-
-makeDispatchPath :: SdkPath -> SdkCommandPath -> DispatchPath
-makeDispatchPath (SdkPath root) (SdkCommandPath path) = DispatchPath (root </> path)
-
-data BuiltinCommand
-    = Version
-    | Install InstallOptions
-    deriving (Eq, Show)
-
-data Command
-    = Builtin BuiltinCommand
-    | Dispatch SdkCommandInfo UserCommandArgs
-    deriving (Eq, Show)
-
-newtype UserCommandArgs = UserCommandArgs
-    { unwrapUserCommandArgs :: [String]
-    } deriving (Eq, Show)
 
 newtype SdkCommandName = SdkCommandName
     { unwrapSdkCommandName :: Text
@@ -166,24 +120,3 @@ instance Y.FromJSON SdkCommandInfo where
             <*> (p Y..: "path")
             <*> fmap (fromMaybe (SdkCommandArgs [])) (p Y..:? "args")
             <*> (p Y..:? "desc")
-
-
-data InstallOptions = InstallOptions
-    { iTargetM :: Maybe RawInstallTarget
-    , iActivate :: ActivateInstall
-    , iInitial :: InitialInstall
-    , iForce :: ForceInstall
-    , iQuiet :: QuietInstall
-    } deriving (Eq, Show)
-
-newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
-newtype ForceInstall = ForceInstall Bool deriving (Eq, Show)
-newtype QuietInstall = QuietInstall Bool deriving (Eq, Show)
-newtype ActivateInstall = ActivateInstall Bool deriving (Eq, Show)
-newtype InitialInstall = InitialInstall Bool deriving (Eq, Show)
-
-data InstallTarget
-    = InstallChannel SdkChannel
-    | InstallVersion SdkVersion
-    | InstallPath FilePath
-    deriving (Eq, Show)
