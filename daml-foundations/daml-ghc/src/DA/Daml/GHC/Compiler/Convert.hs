@@ -1196,7 +1196,7 @@ rewriteMaintainer key maintainer = do
             ERecProj _typ field expr -> go (field : fields) expr
             expr -> (expr, fields)
 
-    -- TODO(MH): The error messages here and below are pretty bad.
+    -- TODO(#299): The error messages are pretty bad.
     buildKeyMap :: LF.Expr -> ConvertM (MS.Map [FieldName] LF.Expr)
     buildKeyMap = \case
         ERecCon typ fields -> do
@@ -1207,9 +1207,7 @@ rewriteMaintainer key maintainer = do
             | (EVar "this", fields) <- unwindProjections expr -> pure $ MS.singleton fields (EVar "$key")
         o -> unhandled "Template key expression" o
 
-    -- TODO(MH): Currently, we fail when 'maintainer' references 'this.foo.bar'
-    -- and 'key' contains only 'this.foo' but not 'this.foo.bar'.
-    -- This should be improved.
+    -- TODO(#299): The error messages are pretty bad.
     rewriteThisProjections :: MS.Map [FieldName] LF.Expr -> LF.Expr -> ConvertM LF.Expr
     rewriteThisProjections keyMap expr = case unwindProjections expr of
         (EVar "this", fields)
