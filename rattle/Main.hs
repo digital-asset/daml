@@ -24,9 +24,12 @@ main = rattle $ do
         ,"libs-haskell/da-hs-base"
         ,"libs-haskell/da-hs-pretty"
         ,"compiler/daml-lf-ast"
+        ,"compiler/daml-lf-tools"
+        --,"compiler/daml-lf-proto"
         ]
+    metadata <- return [x{dhl_deps = dhl_deps x `intersect` map dhl_name metadata} | x <- metadata]
     metadata <- return $ topSort [(dhl_name, dhl_deps, x) | x@Da_haskell_library{..} <- metadata]
-    cmd_ "stack build --stack-yaml=rattle/stack.yaml" $ nubSort (concatMap dhl_hazel_deps metadata) \\ ["ghc-lib","ghc-lib-parser"]
+    cmd_ "stack build --stack-yaml=rattle/stack.yaml" $ ("proto3-suite":) $ nubSort (concatMap dhl_hazel_deps metadata) \\ ["ghc-lib","ghc-lib-parser"]
 
     let trans = transitive [(dhl_name, dhl_deps) | Da_haskell_library{..} <- metadata]
     forM_ metadata $ \m -> buildHaskellLibrary m{dhl_deps = nubSort $ concatMap trans $ dhl_deps m}

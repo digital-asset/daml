@@ -1,6 +1,8 @@
 require-stack-version: ">= 1.10"
 resolver: nightly-2019-04-05
-packages: []
+packages:
+- ../nix/third-party/proto3-suite
+- ../nix/third-party/proto3-wire
 
 extra-deps:
   - name: ghc-lib-parser
@@ -11,3 +13,6 @@ extra-deps:
     archive: https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-0.20190405.tar.gz
     sha256: d656919c8c6f6e0c4d6307ef51f89b44d7c218b8261b750bbe8e73127865a6f5
     size: 2848780
+
+# Turtle causes issues: https://github.com/Gabriel439/Haskell-Turtle-Library/issues/323
+allow-newer: true
