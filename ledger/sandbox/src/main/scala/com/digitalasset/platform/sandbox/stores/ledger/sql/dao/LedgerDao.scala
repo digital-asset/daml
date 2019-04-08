@@ -87,6 +87,7 @@ trait LedgerDao {
 
   /**
     * Stores a ledger entry. The ledger end gets updated as well in the same transaction.
+    * WARNING: this code cannot be run concurrently on subsequent entry persistence operations!
     *
     * @param offset the offset to store the ledger entry
     * @param newLedgerEnd the new ledger end, valid after this operation finishes
