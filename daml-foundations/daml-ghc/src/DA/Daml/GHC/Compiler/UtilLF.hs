@@ -3,17 +3,20 @@
 
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- | DAML-LF utility functions, may move to the LF utility if they are generally useful
 module DA.Daml.GHC.Compiler.UtilLF where
 
 import           DA.Daml.LF.Ast
 import qualified DA.Daml.LF.Proto3.Archive  as Archive
+import           DA.Pretty (renderPretty)
 
 import qualified Data.ByteString.Char8      as BS
 import qualified Data.NameMap               as NM
 import           Data.Tagged
 import qualified Data.Text                  as T
 import           GHC.Stack                  (HasCallStack)
+import           Outputable
 
 mkVar :: String -> ExprVarName
 mkVar = Tagged . T.pack
@@ -160,3 +163,5 @@ ghcTypes = Module
           (ERecCon (TypeConApp (qual (dataTypeCon dataProxy)) [TVar (Tagged "a")]) [])
       }
 
+instance Outputable Expr where
+    ppr = text . renderPretty

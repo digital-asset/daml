@@ -22,7 +22,7 @@ import GHC.Num as GHC
 import GHC.Real as GHC (fromRational)
 import GHC.Show as GHC
 import GHC.Tuple()
-import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, ifThenElse, primitive, Proxy (..))
+import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, ifThenElse, primitive)
 
 infixr 0 $
 ($) : (a -> b) -> a -> b

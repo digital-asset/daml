@@ -21,9 +21,9 @@ template Account with
   where
     signatory [bank, accountHolder]
 
-instance Key Account (Party, Text, Int) where
+instance TemplateKey Account (Party, Text, Int) where
     key acc = (acc.bank, acc.accountNumber._1, acc.accountNumber._2)
-    keyMaintainers Proxy (bank, _, _) = [bank]
+    maintainer acc = [acc.bank]
 
 test = scenario do
     bank <- getParty "Bank"

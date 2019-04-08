@@ -94,7 +94,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           Data.Data hiding (TyCon)
-import           Data.Functor.Foldable (cata)
+import           Data.Functor.Foldable
 import           Data.Int
 import           Data.List.Extra
 import qualified Data.Map.Strict as MS
@@ -263,7 +263,7 @@ convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) N
           [(is x', [b])
           | (a,b) <- binds
           , DFunId _ <- [idDetails a]
-          , TypeCon (Is "Key") [TypeCon x' [],_] <- [varType a]
+          , TypeCon (Is "TemplateKey") [TypeCon x' [],_] <- [varType a]
           ]
         defMeths = defaultMethods x
         env = Env
@@ -352,19 +352,21 @@ convertChoice env (VarIs "C:Choice" `App` Type tmpl `App` Type (TypeCon chc []) 
 convertChoice _ x = unhandled "Choice body" x
 
 convertKey :: Env -> GHC.Expr Var -> ConvertM TemplateKey
-convertKey env (VarIs "C:Key" `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` keyMaintainers `App` _fetch `App` _lookup) = do
-    proxyTyp <- qGHC_Types env (mkTypeCon ["Proxy"])
+convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` Var maintainer `App` _fetch `App` _lookup) = do
     tmpl' <- convertType env tmpl
     key <- envFindBind env key
-    case key of
-      Lam binder key -> do
-        let env' = env{envAliases = MS.insert binder (EVar (mkVar "this")) (envAliases env)}
-        TemplateKey
-          <$> convertType env keyType
-          <*> convertExpr env' key
-          <*> ((`ETmApp` ERecCon (TypeConApp proxyTyp [tmpl']) []) <$> convertExpr env keyMaintainers)
-      x -> unhandled "Key definition" x
-convertKey _ x = unhandled "Key definition" x
+    maintainer <- envFindBind env maintainer
+    case (key, maintainer) of
+      (Lam keyBinder keyExpr, Lam maintainerBinder maintainerExpr) -> do
+        keyType <- convertType env keyType
+        let keyEnv = env{envAliases = MS.insert keyBinder (EVar (mkVar "this")) (envAliases env)}
+        keyExpr <- convertExpr keyEnv keyExpr
+        let maintainerEnv = env{envAliases = MS.insert maintainerBinder (EVar (mkVar "this")) (envAliases env)}
+        maintainerExpr <- convertExpr maintainerEnv maintainerExpr
+        maintainerExpr <- rewriteMaintainer keyExpr maintainerExpr
+        pure $ TemplateKey keyType keyExpr (ETmLam ("$key", keyType) maintainerExpr)
+      _ -> unhandled "Template key definition" o
+convertKey _ o = unhandled "Template key definition" o
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
 convertTypeDef env (ATyCon t)
@@ -1006,11 +1008,6 @@ qGHC_Tuple env a = do
   pkgRef <- packageNameToPkgRef env "daml-prim"
   pure $ Qualified pkgRef (mkModName ["GHC", "Tuple"]) a
 
-qGHC_Types :: Env -> a -> ConvertM (Qualified a)
-qGHC_Types env a = do
-  pkgRef <- packageNameToPkgRef env "daml-prim"
-  pure $ Qualified pkgRef (mkModName ["GHC", "Types"]) a
-
 convertQualified :: NamedThing a => Env -> a -> ConvertM (Qualified TypeConName)
 convertQualified env x = do
   pkgRef <- nameToPkgRef env x
@@ -1170,6 +1167,55 @@ toCtor env con =
 
 isRecordCtor :: Ctor -> Bool
 isRecordCtor (Ctor _ fldNames fldTys) = not (null fldNames) || null fldTys
+
+
+---------------------------------------------------------------------
+-- Contract keys rewriting magic
+
+-- | Rewrite all chains of projections referencing 'this' in 'maintainer' into
+-- references into 'key'. Checks that 'key' contains only record constructors and
+-- projections and no constructor is sitting below a projection.
+--
+-- For example, if
+--
+-- > key = (this.foo, this.bar)
+-- > maintainer = this.bar ++ this.foo
+--
+-- then 'maintainer' gets rewritten into
+--
+-- > maintainer = $key._2 ++ $key._1
+rewriteMaintainer :: LF.Expr -> LF.Expr -> ConvertM LF.Expr
+rewriteMaintainer key maintainer = do
+    keyMap <- buildKeyMap key
+    rewriteThisProjections keyMap maintainer
+  where
+    unwindProjections :: LF.Expr -> (LF.Expr, [FieldName])
+    unwindProjections = go []
+      where
+        go fields = \case
+            ERecProj _typ field expr -> go (field : fields) expr
+            expr -> (expr, fields)
+
+    -- TODO(MH): The error messages here and below are pretty bad.
+    buildKeyMap :: LF.Expr -> ConvertM (MS.Map [FieldName] LF.Expr)
+    buildKeyMap = \case
+        ERecCon typ fields -> do
+            keyMaps <- forM fields $ \(fieldName, fieldExpr) ->
+                MS.map (ERecProj typ fieldName) <$> buildKeyMap fieldExpr
+            pure $ MS.unions keyMaps
+        expr@ERecProj{}
+            | (EVar "this", fields) <- unwindProjections expr -> pure $ MS.singleton fields (EVar "$key")
+        o -> unhandled "Template key expression" o
+
+    -- TODO(MH): Currently, we fail when 'maintainer' references 'this.foo.bar'
+    -- and 'key' contains only 'this.foo' but not 'this.foo.bar'.
+    -- This should be improved.
+    rewriteThisProjections :: MS.Map [FieldName] LF.Expr -> LF.Expr -> ConvertM LF.Expr
+    rewriteThisProjections keyMap expr = case unwindProjections expr of
+        (EVar "this", fields)
+          | Just expr' <- MS.lookup fields keyMap -> pure expr'
+          | null fields -> unhandled "Unbound reference to this in maintainer" expr
+        _ -> embed <$> traverse (rewriteThisProjections keyMap) (project expr)
 
 
 ---------------------------------------------------------------------

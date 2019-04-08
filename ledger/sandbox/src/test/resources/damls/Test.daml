@@ -303,10 +303,10 @@ template TextKey
         do
           return ()
 
-instance Key TextKey TextKey where
+instance TemplateKey TextKey TextKey where
   key tk = tk
 
-  keyMaintainers _ tk = [tkParty tk]
+  maintainer tk = [tk.tkParty]
 
 template TextKeyOperations
   with
