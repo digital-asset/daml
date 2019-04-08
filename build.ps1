@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
-    . bazel.exe --bazelrc=.\nix\bazelrc --host_jvm_args=-Djavax.net.ssl.trustStore="$(dadew where)\current\apps\da-truststore\cacerts" @args
+    . bazel.exe --bazelrc=.\nix\bazelrc @args
     if ($global:lastexitcode -ne 0) {
         Write-Output "<< bazel $args (failed, exit code: $global:lastexitcode)"
         throw ("Bazel returned non-zero exit code: $global:lastexitcode")
