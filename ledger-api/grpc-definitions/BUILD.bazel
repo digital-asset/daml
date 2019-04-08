@@ -15,6 +15,7 @@ proto_library(
             '@com_google_protobuf//:wrappers_proto',
             '@com_google_protobuf//:any_proto',
             '@com_google_protobuf//:descriptor_proto',
+            '@com_github_googleapis_googleapis//google/rpc:status_proto'
     ],
     visibility = [
         '//visibility:public',
