@@ -139,7 +139,7 @@ genrule(
     outs = ['proto-docs.rst'],
     cmd = """
         export PATH="$$( cd "$$(dirname "$(location @pandoc_nix//:bin/pandoc)")" ; pwd -P )":$$PATH
-        unzip $(location :ledger-api-docs)
+        unzip -q $(location :ledger-api-docs)
         $(location post-process.sh)
         mv docs_rst_mmd.rst '$@'
     """,
