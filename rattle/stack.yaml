@@ -3,9 +3,11 @@ resolver: nightly-2019-04-05
 packages: []
 
 extra-deps:
-  - archive: https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-0.20190405.tar.gz
+  - name: ghc-lib-parser
+    archive: https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-0.20190405.tar.gz
     sha256: 61bb998ea10a8189b5f5cdae41e7ee6c6329bd8f7f81276e65d0d592b5a69b79
     size: 1630975
-  - archive: https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-0.20190405.tar.gz
+  - name: ghc-lib
+    archive: https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-0.20190405.tar.gz
     sha256: d656919c8c6f6e0c4d6307ef51f89b44d7c218b8261b750bbe8e73127865a6f5
     size: 2848780
