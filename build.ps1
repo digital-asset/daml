@@ -31,6 +31,9 @@ bazel build //pipeline/samples/bazel/haskell/...
 bazel build //compiler/haskell-ide-core/...
 bazel build //compiler/daml-lf-ast/...
 
+# build gRPC
+bazel build @com_github_grpc_grpc//:grpc
+
 # node / npm / yarn test
 bazel build //daml-foundations/daml-tools/daml-extension:daml_extension_lib
 bazel build //daml-foundations/daml-tools/language-server-tests:lib-js
