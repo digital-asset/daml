@@ -20,6 +20,7 @@ TEST_FILES = \
     , main_src = "%s.daml" % name
     , visibility = ["//daml-lf:__subpackages__"]
     , target = "1.1"
+    , damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated"
   )
   for name in TEST_FILES
 ]
@@ -28,6 +29,7 @@ daml_compile(
     name = "Optional"
   , main_src = "Optional.daml"
   , target = "1.1"
+  , damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated"
   , visibility = ["//daml-lf:__subpackages__"]
 )
 
@@ -58,16 +60,16 @@ daml_compile(
     size = "small",
     data = [
       "//daml-lf/repl:repl",
-      "//daml-foundations/daml-tools/da-hs-damlc-app",
-      "//daml-foundations/daml-ghc/package-database:daml-prim-1.3.dalf",
+      "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated",
+      "//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf",
       file,
       "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),
     ],
     args = [
       "$(location //daml-lf/repl:repl)",
-      "$(location //daml-foundations/daml-tools/da-hs-damlc-app)",
+      "$(location //daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated)",
       "$(location :%s)" % file,
-      "$(location //daml-foundations/daml-ghc/package-database:daml-prim-1.3.dalf)"
+      "$(location //daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf)"
     ]
   )
   for file in glob(['scenario/daml-1.3/*/Test.daml'])

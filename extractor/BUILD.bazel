@@ -44,18 +44,21 @@ daml_compile(
   name = "RecordsAndVariants",
   main_src = "src/test/resources/damls/RecordsAndVariants.daml",
   target = "1.3",
+  damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated"
 )
 
 daml_compile(
   name = "PrimitiveTypes",
   main_src = "src/test/resources/damls/PrimitiveTypes.daml",
   target = "1.3",
+  damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated"
 )
 
 daml_compile(
   name = "TransactionExample",
   main_src = "src/test/resources/damls/TransactionExample.daml",
   target = "1.3",
+  damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated"
 )
 
 testDependencies = [
@@ -105,7 +108,7 @@ da_scala_test_suite(
         '//extractor:RecordsAndVariants.dalf',
         '//extractor:PrimitiveTypes.dalf',
         '//extractor:TransactionExample.dalf',
-        '//daml-foundations/daml-ghc/package-database:daml-prim-1.3.dalf'
+        '//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf'
     ],
     deps = [
         ':extractor-scala-tests-lib'

@@ -18,7 +18,7 @@
         }
       },
       "source": "Compiler",
-      "message": "/tests/diagnostics/multi-module-funny/Libs/A.daml:7:1: error:\n    Could not find module ‘B’\n    Use -v (or `:set -v` in ghci) to see a list of the files searched for."
+      "message": "/tests/diagnostics/multi-module-funny/Libs/A.daml:7:1: error:\n    Could not find module ‘B’\n    It is not a module in the current program, or in any known package."
     }
   ],
   "file:/tests/diagnostics/multi-module-funny/Libs/B.daml": [

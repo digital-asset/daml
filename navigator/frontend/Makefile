@@ -1,4 +1,4 @@
-.PHONY: setup build start clean setup upgrade-local-ui-core report-licenses
+.PHONY: setup build start clean setup update-graphql-types report-licenses
 
 default: build
 

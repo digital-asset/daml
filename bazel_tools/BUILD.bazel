@@ -3,6 +3,15 @@
 
 # Export Bazel sources for Bazel API docs.
 exports_files(
-    ["haskell.bzl", "scala.bzl", "haskell-static-linking.patch", "haskell-hazel-shorten-source-dirs.patch", "haskell-arx.patch", "haskell-win-sys-includes.patch", "hackage_mirror.patch"],
+    [ "haskell.bzl",
+      "scala.bzl",
+      "haskell-static-linking.patch",
+      "haskell-hazel-shorten-source-dirs.patch",
+      "haskell-arx.patch",
+      "haskell-win-sys-includes.patch",
+      "hackage_mirror.patch",
+      "haskell-ld-library-path.patch",
+      "haskell-win-so-name.patch"
+    ],
     visibility = ["//bazel_tools/docs:__pkg__"]
 )

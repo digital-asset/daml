@@ -23,7 +23,7 @@ commands:
 - name: sandbox
   path: daml-helper/daml-helper
   desc: "Start the sandbox"
-  args: ["run-jar", "sandbox/sandbox.jar", "--"]
+  args: ["sandbox"]
 - name: navigator
   path: daml-helper/daml-helper
   desc: "Start the navigator"
@@ -36,3 +36,7 @@ commands:
   path: daml-helper/daml-helper
   desc: "Create a new project"
   args: ["new"]
+- name: start
+  path: daml-helper/daml-helper
+  args: ["start"]
+  desc: "Start the sandbox and the navigator using the given DAR"

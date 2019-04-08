@@ -8,8 +8,8 @@ module DAML.Assistant
     , runTests
     ) where
 
-import DAML.Assistant.Util
-import DAML.Assistant.Config
+import DAML.Project.Util
+import DAML.Project.Config
 import DAML.Assistant.Env
 import DAML.Assistant.Tests
 import DAML.Assistant.Command

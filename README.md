@@ -1,12 +1,16 @@
 [![DAML logo](daml-logo.png)](https://www.daml.com)
 
+
+[![Build Status](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=master&jobName=Linux&label=linux)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=master) [![Build Status](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=master&jobName=macOS&label=macOS)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=master)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/master/LICENSE)
+
 Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 
 # Welcome to the DAML repository!
 
-This repository hosts all code for the DAML smart contract language, originally created by
-[Digital Asset](https://www.digitalasset.com).
+This repository hosts all code for the [DAML smart contract language and SDK](https://daml.com/), originally created by
+[Digital Asset](https://www.digitalasset.com). DAML is an open-source smart contract language for building future-proof distributed applications on a safe, privacy-aware runtime. The DAML SDK is a set of tools to help you develop applications based on DAML.
 
 ## To start using DAML
 
@@ -16,9 +20,9 @@ To try out using it, follow the [quickstart guide](https://docs.daml.com/getting
 If you have questions about how to use DAML or how to build DAML-based solutions, please ask
 them on [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
 
-## To start contributing to DAML
+## To start contributing to the DAML SDK
 
-We warmly welcome [contributions](./CONTRIBUTING.md).
+We warmly welcome [contributions](./CONTRIBUTING.md). To get set up for contributing to the SDK, follow these instructions:
 
 ### 1. Clone this repository
 
@@ -31,8 +35,9 @@ for some tooling scripts. The code itself is built using Bazel.
 
 #### Set up `dev-env` on Linux or macOS
 
-1. Install Nix: `bash <(curl https://nixos.org/nix/install)`
-2. Enter `dev-env`: `eval "$(dev-env/bin/dade assist)"`
+1. Use `cd daml` to switch into the new `daml` repository you just cloned
+2. Install Nix by running: `bash <(curl https://nixos.org/nix/install)`
+3. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
 
 If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
 you can also install [direnv](https://direnv.net). This repo already provides a `.envrc`
@@ -47,12 +52,12 @@ We're working on Windows support (for both end users and developers), but it's n
 
 Run `bazel build //...`
 
-This builds the code and runs the tests, and will likely take an hour or more.
+This builds the code, and will likely take an hour or more.
 
 Now you've built, rebuilding the code after a change will be much faster because Bazel caches
 unchanged build artefacts. To read more about Bazel and how to use it, see [the Bazel site](https://bazel.build).
 
-To just run the tests, run `bazel test //...`
+To run the tests, run `bazel test //...`
 
 ### 4. Contribute!
 

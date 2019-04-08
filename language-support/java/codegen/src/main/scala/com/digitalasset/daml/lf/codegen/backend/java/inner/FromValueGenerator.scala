@@ -208,8 +208,35 @@ private[inner] object FromValueGenerator extends StrictLogging {
           accessor,
           orElseThrow(apiType, field))
 
+      case TypePrim(PrimTypeMap, ImmArraySeq(param)) =>
+        val optMapArg = args.next()
+        val entryArg = args.next()
+        CodeBlock
+          .builder()
+          .add(CodeBlock.of("$L.asMap().map($L -> ", accessor, optMapArg))
+          .add(CodeBlock.of(
+            "$L.getMap().entrySet().stream().collect($T.<java.util.Map.Entry<String,Value>,String,$L>toMap(",
+            optMapArg,
+            classOf[Collectors],
+            toJavaTypeName(param, packagePrefixes)
+          ))
+          .add(CodeBlock.of("java.util.Map.Entry::getKey,$L -> ", entryArg))
+          .add(
+            CodeBlock.of(
+              "$L",
+              composite(
+                param,
+                entryArg,
+                CodeBlock.of("$L.getValue()", entryArg),
+                args,
+                packagePrefixes)))
+          .add(CodeBlock.of(")))"))
+          .add(orElseThrow(apiType, field))
+          .build()
+
       case TypePrim(prim, _) =>
-        primitive(prim, apiType, field, accessor).getOrElse(CodeBlock.builder().build())
+        primitive(prim, apiType, field, accessor).getOrElse(
+          sys.error(s"Unhandled primitive type $prim"))
 
       case TypeCon(_, ImmArraySeq()) =>
         CodeBlock.of("$T.fromValue($L)", javaType, accessor)

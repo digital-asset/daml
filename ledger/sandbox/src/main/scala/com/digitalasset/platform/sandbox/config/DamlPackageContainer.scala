@@ -14,6 +14,7 @@ import com.digitalasset.daml_lf.DamlLf.Archive
 import scala.collection.breakOut
 import scala.collection.immutable.Iterable
 import scala.util.control.NonFatal
+import scala.util.Try
 
 case class DamlPackageContainer(files: List[File] = Nil, devAllowed: Boolean = false) {
 
@@ -31,10 +32,9 @@ case class DamlPackageContainer(files: List[File] = Nil, devAllowed: Boolean = f
     }
 
   private def archivesFromDar(file: File): List[Archive] = {
-    new DarReader[Archive](Archive.parseFrom)
+    DarReader[Archive](x => Try(Archive.parseFrom(x)))
       .readArchive(new ZipFile(file))
-      .fold(t => throw new RuntimeException(s"Failed to parse DAR from $file", t), identity)
-
+      .fold(t => throw new RuntimeException(s"Failed to parse DAR from $file", t), dar => dar.all)
   }
 
   private def archivesFromDalf(file: File): List[Archive] = {

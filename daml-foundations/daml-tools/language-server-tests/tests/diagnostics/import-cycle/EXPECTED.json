@@ -13,7 +13,7 @@
         }
       },
       "source": "Import cycle detection",
-      "message": "Cyclic module dependency between Main, A, B"
+      "message": "Cyclic module dependency between A, B, Main"
     }
   ],
   "file:/tests/diagnostics/import-cycle/Prelude.daml": [],
@@ -34,7 +34,7 @@
         }
       },
       "source": "Import cycle detection",
-      "message": "Cyclic module dependency between Main, A, B"
+      "message": "Cyclic module dependency between A, B, Main"
     }
   ],
   "file:/tests/diagnostics/import-cycle/B.daml": [
@@ -51,7 +51,7 @@
         }
       },
       "source": "Import cycle detection",
-      "message": "Cyclic module dependency between Main, A, B"
+      "message": "Cyclic module dependency between A, B, Main"
     }
   ]
 }

@@ -1115,7 +1115,7 @@ defDataType name params constrs =
 
 defValue :: NamedThing a => a -> (ExprValName, LF.Type) -> LF.Expr -> Definition
 defValue loc binder@(name, lftype) body =
-  DValue $ DefValue (convNameLoc loc) binder (HasNoPartyLiterals True) (IsTest isTest) body Nothing
+  DValue $ DefValue (convNameLoc loc) binder (HasNoPartyLiterals True) (IsTest isTest) body
   where
     isTest = case view _TForalls lftype of
       (_, LF.TScenario _)  -> True
@@ -1203,8 +1203,11 @@ mkPure env monad dict t x = do
       TBuiltin BTScenario -> pure $ EScenario (SPure t x)
       _ -> do
         dict' <- convertExpr env dict
-        -- TODO (drsk): Package reference will change to package that contains DA.Internal.Prelude
-        pure $ EVal (Qualified PRSelf (mkModName ["DA", "Internal", "Prelude"]) (mkVal "pure"))
+        pkgRef <- if envModuleUnitId env == stringToUnitId "daml-prim" && envLfVersion env <= LF.version1_3
+                  -- TODO (drsk): Get rid of this when daml-lf tests can handle dars.
+                  then pure LF.PRSelf
+                  else packageNameToPkgRef env "daml-stdlib"
+        pure $ EVal (Qualified pkgRef (mkModName ["DA", "Internal", "Prelude"]) (mkVal "pure"))
           `ETyApp` monad'
           `ETmApp` dict'
           `ETyApp` t

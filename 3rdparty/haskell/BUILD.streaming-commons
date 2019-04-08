@@ -6,6 +6,8 @@ load("@io_tweag_rules_haskell//haskell:haskell.bzl",
 )
 load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
 
+load("@os_info//:os_info.bzl", "is_windows")
+
 cc_library(
   name = "streaming-commons-cbits",
   hdrs = glob(["include/*.h"]),
@@ -15,12 +17,15 @@ cc_library(
   copts = ["-Wno-pointer-sign", "-Wno-duplicate-decl-specifier",],
 )
 
+
+# For Windows-specific flags, see
+# https://github.com/fpco/streaming-commons/blob/9946d9bdc4924d6c6f904c42b70faad053a1cb25/streaming-commons.cabal#L65-L71
 haskell_library(
   name = "streaming-commons",
   srcs = glob([
     "Data/**/*.hs",
     "System/**/*.hs",
-  ]),
+  ] + ([ "System/Win32File.hsc" ] if is_windows else [] ) ),
   deps = [
       ":streaming-commons-cbits",
       hazel_library("base"),
@@ -34,8 +39,16 @@ haskell_library(
       hazel_library("stm"),
       hazel_library("text"),
       hazel_library("transformers"),
-      hazel_library("unix"),
       hazel_library("zlib"),
-  ],
+  ] + ([
+      hazel_library("Win32"),
+      hazel_library("filepath"),
+  ] if is_windows else [
+      hazel_library("unix"),
+  ]),
+
+
+  compiler_flags = [ "-DWINDOWS" ] if is_windows else [],
+
   version = "0.2.1.0",
 )

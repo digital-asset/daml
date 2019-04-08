@@ -65,7 +65,7 @@ def _daml_package_rule_impl(ctx):
     content = PACKAGE_CONF_TEMPLATE.format(
       name = ctx.attr.pkg_name,
       modules = " ".join(modules.keys()),
-      depends = " ".join([dep.label.name for dep in ctx.attr.dependencies])
+      depends = " ".join([dep[DamlPackage].pkg_name for dep in ctx.attr.dependencies])
     )
   )
 
@@ -78,7 +78,6 @@ def _daml_package_rule_impl(ctx):
     progress_message = "Compiling " + name + ".daml to daml-lf " + ctx.attr.daml_lf_version,
     command = """
       mkdir -p tmp_db
-      mkdir -p empty
       tar xf {db_tar} -C tmp_db --strip-components 1
       mkdir -p tmp_db/{daml_lf_version}
 
@@ -86,7 +85,6 @@ def _daml_package_rule_impl(ctx):
       {damlc_bootstrap} compile \
         --package-name {pkg_name} \
         --package-db tmp_db \
-        --stdlib empty \
         --write-iface \
         --target {daml_lf_version} \
         -o {dalf_file} \
