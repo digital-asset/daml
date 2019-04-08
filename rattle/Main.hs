@@ -3,6 +3,7 @@ module Main(main) where
 
 import Rattle
 import System.IO.Extra
+import System.Process.Extra
 import System.FilePattern.Directory
 import System.FilePath
 import System.Directory
@@ -16,14 +17,14 @@ main = rattle $ do
     cmd_ "stack build --stack-yaml=rattle/stack.yaml" $ delete "" $ nubOrd src
     pp_syntax <- buildHaskellLibrary True [] "libs-haskell/prettyprinter-syntax"
     config <- buildHaskellLibrary False [] "daml-assistant/daml-project-config"
-    buildHaskellLibrary True [pp_syntax] "compiler/haskell-ide-core"
-    base <- buildHaskellLibrary True [config] "libs-haskell/da-hs-base"
-    pretty <- buildHaskellLibrary True [base,pp_syntax] "libs-haskell/da-hs-pretty"
-    buildHaskellLibrary True [pretty,base] "compiler/daml-lf-ast"
+    buildHaskellLibrary True pp_syntax "compiler/haskell-ide-core"
+    base <- buildHaskellLibrary True config "libs-haskell/da-hs-base"
+    pretty <- buildHaskellLibrary True (base++pp_syntax) "libs-haskell/da-hs-pretty"
+    buildHaskellLibrary True (pretty++base) "compiler/daml-lf-ast"
     return ()
 
 
-buildHaskellLibrary :: Bool -> [String] -> FilePath -> IO String
+buildHaskellLibrary :: Bool -> [String] -> FilePath -> IO [String]
 buildHaskellLibrary useSrc deps source = do
     print ("buildHaskellPackage",useSrc,deps,source)
     let addSrc x = if useSrc then x </> "src" else x
@@ -37,8 +38,12 @@ buildHaskellLibrary useSrc deps source = do
         (map ("-X"++) haskellExts) haskellFlags
     cmd_ "ar -r" [".rattle/haskell" </> name </> "libHS" ++ name ++ ".a"]
         [".rattle/haskell" </> name </> x -<.> "o" | x <- files]
+    cmd_ "ld -x -r -o" [".rattle/haskell" </> name </> "HS" ++ name ++ ".o"]
+        [".rattle/haskell" </> name </> x -<.> "o" | x <- files]
     unlessM (doesDirectoryExist $ ".rattle/haskell" </> name </> "pkg.db") $
         cmd_ "ghc-pkg init" [".rattle/haskell" </> name </> "pkg.db"]
+    keys <- map (drop 4) . filter (not . isInfixOf "haskeline") . filter (not . isInfixOf "ghc-lib") . lines <$>
+        systemOutput_ "ghc-pkg field \"*\" key"
     writeFile (".rattle/haskell" </> name </> "pkg.db" </> name <.> "conf") $ unlines $
         ["name: " ++ name
         ,"version: 0"
@@ -46,11 +51,15 @@ buildHaskellLibrary useSrc deps source = do
         ,"key: " ++ name
         ,"hs-libraries: HS" ++ name
         ,"import-dirs: ${pkgroot}"
+        ,"library-dirs: ${pkgroot}"
+        ,"dynamic-library-dirs: ${pkgroot}"
         ,"exposed: True"
         ,"exposed-modules:"] ++
-        map (" "++) modules
+        map (" "++) modules ++
+        ["depends:"] ++
+        keys ++ map (" "++) deps
     cmd_ "ghc-pkg recache" ["--package-db=" ++ ".rattle/haskell" </> name </> "pkg.db"]
-    return name
+    return $ name : deps
 
 
 haskellExts =
@@ -79,4 +88,5 @@ haskellFlags =
     ,"-fno-omit-yields"
     ,"-threaded", "-rtsopts"
     -- run on two cores, disable idle & parallel GC
-    ,"-with-rtsopts=-N2 -qg -I0"]
+    ,"-with-rtsopts=-N2 -qg -I0"
+    ]
