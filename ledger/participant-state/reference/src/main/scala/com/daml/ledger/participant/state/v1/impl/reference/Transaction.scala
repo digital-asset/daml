@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.v1.impl.reference
 
-import com.daml.ledger.participant.state.v1.{CommittedTransaction, SubmittedTransaction, UpdateId}
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, SubmittedTransaction}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.transaction.Transaction.ContractId
@@ -70,8 +70,8 @@ object Transaction {
     case c @ AbsoluteContractId(_) => c
   }
 
-  def toAbsNodeId(updateId: UpdateId, nid: Value.NodeId): String =
-    s"#$updateId:${nid.index}"
+  def toAbsNodeId(txId: String, nid: Value.NodeId): String =
+    s"#$txId:${nid.index}"
 
   def encodeTransaction(tx: SubmittedTransaction): ByteString =
     TransactionCoder

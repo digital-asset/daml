@@ -252,11 +252,11 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   /**
     * Subscribe to the stream of ledger sync events
     */
-  def ledgerSyncEvents(offset: Option[UpdateId]): Source[(UpdateId, v1.Update), NotUsed] = {
+  def ledgerSyncEvents(updateId: Option[UpdateId]): Source[(UpdateId, v1.Update), NotUsed] = {
     StateController
       .subscribe()
       .statefulMapConcat { () =>
-        var currentOffset = offset.map(_.toInt).getOrElse(0)
+        var currentOffset = updateId.map(updateIdToOffset).getOrElse(0)
         state =>
           val newEvents = state.ledger.zipWithIndex
             .drop(currentOffset)
@@ -302,22 +302,25 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   private def mkContractOutputs(
       transaction: SubmittedTransaction,
       txDelta: TxDelta,
-      offset: UpdateId): Map[AbsoluteContractId, AbsoluteContractInst] =
+      updateId: UpdateId): Map[AbsoluteContractId, AbsoluteContractInst] = {
+    val txId = updateIdToTxId(updateId)
+
     txDelta.outputs.toList.map {
       case (contractId, contract) =>
         (
-          mkAbsContractId(offset)(contractId),
-          contract.contract.mapValue(_.mapContractId(mkAbsContractId(offset))))
+          mkAbsContractId(txId)(contractId),
+          contract.contract.mapValue(_.mapContractId(mkAbsContractId(txId))))
     }.toMap
+  }
 
   private def mkAcceptedTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
-      offset: UpdateId,
+      updateId: UpdateId,
       recordTime: Instant,
       inputContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
-    val txId = offset // for this ledger, offset is also the transaction id
+    val txId = updateIdToTxId(updateId) // for this ledger, offset is also the transaction id
     TransactionAccepted(
       Some(submitterInfo),
       transactionMeta,
@@ -331,7 +334,14 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   private def mkRejectedCommand(rejectionReason: RejectionReason, submitterInfo: SubmitterInfo) =
     CommandRejected(Some(submitterInfo), rejectionReason)
 
-  private def mkUpdateId(offset: Int) = offset.toString
+  private def mkUpdateId(offset: Int): UpdateId =
+    UpdateId(Array(offset))
+
+  private def updateIdToTxId(updateId: UpdateId): String =
+    updateId.xs.mkString("-")
+
+  private def updateIdToOffset(updateId: UpdateId): Int =
+    updateId.xs.headOption.getOrElse(sys.error(s"Invalid update id: $updateId"))
 
   private def emptyLedgerState = {
     val heartbeat: Update = Heartbeat(Timestamp.assertFromInstant(timeProvider.getCurrentTime))

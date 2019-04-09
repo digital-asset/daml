@@ -10,9 +10,10 @@ import scala.concurrent.{ExecutionContext, Future}
 
 trait DamlOnXServiceUtils extends ErrorFactories {
 
-  def consumeAsyncResult[T](ar: AsyncResult[T])(implicit ec: ExecutionContext): Future[T] = {
+  def consumeAsyncResult[T](ar: AsyncResult[T])(
+      implicit ec: ExecutionContext): Future[T] = {
     ar.flatMap {
-      case Left(IndexService.Err.IndexIdMismatch(expected, actual)) =>
+      case Left(IndexService.Err.LedgerIdMismatch(expected, actual)) =>
         Future.failed(ledgerIdMismatch(expected, actual))
       case Right(result) =>
         Future.successful(result)

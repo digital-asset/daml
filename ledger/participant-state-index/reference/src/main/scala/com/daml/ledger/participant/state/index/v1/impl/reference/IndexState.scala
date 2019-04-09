@@ -3,75 +3,68 @@
 
 package com.daml.ledger.participant.state.index.v1.impl.reference
 
-import java.util.UUID
-
-import com.daml.ledger.participant.state.index.v1.{IndexId, Offset}
+import com.daml.ledger.participant.state.index.v1.Offset
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Blinding
+import com.digitalasset.daml.lf.lfpackage.Decode
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.types.Ledger
+import com.digitalasset.daml.lf.types.Ledger.LedgerFeatureFlags
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
+import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.TreeMap
 
 final case class IndexState(
-    // TODO(SM):
-    // - use immutable collections with the right asymptotics
-    // - understand how to handle rejection
-    indexId: IndexId,
-    private val stateId: Option[StateId],
+    private val ledgerId: Option[LedgerId],
     private val updateId: Option[UpdateId],
-    // The next ledger offset.
-    nextOffset: Offset,
-    // Mapping from the ledger offset to the opaque update id.
-    offsetToUpdateId: Map[Long, UpdateId],
+    private val beginning: Option[UpdateId],
     private val configuration: Option[Configuration],
-    recordTime: Option[Timestamp],
-    // Accepted transactions indexed by UpdateId.
+    private val recordTime: Option[Timestamp],
+    // Accepted transactions indexed by offset.
     txs: TreeMap[Offset, (Update.TransactionAccepted, BlindingInfo)],
     activeContracts: Map[
       AbsoluteContractId,
       Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]],
-    // Rejected commands indexed by UpdateId.
+    // Rejected commands indexed by offset.
     rejections: TreeMap[Offset, Update.CommandRejected],
     // Uploaded packages.
     packages: Map[PackageId, (Option[SubmitterInfo], Archive)],
+    ledgerFeatureFlags: LedgerFeatureFlags,
     packageKnownTo: Relation[PackageId, Party],
     hostedParties: Set[Party]) {
+
+  val logger = LoggerFactory.getLogger(this.getClass)
 
   import IndexState._
 
   /** Return True if the mandatory fields have been initialized. */
   def initialized: Boolean = {
-    return this.stateId.isDefined && this.updateId.isDefined && this.recordTime.isDefined
+    return this.ledgerId.isDefined && this.updateId.isDefined && this.recordTime.isDefined
     // FIXME(JM): && this.configuration.isDefined
   }
 
-  def getStateId: StateId =
-    stateId.getOrElse(sys.error("INTERNAL ERROR: State not yet initialized."))
+  private def getIfInitialized[T](x: Option[T]): T =
+    x.getOrElse(sys.error("INTERNAL ERROR: State not yet initialized."))
 
-  def getUpdateId: UpdateId =
-    updateId.getOrElse(sys.error("INTERNAL ERROR: State not yet initialized."))
-
-  def getConfiguration: Configuration =
-    configuration.getOrElse(sys.error("INTERNAL ERROR: State not yet initialized."))
+  def getLedgerId: LedgerId = getIfInitialized(ledgerId)
+  def getUpdateId: UpdateId = getIfInitialized(updateId)
+  def getBeginning: UpdateId = getIfInitialized(beginning)
+  def getConfiguration: Configuration = getIfInitialized(configuration)
+  def getRecordTime: Timestamp = getIfInitialized(recordTime)
 
   /** Return a new state with the given update applied or the
     * invariant violation in case that is not possible.
     */
   def tryApply(uId: UpdateId, u0: Update): Either[InvariantViolation, IndexState] = {
-    // record new offset
-    val offset = this.nextOffset
     val state = this.copy(
       updateId = Some(uId),
-      nextOffset = this.nextOffset + 1,
-      offsetToUpdateId = this.offsetToUpdateId + (offset -> uId)
+      beginning = if (this.beginning.isEmpty) Some(uId) else this.beginning
     )
     // apply update to state with new offset
     u0 match {
@@ -82,8 +75,8 @@ final case class IndexState(
           Left(NonMonotonicRecordTimeUpdate)
 
       case u: Update.StateInit =>
-        if (!this.stateId.isDefined)
-          Right(state.copy(stateId = Some(u.stateId)))
+        if (!this.ledgerId.isDefined)
+          Right(state.copy(ledgerId = Some(u.ledgerId)))
         else
           Left(StateAlreadyInitialized)
 
@@ -94,23 +87,42 @@ final case class IndexState(
         Right(state.copy(hostedParties = state.hostedParties + u.party))
 
       case u: Update.PackageUploaded =>
-        Right(state.copy(packages = state.packages +
-          (Ref.PackageId.assertFromString(u.archive.getHash) -> ((u.optSubmitterInfo, u.archive)))))
+        val newPackages =
+          state.packages +
+            (Ref.PackageId.assertFromString(u.archive.getHash) -> ((u.optSubmitterInfo, u.archive)))
+
+        val decodedPackages = newPackages.mapValues {
+          case (optSubmitterInfo, archive) =>
+            Decode.decodeArchive(archive)._2
+        }
+        val newLedgerFeatureFlags = LedgerFeatureFlags
+          .fromPackages(decodedPackages)
+          .getOrElse(sys.error("FIXME(JM): Mixed ledger feature flags"))
+
+        logger.debug(s"ledger feature flags = $newLedgerFeatureFlags")
+
+        Right(
+          state
+            .copy(
+              packages = newPackages,
+              ledgerFeatureFlags = newLedgerFeatureFlags
+            ))
 
       case u: Update.CommandRejected =>
         Right(
           state.copy(
-            rejections = rejections + (offset -> u)
+            rejections = rejections + (Offset.fromUpdateId(uId) -> u)
           )
         )
       case u: Update.TransactionAccepted =>
         val blindingInfo = Blinding.blind(
-          Ledger.LedgerFeatureFlags.default, /* FIXME(JM) */
+          state.ledgerFeatureFlags,
           u.transaction.asInstanceOf[Transaction.Transaction]
         )
+        logger.debug(s"blindingInfo=$blindingInfo")
         Right(
           state.copy(
-            txs = txs + (offset -> ((u, blindingInfo))),
+            txs = txs + (Offset.fromUpdateId(uId) -> ((u, blindingInfo))),
             activeContracts =
               activeContracts -- consumedContracts(u.transaction) ++ createdContracts(u.transaction)
           )
@@ -146,17 +158,16 @@ object IndexState {
   case object StateAlreadyInitialized extends InvariantViolation
 
   def initialState: IndexState = IndexState(
-    indexId = UUID.randomUUID().toString,
-    stateId = None,
+    ledgerId = None,
     updateId = None,
-    nextOffset = 0,
-    offsetToUpdateId = Map.empty,
+    beginning = None,
     configuration = None,
     recordTime = None,
     txs = TreeMap.empty,
     activeContracts = Map.empty,
     rejections = TreeMap.empty,
     packages = Map.empty,
+    ledgerFeatureFlags = LedgerFeatureFlags.default,
     packageKnownTo = Map.empty,
     hostedParties = Set.empty
   )

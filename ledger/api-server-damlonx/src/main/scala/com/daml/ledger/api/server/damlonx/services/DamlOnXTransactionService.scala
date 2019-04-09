@@ -9,6 +9,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.index.v1.{IndexService, Offset, TransactionAccepted}
+import com.daml.ledger.participant.state.v1.LedgerId
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.transaction.Transaction.NodeId
@@ -34,20 +35,22 @@ import scalaz.Tag
 import scalaz.syntax.tag._
 
 import scala.collection.breakOut
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 object DamlOnXTransactionService {
 
-  def create(indexService: IndexService, identifierResolver: IdentifierResolver)(
+  def create(
+      ledgerId: LedgerId,
+      indexService: IndexService,
+      identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
     : GrpcTransactionService with BindableService with TransactionServiceLogging =
     new GrpcTransactionService(
       new DamlOnXTransactionService(indexService),
-      Await.result(indexService.getCurrentIndexId(), 5.seconds), // FIXME(JM): ???
+      ledgerId,
       PartyNameChecker.AllowAllParties,
       identifierResolver
     ) with TransactionServiceLogging
@@ -91,12 +94,15 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
               )
 
           val submitterIsSubscriber =
-            trans.optSubmitterInfo.map(_.submitter).fold(false)(eventFilter.isSubmitterSubscriber)
+            trans.optSubmitterInfo
+              .map(_.submitter)
+              .fold(false)(eventFilter.isSubmitterSubscriber)
           if (events.nonEmpty || submitterIsSubscriber) {
             val transaction = PTransaction(
               transactionId = trans.transactionId,
               commandId =
-                if (submitterIsSubscriber) trans.optSubmitterInfo.map(_.commandId).getOrElse("")
+                if (submitterIsSubscriber)
+                  trans.optSubmitterInfo.map(_.commandId).getOrElse("")
                 else "",
               workflowId = trans.transactionMeta.workflowId,
               effectiveAt = Some(fromInstant(trans.transactionMeta.ledgerEffectiveTime.toInstant)), // FIXME(JM): conversion
@@ -120,8 +126,8 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
       }
   }
 
-  override def getTransactionTrees(
-      request: GetTransactionTreesRequest): Source[WithOffset[VisibleTransaction], NotUsed] = {
+  override def getTransactionTrees(request: GetTransactionTreesRequest)
+    : Source[WithOffset[String, VisibleTransaction], NotUsed] = {
     logger.debug("Received {}", request)
     val filter = TransactionFilter(request.parties.map(_ -> Filters.noFilter)(breakOut))
 
@@ -133,8 +139,8 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     ).mapConcat {
       case (offset, (trans, _blindingInfo)) =>
         toResponseIfVisible(request, request.parties, trans)
-          .fold(List.empty[WithOffset[VisibleTransaction]])(e =>
-            List(WithOffset(BigInt(offset), e)))
+          .fold(List.empty[WithOffset[String, VisibleTransaction]])(e =>
+            List(WithOffset(offset.toString, e)))
     }
   }
 
@@ -179,7 +185,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     consumeAsyncResult(
       indexService
         .getAcceptedTransactions(
-          indexId = ledgerId,
+          ledgerId = ledgerId,
           beginAfter = None,
           endAt = None,
           filter = filter
@@ -213,8 +219,11 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     consumeAsyncResult(indexService.getLedgerEnd(ledgerId)).map(offset =>
       LedgerOffset.Absolute(offset.toString))
 
+  private def getLedgerBounds(ledgerId: String): Future[(Offset, Offset)] =
+    consumeAsyncResult(indexService.getLedgerBounds(ledgerId))
+
   override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
-    Ordering.by(abs => BigInt(abs.value))
+    Ordering.by(abs => Offset.assertFromString(abs.value))
 
   private def runTransactionPipeline(
       ledgerId: String,
@@ -224,26 +233,26 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
 
     Source
       .fromFuture(
-        getLedgerEnd(ledgerId).flatMap { ledgerEnd =>
-          OffsetSection(begin, end)(
-            getOffsetHelper(ledgerEnd.value.toLong /* FIXME(JM): validate */ )) match {
-            case Failure(exception) =>
-              Future.failed(exception)
-            case Success(value) =>
-              value match {
-                case OffsetSection.Empty =>
-                  Future { Source.empty }
-                case OffsetSection.NonEmpty(subscribeFrom, subscribeUntil) =>
-                  consumeAsyncResult(
-                    indexService
-                      .getAcceptedTransactions(
-                        ledgerId,
-                        Some(subscribeFrom),
-                        subscribeUntil,
-                        filter)
-                  )
-              }
-          }
+        getLedgerBounds(ledgerId).flatMap {
+          case (ledgerBegin, ledgerEnd) =>
+            OffsetSection(begin, end)(getOffsetHelper(ledgerBegin, ledgerEnd)) match {
+              case Failure(exception) =>
+                Future.failed(exception)
+              case Success(value) =>
+                value match {
+                  case OffsetSection.Empty =>
+                    Future { Source.empty }
+                  case OffsetSection.NonEmpty(subscribeFrom, subscribeUntil) =>
+                    consumeAsyncResult(
+                      indexService
+                        .getAcceptedTransactions(
+                          ledgerId,
+                          Some(subscribeFrom),
+                          subscribeUntil,
+                          filter)
+                    )
+                }
+            }
         }
       )
       .flatMapConcat(identity) // FIXME(JM): eh, what's the right way?
@@ -253,16 +262,17 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
 
   }
 
-  private def getOffsetHelper(ledgerEnd: Offset) = {
+  private def getOffsetHelper(ledgerBeginning: Offset, ledgerEnd: Offset) = {
     new OffsetHelper[Offset] {
-      override def fromOpaque(opaque: String): Try[Offset] = Success(opaque.toLong)
+      override def fromOpaque(opaque: String): Try[Offset] =
+        Try(Offset.assertFromString(opaque))
 
-      override def getLedgerBeginning(): Offset = 0
+      override def getLedgerBeginning(): Offset = ledgerBeginning
 
       override def getLedgerEnd(): Offset = ledgerEnd
 
       override def compare(o1: Offset, o2: Offset): Int =
-        java.lang.Long.compare(o1, o2)
+        Offset.compare(o1, o2)
     }
   }
 
@@ -273,18 +283,20 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
   private def eventIdToTransactionId(eventId: EventId): Option[String] =
     eventId.unwrap.split(':').headOption
 
-  private def toTransactionWithMeta(trans: TransactionAccepted) = TransactionWithMeta(
-    trans.transaction.mapNodeId(nodeIdToEventId(trans.transactionId, _)),
-    extractMeta(trans)
-  )
+  private def toTransactionWithMeta(trans: TransactionAccepted) =
+    TransactionWithMeta(
+      trans.transaction.mapNodeId(nodeIdToEventId(trans.transactionId, _)),
+      extractMeta(trans)
+    )
 
-  private def extractMeta(trans: TransactionAccepted): TransactionMeta = TransactionMeta(
-    TransactionId(trans.transactionId),
-    Tag.subst(trans.optSubmitterInfo.map(_.commandId)),
-    Tag.subst(trans.optSubmitterInfo.map(_.applicationId)),
-    Tag.subst(trans.optSubmitterInfo.map(_.submitter)),
-    WorkflowId(trans.transactionMeta.workflowId),
-    trans.recordTime.toInstant,
-    None
-  )
+  private def extractMeta(trans: TransactionAccepted): TransactionMeta =
+    TransactionMeta(
+      TransactionId(trans.transactionId),
+      Tag.subst(trans.optSubmitterInfo.map(_.commandId)),
+      Tag.subst(trans.optSubmitterInfo.map(_.applicationId)),
+      Tag.subst(trans.optSubmitterInfo.map(_.submitter)),
+      WorkflowId(trans.transactionMeta.workflowId),
+      trans.recordTime.toInstant,
+      None
+    )
 }

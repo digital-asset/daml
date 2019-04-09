@@ -21,6 +21,7 @@ import scala.util.Try
 object ReferenceServer extends App {
   val logger = LoggerFactory.getLogger(this.getClass)
 
+  // Initialize Akka and log exceptions in flows.
   implicit val system = ActorSystem("ReferenceServer")
   implicit val materializer = ActorMaterializer(
     ActorMaterializerSettings(system)
@@ -40,6 +41,8 @@ object ReferenceServer extends App {
       .fold(t => throw new RuntimeException(s"Failed to parse DAR from $file", t), dar => dar.all)
   }
 
+  // Parse DAR archives given as command-line arguments and upload them
+  // to the ledger using a side-channel.
   args.foreach { arg =>
     archivesFromDar(new File(arg)).foreach { archive =>
       logger.info(s"Uploading archive ${archive.getHash}...")
@@ -58,6 +61,8 @@ object ReferenceServer extends App {
 
   val indexService = ReferenceIndexService(readService)
 
+  // Block until the index service has been initialized, e.g. it has processed the
+  // state initialization updates.
   indexService.waitUntilInitialized
 
   val server = Server(
@@ -66,5 +71,7 @@ object ReferenceServer extends App {
     writeService = writeService,
     tsb
   )
+
+  // Add a hook to close the server. Invoked when Ctrl-C is pressed.
   Runtime.getRuntime.addShutdownHook(new Thread(() => server.close()))
 }
