@@ -459,7 +459,7 @@ Converting List and Optional
 """"""""""""""""""""""""""""
 
 The serialization of the Java ``List`` and ``Optional`` types require a multiple stage conversion function where the elements must be
-converted to the Java Binding Java Types before the creating the product type.
+converted to the Java Binding Java Types before the creating the ``DamlList`` or ``DamlOptional``.
 
 .. code-block:: java
 
