@@ -7,8 +7,11 @@
 perl -i -pe 's/^#+ ([^\]\[]*)$/#### \1/g' -i docs_rst_mmd.md
 # Change links to :ref: notation
 perl -i -pe 's/\[([^\[\]\n]*)\]\[([^\[\]\n]*)\]/:ref:`\1 <\2>`/g'  docs_rst_mmd.md
-# Fix links to external google documentation
+# Fix links to external google protobuf documentation
 re='s,:ref:`(\.?google\.protobuf\.[^<>`\n]*) <(.*)>`, [\1](https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#\2),g'
+sed -r "$re" -i docs_rst_mmd.md
+# Fix links to external google rpc documentation
+re='s,:ref:`(\.?google\.rpc\.[^<>`\n]*) <(.*)>`, [\1](https://cloud.google.com/tasks/docs/reference/rpc/google.rpc#\2),g'
 sed -r "$re" -i docs_rst_mmd.md
 # Fix paragraph breaks within tables (perl because of multi-line feature)
 perl -0777 -i -pe 's{(\| [^|]*(?:\n[^|]*)+\n[^|]*\|)}{($r=$1)=~s/\n/\\\n/g;$r}ge' docs_rst_mmd.md
