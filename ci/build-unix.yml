@@ -1,6 +1,5 @@
 steps:
   - checkout: self
-    fetchDepth: 2 # speed up checkout from 30sec to 7sec
 
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
