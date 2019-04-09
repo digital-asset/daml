@@ -10,10 +10,9 @@ that can be used to implement concrete applications.
 Usage
 *****
 
-The standard library is included in the DAML compiler so it can
-be used straight out of the box.
+The standard library is included in the DAML compiler, so you can access it easily. 
 
-To use something from the standard library, import the module in the same way as a module in your project. For example:
+To use something from the standard library, import the module it's in. For example:
 
 .. code-block:: daml
 
