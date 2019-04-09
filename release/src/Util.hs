@@ -222,12 +222,6 @@ data ReleaseType =
    | Zip
    deriving (Eq, Show)
 
-isJar :: ReleaseType -> Bool
-isJar = \case
-    Jar{} -> True
-    ProtoJar -> True
-    _ -> False
-
 isProtoJar :: ReleaseType -> Bool
 isProtoJar = \case
     ProtoJar -> True
@@ -320,71 +314,110 @@ buildArtifact ::
   -> PomArtifact
   -> BuildArtifactT m ()
 buildArtifact platfDep os comp releaseType releaseDir targ pomArt@(PomArtifact gid aid _ vers) = do
-      outDir <- parseRelDir $ unpack $
-        T.intercalate "/" gid #"/"# aid #"/"# vers #"/"
-      createDirIfMissing True (releaseDir </> outDir)
-      let tellArtifact platfDep' fp =
-              -- NOTE(MH): We release the platform _independent_ artifacts on Linux,
-              -- in particular .pom files.
-              when (getPlatformDependent platfDep' || os == Linux) $
-                  tell [(comp, vers, outDir </> fp)]
-      let ostxt = if getPlatformDependent platfDep then "-" <> renderOS os else ""
-      let ext = case releaseType of
-            TarGz -> ".tar.gz"
-            Jar{}  -> ".jar"
-            Zip -> ".zip"
-            ProtoJar -> ".jar"
-      outJar <- parseRelFile (unpack (aid #"-"# vers # ostxt # ext))
-      lift $ do
-          bazelBin <- parseAbsDir =<< (T.unpack . T.strip . T.unlines <$> loggedProcess "bazel" ["info", "bazel-bin"] C.sourceToList)
-          bazelGenfiles <- parseAbsDir =<< (T.unpack . T.strip . T.unlines <$> loggedProcess "bazel" ["info", "bazel-genfiles"] C.sourceToList)
-          $logInfo $ "Building " <> targ
-          loggedProcess_ "bazel" ["build", targ]
-          (directory, name) <- case T.split (':' ==) <$> T.stripPrefix "//" targ of
-            Just [x, y] -> return (x, y)
-            _ -> throwIO $ CIException $ "malformed bazel target: " <> targ
-          absArtFile <- if isProtoJar releaseType
-            then do
-              -- NOTE: we rely on the proto libraries to have only one jar output here,
-              -- which is actually not always the case. specifically, multiple jars are
-              -- generated if a java_proto_library depends on multiple source deps.
-              -- we should mechanically check this somehow. see also comment to 'ProtoJar'
-              relArtFile <- (</>)
-                <$> parseRelDir (T.unpack directory)
-                -- bazel seems to strip the _java from proto targets.
-                <*> (parseRelFile (T.unpack ("lib" <> T.replace "_java" "" name <> "-speed")) >>= addFileExtension ".jar")
-              return (bazelBin </> relArtFile)
-            else do
-              let prefix = case releaseType of
-                    TarGz -> ""
-                    Jar{jarPrefix} -> jarPrefix
-                    Zip -> ""
-                    ProtoJar -> error "IMPOSSIBLE see isProtoJar above"
-              relArtFile <- (</>) <$> parseRelDir (T.unpack directory) <*> (parseRelFile (T.unpack (prefix <> name)) >>= addFileExtension (T.unpack ext))
-              artInBin <- doesFileExist (bazelBin </> relArtFile)
-              return (if artInBin then bazelBin </> relArtFile else bazelGenfiles </> relArtFile)
-          copyFile absArtFile (releaseDir </> outDir </> outJar)
-      tellArtifact platfDep outJar
-
-      when (isJar releaseType) $ do
-          outPom <- parseRelFile (unpack (aid #"-"# vers #".pom"))
-          mavenDeps <- get
-          -- proto jars contain references to internal proto targets these won't resolve, since we
-          -- do not (and cannot in their raw form) publish them to maven. however, we know
-          -- that they only depend on external stuff. so just look up external stuff.
-          let whichPomDependencies = case releaseType of
-                Jar{jarOnly3rdPartyDependencies = True} -> WPDOnlyThirdParty
-                _ -> if isProtoJar releaseType
-                  then WPDOnlyThirdParty
-                  else WPDAll
-          -- TODO(FM): I'm positive that for ProtoJars we need to include the grpc dependency explicitly,
-          -- since java_proto_library does not.
-          deps <- lift (bazelPomDependencies whichPomDependencies mavenDeps targ)
-          let txt = renderPom pomArt deps releaseType
-          $logInfo ("Writing pom file to "# pathToText (releaseDir </> outDir </> outPom))
-          liftIO (BS.writeFile (toFilePath (releaseDir </> outDir </> outPom)) $ T.encodeUtf8 txt)
-          tellArtifact (PlatformDependent False) outPom
-          modify (HMS.insert targ pomArt)
+  outDir <- parseRelDir $ unpack $
+    T.intercalate "/" gid #"/"# aid #"/"# vers #"/"
+  createDirIfMissing True (releaseDir </> outDir)
+  let tellArtifact platfDep' fp =
+          -- NOTE(MH): We release the platform _independent_ artifacts on Linux,
+          -- in particular .pom files.
+          when (getPlatformDependent platfDep' || os == Linux) $
+              tell [(comp, vers, outDir </> fp)]
+  let ostxt = if getPlatformDependent platfDep then "-" <> renderOS os else ""
+  $logInfo $ "Building " <> targ
+  lift (loggedProcess_ "bazel" ["build", targ])
+  -- we look for the bazel outputs in bazelBin and bazelGenfiles
+  bazelBin <- lift $
+    parseAbsDir =<<
+    (T.unpack . T.strip . T.unlines <$> loggedProcess "bazel" ["info", "bazel-bin"] C.sourceToList)
+  bazelGenfiles <- lift $
+    parseAbsDir =<<
+    (T.unpack . T.strip . T.unlines <$> loggedProcess "bazel" ["info", "bazel-genfiles"] C.sourceToList)
+  -- the main artifact has the same structure for all release types.
+  let ext = case releaseType of
+        TarGz -> ".tar.gz"
+        Jar{}  -> ".jar"
+        Zip -> ".zip"
+        ProtoJar -> ".jar"
+  mainArtifactOut <- parseRelFile (unpack (aid #"-"# vers # ostxt # ext))
+  -- for many targets, the file we're looking for is the same
+  (directory, name) <- case T.split (':' ==) <$> T.stripPrefix "//" targ of
+    Just [x, y] -> return (x, y)
+    _ -> throwIO $ CIException $ "malformed bazel target: " <> targ
+  let normalArtifactRelFile prefix = (</>)
+        <$> parseRelDir (T.unpack directory)
+        <*> (parseRelFile (T.unpack (prefix <> name)) >>= addFileExtension (T.unpack ext))
+  -- common function to tell an artifact given some relative file
+  let copyAndTellArtifact platfDep_ (relFile :: Path Rel File) out = do
+        artInBin <- doesFileExist (bazelBin </> relFile)
+        let absFile = if artInBin then bazelBin </> relFile else bazelGenfiles </> relFile
+        absFileExists <- doesFileExist absFile
+        unless absFileExists $
+          throwIO (CIException ("Could not find "# pathToText relFile #" in "# pathToText bazelBin #" or "# pathToText bazelGenfiles))
+        tellArtifact platfDep_ out
+        copyFile absFile (releaseDir </> outDir </> out)
+  -- for jars and proto jars, we factor out how to release the pom
+  let releasePom = do
+        outPom <- parseRelFile (unpack (aid #"-"# vers #".pom"))
+        mavenDeps <- get
+        -- proto jars contain references to internal proto targets these won't resolve, since we
+        -- do not (and cannot in their raw form) publish them to maven. however, we know
+        -- that they only depend on external stuff. so just look up external stuff.
+        let whichPomDependencies = case releaseType of
+              Jar{jarOnly3rdPartyDependencies = True} -> WPDOnlyThirdParty
+              _ -> if isProtoJar releaseType
+                then WPDOnlyThirdParty
+                else WPDAll
+        -- TODO(FM): I'm positive that for ProtoJars we need to include the grpc dependency explicitly,
+        -- since java_proto_library does not.
+        deps <- lift (bazelPomDependencies whichPomDependencies mavenDeps targ)
+        let txt = renderPom pomArt deps releaseType
+        $logInfo ("Writing pom file to "# pathToText (releaseDir </> outDir </> outPom))
+        liftIO (BS.writeFile (toFilePath (releaseDir </> outDir </> outPom)) $ T.encodeUtf8 txt)
+        tellArtifact (PlatformDependent False) outPom
+        -- insert the pom file so that later packages can depend on it
+        modify (HMS.insert targ pomArt)
+  case releaseType of
+    ProtoJar -> do
+      -- NOTE: we rely on the proto libraries to have only one jar output here,
+      -- which is actually not always the case. specifically, multiple jars are
+      -- generated if a java_proto_library depends on multiple source deps.
+      -- we should mechanically check this somehow. see also comment to 'ProtoJar'
+      relFile <- (</>)
+        <$> parseRelDir (T.unpack directory)
+        -- bazel seems to strip the _java from proto targets.
+        <*> parseRelFile (T.unpack ("lib" <> T.replace "_java" "" name <> "-speed.jar"))
+      copyAndTellArtifact platfDep relFile mainArtifactOut
+      -- release the pom
+      releasePom
+    Jar{jarPrefix} -> do
+      relFile <- normalArtifactRelFile jarPrefix
+      copyAndTellArtifact platfDep relFile mainArtifactOut
+      -- check if a src jar exists, and if it does, tell that too
+      let srcTarget = "//"# directory #":lib"# name #"-src.jar"
+      srcTargetExists <- lift (targetExists srcTarget)
+      when srcTargetExists $ do
+        $logInfo ("Building " <> srcTarget)
+        lift (loggedProcess_ "bazel" ["build", srcTarget])
+        relSrcFile <- (</>)
+          <$> parseRelDir (T.unpack directory)
+          <*> parseRelFile (T.unpack ("lib"# name #"-src.jar"))
+        srcOut <- parseRelFile (unpack (aid #"-"# vers # ostxt # "-sources"# ext))
+        copyAndTellArtifact (PlatformDependent False) relSrcFile srcOut
+      -- release the pom
+      releasePom
+    TarGz -> do
+      relFile <- normalArtifactRelFile ""
+      copyAndTellArtifact platfDep relFile mainArtifactOut
+    Zip -> do
+      relFile <- normalArtifactRelFile ""
+      copyAndTellArtifact platfDep relFile mainArtifactOut
+  where
+    targetExists :: MonadCI m => Text -> m Bool
+    targetExists target = do
+      mbErr <- E.try (loggedProcess_ "bazel" ["query", target])
+      case mbErr of
+        Left (_ :: Proc.ProcessExitedUnsuccessfully) -> return False
+        Right () -> return True
 
 buildAllComponents ::
      MonadCI m
