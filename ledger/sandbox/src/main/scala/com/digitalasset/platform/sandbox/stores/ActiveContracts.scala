@@ -51,8 +51,22 @@ case class ActiveContracts(
     case Some(key) => acs.copy(contracts = acs.contracts - cid, keys = acs.keys - key)
   }
 
+  private def implicitlyDisclose(global: Relation[AbsoluteContractId, Ref.Party]): ActiveContracts =
+    if (global.nonEmpty)
+      copy(
+        contracts = contracts ++
+          contracts.intersectWith(global) { (ac, parties) =>
+            ac copy (witnesses = ac.witnesses union parties)
+          })
+    else this
+
   private val acManager =
-    new ActiveContractsManager(lookupContract, keyExists, addContract, removeContract, this)
+    new ActiveContractsManager(this)(
+      lookupContract,
+      keyExists,
+      addContract,
+      removeContract,
+      _ implicitlyDisclose _)
 
   /** adds a transaction to the ActiveContracts, make sure that there are no double spends or
     * timing errors. this check is leveraged to achieve higher concurrency, see LedgerState
@@ -75,24 +89,16 @@ case class ActiveContracts(
 
 }
 
-class ActiveContractsManager[ACS](
+class ActiveContractsManager[ACS](initialState: => ACS)(
     lookupContract: (ACS, AbsoluteContractId) => Option[ActiveContract],
     keyExists: (ACS, GlobalKey) => Boolean,
     addContract: (ACS, AbsoluteContractId, ActiveContract, Option[GlobalKey]) => ACS,
     removeContract: (ACS, AbsoluteContractId, Option[GlobalKey]) => ACS,
-    initialState: => ACS) {
+    implicitlyDisclose: (ACS, Relation[AbsoluteContractId, Ref.Party]) => ACS) {
 
   private case class AddTransactionState(acc: Option[ACS], errs: Set[SequencingError]) {
-    private def implicitlyDisclose(
-        global: Relation[AbsoluteContractId, Ref.Party]): AddTransactionState =
-      if (global.nonEmpty)
-        copy(
-          acc = acc map (ata =>
-            ata copy (contracts = ata.contracts ++
-              ata.contracts.intersectWith(global) { (ac, parties) =>
-                ac copy (witnesses = ac.witnesses union parties)
-              })))
-      else this
+
+    def mapAcs(f: ACS => ACS): AddTransactionState = copy(acc = acc map f)
 
     def result: Either[Set[SequencingError], ACS] = {
       acc match {
@@ -200,7 +206,7 @@ class ActiveContractsManager[ACS](
             }
         }
 
-    st.implicitlyDisclose(globalImplicitDisclosure).result
+    st.mapAcs(implicitlyDisclose(_, globalImplicitDisclosure)).result
   }
 
 }

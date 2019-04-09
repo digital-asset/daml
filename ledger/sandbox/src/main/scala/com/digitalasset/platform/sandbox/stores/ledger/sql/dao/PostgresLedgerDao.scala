@@ -216,14 +216,15 @@ private class PostgresLedgerDao(
         archiveContract(offset, cid)
         ()
       }
+      def acsImplicitlyDisclose(acs: Unit, global: Any): Unit = () // TODO SC
 
       //this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
-      val acsManager = new ActiveContractsManager(
+      val acsManager = new ActiveContractsManager(())(
         acsLookupContract,
         acsKeyExists,
         acsAddContract,
         acsRemoveContract,
-        ())
+        acsImplicitlyDisclose)
 
       // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
       // within the current SQL transaction. All of the given functions perform side effects to update the database.
