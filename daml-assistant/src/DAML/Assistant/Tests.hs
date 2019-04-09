@@ -240,7 +240,16 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             Tasty.assertEqual "sdk version" expected1 (unpack got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
-    -- TODO (FAFM): Add test cases for using latest available version.
+    , Tasty.testCase "getSdk: Returns Nothings if .daml/sdk is missing." $ do
+        withSystemTempDirectory "test-getSdk" $ \base -> do
+            let damlPath = DamlPath (base </> "daml")
+                projPath = Nothing
+            createDirectoryIfMissing True (base </> "daml")
+            (Nothing, Nothing) <- withEnv
+                [ (sdkVersionEnvVar, Nothing)
+                , (sdkPathEnvVar, Nothing)
+                ] (getSdk damlPath projPath)
+            pure ()
     ]
 
 
