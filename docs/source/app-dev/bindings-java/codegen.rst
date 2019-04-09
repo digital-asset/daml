@@ -430,7 +430,7 @@ Below is a Java fragment that serializes an attribute with a ``java.lang.Long`` 
 
   Value serializedPages = pagesAttribute.toValue(Int64::new);
 
-See :ref:`DAML To Java Type Mapping <daml-codegen-java-primitive-types>` for the Java Bindings value types need to be created in the `fromValue`` method.
+See :ref:`DAML To Java Type Mapping <daml-codegen-java-primitive-types>` for the Java Bindings value types need to be created in the ``fromValue`` method.
 
 Note: If the DAML type is a record that has more than one parameterized type, a function for creating the
 Java Binding values must be supplied for *each* such type.
