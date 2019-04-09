@@ -467,7 +467,7 @@ converted to the Java Binding Java Types before the creating the product type.
 
   Value serializedAuthors = authorsAttribute.toValue(f -> new DamlList(f.stream().map(Text::new).collect(Collectors.<Value>toList())));
 
-The deserialization to the Java ``List`` and ``Optional`` types similarly require that the Java Bindings product type is converted to it's Java
+The deserialization to the Java ``List`` and ``Optional`` types similarly require that the Java Bindings types ``DamlList`` and ``DamlOptional``  are converted to it's Java
 equivalent and then all the contained elements are converted to Java types.
 
 .. code-block:: java
