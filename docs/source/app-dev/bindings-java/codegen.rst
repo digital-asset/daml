@@ -309,6 +309,7 @@ A :ref:`variant or sum type <daml-ref-sum-types>` is a type with multiple constr
 
 .. literalinclude:: ./code-snippets/Variants.daml
    :language: daml
+   :lines: 3-10
    :caption: Com/Acme.daml
 
 The Java code generated for this variant is:
@@ -393,6 +394,7 @@ the characteristics of the book.
 
 .. literalinclude:: ./code-snippets/ParameterizedTypes.daml
    :language: daml
+   :lines: 3-11
    :caption: Com/Acme.daml
 
 A file Java file is generated for the ``Attribute`` data type that defines the Java Generic class:
