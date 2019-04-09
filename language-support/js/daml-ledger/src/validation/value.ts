@@ -15,7 +15,7 @@ function values(): Record<keyof ledger.Value, Validation> {
         contractId: native('string'),
         date: native('number'),
         decimal: native('string'),
-        int64: native('number'),
+        int64: native('string'),
         list: array(Value),
         party: native('string'),
         record: Record,

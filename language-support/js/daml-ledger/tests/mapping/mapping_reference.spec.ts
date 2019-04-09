@@ -335,7 +335,7 @@ describe('Reference Mapping (SubmitRequest)', () => {
     const countField = new grpc.RecordField();
     countField.setLabel('count');
     const countValue = new grpc.Value();
-    countValue.setInt64(42);
+    countValue.setInt64('42');
     countField.setValue(countValue);
     record.addFields(countField);
     create.setCreateArguments(record);
@@ -382,7 +382,7 @@ describe('Reference Mapping (SubmitRequest)', () => {
                             fields: {
                                 sender: { party: 'sender-party' },
                                 receiver: { party: 'receiver-party' },
-                                count: { int64: 42 }
+                                count: { int64: '42' }
                             }
                         }
                     }
@@ -588,7 +588,7 @@ describe('Non-verbose records', () => {
     it('should be mapped to numeric indexes', () => {
         const expected: ledger.Record = {
             fields: {
-                '0': { int64: 42 },
+                '0': { int64: '42' },
                 '1': { contractId: '0123456789abcdef' },
                 '2': { bool: true }
             }
@@ -601,7 +601,7 @@ describe('Non-verbose records', () => {
         const value2: grpc.Value = new grpc.Value();
         const field2: grpc.RecordField = new grpc.RecordField();
         field0.setValue(value0);
-        value0.setInt64(42);
+        value0.setInt64('42');
         field1.setValue(value1);
         value1.setContractId('0123456789abcdef');
         field2.setValue(value2);

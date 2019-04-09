@@ -236,8 +236,8 @@ describe("Mapping", () => {
 
     itShouldConvert('Value(Int64)', () => {
         const int64Message = new grpc.Value();
-        int64Message.setInt64(40);
-        const int64Object: ledger.Value = { int64: 40 };
+        int64Message.setInt64('40');
+        const int64Object: ledger.Value = { int64: '40' };
         mappingCheck(mapping.Value, int64Message, int64Object);
     });
 
