@@ -566,7 +566,11 @@ convertExpr env0 e = do
     go env (VarIs "getFieldPrim") (Type (isStrLitTy -> Just name) : Type record : Type _field : args) = fmap (, args) $ do
         record' <- convertType env record
         pure $ ETmLam (varV1, record') $ ERecProj (fromTCon record') (mkField $ unpackFS name) $ EVar varV1
-    go env (VarIs "getField") (Type (isStrLitTy -> Just name) : Type recordType : Type _fieldType : _dict : record : args) = fmap (, args) $ do
+    -- NOTE(MH): We only inline `getField` for record types. This is required
+    -- for contract keys. Projections on sum-of-records types have to through
+    -- the type class for `getField`.
+    go env (VarIs "getField") (Type (isStrLitTy -> Just name) : Type recordType@(TypeCon recordTyCon _) : Type _fieldType : _dict : record : args)
+        | Just [_] <- tyConDataCons_maybe recordTyCon = fmap (, args) $ do
             recordType <- convertType env recordType
             record <- convertExpr env record
             pure $ ERecProj (fromTCon recordType) (mkField $ unpackFS name) record
