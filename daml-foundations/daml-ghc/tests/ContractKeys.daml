@@ -22,7 +22,7 @@ template Account with
     signatory [bank, accountHolder]
 
 instance TemplateKey Account (Party, Text, Int) where
-    key acc = (acc.bank, acc.accountNumber._1, acc.accountNumber._2)
+    key this@Account{..} = (bank, accountNumber._1, this.accountNumber._2)
     maintainer acc = [acc.bank]
 
 test = scenario do
