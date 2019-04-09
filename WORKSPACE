@@ -380,6 +380,8 @@ load("//bazel_tools:haskell.bzl", "add_extra_packages")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
+HASKELL_LSP_COMMIT="2cd8c1c4221e1abcb95f2af20387874bbf10d8f6"
+
 hazel_repositories(
     core_packages = core_packages + {
         "integer-simple": "0.1.1.1",
@@ -415,6 +417,7 @@ hazel_repositories(
         "x64_windows": "@io_tweag_rules_haskell_ghc_windows_amd64",
     },
     packages = add_extra_packages(
+        pkgs = packages,
         extra =
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
@@ -428,13 +431,16 @@ hazel_repositories(
             hazel_hackage("shake", "0.17.8", "ade4162f7540f044f0446981120800076712d1f98d30c5b5344c0f7828ec49a2") +
             hazel_hackage("filepattern", "0.1.1", "f7fc5bdcfef0d43a793a3c64e7c0fd3b1d35eea97a37f0e69d6612ab255c9b4b") +
             hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
+            hazel_hackage("rope-utf16-splay" , "0.2.0.0", "83d1961bf55355da49a6b55d6f58d02483eff1f8e6df53f4dccdab1ac49e101d") +
             hazel_hackage(
                 "unix-compat",
                 "0.5.1",
                 "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52",
                 patches = ["@com_github_digital_asset_daml//bazel_tools:unix-compat.patch"],
-            ),
-        pkgs = packages,
+            ) +
+            # This is a special version of Haskell LSP without GPL dependencies
+            [("haskell-lsp", {"url": "https://github.com/DavidM-D/haskell-lsp/archive/{}.zip".format(HASKELL_LSP_COMMIT), "sha256": "3b81beaa728fb3c7b9106115e9d8f0bffc235c98b35e9ea7d18f5e586f83b9ae", "stripPrefix": "haskell-lsp-{}".format(HASKELL_LSP_COMMIT)})]
+
     ),
 )
 
