@@ -32,7 +32,7 @@ class DarReader[A](
   private def readDalfNames(darFile: ZipFile): Try[Dar[String]] =
     parseDalfNamesFromManifest(darFile).recoverWith {
       case NonFatal(e1) =>
-        findDalfNames(darFile).recoverWith {
+        findLegacyDalfNames(darFile).recoverWith {
           case NonFatal(e2) => Failure(InvalidDar(e1, e2))
         }
     }
@@ -41,7 +41,11 @@ class DarReader[A](
     bracket(Try(darFile.getInputStream(manifestEntry)))(close)
       .flatMap(is => readDalfNamesFromManifest(is))
 
-  private def findDalfNames(darFile: ZipFile): Try[Dar[String]] = {
+  // There are three cases:
+  // 1. if it's only one .dalf, then that's the main one
+  // 2. if it's two .dalfs, where one of them has -prim in the name, the one without -prim is the main dalf.
+  // 3. parse error in all other cases
+  private def findLegacyDalfNames(darFile: ZipFile): Try[Dar[String]] = {
     val entries: List[ZipEntry] = darFile.entries.asScala.toList
     val dalfs: List[String] = entries.filter(isDalf).map(_.getName)
     dalfs.partition(isPrimDalf) match {
