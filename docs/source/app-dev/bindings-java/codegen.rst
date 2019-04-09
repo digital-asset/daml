@@ -454,7 +454,7 @@ Java Binding values must be supplied for *each* such fields.
 
 **Deserializing**
 
-The deserialization method `fromValue` requires in a similar manner, a function to convert the Java Bindings value types to it's corresponding Java type.
+Analogous to the generated ``toValue`` method, the deserialization method ``fromValue`` takes a function to convert a Java Bindings ``Value`` type to the expected Java type.
 
 .. code-block:: java
 
