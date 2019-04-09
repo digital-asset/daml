@@ -101,7 +101,7 @@ message Identifier {
   string package_id = 1;
 
   // The identifier of the entity (unique within the package)
-  // DEPRECATED: use module_name and entity_name instead
+  // DEPRECATED: use `module_name` and `entity_name` instead
   // Optional
   string name = 2 [deprecated=true];
 
@@ -147,7 +147,7 @@ message Optional {
 
 message Map {
     message Entry {
-        Value key = 1; // key must be of type Text
+        Value key = 1; // Must be of type Text.
         Value value = 2;
     }
 

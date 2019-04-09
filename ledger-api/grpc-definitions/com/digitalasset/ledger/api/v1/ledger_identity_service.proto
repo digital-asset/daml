@@ -12,7 +12,7 @@ option java_outer_classname = "LedgerIdentityServiceOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1";
 
 // Allows clients to verify that the server they are communicating with exposes the ledger they wish to operate on.
-// Note that every ledger has a unique id.
+// Note that every ledger has a unique ID.
 service LedgerIdentityService {
 
   // Clients may call this RPC to return the identifier of the ledger they are connected to.
@@ -31,7 +31,7 @@ message GetLedgerIdentityRequest {
 message GetLedgerIdentityResponse {
 
   // The ID of the ledger exposed by the server.
-  // Requests submitted with the wrong ledger ID will result in NOT_FOUND gRPC errors.
+  // Requests submitted with the wrong ledger ID will result in `NOT_FOUND` gRPC errors.
   // Required
   string ledger_id = 1;
 }

@@ -24,5 +24,3 @@ sed -r 's,\.\. \\\_(.*):,\.\. \_\1:,g' -i docs_rst_mmd.rst
 # Remove duplicate backticks in ref links
 sed -r 's,:ref:``([^`]*)``,:ref:`\1`  ,g' -i docs_rst_mmd.rst
 sed -r 's,(\.\. \_[^:]*: ),\1 ,g' -i docs_rst_mmd.rst
-# Add :local: to contents
-sed -r 's,(\.\. contents::.*),\1\n  :local:,g' -i docs_rst_mmd.rst
