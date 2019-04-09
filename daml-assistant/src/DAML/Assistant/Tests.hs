@@ -93,7 +93,7 @@ testGetProjectPath = Tasty.testGroup "DAML.Assistant.Env.getProjectPath"
             return ()
 
     , Tasty.testCase "getProjectPath returns nothing" $ do
-        -- This test assumes there's no da.yaml above the temp directory.
+        -- This test assumes there's no daml.yaml above the temp directory.
         -- ... this might be an ok assumption, but maybe getProjectPath
         -- should also check that the project path is owned by the user,
         -- or something super fancy like that.

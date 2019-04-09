@@ -75,7 +75,7 @@ genrule(
     srcs = [
         ":config.yaml.tmpl",
         ":install.sh",
-        "//:component-version",
+        "//:VERSION",
         "//daml-assistant:daml-dist",
         "//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist",
         "//daml-foundations/daml-tools/daml-extension:dist",
@@ -88,15 +88,14 @@ genrule(
     outs = ["sdk-release-tarball.tar.gz"],
     cmd = """
       # damlc
-      VERSION=$$(cat $(location //:component-version))
+      VERSION=$$(cat $(location //:VERSION))
       OUT=sdk-$$VERSION
       mkdir -p $$OUT
 
       cp $(location :install.sh) $$OUT/install.sh
 
       cp $(location :config.yaml.tmpl) $$OUT/config.yaml
-      # For now the DAML assistant expects versions to be prefixed with nightly
-      sed -i "s/__VERSION__/nightly-$$VERSION/" $$OUT/config.yaml
+      sed -i "s/__VERSION__/$$VERSION/" $$OUT/config.yaml
 
       mkdir -p $$OUT/daml
       tar xf $(location //daml-assistant:daml-dist) --strip-components=1 -C $$OUT/daml
@@ -124,7 +123,7 @@ genrule(
       # While we use this template for both da-assistant and daml-assistant we do some manual patching here.
       # Once da-assistant is dead, the quickstart-java rule should produce the final version.
       rm $$OUT/templates/quickstart-java/da-skeleton.yaml
-      cat > $$OUT/templates/quickstart-java/da.yaml << EOF
+      cat > $$OUT/templates/quickstart-java/daml.yaml << EOF
 sdk-version: $$VERSION
 name: quickstart
 source: daml/Main.daml

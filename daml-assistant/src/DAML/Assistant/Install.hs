@@ -63,11 +63,15 @@ data SdkChannelInfo = SdkChannelInfo
 knownChannels :: [SdkChannelInfo]
 knownChannels =
     [ SdkChannelInfo
-        { channelName = SdkChannel "nightly"
+        { channelName = SdkChannel "unstable"
         , channelLatestURL  = bintrayLatestURL
-        , channelVersionURL = bintrayVersionURL
+        , channelVersionURL = bintrayVersionURL . toComponentSubVersion
         }
     ]
+
+toComponentSubVersion :: SdkSubVersion -> SdkSubVersion
+toComponentSubVersion (SdkSubVersion v) =
+    SdkSubVersion ("100." <> snd (T.breakOn "." v))
 
 data InstallEnv = InstallEnv
     { options :: InstallOptions
@@ -133,7 +137,18 @@ bintrayVersionURL (SdkSubVersion subVersion) = InstallURL $ T.concat
     ]
 
 bintrayLatestURL :: InstallURL
-bintrayLatestURL = bintrayVersionURL (SdkSubVersion "$latest")
+bintrayLatestURL = InstallURL $ T.concat
+    [ "https://bintray.com/api/v1/content"  -- api call
+    , "/digitalassetsdk/DigitalAssetSDK"    -- repo/subject
+    , "/com/digitalasset/sdk-tarball/"      -- file path
+    , "$latest"
+    , "/sdk-tarball-"
+    , "$latest"
+    , "-"
+    , osName
+    , ".tar.gz"
+    , "?bt_package=sdk-components"          -- package
+    ]
 
 -- | Install (extracted) SDK directory to the correct place, after performing
 -- a version sanity check. Then run the sdk install hook if applicable.
