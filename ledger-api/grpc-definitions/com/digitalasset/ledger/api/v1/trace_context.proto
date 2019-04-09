@@ -17,14 +17,14 @@ option java_package = "com.digitalasset.ledger.api.v1";
 message TraceContext {
 
   // If present, this is the high 64 bits of the 128-bit identifier. Otherwise the trace ID is 64 bits long.
-  uint64 trace_id_high = 1;
+  uint64 trace_id_high = 1 [jstype = JS_STRING];
 
   // The TraceId is 64 or 128-bit in length and indicates the overall ID of the trace. Every span in a trace shares this ID.
-  uint64 trace_id = 2;
+  uint64 trace_id = 2 [jstype = JS_STRING];
 
   // The SpanId is 64-bit in length and indicates the position of the current operation in the trace tree.
   // The value should not be interpreted: it may or may not be derived from the value of the TraceId.
-  uint64 span_id = 3;
+  uint64 span_id = 3 [jstype = JS_STRING];
 
   // The ParentSpanId is 64-bit in length and indicates the position of the parent operation in the trace tree.
   // When the span is the root of the trace tree, the ParentSpanId is absent.
