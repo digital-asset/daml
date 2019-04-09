@@ -394,7 +394,7 @@ The Java code generated for this variant is:
 Parameterized types
 ~~~~~~~~~~~~~~~~~~~
 
-The Java Code Generator uses Java Generic types to represent the DAML parameterized type.
+The Java Code Generator uses Java Generic types to represent :ref:`DAML parameterized types <daml-ref-parameterized-types>`.
 
 Below is a DAML fragment defining the parameterized type `Attribute` for use by the `
 
