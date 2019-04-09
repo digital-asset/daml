@@ -14,7 +14,7 @@ module DAML.Assistant.Command
     , getCommand
     ) where
 
-import DAML.Project.Types
+import DAML.Assistant.Types
 import Data.List
 import Data.Maybe
 import Data.Foldable

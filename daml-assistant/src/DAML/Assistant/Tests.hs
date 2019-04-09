@@ -9,9 +9,9 @@ module DAML.Assistant.Tests
 
 import DAML.Assistant.Env
 import DAML.Assistant.Install
+import DAML.Assistant.Types
+import DAML.Assistant.Util
 import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
-import DAML.Project.Types
-import DAML.Project.Util
 import System.Directory
 import System.Environment
 import System.FilePath

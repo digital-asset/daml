@@ -17,10 +17,10 @@ module DAML.Assistant.Env
     , getDispatchEnv
     ) where
 
+import DAML.Assistant.Types
+import DAML.Assistant.Util
 import DAML.Project.Config
 import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
-import DAML.Project.Types
-import DAML.Project.Util
 import System.Directory
 import System.FilePath
 import System.Environment
@@ -125,7 +125,7 @@ getSdk damlPath projectPathM =
         fromConfig :: Text
                    -> IO (Maybe path)
                    -> (path -> IO config)
-                   -> (config -> Either AssistantError (Maybe SdkVersion))
+                   -> (config -> Either ConfigError (Maybe SdkVersion))
                    -> IO (Maybe SdkVersion)
         fromConfig name lookupPath readConfig parseVersion =
             wrapErr ("Determining SDK version from " <> name <> " config.") $ do
