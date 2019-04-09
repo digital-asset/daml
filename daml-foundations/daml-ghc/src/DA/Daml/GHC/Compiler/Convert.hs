@@ -359,14 +359,35 @@ convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App`
     case (key, maintainer) of
       (Lam keyBinder keyExpr, Lam maintainerBinder maintainerExpr) -> do
         keyType <- convertType env keyType
-        let keyEnv = env{envAliases = MS.insert keyBinder (EVar (mkVar "this")) (envAliases env)}
-        keyExpr <- convertExpr keyEnv keyExpr
+        keyExpr <- convertKeyExpr env keyBinder keyExpr
         let maintainerEnv = env{envAliases = MS.insert maintainerBinder (EVar (mkVar "this")) (envAliases env)}
         maintainerExpr <- convertExpr maintainerEnv maintainerExpr
         maintainerExpr <- rewriteMaintainer keyExpr maintainerExpr
         pure $ TemplateKey keyType keyExpr (ETmLam ("$key", keyType) maintainerExpr)
       _ -> unhandled "Template key definition" o
 convertKey _ o = unhandled "Template key definition" o
+
+convertKeyExpr :: Env -> Var -> GHC.Expr Var -> ConvertM LF.Expr
+convertKeyExpr env keyBinder keyExpr = case keyExpr of
+    Case (Var caseScrut) caseBinder _ [(DataAlt con, vs, body)]
+        | keyBinder == caseScrut -> do
+            ctor@(Ctor _ fldNames _) <- toCtor env con
+            if  | isRecordCtor ctor
+                , Just vsFlds <- zipExactMay vs fldNames
+                -> do
+                    thisType <- fromTCon <$> convertType env (varType keyBinder)
+                    let projAliases = [(v, ERecProj thisType fld thisRef) | (v, fld) <- vsFlds, not (isDeadBinder v)]
+                    let thisAliases = [(keyBinder, thisRef), (caseBinder, thisRef)]
+                    let env' = env{envAliases = MS.fromList (thisAliases ++ projAliases) `MS.union` envAliases env}
+                    convertExpr env' body
+                | otherwise
+                -> defaultConv
+    _ -> defaultConv
+  where
+    thisRef = EVar "this"
+    defaultConv = do
+        let keyEnv = env{envAliases = MS.insert keyBinder thisRef (envAliases env)}
+        convertExpr keyEnv keyExpr
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
 convertTypeDef env (ATyCon t)
