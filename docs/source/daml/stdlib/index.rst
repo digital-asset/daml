@@ -10,14 +10,14 @@ that can be used to implement concrete applications.
 Usage
 *****
 
-The standard library is included in the DAML compiler so it can
-be used straight out of the box.
-You can import modules from the standard library just like your own, e.g.:
+The standard library is included in the DAML compiler, so you can access it easily. 
 
-.. ExcludeFromDamlParsing
+To use something from the standard library, import the module it's in. For example:
+
 .. code-block:: daml
 
   import DA.Optional
+  import DA.Time
 
 Domains
 *******
