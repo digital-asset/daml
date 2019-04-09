@@ -4,16 +4,19 @@
 package com.digitalasset.daml.lf.codegen
 
 import com.digitalasset.daml.lf.codegen.conf.Conf
+import com.typesafe.scalalogging.StrictLogging
 
 import scala.util.control.NonFatal
 
-object StandaloneMain {
+object StandaloneMain extends StrictLogging {
 
   def main(args: Array[String]): Unit =
     try {
       Main.main(args)
     } catch {
-      case NonFatal(_) => sys.exit(-1)
+      case NonFatal(t) =>
+        logger.error(s"Error generating code: {}", t.getMessage)
+        sys.exit(-1)
     }
 }
 

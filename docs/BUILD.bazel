@@ -78,6 +78,7 @@ genrule(
     cmd = ("""
         export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
     """ if is_linux else "") + """
+        set -euo pipefail
         # Set up tools
         export PATH="$$( cd "$$(dirname "$(location @imagemagick_nix//:bin/convert)")" ; pwd -P )":$$PATH
 
@@ -99,8 +100,8 @@ genrule(
         cp -L docs/configs/pdf/fonts/* out/
         cd out
         # run twice to generate all references properly (this is a latex thing...)
-        ../$(location @texlive_nix//:bin/lualatex) --shell-escape *.tex
-        ../$(location @texlive_nix//:bin/lualatex) --shell-escape *.tex
+        ../$(location @texlive_nix//:bin/lualatex) -halt-on-error -interaction=batchmode --shell-escape *.tex
+        ../$(location @texlive_nix//:bin/lualatex) -halt-on-error -interaction=batchmode --shell-escape *.tex
 
         # Move output to target
         mv DigitalAssetSDK.pdf ../$(location DigitalAssetSDK.pdf)"""
@@ -226,13 +227,19 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
-load("//language-support/java/codegen:codegen.bzl", "daml_to_java")
+load("//rules_daml:daml.bzl", "daml_compile")
+load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 
-daml_to_java(
+daml_compile(
+        name = "quickstart-model",
+        main_src = "source/getting-started/quickstart/template-root/daml/Main.daml",
+        srcs = glob(["source/getting-started/quickstart/template-root/**/*.daml"]),
+        target = "1.1",
+)
+
+dar_to_java(
     name = "quickstart-model",
-    main_src = "source/getting-started/quickstart/template-root/daml/Main.daml",
-    srcs = glob(["source/getting-started/quickstart/template-root/**/*.daml"]),
-    target = "1.1",
+    src = "quickstart-model.dar",
     package_prefix = "com.digitalasset.quickstart.model"
 )
 

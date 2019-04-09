@@ -128,8 +128,8 @@ trait PostgresAround {
       startPostgres()
       createTestDatabase()
 
-      val jdbcUrl = s"jdbc:postgresql://localhost:$postgresPort/test"
-      val connectionProvider = HikariJdbcConnectionProvider(jdbcUrl, testUser, 4)
+      val jdbcUrl = s"jdbc:postgresql://localhost:$postgresPort/test?user=$testUser"
+      val connectionProvider = HikariJdbcConnectionProvider(jdbcUrl, 4, 4)
 
       PostgresFixture(jdbcUrl, connectionProvider, tempDir, dataDir)
     } catch {

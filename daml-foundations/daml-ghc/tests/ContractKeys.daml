@@ -1,9 +1,7 @@
 -- Check that the compiler bits of contract keys work.
--- @TODO (#177): Fix the engine such that this test passes. Remove `ContractKeysSimple.daml` when it does.
 -- @IGNORE-LF 1.0
 -- @IGNORE-LF 1.1
 -- @IGNORE-LF 1.2
--- @ERROR CRASH: RecProj on non-record
 daml 1.2
 module ContractKeys where
 

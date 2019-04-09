@@ -92,8 +92,7 @@ class InMemoryLedger(
 
     val toAbsCoid: ContractId => AbsoluteContractId =
       SandboxEventIdFormatter.makeAbsCoid(transactionId)
-    val mappedTx = tx.transaction
-      .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
+    val mappedTx = tx.transaction.mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
     // 5b. modify the ActiveContracts, while checking that we do not have double
     // spends or timing issues
     val acsRes = acs.addTransaction(
@@ -106,10 +105,7 @@ class InMemoryLedger(
     )
     acsRes match {
       case Left(err) =>
-        handleError(
-          tx,
-          RejectionReason.Inconsistent(
-            s"Contract dependencies inactive: ${err.mkString("[", ", ", "]")}"))
+        handleError(tx, RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
       case Right(newAcs) =>
         acs = newAcs
         val recordTx = mappedTx

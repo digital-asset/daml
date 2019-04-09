@@ -256,11 +256,15 @@ dependencies:
     akka-http-testkit:
       lang: scala
       version: "10.0.13"
+   
 
   com.typesafe.play:
     anorm:
       lang: scala
       version: "2.5.3"    
+    anorm-akka:
+      lang: scala
+      version: "2.5.3"
 
   com.typesafe.slick:
     slick:
