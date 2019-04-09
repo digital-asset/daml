@@ -22,6 +22,8 @@ buildBazelPackage rec {
     sha256 = "0fa66yz619lz07lygf7dfvnqbj3ai4g6dwk7l92j2l5c4kpbx29a";
   };
 
+  patches = [./maven-coordinates.patch];
+
   bazelTarget = "//src/scala/com/github/johnynek/bazel_deps:parseproject_deploy.jar";
 
   buildInputs = [ git makeWrapper ];

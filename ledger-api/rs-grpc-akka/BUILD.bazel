@@ -18,7 +18,8 @@ da_scala_library(
 
     visibility = [
         '//visibility:public',
-    ]
+    ],
+    tags = ["maven_coordinates=com.digitalasset.ledger-api:rs-grpc-akka:__VERSION__"],
 )
 
 testDependencies = [

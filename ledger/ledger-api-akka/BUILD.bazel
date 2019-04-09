@@ -32,5 +32,6 @@ da_scala_library(
     ],
     visibility = [
         '//visibility:public',
-    ]
+    ],
+    tags = ["maven_coordinates=com.digitalasset.ledger-api:ledger-api-akka:__VERSION__"],
 )

@@ -87,11 +87,7 @@ da_scala_binary(
     ":extractor",
   ],
   visibility = ["//visibility:public"],
-)
-
-alias(
-    name = "extractor-binary_deploy",
-    actual = ":extractor-binary_deploy.jar",
+  tags = ["maven_coordinates=com.digitalasset:extractor:__VERSION__"],
 )
 
 da_scala_library(

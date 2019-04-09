@@ -27,5 +27,6 @@ da_scala_binary(
     "//3rdparty/jvm/com/google/protobuf:protobuf_java",
   ],
   visibility = ['//visibility:public'],
+  tags = ["maven_coordinates=com.digitalasset:daml-lf-repl:__VERSION__"],
 )
 

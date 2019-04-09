@@ -15,6 +15,8 @@ load(
   'scala_benchmark_jmh'
 )
 
+load("//bazel_tools:pom_file.bzl", "pom_file")
+
 load("@os_info//:os_info.bzl", "is_windows")
 
 # This file defines common Scala compiler flags and plugins used throughout
@@ -120,8 +122,9 @@ lf_scalacopts = [
   "-Ywarn-unused",
 ]
 
-def _wrap_rule(rule, scalacopts = [], plugins = [], **kwargs):
+def _wrap_rule(rule, name = "", scalacopts = [], plugins = [], **kwargs):
   rule(
+    name = name,
     scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
     plugins = common_plugins + plugins,
     **kwargs
@@ -201,7 +204,7 @@ def _create_scala_source_jar(**kwargs):
       srcs = kwargs["srcs"]
     )
 
-def da_scala_library(**kwargs):
+def da_scala_library(name, **kwargs):
   """
   Define a Scala library.
 
@@ -211,8 +214,13 @@ def da_scala_library(**kwargs):
 
   [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_library
   """
-  _wrap_rule(scala_library, **kwargs)
-  _create_scala_source_jar(**kwargs)
+  _wrap_rule(scala_library, name, **kwargs)
+  _create_scala_source_jar(**kwargs + {"name": name})
+
+  pom_file(
+      name = name + "_pom",
+      target = ":" + name,
+  )
 
 def da_scala_macro_library(**kwargs):
   """
@@ -227,7 +235,7 @@ def da_scala_macro_library(**kwargs):
   _wrap_rule(scala_macro_library, **kwargs)
   _create_scala_source_jar(**kwargs)
 
-def da_scala_binary(**kwargs):
+def da_scala_binary(name, **kwargs):
   """
   Define a Scala executable.
 
@@ -237,7 +245,12 @@ def da_scala_binary(**kwargs):
 
   [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_binary
   """
-  _wrap_rule(scala_binary, **kwargs)
+  _wrap_rule(scala_binary, name, **kwargs)
+
+  pom_file(
+      name = name + "_pom",
+      target = ":" + name,
+  )
 
 def da_scala_test(**kwargs):
   """

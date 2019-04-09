@@ -42,7 +42,8 @@ da_scala_library(
   ],
   visibility = [
     '//visibility:public',
-  ]
+  ],
+  tags = ["maven_coordinates=com.digitalasset.ledger:ledger-api-common:__VERSION__"],
 )
 
 testDependencies = [

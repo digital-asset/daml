@@ -24,6 +24,8 @@ load(
     "jar_jar"
 )
 
+load("//bazel_tools:pom_file.bzl", "pom_file")
+
 da_scala_binary(
     name = "codegen",
     main_class = "com.digitalasset.daml.lf.codegen.StandaloneMain",
@@ -89,7 +91,13 @@ daml_compile(
 jar_jar(
     name = "shaded_binary",
     input_jar = "//language-support/java/codegen:codegen_deploy.jar",
-    rules = "shade_rule"
+    rules = "shade_rule",
+    tags = ["maven_coordinates=com.daml.java:codegen:__VERSION__"],
+)
+
+pom_file(
+    name = "shaded_binary_pom",
+    target = ":shaded_binary",
 )
 
 daml_lf_target_versions = ["1.0", "1.1", "1.3"]

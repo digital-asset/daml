@@ -7,6 +7,8 @@ load(
   "da_scala_library"
 )
 
+load("//bazel_tools:pom_file.bzl", "pom_file")
+
 java_library(
     name = 'bindings-rxjava',
 
@@ -29,7 +31,13 @@ java_library(
 
     visibility = [
         '//visibility:public',
-    ]
+    ],
+    tags = ["maven_coordinates=com.daml.ledger:bindings-rxjava:__VERSION__"],
+)
+
+pom_file(
+    name = "bindings-rxjava_pom",
+    target = ":bindings-rxjava",
 )
 
 testDependencies = [
