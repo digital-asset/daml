@@ -455,7 +455,7 @@ Non-exposed parameterized types
 If the parameterized type is contained in a type where the *actual* type is specified (as in the ``BookAttributes`` type above), then the serialization
 and deserialization of the enclosing type provides the necessary methods for serialization and deserialization.
 
-DAML List and DAML Optional
+Converting List and Optional
 """"""""""""""""""""""""""""
 
 The serialization of the Java ``List`` and ``Optional`` types require a multiple stage conversion function where the elements must be
