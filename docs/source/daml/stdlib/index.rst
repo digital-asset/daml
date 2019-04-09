@@ -12,12 +12,13 @@ Usage
 
 The standard library is included in the DAML compiler so it can
 be used straight out of the box.
-You can import modules from the standard library just like your own, e.g.:
 
-.. ExcludeFromDamlParsing
+To use something from the standard library, import the module in the same way as a module in your project. For example:
+
 .. code-block:: daml
 
   import DA.Optional
+  import DA.Time
 
 Domains
 *******
