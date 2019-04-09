@@ -40,7 +40,7 @@ main = rattle $ do
         nubSort (concatMap dhl_hazel_deps metadata) \\ ["ghc-lib","ghc-lib-parser"]
 
     -- generate the LF protobuf output
-    let lfMajorVersions = ["0", "1", "Dev"]
+    let lfMajorVersions = ["0", "1", "dev"]
     forM_ ("":lfMajorVersions) $ \v -> do
         cmd_ (Cwd "daml-lf/archive")
             "compile-proto-file --proto" ["da/daml_lf" ++ ['_' | v /= ""] ++ v ++ ".proto"]
