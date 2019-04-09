@@ -46,33 +46,18 @@ Describe "DADEW - DA DevEnv Windows" {
         (jq --version) | Out-String | Should -Match ([regex]::Escape("jq-1.5"))
     }
 
-    It "provides tools listed in .dadew file - wget" {
-        da_is_installed "wget" | Should -Be False
-        da_is_installed "scoop" | Should -Be False
-
-        dadew "install"
-        dadew "enable"
-        dadew "sync" "$PSScriptRoot\envs\wget"
-        da_is_installed "wget" | Should -Be True
-        (wget --version) | Out-String | Should -Match ([regex]::Escape("GNU Wget 1.19.4"))
-    }
-
     It "syncs provides tools listed in .dadew file ensuring not-listed are uninstalled" {
         da_is_installed "jq" | Should -Be False
-        da_is_installed "wget" | Should -Be False
         da_is_installed "scoop" | Should -Be False
 
         dadew "install"
         dadew "enable"
         dadew "sync" "$PSScriptRoot\envs\jq"
-        dadew "sync" "$PSScriptRoot\envs\wget"
 
-        da_is_installed "wget" | Should -Be True
         da_is_installed "jq" | Should -Be False
 
         dadew "sync" "$PSScriptRoot\envs\jq"
 
-        da_is_installed "wget" | Should -Be False
         da_is_installed "jq" | Should -Be True
     }
 
@@ -160,18 +145,4 @@ Describe "DADEW - DA DevEnv Windows" {
         dadew "enable"
         dadew "which" scoop | Should -Be "$env:DADEW\scoop\apps\scoop\current\bin\scoop.ps1"
     }
-
-    It "reinstall an app on its manifest change" {
-        dadew "install"
-        dadew "enable"
-        $out = dadew "sync" "$PSScriptRoot\envs\manifest-change\v1" | Out-String
-        (wget --version) | Out-String | Should -Match ([regex]::Escape("GNU Wget 1.19.3"))
-
-        $out = dadew "sync" "$PSScriptRoot\envs\manifest-change\v2" | Out-String
-        (wget --version) | Out-String | Should -Match ([regex]::Escape("GNU Wget 1.19.2"))
-
-        $out = dadew "sync" "$PSScriptRoot\envs\manifest-change\v1" | Out-String
-        (wget --version) | Out-String | Should -Match ([regex]::Escape("GNU Wget 1.19.3"))
-    }
-
 }
