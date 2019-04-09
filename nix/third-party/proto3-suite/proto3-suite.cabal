@@ -51,6 +51,7 @@ library
                        transformers >=0.4 && <0.6,
                        turtle,
                        filepath,
+                       directory,
                        vector >=0.11 && < 0.13
 
   hs-source-dirs:      src
@@ -83,7 +84,6 @@ test-suite tests
                        text >= 0.2 && <1.3,
                        transformers >=0.4 && <0.6,
                        turtle,
-                       filepath,
                        vector >=0.11 && < 0.13
 
 executable compile-proto-file
@@ -95,5 +95,4 @@ executable compile-proto-file
                        , proto3-suite
                        , system-filepath
                        , text
-                       , filepath
                        , turtle
