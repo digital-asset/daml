@@ -44,8 +44,8 @@ runTests = do
         , testInstall
         ]
 
-_assertError :: Text -> Text -> IO a -> IO ()
-_assertError ctxPattern msgPattern action = do
+assertError :: Text -> Text -> IO a -> IO ()
+assertError ctxPattern msgPattern action = do
     result <- try action
     case result of
         Left AssistantError{..} -> do
@@ -315,6 +315,61 @@ testInstall = Tasty.testGroup "DAML.Assistant.Install"
                 .| sinkFile "source.tar.gz"
 
             install options damlPath
+
+
+    , Tasty.testCase "reject an absolute symlink in a tarball" $ do
+        withSystemTempDirectory "test-install" $ \ base -> do
+            let damlPath = DamlPath (base </> "daml")
+                options = InstallOptions
+                    { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                    , iActivate = ActivateInstall False
+                    , iInitial = InitialInstall True
+                    , iQuiet = QuietInstall True
+                    , iForce = ForceInstall False
+                    }
+
+            setCurrentDirectory base
+            createDirectoryIfMissing True "source"
+            writeFileUTF8 ("source" </> sdkConfigName) "version: 0.0.0-test"
+            createSymbolicLink (base </> "daml") ("source" </> "daml-link")
+                -- absolute symlink
+
+            runConduitRes $
+                yield "source"
+                .| void Tar.tarFilePath
+                .| Zlib.gzip
+                .| sinkFile "source.tar.gz"
+
+            assertError "Extracting SDK release tarball."
+                "Invalid SDK release: symbolic link target is absolute."
+                (install options damlPath)
+
+    , Tasty.testCase "reject an escaping symlink in a tarball" $ do
+        withSystemTempDirectory "test-install" $ \ base -> do
+            let damlPath = DamlPath (base </> "daml")
+                options = InstallOptions
+                    { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                    , iActivate = ActivateInstall False
+                    , iInitial = InitialInstall True
+                    , iQuiet = QuietInstall True
+                    , iForce = ForceInstall False
+                    }
+
+            setCurrentDirectory base
+            createDirectoryIfMissing True "source"
+            writeFileUTF8 ("source" </> sdkConfigName) "version: 0.0.0-test"
+            createSymbolicLink (".." </> "daml") ("source" </> "daml-link")
+                -- escaping symlink
+
+            runConduitRes $
+                yield "source"
+                .| void Tar.tarFilePath
+                .| Zlib.gzip
+                .| sinkFile "source.tar.gz"
+
+            assertError "Extracting SDK release tarball."
+                "Invalid SDK release: symbolic link target escapes tarball."
+                (install options damlPath)
 
 
     ]
