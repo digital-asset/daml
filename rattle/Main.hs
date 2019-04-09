@@ -78,6 +78,9 @@ buildHaskellLibrary o@Da_haskell_library{..} = do
         ["-i" ++ dhl_dir </> dhl_src_strip_prefix]
         "-dynosuf=dyn_o -dynhisuf=dyn_hi"
         ["-static"] ["-dynamic-too" | not isWindows]
+         -- makes sure GHC uses shared objects in RTS linker
+         -- https://github.com/ghc/ghc/blob/cf9e1837adc647c90cfa176669d14e0d413c043d/compiler/main/DynFlags.hs#L2087
+        "-fexternal-interpreter"
         ["-package-db=.rattle/haskell" </> d </> "pkg.db" | d <- dhl_deps]
         modules ["-this-unit-id=" ++ dhl_name]
         (map ("-X"++) haskellExts) haskellFlags
