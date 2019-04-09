@@ -27,12 +27,17 @@ main = rattle $ do
         ,"compiler/daml-lf-tools"
         ,"compiler/daml-lf-proto"
         ,"daml-lf/archive"
+        -- ,"daml-foundations/daml-ghc"
+        ,"libs-haskell/bazel-runfiles"
+        -- ,"compiler/scenario-service/client"
+        -- ,"compiler/scenario-service/protos"
         ]
     metadata <- return [x{dhl_deps = dhl_deps x `intersect` map dhl_name metadata} | x <- metadata]
     metadata <- return $ topSort [(dhl_name, dhl_deps, x) | x@Da_haskell_library{..} <- metadata]
 
     -- build all the stack dependencies
-    cmd_ "stack build --stack-yaml=rattle/stack.yaml" $ ("proto3-suite":) $ nubSort (concatMap dhl_hazel_deps metadata) \\ ["ghc-lib","ghc-lib-parser"]
+    cmd_ "stack build --stack-yaml=rattle/stack.yaml" $ (++ ["grpc-haskell" | False]) $ ("proto3-suite":) $
+        nubSort (concatMap dhl_hazel_deps metadata) \\ ["ghc-lib","ghc-lib-parser"]
 
     -- generate the LF protobuf output
     let lfMajorVersions = ["0", "1", "Dev"]
@@ -41,9 +46,15 @@ main = rattle $ do
             "compile-proto-file --proto" ["da/daml_lf" ++ ['_' | v /= ""] ++ v ++ ".proto"]
             "--out ../../.rattle/generated/daml-lf/haskell"
 
+    -- generate the scenario protobuf output
+    cmd_ (Cwd "compiler/scenario-service/protos")
+            "compile-proto-file --proto scenario_service.proto"
+            "--out ../../../.rattle/generated/scenario-service/haskell"
+
     -- build all the Haskell projects
     let trans = transitive [(dhl_name, dhl_deps) | Da_haskell_library{..} <- metadata]
     let patch x | dhl_name x == "daml_lf_haskell_proto" = x{dhl_dir = ".rattle/generated/daml-lf/haskell", dhl_srcs = ["**/*.hs"]}
+                | dhl_name x == "scenario_service_haskell_proto" = x{dhl_dir = ".rattle/generated/scenario-service/haskell", dhl_srcs = ["**/*.hs"]}
                 | otherwise = x
     forM_ metadata $ \m -> buildHaskellLibrary $ patch m{dhl_deps = nubSort $ concatMap trans $ dhl_deps m}
 

@@ -3,6 +3,8 @@ resolver: nightly-2019-04-05
 packages:
 - ../nix/third-party/proto3-suite
 - ../nix/third-party/proto3-wire
+- ../nix/third-party/gRPC-haskell
+- ../nix/third-party/gRPC-haskell/core
 
 extra-deps:
   - name: ghc-lib-parser
