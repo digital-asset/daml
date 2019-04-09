@@ -174,11 +174,9 @@ envFindChoices Env{..} x = fromMaybe [] $ MS.lookup x envChoices
 envFindKeys :: Env -> String -> [GHC.Expr Var]
 envFindKeys Env{..} x = fromMaybe [] $ MS.lookup x envKeys
 
--- x is an alias for y
-envInsertAlias :: Var -> Var -> Env -> ConvertM Env
-envInsertAlias x y env = do
-    z <- maybe (convertExpr env (Var y)) pure (envLookupAlias y env)
-    pure env{envAliases = MS.insert x z (envAliases env)}
+-- v is an alias for x
+envInsertAlias :: Var -> LF.Expr -> Env -> Env
+envInsertAlias v x env = env{envAliases = MS.insert v x (envAliases env)}
 
 envLookupAlias :: Var -> Env -> Maybe LF.Expr
 envLookupAlias x = MS.lookup x . envAliases
@@ -360,7 +358,7 @@ convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App`
       (Lam keyBinder keyExpr, Lam maintainerBinder maintainerExpr) -> do
         keyType <- convertType env keyType
         keyExpr <- convertKeyExpr env keyBinder keyExpr
-        let maintainerEnv = env{envAliases = MS.insert maintainerBinder (EVar (mkVar "this")) (envAliases env)}
+        let maintainerEnv = envInsertAlias maintainerBinder (EVar "this") env
         maintainerExpr <- convertExpr maintainerEnv maintainerExpr
         maintainerExpr <- rewriteMaintainer keyExpr maintainerExpr
         pure $ TemplateKey keyType keyExpr (ETmLam ("$key", keyType) maintainerExpr)
@@ -383,9 +381,7 @@ convertKeyExpr env keyBinder keyExpr
     | otherwise = defaultConv
   where
     thisRef = EVar "this"
-    defaultConv = do
-        let keyEnv = env{envAliases = MS.insert keyBinder thisRef (envAliases env)}
-        convertExpr keyEnv keyExpr
+    defaultConv = convertExpr (envInsertAlias keyBinder thisRef env) keyExpr
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
 convertTypeDef env (ATyCon t)
@@ -781,17 +777,10 @@ convertExpr env0 e = do
     go env (Cast x co) args = fmap (, args) $ do
         x' <- convertExpr env x
         convertCast env x' co
-    go env (Let (NonRec name x) y) args
-        | Var v <- x
-        = fmap (, args) $ do
-             env' <- envInsertAlias name v env
-             convertExpr env' y
-        | otherwise
-        = fmap (, args) $ do
-             x' <- convertExpr env x
-             y' <- convertExpr env y
-             name' <- convVarWithType env name
-             pure (ELet (Binding name' x') y')
+    go env (Let (NonRec name x) y) args =
+        fmap (, args) $ convertLet env name x (\env -> convertExpr env y)
+    go env (Case scrutinee bind _ [(DEFAULT, [], x)]) args =
+        go env (Let (NonRec bind scrutinee) x) args
     go env (Case scrutinee bind t [(DataAlt con, [v], x)]) args | is con == "I#" = fmap (, args) $ do
         -- we pretend Int and Int# are the same, so a case statement becomes a Let
         scrutinee' <- convertExpr env scrutinee
@@ -853,14 +842,6 @@ convertExpr env0 e = do
         pure $
           ELet (Binding bind' scrutinee') $
           ECase (EVar $ convVar bind) [CaseAlternative CPDefault $ EBuiltin BEError `ETyApp` typ' `ETmApp` EBuiltin (BEText $ T.pack "Unreachable")]
-    go env (Case (Var v) bind _ [(DEFAULT, [], x)]) args = fmap (, args) $ do
-        env' <- envInsertAlias bind v env
-        convertExpr env' x
-    go env (Case scrutinee bind _ [(DEFAULT, [], x)]) args = fmap (, args) $ do
-        scrutinee' <- convertExpr env scrutinee
-        x' <- convertExpr env x
-        bind' <- convVarWithType env bind
-        pure $ ELet (Binding bind' scrutinee') x'
     go env (Case scrutinee bind _ (defaultLast -> alts)) args = fmap (, args) $ do
         scrutinee' <- convertExpr env scrutinee
         bindTy <- convertType env $ varType bind
@@ -880,6 +861,16 @@ convertExpr env0 e = do
     convertArg env = \case
         Type t -> TyArg <$> convertType env t
         e -> TmArg <$> convertExpr env e
+
+convertLet :: Env -> Var -> GHC.Expr Var -> (Env -> ConvertM LF.Expr) -> ConvertM LF.Expr
+convertLet env binder bound mkBody = do
+    bound <- convertExpr env bound
+    case bound of
+        EVar{} -> mkBody (envInsertAlias binder bound env)
+        _ -> do
+            binder <- convVarWithType env binder
+            body <- mkBody env
+            pure $ ELet (Binding binder bound) body
 
 -- | Convert ghc package unit id's to LF package references.
 convertUnitId :: GHC.UnitId -> MS.Map GHC.UnitId T.Text -> UnitId -> ConvertM LF.PackageRef
