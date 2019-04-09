@@ -421,7 +421,7 @@ Serializing
 To serialize an instance of the ``Attribute<a>`` data type, a function for creating the Ledger API equivalent of the attribute value
 is passed to the ``toValue`` method as the ``fromValuea`` argument (see the above ``com/acme/Attribute.java`` source extract).
 
-Below is a Java fragment to serialize an attribute with a ``java.lang.Long`` value to Ledger API representation using the *method reference*
+Below is a Java fragment that serializes an attribute with a ``java.lang.Long`` value to the Ledger API representation using the *method reference*
 ``Int64::new`` to create a new instance of the Java Bindings value type.
 
 .. code-block:: java
