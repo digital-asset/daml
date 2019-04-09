@@ -27,6 +27,7 @@ readMetadata file = do
 
 lexPython :: String -> [String]
 lexPython (dropWhile isSpace -> ('\'':xs)) | (inner,'\'':xs) <- break (== '\'') xs = ("\"" ++ inner ++ "\"") : lexPython xs
+lexPython (dropWhile isSpace -> ('\"':'\"':'\"':xs)) | (inner,_:_:_:xs) <- breakOn "\"\"\"" xs = ("\"" ++ inner ++ "\"") : lexPython xs
 lexPython x = case lex x of
     [("#",x)] -> lexPython $ drop 1 $ dropWhile (/= '\n') x
     [("","")] -> []
