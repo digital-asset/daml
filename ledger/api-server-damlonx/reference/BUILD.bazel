@@ -16,6 +16,7 @@ da_scala_binary(
     '//ledger/participant-state',
     '//ledger/participant-state/reference',
     '//ledger/participant-state-index',
+    '//ledger/participant-state-index/reference',
     '//ledger/ledger-api-common:ledger-api-common',
     '//language-support/scala/bindings',
 

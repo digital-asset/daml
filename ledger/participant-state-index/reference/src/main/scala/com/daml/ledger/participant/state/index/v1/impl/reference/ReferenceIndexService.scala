@@ -47,12 +47,12 @@ final case class ReferenceIndexService(participantReadService: participant.state
 
     def getState: IndexState = currentState.get
 
-    def subscribe(indexId: IndexId): Source[IndexState, NotUsed] =
+    def subscribe(ledgerId: LedgerId): Source[IndexState, NotUsed] =
       stateChangeDispatcher
         .subscribe(signalOnSubscribe = true)
         .flatMapConcat { _signal =>
           val s = getState
-          if (s.indexId != indexId) {
+          if (s.getLedgerId != ledgerId) {
             Source.empty // FIXME(JM): or error?
           } else {
             Source.single(s)
@@ -93,15 +93,15 @@ final case class ReferenceIndexService(participantReadService: participant.state
       .to(updateStateSink)
       .run()
 
-  private def asyncResultWithState[T](indexId: IndexId)(
+  private def asyncResultWithState[T](ledgerId: LedgerId)(
       handler: IndexState => Future[T]): AsyncResult[T] = {
     val s = StateController.getState
-    if (s.indexId == indexId) {
+    if (s.getLedgerId == ledgerId) {
       handler(s).map(Right(_))
     } else {
       Future.successful(
         Left(
-          IndexService.Err.IndexIdMismatch(indexId, s.indexId)
+          IndexService.Err.LedgerIdMismatch(ledgerId, s.getLedgerId)
         )
       )
     }
@@ -112,20 +112,20 @@ final case class ReferenceIndexService(participantReadService: participant.state
     stateUpdateKillSwitch.shutdown()
   }
 
-  override def listPackages(indexId: IndexId): AsyncResult[List[PackageId]] =
-    asyncResultWithState(indexId) { state =>
+  override def listPackages(ledgerId: LedgerId): AsyncResult[List[PackageId]] =
+    asyncResultWithState(ledgerId) { state =>
       Future.successful(state.packages.keys.toList)
     }
 
-  override def isPackageRegistered(indexId: IndexId, packageId: PackageId): AsyncResult[Boolean] =
-    asyncResultWithState(indexId) { state =>
+  override def isPackageRegistered(ledgerId: LedgerId, packageId: PackageId): AsyncResult[Boolean] =
+    asyncResultWithState(ledgerId) { state =>
       Future.successful(state.packages.contains(packageId))
     }
 
   override def getPackage(
-      indexId: IndexId,
+      ledgerId: LedgerId,
       packageId: PackageId): AsyncResult[Option[DamlLf.Archive]] =
-    asyncResultWithState(indexId) { state =>
+    asyncResultWithState(ledgerId) { state =>
       Future.successful(
         state.packages
           .get(packageId)
@@ -133,25 +133,28 @@ final case class ReferenceIndexService(participantReadService: participant.state
       )
     }
 
-  override def getLedgerConfiguration(indexId: IndexId): AsyncResult[Configuration] =
-    asyncResultWithState(indexId) { state =>
+  override def getLedgerConfiguration(ledgerId: LedgerId): AsyncResult[Configuration] =
+    asyncResultWithState(ledgerId) { state =>
       Future.successful(state.getConfiguration)
     }
 
-  override def getCurrentIndexId(): Future[IndexId] =
-    Future.successful(StateController.getState.indexId)
+  override def getLedgerId(): Future[LedgerId] =
+    Future.successful(StateController.getState.getLedgerId)
 
-  override def getCurrentStateId(): Future[StateId] =
-    Future.successful(StateController.getState.getStateId)
-
-  override def getLedgerBeginning(indexId: IndexId): AsyncResult[Offset] =
-    asyncResultWithState(indexId) { state =>
-      Future.successful(0)
+  override def getLedgerBeginning(ledgerId: LedgerId): AsyncResult[Offset] =
+    asyncResultWithState(ledgerId) { state =>
+      Future.successful(Offset.fromUpdateId(state.getBeginning))
     }
 
-  override def getLedgerEnd(indexId: IndexId): AsyncResult[Offset] =
-    asyncResultWithState(indexId) { state =>
-      Future.successful(state.nextOffset)
+  override def getLedgerEnd(ledgerId: LedgerId): AsyncResult[Offset] =
+    asyncResultWithState(ledgerId) { state =>
+      Future.successful(Offset.fromUpdateId(state.getUpdateId))
+    }
+
+  override def getLedgerBounds(ledgerId: LedgerId): AsyncResult[(Offset, Offset)] =
+    asyncResultWithState(ledgerId) { state =>
+      Future.successful(
+        (Offset.fromUpdateId(state.getBeginning), Offset.fromUpdateId(state.getUpdateId)))
     }
 
   private def nodeIdToEventId(txId: TransactionId, nodeId: NodeId): String =
@@ -199,9 +202,9 @@ final case class ReferenceIndexService(participantReadService: participant.state
   }
 
   override def getActiveContractSetSnapshot(
-      indexId: IndexId,
+      ledgerId: LedgerId,
       filter: TransactionFilter): AsyncResult[ActiveContractSetSnapshot] =
-    asyncResultWithState(indexId) { state =>
+    asyncResultWithState(ledgerId) { state =>
       val filtering = TransactionFiltering(filter)
       val events =
         Source.fromIterator(
@@ -217,91 +220,75 @@ final case class ReferenceIndexService(participantReadService: participant.state
                   (workflowId, create)
               }
               .toIterator)
-      Future.successful(ActiveContractSetSnapshot(state.nextOffset - 1, events))
+      Future.successful(ActiveContractSetSnapshot(Offset.fromUpdateId(state.getUpdateId), events))
     }
 
   override def getActiveContractSetUpdates(
-      indexId: IndexId,
+      ledgerId: LedgerId,
       beginAfter: Option[Offset],
       endAt: Option[Offset],
       filter: TransactionFilter): AsyncResult[Source[AcsUpdate, NotUsed]] =
-    asyncResultWithState(indexId) { _ =>
+    asyncResultWithState(ledgerId) { _ =>
       Future {
-        logger.debug(s"getActiveContractSetUpdates: $indexId, $beginAfter")
+        logger.debug(s"getActiveContractSetUpdates: $ledgerId, $beginAfter")
         val filtering = TransactionFiltering(filter)
 
-        StateController
-          .subscribe(indexId)
-          .statefulMapConcat { () =>
-            var currentOffset: Offset = beginAfter.getOrElse(0)
-            state =>
-              // NOTE(JM): Include one transaction beyond the end offset, so we know
-              // when to cut the stream.
-              val endOffset = endAt.getOrElse(state.nextOffset)
-              val acsUpdates = state.txs
-                .range(currentOffset, endOffset)
-                .map {
-                  case (offset, (acceptedTx, _blindingInfo)) =>
-                    val events =
-                      transactionToAcsUpdateEvents(filtering, acceptedTx)
-                        .map(_._2) /* ignore workflow id */
-                    AcsUpdate(
-                      optSubmitterInfo = acceptedTx.optSubmitterInfo,
-                      offset = offset,
-                      transactionMeta = acceptedTx.transactionMeta,
-                      transactionId = acceptedTx.transactionId,
-                      events = events.toList
-                    )
-                }
-              currentOffset = state.nextOffset
-            acsUpdates
-          }
-          // Complete the stream once end (if given) has been reached.
-          .takeWhile { acsUpdate =>
-            endAt.fold(true)(_ <= acsUpdate.offset)
+        getTransactionStream(ledgerId, beginAfter, endAt)
+          .map {
+            case (offset, (acceptedTx, blindingInfo)) =>
+              val events =
+                transactionToAcsUpdateEvents(filtering, acceptedTx)
+                  .map(_._2) /* ignore workflow id */
+              // FIXME(JM): skip if events empty?
+              AcsUpdate(
+                optSubmitterInfo = acceptedTx.optSubmitterInfo,
+                offset = offset,
+                transactionMeta = acceptedTx.transactionMeta,
+                transactionId = acceptedTx.transactionId,
+                events = events
+              )
           }
       }
     }
 
   override def getAcceptedTransactions(
-      indexId: IndexId,
+      ledgerId: LedgerId,
       beginAfter: Option[Offset],
       endAt: Option[Offset],
       filter: TransactionFilter)
     : AsyncResult[Source[(Offset, (TransactionAccepted, BlindingInfo)), NotUsed]] =
-    asyncResultWithState(indexId) { _ =>
+    asyncResultWithState(ledgerId) { state0 =>
       Future {
-        logger.debug(s"getAcceptedTransactions: $indexId, $beginAfter")
-        StateController
-          .subscribe(indexId)
-          .statefulMapConcat { () =>
-            // FIXME(JM): Filtering.
-            var currentOffset: Offset = beginAfter.getOrElse(0)
-            state =>
-              logger.debug(s"getAcceptedTransactions: got state ${state.getUpdateId}")
-              // NOTE(JM): Include one transaction beyond the end offset, so we know
-              // when to cut the stream.
-              val endOffset = endAt.getOrElse(state.nextOffset)
-              val txs = state.txs.range(currentOffset, endOffset)
-              currentOffset = state.nextOffset
-              txs
-          }
-
-          // Complete the stream once end (if given) has been reached.
-          .takeWhile {
-            case (offset, _) =>
-              endAt.fold(true)(_ <= offset)
-          }
-
+        logger.debug(s"getAcceptedTransactions: $ledgerId, $beginAfter")
+        getTransactionStream(ledgerId, beginAfter, endAt)
         // FIXME(JM): Filter out non-matching transactions. Currently the service does this.
-        /*.filter {
-          case (offset, tx) =>
-          }*/
-
       }
     }
 
-  def getCompletionsFromState(
+  private def getTransactionStream(
+      ledgerId: LedgerId,
+      beginAfter: Option[Offset],
+      endAt: Option[Offset]) =
+    StateController
+      .subscribe(ledgerId)
+      .statefulMapConcat { () =>
+        var currentOffset: Option[Offset] = beginAfter
+        state =>
+          val txs =
+            currentOffset
+              .fold(state.txs)(state.txs.from)
+              .take(100) /* produce in chunks of 100 */
+          currentOffset = txs.lastOption.map(_._1)
+          txs
+      }
+      // Complete the stream once end (if given) has been reached.
+      .takeWhile {
+        case (offset, _) =>
+          endAt.fold(true)(_ <= offset)
+
+      }
+
+  private def getCompletionsFromState(
       state: IndexState,
       beginFrom: Offset,
       applicationId: String): List[CompletionEvent] = {
@@ -334,39 +321,37 @@ final case class ReferenceIndexService(participantReadService: participant.state
         }
         .toList
 
-    // FiXME(JM): Do we need to persist "Heartbeat" events and emit those here
-    // or is it fine that this is synthetic?
-    (CompletionEvent.Checkpoint(state.nextOffset - 1, state.recordTime.get)
+    (CompletionEvent.Checkpoint(Offset.fromUpdateId(state.getUpdateId), state.getRecordTime)
       +: (accepted ++ rejected)).sortBy(_.offset)
   }
 
   override def getCompletions(
-      indexId: IndexId,
+      ledgerId: LedgerId,
       beginAfter: Option[Offset],
       applicationId: String,
       parties: List[String]): AsyncResult[Source[CompletionEvent, NotUsed]] =
-    asyncResultWithState(indexId) { _ =>
-      // FIXME(JM): Move the indexId check into the state subscription?
-      logger.debug(s"getCompletions: $indexId, $beginAfter")
+    asyncResultWithState(ledgerId) { state0 =>
+      // FIXME(JM): Move the ledgerId check into the state subscription?
+      logger.debug(s"getCompletions: $ledgerId, $beginAfter")
 
       Future {
         StateController
-          .subscribe(indexId)
+          .subscribe(ledgerId)
           .statefulMapConcat({ () =>
-            var currentBeginFrom: Offset = beginAfter.fold(0L)(_ + 1)
+            var currentOffset: Offset =
+              beginAfter.getOrElse(Offset.fromUpdateId(state0.getBeginning))
             state =>
-              val completions = getCompletionsFromState(state, currentBeginFrom, applicationId)
-              currentBeginFrom = state.nextOffset
+              val completions = getCompletionsFromState(state, currentOffset, applicationId)
+              currentOffset = completions.last.offset
               logger.debug(s"Sending completions: ${completions}")
               completions
           })
       }
-
     }
 
-  override def lookupActiveContract(indexId: IndexId, contractId: Value.AbsoluteContractId)
+  override def lookupActiveContract(ledgerId: LedgerId, contractId: Value.AbsoluteContractId)
     : AsyncResult[Option[Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]]] =
-    asyncResultWithState(indexId) { state =>
+    asyncResultWithState(ledgerId) { state =>
       Future {
         state.activeContracts.get(contractId)
       }

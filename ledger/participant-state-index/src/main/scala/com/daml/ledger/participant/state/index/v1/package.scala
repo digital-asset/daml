@@ -7,11 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.TransactionFilter
 
 import scala.concurrent.Future
 
@@ -21,91 +17,37 @@ package object v1 {
   type TransactionAccepted = Update.TransactionAccepted
   type AsyncResult[T] = Future[Either[IndexService.Err, T]]
 
-  /** The ledger offset.
-    * The opaque update identifiers are mapped to ledger offsets in the index service.
-    * This provides ordering and efficient range queries, while leaving the underlying
-    * state implementation free to choose its own representation for update identifiers.
+  /** The ledger offsets.
+    * This extends the update identifier with further elements in order to
+    * insert ephemeral rejection events into the event stream, while
+    * retaining the ordering.
     */
-  type Offset = Long
+  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
+  final case class Offset(private val xs: Array[Int]) {
+    override def toString: String =
+      xs.mkString("-")
+
+    def components: Iterable[Int] = xs
+  }
+
+  implicit object Offset extends Ordering[Offset] {
+
+    def fromUpdateId(uId: UpdateId): Offset =
+      Offset(uId.xs)
+
+    /** Create an offset from a string of form 1-2-3. Throws
+      * NumberFormatException on misformatted strings.
+      */
+    def assertFromString(s: String): Offset =
+      Offset(s.split('-').map(_.toInt))
+
+    override def compare(x: Offset, y: Offset): Int =
+      scala.math.Ordering.Iterable[Int].compare(x.xs, y.xs)
+
+  }
 
   /** ACS event identifier */
   type EventId = String
-
-  /** The index identifier uniquely identifies the index. Since the index may include
-    * events that are not committed to the ledger, an index that has been rebuilt from
-    * the ledger may use offsets that are incompatible with an earlier index generation.
-    * This is why all methods in the index service include the unique index id and reject
-    * requests with mismatching index ids.
-    *
-    * FIXME(JM): Use "IndexId" as "LedgerId", and expose an endpoint here that gives
-    * StateId from it?
-    */
-  type IndexId = String
-
-  trait IndexService {
-    def listPackages(indexId: IndexId): AsyncResult[List[PackageId]]
-    def isPackageRegistered(indexId: IndexId, packageId: PackageId): AsyncResult[Boolean]
-    def getPackage(indexId: IndexId, packageId: PackageId): AsyncResult[Option[Archive]]
-
-    def getLedgerConfiguration(indexId: IndexId): AsyncResult[Configuration]
-
-    def getCurrentIndexId(): Future[IndexId]
-    def getCurrentStateId(): Future[StateId]
-
-    def getLedgerBeginning(indexId: IndexId): AsyncResult[Offset]
-    def getLedgerEnd(indexId: IndexId): AsyncResult[Offset]
-
-    def lookupActiveContract(
-        indexId: IndexId,
-        contractId: AbsoluteContractId
-    ): AsyncResult[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]]
-
-    def getActiveContractSetSnapshot(
-        indexId: IndexId,
-        filter: TransactionFilter
-    ): AsyncResult[ActiveContractSetSnapshot]
-
-    def getActiveContractSetUpdates(
-        indexId: IndexId,
-        beginAfter: Option[Offset],
-        endAt: Option[Offset],
-        filter: TransactionFilter
-    ): AsyncResult[Source[AcsUpdate, NotUsed]]
-
-    // FIXME(JM): Cleaner name/types for this
-    // FIXME(JM): Fold BlindingInfo into TransactionAccepted, or introduce
-    // new type in IndexService?
-    def getAcceptedTransactions(
-        indexId: IndexId,
-        beginAfter: Option[Offset],
-        endAt: Option[Offset],
-        filter: TransactionFilter
-    ): AsyncResult[Source[(Offset, (TransactionAccepted, BlindingInfo)), NotUsed]]
-
-    /*
-    def getTransactionById(
-        indexId: IndexId,
-        transactionId: TransactionId,
-        requestingParties: Set[Party]
-    ): AsyncResult[Option[TransactionAccepted]]
-     */
-
-    def getCompletions(
-        indexId: IndexId,
-        beginAfter: Option[Offset],
-        applicationId: String,
-        parties: List[String]
-    ): AsyncResult[Source[CompletionEvent, NotUsed]]
-  }
-
-  object IndexService {
-    sealed trait Err
-    object Err {
-
-      final case class IndexIdMismatch(expected: IndexId, actual: IndexId) extends Err
-
-    }
-  }
 
   final case class AcsUpdate(
       optSubmitterInfo: Option[SubmitterInfo],
@@ -140,6 +82,7 @@ package object v1 {
   }
   object CompletionEvent {
     final case class Checkpoint(offset: Offset, recordTime: Timestamp) extends CompletionEvent
+    // FIXME(JM): Remove offsets from these?
     final case class CommandAccepted(offset: Offset, commandId: String) extends CompletionEvent
     final case class CommandRejected(offset: Offset, commandId: String, reason: RejectionReason)
         extends CompletionEvent
@@ -147,7 +90,5 @@ package object v1 {
 
   final case class ActiveContractSetSnapshot(
       takenAt: Offset,
-      activeContracts: Source[(WorkflowId, AcsUpdateEvent.Create), NotUsed]
-  )
-
+      activeContracts: Source[(WorkflowId, AcsUpdateEvent.Create), NotUsed])
 }

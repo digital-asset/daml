@@ -24,7 +24,10 @@ import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdForm
 import com.digitalasset.platform.server.api._
 import com.digitalasset.platform.server.api.services.domain.TransactionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcTransactionService
-import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
+import com.digitalasset.platform.server.api.validation.{
+  ErrorFactories,
+  IdentifierResolver
+}
 import com.digitalasset.platform.server.services.transaction._
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction
 import com.digitalasset.ledger.backend.api.v1.LedgerBackend
@@ -39,19 +42,22 @@ import scala.util.{Failure, Success, Try}
 
 object SandboxTransactionService {
 
-  def createApiService(ledgerBackend: LedgerBackend, identifierResolver: IdentifierResolver)(
+  def createApiService(ledgerBackend: LedgerBackend,
+                       identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
-    : GrpcTransactionService with BindableService with TransactionServiceLogging =
-    new GrpcTransactionService(
-      new SandboxTransactionService(ledgerBackend),
-      ledgerBackend.ledgerId,
-      PartyNameChecker.AllowAllParties,
-      identifierResolver) with TransactionServiceLogging
+      esf: ExecutionSequencerFactory): GrpcTransactionService
+    with BindableService
+    with TransactionServiceLogging =
+    new GrpcTransactionService(new SandboxTransactionService(ledgerBackend),
+                               ledgerBackend.ledgerId,
+                               PartyNameChecker.AllowAllParties,
+                               identifierResolver)
+    with TransactionServiceLogging
 }
 
-class SandboxTransactionService private (val ledgerBackend: LedgerBackend, parallelism: Int = 4)(
+class SandboxTransactionService private (val ledgerBackend: LedgerBackend,
+                                         parallelism: Int = 4)(
     implicit executionContext: ExecutionContext,
     materializer: Materializer,
     esf: ExecutionSequencerFactory)
@@ -63,12 +69,12 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
   private val subscriptionIdCounter = new AtomicLong()
 
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
-  def getTransactions(request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] = {
+  def getTransactions(request: GetTransactionsRequest)
+    : Source[GetTransactionsResponse, NotUsed] = {
     val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
-    logger.debug(
-      "Received request for transaction subscription {}: {}",
-      subscriptionId: Any,
-      request)
+    logger.debug("Received request for transaction subscription {}: {}",
+                 subscriptionId: Any,
+                 request)
 
     val eventFilter = EventFilter.byTemplates(request.filter)
     val requestingParties = request.filter.filtersByParty.keys.toList
@@ -76,17 +82,19 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       .mapConcat { trans =>
         val events =
           TransactionConversion
-            .genToFlatTransaction(
-              trans.transaction,
-              trans.explicitDisclosure.mapValues(set => set.map(_.underlyingString)),
-              request.verbose)
+            .genToFlatTransaction(trans.transaction,
+                                  trans.explicitDisclosure.mapValues(set =>
+                                    set.map(_.underlyingString)),
+                                  request.verbose)
             .flatMap(eventFilter.filterEvent _)
 
-        val submitterIsSubscriber = trans.submitter.fold(false)(eventFilter.isSubmitterSubscriber)
+        val submitterIsSubscriber =
+          trans.submitter.fold(false)(eventFilter.isSubmitterSubscriber)
         if (events.nonEmpty || submitterIsSubscriber) {
           val transaction = PTransaction(
             transactionId = trans.transactionId,
-            commandId = if (submitterIsSubscriber) trans.commandId.getOrElse("") else "",
+            commandId =
+              if (submitterIsSubscriber) trans.commandId.getOrElse("") else "",
             workflowId = trans.workflowId,
             effectiveAt = Some(fromInstant(trans.recordTime)),
             events = events,
@@ -110,8 +118,8 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       }
   }
 
-  override def getTransactionTrees(
-      request: GetTransactionTreesRequest): Source[WithOffset[VisibleTransaction], NotUsed] = {
+  override def getTransactionTrees(request: GetTransactionTreesRequest)
+    : Source[WithOffset[String, VisibleTransaction], NotUsed] = {
     logger.debug("Received {}", request)
     runTransactionPipeline(
       request.parties.toList,
@@ -119,29 +127,30 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       request.end
     ).mapConcat { trans =>
       toResponseIfVisible(request, request.parties, trans.offset, trans)
-        .fold(List.empty[WithOffset[VisibleTransaction]])(e =>
-          List(WithOffset(BigInt(trans.offset), e)))
+        .fold(List.empty[WithOffset[String, VisibleTransaction]])(e =>
+          List(WithOffset(trans.offset, e)))
 
     }
   }
 
-  private def toResponseIfVisible(
-      request: GetTransactionTreesRequest,
-      subscribingParties: Set[Party],
-      offset: String,
-      trans: AcceptedTransaction) = {
+  private def toResponseIfVisible(request: GetTransactionTreesRequest,
+                                  subscribingParties: Set[Party],
+                                  offset: String,
+                                  trans: AcceptedTransaction) = {
 
-    val eventFilter = TransactionFilter(request.parties.map(_ -> Filters.noFilter)(breakOut))
+    val eventFilter = TransactionFilter(
+      request.parties.map(_ -> Filters.noFilter)(breakOut))
     val withMeta = toTransactionWithMeta(trans)
     VisibleTransaction.toVisibleTransaction(eventFilter, withMeta)
   }
 
-  private def isMultiPartySubscription(filter: domain.TransactionFilter): Boolean = {
+  private def isMultiPartySubscription(
+      filter: domain.TransactionFilter): Boolean = {
     filter.filtersByParty.size > 1
   }
 
-  def getTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[Option[VisibleTransaction]] = {
+  def getTransactionByEventId(request: GetTransactionByEventIdRequest)
+    : Future[Option[VisibleTransaction]] = {
     logger.debug("Received {}", request)
     SandboxEventIdFormatter
       .split(request.eventId.unwrap)
@@ -153,18 +162,22 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
         case TransactionIdWithIndex(transactionId, index) =>
           ledgerBackend.getCurrentLedgerEnd.flatMap(
             le =>
-              lookUpByTransactionId(
-                TransactionId(transactionId),
-                request.requestingParties,
-                le,
-                true))
+              lookUpByTransactionId(TransactionId(transactionId),
+                                    request.requestingParties,
+                                    le,
+                                    true))
       }
   }
 
-  def getTransactionById(request: GetTransactionByIdRequest): Future[Option[VisibleTransaction]] = {
+  def getTransactionById(request: GetTransactionByIdRequest)
+    : Future[Option[VisibleTransaction]] = {
     logger.debug("Received {}", request)
-    ledgerBackend.getCurrentLedgerEnd.flatMap(le =>
-      lookUpByTransactionId(request.transactionId, request.requestingParties, le, true))
+    ledgerBackend.getCurrentLedgerEnd.flatMap(
+      le =>
+        lookUpByTransactionId(request.transactionId,
+                              request.requestingParties,
+                              le,
+                              true))
   }
 
   def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
@@ -178,21 +191,23 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       begin: LedgerOffset,
       end: Option[LedgerOffset]): Source[AcceptedTransaction, NotUsed] = {
 
-    Source.fromFuture(ledgerBackend.getCurrentLedgerEnd).flatMapConcat { ledgerEnd =>
-      OffsetSection(begin, end)(getOffsetHelper(ledgerEnd)) match {
-        case Failure(exception) => Source.failed(exception)
-        case Success(value) =>
-          value match {
-            case OffsetSection.Empty => Source.empty
-            case OffsetSection.NonEmpty(subscribeFrom, subscribeUntil) =>
-              ledgerBackend
-                .ledgerSyncEvents(Some(subscribeFrom))
-                .takeWhile({
-                  case item => subscribeUntil.fold(true)(until => until != item.offset)
-                }, inclusive = true)
-                .collect { case t: AcceptedTransaction => t }
-          }
-      }
+    Source.fromFuture(ledgerBackend.getCurrentLedgerEnd).flatMapConcat {
+      ledgerEnd =>
+        OffsetSection(begin, end)(getOffsetHelper(ledgerEnd)) match {
+          case Failure(exception) => Source.failed(exception)
+          case Success(value) =>
+            value match {
+              case OffsetSection.Empty => Source.empty
+              case OffsetSection.NonEmpty(subscribeFrom, subscribeUntil) =>
+                ledgerBackend
+                  .ledgerSyncEvents(Some(subscribeFrom))
+                  .takeWhile({
+                    case item =>
+                      subscribeUntil.fold(true)(until => until != item.offset)
+                  }, inclusive = true)
+                  .collect { case t: AcceptedTransaction => t }
+            }
+        }
     }
   }
 
@@ -218,7 +233,9 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
     ledgerBackend
       .ledgerSyncEvents(None)
       .takeWhile(t => t.offset != ledgerEnd, inclusive = true)
-      .collect { case t: AcceptedTransaction if t.transactionId == transactionId => t }
+      .collect {
+        case t: AcceptedTransaction if t.transactionId == transactionId => t
+      }
       .runWith(Sink.headOption)
       .flatMap {
         case Some(trans) =>
@@ -236,18 +253,20 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       }
   }
 
-  private def toTransactionWithMeta(trans: AcceptedTransaction) = TransactionWithMeta(
-    trans.transaction,
-    extractMeta(trans)
-  )
+  private def toTransactionWithMeta(trans: AcceptedTransaction) =
+    TransactionWithMeta(
+      trans.transaction,
+      extractMeta(trans)
+    )
 
-  private def extractMeta(trans: AcceptedTransaction): TransactionMeta = TransactionMeta(
-    TransactionId(trans.transactionId),
-    Tag.subst(trans.commandId),
-    Tag.subst(trans.applicationId),
-    Tag.subst(trans.submitter),
-    WorkflowId(trans.workflowId),
-    trans.recordTime,
-    None
-  )
+  private def extractMeta(trans: AcceptedTransaction): TransactionMeta =
+    TransactionMeta(
+      TransactionId(trans.transactionId),
+      Tag.subst(trans.commandId),
+      Tag.subst(trans.applicationId),
+      Tag.subst(trans.submitter),
+      WorkflowId(trans.workflowId),
+      trans.recordTime,
+      None
+    )
 }

@@ -12,13 +12,19 @@ import com.daml.ledger.participant.state.index.v1.IndexService
 import com.daml.ledger.participant.state.v1.WriteService
 import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
 import com.digitalasset.daml.lf.lfpackage.Decode
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.grpc.adapter.{
+  AkkaExecutionSequencerPool,
+  ExecutionSequencerFactory
+}
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ReferenceCommandService
 import com.digitalasset.platform.server.services.identity.LedgerIdentityServiceImpl
-import com.digitalasset.platform.server.services.testing.{ReferenceTimeService, TimeServiceBackend}
+import com.digitalasset.platform.server.services.testing.{
+  ReferenceTimeService,
+  TimeServiceBackend
+}
 import io.grpc.BindableService
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -32,21 +38,21 @@ import scala.concurrent.duration._
 object Server {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  def apply(
-      serverPort: Int,
-      indexService: IndexService,
-      writeService: WriteService,
-      tsb: TimeServiceBackend /* FIXME(JM): Remove */ )(
+  def apply(serverPort: Int,
+            indexService: IndexService,
+            writeService: WriteService,
+            tsb: TimeServiceBackend /* FIXME(JM): Remove */ )(
       implicit materializer: ActorMaterializer): Server = {
-    implicit val serverEsf: AkkaExecutionSequencerPool = new AkkaExecutionSequencerPool(
-      // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server
-      // instances, and it's pretty difficult to wait for the name to become available
-      // again (the name deregistration is asynchronous and the close method is not waiting for
-      // it, and it isn't trivial to implement).
-      // https://doc.akka.io/docs/akka/2.5/actors.html#graceful-stop
-      s"api-server-damlonx-rs-grpc-bridge-${UUID.randomUUID}",
-      Runtime.getRuntime.availableProcessors() * 8
-    )(materializer.system)
+    implicit val serverEsf: AkkaExecutionSequencerPool =
+      new AkkaExecutionSequencerPool(
+        // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server
+        // instances, and it's pretty difficult to wait for the name to become available
+        // again (the name deregistration is asynchronous and the close method is not waiting for
+        // it, and it isn't trivial to implement).
+        // https://doc.akka.io/docs/akka/2.5/actors.html#graceful-stop
+        s"api-server-damlonx-rs-grpc-bridge-${UUID.randomUUID}",
+        Runtime.getRuntime.availableProcessors() * 8
+      )(materializer.system)
 
     new Server(
       serverEsf,
@@ -57,34 +63,41 @@ object Server {
 
   private def createIdentifierResolver(indexService: IndexService)(
       implicit ec: ExecutionContext): IdentifierResolver = {
-    // FIXME(JM): This won't handle changing state id nicely, and it's racy.
     IdentifierResolver(
       pkgId =>
         indexService
-          .getCurrentStateId()
-          .flatMap { stateId =>
+          .getLedgerId()
+          .flatMap { ledgerId =>
             indexService
-              .getPackage(stateId, pkgId)
-              .map(_.getOrElse(sys.error("FIXME: StateId mismatch")))
+              .getPackage(ledgerId, pkgId)
+              .map(_.getOrElse(sys.error("IMPOSSIBLE: LedgerId mismatch")))
           }
           .map(optArchive => optArchive.map(Decode.decodeArchive(_)._2))
     )
   }
 
-  private def createServices(
-      indexService: IndexService,
-      writeService: WriteService,
-      tsb: TimeServiceBackend)(
+  private def createServices(indexService: IndexService,
+                             writeService: WriteService,
+                             tsb: TimeServiceBackend)(
       implicit mat: ActorMaterializer,
       serverEsf: ExecutionSequencerFactory): List[BindableService] = {
     implicit val ec: ExecutionContext = mat.system.dispatcher
 
+    // FIXME(JM): Any point in keeping getLedgerId async?
+    val ledgerId = Await.result(
+      indexService.getLedgerId(),
+      10.seconds
+    )
     val identifierResolver = createIdentifierResolver(indexService)
     val engine = Engine()
     logger.info(EngineInfo.show)
 
     val submissionService =
-      DamlOnXSubmissionService.create(identifierResolver, indexService, writeService, engine)
+      DamlOnXSubmissionService.create(identifierResolver,
+                                      ledgerId,
+                                      indexService,
+                                      writeService,
+                                      engine)
 
     val commandCompletionService =
       DamlOnXCommandCompletionService.create(indexService)
@@ -93,15 +106,16 @@ object Server {
       DamlOnXActiveContractsService.create(indexService, identifierResolver)
 
     val transactionService =
-      DamlOnXTransactionService.create(indexService, identifierResolver)
+      DamlOnXTransactionService.create(ledgerId,
+                                       indexService,
+                                       identifierResolver)
 
-    val stateId = Await.result(indexService.getCurrentIndexId(), 1.minute)
-    val identityService = LedgerIdentityServiceImpl(stateId)
+    val identityService = LedgerIdentityServiceImpl(ledgerId)
 
     // FIXME(JM): hard-coded values copied from SandboxConfig.
     val commandService = ReferenceCommandService(
       ReferenceCommandService.Configuration(
-        stateId,
+        ledgerId,
         512, // config.commandConfig.inputBufferSize,
         128, // config.commandConfig.maxParallelSubmissions,
         256, // config.commandConfig.maxCommandsInFlight,
@@ -119,14 +133,15 @@ object Server {
           commandCompletionService.service
             .asInstanceOf[DamlOnXCommandCompletionService]
             .completionStreamSource(r),
-        () => commandCompletionService.completionEnd(CompletionEndRequest(stateId))
+        () =>
+          commandCompletionService.completionEnd(CompletionEndRequest(ledgerId))
       )
     )
 
-    val packageService = DamlOnXPackageService(indexService, stateId)
+    val packageService = DamlOnXPackageService(indexService, ledgerId)
 
     val timeService = ReferenceTimeService(
-      stateId,
+      ledgerId,
       tsb,
       false
     )
@@ -151,16 +166,18 @@ object Server {
   }
 }
 
-final class Server private (
-    serverEsf: AkkaExecutionSequencerPool,
-    serverPort: Int,
-    services: Iterable[BindableService])(implicit materializer: ActorMaterializer)
+final class Server private (serverEsf: AkkaExecutionSequencerPool,
+                            serverPort: Int,
+                            services: Iterable[BindableService])(
+    implicit materializer: ActorMaterializer)
     extends AutoCloseable {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val serverEventLoopGroup: NioEventLoopGroup = {
     val threadFactory =
-      new DefaultThreadFactory(s"api-server-damlonx-grpc-eventloop-${UUID.randomUUID}", true)
+      new DefaultThreadFactory(
+        s"api-server-damlonx-grpc-eventloop-${UUID.randomUUID}",
+        true)
     val parallelism = Runtime.getRuntime.availableProcessors
     new NioEventLoopGroup(parallelism, threadFactory)
   }

@@ -45,9 +45,15 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
         case Some(offset) =>
           LedgerOffsetValidator
             .validate(offset, "offset")
+            // FIXME(JM): validate offset content
             .fold(
               Future.failed, {
-                case domain.LedgerOffset.Absolute(value) => Future.successful(Some(value.toLong))
+                case domain.LedgerOffset.Absolute(value) =>
+                  // FIXME(JM): properly handle failure
+                  Future.successful(
+                    Some(
+                      Offset.assertFromString(value)
+                    ))
                 case domain.LedgerOffset.LedgerBegin => Future.successful(None)
                 case domain.LedgerOffset.LedgerEnd =>
                   consumeAsyncResult(indexService.getLedgerEnd(request.ledgerId)).map(Some(_))
@@ -106,7 +112,8 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
       case RejectionReason.MaximumRecordTimeExceeded => Code.ABORTED
       case RejectionReason.Disputed(_) => Code.INVALID_ARGUMENT
       case RejectionReason.DuplicateCommandId => Code.INVALID_ARGUMENT
-      case RejectionReason.SubmitterNotHostedOnParticipant => Code.INVALID_ARGUMENT
+      case RejectionReason.SubmitterNotHostedOnParticipant =>
+        Code.INVALID_ARGUMENT
       case RejectionReason.PartyNotKnownOnLedger => Code.INVALID_ARGUMENT
     }
     Completion(commandId, Some(Status(code.value(), error.description)), None)
@@ -122,14 +129,15 @@ object DamlOnXCommandCompletionService {
   def create(indexService: IndexService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
-    : CommandCompletionServiceValidation with BindableService with AutoCloseable with CommandCompletionServiceLogging = {
+      esf: ExecutionSequencerFactory): CommandCompletionServiceValidation
+    with BindableService
+    with AutoCloseable
+    with CommandCompletionServiceLogging = {
     val impl = new DamlOnXCommandCompletionService(indexService)
 
-    // FIXME(JM): rewrite validation to not use static ledger id
-    val indexId = Await.result(indexService.getCurrentIndexId(), 5.seconds)
+    val ledgerId = Await.result(indexService.getLedgerId(), 5.seconds)
 
-    new CommandCompletionServiceValidation(impl, indexId) with BindableService with AutoCloseable
+    new CommandCompletionServiceValidation(impl, ledgerId) with BindableService with AutoCloseable
     with CommandCompletionServiceLogging {
       override def bindService(): ServerServiceDefinition =
         CommandCompletionServiceGrpc.bindService(this, DirectExecutionContext)

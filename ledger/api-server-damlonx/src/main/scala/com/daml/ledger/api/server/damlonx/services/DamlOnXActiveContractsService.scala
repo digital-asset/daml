@@ -44,11 +44,13 @@ class DamlOnXActiveContractsService private (
     with DamlOnXServiceUtils {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-  private val txFilterValidator = new TransactionFilterValidator(identifierResolver)
+  private val txFilterValidator = new TransactionFilterValidator(
+    identifierResolver)
 
   //@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   override protected def getActiveContractsSource(
-      request: GetActiveContractsRequest): Source[GetActiveContractsResponse, NotUsed] = {
+      request: GetActiveContractsRequest)
+    : Source[GetActiveContractsResponse, NotUsed] = {
 
     txFilterValidator
       .validate(request.getFilter, "filter")
@@ -63,18 +65,18 @@ class DamlOnXActiveContractsService private (
                 )
               )
             )
-            .flatMapConcat { (snapshot: ActiveContractSetSnapshot) =>
-              snapshot.activeContracts
-                .mapConcat {
-                  case (workflowId, createEvent) =>
-                    filteredApiContract(
-                      EventFilter.byTemplates(filter),
-                      workflowId,
-                      createEvent,
-                      request.verbose).toList
-                }
-                .concat(
-                  Source.single(GetActiveContractsResponse(offset = snapshot.takenAt.toString)))
+            .flatMapConcat {
+              (snapshot: ActiveContractSetSnapshot) =>
+                snapshot.activeContracts
+                  .mapConcat {
+                    case (workflowId, createEvent) =>
+                      filteredApiContract(EventFilter.byTemplates(filter),
+                                          workflowId,
+                                          createEvent,
+                                          request.verbose).toList
+                  }
+                  .concat(Source.single(GetActiveContractsResponse(
+                    offset = snapshot.takenAt.toString)))
             }
 
         }
@@ -89,11 +91,14 @@ class DamlOnXActiveContractsService private (
     val create = toApiCreated(a, verbose)
     eventFilter
       .filterEvent(Event(create))
-      .map(evt =>
-        GetActiveContractsResponse(workflowId = workflowId, activeContracts = List(evt.getCreated)))
+      .map(
+        evt =>
+          GetActiveContractsResponse(workflowId = workflowId,
+                                     activeContracts = List(evt.getCreated)))
   }
 
-  private def toApiCreated(a: AcsUpdateEvent.Create, verbose: Boolean): Created = {
+  private def toApiCreated(a: AcsUpdateEvent.Create,
+                           verbose: Boolean): Created = {
     Created(
       CreatedEvent(
         a.contractId.coid, // FIXME(JM): Does EventId == ContractId make sense here?
@@ -117,18 +122,21 @@ class DamlOnXActiveContractsService private (
 
 object DamlOnXActiveContractsService {
 
-  def create(indexService: IndexService, identifierResolver: IdentifierResolver)(
+  def create(indexService: IndexService,
+             identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
-    : ActiveContractsService with BindableService with ActiveContractsServiceLogging = {
+      esf: ExecutionSequencerFactory): ActiveContractsService
+    with BindableService
+    with ActiveContractsServiceLogging = {
 
-    // FIXME(JM): rewrite validation to not use static ledger id
-    val stateId = Await.result(indexService.getCurrentStateId(), 5.seconds)
+    val ledgerId = Await.result(indexService.getLedgerId(), 5.seconds)
 
     new ActiveContractsServiceValidation(
-      new DamlOnXActiveContractsService(indexService, identifierResolver)(ec, mat, esf),
-      stateId
+      new DamlOnXActiveContractsService(indexService, identifierResolver)(ec,
+                                                                          mat,
+                                                                          esf),
+      ledgerId
     ) with BindableService with ActiveContractsServiceLogging {
       override def bindService(): ServerServiceDefinition =
         ActiveContractsServiceGrpc.bindService(this, DirectExecutionContext)
