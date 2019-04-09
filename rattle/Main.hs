@@ -81,6 +81,8 @@ buildHaskellLibrary o@Da_haskell_library{..} = do
          -- makes sure GHC uses shared objects in RTS linker
          -- https://github.com/ghc/ghc/blob/cf9e1837adc647c90cfa176669d14e0d413c043d/compiler/main/DynFlags.hs#L2087
         "-fexternal-interpreter"
+        (join [["-package", d] | d <- dhl_deps ])
+        (join [["-package", d] | d <- dhl_hazel_deps ])
         ["-package-db=.rattle/haskell" </> d </> "pkg.db" | d <- dhl_deps]
         modules ["-this-unit-id=" ++ dhl_name]
         (map ("-X"++) haskellExts) haskellFlags
