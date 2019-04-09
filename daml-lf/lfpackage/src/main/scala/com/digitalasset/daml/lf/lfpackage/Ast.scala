@@ -543,8 +543,11 @@ object Ast {
   object FeatureFlags {
     val default = FeatureFlags(
       forbidPartyLiterals = false,
-      dontDivulgeContractIdsInCreateArguments = false,
-      dontDiscloseNonConsumingChoicesToObservers = false)
+
+      // NOTE(JM, #157): These are the only allowed settings for
+      // these flags.
+      dontDivulgeContractIdsInCreateArguments = true,
+      dontDiscloseNonConsumingChoicesToObservers = true)
   }
 
   //

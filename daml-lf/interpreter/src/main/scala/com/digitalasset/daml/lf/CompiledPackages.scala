@@ -25,8 +25,7 @@ object CompiledPackages {
   def newLedgerFlags(
       pkgId: PackageId,
       pkg: Package,
-      mbPrefFlags: Option[LedgerFeatureFlags]): Either[String, LedgerFeatureFlags] = {
-    // We seet all flags that can be mixed to false.
+      mbPrevFlags: Option[LedgerFeatureFlags]): Either[String, LedgerFeatureFlags] = {
     val flagsList = pkg.modules.values.toList
       .map(_.featureFlags)
       .map(LedgerFeatureFlags.projectToUniqueFlags)
@@ -35,14 +34,16 @@ object CompiledPackages {
       Left(s"Mixed feature flags in package $pkgId")
     } else {
       val newFlags = flagsList.headOption.getOrElse(LedgerFeatureFlags.default)
-      mbPrefFlags match {
-        case None => Right(newFlags)
-        case Some(prevFlags) =>
-          if (prevFlags != newFlags) {
-            Left(s"Mixed feature flags across imported packages when importing $pkgId.")
-          } else {
-            Right(newFlags)
-          }
+      mbPrevFlags match {
+        case Some(prevFlags) if (prevFlags != newFlags) =>
+          Left(s"Mixed feature flags across imported packages when importing $pkgId.")
+        case _ =>
+          // NOTE(JM, #157): We disallow loading of packages with deprecated flag
+          // settings as these are no longer supported.
+          if (newFlags != LedgerFeatureFlags.default)
+            Left(s"Deprecated ledger feature flag settings in loaded packages: $newFlags")
+          else
+            Right(LedgerFeatureFlags.default)
       }
     }
   }
