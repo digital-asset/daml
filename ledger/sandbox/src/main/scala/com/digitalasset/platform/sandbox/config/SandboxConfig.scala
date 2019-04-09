@@ -29,7 +29,8 @@ final case class SandboxConfig(
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     ledgerIdMode: LedgerIdMode,
-    jdbcUrl: Option[String])
+    jdbcUrl: Option[String]
+)
 
 final case class CommandConfiguration(
     inputBufferSize: Int,
@@ -41,10 +42,13 @@ final case class CommandConfiguration(
     commandTtl: FiniteDuration)
 
 object SandboxConfig {
+
+  val DefaultPort = 6865
+
   def default: SandboxConfig = {
     SandboxConfig(
       None,
-      6865,
+      DefaultPort,
       DamlPackageContainer(Nil),
       TimeProviderType.Static,
       TimeModel.reasonableDefault,

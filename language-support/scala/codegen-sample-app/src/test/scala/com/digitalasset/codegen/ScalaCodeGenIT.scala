@@ -84,7 +84,7 @@ class ScalaCodeGenIT
 
   private val archives = List(
     requiredResource("language-support/scala/codegen-sample-app/MyMain.dalf"),
-    requiredResource("daml-foundations/daml-ghc/package-database/daml-prim-1.1.dalf")
+    requiredResource("daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.1.dalf")
   )
 
   private val asys = ActorSystem()

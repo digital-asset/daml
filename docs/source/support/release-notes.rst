@@ -6,6 +6,30 @@ Release notes
 
 This page contains release notes for the SDK.
 
+- Java Code Generator: Supports DAML TextMap primitive which is mapped to ``java.util.Map`` type with keys restricted
+  to ``java.lang.String`` instances.
+- Java Codegen: Leaner log output and flag for log verbosity ``-V LEVEL`` or ``--verbosity LEVEL``, where ``LEVEL`` is a number between ``0`` (least verbose) and ``4`` (most verbose).
+  to ``java.lang.String`` instances.
+
+0.12.0
+------
+
+- Change in how values are addressed in Navigator's `frontend-config.js`.
+  
+  - Old syntax for accessing values: `argument.foo.bar`
+  - New syntax: 
+
+    .. code-block:: javascript
+
+       import { DamlLfValue } from '@da/ui-core';
+       // Accessing field 'bar' of field 'foo' of the argument
+       DamlLfValue.evalPath(argument, ["foo", "bar"])
+       DamlLfValue.toJSON(argument).foo.bar
+
+
+0.11.32
+-------
+
 - DAML standard library (breaking change): Removed ``DA.List.split`` function, which was never intended to be
   exposed and doesn't do what the name suggests.
 - Java Bindings (breaking change): Removed type parameter for ``DamlList`` and ``DamlOptional`` classes.

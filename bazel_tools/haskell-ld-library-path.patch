@@ -1,0 +1,71 @@
+This fixes rules_haskell to use the correct Windows path separator on Windows.
+
+GHC expects the LD_LIBRARY_PATH variable to be a list of semi-colon separated
+paths, as opposed to a list of colon separated paths:
+https://github.com/ghc/ghc/blob/51fd357119b357c52e990ccce9059c423cc49406/compiler/ghci/Linker.hs#L1646-L1650
+
+Drop this patch when this issue is closed:
+https://github.com/tweag/rules_haskell/issues/810
+
+
+diff --git a/haskell/private/path_utils.bzl b/haskell/private/path_utils.bzl
+index db8ca35..e0af527 100644
+--- a/haskell/private/path_utils.bzl
++++ b/haskell/private/path_utils.bzl
+@@ -103,18 +103,21 @@ def declare_compiled(hs, src, ext, directory = None, rel_path = None):
+ 
+     return hs.actions.declare_file(fp_with_dir)
+ 
+-def make_path(libs, prefix = None):
++def make_path(libs, prefix = None, sep = None):
+     """Return a string value for using as LD_LIBRARY_PATH or similar.
+ 
+     Args:
+       libs: List of library files that should be available
+       prefix: String, an optional prefix to add to every path.
++      sep: String, the path separator, defaults to ":".
+ 
+     Returns:
+       String: paths to the given library directories separated by ":".
+     """
+     r = set.empty()
+ 
++    sep = sep if sep else ":"
++
+     for lib in libs:
+         lib_dir = paths.dirname(lib.path)
+         if prefix:
+@@ -122,7 +125,7 @@ def make_path(libs, prefix = None):
+ 
+         set.mutable_insert(r, lib_dir)
+ 
+-    return ":".join(set.to_list(r))
++    return sep.join(set.to_list(r))
+ 
+ def darwin_convert_to_dylibs(hs, libs):
+     """Convert .so dynamic libraries to .dylib.
+diff --git a/haskell/private/providers.bzl b/haskell/private/providers.bzl
+index c26ad95..bc35217 100644
+--- a/haskell/private/providers.bzl
++++ b/haskell/private/providers.bzl
+@@ -148,15 +148,20 @@ def get_libs_for_ghc_linker(hs, transitive_cc_dependencies, path_prefix = None):
+         library_deps = _library_deps
+         ld_library_deps = _ld_library_deps
+ 
++    sep = ";" if hs.toolchain.is_windows else None
++
+     library_path = make_path(
+         library_deps,
+         prefix = path_prefix,
++        sep = sep,
+     )
+     ld_library_path = make_path(
+         ld_library_deps,
+         prefix = path_prefix,
++        sep = sep,
+     )
+ 
++
+     # GHC's builtin linker/loader looks for libraries in the paths defined by
+     # LIBRARY_PATH and LD_LIBRARY_PATH.
+     # See https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/ghci.html?highlight=library_path#extra-libraries

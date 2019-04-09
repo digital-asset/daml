@@ -96,6 +96,7 @@ genrule(
     # -d --progress --display-error-details --verbose
     $(execpath :webpack) \
       --config="$$IN/webpack.config.js" \
+      --env.prod \
       --env.bazel_in_dir="$$IN" \
       --env.bazel_out_dir="$$OUT/frontend"
 

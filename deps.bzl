@@ -27,8 +27,8 @@
 # be resolvable from external workspaces otherwise.
 
 rules_scala_version = "6f8ee3d951d2ac6154356314600f6edb4eb5df8b"
-rules_haskell_version = "dfff93e145f33aa0b448033aec42cc034d883f5d"
-rules_haskell_sha256 = "fb5d9089d547a89bbe530df926ec233d96c6c571e9928da81e9f92edec77fcfe"
+rules_haskell_version = "7a306841b0fcca41c9fd62b3f7033fbd67d50e22"
+rules_haskell_sha256 = "55badbdc193a47c693ac94f33aa14f8fa5b8a5c9828e9e0a065a1c1280d4a3f5"
 rules_nixpkgs_version = "40b5a9f23abca57f364c93245c7451206ef1a855"
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -43,6 +43,8 @@ def daml_deps():
       patches = [
         "@com_github_digital_asset_daml//bazel_tools:haskell-static-linking.patch",
         "@com_github_digital_asset_daml//bazel_tools:haskell-win-sys-includes.patch",
+        "@com_github_digital_asset_daml//bazel_tools:haskell-ld-library-path.patch",
+        "@com_github_digital_asset_daml//bazel_tools:haskell-win-so-name.patch",
       ],
       patch_args = ["-p1"],
       sha256 = rules_haskell_sha256,
@@ -63,7 +65,6 @@ def daml_deps():
       urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
       sha256 = rules_haskell_sha256,
       patches = [
-        "@com_github_digital_asset_daml//bazel_tools:haskell-hazel-shorten-source-dirs.patch",
         "@com_github_digital_asset_daml//bazel_tools:hackage_mirror.patch",
       ],
       patch_args = ["-p2"],
@@ -153,6 +154,10 @@ def daml_deps():
         strip_prefix = "grpc-1.19.0",
         urls = ["https://github.com/grpc/grpc/archive/v1.19.0.tar.gz"],
         sha256 = "1d54cd95ed276c42c276e0a3df8ab33ee41968b73af14023c03a19db48f82e73",
+        patches = [
+          "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
+        ],
+        patch_args = ["-p1"],
      )
 
   if "io_grpc_grpc_java" not in native.existing_rules():

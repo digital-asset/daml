@@ -107,7 +107,6 @@ ghcPrim = Module
           , varVariant = conName
           , varArg = EBuiltin (BEEnumCon ECUnit)
           }
-      , dvalInfo = Nothing
       }
 
 ghcTypes :: Module
@@ -140,7 +139,6 @@ ghcTypes = Module
           , varVariant = mkVariantCon con
           , varArg = EBuiltin (BEEnumCon ECUnit)
           }
-      , dvalInfo = Nothing
       }
     dataProxy = DefDataType
       { dataLocation= Nothing
@@ -160,6 +158,5 @@ ghcTypes = Module
       , dvalBody = ETyLam
           (Tagged "a", KStar)
           (ERecCon (TypeConApp (qual (dataTypeCon dataProxy)) [TVar (Tagged "a")]) [])
-      , dvalInfo = Nothing
       }
 

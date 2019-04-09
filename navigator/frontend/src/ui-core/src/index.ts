@@ -62,3 +62,10 @@ export {
   utcStringToMoment,
   momentToUtcString,
 } from './util';
+
+
+import * as DamlLfValue from './api/DamlLfValue';
+export { DamlLfValue };
+
+import * as DamlLfType from './api/DamlLfType';
+export { DamlLfType };

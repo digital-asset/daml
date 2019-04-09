@@ -3,7 +3,7 @@ enabled, bazel complains that some system headers have not been listed as
 dependencies. Bazel _does_ pick up on the `cxx_builtin_include_directory` but
 fails to apply the `-no-canonical-prefixes -fno-canonical-system-headers` flags
 when building the network cbits (only happens on network). See
-https://github.com/DACH-NY/daml-new/issues/180
+https://github.com/digital-asset/daml/issues/180
 
 There are quite a few things that should be clarified but in the meantime we
 specify the whole `C:/` drive as a prefix for matching system headers (see

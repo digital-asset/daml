@@ -341,8 +341,9 @@
 			| in
 			| default
 			| rec
-      | template
-      | with
+			| template
+			| with
+			| choice
 			)(\b(?!'))
 			</string>
         <key>name</key>

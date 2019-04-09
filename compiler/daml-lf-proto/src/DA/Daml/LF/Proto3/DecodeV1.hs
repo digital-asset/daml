@@ -90,7 +90,6 @@ decodeDefValue (LF1.DefValue mbBinder mbBody noParties isTest mbLoc) =
     <*> pure (HasNoPartyLiterals noParties)
     <*> pure (IsTest isTest)
     <*> mayDecode "defValueExpr" mbBody decodeExpr
-    <*> pure Nothing
 
 decodeDefTemplate :: LF1.DefTemplate -> Decode Template
 decodeDefTemplate LF1.DefTemplate{..} =

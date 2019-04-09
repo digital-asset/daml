@@ -5,8 +5,6 @@
 
 module DA.Cli.Damli.Command.LF
   ( cmdRoundtripLF1
-  , cmdAuth
-  , valueCheckOpt
   ) where
 
 import           Control.Monad.Except
@@ -14,7 +12,6 @@ import           DA.Cli.Damli.Base
 import qualified DA.Daml.LF.Ast                   as LF
 import qualified DA.Daml.LF.Proto3.Archive        as Archive
 import qualified DA.Daml.LF.TypeChecker           as LF
-import qualified DA.Daml.LF.Auth                  as LF
 import qualified Data.Text as T
 import qualified DA.Pretty
 import qualified Data.ByteString                  as BS
@@ -31,25 +28,11 @@ cmdRoundtripLF1 =
       $    progDesc "Load a DAML-LF v1 archive, type-check it and dump it again, verifying that output matches."
         <> fullDesc
   where
-    cmd = execRoundtripLF1 <$> lfTypeCheckOpt <*> inputFileOpt <*> outputFileOpt <*> valueCheckOpt
-
-valueCheckOpt :: Parser LF.ValueCheck
-valueCheckOpt =
-  (\b -> if b then LF.PerformValueCheck else LF.UnsafeSkipValueCheck) <$> switch (long "value-check" <> help "Run DAML-LF value checker")
+    cmd = execRoundtripLF1 <$> lfTypeCheckOpt <*> inputFileOpt <*> outputFileOpt
 
 lfTypeCheckOpt :: Parser Bool
 lfTypeCheckOpt =
   not <$> switch (long "unsafe" <> short 'u' <> help "Skip DAML-LF type checker")
-
--- | Check a DAML-LF module for static authorisation errors.
-cmdAuth :: Mod CommandFields Command
-cmdAuth
- =  command "auth"
-        $ info (helper <*> cmd)
-        $ progDesc "Check a DAML-LF module for static authorisation errors."
-        <> fullDesc
- where
-    cmd = execAuth <$> inputFileOpt
 
 -------------------------------------------------------------------------
 -- Implementation
@@ -67,11 +50,11 @@ loadLFPackage inFile = do
         errorOnLeft _ (Right x)   = pure x
 
 
-execRoundtripLF1 :: Bool -> FilePath -> FilePath -> LF.ValueCheck -> Command
-execRoundtripLF1 _check inFile outFile valueCheck = do
+execRoundtripLF1 :: Bool -> FilePath -> FilePath -> Command
+execRoundtripLF1 _check inFile outFile = do
     (package, bytes) <- loadLFPackage inFile
     -- Type-check
-    case LF.checkPackage [] package valueCheck of
+    case LF.checkPackage [] package of
       Left err -> do
         error $ T.unpack $ "Type-check failed:\n" <> DA.Pretty.renderPretty err
       Right () ->
@@ -87,12 +70,3 @@ execRoundtripLF1 _check inFile outFile valueCheck = do
   where
     write | outFile == "-" = BS.putStr
           | otherwise = BS.writeFile outFile
-
-execAuth :: FilePath -> Command
-execAuth inFile = do
-    (package, _) <- loadLFPackage inFile
-
-    -- Auth-check
-    let errs = LF.checkAuth [] package
-    unless (null errs) $
-      error $ unlines $ "Static authorisation check failed:" : map (('\n':) . DA.Pretty.renderPretty) errs

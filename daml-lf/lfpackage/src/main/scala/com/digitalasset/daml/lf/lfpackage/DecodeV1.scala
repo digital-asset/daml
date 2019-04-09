@@ -164,8 +164,8 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
         case PLF.KeyExpr.SumCase.PROJECTIONS =>
           val lfProjs = expr.getProjections.getProjectionsList.asScala
-          (lfProjs :\ (EVar(tplVar): Expr)) {
-            case (lfProj, acc) =>
+          lfProjs.foldLeft(EVar(tplVar): Expr) {
+            case (acc, lfProj) =>
               ERecProj(decodeTypeConApp(lfProj.getTycon), lfProj.getField, acc)
           }
 

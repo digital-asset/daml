@@ -136,9 +136,6 @@ instance MonoTraversable ModuleRef Template
 instance MonoTraversable ModuleRef FeatureFlags
 instance MonoTraversable ModuleRef Module
 
-instance MonoTraversable ModuleRef DefValueInfo
--- instance MonoTraversable ModuleRef VariantConstructorProxyType
-
 exprPartyLiteral
   :: forall f. Applicative f
   => (PartyLiteral -> f PartyLiteral) -> (Expr -> f Expr)

@@ -616,12 +616,6 @@ buildAllComponents mavenDeps releaseDir os sdkVersion compVersion = execBuildArt
             "//language-support/scala/codegen:codegen-main"
             (PomArtifact ["com", "daml", "scala"] ("codegen-main_" # scalaVersion) Nothing compVersion)
           buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//language-support/scala/codegen-sql-support:codegen-sql-support"
-            (PomArtifact ["com", "daml", "scala"] ("codegen-sql-support_"# scalaVersion) Nothing compVersion)
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//language-support/scala/codegen-sql-contract-query-framework:codegen-sql-contract-query-framework"
-            (PomArtifact ["com", "daml", "scala"] ("codegen-sql-contract-query-framework_"# scalaVersion) Nothing compVersion)
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
             "//language-support/scala/bindings-akka:bindings-akka"
             (PomArtifact ["com", "daml", "scala"] ("bindings-akka_" # scalaVersion) Nothing compVersion)
 

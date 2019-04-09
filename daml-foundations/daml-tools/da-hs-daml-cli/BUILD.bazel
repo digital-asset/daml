@@ -70,8 +70,7 @@ da_haskell_test(
            ":da-hs-daml-cli",
     ],
     data = [
-        "//daml-foundations/daml-ghc/daml-stdlib-src:daml-stdlib-src"
-      , "//daml-foundations/daml-ghc/package-database:package-db"
+      "//daml-foundations/daml-ghc/package-database:package-db"
       , "//compiler/scenario-service/server:scenario_service_jar"
     ],
     hazel_deps = [
@@ -94,7 +93,6 @@ da_haskell_test(
         "//libs-haskell/da-hs-base",
     ],
     data = [
-        "//daml-foundations/daml-ghc/daml-stdlib-src:daml-stdlib-src",
         "//daml-foundations/daml-ghc/package-database:package-db",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],

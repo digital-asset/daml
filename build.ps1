@@ -1,16 +1,20 @@
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
+.\dev-env\windows\bin\dadew.ps1 install
+.\dev-env\windows\bin\dadew.ps1 sync
+.\dev-env\windows\bin\dadew.ps1 enable
+
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
-    . bazel.exe --bazelrc=.\nix\bazelrc --host_jvm_args=-Djavax.net.ssl.trustStore="$(dadew where)\current\apps\da-truststore\cacerts" @args
+    . bazel.exe --bazelrc=.\nix\bazelrc @args
     if ($global:lastexitcode -ne 0) {
+        Write-Output "<< bazel $args (failed, exit code: $global:lastexitcode)"
         throw ("Bazel returned non-zero exit code: $global:lastexitcode")
     }
+    Write-Output "<< bazel $args (ok)"
 }
-
-$env:BAZEL_SH = [Environment]::GetEnvironmentVariable("BAZEL_SH", [System.EnvironmentVariableTarget]::User)
 
 # FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
 
@@ -25,6 +29,10 @@ bazel test //pipeline/samples/bazel/java/...
 # basic test for the haskell infrastructure
 bazel build //pipeline/samples/bazel/haskell/...
 bazel build //compiler/haskell-ide-core/...
+bazel build //compiler/daml-lf-ast/...
+
+# build gRPC
+bazel build @com_github_grpc_grpc//:grpc
 
 # node / npm / yarn test
 bazel build //daml-foundations/daml-tools/daml-extension:daml_extension_lib

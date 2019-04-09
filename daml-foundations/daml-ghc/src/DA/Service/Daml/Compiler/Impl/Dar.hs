@@ -15,7 +15,6 @@ import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
 import           System.FilePath
-import           System.Directory
 import qualified Codec.Archive.Zip          as Zip
 
 ------------------------------------------------------------------------------
@@ -54,11 +53,9 @@ buildDar dalf modRoot dalfDependencies fileDependencies name = do
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
     -- is modified to have prefix <name> instead of the original root path.
-    absModRoot <- makeAbsolute modRoot
     mbSrcFiles <- forM fileDependencies $ \mPath -> do
-      absPath <- makeAbsolute mPath
-      contents <- BSL.readFile absPath
-      let mbNewPath = (name </>) <$> stripPrefix (addTrailingPathSeparator absModRoot) absPath
+      contents <- BSL.readFile mPath
+      let mbNewPath = (name </>) <$> stripPrefix (addTrailingPathSeparator modRoot) mPath
       return $ fmap (, contents) mbNewPath
 
     let dalfName = name <> ".dalf"

@@ -91,7 +91,6 @@ da_haskell_test (
   ]
   , data = [
       ":tests"
-    , "//daml-foundations/daml-ghc/daml-stdlib-src:daml-stdlib-src"
     , "//daml-foundations/daml-ghc/package-database:package-db"
   ]
   , hazel_deps = [
@@ -114,7 +113,6 @@ da_haskell_test (
   ]
   , data = [
       "//compiler/scenario-service/server:scenario_service_jar"
-    , "//daml-foundations/daml-ghc/daml-stdlib-src:daml-stdlib-src"
     , "//daml-foundations/daml-ghc/package-database:package-db"
   ]
   , hazel_deps = [
@@ -210,7 +208,6 @@ sh_test(
   ],
   data = [
       "//daml-foundations/daml-tools/da-hs-damlc-app",
-      "//daml-foundations/daml-ghc/daml-stdlib-src:daml-stdlib-src",
       "//daml-foundations/daml-ghc/package-database:package-db",
       ":tests",
       "@com_google_protobuf//:protoc",

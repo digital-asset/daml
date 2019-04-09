@@ -12,3 +12,4 @@ import Tests.ListTest
 import Tests.VariantTest
 import Tests.Import
 import Tests.Escape
+import Tests.MapTest

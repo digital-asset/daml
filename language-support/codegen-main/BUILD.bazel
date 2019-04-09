@@ -18,6 +18,7 @@ da_scala_binary(
     deps = [
         "//language-support/java/codegen:lib",
         "//language-support/scala/codegen:codegen-main",
+        "//3rdparty/jvm/com/typesafe/scala_logging",
     ],
 )
 

@@ -58,7 +58,7 @@ damlDocDriver cInputFormat output cFormat prefixFile options files = do
                 concatMapM (either printAndExit pure) mbData
 
             InputDaml -> do
-                ghcOpts <- DGHC.defaultOptionsIO
+                ghcOpts <- DGHC.defaultOptionsIO Nothing
                 onErrorExit $ runExceptT
                             $ fmap (applyTransform options)
                             $ mkDocs (toCompileOpts ghcOpts) files

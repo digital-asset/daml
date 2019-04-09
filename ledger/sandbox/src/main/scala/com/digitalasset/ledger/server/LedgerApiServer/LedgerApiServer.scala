@@ -46,7 +46,7 @@ object LedgerApiServer {
       ledgerBackend: LedgerBackend,
       timeProvider: TimeProvider,
       config: => SandboxConfig,
-      serverPort: Int = 8080,
+      serverPort: Int, //TODO: why do we need this if we already have a SandboxConfig?
       optTimeServiceBackend: Option[TimeServiceBackend],
       optResetService: Option[SandboxResetService])(
       implicit materializer: ActorMaterializer): LedgerApiServer = {
@@ -185,7 +185,7 @@ class LedgerApiServer(
     services: (ActorMaterializer, ExecutionSequencerFactory) => Iterable[BindableService],
     optResetService: Option[SandboxResetService],
     addressOption: Option[String],
-    serverPort: Int = 8080,
+    serverPort: Int,
     maybeBundle: Option[SslContext] = None)(implicit materializer: ActorMaterializer)
     extends AutoCloseable {
 
@@ -215,6 +215,7 @@ class LedgerApiServer(
   private var runningServices: Iterable[BindableService] = services(materializer, serverEsf)
 
   def getServer = server
+
   private var server: Server = _
 
   private def start(): LedgerApiServer = {
@@ -269,7 +270,16 @@ class LedgerApiServer(
       s.awaitTermination(10, TimeUnit.SECONDS)
       server = null
     }
-    Option(serverEventLoopGroup).foreach(_.shutdownGracefully().await(10L, TimeUnit.SECONDS))
+    // `shutdownGracefully` has a "quiet period" which specifies a time window in which
+    // _no requests_ must be witnessed before shutdown is _initiated_. Here we want to
+    // start immediately, so no quiet period -- by default it's 2 seconds.
+    // Moreover, there's also a "timeout" parameter
+    // which caps the time to wait for the quiet period to be fullfilled. Since we have
+    // no quiet period, this can also be 0.
+    // See <https://netty.io/4.1/api/io/netty/util/concurrent/EventExecutorGroup.html#shutdownGracefully-long-long-java.util.concurrent.TimeUnit->.
+    // The 10 seconds to wait is sort of arbitrary, it's long enough to be noticeable though.
+    Option(serverEventLoopGroup).foreach(
+      _.shutdownGracefully(0L, 0L, TimeUnit.MILLISECONDS).await(10L, TimeUnit.SECONDS))
     Option(serverEsf).foreach(_.close())
   }
 }
