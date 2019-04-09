@@ -27,16 +27,16 @@ main = rattle $ do
         ,"compiler/daml-lf-tools"
         ,"compiler/daml-lf-proto"
         ,"daml-lf/archive"
-        -- ,"daml-foundations/daml-ghc"
+        ,"daml-foundations/daml-ghc"
         ,"libs-haskell/bazel-runfiles"
-        -- ,"compiler/scenario-service/client"
-        -- ,"compiler/scenario-service/protos"
+        ,"compiler/scenario-service/client"
+        ,"compiler/scenario-service/protos"
         ]
     metadata <- return [x{dhl_deps = dhl_deps x `intersect` map dhl_name metadata} | x <- metadata]
     metadata <- return $ topSort [(dhl_name, dhl_deps, x) | x@Da_haskell_library{..} <- metadata]
 
     -- build all the stack dependencies
-    cmd_ "stack build --stack-yaml=rattle/stack.yaml" $ (++ ["grpc-haskell" | False]) $ ("proto3-suite":) $
+    cmd_ "stack build --stack-yaml=rattle/stack.yaml" $ (++ ["grpc-haskell" | True]) $ ("proto3-suite":) $
         nubSort (concatMap dhl_hazel_deps metadata) \\ ["ghc-lib","ghc-lib-parser"]
 
     -- generate the LF protobuf output
