@@ -182,7 +182,7 @@ start opts@Options{..} = do
         either error resume =<< takeMVar portMVar
   liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
   let grpcConfig = ClientConfig (Host "localhost") (Port port) [] Nothing
-  client <- managed (withGRPCClient grpcConfig)
+  client <- managed (withGRPCClient (grpcConfig Nothing))
   return $
     Handle
     { hClient = client

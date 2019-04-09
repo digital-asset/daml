@@ -23,6 +23,8 @@ main = rattle $ do
         ,"compiler/haskell-ide-core"
         ,"libs-haskell/da-hs-base"
         ,"libs-haskell/da-hs-pretty"
+        ,"libs-haskell/da-hs-language-server"
+        ,"libs-haskell/da-hs-json-rpc"
         ,"compiler/daml-lf-ast"
         ,"compiler/daml-lf-tools"
         ,"compiler/daml-lf-proto"
@@ -37,7 +39,7 @@ main = rattle $ do
 
     -- build all the stack dependencies
     cmd_ "stack build --stack-yaml=rattle/stack.yaml" $ (++ ["grpc-haskell" | True]) $ ("proto3-suite":) $
-        nubSort (concatMap dhl_hazel_deps metadata) \\ ["ghc-lib","ghc-lib-parser"]
+        nubSort (concatMap dhl_hazel_deps metadata)
 
     -- generate the LF protobuf output
     let lfMajorVersions = ["0", "1", "dev"]
