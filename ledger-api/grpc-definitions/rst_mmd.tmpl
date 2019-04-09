@@ -22,28 +22,43 @@ Ledger API Reference
 {{.Description}}
 
 {{if .HasFields}}
+.. list-table::
+   :header-rows: 1
 
-.. csv-table::
-   :header: "Field", "Type", "Label", "Description"
+   * - Field
+     - Type
+     - Label
+     - Description
+   {{range .Fields -}}
+   * - .. _{{$full_name}}.{{.Name}}: 
 
-{{range .Fields -}}
-     ".. _{{$full_name}}.{{.Name}}: 
+       {{.Name}}
+     - :ref:`{{.LongType}} <{{.FullType}}>`
+     - {{.Label}}
+     - {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}
+   {{end}}
 
-  {{.Name}}" , :ref:`{{.LongType}} <{{.FullType}}>`", "{{.Label}}", "{{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}"
-{{end}}
 {{end}}
 
 {{if .HasExtensions}}
 
-.. csv-table::
-   :header: "Extension", "Type", "Base", "Number", Description"
+.. list-table::
+   :header-rows: 1
 
-{{range .Extensions -}}
-   "{{.Name}}", "{{.LongType}}", "{{.ContainingLongType}}", "{{.Number}}", "{{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}"
+   * - Extension
+     - Type
+     - Base
+     - Number
+     - Description
+   {{range .Extensions -}}
+   * - {{.Name}}
+     - {{.LongType}}
+     - {{.ContainingLongType}}
+     - {{.Number}}
+     - {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}
+   {{end}}
 
 {{end}}
-{{end}}
-
 {{end}}
 
 {{range .Enums}}
@@ -56,15 +71,19 @@ Ledger API Reference
 
 {{.Description}}
 
-.. csv-table::
-   :header: "Name", "Number", "Description"
+.. list-table::
+   :header-rows: 1
 
-{{range .Values -}}
-   ".. _{{$full_name}}.{{.Name}}:
+   * - Name
+     - Number
+     - Description
+   {{range .Values -}}
+   * - .. _{{$full_name}}.{{.Name}}:
 
-   {{.Name}}", "{{.Number}}", "{{nobr .Description}}"
-
-{{end}}
+       {{.Name}}
+     - {{.Number}}
+     - {{nobr .Description}}
+   {{end}}
 
 {{end}}
 
@@ -75,13 +94,22 @@ Ledger API Reference
 File-level Extensions
 ===================================================================================================
 
-.. csv-table::
-   :header: "Extension", "Type", "Base", "Number", Description"
+.. list-table::
+   :header-rows: 1
 
-{{range .Extensions -}}
-   "{{.Name}}", "{{.LongType}}", "{{.ContainingLongType}}", "{{.Number}}", "{{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}"
+   * - Extension
+     - Type
+     - Base
+     - Number
+     - Description
+   {{range .Extensions -}}
+   * - {{.Name}}
+     - {{.LongType}}
+     - {{.ContainingLongType}}
+     - {{.Number}}
+     - {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}
+   {{end}}
 
-{{end}}
 {{end}}
 
 {{range .Services}}
@@ -93,15 +121,21 @@ File-level Extensions
 
 {{.Description}}
 
-.. csv-table::
-   :header: "Method name", "Request type", "Response type", Description"
+.. list-table::
+   :header-rows: 1
 
-{{range .Methods -}}
-   "{{.Name}}", ":ref:`{{.RequestLongType}} <{{.RequestFullType}}>`", ":ref:`{{.ResponseLongType}} <{{.ResponseFullType}}>`", {{nobr .Description}}
+   * - Method name
+     - Request type
+     - Response type
+     - Description
+   {{range .Methods -}}
+   * - {{.Name}}
+     - :ref:`{{.RequestLongType}} <{{.RequestFullType}}>`
+     - :ref:`{{.ResponseLongType}} <{{.ResponseFullType}}>`
+     - {{nobr .Description}}
+   {{end}}
 
 {{end}}
-{{end}}
-
 {{end}}
 
 .. _scalarvaluetypes:
@@ -109,12 +143,20 @@ File-level Extensions
 Scalar Value Types
 ***************************************************************************************************
 
-.. csv-table::
-   :header: ".proto type", "Notes", "C++ type", Java type", "Python type"
+.. list-table::
+   :header-rows: 1
 
-{{range .Scalars -}}
-  ".. _{{.ProtoType}}: 
+   * - .proto type
+     - Notes
+     - C++ type
+     - Java type
+     - Python type
+   {{range .Scalars -}}
+   * - .. _{{.ProtoType}}: 
 
-  {{.ProtoType}}", "{{.Notes}}", "{{.CppType}}", "{{.JavaType}}", "{{.PythonType}}"
-
-{{end}}
+       {{.ProtoType}}
+     - {{.Notes}}
+     - {{.CppType}}
+     - {{.JavaType}}
+     - {{.PythonType}}
+   {{end}}
