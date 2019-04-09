@@ -135,13 +135,13 @@ proto_gen(
 genrule(
     name = 'docs',
     srcs = [':ledger-api-docs'],
-    tools = ["@pandoc_nix//:bin/pandoc", "post-process.sh"],
+    tools = ["post-process.sh"],
     outs = ['proto-docs.rst'],
     cmd = """
-        export PATH="$$( cd "$$(dirname "$(location @pandoc_nix//:bin/pandoc)")" ; pwd -P )":$$PATH
         unzip -q $(location :ledger-api-docs)
+        ls -la
         $(location post-process.sh)
-        mv docs_rst_mmd.rst '$@'
+        mv docs_rst_mmd.md '$@'
     """,
     visibility = ['//visibility:public', ],
 )

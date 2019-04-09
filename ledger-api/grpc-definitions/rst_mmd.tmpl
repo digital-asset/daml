@@ -27,7 +27,7 @@ Ledger API Reference
    :header: "Field", "Type", "Label", "Description"
 
 {{range .Fields -}}
-  ".. _{{$full_name}}.{{.Name}}: 
+     ".. _{{$full_name}}.{{.Name}}: 
 
   {{.Name}}" , :ref:`{{.LongType}} <{{.FullType}}>`", "{{.Label}}", "{{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}"
 {{end}}

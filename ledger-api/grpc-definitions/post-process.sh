@@ -18,7 +18,7 @@ perl -0777 -i -pe 's{(\| [^|]*(?:\n[^|]*)+\n[^|]*\|)}{($r=$1)=~s/\n/\\\n/g;$r}ge
 
 # Convert any mardown to rst via pandoc
 # pandoc --columns=1000 -f markdown_mmd -t rst docs_rst_mmd.md -o docs_rst_mmd.rst
-rm docs_rst_mmd.md
+# rm docs_rst_mmd.md
 # Unescape underscores in labels
 sed -r 's,\.\. \\\_(.*):,\.\. \_\1:,g' -i docs_rst_mmd.md
 # Remove duplicate backticks in ref links
