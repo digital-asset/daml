@@ -5,6 +5,7 @@
 module DAML.Assistant.Install
     ( InstallOptions (..)
     , InstallURL (..)
+    , InstallEnv (..)
     , installExtracted
     , extractAndInstall
     , httpInstall
@@ -290,6 +291,9 @@ extractAndInstall env source =
                         liftIO $ setFileMode targetPath (Tar.fileMode info)
                     Tar.FTDirectory -> do
                         liftIO $ createDirectoryIfMissing True targetPath
+                    Tar.FTSymbolicLink bs -> do
+                        liftIO $ createDirectoryIfMissing True parentPath
+                        liftIO $ createSymbolicLink (Tar.decodeFilePath bs) targetPath
                     unsupported ->
                         liftIO $ throwIO $ assistantErrorBecause
                             "Invalid SDK release: unsupported file type."
