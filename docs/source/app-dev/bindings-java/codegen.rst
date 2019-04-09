@@ -456,7 +456,7 @@ If the parameterized type is contained in a type where the *actual* type is spec
 and deserialization of the enclosing type provides the necessary methods for serialization and deserialization.
 
 DAML List and DAML Optional
-"""""""""""""""""""""""""""
+""""""""""""""""""""""""""""
 
 The serialization of the Java ``List`` and ``Optional`` types require a multiple stage conversion function where the elements must be
 converted to the Java Binding Java Types before the creating the product type.
