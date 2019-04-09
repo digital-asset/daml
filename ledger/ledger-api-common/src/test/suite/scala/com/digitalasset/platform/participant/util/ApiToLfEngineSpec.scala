@@ -3,9 +3,9 @@
 
 package com.digitalasset.platform.participant.util
 
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, SortedMap}
 import com.digitalasset.daml.lf.lfpackage.Ast
-import com.digitalasset.daml.lf.value.Value.{ValueInt64, ValueRecord}
+import com.digitalasset.daml.lf.value.Value.{ValueInt64, ValueMap, ValueRecord}
 import com.digitalasset.ledger.api.domain.Value._
 import com.digitalasset.ledger.api.domain._
 import org.scalatest.{Matchers, WordSpec}
@@ -18,7 +18,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Variant => ApiVariant
 }
 
-import scala.collection._
+import scala.collection.immutable
 
 class ApiToLfEngineSpec extends WordSpec with Matchers {
 
@@ -108,5 +108,30 @@ class ApiToLfEngineSpec extends WordSpec with Matchers {
         .consume(_ => Some(Ast.Package(Map.empty[Ref.ModuleName, Ast.Module])))
       apiVal shouldBe ValueRecord(None, ImmArray((None, ValueInt64(42))))
     }
+
+    "outputs map keys in order" in {
+      val Right(lfValue) = ApiToLfEngine
+        .apiValueToLfValue(paramShowcaseArgs(false))
+        .consume(_ => Some(Ast.Package(Map.empty[Ref.ModuleName, Ast.Module])))
+
+      val testCases = List(
+        List.empty,
+        List("1" -> ValueInt64(1)),
+        List("1" -> ValueInt64(1), "2" -> ValueInt64(2)),
+        List(
+          "1" -> ValueInt64(1),
+          "2" -> ValueInt64(2),
+          "3" -> ValueInt64(4),
+          "4" -> ValueInt64(4),
+          "5" -> ValueInt64(5))
+      )
+
+      testCases.foreach { list =>
+        val Right(apiMap) =
+          LfEngineToApi.lfValueToApiValue(false, ValueMap(SortedMap.fromList(list).right.get))
+        apiMap.getMap.entries.toList.map(_.key) shouldBe list.map(_._1)
+      }
+    }
+
   }
 }

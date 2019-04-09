@@ -3,14 +3,12 @@
 
 package com.digitalasset.navigator.json
 
-import com.digitalasset.daml.lf.data.UTF8
+import com.digitalasset.daml.lf.data.SortedMap
 import com.digitalasset.navigator.{model => Model}
 import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
 import com.digitalasset.navigator.json.Util._
 import com.digitalasset.navigator.model.DamlLfIdentifier
 import spray.json._
-
-import scala.collection.immutable.HashMap
 
 /**
   * A verbose encoding of API values.
@@ -82,7 +80,7 @@ object ApiCodecVerbose {
   def apiMapToJsValue(value: Model.ApiMap): JsValue =
     JsObject(
       propType -> JsString(tagMap),
-      propValue -> JsArray(value.value.toVector.sortBy(_._1)(UTF8.ordering).map {
+      propValue -> JsArray(value.value.toList.toVector.map {
         case (k, v) => JsObject(fieldKey -> JsString(k), fieldValue -> apiValueToJsValue(v))
       })
     )
@@ -142,7 +140,13 @@ object ApiCodecVerbose {
           case v => Model.ApiOptional(Some(jsValueToApiValue(v)))
         }
       case `tagMap` =>
-        Model.ApiMap(HashMap(arrayField(value, propValue, "ApiMap").map(jsValueToMapEntry): _*))
+        Model.ApiMap(
+          SortedMap
+            .fromList(arrayField(value, propValue, "ApiMap").map(jsValueToMapEntry))
+            .fold(
+              err => deserializationError(s"Can't read ${value.prettyPrint} as ApiValue, $err'"),
+              identity
+            ))
       case t =>
         deserializationError(s"Can't read ${value.prettyPrint} as ApiValue, unknown type '$t'")
     }

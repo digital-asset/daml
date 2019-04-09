@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Decimal, FrontStack, ImmArray, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.transaction.Node.{
   KeyWithMaintainers,
   NodeCreate,
@@ -20,8 +20,6 @@ import scalaz.Equal
 import scalaz.syntax.apply._
 import scalaz.scalacheck.ScalaCheckBinding._
 import scalaz.std.string.parseInt
-
-import scala.collection.immutable.HashMap
 
 object ValueGenerators {
 
@@ -184,7 +182,7 @@ object ValueGenerators {
     for {
       list <- Gen.listOf(
         for { k <- Gen.asciiPrintableStr; v <- Gen.lzy(valueGen(nesting)) } yield k -> v)
-    } yield ValueMap[ContractId](HashMap(list: _*))
+    } yield ValueMap[ContractId](SortedMap(Map(list: _*)))
   def valueMapGen: Gen[ValueMap[ContractId]] = valueMapGen(0)
 
   def coidGen: Gen[ContractId] = {

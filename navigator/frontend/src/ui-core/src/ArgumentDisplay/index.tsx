@@ -102,7 +102,7 @@ const ArgumentDisplay = (props: Props): JSX.Element => {
     case 'map' : return (
       <NestedForm level={level}>
         {argument.value.length > 0 ? argument.value.map((entry, _) => (
-          <LabeledElement key={entry.key} label={` value for key '${entry.key}'`} className={className}>
+          <LabeledElement key={entry.key} label={entry.key} className={className}>
             <ArgumentDisplay
               argument={entry.value}
               level={level + 1}

@@ -6,7 +6,7 @@ package com.digitalasset.platform.participant.util
 import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName, SimpleString}
-import com.digitalasset.daml.lf.data.{BackStack, Decimal, FrontStack, Ref, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.{
   Command => LfCommand,
   Commands => LfCommands,
@@ -33,7 +33,6 @@ import scalaz.syntax.tag._
 
 import scala.annotation.tailrec
 import scala.collection.immutable
-import scala.collection.immutable.HashMap
 import scala.concurrent.{ExecutionContext, Future}
 
 object ApiToLfEngine {
@@ -244,7 +243,12 @@ object ApiToLfEngine {
             vs: BackStack[(String, LfValue)]
         ): ApiToLfResult[(Packages, LfValue)] = {
           if (xs.isEmpty) {
-            Done((pkgs, Lf.ValueMap(HashMap(vs.toImmArray.toSeq: _*))))
+            SortedMap
+              .fromSortedList(vs.toImmArray.toList)
+              .fold[ApiToLfResult[(Packages, LfValue)]](
+                err => Error(LfError.apply(s"internal error : $err")),
+                map => Done((pkgs, Lf.ValueMap(map)))
+              )
           } else {
             val (key, value) = xs.head
             apiValueToLfValueWithPackages(pkgs, value) match {

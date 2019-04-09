@@ -5,24 +5,14 @@ package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.data.Ref.{Identifier, SimpleString}
-import com.digitalasset.daml.lf.data.{
-  BackStack,
-  FrontStack,
-  FrontStackCons,
-  ImmArray,
-  ScalazEqual,
-  Time
-}
+import com.digitalasset.daml.lf.data._
 
 import scala.annotation.tailrec
 import scalaz.Equal
-import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.string._
 import scalaz.std.tuple._
 import scalaz.syntax.equal._
-
-import scala.collection.immutable.HashMap
 
 /** Values  */
 sealed abstract class Value[+Cid] extends Product with Serializable {
@@ -53,7 +43,7 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
       case x @ ValueDate(_) => x
       case ValueUnit => ValueUnit
       case ValueOptional(x) => ValueOptional(x.map(_.mapContractId(f)))
-      case ValueMap(x) => ValueMap(x.transform((_, v) => v.mapContractId(f)))
+      case ValueMap(x) => ValueMap(x.mapValue(_.mapContractId(f)))
     }
 
   /** returns a list of validation errors: if the result is non-empty the value is
@@ -200,7 +190,7 @@ object Value {
   final case class ValueBool(value: Boolean) extends Value[Nothing]
   case object ValueUnit extends Value[Nothing]
   final case class ValueOptional[+Cid](value: Option[Value[Cid]]) extends Value[Cid]
-  final case class ValueMap[+Cid](value: HashMap[String, Value[Cid]]) extends Value[Cid]
+  final case class ValueMap[+Cid](value: SortedMap[Value[Cid]]) extends Value[Cid]
   // this is present here just because we need it in some internal code --
   // specifically the scenario interpreter converts committed values to values and
   // currently those can be tuples, although we should probably ban that.
@@ -253,7 +243,7 @@ object Value {
         case ValueMap(map1) =>
           b match {
             case ValueMap(map2) =>
-              map1.toMap === map2.toMap
+              map1 == map2
             case _ =>
               false
           }

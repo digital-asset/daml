@@ -7,7 +7,7 @@ import java.security.MessageDigest
 import java.util
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Decimal, FrontStack, ImmArray, Time, UTF8}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -314,7 +314,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
         case SMap(map) =>
-          val entries = map.toList.sortBy(_._1)(UTF8.ordering)
+          val entries = SortedMap(map).toList
           SList((entries :\ FrontStack.empty[STuple]) { case ((k, v), acc) => acc.+:(entry(k, v)) })
         case x =>
           throw SErrorCrash(s"type mismatch SBMaptoList, expected Map get $x")

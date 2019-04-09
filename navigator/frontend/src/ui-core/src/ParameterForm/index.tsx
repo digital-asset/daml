@@ -643,7 +643,7 @@ const MapInput = (props: MapInputProps): JSX.Element => {
               onChange(DamlLfValueF.map(newElements));
             }}
           >
-            Add new ebtry
+            Add new entry
           </ListControlButton>
           <ListControlButton
             type="main"
@@ -922,7 +922,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
         return (
         <MapInput
           parameter={parameter}
-          name={'nmap'}
+          name={name}
           level={level}
           typeProvider={typeProvider}
           disabled={disabled}

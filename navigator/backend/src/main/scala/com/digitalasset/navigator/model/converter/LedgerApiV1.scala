@@ -7,6 +7,7 @@ import java.time.{Instant, LocalDate}
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
+import com.digitalasset.daml.lf.data.SortedMap
 import com.digitalasset.ledger.api.{v1 => V1}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.{model => Model}
@@ -15,7 +16,6 @@ import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code.Code
 import scalaz.Tag
 
-import scala.collection.immutable.HashMap
 import scala.util.Try
 
 case object LedgerApiV1 {
@@ -294,6 +294,9 @@ case object LedgerApiV1 {
     }
   }
 
+  private def duplicateKey[X, Y](list: List[(X, Y)]): Option[X] =
+    list.groupBy(_._1).collectFirst { case (k, l) if l.size > 1 => k }
+
   private def readMapArgument(
       list: V1.value.Map,
       typ: Model.DamlLfType,
@@ -302,23 +305,20 @@ case object LedgerApiV1 {
     for {
       elementType <- typ match {
         case Model.DamlLfTypePrim(Model.DamlLfPrimType.Map, t) =>
-          t.headOption.toRight(GenericConversionError("List type parameter missing"))
+          t.headOption.toRight(GenericConversionError("Map type parameter missing"))
         case _ => Left(GenericConversionError(s"Cannot read $list as $typ"))
       }
       values <- Converter.sequence(list.entries.map {
-        case entry @ V1.value.Map.Entry(optKey, optValue) =>
+        case entry @ V1.value.Map.Entry(key, optValue) =>
           for {
-            keyValue <- optKey.toRight(GenericConversionError(s"Field 'key' required in $entry"))
-            key <- keyValue.sum.text
-              .toRight(GenericConversionError(s"Cannot read $keyValue as Text"))
             valueValue <- optValue.toRight(
               GenericConversionError(s"Field 'value' required in $entry"))
             value <- readArgument(valueValue, elementType, ctx)
           } yield key -> value
       })
-    } yield {
-      Model.ApiMap(HashMap(values: _*))
-    }
+      map <- SortedMap.fromSortedList(values).left.map(GenericConversionError)
+    } yield Model.ApiMap(map)
+
   }
 
   private def readOptionalArgument(
@@ -464,15 +464,11 @@ case object LedgerApiV1 {
   def writeMapArgument(value: Model.ApiMap): Result[V1.value.Map] = {
     for {
       values <- Converter.sequence(
-        value.value.toSeq.map { case (k, v) => writeArgument(v).map(k -> _) }
+        value.value.toList.map { case (k, v) => writeArgument(v).map(k -> _) }
       )
     } yield {
       V1.value.Map(values.map {
-        case (k, v) =>
-          V1.value.Map.Entry(
-            Some(V1.value.Value(V1.value.Value.Sum.Text(k))),
-            Some(v)
-          )
+        case (k, v) => V1.value.Map.Entry(k, Some(v))
       })
     }
   }

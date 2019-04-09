@@ -468,8 +468,14 @@ template Maybes
 template OptTextMapInt
    with
       party: Party
---      intPlusOne: TextMap Int
 -- (RH) the two next lines are two slow.
+-- In the engine the maps send from the ledger API go thought several passes:
+--   1 Proto to Value conversion
+--   2 Value to AST expression conversion
+--   3 Speedy compilation
+--   4 Program interpretation
+-- Those phases are pretty slow on big nested map.
+
 --      intPlusTwo: TextMap (TextMap Int)
 --      listOfEm: List (TextMap Int)
       optMap: Optional (TextMap Int)
@@ -479,10 +485,6 @@ template OptTextMapInt
 template TextMapInt
    with
       party: Party
---      intPlusOne: TextMap Int
--- (RH) the two next lines are two slow.
---      intPlusTwo: TextMap (TextMap Int)
---      listOfEm: List (TextMap Int)
       aMap: TextMap Int
     where
       signatory party
@@ -491,10 +493,6 @@ template TextMapInt
 template TextMapText
    with
       party: Party
---      intPlusOne: TextMap Int
--- (RH) the two next lines are two slow.
---      intPlusTwo: TextMap (TextMap Int)
---      listOfEm: List (TextMap Int)
       aMap: TextMap Text
     where
       signatory party
