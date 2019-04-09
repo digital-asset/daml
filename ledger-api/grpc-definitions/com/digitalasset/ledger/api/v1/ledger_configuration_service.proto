@@ -15,7 +15,7 @@ option java_package = "com.digitalasset.ledger.api.v1";
 // LedgerConfigurationService allows clients to subscribe to changes of the ledger configuration.
 service LedgerConfigurationService {
 
-  // Returns the latest configuraiton as the first response, and publishes configuration updates in the same stream.
+  // Returns the latest configuration as the first response, and publishes configuration updates in the same stream.
   rpc GetLedgerConfiguration (GetLedgerConfigurationRequest) returns (stream GetLedgerConfigurationResponse);
 
 }
