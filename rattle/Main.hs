@@ -25,22 +25,43 @@ main = rattle $ do
         ,"libs-haskell/da-hs-pretty"
         ,"compiler/daml-lf-ast"
         ,"compiler/daml-lf-tools"
-        --,"compiler/daml-lf-proto"
+        ,"compiler/daml-lf-proto"
+        ,"daml-lf/archive"
         ]
     metadata <- return [x{dhl_deps = dhl_deps x `intersect` map dhl_name metadata} | x <- metadata]
     metadata <- return $ topSort [(dhl_name, dhl_deps, x) | x@Da_haskell_library{..} <- metadata]
+
+    -- build all the stack dependencies
     cmd_ "stack build --stack-yaml=rattle/stack.yaml" $ ("proto3-suite":) $ nubSort (concatMap dhl_hazel_deps metadata) \\ ["ghc-lib","ghc-lib-parser"]
 
+    -- generate the LF protobuf output
+    let lfMajorVersions = ["0", "1", "Dev"]
+    forM_ ("":lfMajorVersions) $ \v -> do
+        cmd_ (Cwd "daml-lf/archive")
+            "compile-proto-file --proto" ["da/daml_lf" ++ ['_' | v /= ""] ++ v ++ ".proto"]
+            "--out ../../.rattle/generated/daml-lf/haskell"
+
+    -- build all the Haskell projects
     let trans = transitive [(dhl_name, dhl_deps) | Da_haskell_library{..} <- metadata]
-    forM_ metadata $ \m -> buildHaskellLibrary m{dhl_deps = nubSort $ concatMap trans $ dhl_deps m}
+    let patch x | dhl_name x == "daml_lf_haskell_proto" = x{dhl_dir = ".rattle/generated/daml-lf/haskell", dhl_srcs = ["**/*.hs"]}
+                | otherwise = x
+    forM_ metadata $ \m -> buildHaskellLibrary $ patch m{dhl_deps = nubSort $ concatMap trans $ dhl_deps m}
 
 
 buildHaskellLibrary :: Metadata -> IO ()
 buildHaskellLibrary o@Da_haskell_library{..} = do
     print ("buildHaskellPackage",o)
+
+    -- some packages (e.g. daml_lf_haskell_proto) use names which are unsuitable for GHC
+    -- so we switch them and the dependencies here
+    let fixName = replace "_" "-"
+    dhl_name <- return $ fixName dhl_name
+    dhl_deps <- return $ map fixName dhl_deps
+
     files <- map (drop $ if null dhl_src_strip_prefix then 0 else length dhl_src_strip_prefix + 1) <$>
              getDirectoryFiles dhl_dir dhl_srcs
     let modules = map (intercalate "." . splitDirectories . dropExtension) files
+
     cmd_ "ghc"
         [flag ++ "=.rattle/haskell" </> dhl_name | flag <- ["-outputdir","-odir","-hidir","-stubdir"]]
         ["-i" ++ dhl_dir </> dhl_src_strip_prefix]
