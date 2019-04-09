@@ -41,7 +41,7 @@ search ("da_haskell_library":xs)
     where
         f r ("name":"=":name:xs) = f r{dhl_name = read name} xs
         f r ("src_strip_prefix":"=":name:xs) = f r{dhl_src_strip_prefix = read name} xs
-        f r ("srcs":"=":"glob":"(":"[":glob:"]":")":xs) = f r{dhl_srcs = [read glob]} xs
+        f r ("srcs":"=":"glob":"(":(square -> Just (glob, ")":xs))) = f r{dhl_srcs = map read $ filter (/= ",") glob} xs
         f r ("srcs":"=":"native":".":"glob":"(":"[":glob:"]":")":xs) = f r{dhl_srcs = [read glob]} xs
         f r ("hazel_deps":"=":(square -> Just (names, xs))) = f r{dhl_hazel_deps = map read $ filter (/= ",") names} xs
         f r ("deps":"=":(square -> Just (names, xs))) = f r{dhl_deps = delete "" $ map (last . wordsBy (`elem` "/:") . read) $ filter (/= ",") names} xs
