@@ -31,7 +31,7 @@ message Value {
 
     // A decimal value with precision 38 (38 decimal digits), of which
     // 10 after the comma / period. in other words a decimal is a number
-    // of the form `x / 10^10` where `|x| < 10^38`.
+    // of the form ``x / 10^10`` where ``|x| < 10^38``.
     // The number can start with a leading sign [+-] followed by digits
     string decimal = 6;
 
@@ -101,7 +101,7 @@ message Identifier {
   string package_id = 1;
 
   // The identifier of the entity (unique within the package)
-  // DEPRECATED: use `module_name` and `entity_name` instead
+  // DEPRECATED: use ``module_name`` and ``entity_name`` instead
   // Optional
   string name = 2 [deprecated=true];
 
@@ -138,8 +138,8 @@ message List {
 }
 
 // Corresponds to Java's Optional type, Scala's Option, and Haskell's Maybe.
-// The reason why we need to wrap this in an additional `message` is that we
-// need to be able to encode the `None` case in the `Value` oneof.
+// The reason why we need to wrap this in an additional ``message`` is that we
+// need to be able to encode the ``None`` case in the ``Value`` oneof.
 message Optional {
   Value value = 1; // optional
 }
