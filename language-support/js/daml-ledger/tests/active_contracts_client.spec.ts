@@ -32,7 +32,7 @@ describe("ActiveContractClient", () => {
             verbose: false,
             filter: {
                 filtersByParty: {
-                    alice: { inclusive: { templateIds: [{ packageId: 'packageId', name: 'tid1' }] } }
+                    alice: { inclusive: { templateIds: [{ packageId: 'packageId', moduleName: 'mod1', entityName: 'ent1' }] } }
                 }
             }
         };
@@ -59,7 +59,7 @@ describe("ActiveContractClient", () => {
         const request = {
             filter: {
                 filtersByParty: {
-                    alice: { inclusive: { templateIds: [{ packageId: 'packageId', name: 'tid1' }] } }
+                    alice: { inclusive: { templateIds: [{ packageId: 'packageId', moduleName: 'mod1', entityName: 'ent1' }] } }
                 }
             }
         };
@@ -88,7 +88,7 @@ describe("ActiveContractClient", () => {
             verbose: true,
             filter: {
                 filtersByParty: {
-                    alice: { inclusive: { templateIds: [{ packageId: 'packageId', name: 'tid1' }] } }
+                    alice: { inclusive: { templateIds: [{ packageId: 'packageId', moduleName: 'mod1', entityName: 'ent1' }] } }
                 }
             }
         };

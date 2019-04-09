@@ -44,7 +44,7 @@ message Value {
     // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
     // 9999-12-31T23:59:59.999999Z, so that we can convert to/from
     // https://www.ietf.org/rfc/rfc3339.txt
-    sfixed64 timestamp = 9;
+    sfixed64 timestamp = 9 [jstype = JS_STRING];
 
     // An agent operating on the ledger.
     string party = 11;

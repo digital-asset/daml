@@ -22,8 +22,8 @@ describe('TransactionClient', () => {
                 someParty: {
                     inclusive: {
                         templateIds: [
-                            { name: 'foobar', packageId: 'foo' },
-                            { name: 'fooquux', packageId: 'quux' }
+                            { packageId: 'foo1', moduleName: 'bar1', entityName: 'baz1' },
+                            { packageId: 'foo2', moduleName: 'bar2', entityName: 'baz2' },
                         ]
                     }
                 },

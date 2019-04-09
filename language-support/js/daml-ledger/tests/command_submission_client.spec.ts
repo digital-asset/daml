@@ -29,9 +29,9 @@ describe('CommandSubmissionClient', () => {
             list: [
                 {
                     create: {
-                        templateId: { packageId: 'fgdfg', name: 'dwgwdfg' },
+                        templateId: { packageId: 'fgdfg', moduleName: 'dwgwdfg', entityName: 'alkhksjhd' },
                         arguments: {
-                            recordId: { name: '314tgg5', packageId: 'g3g42' },
+                            recordId: { packageId: 'g3g42', moduleName: '314tgg5', entityName: '235lkj23' },
                             fields: {
                                 contract: { contractId: 'sdg4tr34' },
                                 someFlag: { bool: true }
@@ -45,7 +45,7 @@ describe('CommandSubmissionClient', () => {
                             decimal: '999'
                         },
                         contractId: 'f4f34f34f',
-                        templateId: { packageId: 'f1234f34f', name: '341f43f3' }
+                        templateId: { packageId: 'f1234f34f', moduleName: '341f43f3', entityName: '239874hb' }
                     }
                 }
             ]

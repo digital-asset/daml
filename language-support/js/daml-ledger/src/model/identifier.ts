@@ -13,9 +13,15 @@ export interface Identifier {
      */
     packageId: string
     /**
-     * @member {string} name
+     * @member {string} moduleName
      * @memberof ledger.Identifier
      * @instance
      */
-    name: string
+    moduleName: string
+    /**
+     * @member {string} entityName
+     * @memberof ledger.Identifier
+     * @instance
+     */
+    entityName: string
 }

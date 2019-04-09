@@ -15,11 +15,13 @@ import { Any } from 'google-protobuf/google/protobuf/any_pb';
 describe("Mapping", () => {
 
     const packageId = 'packageId';
-    const templateName = 'templateName';
+    const moduleName = 'moduleName';
+    const entityName = 'entityName';
 
     const identifierObject: ledger.Identifier = {
         packageId: packageId,
-        name: templateName
+        moduleName: moduleName,
+        entityName: entityName,
     }
 
     const inclusiveFiltersObject: ledger.InclusiveFilters = {
@@ -39,7 +41,8 @@ describe("Mapping", () => {
 
     const identifierMessage = new grpc.Identifier();
     identifierMessage.setPackageId(packageId);
-    identifierMessage.setName(templateName);
+    identifierMessage.setModuleName(moduleName);
+    identifierMessage.setEntityName(entityName);
 
     const inclusiveFiltersMessage = new grpc.InclusiveFilters();
     inclusiveFiltersMessage.setTemplateIdsList([identifierMessage]);
@@ -82,7 +85,7 @@ describe("Mapping", () => {
         recordId: identifierObject,
         fields: {
             textLabel: { text: 'text' },
-            dateLabel: { date: 40 },
+            dateLabel: { date: '40' },
             nestedLabel: {
                 record: {
                     recordId: identifierObject,
@@ -223,7 +226,7 @@ describe("Mapping", () => {
     itShouldConvert('Value(Date)', () => {
         const dateMessage = new grpc.Value();
         dateMessage.setDate(1);
-        const dateObject: ledger.Value = { date: 1 }
+        const dateObject: ledger.Value = { date: '1' }
         mappingCheck(mapping.Value, dateMessage, dateObject);
     });
 
@@ -255,7 +258,7 @@ describe("Mapping", () => {
         singletonList.setElementsList([dateMessage]);
         const singletonListMessage = new grpc.Value();
         singletonListMessage.setList(singletonList);
-        const singletonListObject: ledger.Value = { list: [{ date: 2 }] };
+        const singletonListObject: ledger.Value = { list: [{ date: '2' }] };
         mappingCheck(mapping.Value, singletonListMessage, singletonListObject);
     });
 
@@ -282,8 +285,8 @@ describe("Mapping", () => {
 
     itShouldConvert('Value(Timestamp)', () => {
         const timestampMessage = new grpc.Value();
-        timestampMessage.setTimestamp(50);
-        const timestampObject: ledger.Value = { timestamp: 50 };
+        timestampMessage.setTimestamp('50');
+        const timestampObject: ledger.Value = { timestamp: '50' };
         mappingCheck(mapping.Value, timestampMessage, timestampObject);
     });
 
@@ -755,7 +758,8 @@ describe("Mapping", () => {
         const message = new grpc.ArchivedEvent();
         const templateId = new grpc.Identifier();
         templateId.setPackageId('pkg');
-        templateId.setName('alejandro');
+        templateId.setModuleName('alejandro');
+        templateId.setEntityName('roberto');
         message.setTemplateId(templateId);
         message.setContractId('some-contract-id');
         message.setEventId('some-event-id');
@@ -763,7 +767,7 @@ describe("Mapping", () => {
         const object: ledger.ArchivedEvent = {
             contractId: 'some-contract-id',
             eventId: 'some-event-id',
-            templateId: { packageId: 'pkg', name: 'alejandro' },
+            templateId: { packageId: 'pkg', moduleName: 'alejandro', entityName: 'roberto' },
             witnessParties: ['birthday', 'pool', 'house-warming']
         }
         mappingCheck(mapping.ArchivedEvent, message, object);
@@ -773,7 +777,8 @@ describe("Mapping", () => {
         const message = new grpc.ExercisedEvent();
         const templateId = new grpc.Identifier();
         templateId.setPackageId('pkg');
-        templateId.setName('alejandro');
+        templateId.setModuleName('alejandro');
+        templateId.setEntityName('roberto');
         message.setTemplateId(templateId);
         message.setContractId('some-contract-id');
         message.setEventId('some-event-id');
@@ -794,7 +799,7 @@ describe("Mapping", () => {
         const object: ledger.ExercisedEvent = {
             contractId: 'some-contract-id',
             eventId: 'some-event-id',
-            templateId: { packageId: 'pkg', name: 'alejandro' },
+            templateId: { packageId: 'pkg', moduleName: 'alejandro', entityName: 'roberto' },
             actingParties: ['birthday'],
             argument: { list: [{ party: 'patricians' }] },
             childEventIds: ['event'],
@@ -811,12 +816,14 @@ describe("Mapping", () => {
 
         const templateId = new grpc.Identifier();
         templateId.setPackageId('pkg');
-        templateId.setName('alejandro');
+        templateId.setModuleName('alejandro');
+        templateId.setEntityName('roberto');
         const event = new grpc.Event();
         const archived = new grpc.ArchivedEvent();
         const archivedTemplateId = new grpc.Identifier();
         archivedTemplateId.setPackageId('pkg');
-        archivedTemplateId.setName('alejandro');
+        archivedTemplateId.setModuleName('alejandro');
+        archivedTemplateId.setEntityName('roberto');
         archived.setTemplateId(templateId);
         archived.setContractId('some-contract-id');
         archived.setEventId('some-event-id');
@@ -827,7 +834,7 @@ describe("Mapping", () => {
             archived: {
                 contractId: 'some-contract-id',
                 eventId: 'some-event-id',
-                templateId: { packageId: 'pkg', name: 'alejandro' },
+                templateId: { packageId: 'pkg', moduleName: 'alejandro', entityName: 'roberto' },
                 witnessParties: ['pool']
             }
         };
@@ -840,7 +847,8 @@ describe("Mapping", () => {
 
         const templateId = new grpc.Identifier();
         templateId.setPackageId('pkg');
-        templateId.setName('alejandro');
+        templateId.setModuleName('alejandro');
+        templateId.setEntityName('roberto');
         const event = new grpc.TreeEvent();
         const created = new grpc.CreatedEvent()
         const createdTemplateId = new grpc.Identifier();
@@ -852,7 +860,8 @@ describe("Mapping", () => {
         createdArgsField.setValue(createdArgsFieldValue);
         createdArgs.setFieldsList([createdArgsField]);
         createdTemplateId.setPackageId('pkg');
-        createdTemplateId.setName('alejandro');
+        createdTemplateId.setModuleName('alejandro');
+        createdTemplateId.setEntityName('roberto');
         created.setTemplateId(templateId);
         created.setContractId('some-contract-id');
         created.setEventId('some-event-id');
@@ -880,8 +889,9 @@ describe("Mapping", () => {
                 someId: {
                     created: {
                         templateId: {
-                            name: 'alejandro',
-                            packageId: 'pkg'
+                            packageId: 'pkg',
+                            moduleName: 'alejandro',
+                            entityName: 'roberto'
                         },
                         contractId: 'some-contract-id',
                         eventId: 'some-event-id',
@@ -908,7 +918,8 @@ describe("Mapping", () => {
 
         const templateId = new grpc.Identifier();
         templateId.setPackageId('pkg');
-        templateId.setName('alejandro');
+        templateId.setModuleName('alejandro');
+        templateId.setEntityName('roberto');
         const event = new grpc.TreeEvent();
         const created = new grpc.CreatedEvent()
         const createdTemplateId = new grpc.Identifier();
@@ -920,7 +931,8 @@ describe("Mapping", () => {
         createdArgsField.setValue(createdArgsFieldValue);
         createdArgs.setFieldsList([createdArgsField]);
         createdTemplateId.setPackageId('pkg');
-        createdTemplateId.setName('alejandro');
+        createdTemplateId.setModuleName('alejandro');
+        createdTemplateId.setEntityName('roberto');
         created.setTemplateId(templateId);
         created.setContractId('some-contract-id');
         created.setEventId('some-event-id');
@@ -952,8 +964,9 @@ describe("Mapping", () => {
                     someId: {
                         created: {
                             templateId: {
-                                name: 'alejandro',
-                                packageId: 'pkg'
+                                packageId: 'pkg',
+                                moduleName: 'alejandro',
+                                entityName: 'roberto'
                             },
                             contractId: 'some-contract-id',
                             eventId: 'some-event-id',
@@ -981,12 +994,14 @@ describe("Mapping", () => {
 
         const templateId = new grpc.Identifier();
         templateId.setPackageId('pkg');
-        templateId.setName('alejandro');
+        templateId.setModuleName('alejandro');
+        templateId.setEntityName('roberto');
         const event = new grpc.Event();
         const archived = new grpc.ArchivedEvent();
         const archivedTemplateId = new grpc.Identifier();
         archivedTemplateId.setPackageId('pkg');
-        archivedTemplateId.setName('alejandro');
+        archivedTemplateId.setModuleName('alejandro');
+        archivedTemplateId.setEntityName('roberto');
         archived.setTemplateId(templateId);
         archived.setContractId('some-contract-id');
         archived.setEventId('some-event-id');
@@ -1011,7 +1026,7 @@ describe("Mapping", () => {
                 archived: {
                     contractId: 'some-contract-id',
                     eventId: 'some-event-id',
-                    templateId: { packageId: 'pkg', name: 'alejandro' },
+                    templateId: { packageId: 'pkg', moduleName: 'alejandro', entityName: 'roberto' },
                     witnessParties: ['pool']
                 }
             }],
@@ -1028,12 +1043,14 @@ describe("Mapping", () => {
 
         const templateId = new grpc.Identifier();
         templateId.setPackageId('pkg');
-        templateId.setName('alejandro');
+        templateId.setModuleName('alejandro');
+        templateId.setEntityName('roberto');
         const event = new grpc.Event();
         const archived = new grpc.ArchivedEvent();
         const archivedTemplateId = new grpc.Identifier();
         archivedTemplateId.setPackageId('pkg');
-        archivedTemplateId.setName('alejandro');
+        archivedTemplateId.setModuleName('alejandro');
+        archivedTemplateId.setEntityName('roberto');
         archived.setTemplateId(templateId);
         archived.setContractId('some-contract-id');
         archived.setEventId('some-event-id');
@@ -1062,7 +1079,7 @@ describe("Mapping", () => {
                     archived: {
                         contractId: 'some-contract-id',
                         eventId: 'some-event-id',
-                        templateId: { packageId: 'pkg', name: 'alejandro' },
+                        templateId: { packageId: 'pkg', moduleName: 'alejandro', entityName: 'roberto' },
                         witnessParties: ['pool']
                     }
                 }],
@@ -1080,7 +1097,8 @@ describe("Mapping", () => {
 
         const templateId = new grpc.Identifier();
         templateId.setPackageId('pkg');
-        templateId.setName('alejandro');
+        templateId.setModuleName('alejandro');
+        templateId.setEntityName('roberto');
         const event = new grpc.TreeEvent();
         const created = new grpc.CreatedEvent()
         const createdTemplateId = new grpc.Identifier();
@@ -1092,7 +1110,8 @@ describe("Mapping", () => {
         createdArgsField.setValue(createdArgsFieldValue);
         createdArgs.setFieldsList([createdArgsField]);
         createdTemplateId.setPackageId('pkg');
-        createdTemplateId.setName('alejandro');
+        createdTemplateId.setModuleName('alejandro');
+        createdTemplateId.setEntityName('roberto');
         created.setTemplateId(templateId);
         created.setContractId('some-contract-id');
         created.setEventId('some-event-id');
@@ -1124,8 +1143,9 @@ describe("Mapping", () => {
                     someId: {
                         created: {
                             templateId: {
-                                name: 'alejandro',
-                                packageId: 'pkg'
+                                packageId: 'pkg',
+                                moduleName: 'alejandro',
+                                entityName: 'roberto'
                             },
                             contractId: 'some-contract-id',
                             eventId: 'some-event-id',
