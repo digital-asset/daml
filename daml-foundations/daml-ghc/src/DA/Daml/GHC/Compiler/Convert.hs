@@ -368,21 +368,19 @@ convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App`
 convertKey _ o = unhandled "Template key definition" o
 
 convertKeyExpr :: Env -> Var -> GHC.Expr Var -> ConvertM LF.Expr
-convertKeyExpr env keyBinder keyExpr = case keyExpr of
-    Case (Var caseScrut) caseBinder _ [(DataAlt con, vs, body)]
-        | keyBinder == caseScrut -> do
-            ctor@(Ctor _ fldNames _) <- toCtor env con
-            if  | isRecordCtor ctor
-                , Just vsFlds <- zipExactMay vs fldNames
-                -> do
-                    thisType <- fromTCon <$> convertType env (varType keyBinder)
-                    let projAliases = [(v, ERecProj thisType fld thisRef) | (v, fld) <- vsFlds, not (isDeadBinder v)]
-                    let thisAliases = [(keyBinder, thisRef), (caseBinder, thisRef)]
-                    let env' = env{envAliases = MS.fromList (thisAliases ++ projAliases) `MS.union` envAliases env}
-                    convertExpr env' body
-                | otherwise
-                -> defaultConv
-    _ -> defaultConv
+convertKeyExpr env keyBinder keyExpr
+    | Case (Var caseScrut) caseBinder _ [(DataAlt con, vs, body)] <- keyExpr
+    , keyBinder == caseScrut = do
+        ctor@(Ctor _ fldNames _) <- toCtor env con
+        if  | isRecordCtor ctor
+            , Just vsFlds <- zipExactMay vs fldNames -> do
+                thisType <- fromTCon <$> convertType env (varType keyBinder)
+                let projAliases = [(v, ERecProj thisType fld thisRef) | (v, fld) <- vsFlds, not (isDeadBinder v)]
+                let thisAliases = [(keyBinder, thisRef), (caseBinder, thisRef)]
+                let env' = env{envAliases = MS.fromList (thisAliases ++ projAliases) `MS.union` envAliases env}
+                convertExpr env' body
+            | otherwise -> defaultConv
+    | otherwise = defaultConv
   where
     thisRef = EVar "this"
     defaultConv = do
