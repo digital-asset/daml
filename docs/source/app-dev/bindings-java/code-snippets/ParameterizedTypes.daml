@@ -1,0 +1,10 @@
+daml 1.2
+module Com.Acme where
+
+data Attribute a = Attribute
+    with v : a
+
+data BookAttributes = BookAttributes with
+   pages : (Attribute Int)
+   authors : (Attribute [Text])
+   title : (Attribute Text)

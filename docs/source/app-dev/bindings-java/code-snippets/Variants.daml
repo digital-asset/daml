@@ -1,0 +1,7 @@
+daml 1.2
+module Com.Acme where
+
+data BookAttribute = Pages Int
+                   | Authors [Text]
+                   | Title Text
+                   | Published with year: Int; publisher Text

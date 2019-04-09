@@ -102,8 +102,7 @@ The Java codegen generates source files in a directory tree under the output dir
 Map DAML primitives to Java types
 ---------------------------------
 
-DAML built-in types are translated to the following equivalent types in
-Java:
+DAML built-in types are translated to the following equivalent types in Java:
 
 +--------------------------------+--------------------------------------------+------------------------+
 | DAML type                      | Java type                                  | Java Bindings          |
@@ -308,16 +307,9 @@ Variants (a.k.a sum types)
 
 A :ref:`variant or sum type <daml-ref-sum-types>` is a type with multiple constructors, where each constructor wraps a value of another type. The generated code is comprised of an abstract class for the variant type itself and a subclass thereof for each constructor. Classes for variant constructors are similar to classes for records.
 
-.. code-block:: daml
-  :caption: Com/Acme.daml
-
-  daml 1.2
-  module Com.Acme where
-
-  data BookAttribute = Pages Int
-                     | Authors [Text]
-                     | Title Text
-                     | Published with year: Int; publisher Text
+.. literalinclude:: ./code-snippets/Variants.daml
+   :language: daml
+   :caption: Com/Acme.daml
 
 The Java code generated for this variant is:
 
@@ -399,19 +391,9 @@ The Java Code Generator uses Java Generic types to represent :ref:`DAML paramete
 Below is a DAML fragment defining the parameterized type ``Attribute`` for use by the ``BookAttribute`` type for modeling
 the characteristics of the book.
 
-.. code-block:: daml
-  :caption: Com/Acme.daml
-
-  daml 1.2
-  module Com.Acme where
-
-  data Attribute a = Attribute
-      with v : a
-
-  data BookAttributes = BookAttributes with
-     pages : (Attribute Int)
-     authors : (Attribute [Text])
-     title : (Attribute Text)
+.. literalinclude:: ./code-snippets/ParameterizedTypes.daml
+   :language: daml
+   :caption: Com/Acme.daml
 
 A file Java file is generated for the ``Attribute`` data type that defines the Java Generic class:
 

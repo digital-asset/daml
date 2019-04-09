@@ -297,3 +297,8 @@ daml_test(
     name = "ledger-model-daml-test",
     srcs = glob(["source/concepts/ledger-model/daml/**/*.daml"])
 )
+
+daml_test(
+    name = "java-bindings-docs-daml-test",
+    srcs = glob(["source/app-dev/bindings-java/daml/**/*.daml"])
+)
