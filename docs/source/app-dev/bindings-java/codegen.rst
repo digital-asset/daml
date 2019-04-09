@@ -418,7 +418,7 @@ A file Java file is generated for the ``Attribute`` data type that defines the J
 Serializing
 """""""""""
 
-To serialize an instance of the ``Attribute<a>`` data type function for creating the Ledger API equivalent of the attribute value
+To serialize an instance of the ``Attribute<a>`` data type, a function for creating the Ledger API equivalent of the attribute value
 is passed to the ``toValue`` method as the ``fromValuea`` argument (see the above ``com/acme/Attribute.java`` source extract).
 
 Below is a Java fragment to serialize an attribute with a ``java.lang.Long`` value to Ledger API representation using the *method reference*
