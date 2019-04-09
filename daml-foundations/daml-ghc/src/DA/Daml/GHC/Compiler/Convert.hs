@@ -808,12 +808,11 @@ convertExpr env0 e = do
           tcon -> do
               ctor@(Ctor _ fldNames fldTys) <- toCtor env con
               if not (isRecordCtor ctor)
-                then convertLet env bind scrutinee $  \env -> do
+                then convertLet env bind scrutinee $ \env -> do
                   bind' <- convertExpr env (Var bind)
                   ty <- convertType env $ varType bind
                   alt' <- convertAlt env ty alt
                   pure $ ECase bind' [alt']
-                -- NOTE(MH): The 'zipExact' below fails for pattern matches on constructors with existentials.
                 else case zipExactMay vs (zipExact fldNames fldTys) of
                     Nothing -> unsupported "Pattern match with existential type" alt
                     Just vsFlds -> convertLet env bind scrutinee $ \env -> do
