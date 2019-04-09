@@ -28,13 +28,15 @@ resource "google_storage_bucket_iam_member" "nix_cache_writer" {
 }
 
 resource "google_storage_bucket_object" "nix-cache-info" {
-  name         = "nix-cache-info"
-  bucket       = "${module.nix_cache.bucket_name}"
-  content      = <<EOF
+  name   = "nix-cache-info"
+  bucket = "${module.nix_cache.bucket_name}"
+
+  content = <<EOF
 StoreDir: /nix/store
 WantMassQuery: 1
 Priority: 10
   EOF
+
   content_type = "text/plain"
 }
 

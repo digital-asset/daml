@@ -38,7 +38,16 @@ genrule(
             sass:da_theme/static/css
         ../$(location :grunt) build
 
-        tar -zcf ../$(location da_theme.tar.gz) da_theme
+        tar \
+            --owner=1000 \
+            --group=1000 \
+            --mtime=1337 \
+            --no-acls \
+            --no-xattrs \
+            --no-selinux \
+            --sort=name \
+            -czf ../$(location da_theme.tar.gz) \
+            da_theme
     """
 )
 
