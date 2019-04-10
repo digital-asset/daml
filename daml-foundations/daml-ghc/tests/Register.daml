@@ -1,0 +1,26 @@
+-- @IGNORE-LF 1.2
+daml 1.2
+module Register where
+
+-- A contract key test.
+
+data Course =
+  Course with
+      institution : Party
+      title : Text
+  deriving (Show, Eq)
+
+data Registration =
+  Registration with
+      student : Party
+      course : Course
+      year : Int
+  deriving (Show, Eq)
+
+template Enrollment
+  with
+      reg : Registration
+  where
+      signatory reg.student, reg.course.institution
+      key reg : Registration
+      maintainer reg.course.institution
