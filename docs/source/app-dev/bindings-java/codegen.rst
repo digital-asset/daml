@@ -397,7 +397,7 @@ the characteristics of the book.
    :lines: 3-11
    :caption: Com/Acme.daml
 
-A file Java file is generated for the ``Attribute`` data type that defines the Java Generic class:
+The Java codegen generates a Java file with a generic class for  the ``Attribute a`` data type:
 
 .. code-block:: java
   :caption: com/acme/Attribute.java
