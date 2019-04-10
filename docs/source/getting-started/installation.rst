@@ -41,11 +41,13 @@ The SDK is distributed via a command-line tool called the :doc:`SDK Assistant </
 
    The SDK is distributed under the :download:`Apache 2.0 license </LICENSE>` (:download:`NOTICES </NOTICES>`).
 
-#. Run the installer, making sure to follow the instructions to update your PATH:
+#. Run the installer:
 
    .. code::
 
      sh ./da-cli-<version>.run
+
+#. Follow the instructions in the output to update your ``PATH``.
 
 #. Run ``da setup``, which will download and install the SDK.
 
