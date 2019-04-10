@@ -367,7 +367,8 @@ load("//bazel_tools:haskell.bzl", "add_extra_packages")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT="2cd8c1c4221e1abcb95f2af20387874bbf10d8f6"
+HASKELL_LSP_COMMIT="7024e38d4b463b3eaf1c44c6453eb608dd8f28a9"
+HASKELL_LSP_HASH="7d706fbc1beb49a9345083d3eadb5e311936a2a8449e7765a65aa7d298dff9d6"
 
 hazel_repositories(
   core_packages = core_packages + {
@@ -396,7 +397,8 @@ hazel_repositories(
         # Deps for haskell LSP
         , ("rope-utf16-splay" , {"version": "0.2.0.0", "sha256": "83d1961bf55355da49a6b55d6f58d02483eff1f8e6df53f4dccdab1ac49e101d"})
         # This is a special version of Haskell LSP without GPL dependencies
-        , ("haskell-lsp", {"url": "https://github.com/DavidM-D/haskell-lsp/archive/{}.zip".format(HASKELL_LSP_COMMIT), "sha256": "3b81beaa728fb3c7b9106115e9d8f0bffc235c98b35e9ea7d18f5e586f83b9ae", "stripPrefix": "haskell-lsp-{}".format(HASKELL_LSP_COMMIT)})
+        , ("haskell-lsp-types", {"url": "https://github.com/DavidM-D/haskell-lsp/archive/{}.zip".format(HASKELL_LSP_COMMIT), "sha256": "{}".format(HASKELL_LSP_HASH), "stripPrefix": "haskell-lsp-{}/haskell-lsp-types".format(HASKELL_LSP_COMMIT)})
+        , ("haskell-lsp", {"url": "https://github.com/DavidM-D/haskell-lsp/archive/{}.zip".format(HASKELL_LSP_COMMIT), "sha256": "{}".format(HASKELL_LSP_HASH), "stripPrefix": "haskell-lsp-{}".format(HASKELL_LSP_COMMIT)})
         ]
   ),
   exclude_packages = [
