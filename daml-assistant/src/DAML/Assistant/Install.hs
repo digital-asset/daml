@@ -6,12 +6,6 @@ module DAML.Assistant.Install
     ( InstallOptions (..)
     , InstallURL (..)
     , InstallEnv (..)
-    , installExtracted
-    , extractAndInstall
-    , httpInstall
-    , pathInstall
-    , targetInstallURL
-    , defaultInstallURL
     , install
     ) where
 
@@ -39,16 +33,20 @@ import System.Posix.Files -- forget windows for now
 import qualified System.Info
 import qualified Data.Text as T
 import Data.Maybe
+import qualified Data.SemVer as V
+import qualified Control.Lens as L
 
 displayInstallTarget :: InstallTarget -> Text
 displayInstallTarget = \case
-    InstallChannel (SdkChannel c) -> "channel " <> c
-    InstallVersion (SdkVersion v) -> "version " <> v
+    InstallChannel Stable -> "channel stable"
+    InstallChannel Unstable -> "channel unstable"
+    InstallChannel (Custom ch) -> "channel " <> pack (show ch)
+    InstallVersion (SdkVersion v) -> "version " <> V.toText v
     InstallPath p -> pack p
 
 versionMatchesTarget :: SdkVersion -> InstallTarget -> Bool
 versionMatchesTarget version = \case
-    InstallChannel c -> c == fst (splitVersion version)
+    InstallChannel c -> c == versionChannel version
     InstallVersion v -> v == version
     InstallPath _ -> True -- tarball path could be any version
 
@@ -57,13 +55,18 @@ newtype InstallURL = InstallURL { unwrapInstallURL :: Text }
 data SdkChannelInfo = SdkChannelInfo
     { channelName       :: SdkChannel
     , channelLatestURL  :: InstallURL
-    , channelVersionURL :: SdkSubVersion -> InstallURL
+    , channelVersionURL :: SdkVersion -> InstallURL
     }
 
 knownChannels :: [SdkChannelInfo]
 knownChannels =
     [ SdkChannelInfo
-        { channelName = SdkChannel "nightly"
+        { channelName = Stable
+        , channelLatestURL  = bintrayLatestURL
+        , channelVersionURL = bintrayVersionURL
+        }
+    , SdkChannelInfo
+        { channelName = Unstable
         , channelLatestURL  = bintrayLatestURL
         , channelVersionURL = bintrayVersionURL
         }
@@ -99,13 +102,6 @@ whenActivate InstallEnv{..} | ActivateInstall b <- iActivate options =
 lookupChannel :: SdkChannel -> [SdkChannelInfo] -> Maybe SdkChannelInfo
 lookupChannel ch = find ((== ch) . channelName)
 
-targetInstallURL :: InstallTarget -> Maybe InstallURL
-targetInstallURL = \case
-    InstallChannel ch -> channelLatestURL <$> lookupChannel ch knownChannels
-    InstallVersion v | (ch, sv) <- splitVersion v ->
-        flip channelVersionURL sv <$> lookupChannel ch knownChannels
-    InstallPath _ -> Nothing
-
 defaultInstallURL :: InstallURL
 defaultInstallURL = bintrayLatestURL
 
@@ -116,24 +112,39 @@ osName = case System.Info.os of
     "mingw32" -> "win"
     p -> error ("daml: Unknown operating system " ++ p)
 
-
-
-bintrayVersionURL :: SdkSubVersion -> InstallURL
-bintrayVersionURL (SdkSubVersion subVersion) = InstallURL $ T.concat
+bintrayVersionURL :: SdkVersion -> InstallURL
+bintrayVersionURL (SdkVersion v) = InstallURL $ T.concat
     [ "https://bintray.com/api/v1/content"  -- api call
     , "/digitalassetsdk/DigitalAssetSDK"    -- repo/subject
     , "/com/digitalasset/sdk-tarball/"      -- file path
-    , subVersion
+    , vtext
     , "/sdk-tarball-"
-    , subVersion
+    , vtext
     , "-"
     , osName
     , ".tar.gz"
     , "?bt_package=sdk-components"          -- package
     ]
+    where
+        vtext = V.toText
+            . L.over V.major (+ 100)
+            . L.set V.release []
+            . L.set V.metadata []
+            $ v
 
 bintrayLatestURL :: InstallURL
-bintrayLatestURL = bintrayVersionURL (SdkSubVersion "$latest")
+bintrayLatestURL = InstallURL $ T.concat
+    [ "https://bintray.com/api/v1/content"  -- api call
+    , "/digitalassetsdk/DigitalAssetSDK"    -- repo/subject
+    , "/com/digitalasset/sdk-tarball/"      -- file path
+    , "$latest"
+    , "/sdk-tarball-"
+    , "$latest"
+    , "-"
+    , osName
+    , ".tar.gz"
+    , "?bt_package=sdk-components"          -- package
+    ]
 
 -- | Install (extracted) SDK directory to the correct place, after performing
 -- a version sanity check. Then run the sdk install hook if applicable.
@@ -148,7 +159,7 @@ installExtracted env@InstallEnv{..} sourcePath =
             unless (versionMatchesTarget sourceVersion target) $
                 throwIO (assistantErrorBecause "SDK release version mismatch."
                     ("Expected " <> displayInstallTarget target
-                    <> " but got version " <> unwrapSdkVersion sourceVersion))
+                    <> " but got version " <> V.toText (unwrapSdkVersion sourceVersion)))
 
         -- Set file mode of files to install.
         requiredIO "Failed to set file modes for extracted SDK files." $
@@ -386,10 +397,9 @@ decideInstallTarget (RawInstallTarget arg) = do
     testF <- doesFileExist arg
     if testD || testF then
         pure (InstallPath arg)
-    else if SdkChannel (pack arg) `elem` map channelName knownChannels then
-        pure . InstallChannel . SdkChannel $ pack arg
     else
-        pure . InstallVersion . SdkVersion $ pack arg
+        fromRightM (throwIO . assistantErrorBecause "Invalid SDK version." . pack) $
+            InstallVersion . SdkVersion <$> V.fromText (pack arg)
 
 -- | Run install command.
 install :: InstallOptions -> DamlPath -> IO ()
@@ -401,18 +411,18 @@ install options damlPath = do
 
     case targetM of
         Nothing ->
-            httpInstall env defaultInstallURL
+            httpInstall env defaultInstallURL -- TODO replace with installing project version
 
         Just (InstallPath tarballPath) ->
             pathInstall env tarballPath
 
         Just (InstallChannel channel) -> do
-            channelInfo <- required ("Unknown channel " <> unwrapSdkChannel channel) $
+            channelInfo <- required ("Unknown channel " <> pack (show channel)) $
                 lookupChannel channel knownChannels
             httpInstall env (channelLatestURL channelInfo)
 
         Just (InstallVersion version) -> do
-            let (channel, subVersion) = splitVersion version
-            channelInfo <- required ("Unknown channel " <> unwrapSdkChannel channel) $
+            let channel = versionChannel version
+            channelInfo <- required ("Unknown channel " <> pack (show channel)) $
                 lookupChannel channel knownChannels
-            httpInstall env (channelVersionURL channelInfo subVersion)
+            httpInstall env (channelVersionURL channelInfo version)

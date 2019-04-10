@@ -26,9 +26,10 @@ import System.FilePath
 import System.Environment
 import Control.Monad.Extra
 import Control.Exception.Safe
-import Data.List.Extra
 import Data.Maybe
+import Data.Either.Extra
 import Safe
+import qualified Data.SemVer as V
 
 -- | Calculate the environment variables in which to run daml-something.
 getDamlEnv :: IO Env
@@ -73,7 +74,7 @@ getDamlPath = wrapErr "Determining daml home directory." $ do
     pure (DamlPath path)
 
 -- | Calculate the project path. This is done by starting at the current
--- working directory, checking if "da.yaml" is present. If it is found,
+-- working directory, checking if "daml.yaml" is present. If it is found,
 -- that's the project path. Otherwise, go up one level and repeat
 -- until you can't go up.
 --
@@ -104,7 +105,11 @@ getSdk damlPath projectPathM =
     wrapErr "Determining SDK version and path." $ do
 
         sdkVersion <- firstJustM id
-            [ fmap (SdkVersion . pack) <$> lookupEnv sdkVersionEnvVar
+            [ lookupEnv sdkVersionEnvVar >>= \ vstrM -> pure $ do
+                vstr <- vstrM
+                v <- eitherToMaybe (V.fromText (pack vstr))
+                Just (SdkVersion v)
+
             , fromConfig "SDK" (lookupEnv sdkPathEnvVar)
                                (readSdkConfig . SdkPath)
                                (fmap Just . sdkVersionFromSdkConfig)
@@ -135,8 +140,6 @@ getSdk damlPath projectPathM =
                     fromRightM throwIO (parseVersion config)
 
 -- | Determine the latest installed version of the SDK.
--- Currently restricts to versions with the prefix "nightly-",
--- but this is bound to change and be configurable.
 getLatestInstalledSdkVersion :: DamlPath -> IO (Maybe SdkVersion)
 getLatestInstalledSdkVersion (DamlPath path) = do
     let dpath = path </> "sdk"
@@ -146,11 +149,10 @@ getLatestInstalledSdkVersion (DamlPath path) = do
             Left _ -> pure Nothing
             Right dirlist -> do
                 subdirs <- filterM (doesDirectoryExist . (dpath </>)) dirlist
-                -- TODO (FAFM): warn if subdirs /= dirlist
-                --  (i.e. $DAML_HOME/sdk is polluted with non-dirs).
-                let versions = filter ("nightly-" `isPrefixOf`) subdirs
-                    -- TODO (FAFM): configurable channels
-                pure $ fmap (SdkVersion . pack) (maximumMay versions)
+                let semvers = mapMaybe (eitherToMaybe . V.fromText . pack) subdirs
+                    versions = map SdkVersion semvers
+                    stableVersions = filter isStableVersion versions
+                pure $ maximumMay stableVersions
 
 -- | Calculate the environment for dispatched commands (i.e. the environment
 -- with updated DAML_HOME, DAML_PROJECT, DAML_SDK, etc).
@@ -160,5 +162,5 @@ getDispatchEnv Env{..} = do
     pure $ [ (damlPathEnvVar, unwrapDamlPath envDamlPath)
            , (projectPathEnvVar, maybe "" unwrapProjectPath envProjectPath)
            , (sdkPathEnvVar, maybe "" unwrapSdkPath envSdkPath)
-           , (sdkVersionEnvVar, maybe "" (unpack . unwrapSdkVersion) envSdkVersion)
+           , (sdkVersionEnvVar, maybe "" (V.toString . unwrapSdkVersion) envSdkVersion)
            ] ++ filter ((`notElem` damlEnvVars) . fst) originalEnv

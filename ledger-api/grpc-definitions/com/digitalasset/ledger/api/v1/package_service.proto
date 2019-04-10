@@ -17,7 +17,7 @@ service PackageService {
   // Returns the identifiers of all supported packages.
   rpc ListPackages (ListPackagesRequest) returns (ListPackagesResponse);
 
-  // Returns the contents of a single package, or a `NOT_FOUND` error if the requested package is unknown.
+  // Returns the contents of a single package, or a ``NOT_FOUND`` error if the requested package is unknown.
   rpc GetPackage (GetPackageRequest) returns (GetPackageResponse);
 
   // Returns the status of a single package.
@@ -66,11 +66,11 @@ message GetPackageResponse {
   // Required
   HashFunction hash_function = 1;
 
-  // Contains a `daml_lf` ArchivePayload. See further details in `daml_lf.proto`.
+  // Contains a ``daml_lf`` ArchivePayload. See further details in ``daml_lf.proto``.
   // Required
   bytes archive_payload = 2;
 
-  // The hash of the archive payload, can also used as a `package_id`.
+  // The hash of the archive payload, can also used as a ``package_id``.
   // Required
   string hash = 3;
 }

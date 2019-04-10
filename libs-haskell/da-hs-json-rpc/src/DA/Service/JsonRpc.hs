@@ -104,7 +104,7 @@ runServer loggerH snk src notifChan requestHandler notificationHandler = do
           EventRequest rpcNotif@(Notif _ _ _) -> do
               case fromRequest rpcNotif of
                 Left err -> do
-                    Logger.logInfo loggerH $ "Failed to parse notification: " <> T.show err
+                    Logger.logWarning loggerH $ "Failed to parse notification: " <> T.show err
                     return ()
                 Right notif -> do
                     notificationHandler notif

@@ -37,6 +37,7 @@ import Data.ByteArray.Encoding (Base (Base16), convertToBase)
 import qualified Data.ByteString                   as B
 import qualified Data.ByteString.Lazy as BSL
 import Data.FileEmbed (embedFile)
+import Data.Functor
 import qualified Data.Set as Set
 import qualified Data.List.Split as Split
 import qualified Data.Text as T
@@ -162,7 +163,7 @@ execLicense = B.putStr licenseData
 execIde :: Telemetry
         -> Debug
         -> Command
-execIde (Telemetry telemetry) (Debug debug) = NS.withSocketsDo $ Managed.runManaged $ do
+execIde telemetry (Debug debug) = NS.withSocketsDo $ Managed.runManaged $ do
     let threshold =
             if debug
             then Logger.Debug
@@ -177,9 +178,10 @@ execIde (Telemetry telemetry) (Debug debug) = NS.withSocketsDo $ Managed.runMana
       threshold
       "LanguageServer"
     loggerH <-
-      if telemetry
-      then Logger.GCP.gcpLogger (>= Logger.Warning) loggerH
-      else pure loggerH
+      case telemetry of
+          OptedIn -> Logger.GCP.gcpLogger (>= Logger.Warning) loggerH
+          OptedOut -> liftIO $ Logger.GCP.logOptOut $> loggerH
+          Undecided -> pure loggerH
 
     opts <- liftIO $ defaultOptionsIO Nothing
 
@@ -475,6 +477,7 @@ optionsParser numProcessors parsePkgName = Compiler.Options
     <*> optShakeThreads
     <*> lfVersionOpt
     <*> optDebugLog
+    <*> many optGhcCustomOption
   where
     optImportPath :: Parser [FilePath]
     optImportPath =
@@ -537,6 +540,14 @@ optionsParser numProcessors parsePkgName = Compiler.Options
             , "Use --jobs=N to explicitely set the number of threads to N."
             , "Note that the output is not deterministic for > 1 job."
             ]
+
+    optGhcCustomOption :: Parser String
+    optGhcCustomOption =
+        strOption $
+        long "ghc-option" <>
+        metavar "CUSTOM_OPTION" <>
+        help "custom option to pass to the underlying GHC" <>
+        internal
 
 options :: Int -> Parser Command
 options numProcessors =

@@ -20,7 +20,7 @@ trait Resource[+Value] extends AutoCloseable {
     */
   def setup(): Unit
 
-  def map[Target](transform: Value => Target): Resource[Target] = ProjectedResource(this, transform)
+  def map[Target](f: Value => Target): Resource[Target] = MappedResource(this, f)
 
   def derive[Target: ClassTag](
       transform: Value => Target,

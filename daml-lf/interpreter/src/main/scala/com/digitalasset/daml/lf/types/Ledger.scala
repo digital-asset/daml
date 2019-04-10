@@ -97,7 +97,7 @@ object Ledger {
     * words, all AbsoluteContractIds are also NodeIds (but not the
     * reverse, node ids might be exercises)
     */
-  type Node = GenNode[NodeId, AbsoluteContractId, Transaction.Value[AbsoluteContractId]]
+  type Node = GenNode.WithTxValue[NodeId, AbsoluteContractId]
 
   /** Feature flags that apply across an entire ledger.
     * They must be the same across all packages in a single ledger. */
@@ -228,7 +228,7 @@ object Ledger {
     */
   def translateNode(commitPrefix: String, node: Transaction.Node): Node = {
     node match {
-      case nc: NodeCreate[ContractId, Transaction.Value[ContractId]] =>
+      case nc: NodeCreate.WithTxValue[ContractId] =>
         NodeCreate[AbsoluteContractId, Transaction.Value[AbsoluteContractId]](
           coid = contractIdToAbsoluteContractId(commitPrefix, nc.coid),
           coinst = nc.coinst.copy(arg = makeAbsolute(commitPrefix, nc.coinst.arg)),
@@ -246,7 +246,7 @@ object Ledger {
           signatories = nf.signatories,
           stakeholders = nf.stakeholders
         )
-      case nex: NodeExercises[Transaction.NodeId, ContractId, Transaction.Value[ContractId]] =>
+      case nex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
         NodeExercises[NodeId, AbsoluteContractId, Transaction.Value[AbsoluteContractId]](
           targetCoid = contractIdToAbsoluteContractId(commitPrefix, nex.targetCoid),
           templateId = nex.templateId,
@@ -260,8 +260,8 @@ object Ledger {
           controllers = nex.controllers,
           children = nex.children.map(NodeId(commitPrefix, _))
         )
-      case nlbk: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
-        NodeLookupByKey[AbsoluteContractId, Transaction.Value[AbsoluteContractId]](
+      case nlbk: NodeLookupByKey.WithTxValue[ContractId] =>
+        NodeLookupByKey(
           templateId = nlbk.templateId,
           optLocation = nlbk.optLocation,
           key = nlbk.key.mapValue(makeAbsolute(commitPrefix, _)),
@@ -429,7 +429,7 @@ object Ledger {
         case None => LookupContractNotFound(coid)
         case Some(info) =>
           info.node match {
-            case create: NodeCreate[AbsoluteContractId, Transaction.Value[AbsoluteContractId]] =>
+            case create: NodeCreate.WithTxValue[AbsoluteContractId] =>
               if (info.effectiveAt.compareTo(effectiveAt) > 0)
                 LookupContractNotEffective(coid, create.coinst.template, info.effectiveAt)
               else if (info.consumedBy.nonEmpty)
@@ -445,11 +445,7 @@ object Ledger {
               else
                 LookupOk(coid, create.coinst)
 
-            case _: NodeExercises[_, _, _] =>
-              LookupContractNotFound(coid)
-            case _: NodeFetch[_] =>
-              LookupContractNotFound(coid)
-            case _: NodeLookupByKey[_, _] =>
+            case _: NodeExercises[_, _, _] | _: NodeFetch[_] | _: NodeLookupByKey[_, _] =>
               LookupContractNotFound(coid)
           }
       }
@@ -642,7 +638,7 @@ object Ledger {
 
     def authorizeCreate(
         nodeId: Transaction.NodeId,
-        create: NodeCreate[ContractId, Transaction.Value[ContractId]],
+        create: NodeCreate.WithTxValue[ContractId],
         signatories: Set[Party],
         authorization: Authorization): EnrichState =
       authorization.fold(this)(
@@ -664,7 +660,7 @@ object Ledger {
 
     def authorizeExercise(
         nodeId: Transaction.NodeId,
-        ex: NodeExercises[Transaction.NodeId, ContractId, Transaction.Value[ContractId]],
+        ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId],
         actingParties: Set[Party],
         authorization: Authorization,
         controllers: Set[Party]): EnrichState = {
@@ -793,7 +789,7 @@ object Ledger {
      */
     def authorizeLookupByKey(
         nodeId: Transaction.NodeId,
-        lbk: NodeLookupByKey[ContractId, Transaction.Value[ContractId]],
+        lbk: NodeLookupByKey.WithTxValue[ContractId],
         authorization: Authorization): EnrichState = {
       authorization.fold(this) { authorizers =>
         this.authorize(
@@ -859,7 +855,7 @@ object Ledger {
         tr.nodes
           .getOrElse(nodeId, crash(s"enrichNode - precondition violated: node $nodeId not present"))
       node match {
-        case create: NodeCreate[ContractId, Transaction.Value[ContractId]] =>
+        case create: NodeCreate.WithTxValue[ContractId] =>
           // ------------------------------------------------------------------
           // witnesses            : stakeholders union witnesses of parent exercise
           //                        node
@@ -902,7 +898,7 @@ object Ledger {
               authorization = authorization)
           else state1
 
-        case ex: NodeExercises[Transaction.NodeId, ContractId, Transaction.Value[ContractId]] =>
+        case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
           // ------------------------------------------------------------------
           // witnesses:
           //  | default: stakeholders(targetId) union witnesses of parent exercise node
@@ -952,7 +948,7 @@ object Ledger {
               childNodeId)
           }
 
-        case nlbk: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
+        case nlbk: NodeLookupByKey.WithTxValue[ContractId] =>
           // ------------------------------------------------------------------
           // witnesses: parent exercise witnesses
           //
@@ -1162,9 +1158,7 @@ object Ledger {
                   val idsToProcess = (mbParentId -> restOfNodeIds) :: restENPs
 
                   node match {
-                    case nc: NodeCreate[
-                          AbsoluteContractId,
-                          Transaction.Value[AbsoluteContractId]] =>
+                    case nc: NodeCreate.WithTxValue[AbsoluteContractId] =>
                       val newCache1 =
                         newCache.markAsActive(nc.coid)
                       val mbNewCache2 = nc.key match {
@@ -1185,10 +1179,7 @@ object Ledger {
 
                       processNodes(Right(newCacheP), idsToProcess)
 
-                    case ex: NodeExercises[
-                          NodeId,
-                          AbsoluteContractId,
-                          Transaction.Value[AbsoluteContractId]] =>
+                    case ex: NodeExercises.WithTxValue[NodeId, AbsoluteContractId] =>
                       val newCache0 =
                         newCache.updateNodeInfo(NodeId(ex.targetCoid))(
                           info =>
@@ -1216,9 +1207,7 @@ object Ledger {
                         Right(newCache1),
                         (Some(nodeId) -> ex.children.toList) :: idsToProcess)
 
-                    case nlkup: NodeLookupByKey[
-                          AbsoluteContractId,
-                          Transaction.Value[AbsoluteContractId]] =>
+                    case nlkup: NodeLookupByKey.WithTxValue[AbsoluteContractId] =>
                       nlkup.result match {
                         case None =>
                           processNodes(Right(newCache), idsToProcess)

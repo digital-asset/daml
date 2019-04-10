@@ -29,10 +29,12 @@ describe("ClientReadableObjectStream", () => {
     it("should read the expected items out of the wrapped stream", (done) => {
 
         const id1 = new grpc.Identifier();
-        id1.setName('firstName');
+        id1.setModuleName('firstModuleName');
+        id1.setEntityName('firstEntityName');
         id1.setPackageId('firstPackageId');
         const id2 = new grpc.Identifier();
-        id2.setName('secondName');
+        id2.setModuleName('secondModuleName');
+        id2.setEntityName('secondEntityName');
         id2.setPackageId('secondPackageId');
 
         const fixture = [id1, id2];
@@ -42,7 +44,8 @@ describe("ClientReadableObjectStream", () => {
 
         let counter = 0;
         wrapper.on('data', (id) => {
-            expect(id).to.haveOwnProperty('name');
+            expect(id).to.haveOwnProperty('moduleName');
+            expect(id).to.haveOwnProperty('entityName');
             expect(id).to.haveOwnProperty('packageId');
             expect(id).to.deep.equal(mapping.Identifier.toObject(fixture[counter]));
             counter = counter + 1;

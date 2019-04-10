@@ -31,6 +31,7 @@ dependencies = [
   '//ledger/ledger-api-common:ledger-api-common',
   '//ledger/ledger-api-client:ledger-api-client',
   '//ledger/sandbox:sandbox',
+  '//ledger/sandbox:sandbox-scala-tests-lib',
   '//3rdparty/jvm/com/google/guava:guava',
   '//3rdparty/jvm/io/grpc:grpc_services',
   '//3rdparty/jvm/com/typesafe/scala_logging:scala_logging',

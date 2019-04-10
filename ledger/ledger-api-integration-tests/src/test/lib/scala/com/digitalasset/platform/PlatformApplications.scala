@@ -17,8 +17,7 @@ import scala.concurrent.duration.{FiniteDuration, _}
 object PlatformApplications {
 
   /**
-    * Meant to be a simple common denominator between sandbox and LS
-    * configuration. The constructor is private to avoid using
+    * Meant to be a simple common denominator for fixture configuration. The constructor is private to avoid using
     * exceptions for validation.
     *
     * In the companion object add more smart constructors with
@@ -95,7 +94,7 @@ object PlatformApplications {
     def default: Config = defaultWithLedgerId(Some(defaultLedgerId))
   }
 
-  def sandboxApplication(config: Config) = {
+  def sandboxApplication(config: Config, jdbcUrl: Option[String]) = {
     val selectedPort = 0
 
     val sandboxCommandConfig = SandboxConfig.defaultCommandConfig
@@ -112,7 +111,7 @@ object PlatformApplications {
         tlsConfig = None,
         ledgerIdMode =
           config.ledgerId.fold[LedgerIdMode](LedgerIdMode.Random)(LedgerIdMode.HardCoded),
-        jdbcUrl = None
+        jdbcUrl = jdbcUrl
       )
     )
   }

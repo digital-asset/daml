@@ -40,9 +40,9 @@ describe("CommandClient", () => {
             list: [
                 {
                     create: {
-                        templateId: { packageId: 'tmplt', name: 'cpluspls' },
+                        templateId: { packageId: 'tmplt', moduleName: 'cpluspls', entityName: 'ent' },
                         arguments: {
-                            recordId: { packageId: 'pkg', name: 'fernando' },
+                            recordId: { packageId: 'pkg', moduleName: 'fernando', entityName: 'ent' },
                             fields: {
                                 someValue: { bool: true }
                             }

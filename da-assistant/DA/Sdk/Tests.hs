@@ -59,7 +59,6 @@ runTests = defaultMain $ testGroup "SDK Assistant"
 envTests :: TestTree
 envTests = testGroup "DA.Sdk.Cli.Env"
     [ javacVersion
-    , pythonVersion
     ]
   where
     javacVersion = testGroup "Javac Version"
@@ -80,17 +79,6 @@ envTests = testGroup "DA.Sdk.Cli.Env"
         ]
       where
         javaVersionTest = versionTest Env.parseJavacVersion
-
-    pythonVersion = testGroup "Python 3 Version"
-        [ pythonVersionTest "Test 1" (Env.PythonVersion (3, 6, 2)) "Python 3.6.2"
-        , pythonVersionTest "Test 2" (Env.PythonVersion (3, 6, 2))
-        $ T.unlines
-            [ "[dev-env] dev-env busy, checking again in 1 second..."
-            , "Python 3.6.2"
-            ]
-        ]
-      where
-        pythonVersionTest = versionTest Env.parsePythonVersion
 
 
     versionTest ::
