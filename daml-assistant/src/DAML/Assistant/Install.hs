@@ -34,7 +34,7 @@ import qualified System.Info
 import qualified Data.Text as T
 import Data.Maybe
 import qualified Data.SemVer as V
-import qualified Lens.Micro as L
+import qualified Control.Lens as L
 
 displayInstallTarget :: InstallTarget -> Text
 displayInstallTarget = \case

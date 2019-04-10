@@ -10,7 +10,7 @@ module DAML.Project.Types
 import qualified Data.Yaml as Y
 import qualified Data.Text as T
 import qualified Data.SemVer as V
-import qualified Lens.Micro as L
+import qualified Control.Lens as L
 import Data.Text (Text)
 import Data.Maybe
 import System.FilePath
