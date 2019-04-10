@@ -103,11 +103,11 @@ object LfEngineToApi {
           lfValueToApiValue(verbose, v).map(c =>
             ApiValue(ApiValue.Sum.Optional(Optional(Some(c))))))
       case Lf.ValueMap(m) =>
-        m.toList
-          .foldRight[Either[String, List[ApiMap.Entry]]](Right(List.empty[ApiMap.Entry])) {
-            case ((k, v), Right(list)) =>
+        m.toImmArray.reverse
+          .foldLeft[Either[String, List[ApiMap.Entry]]](Right(List.empty[ApiMap.Entry])) {
+            case (Right(list), (k, v)) =>
               lfValueToApiValue(verbose, v).map(w => ApiMap.Entry(k, Some(w)) :: list)
-            case (_, left) => left
+            case (left, _) => left
           }
           .map(list => ApiValue(ApiValue.Sum.Map(ApiMap(list))))
       case Lf.ValueTuple(_) => Left("tuples not allowed")

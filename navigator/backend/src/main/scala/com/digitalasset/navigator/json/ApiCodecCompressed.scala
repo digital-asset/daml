@@ -3,7 +3,7 @@
 
 package com.digitalasset.navigator.json
 
-import com.digitalasset.daml.lf.data.SortedMap
+import com.digitalasset.daml.lf.data.SortedLookupList
 import com.digitalasset.navigator.model.DamlLfIdentifier
 import com.digitalasset.navigator.{model => Model}
 import spray.json._
@@ -88,7 +88,7 @@ object ApiCodecCompressed {
           case None => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
         }
       case (JsObject(a), Model.DamlLfPrimType.Map) =>
-        Model.ApiMap(SortedMap(a).mapValue(jsValueToApiType(_, prim.typArgs.head, defs)))
+        Model.ApiMap(SortedLookupList(a).mapValue(jsValueToApiType(_, prim.typArgs.head, defs)))
       case _ => deserializationError(s"Can't read ${value.prettyPrint} as $prim")
     }
   }

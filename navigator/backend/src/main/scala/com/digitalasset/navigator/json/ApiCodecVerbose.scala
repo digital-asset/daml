@@ -3,7 +3,7 @@
 
 package com.digitalasset.navigator.json
 
-import com.digitalasset.daml.lf.data.SortedMap
+import com.digitalasset.daml.lf.data.{SortedLookupList, ImmArray}
 import com.digitalasset.navigator.{model => Model}
 import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
 import com.digitalasset.navigator.json.Util._
@@ -80,7 +80,7 @@ object ApiCodecVerbose {
   def apiMapToJsValue(value: Model.ApiMap): JsValue =
     JsObject(
       propType -> JsString(tagMap),
-      propValue -> JsArray(value.value.toList.toVector.map {
+      propValue -> JsArray(value.value.toImmArray.toSeq.toVector.map {
         case (k, v) => JsObject(fieldKey -> JsString(k), fieldValue -> apiValueToJsValue(v))
       })
     )
@@ -141,8 +141,8 @@ object ApiCodecVerbose {
         }
       case `tagMap` =>
         Model.ApiMap(
-          SortedMap
-            .fromList(arrayField(value, propValue, "ApiMap").map(jsValueToMapEntry))
+          SortedLookupList
+            .fromImmArray(ImmArray(arrayField(value, propValue, "ApiMap").map(jsValueToMapEntry)))
             .fold(
               err => deserializationError(s"Can't read ${value.prettyPrint} as ApiValue, $err'"),
               identity

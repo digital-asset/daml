@@ -6,7 +6,7 @@ package com.digitalasset.ledger.api
 import java.time.Instant
 
 import brave.propagation.TraceContext
-import com.digitalasset.daml.lf.data.SortedMap
+import com.digitalasset.daml.lf.data.SortedLookupList
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.digitalasset.ledger.api.domain.Value.RecordValue
 import scalaz.{@@, Tag}
@@ -187,7 +187,7 @@ object domain {
         }
     }
 
-    final case class MapValue(map: SortedMap[Value]) extends Value
+    final case class MapValue(map: SortedLookupList[Value]) extends Value
 
     case object UnitValue extends Value
 

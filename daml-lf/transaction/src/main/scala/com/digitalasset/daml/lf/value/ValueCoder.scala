@@ -349,12 +349,11 @@ object ValueCoder {
             ValueOptional(mbV)
 
           case proto.Value.SumCase.MAP =>
-            val entries = protoValue.getMap.getEntriesList.asScala
-              .map(entry => entry.getKey -> go(newNesting, entry.getValue))
-              .toList
+            val entries = ImmArray(protoValue.getMap.getEntriesList.asScala.map(entry =>
+              entry.getKey -> go(newNesting, entry.getValue)))
 
-            val map = SortedMap
-              .fromList(entries)
+            val map = SortedLookupList
+              .fromImmArray(entries)
               .fold(
                 err => throw Err(err),
                 identity
@@ -464,7 +463,7 @@ object ValueCoder {
             builder.setOptional(protoOption).build()
           case ValueMap(map) =>
             val protoMap = proto.Map.newBuilder()
-            map.toList.foreach {
+            map.toImmArray.foreach {
               case (key, value) =>
                 protoMap.addEntries(
                   proto.Map.Entry
@@ -472,6 +471,7 @@ object ValueCoder {
                     .setKey(key)
                     .setValue(go(newNesting, value))
                 )
+                ()
             }
             builder.setMap(protoMap).build()
         }

@@ -182,7 +182,7 @@ object ValueGenerators {
     for {
       list <- Gen.listOf(
         for { k <- Gen.asciiPrintableStr; v <- Gen.lzy(valueGen(nesting)) } yield k -> v)
-    } yield ValueMap[ContractId](SortedMap(Map(list: _*)))
+    } yield ValueMap[ContractId](SortedLookupList(Map(list: _*)))
   def valueMapGen: Gen[ValueMap[ContractId]] = valueMapGen(0)
 
   def coidGen: Gen[ContractId] = {

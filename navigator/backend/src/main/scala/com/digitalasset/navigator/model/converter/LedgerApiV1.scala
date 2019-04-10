@@ -7,7 +7,7 @@ import java.time.{Instant, LocalDate}
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-import com.digitalasset.daml.lf.data.SortedMap
+import com.digitalasset.daml.lf.data.{SortedLookupList, ImmArray}
 import com.digitalasset.ledger.api.{v1 => V1}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.{model => Model}
@@ -316,7 +316,7 @@ case object LedgerApiV1 {
             value <- readArgument(valueValue, elementType, ctx)
           } yield key -> value
       })
-      map <- SortedMap.fromSortedList(values).left.map(GenericConversionError)
+      map <- SortedLookupList.fromSortedImmArray(ImmArray(values)).left.map(GenericConversionError)
     } yield Model.ApiMap(map)
 
   }
@@ -464,7 +464,7 @@ case object LedgerApiV1 {
   def writeMapArgument(value: Model.ApiMap): Result[V1.value.Map] = {
     for {
       values <- Converter.sequence(
-        value.value.toList.map { case (k, v) => writeArgument(v).map(k -> _) }
+        value.value.toImmArray.toList.map { case (k, v) => writeArgument(v).map(k -> _) }
       )
     } yield {
       V1.value.Map(values.map {

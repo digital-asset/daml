@@ -126,7 +126,7 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
                 go(true, errs :+ exceedsNestingErr, vs)
               }
             } else {
-              go(exceededNesting, errs, ImmArray(value.values.map(v => (v, nesting + 1))) ++: vs)
+              go(exceededNesting, errs, value.values.map(v => (v, nesting + 1)) ++: vs)
             }
         }
     }
@@ -190,7 +190,7 @@ object Value {
   final case class ValueBool(value: Boolean) extends Value[Nothing]
   case object ValueUnit extends Value[Nothing]
   final case class ValueOptional[+Cid](value: Option[Value[Cid]]) extends Value[Cid]
-  final case class ValueMap[+Cid](value: SortedMap[Value[Cid]]) extends Value[Cid]
+  final case class ValueMap[+Cid](value: SortedLookupList[Value[Cid]]) extends Value[Cid]
   // this is present here just because we need it in some internal code --
   // specifically the scenario interpreter converts committed values to values and
   // currently those can be tuples, although we should probably ban that.

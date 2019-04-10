@@ -314,8 +314,8 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
         case SMap(map) =>
-          val entries = SortedMap(map).toList
-          SList((entries :\ FrontStack.empty[STuple]) { case ((k, v), acc) => acc.+:(entry(k, v)) })
+          val entries = SortedLookupList(map).toImmArray
+          SList(FrontStack(entries.map { case (k, v) => entry(k, v) }))
         case x =>
           throw SErrorCrash(s"type mismatch SBMaptoList, expected Map get $x")
       })

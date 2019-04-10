@@ -468,13 +468,14 @@ template Maybes
 template OptTextMapInt
    with
       party: Party
--- (RH) the two next lines are two slow.
+-- (RH) the two next lines are too slow.
 -- In the engine the maps send from the ledger API go thought several passes:
 --   1 Proto to Value conversion
 --   2 Value to AST expression conversion
 --   3 Speedy compilation
 --   4 Program interpretation
 -- Those phases are pretty slow on big nested map.
+-- See <https://github.com/digital-asset/daml/issues/313>
 
 --      intPlusTwo: TextMap (TextMap Int)
 --      listOfEm: List (TextMap Int)

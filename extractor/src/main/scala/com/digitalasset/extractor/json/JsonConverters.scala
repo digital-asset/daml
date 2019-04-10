@@ -3,7 +3,7 @@
 
 package com.digitalasset.extractor.json
 
-import com.digitalasset.daml.lf.data.SortedMap
+import com.digitalasset.daml.lf.data.SortedLookupList
 import com.digitalasset.extractor.ledger.types.{Identifier, LedgerValue}
 import com.digitalasset.extractor.ledger.types.LedgerValue._
 import com.digitalasset.extractor.writers.postgresql.DataFormatState.MultiTableState
@@ -64,10 +64,10 @@ object JsonConverters {
       JsonObject("Some" -> value.asJson).asJson
   }
 
-  implicit val mapEncoder: Encoder[SortedMap[LedgerValue]] = m =>
+  implicit val mapEncoder: Encoder[SortedLookupList[LedgerValue]] = m =>
     JsonObject(
       "Map" ->
-        JsonObject.fromIterable(m.mapValue(_.asJson).toList).asJson).asJson
+        JsonObject.fromIterable(m.mapValue(_.asJson).toImmArray.toSeq).asJson).asJson
 
   implicit val idKeyEncoder: KeyEncoder[Identifier] = id => s"${id.packageId}@${id.name}"
   implicit val idKeyDecoder: KeyDecoder[Identifier] = {

@@ -380,10 +380,10 @@ object Pretty {
       case ValueOptional(Some(v1)) => text("Option(") + prettyValue(verbose)(v1) + char(')')
       case ValueOptional(None) => text("None")
       case ValueMap(map) =>
-        val list = map.toList.sortBy(_._1).map {
+        val list = map.toImmArray.map {
           case (k, v) => text(k) + text(" -> ") + prettyValue(verbose)(v)
         }
-        text("Map(") + intercalate(text(", "), list) + text(")")
+        text("Map(") + intercalate(text(", "), list.toSeq) + text(")")
     }
 
   object SExpr {

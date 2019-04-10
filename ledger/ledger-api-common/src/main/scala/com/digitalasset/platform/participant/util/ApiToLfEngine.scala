@@ -232,34 +232,34 @@ object ApiToLfEngine {
       case ApiValue.MapValue(map) =>
         def goResume(
             pkgs: Packages,
-            xs: List[(String, ApiValue)],
+            xs: ImmArray[(String, ApiValue)],
             vs: BackStack[(String, LfValue)]
         ): ApiToLfResult[(Packages, LfValue)] =
           go(pkgs, xs, vs)
         @tailrec
         def go(
             pkgs: Packages,
-            xs: List[(String, ApiValue)],
+            xs: ImmArray[(String, ApiValue)],
             vs: BackStack[(String, LfValue)]
         ): ApiToLfResult[(Packages, LfValue)] = {
-          if (xs.isEmpty) {
-            SortedMap
-              .fromSortedList(vs.toImmArray.toList)
-              .fold[ApiToLfResult[(Packages, LfValue)]](
-                err => Error(LfError.apply(s"internal error : $err")),
-                map => Done((pkgs, Lf.ValueMap(map)))
-              )
-          } else {
-            val (key, value) = xs.head
-            apiValueToLfValueWithPackages(pkgs, value) match {
-              case Done((newPkgs, v)) => go(newPkgs, xs.tail, vs :+ (key -> v))
-              case Error(err) => Error(err)
-              case np: NeedPackage[(Packages, LfValue)] =>
-                np.flatMap { case (newPkgs, v) => goResume(newPkgs, xs.tail, vs :+ (key -> v)) }
-            }
+          xs match {
+            case ImmArray() =>
+              SortedLookupList
+                .fromSortedImmArray(vs.toImmArray)
+                .fold[ApiToLfResult[(Packages, LfValue)]](
+                  err => Error(LfError.apply(s"internal error : $err")),
+                  map => Done((pkgs, Lf.ValueMap(map)))
+                )
+            case ImmArrayCons((key, value), rest) =>
+              apiValueToLfValueWithPackages(pkgs, value) match {
+                case Done((newPkgs, v)) => go(newPkgs, rest, vs :+ (key -> v))
+                case Error(err) => Error(err)
+                case np: NeedPackage[(Packages, LfValue)] =>
+                  np.flatMap { case (newPkgs, v) => goResume(newPkgs, rest, vs :+ (key -> v)) }
+              }
           }
         }
-        go(packages0, map.toList, BackStack.empty)
+        go(packages0, map.toImmArray, BackStack.empty)
     }
   }
 

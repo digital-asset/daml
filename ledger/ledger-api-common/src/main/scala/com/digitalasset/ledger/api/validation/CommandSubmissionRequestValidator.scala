@@ -4,7 +4,7 @@
 package com.digitalasset.ledger.api.validation
 
 import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.lf.data.SortedMap
+import com.digitalasset.daml.lf.data.{SortedLookupList, FrontStack}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.Value.VariantValue
 import com.digitalasset.ledger.api.messages.command.submission
@@ -153,18 +153,19 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
         domain.Value.OptionalValue(Some(v))))
     case Sum.Map(m) =>
       val entries = m.entries
-        .foldLeft[Either[StatusRuntimeException, List[(String, domain.Value)]]](Right(List.empty)) {
+        .foldLeft[Either[StatusRuntimeException, FrontStack[(String, domain.Value)]]](
+          Right(FrontStack.empty)) {
           case (acc, ApiMap.Entry(key, value0)) =>
             for {
               tail <- acc
               v <- requirePresence(value0, "value")
               validatedValue <- validateValue(v)
-            } yield (key -> validatedValue) :: tail
+            } yield (key -> validatedValue) +: tail
         }
 
       for {
         list <- entries
-        map <- SortedMap.fromList(list).left.map(invalidArgument)
+        map <- SortedLookupList.fromImmArray(list.toImmArray).left.map(invalidArgument)
       } yield domain.Value.MapValue(map)
 
     case Sum.Empty => Left(missingField("value"))

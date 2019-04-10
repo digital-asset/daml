@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.participant.util
 
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, SortedMap}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, SortedLookupList}
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.value.Value.{ValueInt64, ValueMap, ValueRecord}
 import com.digitalasset.ledger.api.domain.Value._
@@ -128,7 +128,9 @@ class ApiToLfEngineSpec extends WordSpec with Matchers {
 
       testCases.foreach { list =>
         val Right(apiMap) =
-          LfEngineToApi.lfValueToApiValue(false, ValueMap(SortedMap.fromList(list).right.get))
+          LfEngineToApi.lfValueToApiValue(
+            false,
+            ValueMap(SortedLookupList.fromImmArray(ImmArray(list)).right.get))
         apiMap.getMap.entries.toList.map(_.key) shouldBe list.map(_._1)
       }
     }

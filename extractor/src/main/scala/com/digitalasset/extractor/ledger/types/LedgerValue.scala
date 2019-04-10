@@ -8,7 +8,7 @@ import api.value.Value.Sum
 import RecordField._
 import scalaz.{Optional => _, _}
 import Scalaz._
-import com.digitalasset.daml.lf.data.SortedMap
+import com.digitalasset.daml.lf.data.{SortedLookupList, ImmArray}
 
 sealed trait LedgerValue
 
@@ -24,7 +24,7 @@ object LedgerValue {
 
   final case class ValueList(elements: List[LedgerValue]) extends LedgerValue
 
-  final case class ValueMap(map: SortedMap[LedgerValue]) extends LedgerValue
+  final case class ValueMap(map: SortedLookupList[LedgerValue]) extends LedgerValue
 
   final case class Int64(value: Long) extends LedgerValue
 
@@ -109,7 +109,7 @@ object LedgerValue {
         case api.value.Map.Entry(_, None) => -\/("value must be defined")
         case api.value.Map.Entry(k, Some(v)) => v.sum.convert.map(k -> _)
       }
-      map <- SortedMap.fromSortedList(entries).fold(-\/(_), \/-(_))
+      map <- SortedLookupList.fromImmArray(ImmArray(entries)).fold(-\/(_), \/-(_))
     } yield LedgerValue.ValueMap(map)
 
 }

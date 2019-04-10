@@ -7,7 +7,7 @@ import java.util.ArrayList
 
 import com.digitalasset.daml.lf.data.Decimal.Decimal
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, SortedMap, Time}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, SortedLookupList, Time}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
 import com.digitalasset.daml.lf.value.{Value => V}
@@ -65,7 +65,7 @@ sealed trait SValue {
       case SOptional(mbV) =>
         V.ValueOptional(mbV.map(_.toValue))
       case SMap(mVal) =>
-        V.ValueMap(SortedMap(mVal).mapValue(_.toValue))
+        V.ValueMap(SortedLookupList(mVal).mapValue(_.toValue))
       case SContractId(coid) =>
         V.ValueContractId(coid)
 

@@ -156,7 +156,7 @@ private[engine] class CommandTranslation(compiledPackages: ConcurrentCompiledPac
 
           // map
           case (TMap(elemType), ValueMap(map)) =>
-            ImmArray(map.toList)
+            map.toImmArray
               .traverseU {
                 case (key0, value0) => go(newNesting, elemType, value0).map(entry(key0, _))
               }
