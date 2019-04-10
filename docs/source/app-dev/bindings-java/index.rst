@@ -132,13 +132,20 @@ Getting started
 The Java Binding library can be added to a `Maven <https://maven.apache.org/>`_ project.
 Read :ref:`setup-maven-project` to configure your machine.
 
+.. _bindings-java-setup-maven:
 
 Setup a Maven project
 =====================
 
-To use the Java Binding library, please add to your Maven project the dependency:
+To use the Java Binding library, add the following dependencies to your project's ``pom.xml``:
 
 .. code-block:: xml
+
+    <dependency>
+        <groupId>com.daml.ledger</groupId>
+        <artifactId>bindings-java</artifactId>
+        <version>x.y.z</version>
+    </dependency>
 
     <dependency>
         <groupId>com.daml.ledger</groupId>
@@ -146,8 +153,8 @@ To use the Java Binding library, please add to your Maven project the dependency
         <version>x.y.z</version>
     </dependency>
 
-Replace ``x.y.z`` with the version that you want to use. You can find the available versions at
-`https://digitalassetsdk.bintray.com/DigitalAssetSDK/com/daml/ledger/bindings-rxjava/`.
+Replace ``x.y.z`` for both dependencies with the version that you want to use. You can find the available versions at
+`https://digitalassetsdk.bintray.com/DigitalAssetSDK/com/daml/ledger/`.
 
 .. _ledger-api-java-binding-connecting:
 
