@@ -11,17 +11,6 @@ execution_log_postfix=${1:-}
 
 export LC_ALL=en_US.UTF-8
 
-# check for scala code style
-scalafmt_ret=0
-./scalafmt.sh --test --quiet || scalafmt_ret=$?
-if [[ scalafmt_ret -ne 0 ]]; then
-  echo "scalafmt returned ${scalafmt_ret}. Please run ./scalafmt.sh to fix the formatting of your code."
-  exit $scalafmt_ret
-fi
-
-# Check for correct copyrights
-dade-copyright-headers check .
-
 EXEC_LOG_DIR="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 
 # Bazel test only builds targets that are dependencies of a test suite
@@ -44,16 +33,3 @@ fi
 
 # Check that we can load damlc in ghci
 da-ghci damlc -e '()'
-
-# We have a Bazel test that is meant to run HLint, but we're a little sceptical of it
-# If we get this far, but hlint fails, that's a problem we should fix
-function bad_hlint() {
-  echo "UNEXPECTED HLINT FAILURE: The Bazel rules should have spotted this, please raise a GitHub issue"
-}
-trap bad_hlint EXIT
-for dir in daml-foundations da-assistant daml-assistant libs-haskell compiler; do
-    pushd $dir
-    hlint --git -j4
-    popd
-done
-trap - EXIT
