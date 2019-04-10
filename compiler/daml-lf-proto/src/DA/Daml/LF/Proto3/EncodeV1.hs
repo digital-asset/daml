@@ -496,6 +496,8 @@ instance Encode KeyExpr P.KeyExprSum where
 
 encodeKeyExpr ::  Version -> ExprVarName -> Expr -> Either String KeyExpr
 encodeKeyExpr version tplParameter = \case
+  ELocation _loc expr ->
+    encodeKeyExpr version tplParameter expr
   EVar var -> if var == tplParameter
     then Right (KeyExprProjections [])
     else Left ("Expecting variable " ++ show tplParameter ++ " in key expression, got " ++ show var)

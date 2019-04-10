@@ -1,7 +1,7 @@
 -- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR exercise of Accept in RightOfUse:RightOfUseOffer at unknown source failed due to a missing authorization from 'Betina Beakley'
+-- @ERROR exercise of Accept in RightOfUse:RightOfUseOffer at RightOfUse:35:16 failed due to a missing authorization from 'Betina Beakley'
 daml 1.2
 
 module RightOfUse where
