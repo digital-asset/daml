@@ -17,12 +17,12 @@ trap "shutdown -h now" EXIT
 # delete self
 rm -vf "$0"
 
-# Install system dependencies
-apt update
+## Install system dependencies
+apt-get update -q
 apt-get install -qy \
   curl sudo \
   bzip2 rsync \
-  jq liblttng-ust0 libcurl3 libkrb5-3 libicu57 zlib1g \
+  jq liblttng-ust0 libcurl3 libkrb5-3 libicu55 zlib1g \
   git \
   netcat
 

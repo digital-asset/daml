@@ -41,7 +41,7 @@ resource "google_compute_instance_template" "vsts-agent-linux" {
   disk {
     disk_size_gb = 100
     disk_type    = "pd-ssd"
-    source_image = "debian-cloud/debian-9"
+    source_image = "ubuntu-os-cloud/ubuntu-1604-lts"
   }
 
   lifecycle {
