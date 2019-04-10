@@ -70,9 +70,6 @@ mockGetTime' = mockIO (ConstMock $ T.UTCTime (T.fromGregorian 1999 10 10) 0)
 mockGetArgs :: MockIO m => IO [Text] -> m [Text]
 mockGetArgs = mockIO (ConstMock [])
 
-mockPythonVersion :: MockIO m => IO (Either e Text) -> m (Either e Text)
-mockPythonVersion = mockIO (ConstMock $ Right "3.7.3")
-
 mockWhich :: MockIO m => IO (Maybe FilePath) -> m (Maybe FilePath)
 mockWhich = mockIO (ConstMock $ Just "/some/bin")
 
