@@ -33,10 +33,10 @@ data K = K { s : M } deriving (Show, Eq)
 
 template T
   with
-    s, m : Party
+    i : Party
     k : K
   where
-    signatory s
+    signatory i
     key k : K
     maintainer k.s.m
 
