@@ -1,26 +1,19 @@
 Ledger API Reference
 ####################
-
 {{range .Files}}
 {{$file_name := .Name}}
-
 .. _{{.Name}}:
 
 {{.Name}}
 ***************************************************************************************************
-
 {{.Description}}
-
 {{range .Messages}}
-
 .. _{{.FullName}}:
 
 {{.LongName}}
 ===================================================================================================
 {{$full_name := .FullName}}
-
 {{.Description}}
-
 {{if .HasFields}}
 .. list-table::
    :header-rows: 1
@@ -37,11 +30,8 @@ Ledger API Reference
      - {{.Label}}
      - {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}
    {{end}}
-
 {{end}}
-
 {{if .HasExtensions}}
-
 .. list-table::
    :header-rows: 1
 
@@ -57,20 +47,15 @@ Ledger API Reference
      - {{.Number}}
      - {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}
    {{end}}
-
 {{end}}
 {{end}}
-
 {{range .Enums}}
-
 .. _{{.FullName}}:
 
 {{.LongName}}
 ===================================================================================================
 {{$full_name := .FullName}}
-
 {{.Description}}
-
 .. list-table::
    :header-rows: 1
 
@@ -86,9 +71,7 @@ Ledger API Reference
    {{end}}
 
 {{end}}
-
 {{if .HasExtensions}}
-
 .. _{{$file_name}}-extensions:
 
 File-level Extensions
@@ -109,18 +92,13 @@ File-level Extensions
      - {{.Number}}
      - {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}
    {{end}}
-
 {{end}}
-
 {{range .Services}}
-
 .. _{{.FullName}}:
 
 {{.LongName}}
 ===================================================================================================
-
 {{.Description}}
-
 .. list-table::
    :header-rows: 1
 
@@ -134,7 +112,6 @@ File-level Extensions
      - :ref:`{{.ResponseLongType}} <{{.ResponseFullType}}>`
      - {{nobr .Description}}
    {{end}}
-
 {{end}}
 {{end}}
 
