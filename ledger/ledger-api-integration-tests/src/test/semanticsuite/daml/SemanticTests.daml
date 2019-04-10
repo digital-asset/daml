@@ -234,8 +234,8 @@ privacy_projections1 = scenario do
 
 -- | Divulgence of a token
 --
-test_divulgence_of_token : Scenario ()
-test_divulgence_of_token = do
+test_divulgence_of_token : () -> Scenario ()
+test_divulgence_of_token _this_test_is_disabled_ = do
     bank  <- getParty "Bank"
     alice <- getParty "Alice"
     bob   <- getParty "Bob"

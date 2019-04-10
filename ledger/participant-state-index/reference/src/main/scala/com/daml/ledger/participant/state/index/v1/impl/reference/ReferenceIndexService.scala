@@ -89,7 +89,7 @@ final case class ReferenceIndexService(participantReadService: participant.state
     participantReadService
       .stateUpdates(beginAfter = None)
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .groupedWithin(50 /* batch size */, FiniteDuration(50, TimeUnit.MILLISECONDS))
+      .groupedWithin(50 /* batch size */, FiniteDuration(10, TimeUnit.MILLISECONDS))
       .to(updateStateSink)
       .run()
 
