@@ -96,7 +96,9 @@ The following snippet is an excerpt from the ``pom.xml`` that is part of the :re
 Compile the generated Java code
 ===============================
 
-To compile the generated Java code, add the :ref:`Java Bindings <bindings-java-setup-maven>` library with the same version as the Java codegen to the classpath. With Maven you can do this by adding a ``dependency`` to the ``pom.xml`` file:
+To compile the generated Java code, add the :ref:`Java Bindings <bindings-java-setup-maven>` library with the same version as the Java codegen to the classpath. 
+
+With Maven you can do this by adding a ``dependency`` to the ``pom.xml`` file:
 
 .. code-block:: xml
 
