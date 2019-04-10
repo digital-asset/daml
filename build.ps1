@@ -33,6 +33,7 @@ bazel build //compiler/daml-lf-ast/...
 
 # build gRPC
 bazel build @com_github_grpc_grpc//:grpc
+bazel build //nix/third-party/gRPC-haskell/core:fat_cbits
 # XXX: Remove once haskell-gRPC builds
 bazel build @haskell_c2hs//...
 

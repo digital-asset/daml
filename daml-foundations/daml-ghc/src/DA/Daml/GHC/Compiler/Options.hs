@@ -50,6 +50,8 @@ data Options = Options
     -- ^ The target DAML LF version
   , optDebug :: Bool
     -- ^ Whether to enable debugging output
+  , optGhcCustomOpts :: [String]
+    -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   } deriving Show
 
 -- | Convert to the DAML-independent CompileOpts type.
@@ -60,7 +62,7 @@ toCompileOpts Options{..} =
       { optPreprocessor = damlPreprocessor
       , optRunGhcSession = \mbMod packageState m -> runGhcFast $ do
             let importPaths = maybe [] moduleImportPaths mbMod <> optImportPath
-            setupDamlGHC importPaths optMbPackageName packageState
+            setupDamlGHC importPaths optMbPackageName packageState optGhcCustomOpts
             m
       , optWriteIface = optWriteInterface
       , optMbPackageName = optMbPackageName
@@ -125,6 +127,7 @@ defaultOptionsIO mbVersion = do
         , optThreads = 1
         , optDamlLfVersion = fromMaybe LF.versionDefault mbVersion
         , optDebug = False
+        , optGhcCustomOpts = []
         }
 
 getBaseDir :: IO FilePath
