@@ -44,9 +44,9 @@ object LedgerFactories {
 
   object SandboxStore {
 
-    object InMemory extends SandboxStore
+    case object InMemory extends SandboxStore
 
-    object Postgres extends SandboxStore
+    case object Postgres extends SandboxStore
 
   }
 
