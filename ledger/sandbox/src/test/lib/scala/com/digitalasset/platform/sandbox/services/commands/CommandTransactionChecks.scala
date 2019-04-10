@@ -440,9 +440,8 @@ class CommandTransactionChecks(
             contractId = delegationEv.contractId,
             choice = "FetchDelegated",
             arg = Value(Value.Sum.Record(fetchArg)),
-            // TODO SC proper error spec here
-            Code.UNKNOWN,
-            pattern = "foobar"
+            Code.INVALID_ARGUMENT,
+            pattern = "dependency error: couldn't find contract"
           )
         } yield fetchResult
         whenReady(exerciseOfFetch)(identity)
