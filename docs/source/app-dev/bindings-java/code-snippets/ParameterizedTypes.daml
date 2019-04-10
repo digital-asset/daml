@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+-- start snippet: parameterized types example
 daml 1.2
 module Com.Acme where
 
@@ -11,3 +12,4 @@ data BookAttributes = BookAttributes with
    pages : (Attribute Int)
    authors : (Attribute [Text])
    title : (Attribute Text)
+-- start snippet: parameterized types example

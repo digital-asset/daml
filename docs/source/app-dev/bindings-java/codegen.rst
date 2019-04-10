@@ -183,7 +183,7 @@ The Java package for the generated classes is the equivalent of the lowercase DA
   package foo.bar.baz;
 
 Records (a.k.a product types)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A :ref:`DAML record <daml-ref-record-types>` is represented by a Java class with fields that have the same name as the DAML record fields. A DAML field having the type of another record is represented as a field having the type of the generated class for that record.
 
@@ -233,7 +233,7 @@ A Java file is generated that defines the class for the type ``Name``:
 .. _daml-codegen-java-templates:
 
 Templates
-~~~~~~~~~
+^^^^^^^^^
 
 The Java codegen generates three classes for a DAML template:
 
@@ -303,13 +303,14 @@ A file is generated that defines three Java classes:
   }
 
 Variants (a.k.a sum types)
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A :ref:`variant or sum type <daml-ref-sum-types>` is a type with multiple constructors, where each constructor wraps a value of another type. The generated code is comprised of an abstract class for the variant type itself and a subclass thereof for each constructor. Classes for variant constructors are similar to classes for records.
 
 .. literalinclude:: ./code-snippets/Variants.daml
    :language: daml
-   :lines: 3-10
+   :start-after: -- start snippet: variant example
+   :end-before: -- end snippet: variant example
    :caption: Com/Acme.daml
 
 The Java code generated for this variant is:
@@ -385,19 +386,23 @@ The Java code generated for this variant is:
   }
 
 Parameterized types
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
-The Java Code Generator uses Java Generic types to represent :ref:`DAML parameterized types <daml-ref-parameterized-types>`.
+.. note::
 
-Below is a DAML fragment defining the parameterized type ``Attribute`` for use by the ``BookAttribute`` type for modeling
-the characteristics of the book.
+   This section is only included for completeness: we don't expect users to make use of the ``fromValue`` and ``toValue methods``, because they would typically come from a template that doesn't have any unbound type parameters.
+
+The Java codegen uses Java Generic types to represent :ref:`DAML parameterized types <daml-ref-parameterized-types>`.
+
+This DAML fragment defines the parameterized type ``Attribute``, used by the ``BookAttribute`` type for modeling the characteristics of the book:
 
 .. literalinclude:: ./code-snippets/ParameterizedTypes.daml
    :language: daml
-   :lines: 3-11
+   :start-after: -- start snippet: parameterized types example
+   :end-before: -- end snippet: parameterized types example
    :caption: Com/Acme.daml
 
-A file Java file is generated for the ``Attribute`` data type that defines the Java Generic class:
+The Java codegen generates a Java file with a generic class for  the ``Attribute a`` data type:
 
 .. code-block:: java
   :caption: com/acme/Attribute.java
