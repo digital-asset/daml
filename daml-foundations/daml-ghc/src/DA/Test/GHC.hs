@@ -192,7 +192,7 @@ runJqQuery log qs = do
 data DiagnosticField
   = DFilePath !FilePath
   | DRange !Range
-  | DSeverity !Severity
+  | DSeverity !DiagnosticSeverity
   | DSource !String
   | DMessage !String
   deriving (Eq, Show)

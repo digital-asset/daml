@@ -59,7 +59,7 @@ mkDiag dflags src e =
 
 -- | Convert a GHC SrcSpan to a DAML compiler Range
 srcSpanToRange :: SrcSpan -> Range
-srcSpanToRange (UnhelpfulSpan _)  = lRange noLocation
+srcSpanToRange (UnhelpfulSpan _)  = _range noLocation
 srcSpanToRange (RealSrcSpan real) = realSrcSpanToRange real
 
 realSrcSpanToRange :: RealSrcSpan -> Range
@@ -78,7 +78,7 @@ srcSpanToLocation src = Location (srcSpanToFilename src) (srcSpanToRange src)
 
 -- | Convert a GHC severity to a DAML compiler Severity. Severities below
 -- "Warning" level are dropped (returning Nothing).
-toDSeverity :: GHC.Severity -> Maybe D.Severity
+toDSeverity :: GHC.Severity -> Maybe D.DiagnosticSeverity
 toDSeverity SevOutput      = Nothing
 toDSeverity SevInteractive = Nothing
 toDSeverity SevDump        = Nothing

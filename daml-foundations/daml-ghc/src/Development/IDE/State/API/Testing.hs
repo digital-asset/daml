@@ -11,7 +11,7 @@ module Development.IDE.State.API.Testing
     ( ShakeTest
     , GoToDefinitionPattern (..)
     , HoverExpectation (..)
-    , D.Severity(..)
+    , D.DiagnosticSeverity(..)
     , runShakeTest
     , makeFile
     , makeModule
@@ -72,7 +72,7 @@ import           Data.List.Extra
 data ShakeTestError
     = ExpectedRelativePath FilePath
     | FilePathEscapesTestDir FilePath
-    | ExpectedDiagnostics [(D.Severity, Cursor, T.Text)] [D.Diagnostic]
+    | ExpectedDiagnostics [(D.DiagnosticSeverity, Cursor, T.Text)] [D.Diagnostic]
     | ExpectedVirtualResource VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResource VirtualResource (Map VirtualResource T.Text)
     | ExpectedNoErrors [D.Diagnostic]
@@ -275,7 +275,7 @@ cursorRangeList (path, line, cols) = map (\col -> (path, line, col)) cols
 -- "Parse error" vs "parse error" could both be correct.
 --
 -- In future, we may move to regex matching.
-searchDiagnostics :: (D.Severity, Cursor, T.Text) -> [D.Diagnostic] -> ShakeTest ()
+searchDiagnostics :: (D.DiagnosticSeverity, Cursor, T.Text) -> [D.Diagnostic] -> ShakeTest ()
 searchDiagnostics expected@(severity, cursor, message) actuals =
     unless (any match actuals) $
         throwError $ ExpectedDiagnostics [expected] actuals
@@ -284,10 +284,10 @@ searchDiagnostics expected@(severity, cursor, message) actuals =
     match d =
         severity == D.dSeverity d
         && cursorFilePath cursor == D.dFilePath d
-        && cursorPosition cursor == D.rangeStart (D.dRange d)
+        && cursorPosition cursor == D._start (D.dRange d)
         && (T.toLower message `T.isInfixOf` T.toLower (D.dMessage d))
 
-expectDiagnostic :: D.Severity -> Cursor -> T.Text -> ShakeTest ()
+expectDiagnostic :: D.DiagnosticSeverity -> Cursor -> T.Text -> ShakeTest ()
 expectDiagnostic severity cursor msg = do
     checkPath (cursorFilePath cursor)
     diagnostics <- getDiagnostics
@@ -297,7 +297,7 @@ expectDiagnostic severity cursor msg = do
 -- Note that this check is lenient because it allows two expected diagnostics to
 -- match the same actual diagnostic. Therefore there may be actual diagnostics
 -- which are not accounted for in the expected list.
-expectOnlyDiagnostics :: [(D.Severity, Cursor, T.Text)] -> ShakeTest ()
+expectOnlyDiagnostics :: [(D.DiagnosticSeverity, Cursor, T.Text)] -> ShakeTest ()
 expectOnlyDiagnostics expected = do
     actuals <- getDiagnostics
     forM_ expected $ \e -> searchDiagnostics e actuals
@@ -363,7 +363,7 @@ matchGoToDefinitionPattern :: GoToDefinitionPattern -> Maybe D.Location -> Bool
 matchGoToDefinitionPattern = \case
     Missing -> isNothing
     At c -> maybe False ((c ==) . locationStartCursor)
-    In m -> maybe False (isSuffixOf (moduleNameToFilePath m) . D.lFilePath)
+    In m -> maybe False (isSuffixOf (moduleNameToFilePath m) . D._uri)
 
 -- | Expect "go to definition" to point us at a certain location or to fail.
 expectGoToDefinition :: CursorRange -> GoToDefinitionPattern -> ShakeTest ()
