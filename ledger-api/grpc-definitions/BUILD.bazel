@@ -135,20 +135,11 @@ proto_gen(
 genrule(
     name = 'docs',
     srcs = [':ledger-api-docs'],
+    tools = ["post-process.sh"],
     outs = ['proto-docs.rst'],
     cmd = """
         unzip -q $(location :ledger-api-docs)
-
-        # Fix links to external google protobuf documentation
-        re='s,:ref:`(\.?google\.protobuf\.[^<>`\\n]*) <(.*)>`, `\1 <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#\2>`__,g'
-
-        sed -r "$$re" -i docs.rst
-
-        # Fix links to external google rpc documentation
-        re='s,:ref:`(\.?google\.rpc\.[^<>`\\n]*) <(.*)>`, `\1 <https://cloud.google.com/tasks/docs/reference/rpc/google.rpc#\2>`__,g'
-
-        sed -r "$$re" -i docs.rst
-
+        $(location post-process.sh)
         mv docs.rst '$@'
     """,
     visibility = ['//visibility:public', ],
