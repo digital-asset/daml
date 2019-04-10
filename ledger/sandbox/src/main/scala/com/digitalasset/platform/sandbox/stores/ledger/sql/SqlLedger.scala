@@ -182,7 +182,7 @@ private class SqlLedger(
           tx.submitter,
           tx.workflowId,
           tx.ledgerEffectiveTime,
-          Instant.now(),
+          timeProvider.getCurrentTime,
           mappedTx,
           mappedDisclosure
         )
