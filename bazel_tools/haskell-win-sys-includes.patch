@@ -13,15 +13,19 @@ Generated with:
 git -C rules_haskell diff $(git -C rules_haskell  merge-base master HEAD) > bazel_tools/haskell-win-sys-includes.patch
 
 diff --git a/haskell/CROSSTOOL.windows b/haskell/CROSSTOOL.windows
-index ae16776..ffa52bf 100644
+index ae16776..022e15b 100644
 --- a/haskell/CROSSTOOL.windows
 +++ b/haskell/CROSSTOOL.windows
-@@ -30,6 +30,8 @@ toolchain {
+@@ -30,7 +30,12 @@ toolchain {
    tool_path { name: "objcopy" path: "mingw/bin/objcopy" }
    tool_path { name: "objdump" path: "mingw/bin/objdump" }
    tool_path { name: "strip" path: "mingw/bin/strip" }
 +
 +  cxx_builtin_include_directory: "C:/"
    cxx_builtin_include_directory: "mingw"
++  cxx_builtin_include_directory: "mingw/include"
++  cxx_builtin_include_directory: "mingw/include/c++/7.2.0"
++  cxx_builtin_include_directory: "mingw/x86_64-w64-mingw32/include"
    cxx_flag: "-std=gnu++0x"
- 
+
+   # Needed to prevent Bazel from complaining about undeclared inclusions of

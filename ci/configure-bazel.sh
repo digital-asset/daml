@@ -41,7 +41,7 @@ cd "$(dirname "$0")"/..
 step "configuring bazel"
 
 if is_windows; then
-  echo "build --config windows" > .bazelrc.local
+  echo "build --config windows-ci" > .bazelrc.local
 fi
 
 # sets up write access to the shared remote cache if the branch is not a fork

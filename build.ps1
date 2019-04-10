@@ -1,3 +1,5 @@
+param ([String]$mode = 'local')
+
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
