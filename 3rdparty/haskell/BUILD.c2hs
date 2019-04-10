@@ -1,4 +1,3 @@
-
 load("@ai_formation_hazel//third_party/cabal2bazel:bzl/cabal_package.bzl",
      "cabal_haskell_package",
      "hazel_symlink")
@@ -14,7 +13,8 @@ hazel_symlink(
 )
 cabal_haskell_package(
   package,
-  "8.6.4",
+  "8.6.4
+",
   "@io_tweag_rules_haskell_ghc_windows_amd64",
   extra_libs,
 )
