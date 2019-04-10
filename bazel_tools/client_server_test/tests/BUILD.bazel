@@ -1,0 +1,31 @@
+load(
+  "//bazel_tools/client_server_test:client_server_test.bzl",
+  "client_server_test"
+)
+
+load(
+  "//bazel_tools:scala.bzl",
+  "da_scala_binary",
+)
+
+sh_binary(
+  name = "client",
+  srcs = ["client.sh"],
+)
+
+da_scala_binary(
+  name = "server",
+  main_class = "Main",
+  srcs = ["server.scala"],
+  deps = [
+    "//3rdparty/jvm/com/github/scopt:scopt",
+  ],
+)
+
+client_server_test(
+  name = "test",
+  client = ":client",
+  server = ":server",
+  timeout="short",
+)
+
