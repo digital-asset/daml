@@ -24,7 +24,7 @@ class SemanticTests extends WordSpec with Matchers with ScalaFutures with Integr
   )
 
   val libraryDalfs = List(
-    "daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.1.dalf"
+    "daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.3.dalf"
   )
 
   val testPkgs = dalfFiles.map(file => {

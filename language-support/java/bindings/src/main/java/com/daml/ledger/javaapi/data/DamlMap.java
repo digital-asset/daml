@@ -50,7 +50,7 @@ public class DamlMap extends Value {
         ValueOuterClass.Map.Builder mb = ValueOuterClass.Map.newBuilder();
         value.forEach((k, v) ->
                 mb.addEntries(ValueOuterClass.Map.Entry.newBuilder()
-                        .setKey(ValueOuterClass.Value.newBuilder().setText(k))
+                        .setKey(k)
                         .setValue(v.toProto())
                 )
         );

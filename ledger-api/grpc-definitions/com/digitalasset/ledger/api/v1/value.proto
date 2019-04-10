@@ -147,7 +147,7 @@ message Optional {
 
 message Map {
     message Entry {
-        Value key = 1; // Must be of type Text.
+        string key = 1;
         Value value = 2;
     }
 

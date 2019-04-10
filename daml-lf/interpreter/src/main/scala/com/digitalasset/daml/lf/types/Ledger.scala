@@ -1044,7 +1044,7 @@ object Ledger {
           })
         case ValueVariant(tycon, variant, value) =>
           ValueVariant(tycon, variant, rewrite(value))
-        case ValueList(vs) => ValueList(vs.map(rewrite(_)))
+        case ValueList(vs) => ValueList(vs.map(rewrite))
         case ValueContractId(coid) =>
           val acoid = contractIdToAbsoluteContractId(commitPrefix, coid)
           ValueContractId(acoid)
@@ -1057,7 +1057,7 @@ object Ledger {
         case vlit: ValueDate => vlit
         case ValueUnit => ValueUnit
         case ValueOptional(mbV) => ValueOptional(mbV.map(rewrite))
-        case ValueMap(map) => ValueMap(map.transform((_, v) => rewrite(v)))
+        case ValueMap(map) => ValueMap(map.mapValue(rewrite))
       }
     rewrite(value)
   }

@@ -19,7 +19,7 @@ TEST_FILES = \
       name = name
     , main_src = "%s.daml" % name
     , visibility = ["//daml-lf:__subpackages__"]
-    , target = "1.1"
+    , target = "1.3"
     , damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated"
   )
   for name in TEST_FILES
@@ -28,7 +28,7 @@ TEST_FILES = \
 daml_compile(
     name = "Optional"
   , main_src = "Optional.daml"
-  , target = "1.1"
+  , target = "1.3"
   , damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated"
   , visibility = ["//daml-lf:__subpackages__"]
 )

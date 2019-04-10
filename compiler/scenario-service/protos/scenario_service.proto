@@ -316,6 +316,7 @@ message Map {
 
     repeated Entry entries = 1;
 }
+
 // Modules that can be loaded. The actual message types are not
 // used here as LF modules can have deep nesting depth and it is
 // not easy to change the recursion depth limit in gRPC.

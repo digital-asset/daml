@@ -564,17 +564,17 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       "returns the keys in order" in {
         val words = List(
-          "slant",
-          "visit",
-          "ranch",
-          "first",
-          "patch",
-          "trend",
-          "sweat",
-          "enter",
-          "cover",
-          "favor",
-        ).zipWithIndex
+          "slant" -> 0,
+          "visit" -> 1,
+          "ranch" -> 2,
+          "first" -> 3,
+          "patch" -> 4,
+          "trend" -> 5,
+          "sweat" -> 6,
+          "enter" -> 7,
+          "cover" -> 8,
+          "favor" -> 9,
+        )
 
         eval(e"MAP_TO_LIST @Int64 ${buildMap("Int64", words: _*)}") shouldBe
           Right(
