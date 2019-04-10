@@ -8,7 +8,7 @@ module Development.IDE.Types.Diagnostics (
   FileDiagnostics(..),
   Location(..),
   Range(..),
-  Severity(..),
+  DiagnosticSeverity(..),
   Position(..),
   noLocation,
   noRange,
@@ -30,6 +30,8 @@ import Data.Text.Prettyprint.Doc.Syntax
 import GHC.Generics
 import qualified Network.URI.Encode
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
+import Language.Haskell.LSP.Diagnostics ()
+import Language.Haskell.LSP.Types ()
 
 import Development.IDE.Types.Location
 
@@ -58,7 +60,8 @@ data Diagnostic = Diagnostic
       -- ^ Specific file that the diagnostic refers to.
     , dRange        :: !Range
       -- ^ The range to which the diagnostic applies.
-    , dSeverity     :: !Severity
+    , dSeverity     :: !DiagnosticSeverity
+
       -- ^ The severity of the diagnostic, such as 'SError' or 'SWarning'.
     , dSource       :: !T.Text
       -- ^ Human-readable description for the source of the diagnostic,
@@ -67,15 +70,7 @@ data Diagnostic = Diagnostic
       -- ^ The diagnostic's message.
     }
     deriving (Eq, Ord, Show, Generic)
-
 instance NFData Diagnostic
-
--- | The diagnostic severity.
-data Severity
-    = Error | Warning
-    deriving (Eq, Ord, Show, Generic)
-
-instance NFData Severity
 
 -- | Human readable diagnostics for a specific file.
 --
@@ -111,6 +106,16 @@ prettyFileDiagnostics (FileDiagnostics filePath diagnostics) =
         , label_ "Errors:" $ vcat $ map prettyDiagnostic $ nubOrd diagnostics
         ]
 
+prettyRange :: Range -> Doc SyntaxClass
+prettyRange Range{..} =
+  label_ "Range" $ vcat
+  [ label_ "Start:" $ prettyPosition _start
+  , label_ "End:  " $ prettyPosition _end
+  ]
+
+prettyPosition :: Position -> Doc SyntaxClass
+prettyPosition = undefined
+
 stringParagraphs :: T.Text -> Doc a
 stringParagraphs = vcat . map (fillSep . map pretty . T.words) . T.lines
 
@@ -120,7 +125,7 @@ prettyDiagnostic (Diagnostic filePath range severity source msg) =
         [ label_ "File:    " $ pretty filePath
         , label_ "Range:   "
             $ annotate (LinkSC uri title)
-            $ pretty range
+            $ prettyRange range
         , label_ "Source:  " $ pretty source
         , label_ "Severity:" $ pretty $ show severity
         , label_ "Message: "
@@ -131,8 +136,8 @@ prettyDiagnostic (Diagnostic filePath range severity source msg) =
         ]
     where
         -- FIXME(JM): Move uri construction to DA.Pretty?
-        Position sline _ = rangeStart range
-        Position eline _ = rangeEnd range
+        Position sline _ = _start range
+        Position eline _ = _end range
         uri = "command:daml.revealLocation?"
             <> Network.URI.Encode.encodeText ("[\"file://" <> T.pack filePath <> "\","
             <> T.pack (show sline) <> ", " <> T.pack (show eline) <> "]")

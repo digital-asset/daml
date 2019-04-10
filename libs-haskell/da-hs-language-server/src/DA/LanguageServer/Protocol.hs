@@ -39,9 +39,9 @@ data Position = Position
 
 -- | A range in a text document expressed as (zero-based) start and end positions.
 data Range = Range
-    { rangeStart :: !Position
+    { _start :: !Position
       -- ^ The start position of the range.
-    , rangeEnd   :: !Position
+    , _end   :: !Position
       -- ^ The end position of the range.
     }
 
@@ -688,7 +688,7 @@ instance P.Pretty Position where
     pPrint pos = P.int (posLine pos + 1) <> P.colon <> P.int (posCharacter pos + 1)
 
 instance P.Pretty Range where
-    pPrint range = P.pretty (rangeStart range) <> P.char '-' <> P.pretty (rangeEnd range)
+    pPrint range = P.pretty (_start range) <> P.char '-' <> P.pretty (_end range)
 
 instance P.Pretty Location where
     pPrint loc = P.text (unTagged (locUri loc)) P.<-> P.parens (P.pretty (locRange loc))
