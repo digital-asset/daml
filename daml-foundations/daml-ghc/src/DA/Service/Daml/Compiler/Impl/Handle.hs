@@ -164,7 +164,12 @@ newIdeState compilerOpts mbEventHandler loggerH = do
 
 -- | Adapter to the IDE logger module.
 toIdeLogger :: Logger.Handle m -> IdeLogger.Handle m
-toIdeLogger h = IdeLogger.Handle { logInfo = Logger.logInfo h, logDebug = Logger.logDebug h }
+toIdeLogger h = IdeLogger.Handle {
+       logError = Logger.logError h
+     , logWarning = Logger.logWarning h
+     , logInfo = Logger.logInfo h
+     , logDebug = Logger.logDebug h
+     }
 
 ------------------------------------------------------------------------------
 
@@ -190,7 +195,7 @@ getAssociatedVirtualResources
   -> FilePath
   -> IO [(Base.Range, T.Text, VirtualResource)]
 getAssociatedVirtualResources service filePath =
-  runDefaultExceptT [] $ logDebugExceptT "GetAssociatedVirtualResources" $ do
+  runDefaultExceptT [] $ logExceptT "GetAssociatedVirtualResources" $ do
     mods <- NM.toList . LF.packageModules <$> compileFile service filePath
     when (null mods) $
       throwError [errorDiag filePath "Get associated virtual resources"
@@ -206,8 +211,8 @@ getAssociatedVirtualResources service filePath =
       , let vr = VRScenario filePath name
       ]
   where
-    logDebugExceptT src act = act `catchError` \err -> do
-      lift $ CompilerService.logDebug service $ T.unlines ["ERROR in " <> src <> ":", T.pack (show err)]
+    logExceptT src act = act `catchError` \err -> do
+      lift $ CompilerService.logError service $ T.unlines ["ERROR in " <> src <> ":", T.pack (show err)]
       throwError err
 
 gotoDefinition
