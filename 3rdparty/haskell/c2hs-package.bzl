@@ -1,3 +1,4 @@
+# Modified from cabal2bazel-generated version.
 package = (
 struct(
   specVersionRaw = None,
@@ -110,6 +111,7 @@ struct(
             installIncludes = [ ],
             options =
               [ ( "ghc",
+                  # XXX: We pass -XNoMonadFailDesugaring to compile with GHC 8.6.
                   [ "-Wall", "-fno-warn-incomplete-patterns", "-fwarn-tabs", "-XNoMonadFailDesugaring"],
                 ),
               ],
