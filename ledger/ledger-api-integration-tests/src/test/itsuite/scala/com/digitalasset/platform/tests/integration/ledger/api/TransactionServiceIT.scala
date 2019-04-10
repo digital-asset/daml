@@ -39,7 +39,7 @@ import com.digitalasset.platform.api.v1.event.EventOps._
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestTemplateIds}
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
-import com.digitalasset.platform.participant.util.ValueConversions._
+import com.digitalasset.platform.participant.x§util.ValueConversions._
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}
