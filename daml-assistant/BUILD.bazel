@@ -19,7 +19,7 @@ deps = [
     'process',
     'safe',
     'safe-exceptions',
-    "semver",
+    'semver',
     'tar-conduit',
     'tasty',
     'tasty-hunit',
