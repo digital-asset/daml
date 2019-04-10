@@ -423,14 +423,9 @@ The Java codegen generates a Java file with a generic class for  the ``Attribute
 Serializing
 """""""""""
 
-To serialize an instance of the ``Attribute<a>`` data type, pass a function for creating the Ledger API equivalent of the attribute value
-is passed to the ``toValue`` method as the ``toValuea`` argument (see the above ``com/acme/Attribute.java`` source extract).
+To serialize an instance of the ``Attribute<a>`` data type, a function for creating the Ledger API equivalent of the attribute value is passed to the ``toValue`` method as the ``fromValuea`` argument (see the above ``com/acme/Attribute.java`` source extract).
 
-**Note:** The ``toValue`` method has the same number of arguments as the type has parameters. The arguments names are ``toValue`` suffixed with
-the type parameter name, for example the argument to serialize type ``a`` is called ``toValuea``.
-
-Below is a Java fragment that serializes an attribute with a ``java.lang.Long`` value to the Ledger API representation using the *method reference*
-``Int64::new`` to create a new instance of the Java Bindings value type.
+Below is a Java fragment that serializes an attribute with a ``java.lang.Long`` value to the Ledger API representation using the *method reference* ``Int64::new`` to create a new instance of the Java Bindings value type.
 
 .. code-block:: java
 
@@ -440,8 +435,7 @@ Below is a Java fragment that serializes an attribute with a ``java.lang.Long`` 
 
 See :ref:`DAML To Java Type Mapping <daml-codegen-java-primitive-types>` for the Java Bindings value types need to be created in the ``fromValue`` method.
 
-Note: If the DAML type is a record that has more than one parameterized type, a function for creating the
-Java Binding values must be supplied for *each* such type.
+Note: If the DAML type is a record that has more than one parameterized type, a function for creating the Java Binding values must be supplied for *each* such type.
 
 Deserializing
 """""""""""""
@@ -457,11 +451,15 @@ See Java Bindings `Value`_ class for the methods to transform the Java Bindings 
 
 .. _Value: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/Value.html
 
+Non-exposed parameterized types
+"""""""""""""""""""""""""""""""
+
+If the parameterized type is contained in a type where the *actual* type is specified (as in the ``BookAttributes`` type above), then the serialization and deserialization of the enclosing type provides the necessary methods for serialization and deserialization.
+
 Converting List and Optional
 """"""""""""""""""""""""""""
 
-The serialization of the Java ``List`` and ``Optional`` types require a multiple stage conversion function where the elements must be
-converted to the Java Binding Java Types before the creating the ``DamlList`` or ``DamlOptional``.
+The serialization of the Java ``List`` and ``Optional`` types require a multiple stage conversion function where the elements must be converted to the Java Binding Java Types before the creating the ``DamlList`` or ``DamlOptional``.
 
 .. code-block:: java
 
@@ -469,8 +467,7 @@ converted to the Java Binding Java Types before the creating the ``DamlList`` or
 
   Value serializedAuthors = authorsAttribute.toValue(f -> new DamlList(f.stream().map(Text::new).collect(Collectors.<Value>toList())));
 
-The deserialization to the Java ``List`` and ``Optional`` types similarly require that the Java Bindings types ``DamlList`` and ``DamlOptional``  are converted to it's Java
-equivalent and then all the contained elements are converted to Java types.
+The deserialization to the Java ``List`` and ``Optional`` types similarly require that the Java Bindings types ``DamlList`` and ``DamlOptional``  are converted to it's Java equivalent and then all the contained elements are converted to Java types.
 
 .. code-block:: java
 
