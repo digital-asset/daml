@@ -49,6 +49,6 @@ message SetTimeRequest {
   google.protobuf.Timestamp current_time = 2;
 
   // The time the client wants to set on the ledger.
-  // MUST be a point int time after current_time.
+  // MUST be a point int time after ``current_time``.
   google.protobuf.Timestamp new_time = 3;
 }

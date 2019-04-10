@@ -38,7 +38,7 @@ message Value {
     // A string.
     string text = 8;
 
-    // microseconds since the UNIX epoch. can go backwards. fixed
+    // Microseconds since the UNIX epoch. Can go backwards. Fixed
     // since the vast majority of values will be greater than
     // 2^28, since currently the number of microseconds since the
     // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
@@ -55,7 +55,7 @@ message Value {
     // This value is used for example for choices that don't take any arguments.
     google.protobuf.Empty unit = 13;
 
-    // days since the unix epoch. can go backwards. limited from
+    // Days since the unix epoch. Can go backwards. Limited from
     // 0001-01-01 to 9999-12-31, also to be compatible with
     // https://www.ietf.org/rfc/rfc3339.txt
     int32 date = 14;

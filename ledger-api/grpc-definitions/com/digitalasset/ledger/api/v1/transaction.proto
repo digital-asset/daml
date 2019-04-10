@@ -25,7 +25,7 @@ message TransactionTree {
   // Optional
   string command_id = 2;
 
-  // The workflow ID used in command submission. Only set if the workflow_id for the command was set.
+  // The workflow ID used in command submission. Only set if the ``workflow_id`` for the command was set.
   // Optional
   string workflow_id = 3;
 
