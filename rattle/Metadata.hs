@@ -18,6 +18,7 @@ data Metadata = Da_haskell_library
     ,dhl_srcs :: [String]
     ,dhl_deps :: [String]
     ,dhl_hazel_deps :: [String]
+    ,dhl_main_is :: Maybe String
     } deriving Show
 
 readMetadata :: FilePath -> IO [Metadata]
@@ -35,16 +36,19 @@ lexPython x = case lex x of
     [] -> []
 
 search :: [String] -> [Metadata]
-search ("da_haskell_library":xs)
-    | Just (fields, rest) <- paren xs
-    = f (Da_haskell_library [] [] [] [] [] []) fields : search rest
+search (x:xs)
+    | x == "da_haskell_library" || x == "da_haskell_binary"
+    , Just (fields, rest) <- paren xs
+    = f (Da_haskell_library [] [] [] [] [] [] Nothing) fields : search rest
     where
         f r ("name":"=":name:xs) = f r{dhl_name = read name} xs
         f r ("src_strip_prefix":"=":name:xs) = f r{dhl_src_strip_prefix = read name} xs
         f r ("srcs":"=":"glob":"(":(square -> Just (glob, ")":xs))) = f r{dhl_srcs = map read $ filter (/= ",") glob} xs
         f r ("srcs":"=":"native":".":"glob":"(":"[":glob:"]":")":xs) = f r{dhl_srcs = [read glob]} xs
+        f r ("srcs":"=":(square -> Just (srcs, xs))) = f r{dhl_srcs = map read $ filter (/= ",") srcs} xs
         f r ("hazel_deps":"=":(square -> Just (names, xs))) = f r{dhl_hazel_deps = map read $ filter (/= ",") names} xs
         f r ("deps":"=":(square -> Just (names, xs))) = f r{dhl_deps = delete "" $ map (last . wordsBy (`elem` "/:") . read) $ filter (/= ",") names} xs
+        f r ("main_function":"=":main_:xs) = f r{dhl_main_is = Just $ read main_} xs
         f r (x:xs) = f r xs
         f r [] = r
 search (x:xs) = search xs

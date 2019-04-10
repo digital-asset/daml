@@ -5,18 +5,21 @@ module Main(main) where
 import Rattle
 import Metadata
 import Util
+import Data.Char
+import Data.Maybe
 import System.IO.Extra
 import System.Info.Extra
 import System.Process.Extra
 import System.FilePattern.Directory
 import System.FilePath
 import System.Directory
+import System.Environment
+import System.IO.Unsafe
 import Control.Monad.Extra
 import Data.List.Extra
 
-
 main = rattle $ do
-    print "Starting rattle build"
+    putStrLn "  ---- Starting rattle build ----"
     metadata <- concatMapM (\x -> readMetadata $ x </> "BUILD.bazel")
         ["libs-haskell/prettyprinter-syntax"
         ,"daml-assistant"
@@ -37,9 +40,33 @@ main = rattle $ do
     metadata <- return [x{dhl_deps = dhl_deps x `intersect` map dhl_name metadata} | x <- metadata]
     metadata <- return $ topSort [(dhl_name, dhl_deps, x) | x@Da_haskell_library{..} <- metadata]
 
-    -- build all the stack dependencies
-    cmd_ "stack build --stack-yaml=rattle/stack.yaml" $ (++ ["grpc-haskell" | True]) $ ("proto3-suite":) $
-        nubSort (concatMap dhl_hazel_deps metadata)
+    -- Figure out what libraries we need
+    neededDeps <- pure $ (++ ["grpc-haskell" | True]) $ ("proto3-suite":) $ nubSort $ concatMap dhl_hazel_deps metadata
+
+    putStrLn $ "Found " <> show (length neededDeps) <> " needed dependencies"
+
+    -- Diff the installed dependencies to figure out what's missing
+    Stdout sout <- cmd stack "exec" "--" ["ghc-pkg", "list"]
+    installedDeps <- pure $ nubSort $ parseLibs $ lines sout
+    missingDeps <- pure $ neededDeps \\ installedDeps
+
+    unless (null missingDeps) $
+      putStrLn $ intercalate " " $ "Installing missing deps:" : missingDeps
+
+    -- 'stack build' sometimes gets confused if we ask for several libs to be
+    -- installed at once, so we install them one by one
+    forM_ missingDeps $ \dep -> do
+      putStr $ " " <> dep
+      cmd_ stack "build" dep
+
+    putStrLn ""
+
+    -- Double check that everything's available, otherwise fail
+    Stdout sout <- cmd stack "exec" " --" ["ghc-pkg", "list"]
+    installedDeps <- pure $ nubSort $ parseLibs $ lines sout
+    missingDeps <- pure $ neededDeps \\ installedDeps
+    unless (null missingDeps) $ do
+        error $ intercalate " " $ "Could not find missing deps, try adding to extra-deps? :" : missingDeps
 
     -- generate the LF protobuf output
     let lfMajorVersions = ["0", "1", "dev"]
@@ -58,11 +85,42 @@ main = rattle $ do
     let patch x | dhl_name x == "daml_lf_haskell_proto" = x{dhl_dir = ".rattle/generated/daml-lf/haskell", dhl_srcs = ["**/*.hs"]}
                 | dhl_name x == "scenario_service_haskell_proto" = x{dhl_dir = ".rattle/generated/scenario-service/haskell", dhl_srcs = ["**/*.hs"]}
                 | otherwise = x
+
+
+    putStrLn $ intercalate "\n - " $ "Building targets:" : (prettyName <$> metadata)
+
     forM_ metadata $ \m -> buildHaskellLibrary $ patch m{dhl_deps = nubSort $ concatMap trans $ dhl_deps m}
 
+    putStrLn $ intercalate "\n - " $ "Successfully built targets:" : (prettyName <$> metadata)
+
+stack :: String
+stack = unsafePerformIO $ do -- assume LD_LIBRARY_PATH won't change during a run
+    -- XXX: We may have to use ';' on Windows
+    dirs <- maybe [] (wordsBy (== ':')) <$> lookupEnv "LD_LIBRARY_PATH"
+    pure $ intercalate " " $
+      [ "stack" ] <>
+      ((\d -> ["--extra-lib-dirs", d]) `concatMap` dirs) <>
+      ["--stack-yaml=rattle/stack.yaml"]
+
+-- | Parse the output of ghc-pkg list into a list of package names, e.g.
+--  [ "lens", "conduit", ... ]
+parseLibs :: [String] -> [String]
+parseLibs = mapMaybe $ fmap parseLib . parseLine
+  where
+    parseLib :: String -> String
+    parseLib = reverse . drop 1 . dropWhile (\c -> isDigit c || (c == '.')) . reverse
+    parseLine :: String -> Maybe String
+    parseLine = stripPrefix "    "
+
+prettyName :: Metadata -> String
+prettyName Da_haskell_library{..} =
+    dhl_name <> maybe " (lib)" (const " (bin)") dhl_main_is
 
 buildHaskellLibrary :: Metadata -> IO ()
 buildHaskellLibrary o@Da_haskell_library{..} = do
+    putStrLn "-----------"
+    putStrLn $ "  " <> prettyName o
+    putStrLn "-----------"
     print ("buildHaskellPackage",o)
 
     -- some packages (e.g. daml_lf_haskell_proto) use names which are unsuitable for GHC
@@ -75,6 +133,17 @@ buildHaskellLibrary o@Da_haskell_library{..} = do
              getDirectoryFiles dhl_dir dhl_srcs
     let modules = map (intercalate "." . splitDirectories . dropExtension) files
 
+    mainIs <- pure $ maybe [] (\mainIs -> ["-main-is", mainIs]) dhl_main_is
+
+    mainMod <- pure $ maybe [] (pure .
+      -- get the module name by dropping the function name
+      -- Foo.Bar.main -> Foo.Bar
+      intercalate "." . (reverse . drop 1 . reverse . wordsBy (== '.'))
+      ) dhl_main_is
+
+    -- Include the main module name, if it's missing
+    modules <- pure $ nubSort $ mainMod <> modules
+
     cmd_ "ghc"
         [flag ++ "=.rattle/haskell" </> dhl_name | flag <- ["-outputdir","-odir","-hidir","-stubdir"]]
         ["-i" ++ dhl_dir </> dhl_src_strip_prefix]
@@ -83,9 +152,11 @@ buildHaskellLibrary o@Da_haskell_library{..} = do
          -- makes sure GHC uses shared objects in RTS linker
          -- https://github.com/ghc/ghc/blob/cf9e1837adc647c90cfa176669d14e0d413c043d/compiler/main/DynFlags.hs#L2087
         "-fexternal-interpreter"
+
         (join [["-package", d] | d <- dhl_deps ])
         (join [["-package", d] | d <- dhl_hazel_deps ])
         ["-package-db=.rattle/haskell" </> d </> "pkg.db" | d <- dhl_deps]
+        mainIs
         modules ["-this-unit-id=" ++ dhl_name]
         (map ("-X"++) haskellExts) haskellFlags
     cmd_ "ar -r -s" [".rattle/haskell" </> dhl_name </> "libHS" ++ dhl_name ++ ".a"]

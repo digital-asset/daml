@@ -32,6 +32,7 @@ da_haskell_binary (
     name = 'daml',
     src_strip_prefix = "src",
     srcs = native.glob(['src/**/*.hs']),
+    src_strip_prefix = "src", # XXX: how did this work before?
     main_function = "DAML.Assistant.main",
     deps = [
         "//libs-haskell/da-hs-base",

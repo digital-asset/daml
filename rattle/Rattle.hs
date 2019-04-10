@@ -1,5 +1,5 @@
 
-module Rattle(rattle, CmdOption(..), cmd, cmd_) where
+module Rattle(rattle, CmdOption(..), cmd, cmd_, Stdout(..), Exit(..), Stderr(..)) where
 
 import Development.Shake.Command
 
