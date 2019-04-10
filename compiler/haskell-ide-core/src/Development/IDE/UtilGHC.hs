@@ -29,7 +29,7 @@ import qualified "ghc-lib-parser" StringBuffer                as SB
 import qualified "ghc-lib-parser" EnumSet
 
 import           Control.DeepSeq
-import           Control.Monad (unless)
+import           Control.Monad
 import           Data.IORef
 import           Data.List
 import qualified Data.Text as T
@@ -201,7 +201,7 @@ setupDamlGHC importPaths mbPackageName packageState customOpts = do
   (dflags', leftover, warns) <- parseDynamicFilePragma damlDFlags $ map noLoc customOpts
 
   let leftoverError = CmdLineError $
-        (unlines . ("Unable to parse custom flags:":) . map unLoc) $ leftover
+        (unlines . ("Unable to parse custom flags:":) . map unLoc) leftover
   unless (null leftover) $ liftIO $ throwGhcExceptionIO leftoverError
 
   unless (null warns) $

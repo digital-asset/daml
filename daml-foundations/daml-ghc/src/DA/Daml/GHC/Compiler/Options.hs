@@ -28,7 +28,6 @@ import DA.Pretty (renderPretty)
 
 -- | Compiler run configuration for DAML-GHC.
 data Options = Options
-  -- TODO (JB) add custom flags as a field [String] here
   { optImportPath :: [FilePath]
     -- ^ import path for both user modules and standard library
   , optPackageDbs :: [FilePath]
