@@ -16,10 +16,11 @@ option java_package = "com.digitalasset.ledger.api.v1.testing";
 // or the real ledger server).
 //
 // Note that _all_ state present in the ledger implementation will be reset, most importantly
-// including the ledger id. This means that clients will have to re-fetch the ledger id
+// including the ledger ID. This means that clients will have to re-fetch the ledger ID
 // from the identity service after hitting this endpoint.
 //
 // The semantics are as follows:
+//
 // * When the reset service returns the reset is initiated, but not completed;
 // * While the reset is performed, the ledger will not accept new requests. In fact we guarantee
 //   that ledger stops accepting new requests by the time the response to Reset is delivered;

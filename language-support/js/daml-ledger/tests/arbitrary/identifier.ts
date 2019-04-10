@@ -5,14 +5,15 @@ import * as jsc from 'jsverify';
 import * as ledger from '../../src';
 
 export const Identifier: jsc.Arbitrary<ledger.Identifier> =
-    jsc.pair(jsc.string, jsc.string).smap<ledger.Identifier>(
-        ([name, packageId]) => {
+    jsc.tuple([jsc.string, jsc.string, jsc.string]).smap<ledger.Identifier>(
+        ([packageId, moduleName, entityName]) => {
             return {
-                name: name,
-                packageId: packageId
+                packageId: packageId,
+                moduleName: moduleName,
+                entityName: entityName
             }
         },
         (identifier) => {
-            return [identifier.name, identifier.packageId]
+            return [identifier.packageId, identifier.moduleName, identifier.entityName]
         }
     );

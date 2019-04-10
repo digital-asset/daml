@@ -6,7 +6,7 @@ load("//bazel_tools:pkg.bzl", "pkg_tar")
 
 # taken from rules_proto:
 # https://github.com/stackb/rules_proto/blob/f5d6eea6a4528bef3c1d3a44d486b51a214d61c2/compile.bzl#L369-L393
-def get_plugin_runfiles(tool):
+def get_plugin_runfiles(tool, plugin_runfiles):
     """Gather runfiles for a plugin.
     """
     files = []
@@ -30,6 +30,10 @@ def get_plugin_runfiles(tool):
         if runfiles.files:
             files += runfiles.files.to_list()
 
+    if plugin_runfiles:
+        for target in plugin_runfiles:
+            files += target.files.to_list()
+
     return files
 
 def _proto_gen_impl(ctx):
@@ -52,7 +56,7 @@ def _proto_gen_impl(ctx):
     plugin_runfiles = []
     if ctx.attr.plugin_name not in ["java", "python"]:
         plugins = [ctx.executable.plugin_exec]
-        plugin_runfiles = get_plugin_runfiles(ctx.attr.plugin_exec)
+        plugin_runfiles = get_plugin_runfiles(ctx.attr.plugin_exec, ctx.attr.plugin_runfiles)
         args += [
             "--plugin=protoc-gen-{}={}".format(ctx.attr.plugin_name, ctx.executable.plugin_exec.path)
         ]
@@ -129,6 +133,10 @@ proto_gen = rule(
             executable = True
         ),
         "plugin_options": attr.string_list(),
+        "plugin_runfiles": attr.label_list(
+            default = [],
+            allow_files = True,
+        ),
         "protoc": attr.label(
             default = Label("@com_google_protobuf//:protoc"),
             cfg = "host",

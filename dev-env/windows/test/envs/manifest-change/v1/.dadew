@@ -1,7 +1,0 @@
-{
-    "version": "0.0.1",
-    "manifests": "manifests",
-    "tools": [
-        "wget"
-    ]
-}

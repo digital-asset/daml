@@ -30,8 +30,9 @@ describe('Validation: Record', () => {
                     inclusive: {
                         templateIds: [
                             {
-                                name: 'digital',
-                                packageId: 'asset'
+                                packageId: 'pkg',
+                                moduleName: 'mdl',
+                                entityName: 'ent',
                             }
                         ]
                     }
@@ -56,7 +57,11 @@ describe('Validation: Record', () => {
                                                 '0': {
                                                     errors: [],
                                                     children: {
-                                                        name: {
+                                                        moduleName: {
+                                                            errors: [],
+                                                            children: {}
+                                                        },
+                                                        entityName: {
                                                             errors: [],
                                                             children: {}
                                                         },

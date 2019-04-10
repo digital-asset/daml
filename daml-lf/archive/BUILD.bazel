@@ -36,7 +36,8 @@ exports_files (
 proto_library(
   name = 'daml_lf_proto',
   srcs = [':daml-lf-archive-srcs'],
-  proto_source_root = "daml-lf/archive"
+  proto_source_root = "daml-lf/archive",
+  visibility = ["//:__subpackages__"],
 )
 
 proto_gen(
@@ -118,6 +119,8 @@ da_scala_test_suite(
     "//daml-lf/data",
     "//3rdparty/jvm/com/google/protobuf:protobuf_java",
     "//3rdparty/jvm/org/scalatest:scalatest",
+    "//3rdparty/jvm/org/scalacheck:scalacheck",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
   ],
   data = [
     ":DarReaderTest.dar",

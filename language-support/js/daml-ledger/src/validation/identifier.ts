@@ -7,8 +7,9 @@ import { RequiredValidation } from "./base/typelevel";
 
 function required(): RequiredValidation<ledger.Identifier> {
     return {
-        name: native('string'),
         packageId: native('string'),
+        moduleName: native('string'),
+        entityName: native('string')
     };
 }
 

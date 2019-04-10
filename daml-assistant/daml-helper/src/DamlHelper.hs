@@ -47,6 +47,23 @@ import DAML.Project.Consts
 import DAML.Project.Types (ProjectPath(..))
 import DAML.Project.Util
 
+data DamlHelperError = DamlHelperError
+    { errMessage :: T.Text
+    , errInternal :: Maybe T.Text
+    } deriving (Eq, Show)
+
+instance Exception DamlHelperError where
+    displayException DamlHelperError{..} =
+        T.unpack . T.unlines . catMaybes $
+            [ Just ("ERROR: " <> errMessage)
+            , fmap ("  internal: " <>) errInternal
+            ]
+
+required :: T.Text -> Maybe t -> IO t
+required msg = fromMaybeM (throwIO $ DamlHelperError msg Nothing)
+
+requiredE :: Exception e => T.Text -> Either e t -> IO t
+requiredE msg = fromRightM (throwIO . DamlHelperError msg . Just . T.pack . displayException)
 
 runDamlStudio :: Bool -> [String] -> IO ()
 runDamlStudio overwriteExtension remainingArguments = do

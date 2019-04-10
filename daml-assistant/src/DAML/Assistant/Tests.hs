@@ -8,9 +8,10 @@ module DAML.Assistant.Tests
     ) where
 
 import DAML.Assistant.Env
+import DAML.Assistant.Install
+import DAML.Assistant.Types
+import DAML.Assistant.Util
 import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
-import DAML.Project.Types
-import DAML.Project.Util
 import System.Directory
 import System.Environment
 import System.FilePath
@@ -26,6 +27,12 @@ import Test.Main (withEnv)
 import System.Info (os)
 import Data.Maybe
 import Control.Exception.Safe
+import Control.Monad
+import Conduit
+import System.Posix.Files
+import qualified Data.Conduit.Zlib as Zlib
+import qualified Data.Conduit.Tar as Tar
+import qualified Data.SemVer as V
 
 runTests :: IO ()
 runTests = do
@@ -35,10 +42,11 @@ runTests = do
         , testGetDamlPath
         , testGetProjectPath
         , testGetSdk
+        , testInstall
         ]
 
-_assertError :: Text -> Text -> IO a -> IO ()
-_assertError ctxPattern msgPattern action = do
+assertError :: Text -> Text -> IO a -> IO ()
+assertError ctxPattern msgPattern action = do
     result <- try action
     case result of
         Left AssistantError{..} -> do
@@ -86,7 +94,7 @@ testGetProjectPath = Tasty.testGroup "DAML.Assistant.Env.getProjectPath"
             return ()
 
     , Tasty.testCase "getProjectPath returns nothing" $ do
-        -- This test assumes there's no da.yaml above the temp directory.
+        -- This test assumes there's no daml.yaml above the temp directory.
         -- ... this might be an ok assumption, but maybe getProjectPath
         -- should also check that the project path is owned by the user,
         -- or something super fancy like that.
@@ -135,7 +143,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 projectPath = Nothing
-                expected1 = "9000"
+                expected1 = "10.10.10"
                 expected2 = base </> "sdk"
 
             createDirectory expected2
@@ -143,14 +151,14 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Just expected2)
                         ] (getSdk damlPath projectPath)
-            Tasty.assertEqual "sdk version" expected1 (unpack got1)
+            Tasty.assertEqual "sdk version" expected1 (V.toString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
     , Tasty.testCase "getSdk determines DAML_SDK from DAML_SDK_VERSION" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 projectPath = Nothing
-                expected1 = "another-version"
+                expected1 = "0.12.5-version"
                 expected2 = base </> "daml" </> "sdk" </> expected1
 
             createDirectoryIfMissing True (base </> "daml" </> "sdk")
@@ -159,14 +167,14 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Nothing)
                         ] (getSdk damlPath projectPath)
-            Tasty.assertEqual "sdk version" expected1 (unpack got1)
+            Tasty.assertEqual "sdk version" expected1 (V.toString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
     , Tasty.testCase "getSdk determines DAML_SDK_VERSION from DAML_SDK" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 projectPath = Nothing
-                expected1 = "foobar"
+                expected1 = "0.3.4"
                 expected2 = base </> "sdk2"
 
             createDirectory expected2
@@ -175,14 +183,14 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Just expected2)
                         ] (getSdk damlPath projectPath)
-            Tasty.assertEqual "sdk version" expected1 (unpack got1)
+            Tasty.assertEqual "sdk version" expected1 (V.toString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
     , Tasty.testCase "getSdk determines DAML_SDK and DAML_SDK_VERSION from project config" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 projectPath = Just $ ProjectPath (base </> "project")
-                expected1 = "higgeldy-piggeldy"
+                expected1 = "10.10.2-version.af29bef"
                 expected2 = base </> "daml" </> "sdk" </> expected1
 
 
@@ -195,7 +203,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Nothing)
                         ] (getSdk damlPath projectPath)
-            Tasty.assertEqual "sdk version" expected1 (unpack got1)
+            Tasty.assertEqual "sdk version" expected1 (V.toString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
 
@@ -203,9 +211,9 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 projectPath = Just $ ProjectPath (base </> "project")
-                expected1 = "eggs-ham"
+                expected1 = "0.9.8-ham"
                 expected2 = base </> "sdk3"
-                projVers = "foo-bar-baz"
+                projVers = "5.2.1"
 
             createDirectoryIfMissing True (base </> "daml" </> "sdk" </> projVers)
             createDirectory (base </> "project")
@@ -217,16 +225,16 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Just expected2)
                         ] (getSdk damlPath projectPath)
-            Tasty.assertEqual "sdk version" expected1 (unpack got1)
+            Tasty.assertEqual "sdk version" expected1 (V.toString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
     , Tasty.testCase "getSdk: DAML_SDK_VERSION overrides project config version" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 projectPath = Just $ ProjectPath (base </> "project")
-                expected1 = "v0"
+                expected1 = "0.0.0"
                 expected2 = base </> "daml" </> "sdk" </> expected1
-                projVers = "v1"
+                projVers = "0.0.1"
 
             createDirectoryIfMissing True (base </> "daml" </> "sdk" </> projVers)
             createDirectory (base </> "project")
@@ -237,10 +245,19 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Nothing)
                         ] (getSdk damlPath projectPath)
-            Tasty.assertEqual "sdk version" expected1 (unpack got1)
+            Tasty.assertEqual "sdk version" expected1 (V.toString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
-    -- TODO (FAFM): Add test cases for using latest available version.
+    , Tasty.testCase "getSdk: Returns Nothings if .daml/sdk is missing." $ do
+        withSystemTempDirectory "test-getSdk" $ \base -> do
+            let damlPath = DamlPath (base </> "daml")
+                projPath = Nothing
+            createDirectoryIfMissing True (base </> "daml")
+            (Nothing, Nothing) <- withEnv
+                [ (sdkVersionEnvVar, Nothing)
+                , (sdkPathEnvVar, Nothing)
+                ] (getSdk damlPath projPath)
+            pure ()
     ]
 
 
@@ -269,4 +286,91 @@ testAscendants = Tasty.testGroup "DAML.Assistant.ascendants"
         (\p1 p2 -> let p = dropTrailingPathSeparator (p1 </> p2)
                    in notNull p1 && notNull p2 && isRelative p2 ==>
                       tail (ascendants p) == ascendants (takeDirectory p))
+    ]
+
+testInstall :: Tasty.TestTree
+testInstall = Tasty.testGroup "DAML.Assistant.Install"
+    [ Tasty.testCase "initial install a tarball" $ do
+        withSystemTempDirectory "test-install" $ \ base -> do
+            let damlPath = DamlPath (base </> "daml")
+                options = InstallOptions
+                    { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                    , iActivate = ActivateInstall True
+                    , iInitial = InitialInstall True
+                    , iQuiet = QuietInstall True
+                    , iForce = ForceInstall False
+                    }
+
+            setCurrentDirectory base
+            createDirectoryIfMissing True "source"
+            createDirectoryIfMissing True ("source" </> "daml")
+            writeFileUTF8 ("source" </> sdkConfigName) "version: 0.0.0-test"
+            writeFileUTF8 ("source" </> "daml" </> "daml") "" -- daml "binary" for --activate
+            createSymbolicLink ("daml" </> "daml") ("source" </> "daml-link")
+                -- check if symbolic links are handled correctly
+
+            runConduitRes $
+                yield "source"
+                .| void Tar.tarFilePath
+                .| Zlib.gzip
+                .| sinkFile "source.tar.gz"
+
+            install options damlPath
+
+
+    , Tasty.testCase "reject an absolute symlink in a tarball" $ do
+        withSystemTempDirectory "test-install" $ \ base -> do
+            let damlPath = DamlPath (base </> "daml")
+                options = InstallOptions
+                    { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                    , iActivate = ActivateInstall False
+                    , iInitial = InitialInstall True
+                    , iQuiet = QuietInstall True
+                    , iForce = ForceInstall False
+                    }
+
+            setCurrentDirectory base
+            createDirectoryIfMissing True "source"
+            writeFileUTF8 ("source" </> sdkConfigName) "version: 0.0.0-test"
+            createSymbolicLink (base </> "daml") ("source" </> "daml-link")
+                -- absolute symlink
+
+            runConduitRes $
+                yield "source"
+                .| void Tar.tarFilePath
+                .| Zlib.gzip
+                .| sinkFile "source.tar.gz"
+
+            assertError "Extracting SDK release tarball."
+                "Invalid SDK release: symbolic link target is absolute."
+                (install options damlPath)
+
+    , Tasty.testCase "reject an escaping symlink in a tarball" $ do
+        withSystemTempDirectory "test-install" $ \ base -> do
+            let damlPath = DamlPath (base </> "daml")
+                options = InstallOptions
+                    { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                    , iActivate = ActivateInstall False
+                    , iInitial = InitialInstall True
+                    , iQuiet = QuietInstall True
+                    , iForce = ForceInstall False
+                    }
+
+            setCurrentDirectory base
+            createDirectoryIfMissing True "source"
+            writeFileUTF8 ("source" </> sdkConfigName) "version: 0.0.0-test"
+            createSymbolicLink (".." </> "daml") ("source" </> "daml-link")
+                -- escaping symlink
+
+            runConduitRes $
+                yield "source"
+                .| void Tar.tarFilePath
+                .| Zlib.gzip
+                .| sinkFile "source.tar.gz"
+
+            assertError "Extracting SDK release tarball."
+                "Invalid SDK release: symbolic link target escapes tarball."
+                (install options damlPath)
+
+
     ]

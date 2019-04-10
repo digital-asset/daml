@@ -19,7 +19,7 @@ option java_package = "com.digitalasset.ledger.api.v1";
 service CommandService {
 
   // Submits a single composite command and waits for its result.
-  // Returns RESOURCE_EXHAUSTED if the number of in-flight commands reached the maximum (if a limit is configured).
+  // Returns `RESOURCE_EXHAUSTED` if the number of in-flight commands reached the maximum (if a limit is configured).
   // Propagates the gRPC error of failed submissions including DAML interpretation errors.
   rpc SubmitAndWait (SubmitAndWaitRequest) returns (google.protobuf.Empty);
 }

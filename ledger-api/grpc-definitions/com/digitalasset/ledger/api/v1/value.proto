@@ -27,7 +27,7 @@ message Value {
     // Represents a homogenous list of values.
     List list = 4;
 
-    sint64 int64 = 5;
+    sint64 int64 = 5 [jstype = JS_STRING];
 
     // A decimal value with precision 38 (38 decimal digits), of which
     // 10 after the comma / period. in other words a decimal is a number
@@ -44,7 +44,7 @@ message Value {
     // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
     // 9999-12-31T23:59:59.999999Z, so that we can convert to/from
     // https://www.ietf.org/rfc/rfc3339.txt
-    sfixed64 timestamp = 9;
+    sfixed64 timestamp = 9 [jstype = JS_STRING];
 
     // An agent operating on the ledger.
     string party = 11;
@@ -101,7 +101,7 @@ message Identifier {
   string package_id = 1;
 
   // The identifier of the entity (unique within the package)
-  // DEPRECATED: use module_name and entity_name instead
+  // DEPRECATED: use `module_name` and `entity_name` instead
   // Optional
   string name = 2 [deprecated=true];
 
@@ -147,7 +147,7 @@ message Optional {
 
 message Map {
     message Entry {
-        Value key = 1; // key must be of type Text
+        Value key = 1; // Must be of type Text.
         Value value = 2;
     }
 

@@ -17,18 +17,19 @@ module DAML.Assistant.Env
     , getDispatchEnv
     ) where
 
+import DAML.Assistant.Types
+import DAML.Assistant.Util
 import DAML.Project.Config
 import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
-import DAML.Project.Types
-import DAML.Project.Util
 import System.Directory
 import System.FilePath
 import System.Environment
 import Control.Monad.Extra
 import Control.Exception.Safe
-import Data.List.Extra
 import Data.Maybe
+import Data.Either.Extra
 import Safe
+import qualified Data.SemVer as V
 
 -- | Calculate the environment variables in which to run daml-something.
 getDamlEnv :: IO Env
@@ -73,7 +74,7 @@ getDamlPath = wrapErr "Determining daml home directory." $ do
     pure (DamlPath path)
 
 -- | Calculate the project path. This is done by starting at the current
--- working directory, checking if "da.yaml" is present. If it is found,
+-- working directory, checking if "daml.yaml" is present. If it is found,
 -- that's the project path. Otherwise, go up one level and repeat
 -- until you can't go up.
 --
@@ -104,7 +105,11 @@ getSdk damlPath projectPathM =
     wrapErr "Determining SDK version and path." $ do
 
         sdkVersion <- firstJustM id
-            [ fmap (SdkVersion . pack) <$> lookupEnv sdkVersionEnvVar
+            [ lookupEnv sdkVersionEnvVar >>= \ vstrM -> pure $ do
+                vstr <- vstrM
+                v <- eitherToMaybe (V.fromText (pack vstr))
+                Just (SdkVersion v)
+
             , fromConfig "SDK" (lookupEnv sdkPathEnvVar)
                                (readSdkConfig . SdkPath)
                                (fmap Just . sdkVersionFromSdkConfig)
@@ -125,7 +130,7 @@ getSdk damlPath projectPathM =
         fromConfig :: Text
                    -> IO (Maybe path)
                    -> (path -> IO config)
-                   -> (config -> Either AssistantError (Maybe SdkVersion))
+                   -> (config -> Either ConfigError (Maybe SdkVersion))
                    -> IO (Maybe SdkVersion)
         fromConfig name lookupPath readConfig parseVersion =
             wrapErr ("Determining SDK version from " <> name <> " config.") $ do
@@ -135,22 +140,19 @@ getSdk damlPath projectPathM =
                     fromRightM throwIO (parseVersion config)
 
 -- | Determine the latest installed version of the SDK.
--- Currently restricts to versions with the prefix "nightly-",
--- but this is bound to change and be configurable.
 getLatestInstalledSdkVersion :: DamlPath -> IO (Maybe SdkVersion)
 getLatestInstalledSdkVersion (DamlPath path) = do
     let dpath = path </> "sdk"
     wrapErr "Determining latest installed sdk version." $ do
-        versionMM <- whenMaybeM (doesDirectoryExist path) $ do
-            dirlistE <- tryIO $ listDirectory dpath
-            dirlist <- requiredE ("Failed to list daml home sdk directory " <> pack dpath) dirlistE
-            subdirs <- filterM (doesDirectoryExist . (dpath </>)) dirlist
-            -- TODO (FAFM): warn if subdirs /= dirlist
-            --  (i.e. $DAML_HOME/sdk is polluted with non-dirs).
-            let versions = filter ("nightly-" `isPrefixOf`) subdirs
-                -- TODO (FAFM): configurable channels
-            pure $ fmap (SdkVersion . pack) (maximumMay versions)
-        pure (join versionMM)
+        dirlistE <- tryIO $ listDirectory dpath
+        case dirlistE of
+            Left _ -> pure Nothing
+            Right dirlist -> do
+                subdirs <- filterM (doesDirectoryExist . (dpath </>)) dirlist
+                let semvers = mapMaybe (eitherToMaybe . V.fromText . pack) subdirs
+                    versions = map SdkVersion semvers
+                    stableVersions = filter isStableVersion versions
+                pure $ maximumMay stableVersions
 
 -- | Calculate the environment for dispatched commands (i.e. the environment
 -- with updated DAML_HOME, DAML_PROJECT, DAML_SDK, etc).
@@ -160,5 +162,5 @@ getDispatchEnv Env{..} = do
     pure $ [ (damlPathEnvVar, unwrapDamlPath envDamlPath)
            , (projectPathEnvVar, maybe "" unwrapProjectPath envProjectPath)
            , (sdkPathEnvVar, maybe "" unwrapSdkPath envSdkPath)
-           , (sdkVersionEnvVar, maybe "" (unpack . unwrapSdkVersion) envSdkVersion)
+           , (sdkVersionEnvVar, maybe "" (V.toString . unwrapSdkVersion) envSdkVersion)
            ] ++ filter ((`notElem` damlEnvVars) . fst) originalEnv

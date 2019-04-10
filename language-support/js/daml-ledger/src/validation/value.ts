@@ -13,14 +13,14 @@ function values(): Record<keyof ledger.Value, Validation> {
     return {
         bool: native('boolean'),
         contractId: native('string'),
-        date: native('number'),
+        date: native('string'),
         decimal: native('string'),
-        int64: native('number'),
+        int64: native('string'),
         list: array(Value),
         party: native('string'),
         record: Record,
         text: native('string'),
-        timestamp: Timestamp,
+        timestamp: native('string'),
         unit: Empty,
         variant: Variant,
         optional: Optional

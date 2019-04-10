@@ -22,7 +22,7 @@ const ContractIdValue: jsc.Arbitrary<ledger.Value> =
         value => value.contractId
     );
 const DateValue: jsc.Arbitrary<ledger.Value> =
-    jsc.number.smap<{ date: number }>(
+    jsc.string.smap<{ date: string }>(
         number => ({ date: number }),
         value => value.date
     );
@@ -32,7 +32,7 @@ const DecimalValue: jsc.Arbitrary<ledger.Value> =
         value => value.decimal
     );
 const Int64Value: jsc.Arbitrary<ledger.Value> =
-    jsc.number.smap<{ int64: number }>(
+    jsc.string.smap<{ int64: string }>(
         number => ({ int64: number }),
         value => value.int64
     );
@@ -45,6 +45,11 @@ const TextValue: jsc.Arbitrary<ledger.Value> =
     jsc.string.smap<{ text: string }>(
         string => ({ text: string }),
         value => value.text
+    );
+const TimestampValue: jsc.Arbitrary<ledger.Value> =
+    jsc.string.smap<{ timestamp: string }>(
+        string => ({ timestamp: string }),
+        value => value.timestamp
     );
 const UnitValue: jsc.Arbitrary<ledger.Value> =
     Empty.smap<{ unit: ledger.Empty }>(
@@ -90,6 +95,7 @@ const { Record: record, Value: value, Variant: variant }: { [key: string]: jsc.A
             PartyValue,
             tie('RecordValue'),
             TextValue,
+            TimestampValue,
             UnitValue,
             tie('VariantValue')
         ]),

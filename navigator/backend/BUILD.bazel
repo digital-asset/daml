@@ -27,13 +27,39 @@ java_import(
   ],
 )
 
-# Version and commit files, as top level resources.
+# Version file, as a top level resources.
 java_library(
-  name = "version-resources",
+  name = "version-resource",
   resources = [
     '//:component-version',
+  ],
+)
+
+# Revision file, as a top level resources.
+java_library(
+  name = "revision-resource",
+  resources = [
     '//:git-revision',
   ],
+)
+
+# Fake git revision, using SHA-1 of the empty string
+# Used in tests, to make sure we don't rerun tests on every commit.
+genrule(
+  name = "test-revision",
+  srcs = [],
+  outs = [".git-revision"],
+  cmd = "echo \"da39a3ee5e6b4b0d3255bfef95601890afd80709\" > \"$@\"",
+)
+
+# Fake git revision file, as a top level resource.
+# Used in tests, to make sure we don't rerun tests on every commit.
+java_library(
+  name = "test-revision-resource",
+  resources = [
+    ':test-revision',
+  ],
+  resource_strip_prefix = "navigator/backend"
 )
 
 # Static backend resources.
@@ -98,7 +124,8 @@ da_scala_binary(
   deps = [
     ':navigator-library',
     ':frontend-resources',
-    ':version-resources',
+    ':version-resource',
+    ':revision-resource',
     ':backend-resources',
   ],
   main_class = 'com.digitalasset.navigator.NavigatorBackend',
@@ -125,7 +152,8 @@ da_scala_test_suite(
   deps = [
       ":navigator-tests-library",
       ":test-resources",
-      ":version-resources",
+      ':version-resource',
+      ":test-revision-resource",
   ] + testDependencies,
   size = "small"
 )

@@ -32,15 +32,19 @@ export interface Value {
      */
     list?: Value[]
     /**
-     * @member {number} int64
+     * @member {string} int64
      * @memberof ledger.Value
      * @instance
+     *
+     * Represented as a {string} to avoid losing precision
      */
-    int64?: number
+    int64?: string
     /**
      * @member {string} decimal
      * @memberof ledger.Value
      * @instance
+     *
+     * Represented as a {string} to avoid losing precision
      */
     decimal?: string
     /**
@@ -50,11 +54,13 @@ export interface Value {
      */
     text?: string
     /**
-     * @member {number} timestamp
+     * @member {string} timestamp
      * @memberof ledger.Value
      * @instance
+     *
+     * Represented as a {string} to avoid losing precision
      */
-    timestamp?: number
+    timestamp?: string
     /**
      * @member {string} party
      * @memberof ledger.Value
@@ -74,11 +80,17 @@ export interface Value {
      */
     unit?: ledger.Empty
     /**
-     * @member {number} date
+     * @member {string} date
      * @memberof ledger.Value
      * @instance
+     *
+     * Represented as a {string} for consistency with
+     * other numeric types in this union. This also
+     * allows the type to remain stable in the face
+     * of prospective expansions of the underlying
+     * type to a 64-bit encoding.
      */
-    date?: number
+    date?: string
     /**
      * @member {ledger.Optional} optional
      * @memberof ledger.Value

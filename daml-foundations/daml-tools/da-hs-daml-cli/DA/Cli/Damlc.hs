@@ -475,6 +475,7 @@ optionsParser numProcessors parsePkgName = Compiler.Options
     <*> optShakeThreads
     <*> lfVersionOpt
     <*> optDebugLog
+    <*> many optGhcCustomOption
   where
     optImportPath :: Parser [FilePath]
     optImportPath =
@@ -537,6 +538,14 @@ optionsParser numProcessors parsePkgName = Compiler.Options
             , "Use --jobs=N to explicitely set the number of threads to N."
             , "Note that the output is not deterministic for > 1 job."
             ]
+
+    optGhcCustomOption :: Parser String
+    optGhcCustomOption =
+        strOption $
+        long "ghc-option" <>
+        metavar "CUSTOM_OPTION" <>
+        help "custom option to pass to the underlying GHC" <>
+        internal
 
 options :: Int -> Parser Command
 options numProcessors =

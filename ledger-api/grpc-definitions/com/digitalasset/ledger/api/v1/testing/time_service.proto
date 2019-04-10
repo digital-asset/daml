@@ -27,7 +27,7 @@ service TimeService {
 
 message GetTimeRequest {
 
-  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Required
   string ledger_id = 1;
 }
@@ -40,12 +40,12 @@ message GetTimeResponse {
 
 message SetTimeRequest {
 
-  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Required
   string ledger_id = 1;
 
   // MUST precisely match the current time as it's known to the ledger server.
-  // On mismatch, an INVALID_PARAMETER gRPC error will be returned.
+  // On mismatch, an `INVALID_PARAMETER` gRPC error will be returned.
   google.protobuf.Timestamp current_time = 2;
 
   // The time the client wants to set on the ledger.

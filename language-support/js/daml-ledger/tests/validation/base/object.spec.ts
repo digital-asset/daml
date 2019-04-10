@@ -9,13 +9,18 @@ describe('Validation: Object', () => {
 
     it('should report a correct tree as such', () => {
         const identifier: ledger.Identifier = {
-            name: 'foo',
-            packageId: 'bar'
+            packageId: 'bar',
+            moduleName: 'foo',
+            entityName: 'baz',
         };
         const expected: validation.Tree = {
             errors: [],
             children: {
-                name: {
+                moduleName: {
+                    errors: [],
+                    children: {}
+                },
+                entityName: {
                     errors: [],
                     children: {}
                 },
@@ -35,7 +40,11 @@ describe('Validation: Object', () => {
         const expected: validation.Tree = {
             errors: [{
                 kind: 'missing-key',
-                expectedKey: 'name',
+                expectedKey: 'moduleName',
+                expectedType: 'string'
+            },{
+                kind: 'missing-key',
+                expectedKey: 'entityName',
                 expectedType: 'string'
             }],
             children: {
@@ -50,13 +59,14 @@ describe('Validation: Object', () => {
 
     it('should correctly report a type error in a child', () => {
         const invalidIdentifier = {
-            name: 42,
-            packageId: 'bar'
+            packageId: 'bar',
+            moduleName: 42,
+            entityName: 'baz',
         };
         const expected: validation.Tree = {
             errors: [],
             children: {
-                name: {
+                moduleName: {
                     errors: [
                         {
                             kind: 'type-error',
@@ -69,7 +79,11 @@ describe('Validation: Object', () => {
                 packageId: {
                     errors: [],
                     children: {}
-                }
+                },
+                entityName: {
+                    errors: [],
+                    children: {}
+                },
             }
         };
         expect(validation.Identifier.validate(invalidIdentifier)).to.deep.equal(expected);
@@ -77,13 +91,14 @@ describe('Validation: Object', () => {
 
     it('should correctly report multiple type errors in the children', () => {
         const invalidIdentifier = {
-            name: 42,
-            packageId: true
+            packageId: true,
+            moduleName: 42,
+            entityName: false,
         };
         const expected: validation.Tree = {
             errors: [],
             children: {
-                name: {
+                moduleName: {
                     errors: [
                         {
                             kind: 'type-error',
@@ -102,7 +117,17 @@ describe('Validation: Object', () => {
                         }
                     ],
                     children: {}
-                }
+                },
+                entityName: {
+                    errors: [
+                        {
+                            kind: 'type-error',
+                            expectedType: 'string',
+                            actualType: 'boolean'
+                        }
+                    ],
+                    children: {}
+                },
             }
         };
         expect(validation.Identifier.validate(invalidIdentifier)).to.deep.equal(expected);
@@ -174,8 +199,9 @@ describe('Validation: Object', () => {
         const filters: ledger.Filters = {
             inclusive: {
                 templateIds: [{
-                    name: 'foo',
-                    packageId: 'bar'
+                    packageId: 'bar',
+                    moduleName: 'foo',
+                    entityName: 'baz',
                 }]
             }
         }
@@ -191,7 +217,11 @@ describe('Validation: Object', () => {
                                 '0': {
                                     errors: [],
                                     children: {
-                                        name: {
+                                        moduleName: {
+                                            errors: [],
+                                            children: {}
+                                        },
+                                        entityName: {
                                             errors: [],
                                             children: {}
                                         },
@@ -226,11 +256,13 @@ describe('Validation: Object', () => {
     it('should report in case of a crass mistake', () => {
         const actuallyInclusiveFilters: ledger.InclusiveFilters = {
             templateIds: [{
-                name: 'foo',
-                packageId: 'bar'
+                packageId: 'bar1',
+                moduleName: 'foo1',
+                entityName: 'baz1',
             }, {
-                name: 'baz',
-                packageId: 'quux'
+                packageId: 'bar2',
+                moduleName: 'foo2',
+                entityName: 'baz2',
             }]
         };
         const expected: validation.Tree = {

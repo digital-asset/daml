@@ -41,7 +41,7 @@ For terminology and other style questions, follow the [main DA documentation sty
 
 A few pieces of RST guidance:
 
-If you’re not familiar, it’s really worth reading the primer for the basic syntax (emphasis, code text, lists, tables, images, comments, etc).
+If you’re not familiar, it’s really worth reading the [primer](http://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html) for the basic syntax (emphasis, code text, lists, tables, images, comments, etc).
 - Keep paragraphs all on the same line (no newlines/line breaks).
 - Heading underlines in this hierarchical order:
 

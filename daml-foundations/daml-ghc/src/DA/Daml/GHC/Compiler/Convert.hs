@@ -94,7 +94,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           Data.Data hiding (TyCon)
-import           Data.Functor.Foldable (cata)
+import           Data.Functor.Foldable
 import           Data.Int
 import           Data.List.Extra
 import qualified Data.Map.Strict as MS
@@ -174,11 +174,9 @@ envFindChoices Env{..} x = fromMaybe [] $ MS.lookup x envChoices
 envFindKeys :: Env -> String -> [GHC.Expr Var]
 envFindKeys Env{..} x = fromMaybe [] $ MS.lookup x envKeys
 
--- x is an alias for y
-envInsertAlias :: Var -> Var -> Env -> ConvertM Env
-envInsertAlias x y env = do
-    z <- maybe (convertExpr env (Var y)) pure (envLookupAlias y env)
-    pure env{envAliases = MS.insert x z (envAliases env)}
+-- v is an alias for x
+envInsertAlias :: Var -> LF.Expr -> Env -> Env
+envInsertAlias v x env = env{envAliases = MS.insert v x (envAliases env)}
 
 envLookupAlias :: Var -> Env -> Maybe LF.Expr
 envLookupAlias x = MS.lookup x . envAliases
@@ -263,7 +261,7 @@ convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) N
           [(is x', [b])
           | (a,b) <- binds
           , DFunId _ <- [idDetails a]
-          , TypeCon (Is "Key") [TypeCon x' [],_] <- [varType a]
+          , TypeCon (Is "TemplateKey") [TypeCon x' [],_] <- [varType a]
           ]
         defMeths = defaultMethods x
         env = Env
@@ -352,19 +350,38 @@ convertChoice env (VarIs "C:Choice" `App` Type tmpl `App` Type (TypeCon chc []) 
 convertChoice _ x = unhandled "Choice body" x
 
 convertKey :: Env -> GHC.Expr Var -> ConvertM TemplateKey
-convertKey env (VarIs "C:Key" `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` keyMaintainers `App` _fetch `App` _lookup) = do
-    proxyTyp <- qGHC_Types env (mkTypeCon ["Proxy"])
+convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` Var maintainer `App` _fetch `App` _lookup) = do
     tmpl' <- convertType env tmpl
     key <- envFindBind env key
-    case key of
-      Lam binder key -> do
-        let env' = env{envAliases = MS.insert binder (EVar (mkVar "this")) (envAliases env)}
-        TemplateKey
-          <$> convertType env keyType
-          <*> convertExpr env' key
-          <*> ((`ETmApp` ERecCon (TypeConApp proxyTyp [tmpl']) []) <$> convertExpr env keyMaintainers)
-      x -> unhandled "Key definition" x
-convertKey _ x = unhandled "Key definition" x
+    maintainer <- envFindBind env maintainer
+    case (key, maintainer) of
+      (Lam keyBinder keyExpr, Lam maintainerBinder maintainerExpr) -> do
+        keyType <- convertType env keyType
+        keyExpr <- convertKeyExpr env keyBinder keyExpr
+        let maintainerEnv = envInsertAlias maintainerBinder (EVar "this") env
+        maintainerExpr <- convertExpr maintainerEnv maintainerExpr
+        maintainerExpr <- rewriteMaintainer keyExpr maintainerExpr
+        pure $ TemplateKey keyType keyExpr (ETmLam ("$key", keyType) maintainerExpr)
+      _ -> unhandled "Template key definition" o
+convertKey _ o = unhandled "Template key definition" o
+
+convertKeyExpr :: Env -> Var -> GHC.Expr Var -> ConvertM LF.Expr
+convertKeyExpr env keyBinder keyExpr
+    | Case (Var caseScrut) caseBinder _ [(DataAlt con, vs, body)] <- keyExpr
+    , keyBinder == caseScrut = do
+        ctor@(Ctor _ fldNames _) <- toCtor env con
+        if  | isRecordCtor ctor
+            , Just vsFlds <- zipExactMay vs fldNames -> do
+                thisType <- fromTCon <$> convertType env (varType keyBinder)
+                let projAliases = [(v, ERecProj thisType fld thisRef) | (v, fld) <- vsFlds, not (isDeadBinder v)]
+                let thisAliases = [(keyBinder, thisRef), (caseBinder, thisRef)]
+                let env' = env{envAliases = MS.fromList (thisAliases ++ projAliases) `MS.union` envAliases env}
+                convertExpr env' body
+            | otherwise -> defaultConv
+    | otherwise = defaultConv
+  where
+    thisRef = EVar "this"
+    defaultConv = convertExpr (envInsertAlias keyBinder thisRef env) keyExpr
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
 convertTypeDef env (ATyCon t)
@@ -549,7 +566,11 @@ convertExpr env0 e = do
     go env (VarIs "getFieldPrim") (Type (isStrLitTy -> Just name) : Type record : Type _field : args) = fmap (, args) $ do
         record' <- convertType env record
         pure $ ETmLam (varV1, record') $ ERecProj (fromTCon record') (mkField $ unpackFS name) $ EVar varV1
-    go env (VarIs "getField") (Type (isStrLitTy -> Just name) : Type recordType : Type _fieldType : _dict : record : args) = fmap (, args) $ do
+    -- NOTE(MH): We only inline `getField` for record types. This is required
+    -- for contract keys. Projections on sum-of-records types have to through
+    -- the type class for `getField`.
+    go env (VarIs "getField") (Type (isStrLitTy -> Just name) : Type recordType@(TypeCon recordTyCon _) : Type _fieldType : _dict : record : args)
+        | Just [_] <- tyConDataCons_maybe recordTyCon = fmap (, args) $ do
             recordType <- convertType env recordType
             record <- convertExpr env record
             pure $ ERecProj (fromTCon recordType) (mkField $ unpackFS name) record
@@ -760,24 +781,14 @@ convertExpr env0 e = do
     go env (Cast x co) args = fmap (, args) $ do
         x' <- convertExpr env x
         convertCast env x' co
-    go env (Let (NonRec name x) y) args
-        | Var v <- x
-        = fmap (, args) $ do
-             env' <- envInsertAlias name v env
-             convertExpr env' y
-        | otherwise
-        = fmap (, args) $ do
-             x' <- convertExpr env x
-             y' <- convertExpr env y
-             name' <- convVarWithType env name
-             pure (ELet (Binding name' x') y')
-    go env (Case scrutinee bind t [(DataAlt con, [v], x)]) args | is con == "I#" = fmap (, args) $ do
-        -- we pretend Int and Int# are the same, so a case statement becomes a Let
-        scrutinee' <- convertExpr env scrutinee
-        x' <- convertExpr env x
-        pure $
-            ELet (Binding (convVar bind, TInt64) scrutinee') $
-            ELet (Binding (convVar v, TInt64) (EVar (convVar bind))) x'
+    go env (Let (NonRec name x) y) args =
+        fmap (, args) $ convertLet env name x (\env -> convertExpr env y)
+    go env (Case scrutinee bind _ [(DEFAULT, [], x)]) args =
+        go env (Let (NonRec bind scrutinee) x) args
+    go env (Case scrutinee bind t [(DataAlt con, [v], x)]) args | is con == "I#" = do
+        -- We pretend Int and Int# are the same, so a case-expression becomes a let-expression.
+        let letExpr = Let (NonRec bind scrutinee) $ Let (NonRec v (Var bind)) x
+        go env letExpr args
     -- NOTE(MH): This is DICTIONARY SANITIZATION step (2).
     go env (Case scrutinee bind _ [(DataAlt con, vs, Var x)]) args
         | tyConFlavour (dataConTyCon con) == ClassFlavour
@@ -789,7 +800,6 @@ convertExpr env0 e = do
             recTyp <- convertType env (varType bind)
             pure $ ERecProj (fromTCon recTyp) fldName scrutinee' `ETmApp` EUnit
     go env o@(Case scrutinee bind _ [alt@(DataAlt con, vs, x)]) args = fmap (, args) $ do
-        scrutinee' <- convertExpr env scrutinee
         convertType env (varType bind) >>= \case
           TText -> asLet
           TDecimal -> asLet
@@ -799,31 +809,23 @@ convertExpr env0 e = do
           TContractId{} -> asLet
           TUpdate{} -> asLet
           TScenario{} -> asLet
-          tcon0 -> do
-              ctor <- toCtor env con
+          tcon -> do
+              ctor@(Ctor _ fldNames fldTys) <- toCtor env con
               if not (isRecordCtor ctor)
-                then do
+                then convertLet env bind scrutinee $ \env -> do
+                  bind' <- convertExpr env (Var bind)
                   ty <- convertType env $ varType bind
                   alt' <- convertAlt env ty alt
-                  bind' <- convVarWithType env bind
-                  pure $
-                    ELet (Binding bind' scrutinee') $
-                    ECase (EVar $ convVar bind) [alt']
-                else mkProj ctor tcon0 scrutinee'
+                  pure $ ECase bind' [alt']
+                else case zipExactMay vs (zipExact fldNames fldTys) of
+                    Nothing -> unsupported "Pattern match with existential type" alt
+                    Just vsFlds -> convertLet env bind scrutinee $ \env -> do
+                        bindRef <- convertExpr env (Var bind)
+                        x' <- convertExpr env x
+                        projBinds <- mkProjBindings env bindRef (fromTCon tcon) vsFlds x'
+                        pure projBinds
       where
-        asLet = do
-            scrutinee' <- convertExpr env scrutinee
-            x' <- convertExpr env x
-            bind' <- convVarWithType env bind
-            pure $ ELet (Binding bind' scrutinee') x'
-        -- NOTE(MH): The 'zipExact' below fails for pattern matches on constructors with existentials.
-        mkProj (Ctor _ fldNames fldTys) tcon bound = case zipExactMay vs (zipExact fldNames fldTys) of
-          Nothing -> unsupported "Pattern match with existential type" alt
-          Just vsFlds -> do
-              x' <- convertExpr env x
-              projBinds <- mkProjBindings env (convVar bind) (fromTCon tcon) vsFlds x'
-              pure $
-                ELet (Binding (convVar bind, tcon) bound) projBinds
+        asLet = convertLet env bind scrutinee $ \env -> convertExpr env x
     go env (Case scrutinee bind typ []) args = fmap (, args) $ do
         -- GHC only generates empty case alternatives if it is sure the scrutinee will fail, LF doesn't support empty alternatives
         scrutinee' <- convertExpr env scrutinee
@@ -832,14 +834,6 @@ convertExpr env0 e = do
         pure $
           ELet (Binding bind' scrutinee') $
           ECase (EVar $ convVar bind) [CaseAlternative CPDefault $ EBuiltin BEError `ETyApp` typ' `ETmApp` EBuiltin (BEText $ T.pack "Unreachable")]
-    go env (Case (Var v) bind _ [(DEFAULT, [], x)]) args = fmap (, args) $ do
-        env' <- envInsertAlias bind v env
-        convertExpr env' x
-    go env (Case scrutinee bind _ [(DEFAULT, [], x)]) args = fmap (, args) $ do
-        scrutinee' <- convertExpr env scrutinee
-        x' <- convertExpr env x
-        bind' <- convVarWithType env bind
-        pure $ ELet (Binding bind' scrutinee') x'
     go env (Case scrutinee bind _ (defaultLast -> alts)) args = fmap (, args) $ do
         scrutinee' <- convertExpr env scrutinee
         bindTy <- convertType env $ varType bind
@@ -859,6 +853,16 @@ convertExpr env0 e = do
     convertArg env = \case
         Type t -> TyArg <$> convertType env t
         e -> TmArg <$> convertExpr env e
+
+convertLet :: Env -> Var -> GHC.Expr Var -> (Env -> ConvertM LF.Expr) -> ConvertM LF.Expr
+convertLet env binder bound mkBody = do
+    bound <- convertExpr env bound
+    case bound of
+        EVar{} -> mkBody (envInsertAlias binder bound env)
+        _ -> do
+            binder <- convVarWithType env binder
+            body <- mkBody env
+            pure $ ELet (Binding binder bound) body
 
 -- | Convert ghc package unit id's to LF package references.
 convertUnitId :: GHC.UnitId -> MS.Map GHC.UnitId T.Text -> UnitId -> ConvertM LF.PackageRef
@@ -904,7 +908,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
             let patBinder = vArg
             in  do
               x' <- convertExpr env x
-              projBinds <- mkProjBindings env vArg (TypeConApp (synthesizeVariantRecord variantName <$> tcon) targs) vsFlds x'
+              projBinds <- mkProjBindings env (EVar vArg) (TypeConApp (synthesizeVariantRecord variantName <$> tcon) targs) vsFlds x'
               pure $ CaseAlternative CPVariant{..} projBinds
     where
         -- TODO(MH): We need to generate fresh names.
@@ -912,10 +916,10 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
         patTypeCon = tcon
 convertAlt _ _ x = unsupported "Case alternative of this form" x
 
-mkProjBindings :: Env -> ExprVarName -> TypeConApp -> [(Var, (FieldName, LF.Type))] -> LF.Expr -> ConvertM LF.Expr
-mkProjBindings env recVar recTyp vsFlds e =
+mkProjBindings :: Env -> LF.Expr -> TypeConApp -> [(Var, (FieldName, LF.Type))] -> LF.Expr -> ConvertM LF.Expr
+mkProjBindings env recExpr recTyp vsFlds e =
   fmap (\bindings -> mkELets bindings e) $ sequence
-    [ Binding <$> convVarWithType env v <*> pure (ERecProj recTyp fld (EVar recVar))
+    [ Binding <$> convVarWithType env v <*> pure (ERecProj recTyp fld recExpr)
     | (v, (fld, _typ)) <- vsFlds
     , not (isDeadOcc (occInfo (idInfo v)))
     ]
@@ -1005,11 +1009,6 @@ qGHC_Tuple :: Env -> a -> ConvertM (Qualified a)
 qGHC_Tuple env a = do
   pkgRef <- packageNameToPkgRef env "daml-prim"
   pure $ Qualified pkgRef (mkModName ["GHC", "Tuple"]) a
-
-qGHC_Types :: Env -> a -> ConvertM (Qualified a)
-qGHC_Types env a = do
-  pkgRef <- packageNameToPkgRef env "daml-prim"
-  pure $ Qualified pkgRef (mkModName ["GHC", "Types"]) a
 
 convertQualified :: NamedThing a => Env -> a -> ConvertM (Qualified TypeConName)
 convertQualified env x = do
@@ -1170,6 +1169,53 @@ toCtor env con =
 
 isRecordCtor :: Ctor -> Bool
 isRecordCtor (Ctor _ fldNames fldTys) = not (null fldNames) || null fldTys
+
+
+---------------------------------------------------------------------
+-- Contract keys rewriting magic
+
+-- | Rewrite all chains of projections referencing 'this' in 'maintainer' into
+-- references into 'key'. Checks that 'key' contains only record constructors and
+-- projections and no constructor is sitting below a projection.
+--
+-- For example, if
+--
+-- > key = (this.foo, this.bar)
+-- > maintainer = this.bar ++ this.foo
+--
+-- then 'maintainer' gets rewritten into
+--
+-- > maintainer = $key._2 ++ $key._1
+rewriteMaintainer :: LF.Expr -> LF.Expr -> ConvertM LF.Expr
+rewriteMaintainer key maintainer = do
+    keyMap <- buildKeyMap key
+    rewriteThisProjections keyMap maintainer
+  where
+    unwindProjections :: LF.Expr -> (LF.Expr, [FieldName])
+    unwindProjections = go []
+      where
+        go fields = \case
+            ERecProj _typ field expr -> go (field : fields) expr
+            expr -> (expr, fields)
+
+    -- TODO(#299): The error messages are pretty bad.
+    buildKeyMap :: LF.Expr -> ConvertM (MS.Map [FieldName] LF.Expr)
+    buildKeyMap = \case
+        ERecCon typ fields -> do
+            keyMaps <- forM fields $ \(fieldName, fieldExpr) ->
+                MS.map (ERecProj typ fieldName) <$> buildKeyMap fieldExpr
+            pure $ MS.unions keyMaps
+        expr
+            | (EVar "this", fields) <- unwindProjections expr -> pure $ MS.singleton fields (EVar "$key")
+        o -> unhandled "Template key expression" o
+
+    -- TODO(#299): The error messages are pretty bad.
+    rewriteThisProjections :: MS.Map [FieldName] LF.Expr -> LF.Expr -> ConvertM LF.Expr
+    rewriteThisProjections keyMap expr = case unwindProjections expr of
+        (EVar "this", fields)
+          | Just expr' <- MS.lookup fields keyMap -> pure expr'
+          | null fields -> unhandled "Unbound reference to this in maintainer" expr
+        _ -> embed <$> traverse (rewriteThisProjections keyMap) (project expr)
 
 
 ---------------------------------------------------------------------

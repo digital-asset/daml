@@ -19,10 +19,12 @@ option java_package = "com.digitalasset.ledger.api.v1";
 // Commands may be submitted via the Command Submission Service.
 // The on-ledger effects of their submissions are disclosed by the Transaction Service.
 // Commands may fail in 4 distinct manners:
-// 1) INVALID_PARAMETER gRPC error on malformed payloads and missing required fields.
-// 2) Failure communicated in the gRPC error.
-// 3) Failure communicated in a Completion.
-// 4) A Checkpoint with record_time > command mrt arrives through the Completion Stream, and the command's Completion was not visible before. In this case the command is lost.
+//
+// 1. INVALID_PARAMETER gRPC error on malformed payloads and missing required fields.
+// 2. Failure communicated in the gRPC error.
+// 3. Failure communicated in a Completion.
+// 4. A Checkpoint with record_time > command mrt arrives through the Completion Stream, and the command's Completion was not visible before. In this case the command is lost.
+//
 // Clients that do not receive a successful completion about their submission MUST NOT assume that it was successful.
 // Clients SHOULD subscribe to the CompletionStream before starting to submit commands to prevent race conditions.
 //
@@ -69,6 +71,7 @@ message CompletionStreamResponse {
 }
 
 // Checkpoints may be used to:
+//
 // * detect time out of commands.
 // * provide an offset which can be used to restart consumption.
 message Checkpoint {
@@ -84,7 +87,7 @@ message Checkpoint {
 
 
 message CompletionEndRequest {
-  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Required
   string ledger_id = 1;
 

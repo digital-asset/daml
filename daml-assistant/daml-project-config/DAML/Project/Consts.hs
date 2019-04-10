@@ -33,7 +33,7 @@ damlPathEnvVar = "DAML_HOME"
 
 -- | The DAML_PROJECT environment variable determines the path of
 -- the current daml project. By default, this is done by traversing
--- up the directory structure until we find a "da.yaml" file.
+-- up the directory structure until we find a "daml.yaml" file.
 projectPathEnvVar :: String
 projectPathEnvVar = "DAML_PROJECT"
 
@@ -49,7 +49,7 @@ sdkPathEnvVar = "DAML_SDK"
 --
 -- 1. taken from the current $DAML_PROJECT config file, if it exists
 -- 2. read from $DAML_SDK/VERSION file, if DAML_SDK is explicitly set
--- 3. the latest nightly SDK version available in $DAML_HOME/sdk.
+-- 3. the latest stable SDK version available in $DAML_HOME/sdk.
 sdkVersionEnvVar :: String
 sdkVersionEnvVar = "DAML_SDK_VERSION"
 
@@ -59,7 +59,7 @@ damlConfigName = "config.yaml"
 
 -- | File name of config file in DAML_PROJECT (the project path).
 projectConfigName :: FilePath
-projectConfigName = "da.yaml"
+projectConfigName = "daml.yaml"
 
 -- | File name of config file in DAML_SDK (the sdk path)
 sdkConfigName :: FilePath

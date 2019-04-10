@@ -15,7 +15,7 @@ export const Value: mapping.Mapping<grpc.Value, ledger.Value> = {
         } else if (value.hasContractId()) {
             return { contractId: value.getContractId() }
         } else if (value.hasDate()) {
-            return { date: value.getDate() }
+            return { date: '' + value.getDate() }
         } else if (value.hasDecimal()) {
             return { decimal: value.getDecimal() }
         } else if (value.hasInt64()) {
@@ -61,7 +61,7 @@ export const Value: mapping.Mapping<grpc.Value, ledger.Value> = {
         } else if (value.contractId !== undefined) {
             result.setContractId(value.contractId);
         } else if (value.date !== undefined) {
-            result.setDate(value.date);
+            result.setDate(parseInt(value.date));
         } else if (value.decimal !== undefined) {
             result.setDecimal(value.decimal);
         } else if (value.int64 !== undefined) {

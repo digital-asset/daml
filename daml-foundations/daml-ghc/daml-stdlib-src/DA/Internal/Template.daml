@@ -14,7 +14,7 @@ module DA.Internal.Template(
     lookupByKey, fetchByKey,
     exerciseExplicit,
     IsParties(toParties),
-    Key(..)
+    TemplateKey(key, maintainer)
     ) where
 
 import GHC.Types (magic)
@@ -50,11 +50,11 @@ stakeholder : Template c => c -> [Party]
 stakeholder c = signatory c ++ observer c
 
 -- | HIDE pass the @c@ using type applications, otherwise it's ambiguous
-lookupByKey : forall c k. Key c k => k -> Update (Optional (ContractId c))
+lookupByKey : forall c k. TemplateKey c k => k -> Update (Optional (ContractId c))
 lookupByKey = internalLookupByKey
 
 -- | HIDE pass the @c@ using type applications, otherwise it's ambiguous
-fetchByKey : Key c k => k -> Update (ContractId c, c)
+fetchByKey : TemplateKey c k => k -> Update (ContractId c, c)
 fetchByKey = internalFetchByKey
 
 class Template c where
@@ -132,10 +132,10 @@ instance IsParties [Party] where
   toParties ps = ps
 
 -- | HIDE
-class Template c => Key c k | c -> k where
+class Template c => TemplateKey c k | c -> k where
     key : c -> k
 
-    keyMaintainers : Proxy c -> k -> [Party]
+    maintainer : c -> [Party]
 
     -- | HIDE
     internalFetchByKey : k -> Update (ContractId c, c)

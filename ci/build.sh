@@ -20,10 +20,6 @@ to_lower() {
 kernel=$(to_lower "$(uname)")
 cd "$(dirname "$0")"/..
 
-step "loading dev-env"
-
-eval "$(dev-env/bin/dade assist)"
-
 step "configuring bazel"
 
 # sets up write access to the shared remote cache if the branch is not a fork

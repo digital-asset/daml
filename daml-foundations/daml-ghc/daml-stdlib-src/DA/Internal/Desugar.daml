@@ -9,6 +9,7 @@ daml 1.2
 module DA.Internal.Desugar (
     concat,
     Template(ensure, signatory, observer, agreement),
+    TemplateKey(key, maintainer),
     Choice(consuming, choiceController, choice), nonconsuming, NoEvent(..),
     IsParties(toParties),
     Eq(..),

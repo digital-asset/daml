@@ -16,8 +16,9 @@ message LedgerOffset {
     // Absolute values are acquired by reading the transactions in the stream.
     // The offsets can be compared. The format may vary between implementations.
     // It is either:
+    //
     // * a string representing an ever-increasing integer
-    // * a composite string containing <block-hash>-<block-height>-<event-id>; ordering
+    // * a composite string containing `<block-hash>-<block-height>-<event-id>`; ordering
     // requires comparing numerical values of the second, then the third element.
     string absolute = 1;
     LedgerBoundary boundary = 2;
