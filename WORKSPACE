@@ -180,6 +180,7 @@ filegroup(
     name = "bin",
     srcs = ["bin/c2hs"],
 )
+exports_files(["bin/ghc-pkg"])
   ''',
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps + [

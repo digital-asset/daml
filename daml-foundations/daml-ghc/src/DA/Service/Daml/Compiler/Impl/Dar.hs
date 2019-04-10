@@ -15,6 +15,7 @@ import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
 import           System.FilePath
+import System.Directory
 import qualified Codec.Archive.Zip          as Zip
 
 ------------------------------------------------------------------------------
@@ -47,13 +48,19 @@ buildDar ::
   -> FilePath
   -> [(T.Text, BS.ByteString)]
   -> [FilePath]
+  -> [(String, BS.ByteString)]
   -> String
   -> IO BS.ByteString
-buildDar dalf modRoot dalfDependencies fileDependencies name = do
+buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name = do
+    -- Take all source file dependencies and produced interface files. Only the new package command
+    -- produces interface files per default, hence we filter for existent files.
+    fileDeps <-
+        filterM doesFileExist $
+        concat [[dep, replaceExtension dep "hi"] | dep <- fileDependencies]
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
     -- is modified to have prefix <name> instead of the original root path.
-    mbSrcFiles <- forM fileDependencies $ \mPath -> do
+    mbSrcFiles <- forM fileDeps $ \mPath -> do
       contents <- BSL.readFile mPath
       let mbNewPath = (name </>) <$> stripPrefix (addTrailingPathSeparator modRoot) mPath
       return $ fmap (, contents) mbNewPath
@@ -61,12 +68,14 @@ buildDar dalf modRoot dalfDependencies fileDependencies name = do
     let dalfName = name <> ".dalf"
     let dependencies = [(T.unpack pkgName <> ".dalf", BSC.fromStrict bs)
                           | (pkgName, bs) <- dalfDependencies]
+    let dataFiles' = [("data" </> n, BSC.fromStrict bs) | (n, bs) <- dataFiles]
 
     -- construct a zip file from all required files
     let allFiles = ("META-INF/MANIFEST.MF", manifestHeader dalfName $ dalfName:map fst dependencies)
                     : (dalfName, dalf)
                     : catMaybes mbSrcFiles
                     ++ dependencies
+                    ++ dataFiles'
 
         mkEntry (filePath, content) = Zip.toEntry filePath 0 content
         zipArchive = foldr (Zip.addEntryToArchive . mkEntry) Zip.emptyArchive allFiles
