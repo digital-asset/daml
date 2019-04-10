@@ -126,7 +126,7 @@ proto_gen(
     # this is _slightly_ hacky. we need to include the markdown template in the plugin_runfiles
     # and refer to the file with a workspace relative path in plugin_options
     plugin_runfiles = ["rst_mmd.tmpl"],
-    plugin_options = ["ledger-api/grpc-definitions/rst_mmd.tmpl", "docs_rst_mmd.md"],
+    plugin_options = ["ledger-api/grpc-definitions/rst_mmd.tmpl", "docs.rst"],
     visibility = [
         '//visibility:public',
     ],
@@ -135,13 +135,21 @@ proto_gen(
 genrule(
     name = 'docs',
     srcs = [':ledger-api-docs'],
-    tools = ["post-process.sh"],
     outs = ['proto-docs.rst'],
     cmd = """
         unzip -q $(location :ledger-api-docs)
-        ls -la
-        $(location post-process.sh)
-        mv docs_rst_mmd.md '$@'
+
+        # Fix links to external google protobuf documentation
+        re='s,:ref:`(\.?google\.protobuf\.[^<>`\\n]*) <(.*)>`, `\1 <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#\2>`__,g'
+
+        sed -r "$$re" -i docs.rst
+
+        # Fix links to external google rpc documentation
+        re='s,:ref:`(\.?google\.rpc\.[^<>`\\n]*) <(.*)>`, `\1 <https://cloud.google.com/tasks/docs/reference/rpc/google.rpc#\2>`__,g'
+
+        sed -r "$$re" -i docs.rst
+
+        mv docs.rst '$@'
     """,
     visibility = ['//visibility:public', ],
 )
