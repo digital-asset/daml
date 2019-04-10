@@ -32,7 +32,7 @@ const DecimalValue: jsc.Arbitrary<ledger.Value> =
         value => value.decimal
     );
 const Int64Value: jsc.Arbitrary<ledger.Value> =
-    jsc.number.smap<{ int64: number }>(
+    jsc.string.smap<{ int64: string }>(
         number => ({ int64: number }),
         value => value.int64
     );

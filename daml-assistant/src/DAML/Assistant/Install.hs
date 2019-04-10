@@ -5,6 +5,7 @@
 module DAML.Assistant.Install
     ( InstallOptions (..)
     , InstallURL (..)
+    , InstallEnv (..)
     , installExtracted
     , extractAndInstall
     , httpInstall
@@ -14,9 +15,9 @@ module DAML.Assistant.Install
     , install
     ) where
 
-import DAML.Project.Types
+import DAML.Assistant.Types
+import DAML.Assistant.Util
 import DAML.Project.Consts
-import DAML.Project.Util
 import DAML.Project.Config
 import Safe
 import Conduit
@@ -37,6 +38,7 @@ import System.Posix.Types
 import System.Posix.Files -- forget windows for now
 import qualified System.Info
 import qualified Data.Text as T
+import Data.Maybe
 
 displayInstallTarget :: InstallTarget -> Text
 displayInstallTarget = \case
@@ -137,7 +139,7 @@ bintrayLatestURL = bintrayVersionURL (SdkSubVersion "$latest")
 -- a version sanity check. Then run the sdk install hook if applicable.
 installExtracted :: InstallEnv -> SdkPath -> IO ()
 installExtracted env@InstallEnv{..} sourcePath =
-    wrapErr "Installing extracted SDK tarball." $ do
+    wrapErr "Installing extracted SDK release." $ do
         sourceConfig <- readSdkConfig sourcePath
         sourceVersion <- fromRightM throwIO (sdkVersionFromSdkConfig sourceConfig)
 
@@ -282,6 +284,11 @@ extractAndInstall env source =
                 targetPath = extractPath </> dropTrailingPathSeparator newPath
                 parentPath = takeDirectory targetPath
 
+            when (pathEscapes newPath) $ do
+                liftIO $ throwIO $ assistantErrorBecause
+                    "Invalid SDK release: file path escapes tarball."
+                    ("path = " <> pack oldPath)
+
             when (notNull newPath) $ do
                 case Tar.fileType info of
                     Tar.FTNormal -> do
@@ -290,10 +297,33 @@ extractAndInstall env source =
                         liftIO $ setFileMode targetPath (Tar.fileMode info)
                     Tar.FTDirectory -> do
                         liftIO $ createDirectoryIfMissing True targetPath
+                    Tar.FTSymbolicLink bs -> do
+                        let path = Tar.decodeFilePath bs
+                        unless (isRelative path) $
+                            liftIO $ throwIO $ assistantErrorBecause
+                                "Invalid SDK release: symbolic link target is absolute."
+                                ("target = " <> pack path <>  ", path = " <> pack oldPath)
+
+                        when (pathEscapes (takeDirectory newPath </> path)) $
+                            liftIO $ throwIO $ assistantErrorBecause
+                                "Invalid SDK release: symbolic link target escapes tarball."
+                                ("target = " <> pack path <> ", path = " <> pack oldPath)
+
+                        liftIO $ createDirectoryIfMissing True parentPath
+                        liftIO $ createSymbolicLink path targetPath
                     unsupported ->
                         liftIO $ throwIO $ assistantErrorBecause
                             "Invalid SDK release: unsupported file type."
                             ("type = " <> pack (show unsupported) <>  ", path = " <> pack oldPath)
+
+        -- | Check whether a relative path escapes its root.
+        pathEscapes :: FilePath -> Bool
+        pathEscapes path = isNothing $ foldM step "" (splitDirectories path)
+            where
+                step acc "."  = Just acc
+                step ""  ".." = Nothing
+                step acc ".." = Just (takeDirectory acc)
+                step acc name = Just (acc </> name)
 
         -- | Drop first component from path
         dropDirectory1 :: FilePath -> FilePath

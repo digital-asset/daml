@@ -32,11 +32,13 @@ export interface Value {
      */
     list?: Value[]
     /**
-     * @member {number} int64
+     * @member {string} int64
      * @memberof ledger.Value
      * @instance
+     *
+     * Represented as a {string} to avoid losing precision
      */
-    int64?: number
+    int64?: string
     /**
      * @member {string} decimal
      * @memberof ledger.Value

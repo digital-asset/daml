@@ -17,10 +17,10 @@ module DAML.Assistant.Env
     , getDispatchEnv
     ) where
 
+import DAML.Assistant.Types
+import DAML.Assistant.Util
 import DAML.Project.Config
 import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
-import DAML.Project.Types
-import DAML.Project.Util
 import System.Directory
 import System.FilePath
 import System.Environment
@@ -125,7 +125,7 @@ getSdk damlPath projectPathM =
         fromConfig :: Text
                    -> IO (Maybe path)
                    -> (path -> IO config)
-                   -> (config -> Either AssistantError (Maybe SdkVersion))
+                   -> (config -> Either ConfigError (Maybe SdkVersion))
                    -> IO (Maybe SdkVersion)
         fromConfig name lookupPath readConfig parseVersion =
             wrapErr ("Determining SDK version from " <> name <> " config.") $ do
@@ -141,16 +141,16 @@ getLatestInstalledSdkVersion :: DamlPath -> IO (Maybe SdkVersion)
 getLatestInstalledSdkVersion (DamlPath path) = do
     let dpath = path </> "sdk"
     wrapErr "Determining latest installed sdk version." $ do
-        versionMM <- whenMaybeM (doesDirectoryExist path) $ do
-            dirlistE <- tryIO $ listDirectory dpath
-            dirlist <- requiredE ("Failed to list daml home sdk directory " <> pack dpath) dirlistE
-            subdirs <- filterM (doesDirectoryExist . (dpath </>)) dirlist
-            -- TODO (FAFM): warn if subdirs /= dirlist
-            --  (i.e. $DAML_HOME/sdk is polluted with non-dirs).
-            let versions = filter ("nightly-" `isPrefixOf`) subdirs
-                -- TODO (FAFM): configurable channels
-            pure $ fmap (SdkVersion . pack) (maximumMay versions)
-        pure (join versionMM)
+        dirlistE <- tryIO $ listDirectory dpath
+        case dirlistE of
+            Left _ -> pure Nothing
+            Right dirlist -> do
+                subdirs <- filterM (doesDirectoryExist . (dpath </>)) dirlist
+                -- TODO (FAFM): warn if subdirs /= dirlist
+                --  (i.e. $DAML_HOME/sdk is polluted with non-dirs).
+                let versions = filter ("nightly-" `isPrefixOf`) subdirs
+                    -- TODO (FAFM): configurable channels
+                pure $ fmap (SdkVersion . pack) (maximumMay versions)
 
 -- | Calculate the environment for dispatched commands (i.e. the environment
 -- with updated DAML_HOME, DAML_PROJECT, DAML_SDK, etc).

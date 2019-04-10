@@ -16,7 +16,8 @@ option java_package = "com.digitalasset.ledger.api.v1";
 // Allows clients to initialize themselves according to a fairly recent state of the ledger without reading through all transactions that were committed since the ledger's creation.
 service ActiveContractsService {
 
-  // Returns a stream of the latest snapshot of active contracts. Getting an empty stream means that the active contracts set is empty and the client should listen to transactions using LEDGER_BEGIN
+  // Returns a stream of the latest snapshot of active contracts. Getting an empty stream means that the active contracts set is empty and the client should listen to transactions using `LEDGER_BEGIN`.
+  //
   // Clients SHOULD NOT assume that the set of active contracts they receive reflects the state at the ledger end.
   rpc GetActiveContracts (GetActiveContractsRequest) returns (stream GetActiveContractsResponse);
 
@@ -24,7 +25,7 @@ service ActiveContractsService {
 
 message GetActiveContractsRequest {
 
-  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Required
   string ledger_id = 1;
 
@@ -48,7 +49,7 @@ message GetActiveContractsResponse {
 
   // Included in the last message.
   // The client should start consuming the transactions endpoint with this offset.
-  // The format of this field is described in ledger_offset.proto.
+  // The format of this field is described in `ledger_offset.proto`.
   // Required
   string offset = 1;
 
@@ -56,7 +57,7 @@ message GetActiveContractsResponse {
   // Optional
   string workflow_id = 2;
 
-  // The list of contracts that were introduced by the workflow with workflow_id at the offset.
+  // The list of contracts that were introduced by the workflow with `workflow_id` at the offset.
   // Optional
   repeated CreatedEvent active_contracts = 3;
 

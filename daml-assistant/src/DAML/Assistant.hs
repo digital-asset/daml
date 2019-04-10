@@ -8,12 +8,12 @@ module DAML.Assistant
     , runTests
     ) where
 
-import DAML.Project.Util
 import DAML.Project.Config
 import DAML.Assistant.Env
 import DAML.Assistant.Tests
 import DAML.Assistant.Command
 import DAML.Assistant.Install
+import DAML.Assistant.Util
 import qualified Data.Text.IO as T
 import System.FilePath
 import System.Process

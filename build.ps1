@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
-    . bazel.exe --bazelrc=.\nix\bazelrc --host_jvm_args=-Djavax.net.ssl.trustStore="$(dadew where)\current\apps\da-truststore\cacerts" @args
+    . bazel.exe --bazelrc=.\nix\bazelrc @args
     if ($global:lastexitcode -ne 0) {
         Write-Output "<< bazel $args (failed, exit code: $global:lastexitcode)"
         throw ("Bazel returned non-zero exit code: $global:lastexitcode")
@@ -30,6 +30,9 @@ bazel test //pipeline/samples/bazel/java/...
 bazel build //pipeline/samples/bazel/haskell/...
 bazel build //compiler/haskell-ide-core/...
 bazel build //compiler/daml-lf-ast/...
+
+# build gRPC
+bazel build @com_github_grpc_grpc//:grpc
 
 # node / npm / yarn test
 bazel build //daml-foundations/daml-tools/daml-extension:daml_extension_lib

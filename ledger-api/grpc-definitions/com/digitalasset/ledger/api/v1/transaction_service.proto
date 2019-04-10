@@ -24,11 +24,11 @@ service TransactionService {
   rpc GetTransactionTrees (GetTransactionsRequest) returns (stream GetTransactionTreesResponse);
 
   // Lookup a transaction by the ID of an event that appears within it.
-  // Returns NOT_FOUND if no such transaction exists.
+  // Returns `NOT_FOUND` if no such transaction exists.
   rpc GetTransactionByEventId (GetTransactionByEventIdRequest) returns (GetTransactionResponse);
 
   // Lookup a transaction by its ID.
-  // Returns NOT_FOUND if no such transaction exists.
+  // Returns `NOT_FOUND` if no such transaction exists.
   rpc GetTransactionById (GetTransactionByIdRequest) returns (GetTransactionResponse);
 
   // Get the current ledger end.
@@ -39,7 +39,7 @@ service TransactionService {
 
 message GetTransactionsRequest {
 
-  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Required
   string ledger_id = 1;
 
@@ -73,12 +73,12 @@ message GetTransactionsResponse {
 }
 
 message GetTransactionTreesResponse {
-  // The list of transaction trees that matches the filter in GetTransactionsRequest for the GetTransactionTrees method.
+  // The list of transaction trees that matches the filter in `GetTransactionsRequest` for the `GetTransactionTrees` method.
   repeated TransactionTree transactions = 1;
 }
 
 message GetTransactionByEventIdRequest {
-  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Required
   string ledger_id = 1;
 
@@ -98,7 +98,7 @@ message GetTransactionByEventIdRequest {
 }
 
 message GetTransactionByIdRequest {
-  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Required
   string ledger_id = 1;
 
@@ -122,7 +122,7 @@ message GetTransactionResponse {
 }
 
 message GetLedgerEndRequest {
-  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Required
   string ledger_id = 1;
 

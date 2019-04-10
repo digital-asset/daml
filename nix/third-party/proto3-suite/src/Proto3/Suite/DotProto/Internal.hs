@@ -13,6 +13,7 @@ import           Control.Lens.Cons         (_head)
 import           Data.Char                 (toUpper)
 import           Data.Maybe                (fromMaybe)
 import qualified Data.Text                 as T
+import           System.FilePath           (isPathSeparator)
 import qualified Filesystem.Path.CurrentOS as FP
 import           Filesystem.Path.CurrentOS ((</>))
 import qualified NeatInterpolation         as Neat
@@ -101,7 +102,7 @@ toModulePath fp0@(fromMaybe fp0 . FP.stripPrefix "./" -> fp)
                               -- want to ignore. E.g. ".foo.proto" => ["","Foo"].
              . fmap (T.unpack . over _head toUpper)
              . concatMap (T.splitOn ".")
-             . T.splitOn "/"
+             . T.split isPathSeparator
              . Turtle.format F.fp
              . FP.collapse
              . Turtle.dropExtension

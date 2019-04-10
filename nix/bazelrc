@@ -76,4 +76,11 @@ build:windows --crosstool_top=@io_tweag_rules_haskell_ghc_windows_amd64//:toolch
 # problem on CI if all builds share a similar directory structure.
 build:windows-ci --crosstool_top=@io_tweag_rules_haskell_ghc_windows_amd64//:toolchain
 
+# Instruct bazel to globally use this flag for compiling protobuf files.
+# We need the source info for generating proto docs. By default proto_library strips
+# source information and doesn't provide an option to turn this flag on.
+# Ideally we would only set this option for the proto_library target we care about.
+# See https://github.com/bazelbuild/rules_go/issues/1519#issuecomment-451622947
+build --protocopt=--include_source_info
+
 try-import %workspace%/.bazelrc.local

@@ -23,7 +23,8 @@ Agreement contract
 
   .. literalinclude:: daml/MultiplePartyAgreement.daml
     :language: daml
-    :lines: 13-22
+    :start-after: -- start snippet: agreement template
+    :end-before: -- end snippet: agreement template
 
 Pending contract
     The *Pending* contract needs to contain the contents of the proposed *Agreement* contract so that parties know what they are agreeing to, and when all parties have signed, the *Agreement* contract can be created.
@@ -32,36 +33,39 @@ Pending contract
 
     .. literalinclude:: daml/MultiplePartyAgreement.daml
         :language: daml
-        :lines: 24-43
+        :start-after: -- start snippet: first half pending template
+        :end-before: -- end snippet: first half pending template
 
     One of the stakeholders acts as the coordinator, and has a choice to create the final Agreement contract once all parties have signed.
 
     .. literalinclude:: daml/MultiplePartyAgreement.daml
         :language: daml
-        :lines: 46-52
+        :start-after: -- start snippet: second half pending template
+        :end-before: -- end snippet: second half pending template
 
 Collecting the signatures in practice
     Since the final Pending contract has multiple signatories, it cannot be created in that state by any one stakeholder. However, a party can create a pending contract with itself in all signatory slots.
 
     .. literalinclude:: daml/MultiplePartyAgreement.daml
         :language: daml
-        :lines: 58-62
+        :start-after: -- start snippet: testing setup
+        :end-before: -- end snippet: testing setup
 
     Once the Pending contract is created, the other parties can exercise choices to Accept, Reject, or Negotiate. For simplicity, the example code only has choices to express consensus.
 
     .. literalinclude:: daml/MultiplePartyAgreement.daml
         :language: daml
-        :lines: 64-66
+        :start-after: -- start snippet: testing add agreements
+        :end-before: -- end snippet: testing add agreements
 
     The coordinating party can create the Agreement contract on the ledger, and finalize the process when all parties have signed and agreed to the multi-party agreement.
 
     .. literalinclude:: daml/MultiplePartyAgreement.daml
         :language: daml
-        :lines: 68
+        :start-after: -- start snippet: testing finalize
+        :end-before: -- end snippet: testing finalize
 
 .. figure:: images/multiplepartyAgreement.png
   :figwidth: 80%
 
   Multiple Party Agreement Diagram
-
-.. note:: DA is developing new DAML features for dynamic checks on unbounded explicit signatures. This would obviate the Multiple Party Agreement pattern altogether.

@@ -17,7 +17,6 @@ import com.digitalasset.platform.akkastreams.Dispatcher
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.config.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   Contract,
@@ -32,28 +31,28 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
 import org.slf4j.LoggerFactory
 
-import scala.collection.{breakOut, immutable}
+import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 
 object SqlLedger {
+  //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def apply(
       jdbcUrl: String,
-      jdbcUser: String,
       ledgerId: Option[String],
       timeProvider: TimeProvider,
-      acs: ActiveContracts,
       ledgerEntries: immutable.Seq[LedgerEntry])(implicit mat: Materializer): Future[Ledger] = {
     implicit val ec: ExecutionContext = DirectExecutionContext
 
-    val noOfConnections = 10
+    val noOfShortLivedConnections = 10
+    val noOfStreamingConnections = 8
 
-    val dbDispatcher = DbDispatcher(jdbcUrl, jdbcUser, noOfConnections)
+    val dbDispatcher = DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
     val ledgerDao = PostgresLedgerDao(dbDispatcher, ContractSerializer, TransactionSerializer)
     val sqlLedgerFactory = SqlLedgerFactory(ledgerDao)
 
     for {
       sqlLedger <- sqlLedgerFactory.createSqlLedger(ledgerId, timeProvider)
-      _ <- sqlLedger.loadStartingState(acs, ledgerEntries)
+      _ <- sqlLedger.loadStartingState(ledgerEntries)
     } yield sqlLedger
   }
 }
@@ -68,8 +67,10 @@ private class SqlLedger(
 
   private val logger = LoggerFactory.getLogger(getClass)
 
+  private def nextOffset(o: Long): Long = o + 1
+
   private val dispatcher = Dispatcher[Long, LedgerEntry](
-    readSuccessor = (o, _) => o + 1,
+    readSuccessor = (o, _) => nextOffset(o),
     readElement = ledgerDao.lookupLedgerEntryAssert,
     firstIndex = 0l,
     headAtInitialization = headAtInitialization
@@ -84,17 +85,18 @@ private class SqlLedger(
 
   private def createPersistenceQueue(): SourceQueueWithComplete[Long => LedgerEntry] = {
     val offsetGenerator: Source[Long, NotUsed] =
-      Source.fromIterator(() => Iterator.iterate(headAtInitialization)(l => l + 1))
+      Source.fromIterator(() => Iterator.iterate(headAtInitialization)(l => nextOffset(l)))
     val persistenceQueue = Source.queue[Long => LedgerEntry](128, OverflowStrategy.backpressure)
     implicit val ec: ExecutionContext = DirectExecutionContext
     persistenceQueue
       .zipWith(offsetGenerator)((f, offset) => offset -> f(offset))
       .mapAsync(1) {
         case (offset, ledgerEntry) => //strictly one after another!
+          val newLedgerEnd = nextOffset(offset)
           for {
-            _ <- ledgerDao.storeLedgerEntry(offset, ledgerEntry)
-            _ = dispatcher.signalNewHead(offset) //signalling downstream subscriptions
-            _ = headRef = offset //updating the headRef
+            _ <- ledgerDao.storeLedgerEntry(offset, newLedgerEnd, ledgerEntry)
+            _ = dispatcher.signalNewHead(newLedgerEnd) //signalling downstream subscriptions
+            _ = headRef = newLedgerEnd //updating the headRef
           } yield ()
       }
       .toMat(Sink.ignore)(Keep.left[SourceQueueWithComplete[Long => LedgerEntry], Future[Done]])
@@ -103,10 +105,8 @@ private class SqlLedger(
 
   override def close(): Unit = persistenceQueue.complete()
 
-  private def loadStartingState(
-      acs: ActiveContracts,
-      ledgerEntries: immutable.Seq[LedgerEntry]): Future[Unit] =
-    if (acs.contracts.nonEmpty || ledgerEntries.nonEmpty) {
+  private def loadStartingState(ledgerEntries: immutable.Seq[LedgerEntry]): Future[Unit] =
+    if (ledgerEntries.nonEmpty) {
       logger.info("initializing ledger with scenario output")
       implicit val ec: ExecutionContext = DirectExecutionContext
       //ledger entries must be persisted via the persistenceQueue!
@@ -116,14 +116,10 @@ private class SqlLedger(
         }
         .runWith(Sink.ignore)
 
-      val mappedContracts: immutable.Seq[Contract] = acs.contracts.map {
-        case (cId, c) =>
-          Contract(cId, c.let, c.transactionId, c.workflowId, c.witnesses, c.contract)
-      }(breakOut)
-
+      // Note: the active contract set stored in the SQL database is updated through the insertion of ledger entries.
+      // The given active contract set is ignored.
       for {
         _ <- fDone
-        _ <- ledgerDao.storeContracts(mappedContracts) //efficient batch insert
       } yield ()
     } else Future.successful(())
 
@@ -134,7 +130,11 @@ private class SqlLedger(
 
   override def ledgerEnd: Long = headRef
 
-  override def snapshot(): Future[LedgerSnapshot] = ??? //TODO implement it with a simple sql query
+  override def snapshot(): Future[LedgerSnapshot] =
+    //TODO (robert): SQL DAO does not know about ActiveContract, this method does a (trivial) mapping from DAO Contract to Ledger ActiveContract. Intended? The DAO layer was introduced its own Contract abstraction so it can also reason read archived ones if it's needed. In hindsight, this might be necessary at all  so we could probably collapse the two
+    ledgerDao.getActiveContractSnapshot
+      .map(s => LedgerSnapshot(s.offset, s.acs.map(c => (c.contractId, c.toActiveContract))))(
+        DirectExecutionContext)
 
   override def lookupContract(
       contractId: Value.AbsoluteContractId): Future[Option[ActiveContract]] =
@@ -202,12 +202,12 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val ec = DirectExecutionContext
     for {
-      ledgerId <- figureOutLedgerId(initialLedgerId)
+      ledgerId <- initialize(initialLedgerId)
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
     } yield new SqlLedger(ledgerId, ledgerEnd, ledgerDao, timeProvider)
   }
 
-  private def figureOutLedgerId(initialLedgerId: Option[String]) = initialLedgerId match {
+  private def initialize(initialLedgerId: Option[String]) = initialLedgerId match {
     case Some(initialId) =>
       ledgerDao
         .lookupLedgerId()

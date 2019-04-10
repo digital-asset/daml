@@ -154,6 +154,10 @@ def daml_deps():
         strip_prefix = "grpc-1.19.0",
         urls = ["https://github.com/grpc/grpc/archive/v1.19.0.tar.gz"],
         sha256 = "1d54cd95ed276c42c276e0a3df8ab33ee41968b73af14023c03a19db48f82e73",
+        patches = [
+          "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
+        ],
+        patch_args = ["-p1"],
      )
 
   if "io_grpc_grpc_java" not in native.existing_rules():
@@ -191,6 +195,14 @@ java_import(
 )
             """,
         )
+
+    if "com_github_googleapis_googleapis" not in native.existing_rules():
+      http_archive(
+          name = "com_github_googleapis_googleapis",
+          strip_prefix = "googleapis-6c48ab5aef47dc14e02e2dc718d232a28067129d",
+          urls = ["https://github.com/googleapis/googleapis/archive/6c48ab5aef47dc14e02e2dc718d232a28067129d.tar.gz"],
+          sha256 = "70d7be6ad49b4424313aad118c8622aab1c5fdd5a529d4215d3884ff89264a71",
+       )
 
   native.bind(
     name = "guava",

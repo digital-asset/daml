@@ -8,6 +8,7 @@ import java.time.Duration
 
 import com.digitalasset.ledger.client.configuration.TlsConfiguration
 import com.digitalasset.platform.sandbox.BuildInfo
+import com.digitalasset.platform.sandbox.config.LedgerIdMode.HardCoded
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import scopt.Read
@@ -102,7 +103,7 @@ object Cli {
 
     opt[String]("jdbcurl")
       .optional()
-      .text("The JDBC connection URL to a Postgres database. If missing the Sandbox will use an in memory store.")
+      .text("The JDBC connection URL to a Postgres database containing the username and password as well. If missing the Sandbox will use an in memory store.")
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
     opt[Unit]("allow-dev")
@@ -110,6 +111,12 @@ object Cli {
         c.copy(damlPackageContainer = c.damlPackageContainer.allowDev)
       }
       .text("Allow usage of DAML-LF dev version. Do not use in production!")
+
+    //TODO (robert): Think about all implications of allowing users to set the ledger ID.
+    opt[String]("ledgerid")
+      .optional()
+      .action((id, c) => c.copy(ledgerIdMode = HardCoded(id)))
+      .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.")
 
     help("help").text("Print the usage text")
   }

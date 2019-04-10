@@ -18,10 +18,12 @@ option java_package = "com.digitalasset.ledger.api.v1";
 // The final states of their submissions are disclosed by the Command Completion Service.
 // The on-ledger effects of their submissions are disclosed by the Transaction Service.
 // Commands may fail in 4 distinct manners:
+//
 // 1) INVALID_PARAMETER gRPC error on malformed payloads and missing required fields.
 // 2) Failure communicated in the gRPC error.
 // 3) Failure communicated in a Completion.
 // 4) A Checkpoint with record_time > command mrt arrives through the Completion Stream, and the command's Completion was not visible before. In this case the command is lost.
+//
 // Clients that do not receive a successful completion about their submission MUST NOT assume that it was successful.
 // Clients SHOULD subscribe to the CompletionStream before starting to submit commands to prevent race conditions.
 //

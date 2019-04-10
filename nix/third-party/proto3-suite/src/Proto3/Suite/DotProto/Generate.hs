@@ -43,6 +43,7 @@ import           Data.Monoid
 import qualified Data.Set                       as S
 import           Data.String                    (fromString)
 import qualified Data.Text                      as T
+import qualified Data.Text.IO                   as T
 import           Filesystem.Path.CurrentOS      ((</>))
 import qualified Filesystem.Path.CurrentOS      as FP
 import           Language.Haskell.Pretty
@@ -53,7 +54,8 @@ import           Prelude                        hiding (FilePath)
 import           Proto3.Suite.DotProto
 import           Proto3.Suite.DotProto.Internal
 import           Proto3.Wire.Types              (FieldNumber (..))
-import           System.IO                      (writeFile, readFile)
+import           System.IO                      (readFile)
+import           System.Directory               (doesFileExist)
 import           Text.Parsec                    (ParseError)
 import           Turtle                         (FilePath)
 import qualified Turtle
@@ -96,7 +98,17 @@ compileDotProtoFile extrainstances out paths dotProtoPath = runExceptT $ do
   eis <- fmap mconcat . mapM (ExceptT . getExtraInstances) $ extrainstances
   hs  <- ExceptT . pure $ renderHsModuleForDotProto eis dp tc
   Turtle.mktree (FP.directory mp')
-  liftIO $ writeFile (FP.encodeString mp') hs
+  liftIO $ writeFileChanged (FP.encodeString mp') $ T.pack hs
+
+
+writeFileChanged :: String -> T.Text -> IO ()
+writeFileChanged file new = do
+  b <- doesFileExist file
+  if not b then T.writeFile file new else do
+    old <- T.readFile file
+    when (new /= old) $
+      T.writeFile file new
+
 
 -- | As 'compileDotProtoFile', except terminates the program with an error
 -- message on failure.

@@ -4,9 +4,9 @@
 load('//bazel_tools:haskell.bzl', 'da_haskell_binary', 'da_haskell_library', 'da_haskell_test')
 load('//bazel_tools:packaging/packaging.bzl', 'package_app')
 
-da_haskell_binary(
-    name = "daml-helper",
-    srcs = ["DamlHelper.hs"],
+da_haskell_library(
+    name = "daml-helper-lib",
+    srcs = glob(["src/**/*.hs"], exclude = ["src/Main.hs"]),
     deps = [
         "//daml-assistant:daml-project-config",
     ],
@@ -25,6 +25,17 @@ da_haskell_binary(
         "process",
         "safe-exceptions",
         "text",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_binary(
+    name = "daml-helper",
+    srcs = ["src/Main.hs"],
+    deps = [":daml-helper-lib"],
+    hazel_deps = [
+        "base",
+        "optparse-applicative",
     ],
     visibility = ["//visibility:public"],
 )

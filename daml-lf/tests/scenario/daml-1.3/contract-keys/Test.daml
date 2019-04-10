@@ -16,10 +16,10 @@ template TextKey
         do
           return ()
 
-instance Key TextKey (Party, Text) where
+instance TemplateKey TextKey (Party, Text) where
   key tk = (tk.p, tk.tkKey)
 
-  keyMaintainers _ (p, _) = [p]
+  maintainer tk = [tk.p]
 
 run = scenario do
   alice <- getParty "Alice"
