@@ -40,7 +40,7 @@ object LedgerFactories {
   private def getPackageIdOrThrow(path: Path): Ref.PackageId =
     getPackageId(path).fold(t => throw t, identity)
 
-  sealed abstract class SandboxStore
+  sealed abstract class SandboxStore extends Product with Serializable
 
   object SandboxStore {
 
