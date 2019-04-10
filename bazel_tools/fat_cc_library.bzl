@@ -18,7 +18,9 @@ def _fat_cc_library_impl(ctx):
             # On Windows we don't seem to have `pic_static_library`s available.
             static_lib = lib.static_library
         else:
-            fail("No (PIC) static library found.")
+            fail("No (PIC) static library found for '{}'.".format(
+                str(lib.dynamic_library.path)
+            ))
         static_libs += [static_lib]
 
     dyn_lib = ctx.outputs.dynamic_library
