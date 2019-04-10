@@ -8,5 +8,8 @@ steps:
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
+  - bash: 'cat .bazelrc.local'
+    displayName: 'Print .bazelrc.local'
+
   - powershell: '.\build.ps1 ci'
     displayName: 'Build'
