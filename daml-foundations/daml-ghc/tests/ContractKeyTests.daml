@@ -2,7 +2,8 @@
 daml 1.2
 module ContractKeyTests where
 
--- (1) Breathing test.
+-- (1)  If `key` mentions `this.x` then `maintainer` can mention
+-- `this.x.y`.
 
 data Course =
   Course with
@@ -22,11 +23,10 @@ template Enrollment
       reg : Registration
   where
       signatory reg.student, reg.course.institution
-      key reg : Registration
-      maintainer reg.course.institution
+      key reg : Registration -- this.x
+      maintainer reg.course.institution -- this.x.y.z
 
--- (2) If `key` mentions `this.x` then `maintainer` can mention
--- `this.x.y`.
+-- (2)
 
 data M = M { m : Party } deriving (Show, Eq)
 data K = K { s : M } deriving (Show, Eq)
@@ -37,8 +37,9 @@ template T
     k : K
   where
     signatory i
-    key k : K
-    maintainer k.s.m
+    key k.s : M
+    maintainer this.k.s.m -- This doesn't work without qualifying with
+                          -- `this`. Is that expected?
 
 -- (3) Port './ContractKeys.daml' to DAML syntax.
 
