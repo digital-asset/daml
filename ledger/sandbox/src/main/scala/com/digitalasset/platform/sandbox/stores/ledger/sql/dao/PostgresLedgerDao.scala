@@ -12,6 +12,7 @@ import akka.stream.Materializer
 import anorm.SqlParser.{str, _}
 import anorm.{AkkaStream, BatchSql, NamedParameter, SQL, SqlParser}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
@@ -216,7 +217,8 @@ private class PostgresLedgerDao(
         archiveContract(offset, cid)
         ()
       }
-      def acsImplicitlyDisclose(acs: Unit, global: Any): Unit = () // TODO SC
+      def acsImplicitlyDisclose(acs: Unit, global: Relation[AbsoluteContractId, Ref.Party]): Unit =
+        () // TODO SC
 
       //this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
       val acsManager = new ActiveContractsManager(())(
@@ -234,6 +236,7 @@ private class PostgresLedgerDao(
         workflowId,
         transaction,
         mappedDisclosure,
+        Map.empty, // TODO SC when do we enrich here?
       )
 
       atr match {

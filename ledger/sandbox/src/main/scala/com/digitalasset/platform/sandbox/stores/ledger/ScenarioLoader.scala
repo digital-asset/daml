@@ -28,6 +28,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.breakOut
 import scala.collection.mutable.ArrayBuffer
+import scalaz.syntax.std.map._
 
 object ScenarioLoader {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -174,12 +175,16 @@ object ScenarioLoader {
         val txNoHash = GenTransaction(richTransaction.nodes, richTransaction.roots)
         val tx = txNoHash.mapContractIdAndValue(absCidWithHash, _.mapContractId(absCidWithHash))
         val explicitDisclosure = richTransaction.explicitDisclosure
+        val implicitDisclosure = richTransaction.implicitDisclosure mapKeys { nid =>
+          AbsoluteContractId(nid.id)
+        }
         acs.addTransaction[L.NodeId](
           time.toInstant,
           transactionId,
           workflowId,
           tx,
-          explicitDisclosure) match {
+          explicitDisclosure,
+          implicitDisclosure) match {
           case Right(newAcs) =>
             val recordTx = tx.mapNodeId(nodeIdWithHash)
             val recordDisclosure = explicitDisclosure.map {
