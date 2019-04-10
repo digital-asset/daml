@@ -27,31 +27,27 @@ import scalaz.syntax.std.map._
 
 case class ActiveContracts(
     contracts: Map[AbsoluteContractId, ActiveContract],
-    keys: Map[GlobalKey, AbsoluteContractId]) {
+    keys: Map[GlobalKey, AbsoluteContractId])
+    extends ActiveContractsSteps[ActiveContracts] {
 
-  private def lookupContract(acs: ActiveContracts, cid: AbsoluteContractId) = acs.contracts.get(cid)
+  override def lookupContract(cid: AbsoluteContractId) = contracts.get(cid)
 
-  private def keyExists(acs: ActiveContracts, key: GlobalKey) = acs.keys.contains(key)
+  override def keyExists(key: GlobalKey) = keys.contains(key)
 
-  private def addContract(
-      acs: ActiveContracts,
-      cid: AbsoluteContractId,
-      c: ActiveContract,
-      keyO: Option[GlobalKey]) = keyO match {
-    case None => acs.copy(contracts = acs.contracts + (cid -> c))
-    case Some(key) =>
-      acs.copy(contracts = acs.contracts + (cid -> c), keys = acs.keys + (key -> cid))
+  override def addContract(cid: AbsoluteContractId, c: ActiveContract, keyO: Option[GlobalKey]) =
+    keyO match {
+      case None => copy(contracts = contracts + (cid -> c))
+      case Some(key) =>
+        copy(contracts = contracts + (cid -> c), keys = keys + (key -> cid))
+    }
+
+  override def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]) = keyO match {
+    case None => copy(contracts = contracts - cid)
+    case Some(key) => copy(contracts = contracts - cid, keys = keys - key)
   }
 
-  private def removeContract(
-      acs: ActiveContracts,
-      cid: AbsoluteContractId,
-      keyO: Option[GlobalKey]) = keyO match {
-    case None => acs.copy(contracts = acs.contracts - cid)
-    case Some(key) => acs.copy(contracts = acs.contracts - cid, keys = acs.keys - key)
-  }
-
-  private def implicitlyDisclose(global: Relation[AbsoluteContractId, Ref.Party]): ActiveContracts =
+  override def implicitlyDisclose(
+      global: Relation[AbsoluteContractId, Ref.Party]): ActiveContracts =
     if (global.nonEmpty)
       copy(
         contracts = contracts ++
@@ -61,12 +57,7 @@ case class ActiveContracts(
     else this
 
   private val acManager =
-    new ActiveContractsManager(this)(
-      lookupContract,
-      keyExists,
-      addContract,
-      removeContract,
-      _ implicitlyDisclose _)
+    new ActiveContractsManager(this)
 
   /** adds a transaction to the ActiveContracts, make sure that there are no double spends or
     * timing errors. this check is leveraged to achieve higher concurrency, see LedgerState
@@ -90,11 +81,7 @@ case class ActiveContracts(
 }
 
 class ActiveContractsManager[ACS](initialState: => ACS)(
-    lookupContract: (ACS, AbsoluteContractId) => Option[ActiveContract],
-    keyExists: (ACS, GlobalKey) => Boolean,
-    addContract: (ACS, AbsoluteContractId, ActiveContract, Option[GlobalKey]) => ACS,
-    removeContract: (ACS, AbsoluteContractId, Option[GlobalKey]) => ACS,
-    implicitlyDisclose: (ACS, Relation[AbsoluteContractId, Ref.Party]) => ACS) {
+    implicit ACS: ACS => ActiveContractsSteps[ACS]) {
 
   private case class AddTransactionState(acc: Option[ACS], errs: Set[SequencingError]) {
 
@@ -144,7 +131,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(
             def contractCheck(
                 cid: AbsoluteContractId,
                 predType: PredicateType): Option[SequencingError] =
-              lookupContract(acc, cid) match {
+              acc lookupContract cid match {
                 case None => Some(InactiveDependencyError(cid, predType))
                 case Some(otherTx) =>
                   if (otherTx.let.isAfter(let)) {
@@ -171,13 +158,13 @@ class ActiveContractsManager[ACS](initialState: => ACS)(
                 )
                 activeContract.key match {
                   case None =>
-                    ats.copy(acc = Some(addContract(acc, absCoid, activeContract, None)))
+                    ats.copy(acc = Some(acc.addContract(absCoid, activeContract, None)))
                   case Some(key) =>
                     val gk = GlobalKey(activeContract.contract.template, key.key)
-                    if (keyExists(acc, gk)) {
+                    if (acc keyExists gk) {
                       AddTransactionState(None, errs + DuplicateKey(gk))
                     } else {
-                      ats.copy(acc = Some(addContract(acc, absCoid, activeContract, Some(gk))))
+                      ats.copy(acc = Some(acc.addContract(absCoid, activeContract, Some(gk))))
                     }
                 }
               case ne: N.NodeExercises[
@@ -188,7 +175,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(
                 ats.copy(
                   errs = contractCheck(absCoid, Exercise).fold(errs)(errs + _),
                   acc = Some(if (ne.consuming) {
-                    removeContract(acc, absCoid, lookupContract(acc, absCoid).flatMap(_.key) match {
+                    acc.removeContract(absCoid, (acc lookupContract absCoid).flatMap(_.key) match {
                       case None => None
                       case Some(key) => Some(GlobalKey(ne.templateId, key.key))
                     })
@@ -206,9 +193,17 @@ class ActiveContractsManager[ACS](initialState: => ACS)(
             }
         }
 
-    st.mapAcs(implicitlyDisclose(_, globalImplicitDisclosure)).result
+    st.mapAcs(_ implicitlyDisclose globalImplicitDisclosure).result
   }
 
+}
+
+trait ActiveContractsSteps[+Self] { this: ActiveContractsSteps[Self] =>
+  def lookupContract(cid: AbsoluteContractId): Option[ActiveContract]
+  def keyExists(key: GlobalKey): Boolean
+  def addContract(cid: AbsoluteContractId, c: ActiveContract, keyO: Option[GlobalKey]): Self
+  def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]): Self
+  def implicitlyDisclose(global: Relation[AbsoluteContractId, Ref.Party]): Self
 }
 
 object ActiveContracts {

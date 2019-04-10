@@ -201,32 +201,31 @@ private class PostgresLedgerDao(
             nodeId -> party.map(p => Ref.Party.assertFromString(p))
         }
 
-      def acsLookupContract(acs: Unit, cid: AbsoluteContractId) =
-        lookupActiveContractSync(cid).map(_.toActiveContract)
-      //TODO: Implement check whether the given contract key exists
-      def acsKeyExists(acc: Unit, key: GlobalKey): Boolean = false
-      //TODO: store contract key
-      def acsAddContract(
-          acs: Unit,
-          cid: AbsoluteContractId,
-          c: ActiveContracts.ActiveContract,
-          keyO: Option[GlobalKey]): Unit =
-        storeContract(offset, Contract.fromActiveContract(cid, c))
-      //TODO: remove contract key
-      def acsRemoveContract(acs: Unit, cid: AbsoluteContractId, keyO: Option[GlobalKey]): Unit = {
-        archiveContract(offset, cid)
-        ()
+      final class AcsStoreAcc extends ActiveContractsSteps[AcsStoreAcc] {
+
+        def lookupContract(cid: AbsoluteContractId) =
+          lookupActiveContractSync(cid).map(_.toActiveContract)
+        //TODO: Implement check whether the given contract key exists
+        def keyExists(key: GlobalKey): Boolean = false
+        //TODO: store contract key
+        def addContract(
+            cid: AbsoluteContractId,
+            c: ActiveContracts.ActiveContract,
+            keyO: Option[GlobalKey]) = {
+          storeContract(offset, Contract.fromActiveContract(cid, c))
+          this
+        }
+        //TODO: remove contract key
+        def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]) = {
+          archiveContract(offset, cid)
+          this
+        }
+        def implicitlyDisclose(global: Relation[AbsoluteContractId, Ref.Party]) =
+          this // TODO SC
       }
-      def acsImplicitlyDisclose(acs: Unit, global: Relation[AbsoluteContractId, Ref.Party]): Unit =
-        () // TODO SC
 
       //this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
-      val acsManager = new ActiveContractsManager(())(
-        acsLookupContract,
-        acsKeyExists,
-        acsAddContract,
-        acsRemoveContract,
-        acsImplicitlyDisclose)
+      val acsManager = new ActiveContractsManager(new AcsStoreAcc)
 
       // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
       // within the current SQL transaction. All of the given functions perform side effects to update the database.
@@ -236,7 +235,7 @@ private class PostgresLedgerDao(
         workflowId,
         transaction,
         mappedDisclosure,
-        Map.empty, // TODO SC when do we enrich here?
+        Map.empty // TODO SC when do we enrich here?
       )
 
       atr match {
