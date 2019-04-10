@@ -31,9 +31,13 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
       ledger.publishTransaction(submitted)
     }
 
-    override def lookupActiveContract(contractId: Value.AbsoluteContractId)
+    override def lookupActiveContract(submitter: Party, contractId: Value.AbsoluteContractId)
       : Future[Option[Value.ContractInst[TxValue[Value.AbsoluteContractId]]]] =
-      ledger.lookupContract(contractId).map(_.map(_.contract))(DirectExecutionContext)
+      ledger
+        .lookupContract(contractId)
+        .map(_.collect {
+          case ac if Ref.Party fromString submitter exists ac.witnesses => ac.contract
+        })(DirectExecutionContext)
 
     override def lookupContractKey(key: Node.GlobalKey): Future[Option[Value.AbsoluteContractId]] =
       ledger.lookupKey(key)

@@ -79,7 +79,7 @@ trait SubmissionHandle {
     * record information about absolute contract ids that we've fetched
     * / archived to be more compatible with this interface.
     */
-  def lookupActiveContract(contractId: AbsoluteContractId)
+  def lookupActiveContract(submitter: Party, contractId: AbsoluteContractId)
     : Future[Option[ContractInst[VersionedValue[AbsoluteContractId]]]]
 
   /**
