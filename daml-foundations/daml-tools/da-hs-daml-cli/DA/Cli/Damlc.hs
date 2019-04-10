@@ -37,6 +37,7 @@ import Data.ByteArray.Encoding (Base (Base16), convertToBase)
 import qualified Data.ByteString                   as B
 import qualified Data.ByteString.Lazy as BSL
 import Data.FileEmbed (embedFile)
+import Data.Functor
 import qualified Data.Set as Set
 import qualified Data.List.Split as Split
 import qualified Data.Text as T
@@ -162,7 +163,7 @@ execLicense = B.putStr licenseData
 execIde :: Telemetry
         -> Debug
         -> Command
-execIde (Telemetry telemetry) (Debug debug) = NS.withSocketsDo $ Managed.runManaged $ do
+execIde telemetry (Debug debug) = NS.withSocketsDo $ Managed.runManaged $ do
     let threshold =
             if debug
             then Logger.Debug
@@ -177,9 +178,10 @@ execIde (Telemetry telemetry) (Debug debug) = NS.withSocketsDo $ Managed.runMana
       threshold
       "LanguageServer"
     loggerH <-
-      if telemetry
-      then Logger.GCP.gcpLogger (>= Logger.Warning) loggerH
-      else pure loggerH
+      case telemetry of
+          OptedIn -> Logger.GCP.gcpLogger (>= Logger.Warning) loggerH
+          OptedOut -> liftIO $ Logger.GCP.logOptOut $> loggerH
+          Undecided -> pure loggerH
 
     opts <- liftIO $ defaultOptionsIO Nothing
 
