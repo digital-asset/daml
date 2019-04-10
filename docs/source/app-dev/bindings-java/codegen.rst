@@ -387,7 +387,13 @@ The Java code generated for this variant is:
 Parameterized types
 ~~~~~~~~~~~~~~~~~~~
 
-The Java Code Generator uses Java Generic types to represent :ref:`DAML parameterized types <daml-ref-parameterized-types>`.
+The following section describes the mechanism that the generated sources used to represent
+:ref:`DAML parameterized types <daml-ref-parameterized-types>` using Java Generic types.
+
+**Note:**
+The intended audience for this section are only those requiring a detailed understanding of how the
+generated Java parameterized types are serialized and deserialized. Application developers will not generally handle
+parameterized types directly, but only as fields of non-parameterized types so therefore may want to skip this section.
 
 Below is a DAML fragment defining the parameterized type ``Attribute`` for use by the ``BookAttribute`` type for modeling
 the characteristics of the book.
@@ -418,8 +424,11 @@ The Java codegen generates a Java file with a generic class for  the ``Attribute
 Serializing
 """""""""""
 
-To serialize an instance of the ``Attribute<a>`` data type, a function for creating the Ledger API equivalent of the attribute value
-is passed to the ``toValue`` method as the ``fromValuea`` argument (see the above ``com/acme/Attribute.java`` source extract).
+To serialize an instance of the ``Attribute<a>`` data type, pass a function for creating the Ledger API equivalent of the attribute value
+is passed to the ``toValue`` method as the ``toValuea`` argument (see the above ``com/acme/Attribute.java`` source extract).
+
+**Note:** The ``toValue`` method has the same number of arguments as the type has parameters. The arguments names are ``toValue`` suffixed with
+the type parameter name, for example the argument to serialize type ``a`` is called ``toValuea``.
 
 Below is a Java fragment that serializes an attribute with a ``java.lang.Long`` value to the Ledger API representation using the *method reference*
 ``Int64::new`` to create a new instance of the Java Bindings value type.
@@ -448,12 +457,6 @@ Analogous to the generated ``toValue`` method, the deserialization method ``from
 See Java Bindings `Value`_ class for the methods to transform the Java Bindings types into corresponding Java types.
 
 .. _Value: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/Value.html
-
-Non-exposed parameterized types
-"""""""""""""""""""""""""""""""
-
-If the parameterized type is contained in a type where the *actual* type is specified (as in the ``BookAttributes`` type above), then the serialization
-and deserialization of the enclosing type provides the necessary methods for serialization and deserialization.
 
 Converting List and Optional
 """"""""""""""""""""""""""""
