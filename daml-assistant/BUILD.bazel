@@ -44,7 +44,7 @@ da_haskell_library(
         "directory",
         "extra",
         "filepath",
-        'lens',
+        "lens",
         "safe-exceptions",
         "semver",
         "text",
