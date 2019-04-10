@@ -6,9 +6,9 @@
 module DA.Cli.Damli.Command.Damldoc(cmdDamlDoc, cmdRenderDoc) where
 
 import           DA.Cli.Damli.Base(Command)
+import           DA.Cli.Options
 import           DA.Daml.GHC.Damldoc.Driver
 
-import           Data.List.Extra(trim, splitOn)
 import           DA.Prelude
 import           Options.Applicative
 
@@ -54,16 +54,15 @@ documentation x = Damldoc x <$>
                 <> value Nothing
 
     argMainFiles :: Parser [FilePath]
-    argMainFiles = some $ argument str $ metavar "INPUT-FILE"
-                  <> help "Main file(s) (*.daml) to compile to DAML-LF"
+    argMainFiles = some $ argument str $ metavar "FILE..."
+                  <> help "Main file(s) (*.daml) whose contents are read"
 
     optJsonOrFormat :: Parser DocFormat
     optJsonOrFormat = fromMaybe <$>
                       optFormat <*>
-                      (option (pure $ Just Json) $
+                      (flag Nothing (Just Json) $
                         long "json"
-                        <> help "alias for `--format Json'"
-                        <> value Nothing)
+                        <> help "alias for `--format Json'")
 
     optFormat :: Parser DocFormat
     optFormat = option auto $ metavar "FORMAT"
@@ -91,28 +90,20 @@ documentation x = Damldoc x <$>
                    <> help "Ignore MOVE and HIDE annotations in the source"
 
     optInclude :: Parser [String]
-    optInclude = option (eitherReader commaSep) $
-                 metavar "PATTERN [ , PATTERN...]"
+    optInclude = option (stringsSepBy ',') $
+                 metavar "PATTERN[,PATTERN...]"
                  <> long "include-modules"
                  <> help ("Include modules matching one of the given pattern. " <>
                          "Example: `DA.**.Iou_*'. Default: all.")
                  <> value []
 
     optExclude :: Parser [String]
-    optExclude = option (eitherReader commaSep) $
-                 metavar "PATTERN [ , PATTERN...]"
+    optExclude = option (stringsSepBy ',') $
+                 metavar "PATTERN[,PATTERN...]"
                  <> long "exclude-modules"
                  <> help ("Skip modules matching one of the given pattern. " <>
                          "Example: `DA.**.Internal'. Default: none.")
                  <> value []
-
-commaSep :: String -> Either String [String]
-commaSep input
-  | null items = Left "Failed to read items: empty list"
-  | any null items = Left $ "Failed to read items: empty item within " <> input
-  | otherwise = Right items
-  where
-    items = map trim $ splitOn "," input
 
 ------------------------------------------------------------
 

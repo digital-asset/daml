@@ -6,6 +6,7 @@ module DA.Cli.Options
   ) where
 
 import qualified Data.Text           as T
+import           Data.List.Extra     (trim, splitOn)
 import           Options.Applicative
 import           Text.Read
 
@@ -277,3 +278,14 @@ telemetryOpt = do
         (True, True) ->
             error $
             "Both --"++optInS++" and --"++optOutS++" have been selected, you either have to opt into telemetry or opt out"
+
+-- Parse helper for non-empty string lists separated by the given separator
+stringsSepBy :: Char -> ReadM [String]
+stringsSepBy sep = eitherReader sepBy'
+  where sepBy' :: String -> Either String [String]
+        sepBy' input
+          | null items = Left "Failed to read items: empty list"
+          | any null items = Left $ "Failed to read items: empty item within " <> input
+          | otherwise = Right items
+          where
+            items = map trim $ splitOn [sep] input
