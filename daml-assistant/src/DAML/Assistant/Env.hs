@@ -108,7 +108,7 @@ getSdk damlPath projectPathM =
             [ lookupEnv sdkVersionEnvVar >>= \ vstrM -> pure $ do
                 vstr <- vstrM
                 v <- eitherToMaybe (V.fromText (pack vstr))
-                pure (SdkVersion v)
+                Just (SdkVersion v)
 
             , fromConfig "SDK" (lookupEnv sdkPathEnvVar)
                                (readSdkConfig . SdkPath)
@@ -149,8 +149,8 @@ getLatestInstalledSdkVersion (DamlPath path) = do
             Left _ -> pure Nothing
             Right dirlist -> do
                 subdirs <- filterM (doesDirectoryExist . (dpath </>)) dirlist
-                let preversions = mapMaybe (eitherToMaybe . V.fromText . pack) subdirs
-                    versions = map SdkVersion preversions
+                let semvers = mapMaybe (eitherToMaybe . V.fromText . pack) subdirs
+                    versions = map SdkVersion semvers
                     stableVersions = filter isStableVersion versions
                 pure $ maximumMay stableVersions
 

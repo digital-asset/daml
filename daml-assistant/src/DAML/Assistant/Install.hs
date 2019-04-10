@@ -40,7 +40,7 @@ displayInstallTarget :: InstallTarget -> Text
 displayInstallTarget = \case
     InstallChannel Stable -> "channel stable"
     InstallChannel Unstable -> "channel unstable"
-    InstallChannel ch -> "channel " <> pack (show ch)
+    InstallChannel (Custom ch) -> "channel " <> pack (show ch)
     InstallVersion (SdkVersion v) -> "version " <> V.toText v
     InstallPath p -> pack p
 

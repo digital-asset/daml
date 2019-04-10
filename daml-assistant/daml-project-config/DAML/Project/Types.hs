@@ -65,10 +65,10 @@ data SdkChannel
 versionChannel :: SdkVersion -> SdkChannel
 versionChannel (SdkVersion v) =
     let ch = v L.^. V.release in
-    fromMaybe (Custom ch) $ lookup (map Just ch)
-        [ ([], Stable)
-        , ([V.textual "unstable"], Unstable)
-        ]
+    case ch of
+        [] -> Stable
+        [u] | Just u == V.textual "unstable" -> Unstable
+        _ -> Custom ch
 
 isStableVersion :: SdkVersion -> Bool
 isStableVersion = (== Stable) . versionChannel
