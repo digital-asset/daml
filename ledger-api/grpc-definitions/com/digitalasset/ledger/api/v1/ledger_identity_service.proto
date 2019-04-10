@@ -31,7 +31,7 @@ message GetLedgerIdentityRequest {
 message GetLedgerIdentityResponse {
 
   // The ID of the ledger exposed by the server.
-  // Requests submitted with the wrong ledger ID will result in `NOT_FOUND` gRPC errors.
+  // Requests submitted with the wrong ledger ID will result in ``NOT_FOUND`` gRPC errors.
   // Required
   string ledger_id = 1;
 }
