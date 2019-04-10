@@ -13,10 +13,8 @@ import scala.concurrent.Future
 
 trait IndexService {
   def listPackages(ledgerId: LedgerId): AsyncResult[List[PackageId]]
-  def isPackageRegistered(ledgerId: LedgerId,
-                          packageId: PackageId): AsyncResult[Boolean]
-  def getPackage(ledgerId: LedgerId,
-                 packageId: PackageId): AsyncResult[Option[Archive]]
+  def isPackageRegistered(ledgerId: LedgerId, packageId: PackageId): AsyncResult[Boolean]
+  def getPackage(ledgerId: LedgerId, packageId: PackageId): AsyncResult[Option[Archive]]
 
   def getLedgerConfiguration(ledgerId: LedgerId): AsyncResult[Configuration]
 
@@ -74,8 +72,7 @@ object IndexService {
   sealed trait Err
   object Err {
 
-    final case class LedgerIdMismatch(expected: LedgerId, actual: LedgerId)
-        extends Err
+    final case class LedgerIdMismatch(expected: LedgerId, actual: LedgerId) extends Err
 
   }
 }

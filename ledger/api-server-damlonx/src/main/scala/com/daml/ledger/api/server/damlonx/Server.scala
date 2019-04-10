@@ -12,19 +12,13 @@ import com.daml.ledger.participant.state.index.v1.IndexService
 import com.daml.ledger.participant.state.v1.WriteService
 import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
 import com.digitalasset.daml.lf.lfpackage.Decode
-import com.digitalasset.grpc.adapter.{
-  AkkaExecutionSequencerPool,
-  ExecutionSequencerFactory
-}
+import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ReferenceCommandService
 import com.digitalasset.platform.server.services.identity.LedgerIdentityServiceImpl
-import com.digitalasset.platform.server.services.testing.{
-  ReferenceTimeService,
-  TimeServiceBackend
-}
+import com.digitalasset.platform.server.services.testing.{ReferenceTimeService, TimeServiceBackend}
 import io.grpc.BindableService
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -38,10 +32,11 @@ import scala.concurrent.duration._
 object Server {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  def apply(serverPort: Int,
-            indexService: IndexService,
-            writeService: WriteService,
-            tsb: TimeServiceBackend /* FIXME(JM): Remove */ )(
+  def apply(
+      serverPort: Int,
+      indexService: IndexService,
+      writeService: WriteService,
+      tsb: TimeServiceBackend /* FIXME(JM): Remove */ )(
       implicit materializer: ActorMaterializer): Server = {
     implicit val serverEsf: AkkaExecutionSequencerPool =
       new AkkaExecutionSequencerPool(
@@ -76,9 +71,10 @@ object Server {
     )
   }
 
-  private def createServices(indexService: IndexService,
-                             writeService: WriteService,
-                             tsb: TimeServiceBackend)(
+  private def createServices(
+      indexService: IndexService,
+      writeService: WriteService,
+      tsb: TimeServiceBackend)(
       implicit mat: ActorMaterializer,
       serverEsf: ExecutionSequencerFactory): List[BindableService] = {
     implicit val ec: ExecutionContext = mat.system.dispatcher
@@ -93,11 +89,12 @@ object Server {
     logger.info(EngineInfo.show)
 
     val submissionService =
-      DamlOnXSubmissionService.create(identifierResolver,
-                                      ledgerId,
-                                      indexService,
-                                      writeService,
-                                      engine)
+      DamlOnXSubmissionService.create(
+        identifierResolver,
+        ledgerId,
+        indexService,
+        writeService,
+        engine)
 
     val commandCompletionService =
       DamlOnXCommandCompletionService.create(indexService)
@@ -106,9 +103,7 @@ object Server {
       DamlOnXActiveContractsService.create(indexService, identifierResolver)
 
     val transactionService =
-      DamlOnXTransactionService.create(ledgerId,
-                                       indexService,
-                                       identifierResolver)
+      DamlOnXTransactionService.create(ledgerId, indexService, identifierResolver)
 
     val identityService = LedgerIdentityServiceImpl(ledgerId)
 
@@ -133,8 +128,7 @@ object Server {
           commandCompletionService.service
             .asInstanceOf[DamlOnXCommandCompletionService]
             .completionStreamSource(r),
-        () =>
-          commandCompletionService.completionEnd(CompletionEndRequest(ledgerId))
+        () => commandCompletionService.completionEnd(CompletionEndRequest(ledgerId))
       )
     )
 
@@ -166,18 +160,16 @@ object Server {
   }
 }
 
-final class Server private (serverEsf: AkkaExecutionSequencerPool,
-                            serverPort: Int,
-                            services: Iterable[BindableService])(
-    implicit materializer: ActorMaterializer)
+final class Server private (
+    serverEsf: AkkaExecutionSequencerPool,
+    serverPort: Int,
+    services: Iterable[BindableService])(implicit materializer: ActorMaterializer)
     extends AutoCloseable {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val serverEventLoopGroup: NioEventLoopGroup = {
     val threadFactory =
-      new DefaultThreadFactory(
-        s"api-server-damlonx-grpc-eventloop-${UUID.randomUUID}",
-        true)
+      new DefaultThreadFactory(s"api-server-damlonx-grpc-eventloop-${UUID.randomUUID}", true)
     val parallelism = Runtime.getRuntime.availableProcessors
     new NioEventLoopGroup(parallelism, threadFactory)
   }

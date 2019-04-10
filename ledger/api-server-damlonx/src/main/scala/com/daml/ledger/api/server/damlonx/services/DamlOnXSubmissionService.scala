@@ -5,12 +5,7 @@ package com.daml.ledger.api.server.damlonx.services
 
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v1.IndexService
-import com.daml.ledger.participant.state.v1.{
-  LedgerId,
-  SubmitterInfo,
-  TransactionMeta,
-  WriteService
-}
+import com.daml.ledger.participant.state.v1.{LedgerId, SubmitterInfo, TransactionMeta, WriteService}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{
@@ -32,10 +27,7 @@ import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.platform.participant.util.ApiToLfEngine.apiCommandsToLfCommands
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
-import com.digitalasset.platform.server.api.validation.{
-  ErrorFactories,
-  IdentifierResolver
-}
+import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
 import io.grpc.BindableService
 import org.slf4j.LoggerFactory
@@ -46,15 +38,13 @@ import scala.util.Try
 
 object DamlOnXSubmissionService {
 
-  def create(identifierResolver: IdentifierResolver,
-             ledgerId: LedgerId,
-             indexService: IndexService,
-             writeService: WriteService,
-             engine: Engine)(
-      implicit ec: ExecutionContext,
-      mat: ActorMaterializer): GrpcCommandSubmissionService
-    with BindableService
-    with CommandSubmissionServiceLogging =
+  def create(
+      identifierResolver: IdentifierResolver,
+      ledgerId: LedgerId,
+      indexService: IndexService,
+      writeService: WriteService,
+      engine: Engine)(implicit ec: ExecutionContext, mat: ActorMaterializer)
+    : GrpcCommandSubmissionService with BindableService with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new DamlOnXSubmissionService(indexService, writeService, engine),
       ledgerId,
@@ -120,13 +110,12 @@ class DamlOnXSubmissionService private (
                     submitterInfo = SubmitterInfo(
                       submitter = commands.submitter.unwrap,
                       applicationId = commands.applicationId.unwrap,
-                      maxRecordTime = Timestamp.assertFromInstant(
-                        commands.maximumRecordTime), // FIXME(JM): error handling
+                      maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
                       commandId = commands.commandId.unwrap
                     ),
                     transactionMeta = TransactionMeta(
-                      ledgerEffectiveTime = Timestamp.assertFromInstant(
-                        commands.ledgerEffectiveTime),
+                      ledgerEffectiveTime =
+                        Timestamp.assertFromInstant(commands.ledgerEffectiveTime),
                       workflowId = commands.workflowId.fold("")(_.unwrap) // FIXME(JM): defaulting?
                     ),
                     transaction = updateTx
@@ -149,8 +138,7 @@ class DamlOnXSubmissionService private (
         case ResultDone(r) =>
           Future.successful(Right(r))
         case ResultNeedKey(key, resume) =>
-          Future.failed(
-            new IllegalArgumentException("Contract keys not implemented yet"))
+          Future.failed(new IllegalArgumentException("Contract keys not implemented yet"))
         case ResultNeedContract(acoid, resume) =>
           getContract(acoid).flatMap(o => resolveStep(resume(o)))
         case ResultError(err) => Future.successful(Left(err))

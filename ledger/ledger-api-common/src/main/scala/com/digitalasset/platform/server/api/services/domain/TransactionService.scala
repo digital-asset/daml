@@ -21,18 +21,16 @@ import scala.concurrent.Future
 trait TransactionService {
 
   //TODO: DEL-6426 change the output types to domain layer too
-  def getTransactions(
-      req: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed]
+  def getTransactions(req: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed]
 
-  def getTransactionTrees(req: GetTransactionTreesRequest)
-    : Source[WithOffset[String, VisibleTransaction], NotUsed]
+  def getTransactionTrees(
+      req: GetTransactionTreesRequest): Source[WithOffset[String, VisibleTransaction], NotUsed]
 
   def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute]
 
   def offsetOrdering: Ordering[LedgerOffset.Absolute]
 
-  def getTransactionById(
-      req: GetTransactionByIdRequest): Future[Option[VisibleTransaction]]
+  def getTransactionById(req: GetTransactionByIdRequest): Future[Option[VisibleTransaction]]
 
   def getTransactionByEventId(
       req: GetTransactionByEventIdRequest): Future[Option[VisibleTransaction]]

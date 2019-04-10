@@ -19,8 +19,7 @@ object Update {
   final case class Heartbeat(recordTime: Timestamp) extends Update {
     override def description: String = s"Heartbeat: $recordTime"
   }
-  final case class ConfigurationChanged(newConfiguration: Configuration)
-      extends Update {
+  final case class ConfigurationChanged(newConfiguration: Configuration) extends Update {
     override def description: String =
       s"Configuration changed to: $newConfiguration"
   }
@@ -28,8 +27,7 @@ object Update {
     override def description: String = s"Add party '$party' to participant"
   }
 
-  final case class PackageUploaded(optSubmitterInfo: Option[SubmitterInfo],
-                                   archive: DamlLf.Archive)
+  final case class PackageUploaded(optSubmitterInfo: Option[SubmitterInfo], archive: DamlLf.Archive)
       extends Update {
     override def description: String = s"Upload package ${archive.getHash}"
   }
@@ -40,8 +38,7 @@ object Update {
       transaction: CommittedTransaction,
       transactionId: String,
       recordTime: Timestamp,
-      referencedContracts: List[
-        (Value.AbsoluteContractId, AbsoluteContractInst)]
+      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
   ) extends Update {
     override def description: String = s"Accept transaction $transactionId"
   }
