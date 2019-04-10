@@ -9,6 +9,8 @@ module DAML.Project.Types
 
 import qualified Data.Yaml as Y
 import qualified Data.Text as T
+import qualified Data.SemVer as V
+import qualified Control.Lens as L
 import Data.Text (Text)
 import Data.Maybe
 import System.FilePath
@@ -44,27 +46,32 @@ newtype ProjectConfig = ProjectConfig
     } deriving (Eq, Show, Y.FromJSON)
 
 newtype SdkVersion = SdkVersion
-    { unwrapSdkVersion :: Text
-    } deriving (Eq, Show, Y.FromJSON)
+    { unwrapSdkVersion :: V.Version
+    } deriving (Eq, Ord, Show)
 
-newtype SdkChannel = SdkChannel
-    { unwrapSdkChannel :: Text
-    } deriving (Eq, Show, Y.FromJSON)
+instance Y.FromJSON SdkVersion where
+    parseJSON y = do
+        verE <- V.fromText <$> Y.parseJSON y
+        case verE of
+            Left e -> fail ("Invalid SDK version: " <> e)
+            Right v -> pure (SdkVersion v)
 
-newtype SdkSubVersion = SdkSubVersion
-    { unwrapSdkSubVersion :: Text
-    } deriving (Eq, Show, Y.FromJSON)
+data SdkChannel
+    = Stable
+    | Unstable
+    | Custom [V.Identifier]
+    deriving (Eq, Ord, Show)
 
-splitVersion :: SdkVersion -> (SdkChannel, SdkSubVersion)
-splitVersion (SdkVersion v) =
-    case T.splitOn "-" v of
-        [] -> error "Logic error: empty version name."
-        (ch : rest) -> (SdkChannel ch, SdkSubVersion (T.intercalate "-" rest))
+versionChannel :: SdkVersion -> SdkChannel
+versionChannel (SdkVersion v) =
+    let ch = v L.^. V.release in
+    case ch of
+        [] -> Stable
+        [u] | Just u == V.textual "unstable" -> Unstable
+        _ -> Custom ch
 
-joinVersion :: (SdkChannel, SdkSubVersion) -> SdkVersion
-joinVersion (SdkChannel a, SdkSubVersion "") = SdkVersion a
-joinVersion (SdkChannel a, SdkSubVersion b) = SdkVersion (a <> "-" <> b)
-
+isStableVersion :: SdkVersion -> Bool
+isStableVersion = (== Stable) . versionChannel
 
 -- | File path of daml installation root (by default ~/.daml on unix, %APPDATA%/daml on windows).
 newtype DamlPath = DamlPath
@@ -83,8 +90,8 @@ newtype SdkPath = SdkPath
 
 -- | Default way of constructing sdk paths.
 defaultSdkPath :: DamlPath -> SdkVersion -> SdkPath
-defaultSdkPath (DamlPath root) (SdkVersion version) =
-    SdkPath (root </> "sdk" </> T.unpack version)
+defaultSdkPath (DamlPath root) (SdkVersion v) =
+    SdkPath (root </> "sdk" </> V.toString (L.set V.metadata [] v))
 
 -- | File path of sdk command binary, relative to sdk root.
 newtype SdkCommandPath = SdkCommandPath
