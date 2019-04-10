@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.transaction
 
-import com.digitalasset.daml.lf.data.BackStack
+import com.digitalasset.daml.lf.data.{BackStack, ImmArray}
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.transaction.Node._
@@ -17,7 +17,6 @@ import scala.collection.JavaConverters._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.traverse.ToTraverseOps
 import scalaz.std.either.eitherMonad
-import scalaz.std.stream.streamInstance
 
 object TransactionCoder {
 
@@ -351,7 +350,9 @@ object TransactionCoder {
     val tx = transaction.transaction
     val txVersion: TransactionVersion = transaction.version
     val roots = tx.roots.map(encodeNid)
-    val mbNodes = tx.nodes.toStream.traverseU {
+    // use `ImmArray` rather than `toStream` or similar since `traverseU` for `ImmArray` is stack safe.
+    // TODO(FM) it would be nice to have a streaming data structure with a stack-safe `Traversable`.
+    val mbNodes = ImmArray(tx.nodes).traverseU {
       case (id, node) =>
         encodeNode(
           encodeNid,
@@ -367,7 +368,7 @@ object TransactionCoder {
         .newBuilder()
         .setVersion(txVersion.protoValue)
         .addAllRoots(roots.toList.asJava)
-        .addAllNodes(nodes.asJava)
+        .addAllNodes(nodes.toSeq.asJava)
         .build()
     })
   }
