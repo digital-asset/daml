@@ -41,7 +41,7 @@ template T
     maintainer this.k.s.m -- This doesn't work without qualifying with
                           -- `this`. Is that expected?
 
--- (3) Port './ContractKeys.daml' to DAML syntax.
+-- (3)
 
 template AccountInvitation with
     account : Account
