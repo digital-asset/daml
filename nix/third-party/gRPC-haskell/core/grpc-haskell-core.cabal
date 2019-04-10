@@ -54,12 +54,6 @@ library
     Network.GRPC.LowLevel.Client
   extra-libraries:
       grpc
-    , gpr
-    , ssl
-    , cares
-    , z
-    , c++
-    , c++abi
   includes:
       include/grpc_haskell.h
     , grpc/grpc.h
