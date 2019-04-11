@@ -1,5 +1,5 @@
 transactions:
-TX #0 1970-01-01T00:00:00Z [unknown source]
+TX #0 1970-01-01T00:00:00Z [Test:28]
 #0:0
 │   archived by #8:1
 │   referenced by #4:0, #5:0, #8:0, #8:1
@@ -8,35 +8,35 @@ TX #0 1970-01-01T00:00:00Z [unknown source]
     with: { p = 'Alice', tkKey = "some-key" } value-version: 1
 key { _1 = 'Alice', _2 = "some-key" } value-version: 1
 
-mustFailAt 'Alice' [unknown source]
+mustFailAt 'Alice' [Test:34]
 
-mustFailAt 'Bob' [unknown source]
+mustFailAt 'Bob' [Test:40]
 
-mustFailAt 'Bob' [unknown source]
+mustFailAt 'Bob' [Test:42]
 
-TX #4 1970-01-01T00:00:00Z [unknown source]
+TX #4 1970-01-01T00:00:00Z [Test:45]
 #4:0
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "some-key" } value-version: 1
 found #0:0
 
-TX #5 1970-01-01T00:00:00Z [unknown source]
+TX #5 1970-01-01T00:00:00Z [Test:49]
 #5:0
 └─> ensure active #0:0
 
-TX #6 1970-01-01T00:00:00Z [unknown source]
+TX #6 1970-01-01T00:00:00Z [Test:53]
 #6:0
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "blah" } value-version: 1
 not found
 
-TX #7 1970-01-01T00:00:00Z [unknown source]
+TX #7 1970-01-01T00:00:00Z [Test:57]
 #7:0
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Bob', _2 = "some-key" } value-version: 1
 not found
 
-TX #8 1970-01-01T00:00:00Z [unknown source]
+TX #8 1970-01-01T00:00:00Z [Test:61]
 #8:0
 └─> ensure active #0:0
 
@@ -46,13 +46,13 @@ TX #8 1970-01-01T00:00:00Z [unknown source]
     with {  } value-version: 1
     
 
-TX #9 1970-01-01T00:00:00Z [unknown source]
+TX #9 1970-01-01T00:00:00Z [Test:64]
 #9:0
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "some-key" } value-version: 1
 not found
 
-TX #10 1970-01-01T00:00:00Z [unknown source]
+TX #10 1970-01-01T00:00:00Z [Test:70]
 #10:0
 │   archived by #11:1
 │   referenced by #11:0, #11:1
@@ -61,7 +61,7 @@ TX #10 1970-01-01T00:00:00Z [unknown source]
     with: { p = 'Alice', tkKey = "some-key-2" } value-version: 1
 key { _1 = 'Alice', _2 = "some-key-2" } value-version: 1
 
-TX #11 1970-01-01T00:00:00Z [unknown source]
+TX #11 1970-01-01T00:00:00Z [Test:74]
 #11:0
 └─> ensure active #10:0
 

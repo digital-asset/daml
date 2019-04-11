@@ -526,6 +526,8 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
 
 checkValidKeyExpr :: MonadGamma m => Expr -> m ()
 checkValidKeyExpr = \case
+  ELocation _loc expr ->
+    checkValidKeyExpr expr
   ERecCon _typ recordExpr -> do
       traverse_ (checkValidKeyExpr . snd) recordExpr
   expr ->
@@ -533,6 +535,8 @@ checkValidKeyExpr = \case
 
 checkValidProjectionsKey :: MonadGamma m => Expr -> m ()
 checkValidProjectionsKey = \case
+  ELocation _loc expr ->
+    checkValidProjectionsKey expr
   EVar _var ->
     pure ()
   ERecProj _typ _field rec ->
