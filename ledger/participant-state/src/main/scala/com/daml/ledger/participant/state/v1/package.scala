@@ -64,13 +64,28 @@ package object v1 {
   /** Identifiers for parties, MUST match regexp [a-zA-Z0-9-]. */
   type Party = String
 
-  /** Update identifier used to identify positions in the stream of updates.
-    * The update identifier is a prefix-free monotonically increasing vector of
-    * integers. */
+  /** The ledger offsets.
+    * This extends the update identifier with further elements in order to
+    * insert ephemeral rejection events into the event stream, while
+    * retaining the ordering.
+    */
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final case class UpdateId(xs: Array[Int]) {
+  final case class Offset(private val xs: Array[Int]) {
     override def toString: String =
       xs.mkString("-")
+
+    def components: Iterable[Int] = xs
+  }
+  implicit object Offset extends Ordering[Offset] {
+
+    /** Create an offset from a string of form 1-2-3. Throws
+      * NumberFormatException on misformatted strings.
+      */
+    def assertFromString(s: String): Offset =
+      Offset(s.split('-').map(_.toInt))
+
+    override def compare(x: Offset, y: Offset): Int =
+      scala.math.Ordering.Iterable[Int].compare(x.xs, y.xs)
   }
 
   /** The type for an yet uncommitted transaction with relative contact

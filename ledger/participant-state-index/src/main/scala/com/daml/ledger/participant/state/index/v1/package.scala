@@ -17,35 +17,6 @@ package object v1 {
   type TransactionAccepted = Update.TransactionAccepted
   type AsyncResult[T] = Future[Either[IndexService.Err, T]]
 
-  /** The ledger offsets.
-    * This extends the update identifier with further elements in order to
-    * insert ephemeral rejection events into the event stream, while
-    * retaining the ordering.
-    */
-  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final case class Offset(private val xs: Array[Int]) {
-    override def toString: String =
-      xs.mkString("-")
-
-    def components: Iterable[Int] = xs
-  }
-
-  implicit object Offset extends Ordering[Offset] {
-
-    def fromUpdateId(uId: UpdateId): Offset =
-      Offset(uId.xs)
-
-    /** Create an offset from a string of form 1-2-3. Throws
-      * NumberFormatException on misformatted strings.
-      */
-    def assertFromString(s: String): Offset =
-      Offset(s.split('-').map(_.toInt))
-
-    override def compare(x: Offset, y: Offset): Int =
-      scala.math.Ordering.Iterable[Int].compare(x.xs, y.xs)
-
-  }
-
   /** ACS event identifier */
   type EventId = String
 

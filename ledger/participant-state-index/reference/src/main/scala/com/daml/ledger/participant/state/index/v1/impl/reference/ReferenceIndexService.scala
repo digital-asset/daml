@@ -72,7 +72,7 @@ final case class ReferenceIndexService(participantReadService: participant.state
 
   // Sink for updating the index state and forwarding the update and the resulting
   // new state to subscribers.
-  private val updateStateSink = Sink.foreach[Seq[(UpdateId, Update)]] { batch =>
+  private val updateStateSink = Sink.foreach[Seq[(Offset, Update)]] { batch =>
     // Process the state update batch
     StateController.updateState { state =>
       batch.foldLeft(state) {
@@ -143,18 +143,17 @@ final case class ReferenceIndexService(participantReadService: participant.state
 
   override def getLedgerBeginning(ledgerId: LedgerId): AsyncResult[Offset] =
     asyncResultWithState(ledgerId) { state =>
-      Future.successful(Offset.fromUpdateId(state.getBeginning))
+      Future.successful(state.getBeginning)
     }
 
   override def getLedgerEnd(ledgerId: LedgerId): AsyncResult[Offset] =
     asyncResultWithState(ledgerId) { state =>
-      Future.successful(Offset.fromUpdateId(state.getUpdateId))
+      Future.successful(state.getUpdateId)
     }
 
   override def getLedgerBounds(ledgerId: LedgerId): AsyncResult[(Offset, Offset)] =
     asyncResultWithState(ledgerId) { state =>
-      Future.successful(
-        (Offset.fromUpdateId(state.getBeginning), Offset.fromUpdateId(state.getUpdateId)))
+      Future.successful((state.getBeginning, state.getUpdateId))
     }
 
   private def nodeIdToEventId(txId: TransactionId, nodeId: NodeId): String =
@@ -220,7 +219,7 @@ final case class ReferenceIndexService(participantReadService: participant.state
                   (workflowId, create)
               }
               .toIterator)
-      Future.successful(ActiveContractSetSnapshot(Offset.fromUpdateId(state.getUpdateId), events))
+      Future.successful(ActiveContractSetSnapshot(state.getUpdateId, events))
     }
 
   override def getActiveContractSetUpdates(
@@ -321,7 +320,7 @@ final case class ReferenceIndexService(participantReadService: participant.state
         }
         .toList
 
-    (CompletionEvent.Checkpoint(Offset.fromUpdateId(state.getUpdateId), state.getRecordTime)
+    (CompletionEvent.Checkpoint(state.getUpdateId, state.getRecordTime)
       +: (accepted ++ rejected)).sortBy(_.offset)
   }
 
@@ -339,7 +338,7 @@ final case class ReferenceIndexService(participantReadService: participant.state
           .subscribe(ledgerId)
           .statefulMapConcat({ () =>
             var currentOffset: Offset =
-              beginAfter.getOrElse(Offset.fromUpdateId(state0.getBeginning))
+              beginAfter.getOrElse(state0.getBeginning)
             state =>
               val completions = getCompletionsFromState(state, currentOffset, applicationId)
               currentOffset = completions.last.offset

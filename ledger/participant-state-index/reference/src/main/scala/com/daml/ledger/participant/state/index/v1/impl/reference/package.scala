@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.index.v1.impl
 
-import com.daml.ledger.participant.state.v1.{Update, UpdateId}
+import com.daml.ledger.participant.state.v1.{Update, Offset}
 
 /**
   * This package contains the reference in-memory implementation of the
@@ -12,6 +12,6 @@ import com.daml.ledger.participant.state.v1.{Update, UpdateId}
 package object reference {
 
   trait UpdateConsumer {
-    def offer(updateId: UpdateId, update: Update, newState: IndexState): Unit
+    def offer(updateId: Offset, update: Update, newState: IndexState): Unit
   }
 }

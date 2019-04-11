@@ -9,7 +9,7 @@ import akka.stream.scaladsl.Source
 trait ReadService {
 
   /** Get the stream of state updates starting from the beginning of the
-    * given [[UpdateId]]
+    * given [[Offset]]
     *
     * Correct implementations of this method need to satisfy the properties
     * listed below. These properties fall into two categories:
@@ -21,10 +21,10 @@ trait ReadService {
     *
     * We explain them in turn.
     *
-    * - *strictly increasing [[UpdateId]]s*:
+    * - *strictly increasing [[Offset]]s*:
     *   for any two consecutive tuples `(i1, u1)` and `(i2,u2)` in the
     *   stream `i1` is strictly smaller than `i2` when lexicographically
-    *   comparing the [[UpdateId]]s.
+    *   comparing the [[Offset]]s.
     *
     * - *initialize before transaction acceptance*: before any
     *   [[Update.TransactionAccepted]], there are a [[Update.ConfigurationChanged]] update
@@ -34,5 +34,5 @@ trait ReadService {
     * TODO (SM): write more properties
     *
     */
-  def stateUpdates(beginAfter: Option[UpdateId]): Source[(UpdateId, Update), NotUsed]
+  def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed]
 }

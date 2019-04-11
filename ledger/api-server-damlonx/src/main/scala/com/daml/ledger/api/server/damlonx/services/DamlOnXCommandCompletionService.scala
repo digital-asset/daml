@@ -20,8 +20,8 @@ import io.grpc.Status.Code
 import io.grpc.{BindableService, ServerServiceDefinition}
 import org.slf4j.LoggerFactory
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-import com.daml.ledger.participant.state.v1.RejectionReason
-import com.daml.ledger.participant.state.index.v1.{CompletionEvent, IndexService, Offset}
+import com.daml.ledger.participant.state.v1.{Offset, RejectionReason}
+import com.daml.ledger.participant.state.index.v1.{CompletionEvent, IndexService}
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -129,8 +129,10 @@ object DamlOnXCommandCompletionService {
   def create(indexService: IndexService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
-    : CommandCompletionServiceValidation with BindableService with AutoCloseable with CommandCompletionServiceLogging = {
+      esf: ExecutionSequencerFactory): CommandCompletionServiceValidation
+    with BindableService
+    with AutoCloseable
+    with CommandCompletionServiceLogging = {
     val impl = new DamlOnXCommandCompletionService(indexService)
 
     val ledgerId = Await.result(indexService.getLedgerId(), 5.seconds)

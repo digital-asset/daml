@@ -8,8 +8,8 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.participant.state.index.v1.{IndexService, Offset, TransactionAccepted}
-import com.daml.ledger.participant.state.v1.LedgerId
+import com.daml.ledger.participant.state.index.v1.{IndexService, TransactionAccepted}
+import com.daml.ledger.participant.state.v1.{LedgerId, Offset}
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.transaction.Transaction.NodeId

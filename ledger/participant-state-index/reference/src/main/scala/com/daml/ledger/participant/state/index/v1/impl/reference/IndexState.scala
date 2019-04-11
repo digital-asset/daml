@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.index.v1.impl.reference
 
-import com.daml.ledger.participant.state.index.v1.Offset
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Relation.Relation
@@ -22,8 +21,8 @@ import scala.collection.immutable.TreeMap
 
 final case class IndexState(
     private val ledgerId: Option[LedgerId],
-    private val updateId: Option[UpdateId],
-    private val beginning: Option[UpdateId],
+    private val updateId: Option[Offset],
+    private val beginning: Option[Offset],
     private val configuration: Option[Configuration],
     private val recordTime: Option[Timestamp],
     // Accepted transactions indexed by offset.
@@ -53,15 +52,15 @@ final case class IndexState(
     x.getOrElse(sys.error("INTERNAL ERROR: State not yet initialized."))
 
   def getLedgerId: LedgerId = getIfInitialized(ledgerId)
-  def getUpdateId: UpdateId = getIfInitialized(updateId)
-  def getBeginning: UpdateId = getIfInitialized(beginning)
+  def getUpdateId: Offset = getIfInitialized(updateId)
+  def getBeginning: Offset = getIfInitialized(beginning)
   def getConfiguration: Configuration = getIfInitialized(configuration)
   def getRecordTime: Timestamp = getIfInitialized(recordTime)
 
   /** Return a new state with the given update applied or the
     * invariant violation in case that is not possible.
     */
-  def tryApply(uId: UpdateId, u0: Update): Either[InvariantViolation, IndexState] = {
+  def tryApply(uId: Offset, u0: Update): Either[InvariantViolation, IndexState] = {
     val state = this.copy(
       updateId = Some(uId),
       beginning = if (this.beginning.isEmpty) Some(uId) else this.beginning
@@ -107,7 +106,7 @@ final case class IndexState(
       case u: Update.CommandRejected =>
         Right(
           state.copy(
-            rejections = rejections + (Offset.fromUpdateId(uId) -> u)
+            rejections = rejections + (uId -> u)
           )
         )
       case u: Update.TransactionAccepted =>
@@ -118,7 +117,7 @@ final case class IndexState(
         logger.debug(s"blindingInfo=$blindingInfo")
         Right(
           state.copy(
-            txs = txs + (Offset.fromUpdateId(uId) -> ((u, blindingInfo))),
+            txs = txs + (uId -> ((u, blindingInfo))),
             activeContracts =
               activeContracts -- consumedContracts(u.transaction) ++ createdContracts(u.transaction)
           )

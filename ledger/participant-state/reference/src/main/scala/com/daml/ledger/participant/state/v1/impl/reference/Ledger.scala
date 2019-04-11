@@ -83,8 +83,8 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       () => submitHeartbeat()
     )(ec)
 
-  def getCurrentLedgerEnd: UpdateId =
-    mkUpdateId(StateController.getState().ledger.size)
+  def getCurrentLedgerEnd: Offset =
+    mkOffset(StateController.getState().ledger.size)
 
   /**
     * Submit the supplied transaction to the ledger and notify all ledger event subscriptions of the
@@ -151,7 +151,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
             submitterInfo,
             transactionMeta,
             transaction,
-            mkUpdateId(newOffset),
+            mkOffset(newOffset),
             recordedAt,
             inputContracts)
         }
@@ -163,7 +163,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       val ledger = prevState.ledger :+ event
 
       // assign any new outputs absolute contract ids
-      val outputs = mkContractOutputs(transaction, txDelta, mkUpdateId(newOffset))
+      val outputs = mkContractOutputs(transaction, txDelta, mkOffset(newOffset))
 
       // prune active contract cache of any consumed inputs and add the outputs
       val activeContracts = (prevState.activeContracts -- txDelta.inputs) ++ outputs
@@ -252,15 +252,15 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   /**
     * Subscribe to the stream of ledger sync events
     */
-  def ledgerSyncEvents(updateId: Option[UpdateId]): Source[(UpdateId, v1.Update), NotUsed] = {
+  def ledgerSyncEvents(offset: Option[Offset]): Source[(Offset, v1.Update), NotUsed] = {
     StateController
       .subscribe()
       .statefulMapConcat { () =>
-        var currentOffset = updateId.map(updateIdToOffset).getOrElse(0)
+        var currentOffset: Int = offset.flatMap(_.components.headOption).getOrElse(0)
         state =>
           val newEvents = state.ledger.zipWithIndex
             .drop(currentOffset)
-            .map { case (u, i) => (mkUpdateId(i), u) }
+            .map { case (u, i) => (mkOffset(i), u) }
           currentOffset += newEvents.size
 
           logger.trace(
@@ -302,8 +302,8 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   private def mkContractOutputs(
       transaction: SubmittedTransaction,
       txDelta: TxDelta,
-      updateId: UpdateId): Map[AbsoluteContractId, AbsoluteContractInst] = {
-    val txId = updateIdToTxId(updateId)
+      offset: Offset): Map[AbsoluteContractId, AbsoluteContractInst] = {
+    val txId = offset.toString
 
     txDelta.outputs.toList.map {
       case (contractId, contract) =>
@@ -317,10 +317,10 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
-      updateId: UpdateId,
+      offset: Offset,
       recordTime: Instant,
       inputContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
-    val txId = updateIdToTxId(updateId) // for this ledger, offset is also the transaction id
+    val txId = offset.toString // for this ledger, offset is also the transaction id
     TransactionAccepted(
       Some(submitterInfo),
       transactionMeta,
@@ -334,14 +334,16 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   private def mkRejectedCommand(rejectionReason: RejectionReason, submitterInfo: SubmitterInfo) =
     CommandRejected(Some(submitterInfo), rejectionReason)
 
-  private def mkUpdateId(offset: Int): UpdateId =
-    UpdateId(Array(offset))
+  private def mkOffset(offset: Int): Offset =
+    Offset(Array(offset))
 
-  private def updateIdToTxId(updateId: UpdateId): String =
+  /*
+  private def updateIdToTxId(offset: Offset): String =
     updateId.xs.mkString("-")
 
-  private def updateIdToOffset(updateId: UpdateId): Int =
+  private def updateIdToOffset(updateId: Offset): Int =
     updateId.xs.headOption.getOrElse(sys.error(s"Invalid update id: $updateId"))
+   */
 
   private def emptyLedgerState = {
     val heartbeat: Update = Heartbeat(Timestamp.assertFromInstant(timeProvider.getCurrentTime))
