@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.v1.impl.reference
 
 import com.daml.ledger.participant.state.v1
 
+// FIXME (SM): why not implement that interface directly on 'Ledger'?
 class ReferenceWriteService(ledger: Ledger) extends v1.WriteService {
 
   override def submitTransaction(

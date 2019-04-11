@@ -97,6 +97,10 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       submitterInfo: v1.SubmitterInfo,
       transactionMeta: v1.TransactionMeta,
       transaction: SubmittedTransaction): Unit = {
+    // FIXME (SM): using a Future for the `submitTransaction` method would
+    // allow to do some potentially heavy computation incl. pushing the data
+    // out over the wire. Might be easier to implement than requiring to do a
+    // hand-over between multiple threads.
     submit(submitterInfo, transactionMeta, transaction)
   }
 
@@ -143,9 +147,9 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
         yield ()) match {
         case Left(event) => event
         case Right(()) => {
-          val inputKeys = txDelta.inputs ++ txDelta.inputs_nc
+          val inputContractIds = txDelta.inputs ++ txDelta.inputs_nc
           val inputContracts = prevState.activeContracts
-            .filterKeys(inputKeys.contains(_))
+            .filterKeys(inputContractIds.contains(_))
             .toList
           mkAcceptedTransaction(
             submitterInfo,
@@ -169,6 +173,10 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       val activeContracts = (prevState.activeContracts -- txDelta.inputs) ++ outputs
 
       // record in duplication check cache
+      //
+      // TODO (SM): make duplication check also include the submitter
+      // https://github.com/digital-asset/daml/issues/387
+      //
       val duplicationCheck = prevState.duplicationCheck + (
         (
           submitterInfo.applicationId,
@@ -211,7 +219,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   }
 
   /**
-    * Check submission for duplicates, time-outs and consistency
+    * Check submission for duplicates, time-outs wrt maxRecordTime and consistency
     * NOTE: this is performed pre-commit prior to validation and also
     * during commit while the ledger state lock is held.
     */
@@ -231,6 +239,15 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     // time validation
     validator
       .checkLet(
+        // FIXME (SM): this is racy. We need to reflect current time into the
+        // ledger-state and compare it there!
+        //
+        // I wonder why the validator needs all these params! We'd probably be
+        // better off inlining the checks here.
+        //
+        // Also note that this needs to go hand-in-hand with adding the
+        // TimeConfiguration as per https://github.com/digital-asset/daml/issues/385
+        //
         timeProvider.getCurrentTime,
         transactionMeta.ledgerEffectiveTime.toInstant,
         submitterInfo.maxRecordTime.toInstant,
@@ -336,14 +353,6 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
 
   private def mkOffset(offset: Int): Offset =
     Offset(Array(offset))
-
-  /*
-  private def updateIdToTxId(offset: Offset): String =
-    updateId.xs.mkString("-")
-
-  private def updateIdToOffset(updateId: Offset): Int =
-    updateId.xs.headOption.getOrElse(sys.error(s"Invalid update id: $updateId"))
-   */
 
   private def emptyLedgerState = {
     val heartbeat: Update = Heartbeat(Timestamp.assertFromInstant(timeProvider.getCurrentTime))

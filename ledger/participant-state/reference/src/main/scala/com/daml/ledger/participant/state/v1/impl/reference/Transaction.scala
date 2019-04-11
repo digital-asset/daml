@@ -94,6 +94,8 @@ object Transaction {
       .get
       .transaction
 
+  // TODO (SM): document this and the methods below and why they are used that
+  // way https://github.com/digital-asset/daml/issues/388
   val cidEncoder: ValueCoder.EncodeCid[ContractId] =
     ValueCoder.EncodeCid(
       {
