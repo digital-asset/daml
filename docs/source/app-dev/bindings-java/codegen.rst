@@ -15,9 +15,10 @@ Download
 ========
 
 You can download the `latest version <https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/java/codegen/$latest/codegen-$latest.jar?bt_package=sdk-components>`__  of the Java codegen. Make sure that the following versions are aligned:
+
 * the downloaded Java codegen jar file, eg. 10x.y.z
 * the dependency to :ref:`bindings-java <daml-codegen-java-compiling>`, eg. 10x.y.z
-* the ``sdk-version`` attribute in the ``da.yaml`` file, eg. x.y.z
+* the ``sdk-version`` attribute in the :ref:`da.yaml <da-yaml-configuration>` file, eg. x.y.z
 
 .. _daml-codegen-java-running:
 
