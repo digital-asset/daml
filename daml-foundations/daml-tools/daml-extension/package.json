@@ -3,12 +3,13 @@
     "displayName": "DAML Studio",
     "description": "DAML editing and analysis tools",
     "version": "1.0.0",
-    "publisher": "Digital Asset",
+    "publisher": "DigitalAssetHoldingsLLC",
+    "repository": "http://www.github.com/digital-asset",
     "icon": "images/daml-studio.png",
     "engines": {
         "vscode": "^1.32.0"
     },
-    "license": "All Rights Reserved",
+    "license": "Apache-2.0",
     "private": true,
     "activationEvents": [
         "onLanguage:daml",
