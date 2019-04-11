@@ -170,7 +170,7 @@ buildHaskellPackage (fixNames -> o@Metadata{..}) = do
                 (reverse . drop 1 . reverse . wordsBy (== '.')) $ main_
 
         -- Include the main module name, if it's missing
-        let modules = nubSort $ mainMod : modules
+        modules <- pure $ nubSort $ mainMod : modules
 
         rpath <- ghcLibPath
 
