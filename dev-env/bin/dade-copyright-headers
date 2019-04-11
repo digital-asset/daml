@@ -127,6 +127,9 @@ def process_file(filename, check_only):
   # Read all lines from the file
   with open(filename, 'r', encoding="UTF-8") as fp:
     lines = fp.readlines()
+  # Pretend that the file has extra empty line at the end to handle files,
+  # which consist only of the copyright notice and nothing else.
+  lines.append('\n')
 
   # Process the file:
   # If we find an existing copyright header with the same starting line
