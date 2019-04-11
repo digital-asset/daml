@@ -139,3 +139,39 @@ EOF
     """,
     visibility = ["//visibility:public"],
 )
+
+# Same as the above, but with head version 0.0.0.
+genrule(
+    name = "sdk-head-tarball",
+    srcs = [
+        ":config.yaml.tmpl",
+        ":sdk-release-tarball.tar.gz",
+    ],
+    outs = ["sdk-head-tarball.tar.gz"],
+    cmd = """
+
+      VERSION=0.0.0
+      OUT=sdk-head
+      mkdir -p $$OUT
+      tar xf $(location sdk-release-tarball.tar.gz) --strip-components=1 -C $$OUT
+
+      cp $(location :config.yaml.tmpl) $$OUT/config.yaml
+      sed -i "s/__VERSION__/$$VERSION/" $$OUT/config.yaml
+
+      rm $$OUT/templates/quickstart-java/daml.yaml
+      cat > $$OUT/templates/quickstart-java/daml.yaml << EOF
+sdk-version: $$VERSION
+name: quickstart
+source: daml/Main.daml
+scenario: Main:setup
+parties:
+  - Alice
+  - Bob
+  - USD_Bank
+  - EUR_Bank
+EOF
+
+      tar zcf $(location sdk-head-tarball.tar.gz) --format=ustar $$OUT
+    """,
+    visibility = ["//visibility:public"],
+)
