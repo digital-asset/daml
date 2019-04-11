@@ -8,6 +8,7 @@ import java.net.ServerSocket
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 
+import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.{
   HikariJdbcConnectionProvider,
   JdbcConnectionProvider
@@ -46,16 +47,32 @@ trait PostgresAroundEach extends PostgresAround with BeforeAndAfterEach {
 
 }
 
+case class PostgresFixture(
+    jdbcUrl: String,
+    connectionProvider: JdbcConnectionProvider,
+    tempDir: Path,
+    dataDir: Path)
+
+private class PostgresResource extends Resource[PostgresFixture] with PostgresAround {
+
+  override def value: PostgresFixture = postgresFixture
+
+  override def setup(): Unit = {
+    postgresFixture = startEphemeralPg()
+  }
+
+  override def close(): Unit = {
+    stopAndCleanUp(postgresFixture.tempDir, postgresFixture.dataDir)
+  }
+}
+
+object PostgresResource {
+  def apply(): Resource[PostgresFixture] = new PostgresResource
+}
+
 trait PostgresAround {
-  self: org.scalatest.Suite =>
 
   protected val testUser = "test"
-
-  case class PostgresFixture(
-      jdbcUrl: String,
-      connectionProvider: JdbcConnectionProvider,
-      tempDir: Path,
-      dataDir: Path)
 
   @volatile
   protected var postgresFixture: PostgresFixture = null

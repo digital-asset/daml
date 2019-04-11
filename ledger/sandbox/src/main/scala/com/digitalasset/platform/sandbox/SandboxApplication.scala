@@ -87,10 +87,10 @@ object SandboxApplication {
         case None => ("in-memory", Ledger.inMemory(ledgerId, timeProvider, acs, records))
         case Some(jdbcUrl) =>
           sys.error("Postgres persistence is not supported yet.") //TODO: remove this when we do
-//          val ledgerF = Ledger.postgres(jdbcUrl, ledgerId, timeProvider, records)
-//          val ledger = Try(Await.result(ledgerF, asyncTolerance))
-//            .getOrElse(sys.error("Could not start PostgreSQL persistence layer"))
-//          (s"sql", ledger)
+        //          val ledgerF = Ledger.postgres(jdbcUrl, ledgerId, timeProvider, records)
+        //          val ledger = Try(Await.result(ledgerF, asyncTolerance))
+        //            .getOrElse(sys.error("Could not start PostgreSQL persistence layer"))
+        //          (s"sql", ledger)
       }
 
       val ledgerBackend = new SandboxLedgerBackend(ledger)

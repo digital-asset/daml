@@ -309,13 +309,13 @@ class PostgresDaoSpec
       def storeCreateTransaction() = {
         val offset = nextOffset()
         val t = genCreateTransaction(offset)
-        ledgerDao.storeLedgerEntry(offset, offset + 1, t)
+        ledgerDao.storeLedgerEntry(offset, offset + 1, t).map(_ => ())
       }
 
       def storeExerciseTransaction(targetCid: AbsoluteContractId) = {
         val offset = nextOffset()
         val t = genExerciseTransaction(offset, targetCid)
-        ledgerDao.storeLedgerEntry(offset, offset + 1, t)
+        ledgerDao.storeLedgerEntry(offset, offset + 1, t).map(_ => ())
       }
 
       val sumSink = Sink.fold[Int, Int](0)(_ + _)
@@ -338,7 +338,7 @@ class PostgresDaoSpec
         _ <- storeExerciseTransaction(AbsoluteContractId(s"cId$startingOffset"))
         snapshotOffset <- ledgerDao.lookupLedgerEnd()
         snapshot <- ledgerDao.getActiveContractSnapshot()
-        _ <- runSequentially(M, _ => storeCreateTransaction)
+        _ <- runSequentially(M, _ => storeCreateTransaction())
         endingOffset <- ledgerDao.lookupLedgerEnd()
         startingSnapshotSize <- startingSnapshot.acs.map(t => 1).runWith(sumSink)
         snapshotSize <- snapshot.acs.map(t => 1).runWith(sumSink)

@@ -1,0 +1,20 @@
+load("@ai_formation_hazel//third_party/cabal2bazel:bzl/cabal_package.bzl",
+     "cabal_haskell_package",
+     "hazel_symlink")
+load("@hazel_base_repository//:extra-libs.bzl",
+  "extra_libs",
+)
+load("@com_github_digital_asset_daml//3rdparty/haskell:c2hs-package.bzl", "package")
+# Make a buildable target for easier debugging of the package.bzl file
+hazel_symlink(
+  name = "bzl",
+  src = "@com_github_digital_asset_daml//3rdparty/haskell:c2hs-package.bzl",
+  out = "package-bzl",
+)
+cabal_haskell_package(
+  package,
+  "8.6.4
+",
+  "@io_tweag_rules_haskell_ghc_windows_amd64",
+  extra_libs,
+)

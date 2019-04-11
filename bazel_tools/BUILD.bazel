@@ -5,6 +5,7 @@
 exports_files(
     [ "haskell.bzl",
       "scala.bzl",
+      "haskell-c2hs.patch",
       "haskell-static-linking.patch",
       "haskell-hazel-shorten-source-dirs.patch",
       "haskell-arx.patch",

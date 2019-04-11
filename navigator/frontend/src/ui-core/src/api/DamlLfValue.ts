@@ -28,6 +28,8 @@ export type DamlLfValueList       = { type: 'list', value: DamlLfValue[] }
 export type DamlLfValueRecord     = { type: 'record', id: DamlLfIdentifier, fields: DamlLfRecordField[] }
 export type DamlLfValueVariant    = { type: 'variant', id: DamlLfIdentifier, constructor: string, value: DamlLfValue }
 export type DamlLfValueUndefined  = { type: 'undefined' }
+export type DamlLfValueMap        = { type: 'map', value: DamlLfValueMapEntry[] }
+export type DamlLfValueMapEntry   = { key: string, value: DamlLfValue }
 
 export type DamlLfValue
   = DamlLfValueText
@@ -41,6 +43,7 @@ export type DamlLfValue
   | DamlLfValueUnit
   | DamlLfValueOptional
   | DamlLfValueList
+  | DamlLfValueMap
   | DamlLfValueRecord
   | DamlLfValueVariant
   | DamlLfValueUndefined
@@ -50,7 +53,7 @@ export type DamlLfValue
 // --------------------------------------------------------------------------------------------------------------------
 
 const valueUndef: DamlLfValueUndefined = { type: 'undefined' };
-const valueUnit: DamlLfValueUnit = { type: 'unit' }
+const valueUnit: DamlLfValueUnit = { type: 'unit' };
 
 export function text(value: string): DamlLfValueText { return { type: 'text', value }}
 export function int64(value: string): DamlLfValueInt64 { return { type: 'int64', value }}
@@ -63,6 +66,8 @@ export function party(value: string): DamlLfValueParty { return { type: 'party'
 export function unit(): DamlLfValueUnit { return valueUnit }
 export function optional(value: DamlLfValue | null): DamlLfValueOptional { return { type: 'optional', value }}
 export function list(value: DamlLfValue[]): DamlLfValueList { return { type: 'list', value }}
+export function map(value: DamlLfValueMapEntry[]): DamlLfValueMap { return { type: 'map', value }}
+export function mapEntry(key: string, value: DamlLfValue): DamlLfValueMapEntry { return { key, value } }
 export function record(id: DamlLfIdentifier, fields: DamlLfRecordField[]): DamlLfValueRecord {
   return { type: 'record', id, fields }
 }
@@ -80,15 +85,24 @@ export function evalPath(value: DamlLfValue, path: string[], index: number = 0):
   const notFound = undefined
   const isLast = index === path.length - 1
   switch (value.type) {
-    case 'text':        return isLast ? value.value : notFound;
-    case 'int64':       return isLast ? value.value : notFound;
-    case 'decimal':     return isLast ? value.value : notFound;
-    case 'bool':        return isLast ? value.value : notFound;
-    case 'contractid':  return isLast ? value.value : notFound;
-    case 'timestamp':   return isLast ? value.value : notFound;
-    case 'date':        return isLast ? value.value : notFound;
-    case 'party':       return isLast ? value.value : notFound;
-    case 'unit':        return isLast ? {} : notFound;
+    case 'text':
+      return isLast ? value.value : notFound;
+    case 'int64':
+      return isLast ? value.value : notFound;
+    case 'decimal':
+      return isLast ? value.value : notFound;
+    case 'bool':
+      return isLast ? value.value : notFound;
+    case 'contractid':
+      return isLast ? value.value : notFound;
+    case 'timestamp':
+      return isLast ? value.value : notFound;
+    case 'date':
+      return isLast ? value.value : notFound;
+    case 'party':
+      return isLast ? value.value : notFound;
+    case 'unit':
+      return isLast ? {} : notFound;
     case 'optional':
       if (isLast) {
         return value;
@@ -109,7 +123,7 @@ export function evalPath(value: DamlLfValue, path: string[], index: number = 0):
         } else if (listIndex < 0 || listIndex >= value.value.length) {
           return notFound;
         } else {
-          return value.value[listIndex];
+          return evalPath(value.value[listIndex], path, index + 1)
         }
       }
     case 'record':
@@ -124,8 +138,24 @@ export function evalPath(value: DamlLfValue, path: string[], index: number = 0):
         return value;
       } else if (path[index] === value.constructor) {
         return evalPath(value.value, path, index + 1);
-      } else {
+      } else {
         return notFound;
+      }
+    case 'map':
+      if (isLast) {
+        return value;
+      } else {
+        const key = path[index];
+        if (value.value === null) {
+          return notFound
+        } else {
+          const fList = value.value.filter((e) => e.key === key);
+          if (fList.length !== 1) {
+            return notFound;
+          } else {
+            return evalPath(fList[0].value, path, index + 1)
+          }
+        }
       }
     case 'undefined': return notFound;
     default: throw new NonExhaustiveMatch(value);
@@ -153,6 +183,7 @@ export function initialValue(type: DamlLfType): DamlLfValue {
       case 'unit':        return unit();
       case 'optional':    return optional(null);
       case 'list':        return list([]);
+      case 'map':         return map([]);
       default: throw new NonExhaustiveMatch(type.name);
     }
     default: throw new NonExhaustiveMatch(type);
@@ -174,13 +205,15 @@ export function toJSON(value: DamlLfValue): JSON {
     case 'party':       return value.value;
     case 'unit':        return {};
     case 'optional':    return value.value === null ? null : toJSON(value.value);
-    case 'list':        return value.value.map((e) => toJSON(e))
+    case 'list':        return value.value.map((e) => toJSON(e));
     case 'record':
       const r: {[label: string]: JSON} = {};
       value.fields.forEach((f) => r[f.label] = toJSON(f.value));
       return r;
     case 'variant':
-      return {[value.constructor]: toJSON(value.value)}
+      return {[value.constructor]: toJSON(value.value)};
+    case 'map':
+      return value.value.map((e) => ({key: e.key, value: toJSON(e.value)}));
     case 'undefined': return '???';
     default: throw new NonExhaustiveMatch(value);
   }

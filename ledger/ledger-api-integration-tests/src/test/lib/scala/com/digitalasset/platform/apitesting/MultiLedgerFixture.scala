@@ -5,6 +5,7 @@ package com.digitalasset.platform.apitesting
 
 import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.platform.PlatformApplications
+import com.digitalasset.platform.apitesting.LedgerFactories.SandboxStore
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import org.scalatest.AsyncTestSuite
 
@@ -22,14 +23,17 @@ trait MultiLedgerFixture
   protected def basePort = 6865
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */
-  override protected def fixtureIdsEnabled: Set[LedgerBackend] = LedgerBackend.allBackends
+  override protected def fixtureIdsEnabled: Set[LedgerBackend] =
+    Set(LedgerBackend.SandboxInMemory) //TODO: enable the SQL one as well once we have all ITs working with it
 
   override protected def constructResource(
       index: Int,
       fixtureId: LedgerBackend): Resource[LedgerContext] = {
     fixtureId match {
-      case LedgerBackend.Sandbox =>
-        LedgerFactories.createSandboxResource(config)
+      case LedgerBackend.SandboxInMemory =>
+        LedgerFactories.createSandboxResource(config, SandboxStore.InMemory)
+      case LedgerBackend.SandboxSql =>
+        LedgerFactories.createSandboxResource(config, SandboxStore.Postgres)
     }
   }
 }

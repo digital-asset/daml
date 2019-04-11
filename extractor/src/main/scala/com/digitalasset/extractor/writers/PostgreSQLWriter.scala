@@ -24,6 +24,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, ExecutionContext}
 import scalaz._
 import Scalaz._
+import com.digitalasset.daml.lf.iface.Record
 
 class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledgerId: String)
     extends Writer
@@ -145,7 +146,7 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
           (updatedState, queries *> thisQueries)
       }
 
-    val templateDecls = newPackages.flatMap {
+    val templateDecls: Map[Identifier, Record.FWT] = newPackages.flatMap {
       case (packageId, interface) =>
         interface.typeDecls.collect {
           case (id, InterfaceType.Template(r, _)) =>

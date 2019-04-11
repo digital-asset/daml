@@ -4,6 +4,7 @@
 package com.digitalasset.ledger.api.validation
 
 import com.digitalasset.api.util.TimestampConversion
+import com.digitalasset.daml.lf.data.{SortedLookupList, FrontStack}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.Value.VariantValue
 import com.digitalasset.ledger.api.messages.command.submission
@@ -16,8 +17,8 @@ import com.digitalasset.ledger.api.v1.value.{
   RecordField,
   Value,
   List => ApiList,
-  Variant => ApiVariant,
   Map => ApiMap,
+  Variant => ApiVariant
 }
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
@@ -111,11 +112,6 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
         } yield fields :+ domain.RecordField(label, value)
       })
 
-  def validateMapKey(value: Value): Either[StatusRuntimeException, String] = value.sum match {
-    case Sum.Text(text) => Right(text)
-    case _ => Left(invalidArgument(s"expected Text, found $value"))
-  }
-
   def validateValue(value: Value): Either[StatusRuntimeException, domain.Value] = value.sum match {
     case Sum.ContractId(cId) => Right(domain.Value.ContractIdValue(domain.ContractId(cId)))
     case Sum.Decimal(value) => Right(domain.Value.DecimalValue(value))
@@ -156,18 +152,22 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
         Right(domain.Value.OptionalValue.Empty))(validateValue(_).map(v =>
         domain.Value.OptionalValue(Some(v))))
     case Sum.Map(m) =>
-      m.entries
-        .foldLeft[Either[StatusRuntimeException, Map[String, domain.Value]]](Right(Map.empty)) {
-          case (acc, ApiMap.Entry(k, value0)) =>
+      val entries = m.entries
+        .foldLeft[Either[StatusRuntimeException, FrontStack[(String, domain.Value)]]](
+          Right(FrontStack.empty)) {
+          case (acc, ApiMap.Entry(key, value0)) =>
             for {
-              map <- acc
-              k <- requirePresence(value0, "key")
-              key <- validateMapKey(k)
+              tail <- acc
               v <- requirePresence(value0, "value")
               validatedValue <- validateValue(v)
-            } yield map + (key -> validatedValue)
+            } yield (key -> validatedValue) +: tail
         }
-        .map(domain.Value.MapValue)
+
+      for {
+        list <- entries
+        map <- SortedLookupList.fromImmArray(list.toImmArray).left.map(invalidArgument)
+      } yield domain.Value.MapValue(map)
+
     case Sum.Empty => Left(missingField("value"))
   }
 

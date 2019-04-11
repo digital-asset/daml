@@ -28,6 +28,7 @@ import scalaz.syntax.bind._
 import scalaz.syntax.traverse1._
 
 object CodeGen {
+
   sealed abstract class Mode extends Serializable with Product { self =>
     type Dialect <: Util { type Interface <: self.Interface }
     type InterfaceElement

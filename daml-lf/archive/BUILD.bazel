@@ -124,6 +124,7 @@ da_scala_test_suite(
   ],
   data = [
     ":DarReaderTest.dar",
+    ":DarReaderTest.dalf",
   ],
   scalacopts = lf_scalacopts,
 )
