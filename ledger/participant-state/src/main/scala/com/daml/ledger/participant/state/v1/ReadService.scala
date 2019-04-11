@@ -31,7 +31,8 @@ trait ReadService {
     *   and [[Update.PublicPackageUploaded]] updates for all packages referenced by
     *   the [[Update.TransactionAccepted]].
     *
-    * TODO (SM): write more properties
+    * TODO (SM): finish documentation
+    * https://github.com/digital-asset/daml/issues/138
     *
     */
   def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed]

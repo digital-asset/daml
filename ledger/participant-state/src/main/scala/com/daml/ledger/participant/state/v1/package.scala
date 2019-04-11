@@ -64,10 +64,19 @@ package object v1 {
   /** Identifiers for parties, MUST match regexp [a-zA-Z0-9-]. */
   type Party = String
 
-  /** The ledger offsets.
-    * This extends the update identifier with further elements in order to
-    * insert ephemeral rejection events into the event stream, while
-    * retaining the ordering.
+  /** Offsets into streams with hierarchical addressing.
+    *
+    * We use these [[Offsets]]'s to address changes to the particpant state.
+    * We allow for array of [[Int]] to allow for hierarchical adddresses.
+    * These [[Int]] values are expected to be positive. Offsets are ordered by
+    * lexicographic ordering of the array elements.
+    *
+    * A typical usecase for [[Offset]]s would be addressing a transaction in a
+    * blockchain by `[<blockheight>, <transactionId>]`. Depending on the
+    * structure of the underlying ledger these offsets are more or less
+    * nested, which is why we use an array of [[Int]]s. The expectation is
+    * though that there are usually few elements in the array.
+    *
     */
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
   final case class Offset(private val xs: Array[Int]) {
@@ -88,19 +97,25 @@ package object v1 {
       scala.math.Ordering.Iterable[Int].compare(x.xs, y.xs)
   }
 
-  /** The type for an yet uncommitted transaction with relative contact
+  /** The type for a yet uncommitted transaction with relative contract
     *  identifiers, submitted via 'submitTransaction'.
     */
   type SubmittedTransaction = Transaction.Transaction
 
-  /** The type for a committed transaction. */
+  /** The type for a committed transaction, which uses absolute contract
+    *  identifiers.
+    */
   type CommittedTransaction =
     GenTransaction[NodeId, Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]]
 
+  /** A contract instance with absolute contract identifiers. */
   type AbsoluteContractInst =
     Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]
 
-  /** TODO (SM): expand this into a record. Mostly concern time. */
+  /** TODO (SM): expand this into a record for time-limit configuration and an
+   *  explanation of how it is intended to be implemented.
+   *  https://github.com/digital-asset/daml/issues/385
+   */
   type Configuration = String
 
   /** Information provided by the submitter of changes submitted to the ledger.
