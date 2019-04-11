@@ -221,7 +221,7 @@ private class PostgresLedgerDao(
           this
         }
         def implicitlyDisclose(global: Relation[AbsoluteContractId, Ref.Party]) =
-          this // TODO SC
+          this // TODO need another table for this
       }
 
       //this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
