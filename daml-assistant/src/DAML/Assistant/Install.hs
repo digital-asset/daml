@@ -28,13 +28,28 @@ import System.Directory
 import Control.Monad.Extra
 import Control.Exception.Safe
 import System.ProgressBar
-import System.Posix.Types
-import System.Posix.Files -- forget windows for now
 import qualified System.Info
 import qualified Data.Text as T
 import Data.Maybe
 import qualified Data.SemVer as V
 import qualified Control.Lens as L
+
+-- unix specific
+import System.PosixCompat.Types ( FileMode )
+import System.PosixCompat.Files
+    ( removeLink
+    , createSymbolicLink
+    , fileMode
+    , getFileStatus
+    , setFileMode
+    , intersectFileModes
+    , unionFileModes
+    , ownerReadMode
+    , ownerExecuteMode
+    , groupReadMode
+    , groupExecuteMode
+    , otherReadMode
+    , otherExecuteMode)
 
 displayInstallTarget :: InstallTarget -> Text
 displayInstallTarget = \case

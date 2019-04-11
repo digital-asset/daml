@@ -25,6 +25,7 @@ da_scala_library(
         "//daml-lf/data",
     ],
     scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-interface:__VERSION__"],
 )
 
 da_scala_test(

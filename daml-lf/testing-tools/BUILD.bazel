@@ -24,7 +24,8 @@ da_scala_library(
     "//3rdparty/jvm/org/scalaz:scalaz_core"
   ],
   scalacopts = lf_scalacopts,
-  visibility = ["//visibility:public"]
+  visibility = ["//visibility:public"],
+  tags = ["maven_coordinates=com.digitalasset:daml-lf-engine-testing-tools:__VERSION__"],
 )
 
 da_scala_test(

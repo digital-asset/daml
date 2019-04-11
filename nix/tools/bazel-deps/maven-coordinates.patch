@@ -1,0 +1,12 @@
+diff --git a/src/scala/com/github/johnynek/bazel_deps/templates/jar_artifact_backend.bzl b/src/scala/com/github/johnynek/bazel_deps/templates/jar_artifact_backend.bzl
+index c4bc52f..0a45e5e 100644
+--- a/src/scala/com/github/johnynek/bazel_deps/templates/jar_artifact_backend.bzl
++++ b/src/scala/com/github/johnynek/bazel_deps/templates/jar_artifact_backend.bzl
+@@ -31,6 +31,7 @@ filegroup(
+         '{jar_name}',
+         '{src_name}'
+     ],
++    tags = ['maven_coordinates={artifact}'],
+     visibility = ['//visibility:public']
+ )\n""".format(artifact = ctx.attr.artifact, jar_name = jar_name, src_name = src_name, srcjar_attr = srcjar_attr)
+     ctx.file(ctx.path("jar/BUILD"), build_file_contents, False)
