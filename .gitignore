@@ -86,3 +86,4 @@ ledger-api/.bin
 .bazel-cache
 .rattle
 daml-lf/project
+daml-lf/build.sbt
