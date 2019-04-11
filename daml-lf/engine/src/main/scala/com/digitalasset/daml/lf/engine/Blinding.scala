@@ -20,11 +20,10 @@ import scala.annotation.tailrec
 object Blinding {
 
   private[this] def maybeAuthorizeAndBlind(
-      ledgerFlags: LedgerFeatureFlags,
       tx: Transaction.Transaction,
       authorization: Authorization): Either[AuthorizationError, BlindingInfo] = {
     val enrichedTx =
-      enrichTransaction(authorization, ledgerFlags, tx)
+      enrichTransaction(authorization, tx)
     def authorizationErrors(failures: Map[Transaction.NodeId, FailedAuthorization]) = {
       failures
         .map {
@@ -78,16 +77,15 @@ object Blinding {
     *  @param initialAuthorizers set of parties claimed to be authorizers of the transaction
     */
   def checkAuthorizationAndBlind(
-      ledgerFlags: LedgerFeatureFlags,
       tx: Transaction.Transaction,
       initialAuthorizers: Set[Party]): Either[AuthorizationError, BlindingInfo] =
-    maybeAuthorizeAndBlind(ledgerFlags, tx, Authorize(initialAuthorizers))
+    maybeAuthorizeAndBlind(tx, Authorize(initialAuthorizers))
 
   /**
     * Like checkAuthorizationAndBlind, but does not authorize the transaction, just blinds it.
     */
-  def blind(ledgerFeatureFlags: LedgerFeatureFlags, tx: Transaction.Transaction): BlindingInfo =
-    maybeAuthorizeAndBlind(ledgerFeatureFlags, tx, DontAuthorize) match {
+  def blind(tx: Transaction.Transaction): BlindingInfo =
+    maybeAuthorizeAndBlind(tx, DontAuthorize) match {
       case Left(err) =>
         throw new RuntimeException(
           s"Impossible: got authorization exception even if we're not authorizing: $err")

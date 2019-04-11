@@ -5,7 +5,6 @@ package com.digitalasset.daml.lf.types
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
-import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value
@@ -98,42 +97,6 @@ object Ledger {
     * reverse, node ids might be exercises)
     */
   type Node = GenNode.WithTxValue[NodeId, AbsoluteContractId]
-
-  /** Feature flags that apply across an entire ledger.
-    * They must be the same across all packages in a single ledger. */
-  case class LedgerFeatureFlags(
-      dontDiscloseNonConsumingChoicesToObservers: Boolean,
-      dontDivulgeContractIdsInCreateArguments: Boolean
-  )
-
-  object LedgerFeatureFlags {
-    def projectToUniqueFlags(flags: FeatureFlags): LedgerFeatureFlags =
-      LedgerFeatureFlags(
-        dontDivulgeContractIdsInCreateArguments = flags.dontDivulgeContractIdsInCreateArguments,
-        dontDiscloseNonConsumingChoicesToObservers =
-          flags.dontDiscloseNonConsumingChoicesToObservers
-      )
-
-    val default = projectToUniqueFlags(FeatureFlags.default)
-
-    def fromPackages(packages: Map[PackageId, Package]): Either[String, LedgerFeatureFlags] = {
-      val flags = packages.values.toList
-        .flatMap(_.modules)
-        .map(_._2.featureFlags)
-        .map(LedgerFeatureFlags.projectToUniqueFlags)
-        .distinct
-      if (flags.size > 1)
-        Left(s"Mixed occurence of ledger feature flags in loaded packages")
-      else {
-        // NOTE(JM, #157): We disallow loading of packages with deprecated flag
-        // settings as these are no longer supported.
-        if (flags.headOption.fold(false)(_ != LedgerFeatureFlags.default))
-          Left(s"Deprecated ledger feature flag settings in loaded packages: ${flags.head}")
-        else
-          Right(LedgerFeatureFlags.default)
-      }
-    }
-  }
 
   /** A transaction as it is committed to the ledger.
     *
@@ -476,7 +439,6 @@ object Ledger {
       committer: Party,
       effectiveAt: Time.Timestamp,
       optLocation: Option[Location],
-      flags: LedgerFeatureFlags,
       tr: Transaction.Transaction,
       l: Ledger
   ): Either[CommitError, CommitResult] = {
@@ -487,7 +449,7 @@ object Ledger {
         commitPrefix,
         committer,
         effectiveAt,
-        enrichTransaction(Authorize(Set(committer)), flags, tr))
+        enrichTransaction(Authorize(Set(committer)), tr))
     if (richTr.failedAuthorizations.nonEmpty)
       Left(CommitError.FailedAuthorizations(richTr.failedAuthorizations))
     else {
@@ -846,7 +808,6 @@ object Ledger {
     */
   def enrichTransaction(
       authorization: Authorization,
-      flags: LedgerFeatureFlags,
       tr: Transaction.Transaction): EnrichedTransaction = {
 
     // Before we traversed through an exercise node the exercise witnesses are empty.
@@ -879,10 +840,7 @@ object Ledger {
               signatories = create.signatories,
               authorization = authorization)
             .discloseTo(witnesses, nodeId)
-          if (flags.dontDivulgeContractIdsInCreateArguments)
-            state1
-          else
-            state1.divulgeContracts(witnesses, collectCoids(create.coinst.arg))
+          state1
 
         case fetch: NodeFetch[ContractId] =>
           // ------------------------------------------------------------------
@@ -896,13 +854,11 @@ object Ledger {
           val state1 = state
             .divulgeCoidTo(parentExerciseWitnesses -- fetch.stakeholders, fetch.coid)
             .discloseTo(parentExerciseWitnesses, nodeId)
-          if (flags.dontDivulgeContractIdsInCreateArguments)
-            state1.authorizeFetch(
-              nodeId,
-              fetch,
-              stakeholders = fetch.stakeholders,
-              authorization = authorization)
-          else state1
+          state1.authorizeFetch(
+            nodeId,
+            fetch,
+            stakeholders = fetch.stakeholders,
+            authorization = authorization)
 
         case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
           // ------------------------------------------------------------------
@@ -934,7 +890,7 @@ object Ledger {
 
           // Then enrich and authorize the children.
           val witnesses =
-            if (ex.consuming || !flags.dontDiscloseNonConsumingChoicesToObservers)
+            if (ex.consuming)
               ex.stakeholders.union(parentExerciseWitnesses)
             else
               ex.actingParties
@@ -942,10 +898,7 @@ object Ledger {
                 .union(parentExerciseWitnesses)
           val state1 = state0.discloseTo(witnesses, nodeId)
           val state2 =
-            if (flags.dontDivulgeContractIdsInCreateArguments)
-              state1.divulgeCoidTo(parentExerciseWitnesses -- ex.stakeholders, ex.targetCoid)
-            else
-              state1
+            state1.divulgeCoidTo(parentExerciseWitnesses -- ex.stakeholders, ex.targetCoid)
           ex.children.foldLeft(state2) { (s, childNodeId) =>
             enrichNode(
               s,

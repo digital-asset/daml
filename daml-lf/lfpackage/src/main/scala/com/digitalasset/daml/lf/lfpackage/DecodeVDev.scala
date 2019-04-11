@@ -71,13 +71,8 @@ private[lf] object DecodeVDev extends Decode.OfPackage[PLF.Package] {
     // -----------------------------------------------------------------------
 
     private[this] def decodeFeatureFlags(flags: PLF.FeatureFlags): FeatureFlags = {
-      if (!flags.getDontDivulgeContractIdsInCreateArguments || !flags.getDontDiscloseNonConsumingChoicesToObservers) {
-        throw new ParseError("Deprecated feature flag settings detected, refusing to parse package")
-      }
       FeatureFlags(
         forbidPartyLiterals = flags.getForbidPartyLiterals,
-        dontDivulgeContractIdsInCreateArguments = true,
-        dontDiscloseNonConsumingChoicesToObservers = true
       )
     }
 
