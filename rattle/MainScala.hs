@@ -24,7 +24,6 @@ bash s = cmd_ "bash" ["-v", "-c", s]
 main :: IO ()
 main = rattle $ do
     putStrLn "  ---- Starting SCALA rattle build ----"
-    bash "ls -l *A*"
     bash "(cd daml-lf/archive; protoc da/*.proto --java_out=src/main/scala)"
     bash "(cd daml-lf/transaction/src/main/protobuf;  protoc com/digitalasset/daml/lf/*.proto --java_out=../scala)"
 
