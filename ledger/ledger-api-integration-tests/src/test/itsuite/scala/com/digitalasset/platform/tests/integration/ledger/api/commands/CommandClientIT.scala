@@ -359,7 +359,7 @@ class CommandClientIT
         // Note: we only check that the beginning of the error matches otherwise every time the package id
         // changes this test fails.
         val expectedMessageSubstring =
-          "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [unknown source], partial transaction: root node"
+          "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:19], partial transaction: root node"
         val command = c.createCommand(
           "Dummy for failing assert",
           templateIds.dummy,
