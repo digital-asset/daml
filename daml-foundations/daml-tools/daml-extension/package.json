@@ -1,8 +1,8 @@
 {
-    "name": "da-vscode-daml-extension",
-    "displayName": "DAML Studio",
+    "name": "daml",
+    "displayName": "DAML",
     "description": "DAML editing and analysis tools",
-    "version": "1.0.0",
+    "version": "0.12.1",
     "publisher": "DigitalAssetHoldingsLLC",
     "repository": "http://www.github.com/digital-asset",
     "icon": "images/daml-studio.png",
