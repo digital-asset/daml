@@ -11,7 +11,7 @@ import System.FilePath
 import Data.List.Extra
 
 
-data Metadata = Da_haskell_library
+data Metadata = Metadata
     {dhl_dir :: FilePath
     ,dhl_name :: String
     ,dhl_src_strip_prefix :: String
@@ -56,8 +56,8 @@ search [] = []
 
 defaultMetadata :: String -> Maybe Metadata
 defaultMetadata = \case
-    "da_haskell_library" -> Just $ Da_haskell_library [] [] [] [] [] [] Nothing
-    "da_haskell_binary" -> Just $ Da_haskell_library [] [] [] [] [] [] (Just "Main.main")
+    "da_haskell_library" -> Just $ Metadata [] [] [] [] [] [] Nothing
+    "da_haskell_binary" -> Just $ Metadata [] [] [] [] [] [] (Just "Main.main")
     _ -> Nothing
 
 
