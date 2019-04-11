@@ -1,6 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE DuplicateRecordFields #-}
 module Development.IDE.Functions.GHCError
   ( mkDiag
   , toDiagnostics
@@ -49,18 +49,19 @@ mkDiag dflags src e =
   case toDSeverity $ errMsgSeverity e of
     Nothing        -> Nothing
     Just bSeverity ->
-      Just
+      Just $ addLocation (srcSpanToLocation $ errMsgSpan e)
         Diagnostic
-        { dFilePath = srcSpanToFilename $ errMsgSpan e
-        , dRange    = srcSpanToRange $ errMsgSpan e
-        , dSeverity = bSeverity
-        , dSource   = src
-        , dMessage  = T.pack $ Out.showSDoc dflags (ErrUtils.pprLocErrMsg e)
+        { _range    = srcSpanToRange $ errMsgSpan e
+        , _severity = Just bSeverity
+        , _source   = Just src
+        , _message  = T.pack $ Out.showSDoc dflags (ErrUtils.pprLocErrMsg e)
+        , _code     = Nothing
+        , _relatedInformation = Nothing
         }
 
 -- | Convert a GHC SrcSpan to a DAML compiler Range
 srcSpanToRange :: SrcSpan -> Range
-srcSpanToRange (UnhelpfulSpan _)  = _range noLocation
+srcSpanToRange (UnhelpfulSpan _)  = noRange
 srcSpanToRange (RealSrcSpan real) = realSrcSpanToRange real
 
 realSrcSpanToRange :: RealSrcSpan -> Range

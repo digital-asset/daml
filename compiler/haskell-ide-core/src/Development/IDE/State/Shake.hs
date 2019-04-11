@@ -4,6 +4,7 @@
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE DuplicateRecordFields      #-}
 
 -- | A Shake implementation of the compiler service.
 module Development.IDE.State.Shake(
@@ -339,9 +340,9 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
             (bs, res) <- actionCatch
                 (do v <- op key file; liftIO $ evaluate $ force v) $
                 \(e :: SomeException) -> pure (Nothing, ([ideErrorText file $ T.pack $ show e | not $ isBadDependency e],Nothing))
-            res <- return $ first (map $ fixDiagnostic file) res
+            res <- return $ first addDiagnostics res
 
-            let badErrors = filter (\d -> null file || dRange d == noRange) $ fst res
+            let badErrors = filter (\d -> null file || _range d == noRange) $ fst res
             when (badErrors /= []) $
                 reportSeriousError $ "Bad errors found for " ++ show (key, file) ++ " got " ++ show badErrors
 
@@ -363,7 +364,7 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
 fixDiagnostic :: FilePath -> Diagnostic -> Diagnostic
 fixDiagnostic x d
     | dFilePath d == x = d
-    | otherwise = d{dFilePath = x, dRange = noRange, dMessage = T.pack ("Originally reported at " ++ dFilePath d ++ "\n") <> dMessage d}
+    | otherwise = d{dFilePath = x, _range = noRange, _message = T.pack ("Originally reported at " ++ dFilePath d ++ "\n") <> _message d}
 
 
 updateFileDiagnostics ::
