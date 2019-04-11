@@ -486,6 +486,12 @@
 			<string>meta.function.type-declaration.daml</string>
 			<key>patterns</key>
 			<array>
+					<dict>
+					<key>match</key>
+					<string>\b\s*where\b</string>
+					<key>name</key>
+					<string>keyword.other.daml</string>
+      	</dict>
 				<dict>
 					<key>include</key>
 					<string>#type_signature</string>
