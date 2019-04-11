@@ -345,6 +345,7 @@
 			| in
 			| default
 			| rec
+			| with
 			)(\b(?!'))
 			</string>
 			<key>name</key>
@@ -526,7 +527,7 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>keyword.other.double-colon.daml</string>
+					<string>keyword.other.single-colon.daml</string>
 				</dict>
 			</dict>
 			<key>end</key>
