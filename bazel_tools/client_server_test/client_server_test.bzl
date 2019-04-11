@@ -1,9 +1,6 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@bazel_skylib//lib:shell.bzl", "shell")
-
-
 def _expand_args(ctx, args):
   return " ".join([ ctx.expand_location(a, ctx.attr.data).replace("'", "'\\''") for a in args])
 
@@ -31,7 +28,7 @@ def _client_server_test_impl(ctx):
   runfiles = runfiles.merge(ctx.attr.client[DefaultInfo].default_runfiles)
   runfiles = runfiles.merge(ctx.attr.server[DefaultInfo].default_runfiles)
 
-  return struct(
+  return DefaultInfo(
     executable = wrapper,
     files = depset([wrapper]),
     runfiles = runfiles,
@@ -66,8 +63,8 @@ client_server_test = rule(
 The rule takes a client and server executables and their
 arguments as parameters. The server port is passed via a
 temporary file, which is passed to the server executable via the
-"--port-file" parameter. The client application receives the port
-via the "--target-port" argument.
+"--port-file" parameter. This file is parsed and the port number
+is passed to the client application via the "--target-port" argument.
 
 The server process is killed after the client process exits.
 

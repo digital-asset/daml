@@ -1,7 +1,6 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-
 import java.net._
 import java.io._
 import scala.io._
@@ -11,11 +10,11 @@ object Main extends App {
 
   val argParser = new scopt.OptionParser[Conf]("server") {
     opt[String]("port-file")
-      .action((x,c) => c.copy(portFile = x))
+      .action((x, c) => c.copy(portFile = x))
       .text("Port file")
     opt[String]("something")
       .optional()
-      .action((x,c) => c.copy(something = x))
+      .action((x, c) => c.copy(something = x))
       .text("Something something")
   }
   val conf = argParser.parse(args, Conf("", "")).get
@@ -26,7 +25,6 @@ object Main extends App {
   w.write(s"${server.getLocalPort}\n")
   w.close()
 
-
   while (true) {
     val s = server.accept()
     val in = new BufferedSource(s.getInputStream()).getLines()
@@ -36,5 +34,3 @@ object Main extends App {
     s.close()
   }
 }
-
-
