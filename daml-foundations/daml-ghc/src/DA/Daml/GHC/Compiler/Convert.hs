@@ -549,7 +549,7 @@ convertExpr env0 e = do
         let contractType = TConApp tmpl' []
         let cidType = TContractId contractType
         let fields = [("contractId", cidType), ("contract", contractType)]
-        (repackTuple, tupleType) <- mkRepackTuple env fields varV2
+        (repackStruct, tupleType) <- mkRepackStruct env fields varV2
         pure $ ETmLam (varV1, key') $
           EUpdate $ UBind
             (Binding
@@ -558,7 +558,7 @@ convertExpr env0 e = do
                 { retrieveByKeyTemplate = tmpl'
                 , retrieveByKeyKey = EVar varV1
                 })))
-            (EUpdate (UPure tupleType repackTuple))
+            (EUpdate (UPure tupleType repackStruct))
     go env (VarIs "$dminternalLookupByKey") (LType t@(TypeCon tmpl []) : LType key : _dict : args)
         = fmap (, args) $ do
         key' <- convertType env key
@@ -1267,8 +1267,9 @@ mkPure env monad dict t x = do
           `ETyApp` t
           `ETmApp` x
 
-mkRepackTuple :: Env -> [(FieldName, LF.Type)] -> ExprVarName -> ConvertM (LF.Expr, LF.Type)
-mkRepackTuple env fields x = do
+-- | Turn the structural record referenced by `x` into a tuple from `GHC.Tuple`.
+mkRepackStruct :: Env -> [(FieldName, LF.Type)] -> ExprVarName -> ConvertM (LF.Expr, LF.Type)
+mkRepackStruct env fields x = do
     tupleTyCon <- qGHC_Tuple env (mkTypeCon ["Tuple" ++ show (length fields)])
     let tupleType = TypeConApp tupleTyCon (map snd fields)
     pure (ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields, typeConAppToType tupleType)
