@@ -155,7 +155,7 @@ This table lists every version of this specification in ascending order
 +--------------------+-----------------+
 |                  3 |      2019-02-14 |
 +--------------------+-----------------+
-|                  4 |      2019-04-10 |
+|                  4 |      2019-03-27 |
 +--------------------+-----------------+
 
 message VersionedValue
