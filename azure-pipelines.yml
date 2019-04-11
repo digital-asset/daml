@@ -20,10 +20,8 @@ jobs:
   - job: Linux
     timeoutInMinutes: 360
     pool:
-      ${{ if eq(variables['System.PullRequest.IsFork'], 'true') }}:
-        vmImage: 'ubuntu-16.04'
-      ${{ if eq(variables['System.PullRequest.IsFork'], 'false') }}:
-        name: 'linux-pool'
+      # vmImage: 'ubuntu-16.04'
+      name: 'linux-pool'
     steps:
       - template: ci/build-unix.yml
         parameters:
