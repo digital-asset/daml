@@ -384,8 +384,8 @@ hazel_repositories(
       extra =
         [ # Read [Working on ghc-lib] for ghc-lib update instructions at
           # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-          ("ghc-lib-parser", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-0.20190409.tar.gz", "stripPrefix": "ghc-lib-parser-0.20190409", "sha256": "53d86b741a64c6ef41fe2635583bf3bdf288aee22006cb0e0395a955650f1d6e"})
-        , ("ghc-lib", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-0.20190409.tar.gz", "stripPrefix": "ghc-lib-0.20190409", "sha256": "803ba87198191114ad6ef7b61e9ff5bd7cfc43feb9ee978207d281bf6f38d024"})
+          ("ghc-lib-parser", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-0.20190411.tar.gz", "stripPrefix": "ghc-lib-parser-0.20190411", "sha256": "ebf7c72ffaeabdc8d81bace1b49b57d7c5eedf9b28adb4b24dd52438177a5cbd"})
+        , ("ghc-lib", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-0.20190411.tar.gz", "stripPrefix": "ghc-lib-0.20190411", "sha256": "2fb69e40601e49e2f312e784e5c72d3724c49865e38379a2ec1f787f14282577"})
         , ("bytestring-nums", {"version": "0.3.6", "sha256": "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd"})
         , ("unix-time", {"version": "0.4.5", "sha256": "fe7805c62ad682589567afeee265e6e230170c3941cdce479a2318d1c5088faf"})
         , ("zip-archive", {"version": "0.3.3", "sha256": "988adee77c806e0b497929b24d5526ea68bd3297427da0d0b30b99c094efc84d"})
@@ -665,12 +665,3 @@ jar_jar_repositories()
 # dependencies.
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 grpc_deps()
-
-
-# NOTE:
-# this_breaks_windows_start
-#
-# wrap problematic parts of the WORKSPACE file with these markers /\--\/
-# to get the middle part excluded for Windows builds on CI
-#
-# this_breaks_windows_stop

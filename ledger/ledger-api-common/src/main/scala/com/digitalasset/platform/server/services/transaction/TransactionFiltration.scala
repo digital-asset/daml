@@ -87,7 +87,11 @@ object TransactionFiltration {
     private def explicitWitnessesForNode(node: GenNode[_, _, _]): Set[LfParty] = node match {
       case n: Node.NodeCreate[_, _] => n.signatories union n.stakeholders
       case n: Node.NodeFetch[_] => n.signatories union n.stakeholders
-      case n: Node.NodeExercises[_, _, _] => n.signatories union n.stakeholders
+      case n: Node.NodeExercises[_, _, _] =>
+        if (n.consuming)
+          n.signatories union n.stakeholders
+        else
+          n.signatories
       case _: Node.NodeLookupByKey[_, _] => Set.empty
     }
   }

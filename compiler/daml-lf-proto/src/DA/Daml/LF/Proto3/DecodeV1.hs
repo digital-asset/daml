@@ -54,12 +54,13 @@ decodeModule (LF1.Module name flags dataTypes values templates) =
     <*> decodeNM EDuplicateTemplate decodeDefTemplate templates
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
-decodeFeatureFlags LF1.FeatureFlags{..} =  pure $
-  FeatureFlags
-    { forbidPartyLiterals = featureFlagsForbidPartyLiterals
-    , dontDivulgeContractIdsInCreateArguments = featureFlagsDontDivulgeContractIdsInCreateArguments
-    , dontDiscloseNonConsumingChoicesToObservers = featureFlagsDontDiscloseNonConsumingChoicesToObservers
-    }
+decodeFeatureFlags LF1.FeatureFlags{..} =
+  if not featureFlagsDontDivulgeContractIdsInCreateArguments || not featureFlagsDontDiscloseNonConsumingChoicesToObservers
+    -- We do not support these anymore -- see #157
+    then Left (ParseError "Package uses unsupported flags dontDivulgeContractIdsInCreateArguments or dontDiscloseNonConsumingChoicesToObservers")
+    else Right FeatureFlags
+      { forbidPartyLiterals = featureFlagsForbidPartyLiterals
+      }
 
 decodeDefDataType :: LF1.DefDataType -> Decode DefDataType
 decodeDefDataType LF1.DefDataType{..} =

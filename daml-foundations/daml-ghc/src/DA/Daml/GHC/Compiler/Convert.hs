@@ -232,11 +232,12 @@ isBuiltinTextMap :: NamedThing a => Env -> a -> Bool
 isBuiltinTextMap env a =
     supportsTextMap (envLfVersion env) && isBuiltinName "TextMap" a
 
-toInt64 :: Integer -> Maybe Int64
-toInt64 x
+convertInt64 :: Integer -> ConvertM LF.Expr
+convertInt64 x
     | toInteger (minBound :: Int64) <= x && x <= toInteger (maxBound :: Int64) =
-        Just $ fromInteger x
-    | otherwise = Nothing
+        pure $ EBuiltin $ BEInt64 (fromInteger x)
+    | otherwise =
+        unsupported "Int literal out of bounds" (negate x)
 
 convertModule :: LF.Version -> MS.Map UnitId T.Text -> GhcModule -> Either Diagnostic LF.Module
 convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) Nothing) $ do
@@ -583,11 +584,11 @@ convertExpr env0 e = do
     go env (VarIs "fromRational") ((VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ pure $ EBuiltin $ BEDecimal $ fromRational $ top % bot
     go env (VarIs "negate") (tyInt : VarIs "$fAdditiveInt" : (VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
-        | Just y <- toInt64 (negate x)
-        = fmap (, args) $ pure $ EBuiltin $ BEInt64 y
+        = fmap (, args) $ convertInt64 (negate x)
     go env (VarIs "fromInteger") (Lit (LitNumber _ x _) : args)
-        | Just y <- toInt64 x
-        = fmap (, args) $ pure $ EBuiltin $ BEInt64 y
+        = fmap (, args) $ convertInt64 x
+    go env (Lit (LitNumber LitNumInt x _)) args
+        = fmap (, args) $ convertInt64 x
     go env (VarIs "fromString") (x : args)
         = fmap (, args) $ convertExpr env x
     go env (VarIs "unpackCString#") (Lit (LitString x) : args)
@@ -632,9 +633,6 @@ convertExpr env0 e = do
         let mkCtor (Ctor c _ _) = EVariantCon (fromTCon tt') (mkVariantCon (getOccString c)) mkEUnit
             mkEqInt i = EBuiltin (BEEqual BTInt64) `ETmApp` x' `ETmApp` EBuiltin (BEInt64 i)
         pure (foldr ($) (mkCtor c1) [mkIf (mkEqInt i) (mkCtor c) | (i,c) <- zipFrom 0 cs])
-    go env (Lit (LitNumber LitNumInt x _)) args
-        | toInteger (minBound :: Int64) <= x && x <= toInteger (maxBound :: Int64)
-        = fmap (, args) $ pure $ EBuiltin $ BEInt64 $ fromInteger x
 
     -- built ins because they are lazy
     go env (VarIs "ifThenElse") (Type tRes : cond : true : false : args)

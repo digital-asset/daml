@@ -722,8 +722,6 @@ message DefValue {
 
 message FeatureFlags {
   bool forbidPartyLiterals = 1;
-  bool dontDivulgeContractIdsInCreateArguments = 2;
-  bool dontDiscloseNonConsumingChoicesToObservers = 3;
 }
 
 message Module {

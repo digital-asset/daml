@@ -679,27 +679,26 @@ data TemplateChoice = TemplateChoice
 data FeatureFlags = FeatureFlags
   { forbidPartyLiterals :: !Bool
   -- ^ If set to true, party literals are forbidden to appear in daml-lf packages.
+  {-
+  DAML-LF has these but our ecosystem does not support them anymore, see #157
   , dontDivulgeContractIdsInCreateArguments :: !Bool
   -- ^ If set to true, arguments to creates are not divulged. Instead target contract id's of
   -- exercises are divulged and fetch is checked for authorization.
   , dontDiscloseNonConsumingChoicesToObservers :: !Bool
   -- ^ If set to true, exercise nodes of non-consuming choices are only disclosed to the signatories
   -- and controllers of the target contract/choice and not to the observers of the target contract.
+  -}
   }
 
 defaultFeatureFlags :: FeatureFlags
 defaultFeatureFlags = FeatureFlags
   { forbidPartyLiterals = False
-  , dontDivulgeContractIdsInCreateArguments = False
-  , dontDiscloseNonConsumingChoicesToObservers = False
   }
 
 -- | Feature flags for DAML 1.2.
 daml12FeatureFlags :: FeatureFlags
 daml12FeatureFlags = FeatureFlags
   { forbidPartyLiterals = True
-  , dontDivulgeContractIdsInCreateArguments = True
-  , dontDiscloseNonConsumingChoicesToObservers = True
   }
 
 -- | A module.

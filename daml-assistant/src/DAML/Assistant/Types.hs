@@ -14,7 +14,6 @@ import qualified Data.Text as T
 import Data.Text (Text, pack, unpack)
 import Data.Maybe
 import Control.Exception.Safe
-import System.Info (os)
 
 data AssistantError = AssistantError
     { errContext  :: Maybe Text -- ^ Context in which error occurs.
@@ -65,7 +64,6 @@ newtype UserCommandArgs = UserCommandArgs
 data InstallOptions = InstallOptions
     { iTargetM :: Maybe RawInstallTarget
     , iActivate :: ActivateInstall
-    , iInitial :: InitialInstall
     , iForce :: ForceInstall
     , iQuiet :: QuietInstall
     } deriving (Eq, Show)
@@ -74,21 +72,3 @@ newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
 newtype ForceInstall = ForceInstall Bool deriving (Eq, Show)
 newtype QuietInstall = QuietInstall Bool deriving (Eq, Show)
 newtype ActivateInstall = ActivateInstall Bool deriving (Eq, Show)
-newtype InitialInstall = InitialInstall Bool deriving (Eq, Show)
-
-data InstallTarget
-    = InstallChannel SdkChannel
-    | InstallVersion SdkVersion
-    | InstallPath FilePath
-    deriving (Eq, Show)
-
-data Platform
-    = Unix
-    | Windows
-
-getPlatform :: Platform
-getPlatform = case os of
-    "darwin"  -> Unix
-    "linux"   -> Unix
-    "mingw32" -> Windows
-    _ -> error ("Unsupported operating system: " <> os)

@@ -34,7 +34,6 @@ class CommandExecutorImpl(engine: Engine, packageContainer: DamlPackageContainer
           updateTx <- submission
           blindingInfo <- Blinding
             .checkAuthorizationAndBlind(
-              engine.ledgerFeatureFlags(),
               updateTx,
               Set(Ref.Party.assertFromString(submitter.unwrap)))
         } yield

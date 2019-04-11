@@ -529,7 +529,9 @@ object Ast {
   )
 
   case class FeatureFlags(
-      forbidPartyLiterals: Boolean, // If set to true, party literals are not allowed to appear in daml-lf packages.
+      forbidPartyLiterals: Boolean // If set to true, party literals are not allowed to appear in daml-lf packages.
+      /*
+      These flags are present in DAML-LF, but our ecosystem does not support them anymore:
       dontDivulgeContractIdsInCreateArguments: Boolean, // If set to true, arguments to creates are not divulged.
       // Instead target contract id's of exercises are divulged
       // and fetches are authorized.
@@ -538,13 +540,13 @@ object Ast {
       // disclosed to the signatories and
       // controllers of the target contract/choice
       // and not to the observers of the target contract.
+   */
   )
 
   object FeatureFlags {
     val default = FeatureFlags(
       forbidPartyLiterals = false,
-      dontDivulgeContractIdsInCreateArguments = false,
-      dontDiscloseNonConsumingChoicesToObservers = false)
+    )
   }
 
   //
