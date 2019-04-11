@@ -36,9 +36,7 @@ private[parser] object ModParser {
       case _ ~ modTag ~ modName ~ _ ~ defs =>
         val (definitions, templates) = split(defs)
         val flags = FeatureFlags(
-          forbidPartyLiterals = modTag(noPartyLitsTag),
-          dontDivulgeContractIdsInCreateArguments = false,
-          dontDiscloseNonConsumingChoicesToObservers = false
+          forbidPartyLiterals = modTag(noPartyLitsTag)
         )
         Module(modName, definitions, templates, defaultLanguageVersion, flags)
     }

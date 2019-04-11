@@ -14,7 +14,6 @@ import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx}
 import com.digitalasset.daml.lf.types.Ledger
-import com.digitalasset.daml.lf.types.Ledger.LedgerFeatureFlags
 import com.digitalasset.daml.lf.value.Value._
 
 import scala.annotation.tailrec
@@ -216,10 +215,7 @@ final class Engine {
     for {
       recreatedTx <- incrementalRunInterpreter()
       authorizerSet = submitter.map(s => Set(s)).getOrElse(Set.empty[Party])
-      enrichment = Ledger.enrichTransaction(
-        Ledger.Authorize(authorizerSet),
-        compiledPackages.ledgerFlags,
-        recreatedTx)
+      enrichment = Ledger.enrichTransaction(Ledger.Authorize(authorizerSet), recreatedTx)
       comparableTx = recreatedTx.mapContractIdAndValue(contractIdMaping, valMapping)
       _ <- Result.assert(!enrichment.failedAuthorizations.exists(checkedFailures))(
         Error("Post-commit validation failure: unauthorized transaction"))
@@ -407,9 +403,6 @@ final class Engine {
       case Right(t) => ResultDone(t)
     }
   }
-
-  def ledgerFeatureFlags(): LedgerFeatureFlags =
-    compiledPackages.ledgerFlags
 
   def clearPackages(): Unit = compiledPackages.clear()
 }

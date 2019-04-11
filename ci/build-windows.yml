@@ -1,8 +1,12 @@
 steps:
   - checkout: self
-  - powershell: '.\dev-env\windows\dadew-installer.ps1'
-    displayName: 'Install dev-env'
-    #- script: ./ci/configure-bazel.ps1
-    #  displayName: 'Configure Bazel'
-  - powershell: '.\build.ps1'
-    displayName: 'Bazel Build'
+
+  - bash: ci/configure-bazel.sh
+    displayName: 'Configure Bazel'
+    env:
+      IS_FORK: $(System.PullRequest.IsFork)
+      # to upload to the bazel cache
+      GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+
+  - powershell: '.\build.ps1 partial'
+    displayName: 'Build'

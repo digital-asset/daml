@@ -42,6 +42,9 @@ sh $FNAME >> out.log
 echo "Running da setup."
 ~/.da/bin/da setup >> out.log
 
+echo "Setting script mode."
+sed -e 's/script-mode: false/script-mode: true/g' -i .backup ~/.da/da.yaml
+
 echo "Packaging everything up."
 cp -r ~/.da da-data
 tar cf da-data.tar da-data
@@ -87,5 +90,3 @@ popd >> out.log
 mv capsule-tmp/da-capsule-$OS.tar.gz .
 
 echo "Created da-capsule-$OS.tar.gz"
-
-

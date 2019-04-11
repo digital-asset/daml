@@ -70,13 +70,11 @@ private[lf] object DecodeVDev extends Decode.OfPackage[PLF.Package] {
 
     // -----------------------------------------------------------------------
 
-    private[this] def decodeFeatureFlags(flags: PLF.FeatureFlags): FeatureFlags =
+    private[this] def decodeFeatureFlags(flags: PLF.FeatureFlags): FeatureFlags = {
       FeatureFlags(
         forbidPartyLiterals = flags.getForbidPartyLiterals,
-        dontDivulgeContractIdsInCreateArguments = flags.getDontDivulgeContractIdsInCreateArguments,
-        dontDiscloseNonConsumingChoicesToObservers =
-          flags.getDontDiscloseNonConsumingChoicesToObservers
       )
+    }
 
     private[this] def decodeDefDataType(lfDataType: PLF.DefDataType): DDataType = {
       DDataType(

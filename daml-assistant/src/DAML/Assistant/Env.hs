@@ -29,7 +29,6 @@ import Control.Exception.Safe
 import Data.Maybe
 import Data.Either.Extra
 import Safe
-import qualified Data.SemVer as V
 
 -- | Calculate the environment variables in which to run daml-something.
 getDamlEnv :: IO Env
@@ -107,8 +106,7 @@ getSdk damlPath projectPathM =
         sdkVersion <- firstJustM id
             [ lookupEnv sdkVersionEnvVar >>= \ vstrM -> pure $ do
                 vstr <- vstrM
-                v <- eitherToMaybe (V.fromText (pack vstr))
-                Just (SdkVersion v)
+                eitherToMaybe (parseVersion (pack vstr))
 
             , fromConfig "SDK" (lookupEnv sdkPathEnvVar)
                                (readSdkConfig . SdkPath)
@@ -149,10 +147,8 @@ getLatestInstalledSdkVersion (DamlPath path) = do
             Left _ -> pure Nothing
             Right dirlist -> do
                 subdirs <- filterM (doesDirectoryExist . (dpath </>)) dirlist
-                let semvers = mapMaybe (eitherToMaybe . V.fromText . pack) subdirs
-                    versions = map SdkVersion semvers
-                    stableVersions = filter isStableVersion versions
-                pure $ maximumMay stableVersions
+                let versions = mapMaybe (eitherToMaybe . parseVersion . pack) subdirs
+                pure $ maximumMay (filter isStableVersion versions)
 
 -- | Calculate the environment for dispatched commands (i.e. the environment
 -- with updated DAML_HOME, DAML_PROJECT, DAML_SDK, etc).
@@ -162,5 +158,5 @@ getDispatchEnv Env{..} = do
     pure $ [ (damlPathEnvVar, unwrapDamlPath envDamlPath)
            , (projectPathEnvVar, maybe "" unwrapProjectPath envProjectPath)
            , (sdkPathEnvVar, maybe "" unwrapSdkPath envSdkPath)
-           , (sdkVersionEnvVar, maybe "" (V.toString . unwrapSdkVersion) envSdkVersion)
+           , (sdkVersionEnvVar, maybe "" versionToString envSdkVersion)
            ] ++ filter ((`notElem` damlEnvVars) . fst) originalEnv

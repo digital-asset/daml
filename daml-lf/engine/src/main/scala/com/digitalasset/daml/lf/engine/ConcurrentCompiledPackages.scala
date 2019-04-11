@@ -11,7 +11,6 @@ import com.digitalasset.daml.lf.engine.ConcurrentCompiledPackages.AddPackageStat
 import com.digitalasset.daml.lf.lfpackage.Ast.Package
 import com.digitalasset.daml.lf.speedy.Compiler.PackageNotFound
 import com.digitalasset.daml.lf.speedy.{Compiler, SExpr}
-import com.digitalasset.daml.lf.types.Ledger.LedgerFeatureFlags
 
 /** Thread-safe class that can be used when you need to maintain a shared, mutable collection of
   * packages.
@@ -22,15 +21,8 @@ final class ConcurrentCompiledPackages extends CompiledPackages {
   private[this] val _defns: ConcurrentHashMap[DefinitionRef[PackageId], SExpr] =
     new ConcurrentHashMap()
 
-  // guarded by this
-  private[this] var _ledgerFlags: Option[LedgerFeatureFlags] = None
-
   def getPackage(pId: PackageId): Option[Package] = Option(_packages.get(pId))
   def getDefinition(dref: DefinitionRef[PackageId]): Option[SExpr] = Option(_defns.get(dref))
-
-  def ledgerFlags(): LedgerFeatureFlags = this.synchronized[LedgerFeatureFlags] {
-    _ledgerFlags.getOrElse(LedgerFeatureFlags.default)
-  }
 
   /** Might ask for a package if the package you're trying to add references it.
     *
@@ -81,16 +73,10 @@ final class ConcurrentCompiledPackages extends CompiledPackages {
                 )
             }
 
-          // if we made it this far, finally update the mutable state
-          CompiledPackages.newLedgerFlags(pkgId, pkg, _ledgerFlags) match {
-            case Left(err) =>
-              return ResultError(Error(err))
-            case Right(newFlags) =>
-              _ledgerFlags = Some(newFlags)
-              _packages.put(pkgId, pkg)
-              for ((defnId, defn) <- defns) {
-                _defns.put(defnId, defn)
-              }
+          // if we made it this far, update
+          _packages.put(pkgId, pkg)
+          for ((defnId, defn) <- defns) {
+            _defns.put(defnId, defn)
           }
         }
       }
@@ -101,7 +87,6 @@ final class ConcurrentCompiledPackages extends CompiledPackages {
   def clear(): Unit = this.synchronized[Unit] {
     _packages.clear()
     _defns.clear()
-    _ledgerFlags = None
   }
 }
 

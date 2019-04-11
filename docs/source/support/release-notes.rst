@@ -14,6 +14,7 @@ This page contains release notes for the SDK.
   to ``java.lang.String`` instances.
 - Java Codegen: Leaner log output and flag for log verbosity ``-V LEVEL`` or ``--verbosity LEVEL``, where ``LEVEL`` is a number between ``0`` (least verbose) and ``4`` (most verbose).
   to ``java.lang.String`` instances.
+- Removed support for DAML 1.0 packages in the engine, and thus the sandbox. Note that the SDK has removed support for _compiling_ DAML 1.0 months ago.
 
 0.12.0
 ------
