@@ -3,6 +3,10 @@
 
 load("@bazel_skylib//lib:shell.bzl", "shell")
 
+
+def _expand_args(ctx, args):
+  return " ".join([ ctx.expand_location(a, ctx.attr.data).replace("'", "'\\''") for a in args])
+
 def _client_server_test_impl(ctx):
 
   # Construct wrapper to execute the runner, which in turn
@@ -15,9 +19,9 @@ def _client_server_test_impl(ctx):
 """.format(
       runner = ctx.executable._runner.short_path,
       client = ctx.executable.client.short_path,
-      client_args = " ".join([ a.replace("'", "'\\''") for a in ctx.attr.client_args]),
+      client_args = _expand_args(ctx, ctx.attr.client_args),
       server = ctx.executable.server.short_path,
-      server_args = " ".join([ a.replace("'", "'\\''") for a in ctx.attr.server_args]),
+      server_args = _expand_args(ctx, ctx.attr.server_args),
     ),
     is_executable = True
   )

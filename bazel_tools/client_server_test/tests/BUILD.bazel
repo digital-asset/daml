@@ -33,7 +33,8 @@ client_server_test(
   client_args = [
     "--foobar",
     # Use the input file passed in via `data`.
-    "bazel_tools/client_server_test/tests/client_input_file"
+    #"bazel_tools/client_server_test/tests/client_input_file"
+    "$(location :client_input_file)"
   ],
   server = ":server",
 
