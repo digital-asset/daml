@@ -2,13 +2,9 @@
 -- All rights reserved.
 
 -- Test that overflowing integer literals are detected at compile time.
--- @ ERROR Literal 9223372036854775808
--- @ ERROR Literal -9223372036854775809
+-- @ ERROR Int literal out of bounds
 daml 1.2
-module IntBoundsStatic where
-
-tooBig : Int
-tooBig = 9223372036854775808
+module IntBoundsLower where
 
 tooSmall : Int
 tooSmall = -9223372036854775809
