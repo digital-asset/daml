@@ -456,7 +456,7 @@
                   )
                   (?:\s*,\s*\g&lt;fn&gt;)?
                 )
-                \s*(:|:)</string>
+                \s*(:)</string>
 			<key>beginCaptures</key>
 			<dict>
 				<key>2</key>
