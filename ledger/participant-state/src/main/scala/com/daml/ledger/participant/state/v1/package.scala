@@ -42,17 +42,21 @@ package object v1 {
   /** Identifier for the ledger, MUST match regexp [a-zA-Z0-9-]. */
   type LedgerId = Ref.SimpleString
 
-  /** Identifiers for transactions, MUST match regexp [a-zA-Z0-9-]. */
-  type TransactionId = Ref.SimpleString
+  /** Identifiers for transactions.
+    * Currently unrestricted unicode (See issue #398). */
+  type TransactionId = String
 
-  /** Identifiers used to correlate submission with results, MUST match regexp [a-zA-Z0-9-]. */
-  type CommandId = Ref.SimpleString
+  /** Identifiers used to correlate submission with results.
+    * Currently unrestricted unicode (See issue #398). */
+  type CommandId = String
 
-  /** Identifiers used for correlating submission with a workflow,  match regexp [a-zA-Z0-9-]. */
-  type WorkflowId = Ref.SimpleString
+  /** Identifiers used for correlating submission with a workflow.
+    * Currently unrestricted unicode (See issue #398).  */
+  type WorkflowId = String
 
-  /** Identifiers for submitting client applications, MUST match regexp [a-zA-Z0-9-]. */
-  type ApplicationId = Ref.SimpleString
+  /** Identifiers for submitting client applications.
+    * Currently unrestricted unicode (See issue #398). */
+  type ApplicationId = String
 
   /** Identifiers for nodes in a transaction. */
   type NodeId = Transaction.NodeId
@@ -60,12 +64,12 @@ package object v1 {
   /** Identifiers for packages. */
   type PackageId = Ref.PackageId
 
-  /** Identifiers for parties, MUST match regexp [a-zA-Z0-9-]. */
+  /** Identifiers for parties. */
   type Party = Ref.Party
 
   /** Offsets into streams with hierarchical addressing.
     *
-    * We use these [[Offsets]]'s to address changes to the particpant state.
+    * We use these [[Offset]]'s to address changes to the particpant state.
     * We allow for array of [[Int]] to allow for hierarchical adddresses.
     * These [[Int]] values are expected to be positive. Offsets are ordered by
     * lexicographic ordering of the array elements.

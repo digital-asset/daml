@@ -110,16 +110,14 @@ class DamlOnXSubmissionService private (
                   writeService.submitTransaction(
                     submitterInfo = SubmitterInfo(
                       submitter = Ref.SimpleString.assertFromString(commands.submitter.unwrap),
-                      applicationId =
-                        Ref.SimpleString.assertFromString(commands.applicationId.unwrap),
+                      applicationId = commands.applicationId.unwrap,
                       maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
-                      commandId = Ref.SimpleString.assertFromString(commands.commandId.unwrap)
+                      commandId = commands.commandId.unwrap
                     ),
                     transactionMeta = TransactionMeta(
                       ledgerEffectiveTime =
                         Timestamp.assertFromInstant(commands.ledgerEffectiveTime),
-                      workflowId = Ref.SimpleString.assertFromString(
-                        commands.workflowId.fold("")(_.unwrap)) // FIXME(JM): sensible defaulting?
+                      workflowId = commands.workflowId.fold("")(_.unwrap) // FIXME(JM): sensible defaulting?
                     ),
                     transaction = updateTx
                   )

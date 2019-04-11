@@ -50,13 +50,7 @@ object ReferenceServer extends App {
     }
   }
 
-  val readService =
-    new com.daml.ledger.participant.state.v1.impl.reference.ReferenceReadService(ledger)
-
-  val writeService =
-    new com.daml.ledger.participant.state.v1.impl.reference.ReferenceWriteService(ledger)
-
-  val indexService = ReferenceIndexService(readService)
+  val indexService = ReferenceIndexService(ledger)
 
   // Block until the index service has been initialized, e.g. it has processed the
   // state initialization updates.
@@ -65,7 +59,7 @@ object ReferenceServer extends App {
   val server = Server(
     serverPort = 6865,
     indexService = indexService,
-    writeService = writeService,
+    writeService = ledger,
     tsb
   )
 

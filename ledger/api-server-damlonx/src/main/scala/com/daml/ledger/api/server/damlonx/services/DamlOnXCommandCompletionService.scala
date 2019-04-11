@@ -70,7 +70,7 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
           .getCompletions(
             ledgerId,
             optOffset,
-            Ref.SimpleString.assertFromString(request.applicationId),
+            request.applicationId,
             request.parties.toList.map(Ref.SimpleString.assertFromString)))
     }
 
@@ -83,13 +83,13 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
 
             CompletionStreamResponse(
               None, // FIXME(JM): is the checkpoint present in each response?
-              List(Completion(commandId.underlyingString, Some(Status())))
+              List(Completion(commandId, Some(Status())))
             )
           case CompletionEvent.CommandRejected(offset, commandId, reason) =>
             logger.debug(s"sending completion rejected $offset: $commandId: $reason")
             CompletionStreamResponse(
               None, // FIXME(JM): is the checkpoint present in each response?
-              List(toCompletion(commandId.underlyingString, reason)))
+              List(toCompletion(commandId, reason)))
 
           case CompletionEvent.Checkpoint(offset, recordTime) =>
             logger.debug(s"sending checkpoint $offset: $recordTime")

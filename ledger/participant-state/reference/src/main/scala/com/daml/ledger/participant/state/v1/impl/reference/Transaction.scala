@@ -67,9 +67,7 @@ object Transaction {
   }
 
   def toAbsTx(txId: TransactionId, tx: SubmittedTransaction): CommittedTransaction =
-    tx.mapContractIdAndValue(
-      mkAbsContractId(txId.underlyingString),
-      _.mapContractId(mkAbsContractId(txId.underlyingString)))
+    tx.mapContractIdAndValue(mkAbsContractId(txId), _.mapContractId(mkAbsContractId(txId)))
 
   def mkAbsContractId(txId: String): ContractId => AbsoluteContractId = {
     case RelativeContractId(nid) => AbsoluteContractId(toAbsNodeId(txId, nid))

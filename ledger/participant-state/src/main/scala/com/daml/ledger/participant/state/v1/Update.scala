@@ -117,7 +117,7 @@ object Update {
       reason: RejectionReason,
   ) extends Update {
     override def description: String = {
-      val commandId = optSubmitterInfo.map(_.commandId.underlyingString).getOrElse("???")
+      val commandId = optSubmitterInfo.map(_.commandId).getOrElse("???")
       s"Reject command $commandId: $reason"
     }
   }

@@ -83,15 +83,14 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
       .mapConcat {
         case (offset, (trans, blindingInfo)) =>
           val transactionWithEventIds =
-            trans.transaction.mapNodeId(nodeIdToEventId(trans.transactionId.underlyingString, _))
+            trans.transaction.mapNodeId(nodeIdToEventId(trans.transactionId, _))
           val events =
             TransactionConversion
               .genToFlatTransaction(
                 transactionWithEventIds,
                 blindingInfo.explicitDisclosure.map {
                   case (nodeId, parties) =>
-                    nodeIdToEventId(trans.transactionId.underlyingString, nodeId) -> parties.map(
-                      _.underlyingString)
+                    nodeIdToEventId(trans.transactionId, nodeId) -> parties.map(_.underlyingString)
                 },
                 request.verbose
               )
@@ -102,12 +101,12 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
               .fold(false)(eventFilter.isSubmitterSubscriber)
           if (events.nonEmpty || submitterIsSubscriber) {
             val transaction = PTransaction(
-              transactionId = trans.transactionId.underlyingString,
+              transactionId = trans.transactionId,
               commandId =
                 if (submitterIsSubscriber)
-                  trans.optSubmitterInfo.map(_.commandId.underlyingString).getOrElse("")
+                  trans.optSubmitterInfo.map(_.commandId).getOrElse("")
                 else "",
-              workflowId = trans.transactionMeta.workflowId.underlyingString,
+              workflowId = trans.transactionMeta.workflowId,
               effectiveAt = Some(fromInstant(trans.transactionMeta.ledgerEffectiveTime.toInstant)), // FIXME(JM): conversion
               events = events,
               offset = offset.toString,
@@ -290,17 +289,17 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
 
   private def toTransactionWithMeta(trans: TransactionAccepted) =
     TransactionWithMeta(
-      trans.transaction.mapNodeId(nodeIdToEventId(trans.transactionId.underlyingString, _)),
+      trans.transaction.mapNodeId(nodeIdToEventId(trans.transactionId, _)),
       extractMeta(trans)
     )
 
   private def extractMeta(trans: TransactionAccepted): TransactionMeta =
     TransactionMeta(
-      TransactionId(trans.transactionId.underlyingString),
-      Tag.subst(trans.optSubmitterInfo.map(_.commandId.underlyingString)),
-      Tag.subst(trans.optSubmitterInfo.map(_.applicationId.underlyingString)),
+      TransactionId(trans.transactionId),
+      Tag.subst(trans.optSubmitterInfo.map(_.commandId)),
+      Tag.subst(trans.optSubmitterInfo.map(_.applicationId)),
       Tag.subst(trans.optSubmitterInfo.map(_.submitter.underlyingString)),
-      WorkflowId(trans.transactionMeta.workflowId.underlyingString),
+      WorkflowId(trans.transactionMeta.workflowId),
       trans.recordTime.toInstant,
       None
     )

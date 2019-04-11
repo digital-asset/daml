@@ -41,7 +41,9 @@ import scala.concurrent.duration.FiniteDuration
   * @param timeProvider
   * @param mat
   */
-class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: ActorMaterializer) {
+class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: ActorMaterializer)
+    extends ReadService
+    with WriteService {
 
   object StateController {
     private val ledgerState = {
@@ -93,7 +95,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     * order, therefore when broadcasting new events, we use a separate task to enqueue events directly
     * from the ledger and only signal that task here.
     */
-  def submitTransaction(
+  override def submitTransaction(
       submitterInfo: v1.SubmitterInfo,
       transactionMeta: v1.TransactionMeta,
       transaction: SubmittedTransaction): Unit = {
@@ -251,8 +253,8 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
         timeProvider.getCurrentTime,
         transactionMeta.ledgerEffectiveTime.toInstant,
         submitterInfo.maxRecordTime.toInstant,
-        submitterInfo.commandId.underlyingString,
-        submitterInfo.applicationId.underlyingString
+        submitterInfo.commandId,
+        submitterInfo.applicationId
       )
       .fold(t => return Left(mkRejectedCommand(MaximumRecordTimeExceeded, submitterInfo)), _ => ())
 
@@ -267,9 +269,9 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   }
 
   /**
-    * Subscribe to the stream of ledger sync events
+    * Subscribe to the stream of ledger updates
     */
-  def ledgerSyncEvents(offset: Option[Offset]): Source[(Offset, v1.Update), NotUsed] = {
+  def stateUpdates(offset: Option[Offset]): Source[(Offset, v1.Update), NotUsed] = {
     StateController
       .subscribe()
       .statefulMapConcat { () =>
@@ -281,7 +283,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
           currentOffset += newEvents.size
 
           logger.trace(
-            s"ledgerSyncEvents: Emitting ${newEvents.size} new events from offset ${currentOffset}")
+            s"stateUpdates: Emitting ${newEvents.size} new events from offset ${currentOffset}")
           newEvents
       }
   }
@@ -337,7 +339,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       offset: Offset,
       recordTime: Instant,
       inputContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
-    val txId = Ref.SimpleString.assertFromString(offset.toString) // for this ledger, offset is also the transaction id
+    val txId = offset.toString // for this ledger, offset is also the transaction id
     TransactionAccepted(
       Some(submitterInfo),
       transactionMeta,

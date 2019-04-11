@@ -64,19 +64,18 @@ class DamlOnXActiveContractsService private (
                 )
               )
             )
-            .flatMapConcat {
-              (snapshot: ActiveContractSetSnapshot) =>
-                snapshot.activeContracts
-                  .mapConcat {
-                    case (workflowId, createEvent) =>
-                      filteredApiContract(
-                        EventFilter.byTemplates(filter),
-                        workflowId.underlyingString,
-                        createEvent,
-                        request.verbose).toList
-                  }
-                  .concat(
-                    Source.single(GetActiveContractsResponse(offset = snapshot.takenAt.toString)))
+            .flatMapConcat { (snapshot: ActiveContractSetSnapshot) =>
+              snapshot.activeContracts
+                .mapConcat {
+                  case (workflowId, createEvent) =>
+                    filteredApiContract(
+                      EventFilter.byTemplates(filter),
+                      workflowId,
+                      createEvent,
+                      request.verbose).toList
+                }
+                .concat(
+                  Source.single(GetActiveContractsResponse(offset = snapshot.takenAt.toString)))
             }
 
         }
