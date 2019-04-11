@@ -14,7 +14,6 @@ import qualified Data.Text as T
 import Data.Text (Text, pack, unpack)
 import Data.Maybe
 import Control.Exception.Safe
-import System.Info (os)
 
 data AssistantError = AssistantError
     { errContext  :: Maybe Text -- ^ Context in which error occurs.
@@ -81,14 +80,3 @@ data InstallTarget
     | InstallVersion SdkVersion
     | InstallPath FilePath
     deriving (Eq, Show)
-
-data Platform
-    = Unix
-    | Windows
-
-getPlatform :: Platform
-getPlatform = case os of
-    "darwin"  -> Unix
-    "linux"   -> Unix
-    "mingw32" -> Windows
-    _ -> error ("Unsupported operating system: " <> os)

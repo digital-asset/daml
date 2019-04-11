@@ -15,6 +15,7 @@ import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
 import System.Directory
 import System.Environment
 import System.FilePath
+import System.Info.Extra (isWindows)
 import System.IO.Temp
 import System.IO.Extra
 import Data.List.Extra
@@ -318,9 +319,9 @@ testInstall = Tasty.testGroup "DAML.Assistant.Install"
                 .| sinkFile "source.tar.gz"
 
             install options damlPath
-    , case getPlatform of
-        Unix -> testInstallUnix
-        Windows -> testInstallWindows
+    , if isWindows
+        then testInstallWindows
+        else testInstallUnix
     ]
 
 testInstallUnix :: Tasty.TestTree
