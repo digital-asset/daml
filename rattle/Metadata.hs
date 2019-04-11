@@ -1,4 +1,4 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ViewPatterns, LambdaCase #-}
 
 module Metadata(
     readMetadata, Metadata(..)
@@ -37,9 +37,9 @@ lexPython x = case lex x of
 
 search :: [String] -> [Metadata]
 search (x:xs)
-    | x == "da_haskell_library" || x == "da_haskell_binary"
+    | Just md <- defaultMetadata x
     , Just (fields, rest) <- paren xs
-    = f (Da_haskell_library [] [] [] [] [] [] Nothing) fields : search rest
+    = f md fields : search rest
     where
         f r ("name":"=":name:xs) = f r{dhl_name = read name} xs
         f r ("src_strip_prefix":"=":name:xs) = f r{dhl_src_strip_prefix = read name} xs
@@ -53,6 +53,12 @@ search (x:xs)
         f r [] = r
 search (x:xs) = search xs
 search [] = []
+
+defaultMetadata :: String -> Maybe Metadata
+defaultMetadata = \case
+    "da_haskell_library" -> Just $ Da_haskell_library [] [] [] [] [] [] Nothing
+    "da_haskell_binary" -> Just $ Da_haskell_library [] [] [] [] [] [] (Just "Main.main")
+    _ -> Nothing
 
 
 paren = bracketed "(" ")"
