@@ -36,7 +36,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
       ledger
         .lookupContract(contractId)
         .map(_.collect {
-          case ac if Ref.Party fromString submitter exists ac.witnesses => ac.contract
+          case ac if Ref.Party fromString submitter exists ac.disclosedTo => ac.contract
         })(DirectExecutionContext)
 
     override def lookupContractKey(key: Node.GlobalKey): Future[Option[Value.AbsoluteContractId]] =
@@ -73,7 +73,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
       ac.transactionId,
       ac.workflowId,
       ac.contract,
-      ac.witnesses
+      ac.disclosedTo
     )
 
   private def toLedgerSyncEvent(offset: Long, item: LedgerEntry): LedgerSyncEvent = {

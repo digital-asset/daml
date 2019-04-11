@@ -29,7 +29,7 @@ final case class Contract(
 
 object Contract {
   def fromActiveContract(cid: AbsoluteContractId, ac: ActiveContract): Contract =
-    Contract(cid, ac.let, ac.transactionId, ac.workflowId, ac.witnesses, ac.contract)
+    Contract(cid, ac.let, ac.transactionId, ac.workflowId, ac.disclosedTo, ac.contract)
 }
 
 case class LedgerSnapshot(offset: Long, acs: Source[Contract, NotUsed])
