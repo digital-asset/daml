@@ -139,18 +139,6 @@ DAML built-in types are translated to the following equivalent types in Java:
 |                                | respective template ``X``.                 |                        |
 +--------------------------------+--------------------------------------------+------------------------+
 
-.. _Int64: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Int64.html
-.. _Decimal: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Decimal.html
-.. _Text: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Text.html
-.. _Bool: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Bool.html
-.. _Party: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Party.html
-.. _Date: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Date.html
-.. _Timestamp: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Timestamp.html
-.. _DamlList: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlList.html
-.. _TextMap: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/TextMap.html
-.. _DamlOptional: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlOptional.html
-.. _Unit: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Unit.html
-.. _ContractId: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/ContractId.html
 
 Understand escaping rules
 -------------------------
@@ -420,12 +408,12 @@ The Java codegen generates a Java file with a generic class for  the ``Attribute
     public static <a> Attribute<a> fromValue(Value value$, Function<Value, a> fromValuea) { /* ... */ }
   }
 
-Serializing
-"""""""""""
+Convert a value of a generated type to a Java Bindings value
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-To serialize an instance of the ``Attribute<a>`` data type, a function for creating the Ledger API equivalent of the attribute value is passed to the ``toValue`` method as the ``fromValuea`` argument (see the above ``com/acme/Attribute.java`` source extract).
+To convert an instance of the generic type ``Attribute<a>`` to a Java Bindings `Value`_, call the ``toValue`` method and pass a function as the ``toValuea`` argument for converting the field of type ``a`` to the respective Java Bindings `Value`_. The name of the parameter consists of ``toValue`` and the name of the type parameter, in this case ``a``, to form the name ``toValuea``.
 
-Below is a Java fragment that serializes an attribute with a ``java.lang.Long`` value to the Ledger API representation using the *method reference* ``Int64::new`` to create a new instance of the Java Bindings value type.
+Below is a Java fragment that converts an attribute with a ``java.lang.Long`` value to the Java Bindings representation using the *method reference* ``Int64::new``.
 
 .. code-block:: java
 
@@ -433,14 +421,14 @@ Below is a Java fragment that serializes an attribute with a ``java.lang.Long`` 
 
   Value serializedPages = pagesAttribute.toValue(Int64::new);
 
-See :ref:`DAML To Java Type Mapping <daml-codegen-java-primitive-types>` for the Java Bindings value types need to be created in the ``fromValue`` method.
+See :ref:`DAML To Java Type Mapping <daml-codegen-java-primitive-types>` for an overview of the Java Bindings `Value`_ types.
 
-Note: If the DAML type is a record that has more than one parameterized type, a function for creating the Java Binding values must be supplied for *each* such type.
+Note: If the DAML type is a record or variant with more than one type parameter, you need to pass a conversion function to the ``toValue`` method for each type parameter.
 
-Deserializing
-"""""""""""""
+Create a value of a generated type from a Java Bindings value
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-Analogous to the generated ``toValue`` method, the deserialization method ``fromValue`` takes a function to convert a Java Bindings ``Value`` type to the expected Java type.
+Analogous to the ``toValue`` method, to create a value of a generated type, call the method ``fromValue`` and pass conversion functions from a Java Bindings `Value`_ type to the expected Java type.
 
 .. code-block:: java
 
@@ -449,17 +437,16 @@ Analogous to the generated ``toValue`` method, the deserialization method ``from
 
 See Java Bindings `Value`_ class for the methods to transform the Java Bindings types into corresponding Java types.
 
-.. _Value: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/Value.html
 
 Non-exposed parameterized types
 """""""""""""""""""""""""""""""
 
-If the parameterized type is contained in a type where the *actual* type is specified (as in the ``BookAttributes`` type above), then the serialization and deserialization of the enclosing type provides the necessary methods for serialization and deserialization.
+If the parameterized type is contained in a type where the *actual* type is specified (as in the ``BookAttributes`` type above), then the conversion methods of the enclosing type provides the required conversion function parameters automatically.
 
-Converting List and Optional
-""""""""""""""""""""""""""""
+Convert List and Optional values
+""""""""""""""""""""""""""""""""
 
-The serialization of the Java ``List`` and ``Optional`` types require a multiple stage conversion function where the elements must be converted to the Java Binding Java Types before the creating the ``DamlList`` or ``DamlOptional``.
+The conversion of the Java ``List`` and ``Optional`` types requires multiple steps to first convert the list elements or the value inside the optional creating the `DamlList`_ or `DamlOptional`_ value.
 
 .. code-block:: java
 
@@ -467,7 +454,7 @@ The serialization of the Java ``List`` and ``Optional`` types require a multiple
 
   Value serializedAuthors = authorsAttribute.toValue(f -> new DamlList(f.stream().map(Text::new).collect(Collectors.<Value>toList())));
 
-The deserialization to the Java ``List`` and ``Optional`` types similarly require that the Java Bindings types ``DamlList`` and ``DamlOptional``  are converted to it's Java equivalent and then all the contained elements are converted to Java types.
+The conversion of the Java ``List`` and ``Optional`` types similarly require that the Java Bindings types `DamlList`_ and `DamlOptional`_ are converted to it's Java equivalent and then all the contained elements are converted to Java types.
 
 .. code-block:: java
 
@@ -475,3 +462,18 @@ The deserialization to the Java ``List`` and ``Optional`` types similarly requir
       f0 -> f0.asList().orElseThrow(() -> new IllegalArgumentException("Expected DamlList field")).getValues().stream()
           .map(f1 -> f1.asText().orElseThrow(() -> new IllegalArgumentException("Expected Text element")).getValue())
               .collect(Collectors.toList()));
+
+
+.. _Value: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/Value.html
+.. _Int64: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Int64.html
+.. _Decimal: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Decimal.html
+.. _Text: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Text.html
+.. _Bool: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Bool.html
+.. _Party: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Party.html
+.. _Date: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Date.html
+.. _Timestamp: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Timestamp.html
+.. _DamlList: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlList.html
+.. _TextMap: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/TextMap.html
+.. _DamlOptional: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlOptional.html
+.. _Unit: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Unit.html
+.. _ContractId: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/ContractId.html
