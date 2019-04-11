@@ -1,0 +1,39 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module Math where
+
+import DA.Math
+import DA.Assert
+
+expTest = scenario do
+  let 
+    exp60 = 114200738981568428366295718.3144765630
+    exp10 = 22026.4657948067
+    expm10 = 0.0000453999
+    expm20 = 0.00000000206
+  1.0 === exp 0.0
+  assert(abs(exp10 - exp 10.0) < 0.0000000002)
+  assert(abs(exp60 - exp 60.0) < 10.0 ^^ 11)
+  assert(abs(expm10 - exp (negate 10.0) ) <= 0.0000000001)
+  assert(abs(expm20 - exp (negate 20.0) ) <= 0.0000000001)
+
+logTest = scenario do
+  let
+    log05 = -0.693147180559
+    log15 = 0.405465108108
+    log10e27 = 62.1697975108392
+    log10em9 = -20.723265836946
+  0.0 === log 1.0
+  assert(abs(log15 - log 1.5) < 0.0000000002)
+  assert(abs(log05 - log 0.5) < 0.0000000002)
+  assert(abs(1.0 - log (exp 1.0)) <= 0.0000000002)
+  assert(abs(100.0 - exp (log 100.0)) <= 0.0000000009)
+  log10e27 === log (10.0 ^^ 27)
+  log10em9 ===  log (10.0 ^^ (negate 9))
+
+powerTest = scenario do
+  let
+    sqrt2 = 1.4142135623
+  assert(abs(sqrt2 - 2.0 ** 0.5) <= 0.0000000003)
