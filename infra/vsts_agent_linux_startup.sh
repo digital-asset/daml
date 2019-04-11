@@ -5,14 +5,16 @@
 # Agent startup script
 set -euo pipefail
 
-# Hardening
+## Hardening
 
 # Commit harakiri on failure
 trap "shutdown -h now" EXIT
 
+# replace the default nameserver to not use the metadata server
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+
 # block the metadata server for non-root processes
-# this blocks the DNS resolver
-#iptables -A OUTPUT -m owner ! --uid-owner root -d 169.254.169.254 -j DROP
+iptables -A OUTPUT -m owner ! --uid-owner root -d 169.254.169.254 -j DROP
 
 # delete self
 rm -vf "$0"
@@ -26,7 +28,7 @@ apt-get install -qy \
   git \
   netcat
 
-# Install the VSTS agent
+## Install the VSTS agent
 groupadd --gid 3000 vsts
 useradd \
   --create-home \
@@ -77,6 +79,10 @@ set -u
   --url "https://$VSTS_ACCOUNT.visualstudio.com"
 AGENT_SETUP
 
+## Hardening
+
+chown --recursive root:root /home/vsts/agent/{*.sh,bin,externals}
+
 ## Install Nix
 
 # This needs to run inside of a user with sudo access
@@ -97,7 +103,7 @@ systemctl restart nix-daemon
 
 ## Finish
 
-# TODO: is this "webserver" necessary?
+# run the fake local webserver, taken from the docker image
 web-server() {
   while true; do
     printf 'HTTP/1.1 302 Found\r\nLocation: https://%s.visualstudio.com/_admin/_AgentPool\r\n\r\n' "${vsts_account}" | nc -l -p 80 -q 0 > /dev/null
