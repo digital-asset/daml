@@ -27,7 +27,7 @@ deps = [
     'temporary',
     'terminal-progress-bar',
     'text',
-    'unix',
+    'unix-compat',
     'utf8-string',
     'yaml',
 ]

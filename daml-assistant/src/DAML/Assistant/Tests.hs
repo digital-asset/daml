@@ -29,10 +29,12 @@ import Data.Maybe
 import Control.Exception.Safe
 import Control.Monad
 import Conduit
-import System.Posix.Files
 import qualified Data.Conduit.Zlib as Zlib
 import qualified Data.Conduit.Tar as Tar
 import qualified Data.SemVer as V
+
+-- unix specific
+import System.PosixCompat.Files (createSymbolicLink)
 
 runTests :: IO ()
 runTests = do
