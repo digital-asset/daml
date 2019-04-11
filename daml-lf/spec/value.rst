@@ -155,7 +155,7 @@ This table lists every version of this specification in ascending order
 +--------------------+-----------------+
 |                  3 |      2019-02-14 |
 +--------------------+-----------------+
-|                  4 |      2019-03-27 |
+|                  4 |      2019-04-10 |
 +--------------------+-----------------+
 
 message VersionedValue
@@ -511,13 +511,11 @@ A map entry (key-value pair) used to build `message Map`_.
 
 As of version 4, these fields are included:
 
-* `message Value`_ key
+* string key
 
 * `message Value`_ value
 
-Both ``key`` and ``value`` are required. The field ``key`` must be a
-`message Value`_ with and only with the field ``text`` set.
-Usage of other fields withing ``key`` is reserved for future use.
+Both ``key`` and ``value`` are required.
 
 message Map
 ^^^^^^^^^^^
