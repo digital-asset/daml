@@ -21,6 +21,12 @@ import System.Exit
 import Safe
 import Data.List.Split (splitOn)
 
+maxRetries :: Int
+maxRetries = 50 -- == wait 5s
+
+retryInterval :: Int
+retryInterval = 100*1000 -- 100ms
+
 readPortFile :: Int -> String -> IO Int
 readPortFile 0 file = do
   T.hPutStrLn stderr "Port file was not written to in time."
@@ -30,7 +36,7 @@ readPortFile 0 file = do
 readPortFile n file =
   readMay <$> readFile file >>= \case
     Nothing -> do
-      threadDelay (100*1000) -- 100ms
+      threadDelay retryInterval
       readPortFile (n-1) file
     Just p -> pure p
 
@@ -59,7 +65,7 @@ main = do
   let serverProc =
         proc serverExe (["--port-file", tempFile] <> splitArgs serverArgs)
   runCheckedProc "SERVER" serverProc $ do
-    port <- readPortFile 5 tempFile
+    port <- readPortFile maxRetries tempFile
     removeFile tempFile
     callProcess clientExe
       (["--target-port", show port] <> splitArgs clientArgs)
