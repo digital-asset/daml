@@ -85,3 +85,4 @@ ledger-api/.bin
 .bazelproject
 .bazel-cache
 .rattle
+daml-lf/project
