@@ -150,7 +150,7 @@ installExtracted env@InstallEnv{..} sourcePath =
             unless (versionMatchesTarget sourceVersion target) $
                 throwIO (assistantErrorBecause "SDK release version mismatch."
                     ("Expected " <> displayInstallTarget target
-                    <> " but got version " <> V.toText (unwrapSdkVersion sourceVersion)))
+                    <> " but got version " <> versionToText sourceVersion))
 
         -- Set file mode of files to install.
         requiredIO "Failed to set file modes for extracted SDK files." $
@@ -399,9 +399,9 @@ decideInstallTarget (RawInstallTarget arg) = do
     testF <- doesFileExist arg
     if testD || testF then
         pure (InstallPath arg)
-    else
-        fromRightM (throwIO . assistantErrorBecause "Invalid SDK version." . pack) $
-            InstallVersion . SdkVersion <$> V.fromText (pack arg)
+    else do
+        v <- requiredE "Invalid SDK version" (parseVersion (pack arg))
+        pure (InstallVersion v)
 
 -- | Run install command.
 install :: InstallOptions -> DamlPath -> IO ()

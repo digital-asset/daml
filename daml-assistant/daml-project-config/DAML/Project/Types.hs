@@ -56,6 +56,27 @@ instance Y.FromJSON SdkVersion where
             Left e -> fail ("Invalid SDK version: " <> e)
             Right v -> pure (SdkVersion v)
 
+versionToString :: SdkVersion -> String
+versionToString = V.toString . unwrapSdkVersion
+
+versionToText :: SdkVersion -> Text
+versionToText = V.toText . unwrapSdkVersion
+
+data InvalidVersion = InvalidVersion
+    { ivSource :: !Text -- ^ invalid version
+    , ivMessage :: !String -- ^ error message
+    } deriving (Show, Eq)
+
+instance Exception InvalidVersion where
+    displayException (InvalidVersion bad msg) =
+        "Invalid SDK version  " <> show bad <> ": " <> msg
+
+parseVersion :: Text -> Either InvalidVersion SdkVersion
+parseVersion src =
+    case V.fromText src of
+        Left msg -> Left (InvalidVersion src msg)
+        Right v -> Right (SdkVersion v)
+
 isStableVersion :: SdkVersion -> Bool
 isStableVersion = (== []) . L.view V.release . unwrapSdkVersion
 
