@@ -28,6 +28,7 @@ da_scala_binary(
 client_server_test(
   name = "test",
   client = ":client",
+  client_args = ["--foobar"],
   server = ":server",
   timeout="short",
 )

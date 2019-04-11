@@ -17,7 +17,7 @@ da_haskell_binary(
         "temporary",
         "safe",
         "directory",
-        "split"
+        "split",
     ],
     visibility = ["//visibility:public"],
 )

@@ -1,6 +1,8 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_skylib//lib:shell.bzl", "shell")
+
 def _client_server_test_impl(ctx):
 
   # Construct wrapper to execute the runner, which in turn
@@ -9,13 +11,13 @@ def _client_server_test_impl(ctx):
   ctx.actions.write(
     output = wrapper,
     content = """#!/usr/bin/env bash
-{runner} '{client}' '{server}'
+{runner} '{client}' '{client_args}' '{server}' '{server_args}'
 """.format(
       runner = ctx.executable._runner.short_path,
       client = ctx.executable.client.short_path,
-      client_args = " ".join(ctx.attr.client_args),
+      client_args = " ".join([ a.replace("'", "'\\''") for a in ctx.attr.client_args]),
       server = ctx.executable.server.short_path,
-      server_args = " ".join(ctx.attr.server_args),
+      server_args = " ".join([ a.replace("'", "'\\''") for a in ctx.attr.server_args]),
     ),
     is_executable = True
   )
@@ -67,15 +69,14 @@ The server process is killed after the client process exits.
 The client and server executables can be any Bazel target that
 is executable, e.g. scala_binary, sh_binary, etc.
 
-If additional arguments need to be passed to the client or server
-process then a wrapper should be used.
-
 Example:
   ```bzl
   client_server_test(
     name = "my_test",
     client = ":my_client",
+    client_args = ["--extra-argument"],
     server = ":my_server",
+    server_args = ["--fast"],
   )
   ```
 """

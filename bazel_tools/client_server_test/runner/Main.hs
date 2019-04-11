@@ -19,6 +19,7 @@ import System.IO.Temp (emptySystemTempFile)
 import System.Directory (removeFile)
 import System.Exit
 import Safe
+import Data.List.Split (splitOn)
 
 readPortFile :: Int -> String -> IO Int
 readPortFile 0 file = do
@@ -51,14 +52,15 @@ runCheckedProc desc proc resume =
 
 main :: IO ()
 main = do
-  [clientExe, serverExe] <- getArgs
+  [clientExe, clientArgs, serverExe, serverArgs] <- getArgs
   tempFile <- emptySystemTempFile "client-server-test-runner-port"
+  let splitArgs = filter (/= "") . splitOn " "
 
   let serverProc =
-        proc serverExe ["--port-file", tempFile]
+        proc serverExe (["--port-file", tempFile] <> splitArgs serverArgs)
   runCheckedProc "SERVER" serverProc $ do
     port <- readPortFile 5 tempFile
     removeFile tempFile
     callProcess clientExe
-      ["--target-port", show port]
+      (["--target-port", show port] <> splitArgs clientArgs)
     exitSuccess
