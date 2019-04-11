@@ -12,7 +12,7 @@ import scala.concurrent.duration.{FiniteDuration, _}
 import scala.util.control.NonFatal
 
 /** A helper to run JDBC queries using a pool of managed connections */
-trait JdbcConnectionProvider {
+trait JdbcConnectionProvider extends AutoCloseable {
 
   /** Blocks are running in a single transaction as the commit happens when the connection
     * is returned to the pool.
@@ -83,6 +83,11 @@ class HikariJdbcConnectionProvider(
 
   override def getStreamingConnection(): Connection =
     streamingDataSource.getConnection()
+
+  override def close(): Unit = {
+    shortLivedDataSource.close()
+    streamingDataSource.close()
+  }
 
 }
 

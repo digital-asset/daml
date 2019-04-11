@@ -91,6 +91,9 @@ class Backend(
     logger.debug("shutdownTasks called.")
     ledger.shutdownTasks()
   }
+
+  override def close(): Unit = {} //TODO: Jussi, is there anything to free up here?
+
 }
 
 class Handle(ledger: Ledger, ledgerSyncOffset: LedgerSyncOffset, ec: ExecutionContext)
@@ -125,4 +128,5 @@ class Handle(ledger: Ledger, ledgerSyncOffset: LedgerSyncOffset, ec: ExecutionCo
 
   override def lookupContractKey(key: Node.GlobalKey): Future[Option[Value.AbsoluteContractId]] =
     sys.error("contract keys not implemented in example backend")
+
 }

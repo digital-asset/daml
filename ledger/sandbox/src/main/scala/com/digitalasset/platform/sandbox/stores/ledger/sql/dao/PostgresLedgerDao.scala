@@ -559,6 +559,10 @@ private class PostgresLedgerDao(
         DirectExecutionContext)
   }
 
+  override def close(): Unit = {
+    dbDispatcher.close()
+  }
+
 }
 
 object PostgresLedgerDao {

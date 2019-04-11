@@ -63,8 +63,7 @@ private class SqlLedger(
     headAtInitialization: Long,
     ledgerDao: LedgerDao,
     timeProvider: TimeProvider)(implicit mat: Materializer)
-    extends Ledger
-    with AutoCloseable {
+    extends Ledger {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -107,7 +106,10 @@ private class SqlLedger(
       .run()
   }
 
-  override def close(): Unit = persistenceQueue.complete()
+  override def close(): Unit = {
+    persistenceQueue.complete()
+    ledgerDao.close()
+  }
 
   private def loadStartingState(ledgerEntries: immutable.Seq[LedgerEntry]): Future[Unit] =
     if (ledgerEntries.nonEmpty) {
