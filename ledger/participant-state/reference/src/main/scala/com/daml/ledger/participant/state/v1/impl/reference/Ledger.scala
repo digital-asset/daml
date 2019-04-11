@@ -251,8 +251,8 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
         timeProvider.getCurrentTime,
         transactionMeta.ledgerEffectiveTime.toInstant,
         submitterInfo.maxRecordTime.toInstant,
-        submitterInfo.commandId,
-        submitterInfo.applicationId
+        submitterInfo.commandId.underlyingString,
+        submitterInfo.applicationId.underlyingString
       )
       .fold(t => return Left(mkRejectedCommand(MaximumRecordTimeExceeded, submitterInfo)), _ => ())
 
@@ -337,7 +337,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       offset: Offset,
       recordTime: Instant,
       inputContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
-    val txId = offset.toString // for this ledger, offset is also the transaction id
+    val txId = Ref.SimpleString.assertFromString(offset.toString) // for this ledger, offset is also the transaction id
     TransactionAccepted(
       Some(submitterInfo),
       transactionMeta,
@@ -356,7 +356,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
 
   private def emptyLedgerState = {
     val heartbeat: Update = Heartbeat(Timestamp.assertFromInstant(timeProvider.getCurrentTime))
-    val stateInit: Update = StateInit(UUID.randomUUID().toString)
+    val stateInit: Update = StateInit(Ref.SimpleString.assertFromString(UUID.randomUUID().toString))
 
     LedgerState(
       List(stateInit, heartbeat),

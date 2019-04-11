@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.index.v1.{
   ActiveContractSetSnapshot,
   IndexService
 }
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service._
@@ -58,23 +59,24 @@ class DamlOnXActiveContractsService private (
             .fromFuture(
               consumeAsyncResult(
                 indexService.getActiveContractSetSnapshot(
-                  request.ledgerId,
+                  Ref.SimpleString.assertFromString(request.ledgerId),
                   filter
                 )
               )
             )
-            .flatMapConcat { (snapshot: ActiveContractSetSnapshot) =>
-              snapshot.activeContracts
-                .mapConcat {
-                  case (workflowId, createEvent) =>
-                    filteredApiContract(
-                      EventFilter.byTemplates(filter),
-                      workflowId,
-                      createEvent,
-                      request.verbose).toList
-                }
-                .concat(
-                  Source.single(GetActiveContractsResponse(offset = snapshot.takenAt.toString)))
+            .flatMapConcat {
+              (snapshot: ActiveContractSetSnapshot) =>
+                snapshot.activeContracts
+                  .mapConcat {
+                    case (workflowId, createEvent) =>
+                      filteredApiContract(
+                        EventFilter.byTemplates(filter),
+                        workflowId.underlyingString,
+                        createEvent,
+                        request.verbose).toList
+                  }
+                  .concat(
+                    Source.single(GetActiveContractsResponse(offset = snapshot.takenAt.toString)))
             }
 
         }
@@ -107,7 +109,7 @@ class DamlOnXActiveContractsService private (
                 throw new RuntimeException(
                   s"Unexpected error when converting stored contract: $err"),
               identity)),
-        a.stakeholders
+        a.stakeholders.map(_.underlyingString)
       ))
   }
 
@@ -127,7 +129,7 @@ object DamlOnXActiveContractsService {
 
     new ActiveContractsServiceValidation(
       new DamlOnXActiveContractsService(indexService, identifierResolver)(ec, mat, esf),
-      ledgerId
+      ledgerId.underlyingString
     ) with BindableService with ActiveContractsServiceLogging {
       override def bindService(): ServerServiceDefinition =
         ActiveContractsServiceGrpc.bindService(this, DirectExecutionContext)

@@ -100,7 +100,7 @@ object Update {
       optSubmitterInfo: Option[SubmitterInfo],
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
-      transactionId: String,
+      transactionId: TransactionId,
       recordTime: Timestamp,
       referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
   ) extends Update {
@@ -117,7 +117,7 @@ object Update {
       reason: RejectionReason,
   ) extends Update {
     override def description: String = {
-      val commandId = optSubmitterInfo.map(_.commandId).getOrElse("???")
+      val commandId = optSubmitterInfo.map(_.commandId.underlyingString).getOrElse("???")
       s"Reject command $commandId: $reason"
     }
   }

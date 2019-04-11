@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.v1.impl.reference
 
 import com.daml.ledger.participant.state.v1.{SubmittedTransaction, SubmitterInfo, TransactionMeta}
-import com.digitalasset.daml.lf.data.Ref.{PackageId, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.{
   Blinding,
   ContractNotFound,
@@ -61,7 +61,7 @@ object Validation {
     }
 
     val engine = new Engine()
-    val submitter = SimpleString.assertFromString(submitterInfo.submitter)
+    val submitter = submitterInfo.submitter
 
     val result = for {
       // check the transaction is conformant

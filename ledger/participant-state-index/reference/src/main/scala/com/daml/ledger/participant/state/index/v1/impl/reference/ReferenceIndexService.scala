@@ -11,6 +11,7 @@ import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.participant
 import com.daml.ledger.participant.state.index.v1._
 import com.daml.ledger.participant.state.v1._
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value
@@ -151,13 +152,8 @@ final case class ReferenceIndexService(participantReadService: participant.state
       Future.successful(state.getUpdateId)
     }
 
-  override def getLedgerBounds(ledgerId: LedgerId): AsyncResult[(Offset, Offset)] =
-    asyncResultWithState(ledgerId) { state =>
-      Future.successful((state.getBeginning, state.getUpdateId))
-    }
-
-  private def nodeIdToEventId(txId: TransactionId, nodeId: NodeId): String =
-    s"$txId/${nodeId.index}"
+  private def nodeIdToEventId(txId: TransactionId, nodeId: NodeId): EventId =
+    Ref.SimpleString.assertFromString(s"$txId/${nodeId.index}")
 
   private def transactionToAcsUpdateEvents(
       filter: TransactionFiltering,
@@ -290,7 +286,7 @@ final case class ReferenceIndexService(participantReadService: participant.state
   private def getCompletionsFromState(
       state: IndexState,
       beginFrom: Offset,
-      applicationId: String): List[CompletionEvent] = {
+      applicationId: ApplicationId): List[CompletionEvent] = {
     val accepted =
       state.txs
         .from(beginFrom)
@@ -327,8 +323,8 @@ final case class ReferenceIndexService(participantReadService: participant.state
   override def getCompletions(
       ledgerId: LedgerId,
       beginAfter: Option[Offset],
-      applicationId: String,
-      parties: List[String]): AsyncResult[Source[CompletionEvent, NotUsed]] =
+      applicationId: ApplicationId,
+      parties: List[Party]): AsyncResult[Source[CompletionEvent, NotUsed]] =
     asyncResultWithState(ledgerId) { state0 =>
       // FIXME(JM): Move the ledgerId check into the state subscription?
       logger.debug(s"getCompletions: $ledgerId, $beginAfter")

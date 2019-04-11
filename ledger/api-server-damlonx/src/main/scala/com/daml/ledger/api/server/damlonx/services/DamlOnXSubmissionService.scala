@@ -47,7 +47,7 @@ object DamlOnXSubmissionService {
     : GrpcCommandSubmissionService with BindableService with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new DamlOnXSubmissionService(indexService, writeService, engine),
-      ledgerId,
+      ledgerId.underlyingString,
       identifierResolver
     ) with CommandSubmissionServiceLogging
 
@@ -76,10 +76,11 @@ class DamlOnXSubmissionService private (
   }
 
   private def recordOnLedger(commands: Commands): Future[Unit] = {
+    val ledgerId = Ref.SimpleString.assertFromString(commands.ledgerId.unwrap)
     val getPackage =
       (packageId: Ref.PackageId) =>
         consumeAsyncResult(
-          indexService.getPackage(commands.ledgerId.unwrap, packageId)
+          indexService.getPackage(ledgerId, packageId)
         ).flatMap { optArchive =>
           Future.fromTry(Try(optArchive.map(Decode.decodeArchive(_)._2)))
       }
@@ -87,7 +88,7 @@ class DamlOnXSubmissionService private (
       (coid: AbsoluteContractId) =>
         consumeAsyncResult(
           indexService
-            .lookupActiveContract(commands.ledgerId.unwrap, coid))
+            .lookupActiveContract(ledgerId, coid))
 
     apiCommandsToLfCommands(commands)
       .consumeAsync(getPackage)
@@ -108,15 +109,17 @@ class DamlOnXSubmissionService private (
                     s"Submitting transaction from ${commands.submitter.unwrap} with ${commands.commandId.unwrap}")
                   writeService.submitTransaction(
                     submitterInfo = SubmitterInfo(
-                      submitter = commands.submitter.unwrap,
-                      applicationId = commands.applicationId.unwrap,
+                      submitter = Ref.SimpleString.assertFromString(commands.submitter.unwrap),
+                      applicationId =
+                        Ref.SimpleString.assertFromString(commands.applicationId.unwrap),
                       maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
-                      commandId = commands.commandId.unwrap
+                      commandId = Ref.SimpleString.assertFromString(commands.commandId.unwrap)
                     ),
                     transactionMeta = TransactionMeta(
                       ledgerEffectiveTime =
                         Timestamp.assertFromInstant(commands.ledgerEffectiveTime),
-                      workflowId = commands.workflowId.fold("")(_.unwrap) // FIXME(JM): defaulting?
+                      workflowId = Ref.SimpleString.assertFromString(
+                        commands.workflowId.fold("")(_.unwrap)) // FIXME(JM): sensible defaulting?
                     ),
                     transaction = updateTx
                   )

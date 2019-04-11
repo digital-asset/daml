@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.index.v1.impl.reference
 
 import com.daml.ledger.participant.state.v1.{CommittedTransaction, NodeId, Party}
+import com.digitalasset.daml.lf.data.Ref.SimpleString
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.ledger.api.domain.TransactionFilter
 import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter
@@ -21,6 +22,7 @@ case class TransactionFiltering(filter: TransactionFilter) {
       .map {
         // FIXME(JM): Refactor transaction filtering to not go via strings
         case (k, v) =>
-          Value.NodeId.unsafeFromIndex(k.toInt) -> v.map(_.unwrap)
+          Value.NodeId.unsafeFromIndex(k.toInt) -> v.map(p =>
+            SimpleString.assertFromString(p.unwrap))
       }
 }

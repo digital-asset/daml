@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason}
 import com.daml.ledger.participant.state.index.v1.{CompletionEvent, IndexService}
+import com.digitalasset.daml.lf.data.Ref
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -38,6 +39,8 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
 
   override def completionStreamSource(
       request: CompletionStreamRequest): Source[CompletionStreamResponse, NotUsed] = {
+
+    val ledgerId = Ref.SimpleString.assertFromString(request.ledgerId)
 
     val offsetFuture: Future[Option[Offset]] =
       request.offset match {
@@ -56,13 +59,19 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
                     ))
                 case domain.LedgerOffset.LedgerBegin => Future.successful(None)
                 case domain.LedgerOffset.LedgerEnd =>
-                  consumeAsyncResult(indexService.getLedgerEnd(request.ledgerId)).map(Some(_))
+                  consumeAsyncResult(indexService.getLedgerEnd(ledgerId))
+                    .map(Some(_))
               }
             )
       }
     val compsFuture = offsetFuture.flatMap { optOffset =>
-      consumeAsyncResult(indexService
-        .getCompletions(request.ledgerId, optOffset, request.applicationId, request.parties.toList))
+      consumeAsyncResult(
+        indexService
+          .getCompletions(
+            ledgerId,
+            optOffset,
+            Ref.SimpleString.assertFromString(request.applicationId),
+            request.parties.toList.map(Ref.SimpleString.assertFromString)))
     }
 
     Source
@@ -74,13 +83,13 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
 
             CompletionStreamResponse(
               None, // FIXME(JM): is the checkpoint present in each response?
-              List(Completion(commandId, Some(Status())))
+              List(Completion(commandId.underlyingString, Some(Status())))
             )
-          case CompletionEvent.CommandRejected(updateId, commandId, reason) =>
-            logger.debug(s"sending completion rejected $updateId: $commandId: $reason")
+          case CompletionEvent.CommandRejected(offset, commandId, reason) =>
+            logger.debug(s"sending completion rejected $offset: $commandId: $reason")
             CompletionStreamResponse(
               None, // FIXME(JM): is the checkpoint present in each response?
-              List(toCompletion(commandId, reason)))
+              List(toCompletion(commandId.underlyingString, reason)))
 
           case CompletionEvent.Checkpoint(offset, recordTime) =>
             logger.debug(s"sending checkpoint $offset: $recordTime")
@@ -101,7 +110,7 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
   override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =
     consumeAsyncResult(
       indexService
-        .getLedgerEnd(request.ledgerId)
+        .getLedgerEnd(Ref.SimpleString.assertFromString(request.ledgerId))
     ).map(offset =>
       CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
 
@@ -129,14 +138,16 @@ object DamlOnXCommandCompletionService {
   def create(indexService: IndexService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
-    : CommandCompletionServiceValidation with BindableService with AutoCloseable with CommandCompletionServiceLogging = {
+      esf: ExecutionSequencerFactory): CommandCompletionServiceValidation
+    with BindableService
+    with AutoCloseable
+    with CommandCompletionServiceLogging = {
     val impl = new DamlOnXCommandCompletionService(indexService)
 
     val ledgerId = Await.result(indexService.getLedgerId(), 5.seconds)
 
-    new CommandCompletionServiceValidation(impl, ledgerId) with BindableService with AutoCloseable
-    with CommandCompletionServiceLogging {
+    new CommandCompletionServiceValidation(impl, ledgerId.underlyingString) with BindableService
+    with AutoCloseable with CommandCompletionServiceLogging {
       override def bindService(): ServerServiceDefinition =
         CommandCompletionServiceGrpc.bindService(this, DirectExecutionContext)
 

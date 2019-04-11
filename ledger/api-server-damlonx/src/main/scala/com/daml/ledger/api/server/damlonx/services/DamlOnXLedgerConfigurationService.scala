@@ -9,6 +9,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v1.IndexService
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.digitalasset.ledger.api.v1.ledger_configuration_service._
@@ -32,7 +33,7 @@ class DamlOnXLedgerConfigurationService private (indexService: IndexService)(
     Source
       .fromFuture(
         consumeAsyncResult(indexService
-          .getLedgerConfiguration(request.ledgerId)))
+          .getLedgerConfiguration(Ref.SimpleString.assertFromString(request.ledgerId))))
       .map { config =>
         // FIXME(JM): Configuration type not yet defined.
         //GetLedgerConfigurationResponse(Some(config))

@@ -13,7 +13,7 @@ trait DamlOnXServiceUtils extends ErrorFactories {
   def consumeAsyncResult[T](ar: AsyncResult[T])(implicit ec: ExecutionContext): Future[T] = {
     ar.flatMap {
       case Left(IndexService.Err.LedgerIdMismatch(expected, actual)) =>
-        Future.failed(ledgerIdMismatch(expected, actual))
+        Future.failed(ledgerIdMismatch(expected.underlyingString, actual.underlyingString))
       case Right(result) =>
         Future.successful(result)
     }

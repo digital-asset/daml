@@ -38,22 +38,21 @@ import com.digitalasset.daml.lf.value.Value
   *
   */
 package object v1 {
-  // FIXME(JM): Use the DAML-LF "SimpleString" where applicable?
 
   /** Identifier for the ledger, MUST match regexp [a-zA-Z0-9-]. */
-  type LedgerId = String
+  type LedgerId = Ref.SimpleString
 
   /** Identifiers for transactions, MUST match regexp [a-zA-Z0-9-]. */
-  type TransactionId = String
+  type TransactionId = Ref.SimpleString
 
   /** Identifiers used to correlate submission with results, MUST match regexp [a-zA-Z0-9-]. */
-  type CommandId = String
+  type CommandId = Ref.SimpleString
 
   /** Identifiers used for correlating submission with a workflow,  match regexp [a-zA-Z0-9-]. */
-  type WorkflowId = String
+  type WorkflowId = Ref.SimpleString
 
   /** Identifiers for submitting client applications, MUST match regexp [a-zA-Z0-9-]. */
-  type ApplicationId = String
+  type ApplicationId = Ref.SimpleString
 
   /** Identifiers for nodes in a transaction. */
   type NodeId = Transaction.NodeId
@@ -62,7 +61,7 @@ package object v1 {
   type PackageId = Ref.PackageId
 
   /** Identifiers for parties, MUST match regexp [a-zA-Z0-9-]. */
-  type Party = String
+  type Party = Ref.Party
 
   /** Offsets into streams with hierarchical addressing.
     *
@@ -113,9 +112,9 @@ package object v1 {
     Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]
 
   /** TODO (SM): expand this into a record for time-limit configuration and an
-   *  explanation of how it is intended to be implemented.
-   *  https://github.com/digital-asset/daml/issues/385
-   */
+    *  explanation of how it is intended to be implemented.
+    *  https://github.com/digital-asset/daml/issues/385
+    */
   type Configuration = String
 
   /** Information provided by the submitter of changes submitted to the ledger.
@@ -160,6 +159,6 @@ package object v1 {
     *   communicating over the ledger.
     *
     */
-  final case class TransactionMeta(ledgerEffectiveTime: Timestamp, workflowId: String)
+  final case class TransactionMeta(ledgerEffectiveTime: Timestamp, workflowId: WorkflowId)
 
 }

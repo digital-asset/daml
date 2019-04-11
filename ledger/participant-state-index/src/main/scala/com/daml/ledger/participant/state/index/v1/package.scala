@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.index
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.value.Value
 
@@ -18,13 +18,13 @@ package object v1 {
   type AsyncResult[T] = Future[Either[IndexService.Err, T]]
 
   /** ACS event identifier */
-  type EventId = String
+  type EventId = Ref.SimpleString
 
   final case class AcsUpdate(
       optSubmitterInfo: Option[SubmitterInfo],
       offset: Offset,
       transactionMeta: TransactionMeta,
-      transactionId: String,
+      transactionId: TransactionId,
       events: List[AcsUpdateEvent]
   )
 
@@ -33,7 +33,7 @@ package object v1 {
     final case class Create(
         eventId: EventId,
         contractId: Value.AbsoluteContractId,
-        templateId: Identifier,
+        templateId: Ref.Identifier,
         argument: Value.VersionedValue[Value.AbsoluteContractId],
         // TODO(JM,SM): understand witnessing parties
         stakeholders: List[Party],
@@ -42,7 +42,7 @@ package object v1 {
     final case class Archive(
         eventId: EventId,
         contractId: Value.AbsoluteContractId,
-        templateId: Identifier,
+        templateId: Ref.Identifier,
         // TODO(JM,SM): understand witnessing parties
         stakeholders: List[Party],
     ) extends AcsUpdateEvent
@@ -53,9 +53,8 @@ package object v1 {
   }
   object CompletionEvent {
     final case class Checkpoint(offset: Offset, recordTime: Timestamp) extends CompletionEvent
-    // FIXME(JM): Remove offsets from these?
-    final case class CommandAccepted(offset: Offset, commandId: String) extends CompletionEvent
-    final case class CommandRejected(offset: Offset, commandId: String, reason: RejectionReason)
+    final case class CommandAccepted(offset: Offset, commandId: CommandId) extends CompletionEvent
+    final case class CommandRejected(offset: Offset, commandId: CommandId, reason: RejectionReason)
         extends CompletionEvent
   }
 

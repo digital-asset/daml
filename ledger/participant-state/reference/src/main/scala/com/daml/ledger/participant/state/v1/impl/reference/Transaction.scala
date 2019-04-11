@@ -3,7 +3,11 @@
 
 package com.daml.ledger.participant.state.v1.impl.reference
 
-import com.daml.ledger.participant.state.v1.{CommittedTransaction, SubmittedTransaction}
+import com.daml.ledger.participant.state.v1.{
+  CommittedTransaction,
+  SubmittedTransaction,
+  TransactionId
+}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.transaction.Transaction.ContractId
@@ -62,8 +66,10 @@ object Transaction {
     }
   }
 
-  def toAbsTx(txId: String, tx: SubmittedTransaction): CommittedTransaction =
-    tx.mapContractIdAndValue(mkAbsContractId(txId), _.mapContractId(mkAbsContractId(txId)))
+  def toAbsTx(txId: TransactionId, tx: SubmittedTransaction): CommittedTransaction =
+    tx.mapContractIdAndValue(
+      mkAbsContractId(txId.underlyingString),
+      _.mapContractId(mkAbsContractId(txId.underlyingString)))
 
   def mkAbsContractId(txId: String): ContractId => AbsoluteContractId = {
     case RelativeContractId(nid) => AbsoluteContractId(toAbsNodeId(txId, nid))

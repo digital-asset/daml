@@ -26,8 +26,6 @@ trait IndexService {
   def getLedgerBeginning(ledgerId: LedgerId): AsyncResult[Offset]
   def getLedgerEnd(ledgerId: LedgerId): AsyncResult[Offset]
 
-  def getLedgerBounds(ledgerId: LedgerId): AsyncResult[(Offset, Offset)]
-
   def lookupActiveContract(
       ledgerId: LedgerId,
       contractId: AbsoluteContractId
@@ -66,8 +64,8 @@ trait IndexService {
   def getCompletions(
       ledgerId: LedgerId,
       beginAfter: Option[Offset],
-      applicationId: String,
-      parties: List[String]
+      applicationId: ApplicationId,
+      parties: List[Party]
   ): AsyncResult[Source[CompletionEvent, NotUsed]]
 }
 
