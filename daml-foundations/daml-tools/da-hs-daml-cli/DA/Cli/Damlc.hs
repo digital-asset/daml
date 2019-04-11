@@ -477,7 +477,7 @@ optionsParser numProcessors parsePkgName = Compiler.Options
     <*> optShakeThreads
     <*> lfVersionOpt
     <*> optDebugLog
-    <*> many optGhcCustomOption
+    <*> (concat <$> many optGhcCustomOptions)
   where
     optImportPath :: Parser [FilePath]
     optImportPath =
@@ -541,13 +541,12 @@ optionsParser numProcessors parsePkgName = Compiler.Options
             , "Note that the output is not deterministic for > 1 job."
             ]
 
-    optGhcCustomOption :: Parser String
-    optGhcCustomOption =
-        strOption $
+    optGhcCustomOptions :: Parser [String]
+    optGhcCustomOptions =
+        option (stringsSepBy ' ') $
         long "ghc-option" <>
-        metavar "CUSTOM_OPTION" <>
-        help "custom option to pass to the underlying GHC" <>
-        internal
+        metavar "OPTION" <>
+        help "Options to pass to the underlying GHC"
 
 options :: Int -> Parser Command
 options numProcessors =
