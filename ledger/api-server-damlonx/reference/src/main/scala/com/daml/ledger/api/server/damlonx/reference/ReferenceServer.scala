@@ -46,10 +46,7 @@ object ReferenceServer extends App {
   args.foreach { arg =>
     archivesFromDar(new File(arg)).foreach { archive =>
       logger.info(s"Uploading archive ${archive.getHash}...")
-      ledger.uploadArchive(
-        None,
-        archive
-      )
+      ledger.uploadArchive(archive)
     }
   }
 

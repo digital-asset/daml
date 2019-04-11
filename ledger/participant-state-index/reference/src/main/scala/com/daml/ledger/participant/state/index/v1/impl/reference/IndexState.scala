@@ -34,7 +34,7 @@ final case class IndexState(
     // Rejected commands indexed by offset.
     rejections: TreeMap[Offset, Update.CommandRejected],
     // Uploaded packages.
-    packages: Map[PackageId, (Option[SubmitterInfo], Archive)],
+    packages: Map[PackageId, Archive],
     ledgerFeatureFlags: LedgerFeatureFlags,
     packageKnownTo: Relation[PackageId, Party],
     hostedParties: Set[Party]) {
@@ -86,15 +86,11 @@ final case class IndexState(
       case u: Update.PartyAddedToParticipant =>
         Right(state.copy(hostedParties = state.hostedParties + u.party))
 
-      case u: Update.PackageUploaded =>
+      case Update.PublicPackageUploaded(archive) =>
         val newPackages =
-          state.packages +
-            (Ref.PackageId.assertFromString(u.archive.getHash) -> ((u.optSubmitterInfo, u.archive)))
+          state.packages + (Ref.PackageId.assertFromString(archive.getHash) -> archive)
 
-        val decodedPackages = newPackages.mapValues {
-          case (optSubmitterInfo, archive) =>
-            Decode.decodeArchive(archive)._2
-        }
+        val decodedPackages = newPackages.mapValues(archive => Decode.decodeArchive(archive)._2)
         val newLedgerFeatureFlags = LedgerFeatureFlags
           .fromPackages(decodedPackages)
           .getOrElse(sys.error("FIXME(JM): Mixed ledger feature flags"))

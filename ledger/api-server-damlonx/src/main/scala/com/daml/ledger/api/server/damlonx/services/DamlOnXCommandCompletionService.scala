@@ -111,8 +111,8 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
       case RejectionReason.ResourcesExhausted => Code.ABORTED
       case RejectionReason.MaximumRecordTimeExceeded => Code.ABORTED
       case RejectionReason.Disputed(_) => Code.INVALID_ARGUMENT
-      case RejectionReason.DuplicateCommandId => Code.INVALID_ARGUMENT
-      case RejectionReason.SubmitterNotHostedOnParticipant =>
+      case RejectionReason.DuplicateCommand => Code.INVALID_ARGUMENT
+      case RejectionReason.SubmitterCannotActViaParticipant(_) =>
         Code.INVALID_ARGUMENT
       case RejectionReason.PartyNotKnownOnLedger => Code.INVALID_ARGUMENT
     }

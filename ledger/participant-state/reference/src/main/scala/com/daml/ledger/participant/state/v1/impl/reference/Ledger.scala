@@ -225,7 +225,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     // check for and ignore duplicates
     if (ledgerState.duplicationCheck.contains(
         (submitterInfo.applicationId, submitterInfo.commandId))) {
-      return Left(mkRejectedCommand(DuplicateCommandId, submitterInfo))
+      return Left(mkRejectedCommand(DuplicateCommand, submitterInfo))
     }
 
     // time validation
@@ -269,12 +269,12 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       }
   }
 
-  def uploadArchive(optSubmitterInfo: Option[SubmitterInfo], archive: Archive): Unit = {
+  def uploadArchive(archive: Archive): Unit = {
     val (pkgId: PackageId, pkg: Ast.Package) = Decode.decodeArchive(archive)
 
     StateController.updateState { state =>
       state.copy(
-        ledger = state.ledger :+ PackageUploaded(optSubmitterInfo, archive),
+        ledger = state.ledger :+ PublicPackageUploaded(archive),
         packages = state.packages + (pkgId -> ((pkg, archive)))
       )
     }

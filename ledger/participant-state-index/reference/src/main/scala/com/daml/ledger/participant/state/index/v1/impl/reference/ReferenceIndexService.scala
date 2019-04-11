@@ -79,7 +79,7 @@ final case class ReferenceIndexService(participantReadService: participant.state
         case (s, (uId, u)) =>
           logger.info(s"Applying update $uId: ${u.description}")
           s.tryApply(uId, u)
-            .getOrElse(sys.error("FIXME invariant violation"))
+            .fold(err => sys.error(s"Invariant violation: $err"), identity)
       }
     }
   }
@@ -89,6 +89,8 @@ final case class ReferenceIndexService(participantReadService: participant.state
     participantReadService
       .stateUpdates(beginAfter = None)
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+      /* group updates to batches to limit the amount of state change signalling and
+       * contention on the state sync variable. */
       .groupedWithin(50 /* batch size */, FiniteDuration(10, TimeUnit.MILLISECONDS))
       .to(updateStateSink)
       .run()
@@ -127,9 +129,7 @@ final case class ReferenceIndexService(participantReadService: participant.state
       packageId: PackageId): AsyncResult[Option[DamlLf.Archive]] =
     asyncResultWithState(ledgerId) { state =>
       Future.successful(
-        state.packages
-          .get(packageId)
-          .map(_._2)
+        state.packages.get(packageId)
       )
     }
 
