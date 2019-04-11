@@ -171,9 +171,9 @@ convertPrim _ "BEMapDelete" (TText :-> TMap a1 :-> TMap a2) | a1 == a2 =
   EBuiltin BEMapDelete `ETyApp` a1
 convertPrim _ "BEMapDelete" t@(TText :-> TextMap_ _ a1 :-> TextMap_ _ a2) | a1 == a2 =
   runtimeUnsupported "BAMapDelete" "1.3" t
-convertPrim _ "BEMapToList" (TMap a1 :-> TList (TMapEntry a2)) | a1 == a2  =
+convertPrim _ "BEMapToList" (TMap a1 :-> TList _) =
   EBuiltin BEMapToList `ETyApp` a1
-convertPrim _ "BEMapToList" t@(TextMap_ _ a1 :-> TList (TMapEntry a2)) | a1 == a2 =
+convertPrim _ "BEMapToList" t@(TextMap_ _ _ :-> TList _) =
   runtimeUnsupported "BEMapToList" "1.3" t
 convertPrim _ "BEMapSize" (TMap a :-> TInt64) =
   EBuiltin BEMapSize `ETyApp` a

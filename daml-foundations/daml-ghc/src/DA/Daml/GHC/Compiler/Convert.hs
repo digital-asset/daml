@@ -569,7 +569,22 @@ convertExpr env0 e = do
             , retrieveByKeyKey = EVar varV1
             }
     go env (VarIs "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
-        = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
+        = fmap (, args) $ do
+            t <- convertType env t
+            let prim = convertPrim (envLfVersion env) (unpackFS y) t
+            if  | y == "BEMapToList"
+                , TMap a :-> TList _ <- t -> do
+                    -- NOTE(MH): We need to repack the structural records returned
+                    -- by `BEMapToList` into `GHC.Tuple` tuples.
+                    mapRef <- EVal <$> qGHC_Base env "map"
+                    let fields = [("key", TText), ("value", a)]
+                    (repackStruct, tupleType) <- mkRepackStruct env fields varV2
+                    let repackStructLam = ETmLam (varV2, TTuple fields) repackStruct
+                    let structList = ETmApp prim (EVar varV1)
+                    pure $ ETmLam (varV1, TMap a) $ mkEApps mapRef
+                        [TyArg (TTuple fields), TyArg tupleType, TmArg repackStructLam, TmArg structList]
+                | otherwise
+                -> pure prim
     go env (VarIs "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = fmap (, args) $ do
         record' <- convertType env record
         pure $ ETmLam (varV1, record') $ ERecProj (fromTCon record') (mkField $ unpackFS name) $ EVar varV1
@@ -1008,10 +1023,14 @@ convertModuleName :: GHC.ModuleName -> LF.ModuleName
 convertModuleName (moduleNameString -> x)
     = mkModName $ splitOn "." x
 
-qGHC_Tuple :: Env -> a -> ConvertM (Qualified a)
-qGHC_Tuple env a = do
+qDamlPrim :: [String] -> Env -> a -> ConvertM (Qualified a)
+qDamlPrim modName env a = do
   pkgRef <- packageNameToPkgRef env "daml-prim"
-  pure $ Qualified pkgRef (mkModName ["GHC", "Tuple"]) a
+  pure $ Qualified pkgRef (mkModName modName) a
+
+qGHC_Tuple, qGHC_Base :: Env -> a -> ConvertM (Qualified a)
+qGHC_Tuple = qDamlPrim ["GHC", "Tuple"]
+qGHC_Base = qDamlPrim ["GHC", "Base"]
 
 convertQualified :: NamedThing a => Env -> a -> ConvertM (Qualified TypeConName)
 convertQualified env x = do

@@ -31,9 +31,7 @@ fromList list = foldl (\acc (key, value) -> (insert key value acc)) empty list
 -- | Convert the map to a list of key/value pairs where the keys are
 -- in ascending order.
 toList : TextMap a -> [(Text, a)]
-toList textMap =
- -- FixMe: implement toList
- error "not yet implemented"
+toList = primitive @"BEMapToList"
 
 -- | The empty map.
 empty : TextMap a
@@ -80,9 +78,7 @@ instance (Show a) => Show (TextMap a) where
 
 
 instance (Eq a) => Eq (TextMap a) where
-  (==) m1 m2 =
--- FixMe should use (toList m1 == toList m2)
-     False
+  x == y = toList x == toList y
 
 instance (Ord a) => Ord (TextMap a) where
   compare = \m1 m2 -> compare (toList m1) (toList m2)
@@ -92,4 +88,3 @@ instance Semigroup (TextMap b) where
 
 instance Monoid (TextMap b) where
   mempty = empty
-
