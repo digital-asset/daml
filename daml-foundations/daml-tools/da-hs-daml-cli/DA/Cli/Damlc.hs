@@ -36,6 +36,7 @@ import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import Data.ByteArray.Encoding (Base (Base16), convertToBase)
 import qualified Data.ByteString                   as B
 import qualified Data.ByteString.Lazy as BSL
+import Data.Either
 import Data.FileEmbed (embedFile)
 import Data.Functor
 import qualified Data.Set as Set
@@ -335,19 +336,21 @@ prettyResult lfVersion errOrResult = case errOrResult of
     <> DA.Pretty.int nTx <> " transactions."
 
 testStdio :: LF.Version -> IdeState -> [FilePath] -> IO ()
-testStdio lfVersion hDamlGhc files =
-    CompilerService.runAction hDamlGhc $
-        void $ Shake.forP files $ \file -> do
+testStdio lfVersion hDamlGhc files = do
+    failed <- fmap or $ CompilerService.runAction hDamlGhc $
+        Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
             scenarioResults <- liftIO $ maybe (reportDiagnostics hDamlGhc "Failed to run scenarios") pure mbScenarioResults
             liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> do
                 let doc = prettyResult lfVersion result
                 let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
                 putStrLn $ DA.Pretty.renderPlain (name <> ": " <> doc)
+            pure $ any (isLeft . snd) scenarioResults
+    when failed exitFailure
 
 testJUnit :: LF.Version -> IdeState -> [FilePath] -> FilePath -> IO ()
-testJUnit lfVersion hDamlGhc files junitOutput =
-    CompilerService.runAction hDamlGhc $ do
+testJUnit lfVersion hDamlGhc files junitOutput = do
+    failed <- CompilerService.runAction hDamlGhc $ do
         results <- Shake.forP files $ \file -> do
             scenarios <- CompilerService.getScenarios file
             mbScenarioResults <- CompilerService.runScenarios file
@@ -365,6 +368,8 @@ testJUnit lfVersion hDamlGhc files junitOutput =
         liftIO $ do
             createDirectoryIfMissing True $ takeDirectory junitOutput
             writeFile junitOutput $ XML.showTopElement $ toJUnit results
+        pure (any (any (isJust . snd) . snd) results)
+    when failed exitFailure
 
 
 toJUnit :: [(FilePath, [(VirtualResource, Maybe T.Text)])] -> XML.Element
