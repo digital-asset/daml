@@ -13,6 +13,8 @@ load(
   "daml_compile"
 )
 
+load("//bazel_tools:pom_file.bzl", "pom_file")
+
 load("@os_info//:os_info.bzl", "is_darwin")
 
 compileDependencies = [
@@ -68,7 +70,8 @@ da_scala_library(
   ],
   visibility = [
     '//visibility:public',
-  ]
+  ],
+  tags = ["maven_coordinates=com.digitalasset.platform:sandbox:__VERSION__"],
 )
 
 da_scala_binary(

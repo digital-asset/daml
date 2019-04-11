@@ -525,8 +525,9 @@ instance Encode TemplateChoice P.TemplateChoice where
 instance Encode FeatureFlags P.FeatureFlags where
   encode _version FeatureFlags{..} =  P.FeatureFlags
     { P.featureFlagsForbidPartyLiterals = forbidPartyLiterals
-    , P.featureFlagsDontDivulgeContractIdsInCreateArguments = dontDivulgeContractIdsInCreateArguments
-    , P.featureFlagsDontDiscloseNonConsumingChoicesToObservers = dontDiscloseNonConsumingChoicesToObservers
+    -- We only support packages with these enabled -- see #157
+    , P.featureFlagsDontDivulgeContractIdsInCreateArguments = True
+    , P.featureFlagsDontDiscloseNonConsumingChoicesToObservers = True
     }
 
 

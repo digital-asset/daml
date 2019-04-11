@@ -21,18 +21,18 @@ groups:
     group-id: com.digitalasset
     version: __VERSION__
     packages:
-      navigator:
+      navigator_2.12:
         packaging: jar
-        main: navigator-__VERSION__.jar
+        main: navigator_2.12-__VERSION__.jar
 
   # Extractor
   extractor:
     group-id: com.digitalasset
     version: __VERSION__
     packages:
-      extractor:
+      extractor_2.12:
         packaging: jar
-        main: extractor-__VERSION__.jar
+        main: extractor_2.12-__VERSION__.jar
 
   # DAML-LF
   daml-lf-archive:

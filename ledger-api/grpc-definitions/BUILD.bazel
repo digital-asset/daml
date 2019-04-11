@@ -3,6 +3,7 @@
 
 load("//bazel_tools:pkg.bzl", "pkg_tar")
 load("//bazel_tools:proto.bzl", "proto_gen")
+load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 
 proto_library(
@@ -81,6 +82,18 @@ scala_library(
     deps = scalapb_deps + [':google-rpc-scalapb'],
     exports = scalapb_deps + [':google-rpc-scalapb'],
     visibility = ['//visibility:public', ],
+    tags = [
+        "maven_coordinates=com.digitalasset.ledger-api.grpc-definitions:ledger-api-scalapb:__VERSION__",
+        # the bazel rules depend on the source .proto files, which we do not release.
+        # rely on the fact that we know the generated code only relies on external
+        # deps.
+        "only_external_deps",
+    ],
+)
+
+pom_file(
+    name = "ledger-api-scalapb_pom",
+    target = ":ledger-api-scalapb",
 )
 
 proto_gen(
@@ -106,6 +119,7 @@ scala_library(
     deps = scalapb_deps,
     exports = scalapb_deps,
     visibility = ['//visibility:public', ],
+    tags = ["maven_coordinates=com.digitalasset.ledger-api.grpc-definitions:ledger-api-scalapb:__VERSION__"],
 )
 
 proto_gen(

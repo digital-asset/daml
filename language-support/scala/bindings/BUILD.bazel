@@ -28,7 +28,8 @@ da_scala_library(
   scalacopts = ["-deprecation", "-Xfatal-warnings:false", "-Xsource:2.13"],
   visibility = [
       '//visibility:public',
-  ]
+  ],
+  tags = ["maven_coordinates=com.daml.scala:bindings:__VERSION__"],
 )
 
 da_scala_test_suite(

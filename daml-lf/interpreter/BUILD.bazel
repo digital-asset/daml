@@ -28,6 +28,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/validation",
     ],
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-interpreter:__VERSION__"],
 )
 
 da_scala_test_suite(

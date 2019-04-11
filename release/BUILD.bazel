@@ -9,7 +9,6 @@ da_haskell_binary(
     src_strip_prefix = "src",
     deps = [],
     hazel_deps = [
-        "aeson",
         "ansi-terminal",
         "base",
         "bytestring",
@@ -35,6 +34,7 @@ da_haskell_binary(
         "unordered-containers",
         "yaml",
         "mtl",
+        "xml-conduit",
     ],
     visibility = ["//visibility:public"],
 )

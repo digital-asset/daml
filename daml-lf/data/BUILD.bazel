@@ -19,7 +19,8 @@ da_scala_library(
   scalacopts = lf_scalacopts,
   visibility = [
     "//visibility:public",
-  ]
+  ],
+  tags = ["maven_coordinates=com.digitalasset:daml-lf-data:__VERSION__"],
 )
 
 da_scala_test(

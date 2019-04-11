@@ -20,6 +20,7 @@ da_scala_library(
   ],
   visibility = [
     "//visibility:public"
-  ]
+  ],
+  tags = ["maven_coordinates=com.digitalasset:daml-lf-scenario-interpreter:__VERSION__"],
 )
 

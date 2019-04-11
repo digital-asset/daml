@@ -7,15 +7,6 @@ function da_install {
         return
     }
 
-    # show notification to change execution policy:
-    $execPolicy = Get-ExecutionPolicy
-    if($execPolicy -ne 'RemoteSigned' -and $execPolicy -ne 'Bypass') {
-        da_error "PowerShell requires an execution policy of 'RemoteSigned' to run DA Windows DevEnv - current policy: $execPolicy."
-        da_error "To make this change please run:"
-        da_error "'Set-ExecutionPolicy RemoteSigned -scope CurrentUser'"
-        return
-    }
-
     if([System.Enum]::GetNames([System.Net.SecurityProtocolType]) -notcontains 'Tls12') {
         da_error "DA Windows DevEnv requires at least .NET Framework 4.5"
         da_error "Please download and install it first:"

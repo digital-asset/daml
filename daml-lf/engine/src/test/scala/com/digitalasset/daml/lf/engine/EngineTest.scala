@@ -46,7 +46,7 @@ class EngineTest extends WordSpec with Matchers {
   private val (basicTestsPkgId, basicTestsPkg) =
     loadPackage("daml-lf/tests/BasicTests.dalf")
   private val (ghcPrimPkgId, ghcPrimPkg) =
-    loadPackage("daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.1.dalf")
+    loadPackage("daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.3.dalf")
 
   private[this] def makeAbsoluteContractId(coid: ContractId): AbsoluteContractId =
     coid match {
@@ -415,7 +415,7 @@ class EngineTest extends WordSpec with Matchers {
 
     "events are collected" in {
       val Right(blindingInfo) =
-        Blinding.checkAuthorizationAndBlind(engine.ledgerFeatureFlags(), tx, Set(party))
+        Blinding.checkAuthorizationAndBlind(tx, Set(party))
       val events = Event.collectEvents(tx, blindingInfo.explicitDisclosure)
       val partyEvents = events.events.values.toList.filter(_.witnesses contains party)
       partyEvents.size shouldBe 1
@@ -601,7 +601,7 @@ class EngineTest extends WordSpec with Matchers {
 
     val Right(tx) = interpretResult
     val Right(blindingInfo) =
-      Blinding.checkAuthorizationAndBlind(engine.ledgerFeatureFlags(), tx, Set(bob))
+      Blinding.checkAuthorizationAndBlind(tx, Set(bob))
 
     "reinterpret to the same result" in {
       val txRoots = tx.roots.map(id => tx.nodes.get(id).get).toSeq
@@ -752,7 +752,7 @@ class EngineTest extends WordSpec with Matchers {
     "events generated correctly" in {
       val Right(tx) = interpretResult
       val Right(blindingInfo) =
-        Blinding.checkAuthorizationAndBlind(engine.ledgerFeatureFlags(), tx, Set(bob))
+        Blinding.checkAuthorizationAndBlind(tx, Set(bob))
       val events = Event.collectEvents(tx, blindingInfo.explicitDisclosure)
       val partyEvents = events.filter(_.witnesses contains bob)
       partyEvents.roots.length shouldBe 1

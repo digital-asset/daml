@@ -1,11 +1,12 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# Language ApplicativeDo #-}
 module DA.Cli.Options
   ( module DA.Cli.Options
   ) where
 
 import qualified Data.Text           as T
+import           Data.List.Extra     (trim, splitOn)
 import           Options.Applicative
 import           Text.Read
 
@@ -259,9 +260,32 @@ experimentalOpt =
     switch $
     help "Enable experimental IDE features" <> long "experimental"
 
-newtype Telemetry = Telemetry Bool
+data Telemetry = OptedIn | OptedOut | Undecided
 telemetryOpt :: Parser Telemetry
-telemetryOpt =
-    fmap Telemetry $
-    switch $
-    help "Send crash data + telemetry to Digital Asset" <> long "telemetry"
+telemetryOpt = do
+    let optInS = "telemetry"
+        optOutS = "optOutTelemetry"
+    optIn <-
+        switch $
+        help "Send crash data + telemetry to Digital Asset" <> long optInS
+    optOut <-
+        switch $
+        help "Opt out of sending + telemetry to Digital Asset" <> long optOutS
+    pure $ case (optIn, optOut) of
+        (False, False) -> Undecided
+        (True, False) -> OptedIn
+        (False, True) -> OptedOut
+        (True, True) ->
+            error $
+            "Both --"++optInS++" and --"++optOutS++" have been selected, you either have to opt into telemetry or opt out"
+
+-- Parse helper for non-empty string lists separated by the given separator
+stringsSepBy :: Char -> ReadM [String]
+stringsSepBy sep = eitherReader sepBy'
+  where sepBy' :: String -> Either String [String]
+        sepBy' input
+          | null items = Left "Failed to read items: empty list"
+          | any null items = Left $ "Failed to read items: empty item within " <> input
+          | otherwise = Right items
+          where
+            items = map trim $ splitOn [sep] input

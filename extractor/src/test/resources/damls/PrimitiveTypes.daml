@@ -4,6 +4,7 @@
 daml 1.2 module PrimitiveTypes where
 
 import DA.Date
+import DA.Private.TextMap as TM
 
 template BasicPrimitiveTypes
   with
@@ -38,6 +39,18 @@ template Optionals
     reference: Text
     optional: Optional Text
     deep_optional: Optional (Optional Text)
+    party: Party
+  where
+    signatory party
+
+    agreement
+      "whatevs"
+
+template TextMaps
+  with
+    reference: Text
+    map: TextMap Int
+    deep_map: TextMap (TextMap Int)
     party: Party
   where
     signatory party
@@ -110,4 +123,19 @@ optionals =
         reference = "Some None"
         optional = Some "foo"
         deep_optional = Some None
+        party = bob
+
+maps =
+  scenario do
+    bob <- getParty "Bob"
+    submit bob do
+      create TextMaps with
+        reference = "Empty maps"
+        map = TM.empty
+        deep_map = TM.empty
+        party = bob
+      create TextMaps with
+        reference = "Non-empty maps"
+        map = TM.fromList [("1", 1), ("2", 2), ("3",3), ("4",4), ("5",5)]
+        deep_map = TM.empty
         party = bob

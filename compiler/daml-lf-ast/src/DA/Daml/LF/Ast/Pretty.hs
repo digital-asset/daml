@@ -467,13 +467,9 @@ prettyTemplate modName (Template mbLoc tpl param precond signatories observers a
 prettyFeatureFlags :: FeatureFlags -> Doc ann
 prettyFeatureFlags
   FeatureFlags
-  { forbidPartyLiterals
-  , dontDivulgeContractIdsInCreateArguments
-  , dontDiscloseNonConsumingChoicesToObservers } =
+  { forbidPartyLiterals } =
   fcommasep $ catMaybes
     [ optionalFlag forbidPartyLiterals "+ForbidPartyLiterals"
-    , optionalFlag dontDivulgeContractIdsInCreateArguments "+DontDivulgeContractIdsInCreateArguments"
-    , optionalFlag dontDiscloseNonConsumingChoicesToObservers "+DontDiscloseNonConsumingChoicesToObservers"
     ]
   where
     optionalFlag flag name

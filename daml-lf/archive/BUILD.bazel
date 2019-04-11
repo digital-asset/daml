@@ -18,6 +18,8 @@ load(
   'daml_compile',
 )
 
+load("//bazel_tools:pom_file.bzl", "pom_file")
+
 load("@os_info//:os_info.bzl", "is_windows")
 
 LF_MAJOR_VERSIONS = ['0', '1', 'dev']
@@ -51,7 +53,8 @@ java_library(
   srcs = [':daml_lf_java_proto_srcs'],
   deps = ['//3rdparty/jvm/com/google/protobuf:protobuf_java'],
   exports = ['//3rdparty/jvm/com/google/protobuf:protobuf_java'],
-  visibility = ['//visibility:public']
+  visibility = ['//visibility:public'],
+  tags = ["maven_coordinates=com.digitalasset:daml-lf-archive:__VERSION__"],
 )
 
 
@@ -107,6 +110,7 @@ da_scala_library(
   ],
   scalacopts = lf_scalacopts,
   visibility = ['//visibility:public'],
+  tags = ["maven_coordinates=com.digitalasset:daml-lf-archive-scala:__VERSION__"],
 )
 
 da_scala_test_suite(
@@ -165,6 +169,12 @@ genrule(
     chmod u+w $@
     $(location @zip_dev_env//:zip) -g $@ $(locations :proto_srcs)
   """,
+  tags = ["maven_coordinates=com.digitalasset:daml-lf-archive:__VERSION__"],
+)
+
+pom_file(
+    name = "daml_lf_archive_java_pom",
+    target = ":daml_lf_archive_java",
 )
 
 genrule(
