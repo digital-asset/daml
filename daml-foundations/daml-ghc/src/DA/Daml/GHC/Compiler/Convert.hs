@@ -123,7 +123,7 @@ conversionError msg = do
   throwError Diagnostic
       { dFilePath = fromMaybe "" convModuleFilePath
       , dRange = maybe noRange sourceLocToRange convRange
-      , dSeverity = Error
+      , dSeverity = DsError
       , dSource = T.pack "Core to DAML-LF"
       , dMessage = T.pack msg
       }
