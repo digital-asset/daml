@@ -36,6 +36,7 @@ import Data.Maybe
 import           "ghc-lib-parser" ErrUtils
 import           "ghc-lib-parser" SrcLoc
 import qualified "ghc-lib-parser" Outputable                 as Out
+import qualified Language.Haskell.LSP.Types as LSP
 
 
 
@@ -74,7 +75,8 @@ srcSpanToFilename (UnhelpfulSpan fs) = FS.unpackFS fs
 srcSpanToFilename (RealSrcSpan real) = FS.unpackFS $ srcSpanFile real
 
 srcSpanToLocation :: SrcSpan -> Location
-srcSpanToLocation src = Location (srcSpanToFilename src) (srcSpanToRange src)
+srcSpanToLocation src =
+  Location (LSP.filePathToUri $ srcSpanToFilename src) (srcSpanToRange src)
 
 -- | Convert a GHC severity to a DAML compiler Severity. Severities below
 -- "Warning" level are dropped (returning Nothing).
@@ -82,10 +84,10 @@ toDSeverity :: GHC.Severity -> Maybe D.DiagnosticSeverity
 toDSeverity SevOutput      = Nothing
 toDSeverity SevInteractive = Nothing
 toDSeverity SevDump        = Nothing
-toDSeverity SevInfo        = Nothing
-toDSeverity SevWarning     = Just D.Warning
-toDSeverity SevError       = Just Error
-toDSeverity SevFatal       = Just Error
+toDSeverity SevInfo        = Just DsInfo
+toDSeverity SevWarning     = Just DsWarning
+toDSeverity SevError       = Just DsError
+toDSeverity SevFatal       = Just DsError
 
 
 -- | Produce a bag of GHC-style errors (@ErrorMessages@) from the given

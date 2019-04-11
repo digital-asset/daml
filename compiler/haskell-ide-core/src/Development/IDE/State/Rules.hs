@@ -242,7 +242,7 @@ reportImportCyclesRule =
           toDiag imp mods = Diagnostic
             { dFilePath = _uri loc
             , dRange = _range loc
-            , dSeverity = Error
+            , dSeverity = DsError
             , dSource = "Import cycle detection"
             , dMessage = "Cyclic module dependency between " <> showCycle mods
             }

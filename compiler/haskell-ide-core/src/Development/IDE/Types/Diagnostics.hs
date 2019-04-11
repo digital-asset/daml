@@ -30,8 +30,7 @@ import Data.Text.Prettyprint.Doc.Syntax
 import GHC.Generics
 import qualified Network.URI.Encode
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
-import Language.Haskell.LSP.Diagnostics ()
-import Language.Haskell.LSP.Types ()
+import Language.Haskell.LSP.Types (DiagnosticSeverity(..))
 
 import Development.IDE.Types.Location
 
@@ -46,7 +45,7 @@ errorDiag fp src msg =
   Diagnostic
   { dFilePath = fp
   , dRange    = noRange
-  , dSeverity = Error
+  , dSeverity = DsError
   , dSource   = src
   , dMessage  = msg
   }
@@ -93,9 +92,6 @@ data FileDiagnostics = FileDiagnostics
 instance FromJSON Diagnostic
 instance ToJSON Diagnostic
 
-instance FromJSON Severity
-instance ToJSON Severity
-
 instance FromJSON FileDiagnostics
 instance ToJSON FileDiagnostics
 
@@ -130,8 +126,10 @@ prettyDiagnostic (Diagnostic filePath range severity source msg) =
         , label_ "Severity:" $ pretty $ show severity
         , label_ "Message: "
             $ case severity of
-              Error -> annotate ErrorSC
-              Warning -> annotate WarningSC
+              DsError -> annotate ErrorSC
+              DsWarning -> annotate WarningSC
+              DsInfo -> annotate InfoSC
+              DsHint -> annotate HintSC
             $ stringParagraphs msg
         ]
     where
