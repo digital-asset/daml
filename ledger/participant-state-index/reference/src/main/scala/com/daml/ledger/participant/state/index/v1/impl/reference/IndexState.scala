@@ -119,6 +119,9 @@ final case class IndexState(
           state.copy(
             txs = txs + (uId -> ((u, blindingInfo))),
             activeContracts =
+              // FIXME (SM): this likely needs turning around to not
+              // accidentallly miss the consumption of contracts created in
+              // the transaction.
               activeContracts -- consumedContracts(u.transaction) ++ createdContracts(u.transaction)
           )
         )
