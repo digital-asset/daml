@@ -234,7 +234,7 @@ private class PostgresLedgerDao(
         }
 
         def implicitlyDisclose(global: Relation[AbsoluteContractId, Ref.Party]) =
-          this // TODO need another table for this
+          this // TODO need another table for this, or alter same table as `addContract` uses
       }
 
       //this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
@@ -248,8 +248,9 @@ private class PostgresLedgerDao(
         workflowId,
         transaction,
         mappedDisclosure,
-        Map.empty, // TODO SC when do we enrich here?
-        Map.empty // TODO SC when do we enrich here?
+        // TODO blind `transaction` for these two maps
+        Map.empty,
+        Map.empty
       )
 
       atr match {
