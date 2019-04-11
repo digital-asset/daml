@@ -33,9 +33,7 @@ class CommandExecutorImpl(engine: Engine, packageContainer: DamlPackageContainer
         (for {
           updateTx <- submission
           blindingInfo <- Blinding
-            .checkAuthorizationAndBlind(
-              updateTx,
-              Set(Ref.Party.assertFromString(submitter.unwrap)))
+            .checkAuthorizationAndBlind(updateTx, Set(Ref.Party.assertFromString(submitter.unwrap)))
         } yield
           TransactionSubmission(
             submitted.commandId.unwrap,
