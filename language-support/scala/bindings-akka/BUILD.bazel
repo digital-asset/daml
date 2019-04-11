@@ -37,6 +37,7 @@ da_scala_library(
   ],
   srcs = glob(['src/main/**/*.scala']),
   resources = glob(['src/main/resources/**/*']),
+  tags = ["maven_coordinates=com.daml.scala:bindings-akka:__VERSION__"],
 )
 
 # Sources that do not define test-cases but utilities

@@ -83,14 +83,13 @@ da_scala_binary(
   deps = dependencies + [
     ':ledger-api-integration-tests-lib',
     '//daml-lf/testing-tools'
-  ]
-)
-
-# Alias for the semantic test runner to work with //release.
-alias(
-  name = "semantic-test-runner_deploy",
-  actual = "semantic-test-runner_deploy.jar",
-  visibility = ["//visibility:public"]
+  ],
+  tags = [
+      "maven_coordinates=com.digitalasset.ledger:semantic-test-runner:__VERSION__",
+      # We release this as a fat jar so this tag ensures that the dependencies in the generated
+      # POM file are set correctly.
+      "fat_jar",
+  ],
 )
 
 da_scala_test_suite(

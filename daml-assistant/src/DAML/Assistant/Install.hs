@@ -28,13 +28,28 @@ import System.Directory
 import Control.Monad.Extra
 import Control.Exception.Safe
 import System.ProgressBar
-import System.Posix.Types
-import System.Posix.Files -- forget windows for now
 import qualified System.Info
 import qualified Data.Text as T
 import Data.Maybe
 import qualified Data.SemVer as V
 import qualified Control.Lens as L
+
+-- unix specific
+import System.PosixCompat.Types ( FileMode )
+import System.PosixCompat.Files
+    ( removeLink
+    , createSymbolicLink
+    , fileMode
+    , getFileStatus
+    , setFileMode
+    , intersectFileModes
+    , unionFileModes
+    , ownerReadMode
+    , ownerExecuteMode
+    , groupReadMode
+    , groupExecuteMode
+    , otherReadMode
+    , otherExecuteMode)
 
 displayInstallTarget :: InstallTarget -> Text
 displayInstallTarget = \case
@@ -187,27 +202,48 @@ installExtracted env@InstallEnv{..} sourcePath =
         requiredIO "Failed to set file mode of installed SDK directory." $
             setSdkFileMode (unwrapSdkPath targetPath)
 
-        whenActivate env $ do
-            let damlBinarySourcePath = unwrapSdkPath targetPath </> "daml" </> "daml"
-                damlBinaryTargetDir  = unwrapDamlPath damlPath </> "bin"
-                damlBinaryTargetPath = damlBinaryTargetDir </> "daml"
+        whenActivate env $ activateDaml env targetPath
 
-            unlessM (doesFileExist damlBinarySourcePath) $
-                throwIO $ assistantErrorBecause
-                    "daml binary is missing from SDK release."
-                    ("expected path = " <> pack damlBinarySourcePath)
+activateDaml :: InstallEnv -> SdkPath -> IO ()
+activateDaml env@InstallEnv{..} targetPath = do
 
-            whenM (doesFileExist damlBinaryTargetPath) $
-                requiredIO "Failed to delete existing daml binary symbolic link." $
-                    removeLink damlBinaryTargetPath
+    let damlSourceName =
+            case getPlatform of
+                Unix -> "daml"
+                Windows -> "daml.exe"
 
-            requiredIO ("Failed to link daml binary in " <> pack damlBinaryTargetDir) $
-                createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
+        damlTargetName =
+            case getPlatform of
+                Unix -> "daml"
+                Windows -> "daml.cmd"
 
-            unlessQuiet env $ do -- Ask user to add .daml/bin to PATH if it is absent.
-                searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
-                when (damlBinaryTargetDir `notElem` searchPaths) $ do
-                    putStrLn ("Please add " <> damlBinaryTargetDir <> " to your PATH.")
+        damlBinarySourcePath = unwrapSdkPath targetPath </> "daml" </> damlSourceName
+        damlBinaryTargetDir  = unwrapDamlPath damlPath </> "bin"
+        damlBinaryTargetPath = damlBinaryTargetDir </> damlTargetName
+
+    unlessM (doesFileExist damlBinarySourcePath) $
+        throwIO $ assistantErrorBecause
+            "daml binary is missing from SDK release."
+            ("expected path = " <> pack damlBinarySourcePath)
+
+    whenM (doesFileExist damlBinaryTargetPath) $
+        requiredIO "Failed to delete existing daml binary link." $
+            case getPlatform of
+                Unix -> removeLink damlBinaryTargetPath
+                Windows -> removePathForcibly damlBinaryTargetPath
+
+    requiredIO ("Failed to link daml binary in " <> pack damlBinaryTargetDir) $
+        case getPlatform of
+            Unix -> createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
+            Windows -> do
+                let runnerScript = "START " <> damlBinarySourcePath <> " %*"
+                writeFile damlBinaryTargetPath runnerScript
+
+    unlessQuiet env $ do -- Ask user to add .daml/bin to PATH if it is absent.
+        searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
+        when (damlBinaryTargetDir `notElem` searchPaths) $ do
+            putStrLn ("Please add " <> damlBinaryTargetDir <> " to your PATH.")
+
 
 data WalkCallbacks = WalkCallbacks
     { walkOnFile :: FilePath -> IO ()
@@ -308,7 +344,7 @@ extractAndInstall env source =
                         liftIO $ setFileMode targetPath (Tar.fileMode info)
                     Tar.FTDirectory -> do
                         liftIO $ createDirectoryIfMissing True targetPath
-                    Tar.FTSymbolicLink bs -> do
+                    Tar.FTSymbolicLink bs | Unix <- getPlatform -> do
                         let path = Tar.decodeFilePath bs
                         unless (isRelative path) $
                             liftIO $ throwIO $ assistantErrorBecause

@@ -29,10 +29,12 @@ import Data.Maybe
 import Control.Exception.Safe
 import Control.Monad
 import Conduit
-import System.Posix.Files
 import qualified Data.Conduit.Zlib as Zlib
 import qualified Data.Conduit.Tar as Tar
 import qualified Data.SemVer as V
+
+-- unix specific
+import System.PosixCompat.Files (createSymbolicLink)
 
 runTests :: IO ()
 runTests = do
@@ -316,9 +318,14 @@ testInstall = Tasty.testGroup "DAML.Assistant.Install"
                 .| sinkFile "source.tar.gz"
 
             install options damlPath
+    , case getPlatform of
+        Unix -> testInstallUnix
+        Windows -> testInstallWindows
+    ]
 
-
-    , Tasty.testCase "reject an absolute symlink in a tarball" $ do
+testInstallUnix :: Tasty.TestTree
+testInstallUnix = Tasty.testGroup "unix-specific tests"
+    [ Tasty.testCase "reject an absolute symlink in a tarball" $ do
         withSystemTempDirectory "test-install" $ \ base -> do
             let damlPath = DamlPath (base </> "daml")
                 options = InstallOptions
@@ -371,6 +378,7 @@ testInstall = Tasty.testGroup "DAML.Assistant.Install"
             assertError "Extracting SDK release tarball."
                 "Invalid SDK release: symbolic link target escapes tarball."
                 (install options damlPath)
-
-
     ]
+
+testInstallWindows :: Tasty.TestTree
+testInstallWindows = Tasty.testGroup "windows-specific tests" []
