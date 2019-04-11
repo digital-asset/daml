@@ -48,8 +48,6 @@ decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =  pure $
   FeatureFlags
     { forbidPartyLiterals = featureFlagsForbidPartyLiterals
-    , dontDivulgeContractIdsInCreateArguments = featureFlagsDontDivulgeContractIdsInCreateArguments
-    , dontDiscloseNonConsumingChoicesToObservers = featureFlagsDontDiscloseNonConsumingChoicesToObservers
     }
 
 decodeDefDataType :: LF1.DefDataType -> Decode DefDataType

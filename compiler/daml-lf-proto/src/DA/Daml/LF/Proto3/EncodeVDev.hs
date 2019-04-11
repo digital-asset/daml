@@ -511,8 +511,6 @@ instance Encode TemplateChoice P.TemplateChoice where
 instance Encode FeatureFlags P.FeatureFlags where
   encode FeatureFlags{..} =  P.FeatureFlags
     { P.featureFlagsForbidPartyLiterals = forbidPartyLiterals
-    , P.featureFlagsDontDivulgeContractIdsInCreateArguments = dontDivulgeContractIdsInCreateArguments
-    , P.featureFlagsDontDiscloseNonConsumingChoicesToObservers = dontDiscloseNonConsumingChoicesToObservers
     }
 
 

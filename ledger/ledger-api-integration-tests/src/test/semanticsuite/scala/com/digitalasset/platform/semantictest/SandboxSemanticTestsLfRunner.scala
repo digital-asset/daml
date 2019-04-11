@@ -27,11 +27,6 @@ class SandboxSemanticTestsLfRunner
 
   private val darFile = new File("ledger/ledger-api-integration-tests/SemanticTests.dalf")
 
-  // a blacklist of tests that are currently failing
-  val knownFailures = Set(
-    "Test:test_divulgence_of_token" // FIXME https://github.com/digital-asset/daml/issues/157
-  )
-
   override protected lazy val config: Config = Config.default
     .withDarFile(darFile.toPath)
     .withTimeProvider(TimeProviderType.StaticAllowBackwards)
@@ -43,7 +38,6 @@ class SandboxSemanticTestsLfRunner
     for {
       (pkgId, names) <- SemanticTester.scenarios(packages)
       name <- names
-      if !knownFailures.contains(name.toString)
     } {
       s"run scenario: $name" in allFixtures { ledger =>
         for {
