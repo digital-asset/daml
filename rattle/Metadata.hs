@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ViewPatterns, LambdaCase #-}
+{- HLINT ignore "Avoid restricted extensions" -}
 
 module Metadata(
     readMetadata, Metadata(..)
@@ -73,7 +74,9 @@ bracketed open close (x:xs) | x == open = f 1 xs
         f _ [] = Nothing
         f 1 (x:xs) | x == close = Just ([], xs)
         f i (x:xs) = first (x:) <$> f i2 xs
-            where i2 = if x == close then i-1 else if x == open then i+1 else i
+            where i2 | x == close = i-1
+                     | x == open = i+1
+                     | otherwise = i
 bracketed _ _ _ = Nothing
 
 

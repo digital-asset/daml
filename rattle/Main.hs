@@ -1,10 +1,13 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE ViewPatterns, RecordWildCards, LambdaCase #-}
-{-# OPTIONS_GHC "-Wall" #-}
-{-# OPTIONS_GHC "-fno-warn-name-shadowing" #-}
-{-# OPTIONS_GHC "-fno-warn-missing-signatures" #-}
+{-# LANGUAGE ViewPatterns, RecordWildCards #-}
+{-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-missing-signatures #-}
+
+{- HLINT ignore "Avoid restricted extensions" -}
+{- HLINT ignore "Avoid restricted flags" -}
 
 module Main(main) where
 
@@ -79,7 +82,7 @@ main = rattle $ do
     metadata <- return $ topSort [(dhl_name, dhl_deps, x) | x@Metadata{..} <- metadata]
 
     -- Figure out what libraries we need
-    neededDeps <- pure $ (++ ["grpc-haskell" | True]) $ ("proto3-suite":) $ nubSort $ concatMap dhl_hazel_deps metadata
+    let neededDeps = ["grpc-haskell","proto3-suite"] ++ nubSort (concatMap dhl_hazel_deps metadata)
 
     installDependencies neededDeps
 
@@ -131,43 +134,43 @@ buildHaskellPackage (fixNames -> o@Metadata{..}) = do
 
     let modules = map (intercalate "." . splitDirectories . dropExtension) files
 
-    dirs <- pure $ [dhl_dir </> dhl_src_strip_prefix] <> (case dhl_name of
-      -- Work around the fact that SdkVersion is bazel-generated
-      "da-hs-daml-cli" -> ["rattle" </> "hacks"]
-      _ -> [])
+    let dirs = [dhl_dir </> dhl_src_strip_prefix] <> (case dhl_name of
+            -- Work around the fact that SdkVersion is bazel-generated
+            "da-hs-daml-cli" -> ["rattle" </> "hacks"]
+            _ -> [])
 
-    commonFlags <- pure $
-        -- set the correct output directories for objects, headers, etc
-        [ flag ++ "=.rattle/haskell" </> dhl_name
-        | flag <- ["-outputdir","-odir","-hidir","-stubdir"]
-        ] <>
+    let commonFlags =
+            -- set the correct output directories for objects, headers, etc
+            [ flag ++ "=.rattle/haskell" </> dhl_name
+            | flag <- ["-outputdir","-odir","-hidir","-stubdir"]
+            ] <>
 
-        -- specify which directories to look into for modules
-        ["-i" ++ dir | dir <- dirs] <>
+            -- specify which directories to look into for modules
+            ["-i" ++ dir | dir <- dirs] <>
 
-        -- makes sure GHC uses shared objects in RTS linker
-        -- https://github.com/ghc/ghc/blob/cf9e1837adc647c90cfa176669d14e0d413c043d/compiler/main/DynFlags.hs#L2087
-        ["-fexternal-interpreter"] <>
+            -- makes sure GHC uses shared objects in RTS linker
+            -- https://github.com/ghc/ghc/blob/cf9e1837adc647c90cfa176669d14e0d413c043d/compiler/main/DynFlags.hs#L2087
+            ["-fexternal-interpreter"] <>
 
-        -- Ensure GHC finds the packages
-        (join [["-package", d] | d <- dhl_deps ]) <>
-        (join [["-package", d] | d <- dhl_hazel_deps ]) <>
-        ["-package-db=.rattle/haskell" </> d </> "pkg.db" | d <- dhl_deps] <>
+            -- Ensure GHC finds the packages
+            concat [["-package", d] | d <- dhl_deps ] <>
+            concat [["-package", d] | d <- dhl_hazel_deps ] <>
+            ["-package-db=.rattle/haskell" </> d </> "pkg.db" | d <- dhl_deps] <>
 
-        -- All extra extensions and flags
-        (map ("-X"++) haskellExts) <> haskellFlags
+            -- All extra extensions and flags
+            map ("-X"++) haskellExts <> haskellFlags
 
     case dhl_main_is of
       Just main_ -> do
 
-        mainMod <- pure $
-          -- get the module name by dropping the function name
-          -- Foo.Bar.main -> Foo.Bar
-          intercalate "." .
-          (reverse . drop 1 . reverse . wordsBy (== '.')) $ main_
+        let mainMod =
+                -- get the module name by dropping the function name
+                -- Foo.Bar.main -> Foo.Bar
+                intercalate "." .
+                (reverse . drop 1 . reverse . wordsBy (== '.')) $ main_
 
         -- Include the main module name, if it's missing
-        modules <- pure $ nubSort $ [mainMod] <> modules
+        let modules = nubSort $ mainMod : modules
 
         rpath <- ghcLibPath
 
@@ -228,7 +231,7 @@ installDependencies neededDeps = do
     missingDeps <- pure $ neededDeps \\ installedDeps
 
     unless (null missingDeps) $
-      putStrLn $ intercalate " " $ "Installing missing deps:" : missingDeps
+      putStrLn $ unwords $ "Installing missing deps:" : missingDeps
 
     -- 'stack build' sometimes gets confused if we ask for several libs to be
     -- installed at once, so we install them one by one
@@ -241,13 +244,14 @@ installDependencies neededDeps = do
     installedDeps <- pure $ nubSort $ parseLibs $ lines sout
     missingDeps <- pure $ neededDeps \\ installedDeps
     unless (null missingDeps) $ do
-        error $ intercalate " " $ "Could not find missing deps, try adding to extra-deps? :" : missingDeps
+        error $ unwords $ "Could not find missing deps, try adding to extra-deps? :" : missingDeps
 
+{-# NOINLINE stack #-}
 stack :: String
 stack = unsafePerformIO $ do -- assume LD_LIBRARY_PATH won't change during a run
     -- XXX: We may have to use ';' on Windows
     dirs <- maybe [] (wordsBy (== ':')) <$> lookupEnv "LD_LIBRARY_PATH"
-    pure $ intercalate " " $
+    pure $ unwords $
       [ "stack" ] <>
       ((\d -> ["--extra-lib-dirs", d]) `concatMap` dirs) <>
       ["--stack-yaml=rattle/stack.yaml"]
@@ -257,7 +261,7 @@ stack = unsafePerformIO $ do -- assume LD_LIBRARY_PATH won't change during a run
 ghcLibPath :: IO String
 ghcLibPath = do
     Stdout str <- cmd stack "path" "--compiler-bin"
-    case (reverse . splitPath) <$> lines str of
+    case reverse . splitPath <$> lines str of
       ["bin" : ver : rest] -> do
         pure $ joinPath $ reverse $ "rts" : ver : "lib": ver : rest
       xs -> error $ "Couldn't parse ghc path: " <> show xs
