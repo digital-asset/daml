@@ -46,47 +46,29 @@ import System.PosixCompat.Files
     , intersectFileModes
     , unionFileModes
     , ownerReadMode
+    , ownerWriteMode
     , ownerExecuteMode
     , groupReadMode
     , groupExecuteMode
     , otherReadMode
     , otherExecuteMode)
 
+data InstallTarget
+    = InstallVersion SdkVersion
+    | InstallPath FilePath
+    deriving (Eq, Show)
+
 displayInstallTarget :: InstallTarget -> Text
 displayInstallTarget = \case
-    InstallChannel Stable -> "channel stable"
-    InstallChannel Unstable -> "channel unstable"
-    InstallChannel (Custom ch) -> "channel " <> pack (show ch)
     InstallVersion (SdkVersion v) -> "version " <> V.toText v
     InstallPath p -> pack p
 
 versionMatchesTarget :: SdkVersion -> InstallTarget -> Bool
 versionMatchesTarget version = \case
-    InstallChannel c -> c == versionChannel version
     InstallVersion v -> v == version
     InstallPath _ -> True -- tarball path could be any version
 
 newtype InstallURL = InstallURL { unwrapInstallURL :: Text }
-
-data SdkChannelInfo = SdkChannelInfo
-    { channelName       :: SdkChannel
-    , channelLatestURL  :: InstallURL
-    , channelVersionURL :: SdkVersion -> InstallURL
-    }
-
-knownChannels :: [SdkChannelInfo]
-knownChannels =
-    [ SdkChannelInfo
-        { channelName = Stable
-        , channelLatestURL  = bintrayLatestURL
-        , channelVersionURL = bintrayVersionURL
-        }
-    , SdkChannelInfo
-        { channelName = Unstable
-        , channelLatestURL  = bintrayLatestURL
-        , channelVersionURL = bintrayVersionURL
-        }
-    ]
 
 data InstallEnv = InstallEnv
     { options :: InstallOptions
@@ -113,13 +95,6 @@ whenInitial InstallEnv{..} | InitialInstall b <- iInitial options =
 whenActivate :: InstallEnv -> IO () -> IO ()
 whenActivate InstallEnv{..} | ActivateInstall b <- iActivate options =
     when b
-
-
-lookupChannel :: SdkChannel -> [SdkChannelInfo] -> Maybe SdkChannelInfo
-lookupChannel ch = find ((== ch) . channelName)
-
-defaultInstallURL :: InstallURL
-defaultInstallURL = bintrayLatestURL
 
 osName :: Text
 osName = case System.Info.os of
@@ -438,18 +413,11 @@ install options damlPath = do
 
     case targetM of
         Nothing ->
-            httpInstall env defaultInstallURL -- TODO replace with installing project version
+            httpInstall env bintrayLatestURL
+            -- TODO replace with installing project version
 
         Just (InstallPath tarballPath) ->
             pathInstall env tarballPath
 
-        Just (InstallChannel channel) -> do
-            channelInfo <- required ("Unknown channel " <> pack (show channel)) $
-                lookupChannel channel knownChannels
-            httpInstall env (channelLatestURL channelInfo)
-
         Just (InstallVersion version) -> do
-            let channel = versionChannel version
-            channelInfo <- required ("Unknown channel " <> pack (show channel)) $
-                lookupChannel channel knownChannels
-            httpInstall env (channelVersionURL channelInfo version)
+            httpInstall env (bintrayVersionURL version)

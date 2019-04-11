@@ -74,9 +74,3 @@ newtype ForceInstall = ForceInstall Bool deriving (Eq, Show)
 newtype QuietInstall = QuietInstall Bool deriving (Eq, Show)
 newtype ActivateInstall = ActivateInstall Bool deriving (Eq, Show)
 newtype InitialInstall = InitialInstall Bool deriving (Eq, Show)
-
-data InstallTarget
-    = InstallChannel SdkChannel
-    | InstallVersion SdkVersion
-    | InstallPath FilePath
-    deriving (Eq, Show)

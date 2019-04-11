@@ -56,22 +56,8 @@ instance Y.FromJSON SdkVersion where
             Left e -> fail ("Invalid SDK version: " <> e)
             Right v -> pure (SdkVersion v)
 
-data SdkChannel
-    = Stable
-    | Unstable
-    | Custom [V.Identifier]
-    deriving (Eq, Ord, Show)
-
-versionChannel :: SdkVersion -> SdkChannel
-versionChannel (SdkVersion v) =
-    let ch = v L.^. V.release in
-    case ch of
-        [] -> Stable
-        [u] | Just u == V.textual "unstable" -> Unstable
-        _ -> Custom ch
-
 isStableVersion :: SdkVersion -> Bool
-isStableVersion = (== Stable) . versionChannel
+isStableVersion = (== []) . L.view V.release . unwrapSdkVersion
 
 -- | File path of daml installation root (by default ~/.daml on unix, %APPDATA%/daml on windows).
 newtype DamlPath = DamlPath
