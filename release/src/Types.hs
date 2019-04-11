@@ -7,7 +7,7 @@ module Types (
     ArtifactId,
     CIException(..),
     Classifier,
-    Component(..),
+    BintrayPackage(..),
     GitRev,
     GroupId,
     MonadCI,
@@ -18,7 +18,6 @@ module Types (
     Version(..),
     VersionChange(..),
     (#),
-    allComponents,
     bumpVersion,
     dropFileName,
     isVersionBumpOf,
@@ -37,6 +36,7 @@ import           Control.Monad.IO.Class               (MonadIO, liftIO)
 import           Control.Monad.IO.Unlift              (MonadUnliftIO)
 import           Control.Monad.Logger
 import           Control.Monad.Trans.Control          (MonadBaseControl)
+import Data.Aeson
 import           Data.Text                            (Text)
 import qualified Data.Text                            as T
 import           Data.Typeable                        (Typeable)
@@ -46,20 +46,18 @@ import qualified System.FilePath                      as FP
 import           Control.Monad (guard, (>=>))
 import           Safe (readMay)
 
--- Components
--- --------------------------------------------------------------------
-
---
--- | 'Component' represents all the Haskell packages within the
---   daml-foundations sub-repo. See 'componentDirectory' below.
---
-data Component
-  = SdkComponent
-  | SdkMetadata
+data BintrayPackage
+  = PkgSdkComponents
+  | PkgSdk
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-allComponents :: [Component]
-allComponents = [minBound..maxBound]
+instance FromJSON BintrayPackage where
+    parseJSON = withText "BintrayPackage" $ \t ->
+        case t of
+            "sdk-components" -> pure PkgSdkComponents
+            "sdk" -> pure PkgSdk
+            _ -> fail $ "Unknown bintray package " <> show t
+
 
 type TextVersion = Text
 type GroupId = [Text]
@@ -67,7 +65,7 @@ type ArtifactId = Text
 type Classifier = Text
 
 newtype PlatformDependent = PlatformDependent{getPlatformDependent :: Bool}
-    deriving (Eq, Show)
+    deriving (Eq, Show, FromJSON)
 
 -- execution
 type MonadCI m = (MonadIO m, MonadMask m, MonadLogger m,
