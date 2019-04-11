@@ -101,6 +101,7 @@ class InMemoryLedger(
       transactionId = transactionId,
       transaction = mappedTx,
       explicitDisclosure = tx.blindingInfo.explicitDisclosure,
+      localImplicitDisclosure = tx.blindingInfo.localImplicitDisclosure,
       globalImplicitDisclosure = tx.blindingInfo.globalImplicitDisclosure,
     )
     acsRes match {

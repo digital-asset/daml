@@ -68,6 +68,7 @@ case class ActiveContractsInMemory(
       workflowId: String,
       transaction: GenTransaction[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
       explicitDisclosure: Relation[Nid, Ref.Party],
+      localImplicitDisclosure: Relation[Nid, Ref.Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party]
   ): Either[Set[SequencingError], ActiveContractsInMemory] =
     acManager.addTransaction(
@@ -76,6 +77,7 @@ case class ActiveContractsInMemory(
       workflowId,
       transaction,
       explicitDisclosure,
+      localImplicitDisclosure,
       globalImplicitDisclosure)
 
 }
@@ -122,6 +124,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
       workflowId: String,
       transaction: GenTransaction[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
       explicitDisclosure: Relation[Nid, Ref.Party],
+      localImplicitDisclosure: Relation[Nid, Ref.Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party])
     : Either[Set[SequencingError], ACS] = {
     val st =
@@ -156,7 +159,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                   workflowId = workflowId,
                   contract = nc.coinst.mapValue(
                     _.mapContractId(SandboxEventIdFormatter.makeAbsCoid(transactionId))),
-                  disclosedTo = explicitDisclosure(nodeId),
+                  disclosedTo = explicitDisclosure(nodeId) union localImplicitDisclosure(nodeId),
                   key = nc.key
                 )
                 activeContract.key match {

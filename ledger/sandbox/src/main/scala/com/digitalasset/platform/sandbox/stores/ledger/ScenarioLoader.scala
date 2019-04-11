@@ -174,8 +174,10 @@ object ScenarioLoader {
         // the sandbox code assumes that in TransactionConversion.
         val txNoHash = GenTransaction(richTransaction.nodes, richTransaction.roots)
         val tx = txNoHash.mapContractIdAndValue(absCidWithHash, _.mapContractId(absCidWithHash))
-        val explicitDisclosure = richTransaction.explicitDisclosure
-        val implicitDisclosure = richTransaction.implicitDisclosure mapKeys { nid =>
+        import richTransaction.{explicitDisclosure, implicitDisclosure}
+        // copies non-absolute-able node IDs, but IDs that don't match
+        // get intersected away later
+        val globalizedImplicitDisclosure = richTransaction.implicitDisclosure mapKeys { nid =>
           AbsoluteContractId(nid.id)
         }
         acs.addTransaction[L.NodeId](
@@ -184,7 +186,8 @@ object ScenarioLoader {
           workflowId,
           tx,
           explicitDisclosure,
-          implicitDisclosure) match {
+          implicitDisclosure,
+          globalizedImplicitDisclosure) match {
           case Right(newAcs) =>
             val recordTx = tx.mapNodeId(nodeIdWithHash)
             val recordDisclosure = explicitDisclosure.map {

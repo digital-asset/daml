@@ -242,12 +242,13 @@ private class PostgresLedgerDao(
 
       // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
       // within the current SQL transaction. All of the given functions perform side effects to update the database.
-      val atr = acsManager.addTransaction(
+      val atr = acsManager.addTransaction[LedgerEntry.EventId](
         ledgerEffectiveTime,
         transactionId,
         workflowId,
         transaction,
         mappedDisclosure,
+        Map.empty, // TODO SC when do we enrich here?
         Map.empty // TODO SC when do we enrich here?
       )
 
