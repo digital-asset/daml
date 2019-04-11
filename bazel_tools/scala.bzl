@@ -217,10 +217,14 @@ def da_scala_library(name, **kwargs):
   _wrap_rule(scala_library, name, **kwargs)
   _create_scala_source_jar(**kwargs + {"name": name})
 
-  pom_file(
-      name = name + "_pom",
-      target = ":" + name,
-  )
+  if "tags" in kwargs:
+    for tag in kwargs["tags"]:
+      if tag.startswith("maven_coordinates="):
+        pom_file(
+            name = name + "_pom",
+            target = ":" + name,
+        )
+        break
 
 def da_scala_macro_library(**kwargs):
   """
@@ -247,10 +251,14 @@ def da_scala_binary(name, **kwargs):
   """
   _wrap_rule(scala_binary, name, **kwargs)
 
-  pom_file(
-      name = name + "_pom",
-      target = ":" + name,
-  )
+  if "tags" in kwargs:
+    for tag in kwargs["tags"]:
+      if tag.startswith("maven_coordinates="):
+        pom_file(
+            name = name + "_pom",
+            target = ":" + name,
+        )
+        break
 
 def da_scala_test(**kwargs):
   """

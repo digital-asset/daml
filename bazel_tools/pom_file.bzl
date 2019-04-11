@@ -176,7 +176,7 @@ def _pom_file(ctx):
 
         formatted_deps.append(template.format(*parts))
 
-    pom_file_tmpl = ctx.actions.declare_file(ctx.file.template_file.path + ".tmpl")
+    pom_file_tmpl = ctx.actions.declare_file(ctx.outputs.pom_file.path + ".tmpl")
 
     substitutions = {}
     substitutions.update({
