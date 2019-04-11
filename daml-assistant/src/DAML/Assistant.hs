@@ -14,12 +14,12 @@ import DAML.Assistant.Tests
 import DAML.Assistant.Command
 import DAML.Assistant.Install
 import DAML.Assistant.Util
-import qualified Data.Text.IO as T
 import System.FilePath
 import System.Process
 import System.Exit
 import Control.Exception.Safe
 import Data.Maybe
+import qualified Data.SemVer as V
 
 -- | Run the assistant and exit.
 main :: IO ()
@@ -32,7 +32,7 @@ main = do
 
         Builtin Version -> do
             version <- required "Could not determine SDK version." envSdkVersion
-            T.putStrLn (unwrapSdkVersion version)
+            putStrLn (V.toString (unwrapSdkVersion version))
 
         Builtin (Install options) -> wrapErr "Installing the SDK." $ do
             install options envDamlPath

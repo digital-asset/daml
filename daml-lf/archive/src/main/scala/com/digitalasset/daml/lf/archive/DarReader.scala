@@ -20,6 +20,8 @@ class DarReader[A](
     readDalfNamesFromManifest: InputStream => Try[Dar[String]],
     parseDalf: InputStream => Try[A]) {
 
+  import Errors._
+
   private val manifestEntry = new ZipEntry("META-INF/MANIFEST.MF")
 
   def readArchive(darFile: ZipFile): Try[Dar[A]] =
@@ -33,28 +35,39 @@ class DarReader[A](
     parseDalfNamesFromManifest(darFile).recoverWith {
       case NonFatal(e1) =>
         findLegacyDalfNames(darFile).recoverWith {
-          case NonFatal(e2) => Failure(InvalidDar(e1, e2))
+          case NonFatal(_) => Failure(InvalidDar(darFile, e1))
         }
     }
 
   private def parseDalfNamesFromManifest(darFile: ZipFile): Try[Dar[String]] =
-    bracket(Try(darFile.getInputStream(manifestEntry)))(close)
+    bracket(inputStream(darFile, manifestEntry))(close)
       .flatMap(is => readDalfNamesFromManifest(is))
+
+  private def inputStream(darFile: ZipFile, entry: ZipEntry): Try[InputStream] = {
+    // returns null if entry does not exist
+    Try(Option(darFile.getInputStream(entry))).flatMap {
+      case Some(x) => Success(x)
+      case None => Failure(InvalidZipEntry(darFile, entry))
+    }
+  }
 
   // There are three cases:
   // 1. if it's only one .dalf, then that's the main one
   // 2. if it's two .dalfs, where one of them has -prim in the name, the one without -prim is the main dalf.
   // 3. parse error in all other cases
   private def findLegacyDalfNames(darFile: ZipFile): Try[Dar[String]] = {
-    val entries: List[ZipEntry] = darFile.entries.asScala.toList
+    val entries: List[ZipEntry] = darEntries(darFile)
     val dalfs: List[String] = entries.filter(isDalf).map(_.getName)
     dalfs.partition(isPrimDalf) match {
       case (List(prim), List(main)) => Success(Dar(main, List(prim)))
       case (List(prim), List()) => Success(Dar(prim, List.empty))
       case (List(), List(main)) => Success(Dar(main, List.empty))
-      case _ => Failure(InvalidLegacyDar(dalfs))
+      case _ => Failure(InvalidLegacyDar(darFile))
     }
   }
+
+  private def darEntries(darFile: ZipFile): List[ZipEntry] =
+    darFile.entries.asScala.toList
 
   private def isDalf(e: ZipEntry): Boolean = isDalf(e.getName)
 
@@ -71,22 +84,30 @@ class DarReader[A](
   private def getZipEntryInputStream(f: ZipFile, name: String): Try[InputStream] =
     for {
       e <- Try(new ZipEntry(name))
-      is <- Try(new BufferedInputStream(f.getInputStream(e)))
-    } yield is
+      is <- inputStream(f, e)
+      bis <- Try(new BufferedInputStream(is))
+    } yield bis
 
   private def close(is: InputStream): Try[Unit] = Try(is.close())
 }
 
-case class InvalidLegacyDar(dalfNames: List[String])
-    extends RuntimeException(
-      s"Invalid Legacy DAR. Legacy DAR can contain: one main DALF and an optional *-prim* DALF. " +
-        s"This DAR contains: [${dalfNames.mkString(", "): String}]")
+object Errors {
+  case class InvalidDar(darFile: ZipFile, cause: Throwable)
+      extends RuntimeException(s"Invalid DAR: ${darInfo(darFile): String}", cause)
 
-case class InvalidDar(cause1: Throwable, cause2: Throwable)
-    extends RuntimeException(
-      "Both Contemporary and Legacy DAR reads failed with errors: " +
-        s"${cause1.getMessage: String}; ${cause2.getMessage}",
-      cause1)
+  case class InvalidZipEntry(darFile: ZipFile, zipEntry: ZipEntry)
+      extends RuntimeException(
+        s"Invalid zip entry: ${zipEntry.getName: String}, DAR: ${darInfo(darFile): String}")
+
+  case class InvalidLegacyDar(darFile: ZipFile)
+      extends RuntimeException(s"Invalid DAR: ${darInfo(darFile): String}")
+
+  private def darInfo(darFile: ZipFile): String =
+    s"${darFile.getName: String}, content: [${darFileNames(darFile).mkString(", "): String}}]"
+
+  private def darFileNames(darFile: ZipFile): List[String] =
+    darFile.entries.asScala.toList.map(_.getName)
+}
 
 object DarReader {
   def apply(): DarReader[(Ref.PackageId, DamlLf.ArchivePayload)] =

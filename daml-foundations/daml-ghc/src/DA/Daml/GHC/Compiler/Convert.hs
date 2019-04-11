@@ -566,7 +566,11 @@ convertExpr env0 e = do
     go env (VarIs "getFieldPrim") (Type (isStrLitTy -> Just name) : Type record : Type _field : args) = fmap (, args) $ do
         record' <- convertType env record
         pure $ ETmLam (varV1, record') $ ERecProj (fromTCon record') (mkField $ unpackFS name) $ EVar varV1
-    go env (VarIs "getField") (Type (isStrLitTy -> Just name) : Type recordType : Type _fieldType : _dict : record : args) = fmap (, args) $ do
+    -- NOTE(MH): We only inline `getField` for record types. This is required
+    -- for contract keys. Projections on sum-of-records types have to through
+    -- the type class for `getField`.
+    go env (VarIs "getField") (Type (isStrLitTy -> Just name) : Type recordType@(TypeCon recordTyCon _) : Type _fieldType : _dict : record : args)
+        | Just [_] <- tyConDataCons_maybe recordTyCon = fmap (, args) $ do
             recordType <- convertType env recordType
             record <- convertExpr env record
             pure $ ERecProj (fromTCon recordType) (mkField $ unpackFS name) record
@@ -781,13 +785,10 @@ convertExpr env0 e = do
         fmap (, args) $ convertLet env name x (\env -> convertExpr env y)
     go env (Case scrutinee bind _ [(DEFAULT, [], x)]) args =
         go env (Let (NonRec bind scrutinee) x) args
-    go env (Case scrutinee bind t [(DataAlt con, [v], x)]) args | is con == "I#" = fmap (, args) $ do
-        -- we pretend Int and Int# are the same, so a case statement becomes a Let
-        scrutinee' <- convertExpr env scrutinee
-        x' <- convertExpr env x
-        pure $
-            ELet (Binding (convVar bind, TInt64) scrutinee') $
-            ELet (Binding (convVar v, TInt64) (EVar (convVar bind))) x'
+    go env (Case scrutinee bind t [(DataAlt con, [v], x)]) args | is con == "I#" = do
+        -- We pretend Int and Int# are the same, so a case-expression becomes a let-expression.
+        let letExpr = Let (NonRec bind scrutinee) $ Let (NonRec v (Var bind)) x
+        go env letExpr args
     -- NOTE(MH): This is DICTIONARY SANITIZATION step (2).
     go env (Case scrutinee bind _ [(DataAlt con, vs, Var x)]) args
         | tyConFlavour (dataConTyCon con) == ClassFlavour
@@ -799,7 +800,6 @@ convertExpr env0 e = do
             recTyp <- convertType env (varType bind)
             pure $ ERecProj (fromTCon recTyp) fldName scrutinee' `ETmApp` EUnit
     go env o@(Case scrutinee bind _ [alt@(DataAlt con, vs, x)]) args = fmap (, args) $ do
-        scrutinee' <- convertExpr env scrutinee
         convertType env (varType bind) >>= \case
           TText -> asLet
           TDecimal -> asLet
@@ -809,31 +809,23 @@ convertExpr env0 e = do
           TContractId{} -> asLet
           TUpdate{} -> asLet
           TScenario{} -> asLet
-          tcon0 -> do
-              ctor <- toCtor env con
+          tcon -> do
+              ctor@(Ctor _ fldNames fldTys) <- toCtor env con
               if not (isRecordCtor ctor)
-                then do
+                then convertLet env bind scrutinee $ \env -> do
+                  bind' <- convertExpr env (Var bind)
                   ty <- convertType env $ varType bind
                   alt' <- convertAlt env ty alt
-                  bind' <- convVarWithType env bind
-                  pure $
-                    ELet (Binding bind' scrutinee') $
-                    ECase (EVar $ convVar bind) [alt']
-                else mkProj ctor tcon0 scrutinee'
+                  pure $ ECase bind' [alt']
+                else case zipExactMay vs (zipExact fldNames fldTys) of
+                    Nothing -> unsupported "Pattern match with existential type" alt
+                    Just vsFlds -> convertLet env bind scrutinee $ \env -> do
+                        bindRef <- convertExpr env (Var bind)
+                        x' <- convertExpr env x
+                        projBinds <- mkProjBindings env bindRef (fromTCon tcon) vsFlds x'
+                        pure projBinds
       where
-        asLet = do
-            scrutinee' <- convertExpr env scrutinee
-            x' <- convertExpr env x
-            bind' <- convVarWithType env bind
-            pure $ ELet (Binding bind' scrutinee') x'
-        -- NOTE(MH): The 'zipExact' below fails for pattern matches on constructors with existentials.
-        mkProj (Ctor _ fldNames fldTys) tcon bound = case zipExactMay vs (zipExact fldNames fldTys) of
-          Nothing -> unsupported "Pattern match with existential type" alt
-          Just vsFlds -> do
-              x' <- convertExpr env x
-              projBinds <- mkProjBindings env (convVar bind) (fromTCon tcon) vsFlds x'
-              pure $
-                ELet (Binding (convVar bind, tcon) bound) projBinds
+        asLet = convertLet env bind scrutinee $ \env -> convertExpr env x
     go env (Case scrutinee bind typ []) args = fmap (, args) $ do
         -- GHC only generates empty case alternatives if it is sure the scrutinee will fail, LF doesn't support empty alternatives
         scrutinee' <- convertExpr env scrutinee
@@ -916,7 +908,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
             let patBinder = vArg
             in  do
               x' <- convertExpr env x
-              projBinds <- mkProjBindings env vArg (TypeConApp (synthesizeVariantRecord variantName <$> tcon) targs) vsFlds x'
+              projBinds <- mkProjBindings env (EVar vArg) (TypeConApp (synthesizeVariantRecord variantName <$> tcon) targs) vsFlds x'
               pure $ CaseAlternative CPVariant{..} projBinds
     where
         -- TODO(MH): We need to generate fresh names.
@@ -924,10 +916,10 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
         patTypeCon = tcon
 convertAlt _ _ x = unsupported "Case alternative of this form" x
 
-mkProjBindings :: Env -> ExprVarName -> TypeConApp -> [(Var, (FieldName, LF.Type))] -> LF.Expr -> ConvertM LF.Expr
-mkProjBindings env recVar recTyp vsFlds e =
+mkProjBindings :: Env -> LF.Expr -> TypeConApp -> [(Var, (FieldName, LF.Type))] -> LF.Expr -> ConvertM LF.Expr
+mkProjBindings env recExpr recTyp vsFlds e =
   fmap (\bindings -> mkELets bindings e) $ sequence
-    [ Binding <$> convVarWithType env v <*> pure (ERecProj recTyp fld (EVar recVar))
+    [ Binding <$> convVarWithType env v <*> pure (ERecProj recTyp fld recExpr)
     | (v, (fld, _typ)) <- vsFlds
     , not (isDeadOcc (occInfo (idInfo v)))
     ]

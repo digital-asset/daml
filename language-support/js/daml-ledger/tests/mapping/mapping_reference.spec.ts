@@ -13,7 +13,7 @@ describe('Reference Mapping (InclusiveFilters)', () => {
     it('should not throw an error with a valid input', () => {
         const object = {
             templateIds: [
-                { name: 'foo', packageId: 'bar' }
+                { packageId: 'bar', moduleName: 'foo', entityName: 'baz' }
             ]
         };
         expect(() => mapping.InclusiveFilters.toMessage(object)).to.not.throw(Error);
@@ -22,7 +22,7 @@ describe('Reference Mapping (InclusiveFilters)', () => {
     it('should push the right number of items into the populated array', () => {
         const object = {
             templateIds: [
-                { name: 'foo', packageId: 'bar' }
+                { packageId: 'bar', moduleName: 'foo', entityName: 'baz' }
             ]
         };
         const result = mapping.InclusiveFilters.toMessage(object);
@@ -32,36 +32,40 @@ describe('Reference Mapping (InclusiveFilters)', () => {
     it('should push the correctly built items to the array', () => {
         const object = {
             templateIds: [
-                { name: 'foo', packageId: 'bar' }
+                { packageId: 'bar', moduleName: 'foo', entityName: 'baz' }
             ]
         };
         const result = mapping.InclusiveFilters.toMessage(object);
         const identifier = result.getTemplateIdsList()[0];
-        expect(identifier.getName()).to.equal('foo');
+        expect(identifier.getModuleName()).to.equal('foo');
+        expect(identifier.getEntityName()).to.equal('baz');
         expect(identifier.getPackageId()).to.equal('bar');
     });
 
     it('should work for more than one item as well', () => {
         const object = {
             templateIds: [
-                { name: 'foo', packageId: 'bar' },
-                { name: 'baz', packageId: 'quux' },
+                { packageId: 'bar1', moduleName: 'foo1', entityName: 'baz1' },
+                { packageId: 'bar2', moduleName: 'foo2', entityName: 'baz2' },
             ]
         };
         const result = mapping.InclusiveFilters.toMessage(object);
         const identifier1 = result.getTemplateIdsList()[0];
         const identifier2 = result.getTemplateIdsList()[1];
-        expect(identifier1.getName()).to.equal('foo');
-        expect(identifier1.getPackageId()).to.equal('bar');
-        expect(identifier2.getName()).to.equal('baz');
-        expect(identifier2.getPackageId()).to.equal('quux');
+        expect(identifier1.getPackageId()).to.equal('bar1');
+        expect(identifier1.getModuleName()).to.equal('foo1');
+        expect(identifier1.getEntityName()).to.equal('baz1');
+        expect(identifier2.getPackageId()).to.equal('bar2');
+        expect(identifier2.getModuleName()).to.equal('foo2');
+        expect(identifier2.getEntityName()).to.equal('baz2');
     });
 
     it('should not throw exception with a valid "bean"', () => {
         const message = new grpc.InclusiveFilters();
         const identifier = new grpc.Identifier();
-        identifier.setName('foo');
         identifier.setPackageId('bar');
+        identifier.setModuleName('foo');
+        identifier.setEntityName('baz');
         message.setTemplateIdsList([identifier]);
         expect(() => mapping.InclusiveFilters.toObject(message)).to.not.throw(Error);
     });
@@ -69,25 +73,28 @@ describe('Reference Mapping (InclusiveFilters)', () => {
     it('should map array items with the correct values from beans to objects', () => {
         const message = new grpc.InclusiveFilters();
         const identifier = new grpc.Identifier();
-        identifier.setName('foo');
         identifier.setPackageId('bar');
+        identifier.setModuleName('foo');
+        identifier.setEntityName('baz');
         message.setTemplateIdsList([identifier]);
-        expect(mapping.InclusiveFilters.toObject(message).templateIds[0]).to.deep.equal({ name: 'foo', packageId: 'bar' });
+        expect(mapping.InclusiveFilters.toObject(message).templateIds[0]).to.deep.equal({ packageId: 'bar', moduleName: 'foo', entityName: 'baz' });
     });
 
     it('should map array items with the correct values from beans to objects with multiple items', () => {
         const message = new grpc.InclusiveFilters();
         const identifier1 = new grpc.Identifier();
-        identifier1.setName('foo');
-        identifier1.setPackageId('bar');
+        identifier1.setPackageId('bar1');
+        identifier1.setModuleName('foo1');
+        identifier1.setEntityName('baz1');
         const identifier2 = new grpc.Identifier();
-        identifier2.setName('baz');
-        identifier2.setPackageId('quux');
+        identifier2.setPackageId('bar2');
+        identifier2.setModuleName('foo2');
+        identifier2.setEntityName('baz2');
         message.setTemplateIdsList([identifier1, identifier2]);
         expect(mapping.InclusiveFilters.toObject(message)).to.deep.equal({
             templateIds: [
-                { name: 'foo', packageId: 'bar' },
-                { name: 'baz', packageId: 'quux' },
+                { packageId: 'bar1', moduleName: 'foo1', entityName: 'baz1' },
+                { packageId: 'bar2', moduleName: 'foo2', entityName: 'baz2' },
             ]
         });
     });
@@ -115,7 +122,7 @@ describe('Reference Mapping (Filters)', () => {
         const conversion = () => mapping.Filters.toMessage({
             inclusive: {
                 templateIds: [
-                    { name: 'foo', packageId: 'bar' }
+                    { packageId: 'bar', moduleName: 'foo', entityName: 'baz' }
                 ]
             }
         });
@@ -126,7 +133,7 @@ describe('Reference Mapping (Filters)', () => {
         const result = mapping.Filters.toMessage({
             inclusive: {
                 templateIds: [
-                    { name: 'foo', packageId: 'bar' }
+                    { packageId: 'bar', moduleName: 'foo', entityName: 'baz' }
                 ]
             }
         });
@@ -137,20 +144,21 @@ describe('Reference Mapping (Filters)', () => {
         const result = mapping.Filters.toMessage({
             inclusive: {
                 templateIds: [
-                    { name: 'foo', packageId: 'bar' }
+                    { packageId: 'bar', moduleName: 'foo', entityName: 'baz' }
                 ]
             }
         });
-        expect(result.getInclusive()!.getTemplateIdsList()[0].getName()).to.equal('foo');
         expect(result.getInclusive()!.getTemplateIdsList()[0].getPackageId()).to.equal('bar');
+        expect(result.getInclusive()!.getTemplateIdsList()[0].getModuleName()).to.equal('foo');
+        expect(result.getInclusive()!.getTemplateIdsList()[0].getEntityName()).to.equal('baz');
     });
 
     it('should not throw an error when converting an array with two items', () => {
         const conversion = () => mapping.Filters.toMessage({
             inclusive: {
                 templateIds: [
-                    { name: 'foo', packageId: 'bar' },
-                    { name: 'baz', packageId: 'quux' }
+                    { packageId: 'bar1', moduleName: 'foo1', entityName: 'baz1' },
+                    { packageId: 'bar2', moduleName: 'foo2', entityName: 'baz2' },
                 ]
             }
         });
@@ -161,8 +169,8 @@ describe('Reference Mapping (Filters)', () => {
         const result = mapping.Filters.toMessage({
             inclusive: {
                 templateIds: [
-                    { name: 'foo', packageId: 'bar' },
-                    { name: 'baz', packageId: 'quux' }
+                    { packageId: 'bar1', moduleName: 'foo1', entityName: 'baz1' },
+                    { packageId: 'bar2', moduleName: 'foo2', entityName: 'baz2' },
                 ]
             }
         });
@@ -244,11 +252,13 @@ describe('Reference Mapping (TransactionFilter)', () => {
         const filters = new grpc.Filters();
         const inclusive = new grpc.InclusiveFilters();
         const identifier1 = new grpc.Identifier();
-        identifier1.setName('foo');
-        identifier1.setPackageId('bar');
+        identifier1.setPackageId('bar1');
+        identifier1.setModuleName('foo1');
+        identifier1.setEntityName('baz1');
         const identifier2 = new grpc.Identifier();
-        identifier2.setName('baz');
-        identifier2.setPackageId('quux');
+        identifier2.setPackageId('bar2');
+        identifier2.setModuleName('foo2');
+        identifier2.setEntityName('baz2');
         inclusive.setTemplateIdsList([identifier1, identifier2]);
         filters.setInclusive(inclusive);
         map.set('someKey', filters);
@@ -258,8 +268,8 @@ describe('Reference Mapping (TransactionFilter)', () => {
                 someKey: {
                     inclusive: {
                         templateIds: [
-                            { name: 'foo', packageId: 'bar' },
-                            { name: 'baz', packageId: 'quux' }
+                            { packageId: 'bar1', moduleName: 'foo1', entityName: 'baz1' },
+                            { packageId: 'bar2', moduleName: 'foo2', entityName: 'baz2' },
                         ]
                     }
                 }
@@ -273,11 +283,13 @@ describe('Reference Mapping (TransactionFilter)', () => {
         const filters = new grpc.Filters();
         const inclusive = new grpc.InclusiveFilters();
         const identifier1 = new grpc.Identifier();
-        identifier1.setName('foo');
-        identifier1.setPackageId('bar');
+        identifier1.setPackageId('bar1');
+        identifier1.setModuleName('foo1');
+        identifier1.setEntityName('baz1');
         const identifier2 = new grpc.Identifier();
-        identifier2.setName('baz');
-        identifier2.setPackageId('quux');
+        identifier2.setPackageId('bar2');
+        identifier2.setModuleName('foo2');
+        identifier2.setEntityName('baz2');
         inclusive.setTemplateIdsList([identifier1, identifier2]);
         filters.setInclusive(inclusive);
         map.set('someKey', filters);
@@ -289,8 +301,8 @@ describe('Reference Mapping (TransactionFilter)', () => {
                 someKey: {
                     inclusive: {
                         templateIds: [
-                            { name: 'foo', packageId: 'bar' },
-                            { name: 'baz', packageId: 'quux' }
+                            { packageId: 'bar1', moduleName: 'foo1', entityName: 'baz1' },
+                            { packageId: 'bar2', moduleName: 'foo2', entityName: 'baz2' },
                         ]
                     }
                 }
@@ -305,11 +317,13 @@ describe('Reference Mapping (SubmitRequest)', () => {
     const command = new grpc.Command();
 
     const templateId = new grpc.Identifier();
-    templateId.setName('templateId-name');
+    templateId.setModuleName('templateId-moduleName');
+    templateId.setEntityName('templateId-entityName');
     templateId.setPackageId('templateId-packageId');
 
     const recordId = new grpc.Identifier();
-    recordId.setName('recordId-name');
+    recordId.setModuleName('recordId-moduleName');
+    recordId.setEntityName('recordId-entityName');
     recordId.setPackageId('recordId-packageId');
 
     const create = new grpc.CreateCommand();
@@ -376,9 +390,9 @@ describe('Reference Mapping (SubmitRequest)', () => {
             list: [
                 {
                     create: {
-                        templateId: { packageId: 'templateId-packageId', name: 'templateId-name' },
+                        templateId: { packageId: 'templateId-packageId', moduleName: 'templateId-moduleName', entityName: 'templateId-entityName' },
                         arguments: {
-                            recordId: { packageId: 'recordId-packageId', name: 'recordId-name' },
+                            recordId: { packageId: 'recordId-packageId', moduleName: 'recordId-moduleName', entityName: 'recordId-entityName' },
                             fields: {
                                 sender: { party: 'sender-party' },
                                 receiver: { party: 'receiver-party' },
@@ -410,7 +424,8 @@ describe('Reference Mapping (SubmitRequest/Pvp)', () => {
     const command = new grpc.Command();
 
     const pvpId = new grpc.Identifier();
-    pvpId.setName('Pvp');
+    pvpId.setModuleName('mod1');
+    pvpId.setEntityName('PvP');
     pvpId.setPackageId('934023fa9c89e8f89b8a');
 
     const create = new grpc.CreateCommand();
@@ -439,7 +454,8 @@ describe('Reference Mapping (SubmitRequest/Pvp)', () => {
     const baseIouCidVariant = new grpc.Variant();
     baseIouCidVariant.setConstructor('Maybe');
     const baseIouCidVariantId = new grpc.Identifier();
-    baseIouCidVariantId.setName('Maybe');
+    baseIouCidVariantId.setModuleName('mod2');
+    baseIouCidVariantId.setEntityName('Maybe');
     baseIouCidVariantId.setPackageId('ba777d8d7c88e87f7');
     baseIouCidVariant.setVariantId(baseIouCidVariantId);
     const baseIouCidVariantValue = new grpc.Value();
@@ -483,7 +499,8 @@ describe('Reference Mapping (SubmitRequest/Pvp)', () => {
     const quoteIouCidVariant = new grpc.Variant();
     quoteIouCidVariant.setConstructor('Maybe');
     const quoteIouCidVariantId = new grpc.Identifier();
-    quoteIouCidVariantId.setName('Maybe');
+    quoteIouCidVariantId.setModuleName('mod2');
+    quoteIouCidVariantId.setEntityName('Maybe');
     quoteIouCidVariantId.setPackageId('ba777d8d7c88e87f7');
     quoteIouCidVariant.setVariantId(quoteIouCidVariantId);
     const quoteIouCidVariantValue = new grpc.Value();
@@ -510,7 +527,7 @@ describe('Reference Mapping (SubmitRequest/Pvp)', () => {
     const settleTimeField = new grpc.RecordField();
     settleTimeField.setLabel('settleTime');
     const settleTimeValue = new grpc.Value();
-    settleTimeValue.setTimestamp(93641099000000000);
+    settleTimeValue.setTimestamp('93641099000000000');
     settleTimeField.setValue(settleTimeValue);
     record.addFields(settleTimeField);
 
@@ -552,21 +569,21 @@ describe('Reference Mapping (SubmitRequest/Pvp)', () => {
             list: [
                 {
                     create: {
-                        templateId: { packageId: '934023fa9c89e8f89b8a', name: 'Pvp' },
+                        templateId: { packageId: '934023fa9c89e8f89b8a', moduleName: 'mod1', entityName: 'PvP' },
                         arguments: {
-                            recordId: { packageId: '934023fa9c89e8f89b8a', name: 'Pvp' },
+                            recordId: { packageId: '934023fa9c89e8f89b8a', moduleName: 'mod1', entityName: 'PvP' },
                             fields: {
                                 buyer        : { party: 'some-buyer' },
                                 seller       : { party: 'some-seller' },
                                 baseIssuer   : { party: 'some-base-issuer' },
                                 baseCurrency : { text: 'CHF' },
                                 baseAmount   : { decimal: '1000000.00' },
-                                baseIouCid   : { variant: { variantId: { packageId: 'ba777d8d7c88e87f7', name: 'Maybe' }, constructor: 'Maybe', value: { contractId: '76238b8998a98d98e978f' } } },
+                                baseIouCid   : { variant: { variantId: { packageId: 'ba777d8d7c88e87f7', moduleName: 'mod2', entityName: 'Maybe' }, constructor: 'Maybe', value: { contractId: '76238b8998a98d98e978f' } } },
                                 quoteIssuer  : { party: 'some-quote-issuer' },
                                 quoteCurrency: { text: 'USD' },
                                 quoteAmount  : { decimal: '1000001.00' },
-                                quoteIouCid  : { variant: { variantId: { packageId: 'ba777d8d7c88e87f7', name: 'Maybe' }, constructor: 'Maybe', value: { contractId: '76238b8998a98d98e978f' } } },
-                                settleTime   : { timestamp: 93641099000000000 }
+                                quoteIouCid  : { variant: { variantId: { packageId: 'ba777d8d7c88e87f7', moduleName: 'mod2', entityName: 'Maybe' }, constructor: 'Maybe', value: { contractId: '76238b8998a98d98e978f' } } },
+                                settleTime   : { timestamp: '93641099000000000' }
                             }
                         }
                     }

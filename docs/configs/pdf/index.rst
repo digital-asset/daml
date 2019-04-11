@@ -60,7 +60,6 @@ Background Concepts
    :titlesonly:
    :maxdepth: 2
 
-   concepts/platform-gsl/index
    concepts/ledger-model/index
 
 Examples

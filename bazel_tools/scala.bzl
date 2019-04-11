@@ -133,6 +133,74 @@ def _wrap_rule_no_plugins(rule, scalacopts = [], **kwargs):
     **kwargs
   )
 
+def _strip_path_upto(path, upto):
+  idx = path.find(upto)
+  if idx >= 0:
+    return [path[idx + len(upto):].strip("/")]
+  else:
+    return []
+
+def _scala_source_jar_impl(ctx):
+  zipper_args = [
+    "%s=%s" % (new_path, src.path)
+    for src in ctx.files.srcs
+    for new_path in _strip_path_upto(src.path, ctx.attr.strip_upto)
+  ]
+  zipper_args_file = ctx.actions.declare_file(
+    ctx.label.name + ".zipper_args")
+
+  manifest_file = ctx.actions.declare_file(
+    ctx.label.name + "_MANIFEST.MF",
+    sibling = zipper_args_file,
+  )
+  ctx.actions.write(manifest_file, "Manifest-Version: 1.0\n")
+  zipper_args += ["META-INF/MANIFEST.MF=" + manifest_file.path + "\n"]
+
+  ctx.actions.write(zipper_args_file, "\n".join(zipper_args))
+
+  ctx.actions.run(
+    executable = ctx.executable._zipper,
+    inputs = ctx.files.srcs + [manifest_file, zipper_args_file],
+    outputs = [ctx.outputs.out],
+    arguments = ["c", ctx.outputs.out.path, "@" + zipper_args_file.path],
+    mnemonic = "ScalaSourceJar",
+  )
+
+scala_source_jar = rule(
+  implementation = _scala_source_jar_impl,
+  attrs = {
+    "srcs": attr.label_list(allow_files = True),
+
+    # The string to strip up to from source file paths.
+    # E.g. "main/scala" strips "foo/src/main/scala/com/daml/Foo.scala"
+    # to "com/daml/Foo.scala".
+    # Files not matching are not included in the source jar,
+    # so you may end up with empty source jars.
+    # TODO(JM): Add support for multiple options.
+    "strip_upto": attr.string(default = "main/scala"),
+
+    "_zipper": attr.label(
+      default = Label("@bazel_tools//tools/zip:zipper"),
+      cfg = "host",
+      executable = True,
+      allow_files = True,
+    ),
+  },
+  outputs = {
+    "out": "%{name}.jar",
+  },
+)
+
+def _create_scala_source_jar(**kwargs):
+  # Try to not create empty source jars. We may still end up
+  # with them if the "strip_upto" does not match any of the
+  # paths.
+  if len(kwargs["srcs"]) > 0:
+    scala_source_jar(
+      name = kwargs["name"] + "_src",
+      srcs = kwargs["srcs"]
+    )
+
 def da_scala_library(**kwargs):
   """
   Define a Scala library.
@@ -144,6 +212,7 @@ def da_scala_library(**kwargs):
   [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_library
   """
   _wrap_rule(scala_library, **kwargs)
+  _create_scala_source_jar(**kwargs)
 
 def da_scala_macro_library(**kwargs):
   """
@@ -156,6 +225,7 @@ def da_scala_macro_library(**kwargs):
   [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_library
   """
   _wrap_rule(scala_macro_library, **kwargs)
+  _create_scala_source_jar(**kwargs)
 
 def da_scala_binary(**kwargs):
   """

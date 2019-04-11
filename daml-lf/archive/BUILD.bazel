@@ -119,9 +119,12 @@ da_scala_test_suite(
     "//daml-lf/data",
     "//3rdparty/jvm/com/google/protobuf:protobuf_java",
     "//3rdparty/jvm/org/scalatest:scalatest",
+    "//3rdparty/jvm/org/scalacheck:scalacheck",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
   ],
   data = [
     ":DarReaderTest.dar",
+    ":DarReaderTest.dalf",
   ],
   scalacopts = lf_scalacopts,
 )

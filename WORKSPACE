@@ -9,6 +9,8 @@ register_toolchains(
   "//:c2hs-toolchain"
 )
 
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 load("//bazel_tools/dev_env_package:dev_env_package.bzl", "dev_env_package")
 load("//bazel_tools/dev_env_package:dev_env_tool.bzl", "dev_env_tool")
 
@@ -382,8 +384,8 @@ hazel_repositories(
       extra =
         [ # Read [Working on ghc-lib] for ghc-lib update instructions at
           # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-          ("ghc-lib-parser", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-0.20190405.tar.gz", "stripPrefix": "ghc-lib-parser-0.20190405", "sha256": "61bb998ea10a8189b5f5cdae41e7ee6c6329bd8f7f81276e65d0d592b5a69b79"})
-        , ("ghc-lib", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-0.20190405.tar.gz", "stripPrefix": "ghc-lib-0.20190405", "sha256": "d656919c8c6f6e0c4d6307ef51f89b44d7c218b8261b750bbe8e73127865a6f5"})
+          ("ghc-lib-parser", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-0.20190409.tar.gz", "stripPrefix": "ghc-lib-parser-0.20190409", "sha256": "53d86b741a64c6ef41fe2635583bf3bdf288aee22006cb0e0395a955650f1d6e"})
+        , ("ghc-lib", {"url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-0.20190409.tar.gz", "stripPrefix": "ghc-lib-0.20190409", "sha256": "803ba87198191114ad6ef7b61e9ff5bd7cfc43feb9ee978207d281bf6f38d024"})
         , ("bytestring-nums", {"version": "0.3.6", "sha256": "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd"})
         , ("unix-time", {"version": "0.4.5", "sha256": "fe7805c62ad682589567afeee265e6e230170c3941cdce479a2318d1c5088faf"})
         , ("zip-archive", {"version": "0.3.3", "sha256": "988adee77c806e0b497929b24d5526ea68bd3297427da0d0b30b99c094efc84d"})
@@ -396,6 +398,7 @@ hazel_repositories(
   exclude_packages = [
     "arx",
     "clock",
+    "c2hs",
     "streaming-commons",
     "wai-app-static",
     "zlib",
@@ -418,6 +421,24 @@ hazel_repositories(
     # although windows is not quite supported yet
     "x64_windows": "@io_tweag_rules_haskell_ghc_windows_amd64",
   },
+)
+
+c2hs_version = "0.28.3"
+c2hs_hash = "80cc6db945ee7c0328043b4e69213b2a1cb0806fb35c8362f9dea4a2c312f1cc"
+c2hs_package_id = "c2hs-{0}".format(c2hs_version)
+c2hs_url = "https://hackage.haskell.org/package/{0}/{1}.tar.gz".format(
+  c2hs_package_id,
+  c2hs_package_id,
+)
+c2hs_build_file = "//3rdparty/haskell:BUILD.c2hs"
+http_archive(
+  name = "haskell_c2hs",
+  build_file = c2hs_build_file,
+  sha256 = c2hs_hash,
+  strip_prefix = c2hs_package_id,
+  urls = [c2hs_url],
+  patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-c2hs.patch"],
+  patch_args = ["-p1"]
 )
 
 hazel_custom_package_hackage(

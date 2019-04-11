@@ -267,9 +267,11 @@ To use customized table views:
 
 1. Create a file ``frontend-config.js`` in your project root folder (or the folder from which you run Navigator) with the content below::
 
+    import { DamlLfValue } from '@da/ui-core';
+
     export const version = {
       schema: 'navigator-config',
-      major: 1,
+      major: 2,
       minor: 0,
     };
 

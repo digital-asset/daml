@@ -150,9 +150,9 @@ Version: 1.2
     * **Add** a built-in function to perform `SHA-256
       <https://en.wikipedia.org/wiki/SHA-2>`_ hashing of strings
 
-   * **Change** the scope when the controllers of a choice are
-     computed. Needed to support the so-called `flexible controllers`_
-     in the surface language
+    * **Change** the scope when the controllers of a choice are
+      computed. Needed to support the so-called `flexible controllers`_
+      in the surface language
 
 
 Version: 1.3

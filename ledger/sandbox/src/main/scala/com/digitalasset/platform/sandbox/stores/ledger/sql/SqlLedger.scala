@@ -18,6 +18,7 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.config.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.PersistenceResponse.{Duplicate, Ok}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   Contract,
   LedgerDao,
@@ -84,20 +85,23 @@ private class SqlLedger(
     createPersistenceQueue()
 
   private def createPersistenceQueue(): SourceQueueWithComplete[Long => LedgerEntry] = {
-    val offsetGenerator: Source[Long, NotUsed] =
-      Source.fromIterator(() => Iterator.iterate(headAtInitialization)(l => nextOffset(l)))
+
     val persistenceQueue = Source.queue[Long => LedgerEntry](128, OverflowStrategy.backpressure)
     implicit val ec: ExecutionContext = DirectExecutionContext
     persistenceQueue
-      .zipWith(offsetGenerator)((f, offset) => offset -> f(offset))
-      .mapAsync(1) {
-        case (offset, ledgerEntry) => //strictly one after another!
-          val newLedgerEnd = nextOffset(offset)
-          for {
-            _ <- ledgerDao.storeLedgerEntry(offset, newLedgerEnd, ledgerEntry)
-            _ = dispatcher.signalNewHead(newLedgerEnd) //signalling downstream subscriptions
-            _ = headRef = newLedgerEnd //updating the headRef
-          } yield ()
+      .mapAsync(1) { ledgerEntryGen => //strictly one after another!
+        val offset = headRef // we can only do this because there is not parallelism here!
+        val ledgerEntry = ledgerEntryGen(offset)
+        val newLedgerEnd = nextOffset(offset)
+        ledgerDao
+          .storeLedgerEntry(offset, newLedgerEnd, ledgerEntry)
+          .map {
+            case Ok =>
+              headRef = newLedgerEnd //updating the headRef
+              dispatcher.signalNewHead(newLedgerEnd) //signalling downstream subscriptions
+            case Duplicate =>
+              () //we are staying with offset we had
+          }(DirectExecutionContext)
       }
       .toMat(Sink.ignore)(Keep.left[SourceQueueWithComplete[Long => LedgerEntry], Future[Done]])
       .run()
@@ -159,14 +163,16 @@ private class SqlLedger(
         val transactionId = offset.toString
         val toAbsCoid: ContractId => AbsoluteContractId =
           SandboxEventIdFormatter.makeAbsCoid(transactionId)
+
         val mappedTx = tx.transaction
           .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
-          .mapNodeId(_.index.toString)
+          .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _))
 
         val mappedDisclosure = tx.blindingInfo.explicitDisclosure
           .map {
             case (nodeId, party) =>
-              nodeId.index.toString -> party.map(_.underlyingString)
+              SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> party.map(
+                _.underlyingString)
           }
 
         LedgerEntry.Transaction(
@@ -176,7 +182,7 @@ private class SqlLedger(
           tx.submitter,
           tx.workflowId,
           tx.ledgerEffectiveTime,
-          tx.maximumRecordTime,
+          Instant.now(),
           mappedTx,
           mappedDisclosure
         )

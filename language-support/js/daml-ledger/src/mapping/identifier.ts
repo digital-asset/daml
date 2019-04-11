@@ -9,13 +9,15 @@ export const Identifier: mapping.Mapping<grpc.Identifier, ledger.Identifier> = {
     toObject(identifier: grpc.Identifier): ledger.Identifier {
         return {
             packageId: identifier.getPackageId(),
-            name: identifier.getName()
+            moduleName: identifier.getModuleName(),
+            entityName: identifier.getEntityName()
         };
     },
     toMessage(identifier: ledger.Identifier): grpc.Identifier {
         const value = new grpc.Identifier();
         value.setPackageId(identifier.packageId);
-        value.setName(identifier.name);
+        value.setModuleName(identifier.moduleName);
+        value.setEntityName(identifier.entityName);
         return value;
     }
 };

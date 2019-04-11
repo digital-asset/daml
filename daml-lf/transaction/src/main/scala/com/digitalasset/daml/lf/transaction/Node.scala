@@ -6,6 +6,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, ScalazEqual}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 
+import scala.language.higherKinds
 import scalaz.Equal
 import scalaz.std.option._
 import scalaz.syntax.apply.^
@@ -23,8 +24,12 @@ object Node {
     def mapNodeId[Nid2](f: Nid => Nid2): GenNode[Nid2, Cid, Val]
   }
 
+  object GenNode extends WithTxValue3[GenNode]
+
   /** A transaction node that can't possibly refer to `Nid`s. */
   sealed trait LeafOnlyNode[+Cid, +Val] extends GenNode[Nothing, Cid, Val]
+
+  object LeafOnlyNode extends WithTxValue2[LeafOnlyNode]
 
   /** Denotes the creation of a contract instance. */
   final case class NodeCreate[+Cid, +Val](
@@ -42,6 +47,8 @@ object Node {
 
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeCreate[Cid, Val] = this
   }
+
+  object NodeCreate extends WithTxValue2[NodeCreate]
 
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
   final case class NodeFetch[+Cid](
@@ -89,6 +96,8 @@ object Node {
       )
   }
 
+  object NodeExercises extends WithTxValue3[NodeExercises]
+
   final case class NodeLookupByKey[+Cid, +Val](
       templateId: Identifier,
       optLocation: Option[Location],
@@ -102,6 +111,8 @@ object Node {
 
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeLookupByKey[Cid, Val] = this
   }
+
+  object NodeLookupByKey extends WithTxValue2[NodeLookupByKey]
 
   case class KeyWithMaintainers[+Val](key: Val, maintainers: Set[Party]) {
     def mapValue[Val1](f: Val => Val1): KeyWithMaintainers[Val1] = copy(key = f(key))
@@ -181,4 +192,12 @@ object Node {
     * a key.
     */
   case class GlobalKey(templateId: Identifier, key: VersionedValue[AbsoluteContractId])
+
+  sealed trait WithTxValue2[F[+ _, + _]] {
+    type WithTxValue[+Cid] = F[Cid, Transaction.Value[Cid]]
+  }
+
+  sealed trait WithTxValue3[F[+ _, + _, + _]] {
+    type WithTxValue[+Nid, +Cid] = F[Nid, Cid, Transaction.Value[Cid]]
+  }
 }

@@ -147,7 +147,7 @@ function addIfInConfig(config:vscode.WorkspaceConfiguration, baseArgs: string[],
     return [].concat.apply([], <any>addedArgs);
 }
 
-export function createLanguageClient(config: vscode.WorkspaceConfiguration, telemetryConsent: boolean): LanguageClient {
+export function createLanguageClient(config: vscode.WorkspaceConfiguration, telemetryConsent: boolean|undefined): LanguageClient {
     // Options to control the language client
     let clientOptions: LanguageClientOptions = {
         // Register the server for DAML
@@ -178,6 +178,8 @@ export function createLanguageClient(config: vscode.WorkspaceConfiguration, tele
 
     if (telemetryConsent === true){
         args.push('--telemetry');
+    } else if (telemetryConsent === false){
+        args.push('--optOutTelemetry')
     }
     const serverArgs : string[] = addIfInConfig(config, args,
         [ ['debug', ['--debug']]
@@ -480,9 +482,9 @@ function resetTelemetryConsent(ex: ExtensionContext){
     }
 }
 
-function handleResult(ex : ExtensionContext, res : string|undefined) : boolean{
+function handleResult(ex : ExtensionContext, res : string|undefined) : boolean|undefined{
     if(typeof res === 'undefined'){
-        return false;
+        return undefined;
     }else switch(res){
         case options.yes: {
             setConsentState(ex, true);
@@ -513,7 +515,7 @@ async function telemetryPopUp () : Promise <string | undefined> {
     ] , qpo)
 }
 
-async function getTelemetryConsent (config: WorkspaceConfiguration, ex: ExtensionContext) : Promise<boolean> {
+async function getTelemetryConsent (config: WorkspaceConfiguration, ex: ExtensionContext) : Promise<boolean|undefined> {
     switch(config.get("telemetry") as string){
         case telemetryOverride.enable:
             return true;

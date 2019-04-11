@@ -1,83 +1,143 @@
-# Ledger API Reference [Ledger API Reference]
-
+Ledger API Reference
+####################
 {{range .Files}}
 {{$file_name := .Name}}
+.. _{{.Name}}:
 
-## {{.Name}} [{{.Name}}]
+{{.Name}}
+***************************************************************************************************
 
 {{.Description}}
-
 {{range .Messages}}
-### {{.LongName}} [{{.FullName}}]
+.. _{{.FullName}}:
+
+{{.LongName}}
+===================================================================================================
 {{$full_name := .FullName}}
-
 {{.Description}}
-
 {{if .HasFields}}
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-{{range .Fields -}}
-  | .. _{{$full_name}}.{{.Name}}:
+.. list-table::
+   :header-rows: 1
 
-{{.Name}} | [{{.LongType}}][{{.FullType}}] | {{.Label}} | {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}} |
-{{end}}
-{{end}}
+   * - Field
+     - Type
+     - Label
+     - Description
+   {{range .Fields -}}
+   * - .. _{{$full_name}}.{{.Name}}: 
 
+       {{.Name}}
+     - :ref:`{{.LongType}} <{{.FullType}}>`
+     - {{.Label}}
+     - {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}
+   {{end}}
+{{end}}
 {{if .HasExtensions}}
-| Extension | Type | Base | Number | Description |
-| --------- | ---- | ---- | ------ | ----------- |
-{{range .Extensions -}}
-  | {{.Name}} | {{.LongType}} | {{.ContainingLongType}} | {{.Number}} | {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}} |
-{{end}}
-{{end}}
+.. list-table::
+   :header-rows: 1
 
+   * - Extension
+     - Type
+     - Base
+     - Number
+     - Description
+   {{range .Extensions -}}
+   * - {{.Name}}
+     - {{.LongType}}
+     - {{.ContainingLongType}}
+     - {{.Number}}
+     - {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}
+   {{end}}
 {{end}}
-
+{{end}}
 {{range .Enums}}
-### {{.LongName}} [{{.FullName}}]
+.. _{{.FullName}}:
+
+{{.LongName}}
+===================================================================================================
 {{$full_name := .FullName}}
-
 {{.Description}}
 
-| Name | Number | Description |
-| ---- | ------ | ----------- |
-{{range .Values -}}
-  | .. _{{$full_name}}.{{.Name}}:
+.. list-table::
+   :header-rows: 1
 
-{{.Name}}  | {{.Number}} | {{nobr .Description}} |
+   * - Name
+     - Number
+     - Description
+   {{range .Values -}}
+   * - .. _{{$full_name}}.{{.Name}}:
+
+       {{.Name}}
+     - {{.Number}}
+     - {{nobr .Description}}
+   {{end}}
+
 {{end}}
-
-{{end}}
-
 {{if .HasExtensions}}
-### File-level Extensions [{{$file_name}}-extensions]
-| Extension | Type | Base | Number | Description |
-| --------- | ---- | ---- | ------ | ----------- |
-{{range .Extensions -}}
-  | {{.Name}}  | {{.LongType}} | {{.ContainingLongType}} | {{.Number}} | {{nobr .Description}}{{if .DefaultValue}} Default: `{{.DefaultValue}}`{{end}} |
-{{end}}
-{{end}}
+.. _{{$file_name}}-extensions:
 
+File-level Extensions
+===================================================================================================
+
+.. list-table::
+   :header-rows: 1
+
+   * - Extension
+     - Type
+     - Base
+     - Number
+     - Description
+   {{range .Extensions -}}
+   * - {{.Name}}
+     - {{.LongType}}
+     - {{.ContainingLongType}}
+     - {{.Number}}
+     - {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}
+   {{end}}
+{{end}}
 {{range .Services}}
-### {{.LongName}} [{{.FullName}}]
+.. _{{.FullName}}:
+
+{{.LongName}}
+===================================================================================================
 
 {{.Description}}
 
-| Method Name | Request Type | Response Type | Description |
-| ----------- | ------------ | ------------- | ----------- |
-{{range .Methods -}}
-  | {{.Name}} | [{{.RequestLongType}}][{{.RequestFullType}}] | [{{.ResponseLongType}}][{{.ResponseFullType}}] | {{nobr .Description}} |
+.. list-table::
+   :header-rows: 1
+
+   * - Method name
+     - Request type
+     - Response type
+     - Description
+   {{range .Methods -}}
+   * - {{.Name}}
+     - :ref:`{{.RequestLongType}} <{{.RequestFullType}}>`
+     - :ref:`{{.ResponseLongType}} <{{.ResponseFullType}}>`
+     - {{nobr .Description}}
+   {{end}}
 {{end}}
 {{end}}
 
-{{end}}
+.. _scalarvaluetypes:
 
-## Scalar Value Types [Scalar Value Types]
+Scalar Value Types
+***************************************************************************************************
 
-| .proto Type | Notes | C++ Type | Java Type | Python Type |
-| ----------- | ----- | -------- | --------- | ----------- |
-{{range .Scalars -}}
-  | .. _{{.ProtoType}}:
+.. list-table::
+   :header-rows: 1
 
-{{.ProtoType}} | {{.Notes}} | {{.CppType}} | {{.JavaType}} | {{.PythonType}} |
-{{end}}
+   * - .proto type
+     - Notes
+     - C++ type
+     - Java type
+     - Python type
+   {{range .Scalars -}}
+   * - .. _{{.ProtoType}}: 
+
+       {{.ProtoType}}
+     - {{.Notes}}
+     - {{.CppType}}
+     - {{.JavaType}}
+     - {{.PythonType}}
+   {{end}}

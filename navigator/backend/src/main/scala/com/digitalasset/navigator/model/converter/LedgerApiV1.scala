@@ -7,6 +7,7 @@ import java.time.{Instant, LocalDate}
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
+import com.digitalasset.daml.lf.data.{SortedLookupList, ImmArray}
 import com.digitalasset.ledger.api.{v1 => V1}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.{model => Model}
@@ -23,11 +24,13 @@ case object LedgerApiV1 {
   // ------------------------------------------------------------------------------------------------------------------
   case class Context(party: ApiTypes.Party, templates: Model.PackageRegistry)
 
+  private type Result[X] = Either[ConversionError, X]
+
   // ------------------------------------------------------------------------------------------------------------------
   // Read methods (V1 -> Model)
   // ------------------------------------------------------------------------------------------------------------------
   /*
-  def readTransaction(tx: V1.transaction.Transaction, ctx: Context): Either[ConversionError, Model.Transaction] = {
+  def readTransaction(tx: V1.transaction.Transaction, ctx: Context): Result[Model.Transaction] = {
     for {
       events      <- Converter.sequence(tx.events.map(ev =>
         readEvent(ev, ApiTypes.TransactionId(tx.transactionId), ctx, List.empty, ApiTypes.WorkflowId(tx.workflowId), None)))
@@ -51,7 +54,7 @@ case object LedgerApiV1 {
     parentWitnessParties: List[ApiTypes.Party],
     workflowId: ApiTypes.WorkflowId,
     parentId: Option[ApiTypes.EventId] = None
-  ): Either[ConversionError, Model.Event] = {
+  ): Result[Model.Event] = {
     event match {
       case V1.event.Event(V1.event.Event.Event.Created(ev)) =>
         readEventCreated(ev, transactionId, parentWitnessParties, workflowId, parentId, ctx)
@@ -75,7 +78,7 @@ case object LedgerApiV1 {
     workflowId: ApiTypes.WorkflowId,
     parentId: Option[ApiTypes.EventId],
     ctx: Context
-  ): Either[ConversionError, Model.Event] = {
+  ): Result[Model.Event] = {
     val witnessParties = parentWitnessParties ++ ApiTypes.Party.subst(event.witnessParties)
     Right(
       Model.ContractArchived(
@@ -92,7 +95,8 @@ case object LedgerApiV1 {
 
   def readTransactionTree(
       tx: V1.transaction.TransactionTree,
-      ctx: Context): Either[ConversionError, Model.Transaction] = {
+      ctx: Context
+  ): Result[Model.Transaction] = {
     for {
       events <- Converter
         .sequence(
@@ -128,7 +132,7 @@ case object LedgerApiV1 {
       ctx: Context,
       workflowId: ApiTypes.WorkflowId,
       parentId: Option[ApiTypes.EventId] = None
-  ): Either[ConversionError, List[Model.Event]] = {
+  ): Result[List[Model.Event]] = {
     com.digitalasset.ledger.api.v1.event.Event.Event.Exercised
     event match {
       case V1.transaction.TreeEvent(V1.transaction.TreeEvent.Kind.Created(ev)) =>
@@ -144,13 +148,14 @@ case object LedgerApiV1 {
 
   private def getTemplate(
       id: Model.DamlLfIdentifier,
-      ctx: Context): Either[ConversionError, Model.Template] =
+      ctx: Context
+  ): Result[Model.Template] =
     ctx.templates
       .template(id)
       .map(Right(_))
       .getOrElse(Left(TypeNotFoundError(id)))
 
-  private def readLedgerOffset(offset: String): Either[ConversionError, String] = {
+  private def readLedgerOffset(offset: String): Result[String] = {
     // Ledger offset may change to become a number in the future
     // Try(BigInt(offset)).toEither
     //  .left.map(t => GenericConversionError(s"Could not parse ledger offset '$offset'"))
@@ -163,7 +168,7 @@ case object LedgerApiV1 {
       workflowId: ApiTypes.WorkflowId,
       parentId: Option[ApiTypes.EventId],
       ctx: Context
-  ): Either[ConversionError, Model.Event] = {
+  ): Result[Model.Event] = {
     val witnessParties = ApiTypes.Party.subst(event.witnessParties.toList)
     for {
       templateId <- Converter.checkExists("CreatedEvent.templateId", event.templateId)
@@ -191,7 +196,7 @@ case object LedgerApiV1 {
       workflowId: ApiTypes.WorkflowId,
       parentId: Option[ApiTypes.EventId],
       ctx: Context
-  ): Either[ConversionError, List[Model.Event]] = {
+  ): Result[List[Model.Event]] = {
     val witnessParties = ApiTypes.Party.subst(event.witnessParties.toList)
     for {
       templateId <- Converter.checkExists("ExercisedEvent.templateId", event.templateId)
@@ -236,7 +241,8 @@ case object LedgerApiV1 {
   private def readRecordArgument(
       value: V1.value.Record,
       typId: Model.DamlLfIdentifier,
-      ctx: Context): Either[ConversionError, Model.ApiRecord] =
+      ctx: Context
+  ): Result[Model.ApiRecord] =
     readRecordArgument(
       value,
       Model.DamlLfTypeCon(Model.DamlLfTypeConName(typId), Model.DamlLfImmArraySeq()),
@@ -245,7 +251,8 @@ case object LedgerApiV1 {
   private def readRecordArgument(
       value: V1.value.Record,
       typ: Model.DamlLfType,
-      ctx: Context): Either[ConversionError, Model.ApiRecord] = {
+      ctx: Context
+  ): Result[Model.ApiRecord] = {
     for {
       typeCon <- typ match {
         case t @ Model.DamlLfTypeCon(_, _) => Right(t)
@@ -272,7 +279,8 @@ case object LedgerApiV1 {
   private def readListArgument(
       list: V1.value.List,
       typ: Model.DamlLfType,
-      ctx: Context): Either[ConversionError, Model.ApiList] = {
+      ctx: Context
+  ): Result[Model.ApiList] = {
     for {
       elementType <- typ match {
         case Model.DamlLfTypePrim(Model.DamlLfPrimType.List, t) =>
@@ -286,10 +294,38 @@ case object LedgerApiV1 {
     }
   }
 
+  private def duplicateKey[X, Y](list: List[(X, Y)]): Option[X] =
+    list.groupBy(_._1).collectFirst { case (k, l) if l.size > 1 => k }
+
+  private def readMapArgument(
+      list: V1.value.Map,
+      typ: Model.DamlLfType,
+      ctx: Context
+  ): Result[Model.ApiMap] = {
+    for {
+      elementType <- typ match {
+        case Model.DamlLfTypePrim(Model.DamlLfPrimType.Map, t) =>
+          t.headOption.toRight(GenericConversionError("Map type parameter missing"))
+        case _ => Left(GenericConversionError(s"Cannot read $list as $typ"))
+      }
+      values <- Converter.sequence(list.entries.map {
+        case entry @ V1.value.Map.Entry(key, optValue) =>
+          for {
+            valueValue <- optValue.toRight(
+              GenericConversionError(s"Field 'value' required in $entry"))
+            value <- readArgument(valueValue, elementType, ctx)
+          } yield key -> value
+      })
+      map <- SortedLookupList.fromSortedImmArray(ImmArray(values)).left.map(GenericConversionError)
+    } yield Model.ApiMap(map)
+
+  }
+
   private def readOptionalArgument(
       opt: V1.value.Optional,
       typ: Model.DamlLfType,
-      ctx: Context): Either[ConversionError, Model.ApiOptional] = {
+      ctx: Context
+  ): Result[Model.ApiOptional] = {
     for {
       optType <- typ match {
         case Model.DamlLfTypePrim(Model.DamlLfPrimType.Optional, t) =>
@@ -308,7 +344,8 @@ case object LedgerApiV1 {
   private def readVariantArgument(
       variant: V1.value.Variant,
       typ: Model.DamlLfType,
-      ctx: Context): Either[ConversionError, Model.ApiVariant] = {
+      ctx: Context
+  ): Result[Model.ApiVariant] = {
     for {
       value <- Converter.checkExists("Variant.value", variant.value)
       typeCon <- typ match {
@@ -333,7 +370,8 @@ case object LedgerApiV1 {
   private def readArgument(
       value: V1.value.Value,
       typ: Model.DamlLfType,
-      ctx: Context): Either[ConversionError, Model.ApiValue] = {
+      ctx: Context
+  ): Result[Model.ApiValue] = {
     import V1.value.Value.{Sum => VS}
     (value.sum, typ) match {
       case (VS.Int64(v), _) => Right(Model.ApiInt64(v))
@@ -347,6 +385,7 @@ case object LedgerApiV1 {
       case (VS.ContractId(v), _) => Right(Model.ApiContractId(v))
       case (VS.Optional(v), t) => readOptionalArgument(v, t, ctx)
       case (VS.List(v), t) => readListArgument(v, t, ctx)
+      case (VS.Map(v), t) => readMapArgument(v, t, ctx)
       case (VS.Record(v), t) => readRecordArgument(v, t, ctx)
       case (VS.Variant(v), t) => readVariantArgument(v, t, ctx)
       case (VS.Empty, _) => Left(GenericConversionError("Argument value is empty"))
@@ -354,8 +393,7 @@ case object LedgerApiV1 {
     }
   }
 
-  def readCompletion(completion: V1.completion.Completion)
-    : Either[ConversionError, Option[Model.CommandStatus]] = {
+  def readCompletion(completion: V1.completion.Completion): Result[Option[Model.CommandStatus]] = {
     for {
       status <- Converter.checkExists("Completion.status", completion.status)
     } yield {
@@ -374,7 +412,7 @@ case object LedgerApiV1 {
   // Write methods (Model -> V1)
   // ------------------------------------------------------------------------------------------------------------------
 
-  def writeArgument(value: Model.ApiValue): Either[ConversionError, V1.value.Value] = {
+  def writeArgument(value: Model.ApiValue): Result[V1.value.Value] = {
     import V1.value.Value
     value match {
       case arg: Model.ApiRecord => writeRecordArgument(arg).map(a => Value(Value.Sum.Record(a)))
@@ -392,10 +430,12 @@ case object LedgerApiV1 {
       case Model.ApiOptional(None) => Right(Value(Value.Sum.Optional(V1.value.Optional(None))))
       case Model.ApiOptional(Some(v)) =>
         writeArgument(v).map(a => Value(Value.Sum.Optional(V1.value.Optional(Some(a)))))
+      case arg: Model.ApiMap =>
+        writeMapArgument(arg).map(a => Value(Value.Sum.Map(a)))
     }
   }
 
-  def writeRecordArgument(value: Model.ApiRecord): Either[ConversionError, V1.value.Record] = {
+  def writeRecordArgument(value: Model.ApiRecord): Result[V1.value.Record] = {
     for {
       fields <- Converter
         .sequence(value.fields.map(f =>
@@ -405,7 +445,15 @@ case object LedgerApiV1 {
     }
   }
 
-  def writeListArgument(value: Model.ApiList): Either[ConversionError, V1.value.List] = {
+  def writeVariantArgument(value: Model.ApiVariant): Result[V1.value.Variant] = {
+    for {
+      arg <- writeArgument(value.value)
+    } yield {
+      V1.value.Variant(value.variantId.map(_.asApi), value.constructor, Some(arg))
+    }
+  }
+
+  def writeListArgument(value: Model.ApiList): Result[V1.value.List] = {
     for {
       values <- Converter.sequence(value.elements.map(e => writeArgument(e)))
     } yield {
@@ -413,11 +461,15 @@ case object LedgerApiV1 {
     }
   }
 
-  def writeVariantArgument(value: Model.ApiVariant): Either[ConversionError, V1.value.Variant] = {
+  def writeMapArgument(value: Model.ApiMap): Result[V1.value.Map] = {
     for {
-      arg <- writeArgument(value.value)
+      values <- Converter.sequence(
+        value.value.toImmArray.toList.map { case (k, v) => writeArgument(v).map(k -> _) }
+      )
     } yield {
-      V1.value.Variant(value.variantId.map(_.asApi), value.constructor, Some(arg))
+      V1.value.Map(values.map {
+        case (k, v) => V1.value.Map.Entry(k, Some(v))
+      })
     }
   }
 
@@ -428,7 +480,7 @@ case object LedgerApiV1 {
       maxRecordDelay: Long,
       ledgerId: String,
       applicationId: String
-  ): Either[ConversionError, V1.commands.Commands] = {
+  ): Result[V1.commands.Commands] = {
     for {
       ledgerCommand <- writeCommand(party, command)
     } yield {
@@ -452,7 +504,7 @@ case object LedgerApiV1 {
   def writeCommand(
       party: Model.PartyState,
       command: Model.Command
-  ): Either[ConversionError, V1.commands.Command] = {
+  ): Result[V1.commands.Command] = {
     command match {
       case cmd: Model.CreateCommand => writeCreateContract(party, cmd.template, cmd.argument)
       case cmd: Model.ExerciseCommand =>
@@ -464,7 +516,7 @@ case object LedgerApiV1 {
       party: Model.PartyState,
       templateId: Model.DamlLfIdentifier,
       value: Model.ApiRecord
-  ): Either[ConversionError, V1.commands.Command] = {
+  ): Result[V1.commands.Command] = {
     for {
       template <- Converter.checkExists(
         party.packageRegistry.template(templateId),
@@ -487,7 +539,7 @@ case object LedgerApiV1 {
       contractId: ApiTypes.ContractId,
       choiceId: ApiTypes.Choice,
       value: Model.ApiValue
-  ): Either[ConversionError, V1.commands.Command] = {
+  ): Result[V1.commands.Command] = {
     for {
       contract <- Converter.checkExists(
         party.ledger.contract(contractId, party.packageRegistry),
@@ -514,7 +566,7 @@ case object LedgerApiV1 {
   // Helpers
   // ------------------------------------------------------------------------------------------------------------------
 
-  private def epochMicrosToString(time: Long): Either[ConversionError, String] = {
+  private def epochMicrosToString(time: Long): Result[String] = {
     val micro: Long = 1000000
     val seconds: Long = time / micro
     val nanos: Long = (time % micro) * 1000
@@ -526,7 +578,7 @@ case object LedgerApiV1 {
     }).left.map(e => GenericConversionError(s"Could not convert timestamp '$time' to a string"))
   }
 
-  private def stringToEpochMicros(time: String): Either[ConversionError, Long] = {
+  private def stringToEpochMicros(time: String): Result[Long] = {
     (for {
       ta <- Try(DateTimeFormatter.ISO_INSTANT.parse(time)).toEither
       instant <- Try(Instant.from(ta)).toEither
@@ -536,7 +588,7 @@ case object LedgerApiV1 {
     }).left.map(e => GenericConversionError(s"Could not convert string '$time' to a TimeStamp: $e"))
   }
 
-  private def epochDaysToString(time: Int): Either[ConversionError, String] = {
+  private def epochDaysToString(time: Int): Result[String] = {
     (for {
       ta <- Try(LocalDate.ofEpochDay(time.toLong)).toEither
       result <- Try(DateTimeFormatter.ISO_LOCAL_DATE.format(ta)).toEither
@@ -545,7 +597,7 @@ case object LedgerApiV1 {
     }).left.map(e => GenericConversionError(s"Could not convert date '$time' to a Date: $e"))
   }
 
-  private def stringToEpochDays(time: String): Either[ConversionError, Int] = {
+  private def stringToEpochDays(time: String): Result[Int] = {
     (for {
       ta <- Try(DateTimeFormatter.ISO_INSTANT.parse(time)).toEither
       instant <- Try(Instant.from(ta)).toEither

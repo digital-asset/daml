@@ -94,12 +94,14 @@ describe('Validation: Array', () => {
     it('should validate an array with two objects', () => {
         const identifiers: ledger.Identifier[] = [
             {
-                name: 'foo',
-                packageId: 'bar'
+                packageId: 'bar1',
+                moduleName: 'foo1',
+                entityName: 'baz1'
             },
             {
-                name: 'baz',
-                packageId: 'quux'
+                packageId: 'bar2',
+                moduleName: 'foo2',
+                entityName: 'baz2'
             }
         ]
         const expected: Tree = {
@@ -108,7 +110,11 @@ describe('Validation: Array', () => {
                 '0': {
                     errors: [],
                     children: {
-                        name: {
+                        moduleName: {
+                            errors: [],
+                            children: {}
+                        },
+                        entityName: {
                             errors: [],
                             children: {}
                         },
@@ -121,7 +127,11 @@ describe('Validation: Array', () => {
                 '1': {
                     errors: [],
                     children: {
-                        name: {
+                        moduleName: {
+                            errors: [],
+                            children: {}
+                        },
+                        entityName: {
                             errors: [],
                             children: {}
                         },
@@ -136,11 +146,12 @@ describe('Validation: Array', () => {
         expect(array(Identifier).validate(identifiers)).to.deep.equal(expected);
     });
 
-    it('should correcly report errors in an array with invalid objects', () => {
+    it('should correctly report errors in an array with invalid objects', () => {
         const invalidIdentifiers = [
             'not-an-identifier :(',
             {
-                name: 'baz'
+                moduleName: 'foo',
+                entityName: 'baz'
             }
         ]
         const expected: Tree = {
@@ -161,10 +172,14 @@ describe('Validation: Array', () => {
                             expectedType: 'string'
                         }],
                         children: {
-                            name: {
+                            moduleName: {
                                 errors: [],
                                 children: {}
-                            }
+                            },
+                            entityName: {
+                                errors: [],
+                                children: {}
+                            },
                         }
                     }
                 }
@@ -191,8 +206,9 @@ describe('Validation: Array', () => {
     it('should validate an set of filters with one identifier', () => {
         const inclusiveFilters: ledger.InclusiveFilters = {
             templateIds: [{
-                name: 'foo',
-                packageId: 'bar'
+                packageId: 'bar',
+                moduleName: 'foo',
+                entityName: 'baz',
             }]
         };
         const expected: Tree = {
@@ -204,7 +220,11 @@ describe('Validation: Array', () => {
                         '0': {
                             errors: [],
                             children: {
-                                name: {
+                                moduleName: {
+                                    errors: [],
+                                    children: {}
+                                },
+                                entityName: {
                                     errors: [],
                                     children: {}
                                 },
@@ -224,11 +244,13 @@ describe('Validation: Array', () => {
     it('should validate an set of filters with two identifiers', () => {
         const inclusiveFilters: ledger.InclusiveFilters = {
             templateIds: [{
-                name: 'foo',
-                packageId: 'bar'
+                packageId: 'bar1',
+                moduleName: 'foo1',
+                entityName: 'baz1',
             }, {
-                name: 'baz',
-                packageId: 'quux'
+                packageId: 'bar2',
+                moduleName: 'foo2',
+                entityName: 'baz2',
             }]
         };
         const expected: Tree = {
@@ -240,7 +262,11 @@ describe('Validation: Array', () => {
                         '0': {
                             errors: [],
                             children: {
-                                name: {
+                                moduleName: {
+                                    errors: [],
+                                    children: {}
+                                },
+                                entityName: {
                                     errors: [],
                                     children: {}
                                 },
@@ -253,7 +279,11 @@ describe('Validation: Array', () => {
                         '1': {
                             errors: [],
                             children: {
-                                name: {
+                                moduleName: {
+                                    errors: [],
+                                    children: {}
+                                },
+                                entityName: {
                                     errors: [],
                                     children: {}
                                 },
@@ -286,11 +316,13 @@ describe('Validation: Array', () => {
     it('should provide precise feedback about a single mistake', () => {
         const invalidInclusiveFilters = {
             templateIds: [{
-                name: 'foo',
-                packageId: 'bar'
+                packageId: 'bar1',
+                moduleName: 'foo1',
+                entityName: 'baz1',
             }, {
-                name: 'baz',
-                packageId: 42
+                packageId: 42,
+                moduleName: 'foo2',
+                entityName: 'baz2',
             }]
         };
         const expected: Tree = {
@@ -302,10 +334,15 @@ describe('Validation: Array', () => {
                         '0': {
                             errors: [],
                             children: {
-                                name: {
+                                moduleName: {
                                     errors: [],
                                     children: {}
-                                }, packageId: {
+                                },
+                                entityName: {
+                                    errors: [],
+                                    children: {}
+                                },
+                                packageId: {
                                     errors: [],
                                     children: {}
                                 }
@@ -314,10 +351,15 @@ describe('Validation: Array', () => {
                         '1': {
                             errors: [],
                             children: {
-                                name: {
+                                moduleName: {
                                     errors: [],
                                     children: {}
-                                }, packageId: {
+                                },
+                                entityName: {
+                                    errors: [],
+                                    children: {}
+                                },
+                                packageId: {
                                     errors: [{
                                         kind: 'type-error',
                                         expectedType: 'string',
@@ -337,7 +379,7 @@ describe('Validation: Array', () => {
     it('should provide thorough feedback about extensive mistakes', () => {
         const invalidInclusiveFilters = {
             templateIds: [{
-                name: false
+                moduleName: false
             },
                 42
             ]
@@ -353,9 +395,13 @@ describe('Validation: Array', () => {
                                 kind: 'missing-key',
                                 expectedKey: 'packageId',
                                 expectedType: 'string'
+                            },{
+                                kind: 'missing-key',
+                                expectedKey: 'entityName',
+                                expectedType: 'string'
                             }],
                             children: {
-                                name: {
+                                moduleName: {
                                     errors: [{
                                         kind: 'type-error',
                                         expectedType: 'string',
