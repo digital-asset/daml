@@ -22,7 +22,7 @@ def _client_server_test_impl(ctx):
     is_executable = True
   )
 
-  runfiles = ctx.runfiles(files = [wrapper])
+  runfiles = ctx.runfiles(files = [wrapper], collect_data = True)
   runfiles = runfiles.merge(ctx.attr._runner[DefaultInfo].default_runfiles)
   runfiles = runfiles.merge(ctx.attr.client[DefaultInfo].default_runfiles)
   runfiles = runfiles.merge(ctx.attr.server[DefaultInfo].default_runfiles)
@@ -54,6 +54,7 @@ client_server_test = rule(
       executable = True,
     ),
     "server_args": attr.string_list(),
+    "data": attr.label_list(allow_files = True),
   },
 )
 """Create a client-server test.

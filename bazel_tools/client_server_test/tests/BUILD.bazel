@@ -16,6 +16,8 @@ sh_binary(
   srcs = ["client.sh"],
 )
 
+exports_files(["client_input_file"])
+
 da_scala_binary(
   name = "server",
   main_class = "Main",
@@ -28,8 +30,17 @@ da_scala_binary(
 client_server_test(
   name = "test",
   client = ":client",
-  client_args = ["--foobar"],
+  client_args = [
+    "--foobar",
+    # Use the input file passed in via `data`.
+    "bazel_tools/client_server_test/tests/client_input_file"
+  ],
   server = ":server",
+
+  # Data files available to both client and server.
+  data = [
+    ":client_input_file"
+  ],
   timeout="short",
 )
 
