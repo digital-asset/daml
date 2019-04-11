@@ -417,15 +417,17 @@ abstract class CommandTransactionChecks
         }
       }
 
-      "reject fetching an undisclosed contract" in allFixtures {
+      "reject fetching an undisclosed contract" in allFixtures { ctx =>
         def pf(label: String, party: String) =
           RecordField(label, Some(Value(Value.Sum.Party(party))))
         val delegatedCreate = simpleCreate(
+          ctx,
           cid("TDVl3"),
           owner,
           templateIds.delegated,
           Record(Some(templateIds.delegated), Seq(pf("owner", owner))))
         val delegationCreate = simpleCreate(
+          ctx,
           cid("TDVl4"),
           owner,
           templateIds.delegation,
@@ -437,6 +439,7 @@ abstract class CommandTransactionChecks
             None,
             Seq(RecordField("", Some(Value(Value.Sum.ContractId(delegatedEv.contractId))))))
           fetchResult <- failingExercise(
+            ctx,
             cid("TDVl5"),
             submitter = delegate,
             template = templateIds.delegation,
@@ -447,7 +450,7 @@ abstract class CommandTransactionChecks
             pattern = "dependency error: couldn't find contract"
           )
         } yield fetchResult
-        whenReady(exerciseOfFetch)(identity)
+        exerciseOfFetch
       }
 
       "DAML engine returns Unit as argument to Nothing" in allFixtures { ctx =>
