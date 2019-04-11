@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+DAML_HEAD="$HOME/.daml-head"
+if [ -d $DAML_HEAD ] ; then
+    DAML_HOME=$DAML_HEAD $DAML_HEAD/bin/daml $@
+else
+    echo "daml-head is not installed"
+    echo "please run daml-sdk-head to install"
+fi
