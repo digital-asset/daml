@@ -209,6 +209,7 @@ If you have a variable with the same name as the label, DAML lets you use this w
 
 .. note:: The ``with`` keyword binds more strongly than function application. So for a function, say ``return``, either write ``return IntegerCoordinate with first = 1; second = 5`` or ``return (IntegerCoordinate {first = 1; second = 5})``, where the latter expression is enclosed in parentheses.
 
+.. _daml-ref-parameterized-types:
 
 Parameterized data types
 ========================
