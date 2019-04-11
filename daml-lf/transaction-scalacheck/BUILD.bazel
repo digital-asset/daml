@@ -20,6 +20,7 @@ da_scala_library(
     "//3rdparty/jvm/org/scalacheck:scalacheck",
   ],
   scalacopts = lf_scalacopts,
-  visibility = ["//visibility:public"]
+  visibility = ["//visibility:public"],
+  tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction-scalacheck:__VERSION__"],
 )
 

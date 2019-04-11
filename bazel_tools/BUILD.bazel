@@ -12,7 +12,8 @@ exports_files(
       "haskell-win-sys-includes.patch",
       "hackage_mirror.patch",
       "haskell-ld-library-path.patch",
-      "haskell-win-so-name.patch"
+      "haskell-win-so-name.patch",
+      "pom_template.xml",
     ],
-    visibility = ["//bazel_tools/docs:__pkg__"]
+    visibility = ["//:__subpackages__"]
 )

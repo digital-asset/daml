@@ -21,6 +21,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/lfpackage",
     ],
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-validation:__VERSION__"],
 )
 
 da_scala_test(

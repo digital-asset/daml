@@ -25,6 +25,7 @@ da_scala_library(
         "//daml-lf/transaction",
     ],
     scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-engine:__VERSION__"],
 )
 
 # TODO(JM): It would make sense to break up the tests

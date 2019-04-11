@@ -1,6 +1,8 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//bazel_tools:java.bzl", "da_java_binary")
+
 java_library(
   name = 'damlc_library_jar',
   srcs = glob(['src/**/*.java']),
@@ -10,21 +12,16 @@ java_library(
   visibility = ["//visibility:public"]
 )
 
-java_binary(
+da_java_binary(
   name = 'damlc_jar',
   main_class = "com.digitalasset.damlc.Runner",
   runtime_deps = [":damlc_library_jar"],
   visibility = ["//visibility:public"],
+  tags = ["maven_coordinates=com.digitalasset:damlc:__VERSION__"],
 )
 
 alias(
   name = "damlc",
-  actual = "damlc_jar_deploy.jar",
-  visibility = ["//visibility:public"]
-)
-
-alias(
-  name = "damlc_jar_deploy",
   actual = "damlc_jar_deploy.jar",
   visibility = ["//visibility:public"]
 )

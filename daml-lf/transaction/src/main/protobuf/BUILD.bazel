@@ -1,6 +1,7 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//bazel_tools:java.bzl", "da_java_proto_library")
 
 proto_library(
   name = "value_proto",
@@ -9,10 +10,11 @@ proto_library(
   visibility = ['//visibility:public'],
 )
 
-java_proto_library(
+da_java_proto_library(
   name = "value_java_proto",
   deps = [":value_proto"],
   visibility = ['//visibility:public'],
+  tags = ["maven_coordinates=com.digitalasset:daml-lf-value-java-proto:__VERSION__"],
 )
 
 # FIXME(JM): This hack is not needed after we upgrade to latest Bazel which has the
@@ -31,10 +33,11 @@ proto_library(
   visibility = ['//visibility:public'],
 )
 
-java_proto_library(
+da_java_proto_library(
   name = "transaction_java_proto",
   deps = [":transaction_proto"],
   visibility = ['//visibility:public'],
+  tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction-java-proto:__VERSION__"],
 )
 
 proto_library(
@@ -42,9 +45,10 @@ proto_library(
   srcs = ["com/digitalasset/daml/lf/blindinginfo.proto"]
 )
 
-java_proto_library(
+da_java_proto_library(
   name = "blindinginfo_java_proto",
   deps = [":blindinginfo_proto"],
   visibility = ['//visibility:public'],
+  tags = ["maven_coordinates=com.digitalasset:daml-lf-blindinginfo-java-proto:__VERSION__"],
 )
 

@@ -25,7 +25,6 @@ main = do
   ciCommand <- parseCiCommand
   case ciCommand of
       CmdBintray opts@Options{..} -> runLog opts $ do
-          rootDir <- parseAbsDir =<< liftIO (Dir.canonicalizePath ".")
           releaseDir <- parseAbsDir =<< liftIO (Dir.makeAbsolute optsReleaseDir)
           liftIO $ createDirIfMissing True releaseDir
           os <- whichOS
@@ -37,8 +36,7 @@ main = do
           -- components which are bigger than all version numbers we used
           -- before moving to the new daml repo.
           let compVersion = sdkVersion{versionMajor = 100 + versionMajor sdkVersion}
-          mavenDeps <- getMavenDependencies rootDir
-          artifacts <- buildAllComponents mavenDeps releaseDir os (renderVersion sdkVersion) (renderVersion compVersion)
+          artifacts <- buildAllComponents releaseDir os (renderVersion sdkVersion) (renderVersion compVersion)
           if getPerformUpload upload
               then do
                   $logInfo "Make release"
