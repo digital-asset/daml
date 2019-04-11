@@ -7,4 +7,4 @@ rm -rf archive/src/main/scala/com/digitalasset/daml_lf/
 rm -rf transaction/src/main/scala/com/digitalasset/daml/lf/blinding
 rm -f transaction/src/main/scala/com/digitalasset/daml/lf/transaction/TransactionOuterClass.java
 rm -f transaction/src/main/scala/com/digitalasset/daml/lf/value/ValueOuterClass.java
-sbt clean
+#sbt clean
