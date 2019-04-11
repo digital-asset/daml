@@ -456,7 +456,7 @@
                   )
                   (?:\s*,\s*\g&lt;fn&gt;)?
                 )
-                \s*(::|∷)</string>
+                \s*(:|:)</string>
 			<key>beginCaptures</key>
 			<dict>
 				<key>2</key>
@@ -478,7 +478,7 @@
 				<key>3</key>
 				<dict>
 					<key>name</key>
-					<string>keyword.other.double-colon.daml</string>
+					<string>keyword.other.single-colon.daml</string>
 				</dict>
 			</dict>
 			<key>name</key>
@@ -511,8 +511,16 @@
 			<string>#infix_op</string>
 		</dict>
 		<dict>
-			<key>begin</key>
+			<key>comment</key>
+			<string>We treat :: as cons. It's important this definition precede the rule for : (and that rule precede the one for arbitrary operators).</string>
+			<key>match</key>
 			<string>(::|∷)</string>
+			<key>name</key>
+			<string>keyword.operator.daml</string>
+      </dict>
+		<dict>
+			<key>begin</key>
+			<string>(:)</string>
 			<key>beginCaptures</key>
 			<dict>
 				<key>1</key>
