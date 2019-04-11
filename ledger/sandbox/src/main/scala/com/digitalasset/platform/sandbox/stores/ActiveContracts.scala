@@ -25,10 +25,10 @@ import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.{
 }
 import scalaz.syntax.std.map._
 
-case class ActiveContracts(
+case class ActiveContractsInMemory(
     contracts: Map[AbsoluteContractId, ActiveContract],
     keys: Map[GlobalKey, AbsoluteContractId])
-    extends ActiveContractsSteps[ActiveContracts] {
+    extends ActiveContracts[ActiveContractsInMemory] {
 
   override def lookupContract(cid: AbsoluteContractId) = contracts.get(cid)
 
@@ -47,7 +47,7 @@ case class ActiveContracts(
   }
 
   override def implicitlyDisclose(
-      global: Relation[AbsoluteContractId, Ref.Party]): ActiveContracts =
+      global: Relation[AbsoluteContractId, Ref.Party]): ActiveContractsInMemory =
     if (global.nonEmpty)
       copy(
         contracts = contracts ++
@@ -69,7 +69,7 @@ case class ActiveContracts(
       transaction: GenTransaction[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
       explicitDisclosure: Relation[Nid, Ref.Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party]
-  ): Either[Set[SequencingError], ActiveContracts] =
+  ): Either[Set[SequencingError], ActiveContractsInMemory] =
     acManager.addTransaction(
       let,
       transactionId,
@@ -80,8 +80,11 @@ case class ActiveContracts(
 
 }
 
-class ActiveContractsManager[ACS](initialState: => ACS)(
-    implicit ACS: ACS => ActiveContractsSteps[ACS]) {
+object ActiveContractsInMemory {
+  def empty: ActiveContractsInMemory = ActiveContractsInMemory(Map(), Map())
+}
+
+class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => ActiveContracts[ACS]) {
 
   private case class AddTransactionState(acc: Option[ACS], errs: Set[SequencingError]) {
 
@@ -198,7 +201,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(
 
 }
 
-trait ActiveContractsSteps[+Self] { this: ActiveContractsSteps[Self] =>
+trait ActiveContracts[+Self] { this: ActiveContracts[Self] =>
   def lookupContract(cid: AbsoluteContractId): Option[ActiveContract]
   def keyExists(key: GlobalKey): Boolean
   def addContract(cid: AbsoluteContractId, c: ActiveContract, keyO: Option[GlobalKey]): Self
@@ -215,7 +218,5 @@ object ActiveContracts {
       contract: ContractInst[VersionedValue[AbsoluteContractId]],
       witnesses: Set[Ref.Party],
       key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])
-
-  def empty: ActiveContracts = ActiveContracts(Map(), Map())
 
 }

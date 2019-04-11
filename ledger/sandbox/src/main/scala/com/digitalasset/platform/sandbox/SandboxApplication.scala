@@ -14,7 +14,7 @@ import com.digitalasset.ledger.server.LedgerApiServer.LedgerApiServer
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
 import com.digitalasset.platform.sandbox.services.SandboxResetService
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
+import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeProviderType
@@ -188,9 +188,9 @@ object SandboxApplication {
   // if requested, initialize the ledger state with the given scenario
   private def createInitialState(
       config: SandboxConfig,
-      context: SandboxContext): (ActiveContracts, Seq[LedgerEntry], Option[Instant]) =
+      context: SandboxContext): (ActiveContractsInMemory, Seq[LedgerEntry], Option[Instant]) =
     config.scenario match {
-      case None => (ActiveContracts.empty, Nil, None)
+      case None => (ActiveContractsInMemory.empty, Nil, None)
       case Some(scenario) =>
         val (acs, records, ledgerTime) =
           ScenarioLoader.fromScenario(context.packageContainer, scenario)

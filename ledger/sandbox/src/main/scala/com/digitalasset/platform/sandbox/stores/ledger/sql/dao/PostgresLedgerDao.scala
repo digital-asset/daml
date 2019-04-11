@@ -201,7 +201,7 @@ private class PostgresLedgerDao(
             nodeId -> party.map(p => Ref.Party.assertFromString(p))
         }
 
-      final class AcsStoreAcc extends ActiveContractsSteps[AcsStoreAcc] {
+      final class AcsStoreAcc extends ActiveContracts[AcsStoreAcc] {
 
         def lookupContract(cid: AbsoluteContractId) =
           lookupActiveContractSync(cid).map(_.toActiveContract)
