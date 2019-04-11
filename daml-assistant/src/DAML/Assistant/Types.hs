@@ -64,7 +64,6 @@ newtype UserCommandArgs = UserCommandArgs
 data InstallOptions = InstallOptions
     { iTargetM :: Maybe RawInstallTarget
     , iActivate :: ActivateInstall
-    , iInitial :: InitialInstall
     , iForce :: ForceInstall
     , iQuiet :: QuietInstall
     } deriving (Eq, Show)
@@ -73,4 +72,3 @@ newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
 newtype ForceInstall = ForceInstall Bool deriving (Eq, Show)
 newtype QuietInstall = QuietInstall Bool deriving (Eq, Show)
 newtype ActivateInstall = ActivateInstall Bool deriving (Eq, Show)
-newtype InitialInstall = InitialInstall Bool deriving (Eq, Show)

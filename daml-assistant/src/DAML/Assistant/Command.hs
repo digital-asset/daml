@@ -59,7 +59,6 @@ installParser :: Parser InstallOptions
 installParser = InstallOptions
     <$> optional (RawInstallTarget <$> argument str (metavar "CHANNEL|VERSION|PATH"))
     <*> iflag ActivateInstall "activate" mempty "Activate installed version of daml"
-    <*> iflag InitialInstall "initial" mempty "Create daml home folder as well"
     <*> iflag ForceInstall "force" (short 'f') "Overwrite existing installation"
     <*> iflag QuietInstall "quiet" (short 'q') "Quiet verbosity"
     where

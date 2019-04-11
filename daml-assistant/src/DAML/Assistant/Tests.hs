@@ -298,7 +298,6 @@ testInstall = Tasty.testGroup "DAML.Assistant.Install"
                 options = InstallOptions
                     { iTargetM = Just (RawInstallTarget "source.tar.gz")
                     , iActivate = ActivateInstall True
-                    , iInitial = InitialInstall True
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
                     }
@@ -331,7 +330,6 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                 options = InstallOptions
                     { iTargetM = Just (RawInstallTarget "source.tar.gz")
                     , iActivate = ActivateInstall False
-                    , iInitial = InitialInstall True
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
                     }
@@ -358,7 +356,6 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                 options = InstallOptions
                     { iTargetM = Just (RawInstallTarget "source.tar.gz")
                     , iActivate = ActivateInstall False
-                    , iInitial = InitialInstall True
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
                     }

@@ -86,11 +86,6 @@ unlessQuiet :: InstallEnv -> IO () -> IO ()
 unlessQuiet InstallEnv{..} | QuietInstall b <- iQuiet options =
     unless b
 
--- | Execute action if --initial flag is set.
-whenInitial :: InstallEnv -> IO () -> IO ()
-whenInitial InstallEnv{..} | InitialInstall b <- iInitial options =
-    when b
-
 -- | Execute action if --activate flag is set.
 whenActivate :: InstallEnv -> IO () -> IO ()
 whenActivate InstallEnv{..} | ActivateInstall b <- iActivate options =
@@ -137,6 +132,14 @@ bintrayLatestURL = InstallURL $ T.concat
     , "?bt_package=sdk-components"          -- package
     ]
 
+-- | Set up .daml directory if it's missing.
+setupDamlPath :: DamlPath -> IO ()
+setupDamlPath (DamlPath path) = do
+    createDirectoryIfMissing True (path </> "bin")
+    createDirectoryIfMissing True (path </> "sdk")
+    -- For now, we only ensure that the config file exists.
+    appendFile (path </> damlConfigName) ""
+
 -- | Install (extracted) SDK directory to the correct place, after performing
 -- a version sanity check. Then run the sdk install hook if applicable.
 installExtracted :: InstallEnv -> SdkPath -> IO ()
@@ -159,10 +162,27 @@ installExtracted env@InstallEnv{..} sourcePath =
                 , walkOnDirectoryPost = \path ->
                     when (path /= addTrailingPathSeparator (unwrapSdkPath sourcePath)) $
                         setSdkFileMode path
-                , walkOnDirectoryPre = \_ -> pure ()
+                , walkOnDirectoryPre = const (pure ())
                 }
 
+        setupDamlPath damlPath
+
         let targetPath = defaultSdkPath damlPath sourceVersion
+
+        whenM (doesDirectoryExist (unwrapSdkPath targetPath)) $ do
+            unlessForce env $ do
+                throwIO $ assistantErrorBecause
+                    ("SDK version " <> versionToText sourceVersion <> " already installed. Use --force to overwrite.")
+                    ("Directory " <> pack (unwrapSdkPath targetPath) <> " already exists.")
+
+            requiredIO "Failed to set file modes for SDK to remove." $ do
+                walkRecursive (unwrapSdkPath targetPath) WalkCallbacks
+                    { walkOnFile = setRemoveFileMode
+                    , walkOnDirectoryPre = setRemoveFileMode
+                    , walkOnDirectoryPost = const (pure ())
+                    }
+
+
         when (sourcePath /= targetPath) $ do -- should be true 99.9% of the time,
                                             -- but in that 0.1% this check prevents us
                                             -- from deleting the sdk we want to install
@@ -170,8 +190,7 @@ installExtracted env@InstallEnv{..} sourcePath =
             requiredIO "Failed to remove existing SDK installation." $
                 removePathForcibly (unwrapSdkPath targetPath)
                 -- Always removePathForcibly to uniformize renameDirectory behavior
-                -- between windows and unices. (This is the wrong place for a --force check.
-                -- That should occur before downloading or extracting any tarball.)
+                -- between windows and unices.
             requiredIO "Failed to move extracted SDK release to final location." $
                 renameDirectory (unwrapSdkPath sourcePath) (unwrapSdkPath targetPath)
 
@@ -245,6 +264,12 @@ setSdkFileMode :: FilePath -> IO ()
 setSdkFileMode path = do
     sourceMode <- fileMode <$> getFileStatus path
     setFileMode path (intersectFileModes fileModeMask sourceMode)
+
+-- | Add write permissions to allow for removal.
+setRemoveFileMode :: FilePath -> IO ()
+setRemoveFileMode path = do
+    sourceMode <- fileMode <$> getFileStatus path
+    setFileMode path (unionFileModes ownerWriteMode sourceMode)
 
 -- | File mode mask to be applied to installed SDK files.
 fileModeMask :: FileMode
@@ -377,21 +402,6 @@ pathInstall env sourcePath = do
             unlessQuiet env $ putStrLn "Installing SDK release from tarball."
             extractAndInstall env (sourceFileBS sourcePath)
 
--- | Set up initial .daml directory.
-initialInstall :: InstallEnv -> IO ()
-initialInstall env@InstallEnv{..} = do
-    let path = unwrapDamlPath damlPath
-    whenM (doesDirectoryExist path) $ do
-        unlessForce env $ do
-            throwIO $ assistantErrorBecause
-                ("DAML home directory " <> pack path <> " already exists. "
-                    <> "Please remove it or use --force to continue.")
-                ("path = " <> pack path)
-    createDirectoryIfMissing True (path </> "bin")
-    createDirectoryIfMissing True (path </> "sdk")
-    -- For now, we only ensure that the file exists.
-    appendFile (path </> damlConfigName) ""
-
 -- | Disambiguate install target.
 decideInstallTarget :: RawInstallTarget -> IO InstallTarget
 decideInstallTarget (RawInstallTarget arg) = do
@@ -408,8 +418,6 @@ install :: InstallOptions -> DamlPath -> IO ()
 install options damlPath = do
     targetM <- mapM decideInstallTarget (iTargetM options)
     let env = InstallEnv {..}
-    whenInitial env $ do
-        initialInstall env
 
     case targetM of
         Nothing ->
