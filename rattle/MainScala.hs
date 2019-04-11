@@ -24,8 +24,12 @@ bash s = cmd_ "bash" ["-v", "-c", s]
 main :: IO ()
 main = rattle $ do
     putStrLn "  ---- Starting SCALA rattle build ----"
-    bash "(cd daml-lf/archive; protoc da/*.proto --java_out=src/main/scala)"
-    bash "(cd daml-lf/transaction/src/main/protobuf;  protoc com/digitalasset/daml/lf/*.proto --java_out=../scala)"
+
+    bash "mkdir -p daml-lf/gen/for-archive/src/main/scala"
+    bash "(cd daml-lf/archive; protoc da/*.proto --java_out=../gen/for-archive/src/main/scala)"
+
+    bash "mkdir -p daml-lf/gen/for-transaction/src/main/scala"
+    bash "(cd daml-lf/transaction/src/main/protobuf;  protoc com/digitalasset/daml/lf/*.proto --java_out=../../../../gen/for-transaction/src/main/scala)"
 
     bash "cp rattle/build.sbt daml-lf"
     bash "(cd daml-lf; sbt compile)"

@@ -66,7 +66,12 @@ lazy val repl_deps = Seq(
 //TODO(nic): DarReaderTest fails
 
 lazy val archive = (project in file("archive"))
-  .dependsOn(data)
+  .dependsOn(data, archiveGen)
+  .settings(
+    libraryDependencies ++= Seq(protobuf, scalatest)
+  )
+
+lazy val archiveGen = (project in file("gen/for-archive"))
   .settings(
     libraryDependencies ++= Seq(protobuf, scalatest)
   )
@@ -128,7 +133,12 @@ lazy val testingTools = (project in file("testing-tools"))
 // which is in transactionScalacheck - but that causes a recursive dep!
 
 lazy val transaction = (project in file("transaction"))
-  .dependsOn(data, archive) //, transactionScalacheck)
+  .dependsOn(data, archive, transactionGen) //, transactionScalacheck)
+  .settings(
+    libraryDependencies ++= transaction_deps
+  )
+
+lazy val transactionGen = (project in file("gen/for-transaction"))
   .settings(
     libraryDependencies ++= transaction_deps
   )
