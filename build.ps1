@@ -77,6 +77,7 @@ function build-full() {
     bazel test `
         //daml-lf/data/... `
         //daml-lf/interface/... `
+        //daml-lf/interpreter/... `
         //daml-lf/lfpackage/... `
         //daml-lf/parser/... `
         //daml-lf/validation/... `
@@ -88,9 +89,6 @@ function build-full() {
         //pipeline/samples/bazel/java/... `
         //pipeline/samples/bazel/haskell/...
 }
-
-# FIXME: one of tests fails
-#bazel test //daml-lf/interpreter/...
 
 # FIXME:
 # @haskell_c2hs//... `
