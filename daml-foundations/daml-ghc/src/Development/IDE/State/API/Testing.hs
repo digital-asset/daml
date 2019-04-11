@@ -282,10 +282,10 @@ searchDiagnostics expected@(severity, cursor, message) actuals =
   where
     match :: D.Diagnostic -> Bool
     match d =
-        severity == D.dSeverity d
+        severity == D._severity d
         && cursorFilePath cursor == D.dFilePath d
-        && cursorPosition cursor == D._start (D.dRange d)
-        && (T.toLower message `T.isInfixOf` T.toLower (D.dMessage d))
+        && cursorPosition cursor == D._start (D._range d)
+        && (T.toLower message `T.isInfixOf` T.toLower (D._message d))
 
 expectDiagnostic :: D.DiagnosticSeverity -> Cursor -> T.Text -> ShakeTest ()
 expectDiagnostic severity cursor msg = do
@@ -343,7 +343,7 @@ expectOnlyErrors = expectOnlyDiagnostics . map (\(cursor, msg) -> (D.Error, curs
 expectNoErrors :: ShakeTest ()
 expectNoErrors = do
     diagnostics <- getDiagnostics
-    let errors = filter (\d -> D.dSeverity d == D.Error) diagnostics
+    let errors = filter (\d -> D._severity d == D.Error) diagnostics
     unless (null errors) $
         throwError (ExpectedNoErrors errors)
 

@@ -3,12 +3,14 @@
 
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE BlockArguments #-}
 module Development.IDE.Types.Diagnostics (
-  Diagnostic(..),
+  LSP.Diagnostic(..),
   FileDiagnostics(..),
   Location(..),
   Range(..),
-  DiagnosticSeverity(..),
+  LSP.DiagnosticSeverity(..),
   Position(..),
   noLocation,
   noRange,
@@ -17,59 +19,111 @@ module Development.IDE.Types.Diagnostics (
   errorDiag,
   ideTryIOException,
   prettyFileDiagnostics,
-  prettyDiagnostic
+  prettyDiagnostic,
+  defDiagnostic,
+  addDiagnostics,
+  addLocation,
+  addFilePath
   ) where
 
-import Control.DeepSeq
 import Control.Exception
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Either.Combinators
 import Data.List.Extra
+import Data.Maybe as Maybe
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc.Syntax
 import GHC.Generics
-import qualified Network.URI.Encode
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
-import Language.Haskell.LSP.Types (DiagnosticSeverity(..))
+import           Language.Haskell.LSP.Types as LSP (
+    DiagnosticSeverity(..)
+  , Diagnostic(..)
+  , filePathToUri
+  , List(..)
+  , DiagnosticRelatedInformation(..)
+  )
+import Language.Haskell.LSP.Diagnostics
 
 import Development.IDE.Types.Location
 
-ideErrorText :: FilePath -> T.Text -> Diagnostic
-ideErrorText absFile = errorDiag absFile "Ide Error"
+ideErrorText :: FilePath -> T.Text -> LSP.Diagnostic
+ideErrorText fp = errorDiag fp "Ide Error"
 
-ideErrorPretty :: Pretty.Pretty e => FilePath -> e -> Diagnostic
-ideErrorPretty absFile = ideErrorText absFile . T.pack . Pretty.prettyShow
+ideErrorPretty :: Pretty.Pretty e => FilePath -> e -> LSP.Diagnostic
+ideErrorPretty fp = ideErrorText fp . T.pack . Pretty.prettyShow
 
-errorDiag :: FilePath -> T.Text -> T.Text -> Diagnostic
-errorDiag fp src msg =
-  Diagnostic
-  { dFilePath = fp
-  , dRange    = noRange
-  , dSeverity = DsError
-  , dSource   = src
-  , dMessage  = msg
+errorDiag :: FilePath -> T.Text -> T.Text -> LSP.Diagnostic
+errorDiag fp src =
+  addFilePath fp . diagnostic noRange LSP.DsError src
+
+-- | This is for compatibility with our old diagnostic type
+diagnostic :: Range
+           -> LSP.DiagnosticSeverity
+           -> T.Text -- ^ source
+           -> T.Text -- ^ message
+           -> LSP.Diagnostic
+diagnostic rng sev src msg
+    = LSP.Diagnostic {
+          _range = rng,
+          _severity = Just sev,
+          _code = Nothing,
+          _source = Just src,
+          _message = msg,
+          _relatedInformation = Nothing
+          }
+
+-- | Any optional field is instantiated to Nothing
+defDiagnostic ::
+  Range ->
+  T.Text -> -- ^ error message
+  LSP.Diagnostic
+defDiagnostic _range _message = LSP.Diagnostic {
+    _range
+  , _message
+  , _severity = Nothing
+  , _code = Nothing
+  , _source = Nothing
+  , _relatedInformation = Nothing
   }
 
-ideTryIOException :: FilePath -> IO a -> IO (Either Diagnostic a)
+addFilePath ::
+  FilePath ->
+  LSP.Diagnostic ->
+  LSP.Diagnostic
+addFilePath fp =
+  addLocation $ Location (filePathToUri fp) noRange
+
+addLocation ::
+  Location ->
+  LSP.Diagnostic ->
+  LSP.Diagnostic
+addLocation loc d =
+  d {
+    LSP._relatedInformation =
+        Just $
+        maybe
+        (LSP.List [rel loc])
+        (add loc) $
+        _relatedInformation d
+    } where
+      rel fp = DiagnosticRelatedInformation fp ""
+      add fp (List a) = List $ rel fp : a
+
+addDiagnostics ::
+  FilePath ->
+  [LSP.Diagnostic] ->
+  DiagnosticStore ->
+  DiagnosticStore
+addDiagnostics fp diags ds =
+  updateDiagnostics
+    ds
+    (LSP.filePathToUri fp)
+    Nothing
+  $ partitionBySource diags
+
+ideTryIOException :: FilePath -> IO a -> IO (Either LSP.Diagnostic a)
 ideTryIOException fp act =
   mapLeft (\(e :: IOException) -> ideErrorText fp $ T.pack $ show e) <$> try act
-
-data Diagnostic = Diagnostic
-    { dFilePath     :: !FilePath
-      -- ^ Specific file that the diagnostic refers to.
-    , dRange        :: !Range
-      -- ^ The range to which the diagnostic applies.
-    , dSeverity     :: !DiagnosticSeverity
-
-      -- ^ The severity of the diagnostic, such as 'SError' or 'SWarning'.
-    , dSource       :: !T.Text
-      -- ^ Human-readable description for the source of the diagnostic,
-      -- for example 'parser'.
-    , dMessage      :: !T.Text
-      -- ^ The diagnostic's message.
-    }
-    deriving (Eq, Ord, Show, Generic)
-instance NFData Diagnostic
 
 -- | Human readable diagnostics for a specific file.
 --
@@ -83,14 +137,11 @@ data FileDiagnostics = FileDiagnostics
       --   In a multi-module program this is the file that we started
       --   trying to compile, not necessarily the one in which we found the
       --   reported errors or warnings.
-    , fdDiagnostics :: ![Diagnostic]
+    , fdDiagnostics :: ![LSP.Diagnostic]
       -- ^ Diagnostics for the desired module,
       --   as well as any transitively imported modules.
     }
     deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON Diagnostic
-instance ToJSON Diagnostic
 
 instance FromJSON FileDiagnostics
 instance ToJSON FileDiagnostics
@@ -115,28 +166,20 @@ prettyPosition = undefined
 stringParagraphs :: T.Text -> Doc a
 stringParagraphs = vcat . map (fillSep . map pretty . T.words) . T.lines
 
-prettyDiagnostic :: Diagnostic -> Doc SyntaxClass
-prettyDiagnostic (Diagnostic filePath range severity source msg) =
+prettyDiagnostic :: LSP.Diagnostic -> Doc SyntaxClass
+prettyDiagnostic (LSP.Diagnostic{..}) =
     vcat
-        [ label_ "File:    " $ pretty filePath
-        , label_ "Range:   "
-            $ annotate (LinkSC uri title)
-            $ prettyRange range
-        , label_ "Source:  " $ pretty source
-        , label_ "Severity:" $ pretty $ show severity
+        [label_ "Range:   "
+            $ prettyRange _range
+        , label_ "Source:  " $ pretty _source
+        , label_ "Severity:" $ pretty $ show sev
         , label_ "Message: "
-            $ case severity of
-              DsError -> annotate ErrorSC
-              DsWarning -> annotate WarningSC
-              DsInfo -> annotate InfoSC
-              DsHint -> annotate HintSC
-            $ stringParagraphs msg
+            $ case sev of
+              LSP.DsError -> annotate ErrorSC
+              LSP.DsWarning -> annotate WarningSC
+              LSP.DsInfo -> annotate InfoSC
+              LSP.DsHint -> annotate HintSC
+            $ stringParagraphs _message
         ]
     where
-        -- FIXME(JM): Move uri construction to DA.Pretty?
-        Position sline _ = _start range
-        Position eline _ = _end range
-        uri = "command:daml.revealLocation?"
-            <> Network.URI.Encode.encodeText ("[\"file://" <> T.pack filePath <> "\","
-            <> T.pack (show sline) <> ", " <> T.pack (show eline) <> "]")
-        title = T.pack filePath
+        sev = fromMaybe LSP.DsError _severity

@@ -241,10 +241,10 @@ reportImportCyclesRule =
           cycleErrorInFile _ _ = Nothing
           toDiag imp mods = Diagnostic
             { dFilePath = _uri loc
-            , dRange = _range loc
-            , dSeverity = DsError
-            , dSource = "Import cycle detection"
-            , dMessage = "Cyclic module dependency between " <> showCycle mods
+            , _range = _range loc
+            , _severity = DsError
+            , _source = "Import cycle detection"
+            , _message = "Cyclic module dependency between " <> showCycle mods
             }
             where loc = srcSpanToLocation (getLoc imp)
           getModuleName file = do

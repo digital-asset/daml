@@ -238,10 +238,10 @@ runScenariosRule =
           toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe Diagnostic
           toDiagnostic scenario (Left err) = Just $ Diagnostic
               { dFilePath = file
-              , dRange = maybe noRange sourceLocToRange mbLoc
-              , dSeverity = Error
-              , dSource = "Scenario"
-              , dMessage = Pretty.renderPlain $ formatScenarioError world err
+              , _range = maybe noRange sourceLocToRange mbLoc
+              , _severity = Error
+              , _source = "Scenario"
+              , _message = Pretty.renderPlain $ formatScenarioError world err
               }
             where scenarioName = LF.qualObject scenario
                   mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
