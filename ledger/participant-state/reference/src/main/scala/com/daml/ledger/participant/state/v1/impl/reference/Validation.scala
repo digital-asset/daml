@@ -67,10 +67,7 @@ object Validation {
       // check the transaction is conformant
       result <- stepResult(engine.validate(transaction, transactionMeta.ledgerEffectiveTime))
       // check transaction is well-authorized
-      blinding <- Blinding.checkAuthorizationAndBlind(
-        engine.ledgerFeatureFlags(),
-        transaction,
-        Set(submitter))
+      blinding <- Blinding.checkAuthorizationAndBlind(transaction, Set(submitter))
     } yield (blinding, result)
 
     result match {

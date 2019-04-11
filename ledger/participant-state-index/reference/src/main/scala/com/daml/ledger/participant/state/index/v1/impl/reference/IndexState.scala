@@ -11,7 +11,6 @@ import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.lfpackage.Decode
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.types.Ledger.LedgerFeatureFlags
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
@@ -34,7 +33,6 @@ final case class IndexState(
     rejections: TreeMap[Offset, Update.CommandRejected],
     // Uploaded packages.
     packages: Map[PackageId, Archive],
-    ledgerFeatureFlags: LedgerFeatureFlags,
     packageKnownTo: Relation[PackageId, Party],
     hostedParties: Set[Party]) {
 
@@ -90,17 +88,10 @@ final case class IndexState(
           state.packages + (Ref.PackageId.assertFromString(archive.getHash) -> archive)
 
         val decodedPackages = newPackages.mapValues(archive => Decode.decodeArchive(archive)._2)
-        val newLedgerFeatureFlags = LedgerFeatureFlags
-          .fromPackages(decodedPackages)
-          .getOrElse(sys.error("FIXME(JM): Mixed ledger feature flags"))
-
-        logger.debug(s"ledger feature flags = $newLedgerFeatureFlags")
-
         Right(
           state
             .copy(
-              packages = newPackages,
-              ledgerFeatureFlags = newLedgerFeatureFlags
+              packages = newPackages
             ))
 
       case u: Update.CommandRejected =>
@@ -111,7 +102,6 @@ final case class IndexState(
         )
       case u: Update.TransactionAccepted =>
         val blindingInfo = Blinding.blind(
-          state.ledgerFeatureFlags,
           u.transaction.asInstanceOf[Transaction.Transaction]
         )
         logger.debug(s"blindingInfo=$blindingInfo")
@@ -165,7 +155,6 @@ object IndexState {
     activeContracts = Map.empty,
     rejections = TreeMap.empty,
     packages = Map.empty,
-    ledgerFeatureFlags = LedgerFeatureFlags.default,
     packageKnownTo = Map.empty,
     hostedParties = Set.empty
   )

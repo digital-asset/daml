@@ -138,10 +138,8 @@ object DamlOnXCommandCompletionService {
   def create(indexService: IndexService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory): CommandCompletionServiceValidation
-    with BindableService
-    with AutoCloseable
-    with CommandCompletionServiceLogging = {
+      esf: ExecutionSequencerFactory)
+    : CommandCompletionServiceValidation with BindableService with AutoCloseable with CommandCompletionServiceLogging = {
     val impl = new DamlOnXCommandCompletionService(indexService)
 
     val ledgerId = Await.result(indexService.getLedgerId(), 5.seconds)
