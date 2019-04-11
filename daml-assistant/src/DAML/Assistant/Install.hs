@@ -29,6 +29,7 @@ import Control.Monad.Extra
 import Control.Exception.Safe
 import System.ProgressBar
 import qualified System.Info
+import System.Info.Extra (isWindows)
 import qualified Data.Text as T
 import Data.Maybe
 import qualified Data.SemVer as V
@@ -207,16 +208,8 @@ installExtracted env@InstallEnv{..} sourcePath =
 activateDaml :: InstallEnv -> SdkPath -> IO ()
 activateDaml env@InstallEnv{..} targetPath = do
 
-    let damlSourceName =
-            case getPlatform of
-                Unix -> "daml"
-                Windows -> "daml.exe"
-
-        damlTargetName =
-            case getPlatform of
-                Unix -> "daml"
-                Windows -> "daml.cmd"
-
+    let damlSourceName = if isWindows then "daml.exe" else "daml"
+        damlTargetName = if isWindows then "daml.cmd" else "daml"
         damlBinarySourcePath = unwrapSdkPath targetPath </> "daml" </> damlSourceName
         damlBinaryTargetDir  = unwrapDamlPath damlPath </> "bin"
         damlBinaryTargetPath = damlBinaryTargetDir </> damlTargetName
@@ -228,16 +221,14 @@ activateDaml env@InstallEnv{..} targetPath = do
 
     whenM (doesFileExist damlBinaryTargetPath) $
         requiredIO "Failed to delete existing daml binary link." $
-            case getPlatform of
-                Unix -> removeLink damlBinaryTargetPath
-                Windows -> removePathForcibly damlBinaryTargetPath
+            if isWindows
+                then removePathForcibly damlBinaryTargetPath
+                else removeLink damlBinaryTargetPath
 
     requiredIO ("Failed to link daml binary in " <> pack damlBinaryTargetDir) $
-        case getPlatform of
-            Unix -> createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
-            Windows -> do
-                let runnerScript = "START " <> damlBinarySourcePath <> " %*"
-                writeFile damlBinaryTargetPath runnerScript
+        if isWindows
+            then writeFile damlBinaryTargetPath ("START " <> damlBinarySourcePath <> " %*")
+            else createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
 
     unlessQuiet env $ do -- Ask user to add .daml/bin to PATH if it is absent.
         searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
@@ -344,7 +335,7 @@ extractAndInstall env source =
                         liftIO $ setFileMode targetPath (Tar.fileMode info)
                     Tar.FTDirectory -> do
                         liftIO $ createDirectoryIfMissing True targetPath
-                    Tar.FTSymbolicLink bs | Unix <- getPlatform -> do
+                    Tar.FTSymbolicLink bs | not isWindows -> do
                         let path = Tar.decodeFilePath bs
                         unless (isRelative path) $
                             liftIO $ throwIO $ assistantErrorBecause
