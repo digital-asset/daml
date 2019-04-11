@@ -323,7 +323,7 @@ extractAndInstall env source =
                         liftIO $ setFileMode targetPath (Tar.fileMode info)
                     Tar.FTDirectory -> do
                         liftIO $ createDirectoryIfMissing True targetPath
-                    Tar.FTSymbolicLink bs -> do
+                    Tar.FTSymbolicLink bs | Unix <- getPlatform -> do
                         let path = Tar.decodeFilePath bs
                         unless (isRelative path) $
                             liftIO $ throwIO $ assistantErrorBecause
