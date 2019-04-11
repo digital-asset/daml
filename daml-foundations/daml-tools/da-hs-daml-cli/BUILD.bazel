@@ -5,7 +5,6 @@ load ("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
 
 da_haskell_library (
     name = "da-hs-daml-cli"
-  , src_strip_prefix = "DA"
   , extra_srcs = [
     "//daml-foundations/daml-tools/docs/daml-licenses/licenses:licensing.md"
   ]
