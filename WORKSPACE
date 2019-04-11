@@ -665,3 +665,16 @@ jar_jar_repositories()
 # dependencies.
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 grpc_deps()
+
+# Buildifier.
+# It is written in Go and hence needs rules_go to be available.
+http_archive(
+    name = "com_github_bazelbuild_buildtools",
+    sha256 = "7525deb4d74e3aa4cb2b960da7d1c400257a324be4e497f75d265f2f508c518f",
+    strip_prefix = "buildtools-0.22.0",
+    url = "https://github.com/bazelbuild/buildtools/archive/0.22.0.tar.gz",
+)
+
+load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
+
+buildifier_dependencies()

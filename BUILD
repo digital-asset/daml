@@ -160,3 +160,30 @@ alias(
 exports_files([
   ".scalafmt.conf"
 ])
+
+# Buildifier.
+
+load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
+
+buildifier_excluded_patterns = [
+    "./3rdparty/haskell/c2hs-package.bzl",
+    "./3rdparty/haskell/network-package.bzl",
+    "./3rdparty/jvm/*",
+    "./3rdparty/workspace.bzl",
+    "./hazel/packages.bzl",
+]
+
+# Run this to check if BUILD files are well-formatted.
+buildifier(
+    name = "buildifier",
+    exclude_patterns = buildifier_excluded_patterns,
+    mode = "check",
+)
+
+# Run this to fix the errors in BUILD files.
+buildifier(
+    name = "buildifier-fix",
+    exclude_patterns = buildifier_excluded_patterns,
+    mode = "fix",
+    verbose = True,
+)
