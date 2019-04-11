@@ -158,18 +158,7 @@ genrule(
       cp $(location :sdk-config.yaml.tmpl) $$OUT/sdk-config.yaml
       sed -i "s/__VERSION__/$$VERSION/" $$OUT/sdk-config.yaml
 
-      rm $$OUT/templates/quickstart-java/daml.yaml
-      cat > $$OUT/templates/quickstart-java/daml.yaml << EOF
-sdk-version: $$VERSION
-name: quickstart
-source: daml/Main.daml
-scenario: Main:setup
-parties:
-  - Alice
-  - Bob
-  - USD_Bank
-  - EUR_Bank
-EOF
+      sed -i "s/sdk-version: .*/sdk-version: 0.0.0/" $$OUT/templates/quickstart-java/daml.yaml
 
       tar zcf $(location sdk-head-tarball.tar.gz) --format=ustar $$OUT
     """,
