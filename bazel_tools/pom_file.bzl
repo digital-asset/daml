@@ -56,28 +56,18 @@ def _collect_maven_info_impl(_target, ctx):
             fail("Expected exactly one jar in a scala_import")
         jar = jars[0]
 
-        # The following four lines corresponds to the replacements section in dependencies.yaml.
-        if jar.label.workspace_name == "io_bazel_rules_scala_scala_compiler":
+        # This corresponds replacements section in dependencies.yaml.
+        replacements = {
+            "io_bazel_rules_scala_scala_compiler": "org.scala-lang:scala-compiler",
+            "io_bazel_rules_scala_scala_library": "org.scala-lang:scala-library",
+            "io_bazel_rules_scala_scala_reflect": "org.scala-lang:scala-reflect",
+            "io_bazel_rules_scala_scala_parser_combinators": "org.scala-lang.modules:scala-parser-combinators",
+        }
+        if jar.label.workspace_name in replacements:
             return [MavenInfo(
-                maven_coordinates = "org.scala-lang:scala-compiler_{}:{}".format(_SCALA_VERSION, jar_version(jar.label.name)),
+                maven_coordinates = "{}_{}:{}".format(replacements[jar.label.workspace_name], _SCALA_VERSION, jar_version(jar.label.name)),
                 maven_dependencies = [],
             )]
-        if jar.label.workspace_name == "io_bazel_rules_scala_scala_library":
-            return [MavenInfo(
-                maven_coordinates = "org.scala-lang:scala-library_{}:{}".format(_SCALA_VERSION, jar_version(jar.label.name)),
-                maven_dependencies = [],
-            )]
-        if jar.label.workspace_name == "io_bazel_rules_scala_scala_reflect":
-            return [MavenInfo(
-                maven_coordinates = "org.scala-lang:scala-reflect_{}:{}".format(_SCALA_VERSION, jar_version(jar.label.name)),
-                maven_dependencies = [],
-            )]
-        if jar.label.workspace_name == "io_bazel_rules_scala_scala_parser_combinators":
-            return [MavenInfo(
-                maven_coordinates = "org.scala-lang.modules:scala-parser-combinators_{}:{}".format(_SCALA_VERSION, jar_version(jar.label.name)),
-                maven_dependencies = [],
-            )]
-
         if MavenInfo not in jar:
             fail("Expected maven info for jar dependency: {}".format(jar.label))
         return [jar[MavenInfo]]

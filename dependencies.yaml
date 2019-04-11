@@ -560,6 +560,8 @@ replacements:
   #
   # Without these you may get obscure compiler errors about missing implicits,
   # or types that should be `Any`.
+
+  # This needs to be kept in sync with //bazel-tools:pom_file.bzl
   org.scala-lang:
     scala-compiler:
       lang: scala/unmangled
