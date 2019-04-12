@@ -23,3 +23,7 @@
       https://circleci.com/gh/DACH-NY/workflows/damlc-docker/tree/master
       and click "rerun" on "master / Main Variant" and on "master / CircleCI Variant".
       Once the jobs have passed, you should see two new images on https://hub.docker.com/r/digitalasset/daml-sdk/tags.
+
+   1. Publish the draft release on GitHub by going to [the releases
+      page](https://github.com/digital-asset/daml/releases) and clicking the
+      Edit button for the relevant release.
