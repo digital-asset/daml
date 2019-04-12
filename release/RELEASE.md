@@ -1,6 +1,6 @@
 # Making a Release
 
-1. Update https://github.com/digital-asset/daml/docs/support/release-notes.rst
+1. Update https://github.com/digital-asset/daml/docs/source/support/release-notes.rst
    by adding a new header for the new version above any changes since the last
    version.
 1. Make a PR that only bumps the version number in the VERSION
