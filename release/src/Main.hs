@@ -44,6 +44,9 @@ main = do
                       $logInfo ("Writing slack release message to "# T.pack fp)
                       liftIO (BS.writeFile fp (T.encodeUtf8 (slackReleaseMessage os (renderVersion sdkVersion))))
                   releaseToBintray upload releaseDir artifacts
+                  -- set variables for next steps in Azure pipelines
+                  liftIO . putStrLn $ "##vso[task.setvariable variable=has_released]true"
+                  liftIO . putStrLn . T.unpack $ "##vso[task.setvariable variable=release_tag]" # renderVersion sdkVersion
               else do
                   $logInfo "Make dry run of release"
                   liftIO $ for_ optsSlackReleaseMessageFile (`BS.writeFile` "")
