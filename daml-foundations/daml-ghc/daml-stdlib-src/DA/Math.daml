@@ -10,7 +10,6 @@ module DA.Math
 infixr 8 ^^
 infixr 8 **
 
-
 class (Multiplicative a, Fractional a) => Powerable a where
   -- | Take an integer power of a number. Example: `2.0 ^^ 2 == 4.0`.
   (^^) : a -> Int -> a
@@ -22,7 +21,6 @@ class (Multiplicative a, Fractional a) => Powerable a where
   log :a -> a
   -- | The logarithm of a number to a given base. Example: `log 10.0 100.0 == 2.0`
   logBase : a -> a -> a
-
 
 instance Powerable Decimal where
   x ^^ n
@@ -39,45 +37,69 @@ instance Powerable Decimal where
       let (y, e) = expInner 1.0 1.0 x
       in y `e10` e
 
-  log x = logt1000 x / 1000.0
+  log x = logt10k x / 10000.0
 
   logBase b x = log x / log b
 
-logt1000: Decimal -> Decimal
-logt1000 x
-  | x == 10.0 = ln10t1000
-  | x > 10.0 = ln10t1000 + logt1000 (x / 10.0)
-  | x < 0.1 = logt1000 (x * 10.0) - ln10t1000
-  | x > 1.5 = ln2t1000 + logt1000 (x / 2.0)
-  | x < 0.5 = logt1000 (x * 2.0) - ln2t1000
-  | otherwise = logt1000Inner 10 x
+-- | `logt10k x` calculates 10000.0 * ln(x). The reason for
+-- doing this is to preserve four additional decimal points
+-- for precision.
+-- The additive nature of `ln` is used to decompose
+-- ln(x) == ln(10^m * 2^n * y) == m * ln(10) + n * ln(2) + ln(y)
+-- where 0.5 < y < 1.5.
+logt10k: Decimal -> Decimal
+logt10k x
+  | x == 1.0 = 0.0
+  | x > 10.0 = ln10t10k + logt10k (x / 10.0)
+  | x < 0.1 = logt10k (x * 10.0) - ln10t10k
+  | x > 1.5 = ln2t10k + logt10k (x / 2.0)
+  | x < 0.5 = logt10k (x * 2.0) - ln2t10k
+  | otherwise = logt10kInner 10 x
   where
-    ln10t1000 = 2302.5850929940456840
-    ln2t1000 = 693.14718055994
+    ln10t10k = 23025.8509299405
+    ln2t10k = 6931.4718055994
 
-logt1000Inner: Int -> Decimal -> Decimal
-logt1000Inner n x 
+-- | `log10kInner n x` approximates 10000 * ln(x) using n terms of the
+-- power series expansion of ln(x) = 2 * artanh((x - 1) / (x + 1)) 
+logt10kInner: Int -> Decimal -> Decimal
+logt10kInner n x 
   | n < 0 = 0.0
   | otherwise = let
       f = (x - 1.0) / (x + 1.0)
       p = (2 * n + 1)
-      term = (2000.0 / intToDecimal p) * f ^^ p
+      term = (20000.0 / intToDecimal p) * f ^^ p
     in
-    term + logt1000Inner (n - 1) x
+    term + logt10kInner (n - 1) x
 
+-- | `e10` is used to shift the decimal point in decimal notation.
+-- `e10 x n == x * intToDecimal (10 ^ n)`.
 e10: Decimal -> Int -> Decimal
 e10 x n
   | n == 0 = x
   | n > 0 = e10 (x * 10.0) (n - 1)
   | otherwise = e10 (x / 10.0) (n + 1)
 
-to36dig: (Decimal, Int) -> (Decimal, Int)
+-- | `Sci` represents a number in scientific notation. `(x, n)` is
+-- to be read as `x * 10^n`.
+type Sci = (Decimal, Int)
+
+-- | `to36dig` tries to put a number in scientific notation in a form
+-- where the `x` has order of magnitude 10^26. Given the fixed point
+-- NUMBER(38,10) format of `Decimal` in DAML, this gives good
+-- precision with a little bit of room to multiply with numbers less
+-- than 100.
+to36dig: Sci -> Sci
 to36dig (x, n)
   | x < 1.0 `e10` 25 = to36dig (x * 10.0, n - 1)
   | x > 1.0 `e10` 26 = to36dig (x / 10.0, n + 1)
   | otherwise = (x, n)
 
-expInner: Decimal -> Decimal -> Decimal -> (Decimal, Int)
+-- | `expInner` calculates the expansion
+-- 1 + x/n * (1 + x/(n+1) * (1 + x/(n+2) * ...))
+-- to a depth where t * x^k * n! / k! < 10^-10.
+-- The sole purpose is to calculate `exp = expInner 1.0 1.0`
+-- In the most precision-preserving way.
+expInner: Decimal -> Decimal -> Decimal -> Sci
 expInner n t x
   | t == 0.0 = (1.0, 0)
   | otherwise =
