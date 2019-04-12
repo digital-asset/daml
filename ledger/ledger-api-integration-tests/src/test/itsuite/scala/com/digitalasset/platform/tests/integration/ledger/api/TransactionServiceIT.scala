@@ -72,7 +72,7 @@ class TransactionServiceIT
     Config
       .defaultWithTimeProvider(TimeProviderType.WallClock)
 
-  override val timeLimit: Span = 60.seconds
+  override val timeLimit: Span = 300.seconds
 
   private def newClient(stub: TransactionService, ledgerId: String): TransactionClient =
     new TransactionClient(ledgerId, stub)
