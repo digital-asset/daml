@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.3 — 2019-04-12
+-------------------
+
+- Fix navigator and extractor packaging in the SDK.
+
 0.12.2 — 2019-04-12
 -------------------
 
