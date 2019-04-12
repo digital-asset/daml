@@ -1,36 +1,45 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Util (
     isReleaseCommit,
     readVersionAt,
-    buildAllComponents,
     releaseToBintray,
     runFastLoggingT,
-    slackReleaseMessage,
-    whichOS,
+
+    Artifact(..),
+    ArtifactLocation(..),
+    BazelTarget(..),
+
+    artifactFiles,
+    copyToReleaseDir,
+    buildTargets,
+    getBazelLocations,
+    resolvePomData
   ) where
 
 
 import qualified Control.Concurrent.Async.Lifted.Safe as Async
 import qualified Control.Exception.Safe as E
 import           Control.Monad
-import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad.IO.Class
 import           Control.Monad.Logger
-import           Control.Monad.Trans.Class (lift)
-import           Control.Monad.Writer.Class
-import Control.Monad.Trans.Writer (WriterT, execWriterT)
+import Data.Aeson
 import           Data.Char (isSpace)
 import           Data.Conduit ((.|))
 import qualified Data.Conduit as C
 import qualified Data.Conduit.Process as Proc
 import qualified Data.Conduit.Text as CT
-import           Data.Foldable (for_)
+import qualified System.Process
+import Data.Foldable
+import Data.Maybe
 import           Data.Text (Text, unpack)
 import qualified Data.Text as T
 import           Path
@@ -39,77 +48,226 @@ import           System.Console.ANSI
                    (Color(..), SGR(SetColor, Reset), ConsoleLayer(Foreground),
                     ColorIntensity(..), setSGRCode)
 import qualified System.Log.FastLogger as FastLogger
+import System.Info.Extra
 import qualified Text.XML as XML
 import qualified Text.XML.Cursor as XML
 
 import Types
 
--- pom
--- --------------------------------------------------------------------
+newtype BazelTarget = BazelTarget { getBazelTarget :: Text }
+    deriving (FromJSON, Show)
 
-data ArtifactLocation
-    = Declared PomArtifact
-    -- ^ Manual declaration of the artifact location.
-    -- This is used for non-jars.
-    | FetchFromPom -- ^ Artifact location should be fetched from pom.
+data ReleaseType
+    = TarGz
+    | Zip
+    | Jar JarType
+    deriving Show
 
-data PomArtifact = PomArtifact
-  { pomArtGroupId :: GroupId
-  , pomArtArtifactId :: ArtifactId
-  , pomArtClassifier :: Maybe Classifier
-  , pomArtVersion :: TextVersion
+data JarType = Plain | Lib | Deploy | Proto
+    deriving (Eq, Show)
+
+instance FromJSON ReleaseType where
+    parseJSON = withText "ReleaseType" $ \t ->
+        case t of
+            "targz" -> pure TarGz
+            "zip" -> pure Zip
+            "jar" -> pure $ Jar Plain
+            "jar-lib" -> pure $ Jar Lib
+            "jar-deploy" -> pure $ Jar Deploy
+            "jar-proto" -> pure $ Jar Proto
+            _ -> fail ("Could not parse release type: " <> unpack t)
+
+data Artifact c = Artifact
+    { artTarget :: !BazelTarget
+    , artReleaseType :: !ReleaseType
+    , artPlatformDependent :: !PlatformDependent
+    , artBintrayPackage :: !BintrayPackage
+    -- ^ Defaults to sdk-components if not specified
+    , artMetadata :: !c
+    } deriving Show
+
+instance FromJSON (Artifact (Maybe ArtifactLocation)) where
+    parseJSON = withObject "Artifact" $ \o -> Artifact
+        <$> o .: "target"
+        <*> o .: "type"
+        <*> (fromMaybe (PlatformDependent False) <$> o .:? "platformDependent")
+        <*> (fromMaybe PkgSdkComponents <$> o .:? "bintrayPackage")
+        <*> o .:? "location"
+
+data ArtifactLocation = ArtifactLocation
+    { coordGroupId :: GroupId
+    , coordArtifactId :: ArtifactId
+    } deriving Show
+
+instance FromJSON ArtifactLocation where
+    parseJSON = withObject "ArtifactLocation" $ \o -> do
+        groupId <- o .: "groupId"
+        artifactId <- o .: "artifactId"
+        pure $ ArtifactLocation (T.split (== '.') groupId) artifactId
+
+-- | This maps a target declared in artifacts.yaml to the individual Bazel targets
+-- that need to be built for a release.
+buildTargets :: Artifact (Maybe ArtifactLocation) -> [BazelTarget]
+buildTargets art@Artifact{..} =
+    case artReleaseType of
+        Jar jarTy ->
+            let pomTar = BazelTarget (getBazelTarget artTarget <> "_pom")
+                jarTarget | jarTy == Deploy = BazelTarget (getBazelTarget artTarget <> "_deploy.jar")
+                          | otherwise = artTarget
+                (directory, _) = splitBazelTarget artTarget
+            in [jarTarget, pomTar] <>
+               [BazelTarget ("//" <> directory <> ":" <> srcJar) | Just srcJar <- pure (sourceJarName art)]
+        Zip -> [artTarget]
+        TarGz -> [artTarget]
+
+data PomData = PomData
+  { pomGroupId :: GroupId
+  , pomArtifactId :: ArtifactId
+  , pomVersion :: TextVersion
   } deriving (Eq, Show)
+
+readPomData :: FilePath -> IO PomData
+readPomData f = do
+    doc <- XML.readFile XML.def f
+    let c = XML.fromDocument doc
+    let elName name = XML.Name name (Just "http://maven.apache.org/POM/4.0.0") Nothing
+    [artifactId] <- pure $ c XML.$/ (XML.element (elName "artifactId") XML.&/ XML.content)
+    [groupId] <- pure $ c XML.$/ (XML.element (elName "groupId") XML.&/ XML.content)
+    [version] <- pure $ c XML.$/ (XML.element (elName "version") XML.&/ XML.content)
+    pure $ PomData
+        { pomGroupId = T.split (== '.') groupId
+        , pomArtifactId = artifactId
+        , pomVersion = version
+        }
+
+resolvePomData :: BazelLocations -> Version -> Version -> Artifact (Maybe ArtifactLocation) -> IO (Artifact PomData)
+resolvePomData BazelLocations{..} sdkVersion sdkComponentVersion art =
+    case artMetadata art of
+        Just ArtifactLocation{..} -> pure art
+            { artMetadata = PomData
+                { pomGroupId = coordGroupId
+                , pomArtifactId = coordArtifactId
+                , pomVersion = renderVersion version
+                }
+            }
+        Nothing -> do
+            let (dir, name) = splitBazelTarget $ artTarget art
+            dir <- parseRelDir (unpack dir)
+            name <- parseRelFile (unpack name <> "_pom.xml")
+            dat <- readPomData $ unpack $ pathToText $ bazelBin </> dir </> name
+            pure art { artMetadata = dat }
+    where version = case artBintrayPackage art of
+              PkgSdk -> sdkVersion
+              PkgSdkComponents -> sdkComponentVersion
+
+data BazelLocations = BazelLocations
+    { bazelBin :: !(Path Abs Dir)
+    , bazelGenfiles :: !(Path Abs Dir)
+    } deriving Show
+
+getBazelLocations :: IO BazelLocations
+getBazelLocations = do
+    bazelBin <- parseAbsDir . T.unpack . T.strip . T.pack =<< System.Process.readProcess "bazel" ["info", "bazel-bin"] ""
+    bazelGenfiles <- parseAbsDir . T.unpack . T.strip . T.pack =<< System.Process.readProcess "bazel" ["info", "bazel-genfiles"] ""
+    pure BazelLocations{..}
+
+splitBazelTarget :: BazelTarget -> (Text, Text)
+splitBazelTarget (BazelTarget t) =
+    case T.split (== ':') <$> T.stripPrefix "//" t of
+        Just [a, b] -> (a, b)
+        _ -> error ("Malformed bazel target: " <> show t)
+
+mainExt :: ReleaseType -> Text
+mainExt Zip = ".zip"
+mainExt TarGz = ".tar.gz"
+mainExt Jar{} = ".jar"
+
+mainFileName :: ReleaseType -> Text -> Text
+mainFileName releaseType name =
+    case releaseType of
+        TarGz -> name <> ".tar.gz"
+        Zip -> name <> ".zip"
+        Jar jarTy -> case jarTy of
+            Plain -> name <> ".jar"
+            Lib -> "lib" <> name <> ".jar"
+            Deploy -> name <> "_deploy.jar"
+            Proto -> "lib" <> T.replace "_java" "" name <> "-speed.jar"
+
+sourceJarName :: Artifact a -> Maybe Text
+sourceJarName Artifact{..}
+  | Jar Lib <- artReleaseType = Just $ "lib" <> snd (splitBazelTarget artTarget) <> "-src.jar"
+  | otherwise = Nothing
+
+
+-- | Given an artifact, produce a list of pairs of an input file and the corresponding output file.
+artifactFiles :: E.MonadThrow m => Artifact PomData -> m [(Path Rel File, Path Rel File)]
+artifactFiles art@Artifact{..} = do
+    let PomData{..} = artMetadata
+    outDir <- parseRelDir $ unpack $
+        T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# pomVersion #"/"
+    let ostxt =  if getPlatformDependent artPlatformDependent then "-" <> osName else ""
+    let (directory, name) = splitBazelTarget artTarget
+    directory <- parseRelDir $ unpack directory
+
+    mainArtifactIn <- parseRelFile $ unpack $ mainFileName artReleaseType name
+    mainArtifactOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # mainExt artReleaseType))
+
+    pomFileIn <- parseRelFile (unpack (name <> "_pom.xml"))
+    pomFileOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion #".pom"))
+
+    mbSourceJarIn <- traverse (parseRelFile . unpack) (sourceJarName art)
+    sourceJarOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "-sources" # mainExt artReleaseType))
+
+    pure $
+        [(directory </> mainArtifactIn, outDir </> mainArtifactOut) | shouldRelease artPlatformDependent] <>
+        [(directory </> pomFileIn, outDir </> pomFileOut) | isJar artReleaseType, shouldRelease (PlatformDependent False)] <>
+        [(directory </> sourceJarIn, outDir </> sourceJarOut) | shouldRelease (PlatformDependent False), Just sourceJarIn <- pure mbSourceJarIn]
+
+shouldRelease :: PlatformDependent -> Bool
+shouldRelease (PlatformDependent b) = b || osName == "linux"
+
+
+copyToReleaseDir :: (MonadLogger m, MonadIO m) => BazelLocations -> Path Abs Dir -> Path Rel File -> Path Rel File -> m ()
+copyToReleaseDir BazelLocations{..} releaseDir inp out = do
+    binExists <- doesFileExist (bazelBin </> inp)
+    let absIn | binExists = bazelBin </> inp
+              | otherwise = bazelGenfiles </> inp
+    let absOut = releaseDir </> out
+    $logInfo ("Copying " <> pathToText absIn <> " to " <> pathToText absOut)
+    createDirIfMissing True (parent absOut)
+    copyFile absIn absOut
 
 -- | the function below takes a text representation since we can can pass
 -- various stuff when releasing versions locally
-
-type BazelTarget = Text
 -- --------------------------------------------------------------------
 
 -- release files data for artifactory
 type ReleaseDir = Path Abs Dir
-type ReleaseArtifact = Path Rel File
-
-data ReleaseType =
-     TarGz
-   | Jar{jarPrefix :: Text, jarOnly3rdPartyDependencies :: Bool}
-   | DeployJar
-   | ProtoJar
-   -- ^ use this only for java_proto_library targets with _only one dep_, that is, targets
-   -- that only produce a single jar.
-   | Zip
-   deriving (Eq, Show)
 
 isJar :: ReleaseType -> Bool
 isJar t =
     case t of
         Jar{} -> True
-        ProtoJar -> True
-        DeployJar -> True
         _ -> False
 
-plainJar, libJar :: ReleaseType
-plainJar = Jar "" False
-libJar = Jar "lib" False
-
-bintrayTargetLocation :: Component -> TextVersion -> Text
-bintrayTargetLocation comp version =
-    let package = case comp of
-          SdkComponent -> "sdk-components"
-          SdkMetadata -> "sdk"
-    in "digitalassetsdk/DigitalAssetSDK/" # package # "/" # version
+bintrayTargetLocation :: BintrayPackage -> TextVersion -> Text
+bintrayTargetLocation pkg version =
+    let pkgName = case pkg of
+          PkgSdkComponents -> "sdk-components"
+          PkgSdk -> "sdk"
+    in "digitalassetsdk/DigitalAssetSDK/" # pkgName # "/" # version
 
 releaseToBintray ::
      MonadCI m
   => PerformUpload
   -> ReleaseDir
-  -> [(Component, TextVersion, ReleaseArtifact)]
+  -> [(Artifact PomData, Path Rel File)]
   -> m ()
 releaseToBintray upload releaseDir artifacts = do
-  for_ artifacts $ \(comp, version, artifact) -> do
-    let sourcePath = pathToText (releaseDir </> artifact)
-    let targetLocation = bintrayTargetLocation comp version
-    let targetPath = pathToText artifact
+  for_ artifacts $ \(Artifact{..}, location) -> do
+    let sourcePath = pathToText (releaseDir </> location)
+    let targetLocation = bintrayTargetLocation artBintrayPackage (pomVersion artMetadata)
+    let targetPath = pathToText location
     let msg = "Uploading "# sourcePath #" to target location "# targetLocation #" and target path "# targetPath
     if getPerformUpload upload
         then do
@@ -127,18 +285,11 @@ normalizeGitRev :: MonadCI m => GitRev -> m GitRev
 normalizeGitRev rev =
   T.strip . T.unlines <$> loggedProcess "git" ["rev-parse", rev] C.sourceToList
 
-renderOS :: OS -> Text
-renderOS = \case
-  Linux -> "linux"
-  MacOS -> "osx"
-
-whichOS :: MonadCI m => m OS
-whichOS = do
-  un <- T.strip . T.unlines <$> loggedProcess "uname" [] C.sourceToList
-  case un of
-    "Darwin" -> return MacOS
-    "Linux" -> return Linux
-    _ -> throwIO (CIException ("Unexpected result of uname "# un))
+osName ::  Text
+osName
+  | isWindows = "windows"
+  | isMac = "osx"
+  | otherwise = "linux"
 
 readVersionAt :: MonadCI m => GitRev -> m Version
 readVersionAt rev = do
@@ -152,324 +303,6 @@ readVersionAt rev = do
 gitChangedFiles :: MonadCI m => GitRev -> m [T.Text]
 gitChangedFiles rev =
     loggedProcess "git" ["diff-tree", "--no-commit-id", "--name-only", rev] C.sourceToList
-
--- | as we build artifacts for internal dependencies, we update `MavenDependencies`
--- to contain them.
-type BuildArtifactT = WriterT [(Component, TextVersion, ReleaseArtifact)]
-
-execBuildArtifactT ::
-     Monad m
-  => BuildArtifactT m ()
-  -> m [(Component, TextVersion, ReleaseArtifact)]
-execBuildArtifactT m = execWriterT m
-
-
-artifactName :: ReleaseType -> Text -> Text
-artifactName releaseType target =
-    -- Deploy jars are not built by default so we need to specify them explicitely.
-    case releaseType of
-        DeployJar -> target <> "_deploy.jar"
-        _ -> target
-
-artifactFileName :: ReleaseType -> Text -> Text
-artifactFileName releaseType target =
-    case releaseType of
-        TarGz -> target <> ".tar.gz"
-        Jar{..} -> jarPrefix <> target <> ".jar"
-        DeployJar -> target <> "_deploy.jar"
-        Zip -> target <> ".zip"
-        -- NOTE: we rely on the proto libraries to have only one jar output here,
-        -- which is actually not always the case. specifically, multiple jars are
-        -- generated if a java_proto_library depends on multiple source deps.
-        -- we should mechanically check this somehow. see also comment to 'ProtoJar'
-        ProtoJar -> "lib" <> T.replace "_java" "" target <> "-speed.jar"
-
-readPomData :: FilePath -> IO PomArtifact
-readPomData f = do
-    doc <- XML.readFile XML.def f
-    let c = XML.fromDocument doc
-    let elName name = XML.Name name (Just "http://maven.apache.org/POM/4.0.0") Nothing
-    [artifactId] <- pure $ c XML.$/ (XML.element (elName "artifactId") XML.&/ XML.content)
-    [groupId] <- pure $ c XML.$/ (XML.element (elName "groupId") XML.&/ XML.content)
-    [version] <- pure $ c XML.$/ (XML.element (elName "version") XML.&/ XML.content)
-    pure $ PomArtifact
-        { pomArtGroupId = T.split (== '.') groupId
-        , pomArtArtifactId = artifactId
-        , pomArtClassifier = Nothing
-        , pomArtVersion = version
-        }
-
-buildArtifact ::
-     MonadCI m
-  => PlatformDependent
-  -> OS
-  -> Component
-  -> ReleaseType
-  -> ReleaseDir
-  -> BazelTarget
-  -> ArtifactLocation
-  -> BuildArtifactT m ()
-buildArtifact platfDep os comp releaseType releaseDir targ artLocation = do
-  -- we look for the bazel outputs in bazelBin and bazelGenfiles
-  bazelBin <- lift $
-    parseAbsDir =<<
-    (T.unpack . T.strip . T.unlines <$> loggedProcess "bazel" ["info", "bazel-bin"] C.sourceToList)
-  bazelGenfiles <- lift $
-    parseAbsDir =<<
-    (T.unpack . T.strip . T.unlines <$> loggedProcess "bazel" ["info", "bazel-genfiles"] C.sourceToList)
-
-  let ostxt = if getPlatformDependent platfDep then "-" <> renderOS os else ""
-  (directory, name) <- case T.split (':' ==) <$> T.stripPrefix "//" targ of
-    Just [x, y] -> return (x, y)
-    _ -> throwIO $ CIException $ "malformed bazel target: " <> targ
-  directory' <- parseRelDir (T.unpack directory)
-  $logInfo $ "Building " <> targ
-  lift $ loggedProcess_ "bazel" $
-      ["build", artifactName releaseType targ] <>
-      [targ <> "_pom" | isJar releaseType]
-
-  pomFileName <- parseRelFile (unpack (name <> "_pom.xml"))
-  let pomFile = bazelBin </> directory' </> pomFileName
-  PomArtifact gid aid _ vers <-
-      case artLocation of
-          Declared p -> pure p
-          FetchFromPom -> liftIO $ readPomData (unpack $ pathToText pomFile)
-
-  outDir <- parseRelDir $ unpack $
-    T.intercalate "/" gid #"/"# aid #"/"# vers #"/"
-  createDirIfMissing True (releaseDir </> outDir)
-  let tellArtifact platfDep' fp =
-          -- NOTE(MH): We release the platform _independent_ artifacts on Linux,
-          -- in particular .pom files.
-          when (getPlatformDependent platfDep' || os == Linux) $
-              tell [(comp, vers, outDir </> fp)]
-  -- the main artifact has the same structure for all release types.
-  let ext = case releaseType of
-        TarGz -> ".tar.gz"
-        Jar{}  -> ".jar"
-        Zip -> ".zip"
-        ProtoJar -> ".jar"
-        DeployJar -> ".jar"
-  mainArtifactOut <- parseRelFile (unpack (aid #"-"# vers # ostxt # ext))
-  -- for many targets, the file we're looking for is the same
-  let normalArtifactRelFile = (directory' </>) <$> parseRelFile (T.unpack $ artifactFileName releaseType name)
-  -- common function to tell an artifact given some relative file
-  let copyAndTellArtifact platfDep_ (relFile :: Path Rel File) out = do
-        artInBin <- doesFileExist (bazelBin </> relFile)
-        let absFile = if artInBin then bazelBin </> relFile else bazelGenfiles </> relFile
-        absFileExists <- doesFileExist absFile
-        unless absFileExists $
-          throwIO (CIException ("Could not find "# pathToText relFile #" in "# pathToText bazelBin #" or "# pathToText bazelGenfiles))
-        tellArtifact platfDep_ out
-        copyFile absFile (releaseDir </> outDir </> out)
-  -- for jars and proto jars, we factor out how to release the pom
-  let releasePom = do
-        outPom <- parseRelFile (unpack (aid #"-"# vers #".pom"))
-        let pomPath = releaseDir </> outDir </> outPom
-        $logInfo ("Writing pom file to "# pathToText pomPath)
-        copyFile pomFile pomPath
-        tellArtifact (PlatformDependent False) outPom
-  relFile <- normalArtifactRelFile
-  copyAndTellArtifact platfDep relFile mainArtifactOut
-  when (isJar releaseType) releasePom
-  case releaseType of
-    Jar{} -> do
-      let srcTarget = "//"# directory #":lib"# name #"-src.jar"
-      srcTargetExists <- lift (targetExists srcTarget)
-      when srcTargetExists $ do
-        $logInfo ("Building " <> srcTarget)
-        lift (loggedProcess_ "bazel" ["build", srcTarget])
-        relSrcFile <- (</>)
-          <$> parseRelDir (T.unpack directory)
-          <*> parseRelFile (T.unpack ("lib"# name #"-src.jar"))
-        srcOut <- parseRelFile (unpack (aid #"-"# vers # ostxt # "-sources"# ext))
-        copyAndTellArtifact (PlatformDependent False) relSrcFile srcOut
-    _ -> pure ()
-  where
-    targetExists :: MonadCI m => Text -> m Bool
-    targetExists target = do
-      mbErr <- E.try (loggedProcess_ "bazel" ["query", target])
-      case mbErr of
-        Left (_ :: Proc.ProcessExitedUnsuccessfully) -> return False
-        Right () -> return True
-
-buildAllComponents ::
-     MonadCI m
-  => ReleaseDir
-  -> OS
-  -> TextVersion
-  -> TextVersion
-  -> m [(Component, TextVersion, ReleaseArtifact)]
-buildAllComponents releaseDir os sdkVersion compVersion = execBuildArtifactT $ do
-          buildArtifact (PlatformDependent True) os SdkComponent TarGz releaseDir
-            "//release:sdk-release-tarball"
-            (Declared $ PomArtifact ["com", "digitalasset"] "sdk-tarball" Nothing compVersion)
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//daml-lf/archive:daml_lf_archive_java"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//daml-lf/data:data"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkMetadata TarGz releaseDir
-            "//release:sdk-metadata-tarball"
-            (Declared $ PomArtifact ["com", "digitalasset"] "sdk" Nothing sdkVersion)
-          buildArtifact (PlatformDependent True) os SdkComponent TarGz releaseDir
-            "//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist"
-            (Declared $ PomArtifact ["com", "digitalasset"] "damlc" Nothing compVersion)
-          buildArtifact (PlatformDependent True) os SdkComponent DeployJar releaseDir
-            "//daml-foundations/daml-tools/damlc-jar:damlc_jar"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent TarGz releaseDir
-            "//daml-foundations/daml-tools/daml-extension:dist"
-            (Declared $ PomArtifact ["com", "digitalasset"] "daml-extension" Nothing compVersion)
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//daml-lf/archive:daml_lf_archive_scala"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent Zip releaseDir
-            "//daml-lf/archive:daml_lf_archive_protos_zip"
-            (Declared $ PomArtifact ["com", "digitalasset"] "daml-lf-archive-protos" Nothing compVersion)
-          buildArtifact (PlatformDependent False) os SdkComponent TarGz releaseDir
-            "//daml-lf/archive:daml_lf_archive_protos_tarball"
-            (Declared $ PomArtifact ["com", "digitalasset"] "daml-lf-archive-protos" Nothing compVersion)
-          buildArtifact (PlatformDependent False) os SdkComponent ProtoJar releaseDir
-            "//daml-lf/transaction/src/main/protobuf:value_java_proto"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent ProtoJar releaseDir
-            "//daml-lf/transaction/src/main/protobuf:transaction_java_proto"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent ProtoJar releaseDir
-            "//daml-lf/transaction/src/main/protobuf:blindinginfo_java_proto"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//daml-lf/transaction:transaction"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//daml-lf/transaction-scalacheck:transaction-scalacheck"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//daml-lf/lfpackage:lfpackage"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//daml-lf/interface:interface"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//daml-lf/validation:validation"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//daml-lf/interpreter:interpreter"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//daml-lf/scenario-interpreter:scenario-interpreter"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//daml-lf/engine:engine"
-            FetchFromPom
-          -- TODO(MH): Port to bazel!
-          -- buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-          --   "//daml-lf/repl:repl-lib"
-          --   (PomArtifact ["com", "digitalasset"] ("daml-lf-repl-lib_"# scalaVersion) Nothing compVersion) []
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//daml-lf/repl:repl"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//daml-lf/testing-tools:testing-tools"
-            FetchFromPom
-          -- TODO(MH): Port to bazel!
-          -- buildArtifact (PlatformDependent False) os SdkComponent Zip releaseDir
-          --   "//daml-lf/transaction:daml-lf-engine-protos-zip"
-          --   (PomArtifact ["com", "digitalasset"] "daml-lf-engine-protos" Nothing compVersion) []
-          -- TODO(MH): Port to bazel!
-          -- buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-          --   "//daml-lf/transaction:daml-lf-engine-values-java"
-          --   (PomArtifact ["com", "digitalasset"] "daml-lf-engine-values-java" Nothing compVersion) []
-          buildArtifact (PlatformDependent False) os SdkComponent TarGz releaseDir
-            "//ledger-api/grpc-definitions:ledger-api-protos-tarball"
-            (Declared $ PomArtifact ["com", "digitalasset"] "ledger-api-protos" Nothing compVersion)
-          buildArtifact (PlatformDependent False) os SdkComponent libJar releaseDir
-            "//ledger-api/rs-grpc-bridge:rs-grpc-bridge"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent libJar releaseDir
-            "//language-support/java/bindings:bindings-java"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent libJar releaseDir
-            "//language-support/java/bindings-rxjava:bindings-rxjava"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent TarGz releaseDir
-            "//docs:quickstart-java"
-            (Declared $ PomArtifact ["com", "digitalasset", "docs"] "quickstart-java" Nothing compVersion)
-          buildArtifact (PlatformDependent False) os SdkComponent TarGz releaseDir
-            "//ledger/sandbox:sandbox-tarball"
-            (Declared $ PomArtifact ["com", "digitalasset"] "sandbox" Nothing compVersion)
-          buildArtifact (PlatformDependent False) os SdkComponent DeployJar releaseDir
-            "//extractor:extractor-binary"
-            FetchFromPom
-
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar{jarOnly3rdPartyDependencies = True} releaseDir
-            "//ledger-api/grpc-definitions:ledger-api-scalapb"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//ledger-api/testing-utils:testing-utils"
-            FetchFromPom
-
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//language-support/scala/bindings:bindings"
-            FetchFromPom
-
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//ledger-api/rs-grpc-akka:rs-grpc-akka"
-            FetchFromPom
-
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//ledger/ledger-api-akka:ledger-api-akka"
-            FetchFromPom
-
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//scala-protoc-plugins/scala-logging:scala-logging-lib"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//ledger/ledger-api-scala-logging:ledger-api-scala-logging"
-            FetchFromPom
-
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//ledger/backend-api:backend-api"
-            FetchFromPom
-
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//ledger/ledger-api-client:ledger-api-client"
-            FetchFromPom
-
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//ledger/ledger-api-domain:ledger-api-domain"
-            FetchFromPom
-
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//ledger/ledger-api-common:ledger-api-common"
-            FetchFromPom
-
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//ledger/sandbox:sandbox"
-            FetchFromPom
-
-          buildArtifact (PlatformDependent False) os SdkComponent DeployJar releaseDir
-            "//ledger/ledger-api-integration-tests:semantic-test-runner"
-            FetchFromPom
-
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//language-support/scala/codegen:codegen"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//language-support/scala/codegen:codegen-main"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//language-support/scala/bindings-akka:bindings-akka"
-            FetchFromPom
-
-          buildArtifact (PlatformDependent False) os SdkComponent plainJar releaseDir
-            "//language-support/java/codegen:shaded_binary"
-            FetchFromPom
-          buildArtifact (PlatformDependent False) os SdkComponent DeployJar releaseDir
-            "//navigator/backend:navigator-binary"
-            FetchFromPom
 
 versionFile :: Path Rel File
 versionFile = $(mkRelFile "VERSION")
@@ -494,10 +327,6 @@ isReleaseCommit rev = do
                     "Forbidden version bump from " <> renderVersion oldVersion
                     <> " to " <> renderVersion newVersion
         else pure False
-
-slackReleaseMessage :: OS -> TextVersion -> Text
-slackReleaseMessage os sdkVersion =
-  "sdk release ("# renderOS os #"): " # sdkVersion
 
 runFastLoggingT :: LoggingT IO c -> IO c
 runFastLoggingT m = do

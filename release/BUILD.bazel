@@ -7,6 +7,7 @@ da_haskell_binary(
     name = "release",
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
+        "aeson",
         "ansi-terminal",
         "base",
         "bytestring",
@@ -15,6 +16,7 @@ da_haskell_binary(
         "containers",
         "directory",
         "exceptions",
+        "extra",
         "fast-logger",
         "filepath",
         "lifted-async",
@@ -24,6 +26,7 @@ da_haskell_binary(
         "optparse-applicative",
         "path",
         "path-io",
+        "process",
         "safe",
         "safe-exceptions",
         "text",
