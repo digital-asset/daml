@@ -34,9 +34,8 @@ readonly TMPDIR=$(mktemp -d)
 mkdir -p $TMPDIR/sdk-head
 
 tar xzf $TARBALL -C $TMPDIR/sdk-head --strip-components 1
-echo $DAML_HEAD
-DAML_HOME=$DAML_HEAD $TMPDIR/sdk-head/install.sh --quiet
+DAML_HOME=$DAML_HEAD $TMPDIR/sdk-head/install.sh
+mv $DAML_HEAD/bin/{daml,daml-head}
 
 trap - EXIT
-echo "$(tput setaf 3)Successfully installed DA SDK HEAD as version 0.0.0.$(tput sgr 0)"
-echo "Now use daml-head to use it."
+echo "$(tput setaf 3)Successfully installed daml-head command.$(tput sgr 0)"
