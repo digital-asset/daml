@@ -20,7 +20,6 @@ Examples are:
 
 At first, creating a contract triggering this request might seem convenient:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   template OptimizePortfolio
@@ -58,7 +57,6 @@ The DLT domain lends itself to race conditions. How? Multiple parties are concur
 resources (contracts). Here’s an example that’s vulnerable to race conditions: a DvP where a payer allocates their
 asset, a receiver has to allocate their cash and then an operator does the final settlement.
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
    template DvP
@@ -114,7 +112,6 @@ When orchestrating the processing of an obligation, the obligation may go throug
 
 Initially, it might seem that a convenient way to represent this is with a status variable like below:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   data ObligationStatus = ClaimRequested | ClearedFraudDetection | Approved | SentForPayment deriving (Eq, Show)
@@ -127,7 +124,6 @@ Initially, it might seem that a convenient way to represent this is with a statu
 
 Instead, you can break up the obligation into separate contracts for each of the different states.
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   template ClaimRequest

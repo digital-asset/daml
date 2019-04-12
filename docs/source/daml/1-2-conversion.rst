@@ -44,14 +44,12 @@ Previously, lists of ``observer`` and ``signatory`` parties could be separated b
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   signatory issuer; owner
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   signatory issuer, owner
@@ -63,7 +61,6 @@ In DAML 1.2, agreements are no longer a series of lines, but a one-line statemen
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   agreement
@@ -73,7 +70,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   agreement
@@ -87,7 +83,6 @@ Previously, templates could have member functions declared using `def`. Now, you
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   template Foo
@@ -102,7 +97,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   template Foo
@@ -125,7 +119,6 @@ Previously, you used the keyword ``returning`` to specify a choice's return type
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   ChoiceName
@@ -134,7 +127,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   ChoiceName : RetType
@@ -147,7 +139,6 @@ Previously, choice bodies were introduced with ``to`` (then, often, a ``do``). N
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   ChoiceName
@@ -157,7 +148,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   ChoiceName
@@ -172,7 +162,6 @@ The keyword ``anytime`` has been renamed to ``nonconsuming``.
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   controller operator can
@@ -180,7 +169,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   controller operator can
@@ -195,14 +183,12 @@ We recommend adding the template name to the start of the choice.
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   controller operator can Accept
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   controller operator can Cash_Accept
@@ -216,7 +202,6 @@ Consequently you can no longer reuse an argument name from template in one of it
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   template Foo
@@ -230,7 +215,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   template Foo
@@ -249,7 +233,6 @@ Previously, you could do “nested field” punning. Now, you need to explicitly
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   create repoAgreement with
@@ -257,7 +240,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   create repoAgreement with
@@ -288,7 +270,6 @@ Previously, scenarios were introduced using ``test``. You can now remove ``test`
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   test myTest = scenario
@@ -296,7 +277,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   myTest = scenario do
@@ -309,7 +289,6 @@ Change commits and fails to submit and submitMustFail
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   partyA commits updateB
@@ -318,7 +297,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   submit partyA do updateB
@@ -335,14 +313,12 @@ Note that what can be in the party text is more limited now. Only alphanumeric c
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   let exampleParty = 'Example party'
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   exampleParty <- getParty "Example party"
@@ -385,14 +361,12 @@ Time literals have been removed. Instead, use the functions ``date`` and ``time`
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   exampleDate = 1970-01-02T00:00:00Z
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   exampleDate = date 1970 Jan 1
@@ -409,7 +383,6 @@ Replace type names that have changed
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   Integer
@@ -420,7 +393,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   Int
@@ -436,7 +408,6 @@ In DAML 1.2, the primitive type ``Char`` and all of its related functions have b
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   -- Character literal for the character a
@@ -444,7 +415,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   -- Now, use Text instead
@@ -459,7 +429,6 @@ Instead, use a pair/tuple, or define the data type outside the template.
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   controller owner can
@@ -472,7 +441,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   controller owner can
@@ -481,7 +449,6 @@ After:
 
 Or, alternatively, define the data type outside the template:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   data TwoCids = TwoCids with
@@ -497,7 +464,6 @@ Tuple3 is now ``(,,)``.
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   def tsum (t : Tuple2 Integer Integer)
@@ -507,7 +473,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   tsum : (Int, Int) -> Int
@@ -523,7 +488,6 @@ The type of the ``round`` function has changed. Replace it with ``roundBankers``
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   -- using bankers’ rounding mode
@@ -531,7 +495,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   -- rounds away from zero
@@ -579,14 +542,12 @@ Remove does
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   party does action
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   action
@@ -603,7 +564,6 @@ Change how you specify functions (def and fun)
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   def funcName (arg1 : Text) (arg2 : Integer) : Text = ...
@@ -614,7 +574,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   funcName : Text -> Int -> Text
@@ -630,7 +589,6 @@ Change let
 
 ``let`` in ``update`` and `do` blocks is unchanged; it still works like this:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   do
@@ -641,7 +599,6 @@ Change let
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   def foo (x : Integer) : Integer =
@@ -650,7 +607,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   foo : Int -> Int
@@ -670,7 +626,6 @@ Also, the standard library prelude now includes many functions that previously w
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   import DA.Base.List
@@ -678,7 +633,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   import DA.List
@@ -701,7 +655,6 @@ Data types used in a template are now required to support classes ``Eq`` and ``S
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   data Bar = Bar
@@ -710,7 +663,6 @@ Before:
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   data Bar = Bar
@@ -739,14 +691,12 @@ Importing a module where you do not use anything exported by it now gives a warn
 
 Before:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   import Foo
 
 After:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   import Foo()
