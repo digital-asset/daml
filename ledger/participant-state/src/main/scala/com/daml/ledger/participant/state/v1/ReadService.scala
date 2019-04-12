@@ -31,7 +31,7 @@ trait ReadService {
     * to read carefully through the properties required from correct implementations.
     * These properties fall into two categories:
     *
-    * 1. properties about the sequence of [[(UpdateId, Update)]] tuples
+    * 1. properties about the sequence of [[(Offset, Update)]] tuples
     *    in a stream read from the beginning, and
     * 2. properties relating the streams obtained from two separate alls
     *   to [[ReadService.stateUpdates]].
@@ -39,11 +39,11 @@ trait ReadService {
     * The first class of properties are invariants of a single stream:
     *
     * - *strictly increasing [[Offset]]s*:
-    *   for any two consecutive tuples `(o1, u1)` and `(o2,u2)`, `o1` is
+    *   for any two consecutive tuples `(o1, u1)` and `(o2, u2)`, `o1` is
     *   strictly smaller than `o2`.
     *
     * - *initialize before transaction acceptance*: before any
-    *   [[Update.TransactionAccepted]], there are a [[Update.ConfigurationChanged]] update
+    *   [[Update.TransactionAccepted]], there is a [[Update.ConfigurationChanged]] update
     *   and [[Update.PublicPackageUploaded]] updates for all packages referenced by
     *   the [[Update.TransactionAccepted]].
     *
@@ -57,7 +57,7 @@ trait ReadService {
     *   [[Update.TransactionAccepted]] updates with associated [[SubmitterInfo]]
     *   records that agree on the `submitter`, `applicationId` and
     *   `commandId` fields.  This implies that transaction submissions must be
-    *   deduplicated wrt the `(submitter, applicationId, commandId)` tuples.
+    *   deduplicated w.r.t. the `(submitter, applicationId, commandId)` tuples.
     *
     *   TODO (SM): we would like to weaken this requirement to allow multiple
     *   [[Update.TransactionAccepted]] updates provided
@@ -74,7 +74,7 @@ trait ReadService {
     *   transaction with a higher `maximumRecordTime` must be allowed.
     *
     * - *acceptance finality*: if there is a [[Update.TransactionAccepted]] with
-    *   associated [[SubmitterInfo]] `info1`, then for every later
+    *   an associated [[SubmitterInfo]] `info1`, then for every later
     *   [[Update.CommandRejected]] with [[SubmitterInfo]] `info2` that agrees with
     *   `info1` on the `submitter`, `applicationId`, and `commandId` fields,
     *   it holds that the rejection reason is
@@ -105,8 +105,8 @@ trait ReadService {
     * has been rejected. The failure of transactions submissions for which no
     * explicit [[Update.CommandRejected]] message is provided can be detected via
     * [[Update.Heartbeat]]s, as explained in the 'maximum record time enforced'
-    * property above. In that context, it is also such that only the latest [[Update.Heartbeat]]
-    * with the highest record time matters.
+    * property above. In that context, it is also such that only the latest
+    * [[Update.Heartbeat]] with the highest record time matters.
     *
     * Given this intuition for the desired mechanism, we advise participant
     * state implementations to aim to always provide timely
@@ -125,9 +125,9 @@ trait ReadService {
     * `s1 = stateUpdates(o1)` and `s2 = stateUpdates(o2)` for `o1 <= o2` as
     * follows.
     *
-    * - *unique offets*: for any update `u1` with offset `uo` in `s1` and any
-    *   update `u2` with the same offset `uo` in `se2` it holds that `u1 ==
-    *   u2`. This means that offsets can never be reused. Together with
+    * - *unique offsets*: for any update `u1` with offset `uo` in `s1` and any
+    *   update `u2` with the same offset `uo` in `se2` it holds that `u1 == u2`.
+    *   This means that offsets can never be reused. Together with
     *   *strictly increasing [[Offset]]* this also implies that the order of
     *   elements present in both `s1` and `s2` cannot change.
     *
@@ -144,7 +144,7 @@ trait ReadService {
     *
     * Assume that there is
     * - a party `A` hosted at participant `p1`,
-    * - a party * `B` hosted at participant `p2`, and
+    * - a party `B` hosted at participant `p2`, and
     * - an accepted transaction with identifier `tid` evidenced to both participants `p1` and `p2`
     *   in their state update streams after the [[Update.PartyAddedToParticipant]] updates for
     *   `A`, respectively `B`.

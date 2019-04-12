@@ -83,7 +83,7 @@ object Update {
     *   https://docs.daml.com/concepts/ledger-model/ledger-privacy.html
     *   on how these views are computed.
     *
-    *   Note that ledgers with weaker privacy models can decide to forego
+    *   Note that ledgers with weaker privacy models can decide to forgo
     *   projections of transactions and always show the complete
     *   transaction.
     *

@@ -29,7 +29,7 @@ import com.digitalasset.daml.lf.value.Value
   * exposed via the DAML Ledger API. The [[v1.ReadService]] interface contains
   * the one method [[v1.ReadService.stateUpdates]] to read the state of a ledger
   * participant. It represents the participant state as a stream of
-  * [[v1.Update]]s to an initial participant state. The typcial consumer of this
+  * [[v1.Update]]s to an initial participant state. The typical consumer of this
   * method is a class that subscribes to this stream of [[v1.Update]]s and
   * reconstructs (a view of) the actual participant state. See the comments
   * on [[v1.Update]] and [[v1.ReadService.stateUpdates]] for details about the kind
@@ -52,7 +52,7 @@ import com.digitalasset.daml.lf.value.Value
   * possible, we plan to introduce new version of this API in a separate
   * package and maintain it side-by-side with the existing version if
   * possible. There can therefore potentially be multiple versions of
-  * participant state APIs at the smae time. We plan to deprecate and drop old
+  * participant state APIs at the same time. We plan to deprecate and drop old
   * versions on separate and appropriate timelines.
   *
   */
@@ -93,7 +93,7 @@ package object v1 {
     * These [[Int]] values are expected to be positive. Offsets are ordered by
     * lexicographic ordering of the array elements.
     *
-    * A typical usecase for [[Offset]]s would be addressing a transaction in a
+    * A typical use case for [[Offset]]s would be addressing a transaction in a
     * blockchain by `[<blockheight>, <transactionId>]`. Depending on the
     * structure of the underlying ledger these offsets are more or less
     * nested, which is why we use an array of [[Int]]s. The expectation is
