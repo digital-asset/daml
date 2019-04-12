@@ -15,7 +15,7 @@ import qualified Data.Text as T
 data Version
   = V1{versionMinor :: Int}
   | VDev T.Text
-  deriving (Eq, Generic, NFData, Ord, Show, ToJSON)
+  deriving (Eq, Data, Generic, NFData, Ord, Show, ToJSON)
 
 -- | DAML-LF version 1.0.
 version1_0 :: Version
