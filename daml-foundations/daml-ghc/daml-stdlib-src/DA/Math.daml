@@ -5,7 +5,13 @@ daml 1.2
 -- | Math - Utility Math functions for `Int` and `Decimal`
 module DA.Math
 ( Powerable(..)
+, sin
+, cos
+, tan
+, pi
 ) where
+
+import DA.List
 
 infixr 8 ^^
 infixr 8 **
@@ -107,3 +113,76 @@ expInner n t x
       (y, e) = expInner (n + 1.0) (t * x / n) x
       z = 1.0 `e10` (negate e)
     in to36dig (z + x * y / n, e)
+
+-- | `sin` is the sine function
+sin: Decimal -> Decimal
+sin x = snd $ cordic 34 x
+
+-- | `cos` is the cosine function
+cos: Decimal -> Decimal
+cos x = fst $ cordic 34 x
+
+-- | `tan` is the tangent function
+tan: Decimal -> Decimal
+tan x = s / c
+  where
+    (c, s) = cordic 34 x
+
+-- | The number Pi
+pi: () -> Decimal
+pi () = 3.14159265359
+
+-- | `cordic` is an implementation of the CORDIC algorithm.
+-- | `cordic n r == (sin(r), cos(r))` computed to n iterations
+cordic: Int -> Decimal -> (Decimal, Decimal)
+cordic n r 
+  | r < 0.0 = cordic n (r + 2.0 * pi)
+  | r > 2.0 * pi = cordic n (r - 2.0 * pi)
+  | r > pi =
+    let (c, s) = cordic n (r - pi)
+    in (-c, -s)
+  | r > pi / 2.0 =
+    let (c, s) = cordic n (pi - r)
+    in (c, -s)
+  | otherwise =
+    let (c, s) = cordicInner n r (1.0, 0.0) 1.0 angles
+    in (kn * c, kn * s)
+  where
+    pi = 3.14159265359
+    angles =
+      [ 0.78539816339745, 0.46364760900081, 0.24497866312686, 0.12435499454676
+      , 0.06241880999596, 0.03123983343027, 0.01562372862048, 0.00781234106010
+      , 0.00390623013197, 0.00195312251648, 0.00097656218956, 0.00048828121119
+      , 0.00024414062015, 0.00012207031189, 0.00006103515617, 0.00003051757812
+      , 0.00001525878906, 0.00000762939453, 0.00000381469727, 0.00000190734863
+      , 0.00000095367432, 0.00000047683716, 0.00000023841858, 0.00000011920929
+      , 0.00000005960464, 0.00000002980232, 0.00000001490116, 0.00000000745058
+      , 0.0000000037253 , 0.0000000018626 , 0.00000000093132, 0.00000000046566
+      , 0.00000000023283, 0.00000000011642 ]
+  
+    ks = 
+      [ 0.70710678118655, 0.63245553203368, 0.61357199107790, 0.60883391251775
+      , 0.60764825625617, 0.60735177014130, 0.60727764409353, 0.60725911229889
+      , 0.60725447933256, 0.60725332108988, 0.60725303152913, 0.60725295913894
+      , 0.60725294104140, 0.60725293651701, 0.60725293538591, 0.60725293510314
+      , 0.60725293503245, 0.60725293501477, 0.60725293501035, 0.60725293500925
+      , 0.60725293500897, 0.60725293500890, 0.60725293500889, 0.60725293500888 ]
+    kn = if n < 24
+      then ks !! n
+      else last ks
+    
+-- | `cordicInner` implements the inner loop of the CORDIC algorithm
+cordicInner: Int -> Decimal -> (Decimal, Decimal) -> Decimal -> [Decimal] -> (Decimal, Decimal)
+cordicInner n r v pt angles
+  | n == 1 = nv
+  | otherwise = cordicInner (n-1) nr nv npt nangles
+  where
+    (nangles, angle) = case angles of
+      [a] -> ([a / 2.0], a / 2.0)
+      a :: as -> (as, a)
+      _ -> error "empty angles"
+    sigma = if r < 0.0 then negate 1.0 else 1.0
+    f = sigma * pt
+    nv = (fst v - f * snd v, f * fst v + snd v)
+    nr = r - sigma * angle
+    npt = pt / 2.0
