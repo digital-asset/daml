@@ -52,7 +52,7 @@ object LedgerApiServer {
       implicit materializer: ActorMaterializer): LedgerApiServer = {
 
     new LedgerApiServer(
-      { (mat, esf) =>
+      ledgerBackend, { (mat, esf) =>
         services(config, ledgerBackend, timeProvider, optTimeServiceBackend)(mat, esf)
       },
       optResetService,
@@ -182,6 +182,7 @@ object LedgerApiServer {
 }
 
 class LedgerApiServer(
+    ledgerBackend: LedgerBackend,
     services: (ActorMaterializer, ExecutionSequencerFactory) => Iterable[BindableService],
     optResetService: Option[SandboxResetService],
     addressOption: Option[String],
@@ -265,6 +266,7 @@ class LedgerApiServer(
 
   override def close(): Unit = {
     closeAllServices()
+    ledgerBackend.close()
     Option(server).foreach { s =>
       s.shutdownNow()
       s.awaitTermination(10, TimeUnit.SECONDS)

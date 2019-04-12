@@ -98,13 +98,10 @@ trait MultiFixtureBase[FixtureId, TestContext]
     forAllFixtures(fixture => runTest(fixture.context))
 
   protected def forAllFixtures(runTest: TestFixture => Future[Assertion]): Future[Assertion] = {
-    allMatchingFixtures { case f => runTest(f) }
+    forAllMatchingFixtures { case f => runTest(f) }
   }
 
-  // TODO: this method will be useful once we differentiate parity and non-parity instances on the TestContext level.
-  // Since the current TestContext in MultiLedgerTest is a Channel, this is not possible, and I'd change the context in
-  // a follow-up PR
-  protected def allMatchingFixtures(
+  protected def forAllMatchingFixtures(
       runTest: PartialFunction[TestFixture, Future[Assertion]]): Future[Assertion] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val ec = global
