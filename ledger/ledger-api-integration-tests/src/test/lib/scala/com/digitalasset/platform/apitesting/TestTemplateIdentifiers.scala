@@ -99,6 +99,8 @@ final case class TestTemplateIdentifiers(testPackageId: String) {
     Identifier(testPackageId, "Test.Divulgence1", "Test", "Divulgence1")
   val divulgence2 =
     Identifier(testPackageId, "Test.Divulgence2", "Test", "Divulgence2")
+  val decimalRounding =
+    Identifier(testPackageId, "Test.DecimalRounding", "Test", "DecimalRounding")
   val allTemplates =
     List(
       dummy,
