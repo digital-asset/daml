@@ -257,7 +257,7 @@ The Java codegen generates three classes for a DAML template:
       Represents an actual contract on the ledger. It contains a field for the contract ID (of type ``TemplateName.ContractId``) and a field for the template data (of type ``TemplateName``). With the static method ``TemplateName.Contract.fromIdAndRecord``, you can deserialize a `CreatedEvent <https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/CreatedEvent.html>`__ to an instance of ``TemplateName.Contract``.
 
 
-  .. literalinclude:: ./code-snippets/ProductTypes.daml
+  .. literalinclude:: ./code-snippets/Templates.daml
      :language: daml
      :start-after: -- start snippet: template example
      :end-before: -- end snippet: template example

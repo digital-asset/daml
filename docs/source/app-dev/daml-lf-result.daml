@@ -4,12 +4,12 @@
 daml 1.2
 module LfResults where
 
--- start snippet: data for template
+-- start snippet: data from template
 data Iou = Iou { issuer: Party; owner: Party; currency: Text; amount: Decimal }
 -- end code snippet: data from template
 
 
--- start snippet: data for choices
+-- start snippet: data from choices
 data DoNothing = DoNothing {}
 data Transfer = Transfer { newOwner: Party }
 -- end code snippet: data from choices

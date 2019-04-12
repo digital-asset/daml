@@ -227,6 +227,10 @@ parties the commit will fail. For example:
   :language: daml
   :lines: 7-13,15-18
 
+.. literalinclude:: daml-studio/daml/CreateAuthFailure.daml
+  :language: daml
+  :lines: 7-13,15-18
+
 Execution of the example scenario fails due to 'Bob' being a signatory
 in the contract, but not authorizing the create:
 
