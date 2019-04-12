@@ -82,7 +82,10 @@ da_scala_library(
 da_scala_binary(
     name = "extractor-binary",
     main_class = "com.digitalasset.extractor.Main",
-    tags = ["maven_coordinates=com.digitalasset:extractor:__VERSION__"],
+    tags = [
+        "maven_coordinates=com.digitalasset:extractor:__VERSION__",
+        "no_scala_version_suffix",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":extractor",
