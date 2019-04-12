@@ -129,7 +129,10 @@ da_scala_library(
 da_scala_binary(
     name = "navigator-binary",
     main_class = "com.digitalasset.navigator.NavigatorBackend",
-    tags = ["maven_coordinates=com.digitalasset:navigator:__VERSION__"],
+    tags = [
+        "maven_coordinates=com.digitalasset:navigator:__VERSION__",
+        "no_scala_version_suffix",
+    ],
     visibility = [
         "//visibility:public",
     ],
