@@ -146,7 +146,7 @@ In this section, you will run the quickstart application and get introduced to t
       Starting plainText server
       listening on localhost:6865
    
-   The sandbox is now running, and you can access its :ref:`ledger API <ledger-api-introduction>` on port ``6865``.
+   The sandbox is now running, and you can access its :doc:`ledger API </app-dev/ledger-api-introduction/index>` on port ``6865``.
    
    .. note::
 
