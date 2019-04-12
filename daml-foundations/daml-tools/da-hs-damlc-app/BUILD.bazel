@@ -1,85 +1,83 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load ("//bazel_tools:haskell.bzl", "da_haskell_binary")
-load ("//bazel_tools:packaging/packaging.bzl", "package_app")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("//bazel_tools:packaging/packaging.bzl", "package_app")
 
-da_haskell_binary (
-    name = "da-hs-damlc-app"
-  , src_strip_prefix = "src"
-  , srcs = ['src/Main.hs']
-  , deps = [
-    "//daml-foundations/daml-tools/da-hs-daml-cli"
-  ]
-  , hazel_deps = [
-      "base"
-  ]
-  , data = [
-    "//daml-foundations/daml-ghc/package-database:package-db"
-    , "//compiler/scenario-service/server:scenario_service_jar"
-  ]
-  , visibility = ["//visibility:public"]
-  , linkstatic = True
+da_haskell_binary(
+    name = "da-hs-damlc-app",
+    srcs = ["src/Main.hs"],
+    data = [
+        "//compiler/scenario-service/server:scenario_service_jar",
+        "//daml-foundations/daml-ghc/package-database:package-db",
+    ],
+    hazel_deps = [
+        "base",
+    ],
+    linkstatic = True,
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-foundations/daml-tools/da-hs-daml-cli",
+    ],
 )
 
-da_haskell_binary (
-    name = "da-hs-damlc-app-deprecated"
-  , src_strip_prefix = "src"
-  , srcs = ['src/Main.hs']
-  , deps = [
-    "//daml-foundations/daml-tools/da-hs-daml-cli"
-  ]
-  , hazel_deps = [
-      "base"
-  ]
-  , data = [
-    "//daml-foundations/daml-ghc/package-database/deprecated:package-db"
-    , "//compiler/scenario-service/server:scenario_service_jar"
-  ]
-  , visibility = ["//visibility:public"]
-  , linkstatic = True
+da_haskell_binary(
+    name = "da-hs-damlc-app-deprecated",
+    srcs = ["src/Main.hs"],
+    data = [
+        "//compiler/scenario-service/server:scenario_service_jar",
+        "//daml-foundations/daml-ghc/package-database/deprecated:package-db",
+    ],
+    hazel_deps = [
+        "base",
+    ],
+    linkstatic = True,
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-foundations/daml-tools/da-hs-daml-cli",
+    ],
 )
 
-da_haskell_binary (
-    name = "damlc_bootstrap"
-  , src_strip_prefix = "src"
-  , srcs = ['src/Main.hs']
-  , deps = [
-    "//daml-foundations/daml-tools/da-hs-daml-cli"
-  ]
-  , hazel_deps = [
-      "base"
-  ]
-  , visibility = ["//visibility:public"]
+da_haskell_binary(
+    name = "damlc_bootstrap",
+    srcs = ["src/Main.hs"],
+    hazel_deps = [
+        "base",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-foundations/daml-tools/da-hs-daml-cli",
+    ],
 )
-
 
 package_app(
-    name = "damlc-dist"
-  , binary = ":da-hs-damlc-app"
-  , resources = [
-      "//compiler/scenario-service/server:scenario_service_jar"
-    , "//daml-foundations/daml-ghc/package-database:package-db"
-    , "//daml-foundations/daml-ghc/package-database:gen-daml-prim.dar"
-  ]
-  , visibility = ["//visibility:public"]
-  , tags = ["no-cache"]
+    name = "damlc-dist",
+    binary = ":da-hs-damlc-app",
+    resources = [
+        "//compiler/scenario-service/server:scenario_service_jar",
+        "//daml-foundations/daml-ghc/package-database:gen-daml-prim.dar",
+        "//daml-foundations/daml-ghc/package-database:package-db",
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
 )
 
 sh_test(
-    name = "dist-test"
-  , srcs = ["test/check-dist.sh"]
-  , data = [
-      ":damlc-dist.tar.gz"
-    , ":test/Main.daml"
-    , "@tar_nix//:bin/tar"
-    , "@gzip_nix//:bin/gzip"
-  ]
-  , args = [
-      "$(location :damlc-dist.tar.gz)"
-    , "$(location :test/Main.daml)"
-    , "$(location @tar_nix//:bin/tar)"
-    , "$(location @gzip_nix//:bin/gzip)"
-  ]
+    name = "dist-test",
+    srcs = ["test/check-dist.sh"],
+    args = [
+        "$(location :damlc-dist.tar.gz)",
+        "$(location :test/Main.daml)",
+        "$(location @tar_nix//:bin/tar)",
+        "$(location @gzip_nix//:bin/gzip)",
+    ],
+    data = [
+        ":damlc-dist.tar.gz",
+        ":test/Main.daml",
+        "@gzip_nix//:bin/gzip",
+        "@tar_nix//:bin/tar",
+    ],
 )
-

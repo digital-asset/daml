@@ -2,45 +2,43 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  "//bazel_tools/client_server_test:client_server_test.bzl",
-  "client_server_test"
+    "//bazel_tools/client_server_test:client_server_test.bzl",
+    "client_server_test",
 )
-
 load(
-  "//bazel_tools:scala.bzl",
-  "da_scala_binary",
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
 )
 
 sh_binary(
-  name = "client",
-  srcs = ["client.sh"],
+    name = "client",
+    srcs = ["client.sh"],
 )
 
 exports_files(["client_input_file"])
 
 da_scala_binary(
-  name = "server",
-  main_class = "Main",
-  srcs = ["server.scala"],
-  deps = [
-    "//3rdparty/jvm/com/github/scopt:scopt",
-  ],
+    name = "server",
+    srcs = ["server.scala"],
+    main_class = "Main",
+    deps = [
+        "//3rdparty/jvm/com/github/scopt",
+    ],
 )
 
 client_server_test(
-  name = "test",
-  client = ":client",
-  client_args = [
-    "--foobar",
-    # Use the input file passed in via `data`.
-    "$(location :client_input_file)"
-  ],
-  server = ":server",
+    name = "test",
+    timeout = "short",
+    client = ":client",
+    client_args = [
+        "--foobar",
+        # Use the input file passed in via `data`.
+        "$(location :client_input_file)",
+    ],
 
-  # Data files available to both client and server.
-  data = [
-    ":client_input_file"
-  ],
-  timeout="short",
+    # Data files available to both client and server.
+    data = [
+        ":client_input_file",
+    ],
+    server = ":server",
 )
-

@@ -13,41 +13,41 @@ proto_library(
 proto_gen(
     name = "sample-service-scalapb-sources",
     srcs = [":sample-service-proto"],
-    plugin_name = "scalapb",
     plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_name = "scalapb",
     plugin_options = ["grpc"],
     visibility = [
-        '//visibility:public',
-    ]
+        "//visibility:public",
+    ],
 )
 
 scalapb_deps = [
-    '//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime',
-    '//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime_grpc',
-    '//3rdparty/jvm/com/google/protobuf:protobuf_java',
-    '//3rdparty/jvm/io/grpc:grpc_stub',
-    '//3rdparty/jvm/io/grpc:grpc_protobuf',
-    '//3rdparty/jvm/com/thesamet/scalapb:lenses',
+    "//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime",
+    "//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime_grpc",
+    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+    "//3rdparty/jvm/io/grpc:grpc_stub",
+    "//3rdparty/jvm/io/grpc:grpc_protobuf",
+    "//3rdparty/jvm/com/thesamet/scalapb:lenses",
 ]
 
 scala_library(
     name = "sample-service-scalapb",
     srcs = [":sample-service-scalapb-sources"],
-    deps = scalapb_deps
+    deps = scalapb_deps,
 )
 
 da_scala_library(
     name = "sample-service",
-    srcs = glob(['src/**/*.scala']),
+    srcs = glob(["src/**/*.scala"]),
+    visibility = [
+        "//visibility:public",
+    ],
     exports = [
-        ':sample-service-scalapb'
+        ":sample-service-scalapb",
     ],
     deps = [
-        ':sample-service-scalapb',
+        ":sample-service-scalapb",
         "//3rdparty/jvm/org/scalatest:scalatest",
-        '//ledger-api/testing-utils:testing-utils',
+        "//ledger-api/testing-utils:testing-utils",
     ] + scalapb_deps,
-    visibility = [
-        '//visibility:public',
-    ]
 )

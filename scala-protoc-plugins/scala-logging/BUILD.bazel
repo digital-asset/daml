@@ -1,7 +1,7 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_binary")
+load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
 
 da_scala_binary(
     name = "compiler_plugin",
@@ -13,25 +13,24 @@ da_scala_binary(
     ],
     deps = [
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        '//3rdparty/jvm/com/thesamet/scalapb:protoc_bridge',
-        '//3rdparty/jvm/com/thesamet/scalapb:compilerplugin',
+        "//3rdparty/jvm/com/thesamet/scalapb:compilerplugin",
+        "//3rdparty/jvm/com/thesamet/scalapb:protoc_bridge",
     ],
 )
 
 da_scala_library(
     name = "scala-logging-lib",
     srcs = glob(["lib/*.scala"]),
+    tags = ["maven_coordinates=com.digitalasset.ledger-api:scala-logging-lib:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
     deps = [
         "//3rdparty/jvm/io/grpc:grpc_core",
         "//3rdparty/jvm/io/grpc:grpc_stub",
-        '//3rdparty/jvm/org/slf4j:slf4j_api',
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
     ],
-    visibility = [
-        '//visibility:public',
-    ],
-    tags = ["maven_coordinates=com.digitalasset.ledger-api:scala-logging-lib:__VERSION__"],
 )
-
 
 # From https://github.com/stackb/rules_proto/blob/3f890f5d6774bd74df28e89b20f34155dfe77732/scala/BUILD.bazel#L78-L97
 # Curiously this didn't work

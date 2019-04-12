@@ -3,22 +3,22 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
 
-da_haskell_library (
-    name = "da-hs-pretty"
-  , src_strip_prefix = "src"
-  , srcs = glob (["src/**/*.hs"])
-  , deps = [
-      "//libs-haskell/da-hs-base"
-    , "//libs-haskell/prettyprinter-syntax"
-  ]
-  , hazel_deps = [
-      "ansi-terminal",
-      "base",
-      "base64-bytestring",
-      "blaze-html",
-      "bytestring",
-      "pretty",
-      "text",
-    ]
-  , visibility = ["//visibility:public"]
-  )
+da_haskell_library(
+    name = "da-hs-pretty",
+    srcs = glob(["src/**/*.hs"]),
+    hazel_deps = [
+        "ansi-terminal",
+        "base",
+        "base64-bytestring",
+        "blaze-html",
+        "bytestring",
+        "pretty",
+        "text",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/prettyprinter-syntax",
+    ],
+)

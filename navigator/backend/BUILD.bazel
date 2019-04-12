@@ -2,18 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  '//bazel_tools:scala.bzl',
-  'da_scala_library',
-  'da_scala_binary',
-  'da_scala_test_suite',
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
 )
 
 common_scalacopts = [
-  '-Xelide-below', 'CONFIG',
+    "-Xelide-below",
+    "CONFIG",
 ]
 
 common_jvm_flags = [
-  '-Xmx2G',
+    "-Xmx2G",
 ]
 
 # All frontend resource files.
@@ -21,134 +22,143 @@ common_jvm_flags = [
 # a java_import, so that it is a valid target for the 'resources' property of
 # scala_binary.
 java_import(
-  name = "frontend-resources",
-  jars = [
-    "//navigator/frontend:frontend.jar",
-  ],
+    name = "frontend-resources",
+    jars = [
+        "//navigator/frontend:frontend.jar",
+    ],
 )
 
 # Version file, as a top level resources.
 java_library(
-  name = "version-resource",
-  resources = [
-    '//:component-version',
-  ],
+    name = "version-resource",
+    resources = [
+        "//:component-version",
+    ],
 )
 
 # Revision file, as a top level resources.
 java_library(
-  name = "revision-resource",
-  resources = [
-    '//:git-revision',
-  ],
+    name = "revision-resource",
+    resources = [
+        "//:git-revision",
+    ],
 )
 
 # Fake git revision, using SHA-1 of the empty string
 # Used in tests, to make sure we don't rerun tests on every commit.
 genrule(
-  name = "test-revision",
-  srcs = [],
-  outs = [".git-revision"],
-  cmd = "echo \"da39a3ee5e6b4b0d3255bfef95601890afd80709\" > \"$@\"",
+    name = "test-revision",
+    srcs = [],
+    outs = [".git-revision"],
+    cmd = "echo \"da39a3ee5e6b4b0d3255bfef95601890afd80709\" > \"$@\"",
 )
 
 # Fake git revision file, as a top level resource.
 # Used in tests, to make sure we don't rerun tests on every commit.
 java_library(
-  name = "test-revision-resource",
-  resources = [
-    ':test-revision',
-  ],
-  resource_strip_prefix = "navigator/backend"
+    name = "test-revision-resource",
+    resource_strip_prefix = "navigator/backend",
+    resources = [
+        ":test-revision",
+    ],
 )
 
 # Static backend resources.
 java_library(
-  name = "backend-resources",
-  resources = glob(["src/main/resources/**/*"]),
+    name = "backend-resources",
+    resources = glob(["src/main/resources/**/*"]),
 )
 
 compileDependencies = [
-  '//daml-lf/archive:daml_lf_archive_scala',
-  '//daml-lf/archive:daml_lf_java_proto',
-  '//daml-lf/data',
-  '//daml-lf/interface',
-  '//ledger-api/rs-grpc-bridge',
-  '//ledger-api/rs-grpc-akka',
-  '//language-support/scala/bindings',
-  '//ledger/ledger-api-client',
-  '//3rdparty/jvm/com/github/pureconfig:pureconfig',
-  '//3rdparty/jvm/com/github/scopt:scopt',
-  '//3rdparty/jvm/com/typesafe/akka:akka_http',
-  '//3rdparty/jvm/com/typesafe/akka:akka_http_spray_json',
-  '//3rdparty/jvm/com/typesafe/akka:akka_slf4j',
-  '//3rdparty/jvm/ch/qos/logback:logback_classic',
-  '//3rdparty/jvm/com/typesafe/scala_logging',
-  '//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static',
-  '//3rdparty/jvm/io/netty:netty_handler',
-  '//3rdparty/jvm/io/grpc:grpc_netty',
-  '//3rdparty/jvm/org/sangria_graphql:sangria',
-  '//3rdparty/jvm/org/sangria_graphql:sangria_spray_json',
-  '//3rdparty/jvm/org/scalaz:scalaz_core',
-  '//3rdparty/jvm/org/jline:jline',
-  '//3rdparty/jvm/org/jline:jline_reader',
-  '//3rdparty/jvm/org/scala_lang/modules:scala_parser_combinators',
-  '//3rdparty/jvm/org/gnieh:diffson_spray_json',
-  '//3rdparty/jvm/org/tpolecat:doobie_core',
-  '//3rdparty/jvm/org/xerial:sqlite_jdbc',
+    "//daml-lf/archive:daml_lf_archive_scala",
+    "//daml-lf/archive:daml_lf_java_proto",
+    "//daml-lf/data",
+    "//daml-lf/interface",
+    "//ledger-api/rs-grpc-bridge",
+    "//ledger-api/rs-grpc-akka",
+    "//language-support/scala/bindings",
+    "//ledger/ledger-api-client",
+    "//3rdparty/jvm/com/github/pureconfig:pureconfig",
+    "//3rdparty/jvm/com/github/scopt:scopt",
+    "//3rdparty/jvm/com/typesafe/akka:akka_http",
+    "//3rdparty/jvm/com/typesafe/akka:akka_http_spray_json",
+    "//3rdparty/jvm/com/typesafe/akka:akka_slf4j",
+    "//3rdparty/jvm/ch/qos/logback:logback_classic",
+    "//3rdparty/jvm/com/typesafe/scala_logging",
+    "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",
+    "//3rdparty/jvm/io/netty:netty_handler",
+    "//3rdparty/jvm/io/grpc:grpc_netty",
+    "//3rdparty/jvm/org/sangria_graphql:sangria",
+    "//3rdparty/jvm/org/sangria_graphql:sangria_spray_json",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//3rdparty/jvm/org/jline:jline",
+    "//3rdparty/jvm/org/jline:jline_reader",
+    "//3rdparty/jvm/org/scala_lang/modules:scala_parser_combinators",
+    "//3rdparty/jvm/org/gnieh:diffson_spray_json",
+    "//3rdparty/jvm/org/tpolecat:doobie_core",
+    "//3rdparty/jvm/org/xerial:sqlite_jdbc",
 ]
 
 testDependencies = [
-  ':navigator-library',
-  '//3rdparty/jvm/com/typesafe/akka:akka_http_testkit',
-  '//3rdparty/jvm/org/scalatest:scalatest',
-  '//3rdparty/jvm/org/slf4j:slf4j_simple',
+    ":navigator-library",
+    "//3rdparty/jvm/com/typesafe/akka:akka_http_testkit",
+    "//3rdparty/jvm/org/scalatest:scalatest",
+    "//3rdparty/jvm/org/slf4j:slf4j_simple",
 ] + compileDependencies
 
 da_scala_library(
-  name = 'navigator-library',
-  deps = compileDependencies,
-  srcs = glob([
-    'src/main/scala/com/digitalasset/navigator/**/*.scala'
-  ]),
+    name = "navigator-library",
+    srcs = glob([
+        "src/main/scala/com/digitalasset/navigator/**/*.scala",
+    ]),
+    deps = compileDependencies,
 )
 
 da_scala_library(
-  name = "navigator-tests-library",
-  srcs = glob(['src/test/**/*.scala'], exclude = ['src/test/**/*Spec.scala', 'src/test/**/*Test.scala']),
-  deps = testDependencies,
+    name = "navigator-tests-library",
+    srcs = glob(
+        ["src/test/**/*.scala"],
+        exclude = [
+            "src/test/**/*Spec.scala",
+            "src/test/**/*Test.scala",
+        ],
+    ),
+    deps = testDependencies,
 )
 
 da_scala_binary(
-  name = 'navigator-binary',
-  deps = [
-    ':navigator-library',
-    ':frontend-resources',
-    ':version-resource',
-    ':revision-resource',
-    ':backend-resources',
-  ],
-  main_class = 'com.digitalasset.navigator.NavigatorBackend',
-  visibility = [
-    '//visibility:public',
-  ],
-  tags = ["maven_coordinates=com.digitalasset:navigator:__VERSION__"],
+    name = "navigator-binary",
+    main_class = "com.digitalasset.navigator.NavigatorBackend",
+    tags = ["maven_coordinates=com.digitalasset:navigator:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":backend-resources",
+        ":frontend-resources",
+        ":navigator-library",
+        ":revision-resource",
+        ":version-resource",
+    ],
 )
 
 # Static test resources.
 java_library(
-  name = "test-resources",
-  resources = glob(["src/test/resources/**/*"]),
+    name = "test-resources",
+    resources = glob(["src/test/resources/**/*"]),
 )
 
 da_scala_test_suite(
-  name = "navigator-scala-tests",
-  srcs = glob(['src/test/**/*Spec.scala', 'src/test/**/*Test.scala']),
-  deps = [
-      ":navigator-tests-library",
-      ":test-resources",
-      ':version-resource',
-      ":test-revision-resource",
-  ] + testDependencies,
-  size = "small"
+    name = "navigator-scala-tests",
+    size = "small",
+    srcs = glob([
+        "src/test/**/*Spec.scala",
+        "src/test/**/*Test.scala",
+    ]),
+    deps = [
+        ":navigator-tests-library",
+        ":test-resources",
+        ":version-resource",
+        ":test-revision-resource",
+    ] + testDependencies,
 )

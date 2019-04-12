@@ -2,42 +2,46 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  '//bazel_tools:scala.bzl',
-  'da_scala_library', 'da_scala_test_suite',
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
 )
 
 da_scala_library(
-  name = 'bindings-akka',
-  deps = [
-    '//3rdparty/jvm/ch/qos/logback:logback_classic',
-    '//language-support/scala/bindings',
-    '//language-support/java/bindings:bindings-java',
-    '//ledger-api/rs-grpc-akka',
-    '//ledger/ledger-api-client',
-    '//3rdparty/jvm/com/github/pureconfig:pureconfig',
-    '//3rdparty/jvm/com/typesafe/akka:akka_stream',
-    '//3rdparty/jvm/com/typesafe/scala_logging:scala_logging',
-    '//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static',
-    '//3rdparty/jvm/io/grpc:grpc_netty',
-    '//3rdparty/jvm/io/netty:netty_handler',
-    '//3rdparty/jvm/org/scalaz:scalaz_core',
-  ],
-  plugins = [
-    '//external:jar/org/spire_math/kind_projector_2_12',
-  ],
-  # TODO SC DEL-6727 for old Identifier field, to be removed when TemplateId.unapply changes back
-  # NOTE(JM): commented out deprecation warnings to get this to compile with the
-  # versions matching sbt. Please reenable when deprecations are fixed.
-  # scalacopts = ['-deprecation', '-Xfatal-warnings'],
-  scalacopts = ['-deprecation:false', '-Xfatal-warnings'],
-  runtime_deps = [],
-  exports = [],
-  visibility = [
-    '//visibility:public',
-  ],
-  srcs = glob(['src/main/**/*.scala']),
-  resources = glob(['src/main/resources/**/*']),
-  tags = ["maven_coordinates=com.daml.scala:bindings-akka:__VERSION__"],
+    name = "bindings-akka",
+    srcs = glob(["src/main/**/*.scala"]),
+    plugins = [
+        "//external:jar/org/spire_math/kind_projector_2_12",
+    ],
+    resources = glob(["src/main/resources/**/*"]),
+    # TODO SC DEL-6727 for old Identifier field, to be removed when TemplateId.unapply changes back
+    # NOTE(JM): commented out deprecation warnings to get this to compile with the
+    # versions matching sbt. Please reenable when deprecations are fixed.
+    # scalacopts = ['-deprecation', '-Xfatal-warnings'],
+    scalacopts = [
+        "-deprecation:false",
+        "-Xfatal-warnings",
+    ],
+    tags = ["maven_coordinates=com.daml.scala:bindings-akka:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    exports = [],
+    runtime_deps = [],
+    deps = [
+        "//3rdparty/jvm/ch/qos/logback:logback_classic",
+        "//3rdparty/jvm/com/github/pureconfig",
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/com/typesafe/scala_logging",
+        "//3rdparty/jvm/io/grpc:grpc_netty",
+        "//3rdparty/jvm/io/netty:netty_handler",
+        "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//language-support/java/bindings:bindings-java",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-akka",
+        "//ledger/ledger-api-client",
+    ],
 )
 
 # Sources that do not define test-cases but utilities
@@ -46,68 +50,70 @@ da_scala_library(
 # Consider moving these files into a separate sub-directory
 # to enable source globbing for them.
 testing_utils = [
-  'src/test/scala/com/digitalasset/ledger/client/binding/SandboxBinding.scala',
+    "src/test/scala/com/digitalasset/ledger/client/binding/SandboxBinding.scala",
 ]
 
 da_scala_library(
-  name = 'bindings-akka-testing',
-  deps = [
-    '//3rdparty/jvm/ch/qos/logback:logback_classic',
-    '//language-support/scala/bindings',
-    '//ledger/ledger-api-client',
-    '//3rdparty/jvm/com/github/pureconfig:pureconfig',
-    '//3rdparty/jvm/com/typesafe/akka:akka_stream',
-    '//3rdparty/jvm/com/typesafe/akka:akka_stream_testkit',
-    '//3rdparty/jvm/com/typesafe/scala_logging:scala_logging',
-    '//3rdparty/jvm/org/scalacheck:scalacheck',
-    '//3rdparty/jvm/org/scalatest:scalatest',
-    '//language-support/scala/bindings-akka-testing',
-    '//language-support/scala/sandbox-control',
-    '//3rdparty/jvm/io/grpc:grpc_netty',
-    '//3rdparty/jvm/io/netty:netty_handler',
-    '//ledger-api/rs-grpc-bridge',
-    ':bindings-akka',
-  ],
-  plugins = [
-    '//external:jar/org/spire_math/kind_projector_2_12',
-  ],
-  runtime_deps = [],
-  exports = [],
-  visibility = [
-    '//visibility:public',
-  ],
-  srcs = testing_utils,
+    name = "bindings-akka-testing",
+    srcs = testing_utils,
+    plugins = [
+        "//external:jar/org/spire_math/kind_projector_2_12",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    exports = [],
+    runtime_deps = [],
+    deps = [
+        ":bindings-akka",
+        "//3rdparty/jvm/ch/qos/logback:logback_classic",
+        "//3rdparty/jvm/com/github/pureconfig",
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream_testkit",
+        "//3rdparty/jvm/com/typesafe/scala_logging",
+        "//3rdparty/jvm/io/grpc:grpc_netty",
+        "//3rdparty/jvm/io/netty:netty_handler",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka-testing",
+        "//language-support/scala/sandbox-control",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-client",
+    ],
 )
 
 da_scala_test_suite(
-  name = 'tests',
-  deps = [
-    '//3rdparty/jvm/ch/qos/logback:logback_classic',
-    '//language-support/scala/bindings',
-    '//ledger/ledger-api-client',
-    '//ledger-api/rs-grpc-bridge',
-    '//language-support/java/bindings:bindings-java',
-    '//3rdparty/jvm/com/github/pureconfig:pureconfig',
-    '//3rdparty/jvm/com/typesafe/akka:akka_stream',
-    '//3rdparty/jvm/com/typesafe/akka:akka_stream_testkit',
-    '//3rdparty/jvm/com/typesafe/scala_logging:scala_logging',
-    '//3rdparty/jvm/org/scalacheck:scalacheck',
-    '//3rdparty/jvm/org/scalatest:scalatest',
-    '//3rdparty/jvm/org/scalaz:scalaz_core',
-    '//language-support/scala/bindings-akka-testing',
-    '//language-support/scala/sandbox-control',
-    ':bindings-akka',
-    ':bindings-akka-testing',
-  ],
-  runtime_deps = [],
-  visibility = [
-    '//visibility:public',
-  ],
-  srcs = glob([
-    'src/test/**/*.scala'
-  ], exclude = testing_utils
-  ),
-  # NOTE(JM): commented out deprecation warnings to get this to compile with the
-  # versions matching sbt. Please remove when deprecations are fixed.
-  scalacopts = ['-deprecation:false'],
+    name = "tests",
+    srcs = glob(
+        [
+            "src/test/**/*.scala",
+        ],
+        exclude = testing_utils,
+    ),
+    # NOTE(JM): commented out deprecation warnings to get this to compile with the
+    # versions matching sbt. Please remove when deprecations are fixed.
+    scalacopts = ["-deprecation:false"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        ":bindings-akka",
+        ":bindings-akka-testing",
+        "//3rdparty/jvm/ch/qos/logback:logback_classic",
+        "//3rdparty/jvm/com/github/pureconfig",
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream_testkit",
+        "//3rdparty/jvm/com/typesafe/scala_logging",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//language-support/java/bindings:bindings-java",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka-testing",
+        "//language-support/scala/sandbox-control",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-client",
+    ],
 )

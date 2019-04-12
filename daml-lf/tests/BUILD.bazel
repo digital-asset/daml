@@ -2,75 +2,75 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  "//rules_daml:daml.bzl",
-  "daml_compile"
+    "//rules_daml:daml.bzl",
+    "daml_compile",
 )
 
 TEST_FILES = \
-  [ "BasicTests"
-  , "AuthorizedDivulgence"
-  , "DontDiscloseNonConsumingChoicesToObservers"
-  , "LargeTransaction"
-  , "ConjunctionChoices"
-  ]
+    [
+        "BasicTests",
+        "AuthorizedDivulgence",
+        "DontDiscloseNonConsumingChoicesToObservers",
+        "LargeTransaction",
+        "ConjunctionChoices",
+    ]
 
 [
-  daml_compile(
-      name = name
-    , main_src = "%s.daml" % name
-    , visibility = ["//daml-lf:__subpackages__"]
-    , target = "1.3"
-    , damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated"
-  )
-  for name in TEST_FILES
+    daml_compile(
+        name = name,
+        damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated",
+        main_src = "%s.daml" % name,
+        target = "1.3",
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for name in TEST_FILES
 ]
 
 daml_compile(
-    name = "Optional"
-  , main_src = "Optional.daml"
-  , target = "1.3"
-  , damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated"
-  , visibility = ["//daml-lf:__subpackages__"]
+    name = "Optional",
+    damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated",
+    main_src = "Optional.daml",
+    target = "1.3",
+    visibility = ["//daml-lf:__subpackages__"],
 )
 
-
 [
-  sh_test(
-    name = name + "-test",
-    srcs = ["daml-lf-test.sh"],
-    size = "small",
-    data = [
-      "//daml-lf/repl:repl",
-      "//daml-foundations/daml-tools/da-hs-damlc-app",
-      ":%s.dalf" % name
-    ],
-    args = [
-      "$(location //daml-lf/repl:repl)",
-      "$(location //daml-foundations/daml-tools/da-hs-damlc-app)",
-      "$(location :%s.dalf)" % name
-    ]
-  )
-  for name in TEST_FILES
+    sh_test(
+        name = name + "-test",
+        size = "small",
+        srcs = ["daml-lf-test.sh"],
+        args = [
+            "$(location //daml-lf/repl:repl)",
+            "$(location //daml-foundations/daml-tools/da-hs-damlc-app)",
+            "$(location :%s.dalf)" % name,
+        ],
+        data = [
+            "//daml-foundations/daml-tools/da-hs-damlc-app",
+            "//daml-lf/repl",
+            ":%s.dalf" % name,
+        ],
+    )
+    for name in TEST_FILES
 ]
 
 [
-  sh_test(
-   name = "test-scenario-1-3-" + file.split("/")[2],
-    srcs = ["scenario/test.sh"],
-    size = "small",
-    data = [
-      "//daml-lf/repl:repl",
-      "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated",
-      "//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf",
-      file,
-      "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),
-    ],
-    args = [
-      "$(location //daml-lf/repl:repl)",
-      "$(location //daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated)",
-      "$(location :%s)" % file,
-      "$(location //daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf)"
-    ]
-  )
-  for file in glob(['scenario/daml-1.3/*/Test.daml'])
+    sh_test(
+        name = "test-scenario-1-3-" + file.split("/")[2],
+        size = "small",
+        srcs = ["scenario/test.sh"],
+        args = [
+            "$(location //daml-lf/repl:repl)",
+            "$(location //daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated)",
+            "$(location :%s)" % file,
+            "$(location //daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf)",
+        ],
+        data = [
+            "//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf",
+            "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated",
+            "//daml-lf/repl",
+            file,
+            "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),
+        ],
+    )
+    for file in glob(["scenario/daml-1.3/*/Test.daml"])
 ]

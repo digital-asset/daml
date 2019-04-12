@@ -15,6 +15,7 @@ eval "$(dev-env/bin/dade-assist)"
 is_test=
 scalafmt_args=()
 dade_copyright_arg=update
+buildifier_target=//:buildifier-fix
 
 ## Functions ##
 
@@ -54,6 +55,7 @@ USAGE
       is_test=1
       scalafmt_args+=(--test)
       dade_copyright_arg=check
+      buildifier_target=//:buildifier
       ;;
     *)
       echo "fmt.sh: unknown argument $1" >&2
@@ -81,3 +83,5 @@ trap - EXIT
 # check for scala code style
 run ./scalafmt.sh "${scalafmt_args[@]}"
 
+# check for Bazel build files code formatting
+run bazel run "$buildifier_target"
