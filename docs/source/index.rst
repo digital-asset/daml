@@ -41,8 +41,8 @@ DAML SDK documentation
    :hidden:
    :caption: Building Applications
 
-   app-dev/app-arch/index
    app-dev/ledger-api-introduction/index
+   app-dev/app-arch
    app-dev/bindings-java/index
    app-dev/daml-lf-translation
 

@@ -335,6 +335,6 @@ The framework handles much of the work of building a state-driven application. I
 
 Full details of the framework are available in the links described in the `Java library <#java>`__ above.
 
-.. |image0| image:: images/BotFlow.png
+.. |image0| image:: app-arch/BotFlow.png
    :width: 6.5in
    :height: 3.69444in

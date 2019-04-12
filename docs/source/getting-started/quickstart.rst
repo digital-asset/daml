@@ -585,7 +585,7 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
 The rest of the application sets up the REST services using `Spark Java <http://sparkjava.com/>`_, and does dynamic package Id detection using the Package Service. The latter is useful during development when package Ids change frequently.
 
-For a discussion of ledger application design and architecture, take a look at :doc:`Application Architecture Guide </app-dev/app-arch/index>`.
+For a discussion of ledger application design and architecture, take a look at :doc:`Application Architecture Guide </app-dev/app-arch>`.
 
 Next steps
 **********
@@ -596,5 +596,5 @@ Some steps you could take next include:
 
 - Explore :doc:`examples </examples/examples>` for guidance and inspiration.
 - :doc:`Learn DAML </daml/reference/index>`.
-- Learn more about :doc:`application development </app-dev/app-arch/index>`.
+- Learn more about :doc:`application development </app-dev/app-arch>`.
 - Learn about the :doc:`conceptual models </concepts/ledger-model/index>` behind DAML and platform.
