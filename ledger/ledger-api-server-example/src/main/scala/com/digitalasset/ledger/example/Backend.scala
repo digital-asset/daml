@@ -92,7 +92,7 @@ class Backend(
     ledger.shutdownTasks()
   }
 
-  override def close(): Unit = {} //TODO: Jussi, is there anything to free up here?
+  override def close(): Unit = {}
 
 }
 
