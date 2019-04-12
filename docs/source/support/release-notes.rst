@@ -6,6 +6,7 @@ Release notes
 
 This page contains release notes for the SDK.
 
+- introducing experimental support for using Postgres as a backend for the Sandbox. The optional CLI argument for it named ``--jdbcurl`` is still hidden. 
 - Node.js Bindings: fixed validation for Ledger API timestamp values
 - Node.js Bindings: drops support for identifier names, replacing them with separated module and entity names
 - Node.js Bindings: use strings instead of numbers to represent Ledger API timestamps and dates
