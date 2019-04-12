@@ -52,6 +52,7 @@ object SandboxApplication {
     // We memoize the engine between resets so we avoid the expensive
     // repeated validation of the sames packages after each reset
     private val engine = Engine()
+
     /** the reset service is special, since it triggers a server shutdown */
     private val resetService: SandboxResetService = new SandboxResetService(
       () => ledgerId,
