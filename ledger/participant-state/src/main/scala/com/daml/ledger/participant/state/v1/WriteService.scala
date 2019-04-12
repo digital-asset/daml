@@ -13,10 +13,9 @@ package com.daml.ledger.participant.state.v1
   * privileges, whose granting is also specific to a ledger.
   *
   * If a ledger is run for testing only, there is the option for quite freely
-  * allowing the on-boarding
-  * of parties and uploading of packages. There are plans to make this
-  * functionality uniformly available: see the roadmap for progress
-  * information https://github.com/digital-asset/daml/issues/121.
+  * allowing the on-boarding of parties and uploading of packages. There are
+  * plans to make this functionality uniformly available: see the roadmap for
+  * progress information https://github.com/digital-asset/daml/issues/121.
   *
   * As of now there is only one method for changing the state of a DAML
   * ledger: submitting a transaction using [[WriteService!.submitTransaction]].
@@ -29,7 +28,7 @@ trait WriteService {
     * This method must be thread-safe, not throw, and not block on IO. It is
     * though allowed to perform significant computation. The expectation is
     * that callers call this method on a thread dedicated to getting this transaction
-    * ready for acceptance to the ledger,which typically requires some
+    * ready for acceptance to the ledger, which typically requires some
     * preparation steps (decomposition, serialization) by the implementation
     * of the [[WriteService]].
     *
