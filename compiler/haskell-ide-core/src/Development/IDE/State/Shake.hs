@@ -181,7 +181,7 @@ setValues :: IdeRule k v
           => Var Values
           -> k
           -> FilePath
-          -> IdeResult v
+          -> Maybe v
           -> IO (Maybe [Diagnostic], [Diagnostic]) -- ^ (before, after)
 setValues state key file val = modifyVar state $ \inVal -> do
     let k = Key key
@@ -340,9 +340,8 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
             (bs, res) <- actionCatch
                 (do v <- op key file; liftIO $ evaluate $ force v) $
                 \(e :: SomeException) -> pure (Nothing, ([ideErrorText file $ T.pack $ show e | not $ isBadDependency e],Nothing))
-            res <- return $ first addDiagnostics res
+            res@((badErrors,_),_) <- return $ first (addDiagnostics file) res
 
-            let badErrors = filter (\d -> null file || _range d == noRange) $ fst res
             when (badErrors /= []) $
                 reportSeriousError $ "Bad errors found for " ++ show (key, file) ++ " got " ++ show badErrors
 
@@ -358,13 +357,6 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
     where
         wrap = maybe BS.empty (BS.cons '_')
         unwrap x = if BS.null x then Nothing else Just $ BS.tail x
-
-
--- | If any diagnostic has the wrong filename, generate a new diagnostic with the right file name
-fixDiagnostic :: FilePath -> Diagnostic -> Diagnostic
-fixDiagnostic x d
-    | dFilePath d == x = d
-    | otherwise = d{dFilePath = x, _range = noRange, _message = T.pack ("Originally reported at " ++ dFilePath d ++ "\n") <> _message d}
 
 
 updateFileDiagnostics ::
