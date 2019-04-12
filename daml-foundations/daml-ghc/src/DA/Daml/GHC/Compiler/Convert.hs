@@ -546,22 +546,19 @@ convertExpr env0 e = do
         = fmap (, args) $ do
         key' <- convertType env key
         tmpl' <- convertQualified env tmpl
-        tuple2Typ <- qGHC_Tuple env (mkTypeCon ["Tuple2"])
         let contractType = TConApp tmpl' []
         let cidType = TContractId contractType
+        let fields = [("contractId", cidType), ("contract", contractType)]
+        (repackStruct, tupleType) <- mkRepackStruct env fields varV2
         pure $ ETmLam (varV1, key') $
           EUpdate $ UBind
             (Binding
-              (varV2, TTuple [(Tagged "contractId", cidType), (Tagged "contract", contractType)])
+              (varV2, TTuple fields)
               (EUpdate (UFetchByKey RetrieveByKey
                 { retrieveByKeyTemplate = tmpl'
                 , retrieveByKeyKey = EVar varV1
                 })))
-            (EUpdate (UPure (TConApp tuple2Typ [cidType, contractType]) (ERecCon
-              (TypeConApp tuple2Typ [cidType, contractType])
-              [ (Tagged "_1", ETupleProj (Tagged "contractId") (EVar varV2))
-              , (Tagged "_2", ETupleProj (Tagged "contract") (EVar varV2))
-              ])))
+            (EUpdate (UPure tupleType repackStruct))
     go env (VarIs "$dminternalLookupByKey") (LType t@(TypeCon tmpl []) : LType key : _dict : args)
         = fmap (, args) $ do
         key' <- convertType env key
@@ -1269,6 +1266,15 @@ mkPure env monad dict t x = do
           `ETmApp` dict'
           `ETyApp` t
           `ETmApp` x
+
+-- | Turn the structural record referenced by `x` into a tuple from `GHC.Tuple`.
+mkRepackStruct :: Env -> [(FieldName, LF.Type)] -> ExprVarName -> ConvertM (LF.Expr, LF.Type)
+mkRepackStruct env fields x = do
+    tupleTyCon <- qGHC_Tuple env (mkTypeCon ["Tuple" ++ show (length fields)])
+    let tupleType = TypeConApp tupleTyCon (map snd fields)
+    pure (ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields, typeConAppToType tupleType)
+  where
+    mkFieldProj i (name, _typ) = (mkField ("_" ++ show i), ETupleProj name (EVar x))
 
 sourceLocToRange :: SourceLoc -> Range
 sourceLocToRange (SourceLoc _ slin scol elin ecol) =
