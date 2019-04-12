@@ -12,13 +12,13 @@ import com.digitalasset.daml_lf.DamlLf
   * [[Update]]'s are used in [[ReadService.stateUpdates]] to communicate
   * changes to abstract participant state to consumers. We describe
   *
-  * We describe the possible updates and their effect in the comments of
+  * We describe the possible updates in the comments of
   * each of the case classes implementing [[Update]].
   *
   */
 sealed trait Update extends Product with Serializable {
 
-  /** Short one-line description of what the state update is about. */
+  /** Short human-readable one-line description summarizing the state updates content. */
   def description: String
 }
 
@@ -39,7 +39,13 @@ object Update {
       s"Configuration changed to: $newConfiguration"
   }
 
-  /** Signal that a party is hosted at this participant. */
+  /** Signal that a party is hosted at this participant.
+    *
+    * As explained in the note on [[ReadService.stateUpdates]], the
+    * state updates are only expected to signal all updates pertaining
+    * to data affecting the parties hosted at the participant.
+    *
+    */
   final case class PartyAddedToParticipant(party: Party) extends Update {
     override def description: String = s"Add party '$party' to participant"
   }

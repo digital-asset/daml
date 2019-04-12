@@ -3,7 +3,10 @@
 
 package com.daml.ledger.participant.state.v1
 
-/** Reasons for rejections */
+/** Reasons for rejections of transaction submission.
+  *
+  * Used to provide details for [[Update.CommandRejected]].
+  */
 sealed trait RejectionReason extends Product with Serializable {
   def description: String
 }
@@ -56,18 +59,18 @@ object RejectionReason {
     *
     * This is used to protect against duplicate submissions of transactions
     * that do not consume any contract; e.g., a transaction creating a
-    * contract. These trasactions can be sometimes submitted twice in case
+    * contract. These transactions can be sometimes submitted twice in case
     * of faults in the submitting application.
     */
   final case object DuplicateCommand extends RejectionReason {
     override def description: String = "Duplicate command"
   }
 
-  /** A party mentioned as a stakeholder or actor has not been onboarded on
+  /** A party mentioned as a stakeholder or actor has not been on-boarded on
     * the ledger.
     *
     * This rejection reason is available for ledger that do require some
-    * explicit onboarding steps for a party to exist; e.g., generating key
+    * explicit on-boarding steps for a party to exist; e.g., generating key
     * material and registering the party with the ledger-wise
     * identity-manager.
     *
@@ -78,7 +81,7 @@ object RejectionReason {
 
   /** The submitter cannot act via this participant.
     *
-    * @param details: details on why the submitter cannot act; e.g., becaues
+    * @param details: details on why the submitter cannot act; e.g., because
     *   it is not hosted on the participant or because its write access to
     *   the ledger has been deactivated.
     *

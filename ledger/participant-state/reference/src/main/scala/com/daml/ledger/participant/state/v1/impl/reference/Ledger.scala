@@ -30,7 +30,9 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.SyncVar
 import scala.concurrent.duration.FiniteDuration
 
-/**
+/** TODO (SM): update/complete comments on this example as part of
+  * https://github.com/digital-asset/daml/issues/388
+  *
   * This is an example (simple) in-memory ledger, which comprises most of the ledger api backend.
   * The ledger here is essentially just a list of LedgerSyncEvents.
   * We also maintain an ephemeral cache of active contracts, to efficiently support queries
