@@ -199,14 +199,11 @@ Records (a.k.a product types)
 
 A :ref:`DAML record <daml-ref-record-types>` is represented by a Java class with fields that have the same name as the DAML record fields. A DAML field having the type of another record is represented as a field having the type of the generated class for that record.
 
-.. code-block:: daml
-  :caption: Com/Acme.daml
-
-  daml 1.2
-  module Com.Acme where
-
-  data Person = Person with name : Name; age : Decimal
-  data Name = Name with firstName : Text; lastName : Text
+.. literalinclude:: ./code-snippets/ProductTypes.daml
+   :language: daml
+   :start-after: -- start snippet: product types example
+   :end-before: -- end snippet: product types example
+   :caption: Com/Acme.daml
 
 A Java file is generated that defines the class for the type ``Person``:
 
@@ -260,22 +257,11 @@ The Java codegen generates three classes for a DAML template:
       Represents an actual contract on the ledger. It contains a field for the contract ID (of type ``TemplateName.ContractId``) and a field for the template data (of type ``TemplateName``). With the static method ``TemplateName.Contract.fromIdAndRecord``, you can deserialize a `CreatedEvent <https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/CreatedEvent.html>`__ to an instance of ``TemplateName.Contract``.
 
 
-  .. code-block:: daml
-    :caption: Com/Acme.daml
-
-    daml 1.2
-    module Com.Acme where
-
-    template Bar
-      with
-        owner: Party
-        name: Text
-
-    controller owner can
-      Bar_SomeChoice: (Bool)
-        with
-          aName: Text
-        do return True
+  .. literalinclude:: ./code-snippets/ProductTypes.daml
+     :language: daml
+     :start-after: -- start snippet: template example
+     :end-before: -- end snippet: template example
+     :caption: Com/Acme.daml
 
 A file is generated that defines three Java classes:
 
