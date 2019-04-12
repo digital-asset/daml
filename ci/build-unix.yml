@@ -61,6 +61,7 @@ steps:
       assets: './daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz'
       assetUploadMode: 'replace'
       addChangeLog: false
+      isDraft: true
   - bash: |
       rm ./daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz
     condition: eq(variables['has_released'], 'true')
