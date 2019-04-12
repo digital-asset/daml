@@ -1,0 +1,15 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module LfResults where
+
+-- start snippet: data for template
+data Iou = Iou { issuer: Party; owner: Party; currency: Text; amount: Decimal }
+-- end code snippet: data from template
+
+
+-- start snippet: data for choices
+data DoNothing = DoNothing {}
+data Transfer = Transfer { newOwner: Party }
+-- end code snippet: data from choices

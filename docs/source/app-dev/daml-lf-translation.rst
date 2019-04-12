@@ -213,9 +213,10 @@ Every contract template defines a record type for the parameters of the contract
 
 results in this record declaration:
 
-.. code-block:: daml
-
-	data Iou = Iou { issuer: Party; owner: Party; currency: Text; amount: Decimal }
+.. literalinclude:: daml-lf-results.daml
+   :language: daml
+   :start-after: -- start snippet: data for template
+   :end-before: -- end snippet: data for template
 
 This translates to the DAML-LF record declaration:
 
@@ -235,10 +236,10 @@ Every choice within a contract template results in a record type for the paramet
 
 This results in these two record types:
 
-.. code-block:: daml
-
-	data DoNothing = DoNothing {}
-	data Transfer = Transfer { newOwner: Party }
+.. literalinclude:: daml-lf-results.daml
+   :language: daml
+   :start-after: -- start snippet: data for choices
+   :end-before: -- end snippet: data for choices
 
 Whether the choice is consuming or nonconsuming is irrelevant to the data type declaration. The data type is a record even if there are no fields.
 
