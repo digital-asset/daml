@@ -105,7 +105,7 @@ cmdTest numProcessors =
     <> fullDesc
   where
     cmd = execTest
-      <$> inputFileOpt
+      <$> many inputFileOpt
       <*> junitOutput
       <*> optionsParser numProcessors optPackageName
     junitOutput = optional $ strOption $
@@ -292,18 +292,18 @@ execPackage filePath opts mbOutFile dumpPom dalfInput = withProjectRoot $ \relat
 
 
 -- | Test a DAML file.
-execTest :: FilePath -> Maybe FilePath -> Compiler.Options -> IO ()
-execTest inFile mbJUnitOutput cliOptions = do
+execTest :: [FilePath] -> Maybe FilePath -> Compiler.Options -> IO ()
+execTest inFiles mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
     opts <- Compiler.mkOptions cliOptions
     -- TODO (MK): For now the scenario service is only started if we have an event logger
     -- so we insert a dummy event logger.
     let eventLogger _ = pure ()
     Managed.with (Compiler.newIdeState opts (Just eventLogger) loggerH) $ \hDamlGhc -> do
-        liftIO $ Compiler.setFilesOfInterest hDamlGhc [inFile]
-        mbDeps <- liftIO $ CompilerService.runAction hDamlGhc (CompilerService.getDependencies inFile)
+        liftIO $ Compiler.setFilesOfInterest hDamlGhc inFiles
+        mbDeps <- liftIO $ CompilerService.runAction hDamlGhc $ fmap sequence $ mapM CompilerService.getDependencies inFiles
         depFiles <- maybe (reportDiagnostics hDamlGhc "Failed get dependencies") pure mbDeps
-        let files = inFile : depFiles
+        let files = Set.toList $ Set.fromList inFiles `Set.union`  Set.fromList (concat depFiles)
         let lfVersion = Compiler.optDamlLfVersion cliOptions
         case mbJUnitOutput of
             Nothing -> testStdio lfVersion hDamlGhc files
