@@ -35,49 +35,53 @@ instance Powerable Decimal where
   exp x
     | x == 0.0 = 1.0
     | x < 0.0 = 1.0 / exp (negate x)
-    | otherwise = 1.0 + expInner 1.0 1.0 x 1.0 x
+    | otherwise =
+      let (y, e) = expInner 1.0 1.0 x
+      in y `e10` e
 
-  log x = logt100 x / 100.0
+  log x = logt1000 x / 1000.0
 
   logBase b x = log x / log b
 
-logt100: Decimal -> Decimal
-logt100 x
-  | x == 10.0 = ln10t100
-  | x > 10.0 = ln10t100 + logt100 (x / 10.0)
-  | x < 0.1 = logt100 (x * 10.0) - ln10t100
-  | x > 1.5 = ln2t100 + logt100 (x / 2.0)
-  | x < 0.5 = logt100 (x * 2.0) - ln2t100
-  | otherwise = logt100Inner 10 x
+logt1000: Decimal -> Decimal
+logt1000 x
+  | x == 10.0 = ln10t1000
+  | x > 10.0 = ln10t1000 + logt1000 (x / 10.0)
+  | x < 0.1 = logt1000 (x * 10.0) - ln10t1000
+  | x > 1.5 = ln2t1000 + logt1000 (x / 2.0)
+  | x < 0.5 = logt1000 (x * 2.0) - ln2t1000
+  | otherwise = logt1000Inner 10 x
   where
-    ln10t100 = 230.25850929940456840
-    ln2t100 = 69.314718055994
+    ln10t1000 = 2302.5850929940456840
+    ln2t1000 = 693.14718055994
 
-logt100Inner: Int -> Decimal -> Decimal
-logt100Inner n x 
+logt1000Inner: Int -> Decimal -> Decimal
+logt1000Inner n x 
   | n < 0 = 0.0
   | otherwise = let
       f = (x - 1.0) / (x + 1.0)
       p = (2 * n + 1)
-      term = (200.0 / intToDecimal p) * f ^^ p
+      term = (2000.0 / intToDecimal p) * f ^^ p
     in
-    term + logt100Inner (n - 1) x
-    
+    term + logt1000Inner (n - 1) x
 
-expInner: Decimal -> Decimal -> Decimal -> Decimal -> Decimal -> Decimal
--- | We keep track of nominator and denominator of term, but
--- | squash them once we get close to overflow
-expInner n s xn nf x
-  | term == 0.0 = 0.0
-  -- Lots of rules to try balancing precision between s, xn and xf
-  | nf > xn = expInner n (s / squashFactor) xn (nf / squashFactor) x
-  | nf > expBound = expInner n s (xn / squashFactor) (nf / squashFactor) x
-  | xn > expBound  && nf > squashFactor ^^ 2 = expInner n s (xn / squashFactor) (nf / squashFactor) x
-  | s > squashFactor && nf > squashFactor ^^ 2= expInner n (s / squashFactor)xn (nf / squashFactor) x
-  | xn > expBound  = expInner n (s * squashFactor) (xn / squashFactor) nf x
-  | otherwise = term + expInner (n + 1.0) s (xn * x) (nf * (n + 1.0)) x 
-  where
-    term = s * (xn / nf)
-    -- Constants controlling how precisions are balanced
-    expBound = 10.0 ^^ 20
-    squashFactor = 10.0 ^^ 5
+e10: Decimal -> Int -> Decimal
+e10 x n
+  | n == 0 = x
+  | n > 0 = e10 (x * 10.0) (n - 1)
+  | otherwise = e10 (x / 10.0) (n + 1)
+
+to36dig: (Decimal, Int) -> (Decimal, Int)
+to36dig (x, n)
+  | x < 1.0 `e10` 25 = to36dig (x * 10.0, n - 1)
+  | x > 1.0 `e10` 26 = to36dig (x / 10.0, n + 1)
+  | otherwise = (x, n)
+
+expInner: Decimal -> Decimal -> Decimal -> (Decimal, Int)
+expInner n t x
+  | t == 0.0 = (1.0, 0)
+  | otherwise =
+    let 
+      (y, e) = expInner (n + 1.0) (t * x / n) x
+      z = 1.0 `e10` (negate e)
+    in to36dig (z + x * y / n, e)
