@@ -61,16 +61,25 @@ testDamlEnv Env{..} = firstJustM (\(test, msg) -> unlessMaybeM test (pure msg))
 --
 -- On Linux and Mac this is ~/.daml by default.
 -- On Windows this is %APPDATA%/daml by default.
--- This default can be overriden with the DAML_HOME environment variable.
+--
+-- This default can be overriden with the DAML_HOME environment variable,
+-- or by running from within an installed daml distribution, as
+-- determined by the presence of a "daml-config.yaml" in the ascendants
+-- of the executable path.
 --
 -- Raises an AssistantError if the path is missing.
 getDamlPath :: IO DamlPath
 getDamlPath = wrapErr "Determining daml home directory." $ do
     path <- required "Failed to determine daml path." =<< firstJustM id
         [ lookupEnv damlPathEnvVar
+        , findM hasDamlConfig . ascendants =<< getExecutablePath
         , Just <$> getAppUserDataDirectory "daml"
         ]
     pure (DamlPath path)
+
+    where
+        hasDamlConfig :: FilePath -> IO Bool
+        hasDamlConfig p = doesFileExist (p </> damlConfigName)
 
 -- | Calculate the project path. This is done by starting at the current
 -- working directory, checking if "daml.yaml" is present. If it is found,
