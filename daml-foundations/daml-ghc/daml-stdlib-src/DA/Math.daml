@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
--- | Math - Utility Math functions for `Int` and `Decimal`
+-- | Math - Utility Math functions for `Decimal`
 module DA.Math
 ( Powerable(..)
 , sin
@@ -24,14 +24,16 @@ class (Multiplicative a, Fractional a) => Powerable a where
   -- | The exponential function. Example: `exp 0.0 == 1.0`
   exp : a -> a
   -- | The natural logarithm. Example: `log 10.0 == 2.30258509299`
-  log :a -> a
+  log : a -> a
   -- | The logarithm of a number to a given base. Example: `log 10.0 100.0 == 2.0`
   logBase : a -> a -> a
 
 instance Powerable Decimal where
   x ^^ n
     | n == 0 = 1.0
+    | n == 2 = x * x
     | n < 0 = 1.0 / x ^^ (negate $ n)
+    | n % 2 == 0 = (x ^^ (n / 2)) ^^ 2
     | otherwise = x * x ^^ (n - 1)
 
   x ** y = exp (y * log x)
@@ -129,8 +131,7 @@ tan x = s / c
     (c, s) = cordic 34 x
 
 -- | The number Pi
-pi: () -> Decimal
-pi () = 3.1415926536
+pi = 3.1415926536
 
 -- | `cordic` is an implementation of the CORDIC algorithm.
 -- | `cordic n r == (sin(r), cos(r))` computed to n iterations

@@ -49,13 +49,12 @@ powerTest = scenario do
 trigTest = scenario do
   let
     delta = 1.0 `e10` (-10)
-    p = pi ()
-  assert (abs(sin (p / 4.0) - cos (p / 4.0)) <= delta)
+  assert (abs(sin (pi / 4.0) - cos (pi / 4.0)) <= delta)
   assert (abs(0.0 - sin (0.0)) <= delta)
-  assert (abs(1.0 - sin (p / 2.0)) <= delta)
-  assert (abs(1.0 + sin (3.0 * p / 2.0)) <= delta)
-  assert (abs(2.0 ** (negate 0.5) - sin (p / 4.0)) <= delta)
-  assert (abs(3.0 ** 0.5 / 2.0 - sin (p / 3.0)) <= 2.0 * delta)
+  assert (abs(1.0 - sin (pi / 2.0)) <= delta)
+  assert (abs(1.0 + sin (3.0 * pi / 2.0)) <= delta)
+  assert (abs(2.0 ** (negate 0.5) - sin (pi / 4.0)) <= delta)
+  assert (abs(3.0 ** 0.5 / 2.0 - sin (pi / 3.0)) <= 2.0 * delta)
   
-  assert (cos (15.0 * p / 2.0) <= delta)
-  assert (abs(0.5 - cos (p / 3.0)) <= 4.0 * delta)
+  assert (cos (15.0 * pi / 2.0) <= delta)
+  assert (abs(0.5 - cos (pi / 3.0)) <= 4.0 * delta)
