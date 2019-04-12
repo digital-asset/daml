@@ -2,6 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  "//rules_daml:daml.bzl",
-  "daml_compile"
+    "//rules_daml:daml.bzl",
+    "daml_compile",
 )

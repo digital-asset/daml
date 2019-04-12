@@ -8,5 +8,5 @@ load("//bazel_tools:docs.bzl", "da_doc_package")
 exports_files(["source/da-sdk-license.rst"])
 
 da_doc_package(
-  name = 'daml-licenses',
+    name = "daml-licenses",
 )

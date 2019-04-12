@@ -18,7 +18,6 @@ rec {
     jq
     libffi
     nodejs
-    pandoc
     patchelf
     protobuf3_5
     zip

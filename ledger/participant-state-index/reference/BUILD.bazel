@@ -2,38 +2,34 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  '//bazel_tools:scala.bzl',
-  'da_scala_test_suite',
-  'da_scala_library'
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
 )
 
 da_scala_library(
-  name = 'reference',
-  srcs = glob(['src/main/scala/**/*.scala']),
-  resources = glob(['src/main/resources/**/*']),
-  deps = [
-    '//ledger/participant-state',
-    '//ledger/participant-state-index',
-
-    '//ledger/ledger-api-common',
-    '//ledger/ledger-api-domain',
-
-    '//daml-lf/transaction',
-    '//daml-lf/data',
-    '//daml-lf/lfpackage',
-    '//daml-lf/archive:daml_lf_java_proto',
-    '//daml-lf/archive:daml_lf_archive_scala',
-    '//daml-lf/engine',
-    '//daml-lf/interpreter',
-
-    '//3rdparty/jvm/org/slf4j:slf4j_api',
-    '//3rdparty/jvm/com/typesafe/akka:akka_stream',
-    '//3rdparty/jvm/com/google/protobuf:protobuf_java',
-    '//3rdparty/jvm/org/scalaz:scalaz_core'
-  ],
-  runtime_deps = [],
-  visibility = [
-    '//visibility:public',
-  ],
+    name = "reference",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//daml-lf/archive:daml_lf_archive_scala",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/lfpackage",
+        "//daml-lf/transaction",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/participant-state",
+        "//ledger/participant-state-index",
+    ],
 )
-

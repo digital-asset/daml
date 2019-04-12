@@ -12,6 +12,7 @@ da_scala_library(
     name = "validation",
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-validation:__VERSION__"],
     visibility = [
         "//compiler/scenario-service:__subpackages__",
         "//daml-lf:__subpackages__",
@@ -21,7 +22,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/lfpackage",
     ],
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-validation:__VERSION__"],
 )
 
 da_scala_test(

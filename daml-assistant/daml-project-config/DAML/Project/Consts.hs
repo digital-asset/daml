@@ -55,7 +55,7 @@ sdkVersionEnvVar = "DAML_SDK_VERSION"
 
 -- | File name of config file in DAML_HOME (~/.daml).
 damlConfigName :: FilePath
-damlConfigName = "config.yaml"
+damlConfigName = "daml-config.yaml"
 
 -- | File name of config file in DAML_PROJECT (the project path).
 projectConfigName :: FilePath
@@ -63,7 +63,7 @@ projectConfigName = "daml.yaml"
 
 -- | File name of config file in DAML_SDK (the sdk path)
 sdkConfigName :: FilePath
-sdkConfigName = "config.yaml"
+sdkConfigName = "sdk-config.yaml"
 
 -- | List of all environment variables handled by daml assistant.
 damlEnvVars :: [String]

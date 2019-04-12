@@ -6,18 +6,37 @@ load("@os_info//:os_info.bzl", "is_linux")
 load("//rules_daml:daml.bzl", "daml_test")
 
 nodejs_binary(
-    name="grunt",
-    data=['@npm//matchdep', '@npm//grunt-cli'],
-    entry_point='grunt-cli/bin/grunt'
+    name = "grunt",
+    data = [
+        "@npm//grunt-cli",
+        "@npm//matchdep",
+    ],
+    entry_point = "grunt-cli/bin/grunt",
 )
 
 genrule(
     name = "theme",
-    srcs = glob(["theme/**"], exclude=["theme/bower_components/**", "theme/node_modules/**", "theme/da_theme/**"]) +
-        ['@npm//browserify', '@npm//grunt-banner', '@npm//grunt-browserify', '@npm//grunt-contrib-clean'
-        , '@npm//grunt-contrib-connect', '@npm//grunt-contrib-copy', '@npm//grunt-contrib-sass', '@npm//grunt-contrib-uglify'
-        , '@npm//grunt-contrib-watch', '@npm//grunt-exec', '@npm//grunt-open', '@npm//matchdep'],
-    tools = ["@sass_nix//:bin/sass", ':grunt'],
+    srcs = glob(
+        ["theme/**"],
+        exclude = [
+            "theme/bower_components/**",
+            "theme/node_modules/**",
+            "theme/da_theme/**",
+        ],
+    ) + [
+        "@npm//browserify",
+        "@npm//grunt-banner",
+        "@npm//grunt-browserify",
+        "@npm//grunt-contrib-clean",
+        "@npm//grunt-contrib-connect",
+        "@npm//grunt-contrib-copy",
+        "@npm//grunt-contrib-sass",
+        "@npm//grunt-contrib-uglify",
+        "@npm//grunt-contrib-watch",
+        "@npm//grunt-exec",
+        "@npm//grunt-open",
+        "@npm//matchdep",
+    ],
     outs = ["da_theme.tar.gz"],
     cmd = """
         cp -rL docs/theme theme
@@ -48,16 +67,21 @@ genrule(
             --sort=name \
             -czf ../$(location da_theme.tar.gz) \
             da_theme
-    """
+    """,
+    tools = [
+        ":grunt",
+        "@sass_nix//:bin/sass",
+    ],
 )
 
 genrule(
     name = "sources",
-    srcs = glob(["source/**"]) +
-        [ "//daml-foundations/daml-ghc:daml-base-rst-docs"
-        , "//ledger-api/grpc-definitions:docs"
-        , "//:LICENSE"
-        , "//:NOTICES"],
+    srcs = glob(["source/**"]) + [
+        "//daml-foundations/daml-ghc:daml-base-rst-docs",
+        "//ledger-api/grpc-definitions:docs",
+        "//:LICENSE",
+        "//:NOTICES",
+    ],
     outs = ["source.tar.gz"],
     cmd = """
         cp -rL docs/source source
@@ -73,16 +97,17 @@ genrule(
         cp -L $(location //:NOTICES) source/NOTICES
 
         tar -zcf $(location source.tar.gz) source
-    """
+    """,
 )
 
 genrule(
     name = "pdf-docs",
-    srcs = glob(["configs/pdf/**", "configs/static/pygments_daml_lexer.py"]) +
-        [":sources"],
-    tools =
-        ["@texlive_nix//:bin/lualatex", "@sphinx_nix//:bin/sphinx-build", "@imagemagick_nix//:bin/convert"] +
-        (["@glibc_locales//:locale-archive"] if is_linux else []),
+    srcs = glob([
+        "configs/pdf/**",
+        "configs/static/pygments_daml_lexer.py",
+    ]) + [
+        ":sources",
+    ],
     outs = ["DigitalAssetSDK.pdf"],
     cmd = ("""
         export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
@@ -113,22 +138,28 @@ genrule(
         ../$(location @texlive_nix//:bin/lualatex) -halt-on-error -interaction=batchmode --shell-escape *.tex
 
         # Move output to target
-        mv DigitalAssetSDK.pdf ../$(location DigitalAssetSDK.pdf)"""
+        mv DigitalAssetSDK.pdf ../$(location DigitalAssetSDK.pdf)""",
+    tools =
+        [
+            "@texlive_nix//:bin/lualatex",
+            "@sphinx_nix//:bin/sphinx-build",
+            "@imagemagick_nix//:bin/convert",
+        ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
 )
 
 genrule(
     name = "docs-no-pdf",
-    srcs = glob(["configs/html/**", "configs/static/pygments_daml_lexer.py"]) +
-        [ ":sources"
-        , ":theme"
-        , "//daml-foundations/daml-ghc:daml-base-rst-docs"
-        , "//daml-foundations/daml-ghc:daml-base-hoogle-docs"
-        , "//language-support/java:javadocs"
-        , "//language-support/js/docs"
-        ],
-    tools =
-        ["@sphinx_nix//:bin/sphinx-build"] +
-        (["@glibc_locales//:locale-archive"] if is_linux else []),
+    srcs = glob([
+        "configs/html/**",
+        "configs/static/pygments_daml_lexer.py",
+    ]) + [
+        ":sources",
+        ":theme",
+        "//daml-foundations/daml-ghc:daml-base-rst-docs",
+        "//daml-foundations/daml-ghc:daml-base-hoogle-docs",
+        "//language-support/java:javadocs",
+        "//language-support/js/docs",
+    ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
         export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
@@ -168,12 +199,18 @@ genrule(
         cp -rL ../$(location //daml-foundations/daml-ghc:daml-base-hoogle-docs) html/hoogle_db/base.txt
 
         tar -zcf ../$(location html-only.tar.gz) html
-        """
+        """,
+    tools =
+        ["@sphinx_nix//:bin/sphinx-build"] +
+        (["@glibc_locales//:locale-archive"] if is_linux else []),
 )
 
 genrule(
     name = "redirects",
-    srcs = ["redirects.map", "redirect_template.html"],
+    srcs = [
+        "redirects.map",
+        "redirect_template.html",
+    ],
     outs = ["redirects.tar.gz"],
     cmd = """
         mkdir redirects
@@ -188,12 +225,17 @@ genrule(
             fi
         done <docs/redirects.map
         tar -zcf $(location redirects.tar.gz) redirects
-    """
+    """,
 )
 
 genrule(
     name = "docs",
-    srcs = [":docs-no-pdf", ":pdf-docs", ":redirects", "error.html"],
+    srcs = [
+        ":docs-no-pdf",
+        ":pdf-docs",
+        ":redirects",
+        "error.html",
+    ],
     outs = ["html.tar.gz"],
     cmd = """
         tar -zxf $(location :redirects)
@@ -216,10 +258,10 @@ genrule(
         cp -L $(location :pdf-docs) html/_downloads
         tar -zcf $(location html.tar.gz) html
     """.format(
-            """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
-            """<url><loc>%LOC%</loc><lastmod>%DATE%</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>""",
-            """</urlset>"""
-        )
+        """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
+        """<url><loc>%LOC%</loc><lastmod>%DATE%</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>""",
+        """</urlset>""",
+    ),
 )
 
 genrule(
@@ -240,16 +282,16 @@ load("//rules_daml:daml.bzl", "daml_compile")
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 
 daml_compile(
-        name = "quickstart-model",
-        main_src = "source/getting-started/quickstart/template-root/daml/Main.daml",
-        srcs = glob(["source/getting-started/quickstart/template-root/**/*.daml"]),
-        target = "1.1",
+    name = "quickstart-model",
+    srcs = glob(["source/getting-started/quickstart/template-root/**/*.daml"]),
+    main_src = "source/getting-started/quickstart/template-root/daml/Main.daml",
+    target = "1.1",
 )
 
 dar_to_java(
     name = "quickstart-model",
     src = "quickstart-model.dar",
-    package_prefix = "com.digitalasset.quickstart.model"
+    package_prefix = "com.digitalasset.quickstart.model",
 )
 
 java_binary(
@@ -258,56 +300,54 @@ java_binary(
     main_class = "com.digitalasset.quickstart.iou.IouMain",
     deps = [
         "//3rdparty/jvm/ch/qos/logback:logback_classic",
+        "//3rdparty/jvm/com/google/code/gson",
+        "//3rdparty/jvm/com/google/guava",
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
         "//3rdparty/jvm/com/sparkjava:spark_core",
-        "//3rdparty/jvm/com/google/guava:guava",
-        "//3rdparty/jvm/com/google/code/gson:gson",
         "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
         "//daml-lf/archive:daml_lf_java_proto",
-        "//language-support/java/bindings-rxjava:bindings-rxjava",
         "//language-support/java/bindings:bindings-java",
-    ]
+        "//language-support/java/bindings-rxjava",
+    ],
 )
-
-
 
 daml_test(
     name = "ledger-api-introduction-daml-test",
-    srcs = glob(["source/app-dev/ledger-api-introduction/code-snippets/**/*.daml"])
+    srcs = glob(["source/app-dev/ledger-api-introduction/code-snippets/**/*.daml"]),
 )
 
 daml_test(
     name = "patterns-daml-test",
-    srcs = glob(["source/daml/patterns/daml/**/*.daml"])
+    srcs = glob(["source/daml/patterns/daml/**/*.daml"]),
 )
 
 daml_test(
     name = "daml-studio-daml-test",
-    srcs = glob(["source/daml/daml-studio/daml/**/*.daml"])
+    srcs = glob(["source/daml/daml-studio/daml/**/*.daml"]),
 )
 
 daml_test(
     name = "daml-ref-daml-test",
-    srcs = glob(["source/daml/code-snippets/**/*.daml"]),
     timeout = "long",
+    srcs = glob(["source/daml/code-snippets/**/*.daml"]),
 )
 
 daml_test(
     name = "introduction-daml-test",
-    srcs = glob(["source/getting-started/introduction/code/**/*.daml"])
+    srcs = glob(["source/getting-started/introduction/code/**/*.daml"]),
 )
 
 daml_test(
     name = "quickstart-daml-test",
-    srcs = glob(["source/getting-started/quickstart/template-root/daml/**/*.daml"])
+    srcs = glob(["source/getting-started/quickstart/template-root/daml/**/*.daml"]),
 )
 
 daml_test(
     name = "ledger-model-daml-test",
-    srcs = glob(["source/concepts/ledger-model/daml/**/*.daml"])
+    srcs = glob(["source/concepts/ledger-model/daml/**/*.daml"]),
 )
 
 daml_test(
     name = "java-bindings-docs-daml-test",
-    srcs = glob(["source/app-dev/bindings-java/daml/**/*.daml"])
+    srcs = glob(["source/app-dev/bindings-java/daml/**/*.daml"]),
 )

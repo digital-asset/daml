@@ -1,60 +1,58 @@
-load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_binary", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 
 da_haskell_library(
-  name = "grpc-haskell",
-  srcs = glob(["src/**/*.hs"]),
-  src_strip_prefix = "src",
-  deps = [
-    "//nix/third-party/proto3-suite:proto3-suite",
-    "//nix/third-party/proto3-wire:proto3-wire",
-    "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
-  ],
-  hazel_deps = [
-    "base",
-    "bytestring",
-    "async",
-  ],
-  visibility = ["//visibility:public"]
+    name = "grpc-haskell",
+    srcs = glob(["src/**/*.hs"]),
+    hazel_deps = [
+        "base",
+        "bytestring",
+        "async",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
+        "//nix/third-party/proto3-suite",
+        "//nix/third-party/proto3-wire",
+    ],
 )
 
 da_haskell_binary(
-  name = "hellos-server",
-  srcs = glob(['examples/hellos/hellos-server/*.hs']),
-  src_strip_prefix = 'examples/hellos/hellos-server',
-  deps = [
-    "//nix/third-party/proto3-suite:proto3-suite",
-    "//nix/third-party/proto3-wire:proto3-wire",
-    "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
-    ":grpc-haskell"
-  ],
-  hazel_deps = [
-    "base",
-    "async",
-    "bytestring",
-    "containers",
-    "text",
-    "transformers"
-  ]
+    name = "hellos-server",
+    srcs = glob(["examples/hellos/hellos-server/*.hs"]),
+    hazel_deps = [
+        "base",
+        "async",
+        "bytestring",
+        "containers",
+        "text",
+        "transformers",
+    ],
+    src_strip_prefix = "examples/hellos/hellos-server",
+    deps = [
+        ":grpc-haskell",
+        "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
+        "//nix/third-party/proto3-suite",
+        "//nix/third-party/proto3-wire",
+    ],
 )
-
 
 da_haskell_binary(
-  name = "hellos-client",
-  srcs = glob(['examples/hellos/hellos-client/*.hs']),
-  src_strip_prefix = 'examples/hellos/hellos-client',
-  deps = [
-    "//nix/third-party/proto3-suite:proto3-suite",
-    "//nix/third-party/proto3-wire:proto3-wire",
-    "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
-    ":grpc-haskell"
-  ],
-  hazel_deps = [
-    "base",
-    "async",
-    "bytestring",
-    "containers",
-    "text",
-    "transformers"
-  ]
+    name = "hellos-client",
+    srcs = glob(["examples/hellos/hellos-client/*.hs"]),
+    hazel_deps = [
+        "base",
+        "async",
+        "bytestring",
+        "containers",
+        "text",
+        "transformers",
+    ],
+    src_strip_prefix = "examples/hellos/hellos-client",
+    deps = [
+        ":grpc-haskell",
+        "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
+        "//nix/third-party/proto3-suite",
+        "//nix/third-party/proto3-wire",
+    ],
 )
-

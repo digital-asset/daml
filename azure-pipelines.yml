@@ -26,6 +26,8 @@ jobs:
         name: 'linux-pool'
     steps:
       - template: ci/build-unix.yml
+        parameters:
+          name: linux
 
   - job: macOS
     timeoutInMinutes: 360
@@ -33,6 +35,8 @@ jobs:
       vmImage: 'macOS-10.13'
     steps:
       - template: ci/build-unix.yml
+        parameters:
+          name: macos
 
   - job: Windows
     timeoutInMinutes: 360

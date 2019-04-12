@@ -24,7 +24,7 @@ trait MultiLedgerFixture
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */
   override protected def fixtureIdsEnabled: Set[LedgerBackend] =
-    Set(LedgerBackend.SandboxInMemory) //TODO: enable the SQL one as well once we have all ITs working with it
+    Set(LedgerBackend.SandboxInMemory, LedgerBackend.SandboxSql)
 
   override protected def constructResource(
       index: Int,

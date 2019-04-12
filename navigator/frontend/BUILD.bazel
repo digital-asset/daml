@@ -4,8 +4,8 @@
 load("@build_bazel_rules_nodejs//:defs.bzl", "nodejs_binary")
 
 filegroup(
-  name = "src",
-  srcs = glob(["src/**"]),
+    name = "src",
+    srcs = glob(["src/**"]),
 )
 
 # TODO: Set up a target for generating GraphQL query definition files.
@@ -38,39 +38,34 @@ filegroup(
 # "@navigator_frontend_deps//webpack/bin:webpack" target, so we need to create
 # a custom node.js binary that has access to all plugins loaded by webpack at runtime.
 nodejs_binary(
-  name = "webpack",
-  entry_point = "webpack/bin/webpack.js",
-  node_modules = "@navigator_frontend_deps//:node_modules",
-  # The webpack build step requires almost all of the node_modules dependencies
-  # data = [
-  #  ...
-  # ],
+    name = "webpack",
+    entry_point = "webpack/bin/webpack.js",
+    node_modules = "@navigator_frontend_deps//:node_modules",
+    # The webpack build step requires almost all of the node_modules dependencies
+    # data = [
+    #  ...
+    # ],
 )
 
 # Builds the frontend single page application and bundles all output files
 # (HTML + JavaScript + CSS + images) in a .tgz or .jar archive.
 genrule(
-  name = "frontend",
-  outs = [
-    "frontend.tgz",
-    "frontend.jar",
-  ],
-  srcs = [
-    "webpack.config.js",
-    "declarations.d.ts",
-    "tsconfig.json",
-    "tslint.json",
-    "package.json",
-    ".modernizrrc",
-    ":src",
-    "@navigator_frontend_deps//:node_modules",
-  ],
-  tools = [
-    "@bazel_tools//tools/jdk:current_java_runtime",
-    ":webpack",
-  ],
-  toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-  cmd = """
+    name = "frontend",
+    srcs = [
+        "webpack.config.js",
+        "declarations.d.ts",
+        "tsconfig.json",
+        "tslint.json",
+        "package.json",
+        ".modernizrrc",
+        ":src",
+        "@navigator_frontend_deps//:node_modules",
+    ],
+    outs = [
+        "frontend.tgz",
+        "frontend.jar",
+    ],
+    cmd = """
     # Working directories
     export IN="$$(pwd)/$(@D)/in"
     export OUT="$$(pwd)/$(@D)/out"
@@ -109,7 +104,12 @@ genrule(
     echo "Packaging result from $$OUT to $(@D)/frontend.jar"
     $(JAVABASE)/bin/jar c0Mf "$(@D)/frontend.jar" -C $$OUT .
   """,
-  visibility = [
-    '//navigator:__subpackages__',
-  ],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    tools = [
+        ":webpack",
+        "@bazel_tools//tools/jdk:current_java_runtime",
+    ],
+    visibility = [
+        "//navigator:__subpackages__",
+    ],
 )

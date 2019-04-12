@@ -2,71 +2,71 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  "//rules_daml:daml.bzl",
-  "daml_compile"
+    "//rules_daml:daml.bzl",
+    "daml_compile",
 )
-
 load(
-  '//bazel_tools:scala.bzl',
-  'da_scala_test_suite',
-  'da_scala_library',
-  'da_scala_binary'
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
 )
 
 dependencies = [
-  '//daml-lf/scenario-interpreter',
-  '//daml-lf/transaction',
-  '//daml-lf/engine',
-  '//daml-lf/data',
-  '//daml-lf/lfpackage',
-  '//daml-lf/archive:daml_lf_java_proto',
-  '//daml-lf/archive:daml_lf_archive_scala',
-  '//daml-lf/interpreter',
-  '//ledger-api/testing-utils',
-  '//ledger-api/rs-grpc-bridge',
-  '//ledger-api/rs-grpc-akka',
-  '//ledger/ledger-api-scala-logging',
-  '//language-support/scala/bindings',
-  '//ledger/ledger-api-domain:ledger-api-domain',
-  '//ledger/ledger-api-common:ledger-api-common',
-  '//ledger/ledger-api-client:ledger-api-client',
-  '//ledger/sandbox:sandbox',
-  '//ledger/sandbox:sandbox-scala-tests-lib',
-  '//3rdparty/jvm/com/google/guava:guava',
-  '//3rdparty/jvm/io/grpc:grpc_services',
-  '//3rdparty/jvm/com/typesafe/scala_logging:scala_logging',
-  '//3rdparty/jvm/org/slf4j:slf4j_api',
-  '//3rdparty/jvm/org/scalaz:scalaz_core',
-  '//3rdparty/jvm/org/scalaz:scalaz_concurrent',
-  '//3rdparty/jvm/io/netty:netty_codec_http2',
-  "//3rdparty/jvm/io/grpc:grpc_netty",
-  "//3rdparty/jvm/io/netty:netty_handler",
-  '//3rdparty/jvm/com/github/scopt:scopt',
-  '//3rdparty/jvm/com/typesafe/akka:akka_stream',
-  '//3rdparty/jvm/io/grpc:grpc_core',
-  '//3rdparty/jvm/org/scalatest:scalatest'
- ]
+    "//daml-lf/scenario-interpreter",
+    "//daml-lf/transaction",
+    "//daml-lf/engine",
+    "//daml-lf/data",
+    "//daml-lf/lfpackage",
+    "//daml-lf/archive:daml_lf_java_proto",
+    "//daml-lf/archive:daml_lf_archive_scala",
+    "//daml-lf/interpreter",
+    "//ledger-api/testing-utils",
+    "//ledger-api/rs-grpc-bridge",
+    "//ledger-api/rs-grpc-akka",
+    "//ledger/ledger-api-scala-logging",
+    "//language-support/scala/bindings",
+    "//ledger/ledger-api-domain:ledger-api-domain",
+    "//ledger/ledger-api-common:ledger-api-common",
+    "//ledger/ledger-api-client:ledger-api-client",
+    "//ledger/sandbox:sandbox",
+    "//ledger/sandbox:sandbox-scala-tests-lib",
+    "//3rdparty/jvm/com/google/guava:guava",
+    "//3rdparty/jvm/io/grpc:grpc_services",
+    "//3rdparty/jvm/com/typesafe/scala_logging:scala_logging",
+    "//3rdparty/jvm/org/slf4j:slf4j_api",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//3rdparty/jvm/org/scalaz:scalaz_concurrent",
+    "//3rdparty/jvm/io/netty:netty_codec_http2",
+    "//3rdparty/jvm/io/grpc:grpc_netty",
+    "//3rdparty/jvm/io/netty:netty_handler",
+    "//3rdparty/jvm/com/github/scopt:scopt",
+    "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+    "//3rdparty/jvm/io/grpc:grpc_core",
+    "//3rdparty/jvm/org/scalatest:scalatest",
+]
 
 da_scala_library(
-  name = 'ledger-api-integration-tests-lib',
-  srcs = glob(['src/test/lib/**/*.scala']),
-  deps = dependencies + [
-    '//daml-lf/testing-tools'
-  ],
-  visibility = [
-    '//visibility:public',
-  ]
+    name = "ledger-api-integration-tests-lib",
+    srcs = glob(["src/test/lib/**/*.scala"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = dependencies + [
+        "//daml-lf/testing-tools",
+    ],
 )
 
 da_scala_test_suite(
-  name = "ledger-api-integration-tests",
-  srcs = glob(['src/test/itsuite/**/*.scala']),
-  data = [
-      '//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf',
-      '//ledger/sandbox:Test.dalf'],
-  deps = [
-    ':ledger-api-integration-tests-lib'
-  ] + dependencies
+    name = "ledger-api-integration-tests",
+    srcs = glob(["src/test/itsuite/**/*.scala"]),
+    data = [
+        "//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf",
+        "//ledger/sandbox:Test.dalf",
+    ],
+    deps = [
+        ":ledger-api-integration-tests-lib",
+    ] + dependencies,
 )
 
 # A standalone semantic test runner.
@@ -75,49 +75,48 @@ da_scala_test_suite(
 #
 # This is used to test new ledger backend implementations.
 da_scala_binary(
-  name = "semantic-test-runner",
-  srcs = [
-    'src/main/scala/com/digitalasset/platform/semantictest/StandaloneSemanticTestRunner.scala',
-  ],
-  main_class = 'com.digitalasset.platform.semantictest.StandaloneSemanticTestRunner',
-  deps = dependencies + [
-    ':ledger-api-integration-tests-lib',
-    '//daml-lf/testing-tools'
-  ],
-  tags = [
-      "maven_coordinates=com.digitalasset.ledger:semantic-test-runner:__VERSION__",
-      # We release this as a fat jar so this tag ensures that the dependencies in the generated
-      # POM file are set correctly.
-      "fat_jar",
-  ],
-  visibility = ['//visibility:public'],
+    name = "semantic-test-runner",
+    srcs = [
+        "src/main/scala/com/digitalasset/platform/semantictest/StandaloneSemanticTestRunner.scala",
+    ],
+    main_class = "com.digitalasset.platform.semantictest.StandaloneSemanticTestRunner",
+    tags = [
+        "maven_coordinates=com.digitalasset.ledger:semantic-test-runner:__VERSION__",
+        # We release this as a fat jar so this tag ensures that the dependencies in the generated
+        # POM file are set correctly.
+        "fat_jar",
+    ],
+    deps = dependencies + [
+        ":ledger-api-integration-tests-lib",
+        "//daml-lf/testing-tools",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 da_scala_test_suite(
-  name = "ledger-api-semantic-tests",
-  srcs = glob(['src/test/semanticsuite/**/*.scala']),
-  data = [
-    '//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf',
-    ':SemanticTests.dalf'
-  ],
-  deps = [
-    ':ledger-api-integration-tests-lib',
-    '//daml-lf/testing-tools'
-  ] + dependencies
+    name = "ledger-api-semantic-tests",
+    srcs = glob(["src/test/semanticsuite/**/*.scala"]),
+    data = [
+        ":SemanticTests.dalf",
+        "//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf",
+    ],
+    deps = [
+        ":ledger-api-integration-tests-lib",
+        "//daml-lf/testing-tools",
+    ] + dependencies,
 )
 
-
 TEST_FILES = [
-  "SemanticTests"
+    "SemanticTests",
 ]
 
 [
-  daml_compile(
-      name = name
-    , main_src = "src/test/semanticsuite/daml/%s.daml" % name
-    , visibility = ["//visibility:public"]
-    , target = "1.3"
-    , damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated"
-  )
-  for name in TEST_FILES
+    daml_compile(
+        name = name,
+        damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated",
+        main_src = "src/test/semanticsuite/daml/%s.daml" % name,
+        target = "1.3",
+        visibility = ["//visibility:public"],
+    )
+    for name in TEST_FILES
 ]

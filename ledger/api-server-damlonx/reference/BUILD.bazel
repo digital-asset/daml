@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  '//bazel_tools:scala.bzl',
-  'da_scala_binary',
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
 )
 
 load(
@@ -12,44 +12,41 @@ load(
 )
 
 da_scala_binary(
-  name = 'reference',
-  srcs = glob(['src/main/scala/**/*.scala']),
-  resources = glob(['src/main/resources/**/*']),
-  main_class = 'com.daml.ledger.api.server.damlonx.reference.ReferenceServer',
-  deps = [
-    '//ledger/api-server-damlonx',
-    '//ledger/participant-state',
-    '//ledger/participant-state/reference',
-    '//ledger/participant-state-index',
-    '//ledger/participant-state-index/reference',
-    '//ledger/ledger-api-common:ledger-api-common',
-    '//language-support/scala/bindings',
-
-    '//daml-lf/data',
-    '//daml-lf/lfpackage',
-    '//daml-lf/archive:daml_lf_java_proto',
-    '//daml-lf/archive:daml_lf_archive_scala',
-
-    '//3rdparty/jvm/org/slf4j:slf4j_api',
-    '//3rdparty/jvm/com/typesafe/akka:akka_stream',
-    '//3rdparty/jvm/com/github/scopt:scopt',
+    name = "reference",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    main_class = "com.daml.ledger.api.server.damlonx.reference.ReferenceServer",
+    resources = glob(["src/main/resources/**/*"]),
+    runtime_deps = [
+        "//3rdparty/jvm/ch/qos/logback:logback_classic",
+        "//3rdparty/jvm/ch/qos/logback:logback_core",
     ],
-
-  runtime_deps = [
-    '//3rdparty/jvm/ch/qos/logback:logback_core',
-    '//3rdparty/jvm/ch/qos/logback:logback_classic'
-  ],
+    deps = [
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/com/github/scopt:scopt",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//daml-lf/archive:daml_lf_archive_scala",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/lfpackage",
+        "//language-support/scala/bindings",
+        "//ledger/api-server-damlonx",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-state",
+        "//ledger/participant-state-index",
+        "//ledger/participant-state-index/reference",
+        "//ledger/participant-state/reference",
+    ],
 )
 
-
 client_server_test(
-  name = 'semantic-test',
-  client = '//ledger/ledger-api-integration-tests:semantic-test-runner',
-  client_args = ['ledger/ledger-api-integration-tests/SemanticTests.dar'],
-  server = ':reference',
-  server_args = ['ledger/ledger-api-integration-tests/SemanticTests.dar'],
-  data = [
-    '//ledger/ledger-api-integration-tests:SemanticTests.dar',
-  ]
+    name = "semantic-test",
+    client = "//ledger/ledger-api-integration-tests:semantic-test-runner",
+    client_args = ["ledger/ledger-api-integration-tests/SemanticTests.dar"],
+    server = ":reference",
+    server_args = ["ledger/ledger-api-integration-tests/SemanticTests.dar"],
+    data = [
+      "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+    ],
+    size="small",
 )
 
