@@ -11,6 +11,7 @@ module DAML.Assistant.Install
 
 import DAML.Assistant.Types
 import DAML.Assistant.Util
+import qualified DAML.Assistant.Install.Github as Github
 import DAML.Project.Consts
 import DAML.Project.Config
 import Safe
@@ -28,12 +29,8 @@ import System.Directory
 import Control.Monad.Extra
 import Control.Exception.Safe
 import System.ProgressBar
-import qualified System.Info
 import System.Info.Extra (isWindows)
-import qualified Data.Text as T
 import Data.Maybe
-import qualified Data.SemVer as V
-import qualified Control.Lens as L
 
 -- unix specific
 import System.PosixCompat.Types ( FileMode )
@@ -60,7 +57,7 @@ data InstallTarget
 
 displayInstallTarget :: InstallTarget -> Text
 displayInstallTarget = \case
-    InstallVersion (SdkVersion v) -> "version " <> V.toText v
+    InstallVersion v -> "version " <> versionToText v
     InstallPath p -> pack p
 
 versionMatchesTarget :: SdkVersion -> InstallTarget -> Bool
@@ -90,47 +87,6 @@ unlessQuiet InstallEnv{..} | QuietInstall b <- iQuiet options =
 whenActivate :: InstallEnv -> IO () -> IO ()
 whenActivate InstallEnv{..} | ActivateInstall b <- iActivate options =
     when b
-
-osName :: Text
-osName = case System.Info.os of
-    "darwin"  -> "osx"
-    "linux"   -> "linux"
-    "mingw32" -> "win"
-    p -> error ("daml: Unknown operating system " ++ p)
-
-bintrayVersionURL :: SdkVersion -> InstallURL
-bintrayVersionURL (SdkVersion v) = InstallURL $ T.concat
-    [ "https://bintray.com/api/v1/content"  -- api call
-    , "/digitalassetsdk/DigitalAssetSDK"    -- repo/subject
-    , "/com/digitalasset/sdk-tarball/"      -- file path
-    , vtext
-    , "/sdk-tarball-"
-    , vtext
-    , "-"
-    , osName
-    , ".tar.gz"
-    , "?bt_package=sdk-components"          -- package
-    ]
-    where
-        vtext = V.toText
-            . L.over V.major (+ 100)
-            . L.set V.release []
-            . L.set V.metadata []
-            $ v
-
-bintrayLatestURL :: InstallURL
-bintrayLatestURL = InstallURL $ T.concat
-    [ "https://bintray.com/api/v1/content"  -- api call
-    , "/digitalassetsdk/DigitalAssetSDK"    -- repo/subject
-    , "/com/digitalasset/sdk-tarball/"      -- file path
-    , "$latest"
-    , "/sdk-tarball-"
-    , "$latest"
-    , "-"
-    , osName
-    , ".tar.gz"
-    , "?bt_package=sdk-components"          -- package
-    ]
 
 -- | Set up .daml directory if it's missing.
 setupDamlPath :: DamlPath -> IO ()
@@ -421,11 +377,11 @@ install options damlPath = do
 
     case targetM of
         Nothing ->
-            httpInstall env bintrayLatestURL
+            httpInstall env . InstallURL =<< Github.latestURL
             -- TODO replace with installing project version
 
         Just (InstallPath tarballPath) ->
             pathInstall env tarballPath
 
         Just (InstallVersion version) -> do
-            httpInstall env (bintrayVersionURL version)
+            httpInstall env . InstallURL =<< Github.versionURL version

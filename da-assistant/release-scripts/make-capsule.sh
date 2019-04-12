@@ -43,7 +43,10 @@ echo "Running da setup."
 ~/.da/bin/da setup >> out.log
 
 echo "Setting script mode."
-sed -e 's/script-mode: false/script-mode: true/g' -i .backup ~/.da/da.yaml
+sed -i -e 's/script-mode: false/script-mode: true/g' ~/.da/da.yaml
+
+echo "Preparing da link."
+sed -i -e "s/$HOME/__HOME__/g" ~/.da/bin/da
 
 echo "Packaging everything up."
 cp -r ~/.da da-data
@@ -60,6 +63,7 @@ cd $DIR
 tar xf da-data.tar da-data
 rm -rf ~/.da
 mv da-data ~/.da
+sed -i -e "s/__HOME__/$HOME/g" ~/.da/bin/da
 if [[ $PATH == *"$HOME/.da/bin"* ]] ; then
   echo "DAML SDK Assistant da is installed."
 else
