@@ -11,7 +11,7 @@ import scala.util.control.NoStackTrace
 
 trait FutureTimeouts {
 
-  protected def timeout[T](f: Future[T], opName: String, duration: FiniteDuration = 30.seconds)(
+  protected def timeout[T](f: Future[T], opName: String, duration: FiniteDuration = 300.seconds)(
       implicit system: ActorSystem): Future[T] = {
     val promise: Promise[T] = Promise[T]()
 
