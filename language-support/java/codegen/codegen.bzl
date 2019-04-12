@@ -27,11 +27,11 @@ def dar_to_java(**kwargs):
             $(execpath @local_jdk//:bin/jar) -cf $@ -C {gen_out} .
         """.format(
             gen_in = "$(location %s)=%s" % (dar, package_prefix),
-            gen_out = src_out
+            gen_out = src_out,
         ),
         tools = [
             "//language-support/java/codegen:codegen",
-            "@local_jdk//:bin/jar"
+            "@local_jdk//:bin/jar",
         ],
     )
 

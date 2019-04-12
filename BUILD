@@ -1,13 +1,14 @@
 package(default_visibility = ["//:__subpackages__"])
 
-load("@io_tweag_rules_haskell//haskell:haskell.bzl",
-  "haskell_toolchain",
+load(
+    "@io_tweag_rules_haskell//haskell:haskell.bzl",
+    "haskell_toolchain",
 )
-load("@io_tweag_rules_haskell//haskell:c2hs.bzl",
-  "c2hs_toolchain",
+load(
+    "@io_tweag_rules_haskell//haskell:c2hs.bzl",
+    "c2hs_toolchain",
 )
-
-load ("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
 
 exports_files([".hlint.yaml"])
 
@@ -44,13 +45,15 @@ load(
     "c2hs_toolchain",
 )
 
-
 c2hs_toolchain(
     name = "c2hs-toolchain",
     c2hs = "@c2hs//:bin",
 )
 
-filegroup(name = "node_modules", srcs = glob(["node_modules/**/*"]))
+filegroup(
+    name = "node_modules",
+    srcs = glob(["node_modules/**/*"]),
+)
 
 config_setting(
     name = "ghci_data",
@@ -64,7 +67,13 @@ config_setting(
 #
 
 # The VERSION file is inlined in a few builds.
-exports_files(["NOTICES", "LICENSE", "VERSION", "CHANGELOG", "tsconfig.json"])
+exports_files([
+    "NOTICES",
+    "LICENSE",
+    "VERSION",
+    "CHANGELOG",
+    "tsconfig.json",
+])
 
 # FIXME(#448): We're currently assigning version (100+x).y.z to all components
 # in SDK version x.y.z. As long as x < 10, 10x.y.z == (100+x).y.z.  Since we'll
@@ -82,7 +91,10 @@ genrule(
 
 genrule(
     name = "sdk-version-hs",
-    srcs = ["VERSION", ":component-version"],
+    srcs = [
+        "VERSION",
+        ":component-version",
+    ],
     outs = ["SdkVersion.hs"],
     cmd = """
         SDK_VERSION=$$(cat $(location VERSION))
@@ -105,60 +117,59 @@ da_haskell_library(
 
 genrule(
     name = "git-revision",
-    stamp = True,
     outs = [".git-revision"],
     cmd = """
         grep '^STABLE_GIT_REVISION ' bazel-out/stable-status.txt | cut -d ' ' -f 2 > $@
     """,
+    stamp = True,
 )
-
 
 #
 # Common aliases
 #
 
 alias(
-  name = "damli",
-  actual = "//daml-foundations/daml-tools/da-hs-damli-app:damli"
+    name = "damli",
+    actual = "//daml-foundations/daml-tools/da-hs-damli-app:damli",
 )
 
 alias(
-  name = "damli@ghci",
-  actual = "//daml-foundations/daml-tools/da-hs-damli-app:damli@ghci"
+    name = "damli@ghci",
+    actual = "//daml-foundations/daml-tools/da-hs-damli-app:damli@ghci",
 )
 
 alias(
-  name = "damli-dist",
-  actual = "//daml-foundations/daml-tools/da-hs-damli-app:dist"
+    name = "damli-dist",
+    actual = "//daml-foundations/daml-tools/da-hs-damli-app:dist",
 )
 
 alias(
-  name = "damlc",
-  actual = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app"
+    name = "damlc",
+    actual = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app",
 )
 
 alias(
-  name = "damlc@ghci",
-  actual = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app@ghci"
+    name = "damlc@ghci",
+    actual = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app@ghci",
 )
 
 alias(
-  name = "damlc-dist",
-  actual = "//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist"
+    name = "damlc-dist",
+    actual = "//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist",
 )
 
 alias(
-  name = "daml-lf-repl",
-  actual = "//daml-lf/repl:repl"
+    name = "daml-lf-repl",
+    actual = "//daml-lf/repl:repl",
 )
 
 alias(
-  name = "bindings-java",
-  actual = "//language-support/java/bindings:bindings-java"
+    name = "bindings-java",
+    actual = "//language-support/java/bindings:bindings-java",
 )
 
 exports_files([
-  ".scalafmt.conf"
+    ".scalafmt.conf",
 ])
 
 # Buildifier.

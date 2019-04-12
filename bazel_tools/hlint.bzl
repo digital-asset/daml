@@ -32,16 +32,18 @@ def _haskell_hlint_rule_impl(ctx):
 def _haskell_hlint_aspect_impl(target, ctx):
     inputFiles = []
     inputPaths = []
-    if hasattr(ctx.rule.attr, 'srcs'):
+    if hasattr(ctx.rule.attr, "srcs"):
         for src in ctx.rule.attr.srcs:
             for f in src.files:
                 # We want to only do native Haskell source files, which
                 # seems to involve ignoring these generated paths
                 # (the f.is_source almost always returns True)
-                if all([f.path.endswith(".hs")
-                       ,f.path.startswith("external/") == False
-                       ,f.path.startswith("bazel-out/") == False
-                       ,f.path.startswith("nix/") == False]):
+                if all([
+                    f.path.endswith(".hs"),
+                    f.path.startswith("external/") == False,
+                    f.path.startswith("bazel-out/") == False,
+                    f.path.startswith("nix/") == False,
+                ]):
                     inputFiles.append(f)
                     inputPaths.append(f.path)
 
@@ -68,7 +70,6 @@ def _haskell_hlint_aspect_impl(target, ctx):
     output_files = OutputGroupInfo(default = outputs)
     return [lint_info, output_files]
 
-
 haskell_hlint_aspect = aspect(
     _haskell_hlint_aspect_impl,
     attr_aspects = ["deps"],
@@ -93,5 +94,5 @@ haskell_hlint = rule(
             aspects = [haskell_hlint_aspect],
             doc = "List of Haskell targets to lint.",
         ),
-    }
+    },
 )

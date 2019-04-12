@@ -2,37 +2,33 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  "//bazel_tools:scala.bzl",
-  "da_scala_test_suite",
-  "da_scala_library"
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
 )
-
 load("//bazel_tools:pom_file.bzl", "pom_file")
 
 java_library(
-    name = 'bindings-rxjava',
-
-    srcs = glob(['src/main/java/**/*.java']),
-
+    name = "bindings-rxjava",
+    srcs = glob(["src/main/java/**/*.java"]),
+    tags = ["maven_coordinates=com.daml.ledger:bindings-rxjava:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
     deps = [
-        '//3rdparty/jvm/org/slf4j:slf4j_api',
-        "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
-        "//3rdparty/jvm/org/pcollections:pcollections",
-        "//3rdparty/jvm/org/checkerframework:checker",
-        "//3rdparty/jvm/io/grpc:grpc_netty",
+        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
         "//3rdparty/jvm/io/grpc:grpc_core",
+        "//3rdparty/jvm/io/grpc:grpc_netty",
         "//3rdparty/jvm/io/grpc:grpc_protobuf",
         "//3rdparty/jvm/io/grpc:grpc_stub",
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
         "//3rdparty/jvm/io/netty:netty_handler",
-        '//ledger-api/rs-grpc-bridge:rs-grpc-bridge',
-        "//language-support/java/bindings:bindings-java"
+        "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
+        "//3rdparty/jvm/org/checkerframework:checker",
+        "//3rdparty/jvm/org/pcollections",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//language-support/java/bindings:bindings-java",
+        "//ledger-api/rs-grpc-bridge",
     ],
-
-    visibility = [
-        '//visibility:public',
-    ],
-    tags = ["maven_coordinates=com.daml.ledger:bindings-rxjava:__VERSION__"],
 )
 
 pom_file(
@@ -41,39 +37,48 @@ pom_file(
 )
 
 testDependencies = [
-        '//3rdparty/jvm/io/grpc:grpc_core',
-        '//3rdparty/jvm/io/grpc:grpc_netty',
-        ":bindings-rxjava",
-        '//3rdparty/jvm/org/slf4j:slf4j_api',
-        '//ledger-api/grpc-definitions:ledger-api-scalapb',
-        '//language-support/java/testkit:testkit',
-        '//ledger-api/rs-grpc-bridge:rs-grpc-bridge',
-        "//3rdparty/jvm/org/scalatest:scalatest",
-        "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/org/scalacheck:scalacheck",
-        '//3rdparty/jvm/org/reactivestreams:reactive_streams',
-        "//3rdparty/jvm/org/pcollections:pcollections",
-        '//3rdparty/jvm/org/scalactic:scalactic',
-        "//language-support/java/bindings:bindings-java",
-    ]
+    "//3rdparty/jvm/io/grpc:grpc_core",
+    "//3rdparty/jvm/io/grpc:grpc_netty",
+    ":bindings-rxjava",
+    "//3rdparty/jvm/org/slf4j:slf4j_api",
+    "//ledger-api/grpc-definitions:ledger-api-scalapb",
+    "//language-support/java/testkit:testkit",
+    "//ledger-api/rs-grpc-bridge:rs-grpc-bridge",
+    "//3rdparty/jvm/org/scalatest:scalatest",
+    "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
+    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+    "//3rdparty/jvm/org/scalacheck:scalacheck",
+    "//3rdparty/jvm/org/reactivestreams:reactive_streams",
+    "//3rdparty/jvm/org/pcollections:pcollections",
+    "//3rdparty/jvm/org/scalactic:scalactic",
+    "//language-support/java/bindings:bindings-java",
+]
 
 da_scala_library(
-  name = "bindings-java-tests-lib",
-  srcs = glob(['src/test/**/*.scala'], exclude = ['src/test/**/*Spec.scala', 'src/test/**/*Test.scala']),
-  deps = testDependencies,
+    name = "bindings-java-tests-lib",
+    srcs = glob(
+        ["src/test/**/*.scala"],
+        exclude = [
+            "src/test/**/*Spec.scala",
+            "src/test/**/*Test.scala",
+        ],
+    ),
+    deps = testDependencies,
 )
 
 da_scala_test_suite(
     name = "bindings-java-tests",
-    srcs = glob(['src/test/**/*Spec.scala', 'src/test/**/*Test.scala']),
+    srcs = glob([
+        "src/test/**/*Spec.scala",
+        "src/test/**/*Test.scala",
+    ]),
     deps = [
         ":bindings-java-tests-lib",
-    ] + testDependencies
+    ] + testDependencies,
 )
 
-filegroup (
+filegroup(
     name = "sources",
-    srcs = glob(['src/main/java/**/*.java']),
-    visibility = [ '//visibility:public', ],
+    srcs = glob(["src/main/java/**/*.java"]),
+    visibility = ["//visibility:public"],
 )

@@ -1,13 +1,11 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load ("//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 
 da_haskell_binary(
     name = "release",
     srcs = glob(["src/**/*.hs"]),
-    src_strip_prefix = "src",
-    deps = [],
     hazel_deps = [
         "ansi-terminal",
         "base",
@@ -36,7 +34,9 @@ da_haskell_binary(
         "mtl",
         "xml-conduit",
     ],
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
+    deps = [],
 )
 
 # NOTE(MH): This tarball contains only metadata for an SDK release. The SDK
@@ -51,7 +51,7 @@ genrule(
         "//:component-version",
         "//:git-revision",
         "//:CHANGELOG",
-        "sdk.yaml"
+        "sdk.yaml",
     ],
     outs = ["sdk-metadata-tarball.tar.gz"],
     cmd = """

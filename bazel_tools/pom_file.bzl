@@ -98,17 +98,18 @@ def _collect_maven_info_impl(_target, ctx):
 
     deps = depset([], transitive = [depset([d]) for d in _maven_coordinates(deps + exports + jars)])
     filtered_deps = [
-        d for d in deps
-          if not (only_external_deps and (d.split(":")[0].startswith("com.daml") or
-                                          d.split(":")[0].startswith("com.digitalasset")))
+        d
+        for d in deps
+        if not (only_external_deps and (d.split(":")[0].startswith("com.daml") or
+                                        d.split(":")[0].startswith("com.digitalasset")))
     ]
 
     if maven_coordinates:
         return [
             MavenInfo(
                 maven_coordinates = maven_coordinates,
-                maven_dependencies = [] if fat_jar else filtered_deps
-            )
+                maven_dependencies = [] if fat_jar else filtered_deps,
+            ),
         ]
     else:
         return _EMPTY_MAVEN_INFO
@@ -152,7 +153,7 @@ def _pom_file(ctx):
     maven_coordinates = ctx.attr.target[MavenInfo].maven_coordinates.split(":")
     groupId = maven_coordinates[0]
     artifactId = maven_coordinates[1]
-    version= maven_coordinates[2]
+    version = maven_coordinates[2]
 
     formatted_deps = []
     for dep in [":".join(d) for d in sorted([d.split(":") for d in mvn_deps])]:

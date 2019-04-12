@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load('@io_bazel_rules_scala//scala:scala.bzl', 'scala_library', 'scala_binary', 'scala_test')
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_test")
 
 filegroup(
     name = "greeting",
@@ -8,9 +8,9 @@ filegroup(
 )
 
 scala_binary(
-  name = "hello-world",
-  main_class = "com.example.myproject.Greeter",
-  runtime_deps = [":hello-lib"],
+    name = "hello-world",
+    main_class = "com.example.myproject.Greeter",
+    runtime_deps = [":hello-lib"],
 )
 
 scala_library(
@@ -34,8 +34,8 @@ scala_test(
     name = "hello",
     srcs = ["src/test/scala/com/example/myproject/TestHello.scala"],
     deps = [
+        "//3rdparty/jvm/org/scalatest",
         "//pipeline/samples/bazel/scala:hello-lib",
-        "//3rdparty/jvm/org/scalatest:scalatest",
     ],
 )
 
@@ -43,7 +43,7 @@ scala_test(
     name = "custom",
     srcs = ["src/test/scala/com/example/myproject/TestCustomGreeting.scala"],
     deps = [
+        "//3rdparty/jvm/org/scalatest",
         "//pipeline/samples/bazel/scala:custom-greeting",
-        "//3rdparty/jvm/org/scalatest:scalatest",
     ],
 )

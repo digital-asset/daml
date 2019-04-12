@@ -2,10 +2,9 @@ load(
     "@io_bazel_rules_scala//jmh:jmh.bzl",
     "scala_benchmark_jmh",
 )
-
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_library"
+    "da_scala_library",
 )
 
 java_library(

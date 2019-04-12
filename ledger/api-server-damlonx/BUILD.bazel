@@ -2,51 +2,42 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  '//bazel_tools:scala.bzl',
-  'da_scala_library',
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
 )
 
 da_scala_library(
-  name = 'api-server-damlonx',
-  srcs = glob(['src/main/scala/**/*.scala']),
-  resources = glob(['src/main/resources/**/*']),
-  deps = [
-    '//3rdparty/jvm/io/grpc:grpc_services',
-
-    '//ledger/participant-state',
-    '//ledger/participant-state-index',
-
-    '//ledger-api/rs-grpc-bridge',
-    '//ledger-api/rs-grpc-akka',
-
-    '//language-support/scala/bindings',
-
-    '//ledger/ledger-api-akka',
-    '//ledger/ledger-api-scala-logging',
-    '//ledger/ledger-api-domain',
-    '//ledger/ledger-api-common',
-    '//ledger/ledger-api-client',
-
-    '//daml-lf/transaction',
-    '//daml-lf/data',
-    '//daml-lf/lfpackage',
-    '//daml-lf/archive:daml_lf_java_proto',
-    '//daml-lf/archive:daml_lf_archive_scala',
-    '//daml-lf/engine',
-    '//daml-lf/interpreter',
-
-    '//3rdparty/jvm/org/slf4j:slf4j_api',
-    '//3rdparty/jvm/com/typesafe/akka:akka_stream',
-    '//3rdparty/jvm/com/google/protobuf:protobuf_java',
-    '//3rdparty/jvm/org/scalaz:scalaz_core',
-    "//3rdparty/jvm/io/grpc:grpc_netty",
-    "//3rdparty/jvm/io/netty:netty_handler",
-
-
-  ],
-  runtime_deps = [],
-  visibility = [
-    '//visibility:public',
-  ],
+    name = "api-server-damlonx",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/io/grpc:grpc_netty",
+        "//3rdparty/jvm/io/grpc:grpc_services",
+        "//3rdparty/jvm/io/netty:netty_handler",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//daml-lf/archive:daml_lf_archive_scala",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/lfpackage",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-akka",
+        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-scala-logging",
+        "//ledger/participant-state",
+        "//ledger/participant-state-index",
+    ],
 )
-

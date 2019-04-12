@@ -7,81 +7,79 @@ load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 
 proto_library(
-     name = 'protos',
-     proto_source_root = 'ledger-api/grpc-definitions',
-     srcs = glob(["**/*.proto"]),
-     deps = ['@com_google_protobuf//:empty_proto',
-            '@com_google_protobuf//:timestamp_proto',
-            '@com_google_protobuf//:duration_proto',
-            '@com_google_protobuf//:wrappers_proto',
-            '@com_google_protobuf//:any_proto',
-            '@com_google_protobuf//:descriptor_proto',
-            '@com_github_googleapis_googleapis//google/rpc:status_proto'
-    ],
+    name = "protos",
+    srcs = glob(["**/*.proto"]),
+    proto_source_root = "ledger-api/grpc-definitions",
     visibility = [
-        '//visibility:public',
-    ]
+        "//visibility:public",
+    ],
+    deps = [
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+    ],
 )
 
 pkg_tar(
-    name = 'ledger-api-protos',
-    strip_prefix = './',
-    srcs = glob(['**/*.proto']),
-    extension = 'tar.gz',
+    name = "ledger-api-protos",
+    srcs = glob(["**/*.proto"]),
+    extension = "tar.gz",
+    strip_prefix = "./",
     visibility = [
-        '//visibility:public',
-    ]
+        "//visibility:public",
+    ],
 )
 
 # FIXME(#448): This has the same contents as `:ledger-api-protos` but a
 # directory structure which is suitable for the SDK.
 pkg_tar(
-    name = 'ledger-api-protos-tarball',
-    strip_prefix = './',
-    package_dir = 'grpc-definitions',
-    srcs = glob(['**/*.proto']),
-    extension = 'tar.gz',
+    name = "ledger-api-protos-tarball",
+    srcs = glob(["**/*.proto"]),
+    extension = "tar.gz",
+    package_dir = "grpc-definitions",
+    strip_prefix = "./",
     visibility = [
-        '//visibility:public',
-    ]
+        "//visibility:public",
+    ],
 )
 
 proto_gen(
     name = "ledger-api-scalapb-sources",
     srcs = [":protos"],
-    deps = [
-        '@com_google_protobuf//:empty_proto',
-        '@com_google_protobuf//:timestamp_proto',
-        '@com_google_protobuf//:duration_proto',
-        '@com_google_protobuf//:wrappers_proto',
-        '@com_google_protobuf//:any_proto',
-        '@com_google_protobuf//:descriptor_proto',
-        '@com_github_googleapis_googleapis//google/rpc:status_proto',
-        '@com_github_googleapis_googleapis//google/rpc:code_proto',
-    ],
-    plugin_name = "scalapb",
     plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_name = "scalapb",
     plugin_options = ["grpc"],
     visibility = [
-        '//visibility:public',
+        "//visibility:public",
+    ],
+    deps = [
+        "@com_github_googleapis_googleapis//google/rpc:code_proto",
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
 )
 
 scalapb_deps = [
-    '//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime',
-    '//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime_grpc',
-    '//3rdparty/jvm/com/thesamet/scalapb:lenses',
-    '//3rdparty/jvm/com/google/protobuf:protobuf_java',
-    '//3rdparty/jvm/io/grpc:grpc_stub',
-    '//3rdparty/jvm/io/grpc:grpc_protobuf',
+    "//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime",
+    "//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime_grpc",
+    "//3rdparty/jvm/com/thesamet/scalapb:lenses",
+    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+    "//3rdparty/jvm/io/grpc:grpc_stub",
+    "//3rdparty/jvm/io/grpc:grpc_protobuf",
 ]
 
 scala_library(
     name = "ledger-api-scalapb",
-    srcs = [':ledger-api-scalapb-sources'],
-    deps = scalapb_deps + [':google-rpc-scalapb'],
-    exports = scalapb_deps + [':google-rpc-scalapb'],
-    visibility = ['//visibility:public', ],
+    srcs = [":ledger-api-scalapb-sources"],
     tags = [
         "maven_coordinates=com.digitalasset.ledger-api.grpc-definitions:ledger-api-scalapb:__VERSION__",
         # the bazel rules depend on the source .proto files, which we do not release.
@@ -89,6 +87,9 @@ scala_library(
         # deps.
         "only_external_deps",
     ],
+    visibility = ["//visibility:public"],
+    exports = scalapb_deps + [":google-rpc-scalapb"],
+    deps = scalapb_deps + [":google-rpc-scalapb"],
 )
 
 pom_file(
@@ -99,62 +100,65 @@ pom_file(
 proto_gen(
     name = "google-rpc-sources",
     srcs = [
-        '@com_github_googleapis_googleapis//google/rpc:status_proto',
-        '@com_github_googleapis_googleapis//google/rpc:code_proto',
+        "@com_github_googleapis_googleapis//google/rpc:code_proto",
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
     ],
-    deps = [
-        '@com_google_protobuf//:any_proto',
-    ],
-    plugin_name = "scalapb",
     plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_name = "scalapb",
     plugin_options = ["grpc"],
     visibility = [
-        '//visibility:public',
+        "//visibility:public",
+    ],
+    deps = [
+        "@com_google_protobuf//:any_proto",
     ],
 )
 
 scala_library(
     name = "google-rpc-scalapb",
-    srcs = [':google-rpc-sources'],
-    deps = scalapb_deps,
-    exports = scalapb_deps,
-    visibility = ['//visibility:public', ],
+    srcs = [":google-rpc-sources"],
     tags = ["maven_coordinates=com.digitalasset.ledger-api.grpc-definitions:ledger-api-scalapb:__VERSION__"],
+    visibility = ["//visibility:public"],
+    exports = scalapb_deps,
+    deps = scalapb_deps,
 )
 
 proto_gen(
     name = "ledger-api-docs",
-    srcs = [':protos'],
-    deps = [
-        '@com_google_protobuf//:empty_proto',
-        '@com_google_protobuf//:timestamp_proto',
-        '@com_google_protobuf//:duration_proto',
-        '@com_google_protobuf//:wrappers_proto',
-        '@com_google_protobuf//:any_proto',
-        '@com_google_protobuf//:descriptor_proto',
-        '@com_github_googleapis_googleapis//google/rpc:status_proto',
-        '@com_github_googleapis_googleapis//google/rpc:code_proto',
-    ],
-    plugin_name = "doc",
+    srcs = [":protos"],
     plugin_exec = "@com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc",
+    plugin_name = "doc",
+    plugin_options = [
+        "ledger-api/grpc-definitions/rst_mmd.tmpl",
+        "docs.rst",
+    ],
     # this is _slightly_ hacky. we need to include the markdown template in the plugin_runfiles
     # and refer to the file with a workspace relative path in plugin_options
     plugin_runfiles = ["rst_mmd.tmpl"],
-    plugin_options = ["ledger-api/grpc-definitions/rst_mmd.tmpl", "docs.rst"],
     visibility = [
-        '//visibility:public',
+        "//visibility:public",
+    ],
+    deps = [
+        "@com_github_googleapis_googleapis//google/rpc:code_proto",
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
 )
 
 genrule(
-    name = 'docs',
-    srcs = [':ledger-api-docs'],
-    tools = ["post-process.sh"],
-    outs = ['proto-docs.rst'],
+    name = "docs",
+    srcs = [":ledger-api-docs"],
+    outs = ["proto-docs.rst"],
     cmd = """
         unzip -q $(location :ledger-api-docs)
         $(location post-process.sh)
         mv docs.rst '$@'
     """,
-    visibility = ['//visibility:public', ],
+    tools = ["post-process.sh"],
+    visibility = ["//visibility:public"],
 )

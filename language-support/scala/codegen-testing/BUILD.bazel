@@ -2,31 +2,30 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  '//bazel_tools:scala.bzl',
-  'da_scala_library',
-  'da_scala_test_suite',
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
 )
 
-
 da_scala_library(
-  name = 'codegen-testing',
-  deps = [
-    '//language-support/scala/bindings',
-    '//ledger/ledger-api-client',
-    '//3rdparty/jvm/org/scalacheck:scalacheck',
-    '//3rdparty/jvm/org/scalaz:scalaz_core',
-    '//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding',
-  ],
-  plugins = [
-    # Plugins have to be specified as JARs.
-    '//external:jar/org/spire_math/kind_projector_2_12',
-  ],
-  runtime_deps = [],
-  exports = [],
-  visibility = [
-    '//visibility:public',
-  ],
-  srcs = glob(['src/main/**/*.scala']),
+    name = "codegen-testing",
+    srcs = glob(["src/main/**/*.scala"]),
+    plugins = [
+        # Plugins have to be specified as JARs.
+        "//external:jar/org/spire_math/kind_projector_2_12",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    exports = [],
+    runtime_deps = [],
+    deps = [
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
+        "//language-support/scala/bindings",
+        "//ledger/ledger-api-client",
+    ],
 )
 
 # Sources that do not define test-cases but utilities
@@ -35,50 +34,51 @@ da_scala_library(
 # Consider moving these files into a separate sub-directory
 # to enable source globbing for them.
 testing_utils = [
-  'src/test/scala/com/digitalasset/scalatest/CustomMatcher.scala',
-  'src/test/scala/com/digitalasset/ledger/client/binding/encoding/LfTypeEncodingSpec.scala',
-  'src/test/scala/com/digitalasset/ledger/client/binding/EncodingTestUtil.scala',
-  'src/test/scala/com/digitalasset/ledger/client/binding/ValueSpec.scala',
+    "src/test/scala/com/digitalasset/scalatest/CustomMatcher.scala",
+    "src/test/scala/com/digitalasset/ledger/client/binding/encoding/LfTypeEncodingSpec.scala",
+    "src/test/scala/com/digitalasset/ledger/client/binding/EncodingTestUtil.scala",
+    "src/test/scala/com/digitalasset/ledger/client/binding/ValueSpec.scala",
 ]
 
 da_scala_library(
-  name = 'codegen-testing-testing',
-  deps = [
-    '//language-support/scala/bindings',
-    '//ledger/ledger-api-client',
-    '//3rdparty/jvm/org/scalacheck:scalacheck',
-    '//3rdparty/jvm/org/scalatest:scalatest',
-    '//3rdparty/jvm/org/scalaz:scalaz_core',
-    ':codegen-testing',
-  ],
-  plugins = [
-    # Plugins have to be specified as JARs.
-    '//external:jar/org/spire_math/kind_projector_2_12',
-  ],
-  runtime_deps = [],
-  exports = [],
-  visibility = [
-    '//visibility:public',
-  ],
-  srcs = testing_utils,
+    name = "codegen-testing-testing",
+    srcs = testing_utils,
+    plugins = [
+        # Plugins have to be specified as JARs.
+        "//external:jar/org/spire_math/kind_projector_2_12",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    exports = [],
+    runtime_deps = [],
+    deps = [
+        ":codegen-testing",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//language-support/scala/bindings",
+        "//ledger/ledger-api-client",
+    ],
 )
 
 da_scala_test_suite(
-  name = 'tests',
-  size = 'small',
-  deps = [
-    '//3rdparty/jvm/com/chuusai:shapeless',
-    '//language-support/scala/bindings',
-    '//3rdparty/jvm/org/apache/commons:commons_text',
-    '//3rdparty/jvm/org/scalacheck:scalacheck',
-    '//3rdparty/jvm/org/scalatest:scalatest',
-    '//3rdparty/jvm/org/scalaz:scalaz_core',
-    ':codegen-testing',
-    ':codegen-testing-testing',
-  ],
-  srcs = glob([
-    'src/test/**/*.scala'
-  ], exclude = testing_utils
-  ),
+    name = "tests",
+    size = "small",
+    srcs = glob(
+        [
+            "src/test/**/*.scala",
+        ],
+        exclude = testing_utils,
+    ),
+    deps = [
+        ":codegen-testing",
+        ":codegen-testing-testing",
+        "//3rdparty/jvm/com/chuusai:shapeless",
+        "//3rdparty/jvm/org/apache/commons:commons_text",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//language-support/scala/bindings",
+    ],
 )
-
