@@ -330,15 +330,6 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
-#Pandoc
-nixpkgs_package(
-    name = "pandoc_nix",
-    attribute_path = "pandoc",
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
 #Javadoc
 nixpkgs_package(
     name = "jdk_nix",
