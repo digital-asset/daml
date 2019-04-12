@@ -23,6 +23,7 @@ function bazel() {
 
 function build-partial() {
     bazel build `
+        //:git-revision `
         //compiler/daml-lf-ast/... `
         //daml-lf/interface/... `
         //language-support/java/bindings/...
@@ -37,6 +38,7 @@ function build-partial() {
 function build-full() {
     # FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
     bazel build `
+        //:git-revision `
         @com_github_grpc_grpc//:grpc `
         //nix/third-party/gRPC-haskell/core:fat_cbits `
         //daml-foundations/daml-tools/daml-extension:daml_extension_lib `

@@ -56,25 +56,24 @@ build:linux --action_env=LOCALE_ARCHIVE
 
 
 # Pass workspace status for stamped actions
-# We skip this on Windows, otherwise bazel fails with
-#   "Access is denied."
-# most likely when trying to evaluate the shebang.
 build:linux --workspace_status_command=bazel_tools/workspace_status.sh
 build:darwin --workspace_status_command=bazel_tools/workspace_status.sh
+build:windows --workspace_status_command=bazel_tools/workspace_status.cmd
 
 # Tell bazel to use the nixpkgs Haskell toolchain on Linux and Darwin
 build:linux --host_platform=@io_tweag_rules_haskell//haskell/platforms:linux_x86_64_nixpkgs
 build:darwin --host_platform=@io_tweag_rules_haskell//haskell/platforms:darwin_x86_64_nixpkgs
+# and GHC's gcc on Windows
+build:windows --crosstool_top=@io_tweag_rules_haskell_ghc_windows_amd64//:toolchain
 
-# Tell bazel to use GHC's gcc on Windows
 # Caching is currently disabled on Windows.
 # See: https://github.com/tweag/rules_haskell/issues/744 for details.
-build:windows --crosstool_top=@io_tweag_rules_haskell_ghc_windows_amd64//:toolchain --noremote_accept_cached --noremote_upload_local_results
+build:windows --noremote_accept_cached
 
 # We use a special windows configuration on CI: cache is enabled. The caching
 # is not totally reliable on Windows yet re. absolute paths, but it is not a
 # problem on CI if all builds share a similar directory structure.
-build:windows-ci --crosstool_top=@io_tweag_rules_haskell_ghc_windows_amd64//:toolchain
+build:windows-ci --remote_accept_cached=true
 
 # Instruct bazel to globally use this flag for compiling protobuf files.
 # We need the source info for generating proto docs. By default proto_library strips
