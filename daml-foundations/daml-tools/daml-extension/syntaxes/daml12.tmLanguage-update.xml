@@ -863,12 +863,12 @@
 					<key>name</key>
 					<string>keyword.other.big-arrow.daml</string>
 				</dict>
-				<!-- <dict>
+				<dict>
 					<key>match</key>
 					<string>\b[\p{Ll}_][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}']*</string>
 					<key>name</key>
 					<string>source.daml</string>
-				</dict> -->
+				</dict>
 				<dict>
 					<key>match</key>
 					<string>\b[\p{Lu}\p{Lt}][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}']*(?!\.)\b</string>
