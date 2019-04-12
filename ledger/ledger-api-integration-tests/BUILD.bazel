@@ -90,6 +90,7 @@ da_scala_binary(
       # POM file are set correctly.
       "fat_jar",
   ],
+  visibility = ['//visibility:public'],
 )
 
 da_scala_test_suite(

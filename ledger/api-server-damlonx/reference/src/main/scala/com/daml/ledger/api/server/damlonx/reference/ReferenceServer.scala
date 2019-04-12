@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.server.damlonx.reference
 
-import java.io.File
+import java.io.{File, FileWriter}
 import java.time.Instant
 import java.util.zip.ZipFile
 
@@ -20,6 +20,29 @@ import scala.util.Try
 
 object ReferenceServer extends App {
   val logger = LoggerFactory.getLogger(this.getClass)
+
+  final case class Config(
+    port: Int,
+    portFile: Option[File],
+    archiveFiles: List[File],
+  )
+
+  val argParser = new scopt.OptionParser[Config]("reference-server") {
+    head("DamlOnX Reference Server")
+    opt[Int]("port")
+      .optional()
+      .action((p, c) => c.copy(port = p))
+      .text("Server port. If not set, a random port is allocated.")
+    opt[File]("port-file")
+      .optional()
+      .action((f, c) => c.copy(portFile = Some(f)))
+      .text("File to write the allocated port number to.")
+    arg[File]("<archive>...")
+      .unbounded()
+      .action((f, c) => c.copy(archiveFiles = f :: c.archiveFiles))
+      .text("DAR files to load")
+  }
+  val config = argParser.parse(args, Config(0, None, List.empty)).getOrElse(sys.exit(1))
 
   // Initialize Akka and log exceptions in flows.
   implicit val system = ActorSystem("ReferenceServer")
@@ -43,8 +66,8 @@ object ReferenceServer extends App {
 
   // Parse DAR archives given as command-line arguments and upload them
   // to the ledger using a side-channel.
-  args.foreach { arg =>
-    archivesFromDar(new File(arg)).foreach { archive =>
+  config.archiveFiles.foreach { f =>
+    archivesFromDar(f).foreach { archive =>
       logger.info(s"Uploading archive ${archive.getHash}...")
       ledger.uploadArchive(archive)
     }
@@ -57,11 +80,17 @@ object ReferenceServer extends App {
   indexService.waitUntilInitialized
 
   val server = Server(
-    serverPort = 6865,
+    serverPort = config.port,
     indexService = indexService,
     writeService = ledger,
     tsb
   )
+
+  config.portFile.foreach { f =>
+    val w = new FileWriter(f)
+    w.write(s"${server.port}\n")
+    w.close
+  }
 
   // Add a hook to close the server. Invoked when Ctrl-C is pressed.
   Runtime.getRuntime.addShutdownHook(new Thread(() => server.close()))
