@@ -1,0 +1,11 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test that rational literals with precision higher then e^-10 fail.
+-- @ ERROR Rational precision is out of bounds
+
+daml 1.2
+
+module RationalPrecisionUpperBound where
+
+a = 0.00000000005

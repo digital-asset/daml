@@ -1,0 +1,11 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test that positive rational literals with 38 digits pass.
+
+daml 1.2
+
+module RationalPrecisionMaxBoundDigits where
+
+-- 38 digits
+a = 9999999999999999999999999999.9999999999

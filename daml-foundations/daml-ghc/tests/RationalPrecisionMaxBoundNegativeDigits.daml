@@ -1,0 +1,11 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test that negativ rational literals with 37 digits pass.
+
+daml 1.2
+
+module RationalPrecisionMaxBoundNegativeDigits where
+
+-- 37 digits plus sign
+a = -999999999999999999999999999.9999999999

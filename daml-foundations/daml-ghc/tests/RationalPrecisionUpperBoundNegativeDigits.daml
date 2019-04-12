@@ -1,0 +1,12 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test that rational negative literals with more than 37 digits fail.
+-- @ ERROR Rational precision is out of bounds
+
+daml 1.2
+
+module RationalPrecisionUpperBoundNegativeDigits where
+
+-- 38 digits + plus sign
+a = -1000000000000000000000000000.0000000000
