@@ -14,7 +14,11 @@ When writing applications for the ledger in Java, you want to work with a repres
 Download
 ========
 
-You can download the `latest version <https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/java/codegen/$latest/codegen-$latest.jar?bt_package=sdk-components>`__  of the Java codegen.
+You can download the `latest version <https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/java/codegen/$latest/codegen-$latest.jar?bt_package=sdk-components>`__  of the Java codegen. Make sure that the following versions are aligned:
+
+* the downloaded Java codegen jar file, eg. 10x.y.z
+* the dependency to :ref:`bindings-java <daml-codegen-java-compiling>`, eg. 10x.y.z
+* the ``sdk-version`` attribute in the :ref:`da.yaml <da-yaml-configuration>` file, eg. x.y.z
 
 .. _daml-codegen-java-running:
 
@@ -91,6 +95,26 @@ The following snippet is an excerpt from the ``pom.xml`` that is part of the :re
     :language: xml
     :lines: 73-105,121-122
     :dedent: 12
+
+
+.. _daml-codegen-java-compiling:
+
+Compile the generated Java code
+===============================
+
+To compile the generated Java code, add the :ref:`Java Bindings <bindings-java-setup-maven>` library with the same version as the Java codegen to the classpath. 
+
+With Maven you can do this by adding a ``dependency`` to the ``pom.xml`` file:
+
+.. code-block:: xml
+
+    <dependency>
+        <groupId>com.daml.ledger</groupId>
+        <artifactId>bindings-rxjava</artifactId>
+        <version>x.y.z</version>
+    </dependency>
+
+
 
 Understand the generated Java model
 ===================================
