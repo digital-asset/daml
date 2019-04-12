@@ -110,7 +110,6 @@ If-then-else
 
 You can use conditional *if-then-else* expressions, for example:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   if owner == scroogeMcDuck then "sell" else "buy"
