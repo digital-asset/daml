@@ -359,6 +359,12 @@
 		</dict>
 		<dict>
 			<key>match</key>
+			<string>\b(m?controller|can)(\b(?!'))</string>
+			<key>name</key>
+			<string>keyword.other.daml</string>
+		</dict>
+		<dict>
+			<key>match</key>
 			<string>\b(m?do|if|then|else|case|of)(\b(?!'))</string>
 			<key>name</key>
 			<string>keyword.control.daml</string>
