@@ -132,7 +132,7 @@ object Node {
     recorded match {
       case nc: NodeCreate[Cid, Val] =>
         isReplayedBy match {
-          case NodeCreate(coid2, coinst2, optLocation2@_, signatories2, stakeholders2, key2) =>
+          case NodeCreate(coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
             import nc._
             // NOTE(JM): Do not compare location annotations as they may differ due to
             // differing update expression constructed from the root node.
@@ -145,7 +145,7 @@ object Node {
           case NodeFetch(
               coid2,
               templateId2,
-              optLocation2@_,
+              optLocation2 @ _,
               actingParties2,
               signatories2,
               stakeholders2) =>
@@ -161,7 +161,7 @@ object Node {
               targetCoid2,
               templateId2,
               choiceId2,
-              optLocation2@_,
+              optLocation2 @ _,
               consuming2,
               actingParties2,
               chosenValue2,
@@ -177,7 +177,7 @@ object Node {
         }
       case nl: NodeLookupByKey[Cid, Val] =>
         isReplayedBy match {
-          case NodeLookupByKey(templateId2, optLocation2@_, key2, result2) =>
+          case NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2) =>
             import nl._
             templateId == templateId2 &&
             key === key2 && result === result2

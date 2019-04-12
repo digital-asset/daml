@@ -22,9 +22,9 @@ object ReferenceServer extends App {
   val logger = LoggerFactory.getLogger(this.getClass)
 
   final case class Config(
-    port: Int,
-    portFile: Option[File],
-    archiveFiles: List[File],
+      port: Int,
+      portFile: Option[File],
+      archiveFiles: List[File],
   )
 
   val argParser = new scopt.OptionParser[Config]("reference-server") {
