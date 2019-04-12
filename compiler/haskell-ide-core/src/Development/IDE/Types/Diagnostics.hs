@@ -27,6 +27,7 @@ module Development.IDE.Types.Diagnostics (
   ) where
 
 import Control.Exception
+import qualified Control.Lens as L
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Either.Combinators
 import Data.List.Extra
@@ -86,6 +87,7 @@ defDiagnostic _range _message = LSP.Diagnostic {
   , _relatedInformation = Nothing
   }
 
+-- | addLocation but with no range information
 addFilePath ::
   FilePath ->
   LSP.Diagnostic ->
@@ -93,6 +95,8 @@ addFilePath ::
 addFilePath fp =
   addLocation $ Location (filePathToUri fp) noRange
 
+-- | This adds location information to the diagnostics but this is only used in
+--   the case of serious errors to give some context to what went wrong
 addLocation ::
   Location ->
   LSP.Diagnostic ->
@@ -103,23 +107,29 @@ addLocation loc d =
         Just $
         maybe
         (LSP.List [rel loc])
-        (add loc) $
+        (L.over lspList (rel loc:)) $
         _relatedInformation d
     } where
-      rel fp = DiagnosticRelatedInformation fp ""
-      add fp (List a) = List $ rel fp : a
+      rel loc = DiagnosticRelatedInformation loc ""
+
+lspList :: L.Iso (LSP.List a) (LSP.List b) [a] [b]
+lspList = L.coerced
 
 addDiagnostics ::
   FilePath ->
   [LSP.Diagnostic] ->
-  DiagnosticStore ->
-  DiagnosticStore
-addDiagnostics fp diags ds =
-  updateDiagnostics
-    ds
-    (LSP.filePathToUri fp)
-    Nothing
-  $ partitionBySource diags
+  ([LSP.Diagnostic], DiagnosticStore -> DiagnosticStore)
+addDiagnostics fp diags = (seriousErrors, addDiags) where
+  addDiags ds = updateDiagnostics
+      ds
+      uri
+      Nothing $
+      partitionBySource diags
+  hasSeriousErrors :: List DiagnosticRelatedInformation -> Bool
+  hasSeriousErrors (List a) = any ((/=) uri . _uri . _location) a
+  seriousErrors :: [Diagnostic]
+  seriousErrors = filter (maybe False hasSeriousErrors . LSP._relatedInformation) diags
+  uri = LSP.filePathToUri fp
 
 ideTryIOException :: FilePath -> IO a -> IO (Either LSP.Diagnostic a)
 ideTryIOException fp act =
@@ -161,7 +171,10 @@ prettyRange Range{..} =
   ]
 
 prettyPosition :: Position -> Doc SyntaxClass
-prettyPosition = undefined
+prettyPosition Position{..} = label_ "Position" $ vcat
+   [ label_ "Line:" $ pretty _line
+   , label_ "Character:" $ pretty _character
+   ]
 
 stringParagraphs :: T.Text -> Doc a
 stringParagraphs = vcat . map (fillSep . map pretty . T.words) . T.lines
@@ -180,6 +193,7 @@ prettyDiagnostic (LSP.Diagnostic{..}) =
               LSP.DsInfo -> annotate InfoSC
               LSP.DsHint -> annotate HintSC
             $ stringParagraphs _message
+        , label_ "Code:" $ pretty _code
         ]
     where
         sev = fromMaybe LSP.DsError _severity
