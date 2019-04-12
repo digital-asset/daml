@@ -1,4 +1,3 @@
-
 name := "daml-lf"
 scalaVersion := "2.12.6"
 
@@ -41,8 +40,7 @@ lazy val parser_combinators = "org.scala-lang.modules" %% "scala-parser-combinat
 lazy val paiges = "org.typelevel" %% "paiges-core" % "0.2.1"
 lazy val scalameter_core = "com.storm-enroute" %% "scalameter-core" % "0.10.1" % "test"
 
-
-lazy val data_deps = Seq(scalatest, scalacheck, scalaz , scalaz_scalacheck_binding)
+lazy val data_deps = Seq(scalatest, scalacheck, scalaz, scalaz_scalacheck_binding)
 lazy val transaction_deps = Seq(scalaz, protobuf, scalatest, scalacheck, scalapb_runtime)
 lazy val lfpackage_deps = scalatest +: data_deps
 lazy val interp_deps = Seq(paiges, scalatest, scalacheck, scalapb_runtime)
@@ -62,7 +60,6 @@ lazy val repl_deps = Seq(
   paiges
 )
 
-
 //TODO(nic): DarReaderTest fails
 
 lazy val archive = (project in file("archive"))
@@ -78,7 +75,7 @@ lazy val archiveGen = (project in file("gen/for-archive"))
 
 lazy val data = (project in file("data"))
   .settings(
-	libraryDependencies ++= data_deps
+    libraryDependencies ++= data_deps
   )
 
 lazy val engine = (project in file("engine"))
@@ -89,10 +86,10 @@ lazy val engine = (project in file("engine"))
 
 lazy val interface = (project in file("interface"))
   .dependsOn(archive, parser % "test->test")
-  .settings(	 
+  .settings(
     libraryDependencies ++= Seq(scalaz, scalatest)
   )
-	
+
 lazy val interpreter = (project in file("interpreter"))
   .dependsOn(data, transaction, lfpackage, archive, validation, parser % "test->test")
   .settings(
@@ -102,7 +99,7 @@ lazy val interpreter = (project in file("interpreter"))
 lazy val lfpackage = (project in file("lfpackage"))
   .dependsOn(data, archive)
   .settings(
-	libraryDependencies ++= lfpackage_deps
+    libraryDependencies ++= lfpackage_deps
   )
 
 lazy val parser = (project in file("parser"))
@@ -114,7 +111,7 @@ lazy val parser = (project in file("parser"))
 lazy val repl = (project in file("repl"))
   .dependsOn(interpreter, `scenario-interpreter`, validation)
   .settings(
-     libraryDependencies ++= repl_deps
+    libraryDependencies ++= repl_deps
   )
 
 lazy val `scenario-interpreter` = (project in file("scenario-interpreter"))
@@ -127,7 +124,7 @@ lazy val testingTools = (project in file("testing-tools"))
   .dependsOn(archive, interpreter, `scenario-interpreter`, engine)
   .settings(
     libraryDependencies ++= testing_deps
-  )	
+  )
 
 // TODO(nic): transaction/test fails to compile -- needs ValueGenerators
 // which is in transactionScalacheck - but that causes a recursive dep!
