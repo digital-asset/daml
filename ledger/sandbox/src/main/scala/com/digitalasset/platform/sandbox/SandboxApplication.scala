@@ -9,6 +9,7 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.client.configuration.TlsConfiguration
 import com.digitalasset.ledger.server.LedgerApiServer.LedgerApiServer
 import com.digitalasset.platform.sandbox.banner.Banner
@@ -37,6 +38,7 @@ object SandboxApplication {
       config: => SandboxConfig,
       maybeBundle: Option[SslContext] = None)
       extends AutoCloseable {
+
     @volatile private var system: ActorSystem = _
     @volatile private var materializer: ActorMaterializer = _
     @volatile private var server: LedgerApiServer = _
@@ -47,6 +49,9 @@ object SandboxApplication {
 
     def getMaterializer: ActorMaterializer = materializer
 
+    // We memoize the engine between resets so we avoid the expensive
+    // repeated validation of the sames packages after each reset
+    private val engine = Engine()
     /** the reset service is special, since it triggers a server shutdown */
     private val resetService: SandboxResetService = new SandboxResetService(
       () => ledgerId,
@@ -100,6 +105,7 @@ object SandboxApplication {
       server = LedgerApiServer(
         ledgerBackend,
         timeProvider,
+        engine,
         config,
         port,
         timeServiceBackendO.map(TimeServiceBackend.withObserver(_, ledger.publishHeartbeat)),
