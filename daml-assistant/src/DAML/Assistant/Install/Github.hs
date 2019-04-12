@@ -36,7 +36,7 @@ instance FromJSON Release where
 
 data Asset = Asset
     { assetName :: AssetName
-    , assetDownloadURL :: Text
+    , assetDownloadURL :: InstallURL
     } deriving (Eq, Show)
 
 instance FromJSON Asset where
@@ -81,7 +81,7 @@ getVersionRelease v = do
     requiredIO ("Failed to get SDK release " <> versionToText v <> " from github.") $
         makeAPIRequest ("/releases/tags/" <> t)
 
-getReleaseURL :: Release -> Either AssistantError Text
+getReleaseURL :: Release -> Either AssistantError InstallURL
 getReleaseURL Release{..} = do
     version <- tagToVersion releaseTag
     let target = versionToAssetName version
@@ -105,8 +105,8 @@ osName = case System.Info.os of
     "mingw32" -> "win"
     p -> error ("daml: Unknown operating system " ++ p)
 
-versionURL :: SdkVersion -> IO Text
+versionURL :: SdkVersion -> IO InstallURL
 versionURL v = getVersionRelease v >>= fromRightM throwIO . getReleaseURL
 
-latestURL :: IO Text
+latestURL :: IO InstallURL
 latestURL = getLatestRelease >>= fromRightM throwIO . getReleaseURL

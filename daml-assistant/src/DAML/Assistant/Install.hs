@@ -65,8 +65,6 @@ versionMatchesTarget version = \case
     InstallVersion v -> v == version
     InstallPath _ -> True -- tarball path could be any version
 
-newtype InstallURL = InstallURL { unwrapInstallURL :: Text }
-
 data InstallEnv = InstallEnv
     { options :: InstallOptions
     , targetM :: Maybe InstallTarget
@@ -377,11 +375,11 @@ install options damlPath = do
 
     case targetM of
         Nothing ->
-            httpInstall env . InstallURL =<< Github.latestURL
+            httpInstall env =<< Github.latestURL
             -- TODO replace with installing project version
 
         Just (InstallPath tarballPath) ->
             pathInstall env tarballPath
 
         Just (InstallVersion version) -> do
-            httpInstall env . InstallURL =<< Github.versionURL version
+            httpInstall env =<< Github.versionURL version
