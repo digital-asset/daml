@@ -468,7 +468,7 @@
 							<key>match</key>
 							<string>[\p{Ll}_][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}']*</string>
 							<key>name</key>
-							<string>entity.name.function.daml</string>
+							<string>source.daml</string>
 						</dict>
 						<dict>
 							<key>include</key>
@@ -486,12 +486,6 @@
 			<string>meta.function.type-declaration.daml</string>
 			<key>patterns</key>
 			<array>
-					<dict>
-					<key>match</key>
-					<string>\b\s*where\b</string>
-					<key>name</key>
-					<string>keyword.other.daml</string>
-      	</dict>
 				<dict>
 					<key>include</key>
 					<string>#type_signature</string>
@@ -873,7 +867,7 @@
 					<key>match</key>
 					<string>\b[\p{Ll}_][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}']*</string>
 					<key>name</key>
-					<string>variable.other.generic-type.daml</string>
+					<string>source.daml</string>
 				</dict>
 				<dict>
 					<key>match</key>
