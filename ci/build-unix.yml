@@ -46,7 +46,7 @@ steps:
       JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)
   - bash: |
       set -euxo pipefail
-      git tag -a v$(release_tag) -m "SDK $(release_tag)"
+      git tag v$(release_tag)
       git push origin v$(release_tag)
       cp bazel-genfiles/release/sdk-release-tarball.tar.gz ./daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz
     condition: eq(variables['has_released'], 'true')
