@@ -11,7 +11,7 @@ template Bar
     name: Text
   where
     controller owner can
-      Bar_SomeChoice: (Bool)
+      Bar_SomeChoice: Bool
         with
         aName: Text
           do return True
