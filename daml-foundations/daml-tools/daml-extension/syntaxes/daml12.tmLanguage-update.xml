@@ -359,7 +359,7 @@
 		</dict>
 		<dict>
 			<key>match</key>
-			<string>\b(m?controller|can)(\b(?!'))</string>
+			<string>\b(m?agreement|controller|can|ensure|signatory|observer)(\b(?!'))</string>
 			<key>name</key>
 			<string>keyword.other.daml</string>
 		</dict>
