@@ -81,7 +81,6 @@ getVersionRelease v = do
     requiredIO ("Failed to get SDK release " <> versionToText v <> " from github.") $
         makeAPIRequest ("/releases/tags/" <> t)
 
-
 getReleaseURL :: Release -> Either AssistantError Text
 getReleaseURL Release{..} = do
     version <- tagToVersion releaseTag
