@@ -4,14 +4,14 @@
    file and adds a new header for the new version in
    `docs/source/support/release-notes.rst`.
    It is important that the PR only changes `VERSION` and `release-notes.rst`.
-1. Squash the PR.
+1. "Squash and merge" the PR.
 1. Once CI has passed for the corresponding master build, the release should be
    available on bintray and GitHub, as well as properly tagged.
 1. Activate the new version with `da use VERSION`. Note that it will
    not be picked up by `da upgrade` at this point.
 1. Run through the manual test plan described in https://docs.google.com/document/d/16amcy7bQodXSHjEmKhAUiaPf6O92gUbch1OyixDEvSM/edit?ts=5ca5be00.
 1. If it passes, the release should be made public. This currently
-   consists of two steps:
+   consists of three steps:
 
    1. Tag the release as `visible-external` on Bintray. This step can
       only be done by someone with permissions to set tags on Bintray.
