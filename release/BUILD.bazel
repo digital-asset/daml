@@ -73,7 +73,7 @@ genrule(
 genrule(
     name = "sdk-release-tarball",
     srcs = [
-        ":config.yaml.tmpl",
+        ":sdk-config.yaml.tmpl",
         ":install.sh",
         "//:VERSION",
         "//daml-assistant:daml-dist",
@@ -94,8 +94,8 @@ genrule(
 
       cp $(location :install.sh) $$OUT/install.sh
 
-      cp $(location :config.yaml.tmpl) $$OUT/config.yaml
-      sed -i "s/__VERSION__/$$VERSION/" $$OUT/config.yaml
+      cp $(location :sdk-config.yaml.tmpl) $$OUT/sdk-config.yaml
+      sed -i "s/__VERSION__/$$VERSION/" $$OUT/sdk-config.yaml
 
       mkdir -p $$OUT/daml
       tar xf $(location //daml-assistant:daml-dist) --strip-components=1 -C $$OUT/daml
@@ -144,7 +144,7 @@ EOF
 genrule(
     name = "sdk-head-tarball",
     srcs = [
-        ":config.yaml.tmpl",
+        ":sdk-config.yaml.tmpl",
         ":sdk-release-tarball.tar.gz",
     ],
     outs = ["sdk-head-tarball.tar.gz"],
@@ -155,21 +155,10 @@ genrule(
       mkdir -p $$OUT
       tar xf $(location sdk-release-tarball.tar.gz) --strip-components=1 -C $$OUT
 
-      cp $(location :config.yaml.tmpl) $$OUT/config.yaml
-      sed -i "s/__VERSION__/$$VERSION/" $$OUT/config.yaml
+      cp $(location :sdk-config.yaml.tmpl) $$OUT/sdk-config.yaml
+      sed -i "s/__VERSION__/$$VERSION/" $$OUT/sdk-config.yaml
 
-      rm $$OUT/templates/quickstart-java/daml.yaml
-      cat > $$OUT/templates/quickstart-java/daml.yaml << EOF
-sdk-version: $$VERSION
-name: quickstart
-source: daml/Main.daml
-scenario: Main:setup
-parties:
-  - Alice
-  - Bob
-  - USD_Bank
-  - EUR_Bank
-EOF
+      sed -i "s/sdk-version: .*/sdk-version: 0.0.0/" $$OUT/templates/quickstart-java/daml.yaml
 
       tar zcf $(location sdk-head-tarball.tar.gz) --format=ustar $$OUT
     """,

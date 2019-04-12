@@ -63,7 +63,7 @@ projectConfigName = "daml.yaml"
 
 -- | File name of config file in DAML_SDK (the sdk path)
 sdkConfigName :: FilePath
-sdkConfigName = "config.yaml"
+sdkConfigName = "sdk-config.yaml"
 
 -- | List of all environment variables handled by daml assistant.
 damlEnvVars :: [String]
