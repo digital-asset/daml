@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.io.InputStream
+import java.security.MessageDigest
 import java.sql.Connection
 import java.util.Date
 
@@ -12,9 +13,9 @@ import akka.stream.Materializer
 import anorm.SqlParser.{str, _}
 import anorm.{AkkaStream, BatchSql, NamedParameter, SQL, SqlParser}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.digitalasset.daml.lf.transaction.Node
+import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.ledger.backend.api.v1.RejectionReason._
 import com.digitalasset.platform.common.util.DirectExecutionContext
@@ -27,7 +28,8 @@ import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
-  TransactionSerializer
+  TransactionSerializer,
+  ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.google.common.io.ByteStreams
@@ -41,7 +43,8 @@ import scala.util.control.NonFatal
 private class PostgresLedgerDao(
     dbDispatcher: DbDispatcher,
     contractSerializer: ContractSerializer,
-    transactionSerializer: TransactionSerializer)
+    transactionSerializer: TransactionSerializer,
+    valueSerializer: ValueSerializer)
     extends LedgerDao {
 
   private val logger = LoggerFactory.getLogger(getClass)
@@ -95,6 +98,60 @@ private class PostgresLedgerDao(
           .as(SqlParser.str("value").singleOpt)
     )
 
+  private val SQL_INSERT_CONTRACT_KEY =
+    SQL(
+      "insert into contract_keys(module_name, entity_name, value_hash, contract_id) values({module_name}, {entity_name}, {value_hash}, {contract_id})")
+
+  private val SQL_SELECT_CONTRACT_KEY =
+    SQL(
+      "select contract_id from contract_keys where module_name={module_name} and entity_name={entity_name} and value_hash={value_hash}")
+
+  private val SQL_REMOVE_CONTRACT_KEY =
+    SQL(
+      "delete from contract_keys where module_name={module_name} and entity_name={entity_name} and value_hash={value_hash}")
+
+  private[this] def keyHash(key: GlobalKey): String = {
+    val digest = MessageDigest.getInstance("SHA-256")
+    valueSerializer
+      .serialiseValue(key.key)
+      .map(ba => digest.digest(ba).map("%02x" format _).mkString)
+      .fold[String](e => throw new RuntimeException(e.toString), s => s)
+  }
+
+  private[this] def storeContractKey(key: GlobalKey, cid: AbsoluteContractId)(
+      implicit connection: Connection): Boolean =
+    SQL_INSERT_CONTRACT_KEY
+      .on(
+        "module_name" -> key.templateId.qualifiedName.module.dottedName,
+        "entity_name" -> key.templateId.qualifiedName.name.dottedName,
+        "value_hash" -> keyHash(key),
+        "contract_id" -> cid.coid
+      )
+      .execute()
+
+  private[this] def removeContractKey(key: GlobalKey)(implicit connection: Connection): Boolean =
+    SQL_REMOVE_CONTRACT_KEY
+      .on(
+        "module_name" -> key.templateId.qualifiedName.module.dottedName,
+        "entity_name" -> key.templateId.qualifiedName.name.dottedName,
+        "value_hash" -> keyHash(key)
+      )
+      .execute()
+
+  private[this] def selectContractKey(key: GlobalKey)(
+      implicit connection: Connection): Option[AbsoluteContractId] =
+    SQL_SELECT_CONTRACT_KEY
+      .on(
+        "module_name" -> key.templateId.qualifiedName.module.dottedName,
+        "entity_name" -> key.templateId.qualifiedName.name.dottedName,
+        "value_hash" -> keyHash(key)
+      )
+      .as(SqlParser.str("contract_id").singleOpt)
+      .map(s => AbsoluteContractId(s))
+
+  override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
+    dbDispatcher.executeSql(implicit conn => selectContractKey(key))
+
   private def storeContract(offset: Long, contract: Contract)(
       implicit connection: Connection): Unit = storeContracts(offset, List(contract))
 
@@ -108,11 +165,14 @@ private class PostgresLedgerDao(
       .execute()
 
   private val SQL_INSERT_CONTRACT =
-    """insert into contracts(id, transaction_id, workflow_id, package_id, module_name, entity_name, create_offset, contract)
-      |values({id}, {transaction_id}, {workflow_id}, {package_id}, {module_name}, {entity_name}, {create_offset}, {contract})""".stripMargin
+    """insert into contracts(id, transaction_id, workflow_id, package_id, module_name, entity_name, create_offset, contract, key)
+      |values({id}, {transaction_id}, {workflow_id}, {package_id}, {module_name}, {entity_name}, {create_offset}, {contract}, {key})""".stripMargin
 
   private val SQL_INSERT_CONTRACT_WITNESS =
     "insert into contract_witnesses(contract_id, witness) values({contract_id}, {witness})"
+
+  private val SQL_INSERT_CONTRACT_KEY_MAINTAINERS =
+    "insert into contract_key_maintainers(contract_id, maintainer) values({contract_id}, {maintainer})"
 
   private def storeContracts(offset: Long, contracts: immutable.Seq[Contract])(
       implicit connection: Connection): Unit = {
@@ -131,7 +191,15 @@ private class PostgresLedgerDao(
               "create_offset" -> offset,
               "contract" -> contractSerializer
                 .serialiseContractInstance(c.coinst)
-                .getOrElse(sys.error(s"failed to serialise contract! cid:${c.contractId.coid}"))
+                .getOrElse(sys.error(s"failed to serialise contract! cid:${c.contractId.coid}")),
+              "key" -> c.key
+                .map(
+                  k =>
+                    valueSerializer
+                      .serialiseValue(k.key)
+                      .getOrElse(sys.error(
+                        s"failed to serialise contract key value! cid:${c.contractId.coid}")))
+                .orNull
           )
         )
 
@@ -161,6 +229,31 @@ private class PostgresLedgerDao(
           namedWitnessesParams.drop(1).toArray: _*
         )
         batchInsertWitnesses.execute()
+      }
+
+      val namedKeyMaintainerParams = contracts
+        .flatMap(
+          c =>
+            c.key
+              .map(
+                k =>
+                  k.maintainers.map(
+                    p =>
+                      Seq[NamedParameter](
+                        "contract_id" -> c.contractId.coid,
+                        "maintainer" -> p.underlyingString
+                    )))
+              .getOrElse(Set.empty)
+        )
+        .toArray
+
+      if (!namedKeyMaintainerParams.isEmpty) {
+        val batchInsertKeyMaintainers = BatchSql(
+          SQL_INSERT_CONTRACT_KEY_MAINTAINERS,
+          namedKeyMaintainerParams.head,
+          namedKeyMaintainerParams.drop(1).toArray: _*
+        )
+        batchInsertKeyMaintainers.execute()
       }
     }
     ()
@@ -212,20 +305,21 @@ private class PostgresLedgerDao(
       def acsLookupContract(acs: Unit, cid: AbsoluteContractId) =
         lookupActiveContractSync(cid).map(_.toActiveContract)
 
-      //TODO: Implement check whether the given contract key exists
-      def acsKeyExists(acc: Unit, key: GlobalKey): Boolean = false
+      def acsKeyExists(acc: Unit, key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
-      //TODO: store contract key
       def acsAddContract(
           acs: Unit,
           cid: AbsoluteContractId,
           c: ActiveContracts.ActiveContract,
-          keyO: Option[GlobalKey]): Unit =
+          keyO: Option[GlobalKey]): Unit = {
         storeContract(offset, Contract.fromActiveContract(cid, c))
+        keyO.map(key => storeContractKey(key, cid))
+        ()
+      }
 
-      //TODO: remove contract key
       def acsRemoveContract(acs: Unit, cid: AbsoluteContractId, keyO: Option[GlobalKey]): Unit = {
         archiveContract(offset, cid)
+        keyO.map(key => removeContractKey(key))
         ()
       }
 
@@ -272,24 +366,6 @@ private class PostgresLedgerDao(
             recordedAt,
             transaction,
             explicitDisclosure) =>
-        // we do not support contract keys, for now
-        // TODO for some reason the tests use null transactions sometimes, remove this check
-        if (transaction != null) {
-          transaction.foreach(
-            GenTransaction.TopDown, {
-              case (_, node) =>
-                node match {
-                  case nc: NodeCreate[AbsoluteContractId, VersionedValue[AbsoluteContractId]] =>
-                    nc.key match {
-                      case Some(_) => sys.error("contract keys not supported yet in SQL backend")
-                      case None => ()
-                    }
-                  case _ => ()
-                }
-            }
-          )
-        }
-
         Try {
           SQL_INSERT_TRANSACTION
             .on(
@@ -489,7 +565,8 @@ private class PostgresLedgerDao(
     ~ str("transaction_id")
     ~ str("workflow_id")
     ~ date("recorded_at")
-    ~ binaryStream("contract") map (flatten))
+    ~ binaryStream("contract")
+    ~ binaryStream("key").? map (flatten))
 
   private val SQL_SELECT_CONTRACT =
     SQL(
@@ -497,6 +574,9 @@ private class PostgresLedgerDao(
 
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
+
+  private val SQL_SELECT_KEY_MAINTAINERS =
+    SQL("select maintainer from contract_key_maintainers where contract_id={contract_id}")
 
   private def lookupActiveContractSync(contractId: AbsoluteContractId)(
       implicit conn: Connection): Option[Contract] =
@@ -510,10 +590,11 @@ private class PostgresLedgerDao(
       lookupActiveContractSync(contractId)
     }
 
-  private def mapContractDetails(contractResult: (String, String, String, Date, InputStream))(
+  private def mapContractDetails(
+      contractResult: (String, String, String, Date, InputStream, Option[InputStream]))(
       implicit conn: Connection) =
     contractResult match {
-      case (coid, transactionId, workflowId, createdAt, contractStream) =>
+      case (coid, transactionId, workflowId, createdAt, contractStream, keyStreamO) =>
         val witnesses = lookupWitnesses(coid)
 
         Contract(
@@ -524,7 +605,14 @@ private class PostgresLedgerDao(
           witnesses.map(Ref.Party.assertFromString),
           contractSerializer
             .deserialiseContractInstance(ByteStreams.toByteArray(contractStream))
-            .getOrElse(sys.error(s"failed to deserialise contract! cid:$coid"))
+            .getOrElse(sys.error(s"failed to deserialise contract! cid:$coid")),
+          keyStreamO.map(keyStream => {
+            val keyMaintainers = lookupKeyMaintainers(coid)
+            val keyValue = valueSerializer
+              .deserialiseValue(ByteStreams.toByteArray(keyStream))
+              .getOrElse(sys.error(s"failed to deserialise key value! cid:$coid"))
+            KeyWithMaintainers(keyValue, keyMaintainers)
+          })
         )
     }
 
@@ -533,6 +621,13 @@ private class PostgresLedgerDao(
       .on("contract_id" -> coid)
       .as(SqlParser.str("witness").*)
       .toSet
+
+  private def lookupKeyMaintainers(coid: String)(implicit conn: Connection) =
+    SQL_SELECT_KEY_MAINTAINERS
+      .on("contract_id" -> coid)
+      .as(SqlParser.str("maintainer").*)
+      .toSet
+      .map(Ref.Party.assertFromString)
 
   private val SQL_SELECT_ACTIVE_CONTRACTS =
     SQL(
@@ -569,6 +664,7 @@ object PostgresLedgerDao {
   def apply(
       dbDispatcher: DbDispatcher,
       contractSerializer: ContractSerializer,
-      transactionSerializer: TransactionSerializer): LedgerDao =
-    new PostgresLedgerDao(dbDispatcher, contractSerializer, transactionSerializer)
+      transactionSerializer: TransactionSerializer,
+      valueSerializer: ValueSerializer): LedgerDao =
+    new PostgresLedgerDao(dbDispatcher, contractSerializer, transactionSerializer, valueSerializer)
 }

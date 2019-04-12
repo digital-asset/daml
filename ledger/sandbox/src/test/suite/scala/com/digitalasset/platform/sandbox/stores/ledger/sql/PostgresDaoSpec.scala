@@ -10,7 +10,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, SimpleString}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
+import com.digitalasset.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
@@ -26,7 +26,8 @@ import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{Contract, PostgresLedgerDao}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
-  TransactionSerializer
+  TransactionSerializer,
+  ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import org.scalacheck.{Arbitrary, Gen}
@@ -45,7 +46,7 @@ class PostgresDaoSpec
 
   private lazy val dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, 4, 4)
   private lazy val ledgerDao =
-    PostgresLedgerDao(dbDispatcher, ContractSerializer, TransactionSerializer)
+    PostgresLedgerDao(dbDispatcher, ContractSerializer, TransactionSerializer, ValueSerializer)
 
   private val nextOffset: () => Long = {
     val counter = new AtomicLong(0)
@@ -72,6 +73,10 @@ class PostgresDaoSpec
         VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some text")),
         "agreement"
       )
+      val keyWithMaintainers = KeyWithMaintainers(
+        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key")),
+        Set(Ref.Party.assertFromString("Alice"))
+      )
 
       val contract = Contract(
         absCid,
@@ -79,7 +84,9 @@ class PostgresDaoSpec
         "trId1",
         "workflowId",
         Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
-        contractInstance)
+        contractInstance,
+        Some(keyWithMaintainers)
+      )
 
       val transaction = LedgerEntry.Transaction(
         "commandId1",
@@ -182,13 +189,20 @@ class PostgresDaoSpec
         "agreement"
       )
 
+      val keyWithMaintainers = KeyWithMaintainers(
+        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key")),
+        Set(Ref.Party.assertFromString("Alice"))
+      )
+
       val contract = Contract(
         absCid,
         let,
         "trId2",
         "workflowId",
         Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
-        contractInstance)
+        contractInstance,
+        Some(keyWithMaintainers)
+      )
 
       val transaction = LedgerEntry.Transaction(
         "commandId2",
@@ -246,7 +260,8 @@ class PostgresDaoSpec
           txId,
           "workflowId",
           Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
-          contractInstance
+          contractInstance,
+          None
         )
 
         LedgerEntry.Transaction(

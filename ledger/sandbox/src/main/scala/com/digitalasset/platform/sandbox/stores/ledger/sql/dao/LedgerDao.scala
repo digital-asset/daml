@@ -9,6 +9,8 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.transaction.Node
+import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
@@ -22,14 +24,15 @@ final case class Contract(
     transactionId: String,
     workflowId: String,
     witnesses: Set[Ref.Party],
-    coinst: ContractInst[VersionedValue[AbsoluteContractId]]) {
+    coinst: ContractInst[VersionedValue[AbsoluteContractId]],
+    key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]]) {
   def toActiveContract: ActiveContract =
-    ActiveContract(let, transactionId, workflowId, coinst, witnesses, None)
+    ActiveContract(let, transactionId, workflowId, coinst, witnesses, key)
 }
 
 object Contract {
   def fromActiveContract(cid: AbsoluteContractId, ac: ActiveContract): Contract =
-    Contract(cid, ac.let, ac.transactionId, ac.workflowId, ac.witnesses, ac.contract)
+    Contract(cid, ac.let, ac.transactionId, ac.workflowId, ac.witnesses, ac.contract, ac.key)
 }
 
 case class LedgerSnapshot(offset: Long, acs: Source[Contract, NotUsed])
@@ -73,6 +76,14 @@ trait LedgerDao extends AutoCloseable {
     lookupLedgerEntry(offset).map(
       _.getOrElse(sys.error(s"ledger entry not found for offset: $offset")))(DirectExecutionContext)
   }
+
+  /**
+    * Looks up a Contract given a contract key
+    *
+    * @param key the contract key to query
+    * @return the optional AbsoluteContractId
+    */
+  def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]]
 
   /**
     * Returns a snapshot of the ledger.
