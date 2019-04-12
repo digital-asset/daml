@@ -130,7 +130,7 @@ tan x = s / c
 
 -- | The number Pi
 pi: () -> Decimal
-pi () = 3.14159265359
+pi () = 3.1415926536
 
 -- | `cordic` is an implementation of the CORDIC algorithm.
 -- | `cordic n r == (sin(r), cos(r))` computed to n iterations
