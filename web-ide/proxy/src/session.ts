@@ -1,50 +1,46 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-const signature = require('cookie-signature'),
-      cookie = require('cookie'),
-      uid = require('uid-safe').sync,
-      NodeCache = require( "node-cache" ),
-      config = require('./config.json'),
+import * as signature from "cookie-signature"
+import * as cookie from "cookie"
+import NodeCache from "node-cache"
+import * as uid from "uid-safe"
+import { Request, Response } from "express";
 
-      store = new NodeCache({ stdTTL: config.session.inactiveTimeout, checkperiod: 120, useClones: false })
+const conf = require('./config').read(),
+      debug = require('debug')('webide-session'),
+      store = new NodeCache({ stdTTL: conf.session.inactiveTimeout, checkperiod: 120, useClones: false })
 
+type Callback<T> = (error?: any, result?: T) => void;
+export type SaveSession = (state :any) => boolean;
+type ReadSessionCallback = (err :any, result: any, sessionId :string) => void;
+type SaveSessionCallback = (err :any, result: any, sessionId :string, save :SaveSession) => void;
 
-module.exports = {
-  allSessionIds: allSessionIds,
-  allSessionEntries: allSessionEntries,
-  close: close,
-  remove: remove,
-  keepActive: keepActive,
-  session: session,
-  readSession: readSession,
-  onTimeout: onTimeout
-} 
 
 /**
  * callback: function( value ) where value is the state of the session
  * is called when a session inactivetimeout occurs. This could be due to inactivity or cookie expiration
  */
-function onTimeout(callback) {
-  store.on( "del", function( key, value ){
-    console.log("session removed: %s", key)
+export function onTimeout(callback: Callback<any>) {
+  store.on( "del", ( key :string, value :any) => {
+    debug("session removed: %s", key)
     callback(value || {})
   });
 }
 
-function remove(sessionId) {
+function remove(sessionId :string) {
   store.del(sessionId)
 }
 
 /**
  * returns promise resolved to array of session entries :: [sessionId, state]
  */
-function allSessionEntries() {
+export function allSessionEntries() {
   return new Promise((resolve, reject) => {
     store.keys((err, keys) => {
       if (err) reject(err)
       if (!keys) resolve([])
-      store.mget(keys, (err2, storeObj) => {
+      store.mget(<string[]> keys, (err2, storeObj :any) => {
         if (err2) reject(err2)
         
         resolve(Object.entries(storeObj).map(e => {
@@ -62,7 +58,7 @@ function allSessionEntries() {
 /**
  * returns promise resolved to array of sessionIds
  */
-function allSessionIds() {
+export function allSessionIds() {
   return new Promise((resolve, reject) => {
     store.keys((err, keys) => {
       if (err) reject(err)
@@ -72,11 +68,11 @@ function allSessionIds() {
   
 }
 
-function keepActive(sessionId) {
-  store.ttl(sessionId, config.session.inactiveTimeout)
+export function keepActive(sessionId :string) {
+  store.ttl(sessionId, conf.session.inactiveTimeout)
 }
 
-function close() {
+export function close() {
   store.close()
 }
 
@@ -86,7 +82,7 @@ function close() {
  * @param {*} res http res (used to set session cookie)
  * @param {*} callback of the form function(err, state, sessionId, saveSession(state) => {}) 
  */
-function session(req, res, callback) {
+export function session(req :Request, res :Response, callback :SaveSessionCallback) {
     const sessionIdFromCookie = getSessionIdFromCookie(req)
     const sessionId = sessionIdFromCookie === undefined ? generateSessionId() : sessionIdFromCookie
     if (sessionIdFromCookie !== sessionId) setCookie(res, sessionId)
@@ -98,7 +94,7 @@ function session(req, res, callback) {
  * @param {*} req http request
  * @param {*} callback of the form function(err, state, sessionId) 
  */
-function readSession(req, callback) {
+export function readSession(req :Request, callback: ReadSessionCallback) {
   const sessionId = getSessionIdFromCookie(req)
   keepActive(sessionId)
   store.get(sessionId, (err, value) => {
@@ -107,36 +103,35 @@ function readSession(req, callback) {
   })
 }
 
-function handleSessionCallback(sessionId, callback) {
+function handleSessionCallback(sessionId :string, callback :SaveSessionCallback) {
   store.get(sessionId, (err, value) => {
     keepActive(sessionId);
     callback(err, (value || {}), sessionId, (state) => {
-      //console.log("saving state %s : %O", sessionId, state)
-      save(sessionId, state);
+      return save(sessionId, state);
     });
   });
 }
 
-function save(sessionId, state) {
-    if (config.session.timeout && !state._started) {
+function save(sessionId :string, state :any) :boolean {
+    if (conf.session.timeout && !state._started) {
       state._started = Date.now()
-      const delay = config.session.timeout * 1000
-      //console.log("session started %s, ending in %s seconds", state._started, config.session.timeout)
+      const delay = conf.session.timeout * 1000
       const timeout = setTimeout(() => {
-        console.log("session timeout occured, started %s", state._started)
+        debug("session timeout occured, started %s", state._started)
         clearTimeout(timeout)
         store.del(sessionId)
       }, delay)
     }
-    store.set(sessionId, state)
+    return store.set(sessionId, state)
 }
 
 function generateSessionId() {
-    return uid(24);
+    return uid.sync(24);
 }
 
-function getSessionIdFromCookie(req) {
-    const name = config.session.name
+//TODO use cookie-parser?
+function getSessionIdFromCookie(req :Request) :string {
+    const name = conf.session.name
     const header = req.headers.cookie;
     var val;
   
@@ -148,30 +143,30 @@ function getSessionIdFromCookie(req) {
         if (raw.substr(0, 2) === 's:') {
           val = unsigncookie(raw.slice(2));
           if (val === false) {
-            console.log('cookie signature invalid');
+            console.error('cookie signature invalid');
             val = undefined;
           }
         } else {
-          console.log('cookie unsigned')
+          console.error('cookie unsigned')
         }
       }
     }
   
-    return val;
+    return <string>val;
   }
   
-function setCookie(res, val) {
-    const name = config.session.name
-    const secret = config.session.secret
+function setCookie(res :Response, val :string) {
+    const name = conf.session.name
+    const secret = conf.session.secret
 
     const signed = 's:' + signature.sign(val, secret);
-    const data = cookie.serialize(name, signed, config.session.cookie);
+    const data = cookie.serialize(name, signed, conf.session.cookie);
     const prev = res.getHeader('Set-Cookie') || []
-    const header = Array.isArray(prev) ? prev.concat(data) : [prev, data];
+    const header = Array.isArray(prev) ? (<string[]>prev).concat(data) : [prev, data];
 
     res.setHeader('Set-Cookie', header)
 }
 
-function unsigncookie(val) {
-    return signature.unsign(val, config.session.secret);
+function unsigncookie(val :string) {
+    return signature.unsign(val, conf.session.secret);
 }
