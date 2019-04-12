@@ -1,0 +1,12 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test that rational negative literals bigger or equal -10^38 + 1 fail.
+-- @ERROR Rational is out of bounds
+
+daml 1.2
+
+module RationalLowerBoundError where
+
+-- -10^38 / 10^10
+a = -10000000000000000000000000000.0000000000
