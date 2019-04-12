@@ -3,11 +3,11 @@
 
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_binary"
+    "da_scala_binary",
 )
 load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
-    "jar_jar"
+    "jar_jar",
 )
 
 da_scala_binary(
@@ -16,14 +16,14 @@ da_scala_binary(
     main_class = "com.digitalasset.codegen.CodegenMain",
     visibility = ["//visibility:public"],
     deps = [
+        "//3rdparty/jvm/com/typesafe/scala_logging",
         "//language-support/java/codegen:lib",
         "//language-support/scala/codegen:codegen-main",
-        "//3rdparty/jvm/com/typesafe/scala_logging",
     ],
 )
 
 jar_jar(
     name = "codegen-main",
     input_jar = ":codegen-main-bin_deploy.jar",
-    rules = "shade_rule"
+    rules = "shade_rule",
 )

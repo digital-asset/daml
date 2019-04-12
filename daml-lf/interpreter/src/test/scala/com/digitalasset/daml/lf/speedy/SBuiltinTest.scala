@@ -324,7 +324,9 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
             |aliquip ex ea commodo consequat. Duis aute irure dolor in
             |reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
             |pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-            |culpa qui officia deserunt mollit anim id est laborum...""".stripMargin ->
+            |culpa qui officia deserunt mollit anim id est laborum..."""
+            .replaceAll("\r", "")
+            .stripMargin ->
             "c045064089460b634bb47e71d2457cd0e8dbc1327aaf9439c275c9796c073620",
           "a¶‱😂" ->
             "8f1cc14a85321115abcd2854e34f9ca004f4f199d367c3c9a84a355f287cec2e"

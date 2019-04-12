@@ -5,42 +5,38 @@ load("//bazel_tools:scala.bzl", "da_scala_library")
 load("//bazel_tools:java.bzl", "da_java_library")
 
 da_java_library(
-    name = 'rs-grpc-bridge',
-
-    srcs = glob(['src/main/java/**/*.java']),
-
-    deps = [
-        '//3rdparty/jvm/org/slf4j:slf4j_api',
-        '//3rdparty/jvm/io/grpc:grpc_stub',
-        "//3rdparty/jvm/com/google/code/findbugs:jsr305",
-        '//3rdparty/jvm/org/reactivestreams:reactive_streams',
-    ],
-
-    visibility = [
-        '//visibility:public',
-    ],
+    name = "rs-grpc-bridge",
+    srcs = glob(["src/main/java/**/*.java"]),
     tags = ["maven_coordinates=com.digitalasset.ledger-api:rs-grpc-bridge:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//3rdparty/jvm/com/google/code/findbugs:jsr305",
+        "//3rdparty/jvm/io/grpc:grpc_stub",
+        "//3rdparty/jvm/org/reactivestreams:reactive_streams",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+    ],
 )
 
-
 da_scala_library(
-    name = 'rs-grpc-bridge-test',
-
-    srcs = glob(['src/test/java/**/*.java', 'src/test/scala/**/*.scala']),
-
-    resources = glob(["src/test/resources/**/*"]),
+    name = "rs-grpc-bridge-test",
+    srcs = glob([
+        "src/test/java/**/*.java",
+        "src/test/scala/**/*.scala",
+    ]),
     resource_strip_prefix = "ledger-api/rs-grpc-bridge/src/test/resources",
-    deps = [
-        ':rs-grpc-bridge',
-        '//3rdparty/jvm/org/slf4j:slf4j_api',
-        '//3rdparty/jvm/io/grpc:grpc_stub',
-        "//3rdparty/jvm/com/google/code/findbugs:jsr305",
-        '//3rdparty/jvm/org/reactivestreams:reactive_streams',
-        '//3rdparty/jvm/org/reactivestreams:reactive_streams_tck',
-        "//3rdparty/jvm/org/scalatest:scalatest",
-    ],
-
+    resources = glob(["src/test/resources/**/*"]),
     visibility = [
-        '//visibility:public',
-    ]
+        "//visibility:public",
+    ],
+    deps = [
+        ":rs-grpc-bridge",
+        "//3rdparty/jvm/com/google/code/findbugs:jsr305",
+        "//3rdparty/jvm/io/grpc:grpc_stub",
+        "//3rdparty/jvm/org/reactivestreams:reactive_streams",
+        "//3rdparty/jvm/org/reactivestreams:reactive_streams_tck",
+        "//3rdparty/jvm/org/scalatest",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+    ],
 )

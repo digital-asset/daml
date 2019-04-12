@@ -3,15 +3,17 @@
 
 load(
     "//bazel_tools:scala.bzl",
-    "lf_scalacopts",
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "lf_scalacopts",
 )
 
 da_scala_library(
     name = "engine",
     srcs = glob(["src/main/**/*.scala"]),
+    scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-engine:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
@@ -24,8 +26,6 @@ da_scala_library(
         "//daml-lf/lfpackage",
         "//daml-lf/transaction",
     ],
-    scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-engine:__VERSION__"],
 )
 
 # TODO(JM): It would make sense to break up the tests
@@ -43,6 +43,7 @@ da_scala_test(
         "//daml-lf/tests:LargeTransaction.dalf",
         "//daml-lf/tests:Optional.dalf",
     ],
+    scalacopts = lf_scalacopts,
     deps = [
         ":engine",
         "//3rdparty/jvm/com/storm_enroute:scalameter_core",
@@ -57,6 +58,4 @@ da_scala_test(
         "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
     ],
-    scalacopts = lf_scalacopts,
 )
-

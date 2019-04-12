@@ -105,7 +105,7 @@ instanceTemplate abstract selector record field = ClsInstD noE $ ClsInstDecl noE
 
 onDecl :: LHsDecl GhcPs -> [LHsDecl GhcPs]
 onDecl o@(L _ (GHC.TyClD _ x)) = o :
-    [ noL $ InstD noE $ instanceTemplate (length fields >= 3 && length ctors == 1) field (unLoc record) typ
+    [ noL $ InstD noE $ instanceTemplate (length ctors == 1) field (unLoc record) typ
     | let fields = nubOrdOn (\(_,_,x,_) -> GHC.occNameFS $ GHC.rdrNameOcc $ unLoc $ rdrNameFieldOcc x) $ getFields x
     , (record, _, field, typ) <- fields]
     where ctors = dd_cons $ tcdDataDefn x

@@ -164,8 +164,6 @@ in rec {
     cqlsh     = cassandra;
     nodetool  = cassandra;
 
-    pandoc = bazel_dependencies.pandoc;
-
     sphinx            = pkgs.python36.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;

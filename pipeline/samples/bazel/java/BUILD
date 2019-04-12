@@ -33,8 +33,8 @@ java_test(
     srcs = ["src/test/java/com/example/myproject/TestHello.java"],
     test_class = "com.example.myproject.TestHello",
     deps = [
+        "//3rdparty/jvm/junit",
         "//pipeline/samples/bazel/java:hello-lib",
-        "//3rdparty/jvm/junit:junit",
     ],
 )
 
@@ -43,7 +43,7 @@ java_test(
     srcs = ["src/test/java/com/example/myproject/TestCustomGreeting.java"],
     test_class = "com.example.myproject.TestCustomGreeting",
     deps = [
+        "//3rdparty/jvm/junit",
         "//pipeline/samples/bazel/java:custom-greeting",
-        "//3rdparty/jvm/junit:junit",
     ],
 )

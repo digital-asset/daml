@@ -262,4 +262,3 @@ def pkg_tar(**kwargs):
                       "Consider renaming it in your BUILD file.")
                 kwargs["srcs"] = kwargs.pop("files")
     _real_pkg_tar(**kwargs)
-

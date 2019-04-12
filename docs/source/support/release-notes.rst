@@ -6,24 +6,48 @@ Release notes
 
 This page contains release notes for the SDK.
 
-- Node.js Bindings: fixed validation for Ledger API timestamp values
-- Node.js Bindings: drops support for identifier names, replacing them with separated module and entity names
-- Node.js Bindings: use strings instead of numbers to represent Ledger API timestamps and dates
-- Node.js Bindings: use strings instead of numbers to represent Protobuf 64-bit precision integers to avoid a loss of precision
-- Java Code Generator: Supports DAML TextMap primitive which is mapped to ``java.util.Map`` type with keys restricted
-  to ``java.lang.String`` instances.
-- Java Codegen: Leaner log output and flag for log verbosity ``-V LEVEL`` or ``--verbosity LEVEL``, where ``LEVEL`` is a number between ``0`` (least verbose) and ``4`` (most verbose).
-  to ``java.lang.String`` instances.
-- Removed support for DAML 1.0 packages in the engine, and thus the sandbox. Note that the SDK has removed support for _compiling_ DAML 1.0 months ago.
-- Fix critical bug related to the conversion of decimal numbers from Ledger API strings, see #439.
+HEAD — ongoing
+--------------
 
-0.12.0
-------
+0.12.2 — 2019-04-12
+-------------------
+
+- Add flexible controllers and disjunction choices to DAML.
+- Introduce experimental support for using Postgres as a backend for the
+  Sandbox. The optional CLI argument for it named ``--jdbcurl`` is still
+  hidden.
+- Node.js Bindings: fix validation for Ledger API timestamp values.
+- Node.js Bindings: drop support for identifier names, replacing them with
+  separated module and entity names.
+- Node.js Bindings: use strings instead of numbers to represent Ledger API
+  timestamps and dates.
+- Node.js Bindings: use strings instead of numbers to represent Protobuf 64-bit
+  precision integers to avoid a loss of precision.
+- Java Codegen: support DAML TextMap primitive which is mapped to
+  ``java.util.Map`` type with keys restricted to ``java.lang.String``
+  instances.
+- Java Codegen: leaner log output.
+- Java Codegen: add flag for log verbosity: ``-V LEVEL`` or ``--verbosity
+  LEVEL``, where ``LEVEL`` is a number between ``0`` (least verbose) and ``4``
+  (most verbose).
+- **BREAKING** Remove support for DAML 1.0 packages in the engine, and thus the
+  sandbox. Note that the SDK has removed support for _compiling_ DAML 1.0
+  months ago.
+- Fix critical bug related to the conversion of decimal numbers from Ledger API
+  strings, see #439.
+
+0.12.1 — 2019-04-04
+-------------------
+
+- Fix release process
+
+0.12.0 — 2019-04-04
+-------------------
 
 - Change in how values are addressed in Navigator's `frontend-config.js`.
-  
+
   - Old syntax for accessing values: `argument.foo.bar`
-  - New syntax: 
+  - New syntax:
 
     .. code-block:: javascript
 

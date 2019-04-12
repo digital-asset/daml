@@ -11,6 +11,9 @@
 
 package(default_visibility = ["//visibility:public"])
 
-load("@os_info//:os_info.bzl", is_windows = "is_windows")
+load("@os_info//:os_info.bzl", "is_windows")
 
-alias(name = "ffi", actual = "@io_tweag_rules_haskell_ghc_windows_amd64//:rts-headers") if is_windows else None
+alias(
+    name = "ffi",
+    actual = "@io_tweag_rules_haskell_ghc_windows_amd64//:rts-headers",
+) if is_windows else None

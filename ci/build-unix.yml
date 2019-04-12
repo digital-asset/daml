@@ -1,5 +1,9 @@
+parameters:
+  name: ''
+
 steps:
   - checkout: self
+    persistCredentials: true
 
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
@@ -40,3 +44,24 @@ steps:
     env:
       # to connect to bintray
       JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)
+  - bash: |
+      set -euxo pipefail
+      git tag v$(release_tag)
+      git push origin v$(release_tag)
+      cp bazel-genfiles/release/sdk-release-tarball.tar.gz ./daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz
+    condition: eq(variables['has_released'], 'true')
+  - task: GitHubRelease@0
+    condition: eq(variables['has_released'], 'true')
+    inputs:
+      gitHubConnection: 'garyverhaegen-da'
+      repositoryName: '$(Build.Repository.Name)'
+      action: 'create'
+      target: '$(Build.SourceVersion)'
+      tagSource: 'auto'
+      assets: './daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz'
+      assetUploadMode: 'replace'
+      addChangeLog: false
+      isDraft: true
+  - bash: |
+      rm ./daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz
+    condition: eq(variables['has_released'], 'true')

@@ -15,12 +15,12 @@ exports_files(srcs=all_files)
 def _dev_env_package_impl(ctx):
     if get_cpu_value(ctx) == "x64_windows":
         ps = ctx.which("powershell")
-        ps_result = ctx.execute([ps, "-Command", "dadew enable; dadew where"], quiet=True)
+        ps_result = ctx.execute([ps, "-Command", "dadew enable; dadew where"], quiet = True)
         if ps_result.return_code != 0:
             fail("Failed to obtain dadew location.\n Exit code %d.\n%s\n%s" %
-            (ps_result.return_code, ps_result.stdout, ps_result.stderr))
+                 (ps_result.return_code, ps_result.stdout, ps_result.stderr))
 
-        dadew = ps_result.stdout.splitlines(keepends=False)[0]
+        dadew = ps_result.stdout.splitlines(keepends = False)[0]
         tool_home = "%s\\scoop\\apps\\%s\\current" % (dadew, ctx.attr.win_tool)
     else:
         tool_home = "../%s" % ctx.attr.nix_label.name
@@ -29,9 +29,9 @@ def _dev_env_package_impl(ctx):
 
     build_path = ctx.path("BUILD")
     build_content = _dev_env_package_build_template.format(
-        rule_name = ctx.name
+        rule_name = ctx.name,
     )
-    ctx.file(build_path, content=build_content, executable=False)
+    ctx.file(build_path, content = build_content, executable = False)
 
 dev_env_package = repository_rule(
     implementation = _dev_env_package_impl,

@@ -3,20 +3,20 @@
 
 load(
     "@io_tweag_rules_haskell//haskell:haskell.bzl",
-    "haskell_library",
     "haskell_binary",
-    "haskell_test",
+    "haskell_library",
     "haskell_repl",
+    "haskell_test",
 )
-load("@io_tweag_rules_haskell//haskell:c2hs.bzl",
+load(
+    "@io_tweag_rules_haskell//haskell:c2hs.bzl",
     "c2hs_library",
 )
 load(
     "@ai_formation_hazel//:hazel.bzl",
     "hazel_library",
 )
-load ("//bazel_tools:hlint.bzl", "haskell_hlint")
-
+load("//bazel_tools:hlint.bzl", "haskell_hlint")
 load("@os_info//:os_info.bzl", "is_windows")
 
 # This file defines common Haskell language extensions and compiler flags used
@@ -51,17 +51,21 @@ common_haskell_exts = [
 ]
 
 common_haskell_flags = [
-  "-Wall", "-Werror", "-Wincomplete-uni-patterns", "-Wno-name-shadowing",
-  "-fno-omit-yields",
-  "-threaded", "-rtsopts",
+    "-Wall",
+    "-Werror",
+    "-Wincomplete-uni-patterns",
+    "-Wno-name-shadowing",
+    "-fno-omit-yields",
+    "-threaded",
+    "-rtsopts",
 
-  # run on two cores, disable idle & parallel GC
-  "-with-rtsopts=-N2 -qg -I0",
+    # run on two cores, disable idle & parallel GC
+    "-with-rtsopts=-N2 -qg -I0",
 ]
 
 def _wrap_rule(rule, name = "", deps = [], hazel_deps = [], compiler_flags = [], **kwargs):
-    ext_flags = [ "-X%s" % ext for ext in common_haskell_exts ]
-    hazel_libs = [ hazel_library(dep) for dep in hazel_deps ]
+    ext_flags = ["-X%s" % ext for ext in common_haskell_exts]
+    hazel_libs = [hazel_library(dep) for dep in hazel_deps]
     rule(
         name = name,
         compiler_flags = ext_flags + common_haskell_flags + compiler_flags,
@@ -76,6 +80,7 @@ def _wrap_rule(rule, name = "", deps = [], hazel_deps = [], compiler_flags = [],
             deps = [name],
             testonly = True,
         )
+
     # Load Main module on executable rules.
     repl_ghci_commands = []
     if "main_function" in kwargs:
@@ -105,7 +110,7 @@ def _wrap_rule(rule, name = "", deps = [], hazel_deps = [], compiler_flags = [],
         collect_data = select({
             "//:ghci_data": True,
             "//conditions:default": False,
-        })
+        }),
     )
 
 def da_haskell_library(**kwargs):
@@ -137,7 +142,6 @@ def da_haskell_library(**kwargs):
         ```
     """
     _wrap_rule(haskell_library, **kwargs)
-
 
 def da_haskell_binary(main_function = "Main.main", **kwargs):
     """
@@ -174,7 +178,6 @@ def da_haskell_binary(main_function = "Main.main", **kwargs):
         main_function = main_function,
         **kwargs
     )
-
 
 def da_haskell_test(main_function = "Main.main", testonly = True, **kwargs):
     """
@@ -215,7 +218,6 @@ def da_haskell_test(main_function = "Main.main", testonly = True, **kwargs):
         **kwargs
     )
 
-
 def da_haskell_repl(**kwargs):
     """
     Define a Haskell repl.
@@ -255,43 +257,43 @@ def da_haskell_repl(**kwargs):
         ```
 
     """
+
     # The common_haskell_exts and common_haskell_flags are already passed on
     # the library/binary/test rule wrappers. haskell_repl will pick these up
     # automatically, if such targets are loaded by source.
     # Right now we don't set any default flags.
     haskell_repl(**kwargs)
 
-
 def _sanitize_string_for_usage(s):
-  res_array = []
-  for idx in range(len(s)):
-    c = s[idx]
-    if c.isalnum() or c == ".":
-      res_array.append(c)
-    else:
-      res_array.append("_")
-  return "".join(res_array)
+    res_array = []
+    for idx in range(len(s)):
+        c = s[idx]
+        if c.isalnum() or c == ".":
+            res_array.append(c)
+        else:
+            res_array.append("_")
+    return "".join(res_array)
 
-def c2hs_suite(name, hazel_deps, deps = [], srcs=[], c2hs_srcs=[], c2hs_src_strip_prefix="", **kwargs):
-  ts = []
-  for file in c2hs_srcs:
-    n = _sanitize_string_for_usage(file)
-    c2hs_library(
-      name = n,
-      srcs = [file],
-      deps = deps + [ ':' + t for t in ts ],
-      src_strip_prefix = c2hs_src_strip_prefix,
+def c2hs_suite(name, hazel_deps, deps = [], srcs = [], c2hs_srcs = [], c2hs_src_strip_prefix = "", **kwargs):
+    ts = []
+    for file in c2hs_srcs:
+        n = _sanitize_string_for_usage(file)
+        c2hs_library(
+            name = n,
+            srcs = [file],
+            deps = deps + [":" + t for t in ts],
+            src_strip_prefix = c2hs_src_strip_prefix,
+        )
+        ts.append(n)
+    da_haskell_library(
+        name = name,
+        srcs = [":" + t for t in ts] + srcs,
+        deps = deps,
+        hazel_deps = hazel_deps,
+        **kwargs
     )
-    ts.append(n)
-  da_haskell_library(
-    name = name,
-    srcs = [ ':' + t for t in ts ] + srcs,
-    deps = deps,
-    hazel_deps = hazel_deps,
-    **kwargs
-  )
 
 # Add extra packages, e.g., packages that are on Hackage but not in Stackage.
 # This cannot be inlined since it is impossible to create a struct in WORKSPACE.
 def add_extra_packages(pkgs, extra):
-  return pkgs + { k: struct(**v) for (k, v) in extra }
+    return pkgs + {k: struct(**v) for (k, v) in extra}
