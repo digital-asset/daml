@@ -1,10 +1,8 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-.. _ledger-api-introduction:
-
-Ledger API
-##########
+Writing applications using the Ledger API
+#########################################
 
 A DAML Ledger provides an API to receive data from and send data to the
 ledger, subsequently called *Ledger API*. The API is separated into a
