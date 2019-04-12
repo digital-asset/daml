@@ -1,10 +1,9 @@
 # Making a Release
 
-1. Update https://github.com/digital-asset/daml/docs/source/support/release-notes.rst
-   by adding a new header for the new version above any changes since the last
-   version.
-1. Make a PR that only bumps the version number in the VERSION
-   file. It is important that the PR only changes the VERSION file.
+1. Make a PR that bumps the version number in the `VERSION`
+   file and adds a new header for the new version in
+   `docs/source/support/release-notes.rst`.
+   It is important that the PR only changes `VERSION` and `release-notes.rst`.
 1. Squash the PR.
 1. Once CI has passed for the corresponding master build, the release should be
    available on bintray and GitHub, as well as properly tagged.

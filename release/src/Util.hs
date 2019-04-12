@@ -302,7 +302,7 @@ readVersionAt rev = do
 
 gitChangedFiles :: MonadCI m => GitRev -> m [T.Text]
 gitChangedFiles rev =
-    loggedProcess "git" ["diff-tree", "--no-commit-id", "--name-only", rev] C.sourceToList
+    loggedProcess "git" ["diff-tree", "--no-commit-id", "--name-only", "-r", rev] C.sourceToList
 
 versionFile :: Path Rel File
 versionFile = $(mkRelFile "VERSION")
@@ -314,7 +314,10 @@ isReleaseCommit rev = do
     files <- gitChangedFiles "HEAD"
     if "VERSION" `elem` files
         then do
-            unless (length files == 1) $ throwIO $ CIException "Changed more than VERSION file"
+            unless ("docs/source/support/release-notes.rst" `elem` files) $
+                throwIO $ CIException "Release commit also needs to update release-notes.rst."
+            unless (length files == 2) $
+                throwIO $ CIException "Release commit should only change VERSION and release-notes.rst."
             oldVersion <- readVersionAt oldRev
             newVersion <- readVersionAt newRev
             if
