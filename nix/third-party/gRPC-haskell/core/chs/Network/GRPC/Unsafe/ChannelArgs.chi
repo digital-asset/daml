@@ -1,0 +1,2 @@
+C->Haskell Interface Version C->Haskell Compiler, version 0.28.6 Switcheroo, 25 November 2017
+([((True,"grpc_channel_args"),("GrpcChannelArgs","GrpcChannelArgs")),((True,"grpc_arg"),("GrpcArg","GrpcArg"))],[("GrpcArg",Pointer {ptrTypeHO = Ptr, isNewtypeHO = False}),("GrpcChannelArgs",Pointer {ptrTypeHO = Ptr, isNewtypeHO = False})],["ArgKey","CompressionAlgorithm","CompressionLevel"])
