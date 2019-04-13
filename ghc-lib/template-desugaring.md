@@ -170,7 +170,7 @@ instance Choice Iou Transfer (ContractId Iou) where
 
 ### Example (3)
 
-The next contract exercises the so-called "contract key" feature of DAML. Contract key syntax desugars to `instance` declarations of the following typeclass.
+The next contract exercises the so-called "contract keys" feature of DAML. Contract key syntax desugars to `instance` declarations of the following typeclass.
 ```haskell
 class Template c => TemplateKey c k | c -> k where
   key : c ->
