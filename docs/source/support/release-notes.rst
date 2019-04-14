@@ -38,6 +38,8 @@ HEAD — ongoing
 - **BREAKING** Remove support for DAML 1.0 packages in the engine, and thus the
   sandbox. Note that the SDK has removed support for _compiling_ DAML 1.0
   months ago.
+- Fix critical bug related to the conversion of decimal numbers from Ledger API
+  strings, see #439.
 
 0.12.1 — 2019-04-04
 -------------------

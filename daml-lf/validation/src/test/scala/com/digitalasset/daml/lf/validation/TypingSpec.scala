@@ -113,7 +113,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpLitInt64
         E"(( 42 ))" -> T"Int64",
         // ExpLitDecimal
-        E"(( 3.14159265359 ))" -> T"(( Decimal ))",
+        E"(( 3.1415926536 ))" -> T"(( Decimal ))",
         //ExpLitText
         E"""(( "text" ))""" -> T"(( Text ))",
         //ExpLitDate
