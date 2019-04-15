@@ -30,7 +30,7 @@ newtype Tag = Tag { unTag :: Text } deriving (Eq, Show, FromJSON)
 -- example, "daml-sdk-0.11.1-linux.tar.gz".
 newtype AssetName = AssetName { unAssetName :: Text } deriving (Eq, Show, FromJSON)
 
--- | GitHub release metadata, such as can be optained through the
+-- | GitHub release metadata, such as can be obtained through the
 -- GitHub releases API v3. This is only a small fragment of the
 -- data available. For more information please visit:
 --
