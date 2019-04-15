@@ -57,7 +57,7 @@ readConfig name path = do
 
 -- | Determine pinned sdk version from project config, if it exists.
 sdkVersionFromProjectConfig :: ProjectConfig -> Either ConfigError (Maybe SdkVersion)
-sdkVersionFromProjectConfig = queryProjectConfig ["project", "sdk-version"]
+sdkVersionFromProjectConfig = queryProjectConfig ["sdk-version"]
 
 -- | Determine sdk version from project config, if it exists.
 sdkVersionFromSdkConfig :: SdkConfig -> Either ConfigError SdkVersion

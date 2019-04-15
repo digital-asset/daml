@@ -61,15 +61,19 @@ quickstartTests :: String -> FilePath -> FilePath -> TestTree
 quickstartTests compVersion quickstartDir mvnDir = testGroup "quickstart"
     [ testCase "daml new" $
           callProcessQuiet "daml" ["new", quickstartDir]
+    , testCase "daml init" $ withCurrentDirectory quickstartDir $
+          callProcessQuiet "daml" ["init"]
     , testCase "daml package" $ withCurrentDirectory quickstartDir $
-          callProcessQuiet "daml" ["package", "daml/Main.daml", "target/daml/iou"]
+          callProcessQuiet "daml" ["package"]
+    , testCase "daml build " $ withCurrentDirectory quickstartDir $
+          callProcessQuiet "daml" ["build"]
     , testCase "daml test" $ withCurrentDirectory quickstartDir $
           callProcessQuiet "daml" ["test", "daml/Main.daml"]
     , testCase "sandbox startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          withCreateProcess ((proc "daml" ["sandbox", "--port", show p, "target/daml/iou.dar"]) { std_out = UseHandle devNull }) $
+          withCreateProcess ((proc "daml" ["sandbox", "--port", show p, "quickstart.dar"]) { std_out = UseHandle devNull }) $
               \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
               addr : _ <- getAddrInfo
