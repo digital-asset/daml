@@ -31,5 +31,9 @@ def hazel_hackage(name, version, sha):
     return [(name, {"version": version, "sha256": sha})]
 
 # Things we override from GitHub
-def hazel_github(project, name, commit, sha):
+def hazel_github_external(project, name, commit, sha):
     return [(name, {"url": "https://github.com/" + project + "/" + name + "/archive/" + commit + ".zip", "sha256": sha, "stripPrefix": name + "-" + commit})]
+
+# Things we get from the digital-asset GitHub
+def hazel_github(name, commit, sha):
+    return hazel_github_external("digital-asset", name, commit, sha)
