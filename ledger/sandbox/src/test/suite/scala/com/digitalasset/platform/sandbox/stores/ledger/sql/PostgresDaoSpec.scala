@@ -104,7 +104,7 @@ class PostgresDaoSpec
               None,
               Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
               Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
-              None
+              Some(keyWithMaintainers)
             )),
           ImmArray("event1")
         ),
@@ -190,7 +190,7 @@ class PostgresDaoSpec
       )
 
       val keyWithMaintainers = KeyWithMaintainers(
-        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key")),
+        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key2")),
         Set(Ref.Party.assertFromString("Alice"))
       )
 
@@ -220,7 +220,7 @@ class PostgresDaoSpec
               None,
               Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
               Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
-              None
+              Some(keyWithMaintainers)
             )),
           ImmArray("event1")
         ),

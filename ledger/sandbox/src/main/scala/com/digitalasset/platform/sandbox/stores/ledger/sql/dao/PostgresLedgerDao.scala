@@ -100,16 +100,20 @@ private class PostgresLedgerDao(
 
   private val SQL_INSERT_CONTRACT_KEY =
     SQL(
-      "insert into contract_keys(module_name, entity_name, value_hash, contract_id) values({module_name}, {entity_name}, {value_hash}, {contract_id})")
+      "insert into contract_keys(package_id, name, value_hash, contract_id) values({package_id}, {name}, {value_hash}, {contract_id})")
 
   private val SQL_SELECT_CONTRACT_KEY =
     SQL(
-      "select contract_id from contract_keys where module_name={module_name} and entity_name={entity_name} and value_hash={value_hash}")
+      "select contract_id from contract_keys where package_id={package_id} and name={name} and value_hash={value_hash}")
 
   private val SQL_REMOVE_CONTRACT_KEY =
     SQL(
-      "delete from contract_keys where module_name={module_name} and entity_name={entity_name} and value_hash={value_hash}")
+      "delete from contract_keys where package_id={package_id} and name={name} and value_hash={value_hash}")
 
+  /**
+    * TODO: This hash is currently not stable. The default value serializer uses protobuf serialization, which may change.
+    * See https://github.com/digital-asset/daml/issues/497
+    */
   private[this] def keyHash(key: GlobalKey): String = {
     val digest = MessageDigest.getInstance("SHA-256")
     valueSerializer
@@ -122,8 +126,8 @@ private class PostgresLedgerDao(
       implicit connection: Connection): Boolean =
     SQL_INSERT_CONTRACT_KEY
       .on(
-        "module_name" -> key.templateId.qualifiedName.module.dottedName,
-        "entity_name" -> key.templateId.qualifiedName.name.dottedName,
+        "package_id" -> key.templateId.packageId.underlyingString,
+        "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHash(key),
         "contract_id" -> cid.coid
       )
@@ -132,8 +136,8 @@ private class PostgresLedgerDao(
   private[this] def removeContractKey(key: GlobalKey)(implicit connection: Connection): Boolean =
     SQL_REMOVE_CONTRACT_KEY
       .on(
-        "module_name" -> key.templateId.qualifiedName.module.dottedName,
-        "entity_name" -> key.templateId.qualifiedName.name.dottedName,
+        "package_id" -> key.templateId.packageId.underlyingString,
+        "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHash(key)
       )
       .execute()
@@ -142,8 +146,8 @@ private class PostgresLedgerDao(
       implicit connection: Connection): Option[AbsoluteContractId] =
     SQL_SELECT_CONTRACT_KEY
       .on(
-        "module_name" -> key.templateId.qualifiedName.module.dottedName,
-        "entity_name" -> key.templateId.qualifiedName.name.dottedName,
+        "package_id" -> key.templateId.packageId.underlyingString,
+        "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHash(key)
       )
       .as(SqlParser.str("contract_id").singleOpt)

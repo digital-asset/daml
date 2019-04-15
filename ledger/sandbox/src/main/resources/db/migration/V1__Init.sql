@@ -84,13 +84,15 @@ CREATE TABLE parameters (
 );
 
 
--- table to store a mapping from (template_id, contract value) to contract id
+-- table to store a mapping from (template_id, contract value) to contract_id
 -- contract values are binary blobs of unbounded size, the table therefore only stores a hash of the value
 -- and relies for the hash to be collision free
 CREATE TABLE contract_keys (
-  module_name varchar                           not null,
-  entity_name varchar                           not null,
-  value_hash  varchar                           not null,
-  contract_id varchar references contracts (id) not null,
-  PRIMARY KEY (module_name, entity_name, value_hash)
+  package_id   varchar                           not null,
+  name         varchar                           not null,
+  value_hash   varchar                           not null, -- SHA256 of the protobuf serialized key value
+  -- TODO: depending on outcome of https://github.com/digital-asset/daml/issues/497, update the above comment,
+  -- or add a new column describing the algorithm used to compute the value hash.
+  contract_id  varchar references contracts (id) not null,
+  PRIMARY KEY (package_id, name, value_hash)
 );
