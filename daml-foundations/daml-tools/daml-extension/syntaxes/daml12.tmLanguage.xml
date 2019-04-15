@@ -320,7 +320,7 @@
 			<key>comment</key>
 			<string>When contoller is used without choice</string>
 			<key>match</key>
-			<string>^(?:\s*)(?x)([\p{Lu}\p{Lt}][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}']*(?!\.)\b)(?:\s*)(\:)(?:s*)(?:\s*)([\p{Lu}\p{Lt}][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}'].*).*</string>
+			<string>^(?:\s*)([\p{Lu}\p{Lt}][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}']*(?!\.)\b)(?:\s*)(\:)(?:\s*)(\(?([\p{Lu}\p{Lt}][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}'].*)* \)?)</string>
 			<key>captures</key>
 			<dict>
 				<key>1</key>
