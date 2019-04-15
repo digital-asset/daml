@@ -316,6 +316,32 @@
 				</dict>
 			</array>
 		</dict>
+			<dict>
+			<key>comment</key>
+			<string>When contoller is used without choice</string>
+			<key>match</key>
+			<string>^(?:\s*)(?x)([\p{Lu}\p{Lt}][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}']*(?!\.)\b)(?:\s*)(\:)(?:s*)(?:\s*)([\p{Lu}\p{Lt}][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}'].*).*</string>
+			<key>captures</key>
+			<dict>
+				<key>1</key>
+				<dict>
+					<key>name</key>
+					<string>storage.type.daml</string>
+				</dict>
+				<key>2</key>
+				<dict>
+					<key>name</key>
+					<string>keyword.other.single-colon.daml</string>
+				</dict>
+				<key>3</key>
+				<dict>
+					<key>name</key>
+					<string>storage.type.daml</string>
+				</dict>
+			</dict>
+			<key>name</key>
+			<string>meta.type-declaration.daml</string>
+		</dict>
 		<dict>
 			<key>comment</key>
 			<string>Handling choice and the scope of rest of the line</string>
