@@ -423,7 +423,7 @@ hazel_repositories(
         extra =
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-            hazel_ghclibs("0.20190413", "278c29a27c74b9daf54300a7d1ddc6513c4403fa1b5a7008df526eb67154f149", "b3aaef778935aa5bc5a238b74703a3a274046bb09b195ad02ce2ab29f1dc45dd") +
+            hazel_ghclibs("0.20190415", "a3a7474b04b811c4aec85a474c174812714f95bdf750ca748ddfcba0baec537a", "98c1b9ed0342660db83371a87cda6c0e9b6055dae5dfb0fa05a857d00d9caee9") +
             hazel_hackage("bytestring-nums", "0.3.6", "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd") +
             hazel_hackage("unix-time", "0.4.5", "fe7805c62ad682589567afeee265e6e230170c3941cdce479a2318d1c5088faf") +
             hazel_hackage("zip-archive", "0.3.3", "988adee77c806e0b497929b24d5526ea68bd3297427da0d0b30b99c094efc84d") +
