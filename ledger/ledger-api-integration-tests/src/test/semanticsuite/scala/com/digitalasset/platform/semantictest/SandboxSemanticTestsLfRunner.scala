@@ -31,6 +31,11 @@ class SandboxSemanticTestsLfRunner
     .withDarFile(darFile.toPath)
     .withTimeProvider(TimeProviderType.StaticAllowBackwards)
 
+  // TODO SC delete when implicit disclosure supplied in PostgresLedgerDao
+  override protected def fixtureIdsEnabled
+    : Set[com.digitalasset.platform.apitesting.LedgerBackend] =
+    Set(com.digitalasset.platform.apitesting.LedgerBackend.SandboxInMemory)
+
   lazy val packages: Map[PackageId, Ast.Package] =
     List(darFile, Config.ghcPrimFileName).map(readPackage)(breakOut)
 
