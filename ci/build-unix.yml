@@ -33,9 +33,17 @@ steps:
 
   - task: PublishBuildArtifacts@1
     condition: succeededOrFailed()
+    displayName: 'Publish the bazel execution logs'
     inputs:
       pathtoPublish: '$(Build.ArtifactStagingDirectory)'
       artifactName: 'Bazel execution logs'
+
+  - task: PublishBuildArtifacts@1
+    condition: failed()
+    displayName: 'Publish the bazel test logs'
+    inputs:
+      pathtoPublish: 'bazel-testlogs/'
+      artifactName: 'Bazel test logs'
 
   - bash: ci/release.sh
     displayName: 'Release'
