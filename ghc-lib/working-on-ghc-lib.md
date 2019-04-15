@@ -221,7 +221,7 @@ git clone https://gitlab.haskell.org/ghc/ghc.git ghc.git
 cd ghc.git
 git remote add upstream git@github.com:digital-asset/ghc.git
 git fetch upstream da-master
-git checkout -b da-master --track upstream/da-master
+git checkout -t upstream/da-master
 git checkout -b feature-xxx da-master
 git push upstream feature-xxx:feature-xxx
 ```
