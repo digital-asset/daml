@@ -56,7 +56,7 @@ import qualified Data.Set as Set
 import           Data.Time
 import           System.IO.Unsafe
 import           Numeric.Extra
-
+import qualified Language.Haskell.LSP.Diagnostics as LSP
 
 
 -- information we stash inside the shakeExtra field
@@ -65,6 +65,7 @@ data ShakeExtras = ShakeExtras
     ,logger :: Logger.Handle IO
     ,globals :: Var (Map.HashMap TypeRep Dynamic)
     ,state :: Var Values
+    ,diagnostics :: Var LSP.DiagnosticStore
     }
 
 getShakeExtras :: Action ShakeExtras
@@ -105,9 +106,7 @@ getIdeGlobalState = getIdeGlobalExtras . shakeExtras
 -- | The state of the all values - nested so you can easily find all errors at a given file.
 type Values =
     Map.HashMap FilePath
-        (Map.HashMap Key
-            (IdeResult Dynamic)
-        )
+        (Map.HashMap Key Dynamic)
 
 
 -- | Key type
@@ -177,23 +176,23 @@ profileStartTime = unsafePerformIO $ formatTime defaultTimeLocale "%Y%m%d-%H%M%S
 profileCounter :: Var Int
 profileCounter = unsafePerformIO $ newVar 0
 
-setValues :: IdeRule k v
+setResult :: IdeRule k v
           => Var Values
           -> k
           -> FilePath
           -> Maybe v
-          -> IO (Maybe [Diagnostic], [Diagnostic]) -- ^ (before, after)
-setValues state key file val = modifyVar state $ \inVal -> do
+          -> IO ()
+setResult state key file mVal = modifyVar_ state $ \inVal -> do
     let k = Key key
-        outVal = Map.insertWith Map.union file (Map.singleton k $ fmap toDyn <$> val) inVal
-        f = concatMap fst . Map.elems
-    return (outVal, (f <$> Map.lookup file inVal, f $ outVal Map.! file))
+    return $ case mVal of
+        Just val -> Map.insertWith Map.union file (Map.singleton k $ toDyn val) inVal
+        Nothing -> Map.adjust (Map.delete k) file inVal
 
-getValues :: forall k v. IdeRule k v => Var Values -> k -> FilePath -> IO (Maybe (IdeResult v))
+getValues :: forall k v. IdeRule k v => Var Values -> k -> FilePath -> IO (Maybe v)
 getValues state key file = flip fmap (readVar state) $ \vs -> do
     f <- Map.lookup file vs
     k <- Map.lookup (Key key) f
-    pure $ fmap (fromJust . fromDynamic) <$> k
+    pure $ fromJust $ fromDynamic k
 
 -- | Open a 'IdeState', should be shut using 'shakeShut'.
 shakeOpen :: (Event -> IO ()) -- ^ diagnostic handler
@@ -202,10 +201,9 @@ shakeOpen :: (Event -> IO ()) -- ^ diagnostic handler
           -> Rules ()
           -> IO IdeState
 shakeOpen diags shakeLogger opts rules = do
-    shakeExtras <- ShakeExtras diags shakeLogger <$> newVar Map.empty <*> newVar Map.empty
+    shakeExtras <- ShakeExtras diags shakeLogger <$> newVar Map.empty <*> newVar Map.empty <*> newVar Map.empty
     (shakeDb, shakeClose) <- shakeOpenDatabase opts{shakeExtra = addShakeExtra shakeExtras $ shakeExtra opts} rules
     shakeAbort <- newVar $ return ()
-    shakeDb <- shakeDb
     return IdeState{..}
 
 shakeProfile :: IdeState -> FilePath -> IO ()
@@ -241,10 +239,9 @@ useStale IdeState{shakeExtras=ShakeExtras{state}} k fp = do
     return $ maybe Nothing snd v
 
 
-getAllDiagnostics :: IdeState -> IO [Diagnostic]
-getAllDiagnostics IdeState{shakeExtras = ShakeExtras{state}} = do
-    val <- readVar state
-    return $ concatMap (concatMap fst . Map.elems) $ Map.elems val
+getAllDiagnostics :: IdeState -> IO LSP.DiagnosticStore
+getAllDiagnostics IdeState{shakeExtras = ShakeExtras{diagnostics}} =
+    readVar state
 
 -- | FIXME: This function is temporary! Only required because the files of interest doesn't work
 unsafeClearAllDiagnostics :: IdeState -> IO ()
@@ -340,13 +337,12 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
             (bs, res) <- actionCatch
                 (do v <- op key file; liftIO $ evaluate $ force v) $
                 \(e :: SomeException) -> pure (Nothing, ([ideErrorText file $ T.pack $ show e | not $ isBadDependency e],Nothing))
-            res@((badErrors,_),_) <- return $ first (addDiagnostics file) res
+            ((badErrors,updateDiags),res) <- return $ first (addDiagnostics file) res
 
             when (badErrors /= []) $
                 reportSeriousError $ "Bad errors found for " ++ show (key, file) ++ " got " ++ show badErrors
 
-            (before, after) <- liftIO $ setValues state key file res
-            updateFileDiagnostics file before after
+            (before, after) <- liftIO $ setResult state key file res
             let eq = case (bs, fmap unwrap old) of
                     (Just a, Just (Just b)) -> a == b
                     _ -> False
@@ -357,20 +353,6 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
     where
         wrap = maybe BS.empty (BS.cons '_')
         unwrap x = if BS.null x then Nothing else Just $ BS.tail x
-
-
-updateFileDiagnostics ::
-     FilePath
-  -> Maybe [Diagnostic] -- ^ previous results for this file
-  -> [Diagnostic] -- ^ current results
-  -> Action ()
-updateFileDiagnostics afp previousAll currentAll = do
-    let filt = Set.fromList . filter (\x -> dFilePath x == afp)
-        previous = fmap filt previousAll
-        current = filt currentAll
-    when (Just current /= previous) $
-        sendEvent $ EventFileDiagnostics $ FileDiagnostics afp $ Set.toList current
-
 
 setPriority :: (Enum a) => a -> Action ()
 setPriority p =
