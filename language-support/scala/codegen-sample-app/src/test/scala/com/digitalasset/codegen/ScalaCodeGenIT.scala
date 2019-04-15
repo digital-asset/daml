@@ -54,6 +54,7 @@ import com.digitalasset.sample.MyMain.{
   TemplateWithUnitParam,
   VariantWithRecordWithVariant
 }
+import com.digitalasset.sample.MySecondMain
 import com.digitalasset.util.Ctx
 import com.google.protobuf.empty.Empty
 import org.scalacheck.Arbitrary.arbitrary
@@ -83,8 +84,8 @@ class ScalaCodeGenIT
   private val ledgerId = this.getClass.getSimpleName
 
   private val archives = List(
-    requiredResource("language-support/scala/codegen-sample-app/MyMain.dalf"),
-    requiredResource("daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.3.dalf")
+    requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),
+    requiredResource("language-support/scala/codegen-sample-app/MySecondMain.dar"),
   )
 
   private val asys = ActorSystem()
@@ -331,6 +332,13 @@ class ScalaCodeGenIT
     import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[TextMapInt].sample getOrElse sys.error("random TexMap failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+  }
+
+  "alice creates DummyTemplateFromAnotherDar contract and receives corresponding event" in {
+    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    val contract = arbitrary[MySecondMain.DummyTemplateFromAnotherDar].sample getOrElse sys.error(
+      "random DummyTemplateFromAnotherDar failed")
+    testCreateContractAndReceiveEvent(contract copy (owner = alice), alice)
   }
 
   private def testCreateContractAndReceiveEvent(
