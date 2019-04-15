@@ -9,6 +9,10 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.5 — 2019-04-15
+-------------------
+
+- Fix release pipeline (hopefully)
 - DAML-LF Archive packaging: the DAML-LF Archive Protobuf definitions are now
   packaged so that it's possible to use them without mangling the path.
 
