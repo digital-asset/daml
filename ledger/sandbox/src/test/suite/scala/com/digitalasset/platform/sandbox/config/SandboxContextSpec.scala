@@ -17,7 +17,7 @@ class SandboxContextSpec extends WordSpec with Matchers with TestHelpers {
       val time = Array("--static-time")
       val dar = Array(TestDar.dalfFile.toString)
 
-      val dalfFileName = "ledger/sandbox/Test.dalf"
+      val dalfFileName = "ledger/sandbox/Test.dar"
       val dalf = Array(dalfFileName)
 
       val Some(ctx) = SandboxContext(port ++ time ++ dar ++ dalf)

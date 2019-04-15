@@ -90,7 +90,7 @@ class EventConverterSpec
     .withCommands(Seq(create))
 
   object CommandsToTest extends TestCommands {
-    override protected def darFile: File = new File("ledger/sandbox/Test.dalf")
+    override protected def darFile: File = new File("ledger/sandbox/Test.dar")
 
     val damlPackageContainer = DamlPackageContainer(scala.collection.immutable.List(darFile), true)
     val onKbCmd = oneKbCommandRequest("ledgerId", "big").getCommands

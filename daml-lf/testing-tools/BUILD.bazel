@@ -33,12 +33,11 @@ da_scala_test(
     size = "large",
     timeout = "long",
     srcs = glob(["src/test/**/*.scala"]),
-    resources = [
-        "//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf",
-        "//daml-lf/tests:AuthorizedDivulgence.dalf",
-        "//daml-lf/tests:BasicTests.dalf",
-        "//daml-lf/tests:DontDiscloseNonConsumingChoicesToObservers.dalf",
-        "//daml-lf/tests:LargeTransaction.dalf",
+    data = [
+        "//daml-lf/tests:AuthorizedDivulgence.dar",
+        "//daml-lf/tests:BasicTests.dar",
+        "//daml-lf/tests:DontDiscloseNonConsumingChoicesToObservers.dar",
+        "//daml-lf/tests:LargeTransaction.dar",
     ],
     scalacopts = lf_scalacopts,
     deps = [

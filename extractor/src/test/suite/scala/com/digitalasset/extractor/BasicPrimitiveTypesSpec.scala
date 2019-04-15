@@ -25,7 +25,7 @@ class BasicPrimitiveTypesSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File("extractor/PrimitiveTypes.dalf")
+  override protected def darFile = new File("extractor/PrimitiveTypes.dar")
 
   override def scenario: Option[String] = Some("PrimitiveTypes:primitives")
 
