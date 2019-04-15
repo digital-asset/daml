@@ -6,7 +6,6 @@ package com.daml.ledger.api.server.damlonx.reference
 import java.io.{File, FileWriter}
 import java.time.Instant
 import java.util.zip.ZipFile
-
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.daml.ledger.api.server.damlonx.Server
@@ -18,6 +17,11 @@ import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
 import scala.util.Try
 
+/** The reference server is a fully compliant DAML Ledger API server
+  * backed by the in-memory reference index and participant state implementations.
+  * Not meant for production, or even development use cases, but for serving as a blueprint
+  * for other implementations.
+  */
 object ReferenceServer extends App {
   val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -28,7 +32,9 @@ object ReferenceServer extends App {
   )
 
   val argParser = new scopt.OptionParser[Config]("reference-server") {
-    head("DamlOnX Reference Server")
+    head(
+      "A fully compliant DAML Ledger API server backed by an in-memory store.\n" +
+        "Due to its lack of persistence it is not meant for production, but to serve as a blueprint for other DAML Ledger API server implementations.")
     opt[Int]("port")
       .optional()
       .action((p, c) => c.copy(port = p))
@@ -36,11 +42,11 @@ object ReferenceServer extends App {
     opt[File]("port-file")
       .optional()
       .action((f, c) => c.copy(portFile = Some(f)))
-      .text("File to write the allocated port number to.")
+      .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
     arg[File]("<archive>...")
       .unbounded()
       .action((f, c) => c.copy(archiveFiles = f :: c.archiveFiles))
-      .text("DAR files to load")
+      .text("DAR files to load. Scenarios are ignored. The servers starts with an empty ledger by default.")
   }
   val config = argParser.parse(args, Config(0, None, List.empty)).getOrElse(sys.exit(1))
 
