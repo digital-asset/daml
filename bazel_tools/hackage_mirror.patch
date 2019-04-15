@@ -2,7 +2,7 @@ diff --git a/hazel/hazel.bzl b/hazel/hazel.bzl
 index 41c568c..f45a312 100644
 --- a/hazel/hazel.bzl
 +++ b/hazel/hazel.bzl
-@@ -187,7 +187,7 @@ def hazel_repositories(
+@@ -204,7 +204,7 @@ def hazel_repositories(
              package_version = pkgs[p].version
              pkg = "{}-{}".format(package_name, package_version)
  
@@ -11,7 +11,7 @@ index 41c568c..f45a312 100644
              download_options += {"url": url}
  
              stripPrefix = package_name + "-" + package_version
-@@ -247,7 +247,7 @@ def hazel_custom_package_hackage(
+@@ -271,7 +271,7 @@ def hazel_custom_package_hackage(
          build_file and build_file_content are mutually exclusive.
      """
      package_id = package_name + "-" + version
