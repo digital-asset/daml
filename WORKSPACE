@@ -263,6 +263,14 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+nixpkgs_package(
+    name = "mvn_nix",
+    attribute_path = "mvn",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
 #node & npm
 nixpkgs_package(
     name = "node_nix",

@@ -32,6 +32,12 @@ rec {
   # GHC with the "c2hs" package included.
   ghcWithC2hs = ghc.ghcWithPackages (p: [p.c2hs]);
 
+
+  # Java 8 development
+  mvn = pkgs.writeScriptBin "mvn" ''
+    exec ${pkgs.maven}/bin/mvn ''${MVN_SETTINGS:+-s "$MVN_SETTINGS"} "$@"
+  '';
+
   # The sass derivation in nixos-18.09 is broken, so we add our own
   # created with bundix.
   sass = pkgs.callPackage ./overrides/sass {};
