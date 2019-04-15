@@ -50,11 +50,6 @@ import System.PosixCompat.Files
     , otherReadMode
     , otherExecuteMode)
 
-data InstallTarget
-    = InstallVersion SdkVersion
-    | InstallPath FilePath
-    deriving (Eq, Show)
-
 displayInstallTarget :: InstallTarget -> Text
 displayInstallTarget = \case
     InstallVersion v -> "version " <> versionToText v
@@ -67,8 +62,9 @@ versionMatchesTarget version = \case
 
 data InstallEnv = InstallEnv
     { options :: InstallOptions
-    , targetM :: Maybe InstallTarget
+    , target :: InstallTarget
     , damlPath :: DamlPath
+    , projectPathM :: Maybe ProjectPath
     }
 
 -- | Perform action unless user has passed --force flag.
@@ -357,29 +353,50 @@ pathInstall env sourcePath = do
             extractAndInstall env (sourceFileBS sourcePath)
 
 -- | Disambiguate install target.
-decideInstallTarget :: RawInstallTarget -> IO InstallTarget
-decideInstallTarget (RawInstallTarget arg) = do
-    testD <- doesDirectoryExist arg
-    testF <- doesFileExist arg
-    if testD || testF then
-        pure (InstallPath arg)
-    else do
-        v <- requiredE "Invalid SDK version" (parseVersion (pack arg))
+decideInstallTarget :: Maybe RawInstallTarget -> IO InstallTarget
+decideInstallTarget = \case
+    Nothing ->
+        pure InstallDefault
+    Just (RawInstallTarget "project") ->
+        pure InstallProject
+    Just (RawInstallTarget "latest") ->
+        pure InstallLatest
+    Just (RawInstallTarget arg) | Right v <- parseVersion (pack arg) ->
         pure (InstallVersion v)
+    Just (RawInstallTarget arg) -> do
+        testD <- doesDirectoryExist arg
+        testF <- doesFileExist arg
+        if testD || testF then
+            pure (InstallPath arg)
+        else
+            throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> arg))
 
 -- | Run install command.
-install :: InstallOptions -> DamlPath -> IO ()
-install options damlPath = do
-    targetM <- mapM decideInstallTarget (iTargetM options)
+install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> IO ()
+install options damlPath projectPathM = do
+    target <- decideInstallTarget (iTargetM options)
     let env = InstallEnv {..}
 
-    case targetM of
-        Nothing ->
+    case target of
+        InstallDefault ->
+            projectPath <- required "'daml install' must be run from within a project, or pass an explicit target. Run 'daml install --help' for more information."
+                projectPathM
+            projectConfig <- readProjectConfig
+            version <- getProjectSdkVersion projectConfig
+            httpInstall env =<< Github.versionURL version
+
+        InstallProject ->
+            projectPath <- required "'daml install project' must be run from within a project."
+                projectPathM
+            projectConfig <- readProjectConfig
+            version <- getProjectSdkVersion projectConfig
+            httpInstall env =<< Github.versionURL version
+
+        InstallLatest ->
             httpInstall env =<< Github.latestURL
-            -- TODO replace with installing project version
 
-        Just (InstallPath tarballPath) ->
-            pathInstall env tarballPath
+        InstallPath path ->
+            pathInstall env path
 
-        Just (InstallVersion version) -> do
+        InstallVersion version ->
             httpInstall env (Github.versionURL version)
