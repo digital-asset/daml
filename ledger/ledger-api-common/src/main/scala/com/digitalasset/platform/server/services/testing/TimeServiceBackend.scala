@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.backend.api.v1.SubmissionResult
-import com.digitalasset.ledger.backend.api.v1.SubmissionResult.{Acknowledged, Error, Overloaded}
+import com.digitalasset.ledger.backend.api.v1.SubmissionResult.{Acknowledged, Overloaded}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 
 import scala.concurrent.Future
@@ -57,8 +57,6 @@ private class ObservingTimeServiceBackend(
             .map {
               case Acknowledged => true
               case Overloaded => false
-              case Error(t) =>
-                sys.error(s"failed to react on time change ${t.getMessage}") // there is really nothing we can do here, but blow up
             }(DirectExecutionContext)
         else Future.successful(success)
       }(DirectExecutionContext)

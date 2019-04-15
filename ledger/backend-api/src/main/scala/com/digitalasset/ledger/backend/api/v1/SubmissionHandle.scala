@@ -18,8 +18,6 @@ object SubmissionResult {
   /** The system is overloaded, clients should back off exponentially */
   final case object Overloaded extends SubmissionResult
 
-  final case class Error(t: Throwable) extends SubmissionResult
-
 }
 
 /**

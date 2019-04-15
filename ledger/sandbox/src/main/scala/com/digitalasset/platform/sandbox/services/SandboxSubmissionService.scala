@@ -12,7 +12,7 @@ import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.Commands
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
-import com.digitalasset.ledger.backend.api.v1.SubmissionResult.{Acknowledged, Error, Overloaded}
+import com.digitalasset.ledger.backend.api.v1.SubmissionResult.{Acknowledged, Overloaded}
 import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, SubmissionResult}
 import com.digitalasset.platform.participant.util.ApiToLfEngine.apiCommandsToLfCommands
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
@@ -101,10 +101,6 @@ class SandboxSubmissionService private (
               s"Submission of command {} has failed due to back pressure",
               commands.commandId.unwrap)
             Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
-
-          case Success(Error(error)) =>
-            logger.warn(s"Submission of command ${commands.commandId.unwrap} has failed.", error)
-            Failure(error)
 
           case Failure(error) =>
             logger.warn(s"Submission of command ${commands.commandId.unwrap} has failed.", error)

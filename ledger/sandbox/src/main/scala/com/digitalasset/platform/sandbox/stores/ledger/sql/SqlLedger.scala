@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object SqlLedger {
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
@@ -191,15 +192,15 @@ private class SqlLedger(
   private def enqueue(f: Long => LedgerEntry): Future[SubmissionResult] = {
     persistenceQueue
       .offer(f)
-      .map[SubmissionResult] {
-        case Enqueued =>
-          SubmissionResult.Acknowledged
-        case Dropped =>
-          SubmissionResult.Overloaded
-        case QueueOfferResult.Failure(e) =>
-          SubmissionResult.Error(e)
-        case QueueClosed =>
-          SubmissionResult.Error(new IllegalStateException("queue closed"))
+      .transform {
+        case Success(Enqueued) =>
+          Success(SubmissionResult.Acknowledged)
+        case Success(Dropped) =>
+          Success(SubmissionResult.Overloaded)
+        case Success(QueueClosed) =>
+          Failure(new IllegalStateException("queue closed"))
+        case Success(QueueOfferResult.Failure(e)) => Failure(e)
+        case Failure(f) => Failure(f)
       }(DirectExecutionContext)
   }
 }
