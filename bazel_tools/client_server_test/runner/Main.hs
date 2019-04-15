@@ -27,7 +27,7 @@ retryDelayMillis = 100
 -- Wait up to 60s for the port file to be written to. A long timeout is used to
 -- avoid flaky results under high system load.
 maxRetries :: Int
-maxRetries = 60 * (1000 / retryDelayMillis)
+maxRetries = 60 * (1000 `div` retryDelayMillis)
 
 readPortFile :: Int -> String -> IO Int
 readPortFile 0 file = do
