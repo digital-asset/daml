@@ -199,7 +199,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             createDirectoryIfMissing True (base </> "daml" </> "sdk")
             createDirectory (base </> "project")
             writeFileUTF8 (base </> "project" </> projectConfigName)
-                ("project:\n  sdk-version: " <> expected1)
+                ("sdk-version: " <> expected1)
             createDirectory expected2
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)

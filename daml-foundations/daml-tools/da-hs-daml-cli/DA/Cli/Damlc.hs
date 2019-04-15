@@ -229,6 +229,7 @@ execCompile inputFile outputFile opts = withProjectRoot $ \relativize -> do
 
 newtype DumpPom = DumpPom{unDumpPom :: Bool}
 
+-- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields
     { pName :: String
     , pMain :: String
@@ -237,17 +238,19 @@ data PackageConfigFields = PackageConfigFields
     , pDependencies :: [String]
     }
 
+-- | Parse the daml.yaml for package specific config fields.
 parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields
 parseProjectConfig project = do
-    name <- queryProjectConfigRequired ["project", "name"] project
-    main <- queryProjectConfigRequired ["project", "source"] project
+    name <- queryProjectConfigRequired ["name"] project
+    main <- queryProjectConfigRequired ["source"] project
     exposedModules <-
-        queryProjectConfigRequired ["project", "exposed-modules"] project
-    version <- queryProjectConfigRequired ["project", "version"] project
+        queryProjectConfigRequired ["exposed-modules"] project
+    version <- queryProjectConfigRequired ["version"] project
     dependencies <-
-        queryProjectConfigRequired ["project", "dependencies"] project
+        queryProjectConfigRequired ["dependencies"] project
     Right $ PackageConfigFields name main exposedModules version dependencies
 
+-- | Package command that takes all arguments of daml.yaml.
 execPackageNew :: Int -> Maybe FilePath -> IO ()
 execPackageNew numProcessors mbOutFile =
     withProjectRoot $ \_relativize -> do

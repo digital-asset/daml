@@ -57,7 +57,7 @@ readConfig name path = do
 
 -- | Determine pinned sdk version from project config, if it exists.
 sdkVersionFromProjectConfig :: ProjectConfig -> Either ConfigError (Maybe SdkVersion)
-sdkVersionFromProjectConfig = queryProjectConfig ["project", "sdk-version"]
+sdkVersionFromProjectConfig = queryProjectConfig ["sdk-version"]
 
 -- | Determine sdk version from project config, if it exists.
 sdkVersionFromSdkConfig :: SdkConfig -> Either ConfigError SdkVersion
@@ -75,7 +75,7 @@ queryDamlConfig path = queryConfig "daml" "DamlConfig" path . unwrapDamlConfig
 -- | Query the project config by passing a path to the desired property.
 -- See 'queryConfig' for more details.
 queryProjectConfig :: Y.FromJSON t => [Text] -> ProjectConfig -> Either ConfigError (Maybe t)
-queryProjectConfig path = queryConfig "project" "ProjectConfig" path . unwrapProjectConfig
+queryProjectConfig path = queryConfig "" "ProjectConfig" path . unwrapProjectConfig
 
 -- | Query the sdk config by passing a list of members to the desired property.
 -- See 'queryConfig' for more details.
@@ -88,7 +88,7 @@ queryDamlConfigRequired path = queryConfigRequired "daml" "DamlConfig" path . un
 
 -- | Like 'queryProjectConfig' but returns an error if the property is missing.
 queryProjectConfigRequired :: Y.FromJSON t => [Text] -> ProjectConfig -> Either ConfigError t
-queryProjectConfigRequired path = queryConfigRequired "project" "ProjectConfig" path . unwrapProjectConfig
+queryProjectConfigRequired path = queryConfigRequired "" "ProjectConfig" path . unwrapProjectConfig
 
 -- | Like 'querySdkConfig' but returns an error if the property is missing.
 querySdkConfigRequired :: Y.FromJSON t => [Text] -> SdkConfig -> Either ConfigError t
