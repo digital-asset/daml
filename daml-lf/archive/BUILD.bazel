@@ -125,6 +125,7 @@ da_scala_test_suite(
         "//3rdparty/jvm/org/scalacheck",
         "//3rdparty/jvm/org/scalatest",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
         "//daml-lf/data",
     ],
 )
