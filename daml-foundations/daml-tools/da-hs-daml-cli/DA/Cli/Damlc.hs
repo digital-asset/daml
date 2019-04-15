@@ -135,7 +135,7 @@ cmdBuild numProcessors =
     info (helper <*> cmd) $
     progDesc "Initialize, build and package the DAML project" <> fullDesc
   where
-    cmd = pure $ execBuild numProcessors
+    cmd = execBuild numProcessors <$> optionalOutputFileOpt
 
 cmdPackageNew :: Int -> Mod CommandFields Command
 cmdPackageNew numProcessors =
@@ -394,10 +394,10 @@ createProjectPackageDb lfVersion fps = do
             , "--expand-pkgroot"
             ]
 
-execBuild :: Int -> IO ()
-execBuild numProcessors = do
+execBuild :: Int -> Maybe FilePath -> IO ()
+execBuild numProcessors mbOutFile = do
   execInit
-  execPackageNew numProcessors Nothing
+  execPackageNew numProcessors mbOutFile
 
 lfVersionString :: LF.Version -> String
 lfVersionString lfVersion =
