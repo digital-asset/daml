@@ -52,7 +52,7 @@ case class ActiveContractsInMemory(
       copy(
         contracts = contracts ++
           contracts.intersectWith(global) { (ac, parties) =>
-            ac copy (disclosedTo = ac.disclosedTo union parties)
+            ac copy (divulgences = ac.divulgences union parties)
           })
     else this
 
@@ -159,8 +159,9 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                   workflowId = workflowId,
                   contract = nc.coinst.mapValue(
                     _.mapContractId(SandboxEventIdFormatter.makeAbsCoid(transactionId))),
-                  disclosedTo = explicitDisclosure(nodeId) union localImplicitDisclosure
-                    .getOrElse(nodeId, Set.empty),
+                  witnesses = explicitDisclosure(nodeId) intersect nc.stakeholders,
+                  divulgences = explicitDisclosure(nodeId) union localImplicitDisclosure
+                    .getOrElse(nodeId, Set.empty) diff nc.stakeholders,
                   key = nc.key
                 )
                 activeContract.key match {
@@ -220,7 +221,8 @@ object ActiveContracts {
       transactionId: String, // transaction id where the contract originates
       workflowId: String, // workflow id from where the contract originates
       contract: ContractInst[VersionedValue[AbsoluteContractId]],
-      disclosedTo: Set[Ref.Party],
+      witnesses: Set[Ref.Party],
+      divulgences: Set[Ref.Party],
       key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])
 
 }

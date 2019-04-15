@@ -19,11 +19,7 @@ import com.digitalasset.platform.sandbox.config.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.PersistenceResponse.{Duplicate, Ok}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
-  Contract,
-  LedgerDao,
-  PostgresLedgerDao
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{LedgerDao, PostgresLedgerDao}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   TransactionSerializer
@@ -146,10 +142,7 @@ private class SqlLedger(
       contractId: Value.AbsoluteContractId): Future[Option[ActiveContract]] =
     ledgerDao
       .lookupActiveContract(contractId)
-      .map(_.map {
-        case Contract(_, let, transactionId, workflowId, witnesses, coinst) =>
-          ActiveContract(let, transactionId, workflowId, coinst, witnesses, None)
-      })(DirectExecutionContext)
+      .map(_.map(_.toActiveContract))(DirectExecutionContext)
 
   override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
     sys.error("contract keys not implemented yet in SQL backend")

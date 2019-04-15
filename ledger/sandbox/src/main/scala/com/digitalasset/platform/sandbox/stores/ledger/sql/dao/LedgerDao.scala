@@ -24,12 +24,13 @@ final case class Contract(
     witnesses: Set[Ref.Party],
     coinst: ContractInst[VersionedValue[AbsoluteContractId]]) {
   def toActiveContract: ActiveContract =
-    ActiveContract(let, transactionId, workflowId, coinst, witnesses, None)
+    // TODO SC store divulgences
+    ActiveContract(let, transactionId, workflowId, coinst, witnesses, Set.empty, None)
 }
 
 object Contract {
   def fromActiveContract(cid: AbsoluteContractId, ac: ActiveContract): Contract =
-    Contract(cid, ac.let, ac.transactionId, ac.workflowId, ac.disclosedTo, ac.contract)
+    Contract(cid, ac.let, ac.transactionId, ac.workflowId, ac.witnesses, ac.contract)
 }
 
 case class LedgerSnapshot(offset: Long, acs: Source[Contract, NotUsed])
