@@ -40,10 +40,6 @@ da_scala_binary(
 client_server_test(
     name = "semantic-test",
     timeout = "short",
-    tags = [
-      # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
-      "exclusive",
-    ],
     client = "//ledger/ledger-api-integration-tests:semantic-test-runner",
     client_args = ["ledger/ledger-api-integration-tests/SemanticTests.dar"],
     data = [
@@ -51,4 +47,8 @@ client_server_test(
     ],
     server = ":reference",
     server_args = ["ledger/ledger-api-integration-tests/SemanticTests.dar"],
+    tags = [
+        # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
+        "exclusive",
+    ],
 )
