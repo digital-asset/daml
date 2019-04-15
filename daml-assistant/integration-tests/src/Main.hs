@@ -65,7 +65,7 @@ quickstartTests quickstartDir = testGroup "quickstart"
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          withCreateProcess ((proc "daml" ["sandbox", "--port", show p, "target/daml/iou.dar"]) { std_out = UseHandle devNull }) $
+          withCreateProcess ((proc "daml" ["sandbox", "--port", show p, "quickstart.dar"]) { std_out = UseHandle devNull }) $
               \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
               addr : _ <- getAddrInfo
