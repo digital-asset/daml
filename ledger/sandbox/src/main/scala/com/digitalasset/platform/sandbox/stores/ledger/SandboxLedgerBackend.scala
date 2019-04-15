@@ -38,6 +38,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
         .map(_.collect {
           case ac
               if Ref.Party fromString submitter exists (p => ac.witnesses(p) || ac.divulgences(p)) =>
+            // ^ only parties disclosed or divulged to can lookup; see https://github.com/digital-asset/daml/issues/10
             ac.contract
         })(DirectExecutionContext)
 
