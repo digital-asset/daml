@@ -78,5 +78,5 @@ object DamlOnXPackageService {
   def apply(indexService: IndexService, ledgerId: String)(implicit ec: ExecutionContext)
     : PackageService with BindableService with PackageServiceLogging =
     new PackageServiceValidation(new DamlOnXPackageService(indexService), ledgerId)
-      with PackageServiceLogging
+    with PackageServiceLogging
 }

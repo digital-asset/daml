@@ -202,9 +202,10 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       txDelta: TxDelta,
       recordedAt: Instant,
       ledgerState: LedgerState): Either[v1.Update, Unit] = {
-    
+
     checkSubmission(submitterInfo, transactionMeta, txDelta, recordedAt, ledgerState)
-      .flatMap(_ => runPreCommitValidation(submitterInfo, transactionMeta, transaction, ledgerState))
+      .flatMap(_ =>
+        runPreCommitValidation(submitterInfo, transactionMeta, transaction, ledgerState))
   }
 
   private def runPreCommitValidation(
@@ -241,14 +242,15 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       .flatMap(_ => checkLet(submitterInfo, transactionMeta, ledgerState))
       .flatMap(_ => checkActiveness(submitterInfo, txDelta, ledgerState))
   }
-  
-          // check for and ignore duplicates
+
+  // check for and ignore duplicates
   private def checkDuplicates(
       submitterInfo: SubmitterInfo,
       ledgerState: LedgerState): Either[Update, Unit] = {
-    
-    Either.cond (
-      !ledgerState.duplicationCheck.contains(submitterInfo.applicationId->submitterInfo.commandId),
+
+    Either.cond(
+      !ledgerState.duplicationCheck.contains(
+        submitterInfo.applicationId -> submitterInfo.commandId),
       (),
       mkRejectedCommand(DuplicateCommand, submitterInfo)
     )
@@ -274,10 +276,9 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
         transactionMeta.ledgerEffectiveTime.toInstant,
         submitterInfo.maxRecordTime.toInstant,
         submitterInfo.commandId,
-        submitterInfo.applicationId)
-      .fold(
-        t => Left(mkRejectedCommand(MaximumRecordTimeExceeded, submitterInfo)), 
-        _ => Right(()))
+        submitterInfo.applicationId
+      )
+      .fold(t => Left(mkRejectedCommand(MaximumRecordTimeExceeded, submitterInfo)), _ => Right(()))
   }
 
   // check for consistency
@@ -288,11 +289,11 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       txDelta: TxDelta,
       ledgerState: LedgerState): Either[Update, Unit] = {
 
-      Either.cond(
-        txDelta.inputs.subsetOf(ledgerState.activeContracts.keySet) &&
-          txDelta.inputs_nc.subsetOf(ledgerState.activeContracts.keySet),
-        (),
-        mkRejectedCommand(Inconsistent, submitterInfo)
+    Either.cond(
+      txDelta.inputs.subsetOf(ledgerState.activeContracts.keySet) &&
+        txDelta.inputs_nc.subsetOf(ledgerState.activeContracts.keySet),
+      (),
+      mkRejectedCommand(Inconsistent, submitterInfo)
     )
   }
 

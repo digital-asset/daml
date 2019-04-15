@@ -16,9 +16,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service.{
 }
 import com.digitalasset.ledger.api.v1.command_service._
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
-import com.digitalasset.ledger.api.v1.command_submission_service.{
-  SubmitRequest
-}
+import com.digitalasset.ledger.api.v1.command_submission_service.{SubmitRequest}
 import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.ledger.client.services.commands.{
   CommandClient,

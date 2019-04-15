@@ -8,7 +8,16 @@ import com.daml.ledger.participant.state.index.v1.IndexService
 import com.daml.ledger.participant.state.v1.{LedgerId, SubmitterInfo, TransactionMeta, WriteService}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ResultNeedContract, ResultNeedKey, ResultNeedPackage, Error => DamlLfError}
+import com.digitalasset.daml.lf.engine.{
+  Engine,
+  Result,
+  ResultDone,
+  ResultError,
+  ResultNeedContract,
+  ResultNeedKey,
+  ResultNeedPackage,
+  Error => DamlLfError
+}
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
@@ -19,7 +28,10 @@ import com.digitalasset.platform.participant.util.ApiToLfEngine.apiCommandsToLfC
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
-import com.digitalasset.ledger.api.v1.command_submission_service.{CommandSubmissionServiceGrpc, CommandSubmissionServiceLogging}
+import com.digitalasset.ledger.api.v1.command_submission_service.{
+  CommandSubmissionServiceGrpc,
+  CommandSubmissionServiceLogging
+}
 import io.grpc.BindableService
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._

@@ -32,7 +32,6 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
     protected val esf: ExecutionSequencerFactory)
     extends CommandCompletionServiceAkkaGrpc
     with ErrorFactories
-
     with DamlOnXServiceUtils {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -144,7 +143,6 @@ object DamlOnXCommandCompletionService {
     val ledgerId = Await.result(indexService.getLedgerId(), 5.seconds)
     new CommandCompletionServiceValidation(
       new DamlOnXCommandCompletionService(indexService),
-      ledgerId.underlyingString)
-      with CommandCompletionServiceLogging
+      ledgerId.underlyingString) with CommandCompletionServiceLogging
   }
 }

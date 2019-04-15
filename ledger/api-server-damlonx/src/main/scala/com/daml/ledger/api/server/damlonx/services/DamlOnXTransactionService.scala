@@ -19,7 +19,11 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain._
 import com.digitalasset.ledger.api.messages.transaction._
 import com.digitalasset.ledger.api.v1.transaction.{Transaction => PTransaction}
-import com.digitalasset.ledger.api.v1.transaction_service.{GetTransactionsResponse, TransactionServiceGrpc, TransactionServiceLogging}
+import com.digitalasset.ledger.api.v1.transaction_service.{
+  GetTransactionsResponse,
+  TransactionServiceGrpc,
+  TransactionServiceLogging
+}
 import com.digitalasset.ledger.api.validation.PartyNameChecker
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.server.api._

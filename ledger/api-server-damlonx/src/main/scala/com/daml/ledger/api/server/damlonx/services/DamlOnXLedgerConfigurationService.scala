@@ -16,7 +16,7 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service._
 import com.digitalasset.platform.api.grpc.{GrpcApiService, GrpcApiUtil}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import io.grpc.{BindableService, ServerServiceDefinition}
-import org.slf4j.{Logger,LoggerFactory}
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.ExecutionContext
 
@@ -58,6 +58,7 @@ object DamlOnXLedgerConfigurationService {
   def apply(indexService: IndexService)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): LedgerConfigurationService with BindableService with LedgerConfigurationServiceLogging =
+      mat: Materializer)
+    : LedgerConfigurationService with BindableService with LedgerConfigurationServiceLogging =
     new DamlOnXLedgerConfigurationService(indexService) with LedgerConfigurationServiceLogging
 }

@@ -4,7 +4,12 @@
 package com.digitalasset.platform.server.services.identity
 
 import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
-import com.digitalasset.ledger.api.v1.ledger_identity_service.{GetLedgerIdentityRequest, GetLedgerIdentityResponse, LedgerIdentityServiceGrpc, LedgerIdentityServiceLogging}
+import com.digitalasset.ledger.api.v1.ledger_identity_service.{
+  GetLedgerIdentityRequest,
+  GetLedgerIdentityResponse,
+  LedgerIdentityServiceGrpc,
+  LedgerIdentityServiceLogging
+}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.common.util.DirectExecutionContext
@@ -38,6 +43,7 @@ abstract class LedgerIdentityServiceImpl private (val ledgerId: String)
 }
 
 object LedgerIdentityServiceImpl {
-  def apply(ledgerId: String): LedgerIdentityService with BindableService with LedgerIdentityServiceLogging =
+  def apply(ledgerId: String)
+    : LedgerIdentityService with BindableService with LedgerIdentityServiceLogging =
     new LedgerIdentityServiceImpl(ledgerId) with LedgerIdentityServiceLogging
 }
