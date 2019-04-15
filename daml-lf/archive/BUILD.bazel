@@ -193,6 +193,6 @@ pkg_tar(
     name = "daml_lf_archive_protos_tarball",
     srcs = [":proto_srcs"],
     extension = "tar.gz",
-    package_dir = "daml-lf-archive-protos/protobuf/com/digitalasset/daml_lf",
+    package_dir = "daml-lf-archive-protos/protobuf/da",
     visibility = ["//visibility:public"],
 )
