@@ -16,6 +16,7 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service._
 import com.digitalasset.platform.api.grpc.{GrpcApiService, GrpcApiUtil}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import io.grpc.{BindableService, ServerServiceDefinition}
+import org.slf4j.{Logger,LoggerFactory}
 
 import scala.concurrent.ExecutionContext
 
@@ -26,6 +27,8 @@ class DamlOnXLedgerConfigurationService private (indexService: IndexService)(
     extends LedgerConfigurationServiceAkkaGrpc
     with GrpcApiService
     with DamlOnXServiceUtils {
+
+  protected val logger: Logger = LoggerFactory.getLogger(this.getClass.getName)
 
   override protected def getLedgerConfigurationSource(
       request: GetLedgerConfigurationRequest): Source[GetLedgerConfigurationResponse, NotUsed] = {
@@ -55,6 +58,6 @@ object DamlOnXLedgerConfigurationService {
   def apply(indexService: IndexService)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): LedgerConfigurationService with BindableService =
-    new DamlOnXLedgerConfigurationService(indexService) with BindableService
+      mat: Materializer): LedgerConfigurationService with BindableService with LedgerConfigurationServiceLogging =
+    new DamlOnXLedgerConfigurationService(indexService) with LedgerConfigurationServiceLogging
 }

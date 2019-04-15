@@ -10,7 +10,6 @@ import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_completion_service.{
-  CommandCompletionServiceGrpc,
   CompletionEndResponse,
   CompletionStreamRequest,
   CompletionStreamResponse
@@ -18,7 +17,6 @@ import com.digitalasset.ledger.api.v1.command_completion_service.{
 import com.digitalasset.ledger.api.v1.command_service._
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.digitalasset.ledger.api.v1.command_submission_service.{
-  CommandSubmissionServiceGrpc,
   SubmitRequest
 }
 import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
@@ -27,7 +25,6 @@ import com.digitalasset.ledger.client.services.commands.{
   CommandCompletionSource,
   CommandTrackerFlow
 }
-import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.server.api.validation.CommandServiceValidation
 import com.digitalasset.platform.server.services.command.ReferenceCommandService.LowLevelCommandServiceAccess
@@ -143,42 +140,19 @@ class ReferenceCommandService private (
     }
   }
 
+  override def toString: String = ReferenceCommandService.getClass.getSimpleName
+
 }
 
 object ReferenceCommandService {
-
-  def apply(
-      configuration: Configuration,
-      submissionChannel: ManagedChannel,
-      completionsChannel: ManagedChannel)(
-      implicit grpcExecutionContext: ExecutionContext,
-      actorMaterializer: ActorMaterializer,
-      esf: ExecutionSequencerFactory
-  ): CommandServiceGrpc.CommandService with GrpcApiService = {
-
-    val submissionStub = CommandSubmissionServiceGrpc.stub(submissionChannel)
-    val completionStub = CommandCompletionServiceGrpc.stub(completionsChannel)
-
-    new CommandServiceValidation(
-      ReferenceCommandService(
-        configuration,
-        LowLevelCommandServiceAccess.RemoteServices(submissionStub, completionStub)),
-      configuration.ledgerId)
-  }
 
   def apply(configuration: Configuration, svcAccess: LowLevelCommandServiceAccess)(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: ActorMaterializer,
       esf: ExecutionSequencerFactory
-  ): CommandServiceGrpc.CommandService with GrpcApiService with CommandServiceLogging =
+  ): CommandServiceGrpc.CommandService with BindableService with CommandServiceLogging =
     new CommandServiceValidation(
-      new ReferenceCommandService(svcAccess, configuration) with GrpcApiService {
-
-        override def bindService(): ServerServiceDefinition =
-          CommandServiceGrpc.bindService(this, grpcExecutionContext)
-
-        override def toString: String = ReferenceCommandService.getClass.getSimpleName
-      },
+      new ReferenceCommandService(svcAccess, configuration),
       configuration.ledgerId
     ) with CommandServiceLogging
 

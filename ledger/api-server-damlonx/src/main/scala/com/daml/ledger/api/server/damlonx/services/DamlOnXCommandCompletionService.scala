@@ -14,10 +14,9 @@ import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.validation.LedgerOffsetValidator
 import com.digitalasset.platform.server.api.validation.CommandCompletionServiceValidation
-import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.google.rpc.status.Status
 import io.grpc.Status.Code
-import io.grpc.{BindableService, ServerServiceDefinition}
+import io.grpc.{BindableService}
 import org.slf4j.LoggerFactory
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason}
@@ -33,6 +32,7 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
     protected val esf: ExecutionSequencerFactory)
     extends CommandCompletionServiceAkkaGrpc
     with ErrorFactories
+
     with DamlOnXServiceUtils {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -139,17 +139,12 @@ object DamlOnXCommandCompletionService {
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
-    : CommandCompletionServiceValidation with BindableService with AutoCloseable with CommandCompletionServiceLogging = {
-    val impl = new DamlOnXCommandCompletionService(indexService)
+    : CommandCompletionServiceValidation with BindableService with CommandCompletionServiceLogging = {
 
     val ledgerId = Await.result(indexService.getLedgerId(), 5.seconds)
-
-    new CommandCompletionServiceValidation(impl, ledgerId.underlyingString) with BindableService
-    with AutoCloseable with CommandCompletionServiceLogging {
-      override def bindService(): ServerServiceDefinition =
-        CommandCompletionServiceGrpc.bindService(this, DirectExecutionContext)
-
-      override def close(): Unit = impl.close()
-    }
+    new CommandCompletionServiceValidation(
+      new DamlOnXCommandCompletionService(indexService),
+      ledgerId.underlyingString)
+      with CommandCompletionServiceLogging
   }
 }

@@ -11,24 +11,15 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.PartyTag
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.TransactionTree
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.{
-  TransactionService => ApiTransactionService
-}
+import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.{TransactionService => ApiTransactionService}
 import com.digitalasset.ledger.api.v1.transaction_service._
 import com.digitalasset.ledger.api.validation.{PartyNameChecker, TransactionServiceRequestValidator}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.platform.server.api.ApiException
+import com.digitalasset.platform.server.api.{ApiException, ProxyCloseable}
 import com.digitalasset.platform.server.api.services.domain.TransactionService
-import com.digitalasset.platform.server.api.validation.{
-  ErrorFactories,
-  FieldValidations,
-  IdentifierResolver
-}
-import com.digitalasset.platform.server.services.transaction.{
-  TransactionConversion,
-  VisibleTransaction
-}
+import com.digitalasset.platform.server.api.validation.{ErrorFactories, FieldValidations, IdentifierResolver}
+import com.digitalasset.platform.server.services.transaction.{TransactionConversion, VisibleTransaction}
 import io.grpc.{ServerServiceDefinition, Status}
 import org.slf4j.{Logger, LoggerFactory}
 import scalaz.Tag
@@ -37,7 +28,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.Future
 
 class GrpcTransactionService(
-    protected val service: TransactionService,
+    protected val service: TransactionService with AutoCloseable,
     val ledgerId: String,
     partyNameChecker: PartyNameChecker,
     identifierResolver: IdentifierResolver)(
@@ -45,6 +36,7 @@ class GrpcTransactionService(
     protected val mat: Materializer)
     extends ApiTransactionService
     with TransactionServiceAkkaGrpc
+    with ProxyCloseable
     with GrpcApiService
     with ErrorFactories
     with FieldValidations {
