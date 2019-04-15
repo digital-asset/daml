@@ -8,6 +8,20 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, V
 
 import scala.concurrent.Future
 
+sealed abstract class SubmissionResult extends Product with Serializable
+
+object SubmissionResult {
+
+  /** The request has been received. */
+  final case object Acknowledged extends SubmissionResult
+
+  /** The system is overloaded, clients should back off exponentially */
+  final case object Overloaded extends SubmissionResult
+
+  final case class Error(t: Throwable) extends SubmissionResult
+
+}
+
 /**
   * A means to construct and submit a single transaction.
   *
@@ -51,7 +65,7 @@ trait SubmissionHandle {
     * submission model where the transaction itself captures all
     * dependencies on the state of the ledger.
     */
-  def submit(submission: TransactionSubmission): Future[Unit]
+  def submit(submission: TransactionSubmission): Future[SubmissionResult]
 
   /**
     * Lookup an active contract using the supplied absolute contract ID.

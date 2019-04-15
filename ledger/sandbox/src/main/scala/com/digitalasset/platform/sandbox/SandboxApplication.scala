@@ -10,13 +10,16 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.ledger.backend.api.v1.SubmissionResult
 import com.digitalasset.ledger.client.configuration.TlsConfiguration
 import com.digitalasset.ledger.server.LedgerApiServer.LedgerApiServer
+import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import com.digitalasset.platform.sandbox.stores.ledger._
+import com.digitalasset.platform.sandbox.util.RetriableFuture._
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeProviderType
 import io.grpc.netty.GrpcSslContexts
@@ -109,7 +112,12 @@ object SandboxApplication {
         engine,
         config,
         port,
-        timeServiceBackendO.map(TimeServiceBackend.withObserver(_, ledger.publishHeartbeat)),
+        timeServiceBackendO
+          .map(
+            TimeServiceBackend.withObserver(
+              _,
+              ledger.publishHeartbeat
+            )),
         Some(resetService)
       )
 
@@ -173,7 +181,9 @@ object SandboxApplication {
       else None
     }
 
-  private def scheduleHeartbeats(timeProvider: TimeProvider, onTimeChange: Instant => Future[Unit])(
+  private def scheduleHeartbeats(
+      timeProvider: TimeProvider,
+      onTimeChange: Instant => Future[SubmissionResult])(
       implicit mat: ActorMaterializer,
       ec: ExecutionContext) =
     timeProvider match {
@@ -182,7 +192,14 @@ object SandboxApplication {
         logger.debug(s"Scheduling heartbeats in intervals of {}", interval)
         val cancelable = Source
           .tick(0.seconds, interval, ())
-          .mapAsync[Unit](1)(_ => onTimeChange(timeProvider.getCurrentTime))
+          .mapAsync[Unit](1)(
+            _ =>
+              onTimeChange(timeProvider.getCurrentTime)
+                .retryExponentiallyUntil(_ == SubmissionResult.Acknowledged, (dur, runnable) => {
+                  val _ = mat.scheduleOnce(dur, runnable)
+                })
+                .map(_ => ())(DirectExecutionContext)
+          )
           .to(Sink.ignore)
           .run()
         () =>

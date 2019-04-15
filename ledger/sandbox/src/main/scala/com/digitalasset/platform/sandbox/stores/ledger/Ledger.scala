@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
-import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
+import com.digitalasset.ledger.backend.api.v1.{SubmissionResult, TransactionSubmission}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger
 
 import scala.collection.immutable
@@ -35,9 +35,9 @@ trait Ledger extends AutoCloseable {
 
   def lookupKey(key: GlobalKey): Future[Option[AbsoluteContractId]]
 
-  def publishHeartbeat(time: Instant): Future[Unit]
+  def publishHeartbeat(time: Instant): Future[SubmissionResult]
 
-  def publishTransaction(transactionSubmission: TransactionSubmission): Future[Unit]
+  def publishTransaction(transactionSubmission: TransactionSubmission): Future[SubmissionResult]
 }
 
 object Ledger {

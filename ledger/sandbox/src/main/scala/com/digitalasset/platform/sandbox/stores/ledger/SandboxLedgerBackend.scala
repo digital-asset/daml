@@ -27,7 +27,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
   private class SandboxSubmissionHandle extends SubmissionHandle {
     override def abort: Future[Unit] = Future.successful(())
 
-    override def submit(submitted: TransactionSubmission): Future[Unit] = {
+    override def submit(submitted: TransactionSubmission): Future[SubmissionResult] = {
       ledger.publishTransaction(submitted)
     }
 

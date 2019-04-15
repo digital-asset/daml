@@ -521,10 +521,6 @@ abstract class CommandTransactionChecks
             }
         }.map(_ => succeed)
       }
-
-
-    
-
       // this is basically a port of
       // `daml-lf/tests/scenario/daml-1.3/contract-keys/Test.daml`.
       //TODO: enable this for all fixtures when we support contract keys in Postgres

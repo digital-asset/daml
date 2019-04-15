@@ -7,6 +7,8 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.ledger.backend.api.v1.SubmissionResult
+import com.digitalasset.ledger.backend.api.v1.SubmissionResult.{Acknowledged, Error, Overloaded}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 
 import scala.concurrent.Future
@@ -23,7 +25,7 @@ object TimeServiceBackend {
 
   def withObserver(
       timeProvider: TimeServiceBackend,
-      onTimeChange: Instant => Future[Unit]): TimeServiceBackend =
+      onTimeChange: Instant => Future[SubmissionResult]): TimeServiceBackend =
     new ObservingTimeServiceBackend(timeProvider, onTimeChange)
 }
 
@@ -41,8 +43,8 @@ private class SimpleTimeServiceBackend(startTime: Instant) extends TimeServiceBa
 
 private class ObservingTimeServiceBackend(
     timeProvider: TimeServiceBackend,
-    onTimeChange: Instant => Future[Unit])
-    extends TimeServiceBackend {
+    onTimeChange: Instant => Future[SubmissionResult]
+) extends TimeServiceBackend {
 
   override def getCurrentTime: Instant = timeProvider.getCurrentTime
 
@@ -50,7 +52,14 @@ private class ObservingTimeServiceBackend(
     timeProvider
       .setCurrentTime(expectedTime, newTime)
       .flatMap { success =>
-        if (success) onTimeChange(newTime).map(_ => success)(DirectExecutionContext)
+        if (success)
+          onTimeChange(newTime)
+            .map {
+              case Acknowledged => true
+              case Overloaded => false
+              case Error(t) =>
+                sys.error(s"failed to react on time change ${t.getMessage}") // there is really nothing we can do here, but blow up
+            }(DirectExecutionContext)
         else Future.successful(success)
       }(DirectExecutionContext)
 

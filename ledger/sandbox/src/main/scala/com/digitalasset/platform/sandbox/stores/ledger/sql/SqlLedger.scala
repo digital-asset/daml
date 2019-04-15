@@ -5,14 +5,15 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
 
+import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
-import akka.stream.{Materializer, OverflowStrategy}
+import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
-import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
+import com.digitalasset.ledger.backend.api.v1.{SubmissionResult, TransactionSubmission}
 import com.digitalasset.platform.akkastreams.Dispatcher
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.config.LedgerIdGenerator
@@ -85,7 +86,7 @@ private class SqlLedger(
 
   private def createPersistenceQueue(): SourceQueueWithComplete[Long => LedgerEntry] = {
 
-    val persistenceQueue = Source.queue[Long => LedgerEntry](128, OverflowStrategy.backpressure)
+    val persistenceQueue = Source.queue[Long => LedgerEntry](128, OverflowStrategy.dropNew)
     implicit val ec: ExecutionContext = DirectExecutionContext
     persistenceQueue
       .mapAsync(1) { ledgerEntryGen => //strictly one after another!
@@ -118,7 +119,7 @@ private class SqlLedger(
       //ledger entries must be persisted via the persistenceQueue!
       val fDone = Source(ledgerEntries)
         .mapAsync(1) { ledgerEntry =>
-          persistenceQueue.offer(_ => ledgerEntry)
+          enqueue(_ => ledgerEntry)
         }
         .runWith(Sink.ignore)
 
@@ -154,42 +155,53 @@ private class SqlLedger(
   override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
     sys.error("contract keys not implemented yet in SQL backend")
 
-  override def publishHeartbeat(time: Instant): Future[Unit] =
+  override def publishHeartbeat(time: Instant): Future[SubmissionResult] =
+    enqueue(_ => LedgerEntry.Checkpoint(time))
+
+  override def publishTransaction(tx: TransactionSubmission): Future[SubmissionResult] =
+    enqueue { offset =>
+      val transactionId = offset.toString
+      val toAbsCoid: ContractId => AbsoluteContractId =
+        SandboxEventIdFormatter.makeAbsCoid(transactionId)
+
+      val mappedTx = tx.transaction
+        .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
+        .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _))
+
+      val mappedDisclosure = tx.blindingInfo.explicitDisclosure
+        .map {
+          case (nodeId, party) =>
+            SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> party.map(
+              _.underlyingString)
+        }
+
+      LedgerEntry.Transaction(
+        tx.commandId,
+        transactionId,
+        tx.applicationId,
+        tx.submitter,
+        tx.workflowId,
+        tx.ledgerEffectiveTime,
+        timeProvider.getCurrentTime,
+        mappedTx,
+        mappedDisclosure
+      )
+    }
+
+  private def enqueue(f: Long => LedgerEntry): Future[SubmissionResult] = {
     persistenceQueue
-      .offer(_ => LedgerEntry.Checkpoint(time))
-      .map(_ => ())(DirectExecutionContext)
-
-  override def publishTransaction(tx: TransactionSubmission): Future[Unit] =
-    persistenceQueue
-      .offer { offset =>
-        val transactionId = offset.toString
-        val toAbsCoid: ContractId => AbsoluteContractId =
-          SandboxEventIdFormatter.makeAbsCoid(transactionId)
-
-        val mappedTx = tx.transaction
-          .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
-          .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _))
-
-        val mappedDisclosure = tx.blindingInfo.explicitDisclosure
-          .map {
-            case (nodeId, party) =>
-              SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> party.map(
-                _.underlyingString)
-          }
-
-        LedgerEntry.Transaction(
-          tx.commandId,
-          transactionId,
-          tx.applicationId,
-          tx.submitter,
-          tx.workflowId,
-          tx.ledgerEffectiveTime,
-          timeProvider.getCurrentTime,
-          mappedTx,
-          mappedDisclosure
-        )
-      }
-      .map(_ => ())(DirectExecutionContext)
+      .offer(f)
+      .map[SubmissionResult] {
+        case Enqueued =>
+          SubmissionResult.Acknowledged
+        case Dropped =>
+          SubmissionResult.Overloaded
+        case QueueOfferResult.Failure(e) =>
+          SubmissionResult.Error(e)
+        case QueueClosed =>
+          SubmissionResult.Error(new IllegalStateException("queue closed"))
+      }(DirectExecutionContext)
+  }
 }
 
 private class SqlLedgerFactory(ledgerDao: LedgerDao) {

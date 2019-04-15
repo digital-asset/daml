@@ -12,7 +12,7 @@ import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.Commands
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
-import com.digitalasset.ledger.backend.api.v1.LedgerBackend
+import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, SubmissionResult}
 import com.digitalasset.platform.participant.util.ApiToLfEngine.apiCommandsToLfCommands
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.stores.ledger.{CommandExecutor, ErrorCause}
@@ -108,7 +108,7 @@ class SandboxSubmissionService private (
     )
   }
 
-  private def recordOnLedger(commands: Commands): Future[Unit] =
+  private def recordOnLedger(commands: Commands): Future[SubmissionResult] =
     // translate the commands to LF engine commands
     apiCommandsToLfCommands(commands)
       .consume(packageContainer.getPackage)
