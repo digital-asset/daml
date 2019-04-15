@@ -8,7 +8,7 @@ verify_ssl = true
 [packages]
 sphinx-autobuild = "*"
 sphinx = "*"
-jinja2 = ">=2.10"
+jinja2 = ">=2.10.1"
 
 [requires]
 python_version = "3.6"
