@@ -90,7 +90,7 @@ class EventConverterSpec
     .withCommands(Seq(create))
 
   object CommandsToTest extends TestCommands {
-    override protected def darFile: File = new File("ledger/sandbox/Test.dalf")
+    override protected def darFile: File = new File("ledger/sandbox/Test.dar")
 
     val damlPackageContainer = DamlPackageContainer(scala.collection.immutable.List(darFile), true)
     val onKbCmd = oneKbCommandRequest("ledgerId", "big").getCommands
@@ -122,7 +122,7 @@ class EventConverterSpec
                 5.seconds
               )
               blinding <- Blinding
-                .checkAuthorizationAndBlind(engine.ledgerFeatureFlags(), tx, Set(commands.party))
+                .checkAuthorizationAndBlind(tx, Set(commands.party))
             } yield {
               val txId = "testTx"
               val absCoid: Lf.ContractId => Lf.AbsoluteContractId =
@@ -161,7 +161,7 @@ class EventConverterSpec
               5.seconds
             )
             blinding <- Blinding
-              .checkAuthorizationAndBlind(engine.ledgerFeatureFlags(), tx, Set(commands.party))
+              .checkAuthorizationAndBlind(tx, Set(commands.party))
           } yield {
             val txId = "testTx"
             val absCoid: Lf.ContractId => Lf.AbsoluteContractId =
@@ -251,7 +251,7 @@ class EventConverterSpec
           Lf.VersionedValue[Lf.AbsoluteContractId]]] =
         Seq(nod0, node1).toMap
       val tx: LfTx = GenTransaction(nodes, ImmArray(Transaction.NodeId.unsafeFromIndex(0)))
-      val blinding = Blinding.blind(engine.ledgerFeatureFlags(), tx)
+      val blinding = Blinding.blind(tx)
       val absCoid: Lf.ContractId => Lf.AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid("transactionId")
       val recordTx = tx

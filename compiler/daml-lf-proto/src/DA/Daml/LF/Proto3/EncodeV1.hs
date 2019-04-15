@@ -496,6 +496,8 @@ instance Encode KeyExpr P.KeyExprSum where
 
 encodeKeyExpr ::  Version -> ExprVarName -> Expr -> Either String KeyExpr
 encodeKeyExpr version tplParameter = \case
+  ELocation _loc expr ->
+    encodeKeyExpr version tplParameter expr
   EVar var -> if var == tplParameter
     then Right (KeyExprProjections [])
     else Left ("Expecting variable " ++ show tplParameter ++ " in key expression, got " ++ show var)
@@ -525,8 +527,9 @@ instance Encode TemplateChoice P.TemplateChoice where
 instance Encode FeatureFlags P.FeatureFlags where
   encode _version FeatureFlags{..} =  P.FeatureFlags
     { P.featureFlagsForbidPartyLiterals = forbidPartyLiterals
-    , P.featureFlagsDontDivulgeContractIdsInCreateArguments = dontDivulgeContractIdsInCreateArguments
-    , P.featureFlagsDontDiscloseNonConsumingChoicesToObservers = dontDiscloseNonConsumingChoicesToObservers
+    -- We only support packages with these enabled -- see #157
+    , P.featureFlagsDontDivulgeContractIdsInCreateArguments = True
+    , P.featureFlagsDontDiscloseNonConsumingChoicesToObservers = True
     }
 
 

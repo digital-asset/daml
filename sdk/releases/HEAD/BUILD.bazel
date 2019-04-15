@@ -2,17 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 genrule(
-  name = 'head-components-tarball',
-  outs = ['head-components.tar.gz'],
-  srcs = [
-    '//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist',
-    '//daml-foundations/daml-tools/daml-extension:dist',
-    '//ledger/sandbox:sandbox-head-tarball',
-    '//navigator/backend:navigator-binary_deploy.jar',
-    '//extractor:extractor-binary_deploy.jar',
-    'sdk.yaml'
-  ],
-  cmd = '''
+    name = "head-components-tarball",
+    srcs = [
+        "//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist",
+        "//daml-foundations/daml-tools/daml-extension:dist",
+        "//ledger/sandbox:sandbox-head-tarball",
+        "//navigator/backend:navigator-binary_deploy.jar",
+        "//extractor:extractor-binary_deploy.jar",
+        "sdk.yaml",
+    ],
+    outs = ["head-components.tar.gz"],
+    cmd = '''
     OUT="head-components"
     mkdir -p $${OUT}
     chmod +x $$OUT
@@ -61,20 +61,17 @@ genrule(
     # tar everything up
     tar czf $@ $${OUT}
   ''',
-  visibility = ['//visibility:public']
+    visibility = ["//visibility:public"],
 )
 
- # create a tarball containing a home directory setup for testing the sdk
+# create a tarball containing a home directory setup for testing the sdk
 genrule(
-  name = 'test_home_tarball',
-  outs = ['test_home.tar.gz'],
-  srcs = [
-   ':head-components-tarball',
-  ],
-  tools = [
-   '//da-assistant:da',
-  ],
-  cmd = '''
+    name = "test_home_tarball",
+    srcs = [
+        ":head-components-tarball",
+    ],
+    outs = ["test_home.tar.gz"],
+    cmd = '''
     # Set up an alternative home directory
     TEST_HOME="test_home"
     PACKAGES_DIR="$$TEST_HOME/.da/packages"
@@ -98,26 +95,29 @@ EOF
 
     tar czf $@ $$TEST_HOME
     '''.format(version = "0.0.0"),
+    tools = [
+        "//da-assistant:da",
+    ],
 )
 
 # Test the sdk. The browserstack credentials need to be specified on the command line via bazel
 # //sdk/releases:test_release.sh --test-arg=<user> --test-arg=<pass>
 sh_test(
- name = 'tests',
- srcs = ['//sdk/releases:test.sh'],
- data = [
-  ':test_home_tarball',
-  '//da-assistant:da',
-  '//navigator/integration-test:navigatortest-jar.jar',
-  '@bazel_tools//tools/jdk:current_java_runtime'
- ],
- toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
- args = [
-   '$(location :test_home_tarball)',
-   "0.0.0",
-   '$(location //da-assistant:da)',
-   '$(JAVABASE)/bin/jar',
-   '$(location //navigator/integration-test:navigatortest-jar.jar)'
- ],
- timeout = "long",
+    name = "tests",
+    timeout = "long",
+    srcs = ["//sdk/releases:test.sh"],
+    args = [
+        "$(location :test_home_tarball)",
+        "0.0.0",
+        "$(location //da-assistant:da)",
+        "$(JAVABASE)/bin/jar",
+        "$(location //navigator/integration-test:navigatortest-jar.jar)",
+    ],
+    data = [
+        ":test_home_tarball",
+        "//da-assistant:da",
+        "//navigator/integration-test:navigatortest-jar.jar",
+        "@bazel_tools//tools/jdk:current_java_runtime",
+    ],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )

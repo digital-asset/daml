@@ -33,10 +33,7 @@ class CommandExecutorImpl(engine: Engine, packageContainer: DamlPackageContainer
         Left(ErrorCause.DamlLf(err))
       case Right(updateTx) =>
         Blinding
-          .checkAuthorizationAndBlind(
-            engine.ledgerFeatureFlags(),
-            updateTx,
-            Set(Ref.Party.assertFromString(submitter.unwrap)))
+          .checkAuthorizationAndBlind(updateTx, Set(Ref.Party.assertFromString(submitter.unwrap)))
           .fold(
             e => Left(ErrorCause.DamlLf(e)),
             blindingInfo =>

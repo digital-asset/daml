@@ -72,7 +72,7 @@ class TransactionServiceIT
     Config
       .defaultWithTimeProvider(TimeProviderType.WallClock)
 
-  override val timeLimit: Span = 30.seconds
+  override val timeLimit: Span = 300.seconds
 
   private def newClient(stub: TransactionService, ledgerId: String): TransactionClient =
     new TransactionClient(ledgerId, stub)
@@ -511,8 +511,7 @@ class TransactionServiceIT
       }
 
       "accept huge submissions with a large number of commands" in allFixtures { c =>
-        // Sandbox is tested with 20000, platform fails with a read pipeline error if we use that number.
-        val targetNumberOfSubCommands = 2000
+        val targetNumberOfSubCommands = 15000
         val superSizedCommand = c.command(
           "Huge composite command",
           List.fill(targetNumberOfSubCommands)(

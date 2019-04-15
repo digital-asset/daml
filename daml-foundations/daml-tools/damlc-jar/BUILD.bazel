@@ -1,50 +1,47 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//bazel_tools:java.bzl", "da_java_binary")
+
 java_library(
-  name = 'damlc_library_jar',
-  srcs = glob(['src/**/*.java']),
-  resource_jars = [
-    ":damlc-dist-resource-jar"
-  ],
-  visibility = ["//visibility:public"]
+    name = "damlc_library_jar",
+    srcs = glob(["src/**/*.java"]),
+    resource_jars = [
+        ":damlc-dist-resource-jar",
+    ],
+    visibility = ["//visibility:public"],
 )
 
-java_binary(
-  name = 'damlc_jar',
-  main_class = "com.digitalasset.damlc.Runner",
-  runtime_deps = [":damlc_library_jar"],
-  visibility = ["//visibility:public"],
-)
-
-alias(
-  name = "damlc",
-  actual = "damlc_jar_deploy.jar",
-  visibility = ["//visibility:public"]
+da_java_binary(
+    name = "damlc_jar",
+    main_class = "com.digitalasset.damlc.Runner",
+    tags = ["maven_coordinates=com.digitalasset:damlc:__VERSION__"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [":damlc_library_jar"],
 )
 
 alias(
-  name = "damlc_jar_deploy",
-  actual = "damlc_jar_deploy.jar",
-  visibility = ["//visibility:public"]
+    name = "damlc",
+    actual = "damlc_jar_deploy.jar",
+    visibility = ["//visibility:public"],
 )
 
 genrule(
-  name = "damlc-dist-resource-jar",
-  outs = ["damlc-dist.jar"],
-  srcs = [
-    "//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist"
-  ],
-  tools = [
-    "@tar_nix//:bin/tar",
-    "@gzip_nix//:bin/gzip",
-    "@bazel_tools//tools/jdk:current_java_runtime"
-  ],
-  toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-  cmd = """
+    name = "damlc-dist-resource-jar",
+    srcs = [
+        "//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist",
+    ],
+    outs = ["damlc-dist.jar"],
+    cmd = """
     export PATH=$$PATH:`dirname $(location @tar_nix//:bin/tar)`:`dirname $(location @gzip_nix//:bin/gzip)`
     mkdir tmp
     tar xzf $< -C tmp
     $(JAVABASE)/bin/jar c0Mf $@ -C tmp .
-  """
+  """,
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    tools = [
+        "@bazel_tools//tools/jdk:current_java_runtime",
+        "@gzip_nix//:bin/gzip",
+        "@tar_nix//:bin/tar",
+    ],
 )

@@ -248,10 +248,13 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       val testCases = Table[String, (BigDecimal, BigDecimal) => Either[Any, SValue]](
         ("builtin", "reference"),
-        ("ADD_DECIMAL", (a, b) => Decimal.check(a + b).map(SDecimal)),
-        ("SUB_DECIMAL", (a, b) => Decimal.check(a - b).map(SDecimal)),
-        ("MUL_DECIMAL", (a, b) => Decimal.check(a * b).map(SDecimal)),
-        ("DIV_DECIMAL", (a, b) => if (b == 0) Left(()) else Decimal.check(a / b).map(SDecimal)),
+        ("ADD_DECIMAL", (a, b) => Decimal.checkWithinBoundsAndRound(a + b).map(SDecimal)),
+        ("SUB_DECIMAL", (a, b) => Decimal.checkWithinBoundsAndRound(a - b).map(SDecimal)),
+        ("MUL_DECIMAL", (a, b) => Decimal.checkWithinBoundsAndRound(a * b).map(SDecimal)),
+        (
+          "DIV_DECIMAL",
+          (a, b) =>
+            if (b == 0) Left(()) else Decimal.checkWithinBoundsAndRound(a / b).map(SDecimal)),
         ("LESS_EQ_DECIMAL", (a, b) => Right(SBool(a <= b))),
         ("GREATER_EQ_DECIMAL", (a, b) => Right(SBool(a >= b))),
         ("LESS_DECIMAL", (a, b) => Right(SBool(a < b))),
@@ -321,7 +324,9 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
             |aliquip ex ea commodo consequat. Duis aute irure dolor in
             |reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
             |pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-            |culpa qui officia deserunt mollit anim id est laborum...""".stripMargin ->
+            |culpa qui officia deserunt mollit anim id est laborum..."""
+            .replaceAll("\r", "")
+            .stripMargin ->
             "c045064089460b634bb47e71d2457cd0e8dbc1327aaf9439c275c9796c073620",
           "a¶‱😂" ->
             "8f1cc14a85321115abcd2854e34f9ca004f4f199d367c3c9a84a355f287cec2e"
@@ -564,17 +569,17 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       "returns the keys in order" in {
         val words = List(
-          "slant",
-          "visit",
-          "ranch",
-          "first",
-          "patch",
-          "trend",
-          "sweat",
-          "enter",
-          "cover",
-          "favor",
-        ).zipWithIndex
+          "slant" -> 0,
+          "visit" -> 1,
+          "ranch" -> 2,
+          "first" -> 3,
+          "patch" -> 4,
+          "trend" -> 5,
+          "sweat" -> 6,
+          "enter" -> 7,
+          "cover" -> 8,
+          "favor" -> 9,
+        )
 
         eval(e"MAP_TO_LIST @Int64 ${buildMap("Int64", words: _*)}") shouldBe
           Right(

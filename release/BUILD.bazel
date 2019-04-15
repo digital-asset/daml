@@ -1,13 +1,11 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load ("//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 
 da_haskell_binary(
     name = "release",
     srcs = glob(["src/**/*.hs"]),
-    src_strip_prefix = "src",
-    deps = [],
     hazel_deps = [
         "aeson",
         "ansi-terminal",
@@ -18,6 +16,7 @@ da_haskell_binary(
         "containers",
         "directory",
         "exceptions",
+        "extra",
         "fast-logger",
         "filepath",
         "lifted-async",
@@ -27,6 +26,7 @@ da_haskell_binary(
         "optparse-applicative",
         "path",
         "path-io",
+        "process",
         "safe",
         "safe-exceptions",
         "text",
@@ -35,8 +35,11 @@ da_haskell_binary(
         "unordered-containers",
         "yaml",
         "mtl",
+        "xml-conduit",
     ],
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
+    deps = [],
 )
 
 # NOTE(MH): This tarball contains only metadata for an SDK release. The SDK
@@ -51,7 +54,7 @@ genrule(
         "//:component-version",
         "//:git-revision",
         "//:CHANGELOG",
-        "sdk.yaml"
+        "sdk.yaml",
     ],
     outs = ["sdk-metadata-tarball.tar.gz"],
     cmd = """
@@ -73,7 +76,7 @@ genrule(
 genrule(
     name = "sdk-release-tarball",
     srcs = [
-        ":config.yaml.tmpl",
+        ":sdk-config.yaml.tmpl",
         ":install.sh",
         "//:VERSION",
         "//daml-assistant:daml-dist",
@@ -94,8 +97,8 @@ genrule(
 
       cp $(location :install.sh) $$OUT/install.sh
 
-      cp $(location :config.yaml.tmpl) $$OUT/config.yaml
-      sed -i "s/__VERSION__/$$VERSION/" $$OUT/config.yaml
+      cp $(location :sdk-config.yaml.tmpl) $$OUT/sdk-config.yaml
+      sed -i "s/__VERSION__/$$VERSION/" $$OUT/sdk-config.yaml
 
       mkdir -p $$OUT/daml
       tar xf $(location //daml-assistant:daml-dist) --strip-components=1 -C $$OUT/daml
@@ -133,9 +136,40 @@ parties:
   - Bob
   - USD_Bank
   - EUR_Bank
+version: 1.0.0
+exposed-modules:
+  - Main
+dependencies:
+  - daml-prim
+  - daml-stdlib
 EOF
 
       tar zcf $(location sdk-release-tarball.tar.gz) --format=ustar $$OUT
+    """,
+    visibility = ["//visibility:public"],
+)
+
+# Same as the above, but with head version 0.0.0.
+genrule(
+    name = "sdk-head-tarball",
+    srcs = [
+        ":sdk-config.yaml.tmpl",
+        ":sdk-release-tarball.tar.gz",
+    ],
+    outs = ["sdk-head-tarball.tar.gz"],
+    cmd = """
+
+      VERSION=0.0.0
+      OUT=sdk-head
+      mkdir -p $$OUT
+      tar xf $(location sdk-release-tarball.tar.gz) --strip-components=1 -C $$OUT
+
+      cp $(location :sdk-config.yaml.tmpl) $$OUT/sdk-config.yaml
+      sed -i "s/__VERSION__/$$VERSION/" $$OUT/sdk-config.yaml
+
+      sed -i "s/sdk-version: .*/sdk-version: 0.0.0/" $$OUT/templates/quickstart-java/daml.yaml
+
+      tar zcf $(location sdk-head-tarball.tar.gz) --format=ustar $$OUT
     """,
     visibility = ["//visibility:public"],
 )

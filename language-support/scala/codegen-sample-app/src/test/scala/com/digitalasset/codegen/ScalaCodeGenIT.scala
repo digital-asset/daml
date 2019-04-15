@@ -39,7 +39,7 @@ import com.digitalasset.sample.MyMain.NameClashRecordVariant.NameClashRecordVari
 import com.digitalasset.sample.MyMain.{
   CallablePayout,
   Maybes,
-  TextMaps,
+  TextMapInt,
   MkListExample,
   MyRecord,
   MyVariant,
@@ -84,7 +84,7 @@ class ScalaCodeGenIT
 
   private val archives = List(
     requiredResource("language-support/scala/codegen-sample-app/MyMain.dalf"),
-    requiredResource("daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.1.dalf")
+    requiredResource("daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.3.dalf")
   )
 
   private val asys = ActorSystem()
@@ -329,7 +329,7 @@ class ScalaCodeGenIT
 
   "alice creates TextMaybes contract and receives corresponding event" in {
     import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
-    val contract = arbitrary[TextMaps].sample getOrElse sys.error("random TexMap failed")
+    val contract = arbitrary[TextMapInt].sample getOrElse sys.error("random TexMap failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 

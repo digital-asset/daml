@@ -44,7 +44,7 @@ object PersistenceResponse {
 
 }
 
-trait LedgerDao {
+trait LedgerDao extends AutoCloseable {
 
   /** Looks up the ledger id */
   def lookupLedgerId(): Future[Option[String]]

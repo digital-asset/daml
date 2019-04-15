@@ -1,100 +1,95 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load ("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
 
-da_haskell_library (
-    name = "da-hs-daml-cli"
-  , src_strip_prefix = "DA"
-  , extra_srcs = [
-    "//daml-foundations/daml-tools/docs/daml-licenses/licenses:licensing.md"
-  ]
-  , srcs = glob (["DA/**/*.hs"])
-  , hazel_deps = [
-      "aeson",
-      "aeson-pretty",
-      "ansi-wl-pprint",
-      "base",
-      "bytestring",
-      "containers",
-      "cryptonite",
-      "directory",
-      "extra",
-      "file-embed",
-      "filepath",
-      "ghc-lib",
-      "gitrev",
-      "lens",
-      "lens-aeson",
-      "managed",
-      "memory",
-      "mtl",
-      "network",
-      "optparse-applicative",
-      "prettyprinter",
-      "safe-exceptions",
-      "shake",
-      "split",
-      "tasty",
-      "tasty-ant-xml",
-      "tasty-hunit",
-      "text",
-      "vector",
-      "xml",
-      "yaml",
-      "zip-archive"
-  ]
-  , deps = [
-      "//compiler/daml-lf-ast"
-    , "//compiler/daml-lf-proto"
-    , "//compiler/daml-lf-tools"
-    , "//daml-lf/archive:daml_lf_haskell_proto"
-    , "//libs-haskell/da-hs-base"
-    , "//libs-haskell/da-hs-pretty"
-    , "//libs-haskell/prettyprinter-syntax"
-    , "//compiler/haskell-ide-core"
-    , "//compiler/scenario-service/client"
-    , "//compiler/scenario-service/protos:scenario_service_haskell_proto"
-    , "//daml-foundations/daml-ghc:daml-ghc-lib"
-    , "//:sdk-version-hs-lib"
-    , "//nix/third-party/proto3-suite:proto3-suite"
-    , "//daml-assistant:daml-project-config"
-  ]
-  , visibility = ["//visibility:public"]
+da_haskell_library(
+    name = "da-hs-daml-cli",
+    srcs = glob(["DA/**/*.hs"]),
+    extra_srcs = [
+        "//daml-foundations/daml-tools/docs/daml-licenses/licenses:licensing.md",
+    ],
+    hazel_deps = [
+        "aeson",
+        "aeson-pretty",
+        "ansi-wl-pprint",
+        "base",
+        "bytestring",
+        "containers",
+        "cryptonite",
+        "directory",
+        "extra",
+        "file-embed",
+        "filepath",
+        "ghc-lib",
+        "gitrev",
+        "lens",
+        "lens-aeson",
+        "managed",
+        "memory",
+        "mtl",
+        "network",
+        "optparse-applicative",
+        "prettyprinter",
+        "process",
+        "safe-exceptions",
+        "shake",
+        "split",
+        "tasty",
+        "tasty-ant-xml",
+        "tasty-hunit",
+        "text",
+        "vector",
+        "xml",
+        "yaml",
+        "zip-archive",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-tools",
+        "//compiler/haskell-ide-core",
+        "//compiler/scenario-service/client",
+        "//compiler/scenario-service/protos:scenario_service_haskell_proto",
+        "//daml-assistant:daml-project-config",
+        "//daml-foundations/daml-ghc:daml-ghc-lib",
+        "//daml-lf/archive:daml_lf_haskell_proto",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/da-hs-pretty",
+        "//libs-haskell/prettyprinter-syntax",
+        "//nix/third-party/proto3-suite",
+    ],
 )
 
 da_haskell_test(
     name = "da-hs-daml-cli-tests",
     srcs = ["tests/Cli.hs"],
-    deps = [
-           ":da-hs-daml-cli",
-    ],
     data = [
-      "//daml-foundations/daml-ghc/package-database:package-db"
-      , "//compiler/scenario-service/server:scenario_service_jar"
+        "//compiler/scenario-service/server:scenario_service_jar",
+        "//daml-foundations/daml-ghc/package-database:package-db",
     ],
-    hazel_deps = [
-         "tasty",
-         "base",
-         "tasty-hunit",
-    ],
-    visibility = ["//visibility:private"],
-    main_function = "Cli.main",
     # TODO remove flakiness, see #990
     flaky = True,
+    hazel_deps = [
+        "tasty",
+        "base",
+        "tasty-hunit",
+    ],
+    main_function = "Cli.main",
+    visibility = ["//visibility:private"],
+    deps = [
+        ":da-hs-daml-cli",
+    ],
 )
 
 da_haskell_test(
     name = "damlc-test-tests",
     srcs = ["tests/DamlcTest.hs"],
-    deps = [
-        ":da-hs-daml-cli",
-        "//daml-foundations/daml-ghc:daml-ghc-lib",
-        "//libs-haskell/da-hs-base",
-    ],
     data = [
-        "//daml-foundations/daml-ghc/package-database:package-db",
         "//compiler/scenario-service/server:scenario_service_jar",
+        "//daml-foundations/daml-ghc/package-database:package-db",
     ],
     hazel_deps = [
         "base",
@@ -102,6 +97,11 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
     ],
-    visibility = ["//visibility:private"],
     main_function = "DamlcTest.main",
+    visibility = ["//visibility:private"],
+    deps = [
+        ":da-hs-daml-cli",
+        "//daml-foundations/daml-ghc:daml-ghc-lib",
+        "//libs-haskell/da-hs-base",
+    ],
 )

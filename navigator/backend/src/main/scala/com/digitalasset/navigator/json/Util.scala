@@ -47,6 +47,15 @@ object Util {
         deserializationError(s"Can't read ${obj.prettyPrint} as $as, missing field '$name'")
     }
 
+  def objectField(obj: JsValue, name: String, as: String): Map[String, JsValue] =
+    asObject(obj, as).fields.get(name) match {
+      case Some(JsObject(v)) => v
+      case Some(_) =>
+        deserializationError(s"Can't read ${obj.prettyPrint} as $as, field '$name' is not an array")
+      case None =>
+        deserializationError(s"Can't read ${obj.prettyPrint} as $as, missing field '$name'")
+    }
+
   def anyField(obj: JsValue, name: String, as: String): JsValue =
     asObject(obj, as).fields.get(name) match {
       case Some(v: JsValue) => v

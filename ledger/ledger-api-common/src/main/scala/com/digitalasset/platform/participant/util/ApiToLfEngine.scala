@@ -6,7 +6,7 @@ package com.digitalasset.platform.participant.util
 import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName, SimpleString}
-import com.digitalasset.daml.lf.data.{BackStack, Decimal, FrontStack, Ref, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.{
   Command => LfCommand,
   Commands => LfCommands,
@@ -33,7 +33,6 @@ import scalaz.syntax.tag._
 
 import scala.annotation.tailrec
 import scala.collection.immutable
-import scala.collection.immutable.HashMap
 import scala.concurrent.{ExecutionContext, Future}
 
 object ApiToLfEngine {
@@ -93,12 +92,7 @@ object ApiToLfEngine {
       Left(s"Failed to parse as decimal. ($d). Expected format is [+-]?\\d+(\\.\\d+)?")
     expectedDecimalFormat
       .findFirstIn(d)
-      .fold(notValidErr)(
-        (_) =>
-          // note: using big decimal constructor
-          // to have equal precision set as with damle core
-          // remove this when removing old engine
-          Decimal.fromString(d).map(_ => BigDecimal(d)))
+      .fold(notValidErr)(_ => Decimal.fromString(d))
   }
 
   def toLfIdentifier(
@@ -233,29 +227,34 @@ object ApiToLfEngine {
       case ApiValue.MapValue(map) =>
         def goResume(
             pkgs: Packages,
-            xs: List[(String, ApiValue)],
+            xs: ImmArray[(String, ApiValue)],
             vs: BackStack[(String, LfValue)]
         ): ApiToLfResult[(Packages, LfValue)] =
           go(pkgs, xs, vs)
         @tailrec
         def go(
             pkgs: Packages,
-            xs: List[(String, ApiValue)],
+            xs: ImmArray[(String, ApiValue)],
             vs: BackStack[(String, LfValue)]
         ): ApiToLfResult[(Packages, LfValue)] = {
-          if (xs.isEmpty) {
-            Done((pkgs, Lf.ValueMap(HashMap(vs.toImmArray.toSeq: _*))))
-          } else {
-            val (key, value) = xs.head
-            apiValueToLfValueWithPackages(pkgs, value) match {
-              case Done((newPkgs, v)) => go(newPkgs, xs.tail, vs :+ (key -> v))
-              case Error(err) => Error(err)
-              case np: NeedPackage[(Packages, LfValue)] =>
-                np.flatMap { case (newPkgs, v) => goResume(newPkgs, xs.tail, vs :+ (key -> v)) }
-            }
+          xs match {
+            case ImmArray() =>
+              SortedLookupList
+                .fromSortedImmArray(vs.toImmArray)
+                .fold[ApiToLfResult[(Packages, LfValue)]](
+                  err => Error(LfError.apply(s"internal error : $err")),
+                  map => Done((pkgs, Lf.ValueMap(map)))
+                )
+            case ImmArrayCons((key, value), rest) =>
+              apiValueToLfValueWithPackages(pkgs, value) match {
+                case Done((newPkgs, v)) => go(newPkgs, rest, vs :+ (key -> v))
+                case Error(err) => Error(err)
+                case np: NeedPackage[(Packages, LfValue)] =>
+                  np.flatMap { case (newPkgs, v) => goResume(newPkgs, rest, vs :+ (key -> v)) }
+              }
           }
         }
-        go(packages0, map.toList, BackStack.empty)
+        go(packages0, map.toImmArray, BackStack.empty)
     }
   }
 

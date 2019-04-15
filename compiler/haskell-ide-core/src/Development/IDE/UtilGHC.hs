@@ -77,6 +77,7 @@ xExtensionsUnset = [  ]
 xFlagsSet :: [ GeneralFlag ]
 xFlagsSet = [
    Opt_Haddock
+ , Opt_Ticky
  ]
 
 -- | Warning options set for DAML compilation. Note that these can be modified
@@ -94,7 +95,6 @@ wOptsSet =
 wOptsSetFatal :: [ WarningFlag ]
 wOptsSetFatal =
   [ Opt_WarnMissingFields
-  , Opt_WarnOverflowedLiterals
   ]
 
 -- | Warning options unset for DAML compilation. Note that these can be modified
@@ -103,6 +103,7 @@ wOptsSetFatal =
 wOptsUnset :: [ WarningFlag ]
 wOptsUnset =
   [ Opt_WarnMissingMonadFailInstances -- failable pattern plus RebindableSyntax raises this error
+  , Opt_WarnOverflowedLiterals -- this does not play well with -ticky and the error message is misleading
   ]
 
 
@@ -121,6 +122,7 @@ adjustDynFlags paths packageState mbPackageName dflags
   $ apply gopt_set xFlagsSet
   dflags{
     mainModIs = mkModule primUnitId (mkModuleName "NotAnExistingName"), -- avoid DEL-6770
+    debugLevel = 1,
     ghcLink = NoLink, hscTarget = HscNothing -- avoid generating .o or .hi files
     {-, dumpFlags = Opt_D_ppr_debug `EnumSet.insert` dumpFlags dflags -- turn on debug output from GHC-}
   }

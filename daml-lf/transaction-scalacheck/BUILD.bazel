@@ -2,24 +2,24 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  "//bazel_tools:scala.bzl",
-  "lf_scalacopts",
-  "da_scala_library",
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "lf_scalacopts",
 )
 
 da_scala_library(
-  name = "transaction-scalacheck",
-  srcs = glob(["src/main/**/*.scala"]),
-  deps = [
-    "//daml-lf/transaction",
-    "//daml-lf/transaction/src/main/protobuf:value_java_proto",
-    "//daml-lf/data",
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
-    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-    "//3rdparty/jvm/org/scalacheck:scalacheck",
-  ],
-  scalacopts = lf_scalacopts,
-  visibility = ["//visibility:public"]
+    name = "transaction-scalacheck",
+    srcs = glob(["src/main/**/*.scala"]),
+    scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction-scalacheck:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction/src/main/protobuf:value_java_proto",
+    ],
 )
-

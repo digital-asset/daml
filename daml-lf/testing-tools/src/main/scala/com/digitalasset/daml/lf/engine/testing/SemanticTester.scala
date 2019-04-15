@@ -418,7 +418,7 @@ object SemanticTester {
       val tx = consumeResult(cmds.commandsReference, engine.submit(cmds))
       val blindingInfo =
         Blinding
-          .checkAuthorizationAndBlind(engine.ledgerFeatureFlags(), tx, Set(submitterName))
+          .checkAuthorizationAndBlind(tx, Set(submitterName))
           .toOption
           .getOrElse(sys.error(s"authorization failed for ${cmds.commandsReference}"))
       val absTx = tx.mapContractIdAndValue(makeAbsoluteContractId, makeValueWithAbsoluteContractId)

@@ -2,86 +2,99 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  "//bazel_tools:scala.bzl",
-  "da_scala_test_suite",
-  "da_scala_library"
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
 )
 load("//bazel_tools:proto.bzl", "proto_gen")
+load("//bazel_tools:java.bzl", "da_java_library")
 
 proto_gen(
     name = "ledger-api-java",
     srcs = ["//ledger-api/grpc-definitions:protos"],
-    deps = ['@com_google_protobuf//:empty_proto',
-            '@com_google_protobuf//:timestamp_proto',
-            '@com_google_protobuf//:duration_proto',
-            '@com_google_protobuf//:wrappers_proto',
-            '@com_google_protobuf//:any_proto',
-            '@com_google_protobuf//:descriptor_proto',
-            '@com_github_googleapis_googleapis//google/rpc:status_proto',
-    ],
     plugin_name = "java",
     visibility = [
-        '//visibility:public',
+        "//visibility:public",
+    ],
+    deps = [
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
 )
 
 proto_gen(
     name = "ledger-api-java-grpc",
     srcs = ["//ledger-api/grpc-definitions:protos"],
-    deps = ['@com_google_protobuf//:empty_proto',
-            '@com_google_protobuf//:timestamp_proto',
-            '@com_google_protobuf//:duration_proto',
-            '@com_google_protobuf//:wrappers_proto',
-            '@com_google_protobuf//:any_proto',
-            '@com_google_protobuf//:descriptor_proto',
-            '@com_github_googleapis_googleapis//google/rpc:status_proto',
-    ],
-    plugin_name = "java-grpc",
     plugin_exec = "@io_grpc_grpc_java//compiler:grpc_java_plugin",
+    plugin_name = "java-grpc",
     visibility = [
-        '//visibility:public',
+        "//visibility:public",
+    ],
+    deps = [
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
 )
 
-java_library(
-    name = 'bindings-java',
-
-    srcs = glob(['src/main/java/**/*.java']) + [':ledger-api-java', ':ledger-api-java-grpc'],
-
-    deps = [
-        "//3rdparty/jvm/org/checkerframework:checker",
-        "//3rdparty/jvm/io/grpc:grpc_stub",
-        "//3rdparty/jvm/io/grpc:grpc_protobuf",
+da_java_library(
+    name = "bindings-java",
+    srcs = glob(["src/main/java/**/*.java"]) + [
+        ":ledger-api-java",
+        ":ledger-api-java-grpc",
     ],
-
+    tags = ["maven_coordinates=com.daml.ledger:bindings-java:__VERSION__"],
     visibility = [
-        '//visibility:public',
-    ]
+        "//visibility:public",
+    ],
+    deps = [
+        "//3rdparty/jvm/io/grpc:grpc_protobuf",
+        "//3rdparty/jvm/io/grpc:grpc_stub",
+        "//3rdparty/jvm/org/checkerframework:checker",
+    ],
 )
 
 testDependencies = [
-        ":bindings-java",
-        "//3rdparty/jvm/org/scalatest:scalatest",
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/org/scalacheck:scalacheck",
-    ]
+    ":bindings-java",
+    "//3rdparty/jvm/org/scalatest:scalatest",
+    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+    "//3rdparty/jvm/org/scalacheck:scalacheck",
+]
 
 da_scala_library(
-  name = "bindings-java-tests-lib",
-  srcs = glob(['src/test/**/*.scala'], exclude = ['src/test/**/*Spec.scala', 'src/test/**/*Test.scala']),
-  deps = testDependencies,
+    name = "bindings-java-tests-lib",
+    srcs = glob(
+        ["src/test/**/*.scala"],
+        exclude = [
+            "src/test/**/*Spec.scala",
+            "src/test/**/*Test.scala",
+        ],
+    ),
+    deps = testDependencies,
 )
 
 da_scala_test_suite(
     name = "bindings-java-tests",
-    srcs = glob(['src/test/**/*Spec.scala', 'src/test/**/*Test.scala']),
+    srcs = glob([
+        "src/test/**/*Spec.scala",
+        "src/test/**/*Test.scala",
+    ]),
     deps = [
         ":bindings-java-tests-lib",
-    ] + testDependencies
+    ] + testDependencies,
 )
 
-filegroup (
+filegroup(
     name = "sources",
-    srcs = glob(['src/main/java/**/*.java']),
-    visibility = [ '//visibility:public', ],
+    srcs = glob(["src/main/java/**/*.java"]),
+    visibility = ["//visibility:public"],
 )

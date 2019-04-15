@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Decimal, FrontStack, ImmArray, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.transaction.VersionTimeline.SpecifiedVersion
 import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
 import com.digitalasset.daml.lf.value.Value._
@@ -15,8 +15,6 @@ import scala.collection.JavaConverters._
 import scalaz.std.either._
 import scalaz.std.option._
 import scalaz.syntax.traverse._
-
-import scala.collection.immutable.HashMap
 
 /**
   * Utilities to serialize and de-serialize Values
@@ -271,14 +269,6 @@ object ValueCoder {
       protoValue0: proto.Value): Either[DecodeError, Value[Cid]] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
-    def decodeKey(key: proto.Value) =
-      key.getSumCase match {
-        case proto.Value.SumCase.TEXT =>
-          key.getText
-        case sumCase =>
-          throw Err(s"Map key must be of type Text, found $sumCase")
-      }
-
     def go(nesting: Int, protoValue: proto.Value): Value[Cid] = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
@@ -359,14 +349,16 @@ object ValueCoder {
             ValueOptional(mbV)
 
           case proto.Value.SumCase.MAP =>
-            val entries = protoValue.getMap.getEntriesList.asScala
-              .map(entry => decodeKey(entry.getKey) -> go(newNesting, entry.getValue))
+            val entries = ImmArray(protoValue.getMap.getEntriesList.asScala.map(entry =>
+              entry.getKey -> go(newNesting, entry.getValue)))
 
-            entries.map(_._1).groupBy(identity).collect {
-              case (k, l) if l.length > 1 => throw Err(s"duplicate key $k")
-            }
-
-            ValueMap(HashMap(entries: _*))
+            val map = SortedLookupList
+              .fromImmArray(entries)
+              .fold(
+                err => throw Err(err),
+                identity
+              )
+            ValueMap(map)
 
           case proto.Value.SumCase.SUM_NOT_SET =>
             throw Err(s"Value not set")
@@ -471,14 +463,15 @@ object ValueCoder {
             builder.setOptional(protoOption).build()
           case ValueMap(map) =>
             val protoMap = proto.Map.newBuilder()
-            map.foreach {
+            map.toImmArray.foreach {
               case (key, value) =>
                 protoMap.addEntries(
                   proto.Map.Entry
                     .newBuilder()
-                    .setKey(proto.Value.newBuilder().setText(key))
+                    .setKey(key)
                     .setValue(go(newNesting, value))
                 )
+                ()
             }
             builder.setMap(protoMap).build()
         }

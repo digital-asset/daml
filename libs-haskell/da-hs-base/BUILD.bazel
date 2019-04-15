@@ -5,11 +5,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
 
 da_haskell_library(
     name = "da-hs-base",
-    src_strip_prefix = "src",
     srcs = glob(["src/**/*.hs"]),
-    deps = [
-        "//daml-assistant:daml-project-config",
-    ],
     hazel_deps = [
         "aeson",
         "aeson-pretty",
@@ -49,24 +45,28 @@ da_haskell_library(
         "unordered-containers",
         "vector",
     ],
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
+    deps = [
+        "//daml-assistant:daml-project-config",
+    ],
 )
 
 da_haskell_test(
     name = "da-hs-base-tests",
     srcs = glob(["tests/**/*.hs"]),
-    deps = [
-           ":da-hs-base",
-    ],
     hazel_deps = [
-         "aeson",
-         "managed",
-         "tasty",
-         "base",
-         "directory",
-         "tasty-hunit",
-         "text",
+        "aeson",
+        "managed",
+        "tasty",
+        "base",
+        "directory",
+        "tasty-hunit",
+        "text",
     ],
-    visibility = ["//visibility:public"],
     main_function = "DataLimit.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":da-hs-base",
+    ],
 )

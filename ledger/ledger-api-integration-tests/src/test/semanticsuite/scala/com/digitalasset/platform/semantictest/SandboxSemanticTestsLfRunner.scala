@@ -5,7 +5,8 @@ package com.digitalasset.platform.semantictest
 
 import java.io.{BufferedInputStream, File, FileInputStream}
 
-import com.digitalasset.daml.lf.data.Ref.{PackageId}
+import com.digitalasset.daml.lf.UniversalArchiveReader
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.ledger.api.testing.utils.{
@@ -16,8 +17,6 @@ import com.digitalasset.platform.apitesting.MultiLedgerFixture
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-import scala.collection.breakOut
-
 class SandboxSemanticTestsLfRunner
     extends AsyncWordSpec
     with Matchers
@@ -25,25 +24,24 @@ class SandboxSemanticTestsLfRunner
     with SuiteResourceManagementAroundAll
     with AkkaBeforeAndAfterAll {
 
-  private val darFile = new File("ledger/ledger-api-integration-tests/SemanticTests.dalf")
-
-  // a blacklist of tests that are currently failing
-  val knownFailures = Set(
-    "Test:test_divulgence_of_token" // FIXME https://github.com/digital-asset/daml/issues/157
-  )
+  private val darFile = new File("ledger/ledger-api-integration-tests/SemanticTests.dar")
 
   override protected lazy val config: Config = Config.default
     .withDarFile(darFile.toPath)
     .withTimeProvider(TimeProviderType.StaticAllowBackwards)
 
-  lazy val packages: Map[PackageId, Ast.Package] =
-    List(darFile, Config.ghcPrimFileName).map(readPackage)(breakOut)
+  lazy val (mainPkgId, packages) = {
+    val dar = UniversalArchiveReader().readFile(darFile).get
+    val packages = Map(dar.all.map {
+      case (pkgId, archive) => Decode.readArchivePayloadAndVersion(pkgId, archive)._1
+    }: _*)
+    (dar.main._1, packages)
+  }
 
   s"sandbox launched with $darFile" should {
     for {
-      (pkgId, names) <- SemanticTester.scenarios(packages)
+      (pkgId, names) <- SemanticTester.scenarios(Map(mainPkgId -> packages(mainPkgId))) // we only care about the main pkg
       name <- names
-      if !knownFailures.contains(name.toString)
     } {
       s"run scenario: $name" in allFixtures { ledger =>
         for {

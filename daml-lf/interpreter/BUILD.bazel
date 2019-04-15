@@ -13,6 +13,7 @@ da_scala_library(
     name = "interpreter",
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-interpreter:__VERSION__"],
     visibility = [
         "//compiler/scenario-service:__subpackages__",
         "//daml-lf:__subpackages__",

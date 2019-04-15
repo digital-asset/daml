@@ -65,10 +65,7 @@ in rec {
     # TLA+ with the command-line model checker TLC
     tlc2            = pkgs.tlaplus;
 
-    # Java 8 development
-    mvn = pkgs.writeScriptBin "mvn" ''
-      exec ${pkgs.maven}/bin/mvn ''${MVN_SETTINGS:+-s "$MVN_SETTINGS"} "$@"
-    '';
+    mvn = bazel_dependencies.mvn;
 
     zinc = pkgs.callPackage ./tools/zinc {};
 
@@ -164,8 +161,6 @@ in rec {
     cqlsh     = cassandra;
     nodetool  = cassandra;
 
-    pandoc = bazel_dependencies.pandoc;
-
     sphinx            = pkgs.python36.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
@@ -255,8 +250,6 @@ in rec {
 
     undmg = pkgs.undmg;
     jfrog = pkgs.callPackage ./tools/jfrog-cli {};
-
-    nix-prefetch-git = pkgs.nix-prefetch-git;
 
     # Cloud tools
     gcloud = pkgs.google-cloud-sdk;

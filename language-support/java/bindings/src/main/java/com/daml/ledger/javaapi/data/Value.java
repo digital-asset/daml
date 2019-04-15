@@ -47,11 +47,7 @@ public abstract class Value {
             case MAP:
                 HashMap<String, Value> map = new HashMap<String, Value>();
                 for(ValueOuterClass.Map.Entry e: value.getMap().getEntriesList()){
-                    Value key = fromProto(e.getKey());
-                    if (key instanceof Text)
-                        map.put(((Text) key).getValue(), fromProto(e.getValue()));
-                    else
-                        throw new InvalidKeyValue(value);
+                    map.put(e.getKey(), fromProto(e.getValue()));
                 }
                 return new DamlMap(map);
             case SUM_NOT_SET:

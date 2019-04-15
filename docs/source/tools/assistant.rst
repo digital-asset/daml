@@ -258,6 +258,8 @@ The ``damlc`` package is a DAML compiler tool. The compiler functionality is cur
 
 The ``navigator`` package contains a browser-based tool that can also be used to interact with the ledger and is described in :doc:`/tools/navigator/index`.
 
+.. _da-yaml-configuration:
+
 da.yaml configuration
 *********************
 

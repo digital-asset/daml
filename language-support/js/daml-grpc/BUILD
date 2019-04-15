@@ -5,65 +5,71 @@ load("//bazel_tools:proto.bzl", "proto_gen")
 proto_gen(
     name = "ledger-api-nodejs",
     srcs = ["//ledger-api/grpc-definitions:protos"],
+    plugin_exec = "//language-support/js:grpc_tools_node_protoc_js",
+    plugin_name = "js",
+    plugin_options = [
+        "import_style=commonjs",
+        "binary",
+    ],
     deps = [
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:wrappers_proto",
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
         "@com_google_protobuf//:any_proto",
         "@com_google_protobuf//:descriptor_proto",
-        "@com_github_googleapis_googleapis//google/rpc:status_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
-    plugin_name = "js",
-    plugin_options = ["import_style=commonjs", "binary"],
-    plugin_exec = "//language-support/js:grpc_tools_node_protoc_js",
 )
 
 proto_gen(
     name = "ledger-api-nodejs-grpc",
     srcs = ["//ledger-api/grpc-definitions:protos"],
+    plugin_exec = "//language-support/js:grpc_tools_node_protoc_js",
+    plugin_name = "grpc",
     deps = [
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:wrappers_proto",
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
         "@com_google_protobuf//:any_proto",
         "@com_google_protobuf//:descriptor_proto",
-        "@com_github_googleapis_googleapis//google/rpc:status_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
-    plugin_name = "grpc",
-    plugin_exec = "//language-support/js:grpc_tools_node_protoc_js",
 )
 
 proto_gen(
     name = "ledger-api-d.ts",
     srcs = ["//ledger-api/grpc-definitions:protos"],
+    plugin_exec = "//language-support/js:grpc_tools_node_protoc_ts",
+    plugin_name = "ts",
     deps = [
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:wrappers_proto",
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
         "@com_google_protobuf//:any_proto",
         "@com_google_protobuf//:descriptor_proto",
-        "@com_github_googleapis_googleapis//google/rpc:status_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
-    plugin_name = "ts",
-    plugin_exec = "//language-support/js:grpc_tools_node_protoc_ts",
 )
 
 proto_gen(
     name = "daml_lf_proto-nodejs",
     srcs = ["//daml-lf/archive:daml_lf_proto"],
-    plugin_name = "js",
-    plugin_options = ["import_style=commonjs", "binary"],
     plugin_exec = "//language-support/js:grpc_tools_node_protoc_js",
+    plugin_name = "js",
+    plugin_options = [
+        "import_style=commonjs",
+        "binary",
+    ],
 )
 
 proto_gen(
     name = "daml_lf_proto-d.ts",
     srcs = ["//daml-lf/archive:daml_lf_proto"],
-    plugin_name = "ts",
     plugin_exec = "//language-support/js:grpc_tools_node_protoc_ts",
+    plugin_name = "ts",
 )
 
 proto_gen(
@@ -71,17 +77,20 @@ proto_gen(
     srcs = [
         "@com_github_googleapis_googleapis//google/rpc:status_proto",
     ],
+    plugin_exec = "//language-support/js:grpc_tools_node_protoc_js",
+    plugin_name = "js",
+    plugin_options = [
+        "import_style=commonjs",
+        "binary",
+    ],
     deps = [
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:wrappers_proto",
         "@com_google_protobuf//:any_proto",
         "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
-    plugin_name = "js",
-    plugin_options = ["import_style=commonjs", "binary"],
-    plugin_exec = "//language-support/js:grpc_tools_node_protoc_js",
 )
 
 proto_gen(
@@ -89,16 +98,16 @@ proto_gen(
     srcs = [
         "@com_github_googleapis_googleapis//google/rpc:status_proto",
     ],
+    plugin_exec = "//language-support/js:grpc_tools_node_protoc_ts",
+    plugin_name = "ts",
     deps = [
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:wrappers_proto",
         "@com_google_protobuf//:any_proto",
         "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
-    plugin_name = "ts",
-    plugin_exec = "//language-support/js:grpc_tools_node_protoc_ts",
 )
 
 ts_config(
@@ -151,7 +160,7 @@ genrule(
     tools = [
         "//language-support/js:tsc",
     ],
-    visibility = ["//:__subpackages__"]
+    visibility = ["//:__subpackages__"],
 )
 
 # nodejs_test does not support mocha, so we use sh_test
@@ -159,8 +168,8 @@ sh_test(
     name = "test",
     srcs = ["test.sh"],
     data = [
-        ":daml-grpc",
         "test.ts",
+        ":daml-grpc",
         "@nodejs//:node",
         "@npm//@types/chai",
         "@npm//@types/google-protobuf",

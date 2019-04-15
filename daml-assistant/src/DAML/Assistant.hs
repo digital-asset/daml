@@ -9,6 +9,7 @@ module DAML.Assistant
     ) where
 
 import DAML.Project.Config
+import DAML.Project.Types
 import DAML.Assistant.Env
 import DAML.Assistant.Tests
 import DAML.Assistant.Command
@@ -19,7 +20,6 @@ import System.Process
 import System.Exit
 import Control.Exception.Safe
 import Data.Maybe
-import qualified Data.SemVer as V
 
 -- | Run the assistant and exit.
 main :: IO ()
@@ -32,10 +32,10 @@ main = do
 
         Builtin Version -> do
             version <- required "Could not determine SDK version." envSdkVersion
-            putStrLn (V.toString (unwrapSdkVersion version))
+            putStrLn (versionToString version)
 
         Builtin (Install options) -> wrapErr "Installing the SDK." $ do
-            install options envDamlPath
+            install options envDamlPath envProjectPath
 
         Dispatch SdkCommandInfo{..} cmdArgs ->
             wrapErr ("Running " <> unwrapSdkCommandName sdkCommandName <> " command.") $ do

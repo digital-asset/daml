@@ -5,7 +5,6 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library")
 
 da_haskell_library(
     name = "prettyprinter-syntax",
-    src_strip_prefix = "src",
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
         "base",
@@ -13,5 +12,6 @@ da_haskell_library(
         "prettyprinter-ansi-terminal",
         "text",
     ],
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
 )

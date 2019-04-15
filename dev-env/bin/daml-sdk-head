@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -eu
+
+# Make sure they are in the right repo
+readonly REPO_ROOT=$(bazel info workspace)
+if [[ "${REPO_ROOT}/dev-env/bin/daml-sdk-head" != "${BASH_SOURCE}" ]];
+then
+  echo "Repo root does not match the script being run."
+  echo "Make sure you run this script from a directory within the 'daml' repository "
+  exit 1
+fi
+
+# This is where we install the head version. Clean it up before we start.
+readonly DAML_HEAD="$HOME/.daml-head"
+if [ -d $DAML_HEAD ] ; then
+  chmod -R  u+w $DAML_HEAD
+  rm -rf $DAML_HEAD
+fi
+
+echo "$(tput setaf 3)Building version 0.0.0 - this may take a while ...$(tput sgr 0)"
+echo ""
+
+function cleanup() {
+  echo "SDK 0.0.0 failed to build/install - if you need help ask on #team-daml"
+  echo "$(tput setaf 3)FAILED TO INSTALL! $(tput sgr 0)"
+}
+trap cleanup EXIT
+
+# Building here separately so the user can see the build process which could take a while
+bazel build //release:sdk-head-tarball.tar.gz
+
+readonly TARBALL=$(bazel info bazel-genfiles)/release/sdk-head-tarball.tar.gz
+readonly TMPDIR=$(mktemp -d)
+mkdir -p $TMPDIR/sdk-head
+
+tar xzf $TARBALL -C $TMPDIR/sdk-head --strip-components 1
+DAML_HOME=$DAML_HEAD $TMPDIR/sdk-head/install.sh
+mv $DAML_HEAD/bin/{daml,daml-head}
+
+trap - EXIT
+echo "$(tput setaf 3)Successfully installed daml-head command.$(tput sgr 0)"

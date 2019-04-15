@@ -6,27 +6,42 @@ package com.digitalasset.extractor.ledger.types
 import com.digitalasset.ledger.api.{v1 => api}
 import api.value.Value.Sum
 import RecordField._
-
-import scalaz.{Optional => _, _}, Scalaz._
+import scalaz.{Optional => _, _}
+import Scalaz._
+import com.digitalasset.daml.lf.data.{SortedLookupList, ImmArray}
 
 sealed trait LedgerValue
 
 object LedgerValue {
 
   final case class Bool(value: Boolean) extends LedgerValue
+
   final case class Record(fields: List[RecordField]) extends LedgerValue
+
   final case class Variant(constructor: String, value: LedgerValue) extends LedgerValue
+
   final case class ContractId(value: String) extends LedgerValue
+
   final case class ValueList(elements: List[LedgerValue]) extends LedgerValue
-  final case class ValueMap(map: Map[String, LedgerValue]) extends LedgerValue
+
+  final case class ValueMap(map: SortedLookupList[LedgerValue]) extends LedgerValue
+
   final case class Int64(value: Long) extends LedgerValue
+
   final case class Decimal(value: String) extends LedgerValue
+
   final case class Text(value: String) extends LedgerValue
+
   final case class Timestamp(value: Long) extends LedgerValue
+
   final case class Party(value: String) extends LedgerValue
+
   final case class Date(value: Int) extends LedgerValue
+
   final case class Optional(value: Option[LedgerValue]) extends LedgerValue
+
   case object Unit extends LedgerValue
+
   case object Empty extends LedgerValue
 
   private val variantValueLens = ReqFieldLens.create[api.value.Variant, api.value.Value]('value)
@@ -88,22 +103,13 @@ object LedgerValue {
     }
   }
 
-  private def convertKeyMap(apiKey: Option[api.value.Value]): String \/ String =
-    apiKey.map(_.sum) match {
-      case Some(api.value.Value.Sum.Text(s)) => \/.right[String, String](s)
-      case Some(sum) => -\/(s"expected Text, found $sum")
-      case None => -\/(s"key must be defined")
-    }
-
-  private def convertMap(apiMap: api.value.Map): String \/ LedgerValue.ValueMap = {
-    val entries = apiMap.entries.toList.traverseU {
-      case api.value.Map.Entry(k, v) =>
-        for {
-          key <- convertKeyMap(k)
-          value <- v.fold(\/.right[String, LedgerValue](Empty))(_.sum.convert)
-        } yield key -> value
-    }
-    entries.map(s => ValueMap(s.toMap))
-  }
+  private def convertMap(apiMap: api.value.Map): String \/ LedgerValue.ValueMap =
+    for {
+      entries <- apiMap.entries.toList.traverseU {
+        case api.value.Map.Entry(_, None) => -\/("value must be defined")
+        case api.value.Map.Entry(k, Some(v)) => v.sum.convert.map(k -> _)
+      }
+      map <- SortedLookupList.fromImmArray(ImmArray(entries)).fold(-\/(_), \/-(_))
+    } yield LedgerValue.ValueMap(map)
 
 }

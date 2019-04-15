@@ -4,15 +4,15 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
 
 da_haskell_library(
-  name = "bazel-runfiles",
-  srcs = glob(["src/DA/Bazel/Runfiles.hs"]),
-  src_strip_prefix = "src",
-  deps = [],
-  hazel_deps = [
-    "base",
-    "directory",
-    "filepath",
-    "transformers",
-  ],
-  visibility = ['//visibility:public'],
+    name = "bazel-runfiles",
+    srcs = glob(["src/DA/Bazel/Runfiles.hs"]),
+    hazel_deps = [
+        "base",
+        "directory",
+        "filepath",
+        "transformers",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [],
 )

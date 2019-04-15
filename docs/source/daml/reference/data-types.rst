@@ -93,7 +93,6 @@ Records and record types
 
 You declare a new record type using the ``data`` and ``with`` keyword:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   data MyRecord = MyRecord
@@ -111,7 +110,6 @@ where:
 
 There's an alternative way to write record types:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   data MyRecord = MyRecord { label1 : type1; label2 : type2; ...; labelN : typeN }
@@ -125,7 +123,6 @@ In general, add the ``deriving`` unless the data type contains function types (e
 
 For example:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   -- This is a record type with two fields, called first and second,
@@ -162,7 +159,6 @@ Accessing record fields
 
 To access the fields of a record type, use dot notation. For example:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   -- Access the value of the field `first`
@@ -178,7 +174,6 @@ You can also use the ``with`` keyword to create a new record on the basis of an 
 
 For example:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   myRecord = MyRecord with first = 1; second = 2
@@ -189,7 +184,6 @@ produces the new record value ``MyRecord with first = 1; second = 5``.
 
 If you have a variable with the same name as the label, DAML lets you use this without assigning it to make things look nicer:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   -- if you have a variable called `second` equal to 5
@@ -209,6 +203,7 @@ If you have a variable with the same name as the label, DAML lets you use this w
 
 .. note:: The ``with`` keyword binds more strongly than function application. So for a function, say ``return``, either write ``return IntegerCoordinate with first = 1; second = 5`` or ``return (IntegerCoordinate {first = 1; second = 5})``, where the latter expression is enclosed in parentheses.
 
+.. _daml-ref-parameterized-types:
 
 Parameterized data types
 ========================
@@ -217,7 +212,6 @@ DAML supports parameterized data types.
 
 For example, to express a more general type for 2D coordinates:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   -- Here, a and b are type parameters.
@@ -235,7 +229,6 @@ To declare a synonym for a type, use the ``type`` keyword.
 
 For example:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   type IntegerTuple = (Int, Int)

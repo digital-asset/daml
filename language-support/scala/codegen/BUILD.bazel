@@ -2,85 +2,88 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  '//bazel_tools:scala.bzl',
-  'da_scala_library',
-  'da_scala_binary',
-  'da_scala_test_suite',
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
 )
 
 common_scalacopts = [
-  '-Xelide-below', 'CONFIG',
+    "-Xelide-below",
+    "CONFIG",
 ]
 
 common_jvm_flags = [
-  '-Xmx2G',
+    "-Xmx2G",
 ]
 
 da_scala_library(
-  name = 'codegen',
-  deps = [
-    '//3rdparty/jvm/com/typesafe/scala_logging:scala_logging',
-    '//3rdparty/jvm/ch/qos/logback:logback_classic',
-    '//3rdparty/jvm/org/slf4j:slf4j_api',
-    '//daml-lf/archive:daml_lf_archive_scala',
-    '//daml-lf/archive:daml_lf_java_proto',
-    '//daml-lf/interface',
-    '//daml-lf/data',
-    '//3rdparty/jvm/org/scalaz:scalaz_core',
-    '//3rdparty/jvm/io/spray:spray_json',
-    '//3rdparty/jvm/com/google/protobuf:protobuf_java'
-  ],
-  scalacopts = common_scalacopts,
-  scalac_jvm_flags = common_jvm_flags,
-  plugins = [
-    # Plugins have to be specified as JARs.
-    '//external:jar/org/spire_math/kind_projector_2_12',
-  ],
-  runtime_deps = [],
-  exports = [],
-  visibility = [
-    '//visibility:public',
-  ],
-  srcs =
-    glob([
-      'src/main/scala/com/digitalasset/codegen/**/*.scala'
+    name = "codegen",
+    srcs =
+        glob(
+            [
+                "src/main/scala/com/digitalasset/codegen/**/*.scala",
+            ],
+            exclude = [
+                "src/main/scala/com/digitalasset/codegen/Main.scala",
+            ],
+        ),
+    plugins = [
+        # Plugins have to be specified as JARs.
+        "//external:jar/org/spire_math/kind_projector_2_12",
     ],
-    exclude = [
-      'src/main/scala/com/digitalasset/codegen/Main.scala',
-    ]),
+    scalac_jvm_flags = common_jvm_flags,
+    scalacopts = common_scalacopts,
+    tags = ["maven_coordinates=com.daml.scala:codegen:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    exports = [],
+    runtime_deps = [],
+    deps = [
+        "//3rdparty/jvm/ch/qos/logback:logback_classic",
+        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+        "//3rdparty/jvm/com/typesafe/scala_logging",
+        "//3rdparty/jvm/io/spray:spray_json",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//daml-lf/archive:daml_lf_archive_scala",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+    ],
 )
 
 da_scala_binary(
-  name = 'codegen-main',
-  deps = [
-    ':codegen',
-    '//3rdparty/jvm/com/github/scopt:scopt',
-  ],
-  main_class = 'com.digitalasset.codegen.Main',
-  srcs = [
-    'src/main/scala/com/digitalasset/codegen/Main.scala'
-  ],
-  visibility = [
-    '//visibility:public',
-  ],
+    name = "codegen-main",
+    srcs = [
+        "src/main/scala/com/digitalasset/codegen/Main.scala",
+    ],
+    main_class = "com.digitalasset.codegen.Main",
+    tags = ["maven_coordinates=com.daml.scala:codegen-main:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":codegen",
+        "//3rdparty/jvm/com/github/scopt",
+    ],
 )
 
 da_scala_test_suite(
-  name = "tests",
-  size = "small",
-  srcs = glob(['src/test/scala/**/*.scala']),
-  deps = [
-    ':codegen',
-
-    '//daml-lf/archive:daml_lf_archive_scala',
-    '//daml-lf/interface',
-    '//daml-lf/data',
-
-    '//3rdparty/jvm/org/scalacheck:scalacheck',
-    '//3rdparty/jvm/org/scalatest:scalatest',
-    '//3rdparty/jvm/org/mockito:mockito_core',
-    '//3rdparty/jvm/org/scalaz:scalaz_core'
-  ],
-  scalacopts = common_scalacopts,
-  jvm_flags = common_jvm_flags,
+    name = "tests",
+    size = "small",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    jvm_flags = common_jvm_flags,
+    scalacopts = common_scalacopts,
+    deps = [
+        ":codegen",
+        "//3rdparty/jvm/org/mockito:mockito_core",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//daml-lf/archive:daml_lf_archive_scala",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+    ],
 )

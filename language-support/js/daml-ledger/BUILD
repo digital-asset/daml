@@ -9,18 +9,18 @@ ts_config(
 filegroup(
     name = "README",
     srcs = ["README.md"],
-    visibility = ['//language-support/js:__subpackages__'],
+    visibility = ["//language-support/js:__subpackages__"],
 )
 
 filegroup(
     name = "src",
     srcs = glob(["src/**/*.ts"]),
-    visibility = ['//language-support/js:__subpackages__'],
+    visibility = ["//language-support/js:__subpackages__"],
 )
 
 filegroup(
     name = "tests",
-    srcs = glob(["tests/**/*"])
+    srcs = glob(["tests/**/*"]),
 )
 
 # ts_library does not accept arbitrary inputs, so we use a genrule
@@ -51,7 +51,7 @@ genrule(
     tools = [
         "//language-support/js:tsc",
     ],
-    visibility = ["//:__subpackages__"]
+    visibility = ["//:__subpackages__"],
 )
 
 # nodejs_test does not support mocha, so we use sh_test
@@ -59,9 +59,9 @@ sh_test(
     name = "test",
     srcs = ["test.sh"],
     data = [
-        "//language-support/js/daml-grpc",
         ":src",
         ":tests",
+        "//language-support/js/daml-grpc",
         "@nodejs//:node",
         "@npm//@types/chai",
         "@npm//@types/google-protobuf",

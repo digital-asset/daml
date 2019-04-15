@@ -1,3 +1,5 @@
+param ([String]$mode = 'full')
+
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
@@ -8,165 +10,99 @@ $ErrorActionPreference = 'Stop'
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
-    . bazel.exe --bazelrc=.\nix\bazelrc @args
-    if ($global:lastexitcode -ne 0) {
+    $backupErrorActionPreference = $script:ErrorActionPreference
+    $script:ErrorActionPreference = "Continue"
+    & bazel.exe --bazelrc=.\nix\bazelrc @args 2>&1 | %{ "$_" }
+    $script:ErrorActionPreference = $backupErrorActionPreference
+    if ($global:lastexitcode -ne 0 -And $args[0] -ne "shutdown") {
         Write-Output "<< bazel $args (failed, exit code: $global:lastexitcode)"
         throw ("Bazel returned non-zero exit code: $global:lastexitcode")
     }
     Write-Output "<< bazel $args (ok)"
 }
 
-# FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
+function build-partial() {
+    bazel build `
+        //:git-revision `
+        //compiler/daml-lf-ast/... `
+        //daml-lf/interface/... `
+        //language-support/java/bindings/...
 
-# general workspace test
-bazel test //pipeline/samples/bazel/java/...
+    bazel shutdown
 
-# zipper on Windows
-# NOTE(FM): before we were just pulling the external sandbox, now  we're building it,
-# and it does not work.
-# bazel build //ledger/sandbox:sandbox
+    bazel test `
+        //daml-lf/interface/... `
+        //language-support/java/bindings/...
+}
 
-# basic test for the haskell infrastructure
-bazel build //pipeline/samples/bazel/haskell/...
-bazel build //compiler/haskell-ide-core/...
-bazel build //compiler/daml-lf-ast/...
+function build-full() {
+    # FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
+    bazel build `
+        //:git-revision `
+        @com_github_grpc_grpc//:grpc `
+        //nix/third-party/gRPC-haskell/core:fat_cbits `
+        //daml-foundations/daml-tools/daml-extension:daml_extension_lib `
+        //daml-foundations/daml-tools/language-server-tests:lib-js `
+        //daml-lf/archive:daml_lf_archive_scala `
+        //daml-lf/archive:daml_lf_archive_protos_zip `
+        //daml-lf/archive:daml_lf_archive_protos_tarball `
+        //compiler/haskell-ide-core/... `
+        //compiler/daml-lf-ast/... `
+        //daml-lf/data/... `
+        //daml-lf/engine:engine `
+        //daml-lf/interface/... `
+        //daml-lf/interpreter/... `
+        //daml-lf/lfpackage/... `
+        //daml-lf/parser/... `
+        //daml-lf/repl/... `
+        //daml-lf/scenario-interpreter/... `
+        //daml-lf/transaction-scalacheck/... `
+        //daml-lf/validation/... `
+        //daml-foundations/daml-tools/docs/... `
+        //language-support/java/testkit:testkit `
+        //language-support/java/bindings/... `
+        //language-support/java/bindings-rxjava/... `
+        //ledger/backend-api/... `
+        //ledger/ledger-api-client/... `
+        //ledger/ledger-api-common/... `
+        //ledger/ledger-api-domain/... `
+        //ledger/ledger-api-server-example `
+        //ledger-api/rs-grpc-akka/... `
+        //pipeline/samples/bazel/java/... `
+        //pipeline/samples/bazel/haskell/...
 
-# build gRPC
-bazel build @com_github_grpc_grpc//:grpc
-bazel build //nix/third-party/gRPC-haskell/core:fat_cbits
-# XXX: Remove once haskell-gRPC builds
-bazel build @haskell_c2hs//...
+    # ScalaCInvoker, a Bazel worker, created by rules_scala opens some of the bazel execroot's files,
+    # which later causes issues on Bazel init (source forest creation) on Windows. A shutdown closes workers,
+    # which is a workaround for this problem.
+    bazel shutdown
 
-# node / npm / yarn test
-bazel build //daml-foundations/daml-tools/daml-extension:daml_extension_lib
-bazel build //daml-foundations/daml-tools/language-server-tests:lib-js
+    bazel test `
+        //daml-lf/data/... `
+        //daml-lf/interface/... `
+        //daml-lf/interpreter/... `
+        //daml-lf/lfpackage/... `
+        //daml-lf/parser/... `
+        //daml-lf/validation/... `
+        //language-support/java/bindings/... `
+        //language-support/java/bindings-rxjava/... `
+        //ledger/ledger-api-client/... `
+        //ledger/ledger-api-common/... `
+        //ledger-api/rs-grpc-akka/... `
+        //pipeline/samples/bazel/java/... `
+        //pipeline/samples/bazel/haskell/...
+}
 
-# ScalaCInvoker, a Bazel worker, created by rules_scala opens some of the bazel execroot's files,
-# which later causes issues on Bazel init (source forest creation) on Windows. A shutdown closes workers,
-# which is a workaround for this problem.
-bazel shutdown
+# FIXME:
+# @haskell_c2hs//... `
+#ERROR: C:/users/vssadministrator/_bazel_vssadministrator/w3d6ug6o/external/haskell_c2hs/BUILD.bazel:16:3: unterminated string literal at eol
+#ERROR: C:/users/vssadministrator/_bazel_vssadministrator/w3d6ug6o/external/haskell_c2hs/BUILD.bazel:17:1: unterminated string literal at eol
+#ERROR: C:/users/vssadministrator/_bazel_vssadministrator/w3d6ug6o/external/haskell_c2hs/BUILD.bazel:17:1: Implicit string concatenation is forbidden, use the + operator
+#ERROR: C:/users/vssadministrator/_bazel_vssadministrator/w3d6ug6o/external/haskell_c2hs/BUILD.bazel:17:1: syntax error at '",
+#"': expected ,
 
-##################################################################
-## ledger
-bazel build //ledger/backend-api/...
-bazel shutdown
-
-bazel build //ledger/ledger-api-client/...
-bazel shutdown
-
-bazel test //ledger/ledger-api-client/...
-bazel shutdown
-
-bazel build //ledger/ledger-api-common/...
-bazel shutdown
-
-bazel test //ledger/ledger-api-common/...
-bazel shutdown
-
-bazel build //ledger/ledger-api-domain/...
-bazel shutdown
-
-bazel build //ledger/ledger-api-server-example
-bazel shutdown
-
-##################################################################
-## ledger-api
-bazel build //ledger-api/rs-grpc-akka/...
-bazel shutdown
-
-bazel test //ledger-api/rs-grpc-akka/...
-bazel shutdown
-
-###################################################################
-## daml-lf (some parts of it are still not building correctly
-# - falling back to target by target build until all issues are resolved)
-
-# TODO: haskell targets left in //daml-lf/archive
-bazel build //daml-lf/archive:daml_lf_archive_scala
-bazel shutdown
-bazel build //daml-lf/archive:daml_lf_archive_protos_zip
-bazel build //daml-lf/archive:daml_lf_archive_protos_tarball
-
-bazel build //daml-lf/data/...
-bazel shutdown
-
-bazel test //daml-lf/data/...
-bazel shutdown
-
-bazel build //daml-lf/engine:engine
-bazel shutdown
-
-bazel build //daml-lf/interface/...
-bazel shutdown
-
-bazel test //daml-lf/interface/...
-bazel shutdown
-
-bazel build //daml-lf/interpreter/...
-bazel shutdown
-
-# FIXME: one of tests fails
-#bazel test //daml-lf/interpreter/...
-#bazel shutdown
-
-bazel build //daml-lf/lfpackage/...
-bazel shutdown
-
-bazel test //daml-lf/lfpackage/...
-bazel shutdown
-
-bazel build //daml-lf/parser/...
-bazel shutdown
-
-bazel test //daml-lf/parser/...
-bazel shutdown
-
-bazel build //daml-lf/repl/...
-bazel shutdown
-
-#no tests
-#bazel test //daml-lf/repl/...
-#bazel shutdown
-
-bazel build //daml-lf/scenario-interpreter/...
-bazel shutdown
-
-#no tests
-#bazel test //daml-lf/scenario-interpreter/...
-#bazel shutdown
-
-bazel build //daml-lf/transaction-scalacheck/...
-bazel shutdown
-
-#no tests
-#bazel test //daml-lf/transaction-scalacheck/...
-#bazel shutdown
-
-bazel build //daml-lf/validation/...
-bazel shutdown
-
-bazel test //daml-lf/validation/...
-bazel shutdown
-###################################################################
-
-bazel build //daml-foundations/daml-tools/docs/...
-
-##############################################################
-## language-support
-
-bazel build //language-support/java/testkit:testkit
-bazel shutdown
-
-bazel build //language-support/java/bindings/...
-bazel shutdown
-
-bazel test //language-support/java/bindings/...
-bazel shutdown
-
-bazel build //language-support/java/bindings-rxjava/...
-bazel shutdown
-
-bazel test //language-support/java/bindings-rxjava/...
-bazel shutdown
-
-###################################################################
+Write-Output "Running in $mode mode"
+if ($mode -eq "partial") {
+    build-partial
+} else {
+    build-full
+}

@@ -29,7 +29,6 @@ import Control.Exception.Safe
 import Data.Maybe
 import Data.Either.Extra
 import Safe
-import qualified Data.SemVer as V
 
 -- | Calculate the environment variables in which to run daml-something.
 getDamlEnv :: IO Env
@@ -62,16 +61,25 @@ testDamlEnv Env{..} = firstJustM (\(test, msg) -> unlessMaybeM test (pure msg))
 --
 -- On Linux and Mac this is ~/.daml by default.
 -- On Windows this is %APPDATA%/daml by default.
--- This default can be overriden with the DAML_HOME environment variable.
+--
+-- This default can be overriden with the DAML_HOME environment variable,
+-- or by running from within an installed daml distribution, as
+-- determined by the presence of a "daml-config.yaml" in the ascendants
+-- of the executable path.
 --
 -- Raises an AssistantError if the path is missing.
 getDamlPath :: IO DamlPath
 getDamlPath = wrapErr "Determining daml home directory." $ do
     path <- required "Failed to determine daml path." =<< firstJustM id
         [ lookupEnv damlPathEnvVar
+        , findM hasDamlConfig . ascendants =<< getExecutablePath
         , Just <$> getAppUserDataDirectory "daml"
         ]
     pure (DamlPath path)
+
+    where
+        hasDamlConfig :: FilePath -> IO Bool
+        hasDamlConfig p = doesFileExist (p </> damlConfigName)
 
 -- | Calculate the project path. This is done by starting at the current
 -- working directory, checking if "daml.yaml" is present. If it is found,
@@ -107,8 +115,7 @@ getSdk damlPath projectPathM =
         sdkVersion <- firstJustM id
             [ lookupEnv sdkVersionEnvVar >>= \ vstrM -> pure $ do
                 vstr <- vstrM
-                v <- eitherToMaybe (V.fromText (pack vstr))
-                Just (SdkVersion v)
+                eitherToMaybe (parseVersion (pack vstr))
 
             , fromConfig "SDK" (lookupEnv sdkPathEnvVar)
                                (readSdkConfig . SdkPath)
@@ -149,10 +156,8 @@ getLatestInstalledSdkVersion (DamlPath path) = do
             Left _ -> pure Nothing
             Right dirlist -> do
                 subdirs <- filterM (doesDirectoryExist . (dpath </>)) dirlist
-                let semvers = mapMaybe (eitherToMaybe . V.fromText . pack) subdirs
-                    versions = map SdkVersion semvers
-                    stableVersions = filter isStableVersion versions
-                pure $ maximumMay stableVersions
+                let versions = mapMaybe (eitherToMaybe . parseVersion . pack) subdirs
+                pure $ maximumMay (filter isStableVersion versions)
 
 -- | Calculate the environment for dispatched commands (i.e. the environment
 -- with updated DAML_HOME, DAML_PROJECT, DAML_SDK, etc).
@@ -162,5 +167,5 @@ getDispatchEnv Env{..} = do
     pure $ [ (damlPathEnvVar, unwrapDamlPath envDamlPath)
            , (projectPathEnvVar, maybe "" unwrapProjectPath envProjectPath)
            , (sdkPathEnvVar, maybe "" unwrapSdkPath envSdkPath)
-           , (sdkVersionEnvVar, maybe "" (V.toString . unwrapSdkVersion) envSdkVersion)
+           , (sdkVersionEnvVar, maybe "" versionToString envSdkVersion)
            ] ++ filter ((`notElem` damlEnvVars) . fst) originalEnv

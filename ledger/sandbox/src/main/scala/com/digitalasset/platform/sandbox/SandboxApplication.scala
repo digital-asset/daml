@@ -9,6 +9,7 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.client.configuration.TlsConfiguration
 import com.digitalasset.ledger.server.LedgerApiServer.LedgerApiServer
 import com.digitalasset.platform.sandbox.banner.Banner
@@ -24,6 +25,7 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.Try
 
 object SandboxApplication {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -36,6 +38,7 @@ object SandboxApplication {
       config: => SandboxConfig,
       maybeBundle: Option[SslContext] = None)
       extends AutoCloseable {
+
     @volatile private var system: ActorSystem = _
     @volatile private var materializer: ActorMaterializer = _
     @volatile private var server: LedgerApiServer = _
@@ -45,6 +48,10 @@ object SandboxApplication {
     @volatile var port: Int = serverPort
 
     def getMaterializer: ActorMaterializer = materializer
+
+    // We memoize the engine between resets so we avoid the expensive
+    // repeated validation of the sames packages after each reset
+    private val engine = Engine()
 
     /** the reset service is special, since it triggers a server shutdown */
     private val resetService: SandboxResetService = new SandboxResetService(
@@ -86,11 +93,10 @@ object SandboxApplication {
       val (ledgerType, ledger) = config.jdbcUrl match {
         case None => ("in-memory", Ledger.inMemory(ledgerId, timeProvider, acs, records))
         case Some(jdbcUrl) =>
-          sys.error("Postgres persistence is not supported yet.") //TODO: remove this when we do
-        //          val ledgerF = Ledger.postgres(jdbcUrl, ledgerId, timeProvider, records)
-        //          val ledger = Try(Await.result(ledgerF, asyncTolerance))
-        //            .getOrElse(sys.error("Could not start PostgreSQL persistence layer"))
-        //          (s"sql", ledger)
+          val ledgerF = Ledger.postgres(jdbcUrl, ledgerId, timeProvider, records)
+          val ledger = Try(Await.result(ledgerF, asyncTolerance))
+            .getOrElse(sys.error("Could not start PostgreSQL persistence layer"))
+          (s"sql", ledger)
       }
 
       val ledgerBackend = new SandboxLedgerBackend(ledger)
@@ -100,6 +106,7 @@ object SandboxApplication {
       server = LedgerApiServer(
         ledgerBackend,
         timeProvider,
+        engine,
         config,
         port,
         timeServiceBackendO.map(TimeServiceBackend.withObserver(_, ledger.publishHeartbeat)),

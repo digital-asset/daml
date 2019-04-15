@@ -10,7 +10,7 @@ import org.openjdk.jmh.annotations.Benchmark
 
 class SimpleBench extends DummyCommands with InfAwait {
 
-  override protected def darFile: File = new File("ledger/sandbox/Test.dalf")
+  override protected def darFile: File = new File("ledger/sandbox/Test.dar")
   @Benchmark
   def ingest10kCommands(state: PerfBenchState): Unit = {
     val commandCount = 10000L

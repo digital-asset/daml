@@ -54,7 +54,7 @@ object ValueVersions
               case ValueOptional(x) =>
                 go(maxVV(minOptional, currentVersion), ImmArray(x.toList) ++: values)
               case ValueMap(map) =>
-                go(maxVV(minMap, currentVersion), ImmArray(map.values) ++: values)
+                go(maxVV(minMap, currentVersion), map.values ++: values)
               // tuples are a no-no
               case ValueTuple(fields) =>
                 Left(s"Got tuple when trying to assign version. Fields: $fields")

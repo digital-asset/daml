@@ -4,9 +4,12 @@
 module DA.Daml.GHC.Compiler.Options
     ( Options(..)
     , defaultOptionsIO
+    , defaultOptions
     , mkOptions
     , getBaseDir
     , toCompileOpts
+    , projectPackageDatabase
+    , basePackages
     ) where
 
 
@@ -86,6 +89,13 @@ moduleImportPaths pm =
         | rootModDir == "." = Just rootPathDir
         | otherwise = dropTrailingPathSeparator <$> List.stripSuffix rootModDir rootPathDir
 
+-- | The project package database path relative to the project root.
+projectPackageDatabase :: FilePath
+projectPackageDatabase = ".package-database"
+
+-- | Packages that we ship with the compiler.
+basePackages :: [String]
+basePackages = ["daml-prim", "daml-stdlib"]
 
 -- | Check that import paths and package db directories exist
 -- and add the default package db if it exists
@@ -100,8 +110,7 @@ mkOptions opts@Options {..} = do
     let defaultPkgDb
           | deprecatedPkgDbExists = deprecatedPkgDb
           | otherwise = baseDir </> "package-database"
-    let projectPkgDb = ".package-database"
-    pkgDbs <- filterM Dir.doesDirectoryExist [projectPkgDb, defaultPkgDb]
+    pkgDbs <- filterM Dir.doesDirectoryExist [defaultPkgDb, projectPackageDatabase]
     pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
@@ -115,8 +124,11 @@ mkOptions opts@Options {..} = do
 -- and located runfiles. If the version argument is Nothing it is set to the default daml-lf
 -- version.
 defaultOptionsIO :: Maybe LF.Version -> IO Options
-defaultOptionsIO mbVersion = do
-    mkOptions Options
+defaultOptionsIO mbVersion = mkOptions $ defaultOptions mbVersion
+
+defaultOptions :: Maybe LF.Version -> Options
+defaultOptions mbVersion =
+    Options
         { optImportPath = []
         , optPackageDbs = []
         , optMbPackageName = Nothing

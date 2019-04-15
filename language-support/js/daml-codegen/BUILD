@@ -8,7 +8,7 @@ ts_config(
 
 filegroup(
     name = "src",
-    srcs = glob(["*.ts"])
+    srcs = glob(["*.ts"]),
 )
 
 # ts_library does not accept arbitrary inputs, so we use a genrule

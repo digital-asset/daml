@@ -3,6 +3,7 @@
 
 package com.digitalasset.navigator.json
 
+import com.digitalasset.daml.lf.data.SortedLookupList
 import com.digitalasset.navigator.model.DamlLfIdentifier
 import com.digitalasset.navigator.{model => Model}
 import spray.json._
@@ -42,6 +43,8 @@ object ApiCodecCompressed {
     // None, Some(None), Some(Some(None)), ...
     case Model.ApiOptional(None) => JsObject(fieldNone -> JsObject.empty)
     case Model.ApiOptional(Some(v)) => JsObject(fieldSome -> apiValueToJsValue(v))
+    case v: Model.ApiMap =>
+      apiMapToJsValue(v)
   }
 
   def apiListToJsValue(value: Model.ApiList): JsValue =
@@ -52,6 +55,9 @@ object ApiCodecCompressed {
 
   def apiRecordToJsValue(value: Model.ApiRecord): JsValue =
     JsObject(value.fields.map(f => f.label -> apiValueToJsValue(f.value)).toMap)
+
+  def apiMapToJsValue(value: Model.ApiMap): JsValue =
+    JsObject(value.value.mapValue(apiValueToJsValue).toHashMap)
 
   // ------------------------------------------------------------------------------------------------------------------
   // Decoding - this needs access to DAML-LF types
@@ -81,6 +87,8 @@ object ApiCodecCompressed {
           case Some(_) => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
           case None => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
         }
+      case (JsObject(a), Model.DamlLfPrimType.Map) =>
+        Model.ApiMap(SortedLookupList(a).mapValue(jsValueToApiType(_, prim.typArgs.head, defs)))
       case _ => deserializationError(s"Can't read ${value.prettyPrint} as $prim")
     }
   }

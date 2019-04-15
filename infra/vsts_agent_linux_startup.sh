@@ -5,28 +5,30 @@
 # Agent startup script
 set -euo pipefail
 
-# Hardening
+## Hardening
 
 # Commit harakiri on failure
 trap "shutdown -h now" EXIT
 
+# replace the default nameserver to not use the metadata server
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+
 # block the metadata server for non-root processes
-# this blocks the DNS resolver
-#iptables -A OUTPUT -m owner ! --uid-owner root -d 169.254.169.254 -j DROP
+iptables -A OUTPUT -m owner ! --uid-owner root -d 169.254.169.254 -j DROP
 
 # delete self
 rm -vf "$0"
 
-# Install system dependencies
-apt update
+## Install system dependencies
+apt-get update -q
 apt-get install -qy \
   curl sudo \
   bzip2 rsync \
-  jq liblttng-ust0 libcurl3 libkrb5-3 libicu57 zlib1g \
+  jq liblttng-ust0 libcurl3 libkrb5-3 libicu55 zlib1g \
   git \
   netcat
 
-# Install the VSTS agent
+## Install the VSTS agent
 groupadd --gid 3000 vsts
 useradd \
   --create-home \
@@ -77,6 +79,10 @@ set -u
   --url "https://$VSTS_ACCOUNT.visualstudio.com"
 AGENT_SETUP
 
+## Hardening
+
+chown --recursive root:root /home/vsts/agent/{*.sh,bin,externals}
+
 ## Install Nix
 
 # This needs to run inside of a user with sudo access
@@ -95,9 +101,30 @@ NIX_CONF
 
 systemctl restart nix-daemon
 
+# Warm up local caches by building dev-env and current daml master
+# This is allowed to fail, as we still want to have CI machines
+# around, even when their caches are only warmed up halfway
+su --login vsts <<'CACHE_WARMUP'
+# user-wide bazel disk cache override
+echo "build --disk_cache=~/.cache/bazel" > ~/.bazelrc && \
+git clone https://github.com/digital-asset/daml && \
+cd daml && \
+./ci/dev-env-install.sh && \
+./build.sh "_$(uname)" || true
+CACHE_WARMUP
+
+# Purge old agents
+su --login vsts <<'PURGE_OLD_AGENTS'
+cd daml && \
+VSTS_ACCOUNT=${vsts_account} VSTS_POOL=${vsts_pool} VSTS_TOKEN=${vsts_token} ./ci/azure-cleanup/purge_old_agents.py || true
+PURGE_OLD_AGENTS
+
+# Remove /home/vsts/daml folder that might be present from cache warmup
+rm -R /home/vsts/daml || true
+
 ## Finish
 
-# TODO: is this "webserver" necessary?
+# run the fake local webserver, taken from the docker image
 web-server() {
   while true; do
     printf 'HTTP/1.1 302 Found\r\nLocation: https://%s.visualstudio.com/_admin/_AgentPool\r\n\r\n' "${vsts_account}" | nc -l -p 80 -q 0 > /dev/null

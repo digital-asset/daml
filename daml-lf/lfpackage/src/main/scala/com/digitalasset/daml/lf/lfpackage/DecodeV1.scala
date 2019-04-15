@@ -78,13 +78,16 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
     // -----------------------------------------------------------------------
 
-    private[this] def decodeFeatureFlags(flags: PLF.FeatureFlags): FeatureFlags =
+    private[this] def decodeFeatureFlags(flags: PLF.FeatureFlags): FeatureFlags = {
+      // NOTE(JM, #157): We disallow loading packages with these flags because they impact the Ledger API in
+      // ways that would currently make it quite complicated to support them.
+      if (!flags.getDontDivulgeContractIdsInCreateArguments || !flags.getDontDiscloseNonConsumingChoicesToObservers) {
+        throw new ParseError("Deprecated feature flag settings detected, refusing to parse package")
+      }
       FeatureFlags(
         forbidPartyLiterals = flags.getForbidPartyLiterals,
-        dontDivulgeContractIdsInCreateArguments = flags.getDontDivulgeContractIdsInCreateArguments,
-        dontDiscloseNonConsumingChoicesToObservers =
-          flags.getDontDiscloseNonConsumingChoicesToObservers
       )
+    }
 
     private[this] def decodeDefDataType(lfDataType: PLF.DefDataType): DDataType = {
       DDataType(

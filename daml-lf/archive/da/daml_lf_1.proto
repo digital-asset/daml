@@ -233,7 +233,7 @@ message Type {
     // Name of the type constructor name 
     TypeConName tycon = 1;
 
-    // Type to wich the constructor name is applied.
+    // Type to which the constructor name is applied.
     repeated Type args = 2;
   }
 

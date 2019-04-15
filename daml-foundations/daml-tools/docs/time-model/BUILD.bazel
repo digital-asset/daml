@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:docs.bzl", "da_doc_package")
+
 da_doc_package(
     name = "time-model",
     extra_srcs = ["source/index.rst"],
@@ -9,5 +10,5 @@ da_doc_package(
         # Update version
         VERSION="HEAD"
         sed "s,__VERSION__,$$VERSION,g" -i $(location source/index.rst)
-    '''
+    ''',
 )
