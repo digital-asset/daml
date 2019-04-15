@@ -181,6 +181,7 @@ filegroup(
     name = "bin",
     srcs = ["bin/c2hs"],
 )
+exports_files(["bin/ghc-pkg"])
   ''',
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps + [
@@ -258,6 +259,14 @@ haskell_register_ghc_bindists(
 nixpkgs_package(
     name = "jq",
     attribute_path = "jq",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
+    name = "mvn_nix",
+    attribute_path = "mvn",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,

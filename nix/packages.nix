@@ -65,10 +65,7 @@ in rec {
     # TLA+ with the command-line model checker TLC
     tlc2            = pkgs.tlaplus;
 
-    # Java 8 development
-    mvn = pkgs.writeScriptBin "mvn" ''
-      exec ${pkgs.maven}/bin/mvn ''${MVN_SETTINGS:+-s "$MVN_SETTINGS"} "$@"
-    '';
+    mvn = bazel_dependencies.mvn;
 
     zinc = pkgs.callPackage ./tools/zinc {};
 

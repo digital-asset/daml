@@ -169,11 +169,13 @@ genrule(
   """,
     tags = ["maven_coordinates=com.digitalasset:daml-lf-archive:__VERSION__"],
     tools = ["@zip_dev_env//:zip"],
+    visibility = ["//visibility:public"],
 )
 
 pom_file(
     name = "daml_lf_archive_java_pom",
     target = ":daml_lf_archive_java",
+    visibility = ["//visibility:public"],
 )
 
 genrule(
@@ -193,6 +195,6 @@ pkg_tar(
     name = "daml_lf_archive_protos_tarball",
     srcs = [":proto_srcs"],
     extension = "tar.gz",
-    package_dir = "daml-lf-archive-protos/protobuf/com/digitalasset/daml_lf",
+    package_dir = "daml-lf-archive-protos/protobuf/da",
     visibility = ["//visibility:public"],
 )
