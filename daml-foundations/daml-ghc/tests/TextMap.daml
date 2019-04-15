@@ -12,19 +12,19 @@ import DA.Assert
 
 testEmpty = scenario do
   0 === size TM.empty
-  -- [] === toList (TM.empty : TextMap Decimal)
+  [] === toList (TM.empty : TextMap Decimal)
 
 testSize = scenario do
   0 === size (fromList ([] : [(Text, Decimal)]))
   3 === size (fromList [("1", 2.0), ("2", 9.0), ("3", 2.2)])
 
--- testToList = scenario do
---  [("1", "c"), ("2", "a"), ("5", "b")] === toList (fromList [("2", "a"), ("5", "b"), ("1", "c")])
+testToList = scenario do
+  [("1", "c"), ("2", "a"), ("5", "b")] === toList (fromList [("2", "a"), ("5", "b"), ("1", "c")])
 
 testFromList = scenario do
   False === member "2" (fromList [("1", "a"), ("3", "b"), ("4", "c")])
   True === member "3" (fromList [("1", "a"), ("3", "b"), ("4", "c")])
---  fromList [("1", "b")] === fromList [("1", "a"), ("1", "c"), ("1", "b")]
+  fromList [("1", "b")] === fromList [("1", "a"), ("1", "c"), ("1", "b")]
 
 testMember = scenario do
   False === member "a" (fromList [("", 1.0), ("b", 2.0), ("c", 3.0)])
@@ -42,37 +42,25 @@ testNull = scenario do
   False === TM.null (fromList [("1", "a"), ("2", "b"), ("3", "c")])
   True === TM.null (fromList ([] : [(Text, Party)]))
 
--- testEq = scenario do
---  (TM.empty : TextMap Int) === (TM.empty : TextMap Int)
---  assert (not (TM.empty == (TM.fromList [("1", 1)])))
---  (TM.fromList [("1", 1), ("2", 2), ("3", 3)]) === (TM.fromList [("1", 1), ("2", 2), ("3", 3)])
---  assert (not ((TM.fromList [("1", 1), ("2", 2), ("3", 3)]) == (TM.fromList [("1", 2), ("2", 2)])))
---  assert (not ((TM.fromList [("1", 1), ("2", 2), ("3", 3)]) == (TM.fromList [("1", 2), ("2", 2), ("3", 4)])))
---  assert (not ((TM.fromList [("1", 1), ("2", 2), ("3", 3)]) == (TM.fromList [("1", 2), ("2", 2), ("4", 3)])))
+testEq = scenario do
+  (TM.empty : TextMap Int) === (TM.empty : TextMap Int)
+  assert (not (TM.empty == (TM.fromList [("1", 1)])))
+  (TM.fromList [("1", 1), ("2", 2), ("3", 3)]) === (TM.fromList [("1", 1), ("2", 2), ("3", 3)])
+  assert (not ((TM.fromList [("1", 1), ("2", 2), ("3", 3)]) == (TM.fromList [("1", 2), ("2", 2)])))
+  assert (not ((TM.fromList [("1", 1), ("2", 2), ("3", 3)]) == (TM.fromList [("1", 2), ("2", 2), ("3", 4)])))
+  assert (not ((TM.fromList [("1", 1), ("2", 2), ("3", 3)]) == (TM.fromList [("1", 2), ("2", 2), ("4", 3)])))
 
--- testInsert = scenario do
---  [("1", True), ("2", False), ("3", True), ("4", False), ("5", False)]
---    ===
---    toList (foldl (\a b -> (uncurry TM.insert) b a) TM.empty [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)])
+testInsert = scenario do
+  [("1", True), ("2", False), ("3", True), ("4", False), ("5", False)]
+    ===
+    toList (foldl (\a b -> (uncurry TM.insert) b a) TM.empty [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)])
 
--- testFilter = scenario do
---  (fromList [("1", True), ("2", False), ("3", True)])
---    ===
---    (TM.filter (\k v -> k < "3" || v) (fromList [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)]))
+testFilter = scenario do
+  (fromList [("1", True), ("2", False), ("3", True)])
+    ===
+    (TM.filter (\k v -> k < "3" || v) (fromList [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)]))
 
--- testDelete = scenario do
---  (fromList [("2", False), ("3", True), ("4", False), ("5", False)])
---    ===
---    (delete "1" (fromList [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)]))
-
-main = scenario do
-  testEmpty
-  testSize
-  --testToList
-  testFromList
-  testMember
-  testNull
-  --tesstInsert
-  --testFilter
-  --testDelete
-
+testDelete = scenario do
+  (fromList [("2", False), ("3", True), ("4", False), ("5", False)])
+    ===
+    (delete "1" (fromList [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)]))
