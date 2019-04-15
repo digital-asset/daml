@@ -37,9 +37,19 @@ uncurry : (a -> b -> c) -> (a, b) -> c
 uncurry f (x, y) = f x y
 
 infixr 8 ^
--- | `x ^ n` raises `x` to the power of `n`.
-(^) : Int -> Int -> Int
-(^) = primitive @"BEExpInt64"
+
+class (Fractional a) => Powerable a where
+  -- | `x ^ n` raises `x` to the power of `n`.
+  (^): a -> Int -> a
+  x ^ n
+    | n == 0 = munit
+    | n == 2 = x * x
+    | n < 0 = munit / x ^ (negate $ n)
+    | n % 2 == 0 = (x ^ (n / 2)) ^ 2
+    | otherwise = x * x ^ (n - 1)
+
+instance Powerable Int where
+  (^) = primitive @"BEExpInt64"
 
 infixl 7 /
 class (Multiplicative a) => Fractional a where
