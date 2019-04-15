@@ -23,6 +23,8 @@ import Network.HTTP.Simple
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS.UTF8
 import Data.List.Extra
+import System.Exit
+import System.IO
 import System.IO.Temp
 import System.FilePath
 import System.Directory
@@ -50,19 +52,17 @@ import System.PosixCompat.Files
     , otherReadMode
     , otherExecuteMode)
 
-displayInstallTarget :: InstallTarget -> Text
-displayInstallTarget = \case
-    InstallVersion v -> "version " <> versionToText v
-    InstallPath p -> pack p
-
-versionMatchesTarget :: SdkVersion -> InstallTarget -> Bool
-versionMatchesTarget version = \case
-    InstallVersion v -> v == version
-    InstallPath _ -> True -- tarball path could be any version
+data InstallTarget
+    = InstallDefault
+    | InstallProject
+    | InstallLatest
+    | InstallVersion SdkVersion
+    | InstallPath FilePath
 
 data InstallEnv = InstallEnv
     { options :: InstallOptions
     , target :: InstallTarget
+    , targetVersionM :: Maybe SdkVersion
     , damlPath :: DamlPath
     , projectPathM :: Maybe ProjectPath
     }
@@ -98,12 +98,13 @@ installExtracted env@InstallEnv{..} sourcePath =
         sourceConfig <- readSdkConfig sourcePath
         sourceVersion <- fromRightM throwIO (sdkVersionFromSdkConfig sourceConfig)
 
-
-        whenJust targetM $ \target ->
-            unless (versionMatchesTarget sourceVersion target) $
-                throwIO (assistantErrorBecause "SDK release version mismatch."
-                    ("Expected " <> displayInstallTarget target
-                    <> " but got version " <> versionToText sourceVersion))
+        -- Check that source version matches expected target version.
+        whenJust targetVersionM $ \targetVersion -> do
+            unless (sourceVersion == targetVersion) $ do
+                throwIO $ assistantErrorBecause
+                    "SDK release version mismatch."
+                    ("Expected " <> versionToText targetVersion
+                    <> " but got version " <> versionToText sourceVersion)
 
         -- Set file mode of files to install.
         requiredIO "Failed to set file modes for extracted SDK files." $
@@ -352,6 +353,27 @@ pathInstall env sourcePath = do
             unlessQuiet env $ putStrLn "Installing SDK release from tarball."
             extractAndInstall env (sourceFileBS sourcePath)
 
+-- | Install a specific SDK version.
+versionInstall :: InstallEnv -> SdkVersion -> IO ()
+versionInstall env version = do
+    -- TODO: check if version already installed
+    httpInstall env { targetVersionM = Just version }
+        (Github.versionURL version)
+
+-- | Install the latest stable version of the SDK.
+latestInstall :: InstallEnv -> IO ()
+latestInstall env = do
+    -- TODO: get the version separately and then call versionInstall
+    httpInstall env =<< Github.latestURL
+
+-- | Install the SDK version of the current project.
+projectInstall :: InstallEnv -> ProjectPath -> IO ()
+projectInstall env projectPath = do
+    projectConfig <- readProjectConfig projectPath
+    versionM <- fromRightM throwIO $ sdkVersionFromProjectConfig projectConfig
+    version <- required "SDK version missing from project config (daml.yaml)." versionM
+    versionInstall env version
+
 -- | Disambiguate install target.
 decideInstallTarget :: Maybe RawInstallTarget -> IO InstallTarget
 decideInstallTarget = \case
@@ -369,34 +391,38 @@ decideInstallTarget = \case
         if testD || testF then
             pure (InstallPath arg)
         else
-            throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> arg))
+            throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> pack arg))
 
 -- | Run install command.
 install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> IO ()
 install options damlPath projectPathM = do
     target <- decideInstallTarget (iTargetM options)
-    let env = InstallEnv {..}
-
+    let targetVersionM = Nothing -- determined later
+        env = InstallEnv {..}
     case target of
-        InstallDefault ->
-            projectPath <- required "'daml install' must be run from within a project, or pass an explicit target. Run 'daml install --help' for more information."
-                projectPathM
-            projectConfig <- readProjectConfig
-            version <- getProjectSdkVersion projectConfig
-            httpInstall env =<< Github.versionURL version
+        InstallDefault -> do
+            hPutStrLn stderr $ unlines
+                [ "ERROR: daml install requires a target."
+                , ""
+                , "Available install targets:"
+                , "\tdaml install latest   \tInstall the latest version of the SDK"
+                , "\tdaml install project  \tInstall the project SDK version."
+                , "\tdaml install VERSION  \tInstall a specific SDK version."
+                , "\tdaml install TARBALL  \tInstall SDK from an SDK release .tar.gz file."
+                , "\tdaml install PATH     \tInstall SDK from a directory."
+                ]
+            exitFailure
 
-        InstallProject ->
+        InstallProject -> do
             projectPath <- required "'daml install project' must be run from within a project."
                 projectPathM
-            projectConfig <- readProjectConfig
-            version <- getProjectSdkVersion projectConfig
-            httpInstall env =<< Github.versionURL version
+            projectInstall env projectPath
 
         InstallLatest ->
-            httpInstall env =<< Github.latestURL
+            latestInstall env
 
         InstallPath path ->
             pathInstall env path
 
         InstallVersion version ->
-            httpInstall env (Github.versionURL version)
+            versionInstall env version
