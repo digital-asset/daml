@@ -4,6 +4,7 @@
 {-# LANGUAGE ConstraintKinds  #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Types (
+    AllArtifacts(..),
     ArtifactId,
     CIException(..),
     Classifier,
@@ -66,6 +67,11 @@ type Classifier = Text
 
 newtype PlatformDependent = PlatformDependent{getPlatformDependent :: Bool}
     deriving (Eq, Show, FromJSON)
+
+-- | If this is True, we produce all artifacts even platform independent artifacts on MacOS.
+-- This is useful for testing purposes.
+newtype AllArtifacts = AllArtifacts Bool
+    deriving (Eq, Show)
 
 -- execution
 type MonadCI m = (MonadIO m, MonadMask m, MonadLogger m,
