@@ -129,6 +129,14 @@ cmdInspect =
     cmd = execInspect <$> inputFileOpt <*> outputFileOpt <*> jsonOpt
 
 
+cmdBuild :: Int -> Mod CommandFields Command
+cmdBuild numProcessors =
+    command "build" $
+    info (helper <*> cmd) $
+    progDesc "Initialize, build and package the DAML project" <> fullDesc
+  where
+    cmd = pure $ execBuild numProcessors
+
 cmdPackageNew :: Int -> Mod CommandFields Command
 cmdPackageNew numProcessors =
     command "package-new" $
@@ -385,6 +393,11 @@ createProjectPackageDb lfVersion fps = do
             , "--package-db=" ++ dbPath
             , "--expand-pkgroot"
             ]
+
+execBuild :: Int -> IO ()
+execBuild numProcessors = do
+  execInit
+  execPackageNew numProcessors Nothing
 
 lfVersionString :: LF.Version -> String
 lfVersionString lfVersion =
@@ -753,6 +766,7 @@ options numProcessors =
         <> cmdInspect
         <> cmdPackageNew numProcessors
         <> cmdInit
+        <> cmdBuild numProcessors
       )
 
 parserInfo :: Int -> ParserInfo Command
