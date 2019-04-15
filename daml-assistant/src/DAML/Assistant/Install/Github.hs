@@ -25,9 +25,9 @@ import qualified Data.Text as T
 newtype Tag = Tag Text deriving (Eq, Show, FromJSON)
 
 -- | Name of asset in a github release. We only care about assets
--- with the name "sdk-<VERSION>-<OS>.tar.gz" where <VERSION> is an
--- SDK version and <OS> is "linux", "macos", or "win". For example,
--- "sdk-0.11.1-linux.tar.gz".
+-- with the name "daml-sdk-<VERSION>-<OS>.tar.gz" where <VERSION>
+-- is an SDK version and <OS> is "linux", "macos", or "win". For
+-- example, "daml-sdk-0.11.1-linux.tar.gz".
 newtype AssetName = AssetName { unAssetName :: Text } deriving (Eq, Show, FromJSON)
 
 data Release = Release
