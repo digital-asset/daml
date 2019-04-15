@@ -94,6 +94,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           Data.Data hiding (TyCon)
+import           Data.Foldable (foldlM)
 import           Data.Functor.Foldable
 import           Data.Int
 import           Data.List.Extra
@@ -344,6 +345,7 @@ convertChoice env (VarIs "C:Choice" `App` Type tmpl `App` Type (TypeCon chc []) 
         argVar = EVar (mkVar "arg")
 
         f i (App a _) = f i a
+        f i (Tick _ e) = f i e
         f i (VarIs "nonconsuming") = pure False
         f i (VarIs "$dmconsuming") = pure True -- the default is consuming
         f i (Var x) | i > 0 = f (i-1) =<< envFindBind env x -- only required to see through the automatic default
@@ -368,7 +370,7 @@ convertKey _ o = unhandled "Template key definition" o
 
 convertKeyExpr :: Env -> Var -> GHC.Expr Var -> ConvertM LF.Expr
 convertKeyExpr env keyBinder keyExpr
-    | Case (Var caseScrut) caseBinder _ [(DataAlt con, vs, body)] <- keyExpr
+    | Case (Var caseScrut) caseBinder _ [(DataAlt con, vs, body)] <- untick keyExpr
     , keyBinder == caseScrut = do
         ctor@(Ctor _ fldNames _) <- toCtor env con
         if  | isRecordCtor ctor
@@ -498,62 +500,66 @@ internalFunctions = MS.fromList $ map (first mkModuleName)
 convertExpr :: Env -> GHC.Expr Var -> ConvertM LF.Expr
 convertExpr env0 e = do
     (e, args) <- go env0 e []
-    args <- mapM (convertArg env0) args
-    pure $ mkEApps e args
+    let appArg e (mbSrcSpan, arg) =
+            mkEApp (maybe id (ELocation . convRealSrcSpan) mbSrcSpan e) <$> convertArg env0 arg
+    foldlM appArg e args
   where
     -- NOTE(MH): We collect all arguments to functions in a list such that
     -- we have access to them when converting functions. This is necessary to
     -- inline fully applied record constructors instead of going through a
     -- record constructor function, which is required for contract keys.
-    go :: Env -> GHC.Expr Var -> [GHC.Arg Var] -> ConvertM (LF.Expr, [GHC.Expr Var])
+    go :: Env -> GHC.Expr Var -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
+    go env (Tick (SourceNote srcSpan _) x) args = case args of
+        [] -> do
+            x <- convertExpr env x
+            pure (ELocation (convRealSrcSpan srcSpan) x, [])
+        (_, arg):args -> go env x ((Just srcSpan, arg):args)
+    go env (Tick _ x) args = go env x args
     go env (x `App` y) args
-        = go env x (y : args)
+        = go env x ((Nothing, y) : args)
     -- see through $ to give better matching power
-    go env (VarIs "$") (Type _ : Type _ : x : y : args)
+    go env (VarIs "$") (LType _ : LType _ : LExpr x : y : args)
         = go env x (y : args)
 
-    go env (VarIs "$dminternalCreate") (Type t@(TypeCon tmpl []) : _dict : args) = fmap (, args) $ do
+    go env (VarIs "$dminternalCreate") (LType t@(TypeCon tmpl []) : _dict : args) = fmap (, args) $ do
         t' <- convertType env t
         tmpl' <- convertQualified env tmpl
         pure $ ETmLam (varV1, t') $ EUpdate $ UCreate tmpl' $ EVar varV1
-    go env (VarIs "$dminternalFetch") (Type t@(TypeCon tmpl []) : _dict : args) = fmap (, args) $ do
+    go env (VarIs "$dminternalFetch") (LType t@(TypeCon tmpl []) : _dict : args) = fmap (, args) $ do
         t' <- convertType env t
         tmpl' <- convertQualified env tmpl
         pure . ETmLam (varV1, TContractId t') $ EUpdate $ UFetch tmpl' $ EVar varV1
-    go env (VarIs "$dminternalExercise") (Type t@(TypeCon tmpl []) : Type c@(TypeCon chc []) : Type _result : _dict : args) = fmap (, args) $ do
+    go env (VarIs "$dminternalExercise") (LType t@(TypeCon tmpl []) : LType c@(TypeCon chc []) : LType _result : _dict : args) = fmap (, args) $ do
         t' <- convertType env t
         c' <- convertType env c
         tmpl' <- convertQualified env tmpl
         pure $
             ETmLam (varV1, TList TParty) $ ETmLam (varV2, TContractId t') $ ETmLam (varV3, c') $
             EUpdate $ UExercise tmpl' (mkChoiceName $ is chc) (EVar varV2) (EVar varV1) (EVar varV3)
-    go env (VarIs "$dminternalArchive") (Type t@(TypeCon tmpl []) : _dict : args) = fmap (, args) $ do
+    go env (VarIs "$dminternalArchive") (LType t@(TypeCon tmpl []) : _dict : args) = fmap (, args) $ do
         t' <- convertType env t
         tmpl' <- convertQualified env tmpl
         pure $
             ETmLam (varV1, TList TParty) $ ETmLam (varV2, TContractId t') $
             EUpdate $ UExercise tmpl' (mkChoiceName "Archive") (EVar varV2) (EVar varV1) mkEUnit
-    go env (VarIs "$dminternalFetchByKey") (Type t@(TypeCon tmpl []) : Type key : _dict : args)
+    go env (VarIs "$dminternalFetchByKey") (LType t@(TypeCon tmpl []) : LType key : _dict : args)
         = fmap (, args) $ do
         key' <- convertType env key
         tmpl' <- convertQualified env tmpl
-        tuple2Typ <- qGHC_Tuple env (mkTypeCon ["Tuple2"])
         let contractType = TConApp tmpl' []
         let cidType = TContractId contractType
+        let fields = [("contractId", cidType), ("contract", contractType)]
+        (repackStruct, tupleType) <- mkRepackStruct env fields varV2
         pure $ ETmLam (varV1, key') $
           EUpdate $ UBind
             (Binding
-              (varV2, TTuple [(Tagged "contractId", cidType), (Tagged "contract", contractType)])
+              (varV2, TTuple fields)
               (EUpdate (UFetchByKey RetrieveByKey
                 { retrieveByKeyTemplate = tmpl'
                 , retrieveByKeyKey = EVar varV1
                 })))
-            (EUpdate (UPure (TConApp tuple2Typ [cidType, contractType]) (ERecCon
-              (TypeConApp tuple2Typ [cidType, contractType])
-              [ (Tagged "_1", ETupleProj (Tagged "contractId") (EVar varV2))
-              , (Tagged "_2", ETupleProj (Tagged "contract") (EVar varV2))
-              ])))
-    go env (VarIs "$dminternalLookupByKey") (Type t@(TypeCon tmpl []) : Type key : _dict : args)
+            (EUpdate (UPure tupleType repackStruct))
+    go env (VarIs "$dminternalLookupByKey") (LType t@(TypeCon tmpl []) : LType key : _dict : args)
         = fmap (, args) $ do
         key' <- convertType env key
         tmpl' <- convertQualified env tmpl
@@ -562,40 +568,40 @@ convertExpr env0 e = do
             { retrieveByKeyTemplate = tmpl'
             , retrieveByKeyKey = EVar varV1
             }
-    go env (VarIs "primitive") (Type (isStrLitTy -> Just y) : Type t : args)
+    go env (VarIs "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
-    go env (VarIs "getFieldPrim") (Type (isStrLitTy -> Just name) : Type record : Type _field : args) = fmap (, args) $ do
+    go env (VarIs "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = fmap (, args) $ do
         record' <- convertType env record
         pure $ ETmLam (varV1, record') $ ERecProj (fromTCon record') (mkField $ unpackFS name) $ EVar varV1
     -- NOTE(MH): We only inline `getField` for record types. This is required
     -- for contract keys. Projections on sum-of-records types have to through
     -- the type class for `getField`.
-    go env (VarIs "getField") (Type (isStrLitTy -> Just name) : Type recordType@(TypeCon recordTyCon _) : Type _fieldType : _dict : record : args)
+    go env (VarIs "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : LExpr record : args)
         | Just [_] <- tyConDataCons_maybe recordTyCon = fmap (, args) $ do
             recordType <- convertType env recordType
             record <- convertExpr env record
             pure $ ERecProj (fromTCon recordType) (mkField $ unpackFS name) record
-    go env (VarIs "setFieldPrim") (Type (isStrLitTy -> Just name) : Type record : Type field : args) = fmap (, args) $ do
+    go env (VarIs "setFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType field : args) = fmap (, args) $ do
         record' <- convertType env record
         field' <- convertType env field
         pure $
             ETmLam (varV1, field') $ ETmLam (varV2, record') $
             ERecUpd (fromTCon record') (mkField $ unpackFS name) (EVar varV2) (EVar varV1)
-    go env (VarIs "fromRational") ((VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
+    go env (VarIs "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ pure $ EBuiltin $ BEDecimal $ fromRational $ top % bot
-    go env (VarIs "negate") (tyInt : VarIs "$fAdditiveInt" : (VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
+    go env (VarIs "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
         = fmap (, args) $ convertInt64 (negate x)
-    go env (VarIs "fromInteger") (Lit (LitNumber _ x _) : args)
+    go env (VarIs "fromInteger") (LExpr (Lit (LitNumber _ x _)) : args)
         = fmap (, args) $ convertInt64 x
     go env (Lit (LitNumber LitNumInt x _)) args
         = fmap (, args) $ convertInt64 x
-    go env (VarIs "fromString") (x : args)
+    go env (VarIs "fromString") (LExpr x : args)
         = fmap (, args) $ convertExpr env x
-    go env (VarIs "unpackCString#") (Lit (LitString x) : args)
+    go env (VarIs "unpackCString#") (LExpr (Lit (LitString x)) : args)
         = fmap (, args) $ pure $ EBuiltin $ BEText $ T.decodeLatin1 x
-    go env (VarIs "unpackCStringUtf8#") (Lit (LitString x) : args)
+    go env (VarIs "unpackCStringUtf8#") (LExpr (Lit (LitString x)) : args)
         = fmap (, args) $ pure $ EBuiltin $ BEText $ T.decodeUtf8 x
-    go env x@(Var f) (Type t1 : Type t2 : Lit (LitString s) : args)
+    go env x@(Var f) (LType t1 : LType t2 : LExpr (untick -> Lit (LitString s)) : args)
         | Just m <- nameModule_maybe (getName f)
         , moduleNameString (GHC.moduleName m) == "Control.Exception.Base"
         = fmap (, args) $ do
@@ -605,7 +611,7 @@ convertExpr env0 e = do
         pure (x' `ETyApp` t1' `ETyApp` t2' `ETmApp` EBuiltin (BEText (T.decodeUtf8 s)))
 
     -- conversion of bodies of $con2tag functions
-    go env (VarIs "getTag") (Type (TypeCon t _) : x : args) = fmap (, args) $ do
+    go env (VarIs "getTag") (LType (TypeCon t _) : LExpr x : args) = fmap (, args) $ do
         Ctors _ _ cs <- toCtors env t
         x' <- convertExpr env x
         t' <- convertQualified env t
@@ -613,7 +619,7 @@ convertExpr env0 e = do
             [ CaseAlternative (CPVariant t' (mkVariantCon (getOccString variantName)) (mkVar "_")) (EBuiltin $ BEInt64 i)
             | (Ctor variantName _ _, i) <- zip cs [0..]
             ]
-    go env (VarIs "tagToEnum#") (Type (TypeCon (Is "Bool") []) : (op0 `App` x `App` y) : args)
+    go env (VarIs "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr (op0 `App` x `App` y) : args)
         | VarIs "==#" <- op0 = go BEEqual
         | VarIs "<#"  <- op0 = go BELess
         | VarIs ">#"  <- op0 = go BEGreater
@@ -622,10 +628,10 @@ convertExpr env0 e = do
               x' <- convertExpr env x
               y' <- convertExpr env y
               pure (EBuiltin (op1 BTInt64) `ETmApp` x' `ETmApp` y')
-    go env (VarIs "tagToEnum#") (Type (TypeCon (Is "Bool") []) : x : args) = fmap (, args) $ do
+    go env (VarIs "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr x : args) = fmap (, args) $ do
         x' <- convertExpr env x
         pure $ EBuiltin (BEEqual BTInt64) `ETmApp` EBuiltin (BEInt64 1) `ETmApp` x'
-    go env (VarIs "tagToEnum#") (Type tt@(TypeCon t _) : x : args) = fmap (, args) $ do
+    go env (VarIs "tagToEnum#") (LType tt@(TypeCon t _) : LExpr x : args) = fmap (, args) $ do
         -- FIXME: Should generate a binary tree of eq and compare
         Ctors _ _ cs@(c1:_) <- toCtors env t
         tt' <- convertType env tt
@@ -635,37 +641,37 @@ convertExpr env0 e = do
         pure (foldr ($) (mkCtor c1) [mkIf (mkEqInt i) (mkCtor c) | (i,c) <- zipFrom 0 cs])
 
     -- built ins because they are lazy
-    go env (VarIs "ifThenElse") (Type tRes : cond : true : false : args)
+    go env (VarIs "ifThenElse") (LType tRes : LExpr cond : LExpr true : LExpr false : args)
         = fmap (, args) $ mkIf <$> convertExpr env cond <*> convertExpr env true <*> convertExpr env false
-    go env (VarIs "||") (x : y : args)
+    go env (VarIs "||") (LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> pure ETrue <*> convertExpr env y
-    go env (VarIs "&&") (x : y : args)
+    go env (VarIs "&&") (LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> convertExpr env y <*> pure EFalse
-    go env (VarIs "when") (Type monad : dict : x : y : args)
+    go env (VarIs "when") (LType monad : LExpr dict : LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> convertExpr env y <*> mkPure env monad dict TUnit EUnit
-    go env (VarIs "unless") (Type monad : dict : x : y : args)
+    go env (VarIs "unless") (LType monad : LExpr dict : LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> mkPure env monad dict TUnit EUnit <*> convertExpr env y
-    go env (VarIs "submit") (Type typ : pty : upd : args) = fmap (, args) $ do
+    go env (VarIs "submit") (LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
         pty' <- convertExpr env pty
         upd' <- convertExpr env upd
         typ' <- convertType env typ
         pure $
           EScenario (SCommit typ' pty' (EUpdate (UEmbedExpr typ' upd')))
-    go env (VarIs "submitMustFail") (Type typ : pty : upd : args) = fmap (, args) $ do
+    go env (VarIs "submitMustFail") (LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
         pty' <- convertExpr env pty
         upd' <- convertExpr env upd
         typ' <- convertType env typ
         pure $ EScenario (SMustFailAt typ' pty' (EUpdate (UEmbedExpr typ' upd')))
 
     -- custom conversion because they correspond to builtins in DAML-LF, so can make the output more readable
-    go env (VarIs "pure") (Type monad : dict : Type t : x : args)
+    go env (VarIs "pure") (LType monad : LExpr dict : LType t : LExpr x : args)
         -- This is generating the special UPure/SPure nodes when the monad is Update/Scenario.
         = fmap (, args) $ join $ mkPure env monad dict <$> convertType env t <*> convertExpr env x
-    go env (VarIs "return") (Type monad : Type t : dict : x : args)
+    go env (VarIs "return") (LType monad : LType t : LExpr dict : LExpr x : args)
         -- This is generating the special UPure/SPure nodes when the monad is Update/Scenario.
         -- In all other cases, 'return' is rewritten to 'pure'.
         = fmap (, args) $ join $ mkPure env monad dict <$> convertType env t <*> convertExpr env x
-    go env bind@(VarIs ">>=") allArgs@(Type monad : dict : Type _ : Type _ : x : lam@(Lam b y) : args) = do
+    go env bind@(VarIs ">>=") allArgs@(LType monad : LExpr dict : LType _ : LType _ : LExpr x : LExpr lam@(Lam b y) : args) = do
         monad' <- convertType env monad
         case monad' of
           TBuiltin BTUpdate -> mkBind EUpdate UBind
@@ -677,7 +683,7 @@ convertExpr env0 e = do
               y' <- convertExpr env y
               b' <- convVarWithType env b
               pure (inj (bind (Binding b' x') y'))
-    go env semi@(VarIs ">>") allArgs@(Type monad : Type t : Type _ : _dict : x : y : args) = do
+    go env semi@(VarIs ">>") allArgs@(LType monad : LType t : LType _ : LExpr _dict : LExpr x : LExpr y : args) = do
         monad' <- convertType env monad
         case monad' of
           TBuiltin BTUpdate -> mkSeq EUpdate UBind
@@ -690,28 +696,28 @@ convertExpr env0 e = do
               y' <- convertExpr env y
               pure $ inj (bind (Binding (mkVar "_", t') x') y')
 
-    go env (VarIs "[]") (Type (TypeCon (Is "Char") []) : args)
+    go env (VarIs "[]") (LType (TypeCon (Is "Char") []) : args)
         = fmap (, args) $ pure $ EBuiltin (BEText T.empty)
-    go env (VarIs "[]") (Type t : args)
+    go env (VarIs "[]") (LType t : args)
         = fmap (, args) $ ENil <$> convertType env t
     go env (VarIs "[]") args
         = fmap (, args) $ pure $ ETyLam varT1 $ ENil (TVar (fst varT1))
     -- TODO(MH): We should use the same technique as in GenDALF to avoid
     -- generating useless lambdas.
-    go env (VarIs ":") (Type t : args) = fmap (, args) $ do
+    go env (VarIs ":") (LType t : args) = fmap (, args) $ do
         t' <- convertType env t
         pure $ mkETmLams [(varV1, t'), (varV2, TList t')] $ ECons t' (EVar varV1) (EVar varV2)
     go env (VarIs ":") args
         = fmap (, args) $ do
             let t' = TVar (fst varT1)
             pure $ ETyLam varT1 $ mkETmLams [(varV1, t'), (varV2, TList t')] $ ECons t' (EVar varV1) (EVar varV2)
-    go env (Var v) (Type t : args)
+    go env (Var v) (LType t : args)
         | isBuiltinNone env v
         = fmap (, args) $ ENone <$> convertType env t
     go env (Var v) args
         | isBuiltinNone env v
         = fmap (, args) $ pure $ ETyLam varT1 $ ENone (TVar (fst varT1))
-    go env (Var v) (Type t : args)
+    go env (Var v) (LType t : args)
         | isBuiltinSome env v
         = fmap (, args) $ do
             t' <- convertType env t
@@ -746,7 +752,7 @@ convertExpr env0 e = do
             if  | let tycon = dataConTyCon con
                 , tyConFlavour tycon /= ClassFlavour && isRecordCtor ctor && isSingleConType tycon
                 , let n = length (dataConUnivTyVars con)
-                , let (tyArgs, tmArgs) = splitAt n args
+                , let (tyArgs, tmArgs) = splitAt n (map snd args)
                 , length tyArgs == n && length tmArgs == length fldNames
                 , Just tyArgs <- mapM isType_maybe tyArgs
                 , all (isNothing . isType_maybe) tmArgs
@@ -842,7 +848,6 @@ convertExpr env0 e = do
           else pure $
             ELet (Binding bind' scrutinee') $
             ECase (EVar $ convVar bind) alts'
-    go env (Tick _ x) args = go env x args
     go env (Let (Rec xs) _) args = unsupported "Local variables defined recursively - recursion can only happen at the top level" $ map fst xs
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
@@ -1094,14 +1099,17 @@ convNameLoc :: NamedThing a => a -> Maybe LF.SourceLoc
 convNameLoc n = case nameSrcSpan (getName n) of
   -- NOTE(MH): Locations are 1-based in GHC and 0-based in DAML-LF.
   -- Hence all the @- 1@s below.
-  RealSrcSpan srcSpan -> Just SourceLoc
+  RealSrcSpan srcSpan -> Just (convRealSrcSpan srcSpan)
+  UnhelpfulSpan{} -> Nothing
+
+convRealSrcSpan :: RealSrcSpan -> LF.SourceLoc
+convRealSrcSpan srcSpan = SourceLoc
     { slocModuleRef = Nothing
     , slocStartLine = srcSpanStartLine srcSpan - 1
     , slocStartCol = srcSpanStartCol srcSpan - 1
     , slocEndLine = srcSpanEndLine srcSpan - 1
     , slocEndCol = srcSpanEndCol srcSpan - 1
     }
-  UnhelpfulSpan{} -> Nothing
 
 ---------------------------------------------------------------------
 -- SMART CONSTRUCTORS
@@ -1193,12 +1201,14 @@ rewriteMaintainer key maintainer = do
     unwindProjections = go []
       where
         go fields = \case
+            ELocation _ expr -> go fields expr
             ERecProj _typ field expr -> go (field : fields) expr
             expr -> (expr, fields)
 
     -- TODO(#299): The error messages are pretty bad.
     buildKeyMap :: LF.Expr -> ConvertM (MS.Map [FieldName] LF.Expr)
     buildKeyMap = \case
+        ELocation _ expr -> buildKeyMap expr
         ERecCon typ fields -> do
             keyMaps <- forM fields $ \(fieldName, fieldExpr) ->
                 MS.map (ERecProj typ fieldName) <$> buildKeyMap fieldExpr
@@ -1256,6 +1266,15 @@ mkPure env monad dict t x = do
           `ETmApp` dict'
           `ETyApp` t
           `ETmApp` x
+
+-- | Turn the structural record referenced by `x` into a tuple from `GHC.Tuple`.
+mkRepackStruct :: Env -> [(FieldName, LF.Type)] -> ExprVarName -> ConvertM (LF.Expr, LF.Type)
+mkRepackStruct env fields x = do
+    tupleTyCon <- qGHC_Tuple env (mkTypeCon ["Tuple" ++ show (length fields)])
+    let tupleType = TypeConApp tupleTyCon (map snd fields)
+    pure (ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields, typeConAppToType tupleType)
+  where
+    mkFieldProj i (name, _typ) = (mkField ("_" ++ show i), ETupleProj name (EVar x))
 
 sourceLocToRange :: SourceLoc -> Range
 sourceLocToRange (SourceLoc _ slin scol elin ecol) =

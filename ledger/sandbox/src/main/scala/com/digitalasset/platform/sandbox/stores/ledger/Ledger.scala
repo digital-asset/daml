@@ -21,7 +21,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger
 import scala.collection.immutable
 import scala.concurrent.Future
 
-trait Ledger {
+trait Ledger extends AutoCloseable {
 
   def ledgerId: String
 

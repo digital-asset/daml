@@ -120,4 +120,8 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
         )
     }
   }
+
+  override def close(): Unit = {
+    ledger.close()
+  }
 }

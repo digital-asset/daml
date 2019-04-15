@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 filegroup(
-  name = "sdk-templates",
-  srcs = glob(["templates/**"]),
-  visibility = ["//sdk:__subpackages__"],
+    name = "sdk-templates",
+    srcs = glob(["templates/**"]),
+    visibility = ["//sdk:__subpackages__"],
 )

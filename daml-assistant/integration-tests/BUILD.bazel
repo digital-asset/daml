@@ -4,10 +4,11 @@ load("//bazel_tools:haskell.bzl", "da_haskell_test")
 
 da_haskell_test(
     name = "integration-tests",
+    timeout = "long",
     srcs = ["src/Main.hs"],
-    deps = [
-        "//libs-haskell/bazel-runfiles",
-        "//daml-assistant/daml-helper:daml-helper-lib",
+    data = [
+        "//release:sdk-release-tarball",
+        "@local_jdk//:bin/java",
     ],
     hazel_deps = [
         "async",
@@ -21,9 +22,8 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
     ],
-    data = [
-        "//release:sdk-release-tarball",
-        "@local_jdk//:bin/java",
+    deps = [
+        "//daml-assistant/daml-helper:daml-helper-lib",
+        "//libs-haskell/bazel-runfiles",
     ],
-    timeout = "long",
 )

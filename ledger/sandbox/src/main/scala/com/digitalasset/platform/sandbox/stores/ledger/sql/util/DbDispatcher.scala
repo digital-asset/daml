@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait DbDispatcher {
+trait DbDispatcher extends AutoCloseable {
 
   /** Runs an SQL statement in a dedicated Executor. The whole block will be run in a single database transaction.
     *
@@ -51,7 +51,7 @@ private class DbDispatcherImpl(
     HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
   private val sqlExecutor = SqlExecutor(noOfShortLivedConnections)
 
-  private val connectionGettingThreadPool = ExecutionContext.fromExecutor(
+  private val connectionGettingThreadPool = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor(
       new ThreadFactoryBuilder()
         .setDaemon(true)
@@ -75,6 +75,12 @@ private class DbDispatcherImpl(
             f.onComplete(_ => conn.close())(DirectExecutionContext)
             f
         })
+  }
+
+  override def close(): Unit = {
+    connectionProvider.close()
+    sqlExecutor.close()
+    connectionGettingThreadPool.shutdown()
   }
 }
 

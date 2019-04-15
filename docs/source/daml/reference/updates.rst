@@ -23,7 +23,6 @@ Background
 Binding variables
 *****************
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
    boundVariable <- UpdateExpression1
@@ -35,7 +34,6 @@ Binding variables
 do
 ***
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
    do
@@ -72,7 +70,6 @@ create
 exercise
 ********
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
    exercise IdOfContract NameOfChoiceOnContract with choiceArgument1 = value1
@@ -87,7 +84,6 @@ exercise
 fetch
 *****
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
    fetchedContract <- fetch IdOfContract
@@ -101,7 +97,6 @@ fetch
 abort
 *****
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
    abort errorMessage
@@ -116,7 +111,6 @@ abort
 assert
 ******
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
    assert (condition == True)
@@ -136,7 +130,6 @@ Here's an example of using ``assert`` to prevent a choice being exercised if the
 getTime
 *******
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
    currentTime <- getTime
@@ -156,7 +149,6 @@ Here's an example of a choice that uses a check on the current time:
 return
 ******
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
    return ()
@@ -166,7 +158,6 @@ return
 
 Here's an example where two contracts are created in a choice and both their ids are returned as a tuple:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
    do
@@ -183,7 +174,6 @@ See the documentation on :ref:`daml-ref-let`.
 
 Let looks similar to binding variables, but it's very different! This code example shows how:
 
-.. ExcludeFromDamlParsing
 .. code-block:: daml
 
   do

@@ -34,6 +34,16 @@ def _maven_coordinates(targets):
 def jar_version(name):
     return name.rsplit("-", 1)[1].rsplit(".", 1)[0]
 
+def has_scala_version_suffix(kind, version, tags):
+    if not kind.startswith("scala"):
+        return False
+    if version != "__VERSION__":
+        return False
+    for tag in tags:
+        if tag == "no_scala_version_suffix":
+            return False
+    return True
+
 def _collect_maven_info_impl(_target, ctx):
     tags = getattr(ctx.rule.attr, "tags", [])
     deps = getattr(ctx.rule.attr, "deps", [])
@@ -88,7 +98,7 @@ def _collect_maven_info_impl(_target, ctx):
             group_id = tag_val[0]
             artifact_id = tag_val[1]
             version = tag_val[2]
-            if ctx.rule.kind.startswith("scala") and version == "__VERSION__":
+            if has_scala_version_suffix(ctx.rule.kind, version, tags):
                 artifact_id += "_{}".format(_SCALA_VERSION)
             maven_coordinates = "{}:{}:{}".format(group_id, artifact_id, version)
         if tag == "only_external_deps":
@@ -98,17 +108,18 @@ def _collect_maven_info_impl(_target, ctx):
 
     deps = depset([], transitive = [depset([d]) for d in _maven_coordinates(deps + exports + jars)])
     filtered_deps = [
-        d for d in deps
-          if not (only_external_deps and (d.split(":")[0].startswith("com.daml") or
-                                          d.split(":")[0].startswith("com.digitalasset")))
+        d
+        for d in deps
+        if not (only_external_deps and (d.split(":")[0].startswith("com.daml") or
+                                        d.split(":")[0].startswith("com.digitalasset")))
     ]
 
     if maven_coordinates:
         return [
             MavenInfo(
                 maven_coordinates = maven_coordinates,
-                maven_dependencies = [] if fat_jar else filtered_deps
-            )
+                maven_dependencies = [] if fat_jar else filtered_deps,
+            ),
         ]
     else:
         return _EMPTY_MAVEN_INFO
@@ -152,7 +163,7 @@ def _pom_file(ctx):
     maven_coordinates = ctx.attr.target[MavenInfo].maven_coordinates.split(":")
     groupId = maven_coordinates[0]
     artifactId = maven_coordinates[1]
-    version= maven_coordinates[2]
+    version = maven_coordinates[2]
 
     formatted_deps = []
     for dep in [":".join(d) for d in sorted([d.split(":") for d in mvn_deps])]:

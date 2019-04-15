@@ -379,6 +379,13 @@ template Divulgence2
         do
           archive div1ToArchive
 
+template DecimalRounding
+  with
+    party: Party
+    number: Decimal
+  where
+    signatory party
+
 {-
 testDivulgence : Scenario ()
 testDivulgence = test do

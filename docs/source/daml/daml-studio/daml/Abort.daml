@@ -4,8 +4,8 @@
 daml 1.2
 module Abort where
 
--- {-
+{-
 abortTest = scenario do
   debug "hello, world!"
   abort "stop"
--- -}
+-}

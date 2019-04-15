@@ -142,4 +142,6 @@ class InMemoryLedger(
     ()
   }
 
+  override def close(): Unit = ()
+
 }

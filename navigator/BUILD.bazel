@@ -2,6 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 alias(
-  name = "navigator-binary",
-  actual = "//navigator/backend:navigator-binary",
+    name = "navigator-binary",
+    actual = "//navigator/backend:navigator-binary",
 )

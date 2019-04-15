@@ -7,7 +7,7 @@ nodejs_binary(
         "@npm//grpc-tools",
     ],
     entry_point = "grpc-tools/bin/protoc.js",
-    visibility = ["//language-support/js:__subpackages__"]
+    visibility = ["//language-support/js:__subpackages__"],
 )
 
 nodejs_binary(
@@ -16,7 +16,7 @@ nodejs_binary(
         "@npm//grpc-tools",
     ],
     entry_point = "grpc-tools/bin/protoc_plugin.js",
-    visibility = ["//language-support/js:__subpackages__"]
+    visibility = ["//language-support/js:__subpackages__"],
 )
 
 nodejs_binary(
@@ -25,7 +25,7 @@ nodejs_binary(
         "@npm//grpc_tools_node_protoc_ts",
     ],
     entry_point = "grpc_tools_node_protoc_ts/bin/protoc-gen-ts",
-    visibility = ["//language-support/js:__subpackages__"]
+    visibility = ["//language-support/js:__subpackages__"],
 )
 
 nodejs_binary(

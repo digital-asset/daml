@@ -23,9 +23,9 @@ template Iou
     regulators : [Party]
   where
     ensure amount > 0
-    signatory [issuer, owner]
+    signatory issuer, owner
     observer regulators
-    agreement issuer ++ " will pay " ++ owner ++ " " ++ (show amount)
+    agreement issuer <> " will pay " <> owner <> " " <> (show amount)
 
     choice Transfer : ContractId Iou
       with
@@ -68,9 +68,9 @@ Next, an `instance` declaration for `Iou` to declare its membership in `Template
 ```haskell
 instance Template Iou where
   ensure this@Iou{..} = amount > 0.0
-  signatory this@Iou{..} = [issuer, owner]
-  observer this@Iou{..} = [owner] ++ regulators
-  agreement this@Iou{..} = issuer ++ " will pay " ++ owner ++ " " ++ (show amount)
+  signatory this@Iou{..} = concat [toParties issuer, toParties owner]
+  observer this@Iou{..} = concat [toParties owner, toParties regulators]
+  agreement this@Iou{..} = issuer <> " will pay " <> owner <>  " " <> (show amount)
 ```
 
 When a type `c` is a `Template` instance, `class Choice` (defined by the DAML standard library) defines a (multi-parameter type class) relation on types `c`, `e` and `r` such that `r` is uniquely determined by the pair `(c, e)`:
@@ -113,9 +113,9 @@ template Iou
     regulators : [Party]
   where
       ensure amount > 0
-      signatory [issuer, owner]
+      signatory issuer, owner
       observer regulators
-      agreement issuer ++ " will pay " ++ owner ++ " " ++ (show amount)
+      agreement issuer <> " will pay " <> owner <> " " <> (show amount)
       controller [owner] can
         Transfer : ContractId Iou
         with
@@ -143,9 +143,9 @@ data Iou = Iou {
 
 instance Template Iou where
   ensure this@Iou{..} = amount > 0.0
-  signatory this@Iou{..} = [issuer, owner]
-  observer this@Iou{..} = [owner] ++ regulators
-  agreement this@Iou{..} = issuer ++ " will pay " ++ owner ++ " " ++ (show amount)
+  signatory this@Iou{..} = concat [toParties issuer, toParties owner]
+  observer this@Iou{..} = concat [toParties owner, toParties regulators]
+  agreement this@Iou{..} = issuer <> " will pay " <> owner <> " " <> (show amount)
 ```
 
 The two choices lead to two `instance Choice Iou e r` declarations, one for each of the triples `(Iou, Split, (ContractID Iou, ContractID Iou))` and `(Iou, Transfer, ContractID Iou)`:
@@ -166,4 +166,48 @@ data Transfer = Transfer { newOwner : String } deriving (Eq, Show)
 instance Choice Iou Transfer (ContractId Iou) where
   choiceController this@Iou{..} arg@Transfer{..} = [owner]
   choice this@Iou{..} self arg@Transfer{..} = create this with owner = newOwner
+```
+
+### Example (3)
+
+The next contract exercises the so-called "contract keys" feature of DAML. Contract key syntax desugars to `instance` declarations of the following typeclass.
+```haskell
+class Template c => TemplateKey c k | c -> k where
+  key : c ->
+  maintainer : c -> [Party]
+```
+In the following `Enrollment` contract, there are no choices but there are declarations of `key` and `maintainer`.
+```haskell
+data Course =
+  Course with
+      institution : Party
+      title : Text
+  deriving (Show, Eq)
+
+data Registration =
+  Registration with
+      student : Party
+      course : Course
+      year : Int
+  deriving (Show, Eq)
+
+template Enrollment
+  with
+      reg : Registration
+  where
+      signatory reg.student, reg.course.institution
+      key reg : Registration
+      maintainer reg.course.institution
+```
+What the above desugars to is shown below.
+```haskell
+data Course = ...
+data Registration = ...
+
+instance Template Enrollment where
+  signatory this@Enrollment{..} = concat [toParties reg.student, toParties reg.course.institution]
+
+instance TemplateKey Enrollment Registration where
+  key this@Enrollment{..} = reg
+  maintainer this@Enrollment{..} = concat [toParties reg.course.institution]
 ```

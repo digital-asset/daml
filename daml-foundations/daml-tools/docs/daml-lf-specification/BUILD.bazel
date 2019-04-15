@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:docs.bzl", "da_doc_package")
+
 da_doc_package(
-  name = 'daml-lf-specification',
+    name = "daml-lf-specification",
 )

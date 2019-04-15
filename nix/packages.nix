@@ -164,8 +164,6 @@ in rec {
     cqlsh     = cassandra;
     nodetool  = cassandra;
 
-    pandoc = bazel_dependencies.pandoc;
-
     sphinx            = pkgs.python36.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
@@ -255,8 +253,6 @@ in rec {
 
     undmg = pkgs.undmg;
     jfrog = pkgs.callPackage ./tools/jfrog-cli {};
-
-    nix-prefetch-git = pkgs.nix-prefetch-git;
 
     # Cloud tools
     gcloud = pkgs.google-cloud-sdk;

@@ -41,7 +41,7 @@ resource "google_compute_instance_template" "vsts-agent-linux" {
   disk {
     disk_size_gb = 100
     disk_type    = "pd-ssd"
-    source_image = "debian-cloud/debian-9"
+    source_image = "ubuntu-os-cloud/ubuntu-1604-lts"
   }
 
   lifecycle {
@@ -53,12 +53,11 @@ resource "google_compute_instance_template" "vsts-agent-linux" {
 
     shutdown-script = <<EOS
 #!/usr/bin/env bash
-su --login vsts <<SHUTDOWN_AGENT
-cd agent
-./config.sh remove \
-  --unattended \
-  --auth PAT \
-  --token '${secret_resource.vsts-token.value}'
+set -euo pipefail
+cd /home/vsts/agent
+su vsts <<SHUTDOWN_AGENT
+export VSTS_AGENT_INPUT_TOKEN='${secret_resource.vsts-token.value}'
+./config.sh remove --unattended --auth PAT
 SHUTDOWN_AGENT
     EOS
   }

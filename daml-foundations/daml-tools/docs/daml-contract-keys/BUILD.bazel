@@ -1,7 +1,8 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load ("//bazel_tools:docs.bzl", "da_doc_package")
+load("//bazel_tools:docs.bzl", "da_doc_package")
+
 da_doc_package(
-  name = 'daml-contract-keys-quantities',
+    name = "daml-contract-keys-quantities",
 )

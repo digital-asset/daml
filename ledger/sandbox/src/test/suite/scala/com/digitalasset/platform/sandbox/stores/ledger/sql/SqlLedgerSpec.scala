@@ -6,13 +6,20 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
+import org.scalatest.concurrent.AsyncTimeLimitedTests
+import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
+
+import scala.concurrent.duration._
 
 class SqlLedgerSpec
     extends AsyncWordSpec
+    with AsyncTimeLimitedTests
     with Matchers
     with PostgresAroundEach
     with AkkaBeforeAndAfterAll {
+
+  override val timeLimit: Span = 60.seconds
 
   "SQL Ledger" should {
     "be able to be created from scratch with a random ledger id" in {

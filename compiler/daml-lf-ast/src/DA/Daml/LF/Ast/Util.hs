@@ -65,6 +65,10 @@ data Arg
   = TmArg Expr
   | TyArg Type
 
+mkEApp :: Expr -> Arg -> Expr
+mkEApp e (TmArg a) = ETmApp e a
+mkEApp e (TyArg t) = ETyApp e t
+
 _EApp :: Prism' Expr (Expr, Arg)
 _EApp = prism' inj proj
   where

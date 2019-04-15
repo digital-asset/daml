@@ -54,6 +54,7 @@ object SandboxSubmissionService {
   object RecordUpdate {
     def apply(views: Either[LfError, (Transaction, BlindingInfo)]): RecordUpdate = views
   }
+
 }
 
 class SandboxSubmissionService private (
@@ -92,7 +93,13 @@ class SandboxSubmissionService private (
         recordOnLedger(commands).transform {
           case Failure(error) =>
             logger.warn(s"Submission of command ${commands.commandId.unwrap} has failed.", error)
-            Failure(error)
+            // quick work-around to handle back-pressure coming from Akka
+            //TODO: we should encapsulate the back pressure signal in a proper type and make recordOnLedger return a Future[OK \/ BackPressure]
+            if (error.getMessage.startsWith(
+                "You have to wait for previous offer to be resolved to send another request")) {
+              Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException())
+            } else
+              Failure(error)
           case Success(v) =>
             logger.debug(s"Submission of command {} has succeeded", commands.commandId.unwrap)
             Success(())

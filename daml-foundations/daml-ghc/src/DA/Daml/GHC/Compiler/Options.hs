@@ -4,6 +4,7 @@
 module DA.Daml.GHC.Compiler.Options
     ( Options(..)
     , defaultOptionsIO
+    , defaultOptions
     , mkOptions
     , getBaseDir
     , toCompileOpts
@@ -115,8 +116,11 @@ mkOptions opts@Options {..} = do
 -- and located runfiles. If the version argument is Nothing it is set to the default daml-lf
 -- version.
 defaultOptionsIO :: Maybe LF.Version -> IO Options
-defaultOptionsIO mbVersion = do
-    mkOptions Options
+defaultOptionsIO mbVersion = mkOptions $ defaultOptions mbVersion
+
+defaultOptions :: Maybe LF.Version -> Options
+defaultOptions mbVersion =
+    Options
         { optImportPath = []
         , optPackageDbs = []
         , optMbPackageName = Nothing

@@ -7,6 +7,7 @@ def _fat_cc_library_impl(ctx):
     input_lib = ctx.attr.input_lib
     cc_info = input_lib[CcInfo]
     static_libs = []
+
     # For now we assume that we have static PIC libs for all libs.
     # It should be possible to extend this but we do not have a need
     # for it so far and it would complicate things.
@@ -19,7 +20,7 @@ def _fat_cc_library_impl(ctx):
             static_lib = lib.static_library
         else:
             fail("No (PIC) static library found for '{}'.".format(
-                str(lib.dynamic_library.path)
+                str(lib.dynamic_library.path),
             ))
         static_libs += [static_lib]
 
@@ -51,13 +52,13 @@ def _fat_cc_library_impl(ctx):
             # On Windows some libs seems to depend on Windows sockets
             (["-lws2_32"] if is_windows else []),
         inputs = static_libs,
-	env = {"PATH": ""},
+        env = {"PATH": ""},
     )
 
     mri_script_content = "\n".join(
         ["create {}".format(static_lib.path)] +
         ["addlib {}".format(lib.path) for lib in static_libs] +
-        ["save", "end"]
+        ["save", "end"],
     ) + "\n"
 
     mri_script = ctx.actions.declare_file(ctx.label.name + "_mri")
@@ -75,7 +76,7 @@ def _fat_cc_library_impl(ctx):
             inputs = static_libs,
             arguments =
                 ["-no_warning_for_no_symbols", "-static", "-o", static_lib.path] +
-                [f.path for f in static_libs]
+                [f.path for f in static_libs],
         )
     else:
         ctx.actions.run_shell(
@@ -123,12 +124,11 @@ fat_cc_library = rule(
         ),
         "_cc_compiler": attr.label(
             allow_files = True,
-            executable =True,
+            executable = True,
             cfg = "host",
             default =
                 # bin/cc is gcc on Darwin which fails to find libc++
-                Label("@nixpkgs_cc_toolchain//:bin/clang") if is_darwin
-                else None,
+                Label("@nixpkgs_cc_toolchain//:bin/clang") if is_darwin else None,
         ),
         "whole_archive_flag": attr.string_list(
             # ld on MacOS doesn’t understand --whole-archive

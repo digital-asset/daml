@@ -31,6 +31,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Variant
 }
 import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
+import com.digitalasset.platform.apitesting.LedgerBackend.SandboxInMemory
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
@@ -559,9 +560,14 @@ abstract class CommandTransactionChecks
         }.map(_ => succeed)
       }
 
+
+    
+
       // this is basically a port of
       // `daml-lf/tests/scenario/daml-1.3/contract-keys/Test.daml`.
-      "process contract keys" in allFixtures { ctx =>
+      //TODO: enable this for all fixtures when we support contract keys in Postgres
+      "process contract keys" in forAllMatchingFixtures {
+        case TestFixture(SandboxInMemory, ctx) =>
         // TODO currently we run multiple suites with the same sandbox, therefore we must generate
         // unique keys. This is not so great though, it'd be better to have a clean environment.
         val keyPrefix = UUID.randomUUID.toString
@@ -740,6 +746,40 @@ abstract class CommandTransactionChecks
         }
       }
 
+      "handle bad Decimals correctly" in allFixtures { ctx =>
+        val alice = "Alice"
+        for {
+          _ <- failingCreate(
+            ctx,
+            "Decimal-scale",
+            alice,
+            templateIds.decimalRounding,
+            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("0.00000000005".asDecimal)))),
+            Code.INVALID_ARGUMENT,
+            "out-of-bounds Decimal"
+          )
+          _ <- failingCreate(
+            ctx,
+            "Decimal-bounds-positive",
+            alice,
+            templateIds.decimalRounding,
+            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("10000000000000000000000000000.0000000000".asDecimal)))),
+            Code.INVALID_ARGUMENT,
+            "out-of-bounds Decimal"
+          )
+          _ <- failingCreate(
+            ctx,
+            "Decimal-bounds-negative",
+            alice,
+            templateIds.decimalRounding,
+            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("-10000000000000000000000000000.0000000000".asDecimal)))),
+            Code.INVALID_ARGUMENT,
+            "out-of-bounds Decimal"
+          )
+        } yield {
+          succeed
+        }
+      }
     }
   }
 

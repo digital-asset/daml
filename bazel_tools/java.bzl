@@ -19,7 +19,7 @@ def _java_home_runtime_impl(ctx):
         name = "javabase",
         java_home = ctx.path(java_home),
     )
-    ctx.file("BUILD", content=build_content, executable=False)
+    ctx.file("BUILD", content = build_content, executable = False)
 
 java_home_runtime = repository_rule(
     implementation = _java_home_runtime_impl,

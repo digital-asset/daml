@@ -56,7 +56,8 @@ class TransactionBackpressureIT
 
       def sendCommands() =
         Source(1 to noOfCommands)
-          .mapAsync(20)(i =>
+          .throttle(10, 1.second)
+          .mapAsync(10)(i =>
             commandClient.submitSingleCommand(oneKbCommandRequest(ctx.ledgerId, s"command-$i")))
           .runWith(Sink.ignore)
 
