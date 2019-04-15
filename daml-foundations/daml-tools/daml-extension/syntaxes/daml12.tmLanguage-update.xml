@@ -503,6 +503,10 @@
 		</dict>
 		<dict>
 			<key>include</key>
+			<string>#daml_type_declaration</string>
+		</dict>
+		<dict>
+			<key>include</key>
 			<string>#data_constructor</string>
 		</dict>
 		<dict>
@@ -782,12 +786,12 @@
 				</dict>
 			</array>
 		</dict>
-		<key>data_constructor</key>
+		<key>daml_type_declaration</key>
 			<dict>
 				<key>match</key>
 				<string>\b[\p{Lu}\p{Lt}][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}']*(?!\.)\b</string>
 				<key>name</key>
-				<string>constant.other.daml</string>
+				<string>daml-type-declaration.type-declaration.daml</string>
 			</dict>
 		<key>qualifier</key>
 		<dict>
