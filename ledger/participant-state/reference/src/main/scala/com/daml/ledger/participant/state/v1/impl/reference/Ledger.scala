@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v1.impl.reference
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.ActorMaterializer
@@ -27,7 +28,7 @@ import com.digitalasset.platform.server.services.command.time.TimeModelValidator
 import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.SyncVar
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 /** TODO (SM): update/complete comments on this example as part of
@@ -48,17 +49,11 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     with WriteService {
 
   object StateController {
-    private val ledgerState = {
-      val sv = new SyncVar[LedgerState]()
-      sv.put(emptyLedgerState)
-      sv
-    }
+    private val ledgerState = new AtomicReference(emptyLedgerState)
     private val stateChangeDispatcher = SignalDispatcher()
 
     def updateState(f: LedgerState => LedgerState): Unit = {
-      ledgerState.put(
-        f(ledgerState.take())
-      )
+      ledgerState.getAndUpdate(f(_))
       stateChangeDispatcher.signal()
     }
 
@@ -186,7 +181,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
           submitterInfo.applicationId,
           submitterInfo.commandId))
 
-      LedgerState(ledger, prevState.packages, activeContracts, duplicationCheck)
+      LedgerState(prevState.ledgerId, ledger, prevState.packages, activeContracts, duplicationCheck)
     }
   }
 
@@ -277,10 +272,11 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     StateController
       .subscribe()
       .statefulMapConcat { () =>
-        var currentOffset: Int = offset.flatMap(_.components.headOption).getOrElse(0)
+        var currentOffset: Long = offset.flatMap(_.components.headOption).getOrElse(0)
         state =>
-          val newEvents = state.ledger.zipWithIndex
-            .drop(currentOffset)
+          val newEvents = state.ledger
+            .drop(currentOffset.toInt)
+            .zipWithIndex
             .map { case (u, i) => (mkOffset(i), u) }
           currentOffset += newEvents.size
 
@@ -315,7 +311,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     // atomically read and update the ledger state
     StateController.updateState { prevState =>
       prevState.copy(
-        prevState.ledger :+ heartbeat,
+        ledger = prevState.ledger :+ heartbeat,
       )
     }
   }
@@ -356,23 +352,31 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     CommandRejected(Some(submitterInfo), rejectionReason)
 
   private def mkOffset(offset: Int): Offset =
-    Offset(Array(offset))
+    Offset(Array(offset.toLong))
+
+  override def getLedgerInitialConditions(): Future[LedgerInitialConditions] =
+    Future.successful(
+      LedgerInitialConditions(
+        ledgerId = StateController.getState.ledgerId,
+        recordTimeEpoch = Timestamp.Epoch // FIXME
+      )
+    )
 
   private def emptyLedgerState = {
-    val heartbeat: Update = Heartbeat(Timestamp.assertFromInstant(timeProvider.getCurrentTime))
-    val stateInit: Update = StateInit(Ref.SimpleString.assertFromString(UUID.randomUUID().toString))
-
     LedgerState(
-      List(stateInit, heartbeat),
+      Ref.SimpleString.assertFromString(UUID.randomUUID().toString),
+      List(),
       Map.empty,
       Map.empty[AbsoluteContractId, AbsoluteContractInst],
-      Set.empty[(ApplicationId, CommandId)])
+      Set.empty[(ApplicationId, CommandId)]
+    )
   }
 
   /**
     * The state of the ledger, which must be updated atomically.
     */
   case class LedgerState(
+      ledgerId: LedgerId,
       ledger: List[v1.Update],
       packages: Map[Ref.PackageId, (Ast.Package, Archive)],
       activeContracts: Map[AbsoluteContractId, AbsoluteContractInst],

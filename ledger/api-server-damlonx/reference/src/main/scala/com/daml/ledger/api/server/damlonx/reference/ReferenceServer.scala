@@ -13,9 +13,11 @@ import com.daml.ledger.api.server.damlonx.Server
 import com.daml.ledger.participant.state.index.v1.impl.reference.ReferenceIndexService
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
+
 import scala.util.Try
 
 object ReferenceServer extends App {
@@ -50,19 +52,17 @@ object ReferenceServer extends App {
     }
   }
 
-  val indexService = ReferenceIndexService(ledger)
+  ledger.getLedgerInitialConditions.foreach { initialConditions =>
+    val indexService = ReferenceIndexService(ledger, initialConditions)
 
-  // Block until the index service has been initialized, e.g. it has processed the
-  // state initialization updates.
-  indexService.waitUntilInitialized
+    val server = Server(
+      serverPort = 6865,
+      indexService = indexService,
+      writeService = ledger,
+      tsb
+    )
 
-  val server = Server(
-    serverPort = 6865,
-    indexService = indexService,
-    writeService = ledger,
-    tsb
-  )
-
-  // Add a hook to close the server. Invoked when Ctrl-C is pressed.
-  Runtime.getRuntime.addShutdownHook(new Thread(() => server.close()))
+    // Add a hook to close the server. Invoked when Ctrl-C is pressed.
+    Runtime.getRuntime.addShutdownHook(new Thread(() => server.close()))
+  }(DirectExecutionContext)
 }

@@ -23,10 +23,6 @@ sealed trait Update extends Product with Serializable {
 }
 
 object Update {
-  // FIXME(JM): Remove and add "getLedgerId" method.
-  final case class StateInit(ledgerId: LedgerId) extends Update {
-    override def description: String = s"Initialize with ledgerId=$ledgerId"
-  }
 
   /** Signal aliveness and the current record time.  */
   final case class Heartbeat(recordTime: Timestamp) extends Update {

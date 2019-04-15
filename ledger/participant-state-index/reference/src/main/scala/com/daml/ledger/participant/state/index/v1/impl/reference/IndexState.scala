@@ -19,11 +19,11 @@ import org.slf4j.LoggerFactory
 import scala.collection.immutable.TreeMap
 
 final case class IndexState(
-    private val ledgerId: Option[LedgerId],
+    ledgerId: LedgerId,
+    recordTime: Timestamp,
     private val updateId: Option[Offset],
     private val beginning: Option[Offset],
     private val configuration: Option[Configuration],
-    private val recordTime: Option[Timestamp],
     // Accepted transactions indexed by offset.
     txs: TreeMap[Offset, (Update.TransactionAccepted, BlindingInfo)],
     activeContracts: Map[
@@ -42,18 +42,16 @@ final case class IndexState(
 
   /** Return True if the mandatory fields have been initialized. */
   def initialized: Boolean = {
-    return this.ledgerId.isDefined && this.updateId.isDefined && this.recordTime.isDefined
+    return this.updateId.isDefined
     // FIXME(JM): && this.configuration.isDefined
   }
 
   private def getIfInitialized[T](x: Option[T]): T =
     x.getOrElse(sys.error("INTERNAL ERROR: State not yet initialized."))
 
-  def getLedgerId: LedgerId = getIfInitialized(ledgerId)
   def getUpdateId: Offset = getIfInitialized(updateId)
   def getBeginning: Offset = getIfInitialized(beginning)
   def getConfiguration: Configuration = getIfInitialized(configuration)
-  def getRecordTime: Timestamp = getIfInitialized(recordTime)
 
   /** Return a new state with the given update applied or the
     * invariant violation in case that is not possible.
@@ -66,16 +64,10 @@ final case class IndexState(
     // apply update to state with new offset
     u0 match {
       case u: Update.Heartbeat =>
-        if (this.recordTime.fold(true)(_ <= u.recordTime))
-          Right(state.copy(recordTime = Some(u.recordTime)))
+        if (this.recordTime <= u.recordTime)
+          Right(state.copy(recordTime = u.recordTime))
         else
           Left(NonMonotonicRecordTimeUpdate)
-
-      case u: Update.StateInit =>
-        if (!this.ledgerId.isDefined)
-          Right(state.copy(ledgerId = Some(u.ledgerId)))
-        else
-          Left(StateAlreadyInitialized)
 
       case u: Update.ConfigurationChanged =>
         Right(state.copy(configuration = Some(u.newConfiguration)))
@@ -145,12 +137,12 @@ object IndexState {
   case object NonMonotonicRecordTimeUpdate extends InvariantViolation
   case object StateAlreadyInitialized extends InvariantViolation
 
-  def initialState: IndexState = IndexState(
-    ledgerId = None,
+  def initialState(lic: LedgerInitialConditions): IndexState = IndexState(
+    ledgerId = lic.ledgerId,
     updateId = None,
     beginning = None,
     configuration = None,
-    recordTime = None,
+    recordTime = lic.recordTimeEpoch,
     txs = TreeMap.empty,
     activeContracts = Map.empty,
     rejections = TreeMap.empty,
