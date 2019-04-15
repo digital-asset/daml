@@ -11,12 +11,6 @@ load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary")
 load("//rules_daml:daml.bzl", "daml_sandbox_version")
 
 alias(
-    name = "damli",
-    actual = "//daml-foundations/daml-tools/da-hs-damli-app:damli",
-    visibility = ["//visibility:public"],
-)
-
-alias(
     name = "codegen",
     actual = "//language-support/scala/codegen:codegen-main",
     visibility = ["//visibility:public"],

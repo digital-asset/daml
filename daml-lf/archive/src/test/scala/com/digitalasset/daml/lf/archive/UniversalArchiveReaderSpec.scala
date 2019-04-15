@@ -18,19 +18,19 @@ class UniversalArchiveReaderSpec extends FlatSpec with Matchers with Inside {
   behavior of classOf[UniversalArchiveReader[_]].getSimpleName
 
   it should "parse a DAR file" in {
-    assertSuccess(UniversalArchiveReader().readArchive(darFile))
+    assertSuccess(UniversalArchiveReader().readFile(darFile))
   }
 
   it should "parse a DALF file" in {
-    assertSuccess(UniversalArchiveReader().readArchive(dalfFile))
+    assertSuccess(UniversalArchiveReader().readFile(dalfFile))
   }
 
   it should "parse a DAR file and return language version" in {
-    assertSuccess(UniversalArchiveReaderWithVersion().readArchive(darFile))
+    assertSuccess(UniversalArchiveReaderWithVersion().readFile(darFile))
   }
 
   it should "parse a DALF file and return language version" in {
-    assertSuccess(UniversalArchiveReaderWithVersion().readArchive(dalfFile))
+    assertSuccess(UniversalArchiveReaderWithVersion().readFile(dalfFile))
   }
 
   private def assertSuccess[A](value: Try[Dar[A]]): Unit = {

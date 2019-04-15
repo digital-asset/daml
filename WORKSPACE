@@ -1,5 +1,6 @@
 workspace(name = "com_github_digital_asset_daml")
 
+load("//:util.bzl", "hazel_ghclibs", "hazel_github", "hazel_hackage")
 load("//:deps.bzl", "daml_deps")
 
 daml_deps()
@@ -411,75 +412,16 @@ hazel_repositories(
     },
     packages = add_extra_packages(
         extra =
-            [
-                # Read [Working on ghc-lib] for ghc-lib update instructions at
-                # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-                (
-                    "ghc-lib-parser",
-                    {
-                        "url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-0.20190412.tar.gz",
-                        "stripPrefix": "ghc-lib-parser-0.20190412",
-                        "sha256": "fcc82b45813939d18b5ea808c9e9507c6eb0ce19dbe93317992b746e6cd5be91",
-                    },
-                ),
-                (
-                    "ghc-lib",
-                    {
-                        "url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-0.20190412.tar.gz",
-                        "stripPrefix": "ghc-lib-0.20190412",
-                        "sha256": "2bee28f667a06618dfb3aa68c4f9e58f22038b773dff3562dc9169c1aa01a1ca",
-                    },
-                ),
-                (
-                    "bytestring-nums",
-                    {
-                        "version": "0.3.6",
-                        "sha256": "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd",
-                    },
-                ),
-                (
-                    "unix-time",
-                    {
-                        "version": "0.4.5",
-                        "sha256": "fe7805c62ad682589567afeee265e6e230170c3941cdce479a2318d1c5088faf",
-                    },
-                ),
-                (
-                    "zip-archive",
-                    {
-                        "version": "0.3.3",
-                        "sha256": "988adee77c806e0b497929b24d5526ea68bd3297427da0d0b30b99c094efc84d",
-                    },
-                ),
-                (
-                    "js-dgtable",
-                    {
-                        "version": "0.5.2",
-                        "sha256": "e28dd65bee8083b17210134e22e01c6349dc33c3b7bd17705973cd014e9f20ac",
-                    },
-                ),
-                (
-                    "shake",
-                    {
-                        "version": "0.17.8",
-                        "sha256": "ade4162f7540f044f0446981120800076712d1f98d30c5b5344c0f7828ec49a2",
-                    },
-                ),
-                (
-                    "filepattern",
-                    {
-                        "version": "0.1.1",
-                        "sha256": "f7fc5bdcfef0d43a793a3c64e7c0fd3b1d35eea97a37f0e69d6612ab255c9b4b",
-                    },
-                ),
-                (
-                    "terminal-progress-bar",
-                    {
-                        "version": "0.4.0.1",
-                        "sha256": "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277",
-                    },
-                ),
-            ],
+            # Read [Working on ghc-lib] for ghc-lib update instructions at
+            # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
+            hazel_ghclibs("0.20190413", "278c29a27c74b9daf54300a7d1ddc6513c4403fa1b5a7008df526eb67154f149", "b3aaef778935aa5bc5a238b74703a3a274046bb09b195ad02ce2ab29f1dc45dd") +
+            hazel_hackage("bytestring-nums", "0.3.6", "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd") +
+            hazel_hackage("unix-time", "0.4.5", "fe7805c62ad682589567afeee265e6e230170c3941cdce479a2318d1c5088faf") +
+            hazel_hackage("zip-archive", "0.3.3", "988adee77c806e0b497929b24d5526ea68bd3297427da0d0b30b99c094efc84d") +
+            hazel_hackage("js-dgtable", "0.5.2", "e28dd65bee8083b17210134e22e01c6349dc33c3b7bd17705973cd014e9f20ac") +
+            hazel_hackage("shake", "0.17.8", "ade4162f7540f044f0446981120800076712d1f98d30c5b5344c0f7828ec49a2") +
+            hazel_hackage("filepattern", "0.1.1", "f7fc5bdcfef0d43a793a3c64e7c0fd3b1d35eea97a37f0e69d6612ab255c9b4b") +
+            hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277"),
         pkgs = packages,
     ),
 )

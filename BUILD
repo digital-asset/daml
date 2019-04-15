@@ -129,21 +129,6 @@ genrule(
 #
 
 alias(
-    name = "damli",
-    actual = "//daml-foundations/daml-tools/da-hs-damli-app:damli",
-)
-
-alias(
-    name = "damli@ghci",
-    actual = "//daml-foundations/daml-tools/da-hs-damli-app:damli@ghci",
-)
-
-alias(
-    name = "damli-dist",
-    actual = "//daml-foundations/daml-tools/da-hs-damli-app:dist",
-)
-
-alias(
     name = "damlc",
     actual = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app",
 )

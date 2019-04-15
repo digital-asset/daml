@@ -14,8 +14,8 @@ import qualified Control.Monad.Managed             as Managed
 import qualified "cryptonite" Crypto.Hash as Crypto
 import Codec.Archive.Zip
 import qualified Da.DamlLf as PLF
-import           DA.Cli.Damli.BuildInfo
-import           DA.Cli.Damli.Command.Damldoc      (cmdDamlDoc)
+import           DA.Cli.Damlc.BuildInfo
+import           DA.Cli.Damlc.Command.Damldoc      (cmdDamlDoc)
 import           DA.Cli.Options
 import DA.Cli.Output
 import           DA.Cli.Args
