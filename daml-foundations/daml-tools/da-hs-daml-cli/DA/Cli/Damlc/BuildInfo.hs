@@ -3,7 +3,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module DA.Cli.Damli.BuildInfo
+module DA.Cli.Damlc.BuildInfo
   ( buildInfo
   ) where
 
