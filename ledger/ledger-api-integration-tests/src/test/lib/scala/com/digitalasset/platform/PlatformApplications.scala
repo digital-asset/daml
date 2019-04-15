@@ -44,7 +44,7 @@ object PlatformApplications {
       ledgerId.getOrElse(
         throw new IllegalStateException("Attempted to access ledger ID, but none is configured."))
 
-    def withDarFile(path: Path) = copy(darFiles = List(Config.ghcPrimFileName.toPath, path))
+    def withDarFile(path: Path) = copy(darFiles = List(path))
 
     def withDarFiles(path: List[Path]) = copy(darFiles = path)
 
@@ -66,18 +66,13 @@ object PlatformApplications {
   object Config {
     val defaultLedgerId = "ledger server"
 
-    val defaultDarFile = new File("ledger/sandbox/Test.dalf")
-    val ghcPrimFileName = new File(
-      "daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.3.dalf")
+    val defaultDarFile = new File("ledger/sandbox/Test.dar")
 
     val defaultParties = NonEmptyList("party", "Alice", "Bob")
     val defaultTimeProviderType = TimeProviderType.Static
 
     def defaultWithLedgerId(ledgerId: Option[String]): Config = {
-      val ghcPrimUrl = ghcPrimFileName
-      val darFiles =
-        if (ghcPrimUrl.exists()) List(ghcPrimFileName, defaultDarFile)
-        else sys.error(s"daml-prim not found at location $ghcPrimFileName")
+      val darFiles = List(defaultDarFile)
       new Config(
         ledgerId,
         darFiles.map(_.toPath),

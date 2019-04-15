@@ -41,7 +41,6 @@ compileDependencies = [
 
 daml_compile(
     name = "RecordsAndVariants",
-    damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated",
     main_src = "src/test/resources/damls/RecordsAndVariants.daml",
     target = "1.3",
 )
@@ -103,10 +102,9 @@ da_scala_test_suite(
     size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
-        "//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf",
-        "//extractor:PrimitiveTypes.dalf",
-        "//extractor:RecordsAndVariants.dalf",
-        "//extractor:TransactionExample.dalf",
+        "//extractor:PrimitiveTypes.dar",
+        "//extractor:RecordsAndVariants.dar",
+        "//extractor:TransactionExample.dar",
     ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [

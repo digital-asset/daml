@@ -3,6 +3,8 @@
 
 package com.digitalasset.daml.lf.engine
 
+import java.io.File
+
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.lfpackage.Ast._
@@ -12,9 +14,11 @@ import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction => GenTx, Transaction => Tx}
 import com.digitalasset.daml.lf.value.Value
 import Value._
+import com.digitalasset.daml.lf.UniversalArchiveReader
 import com.digitalasset.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalatest.{Matchers, WordSpec}
-import scalaz.std.either._, scalaz.syntax.apply._ // above
+import scalaz.std.either._
+import scalaz.syntax.apply._
 
 import scala.language.implicitConversions
 
@@ -33,20 +37,19 @@ class EngineTest extends WordSpec with Matchers {
   private val clara = SimpleString.assertFromString("Clara")
   private val party = SimpleString.assertFromString("Party")
 
-  private val loader = Thread.currentThread().getContextClassLoader()
-
-  private def loadPackage(resource: String): (PackageId, Package) = {
-
-    if (loader.getResource(resource) == null) {
-      sys.error(s"Could not find resource $resource")
-    }
-    Decode.decodeArchiveFromInputStream(loader.getResourceAsStream(resource))
+  private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
+    val packages =
+      UniversalArchiveReader().readFile(new File(resource)).get
+    val packagesMap = Map(packages.all.map {
+      case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+    }: _*)
+    val (mainPkgId, mainPkgArchive) = packages.main
+    val mainPkg = Decode.readArchivePayloadAndVersion(mainPkgId, mainPkgArchive)._1._2
+    (mainPkgId, mainPkg, packagesMap)
   }
 
-  private val (basicTestsPkgId, basicTestsPkg) =
-    loadPackage("daml-lf/tests/BasicTests.dalf")
-  private val (ghcPrimPkgId, ghcPrimPkg) =
-    loadPackage("daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.3.dalf")
+  private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
+    "daml-lf/tests/BasicTests.dar")
 
   private[this] def makeAbsoluteContractId(coid: ContractId): AbsoluteContractId =
     coid match {
@@ -90,11 +93,7 @@ class EngineTest extends WordSpec with Matchers {
   }
 
   def lookupPackage(pkgId: PackageId): Option[Package] = {
-    pkgId match {
-      case `basicTestsPkgId` => Some(basicTestsPkg)
-      case `ghcPrimPkgId` => Some(ghcPrimPkg)
-      case _ => None
-    }
+    allPackages.get(pkgId)
   }
 
   def lookupKey(@deprecated("", "") key: GlobalKey): Option[AbsoluteContractId] =
@@ -215,8 +214,8 @@ class EngineTest extends WordSpec with Matchers {
     }
 
     "translate Optional values" in {
-      val (optionalPkgId, optionalPkg) =
-        loadPackage("daml-lf/tests/Optional.dalf")
+      val (optionalPkgId, optionalPkg @ _, allOptionalPackages) =
+        loadPackage("daml-lf/tests/Optional.dar")
 
       val translator = CommandTranslation(ConcurrentCompiledPackages.apply())
 
@@ -229,26 +228,16 @@ class EngineTest extends WordSpec with Matchers {
       )
       val typ = TTyConApp(id, ImmArray.empty)
 
-      def lookupOptionalPackage(pkgId: PackageId): Option[Package] = {
-        if (pkgId == optionalPkgId) {
-          Some(optionalPkg)
-        } else if (pkgId == ghcPrimPkgId) {
-          Some(ghcPrimPkg)
-        } else {
-          None
-        }
-      }
-
       translator
         .translateValue(typ, someValue)
-        .consume(lookupContract, lookupOptionalPackage, lookupKey) shouldBe
+        .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldBe
         Right(
           ERecCon(
             TypeConApp(id, ImmArray.empty),
             ImmArray("recField" -> ESome(TBuiltin(BTText), EPrimLit(PLText("foo"))))))
       translator
         .translateValue(typ, noneValue)
-        .consume(lookupContract, lookupOptionalPackage, lookupKey) shouldBe
+        .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldBe
         Right(
           ERecCon(TypeConApp(id, ImmArray.empty), ImmArray("recField" -> ENone(TBuiltin(BTText)))))
     }

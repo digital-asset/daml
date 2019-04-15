@@ -55,9 +55,8 @@ da_scala_benchmark_jmh(
     name = "sandbox-perf",
     srcs = glob(["src/perf/benches/**/*.scala"]),
     data = [
-        "//daml-foundations/daml-ghc/package-database:daml-prim-1.3.dalf",
-        "//ledger/sandbox:Test.dalf",
-        "//ledger/sandbox-perf:LargeTransaction.dalf",
+        "//ledger/sandbox:Test.dar",
+        "//ledger/sandbox-perf:LargeTransaction.dar",
     ],
     visibility = ["//visibility:public"],
     deps = [
