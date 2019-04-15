@@ -53,8 +53,10 @@ quickstartTests :: FilePath -> TestTree
 quickstartTests quickstartDir = testGroup "quickstart"
     [ testCase "daml new" $
           callProcessQuiet "daml" ["new", quickstartDir]
+    , testCase "daml init" $ withCurrentDirectory quickstartDir $
+          callProcessQuiet "daml" ["init"]
     , testCase "daml package" $ withCurrentDirectory quickstartDir $
-          callProcessQuiet "daml" ["package", "daml/Main.daml", "target/daml/iou"]
+          callProcessQuiet "daml" ["package"]
     , testCase "daml test" $ withCurrentDirectory quickstartDir $
           callProcessQuiet "daml" ["test", "daml/Main.daml"]
     , testCase "sandbox startup" $

@@ -127,15 +127,23 @@ genrule(
       # Once da-assistant is dead, the quickstart-java rule should produce the final version.
       rm $$OUT/templates/quickstart-java/da-skeleton.yaml
       cat > $$OUT/templates/quickstart-java/daml.yaml << EOF
-sdk-version: $$VERSION
-name: quickstart
-source: daml/Main.daml
-scenario: Main:setup
-parties:
-  - Alice
-  - Bob
-  - USD_Bank
-  - EUR_Bank
+project:
+  sdk-version: $$VERSION
+  name: quickstart
+  source: daml/Main.daml
+  scenario: Main:setup
+  parties:
+    - Alice
+    - Bob
+    - USD_Bank
+    - EUR_Bank
+  version: 1.0.0
+  exposed-modules:
+    - Main
+  dependencies:
+    - daml-prim
+    - daml-stdlib
+version: 2
 EOF
 
       tar zcf $(location sdk-release-tarball.tar.gz) --format=ustar $$OUT
