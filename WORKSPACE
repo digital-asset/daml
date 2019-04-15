@@ -417,17 +417,17 @@ hazel_repositories(
                 (
                     "ghc-lib-parser",
                     {
-                        "url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-0.20190412.tar.gz",
-                        "stripPrefix": "ghc-lib-parser-0.20190412",
-                        "sha256": "fcc82b45813939d18b5ea808c9e9507c6eb0ce19dbe93317992b746e6cd5be91",
+                        "url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-0.20190413.tar.gz",
+                        "stripPrefix": "ghc-lib-parser-0.20190413",
+                        "sha256": "278c29a27c74b9daf54300a7d1ddc6513c4403fa1b5a7008df526eb67154f149",
                     },
                 ),
                 (
                     "ghc-lib",
                     {
-                        "url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-0.20190412.tar.gz",
-                        "stripPrefix": "ghc-lib-0.20190412",
-                        "sha256": "2bee28f667a06618dfb3aa68c4f9e58f22038b773dff3562dc9169c1aa01a1ca",
+                        "url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-0.20190413.tar.gz",
+                        "stripPrefix": "ghc-lib-0.20190413",
+                        "sha256": "b3aaef778935aa5bc5a238b74703a3a274046bb09b195ad02ce2ab29f1dc45dd",
                     },
                 ),
                 (
