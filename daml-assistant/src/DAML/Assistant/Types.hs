@@ -11,6 +11,7 @@ module DAML.Assistant.Types
 
 import DAML.Project.Types
 import qualified Data.Text as T
+import Data.Aeson (FromJSON)
 import Data.Text (Text, pack, unpack)
 import Data.Maybe
 import Control.Exception.Safe
@@ -67,6 +68,12 @@ data InstallOptions = InstallOptions
     , iForce :: ForceInstall
     , iQuiet :: QuietInstall
     } deriving (Eq, Show)
+
+-- | An install URL is a fully qualified HTTP[S] URL to an SDK release tarball. For example:
+-- "https://github.com/digital-asset/daml/releases/download/v0.11.1/daml-sdk-0.11.1-macos.tar.gz"
+newtype InstallURL = InstallURL
+    { unwrapInstallURL :: Text
+    } deriving (Eq, Show, FromJSON)
 
 newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
 newtype ForceInstall = ForceInstall Bool deriving (Eq, Show)
