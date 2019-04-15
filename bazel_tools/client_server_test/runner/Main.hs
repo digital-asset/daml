@@ -21,11 +21,13 @@ import System.Exit
 import Safe
 import Data.List.Split (splitOn)
 
-maxRetries :: Int
-maxRetries = 50 -- == wait 5s
-
 retryInterval :: Int
 retryInterval = 100*1000 -- 100ms
+
+-- wait maximum of 60s. we use a high timeout to not avoid flakyness in case of
+-- high system load.
+maxRetries :: Int
+maxRetries = 600
 
 readPortFile :: Int -> String -> IO Int
 readPortFile 0 file = do
