@@ -15,6 +15,7 @@ da_scala_binary(
     srcs = glob(["src/main/scala/**/*.scala"]),
     main_class = "com.daml.ledger.api.server.damlonx.reference.ReferenceServer",
     resources = glob(["src/main/resources/**/*"]),
+    visibility = ["//visibility:public"],
     runtime_deps = [
         "//3rdparty/jvm/ch/qos/logback:logback_classic",
         "//3rdparty/jvm/ch/qos/logback:logback_core",

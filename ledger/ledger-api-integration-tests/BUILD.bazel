@@ -12,6 +12,11 @@ load(
     "da_scala_test_suite",
 )
 
+load(
+    "//bazel_tools/client_server_test:client_server_test.bzl",
+    "client_server_test",
+)
+
 dependencies = [
     "//3rdparty/jvm/com/github/scopt:scopt",
     "//3rdparty/jvm/com/google/guava:guava",
@@ -136,3 +141,22 @@ TEST_FILES = [
     )
     for name in TEST_FILES
 ]
+
+
+
+client_server_test(
+    name = "ledger-api-test-tool-test",
+    timeout = "short",
+    client = ":ledger-api-test-tool",
+    client_args = [
+    ],
+
+    # Data files available to both client and server.
+    data = [
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+    ],
+    server = "//ledger/api-server-damlonx/reference:reference",
+    server_args = [
+        "$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar)"
+    ],
+)
