@@ -32,7 +32,7 @@ newtype AssetName = AssetName { unAssetName :: Text } deriving (Eq, Show, FromJS
 
 -- | GitHub release metadata, such as can be optained through the
 -- GitHub releases API v3. This is only a small fragment of the
--- data avialable. For more information please visit:
+-- data available. For more information please visit:
 --
 --      https://developer.github.com/v3/repos/releases/
 --
@@ -50,8 +50,8 @@ instance FromJSON Release where
         <*> r .: "assets"
 
 -- | GitHub release artifact metadata, as contained in the "assets"
--- field of the release metadata structure. For more information
--- please visit:
+-- field of the release metadata structure. This is only a small
+-- fragment of the data available. For more information please visit:
 --
 --      https://developer.github.com/v3/repos/releases/
 --
@@ -129,7 +129,7 @@ osName = case System.Info.os of
 
 -- | Install URL for particular version.
 versionURL :: SdkVersion -> InstallURL
-versionURL v = InstallURL $ concat
+versionURL v = InstallURL $ T.concat
     [ "https://github.com/digital-asset/daml/releases/download/"
     , unTag (versionToTag v)
     , "/"
