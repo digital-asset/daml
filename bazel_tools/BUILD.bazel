@@ -8,7 +8,6 @@ exports_files(
         "scala.bzl",
         "haskell-c2hs.patch",
         "haskell-static-linking.patch",
-        "haskell-hazel-shorten-source-dirs.patch",
         "haskell-arx.patch",
         "haskell-win-sys-includes.patch",
         "hackage_mirror.patch",
