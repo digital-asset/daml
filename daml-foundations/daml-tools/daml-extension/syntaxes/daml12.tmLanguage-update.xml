@@ -317,6 +317,42 @@
 			</array>
 		</dict>
 		<dict>
+			<key>comment</key>
+			<string>Handling choice and the scope of rest of the line</string>
+			<key>match</key>
+			<string>(?x)(choice) (?:\s+) (\b[\p{Lu}\p{Lt}][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}']*(?!\.)\b) (?:\s*) (\:) ([\W*\w]*) (with$)</string>
+			<key>captures</key>
+			<dict>
+				<key>1</key>
+				<dict>
+					<key>name</key>
+					<string>keyword.other.daml</string>
+				</dict>
+				<key>2</key>
+				<dict>
+					<key>name</key>
+					<string>storage.type.daml</string>
+				</dict>
+				<key>3</key>
+				<dict>
+					<key>name</key>
+					<string>keyword.other.single-colon.daml</string>
+				</dict>
+				<key>4</key>
+				<dict>
+					<key>name</key>
+					<string>storage.type.daml</string>
+				</dict>
+				<key>5</key>
+				<dict>
+					<key>name</key>
+					<string>keyword.other.daml</string>
+				</dict>
+			</dict>
+			<key>name</key>
+			<string>meta.type-declaration.daml</string>
+		</dict>
+		<dict>
 			<key>match</key>
 			<string>(deriving)\s+([\p{Lu}\p{Lt}][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}']*)</string>
 			<key>captures</key>
@@ -505,14 +541,6 @@
 			<key>end</key>
 			<string>(?=(&lt;\-)|(^(\1)?[^\s]|}))</string>
 			<!--<string>(?!^((\1\s+[^\s}])|\s*$))</string>-->
-		</dict>
-		<dict>
-			<key>include</key>
-			<string>#daml_type_declaration</string>
-		</dict>
-		<dict>
-			<key>include</key>
-			<string>#data_constructor</string>
 		</dict>
 		<dict>
 			<key>include</key>
@@ -791,13 +819,6 @@
 				</dict>
 			</array>
 		</dict>
-		<key>daml_type_declaration</key>
-			<dict>
-				<key>match</key>
-				<string>\b[\p{Lu}\p{Lt}][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}']*(?!\.)\b</string>
-				<key>name</key>
-				<string>storage.type.daml</string>
-			</dict>
 		<key>qualifier</key>
 		<dict>
 			<key>match</key>
