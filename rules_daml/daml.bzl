@@ -155,12 +155,7 @@ daml_compile = rule(
 
 def _daml_test_impl(ctx):
     script = """
-      set -e
-      for f in {files}
-      do
-      echo "running damlc test on " $PWD/$f
-      {damlc} test $PWD/$f
-      done
+      {damlc} test {files}
     """.format(damlc = ctx.executable.damlc.short_path, files = " ".join([f.short_path for f in ctx.files.srcs]))
 
     ctx.actions.write(

@@ -101,6 +101,27 @@ NIX_CONF
 
 systemctl restart nix-daemon
 
+# Warm up local caches by building dev-env and current daml master
+# This is allowed to fail, as we still want to have CI machines
+# around, even when their caches are only warmed up halfway
+su --login vsts <<'CACHE_WARMUP'
+# user-wide bazel disk cache override
+echo "build --disk_cache=~/.cache/bazel" > ~/.bazelrc && \
+git clone https://github.com/digital-asset/daml && \
+cd daml && \
+./ci/dev-env-install.sh && \
+./build.sh "_$(uname)" || true
+CACHE_WARMUP
+
+# Purge old agents
+su --login vsts <<'PURGE_OLD_AGENTS'
+cd daml && \
+VSTS_ACCOUNT=${vsts_account} VSTS_POOL=${vsts_pool} VSTS_TOKEN=${vsts_token} ./ci/azure-cleanup/purge_old_agents.py || true
+PURGE_OLD_AGENTS
+
+# Remove /home/vsts/daml folder that might be present from cache warmup
+rm -R /home/vsts/daml || true
+
 ## Finish
 
 # run the fake local webserver, taken from the docker image

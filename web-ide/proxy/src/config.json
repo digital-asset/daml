@@ -1,5 +1,5 @@
 {
-    "devMode" : true,
+    "devMode" : false,
     "http" : {
         "port" : 3000
     },

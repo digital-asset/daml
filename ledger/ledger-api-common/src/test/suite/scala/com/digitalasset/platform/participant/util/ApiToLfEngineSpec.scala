@@ -135,5 +135,14 @@ class ApiToLfEngineSpec extends WordSpec with Matchers {
       }
     }
 
+    "handle Decimals exceeding scale correctly" in {
+      ApiToLfEngine.parseDecimal("0.0000000001") shouldBe Right(BigDecimal("0.0000000001"))
+      ApiToLfEngine.parseDecimal("0.00000000005") shouldBe 'left
+    }
+
+    "handle Decimals exceeding bounds" in {
+      ApiToLfEngine.parseDecimal("10000000000000000000000000000.0000000000") shouldBe 'left
+      ApiToLfEngine.parseDecimal("-10000000000000000000000000000.0000000000") shouldBe 'left
+    }
   }
 }

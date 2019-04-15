@@ -92,12 +92,7 @@ object ApiToLfEngine {
       Left(s"Failed to parse as decimal. ($d). Expected format is [+-]?\\d+(\\.\\d+)?")
     expectedDecimalFormat
       .findFirstIn(d)
-      .fold(notValidErr)(
-        (_) =>
-          // note: using big decimal constructor
-          // to have equal precision set as with damle core
-          // remove this when removing old engine
-          Decimal.fromString(d).map(_ => BigDecimal(d)))
+      .fold(notValidErr)(_ => Decimal.fromString(d))
   }
 
   def toLfIdentifier(

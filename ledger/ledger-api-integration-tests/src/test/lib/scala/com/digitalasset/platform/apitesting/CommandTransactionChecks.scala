@@ -708,6 +708,40 @@ abstract class CommandTransactionChecks
         }
       }
 
+      "handle bad Decimals correctly" in allFixtures { ctx =>
+        val alice = "Alice"
+        for {
+          _ <- failingCreate(
+            ctx,
+            "Decimal-scale",
+            alice,
+            templateIds.decimalRounding,
+            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("0.00000000005".asDecimal)))),
+            Code.INVALID_ARGUMENT,
+            "out-of-bounds Decimal"
+          )
+          _ <- failingCreate(
+            ctx,
+            "Decimal-bounds-positive",
+            alice,
+            templateIds.decimalRounding,
+            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("10000000000000000000000000000.0000000000".asDecimal)))),
+            Code.INVALID_ARGUMENT,
+            "out-of-bounds Decimal"
+          )
+          _ <- failingCreate(
+            ctx,
+            "Decimal-bounds-negative",
+            alice,
+            templateIds.decimalRounding,
+            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("-10000000000000000000000000000.0000000000".asDecimal)))),
+            Code.INVALID_ARGUMENT,
+            "out-of-bounds Decimal"
+          )
+        } yield {
+          succeed
+        }
+      }
     }
   }
 

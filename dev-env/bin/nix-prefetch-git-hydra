@@ -1,4 +1,0 @@
-#!/usr/bin/env sh
-# Perform git checkout like hydra does
-export NIX_PREFETCH_GIT_CHECKOUT_HOOK="find \"\$dir\" -type f -name .gitignore -exec rm {} \;"
-nix-prefetch-git "$@"

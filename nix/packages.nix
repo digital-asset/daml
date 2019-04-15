@@ -254,8 +254,6 @@ in rec {
     undmg = pkgs.undmg;
     jfrog = pkgs.callPackage ./tools/jfrog-cli {};
 
-    nix-prefetch-git = pkgs.nix-prefetch-git;
-
     # Cloud tools
     gcloud = pkgs.google-cloud-sdk;
     bq     = gcloud;
