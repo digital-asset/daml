@@ -5,7 +5,9 @@
 
 -- | Discover releases from the digital-asset/daml github.
 module DAML.Assistant.Install.Github
-    where
+    ( latestURL
+    , versionURL
+    ) where
 
 import DAML.Assistant.Types
 import DAML.Assistant.Util
@@ -18,7 +20,14 @@ import Data.Either.Extra
 import qualified System.Info
 import qualified Data.Text as T
 
+-- | General git tag. We only care about the tags of the form "v<VERSION>"
+-- where <VERSION> is an SDK version. For example, "v0.11.1".
 newtype Tag = Tag Text deriving (Eq, Show, FromJSON)
+
+-- | Name of asset in a github release. We only care about assets
+-- with the name "sdk-<VERSION>-<OS>.tar.gz" where <VERSION> is an
+-- SDK version and <OS> is "linux", "macos", or "win". For example,
+-- "sdk-0.11.1-linux.tar.gz".
 newtype AssetName = AssetName { unAssetName :: Text } deriving (Eq, Show, FromJSON)
 
 data Release = Release
@@ -64,11 +73,6 @@ makeAPIRequest path = do
     when (getResponseStatusCode response /= 200) $
         throwString . show $ getResponseStatus response
     pure (getResponseBody response)
-
-getReleases :: IO [Release]
-getReleases =
-    requiredIO "Failed to get list of SDK releases from github." $
-        makeAPIRequest "/releases"
 
 getLatestRelease :: IO Release
 getLatestRelease =

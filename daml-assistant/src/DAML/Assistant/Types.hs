@@ -69,6 +69,8 @@ data InstallOptions = InstallOptions
     , iQuiet :: QuietInstall
     } deriving (Eq, Show)
 
+-- | An install URL is a fully qualified HTTP[S] URL to an SDK release tarball. For example:
+-- "https://github.com/digital-asset/daml/releases/download/v0.11.1/daml-sdk-0.11.1-macos.tar.gz"
 newtype InstallURL = InstallURL
     { unwrapInstallURL :: Text
     } deriving (Eq, Show, FromJSON)
