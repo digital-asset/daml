@@ -316,7 +316,7 @@ testInstall = Tasty.testGroup "DAML.Assistant.Install"
                 .| Zlib.gzip
                 .| sinkFile "source.tar.gz"
 
-            install options damlPath
+            install options damlPath Nothing
     , if isWindows
         then testInstallWindows
         else testInstallUnix
@@ -348,7 +348,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
 
             assertError "Extracting SDK release tarball."
                 "Invalid SDK release: symbolic link target is absolute."
-                (install options damlPath)
+                (install options damlPath Nothing)
 
     , Tasty.testCase "reject an escaping symlink in a tarball" $ do
         withSystemTempDirectory "test-install" $ \ base -> do
@@ -374,7 +374,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
 
             assertError "Extracting SDK release tarball."
                 "Invalid SDK release: symbolic link target escapes tarball."
-                (install options damlPath)
+                (install options damlPath Nothing)
     ]
 
 testInstallWindows :: Tasty.TestTree

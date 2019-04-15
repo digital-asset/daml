@@ -57,7 +57,7 @@ commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
 
 installParser :: Parser InstallOptions
 installParser = InstallOptions
-    <$> optional (RawInstallTarget <$> argument str (metavar "CHANNEL|VERSION|PATH"))
+    <$> optional (RawInstallTarget <$> argument str (metavar "TARGET"))
     <*> iflag ActivateInstall "activate" mempty "Activate installed version of daml"
     <*> iflag ForceInstall "force" (short 'f') "Overwrite existing installation"
     <*> iflag QuietInstall "quiet" (short 'q') "Quiet verbosity"
