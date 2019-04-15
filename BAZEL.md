@@ -894,7 +894,7 @@ describe the individual attributes.
 ```
 daml(
   name = "it-daml",
-  # The main DAML file. This file will be passed to damli.
+  # The main DAML file. This file will be passed to damlc.
   main_src = "src/it/resources/TestAll.daml",
   # Other DAML files that may be imported by the main DAML file.
   srcs = glob(["src/it/resources/**/*.daml"]),

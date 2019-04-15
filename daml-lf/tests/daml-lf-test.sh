@@ -5,7 +5,7 @@
 set -eu
 
 DAML_LF_REPL=$1
-DAMLI=$2
+DAMLC=$2
 MAIN=$3
 TMPDIR=$(mktemp -d)
 
@@ -19,7 +19,7 @@ case "${MAIN##*.}" in
     $DAML_LF_REPL testAll "$MAIN"
     ;;
   daml)
-    $DAMLI export-lf-v1 "$MAIN" -o $TMPDIR/out.dalf
+    $DAMLC export-lf-v1 "$MAIN" -o $TMPDIR/out.dalf
     $DAML_LF_REPL testAll $TMPDIR/out.dalf
     ;;
   *)
