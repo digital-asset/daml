@@ -346,6 +346,11 @@
 			| default
 			| rec
 			| with
+			| choice
+			| template
+			| key
+			| maintainer
+			| daml
 			)(\b(?!'))
 			</string>
 			<key>name</key>
@@ -791,7 +796,7 @@
 				<key>match</key>
 				<string>\b[\p{Lu}\p{Lt}][\p{Ll}_\p{Lu}\p{Lt}\p{Nd}']*(?!\.)\b</string>
 				<key>name</key>
-				<string>daml-type-declaration.type-declaration.daml</string>
+				<string>storage.type.daml</string>
 			</dict>
 		<key>qualifier</key>
 		<dict>
