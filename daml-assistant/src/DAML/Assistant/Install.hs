@@ -52,16 +52,8 @@ import System.PosixCompat.Files
     , otherReadMode
     , otherExecuteMode)
 
-data InstallTarget
-    = InstallDefault
-    | InstallProject
-    | InstallLatest
-    | InstallVersion SdkVersion
-    | InstallPath FilePath
-
 data InstallEnv = InstallEnv
     { options :: InstallOptions
-    , target :: InstallTarget
     , targetVersionM :: Maybe SdkVersion
     , damlPath :: DamlPath
     , projectPathM :: Maybe ProjectPath
@@ -374,55 +366,39 @@ projectInstall env projectPath = do
     version <- required "SDK version missing from project config (daml.yaml)." versionM
     versionInstall env version
 
--- | Disambiguate install target.
-decideInstallTarget :: Maybe RawInstallTarget -> IO InstallTarget
-decideInstallTarget = \case
-    Nothing ->
-        pure InstallDefault
-    Just (RawInstallTarget "project") ->
-        pure InstallProject
-    Just (RawInstallTarget "latest") ->
-        pure InstallLatest
-    Just (RawInstallTarget arg) | Right v <- parseVersion (pack arg) ->
-        pure (InstallVersion v)
-    Just (RawInstallTarget arg) -> do
-        testD <- doesDirectoryExist arg
-        testF <- doesFileExist arg
-        if testD || testF then
-            pure (InstallPath arg)
-        else
-            throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> pack arg))
-
 -- | Run install command.
 install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> IO ()
 install options damlPath projectPathM = do
-    target <- decideInstallTarget (iTargetM options)
     let targetVersionM = Nothing -- determined later
         env = InstallEnv {..}
-    case target of
-        InstallDefault -> do
+    case iTargetM options of
+        Nothing -> do
             hPutStrLn stderr $ unlines
                 [ "ERROR: daml install requires a target."
                 , ""
                 , "Available install targets:"
-                , "\tdaml install latest   \tInstall the latest version of the SDK"
-                , "\tdaml install project  \tInstall the project SDK version."
-                , "\tdaml install VERSION  \tInstall a specific SDK version."
-                , "\tdaml install TARBALL  \tInstall SDK from an SDK release .tar.gz file."
-                , "\tdaml install PATH     \tInstall SDK from a directory."
+                , "    daml install latest     Install the latest stable SDK version."
+                , "    daml install project    Install the project SDK version."
+                , "    daml install VERSION    Install a specific SDK version."
+                , "    daml install PATH       Install SDK from an SDK release tarball."
                 ]
             exitFailure
 
-        InstallProject -> do
+        Just (RawInstallTarget "project") -> do
             projectPath <- required "'daml install project' must be run from within a project."
                 projectPathM
             projectInstall env projectPath
 
-        InstallLatest ->
+        Just (RawInstallTarget "latest") ->
             latestInstall env
 
-        InstallPath path ->
-            pathInstall env path
-
-        InstallVersion version ->
+        Just (RawInstallTarget arg) | Right version <- parseVersion (pack arg) ->
             versionInstall env version
+
+        Just (RawInstallTarget arg) -> do
+            testD <- doesDirectoryExist arg
+            testF <- doesFileExist arg
+            if testD || testF then
+                pathInstall env arg
+            else
+                throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> pack arg))
