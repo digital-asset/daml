@@ -199,7 +199,6 @@ load(
     "@io_tweag_rules_haskell//haskell:haskell.bzl",
     "haskell_register_ghc_bindists",
 )
-
 load(
     "@io_tweag_rules_haskell//haskell:nixpkgs.bzl",
     "haskell_register_ghc_nixpkgs",
