@@ -27,6 +27,7 @@ da_scala_binary(
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
         "//daml-lf/lfpackage",
+        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/api-server-damlonx",
         "//ledger/ledger-api-common",

@@ -29,8 +29,7 @@ object LedgerApiTestTool {
       new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
 
     // FIXME(TW) daml-prim location has just become deprecated
-    val testResources = List(
-      "/ledger/ledger-api-integration-tests/SemanticTests.dar")
+    val testResources = List("/ledger/ledger-api-integration-tests/SemanticTests.dar")
 
     // a blacklist of tests that are currently failing
     val knownFailures: Set[String] = Set(
@@ -111,7 +110,7 @@ object LedgerApiTestTool {
   }
 
   private def loadAllPackagesFromResource(resource: String): Map[PackageId, Ast.Package] = {
-    // TODO: replace with stream-supporting functions from UniversalArchiveReader when 
+    // TODO: replace with stream-supporting functions from UniversalArchiveReader when
     // https://github.com/digital-asset/daml/issues/547 is fixed
     val is = getClass.getResourceAsStream(resource)
     if (is == null) sys.error(s"Could not find $resource in classpath")
@@ -121,8 +120,8 @@ object LedgerApiTestTool {
     if (f == null) sys.error(s"Could not open ${targetPath}")
     val packages = UniversalArchiveReader().readFile(f).get
     Map(packages.all.map {
-          case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-        }: _*)
+      case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+    }: _*)
   }
 
   private def extractTestFiles(testResources: List[String]): Unit = {
@@ -174,7 +173,7 @@ object LedgerApiTestTool {
       .action((_, c) => c.copy(performReset = true))
       .text("Perform a ledger reset before running the tests. Defaults to false.")
 
-    opt[Unit]('x',"extract")
+    opt[Unit]('x', "extract")
       .action((_, c) => c.copy(extract = true))
       .text("Extract the testing archive files and exit.")
 
