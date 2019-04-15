@@ -39,7 +39,8 @@ steps:
 
   - bash: ci/release.sh
     displayName: 'Release'
-    condition: eq(variables['System.PullRequest.IsFork'], 'False')
+    condition: and(succeeded(),
+                   eq(variables['System.PullRequest.IsFork'], 'False'))
     env:
       # to connect to bintray
       JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)
@@ -54,5 +55,5 @@ steps:
   - task: PublishPipelineArtifact@0
     condition: eq(variables['release.has_released'], 'true')
     inputs:
-      pathtoPublish: $(Build.StagingDirectory)/$(publish.artifact)
+      targetPath: $(Build.StagingDirectory)/$(publish.artifact)
       artifactName: $(publish.artifact)
