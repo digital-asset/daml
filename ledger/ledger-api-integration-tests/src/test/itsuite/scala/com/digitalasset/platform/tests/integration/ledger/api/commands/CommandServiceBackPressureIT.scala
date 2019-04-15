@@ -12,6 +12,7 @@ import com.digitalasset.ledger.api.testing.utils.{
   SuiteResourceManagementAroundAll
 }
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
+import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
@@ -39,7 +40,7 @@ class CommandServiceBackPressureIT
 
   "Commands Service" when {
     "overloaded with command submission" should {
-      "reject requests with RESOURCE_EXHAUSTED" ignore allFixtures { ctx => //TODO reenable
+      "reject requests with RESOURCE_EXHAUSTED" in allFixtures { ctx =>
         val responses: immutable.Seq[Future[Empty]] = (1 to 256) map { _ =>
           ctx.commandService.submitAndWait(request(ctx))
         }
@@ -62,6 +63,9 @@ class CommandServiceBackPressureIT
   }
 
   override protected def config: Config =
-    Config.default // TODO throttle
+    Config.default.withCommandConfiguration(
+      SandboxConfig.defaultCommandConfig
+        .copy(inputBufferSize = 1, maxParallelSubmissions = 1, maxCommandsInFlight = 2)
+    )
 
 }

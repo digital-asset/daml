@@ -8,7 +8,12 @@ import java.nio.file.Path
 import java.time.Duration
 
 import com.digitalasset.platform.sandbox.SandboxApplication
-import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, LedgerIdMode, SandboxConfig}
+import com.digitalasset.platform.sandbox.config.{
+  CommandConfiguration,
+  DamlPackageContainer,
+  LedgerIdMode,
+  SandboxConfig
+}
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import scalaz.NonEmptyList
 
@@ -33,7 +38,8 @@ object PlatformApplications {
       timeModel: TimeModel,
       heartBeatInterval: FiniteDuration = 5.seconds,
       persistenceEnabled: Boolean = false,
-      maxNumberOfAcsContracts: Option[Int] = None) {
+      maxNumberOfAcsContracts: Option[Int] = None,
+      commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig) {
     require(
       Duration.ofSeconds(timeModel.minTtl.getSeconds) == timeModel.minTtl &&
         Duration.ofSeconds(timeModel.maxTtl.getSeconds) == timeModel.maxTtl,
@@ -61,6 +67,8 @@ object PlatformApplications {
     def withHeartBeatInterval(interval: FiniteDuration) = copy(heartBeatInterval = interval)
 
     def withMaxNumberOfAcsContracts(cap: Int) = copy(maxNumberOfAcsContracts = Some(cap))
+
+    def withCommandConfiguration(cc: CommandConfiguration) = copy(commandConfiguration = cc)
   }
 
   object Config {
@@ -92,8 +100,6 @@ object PlatformApplications {
   def sandboxApplication(config: Config, jdbcUrl: Option[String]) = {
     val selectedPort = 0
 
-    val sandboxCommandConfig = SandboxConfig.defaultCommandConfig
-
     SandboxApplication(
       SandboxConfig(
         addressOption = None,
@@ -101,7 +107,7 @@ object PlatformApplications {
         damlPackageContainer = DamlPackageContainer(config.darFiles.map(_.toFile)),
         timeProviderType = config.timeProviderType,
         timeModel = config.timeModel,
-        commandConfig = sandboxCommandConfig,
+        commandConfig = config.commandConfiguration,
         scenario = None,
         tlsConfig = None,
         ledgerIdMode =
