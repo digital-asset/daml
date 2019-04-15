@@ -35,7 +35,7 @@ import qualified DA.Service.Logger.Impl.GCP        as Logger.GCP
 import qualified DA.Service.Logger.Impl.Pure as Logger.Pure
 import DAML.Project.Consts
 import DAML.Project.Config
-import DAML.Project.Types (ProjectPath(..))
+import DAML.Project.Types (ProjectPath(..), ConfigError)
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import Data.ByteArray.Encoding (Base (Base16), convertToBase)
 import qualified Data.ByteString                   as B
@@ -133,14 +133,21 @@ cmdPackageNew :: Int -> Mod CommandFields Command
 cmdPackageNew numProcessors =
     command "package-new" $
     info (helper <*> cmd) $
-    progDesc "Compile the DAML project into a DAML ARchive (DAR)" <> fullDesc
+    progDesc "Compile the DAML project into a DAML Archive (DAR)" <> fullDesc
   where
     cmd = execPackageNew numProcessors <$> optionalOutputFileOpt
+
+cmdInit :: Mod CommandFields Command
+cmdInit =
+    command "init" $
+    info (helper <*> cmd) $ progDesc "Initialize a DAML project" <> fullDesc
+  where
+    cmd = pure execInit
 
 cmdPackage :: Int -> Mod CommandFields Command
 cmdPackage numProcessors =
     command "package" $ info (helper <*> cmd) $
-       progDesc "Compile the DAML program into a DAML ARchive (DAR)"
+       progDesc "Compile the DAML program into a DAML Archive (DAR)"
     <> fullDesc
   where
     dumpPom = fmap DumpPom $ switch $ help "Write out pom and sha256 files" <> long "dump-pom"
@@ -222,36 +229,54 @@ execCompile inputFile outputFile opts = withProjectRoot $ \relativize -> do
 
 newtype DumpPom = DumpPom{unDumpPom :: Bool}
 
+data PackageConfigFields = PackageConfigFields
+    { pName :: String
+    , pMain :: String
+    , pExposedModules :: [String]
+    , pVersion :: String
+    , pDependencies :: [String]
+    }
+
+parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields
+parseProjectConfig project = do
+    name <- queryProjectConfigRequired ["project", "name"] project
+    main <- queryProjectConfigRequired ["project", "source"] project
+    exposedModules <-
+        queryProjectConfigRequired ["project", "exposed-modules"] project
+    version <- queryProjectConfigRequired ["project", "version"] project
+    dependencies <-
+        queryProjectConfigRequired ["project", "dependencies"] project
+    Right $ PackageConfigFields name main exposedModules version dependencies
+
 execPackageNew :: Int -> Maybe FilePath -> IO ()
 execPackageNew numProcessors mbOutFile =
     withProjectRoot $ \_relativize -> do
         project <- readProjectConfig $ ProjectPath "."
         case parseProjectConfig project of
             Left err -> throwIO err
-            Right (name, main, exposedModules, version, dependencies) -> do
-                createProjectPackageDb LF.versionDefault dependencies
+            Right PackageConfigFields {..} -> do
                 defaultOpts <- Compiler.defaultOptionsIO Nothing
                 let opts =
                         defaultOpts
-                            { optMbPackageName = Just name
+                            { optMbPackageName = Just pName
                             , optThreads = numProcessors
                             , optWriteInterface = True
                             }
                 loggerH <- getLogger opts "package"
                 let confFile =
                         mkConfFile
-                            name
-                            version
+                            pName
+                            pVersion
                             LF.versionDefault
-                            exposedModules
-                            dependencies
+                            pExposedModules
+                            pDependencies
                 Managed.with (Compiler.newIdeState opts Nothing loggerH) $ \compilerH -> do
                     darOrErr <-
                         runExceptT $
                         Compiler.buildDar
                             compilerH
-                            main
-                            name
+                            pMain
+                            pName
                             [confFile]
                             (UseDalf False)
                     case darOrErr of
@@ -262,26 +287,14 @@ execPackageNew numProcessors mbOutFile =
                                 [ "Creation of DAR file failed:"
                                 , T.unpack $
                                   Pretty.renderColored $
-                                  Pretty.vcat $
-                                  map prettyDiagnostic $
-                                  Set.toList $ Set.fromList errs
+                                  Pretty.vcat $ map prettyDiagnostic errs
                                 ]
                         Right dar -> do
-                            let fp = targetFilePath name
+                            let fp = targetFilePath pName
                             createDirectoryIfMissing True $ takeDirectory fp
                             B.writeFile fp dar
                             putStrLn $ "Created " <> fp <> "."
   where
-    parseProjectConfig project = do
-        name <- queryProjectConfigRequired ["project", "name"] project
-        main <- queryProjectConfigRequired ["project", "source"] project
-        exposedModules <-
-            queryProjectConfigRequired ["project", "exposed-modules"] project
-        version <- queryProjectConfigRequired ["project", "version"] project
-        dependencies <-
-            queryProjectConfigRequired ["project", "dependencies"] project
-        Right (name, main, exposedModules, version, dependencies)
-
     mkConfFile ::
            String
         -> String
@@ -308,7 +321,6 @@ execPackageNew numProcessors mbOutFile =
                 , "depends: " ++
                   unwords [dropExtension $ takeFileName dep | dep <- deps]
                 ]
-
     -- The default output filename is based on Maven coordinates if
     -- the package name is specified via them, otherwise we use the
     -- name.
@@ -317,6 +329,16 @@ execPackageNew numProcessors mbOutFile =
             [_g, a, v] -> a <> "-" <> v <> ".dar"
             _otherwise -> name <> ".dar"
     targetFilePath name = fromMaybe (defaultDarFile name) mbOutFile
+
+-- | Read the daml.yaml field and create the project local package database.
+execInit :: IO ()
+execInit =
+    withProjectRoot $ \_relativize -> do
+        project <- readProjectConfig $ ProjectPath "."
+        case parseProjectConfig project of
+            Left err -> throwIO err
+            Right PackageConfigFields {..} -> do
+                createProjectPackageDb LF.versionDefault pDependencies
 
 -- | Create the project package database containing the given dar packages.
 createProjectPackageDb :: LF.Version -> [FilePath] -> IO ()
@@ -727,6 +749,7 @@ options numProcessors =
       (internal -- internal commands
         <> cmdInspect
         <> cmdPackageNew numProcessors
+        <> cmdInit
       )
 
 parserInfo :: Int -> ParserInfo Command

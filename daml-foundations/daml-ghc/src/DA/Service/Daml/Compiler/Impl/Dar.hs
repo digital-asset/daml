@@ -31,6 +31,7 @@ A (fat) dar file is a zip file containing
      - all these files _must_ reside in the same directory 'topdir'
      - the 'topdir' in the absolute path is replaced by 'name'
 * all dalf dependencies
+* additional data files under the data/ directory.
 
 'topdir' is the path prefix of the top module that is _not_ part of the
 qualified module name.
