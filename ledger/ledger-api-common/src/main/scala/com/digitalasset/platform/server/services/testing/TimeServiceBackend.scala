@@ -7,8 +7,6 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.ledger.backend.api.v1.SubmissionResult
-import com.digitalasset.ledger.backend.api.v1.SubmissionResult.{Acknowledged, Overloaded}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 
 import scala.concurrent.Future
@@ -25,7 +23,7 @@ object TimeServiceBackend {
 
   def withObserver(
       timeProvider: TimeServiceBackend,
-      onTimeChange: Instant => Future[SubmissionResult]): TimeServiceBackend =
+      onTimeChange: Instant => Future[Unit]): TimeServiceBackend =
     new ObservingTimeServiceBackend(timeProvider, onTimeChange)
 }
 
@@ -43,7 +41,7 @@ private class SimpleTimeServiceBackend(startTime: Instant) extends TimeServiceBa
 
 private class ObservingTimeServiceBackend(
     timeProvider: TimeServiceBackend,
-    onTimeChange: Instant => Future[SubmissionResult]
+    onTimeChange: Instant => Future[Unit]
 ) extends TimeServiceBackend {
 
   override def getCurrentTime: Instant = timeProvider.getCurrentTime
@@ -53,12 +51,8 @@ private class ObservingTimeServiceBackend(
       .setCurrentTime(expectedTime, newTime)
       .flatMap { success =>
         if (success)
-          onTimeChange(newTime)
-            .map {
-              case Acknowledged => true
-              case Overloaded => false
-            }(DirectExecutionContext)
-        else Future.successful(success)
+          onTimeChange(expectedTime).map(_ => true)(DirectExecutionContext)
+        else Future.successful(false)
       }(DirectExecutionContext)
 
 }

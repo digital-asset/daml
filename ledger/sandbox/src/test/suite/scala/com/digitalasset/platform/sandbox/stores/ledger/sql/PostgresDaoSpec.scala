@@ -44,6 +44,7 @@ class PostgresDaoSpec
     with PropertyChecks {
 
   private lazy val dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, 4, 4)
+
   private lazy val ledgerDao =
     PostgresLedgerDao(dbDispatcher, ContractSerializer, TransactionSerializer)
 

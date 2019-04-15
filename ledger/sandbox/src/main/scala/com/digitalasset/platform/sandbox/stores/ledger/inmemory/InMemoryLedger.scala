@@ -69,10 +69,10 @@ class InMemoryLedger(
       acs.keys.get(key)
     })
 
-  override def publishHeartbeat(time: Instant): Future[SubmissionResult] =
-    Future.successful(this.synchronized[SubmissionResult] {
+  override def publishHeartbeat(time: Instant): Future[Unit] =
+    Future.successful(this.synchronized[Unit] {
       entries.publish(Checkpoint(time))
-      SubmissionResult.Acknowledged
+      ()
     })
 
   override def publishTransaction(tx: TransactionSubmission): Future[SubmissionResult] =
