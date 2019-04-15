@@ -25,6 +25,7 @@ function build-partial() {
     bazel build `
         //:git-revision `
         //compiler/daml-lf-ast/... `
+        //compiler/haskell-ide-core/... `
         //daml-lf/interface/... `
         //language-support/java/bindings/... `
         //navigator/backend/... `
