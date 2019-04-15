@@ -382,4 +382,4 @@ install options damlPath = do
             pathInstall env tarballPath
 
         Just (InstallVersion version) -> do
-            httpInstall env =<< Github.versionURL version
+            httpInstall env (Github.versionURL version)
