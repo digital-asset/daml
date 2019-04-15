@@ -36,12 +36,12 @@ da_haskell_library(
         "tasty-quickcheck",
         "transformers",
         "vector",
+        "proto3-wire",
     ],
     visibility = ["//visibility:public"],
     deps = [
         ":fat_cbits",
         "//nix/third-party/proto3-suite",
-        "//nix/third-party/proto3-wire",
     ],
 )
 

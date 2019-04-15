@@ -34,6 +34,7 @@ da_haskell_library(
         "transformers",
         "uri-encode",
         "vector",
+        "proto3-wire",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
@@ -47,6 +48,5 @@ da_haskell_library(
         "//nix/third-party/gRPC-haskell:grpc-haskell",
         "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
         "//nix/third-party/proto3-suite",
-        "//nix/third-party/proto3-wire",
     ],
 )

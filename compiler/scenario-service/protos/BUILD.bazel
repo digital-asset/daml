@@ -71,12 +71,12 @@ da_haskell_library(
         "deepseq",
         "text",
         "vector",
+        "proto3-wire",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//nix/third-party/gRPC-haskell:grpc-haskell",
         "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
         "//nix/third-party/proto3-suite",
-        "//nix/third-party/proto3-wire",
     ],
 )

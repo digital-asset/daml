@@ -1,6 +1,6 @@
 workspace(name = "com_github_digital_asset_daml")
 
-load("//:util.bzl", "hazel_ghclibs", "hazel_github", "hazel_hackage")
+load("//:util.bzl", "hazel_ghclibs", "hazel_github", "hazel_github_external", "hazel_hackage")
 
 # NOTE(JM): Load external dependencies from deps.bzl.
 # Do not put "http_archive" and similar rules into this file. Put them into
@@ -406,6 +406,7 @@ hazel_repositories(
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
             hazel_ghclibs("0.20190417.1", "3ba013ab8707aa9bd357b7c38cce45eda3b4ede89528ffaf89c31439bc4a9ad9", "0c5206a842e26f9283181d69a820e1f9abda6d4a617a1c14fd42e29a2ebb594f") +
+            hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_hackage("bytestring-nums", "0.3.6", "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd") +
             hazel_hackage("unix-time", "0.4.5", "fe7805c62ad682589567afeee265e6e230170c3941cdce479a2318d1c5088faf") +
             hazel_hackage("zip-archive", "0.3.3", "988adee77c806e0b497929b24d5526ea68bd3297427da0d0b30b99c094efc84d") +
