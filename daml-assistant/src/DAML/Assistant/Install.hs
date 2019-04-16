@@ -347,16 +347,29 @@ pathInstall env sourcePath = do
 
 -- | Install a specific SDK version.
 versionInstall :: InstallEnv -> SdkVersion -> IO ()
-versionInstall env version = do
-    -- TODO: check if version already installed
+versionInstall env@InstallEnv{..} version = do
+    unlessQuiet env $ do
+        putStrLn ("Installing DAML SDK version " <> versionToString version)
+
+    let SdkPath path = defaultSdkPath damlPath version
+    whenM (doesDirectoryExist path) $ do
+        unlessForce env $ do
+            throwIO $ assistantErrorBecause
+                ("SDK version " <> versionToText version <>
+                    " is already installed. Use --force to reinstall.")
+                ("path to existing installation = " <> pack path)
+        unlessQuiet env $ do
+            putStrLn ("SDK version " <> versionToString version <>
+                " is already installed. Reinstalling.")
+
     httpInstall env { targetVersionM = Just version }
         (Github.versionURL version)
 
 -- | Install the latest stable version of the SDK.
 latestInstall :: InstallEnv -> IO ()
 latestInstall env = do
-    -- TODO: get the version separately and then call versionInstall
-    httpInstall env =<< Github.latestURL
+    version <- Github.getLatestVersion
+    versionInstall env version
 
 -- | Install the SDK version of the current project.
 projectInstall :: InstallEnv -> ProjectPath -> IO ()
