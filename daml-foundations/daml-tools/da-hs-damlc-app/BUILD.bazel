@@ -4,6 +4,8 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 load("//bazel_tools:packaging/packaging.bzl", "package_app")
 
+load("@os_info//:os_info.bzl", "is_windows")
+
 da_haskell_binary(
     name = "da-hs-damlc-app",
     srcs = ["src/Main.hs"],
@@ -60,7 +62,7 @@ package_app(
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-foundations/daml-ghc/package-database:gen-daml-prim.dar",
         "//daml-foundations/daml-ghc/package-database:package-db",
-        "@c2hs//:bin/ghc-pkg",
+        "@io_tweag_rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@io_tweag_rules_haskell_ghc-nixpkgs//:bin/ghc-pkg",
     ],
     tags = ["no-cache"],
     visibility = ["//visibility:public"],
