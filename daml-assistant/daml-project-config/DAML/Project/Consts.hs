@@ -6,6 +6,7 @@ module DAML.Project.Consts
     , projectPathEnvVar
     , sdkPathEnvVar
     , sdkVersionEnvVar
+    , damlAssistantEnvVar
     , damlConfigName
     , projectConfigName
     , sdkConfigName
@@ -14,6 +15,7 @@ module DAML.Project.Consts
     , getProjectPath
     , getSdkPath
     , getSdkVersion
+    , getDamlAssistant
     , withProjectRoot
     ) where
 
@@ -53,6 +55,10 @@ sdkPathEnvVar = "DAML_SDK"
 sdkVersionEnvVar :: String
 sdkVersionEnvVar = "DAML_SDK_VERSION"
 
+-- | The absolute path to the daml assistant executable.
+damlAssistantEnvVar :: String
+damlAssistantEnvVar = "DAML_ASSISTANT"
+
 -- | File name of config file in DAML_HOME (~/.daml).
 damlConfigName :: FilePath
 damlConfigName = "daml-config.yaml"
@@ -67,7 +73,7 @@ sdkConfigName = "sdk-config.yaml"
 
 -- | List of all environment variables handled by daml assistant.
 damlEnvVars :: [String]
-damlEnvVars = [damlPathEnvVar, projectPathEnvVar, sdkPathEnvVar, sdkVersionEnvVar]
+damlEnvVars = [damlPathEnvVar, projectPathEnvVar, sdkPathEnvVar, sdkVersionEnvVar, damlAssistantEnvVar]
 
 -- | Returns the path to the daml assistant data directory.
 --
@@ -96,6 +102,13 @@ getSdkPath = getEnv sdkPathEnvVar
 -- the assistant.
 getSdkVersion  :: IO String
 getSdkVersion = getEnv sdkVersionEnvVar
+
+-- | Returns the absolute path to the assistant.
+--
+-- This will throw an `IOException` if the environment has not been setup by
+-- the assistant.
+getDamlAssistant :: IO FilePath
+getDamlAssistant = getEnv damlAssistantEnvVar
 
 -- | This function changes the working directory to the project root and calls
 -- the supplied action with a function to transform filepaths relative to the previous
