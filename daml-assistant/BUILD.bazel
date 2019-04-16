@@ -90,6 +90,7 @@ da_haskell_test(
         "filepath",
         "http-client",
         "http-conduit",
+        "http-conduit-tls",
         "lens",
         "main-tester",
         "optparse-applicative",
