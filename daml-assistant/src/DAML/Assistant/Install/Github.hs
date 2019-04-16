@@ -5,8 +5,8 @@
 
 -- | Discover releases from the digital-asset/daml github.
 module DAML.Assistant.Install.Github
-    ( latestURL
-    , versionURL
+    ( versionURL
+    , getLatestVersion
     ) where
 
 import DAML.Assistant.Types
@@ -15,7 +15,6 @@ import Data.Aeson
 import Network.HTTP.Simple
 import Control.Exception.Safe
 import Control.Monad
-import Data.List
 import Data.Either.Extra
 import qualified System.Info
 import qualified Data.Text as T
@@ -100,17 +99,11 @@ getLatestRelease =
     requiredIO "Failed to get latest SDK release from github." $
         makeAPIRequest "/releases/latest"
 
--- | Extract an install URL from release data.
-getReleaseURL :: Release -> Either AssistantError InstallURL
-getReleaseURL Release{..} = do
-    version <- tagToVersion releaseTag
-    let target = versionToAssetName version
-    asset <- fromMaybeM
-        (Left (assistantErrorBecause "Could not find required SDK distribution in github release."
-            ("Looked for " <> unAssetName target <> " but got [" <>
-                T.intercalate ", " (map (unAssetName . assetName) releaseAssets) <> "].")))
-        (find ((== target) . assetName) releaseAssets)
-    pure (assetDownloadURL asset)
+-- | Get the version of the latest stable (i.e. non-prerelease) release.
+getLatestVersion :: IO SdkVersion
+getLatestVersion = do
+    release <- getLatestRelease
+    fromRightM throwIO (tagToVersion (releaseTag release))
 
 -- | Github release artifact name.
 versionToAssetName :: SdkVersion -> AssetName
@@ -135,7 +128,3 @@ versionURL v = InstallURL $ T.concat
     , "/"
     , unAssetName (versionToAssetName v)
     ]
-
--- | Get install URL for latest stable version.
-latestURL :: IO InstallURL
-latestURL = getLatestRelease >>= fromRightM throwIO . getReleaseURL

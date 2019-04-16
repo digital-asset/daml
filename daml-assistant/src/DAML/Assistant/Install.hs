@@ -368,8 +368,8 @@ versionInstall env@InstallEnv{..} version = do
 -- | Install the latest stable version of the SDK.
 latestInstall :: InstallEnv -> IO ()
 latestInstall env = do
-    -- TODO: get the version separately and then call versionInstall
-    httpInstall env =<< Github.latestURL
+    version <- Github.getLatestVersion
+    versionInstall env version
 
 -- | Install the SDK version of the current project.
 projectInstall :: InstallEnv -> ProjectPath -> IO ()
