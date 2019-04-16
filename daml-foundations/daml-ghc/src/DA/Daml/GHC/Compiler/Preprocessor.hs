@@ -16,6 +16,7 @@ import Outputable
 
 import           Control.Monad.Extra
 import           Data.List
+import           Data.Maybe
 
 
 isInternal :: GHC.ModuleName -> Bool
