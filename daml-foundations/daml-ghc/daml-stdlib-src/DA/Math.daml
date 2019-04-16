@@ -107,7 +107,7 @@ expInner n t x
     in to36dig (z + x * y / n, e)
 
 -- | `sin` is the sine function
-sin: Decimal -> Decimal
+sin : Decimal -> Decimal
 sin x = snd $ cordic 34 x
 
 -- | `cos` is the cosine function
