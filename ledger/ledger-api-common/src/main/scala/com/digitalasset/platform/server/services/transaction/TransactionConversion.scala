@@ -134,7 +134,16 @@ trait TransactionConversion {
       convert(exercise.actingParties),
       exercise.isConsuming,
       convert(exercise.witnesses),
-      exercise.children.toSeq.sortBy(getEventIndex)
+      exercise.children.toSeq.sortBy(getEventIndex),
+      exercise.exerciseResult.map(
+        er =>
+          LfEngineToApi
+            .lfValueToApiValue(verbose, er.value)
+            .fold(
+              err =>
+                throw new RuntimeException(
+                  s"Unexpected error when converting stored contract: $err"),
+              identity)),
     )
   }
 

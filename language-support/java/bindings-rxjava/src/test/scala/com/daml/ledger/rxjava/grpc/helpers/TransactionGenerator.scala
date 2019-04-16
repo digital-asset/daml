@@ -213,6 +213,7 @@ object TransactionGenerator {
     consuming <- Arbitrary.arbBool.arbitrary
     (scalaChildren, javaChildren) <- eventsGen
     witnessParties <- Gen.listOf(nonEmptyId)
+    (scalaExerciseResult, javaExerciseResult) <- Gen.sized(valueGen)
   } yield
     (
       Exercised(
@@ -226,7 +227,9 @@ object TransactionGenerator {
           actingParties,
           consuming,
           witnessParties,
-          Nil)), //TODO DEL-6007
+          Nil, //TODO DEL-6007
+          Some(scalaExerciseResult)
+        )),
       new data.ExercisedEvent(
         witnessParties.asJava,
         eventId,
@@ -237,8 +240,10 @@ object TransactionGenerator {
         javaChoiceArgument,
         actingParties.asJava,
         consuming,
-        Collections.emptyList()
-      ) //TODO DEL-6007
+        Collections.emptyList(),
+        //TODO DEL-6007
+        javaExerciseResult
+      )
     )
 
   val eventGen: Gen[(Event, data.Event)] =

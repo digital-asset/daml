@@ -43,7 +43,7 @@ public abstract class Event {
                     exercisedEvent.getContractId(), exercisedEvent.getContractCreatingEventId(),
                     exercisedEvent.getChoice(), Value.fromProto(exercisedEvent.getChoiceArgument()),
                     exercisedEvent.getActingPartiesList(), exercisedEvent.getConsuming(),
-                    exercisedEvent.getChildEventIdsList());
+                    exercisedEvent.getChildEventIdsList(), Value.fromProto(exercisedEvent.getExerciseResult()));
         } else {
             throw new UnsupportedEventTypeException(event.toString());
         }
@@ -63,7 +63,7 @@ public abstract class Event {
                     exercisedEvent.getContractId(), exercisedEvent.getContractCreatingEventId(),
                     exercisedEvent.getChoice(), Value.fromProto(exercisedEvent.getChoiceArgument()),
                     exercisedEvent.getActingPartiesList(), exercisedEvent.getConsuming(),
-                    exercisedEvent.getChildEventIdsList());
+                    exercisedEvent.getChildEventIdsList(), Value.fromProto(exercisedEvent.getExerciseResult()));
         } else {
             throw new UnsupportedEventTypeException(event.toString());
         }

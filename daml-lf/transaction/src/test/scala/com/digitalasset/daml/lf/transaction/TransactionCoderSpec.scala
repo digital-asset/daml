@@ -6,11 +6,13 @@ package com.digitalasset.daml.lf.transaction
 import com.digitalasset.daml.lf.EitherAssertions
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
-import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch}
+import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
 import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInst, ValueParty, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder.{DecodeCid, DecodeError, EncodeCid, EncodeError}
 import com.digitalasset.daml.lf.value.{ValueVersion, ValueVersions}
+import com.digitalasset.daml.lf.transaction.TransactionVersions._
+import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Inside, Matchers, WordSpec}
 
@@ -134,9 +136,12 @@ class TransactionCoderSpec
           // fuzzy sort of "failed because of the version override" test
           msg should include(txVer.toString)
         case Right(encodedTx) =>
-          val decodedTx = TransactionCoder
-            .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, encodedTx)
-          decodedTx shouldBe Right(VersionedTransaction(txVer, tx))
+          val decodedVersionedTx = assertRight(
+            TransactionCoder
+              .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, encodedTx))
+          decodedVersionedTx.transaction shouldBe (if (txVer precedes minExerciseResult)
+                                                     withoutExerciseResult(tx)
+                                                   else tx)
       }
     }
 
@@ -144,8 +149,9 @@ class TransactionCoderSpec
       malformedGenTransaction,
       transactionVersionGen,
       transactionVersionGen) { (tx, txVer1, txVer2) =>
-      import scalaz.syntax.bifunctor._, scalaz.std.tuple._
       import VersionTimeline.Implicits._
+      import scalaz.std.tuple._
+      import scalaz.syntax.bifunctor._
       whenever(txVer1 != txVer2) {
         val orderedVers @ (txvMin, txvMax) =
           if (txVer2 precedes txVer1) (txVer2, txVer1) else (txVer1, txVer2)
@@ -165,8 +171,12 @@ class TransactionCoderSpec
             inside((encWithMin, encWithMax) umap (TransactionCoder
               .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, _))) {
               case (Right(decWithMin), Right(decWithMax)) =>
-                decWithMin.transaction shouldBe tx
-                decWithMax.transaction shouldBe decWithMin.transaction
+                decWithMin.transaction shouldBe (if (txvMin precedes minExerciseResult)
+                                                   withoutExerciseResult(tx)
+                                                 else tx)
+                decWithMin.transaction shouldBe (if (txvMin precedes minExerciseResult)
+                                                   withoutExerciseResult(decWithMax.transaction)
+                                                 else decWithMax.transaction)
             }
         }
       }
@@ -279,4 +289,15 @@ class TransactionCoderSpec
 
   private def changeAllValueVersions(tx: Tx.Transaction, ver: ValueVersion): Tx.Transaction =
     tx.mapContractIdAndValue(identity, _.copy(version = ver))
+
+  def withoutExerciseResult[Nid, Cid, Val](gn: GenNode[Nid, Cid, Val]): GenNode[Nid, Cid, Val] =
+    gn match {
+      case ne: NodeExercises[Nid, Cid, Val] => ne copy (exerciseResult = None)
+      case _ => gn
+    }
+
+  def withoutExerciseResult[Nid, Cid, Val](
+      t: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] =
+    t copy (nodes = t.nodes transform ((_, gn) => withoutExerciseResult(gn)))
+
 }

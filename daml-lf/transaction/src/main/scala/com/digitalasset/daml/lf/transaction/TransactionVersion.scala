@@ -15,17 +15,19 @@ final case class TransactionVersion(protoValue: String)
   */
 object TransactionVersions
     extends LfVersions(
-      maxVersion = TransactionVersion("6"),
-      previousVersions = List("1", "2", "3", "4", "5") map TransactionVersion)(_.protoValue) {
+      maxVersion = TransactionVersion("7"),
+      previousVersions = List("1", "2", "3", "4", "5", "6") map TransactionVersion)(_.protoValue) {
 
   private[this] val minVersion = TransactionVersion("1")
   private[transaction] val minKeyOrLookupByKey = TransactionVersion("3")
   private[transaction] val minFetchActors = TransactionVersion("5")
   private[transaction] val minNoControllers = TransactionVersion("6")
+  private[transaction] val minExerciseResult = TransactionVersion("7")
 
   def assignVersion(a: GenTransaction[_, _, _ <: VersionedValue[_]]): TransactionVersion = {
     require(a != null)
     import VersionTimeline.Implicits._
+
     VersionTimeline.latestWhenAllPresent(
       minVersion,
       // latest version used by any value
@@ -44,6 +46,13 @@ object TransactionVersions
       if (a.nodes.values
           .exists { case nf: Node.NodeFetch[_] => nf.actingParties.nonEmpty; case _ => false })
         minFetchActors
+      else minVersion,
+      if (a.nodes.values
+          .exists {
+            case ne: Node.NodeExercises[_, _, _] => ne.exerciseResult.isDefined
+            case _ => false
+          })
+        minExerciseResult
       else minVersion,
     )
   }

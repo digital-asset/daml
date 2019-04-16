@@ -43,7 +43,7 @@ object Transaction {
               delta.outputs + (node.coid ->
                 Contract(node.coinst, node.stakeholders))
             )
-          case node @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _) =>
+          case node @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _) =>
             TxDelta(
               // get consumed external contracts
               if (node.consuming) node.targetCoid match {

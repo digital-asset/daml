@@ -117,7 +117,9 @@ object TransactionSpec {
       nodes: Map[String, GenNode[String, String, Value[String]]],
       roots: ImmArray[String]): StringTransaction = GenTransaction(nodes, roots, Set.empty)
 
-  def dummyExerciseNode(children: ImmArray[String]): NodeExercises[String, String, Value[String]] =
+  def dummyExerciseNode(
+      children: ImmArray[String],
+      hasExerciseResult: Boolean = true): NodeExercises[String, String, Value[String]] =
     NodeExercises(
       "dummyCoid",
       Ref.Identifier(
@@ -131,7 +133,8 @@ object TransactionSpec {
       Set.empty,
       Set.empty,
       Set.empty,
-      children
+      children,
+      if (hasExerciseResult) Some(V.ValueUnit) else None
     )
 
   val dummyCreateNode: NodeCreate[String, Value[String]] =

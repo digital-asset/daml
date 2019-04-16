@@ -276,7 +276,8 @@ final class Engine {
           stakeholders @ _,
           signatories @ _,
           controllers @ _,
-          children @ _) =>
+          children @ _,
+          exerciseResult @ _) =>
         val templateId = template
         asValueWithAbsoluteContractIds(chosenVal).flatMap(
           absChosenVal =>

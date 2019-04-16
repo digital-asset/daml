@@ -11,7 +11,7 @@
 // * 4: string contract_id replaced globally by ContractId message
 // * 5: new field actors in NodeFetch
 // * 6: removal of controllers in exercise nodes
-
+// * 7: new field exerciseResult in NodeExercise
 syntax = "proto3";
 
 package com.digitalasset.daml.lf.transaction;
@@ -87,6 +87,7 @@ message NodeExercise {
     repeated string signatories = 9;
     repeated string controllers = 10;
     com.digitalasset.daml.lf.value.ContractId contract_id_struct = 11;
+    com.digitalasset.daml.lf.value.VersionedValue return_value = 12;
 }
 
 message NodeLookupByKey {

@@ -471,7 +471,7 @@ object Transaction {
     private def computeRoots: Set[NodeId] = {
       val allChildNodeIds: Set[NodeId] = nodes.values.flatMap {
         case _: LeafOnlyNode[_, _] => Nil
-        case NodeExercises(_, _, _, _, _, _, _, _, _, _, children) => children.toSeq
+        case NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _) => children.toSeq
       }(breakOut)
 
       nodes.keySet diff allChildNodeIds
@@ -683,7 +683,7 @@ object Transaction {
       }
     }
 
-    def endExercises: (Option[NodeId], PartialTransaction) = {
+    def endExercises(value: Value[ContractId]): (Option[NodeId], PartialTransaction) = {
       context match {
         case ContextRoot =>
           (None, noteAbort(EndExerciseInRootContext))
@@ -700,7 +700,8 @@ object Transaction {
             ec.stakeholders,
             ec.signatories,
             ec.controllers,
-            exercisesChildren
+            exercisesChildren,
+            Some(value)
           )
           val nodeId = ec.exercisesNodeId
           val ptx =

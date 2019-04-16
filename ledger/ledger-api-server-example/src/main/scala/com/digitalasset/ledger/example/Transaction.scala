@@ -43,7 +43,7 @@ object Transaction {
                     .explicitDisclosure(nodeEntry._1)
                     .intersect(node.stakeholders)))
             )
-          case node @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _) =>
+          case node @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _) =>
             TxDelta(
               // get consumed external contracts
               if (node.consuming) node.targetCoid match {
