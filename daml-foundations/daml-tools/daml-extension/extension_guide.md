@@ -1,6 +1,6 @@
-# DAML Syntax Highlighter Guide
+# DAML Syntax Highlighter Dev Guide
 
-In depth explanation syntax highlighting can be found on VS Code [website](https://code.visualstudio.com/api/language-extensions/syntax-highlight-guide). This doc contains a short guide and explanations of choices made for DAML plugin.
+In depth explanation syntax highlighting can be found on VS Code [website](https://code.visualstudio.com/api/language-extensions/syntax-highlight-guide). This document contains a short guide and explanations of choices made for DAML plugin.
 
 ## Overview
 
@@ -8,11 +8,11 @@ VS code uses [TextMate Grammar](https://macromates.com/manual/en/language_gramma
 
 ## Grammar File Format.
 
-VS Code supports PList, JSON and YAML files to specify grammar. DAML VS code extension makes use of PList, as the haskell [extension](https://github.com/JustusAdam/language-haskell) and also using Plist makes having comments easy at the expense of making it more verbose/. 
+VS Code supports PList, JSON and YAML files to specify grammar. DAML VS code extension makes use of PList, as the haskell [extension](https://github.com/JustusAdam/language-haskell) and also using Plist makes having comments easy at the expense of making it more verbose.
 
 
 ## Testing Strategy
-Unfortunately at the moment we do not have a automated way to test. We have to depend on good old human eyes, to make that a little easy we are planning to have a annotated file with expected scopes with comments.
+Unfortunately at the moment we do not have a automated way to test. We have to depend on good old human eyes, to make that a little easy we have `TestGrammar.daml` in the same folder, a annotated file with expected scopes as comments.
 
 ## DAML Specific constructs
 
