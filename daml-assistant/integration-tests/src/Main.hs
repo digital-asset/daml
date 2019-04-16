@@ -87,7 +87,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withCurrentDirectory quickstartDir $ do
           mvnDbTarball <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "integration-tests" </> "integration-tests-mvn.tar")
           Tar.extract (takeDirectory mvnDir) mvnDbTarball
-          callProcess "mvn" [mvnRepoFlag, "compile"]
+          callProcess "mvn" [mvnRepoFlag, "-q", "compile"]
     , testCase "mvn exec:java@run-quickstart" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull1 ->
