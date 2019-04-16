@@ -412,7 +412,7 @@ hazel_repositories(
                 "unix-compat",
                 "0.5.1",
                 "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52",
-                patches = ["@com_github_digital_asset_daml//3rdparty/haskell:unix-compat.patch"],
+                patches = ["@com_github_digital_asset_daml//bazel_tools:unix-compat.patch"],
             ),
         pkgs = packages,
     ),
