@@ -5,7 +5,7 @@ package com.digitalasset.platform.participant.util
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, SimpleString}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.{
   Command => LfCommand,
@@ -22,7 +22,6 @@ import com.digitalasset.ledger.api.domain.{
   ExerciseCommand,
   Command => ApiCommand,
   Commands => ApiCommands,
-  Identifier => ApiIdentifier,
   RecordField => ApiRecordField,
   Value => ApiValue
 }
@@ -97,30 +96,20 @@ object ApiToLfEngine {
 
   def toLfIdentifier(
       packages: Map[PackageId, Package],
-      apiIdent: ApiIdentifier): ApiToLfResult[(Map[PackageId, Package], Identifier)] = {
-    PackageId.fromString(apiIdent.packageId.unwrap) match {
-      case Left(err) => ApiToLfResult.Error(LfError(err))
-      case Right(pkgId) =>
-        packages.get(pkgId) match {
-          case None =>
-            NeedPackage(pkgId, {
-              case None => Error(LfError(s"Could not find package $pkgId"))
-              case Some(pkg) => toLfIdentifier(packages + (pkgId -> pkg), apiIdent)
-            })
-          case Some(pkg) =>
-            (
-              Ref.ModuleName.fromString(apiIdent.moduleName),
-              Ref.DottedName.fromString(apiIdent.entityName)) match {
-              case (Right(moduleName), Right(entityName)) =>
-                Done((packages, Identifier(pkgId, QualifiedName(moduleName, entityName))))
-              case (Left(err), _) => Error(LfError(err))
-              case (_, Left(err)) => Error(LfError(err))
-            }
-        }
+      ident: Ref.Identifier): ApiToLfResult[(Map[PackageId, Package], Identifier)] = {
+    val pkgId = ident.packageId
+    packages.get(pkgId) match {
+      case None =>
+        NeedPackage(pkgId, {
+          case None => Error(LfError(s"Could not find package $pkgId"))
+          case Some(pkg) => toLfIdentifier(packages + (pkgId -> pkg), ident)
+        })
+      case Some(pkg) =>
+        Done(packages -> ident)
     }
   }
 
-  def toOptionLfIdentifier(packages: Map[PackageId, Package], mbApiIdent: Option[ApiIdentifier])
+  def toOptionLfIdentifier(packages: Map[PackageId, Package], mbApiIdent: Option[Ref.Identifier])
     : ApiToLfResult[(Map[PackageId, Package], Option[Identifier])] = {
     mbApiIdent match {
       case None => Done((packages, None))

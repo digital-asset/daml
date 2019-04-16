@@ -3,10 +3,9 @@
 
 package com.digitalasset.platform.server.api.validation
 
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.lfpackage.Ast.Package
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.api.validation.IdentifierValidator
 import com.github.benmanes.caffeine.cache.CaffeineSpec
@@ -19,10 +18,10 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 trait IdentifierResolverLike {
-  def resolveIdentifier(identifier: Identifier): Either[StatusRuntimeException, domain.Identifier]
+  def resolveIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier]
 }
 
-class IdentifierResolver(packageResolver: PackageId => Future[Option[Package]])
+class IdentifierResolver(packageResolver: Ref.PackageId => Future[Option[Package]])
     extends ErrorFactories
     with IdentifierResolverLike {
 
@@ -41,12 +40,10 @@ class IdentifierResolver(packageResolver: PackageId => Future[Option[Package]])
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def buildCache() = {
     Scaffeine(CaffeineSpec.parse(cacheSpec))
-      .buildAsyncFuture[Identifier, domain.Identifier](resolveIdentifierAsync)(
-        DirectExecutionContext)
+      .buildAsyncFuture[Identifier, Ref.Identifier](resolveIdentifierAsync)(DirectExecutionContext)
   }
 
-  def resolveIdentifier(
-      identifier: Identifier): Either[StatusRuntimeException, domain.Identifier] = {
+  def resolveIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] = {
     try {
       Right(Await.result(idCache.get(identifier), 5.seconds))
     } catch {
@@ -59,7 +56,7 @@ class IdentifierResolver(packageResolver: PackageId => Future[Option[Package]])
       Status.ABORTED.withDescription(s"Failed to resolve identifier named $identifier in time. " +
         "Please use module_name and entity_name fields to uniquely identify DAML entities."))
   }
-  private def resolveIdentifierAsync(identifier: Identifier): Future[domain.Identifier] = {
+  private def resolveIdentifierAsync(identifier: Identifier): Future[Ref.Identifier] = {
     IdentifierValidator
       .validateIdentifier(identifier, packageResolver)
       .transform {
@@ -72,6 +69,6 @@ class IdentifierResolver(packageResolver: PackageId => Future[Option[Package]])
 }
 
 object IdentifierResolver {
-  def apply(packageResolver: PackageId => Future[Option[Package]]): IdentifierResolver =
+  def apply(packageResolver: Ref.PackageId => Future[Option[Package]]): IdentifierResolver =
     new IdentifierResolver(packageResolver)
 }

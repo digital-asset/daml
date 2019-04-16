@@ -3,6 +3,7 @@
 
 package com.digitalasset.ledger.api.validation
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.InclusiveFilters
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
@@ -33,7 +34,7 @@ class TransactionFilterValidator(identifierResolver: IdentifierResolver) {
       .fold[Either[StatusRuntimeException, domain.Filters]](Right(domain.Filters.noFilter)) {
         inclusive =>
           val validatedIdents =
-            Traverse[List].traverseU[Identifier, Either[StatusRuntimeException, domain.Identifier]](
+            Traverse[List].traverseU[Identifier, Either[StatusRuntimeException, Ref.Identifier]](
               inclusive.templateIds.toList)((id: Identifier) =>
               identifierResolver.resolveIdentifier(id))
           validatedIdents.map(ids => domain.Filters(Some(InclusiveFilters(ids.toSet))))

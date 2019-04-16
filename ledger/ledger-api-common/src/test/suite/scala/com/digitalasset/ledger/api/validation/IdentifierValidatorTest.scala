@@ -36,14 +36,15 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils {
       requestMustFailWith(
         sut.validateIdentifier(api.identifier.withPackageId(""), noneResolver),
         INVALID_ARGUMENT,
-        "Missing field: package_id")
+        "Invalid field package_id: Expected a non-empty string")
     }
 
     "not allow missing names" in {
       requestMustFailWith(
         sut.validateIdentifier(api.identifier.withModuleName("").withEntityName(""), noneResolver),
         INVALID_ARGUMENT,
-        "Missing field: module_name")
+        "Invalid field module_name: Expected a non-empty string"
+      )
     }
 
     "convert a valid deprecated identifier" in {

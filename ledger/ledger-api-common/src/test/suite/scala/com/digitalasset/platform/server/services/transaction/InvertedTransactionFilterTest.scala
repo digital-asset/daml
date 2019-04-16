@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.server.services.transaction
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.DomainMocks._
 import com.digitalasset.ledger.api.domain._
 import org.scalatest.{Matchers, OptionValues, WordSpec}
@@ -10,16 +11,19 @@ import org.scalatest.{Matchers, OptionValues, WordSpec}
 class InvertedTransactionFilterTest extends WordSpec with Matchers with OptionValues {
 
   private def invert(
-      transactionFilter: TransactionFilter): InvertedTransactionFilter[Identifier, Party] =
+      transactionFilter: TransactionFilter): InvertedTransactionFilter[Ref.Identifier, Party] =
     InvertedTransactionFilter.extractFrom(transactionFilter)
 
-  private def invert(map: Map[Party, Filters]): InvertedTransactionFilter[Identifier, Party] =
+  private def invert(map: Map[Party, Filters]): InvertedTransactionFilter[Ref.Identifier, Party] =
     invert(TransactionFilter(map))
 
   private val filter: Map[Party, Filters] => TransactionFilter = TransactionFilter.apply
 
   private val party2 = Party("party2")
-  private val identifier2 = identifier.copy(entityName = "entity2")
+  private val identifier2 =
+    identifier.copy(
+      qualifiedName =
+        identifier.qualifiedName.copy(name = Ref.DottedName.assertFromString("entity2")))
   private val filterForIdentifier = Filters(InclusiveFilters(Set(identifier)))
   private val filterForIdentifier2 = Filters(InclusiveFilters(Set(identifier2)))
 

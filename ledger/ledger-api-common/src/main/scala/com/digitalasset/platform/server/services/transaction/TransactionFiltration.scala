@@ -3,10 +3,10 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier => LfIdentifier, Party => LfParty}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Party => LfParty}
 import com.digitalasset.daml.lf.transaction.Node.GenNode
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node}
-import com.digitalasset.ledger.api.domain.{Identifier, PackageId, Party, TransactionFilter}
+import com.digitalasset.ledger.api.domain.{Party, TransactionFilter}
 import scalaz.syntax.tag._
 
 import scala.collection.{breakOut, immutable, mutable}
@@ -14,7 +14,7 @@ import scala.collection.{breakOut, immutable, mutable}
 // This will be tested transitively by the semantic test suite.
 object TransactionFiltration {
 
-  private def templateId[I, C, V](node: GenNode[I, C, V]): Option[LfIdentifier] = node match {
+  private def templateId[I, C, V](node: GenNode[I, C, V]): Option[Identifier] = node match {
     case l: Node.NodeLookupByKey[I @unchecked, V @unchecked] => Some(l.templateId)
     case c: Node.NodeCreate[I @unchecked, V @unchecked] => Some(c.coinst.template)
     case e: Node.NodeExercises[I @unchecked, C @unchecked, V @unchecked] => Some(e.templateId)
@@ -33,12 +33,6 @@ object TransactionFiltration {
           (templateId, parties union invertedTransactionFilter.globalSubscribers)
       }
       .withDefaultValue(invertedTransactionFilter.globalSubscribers)
-
-  private def toApiIdentifier(id: LfIdentifier): Identifier =
-    Identifier(
-      PackageId(id.packageId.underlyingString),
-      id.qualifiedName.module.toString(),
-      id.qualifiedName.name.toString())
 
   implicit class RichTransactionFilter(val transactionFilter: TransactionFilter) extends AnyVal {
 
@@ -64,7 +58,7 @@ object TransactionFiltration {
           templateId(node).foreach {
             tpl =>
               val requestingParties =
-                partiesByTemplate(toApiIdentifier(tpl)).map(p => LfParty.assertFromString(p.unwrap))
+                partiesByTemplate(tpl).map(p => LfParty.assertFromString(p.unwrap))
               val inheritedWitnesses = inheritedWitnessesByNode(nodeId)
               val explicitWitnesses = explicitWitnessesForNode(node)
               val allWitnesses = inheritedWitnesses union explicitWitnesses

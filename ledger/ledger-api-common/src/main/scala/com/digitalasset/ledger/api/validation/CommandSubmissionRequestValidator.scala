@@ -4,7 +4,7 @@
 package com.digitalasset.ledger.api.validation
 
 import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.lf.data.{SortedLookupList, FrontStack}
+import com.digitalasset.daml.lf.data.{FrontStack, Ref, SortedLookupList}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.Value.VariantValue
 import com.digitalasset.ledger.api.messages.command.submission
@@ -172,7 +172,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
   }
 
   private def validateOptionalIdentifier(
-      variantIdO: Option[Identifier]): Either[StatusRuntimeException, Option[domain.Identifier]] = {
+      variantIdO: Option[Identifier]): Either[StatusRuntimeException, Option[Ref.Identifier]] = {
     variantIdO
       .map { variantId =>
         identifierResolver.resolveIdentifier(variantId).map(Some.apply)

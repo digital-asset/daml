@@ -3,7 +3,8 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.ledger.api.domain.{Identifier, Party, TransactionFilter}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.ledger.api.domain.{Party, TransactionFilter}
 
 import scala.collection.{breakOut, immutable, mutable}
 
@@ -27,17 +28,17 @@ private final case class InvertedTransactionFilter[I, P](
 
 }
 private object InvertedTransactionFilter {
-  val empty: InvertedTransactionFilter[Identifier, Party] =
+  val empty: InvertedTransactionFilter[Ref.Identifier, Party] =
     InvertedTransactionFilter(Map.empty, Set.empty)
 
-  private type TF = InvertedTransactionFilter[Identifier, Party]
+  private type TF = InvertedTransactionFilter[Ref.Identifier, Party]
 
   // implementation is way simpler with mutable collections
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def extractFrom(
-      transactionFilter: TransactionFilter): InvertedTransactionFilter[Identifier, Party] = {
-    val specific = new mutable.HashMap[Identifier, mutable.Set[Party]]()
-    with mutable.MultiMap[Identifier, Party]
+      transactionFilter: TransactionFilter): InvertedTransactionFilter[Ref.Identifier, Party] = {
+    val specific = new mutable.HashMap[Ref.Identifier, mutable.Set[Party]]()
+    with mutable.MultiMap[Ref.Identifier, Party]
     val global = mutable.Set[Party]()
 
     transactionFilter.filtersByParty.foreach {
