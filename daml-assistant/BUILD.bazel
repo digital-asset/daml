@@ -41,6 +41,7 @@ da_haskell_binary(
         "extra",
         "filepath",
         "http-client",
+        "http-client-tls",
         "http-conduit",
         "lens",
         "main-tester",

@@ -12,8 +12,8 @@ module DAML.Assistant.Install.Github
 import DAML.Assistant.Types
 import DAML.Assistant.Util
 import Data.Aeson
-import Network.HTTP.Simple
-import Network.HTTP.Client ( redirectCount )
+import Network.HTTP.Client
+import Network.HTTP.Client.TLS
 import Control.Exception.Safe
 import Control.Monad
 import Data.Either.Extra
@@ -55,28 +55,24 @@ tagToVersion (Tag t) =
 --
 -- So we take that URL to get the tag, and from there the version of
 -- the latest stable release.
-getLatestVersion :: IO SdkVersion
+getLatestVersion ::  IO SdkVersion
 getLatestVersion = do
-    request <- parseRequest "GET https://github.com/digital-asset/daml/releases/latest"
-    response <- httpNoBody request { redirectCount = 0 }
 
-    when (getResponseStatusCode response /= 302) $
-        failed "Expected response status 302."  response
+    manager <- newTlsManager -- TODO: share a single manager throughout the daml install process.
+    request <- parseRequest "HEAD https://github.com/digital-asset/daml/releases/latest"
+    finalRequest <- requiredIO "Failed to get latest SDK version from GitHub." $
+        withResponseHistory request manager $ pure . hrFinalRequest
 
-    case getResponseHeader "Location" response of
-        [loc] ->
-            let (path, tag) = T.breakOnEnd "/" (T.decodeUtf8 loc) in
-            if path /= "https://github.com/digital-asset/daml/releases/tag/"
-                then failed "Unexpected redirect location." response
-                else fromRightM throwIO (tagToVersion (Tag tag))
+    let pathText = T.decodeUtf8 (path finalRequest)
+        (parent, tag) = T.breakOnEnd "/" pathText
+        prefix = "/digital-asset/daml/releases/tag/"
 
-        [] -> failed "Location header is missing." response
-        _  -> failed "Location header appears more than once." response
+    when (parent /= prefix) $ do
+        throwIO $ assistantErrorBecause
+            "Failed to get latest SDK version from GitHub."
+            ("Unexpected final HTTP redirect location.\n    Expected: " <> prefix <> "TAG\n    Got: " <> pathText)
 
-    where
-        failed msg response =
-            throwIO $ assistantErrorBecause "Failed to get latest SDK version from GitHub."
-                (msg <> " Response: " <> pack (show response))
+    fromRightM throwIO (tagToVersion (Tag tag))
 
 
 -- | OS-specific part of the asset name.
