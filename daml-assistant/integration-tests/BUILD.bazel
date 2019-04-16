@@ -2,22 +2,78 @@
 # SPDX-License-Identifier: Apache-2.0
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
 
+genrule(
+    name = "integration-tests-mvn",
+    outs = ["integration-tests-mvn.tar"],
+    srcs = [
+        "@mvn_nix//:bin/mvn",
+        "//:component-version",
+
+        "//daml-lf/archive:daml_lf_archive_java.jar",
+        "//daml-lf/archive:daml_lf_archive_java_pom.xml",
+
+        "//language-support/java/bindings:libbindings-java.jar",
+        "//language-support/java/bindings:bindings-java_pom.xml",
+
+        "//language-support/java/bindings-rxjava:libbindings-rxjava.jar",
+        "//language-support/java/bindings-rxjava:bindings-rxjava_pom.xml",
+
+        "//language-support/java/codegen:shaded_binary.jar",
+        "//language-support/java/codegen:shaded_binary_pom.xml",
+
+        "//ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar",
+        "//ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml",
+
+        "//docs:quickstart-java.tar.gz",
+    ],
+    cmd = """
+      set -euxo pipefail
+      TMP_DIR=$$(mktemp -d)
+      MVN_DB="$$TMP_DIR/m2"
+      VERSION=$$(cat $(location //:component-version))
+      install_mvn() {
+          $(location @mvn_nix//:bin/mvn) -q install:install-file \
+          -Dmaven.repo.local=$$MVN_DB \
+          "-DgroupId=$$1" \
+          "-DartifactId=$$2" \
+          "-Dfile=$$3" \
+          "-DpomFile=$$4" \
+          -Dpackaging=jar \
+          -Dversion=$$VERSION
+      }
+      tar xf $(location //docs:quickstart-java.tar.gz) -C "$$TMP_DIR"
+      install_mvn \
+        "com.digitalasset" "daml-lf-archive" \
+        $(location //daml-lf/archive:daml_lf_archive_java.jar) \
+        $(location //daml-lf/archive:daml_lf_archive_java_pom.xml)
+      install_mvn \
+        "com.daml.ledger" "bindings-java" \
+        $(location //language-support/java/bindings:libbindings-java.jar) \
+        $(location //language-support/java/bindings:bindings-java_pom.xml)
+      install_mvn \
+        "com.daml.ledger" "bindings-rxjava" \
+        $(location //language-support/java/bindings-rxjava:libbindings-rxjava.jar) \
+        $(location //language-support/java/bindings-rxjava:bindings-rxjava_pom.xml)
+      install_mvn \
+        "com.daml.java" "codegen" \
+        $(location //language-support/java/codegen:shaded_binary.jar) \
+        $(location //language-support/java/codegen:shaded_binary_pom.xml)
+      install_mvn \
+        "com.digitalasset.ledger-api" "rs-grpc-bridge" \
+        $(location //ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar) \
+        $(location //ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml)
+      $(location @mvn_nix//:bin/mvn) -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
+      tar cf $(location integration-tests-mvn.tar) -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB)
+    """,
+)
+
+
 da_haskell_test(
     name = "integration-tests",
     timeout = "long",
     srcs = ["src/Main.hs"],
     data = [
-        "//:component-version",
-        "//daml-lf/archive:daml_lf_archive_java.jar",
-        "//daml-lf/archive:daml_lf_archive_java_pom.xml",
-        "//language-support/java/bindings:bindings-java",
-        "//language-support/java/bindings:bindings-java_pom.xml",
-        "//language-support/java/bindings-rxjava",
-        "//language-support/java/bindings-rxjava:bindings-rxjava_pom.xml",
-        "//language-support/java/codegen:shaded_binary.jar",
-        "//language-support/java/codegen:shaded_binary_pom.xml",
-        "//ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar",
-        "//ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml",
+        ":integration-tests-mvn",
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java",
         "@mvn_nix//:bin/mvn",
@@ -35,6 +91,7 @@ da_haskell_test(
         "main-tester",
         "network",
         "process",
+        "tar",
         "tasty",
         "tasty-hunit",
         "text",

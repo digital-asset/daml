@@ -3,11 +3,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main (main) where
 
+import qualified Codec.Archive.Tar as Tar
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad
-import qualified Data.Text as T
 import Data.Typeable
 import Network.HTTP.Client
 import Network.HTTP.Types
@@ -27,8 +27,6 @@ import DamlHelper
 main :: IO ()
 main =
     withTempDir $ \tmpDir -> do
-    compVersionFile <- locateRunfiles (mainWorkspace </> "COMPONENT-VERSION")
-    compVersion <- T.unpack . T.strip . T.pack <$> readFileUTF8 compVersionFile
     -- We manipulate global state via the working directory and
     -- the environment so running tests in parallel will cause trouble.
     setEnv "TASTY_NUM_THREADS" "1"
@@ -39,10 +37,10 @@ main =
     withEnv
         [ ("DAML_HOME", Just damlDir)
         , ("PATH", Just $ (damlDir </> "bin") <> ":" <> javaPath <> ":" <> mvnPath <> ":" <> oldPath)
-        ] $ defaultMain (tests compVersion tmpDir)
+        ] $ defaultMain (tests tmpDir)
 
-tests :: String -> FilePath -> TestTree
-tests compVersion tmpDir = testGroup "Integration tests"
+tests :: FilePath -> TestTree
+tests tmpDir = testGroup "Integration tests"
     [ testCase "install" $ do
           releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
           createDirectory tarballDir
@@ -51,14 +49,14 @@ tests compVersion tmpDir = testGroup "Integration tests"
     , testCase "daml version" $ callProcessQuiet "daml" ["version"]
     , testCase "daml --help" $ callProcessQuiet "daml" ["--help"]
     , testCase "daml new --list" $ callProcessQuiet "daml" ["new", "--list"]
-    , quickstartTests compVersion quickstartDir mvnDir
+    , quickstartTests quickstartDir mvnDir
     ]
     where quickstartDir = tmpDir </> "quickstart"
           mvnDir = tmpDir </> "m2"
           tarballDir = tmpDir </> "tarball"
 
-quickstartTests :: String -> FilePath -> FilePath -> TestTree
-quickstartTests compVersion quickstartDir mvnDir = testGroup "quickstart"
+quickstartTests :: FilePath -> FilePath -> TestTree
+quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     [ testCase "daml new" $
           callProcessQuiet "daml" ["new", quickstartDir]
     , testCase "daml init" $ withCurrentDirectory quickstartDir $
@@ -87,32 +85,9 @@ quickstartTests compVersion quickstartDir mvnDir = testGroup "quickstart"
                   (\s -> connect s (addrAddress addr))
     , testCase "mvn compile" $
       withCurrentDirectory quickstartDir $ do
-          installMvn
-              ("daml-lf" </> "archive" </> "daml_lf_archive_java.jar")
-              ("daml-lf" </> "archive" </> "daml_lf_archive_java_pom.xml")
-              "com.digitalasset"
-              "daml-lf-archive"
-          installMvn
-              ("language-support" </> "java" </> "bindings" </> "libbindings-java.jar")
-              ("language-support" </> "java" </> "bindings" </> "bindings-java_pom.xml")
-              "com.daml.ledger"
-              "bindings-java"
-          installMvn
-              ("language-support" </> "java" </> "bindings-rxjava" </> "libbindings-rxjava.jar")
-              ("language-support" </> "java" </> "bindings-rxjava" </> "bindings-rxjava_pom.xml")
-              "com.daml.ledger"
-              "bindings-rxjava"
-          installMvn
-              ("language-support" </> "java" </> "codegen" </> "shaded_binary.jar")
-              ("language-support" </> "java" </> "codegen" </> "shaded_binary_pom.xml")
-              "com.daml.java"
-              "codegen"
-          installMvn
-              ("ledger-api" </> "rs-grpc-bridge" </> "librs-grpc-bridge.jar")
-              ("ledger-api" </> "rs-grpc-bridge" </> "rs-grpc-bridge_pom.xml")
-              "com.digitalasset.ledger-api"
-              "rs-grpc-bridge"
-          callProcess "mvn" [mvnRepoFlag, "-q", "compile"]
+          mvnDbTarball <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "integration-tests" </> "integration-tests-mvn.tar")
+          Tar.extract (takeDirectory mvnDir) mvnDbTarball
+          callProcess "mvn" [mvnRepoFlag, "compile"]
     , testCase "mvn exec:java@run-quickstart" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull1 ->
@@ -136,21 +111,6 @@ quickstartTests compVersion quickstartDir mvnDir = testGroup "quickstart"
     ]
     where
         mvnRepoFlag = "-Dmaven.repo.local=" <> mvnDir
-        installMvn jarPath pomPath groupId artifactId = do
-            jar <- locateRunfiles (mainWorkspace </> jarPath)
-            pom <- locateRunfiles (mainWorkspace </> pomPath)
-            callProcess "mvn"
-                [ "install:install-file",
-                  mvnRepoFlag
-                , "-q"
-                , "-Dfile=" <> jar
-                , "-DpomFile=" <> pom
-                , "-DgroupId=" <> groupId
-                , "-DartifactId=" <> artifactId
-                , "-Dpackaging=jar"
-                , "-Dversion=" <> compVersion
-                ]
-
 
 -- | Like call process but hides stdout.
 callProcessQuiet :: FilePath -> [String] -> IO ()
