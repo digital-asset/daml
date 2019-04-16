@@ -26,13 +26,16 @@ function build-partial() {
         //:git-revision `
         //compiler/daml-lf-ast/... `
         //daml-lf/interface/... `
-        //language-support/java/bindings/...
+        //language-support/java/bindings/... `
+        //navigator/backend/... `
+        //navigator/frontend/...
 
     bazel shutdown
 
     bazel test `
         //daml-lf/interface/... `
-        //language-support/java/bindings/...
+        //language-support/java/bindings/... `
+        //navigator/backend/...
 }
 
 function build-full() {
@@ -68,6 +71,8 @@ function build-full() {
         //ledger/ledger-api-domain/... `
         //ledger/ledger-api-server-example `
         //ledger-api/rs-grpc-akka/... `
+        //navigator/backend/... `
+        //navigator/frontend/... `
         //pipeline/samples/bazel/java/... `
         //pipeline/samples/bazel/haskell/...
 
@@ -88,6 +93,7 @@ function build-full() {
         //ledger/ledger-api-client/... `
         //ledger/ledger-api-common/... `
         //ledger-api/rs-grpc-akka/... `
+        //navigator/backend/... `
         //pipeline/samples/bazel/java/... `
         //pipeline/samples/bazel/haskell/...
 }
