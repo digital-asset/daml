@@ -50,6 +50,7 @@ data Env = Env
 
 data BuiltinCommand
     = Version
+    | Exec String [String]
     | Install InstallOptions
     deriving (Eq, Show)
 
