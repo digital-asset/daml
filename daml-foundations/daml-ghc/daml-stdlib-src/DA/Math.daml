@@ -3,10 +3,10 @@
 
 daml 1.2
 -- | Math - Utility Math functions for `Decimal`
--- | The this library is designed to give good precision, typically giving 9 correct decimal places.
--- | The numerical algorithms used are efficient, but still run with many iterations to achieve
--- | that precision. Their use is not advised in performance critical contexts where precision
--- | is a secondary concern.
+-- The this library is designed to give good precision, typically giving 9 correct decimal places.
+-- The numerical algorithms run with many iterations to achieve that precision and are interpreted
+-- by the DAML runtime so they are not performant. Their use is not advised in performance critical
+-- contexts.
 module DA.Math
 ( (**)
 , exp
@@ -128,8 +128,8 @@ tan x = s / c
 pi = 3.1415926536
 
 -- | `cordic` is an implementation of the CORDIC algorithm.
--- | See https://en.wikipedia.org/wiki/CORDIC
--- | `cordic n r == (sin(r), cos(r))` computed to n iterations
+-- See https://en.wikipedia.org/wiki/CORDIC
+-- `cordic n r == (sin(r), cos(r))` computed to n iterations
 cordic: Int -> Decimal -> (Decimal, Decimal)
 cordic n r
   | r < 0.0 = cordic n (r + 2.0 * pi)
