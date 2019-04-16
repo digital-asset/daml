@@ -31,12 +31,6 @@ object LedgerApiTestTool {
     // FIXME(TW) daml-prim location has just become deprecated
     val testResources = List("/ledger/ledger-api-integration-tests/SemanticTests.dar")
 
-    // a blacklist of tests that are currently failing
-    val knownFailures: Set[String] = Set(
-      // daml-on-x reference server should pass this test.
-      // "Test:test_divulgence_of_token" // FIXME https://github.com/DACH-NY/daml/issues/1323
-    )
-
     val config = argParser
       .parse(args, defaultConfig)
       .getOrElse(sys.exit(1))
@@ -75,7 +69,6 @@ object LedgerApiTestTool {
             pkgId,
             packages)
           names
-            .filterNot(n => knownFailures.contains(n.toString))
             .foreach { name =>
               println(s"Testing scenario: $name")
               val _ = try {
