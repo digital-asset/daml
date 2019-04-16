@@ -1,13 +1,10 @@
 # DAML Syntax Highlighter Dev Guide
-
 In depth explanation syntax highlighting can be found on VS Code [website](https://code.visualstudio.com/api/language-extensions/syntax-highlight-guide). This document contains a short guide and explanations of choices made for DAML plugin.
 
 ## Overview
-
 VS code uses [TextMate Grammar](https://macromates.com/manual/en/language_grammars). File processing is based on [Oniguruma regular expressions](https://macromates.com/manual/en/regular_expressions). These are generally written as JSON or [PList format](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/PropertyLists/UnderstandXMLPlist/UnderstandXMLPlist.html).
 
 ## Grammar File Format.
-
 VS Code supports PList, JSON and YAML files to specify grammar. DAML VS code extension makes use of PList, as the haskell [extension](https://github.com/JustusAdam/language-haskell) and also using Plist makes having comments easy at the expense of making it more verbose.
 
 
