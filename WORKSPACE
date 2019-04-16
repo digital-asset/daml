@@ -169,32 +169,6 @@ dev_env_tool(
     win_tool = "msys2-20180531",
 )
 
-# c2hs
-nixpkgs_package(
-    name = "c2hs",
-    attribute_path = "ghcWithC2hs",
-    build_file_content = '''
-
-package(default_visibility = [ "//visibility:public" ])
-
-filegroup(
-    name = "bin",
-    srcs = ["bin/c2hs"],
-)
-exports_files(["bin/ghc-pkg"])
-  ''',
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps + [
-        "//nix:ghc.nix",
-        "//nix:with-packages-wrapper.nix",
-        "//nix:overrides/ghc-8.6.4.nix",
-        "//nix:overrides/c2hs-0.28.6.nix",
-        "//nix:overrides/ghc-8.6.3-binary.nix",
-        "//nix:overrides/language-c-0.8.2.nix",
-    ],
-    repositories = dev_env_nix_repos,
-)
-
 load(
     "@io_tweag_rules_haskell//haskell:haskell.bzl",
     "haskell_register_ghc_bindists",
