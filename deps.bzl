@@ -27,8 +27,8 @@
 # be resolvable from external workspaces otherwise.
 
 rules_scala_version = "6f8ee3d951d2ac6154356314600f6edb4eb5df8b"
-rules_haskell_version = "4bebd7a72daf56a0f2859599741050d80bf179dc"
-rules_haskell_sha256 = "c62d44c2d78125ac972b50811b1c21096c37399efb75d31ea454ad52d76830a2"
+rules_haskell_version = "ac1d2c17d873d48dde9d307b7b8913cd1d2970ec"
+rules_haskell_sha256 = "e2a9315a46f5edd099880c804e13dd8a743e02495eada02a885b2817f4d9ed8d"
 rules_nixpkgs_version = "40b5a9f23abca57f364c93245c7451206ef1a855"
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
