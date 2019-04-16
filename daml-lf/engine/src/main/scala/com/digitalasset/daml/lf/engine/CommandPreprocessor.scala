@@ -3,6 +3,8 @@
 
 package com.digitalasset.daml.lf.engine
 
+import java.util
+
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.lfpackage.Ast._
@@ -17,9 +19,17 @@ private[engine] object CommandPreprocessor {
   def apply(compiledPackages: ConcurrentCompiledPackages): CommandPreprocessor = {
     new CommandPreprocessor(compiledPackages)
   }
+
+  private def ArrayList[X](as: X*): util.ArrayList[X] = {
+    val a = new util.ArrayList[X](as.length)
+    as.foreach(a.add)
+    a
+  }
 }
 
 private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPackages) {
+
+  import CommandPreprocessor.ArrayList
 
   // we use this for easier error handling in translateValues
   private[this] case class CommandPreprocessingException(err: Error)

@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.engine
 
+import java.util
 import java.io.File
 
 import com.digitalasset.daml.lf.data.Ref._
@@ -32,8 +33,7 @@ import scala.language.implicitConversions
   ))
 class EngineTest extends WordSpec with Matchers {
 
-  implicit def qualifiedNameStr(s: String): QualifiedName = QualifiedName.assertFromString(s)
-  implicit def simpleStr(s: String): SimpleString = SimpleString.assertFromString(s)
+  import EngineTest._
 
   private val List(alice, bob, clara, party) =
     List("Alice", "Bob", "Clara", "Party").map(SimpleString.assertFromString)
@@ -861,6 +861,19 @@ class EngineTest extends WordSpec with Matchers {
       val Right(tx) = runExample(fetcher2StrCid, party)
       txFetchActors(tx) shouldBe Set()
     }
+  }
+
+}
+
+object EngineTest {
+
+  private implicit def qualifiedNameStr(s: String): QualifiedName =
+    QualifiedName.assertFromString(s)
+
+  private def ArrayList[X](as: X*): util.ArrayList[X] = {
+    val a = new util.ArrayList[X](as.length)
+    as.foreach(a.add)
+    a
   }
 
 }
