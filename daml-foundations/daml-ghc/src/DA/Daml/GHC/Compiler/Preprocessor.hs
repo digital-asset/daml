@@ -84,11 +84,11 @@ checkAmbiguousDataTypes (GHC.L _ m) =
       | otherwise
       = Nothing
       where
-        message :: String =
-          "Ambiguous data type declaration. " <> "Write " <>
-          baseDeclStr <> " {} for a record or " <>
-          baseDeclStr <> " () for a variant."
-        baseDeclStr :: String = showSDocUnsafe (ppr decl)
+        message =
+          "Ambiguous data type declaration. " ++ "Write " ++
+          baseDeclStr ++ " {} for a record or " ++
+          baseDeclStr ++ " () for a variant."
+        baseDeclStr = showSDocUnsafe (ppr decl)
 
 
 checkUnlabelledConArgs :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
