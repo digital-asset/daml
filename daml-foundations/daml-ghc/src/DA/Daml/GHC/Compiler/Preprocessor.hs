@@ -81,14 +81,14 @@ checkAmbiguousDataTypes (GHC.L _ m) =
       | GHC.TyClD _ GHC.DataDecl{tcdDataDefn=GHC.HsDataDefn{dd_cons=[con]}} <- decl -- single con data type
       , GHC.PrefixCon [] <- GHC.con_args (GHC.unLoc con) -- zero arguments
       = Just (ss, message)
+      | otherwise
+      = Nothing
       where
         message =
           "Ambiguous data type declaration. " <> "Write " <>
           baseDeclStr <> " {} for a record or " <>
           baseDeclStr <> " () for a variant."
         baseDeclStr = showSDocUnsafe (ppr decl)
-      | otherwise
-      = Nothing
 
 
 checkUnlabelledConArgs :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
