@@ -36,7 +36,7 @@ steps:
     displayName: 'Publish the bazel execution logs'
     inputs:
       pathtoPublish: '$(Build.ArtifactStagingDirectory)'
-      artifactName: 'Bazel execution logs'
+      artifactName: 'Test logs'
 
   - task: PublishBuildArtifacts@1
     condition: failed()
