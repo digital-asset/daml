@@ -24,24 +24,6 @@ da_haskell_binary(
 )
 
 da_haskell_binary(
-    name = "da-hs-damlc-app-deprecated",
-    srcs = ["src/Main.hs"],
-    data = [
-        "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-foundations/daml-ghc/package-database/deprecated:package-db",
-    ],
-    hazel_deps = [
-        "base",
-    ],
-    linkstatic = True,
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//daml-foundations/daml-tools/da-hs-daml-cli",
-    ],
-)
-
-da_haskell_binary(
     name = "damlc_bootstrap",
     srcs = ["src/Main.hs"],
     hazel_deps = [
