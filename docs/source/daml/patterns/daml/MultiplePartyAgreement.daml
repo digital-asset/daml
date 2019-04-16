@@ -11,59 +11,81 @@ import Utilities
 import DA.List
 
 -- start snippet: agreement template
-template Agreement
+template ContractPlaceholder
   with
     signatories: [Party]
   where
     signatory signatories
+  -- The rest of the template to be agreed to would follow here
 -- end snippet: agreement template
 
 -- start snippet: first half pending template
 template Pending
   with
-    agree: Agreement
-    signed: [Party]
-    toSign: [Party]
+    finalContract: ContractPlaceholder
+    alreadySigned: [Party]
   where
-    signatory signed
-    observer toSign
+    signatory alreadySigned
+    observer finalContract.signatories
+    ensure
+      -- There mustn't be overlap between signed and toSign:
+      unique (toSign ++ alreadySigned)
+      -- Don't miss any signatories from the Agreement:
+      && (sort finalContract.signatories == sort (alreadySigned ++ toSign))
+
+    -- The parties who need to sign is the finalContract.signatories with alreadySigned filtered out
+    let toSign = filter (`notElem` alreadySigned) finalContract.signatories
 
     choice Sign : ContractId Pending with
         signer : Party
       controller signer
         do
+          -- Check the controller is in the toSign list, and if they are, sign the Pending contract
           assert (signer `elem` toSign)
-          create this with signed = signer :: signed, toSign = delete signer toSign
+          create this with alreadySigned = signer :: alreadySigned
     -- end snippet: first half pending template
     -- start snippet: second half pending template
-    choice Finalize : ContractId Agreement with
+    choice Finalize : ContractId ContractPlaceholder with
         signer : Party
       controller signer
         do
-          assert (sort signed == sort agree.signatories)
-          create agree
+          -- Check that all the required signatories have signed Pending
+          assert (sort alreadySigned == sort finalContract.signatories)
+          create finalContract
     -- end snippet: second half pending template
 
-multiplePartyAgreementTest : Scenario (ContractId Agreement)  -- test
+multiplePartyAgreementTest : Scenario (ContractId ContractPlaceholder)  -- test
 multiplePartyAgreementTest = do
 
   -- start snippet: testing setup
   parties@[person1, person2, person3, person4] <- makePartiesFrom ["Alice", "Bob", "Clare", "Dave"]
-  let agree = Agreement with signatories = parties
+  let finalContract = ContractPlaceholder with signatories = parties
 
+  -- Parties cannot create a contract already signed by someone else
+  initialFailTest <- person1 `submitMustFail` do
+    create Pending with finalContract; alreadySigned = [person1, person2]
+
+  -- Any party can create a Pending contract provided they list themselves as the only signatory
   pending <- person1 `submit` do
-    create Pending with agree; signed = [head parties]; toSign = tail parties
+    create Pending with finalContract; alreadySigned = [person1]
   -- end snippet: testing setup
   -- start snippet: testing add agreements
+  -- Each signatory of the finalContract can Sign the Pending contract
   pending <- person2 `submit` do
     exercise pending Sign with signer = person2
   pending <- person3 `submit` do
     exercise pending Sign with signer = person3
   pending <- person4 `submit` do
     exercise pending Sign with signer = person4
+
+  -- A party can't sign the Pending contract twice
+  pendingFailTest <- person3 `submitMustFail` do
+    exercise pending Sign with signer = person3
+  -- A party can't sign on behalf of someone else
   pendingFailTest <- person3 `submitMustFail` do
     exercise pending Sign with signer = person4
   -- end snippet: testing add agreements
+
   -- start snippet: testing finalize
   person1 `submit` do
     exercise pending Finalize with signer = person1
