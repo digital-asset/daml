@@ -3,9 +3,9 @@
 
 {-# LANGUAGE OverloadedStrings   #-}
 
-module DA.Cli.Damli.Command.Damldoc(cmdDamlDoc, cmdRenderDoc) where
+module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc, cmdRenderDoc) where
 
-import           DA.Cli.Damli.Base(Command)
+import           DA.Cli.Damlc.Base(Command)
 import           DA.Cli.Options
 import           DA.Daml.GHC.Damldoc.Driver
 

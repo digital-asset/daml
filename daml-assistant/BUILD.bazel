@@ -32,6 +32,7 @@ da_haskell_binary(
     name = "daml",
     srcs = native.glob(["src/**/*.hs"]),
     hazel_deps = [
+        "aeson",
         "base",
         "bytestring",
         "conduit",
@@ -77,6 +78,7 @@ da_haskell_test(
     name = "test",
     srcs = native.glob(["src/**/*.hs"]),
     hazel_deps = [
+        "aeson",
         "base",
         "bytestring",
         "conduit",

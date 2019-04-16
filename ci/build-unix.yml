@@ -3,7 +3,6 @@ parameters:
 
 steps:
   - checkout: self
-    persistCredentials: true
 
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
@@ -40,28 +39,21 @@ steps:
 
   - bash: ci/release.sh
     displayName: 'Release'
-    condition: eq(variables['System.PullRequest.IsFork'], 'False')
+    condition: and(succeeded(),
+                   eq(variables['System.PullRequest.IsFork'], 'False'))
     env:
       # to connect to bintray
       JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)
+    name: release
   - bash: |
-      set -euxo pipefail
-      git tag v$(release_tag)
-      git push origin v$(release_tag)
-      cp bazel-genfiles/release/sdk-release-tarball.tar.gz ./daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz
-    condition: eq(variables['has_released'], 'true')
-  - task: GitHubRelease@0
-    condition: eq(variables['has_released'], 'true')
+      set -euo pipefail
+      ARTIFACT=daml-sdk-$(release_tag)-${{ parameters.name }}
+      cp bazel-genfiles/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$ARTIFACT
+      echo "##vso[task.setvariable variable=artifact;isOutput=true]$ARTIFACT"
+    name: publish
+    condition: eq(variables['release.has_released'], 'true')
+  - task: PublishPipelineArtifact@0
+    condition: eq(variables['release.has_released'], 'true')
     inputs:
-      gitHubConnection: 'garyverhaegen-da'
-      repositoryName: '$(Build.Repository.Name)'
-      action: 'create'
-      target: '$(Build.SourceVersion)'
-      tagSource: 'auto'
-      assets: './daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz'
-      assetUploadMode: 'replace'
-      addChangeLog: false
-      isDraft: true
-  - bash: |
-      rm ./daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz
-    condition: eq(variables['has_released'], 'true')
+      targetPath: $(Build.StagingDirectory)/$(publish.artifact)
+      artifactName: $(publish.artifact)

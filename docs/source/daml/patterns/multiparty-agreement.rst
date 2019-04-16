@@ -27,16 +27,18 @@ Agreement contract
     :end-before: -- end snippet: agreement template
 
 Pending contract
-    The *Pending* contract needs to contain the contents of the proposed *Agreement* contract so that parties know what they are agreeing to, and when all parties have signed, the *Agreement* contract can be created.
+    The *Pending* contract needs to contain the contents of the proposed *Agreement* contract, as a parameter. This is so that parties know what they are agreeing to, and also so that when all parties have signed, the *Agreement* contract can be created.
 
-    The *Pending* contract has the same list of signatories as the *Agreement* contract. Each party of the *Agreement* has a choice(s) to add their signature.
+    The *Pending* contract has a list of parties who have signed it, and a list of parties who have yet to sign it. If you add these lists together, it has to be the same set of parties as the ``signatories`` of the *Agreement* contract.
+
+    All of the ``toSign`` parties have the choice to ``Sign``. This choice checks that the party is indeed a member of ``toSign``, then creates a new instance of the *Pending* conract where they have been moved to the ``signed`` list.
 
     .. literalinclude:: daml/MultiplePartyAgreement.daml
         :language: daml
         :start-after: -- start snippet: first half pending template
         :end-before: -- end snippet: first half pending template
 
-    One of the stakeholders acts as the coordinator, and has a choice to create the final Agreement contract once all parties have signed.
+    Once all of the parties have signed, any of them can create the final Agreement contract using the ``Finalize`` choice. This checks that all of the signatories for the *Agreement* have signed the *Pending* contract.
 
     .. literalinclude:: daml/MultiplePartyAgreement.daml
         :language: daml
@@ -44,21 +46,23 @@ Pending contract
         :end-before: -- end snippet: second half pending template
 
 Collecting the signatures in practice
-    Since the final Pending contract has multiple signatories, it cannot be created in that state by any one stakeholder. However, a party can create a pending contract with itself in all signatory slots.
+    Since the final Pending contract has multiple signatories, **it cannot be created in that state by any one stakeholder**.
+
+    However, a party can create a pending contract, with all of the other parties in the ``toSign`` list. 
 
     .. literalinclude:: daml/MultiplePartyAgreement.daml
         :language: daml
         :start-after: -- start snippet: testing setup
         :end-before: -- end snippet: testing setup
 
-    Once the Pending contract is created, the other parties can exercise choices to Accept, Reject, or Negotiate. For simplicity, the example code only has choices to express consensus.
+    Once the Pending contract is created, the other parties can sign it. For simplicity, the example code only has choices to express consensus (but you might want to add choices to Accept, Reject, or Negotiate).
 
     .. literalinclude:: daml/MultiplePartyAgreement.daml
         :language: daml
         :start-after: -- start snippet: testing add agreements
         :end-before: -- end snippet: testing add agreements
 
-    The coordinating party can create the Agreement contract on the ledger, and finalize the process when all parties have signed and agreed to the multi-party agreement.
+    Once all of the parties have signed the Pending contract, any of them can then exercise the ``Finalize`` choice. This creates the Agreement contract on the ledger.
 
     .. literalinclude:: daml/MultiplePartyAgreement.daml
         :language: daml

@@ -34,6 +34,7 @@ java_library(
 pom_file(
     name = "bindings-rxjava_pom",
     target = ":bindings-rxjava",
+    visibility = ["//visibility:public"],
 )
 
 testDependencies = [

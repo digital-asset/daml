@@ -5,6 +5,7 @@
 # Needs to be run with the `aws` command available and
 # after running `aws-google-auth`.
 
+set -euo pipefail
 export AWS_PROFILE=sts
 
 SCRIPT_DIR=$(dirname "$0")

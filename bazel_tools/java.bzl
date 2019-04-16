@@ -34,6 +34,7 @@ def da_java_library(name, **kwargs):
     pom_file(
         name = name + "_pom",
         target = ":" + name,
+        visibility = ["//visibility:public"],
     )
 
 def da_java_binary(name, **kwargs):
@@ -41,6 +42,7 @@ def da_java_binary(name, **kwargs):
     pom_file(
         name = name + "_pom",
         target = ":" + name,
+        visibility = ["//visibility:public"],
     )
 
 def da_java_proto_library(name, **kwargs):
@@ -48,4 +50,5 @@ def da_java_proto_library(name, **kwargs):
     pom_file(
         name = name + "_pom",
         target = ":" + name,
+        visibility = ["//visibility:public"],
     )

@@ -34,8 +34,6 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
 
   val iface: Interface
 
-  val mode: CodeGen.Mode { type Interface >: self.Interface }
-
   val packageNameElems: Array[String] = packageName.split('.')
 
   private[codegen] def orderedDependencies(library: Interface)
@@ -125,6 +123,8 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
   def genArgumentValueToGenType(genType: IType): Tree
 
   def paramRefAndGenTypeToArgumentValue(paramRef: Tree, genType: IType): Tree
+
+  def templateCount(interface: Interface): Int
 }
 
 object Util {

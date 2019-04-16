@@ -60,6 +60,7 @@ package_app(
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-foundations/daml-ghc/package-database:gen-daml-prim.dar",
         "//daml-foundations/daml-ghc/package-database:package-db",
+        "@c2hs//:bin/ghc-pkg",
     ],
     tags = ["no-cache"],
     visibility = ["//visibility:public"],

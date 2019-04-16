@@ -4,31 +4,24 @@
 package com.digitalasset.codegen
 
 import java.io.File
-import scopt.OptionParser
 
-import java.net.URL
+import scopt.OptionParser
 
 object Main {
 
   case class Config(
-      inputFile: File = new File("."),
-      otherDalfInputs: Seq[URL] = Seq(),
+      inputFiles: Seq[File] = Seq(),
       packageName: String = "",
       outputDir: File = new File("."),
       codeGenMode: CodeGen.Mode = CodeGen.Novel)
 
-  val parser = new OptionParser[Config]("codegen") {
+  private val parser = new OptionParser[Config]("codegen") {
     help("help").text("prints this usage text")
 
-    opt[File]("input-file").required
+    opt[Seq[File]]("input-files").required
       .abbr("i")
-      .action((d, c) => c.copy(inputFile = d))
-      .text("input top-level DAML module")
-
-    opt[Seq[File]]("dependencies").optional
-      .abbr("d")
-      .action((d, c) => c.copy(otherDalfInputs = d.map(toURL)))
-      .text("list of DAML module dependencies")
+      .action((d, c) => c.copy(inputFiles = d))
+      .text("input DAR or DALF files")
 
     opt[String]("package-name")
       .required()
@@ -43,14 +36,11 @@ object Main {
       .text("output directory for Scala files")
   }
 
-  private def toURL(f: File): URL = f.toURI.toURL
-
   def main(args: Array[String]): Unit = {
     parser.parse(args, Config()) match {
       case Some(config) =>
         CodeGen.generateCode(
-          config.inputFile,
-          config.otherDalfInputs,
+          config.inputFiles.toList,
           config.packageName,
           config.outputDir,
           config.codeGenMode)

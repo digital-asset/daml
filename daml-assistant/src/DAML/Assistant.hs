@@ -35,7 +35,7 @@ main = do
             putStrLn (versionToString version)
 
         Builtin (Install options) -> wrapErr "Installing the SDK." $ do
-            install options envDamlPath
+            install options envDamlPath envProjectPath
 
         Dispatch SdkCommandInfo{..} cmdArgs ->
             wrapErr ("Running " <> unwrapSdkCommandName sdkCommandName <> " command.") $ do

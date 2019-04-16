@@ -1,0 +1,18 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- start snippet: template example
+daml 1.2
+module Com.Acme where
+
+template Bar
+  with
+    owner: Party
+    name: Text
+  where
+    controller owner can
+      Bar_SomeChoice: Bool
+        with
+        aName: Text
+          do return True
+-- end snippet: template example

@@ -136,6 +136,12 @@ parties:
   - Bob
   - USD_Bank
   - EUR_Bank
+version: 1.0.0
+exposed-modules:
+  - Main
+dependencies:
+  - daml-prim
+  - daml-stdlib
 EOF
 
       tar zcf $(location sdk-release-tarball.tar.gz) --format=ustar $$OUT

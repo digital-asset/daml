@@ -1,9 +1,12 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Main (main) where
+daml 1.2
+module MySecondMain where
 
-import qualified DA.Cli.Damli as Damli
-
-main :: IO ()
-main = Damli.run
+template DummyTemplateFromAnotherDar
+  with
+    owner: Party
+    text: Text
+  where
+    signatory owner
