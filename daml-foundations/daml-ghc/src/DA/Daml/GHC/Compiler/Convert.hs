@@ -248,7 +248,7 @@ convertRational num denom
     -- note that we can also get negative rationals here, hence we ask for upperBound128Bit - 1 as
     -- upper limit.
     if | 10 ^ maxPrecision `mod` denom == 0 &&
-             abs (r * 10 ^ (10 :: Integer)) <= upperBound128Bit - 1 ->
+             abs (r * 10 ^ maxPrecision)) <= upperBound128Bit - 1 ->
            pure $ EBuiltin $ BEDecimal $ fromRational r
        | otherwise ->
            unsupported
