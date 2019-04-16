@@ -11,6 +11,9 @@ load(
 )
 load("//bazel_tools:fat_cc_library.bzl", "fat_cc_library")
 
+# FIXME: The files in the chs directory should be generated on-the-fly using
+# c2hs_suite. This is currently not the case, because c2hs fails on Windows.
+# See https://github.com/digital-asset/daml/pull/532.
 da_haskell_library(
     name = "grpc-haskell-core",
     srcs = [
