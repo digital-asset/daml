@@ -72,12 +72,6 @@ class Multiplicative a where
     munit : a
     -- | `x ^ n` raises `x` to the power of `n`.
     (^): a -> Int -> a
-    x ^ n
-        | n == 0 = munit
-        | n == 2 = x * x
-        | n < 0 = error "Exponentiation is only implemented for n >= 0"
-        | n % 2 == 0 = (x ^ (n / 2)) ^ 2
-        | otherwise = x * x ^ (n - 1)
 
 -- | Basic numeric class.
 -- Instances are usually expected to respect the following law
