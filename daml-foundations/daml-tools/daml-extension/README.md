@@ -1,4 +1,4 @@
-# DAML Studio (__NIX_GIT_REV__)
+# DAML Studio
 
 DAML Studio extends Visual Studio Code with the following DAML-specific
 features.

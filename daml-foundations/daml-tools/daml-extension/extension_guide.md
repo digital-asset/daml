@@ -1,0 +1,32 @@
+# DAML Syntax Highlighter Guide
+
+In depth explanation syntax highlighting can be found on VS Code [website](https://code.visualstudio.com/api/language-extensions/syntax-highlight-guide). This doc contains a short guide and explanations of choices made for DAML plugin.
+
+## Overview
+
+VS code uses [TextMate Grammar](https://macromates.com/manual/en/language_grammars). File processing is based on [Oniguruma regular expressions](https://macromates.com/manual/en/regular_expressions). These are generally written as JSON or [PList format](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/PropertyLists/UnderstandXMLPlist/UnderstandXMLPlist.html).
+
+## Grammar File Format.
+
+VS Code supports PList, JSON and YAML files to specify grammar. DAML VS code extension makes use of PList, as the haskell [extension](https://github.com/JustusAdam/language-haskell) and also using Plist makes having comments easy at the expense of making it more verbose/. 
+
+
+## Testing Strategy
+Unfortunately at the moment we do not have a automated way to test. We have to depend on good old human eyes, to make that a little easy we are planning to have a annotated file with expected scopes with comments.
+
+## DAML Specific constructs
+
+- Colon and double colon Daml considers `::` a cons operator and `:` as type operator.
+- Keywords - there are a few daml specific keywords (eg: template, key, maintainer.).
+- And context specific key words such as with, choice and controller.
+
+## Tools and References
+- https://rubular.com/ - regex engine for quick feedback on regular expression.
+- https://regex101.com/ -- regex engine, but has a lot of explanations and good for exploring.
+- https://www.apeth.com/nonblog/stories/textmatebundle.html - TextMate advanced rules explained. Probably good to read before starting a major change.
+
+### Pending tasks:
+
+0. Heavily commented daml file with all the expected scopes.
+1. Snippet needs updating with constructs Key and Choice
+2. Snippet is in json and grammar is in xml (keep them consistent ?)
