@@ -9,11 +9,16 @@ daml 1.2
 module GHC.Num
   ( Additive (..)
   , Multiplicative (..)
+  , Fractional (..)
   , Signed (..)
   , Number (..)
+  , (%)
   ) where
 
+import GHC.Base
 import GHC.Classes
+import GHC.CString
+import GHC.Err
 import GHC.Integer.Type
 import GHC.Real
 import GHC.Types
@@ -24,6 +29,9 @@ default ()              -- Double isn't available yet,
 infixl 6 -
 infixl 6 +
 infixl 7 *
+infixr 8 ^
+infixl 7 /
+infixl 7 %
 
 
 -- | Basic additive class.
@@ -63,6 +71,14 @@ class Additive a  where
 class Multiplicative a where
     (*) : a -> a -> a
     munit : a
+    -- | `x ^ n` raises `x` to the power of `n`.
+    (^): a -> Int -> a
+    x ^ n
+        | n == 0 = munit
+        | n == 2 = x * x
+        | n < 0 = error "Exponentiation is only implemented for n >= 0"
+        | n % 2 == 0 = (x ^ (n / 2)) ^ 2
+        | otherwise = x * x ^ (n - 1)
 
 -- | Basic numeric class.
 -- Instances are usually expected to respect the following law
@@ -91,6 +107,7 @@ instance Additive Int where
 instance Multiplicative Int where
     (*) = primitive @"BEMulInt64"
     munit = 1
+    (^) = primitive @"BEExpInt64"
 
 instance Number Int where
     -- no methods
@@ -108,6 +125,12 @@ instance Additive Decimal where
 instance Multiplicative Decimal where
     (*) = primitive @"BEMulDecimal"
     munit = 1.0
+    x ^ n
+        | n == 0 = munit
+        | n == 2 = x * x
+        | n < 0 = munit / x ^ (negate n)
+        | n % 2 == 0 = (x ^ (n / 2)) ^ 2
+        | otherwise = x * x ^ (n - 1)
 
 instance Number Decimal where
     -- no methods
@@ -115,3 +138,23 @@ instance Number Decimal where
 instance Signed Decimal where
     signum x = if x == 0.0 then 0.0 else if x <= 0.0 then (-1.0) else 1.0
     abs x = if x <= 0.0 then negate x else x
+
+class (Multiplicative a) => Fractional a where
+    -- | `x / y` divides `x` by `y`.
+    (/)                 : a -> a -> a
+
+    -- | Calculate the reciprocal: `recip x` is `1/x`.
+    recip               : a -> a
+    x / y               = x * recip y
+
+instance Fractional Decimal where
+    (/) = primitive @"BEDivDecimal"
+    recip x = 1.0 / x
+
+instance Fractional Int where
+    (/) = primitive @"BEDivInt64"
+    recip x = 1 / x
+
+-- | `x % y` calculates the remainder of `x` by `y`
+(%) : Int -> Int -> Int
+(%) = primitive @"BEModInt64"

@@ -37,8 +37,8 @@ logTest = scenario do
   1.0 === log (exp 1.0)
   4.605170186 === log 100.0
   assert(abs(100.0 - exp (log 100.0)) <= 0.000000002)
-  log10e27 === log (10.0 ^^ 27)
-  log10em9 ===  log (10.0 ^^ (negate 9))
+  log10e27 === log (10.0 ^ 27)
+  log10em9 ===  log (10.0 ^ (negate 9))
   assert(abs(25.0 - logBase 10.0 (1.0 `e10` 25)) <= 0.0000000001)
 
 powerTest = scenario do
