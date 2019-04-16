@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 object Versions {
-  lazy val sdkVersion: String = "100.11.25"
+  lazy val sdkVersion: String = "100.12.6"
 
   lazy val detectedOs: String = sys.props("os.name") match {
     case "Mac OS X" => "osx"
