@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.semantictest
+package com.daml.ledger.api.testtool
 
 import java.io.File
 import java.nio.file.{Files, StandardCopyOption, Paths, Path}
@@ -15,6 +15,7 @@ import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.platform.apitesting.{LedgerContext, PlatformChannels, RemoteServerResource}
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
+import com.digitalasset.platform.semantictest.SemanticTestAdapter
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
