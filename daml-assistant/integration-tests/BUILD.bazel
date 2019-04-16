@@ -4,28 +4,22 @@ load("//bazel_tools:haskell.bzl", "da_haskell_test")
 
 genrule(
     name = "integration-tests-mvn",
-    outs = ["integration-tests-mvn.tar"],
     srcs = [
         "@mvn_nix//:bin/mvn",
         "//:component-version",
-
         "//daml-lf/archive:daml_lf_archive_java.jar",
         "//daml-lf/archive:daml_lf_archive_java_pom.xml",
-
         "//language-support/java/bindings:libbindings-java.jar",
         "//language-support/java/bindings:bindings-java_pom.xml",
-
         "//language-support/java/bindings-rxjava:libbindings-rxjava.jar",
         "//language-support/java/bindings-rxjava:bindings-rxjava_pom.xml",
-
         "//language-support/java/codegen:shaded_binary.jar",
         "//language-support/java/codegen:shaded_binary_pom.xml",
-
         "//ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar",
         "//ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml",
-
         "//docs:quickstart-java.tar.gz",
     ],
+    outs = ["integration-tests-mvn.tar"],
     cmd = """
       set -euxo pipefail
       TMP_DIR=$$(mktemp -d)
@@ -66,7 +60,6 @@ genrule(
       tar cf $(location integration-tests-mvn.tar) -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB)
     """,
 )
-
 
 da_haskell_test(
     name = "integration-tests",
