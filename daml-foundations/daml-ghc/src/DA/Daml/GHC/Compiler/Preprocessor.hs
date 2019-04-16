@@ -12,6 +12,7 @@ import           DA.Daml.GHC.Compiler.Records
 import Development.IDE.UtilGHC
 
 import qualified "ghc-lib" GHC
+import Outputable
 
 import           Control.Monad.Extra
 import           Data.List
@@ -71,17 +72,23 @@ checkDataTypes m = checkAmbiguousDataTypes m ++ checkUnlabelledConArgs m
 
 
 checkAmbiguousDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
-checkAmbiguousDataTypes m =
-    [ (ss, "Ambiguous data type. Please disambiguate, e.g. data Foo = Foo {} for a record type or data Foo = Foo () for a variant type.")
-    | GHC.L ss decl <- GHC.hsmodDecls (GHC.unLoc m), isBad decl ]
-    where
-        isBad :: GHC.HsDecl GHC.GhcPs -> Bool
-        -- Is the declaration a data type with one constructor and zero arguments?
-        isBad decl
-          | GHC.TyClD _ GHC.DataDecl{tcdDataDefn=GHC.HsDataDefn{dd_cons=[con]}} <- decl -- single con data type
-          , GHC.PrefixCon [] <- GHC.con_args (GHC.unLoc con) -- zero arguments
-          = True
-        isBad _ = False
+checkAmbiguousDataTypes (GHC.L _ m) =
+    mapMaybe getAmbiguousError (GHC.hsmodDecls m)
+  where
+    getAmbiguousError :: GHC.LHsDecl GHC.GhcPs -> Maybe (GHC.SrcSpan, String)
+    -- Generate an error if the declaration is a data type with one constructor and zero arguments
+    getAmbiguousError (GHC.L ss decl)
+      | GHC.TyClD _ GHC.DataDecl{tcdDataDefn=GHC.HsDataDefn{dd_cons=[con]}} <- decl -- single con data type
+      , GHC.PrefixCon [] <- GHC.con_args (GHC.unLoc con) -- zero arguments
+      = Just (ss, message)
+      where
+        message =
+          "Ambiguous data type declaration. " <> "Write " <>
+          baseDeclStr <> " {} for a record or " <>
+          baseDeclStr <> " () for a variant."
+        baseDeclStr = showSDocUnsafe (ppr decl)
+      | otherwise
+      = Nothing
 
 
 checkUnlabelledConArgs :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
