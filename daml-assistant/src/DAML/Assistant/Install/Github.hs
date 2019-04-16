@@ -36,34 +36,13 @@ newtype AssetName = AssetName { unAssetName :: Text } deriving (Eq, Show, FromJS
 --      https://developer.github.com/v3/repos/releases/
 --
 data Release = Release
-    { releaseTag          :: Tag
-    , releaseIsPrerelease :: Bool
-    , releaseAssets       :: [Asset]
+    { releaseTag :: Tag
     } deriving (Eq, Show)
 
 instance FromJSON Release where
     parseJSON = withObject "Release" $ \r ->
         Release
         <$> r .: "tag_name"
-        <*> r .: "prerelease"
-        <*> r .: "assets"
-
--- | GitHub release artifact metadata, as contained in the "assets"
--- field of the release metadata structure. This is only a small
--- fragment of the data available. For more information please visit:
---
---      https://developer.github.com/v3/repos/releases/
---
-data Asset = Asset
-    { assetName :: AssetName
-    , assetDownloadURL :: InstallURL
-    } deriving (Eq, Show)
-
-instance FromJSON Asset where
-    parseJSON = withObject "Asset" $ \r ->
-        Asset
-        <$> r .: "name"
-        <*> r .: "browser_download_url"
 
 -- | Convert a version to a git tag.
 versionToTag :: SdkVersion -> Tag
