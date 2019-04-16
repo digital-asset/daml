@@ -16,6 +16,8 @@ template ContractPlaceholder
     signatories: [Party]
   where
     signatory signatories
+    ensure
+      unique signatories
   -- The rest of the template to be agreed to would follow here
 -- end snippet: agreement template
 
@@ -28,9 +30,9 @@ template Pending
     signatory alreadySigned
     observer finalContract.signatories
     ensure
-      -- There mustn't be overlap between signed and toSign:
-      unique (toSign ++ alreadySigned)
-      -- Don't miss any signatories from the Agreement:
+      -- Can't have duplicate signatories
+      unique alreadySigned
+      -- Don't miss any signatories
       && (sort finalContract.signatories == sort (alreadySigned ++ toSign))
 
     -- The parties who need to sign is the finalContract.signatories with alreadySigned filtered out
