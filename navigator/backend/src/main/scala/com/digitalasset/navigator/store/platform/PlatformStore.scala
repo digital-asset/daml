@@ -4,6 +4,7 @@
 package com.digitalasset.navigator.store.platform
 
 import java.time.{Duration, Instant}
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
@@ -235,7 +236,8 @@ class PlatformStore(
   // ----------------------------------------------------------------------------------------------
   // Helpers
   // ----------------------------------------------------------------------------------------------
-  private def childName(party: PartyState): String = "party-" + ApiTypes.Party.unwrap(party.name)
+  private def childName(party: PartyState): String =
+    "party-" + URLEncoder.encode(ApiTypes.Party.unwrap(party.name), "UTF-8")
 
   private def startPartyActor(ledgerClient: LedgerClient, party: PartyState): ActorRef = {
     context.actorOf(PlatformSubscriber.props(ledgerClient, party, applicationId), childName(party))
