@@ -89,7 +89,7 @@ CREATE TABLE parameters (
 -- and relies for the hash to be collision free
 CREATE TABLE contract_keys (
   package_id   varchar                           not null,
-  name         varchar                           not null,
+  name         varchar                           not null, -- using the QualifiedName#toString format
   value_hash   varchar                           not null, -- SHA256 of the protobuf serialized key value
   -- TODO: depending on outcome of https://github.com/digital-asset/daml/issues/497, update the above comment,
   -- or add a new column describing the algorithm used to compute the value hash.

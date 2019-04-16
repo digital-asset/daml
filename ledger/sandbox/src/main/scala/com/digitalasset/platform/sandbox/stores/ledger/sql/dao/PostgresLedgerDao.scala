@@ -119,7 +119,7 @@ private class PostgresLedgerDao(
     valueSerializer
       .serialiseValue(key.key)
       .map(ba => digest.digest(ba).map("%02x" format _).mkString)
-      .fold[String](e => throw new RuntimeException(e.toString), s => s)
+      .fold[String](e => sys.error(e.toString), identity)
   }
 
   private[this] def storeContractKey(key: GlobalKey, cid: AbsoluteContractId)(
@@ -203,7 +203,6 @@ private class PostgresLedgerDao(
                       .serialiseValue(k.key)
                       .getOrElse(sys.error(
                         s"failed to serialise contract key value! cid:${c.contractId.coid}")))
-                .orNull
           )
         )
 
@@ -317,13 +316,13 @@ private class PostgresLedgerDao(
           c: ActiveContracts.ActiveContract,
           keyO: Option[GlobalKey]): Unit = {
         storeContract(offset, Contract.fromActiveContract(cid, c))
-        keyO.map(key => storeContractKey(key, cid))
+        keyO.foreach(key => storeContractKey(key, cid))
         ()
       }
 
       def acsRemoveContract(acs: Unit, cid: AbsoluteContractId, keyO: Option[GlobalKey]): Unit = {
         archiveContract(offset, cid)
-        keyO.map(key => removeContractKey(key))
+        keyO.foreach(key => removeContractKey(key))
         ()
       }
 

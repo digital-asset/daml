@@ -30,7 +30,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Value,
   Variant
 }
-import com.digitalasset.ledger.client.services.commands.CompletionStreamElementp
+import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
