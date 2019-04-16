@@ -13,26 +13,13 @@ import DAML.Assistant.Types
 import DAML.Assistant.Util
 import Data.Aeson
 import Network.HTTP.Simple
+import Network.HTTP.Client ( redirectCount )
 import Control.Exception.Safe
 import Control.Monad
 import Data.Either.Extra
 import qualified System.Info
 import qualified Data.Text as T
-
--- | GitHub release metadata, such as can be obtained through the
--- GitHub releases API v3. This is only a small fragment of the
--- data available. For more information please visit:
---
---      https://developer.github.com/v3/repos/releases/
---
-data Release = Release
-    { releaseTag :: Tag
-    } deriving (Eq, Show)
-
-instance FromJSON Release where
-    parseJSON = withObject "Release" $ \r ->
-        Release
-        <$> r .: "tag_name"
+import qualified Data.Text.Encoding as T
 
 -- | General git tag. We only care about the tags of the form "v<VERSION>"
 -- where <VERSION> is an SDK version. For example, "v0.11.1".
@@ -55,28 +42,42 @@ tagToVersion (Tag t) =
         else
             Left "Tag must start with v followed by semantic version."
 
--- | Make a request to the Github API. There is an unauthenticated user rate limit
--- of 60 requests per hour, so we should limit requests. (One way for the user to
--- avoid API requests is to give the version directly.)
-makeAPIRequest :: FromJSON t => Text -> IO t
-makeAPIRequest path = do
-    request <- parseRequest (unpack ("GET https://api.github.com/repos/digital-asset/daml" <> path))
-    response <- httpJSON (setRequestHeader "User-Agent" ["daml"] request)
-    when (getResponseStatusCode response /= 200) $
-        throwString . show $ getResponseStatus response
-    pure (getResponseBody response)
-
--- | Get the latest stable (i.e. non-prerelease) release.
-getLatestRelease :: IO Release
-getLatestRelease =
-    requiredIO "Failed to get latest SDK release from github." $
-        makeAPIRequest "/releases/latest"
-
 -- | Get the version of the latest stable (i.e. non-prerelease) release.
+-- We avoid the Github API because of very low rate limits. As such, we
+-- discover the latest version by parsing an HTTP redirect. We make a
+-- request to:
+--
+--     https://github.com/digital-asset/daml/releases/latest
+--
+-- Which always redirects to the latest stable release, for example:
+--
+--     https://github.com/digital-asset/daml/releases/tag/v0.12.3
+--
+-- So we take that URL to get the tag, and from there the version of
+-- the latest stable release.
 getLatestVersion :: IO SdkVersion
 getLatestVersion = do
-    release <- getLatestRelease
-    fromRightM throwIO (tagToVersion (releaseTag release))
+    request <- parseRequest "GET https://github.com/digital-asset/daml/releases/latest"
+    response <- httpNoBody request { redirectCount = 0 }
+
+    when (getResponseStatusCode response /= 302) $
+        failed "Expected response status 302."  response
+
+    case getResponseHeader "Location" response of
+        [loc] ->
+            let (path, tag) = T.breakOnEnd "/" (T.decodeUtf8 loc) in
+            if path /= "https://github.com/digital-asset/daml/releases/tag/"
+                then failed "Unexpected redirect location." response
+                else fromRightM throwIO (tagToVersion (Tag tag))
+
+        [] -> failed "Location header is missing." response
+        _  -> failed "Location header appears more than once." response
+
+    where
+        failed msg response =
+            throwIO $ assistantErrorBecause "Failed to get latest SDK version from GitHub."
+                (msg <> " Response: " <> pack (show response))
+
 
 -- | OS-specific part of the asset name.
 osName :: Text
