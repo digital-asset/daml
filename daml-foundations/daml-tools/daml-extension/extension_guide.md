@@ -24,9 +24,3 @@ Unfortunately at the moment we do not have a automated way to test. We have to d
 - https://rubular.com/ - regex engine for quick feedback on regular expression.
 - https://regex101.com/ -- regex engine, but has a lot of explanations and good for exploring.
 - https://www.apeth.com/nonblog/stories/textmatebundle.html - TextMate advanced rules explained. Probably good to read before starting a major change.
-
-### Pending tasks:
-
-0. Heavily commented daml file with all the expected scopes.
-1. Snippet needs updating with constructs Key and Choice
-2. Snippet is in json and grammar is in xml (keep them consistent ?)
