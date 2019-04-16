@@ -14,10 +14,7 @@ expTest = scenario do
     exp10 = 22026.4657948067
     expm10 = 0.0000453999
     expm20 = 0.0000000021
-    (e35, e35p) = to36dig (e, 0)
-  1000000000000000000000000.0 === 1.0 `e10` 24
   1.0 === exp 0.0
-  e === e35 `e10` e35p
   e === exp 1.0
   exp10 === exp 10.0
   expm10 === exp (negate 10.0)
@@ -26,20 +23,20 @@ expTest = scenario do
 
 logTest = scenario do
   let
-    log05 = -0.693147180559
-    log15 = 0.405465108108
-    log100 = 4.605170185988091
-    log10e27 = 62.1697975108392
-    log10em9 = -20.723265836946
+    log05 = -0.6931471806
+    log15 = 0.4054651081
+    log100 = 4.6051701860
+    log10e27 = 62.1697975108
+    log10em9 = -20.7232658370
   0.0 === log 1.0
   log15 === log 1.5
-  log05 === log 0.5
+  assert (abs(log05 - log 0.5) <= 0.0000000001)
   1.0 === log (exp 1.0)
   4.605170186 === log 100.0
   assert(abs(100.0 - exp (log 100.0)) <= 0.000000002)
   log10e27 === log (10.0 ^ 27)
-  log10em9 ===  log (10.0 ^ (negate 9))
-  assert(abs(25.0 - logBase 10.0 (1.0 `e10` 25)) <= 0.0000000001)
+  assert(abs(log10em9 - log (10.0 ^ (negate 9))) <= 0.000000001)
+  assert(abs(25.0 - logBase 10.0 (10.0 ^ 25)) <= 0.0000000001)
 
 powerTest = scenario do
   let
@@ -48,8 +45,8 @@ powerTest = scenario do
 
 trigTest = scenario do
   let
-    delta = 1.0 `e10` (-10)
-  assert (abs(sin (pi / 4.0) - cos (pi / 4.0)) <= delta)
+    delta = 10.0 ^ (-10)
+  assert (abs(sin (pi / 4.0) - cos (pi / 4.0)) <= 3.0 * delta)
   assert (abs(0.0 - sin (0.0)) <= delta)
   assert (abs(1.0 - sin (pi / 2.0)) <= delta)
   assert (abs(1.0 + sin (3.0 * pi / 2.0)) <= delta)
