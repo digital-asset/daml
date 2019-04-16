@@ -19,10 +19,6 @@ import Data.Either.Extra
 import qualified System.Info
 import qualified Data.Text as T
 
--- | General git tag. We only care about the tags of the form "v<VERSION>"
--- where <VERSION> is an SDK version. For example, "v0.11.1".
-newtype Tag = Tag { unTag :: Text } deriving (Eq, Show, FromJSON)
-
 -- | GitHub release metadata, such as can be obtained through the
 -- GitHub releases API v3. This is only a small fragment of the
 -- data available. For more information please visit:
@@ -37,6 +33,10 @@ instance FromJSON Release where
     parseJSON = withObject "Release" $ \r ->
         Release
         <$> r .: "tag_name"
+
+-- | General git tag. We only care about the tags of the form "v<VERSION>"
+-- where <VERSION> is an SDK version. For example, "v0.11.1".
+newtype Tag = Tag { unTag :: Text } deriving (Eq, Show, FromJSON)
 
 -- | Convert a version to a git tag.
 versionToTag :: SdkVersion -> Tag
