@@ -44,7 +44,7 @@ function build-full() {
     bazel build `
         //:git-revision `
         @com_github_grpc_grpc//:grpc `
-        //nix/third-party/gRPC-haskell/core:fat_cbits `
+        //nix/third-party/gRPC-haskell:grpc-haskell `
         //daml-foundations/daml-tools/daml-extension:daml_extension_lib `
         //daml-foundations/daml-tools/language-server-tests:lib-js `
         //daml-lf/archive:daml_lf_archive_scala `
