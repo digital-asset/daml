@@ -30,7 +30,7 @@ subcommand name desc infoMod parser =
 
 builtin :: Text -> Text -> InfoMod Command -> Parser BuiltinCommand -> Mod CommandFields Command
 builtin name desc mod parser =
-    subcommand name desc mod (Builtin <$> parser <**> helper)
+    subcommand name desc mod (Builtin <$> parser)
 
 isHidden :: SdkCommandInfo -> Bool
 isHidden = isNothing . sdkCommandDesc
@@ -46,8 +46,8 @@ dispatch info = subcommand
 commandParser :: [SdkCommandInfo] -> Parser Command
 commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
     [ subparser -- visible commands
-        $  builtin "version" "Display SDK version" mempty (pure Version)
-        <> builtin "install" "Install SDK version" mempty (Install <$> installParser)
+        $  builtin "version" "Display SDK version" mempty (pure Version <**> helper)
+        <> builtin "install" "Install SDK version" mempty (Install <$> installParser <**> helper)
         <> builtin "exec" "Execute command with daml environment." forwardOptions
             (Exec <$> strArgument (metavar "CMD") <*> many (strArgument (metavar "ARGS")))
         <> foldMap dispatch visible
