@@ -32,8 +32,6 @@ template Pending
     ensure
       -- Can't have duplicate signatories
       unique alreadySigned
-      -- Don't miss any signatories
-      && (sort finalContract.signatories == sort (alreadySigned ++ toSign))
 
     -- The parties who need to sign is the finalContract.signatories with alreadySigned filtered out
     let toSign = filter (`notElem` alreadySigned) finalContract.signatories
