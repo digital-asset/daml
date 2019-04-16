@@ -354,14 +354,15 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
     case val of
         Just res -> return res
         Nothing -> do
-            (bs, res) <- actionCatch
+            (bs, (diags, res)) <- actionCatch
                 (do v <- op key file; liftIO $ evaluate $ force v) $
                 \(e :: SomeException) -> pure (Nothing, ([ideErrorText file $ T.pack $ show e | not $ isBadDependency e],Nothing))
-            ((seriousErrors,updateDiags),res) <- return $ first (addDiagnostics file) res
 
+            let seriousErrors = filterSeriousErrors file diags
             when (seriousErrors /= []) $
                 reportSeriousError $ "Bad errors found for " ++ show (key, file) ++ " got " ++ show seriousErrors
 
+            let updateDiags = addDiagnostics file diags
             liftIO $ updateState extras key file res updateDiags
             let eq = case (bs, fmap unwrap old) of
                     (Just a, Just (Just b)) -> a == b

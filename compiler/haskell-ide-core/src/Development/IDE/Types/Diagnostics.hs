@@ -22,6 +22,7 @@ module Development.IDE.Types.Diagnostics (
   prettyDiagnostic,
   defDiagnostic,
   addDiagnostics,
+  filterSeriousErrors,
   addLocation,
   addFilePath
   ) where
@@ -115,21 +116,27 @@ addLocation loc d =
 lspList :: L.Iso (LSP.List a) (LSP.List b) [a] [b]
 lspList = L.coerced
 
+filterSeriousErrors ::
+    FilePath ->
+    [LSP.Diagnostic] ->
+    [LSP.Diagnostic]
+filterSeriousErrors fp =
+    filter (maybe False hasSeriousErrors . LSP._relatedInformation)
+    where
+        hasSeriousErrors :: List DiagnosticRelatedInformation -> Bool
+        hasSeriousErrors (List a) = any ((/=) uri . _uri . _location) a
+        uri = LSP.filePathToUri fp
+
 addDiagnostics ::
   FilePath ->
   [LSP.Diagnostic] ->
-  ([LSP.Diagnostic], DiagnosticStore -> DiagnosticStore)
-addDiagnostics fp diags = (seriousErrors, addDiags) where
-  addDiags ds = updateDiagnostics
-      ds
-      uri
-      Nothing $
-      partitionBySource diags
-  hasSeriousErrors :: List DiagnosticRelatedInformation -> Bool
-  hasSeriousErrors (List a) = any ((/=) uri . _uri . _location) a
-  seriousErrors :: [Diagnostic]
-  seriousErrors = filter (maybe False hasSeriousErrors . LSP._relatedInformation) diags
-  uri = LSP.filePathToUri fp
+  DiagnosticStore -> DiagnosticStore
+addDiagnostics fp diags ds =
+    updateDiagnostics
+    ds
+    (LSP.filePathToUri fp)
+    Nothing $
+    partitionBySource diags
 
 ideTryIOException :: FilePath -> IO a -> IO (Either LSP.Diagnostic a)
 ideTryIOException fp act =
