@@ -3,6 +3,10 @@
 
 daml 1.2
 -- | Math - Utility Math functions for `Decimal`
+-- | The this library is designed to give good precision, typically giving 9 correct decimal places.
+-- | The numerical algorithms used are efficient, but still run with many iterations to achieve
+-- | that precision. Their use is not advised in performance critical contexts where precision
+-- | is a secondary concern.
 module DA.Math
 ( (**)
 , exp
@@ -58,9 +62,9 @@ logt10k x
     ln2t10k = 6931.4718055994
 
 -- | `log10kInner n x` approximates 10000 * ln(x) using n terms of the
--- power series expansion of ln(x) = 2 * artanh((x - 1) / (x + 1)) 
+-- power series expansion of ln(x) = 2 * artanh((x - 1) / (x + 1))
 logt10kInner: Int -> Decimal -> Decimal
-logt10kInner n x 
+logt10kInner n x
   | n < 0 = 0.0
   | otherwise = let
       f = (x - 1.0) / (x + 1.0)
@@ -101,7 +105,7 @@ expInner: Decimal -> Decimal -> Decimal -> Sci
 expInner n t x
   | t == 0.0 = (1.0, 0)
   | otherwise =
-    let 
+    let
       (y, e) = expInner (n + 1.0) (t * x / n) x
       z = 1.0 `e10` (negate e)
     in to36dig (z + x * y / n, e)
@@ -124,9 +128,10 @@ tan x = s / c
 pi = 3.1415926536
 
 -- | `cordic` is an implementation of the CORDIC algorithm.
+-- | See https://en.wikipedia.org/wiki/CORDIC
 -- | `cordic n r == (sin(r), cos(r))` computed to n iterations
 cordic: Int -> Decimal -> (Decimal, Decimal)
-cordic n r 
+cordic n r
   | r < 0.0 = cordic n (r + 2.0 * pi)
   | r > 2.0 * pi = cordic n (r - 2.0 * pi)
   | r > pi =
@@ -150,8 +155,8 @@ cordic n r
       , 0.0000000596, 0.0000000298, 0.0000000149, 0.0000000075
       , 0.0000000037, 0.0000000019, 0.0000000009, 0.0000000005
       , 0.0000000002, 0.0000000001 ]
-  
-    ks = 
+
+    ks =
       [ 0.7071067812, 0.6324555320, 0.6135719911, 0.6088339125
       , 0.6076482563, 0.6073517701, 0.6072776441, 0.6072591123
       , 0.6072544793, 0.6072533211, 0.6072530315, 0.6072529591
@@ -160,7 +165,7 @@ cordic n r
     kn = if n < 17
       then ks !! n
       else last ks
-    
+
 -- | `cordicInner` implements the inner loop of the CORDIC algorithm
 cordicInner: Int -> Decimal -> (Decimal, Decimal) -> Decimal -> [Decimal] -> (Decimal, Decimal)
 cordicInner n r v pt angles
