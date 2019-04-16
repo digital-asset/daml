@@ -12,7 +12,8 @@ import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.Commands
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
-import com.digitalasset.ledger.backend.api.v1.LedgerBackend
+import com.digitalasset.ledger.backend.api.v1.SubmissionResult.{Acknowledged, Overloaded}
+import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, SubmissionResult}
 import com.digitalasset.platform.participant.util.ApiToLfEngine.apiCommandsToLfCommands
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.stores.ledger.{CommandExecutor, ErrorCause}
@@ -91,24 +92,26 @@ class SandboxSubmissionService private (
           if (logger.isTraceEnabled()) commands else commands.commandId.unwrap,
           commands.ledgerEffectiveTime: Any)
         recordOnLedger(commands).transform {
-          case Failure(error) =>
-            logger.warn(s"Submission of command ${commands.commandId.unwrap} has failed.", error)
-            // quick work-around to handle back-pressure coming from Akka
-            //TODO: we should encapsulate the back pressure signal in a proper type and make recordOnLedger return a Future[OK \/ BackPressure]
-            if (error.getMessage.startsWith(
-                "You have to wait for previous offer to be resolved to send another request")) {
-              Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException())
-            } else
-              Failure(error)
-          case Success(v) =>
+          case Success(Acknowledged) =>
             logger.debug(s"Submission of command {} has succeeded", commands.commandId.unwrap)
             Success(())
+
+          case Success(Overloaded) =>
+            logger.debug(
+              s"Submission of command {} has failed due to back pressure",
+              commands.commandId.unwrap)
+            Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
+
+          case Failure(error) =>
+            logger.warn(s"Submission of command ${commands.commandId.unwrap} has failed.", error)
+            Failure(error)
+
         }(DirectExecutionContext)
       }
     )
   }
 
-  private def recordOnLedger(commands: Commands): Future[Unit] =
+  private def recordOnLedger(commands: Commands): Future[SubmissionResult] =
     // translate the commands to LF engine commands
     apiCommandsToLfCommands(commands)
       .consume(packageContainer.getPackage)

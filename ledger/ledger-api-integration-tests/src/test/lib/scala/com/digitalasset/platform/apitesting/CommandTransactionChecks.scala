@@ -520,10 +520,6 @@ abstract class CommandTransactionChecks
             }
         }.map(_ => succeed)
       }
-
-
-    
-
       // this is basically a port of
       // `daml-lf/tests/scenario/daml-1.3/contract-keys/Test.daml`.
       "process contract keys" in allFixtures { ctx =>

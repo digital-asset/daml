@@ -94,8 +94,13 @@ object SandboxApplication {
         case None => ("in-memory", Ledger.inMemory(ledgerId, timeProvider, acs, records))
         case Some(jdbcUrl) =>
           val ledgerF = Ledger.postgres(jdbcUrl, ledgerId, timeProvider, records)
-          val ledger = Try(Await.result(ledgerF, asyncTolerance))
-            .getOrElse(sys.error("Could not start PostgreSQL persistence layer"))
+
+          val ledger = Try(Await.result(ledgerF, asyncTolerance)).fold(t => {
+            val msg = "Could not start PostgreSQL persistence layer"
+            logger.error(msg, t)
+            sys.error(msg)
+          }, identity)
+
           (s"sql", ledger)
       }
 
@@ -109,7 +114,12 @@ object SandboxApplication {
         engine,
         config,
         port,
-        timeServiceBackendO.map(TimeServiceBackend.withObserver(_, ledger.publishHeartbeat)),
+        timeServiceBackendO
+          .map(
+            TimeServiceBackend.withObserver(
+              _,
+              ledger.publishHeartbeat
+            )),
         Some(resetService)
       )
 
@@ -182,7 +192,9 @@ object SandboxApplication {
         logger.debug(s"Scheduling heartbeats in intervals of {}", interval)
         val cancelable = Source
           .tick(0.seconds, interval, ())
-          .mapAsync[Unit](1)(_ => onTimeChange(timeProvider.getCurrentTime))
+          .mapAsync[Unit](1)(
+            _ => onTimeChange(timeProvider.getCurrentTime)
+          )
           .to(Sink.ignore)
           .run()
         () =>
