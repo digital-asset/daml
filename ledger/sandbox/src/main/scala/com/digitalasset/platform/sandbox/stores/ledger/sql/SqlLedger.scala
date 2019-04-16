@@ -82,7 +82,7 @@ private class SqlLedger(
   private var headRef: Long = headAtInitialization
   // the reason for modelling persistence as a reactive pipeline is to avoid having race-conditions between the
   // moving ledger-end, the async persistence operation and the dispatcher head notification
-  private val (persistenceQueue, checkpointQueue): (
+  private val (checkpointQueue, persistenceQueue): (
       SourceQueueWithComplete[Long => LedgerEntry],
       SourceQueueWithComplete[Long => LedgerEntry]) = createQueues()
 
