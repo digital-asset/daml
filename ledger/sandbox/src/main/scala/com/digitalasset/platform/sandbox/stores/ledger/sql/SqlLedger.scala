@@ -19,14 +19,11 @@ import com.digitalasset.platform.sandbox.config.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.PersistenceResponse.{Duplicate, Ok}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
-  Contract,
-  LedgerDao,
-  PostgresLedgerDao
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{LedgerDao, PostgresLedgerDao}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
-  TransactionSerializer
+  TransactionSerializer,
+  ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
@@ -48,7 +45,8 @@ object SqlLedger {
     val noOfStreamingConnections = 8
 
     val dbDispatcher = DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
-    val ledgerDao = PostgresLedgerDao(dbDispatcher, ContractSerializer, TransactionSerializer)
+    val ledgerDao =
+      PostgresLedgerDao(dbDispatcher, ContractSerializer, TransactionSerializer, ValueSerializer)
     val sqlLedgerFactory = SqlLedgerFactory(ledgerDao)
 
     for {
@@ -146,13 +144,10 @@ private class SqlLedger(
       contractId: Value.AbsoluteContractId): Future[Option[ActiveContract]] =
     ledgerDao
       .lookupActiveContract(contractId)
-      .map(_.map {
-        case Contract(_, let, transactionId, workflowId, witnesses, coinst) =>
-          ActiveContract(let, transactionId, workflowId, coinst, witnesses, None)
-      })(DirectExecutionContext)
+      .map(_.map(c => c.toActiveContract))(DirectExecutionContext)
 
   override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
-    sys.error("contract keys not implemented yet in SQL backend")
+    ledgerDao.lookupKey(key)
 
   override def publishHeartbeat(time: Instant): Future[Unit] =
     persistenceQueue
