@@ -286,7 +286,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       case DumpGraphQLSchema =>
         dumpGraphQLSchema()
       case RunServer if !Files.exists(configFile) =>
-        val message = "No configuration file found! A a configuration template file will be created at " +
+        val message = "No configuration file found! A configuration template file will be created at " +
           s"$configFile, please edit it and restart ${applicationInfo.name}"
         userFacingLogger.error(message)
         Config.writeTemplateToPath(configFile, args.useDatabase)
