@@ -49,7 +49,7 @@ commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
         $  builtin "version" "Display SDK version" mempty (pure Version)
         <> builtin "install" "Install SDK version" mempty (Install <$> installParser)
         <> builtin "exec" "Execute command with daml environment." forwardOptions
-            (Exec <$> (strArgument (metavar "CMD")) <*> many (strArgument (metavar "ARGS")))
+            (Exec <$> strArgument (metavar "CMD") <*> many (strArgument (metavar "ARGS")))
         <> foldMap dispatch visible
     , subparser -- hidden commands
         $  internal
