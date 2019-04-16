@@ -1,7 +1,7 @@
 -- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=9:1-9:15; Ambiguous data type. Write data Foo = Bar {} for a record or data Foo = Bar () for a variant.
+-- @ERROR range=9:1-9:15; Ambiguous data type declaration. Write data Foo = Bar {} for a record or data Foo = Bar () for a variant.
 
 daml 1.2
 module AmbiguousDataType where
