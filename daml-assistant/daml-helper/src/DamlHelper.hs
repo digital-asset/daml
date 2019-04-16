@@ -144,9 +144,16 @@ runSandbox port args = do
     exitCode <- withSandbox port args waitForProcess
     exitWith exitCode
 
-runStart :: FilePath -> IO ()
-runStart darPath = do
-    withSandbox sandboxPort [darPath] $ \sandboxPh -> do
+runStart :: IO ()
+runStart = withProjectRoot $ \_ -> do
+    projectConfig <- getProjectConfig
+    projectName :: String <-
+        requiredE "Project must have a name" $
+        queryProjectConfigRequired ["name"] projectConfig
+    let darName = projectName <> ".dar"
+    assistant <- getDamlAssistant
+    callProcess assistant ["build", "-o", darName]
+    withSandbox sandboxPort [darName] $ \sandboxPh -> do
         parties <- getProjectParties
         withTempDir $ \confDir -> do
             -- Navigator determines the file format based on the extension so we need a .json file.
@@ -157,10 +164,15 @@ runStart darPath = do
     where sandboxPort = SandboxPort 6865
           navigatorPort = NavigatorPort 7500
 
+
+getProjectConfig :: IO ProjectConfig
+getProjectConfig = do
+    projectPath <- required "Must be called from within a project" =<< getProjectPath
+    readProjectConfig (ProjectPath projectPath)
+
 getProjectParties :: IO [T.Text]
 getProjectParties = do
-    projectPath <- required "Must be called from within a project" =<< getProjectPath
-    projectConfig <- readProjectConfig (ProjectPath projectPath)
+    projectConfig <- getProjectConfig
     requiredE "Project config does not have a list of parties" $ queryProjectConfigRequired ["parties"] projectConfig
 
 navigatorConfig :: [T.Text] -> T.Text

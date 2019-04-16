@@ -38,6 +38,8 @@ exercise c e = do
     exerciseExplicit (choiceController cc e) c e
 
 -- | Fetch the contract data associated with the given contract id.
+-- This fails and aborts the entire transaction if the `ContractId c`
+-- supplied is not the contract ID of an active contract.
 fetch : Template c => ContractId c -> Update c
 fetch = internalFetch
 
