@@ -85,6 +85,11 @@ newtype DamlPath = DamlPath
     { unwrapDamlPath :: FilePath
     } deriving (Eq, Show)
 
+-- | Absolute file path to the assistant executable, e.g., /home/foobar/.daml/bin/daml.
+newtype DamlAssistantPath = DamlAssistantPath
+    { unwrapDamlAssistantPath :: FilePath
+    } deriving (Eq, Show)
+
 -- | File path of project root.
 newtype ProjectPath = ProjectPath
     { unwrapProjectPath :: FilePath
