@@ -4,18 +4,22 @@
 #
 # for example: docker run --rm -it -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock 753e224e9b8b
 #
-# docker build --rm -t digitalasset/daml-webide-proxy:0.11.19-master
+# docker build --rm -t digitalasset/daml-webide-proxy:latest
 
 
 FROM node:8.15-alpine
 
-COPY *.js /
-COPY *.json /
+RUN mkdir -p /webide-proxy/src
+COPY src /webide-proxy/src/
+COPY *.json /webide-proxy/
 
-RUN npm install \
-    && apk update \
-    && apk add docker
+WORKDIR /webide-proxy
 
-EXPOSE 3000 8443
+RUN apk update \
+    && apk add docker \
+    && npm install \
+    && npm run compile
+
+EXPOSE 80 443
 LABEL WEB-IDE-PROXY=""
-CMD ["node", "proxy.js"]
+CMD ["npm", "run", "start"]

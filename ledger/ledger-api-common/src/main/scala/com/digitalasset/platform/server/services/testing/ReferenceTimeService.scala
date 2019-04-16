@@ -10,6 +10,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.digitalasset.ledger.api.v1.testing.time_service._
 import com.digitalasset.platform.akkastreams.SignalDispatcher
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -31,8 +32,6 @@ class ReferenceTimeService private (
     protected val esf: ExecutionSequencerFactory)
     extends TimeServiceAkkaGrpc
     with FieldValidations
-    with BindableService
-    with AutoCloseable
     with GrpcApiService {
 
   protected val logger = LoggerFactory.getLogger(TimeServiceGrpc.TimeService.getClass)
@@ -133,6 +132,6 @@ object ReferenceTimeService {
       allowSettingTimeBackwards: Boolean = false)(
       implicit grpcExecutionContext: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory): ReferenceTimeService with TimeServiceLogging =
+      esf: ExecutionSequencerFactory): TimeService with BindableService with TimeServiceLogging =
     new ReferenceTimeService(ledgerId, backend, allowSettingTimeBackwards) with TimeServiceLogging
 }

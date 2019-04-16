@@ -27,8 +27,8 @@
 # be resolvable from external workspaces otherwise.
 
 rules_scala_version = "6f8ee3d951d2ac6154356314600f6edb4eb5df8b"
-rules_haskell_version = "7a306841b0fcca41c9fd62b3f7033fbd67d50e22"
-rules_haskell_sha256 = "55badbdc193a47c693ac94f33aa14f8fa5b8a5c9828e9e0a065a1c1280d4a3f5"
+rules_haskell_version = "ac1d2c17d873d48dde9d307b7b8913cd1d2970ec"
+rules_haskell_sha256 = "e2a9315a46f5edd099880c804e13dd8a743e02495eada02a885b2817f4d9ed8d"
 rules_nixpkgs_version = "40b5a9f23abca57f364c93245c7451206ef1a855"
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -43,8 +43,6 @@ def daml_deps():
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:haskell-static-linking.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-win-sys-includes.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-ld-library-path.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-win-so-name.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -64,10 +62,6 @@ def daml_deps():
             strip_prefix = "rules_haskell-{}/hazel".format(rules_haskell_version),
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             sha256 = rules_haskell_sha256,
-            patches = [
-                "@com_github_digital_asset_daml//bazel_tools:hackage_mirror.patch",
-            ],
-            patch_args = ["-p2"],
         )
 
     if "com_github_madler_zlib" not in native.existing_rules():

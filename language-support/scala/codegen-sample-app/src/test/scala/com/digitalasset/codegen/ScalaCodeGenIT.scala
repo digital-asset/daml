@@ -40,6 +40,9 @@ import com.digitalasset.sample.MyMain.{
   CallablePayout,
   Maybes,
   TextMapInt,
+  OptTextMapInt,
+  TextMapTextMapInt,
+  ListTextMapInt,
   MkListExample,
   MyRecord,
   MyVariant,
@@ -328,9 +331,30 @@ class ScalaCodeGenIT
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
-  "alice creates TextMaybes contract and receives corresponding event" in {
+  "alice creates TextMapInt contract and receives corresponding event" in {
     import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[TextMapInt].sample getOrElse sys.error("random TexMap failed")
+    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+  }
+
+  "alice creates OptTextMapInt contract and receives corresponding event" in {
+    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    val contract = arbitrary[OptTextMapInt].sample getOrElse sys.error(
+      "random OptTextMapInt failed")
+    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+  }
+
+  "alice creates TextMapTextMapInt contract and receives corresponding event" in {
+    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    val contract = arbitrary[TextMapTextMapInt].sample getOrElse sys.error(
+      "random TextMapTextMapInt failed")
+    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+  }
+
+  "alice creates ListTextMapInt contract and receives corresponding event" in {
+    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    val contract = arbitrary[ListTextMapInt].sample getOrElse sys.error(
+      "random TListTextMapInt failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 

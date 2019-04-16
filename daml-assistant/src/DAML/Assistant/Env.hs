@@ -12,6 +12,7 @@ module DAML.Assistant.Env
     , getDamlEnv
     , testDamlEnv
     , getDamlPath
+    , getDamlAssistantPath
     , getProjectPath
     , getSdk
     , getDispatchEnv
@@ -34,6 +35,7 @@ import Safe
 getDamlEnv :: IO Env
 getDamlEnv = do
     envDamlPath <- getDamlPath
+    envDamlAssistantPath <- getDamlAssistantPath envDamlPath
     envProjectPath <- getProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath envProjectPath
     pure Env {..}
@@ -56,6 +58,15 @@ testDamlEnv Env{..} = firstJustM (\(test, msg) -> unlessMaybeM test (pure msg))
     , ( maybe (pure True) (doesDirectoryExist . unwrapProjectPath) envProjectPath
       , "The project directory does not exist. Please check if DAML_PROJECT is incorrectly set.")
     ]
+
+-- | Determine the absolute path to the assistant.
+getDamlAssistantPath :: Applicative f => DamlPath -> f DamlAssistantPath
+getDamlAssistantPath (DamlPath damlPath)
+    -- Our packaging logic for Haskell results in getExecutablePath
+    -- pointing to the dynamic linker and getProgramName returning "daml" in
+    -- both cases so we use this hack to figure out the executable name.
+    | takeFileName damlPath == ".daml-head" = pure $ DamlAssistantPath $ damlPath </> "bin" </> "daml-head"
+    | otherwise = pure $ DamlAssistantPath $ damlPath </> "bin" </> "daml"
 
 -- | Determine absolute path of daml home directory.
 --
@@ -168,4 +179,5 @@ getDispatchEnv Env{..} = do
            , (projectPathEnvVar, maybe "" unwrapProjectPath envProjectPath)
            , (sdkPathEnvVar, maybe "" unwrapSdkPath envSdkPath)
            , (sdkVersionEnvVar, maybe "" versionToString envSdkVersion)
+           , (damlAssistantEnvVar, unwrapDamlAssistantPath envDamlAssistantPath)
            ] ++ filter ((`notElem` damlEnvVars) . fst) originalEnv

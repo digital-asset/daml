@@ -260,7 +260,7 @@ export const customViews = (userId, party, role) => ({
       filter: [
         {
           field: "template.id",
-          value: "IouTrade.IouTrade@",
+          value: "IouTrade:IouTrade@",
         }
       ],
       search: "",

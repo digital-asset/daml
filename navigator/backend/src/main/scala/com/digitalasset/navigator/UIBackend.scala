@@ -24,6 +24,7 @@ import com.digitalasset.navigator.model.{Ledger, PackageRegistry}
 import com.digitalasset.navigator.store.Store.Subscribe
 import com.digitalasset.navigator.store.platform.PlatformStore
 import com.typesafe.scalalogging.LazyLogging
+import org.slf4j.LoggerFactory
 import pureconfig.error.ConfigReaderException
 import sangria.schema._
 import spray.json._
@@ -49,6 +50,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
   def customRoutes: List[Route]
   def applicationInfo: ApplicationInfo
   def banner: Option[String] = None
+
+  private[this] def userFacingLogger = LoggerFactory.getLogger("user-facing-logs")
 
   /** Allow subclasses to customize config file name, but don't require it
     * (supply a default)
@@ -283,9 +286,9 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       case DumpGraphQLSchema =>
         dumpGraphQLSchema()
       case RunServer if !Files.exists(configFile) =>
-        logger.error(
-          s"No configuration file found! A a configuration template file will be created at " +
-            s"${configFile}, please edit it and restart the UI backend")
+        val message = "No configuration file found! A configuration template file will be created at " +
+          s"$configFile, please edit it and restart ${applicationInfo.name}"
+        userFacingLogger.error(message)
         Config.writeTemplateToPath(configFile, args.useDatabase)
       case RunServer =>
         Config.load(configFile, args.useDatabase) match {
@@ -295,7 +298,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
             throw exception
           case Right(config) if config.users.isEmpty =>
             logger.error("No users found in the configuration file!")
-            throw new RuntimeException("No users found in the configuration file!")
+            sys.error("No users found in the configuration file!")
           case Right(config) =>
             runServer(args, config)
         }

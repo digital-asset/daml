@@ -21,6 +21,7 @@ import com.digitalasset.ledger.api.messages.transaction._
 import com.digitalasset.ledger.api.v1.transaction.{Transaction => PTransaction}
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
+  TransactionServiceGrpc,
   TransactionServiceLogging
 }
 import com.digitalasset.ledger.api.validation.PartyNameChecker
@@ -48,7 +49,7 @@ object DamlOnXTransactionService {
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
-    : GrpcTransactionService with BindableService with TransactionServiceLogging =
+    : TransactionServiceGrpc.TransactionService with BindableService with TransactionServiceLogging =
     new GrpcTransactionService(
       new DamlOnXTransactionService(indexService),
       ledgerId.underlyingString,
@@ -62,6 +63,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     materializer: Materializer,
     esf: ExecutionSequencerFactory)
     extends TransactionService
+    with AutoCloseable
     with ErrorFactories
     with DamlOnXServiceUtils {
 
@@ -303,4 +305,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
       trans.recordTime.toInstant,
       None
     )
+
+  override def close(): Unit = ()
+
 }

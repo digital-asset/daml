@@ -9,6 +9,12 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.6 — 2019-04-16
+-------------------
+
+- RxJava Bindings: remove blocking call inside Bot.wire, which could lead to an
+  application not making progress in certain situations.
+
 0.12.5 — 2019-04-15
 -------------------
 

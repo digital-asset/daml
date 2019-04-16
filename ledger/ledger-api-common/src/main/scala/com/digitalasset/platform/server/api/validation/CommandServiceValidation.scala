@@ -7,6 +7,7 @@ import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.Command
 import com.digitalasset.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.server.api.ProxyCloseable
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
@@ -14,10 +15,11 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.concurrent.Future
 
 class CommandServiceValidation(
-    protected val service: CommandService with GrpcApiService,
+    protected val service: CommandService with AutoCloseable,
     val ledgerId: String)
     extends CommandService
     with GrpcApiService
+    with ProxyCloseable
     with CommandValidations
     with ErrorFactories
     with CommandPayloadValidations {

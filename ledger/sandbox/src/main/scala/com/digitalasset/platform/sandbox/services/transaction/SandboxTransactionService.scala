@@ -55,6 +55,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
     materializer: Materializer,
     esf: ExecutionSequencerFactory)
     extends TransactionService
+    with AutoCloseable
     with ErrorFactories {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -251,4 +252,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       trans.recordTime,
       None
     )
+
+  override def close(): Unit = ()
+
 }

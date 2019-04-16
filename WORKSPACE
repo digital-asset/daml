@@ -169,35 +169,12 @@ dev_env_tool(
     win_tool = "msys2-20180531",
 )
 
-# c2hs
-nixpkgs_package(
-    name = "c2hs",
-    attribute_path = "ghcWithC2hs",
-    build_file_content = '''
-
-package(default_visibility = [ "//visibility:public" ])
-
-filegroup(
-    name = "bin",
-    srcs = ["bin/c2hs"],
-)
-exports_files(["bin/ghc-pkg"])
-  ''',
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps + [
-        "//nix:ghc.nix",
-        "//nix:with-packages-wrapper.nix",
-        "//nix:overrides/ghc-8.6.4.nix",
-        "//nix:overrides/c2hs-0.28.6.nix",
-        "//nix:overrides/ghc-8.6.3-binary.nix",
-        "//nix:overrides/language-c-0.8.2.nix",
-    ],
-    repositories = dev_env_nix_repos,
-)
-
 load(
     "@io_tweag_rules_haskell//haskell:haskell.bzl",
     "haskell_register_ghc_bindists",
+)
+load(
+    "@io_tweag_rules_haskell//haskell:nixpkgs.bzl",
     "haskell_register_ghc_nixpkgs",
 )
 
@@ -430,7 +407,13 @@ hazel_repositories(
             hazel_hackage("js-dgtable", "0.5.2", "e28dd65bee8083b17210134e22e01c6349dc33c3b7bd17705973cd014e9f20ac") +
             hazel_hackage("shake", "0.17.8", "ade4162f7540f044f0446981120800076712d1f98d30c5b5344c0f7828ec49a2") +
             hazel_hackage("filepattern", "0.1.1", "f7fc5bdcfef0d43a793a3c64e7c0fd3b1d35eea97a37f0e69d6612ab255c9b4b") +
-            hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277"),
+            hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
+            hazel_hackage(
+                "unix-compat",
+                "0.5.1",
+                "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52",
+                patches = ["@com_github_digital_asset_daml//bazel_tools:unix-compat.patch"],
+            ),
         pkgs = packages,
     ),
 )

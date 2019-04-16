@@ -25,14 +25,18 @@ function build-partial() {
     bazel build `
         //:git-revision `
         //compiler/daml-lf-ast/... `
+        //compiler/haskell-ide-core/... `
         //daml-lf/interface/... `
-        //language-support/java/bindings/...
+        //language-support/java/bindings/... `
+        //navigator/backend/... `
+        //navigator/frontend/...
 
     bazel shutdown
 
     bazel test `
         //daml-lf/interface/... `
-        //language-support/java/bindings/...
+        //language-support/java/bindings/... `
+        //navigator/backend/...
 }
 
 function build-full() {
@@ -40,7 +44,7 @@ function build-full() {
     bazel build `
         //:git-revision `
         @com_github_grpc_grpc//:grpc `
-        //nix/third-party/gRPC-haskell/core:fat_cbits `
+        //nix/third-party/gRPC-haskell:grpc-haskell `
         //daml-foundations/daml-tools/daml-extension:daml_extension_lib `
         //daml-foundations/daml-tools/language-server-tests:lib-js `
         //daml-lf/archive:daml_lf_archive_scala `
@@ -68,6 +72,8 @@ function build-full() {
         //ledger/ledger-api-domain/... `
         //ledger/ledger-api-server-example `
         //ledger-api/rs-grpc-akka/... `
+        //navigator/backend/... `
+        //navigator/frontend/... `
         //pipeline/samples/bazel/java/... `
         //pipeline/samples/bazel/haskell/...
 
@@ -88,6 +94,7 @@ function build-full() {
         //ledger/ledger-api-client/... `
         //ledger/ledger-api-common/... `
         //ledger-api/rs-grpc-akka/... `
+        //navigator/backend/... `
         //pipeline/samples/bazel/java/... `
         //pipeline/samples/bazel/haskell/...
 }

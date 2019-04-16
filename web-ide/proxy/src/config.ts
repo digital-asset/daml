@@ -9,7 +9,8 @@ const userDefinedFile = getUserDefinedFile()
 function getUserDefinedFile() {
     const userConfig = process.env.WEBIDE_PROXY_CONFIG
     if (userConfig) {
-        if (fs.existsSync(`${__dirname}/${userConfig}`)) {
+        const confFile = userConfig.startsWith('/') ? userConfig : `${__dirname}/${userConfig}`
+        if (fs.existsSync(confFile)) {
             console.log("Found user defined config file %s", userConfig)
             return require(userConfig)
         } else {

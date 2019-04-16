@@ -16,7 +16,7 @@ supported by the DAML-LF archive. Currently we have two versions:
 
 * `DAML-LF-0`, which is the legacy DAML core;
 * `DAML-LF-1`, which is the first version of DAML-LF as specified by
-    <https://github.com/DACH-NY/da/blob/master/daml-foundations/daml-tools/docs/daml-lf-specification/source/index.rst>.
+    <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>.
 
 ## Building
 

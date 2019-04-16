@@ -25,8 +25,13 @@
         <appender-ref ref="FILE"/>
     </appender>
 
+    <!-- Some important messages are written to stderr -->
+    <logger name="user-facing-logs" level="INFO" additivity="true">
+        <appender-ref ref="STDERR"/>
+    </logger>
+
+    <!-- All log messages are written asynchronously to a file -->
     <root level="INFO">
-        <!-- <appender-ref ref="STDERR"/> -->
         <appender-ref ref="ASYNC"/>
     </root>
 </configuration>
