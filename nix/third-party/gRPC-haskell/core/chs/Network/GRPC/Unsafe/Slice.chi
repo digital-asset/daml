@@ -1,2 +1,0 @@
-C->Haskell Interface Version C->Haskell Compiler, version 0.28.6 Switcheroo, 25 November 2017
-([((True,"grpc_slice"),("Slice","Slice"))],[("Slice",Pointer {ptrTypeHO = Ptr, isNewtypeHO = True})],[])
