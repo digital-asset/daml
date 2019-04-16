@@ -16,7 +16,6 @@ da_haskell_library(
     srcs = [
         "src/Network/GRPC/Unsafe/Constants.hsc",
     ] + glob(["src/**/*.hs"]) + glob(["chs/**/*.hs"]),
-
     compiler_flags = ["-XCPP"],
     hazel_deps = [
         "async",
