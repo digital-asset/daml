@@ -18,7 +18,7 @@ module Development.IDE.Types.Location
     , appendRange
     ) where
 
-import "haskell-lsp-types" Language.Haskell.LSP.Types (Location(..), Range(..), Position(..), Uri(..))
+import Language.Haskell.LSP.Types (Location(..), Range(..), Position(..), Uri(..))
 
 -- | A dummy location to use when location information is missing.
 noLocation :: Location

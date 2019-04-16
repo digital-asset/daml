@@ -34,6 +34,7 @@ import           Development.Shake.Database
 import           Development.Shake.Classes
 import           Development.Shake.Rule
 import qualified Data.HashMap.Strict as Map
+import qualified Data.Map as DMap
 import qualified Data.ByteString.Char8 as BS
 import           Data.Dynamic
 import           Data.Maybe
@@ -135,7 +136,7 @@ instance Hashable Key where
 type IdeResult v = ([Diagnostic], Maybe v)
 
 type IdeRule k v =
-  ( Shake.RuleResult k ~ IdeResult v
+  ( Shake.RuleResult k ~ Maybe v
   , Shake.ShakeValue k
   , Show v
   , Typeable v
@@ -176,14 +177,17 @@ profileStartTime = unsafePerformIO $ formatTime defaultTimeLocale "%Y%m%d-%H%M%S
 profileCounter :: Var Int
 profileCounter = unsafePerformIO $ newVar 0
 
-setResult :: IdeRule k v
-          => Var Values
-          -> k
-          -> FilePath
-          -> Maybe v
-          -> IO ()
-setResult state key file mVal = modifyVar_ state $ \inVal -> do
+updateState
+    :: IdeRule k v
+    => ShakeExtras
+    -> k
+    -> FilePath
+    -> Maybe v
+    -> (LSP.DiagnosticStore -> LSP.DiagnosticStore)
+    -> IO ()
+updateState ShakeExtras{state, diagnostics} key file mVal diagsF = modifyVar_ state $ \inVal -> do
     let k = Key key
+    modifyVar_ diagnostics (pure . diagsF)
     return $ case mVal of
         Just val -> Map.insertWith Map.union file (Map.singleton k $ toDyn val) inVal
         Nothing -> Map.adjust (Map.delete k) file inVal
@@ -194,6 +198,13 @@ getValues state key file = flip fmap (readVar state) $ \vs -> do
     k <- Map.lookup (Key key) f
     pure $ fromJust $ fromDynamic k
 
+-- data ShakeExtras = ShakeExtras
+--     {eventer :: Event -> IO ()
+--     ,logger :: Logger.Handle IO
+--     ,globals :: Var (Map.HashMap TypeRep Dynamic)
+--     ,state :: Var Values
+--     ,diagnostics :: Var LSP.DiagnosticStore
+--     }
 -- | Open a 'IdeState', should be shut using 'shakeShut'.
 shakeOpen :: (Event -> IO ()) -- ^ diagnostic handler
           -> Logger.Handle IO
@@ -201,8 +212,15 @@ shakeOpen :: (Event -> IO ()) -- ^ diagnostic handler
           -> Rules ()
           -> IO IdeState
 shakeOpen diags shakeLogger opts rules = do
-    shakeExtras <- ShakeExtras diags shakeLogger <$> newVar Map.empty <*> newVar Map.empty <*> newVar Map.empty
+    shakeExtras <- do
+        let eventer = diags
+            logger = shakeLogger
+        globals <- newVar Map.empty
+        state <- newVar Map.empty
+        diagnostics <- newVar DMap.empty
+        pure ShakeExtras{..}
     (shakeDb, shakeClose) <- shakeOpenDatabase opts{shakeExtra = addShakeExtra shakeExtras $ shakeExtra opts} rules
+    shakeDb <- shakeDb
     shakeAbort <- newVar $ return ()
     return IdeState{..}
 
@@ -234,19 +252,18 @@ shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts = modifyVar shakeAbort $
 useStale
     :: IdeRule k v
     => IdeState -> k -> FilePath -> IO (Maybe v)
-useStale IdeState{shakeExtras=ShakeExtras{state}} k fp = do
-    v <- getValues state k fp
-    return $ maybe Nothing snd v
+useStale IdeState{shakeExtras=ShakeExtras{state}} k fp =
+    getValues state k fp
 
 
 getAllDiagnostics :: IdeState -> IO LSP.DiagnosticStore
 getAllDiagnostics IdeState{shakeExtras = ShakeExtras{diagnostics}} =
-    readVar state
+    readVar diagnostics
 
 -- | FIXME: This function is temporary! Only required because the files of interest doesn't work
 unsafeClearAllDiagnostics :: IdeState -> IO ()
-unsafeClearAllDiagnostics IdeState{shakeExtras = ShakeExtras{state}} = modifyVar_ state $
-    return . Map.map (Map.map (\(_, x) -> ([], x)))
+unsafeClearAllDiagnostics IdeState{shakeExtras = ShakeExtras{diagnostics}} =
+    writeVar diagnostics DMap.empty
 
 -- | Clear the results for all files that do not match the given predicate.
 garbageCollect :: (FilePath -> Bool) -> Action ()
@@ -316,17 +333,20 @@ type instance RuleResult (Q k) = A (RuleResult k)
 -- | Compute the value
 uses :: IdeRule k v
     => k -> [FilePath] -> Action [IdeResult v]
-uses key files = map (\(A value _) -> value) <$> apply (map (Q . (key,)) files)
+uses = undefined
+
+uses' :: IdeRule k v => k -> [FilePath] -> Action [Maybe v]
+uses' key files = map (\(A value _) -> value) <$> apply (map (Q . (key,)) files)
 
 defineEarlyCutoff
-    :: IdeRule k v
+    :: forall k v. IdeRule k v
     => (k -> FilePath -> Action (Maybe BS.ByteString, IdeResult v))
     -> Rules ()
 defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old mode -> do
-    ShakeExtras{state} <- getShakeExtras
+    extras@ShakeExtras{state} <- getShakeExtras
     val <- case old of
         Just old | mode == RunDependenciesSame -> do
-            v <- liftIO $ getValues state key file
+            (v :: Maybe v) <- liftIO $ getValues state key file
             case v of
                 Just v -> return $ Just $ RunResult ChangedNothing old $ A v (unwrap old)
                 _ -> return Nothing
@@ -337,12 +357,12 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
             (bs, res) <- actionCatch
                 (do v <- op key file; liftIO $ evaluate $ force v) $
                 \(e :: SomeException) -> pure (Nothing, ([ideErrorText file $ T.pack $ show e | not $ isBadDependency e],Nothing))
-            ((badErrors,updateDiags),res) <- return $ first (addDiagnostics file) res
+            ((seriousErrors,updateDiags),res) <- return $ first (addDiagnostics file) res
 
-            when (badErrors /= []) $
-                reportSeriousError $ "Bad errors found for " ++ show (key, file) ++ " got " ++ show badErrors
+            when (seriousErrors /= []) $
+                reportSeriousError $ "Bad errors found for " ++ show (key, file) ++ " got " ++ show seriousErrors
 
-            (before, after) <- liftIO $ setResult state key file res
+            liftIO $ updateState extras key file res updateDiags
             let eq = case (bs, fmap unwrap old) of
                     (Just a, Just (Just b)) -> a == b
                     _ -> False
