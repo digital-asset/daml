@@ -14,11 +14,8 @@ da_scala_library(
         "//external:jar/org/spire_math/kind_projector_2_12",
         "//external:jar/com/github/ghik/silencer_plugin_2_12",
     ],
-    # NOTE(JM): commented out deprecation warnings to get this to compile with the
-    # versions matching sbt. Please remove when deprecations are fixed.
     scalacopts = [
         "-deprecation",
-        "-Xfatal-warnings:false",
         "-Xsource:2.13",
     ],
     tags = ["maven_coordinates=com.daml.scala:bindings:__VERSION__"],
@@ -43,11 +40,8 @@ da_scala_test_suite(
     plugins = [
         "//external:jar/org/spire_math/kind_projector_2_12",
     ],
-    # NOTE(JM): commented out deprecation warnings to get this to compile with the
-    # versions matching sbt. Please remove when deprecations are fixed.
     scalacopts = [
         "-deprecation",
-        "-Xfatal-warnings:false",
         "-Xsource:2.13",
     ],
     deps = [
