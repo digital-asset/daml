@@ -64,7 +64,8 @@ quickstartTests compVersion quickstartDir mvnDir = testGroup "quickstart"
     , testCase "daml init" $ withCurrentDirectory quickstartDir $
           callProcessQuiet "daml" ["init"]
     , testCase "daml package" $ withCurrentDirectory quickstartDir $
-          callProcessQuiet "daml" ["package"]
+          -- This location is assumed by the codegen in the quickstart example.
+          callProcessQuiet "daml" ["package", "-o", "target/daml/iou.dar"]
     , testCase "daml build " $ withCurrentDirectory quickstartDir $
           callProcessQuiet "daml" ["build"]
     , testCase "daml test" $ withCurrentDirectory quickstartDir $
