@@ -15,15 +15,19 @@ import http from "http"
 import https from "https"
 import express from "express"
 import fs from "fs"
+import cookie from "cookie"
+import path from "path"
 import * as Session from "./session"
 import ManagementRoute from "./routes/management"
 import WebIdeRoute from "./routes/webide"
 import { Server } from "net";
+import StaticRoute from "./routes/landing";
 
 const docker = new Docker()
 const conf = require('./config').read()
 const webIdeApp = express()
 const managementApp = express()
+const rootDir = path.dirname(__dirname).split(path.sep).pop()
 let stopContainersOnShutdown = true
 
 new ManagementRoute(managementApp).init()
@@ -32,7 +36,16 @@ http.createServer(managementApp).listen(conf.http.managementPort, () => {
 })
 
 const webideServer = createWebIdeServer()
-new WebIdeRoute(webIdeApp, webideServer, docker).init()
+const webIdeRoute = new WebIdeRoute(webIdeApp, webideServer, docker).init()
+const landingRoute = new StaticRoute(webIdeApp, <string>rootDir).init()
+webIdeApp.get('*', (req, res, next) => {
+    if (req.cookies.accepted) return webIdeRoute.handleHttpRequest(req,res)
+    else return landingRoute.handleLanding(req,res, next)
+})
+webIdeApp.use((err :Error, req: express.Request, res :express.Response, next :express.NextFunction) => {
+    webIdeRoute.errorHandler(err, req, res, next)
+})
+
 docker.init()
 .then(() => startProxyServer(webideServer))
 .catch(err => {
@@ -91,10 +104,14 @@ function close() {
             console.log("removing container %s", c.Id)
             docker.api.getContainer(c.Id).remove({force: true})
         })
-        //give it some time for the actual docker stops
-        const wait = setTimeout(() => {
-            clearTimeout(wait);
+        if (containers.length == 0) {
             process.exit(0)
-        }, 10000)
+        } else {
+            //give it some time for the actual docker stops
+            const wait = setTimeout(() => {
+                clearTimeout(wait);
+                process.exit(0)
+            }, 10000)
+        }
     })
 }

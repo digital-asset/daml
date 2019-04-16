@@ -3,14 +3,15 @@
 
 import * as Session from "../session"
 import Docker from "../docker"
+import cookieParser from "cookie-parser"
 import { createProxyServer } from "http-proxy"
 import { ProxyError } from "../errors"
 import { Server, Socket } from "net"
-import { Application, Request, Response } from "express"
+import { Application, Request, Response, NextFunction } from "express"
 import { ImageInspectInfo } from "dockerode";
 
 const conf = require('../config').read()
-const debug = require('debug')('webide-route')
+const debug = require('debug')('webide:route')
 
 export default class WebIdeRoute {
     app :Application
@@ -25,7 +26,7 @@ export default class WebIdeRoute {
     }
 
     init() : WebIdeRoute {
-        this.app.get('*', (req, res) => this.handleHttpRequest(req, res))
+        this.app.use(cookieParser())
         this.server.on('upgrade', (req :Request, socket :Socket, head :any) => this.handleWsRequest(req, socket, head));
         return this
     }
@@ -34,7 +35,25 @@ export default class WebIdeRoute {
         return this.docker.getImage(conf.docker.image)
     }
 
-    private handleHttpRequest(req :Request, res :Response) {
+    errorHandler(err :Error, req: Request, res :Response, next :NextFunction) {
+        if (res.headersSent) {
+            return next(err)
+        }
+        if (err instanceof ProxyError) {
+            res.statusCode = err.status
+            res.send(err.clientResponse)
+        }
+        else {
+            res.statusCode = 500
+            res.send("Unknown error occured.")
+        }
+        res.end()
+        //TODO render nice error message 
+        //res.render('error', { error: err })
+    }
+
+    handleHttpRequest(req :Request, res :Response) {
+        //TODO let default error handler do its job
         try {
             const route = this
             debug("requesting %s", req.url)
@@ -43,7 +62,6 @@ export default class WebIdeRoute {
                     .then(image => route.ensureDockerContainer(req, state, saveSession, image))
                     .then(containerInfo => {
                         const url = route.docker.getContainerUrl(containerInfo, 'http')
-                        debug("forwarding to %s", url.href)
                         route.proxy.web(req, res, { target: url.href })
                     })
                     .catch(err => {

@@ -7,7 +7,7 @@
     "session" : {
         "name" : "webide.connect.sid",
         "secret" : "super-safe",
-        "cookie" : { "path": "/", "httpOnly": false, "secure": false, "maxAge": 43200},
+        "cookie" : { "path": "/", "httpOnly": false, "secure": false, "maxAge": 31536000},
         "inactiveTimeout" : 900,
         "timeout" : 2700
     },
