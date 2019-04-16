@@ -13,7 +13,6 @@ import com.daml.ledger.participant
 import com.daml.ledger.participant.state.index.v1._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf
@@ -241,8 +240,7 @@ final case class ReferenceIndexService(
       ledgerId: LedgerId,
       beginAfter: Option[Offset],
       endAt: Option[Offset],
-      filter: TransactionFilter)
-    : AsyncResult[Source[(Offset, (TransactionAccepted, BlindingInfo)), NotUsed]] =
+      filter: TransactionFilter): AsyncResult[Source[TransactionUpdate, NotUsed]] =
     asyncResultWithState(ledgerId) { state0 =>
       Future {
         logger.debug(s"getAcceptedTransactions: $ledgerId, $beginAfter")
@@ -254,7 +252,8 @@ final case class ReferenceIndexService(
   private def getTransactionStream(
       ledgerId: LedgerId,
       beginAfter: Option[Offset],
-      endAt: Option[Offset]) =
+      endAt: Option[Offset]): Source[TransactionUpdate, NotUsed] = {
+
     StateController
       .subscribe(ledgerId)
       .statefulMapConcat { () =>
@@ -267,16 +266,19 @@ final case class ReferenceIndexService(
           val toDrop = currentOffset
           currentOffset = txs.lastOption.map(_._1)
           txs
-            .dropWhile {
-              case (offset, _) => toDrop.fold(false)(_.eq(offset))
+            .dropWhile { t =>
+              toDrop.fold(false)(_.eq(getOffset(t)))
             }
       }
       // Complete the stream once end (if given) has been reached.
-      .takeWhile {
-        case (offset, _) =>
-          endAt.fold(true)(_ <= offset)
-
+      .takeWhile { t =>
+        endAt.fold(true)(_ <= getOffset(t))
       }
+      // Add two stream validator stages
+      .via(MonotonicallyIncreasingOffsetValidation(getOffset))
+      .via(BoundedOffsetValidation(getOffset, beginAfter, endAt))
+
+  }
 
   private def getCompletionsFromState(
       state: IndexState,
@@ -346,4 +348,8 @@ final case class ReferenceIndexService(
         state.activeContracts.get(contractId)
       }
     }
+
+  private def getOffset: TransactionUpdate => Offset = {
+    case (offset, _) => offset
+  }
 }
