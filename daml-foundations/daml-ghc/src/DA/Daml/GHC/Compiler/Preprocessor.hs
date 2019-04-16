@@ -86,7 +86,7 @@ checkAmbiguousDataTypes (GHC.L _ m) =
       = Nothing
       where
         message =
-          "Ambiguous data type declaration. " ++ "Write " ++
+          "Ambiguous data type declaration. Write " ++
           baseDeclStr ++ " {} for a record or " ++
           baseDeclStr ++ " () for a variant."
         baseDeclStr = showSDocUnsafe (ppr decl)
