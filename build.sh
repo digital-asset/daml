@@ -31,7 +31,7 @@ bazel query 'deps(//...)' > /dev/null
 # exit code if things go wrong, rather than pretend that everything is
 # fine.
 if [[ "${BUILD_SOURCEBRANCHNAME:-master}" = master ]]; then
-    bazel run -- //ledger/sandbox-perf -foe true -i1 -f1 -wi 1 -bm avgt -rf csv -rff "$ARTIFACTS_DIRS/sandbox-perf.csv" # 1 warmup, 1 iterations in 1 fork
+    bazel run -- //ledger/sandbox-perf -foe true -i1 -f1 -wi 1 -bm avgt -rf csv -rff "$ARTIFACT_DIRS/sandbox-perf.csv" # 1 warmup, 1 iterations in 1 fork
 fi
 
 # Check that we can load damlc in ghci
