@@ -8,14 +8,17 @@ VS code uses [TextMate Grammar](https://macromates.com/manual/en/language_gramma
 VS Code supports PList, JSON and YAML files to specify grammar. DAML VS code extension makes use of PList, as the haskell [extension](https://github.com/JustusAdam/language-haskell) and also using Plist makes having comments easy at the expense of making it more verbose.
 
 
-## Testing Strategy
-Unfortunately at the moment we do not have a automated way to test. We have to depend on good old human eyes, to make that a little easy we have `TestGrammar.daml` in the same folder, a annotated file with expected scopes as comments.
+## Testing
+Unfortunately at the moment we do not have a automated way to test. We have to depend on good old human eyes, to make that a little easy we have `TestGrammar.daml` in the same folder, a annotated file with expected scopes as comments. If there any changes to the scope please do update the comments.
 
 ## DAML Specific constructs
 
 - Colon and double colon Daml considers `::` a cons operator and `:` as type operator.
 - Keywords - there are a few daml specific keywords (eg: template, key, maintainer.).
 - And context specific key words such as with, choice and controller.
+
+The order of these daml specific constructs are important, especially the `:` and `::`. The same is true with choice as there can be more context aware elements, and there are two flavours of this one where choice is used and the other is where controller is used.
+
 
 ## Tools and References
 - https://rubular.com/ - regex engine for quick feedback on regular expression.
