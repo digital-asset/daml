@@ -35,7 +35,7 @@ steps:
     condition: succeededOrFailed()
     inputs:
       pathtoPublish: '$(Build.ArtifactStagingDirectory)'
-      artifactName: 'Bazel execution logs'
+      artifactName: 'Test logs'
 
   - bash: ci/release.sh
     displayName: 'Release'
