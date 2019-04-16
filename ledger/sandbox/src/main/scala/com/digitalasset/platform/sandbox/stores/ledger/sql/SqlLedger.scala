@@ -19,6 +19,10 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.config.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
+  AlwaysReset,
+  ContinueIfExists
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.PersistenceResponse.{Duplicate, Ok}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{LedgerDao, PostgresLedgerDao}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
@@ -34,12 +38,25 @@ import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+sealed abstract class SqlStartMode extends Product with Serializable
+
+object SqlStartMode {
+
+  /** Will continue using an initialised ledger, otherwise initialize a new one */
+  final case object ContinueIfExists extends SqlStartMode
+
+  /** Will always reset and initialize the ledger, even if it has data.  */
+  final case object AlwaysReset extends SqlStartMode
+
+}
+
 object SqlLedger {
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def apply(
       jdbcUrl: String,
       ledgerId: Option[String],
       timeProvider: TimeProvider,
+      startMode: SqlStartMode,
       ledgerEntries: immutable.Seq[LedgerEntry])(implicit mat: Materializer): Future[Ledger] = {
     implicit val ec: ExecutionContext = DirectExecutionContext
 
@@ -52,7 +69,7 @@ object SqlLedger {
     val sqlLedgerFactory = SqlLedgerFactory(ledgerDao)
 
     for {
-      sqlLedger <- sqlLedgerFactory.createSqlLedger(ledgerId, timeProvider)
+      sqlLedger <- sqlLedgerFactory.createSqlLedger(ledgerId, timeProvider, startMode)
       _ <- sqlLedger.loadStartingState(ledgerEntries)
     } yield sqlLedger
   }
@@ -237,17 +254,33 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     *                        In case the ledger had already been initialized, the given ledger id must not be set or must
     *                        be equal to the one in the database.
     * @param timeProvider    to get the current time when sequencing transactions
+    * @param startMode       whether we should start with a clean state or continue where we left off
     * @return a compliant Ledger implementation
     */
-  def createSqlLedger(initialLedgerId: Option[String], timeProvider: TimeProvider)(
-      implicit mat: Materializer): Future[SqlLedger] = {
+  def createSqlLedger(
+      initialLedgerId: Option[String],
+      timeProvider: TimeProvider,
+      startMode: SqlStartMode)(implicit mat: Materializer): Future[SqlLedger] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val ec = DirectExecutionContext
+
+    def init() = startMode match {
+      case AlwaysReset =>
+        for {
+          _ <- reset()
+          ledgerId <- initialize(initialLedgerId)
+        } yield ledgerId
+      case ContinueIfExists => initialize(initialLedgerId)
+    }
+
     for {
-      ledgerId <- initialize(initialLedgerId)
+      ledgerId <- init()
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
     } yield new SqlLedger(ledgerId, ledgerEnd, ledgerDao, timeProvider)
   }
+
+  private def reset(): Future[Unit] =
+    ledgerDao.reset()
 
   private def initialize(initialLedgerId: Option[String]) = initialLedgerId match {
     case Some(initialId) =>
