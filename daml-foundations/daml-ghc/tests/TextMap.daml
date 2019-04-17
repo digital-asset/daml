@@ -7,7 +7,7 @@
 daml 1.2
 module TextMap where
 
-import DA.Private.TextMap as TM
+import DA.TextMap as TM
 import DA.Assert
 
 testEmpty = scenario do
