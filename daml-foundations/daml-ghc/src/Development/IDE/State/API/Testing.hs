@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 -- | Testing framework for Shake API.
 module Development.IDE.State.API.Testing
@@ -43,6 +44,7 @@ import Development.IDE.State.Rules.Daml
 import qualified Development.IDE.Logger as Logger
 import           Development.IDE.Types.LSP
 import DA.Daml.GHC.Compiler.Options (defaultOptionsIO)
+import Language.Haskell.LSP.Types (filePathToUri, uriToFilePath)
 
 -- * external dependencies
 import Control.Concurrent.STM
@@ -58,6 +60,7 @@ import qualified Data.Set               as Set
 import qualified System.FilePath        as FilePath
 import qualified System.Directory       as Directory
 import qualified Data.Time.Clock        as Clock
+import GHC.Exts (toList)
 import           System.FilePath        ((</>))
 import           Control.Monad.Except   (ExceptT (..), MonadError(..), runExceptT)
 import           Control.Monad.Reader   (ReaderT (..))
@@ -191,7 +194,7 @@ setBufferModifiedMaybe absPath maybeText = ShakeTest $ do
     liftIO $ API.setBufferModified service absPath (maybeText, now)
 
 -- | (internal) Get diagnostics.
-getDiagnostics :: ShakeTest [D.Diagnostic]
+getDiagnostics :: ShakeTest D.DiagnosticStore
 getDiagnostics = ShakeTest $ do
     service <- Reader.asks steService
     liftIO $ do
@@ -253,7 +256,7 @@ cursorPosition :: Cursor -> D.Position
 cursorPosition (_absPath,  line,  col) = D.Position line col
 
 locationStartCursor :: D.Location -> Cursor
-locationStartCursor (D.Location path (D.Range (D.Position line col) _)) = (path, line, col)
+locationStartCursor (D.Location path (D.Range (D.Position line col) _)) = (fromJust $ uriToFilePath path, line, col)
 
 -- | Same as Cursor, but passing a list of columns, so you can specify a range
 -- such as (foo,1,[10..20]).
@@ -275,17 +278,24 @@ cursorRangeList (path, line, cols) = map (\col -> (path, line, col)) cols
 -- "Parse error" vs "parse error" could both be correct.
 --
 -- In future, we may move to regex matching.
-searchDiagnostics :: (D.DiagnosticSeverity, Cursor, T.Text) -> [D.Diagnostic] -> ShakeTest ()
+searchDiagnostics :: (D.DiagnosticSeverity, Cursor, T.Text) -> D.DiagnosticStore -> ShakeTest ()
 searchDiagnostics expected@(severity, cursor, message) actuals =
-    unless (any match actuals) $
-        throwError $ ExpectedDiagnostics [expected] actuals
+    let fileDiags = fileDiagnostics (cursorFilePath cursor) actuals
+    in unless (any match fileDiags) $
+        throwError $ ExpectedDiagnostics [expected] fileDiags
   where
     match :: D.Diagnostic -> Bool
     match d =
-        severity == D._severity d
-        && cursorFilePath cursor == D.dFilePath d
+           severity == D._severity d
         && cursorPosition cursor == D._start (D._range d)
         && (T.toLower message `T.isInfixOf` T.toLower (D._message d))
+
+    fileDiagnostics :: FilePath -> D.DiagnosticStore -> [D.Diagnostic]
+    fileDiagnostics fp =
+        join .
+        map (\(D.StoreItem _ ds) -> join $ map toList $ Map.elems ds) .
+        fromMaybe [] .
+        Map.lookup (filePathToUri fp)
 
 expectDiagnostic :: D.DiagnosticSeverity -> Cursor -> T.Text -> ShakeTest ()
 expectDiagnostic severity cursor msg = do
@@ -324,26 +334,26 @@ expectNoVirtualResource vr = do
 -- | Expect error in given file and (0-based) line number. Require
 -- the error message contains a certain substring (case-insensitive).
 expectError :: Cursor -> T.Text -> ShakeTest ()
-expectError = expectDiagnostic D.Error
+expectError = expectDiagnostic D.DsError
 
 -- | Expect warning in given file and (0-based) line number. Require
 -- the warning message contains a certain string (case-insensitive).
 expectWarning :: Cursor -> T.Text -> ShakeTest ()
-expectWarning = expectDiagnostic D.Warning
+expectWarning = expectDiagnostic D.DsWarning
 
 -- | Expect one error and no other diagnostics.
--- Fails by showing all the diagnostics.
+-- Fails by showing all the diagno stics.
 expectOneError :: Cursor -> T.Text -> ShakeTest ()
-expectOneError cursor message = expectOnlyDiagnostics [(D.Error, cursor, message)]
+expectOneError cursor message = expectOnlyDiagnostics [(D.DsError, cursor, message)]
 
 expectOnlyErrors :: [(Cursor, T.Text)] -> ShakeTest ()
-expectOnlyErrors = expectOnlyDiagnostics . map (\(cursor, msg) -> (D.Error, cursor, msg))
+expectOnlyErrors = expectOnlyDiagnostics . map (\(cursor, msg) -> (D.DsError, cursor, msg))
 
 -- | Expect no errors anywhere.
 expectNoErrors :: ShakeTest ()
 expectNoErrors = do
     diagnostics <- getDiagnostics
-    let errors = filter (\d -> D._severity d == D.Error) diagnostics
+    let errors = filter (\d -> D._severity d == D.DsError) diagnostics
     unless (null errors) $
         throwError (ExpectedNoErrors errors)
 
