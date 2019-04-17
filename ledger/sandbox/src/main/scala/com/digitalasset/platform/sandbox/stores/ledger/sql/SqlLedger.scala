@@ -56,8 +56,9 @@ object SqlLedger {
       jdbcUrl: String,
       ledgerId: Option[String],
       timeProvider: TimeProvider,
-      startMode: SqlStartMode,
-      ledgerEntries: immutable.Seq[LedgerEntry])(implicit mat: Materializer): Future[Ledger] = {
+      ledgerEntries: immutable.Seq[LedgerEntry],
+      startMode: SqlStartMode = SqlStartMode.ContinueIfExists)(
+      implicit mat: Materializer): Future[Ledger] = {
     implicit val ec: ExecutionContext = DirectExecutionContext
 
     val noOfShortLivedConnections = 10

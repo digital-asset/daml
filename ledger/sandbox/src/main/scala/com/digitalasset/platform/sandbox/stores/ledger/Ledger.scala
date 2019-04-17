@@ -55,10 +55,10 @@ object Ledger {
       jdbcUrl: String,
       ledgerId: String,
       timeProvider: TimeProvider,
-      startMode: SqlStartMode,
       ledgerEntries: Seq[LedgerEntry],
+      startMode: SqlStartMode
   )(implicit mat: Materializer): Future[Ledger] =
     //TODO (robert): casting from Seq to immutable.Seq, make ledgerEntries immutable throughout the Sandbox?
-    SqlLedger(jdbcUrl, Some(ledgerId), timeProvider, startMode, immutable.Seq(ledgerEntries: _*))
+    SqlLedger(jdbcUrl, Some(ledgerId), timeProvider, immutable.Seq(ledgerEntries: _*), startMode)
 
 }

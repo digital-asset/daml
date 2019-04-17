@@ -70,7 +70,8 @@ object SandboxApplication {
     )
 
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    private def buildAndStartServer(startMode: SqlStartMode): Unit = {
+    private def buildAndStartServer(
+        startMode: SqlStartMode = SqlStartMode.ContinueIfExists): Unit = {
       implicit val mat = materializer
       implicit val ec: ExecutionContext = mat.system.dispatcher
 
@@ -94,7 +95,7 @@ object SandboxApplication {
       val (ledgerType, ledger) = config.jdbcUrl match {
         case None => ("in-memory", Ledger.inMemory(ledgerId, timeProvider, acs, records))
         case Some(jdbcUrl) =>
-          val ledgerF = Ledger.postgres(jdbcUrl, ledgerId, timeProvider, startMode, records)
+          val ledgerF = Ledger.postgres(jdbcUrl, ledgerId, timeProvider, records, startMode)
 
           val ledger = Try(Await.result(ledgerF, asyncTolerance)).fold(t => {
             val msg = "Could not start PostgreSQL persistence layer"
@@ -142,7 +143,7 @@ object SandboxApplication {
     def start(): Unit = {
       system = ActorSystem(actorSystemName)
       materializer = ActorMaterializer()(system)
-      buildAndStartServer(SqlStartMode.ContinueIfExists)
+      buildAndStartServer()
     }
 
     override def close(): Unit = {
