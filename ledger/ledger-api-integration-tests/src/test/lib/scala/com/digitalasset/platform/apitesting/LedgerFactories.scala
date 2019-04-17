@@ -48,6 +48,7 @@ object LedgerFactories {
 
     case object Postgres extends SandboxStore
 
+    // meant to be used purely for JMH benchmarks
     def apply(s: String): SandboxStore = s match {
       case "InMemory" => SandboxStore.InMemory
       case "Postgres" => SandboxStore.Postgres
