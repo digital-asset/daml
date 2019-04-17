@@ -17,7 +17,7 @@ import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.ledger.api.v1.testing.reset_service.ResetRequest
-import com.digitalasset.platform.apitesting.{LedgerBackend, LedgerContext, MultiLedgerFixture}
+import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
 import com.digitalasset.platform.sandbox.services.TestCommands
 import com.digitalasset.platform.sandbox.utils.InfiniteRetries
 import io.grpc.Status
@@ -41,8 +41,6 @@ class ResetServiceIT
     with SuiteResourceManagementAroundEach {
 
   override def timeLimit: Span = 30.seconds
-
-  override protected def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.SandboxInMemory)
 
   override protected val config: Config = Config.defaultWithLedgerId(None)
 

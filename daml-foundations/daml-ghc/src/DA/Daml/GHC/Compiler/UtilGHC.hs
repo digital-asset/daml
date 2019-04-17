@@ -38,6 +38,9 @@ pattern TypeCon :: TyCon -> [GHC.Type] -> GHC.Type
 pattern TypeCon c ts <- (splitTyConApp_maybe -> Just (c, ts))
   where TypeCon = mkTyConApp
 
+pattern StrLitTy :: String -> Type
+pattern StrLitTy x <- (fmap unpackFS . isStrLitTy -> Just x)
+
 subst :: [(TyVar, GHC.Type)] -> GHC.Type -> GHC.Type
 subst env = transform $ \t ->
     case getTyVar_maybe t of

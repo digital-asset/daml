@@ -19,7 +19,7 @@ class SandboxResetService(
     getServer: () => Server,
     getEc: () => ExecutionContext,
     closeAllServices: () => Unit,
-    buildAndStartServer: () => Unit)
+    resetAndStartServer: () => Unit)
     extends ResetServiceGrpc.ResetService
     with BindableService {
 
@@ -69,7 +69,7 @@ class SandboxResetService(
         server.shutdownNow()
       }
       logger.info(s"Rebuilding server...")
-      buildAndStartServer()
+      resetAndStartServer()
       logger.info(s"Server reset complete.")
     })
   }
