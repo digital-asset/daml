@@ -98,9 +98,11 @@ data Consuming = PreConsuming  -- Archive before executing exercise body.
 nonconsuming : NoEvent c e -> Consuming
 nonconsuming _ = NonConsuming
 
+-- | HIDE
 preconsuming : NoEvent c e -> Consuming
 preconsuming _ = PreConsuming
 
+-- | HIDE
 postconsuming : NoEvent c e -> Consuming
 postconsuming _ = PostConsuming
 

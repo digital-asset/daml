@@ -23,7 +23,7 @@ data PostConsume = PostConsume {} deriving (Eq, Show)
 instance Choice T PostConsume Int where
   consuming = postconsuming
   choiceController T{..} _ = [p]
-  choice _ self _ =  do _ <- fetch self; return 43 -- Can fetch 'self' in choice body
+  choice _ self _ =  (+2) <$> exercise self NoConsume
 
 main = scenario do
   p <- getParty "p"
