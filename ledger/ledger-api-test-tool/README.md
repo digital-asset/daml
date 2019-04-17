@@ -3,19 +3,18 @@
 *Status: ALPHA*
 
 The Ledger API Test Tool is a command line tool for testing the correctness of
-ledger implementations based on DAML and [Ledger
+ledger implementations based on DAML and the [Ledger
 API](https://docs.daml.com/app-dev/ledger-api-introduction/index.html). It’s
 useful for ledger implementation developers, who are using DAML Ledger
 Implementation Kit to develop a DAML Ledger on top of their distributed-ledger
 or database of choice.
 
-The tool will run a set of automated checks to verify if the target Ledger API
-endpoint conforms to the [DA Ledger
+Use this tool to verify if the Ledger API endpoint conforms to the [DA Ledger
 Model](https://docs.daml.com/concepts/ledger-model/index.html).
 
 ## Development
 
-The tool can be built and ran with:
+To build and run the tool, use:
 
     bazel run //ledger/ledger-api-test-tool:ledger-api-test-tool
 
@@ -26,13 +25,38 @@ into a standalone command line tool with embedded
 
 ## Usage
 
+*To be moved to SDK DAML documentation.*
+
 ### Downloading the tool
 
 TODO
 
+### Extracting `.dar` file required to run the tests
+
+Before you can run the Ledger API test tool on your ledger, you need to load a
+specific set of DAML templates onto your ledger.
+
+1. Obtain the corresponding `.dar` file with:
+
+        ledger-api-test-tool -x
+
+2. Load the file `SemanticTests.dar` created in the current directory into your
+   Ledger.
+
+### Running the tool against a custom Ledger API endpoint
+
+Run this command to test your Ledger API endpoint exposed at host `<host>` and
+at a port `<port>`:
+
+    ledger-api-test-tool -h <host> -p <port>
+
+For example
+
+    ledger-api-test-tool -h localhost -p 6865
+
 ### Exploring options the tool provides
 
-You can obtain the list of options the tool provides with:
+Run the tool with `--help` flag to obtain the list of options the tool provides:
 
     $ ledger-api-test-tool --help
     The Ledger API Test Tool is a command line tool for testing the correctness of
@@ -47,45 +71,26 @@ You can obtain the list of options the tool provides with:
       -r, --reset              Perform a ledger reset before running the tests. Defaults to false.
       -x, --extract            Extract the testing archive files and exit.
 
-### Extracting `.dar` file required to run the tests
-
-The Ledger API Test Tool depends on a specific set of DAML templates, which has
-to be loaded into a DAML Ledger under test. You can obtain the `.dar` file with:
-
-    ledger-api-test-tool -x
-
-This will create file `SemanticTests.dar` in your local directory, which you
-should load into your DAML Ledger.
-
 ### Try out the Ledger API Test Tool against DAML Sandbox
 
-If you do not have yet a custom Ledger API endpoint, you can try running the
-tool against the [DAML Sandbox](https://docs.daml.com/tools/sandbox.html) with.
-The DAML Sandbox starts at by default at `localhost:6865` and the Ledger API
-Test Tool uses this as the default endpoint to test, hence hosts and ports
-command line arguments can be omitted.
+To run the tool against [DAML
+Sandbox](https://docs.daml.com/tools/sandbox.html), run:
 
     ledger-api-test-tool -x
     da sandbox -- SemanticTests.dar
     ledger-api-test-tool
 
-This should always succeed! 
+This should always succeed! This is useful if you do not have yet a custom
+Ledger API endpoint.
 
-### Running the tool against a Ledger API endpoint
+The DAML Sandbox starts at by default at `localhost:6865`
+and the Ledger API Test Tool uses this as the default endpoint to test, hence
+hosts and ports command line arguments can be omitted.
 
-Given a Ledger API server running at `<host>` and at a port `<port>`, one can
-use the tool against it:
 
-    ledger-api-test-tool -h <host> -p <port>
+### Testing your tool from continuous integration pipelines
 
-For example
-
-    ledger-api-test-tool -h localhost -p 6865
-
-### Using the tool in continuous integration pipelines
-
-The tool is tailored to be used in CI pipelines. On success, it will produce
-minimal output and return the success exit code:
+To test your ledger in your CI pipelines, execute it as part of your pipeline:
 
     $ ledger-api-test-tool
     Running 10 scenarios against localhost:6865...
@@ -102,6 +107,9 @@ minimal output and return the success exit code:
     All scenarios completed.
     $ echo $?
     0
+
+The tool is tailored to be used in CI pipelines: as customary, when the tests
+succeed, it will produce minimal output and return the success exit code.
 
 ### Connecting over TLS to a DAML Ledger, e.g. the Digital Asset Ledger
 
@@ -124,8 +132,9 @@ Details of these parameters are explained in the command line help:
 
 ### Using the tool with a known-to-be-faulty Ledger API implementation
 
-During development of a DAML Ledger implementation, it is possible that the tool
-needs to be used against a known-to-be-faulty implementation (e.g. in CI). In
-such cases use of `--must-fail` flag can be used:
+To force the tool to always return success exit code, use `--must-fail` flag:
 
     ledger-api-test-tool --must-fail -h localhost -p 6865
+
+This is useful during development of a DAML Ledger implementation, when tool
+needs to be used against a known-to-be-faulty implementation (e.g. in CI).
