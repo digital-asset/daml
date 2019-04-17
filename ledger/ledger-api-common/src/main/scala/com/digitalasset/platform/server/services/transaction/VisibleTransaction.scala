@@ -3,13 +3,11 @@
 
 package com.digitalasset.platform.server.services.transaction
 
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.api.domain.{Party, PartyTag, TransactionFilter}
+import com.digitalasset.ledger.api.domain.TransactionFilter
 import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter
-import scalaz.Tag
 import com.digitalasset.platform.common.{PlatformTypes => P}
-
-import scala.collection.immutable
 
 /** Contains all data that's necessary to assemble a transaction for the API */
 final case class VisibleTransaction(
@@ -17,11 +15,14 @@ final case class VisibleTransaction(
     meta: TransactionMeta,
     disclosureByNodeId: Map[String, Set[Party]]) {
 
-  private type MapStringSet[T] = Map[String, immutable.Set[T]]
+  private type MapStringSet[T] = Map[String, Set[T]]
 
-  def disclosureByNodeIdStr: MapStringSet[String] =
-    Tag.unsubst[String, MapStringSet, PartyTag](disclosureByNodeId)
+  /* FixMe(RH): Drop or uncomment
+  def disclosureByNodeIdStr: MapStringSet[String] = disclosureByNodeId.map {
+    case (k, v) => k -> v.map(_.underlyingString)
+  }*/
 }
+
 object VisibleTransaction {
 
   def toVisibleTransaction(

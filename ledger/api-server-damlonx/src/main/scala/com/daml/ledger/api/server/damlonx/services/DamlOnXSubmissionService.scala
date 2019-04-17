@@ -109,10 +109,11 @@ class DamlOnXSubmissionService private (
               case Right(updateTx) =>
                 Future {
                   logger.debug(
-                    s"Submitting transaction from ${commands.submitter.unwrap} with ${commands.commandId.unwrap}")
+                    s"Submitting transaction from ${commands.submitter.underlyingString} with ${commands.commandId.unwrap}")
                   writeService.submitTransaction(
                     submitterInfo = SubmitterInfo(
-                      submitter = Ref.SimpleString.assertFromString(commands.submitter.unwrap),
+                      submitter =
+                        Ref.SimpleString.assertFromString(commands.submitter.underlyingString),
                       applicationId = commands.applicationId.unwrap,
                       maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
                       commandId = commands.commandId.unwrap

@@ -3,7 +3,8 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.ledger.api.domain.{Identifier, Party, TransactionFilter}
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.ledger.api.domain.TransactionFilter
 
 import scala.collection.{breakOut, immutable, mutable}
 

@@ -3,13 +3,13 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger
 
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.engine.{Blinding, Engine, Commands => LfCommands}
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.api.domain.{Commands, Party}
+import com.digitalasset.ledger.api.domain.Commands
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.damle.SandboxDamle
 import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
@@ -33,14 +33,14 @@ class CommandExecutorImpl(engine: Engine, packageContainer: DamlPackageContainer
         Left(ErrorCause.DamlLf(err))
       case Right(updateTx) =>
         Blinding
-          .checkAuthorizationAndBlind(updateTx, Set(Ref.Party.assertFromString(submitter.unwrap)))
+          .checkAuthorizationAndBlind(updateTx, Set(submitter))
           .fold(
             e => Left(ErrorCause.DamlLf(e)),
             blindingInfo =>
               Right(TransactionSubmission(
                 submitted.commandId.unwrap,
                 submitted.workflowId.fold("")(_.unwrap),
-                submitted.submitter.unwrap,
+                submitted.submitter.underlyingString,
                 submitted.ledgerEffectiveTime,
                 submitted.maximumRecordTime,
                 submitted.applicationId.unwrap,

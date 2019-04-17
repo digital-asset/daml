@@ -5,6 +5,7 @@ package com.digitalasset.platform.server.services.transaction
 
 import java.time.Instant
 
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.domain._
 import com.digitalasset.ledger.api.v1.trace_context.TraceContext
 
