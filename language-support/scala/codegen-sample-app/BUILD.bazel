@@ -32,7 +32,7 @@ genrule(
         ":MySecondMain",
     ],
     outs = ["MyMain-codegen-out"],
-    cmd = "$(execpath //language-support/scala/codegen:codegen-main) --input-files $(location :MyMain.dar),$(location :MySecondMain.dar) --package-name com.digitalasset.sample --output-dir $@",
+    cmd = "$(execpath //language-support/scala/codegen:codegen-main) $(location :MyMain.dar)=com.digitalasset.sample $(location :MySecondMain.dar)=com.digitalasset.sample --output-directory=$@ --verbosity=2",
     tools = [
         ":MyMain.dar",
         ":MySecondMain.dar",

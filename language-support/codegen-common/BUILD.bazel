@@ -13,6 +13,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//3rdparty/jvm/com/github/scopt",
+        "//3rdparty/jvm/ch/qos/logback:logback_classic",
     ],
 )
 

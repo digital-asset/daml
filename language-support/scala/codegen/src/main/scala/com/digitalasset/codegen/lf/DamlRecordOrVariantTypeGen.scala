@@ -9,6 +9,7 @@ import com.digitalasset.codegen.Util
 import com.digitalasset.codegen.lf.LFUtil.{TupleNesting, escapeIfReservedName}
 import com.digitalasset.daml.lf.iface, iface.{Type => _, _}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName}
+import com.typesafe.scalalogging.Logger
 import scalaz.{-\/, \/, \/-}
 
 import scala.collection.breakOut
@@ -27,6 +28,8 @@ object DamlRecordOrVariantTypeGen {
   import LFUtil.{domainApiAlias, generateIds, rpcValueAlias}
 
   import runUni._
+
+  private val logger: Logger = Logger(getClass)
 
   type VariantField = (String, List[FieldWithType] \/ iface.Type)
   type RecordOrVariant = ScopedDataType.DT[FieldWithType, VariantField]
@@ -54,7 +57,7 @@ object DamlRecordOrVariantTypeGen {
       rootClassChildren: Seq[Tree],
       companionChildren: Iterable[Tree]): (File, Iterable[Tree]) = {
 
-    LFUtil.lfprintln(s"generate typeDecl: $typeDecl")
+    logger.debug(s"generate typeDecl: $typeDecl")
 
     import typeDecl.name
     val damlScalaName = util.mkDamlScalaName(Util.UserDefinedType, name)

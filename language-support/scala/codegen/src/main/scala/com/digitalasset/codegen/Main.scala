@@ -4,47 +4,54 @@
 package com.digitalasset.codegen
 
 import java.io.File
+import java.nio.file.Path
 
-import scopt.OptionParser
+import ch.qos.logback.classic.Level
+import com.digitalasset.daml.lf.codegen.conf.Conf
+import com.typesafe.scalalogging.StrictLogging
+import org.slf4j.{Logger, LoggerFactory}
 
-object Main {
+object Main extends StrictLogging {
 
-  case class Config(
-      inputFiles: Seq[File] = Seq(),
-      packageName: String = "",
-      outputDir: File = new File("."),
-      codeGenMode: CodeGen.Mode = CodeGen.Novel)
+  private val codegenId = "Scala Codegen"
 
-  private val parser = new OptionParser[Config]("codegen") {
-    help("help").text("prints this usage text")
+  def main(args: Array[String]): Unit =
+    Conf.parse(args) match {
+      case Some(Conf(darMap, outputDir, decoderPkgAndClass, verbosity)) =>
+        setGlobalLogLevel(verbosity)
+        logUnsupportedEventDecoderOverride(decoderPkgAndClass)
+        val (dars, packageName) = darsAndOnePackageName(darMap)
+        CodeGen.generateCode(dars, packageName, outputDir.toFile, CodeGen.Novel)
+      case None =>
+        throw new IllegalArgumentException(
+          s"Invalid $codegenId command line arguments: ${args.mkString(" ")}")
+    }
 
-    opt[Seq[File]]("input-files").required
-      .abbr("i")
-      .action((d, c) => c.copy(inputFiles = d))
-      .text("input DAR or DALF files")
-
-    opt[String]("package-name")
-      .required()
-      .abbr("p")
-      .action((d, c) => c.copy(packageName = d))
-      .text("package name e.g. com.digitalasset.mypackage")
-
-    opt[File]("output-dir")
-      .required()
-      .abbr("o")
-      .action((d, c) => c.copy(outputDir = d))
-      .text("output directory for Scala files")
+  private def setGlobalLogLevel(verbosity: Level): Unit = {
+    LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) match {
+      case a: ch.qos.logback.classic.Logger =>
+        a.setLevel(verbosity)
+        logger.info(s"$codegenId verbosity: $verbosity")
+      case _ =>
+        logger.warn(s"$codegenId cannot set requested verbosity: $verbosity")
+    }
   }
 
-  def main(args: Array[String]): Unit = {
-    parser.parse(args, Config()) match {
-      case Some(config) =>
-        CodeGen.generateCode(
-          config.inputFiles.toList,
-          config.packageName,
-          config.outputDir,
-          config.codeGenMode)
-      case None => // arguments are bad, error message will have been displayed
+  private def logUnsupportedEventDecoderOverride(mapping: Option[(String, String)]): Unit =
+    mapping.foreach { decoderMapping =>
+      logger.warn(s"$codegenId does not allow overriding Event Decoder, requested: $decoderMapping")
+    }
+
+  private def darsAndOnePackageName(darMap: Map[Path, Option[String]]): (List[File], String) = {
+    val empty: (List[File], Set[String]) = (List.empty, Set.empty)
+    val (dars, packageNames) =
+      darMap.foldRight(empty)((a, as) => (a._1.toFile :: as._1, as._2 + a._2.getOrElse("daml")))
+    packageNames.toSeq match {
+      case Seq(packageName) =>
+        (dars, packageName)
+      case _ =>
+        throw new IllegalStateException(
+          s"$codegenId expects all dars mapped to the same package name, requested: $darMap")
     }
   }
 }

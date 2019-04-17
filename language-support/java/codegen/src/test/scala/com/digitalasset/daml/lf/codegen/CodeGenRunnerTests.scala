@@ -21,12 +21,15 @@ class CodeGenRunnerTests extends FlatSpec {
 
   val dummyOutputDir = Files.createTempDirectory("codegen")
 
+  it should "always use JavaBackend, which is currently hardcoded" in {
+    assert(CodeGenRunner.backend eq JavaBackend)
+  }
+
   it should "read interfaces from a single DAR file without a prefix" in {
 
     val conf = Conf(
       Map(testDar -> None),
       dummyOutputDir,
-      JavaBackend
     )
 
     val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
@@ -40,7 +43,6 @@ class CodeGenRunnerTests extends FlatSpec {
     val conf = Conf(
       Map(testDar -> Some("PREFIX")),
       dummyOutputDir,
-      JavaBackend
     )
 
     val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
