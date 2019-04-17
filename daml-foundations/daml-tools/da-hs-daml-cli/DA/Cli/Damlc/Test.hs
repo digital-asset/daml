@@ -34,15 +34,6 @@ import System.Exit (exitFailure)
 import System.FilePath
 import qualified Text.XML.Light as XML
 
---------------------------------------------------------------------------------
--- Commands
---------------------------------------------------------------------------------
-
---------------------------------------------------------------------------------
--- Execution
---------------------------------------------------------------------------------
-
-
 
 -- | Test a DAML file.
 execTest :: [FilePath] -> Maybe FilePath -> Compiler.Options -> IO ()
@@ -97,7 +88,6 @@ testJUnit lfVersion hDamlGhc files junitOutput = do
             writeFile junitOutput $ XML.showTopElement $ toJUnit results
         pure (any (any (isJust . snd) . snd) results)
     when failed exitFailure
-
 
 
 prettyErr :: LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.SyntaxClass
@@ -159,14 +149,6 @@ toJUnit results =
                  maybe [] (\err -> [XML.node (XML.unqual "failure") (T.unpack err)]) mbErr
                 )
 
---------------------------------------------------------------------------------
--- main
---------------------------------------------------------------------------------
-
-
-------------------
--- Error reporting
-------------------
 
 reportDiagnostics :: CompilerService.IdeState -> String -> IO a
 reportDiagnostics service err = do
