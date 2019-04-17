@@ -43,6 +43,7 @@ da_haskell_library(
         "xml",
         "yaml",
         "zip-archive",
+        "proto3-suite",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -59,7 +60,6 @@ da_haskell_library(
         "//libs-haskell/da-hs-base",
         "//libs-haskell/da-hs-pretty",
         "//libs-haskell/prettyprinter-syntax",
-        "//nix/third-party/proto3-suite",
     ],
 )
 

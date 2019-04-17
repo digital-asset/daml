@@ -54,11 +54,11 @@ genrule(
     cmd = """
     ORIGPWD=$$PWD
     cd compiler/scenario-service/protos
-    $$ORIGPWD/$(location //nix/third-party/proto3-suite:compile-proto-file) \
+    $$ORIGPWD/$(location @haskell_proto3__suite//:compile-proto-file) \
       --proto scenario_service.proto --out "$$ORIGPWD/$(@D)"
   """,
     tools = [
-        "//nix/third-party/proto3-suite:compile-proto-file",
+        "@haskell_proto3__suite//:compile-proto-file",
     ],
 )
 
@@ -69,14 +69,15 @@ da_haskell_library(
         "base",
         "bytestring",
         "deepseq",
+        "containers",
         "text",
         "vector",
         "proto3-wire",
+        "proto3-suite",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//nix/third-party/gRPC-haskell:grpc-haskell",
         "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
-        "//nix/third-party/proto3-suite",
     ],
 )

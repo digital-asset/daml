@@ -8,12 +8,12 @@ da_haskell_library(
         "bytestring",
         "async",
         "proto3-wire",
+        "proto3-suite",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
-        "//nix/third-party/proto3-suite",
     ],
 )
 
@@ -28,12 +28,12 @@ da_haskell_binary(
         "text",
         "transformers",
         "proto3-wire",
+        "proto3-suite",
     ],
     src_strip_prefix = "examples/hellos/hellos-server",
     deps = [
         ":grpc-haskell",
         "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
-        "//nix/third-party/proto3-suite",
     ],
 )
 
@@ -48,11 +48,11 @@ da_haskell_binary(
         "text",
         "transformers",
         "proto3-wire",
+        "proto3-suite",
     ],
     src_strip_prefix = "examples/hellos/hellos-client",
     deps = [
         ":grpc-haskell",
         "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
-        "//nix/third-party/proto3-suite",
     ],
 )

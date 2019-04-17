@@ -37,11 +37,11 @@ da_haskell_library(
         "transformers",
         "vector",
         "proto3-wire",
+        "proto3-suite",
     ],
     visibility = ["//visibility:public"],
     deps = [
         ":fat_cbits",
-        "//nix/third-party/proto3-suite",
     ],
 )
 

@@ -35,6 +35,7 @@ da_haskell_library(
         "uri-encode",
         "vector",
         "proto3-wire",
+        "proto3-suite",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
@@ -47,6 +48,5 @@ da_haskell_library(
         "//libs-haskell/da-hs-pretty",
         "//nix/third-party/gRPC-haskell:grpc-haskell",
         "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
-        "//nix/third-party/proto3-suite",
     ],
 )

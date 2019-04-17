@@ -64,6 +64,7 @@ da_haskell_library(
         "uri-encode",
         "vector",
         "zip-archive",
+        "proto3-suite",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
@@ -79,7 +80,6 @@ da_haskell_library(
         "//libs-haskell/da-hs-language-server",
         "//libs-haskell/da-hs-pretty",
         "//libs-haskell/prettyprinter-syntax",
-        "//nix/third-party/proto3-suite",
     ],
 )
 
