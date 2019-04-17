@@ -377,11 +377,12 @@ convertChoice env signatories
             -- following that, archive. That is, in pseduo-code, we are
             -- going for an expression like this:
             --     expr this self arg >>= \res ->
-            --     archive signatories self >>= \_ -> return res
+            --     archive signatories self >>= \_ ->
+            --     return res
             let archive = EUpdate $ UExercise tmplTyCon' (mkChoiceName "Archive") selfVar signatories mkEUnit
             in EUpdate $ UBind (Binding (mkVar "res", chcReturnType) expr) $
-                           EUpdate $ UBind (Binding (mkVar "_", TUnit) archive) $
-                           EUpdate $ UPure chcReturnType (EVar $ mkVar "res")
+               EUpdate $ UBind (Binding (mkVar "_", TUnit) archive) $
+               EUpdate $ UPure chcReturnType (EVar $ mkVar "res")
     pure TemplateChoice{..}
     where
         chcLocation = Nothing
