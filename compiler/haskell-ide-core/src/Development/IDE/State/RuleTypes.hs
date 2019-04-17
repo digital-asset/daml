@@ -17,6 +17,7 @@ import           Development.IDE.Functions.Compile             (TcModuleResult, 
 import qualified Development.IDE.Functions.Compile             as Compile
 import           Development.IDE.Functions.FindImports         (Import(..))
 import           Development.IDE.Functions.DependencyInformation
+import           Development.IDE.State.Shake
 import           Data.Binary                              (Binary)
 import qualified Data.Binary                              as Binary
 import           Data.Hashable
@@ -27,7 +28,6 @@ import           GHC.Generics                             (Generic)
 import           "ghc-lib" GHC
 import           "ghc-lib-parser" Module
 
-import           Development.IDE.State.Shake
 import           Development.IDE.Types.SpanInfo
 
 
@@ -36,44 +36,44 @@ import           Development.IDE.Types.SpanInfo
 --   Foo* means Foo for me and Foo+
 
 -- | Kick off things
-type instance RuleResult OfInterest = IdeResult ()
+type instance RuleResult OfInterest = IdeReturn ()
 
 -- | The parse tree for the file using GetFileContents
-type instance RuleResult GetParsedModule = IdeResult ParsedModule
+type instance RuleResult GetParsedModule = IdeReturn ParsedModule
 
 -- | The dependency information produced by following the imports recursively.
 -- This rule will succeed even if there is an error, e.g., a module could not be located,
 -- a module could not be parsed or an import cycle.
-type instance RuleResult GetDependencyInformation = IdeResult DependencyInformation
+type instance RuleResult GetDependencyInformation = IdeReturn DependencyInformation
 
 -- | Transitive module and pkg dependencies based on the information produced by GetDependencyInformation.
 -- This rule is also responsible for calling ReportImportCycles for each file in the transitive closure.
-type instance RuleResult GetDependencies = IdeResult TransitiveDependencies
+type instance RuleResult GetDependencies = IdeReturn TransitiveDependencies
 
 -- | The type checked version of this file, requires TypeCheck+
-type instance RuleResult TypeCheck = IdeResult TcModuleResult
+type instance RuleResult TypeCheck = IdeReturn TcModuleResult
 
 -- | The result of loading a module from a package.
-type instance RuleResult LoadPackage = IdeResult LoadPackageResult
+type instance RuleResult LoadPackage = IdeReturn LoadPackageResult
 
 -- | Information about what spans occur where, requires TypeCheck
-type instance RuleResult GetSpanInfo = IdeResult [SpanInfo]
+type instance RuleResult GetSpanInfo = IdeReturn [SpanInfo]
 
 -- | Convert to Core, requires TypeCheck*
-type instance RuleResult GenerateCore = IdeResult GhcModule
+type instance RuleResult GenerateCore = IdeReturn GhcModule
 
 -- | We capture the subset of `DynFlags` that is computed by package initialization in a rule to
 -- make session initialization cheaper by reusing it.
-type instance RuleResult GeneratePackageState = IdeResult Compile.PackageState
+type instance RuleResult GeneratePackageState = IdeReturn Compile.PackageState
 
 -- | Resolve the imports in a module to the list of either external packages or absolute file paths
 -- for modules in the same package.
-type instance RuleResult GetLocatedImports = IdeResult [(Located ModuleName, Maybe Import)]
+type instance RuleResult GetLocatedImports = IdeReturn [(Located ModuleName, Maybe Import)]
 
 -- | This rule is used to report import cycles. It depends on GetDependencyInformation.
 -- We cannot report the cycles directly from GetDependencyInformation since
 -- we can only report diagnostics for the current file.
-type instance RuleResult ReportImportCycles = IdeResult ()
+type instance RuleResult ReportImportCycles = IdeReturn ()
 
 
 data OfInterest = OfInterest
