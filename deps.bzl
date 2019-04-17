@@ -43,6 +43,7 @@ def daml_deps():
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:haskell-static-linking.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-win-sys-includes.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-drop-fake-static.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
