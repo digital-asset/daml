@@ -11,6 +11,12 @@ VS Code supports PList, JSON and YAML files to specify grammar. DAML VS code ext
 ## Testing
 Unfortunately at the moment we do not have a automated way to test. We have to depend on good old human eyes, to make that a little easy we have `TestGrammar.daml` in the same folder, a annotated file with expected scopes as comments. If there any changes to the scope please do update the comments.
 
+Example: ` employee : Party -- employee -> source.daml , Party -> storage.type.daml > meta.type-declaration.daml > source.daml`
+
+- ` -- ` Begin comment
+- `employee ->` Token employee is scoped to `source.daml` this can be viewed via VS code scope inspector tool
+- `Party ->` Token party has three nested scopes and in the scope inspector they are listed in order
+
 ## DAML Specific constructs
 
 - Colon and double colon Daml considers `::` a cons operator and `:` as type operator.
