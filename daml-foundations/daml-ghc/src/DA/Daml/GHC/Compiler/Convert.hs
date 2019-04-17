@@ -306,7 +306,7 @@ convertTemplate env (VarIs "C:Template" `App` Type (TypeCon ty [])
         `App` ensure `App` signatories `App` observer `App` agreement `App` _create `App` _fetch `App` _archive)
     = do
     tplSignatories <- applyTplParam <$> convertExpr env signatories
-    tplChoices <- fmap (\cs -> NM.fromList (archiveChoice tplSignatories : cs)) choices
+    tplChoices <- fmap (\cs -> NM.fromList (archiveChoice tplSignatories : cs)) (choices tplSignatories)
     tplObservers <- applyTplParam <$> convertExpr env observer
     tplPrecondition <- applyTplParam <$> convertExpr env ensure
     tplAgreement <- applyTplParam <$> convertExpr env agreement
@@ -317,7 +317,7 @@ convertTemplate env (VarIs "C:Template" `App` Type (TypeCon ty [])
     pure [DTemplate Template{..}]
     where
         applyTplParam e = e `ETmApp` EVar tplParam
-        choices = traverse (convertChoice env) $ envFindChoices env $ is ty
+        choices signatories = traverse (convertChoice env signatories) $ envFindChoices env $ is ty
         keys = mapM (convertKey env) $ envFindKeys env $ is ty
         tplLocation = Nothing
         tplTypeCon = mkTypeCon [is ty]
@@ -336,13 +336,21 @@ archiveChoice signatories = TemplateChoice{..}
         chcSelfBinder = mkVar "self"
         chcArgBinder = (mkVar "arg", TUnit)
 
-convertChoice :: Env -> GHC.Expr Var -> ConvertM TemplateChoice
-convertChoice env (VarIs "C:Choice" `App` Type tmpl `App` Type (TypeCon chc []) `App` Type result `App` _templateDict
-        `App` consuming `App` Var controller `App` choice `App` _exercise) = do
-    chcConsuming <- f (10 :: Int) consuming
+convertChoice :: Env -> LF.Expr -> GHC.Expr Var -> ConvertM TemplateChoice
+convertChoice env signatories
+  (VarIs "C:Choice" `App`
+     Type tmpl@(TypeCon tmplTyCon []) `App`
+       Type (TypeCon chc []) `App`
+         Type result `App`
+           _templateDict `App`
+             consuming `App`
+               Var controller `App`
+                 choice `App` _exercise) = do
+    (chcConsuming, postConsuming) <- f (10 :: Int) consuming
     argType <- convertType env $ TypeCon chc []
     let chcArgBinder = (mkVar "arg", argType)
     tmplType <- convertType env tmpl
+    tmplTyCon' <- convertQualified env tmplTyCon
     chcReturnType <- convertType env result
     controllerExpr <- envFindBind env controller >>= convertExpr env
     let chcControllers = case controllerExpr of
@@ -353,9 +361,30 @@ convertChoice env (VarIs "C:Choice" `App` Type tmpl `App` Type (TypeCon chc []) 
             ETmLam thisBndr (ETmLam argBndr body)
               | fst argBndr `Set.notMember` cata freeVarsStep body ->
                 ETmLam thisBndr body `ETmApp` thisVar
-            _ ->
-                controllerExpr `ETmApp` thisVar `ETmApp` argVar
-    chcUpdate <- fmap (\u -> u `ETmApp` thisVar `ETmApp` selfVar `ETmApp` argVar) (convertExpr env choice)
+            _ -> controllerExpr `ETmApp` thisVar `ETmApp` argVar
+    expr <- fmap (\u -> u `ETmApp` thisVar `ETmApp` selfVar `ETmApp` argVar) (convertExpr env choice)
+    chcUpdate <-
+      if not $ postConsuming
+        then
+          pure expr
+      else
+        do
+           -- NOTE(SF): Support for 'postconsuming' choices. The idea
+           -- is to evaluate the user provided choice body and
+           -- following that, archive. That is, in pseduo-code, we are
+           -- going for an expression like this:
+           --     expr this self arg >>= \res ->
+           --     archive signatories self >>= \_ -> return res
+          let archive =
+                EUpdate $
+                  UExercise tmplTyCon'
+                            (mkChoiceName "Archive")
+                            selfVar signatories mkEUnit
+              returnRes = EUpdate $ UPure chcReturnType (EVar $ mkVar "res")
+          pure $
+            EUpdate $
+              UBind (Binding (mkVar "res", chcReturnType) expr)
+                    (EUpdate $ UBind (Binding (mkVar "_", TUnit) archive) returnRes)
     pure TemplateChoice{..}
     where
         chcLocation = Nothing
@@ -367,11 +396,13 @@ convertChoice env (VarIs "C:Choice" `App` Type tmpl `App` Type (TypeCon chc []) 
 
         f i (App a _) = f i a
         f i (Tick _ e) = f i e
-        f i (VarIs "nonconsuming") = pure False
-        f i (VarIs "$dmconsuming") = pure True -- the default is consuming
+        f i (VarIs "$dmconsuming") = pure (True, False) -- the default is preconsuming
+        f i (VarIs "preconsuming") = pure (True, False)
+        f i (VarIs "nonconsuming") = pure (False, False)
+        f i (VarIs "postconsuming") = pure (False, True)
         f i (Var x) | i > 0 = f (i-1) =<< envFindBind env x -- only required to see through the automatic default
         f _ x = unsupported "Unexpected definition of 'consuming', expected either absent or 'nonconsuming'" x
-convertChoice _ x = unhandled "Choice body" x
+convertChoice _ _ x = unhandled "Choice body" x
 
 convertKey :: Env -> GHC.Expr Var -> ConvertM TemplateKey
 convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` Var maintainer `App` _fetch `App` _lookup) = do

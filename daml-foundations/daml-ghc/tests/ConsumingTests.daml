@@ -1,0 +1,43 @@
+daml 1.2
+module ConsumingTests where
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    nonconsuming choice NoConsume : Int
+      controller p
+      do
+        return 41
+
+    choice PreConsume : Int
+      controller p
+      do
+        return 42
+
+-- Temporary : Will replace with DAML syntax when it's implemented.
+
+data PostConsume = PostConsume {} deriving (Eq, Show)
+instance Choice T PostConsume Int where
+  consuming = postconsuming
+  choiceController (T{..}) _ = [p]
+  choice _ self _ =  do _ <- fetch self; return 43 -- Can fetch 'self' in choice body
+
+main = scenario do
+  p <- getParty "p"
+
+  noConsumeCid <- submit p $ create T with p
+  41 <- submit p $ exercise noConsumeCid NoConsume
+  _ <- submit p $ fetch noConsumeCid
+
+  preConsumeCid <- submit p $ create T with p
+  42 <- submit p $ exercise preConsumeCid PreConsume
+  submitMustFail p $ fetch preConsumeCid
+
+  postConsumeCid <- submit p $ create T with p
+  43 <- submit p $ exercise postConsumeCid PostConsume
+  submitMustFail p $ fetch postConsumeCid
+
+  return ()
