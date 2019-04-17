@@ -218,7 +218,8 @@ infixl 4 <$>
 data Optional a  =  None | Some a
     deriving (Eq, Ord, Show)
 
--- | The type of a `TextMap` from keys of type Text to values of type `v`.
+-- | The `TextMap a` type represents an associative array from keys of type
+-- `Text` to values of type `a`.
 data TextMap a =
   -- | HIDE
   TextMap
