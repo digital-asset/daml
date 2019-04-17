@@ -8,6 +8,13 @@ load("@os_info//:os_info.bzl", "is_windows")
 da_haskell_binary(
     name = "da-hs-damlc-app",
     srcs = ["src/Main.hs"],
+
+    # We need to tell the linker to statically link pthread on Windows
+    # otherwise the library is not found at runtime.
+    compiler_flags = [
+        "-optl-static",
+        "-optl-pthread",
+    ] if is_windows else [],
     data = [
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-foundations/daml-ghc/package-database:package-db",
@@ -26,6 +33,13 @@ da_haskell_binary(
 da_haskell_binary(
     name = "damlc_bootstrap",
     srcs = ["src/Main.hs"],
+
+    # We need to tell the linker to statically link pthread on Windows
+    # otherwise the library is not found at runtime.
+    compiler_flags = [
+        "-optl-static",
+        "-optl-pthread",
+    ] if is_windows else [],
     hazel_deps = [
         "base",
     ],
