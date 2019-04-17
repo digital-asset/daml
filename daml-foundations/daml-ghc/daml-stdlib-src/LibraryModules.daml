@@ -29,6 +29,7 @@ import DA.List.Total
 import DA.List
 import DA.Logic
 import DA.Map
+import DA.Math
 import DA.Maybe.Total
 import DA.Maybe
 import DA.Monoid

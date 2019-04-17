@@ -9,6 +9,8 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Addition of ``DA.Math`` library containing exponentiation, logarithms and trig functions
+
 0.12.7 — 2019-04-17
 -------------------
 
