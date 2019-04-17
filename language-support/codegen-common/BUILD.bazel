@@ -1,0 +1,28 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+)
+
+da_scala_library(
+    name = "codegen-common",
+    srcs = glob(["src/main/**/*.scala"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//3rdparty/jvm/com/github/scopt",
+    ],
+)
+
+da_scala_test(
+    name = "test",
+    srcs = glob(["src/test/**/*.scala"]),
+    resources = glob(["src/test/resources/**/*"]),
+    deps = [
+        ":codegen-common",
+        "//3rdparty/jvm/com/github/scopt",
+        "//3rdparty/jvm/org/scalatest",
+    ],
+)

@@ -50,6 +50,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/interface",
         "//language-support/java/bindings:bindings-java",
+        "//language-support/codegen-common",
     ],
 )
 
@@ -67,6 +68,7 @@ test_deps = [
     "//daml-lf/data",
     "//daml-lf/interface",
     "//language-support/java/bindings:bindings-java",
+    "//language-support/codegen-common",
 ]
 
 ########################################################
