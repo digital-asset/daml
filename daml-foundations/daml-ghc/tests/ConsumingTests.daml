@@ -1,0 +1,48 @@
+daml 1.2
+module ConsumingTests where
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    nonconsuming choice NoConsume : Int
+      controller p
+      do return 41
+
+    choice PreConsume : Int
+      controller p
+      do return 42
+
+    choice PreConsumeBad : Int
+      controller p
+      do _ <- fetch self; return 44 -- No! Can't fetch self in a preconsuming choice.
+
+-- Temporary : Will replace with DAML syntax when it's implemented.
+
+data PostConsume = PostConsume {} deriving (Eq, Show)
+instance Choice T PostConsume Int where
+  consuming = postconsuming
+  choiceController T{..} _ = [p]
+  choice _ self _ =  (+2) <$> exercise self NoConsume  -- Yes, fetching self in a postconsuming choice is ok.
+
+main = scenario do
+  p <- getParty "p"
+
+  noConsumeCid <- submit p $ create T with p
+  41 <- submit p $ exercise noConsumeCid NoConsume
+  _ <- submit p $ fetch noConsumeCid
+
+  preConsumeCid <- submit p $ create T with p
+  42 <- submit p $ exercise preConsumeCid PreConsume
+  submitMustFail p $ fetch preConsumeCid
+
+  preConsumeBadCid <- submit p $ create T with p
+  submitMustFail p $ exercise preConsumeBadCid PreConsumeBad
+
+  postConsumeCid <- submit p $ create T with p
+  43 <- submit p $ exercise postConsumeCid PostConsume
+  submitMustFail p $ fetch postConsumeCid
+
+  return ()
