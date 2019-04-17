@@ -9,6 +9,7 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.platform.PlatformApplications
+import com.digitalasset.platform.apitesting.LedgerFactories.SandboxStore
 import com.digitalasset.platform.apitesting.{LedgerContext, LedgerFactories}
 import com.digitalasset.platform.sandbox.utils.InfiniteRetries
 import org.openjdk.jmh.annotations._
@@ -24,11 +25,14 @@ class PerfBenchState extends InfiniteRetries {
 
   def config: PlatformApplications.Config = PlatformApplications.Config.default
 
+  @Param(Array("InMemory", "Postgres"))
+  var store: String = _
+
   @Setup(Level.Trial)
   def setup(): Unit = {
     akkaState = new AkkaState()
     akkaState.setup()
-    server = LedgerFactories.createSandboxResource(config)(akkaState.esf)
+    server = LedgerFactories.createSandboxResource(config, SandboxStore(store))(akkaState.esf)
     server.setup()
   }
 
@@ -46,7 +50,7 @@ class PerfBenchState extends InfiniteRetries {
     implicit val ec = system.dispatcher
     Await.result(
       for {
-        idResponse <- server.value.ledgerIdentityService
+        _ <- server.value.ledgerIdentityService
           .getLedgerIdentity(GetLedgerIdentityRequest())
         _ <- server.value.reset()(system, mat)
         _ <- retry(

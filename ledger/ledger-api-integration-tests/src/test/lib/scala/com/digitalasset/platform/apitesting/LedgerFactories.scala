@@ -48,6 +48,11 @@ object LedgerFactories {
 
     case object Postgres extends SandboxStore
 
+    def apply(s: String): SandboxStore = s match {
+      case "InMemory" => SandboxStore.InMemory
+      case "Postgres" => SandboxStore.Postgres
+    }
+
   }
 
   def createSandboxResource(config: PlatformApplications.Config, store: SandboxStore = InMemory)(
