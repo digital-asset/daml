@@ -33,15 +33,13 @@ genrule(
     ],
     outs = ["damlc-dist.jar"],
     cmd = """
-    export PATH=$$PATH:`dirname $(location @tar_nix//:bin/tar)`:`dirname $(location @gzip_nix//:bin/gzip)`
     mkdir tmp
-    tar xzf $< -C tmp
-    $(JAVABASE)/bin/jar c0Mf $@ -C tmp .
+    $(location @tar_dev_env//:tar) xzf $< -C tmp
+    $(location @bazel_tools//tools/jdk:jar) c0Mf $@ -C tmp .
   """,
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [
-        "@bazel_tools//tools/jdk:current_java_runtime",
-        "@gzip_nix//:bin/gzip",
-        "@tar_nix//:bin/tar",
+        "@bazel_tools//tools/jdk:jar",
+        "@tar_dev_env//:tar",
     ],
 )
