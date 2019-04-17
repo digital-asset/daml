@@ -17,6 +17,7 @@ import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import com.digitalasset.platform.sandbox.stores.ledger._
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeProviderType
 import io.grpc.netty.GrpcSslContexts
@@ -64,12 +65,13 @@ object SandboxApplication {
       },
       () => {
         server.close() // fully tear down the old server.
-        buildAndStartServer()
+        buildAndStartServer(SqlStartMode.AlwaysReset)
       },
     )
 
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    private def buildAndStartServer(): Unit = {
+    private def buildAndStartServer(
+        startMode: SqlStartMode = SqlStartMode.ContinueIfExists): Unit = {
       implicit val mat = materializer
       implicit val ec: ExecutionContext = mat.system.dispatcher
 
@@ -93,7 +95,7 @@ object SandboxApplication {
       val (ledgerType, ledger) = config.jdbcUrl match {
         case None => ("in-memory", Ledger.inMemory(ledgerId, timeProvider, acs, records))
         case Some(jdbcUrl) =>
-          val ledgerF = Ledger.postgres(jdbcUrl, ledgerId, timeProvider, records)
+          val ledgerF = Ledger.postgres(jdbcUrl, ledgerId, timeProvider, records, startMode)
 
           val ledger = Try(Await.result(ledgerF, asyncTolerance)).fold(t => {
             val msg = "Could not start PostgreSQL persistence layer"

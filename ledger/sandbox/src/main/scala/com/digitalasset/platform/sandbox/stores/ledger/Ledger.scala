@@ -16,7 +16,7 @@ import com.digitalasset.ledger.backend.api.v1.{SubmissionResult, TransactionSubm
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger
+import com.digitalasset.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -56,8 +56,9 @@ object Ledger {
       ledgerId: String,
       timeProvider: TimeProvider,
       ledgerEntries: Seq[LedgerEntry],
+      startMode: SqlStartMode
   )(implicit mat: Materializer): Future[Ledger] =
     //TODO (robert): casting from Seq to immutable.Seq, make ledgerEntries immutable throughout the Sandbox?
-    SqlLedger(jdbcUrl, Some(ledgerId), timeProvider, immutable.Seq(ledgerEntries: _*))
+    SqlLedger(jdbcUrl, Some(ledgerId), timeProvider, immutable.Seq(ledgerEntries: _*), startMode)
 
 }

@@ -657,9 +657,25 @@ private class PostgresLedgerDao(
         DirectExecutionContext)
   }
 
-  override def close(): Unit = {
+  private val SQL_TRUNCATE_ALL_TABLES =
+    SQL("""
+        |truncate ledger_entries cascade;
+        |truncate disclosures cascade;
+        |truncate contracts cascade;
+        |truncate contract_witnesses cascade;
+        |truncate contract_key_maintainers cascade;
+        |truncate parameters cascade;
+        |truncate contract_keys cascade;
+      """.stripMargin)
+
+  override def reset(): Future[Unit] =
+    dbDispatcher.executeSql { implicit conn =>
+      val _ = SQL_TRUNCATE_ALL_TABLES.execute()
+      ()
+    }
+
+  override def close(): Unit =
     dbDispatcher.close()
-  }
 
 }
 
