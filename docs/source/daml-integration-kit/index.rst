@@ -399,6 +399,8 @@ Testing a DAML Ledger
 
 **TODO (ALPHA):**
 
++See more in :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`.
+
 - explain how to use the ``ledger-api-test`` tool to test whether your
   implementation correctly implements the Ledger API
   (`GitHub issue <https://github.com/digital-asset/daml/issues/347>`__).
