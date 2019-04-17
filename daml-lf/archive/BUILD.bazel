@@ -83,14 +83,12 @@ da_haskell_library(
         "bytestring",
         "containers",
         "deepseq",
+        "proto3-suite",
+        "proto3-wire",
         "text",
         "vector",
-        "proto3-wire",
-        "proto3-suite",
     ],
     visibility = ["//visibility:public"],
-    deps = [
-    ],
 )
 
 da_scala_library(
