@@ -12,7 +12,7 @@ import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
 import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
-import com.digitalasset.platform.apitesting.{LedgerBackend, MultiLedgerFixture, TestTemplateIds}
+import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestTemplateIds}
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.services.time.TimeProviderType
@@ -39,8 +39,6 @@ class TransactionServiceLargeCommandIT
     with Matchers
     with TestTemplateIds {
 
-  override protected def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.SandboxInMemory)
-
   override protected val config: Config =
     Config
       .defaultWithTimeProvider(TimeProviderType.Static)
@@ -65,6 +63,8 @@ class TransactionServiceLargeCommandIT
         c.testingHelpers
           .submitAndListenForSingleResultOfCommand(superSizedCommand, getAllContracts)
           .map { tx =>
+            tx.events.foreach(println)
+
             tx.events.size shouldEqual targetNumberOfSubCommands
           }
       }
