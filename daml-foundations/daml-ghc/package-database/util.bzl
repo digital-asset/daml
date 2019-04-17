@@ -157,16 +157,16 @@ def _daml_package_db_impl(ctx):
         tools = [toolchain.tools.ghc_pkg],
         outputs = [ctx.outputs.tar],
         command =
-        """
+            """
         set -eoux pipefail
         shopt -s nullglob
         TMP_DIR=$(mktemp -d)
         PACKAGE_DB="$TMP_DIR/package_db"
         mkdir -p "$PACKAGE_DB"
         """ +
-        "".join(
-        [
-        """
+            "".join(
+                [
+                    """
         mkdir -p "$PACKAGE_DB/{daml_lf_version}/{pkg_name}"
         cp {pkg_conf} "$PACKAGE_DB/{daml_lf_version}/{pkg_name}.conf"
         tar xf {iface_tar} --strip-components=1 -C "$PACKAGE_DB/{daml_lf_version}/{pkg_name}/"
@@ -179,8 +179,9 @@ def _daml_package_db_impl(ctx):
                         dalf = pkg[DamlPackage].dalf.path,
                     )
                     for pkg in ctx.attr.pkgs
-        ]) +
-        """
+                ],
+            ) +
+            """
         for lf_version in "$PACKAGE_DB"/*; do
           {ghc_pkg} recache --package-db=$lf_version --no-expand-pkgroot
         done
@@ -188,7 +189,7 @@ def _daml_package_db_impl(ctx):
         """.format(
                 db_tar = ctx.outputs.tar.path,
                 ghc_pkg = toolchain.tools.ghc_pkg.path,
-        ),
+            ),
     )
     return [
         DefaultInfo(),
