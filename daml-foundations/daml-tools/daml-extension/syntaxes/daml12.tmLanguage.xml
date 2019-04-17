@@ -426,7 +426,7 @@
 		</dict>
 		<dict>
 			<key>match</key>
-			<string>\b(m?agreement|controller|can|ensure|signatory|observer)(\b(?!'))</string>
+			<string>\b(m?agreement|controller|can|ensure|signatory|nonconsuming|observer|preconsuming|postconsuming)(\b(?!'))</string>
 			<key>name</key>
 			<string>keyword.other.daml</string>
 		</dict>
