@@ -178,6 +178,7 @@ def _daml_package_db_impl(ctx):
                 ],
             ) +
             """
+      shopt -s nullglob
       for lf_version in package_db/*; do
         {ghc_pkg} recache --package-db=$lf_version --no-expand-pkgroot
       done
