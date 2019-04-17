@@ -1,2 +1,0 @@
-language: nix
-script: nix-channel --remove nixpkgs && nix-channel --add https://nixos.org/channels/nixos-16.09/ nixpkgs && nix-channel --update && nix-build release.nix
