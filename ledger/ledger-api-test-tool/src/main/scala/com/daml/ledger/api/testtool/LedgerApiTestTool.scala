@@ -29,7 +29,6 @@ object LedgerApiTestTool {
     implicit val esf: AkkaExecutionSequencerPool =
       new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
 
-    // FIXME(TW) daml-prim location has just become deprecated
     val testResources = List("/ledger/ledger-api-integration-tests/SemanticTests.dar")
 
     val config = argParser
@@ -149,7 +148,10 @@ object LedgerApiTestTool {
   )
 
   private val argParser = new scopt.OptionParser[Config]("ledger-api-test-tool") {
-    head("Ledger API test tool")
+    head("""The Ledger API Test Tool is a command line tool for testing the correctness of
+           |ledger implementations based on DAML and Ledger API.""".stripMargin)
+
+    help("help").text("prints this usage text")
 
     opt[Int]('p', "target-port")
       .action((x, c) => c.copy(port = x))
