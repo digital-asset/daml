@@ -3,7 +3,7 @@
 
 daml 1.2
 module Tests.MapTest where
-import DA.Private.TextMap
+import DA.TextMap
 
 data MapRecord = MapRecord
     with

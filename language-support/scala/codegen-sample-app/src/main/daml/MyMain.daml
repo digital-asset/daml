@@ -5,7 +5,7 @@ daml 1.2
 module MyMain where
 
 import Prelude hiding (Date, Enum, Maybe)
-import DA.Private.TextMap
+import DA.TextMap
 
 type Unit = ()
 

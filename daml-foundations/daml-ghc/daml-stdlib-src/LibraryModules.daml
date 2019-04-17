@@ -40,9 +40,9 @@ import DA.Random
 import DA.Record
 import DA.Set
 import DA.Text
+import DA.TextMap
 import DA.Time
 import DA.Traversable
 import DA.Tuple
 import DA.Validation
-import DA.Private.TextMap
 import Prelude

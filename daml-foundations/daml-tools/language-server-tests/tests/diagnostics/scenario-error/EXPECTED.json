@@ -13,7 +13,7 @@
         }
       },
       "source": "Scenario",
-      "message": "Scenario execution failed on commit at Main:28:5:\n  #0: create of Main:Agree at DA.Internal.Prelude:388:1\n      failed due to a missing authorization from 'Alice'\n\nLast source location: DA.Internal.Prelude:388:1\n\nLedger time: 1970-01-01T00:00:00Z\n\nPartial transaction:\n  Sub-transactions:\n     #0\n     └─> create Main:Agree\n         with\n           p1 = 'Foo'; p2 = 'Alice'"
+      "message": "Scenario execution failed on commit at Main:28:5:\n  #0: create of Main:Agree at DA.Internal.Prelude:389:1\n      failed due to a missing authorization from 'Alice'\n\nLast source location: DA.Internal.Prelude:389:1\n\nLedger time: 1970-01-01T00:00:00Z\n\nPartial transaction:\n  Sub-transactions:\n     #0\n     └─> create Main:Agree\n         with\n           p1 = 'Foo'; p2 = 'Alice'"
     }
   ],
   "file:/tests/diagnostics/scenario-error/Prelude.daml": [],

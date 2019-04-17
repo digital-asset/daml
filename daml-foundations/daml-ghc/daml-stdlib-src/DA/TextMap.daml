@@ -5,7 +5,7 @@ daml 1.2
 -- | TextMap - A map is an associative array data type composed of a
 -- collection of key/value pairs such that, each possible key appears
 -- at most once in the collection.
-module DA.Private.TextMap
+module DA.TextMap
   ( TextMap
   , empty
   , size
@@ -21,13 +21,12 @@ module DA.Private.TextMap
   ) where
 
 import Prelude hiding (lookup, null, filter, empty)
-import DA.Internal.LF (Pair, unpackPair)
 import DA.List qualified as L
-import DA.Optional qualified as M
+import DA.Optional
 
 -- | Create a map from a list of key/value pairs.
 fromList : [(Text, a)] -> TextMap a
-fromList list = foldl (\acc (key, value) -> (insert key value acc)) empty list
+fromList list = foldl (\acc (key, value) -> insert key value acc) empty list
 
 -- | Convert the map to a list of key/value pairs where the keys are
 -- in ascending order.
@@ -52,7 +51,7 @@ lookup = primitive @"BEMapLookup"
 
 -- | Is the key a member of the map?
 member : Text -> TextMap v -> Bool
-member x m = M.isSome $ lookup x m
+member x m = isSome $ lookup x m
 
 -- | Filter all values that satisfy some predicate.
 filter : (Text -> v -> Bool) -> TextMap v -> TextMap v
@@ -74,15 +73,14 @@ insert = primitive @"BEMapInsert"
 union : TextMap a -> TextMap a -> TextMap a
 union m1 m2 = foldl (\a b -> (uncurry insert) b a) m2 (toList m1)
 
-instance (Show a) => Show (TextMap a) where
-  show m = "TextMap(" <> show (toList m) <> ")"
+instance Show a => Show (TextMap a) where
+  show m = "TextMap " <> show (toList m)
 
-
-instance (Eq a) => Eq (TextMap a) where
+instance Eq a => Eq (TextMap a) where
   x == y = toList x == toList y
 
-instance (Ord a) => Ord (TextMap a) where
-  compare = \m1 m2 -> compare (toList m1) (toList m2)
+instance Ord a => Ord (TextMap a) where
+  x `compare` y = toList x `compare` toList y
 
 instance Semigroup (TextMap b) where
   (<>) = union
