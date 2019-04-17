@@ -352,17 +352,17 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
             case ResultNeedContract(acoid, resume) =>
               ResultNeedContract(acoid, { contract =>
                 resume(contract).flatMap(processedCommand =>
-                  goResume(processed :+ processedCommand, toProcess))
+                  goResume(processed :+ processedCommand, cmds))
               })
             case ResultNeedPackage(pkgId, resume) =>
               ResultNeedPackage(pkgId, { pkg =>
                 resume(pkg).flatMap(processedCommand =>
-                  goResume(processed :+ processedCommand, toProcess))
+                  goResume(processed :+ processedCommand, cmds))
               })
             case ResultNeedKey(key, resume) =>
               ResultNeedKey(key, { contract =>
                 resume(contract).flatMap(processedCommand =>
-                  goResume(processed :+ processedCommand, toProcess))
+                  goResume(processed :+ processedCommand, cmds))
               })
           }
       }
