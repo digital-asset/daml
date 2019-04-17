@@ -3,18 +3,16 @@
 
 package com.digitalasset.ledger.api.validation
 
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
 import com.digitalasset.daml.lf.lfpackage.Ast
-import com.digitalasset.daml.lf.data.{Ref => LfRef}
 import com.digitalasset.daml.lf.lfpackage.Ast.Package
-import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.platform.common.util.DirectExecutionContext.implicitEC
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-import com.digitalasset.platform.server.api.validation.FieldValidations.requireNonEmptyString
-import io.grpc.StatusRuntimeException
+import com.digitalasset.platform.server.api.validation.FieldValidations._
 import com.github.ghik.silencer.silent
+import io.grpc.StatusRuntimeException
 
 import scala.concurrent.Future
 
@@ -22,23 +20,25 @@ object IdentifierValidator {
 
   def validateIdentifier(
       identifier: Identifier,
-      packageResolver: PackageId => Future[Option[Package]]): Future[domain.Identifier] =
+      packageResolver: Ref.PackageId => Future[Option[Package]]): Future[Ref.Identifier] =
+    lift(validateNewStyleIdentifier(identifier)).recoverWith {
+      case error: StatusRuntimeException =>
+        fromDeprecatedIdentifier(identifier, error, packageResolver)
+    }
+
+  def validateNewStyleIdentifier(
+      identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] =
     for {
-      packageId <- lift(requireNonEmptyString(identifier.packageId, "package_id"))
-      name <- lift(validateSplitIdentifier(identifier)).recoverWith {
-        case error: StatusRuntimeException =>
-          fromDeprecatedIdentifier(identifier, error, packageResolver)
-      }
-      (moduleName, entityName) = name
-    } yield domain.Identifier(domain.PackageId(packageId), moduleName, entityName)
+      packageId <- requireSimpleString(identifier.packageId, "package_id")
+      name <- validateSplitIdentifier(identifier)
+    } yield Ref.Identifier(packageId, name)
 
   // Validating the new identifier message with split module and entity name
-  private def validateSplitIdentifier(
-      identifier: Identifier): Either[StatusRuntimeException, (String, String)] =
+  private def validateSplitIdentifier(identifier: Identifier) =
     for {
-      mn <- requireNonEmptyString(identifier.moduleName, "module_name")
-      en <- requireNonEmptyString(identifier.entityName, "entity_name")
-    } yield (mn, en)
+      mn <- requireDottedName(identifier.moduleName, "module_name")
+      en <- requireDottedName(identifier.entityName, "entity_name")
+    } yield Ref.QualifiedName(mn, en)
 
   // in case the identifier uses the old format with a single string,
   // we check the deprecated `name` field and do a heuristic separation of module and entity name
@@ -49,11 +49,11 @@ object IdentifierValidator {
   private def fromDeprecatedIdentifier(
       identifier: Identifier,
       error: StatusRuntimeException,
-      packageResolver: PackageId => Future[Option[Package]]) =
+      packageResolver: Ref.PackageId => Future[Option[Package]]): Future[Ref.Identifier] =
     for {
       // if `name` is not empty, we give back the error from validating the non-deprecated fields
       name <- lift(requireNonEmptyString(identifier.name, "name")).transform(identity, _ => error)
-      packageId <- liftS(LfRef.PackageId.fromString(identifier.packageId)): Future[LfRef.PackageId]
+      packageId <- lift(requireSimpleString(identifier.packageId, "package_id"))
       pkgOpt <- packageResolver(packageId)
       pkg <- pkgOpt
         .map(Future.successful)
@@ -63,10 +63,9 @@ object IdentifierValidator {
       result <- lift(
         DeprecatedIdentifier
           .lookup(pkg, identifier.name)
-          .map(qn => (qn.module.toString(), qn.name.toString()))
           .left
           .map(ErrorFactories.invalidArgument))
-    } yield result
+    } yield Ref.Identifier(packageId, result)
 
   private def lift[A](value: Either[StatusRuntimeException, A]): Future[A] =
     Future.fromTry(value.toTry)

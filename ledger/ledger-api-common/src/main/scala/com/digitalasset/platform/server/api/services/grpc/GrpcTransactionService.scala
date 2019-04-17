@@ -8,7 +8,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain.PartyTag
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.TransactionTree
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.{
@@ -31,7 +30,6 @@ import com.digitalasset.platform.server.services.transaction.{
 }
 import io.grpc.{ServerServiceDefinition, Status}
 import org.slf4j.{Logger, LoggerFactory}
-import scalaz.Tag
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future
@@ -85,7 +83,9 @@ class GrpcTransactionService(
       visibleTx: VisibleTransaction,
       offset: String,
       verbose: Boolean): TransactionTree = {
-    val mappedDisclosure = Tag.unsubst[String, MapStringSet, PartyTag](visibleTx.disclosureByNodeId)
+    val mappedDisclosure = visibleTx.disclosureByNodeId.map {
+      case (k, v) => k -> v.map(_.underlyingString)
+    }
     val events = TransactionConversion
       .genToApiTransaction(
         visibleTx.transaction,
