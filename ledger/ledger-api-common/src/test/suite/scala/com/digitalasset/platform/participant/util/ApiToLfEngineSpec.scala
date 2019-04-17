@@ -59,7 +59,7 @@ class ApiToLfEngineSpec extends WordSpec with Matchers {
             Ref.QualifiedName.assertFromString("parameterShowcase:parameterShowcase")))
       else None,
       immutable.Seq(
-        RecordField(verboseString("operator"), PartyValue(Party("party"))),
+        RecordField(verboseString("operator"), PartyValue(Ref.Party.assertFromString("party"))),
         RecordField(verboseString("integer"), Int64Value(1)),
         RecordField(verboseString("decimal"), DecimalValue("1.1")),
         RecordField(verboseString("text"), TextValue("text")),

@@ -46,8 +46,11 @@ object DamlOnXSubmissionService {
       ledgerId: LedgerId,
       indexService: IndexService,
       writeService: WriteService,
-      engine: Engine)(implicit ec: ExecutionContext, mat: ActorMaterializer)
-    : CommandSubmissionServiceGrpc.CommandSubmissionService with BindableService with CommandSubmissionServiceLogging =
+      engine: Engine)(
+      implicit ec: ExecutionContext,
+      mat: ActorMaterializer): CommandSubmissionServiceGrpc.CommandSubmissionService
+    with BindableService
+    with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new DamlOnXSubmissionService(indexService, writeService, engine),
       ledgerId.underlyingString,
@@ -109,10 +112,11 @@ class DamlOnXSubmissionService private (
               case Right(updateTx) =>
                 Future {
                   logger.debug(
-                    s"Submitting transaction from ${commands.submitter.unwrap} with ${commands.commandId.unwrap}")
+                    s"Submitting transaction from ${commands.submitter.underlyingString} with ${commands.commandId.unwrap}")
                   writeService.submitTransaction(
                     submitterInfo = SubmitterInfo(
-                      submitter = Ref.SimpleString.assertFromString(commands.submitter.unwrap),
+                      submitter =
+                        Ref.SimpleString.assertFromString(commands.submitter.underlyingString),
                       applicationId = commands.applicationId.unwrap,
                       maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
                       commandId = commands.commandId.unwrap

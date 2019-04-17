@@ -132,7 +132,8 @@ object ApiToLfEngine {
       case ApiValue.BoolValue(b) => ok(Lf.ValueBool(b))
       case ApiValue.TimeStampValue(t) => ok(Lf.ValueTimestamp(Time.Timestamp.assertFromLong(t)))
       case ApiValue.TextValue(t) => ok(Lf.ValueText(t))
-      case ApiValue.PartyValue(p) => ok(Lf.ValueParty(PackageId.assertFromString(p.unwrap)))
+      case ApiValue.PartyValue(p) =>
+        ok(Lf.ValueParty(PackageId.assertFromString(p.underlyingString)))
       case ApiValue.OptionalValue(o) => // TODO DEL-7054: add test coverage
         o.map(apiValueToLfValueWithPackages(packages0, _))
           .fold[ApiToLfResult[(Packages, LfValue)]](ok(Lf.ValueOptional(None)))(_.map(v =>
@@ -295,7 +296,7 @@ object ApiToLfEngine {
                 tplId,
                 e.contractId.unwrap,
                 e.choice.unwrap,
-                SimpleString.assertFromString(cmd.submitter.unwrap),
+                SimpleString.assertFromString(cmd.submitter.underlyingString),
                 asVersionedValueOrThrow(arg)
               )
             def withCreateArgument(c: CreateCommand, arg: LfValue): LfCreateCommand =

@@ -24,6 +24,9 @@ trait FieldValidations {
       fieldName: String): Either[StatusRuntimeException, Ref.SimpleString] =
     Ref.SimpleString.fromString(s).left.map(invalidField(fieldName, _))
 
+  def requireSimpleString(s: String): Either[StatusRuntimeException, Ref.SimpleString] =
+    Ref.SimpleString.fromString(s).left.map(invalidArgument)
+
   def requireDottedName(
       s: String,
       fieldName: String): Either[StatusRuntimeException, Ref.DottedName] =

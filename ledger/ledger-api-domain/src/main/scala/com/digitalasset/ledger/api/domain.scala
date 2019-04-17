@@ -6,6 +6,7 @@ package com.digitalasset.ledger.api
 import java.time.Instant
 
 import brave.propagation.TraceContext
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{Ref, SortedLookupList}
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.digitalasset.ledger.api.domain.Value.RecordValue
@@ -220,11 +221,6 @@ object domain {
   }
 
   final case class RecordField(label: Option[Label], value: Value)
-
-  sealed trait PartyTag
-
-  type Party = String @@ PartyTag
-  val Party: Tag.TagOf[PartyTag] = Tag.of[PartyTag]
 
   sealed trait LabelTag
 
