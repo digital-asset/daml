@@ -74,8 +74,8 @@ function build-full() {
         //ledger-api/rs-grpc-akka/... `
         //navigator/backend/... `
         //navigator/frontend/... `
-        //pipeline/samples/bazel/java/... `
-        //pipeline/samples/bazel/haskell/...
+        //pipeline/... `
+        //scala-protoc-plugins/...
 
     # ScalaCInvoker, a Bazel worker, created by rules_scala opens some of the bazel execroot's files,
     # which later causes issues on Bazel init (source forest creation) on Windows. A shutdown closes workers,
@@ -95,8 +95,7 @@ function build-full() {
         //ledger/ledger-api-common/... `
         //ledger-api/rs-grpc-akka/... `
         //navigator/backend/... `
-        //pipeline/samples/bazel/java/... `
-        //pipeline/samples/bazel/haskell/...
+        //pipeline/...
 }
 
 # FIXME:
