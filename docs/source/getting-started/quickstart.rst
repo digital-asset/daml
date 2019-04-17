@@ -486,7 +486,11 @@ A distributed ledger only forms the core of a full DA Platform application.
 
 To build automations and integrations around the ledger, the SDK has :doc:`language bindings </app-dev/bindings-java/index>` for the Ledger API in several programming languages.
 
-To start the Java integration in the quickstart application, run ``mvn compile exec:java@run-quickstart``
+To compile the Java integration for the quickstart application, run ``mvn compile``.
+
+Now start the Java integration with ``mvn exec:java@run-quickstart``. Note that
+this step requires that the sandbox started :ref:`earlier
+<quickstart-sandbox>` is running.
 
 The application provides REST services on port ``8080`` to perform basic operations on behalf on ``Alice``.
 
