@@ -66,7 +66,7 @@ let
 in
 stdenv.mkDerivation rec {
 
-  version = "0.24.0";
+  version = "0.25.2";
 
   meta = with lib; {
     homepage = "https://github.com/bazelbuild/bazel/";
@@ -90,7 +90,7 @@ stdenv.mkDerivation rec {
 
   src = fetchurl {
     url = "https://github.com/bazelbuild/bazel/releases/download/${version}/${name}-dist.zip";
-    sha256 = "11gsc00ghxqkbci8nrflkwq1lcvqawlgkaryj458b24si6bjl7b2";
+    sha256 = "0ldby03p1iy1dr75bv3jiwaw32c0vmqlqgjvdhz08b45k4hh6mkl";
   };
 
   # Necessary for the tests to pass on Darwin with sandbox enabled.
@@ -101,15 +101,6 @@ stdenv.mkDerivation rec {
 
   patches = [
     ./python-stub-path-fix.patch
-    # By default the HTTP cache doesn’t retry failed requests leading to error messages like:
-    #   WARNING: Error reading from the remote cache:
-    #   Exhausted retry attempts (0)
-    # Since GHC’s object files are non-deterministic this is quite problematic for us,
-    # e.g., if we get a failed request for any of its dependencies and end up building it
-    # locally we will get cache misses for anything depending on that leading to a ton of unnecessary
-    # rebuilts. See #124
-    ./retry_cache.patch
-    ./combined_cache.patch
   ] ++ lib.optional enableNixHacks ./nix-hacks.patch;
 
   # Bazel expects several utils to be available in Bash even without PATH. Hence this hack.
@@ -306,7 +297,7 @@ stdenv.mkDerivation rec {
     cp ./bazel_src/scripts/zsh_completion/_bazel $out/share/zsh/site-functions/
   '';
 
-  doInstallCheck = true;
+  doInstallCheck = false;
   installCheckPhase = ''
     export TEST_TMPDIR=$(pwd)
 
