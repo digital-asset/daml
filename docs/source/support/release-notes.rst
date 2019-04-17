@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.7 — 2019-04-17
+-------------------
+
+- Fix release pipeline (hopefully)
+
 0.12.6 — 2019-04-16
 -------------------
 
