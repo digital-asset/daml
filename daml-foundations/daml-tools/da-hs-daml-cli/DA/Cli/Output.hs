@@ -5,10 +5,15 @@
 module DA.Cli.Output
   ( writeOutput
   , writeOutputBSL
+  , reportErr
   ) where
 
 import qualified Data.ByteString.Lazy                           as BSL
 import           Data.String                                    (IsString)
+import qualified Data.Text as T
+import Development.IDE.Types.Diagnostics
+import Data.List.Extra
+import qualified Data.Text.Prettyprint.Doc.Syntax as Pretty
 import           System.IO                                      (Handle, hClose, hPutStr, stdout, openFile, IOMode (WriteMode))
 import           Control.Exception (bracket)
 
@@ -38,3 +43,15 @@ writeOutput = writeOutputWith hPutStr
 
 writeOutputBSL :: FilePath -> BSL.ByteString -> IO ()
 writeOutputBSL = writeOutputWith BSL.hPutStr
+
+
+reportErr :: String -> [Diagnostic] -> IO a
+reportErr msg errs =
+  ioError $
+  userError $
+  unlines
+    [ msg
+    , T.unpack $
+      Pretty.renderColored $
+      Pretty.vcat $ map prettyDiagnostic $ nubOrd errs
+    ]
