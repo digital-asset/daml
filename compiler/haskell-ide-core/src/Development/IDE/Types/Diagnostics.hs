@@ -12,6 +12,7 @@ module Development.IDE.Types.Diagnostics (
   Range(..),
   LSP.DiagnosticSeverity(..),
   Position(..),
+  DiagnosticStore,
   noLocation,
   noRange,
   ideErrorText,

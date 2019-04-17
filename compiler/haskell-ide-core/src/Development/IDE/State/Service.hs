@@ -28,7 +28,7 @@ import qualified Development.IDE.Logger as Logger
 import           Data.Set                                 (Set)
 import qualified Data.Set                                 as Set
 import qualified Data.Text as T
-import           Development.IDE.Functions.GHCError
+import           Development.IDE.Types.Diagnostics
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
 import           Development.IDE.Types.LSP as Compiler
 
@@ -59,7 +59,7 @@ mkEnv options = do
         , envUniqSupplyVar = uniqSupplyVar
         }
 
-getDiagnostics :: IdeState -> IO [Diagnostic]
+getDiagnostics :: IdeState -> IO DiagnosticStore
 getDiagnostics = getAllDiagnostics
 
 unsafeClearDiagnostics :: IdeState -> IO ()

@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 -- | A Shake implementation of the compiler service, built
 --   using the "Shaker" abstraction layer for in-memory use.
@@ -239,9 +240,9 @@ reportImportCyclesRule =
     where cycleErrorInFile f (PartOfCycle imp fs)
             | f `elem` fs = Just (imp, fs)
           cycleErrorInFile _ _ = Nothing
-          toDiag imp mods = Diagnostic
-            { dFilePath = _uri loc
-            , _range = _range loc
+          toDiag imp mods = addLocation loc $ Diagnostic
+            {
+              _range = _range loc
             , _severity = DsError
             , _source = "Import cycle detection"
             , _message = "Cyclic module dependency between " <> showCycle mods

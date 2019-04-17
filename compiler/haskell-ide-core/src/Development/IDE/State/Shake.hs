@@ -49,11 +49,9 @@ import           Control.Exception
 import           Control.DeepSeq
 import           System.Time.Extra
 import           Data.Typeable
-import           Data.Tuple.Extra
 import           System.FilePath
 import qualified Development.Shake as Shake
 import           Control.Monad.Extra
-import qualified Data.Set as Set
 import           Data.Time
 import           System.IO.Unsafe
 import           Numeric.Extra
@@ -335,11 +333,11 @@ uses :: IdeRule k v
     => k -> [FilePath] -> Action [IdeResult v]
 uses = undefined
 
-uses' :: IdeRule k v => k -> [FilePath] -> Action [Maybe v]
-uses' key files = map (\(A value _) -> value) <$> apply (map (Q . (key,)) files)
+_uses' :: IdeRule k v => k -> [FilePath] -> Action [Maybe v]
+_uses' key files = map (\(A value _) -> value) <$> apply (map (Q . (key,)) files)
 
 defineEarlyCutoff
-    :: forall k v. IdeRule k v
+    :: IdeRule k v
     => (k -> FilePath -> Action (Maybe BS.ByteString, IdeResult v))
     -> Rules ()
 defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old mode -> do
@@ -348,7 +346,7 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
         Just old | mode == RunDependenciesSame -> do
             (v :: Maybe v) <- liftIO $ getValues state key file
             case v of
-                Just v -> return $ Just $ RunResult ChangedNothing old $ A v (unwrap old)
+                Just v -> return $ Just $ RunResult ChangedNothing old $ A (Just v) (unwrap old)
                 _ -> return Nothing
         _ -> return Nothing
     case val of
