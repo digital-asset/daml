@@ -5,6 +5,10 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
 )
+load(
+    "//bazel_tools/client_server_test:client_server_test.bzl",
+    "client_server_test",
+)
 
 da_scala_binary(
     name = "reference",
@@ -16,6 +20,7 @@ da_scala_binary(
         "//3rdparty/jvm/ch/qos/logback:logback_core",
     ],
     deps = [
+        "//3rdparty/jvm/com/github/scopt",
         "//3rdparty/jvm/com/typesafe/akka:akka_stream",
         "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//daml-lf/archive:daml_lf_archive_scala",
@@ -29,5 +34,21 @@ da_scala_binary(
         "//ledger/participant-state-index",
         "//ledger/participant-state-index/reference",
         "//ledger/participant-state/reference",
+    ],
+)
+
+client_server_test(
+    name = "semantic-test",
+    timeout = "short",
+    client = "//ledger/ledger-api-integration-tests:semantic-test-runner",
+    client_args = ["ledger/ledger-api-integration-tests/SemanticTests.dar"],
+    data = [
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+    ],
+    server = ":reference",
+    server_args = ["ledger/ledger-api-integration-tests/SemanticTests.dar"],
+    tags = [
+        # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
+        "exclusive",
     ],
 )
