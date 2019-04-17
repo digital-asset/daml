@@ -9,13 +9,15 @@ template T
 
     nonconsuming choice NoConsume : Int
       controller p
-      do
-        return 41
+      do return 41
 
     choice PreConsume : Int
       controller p
-      do
-        return 42
+      do return 42
+
+    choice PreConsumeBad : Int
+      controller p
+      do _ <- fetch self; return 44 -- No! Can't fetch self in a preconsuming choice.
 
 -- Temporary : Will replace with DAML syntax when it's implemented.
 
@@ -23,7 +25,7 @@ data PostConsume = PostConsume {} deriving (Eq, Show)
 instance Choice T PostConsume Int where
   consuming = postconsuming
   choiceController T{..} _ = [p]
-  choice _ self _ =  (+2) <$> exercise self NoConsume
+  choice _ self _ =  (+2) <$> exercise self NoConsume  -- Yes, fetching self in a postconsuming choice is ok.
 
 main = scenario do
   p <- getParty "p"
@@ -35,6 +37,9 @@ main = scenario do
   preConsumeCid <- submit p $ create T with p
   42 <- submit p $ exercise preConsumeCid PreConsume
   submitMustFail p $ fetch preConsumeCid
+
+  preConsumeBadCid <- submit p $ create T with p
+  submitMustFail p $ exercise preConsumeBadCid PreConsumeBad
 
   postConsumeCid <- submit p $ create T with p
   43 <- submit p $ exercise postConsumeCid PostConsume
