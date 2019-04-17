@@ -22,7 +22,7 @@ template T
 data PostConsume = PostConsume {} deriving (Eq, Show)
 instance Choice T PostConsume Int where
   consuming = postconsuming
-  choiceController (T{..}) _ = [p]
+  choiceController T{..} _ = [p]
   choice _ self _ =  do _ <- fetch self; return 43 -- Can fetch 'self' in choice body
 
 main = scenario do
