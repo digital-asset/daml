@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.speedy.{SValue, Command => SpeedyCommand}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 
+import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 
 private[engine] object CommandPreprocessor {
@@ -47,6 +48,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
       typ0
     } else {
       val paramsMap: Map[String, Type] = Map(params.toSeq: _*)
+
       def go(typ: Type): Type =
         typ match {
           case TVar(v) =>
@@ -65,6 +67,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
             fail(
               s"Unexpected tuple when replacing parameters in command translation -- all types should be serialiable, and tuples are not: $tuple")
         }
+
       go(typ0)
     }
 
@@ -229,6 +232,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
         }
       }
     }
+
     exceptionToResultError(go(0, ty0, v0.value))
   }
 
@@ -323,7 +327,51 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
         argument)
   }
 
-  private[engine] def preprocessCommands(cmds: Commands): Result[ImmArray[(Type, SpeedyCommand)]] =
-    Result.sequence(ImmArray(cmds.commands).map(preprocessCommand))
+  private[engine] def preprocessCommands(
+      cmds0: Commands): Result[ImmArray[(Type, SpeedyCommand)]] = {
+    // before, we had
+    //
+    // ```
+    // Result.sequence(ImmArray(cmds.commands).map(preprocessCommand))
+    // ```
+    //
+    // however that is bad, because it'll generate a `NeedPackage` for each command,
+    // if the same package is needed for every command. If we go step by step,
+    // on the other hand, we will cache the package and go through with execution
+    // after the first command which demands it.
+    @tailrec
+    def go(
+        processed: BackStack[(Type, SpeedyCommand)],
+        toProcess: ImmArray[Command]): Result[ImmArray[(Type, SpeedyCommand)]] = {
+      toProcess match {
+        case ImmArray() => ResultDone(processed.toImmArray)
+        case ImmArrayCons(cmd, cmds) =>
+          preprocessCommand(cmd) match {
+            case ResultDone(processedCommand) => go(processed :+ processedCommand, cmds)
+            case ResultError(err) => ResultError(err)
+            case ResultNeedContract(acoid, resume) =>
+              ResultNeedContract(acoid, { contract =>
+                resume(contract).flatMap(processedCommand =>
+                  goResume(processed :+ processedCommand, toProcess))
+              })
+            case ResultNeedPackage(pkgId, resume) =>
+              ResultNeedPackage(pkgId, { pkg =>
+                resume(pkg).flatMap(processedCommand =>
+                  goResume(processed :+ processedCommand, toProcess))
+              })
+            case ResultNeedKey(key, resume) =>
+              ResultNeedKey(key, { contract =>
+                resume(contract).flatMap(processedCommand =>
+                  goResume(processed :+ processedCommand, toProcess))
+              })
+          }
+      }
+    }
+
+    def goResume(processed: BackStack[(Type, SpeedyCommand)], toProcess: ImmArray[Command]) =
+      go(processed, toProcess)
+
+    go(BackStack.empty, ImmArray(cmds0.commands))
+  }
 
 }
