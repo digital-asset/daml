@@ -242,10 +242,12 @@ reportImportCyclesRule =
           cycleErrorInFile _ _ = Nothing
           toDiag imp mods = addLocation loc $ Diagnostic
             {
-              _range = _range loc
-            , _severity = DsError
-            , _source = "Import cycle detection"
+              _range = (_range :: Location -> Range) loc
+            , _severity = Just DsError
+            , _source = Just "Import cycle detection"
             , _message = "Cyclic module dependency between " <> showCycle mods
+            , _code = Nothing
+            , _relatedInformation = Nothing
             }
             where loc = srcSpanToLocation (getLoc imp)
           getModuleName file = do

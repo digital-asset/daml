@@ -13,6 +13,7 @@ module Development.IDE.Types.Diagnostics (
   LSP.DiagnosticSeverity(..),
   Position(..),
   DiagnosticStore,
+  StoreItem(..),
   noLocation,
   noRange,
   ideErrorText,

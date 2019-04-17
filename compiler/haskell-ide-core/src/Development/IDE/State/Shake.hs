@@ -9,7 +9,7 @@
 -- | A Shake implementation of the compiler service.
 module Development.IDE.State.Shake(
     IdeState,
-    IdeRule, IdeResult,
+    IdeRule, IdeResult, IdeReturn,
     shakeOpen, shakeShut,
     shakeRun,
     shakeProfile,
@@ -133,8 +133,10 @@ instance Hashable Key where
 --   not propagate diagnostic errors through multiple phases.
 type IdeResult v = ([Diagnostic], Maybe v)
 
+type IdeReturn v = Maybe v
+
 type IdeRule k v =
-  ( Shake.RuleResult k ~ Maybe v
+  ( Shake.RuleResult k ~ IdeReturn v
   , Shake.ShakeValue k
   , Show v
   , Typeable v
