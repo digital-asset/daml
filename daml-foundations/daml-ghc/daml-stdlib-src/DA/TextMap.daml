@@ -79,6 +79,9 @@ instance Show a => Show (TextMap a) where
 instance Eq a => Eq (TextMap a) where
   x == y = toList x == toList y
 
+instance Ord a => Ord (TextMap a) where
+  x `compare` y = toList x `compare` toList y
+
 instance Semigroup (TextMap b) where
   (<>) = union
 
