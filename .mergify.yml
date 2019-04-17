@@ -14,7 +14,12 @@ pull_request_rules:
     actions:
       merge:
         method: squash
-        strict: smart
-        strict_method: rebase
+        # We'd like to have this -- note that the `smart` strictness queues
+        # rebases, see <https://doc.mergify.io/actions.html#merge-action>.
+        # However this doesn't work so well until we have the possibility
+        # to merge manually, because people can overtake mergify's queue.
+        # If we want to do this we should only allow merging with the bot.
+        # strict: smart
+        # strict_method: rebase
       # Takes no options, see <https://doc.mergify.io/examples.html#deleting-merged-branch>
       delete_head_branch: {}
