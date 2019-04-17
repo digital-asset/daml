@@ -364,7 +364,7 @@ convertChoice env signatories
             _ -> controllerExpr `ETmApp` thisVar `ETmApp` argVar
     expr <- fmap (\u -> u `ETmApp` thisVar `ETmApp` selfVar `ETmApp` argVar) (convertExpr env choice)
     chcUpdate <-
-      if not $ postConsuming
+      if not postConsuming
         then
           pure expr
       else
