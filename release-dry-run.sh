@@ -9,4 +9,4 @@ set -eux
 
 release_dir=/var/tmp/daml-bintray-release
 
-rm -rf "$release_dir" && bazel build //release:release && ./bazel-out/k8-fastbuild/bin/release/release bintray --release-dir "$release_dir"
+rm -rf "$release_dir" && bazel build //release:release && ./bazel-out/k8-fastbuild/bin/release/release --artifacts release/artifacts.yaml --release-dir "$release_dir"
