@@ -12,8 +12,8 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     visibility = ["//visibility:public"],
     deps = [
-        "//3rdparty/jvm/com/github/scopt",
         "//3rdparty/jvm/ch/qos/logback:logback_classic",
+        "//3rdparty/jvm/com/github/scopt",
     ],
 )
 
