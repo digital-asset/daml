@@ -63,6 +63,7 @@ function build-full() {
         //daml-lf/transaction-scalacheck/... `
         //daml-lf/validation/... `
         //daml-foundations/daml-tools/docs/... `
+        //daml-foundations/daml-tools/da-hs-damlc-app `
         //language-support/java/testkit:testkit `
         //language-support/java/bindings/... `
         //language-support/java/bindings-rxjava/... `
@@ -76,6 +77,14 @@ function build-full() {
         //navigator/frontend/... `
         //pipeline/... `
         //scala-protoc-plugins/...
+
+    # ScalaCInvoker, a Bazel worker, created by rules_scala opens some of the bazel execroot's files,
+    # which later causes issues on Bazel init (source forest creation) on Windows. A shutdown closes workers,
+    # which is a workaround for this problem.
+    bazel shutdown
+
+    bazel run `
+        //daml-foundations/daml-tools/da-hs-damlc-app -- -h
 
     # ScalaCInvoker, a Bazel worker, created by rules_scala opens some of the bazel execroot's files,
     # which later causes issues on Bazel init (source forest creation) on Windows. A shutdown closes workers,
