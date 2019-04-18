@@ -344,7 +344,7 @@ private class PostgresLedgerDao(
         workflowId,
         transaction,
         mappedDisclosure,
-        // TODO blind `transaction` for these two maps, reenable SandboxSemanticTestsLfRunner
+        // TODO blind `transaction` for these two maps, reenable SandboxSemanticTestsLfRunner and Memory-only test in CommandTransactionChecks
         Map.empty,
         Map.empty
       )
