@@ -9,7 +9,12 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.Value.VariantValue
 import com.digitalasset.ledger.api.messages.command.submission
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.Command.Command.{Create, Empty, Exercise}
+import com.digitalasset.ledger.api.v1.commands.Command.Command.{
+  Create,
+  Empty,
+  Exercise,
+  CreateAndExercise
+}
 import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{
@@ -96,6 +101,23 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
             domain.ContractId(contractId),
             domain.Choice(choice),
             validatedValue)
+      case ce: CreateAndExercise =>
+        for {
+          templateId <- requirePresence(ce.value.templateId, "template_id")
+          validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
+          createArguments <- requirePresence(ce.value.createArguments, "create_arguments")
+          recordId <- validateOptionalIdentifier(createArguments.recordId)
+          validatedRecordField <- validateRecordFields(createArguments.fields)
+          choice <- requireNonEmptyString(ce.value.choice, "choice")
+          value <- requirePresence(ce.value.choiceArgument, "value")
+          validatedChoiceArgument <- validateValue(value)
+        } yield
+          domain.CreateAndExerciseCommand(
+            validatedTemplateId,
+            domain.Value.RecordValue(recordId, validatedRecordField),
+            domain.Choice(choice),
+            validatedChoiceArgument
+          )
       case Empty => Left(missingField("command"))
     }
 
