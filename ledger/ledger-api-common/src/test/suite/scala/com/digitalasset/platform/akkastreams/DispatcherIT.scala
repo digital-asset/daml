@@ -53,7 +53,7 @@ class DispatcherIT extends WordSpec with AkkaBeforeAndAfterAll with Matchers wit
         subscriptions.zipWithIndex foreach {
           case (f, i) =>
             whenReady(f) { vals =>
-              vals.map(_._1) should contain theSameElementsAs (i + 1 to 10)
+              vals.map(_._1) should contain theSameElementsAs (i to 9)
               vals.map(_._2) should contain theSameElementsAs (i until 10)
             }
         }
