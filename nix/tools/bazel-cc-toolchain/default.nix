@@ -32,7 +32,7 @@ let cc-darwin =
 
     makeWrapper ${stdenv.cc}/bin/clang $out/bin/clang \
       --add-flags "-Wno-unused-command-line-argument \
-                   -mmacosx-version-min=10.13 \
+                   -mmacosx-version-min=10.14 \
                    -isystem ${llvmPackages.libcxx}/include/c++/v1 \
                    -F${CoreFoundation}/Library/Frameworks \
                    -F${CoreServices}/Library/Frameworks \
