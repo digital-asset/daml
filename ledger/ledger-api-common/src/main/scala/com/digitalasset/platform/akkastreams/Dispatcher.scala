@@ -10,8 +10,8 @@ import akka.stream.scaladsl.Source
 import com.digitalasset.platform.akkastreams.Dispatcher._
 import com.digitalasset.platform.akkastreams.SteppingMode.{OneAfterAnother, RangeQuery}
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import org.slf4j.LoggerFactory
 import com.github.ghik.silencer.silent
+import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -19,11 +19,17 @@ import scala.concurrent.Future
 sealed abstract class SteppingMode[Index: Ordering, T] extends Product with Serializable {}
 
 object SteppingMode {
+
   final case class OneAfterAnother[Index: Ordering, T](
       readSuccessor: (Index, T) => Index,
       readElement: Index => Future[T])
       extends SteppingMode[Index, T]
-  final case class RangeQuery[Index: Ordering, T]() extends SteppingMode[Index, T] //TODO
+
+  //TODO: document what range is (start, end) etc.. - make a trait for it instead?
+  final case class RangeQuery[Index: Ordering, T](
+      range: (Index, Index) => Source[(Index, T), NotUsed])
+      extends SteppingMode[Index, T]
+
 }
 
 /**
@@ -68,6 +74,7 @@ class Dispatcher[Index: Ordering, T] private (
     override def getLastIndex: Index = lastIndex
     override def getSignalDispatcher: Option[SignalDispatcher] = Some(signalDispatcher)
   }
+
   @silent
   private final case class Closed(lastIndex: Index) extends State {
     override def getLastIndex: Index = lastIndex
@@ -114,23 +121,20 @@ class Dispatcher[Index: Ordering, T] private (
     * Gets all values from start, inclusive, to end, exclusive.
     */
   private def subsource(start: Index, end: Index): Source[(Index, T), NotUsed] =
-    //TODO: we can do range here..
-    Source
-      .unfoldAsync[Index, (Index, T)](start) { i =>
-        if (i == end) {
-          Future.successful(None)
-        } else {
-          steppingMode match {
-            case OneAfterAnother(readSuccessor, readElement) =>
+    steppingMode match {
+      case OneAfterAnother(readSuccessor, readElement) =>
+        Source
+          .unfoldAsync[Index, (Index, T)](start) { i =>
+            if (i == end) Future.successful(None)
+            else
               readElement(i).map { t =>
                 val nextIndex = readSuccessor(i, t)
                 Some((nextIndex, (nextIndex, t)))
               }(DirectExecutionContext)
-            case RangeQuery() => ??? //TODO
           }
 
-        }
-      }
+      case RangeQuery(queryRange) => queryRange(start, end)
+    }
 
   /**
     * Return a source of all values starting at the given index, in the form (successor index, value).
@@ -198,7 +202,7 @@ object Dispatcher {
     * @param readElement   Reads an element for a corresponding Index.
     *                      Must succeed for any valid Index except the head index.
     * @tparam Index The index type.
-    * @tparam T The element type.
+    * @tparam T     The element type.
     * @return A new Dispatcher.
     */
   def apply[Index: Ordering, T](
