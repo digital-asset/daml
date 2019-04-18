@@ -1,8 +1,13 @@
 workspace(name = "com_github_digital_asset_daml")
 
 load("//:util.bzl", "hazel_ghclibs", "hazel_github", "hazel_hackage")
-load("//:deps.bzl", "daml_deps")
 
+# NOTE(JM): Load external dependencies from deps.bzl.
+# Do not put "http_archive" and similar rules into this file. Put them into
+# deps.bzl. This allows using this repository as an external workspace.
+# (though with the caviat that that user needs to repeat the relevant bits of
+#  magic in this file, but at least right versions of external rules are picked).
+load("//:deps.bzl", "daml_deps")
 daml_deps()
 
 load("@io_tweag_rules_haskell//haskell:repositories.bzl", "haskell_repositories")
@@ -13,7 +18,7 @@ register_toolchains(
     "//:c2hs-toolchain",
 )
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 load("//bazel_tools/dev_env_package:dev_env_package.bzl", "dev_env_package")
 load("//bazel_tools/dev_env_package:dev_env_tool.bzl", "dev_env_tool")
 load(
@@ -681,15 +686,6 @@ jar_jar_repositories()
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 
 grpc_deps()
-
-# Buildifier.
-# It is written in Go and hence needs rules_go to be available.
-http_archive(
-    name = "com_github_bazelbuild_buildtools",
-    sha256 = "7525deb4d74e3aa4cb2b960da7d1c400257a324be4e497f75d265f2f508c518f",
-    strip_prefix = "buildtools-0.22.0",
-    url = "https://github.com/bazelbuild/buildtools/archive/0.22.0.tar.gz",
-)
 
 load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
 

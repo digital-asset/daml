@@ -142,7 +142,7 @@ object IndexState {
     updateId = None,
     beginning = None,
     configuration = None,
-    recordTime = lic.recordTimeEpoch,
+    recordTime = lic.initialRecordTime,
     txs = TreeMap.empty,
     activeContracts = Map.empty,
     rejections = TreeMap.empty,

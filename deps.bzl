@@ -199,6 +199,16 @@ java_import(
                 sha256 = "70d7be6ad49b4424313aad118c8622aab1c5fdd5a529d4215d3884ff89264a71",
             )
 
+    # Buildifier.
+    # It is written in Go and hence needs rules_go to be available.
+    if "com_github_bazelbuild_buildtools" not in native.existing_rules():
+        http_archive(
+            name = "com_github_bazelbuild_buildtools",
+            sha256 = "7525deb4d74e3aa4cb2b960da7d1c400257a324be4e497f75d265f2f508c518f",
+            strip_prefix = "buildtools-0.22.0",
+            url = "https://github.com/bazelbuild/buildtools/archive/0.22.0.tar.gz",
+        )
+
     native.bind(
         name = "guava",
         actual = "@com_google_guava_guava//jar",
