@@ -8,13 +8,23 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.platform.akkastreams.Dispatcher._
+import com.digitalasset.platform.akkastreams.SteppingMode.{OneAfterAnother, RangeQuery}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import org.slf4j.LoggerFactory
 import com.github.ghik.silencer.silent
 
 import scala.collection.immutable
-
 import scala.concurrent.Future
+
+sealed abstract class SteppingMode[Index: Ordering, T] extends Product with Serializable {}
+
+object SteppingMode {
+  final case class OneAfterAnother[Index: Ordering, T](
+      readSuccessor: (Index, T) => Index,
+      readElement: Index => Future[T])
+      extends SteppingMode[Index, T]
+  final case class RangeQuery[Index: Ordering, T]() extends SteppingMode[Index, T] //TODO
+}
 
 /**
   * A fanout signaller, representing a stream of external updates,
@@ -27,11 +37,12 @@ import scala.concurrent.Future
   *
   * @tparam Index The Index type.
   * @tparam T     The stored type.
+  *
   */
+//TODO update the docs
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Dispatcher[Index: Ordering, T] private (
-    readSuccessor: (Index, T) => Index,
-    readElement: Index => Future[T],
+    steppingMode: SteppingMode[Index, T],
     zeroIndex: Index,
     headAtInitialization: Index)
     extends HeadAwareDispatcher[Index, T]
@@ -103,15 +114,21 @@ class Dispatcher[Index: Ordering, T] private (
     * Gets all values from start, inclusive, to end, exclusive.
     */
   private def subsource(start: Index, end: Index): Source[(Index, T), NotUsed] =
+    //TODO: we can do range here..
     Source
       .unfoldAsync[Index, (Index, T)](start) { i =>
         if (i == end) {
           Future.successful(None)
         } else {
-          readElement(i).map { t =>
-            val nextIndex = readSuccessor(i, t)
-            Some((nextIndex, (nextIndex, t)))
-          }(DirectExecutionContext)
+          steppingMode match {
+            case OneAfterAnother(readSuccessor, readElement) =>
+              readElement(i).map { t =>
+                val nextIndex = readSuccessor(i, t)
+                Some((nextIndex, (nextIndex, t)))
+              }(DirectExecutionContext)
+            case RangeQuery() => ??? //TODO
+          }
+
         }
       }
 
@@ -172,6 +189,7 @@ object Dispatcher {
     new IllegalStateException("Dispatcher is closed")
   }
 
+  //TODO docs!
   /**
     * Construct a new Dispatcher. This will consume Akka resources until closed.
     *
@@ -184,9 +202,8 @@ object Dispatcher {
     * @return A new Dispatcher.
     */
   def apply[Index: Ordering, T](
-      readSuccessor: (Index, T) => Index,
-      readElement: Index => Future[T],
+      steppingMode: SteppingMode[Index, T],
       firstIndex: Index,
       headAtInitialization: Index): Dispatcher[Index, T] =
-    new Dispatcher(readSuccessor, readElement, firstIndex, headAtInitialization)
+    new Dispatcher(steppingMode, firstIndex, headAtInitialization)
 }

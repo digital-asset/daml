@@ -10,6 +10,7 @@ import java.util.concurrent.{Executors, TimeUnit}
 import akka.stream.DelayOverflowStrategy
 import akka.stream.scaladsl.Sink
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.digitalasset.platform.akkastreams.SteppingMode.OneAfterAnother
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
@@ -32,6 +33,7 @@ class DispatcherSpec
     with FutureTimeouts
     with AsyncTimeLimitedTests {
 
+  //TODO: introduce a new test case for range queries
   // Newtype wrappers to avoid type mistakes
   case class Value(v: Int)
 
@@ -116,19 +118,23 @@ class DispatcherSpec
     }
 
   def vanillaDispatcher(begin: Index = genesis, end: Index = genesis): Dispatcher[Index, Value] =
-    Dispatcher[Index, Value]((i, _) => i.next, i => successful(store.get()(i)), begin, end)
+    Dispatcher[Index, Value](
+      OneAfterAnother((i, _) => i.next, i => successful(store.get()(i))),
+      begin,
+      end)
 
   def slowDispatcher(delayMs: Int): Dispatcher[Index, Value] =
     Dispatcher[Index, Value](
-      (i, _) => {
-        Thread.sleep(r.nextInt(delayMs + 1).toLong * 2)
-        i.next
-      },
-      i =>
-        Future {
+      OneAfterAnother(
+        (i, _) => {
           Thread.sleep(r.nextInt(delayMs + 1).toLong * 2)
-          store.get()(i)
-      },
+          i.next
+        },
+        i =>
+          Future {
+            Thread.sleep(r.nextInt(delayMs + 1).toLong * 2)
+            store.get()(i)
+        }),
       genesis,
       genesis
     )
