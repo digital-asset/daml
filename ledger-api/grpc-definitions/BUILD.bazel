@@ -73,27 +73,27 @@ proto_gen(
 genrule(
     name = "ledger-api-haskell-sources",
     srcs = [
-	  	"BUILD.bazel",
-		"@com_google_protobuf//:well_known_protos",
-  		"@com_github_googleapis_googleapis//google/rpc:status.proto",
-	]
-	# TODO(nic): When compile-proto-file handles map<key,value>, we will can run on:  **/*.proto
-	# + glob(["**/*.proto",])
-	+ [
-		#"com/digitalasset/ledger/api/v1/active_contracts_service.proto",
-		"com/digitalasset/ledger/api/v1/command_completion_service.proto",
-		"com/digitalasset/ledger/api/v1/command_service.proto",
-		"com/digitalasset/ledger/api/v1/command_submission_service.proto",
-		"com/digitalasset/ledger/api/v1/commands.proto",
-		"com/digitalasset/ledger/api/v1/completion.proto",
-		"com/digitalasset/ledger/api/v1/event.proto",
-		"com/digitalasset/ledger/api/v1/ledger_configuration_service.proto",
-		"com/digitalasset/ledger/api/v1/ledger_identity_service.proto",
-		"com/digitalasset/ledger/api/v1/ledger_offset.proto",
-		"com/digitalasset/ledger/api/v1/package_service.proto",
-		"com/digitalasset/ledger/api/v1/trace_context.proto",
-		#"com/digitalasset/ledger/api/v1/transaction.proto",
-		#"com/digitalasset/ledger/api/v1/transaction_filter.proto",
+        "BUILD.bazel",
+        "@com_google_protobuf//:well_known_protos",
+        "@com_github_googleapis_googleapis//google/rpc:status.proto",
+    ] +
+    # TODO(nic): When compile-proto-file handles map<key,value>, we will can run on:  **/*.proto
+    # + glob(["**/*.proto",])
+    [
+        #"com/digitalasset/ledger/api/v1/active_contracts_service.proto",
+        "com/digitalasset/ledger/api/v1/command_completion_service.proto",
+        "com/digitalasset/ledger/api/v1/command_service.proto",
+        "com/digitalasset/ledger/api/v1/command_submission_service.proto",
+        "com/digitalasset/ledger/api/v1/commands.proto",
+        "com/digitalasset/ledger/api/v1/completion.proto",
+        "com/digitalasset/ledger/api/v1/event.proto",
+        "com/digitalasset/ledger/api/v1/ledger_configuration_service.proto",
+        "com/digitalasset/ledger/api/v1/ledger_identity_service.proto",
+        "com/digitalasset/ledger/api/v1/ledger_offset.proto",
+        "com/digitalasset/ledger/api/v1/package_service.proto",
+        "com/digitalasset/ledger/api/v1/trace_context.proto",
+        #"com/digitalasset/ledger/api/v1/transaction.proto",
+        #"com/digitalasset/ledger/api/v1/transaction_filter.proto",
         #"com/digitalasset/ledger/api/v1/transaction_service.proto",
         "com/digitalasset/ledger/api/v1/value.proto",
     ],
@@ -115,7 +115,7 @@ genrule(
         #"TransactionFilter.hs",
         #"TransactionService.hs",
         "Value.hs",
-         ],
+    ],
     # TODO(nic): Can we improve the logic to set the includeDir(s)? Triple $$dirname is a bit pants.
     cmd = """
         here=$$(dirname $(locations BUILD.bazel))
