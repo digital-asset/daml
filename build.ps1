@@ -12,7 +12,7 @@ function bazel() {
     $global:lastexitcode = 0
     $backupErrorActionPreference = $script:ErrorActionPreference
     $script:ErrorActionPreference = "Continue"
-    & bazel.exe --bazelrc=.\nix\bazelrc @args 2>&1 | %{ "$_" }
+    & bazel.exe @args 2>&1 | %{ "$_" }
     $script:ErrorActionPreference = $backupErrorActionPreference
     if ($global:lastexitcode -ne 0 -And $args[0] -ne "shutdown") {
         Write-Output "<< bazel $args (failed, exit code: $global:lastexitcode)"
