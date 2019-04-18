@@ -44,7 +44,7 @@ object Main extends StrictLogging {
     mapping.foreach {
       case (a, b) =>
         logger.warn(
-          s"${codegenId: String} does not allow overriding Event Decoder, requested: ${a: String} -> ${b: String}")
+          s"${codegenId: String} does not allow overriding Event Decoder, skipping: ${a: String} -> ${b: String}")
     }
 
   private def darsAndOnePackageName(darMap: Map[Path, Option[String]]): (List[File], String) = {
