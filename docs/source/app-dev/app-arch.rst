@@ -1,37 +1,43 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-
 Building applications against a DA ledger
 #########################################
 
-This document is a guide to building applications that interact with a DA ledger deployment (the 'ledger').
+This document is a guide to building applications that interact with a DA ledger deployment (the 'ledger'). It:
 
-It describes the characteristics of the ledger API, how this affects the way an application is built (the application architecture), and why it is important to understand this when building applications. It then describes the resources provided by Digital Asset to help with this task, and some guidelines that can help you build correct, performant, and maintainable applications using all of the supported languages.
-
+- describes the characteristics of the ledger API, how this affects the way an application is built (the application architecture), and why it is important to understand this when building applications
+- describes the resources in the SDK to help with this task
+- gives some some guidelines to help you build correct, performant, and maintainable applications using all of the supported languages
 
 Categories of application
 *************************
 
 Applications that interact with the ledger normally fall into four categories:
 
-+-----------------+-----------------+-----------------+-------------------------------------------------+
-| **Category**    | **Receives      | **Sends         | **Example**                                     |
-|                 | transactions?** | commands?**     |                                                 |
-+=================+=================+=================+=================================================+
-| source          | No              | Yes             | An injector that reads new contracts from       |
-|                 |                 |                 | a file and injects them into the system.        |
-+-----------------+-----------------+-----------------+-------------------------------------------------+
-| sink            | Yes             | No              | A reader that pipes data from the ledger        |
-|                 |                 |                 | into an SQL database.                           |
-+-----------------+-----------------+-----------------+-------------------------------------------------+
-| automation      | Yes             | Yes, responding | Automatic trade registration.                   |
-|                 |                 | to transactions |                                                 |
-+-----------------+-----------------+-----------------+-------------------------------------------------+
-| interactive     | Yes (and        | Yes, based on   | DA’s :doc:`Navigator </tools/navigator/index>`, |
-|                 | displays to     | user input      | which lets you see and interact with the        |
-|                 | user)           |                 | ledger.                                         |
-+-----------------+-----------------+-----------------+-------------------------------------------------+
+.. list-table:: Categories of application
+   :header-rows: 1
+
+   * - Category
+     - Receives transactions>
+     - Sends commands?
+     - Example
+   * - Source
+     - No
+     - Yes
+     - An injector that reads new contracts from a file and injects them into the system.
+   * - Sink
+     - Yes
+     - No
+     - A reader that pipes data from the ledger into an SQL database.
+   * - Automation
+     - Yes
+     - Yes, responding to transactions
+     - Automatic trade registration.
+   * - Interactive
+     - Yes (and displays to user)
+     - Yes, based on user input
+     - DA’s :doc:`Navigator </tools/navigator/index>`, which lets you see and interact with the ledger
 
 Additionally, applications can be written in two different styles:
 
@@ -58,122 +64,6 @@ Which approach to take
 For all except the simplest applications, we generally recommend the state-driven approach. State-driven applications are easier to reason about when determining correctness, so this makes design and implementation easier.
 
 In practice, most applications are actually a mixture of the two styles, with one predominating. It is easier to add some event handling to a state-driven application, so it is better to start with that style.
-
-The Ledger API
-**************
-
-All applications interact with the ledger through a well defined API - the **Ledger API**. This has some characteristics that are important to understand when designing an application.
-
-The ledger platform itself has been designed around some specific architectural ideas, primarily to enable a high degree of horizontal scalability. This architecture, called Command-Query Responsibility Separation (`CQRS <https://martinfowler.com/bliki/CQRS.html>`__), causes the API to be structured as two separate data streams:
-
--  A stream of **commands** TO the platform that allow an application to cause state changes.
--  A stream of **events** FROM the platform that indicate all state changes taking place on the platform.
-
-Commands are the only way an application can cause the state of the ledger to change, and events are the only mechanism to read those changes.
-
-The API itself is implemented as a set of services and messages, defined as `gRPC <https://grpc.io/>`__ protocol definitions and implemented using the gRPC and `protobuf <https://developers.google.com/protocol-buffers/>`__ compiler. These are layered on top of an HTTP/2 transport implemented by the platform servers. Full details can be found in the :doc:`Ledger API Introduction </app-dev/ledger-api-introduction/index>`
-
-For an application, the most important consequence of these architectural decisions and implementation is that the ledger API is asynchronous. This means:
-
--  The outcome of commands is only known some time after they are submitted.
--  The application must deal with successful and erroneous command completions separately from command submission.
--  Ledger state changes are indicated by events received asynchronously from the command submission that cause them.
-
-The application must handle these issues, and is a major determinant of application architecture. Understanding the consequences of the API characteristics is important for a successful application design.
-
-This document is intended to help you understand these issues so you can build correct, performant and maintainable applications.
-
-API services
-============
-
-The API is structured as a set of services, implemented using `gRPC <https://grpc.io/>`__ and `Protobuf <https://developers.google.com/protocol-buffers/>`__. For detailed information, see the :doc:`reference documentation for services and structure </app-dev/ledger-api-introduction/proto-docs>`.
-
-Most applications will not use this low-level API, instead using the language bindings (e.g. `Java <#java>`__, `Javascript <#javascript>`__). These bindings provide programming-language specific access to the API, and often implement higher level APIs that provide additional, useful features to an application.
-
-Ledger Services Layer
----------------------
-
-Command Submission Service
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Use the Command Submission service to submit a command to the ledger. Commands either create a new template instance, or exercise a choice on an existing contract.
-
-A call to the Command Submission service will return as soon as the ledger server has parsed the command, and has either accepted or rejected it. This does not mean the command has been executed, only that the server has looked at the command and decided that it's format is acceptable, or has rejected it for syntactical or content reasons.
-
-The on-ledger effect of the command execution will be reported via an event delivered by the `Transaction Service <#transaction-service>`__, described below. The completion status of the command is reported via the `Command Completion service <#command-completion-service>`__. Your application should receive completions, correlate them with command submission, and handle errors and failed commands. 
-
-Commands can be labeled with two application-specific ID's, a :ref:`commandId <com.digitalasset.ledger.api.v1.Commands.command_id>`. and a :ref:`workflowId <com.digitalasset.ledger.api.v1.Commands.workflow_id>`, and both are returned in completion events. The `commandId` is returned to the submitting application only, and is generally used to implement this correlation between commands and completions. The `workflowId` is also returned (via a transaction event) to all applications receiving transactions resulting from a command. This can be used to track commands submitted by other applications.
-
-Command Completion Service
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Use the Command Completion service to find out the completion status of commands you have submitted.
-
-Completions contain the `commandId` of the completed command, and the completion status of the command. This status indicates failure or success, and your application should use it to update it's model of commands in flight, and implement any application-specific error recovery. See `Common Tasks <#common-tasks>`__ below for more details.
-
-Transaction Service
-^^^^^^^^^^^^^^^^^^^
-
-Use the Transaction Service to listen to changes in the ledger state, reported via a stream of transaction events.
-
-Transaction events detail the changes on transaction boundaries - each event denotes a transaction on the ledger, and contains all the update events (create, exercise, archive of contracts) that had an effect in that transaction.
-
-Transaction events contain a :ref:`transactionId <com.digitalasset.ledger.api.v1.Transaction.transaction_id>` (assigned by the server), the `workflowId`, the `commandId`, and the events in the transaction.
-
-Transaction events are the primary mechanism by which an application will do its work. Event-driven applications can use them to generate new commands, and state-driven applications will use them to update their state model, by e.g. creating data that represents created contracts.
-
-The Transaction Service can be initiated to read events from an arbitrary point on the ledger. This is important when starting or restarting and application, and works in conjunction with the `Active Contract service <#active-contract-service>`__
-
-Package Service
-^^^^^^^^^^^^^^^
-
-Use the Package Service to obtain information about DAML programs and packages loaded into the server.
-
-This is useful for obtaining type and metadata information that allow you to interpret event data in a more useful way.
-
-Ledger Identity Service
-^^^^^^^^^^^^^^^^^^^^^^^
-
-Use the Ledger Identity service to obtain the identity string of the ledger that it is connected to.
-
-You need to include this identity string when submitting commands. Commands with an incorrect identity string are rejected.
-
-Ledger Configuration Service
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Use the Ledger Configuration Service to subscribe to changes in ledger configuration.
-
-This configuration includes maximum and minimum values for the difference in Ledger Effective Time and Maximum Record Time (see `Time Service <#time-service>`__ for details of these).
-
-Time Service
-^^^^^^^^^^^^
-
-Use the Time Service to obtain the time as known by the ledger server.
-
-This is important because you have to include two timestamps when you submit a command - the :ref:`Ledger Effective Time (LET) <com.digitalasset.ledger.api.v1.Commands.ledger_effective_time>`, and the :ref:`Maximum Record Time (MRT) <com.digitalasset.ledger.api.v1.Commands.maximum_record_time>`. For the command to be accepted, LET must be greater than the current ledger time.
-
-MRT is used in the detection of lost commands. See `Common Tasks <#common-tasks>`__ for more detail.
-
-Application Services Layer
---------------------------
-
-Command Service
-^^^^^^^^^^^^^^^
-
-Use the Command Service when you want to submit a command and wait for it to be executed. This service is similar to the Command Submission service, but also receives completions and waits until it knows whether or not the submitted command has completed. It returns the completion status of the command execution.
-
-You can use either of Command or Command Submission services to submit commands to effect a ledger change. The Command Service is useful for simple applications, as it handles a basic form of coordination between command submission and completion, correlating submissions with completions, and returning a success or failure status. This allow simple applications to be completely stateless, and alleviates the need for them to track command submissions.
-
-Active Contract Service
-^^^^^^^^^^^^^^^^^^^^^^^
-
-Use the Active Contract Service to obtain a party-specific view of all the contracts recently active on the ledger.
-
-The Active Contract Service returns the current contract set as a set of created events that would re-create the state being reported, along with the ledger position at which the view of the set was taken.
-
-For state-driven applications, this is most important at application start. They must synchronize their initial state with a known view of the ledger, and without this service, the only way to do this would be to read the Transaction Stream from the beginning of the ledger. This can be prohibitive with a large ledger.
-
-The Active Contract Service overcomes this, by allowing an application to request a snapshot of the ledger, determine the position at which that snapshot was taken, and build its initial state from this view. The application can then begin to receive events via the Transaction Service from the given position, and remain in sync with the ledger by using these to apply updates to this initial state.
 
 Structuring an application
 **************************
@@ -236,7 +126,7 @@ To do this, the application should:
 
    Because of the asynchronous nature of the API, these contracts will not exist on the ledger at some point after the command has been submitted, but will exist in the application state until the corresponding archive event has been received. Until that happens, the application must ensure that these **pending contracts** are not considered part of the application state, even though their archives have not yet been received. Processing and maintaining this pending set is a crucial part of a state-driven application.
 
-8. Examine command completions, and handle any command errors. As well as application defined needs (such as command re-submission and de-duplications), this must also include handling command errors as described `Common Tasks <#common-tasks>`__, and also consider the pending set. Exercise commands that fail mean that contracts that are marked as pending will now not be archived (the application will not receive any archive events for them) and must be returned to the application state.
+8. Examine command completions, and handle any command errors. As well as application defined needs (such as command re-submission and de-duplications), this must also include handling command errors as described `Common tasks <#common-tasks>`__, and also consider the pending set. Exercise commands that fail mean that contracts that are marked as pending will now not be archived (the application will not receive any archive events for them) and must be returned to the application state.
 
 Common tasks
 ============
@@ -250,7 +140,7 @@ Both styles of applications will take the following steps:
 -  Have a policy regarding command resubmission. In what situations should failing commands be re-submitted? Duplicate commands must be avoided in some situations - what state must be kept to implement this?
 -  Access auxiliary services such as the time service and package service. The `time service <#time-service>`__ will be used to determine Ledger Effective Time value for command submission, and the package service will be used to determine packageId, used in creating a connection, as well as metadata that allows creation events to be turned in to application domain objects.
 
-Application Libraries
+Application libraries
 *********************
 
 We provide several libraries and tools that support the task of building applications. Some of this is provided by the API (e.g. the Active Contract Service), but mostly is provided by several language binding libraries.
@@ -289,7 +179,7 @@ gRPC
 
 We provides the full details of the gRPC service and protocol definitions. These can be compiled to a variety of target languages using the open-source `protobuf and gRPC tools <https://grpc.io/docs/>`__. This allows an application to attach to an interface at the same level as the provided Data Layer Java bindings.
 
-Architecture Guidance
+Architecture guidance
 *********************
 
 This section presents some suggestions and guidance for building successful applications.
