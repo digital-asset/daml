@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.TransactionOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.time.Instant;
 import java.util.List;
@@ -25,7 +24,7 @@ public class Transaction implements WorkflowEvent {
 
     private final String offset;
 
-    public Transaction(@NonNull String transactionId, @NonNull String commandId, @NonNull String workflowId, @NonNull Instant effectiveAt, @NonNull List<@NonNull Event> events, @NonNull String offset) {
+    public Transaction(String transactionId, String commandId, String workflowId, Instant effectiveAt, List<Event> events, String offset) {
         this.transactionId = transactionId;
         this.commandId = commandId;
         this.workflowId = workflowId;
@@ -54,32 +53,26 @@ public class Transaction implements WorkflowEvent {
                 .build();
     }
 
-    @NonNull
     public String getTransactionId() {
         return transactionId;
     }
 
-    @NonNull
     public String getCommandId() {
         return commandId;
     }
 
-    @NonNull
     public Instant getEffectiveAt() {
         return effectiveAt;
     }
 
-    @NonNull
     public List<Event> getEvents() {
         return events;
     }
 
-    @NonNull
     public String getOffset() {
         return offset;
     }
 
-    @NonNull
     public String getWorkflowId() {
         return workflowId;
     }

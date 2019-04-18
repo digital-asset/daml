@@ -3,8 +3,6 @@
 
 package com.daml.ledger.rxjava.components.helpers;
 
-import org.checkerframework.checker.nullness.qual.NonNull;
-
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -13,20 +11,20 @@ public class Pair<F, S> {
     private final F first;
     private final S second;
 
-    public Pair(@NonNull F first, @NonNull S second) {
+    public Pair(F first, S second) {
         this.first = first;
         this.second = second;
     }
 
-    @NonNull public final F getFirst() { return first; }
+    public final F getFirst() { return first; }
 
-    @NonNull public final S getSecond() { return second; }
+    public final S getSecond() { return second; }
 
-    @NonNull public final <F2> Pair<F2, S> mapFirst(Function<F, F2> f) {
+    public final <F2> Pair<F2, S> mapFirst(Function<F, F2> f) {
         return new Pair<>(f.apply(getFirst()), getSecond());
     }
 
-    @NonNull public final <S2> Pair<F, S2> mapSecond(Function<S, S2> f) {
+    public final <S2> Pair<F, S2> mapSecond(Function<S, S2> f) {
         return new Pair<>(getFirst(), f.apply(getSecond()));
     }
 

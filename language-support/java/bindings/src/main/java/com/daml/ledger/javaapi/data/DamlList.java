@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,16 +19,16 @@ public final class DamlList extends Value {
      * The list that is passed to this constructor must not be changed
      * once passed.
      */
-    public DamlList(@NonNull List<@NonNull Value> values) {
+    public DamlList(List<Value> values) {
         this.values = values;
     }
 
     @SafeVarargs
-    public DamlList(@NonNull Value...values) {
+    public DamlList(Value...values) {
         this(Arrays.asList(values));
     }
 
-    public @NonNull List<@NonNull Value> getValues() {
+    public List<Value> getValues() {
         return values;
     }
 

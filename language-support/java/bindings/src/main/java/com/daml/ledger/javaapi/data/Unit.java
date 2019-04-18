@@ -5,7 +5,6 @@ package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import com.google.protobuf.Empty;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 public class Unit extends Value {
 
@@ -14,7 +13,6 @@ public class Unit extends Value {
     private Unit() {
     }
 
-    @NonNull
     static public Unit getInstance() {
         return Unit.instance;
     }

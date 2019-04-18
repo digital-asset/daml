@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
@@ -12,11 +11,10 @@ public class Text extends Value {
 
     private final String value;
 
-    public Text(@NonNull String value) {
+    public Text(String value) {
         this.value = value;
     }
 
-    @NonNull
     public String getValue() {
         return value;
     }

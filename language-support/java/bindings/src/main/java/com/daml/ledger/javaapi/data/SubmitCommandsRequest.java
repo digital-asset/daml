@@ -5,7 +5,6 @@ package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.CommandsOuterClass;
 import com.google.protobuf.Timestamp;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -28,9 +27,9 @@ public class SubmitCommandsRequest {
 
     private final List<Command> commands;
 
-    public SubmitCommandsRequest(@NonNull String workflowId, @NonNull String applicationId,
-                                 @NonNull String commandId, @NonNull String party, @NonNull Instant ledgerEffectiveTime,
-                                 @NonNull Instant maximumRecordTime, @NonNull List<@NonNull Command> commands) {
+    public SubmitCommandsRequest(String workflowId, String applicationId,
+                                 String commandId, String party, Instant ledgerEffectiveTime,
+                                 Instant maximumRecordTime, List<Command> commands) {
         this.workflowId = workflowId;
         this.applicationId = applicationId;
         this.commandId = commandId;
@@ -58,10 +57,10 @@ public class SubmitCommandsRequest {
                 listOfCommands);
     }
 
-    public static CommandsOuterClass.Commands toProto(@NonNull String ledgerId,
-                                                                       @NonNull String workflowId, @NonNull String applicationId,
-                                                                       @NonNull String commandId, @NonNull String party, @NonNull Instant ledgerEffectiveTime,
-                                                                       @NonNull Instant maximumRecordTime, @NonNull List<@NonNull Command> commands) {
+    public static CommandsOuterClass.Commands toProto(String ledgerId,
+                                                                       String workflowId, String applicationId,
+                                                                       String commandId, String party, Instant ledgerEffectiveTime,
+                                                                       Instant maximumRecordTime, List<Command> commands) {
         ArrayList<CommandsOuterClass.Command> commandsConverted = new ArrayList<>(commands.size());
         for (Command command : commands) {
             commandsConverted.add(command.toProtoCommand());
@@ -78,38 +77,31 @@ public class SubmitCommandsRequest {
             .build();
     }
 
-    @NonNull
     public String getWorkflowId() {
         return workflowId;
     }
 
-    @NonNull
     public String getApplicationId() {
         return applicationId;
     }
 
-    @NonNull
     public String getCommandId() {
         return commandId;
     }
 
-    @NonNull
     public String getParty() {
         return party;
     }
 
-    @NonNull
     public Instant getLedgerEffectiveTime() {
         return ledgerEffectiveTime;
     }
 
-    @NonNull
     public Instant getMaximumRecordTime() {
         return maximumRecordTime;
     }
 
-    @NonNull
-    public List<@NonNull Command> getCommands() {
+    public List<Command> getCommands() {
         return commands;
     }
 

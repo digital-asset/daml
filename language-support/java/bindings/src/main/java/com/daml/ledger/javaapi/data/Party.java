@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
@@ -12,7 +11,7 @@ public class Party extends Value {
 
     private final String value;
 
-    public Party(@NonNull String value) {
+    public Party(String value) {
         this.value = value;
     }
 
@@ -21,7 +20,6 @@ public class Party extends Value {
         return ValueOuterClass.Value.newBuilder().setParty(this.value).build();
     }
 
-    @NonNull
     public String getValue() {
         return value;
     }

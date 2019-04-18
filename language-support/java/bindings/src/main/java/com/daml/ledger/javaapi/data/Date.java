@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.time.LocalDate;
 import java.util.Objects;
@@ -22,7 +21,6 @@ public class Date extends Value {
         return ValueOuterClass.Value.newBuilder().setDate((int)this.value.toEpochDay()).build();
     }
 
-    @NonNull
     public LocalDate getValue() {
         return value;
     }

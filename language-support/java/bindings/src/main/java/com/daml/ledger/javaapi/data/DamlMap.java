@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -22,7 +21,7 @@ public class DamlMap extends Value {
         this.value = value;
     }
 
-    public @Nonnull
+    public
     java.util.Map<String, Value> getMap() { return value; }
 
     @Override
@@ -39,14 +38,14 @@ public class DamlMap extends Value {
     }
 
     @Override
-    public @NonNull String toString() {
+    public String toString() {
         StringJoiner sj = new StringJoiner(", ", "Map{", "}");
         value.forEach((k, v) -> sj.add(k + "->" + v.toString()));
         return sj.toString();
     }
 
     @Override
-    public @Nonnull ValueOuterClass.Value toProto() {
+    public ValueOuterClass.Value toProto() {
         ValueOuterClass.Map.Builder mb = ValueOuterClass.Map.newBuilder();
         value.forEach((k, v) ->
                 mb.addEntries(ValueOuterClass.Map.Entry.newBuilder()

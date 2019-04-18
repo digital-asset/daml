@@ -4,9 +4,7 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.TransactionOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
-import javax.annotation.Nonnull;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +27,7 @@ public class TransactionTree {
 
     private final String offset;
 
-    public TransactionTree(@NonNull String transactionId, @NonNull String commandId, @NonNull String workflowId, @NonNull Instant effectiveAt, @NonNull Map<@NonNull String, @NonNull Event> eventsById, List<String> rootEventIds, @NonNull String offset) {
+    public TransactionTree(String transactionId, String commandId, String workflowId, Instant effectiveAt, Map<String, Event> eventsById, List<String> rootEventIds, String offset) {
         this.transactionId = transactionId;
         this.commandId = commandId;
         this.workflowId = workflowId;
@@ -66,37 +64,30 @@ public class TransactionTree {
                 .build();
     }
 
-    @NonNull
     public String getTransactionId() {
         return transactionId;
     }
 
-    @NonNull
     public String getCommandId() {
         return commandId;
     }
 
-    @NonNull
     public String getWorkflowId() {
         return workflowId;
     }
 
-    @NonNull
     public Instant getEffectiveAt() {
         return effectiveAt;
     }
 
-    @NonNull
     public Map<String, Event> getEventsById() {
         return eventsById;
     }
 
-    @NonNull
     public List<String> getRootEventIds() {
         return rootEventIds;
     }
 
-    @NonNull
     public String getOffset() {
         return offset;
     }

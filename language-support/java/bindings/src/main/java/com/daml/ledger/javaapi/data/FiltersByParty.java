@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.TransactionFilterOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,7 +19,7 @@ public class FiltersByParty extends TransactionFilter {
         return partyToFilters.keySet();
     }
 
-    public FiltersByParty(@NonNull Map<@NonNull String, @NonNull Filter> partyToFilters) {
+    public FiltersByParty(Map<String, Filter> partyToFilters) {
         this.partyToFilters = partyToFilters;
     }
 

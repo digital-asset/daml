@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.EventOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.List;
 import java.util.Objects;
@@ -19,32 +18,32 @@ public final class ArchivedEvent extends Event {
 
     private final String contractId;
 
-    public ArchivedEvent(@NonNull List<@NonNull String> witnessParties, @NonNull String eventId, @NonNull Identifier templateId, @NonNull String contractId) {
+    public ArchivedEvent(List<String> witnessParties, String eventId, Identifier templateId, String contractId) {
         this.witnessParties = witnessParties;
         this.eventId = eventId;
         this.templateId = templateId;
         this.contractId = contractId;
     }
 
-    @NonNull
+
     @Override
-    public List<@NonNull String> getWitnessParties() {
+    public List<String> getWitnessParties() {
         return witnessParties;
     }
 
-    @NonNull
+
     @Override
     public String getEventId() {
         return eventId;
     }
 
-    @NonNull
+
     @Override
     public Identifier getTemplateId() {
         return templateId;
     }
 
-    @NonNull
+
     @Override
     public String getContractId() {
         return contractId;

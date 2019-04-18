@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Collections;
 import java.util.List;
@@ -23,32 +22,32 @@ public final class Record extends Value {
 
     private final List<Field> fields;
 
-    public Record(@NonNull Identifier recordId, @NonNull Field... fields) {
+    public Record(Identifier recordId, Field... fields) {
         this(recordId, Arrays.asList(fields));
     }
 
-    public Record(@NonNull Field... fields) {
+    public Record(Field... fields) {
         this(Arrays.asList(fields));
     }
 
-    public Record(@NonNull Identifier recordId, @NonNull List<@NonNull Field> fields) {
+    public Record(Identifier recordId, List<Field> fields) {
         this(Optional.of(recordId), fields, fieldsListToHashMap(fields));
     }
 
-    public Record(@NonNull List<@NonNull Field> fields) {
+    public Record(List<Field> fields) {
         this(Optional.empty(), fields, fieldsListToHashMap(fields));
     }
 
     /**
      * @since 2.2.0
      */
-    public Record(@NonNull Optional<Identifier> recordId, @NonNull List<@NonNull Field> fields, Map<String, Value> fieldsMap) {
+    public Record(Optional<Identifier> recordId, List<Field> fields, Map<String, Value> fieldsMap) {
         this.recordId = recordId;
         this.fields = fields;
         this.fieldsMap = fieldsMap;
     }
 
-    private static Map<String, Value> fieldsListToHashMap(@NonNull List<@NonNull Field> fields) {
+    private static Map<String, Value> fieldsListToHashMap(List<Field> fields) {
         if (fields.isEmpty() || !fields.get(0).getLabel().isPresent()) {
             return Collections.emptyMap();
         } else {
@@ -60,7 +59,6 @@ public final class Record extends Value {
         }
     }
 
-    @NonNull
     public static Record fromProto(ValueOuterClass.Record record) {
         ArrayList<Field> fields = new ArrayList<>(record.getFieldsCount());
         HashMap<String, Value> fieldsMap = new HashMap<>(record.getFieldsCount());
@@ -93,12 +91,10 @@ public final class Record extends Value {
         return recordBuilder.build();
     }
 
-    @NonNull
     public Optional<Identifier> getRecordId() {
         return recordId;
     }
 
-    @NonNull
     public List<Field> getFields() {
         return fields;
     }
@@ -107,8 +103,7 @@ public final class Record extends Value {
      * @return the Map of this Record fields containing the records that have the label
      * @since 2.2.0
      */
-    @NonNull
-    public Map<@NonNull String, @NonNull Value> getFieldsMap() {
+    public Map<String, Value> getFieldsMap() {
         return fieldsMap;
     }
 
@@ -141,23 +136,21 @@ public final class Record extends Value {
 
         private final Value value;
 
-        public Field(@NonNull String label, @NonNull Value value) {
+        public Field(String label, Value value) {
             this.label = Optional.of(label);
             this.value = value;
         }
 
-        public Field(@NonNull Value value) {
+        public Field(Value value) {
             this.label = Optional.empty();
             this.value = value;
         }
 
-        @NonNull
-        public Optional<String> getLabel() {
+            public Optional<String> getLabel() {
             return label;
         }
 
-        @NonNull
-        public Value getValue() {
+            public Value getValue() {
             return value;
         }
 

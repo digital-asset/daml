@@ -4,9 +4,7 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 public class DamlOptional extends Value {
@@ -23,7 +21,7 @@ public class DamlOptional extends Value {
         this.value = value.orElse(null);
     }
 
-    public @Nonnull
+    public
     java.util.Optional<Value> getValue() {
         return java.util.Optional.ofNullable(value);
     }
@@ -46,22 +44,22 @@ public class DamlOptional extends Value {
     }
 
     @Override
-    public @NonNull String toString() {
+    public String toString() {
         return "Optional{" +
                 "value=" + value +
                 '}';
     }
 
-    public static @Nonnull  DamlOptional of(Value value) {
+    public static DamlOptional of(Value value) {
         return value == null ? EMPTY : new DamlOptional(value);
     }
 
-    public static @Nonnull DamlOptional empty() {
+    public static DamlOptional empty() {
         return (DamlOptional) EMPTY;
     }
 
     @Override
-    public @Nonnull ValueOuterClass.Value toProto() {
+    public ValueOuterClass.Value toProto() {
         ValueOuterClass.Optional.Builder ob = ValueOuterClass.Optional.newBuilder();
         if (value != null) ob.setValue(value.toProto());
         return ValueOuterClass.Value.newBuilder()

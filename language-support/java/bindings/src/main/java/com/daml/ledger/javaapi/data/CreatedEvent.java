@@ -4,14 +4,13 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.EventOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.List;
 import java.util.Objects;
 
 public final class CreatedEvent extends Event {
 
-    private final @NonNull List<@NonNull String> witnessParties;
+    private final List<String> witnessParties;
 
     private final String eventId;
 
@@ -21,7 +20,7 @@ public final class CreatedEvent extends Event {
 
     private final Record arguments;
 
-    public CreatedEvent(@NonNull List<@NonNull String> witnessParties, @NonNull String eventId, @NonNull Identifier templateId, @NonNull String contractId, @NonNull Record arguments) {
+    public CreatedEvent(List<String> witnessParties, String eventId, Identifier templateId, String contractId, Record arguments) {
         this.witnessParties = witnessParties;
         this.eventId = eventId;
         this.templateId = templateId;
@@ -29,31 +28,31 @@ public final class CreatedEvent extends Event {
         this.arguments = arguments;
     }
 
-    @NonNull
+
     @Override
-    public List<@NonNull String> getWitnessParties() {
+    public List<String> getWitnessParties() {
         return witnessParties;
     }
 
-    @NonNull
+
     @Override
     public String getEventId() {
         return eventId;
     }
 
-    @NonNull
+
     @Override
     public Identifier getTemplateId() {
         return templateId;
     }
 
-    @NonNull
+
     @Override
     public String getContractId() {
         return contractId;
     }
 
-    @NonNull
+
     public Record getArguments() {
         return arguments;
     }
@@ -87,7 +86,7 @@ public final class CreatedEvent extends Event {
                 '}';
     }
 
-    public EventOuterClass.@NonNull CreatedEvent toProto() {
+    public EventOuterClass.CreatedEvent toProto() {
         return EventOuterClass.CreatedEvent.newBuilder()
                 .setContractId(getContractId())
                 .setCreateArguments(getArguments().toProtoRecord())

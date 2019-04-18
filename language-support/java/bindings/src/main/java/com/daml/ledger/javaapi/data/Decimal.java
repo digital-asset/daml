@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.math.BigDecimal;
 import java.util.Objects;
@@ -13,7 +12,7 @@ public class Decimal extends Value {
 
     private final BigDecimal value;
 
-    public Decimal(@NonNull BigDecimal value) {
+    public Decimal(BigDecimal value) {
         this.value = value;
     }
 
@@ -26,7 +25,6 @@ public class Decimal extends Value {
         return ValueOuterClass.Value.newBuilder().setDecimal(this.value.toPlainString()).build();
     }
 
-    @NonNull
     public BigDecimal getValue() {
         return value;
     }

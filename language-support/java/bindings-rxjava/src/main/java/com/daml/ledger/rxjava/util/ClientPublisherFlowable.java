@@ -7,14 +7,13 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory;
 import com.digitalasset.grpc.adapter.client.rs.ClientPublisher;
 import io.grpc.stub.StreamObserver;
 import io.reactivex.Flowable;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.function.BiConsumer;
 
 public class ClientPublisherFlowable {
-    public static <Req, Resp> Flowable<Resp> create(@NonNull Req request,
-                                                    @NonNull BiConsumer<Req, StreamObserver<Resp>> clientStub,
-                                                    @NonNull ExecutionSequencerFactory executionSequencerFactory) {
+    public static <Req, Resp> Flowable<Resp> create(Req request,
+                                                    BiConsumer<Req, StreamObserver<Resp>> clientStub,
+                                                    ExecutionSequencerFactory executionSequencerFactory) {
         return Flowable.fromPublisher(new ClientPublisher<>(request, clientStub, executionSequencerFactory));
     }
 }

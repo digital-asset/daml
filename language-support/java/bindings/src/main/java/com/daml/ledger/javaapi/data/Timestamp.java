@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -22,7 +21,6 @@ public class Timestamp extends Value {
      *
      * @param millis milliseconds since UNIX epoch.
      */
-    @NonNull
     public static Timestamp fromMillis(long millis) {
         return new Timestamp(millis * 1000);
     }
@@ -31,8 +29,7 @@ public class Timestamp extends Value {
      * Constructs a {@link Timestamp} value from an {@link Instant} up to microsecond precision.
      * This is a lossy conversion as nanoseconds are not preserved.
      */
-    @NonNull
-    public static Timestamp fromInstant(@NonNull Instant instant) {
+    public static Timestamp fromInstant(Instant instant) {
         return new Timestamp(instant.getEpochSecond() * 1_000_000L + instant.getNano() / 1000L);
     }
 
@@ -52,12 +49,10 @@ public class Timestamp extends Value {
      *
      * @return the microseconds stored in this timestamp
      */
-    @NonNull
     public Instant getValue() {
         return toInstant();
     }
 
-    @NonNull
     public long getMicroseconds() {
         return value;
     }

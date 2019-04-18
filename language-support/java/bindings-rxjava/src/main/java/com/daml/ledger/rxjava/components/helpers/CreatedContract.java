@@ -5,7 +5,6 @@ package com.daml.ledger.rxjava.components.helpers;
 
 import com.daml.ledger.javaapi.data.Identifier;
 import com.daml.ledger.javaapi.data.Record;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
@@ -15,23 +14,20 @@ public class CreatedContract {
     private final Record createArguments;
     private final CreatedContractContext context;
 
-    public CreatedContract(@NonNull Identifier templateId, @NonNull Record createArguments, @NonNull CreatedContractContext context) {
+    public CreatedContract(Identifier templateId, Record createArguments, CreatedContractContext context) {
         this.templateId = templateId;
         this.createArguments = createArguments;
         this.context = context;
     }
 
-    @NonNull
     public Identifier getTemplateId() {
         return templateId;
     }
 
-    @NonNull
     public Record getCreateArguments() {
         return createArguments;
     }
 
-    @NonNull
     public CreatedContractContext getContext() {
         return context;
     }

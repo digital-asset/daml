@@ -10,9 +10,7 @@ import com.digitalasset.ledger.api.v1.CommandServiceGrpc;
 import com.digitalasset.ledger.api.v1.CommandServiceOuterClass;
 import com.google.protobuf.Empty;
 import io.grpc.Channel;
-import io.grpc.ManagedChannel;
 import io.reactivex.Single;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.time.Instant;
 import java.util.List;
@@ -22,15 +20,15 @@ public class CommandClientImpl implements CommandClient {
     private final String ledgerId;
     private final CommandServiceGrpc.CommandServiceFutureStub serviceStub;
 
-    public CommandClientImpl(@NonNull String ledgerId, @NonNull Channel channel) {
+    public CommandClientImpl(String ledgerId, Channel channel) {
         this.ledgerId = ledgerId;
         this.serviceStub = CommandServiceGrpc.newFutureStub(channel);
     }
 
     @Override
-    public Single<Empty> submitAndWait(@NonNull String workflowId, @NonNull String applicationId,
-                                       @NonNull String commandId, @NonNull String party, @NonNull Instant ledgerEffectiveTime,
-                                       @NonNull Instant maximumRecordTime, @NonNull List<@NonNull Command> commands) {
+    public Single<Empty> submitAndWait(String workflowId, String applicationId,
+                                       String commandId, String party, Instant ledgerEffectiveTime,
+                                       Instant maximumRecordTime, List<Command> commands) {
         CommandServiceOuterClass.SubmitAndWaitRequest request = SubmitAndWaitRequest.toProto(this.ledgerId,
                 workflowId, applicationId, commandId, party, ledgerEffectiveTime, maximumRecordTime, commands);
         return Single.fromFuture(serviceStub.submitAndWait(request));

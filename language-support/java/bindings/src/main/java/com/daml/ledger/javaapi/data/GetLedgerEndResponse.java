@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
@@ -12,7 +11,7 @@ public class GetLedgerEndResponse {
 
     private final LedgerOffset offset;
 
-    public GetLedgerEndResponse(@NonNull LedgerOffset offset) {
+    public GetLedgerEndResponse(LedgerOffset offset) {
         this.offset = offset;
     }
 
@@ -26,7 +25,6 @@ public class GetLedgerEndResponse {
                 .build();
     }
 
-    @NonNull
     public LedgerOffset getOffset() {
         return offset;
     }

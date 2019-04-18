@@ -8,7 +8,6 @@ import com.daml.ledger.javaapi.data.*;
 import com.google.rpc.Status;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.pcollections.HashTreePMap;
 import org.pcollections.HashTreePSet;
 import org.pcollections.PMap;
@@ -274,9 +273,9 @@ public class LedgerViewFlowable {
         Single<Pair<StateWithShouldEmit<R>, Optional<LedgerOffset>>> lastViewAndOffset = responses.reduce(
                 new Pair<>(StateWithShouldEmit.create(), Optional.empty()),
                 (viewAndOffset, response) -> {
-                    @NonNull StateWithShouldEmit<R> ledgerView = viewAndOffset.getFirst();
+                    StateWithShouldEmit<R> ledgerView = viewAndOffset.getFirst();
                     StateWithShouldEmit<R> newLedgerView = accumulate(ledgerView, new WorkflowEventWrapper(response), transform);
-                    @NonNull Optional<LedgerOffset> offset = response.getOffset().map(off -> new LedgerOffset.Absolute(off));
+                    Optional<LedgerOffset> offset = response.getOffset().map(off -> new LedgerOffset.Absolute(off));
                     return new Pair<>(newLedgerView, offset);
                 }
         );

@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.CommandCompletionServiceOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -15,7 +14,7 @@ public class Checkpoint {
 
     private final LedgerOffset offset;
 
-    public Checkpoint(@NonNull Instant recordTime, @NonNull LedgerOffset offset) {
+    public Checkpoint(Instant recordTime, LedgerOffset offset) {
         this.recordTime = recordTime;
         this.offset = offset;
     }
@@ -32,11 +31,10 @@ public class Checkpoint {
                 .build();
     }
 
-    public @NonNull Instant getRecordTime() {
+    public Instant getRecordTime() {
         return recordTime;
     }
 
-    @NonNull
     public LedgerOffset getOffset() {
         return offset;
     }

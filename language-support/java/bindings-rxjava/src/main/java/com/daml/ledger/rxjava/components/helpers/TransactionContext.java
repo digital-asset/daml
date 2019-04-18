@@ -4,7 +4,6 @@
 package com.daml.ledger.rxjava.components.helpers;
 
 import com.daml.ledger.javaapi.data.Transaction;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -20,7 +19,7 @@ public class TransactionContext implements CreatedContractContext {
     private final Instant effectiveAt;
     private final String offset;
 
-    public TransactionContext(@NonNull String transactionId, @NonNull String commandId, @NonNull String workflowId, @NonNull Instant effectiveAt, @NonNull String offset) {
+    public TransactionContext(String transactionId, String commandId, String workflowId, Instant effectiveAt, String offset) {
         this.transactionId = transactionId;
         this.commandId = commandId;
         this.workflowId = workflowId;
@@ -28,37 +27,32 @@ public class TransactionContext implements CreatedContractContext {
         this.offset = offset;
     }
 
-    public static TransactionContext forTransaction(@NonNull Transaction transaction) {
-        @NonNull String commandId = transaction.getCommandId();
-        @NonNull Instant effectiveAt = transaction.getEffectiveAt();
-        @NonNull String offset = transaction.getOffset();
-        @NonNull String transactionId = transaction.getTransactionId();
-        @NonNull String workflowId = transaction.getWorkflowId();
+    public static TransactionContext forTransaction(Transaction transaction) {
+        String commandId = transaction.getCommandId();
+        Instant effectiveAt = transaction.getEffectiveAt();
+        String offset = transaction.getOffset();
+        String transactionId = transaction.getTransactionId();
+        String workflowId = transaction.getWorkflowId();
         return new TransactionContext(transactionId, commandId, workflowId, effectiveAt, offset);
     }
 
-    @NonNull
     public String getTransactionId() {
         return transactionId;
     }
 
-    @NonNull
     public String getCommandId() {
         return commandId;
     }
 
-    @NonNull
     @Override
     public String getWorkflowId() {
         return workflowId;
     }
 
-    @NonNull
     public Instant getEffectiveAt() {
         return effectiveAt;
     }
 
-    @NonNull
     public String getOffset() {
         return offset;
     }

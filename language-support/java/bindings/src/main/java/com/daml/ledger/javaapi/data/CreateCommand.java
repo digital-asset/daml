@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.CommandsOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
@@ -14,7 +13,7 @@ public class CreateCommand extends Command {
 
     private final Record createArguments;
 
-    public CreateCommand(@NonNull Identifier templateId, @NonNull Record createArguments) {
+    public CreateCommand(Identifier templateId, Record createArguments) {
         this.templateId = templateId;
         this.createArguments = createArguments;
     }
@@ -42,14 +41,12 @@ public class CreateCommand extends Command {
         return Objects.hash(templateId, createArguments);
     }
 
-    @NonNull
 
     @Override
     public Identifier getTemplateId() {
         return templateId;
     }
 
-    @NonNull
     public Record getCreateArguments() {
         return createArguments;
     }

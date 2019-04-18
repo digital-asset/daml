@@ -5,7 +5,6 @@ package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.CommandCompletionServiceOuterClass;
 import com.digitalasset.ledger.api.v1.CompletionOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.List;
 import java.util.Objects;
@@ -17,7 +16,7 @@ public class CompletionStreamResponse {
 
     private final List<CompletionOuterClass.Completion> completions;
 
-    public CompletionStreamResponse(@NonNull Optional<Checkpoint> checkpoint, @NonNull List<CompletionOuterClass.@NonNull Completion> completions) {
+    public CompletionStreamResponse(Optional<Checkpoint> checkpoint, List<CompletionOuterClass.Completion> completions) {
         this.checkpoint = checkpoint;
         this.completions = completions;
     }
@@ -38,13 +37,13 @@ public class CompletionStreamResponse {
         return builder.build();
     }
 
-    @NonNull
+
     public Optional<Checkpoint> getCheckpoint() {
         return checkpoint;
     }
 
-    @NonNull
-    public List<CompletionOuterClass.@NonNull Completion> getCompletions() {
+
+    public List<CompletionOuterClass.Completion> getCompletions() {
         return completions;
     }
 

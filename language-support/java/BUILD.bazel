@@ -15,7 +15,6 @@ genrule(
         "//external:jar/io/reactivex/rxjava2/rxjava",
         "//external:jar/com/google/protobuf/protobuf_java",
         "//external:jar/org/pcollections/pcollections",
-        "//external:jar/org/checkerframework/checker",
         "//external:jar/io/grpc/grpc_netty",
         "//external:jar/io/grpc/grpc_core",
         "//external:jar/io/grpc/grpc_stub",
@@ -31,7 +30,6 @@ genrule(
         CP=$$CP{delim}$(location //external:jar/io/reactivex/rxjava2/rxjava)
         CP=$$CP{delim}$(location //external:jar/com/google/protobuf/protobuf_java)
         CP=$$CP{delim}$(location //external:jar/org/pcollections/pcollections)
-        CP=$$CP{delim}$(location //external:jar/org/checkerframework/checker)
         CP=$$CP{delim}$(location //external:jar/io/grpc/grpc_netty)
         CP=$$CP{delim}$(location //external:jar/io/grpc/grpc_core)
         CP=$$CP{delim}$(location //external:jar/io/grpc/grpc_stub)

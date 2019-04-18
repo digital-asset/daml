@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.google.protobuf.ByteString;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.EnumSet;
 import java.util.Map;
@@ -37,7 +36,7 @@ public class GetPackageResponse {
     private final String hash;
     private final ByteString archivePayload;
 
-    public GetPackageResponse(HashFunction hashFunction, @NonNull String hash, @NonNull ByteString archivePayload) {
+    public GetPackageResponse(HashFunction hashFunction, String hash, ByteString archivePayload) {
         this.hashFunction = hashFunction;
         this.hash = hash;
         this.archivePayload = archivePayload;

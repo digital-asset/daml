@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
@@ -19,7 +18,7 @@ public final class Identifier {
      * This constructor is deprecated in favor of {@link Identifier#Identifier(String, String, String)}
      */
     @Deprecated
-    public Identifier(@NonNull String packageId, @NonNull  String name) {
+    public Identifier(String packageId, String name) {
         this.packageId = packageId;
         int lastDot = name.lastIndexOf('.');
         if (lastDot <= 0) {
@@ -31,13 +30,12 @@ public final class Identifier {
         this.entityName = name.substring(lastDot + 1);
     }
 
-    public Identifier(@NonNull String packageId, @NonNull  String moduleName, @NonNull String entityName) {
+    public Identifier(String packageId, String moduleName, String entityName) {
         this.packageId = packageId;
         this.moduleName = moduleName;
         this.entityName = entityName;
     }
 
-    @NonNull
     public static Identifier fromProto(ValueOuterClass.Identifier identifier) {
         if (!identifier.getModuleName().isEmpty() && !identifier.getEntityName().isEmpty()) {
             return new Identifier(identifier.getPackageId(), identifier.getModuleName(), identifier.getEntityName());
@@ -56,22 +54,19 @@ public final class Identifier {
                 .build();
     }
 
-    @NonNull
     public String getPackageId() {
         return packageId;
     }
 
-    @NonNull @Deprecated
+    @Deprecated
     public String getName() {
         return moduleName.concat(".").concat(entityName);
     }
 
-    @NonNull
     public String getModuleName() {
         return moduleName;
     }
 
-    @NonNull
     public String getEntityName() {
         return entityName;
     }

@@ -6,22 +6,18 @@ package com.daml.ledger.javaapi.data;
 import com.digitalasset.ledger.api.v1.EventOuterClass;
 
 import com.digitalasset.ledger.api.v1.TransactionOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 public abstract class Event {
 
-    public abstract @NonNull List<@NonNull String> getWitnessParties();
+    public abstract List<String> getWitnessParties();
 
-    @NonNull
     public abstract String getEventId();
 
-    @NonNull
     public abstract Identifier getTemplateId();
 
-    @NonNull
     public abstract String getContractId();
 
     public static Event fromProtoEvent(EventOuterClass.Event event) {

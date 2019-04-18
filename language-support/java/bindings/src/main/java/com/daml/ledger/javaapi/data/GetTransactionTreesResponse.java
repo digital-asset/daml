@@ -5,7 +5,6 @@ package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.TransactionOuterClass;
 import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +14,7 @@ public class GetTransactionTreesResponse {
 
     private final List<TransactionTree> transactions;
 
-    public GetTransactionTreesResponse(@NonNull List<@NonNull TransactionTree> transactions) {
+    public GetTransactionTreesResponse(List<TransactionTree> transactions) {
         this.transactions = transactions;
     }
 
@@ -37,8 +36,7 @@ public class GetTransactionTreesResponse {
                 .build();
     }
 
-    @NonNull
-    public List<@NonNull TransactionTree> getTransactions() {
+    public List<TransactionTree> getTransactions() {
         return transactions;
     }
 

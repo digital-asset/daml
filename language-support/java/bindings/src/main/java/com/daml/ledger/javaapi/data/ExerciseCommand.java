@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.CommandsOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
@@ -18,7 +17,7 @@ public class ExerciseCommand extends Command {
 
     private final Value choiceArgument;
 
-    public ExerciseCommand(@NonNull Identifier templateId, @NonNull String contractId, @NonNull String choice, @NonNull Value choiceArgument) {
+    public ExerciseCommand(Identifier templateId, String contractId, String choice, Value choiceArgument) {
         this.templateId = templateId;
         this.contractId = contractId;
         this.choice = choice;
@@ -42,23 +41,19 @@ public class ExerciseCommand extends Command {
                 .build();
     }
 
-    @NonNull
     @Override
     public Identifier getTemplateId() {
         return templateId;
     }
 
-    @NonNull
     public String getContractId() {
         return contractId;
     }
 
-    @NonNull
     public String getChoice() {
         return choice;
     }
 
-    @NonNull
     public Value getChoiceArgument() {
         return choiceArgument;
     }

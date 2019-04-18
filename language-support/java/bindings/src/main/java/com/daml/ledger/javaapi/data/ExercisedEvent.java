@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.EventOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.List;
 import java.util.Objects;
@@ -32,16 +31,16 @@ public class ExercisedEvent extends Event {
 
     private final List<String> childEventIds;
 
-    public ExercisedEvent(@NonNull List<@NonNull String> witnessParties,
-                          @NonNull String eventId,
-                          @NonNull Identifier templateId,
-                          @NonNull String contractId,
-                          @NonNull String contractCreatingEventId,
-                          @NonNull String choice,
-                          @NonNull Value choiceArgument,
-                          @NonNull List<@NonNull String> actingParties,
+    public ExercisedEvent(List<String> witnessParties,
+                          String eventId,
+                          Identifier templateId,
+                          String contractId,
+                          String contractCreatingEventId,
+                          String choice,
+                          Value choiceArgument,
+                          List<String> actingParties,
                           boolean consuming,
-                          @NonNull List<@NonNull String> childEventIds) {
+                          List<String> childEventIds) {
         this.witnessParties = witnessParties;
         this.eventId = eventId;
         this.templateId = templateId;
@@ -54,51 +53,43 @@ public class ExercisedEvent extends Event {
         this.childEventIds = childEventIds;
     }
 
-    @NonNull
     @Override
-    public List<@NonNull String> getWitnessParties() {
+    public List<String> getWitnessParties() {
         return witnessParties;
     }
 
-    @NonNull
     @Override
     public String getEventId() {
         return eventId;
     }
 
-    @NonNull
     @Override
     public Identifier getTemplateId() {
         return templateId;
     }
 
-    @NonNull
     @Override
     public String getContractId() {
         return contractId;
     }
 
-    @NonNull
     public String getContractCreatingEventId() {
         return contractCreatingEventId;
     }
 
-    @NonNull
     public String getChoice() {
         return choice;
     }
 
-    @NonNull
-    public List<@NonNull String> getChildEventIds() {
+    public List<String> getChildEventIds() {
         return childEventIds;
     }
 
-    @NonNull
     public Value getChoiceArgument() {
         return choiceArgument;
     }
 
-    public @NonNull List<@NonNull String> getActingParties() {
+    public List<String> getActingParties() {
         return actingParties;
     }
 
@@ -144,7 +135,7 @@ public class ExercisedEvent extends Event {
                 '}';
     }
 
-    public EventOuterClass.@NonNull ExercisedEvent toProto() {
+    public EventOuterClass.ExercisedEvent toProto() {
         return EventOuterClass.ExercisedEvent.newBuilder()
                 .setEventId(getEventId())
                 .setChoice(getChoice())

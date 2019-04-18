@@ -15,7 +15,6 @@ import com.google.rpc.Code;
 import io.reactivex.*;
 import io.reactivex.subjects.ReplaySubject;
 import io.reactivex.subjects.Subject;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,8 +85,8 @@ public class Bot {
         );
 
         Single<Pair<LedgerViewFlowable.LedgerView<R>, LedgerOffset>> mainFlow = ledgerViewAndOffsetSingle.doOnSuccess(ledgerViewAndOffset -> {
-            LedgerViewFlowable.@NonNull LedgerView<R> initialLedgerView = ledgerViewAndOffset.getFirst();
-            @NonNull LedgerOffset ledgerOffset = ledgerViewAndOffset.getSecond();
+            LedgerViewFlowable.LedgerView<R> initialLedgerView = ledgerViewAndOffset.getFirst();
+            LedgerOffset ledgerOffset = ledgerViewAndOffset.getSecond();
             logger.debug("LedgerView accumulated from acs and transactions completed. Offset: {} LedgerView: {}", ledgerOffset, initialLedgerView);
             Flowable<Transaction> transactions = FlowableLogger.log(transactionsClient.getTransactions(ledgerOffset, transactionFilter, true), "transactions");
             Flowable<LedgerViewFlowable.CompletionFailure> completionFailures = FlowableLogger.log(failuresCommandIds(transactionFilter.getParties(), ledgerClient.getCommandCompletionClient().completionStream(applicationId, LedgerOffset.LedgerEnd.getInstance(), transactionFilter.getParties())), "completionFailures");
@@ -171,7 +170,7 @@ public class Bot {
         return Flowable.concat(activeContracts, transactions);
     }
 
-    private static io.reactivex.functions.Function<@NonNull SubmitCommandsRequest, MaybeSource<? extends LedgerViewFlowable.SubmissionFailure>> commandsFailuresFromSubmissions(CommandSubmissionClient commandSubmissionClient) {
+    private static io.reactivex.functions.Function<SubmitCommandsRequest, MaybeSource<? extends LedgerViewFlowable.SubmissionFailure>> commandsFailuresFromSubmissions(CommandSubmissionClient commandSubmissionClient) {
         return cs -> {
             logger.debug("Submitting: {}", cs);
             return FlowableLogger.log(commandSubmissionClient.submit(cs.getWorkflowId(), cs.getApplicationId(),

@@ -3,8 +3,6 @@
 
 package com.daml.ledger.rxjava.components.helpers;
 
-import org.checkerframework.checker.nullness.qual.NonNull;
-
 import java.util.Objects;
 
 /**
@@ -14,11 +12,10 @@ public class GetActiveContractsResponseContext implements CreatedContractContext
 
     private final String workflowId;
 
-    public GetActiveContractsResponseContext(@NonNull String workflowId) {
+    public GetActiveContractsResponseContext(String workflowId) {
         this.workflowId = workflowId;
     }
 
-    @NonNull
     @Override
     public String getWorkflowId() {
         return this.workflowId;

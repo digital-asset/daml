@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ActiveContractsServiceOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
@@ -16,7 +15,7 @@ public class GetActiveContractsRequest {
 
     private final boolean verbose;
 
-    public GetActiveContractsRequest(@NonNull String ledgerId, @NonNull TransactionFilter transactionFilter, @NonNull boolean verbose) {
+    public GetActiveContractsRequest(String ledgerId, TransactionFilter transactionFilter, boolean verbose) {
         this.ledgerId = ledgerId;
         this.transactionFilter = transactionFilter;
         this.verbose = verbose;
@@ -37,12 +36,10 @@ public class GetActiveContractsRequest {
                 .build();
     }
 
-    @NonNull
     public String getLedgerId() {
         return ledgerId;
     }
 
-    @NonNull
     public TransactionFilter getTransactionFilter() {
         return transactionFilter;
     }

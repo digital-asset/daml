@@ -9,7 +9,6 @@ import io.grpc.ManagedChannel;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
 import io.netty.handler.ssl.SslContext;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.net.ssl.SSLException;
 import java.util.LinkedList;
@@ -45,7 +44,7 @@ public final class DamlLedgerClient implements LedgerClient {
      * @param sslContext If present, it will be used to establish a TLS connection. If empty, an unsecured plaintext connection will be used.
      *                   Must be an SslContext created for client applications via {@link GrpcSslContexts#forClient()}.
      */
-    public static DamlLedgerClient forLedgerIdAndHost(@NonNull String ledgerId, @NonNull String hostIp, int hostPort, @NonNull Optional<SslContext> sslContext) {
+    public static DamlLedgerClient forLedgerIdAndHost(String ledgerId, String hostIp, int hostPort, Optional<SslContext> sslContext) {
         NettyChannelBuilder builder = NettyChannelBuilder.forAddress(hostIp, hostPort);
         if (sslContext.isPresent()) {
             builder.useTransportSecurity();
@@ -60,7 +59,7 @@ public final class DamlLedgerClient implements LedgerClient {
      * Like {@link DamlLedgerClient#forLedgerIdAndHost(String, String, int, Optional)} but with the ledger-id
      * automatically discovered instead of provided.
      */
-    public static DamlLedgerClient forHostWithLedgerIdDiscovery(@NonNull String hostIp, int hostPort, Optional<SslContext> sslContext) {
+    public static DamlLedgerClient forHostWithLedgerIdDiscovery(String hostIp, int hostPort, Optional<SslContext> sslContext) {
         NettyChannelBuilder builder = NettyChannelBuilder.forAddress(hostIp, hostPort);
         if (sslContext.isPresent()) {
             builder.useTransportSecurity();
@@ -90,7 +89,7 @@ public final class DamlLedgerClient implements LedgerClient {
      *                         if the provided ledger id does not match the ledger id provided by the ledger.
      * @param channel A user provided instance of @{@link ManagedChannel}.
      */
-    public DamlLedgerClient(Optional<String> expectedLedgerId, @NonNull ManagedChannel channel) {
+    public DamlLedgerClient(Optional<String> expectedLedgerId, ManagedChannel channel) {
         this.channel = channel;
         this.expectedLedgerId = expectedLedgerId.orElse(null);
         pool = new SingleThreadExecutionSequencerPool("client");

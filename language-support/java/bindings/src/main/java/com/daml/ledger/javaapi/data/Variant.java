@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -17,13 +16,13 @@ public final class Variant extends Value {
 
     private final Value value;
 
-    public Variant(@NonNull Identifier variantId, @NonNull String constructor, @NonNull Value value) {
+    public Variant(Identifier variantId, String constructor, Value value) {
         this.variantId = Optional.of(variantId);
         this.constructor = constructor;
         this.value = value;
     }
 
-    public Variant(@NonNull String constructor, @NonNull Value value) {
+    public Variant(String constructor, Value value) {
         this.variantId = Optional.empty();
         this.constructor = constructor;
         this.value = value;
@@ -40,17 +39,14 @@ public final class Variant extends Value {
         }
     }
 
-    @NonNull
     public Optional<Identifier> getVariantId() {
         return variantId;
     }
 
-    @NonNull
     public String getConstructor() {
         return constructor;
     }
 
-    @NonNull
     public Value getValue() {
         return value;
     }

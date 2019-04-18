@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Optional;
 
@@ -20,7 +19,7 @@ public class GetTransactionsRequest {
 
     private final boolean verbose;
 
-    public GetTransactionsRequest(@NonNull String ledgerId, @NonNull LedgerOffset begin, @NonNull LedgerOffset end, @NonNull TransactionFilter filter, boolean verbose) {
+    public GetTransactionsRequest(String ledgerId, LedgerOffset begin, LedgerOffset end, TransactionFilter filter, boolean verbose) {
         this.ledgerId = ledgerId;
         this.begin = begin;
         this.end = Optional.of(end);
@@ -28,7 +27,7 @@ public class GetTransactionsRequest {
         this.verbose = verbose;
     }
 
-    public GetTransactionsRequest(@NonNull String ledgerId, @NonNull LedgerOffset begin, @NonNull TransactionFilter filter, boolean verbose) {
+    public GetTransactionsRequest(String ledgerId, LedgerOffset begin, TransactionFilter filter, boolean verbose) {
         this.ledgerId = ledgerId;
         this.begin = begin;
         this.end = Optional.empty();

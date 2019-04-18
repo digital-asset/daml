@@ -5,7 +5,6 @@ package com.daml.ledger.rxjava.components.helpers;
 
 import com.daml.ledger.javaapi.data.SubmitCommandsRequest;
 import com.daml.ledger.javaapi.data.Identifier;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
 import org.pcollections.PSet;
@@ -28,17 +27,15 @@ public class CommandsAndPendingSet {
             "", "", Instant.EPOCH, Instant.EPOCH, Collections.emptyList()),
             HashTreePMap.empty());
 
-    public CommandsAndPendingSet(@NonNull SubmitCommandsRequest submitCommandsRequest, @NonNull PMap<Identifier, PSet<String>> contractIdsPendingIfSucceed) {
+    public CommandsAndPendingSet(SubmitCommandsRequest submitCommandsRequest, PMap<Identifier, PSet<String>> contractIdsPendingIfSucceed) {
         this.submitCommandsRequest = submitCommandsRequest;
         this.contractIdsPendingIfSucceed = contractIdsPendingIfSucceed;
     }
 
-    @NonNull
     public SubmitCommandsRequest getSubmitCommandsRequest() {
         return submitCommandsRequest;
     }
 
-    @NonNull
     public PMap<Identifier, PSet<String>> getContractIdsPendingIfSucceed() {
         return contractIdsPendingIfSucceed;
     }

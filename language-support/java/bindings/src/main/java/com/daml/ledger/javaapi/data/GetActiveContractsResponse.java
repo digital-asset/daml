@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ActiveContractsServiceOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.List;
 import java.util.Objects;
@@ -20,7 +19,7 @@ public class GetActiveContractsResponse implements WorkflowEvent {
 
     private final String workflowId;
 
-    public GetActiveContractsResponse(@NonNull String offset, @NonNull List<CreatedEvent> activeContracts, String workflowId) {
+    public GetActiveContractsResponse(String offset, List<CreatedEvent> activeContracts, String workflowId) {
         this.offset = offset;
         this.activeContracts = activeContracts;
         this.workflowId = workflowId;
@@ -39,18 +38,15 @@ public class GetActiveContractsResponse implements WorkflowEvent {
                 .build();
     }
 
-    @NonNull
     public Optional<String> getOffset() {
         // Empty string indicates that the field is not present in the protobuf.
         return Optional.of(offset).filter(off -> !offset.equals(""));
     }
 
-    @NonNull
-    public List<@NonNull CreatedEvent> getCreatedEvents() {
+    public List<CreatedEvent> getCreatedEvents() {
         return activeContracts;
     }
 
-    @NonNull
     public String getWorkflowId() { return workflowId; }
 
 

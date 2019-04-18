@@ -5,7 +5,6 @@ package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.TransactionFilterOuterClass;
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -16,12 +15,11 @@ public class InclusiveFilter extends Filter {
 
     private Set<Identifier> templateIds;
 
-    public InclusiveFilter(@NonNull Set<@NonNull Identifier> templateIds) {
+    public InclusiveFilter(Set<Identifier> templateIds) {
         this.templateIds = templateIds;
     }
 
-    @NonNull
-    public Set<@NonNull Identifier> getTemplateIds() {
+    public Set<Identifier> getTemplateIds() {
         return templateIds;
     }
 

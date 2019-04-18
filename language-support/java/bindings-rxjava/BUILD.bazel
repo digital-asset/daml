@@ -23,7 +23,6 @@ java_library(
         "//3rdparty/jvm/io/grpc:grpc_stub",
         "//3rdparty/jvm/io/netty:netty_handler",
         "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
-        "//3rdparty/jvm/org/checkerframework:checker",
         "//3rdparty/jvm/org/pcollections",
         "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//language-support/java/bindings:bindings-java",
