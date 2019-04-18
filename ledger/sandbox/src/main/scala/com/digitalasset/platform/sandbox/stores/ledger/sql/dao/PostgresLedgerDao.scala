@@ -8,8 +8,9 @@ import java.security.MessageDigest
 import java.sql.Connection
 import java.util.Date
 
-import akka.Done
 import akka.stream.Materializer
+import akka.stream.scaladsl.Source
+import akka.{Done, NotUsed}
 import anorm.SqlParser.{str, _}
 import anorm.{AkkaStream, BatchSql, NamedParameter, SQL, SqlParser}
 import com.digitalasset.daml.lf.data.Ref
@@ -482,11 +483,12 @@ private class PostgresLedgerDao(
     }
 
   private val SQL_SELECT_ENTRY =
-    SQL("select * from ledger_entries t where ledger_offset={ledger_offset}")
+    SQL("select * from ledger_entries where ledger_offset={ledger_offset}")
 
   private val SQL_SELECT_DISCLOSURE =
     SQL("select * from disclosures where transaction_id={transaction_id}")
 
+  //TODO: make this into a case class?
   private val EntryParser = (str("typ")
     ~ str("transaction_id").?
     ~ str("command_id").?
@@ -498,9 +500,78 @@ private class PostgresLedgerDao(
     ~ binaryStream("transaction").?
     ~ str("rejection_type").?
     ~ str("rejection_description").?
+    ~ long("ledger_offset")
     map (flatten))
 
   private val DisclosureParser = (str("event_id") ~ str("party") map (flatten))
+
+  private def toLedgerEntry(
+      t: (
+          String,
+          Option[String],
+          Option[String],
+          Option[String],
+          Option[String],
+          Option[String],
+          Option[Date],
+          Date,
+          Option[InputStream],
+          Option[String],
+          Option[String],
+          Long))(implicit conn: Connection): (Long, LedgerEntry) = t match {
+    case (
+        "transaction",
+        Some(transactionId),
+        Some(commandId),
+        Some(applicationId),
+        Some(submitter),
+        Some(workflowId),
+        Some(effectiveAt),
+        recordedAt,
+        Some(transactionStream),
+        None,
+        None,
+        offset) =>
+      val disclosure = SQL_SELECT_DISCLOSURE
+        .on("transaction_id" -> transactionId)
+        .as(DisclosureParser.*)
+        .groupBy(_._1)
+        .mapValues(_.map(_._2).toSet)
+
+      offset -> LedgerEntry.Transaction(
+        commandId,
+        transactionId,
+        applicationId,
+        submitter,
+        workflowId,
+        effectiveAt.toInstant,
+        recordedAt.toInstant,
+        transactionSerializer
+          .deserializeTransaction(ByteStreams.toByteArray(transactionStream))
+          .getOrElse(sys.error(s"failed to deserialise transaction! trId: ${transactionId}")),
+        disclosure
+      )
+    case (
+        "rejection",
+        None,
+        Some(commandId),
+        Some(applicationId),
+        Some(submitter),
+        None,
+        None,
+        recordedAt,
+        None,
+        Some(rejectionType),
+        Some(rejectionDescription),
+        offset) =>
+      val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
+      offset -> LedgerEntry
+        .Rejection(recordedAt.toInstant, commandId, applicationId, submitter, rejectionReason)
+    case ("checkpoint", None, None, None, None, None, None, recordedAt, None, None, None, offset) =>
+      offset -> LedgerEntry.Checkpoint(recordedAt.toInstant)
+    case invalidRow =>
+      sys.error(s"invalid ledger entry for offset: ${invalidRow._12}. database row: $invalidRow")
+  }
 
   override def lookupLedgerEntry(offset: Long): Future[Option[LedgerEntry]] = {
     dbDispatcher
@@ -508,64 +579,8 @@ private class PostgresLedgerDao(
         SQL_SELECT_ENTRY
           .on("ledger_offset" -> offset)
           .as(EntryParser.singleOpt)
-          .map {
-            case (
-                "transaction",
-                Some(transactionId),
-                Some(commandId),
-                Some(applicationId),
-                Some(submitter),
-                Some(workflowId),
-                Some(effectiveAt),
-                recordedAt,
-                Some(transactionStream),
-                None,
-                None) =>
-              val disclosure = SQL_SELECT_DISCLOSURE
-                .on("transaction_id" -> transactionId)
-                .as(DisclosureParser.*)
-                .groupBy(_._1)
-                .mapValues(_.map(_._2).toSet)
-
-              LedgerEntry.Transaction(
-                commandId,
-                transactionId,
-                applicationId,
-                submitter,
-                workflowId,
-                effectiveAt.toInstant,
-                recordedAt.toInstant,
-                transactionSerializer
-                  .deserializeTransaction(ByteStreams.toByteArray(transactionStream))
-                  .getOrElse(
-                    sys.error(s"failed to deserialise transaction! trId: ${transactionId}")),
-                disclosure
-              )
-            case (
-                "rejection",
-                None,
-                Some(commandId),
-                Some(applicationId),
-                Some(submitter),
-                None,
-                None,
-                recordedAt,
-                None,
-                Some(rejectionType),
-                Some(rejectionDescription)) =>
-              val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
-              LedgerEntry.Rejection(
-                recordedAt.toInstant,
-                commandId,
-                applicationId,
-                submitter,
-                rejectionReason)
-            case ("checkpoint", None, None, None, None, None, None, recordedAt, None, None, None) =>
-              LedgerEntry.Checkpoint(recordedAt.toInstant)
-            case invalidRow =>
-              sys.error(s"invalid ledger entry for offset: ${offset}. database row: $invalidRow")
-          }
-
+          .map(toLedgerEntry)
+          .map(_._2)
       }
   }
 
@@ -636,6 +651,37 @@ private class PostgresLedgerDao(
       .as(SqlParser.str("maintainer").*)
       .toSet
       .map(Ref.Party.assertFromString)
+
+  private val SQL_GET_LEDGER_ENTRIES = SQL(
+    "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive}")
+
+//  override def getLedgerEntries(startInclusive: Long, endExclusive: Long)(
+//      implicit mat: Materializer): Source[(Long, LedgerEntry), NotUsed] = {
+//
+//    dbDispatcher.runStreamingSql { implicit conn =>
+//      //TODO: can we really reuse the connection here? don't think so..
+//      AkkaStream
+//        .source(
+//          SQL_GET_LEDGER_ENTRIES
+//            .on("startInclusive" -> startInclusive, "endExclusive" -> endExclusive),
+//          EntryParser)(mat, conn)
+//        .map(toLedgerEntry)
+//        .mapMaterializedValue(_.map(_ => Done)(DirectExecutionContext))
+//    }
+//  }
+
+  //TODO: probably better then continous streaming => we should use paging instead -> check if Alpakka can do that?
+  override def getLedgerEntries(
+      startInclusive: Long,
+      endExclusive: Long): Source[(Long, LedgerEntry), NotUsed] =
+    Source
+      .fromFuture(dbDispatcher.executeSql { implicit conn =>
+        SQL_GET_LEDGER_ENTRIES
+          .on("startInclusive" -> startInclusive, "endExclusive" -> endExclusive)
+          .as(EntryParser.*)
+          .map(toLedgerEntry)
+      })
+      .flatMapConcat(Source(_))
 
   private val SQL_SELECT_ACTIVE_CONTRACTS =
     SQL(

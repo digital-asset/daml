@@ -86,6 +86,11 @@ trait LedgerDao extends AutoCloseable {
     */
   def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]]
 
+  //TODO docs
+  def getLedgerEntries(
+      startInclusive: Long,
+      endExclusive: Long): Source[(Long, LedgerEntry), NotUsed]
+
   /**
     * Returns a snapshot of the ledger.
     * The snapshot consists of an offset, and a stream of contracts that were active at that offset.
