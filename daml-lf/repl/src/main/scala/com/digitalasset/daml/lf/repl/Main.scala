@@ -14,10 +14,10 @@ import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.types.Ledger
 import com.digitalasset.daml.lf.value.Value
 import Value._
-import java.io.{FileInputStream, PrintWriter, StringWriter}
+import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 
-import com.digitalasset.daml.lf.PureCompiledPackages
+import com.digitalasset.daml.lf.{PureCompiledPackages, UniversalArchiveReader}
 import com.digitalasset.daml.lf.validation.Validation
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
@@ -33,24 +33,24 @@ object Main extends App {
   def usage(): Unit = {
     println(
       """
-     |usage: daml-lf-speedy [--decode-lfdev] COMMAND ARGS...
+     |usage: daml-lf-speedy COMMAND ARGS...
      |
      |commands:
-     |  repl [file ...]         Run the interactive repl. Load the given packages if any.
-     |  test <name> [file ...]  Load given packages and run the named scenario with verbose output.
-     |  testAll [file ...]      Load the given packages and run all scenarios.
-     |  validate [file ...]     Load the given packages and validate them.
-     |  [file ...]              Same as 'repl' when all given files exist.
+     |  repl [file]             Run the interactive repl. Load the given packages if any.
+     |  test <name> [file]      Load given packages and run the named scenario with verbose output.
+     |  testAll [file]          Load the given packages and run all scenarios.
+     |  validate [file]         Load the given packages and validate them.
+     |  [file]                  Same as 'repl' when all given files exist.
     """.stripMargin)
 
   }
 
-  def defaultCommand(allowDev: Boolean, possibleFiles: List[String]): Unit = {
-    if (possibleFiles.exists(Paths.get(_).toFile.isFile == false)) {
+  def defaultCommand(possibleFile: String): Unit = {
+    if (!Paths.get(possibleFile).toFile.isFile) {
       usage()
       System.exit(1)
     } else
-      Repl.repl(allowDev, possibleFiles)
+      Repl.repl(possibleFile)
   }
 
   if (args.isEmpty) {
@@ -68,15 +68,18 @@ object Main extends App {
     replArgs match {
       case "-h" :: _ => usage()
       case "--help" :: _ => usage()
-      case "repl" :: files => Repl.repl(allowDev, files)
-      case "testAll" :: files =>
-        if (!Repl.testAll(allowDev, files)._1) System.exit(1)
-      case "test" :: id :: files =>
-        if (!Repl.test(allowDev, id, files)._1) System.exit(1)
-      case "validate" :: files =>
-        if (!Repl.validate(allowDev, files)._1) System.exit(1)
-      case possibleFiles =>
-        defaultCommand(allowDev, possibleFiles)
+      case List("repl", file) => Repl.repl(file)
+      case List("testAll", file) =>
+        if (!Repl.testAll(allowDev, file)._1) System.exit(1)
+      case List("test", id, file) =>
+        if (!Repl.test(allowDev, id, file)._1) System.exit(1)
+      case List("validate", file) =>
+        if (!Repl.validate(allowDev, file)._1) System.exit(1)
+      case List(possibleFile) =>
+        defaultCommand(possibleFile)
+      case _ =>
+        usage()
+        System.exit(1)
     }
   }
 }
@@ -88,8 +91,8 @@ object Main extends App {
   ))
 object Repl {
 
-  def repl(allowDev: Boolean): Unit = repl(initialState(allowDev))
-  def repl(allowDev: Boolean, files: List[String]): Unit = repl(load(initialState(allowDev), files))
+  def repl(): Unit = repl(initialState())
+  def repl(darFile: String): Unit = repl(load(darFile))
   def repl(state0: State): Unit = {
     var state = state0
     state.history.load
@@ -105,20 +108,20 @@ object Repl {
     state.history.save
   }
 
-  def testAll(allowDev: Boolean, files: List[String]): (Boolean, State) = {
-    val state = load(initialState(allowDev), files)
+  def testAll(allowDev: Boolean, file: String): (Boolean, State) = {
+    val state = load(file)
     cmdValidate(state)
     cmdTestAll(state)
   }
 
-  def test(allowDev: Boolean, id: String, files: List[String]): (Boolean, State) = {
-    val state = load(initialState(allowDev), files)
+  def test(allowDev: Boolean, id: String, file: String): (Boolean, State) = {
+    val state = load(file)
     cmdValidate(state)
     invokeScenario(state, Seq(id))
   }
 
-  def validate(allowDev: Boolean, files: List[String]): (Boolean, State) = {
-    val state = load(initialState(allowDev), files)
+  def validate(allowDev: Boolean, file: String): (Boolean, State) = {
+    val state = load(file)
     cmdValidate(state)
   }
 
@@ -135,7 +138,6 @@ object Repl {
   // --------------------------------------------------------
 
   case class State(
-      allowDev: Boolean,
       packages: Map[PackageId, Package],
       packageFiles: Seq[String],
       scenarioRunner: ScenarioRunnerHelper,
@@ -159,9 +161,7 @@ object Repl {
 
   final val commands = ListMap(
     ":help" -> Command("show this help", (s, _) => { usage(); s }),
-    ":load" -> Command("load packages from one or more DAML-LF files.", load),
-    ":reset" -> Command("reset the REPL.", (s, _) => initialState(s.allowDev)),
-    ":reload" -> Command("reload all loaded packages.", (s, _) => reload(s)),
+    ":reset" -> Command("reset the REPL.", (s, _) => initialState()),
     ":list" -> Command("list loaded packages.", (s, _) => { list(s); s }),
     ":speedy" -> Command("compile given expression to speedy and print it", (s, args) => {
       speedyCompile(s, args); s
@@ -192,10 +192,9 @@ object Repl {
     cmpl
   }
 
-  def initialState(allowDev: Boolean): State =
+  def initialState(): State =
     rebuildReader(
       State(
-        allowDev = allowDev,
         packages = Map.empty,
         packageFiles = Seq(),
         ScenarioRunnerHelper(Map.empty),
@@ -238,12 +237,6 @@ object Repl {
           case None => invokePure(state, cmdS, args); state
         }
     }
-  }
-
-  def reload(state: State): State = {
-    val newState = load(initialState(state.allowDev), state.packageFiles)
-    println("Reloaded: " + newState.packageFiles.mkString(", "))
-    rebuildReader(newState)
   }
 
   def list(state: State): Unit = {
@@ -321,26 +314,25 @@ object Repl {
   }
 
   // Load DAML-LF packages from a set of files.
-  def load(state: State, files: Seq[String]): State = {
+  def load(darFile: String): State = {
+    val state = initialState()
     try {
-      val decode: Decode = if (state.allowDev) {
-        Decode.WithDevSupport
-      } else {
-        Decode
-      }
-      val newPackages: Seq[(PackageId, Package)] =
-        files.map(file => decode.decodeArchiveFromInputStream(new FileInputStream(file)))
-      val npkgs = newPackages.size
+      val packages =
+        UniversalArchiveReader().readFile(new File(darFile)).get
+      val packagesMap = Map(packages.all.map {
+        case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+      }: _*)
+      val (mainPkgId, mainPkgArchive) = packages.main
+      val mainPkg = Decode.readArchivePayloadAndVersion(mainPkgId, mainPkgArchive)._1._2
+      val npkgs = packagesMap.size
       val ndefs =
-        newPackages.flatMap(_._2.modules.values.map(_.definitions.size)).sum
+        packagesMap.flatMap(_._2.modules.values.map(_.definitions.size)).sum
       println(s"$ndefs definitions from $npkgs package(s) loaded.")
 
-      val oldAndNew = state.packages ++ newPackages.toMap
       rebuildReader(
         state.copy(
-          packages = oldAndNew,
-          packageFiles = state.packageFiles ++ files,
-          scenarioRunner = ScenarioRunnerHelper(oldAndNew)
+          packages = packagesMap,
+          scenarioRunner = ScenarioRunnerHelper(packagesMap)
         ))
     } catch {
       case ex: Throwable => {

@@ -4,7 +4,8 @@
 package com.digitalasset.ledger.api.messages.transaction
 
 import brave.propagation.TraceContext
-import com.digitalasset.ledger.api.domain.{LedgerId, Party, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.ledger.api.domain.{LedgerId, TransactionId}
 
 import scala.collection.immutable
 

@@ -1,5 +1,9 @@
 This is required to get the GHCi/TH linker to pick up static Haskell libs.
 Buck uses the same trick. On Windows we retain the original behavior.
+
+Moreover on Windows we add extra system dependencies for grpc. The solution is
+not ideal but works well; for a proper solution we need better system library
+support in rules_haskell: https://github.com/tweag/rules_haskell/issues/834
 diff --git a/haskell/haskell.bzl b/haskell/haskell.bzl
 index 7d26a6d..e2a289b 100644
 --- a/haskell/haskell.bzl
@@ -32,7 +36,7 @@ index 2163c02..37a6d07 100644
  
 +    metadata_entries_extras = {
 +        "hs-libraries": pkg_id.library_name(hs, my_pkg_id),
-+        "extra-libraries": " ".join(extra_libs),
++        "extra-libraries": " ".join(extra_libs + (["stdc++", "crypt32", "ws2_32"] if my_pkg_id.name == "grpc-haskell-core" else [])),
 +        } if hs.toolchain.is_windows else {
 +        "extra-libraries": " ".join([pkg_id.library_name(hs, my_pkg_id)] + extra_libs),
 +    }

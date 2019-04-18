@@ -28,9 +28,9 @@ subcommand :: Text -> Text -> InfoMod Command -> Parser Command -> Mod CommandFi
 subcommand name desc infoMod parser =
     command (unpack name) (info parser (infoMod <> progDesc (unpack desc)))
 
-builtin :: Text -> Text -> Parser BuiltinCommand -> Mod CommandFields Command
-builtin name desc parser =
-    subcommand name desc mempty (Builtin <$> parser <**> helper)
+builtin :: Text -> Text -> InfoMod Command -> Parser BuiltinCommand -> Mod CommandFields Command
+builtin name desc mod parser =
+    subcommand name desc mod (Builtin <$> parser)
 
 isHidden :: SdkCommandInfo -> Bool
 isHidden = isNothing . sdkCommandDesc
@@ -46,8 +46,10 @@ dispatch info = subcommand
 commandParser :: [SdkCommandInfo] -> Parser Command
 commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
     [ subparser -- visible commands
-        $  builtin "version" "Display SDK version" (pure Version)
-        <> builtin "install" "Install SDK version" (Install <$> installParser)
+        $  builtin "version" "Display SDK version" mempty (pure Version <**> helper)
+        <> builtin "install" "Install SDK version" mempty (Install <$> installParser <**> helper)
+        <> builtin "exec" "Execute command with daml environment." forwardOptions
+            (Exec <$> strArgument (metavar "CMD") <*> many (strArgument (metavar "ARGS")))
         <> foldMap dispatch visible
     , subparser -- hidden commands
         $  internal
@@ -57,7 +59,7 @@ commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
 
 installParser :: Parser InstallOptions
 installParser = InstallOptions
-    <$> optional (RawInstallTarget <$> argument str (metavar "CHANNEL|VERSION|PATH"))
+    <$> optional (RawInstallTarget <$> argument str (metavar "TARGET"))
     <*> iflag ActivateInstall "activate" mempty "Activate installed version of daml"
     <*> iflag ForceInstall "force" (short 'f') "Overwrite existing installation"
     <*> iflag QuietInstall "quiet" (short 'q') "Quiet verbosity"

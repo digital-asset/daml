@@ -16,6 +16,7 @@ import DAML.Assistant.Command
 import DAML.Assistant.Install
 import DAML.Assistant.Util
 import System.FilePath
+import System.Directory
 import System.Process
 import System.Exit
 import Control.Exception.Safe
@@ -35,15 +36,23 @@ main = do
             putStrLn (versionToString version)
 
         Builtin (Install options) -> wrapErr "Installing the SDK." $ do
-            install options envDamlPath
+            install options envDamlPath envProjectPath
+
+        Builtin (Exec cmd args) ->
+            wrapErr "Running executable in daml environment." $ do
+                path <- fromMaybe cmd <$> findExecutable cmd
+                exitWith =<< dispatch env path args
 
         Dispatch SdkCommandInfo{..} cmdArgs ->
             wrapErr ("Running " <> unwrapSdkCommandName sdkCommandName <> " command.") $ do
                 sdkPath <- required "Could not determine SDK path." envSdkPath
-                dispatchEnv <- getDispatchEnv env
                 let path = unwrapSdkPath sdkPath </> unwrapSdkCommandPath sdkCommandPath
                     args = unwrapSdkCommandArgs sdkCommandArgs ++ unwrapUserCommandArgs cmdArgs
-                    process = (proc path args) { env = Just dispatchEnv }
-                exitCodeE <- tryIO $ withCreateProcess process (\ _ _ _ -> waitForProcess)
-                exitCode <- requiredE "Failed to spawn command subprocess." exitCodeE
-                exitWith exitCode
+                exitWith =<< dispatch env path args
+
+dispatch :: Env -> FilePath -> [String] -> IO ExitCode
+dispatch env path args = do
+    dispatchEnv <- getDispatchEnv env
+    requiredIO "Failed to spawn command subprocess." $
+        withCreateProcess (proc path args) { env = Just dispatchEnv }
+            (\ _ _ _ -> waitForProcess)

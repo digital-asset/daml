@@ -46,7 +46,7 @@ main = do
       artifacts <- liftIO $ mapM (resolvePomData bazelLocations sdkVersion compVersion) artifacts
 
       files <- fmap concat $ forM artifacts $ \a -> do
-          fs <- artifactFiles a
+          fs <- artifactFiles optsAllArtifacts a
           pure $ map (a,) fs
       mapM_ (\(_, (inp, outp)) -> copyToReleaseDir bazelLocations releaseDir inp outp) files
 
@@ -55,7 +55,7 @@ main = do
               $logInfo "Make release"
               releaseToBintray upload releaseDir (map (\(a, (_, outp)) -> (a, outp)) files)
               -- set variables for next steps in Azure pipelines
-              liftIO . putStrLn $ "##vso[task.setvariable variable=has_released]true"
+              liftIO . putStrLn $ "##vso[task.setvariable variable=has_released;isOutput=true]true"
               liftIO . putStrLn . T.unpack $ "##vso[task.setvariable variable=release_tag]" # renderVersion sdkVersion
           else $logInfo "Make dry run of release"
   where

@@ -17,19 +17,17 @@ pr:
       - master
 
 jobs:
-  - job: Linux
+  - job: linux
     timeoutInMinutes: 360
     pool:
-      ${{ if eq(variables['System.PullRequest.IsFork'], 'true') }}:
-        vmImage: 'ubuntu-16.04'
-      ${{ if eq(variables['System.PullRequest.IsFork'], 'false') }}:
-        name: 'linux-pool'
+      # vmImage: 'ubuntu-16.04'
+      name: 'linux-pool'
     steps:
       - template: ci/build-unix.yml
         parameters:
           name: linux
 
-  - job: macOS
+  - job: macos
     timeoutInMinutes: 360
     pool:
       vmImage: 'macOS-10.13'
@@ -38,9 +36,53 @@ jobs:
         parameters:
           name: macos
 
-  - job: Windows
+  - job: windows
     timeoutInMinutes: 360
     pool:
       vmImage: 'vs2017-win2016'
     steps:
       - template: ci/build-windows.yml
+
+  - job: release
+    dependsOn: [ "Linux", "macOS", "Windows"]
+    pool:
+      vmImage: "Ubuntu-16.04"
+    condition: and(succeeded(),
+                   eq( dependencies.linux.outputs['release.has_released'], 'true' ),
+                   eq( dependencies.macos.outputs['release.has_released'], 'true' ))
+                   #eq( dependencies.windows.outputs['release.has_released'], 'true' ))
+    variables:
+      artifact-linux: $[ dependencies.linux.outputs['publish.artifact'] ]
+      artifact-macos: $[ dependencies.macos.outputs['publish.artifact'] ]
+      #artifact-windows: $[ dependencies.windows.outputs['publish.artifact'] ]
+    steps:
+      - checkout: self
+        persistCredentials: true
+      - bash: |
+          set -euxo pipefail
+          git tag v$(cat VERSION)
+          git push origin v$(cat VERSION)
+          mkdir $(Build.StagingDirectory)/release
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: $(artifact-linux)
+          targetPath: $(Build.StagingDirectory)/release
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: $(artifact-macos)
+          targetPath: $(Build.StagingDirectory)/release
+      #- task: DownloadPipelineArtifact@0
+      #  inputs:
+      #    artifactName: $(artifact-windows)
+      #    targetPath: $(Build.StagingDirectory)/release
+      - task: GitHubRelease@0
+        inputs:
+          gitHubConnection: 'garyverhaegen-da'
+          repositoryName: '$(Build.Repository.Name)'
+          action: 'create'
+          target: '$(Build.SourceVersion)'
+          tagSource: 'auto'
+          assets: $(Build.StagingDirectory)/release/*
+          assetUploadMode: 'replace'
+          addChangeLog: false
+          isPrerelease: true

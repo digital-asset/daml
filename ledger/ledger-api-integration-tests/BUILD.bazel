@@ -61,8 +61,7 @@ da_scala_test_suite(
     name = "ledger-api-integration-tests",
     srcs = glob(["src/test/itsuite/**/*.scala"]),
     data = [
-        "//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf",
-        "//ledger/sandbox:Test.dalf",
+        "//ledger/sandbox:Test.dar",
     ],
     deps = [
         ":ledger-api-integration-tests-lib",
@@ -71,7 +70,7 @@ da_scala_test_suite(
 
 # A standalone semantic test runner.
 # Run with:
-#   bazel run //ledger/ledger-api-integration-tests:semantic-test-runner -- <dalf>...
+#   bazel run //ledger/ledger-api-integration-tests:semantic-test-runner -- <dar>...
 #
 # This is used to test new ledger backend implementations.
 da_scala_binary(
@@ -86,6 +85,7 @@ da_scala_binary(
         # POM file are set correctly.
         "fat_jar",
     ],
+    visibility = ["//visibility:public"],
     deps = dependencies + [
         ":ledger-api-integration-tests-lib",
         "//daml-lf/testing-tools",
@@ -96,8 +96,7 @@ da_scala_test_suite(
     name = "ledger-api-semantic-tests",
     srcs = glob(["src/test/semanticsuite/**/*.scala"]),
     data = [
-        ":SemanticTests.dalf",
-        "//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf",
+        ":SemanticTests.dar",
     ],
     deps = [
         ":ledger-api-integration-tests-lib",
@@ -112,7 +111,6 @@ TEST_FILES = [
 [
     daml_compile(
         name = name,
-        damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated",
         main_src = "src/test/semanticsuite/daml/%s.daml" % name,
         target = "1.3",
         visibility = ["//visibility:public"],

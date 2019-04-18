@@ -8,5 +8,5 @@ module Com.Acme where
 data BookAttribute = Pages Int
                    | Authors [Text]
                    | Title Text
-                   | Published with year: Int; publisher Text
+                   | Published with year: Int; publisher: Text
 -- end snippet: variant example

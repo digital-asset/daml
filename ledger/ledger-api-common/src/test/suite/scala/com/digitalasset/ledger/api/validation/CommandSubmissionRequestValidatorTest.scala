@@ -106,7 +106,7 @@ class CommandSubmissionRequestValidatorTest extends WordSpec with ValidatorTestU
         requestMustFailWith(
           sut.validateCommands(api.commands.withParty("")),
           INVALID_ARGUMENT,
-          "Missing field: party")
+          "Invalid field party: Expected a non-empty string")
       }
 
       "not allow missing let" in {

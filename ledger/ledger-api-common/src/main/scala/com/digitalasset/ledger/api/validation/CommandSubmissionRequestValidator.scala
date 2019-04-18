@@ -4,7 +4,7 @@
 package com.digitalasset.ledger.api.validation
 
 import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.lf.data.{SortedLookupList, FrontStack}
+import com.digitalasset.daml.lf.data.{FrontStack, Ref, SortedLookupList}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.Value.VariantValue
 import com.digitalasset.ledger.api.messages.command.submission
@@ -41,7 +41,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
       ledgerId <- matchLedgerId(ledgerId)(commands.ledgerId)
       commandId <- requireNonEmptyString(commands.commandId, "command_id")
       appId <- requireNonEmptyString(commands.applicationId, "application_id")
-      submitter <- requireNonEmptyString(commands.party, "party")
+      submitter <- requireSimpleString(commands.party, "party")
       let <- requirePresence(commands.ledgerEffectiveTime, "ledger_effective_time")
       mrt <- requirePresence(commands.maximumRecordTime, "maximum_record_time")
       validatedCommands <- validateInnerCommands(commands.commands)
@@ -51,7 +51,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
         Option(commands.workflowId).filterNot(_.isEmpty).map(domain.WorkflowId(_)),
         domain.ApplicationId(appId),
         domain.CommandId(commandId),
-        domain.Party(submitter),
+        submitter,
         TimestampConversion.toInstant(let),
         TimestampConversion.toInstant(mrt),
         validatedCommands
@@ -115,7 +115,8 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
   def validateValue(value: Value): Either[StatusRuntimeException, domain.Value] = value.sum match {
     case Sum.ContractId(cId) => Right(domain.Value.ContractIdValue(domain.ContractId(cId)))
     case Sum.Decimal(value) => Right(domain.Value.DecimalValue(value))
-    case Sum.Party(party) => Right(domain.Value.PartyValue(domain.Party(party)))
+    case Sum.Party(party) =>
+      requireSimpleString(party, "party").map(domain.Value.PartyValue)
     case Sum.Bool(b) => Right(domain.Value.BoolValue(b))
     case Sum.Timestamp(micros) => Right(domain.Value.TimeStampValue(micros))
     case Sum.Date(days) => Right(domain.Value.DateValue(days))
@@ -172,7 +173,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
   }
 
   private def validateOptionalIdentifier(
-      variantIdO: Option[Identifier]): Either[StatusRuntimeException, Option[domain.Identifier]] = {
+      variantIdO: Option[Identifier]): Either[StatusRuntimeException, Option[Ref.Identifier]] = {
     variantIdO
       .map { variantId =>
         identifierResolver.resolveIdentifier(variantId).map(Some.apply)

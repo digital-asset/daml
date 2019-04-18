@@ -3,13 +3,13 @@
 
 package com.daml.ledger.rxjava.components;
 
+import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.rxjava.CommandSubmissionClient;
 import com.daml.ledger.rxjava.LedgerClient;
 import com.daml.ledger.rxjava.TransactionsClient;
 import com.daml.ledger.rxjava.components.helpers.CommandsAndPendingSet;
 import com.daml.ledger.rxjava.components.helpers.CreatedContract;
 import com.daml.ledger.rxjava.components.helpers.Pair;
-import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.rxjava.util.FlowableLogger;
 import com.google.rpc.Code;
 import io.reactivex.*;
@@ -85,49 +85,64 @@ public class Bot {
                 }
         );
 
-        Pair<LedgerViewFlowable.LedgerView<R>, LedgerOffset> ledgerViewAndOffset = ledgerViewAndOffsetSingle.blockingGet();
+        Single<Pair<LedgerViewFlowable.LedgerView<R>, LedgerOffset>> mainFlow = ledgerViewAndOffsetSingle.doOnSuccess(ledgerViewAndOffset -> {
+            LedgerViewFlowable.@NonNull LedgerView<R> initialLedgerView = ledgerViewAndOffset.getFirst();
+            @NonNull LedgerOffset ledgerOffset = ledgerViewAndOffset.getSecond();
+            logger.debug("LedgerView accumulated from acs and transactions completed. Offset: {} LedgerView: {}", ledgerOffset, initialLedgerView);
+            Flowable<Transaction> transactions = FlowableLogger.log(transactionsClient.getTransactions(ledgerOffset, transactionFilter, true), "transactions");
+            Flowable<LedgerViewFlowable.CompletionFailure> completionFailures = FlowableLogger.log(failuresCommandIds(transactionFilter.getParties(), ledgerClient.getCommandCompletionClient().completionStream(applicationId, LedgerOffset.LedgerEnd.getInstance(), transactionFilter.getParties())), "completionFailures");
 
-        LedgerViewFlowable.@NonNull LedgerView<R> initialLedgerView = ledgerViewAndOffset.getFirst();
-        @NonNull LedgerOffset ledgerOffset = ledgerViewAndOffset.getSecond();
-        logger.debug("LedgerView accumulated from acs and transactions completed. Offset: {} LedgerView: {}", ledgerOffset, initialLedgerView);
-        Flowable<Transaction> transactions = FlowableLogger.log(transactionsClient.getTransactions(ledgerOffset, transactionFilter, true), "transactions");
-        Flowable<LedgerViewFlowable.CompletionFailure> completionFailures = FlowableLogger.log(failuresCommandIds(transactionFilter.getParties(), ledgerClient.getCommandCompletionClient().completionStream(applicationId, LedgerOffset.LedgerEnd.getInstance(), transactionFilter.getParties())), "completionFailures");
-        Subject<LedgerViewFlowable.SubmissionFailure> submissionFailuresSubject = ReplaySubject.create();
-        Subject<CommandsAndPendingSet> commandsAndPendingSetSubject = ReplaySubject.create();
-        Flowable<LedgerViewFlowable.SubmissionFailure> submissionFailures = FlowableLogger.log(submissionFailuresSubject.toFlowable(BackpressureStrategy.BUFFER), "submissionsFailures");
-        Flowable<CommandsAndPendingSet> commandsAndPendingsSet = FlowableLogger.log(commandsAndPendingSetSubject.toFlowable(BackpressureStrategy.BUFFER), "commandsAndPendingSet");
-        Flowable<LedgerViewFlowable.LedgerView<R>> ledgerViews = LedgerViewFlowable.<R>of(
-                initialLedgerView,
-                submissionFailures,
-                completionFailures,
-                transactions.map(t -> (WorkflowEvent) t),
-                commandsAndPendingsSet,
-                transform
-        );
-        Flowable<CommandsAndPendingSet> botResult = ledgerViews.concatMap(ledgerView -> {
-            Flowable<CommandsAndPendingSet> result = null;
-            try {
-                Flowable<CommandsAndPendingSet> commandsToSend = bot.apply(ledgerView);
-                result = Flowable.concat(commandsToSend, Flowable.just(CommandsAndPendingSet.empty));
-            } catch (Throwable t) {
-                logger.error("Error during execution of bot.", t);
-                result = Flowable.error(t);
-            }
-            return FlowableLogger.log(result, "bot.execution");
-        }).share();
+            Subject<LedgerViewFlowable.SubmissionFailure> submissionFailuresSubject = ReplaySubject.create();
+            Subject<CommandsAndPendingSet> commandsAndPendingSetSubject = ReplaySubject.create();
 
-        // to the ledger
-        Flowable<SubmitCommandsRequest> commands = botResult
-                .filter(command -> !command.getSubmitCommandsRequest().getCommandId().isEmpty())
-                .map(CommandsAndPendingSet::getSubmitCommandsRequest);
-        CommandSubmissionClient commandSubmissionClient = ledgerClient.getCommandSubmissionClient();
-        commands.concatMapMaybe(commandsFailuresFromSubmissions(commandSubmissionClient)).toObservable().subscribe(submissionFailuresSubject);
+            Flowable<LedgerViewFlowable.SubmissionFailure> submissionFailures = FlowableLogger.log(submissionFailuresSubject.toFlowable(BackpressureStrategy.BUFFER), "submissionsFailures");
+            Flowable<CommandsAndPendingSet> commandsAndPendingsSet = FlowableLogger.log(commandsAndPendingSetSubject.toFlowable(BackpressureStrategy.BUFFER), "commandsAndPendingSet");
 
-        // to the ledger view flowable
-        botResult.toObservable().subscribe(commandsAndPendingSetSubject);
-        logger.info("Bot wiring complete for parties {}", transactionFilter.getParties());
+            Flowable<LedgerViewFlowable.LedgerView<R>> ledgerViews = LedgerViewFlowable.<R>of(
+                    initialLedgerView,
+                    submissionFailures,
+                    completionFailures,
+                    transactions.map(t -> (WorkflowEvent) t),
+                    commandsAndPendingsSet,
+                    transform
+            );
+            Flowable<CommandsAndPendingSet> botResult = ledgerViews.concatMap(ledgerView -> {
+                Flowable<CommandsAndPendingSet> result = null;
+                try {
+                    Flowable<CommandsAndPendingSet> commandsToSend = bot.apply(ledgerView);
+                    result = Flowable.concat(commandsToSend, Flowable.just(CommandsAndPendingSet.empty));
+                } catch (Throwable t) {
+                    logger.error("Error during execution of bot.", t);
+                    result = Flowable.error(t);
+                }
+                return FlowableLogger.log(result, "bot.execution");
+            }).share();
+
+            // to the ledger
+            Flowable<SubmitCommandsRequest> commands = botResult
+                    .filter(command -> !command.getSubmitCommandsRequest().getCommandId().isEmpty())
+                    .map(CommandsAndPendingSet::getSubmitCommandsRequest);
+            CommandSubmissionClient commandSubmissionClient = ledgerClient.getCommandSubmissionClient();
+            commands.concatMapMaybe(commandsFailuresFromSubmissions(commandSubmissionClient)).toObservable().subscribe(submissionFailuresSubject);
+
+            // to the ledger view flowable
+            botResult.toObservable().subscribe(commandsAndPendingSetSubject);
+            logger.info("Bot wiring complete for parties {}", transactionFilter.getParties());
+        });
+        // Since we have removed the blockingGet call, we now need to make sure that the flow is actually triggered
+        mainFlow.toFlowable().publish().connect();
     }
 
+    /**
+     * Wires the Bot logic to an existing {@link LedgerClient} instance, storing {@link CreatedContract}
+     * instances in the {@link com.daml.ledger.rxjava.components.LedgerViewFlowable.LedgerView}.
+     *
+     * @param appId The application identifier that will be sent to the Ledger
+     * @param ledgerClient The {@link LedgerClient} instance which will be wired to the
+     *                     bot.
+     * @param transactionFilter A server-side filter of incoming transactions
+     * @param bot The business logic of the bot.
+     */
     public static void wireSimple(String appId,
                                   LedgerClient ledgerClient,
                                   TransactionFilter transactionFilter,

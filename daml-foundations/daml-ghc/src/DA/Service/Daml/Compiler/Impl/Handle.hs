@@ -271,9 +271,10 @@ buildDar ::
      IdeState
   -> FilePath
   -> String
+  -> [(String, BS.ByteString)]
   -> UseDalf
   -> ExceptT [Diagnostic] IO BS.ByteString
-buildDar service file pkgName dalfInput = do
+buildDar service file pkgName dataFiles dalfInput = do
   liftIO $
     CompilerService.logDebug service $
     "Creating dar: " <> T.pack file
@@ -285,6 +286,7 @@ buildDar service file pkgName dalfInput = do
         (takeDirectory file)
         []
         []
+        dataFiles
         pkgName
     else do
       dalf <- encodeArchiveLazy <$> compileFile service file
@@ -308,6 +310,7 @@ buildDar service file pkgName dalfInput = do
               (takeDirectory file)
               dalfDependencies
               (file:fileDependencies)
+              dataFiles
               pkgName
 
 -- | Get the transitive package dependencies on other dalfs.

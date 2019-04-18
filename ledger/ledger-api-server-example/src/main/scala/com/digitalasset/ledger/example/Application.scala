@@ -8,6 +8,7 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.client.configuration.TlsConfiguration
 import com.digitalasset.ledger.server.LedgerApiServer.LedgerApiServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -95,6 +96,7 @@ object Application {
       server = LedgerApiServer(
         ledgerBackend,
         timeProvider,
+        Engine(),
         config,
         port,
         timeServiceBackendO,

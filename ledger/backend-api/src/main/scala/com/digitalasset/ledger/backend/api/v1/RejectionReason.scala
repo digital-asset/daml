@@ -15,7 +15,7 @@ object RejectionReason {
   final case class Inconsistent(description: String) extends RejectionReason
 
   /** The Participant node did not have sufficient resource quota with the
-    * to submit the transactoin.
+    * to submit the transaction.
     */
   final case class OutOfQuota(description: String) extends RejectionReason
 

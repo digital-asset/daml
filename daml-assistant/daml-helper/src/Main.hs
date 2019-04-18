@@ -16,7 +16,7 @@ data Command
     | New { targetFolder :: FilePath, templateName :: String }
     | ListTemplates
     | Sandbox { port :: SandboxPort, remainingArguments :: [String] }
-    | Start { darPath :: FilePath }
+    | Start
 
 commandParser :: Parser Command
 commandParser =
@@ -43,7 +43,7 @@ commandParser =
           sandboxCmd = Sandbox
               <$> option sandboxPortReader (long "port" <> help "Port used by the sandbox")
               <*> many (argument str (metavar "ARG"))
-          startCmd = Start <$> argument str (metavar "DAR_PATH" <> help "Path to DAR that should be loaded")
+          startCmd = pure Start
 
 runCommand :: Command -> IO ()
 runCommand DamlStudio {..} = runDamlStudio overwriteExtension remainingArguments
@@ -51,7 +51,7 @@ runCommand RunJar {..} = runJar jarPath remainingArguments
 runCommand New {..} = runNew targetFolder templateName
 runCommand ListTemplates = runListTemplates
 runCommand Sandbox {..} = runSandbox port remainingArguments
-runCommand Start {..} = runStart darPath
+runCommand Start = runStart
 
 sandboxPortReader :: ReadM SandboxPort
 sandboxPortReader = SandboxPort <$> auto

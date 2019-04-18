@@ -8,6 +8,8 @@ module DA.Daml.GHC.Compiler.Options
     , mkOptions
     , getBaseDir
     , toCompileOpts
+    , projectPackageDatabase
+    , basePackages
     ) where
 
 
@@ -87,6 +89,13 @@ moduleImportPaths pm =
         | rootModDir == "." = Just rootPathDir
         | otherwise = dropTrailingPathSeparator <$> List.stripSuffix rootModDir rootPathDir
 
+-- | The project package database path relative to the project root.
+projectPackageDatabase :: FilePath
+projectPackageDatabase = ".package-database"
+
+-- | Packages that we ship with the compiler.
+basePackages :: [String]
+basePackages = ["daml-prim", "daml-stdlib"]
 
 -- | Check that import paths and package db directories exist
 -- and add the default package db if it exists
@@ -94,15 +103,8 @@ mkOptions :: Options -> IO Options
 mkOptions opts@Options {..} = do
     baseDir <- getBaseDir
     mapM_ checkDirExists $ optImportPath <> optPackageDbs
-    let deprecatedPkgDb = baseDir </> "package-database" </> "deprecated"
-    deprecatedPkgDbExists <- Dir.doesDirectoryExist deprecatedPkgDb
-    when deprecatedPkgDbExists $
-      putStrLn "DEPRECATED: Please use fat dars instead of dalfs in tests"
-    let defaultPkgDb
-          | deprecatedPkgDbExists = deprecatedPkgDb
-          | otherwise = baseDir </> "package-database"
-    let projectPkgDb = ".package-database"
-    pkgDbs <- filterM Dir.doesDirectoryExist [projectPkgDb, defaultPkgDb]
+    let defaultPkgDb = baseDir </> "package-database"
+    pkgDbs <- filterM Dir.doesDirectoryExist [defaultPkgDb]
     pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->

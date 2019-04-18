@@ -30,7 +30,7 @@ class TransactionSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File("extractor/TransactionExample.dalf")
+  override protected def darFile = new File("extractor/TransactionExample.dar")
 
   override def scenario: Option[String] = Some("TransactionExample:example")
 

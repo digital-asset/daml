@@ -91,6 +91,7 @@ fetch
 - ``fetch`` keyword.
 - Fetches the contract instance with that ID. Usually used with a bound variable, as in the example above.
 - Often used to check the details of a contract before exercising a choice on that contract. Also used when referring to some reference data.
+- ``fetch cid`` fails if ``cid`` is not the contract id of an active contract, and thus causes the entire transaction to abort. 
 
 .. _daml-ref-abort:
 

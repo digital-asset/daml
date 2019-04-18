@@ -11,7 +11,11 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId}
-import com.digitalasset.ledger.backend.api.v1.{RejectionReason, TransactionSubmission}
+import com.digitalasset.ledger.backend.api.v1.{
+  RejectionReason,
+  SubmissionResult,
+  TransactionSubmission
+}
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContractsInMemory}
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
@@ -71,9 +75,9 @@ class InMemoryLedger(
       ()
     })
 
-  override def publishTransaction(tx: TransactionSubmission): Future[Unit] =
+  override def publishTransaction(tx: TransactionSubmission): Future[SubmissionResult] =
     Future.successful(
-      this.synchronized[Unit] {
+      this.synchronized[SubmissionResult] {
         val (newDeduplicator, isDuplicate) =
           deduplicator.checkAndAdd(ApplicationId(tx.applicationId), CommandId(tx.commandId))
         deduplicator = newDeduplicator
@@ -85,6 +89,7 @@ class InMemoryLedger(
         else
           handleSuccessfulTx(entries.ledgerEnd.toString, tx)
 
+        SubmissionResult.Acknowledged
       }
     )
 

@@ -153,7 +153,7 @@ installation of the packages for type checking.
 
 Currently a package database is provided together with the `damlc` Bazel rule and `bazel run damlc`
 loads this database by default. This package database is also shipped together with
-`da-hs-damli-app.tar.gz` and `da-hs-damlc-app.tar.gz` for the SDK and the platform and is contained
+`da-hs-damlc-app.tar.gz` for the SDK and the platform and is contained
 in the directory `resources/package-db/gen/`.
 
 ### Building the package database

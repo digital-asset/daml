@@ -13,7 +13,7 @@ fi
 # This is where we install the head version. Clean it up before we start.
 readonly DAML_HEAD="$HOME/.daml-head"
 if [ -d $DAML_HEAD ] ; then
-  chmod -R -P u+w $DAML_HEAD
+  chmod -R  u+w $DAML_HEAD
   rm -rf $DAML_HEAD
 fi
 

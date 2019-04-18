@@ -25,7 +25,7 @@ import scala.concurrent.duration._
 
 trait TestHelper {
 
-  val darFile: File = new File("ledger/sandbox-perf/LargeTransaction.dalf")
+  val darFile: File = new File("ledger/sandbox-perf/LargeTransaction.dar")
 
   val largeTxPackageId: PackageId = DarUtil.getPackageId(darFile)
 

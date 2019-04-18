@@ -24,6 +24,7 @@ data Options = Options
   , optsSlackReleaseMessageFile :: Maybe FilePath
   , optsFullLogging :: Bool
   , optsLogLevel :: LogLevel
+  , optsAllArtifacts :: AllArtifacts
   } deriving (Eq, Show)
 
 optsParser :: Parser Options
@@ -34,6 +35,7 @@ optsParser = Options
   <*> option (Just <$> str) (long "slack-release-message" <> help "if present will write out what to write in slack. if there are no releases the file will be empty" <> value Nothing)
   <*> switch (long "full-logging" <> help "full logging detail")
   <*> option readLogLevel (long "log-level" <> metavar "debug|info|warn|error (default: info)" <> help "Specify log level during release run" <> value LevelInfo )
+  <*> (AllArtifacts <$> switch (long "all-artifacts" <> help "Produce all artifacts including platform-independent artifacts on MacOS"))
   where
     readLogLevel :: ReadM LogLevel
     readLogLevel = do
