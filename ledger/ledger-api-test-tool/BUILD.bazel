@@ -11,6 +11,10 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
+load(
+    "//bazel_tools/client_server_test:client_server_test.bzl",
+    "client_server_test",
+)
 
 dependencies = [
     "//3rdparty/jvm/com/github/scopt:scopt",
@@ -46,70 +50,43 @@ dependencies = [
     "//ledger/sandbox:sandbox-scala-tests-lib",
 ]
 
-da_scala_library(
-    name = "ledger-api-integration-tests-lib",
-    srcs = glob(["src/test/lib/**/*.scala"]),
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = dependencies + [
-        "//daml-lf/testing-tools",
-    ],
-)
-
-da_scala_test_suite(
-    name = "ledger-api-integration-tests",
-    srcs = glob(["src/test/itsuite/**/*.scala"]),
-    data = [
-        "//ledger/sandbox:Test.dar",
-    ],
-    deps = [
-        ":ledger-api-integration-tests-lib",
-    ] + dependencies,
-)
-
-# DEPRECATED in favor of //ledger/ledger-api-test-tool:ledger-api-test-tool
+# Run with:
+#   bazel run //ledger/ledger-api-test-tool:ledger-api-test-tool
+#
+# This is used to test new ledger backend implementations.
 da_scala_binary(
-    name = "semantic-test-runner",
+    name = "ledger-api-test-tool",
     srcs = [
-        "src/main/scala/com/digitalasset/platform/semantictest/StandaloneSemanticTestRunner.scala",
+        "src/main/scala/com/daml/ledger/api/testtool/LedgerApiTestTool.scala",
     ],
-    main_class = "com.digitalasset.platform.semantictest.StandaloneSemanticTestRunner",
-    tags = [
-        "maven_coordinates=com.digitalasset.ledger:semantic-test-runner:__VERSION__",
-        # We release this as a fat jar so this tag ensures that the dependencies in the generated
-        # POM file are set correctly.
-        "fat_jar",
+    main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
+    resources = [
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
     ],
-    visibility = ["//visibility:public"],
     deps = dependencies + [
-        ":ledger-api-integration-tests-lib",
+        "//ledger/ledger-api-integration-tests:ledger-api-integration-tests-lib",
         "//daml-lf/testing-tools",
     ],
 )
 
-da_scala_test_suite(
-    name = "ledger-api-semantic-tests",
-    srcs = glob(["src/test/semanticsuite/**/*.scala"]),
+client_server_test(
+    name = "ledger-api-test-tool-test",
+    timeout = "short",
+    client = ":ledger-api-test-tool",
+    client_args = [
+    ],
+
+    # Data files available to both client and server.
     data = [
-        ":SemanticTests.dar",
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
     ],
-    deps = [
-        ":ledger-api-integration-tests-lib",
-        "//daml-lf/testing-tools",
-    ] + dependencies,
+    server = "//ledger/api-server-damlonx/reference:reference",
+    server_args = [
+        "$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar)",
+    ],
+    tags = [
+        # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it
+        # without competition to avoid flakyness.
+        "exclusive",
+    ],
 )
-
-TEST_FILES = [
-    "SemanticTests",
-]
-
-[
-    daml_compile(
-        name = name,
-        main_src = "src/test/semanticsuite/daml/%s.daml" % name,
-        target = "1.3",
-        visibility = ["//visibility:public"],
-    )
-    for name in TEST_FILES
-]
