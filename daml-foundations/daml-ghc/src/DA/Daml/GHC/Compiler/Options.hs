@@ -104,7 +104,7 @@ mkOptions opts@Options {..} = do
     baseDir <- getBaseDir
     mapM_ checkDirExists $ optImportPath <> optPackageDbs
     let defaultPkgDb = baseDir </> "package-database"
-    pkgDbs <- filterM Dir.doesDirectoryExist [defaultPkgDb]
+    pkgDbs <- filterM Dir.doesDirectoryExist [defaultPkgDb, projectPackageDatabase]
     pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->

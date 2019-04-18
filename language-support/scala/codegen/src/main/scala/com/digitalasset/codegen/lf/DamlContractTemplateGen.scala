@@ -8,6 +8,7 @@ import java.io.File
 import com.digitalasset.codegen.Util
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName}
+import com.typesafe.scalalogging.Logger
 
 import scala.reflect.runtime.universe._
 
@@ -21,6 +22,8 @@ import scala.reflect.runtime.universe._
 object DamlContractTemplateGen {
   import LFUtil.{domainApiAlias, rpcValueAlias}
 
+  private val logger: Logger = Logger(getClass)
+
   def generate(
       util: LFUtil,
       templateId: Identifier,
@@ -30,7 +33,7 @@ object DamlContractTemplateGen {
     val templateName = util.mkDamlScalaName(Util.Template, templateId)
     val contractName = util.mkDamlScalaName(Util.Contract, templateId)
 
-    LFUtil.lfprintln(s"generate templateDecl: $templateName, $templateInterface")
+    logger.debug(s"generate templateDecl: $templateName, $templateInterface")
 
     val templateChoiceMethods = templateInterface.template.choices.flatMap {
       case (id, interface) => util.genTemplateChoiceMethods(id, interface)

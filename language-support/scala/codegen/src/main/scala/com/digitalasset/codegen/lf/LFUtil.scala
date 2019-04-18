@@ -361,11 +361,6 @@ object LFUtil {
   private[this] def unfoldIList[S, A](init: S)(step: S => Option[(A, S)]): IList[A] =
     step(init).fold(IList.empty[A]) { case (a, next) => a :: unfoldIList(next)(step) }
 
-  /** Debugging message for LF codegen */
-  @annotation.elidable(annotation.elidable.FINE)
-  private[codegen] def lfprintln(s: String): Unit =
-    println(s)
-
   val domainApiAlias = q"` lfdomainapi`"
   val rpcValueAlias = q"` rpcvalue`"
   val rpcEventAlias = q"` rpcevent`"

@@ -193,6 +193,8 @@ in rec {
 
     # Build tools
 
+    # wrap the .bazelrc to automate the configuration of
+    # `build --config <kernel>`
     bazelrc =
       let
         kernel =
@@ -202,7 +204,6 @@ in rec {
       in
         pkgs.writeText "daml-bazelrc" ''
           build --config ${kernel}
-          ${builtins.readFile ./bazelrc}
         '';
 
     bazel = pkgs.writeScriptBin "bazel" (''

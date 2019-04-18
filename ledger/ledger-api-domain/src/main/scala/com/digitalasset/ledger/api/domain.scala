@@ -302,4 +302,11 @@ object domain {
       choiceArgument: Value)
       extends Command
 
+  final case class CreateAndExerciseCommand(
+      templateId: Ref.Identifier,
+      createArgument: RecordValue,
+      choice: Choice,
+      choiceArgument: Value)
+      extends Command
+
 }

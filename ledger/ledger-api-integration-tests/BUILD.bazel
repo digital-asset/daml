@@ -13,37 +13,37 @@ load(
 )
 
 dependencies = [
+    "//3rdparty/jvm/com/github/scopt:scopt",
+    "//3rdparty/jvm/com/google/guava:guava",
+    "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+    "//3rdparty/jvm/com/typesafe/scala_logging:scala_logging",
+    "//3rdparty/jvm/io/grpc:grpc_core",
+    "//3rdparty/jvm/io/grpc:grpc_netty",
+    "//3rdparty/jvm/io/grpc:grpc_services",
+    "//3rdparty/jvm/io/netty:netty_codec_http2",
+    "//3rdparty/jvm/io/netty:netty_handler",
+    "//3rdparty/jvm/org/scalatest:scalatest",
+    "//3rdparty/jvm/org/scalaz:scalaz_concurrent",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//3rdparty/jvm/org/slf4j:slf4j_api",
+    "//daml-lf/archive:daml_lf_archive_scala",
+    "//daml-lf/archive:daml_lf_java_proto",
+    "//daml-lf/data",
+    "//daml-lf/engine",
+    "//daml-lf/interpreter",
+    "//daml-lf/lfpackage",
     "//daml-lf/scenario-interpreter",
     "//daml-lf/transaction",
-    "//daml-lf/engine",
-    "//daml-lf/data",
-    "//daml-lf/lfpackage",
-    "//daml-lf/archive:daml_lf_java_proto",
-    "//daml-lf/archive:daml_lf_archive_scala",
-    "//daml-lf/interpreter",
-    "//ledger-api/testing-utils",
-    "//ledger-api/rs-grpc-bridge",
-    "//ledger-api/rs-grpc-akka",
-    "//ledger/ledger-api-scala-logging",
     "//language-support/scala/bindings",
-    "//ledger/ledger-api-domain:ledger-api-domain",
-    "//ledger/ledger-api-common:ledger-api-common",
+    "//ledger-api/rs-grpc-akka",
+    "//ledger-api/rs-grpc-bridge",
+    "//ledger-api/testing-utils",
     "//ledger/ledger-api-client:ledger-api-client",
+    "//ledger/ledger-api-common:ledger-api-common",
+    "//ledger/ledger-api-domain:ledger-api-domain",
+    "//ledger/ledger-api-scala-logging",
     "//ledger/sandbox:sandbox",
     "//ledger/sandbox:sandbox-scala-tests-lib",
-    "//3rdparty/jvm/com/google/guava:guava",
-    "//3rdparty/jvm/io/grpc:grpc_services",
-    "//3rdparty/jvm/com/typesafe/scala_logging:scala_logging",
-    "//3rdparty/jvm/org/slf4j:slf4j_api",
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//3rdparty/jvm/org/scalaz:scalaz_concurrent",
-    "//3rdparty/jvm/io/netty:netty_codec_http2",
-    "//3rdparty/jvm/io/grpc:grpc_netty",
-    "//3rdparty/jvm/io/netty:netty_handler",
-    "//3rdparty/jvm/com/github/scopt:scopt",
-    "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-    "//3rdparty/jvm/io/grpc:grpc_core",
-    "//3rdparty/jvm/org/scalatest:scalatest",
 ]
 
 da_scala_library(
@@ -68,11 +68,7 @@ da_scala_test_suite(
     ] + dependencies,
 )
 
-# A standalone semantic test runner.
-# Run with:
-#   bazel run //ledger/ledger-api-integration-tests:semantic-test-runner -- <dar>...
-#
-# This is used to test new ledger backend implementations.
+# DEPRECATED in favor of //ledger/ledger-api-test-tool:ledger-api-test-tool
 da_scala_binary(
     name = "semantic-test-runner",
     srcs = [

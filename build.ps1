@@ -12,7 +12,7 @@ function bazel() {
     $global:lastexitcode = 0
     $backupErrorActionPreference = $script:ErrorActionPreference
     $script:ErrorActionPreference = "Continue"
-    & bazel.exe --bazelrc=.\nix\bazelrc @args 2>&1 | %{ "$_" }
+    & bazel.exe @args 2>&1 | %{ "$_" }
     $script:ErrorActionPreference = $backupErrorActionPreference
     if ($global:lastexitcode -ne 0 -And $args[0] -ne "shutdown") {
         Write-Output "<< bazel $args (failed, exit code: $global:lastexitcode)"
@@ -42,9 +42,11 @@ function build-partial() {
 function build-full() {
     # FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
     bazel build `
+        //release:sdk-release-tarball `
         //:git-revision `
         @com_github_grpc_grpc//:grpc `
         //nix/third-party/gRPC-haskell:grpc-haskell `
+        //daml-assistant:daml `
         //daml-foundations/daml-tools/daml-extension:daml_extension_lib `
         //daml-foundations/daml-tools/language-server-tests:lib-js `
         //daml-lf/archive:daml_lf_archive_scala `
@@ -63,7 +65,7 @@ function build-full() {
         //daml-lf/transaction-scalacheck/... `
         //daml-lf/validation/... `
         //daml-foundations/daml-tools/docs/... `
-        //daml-foundations/daml-tools/da-hs-damlc-app `
+        //daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist `
         //language-support/java/testkit:testkit `
         //language-support/java/bindings/... `
         //language-support/java/bindings-rxjava/... `
