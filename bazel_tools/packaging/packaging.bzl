@@ -1,7 +1,9 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Packaging of Linux and macOS binaries into tarballs"""
+"""Packaging of Linux, macOS and Windows binaries into tarballs"""
+
+load("@os_info//:os_info.bzl", "is_windows")
 
 def _package_app_impl(ctx):
     files = depset(ctx.attr.binary.files)
@@ -10,24 +12,24 @@ def _package_app_impl(ctx):
 
     args = ctx.actions.args()
     inputs = depset([], transitive = [files, runfiles, datafiles] + [r.files for r in ctx.attr.resources])
+    tools = [ctx.executable.tar, ctx.executable.gzip] if is_windows else  \
+            [ctx.executable.patchelf, ctx.executable.tar, ctx.executable.gzip]
     ctx.actions.run_shell(
         outputs = [ctx.outputs.out],
         inputs =
-            [ctx.executable.package_app, ctx.executable.patchelf, ctx.executable.tar, ctx.executable.gzip] +
+            [ctx.executable.package_app] + tools +
             inputs.to_list(),
         arguments = [args],
         progress_message = "Packaging " + ctx.attr.name,
         command = """
       set -eu
-      export PATH=$PATH:$PWD/`dirname {patchelf}`:$PWD/`dirname {tar}`:$PWD/`dirname {gzip}`
+      export PATH=$PATH:{path}
       {package_app} \
         "$PWD/{binary}" \
         "$PWD/{output}" \
         {resources}
     """.format(
-            patchelf = ctx.executable.patchelf.path,
-            tar = ctx.executable.tar.path,
-            gzip = ctx.executable.gzip.path,
+            path = ":".join(["$PWD/`dirname {tool}`".format(tool = tool.path) for tool in tools]),
             output = ctx.outputs.out.path,
             name = ctx.attr.name,
             package_app = ctx.executable.package_app.path,
@@ -71,7 +73,7 @@ package_app = rule(
             allow_files = True,
         ),
         "patchelf": attr.label(
-            default = Label("@patchelf_nix//:bin/patchelf"),
+            default = None if is_windows else Label("@patchelf_nix//:bin/patchelf"),
             cfg = "host",
             executable = True,
             allow_files = True,
