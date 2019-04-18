@@ -63,7 +63,7 @@ function build-full() {
         //daml-lf/transaction-scalacheck/... `
         //daml-lf/validation/... `
         //daml-foundations/daml-tools/docs/... `
-        //daml-foundations/daml-tools/da-hs-damlc-app `
+        //daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist `
         //language-support/java/testkit:testkit `
         //language-support/java/bindings/... `
         //language-support/java/bindings-rxjava/... `
