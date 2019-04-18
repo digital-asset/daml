@@ -30,7 +30,7 @@ jobs:
   - job: macos
     timeoutInMinutes: 360
     pool:
-      vmImage: 'macOS-10.13'
+      vmImage: 'macOS-10.14'
     steps:
       - template: ci/build-unix.yml
         parameters:
