@@ -8,6 +8,7 @@ load("//:util.bzl", "hazel_ghclibs", "hazel_github", "hazel_hackage")
 # (though with the caviat that that user needs to repeat the relevant bits of
 #  magic in this file, but at least right versions of external rules are picked).
 load("//:deps.bzl", "daml_deps")
+
 daml_deps()
 
 load("@io_tweag_rules_haskell//haskell:repositories.bzl", "haskell_repositories")
@@ -17,7 +18,6 @@ haskell_repositories()
 register_toolchains(
     "//:c2hs-toolchain",
 )
-
 
 load("//bazel_tools/dev_env_package:dev_env_package.bzl", "dev_env_package")
 load("//bazel_tools/dev_env_package:dev_env_tool.bzl", "dev_env_tool")

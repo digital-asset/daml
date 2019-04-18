@@ -71,7 +71,8 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   private val ec = mat.system.dispatcher
   private val validator = TimeModelValidator(timeModel)
   private val logger = LoggerFactory.getLogger(this.getClass)
-  private val initialRecordTime: Timestamp = Timestamp.assertFromInstant(timeProvider.getCurrentTime)
+  private val initialRecordTime: Timestamp =
+    Timestamp.assertFromInstant(timeProvider.getCurrentTime)
 
   /**
     * Task to send out transient heartbeat events to subscribers.

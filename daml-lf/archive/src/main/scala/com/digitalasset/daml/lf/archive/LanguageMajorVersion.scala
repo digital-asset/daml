@@ -55,7 +55,8 @@ object LanguageMajorVersion {
         }
         .orElse {
           // when daml repository is used as an external bazel workspace
-          Option(getClass getResourceAsStream "/external/com_github_digital_asset_daml/daml-lf/archive/da/daml_lf_dev.proto")
+          Option(
+            getClass getResourceAsStream "/external/com_github_digital_asset_daml/daml-lf/archive/da/daml_lf_dev.proto")
         }
         .cata(
           devProto =>
