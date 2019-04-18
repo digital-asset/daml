@@ -115,6 +115,8 @@
   type: jar
 - target: //ledger/ledger-api-integration-tests:semantic-test-runner
   type: jar-deploy
+- target: //ledger/ledger-api-test-tool:ledger-api-test-tool
+  type: jar-deploy
 - target: //language-support/scala/codegen:codegen
   type: jar
 - target: //language-support/scala/codegen:codegen-main
