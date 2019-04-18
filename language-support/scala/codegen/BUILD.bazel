@@ -69,6 +69,7 @@ da_scala_binary(
         "//3rdparty/jvm/ch/qos/logback:logback_classic",
         "//3rdparty/jvm/com/github/scopt",
         "//3rdparty/jvm/com/typesafe/scala_logging",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//language-support/codegen-common",
     ],
 )
