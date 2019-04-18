@@ -423,29 +423,6 @@ hazel_repositories(
     ),
 )
 
-c2hs_version = "0.28.3"
-
-c2hs_hash = "80cc6db945ee7c0328043b4e69213b2a1cb0806fb35c8362f9dea4a2c312f1cc"
-
-c2hs_package_id = "c2hs-{0}".format(c2hs_version)
-
-c2hs_url = "https://hackage.haskell.org/package/{0}/{1}.tar.gz".format(
-    c2hs_package_id,
-    c2hs_package_id,
-)
-
-c2hs_build_file = "//3rdparty/haskell:BUILD.c2hs"
-
-http_archive(
-    name = "haskell_c2hs",
-    build_file = c2hs_build_file,
-    patch_args = ["-p1"],
-    patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-c2hs.patch"],
-    sha256 = c2hs_hash,
-    strip_prefix = c2hs_package_id,
-    urls = [c2hs_url],
-)
-
 hazel_custom_package_hackage(
     package_name = "clock",
     build_file = "//3rdparty/haskell:BUILD.clock",
