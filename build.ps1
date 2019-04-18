@@ -42,6 +42,7 @@ function build-partial() {
 function build-full() {
     # FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
     bazel build `
+        //release:sdk-release-tarball `
         //:git-revision `
         @com_github_grpc_grpc//:grpc `
         //nix/third-party/gRPC-haskell:grpc-haskell `
