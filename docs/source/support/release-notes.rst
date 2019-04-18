@@ -10,6 +10,7 @@ HEAD — ongoing
 --------------
 
 - Addition of ``DA.Math`` library containing exponentiation, logarithms and trig functions
+- Removed 'checkerframework' library that is licensed usingh GPLv2 with Classpath Exception.
 
 0.12.7 — 2019-04-17
 -------------------
