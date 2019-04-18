@@ -3,7 +3,7 @@
 # Linux/Darwin. The reasons are described here: https://github.com/FormationAI/hazel/issues/80
 #
 # In order to work around this we use a cabal-like 'package.bzl' generated on
-# Linux ('network-package.bzl') and tweak it depending on the platform.
+# Linux ('old-time-package.bzl') and tweak it depending on the platform.
 # * Some modules are not built on Windows (Posix-specific)
 # * -Dmingw32_HOST_OS and -Dx86_64_HOST_ARCH are set on Windows
 # * the 'unix' dependency is dropped on Windows
