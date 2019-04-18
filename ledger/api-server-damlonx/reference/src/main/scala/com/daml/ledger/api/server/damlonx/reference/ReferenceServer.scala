@@ -98,7 +98,6 @@ object ReferenceServer extends App {
       w.close
     }
 
-
     // Add a hook to close the server. Invoked when Ctrl-C is pressed.
     Runtime.getRuntime.addShutdownHook(new Thread(() => server.close()))
   }(DirectExecutionContext)
