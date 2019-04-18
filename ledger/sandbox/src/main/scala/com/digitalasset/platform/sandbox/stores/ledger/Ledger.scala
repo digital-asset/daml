@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.backend.api.v1.{SubmissionResult, TransactionSubmission}
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
+import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContractsInMemory}
 import ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}

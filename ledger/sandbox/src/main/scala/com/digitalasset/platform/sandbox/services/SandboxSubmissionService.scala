@@ -126,7 +126,7 @@ class SandboxSubmissionService private (
                 .execute(
                   commands.submitter,
                   commands,
-                  handle.lookupActiveContract(commands.submitter.unwrap, _),
+                  handle.lookupActiveContract(commands.submitter.underlyingString, _),
                   handle.lookupContractKey,
                   lfCommands)
                 .flatMap {
