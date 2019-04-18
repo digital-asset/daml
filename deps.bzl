@@ -42,6 +42,7 @@ def daml_deps():
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:haskell-static-linking.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-optp-response.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-win-sys-includes.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-drop-fake-static.patch",
             ],

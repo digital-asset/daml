@@ -1,0 +1,32 @@
+Some targets use a lot of space for -optP flags, so put them in a response file
+diff --git a/haskell/private/actions/compile.bzl b/haskell/private/actions/compile.bzl
+index 20c8720..7fca51c 100644
+--- a/haskell/private/actions/compile.bzl
++++ b/haskell/private/actions/compile.bzl
+@@ -213,7 +213,17 @@ def _compilation_defaults(hs, cc, java, dep_info, plugin_dep_info, srcs, import_
+             set.mutable_insert(import_dirs, idir)
+
+     ghc_args += ["-i{0}".format(d) for d in set.to_list(import_dirs)]
+-    ghc_args += ["-optP" + f for f in cc.cpp_flags]
++
++    # Write the -optP flags to a response because they can be very long on Windows
++    # e.g. 27Kb for grpc-haskell
++    # Equivalent to: ghc_args += ["-optP" + f for f in cc.cpp_flags]
++    optp_args_file = hs.actions.declare_file("optp_args_%s" % hs.name)
++    optp_args = hs.actions.args()
++    optp_args.add_all(cc.cpp_flags)
++    optp_args.set_param_file_format("multiline")
++    hs.actions.write(optp_args_file, optp_args)
++    ghc_args += ["-optP@" + optp_args_file.path]
++
+     ghc_args += cc.include_args
+
+     locale_archive_depset = (
+@@ -326,6 +336,7 @@ def _compilation_defaults(hs, cc, java, dep_info, plugin_dep_info, srcs, import_
+             java.inputs,
+             locale_archive_depset,
+             depset(transitive = plugin_tool_inputs),
++            depset([optp_args_file]),
+         ]),
+         input_manifests = plugin_tool_input_manifests,
+         objects_dir = objects_dir,
