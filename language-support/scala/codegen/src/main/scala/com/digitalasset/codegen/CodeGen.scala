@@ -18,6 +18,7 @@ import lf.{DefTemplateWithRecord, EnvironmentInterface, LFUtil, ScopedDataType}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.iface.reader.Errors.ErrorLoc
 import com.digitalasset.daml_lf.DamlLf
+import com.typesafe.scalalogging.Logger
 import scalaz._
 import scalaz.std.tuple._
 import scalaz.std.list._
@@ -31,6 +32,8 @@ import scalaz.syntax.traverse1._
 import scala.util.{Failure, Success}
 
 object CodeGen {
+
+  private val logger: Logger = Logger(getClass)
 
   type Payload = (PackageId, DamlLf.ArchivePayload)
 
@@ -97,7 +100,7 @@ object CodeGen {
     reader.readFile(f) match {
       case Success(p) => \/.right(p)
       case Failure(e) =>
-        e.printStackTrace()
+        logger.error("Scala Codegen error", e)
         \/.left(e.getLocalizedMessage)
     }
 
@@ -113,8 +116,7 @@ object CodeGen {
   private def decodeInterface(p: Payload): String \/ Interface =
     \/.fromTryCatchNonFatal {
       val packageId: PackageId = p._1
-      println(
-        s"Scala Codegen - decoding archive with Package ID: ${packageId.underlyingString: String}")
+      logger.info(s"decoding archive with Package ID: ${packageId.underlyingString: String}")
       val (errors, out) = Interface.read(p)
       if (!errors.empty) {
         \/.left(formatDecodeErrors(packageId, errors))
@@ -163,11 +165,13 @@ object CodeGen {
     // Each record/variant has Scala code generated for it individually, unless their names are related
     writeTemplatesAndTypes(util)(WriteParams(supportedTemplateIds, typeDeclsToGenerate))
 
-    println("Scala Codegen result:")
-    println(s"Number of generated templates: ${supportedTemplateIds.size}")
-    println(
-      s"Number of not generated templates: ${util.templateCount(interface) - supportedTemplateIds.size}")
-    println(s"Details: ${orderedDependencies.errors.map(_.msg).mkString("\n")}")
+    logger.info(
+      s"""Scala Codegen result:
+          |Number of generated templates: ${supportedTemplateIds.size}
+          |Number of not generated templates: ${util
+           .templateCount(interface) - supportedTemplateIds.size}
+          |Details: ${orderedDependencies.errors.map(_.msg).mkString("\n")}""".stripMargin
+    )
   }
 
   private[codegen] def produceTemplateAndTypeFilesLF(
@@ -265,9 +269,9 @@ object CodeGen {
   private[this] def writeTemplatesAndTypes(util: Util)(
       wp: WriteParams[util.TemplateInterface]): Unit = {
     util.templateAndTypeFiles(wp) foreach {
-      case -\/(msg) => println(msg)
+      case -\/(msg) => logger.debug(msg)
       case \/-((msg, filePath, trees)) =>
-        msg foreach (println(_))
+        msg foreach (m => logger.debug(m))
         writeCode(filePath, trees)
     }
   }
@@ -283,6 +287,6 @@ object CodeGen {
         writer.close()
       }
     } else {
-      println(s"WARNING: nothing to generate, empty trees passed, file: $filePath")
+      logger.warn(s"WARNING: nothing to generate, empty trees passed, file: $filePath")
     }
 }

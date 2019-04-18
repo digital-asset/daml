@@ -10,6 +10,8 @@ import java.util.zip.ZipFile
 
 import com.digitalasset.daml.lf.DarManifestReader
 import com.digitalasset.daml.lf.archive.DarReader
+import com.digitalasset.daml.lf.codegen.backend.Backend
+import com.digitalasset.daml.lf.codegen.backend.java.JavaBackend
 import com.digitalasset.daml.lf.codegen.conf.Conf
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.iface.reader.{Interface, InterfaceReader}
@@ -111,7 +113,7 @@ private[codegen] object CodeGenRunner extends StrictLogging {
 
     // TODO (mp): pre-processing and escaping
     val preprocessingFuture: Future[InterfaceTrees] =
-      conf.backend.preprocess(interfaces, conf, pkgPrefixes)
+      backend.preprocess(interfaces, conf, pkgPrefixes)
 
     val future: Future[Unit] = {
       for {
@@ -127,6 +129,9 @@ private[codegen] object CodeGenRunner extends StrictLogging {
       s"Finish processing packageIds ''${interfaces.map(_.packageId.underlyingString).mkString(", ")}''")
   }
 
+  // TODO (#584): Make Java Codegen Backend configurable
+  private[codegen] val backend: Backend = JavaBackend
+
   private[CodeGenRunner] def processInterfaceTree(
       interfaceTree: InterfaceTree,
       conf: Conf,
@@ -134,7 +139,7 @@ private[codegen] object CodeGenRunner extends StrictLogging {
     logger.info(
       s"Start processing packageId '${interfaceTree.interface.packageId.underlyingString}'")
     for {
-      _ <- interfaceTree.process(conf.backend.process(_, conf, packagePrefixes))
+      _ <- interfaceTree.process(backend.process(_, conf, packagePrefixes))
     } yield {
       logger.info(
         s"Stop processing packageId '${interfaceTree.interface.packageId.underlyingString}'")
