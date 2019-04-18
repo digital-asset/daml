@@ -39,6 +39,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Variant
 }
 import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
+import com.digitalasset.platform.apitesting.LedgerBackend.SandboxInMemory
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
@@ -426,7 +427,7 @@ abstract class CommandTransactionChecks
       }
 
       "permit fetching a divulged contract" in forAllMatchingFixtures {
-        case TestFixture(_ /* SandboxInMemory*/, ctx) =>
+        case TestFixture(SandboxInMemory, ctx) =>
         def pf(label: String, party: String) =
           RecordField(label, Some(Value(Value.Sum.Party(party))))
         val odArgs = Seq(pf("owner", owner), pf("delegate", delegate))
@@ -458,7 +459,7 @@ abstract class CommandTransactionChecks
           showResult <- failingExercise(
             ctx,
             cid("SDVl6"),
-            submitter = delegate,
+            submitter = owner,
             template = templateIds.showDelegated,
             contractId = showIdEv.contractId,
             choice = "ShowIt",
