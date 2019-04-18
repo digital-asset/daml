@@ -192,7 +192,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "ADD_DECIMAL" - {
       "throw exception in case of overflow" in {
-        eval(e"ADD_DECIMAL $bigBigDecimal 2.") shouldBe Right(SDecimal(bigBigDecimal + 2))
+        eval(e"ADD_DECIMAL $bigBigDecimal 2.0") shouldBe Right(SDecimal(bigBigDecimal + 2))
         eval(e"ADD_DECIMAL $maxDecimal $minPosDecimal") shouldBe 'left
         eval(e"ADD_DECIMAL ${-maxDecimal} ${-minPosDecimal}") shouldBe 'left
         eval(e"ADD_DECIMAL $bigBigDecimal $bigBigDecimal") shouldBe 'left
@@ -201,7 +201,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "SUB_DECIMAL" - {
       "throws exception in case of overflow" in {
-        eval(e"SUB_DECIMAL $bigBigDecimal 2.") shouldBe Right(SDecimal(bigBigDecimal - 2))
+        eval(e"SUB_DECIMAL $bigBigDecimal 2.0") shouldBe Right(SDecimal(bigBigDecimal - 2))
         eval(e"SUB_DECIMAL $maxDecimal -$minPosDecimal") shouldBe 'left
         eval(e"SUB_DECIMAL ${-maxDecimal} $minPosDecimal") shouldBe 'left
         eval(e"SUB_DECIMAL ${-bigBigDecimal} $bigBigDecimal") shouldBe 'left
@@ -233,8 +233,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         val testCases = Table[Long, String, String](
           ("rounding", "decimal", "result"),
           (-27, d, "9000000000000000000000000000.0000000000"),
-          (-1, "45.", "40."),
-          (-1, "55.", "60."),
+          (-1, "45.0", "40.0"),
+          (-1, "55.0", "60.0"),
           (10, d, d)
         )
 
@@ -762,7 +762,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         val testCases = Table[String, SValue](
           "expression" -> "result",
           "1" -> SInt64(1),
-          "1." -> SDecimal(1),
+          "1.0" -> SDecimal(1),
           "True" -> SBool(true),
           "()" -> SUnit(()),
           """ "text" """ -> SText("text"),

@@ -388,7 +388,7 @@ class CommandClientIT
       "not accept commands with malformed decimals, return INVALID_ARGUMENT" in allFixtures { c =>
         val commandId = "Malformed decimal"
         val expectedMessageSubString =
-          "Failed to parse as decimal. (1E-19). Expected format is [+-]?\\d+(\\.\\d+)?)"
+          """Could not read Decimal string "1E-19""""
 
         val command = c.command(
           commandId,
