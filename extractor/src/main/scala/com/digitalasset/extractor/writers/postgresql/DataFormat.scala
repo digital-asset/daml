@@ -51,5 +51,5 @@ trait DataFormat[S <: DataFormatState] {
 }
 
 object DataFormat {
-  type TemplateInfo = (Identifier, iface.Record[iface.FieldWithType])
+  type TemplateInfo = (Identifier, iface.Record.FWT)
 }

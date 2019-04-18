@@ -87,9 +87,7 @@ final case class TypeCon(name: TypeConName, typArgs: ImmArraySeq[Type])
         defn.dataType
       } else {
         val paramsMap = Map(defn.typeVars.zip(typArgs): _*)
-        val instantiateFWT: FieldWithType => FieldWithType = {
-          case (field, typ) => (field, typ.mapTypeVars(v => paramsMap.getOrElse(v.name, v)))
-        }
+        val instantiateFWT: Type => Type = _.mapTypeVars(v => paramsMap.getOrElse(v.name, v))
         defn.dataType.bimap(instantiateFWT, instantiateFWT)
       }
     }
