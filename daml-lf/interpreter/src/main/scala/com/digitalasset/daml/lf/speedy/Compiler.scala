@@ -1190,6 +1190,28 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       SEApp(SEVal(makeChoiceRef(tmplId, choiceId), None), Array(actors, contractId, argument))
     }
 
+  private def compileCreateAndExercise(
+      tmplId: Identifier,
+      createArg: SValue,
+      choiceId: ChoiceName,
+      choiceArg: SValue,
+      // actors are either the singleton set of submitter of an exercise command,
+      // or the acting parties of an exercise node
+      // of a transaction under reconstruction for validation
+      actors: SExpr): SExpr = {
+
+    withEnv { _ =>
+      SEAbs(1) {
+        SELet(
+          SEApp(compileCreate(tmplId, createArg), Array(SEVar(1))),
+          SEApp(
+            compileExercise(tmplId, SEVar(1), choiceId, actors, SEValue(choiceArg)),
+            Array(SEVar(2)))
+        ) in SEVar(1)
+      }
+    }
+  }
+
   private def translateCommand(cmd: Command): SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       compileCreate(templateId, argument)
@@ -1202,6 +1224,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         SEValue(argument))
     case Command.Fetch(templateId, coid) =>
       compileFetch(templateId, SEValue(coid))
+    case Command.CreateAndExercise(templateId, createArg, choice, choiceArg, submitters) =>
+      compileCreateAndExercise(
+        templateId,
+        createArg,
+        choice,
+        choiceArg,
+        SEValue(SList(FrontStack(submitters))))
   }
 
   private def translateCommands(bindings: ImmArray[Command]): SExpr = {

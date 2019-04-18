@@ -276,7 +276,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
 
   private[engine] def preprocessExercise(
       templateId: Identifier,
-      contractId: AbsoluteContractId,
+      contractId: ContractId,
       choiceId: ChoiceName,
       // actors are either the singleton set of submitter of an exercise command,
       // or the acting parties of an exercise node
@@ -302,30 +302,73 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
       }
     )
 
-  private[engine] def buildUpdate(bindings: ImmArray[(Type, Expr)]): Expr = {
-    bindings.length match {
-      case 0 =>
-        EUpdate(UpdatePure(TBuiltin(BTUnit), EPrimCon(PCUnit))) // do nothing if we have no commands
-      case 1 =>
-        bindings(0)._2
-      case _ =>
-        EUpdate(UpdateBlock(bindings.init.map {
-          case (typ, e) => Binding(None, typ, e)
-        }, bindings.last._2))
-    }
+  private[engine] def preprocessCreateAndExercise(
+      templateId: ValueRef,
+      createArgument: VersionedValue[AbsoluteContractId],
+      choiceId: String,
+      choiceArgument: VersionedValue[AbsoluteContractId],
+      actors: Set[Party]): Result[(Type, SpeedyCommand)] = {
+    Result.needDataType(
+      compiledPackages,
+      templateId,
+      dataType => {
+        // we rely on datatypes which are also templates to have _no_ parameters, according
+        // to the DAML-LF spec.
+        if (dataType.params.length > 0) {
+          ResultError(Error(
+            s"Unexpected type parameters ${dataType.params} for template $templateId. Template datatypes should never have parameters."))
+        } else {
+          val typ = TTyCon(templateId)
+          translateValue(typ, createArgument).flatMap {
+            createValue =>
+              Result.needTemplate(
+                compiledPackages,
+                templateId,
+                template => {
+                  template.choices.get(choiceId) match {
+                    case None =>
+                      val choicesNames: Seq[String] = template.choices.toList.map(_._1)
+                      ResultError(Error(
+                        s"Couldn't find requested choice $choiceId for template $templateId. Available choices: $choicesNames"))
+                    case Some(choice) =>
+                      val choiceTyp = choice.argBinder._2
+                      val actingParties = ImmArray(actors.toSeq.map(actor => SValue.SParty(actor)))
+                      translateValue(choiceTyp, choiceArgument).map(
+                        choiceTyp -> SpeedyCommand
+                          .CreateAndExercise(templateId, createValue, choiceId, _, actingParties))
+                  }
+                }
+              )
+          }
+        }
+      }
+    )
   }
 
-  private[engine] def preprocessCommand(cmd: Command): Result[(Type, SpeedyCommand)] = cmd match {
-    case CreateCommand(templateId, argument) =>
-      preprocessCreate(templateId, argument)
-    case ExerciseCommand(templateId, contractId, choiceId, submitter, argument) =>
-      preprocessExercise(
-        templateId,
-        AbsoluteContractId(contractId),
-        choiceId,
-        Set(submitter),
-        argument)
-  }
+  private[engine] def preprocessCommand(cmd: Command): Result[(Type, SpeedyCommand)] =
+    cmd match {
+      case CreateCommand(templateId, argument) =>
+        preprocessCreate(templateId, argument)
+      case ExerciseCommand(templateId, contractId, choiceId, submitter, argument) =>
+        preprocessExercise(
+          templateId,
+          AbsoluteContractId(contractId),
+          choiceId,
+          Set(submitter),
+          argument)
+      case CreateAndExerciseCommand(
+          templateId,
+          createArgument,
+          choiceId,
+          choiceArgument,
+          submitter) =>
+        preprocessCreateAndExercise(
+          templateId,
+          createArgument,
+          choiceId,
+          choiceArgument,
+          Set(submitter))
+    }
 
   private[engine] def preprocessCommands(
       cmds0: Commands): Result[ImmArray[(Type, SpeedyCommand)]] = {

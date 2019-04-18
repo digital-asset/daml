@@ -85,7 +85,7 @@ final class Engine {
     *   tx === tx' if tx and tx' are equivalent modulo a renaming of node and relative contract IDs
     *
     * In addition to the errors returned by `submit`, reinterpretation fails with a `ValidationError` whenever `nodes`
-    * contain a relative contract ID, either as the target contract of an exercise or a fetch, or as an argument to a
+    * contain a relative contract ID, either as the target contract of a fetch, or as an argument to a
     * create or an exercise choice.
     */
   def reinterpret(
@@ -129,7 +129,7 @@ final class Engine {
 
   /**
     * Post-commit validation
-    * we damand that validatable transactions only contain AbsoluteContractIds in root nodes
+    * we demand that validatable transactions only contain AbsoluteContractIds in root nodes
     *
     * @param tx a transaction to be validated
     * @param submitter party name if known who originally submitted the transaction
@@ -265,7 +265,7 @@ final class Engine {
         )
 
       case NodeExercises(
-          target,
+          coid,
           template,
           choice,
           optLoc @ _,
@@ -277,11 +277,10 @@ final class Engine {
           controllers @ _,
           children @ _) =>
         val templateId = template
-        asAbsoluteContractId(target).flatMap(
-          acoid =>
-            asValueWithAbsoluteContractIds(chosenVal).flatMap(absChosenVal =>
-              commandPreprocessor
-                .preprocessExercise(templateId, acoid, choice, actingParties, absChosenVal)))
+        asValueWithAbsoluteContractIds(chosenVal).flatMap(
+          absChosenVal =>
+            commandPreprocessor
+              .preprocessExercise(templateId, coid, choice, actingParties, absChosenVal))
 
       case NodeFetch(coid, templateId, _, _, _, _) =>
         asAbsoluteContractId(coid)
