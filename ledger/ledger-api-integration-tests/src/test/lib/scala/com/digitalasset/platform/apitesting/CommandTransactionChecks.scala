@@ -417,6 +417,62 @@ abstract class CommandTransactionChecks
         }
       }
 
+      "permit fetching a divulged contract" in forAllMatchingFixtures {
+        case TestFixture(_ /* SandboxInMemory*/, ctx) =>
+        def pf(label: String, party: String) =
+          RecordField(label, Some(Value(Value.Sum.Party(party))))
+        val odArgs = Seq(pf("owner", owner), pf("delegate", delegate))
+        val delegatedCreate = simpleCreate(
+          ctx,
+          cid("SDVl3"),
+          owner,
+          templateIds.delegated,
+          Record(Some(templateIds.delegated), Seq(pf("owner", owner))))
+        val delegationCreate = simpleCreate(
+          ctx,
+          cid("SDVl4"),
+          owner,
+          templateIds.delegation,
+          Record(Some(templateIds.delegation), odArgs))
+        val showIdCreate = simpleCreate(
+          ctx,
+          cid("SDVl5"),
+          owner,
+          templateIds.showDelegated,
+          Record(Some(templateIds.showDelegated), odArgs))
+        val exerciseOfFetch = for {
+          delegatedEv <- delegatedCreate
+          delegationEv <- delegationCreate
+          showIdEv <- showIdCreate
+          fetchArg = Record(
+            None,
+            Seq(RecordField("", Some(Value(Value.Sum.ContractId(delegatedEv.contractId))))))
+          showResult <- failingExercise(
+            ctx,
+            cid("SDVl6"),
+            submitter = delegate,
+            template = templateIds.showDelegated,
+            contractId = showIdEv.contractId,
+            choice = "ShowIt",
+            arg = Value(Value.Sum.Record(fetchArg)),
+            Code.OK,
+            pattern = ""
+          )
+          fetchResult <- failingExercise(
+            ctx,
+            cid("SDVl7"),
+            submitter = delegate,
+            template = templateIds.delegation,
+            contractId = delegationEv.contractId,
+            choice = "FetchDelegated",
+            arg = Value(Value.Sum.Record(fetchArg)),
+            Code.OK,
+            pattern = ""
+          )
+        } yield fetchResult
+        exerciseOfFetch
+      }
+
       "reject fetching an undisclosed contract" in allFixtures { ctx =>
         def pf(label: String, party: String) =
           RecordField(label, Some(Value(Value.Sum.Party(party))))

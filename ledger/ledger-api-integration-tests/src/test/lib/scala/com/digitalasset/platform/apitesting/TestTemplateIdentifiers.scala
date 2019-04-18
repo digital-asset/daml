@@ -103,6 +103,8 @@ final case class TestTemplateIdentifiers(testPackageId: String) {
     Identifier(testPackageId, "Test.DecimalRounding", "Test", "DecimalRounding")
   val delegated = Identifier(testPackageId, moduleName = "Test", entityName = "Delegated")
   val delegation = Identifier(testPackageId, moduleName = "Test", entityName = "Delegation")
+  val showDelegated =
+    Identifier(testPackageId, moduleName = "Test", entityName = "ShowDelegated")
   val allTemplates =
     List(
       dummy,
