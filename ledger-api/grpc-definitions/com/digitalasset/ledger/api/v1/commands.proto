@@ -58,6 +58,7 @@ message Command {
   oneof command {
     CreateCommand create = 1;
     ExerciseCommand exercise = 2;
+    CreateAndExerciseCommand createAndExercise = 3;
   }
 }
 
@@ -83,6 +84,25 @@ message ExerciseCommand {
   // The ID of the contract the client wants to exercise upon.
   // Required
   string contract_id = 2;
+
+  // The name of the choice the client wants to exercise.
+  // Required
+  string choice = 3;
+
+  // The argument for this choice.
+  // Required
+  Value choice_argument = 4;
+}
+
+// Create a contract and exercise a choice on it in the same transaction.
+message CreateAndExerciseCommand {
+  // The template of the contract the client wants to create
+  // Required
+  Identifier template_id = 1;
+
+  // The arguments required for creating a contract from this template.
+  // Required
+  Record create_arguments = 2;
 
   // The name of the choice the client wants to exercise.
   // Required
