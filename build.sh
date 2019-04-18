@@ -27,14 +27,5 @@ ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 bazel test -j 200 //... --experimental_execution_log_file "$ARTIFACT_DIRS/test_execution${execution_log_postfix}.log"
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' > /dev/null
-# Execute Sandbox performance tests if on master
-# On Jenkins we never run them as BUILD_SOURCEBRANCHNAME isn’t set.
-# moreover, pass -foe true to make the benchmark fail with a proper
-# exit code if things go wrong, rather than pretend that everything is
-# fine.
-if [[ "${BUILD_SOURCEBRANCHNAME:-master}" = master ]]; then
-    bazel run -- //ledger/sandbox-perf -foe true -i1 -f1 -wi 1 -bm avgt -rf csv -rff "$ARTIFACT_DIRS/sandbox-perf.csv" # 1 warmup, 1 iterations in 1 fork
-fi
-
 # Check that we can load damlc in ghci
 da-ghci damlc -e '()'
