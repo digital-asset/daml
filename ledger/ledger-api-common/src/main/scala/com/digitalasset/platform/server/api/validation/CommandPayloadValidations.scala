@@ -35,6 +35,14 @@ trait CommandPayloadValidations extends CommandValidations with ErrorFactories {
         _ <- requirePresence(ex.choiceArgument, "choice_argument")
         _ <- requirePresence(ex.templateId, "template_id")
       } yield ()
+
+    case Command.Command.CreateAndExercise(ce) =>
+      for {
+        _ <- requirePresence(ce.templateId, "template_id")
+        _ <- requirePresence(ce.createArguments, "create_arguments")
+        _ <- requireNonEmptyString(ce.choice, "choice")
+        _ <- requirePresence(ce.choiceArgument, "choice_argument")
+      } yield ()
     case _ => Left(missingField("command"))
   }
 }
