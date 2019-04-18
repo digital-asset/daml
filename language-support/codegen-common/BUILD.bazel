@@ -10,6 +10,7 @@ load(
 da_scala_library(
     name = "codegen-common",
     srcs = glob(["src/main/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:codegen-common:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//3rdparty/jvm/ch/qos/logback:logback_classic",
