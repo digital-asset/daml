@@ -441,6 +441,13 @@ hazel_custom_package_hackage(
 ) if is_windows else None
 
 hazel_custom_package_hackage(
+    package_name = "old-time",
+    build_file = "//3rdparty/haskell:BUILD.old-time",
+    sha256 = "1ccb158b0f7851715d36b757c523b026ca1541e2030d02239802ba39b4112bc1",
+    version = "1.1.0.3",
+) if is_windows else None
+
+hazel_custom_package_hackage(
     package_name = "zlib",
     build_file = "//3rdparty/haskell:BUILD.zlib",
     sha256 = "0dcc7d925769bdbeb323f83b66884101084167501f11d74d21eb9bc515707fed",
