@@ -20,7 +20,6 @@ class DispatcherIT extends WordSpec with AkkaBeforeAndAfterAll with Matchers wit
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(scaled(Span(10, Seconds)), scaled(Span(250, Milliseconds)))
 
-  //TODO: test case for ranges
   "A Dispatcher" should {
     "not race when creating new subscriptions" in {
       // The test setup here is a little different from the above tests,

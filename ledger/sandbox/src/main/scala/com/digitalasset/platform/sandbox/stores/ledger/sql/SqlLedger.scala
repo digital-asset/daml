@@ -98,8 +98,8 @@ private class SqlLedger(
 
   private val dispatcher = Dispatcher[Long, LedgerEntry](
     RangeQuery(ledgerDao.getLedgerEntries(_, _)),
-    firstIndex = 0l,
-    headAtInitialization = headAtInitialization
+    0l,
+    headAtInitialization
   )
 
   @volatile

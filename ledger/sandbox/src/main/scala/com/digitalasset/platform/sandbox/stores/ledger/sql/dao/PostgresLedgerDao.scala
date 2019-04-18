@@ -655,22 +655,7 @@ private class PostgresLedgerDao(
   private val SQL_GET_LEDGER_ENTRIES = SQL(
     "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive}")
 
-//  override def getLedgerEntries(startInclusive: Long, endExclusive: Long)(
-//      implicit mat: Materializer): Source[(Long, LedgerEntry), NotUsed] = {
-//
-//    dbDispatcher.runStreamingSql { implicit conn =>
-//      //TODO: can we really reuse the connection here? don't think so..
-//      AkkaStream
-//        .source(
-//          SQL_GET_LEDGER_ENTRIES
-//            .on("startInclusive" -> startInclusive, "endExclusive" -> endExclusive),
-//          EntryParser)(mat, conn)
-//        .map(toLedgerEntry)
-//        .mapMaterializedValue(_.map(_ => Done)(DirectExecutionContext))
-//    }
-//  }
-
-  //TODO: probably better then continous streaming => we should use paging instead -> check if Alpakka can do that?
+  //TODO we should use paging instead, check if Alpakka can do that?
   override def getLedgerEntries(
       startInclusive: Long,
       endExclusive: Long): Source[(Long, LedgerEntry), NotUsed] =
