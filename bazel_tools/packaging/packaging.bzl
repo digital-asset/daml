@@ -12,8 +12,7 @@ def _package_app_impl(ctx):
 
     args = ctx.actions.args()
     inputs = depset([], transitive = [files, runfiles, datafiles] + [r.files for r in ctx.attr.resources])
-    tools = [ctx.executable.tar, ctx.executable.gzip] if is_windows else  \
-            [ctx.executable.patchelf, ctx.executable.tar, ctx.executable.gzip]
+    tools = [ctx.executable.tar, ctx.executable.gzip] if is_windows else [ctx.executable.patchelf, ctx.executable.tar, ctx.executable.gzip]
     ctx.actions.run_shell(
         outputs = [ctx.outputs.out],
         inputs =
