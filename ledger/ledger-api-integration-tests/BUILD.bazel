@@ -85,6 +85,7 @@ da_scala_binary(
         # POM file are set correctly.
         "fat_jar",
     ],
+    visibility = ["//visibility:public"],
     deps = dependencies + [
         ":ledger-api-integration-tests-lib",
         "//daml-lf/testing-tools",

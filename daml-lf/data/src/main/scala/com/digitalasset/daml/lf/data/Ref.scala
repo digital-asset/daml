@@ -96,6 +96,8 @@ object Ref {
     private val segmentPart: Set[Char] = asciiLetter ++ asciiDigit ++ allowedSymbols
 
     def fromString(s: String): Either[String, DottedName] = {
+      if (s.isEmpty)
+        return Left(s"Expected a non-empty string")
       val segments = split(s, '.')
       fromSegments(segments.toSeq)
     }

@@ -4,7 +4,7 @@
 daml 1.2 module PrimitiveTypes where
 
 import DA.Date
-import DA.Private.TextMap as TM
+import DA.TextMap as TM
 
 template BasicPrimitiveTypes
   with

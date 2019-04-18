@@ -198,22 +198,27 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       recordedAt: Instant,
       ledgerState: LedgerState): Either[v1.Update, Unit] = {
 
-    checkSubmission(submitterInfo, transactionMeta, txDelta, recordedAt, ledgerState) match {
-      case rejection @ Left(_) => rejection
-      case Right(()) =>
-        // validate transaction
-        Validation
-          .validate(
-            submitterInfo,
-            transactionMeta,
-            transaction,
-            ledgerState.activeContracts,
-            ledgerState.packages) match {
-          case Validation.Failure(msg) =>
-            Left(mkRejectedCommand(Disputed(msg), submitterInfo))
-          case Validation.Success =>
-            Right(())
-        }
+    checkSubmission(submitterInfo, transactionMeta, txDelta, recordedAt, ledgerState)
+      .flatMap(_ =>
+        runPreCommitValidation(submitterInfo, transactionMeta, transaction, ledgerState))
+  }
+
+  private def runPreCommitValidation(
+      submitterInfo: v1.SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction,
+      ledgerState: LedgerState): Either[v1.Update, Unit] = {
+    Validation
+      .validate(
+        submitterInfo,
+        transactionMeta,
+        transaction,
+        ledgerState.activeContracts,
+        ledgerState.packages) match {
+      case Validation.Failure(msg) =>
+        Left(mkRejectedCommand(Disputed(msg), submitterInfo))
+      case Validation.Success =>
+        Right(())
     }
   }
 
@@ -228,14 +233,29 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       txDelta: TxDelta,
       recordedAt: Instant,
       ledgerState: LedgerState): Either[Update, Unit] = {
+    checkDuplicates(submitterInfo, ledgerState)
+      .flatMap(_ => checkLet(submitterInfo, transactionMeta, ledgerState))
+      .flatMap(_ => checkActiveness(submitterInfo, txDelta, ledgerState))
+  }
 
-    // check for and ignore duplicates
-    if (ledgerState.duplicationCheck.contains(
-        (submitterInfo.applicationId, submitterInfo.commandId))) {
-      return Left(mkRejectedCommand(DuplicateCommand, submitterInfo))
-    }
+  // check for and ignore duplicates
+  private def checkDuplicates(
+      submitterInfo: SubmitterInfo,
+      ledgerState: LedgerState): Either[Update, Unit] = {
 
-    // time validation
+    Either.cond(
+      !ledgerState.duplicationCheck.contains(
+        submitterInfo.applicationId -> submitterInfo.commandId),
+      (),
+      mkRejectedCommand(DuplicateCommand, submitterInfo)
+    )
+  }
+
+  // validate LET time
+  private def checkLet(
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      ledgerState: LedgerState): Either[Update, Unit] = {
     validator
       .checkLet(
         // FIXME (SM): this is racy. We need to reflect current time into the
@@ -253,16 +273,23 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
         submitterInfo.commandId,
         submitterInfo.applicationId
       )
-      .fold(t => return Left(mkRejectedCommand(MaximumRecordTimeExceeded, submitterInfo)), _ => ())
+      .fold(t => Left(mkRejectedCommand(MaximumRecordTimeExceeded, submitterInfo)), _ => Right(()))
+  }
 
-    // check for consistency
-    // NOTE: we do this by checking the activeness of all input contracts, both
-    // consuming and non-consuming.
-    if (!txDelta.inputs.subsetOf(ledgerState.activeContracts.keySet) ||
-      !txDelta.inputs_nc.subsetOf(ledgerState.activeContracts.keySet)) {
-      return Left(mkRejectedCommand(Inconsistent, submitterInfo))
-    }
-    Right(())
+  // check for consistency
+  // NOTE: we do this by checking the activeness of all input contracts, both
+  // consuming and non-consuming.
+  private def checkActiveness(
+      submitterInfo: SubmitterInfo,
+      txDelta: TxDelta,
+      ledgerState: LedgerState): Either[Update, Unit] = {
+
+    Either.cond(
+      txDelta.inputs.subsetOf(ledgerState.activeContracts.keySet) &&
+        txDelta.inputs_nc.subsetOf(ledgerState.activeContracts.keySet),
+      (),
+      mkRejectedCommand(Inconsistent, submitterInfo)
+    )
   }
 
   /**

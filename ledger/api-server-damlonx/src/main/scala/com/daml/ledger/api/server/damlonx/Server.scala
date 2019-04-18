@@ -193,6 +193,8 @@ final class Server private (
     server
   }
 
+  lazy val port = server.getPort
+
   override def close(): Unit = {
     logger.info("Shutting down server...")
     server.shutdownNow()

@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.server.api.validation
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import io.grpc.StatusRuntimeException
 
@@ -17,6 +18,19 @@ trait FieldValidations {
   def requireNonEmptyString(s: String, fieldName: String): Either[StatusRuntimeException, String] =
     if (s.nonEmpty) Right(s)
     else Left(missingField(fieldName))
+
+  def requireSimpleString(
+      s: String,
+      fieldName: String): Either[StatusRuntimeException, Ref.SimpleString] =
+    Ref.SimpleString.fromString(s).left.map(invalidField(fieldName, _))
+
+  def requireSimpleString(s: String): Either[StatusRuntimeException, Ref.SimpleString] =
+    Ref.SimpleString.fromString(s).left.map(invalidArgument)
+
+  def requireDottedName(
+      s: String,
+      fieldName: String): Either[StatusRuntimeException, Ref.DottedName] =
+    Ref.DottedName.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireNonEmpty[M[_] <: Iterable[_], T](
       s: M[T],

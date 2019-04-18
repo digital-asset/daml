@@ -18,19 +18,16 @@ import com.digitalasset.ledger.api.v1.package_service.{
   HashFunction => APIHashFunction,
   _
 }
-import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.server.api.validation.PackageServiceValidation
-import io.grpc.{BindableService, ServerServiceDefinition, Status}
+import io.grpc.{BindableService, Status}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class DamlOnXPackageService private (indexService: IndexService)
     extends PackageService
-    with GrpcApiService
+    with AutoCloseable
     with DamlOnXServiceUtils {
-  override def bindService(): ServerServiceDefinition =
-    PackageServiceGrpc.bindService(this, DirectExecutionContext)
 
   override def close(): Unit = ()
 
@@ -81,8 +78,5 @@ object DamlOnXPackageService {
   def apply(indexService: IndexService, ledgerId: String)(implicit ec: ExecutionContext)
     : PackageService with BindableService with PackageServiceLogging =
     new PackageServiceValidation(new DamlOnXPackageService(indexService), ledgerId)
-    with BindableService with PackageServiceLogging {
-      override def bindService(): ServerServiceDefinition =
-        PackageServiceGrpc.bindService(this, DirectExecutionContext)
-    }
+    with PackageServiceLogging
 }

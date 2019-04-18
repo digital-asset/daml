@@ -41,8 +41,8 @@ private class SimpleTimeServiceBackend(startTime: Instant) extends TimeServiceBa
 
 private class ObservingTimeServiceBackend(
     timeProvider: TimeServiceBackend,
-    onTimeChange: Instant => Future[Unit])
-    extends TimeServiceBackend {
+    onTimeChange: Instant => Future[Unit]
+) extends TimeServiceBackend {
 
   override def getCurrentTime: Instant = timeProvider.getCurrentTime
 
@@ -50,8 +50,9 @@ private class ObservingTimeServiceBackend(
     timeProvider
       .setCurrentTime(expectedTime, newTime)
       .flatMap { success =>
-        if (success) onTimeChange(newTime).map(_ => success)(DirectExecutionContext)
-        else Future.successful(success)
+        if (success)
+          onTimeChange(expectedTime).map(_ => true)(DirectExecutionContext)
+        else Future.successful(false)
       }(DirectExecutionContext)
 
 }

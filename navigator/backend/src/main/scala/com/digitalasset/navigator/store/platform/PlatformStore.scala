@@ -4,6 +4,7 @@
 package com.digitalasset.navigator.store.platform
 
 import java.time.{Duration, Instant}
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
@@ -30,6 +31,7 @@ import com.digitalasset.navigator.ApplicationInfo
 import io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
 import io.grpc.{ManagedChannel, Status}
 import io.netty.handler.ssl.SslContext
+import org.slf4j.LoggerFactory
 
 import scala.util.{Failure, Random, Success, Try}
 import scala.concurrent.Future
@@ -96,6 +98,8 @@ class PlatformStore(
     .nextLong()
     .toHexString
 
+  private[this] def userFacingLogger = LoggerFactory.getLogger("user-facing-logs")
+
   import PlatformStore._
 
   // ----------------------------------------------------------------------------------------------
@@ -124,7 +128,9 @@ class PlatformStore(
 
     case Connected(Failure(e)) =>
       // Connection failed even after several retries - not sure how to recover from this
-      log.error("Giving up. Please fix any issues and restart this application.")
+      val message = s"Permanently failed to connect to the ledger at $platformHost:$platformPort. " +
+        "Please fix any issues and restart this application."
+      userFacingLogger.error(message)
       context.become(failed(StateFailed(e)))
 
     case GetApplicationStateInfo =>
@@ -235,7 +241,8 @@ class PlatformStore(
   // ----------------------------------------------------------------------------------------------
   // Helpers
   // ----------------------------------------------------------------------------------------------
-  private def childName(party: PartyState): String = "party-" + ApiTypes.Party.unwrap(party.name)
+  private def childName(party: PartyState): String =
+    "party-" + URLEncoder.encode(ApiTypes.Party.unwrap(party.name), "UTF-8")
 
   private def startPartyActor(ledgerClient: LedgerClient, party: PartyState): ActorRef = {
     context.actorOf(PlatformSubscriber.props(ledgerClient, party, applicationId), childName(party))

@@ -9,6 +9,19 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Addition of ``DA.Math`` library containing exponentiation, logarithms and trig functions
+
+0.12.7 — 2019-04-17
+-------------------
+
+- Fix release pipeline (hopefully)
+
+0.12.6 — 2019-04-16
+-------------------
+
+- RxJava Bindings: remove blocking call inside Bot.wire, which could lead to an
+  application not making progress in certain situations.
+
 0.12.5 — 2019-04-15
 -------------------
 

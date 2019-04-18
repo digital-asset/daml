@@ -2,13 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.api
+
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain._
 
 object DomainMocks {
 
-  val party = Party("party")
+  val party = Ref.Party.assertFromString("party")
 
-  val identifier = Identifier(PackageId("package"), "module", "entity")
+  val identifier = Ref.Identifier(
+    Ref.PackageId.assertFromString("package"),
+    Ref.QualifiedName.assertFromString("module:entity"))
 
   val commandId = CommandId("commandId")
 

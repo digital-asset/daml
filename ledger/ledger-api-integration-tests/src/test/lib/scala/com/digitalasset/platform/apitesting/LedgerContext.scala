@@ -71,7 +71,7 @@ trait LedgerContext {
   def packageClient: PackageClient
   def acsClient: ActiveContractSetClient
   def reflectionService: ServerReflectionGrpc.ServerReflectionStub
-  protected def resetService: ResetService
+  def resetService: ResetService
 
   /** Reset the ledger server and wait for it to start again. */
   final def reset()(implicit system: ActorSystem, mat: Materializer): Future[Unit] = {

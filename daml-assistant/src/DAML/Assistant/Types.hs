@@ -43,6 +43,7 @@ assistantErrorBecause msg e = (assistantError msg) { errInternal = Just e }
 
 data Env = Env
     { envDamlPath      :: DamlPath
+    , envDamlAssistantPath :: DamlAssistantPath
     , envProjectPath   :: Maybe ProjectPath
     , envSdkPath       :: Maybe SdkPath
     , envSdkVersion    :: Maybe SdkVersion
@@ -50,6 +51,7 @@ data Env = Env
 
 data BuiltinCommand
     = Version
+    | Exec String [String]
     | Install InstallOptions
     deriving (Eq, Show)
 
