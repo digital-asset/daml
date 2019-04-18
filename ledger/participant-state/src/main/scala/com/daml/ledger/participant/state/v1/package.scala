@@ -126,11 +126,11 @@ package object v1 {
   /** The initial conditions of the ledger.
     *
     * @param ledgerId: The static ledger identifier.
-    * @param recordTimeEpoch: The initial record time before any [[Update]] arrives.
+    * @param initialRecordTime: The initial record time prior to any [[Update]] event.
     */
   final case class LedgerInitialConditions(
       ledgerId: LedgerId,
-      recordTimeEpoch: Timestamp
+      initialRecordTime: Timestamp
   )
 
   /** A transaction with relative and absolute contract identifiers.
