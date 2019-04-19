@@ -12,7 +12,7 @@ are linked where available.
 You can execute these directly with just
 
 ```
-$ bazel run damlc -- <command line options>
+$ bazel run da-hs-damlc-app -- <command line options>
 ```
 
 due to the brief aliases specified in the `BUILD` file in the
