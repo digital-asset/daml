@@ -8,8 +8,8 @@ module DamlcTest
 import Control.Exception
 import qualified Data.Text.Extended as T
 import System.Environment
-import System.Exit
 import System.IO.Extra
+import System.Exit
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -32,7 +32,7 @@ tests :: TestTree
 tests = testGroup
     "damlc test"
     [ testCase "Non-existent file" $ do
-        shouldThrow (Damlc.execTest ["foobar"] Nothing opts False)
+        shouldThrow (Damlc.execTest ["foobar"] False Nothing opts)
     , testCase "File with compile error" $ do
         withTempFile $ \path -> do
             T.writeFileUtf8 path $ T.unlines
@@ -40,7 +40,7 @@ tests = testGroup
               , "module Foo where"
               , "abc"
               ]
-            shouldThrow (Damlc.execTest [path] Nothing opts False)
+            shouldThrow (Damlc.execTest [path] False Nothing opts)
     , testCase "File with failing scenario" $ do
         withTempFile $ \path -> do
             T.writeFileUtf8 path $ T.unlines
@@ -48,7 +48,7 @@ tests = testGroup
               , "module Foo where"
               , "x = scenario $ assert False"
               ]
-            shouldThrowExitFailure (Damlc.execTest [path] Nothing opts False )
+            shouldThrowExitFailure (Damlc.execTest [path] False Nothing opts  )
     ]
 
 shouldThrowExitFailure :: IO () -> IO ()
