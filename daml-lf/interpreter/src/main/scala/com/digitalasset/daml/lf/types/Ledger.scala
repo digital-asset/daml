@@ -128,27 +128,31 @@ object Ledger {
       nodes: Map[NodeId, Node],
       explicitDisclosure: Relation[NodeId, Party],
       implicitDisclosure: Relation[NodeId, Party],
-      failedAuthorizations: FailedAuthorizations
+      failedAuthorizations: FailedAuthorizations[Transaction.NodeId]
   ) {
     def disclosures = Relation.union(explicitDisclosure, implicitDisclosure)
   }
 
-  final case class EnrichedTransaction(
+  final case class EnrichedTransaction[Nid](
       // The transaction root nodes.
-      roots: ImmArray[Transaction.NodeId],
+      roots: ImmArray[Nid],
       // All nodes of this transaction.
-      nodes: Map[Transaction.NodeId, Transaction.Node],
+      nodes: Map[Nid, GenNode.WithTxValue[Nid, ContractId]],
       // A relation between a node id and the parties to which this node gets explicitly disclosed.
-      explicitDisclosure: Relation[Transaction.NodeId, Party],
+      explicitDisclosure: Relation[Nid, Party],
       // A relation between a node id and the parties to which this node get implictly disclosed
       // (aka divulgence)
-      localImplicitDisclosure: Relation[Transaction.NodeId, Party],
+      localImplicitDisclosure: Relation[Nid, Party],
       // A relation between absolute contract id and the parties to which the contract id gets
       // explicitly disclosed.
       globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
       // A map from node ids to authorizations that failed for them.
-      failedAuthorizations: FailedAuthorizations
+      failedAuthorizations: FailedAuthorizations[Nid]
   )
+
+  object EnrichedTransaction {
+    type Tx = EnrichedTransaction[Transaction.NodeId]
+  }
 
   /**
     * Translate an EnrichedTransaction to a RichTransaction. EnrichedTransaction's contain relative
@@ -161,7 +165,7 @@ object Ledger {
       commitPrefix: String,
       committer: Party,
       effectiveAt: Time.Timestamp,
-      enrichedTx: EnrichedTransaction): RichTransaction = {
+      enrichedTx: EnrichedTransaction[Transaction.NodeId]): RichTransaction = {
     RichTransaction(
       committer = committer,
       effectiveAt = effectiveAt,
@@ -414,14 +418,13 @@ object Ledger {
     }
   }
 
-  sealed trait CommitError
+  sealed abstract class CommitError extends Product with Serializable
   object CommitError {
+    import com.digitalasset.daml.lf.types
     final case class FailedAuthorizations(
-        errors: com.digitalasset.daml.lf.types.Ledger.FailedAuthorizations)
+        errors: types.Ledger.FailedAuthorizations[Transaction.NodeId])
         extends CommitError
-    final case class UniqueKeyViolation(
-        error: com.digitalasset.daml.lf.types.Ledger.UniqueKeyViolation)
-        extends CommitError
+    final case class UniqueKeyViolation(error: types.Ledger.UniqueKeyViolation) extends CommitError
   }
 
   /** Updates the ledger to reflect that `committer` committed the
@@ -495,7 +498,7 @@ object Ledger {
 
   sealed trait FailedAuthorization
 
-  type FailedAuthorizations = Map[Transaction.NodeId, FailedAuthorization]
+  type FailedAuthorizations[Nid] = Map[Nid, FailedAuthorization]
 
   final case class FACreateMissingAuthorization(
       templateId: Identifier,
@@ -801,7 +804,7 @@ object Ledger {
     */
   def enrichTransaction(
       authorization: Authorization,
-      tr: Transaction.Transaction): EnrichedTransaction = {
+      tr: Transaction.Transaction): EnrichedTransaction[Transaction.NodeId] = {
 
     // Before we traversed through an exercise node the exercise witnesses are empty.
     val initialParentExerciseWitnesses = Set[Party]()

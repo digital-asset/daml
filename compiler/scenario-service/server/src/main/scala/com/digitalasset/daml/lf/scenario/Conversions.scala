@@ -173,7 +173,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
       ,
       ledger.scenarioSteps.map { case (idx, step) => convertScenarioStep(idx.toInt, step) })
 
-  def convertFailedAuthorizations(fas: Ledger.FailedAuthorizations): FailedAuthorizations = {
+  def convertFailedAuthorizations(
+      fas: Ledger.FailedAuthorizations[Tx.NodeId]): FailedAuthorizations = {
     val builder = FailedAuthorizations.newBuilder
     fas.map {
       case (nodeId, fa) =>

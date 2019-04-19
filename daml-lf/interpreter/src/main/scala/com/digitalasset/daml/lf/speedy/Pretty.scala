@@ -121,7 +121,7 @@ object Pretty {
           s"Invalid party name '$name'. Party names must match the regular expression `[A-Za-z0-9\\ \\-_]+`.")
     })
 
-  def prettyFailedAuthorizations(fas: L.FailedAuthorizations): Doc =
+  def prettyFailedAuthorizations(fas: L.FailedAuthorizations[NodeId]): Doc =
     intercalate(
       comma + space,
       fas.toSeq.map {
