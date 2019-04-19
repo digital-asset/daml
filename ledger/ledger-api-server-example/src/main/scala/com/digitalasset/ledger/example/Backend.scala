@@ -118,7 +118,7 @@ class Handle(ledger: Ledger, ledgerSyncOffset: LedgerSyncOffset, ec: ExecutionCo
     }(ec)
   }
 
-  override def lookupActiveContract(contractId: Value.AbsoluteContractId)
+  override def lookupActiveContract(submitter: Party, contractId: Value.AbsoluteContractId)
     : Future[Option[Value.ContractInst[VersionedValue[Value.AbsoluteContractId]]]] = {
     logger.debug("lookupActiveContract called: " + contractId.toString)
     Future.successful {

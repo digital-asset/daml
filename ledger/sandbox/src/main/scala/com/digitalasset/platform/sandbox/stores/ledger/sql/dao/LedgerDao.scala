@@ -27,7 +27,8 @@ final case class Contract(
     coinst: ContractInst[VersionedValue[AbsoluteContractId]],
     key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]]) {
   def toActiveContract: ActiveContract =
-    ActiveContract(let, transactionId, workflowId, coinst, witnesses, key)
+    // TODO SC store divulgences
+    ActiveContract(let, transactionId, workflowId, coinst, witnesses, Set.empty, key)
 }
 
 object Contract {

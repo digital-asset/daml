@@ -13,8 +13,8 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.backend.api.v1.{SubmissionResult, TransactionSubmission}
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
-import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
+import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContractsInMemory}
+import ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 
@@ -42,12 +42,12 @@ trait Ledger extends AutoCloseable {
 
 object Ledger {
 
-  type LedgerFactory = (ActiveContracts, Seq[LedgerEntry]) => Ledger
+  type LedgerFactory = (ActiveContractsInMemory, Seq[LedgerEntry]) => Ledger
 
   def inMemory(
       ledgerId: String,
       timeProvider: TimeProvider,
-      acs: ActiveContracts,
+      acs: ActiveContractsInMemory,
       ledgerEntries: Seq[LedgerEntry]): Ledger =
     new InMemoryLedger(ledgerId, timeProvider, acs, ledgerEntries)
 
