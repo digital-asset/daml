@@ -18,7 +18,7 @@ import scala.collection.breakOut
 
 case class VersionedTransaction[Nid, Cid](
     version: TransactionVersion,
-    transaction: GenTransaction[Nid, Cid, VersionedValue[Cid]]) {
+    transaction: GenTransaction.WithTxValue[Nid, Cid]) {
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] = this.copy(
     transaction = transaction.mapContractIdAndValue(f, _.mapContractId(f))
   )
@@ -79,7 +79,7 @@ case class GenTransaction[Nid, Cid, +Val](
   }
 
   def mapContractId[Cid2](f: Cid => Cid2)(
-      implicit ev: Val <:< VersionedValue[Cid]): GenTransaction[Nid, Cid2, VersionedValue[Cid2]] = {
+      implicit ev: Val <:< VersionedValue[Cid]): WithTxValue[Nid, Cid2] = {
     def g(v: Val): VersionedValue[Cid2] = v.mapContractId(f)
     this.mapContractIdAndValue(f, g)
   }
@@ -317,6 +317,8 @@ case class GenTransaction[Nid, Cid, +Val](
 }
 
 object GenTransaction {
+  type WithTxValue[Nid, Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
+
   sealed trait TraverseOrder
   case object BottomUp extends TraverseOrder // visits exercise children before the exercise node itself
   case object TopDown extends TraverseOrder // visits exercise nodes first, then their children
@@ -348,7 +350,7 @@ object Transaction {
     *  divulgence of contracts.
     *
     */
-  type Transaction = GenTransaction[NodeId, ContractId, Value[ContractId]]
+  type Transaction = GenTransaction.WithTxValue[NodeId, ContractId]
 
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable

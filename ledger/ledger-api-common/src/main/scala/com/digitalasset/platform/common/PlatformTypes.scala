@@ -12,7 +12,7 @@ import scala.collection.breakOut
 
 object PlatformTypes {
 
-  type GenTransaction[Nid, Cid] = T.GenTransaction[Nid, Cid, V.VersionedValue[Cid]]
+  type GenTransaction[Nid, Cid] = T.GenTransaction.WithTxValue[Nid, Cid]
   val GenTransaction: T.GenTransaction.type = T.GenTransaction
 
   type GenNode[Nid, Cid] = N.GenNode[Nid, Cid, V.VersionedValue[Cid]]

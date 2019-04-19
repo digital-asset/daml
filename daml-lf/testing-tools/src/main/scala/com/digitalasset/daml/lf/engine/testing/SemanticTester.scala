@@ -389,7 +389,7 @@ object SemanticTester {
       v.mapContractId(makeAbsoluteContractId)
 
     private[this] def updatePcs(
-        tx: GenTransaction[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]]): Unit = {
+        tx: GenTransaction.WithTxValue[Tx.NodeId, AbsoluteContractId]): Unit = {
       // traverse in topo order and add / remove
       @tailrec
       def go(remaining: FrontStack[Tx.NodeId]): Unit = remaining match {

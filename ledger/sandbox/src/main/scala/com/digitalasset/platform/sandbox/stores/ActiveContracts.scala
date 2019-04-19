@@ -66,7 +66,7 @@ case class ActiveContractsInMemory(
       let: Instant,
       transactionId: String,
       workflowId: String,
-      transaction: GenTransaction[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
+      transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
       explicitDisclosure: Relation[Nid, Ref.Party],
       localImplicitDisclosure: Relation[Nid, Ref.Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party]
@@ -122,7 +122,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
       let: Instant,
       transactionId: String,
       workflowId: String,
-      transaction: GenTransaction[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
+      transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
       explicitDisclosure: Relation[Nid, Ref.Party],
       localImplicitDisclosure: Relation[Nid, Ref.Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party])
