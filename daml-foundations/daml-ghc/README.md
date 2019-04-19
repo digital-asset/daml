@@ -37,6 +37,11 @@ bazel run //daml-foundations/daml-ghc:daml-ghc-shake-test-ci -- --pattern=
 da-ghcid daml-foundations/daml-ghc/src/DA/Test/ShakeIdeClient.hs --test=":main --pattern="
 ```
 
+The above do not run scenario tests in a given daml file to do do 
+```
+bazel run damlc test $PWD/daml-foundations/daml-ghc/bond-trading/Test.daml
+``` 
+
 Testing in situ:
 
 ```
