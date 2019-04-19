@@ -202,7 +202,7 @@ case class GenTransaction[Nid, Cid, +Val](
       }
     }
     val (errors, visited) = go(Set.empty, Set.empty, FrontStack(roots))
-    val orphaned = nodes.keys.toSet.diff(visited).map(nid => NotWellFormedError(nid, OrphanedNode))
+    val orphaned = nodes.keySet.diff(visited).map(nid => NotWellFormedError(nid, OrphanedNode))
     errors ++ orphaned
   }
 

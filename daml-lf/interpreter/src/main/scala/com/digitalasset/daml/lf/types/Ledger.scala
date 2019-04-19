@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.data.Relation.Relation
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
 import scala.collection.immutable
+import scalaz.syntax.std.map._
 
 /** An in-memory representation of a ledger for scenarios */
 object Ledger {
@@ -25,8 +26,8 @@ object Ledger {
     * using the two appy methods below.
     */
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  class NodeId private[NodeId] (val id: String) {
-    def canEqual(that: Any) = that.isInstanceOf[NodeId]
+  final class NodeId private[NodeId] (val id: String) extends Equals {
+    override def canEqual(that: Any) = that.isInstanceOf[NodeId]
 
     override def equals(that: Any) = that match {
       case n: NodeId => id == n.id
@@ -38,7 +39,7 @@ object Ledger {
     override def toString = "NodeId(" + id.toString + ")"
   }
 
-  object NodeId {
+  object NodeId extends (AbsoluteContractId => NodeId) {
 
     /** This is safe since, as stated in the comment for `type Node`,
       * every absolute contract id is also a node id (it refers to the
@@ -169,20 +170,12 @@ object Ledger {
         case (nodeId, node) =>
           (NodeId(commitPrefix, nodeId), translateNode(commitPrefix, node))
       },
-      explicitDisclosure = enrichedTx.explicitDisclosure.map {
-        case (nodeId, ps) =>
-          (NodeId(commitPrefix, nodeId), ps)
-      },
+      explicitDisclosure = enrichedTx.explicitDisclosure.mapKeys(NodeId(commitPrefix, _)),
       implicitDisclosure = {
         val localDiv: Relation[NodeId, Party] =
-          enrichedTx.localImplicitDisclosure.map {
-            case (nodeId, ps) =>
-              (NodeId(commitPrefix, nodeId), ps)
-          }
+          enrichedTx.localImplicitDisclosure.mapKeys(NodeId(commitPrefix, _))
         val globalDiv: Relation[NodeId, Party] =
-          enrichedTx.globalImplicitDisclosure.map {
-            case (absCoid, ps) => (NodeId(absCoid), ps)
-          }
+          enrichedTx.globalImplicitDisclosure.mapKeys(NodeId)
         Relation.union(localDiv, globalDiv)
       },
       failedAuthorizations = enrichedTx.failedAuthorizations
