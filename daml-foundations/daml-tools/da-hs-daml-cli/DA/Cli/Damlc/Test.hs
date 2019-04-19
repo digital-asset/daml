@@ -33,8 +33,8 @@ import qualified Text.XML.Light as XML
 
 
 -- | Test a DAML file.
-execTest :: [FilePath] -> Maybe FilePath -> Compiler.Options -> IO ()
-execTest inFiles mbJUnitOutput cliOptions = do
+execTest :: [FilePath] -> Bool -> Maybe FilePath -> Compiler.Options -> IO ()
+execTest inFiles colored mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
     opts <- Compiler.mkOptions cliOptions
     -- TODO (MK): For now the scenario service is only started if we have an event logger
@@ -47,11 +47,11 @@ execTest inFiles mbJUnitOutput cliOptions = do
         let files = Set.toList $ Set.fromList inFiles `Set.union`  Set.fromList (concat depFiles)
         let lfVersion = Compiler.optDamlLfVersion cliOptions
         case mbJUnitOutput of
-            Nothing -> testStdio lfVersion hDamlGhc files
+            Nothing -> testStdio lfVersion hDamlGhc files colored
             Just junitOutput -> testJUnit lfVersion hDamlGhc files junitOutput
 
-testStdio :: LF.Version -> IdeState -> [FilePath] -> IO ()
-testStdio lfVersion hDamlGhc files = do
+testStdio :: LF.Version -> IdeState -> [FilePath] -> Bool -> IO ()
+testStdio lfVersion hDamlGhc files colored = do
     failed <- fmap or $ CompilerService.runAction hDamlGhc $
         Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
@@ -59,7 +59,8 @@ testStdio lfVersion hDamlGhc files = do
             liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> do
                 let doc = prettyResult lfVersion result
                 let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
-                putStrLn $ DA.Pretty.renderPlain (name <> ": " <> doc)
+                let stringStyleToRender = if colored then DA.Pretty.renderColored else DA.Pretty.renderPlain
+                putStrLn $ stringStyleToRender (name <> ": " <> doc)
             pure $ any (isLeft . snd) scenarioResults
     when failed exitFailure
 
@@ -111,8 +112,8 @@ prettyResult lfVersion errOrResult = case errOrResult of
             _otherwise -> False
         nActive = length $ filter isActive (V.toList (SS.scenarioResultNodes result))
     in DA.Pretty.typeDoc_ "ok, "
-    <> DA.Pretty.int nActive <> " active contracts, "
-    <> DA.Pretty.int nTx <> " transactions."
+    <> DA.Pretty.int nActive <> DA.Pretty.typeDoc_ " active contracts, "
+    <> DA.Pretty.int nTx <> DA.Pretty.typeDoc_ " transactions."
 
 
 toJUnit :: [(FilePath, [(VirtualResource, Maybe T.Text)])] -> XML.Element
