@@ -127,3 +127,5 @@
   type: jar-deploy
 - target: //language-support/codegen-common:codegen-common
   type: jar
+- target: //language-support/codegen-main:shaded_binary
+  type: jar

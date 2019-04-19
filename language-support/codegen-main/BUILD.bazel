@@ -9,9 +9,10 @@ load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
     "jar_jar",
 )
+load("//bazel_tools:pom_file.bzl", "pom_file")
 
 da_scala_binary(
-    name = "codegen-main-bin",
+    name = "codegen-main",
     srcs = ["src/main/scala/CodegenMain.scala"],
     main_class = "com.digitalasset.codegen.CodegenMain",
     visibility = ["//visibility:public"],
@@ -23,7 +24,15 @@ da_scala_binary(
 )
 
 jar_jar(
-    name = "codegen-main",
-    input_jar = ":codegen-main-bin_deploy.jar",
+    name = "shaded_binary",
+    input_jar = "//language-support/codegen-main:codegen-main_deploy.jar",
     rules = "shade_rule",
+    tags = ["maven_coordinates=com.daml:codegen-main:__VERSION__"],
+    visibility = ["//visibility:public"],
+)
+
+pom_file(
+    name = "shaded_binary_pom",
+    target = ":shaded_binary",
+    visibility = ["//visibility:public"],
 )
