@@ -4,18 +4,19 @@
 package com.digitalasset.ledger.api.validation
 
 import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.lf.data.{FrontStack, Ref, SortedLookupList}
+import com.digitalasset.daml.lf.command._
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.value.Value.ValueUnit
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.Value.VariantValue
 import com.digitalasset.ledger.api.messages.command.submission
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Command.Command.{
-  Create,
-  Empty,
-  Exercise,
-  CreateAndExercise
+  Create => ProtoCreate,
+  CreateAndExercise => ProtoCreateAndExercise,
+  Empty => ProtoEmpty,
+  Exercise => ProtoExercise
 }
-import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
+import com.digitalasset.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{
   Identifier,
@@ -25,11 +26,14 @@ import com.digitalasset.ledger.api.v1.value.{
   Map => ApiMap,
   Variant => ApiVariant
 }
+import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.platform.common.PlatformTypes.asVersionedValueOrThrow
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.util.context.TraceContextConversions._
 import io.grpc.StatusRuntimeException
+import scalaz.syntax.tag._
 
 import scala.collection.immutable
 
@@ -41,41 +45,53 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
       validatedCommands <- validateCommands(commands)
     } yield submission.SubmitRequest(validatedCommands, req.traceContext.map(toBrave))
 
-  def validateCommands(commands: Commands): Either[StatusRuntimeException, domain.Commands] =
+  def validateCommands(commands: ProtoCommands): Either[StatusRuntimeException, domain.Commands] =
     for {
       ledgerId <- matchLedgerId(ledgerId)(commands.ledgerId)
+      workflowId = Option(commands.workflowId).filterNot(_.isEmpty).map(domain.WorkflowId(_))
       commandId <- requireNonEmptyString(commands.commandId, "command_id")
       appId <- requireNonEmptyString(commands.applicationId, "application_id")
       submitter <- requireSimpleString(commands.party, "party")
       let <- requirePresence(commands.ledgerEffectiveTime, "ledger_effective_time")
+      ledgerEffectiveTime = TimestampConversion.toInstant(let)
       mrt <- requirePresence(commands.maximumRecordTime, "maximum_record_time")
-      validatedCommands <- validateInnerCommands(commands.commands)
+      validatedCommands <- validateInnerCommands(commands.commands, submitter)
+      ledgerEffectiveTimestamp <- Time.Timestamp
+        .fromInstant(ledgerEffectiveTime)
+        .left
+        .map(invalidField(_, "ledger_effective_time"))
     } yield
       domain.Commands(
         domain.LedgerId(ledgerId),
-        Option(commands.workflowId).filterNot(_.isEmpty).map(domain.WorkflowId(_)),
+        workflowId,
         domain.ApplicationId(appId),
         domain.CommandId(commandId),
         submitter,
-        TimestampConversion.toInstant(let),
+        ledgerEffectiveTime,
         TimestampConversion.toInstant(mrt),
-        validatedCommands
+        Commands(
+          ImmArray(validatedCommands),
+          ledgerEffectiveTimestamp,
+          workflowId.fold("")(_.unwrap)),
       )
 
   private def validateInnerCommands(
-      commands: Seq[Command]): Either[StatusRuntimeException, immutable.Seq[domain.Command]] =
-    commands.foldLeft[Either[StatusRuntimeException, Vector[domain.Command]]](
-      Right(Vector.empty[domain.Command]))((commandz, command) => {
+      commands: Seq[ProtoCommand],
+      submitter: Ref.Party
+  ): Either[StatusRuntimeException, immutable.Seq[Command]] =
+    commands.foldLeft[Either[StatusRuntimeException, Vector[Command]]](
+      Right(Vector.empty[Command]))((commandz, command) => {
       for {
         validatedInnerCommands <- commandz
-        validatedInnerCommand <- validateInnerCommand(command.command)
+        validatedInnerCommand <- validateInnerCommand(command.command, submitter)
       } yield validatedInnerCommands :+ validatedInnerCommand
     })
 
   private def validateInnerCommand(
-      command: Command.Command): Either[StatusRuntimeException, domain.Command] =
+      command: ProtoCommand.Command,
+      submitter: Ref.Party): Either[StatusRuntimeException, Command] =
     command match {
-      case c: Create =>
+      case c: ProtoCreate =>
         for {
           templateId <- requirePresence(c.value.templateId, "template_id")
           validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
@@ -83,11 +99,11 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
           recordId <- validateOptionalIdentifier(createArguments.recordId)
           validatedRecordField <- validateRecordFields(createArguments.fields)
         } yield
-          domain.CreateCommand(
-            validatedTemplateId,
-            domain.Value.RecordValue(recordId, validatedRecordField))
+          CreateCommand(
+            templateId = validatedTemplateId,
+            argument = asVersionedValueOrThrow(Lf.ValueRecord(recordId, validatedRecordField)))
 
-      case e: Exercise =>
+      case e: ProtoExercise =>
         for {
           templateId <- requirePresence(e.value.templateId, "template_id")
           validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
@@ -96,12 +112,13 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
         } yield
-          domain.ExerciseCommand(
-            validatedTemplateId,
-            domain.ContractId(contractId),
-            domain.Choice(choice),
-            validatedValue)
-      case ce: CreateAndExercise =>
+          ExerciseCommand(
+            templateId = validatedTemplateId,
+            contractId = contractId,
+            choiceId = choice,
+            submitter = submitter,
+            argument = asVersionedValueOrThrow(validatedValue))
+      case ce: ProtoCreateAndExercise =>
         for {
           templateId <- requirePresence(ce.value.templateId, "template_id")
           validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
@@ -112,68 +129,70 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
           value <- requirePresence(ce.value.choiceArgument, "value")
           validatedChoiceArgument <- validateValue(value)
         } yield
-          domain.CreateAndExerciseCommand(
-            validatedTemplateId,
-            domain.Value.RecordValue(recordId, validatedRecordField),
-            domain.Choice(choice),
-            validatedChoiceArgument
+          CreateAndExerciseCommand(
+            templateId = validatedTemplateId,
+            createArgument = asVersionedValueOrThrow(Lf.ValueRecord(recordId, validatedRecordField)),
+            choiceId = choice,
+            choiceArgument = asVersionedValueOrThrow(validatedChoiceArgument),
+            submitter = submitter
           )
-      case Empty => Left(missingField("command"))
+      case ProtoEmpty =>
+        Left(missingField("command"))
     }
 
   private def validateRecordFields(recordFields: Seq[RecordField])
-    : Either[StatusRuntimeException, immutable.Seq[domain.RecordField]] =
+    : Either[StatusRuntimeException, ImmArray[(Option[String], domain.Value)]] =
     recordFields
-      .foldLeft[Either[StatusRuntimeException, Vector[domain.RecordField]]](
-        Right(Vector.empty[domain.RecordField]))((acc, rf) => {
+      .foldLeft[Either[StatusRuntimeException, BackStack[(Option[String], domain.Value)]]](
+        Right(BackStack.empty))((acc, rf) => {
         for {
           fields <- acc
           v <- requirePresence(rf.value, "value")
           value <- validateValue(v)
-          label = if (rf.label.isEmpty) None else Some(domain.Label(rf.label))
-        } yield fields :+ domain.RecordField(label, value)
+          label = if (rf.label.isEmpty) None else Some(rf.label)
+        } yield fields :+ label -> value
       })
+      .map(_.toImmArray)
 
   def validateValue(value: Value): Either[StatusRuntimeException, domain.Value] = value.sum match {
-    case Sum.ContractId(cId) => Right(domain.Value.ContractIdValue(domain.ContractId(cId)))
-    case Sum.Decimal(value) => Right(domain.Value.DecimalValue(value))
+    case Sum.ContractId(cId) => Right(Lf.ValueContractId(Lf.AbsoluteContractId(cId)))
+    case Sum.Decimal(value) =>
+      Decimal.fromString(value).left.map(invalidArgument).map(Lf.ValueDecimal)
+
     case Sum.Party(party) =>
-      requireSimpleString(party, "party").map(domain.Value.PartyValue)
-    case Sum.Bool(b) => Right(domain.Value.BoolValue(b))
-    case Sum.Timestamp(micros) => Right(domain.Value.TimeStampValue(micros))
-    case Sum.Date(days) => Right(domain.Value.DateValue(days))
-    case Sum.Text(text) => Right(domain.Value.TextValue(text))
-    case Sum.Int64(value) => Right(domain.Value.Int64Value(value))
+      Ref.SimpleString.fromString(party).left.map(invalidArgument).map(Lf.ValueParty)
+    case Sum.Bool(b) => Right(Lf.ValueBool(b))
+    case Sum.Timestamp(micros) =>
+      Time.Timestamp.fromLong(micros).left.map(invalidArgument).map(Lf.ValueTimestamp)
+    case Sum.Date(days) =>
+      Time.Date.fromDaysSinceEpoch(days).left.map(invalidArgument).map(Lf.ValueDate)
+    case Sum.Text(text) => Right(Lf.ValueText(text))
+    case Sum.Int64(value) => Right(Lf.ValueInt64(value))
     case Sum.Record(rec) =>
       for {
         recId <- validateOptionalIdentifier(rec.recordId)
         fields <- validateRecordFields(rec.fields)
-      } yield domain.Value.RecordValue(recId, fields)
+      } yield Lf.ValueRecord(recId, fields)
     case Sum.Variant(ApiVariant(variantId, constructor, value)) =>
       for {
         validatedConstructor <- requireNonEmptyString(constructor, "constructor")
         v <- requirePresence(value, "value")
         validatedValue <- validateValue(v)
         validatedVariantId <- validateOptionalIdentifier(variantId)
-      } yield
-        VariantValue(
-          validatedVariantId,
-          domain.VariantConstructor(validatedConstructor),
-          validatedValue)
+      } yield Lf.ValueVariant(validatedVariantId, validatedConstructor, validatedValue)
     case Sum.List(ApiList(elems)) =>
       elems
-        .foldLeft[Either[StatusRuntimeException, Vector[domain.Value]]](
-          Right(Vector.empty[domain.Value]))((valuesE, v) =>
-          for {
-            values <- valuesE
-            validatedValue <- validateValue(v)
-          } yield values :+ validatedValue)
-        .map(elements => domain.Value.ListValue(elements))
-    case _: Sum.Unit => Right(domain.Value.UnitValue)
+        .foldLeft[Either[StatusRuntimeException, BackStack[domain.Value]]](Right(BackStack.empty))(
+          (valuesE, v) =>
+            for {
+              values <- valuesE
+              validatedValue <- validateValue(v)
+            } yield values :+ validatedValue)
+        .map(elements => Lf.ValueList(FrontStack(elements.toImmArray)))
+    case _: Sum.Unit => Right(ValueUnit)
     case Sum.Optional(o) =>
-      o.value.fold[Either[StatusRuntimeException, domain.Value]](
-        Right(domain.Value.OptionalValue.Empty))(validateValue(_).map(v =>
-        domain.Value.OptionalValue(Some(v))))
+      o.value.fold[Either[StatusRuntimeException, domain.Value]](Right(Lf.ValueOptional(None)))(
+        validateValue(_).map(v => Lf.ValueOptional(Some(v))))
     case Sum.Map(m) =>
       val entries = m.entries
         .foldLeft[Either[StatusRuntimeException, FrontStack[(String, domain.Value)]]](
@@ -189,7 +208,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
       for {
         list <- entries
         map <- SortedLookupList.fromImmArray(list.toImmArray).left.map(invalidArgument)
-      } yield domain.Value.MapValue(map)
+      } yield Lf.ValueMap(map)
 
     case Sum.Empty => Left(missingField("value"))
   }

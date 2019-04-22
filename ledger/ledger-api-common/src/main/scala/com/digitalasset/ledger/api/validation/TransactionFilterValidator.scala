@@ -8,6 +8,7 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.InclusiveFilters
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.value.Identifier
+import com.digitalasset.platform.server.api.validation.FieldValidations._
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.api.validation.FieldValidations._
 import io.grpc.StatusRuntimeException
@@ -21,13 +22,14 @@ class TransactionFilterValidator(identifierResolver: IdentifierResolver) {
   def validate(
       txFilter: TransactionFilter,
       fieldName: String): Either[StatusRuntimeException, domain.TransactionFilter] = {
-    val convertedFilters = txFilter.filtersByParty.toList.traverseU {
-      case (k, v) =>
-        for {
-          key <- requireSimpleString(k)
-          value <- validateFilters(v)
-        } yield key -> value
-    }
+    val convertedFilters =
+      txFilter.filtersByParty.toList.traverseU {
+        case (k, v) =>
+          for {
+            key <- requireSimpleString(k)
+            value <- validateFilters(v)
+          } yield key -> value
+      }
     convertedFilters.map(m => domain.TransactionFilter(m.toMap))
   }
 
