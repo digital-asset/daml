@@ -48,7 +48,7 @@ tests = testGroup
               , "module Foo where"
               , "x = scenario $ assert False"
               ]
-            shouldThrowExitFailure (Damlc.execTest [path] False Nothing opts  )
+            shouldThrowExitFailure (Damlc.execTest [path] False Nothing opts)
     ]
 
 shouldThrowExitFailure :: IO () -> IO ()
