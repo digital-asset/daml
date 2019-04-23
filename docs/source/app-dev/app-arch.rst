@@ -1,7 +1,7 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Building applications against a DA ledger
+Application architecture guide
 #########################################
 
 This document is a guide to building applications that interact with a DA ledger deployment (the 'ledger'). It:

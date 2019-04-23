@@ -146,7 +146,7 @@ In this section, you will run the quickstart application and get introduced to t
       Starting plainText server
       listening on localhost:6865
    
-   The sandbox is now running, and you can access its :doc:`ledger API </app-dev/ledger-api-introduction/index>` on port ``6865``.
+   The sandbox is now running, and you can access its :doc:`ledger API </app-dev/index>` on port ``6865``.
    
    .. note::
 
@@ -467,7 +467,7 @@ The ``submit`` function used in this scenario tries to perform a transaction and
 ..  Interact with the ledger through the command line
     *************************************************
 
-    All interaction with the DA ledger, be it sandbox or full ledger server, happens via the :doc:`Ledger API </app-dev/ledger-api-introduction/index>`. It is based on `gRPC <https://grpc.io/>`_.
+    All interaction with the DA ledger, be it sandbox or full ledger server, happens via the :doc:`Ledger API </app-dev/index>`. It is based on `gRPC <https://grpc.io/>`_.
 
     The Navigator uses this API, as will any :ref:`custom integration <quickstart-application>`.
 
