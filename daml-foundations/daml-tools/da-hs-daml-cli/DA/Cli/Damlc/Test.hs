@@ -32,8 +32,10 @@ import System.FilePath
 import qualified Text.XML.Light as XML
 
 
+type ColorTestResults = Bool
+
 -- | Test a DAML file.
-execTest :: [FilePath] -> Bool -> Maybe FilePath -> Compiler.Options -> IO ()
+execTest :: [FilePath] -> ColorTestResults -> Maybe FilePath -> Compiler.Options -> IO ()
 execTest inFiles colored mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
     opts <- Compiler.mkOptions cliOptions
@@ -50,8 +52,8 @@ execTest inFiles colored mbJUnitOutput cliOptions = do
             Nothing -> testStdio lfVersion hDamlGhc files colored
             Just junitOutput -> testJUnit lfVersion hDamlGhc files junitOutput
 
-testStdio :: LF.Version -> IdeState -> [FilePath] -> Bool -> IO ()
-testStdio lfVersion hDamlGhc files colored = do
+testStdio :: LF.Version -> IdeState -> [FilePath] -> ColorTestResults -> IO ()
+testStdio lfVersion hDamlGhc files colorTestResults = do
     failed <- fmap or $ CompilerService.runAction hDamlGhc $
         Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
@@ -59,7 +61,7 @@ testStdio lfVersion hDamlGhc files colored = do
             liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> do
                 let doc = prettyResult lfVersion result
                 let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
-                let stringStyleToRender = if colored then DA.Pretty.renderColored else DA.Pretty.renderPlain
+                let stringStyleToRender = if colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
                 putStrLn $ stringStyleToRender (name <> ": " <> doc)
             pure $ any (isLeft . snd) scenarioResults
     when failed exitFailure
