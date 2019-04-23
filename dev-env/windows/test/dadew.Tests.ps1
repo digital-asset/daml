@@ -48,17 +48,21 @@ Describe "DADEW - DA DevEnv Windows" {
 
     It "syncs provides tools listed in .dadew file ensuring not-listed are uninstalled" {
         da_is_installed "jq" | Should -Be False
+        da_is_installed "node" | Should -Be False
         da_is_installed "scoop" | Should -Be False
 
         dadew "install"
         dadew "enable"
         dadew "sync" "$PSScriptRoot\envs\jq"
+        dadew "sync" "$PSScriptRoot\envs\nodejs"
 
         da_is_installed "jq" | Should -Be False
+        da_is_installed "node" | Should -Be True
 
         dadew "sync" "$PSScriptRoot\envs\jq"
 
         da_is_installed "jq" | Should -Be True
+        da_is_installed "node" | Should -Be False
     }
 
     It "can be enabled & disabled" {
