@@ -44,7 +44,7 @@ jobs:
       - template: ci/build-windows.yml
 
   - job: perf
-    timeoutInMinutes: 30
+    timeoutInMinutes: 60
     pool:
       name: 'linux-pool'
     steps:
