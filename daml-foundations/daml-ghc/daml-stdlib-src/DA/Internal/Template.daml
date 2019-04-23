@@ -109,7 +109,7 @@ postconsuming _ = PostConsuming
 class Template c => Choice c e r | c e -> r where
     -- | HIDE
     consuming : NoEvent c e -> Consuming
-    consuming _ = PreConsuming
+    consuming = preconsuming
 
     choiceController : c -> e -> [Party]
     choice : c -> ContractId c -> e -> Update r
