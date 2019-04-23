@@ -33,6 +33,7 @@ module DA.Daml.LF.TypeChecker.Check where
 import DA.Prelude
 
 import           Control.Lens hiding (Context)
+import           Control.Monad.Extra
 import           Data.Foldable
 import           Data.Functor
 import qualified Data.HashSet as HS
@@ -179,7 +180,7 @@ typeOfBuiltin = \case
       v <- view lfVersion
       if supportsSha256Text v
           then pure $ TText :-> TText
-          else throwWithContext $ EUnsupportedBuiltin BESha256Text version1_2
+          else throwWithContext $ EUnsupportedFeature "SHA256_TEXT" version1_2
   BEFoldl -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
@@ -387,6 +388,7 @@ checkFetch tpl cid = do
 -- returns the contract id and contract type
 checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
 checkRetrieveByKey RetrieveByKey{..} = do
+  checkSupportsContractKeys
   tpl <- inWorld (lookupTemplate retrieveByKeyTemplate)
   case tplKey tpl of
     Nothing -> throwWithContext (EKeyOperationOnTemplateWithNoKey retrieveByKeyTemplate)
@@ -520,7 +522,7 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPObservers $ checkExpr observers (TList TParty)
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
-  checkTemplateKey param tcon mbKey
+  whenJust mbKey $ checkTemplateKey param tcon
   where
     withPart p = withContext (ContextTemplate m t p)
 
@@ -544,9 +546,15 @@ checkValidProjectionsKey = \case
   expr ->
     throwWithContext (EInvalidKeyExpression expr)
 
-checkTemplateKey :: MonadGamma m => ExprVarName -> Qualified TypeConName -> Maybe TemplateKey -> m ()
-checkTemplateKey param tcon mbKey =
-  for_ mbKey $ \TemplateKey{..} -> do
+checkSupportsContractKeys :: MonadGamma m => m ()
+checkSupportsContractKeys = do
+    v <- view lfVersion
+    unless (supportsContractKeys v) $
+        throwWithContext $ EUnsupportedFeature "Contract keys" version1_3
+
+checkTemplateKey :: MonadGamma m => ExprVarName -> Qualified TypeConName -> TemplateKey -> m ()
+checkTemplateKey param tcon TemplateKey{..} = do
+    checkSupportsContractKeys
     introExprVar param (TCon tcon) $ do
       checkType tplKeyType KStar
       checkValidKeyExpr tplKeyBody
