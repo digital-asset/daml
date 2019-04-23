@@ -549,26 +549,28 @@ object Ledger {
   ) extends FailedAuthorization
 
   /** State to use during enriching a transaction with disclosure information. */
-  final case class EnrichState(
+  private[this] final case class EnrichState[Nid](
       nodes: Map[NodeId, Node],
-      disclosures: Relation[Transaction.NodeId, Party],
-      localDivulgences: Relation[Transaction.NodeId, Party],
+      disclosures: Relation[Nid, Party],
+      localDivulgences: Relation[Nid, Party],
       globalDivulgences: Relation[AbsoluteContractId, Party],
-      failedAuthorizations: Map[Transaction.NodeId, FailedAuthorization]
+      failedAuthorizations: Map[Nid, FailedAuthorization]
   ) {
-    def discloseTo(witnesses: Set[Party], i: Transaction.NodeId): EnrichState =
+    type Self = EnrichState[Nid]
+
+    def discloseTo(witnesses: Set[Party], i: Nid): Self =
       copy(
         disclosures = disclosures
           .updated(i, witnesses union disclosures.getOrElse(i, Set.empty))
       )
 
-    def divulgeContracts(witnesses: Set[Party], coids: Set[ContractId]): EnrichState =
+    def divulgeContracts(witnesses: Set[Party], coids: Set[ContractId]): Self =
       coids.foldLeft(this) {
         case (s, coid) => s.divulgeCoidTo(witnesses, coid)
       }
 
-    def divulgeCoidTo(witnesses: Set[Party], coid: ContractId): EnrichState = {
-      def divulgeRelativeCoidTo(ws: Set[Party], rcoid: RelativeContractId): EnrichState = {
+    def divulgeCoidTo(witnesses: Set[Party], coid: ContractId): Self = {
+      def divulgeRelativeCoidTo(ws: Set[Party], rcoid: RelativeContractId): Self = {
         val i = rcoid.txnid
         copy(
           localDivulgences = localDivulgences
@@ -583,16 +585,13 @@ object Ledger {
       }
     }
 
-    def divulgeAbsoluteCoidTo(witnesses: Set[Party], acoid: AbsoluteContractId): EnrichState = {
+    def divulgeAbsoluteCoidTo(witnesses: Set[Party], acoid: AbsoluteContractId): Self = {
       copy(
         globalDivulgences = globalDivulgences
           .updated(acoid, witnesses union globalDivulgences.getOrElse(acoid, Set.empty)))
     }
 
-    def authorize(
-        nodeId: Transaction.NodeId,
-        passIf: Boolean,
-        failWith: FailedAuthorization): EnrichState =
+    def authorize(nodeId: Nid, passIf: Boolean, failWith: FailedAuthorization): Self =
       if (passIf ||
         failedAuthorizations.contains(nodeId) /* already failed? keep the first one */
         )
@@ -601,10 +600,10 @@ object Ledger {
         copy(failedAuthorizations = failedAuthorizations + (nodeId -> failWith))
 
     def authorizeCreate(
-        nodeId: Transaction.NodeId,
+        nodeId: Nid,
         create: NodeCreate.WithTxValue[ContractId],
         signatories: Set[Party],
-        authorization: Authorization): EnrichState =
+        authorization: Authorization): Self =
       authorization.fold(this)(
         authParties =>
           this
@@ -623,11 +622,11 @@ object Ledger {
               failWith = FANoSignatories(create.coinst.template, create.optLocation)))
 
     def authorizeExercise(
-        nodeId: Transaction.NodeId,
-        ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId],
+        nodeId: Nid,
+        ex: NodeExercises.WithTxValue[Nid, ContractId],
         actingParties: Set[Party],
         authorization: Authorization,
-        controllers: Set[Party]): EnrichState = {
+        controllers: Set[Party]): Self = {
       // well-authorized by A : actors == controllers(c)
       //                        && actors subsetOf A
       //                        && childrenActions well-authorized by
@@ -663,10 +662,10 @@ object Ledger {
     }
 
     def authorizeFetch(
-        nodeId: Transaction.NodeId,
+        nodeId: Nid,
         fetch: NodeFetch[ContractId],
         stakeholders: Set[Party],
-        authorization: Authorization): EnrichState = {
+        authorization: Authorization): Self = {
       authorization.fold(this)(
         authParties =>
           this.authorize(
@@ -752,9 +751,9 @@ object Ledger {
       that `authorizers ∩ stakeholders ≠ ∅`.
      */
     def authorizeLookupByKey(
-        nodeId: Transaction.NodeId,
+        nodeId: Nid,
         lbk: NodeLookupByKey.WithTxValue[ContractId],
-        authorization: Authorization): EnrichState = {
+        authorization: Authorization): Self = {
       authorization.fold(this) { authorizers =>
         this.authorize(
           nodeId = nodeId,
@@ -769,9 +768,9 @@ object Ledger {
     }
   }
 
-  object EnrichState {
-    def empty =
-      EnrichState(Map.empty, Map.empty, Map.empty, Map.empty, Map.empty)
+  private[this] object EnrichState {
+    def empty[Nid] =
+      EnrichState[Nid](Map.empty, Map.empty, Map.empty, Map.empty, Map.empty)
   }
 
   sealed trait Authorization {
