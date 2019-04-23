@@ -21,8 +21,10 @@ module DA.TextMap
   ) where
 
 import Prelude hiding (lookup, null, filter, empty)
-import DA.List qualified as L
+import DA.Foldable qualified as Foldable
+import DA.List qualified as List
 import DA.Optional
+import DA.Traversable qualified as Traversable
 
 -- | Create a map from a list of key/value pairs.
 fromList : [(Text, a)] -> TextMap a
@@ -55,7 +57,7 @@ member x m = isSome $ lookup x m
 
 -- | Filter all values that satisfy some predicate.
 filter : (Text -> v -> Bool) -> TextMap v -> TextMap v
-filter p m = fromList $ L.filter (uncurry p) (toList m)
+filter p m = fromList $ List.filter (uncurry p) (toList m)
 
 -- | Delete a key and its value from the map. When the key is not a
 -- member of the map, the original map is returned.
@@ -71,7 +73,7 @@ insert = primitive @"BEMapInsert"
 -- | The union of two maps, preferring the first map when equal
 -- keys are encountered.
 union : TextMap a -> TextMap a -> TextMap a
-union m1 m2 = foldl (\a b -> (uncurry insert) b a) m2 (toList m1)
+union m1 m2 = foldl (\acc (k, v) -> insert k v acc) m2 (toList m1)
 
 instance Show a => Show (TextMap a) where
   show m = "TextMap " <> show (toList m)
@@ -87,3 +89,12 @@ instance Semigroup (TextMap b) where
 
 instance Monoid (TextMap b) where
   mempty = empty
+
+instance Functor TextMap where
+  fmap f x = fromList $ map (\(k, v) -> (k, f v)) $ toList x
+
+instance Foldable.Foldable TextMap where
+  foldr f z x = List.foldr (\(_, v) acc -> f v acc) z $ toList x
+
+instance Traversable.Traversable TextMap where
+  mapA f x = fmap fromList $ mapA (\(k, v) -> fmap (k,) $ f v) $ toList x
