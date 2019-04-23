@@ -53,7 +53,11 @@ template body
         Only create the contract if the conditions after ``ensure`` evaluate to true.
 
     :ref:`choices <daml-ref-choice-structure>`
-    	``controller nameOfParty can nameOfChoice``
+    	``controller nameOfParty can nameOfChoice do``
+
+        or
+
+        ``choice : () controller do``
 
         Defines choices that can be exercised. See `Choice structure`_ for what can go in a choice.
 
@@ -62,17 +66,23 @@ template body
 Choice structure
 ****************
 
-Here's the structure of a choice inside a template:
+Here's the structure of a choice inside a template. There are two ways of specifying a choice:
+
+- start with the ``choice`` keyword
+- start with the ``controller`` keyword
+
+TODO compare and contrast
 
 .. literalinclude:: ../code-snippets/Structure.daml
    :language: daml
-   :lines: 24,27-34
+   :start-after: -- start of choice snippet
+   :end-before: -- end of choice snippet
    :dedent: 4
 
 :ref:`a controller (or controllers) <daml-ref-controllers>`
     ``controller`` keyword
 
-    Who can exercise the choice.
+    Who can exercise the choice. TODO explain flexible controllers
 
 :ref:`consumability <daml-ref-anytime>`
     ``nonconsuming`` keyword
@@ -87,6 +97,8 @@ Here's the structure of a choice inside a template:
 
 :ref:`choice arguments <daml-ref-choice-arguments>`
     ``with`` keyword
+
+    TODO: explain about passing party in
 
 :ref:`a choice body <daml-ref-choice-body>`
     After ``do`` keyword

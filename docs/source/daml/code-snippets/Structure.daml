@@ -21,14 +21,26 @@ template NameOfTemplate
     ensure
       -- boolean condition
       True
-    controller exampleParty3 can
-      -- a choice goes here; see next section
-      -- end of template outline snippet
-      NameOfChoice : -- return type here
-          ()
+    -- a choice goes here; see next section
+    -- end of template outline snippet
+    -- start of choice snippet
+    -- option 1 for specifying choices: choice name first
+    choice NameOfChoice : 
+          () -- replace () with the actual return type
+        with
+        -- parameters here
+        party : Party
+      controller party
+        do
+          return () -- replace this line with the choice body
+
+    -- option 2 for specifying choices: controller first
+    controller exampleParty can
+      NameOfAnotherChoice :
+          () -- replace () with the actual return type
         with
           -- parameters here
           party : Party
         do
-          -- choice body; see next section
-          return ()
+          return () -- replace the line with the choice body
+      -- end of choice snippet

@@ -4,41 +4,96 @@
 daml 1.2
 module Reference where
 type ExampleReturnType = ()
+
+-- start template intro snippet
 template NameOfTemplate
+-- end template intro snippet
+-- start template params snippet
   with
     exampleParty : Party
     exampleParty2 : Party
     exampleParty3 : Party
     -- more parameters here
+-- end template params snippet
+-- start template sigs snippet
   where
     signatory exampleParty
+-- end template sigs snippet
+-- start template obs snippet
     observer exampleParty2
+-- end template obs snippet
+-- start template ensure snippet
     ensure
-      -- boolean condition
-      True
+      True -- a boolean condition goes here
+-- end template ensure snippet
+-- start template agree snippet
     agreement
       -- text representing the contract
       ""
+-- end template agree snippet
+-- start template choice snippet
     controller exampleParty can
-      -- a choice goes here; see next page
       NameOfChoice
-          : ()
-        do
-          return ()
-
-      nonconsuming NameOfChoice2
-          : ()
-        do
-          return ()
-
-
-      NameOfChoice3 : ExampleReturnType
+          : () -- replace () with the actual return type
         with
           exampleParameter : Text
         do
-          -- choice body goes here
-          return ()
-
-      NameOfChoice4 : ContractId NameOfTemplate
+          return () -- replace this line with the choice body
+      nonconsuming NameOfChoice2
+          : ()  -- replace () with the actual return type
+        with
+          exampleParameter : Text
         do
-          create NameOfTemplate with exampleParty; exampleParty2; exampleParty3
+          return () -- replace this line with the choice body
+    choice NameOfChoice3
+          : ()  -- replace () with the actual return type
+        with
+          exampleParameter : Text
+      controller exampleParty
+        do
+          return () -- replace this line with the choice body
+-- end template choice snippet
+
+-- start controller-first controller snippet
+    controller exampleParty can
+-- end controller-first controller snippet
+-- start controller-first choice name snippet
+      NameOfChoice4
+          : () -- replace () with the actual return type
+-- end controller-first choice name snippet
+-- start controller-first params snippet
+        with
+          exampleParameter : Text
+-- end controller-first params snippet
+        do
+          return () -- replace () with the actual return type
+-- start controller-first nonconsuming snippet
+      nonconsuming NameOfChoice5
+          : () -- replace () with the actual return type
+-- end controller-first nonconsuming snippet
+        do
+          return () -- replace () with the actual return type
+
+-- start choice-first choice name snippet
+    choice NameOfChoice6
+          : () -- replace () with the actual return type
+-- end choice-first choice name snippet
+-- start choice-first params snippet
+        with
+          exampleParameter : Text
+-- end choice-first params snippet
+-- start choice-first controller snippet
+      controller exampleParty
+-- end choice-first controller snippet
+        do
+          return () -- replace () with the actual return type
+-- end template choice snippet
+
+-- start choice-first nonconsuming snippet
+    nonconsuming choice NameOfChoice7
+          : () -- replace () with the actual return type
+-- end choice-first nonconsuming snippet
+        with -- params
+        controller exampleParty
+          do
+            return ()

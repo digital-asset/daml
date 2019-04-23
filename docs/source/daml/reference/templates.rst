@@ -17,7 +17,8 @@ Template name
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
-   :lines: 7
+   :start-after: -- start template intro snippet
+   :end-before: -- end template intro snippet
 
 - This is the name of the template. It's preceded by ``template`` keyword. Must begin with a capital letter.
 - This is the highest level of nesting.
@@ -30,7 +31,8 @@ Template parameters
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
-   :lines: 7-12
+   :start-after: -- start template params snippet
+   :end-before: -- end template params snippet
 
 - ``with`` keyword. The parameters are in the form of a :ref:`record type <daml-ref-record-types>`.
 - Passed in when :ref:`creating <daml-ref-create>` a contract instance from this template. These are then in scope inside the template body.
@@ -51,8 +53,8 @@ Signatory parties
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
-   :lines: 13-14
-   :dedent: 2
+   :start-after: -- start template sigs snippet
+   :end-before: -- end template sigs snippet
 
 - ``signatory`` keyword. After ``where``. Followed by at least one ``Party``.
 - Signatories are the parties (see the ``Party`` type) who must consent to the creation of an instance of this contract. They are the parties who would be put into an *obligable position* when this contract is created.
@@ -69,15 +71,15 @@ Observers
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
-   :lines: 13,15
-   :dedent: 2
+   :start-after: -- start template obs snippet
+   :end-before: -- end template obs snippet
 
 - ``observer`` keyword. After ``where``. Followed by at least one ``Party``.
 - Observers are additional stakeholders, so the contract instance is visible to these parties (see the ``Party`` type).
 - Optional. You can have many, either as a comma-separated list or reusing the keyword.
 - Use when a party needs visibility on a contract, or be informed or contract events, but is not a :ref:`signatory <daml-ref-signatories>` or :ref:`controller <daml-ref-controllers>`.
-
-.. TODO: what about observer observers?
+- TODO observer observers
+- TODO flexible controllers vs automatic adding if other option
 
 .. _daml-ref-choices:
 
@@ -86,12 +88,13 @@ Choices
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
-   :lines: 13, 22-23
-   :dedent: 2
+   :start-after: -- start template choice snippet
+   :end-before: -- start template choice snippet
 
 - A right that the contract gives the controlling party. Can be *exercised*.
 - This is essentially where all the logic of the template goes.
 - By default, choices are *consuming*: that is, exercising the choice archives the contract, so no further choices can be exercised on it. You can make a choice non-consuming using the ``nonconsuming`` keyword.
+- TODO: Two different ways of specifying - choice first or controller first
 - See :doc:`choices` for full reference information.
 
 .. _daml-ref-agreements:
@@ -101,8 +104,8 @@ Agreements
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
-   :lines: 13,19-20
-   :dedent: 2
+   :start-after: -- start template agree snippet
+   :end-before: -- end template agree snippet
 
 - ``agreement`` keyword, followed by text.
 - Represents what the contract means in text. They're usually the boundary between on-ledger and off-ledger rights and obligations.
@@ -117,8 +120,8 @@ Preconditions
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
-   :lines: 13,16-17
-   :dedent: 2
+   :start-after: -- start template ensure snippet
+   :end-before: -- end template ensure snippet
 
 - ``ensure`` keyword, followed by a boolean condition.
 - Used on contract creation. ``ensure`` limits the values on parameters that can be passed to the contract: the contract can only be created if the boolean condition is true.
