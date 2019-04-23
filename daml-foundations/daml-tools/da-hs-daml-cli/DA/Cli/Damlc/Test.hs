@@ -64,7 +64,7 @@ testStdio lfVersion hDamlGhc files colorTestResults = do
             liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> do
                 let doc = prettyResult lfVersion result
                 let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
-                let stringStyleToRender = if (color colorTestResults) then DA.Pretty.renderColored else DA.Pretty.renderPlain
+                let stringStyleToRender = if color colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
                 putStrLn $ stringStyleToRender (name <> ": " <> doc)
             pure $ any (isLeft . snd) scenarioResults
     when failed exitFailure
