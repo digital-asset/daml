@@ -189,12 +189,12 @@ class TransactionServiceIT
               .take(commandsPerSection.toLong)
               .runWith(Sink.seq)
             _ = firstSection should have size commandsPerSection.toLong
-            ledgerEndAfterFirstSection <- client.getLedgerEnd
+            ledgerEndAfterFirstSection = lastOffsetIn(firstSection).value
 
             _ <- insertCommands(sharedPrefix + "-2", commandsPerSection, context)
 
             secondSection <- client
-              .getTransactions(ledgerEndAfterFirstSection.offset.value, None, getAllContracts)
+              .getTransactions(ledgerEndAfterFirstSection, None, getAllContracts)
               .take(commandsPerSection.toLong)
               .runWith(Sink.seq)
 
@@ -303,10 +303,10 @@ class TransactionServiceIT
           tx <- client
             .getTransactions(savedLedgerEnd.getOffset, None, getAllContracts)
             .runWith(Sink.head)
-          higherLedgerOffset <- client.getLedgerEnd
+          higherLedgerOffset = tx.offset
           error <- client
             .getTransactions(
-              higherLedgerOffset.offset.value,
+              LedgerOffset(LedgerOffset.Value.Absolute(higherLedgerOffset)),
               Some(savedLedgerEnd.getOffset),
               getAllContracts)
             .runWith(Sink.head)
