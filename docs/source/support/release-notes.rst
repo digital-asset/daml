@@ -9,11 +9,15 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.9 — 2019-04-23
+-------------------
+
 - Addition of ``DA.Math`` library containing exponentiation, logarithms and trig functions
 - Add CreateAndExerciseCommand to Ledger API and DAMLe for creating a contract
   and exercising a choice on it within the same transaction. This can be used to
   implement "callable updates" (aka functions of type ``Update a`` that can be
   called from the Ledger API via a contract).
+- Publish the participant-state APIs and reference implementations.
 
 0.12.7 — 2019-04-17
 -------------------
