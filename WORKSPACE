@@ -1,6 +1,12 @@
 workspace(name = "com_github_digital_asset_daml")
 
 load("//:util.bzl", "hazel_ghclibs", "hazel_github", "hazel_hackage")
+
+# NOTE(JM): Load external dependencies from deps.bzl.
+# Do not put "http_archive" and similar rules into this file. Put them into
+# deps.bzl. This allows using this repository as an external workspace.
+# (though with the caviat that that user needs to repeat the relevant bits of
+#  magic in this file, but at least right versions of external rules are picked).
 load("//:deps.bzl", "daml_deps")
 
 daml_deps()
@@ -13,7 +19,6 @@ register_toolchains(
     "//:c2hs-toolchain",
 )
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("//bazel_tools/dev_env_package:dev_env_package.bzl", "dev_env_package")
 load("//bazel_tools/dev_env_package:dev_env_tool.bzl", "dev_env_tool")
 load(
@@ -418,29 +423,6 @@ hazel_repositories(
     ),
 )
 
-c2hs_version = "0.28.3"
-
-c2hs_hash = "80cc6db945ee7c0328043b4e69213b2a1cb0806fb35c8362f9dea4a2c312f1cc"
-
-c2hs_package_id = "c2hs-{0}".format(c2hs_version)
-
-c2hs_url = "https://hackage.haskell.org/package/{0}/{1}.tar.gz".format(
-    c2hs_package_id,
-    c2hs_package_id,
-)
-
-c2hs_build_file = "//3rdparty/haskell:BUILD.c2hs"
-
-http_archive(
-    name = "haskell_c2hs",
-    build_file = c2hs_build_file,
-    patch_args = ["-p1"],
-    patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-c2hs.patch"],
-    sha256 = c2hs_hash,
-    strip_prefix = c2hs_package_id,
-    urls = [c2hs_url],
-)
-
 hazel_custom_package_hackage(
     package_name = "clock",
     build_file = "//3rdparty/haskell:BUILD.clock",
@@ -681,15 +663,6 @@ jar_jar_repositories()
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 
 grpc_deps()
-
-# Buildifier.
-# It is written in Go and hence needs rules_go to be available.
-http_archive(
-    name = "com_github_bazelbuild_buildtools",
-    sha256 = "7525deb4d74e3aa4cb2b960da7d1c400257a324be4e497f75d265f2f508c518f",
-    strip_prefix = "buildtools-0.22.0",
-    url = "https://github.com/bazelbuild/buildtools/archive/0.22.0.tar.gz",
-)
 
 load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
 

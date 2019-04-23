@@ -39,6 +39,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Variant
 }
 import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
+import com.digitalasset.platform.apitesting.LedgerBackend.SandboxInMemory
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
@@ -72,6 +73,8 @@ abstract class CommandTransactionChecks
   private val operator = "operator"
   private val receiver = "receiver"
   private val giver = "giver"
+  private val owner = "owner"
+  private val delegate = "delegate"
   private val observers = List("observer1", "observer2")
 
   private val integerListRecordLabel = "integerList"
@@ -421,6 +424,98 @@ abstract class CommandTransactionChecks
         } yield {
           assertion
         }
+      }
+
+      "permit fetching a divulged contract" in forAllMatchingFixtures {
+        case TestFixture(SandboxInMemory, ctx) =>
+        def pf(label: String, party: String) =
+          RecordField(label, Some(Value(Value.Sum.Party(party))))
+        val odArgs = Seq(pf("owner", owner), pf("delegate", delegate))
+        val delegatedCreate = simpleCreate(
+          ctx,
+          cid("SDVl3"),
+          owner,
+          templateIds.delegated,
+          Record(Some(templateIds.delegated), Seq(pf("owner", owner))))
+        val delegationCreate = simpleCreate(
+          ctx,
+          cid("SDVl4"),
+          owner,
+          templateIds.delegation,
+          Record(Some(templateIds.delegation), odArgs))
+        val showIdCreate = simpleCreate(
+          ctx,
+          cid("SDVl5"),
+          owner,
+          templateIds.showDelegated,
+          Record(Some(templateIds.showDelegated), odArgs))
+        val exerciseOfFetch = for {
+          delegatedEv <- delegatedCreate
+          delegationEv <- delegationCreate
+          showIdEv <- showIdCreate
+          fetchArg = Record(
+            None,
+            Seq(RecordField("", Some(Value(Value.Sum.ContractId(delegatedEv.contractId))))))
+          showResult <- failingExercise(
+            ctx,
+            cid("SDVl6"),
+            submitter = owner,
+            template = templateIds.showDelegated,
+            contractId = showIdEv.contractId,
+            choice = "ShowIt",
+            arg = Value(Value.Sum.Record(fetchArg)),
+            Code.OK,
+            pattern = ""
+          )
+          fetchResult <- failingExercise(
+            ctx,
+            cid("SDVl7"),
+            submitter = delegate,
+            template = templateIds.delegation,
+            contractId = delegationEv.contractId,
+            choice = "FetchDelegated",
+            arg = Value(Value.Sum.Record(fetchArg)),
+            Code.OK,
+            pattern = ""
+          )
+        } yield fetchResult
+        exerciseOfFetch
+      }
+
+      "reject fetching an undisclosed contract" in allFixtures { ctx =>
+        def pf(label: String, party: String) =
+          RecordField(label, Some(Value(Value.Sum.Party(party))))
+        val delegatedCreate = simpleCreate(
+          ctx,
+          cid("TDVl3"),
+          owner,
+          templateIds.delegated,
+          Record(Some(templateIds.delegated), Seq(pf("owner", owner))))
+        val delegationCreate = simpleCreate(
+          ctx,
+          cid("TDVl4"),
+          owner,
+          templateIds.delegation,
+          Record(Some(templateIds.delegation), Seq(pf("owner", owner), pf("delegate", delegate))))
+        val exerciseOfFetch = for {
+          delegatedEv <- delegatedCreate
+          delegationEv <- delegationCreate
+          fetchArg = Record(
+            None,
+            Seq(RecordField("", Some(Value(Value.Sum.ContractId(delegatedEv.contractId))))))
+          fetchResult <- failingExercise(
+            ctx,
+            cid("TDVl5"),
+            submitter = delegate,
+            template = templateIds.delegation,
+            contractId = delegationEv.contractId,
+            choice = "FetchDelegated",
+            arg = Value(Value.Sum.Record(fetchArg)),
+            Code.INVALID_ARGUMENT,
+            pattern = "dependency error: couldn't find contract"
+          )
+        } yield fetchResult
+        exerciseOfFetch
       }
 
       "DAML engine returns Unit as argument to Nothing" in allFixtures { ctx =>

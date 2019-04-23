@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.index.v1.impl.reference
 
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink, Source}
@@ -21,10 +22,11 @@ import com.digitalasset.platform.akkastreams.SignalDispatcher
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future, SyncVar}
+import scala.concurrent.{ExecutionContext, Future}
 
-final case class ReferenceIndexService(participantReadService: participant.state.v1.ReadService)(
-    implicit val mat: Materializer)
+final case class ReferenceIndexService(
+    participantReadService: participant.state.v1.ReadService,
+    initialConditions: LedgerInitialConditions)(implicit val mat: Materializer)
     extends participant.state.index.v1.IndexService
     with AutoCloseable {
   val logger = LoggerFactory.getLogger(this.getClass)
@@ -33,16 +35,12 @@ final case class ReferenceIndexService(participantReadService: participant.state
 
   object StateController {
     private val stateChangeDispatcher = SignalDispatcher()
-    private val currentState: SyncVar[IndexState] = {
-      val sv = new SyncVar[IndexState]()
-      sv.put(IndexState.initialState)
-      sv
-    }
+    private val currentState: AtomicReference[IndexState] = new AtomicReference(
+      IndexState.initialState(initialConditions)
+    )
 
     def updateState(f: IndexState => IndexState): Unit = {
-      currentState.put(
-        f(currentState.take())
-      )
+      currentState.getAndUpdate(f(_))
       stateChangeDispatcher.signal()
     }
 
@@ -53,7 +51,7 @@ final case class ReferenceIndexService(participantReadService: participant.state
         .subscribe(signalOnSubscribe = true)
         .flatMapConcat { _signal =>
           val s = getState
-          if (s.getLedgerId != ledgerId) {
+          if (s.ledgerId != ledgerId) {
             Source.empty // FIXME(JM): or error?
           } else {
             Source.single(s)
@@ -62,13 +60,6 @@ final case class ReferenceIndexService(participantReadService: participant.state
 
     def close(): Unit =
       stateChangeDispatcher.close()
-  }
-
-  def waitUntilInitialized = {
-    while (!StateController.getState.initialized) {
-      logger.info("Waiting for ledger to be established...")
-      Thread.sleep(1000)
-    }
   }
 
   // Sink for updating the index state and forwarding the update and the resulting
@@ -99,12 +90,12 @@ final case class ReferenceIndexService(participantReadService: participant.state
   private def asyncResultWithState[T](ledgerId: LedgerId)(
       handler: IndexState => Future[T]): AsyncResult[T] = {
     val s = StateController.getState
-    if (s.getLedgerId == ledgerId) {
+    if (s.ledgerId == ledgerId) {
       handler(s).map(Right(_))
     } else {
       Future.successful(
         Left(
-          IndexService.Err.LedgerIdMismatch(ledgerId, s.getLedgerId)
+          IndexService.Err.LedgerIdMismatch(ledgerId, s.ledgerId)
         )
       )
     }
@@ -140,7 +131,7 @@ final case class ReferenceIndexService(participantReadService: participant.state
     }
 
   override def getLedgerId(): Future[LedgerId] =
-    Future.successful(StateController.getState.getLedgerId)
+    Future.successful(StateController.getState.ledgerId)
 
   override def getLedgerBeginning(ledgerId: LedgerId): AsyncResult[Offset] =
     asyncResultWithState(ledgerId) { state =>
@@ -320,7 +311,7 @@ final case class ReferenceIndexService(participantReadService: participant.state
         }
         .toList
 
-    (CompletionEvent.Checkpoint(state.getUpdateId, state.getRecordTime)
+    (CompletionEvent.Checkpoint(state.getUpdateId, state.recordTime)
       +: (accepted ++ rejected)).sortBy(_.offset)
   }
 

@@ -13,6 +13,7 @@ import akka.stream.Materializer
 import anorm.SqlParser.{str, _}
 import anorm.{AkkaStream, BatchSql, NamedParameter, SQL, SqlParser}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -305,43 +306,47 @@ private class PostgresLedgerDao(
             nodeId -> party.map(p => Ref.Party.assertFromString(p))
         }
 
-      def acsLookupContract(acs: Unit, cid: AbsoluteContractId) =
-        lookupActiveContractSync(cid).map(_.toActiveContract)
+      final class AcsStoreAcc extends ActiveContracts[AcsStoreAcc] {
 
-      def acsKeyExists(acc: Unit, key: GlobalKey): Boolean = selectContractKey(key).isDefined
+        def lookupContract(cid: AbsoluteContractId) =
+          lookupActiveContractSync(cid).map(_.toActiveContract)
 
-      def acsAddContract(
-          acs: Unit,
-          cid: AbsoluteContractId,
-          c: ActiveContracts.ActiveContract,
-          keyO: Option[GlobalKey]): Unit = {
-        storeContract(offset, Contract.fromActiveContract(cid, c))
-        keyO.foreach(key => storeContractKey(key, cid))
-        ()
-      }
+        def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
-      def acsRemoveContract(acs: Unit, cid: AbsoluteContractId, keyO: Option[GlobalKey]): Unit = {
-        archiveContract(offset, cid)
-        keyO.foreach(key => removeContractKey(key))
-        ()
+        def addContract(
+            cid: AbsoluteContractId,
+            c: ActiveContracts.ActiveContract,
+            keyO: Option[GlobalKey]) = {
+          storeContract(offset, Contract.fromActiveContract(cid, c))
+          keyO.foreach(key => storeContractKey(key, cid))
+          this
+        }
+
+        def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]) = {
+          archiveContract(offset, cid)
+          keyO.foreach(key => removeContractKey(key))
+          this
+        }
+
+        // TODO need another table for this, or alter same table as `addContract` uses
+        def implicitlyDisclose(global: Relation[AbsoluteContractId, Ref.Party]) =
+          this
       }
 
       //this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
-      val acsManager = new ActiveContractsManager(
-        acsLookupContract,
-        acsKeyExists,
-        acsAddContract,
-        acsRemoveContract,
-        ())
+      val acsManager = new ActiveContractsManager(new AcsStoreAcc)
 
       // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
       // within the current SQL transaction. All of the given functions perform side effects to update the database.
-      val atr = acsManager.addTransaction(
+      val atr = acsManager.addTransaction[LedgerEntry.EventId](
         ledgerEffectiveTime,
         transactionId,
         workflowId,
         transaction,
         mappedDisclosure,
+        // TODO blind `transaction` for these two maps, reenable SandboxSemanticTestsLfRunner and Memory-only test in CommandTransactionChecks
+        Map.empty,
+        Map.empty
       )
 
       atr match {

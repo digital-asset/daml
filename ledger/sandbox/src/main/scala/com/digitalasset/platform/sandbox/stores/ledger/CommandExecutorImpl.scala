@@ -29,26 +29,22 @@ class CommandExecutorImpl(engine: Engine, packageContainer: DamlPackageContainer
       lookupKey: GlobalKey => Future[Option[AbsoluteContractId]],
       commands: LfCommands): Future[Either[ErrorCause, TransactionSubmission]] = {
     SandboxDamle.consume(engine.submit(commands))(packageContainer, getContract, lookupKey).map {
-      case Left(err) =>
-        Left(ErrorCause.DamlLf(err))
-      case Right(updateTx) =>
-        Blinding
-          .checkAuthorizationAndBlind(updateTx, Set(submitter))
-          .fold(
-            e => Left(ErrorCause.DamlLf(e)),
-            blindingInfo =>
-              Right(TransactionSubmission(
-                submitted.commandId.unwrap,
-                submitted.workflowId.fold("")(_.unwrap),
-                submitted.submitter.underlyingString,
-                submitted.ledgerEffectiveTime,
-                submitted.maximumRecordTime,
-                submitted.applicationId.unwrap,
-                blindingInfo,
-                updateTx
-              ))
-          )
+      submission =>
+        (for {
+          updateTx <- submission
+          blindingInfo <- Blinding
+            .checkAuthorizationAndBlind(updateTx, Set(submitter))
+        } yield
+          TransactionSubmission(
+            submitted.commandId.unwrap,
+            submitted.workflowId.fold("")(_.unwrap),
+            submitted.submitter.underlyingString,
+            submitted.ledgerEffectiveTime,
+            submitted.maximumRecordTime,
+            submitted.applicationId.unwrap,
+            blindingInfo,
+            updateTx
+          )).left.map(ErrorCause.DamlLf)
     }
-
   }
 }
