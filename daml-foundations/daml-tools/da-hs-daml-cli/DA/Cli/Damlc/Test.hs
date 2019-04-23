@@ -102,7 +102,7 @@ prettyResult :: LF.Version -> Either SSC.Error SS.ScenarioResult -> DA.Pretty.Do
 prettyResult lfVersion errOrResult = case errOrResult of
   Left err ->
       DA.Pretty.error_ "fail. " DA.Pretty.$$
-      DA.Pretty.nest 2 (prettyErr lfVersion err)
+      DA.Pretty.error_ (DA.Pretty.nest 2 (prettyErr lfVersion err))
   Right result ->
     let nTx = length (SS.scenarioResultScenarioSteps result)
         isActive node =
