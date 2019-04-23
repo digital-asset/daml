@@ -129,3 +129,13 @@
   type: jar
 - target: //language-support/codegen-main:shaded_binary
   type: jar
+- target: //ledger/participant-state:participant-state
+  type: jar
+- target: //ledger/participant-state/reference:reference
+  type: jar
+- target: //ledger/participant-state-index:participant-state-index
+  type: jar
+- target: //ledger/participant-state-index/reference:reference
+  type: jar
+- target: //ledger/api-server-damlonx:api-server-damlonx
+  type: jar
