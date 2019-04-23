@@ -150,7 +150,8 @@ start opts@Options{..} = do
       liftIO $ throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
   liftIO $ validateJava opts
   cp <- liftIO $ javaProc ["-jar" , optServerJar]
-  port <- managed $ \resume -> withCheckedProcessCleanup cp $ \(stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc -> do
+  port <- managed $ \resume -> withCheckedProcessCleanup cp $ \(stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc ->
+          flip finally (System.IO.hClose stdinHdl) $ do
     let splitOutput = C.T.decode C.T.utf8 .| C.T.lines
     let printStderr line = liftIO (optLogError (T.unpack ("SCENARIO SERVICE STDERR: " <> line)))
     let printStdout line = liftIO (optLogInfo (T.unpack ("SCENARIO SERVICE STDOUT: " <> line)))
@@ -176,7 +177,7 @@ start opts@Options{..} = do
         -- callback or withAsync will block forever.
         flip finally (System.IO.hClose stdinHdl) $ do
             System.IO.hFlush System.IO.stdout
-            either error resume =<< takeMVar portMVar
+            either fail resume =<< takeMVar portMVar
   liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
   let grpcConfig = ClientConfig (Host "localhost") (Port port) [] Nothing
   client <- managed (withGRPCClient grpcConfig)
