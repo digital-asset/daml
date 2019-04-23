@@ -8,9 +8,9 @@ import com.digitalasset.daml.lf.value.Value._
 
 import com.digitalasset.daml.lf.data.Time
 
-// --------------------------------
-// Accepted commads coming from API
-// --------------------------------
+// ---------------------------------
+// Accepted commands coming from API
+// ---------------------------------
 sealed trait Command extends Product with Serializable
 
 /** Command for creating a contract
@@ -35,6 +35,23 @@ final case class ExerciseCommand(
     choiceId: String,
     submitter: SimpleString,
     argument: VersionedValue[AbsoluteContractId])
+    extends Command
+
+/** Command for creating a contract and exercising a choice
+  * on that existing contract within the same transaction
+  *
+  *  @param templateId identifier of the original contract
+  *  @param createArgument value passed to the template
+  *  @param choiceId identifier choice
+  *  @param choiceArgument value passed for the choice
+  *  @param submitter party submitting the choice
+  */
+final case class CreateAndExerciseCommand(
+    templateId: Identifier,
+    createArgument: VersionedValue[AbsoluteContractId],
+    choiceId: String,
+    choiceArgument: VersionedValue[AbsoluteContractId],
+    submitter: SimpleString)
     extends Command
 
 /** Commands input adapted from ledger-api

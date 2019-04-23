@@ -214,6 +214,92 @@ class EngineTest extends WordSpec with Matchers {
       res shouldBe 'right
     }
 
+    "translate create-and-exercise commands argument including labels" in {
+      val id = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
+      val let = Time.Timestamp.now()
+      val command =
+        CreateAndExerciseCommand(
+          id,
+          assertAsVersionedValue(
+            ValueRecord(
+              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+              ImmArray((Some("giver"), ValueParty(clara)), (Some("receiver"), ValueParty(clara))))),
+          "Transfer",
+          assertAsVersionedValue(
+            ValueRecord(None, ImmArray((Some("newReceiver"), ValueParty(clara))))),
+          clara
+        )
+
+      val res = commandTranslator
+        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .consume(lookupContractForPayout, lookupPackage, lookupKey)
+      res shouldBe 'right
+
+    }
+
+    "translate create-and-exercise commands argument without labels" in {
+      val id = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
+      val let = Time.Timestamp.now()
+      val command =
+        CreateAndExerciseCommand(
+          id,
+          assertAsVersionedValue(
+            ValueRecord(
+              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+              ImmArray((None, ValueParty(clara)), (None, ValueParty(clara))))),
+          "Transfer",
+          assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty(clara))))),
+          clara
+        )
+
+      val res = commandTranslator
+        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .consume(lookupContract, lookupPackage, lookupKey)
+      res shouldBe 'right
+    }
+
+    "not translate create-and-exercise commands argument wrong label in create arguments" in {
+      val id = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
+      val let = Time.Timestamp.now()
+      val command =
+        CreateAndExerciseCommand(
+          id,
+          assertAsVersionedValue(ValueRecord(
+            Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+            ImmArray((None, ValueParty(clara)), (Some("this_is_not_the_one"), ValueParty(clara))))),
+          "Transfer",
+          assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty(clara))))),
+          clara
+        )
+
+      val res = commandTranslator
+        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .consume(lookupContract, lookupPackage, lookupKey)
+      res shouldBe 'left
+    }
+
+    "not translate create-and-exercise commands argument wrong label in choice arguments" in {
+      val id = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
+      val let = Time.Timestamp.now()
+      val command =
+        CreateAndExerciseCommand(
+          id,
+          assertAsVersionedValue(
+            ValueRecord(
+              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+              ImmArray((None, ValueParty(clara)), (None, ValueParty(clara))))),
+          "Transfer",
+          assertAsVersionedValue(
+            ValueRecord(None, ImmArray((Some("this_is_not_the_one"), ValueParty(clara))))),
+          clara
+        )
+
+      val res = commandTranslator
+        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .consume(lookupContract, lookupPackage, lookupKey)
+      res shouldBe 'left
+    }
+
     "translate Optional values" in {
       val (optionalPkgId, optionalPkg @ _, allOptionalPackages) =
         loadPackage("daml-lf/tests/Optional.dar")
@@ -316,14 +402,6 @@ class EngineTest extends WordSpec with Matchers {
       res.flatMap(r => engine.interpret(r, let).consume(lookupContract, lookupPackage, lookupKey))
     val Right(tx) = interpretResult
 
-    "be translated" in {
-      val submitResult = engine
-        .submit(Commands(Seq(command), let, "test"))
-        .consume(lookupContract, lookupPackage, lookupKey)
-      interpretResult shouldBe 'right
-      submitResult shouldBe interpretResult
-    }
-
     "reinterpret to the same result" in {
       val txRoots = tx.roots.map(id => tx.nodes.get(id).get).toSeq
       val reinterpretResult =
@@ -410,6 +488,55 @@ class EngineTest extends WordSpec with Matchers {
       partyEvents(0) match {
         case _: ExerciseEvent[Tx.NodeId, ContractId, Tx.Value[ContractId]] => succeed
         case _ => fail("expected exercise")
+      }
+    }
+  }
+
+  "create-and-exercise command" should {
+    val templateId = Identifier(basicTestsPkgId, "BasicTests:Simple")
+    val hello = Identifier(basicTestsPkgId, "BasicTests:Hello")
+    val let = Time.Timestamp.now()
+    val command =
+      CreateAndExerciseCommand(
+        templateId,
+        assertAsVersionedValue(
+          ValueRecord(Some(templateId), ImmArray(Some("p") -> ValueParty(party)))),
+        "Hello",
+        assertAsVersionedValue(ValueRecord(Some(hello), ImmArray.empty)),
+        party
+      )
+
+    val res = commandTranslator
+      .preprocessCommands(Commands(Seq(command), let, "test"))
+      .consume(lookupContract, lookupPackage, lookupKey)
+    res shouldBe 'right
+    val interpretResult =
+      res.flatMap(r => engine.interpret(r, let).consume(lookupContract, lookupPackage, lookupKey))
+    val Right(tx) = interpretResult
+
+    "be translated" in {
+      tx.roots should have length 2
+      tx.nodes.keySet.toList should have length 2
+      val ImmArray(create, exercise) = tx.roots.map(tx.nodes)
+      create shouldBe a[NodeCreate[_, _]]
+      exercise shouldBe a[NodeExercises[_, _, _]]
+    }
+
+    "reinterpret to the same result" in {
+      val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
+      val reinterpretResult =
+        engine.reinterpret(txRoots, let).consume(lookupContract, lookupPackage, lookupKey)
+      (interpretResult |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
+    }
+
+    "be validated" in {
+      val validated = engine
+        .validate(tx, let)
+        .consume(lookupContract, lookupPackage, lookupKey)
+      validated match {
+        case Left(e) =>
+          fail(e.msg)
+        case Right(()) => ()
       }
     }
   }

@@ -17,7 +17,7 @@ import com.digitalasset.ledger.backend.api.v1.{
   TransactionSubmission
 }
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
+import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContractsInMemory}
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
@@ -31,7 +31,7 @@ import scala.concurrent.Future
 class InMemoryLedger(
     val ledgerId: String,
     timeProvider: TimeProvider,
-    acs0: ActiveContracts,
+    acs0: ActiveContractsInMemory,
     ledgerEntries: Seq[LedgerEntry])
     extends Ledger {
 
@@ -105,7 +105,9 @@ class InMemoryLedger(
       workflowId = tx.workflowId,
       transactionId = transactionId,
       transaction = mappedTx,
-      explicitDisclosure = tx.blindingInfo.explicitDisclosure
+      explicitDisclosure = tx.blindingInfo.explicitDisclosure,
+      localImplicitDisclosure = tx.blindingInfo.localImplicitDisclosure,
+      globalImplicitDisclosure = tx.blindingInfo.globalImplicitDisclosure,
     )
     acsRes match {
       case Left(err) =>

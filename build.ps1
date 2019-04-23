@@ -42,11 +42,15 @@ function build-partial() {
 function build-full() {
     # FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
     bazel build `
+        //release:sdk-release-tarball `
         //:git-revision `
         @com_github_grpc_grpc//:grpc `
+        //3rdparty/... `
         //nix/third-party/gRPC-haskell:grpc-haskell `
         //daml-assistant:daml `
-        //daml-foundations/daml-tools/daml-extension:daml_extension_lib `
+        //daml-foundations/daml-tools/daml-extension/... `
+        //daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist `
+        //daml-foundations/daml-tools/docs/... `
         //daml-foundations/daml-tools/language-server-tests:lib-js `
         //daml-lf/archive:daml_lf_archive_scala `
         //daml-lf/archive:daml_lf_archive_protos_zip `
@@ -63,17 +67,27 @@ function build-full() {
         //daml-lf/scenario-interpreter/... `
         //daml-lf/transaction-scalacheck/... `
         //daml-lf/validation/... `
-        //daml-foundations/daml-tools/docs/... `
-        //daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist `
+        //extractor:extractor-binary `
         //language-support/java/testkit:testkit `
         //language-support/java/bindings/... `
         //language-support/java/bindings-rxjava/... `
+        //ledger/api-server-damlonx:api-server-damlonx `
+        //ledger/api-server-damlonx/reference:reference `
         //ledger/backend-api/... `
+        //ledger/ledger-api-akka/... `
         //ledger/ledger-api-client/... `
         //ledger/ledger-api-common/... `
         //ledger/ledger-api-domain/... `
-        //ledger/ledger-api-server-example `
-        //ledger-api/rs-grpc-akka/... `
+        //ledger/ledger-api-server-example/... `
+        //ledger/ledger-api-scala-logging/... `
+        //ledger/ledger-api-server-example/... `
+        //ledger/participant-state/... `
+        //ledger/participant-state-index/... `
+        //ledger/sandbox:sandbox `
+        //ledger/sandbox:sandbox-binary `
+        //ledger/sandbox:sandbox-tarball `
+        //ledger/sandbox:sandbox-head-tarball `
+        //ledger-api/... `
         //navigator/backend/... `
         //navigator/frontend/... `
         //pipeline/... `
@@ -103,7 +117,7 @@ function build-full() {
         //language-support/java/bindings-rxjava/... `
         //ledger/ledger-api-client/... `
         //ledger/ledger-api-common/... `
-        //ledger-api/rs-grpc-akka/... `
+        //ledger-api/... `
         //navigator/backend/... `
         //pipeline/...
 }

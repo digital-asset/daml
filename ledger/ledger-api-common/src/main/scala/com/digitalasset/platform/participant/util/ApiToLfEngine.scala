@@ -12,12 +12,14 @@ import com.digitalasset.daml.lf.engine.{
   Commands => LfCommands,
   CreateCommand => LfCreateCommand,
   Error => LfError,
-  ExerciseCommand => LfExerciseCommand
+  ExerciseCommand => LfExerciseCommand,
+  CreateAndExerciseCommand => LfCreateAndExerciseCommand
 }
 import com.digitalasset.daml.lf.lfpackage.Ast.Package
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.domain.{
+  CreateAndExerciseCommand,
   CreateCommand,
   ExerciseCommand,
   Command => ApiCommand,
@@ -284,6 +286,7 @@ object ApiToLfEngine {
         val oldStyleTplId = apiCommand match {
           case e: ExerciseCommand => e.templateId
           case c: CreateCommand => c.templateId
+          case ce: CreateAndExerciseCommand => ce.templateId
         }
         toLfIdentifier(packages0, oldStyleTplId) match {
           case Error(err) => Error(err)
@@ -303,6 +306,17 @@ object ApiToLfEngine {
               LfCreateCommand(
                 tplId,
                 asVersionedValueOrThrow(arg),
+              )
+            def withCreateAndExerciseArgument(
+                ce: CreateAndExerciseCommand,
+                createArg: LfValue,
+                choiceArg: LfValue): LfCreateAndExerciseCommand =
+              LfCreateAndExerciseCommand(
+                tplId,
+                asVersionedValueOrThrow(createArg),
+                ce.choice.unwrap,
+                asVersionedValueOrThrow(choiceArg),
+                SimpleString.assertFromString(cmd.submitter.underlyingString)
               )
             apiCommand match {
               case e: ExerciseCommand =>
@@ -338,6 +352,63 @@ object ApiToLfEngine {
                       packages2,
                       remainingCommands,
                       processed :+ withCreateArgument(c, createArgument))
+                }
+              case ce: CreateAndExerciseCommand =>
+                apiValueToLfValueWithPackages(packages1, ce.createArgument) match {
+                  case Error(err) => Error(err)
+                  case np: NeedPackage[(Packages, LfValue)] =>
+                    np.flatMap {
+                      case (packages2, createArgument) =>
+                        apiValueToLfValueWithPackages(packages2, ce.choiceArgument) match {
+                          case Error(err) => Error(err)
+                          case np: NeedPackage[(Packages, LfValue)] =>
+                            np.flatMap {
+                              case (packages3, choiceArgument) =>
+                                goResume(
+                                  packages3,
+                                  remainingCommands,
+                                  processed :+ withCreateAndExerciseArgument(
+                                    ce,
+                                    createArgument,
+                                    choiceArgument)
+                                )
+                            }
+                          case Done((packages3, choiceArgument)) =>
+                            goResume(
+                              packages3,
+                              remainingCommands,
+                              processed :+ withCreateAndExerciseArgument(
+                                ce,
+                                createArgument,
+                                choiceArgument)
+                            )
+                        }
+                    }
+                  case Done((packages2, createArgument)) =>
+                    apiValueToLfValueWithPackages(packages2, ce.choiceArgument) match {
+                      case Error(err) => Error(err)
+                      case np: NeedPackage[(Packages, LfValue)] =>
+                        np.flatMap {
+                          case (packages3, choiceArgument) =>
+                            goResume(
+                              packages3,
+                              remainingCommands,
+                              processed :+ withCreateAndExerciseArgument(
+                                ce,
+                                createArgument,
+                                choiceArgument)
+                            )
+                        }
+                      case Done((packages3, choiceArgument)) =>
+                        go(
+                          packages3,
+                          remainingCommands,
+                          processed :+ withCreateAndExerciseArgument(
+                            ce,
+                            createArgument,
+                            choiceArgument)
+                        )
+                    }
                 }
             }
         }

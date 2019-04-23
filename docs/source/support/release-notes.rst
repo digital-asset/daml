@@ -10,6 +10,10 @@ HEAD — ongoing
 --------------
 
 - Addition of ``DA.Math`` library containing exponentiation, logarithms and trig functions
+- Add CreateAndExerciseCommand to Ledger API and DAMLe for creating a contract
+  and exercising a choice on it within the same transaction. This can be used to
+  implement "callable updates" (aka functions of type ``Update a`` that can be
+  called from the Ledger API via a contract).
 
 0.12.7 — 2019-04-17
 -------------------

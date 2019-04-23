@@ -70,6 +70,77 @@ proto_gen(
     ],
 )
 
+# TODO(nic): When compile-proto-file handles map<key,value>, we will can run on:  **/*.proto
+# + glob(["**/*.proto",])
+filegroup(
+    name = "ledger-api-protos-fg",
+    srcs = [
+        #"com/digitalasset/ledger/api/v1/active_contracts_service.proto",
+        "com/digitalasset/ledger/api/v1/command_completion_service.proto",
+        "com/digitalasset/ledger/api/v1/command_service.proto",
+        "com/digitalasset/ledger/api/v1/command_submission_service.proto",
+        "com/digitalasset/ledger/api/v1/commands.proto",
+        "com/digitalasset/ledger/api/v1/completion.proto",
+        "com/digitalasset/ledger/api/v1/event.proto",
+        "com/digitalasset/ledger/api/v1/ledger_configuration_service.proto",
+        "com/digitalasset/ledger/api/v1/ledger_identity_service.proto",
+        "com/digitalasset/ledger/api/v1/ledger_offset.proto",
+        "com/digitalasset/ledger/api/v1/package_service.proto",
+        "com/digitalasset/ledger/api/v1/trace_context.proto",
+        #"com/digitalasset/ledger/api/v1/transaction.proto",
+        #"com/digitalasset/ledger/api/v1/transaction_filter.proto",
+        #"com/digitalasset/ledger/api/v1/transaction_service.proto",
+        "com/digitalasset/ledger/api/v1/value.proto",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+genrule(
+    name = "ledger-api-haskell-sources",
+    srcs = [
+        "BUILD.bazel",
+        "@com_google_protobuf//:well_known_protos",
+        "@com_github_googleapis_googleapis//google/rpc:status.proto",
+        ":ledger-api-protos-fg",
+    ],
+    # TODO(nic): Construct expected output list from the inputs. See example in: daml-lf/archive/BUILD.bazel
+    outs = [
+        #"ActiveContractsService.hs",
+        "CommandCompletionService.hs",
+        "CommandService.hs",
+        "CommandSubmissionService.hs",
+        "Commands.hs",
+        "Completion.hs",
+        "Event.hs",
+        "LedgerConfigurationService.hs",
+        "LedgerIdentityService.hs",
+        "LedgerOffset.hs",
+        "PackageService.hs",
+        "TraceContext.hs",
+        #"Transaction.hs",
+        #"TransactionFilter.hs",
+        #"TransactionService.hs",
+        "Value.hs",
+    ],
+    # TODO(nic): Can we improve the logic to set the includeDir(s)? Triple $$dirname is a bit pants.
+    cmd = """
+        here=$$(dirname $(locations BUILD.bazel))
+        well_known=$$(dirname $$(dirname $$(dirname $$(echo $(locations @com_google_protobuf//:well_known_protos) | cut -d ' ' -f1))))
+        rpc_status=$$(dirname $$(dirname $$(dirname $$(echo $(location @com_github_googleapis_googleapis//google/rpc:status.proto)))))
+        for src in $(locations :ledger-api-protos-fg); do
+            $(location //nix/third-party/proto3-suite:compile-proto-file) \
+                --includeDir $$here \
+                --includeDir $$well_known \
+                --includeDir $$rpc_status \
+                --includeDir $$(dirname $$src) --proto $$(basename $$src) \
+                --out $(@D)
+        done
+    """,
+    tools = [
+        "//nix/third-party/proto3-suite:compile-proto-file",
+    ],
+)
+
 scalapb_deps = [
     "//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime",
     "//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime_grpc",

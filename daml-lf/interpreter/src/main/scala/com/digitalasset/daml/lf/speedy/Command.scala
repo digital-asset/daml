@@ -32,4 +32,12 @@ object Command {
       coid: SContractId
   ) extends Command
 
+  final case class CreateAndExercise(
+      templateId: Identifier,
+      createArgument: SValue,
+      choiceId: String,
+      choiceArgument: SValue,
+      submitter: ImmArray[SParty]
+  ) extends Command
+
 }

@@ -30,7 +30,7 @@ jobs:
   - job: macos
     timeoutInMinutes: 360
     pool:
-      vmImage: 'macOS-10.13'
+      vmImage: 'macOS-10.14'
     steps:
       - template: ci/build-unix.yml
         parameters:
@@ -43,8 +43,32 @@ jobs:
     steps:
       - template: ci/build-windows.yml
 
+  - job: perf
+    timeoutInMinutes: 30
+    pool:
+      name: 'linux-pool'
+    steps:
+      - checkout: self
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - bash: ci/configure-bazel.sh
+        displayName: 'Configure Bazel'
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
+          # to upload to the bazel cache
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          bazel run -- //ledger/sandbox-perf -foe true -i1 -f1 -wi 1 -bm avgt -rf csv -rff "$(Build.StagingDirectory)/sandbox-perf.csv"
+      - task: PublishBuildArtifacts@1
+        condition: succeededOrFailed()
+        inputs:
+          pathtoPublish: '$(Build.StagingDirectory)'
+          artifactName: 'Perf test logs'
+
   - job: release
-    dependsOn: [ "Linux", "macOS", "Windows"]
+    dependsOn: [ "linux", "macos", "windows", "perf"]
     pool:
       vmImage: "Ubuntu-16.04"
     condition: and(succeeded(),

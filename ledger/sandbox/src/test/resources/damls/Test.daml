@@ -403,3 +403,50 @@ testScenario = do
   submit party (create DummyWithParam with operator = party)
   submit party (create DummyFactory with operator = party)
   return ()
+
+template Delegated
+  with
+    owner : Party
+  where
+    signatory owner
+
+template Delegation
+  with
+    owner : Party
+    delegate : Party
+  where
+    signatory owner
+    controller delegate can
+      FetchDelegated: Delegated
+        with delegated: ContractId Delegated
+        do fetch delegated
+
+template ShowDelegated
+  with
+    owner: Party
+    delegate: Party
+  where
+    signatory owner
+    observer delegate
+    controller owner can
+      ShowIt : ()
+        with delegatedId: ContractId Delegated
+        do
+          fetch delegatedId
+          return ()
+
+testDivulgenceVisibility = scenario do
+  owner <- getParty "owner"
+  delegate <- getParty "delegate"
+  delegated <- owner `submit` create Delegated with owner
+  delegation <- owner `submit` create Delegation with owner, delegate
+  delegate `submit` exercise delegation FetchDelegated with delegated
+
+testDivulgenceSuccess = scenario do
+  owner <- getParty "owner"
+  delegate <- getParty "delegate"
+  delegated <- owner `submit` create Delegated with owner
+  delegation <- owner `submit` create Delegation with owner, delegate
+  showId <- owner `submit` create ShowDelegated with owner, delegate
+  owner `submit` exercise showId ShowIt with delegatedId = delegated
+  delegate `submit` exercise delegation  FetchDelegated with delegated

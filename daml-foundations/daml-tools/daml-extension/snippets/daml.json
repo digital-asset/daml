@@ -5,7 +5,17 @@
       "controller ${1:party} can",
       "  ${2:Call} : ${3:ContractId ${4:Type}}",
       "    with ${5:name} : ${6:Type}",
-      "    do"
+      "    do",
+      "      $0"
+    ]
+  },
+  "choice": {
+    "prefix": "choice",
+    "body": [
+      "choice ${2:Call} : ${3:ContractId ${4:Type}} with",
+      "   ${1:party} : Party",
+      " controller ${1:party}",
+      "    do",
       "      $0"
     ]
   },
@@ -110,7 +120,7 @@
     "prefix": "scenario",
     "body": [
       "${1:name} = scenario do",
-      "  ${2:${3:p} <- getParty \"${4:party}\"}"
+      "  ${2:${3:p} <- getParty \"${4:party}\"}",
       "  $0"
     ]
   },
