@@ -1,0 +1,53 @@
+//
+// Protocol buffer messages used by the participant state key-value utilities
+// for implementing a DAML ledger backed by a key-value store.
+//
+
+syntax = "proto3";
+package com.daml.ledger.participant.state.kvutils;
+option java_package = "com.daml.ledger.participant.state.kvutils";
+
+import "google/protobuf/timestamp.proto";
+import "daml-lf/transaction/src/main/protobuf/transaction.proto";
+
+// The ledger implementation stores the `DamlKVEntry`s in an
+// ordered sequence of keys, allowing for offset-based querying.
+//
+// The value in which entry (or entries) is stored should include
+// the record time at which it was committed.
+//
+// Each entry can be converted into a participant state `Update` event.
+message DamlKVEntry {
+  oneof payload {
+    // A committed DAML transaction.
+    // Can be converted into `Update.TransactionAccepted`.
+    DamlKVTransaction transaction = 1;
+
+    // A DAML-LF archive. Subsequent entries can refer to the package
+    // contained within.
+    // Can be converted into `Update.PublicPackageUploaded`.
+    DamlKVArchive archive = 2;
+  }
+}
+
+message DamlKVTransaction {
+    // The original submitted transaction, with relative identifiers.
+    com.digitalasset.daml.lf.transaction.Transaction transaction = 1;
+
+    // Submitter info and transaction metadata.
+    string submitter = 2;
+    string command_id = 3;
+    string application_id = 4;
+    string workflow_id = 5;
+    google.protobuf.Timestamp ledger_effective_time = 6;
+    google.protobuf.Timestamp maximum_record_time = 7;
+}
+
+message DamlKVArchive {
+  // The package identifier of the package contained in the archive.
+  string package_id = 1;
+
+  // The DAML-LF archive in serialized form.
+  bytes archiveBytes = 2;
+}
+

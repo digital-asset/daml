@@ -1,0 +1,53 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+da_scala_library(
+    name = "kvutils",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml.ledger:participant-state-kvutils:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/com/google/guava:guava",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
+        "//daml-lf/transaction/src/main/protobuf:value_java_proto",
+        "//daml-lf/engine",
+        "//daml-lf/lfpackage",
+        "//ledger/participant-state",
+        ":daml_kvutils_java_proto",
+    ],
+)
+
+proto_library(
+  name = "daml_kvutils_proto",
+  srcs = ["src/main/protobuf/daml_kvutils.proto"],
+  deps = [
+    "@com_google_protobuf//:empty_proto",
+    "@com_google_protobuf//:timestamp_proto",
+    "//daml-lf/transaction/src/main/protobuf:transaction_proto",
+    "//daml-lf/transaction/src/main/protobuf:value_proto",
+  ],
+  visibility = [
+    "//visibility:public"
+  ],
+)
+
+java_proto_library(
+  name = "daml_kvutils_java_proto",
+  deps = [":daml_kvutils_proto"],
+  visibility = [
+    "//visibility:public"
+  ],
+)
