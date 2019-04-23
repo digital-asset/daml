@@ -32,7 +32,7 @@ tests :: TestTree
 tests = testGroup
     "damlc test"
     [ testCase "Non-existent file" $ do
-        shouldThrow (Damlc.execTest ["foobar"] False Nothing opts)
+        shouldThrow (Damlc.execTest ["foobar"] (ColorTestResults False) Nothing opts)
     , testCase "File with compile error" $ do
         withTempFile $ \path -> do
             T.writeFileUtf8 path $ T.unlines
@@ -40,7 +40,7 @@ tests = testGroup
               , "module Foo where"
               , "abc"
               ]
-            shouldThrow (Damlc.execTest [path] False Nothing opts)
+            shouldThrow (Damlc.execTest [path] (ColorTestResults False) Nothing opts)
     , testCase "File with failing scenario" $ do
         withTempFile $ \path -> do
             T.writeFileUtf8 path $ T.unlines
@@ -48,7 +48,7 @@ tests = testGroup
               , "module Foo where"
               , "x = scenario $ assert False"
               ]
-            shouldThrowExitFailure (Damlc.execTest [path] False Nothing opts)
+            shouldThrowExitFailure (Damlc.execTest [path] (ColorTestResults False) Nothing opts)
     ]
 
 shouldThrowExitFailure :: IO () -> IO ()
