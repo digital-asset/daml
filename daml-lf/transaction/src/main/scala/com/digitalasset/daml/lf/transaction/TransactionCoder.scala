@@ -325,7 +325,7 @@ object TransactionCoder {
   private[transaction] def encodeTransaction[Nid, Cid](
       encodeNid: EncodeNid[Nid],
       encodeCid: EncodeCid[Cid],
-      tx: GenTransaction.WithTxValue[Nid, Cid])
+      tx: GenTransaction[Nid, Cid, VersionedValue[Cid]])
     : Either[EncodeError, TransactionOuterClass.Transaction] =
     encodeTransactionWithCustomVersion(
       encodeNid,

@@ -3,17 +3,19 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 
 import com.digitalasset.daml.lf.transaction._
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.EventId
 
 trait TransactionSerializer {
 
-  def serialiseTransaction(transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId])
+  def serialiseTransaction(
+      transaction: GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]])
     : Either[EncodeError, Array[Byte]]
 
-  def deserializeTransaction(blob: Array[Byte])
-    : Either[DecodeError, GenTransaction.WithTxValue[EventId, AbsoluteContractId]]
+  def deserializeTransaction(blob: Array[Byte]): Either[
+    DecodeError,
+    GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]]
 
 }
 
@@ -23,7 +25,7 @@ object TransactionSerializer extends TransactionSerializer {
   private val defaultDecodeNid: String => Either[DecodeError, EventId] = s => Right(s)
 
   override def serialiseTransaction(
-      transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId])
+      transaction: GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]])
     : Either[EncodeError, Array[Byte]] =
     TransactionCoder
       .encodeTransactionWithCustomVersion(
@@ -36,8 +38,9 @@ object TransactionSerializer extends TransactionSerializer {
       )
       .map(_.toByteArray())
 
-  override def deserializeTransaction(blob: Array[Byte])
-    : Either[DecodeError, GenTransaction.WithTxValue[EventId, AbsoluteContractId]] =
+  override def deserializeTransaction(blob: Array[Byte]): Either[
+    DecodeError,
+    GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]] =
     TransactionCoder
       .decodeVersionedTransaction(
         defaultDecodeNid,
