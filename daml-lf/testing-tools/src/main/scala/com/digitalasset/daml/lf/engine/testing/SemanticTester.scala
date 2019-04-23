@@ -98,7 +98,7 @@ class SemanticTester(
       // returns the matched event and the tail of the eventIds
       def popEvent[EvTyp: ClassTag](
           what: String,
-          scenarioNode: GenNode[L.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]],
+          scenarioNode: GenNode.WithTxValue[L.NodeId, AbsoluteContractId],
           remainingLedgerEventIds: FrontStack[ledger.EventNodeId])
         : (EvTyp, FrontStack[ledger.EventNodeId]) =
         remainingLedgerEventIds match {

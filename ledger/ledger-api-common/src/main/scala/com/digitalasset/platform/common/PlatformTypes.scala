@@ -15,7 +15,7 @@ object PlatformTypes {
   type GenTransaction[Nid, Cid] = T.GenTransaction.WithTxValue[Nid, Cid]
   val GenTransaction: T.GenTransaction.type = T.GenTransaction
 
-  type GenNode[Nid, Cid] = N.GenNode[Nid, Cid, V.VersionedValue[Cid]]
+  type GenNode[Nid, Cid] = N.GenNode.WithTxValue[Nid, Cid]
 
   type NodeCreate[Cid] = N.NodeCreate[Cid, V.VersionedValue[Cid]]
   val NodeCreate: N.NodeCreate.type = N.NodeCreate

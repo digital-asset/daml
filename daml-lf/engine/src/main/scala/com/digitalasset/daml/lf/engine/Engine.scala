@@ -89,7 +89,7 @@ final class Engine {
     * create or an exercise choice.
     */
   def reinterpret(
-      nodes: Seq[GenNode[NodeId, ContractId, Transaction.Value[ContractId]]],
+      nodes: Seq[GenNode.WithTxValue[NodeId, ContractId]],
       ledgerEffectiveTime: Time.Timestamp
   ): Result[Transaction.Transaction] = {
     for {

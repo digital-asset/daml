@@ -340,7 +340,7 @@ object Transaction {
   type Value[+Cid] = Value.VersionedValue[Cid]
 
   /** Transaction nodes */
-  type Node = GenNode[NodeId, ContractId, Value[ContractId]]
+  type Node = GenNode.WithTxValue[NodeId, ContractId]
 
   /** (Complete) transactions, which are the result of interpreting a
     *  ledger-update. These transactions are consumed by either the
@@ -465,7 +465,7 @@ object Transaction {
 
         def addToStringBuilder(
             nid: NodeId,
-            node: GenNode[NodeId, ContractId, Value[ContractId]],
+            node: GenNode.WithTxValue[NodeId, ContractId],
             rootPrefix: String): Unit = {
           sb.append(rootPrefix)
             .append("node ")

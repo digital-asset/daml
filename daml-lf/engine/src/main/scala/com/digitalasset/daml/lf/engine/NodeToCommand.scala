@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 object NodeToCommand {
 
   /** a node incoming without use of internal nodeIds */
-  type TranslatableNode = GenNode[_, AbsoluteContractId, VersionedValue[AbsoluteContractId]]
+  type TranslatableNode = GenNode.WithTxValue[_, AbsoluteContractId]
 
   import Error._
 
