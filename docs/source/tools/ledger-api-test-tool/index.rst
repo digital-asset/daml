@@ -1,3 +1,6 @@
+.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. SPDX-License-Identifier: Apache-2.0
+
 .. _ledger-api-test-tool:
 
 Ledger API Test Tool
@@ -121,3 +124,4 @@ To force the tool to always return success exit code, use :code:`--must-fail` fl
 
 This is useful during development of a DAML Ledger implementation, when tool
 needs to be used against a known-to-be-faulty implementation (e.g. in CI).
+
