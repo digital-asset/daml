@@ -3,8 +3,8 @@
 
 .. _bindings-js-daml-as-json:
 
-DAML as JSON
-############
+How DAML types are translated to JSON
+#####################################
 
 The Node.js bindings accept as parameters and return as results plain JavaScript objects.
 
