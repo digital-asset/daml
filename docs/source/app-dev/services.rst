@@ -80,6 +80,19 @@ Transaction and transaction trees
 
 ``TransactionService`` offers several different subscriptions. The most commonly used is ``GetTransactions``. If you need more details, you can use ``GetTransactionTrees`` instead, which returns transactions as flattened trees, represented as a map of event IDs to events and a list of root event IDs.
 
+.. _verbosity:
+
+Verbosity
+---------
+
+The service works in a non-verbose mode by default, which means that some identifiers are omitted:
+
+- Record IDs
+- Record field labels
+- Variant IDs
+
+You can get these included in requests related to Transactions by setting the ``verbose`` field in message ``GetTransactionsRequest`` or ``GetActiveContractsRequest`` to ``true``.
+
 Active contract service
 =======================
 
@@ -90,6 +103,11 @@ The active contract service returns the current contract set as a set of created
 For state-driven applications, this is most important at application start. They must synchronize their initial state with a known view of the ledger, and without this service, the only way to do this would be to read the Transaction Stream from the beginning of the ledger. This can be prohibitive with a large ledger.
 
 The active contract service overcomes this, by allowing an application to request a snapshot of the ledger, determine the position at which that snapshot was taken, and build its initial state from this view. The application can then begin to receive events via the Transaction Service from the given position, and remain in sync with the ledger by using these to apply updates to this initial state.
+
+Verbosity
+---------
+
+See :ref:`verbosity` above.
 
 Utility services
 ****************

@@ -4,56 +4,27 @@
 The Ledger API using gRPC
 #########################
 
+.. toctree::
+   :hidden:
+
+   proto-docs
+   daml-to-ledger-api
+
 If you want to write an application for the ledger API in other languages, you'll need to use `gRPC <https://grpc.io>`__ directly.
 
 If you're not familiar with gRPC, we strongly recommend following the `gRPC quickstart <https://grpc.io/docs/quickstart/>`__ and `gRPC tutorials <https://grpc.io/docs/tutorials/>`__. You need an understanding of gRPC before you can use this version of the Ledger API.
 
-  - Introduction to the gRPC API
-  - Getting started
-  - Examples
-  - Protobuf reference
-
-
 Getting started
 ***************
 
-To add all of the necessary protobuf files, run ``da project add ledger-api-protos``.
+To add all of the necessary protobuf files to a project, run ``da project add ledger-api-protos``.
 
-Protobuf reference
-******************
+Protobuf reference documentation
+********************************
 
-TODO brief explanation of protos.
+.. TODO brief explanation of protos.
 
 For full details of all of the Ledger API services and their RPC methods, see  :doc:`proto-docs`.
-
-Error handling
-**************
-
-Tor the standard error codes that the server or the client might return, see the `gRPC documentation <https://github.com/grpc/grpc/blob/600272c826b48420084c2ff76dfb0d34324ec296/doc/statuscodes.md>`__ .
-
-For submitted commands, there are these response codes:
-
-ABORTED
-   The platform failed to record the result of the command due to a transient server-side error or a time constraint violation. You can retry the submission with updated Ledger Effective Time (LET) and Maximum Record Time (MRT) values.
-INVALID_ARGUMENT
-   The submission failed because of a client error. The platform will definitely reject resubmissions of the same command even with updated LET and MRT values.
-OK, INTERNAL, UNKNOWN (when returned by the Command Submission Service)
-   Assume that the command was accepted, and wait for the resulting completion or a timeout from the Command Completion Service.
-OK (when returned by the Command Service)
-   You can be sure that the command was successful.
-INTERNAL, UNKNOWN (when returned by the Command Service)
-   Resubmit the command with the same command_id.
-
-Verbosity
-*********
-
-The API works in a non-verbose mode by default, which means that some identifiers are omitted:
-
-- Record IDs
-- Record field labels
-- Variant IDs
-
-You can get these included in requests related to Transactions by setting the ``verbose`` field in message ``GetTransactionsRequest`` or ``GetActiveContractsRequest`` to ``true``.
 
 Example project
 ***************
@@ -87,3 +58,26 @@ The first line shows:
 - The workflow ID  ``Ping-Alice-1`` conveys that this is the workflow triggered by the second initial ``Ping`` contract that was created by ``Alice``.
 
 This example subscribes to transactions for a single party, as different parties typically live on different participant nodes. However, if you have multiple parties registered on the same node, or are running an application against the Sandbox, you can subscribe to transactions for multiple parties in a single subscription by putting multiple entries into the ``filters_by_party`` field of the ``TransactionFilter`` message. Subscribing to transactions for an unknown party will result in an error.
+
+DAML types and protobuf
+***********************
+
+For information on how DAML types and contracts are represented by the Ledger API as protobuf messages, see :doc:`/app-dev/grpc/daml-to-ledger-api`.
+
+Error handling
+**************
+
+Tor the standard error codes that the server or the client might return, see the `gRPC documentation <https://github.com/grpc/grpc/blob/600272c826b48420084c2ff76dfb0d34324ec296/doc/statuscodes.md>`__ .
+
+For submitted commands, there are these response codes:
+
+ABORTED
+   The platform failed to record the result of the command due to a transient server-side error or a time constraint violation. You can retry the submission with updated Ledger Effective Time (LET) and Maximum Record Time (MRT) values.
+INVALID_ARGUMENT
+   The submission failed because of a client error. The platform will definitely reject resubmissions of the same command even with updated LET and MRT values.
+OK, INTERNAL, UNKNOWN (when returned by the Command Submission Service)
+   Assume that the command was accepted, and wait for the resulting completion or a timeout from the Command Completion Service.
+OK (when returned by the Command Service)
+   You can be sure that the command was successful.
+INTERNAL, UNKNOWN (when returned by the Command Service)
+   Resubmit the command with the same command_id.

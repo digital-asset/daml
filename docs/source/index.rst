@@ -44,6 +44,7 @@ DAML SDK documentation
    app-dev/index
    app-dev/app-arch
    app-dev/bindings-java/index
+   app-dev/grpc/index
 
 .. toctree::
    :titlesonly:
