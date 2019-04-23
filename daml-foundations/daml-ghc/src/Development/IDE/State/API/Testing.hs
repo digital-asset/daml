@@ -44,7 +44,7 @@ import Development.IDE.State.Rules.Daml
 import qualified Development.IDE.Logger as Logger
 import           Development.IDE.Types.LSP
 import DA.Daml.GHC.Compiler.Options (defaultOptionsIO)
-import Language.Haskell.LSP.Types (filePathToUri, uriToFilePath)
+import Language.Haskell.LSP.Types (filePathToUri, uriToFilePath, Range)
 
 -- * external dependencies
 import Control.Concurrent.STM
@@ -286,16 +286,22 @@ searchDiagnostics expected@(severity, cursor, message) actuals =
   where
     match :: D.Diagnostic -> Bool
     match d =
-           severity == D._severity d
-        && cursorPosition cursor == D._start (D._range d)
+           Just severity == D._severity d
+        && cursorPosition cursor == D._start ((D._range :: D.Diagnostic -> Range) d)
         && (T.toLower message `T.isInfixOf` T.toLower (D._message d))
 
     fileDiagnostics :: FilePath -> D.DiagnosticStore -> [D.Diagnostic]
     fileDiagnostics fp =
-        join .
-        map (\(D.StoreItem _ ds) -> join $ map toList $ Map.elems ds) .
-        fromMaybe [] .
+        maybe [] fromStore .
         Map.lookup (filePathToUri fp)
+
+-- | These functions live in the test framework rather that further down the stack because
+--   you really should be deconstructing LSP diagnostic stores in this manner bar when testing
+fromStore :: D.StoreItem -> [D.Diagnostic]
+fromStore (D.StoreItem _ ds) = join $ map toList $ Map.elems ds
+
+allDiagnostics :: D.DiagnosticStore -> [D.Diagnostic]
+allDiagnostics = join . map fromStore . Map.elems
 
 expectDiagnostic :: D.DiagnosticSeverity -> Cursor -> T.Text -> ShakeTest ()
 expectDiagnostic severity cursor msg = do
@@ -312,7 +318,7 @@ expectOnlyDiagnostics expected = do
     actuals <- getDiagnostics
     forM_ expected $ \e -> searchDiagnostics e actuals
     unless (length expected == length actuals) $
-        throwError $ ExpectedDiagnostics expected actuals
+        throwError $ ExpectedDiagnostics expected $ allDiagnostics actuals
 
 -- | Check that the given virtual resource exists and that the given text is
 -- an infix of the content.
@@ -353,7 +359,7 @@ expectOnlyErrors = expectOnlyDiagnostics . map (\(cursor, msg) -> (D.DsError, cu
 expectNoErrors :: ShakeTest ()
 expectNoErrors = do
     diagnostics <- getDiagnostics
-    let errors = filter (\d -> D._severity d == D.DsError) diagnostics
+    let errors = filter (\d -> D._severity d == Just D.DsError) $ allDiagnostics diagnostics
     unless (null errors) $
         throwError (ExpectedNoErrors errors)
 
@@ -373,7 +379,11 @@ matchGoToDefinitionPattern :: GoToDefinitionPattern -> Maybe D.Location -> Bool
 matchGoToDefinitionPattern = \case
     Missing -> isNothing
     At c -> maybe False ((c ==) . locationStartCursor)
-    In m -> maybe False (isSuffixOf (moduleNameToFilePath m) . D._uri)
+    In m -> \l -> fromMaybe False $ do
+        l' <- l
+        let uri = D._uri l'
+        fp <- uriToFilePath uri
+        pure $ isSuffixOf (moduleNameToFilePath m) fp
 
 -- | Expect "go to definition" to point us at a certain location or to fail.
 expectGoToDefinition :: CursorRange -> GoToDefinitionPattern -> ShakeTest ()
