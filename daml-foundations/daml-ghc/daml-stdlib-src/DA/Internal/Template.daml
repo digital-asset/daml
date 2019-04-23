@@ -109,10 +109,7 @@ postconsuming _ = PostConsuming
 class Template c => Choice c e r | c e -> r where
     -- | HIDE
     consuming : NoEvent c e -> Consuming
-    -- Must be a lambda since otherwise the default-dictionary method
-    -- causes a runtime loop as the method exists in the dictionary,
-    -- takes the dictionary, and can't be eta expanded.
-    consuming _ = PreConsuming
+    consuming = preconsuming
 
     choiceController : c -> e -> [Party]
     choice : c -> ContractId c -> e -> Update r
