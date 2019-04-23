@@ -164,7 +164,7 @@ activateDaml env@InstallEnv{..} targetPath = do
 
     requiredIO ("Failed to link daml binary in " <> pack damlBinaryTargetDir) $
         if isWindows
-            then writeFile damlBinaryTargetPath ("START " <> damlBinarySourcePath <> " %*")
+            then writeFile damlBinaryTargetPath (damlBinarySourcePath <> " %*")
             else createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
 
     unlessQuiet env $ do -- Ask user to add .daml/bin to PATH if it is absent.
