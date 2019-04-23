@@ -11,6 +11,7 @@ da_scala_library(
     name = "reference",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
+    tags = ["maven_coordinates=com.daml.ledger:reference-participant-state:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
