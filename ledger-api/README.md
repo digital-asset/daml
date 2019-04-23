@@ -18,17 +18,3 @@ This is the API code for the ledger, which contains:
 The [Ledger API Introduction](https://docs.daml.com/app-dev/ledger-api-introduction/index.html) contains introductory material as well as links to the protodocs reference documentation.
 
 See [the docs README)[/docs/README.md] for more about how to preview and publish documentation.
-
-# Build
-
-The code uses SBT as a build system:
-
-```
-sbt compile
-```
-
-To run the tests:
-
-```
-sbt test
-```
