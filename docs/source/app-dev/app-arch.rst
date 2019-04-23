@@ -78,8 +78,8 @@ All the language bindings support this reactive pattern as a fundamental require
 
 .. _event-driven-applications-1:
 
-Event-driven applications
-=========================
+Structuring event-driven applications
+=====================================
 
 Event-driven applications read a stream of transaction events from the ledger, and convert them to some other representation. This may be a record on a database, some update of a UI, or a differently formatted message that is sent to an upstream process. It may also be a command that transforms the ledger.
 
@@ -95,8 +95,8 @@ To do this, the application should:
 
 .. _state-driven-applications-1:
 
-State-driven applications
-=========================
+Structuring state-driven applications
+=====================================
 
 State-driven applications read a stream of events from the ledger, examine them and build up an application-specific view of the ledger state based on the events type and content. This involves storing some representation of existing contracts on a Create event, and removing them on an Archive event. To be able to remove contract reference, they must be indexed by :ref:`contractId <com.digitalasset.ledger.api.v1.CreatedEvent.contract_id>`.
 
@@ -224,6 +224,24 @@ The framework handles much of the work of building a state-driven application. I
 |image0|
 
 Full details of the framework are available in the links described in the `Java library <#java>`__ above.
+
+Commonly used types
+*******************
+
+Primitive and structured types (records, variants and lists) appearing in the contract constructors and choice arguments are compatible with the types defined in the current version of DAML-LF (v1). They appear in the submitted commands and in the event streams.
+
+There are some identifier fields that are represented as strings in the protobuf messages. They are opaque: you shouldn't interpret them in client code. They include:
+
+-  Transaction IDs
+-  Event IDs
+-  Contract IDs
+-  Package IDs (part of template identifiers)
+
+There are some other identifiers that are determined by your client code. These aren't interpreted by the server, and are transparently passed to the responses. They include:
+
+- Command IDs: used to uniquely identify a command and to match it against its response.
+- Application ID: used to uniquely identify client process talking to the server. You could use a combination of command ID and application ID for deduplication.
+-  Workflow IDs: identify chains of transactions. You can use these to correlate transactions sent across time spans and by different parties.
 
 .. |image0| image:: images/BotFlow.png
    :width: 6.5in
