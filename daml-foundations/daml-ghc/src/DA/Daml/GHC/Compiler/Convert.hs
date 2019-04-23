@@ -411,8 +411,7 @@ convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App`
       (Lam keyBinder keyExpr, Lam maintainerBinder maintainerExpr) -> do
         keyType <- convertType env keyType
         keyExpr <- convertKeyExpr env keyBinder keyExpr
-        let maintainerEnv = envInsertAlias maintainerBinder (EVar "this") env
-        maintainerExpr <- convertExpr maintainerEnv maintainerExpr
+        maintainerExpr <- convertKeyExpr env maintainerBinder maintainerExpr
         maintainerExpr <- rewriteMaintainer keyExpr maintainerExpr
         pure $ TemplateKey keyType keyExpr (ETmLam ("$key", keyType) maintainerExpr)
       _ -> unhandled "Template key definition" o
