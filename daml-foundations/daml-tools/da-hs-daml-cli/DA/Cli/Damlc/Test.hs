@@ -4,7 +4,10 @@
 {-# LANGUAGE OverloadedStrings   #-}
 
 -- | Main entry-point of the DAML compiler
-module DA.Cli.Damlc.Test (execTest) where
+module DA.Cli.Damlc.Test (
+    execTest
+    , ColorTestResults(..)
+    ) where
 
 import Control.Monad.Except
 import qualified Control.Monad.Managed             as Managed
@@ -32,7 +35,7 @@ import System.FilePath
 import qualified Text.XML.Light as XML
 
 
-type ColorTestResults = Bool
+newtype ColorTestResults = ColorTestResults{color :: Bool}
 
 -- | Test a DAML file.
 execTest :: [FilePath] -> ColorTestResults -> Maybe FilePath -> Compiler.Options -> IO ()
@@ -61,7 +64,7 @@ testStdio lfVersion hDamlGhc files colorTestResults = do
             liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> do
                 let doc = prettyResult lfVersion result
                 let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
-                let stringStyleToRender = if colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
+                let stringStyleToRender = if (color colorTestResults) then DA.Pretty.renderColored else DA.Pretty.renderPlain
                 putStrLn $ stringStyleToRender (name <> ": " <> doc)
             pure $ any (isLeft . snd) scenarioResults
     when failed exitFailure
