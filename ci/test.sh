@@ -5,6 +5,9 @@ run() {
   "$@"
 }
 
+systeminfo | findstr Build
+
+exit 1
 
 run env
 
