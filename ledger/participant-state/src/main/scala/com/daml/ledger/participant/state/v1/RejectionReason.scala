@@ -22,8 +22,7 @@ object RejectionReason {
     override def description: String = "Inconsistent"
   }
 
-  /** The participant or ledger has already accepted a transaction with the
-    * same command-id.
+  /** The transaction has been disputed.
     *
     * This means that the underlying ledger and its validation logic
     * considered the transaction potentially invalid. This can be due to a bug

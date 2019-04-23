@@ -355,7 +355,6 @@ object KeyValueUtils {
       // FIXME(JM): The engine caches these so we could retrieve these lazily as needed.
       inputPackages: Map[PackageId, ByteString],
       inputTransactions: Map[KVEntryId, KVEntryBlob],
-      entryId: KVEntryId,
       txInfo: TxInfo): Either[EngineError, Unit] = {
 
     def lookupContract(coid: AbsoluteContractId) = {

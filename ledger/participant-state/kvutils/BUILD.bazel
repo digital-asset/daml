@@ -25,6 +25,7 @@ da_scala_library(
         "//daml-lf/transaction/src/main/protobuf:value_java_proto",
         "//daml-lf/engine",
         "//daml-lf/lfpackage",
+        "//daml-lf/archive:daml_lf_archive_scala",
         "//ledger/participant-state",
         "//ledger/ledger-api-common",
         ":daml_kvutils_java_proto",
