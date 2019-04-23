@@ -35,7 +35,6 @@ class DispatcherSpec
     with FutureTimeouts
     with AsyncTimeLimitedTests {
 
-  //TODO: introduce a new test case for range queries
   // Newtype wrappers to avoid type mistakes
   case class Value(v: Int)
 
@@ -163,24 +162,26 @@ class DispatcherSpec
     )
 
   private def forAllSteppingModes(
+      oneAfterAnother: OneAfterAnother[Index, Value] = oneAfterAnotherSteppingMode,
+      rangeQuery: RangeQuery[Index, Value] = rangeQuerySteppingMode)(
       f: SteppingMode[Index, Value] => Future[Assertion]): Future[Assertion] =
     for {
-      _ <- f(oneAfterAnotherSteppingMode)
+      _ <- f(oneAfterAnother)
       _ = clearUp()
-      _ <- f(rangeQuerySteppingMode)
+      _ <- f(rangeQuery)
     } yield succeed
 
   "A Dispatcher" should {
 
     "fail to initialize if end index < begin index" in {
-      forAllSteppingModes { sm =>
+      forAllSteppingModes() { sm =>
         recoverToSucceededIf[IllegalArgumentException](
           Future(vanillaDispatcher(Index(0), Index(-1), sm)))
       }
     }
 
     "return errors after being started and stopped" in {
-      forAllSteppingModes { sm =>
+      forAllSteppingModes() { sm =>
         val dispatcher = vanillaDispatcher(steppingMode = sm)
 
         dispatcher.close()
@@ -195,7 +196,7 @@ class DispatcherSpec
     }
 
     "work with one outlet" in {
-      forAllSteppingModes { sm =>
+      forAllSteppingModes() { sm =>
         val dispatcher = vanillaDispatcher(steppingMode = sm)
         val pairs = gen(100)
         val out = collect(genesis, pairs.last._1, dispatcher)
@@ -205,7 +206,7 @@ class DispatcherSpec
     }
 
     "complete when the dispatcher completes" in {
-      forAllSteppingModes { sm =>
+      forAllSteppingModes() { sm =>
         val dispatcher = vanillaDispatcher(steppingMode = sm)
         val pairs50 = gen(50)
         val pairs100 = gen(50)
@@ -223,7 +224,7 @@ class DispatcherSpec
     }
 
     "work with mid-stream subscriptions" in {
-      forAllSteppingModes { sm =>
+      forAllSteppingModes() { sm =>
         val dispatcher = vanillaDispatcher(steppingMode = sm)
 
         val pairs50 = gen(50)
@@ -239,7 +240,7 @@ class DispatcherSpec
     }
 
     "work with mid-stream cancellation" in {
-      forAllSteppingModes { sm =>
+      forAllSteppingModes() { sm =>
         val dispatcher = vanillaDispatcher(steppingMode = sm)
 
         val pairs50 = gen(50)
@@ -253,7 +254,7 @@ class DispatcherSpec
     }
 
     "work with many outlets at different start/end indices" in {
-      forAllSteppingModes { sm =>
+      forAllSteppingModes() { sm =>
         val dispatcher = vanillaDispatcher(steppingMode = sm)
 
         val pairs25 = gen(25)
@@ -280,32 +281,35 @@ class DispatcherSpec
     }
 
     "work with slow producers and consumers" in {
-      val dispatcher = slowDispatcher(slowOneAfterAnotherSteppingMode(10))
+      forAllSteppingModes(slowOneAfterAnotherSteppingMode(10), slowRangeQuerySteppingMode(10)) {
+        sm =>
+          val dispatcher = slowDispatcher(sm)
 
-      val pairs25 = gen(25)
-      val pairs50 = gen(25)
-      val pairs75 = gen(25)
-      val pairs100 = gen(25)
-      val i25 = pairs25.last._1
-      val i50 = pairs50.last._1
-      val i75 = pairs75.last._1
+          val pairs25 = gen(25)
+          val pairs50 = gen(25)
+          val pairs75 = gen(25)
+          val pairs100 = gen(25)
+          val i25 = pairs25.last._1
+          val i50 = pairs50.last._1
+          val i75 = pairs75.last._1
 
-      val outF = collect(genesis, i50, dispatcher, delayMs = 10)
-      publish(i25.next, dispatcher)
-      val out25F = collect(i25.next, i75, dispatcher, delayMs = 10)
-      publish(i50.next, dispatcher)
-      val out50F = collect(i50.next, latest.get(), dispatcher, delayMs = 10)
-      publish(i75.next, dispatcher)
-      val out75F = collect(i75.next, latest.get(), dispatcher, delayMs = 10)
-      publish(latest.get(), dispatcher)
+          val outF = collect(genesis, i50, dispatcher, delayMs = 10)
+          publish(i25.next, dispatcher)
+          val out25F = collect(i25.next, i75, dispatcher, delayMs = 10)
+          publish(i50.next, dispatcher)
+          val out50F = collect(i50.next, latest.get(), dispatcher, delayMs = 10)
+          publish(i75.next, dispatcher)
+          val out75F = collect(i75.next, latest.get(), dispatcher, delayMs = 10)
+          publish(latest.get(), dispatcher)
 
-      dispatcher.close()
+          dispatcher.close()
 
-      validate4Sections(pairs25, pairs50, pairs75, pairs100, outF, out25F, out50F, out75F)
+          validate4Sections(pairs25, pairs50, pairs75, pairs100, outF, out25F, out50F, out75F)
+      }
     }
 
     "handle subscriptions for future elements by waiting for the ledger end to reach them" in {
-      forAllSteppingModes { sm =>
+      forAllSteppingModes() { sm =>
         val dispatcher = vanillaDispatcher(steppingMode = sm)
 
         val startIndex = 10
