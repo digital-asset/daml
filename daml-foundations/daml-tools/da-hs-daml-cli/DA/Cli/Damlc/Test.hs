@@ -39,7 +39,7 @@ newtype ColorTestResults = ColorTestResults{color :: Bool}
 
 -- | Test a DAML file.
 execTest :: [FilePath] -> ColorTestResults -> Maybe FilePath -> Compiler.Options -> IO ()
-execTest inFiles colored mbJUnitOutput cliOptions = do
+execTest inFiles colorTestResults mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
     opts <- Compiler.mkOptions cliOptions
     -- TODO (MK): For now the scenario service is only started if we have an event logger
@@ -52,7 +52,7 @@ execTest inFiles colored mbJUnitOutput cliOptions = do
         let files = Set.toList $ Set.fromList inFiles `Set.union`  Set.fromList (concat depFiles)
         let lfVersion = Compiler.optDamlLfVersion cliOptions
         case mbJUnitOutput of
-            Nothing -> testStdio lfVersion hDamlGhc files colored
+            Nothing -> testStdio lfVersion hDamlGhc files colorTestResults
             Just junitOutput -> testJUnit lfVersion hDamlGhc files junitOutput
 
 testStdio :: LF.Version -> IdeState -> [FilePath] -> ColorTestResults -> IO ()
