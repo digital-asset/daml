@@ -26,6 +26,7 @@ da_scala_library(
         "//daml-lf/engine",
         "//daml-lf/lfpackage",
         "//ledger/participant-state",
+        "//ledger/ledger-api-common",
         ":daml_kvutils_java_proto",
     ],
 )
