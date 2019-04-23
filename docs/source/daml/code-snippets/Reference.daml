@@ -32,23 +32,26 @@ template NameOfTemplate
       ""
 -- end template agree snippet
 -- start template choice snippet
+    -- option 2 for specifying choices: controller first
     controller exampleParty can
       NameOfChoice
           : () -- replace () with the actual return type
         with
-          exampleParameter : Text
+          exampleParameter : Text -- parameters here
         do
           return () -- replace this line with the choice body
       nonconsuming NameOfChoice2
           : ()  -- replace () with the actual return type
         with
-          exampleParameter : Text
+          exampleParameter : Text -- parameters here
         do
           return () -- replace this line with the choice body
+
+    -- option 1 for specifying choices: choice name first
     choice NameOfChoice3
           : ()  -- replace () with the actual return type
         with
-          exampleParameter : Text
+          exampleParameter : Text -- parameters here
       controller exampleParty
         do
           return () -- replace this line with the choice body

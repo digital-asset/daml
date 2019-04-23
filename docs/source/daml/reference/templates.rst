@@ -89,7 +89,7 @@ Choices
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
    :start-after: -- start template choice snippet
-   :end-before: -- start template choice snippet
+   :end-before: -- end template choice snippet
 
 - A right that the contract gives the controlling party. Can be *exercised*.
 - This is essentially where all the logic of the template goes.
