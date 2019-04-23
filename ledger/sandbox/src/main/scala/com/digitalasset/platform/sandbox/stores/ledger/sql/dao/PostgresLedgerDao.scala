@@ -667,7 +667,7 @@ private class PostgresLedgerDao(
       .map(Ref.Party.assertFromString)
 
   private val SQL_GET_LEDGER_ENTRIES = SQL(
-    "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive}")
+    "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
 
   //TODO we should use paging instead, check if Alpakka can do that?
   override def getLedgerEntries(
