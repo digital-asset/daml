@@ -52,6 +52,8 @@ compileDependencies = [
     "//3rdparty/jvm/org/flywaydb:flyway_core",
     "//3rdparty/jvm/com/typesafe/play:anorm",
     "//3rdparty/jvm/com/typesafe/play:anorm_akka",
+    "//3rdparty/jvm/io/dropwizard/metrics:metrics_core",
+    "//3rdparty/jvm/io/dropwizard/metrics:metrics_jmx",
 ]
 
 da_scala_library(
