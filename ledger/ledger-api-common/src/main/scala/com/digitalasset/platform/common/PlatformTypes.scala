@@ -17,27 +17,27 @@ object PlatformTypes {
 
   type GenNode[Nid, Cid] = N.GenNode.WithTxValue[Nid, Cid]
 
-  type NodeCreate[Cid] = N.NodeCreate[Cid, V.VersionedValue[Cid]]
+  type NodeCreate[Cid] = N.NodeCreate.WithTxValue[Cid]
   val NodeCreate: N.NodeCreate.type = N.NodeCreate
 
-  type NodeLookupByKey[Cid] = N.NodeLookupByKey[Cid, V.VersionedValue[Cid]]
+  type NodeLookupByKey[Cid] = N.NodeLookupByKey.WithTxValue[Cid]
   val NodeLookupByKey: N.NodeLookupByKey.type = N.NodeLookupByKey
 
   type NodeFetch[Cid] = N.NodeFetch[Cid]
   val NodeFetch: N.NodeFetch.type = N.NodeFetch
 
-  type NodeExercises[Nid, Cid] = N.NodeExercises[Nid, Cid, V.VersionedValue[Cid]]
+  type NodeExercises[Nid, Cid] = N.NodeExercises.WithTxValue[Nid, Cid]
   val NodeExercises: N.NodeExercises.type = N.NodeExercises
 
-  type Event[Nid, Cid] = E.Event[Nid, Cid, V.VersionedValue[Cid]]
+  type Event[Nid, Cid] = E.Event[Nid, Cid, T.Transaction.Value[Cid]]
 
-  type Events[Nid, Cid] = E.Event.Events[Nid, Cid, V.VersionedValue[Cid]]
+  type Events[Nid, Cid] = E.Event.Events[Nid, Cid, T.Transaction.Value[Cid]]
   val Events: E.Event.Events.type = E.Event.Events
 
-  type CreateEvent[Cid] = E.CreateEvent[Cid, V.VersionedValue[Cid]]
+  type CreateEvent[Cid] = E.CreateEvent[Cid, T.Transaction.Value[Cid]]
   val CreateEvent: E.CreateEvent.type = E.CreateEvent
 
-  type ExerciseEvent[Nid, Cid] = E.ExerciseEvent[Nid, Cid, V.VersionedValue[Cid]]
+  type ExerciseEvent[Nid, Cid] = E.ExerciseEvent[Nid, Cid, T.Transaction.Value[Cid]]
   val ExerciseEvent: E.ExerciseEvent.type = E.ExerciseEvent
 
   def mapContractIdAndValue[Nid, Cid, Cid2](tx: GenTransaction[Nid, Cid])(

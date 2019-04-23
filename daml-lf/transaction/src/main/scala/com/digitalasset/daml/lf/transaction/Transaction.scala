@@ -529,11 +529,9 @@ object Transaction {
         _ <- guard(0 <= lcoid.txnid.index)
         node <- nodes.get(lcoid.txnid)
         coinst <- node match {
-          case create: NodeCreate[ContractId, Transaction.Value[ContractId]] =>
+          case create: NodeCreate.WithTxValue[ContractId] =>
             Some((create.coinst, consumedBy.get(lcoid)))
-          case _: NodeExercises[NodeId, ContractId, Transaction.Value[ContractId]] => None
-          case _: NodeFetch[ContractId] => None
-          case _: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] => None
+          case _: NodeExercises[_, _, _] | _: NodeFetch[_] | _: NodeLookupByKey[_, _] => None
         }
       } yield coinst
     }

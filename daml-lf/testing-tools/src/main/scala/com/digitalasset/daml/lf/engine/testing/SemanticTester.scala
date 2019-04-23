@@ -266,7 +266,7 @@ class SemanticTester(
               val node = richTransaction.nodes(nodeId)
 
               node match {
-                case nc: NodeCreate[AbsoluteContractId, Tx.Value[AbsoluteContractId]] =>
+                case nc: NodeCreate.WithTxValue[AbsoluteContractId] =>
                   previousMap.flatMap(m => {
                     val engineArg =
                       nc.coinst.arg.mapContractId(m)
@@ -274,10 +274,7 @@ class SemanticTester(
                     submitCommandCheckAndUpdateMap(richTransaction.committer, cmd, m)
                   })
 
-                case ne: NodeExercises[
-                      L.NodeId,
-                      AbsoluteContractId,
-                      Tx.Value[AbsoluteContractId]] =>
+                case ne: NodeExercises.WithTxValue[L.NodeId, AbsoluteContractId] =>
                   previousMap.flatMap(m => {
 
                     val engineTargetCoid = m(ne.targetCoid)
@@ -292,12 +289,8 @@ class SemanticTester(
                     submitCommandCheckAndUpdateMap(richTransaction.committer, cmd, m)
                   })
 
-                case _: NodeFetch[AbsoluteContractId] =>
-                  // nothing to do for fetches
-                  previousMap
-
-                case _: NodeLookupByKey[_, _] =>
-                  // nothing to do for lookup by key
+                case _: NodeFetch[_] | _: NodeLookupByKey[_, _] =>
+                  // nothing to do for fetches or lookup by key
                   previousMap
               }
           }
@@ -397,14 +390,12 @@ object SemanticTester {
         case FrontStackCons(nodeId, nodeIds) =>
           val node = tx.nodes(nodeId)
           node match {
-            case _: NodeFetch[AbsoluteContractId] =>
+            case _: NodeFetch[_] | _: NodeLookupByKey[_, _] =>
               go(nodeIds)
-            case _: NodeLookupByKey[_, _] =>
-              go(nodeIds)
-            case nc: NodeCreate[AbsoluteContractId, Tx.Value[AbsoluteContractId]] =>
+            case nc: NodeCreate.WithTxValue[AbsoluteContractId] =>
               pcs += (nc.coid -> nc.coinst)
               go(nodeIds)
-            case ne: NodeExercises[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]] =>
+            case ne: NodeExercises.WithTxValue[Tx.NodeId, AbsoluteContractId] =>
               // Note: leaking some memory here; we cannot remove consumed contracts,
               // because later post-commit validation needs to find it
               go(ne.children ++: nodeIds)
