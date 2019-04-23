@@ -199,6 +199,35 @@ java_import(
                 sha256 = "70d7be6ad49b4424313aad118c8622aab1c5fdd5a529d4215d3884ff89264a71",
             )
 
+    # Buildifier.
+    # It is written in Go and hence needs rules_go to be available.
+    if "com_github_bazelbuild_buildtools" not in native.existing_rules():
+        http_archive(
+            name = "com_github_bazelbuild_buildtools",
+            sha256 = "7525deb4d74e3aa4cb2b960da7d1c400257a324be4e497f75d265f2f508c518f",
+            strip_prefix = "buildtools-0.22.0",
+            url = "https://github.com/bazelbuild/buildtools/archive/0.22.0.tar.gz",
+        )
+
+    c2hs_version = "0.28.3"
+    c2hs_hash = "80cc6db945ee7c0328043b4e69213b2a1cb0806fb35c8362f9dea4a2c312f1cc"
+    c2hs_package_id = "c2hs-{0}".format(c2hs_version)
+    c2hs_url = "https://hackage.haskell.org/package/{0}/{1}.tar.gz".format(
+        c2hs_package_id,
+        c2hs_package_id,
+    )
+    c2hs_build_file = "//3rdparty/haskell:BUILD.c2hs"
+    if "haskell_c2hs" not in native.existing_rules():
+        http_archive(
+            name = "haskell_c2hs",
+            build_file = c2hs_build_file,
+            patch_args = ["-p1"],
+            patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-c2hs.patch"],
+            sha256 = c2hs_hash,
+            strip_prefix = c2hs_package_id,
+            urls = [c2hs_url],
+        )
+
     native.bind(
         name = "guava",
         actual = "@com_google_guava_guava//jar",
