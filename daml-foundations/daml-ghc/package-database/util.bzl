@@ -76,11 +76,10 @@ def _daml_package_rule_impl(ctx):
         tools = [ctx.executable.damlc_bootstrap],
         progress_message = "Compiling " + name + ".daml to daml-lf " + ctx.attr.daml_lf_version,
         command = """
-      set -eoux pipefail
+      set -eou pipefail
       mkdir -p tmp_db
       tar xf {db_tar} -C tmp_db --strip-components 1
       mkdir -p tmp_db/{daml_lf_version}
-      ls -lR tmp_db
 
       # Compile the dalf file
       {damlc_bootstrap} compile \
@@ -160,7 +159,7 @@ def _daml_package_db_impl(ctx):
         outputs = [ctx.outputs.tar],
         command =
             """
-        set -eoux pipefail
+        set -eou pipefail
         shopt -s nullglob
         TMP_DIR=$(mktemp -d)
         PACKAGE_DB="$TMP_DIR/package_db"
