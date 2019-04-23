@@ -42,10 +42,10 @@ DAML SDK documentation
    :caption: Building Applications
 
    app-dev/index
-   app-dev/app-arch
    app-dev/bindings-java/index
    app-dev/grpc/index
-
+   app-dev/app-arch
+   
 .. toctree::
    :titlesonly:
    :maxdepth: 2
