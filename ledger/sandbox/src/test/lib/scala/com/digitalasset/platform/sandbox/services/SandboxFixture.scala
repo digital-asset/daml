@@ -54,7 +54,7 @@ trait SandboxFixture extends SuiteResource[Channel] {
         timeProviderType = TimeProviderType.Static,
         timeModel = TimeModel.reasonableDefault,
         scenario = scenario,
-        ledgerIdMode = LedgerIdMode.HardCoded("sandbox server")
+        ledgerIdMode = LedgerIdMode.PreDefined("sandbox server")
       )
 
   protected def packageFiles: List[File] = List(darFile)

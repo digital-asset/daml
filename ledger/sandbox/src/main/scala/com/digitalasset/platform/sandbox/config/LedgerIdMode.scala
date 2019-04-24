@@ -11,7 +11,7 @@ sealed trait LedgerIdMode extends Product with Serializable {
 
 object LedgerIdMode {
 
-  final case class HardCoded(_ledgerId: String) extends LedgerIdMode {
+  final case class PreDefined(_ledgerId: String) extends LedgerIdMode {
     def ledgerId(): String = _ledgerId
   }
 

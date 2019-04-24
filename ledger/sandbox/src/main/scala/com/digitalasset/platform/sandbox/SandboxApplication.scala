@@ -165,7 +165,7 @@ object SandboxApplication {
 
     new SandboxServer(
       "sandbox",
-      config.addressOption,
+      config.address,
       config.port,
       config,
       serverSslContext(config.tlsConfig, ClientAuth.REQUIRE),

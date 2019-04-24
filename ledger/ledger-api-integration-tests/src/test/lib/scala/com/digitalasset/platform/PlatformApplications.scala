@@ -102,7 +102,7 @@ object PlatformApplications {
 
     SandboxApplication(
       SandboxConfig(
-        addressOption = None,
+        address = None,
         port = selectedPort,
         damlPackageContainer = DamlPackageContainer(config.darFiles.map(_.toFile)),
         timeProviderType = config.timeProviderType,
@@ -111,7 +111,7 @@ object PlatformApplications {
         scenario = None,
         tlsConfig = None,
         ledgerIdMode =
-          config.ledgerId.fold[LedgerIdMode](LedgerIdMode.Random)(LedgerIdMode.HardCoded),
+          config.ledgerId.fold[LedgerIdMode](LedgerIdMode.Random)(LedgerIdMode.PreDefined),
         jdbcUrl = jdbcUrl
       )
     )

@@ -8,7 +8,7 @@ import java.time.Duration
 
 import com.digitalasset.ledger.client.configuration.TlsConfiguration
 import com.digitalasset.platform.sandbox.BuildInfo
-import com.digitalasset.platform.sandbox.config.LedgerIdMode.HardCoded
+import com.digitalasset.platform.sandbox.config.LedgerIdMode.PreDefined
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import scopt.Read
@@ -25,12 +25,6 @@ object Cli {
     override val reads: String => Duration = Duration.parse
   }
 
-  private val crtConfig = (path: String, config: SandboxConfig) =>
-    config.copy(
-      tlsConfig =
-        config.tlsConfig.fold(Some(TlsConfiguration(true, Some(new File(path)), None, None)))(c =>
-          Some(c.copy(keyCertChainFile = Some(new File(path))))))
-
   private val cmdArgParser = new scopt.OptionParser[SandboxConfig]("sandbox") {
     head(s"Sandbox version ${BuildInfo.Version}")
 
@@ -39,7 +33,7 @@ object Cli {
       .text(s"Sandbox service port. Defaults to ${SandboxConfig.DefaultPort}.")
 
     opt[String]('a', "address")
-      .action((x, c) => c.copy(addressOption = Some(x)))
+      .action((x, c) => c.copy(address = Some(x)))
       .text("Sandbox service host. Defaults to binding on all addresses.")
 
     // TODO remove in next major release.
@@ -48,7 +42,7 @@ object Cli {
       .text(
         "This argument is present for backwards compatibility. DALF and DAR archives are now identified by their extensions.")
 
-    opt[Unit]("static-time")
+    opt[Unit]('s', "static-time")
       .action { (_, c) =>
         assertTimeModeIsDefault(c)
         c.copy(timeProviderType = TimeProviderType.Static)
@@ -91,7 +85,11 @@ object Cli {
     opt[String]("crt")
       .optional()
       .text("TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.")
-      .action(crtConfig)
+      .action((path: String, config: SandboxConfig) =>
+        config.copy(
+          tlsConfig =
+            config.tlsConfig.fold(Some(TlsConfiguration(true, Some(new File(path)), None, None)))(c =>
+              Some(c.copy(keyCertChainFile = Some(new File(path)))))))
 
     opt[String]("cacrt")
       .optional()
@@ -116,7 +114,7 @@ object Cli {
     //TODO (robert): Think about all implications of allowing users to set the ledger ID.
     opt[String]("ledgerid")
       .optional()
-      .action((id, c) => c.copy(ledgerIdMode = HardCoded(id)))
+      .action((id, c) => c.copy(ledgerIdMode = PreDefined(id)))
       .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.")
 
     help("help").text("Print the usage text")
