@@ -2,7 +2,7 @@
 
 *Status: ALPHA*
 
-This is a standlone command line tool for testing the correctness of DAML ledger
+This is a standalone command line tool for testing the correctness of DAML ledger
 implementations.
 
 ## Development
@@ -19,7 +19,9 @@ into a standalone command line tool with embedded
 ## Usage
 
 See [Ledger API Test Tool
-docs](../../docs/source/tools/ledger-api-test-tool/index.rst) for usage docs. Public docs are available at https://docs.daml.com/tools/ledger-api-test-tool/index.html
+docs](../../docs/source/tools/ledger-api-test-tool/index.rst) for usage docs.
+Publicly released docs are available at
+https://docs.daml.com/tools/ledger-api-test-tool/index.html
 
 ### Connecting over TLS to a DAML Ledger, e.g. the Digital Asset Ledger
 
