@@ -565,4 +565,4 @@ encodeDefName version txt = case mangleIdentifier txt of
 checkFeature :: Feature -> Version -> a -> a
 checkFeature feature version x
     | version `supports` feature = x
-    | otherwise = error (error "DAML-LF " ++ renderPretty version ++ " cannot encode feature: " ++ T.unpack (featureName feature))
+    | otherwise = error $ "DAML-LF " ++ renderPretty version ++ " cannot encode feature: " ++ T.unpack (featureName feature)
