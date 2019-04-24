@@ -9,6 +9,45 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Addition of ``DA.Math`` library containing exponentiation, logarithms and trig functions
+- Add CreateAndExerciseCommand to Ledger API and DAMLe for creating a contract
+  and exercising a choice on it within the same transaction. This can be used to
+  implement "callable updates" (aka functions of type ``Update a`` that can be
+  called from the Ledger API via a contract).
+
+0.12.7 — 2019-04-17
+-------------------
+
+- Fix release pipeline (hopefully)
+
+0.12.6 — 2019-04-16
+-------------------
+
+- RxJava Bindings: remove blocking call inside Bot.wire, which could lead to an
+  application not making progress in certain situations.
+
+0.12.5 — 2019-04-15
+-------------------
+
+- Fix release pipeline (hopefully)
+- DAML-LF Archive packaging: the DAML-LF Archive Protobuf definitions are now
+  packaged so that it's possible to use them without mangling the path.
+
+0.12.4 — 2019-04-15
+-------------------
+
+- Release build artifacts to GitHub
+- Avoid recompiling packages after resetting the Sandbox via the ResetService.
+- Include compiled ``google.rpc.Status`` in the ``ledger-api-scalapb`` jar.
+- Fix critical bug related to the conversion of decimal numbers from Ledger API
+  (see `#399 <https://github.com/digital-asset/daml/issues/399>` and
+  `#439 <https://github.com/digital-asset/daml/pull/439>`).
+
+0.12.3 — 2019-04-12
+-------------------
+
+- Fix navigator and extractor packaging in the SDK.
+
 0.12.2 — 2019-04-12
 -------------------
 

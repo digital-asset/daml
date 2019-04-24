@@ -6,8 +6,16 @@ commands:
   desc: "Compile a DAML file"
 - name: package
   path: damlc/da-hs-damlc-app
-  args: ["package"]
-  desc: "Compile a DAML file into a DAR"
+  args: ["package-new"]
+  desc: "Compile a DAML project into a DAR"
+- name: init
+  path: damlc/da-hs-damlc-app
+  args: ["init"]
+  desc: "Initialize a DAML project"
+- name: build
+  path: damlc/da-hs-damlc-app
+  args: ["build"]
+  desc: "Initialize, build and package a DAML project"
 - name: test
   path: damlc/da-hs-damlc-app
   args: ["test"]

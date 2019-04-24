@@ -4,6 +4,7 @@
 package com.digitalasset.ledger.api.validation
 
 import brave.propagation
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.messages.transaction
 import io.grpc.Status.Code
@@ -26,7 +27,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
   protected val expectedLedgerId = "expectedLedgerId"
   protected val packageId = "packageId"
   protected val absoluteOffset = "42"
-  protected val party = "party"
+  protected val party = Ref.Party.assertFromString("party")
   protected val verbose = false
   protected val eventId = "eventId"
   protected val transactionId = "transactionId"
@@ -40,8 +41,12 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
       case (p, filters) =>
         p shouldEqual party
         filters shouldEqual domain.Filters(
-          Some(domain.InclusiveFilters(
-            Set(domain.Identifier(domain.PackageId(packageId), includedModule, includedTemplate)))))
+          Some(domain.InclusiveFilters(Set(Ref.Identifier(
+            Ref.PackageId.assertFromString(packageId),
+            Ref.QualifiedName(
+              Ref.DottedName.assertFromString(includedModule),
+              Ref.DottedName.assertFromString(includedTemplate))
+          )))))
     }
   }
 

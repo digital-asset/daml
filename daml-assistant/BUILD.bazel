@@ -32,6 +32,7 @@ da_haskell_binary(
     name = "daml",
     srcs = native.glob(["src/**/*.hs"]),
     hazel_deps = [
+        "aeson",
         "base",
         "bytestring",
         "conduit",
@@ -39,6 +40,8 @@ da_haskell_binary(
         "directory",
         "extra",
         "filepath",
+        "http-client",
+        "http-client-tls",
         "http-conduit",
         "lens",
         "main-tester",
@@ -77,6 +80,7 @@ da_haskell_test(
     name = "test",
     srcs = native.glob(["src/**/*.hs"]),
     hazel_deps = [
+        "aeson",
         "base",
         "bytestring",
         "conduit",
@@ -84,6 +88,8 @@ da_haskell_test(
         "directory",
         "extra",
         "filepath",
+        "http-client",
+        "http-client-tls",
         "http-conduit",
         "lens",
         "main-tester",

@@ -62,7 +62,7 @@ export class DamlConnection {
 
             this.connection.trace(Trace.Verbose, new ConsoleTracer());
         } else {
-            // drain stderr in order to not block damli.
+            // drain stderr in order to not block damlc.
             this.process.stderr.on('readable', () => { this.process.stderr.read() });
         }
 

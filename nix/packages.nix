@@ -65,10 +65,7 @@ in rec {
     # TLA+ with the command-line model checker TLC
     tlc2            = pkgs.tlaplus;
 
-    # Java 8 development
-    mvn = pkgs.writeScriptBin "mvn" ''
-      exec ${pkgs.maven}/bin/mvn ''${MVN_SETTINGS:+-s "$MVN_SETTINGS"} "$@"
-    '';
+    mvn = bazel_dependencies.mvn;
 
     zinc = pkgs.callPackage ./tools/zinc {};
 
@@ -196,6 +193,8 @@ in rec {
 
     # Build tools
 
+    # wrap the .bazelrc to automate the configuration of
+    # `build --config <kernel>`
     bazelrc =
       let
         kernel =
@@ -205,7 +204,6 @@ in rec {
       in
         pkgs.writeText "daml-bazelrc" ''
           build --config ${kernel}
-          ${builtins.readFile ./bazelrc}
         '';
 
     bazel = pkgs.writeScriptBin "bazel" (''
@@ -253,8 +251,6 @@ in rec {
 
     undmg = pkgs.undmg;
     jfrog = pkgs.callPackage ./tools/jfrog-cli {};
-
-    nix-prefetch-git = pkgs.nix-prefetch-git;
 
     # Cloud tools
     gcloud = pkgs.google-cloud-sdk;

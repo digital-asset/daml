@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.api.v1.event
 
-import com.digitalasset.ledger.api.domain.{ContractId, EventId, Party}
+import com.digitalasset.ledger.api.domain.{ContractId, EventId}
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty, Exercised}
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent
@@ -24,13 +24,13 @@ object EventOps {
 
     def eventId: EventId = event.event.eventId
 
-    def witnesses: Seq[Party] = event.event.witnesses
+    def witnesses: Seq[String] = event.event.witnesses
 
     def contractId: ContractId = event.event.contractId
 
     def templateId: String = event.event.templateId
 
-    def withWitnesses(witnesses: Seq[Party]): Event = Event(event.event.withWitnesses(witnesses))
+    def withWitnesses(witnesses: Seq[String]): Event = Event(event.event.withWitnesses(witnesses))
 
   }
 
@@ -45,10 +45,10 @@ object EventOps {
       case Empty => throw new IllegalArgumentException("Cannot extract Event ID from Empty event.")
     }
 
-    def witnesses: Seq[Party] = event match {
-      case c: Created => Tag.subst(c.value.witnessParties)
-      case e: Exercised => Tag.subst(e.value.witnessParties)
-      case a: Archived => Tag.subst(a.value.witnessParties)
+    def witnesses: Seq[String] = event match {
+      case c: Created => c.value.witnessParties
+      case e: Exercised => e.value.witnessParties
+      case a: Archived => a.value.witnessParties
       case Empty => Seq.empty
     }
 
@@ -68,10 +68,10 @@ object EventOps {
         throw new IllegalArgumentException("Cannot extract contractId from Empty event.")
     }
 
-    def withWitnesses(witnesses: Seq[Party]): Event.Event = event match {
-      case c: Created => Created(c.value.copy(witnessParties = Tag.unsubst(witnesses)))
-      case e: Exercised => Exercised(e.value.copy(witnessParties = Tag.unsubst(witnesses)))
-      case a: Archived => Archived(a.value.copy(witnessParties = Tag.unsubst(witnesses)))
+    def withWitnesses(witnesses: Seq[String]): Event.Event = event match {
+      case c: Created => Created(c.value.copy(witnessParties = witnesses))
+      case e: Exercised => Exercised(e.value.copy(witnessParties = witnesses))
+      case a: Archived => Archived(a.value.copy(witnessParties = witnesses))
       case Empty => Empty
     }
 
@@ -100,7 +100,7 @@ object EventOps {
   implicit class TreeEventOps(val event: TreeEvent) {
     def eventId: EventId = event.kind.fold(e => EventId(e.eventId), c => EventId(c.eventId))
     def children: Seq[EventId] = event.kind.fold(e => Tag.subst(e.childEventIds), _ => Nil)
-    def witnessParties: Seq[Party] = Tag.subst(event.kind.fold(_.witnessParties, _.witnessParties))
+    def witnessParties: Seq[String] = event.kind.fold(_.witnessParties, _.witnessParties)
   }
 
 }

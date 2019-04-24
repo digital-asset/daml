@@ -47,7 +47,7 @@ load(
 
 c2hs_toolchain(
     name = "c2hs-toolchain",
-    c2hs = "@c2hs//:bin",
+    c2hs = "@haskell_c2hs//:c2hs_bin",
 )
 
 filegroup(
@@ -127,21 +127,6 @@ genrule(
 #
 # Common aliases
 #
-
-alias(
-    name = "damli",
-    actual = "//daml-foundations/daml-tools/da-hs-damli-app:damli",
-)
-
-alias(
-    name = "damli@ghci",
-    actual = "//daml-foundations/daml-tools/da-hs-damli-app:damli@ghci",
-)
-
-alias(
-    name = "damli-dist",
-    actual = "//daml-foundations/daml-tools/da-hs-damli-app:dist",
-)
 
 alias(
     name = "damlc",

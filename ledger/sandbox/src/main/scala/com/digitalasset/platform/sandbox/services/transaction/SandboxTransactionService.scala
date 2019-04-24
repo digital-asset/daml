@@ -9,6 +9,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimestampConversion._
+import com.digitalasset.daml.lf.data.Ref.{Party, SimpleString}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain._
 import com.digitalasset.ledger.api.messages.transaction._
@@ -55,6 +56,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
     materializer: Materializer,
     esf: ExecutionSequencerFactory)
     extends TransactionService
+    with AutoCloseable
     with ErrorFactories {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -82,7 +84,9 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
             .flatMap(eventFilter.filterEvent _)
 
         val submitterIsSubscriber =
-          trans.submitter.fold(false)(eventFilter.isSubmitterSubscriber)
+          trans.submitter
+            .map(SimpleString.assertFromString)
+            .fold(false)(eventFilter.isSubmitterSubscriber)
         if (events.nonEmpty || submitterIsSubscriber) {
           val transaction = PTransaction(
             transactionId = trans.transactionId,
@@ -246,9 +250,12 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       TransactionId(trans.transactionId),
       Tag.subst(trans.commandId),
       Tag.subst(trans.applicationId),
-      Tag.subst(trans.submitter),
+      trans.submitter.map(Party.assertFromString),
       WorkflowId(trans.workflowId),
       trans.recordTime,
       None
     )
+
+  override def close(): Unit = ()
+
 }

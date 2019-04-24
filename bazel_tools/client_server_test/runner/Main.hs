@@ -21,11 +21,13 @@ import System.Exit
 import Safe
 import Data.List.Split (splitOn)
 
-maxRetries :: Int
-maxRetries = 50 -- == wait 5s
+retryDelayMillis :: Int
+retryDelayMillis = 100
 
-retryInterval :: Int
-retryInterval = 100*1000 -- 100ms
+-- Wait up to 60s for the port file to be written to. A long timeout is used to
+-- avoid flaky results under high system load.
+maxRetries :: Int
+maxRetries = 60 * (1000 `div` retryDelayMillis)
 
 readPortFile :: Int -> String -> IO Int
 readPortFile 0 file = do
@@ -36,7 +38,7 @@ readPortFile 0 file = do
 readPortFile n file =
   readMay <$> readFile file >>= \case
     Nothing -> do
-      threadDelay retryInterval
+      threadDelay (1000 * retryDelayMillis)
       readPortFile (n-1) file
     Just p -> pure p
 

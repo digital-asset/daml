@@ -3,11 +3,12 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
-import java.io.{File, FileInputStream, InputStream}
+import java.io.File
 
 import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Sink, Source}
+import com.digitalasset.daml.lf.UniversalArchiveReader
 import com.digitalasset.ledger.api.testing.utils.MockMessages.submitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
@@ -16,7 +17,6 @@ import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.digitalasset.platform.PlatformApplications
-import com.digitalasset.platform.damllf.PackageParser
 import com.digitalasset.util.Ctx
 import org.scalatest.Matchers
 
@@ -26,11 +26,7 @@ trait TransactionServiceHelpers extends Matchers {
   lazy val defaultDar: File = PlatformApplications.Config.defaultDarFile
 
   lazy val parsedPackageId: String = {
-    val dar: InputStream = new FileInputStream(defaultDar)
-    PackageParser
-      .getPackageIdFromDalf(dar)
-      .map(_.underlyingString)
-      .getOrElse(throw new RuntimeException(s"failed to load DAR package: ${defaultDar}!"))
+    UniversalArchiveReader().readFile(defaultDar).get.main._1.underlyingString
   }
 
   val failingCommandId: String = "asyncFail"

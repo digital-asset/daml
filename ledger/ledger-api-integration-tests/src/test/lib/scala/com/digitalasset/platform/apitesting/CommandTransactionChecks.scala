@@ -6,6 +6,7 @@ package com.digitalasset.platform.apitesting
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
+import com.digitalasset.ledger.api.testing.utils.MockMessages.{party, submitRequest, commandId}
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundEach,
@@ -13,13 +14,20 @@ import com.digitalasset.ledger.api.testing.utils.{
 }
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
+import com.digitalasset.ledger.api.v1.commands.{
+  Command,
+  CreateAndExerciseCommand,
+  CreateCommand,
+  ExerciseCommand
+}
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
+import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndResponse
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{Bool, ContractId, Text, Timestamp}
 import com.digitalasset.ledger.api.v1.value.{
@@ -65,6 +73,8 @@ abstract class CommandTransactionChecks
   private val operator = "operator"
   private val receiver = "receiver"
   private val giver = "giver"
+  private val owner = "owner"
+  private val delegate = "delegate"
   private val observers = List("observer1", "observer2")
 
   private val integerListRecordLabel = "integerList"
@@ -416,6 +426,98 @@ abstract class CommandTransactionChecks
         }
       }
 
+      "permit fetching a divulged contract" in forAllMatchingFixtures {
+        case TestFixture(SandboxInMemory, ctx) =>
+        def pf(label: String, party: String) =
+          RecordField(label, Some(Value(Value.Sum.Party(party))))
+        val odArgs = Seq(pf("owner", owner), pf("delegate", delegate))
+        val delegatedCreate = simpleCreate(
+          ctx,
+          cid("SDVl3"),
+          owner,
+          templateIds.delegated,
+          Record(Some(templateIds.delegated), Seq(pf("owner", owner))))
+        val delegationCreate = simpleCreate(
+          ctx,
+          cid("SDVl4"),
+          owner,
+          templateIds.delegation,
+          Record(Some(templateIds.delegation), odArgs))
+        val showIdCreate = simpleCreate(
+          ctx,
+          cid("SDVl5"),
+          owner,
+          templateIds.showDelegated,
+          Record(Some(templateIds.showDelegated), odArgs))
+        val exerciseOfFetch = for {
+          delegatedEv <- delegatedCreate
+          delegationEv <- delegationCreate
+          showIdEv <- showIdCreate
+          fetchArg = Record(
+            None,
+            Seq(RecordField("", Some(Value(Value.Sum.ContractId(delegatedEv.contractId))))))
+          showResult <- failingExercise(
+            ctx,
+            cid("SDVl6"),
+            submitter = owner,
+            template = templateIds.showDelegated,
+            contractId = showIdEv.contractId,
+            choice = "ShowIt",
+            arg = Value(Value.Sum.Record(fetchArg)),
+            Code.OK,
+            pattern = ""
+          )
+          fetchResult <- failingExercise(
+            ctx,
+            cid("SDVl7"),
+            submitter = delegate,
+            template = templateIds.delegation,
+            contractId = delegationEv.contractId,
+            choice = "FetchDelegated",
+            arg = Value(Value.Sum.Record(fetchArg)),
+            Code.OK,
+            pattern = ""
+          )
+        } yield fetchResult
+        exerciseOfFetch
+      }
+
+      "reject fetching an undisclosed contract" in allFixtures { ctx =>
+        def pf(label: String, party: String) =
+          RecordField(label, Some(Value(Value.Sum.Party(party))))
+        val delegatedCreate = simpleCreate(
+          ctx,
+          cid("TDVl3"),
+          owner,
+          templateIds.delegated,
+          Record(Some(templateIds.delegated), Seq(pf("owner", owner))))
+        val delegationCreate = simpleCreate(
+          ctx,
+          cid("TDVl4"),
+          owner,
+          templateIds.delegation,
+          Record(Some(templateIds.delegation), Seq(pf("owner", owner), pf("delegate", delegate))))
+        val exerciseOfFetch = for {
+          delegatedEv <- delegatedCreate
+          delegationEv <- delegationCreate
+          fetchArg = Record(
+            None,
+            Seq(RecordField("", Some(Value(Value.Sum.ContractId(delegatedEv.contractId))))))
+          fetchResult <- failingExercise(
+            ctx,
+            cid("TDVl5"),
+            submitter = delegate,
+            template = templateIds.delegation,
+            contractId = delegationEv.contractId,
+            choice = "FetchDelegated",
+            arg = Value(Value.Sum.Record(fetchArg)),
+            Code.INVALID_ARGUMENT,
+            pattern = "dependency error: couldn't find contract"
+          )
+        } yield fetchResult
+        exerciseOfFetch
+      }
+
       "DAML engine returns Unit as argument to Nothing" in allFixtures { ctx =>
         val commandId = cid("Creating contract with a Nothing argument")
 
@@ -521,15 +623,9 @@ abstract class CommandTransactionChecks
             }
         }.map(_ => succeed)
       }
-
-
-    
-
       // this is basically a port of
       // `daml-lf/tests/scenario/daml-1.3/contract-keys/Test.daml`.
-      //TODO: enable this for all fixtures when we support contract keys in Postgres
-      "process contract keys" in forAllMatchingFixtures {
-        case TestFixture(SandboxInMemory, ctx) =>
+      "process contract keys" in allFixtures { ctx =>
         // TODO currently we run multiple suites with the same sandbox, therefore we must generate
         // unique keys. This is not so great though, it'd be better to have a clean environment.
         val keyPrefix = UUID.randomUUID.toString
@@ -708,6 +804,119 @@ abstract class CommandTransactionChecks
         }
       }
 
+      "handle bad Decimals correctly" in allFixtures { ctx =>
+        val alice = "Alice"
+        for {
+          _ <- failingCreate(
+            ctx,
+            "Decimal-scale",
+            alice,
+            templateIds.decimalRounding,
+            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("0.00000000005".asDecimal)))),
+            Code.INVALID_ARGUMENT,
+            "out-of-bounds Decimal"
+          )
+          _ <- failingCreate(
+            ctx,
+            "Decimal-bounds-positive",
+            alice,
+            templateIds.decimalRounding,
+            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("10000000000000000000000000000.0000000000".asDecimal)))),
+            Code.INVALID_ARGUMENT,
+            "out-of-bounds Decimal"
+          )
+          _ <- failingCreate(
+            ctx,
+            "Decimal-bounds-negative",
+            alice,
+            templateIds.decimalRounding,
+            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("-10000000000000000000000000000.0000000000".asDecimal)))),
+            Code.INVALID_ARGUMENT,
+            "out-of-bounds Decimal"
+          )
+        } yield {
+          succeed
+        }
+      }
+    }
+    "client sends a CreateAndExerciseCommand" should {
+      val validCreateAndExercise = CreateAndExerciseCommand(
+        Some(templateIds.dummy),
+        Some(Record(fields = List(RecordField(value = Some(Value(Value.Sum.Party(party))))))),
+        "DummyChoice1",
+        Some(Value(Value.Sum.Record(Record())))
+      )
+      val ledgerEnd =
+        LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
+      val partyFilter = TransactionFilter(Map(party -> Filters(None)))
+
+      def newRequest(cmd: CreateAndExerciseCommand) = submitRequest
+        .update(_.commands.commands := Seq[Command](Command(Command.Command.CreateAndExercise(cmd))))
+        .update(_.commands.ledgerId := config.getLedgerId)
+
+      "process valid commands successfully" in allFixtures{ c =>
+        val request = newRequest(validCreateAndExercise)
+
+        for {
+          GetLedgerEndResponse(Some(currentEnd)) <- c.transactionClient.getLedgerEnd
+
+          _ <- submitSuccessfully(c, request)
+
+          txTree <- c.transactionClient
+            .getTransactionTrees(currentEnd, None, partyFilter)
+            .runWith(Sink.head)
+
+          flatTransaction <- c.transactionClient
+            .getTransactions(currentEnd, None, partyFilter)
+            .runWith(Sink.head)
+
+        } yield {
+          flatTransaction.commandId shouldBe commandId
+          // gerolf-da 2019-04-17: #575 takes care of whether we should even emit the flat transaction or not
+          flatTransaction.events shouldBe empty
+
+          txTree.rootEventIds should have length 2
+          txTree.commandId shouldBe commandId
+
+          val Seq(Kind.Created(createdEvent), Kind.Exercised(exercisedEvent)) =
+            txTree.rootEventIds.map(txTree.eventsById(_).kind)
+
+          createdEvent.templateId shouldBe Some(templateIds.dummy)
+
+          exercisedEvent.choice shouldBe "DummyChoice1"
+          exercisedEvent.contractId shouldBe createdEvent.contractId
+          exercisedEvent.consuming shouldBe true
+          exercisedEvent.contractCreatingEventId shouldBe createdEvent.eventId
+        }
+      }
+
+      "fail for invalid create arguments" in allFixtures{ implicit c =>
+        val createAndExercise = validCreateAndExercise.copy(createArguments = Some(Record()))
+        val request = newRequest(createAndExercise)
+
+        val response = submitCommand(c, request)
+        response.map(_.getStatus should have('code (Code.INVALID_ARGUMENT.value)))
+      }
+
+      "fail for invalid choice arguments" in allFixtures{ implicit c =>
+        val createAndExercise =
+          validCreateAndExercise.copy(choiceArgument = Some(Value(Value.Sum.Bool(false))))
+        val request = newRequest(createAndExercise)
+          .update(_.commands.commands := Seq[Command](Command(Command.Command.CreateAndExercise(createAndExercise))))
+
+        val response = submitCommand(c, request)
+        response.map(_.getStatus should have('code (Code.INVALID_ARGUMENT.value)))
+      }
+
+      "fail for an invalid choice" in allFixtures{ implicit c =>
+        val createAndExercise = validCreateAndExercise.copy(choice = "DoesNotExist")
+
+        val request = newRequest(createAndExercise)
+          .update(_.commands.commands := Seq[Command](Command(Command.Command.CreateAndExercise(createAndExercise))))
+
+        val response = submitCommand(c, request)
+        response.map(_.getStatus should have('code (Code.INVALID_ARGUMENT.value)))
+      }
     }
   }
 

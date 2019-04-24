@@ -44,14 +44,3 @@ The available command line options are listed here::
     <archive>...             Daml archives to load. Either in .dar or .dalf format. Only DAML-LF v1 Archives are currently supported.
     --help                   Print the usage text
 
-Performance benchmarks
-**********************
-
-Sandbox's performance depends on many different factors. These include the hardware it is run on, the size of the specific models used in the test, and the characteristics of the applications used on the client side of the Ledger API. This means you should treat the numbers below merely as an indication of Sandbox's capabilities.
-
-In the tests performed to date, Sandbox has been shown to: 
-
- * start in less than 3s
- * create 100,000 contracts within 12s window
- * consume less than 200,000MB of memory for the benchmark 100,000 contracts
- * support simultaneous connections from 10 clients all sending commands at around 1'000 contracts per second.

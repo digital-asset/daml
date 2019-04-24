@@ -200,8 +200,8 @@ sourceJarName Artifact{..}
 
 
 -- | Given an artifact, produce a list of pairs of an input file and the corresponding output file.
-artifactFiles :: E.MonadThrow m => Artifact PomData -> m [(Path Rel File, Path Rel File)]
-artifactFiles art@Artifact{..} = do
+artifactFiles :: E.MonadThrow m => AllArtifacts -> Artifact PomData -> m [(Path Rel File, Path Rel File)]
+artifactFiles allArtifacts art@Artifact{..} = do
     let PomData{..} = artMetadata
     outDir <- parseRelDir $ unpack $
         T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# pomVersion #"/"
@@ -219,12 +219,13 @@ artifactFiles art@Artifact{..} = do
     sourceJarOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "-sources" # mainExt artReleaseType))
 
     pure $
-        [(directory </> mainArtifactIn, outDir </> mainArtifactOut) | shouldRelease artPlatformDependent] <>
-        [(directory </> pomFileIn, outDir </> pomFileOut) | isJar artReleaseType, shouldRelease (PlatformDependent False)] <>
-        [(directory </> sourceJarIn, outDir </> sourceJarOut) | shouldRelease (PlatformDependent False), Just sourceJarIn <- pure mbSourceJarIn]
+        [(directory </> mainArtifactIn, outDir </> mainArtifactOut) | shouldRelease allArtifacts artPlatformDependent] <>
+        [(directory </> pomFileIn, outDir </> pomFileOut) | isJar artReleaseType, shouldRelease allArtifacts (PlatformDependent False)] <>
+        [(directory </> sourceJarIn, outDir </> sourceJarOut) | shouldRelease allArtifacts (PlatformDependent False), Just sourceJarIn <- pure mbSourceJarIn]
 
-shouldRelease :: PlatformDependent -> Bool
-shouldRelease (PlatformDependent b) = b || osName == "linux"
+shouldRelease :: AllArtifacts -> PlatformDependent -> Bool
+shouldRelease (AllArtifacts allArtifacts) (PlatformDependent platformDependent) =
+    allArtifacts || platformDependent || osName == "linux"
 
 
 copyToReleaseDir :: (MonadLogger m, MonadIO m) => BazelLocations -> Path Abs Dir -> Path Rel File -> Path Rel File -> m ()
@@ -302,7 +303,7 @@ readVersionAt rev = do
 
 gitChangedFiles :: MonadCI m => GitRev -> m [T.Text]
 gitChangedFiles rev =
-    loggedProcess "git" ["diff-tree", "--no-commit-id", "--name-only", rev] C.sourceToList
+    loggedProcess "git" ["diff-tree", "--no-commit-id", "--name-only", "-r", rev] C.sourceToList
 
 versionFile :: Path Rel File
 versionFile = $(mkRelFile "VERSION")
@@ -314,7 +315,10 @@ isReleaseCommit rev = do
     files <- gitChangedFiles "HEAD"
     if "VERSION" `elem` files
         then do
-            unless (length files == 1) $ throwIO $ CIException "Changed more than VERSION file"
+            unless ("docs/source/support/release-notes.rst" `elem` files) $
+                throwIO $ CIException "Release commit also needs to update release-notes.rst."
+            unless (length files == 2) $
+                throwIO $ CIException "Release commit should only change VERSION and release-notes.rst."
             oldVersion <- readVersionAt oldRev
             newVersion <- readVersionAt newRev
             if

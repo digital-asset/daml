@@ -11,14 +11,14 @@ import parent.exception.UnsupportedDamlTypeException
 import com.digitalasset.daml.lf.iface
 import iface.{
   PrimType => PT,
-  PrimTypeOptional => PTOptional,
   PrimTypeMap => PTMap,
+  PrimTypeOptional => PTOptional,
   Type => IType,
   _
 }
 import com.digitalasset.daml.lf.iface.reader.InterfaceType
-
 import java.io.File
+
 import scalaz._
 import scalaz.std.set._
 import scalaz.syntax.id._
@@ -49,8 +49,6 @@ final case class LFUtil(
   type Interface = EnvironmentInterface
 
   type TemplateInterface = DefTemplateWithRecord.FWT
-
-  override val mode = parent.CodeGen.Novel
 
   private[codegen] override def orderedDependencies(library: Interface) =
     DependencyGraph(this).orderedDependencies(library)
@@ -257,6 +255,13 @@ final case class LFUtil(
                 $choiceMethod(${TermName(actorParamName)}, $dctorName(..$dargs))"""
       }.toList
   }
+
+  override def templateCount(interface: Interface): Int = {
+    interface.typeDecls.count {
+      case (_, InterfaceType.Template(_, _)) => true
+      case _ => false
+    }
+  }
 }
 
 object LFUtil {
@@ -355,11 +360,6 @@ object LFUtil {
 
   private[this] def unfoldIList[S, A](init: S)(step: S => Option[(A, S)]): IList[A] =
     step(init).fold(IList.empty[A]) { case (a, next) => a :: unfoldIList(next)(step) }
-
-  /** Debugging message for LF codegen */
-  @annotation.elidable(annotation.elidable.FINE)
-  private[codegen] def lfprintln(s: String): Unit =
-    println(s)
 
   val domainApiAlias = q"` lfdomainapi`"
   val rpcValueAlias = q"` rpcvalue`"

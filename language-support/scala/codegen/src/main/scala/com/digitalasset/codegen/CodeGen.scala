@@ -4,19 +4,21 @@
 package com.digitalasset.codegen
 
 import com.digitalasset.codegen.types.Namespace
-import com.digitalasset.daml.lf.iface, iface.{Type => _, _}
-import com.digitalasset.daml.lf.iface.reader.InterfaceType
+import com.digitalasset.daml.lf.{Dar, UniversalArchiveReader, iface}
+import iface.{Type => _, _}
+import com.digitalasset.daml.lf.iface.reader.{Errors, Interface, InterfaceReader}
 import java.io._
-import java.net.URL
-import java.nio.file.Files
 
 import scala.collection.breakOut
 import com.digitalasset.codegen.dependencygraph._
 import com.digitalasset.codegen.exception.PackageInterfaceException
+import com.digitalasset.codegen.lf.EnvironmentInterface.environmentInterfaceSemigroup
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import lf.{DefTemplateWithRecord, LFUtil, ScopedDataType}
-import com.digitalasset.daml_lf.DamlLf
+import lf.{DefTemplateWithRecord, EnvironmentInterface, LFUtil, ScopedDataType}
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.iface.reader.Errors.ErrorLoc
+import com.digitalasset.daml_lf.DamlLf
+import com.typesafe.scalalogging.Logger
 import scalaz._
 import scalaz.std.tuple._
 import scalaz.std.list._
@@ -27,68 +29,16 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.bind._
 import scalaz.syntax.traverse1._
 
+import scala.util.{Failure, Success}
+
 object CodeGen {
 
-  sealed abstract class Mode extends Serializable with Product { self =>
-    type Dialect <: Util { type Interface <: self.Interface }
-    type InterfaceElement
-    type Interface
-    private[CodeGen] val Dialect: (String, Interface, File) => Dialect
+  private val logger: Logger = Logger(getClass)
 
-    private[CodeGen] def decodeInterfaceFromStream(
-        format: PackageFormat,
-        bis: BufferedInputStream): String \/ InterfaceElement
+  type Payload = (PackageId, DamlLf.ArchivePayload)
 
-    private[CodeGen] def combineInterfaces(
-        leader: InterfaceElement,
-        dependencies: Seq[InterfaceElement]): Interface
-
-    private[CodeGen] def templateCount(interface: Interface): Int
-  }
-
-  case object Novel extends Mode {
-    import reader.InterfaceReader
-    type Dialect = LFUtil
-    type InterfaceElement = reader.Interface
-    type Interface = lf.EnvironmentInterface
-    private[CodeGen] val Dialect = LFUtil.apply _
-
-    private[CodeGen] override def decodeInterfaceFromStream(
-        format: PackageFormat,
-        bis: BufferedInputStream): String \/ InterfaceElement =
-      format match {
-        case PackageFormat.SDaml =>
-          \/.left("sdaml v1 not supported")
-        case PackageFormat.SDamlV2 =>
-          \/.left("sdaml v2 not supported")
-        case PackageFormat.DamlLF =>
-          \/.fromTryCatchNonFatal {
-            val (errors, out) = reader.Interface.read(
-              DamlLf.Archive.parser().parseFrom(bis)
-            )
-            println(
-              s"Codegen decoded archive with Package ID: ${out.packageId.underlyingString: String}")
-            if (!errors.empty)
-              \/.left(
-                ("Errors reading LF archive:\n" +: InterfaceReader.InterfaceReaderError.treeReport(
-                  errors)).toString)
-            else \/.right(out)
-          }.leftMap(_.getLocalizedMessage).join
-      }
-
-    private[CodeGen] override def combineInterfaces(
-        leader: InterfaceElement,
-        dependencies: Seq[InterfaceElement]): Interface =
-      lf.EnvironmentInterface fromReaderInterfaces (leader, dependencies: _*)
-
-    private[CodeGen] override def templateCount(interface: Interface): Int = {
-      interface.typeDecls.count {
-        case (_, InterfaceType.Template(_, _)) => true
-        case _ => false
-      }
-    }
-
-  }
+  sealed abstract class Mode extends Serializable with Product
+  case object Novel extends Mode
 
   val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
   import universe._
@@ -96,7 +46,7 @@ object CodeGen {
   import Util.{FilePlan, WriteParams, partitionEithers}
 
   /*
-   * Given an DAML package (in sdaml format), a package name and an output
+   * Given a DAML package (in DAR or DALF format), a package name and an output
    * directory, this function writes a bunch of generated .scala files
    * to 'outputDir' that mirror the namespace of the DAML package.
    *
@@ -109,76 +59,82 @@ object CodeGen {
   @throws[PackageInterfaceException](
     cause = "either decoding a package from a file or extracting" +
       " the package interface failed")
-  def generateCode(
-      sdamlFile: File,
-      otherDalfInputs: Seq[URL],
+  def generateCode(files: List[File], packageName: String, outputDir: File, mode: Mode): Unit =
+    files match {
+      case Nil =>
+        throw PackageInterfaceException("Expected at least one DAR or DALF input file.")
+      case f :: fs =>
+        generateCodeSafe(NonEmptyList(f, fs: _*), packageName, outputDir, mode)
+          .fold(es => throw PackageInterfaceException(formatErrors(es)), identity)
+    }
+
+  private def formatErrors(es: NonEmptyList[String]): String =
+    es.toList.mkString("\n")
+
+  def generateCodeSafe(
+      files: NonEmptyList[File],
       packageName: String,
       outputDir: File,
-      mode: Mode): Unit = {
-    val errorOrRun = for {
-      interface <- decodePackageFromFile(sdamlFile, mode)
-      dependencies <- decodePackagesFromURLs(otherDalfInputs, mode)
-      combined = mode.combineInterfaces(interface, dependencies)
-    } yield packageInterfaceToScalaCode(mode.Dialect(packageName, combined, outputDir))
-
-    errorOrRun fold (e => throw PackageInterfaceException(e), identity)
-  }
-
-  private def decodePackageFromFile(
-      sdamlFile: File,
-      mode: Mode): String \/ mode.InterfaceElement = {
-    val is = Files.newInputStream(sdamlFile.toPath)
-    println(s"Decoding ${sdamlFile.toPath}")
-    try decodePackageFrom(is, mode)
-    finally is.close() // close is in case of fatal throwables
-  }
-
-  private def decodePackagesFromURLs(
-      urls: Seq[URL],
-      mode: Mode): String \/ Seq[mode.InterfaceElement] =
-    urls
-      .map { url =>
-        val is = url.openStream()
-        try decodePackageFrom(is, mode)
-        finally is.close()
-      }
-      .toList
-      .sequenceU
-
-  @throws[FileNotFoundException](cause = "input file not found")
-  @throws[SecurityException](cause = "input file not readable")
-  private def decodePackageFrom(is: InputStream, mode: Mode): String \/ mode.InterfaceElement = {
-    val bis = new BufferedInputStream(is)
-
-    for {
-      format <- detectPackageFormat(bis)
-      result <- mode.decodeInterfaceFromStream(format, bis)
-    } yield result
-  }
-
-  sealed trait PackageFormat
-  object PackageFormat {
-    case object SDaml extends PackageFormat
-    case object SDamlV2 extends PackageFormat
-    case object DamlLF extends PackageFormat
-  }
-
-  private def detectPackageFormat(is: InputStream): String \/ PackageFormat = {
-    if (is.markSupported()) {
-      is.mark(1024)
-      val buf = Array.ofDim[Byte](11)
-      is.read(buf)
-      is.reset()
-      \/.right(
-        if (buf.startsWith("("))
-          if (buf.startsWith("(pkge\"v2.0\"")) PackageFormat.SDamlV2
-          else PackageFormat.SDaml
-        else
-          PackageFormat.DamlLF
-      )
-    } else {
-      \/.left("input stream doesn't support mark")
+      mode: Mode): ValidationNel[String, Unit] =
+    decodeInterfaces(files).map { ifaces: NonEmptyList[EnvironmentInterface] =>
+      val combinedIface: EnvironmentInterface = combineEnvInterfaces(ifaces)
+      packageInterfaceToScalaCode(util(mode, packageName, combinedIface, outputDir))
     }
+
+  private def util(
+      mode: Mode,
+      packageName: String,
+      iface: EnvironmentInterface,
+      outputDir: File): Util = mode match {
+    case Novel => LFUtil(packageName, iface, outputDir)
+  }
+
+  private def decodeInterfaces(
+      files: NonEmptyList[File]): ValidationNel[String, NonEmptyList[EnvironmentInterface]] = {
+    val reader = UniversalArchiveReader()
+    val parse: File => String \/ Dar[Payload] = parseFile(reader)
+    files.traverseU(f => decodeInterface(parse)(f).validationNel)
+  }
+
+  private def parseFile(reader: UniversalArchiveReader[Payload])(f: File): String \/ Dar[Payload] =
+    reader.readFile(f) match {
+      case Success(p) => \/.right(p)
+      case Failure(e) =>
+        logger.error("Scala Codegen error", e)
+        \/.left(e.getLocalizedMessage)
+    }
+
+  private def decodeInterface(parse: File => String \/ Dar[Payload])(
+      file: File): String \/ EnvironmentInterface =
+    parse(file).flatMap(decodeInterface)
+
+  private def decodeInterface(dar: Dar[Payload]): String \/ EnvironmentInterface = {
+    import scalaz.syntax.traverse._
+    dar.traverseU(decodeInterface).map(combineInterfaces)
+  }
+
+  private def decodeInterface(p: Payload): String \/ Interface =
+    \/.fromTryCatchNonFatal {
+      val packageId: PackageId = p._1
+      logger.info(s"decoding archive with Package ID: ${packageId.underlyingString: String}")
+      val (errors, out) = Interface.read(p)
+      if (!errors.empty) {
+        \/.left(formatDecodeErrors(packageId, errors))
+      } else \/.right(out)
+    }.leftMap(_.getLocalizedMessage).join
+
+  private def formatDecodeErrors(
+      packageId: PackageId,
+      errors: Errors[ErrorLoc, InterfaceReader.InvalidDataTypeDefinition]): String =
+    (Cord(s"Errors decoding LF archive (Package ID: ${packageId.underlyingString: String}):\n") ++
+      InterfaceReader.InterfaceReaderError.treeReport(errors)).toString
+
+  private def combineInterfaces(dar: Dar[Interface]): EnvironmentInterface =
+    EnvironmentInterface.fromReaderInterfaces(dar)
+
+  private def combineEnvInterfaces(as: NonEmptyList[EnvironmentInterface]): EnvironmentInterface = {
+    val z = EnvironmentInterface(Map.empty)
+    as.foldLeft(z)((a1, a2) => environmentInterfaceSemigroup.append(a1, a2))
   }
 
   private def packageInterfaceToScalaCode(util: Util): Unit = {
@@ -209,11 +165,13 @@ object CodeGen {
     // Each record/variant has Scala code generated for it individually, unless their names are related
     writeTemplatesAndTypes(util)(WriteParams(supportedTemplateIds, typeDeclsToGenerate))
 
-    println("Scala Codegen result:")
-    println(s"Number of generated templates: ${supportedTemplateIds.size}")
-    println(
-      s"Number of not generated templates: ${util.mode.templateCount(interface) - supportedTemplateIds.size}")
-    println(s"Details: ${orderedDependencies.errors.map(_.msg).mkString("\n")}")
+    logger.info(
+      s"""Scala Codegen result:
+          |Number of generated templates: ${supportedTemplateIds.size}
+          |Number of not generated templates: ${util
+           .templateCount(interface) - supportedTemplateIds.size}
+          |Details: ${orderedDependencies.errors.map(_.msg).mkString("\n")}""".stripMargin
+    )
   }
 
   private[codegen] def produceTemplateAndTypeFilesLF(
@@ -311,9 +269,9 @@ object CodeGen {
   private[this] def writeTemplatesAndTypes(util: Util)(
       wp: WriteParams[util.TemplateInterface]): Unit = {
     util.templateAndTypeFiles(wp) foreach {
-      case -\/(msg) => println(msg)
+      case -\/(msg) => logger.debug(msg)
       case \/-((msg, filePath, trees)) =>
-        msg foreach (println(_))
+        msg foreach (m => logger.debug(m))
         writeCode(filePath, trees)
     }
   }
@@ -329,6 +287,6 @@ object CodeGen {
         writer.close()
       }
     } else {
-      println(s"WARNING: nothing to generate, empty trees passed, file: $filePath")
+      logger.warn(s"WARNING: nothing to generate, empty trees passed, file: $filePath")
     }
 }

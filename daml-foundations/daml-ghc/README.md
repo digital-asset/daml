@@ -37,6 +37,11 @@ bazel run //daml-foundations/daml-ghc:daml-ghc-shake-test-ci -- --pattern=
 da-ghcid daml-foundations/daml-ghc/src/DA/Test/ShakeIdeClient.hs --test=":main --pattern="
 ```
 
+The above commands do not execute scenarios. To do that, use a command like
+```
+bazel run damlc test $PWD/daml-foundations/daml-ghc/bond-trading/Test.daml
+``` 
+
 Testing in situ:
 
 ```
@@ -153,7 +158,7 @@ installation of the packages for type checking.
 
 Currently a package database is provided together with the `damlc` Bazel rule and `bazel run damlc`
 loads this database by default. This package database is also shipped together with
-`da-hs-damli-app.tar.gz` and `da-hs-damlc-app.tar.gz` for the SDK and the platform and is contained
+`da-hs-damlc-app.tar.gz` for the SDK and the platform and is contained
 in the directory `resources/package-db/gen/`.
 
 ### Building the package database

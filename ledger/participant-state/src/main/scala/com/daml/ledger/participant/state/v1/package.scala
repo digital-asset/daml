@@ -29,12 +29,31 @@ import com.digitalasset.daml.lf.value.Value
   * exposed via the DAML Ledger API. The [[v1.ReadService]] interface contains
   * the one method [[v1.ReadService.stateUpdates]] to read the state of a ledger
   * participant. It represents the participant state as a stream of
-  * [[v1.Update]]s to an initial participant state. The typcial consumer of this
+  * [[v1.Update]]s to an initial participant state. The typical consumer of this
   * method is a class that subscribes to this stream of [[v1.Update]]s and
   * reconstructs (a view of) the actual participant state. See the comments
   * on [[v1.Update]] and [[v1.ReadService.stateUpdates]] for details about the kind
   * of updates and the guarantees given to consumers of the stream of
   * [[v1.Update]]s.
+  *
+  * We provide a reference implementation of a participant state in
+  * [[com.daml.ledger.participant.state.v1.impl.reference.Ledger]]. There we
+  * model an in-memory ledger, which has by construction a single participant,
+  * which hosts all parties. See its comments for details on how that is done,
+  * and how its implementation can be used as a blueprint for implementing
+  * your own participant state.
+  *
+  * We do expect the interfaces provided in
+  * [[com.daml.ledger.participant.state]] to evolve, which is why we
+  * provide them all in the
+  * [[com.daml.ledger.participant.state.v1]] package.  Where possible
+  * we will evolve them in a backwards compatible fashion, so that a simple
+  * recompile suffices to upgrade to a new version. Where that is not
+  * possible, we plan to introduce new version of this API in a separate
+  * package and maintain it side-by-side with the existing version if
+  * possible. There can therefore potentially be multiple versions of
+  * participant state APIs at the same time. We plan to deprecate and drop old
+  * versions on separate and appropriate timelines.
   *
   */
 package object v1 {
@@ -69,24 +88,28 @@ package object v1 {
 
   /** Offsets into streams with hierarchical addressing.
     *
-    * We use these [[Offset]]'s to address changes to the particpant state.
-    * We allow for array of [[Int]] to allow for hierarchical adddresses.
+    * We use these [[Offset]]'s to address changes to the participant state.
+    * We allow for array of [[Int]] to allow for hierarchical addresses.
     * These [[Int]] values are expected to be positive. Offsets are ordered by
     * lexicographic ordering of the array elements.
     *
-    * A typical usecase for [[Offset]]s would be addressing a transaction in a
+    * A typical use case for [[Offset]]s would be addressing a transaction in a
     * blockchain by `[<blockheight>, <transactionId>]`. Depending on the
     * structure of the underlying ledger these offsets are more or less
     * nested, which is why we use an array of [[Int]]s. The expectation is
-    * though that there are usually few elements in the array.
+    * though that there usually are few elements in the array.
     *
     */
-  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final case class Offset(private val xs: Array[Int]) {
+  final case class Offset(private val xs: Array[Long]) {
     override def toString: String =
-      xs.mkString("-")
+      components.mkString("-")
 
-    def components: Iterable[Int] = xs
+    def components: Iterable[Long] = xs
+
+    override def equals(that: Any): Boolean = that match {
+      case o: Offset => Offset.compare(this, o) == 0
+      case _ => false
+    }
   }
   implicit object Offset extends Ordering[Offset] {
 
@@ -94,24 +117,38 @@ package object v1 {
       * NumberFormatException on misformatted strings.
       */
     def assertFromString(s: String): Offset =
-      Offset(s.split('-').map(_.toInt))
+      Offset(s.split('-').map(_.toLong))
 
     override def compare(x: Offset, y: Offset): Int =
-      scala.math.Ordering.Iterable[Int].compare(x.xs, y.xs)
+      scala.math.Ordering.Iterable[Long].compare(x.xs, y.xs)
   }
 
-  /** The type for a yet uncommitted transaction with relative contract
-    *  identifiers, submitted via 'submitTransaction'.
+  /** The initial conditions of the ledger.
+    *
+    * @param ledgerId: The static ledger identifier.
+    * @param initialRecordTime: The initial record time prior to any [[Update]] event.
+    */
+  final case class LedgerInitialConditions(
+      ledgerId: LedgerId,
+      initialRecordTime: Timestamp
+  )
+
+  /** A transaction with relative and absolute contract identifiers.
+    *
+    *  See [[WriteService.submitTransaction]] for details.
     */
   type SubmittedTransaction = Transaction.Transaction
 
-  /** The type for a committed transaction, which uses absolute contract
-    *  identifiers.
+  /** A transaction with absolute contract identifiers only.
+    *
+    * Used to communicate transactions that have been accepted to the ledger.
+    * See [[WriteService.submitTransaction]] for details on relative and
+    * absolute contract identifiers.
     */
   type CommittedTransaction =
     GenTransaction[NodeId, Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]]
 
-  /** A contract instance with absolute contract identifiers. */
+  /** A contract instance with absolute contract identifiers only. */
   type AbsoluteContractInst =
     Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]
 
@@ -155,7 +192,7 @@ package object v1 {
     * @param ledgerEffectiveTime: the submitter-provided time at which the
     *   transaction should be interpreted. This is the time returned by the
     *   DAML interpreter on a `getTime :: Update Time` call. See the docs on
-    *   [[Update.TransactionAccepted]] for how it relates to the notion of
+    *   [[WriteService.submitTransaction]] for how it relates to the notion of
     *   `recordTime`.
     *
     * @param workflowId: a submitter-provided identifier used for monitoring

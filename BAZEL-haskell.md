@@ -183,13 +183,6 @@ bring the macros `haskell_toolchain`, `haskell_import`, `haskell_cc_import` and 
 Lastly, there are some aliases defined here. For example,
 ```
 alias(
-  name = "damli",
-  actual = "//daml-foundations/daml-tools/da-hs-damli-app:damli"
-)
-```
-and
-```
-alias(
   name = "damlc",
   actual = "//daml-foundations/daml-tools/da-hs-damlc-app"
 )

@@ -13,7 +13,7 @@ import com.digitalasset.ledger.api.v1.ledger_identity_service.{
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import io.grpc.{ServerServiceDefinition, Status}
+import io.grpc.{BindableService, ServerServiceDefinition, Status}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.Future
@@ -37,12 +37,13 @@ abstract class LedgerIdentityServiceImpl private (val ledgerId: String)
       Future.successful(GetLedgerIdentityResponse(ledgerId))
 
   override def close(): Unit = closed = true
+
+  override def bindService(): ServerServiceDefinition =
+    LedgerIdentityServiceGrpc.bindService(this, DirectExecutionContext)
 }
 
 object LedgerIdentityServiceImpl {
-  def apply(ledgerId: String): LedgerIdentityServiceImpl with LedgerIdentityServiceLogging =
-    new LedgerIdentityServiceImpl(ledgerId) with LedgerIdentityServiceLogging {
-      override def bindService(): ServerServiceDefinition =
-        LedgerIdentityServiceGrpc.bindService(this, DirectExecutionContext)
-    }
+  def apply(ledgerId: String)
+    : LedgerIdentityService with BindableService with LedgerIdentityServiceLogging =
+    new LedgerIdentityServiceImpl(ledgerId) with LedgerIdentityServiceLogging
 }

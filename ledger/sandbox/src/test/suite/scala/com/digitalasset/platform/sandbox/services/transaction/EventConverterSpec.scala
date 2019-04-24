@@ -27,7 +27,7 @@ import com.digitalasset.platform.participant.util.ApiToLfEngine
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.damle.SandboxDamle
 import com.digitalasset.platform.sandbox.services.TestCommands
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
+import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.EventId
 import com.digitalasset.platform.sandbox.{TestDar, TestHelpers}
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
@@ -90,7 +90,7 @@ class EventConverterSpec
     .withCommands(Seq(create))
 
   object CommandsToTest extends TestCommands {
-    override protected def darFile: File = new File("ledger/sandbox/Test.dalf")
+    override protected def darFile: File = new File("ledger/sandbox/Test.dar")
 
     val damlPackageContainer = DamlPackageContainer(scala.collection.immutable.List(darFile), true)
     val onKbCmd = oneKbCommandRequest("ledgerId", "big").getCommands
@@ -117,8 +117,8 @@ class EventConverterSpec
               tx <- Await.result(
                 SandboxDamle.consume(engine.submit(lfCmds))(
                   damlPackageContainer,
-                  contractLookup(ActiveContracts.empty),
-                  keyLookup(ActiveContracts.empty)),
+                  contractLookup(ActiveContractsInMemory.empty),
+                  keyLookup(ActiveContractsInMemory.empty)),
                 5.seconds
               )
               blinding <- Blinding
@@ -156,8 +156,8 @@ class EventConverterSpec
             tx <- Await.result(
               SandboxDamle.consume(engine.submit(lfCmds))(
                 damlPackageContainer,
-                contractLookup(ActiveContracts.empty),
-                keyLookup(ActiveContracts.empty)),
+                contractLookup(ActiveContractsInMemory.empty),
+                keyLookup(ActiveContractsInMemory.empty)),
               5.seconds
             )
             blinding <- Blinding
@@ -444,10 +444,10 @@ class EventConverterSpec
     }
   }
 
-  private def contractLookup(ac: ActiveContracts)(c: AbsoluteContractId) = {
+  private def contractLookup(ac: ActiveContractsInMemory)(c: AbsoluteContractId) = {
     Future.successful(ac.contracts.get(c).map(_.contract))
   }
 
-  private def keyLookup(ac: ActiveContracts)(gk: GlobalKey) =
+  private def keyLookup(ac: ActiveContractsInMemory)(gk: GlobalKey) =
     Future.successful(ac.keys.get(gk))
 }

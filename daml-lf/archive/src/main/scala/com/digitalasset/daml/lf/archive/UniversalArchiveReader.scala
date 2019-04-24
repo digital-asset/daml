@@ -27,14 +27,15 @@ class UniversalArchiveReader[A](
     parseDalf: InputStream => Try[A]) {
   import SupportedFileType._
 
-  def readArchive(file: File): Try[Dar[A]] = supportedFileType(file).flatMap {
+  def readFile(file: File): Try[Dar[A]] = supportedFileType(file).flatMap {
     case DarFile =>
       bracket(zipFile(file))(close).flatMap(parseDar)
     case DalfFile =>
       bracket(inputStream(file))(close).flatMap(parseDalf).map(Dar(_, List.empty))
   }
 
-  private def zipFile(f: File): Try[ZipFile] = Try(new ZipFile(f))
+  private def zipFile(f: File): Try[ZipFile] =
+    Try(new ZipFile(f))
 
   private def inputStream(f: File): Try[InputStream] =
     Try(new BufferedInputStream(new FileInputStream(f)))

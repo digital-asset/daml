@@ -11,14 +11,16 @@ import com.digitalasset.daml.lf.engine.{
   Commands,
   CreateCommand,
   DeprecatedIdentifier,
-  ExerciseCommand
+  ExerciseCommand,
+  CreateAndExerciseCommand
 }
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.v1.commands.{
   Command => ApiCommand,
   Commands => ApiCommands,
   CreateCommand => ApiCreateCommand,
-  ExerciseCommand => ApiExerciseCommand
+  ExerciseCommand => ApiExerciseCommand,
+  CreateAndExerciseCommand => ApiCreateAndExerciseCommand
 }
 import com.digitalasset.ledger.api.v1.value.{
   Optional,
@@ -191,6 +193,14 @@ object LfEngineToApi {
               contractId,
               choiceId,
               LfEngineToApi.lfValueToApiValue(verbose = true, argument.value).toOption)))
+      case CreateAndExerciseCommand(templateId, createArgument, choiceId, choiceArgument, _) =>
+        ApiCommand(
+          ApiCommand.Command.CreateAndExercise(ApiCreateAndExerciseCommand(
+            Some(toApiIdentifier(templateId)),
+            LfEngineToApi.lfVersionedValueToApiRecord(verbose = true, createArgument).toOption,
+            choiceId,
+            LfEngineToApi.lfVersionedValueToApiValue(verbose = true, choiceArgument).toOption
+          )))
     }
 
     ApiCommands(

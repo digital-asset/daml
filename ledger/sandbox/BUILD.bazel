@@ -111,7 +111,6 @@ genrule(
 
 daml_compile(
     name = "Test",
-    damlc = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app-deprecated",
     main_src = "src/test/resources/damls/Test.daml",
     target = "1.3",
     visibility = ["//visibility:public"],
@@ -141,8 +140,7 @@ da_scala_test_suite(
         ["src/test/suite/**/*.scala"],
     ),
     data = [
-        "//daml-foundations/daml-ghc/package-database/deprecated:daml-prim-1.3.dalf",
-        "//ledger/sandbox:Test.dalf",
+        "//ledger/sandbox:Test.dar",
     ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [

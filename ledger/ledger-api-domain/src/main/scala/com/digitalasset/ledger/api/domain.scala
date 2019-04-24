@@ -6,7 +6,8 @@ package com.digitalasset.ledger.api
 import java.time.Instant
 
 import brave.propagation.TraceContext
-import com.digitalasset.daml.lf.data.SortedLookupList
+import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.{Ref, SortedLookupList}
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.digitalasset.ledger.api.domain.Value.RecordValue
 import scalaz.{@@, Tag}
@@ -14,8 +15,6 @@ import scalaz.{@@, Tag}
 import scala.collection.{breakOut, immutable}
 
 object domain {
-
-  final case class Identifier(packageId: PackageId, moduleName: String, entityName: String)
 
   final case class TransactionFilter(filtersByParty: immutable.Map[Party, Filters])
 
@@ -27,7 +26,7 @@ object domain {
   }
 
   final case class Filters(inclusive: Option[InclusiveFilters]) {
-    def containsTemplateId(identifier: Identifier): Boolean =
+    def containsTemplateId(identifier: Ref.Identifier): Boolean =
       inclusive.fold(true)(_.templateIds.contains(identifier))
   }
 
@@ -37,7 +36,7 @@ object domain {
     def apply(inclusive: InclusiveFilters) = new Filters(Some(inclusive))
   }
 
-  final case class InclusiveFilters(templateIds: immutable.Set[Identifier])
+  final case class InclusiveFilters(templateIds: immutable.Set[Ref.Identifier])
 
   sealed abstract class LedgerOffset extends Product with Serializable
 
@@ -57,7 +56,7 @@ object domain {
 
     def contractId: ContractId
 
-    def templateId: Identifier
+    def templateId: Ref.Identifier
 
     def witnessParties: immutable.Set[Party]
   }
@@ -71,7 +70,7 @@ object domain {
     final case class CreatedEvent(
         eventId: EventId,
         contractId: ContractId,
-        templateId: Identifier,
+        templateId: Ref.Identifier,
         createArguments: RecordValue,
         witnessParties: immutable.Set[Party])
         extends Event
@@ -81,7 +80,7 @@ object domain {
     final case class ArchivedEvent(
         eventId: EventId,
         contractId: ContractId,
-        templateId: Identifier,
+        templateId: Ref.Identifier,
         witnessParties: immutable.Set[Party])
         extends Event
         with CreateOrExerciseEvent
@@ -89,7 +88,7 @@ object domain {
     final case class ExercisedEvent(
         eventId: EventId,
         contractId: ContractId,
-        templateId: Identifier,
+        templateId: Ref.Identifier,
         contractCreatingEventId: EventId,
         choice: Choice,
         choiceArgument: Value,
@@ -146,12 +145,14 @@ object domain {
     final case class ListValue(elements: immutable.Seq[Value]) extends Value
 
     final case class VariantValue(
-        variantId: Option[Identifier],
+        variantId: Option[Ref.Identifier],
         variantConstructor: VariantConstructor,
         value: Value)
         extends Value
 
-    final case class RecordValue(recordId: Option[Identifier], fields: immutable.Seq[RecordField])
+    final case class RecordValue(
+        recordId: Option[Ref.Identifier],
+        fields: immutable.Seq[RecordField])
         extends Value
 
     final case class ContractIdValue(contractId: ContractId) extends Value
@@ -220,11 +221,6 @@ object domain {
   }
 
   final case class RecordField(label: Option[Label], value: Value)
-
-  sealed trait PartyTag
-
-  type Party = String @@ PartyTag
-  val Party: Tag.TagOf[PartyTag] = Tag.of[PartyTag]
 
   sealed trait LabelTag
 
@@ -298,10 +294,17 @@ object domain {
 
   sealed trait Command extends Product with Serializable
 
-  final case class CreateCommand(templateId: Identifier, record: RecordValue) extends Command
+  final case class CreateCommand(templateId: Ref.Identifier, record: RecordValue) extends Command
   final case class ExerciseCommand(
-      templateId: Identifier,
+      templateId: Ref.Identifier,
       contractId: ContractId,
+      choice: Choice,
+      choiceArgument: Value)
+      extends Command
+
+  final case class CreateAndExerciseCommand(
+      templateId: Ref.Identifier,
+      createArgument: RecordValue,
       choice: Choice,
       choiceArgument: Value)
       extends Command

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
 DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$DADE_CURRENT_SCRIPT_DIR/../lib/dade-common"
-buildTool lsof out 0
 nix-store --gc

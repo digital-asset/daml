@@ -7,7 +7,7 @@ daml 1.2
 -- | MOVE Prelude DAML-LF primitives, just templates/contracts
 module DA.Internal.Template(
     Template(ensure, signatory, observer, agreement),
-    Choice(consuming, choiceController, choice), nonconsuming, NoEvent(..),
+    Choice(consuming, choiceController, choice), preconsuming, nonconsuming, postconsuming, NoEvent(..),
     stakeholder,
     create, exercise, fetch,
     archive, Archive(..),
@@ -38,6 +38,8 @@ exercise c e = do
     exerciseExplicit (choiceController cc e) c e
 
 -- | Fetch the contract data associated with the given contract id.
+-- This fails and aborts the entire transaction if the `ContractId c`
+-- supplied is not the contract ID of an active contract.
 fetch : Template c => ContractId c -> Update c
 fetch = internalFetch
 
@@ -87,12 +89,27 @@ class Template c where
     internalArchive = magic @"archive"
 
 
+-- Deliberately not exported.
+data Consuming = PreConsuming  -- Archive before executing exercise body.
+               | PostConsuming -- Execute exercise body then archive.
+               | NonConsuming  -- Don't archive.
+
+-- | HIDE
+nonconsuming : NoEvent c e -> Consuming
+nonconsuming _ = NonConsuming
+
+-- | HIDE
+preconsuming : NoEvent c e -> Consuming
+preconsuming _ = PreConsuming
+
+-- | HIDE
+postconsuming : NoEvent c e -> Consuming
+postconsuming _ = PostConsuming
+
 class Template c => Choice c e r | c e -> r where
     -- | HIDE
-    consuming : NoEvent c e -> ChoiceType
-    -- must be a lambda since otherwise the default-dictionary method causes a runtime loop as the method
-    -- exists in the dictionary, takes the dictionary, and can't be eta expanded.
-    consuming _ = Consuming
+    consuming : NoEvent c e -> Consuming
+    consuming = preconsuming
 
     choiceController : c -> e -> [Party]
     choice : c -> ContractId c -> e -> Update r
@@ -108,14 +125,6 @@ instance Template c => Choice c Archive () where
     choice _ _ _ = return ()
 
     internalExercise p c _ = internalArchive p c
-
-
--- Deliberately not exported, they either have to use the default, or 'nonconsuming' below.
-data ChoiceType = Consuming | NonConsuming
-
--- | HIDE
-nonconsuming : NoEvent c e -> ChoiceType
-nonconsuming _ = NonConsuming
 
 -- | HIDE
 data NoEvent c e = NoEvent

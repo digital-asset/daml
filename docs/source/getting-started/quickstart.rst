@@ -115,49 +115,43 @@ Run the application using prototyping tools
 In this section, you will run the quickstart application and get introduced to the main tools for prototyping DAML:
 
 #. To compile the DAML model, run ``da run damlc -- package daml/Main.daml target/daml/iou``
-   
-   This creates a DAR package called ``target/daml/iou.dar``. The output should look like this:
-   
-   .. code-block:: none
-   
-      2018-11-21 16:20:50.06 [DEBUG]  [package]  []  [DA.Service.Daml.Compiler.Impl.Handle:275]
-      Compiling: /.../quickstart/daml/Main.daml
 
-      2018-11-21 16:20:50.96 [DEBUG]  [package]  []  [DA.Service.Daml.Compiler.Impl.Handle:210]
-      Callback received for file Tagged "/.../quickstart/daml/Main.daml"
-      Created target/daml/qs.dar.
-   
+   This creates a DAR package called ``target/daml/iou.dar``. The output should look like this:
+
+   .. code-block:: none
+
+      Created target/daml/iou.dar.
+
    .. _quickstart-sandbox:
-   
-#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``da run sandbox -- --port 6865 --scenario Main:setup target/daml/*``
+
+#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``da run sandbox -- --scenario Main:setup target/daml/*``
 
    The output should look like this:
-   
+
    .. code-block:: none
 
-         ____             ____
-        / __/__ ____  ___/ / /  ___ __ __
-       _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
-      /___/\_,_/_//_/\_,_/_.__/\___/_\_\
-
-      Initialized sandbox version 3.0.3 with ledger-id = sandbox-bb4a19ee-c0f8-444e-825a-1eb3c1ecd401, port = 6865, dar file = DamlPackageContainer(List(target/daml/qs.dar)), time mode = Static, daml-engine = {}
-      Initialized Static time provider, starting from 1970-01-01T00:00:00Z
-      DAML LF Engine supports LF versions: 1.0, 0; Transaction versions: 1; Value versions: 1
+      DAML LF Engine supports LF versions: 0, 1.0, 1.1, 1.2, 1.3; Transaction versions: 1, 2, 3, 4, 5; Value versions: 1, 2, 3, 4
       Starting plainText server
       listening on localhost:6865
-   
+        ____             ____
+        / __/__ ____  ___/ / /  ___ __ __
+      _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
+      /___/\_,_/_//_/\_,_/_.__/\___/_\_\
+
+      Initialized sandbox version 100.12.1 with ledger-id = sandbox-5e12e502-817e-41f9-ad40-1c57b8845f9d, port = 6865, dar file = DamlPackageContainer(List(target/daml/iou.dar),false), time mode = Static, ledger = in-memory, daml-engine = {}
+
    The sandbox is now running, and you can access its :doc:`ledger API </app-dev/index>` on port ``6865``.
-   
+
    .. note::
 
-      The parameter ``--scenario Main.setup`` loaded the sandbox ledger with some initial data. Only the sandbox has this prototyping feature - it's not available on the full ledger server. More on :ref:`scenarios <quickstart-scenarios>` later.
-   
-   .. _quickstart-navigator:
-   
-#. Open a new terminal window and navigate to your project directory.
-#. Start the :doc:`Navigator </tools/navigator/index>`, a browser-based leger front-end, by running ``da run navigator -- server localhost 6865 --port 7500``
+      The parameter ``--scenario Main:setup`` loaded the sandbox ledger with some initial data. Only the sandbox has this prototyping feature - it's not available on the full ledger server. More on :ref:`scenarios <quickstart-scenarios>` later.
 
-   The Navigator automatically connects the sandbox. You can access it on port ``7500``.
+   .. _quickstart-navigator:
+
+#. Open a new terminal window and navigate to your project directory.
+#. Start the :doc:`Navigator </tools/navigator/index>`, a browser-based leger front-end, by running ``da run navigator -- server``
+
+   The Navigator automatically connects the sandbox. You can access it on port ``4000``.
 
 .. _quickstart-work:
 
@@ -166,19 +160,19 @@ Try out the application
 
 Now everything is running, you can try out the quickstart application:
 
-#. Go to `http://localhost:7500/ <http://localhost:7500/>`_. This is the Navigator, which you launched :ref:`earlier <quickstart-navigator>`.
+#. Go to `http://localhost:4000/ <http://localhost:4000/>`_. This is the Navigator, which you launched :ref:`earlier <quickstart-navigator>`.
 #. On the login screen, select **Alice** from the dropdown. This logs you in as Alice.
 
    (The list of available parties is specified in the ``ui-backend.conf`` file.)
 
    This takes you to the contracts view:
-   
+
    .. figure:: quickstart/images/contracts.png
 
    This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id `#2:2`, created from a *template* called `Iou.Iou@28b...`.
-   
+
 #. On the left-hand side, you can see what the pages the Navigator contains:
-   
+
    - Contracts
    - Templates
    - Owned Ious
@@ -191,15 +185,15 @@ Now everything is running, you can try out the quickstart application:
    For information on creating custom Navigator views, see :ref:`navigator-custom-views`.
 
 #. Click **Templates** to open the Templates page.
-   
+
    This displays all available *contract templates*. Instances of contracts (or just *contracts*) are created from these templates. The names of the templates are of the format `module.template@hash`. Including the hash disambiguates templates, even when identical module and template names are used between packages.
 
    On the far right, you see the number of *contract instances* that you can see for each template.
 
 #. Try creating a contract from a template. Issue an Iou to yourself by clicking on the ``Iou.Iou`` row, filling it out as shown below and clicking **Submit**.
-   
+
    .. figure:: quickstart/images/createIou.png
-   
+
 #. On the left-hand side, click **Issued Ious** to go to that page. You can see the Iou you just issued yourself.
 #. Now, try transferring this Iou to someone else. Click on your Iou, select **Iou_Transfer**, enter *Bob* as the new owner and hit **Submit**.
 #. Go to the **Owned Ious** page.
@@ -216,7 +210,7 @@ Now everything is running, you can try out the quickstart application:
 
    Contracts in DAML are immutable, meaning they can not be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID `#6:1`.
 #. To propose the trade, go to the **Templates** screen. Click on the *IouTrade.IouTrade* template, fill in the form as shown below and submit the transaction.
-   
+
    .. figure:: quickstart/images/tradeProp.png
 
 #. Go to the **Trades** page. It shows the just-proposed trade.
@@ -233,7 +227,7 @@ Now everything is running, you can try out the quickstart application:
 #. Privacy is an important feature of DAML. You can check that Alice and Bob's privacy relative to the Banks was preserved.
 
    To do this, log out, then log in as **USD_Bank**.
-   
+
    On the **Contracts** page, select **Include archived**. The page now shows all the contracts that *USD_Bank* has ever known about.
 
    There are just three contracts:
@@ -243,7 +237,7 @@ Now everything is running, you can try out the quickstart application:
    * The new $110 *Iou* owned by Alice. This is the only active contract.
 
    USD_Bank does not know anything about the trade or the EUR-leg. For more information on privacy, refer to the :ref:`da-ledgers`.
-   
+
    .. note::
 
      *USD_Bank* does know about an intermediate *IouTransfer* contract that was created and consumed as part of the atomic settlement in the previous step. Since that contract was never active on the ledger, it is not shown in Navigator. You will see how to view a complete transaction graph, including who knows what, in :ref:`quickstart-scenarios` below.
@@ -352,20 +346,24 @@ The following block, for example, issues an ``Iou`` and transfers it to Alice:
 
 .. literalinclude:: quickstart/template-root/daml/Tests/TradeTest.daml
   :language: daml
-  :lines: 19-26
+  :lines: 19-27
 
 Compare the scenario with the ``setup`` scenario in ``daml/Main.daml``. You will see that the scenario you used to initialize the sandbox is an initial segment of the ``trade_test`` scenario. The latter adds transactions to perform the trade you performed through Navigator, and a couple of transactions in which expectations are verified.
 
-After a short time, the text *Scenario results* should appear above the test. Click on it to open the visualization of the resulting ledger.
+After a short time, the text *Scenario results* should appear above the test. Click on it to open the visualization of the resulting ledger state.
 
-Transaction ``#6`` is of particular intest, as it shows how the Ious are exchanged atomically in one transaction. The lines starting ``known to (since)`` show that the Banks do indeed not know anything they should not:
+.. figure:: quickstart/images/ledger.png
+
+Each row shows a contract on the ledger. The first four columns show which parties know of which contracts. The remaining columns show the data on the contracts. You can see past contracts by checking the "Show archived" box at the top. Clicking the adjacent "Show transaction view" button switches to a view of the entire transaction tree.
+
+In the transaction view, transaction ``#6`` is of particular intest, as it shows how the Ious are exchanged atomically in one transaction. The lines starting ``known to (since)`` show that the Banks do indeed not know anything they should not:
 
 .. code-block:: none
 
   TX #6 1970-01-01T00:00:00Z (unknown source)
   #6:0
   └─> fetch #5:0 (IouTrade.IouTrade)
-  
+
   #6:1
   │   known to (since): 'Bob' (#6), 'Alice' (#6)
   └─> 'Bob' exercises IouTrade_Accept on #5:0 (IouTrade.IouTrade)
@@ -375,11 +373,11 @@ Transaction ``#6`` is of particular intest, as it shows how the Ious are exchang
       #6:2
       │   known to (since): 'Bob' (#6), 'Alice' (#6)
       └─> fetch #3:2 (Iou.Iou)
-      
+
       #6:3
       │   known to (since): 'Bob' (#6), 'Alice' (#6)
       └─> fetch #3:2 (Iou.Iou)
-      
+
       #6:4
       │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
       └─> 'Bob' exercises Iou_Transfer on #3:2 (Iou.Iou)
@@ -400,11 +398,11 @@ Transaction ``#6`` is of particular intest, as it shows how the Ious are exchang
                      amount = 110.0;
                      observers = []);
                 newOwner = 'Alice'
-      
+
       #6:6
       │   known to (since): 'Bob' (#6), 'Alice' (#6)
       └─> fetch #6:5 (Iou.IouTransfer)
-      
+
       #6:7
       │   known to (since): 'Alice' (#6), 'Bob' (#6), 'USD_Bank' (#6)
       └─> 'Alice' exercises IouTransfer_Accept on #6:5 (Iou.IouTransfer)
@@ -420,11 +418,11 @@ Transaction ``#6`` is of particular intest, as it shows how the Ious are exchang
                 currency = "USD";
                 amount = 110.0;
                 observers = []
-      
+
       #6:9
       │   known to (since): 'Bob' (#6), 'Alice' (#6)
       └─> fetch #4:2 (Iou.Iou)
-      
+
       #6:10
       │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
       └─> 'Alice' exercises Iou_Transfer on #4:2 (Iou.Iou)
@@ -445,11 +443,11 @@ Transaction ``#6`` is of particular intest, as it shows how the Ious are exchang
                      amount = 100.0;
                      observers = ['Bob']);
                 newOwner = 'Bob'
-      
+
       #6:12
       │   known to (since): 'Bob' (#6), 'Alice' (#6)
       └─> fetch #6:11 (Iou.IouTransfer)
-      
+
       #6:13
       │   known to (since): 'Bob' (#6), 'Alice' (#6), 'EUR_Bank' (#6)
       └─> 'Bob' exercises IouTransfer_Accept on #6:11 (Iou.IouTransfer)
@@ -488,9 +486,13 @@ A distributed ledger only forms the core of a full DA Platform application.
 
 To build automations and integrations around the ledger, the SDK has :doc:`language bindings </app-dev/bindings-java/index>` for the Ledger API in several programming languages.
 
-To start the Java integration in the quickstart application, run ``mvn compile exec:java@run-quickstart``
+To compile the Java integration for the quickstart application, run ``mvn compile``.
 
-The application provides REST services on port ``6865`` to perform basic operations on behalf on ``Alice``.
+Now start the Java integration with ``mvn exec:java@run-quickstart``. Note that
+this step requires that the sandbox started :ref:`earlier
+<quickstart-sandbox>` is running.
+
+The application provides REST services on port ``8080`` to perform basic operations on behalf on ``Alice``.
 
 .. note::
 
@@ -500,26 +502,26 @@ The application provides REST services on port ``6865`` to perform basic operati
 
 The following REST services are included:
 
-- ``GET`` on ``http://localhost:6865/iou`` lists all active Ious, and their Ids.
-  
-  Note that the Ids exposed by the REST API are not the ledger contract Ids, but integers. You can open the address in your browser or run ``curl -X GET http://localhost:6865/iou``.
-- ``GET`` on ``http://localhost:6865/iou/ID`` returns the Iou with Id ``ID``.
+- ``GET`` on ``http://localhost:8080/iou`` lists all active Ious, and their Ids.
+
+  Note that the Ids exposed by the REST API are not the ledger contract Ids, but integers. You can open the address in your browser or run ``curl -X GET http://localhost:8080/iou``.
+- ``GET`` on ``http://localhost:8080/iou/ID`` returns the Iou with Id ``ID``.
 
   For example, to get the content of the Iou with Id 0, run:
 
-  ``curl -X GET http://localhost:6865/iou/0``
-- ``PUT`` on ``http://localhost:6865/iou`` creates a new Iou on the ledger.
+  ``curl -X GET http://localhost:8080/iou/0``
+- ``PUT`` on ``http://localhost:8080/iou`` creates a new Iou on the ledger.
 
   To create another *AliceCoin*, run:
 
-  ``curl -X PUT -d '{"issuer":"Alice","owner":"Alice","currency":"AliceCoin","amount":1.0,"observers":[]}' http://localhost:6865/iou``
-- ``POST`` on ``http://localhost:6865/iou/ID/transfer`` transfers the Iou with Id ``ID``.
+  ``curl -X PUT -d '{"issuer":"Alice","owner":"Alice","currency":"AliceCoin","amount":1.0,"observers":[]}' http://localhost:8080/iou``
+- ``POST`` on ``http://localhost:8080/iou/ID/transfer`` transfers the Iou with Id ``ID``.
 
-  Find out the Id of your new *AliceCoin* using step 1. and then run:
+  Check that the Id of your new *AliceCoin* using step 1.. If you have followed this guide, it will be ``0`` so you can run:
 
-  ``curl -X POST -d '{ "newOwner":"Bob" }' http://localhost:6865/iou/ID/transfer``
+  ``curl -X POST -d '{ "newOwner":"Bob" }' http://localhost:8080/iou/0/transfer``
 
-  to transfer it to Bob.
+  to transfer it to Bob. If it's not ``0``, just replace the ``0`` in ``iou/0`` in the above command.
 
 The automation is based on the :doc:`Java bindings </app-dev/bindings-java/index>` and the output of the :doc:`Java code generator </app-dev/bindings-java/codegen>`, which are included as a Maven dependency and Maven plugin respectively:
 

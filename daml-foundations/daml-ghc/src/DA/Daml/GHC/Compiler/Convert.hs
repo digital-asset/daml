@@ -101,12 +101,12 @@ import           Data.List.Extra
 import qualified Data.Map.Strict as MS
 import           Data.Maybe
 import qualified Data.NameMap as NM
-import           Data.Ratio
 import qualified Data.Set as Set
 import           Data.Tagged
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           Data.Tuple.Extra
+import           Data.Ratio
 import           "ghc-lib" GHC
 import           "ghc-lib" GhcPlugins as GHC hiding ((<>))
 import           "ghc-lib-parser" Pair
@@ -240,6 +240,27 @@ convertInt64 x
     | otherwise =
         unsupported "Int literal out of bounds" (negate x)
 
+convertRational :: Integer -> Integer -> ConvertM LF.Expr
+convertRational num denom
+ =
+    -- the denominator needs to be a divisor of 10^10.
+    -- num % denom * 10^10 needs to fit within a 128bit signed number.
+    -- note that we can also get negative rationals here, hence we ask for upperBound128Bit - 1 as
+    -- upper limit.
+    if | 10 ^ maxPrecision `mod` denom == 0 &&
+             abs (r * 10 ^ maxPrecision) <= upperBound128Bit - 1 ->
+           pure $ EBuiltin $ BEDecimal $ fromRational r
+       | otherwise ->
+           unsupported
+               ("Rational is out of bounds: " ++
+                show ((fromInteger num / fromInteger denom) :: Double) ++
+                ".  Maximal supported precision is e^-10, maximal range after multiplying with 10^10 is [10^38 -1, -10^38 + 1]")
+               (num, denom)
+  where
+    r = num % denom
+    upperBound128Bit = 10 ^ (38 :: Integer)
+    maxPrecision = 10 :: Integer
+
 convertModule :: LF.Version -> MS.Map UnitId T.Text -> GhcModule -> Either Diagnostic LF.Module
 convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) Nothing) $ do
     definitions <- concat <$> traverse (convertBind env) (cm_binds x)
@@ -285,7 +306,7 @@ convertTemplate env (VarIs "C:Template" `App` Type (TypeCon ty [])
         `App` ensure `App` signatories `App` observer `App` agreement `App` _create `App` _fetch `App` _archive)
     = do
     tplSignatories <- applyTplParam <$> convertExpr env signatories
-    tplChoices <- fmap (\cs -> NM.fromList (archiveChoice tplSignatories : cs)) choices
+    tplChoices <- fmap (\cs -> NM.fromList (archiveChoice tplSignatories : cs)) (choices tplSignatories)
     tplObservers <- applyTplParam <$> convertExpr env observer
     tplPrecondition <- applyTplParam <$> convertExpr env ensure
     tplAgreement <- applyTplParam <$> convertExpr env agreement
@@ -296,7 +317,7 @@ convertTemplate env (VarIs "C:Template" `App` Type (TypeCon ty [])
     pure [DTemplate Template{..}]
     where
         applyTplParam e = e `ETmApp` EVar tplParam
-        choices = traverse (convertChoice env) $ envFindChoices env $ is ty
+        choices signatories = traverse (convertChoice env signatories) $ envFindChoices env $ is ty
         keys = mapM (convertKey env) $ envFindKeys env $ is ty
         tplLocation = Nothing
         tplTypeCon = mkTypeCon [is ty]
@@ -315,26 +336,53 @@ archiveChoice signatories = TemplateChoice{..}
         chcSelfBinder = mkVar "self"
         chcArgBinder = (mkVar "arg", TUnit)
 
-convertChoice :: Env -> GHC.Expr Var -> ConvertM TemplateChoice
-convertChoice env (VarIs "C:Choice" `App` Type tmpl `App` Type (TypeCon chc []) `App` Type result `App` _templateDict
-        `App` consuming `App` Var controller `App` choice `App` _exercise) = do
-    chcConsuming <- f (10 :: Int) consuming
+data Consuming = PreConsuming
+               | NonConsuming
+               | PostConsuming
+               deriving (Eq)
+
+convertChoice :: Env -> LF.Expr -> GHC.Expr Var -> ConvertM TemplateChoice
+convertChoice env signatories
+  (VarIs "C:Choice" `App`
+     Type tmpl@(TypeCon tmplTyCon []) `App`
+       Type (TypeCon chc []) `App`
+         Type result `App`
+           _templateDict `App`
+             consuming `App`
+               Var controller `App`
+                 choice `App` _exercise) = do
+    consumption <- f (10 :: Int) consuming
+    let chcConsuming = consumption == PreConsuming -- Runtime should auto-archive?
     argType <- convertType env $ TypeCon chc []
     let chcArgBinder = (mkVar "arg", argType)
     tmplType <- convertType env tmpl
+    tmplTyCon' <- convertQualified env tmplTyCon
     chcReturnType <- convertType env result
     controllerExpr <- envFindBind env controller >>= convertExpr env
     let chcControllers = case controllerExpr of
-            -- NOTE(MH): We drop the second argument to `controllerExpr` when
-            -- it is unused. This is necessary to make sure that a
-            -- non-flexible controller expression does not mention the choice
-            -- argument `argVar`.
-            ETmLam thisBndr (ETmLam argBndr body)
-              | fst argBndr `Set.notMember` cata freeVarsStep body ->
-                ETmLam thisBndr body `ETmApp` thisVar
-            _ ->
-                controllerExpr `ETmApp` thisVar `ETmApp` argVar
-    chcUpdate <- fmap (\u -> u `ETmApp` thisVar `ETmApp` selfVar `ETmApp` argVar) (convertExpr env choice)
+          -- NOTE(MH): We drop the second argument to `controllerExpr` when
+          -- it is unused. This is necessary to make sure that a
+          -- non-flexible controller expression does not mention the choice
+          -- argument `argVar`.
+          ETmLam thisBndr (ETmLam argBndr body)
+            | fst argBndr `Set.notMember` cata freeVarsStep body ->
+              ETmLam thisBndr body `ETmApp` thisVar
+          _ -> controllerExpr `ETmApp` thisVar `ETmApp` argVar
+    expr <- fmap (\u -> u `ETmApp` thisVar `ETmApp` selfVar `ETmApp` argVar) (convertExpr env choice)
+    let chcUpdate =
+          if consumption /= PostConsuming then expr
+          else
+            -- NOTE(SF): Support for 'postconsuming' choices. The idea
+            -- is to evaluate the user provided choice body and
+            -- following that, archive. That is, in pseduo-code, we are
+            -- going for an expression like this:
+            --     expr this self arg >>= \res ->
+            --     archive signatories self >>= \_ ->
+            --     return res
+            let archive = EUpdate $ UExercise tmplTyCon' (mkChoiceName "Archive") selfVar signatories mkEUnit
+            in EUpdate $ UBind (Binding (mkVar "res", chcReturnType) expr) $
+               EUpdate $ UBind (Binding (mkVar "_", TUnit) archive) $
+               EUpdate $ UPure chcReturnType (EVar $ mkVar "res")
     pure TemplateChoice{..}
     where
         chcLocation = Nothing
@@ -346,11 +394,13 @@ convertChoice env (VarIs "C:Choice" `App` Type tmpl `App` Type (TypeCon chc []) 
 
         f i (App a _) = f i a
         f i (Tick _ e) = f i e
-        f i (VarIs "nonconsuming") = pure False
-        f i (VarIs "$dmconsuming") = pure True -- the default is consuming
+        f i (VarIs "$dmconsuming") = pure PreConsuming
+        f i (VarIs "preconsuming") = pure PreConsuming
+        f i (VarIs "nonconsuming") = pure NonConsuming
+        f i (VarIs "postconsuming") = pure PostConsuming
         f i (Var x) | i > 0 = f (i-1) =<< envFindBind env x -- only required to see through the automatic default
-        f _ x = unsupported "Unexpected definition of 'consuming', expected either absent or 'nonconsuming'" x
-convertChoice _ x = unhandled "Choice body" x
+        f _ x = unsupported "Unexpected definition of 'consuming'. Expected either absent, 'preconsuming', 'postconsuming' or 'nonconsuming'" x
+convertChoice _ _ x = unhandled "Choice body" x
 
 convertKey :: Env -> GHC.Expr Var -> ConvertM TemplateKey
 convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` Var maintainer `App` _fetch `App` _lookup) = do
@@ -361,8 +411,7 @@ convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App`
       (Lam keyBinder keyExpr, Lam maintainerBinder maintainerExpr) -> do
         keyType <- convertType env keyType
         keyExpr <- convertKeyExpr env keyBinder keyExpr
-        let maintainerEnv = envInsertAlias maintainerBinder (EVar "this") env
-        maintainerExpr <- convertExpr maintainerEnv maintainerExpr
+        maintainerExpr <- convertKeyExpr env maintainerBinder maintainerExpr
         maintainerExpr <- rewriteMaintainer keyExpr maintainerExpr
         pure $ TemplateKey keyType keyExpr (ETmLam ("$key", keyType) maintainerExpr)
       _ -> unhandled "Template key definition" o
@@ -474,7 +523,7 @@ convertBind2 env (Rec xs) = concat <$> traverse (\(a, b) -> convertBind env (Non
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: [String]
-internalTypes = ["Scenario","Update","ContractId","Time","Date","Party"]
+internalTypes = ["Scenario","Update","ContractId","Time","Date","Party","Pair"]
 
 internalFunctions :: MS.Map GHC.ModuleName [String]
 internalFunctions = MS.fromList $ map (first mkModuleName)
@@ -490,7 +539,7 @@ internalFunctions = MS.fromList $ map (first mkModuleName)
         , "$dminternalFetchByKey"
         , "$dminternalLookupByKey"
         ])
-    , ("DA.Internal.LF", map ("$W" ++) internalTypes)
+    , ("DA.Internal.LF", "unpackPair" : map ("$W" ++) internalTypes)
     , ("GHC.Base",
         [ "getTag"
         ])
@@ -568,6 +617,13 @@ convertExpr env0 e = do
             { retrieveByKeyTemplate = tmpl'
             , retrieveByKeyKey = EVar varV1
             }
+    go env (VarIs "unpackPair") (LType (StrLitTy f1) : LType (StrLitTy f2) : LType t1 : LType t2 : args)
+        = fmap (, args) $ do
+            t1 <- convertType env t1
+            t2 <- convertType env t2
+            let fields = [(mkField f1, t1), (mkField f2, t2)]
+            (repackStruct, _) <- mkRepackStruct env fields varV1
+            pure $ ETmLam (varV1, TTuple fields) repackStruct
     go env (VarIs "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
     go env (VarIs "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = fmap (, args) $ do
@@ -577,7 +633,7 @@ convertExpr env0 e = do
     -- for contract keys. Projections on sum-of-records types have to through
     -- the type class for `getField`.
     go env (VarIs "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : LExpr record : args)
-        | Just [_] <- tyConDataCons_maybe recordTyCon = fmap (, args) $ do
+        | isSingleConType recordTyCon = fmap (, args) $ do
             recordType <- convertType env recordType
             record <- convertExpr env record
             pure $ ERecProj (fromTCon recordType) (mkField $ unpackFS name) record
@@ -588,7 +644,7 @@ convertExpr env0 e = do
             ETmLam (varV1, field') $ ETmLam (varV2, record') $
             ERecUpd (fromTCon record') (mkField $ unpackFS name) (EVar varV2) (EVar varV1)
     go env (VarIs "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
-        = fmap (, args) $ pure $ EBuiltin $ BEDecimal $ fromRational $ top % bot
+        = fmap (, args) $ convertRational top bot
     go env (VarIs "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
         = fmap (, args) $ convertInt64 (negate x)
     go env (VarIs "fromInteger") (LExpr (Lit (LitNumber _ x _)) : args)
@@ -1073,6 +1129,13 @@ convertType env o@(TypeCon t ts)
         if supportsArrowType (envLfVersion env) || length ts' == 2
           then foldl TApp TArrow <$> traverse (convertType env) ts'
           else unsupported "Partial application of (->)" o
+    | Just m <- nameModule_maybe (getName t)
+    , GHC.moduleName m == mkModuleName "DA.Internal.LF"
+    , getOccString t == "Pair"
+    , [StrLitTy f1, StrLitTy f2, t1, t2] <- ts = do
+        t1 <- convertType env t1
+        t2 <- convertType env t2
+        pure $ TTuple [(mkField f1, t1), (mkField f2, t2)]
     | tyConFlavour t == TypeSynonymFlavour = convertType env $ expandTypeSynonyms o
     | otherwise = mkTApps <$> convertTyCon env t <*> traverse (convertType env) ts
 convertType env t | Just (v, t') <- splitForAllTy_maybe t

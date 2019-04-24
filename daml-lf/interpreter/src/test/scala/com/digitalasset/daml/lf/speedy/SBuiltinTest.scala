@@ -248,10 +248,13 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       val testCases = Table[String, (BigDecimal, BigDecimal) => Either[Any, SValue]](
         ("builtin", "reference"),
-        ("ADD_DECIMAL", (a, b) => Decimal.check(a + b).map(SDecimal)),
-        ("SUB_DECIMAL", (a, b) => Decimal.check(a - b).map(SDecimal)),
-        ("MUL_DECIMAL", (a, b) => Decimal.check(a * b).map(SDecimal)),
-        ("DIV_DECIMAL", (a, b) => if (b == 0) Left(()) else Decimal.check(a / b).map(SDecimal)),
+        ("ADD_DECIMAL", (a, b) => Decimal.checkWithinBoundsAndRound(a + b).map(SDecimal)),
+        ("SUB_DECIMAL", (a, b) => Decimal.checkWithinBoundsAndRound(a - b).map(SDecimal)),
+        ("MUL_DECIMAL", (a, b) => Decimal.checkWithinBoundsAndRound(a * b).map(SDecimal)),
+        (
+          "DIV_DECIMAL",
+          (a, b) =>
+            if (b == 0) Left(()) else Decimal.checkWithinBoundsAndRound(a / b).map(SDecimal)),
         ("LESS_EQ_DECIMAL", (a, b) => Right(SBool(a <= b))),
         ("GREATER_EQ_DECIMAL", (a, b) => Right(SBool(a >= b))),
         ("LESS_DECIMAL", (a, b) => Right(SBool(a < b))),

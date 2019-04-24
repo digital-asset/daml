@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # package-app <binary> <output file> <resources...>
+
+# On Linux and MacOS we handle dynamically linked binaries as follows:
 # 1. Create a temporary directory and lib directory
 # 2. Copy the binary to the temporary directory
 # 3. Use platform specific tools to extract names of the
@@ -10,6 +12,10 @@
 # 4. Create a wrapper or patch the binary.
 # 5. Create tarball out of the temporary directory.
 # 6. Clean up.
+
+# On Windows we only handle statically linked binaries
+# (Haskell binaries are linked statically on Windows) so we
+# just copy the binary and the resources and create a tarball from that.
 set -e
 
 WORKDIR="$(mktemp -d)"
@@ -100,7 +106,7 @@ LIB_DIR="\$SOURCE_DIR/lib"
 exec \$LIB_DIR/ld-linux-x86-64.so.2 --library-path "\$LIB_DIR" "\$LIB_DIR/$NAME" "\$@"
 EOF
   chmod a+x "$wrapper"
-else
+elif [[ "$(uname -s)" == "Darwin" ]]; then
   cp $SRC $WORKDIR/$NAME/$NAME
   chmod u+w $WORKDIR/$NAME/$NAME
   function copy_deps() {
@@ -130,6 +136,8 @@ else
 
   # Copy all dynamic library dependencies referred to from our binary
   copy_deps $WORKDIR/$NAME/$NAME
+else
+    cp "$SRC" "$WORKDIR/$NAME/$NAME"
 fi
 cd $WORKDIR && tar czf $OUT $NAME
 
