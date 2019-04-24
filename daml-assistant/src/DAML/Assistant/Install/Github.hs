@@ -80,7 +80,7 @@ osName :: Text
 osName = case System.Info.os of
     "darwin"  -> "macos"
     "linux"   -> "linux"
-    "mingw32" -> "win"
+    "mingw32" -> "windows"
     p -> error ("daml: Unknown operating system " ++ p)
 
 -- | Install URL for particular version.
