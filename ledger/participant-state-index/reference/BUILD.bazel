@@ -7,6 +7,24 @@ load(
     "da_scala_test_suite",
 )
 
+compileDependencies = [
+    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+    "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//3rdparty/jvm/org/slf4j:slf4j_api",
+    "//daml-lf/archive:daml_lf_archive_scala",
+    "//daml-lf/archive:daml_lf_java_proto",
+    "//daml-lf/data",
+    "//daml-lf/engine",
+    "//daml-lf/interpreter",
+    "//daml-lf/lfpackage",
+    "//daml-lf/transaction",
+    "//ledger/ledger-api-common",
+    "//ledger/ledger-api-domain",
+    "//ledger/participant-state",
+    "//ledger/participant-state-index"
+]
+
 da_scala_library(
     name = "reference",
     srcs = glob(["src/main/scala/**/*.scala"]),
@@ -16,21 +34,40 @@ da_scala_library(
         "//visibility:public",
     ],
     runtime_deps = [],
+    deps = compileDependencies,
+)
+
+testDependencies = [
+    ":reference",
+    "//3rdparty/jvm/org/scalatest:scalatest",
+    "//3rdparty/jvm/org/scalacheck:scalacheck",
+    "//3rdparty/jvm/org/awaitility:awaitility",
+    "//3rdparty/jvm/commons_io:commons_io",
+    "//ledger-api/testing-utils",
+    "//3rdparty/jvm/com/typesafe/akka:akka_stream_testkit",
+] + compileDependencies
+
+da_scala_library(
+    name = "reference-tests-lib",
+    srcs = glob(
+        ["src/test/**/*.scala"],
+        exclude = [
+            "src/test/**/*Spec.scala",
+            "src/test/**/*Test.scala",
+        ]
+    ),
+    visibility = ["//visibility:public"],
+    deps = testDependencies,
+)
+
+da_scala_test_suite(
+    name = "reference-tests",
+    srcs = glob([
+        "src/test/**/*Spec.scala",
+        "src/test/**/*Test.scala"
+    ]),
+    resources = glob(["src/test/resources/**/*"]),
     deps = [
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//3rdparty/jvm/org/slf4j:slf4j_api",
-        "//daml-lf/archive:daml_lf_archive_scala",
-        "//daml-lf/archive:daml_lf_java_proto",
-        "//daml-lf/data",
-        "//daml-lf/engine",
-        "//daml-lf/interpreter",
-        "//daml-lf/lfpackage",
-        "//daml-lf/transaction",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//ledger/participant-state",
-        "//ledger/participant-state-index",
-    ],
+        ":reference-tests-lib",
+    ] + testDependencies,
 )

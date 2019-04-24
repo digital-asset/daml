@@ -31,14 +31,18 @@ class BoundedOffsetValidation[T, O](
       override def onPush(): Unit = {
         val element = grab(input)
         val currentOffset = getOffset(element)
-        if (exclusiveLowerBound.isDefined && currentOffset <= exclusiveLowerBound.get) {
-          throw new RuntimeException(
-            s"invariantExclusiveLowerBound: violated: $currentOffset <= ${exclusiveLowerBound.get}")
-        }
-        if (inclusiveUpperBound.isDefined && currentOffset > inclusiveUpperBound.get) {
-          throw new RuntimeException(
-            s"invariantInclusiveUpperBound: violated: $currentOffset > ${inclusiveUpperBound.get}")
-        }
+        exclusiveLowerBound.foreach(elb => {
+          if (currentOffset <= elb) {
+            throw new RuntimeException(
+              s"invariantExclusiveLowerBound: violated: $currentOffset <= $elb")
+          }
+        })
+        inclusiveUpperBound.foreach(iub => {
+          if (currentOffset > iub) {
+            throw new RuntimeException(
+              s"invariantInclusiveUpperBound: violated: $currentOffset > $iub")
+          }
+        })
         push(output, element)
       }
 
