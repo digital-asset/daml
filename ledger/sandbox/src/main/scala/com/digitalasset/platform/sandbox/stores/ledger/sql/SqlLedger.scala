@@ -88,14 +88,6 @@ private class SqlLedger(
 
   private def nextOffset(o: Long): Long = o + 1
 
-  //  private val dispatcher = Dispatcher[Long, LedgerEntry](
-  //    OneAfterAnother(
-  //      readSuccessor = (o, _) => nextOffset(o),
-  //      readElement = ledgerDao.lookupLedgerEntryAssert),
-  //    firstIndex = 0l,
-  //    headAtInitialization = headAtInitialization
-  //  )
-
   private val dispatcher = Dispatcher[Long, LedgerEntry](
     RangeQuery(ledgerDao.getLedgerEntries(_, _)),
     0l,
