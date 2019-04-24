@@ -13,7 +13,10 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import scala.concurrent.Future
 
 /** Manages metrics and reporters. Creates and starts a JmxReporter and creates an Slf4jReporter as well, which dumps
-  * its metrics when this object is closed. */
+  * its metrics when this object is closed
+  * <br/><br/>
+  * Note that metrics are in general light-weight and add negligible overhead. They are not visible to everyday
+  * users so they can be safely enabled all the time. */
 final class MetricsManager extends AutoCloseable {
 
   private val metrics = new MetricRegistry()
