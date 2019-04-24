@@ -219,19 +219,19 @@ isBuiltinName expected a
 
 isBuiltinOptional :: NamedThing a => Env -> a -> Bool
 isBuiltinOptional env a =
-    supportsOptional (envLfVersion env) && isBuiltinName "Optional" a
+    envLfVersion env `supports` featureOptional && isBuiltinName "Optional" a
 
 isBuiltinSome :: NamedThing a => Env -> a -> Bool
 isBuiltinSome env a =
-    supportsOptional (envLfVersion env) && isBuiltinName "Some" a
+    envLfVersion env `supports` featureOptional && isBuiltinName "Some" a
 
 isBuiltinNone :: NamedThing a => Env -> a -> Bool
 isBuiltinNone env a =
-    supportsOptional (envLfVersion env) && isBuiltinName "None" a
+    envLfVersion env `supports` featureOptional && isBuiltinName "None" a
 
 isBuiltinTextMap :: NamedThing a => Env -> a -> Bool
 isBuiltinTextMap env a =
-    supportsTextMap (envLfVersion env) && isBuiltinName "TextMap" a
+    envLfVersion env `supports` featureTextMap && isBuiltinName "TextMap" a
 
 convertInt64 :: Integer -> ConvertM LF.Expr
 convertInt64 x
@@ -1126,7 +1126,7 @@ convertType env o@(TypeCon t ts)
     | t == listTyCon, ts `eqTypes` [charTy] = pure TText
     | t == anyTyCon, [_] <- ts = pure TUnit -- used for type-zonking
     | t == funTyCon, _:_:ts' <- ts =
-        if supportsArrowType (envLfVersion env) || length ts' == 2
+        if envLfVersion env `supports` featureArrowType || length ts' == 2
           then foldl TApp TArrow <$> traverse (convertType env) ts'
           else unsupported "Partial application of (->)" o
     | Just m <- nameModule_maybe (getName t)
