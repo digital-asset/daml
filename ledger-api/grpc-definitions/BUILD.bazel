@@ -128,28 +128,14 @@ genrule(
     ],
 )
 
-v1_proto_dir = "com/digitalasset/ledger/api/v1/"
-
-v1_protos_which_use_map = [
-    # These must be excluded until we switch to upstream support for: map<key,value>
-    "active_contracts_service.proto",
-    "transaction_filter.proto",
-    "transaction_service.proto",
-    "transaction.proto",
-]
-
 filegroup(
     name = "ledger-api-protos-fg",
-    srcs = [
-        f
-        for f in glob([v1_proto_dir + "*.proto"])
-        if not (f in [v1_proto_dir + b for b in v1_protos_which_use_map])
-    ],
+    srcs = glob(["com/digitalasset/ledger/api/v1/*.proto"]),
     visibility = ["//visibility:private"],
 )
 
 ledger_api_haskellpb_sources = [
-    #"ActiveContractsService.hs",
+    "ActiveContractsService.hs",
     "CommandCompletionService.hs",
     "CommandService.hs",
     "CommandSubmissionService.hs",
@@ -161,9 +147,9 @@ ledger_api_haskellpb_sources = [
     "LedgerOffset.hs",
     "PackageService.hs",
     "TraceContext.hs",
-    #"Transaction.hs",
-    #"TransactionFilter.hs",
-    #"TransactionService.hs",
+    "Transaction.hs",
+    "TransactionFilter.hs",
+    "TransactionService.hs",
     "Value.hs",
 ]
 
