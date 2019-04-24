@@ -29,12 +29,12 @@ class MonotonicallyIncreasingOffsetValidation[T, O](getOffset: T => O)(implicit 
       override def onPush(): Unit = {
         val element = grab(input)
         val currentOffset = getOffset(element)
-        lastOffset.foreach(
-          lo => {
-            if (currentOffset <= lo) {
-              throw new RuntimeException(
-                s"invariantStrictlyMonotonicallyIncreasing: violated: $currentOffset <= $lo")
-            }})
+        lastOffset.foreach(lo => {
+          if (currentOffset <= lo) {
+            throw new RuntimeException(
+              s"invariantStrictlyMonotonicallyIncreasing: violated: $currentOffset <= $lo")
+          }
+        })
         lastOffset = Some(currentOffset)
         push(output, element)
       }

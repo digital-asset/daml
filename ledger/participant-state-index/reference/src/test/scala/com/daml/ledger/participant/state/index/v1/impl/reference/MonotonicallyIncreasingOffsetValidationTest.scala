@@ -11,23 +11,28 @@ import org.scalatest.concurrent.ScalaFutures
 
 import scala.concurrent.Future
 
-class MonotonicallyIncreasingOffsetValidationTest extends WordSpec with Matchers with AkkaBeforeAndAfterAll with ScalaFutures {
+class MonotonicallyIncreasingOffsetValidationTest
+    extends WordSpec
+    with Matchers
+    with AkkaBeforeAndAfterAll
+    with ScalaFutures {
 
   MonotonicallyIncreasingOffsetValidation.getClass.getSimpleName should {
     "allow empty streams" in {
       val sinkF =
-        Source.empty[Int]
-          .via(MonotonicallyIncreasingOffsetValidation(o=>o))
-          .toMat(Sink.seq)(Keep.right[NotUsed,Future[Seq[Int]]])
+        Source
+          .empty[Int]
+          .via(MonotonicallyIncreasingOffsetValidation(o => o))
+          .toMat(Sink.seq)(Keep.right[NotUsed, Future[Seq[Int]]])
           .run()
 
-      whenReady(sinkF)(_ shouldBe List() )
+      whenReady(sinkF)(_ shouldBe List())
     }
 
     "allow monotonic increasing streams" in {
       val elemsThatPassThrough = 0.to(10).toVector
       val sinkF = processElements(elemsThatPassThrough)
-      whenReady(sinkF)(_ shouldBe elemsThatPassThrough )
+      whenReady(sinkF)(_ shouldBe elemsThatPassThrough)
     }
 
     "disallow monotonic non-decreasing streams" in {
@@ -47,7 +52,7 @@ class MonotonicallyIncreasingOffsetValidationTest extends WordSpec with Matchers
     Source
       .fromIterator(() => elements.iterator)
       .via(MonotonicallyIncreasingOffsetValidation(o => o))
-      .toMat(Sink.seq)(Keep.right[NotUsed,Future[Seq[Int]]])
+      .toMat(Sink.seq)(Keep.right[NotUsed, Future[Seq[Int]]])
       .run()
   }
 }

@@ -1,3 +1,6 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.participant.state.index.v1.impl.reference
 
 import akka.NotUsed
@@ -8,7 +11,11 @@ import org.scalatest.concurrent.ScalaFutures
 
 import scala.concurrent.Future
 
-class BoundedOffsetValidationTest extends WordSpec with Matchers with AkkaBeforeAndAfterAll with ScalaFutures {
+class BoundedOffsetValidationTest
+    extends WordSpec
+    with Matchers
+    with AkkaBeforeAndAfterAll
+    with ScalaFutures {
 
   BoundedOffsetValidation.getClass.getSimpleName should {
     "allow empty streams when no bounds" in {
@@ -31,11 +38,10 @@ class BoundedOffsetValidationTest extends WordSpec with Matchers with AkkaBefore
       whenReady(sinkF)(_ shouldBe List())
     }
 
-    def flowWithEmptySource(
-            exclusiveLowerBound: Option[Int],
-            inclusiveUpperBound: Option[Int]) = {
-      Source.empty[Int]
-        .via(BoundedOffsetValidation(o=>o, exclusiveLowerBound, inclusiveUpperBound))
+    def flowWithEmptySource(exclusiveLowerBound: Option[Int], inclusiveUpperBound: Option[Int]) = {
+      Source
+        .empty[Int]
+        .via(BoundedOffsetValidation(o => o, exclusiveLowerBound, inclusiveUpperBound))
         .toMat(Sink.seq)(Keep.right[NotUsed, Future[Seq[Int]]])
         .run()
     }
@@ -88,11 +94,12 @@ class BoundedOffsetValidationTest extends WordSpec with Matchers with AkkaBefore
     }
 
     def flowWithSequenceSource(
-            elements: Iterable[Int],
-            exclusiveLowerBound: Option[Int],
-            inclusiveUpperBound: Option[Int]) = {
-      Source.fromIterator(() => elements.toIterator)
-        .via(BoundedOffsetValidation(o=>o, exclusiveLowerBound, inclusiveUpperBound))
+        elements: Iterable[Int],
+        exclusiveLowerBound: Option[Int],
+        inclusiveUpperBound: Option[Int]) = {
+      Source
+        .fromIterator(() => elements.toIterator)
+        .via(BoundedOffsetValidation(o => o, exclusiveLowerBound, inclusiveUpperBound))
         .toMat(Sink.seq)(Keep.right[NotUsed, Future[Seq[Int]]])
         .run()
     }
