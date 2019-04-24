@@ -7,7 +7,7 @@ The Ledger API using gRPC
 .. toctree::
    :hidden:
 
-   proto-docs
+   ledger-api-introduction/proto-docs
    daml-to-ledger-api
 
 If you want to write an application for the ledger API in other languages, you'll need to use `gRPC <https://grpc.io>`__ directly.
@@ -24,7 +24,7 @@ Protobuf reference documentation
 
 .. TODO brief explanation of protos.
 
-For full details of all of the Ledger API services and their RPC methods, see  :doc:`proto-docs`.
+For full details of all of the Ledger API services and their RPC methods, see  :doc:`app-dev/ledger-api-introduction/proto-docs`.
 
 Example project
 ***************
