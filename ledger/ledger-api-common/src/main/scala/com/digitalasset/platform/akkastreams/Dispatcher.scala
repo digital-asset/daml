@@ -8,13 +8,40 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.platform.akkastreams.Dispatcher._
+import com.digitalasset.platform.akkastreams.SteppingMode.{OneAfterAnother, RangeQuery}
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import org.slf4j.LoggerFactory
 import com.github.ghik.silencer.silent
+import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
-
 import scala.concurrent.Future
+
+/** Defines how the progress on the ledger should be mapped to look-up operations  */
+sealed abstract class SteppingMode[Index: Ordering, T] extends Product with Serializable {}
+
+object SteppingMode {
+
+  /**
+    * Useful when range queries are not possible. For instance streaming a linked-list from Cassandra
+    *
+    * @param readSuccessor extracts the next index
+    * @param readElement   reads the element on the given index
+    */
+  final case class OneAfterAnother[Index: Ordering, T](
+      readSuccessor: (Index, T) => Index,
+      readElement: Index => Future[T])
+      extends SteppingMode[Index, T]
+
+  /**
+    * Applicable when the persistence layer supports efficient range queries.
+    *
+    * @param range (startInclusive, endExclusive) => Source[(Index, T), NotUsed]
+    */
+  final case class RangeQuery[Index: Ordering, T](
+      range: (Index, Index) => Source[(Index, T), NotUsed])
+      extends SteppingMode[Index, T]
+
+}
 
 /**
   * A fanout signaller, representing a stream of external updates,
@@ -25,13 +52,15 @@ import scala.concurrent.Future
   * This stage supports asynchronous reads both of index successors and values.
   * This class is thread-safe, and all callbacks provided to it must be thread-safe.
   *
-  * @tparam Index The Index type.
-  * @tparam T     The stored type.
+  * @param steppingMode         the chosen SteppingMode
+  * @param zeroIndex            the initial starting Index instance
+  * @param headAtInitialization the head index at the time of creation
+  * @tparam Index The Index type
+  * @tparam T     The stored type
   */
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Dispatcher[Index: Ordering, T] private (
-    readSuccessor: (Index, T) => Index,
-    readElement: Index => Future[T],
+    steppingMode: SteppingMode[Index, T],
     zeroIndex: Index,
     headAtInitialization: Index)
     extends HeadAwareDispatcher[Index, T]
@@ -55,11 +84,14 @@ class Dispatcher[Index: Ordering, T] private (
   private final case class Running(lastIndex: Index, signalDispatcher: SignalDispatcher)
       extends State {
     override def getLastIndex: Index = lastIndex
+
     override def getSignalDispatcher: Option[SignalDispatcher] = Some(signalDispatcher)
   }
+
   @silent
   private final case class Closed(lastIndex: Index) extends State {
     override def getLastIndex: Index = lastIndex
+
     override def getSignalDispatcher: Option[SignalDispatcher] = None
   }
 
@@ -103,17 +135,21 @@ class Dispatcher[Index: Ordering, T] private (
     * Gets all values from start, inclusive, to end, exclusive.
     */
   private def subsource(start: Index, end: Index): Source[(Index, T), NotUsed] =
-    Source
-      .unfoldAsync[Index, (Index, T)](start) { i =>
-        if (i == end) {
-          Future.successful(None)
-        } else {
-          readElement(i).map { t =>
-            val nextIndex = readSuccessor(i, t)
-            Some((nextIndex, (nextIndex, t)))
-          }(DirectExecutionContext)
-        }
-      }
+    steppingMode match {
+      case OneAfterAnother(readSuccessor, readElement) =>
+        Source
+          .unfoldAsync[Index, (Index, T)](start) { i =>
+            if (i == end) Future.successful(None)
+            else
+              readElement(i).map { t =>
+                val nextIndex = readSuccessor(i, t)
+                Some((nextIndex, (i, t)))
+              }(DirectExecutionContext)
+          }
+
+      case RangeQuery(queryRange) =>
+        queryRange(start, end)
+    }
 
   /**
     * Return a source of all values starting at the given index, in the form (successor index, value).
@@ -175,18 +211,16 @@ object Dispatcher {
   /**
     * Construct a new Dispatcher. This will consume Akka resources until closed.
     *
-    * @param readSuccessor The successor function for the Index. Must succeed for all Indices except the head index.
-    *                      Dispatcher will never call this for the head index.
-    * @param readElement   Reads an element for a corresponding Index.
-    *                      Must succeed for any valid Index except the head index.
-    * @tparam Index The index type.
-    * @tparam T The element type.
+    * @param steppingMode         the chosen SteppingMode
+    * @param zeroIndex            the initial starting Index instance
+    * @param headAtInitialization the head index at the time of creation
+    * @tparam Index The index type
+    * @tparam T     The element type
     * @return A new Dispatcher.
     */
   def apply[Index: Ordering, T](
-      readSuccessor: (Index, T) => Index,
-      readElement: Index => Future[T],
-      firstIndex: Index,
+      steppingMode: SteppingMode[Index, T],
+      zeroIndex: Index,
       headAtInitialization: Index): Dispatcher[Index, T] =
-    new Dispatcher(readSuccessor, readElement, firstIndex, headAtInitialization)
+    new Dispatcher(steppingMode, zeroIndex, headAtInitialization)
 }
