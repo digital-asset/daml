@@ -1309,10 +1309,7 @@ mkPure env monad dict t x = do
       TBuiltin BTScenario -> pure $ EScenario (SPure t x)
       _ -> do
         dict' <- convertExpr env dict
-        pkgRef <- if envModuleUnitId env == stringToUnitId "daml-prim" && envLfVersion env <= LF.version1_3
-                  -- TODO (drsk): Get rid of this when daml-lf tests can handle dars.
-                  then pure LF.PRSelf
-                  else packageNameToPkgRef env "daml-stdlib"
+        pkgRef <- packageNameToPkgRef env "daml-stdlib"
         pure $ EVal (Qualified pkgRef (mkModName ["DA", "Internal", "Prelude"]) (mkVal "pure"))
           `ETyApp` monad'
           `ETmApp` dict'
