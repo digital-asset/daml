@@ -22,7 +22,7 @@ compileDependencies = [
     "//ledger/ledger-api-common",
     "//ledger/ledger-api-domain",
     "//ledger/participant-state",
-    "//ledger/participant-state-index"
+    "//ledger/participant-state-index",
 ]
 
 da_scala_library(
@@ -54,7 +54,7 @@ da_scala_library(
         exclude = [
             "src/test/**/*Spec.scala",
             "src/test/**/*Test.scala",
-        ]
+        ],
     ),
     visibility = ["//visibility:public"],
     deps = testDependencies,
@@ -64,7 +64,7 @@ da_scala_test_suite(
     name = "reference-tests",
     srcs = glob([
         "src/test/**/*Spec.scala",
-        "src/test/**/*Test.scala"
+        "src/test/**/*Test.scala",
     ]),
     resources = glob(["src/test/resources/**/*"]),
     deps = [
