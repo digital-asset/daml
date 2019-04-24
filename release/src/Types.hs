@@ -19,9 +19,7 @@ module Types (
     Version(..),
     VersionChange(..),
     (#),
-    bumpVersion,
     dropFileName,
-    isVersionBumpOf,
     parseVersion,
     pathToString,
     pathToText,
@@ -139,16 +137,6 @@ data VersionChange =
   | VCMinor
   | VCMajor
   deriving (Eq, Ord, Show, Read)
-
-isVersionBumpOf :: Version -> Version -> Bool
-isVersionBumpOf new old =
-    any (\change -> new == bumpVersion old change) [VCPatch, VCMinor, VCMajor]
-
-bumpVersion :: Version -> VersionChange -> Version
-bumpVersion (Version maj min_ pat) = \case
-  VCMajor -> Version (maj+1) 0 0
-  VCMinor -> Version maj (min_+1) 0
-  VCPatch -> Version maj min_ (pat+1)
 
 parseVersion :: Text -> Maybe Version
 parseVersion (T.strip -> txt) = do
