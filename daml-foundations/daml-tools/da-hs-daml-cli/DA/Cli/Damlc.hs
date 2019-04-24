@@ -378,7 +378,9 @@ createProjectPackageDb lfVersion fps = do
         unwords
             [ sdkRoot </> "damlc/resources/ghc-pkg"
             , "recache"
-            , "--package-db=" ++ dbPath
+            -- ghc-pkg insists on using a global package db and will trie
+            -- to find one automatically if we don’t specify it here.
+            , "--global-package-db=" ++ dbPath
             , "--expand-pkgroot"
             ]
 
