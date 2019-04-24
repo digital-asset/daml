@@ -56,8 +56,8 @@ lookupByKey : forall c k. TemplateKey c k => k -> Update (Optional (ContractId c
 lookupByKey = internalLookupByKey
 
 -- | HIDE pass the @c@ using type applications, otherwise it's ambiguous
-fetchByKey : TemplateKey c k => k -> Update (ContractId c, c)
-fetchByKey = internalFetchByKey
+fetchByKey : forall c k. TemplateKey c k => k -> Update (ContractId c, c)
+fetchByKey k = fmap unpackPair (internalFetchByKey k)
 
 class Template c where
 
@@ -109,10 +109,7 @@ postconsuming _ = PostConsuming
 class Template c => Choice c e r | c e -> r where
     -- | HIDE
     consuming : NoEvent c e -> Consuming
-    -- Must be a lambda since otherwise the default-dictionary method
-    -- causes a runtime loop as the method exists in the dictionary,
-    -- takes the dictionary, and can't be eta expanded.
-    consuming _ = PreConsuming
+    consuming = preconsuming
 
     choiceController : c -> e -> [Party]
     choice : c -> ContractId c -> e -> Update r
@@ -150,7 +147,7 @@ class Template c => TemplateKey c k | c -> k where
     maintainer : c -> [Party]
 
     -- | HIDE
-    internalFetchByKey : k -> Update (ContractId c, c)
+    internalFetchByKey : k -> Update (Pair "contractId" "contract" (ContractId c) c)
     internalFetchByKey = magic @"fetchByKey"
 
     -- | HIDE

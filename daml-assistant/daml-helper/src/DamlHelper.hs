@@ -188,6 +188,8 @@ copyDirectory src target = do
         let targetFile = target </> baseName
         createDirectoryIfMissing True (takeDirectory targetFile)
         copyFile file targetFile
+        p <- getPermissions targetFile
+        setPermissions targetFile p { writable = True }
 
 installExtension :: FilePath -> FilePath -> IO ()
 installExtension src target =

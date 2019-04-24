@@ -38,8 +38,7 @@ template T
   where
     signatory i
     key k.s : M
-    maintainer this.k.s.m -- This doesn't work without qualifying with
-                          -- `this`. Is that expected?
+    maintainer k.s.m
 
 -- (3)
 

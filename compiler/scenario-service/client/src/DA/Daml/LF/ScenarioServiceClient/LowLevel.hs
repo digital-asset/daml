@@ -118,7 +118,7 @@ javaProc :: [String] -> IO CreateProcess
 javaProc args =
   lookupEnv "JAVA_HOME" >>= return . \case
     Nothing ->
-      proc "/usr/bin/env" ("java" : args)
+      proc "java" args
     Just javaHome ->
       let javaExe = javaHome </> "bin" </> "java"
       in proc javaExe args
@@ -150,13 +150,8 @@ start opts@Options{..} = do
       liftIO $ throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
   liftIO $ validateJava opts
   cp <- liftIO $ javaProc ["-jar" , optServerJar]
-  -- we create the stdin handle because the server uses the pipe to
-  -- detect when the client is dead to kill itself. we rely on this
-  -- for this function to terminate cleanly: after the continuation has
-  -- ran, we close the handle, and then @withCheckedProcessCleanup@
-  -- will wait for the server to have died before terminating itself.
-  --
-  port <- managed $ \resume -> withCheckedProcessCleanup cp $ \(stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc -> do
+  port <- managed $ \resume -> withCheckedProcessCleanup cp $ \(stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc ->
+          flip finally (System.IO.hClose stdinHdl) $ do
     let splitOutput = C.T.decode C.T.utf8 .| C.T.lines
     let printStderr line = liftIO (optLogError (T.unpack ("SCENARIO SERVICE STDERR: " <> line)))
     let printStdout line = liftIO (optLogInfo (T.unpack ("SCENARIO SERVICE STDOUT: " <> line)))
@@ -174,12 +169,15 @@ start opts@Options{..} = do
                 _ -> do
                   liftIO (optLogError ("Expected PORT=<port> from scenario service, but got '" <> line <> "'. Ignoring it."))
                   handleStdout
-
-    bracket (pure stdinHdl) System.IO.hClose $ \_ ->
-      withAsync (runConduit (stderrSrc .| splitOutput .| C.awaitForever printStderr)) $ \_ ->
-      withAsync (runConduit (stdoutSrc .| splitOutput .| handleStdout)) $ \_ -> do
-        System.IO.hFlush System.IO.stdout
-        either error resume =<< takeMVar portMVar
+    withAsync (runConduit (stderrSrc .| splitOutput .| C.awaitForever printStderr)) $ \_ ->
+        withAsync (runConduit (stdoutSrc .| splitOutput .| handleStdout)) $ \_ ->
+        -- The scenario service will shut down cleanly when stdin is closed so we do this at the end of
+        -- the callback. Note that on Windows, killThread will not be able to kill the conduits
+        -- if they are blocked in hGetNonBlocking so it is crucial that we close stdin in the
+        -- callback or withAsync will block forever.
+        flip finally (System.IO.hClose stdinHdl) $ do
+            System.IO.hFlush System.IO.stdout
+            either fail resume =<< takeMVar portMVar
   liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
   let grpcConfig = ClientConfig (Host "localhost") (Port port) [] Nothing
   client <- managed (withGRPCClient grpcConfig)
