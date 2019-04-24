@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.cli
 import java.io.File
 
 import com.digitalasset.ledger.client.configuration.TlsConfiguration
-import com.digitalasset.platform.sandbox.config.LedgerIdMode.PreDefined
+import com.digitalasset.platform.sandbox.config.LedgerIdMode.Predefined
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.scalatest.{Matchers, WordSpec}
@@ -104,7 +104,7 @@ class CliSpec extends WordSpec with Matchers {
 
     "parse the ledger id when given" in {
       val ledgerId = "myledger"
-      checkOption(Array(s"--ledgerid", ledgerId), _.copy(ledgerIdMode = PreDefined(ledgerId)))
+      checkOption(Array(s"--ledgerid", ledgerId), _.copy(ledgerIdMode = Predefined(ledgerId)))
     }
 
     "parse the jdbc url when given" in {

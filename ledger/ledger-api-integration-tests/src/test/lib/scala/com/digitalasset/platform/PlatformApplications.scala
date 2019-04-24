@@ -111,7 +111,7 @@ object PlatformApplications {
         scenario = None,
         tlsConfig = None,
         ledgerIdMode =
-          config.ledgerId.fold[LedgerIdMode](LedgerIdMode.Random)(LedgerIdMode.PreDefined),
+          config.ledgerId.fold[LedgerIdMode](LedgerIdMode.Random)(LedgerIdMode.Predefined),
         jdbcUrl = jdbcUrl
       )
     )
