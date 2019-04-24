@@ -77,14 +77,17 @@ def _daml_package_rule_impl(ctx):
         progress_message = "Compiling " + name + ".daml to daml-lf " + ctx.attr.daml_lf_version,
         command = """
       set -eou pipefail
-      mkdir -p tmp_db
-      tar xf {db_tar} -C tmp_db --strip-components 1
-      mkdir -p tmp_db/{daml_lf_version}
+      # Since we don't have sandboxing on Windows, that directory might
+      # exist from a previous build.
+      rm -rf {package_db_name}
+      mkdir -p {package_db_name}
+      tar xf {db_tar} -C {package_db_name} --strip-components 1
+      mkdir -p {package_db_name}/{daml_lf_version}
 
       # Compile the dalf file
       {damlc_bootstrap} compile \
         --package-name {pkg_name} \
-        --package-db tmp_db \
+        --package-db {package_db_name} \
         --write-iface \
         --target {daml_lf_version} \
         -o {dalf_file} \
@@ -94,6 +97,7 @@ def _daml_package_rule_impl(ctx):
     """.format(
             main = modules[ctx.attr.main],
             name = name,
+            package_db_name = "package_db_for_" + name,
             damlc_bootstrap = ctx.executable.damlc_bootstrap.path,
             dalf_file = ctx.outputs.dalf.path,
             daml_lf_version = ctx.attr.daml_lf_version,
