@@ -12,13 +12,12 @@ import Da.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
 import DA.Daml.LF.Ast (Package)
 import DA.Daml.LF.Proto3.Error (Error(ParseError), Decode)
 import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
-import qualified DA.Daml.LF.Proto3.DecodeVDev as DecodeVDev
 
 decodePayload :: ArchivePayload -> Decode Package
 decodePayload payload = case archivePayloadSum payload of
     Just ArchivePayloadSumDamlLf0{} -> Left $ ParseError "Payload is DamlLf0"
     Just (ArchivePayloadSumDamlLf1 package) -> DecodeV1.decodePackage minor package
-    Just (ArchivePayloadSumDamlLfDev package) -> DecodeVDev.decodePackage minor package
+    Just ArchivePayloadSumDamlLfDev{} -> Left $ ParseError "LF Dev major no longer supported"
     Nothing -> Left $ ParseError "Empty payload"
     where
         minor = archivePayloadMinor payload

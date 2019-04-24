@@ -22,7 +22,6 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
 import qualified Proto3.Suite as Proto
-import qualified Text.Read as Read
 
 decodeVersion :: TL.Text -> Decode Version
 decodeVersion minorText = do
@@ -32,8 +31,8 @@ decodeVersion minorText = do
   -- able to parse packages that were compiled before minor versions
   -- were a thing. DO NOT replicate this code bejond major version 1!
   minor <- if
-    | TL.null minorText -> pure 0
-    | Just minor <- Read.readMaybe (TL.unpack minorText) -> pure minor
+    | TL.null minorText -> pure $ LF.PointStable 0
+    | Just minor <- LF.minorFromProtobuf minorText -> pure minor
     | otherwise -> unsupported
   let version = V1 minor
   if version `elem` LF.supportedInputVersions then pure version else unsupported
