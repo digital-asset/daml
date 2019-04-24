@@ -51,6 +51,9 @@ runServer loggerH reqHandler notifHandler notifChan = do
     -- are not newline delimited.
     hSetBuffering stdin NoBuffering
     hSetBuffering newStdout NoBuffering
+    -- We don’t want any newline conversion or encoding on those handles.
+    hSetBinaryMode newStdout True
+    hSetBinaryMode stdin True
     JsonRpc.runServer
       loggerH
       (sink newStdout) source
