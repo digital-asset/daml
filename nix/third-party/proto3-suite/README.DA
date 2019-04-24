@@ -1,7 +1,0 @@
-
-This is the vendored library from github.com/awakesecurity/proto3-suite,
-commit revision 94a87913eac90b38dec110b753f75476d6d33193.
-
-For the Bazel based builds of this library some of the test cases needed
-to be disabled as they invoked GHC from within the test, which in Bazel will not
-have the proto3-suite/proto3-wire as a registered package.

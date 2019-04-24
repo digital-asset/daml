@@ -15,6 +15,7 @@ da_haskell_library(
         "either",
         "lens",
         "memory",
+        "proto3-suite",
         "scientific",
         "template-haskell",
         "text",
@@ -27,6 +28,5 @@ da_haskell_library(
         "//daml-lf/archive:daml_lf_haskell_proto",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/da-hs-pretty",
-        "//nix/third-party/proto3-suite",
     ],
 )

@@ -2,4 +2,5 @@
 exports_files([
     "network-package.bzl",
     "c2hs-package.bzl",
+    "old-time-package.bzl",
 ])

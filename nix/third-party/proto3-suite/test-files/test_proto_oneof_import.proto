@@ -1,8 +1,0 @@
-syntax="proto3";
-package TestProtoOneofImport;
-message WithOneof {
-  oneof pickOne {
-    string a = 1;
-    int32  b = 2;
-  }
-}

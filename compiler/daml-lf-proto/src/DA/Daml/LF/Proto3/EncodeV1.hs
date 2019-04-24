@@ -28,7 +28,7 @@ import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
 import qualified Da.DamlLf1 as P
 
-import qualified Proto3.Suite as P (Enumerated (..), Fixed(..))
+import qualified Proto3.Suite as P (Enumerated (..))
 
 -- | Encoding 'from' to type 'to'
 class Encode from to | from -> to where
@@ -218,7 +218,7 @@ instance Encode BuiltinExpr P.ExprSum where
     BEInt64 x -> lit $ P.PrimLitSumInt64 x
     BEDecimal dec -> lit $ P.PrimLitSumDecimal (TL.pack (show dec))
     BEText x -> lit $ P.PrimLitSumText (TL.fromStrict x)
-    BETimestamp x -> lit $ P.PrimLitSumTimestamp (P.Fixed x)
+    BETimestamp x -> lit $ P.PrimLitSumTimestamp x
     BEParty x -> lit $ P.PrimLitSumParty (encode version x)
     BEDate x -> lit $ P.PrimLitSumDate x
 
