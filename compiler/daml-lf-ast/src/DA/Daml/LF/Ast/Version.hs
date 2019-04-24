@@ -71,8 +71,8 @@ featureArrowType = Feature "Arrow type" version1_1
 featureSha256Text :: Feature
 featureSha256Text = Feature "sha256 function" version1_2
 
-featureDisjunctionChoices :: Feature
-featureDisjunctionChoices = Feature "Flexible controllers" version1_2
+featureFlexibleControllers :: Feature
+featureFlexibleControllers = Feature "Flexible controllers" version1_2
 
 featureContractKeys :: Feature
 featureContractKeys = Feature "Contract keys" version1_3

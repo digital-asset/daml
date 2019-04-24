@@ -502,7 +502,7 @@ checkTemplateChoice tpl (TemplateChoice _loc _ _ actors selfBinder (param, param
   checkType retType KStar
   v <- view lfVersion
   let checkActors = checkExpr actors (TList TParty)
-  if v `supports` featureDisjunctionChoices
+  if v `supports` featureFlexibleControllers
     then introExprVar param paramType checkActors
     else checkActors
   introExprVar selfBinder (TContractId (TCon tpl)) $ introExprVar param paramType $
