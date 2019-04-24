@@ -121,6 +121,7 @@ genrule(
     cmd = """
         grep '^STABLE_GIT_REVISION ' bazel-out/stable-status.txt | cut -d ' ' -f 2 > $@
     """,
+    local = True,
     stamp = True,
 )
 
