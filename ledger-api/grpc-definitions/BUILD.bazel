@@ -114,14 +114,12 @@ genrule(
     ],
     outs = ["Google/Rpc/Status.hs"],
     cmd = """
-        for src in $(location @com_github_googleapis_googleapis//google/rpc:status.proto); do \
-            $(location @haskell_proto3__suite//:compile-proto-file) \
-                --includeDir """ + google_protobuf_src + """ \
-                --includeDir """ + google_rpc_src + """ \
-                --proto google/rpc/$$(basename $$src) \
-                --out $$(dirname $$(dirname $(@D))) 
-                   #2x dirname because @D works differently for a single output
-        done
+        $(location @haskell_proto3__suite//:compile-proto-file) \
+            --includeDir """ + google_protobuf_src + """ \
+            --includeDir """ + google_rpc_src + """ \
+            --proto google/rpc/status.proto \
+            --out $$(dirname $$(dirname $(@D))) 
+               #2x dirname because @D works differently for a single output
     """,
     tools = [
         "@haskell_proto3__suite//:compile-proto-file",
