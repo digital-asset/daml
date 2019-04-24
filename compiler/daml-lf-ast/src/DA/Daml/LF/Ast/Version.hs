@@ -34,7 +34,7 @@ version1_3 = V1 3
 
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_2
+versionDefault = version1_3
 
 -- | The newest non-development DAML-LF version.
 versionNewest :: Version
