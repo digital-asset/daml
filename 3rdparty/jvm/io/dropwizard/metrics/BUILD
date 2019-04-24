@@ -14,3 +14,17 @@ java_library(
 )
 
 
+
+java_library(
+    name = "metrics_jmx",
+    exports = [
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//external:jar/io/dropwizard/metrics/metrics_jmx",
+        ":metrics_core"
+    ],
+    visibility = [
+        "//visibility:public"
+    ]
+)
+
+

@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 
@@ -46,11 +47,11 @@ object PersistenceResponse {
 
 }
 
+case class LedgerSnapshot(offset: Long, acs: Source[Contract, NotUsed])
+
 trait LedgerDao extends AutoCloseable {
 
   type LedgerOffset = Long
-
-  case class LedgerSnapshot(offset: LedgerOffset, acs: Source[Contract, NotUsed])
 
   /** Looks up the ledger id */
   def lookupLedgerId(): Future[Option[String]]
@@ -138,4 +139,10 @@ trait LedgerDao extends AutoCloseable {
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]
 
+}
+
+object LedgerDao {
+
+  /** Wraps the given LedgerDao adding metrics around important calls */
+  def metered(dao: LedgerDao)(implicit mm: MetricsManager): LedgerDao = MeteredLedgerDao(dao)
 }
