@@ -38,8 +38,10 @@ proto_library(
   deps = [
     "@com_google_protobuf//:empty_proto",
     "@com_google_protobuf//:timestamp_proto",
+    "@com_google_protobuf//:duration_proto",
     "//daml-lf/transaction/src/main/protobuf:transaction_proto",
     "//daml-lf/transaction/src/main/protobuf:value_proto",
+    "//daml-lf/archive:daml_lf_proto",
   ],
   visibility = [
     "//visibility:public"

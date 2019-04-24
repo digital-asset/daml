@@ -1,14 +1,13 @@
 package com.daml.ledger.participant.state.kvutils
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.SimpleString
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.{Engine, Error => EngineError}
-import com.digitalasset.daml.lf.lfpackage.Decode
+import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.Node.{
   NodeCreate,
   NodeExercises,
@@ -27,6 +26,7 @@ import com.digitalasset.daml.lf.value.Value.{
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.ValueOuterClass
 import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.platform.services.time.TimeModel
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
@@ -39,43 +39,6 @@ import scala.util.Try
   */
 object KeyValueUtils {
 
-  /** Entry identifiers are opaque strings chosen by the implementation that provide a unique
-    * reference to the entry. This may be the database key used to store the entry, or a combination
-    * of a key and offset within a batch. Conceptually entry identifier should have 1-1 mapping into
-    * participant-state [[Offset]] as the implementation using these utilities is expected to produce the
-    * offset for each entry.
-    *
-    * When used as transactionId they're rendered in hexadecimal.
-    */
-  type KVEntryId = ByteString
-
-  /** A relative contract identifier is a reference to the index of the create node. */
-  type KVRelativeContractId = Int
-
-  /** Absolute Contract Identifiers are references to a transaction node. */
-  type KVAbsoluteContractId = (KVEntryId, KVRelativeContractId)
-
-  /** A contract instance along with its ledger effective time from which it is active. */
-  type StampedContractInstance = (Timestamp, ContractInst[Transaction.Value[AbsoluteContractId]])
-
-  /** KVEntry is the serialized 'DamlKVEntry', containing either the submitted transaction and related metadata
-    * or the DAML-LF archive. */
-  type KVEntryBlob = ByteString
-
-  /** The inputs to the transaction. */
-  final case class Inputs(
-      /* The contracts referenced in the transaction.
-       * When committing the activeness of the referenced contracts at the ledger effective time
-       * of the transaction must be validated.
-       */
-      contracts: List[KVAbsoluteContractId],
-      /* FIXME(JM): Contract key inputs */
-
-      /* The DAML-LF packages referenced in the transaction. */
-      // FIXME(JM): We need this information from DAML Engine!
-      packages: List[PackageId]
-  )
-
   /** The effects of the transaction, that is what contracts
     * were consumed and created, and what contract keys were updated.
     */
@@ -87,55 +50,33 @@ object KeyValueUtils {
         * with an earlier ledger effective time that gets committed later would find the
         * contract inactive).
         */
-      consumedContracts: List[KVAbsoluteContractId],
+      consumedContracts: List[DamlStateKey],
       /** The contracts created by this transaction.
         * When the transaction is committed, keys marking the activeness of these
         * contracts should be created. The key should be a combination of the transaction
         * id and the relative contract id (that is, the node index).
         */
-      createdContracts: List[KVRelativeContractId]
+      createdContracts: List[DamlStateKey]
 
       // FIXME(JM): updated contract keys
   )
 
-  /** Transaction information required for validation, consistency checks
-    * and for updating contract activeness. */
-  case class TxInfo(
-      /** The party that submitted the transaction. */
-      submitter: Party,
-      /** The ledger effective time of the transaction. The activeness of the declared inputs should
-        * be checked in relation to this (except if archived, see comment near [[Effects.consumedContracts]]).
-        */
-      ledgerEffectiveTime: Timestamp,
-      /** The inputs to the transaction. */
-      inputs: Inputs,
-      /** The effects of the transaction: the contracts consumed and created. */
-      effects: Effects,
-      /** The decoded transaction. */
-      tx: SubmittedTransaction,
-  )
-
-  /** Given a KVTransaction and a contract id, deserialize the transaction and
-    * and produce the absolute contract instance.
-    *
-    * FIXME(JM): We should cache some of the work to deserialize the transactions.
+  /** Look up the contract instance from the log entry containing the transaction.
     */
-  def lookupStampedContractInstance(
-      entryId: KVEntryId,
-      entry: KVEntryBlob,
-      coid: KVAbsoluteContractId): Option[StampedContractInstance] = {
-    val decodedKvTx = decodeKVTransaction(entry)
-    val relTx = TransactionCoding.decodeTransaction(decodedKvTx.getTransaction)
+  def lookupContractInstanceFromLogEntry(
+      entryId: DamlLogEntryId,
+      entry: DamlLogEntry,
+      nodeId: Int): Option[ContractInst[Transaction.Value[AbsoluteContractId]]] = {
+    val relTx = TransactionCoding.decodeTransaction(entry.getTransactionEntry.getTransaction)
     relTx.nodes
-      .get(NodeId.unsafeFromIndex(coid._2))
+      .get(NodeId.unsafeFromIndex(nodeId))
       .flatMap { (node: Transaction.Node) =>
         node match {
           case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
             Some(
-              parseTimestamp(decodedKvTx.getLedgerEffectiveTime) ->
-                create.coinst.mapValue(
-                  _.mapContractId(toAbsCoid(entryId, _))
-                )
+              create.coinst.mapValue(
+                _.mapContractId(toAbsCoid(entryId, _))
+              )
             )
           case _ =>
             // TODO(JM): Logging?
@@ -145,13 +86,13 @@ object KeyValueUtils {
   }
 
   /** Transform the submitted transaction into entry blob. */
-  def transactionToEntry(
+  def transactionToSubmission(
       submitterInfo: SubmitterInfo,
       meta: TransactionMeta,
-      tx: SubmittedTransaction): KVEntryBlob = {
-    DamlKVEntry.newBuilder
-      .setTransaction(
-        DamlKVTransaction.newBuilder
+      tx: SubmittedTransaction): DamlSubmission = {
+    DamlSubmission.newBuilder
+      .setTransactionEntry(
+        DamlTransactionEntry.newBuilder
           .setTransaction(TransactionCoding.encodeTransaction(tx))
           .setCommandId(submitterInfo.commandId)
           .setSubmitter(submitterInfo.submitter.underlyingString)
@@ -162,18 +103,38 @@ object KeyValueUtils {
           .build
       )
       .build
-      .toByteString
   }
 
-  def archiveToEntry(archive: Archive): KVEntryBlob = {
-    DamlKVEntry.newBuilder
-      .setArchive(
-        DamlKVArchive.newBuilder
-          .setPackageId(archive.getHash)
-          .setArchiveBytes(archive.toByteString)
+  def archiveToSubmission(archive: Archive): DamlSubmission = {
+    DamlSubmission.newBuilder
+      .setArchive(archive)
+      .build
+  }
+
+  def configurationToSubmission(config: Configuration): DamlSubmission = {
+    val tm = config.timeModel
+    DamlSubmission.newBuilder
+      .setConfigurationEntry(
+        DamlConfigurationEntry.newBuilder
+          .setTimeModel(
+            DamlTimeModel.newBuilder
+              .setMaxClockSkew(buildDuration(tm.maxClockSkew))
+              .setMinTransactionLatency(buildDuration(tm.minTransactionLatency))
+              .setMaxTtl(buildDuration(tm.maxTtl))
+          )
       )
       .build
-      .toByteString
+  }
+
+  def decodeDamlConfigurationEntry(config: DamlConfigurationEntry): Configuration = {
+    val tm = config.getTimeModel
+    Configuration(
+      TimeModel(
+        maxClockSkew = parseDuration(tm.getMaxClockSkew),
+        minTransactionLatency = parseDuration(tm.getMinTransactionLatency),
+        maxTtl = parseDuration(tm.getMaxTtl)
+      ).get // FIXME(JM): handle error
+    )
   }
 
   /** Convert the entry blob into a participant state [[Update]].
@@ -183,45 +144,55 @@ object KeyValueUtils {
     * @param entryId: The transaction identifier assigned to the transaction.
     * @param entry: The entry blob.
     * @param recordTime: The record time of the batch into which the entry was committed.
+    * @param lookupFromState: Function to look up values from state.
+    * @return An update, or None if a lookup from state fails.
+    *
+    * // FIXME(JM): Might need futures for the lookup?
     */
-  def entryToUpdate(entryId: KVEntryId, entry: KVEntryBlob, recordTime: Timestamp): Update = {
-    val parsedEntry = DamlKVEntry.parseFrom(entry)
-    parsedEntry.getPayloadCase match {
-      case DamlKVEntry.PayloadCase.ARCHIVE =>
-        makePublicPackageUploaded(parsedEntry.getArchive)
+  def logEntryToUpdate(
+      entryId: DamlLogEntryId,
+      entry: DamlLogEntry,
+      recordTime: Timestamp,
+      lookupFromState: DamlStateKey => Option[DamlStateValue]): Option[Update] = {
+    entry.getPayloadCase match {
+      case DamlLogEntry.PayloadCase.PACKAGE_MARK =>
+        lookupFromState(entry.getPackageMark).map { v =>
+          Update.PublicPackageUploaded(v.getArchive)
+        }
 
-      case DamlKVEntry.PayloadCase.TRANSACTION =>
-        makeTransactionAccepted(entryId, parsedEntry.getTransaction, recordTime)
+      case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
+        Some(makeTransactionAccepted(entryId, entry.getTransactionEntry, recordTime))
 
-      case x =>
-        throw new RuntimeException("entryToUpdate: Unknown payload case: $x")
+      case DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
+        Some(Update.ConfigurationChanged(decodeDamlConfigurationEntry(entry.getConfigurationEntry)))
+
+      case DamlLogEntry.PayloadCase.REJECTION_ENTRY =>
+        ???
+
+      case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
+        throw new RuntimeException("entryToUpdate: Payload is not set!")
     }
   }
 
-  private def makePublicPackageUploaded(archive: DamlKVArchive): Update.PublicPackageUploaded =
-    Update.PublicPackageUploaded(
-      Archive.parseFrom(archive.getArchiveBytes)
-    )
-
-  /** Transform the DamlKVTransaction into the [[Update.TransactionAccepted]] event. */
+  /** Transform the transaction entry into the [[Update.TransactionAccepted]] event. */
   private def makeTransactionAccepted(
-      entryId: KVEntryId,
-      kvTx: DamlKVTransaction,
+      entryId: DamlLogEntryId,
+      txEntry: DamlTransactionEntry,
       recordTime: Timestamp): Update.TransactionAccepted = {
-    val relTx = TransactionCoding.decodeTransaction(kvTx.getTransaction)
+    val relTx = TransactionCoding.decodeTransaction(txEntry.getTransaction)
     val hexTxId = BaseEncoding.base16.encode(entryId.toByteArray)
 
     Update.TransactionAccepted(
       optSubmitterInfo = Some(
         SubmitterInfo(
-          submitter = SimpleString.assertFromString(kvTx.getSubmitter),
-          applicationId = kvTx.getApplicationId,
-          commandId = kvTx.getCommandId,
-          maxRecordTime = parseTimestamp(kvTx.getMaximumRecordTime),
+          submitter = SimpleString.assertFromString(txEntry.getSubmitter),
+          applicationId = txEntry.getApplicationId,
+          commandId = txEntry.getCommandId,
+          maxRecordTime = parseTimestamp(txEntry.getMaximumRecordTime),
         )),
       transactionMeta = TransactionMeta(
-        ledgerEffectiveTime = parseTimestamp(kvTx.getLedgerEffectiveTime),
-        workflowId = kvTx.getWorkflowId,
+        ledgerEffectiveTime = parseTimestamp(txEntry.getLedgerEffectiveTime),
+        workflowId = txEntry.getWorkflowId,
       ),
       transaction = makeCommittedTransaction(entryId, relTx),
       transactionId = hexTxId,
@@ -230,79 +201,76 @@ object KeyValueUtils {
     )
   }
 
-  /** Compute the transaction information from the KVTransaction. */
-  def computeTxInfo(entry: KVEntryBlob): TxInfo = {
-    val decodedKvTx = decodeKVTransaction(entry)
-    val relTx = TransactionCoding.decodeTransaction(decodedKvTx.getTransaction)
-    val (inputs, effects) = computeInputsAndEffects(relTx)
-
-    TxInfo(
-      submitter = SimpleString.assertFromString(decodedKvTx.getSubmitter),
-      ledgerEffectiveTime = parseTimestamp(decodedKvTx.getLedgerEffectiveTime),
-      inputs = inputs,
-      effects = effects,
-      tx = relTx,
-    )
-  }
-
   // ------------------------------------------------------
 
-  private def decodeKVTransaction(blob: KVEntryBlob): DamlKVTransaction =
-    // FIXME(JM): throws a protobuf exception if this wasn't a transaction. we might want something more specific?
-    DamlKVEntry.parser.parseFrom(blob.newCodedInput).getTransaction
-
-  private def computeInputsAndEffects(tx: SubmittedTransaction): (Inputs, Effects) = {
+  private def computeInputs(
+      tx: SubmittedTransaction): (List[DamlLogEntryId], List[DamlStateKey]) = {
     // FIXME(JM): Get referenced packages from the transaction (once they're added to it)
-    def addInput(inputs: Inputs, coid: ContractId): Inputs =
+    def addInput(inputs: List[DamlLogEntryId], coid: ContractId): List[DamlLogEntryId] =
       coid match {
         case acoid: AbsoluteContractId =>
-          inputs.copy(
-            contracts = decodeAbsoluteContractId(acoid) :: inputs.contracts
-          )
+          absoluteContractIdToLogEntryId(acoid)._1 :: inputs
         case _ =>
           inputs
       }
 
-    tx.fold(
-      GenTransaction.TopDown,
-      (Inputs(List.empty, List.empty), Effects(List.empty, List.empty))) {
-      case ((inputs, effects), (nodeId, node)) =>
+    tx.fold(GenTransaction.TopDown, (List.empty[DamlLogEntryId], List.empty[DamlStateKey])) {
+      case ((logEntryInputs, stateInputs), (nodeId, node)) =>
         node match {
           case fetch: NodeFetch[ContractId] =>
-            (addInput(inputs, fetch.coid), effects)
+            (addInput(logEntryInputs, fetch.coid), stateInputs)
           case create: NodeCreate[_, _] =>
-            (
-              inputs,
-              effects.copy(
-                createdContracts = create.coid
-                  .asInstanceOf[RelativeContractId]
-                  .txnid
-                  .index :: effects.createdContracts
-              ))
+            (logEntryInputs, stateInputs)
           case exe: NodeExercises[_, ContractId, _] =>
             (
-              addInput(inputs, exe.targetCoid),
-              if (exe.consuming) {
-                exe.targetCoid match {
-                  case acoid: AbsoluteContractId =>
-                    effects.copy(
-                      consumedContracts = decodeAbsoluteContractId(acoid) :: effects.consumedContracts
-                    )
-                  case _ =>
-                    effects
-                }
-              } else {
-                effects
+              addInput(logEntryInputs, exe.targetCoid),
+              (exe.consuming, exe.targetCoid) match {
+                case (true, acoid: AbsoluteContractId) =>
+                  absoluteContractIdToStateKey(acoid) :: stateInputs
+                case _ =>
+                  stateInputs
               }
             )
           case l: NodeLookupByKey[_, _] =>
             // FIXME(JM): track fetched keys
-            (inputs, effects)
+            (logEntryInputs, stateInputs)
         }
     }
   }
 
-  private def toAbsCoid(txId: KVEntryId, coid: ContractId): AbsoluteContractId = {
+  private def computeEffects(entryId: DamlLogEntryId, tx: SubmittedTransaction): Effects = {
+    tx.fold(GenTransaction.TopDown, Effects(List.empty, List.empty)) {
+      case (effects, (nodeId, node)) =>
+        node match {
+          case fetch: NodeFetch[ContractId] =>
+            effects
+          case create: NodeCreate[_, _] =>
+            // FIXME(JM): Track created keys
+            effects.copy(
+              createdContracts =
+                relativeContractIdToStateKey(entryId, create.coid.asInstanceOf[RelativeContractId])
+                  :: effects.createdContracts
+            )
+          case exe: NodeExercises[_, ContractId, _] =>
+            if (exe.consuming) {
+              exe.targetCoid match {
+                case acoid: AbsoluteContractId =>
+                  effects.copy(
+                    consumedContracts = absoluteContractIdToStateKey(acoid) :: effects.consumedContracts
+                  )
+                case _ =>
+                  effects
+              }
+            } else {
+              effects
+            }
+          case l: NodeLookupByKey[_, _] =>
+            effects
+        }
+    }
+  }
+
+  private def toAbsCoid(txId: DamlLogEntryId, coid: ContractId): AbsoluteContractId = {
     val hexTxId =
       BaseEncoding.base16.encode(txId.toByteArray)
     coid match {
@@ -314,7 +282,7 @@ object KeyValueUtils {
   }
 
   private def makeCommittedTransaction(
-      txId: KVEntryId,
+      txId: DamlLogEntryId,
       tx: SubmittedTransaction): CommittedTransaction = {
     tx
     /* Assign absolute contract ids */
@@ -324,12 +292,41 @@ object KeyValueUtils {
       )
   }
 
-  private def decodeAbsoluteContractId(acoid: AbsoluteContractId): KVAbsoluteContractId =
+  private def absoluteContractIdToLogEntryId(acoid: AbsoluteContractId): (DamlLogEntryId, Int) =
     acoid.coid.split(':').toList match {
       case hexTxId :: nodeId :: Nil =>
-        (ByteString.copyFrom(BaseEncoding.base16().decode(hexTxId)), nodeId.toInt)
+        DamlLogEntryId.newBuilder
+          .setEntryIdBytes(ByteString.copyFrom(BaseEncoding.base16().decode(hexTxId)))
+          .build -> nodeId.toInt
       case _ => sys.error(s"decodeAbsoluteContractId: Cannot decode '$acoid'")
     }
+
+  private def absoluteContractIdToStateKey(acoid: AbsoluteContractId): DamlStateKey =
+    acoid.coid.split(':').toList match {
+      case hexTxId :: nodeId :: Nil =>
+        DamlStateKey.newBuilder
+          .setContractId(
+            DamlContractId.newBuilder
+              .setEntryId(DamlLogEntryId.newBuilder.setEntryIdBytes(
+                ByteString.copyFrom(BaseEncoding.base16().decode(hexTxId))))
+              .setNodeId(nodeId.toLong)
+              .build
+          )
+          .build
+      case _ => sys.error(s"decodeAbsoluteContractId: Cannot decode '$acoid'")
+    }
+
+  private def relativeContractIdToStateKey(
+      entryId: DamlLogEntryId,
+      rcoid: RelativeContractId): DamlStateKey =
+    DamlStateKey.newBuilder
+      .setContractId(
+        DamlContractId.newBuilder
+          .setEntryId(entryId)
+          .setNodeId(rcoid.txnid.index.toLong)
+          .build
+      )
+      .build
 
   private def buildTimestamp(ts: Time.Timestamp): com.google.protobuf.Timestamp = {
     val instant = ts.toInstant
@@ -342,43 +339,222 @@ object KeyValueUtils {
   private def parseTimestamp(ts: com.google.protobuf.Timestamp): Time.Timestamp =
     Time.Timestamp.assertFromInstant(Instant.ofEpochSecond(ts.getSeconds, ts.getNanos.toLong))
 
+  private def buildDuration(dur: Duration): com.google.protobuf.Duration = {
+    com.google.protobuf.Duration.newBuilder
+      .setSeconds(dur.getSeconds)
+      .setNanos(dur.getNano)
+      .build
+  }
+
+  private def parseDuration(dur: com.google.protobuf.Duration): Duration = {
+    Duration.ofSeconds(dur.getSeconds, dur.getNanos.toLong)
+  }
+
+  private def makeRejectionEntry(
+      txEntry: DamlTransactionEntry,
+      reason: RejectionReason): DamlRejectionEntry = {
+    val builder = DamlRejectionEntry.newBuilder
+    builder
+      .setSubmitter(txEntry.getSubmitter)
+      .setCommandId(txEntry.getCommandId)
+      .setApplicationId(txEntry.getApplicationId)
+      .setWorkflowId(txEntry.getWorkflowId)
+
+    reason match {
+      case RejectionReason.Inconsistent =>
+        builder.setInconsistent("")
+      case RejectionReason.Disputed(disputeReason) =>
+        builder.setDisputed(disputeReason)
+      case RejectionReason.ResourcesExhausted =>
+        builder.setResourcesExhausted("")
+      case RejectionReason.MaximumRecordTimeExceeded =>
+        builder.setMaximumRecordTimeExceeded("")
+      case RejectionReason.DuplicateCommand =>
+        builder.setDuplicateCommand("")
+      case RejectionReason.PartyNotKnownOnLedger =>
+        builder.setPartyNotKnownOnLedger("")
+      case RejectionReason.SubmitterCannotActViaParticipant(details) =>
+        builder.setSubmitterCannotActViaParticipant(details)
+    }
+    builder.build
+  }
+
   // ------------------------------------------
-  // Entry validation.
-  // TODO:
-  // - given an entry blob, deserializes it and runs the DAML engine validation on the transaction.
-  // - DAML engine must be able to load packages as needed, hence that functionality must be provided by the
-  //   caller.
-
-  def validateTransaction(
+  /** Validates a submission, given the submission and its inputs.
+    * Produces a list of log entries to be committed, and new DAML state entries to be
+    * created/updated.
+    *
+    * @param engine: The DAML Engine. This instance should be persistent as it caches package compilation.
+    * @param config: The ledger configuration.
+    * @param entryId: The log entry id to which this submission is committed.
+    * @param recordTime: The record time for the log entry.
+    * @param submission: The submission to commit to the ledger.
+    * @param inputs: The resolved inputs to the submission.
+    * @return The log entries to be committed, and the state to be created/updated.
+    */
+  def processSubmission(
       engine: Engine,
-      // The packages used as inputs to the entry.
-      // FIXME(JM): The engine caches these so we could retrieve these lazily as needed.
-      inputPackages: Map[PackageId, ByteString],
-      inputTransactions: Map[KVEntryId, KVEntryBlob],
-      txInfo: TxInfo): Either[EngineError, Unit] = {
+      config: Configuration,
+      entryId: DamlLogEntryId,
+      recordTime: Timestamp,
+      submission: DamlSubmission,
+      inputLogEntries: Map[DamlLogEntryId, DamlLogEntry],
+      inputState: Map[DamlStateKey, DamlStateValue]
+  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
 
+    submission.getPayloadCase match {
+      case DamlSubmission.PayloadCase.ARCHIVE =>
+        val archive = submission.getArchive
+        val key = DamlStateKey.newBuilder.setPackageId(archive.getHash).build
+        (
+          DamlLogEntry.newBuilder
+            .setRecordTime(buildTimestamp(recordTime))
+            .setPackageMark(key)
+            .build,
+          Map(
+            key -> DamlStateValue.newBuilder.setArchive(archive).build
+          )
+        )
+      case DamlSubmission.PayloadCase.CONFIGURATION_ENTRY =>
+        (
+          DamlLogEntry.newBuilder
+            .setRecordTime(buildTimestamp(recordTime))
+            .setConfigurationEntry(submission.getConfigurationEntry)
+            .build,
+          Map.empty
+        )
+      case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
+        processTransactionSubmission(
+          engine,
+          config,
+          entryId,
+          recordTime,
+          submission.getTransactionEntry,
+          inputLogEntries,
+          inputState
+        )
+    }
+  }
+
+  private def processTransactionSubmission(
+      engine: Engine,
+      config: Configuration,
+      entryId: DamlLogEntryId,
+      recordTime: Timestamp,
+      txEntry: DamlTransactionEntry,
+      inputLogEntries: Map[DamlLogEntryId, DamlLogEntry],
+      inputState: Map[DamlStateKey, DamlStateValue]
+  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
+
+    // FIXME(JM): Dispatch on the submission type! The following is actually
+    // "validateTransactionSubmission"
+    val txLet = parseTimestamp(txEntry.getLedgerEffectiveTime)
+
+    // 1. Verify that this is not a duplicate command submission.
+    val dedupCheckResult = true
+
+    // 2. Verify that the ledger effective time falls within time bounds
+    val letCheckResult = config.timeModel.checkLet(
+      currentTime = recordTime.toInstant,
+      givenLedgerEffectiveTime = txLet.toInstant,
+      givenMaximumRecordTime = parseTimestamp(txEntry.getMaximumRecordTime).toInstant
+    )
+
+    // 3. Verify that the input contracts are active.
+    // FIXME(JM): Does this need to be done separately, or is it enough to
+    // have lookupContract?
+    val activenessCheckResult = true
+
+    // 4. Verify that the submission conforms to the DAML model
     def lookupContract(coid: AbsoluteContractId) = {
-      val kvCoid = decodeAbsoluteContractId(coid)
-      inputTransactions.get(kvCoid._1).flatMap { entry =>
-        lookupStampedContractInstance(kvCoid._1, entry, kvCoid).flatMap {
-          case (activeAt, coinst) =>
-            if (activeAt > txInfo.ledgerEffectiveTime)
-              None
-            else
-              Some(coinst)
-        }
-      }
+      val (eid, nid) = absoluteContractIdToLogEntryId(coid)
+      val stateKey = absoluteContractIdToStateKey(coid)
+      for {
+        contractState <- inputState.get(stateKey).map(_.getContractState)
+        if txLet > parseTimestamp(contractState.getActiveAt) && !contractState.hasActiveAt
+        entry <- inputLogEntries.get(eid)
+        coinst <- lookupContractInstanceFromLogEntry(eid, entry, nid)
+      } yield (coinst)
     }
 
-    def lookupPackage(pkgId: PackageId) =
-      inputPackages.get(pkgId).map { archiveBytes =>
-        Decode.decodeArchive(Archive.parseFrom(archiveBytes))._2
-      }
+    // FIXME(JM): Currently just faking this as we don't have the package inputs computed yet.
+    // The provided engine is assumed to have all packages loaded.
+    def lookupPackage(pkgId: PackageId) = sys.error("lookupPackage unimplemented")
 
-    engine
-      .validate(txInfo.tx, txInfo.ledgerEffectiveTime)
+    val relTx = TransactionCoding.decodeTransaction(txEntry.getTransaction)
+    val modelCheckResult = engine
+      .validate(relTx, txLet)
       .consume(lookupContract, lookupPackage, _ => sys.error("unimplemented"))
+
+    def reject(reason: RejectionReason): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
+      (
+        DamlLogEntry.newBuilder
+          .setRecordTime(buildTimestamp(recordTime))
+          .setRejectionEntry(
+            makeRejectionEntry(txEntry, RejectionReason.DuplicateCommand)
+          )
+          .build,
+        Map.empty
+      )
+
+    // FIXME(JM): Refactor this?
+    (dedupCheckResult, letCheckResult, activenessCheckResult, modelCheckResult) match {
+      case (false, _, _, _) =>
+        reject(RejectionReason.DuplicateCommand)
+
+      case (_, false, _, _) =>
+        reject(RejectionReason.MaximumRecordTimeExceeded)
+
+      case (_, _, false, _) =>
+        reject(RejectionReason.Inconsistent)
+
+      case (true, true, true, Left(err)) =>
+        reject(RejectionReason.Disputed(err.msg)) // FIXME(JM): or detailMsg?
+
+      case (true, true, true, Right(())) =>
+        // All checks passed. Return transaction log entry, and update the DAML state
+        // with the committed command and the created and consumed contracts.
+
+        var stateUpdates = scala.collection.mutable.Map.empty[DamlStateKey, DamlStateValue]
+        stateUpdates += commandDedupKey(txEntry) -> emptyDamlStateValue
+        val effects = computeEffects(entryId, relTx)
+        effects.consumedContracts.foreach { key =>
+          val cs = inputState(key).getContractState.toBuilder
+          cs.setArchivedAt(buildTimestamp(recordTime))
+          cs.setArchivedByEntry(entryId)
+          stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs.build).build
+        }
+        effects.createdContracts.foreach { key =>
+          val cs = DamlContractState.newBuilder
+          cs.setActiveAt(buildTimestamp(recordTime))
+          stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs).build
+        }
+
+        (
+          DamlLogEntry.newBuilder
+            .setRecordTime(buildTimestamp(recordTime))
+            .setTransactionEntry(txEntry)
+            .build,
+          stateUpdates.toMap
+        )
+    }
   }
+
+  private val emptyDamlStateValue: DamlStateValue =
+    DamlStateValue.newBuilder
+      .setEmpty(com.google.protobuf.Empty.newBuilder.build)
+      .build
+
+  private def commandDedupKey(txEntry: DamlTransactionEntry): DamlStateKey =
+    DamlStateKey.newBuilder
+      .setCommandDedup(
+        DamlCommandDedupKey.newBuilder
+          .setApplicationId(txEntry.getApplicationId)
+          .setCommandId(txEntry.getCommandId)
+          .setSubmitter(txEntry.getSubmitter)
+          .build
+      )
+      .build
 
   // ------------------------------------------
 

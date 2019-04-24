@@ -7,47 +7,147 @@ syntax = "proto3";
 package com.daml.ledger.participant.state.kvutils;
 option java_package = "com.daml.ledger.participant.state.kvutils";
 
+import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "da/daml_lf.proto";
 import "daml-lf/transaction/src/main/protobuf/transaction.proto";
 
-// The ledger implementation stores the `DamlKVEntry`s in an
+// The ledger implementation stores the `DamlLogEntry`s in an
 // ordered sequence of keys, allowing for offset-based querying.
 //
-// The value in which entry (or entries) is stored should include
-// the record time at which it was committed.
-//
 // Each entry can be converted into a participant state `Update` event.
-message DamlKVEntry {
+message DamlLogEntry {
+  // The record time at which this entry was committed.
+  google.protobuf.Timestamp record_time = 1;
+
   oneof payload {
     // A committed DAML transaction.
     // Can be converted into `Update.TransactionAccepted`.
-    DamlKVTransaction transaction = 1;
+    DamlTransactionEntry transaction_entry = 2;
 
-    // A DAML-LF archive. Subsequent entries can refer to the package
-    // contained within.
+    // A rejected command.
+    DamlRejectionEntry rejection_entry = 3;
+
+    // A marker for a DAML-LF archive. Actual contents stored under key `DamlStateKey.archive`.
     // Can be converted into `Update.PublicPackageUploaded`.
-    DamlKVArchive archive = 2;
+    DamlStateKey package_mark = 4;
+
+    // A DAML configuration change.
+    DamlConfigurationEntry configuration_entry = 5;
   }
 }
 
-message DamlKVTransaction {
-    // The original submitted transaction, with relative identifiers.
-    com.digitalasset.daml.lf.transaction.Transaction transaction = 1;
-
-    // Submitter info and transaction metadata.
-    string submitter = 2;
-    string command_id = 3;
-    string application_id = 4;
-    string workflow_id = 5;
-    google.protobuf.Timestamp ledger_effective_time = 6;
-    google.protobuf.Timestamp maximum_record_time = 7;
+message DamlLogEntryId {
+  // Entry identifiers are opaque strings chosen by the implementation that provide a unique
+  // reference to the entry. This may be the database key used to store the entry, or a combination
+  // of a key and offset within a batch. Conceptually entry identifier should have 1-1 mapping into
+  // participant-state [[Offset]] as the implementation using these utilities is expected to produce the
+  // offset for each entry.
+  // When used as transactionId they're rendered in hexadecimal.
+  string entry_id = 1;
 }
 
-message DamlKVArchive {
-  // The package identifier of the package contained in the archive.
-  string package_id = 1;
-
-  // The DAML-LF archive in serialized form.
-  bytes archiveBytes = 2;
+// A submission to the ledger: a payload and its inputs if any.
+message DamlSubmission {
+  repeated DamlLogEntryId input_entries = 1;
+  repeated DamlStateKey input_state = 2;
+  oneof payload {
+    DamlTransactionEntry transaction_entry = 3;
+    daml_lf.Archive archive = 4;
+    DamlConfigurationEntry configuration_entry = 5;
+  }
 }
 
+message DamlTransactionEntry {
+  // The original submitted transaction, with relative identifiers.
+  // For now we're deduplicating the data and storing the contract instances
+  // both in this transaction, and in "DamlState". Later on the transaction here
+  // will only record the node identifiers, and nodes themselves are stored under
+  // "DamlState".
+  com.digitalasset.daml.lf.transaction.Transaction transaction = 1;
+
+  // Submitter info and transaction metadata.
+  string submitter = 2;
+  string command_id = 3;
+  string application_id = 4;
+  string workflow_id = 5;
+  google.protobuf.Timestamp ledger_effective_time = 6;
+  google.protobuf.Timestamp maximum_record_time = 7;
+}
+
+message DamlRejectionEntry {
+  string submitter = 1;
+  string command_id = 2;
+  string application_id = 3;
+  string workflow_id = 4;
+
+  oneof reason {
+    // NOTE(JM): Not all payloads are used, but marked as 'string' for
+    // extensibility.
+    string inconsistent = 5;
+    string disputed = 6;
+    string resources_exhausted = 7;
+    string maximum_record_time_exceeded = 8;
+    string duplicate_command = 9;
+    string party_not_known_on_ledger = 10;
+    string submitter_cannot_act_via_participant = 11;
+  }
+}
+
+message DamlConfigurationEntry {
+  DamlTimeModel time_model = 1;
+}
+
+message DamlTimeModel {
+  // The expected minimum latency of a transaction.
+  google.protobuf.Duration minTransactionLatency = 1;
+
+  // The maximum allowed clock skew between the ledger and clients.
+  google.protobuf.Duration maxClockSkew = 2;
+
+  // The maximum allowed time to live for a transaction.
+  // Must be greater than the derived minimum time to live.
+  google.protobuf.Duration maxTtl = 3;
+}
+
+message DamlStateKey {
+  oneof key {
+    string package_id = 1;
+    DamlContractId contract_id = 2;
+    DamlCommandDedupKey command_dedup = 3;
+  }
+}
+
+message DamlContractId {
+  DamlLogEntryId entry_id = 1;
+  int64 node_id = 2;
+}
+
+message DamlCommandDedupKey {
+  string submitter = 1;
+  string application_id = 2;
+  string command_id = 3;
+}
+
+message DamlStateValue {
+  oneof value {
+    google.protobuf.Empty empty = 1;
+
+    daml_lf.Archive archive = 2;
+
+    // A contract activeness state.
+    DamlContractState contract_state = 3;
+  }
+}
+
+message DamlContractState {
+  // The time from which the contract is active.
+  google.protobuf.Timestamp active_at = 1;
+
+  // Optional, if set the contract has been archived.
+  google.protobuf.Timestamp archived_at = 2;
+
+  // Optional. The log entry that caused the contract to be archived.
+  DamlLogEntryId archived_by_entry = 3;
+}

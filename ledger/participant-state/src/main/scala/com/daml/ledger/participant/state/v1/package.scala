@@ -7,6 +7,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.platform.services.time.TimeModel
 
 /** Interfaces to read from and write to an (abstract) participant state.
   *
@@ -156,7 +157,9 @@ package object v1 {
     *  explanation of how it is intended to be implemented.
     *  https://github.com/digital-asset/daml/issues/385
     */
-  type Configuration = String
+  final case class Configuration(
+      timeModel: TimeModel
+  )
 
   /** Information provided by the submitter of changes submitted to the ledger.
     *
