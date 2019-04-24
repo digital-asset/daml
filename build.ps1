@@ -131,6 +131,9 @@ function build-full() {
 #"': expected ,
 
 Write-Output "Running in $mode mode"
+
+bazel shutdown
+
 if ($mode -eq "partial") {
     build-partial
 } else {

@@ -91,9 +91,11 @@ genrule(
     outs = ["sandbox-tarball.tar.gz"],
     cmd = """
         VERSION=$$(cat $(location //:component-version))
-        mkdir -p sandbox
-        cp -L $(location :sandbox-binary_deploy.jar) sandbox/sandbox-$$VERSION.jar
-        tar zcf $@ sandbox
+        mkdir -p sandbox-tarball/sandbox
+        cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-$$VERSION.jar
+        out=$$(realpath $@)
+        cd sandbox-tarball
+        tar zcf $$out sandbox
     """,
     visibility = ["//visibility:public"],
 )
@@ -104,9 +106,11 @@ genrule(
     srcs = [":sandbox-binary_deploy.jar"],
     outs = ["sandbox-head-tarball.tar.gz"],
     cmd = """
-        mkdir -p sandbox
-        cp -L $(location :sandbox-binary_deploy.jar) sandbox/sandbox-0.0.0.jar
-        tar zcf $@ sandbox
+        mkdir -p sandbox-head-tarball/sandbox
+        cp -L $(location :sandbox-binary_deploy.jar) sandbox-head-tarball/sandbox/sandbox-0.0.0.jar
+        out=$$(realpath $@)
+        cd sandbox-head-tarball
+        tar zcf $$out sandbox
     """,
     visibility = ["//visibility:public"],
 )
