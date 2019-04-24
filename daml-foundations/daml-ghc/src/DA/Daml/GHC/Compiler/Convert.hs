@@ -591,39 +591,28 @@ convertExpr env0 e = do
         pure $
             ETmLam (varV1, TList TParty) $ ETmLam (varV2, TContractId t') $
             EUpdate $ UExercise tmpl' (mkChoiceName "Archive") (EVar varV2) (EVar varV1) mkEUnit
-    go env (VarIs "$dminternalFetchByKey") (LType t@(TypeCon tmpl []) : LType key : _dict : args)
-        = fmap (, args) $ do
-        key' <- convertType env key
-        tmpl' <- convertQualified env tmpl
-        let contractType = TConApp tmpl' []
-        let cidType = TContractId contractType
-        let fields = [("contractId", cidType), ("contract", contractType)]
-        (repackStruct, tupleType) <- mkRepackStruct env fields varV2
-        pure $ ETmLam (varV1, key') $
-          EUpdate $ UBind
-            (Binding
-              (varV2, TTuple fields)
-              (EUpdate (UFetchByKey RetrieveByKey
-                { retrieveByKeyTemplate = tmpl'
-                , retrieveByKeyKey = EVar varV1
-                })))
-            (EUpdate (UPure tupleType repackStruct))
-    go env (VarIs "$dminternalLookupByKey") (LType t@(TypeCon tmpl []) : LType key : _dict : args)
-        = fmap (, args) $ do
-        key' <- convertType env key
-        tmpl' <- convertQualified env tmpl
-        pure $ ETmLam (varV1, key') $
-          EUpdate $ ULookupByKey RetrieveByKey
-            { retrieveByKeyTemplate = tmpl'
-            , retrieveByKeyKey = EVar varV1
-            }
+    go env (VarIs f) (LType t@(TypeCon tmpl []) : LType key : _dict : args)
+        | f == "$dminternalFetchByKey" = conv UFetchByKey
+        | f == "$dminternalLookupByKey" = conv ULookupByKey
+        where
+            conv prim = fmap (, args) $ do
+                key' <- convertType env key
+                tmpl' <- convertQualified env tmpl
+                pure $ ETmLam (varV1, key') $
+                  EUpdate $ prim RetrieveByKey
+                    { retrieveByKeyTemplate = tmpl'
+                    , retrieveByKeyKey = EVar varV1
+                    }
     go env (VarIs "unpackPair") (LType (StrLitTy f1) : LType (StrLitTy f2) : LType t1 : LType t2 : args)
         = fmap (, args) $ do
             t1 <- convertType env t1
             t2 <- convertType env t2
             let fields = [(mkField f1, t1), (mkField f2, t2)]
-            (repackStruct, _) <- mkRepackStruct env fields varV1
-            pure $ ETmLam (varV1, TTuple fields) repackStruct
+            tupleTyCon <- qGHC_Tuple env (mkTypeCon ["Tuple" ++ show (length fields)])
+            let tupleType = TypeConApp tupleTyCon (map snd fields)
+            pure $ ETmLam (varV1, TTuple fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
+        where
+            mkFieldProj i (name, _typ) = (mkField ("_" ++ show i), ETupleProj name (EVar varV1))
     go env (VarIs "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
     go env (VarIs "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = fmap (, args) $ do
@@ -1329,15 +1318,6 @@ mkPure env monad dict t x = do
           `ETmApp` dict'
           `ETyApp` t
           `ETmApp` x
-
--- | Turn the structural record referenced by `x` into a tuple from `GHC.Tuple`.
-mkRepackStruct :: Env -> [(FieldName, LF.Type)] -> ExprVarName -> ConvertM (LF.Expr, LF.Type)
-mkRepackStruct env fields x = do
-    tupleTyCon <- qGHC_Tuple env (mkTypeCon ["Tuple" ++ show (length fields)])
-    let tupleType = TypeConApp tupleTyCon (map snd fields)
-    pure (ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields, typeConAppToType tupleType)
-  where
-    mkFieldProj i (name, _typ) = (mkField ("_" ++ show i), ETupleProj name (EVar x))
 
 sourceLocToRange :: SourceLoc -> Range
 sourceLocToRange (SourceLoc _ slin scol elin ecol) =
