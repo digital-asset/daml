@@ -27,7 +27,6 @@ class CliSpec extends WordSpec with Matchers {
 
   }
 
-  //TODO: adjust SDK docs as well
   "Cli" should {
 
     "return None when required arguments are missing" in {

@@ -29,18 +29,19 @@ Here, ``da run sandbox --`` tells the SDK Assistant to run ``sandbox`` from the 
 Command-line reference
 **********************
 
-Sandbox requires the names of the input ``.dar`` or ``.dalf`` files as arguments to start.
-The available command line options are listed here::
-
-    -p, --port <value>       Sandbox service port. Defaults to 6865.
-    -a, --address <value>    Sandbox service host. Defaults to binding on all addresses.
-    --dalf                   This argument is present for backwards compatibility. DALF and DAR archives are now identified by their extensions.
-    --static-time            Use static time, configured with TimeService through gRPC.
-    -w, --wall-clock-time    Use wall clock time (UTC). When not provided, static time is used.
-    --no-parity              Disables Ledger Server parity mode. Features which are not supported by the Platform become available.
-    --scenario <value>       If set, the sandbox will execute the given scenario on startup and store all the contracts created by it. Two formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used).
-    --daml-lf-archive-recursion-limit <value>
-                             Set the recursion limit when decoding DAML-LF archives (.dalf files). Default is 1000
-    <archive>...             Daml archives to load. Either in .dar or .dalf format. Only DAML-LF v1 Archives are currently supported.
-    --help                   Print the usage text
-
+  Usage: sandbox [options] <archive>...
+  
+    -p, --port <value>     Sandbox service port. Defaults to 6865.
+    -a, --address <value>  Sandbox service host. Defaults to binding on all addresses.
+    --dalf                 This argument is present for backwards compatibility. DALF and DAR archives are now identified by their extensions.
+    -s, --static-time      Use static time, configured with TimeService through gRPC.
+    -w, --wall-clock-time  Use wall clock time (UTC). When not provided, static time is used.
+    --no-parity            Legacy flag with no effect.
+    --scenario <value>     If set, the sandbox will execute the given scenario on startup and store all the contracts created by it. Two formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used).
+    <archive>...           Daml archives to load. Either in .dar or .dalf format. Only DAML-LF v1 Archives are currently supported.
+    --pem <value>          TLS: The pem file to be used as the private key.
+    --crt <value>          TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.
+    --cacrt <value>        TLS: The crt file to be used as the the trusted root CA.
+    --allow-dev            Allow usage of DAML-LF dev version. Do not use in production!
+    --ledgerid <value>     Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.
+    --help                 Print the usage text
