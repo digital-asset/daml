@@ -93,14 +93,14 @@ genrule(
             external/com_google_protobuf/src/google/protobuf/timestamp.proto \
             external/com_google_protobuf/src/google/protobuf/wrappers.proto \
         ; do
-            $(location //nix/third-party/proto3-suite:compile-proto-file) \
+            $(location @haskell_proto3__suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --proto google/protobuf/$$(basename $$src) \
                 --out $(@D)
         done
     """,
     tools = [
-        "//nix/third-party/proto3-suite:compile-proto-file",
+        "@haskell_proto3__suite//:compile-proto-file",
     ],
 )
 
@@ -115,7 +115,7 @@ genrule(
     outs = ["Google/Rpc/Status.hs"],
     cmd = """
         for src in $(location @com_github_googleapis_googleapis//google/rpc:status.proto); do \
-            $(location //nix/third-party/proto3-suite:compile-proto-file) \
+            $(location @haskell_proto3__suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --proto google/rpc/$$(basename $$src) \
@@ -124,7 +124,7 @@ genrule(
         done
     """,
     tools = [
-        "//nix/third-party/proto3-suite:compile-proto-file",
+        "@haskell_proto3__suite//:compile-proto-file",
     ],
 )
 
@@ -201,7 +201,10 @@ da_haskell_library(
     hazel_deps = [
         "base",
         "bytestring",
+        "containers",
         "deepseq",
+        "proto3-suite",
+        "proto3-wire",
         "text",
         "vector",
     ],
@@ -209,8 +212,6 @@ da_haskell_library(
     deps = [
         "//nix/third-party/gRPC-haskell:grpc-haskell",
         "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
-        "//nix/third-party/proto3-suite",
-        "//nix/third-party/proto3-wire",
     ],
 )
 
