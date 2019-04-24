@@ -25,6 +25,7 @@ object Cli {
     override val reads: String => Duration = Duration.parse
   }
 
+  // format: off
   private val cmdArgParser = new scopt.OptionParser[SandboxConfig]("sandbox") {
     head(s"Sandbox version ${BuildInfo.Version}")
 
@@ -106,6 +107,7 @@ object Cli {
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
     opt[Unit]("allow-dev")
+      .hidden()
       .action { (_, c) =>
         c.copy(damlPackageContainer = c.damlPackageContainer.allowDev)
       }
@@ -119,7 +121,7 @@ object Cli {
 
     help("help").text("Print the usage text")
   }
-
+  // format: on
   private def assertTimeModeIsDefault(c: SandboxConfig): Unit = {
     if (c.timeProviderType != TimeProviderType.default)
       throw new IllegalArgumentException(

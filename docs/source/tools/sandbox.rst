@@ -44,6 +44,5 @@ Command-line reference
     --pem <value>          TLS: The pem file to be used as the private key.
     --crt <value>          TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.
     --cacrt <value>        TLS: The crt file to be used as the the trusted root CA.
-    --allow-dev            Allow usage of DAML-LF dev version. Do not use in production!
     --ledgerid <value>     Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.
     --help                 Print the usage text
