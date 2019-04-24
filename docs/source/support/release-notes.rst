@@ -9,6 +9,10 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Add documentation for :doc:`/daml-integration-kit/index`, which explains
+  what the DAML Integration Kit is, what state it is in, and how it is going
+  to evolve.
+
 0.12.11 - 2019-04-26
 --------------------
 
