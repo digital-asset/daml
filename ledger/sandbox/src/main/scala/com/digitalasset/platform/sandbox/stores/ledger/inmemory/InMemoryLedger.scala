@@ -11,9 +11,13 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId}
-import com.digitalasset.ledger.backend.api.v1.{RejectionReason, TransactionSubmission}
+import com.digitalasset.ledger.backend.api.v1.{
+  RejectionReason,
+  SubmissionResult,
+  TransactionSubmission
+}
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
+import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContractsInMemory}
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
@@ -27,7 +31,7 @@ import scala.concurrent.Future
 class InMemoryLedger(
     val ledgerId: String,
     timeProvider: TimeProvider,
-    acs0: ActiveContracts,
+    acs0: ActiveContractsInMemory,
     ledgerEntries: Seq[LedgerEntry])
     extends Ledger {
 
@@ -71,9 +75,9 @@ class InMemoryLedger(
       ()
     })
 
-  override def publishTransaction(tx: TransactionSubmission): Future[Unit] =
+  override def publishTransaction(tx: TransactionSubmission): Future[SubmissionResult] =
     Future.successful(
-      this.synchronized[Unit] {
+      this.synchronized[SubmissionResult] {
         val (newDeduplicator, isDuplicate) =
           deduplicator.checkAndAdd(ApplicationId(tx.applicationId), CommandId(tx.commandId))
         deduplicator = newDeduplicator
@@ -85,6 +89,7 @@ class InMemoryLedger(
         else
           handleSuccessfulTx(entries.ledgerEnd.toString, tx)
 
+        SubmissionResult.Acknowledged
       }
     )
 
@@ -100,7 +105,9 @@ class InMemoryLedger(
       workflowId = tx.workflowId,
       transactionId = transactionId,
       transaction = mappedTx,
-      explicitDisclosure = tx.blindingInfo.explicitDisclosure
+      explicitDisclosure = tx.blindingInfo.explicitDisclosure,
+      localImplicitDisclosure = tx.blindingInfo.localImplicitDisclosure,
+      globalImplicitDisclosure = tx.blindingInfo.globalImplicitDisclosure,
     )
     acsRes match {
       case Left(err) =>

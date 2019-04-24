@@ -12,11 +12,11 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
-import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
+import com.digitalasset.ledger.backend.api.v1.{SubmissionResult, TransactionSubmission}
+import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContractsInMemory}
+import ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
-import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger
+import com.digitalasset.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -37,17 +37,17 @@ trait Ledger extends AutoCloseable {
 
   def publishHeartbeat(time: Instant): Future[Unit]
 
-  def publishTransaction(transactionSubmission: TransactionSubmission): Future[Unit]
+  def publishTransaction(transactionSubmission: TransactionSubmission): Future[SubmissionResult]
 }
 
 object Ledger {
 
-  type LedgerFactory = (ActiveContracts, Seq[LedgerEntry]) => Ledger
+  type LedgerFactory = (ActiveContractsInMemory, Seq[LedgerEntry]) => Ledger
 
   def inMemory(
       ledgerId: String,
       timeProvider: TimeProvider,
-      acs: ActiveContracts,
+      acs: ActiveContractsInMemory,
       ledgerEntries: Seq[LedgerEntry]): Ledger =
     new InMemoryLedger(ledgerId, timeProvider, acs, ledgerEntries)
 
@@ -56,8 +56,9 @@ object Ledger {
       ledgerId: String,
       timeProvider: TimeProvider,
       ledgerEntries: Seq[LedgerEntry],
+      startMode: SqlStartMode
   )(implicit mat: Materializer): Future[Ledger] =
     //TODO (robert): casting from Seq to immutable.Seq, make ledgerEntries immutable throughout the Sandbox?
-    SqlLedger(jdbcUrl, Some(ledgerId), timeProvider, immutable.Seq(ledgerEntries: _*))
+    SqlLedger(jdbcUrl, Some(ledgerId), timeProvider, immutable.Seq(ledgerEntries: _*), startMode)
 
 }

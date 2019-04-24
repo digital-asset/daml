@@ -106,11 +106,18 @@ systemctl restart nix-daemon
 # around, even when their caches are only warmed up halfway
 su --login vsts <<'CACHE_WARMUP'
 # user-wide bazel disk cache override
-echo "build --disk_cache=~/.cache/bazel" > ~/.bazelrc && \
-git clone https://github.com/digital-asset/daml && \
-cd daml && \
-./ci/dev-env-install.sh && \
-./build.sh "_$(uname)" || true
+echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
+
+# clone and build
+(
+  git clone https://github.com/digital-asset/daml
+  cd daml
+  ./ci/dev-env-install.sh
+  ./build.sh "_$(uname)"
+) || true
+
+# free some disk space
+rm -rf ~/daml
 CACHE_WARMUP
 
 # Purge old agents

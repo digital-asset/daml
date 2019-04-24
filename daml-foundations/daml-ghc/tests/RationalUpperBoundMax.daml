@@ -1,0 +1,11 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test that rational positive literals smaller or equal 10^38 -1 after multiplying with 10^10 pass.
+
+daml 1.2
+
+module RationalUpperBoundMax where
+
+-- 10^38 -1 / 10^10
+a = 9999999999999999999999999999.9999999999

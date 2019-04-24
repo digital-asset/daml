@@ -49,7 +49,7 @@ class PackageServiceIT
 
       "return it" in allFixtures { context =>
         client(context.packageService).listPackages() map {
-          _.packageIds.size shouldEqual 2
+          _.packageIds.size shouldEqual 3 // package, stdlib, daml-prim
         }
       }
 

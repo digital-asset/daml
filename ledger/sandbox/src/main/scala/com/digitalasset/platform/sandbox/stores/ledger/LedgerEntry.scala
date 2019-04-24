@@ -7,7 +7,7 @@ import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.backend.api.v1.{CommandId, RejectionReason}
 
 sealed abstract class LedgerEntry extends Product with Serializable {
@@ -41,7 +41,7 @@ object LedgerEntry {
       workflowId: String,
       ledgerEffectiveTime: Instant,
       recordedAt: Instant,
-      transaction: GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
+      transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId],
       explicitDisclosure: Relation[EventId, Party])
       extends LedgerEntry {
     override def maybeCommandId: Option[String] = Some(commandId)

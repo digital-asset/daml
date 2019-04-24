@@ -199,7 +199,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             createDirectoryIfMissing True (base </> "daml" </> "sdk")
             createDirectory (base </> "project")
             writeFileUTF8 (base </> "project" </> projectConfigName)
-                ("project:\n  sdk-version: " <> expected1)
+                ("sdk-version: " <> expected1)
             createDirectory expected2
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)
@@ -316,7 +316,7 @@ testInstall = Tasty.testGroup "DAML.Assistant.Install"
                 .| Zlib.gzip
                 .| sinkFile "source.tar.gz"
 
-            install options damlPath
+            install options damlPath Nothing
     , if isWindows
         then testInstallWindows
         else testInstallUnix
@@ -348,7 +348,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
 
             assertError "Extracting SDK release tarball."
                 "Invalid SDK release: symbolic link target is absolute."
-                (install options damlPath)
+                (install options damlPath Nothing)
 
     , Tasty.testCase "reject an escaping symlink in a tarball" $ do
         withSystemTempDirectory "test-install" $ \ base -> do
@@ -374,7 +374,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
 
             assertError "Extracting SDK release tarball."
                 "Invalid SDK release: symbolic link target escapes tarball."
-                (install options damlPath)
+                (install options damlPath Nothing)
     ]
 
 testInstallWindows :: Tasty.TestTree

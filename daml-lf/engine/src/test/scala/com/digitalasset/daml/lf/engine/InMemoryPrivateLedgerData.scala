@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.value.Value._
 import scala.annotation.tailrec
 
 trait PrivateLedgerData {
-  def update(tx: GenTransaction[NodeId, ContractId, VersionedValue[ContractId]]): Unit
+  def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit
   def get(id: AbsoluteContractId): Option[ContractInst[VersionedValue[AbsoluteContractId]]]
   def toAbsoluteContractId(txCounter: Int)(cid: ContractId): AbsoluteContractId
   def transactionCounter: Int
@@ -26,7 +26,7 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
     new ConcurrentHashMap()
   private val txCounter: AtomicInteger = new AtomicInteger(0)
 
-  def update(tx: GenTransaction[NodeId, ContractId, VersionedValue[ContractId]]): Unit =
+  def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit =
     updateWithAbsoluteContractId(tx.mapContractId(toAbsoluteContractId(txCounter.get)))
 
   def toAbsoluteContractId(txCounter: Int)(cid: ContractId): AbsoluteContractId =
@@ -36,7 +36,7 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
     }
 
   def updateWithAbsoluteContractId(
-      tx: GenTransaction[NodeId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]): Unit =
+      tx: GenTransaction.WithTxValue[NodeId, AbsoluteContractId]): Unit =
     this.synchronized {
       // traverse in topo order and add / remove
       @tailrec
@@ -45,14 +45,12 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
         case FrontStackCons(nodeId, nodeIds) =>
           val node = tx.nodes(nodeId)
           node match {
-            case _: NodeFetch[AbsoluteContractId] =>
-              go(nodeIds)
-            case nc: NodeCreate[AbsoluteContractId, Tx.Value[AbsoluteContractId]] =>
+            case nc: NodeCreate.WithTxValue[AbsoluteContractId] =>
               pcs.put(nc.coid, nc.coinst)
               go(nodeIds)
-            case ne: NodeExercises[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]] =>
+            case ne: NodeExercises.WithTxValue[Tx.NodeId, AbsoluteContractId] =>
               go(ne.children ++: nodeIds)
-            case _: NodeLookupByKey[_, _] =>
+            case _: NodeLookupByKey[_, _] | _: NodeFetch[_] =>
               go(nodeIds)
           }
       }

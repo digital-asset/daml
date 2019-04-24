@@ -17,7 +17,7 @@ import io.grpc.stub.StreamObserver
 import org.slf4j.{Logger, LoggerFactory}
 
 class ActiveContractsServiceValidation(
-    protected val service: ActiveContractsService with GrpcApiService,
+    protected val service: ActiveContractsService with AutoCloseable,
     val ledgerId: String)
     extends ActiveContractsService
     with ProxyCloseable

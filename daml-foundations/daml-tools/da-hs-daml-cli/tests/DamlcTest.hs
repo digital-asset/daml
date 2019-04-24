@@ -13,7 +13,7 @@ import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import qualified DA.Cli.Damlc as Damlc
+import qualified DA.Cli.Damlc.Test as Damlc
 import DA.Daml.GHC.Compiler.Options
 
 main :: IO ()

@@ -9,7 +9,6 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, V
 import scala.language.higherKinds
 import scalaz.Equal
 import scalaz.std.option._
-import scalaz.syntax.apply.^
 import scalaz.syntax.equal._
 
 /**
@@ -133,10 +132,11 @@ object Node {
     recorded match {
       case nc: NodeCreate[Cid, Val] =>
         isReplayedBy match {
-          case NodeCreate(coid2, coinst2, optLocation2, signatories2, stakeholders2, key2) =>
+          case NodeCreate(coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
             import nc._
+            // NOTE(JM): Do not compare location annotations as they may differ due to
+            // differing update expression constructed from the root node.
             coid === coid2 && coinst === coinst2 &&
-            ^(optLocation, optLocation2)(_ == _).getOrElse(true) &&
             signatories == signatories2 && stakeholders == stakeholders2 && key === key2
           case _ => false
         }
@@ -145,13 +145,12 @@ object Node {
           case NodeFetch(
               coid2,
               templateId2,
-              optLocation2,
+              optLocation2 @ _,
               actingParties2,
               signatories2,
               stakeholders2) =>
             import nf._
             coid === coid2 && templateId == templateId2 &&
-            ^(optLocation, optLocation2)(_ == _).getOrElse(true) &&
             actingParties.forall(_ => actingParties == actingParties2) &&
             signatories == signatories2 && stakeholders == stakeholders2
           case _ => false
@@ -162,7 +161,7 @@ object Node {
               targetCoid2,
               templateId2,
               choiceId2,
-              optLocation2,
+              optLocation2 @ _,
               consuming2,
               actingParties2,
               chosenValue2,
@@ -172,17 +171,15 @@ object Node {
               _) =>
             import ne._
             targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
-            ^(optLocation, optLocation2)(_ == _).getOrElse(true) &&
             consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
             stakeholders == stakeholders2 && signatories == signatories2 && controllers == controllers2
           case _ => false
         }
       case nl: NodeLookupByKey[Cid, Val] =>
         isReplayedBy match {
-          case NodeLookupByKey(templateId2, optLocation2, key2, result2) =>
+          case NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2) =>
             import nl._
             templateId == templateId2 &&
-            ^(optLocation, optLocation2)(_ == _).getOrElse(true) &&
             key === key2 && result === result2
           case _ => false
         }

@@ -510,19 +510,6 @@ class TransactionServiceIT
           expectedArg) // expected args
       }
 
-      "accept huge submissions with a large number of commands" in allFixtures { c =>
-        val targetNumberOfSubCommands = 15000
-        val superSizedCommand = c.command(
-          "Huge composite command",
-          List.fill(targetNumberOfSubCommands)(
-            Command(create(templateIds.dummy, List("operator" -> "party".asParty)))))
-        c.testingHelpers
-          .submitAndListenForSingleResultOfCommand(superSizedCommand, getAllContracts)
-          .map { tx =>
-            tx.events.size shouldEqual targetNumberOfSubCommands
-          }
-      }
-
       "accept huge submissions with a long lists" in allFixtures { c =>
         val listElements = 10000 // Gets very slow / times out after this
         val integerList = 1.to(listElements).map(_.toLong.asInt64).asList

@@ -15,7 +15,7 @@ import scala.Function.const
 import scala.concurrent.Future
 
 class PackageServiceValidation(
-    protected val service: PackageService with GrpcApiService,
+    protected val service: PackageService with AutoCloseable,
     val ledgerId: String)
     extends PackageService
     with ProxyCloseable
@@ -50,4 +50,6 @@ class PackageServiceValidation(
       )
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, DirectExecutionContext)
+
+  override def close(): Unit = service.close()
 }

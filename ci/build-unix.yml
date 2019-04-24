@@ -33,20 +33,29 @@ steps:
 
   - task: PublishBuildArtifacts@1
     condition: succeededOrFailed()
+    displayName: 'Publish the bazel execution logs'
     inputs:
       pathtoPublish: '$(Build.ArtifactStagingDirectory)'
-      artifactName: 'Bazel execution logs'
+      artifactName: 'Test logs'
+
+  - task: PublishBuildArtifacts@1
+    condition: failed()
+    displayName: 'Publish the bazel test logs'
+    inputs:
+      pathtoPublish: 'bazel-testlogs/'
+      artifactName: 'Bazel test logs'
 
   - bash: ci/release.sh
     displayName: 'Release'
-    condition: eq(variables['System.PullRequest.IsFork'], 'False')
+    condition: and(succeeded(),
+                   eq(variables['System.PullRequest.IsFork'], 'False'))
     env:
       # to connect to bintray
       JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)
     name: release
   - bash: |
       set -euo pipefail
-      ARTIFACT=daml-sdk-$(release_tag)-${{ parameters.name }}
+      ARTIFACT=daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz
       cp bazel-genfiles/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$ARTIFACT
       echo "##vso[task.setvariable variable=artifact;isOutput=true]$ARTIFACT"
     name: publish
@@ -54,5 +63,5 @@ steps:
   - task: PublishPipelineArtifact@0
     condition: eq(variables['release.has_released'], 'true')
     inputs:
-      pathtoPublish: $(Build.StagingDirectory)/$(publish.artifact)
+      targetPath: $(Build.StagingDirectory)/$(publish.artifact)
       artifactName: $(publish.artifact)

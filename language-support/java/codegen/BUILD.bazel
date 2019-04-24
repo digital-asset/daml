@@ -49,6 +49,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
         "//daml-lf/interface",
+        "//language-support/codegen-common",
         "//language-support/java/bindings:bindings-java",
     ],
 )
@@ -67,6 +68,7 @@ test_deps = [
     "//daml-lf/data",
     "//daml-lf/interface",
     "//language-support/java/bindings:bindings-java",
+    "//language-support/codegen-common",
 ]
 
 ########################################################
@@ -92,11 +94,13 @@ jar_jar(
     input_jar = "//language-support/java/codegen:codegen_deploy.jar",
     rules = "shade_rule",
     tags = ["maven_coordinates=com.daml.java:codegen:__VERSION__"],
+    visibility = ["//visibility:public"],
 )
 
 pom_file(
     name = "shaded_binary_pom",
     target = ":shaded_binary",
+    visibility = ["//visibility:public"],
 )
 
 daml_lf_target_versions = [

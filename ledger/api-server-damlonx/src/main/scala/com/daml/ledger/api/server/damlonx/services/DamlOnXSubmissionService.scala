@@ -28,7 +28,10 @@ import com.digitalasset.platform.participant.util.ApiToLfEngine.apiCommandsToLfC
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
+import com.digitalasset.ledger.api.v1.command_submission_service.{
+  CommandSubmissionServiceGrpc,
+  CommandSubmissionServiceLogging
+}
 import io.grpc.BindableService
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
@@ -44,7 +47,7 @@ object DamlOnXSubmissionService {
       indexService: IndexService,
       writeService: WriteService,
       engine: Engine)(implicit ec: ExecutionContext, mat: ActorMaterializer)
-    : GrpcCommandSubmissionService with BindableService with CommandSubmissionServiceLogging =
+    : CommandSubmissionServiceGrpc.CommandSubmissionService with BindableService with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new DamlOnXSubmissionService(indexService, writeService, engine),
       ledgerId.underlyingString,
@@ -106,10 +109,11 @@ class DamlOnXSubmissionService private (
               case Right(updateTx) =>
                 Future {
                   logger.debug(
-                    s"Submitting transaction from ${commands.submitter.unwrap} with ${commands.commandId.unwrap}")
+                    s"Submitting transaction from ${commands.submitter.underlyingString} with ${commands.commandId.unwrap}")
                   writeService.submitTransaction(
                     submitterInfo = SubmitterInfo(
-                      submitter = Ref.SimpleString.assertFromString(commands.submitter.unwrap),
+                      submitter =
+                        Ref.SimpleString.assertFromString(commands.submitter.underlyingString),
                       applicationId = commands.applicationId.unwrap,
                       maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
                       commandId = commands.commandId.unwrap

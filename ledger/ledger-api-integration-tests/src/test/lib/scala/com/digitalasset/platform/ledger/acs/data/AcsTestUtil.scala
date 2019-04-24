@@ -2,21 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.ledger.acs.data
-import com.digitalasset.ledger.api.domain
+import com.digitalasset.daml.lf.data.Ref
 
 trait AcsTestUtil {
   val parties = Set("harry", "ron", "hermione", "neville", "luna", "ginny", "voldemort")
 
   val templateId =
-    domain.Identifier(
-      moduleName = "module",
-      entityName = "template",
-      packageId = domain.PackageId("package-id"))
+    Ref.Identifier(
+      Ref.PackageId.assertFromString("package-id"),
+      Ref.QualifiedName.assertFromString("module:template")
+    )
   val templateId2 =
-    domain.Identifier(
-      moduleName = "module",
-      entityName = "template2",
-      packageId = domain.PackageId("package-id2"))
+    Ref.Identifier(
+      Ref.PackageId.assertFromString("package-id2"),
+      Ref.QualifiedName.assertFromString("module:template2")
+    )
 
   val offset1: BigInt = BigInt("1")
   val offset2: BigInt = BigInt("2")

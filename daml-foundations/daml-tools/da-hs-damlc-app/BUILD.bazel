@@ -3,10 +3,18 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 load("//bazel_tools:packaging/packaging.bzl", "package_app")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_binary(
     name = "da-hs-damlc-app",
     srcs = ["src/Main.hs"],
+
+    # We need to tell the linker to statically link pthread on Windows
+    # otherwise the library is not found at runtime.
+    compiler_flags = [
+        "-optl-static",
+        "-optl-pthread",
+    ] if is_windows else [],
     data = [
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-foundations/daml-ghc/package-database:package-db",
@@ -23,26 +31,15 @@ da_haskell_binary(
 )
 
 da_haskell_binary(
-    name = "da-hs-damlc-app-deprecated",
-    srcs = ["src/Main.hs"],
-    data = [
-        "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-foundations/daml-ghc/package-database/deprecated:package-db",
-    ],
-    hazel_deps = [
-        "base",
-    ],
-    linkstatic = True,
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//daml-foundations/daml-tools/da-hs-daml-cli",
-    ],
-)
-
-da_haskell_binary(
     name = "damlc_bootstrap",
     srcs = ["src/Main.hs"],
+
+    # We need to tell the linker to statically link pthread on Windows
+    # otherwise the library is not found at runtime.
+    compiler_flags = [
+        "-optl-static",
+        "-optl-pthread",
+    ] if is_windows else [],
     hazel_deps = [
         "base",
     ],
@@ -60,6 +57,7 @@ package_app(
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-foundations/daml-ghc/package-database:gen-daml-prim.dar",
         "//daml-foundations/daml-ghc/package-database:package-db",
+        "@io_tweag_rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@io_tweag_rules_haskell_ghc-nixpkgs//:bin/ghc-pkg",
     ],
     tags = ["no-cache"],
     visibility = ["//visibility:public"],

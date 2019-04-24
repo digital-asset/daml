@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v1.impl.reference
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.ActorMaterializer
@@ -27,7 +28,7 @@ import com.digitalasset.platform.server.services.command.time.TimeModelValidator
 import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.SyncVar
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 /** TODO (SM): update/complete comments on this example as part of
@@ -48,17 +49,11 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     with WriteService {
 
   object StateController {
-    private val ledgerState = {
-      val sv = new SyncVar[LedgerState]()
-      sv.put(emptyLedgerState)
-      sv
-    }
+    private val ledgerState = new AtomicReference(emptyLedgerState)
     private val stateChangeDispatcher = SignalDispatcher()
 
     def updateState(f: LedgerState => LedgerState): Unit = {
-      ledgerState.put(
-        f(ledgerState.take())
-      )
+      ledgerState.getAndUpdate(f(_))
       stateChangeDispatcher.signal()
     }
 
@@ -76,6 +71,8 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   private val ec = mat.system.dispatcher
   private val validator = TimeModelValidator(timeModel)
   private val logger = LoggerFactory.getLogger(this.getClass)
+  private val initialRecordTime: Timestamp =
+    Timestamp.assertFromInstant(timeProvider.getCurrentTime)
 
   /**
     * Task to send out transient heartbeat events to subscribers.
@@ -186,7 +183,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
           submitterInfo.applicationId,
           submitterInfo.commandId))
 
-      LedgerState(ledger, prevState.packages, activeContracts, duplicationCheck)
+      LedgerState(prevState.ledgerId, ledger, prevState.packages, activeContracts, duplicationCheck)
     }
   }
 
@@ -203,22 +200,27 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       recordedAt: Instant,
       ledgerState: LedgerState): Either[v1.Update, Unit] = {
 
-    checkSubmission(submitterInfo, transactionMeta, txDelta, recordedAt, ledgerState) match {
-      case rejection @ Left(_) => rejection
-      case Right(()) =>
-        // validate transaction
-        Validation
-          .validate(
-            submitterInfo,
-            transactionMeta,
-            transaction,
-            ledgerState.activeContracts,
-            ledgerState.packages) match {
-          case Validation.Failure(msg) =>
-            Left(mkRejectedCommand(Disputed(msg), submitterInfo))
-          case Validation.Success =>
-            Right(())
-        }
+    checkSubmission(submitterInfo, transactionMeta, txDelta, recordedAt, ledgerState)
+      .flatMap(_ =>
+        runPreCommitValidation(submitterInfo, transactionMeta, transaction, ledgerState))
+  }
+
+  private def runPreCommitValidation(
+      submitterInfo: v1.SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction,
+      ledgerState: LedgerState): Either[v1.Update, Unit] = {
+    Validation
+      .validate(
+        submitterInfo,
+        transactionMeta,
+        transaction,
+        ledgerState.activeContracts,
+        ledgerState.packages) match {
+      case Validation.Failure(msg) =>
+        Left(mkRejectedCommand(Disputed(msg), submitterInfo))
+      case Validation.Success =>
+        Right(())
     }
   }
 
@@ -233,14 +235,29 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       txDelta: TxDelta,
       recordedAt: Instant,
       ledgerState: LedgerState): Either[Update, Unit] = {
+    checkDuplicates(submitterInfo, ledgerState)
+      .flatMap(_ => checkLet(submitterInfo, transactionMeta, ledgerState))
+      .flatMap(_ => checkActiveness(submitterInfo, txDelta, ledgerState))
+  }
 
-    // check for and ignore duplicates
-    if (ledgerState.duplicationCheck.contains(
-        (submitterInfo.applicationId, submitterInfo.commandId))) {
-      return Left(mkRejectedCommand(DuplicateCommand, submitterInfo))
-    }
+  // check for and ignore duplicates
+  private def checkDuplicates(
+      submitterInfo: SubmitterInfo,
+      ledgerState: LedgerState): Either[Update, Unit] = {
 
-    // time validation
+    Either.cond(
+      !ledgerState.duplicationCheck.contains(
+        submitterInfo.applicationId -> submitterInfo.commandId),
+      (),
+      mkRejectedCommand(DuplicateCommand, submitterInfo)
+    )
+  }
+
+  // validate LET time
+  private def checkLet(
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      ledgerState: LedgerState): Either[Update, Unit] = {
     validator
       .checkLet(
         // FIXME (SM): this is racy. We need to reflect current time into the
@@ -258,16 +275,23 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
         submitterInfo.commandId,
         submitterInfo.applicationId
       )
-      .fold(t => return Left(mkRejectedCommand(MaximumRecordTimeExceeded, submitterInfo)), _ => ())
+      .fold(t => Left(mkRejectedCommand(MaximumRecordTimeExceeded, submitterInfo)), _ => Right(()))
+  }
 
-    // check for consistency
-    // NOTE: we do this by checking the activeness of all input contracts, both
-    // consuming and non-consuming.
-    if (!txDelta.inputs.subsetOf(ledgerState.activeContracts.keySet) ||
-      !txDelta.inputs_nc.subsetOf(ledgerState.activeContracts.keySet)) {
-      return Left(mkRejectedCommand(Inconsistent, submitterInfo))
-    }
-    Right(())
+  // check for consistency
+  // NOTE: we do this by checking the activeness of all input contracts, both
+  // consuming and non-consuming.
+  private def checkActiveness(
+      submitterInfo: SubmitterInfo,
+      txDelta: TxDelta,
+      ledgerState: LedgerState): Either[Update, Unit] = {
+
+    Either.cond(
+      txDelta.inputs.subsetOf(ledgerState.activeContracts.keySet) &&
+        txDelta.inputs_nc.subsetOf(ledgerState.activeContracts.keySet),
+      (),
+      mkRejectedCommand(Inconsistent, submitterInfo)
+    )
   }
 
   /**
@@ -277,10 +301,11 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     StateController
       .subscribe()
       .statefulMapConcat { () =>
-        var currentOffset: Int = offset.flatMap(_.components.headOption).getOrElse(0)
+        var currentOffset: Long = offset.flatMap(_.components.headOption).getOrElse(0)
         state =>
-          val newEvents = state.ledger.zipWithIndex
-            .drop(currentOffset)
+          val newEvents = state.ledger
+            .drop(currentOffset.toInt)
+            .zipWithIndex
             .map { case (u, i) => (mkOffset(i), u) }
           currentOffset += newEvents.size
 
@@ -315,7 +340,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     // atomically read and update the ledger state
     StateController.updateState { prevState =>
       prevState.copy(
-        prevState.ledger :+ heartbeat,
+        ledger = prevState.ledger :+ heartbeat,
       )
     }
   }
@@ -356,23 +381,31 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     CommandRejected(Some(submitterInfo), rejectionReason)
 
   private def mkOffset(offset: Int): Offset =
-    Offset(Array(offset))
+    Offset(Array(offset.toLong))
+
+  override def getLedgerInitialConditions(): Future[LedgerInitialConditions] =
+    Future.successful(
+      LedgerInitialConditions(
+        ledgerId = StateController.getState.ledgerId,
+        initialRecordTime = initialRecordTime
+      )
+    )
 
   private def emptyLedgerState = {
-    val heartbeat: Update = Heartbeat(Timestamp.assertFromInstant(timeProvider.getCurrentTime))
-    val stateInit: Update = StateInit(Ref.SimpleString.assertFromString(UUID.randomUUID().toString))
-
     LedgerState(
-      List(stateInit, heartbeat),
+      Ref.SimpleString.assertFromString(UUID.randomUUID().toString),
+      List(),
       Map.empty,
       Map.empty[AbsoluteContractId, AbsoluteContractInst],
-      Set.empty[(ApplicationId, CommandId)])
+      Set.empty[(ApplicationId, CommandId)]
+    )
   }
 
   /**
     * The state of the ledger, which must be updated atomically.
     */
   case class LedgerState(
+      ledgerId: LedgerId,
       ledger: List[v1.Update],
       packages: Map[Ref.PackageId, (Ast.Package, Archive)],
       activeContracts: Map[AbsoluteContractId, AbsoluteContractInst],

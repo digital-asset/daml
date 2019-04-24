@@ -18,15 +18,13 @@ import com.digitalasset.ledger.api.v1.active_contracts_service._
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.validation.TransactionFilterValidator
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.{EventFilter, LfEngineToApi}
 import com.digitalasset.platform.server.api.validation.{
   ActiveContractsServiceValidation,
   ErrorFactories,
   IdentifierResolver
 }
-import io.grpc.{BindableService, ServerServiceDefinition}
+import io.grpc.{BindableService}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
@@ -40,7 +38,6 @@ class DamlOnXActiveContractsService private (
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory)
     extends ActiveContractsServiceAkkaGrpc
-    with GrpcApiService
     with ErrorFactories
     with DamlOnXServiceUtils {
 
@@ -111,9 +108,6 @@ class DamlOnXActiveContractsService private (
         a.stakeholders.map(_.underlyingString)
       ))
   }
-
-  override def bindService(): ServerServiceDefinition =
-    ActiveContractsServiceGrpc.bindService(this, DirectExecutionContext)
 }
 
 object DamlOnXActiveContractsService {
@@ -129,9 +123,6 @@ object DamlOnXActiveContractsService {
     new ActiveContractsServiceValidation(
       new DamlOnXActiveContractsService(indexService, identifierResolver)(ec, mat, esf),
       ledgerId.underlyingString
-    ) with BindableService with ActiveContractsServiceLogging {
-      override def bindService(): ServerServiceDefinition =
-        ActiveContractsServiceGrpc.bindService(this, DirectExecutionContext)
-    }
+    ) with ActiveContractsServiceLogging
   }
 }

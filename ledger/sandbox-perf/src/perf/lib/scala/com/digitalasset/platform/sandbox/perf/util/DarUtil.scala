@@ -3,16 +3,13 @@
 
 package com.digitalasset.platform.sandbox.perf.util
 
-import java.io.{File, FileInputStream}
+import java.io.File
 
+import com.digitalasset.daml.lf.UniversalArchiveReader
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.lfpackage.Decode
-import com.digitalasset.daml_lf.DamlLf.Archive
 
 object DarUtil {
   def getPackageId(dalf: File): PackageId = {
-    val archive = Archive.parseFrom(new FileInputStream(dalf))
-    val (packageId, _) = Decode.decodeArchive(archive)
-    packageId
+    UniversalArchiveReader().readFile(dalf).get.main._1
   }
 }

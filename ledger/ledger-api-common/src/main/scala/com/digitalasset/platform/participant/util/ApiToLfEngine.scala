@@ -5,24 +5,25 @@ package com.digitalasset.platform.participant.util
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, SimpleString}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.{
   Command => LfCommand,
   Commands => LfCommands,
   CreateCommand => LfCreateCommand,
   Error => LfError,
-  ExerciseCommand => LfExerciseCommand
+  ExerciseCommand => LfExerciseCommand,
+  CreateAndExerciseCommand => LfCreateAndExerciseCommand
 }
 import com.digitalasset.daml.lf.lfpackage.Ast.Package
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.domain.{
+  CreateAndExerciseCommand,
   CreateCommand,
   ExerciseCommand,
   Command => ApiCommand,
   Commands => ApiCommands,
-  Identifier => ApiIdentifier,
   RecordField => ApiRecordField,
   Value => ApiValue
 }
@@ -97,30 +98,20 @@ object ApiToLfEngine {
 
   def toLfIdentifier(
       packages: Map[PackageId, Package],
-      apiIdent: ApiIdentifier): ApiToLfResult[(Map[PackageId, Package], Identifier)] = {
-    PackageId.fromString(apiIdent.packageId.unwrap) match {
-      case Left(err) => ApiToLfResult.Error(LfError(err))
-      case Right(pkgId) =>
-        packages.get(pkgId) match {
-          case None =>
-            NeedPackage(pkgId, {
-              case None => Error(LfError(s"Could not find package $pkgId"))
-              case Some(pkg) => toLfIdentifier(packages + (pkgId -> pkg), apiIdent)
-            })
-          case Some(pkg) =>
-            (
-              Ref.ModuleName.fromString(apiIdent.moduleName),
-              Ref.DottedName.fromString(apiIdent.entityName)) match {
-              case (Right(moduleName), Right(entityName)) =>
-                Done((packages, Identifier(pkgId, QualifiedName(moduleName, entityName))))
-              case (Left(err), _) => Error(LfError(err))
-              case (_, Left(err)) => Error(LfError(err))
-            }
-        }
+      ident: Ref.Identifier): ApiToLfResult[(Map[PackageId, Package], Identifier)] = {
+    val pkgId = ident.packageId
+    packages.get(pkgId) match {
+      case None =>
+        NeedPackage(pkgId, {
+          case None => Error(LfError(s"Could not find package $pkgId"))
+          case Some(pkg) => toLfIdentifier(packages + (pkgId -> pkg), ident)
+        })
+      case Some(pkg) =>
+        Done(packages -> ident)
     }
   }
 
-  def toOptionLfIdentifier(packages: Map[PackageId, Package], mbApiIdent: Option[ApiIdentifier])
+  def toOptionLfIdentifier(packages: Map[PackageId, Package], mbApiIdent: Option[Ref.Identifier])
     : ApiToLfResult[(Map[PackageId, Package], Option[Identifier])] = {
     mbApiIdent match {
       case None => Done((packages, None))
@@ -143,7 +134,8 @@ object ApiToLfEngine {
       case ApiValue.BoolValue(b) => ok(Lf.ValueBool(b))
       case ApiValue.TimeStampValue(t) => ok(Lf.ValueTimestamp(Time.Timestamp.assertFromLong(t)))
       case ApiValue.TextValue(t) => ok(Lf.ValueText(t))
-      case ApiValue.PartyValue(p) => ok(Lf.ValueParty(PackageId.assertFromString(p.unwrap)))
+      case ApiValue.PartyValue(p) =>
+        ok(Lf.ValueParty(PackageId.assertFromString(p.underlyingString)))
       case ApiValue.OptionalValue(o) => // TODO DEL-7054: add test coverage
         o.map(apiValueToLfValueWithPackages(packages0, _))
           .fold[ApiToLfResult[(Packages, LfValue)]](ok(Lf.ValueOptional(None)))(_.map(v =>
@@ -294,6 +286,7 @@ object ApiToLfEngine {
         val oldStyleTplId = apiCommand match {
           case e: ExerciseCommand => e.templateId
           case c: CreateCommand => c.templateId
+          case ce: CreateAndExerciseCommand => ce.templateId
         }
         toLfIdentifier(packages0, oldStyleTplId) match {
           case Error(err) => Error(err)
@@ -306,13 +299,24 @@ object ApiToLfEngine {
                 tplId,
                 e.contractId.unwrap,
                 e.choice.unwrap,
-                SimpleString.assertFromString(cmd.submitter.unwrap),
+                SimpleString.assertFromString(cmd.submitter.underlyingString),
                 asVersionedValueOrThrow(arg)
               )
             def withCreateArgument(c: CreateCommand, arg: LfValue): LfCreateCommand =
               LfCreateCommand(
                 tplId,
                 asVersionedValueOrThrow(arg),
+              )
+            def withCreateAndExerciseArgument(
+                ce: CreateAndExerciseCommand,
+                createArg: LfValue,
+                choiceArg: LfValue): LfCreateAndExerciseCommand =
+              LfCreateAndExerciseCommand(
+                tplId,
+                asVersionedValueOrThrow(createArg),
+                ce.choice.unwrap,
+                asVersionedValueOrThrow(choiceArg),
+                SimpleString.assertFromString(cmd.submitter.underlyingString)
               )
             apiCommand match {
               case e: ExerciseCommand =>
@@ -348,6 +352,63 @@ object ApiToLfEngine {
                       packages2,
                       remainingCommands,
                       processed :+ withCreateArgument(c, createArgument))
+                }
+              case ce: CreateAndExerciseCommand =>
+                apiValueToLfValueWithPackages(packages1, ce.createArgument) match {
+                  case Error(err) => Error(err)
+                  case np: NeedPackage[(Packages, LfValue)] =>
+                    np.flatMap {
+                      case (packages2, createArgument) =>
+                        apiValueToLfValueWithPackages(packages2, ce.choiceArgument) match {
+                          case Error(err) => Error(err)
+                          case np: NeedPackage[(Packages, LfValue)] =>
+                            np.flatMap {
+                              case (packages3, choiceArgument) =>
+                                goResume(
+                                  packages3,
+                                  remainingCommands,
+                                  processed :+ withCreateAndExerciseArgument(
+                                    ce,
+                                    createArgument,
+                                    choiceArgument)
+                                )
+                            }
+                          case Done((packages3, choiceArgument)) =>
+                            goResume(
+                              packages3,
+                              remainingCommands,
+                              processed :+ withCreateAndExerciseArgument(
+                                ce,
+                                createArgument,
+                                choiceArgument)
+                            )
+                        }
+                    }
+                  case Done((packages2, createArgument)) =>
+                    apiValueToLfValueWithPackages(packages2, ce.choiceArgument) match {
+                      case Error(err) => Error(err)
+                      case np: NeedPackage[(Packages, LfValue)] =>
+                        np.flatMap {
+                          case (packages3, choiceArgument) =>
+                            goResume(
+                              packages3,
+                              remainingCommands,
+                              processed :+ withCreateAndExerciseArgument(
+                                ce,
+                                createArgument,
+                                choiceArgument)
+                            )
+                        }
+                      case Done((packages3, choiceArgument)) =>
+                        go(
+                          packages3,
+                          remainingCommands,
+                          processed :+ withCreateAndExerciseArgument(
+                            ce,
+                            createArgument,
+                            choiceArgument)
+                        )
+                    }
                 }
             }
         }

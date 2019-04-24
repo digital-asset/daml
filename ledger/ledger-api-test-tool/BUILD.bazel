@@ -1,0 +1,92 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+load(
+    "//bazel_tools/client_server_test:client_server_test.bzl",
+    "client_server_test",
+)
+
+dependencies = [
+    "//3rdparty/jvm/com/github/scopt:scopt",
+    "//3rdparty/jvm/com/google/guava:guava",
+    "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+    "//3rdparty/jvm/com/typesafe/scala_logging:scala_logging",
+    "//3rdparty/jvm/io/grpc:grpc_core",
+    "//3rdparty/jvm/io/grpc:grpc_netty",
+    "//3rdparty/jvm/io/grpc:grpc_services",
+    "//3rdparty/jvm/io/netty:netty_codec_http2",
+    "//3rdparty/jvm/io/netty:netty_handler",
+    "//3rdparty/jvm/org/scalatest:scalatest",
+    "//3rdparty/jvm/org/scalaz:scalaz_concurrent",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//3rdparty/jvm/org/slf4j:slf4j_api",
+    "//daml-lf/archive:daml_lf_archive_scala",
+    "//daml-lf/archive:daml_lf_java_proto",
+    "//daml-lf/data",
+    "//daml-lf/engine",
+    "//daml-lf/interpreter",
+    "//daml-lf/lfpackage",
+    "//daml-lf/scenario-interpreter",
+    "//daml-lf/transaction",
+    "//language-support/scala/bindings",
+    "//ledger-api/rs-grpc-akka",
+    "//ledger-api/rs-grpc-bridge",
+    "//ledger-api/testing-utils",
+    "//ledger/ledger-api-client:ledger-api-client",
+    "//ledger/ledger-api-common:ledger-api-common",
+    "//ledger/ledger-api-domain:ledger-api-domain",
+    "//ledger/ledger-api-scala-logging",
+    "//ledger/sandbox:sandbox",
+    "//ledger/sandbox:sandbox-scala-tests-lib",
+]
+
+# Run with:
+#   bazel run //ledger/ledger-api-test-tool:ledger-api-test-tool
+#
+# This is used to test new ledger backend implementations.
+da_scala_binary(
+    name = "ledger-api-test-tool",
+    srcs = [
+        "src/main/scala/com/daml/ledger/api/testtool/LedgerApiTestTool.scala",
+    ],
+    main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
+    resources = [
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+    ],
+    deps = dependencies + [
+        "//ledger/ledger-api-integration-tests:ledger-api-integration-tests-lib",
+        "//daml-lf/testing-tools",
+    ],
+)
+
+client_server_test(
+    name = "ledger-api-test-tool-test",
+    timeout = "short",
+    client = ":ledger-api-test-tool",
+    client_args = [
+    ],
+
+    # Data files available to both client and server.
+    data = [
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+    ],
+    server = "//ledger/api-server-damlonx/reference:reference",
+    server_args = [
+        "$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar)",
+    ],
+    tags = [
+        # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it
+        # without competition to avoid flakyness.
+        "exclusive",
+    ],
+)

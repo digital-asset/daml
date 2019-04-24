@@ -76,6 +76,7 @@ def _daml_package_rule_impl(ctx):
         tools = [ctx.executable.damlc_bootstrap],
         progress_message = "Compiling " + name + ".daml to daml-lf " + ctx.attr.daml_lf_version,
         command = """
+      set -eou pipefail
       mkdir -p tmp_db
       tar xf {db_tar} -C tmp_db --strip-components 1
       mkdir -p tmp_db/{daml_lf_version}
@@ -158,16 +159,20 @@ def _daml_package_db_impl(ctx):
         outputs = [ctx.outputs.tar],
         command =
             """
-      mkdir package_db
-    """ +
+        set -eou pipefail
+        shopt -s nullglob
+        TMP_DIR=$(mktemp -d)
+        PACKAGE_DB="$TMP_DIR/package_db"
+        mkdir -p "$PACKAGE_DB"
+        """ +
             "".join(
                 [
                     """
-       mkdir -p package_db/{daml_lf_version}/{pkg_name}
-       cp {pkg_conf} package_db/{daml_lf_version}/{pkg_name}.conf
-       tar xf {iface_tar} --strip-components=1 -C package_db/{daml_lf_version}/{pkg_name}/
-       cp {dalf} package_db/{daml_lf_version}/{pkg_name}.dalf
-       """.format(
+        mkdir -p "$PACKAGE_DB/{daml_lf_version}/{pkg_name}"
+        cp {pkg_conf} "$PACKAGE_DB/{daml_lf_version}/{pkg_name}.conf"
+        tar xf {iface_tar} --strip-components=1 -C "$PACKAGE_DB/{daml_lf_version}/{pkg_name}/"
+        cp {dalf} "$PACKAGE_DB/{daml_lf_version}/{pkg_name}.dalf"
+        """.format(
                         daml_lf_version = pkg[DamlPackage].daml_lf_version,
                         pkg_name = pkg[DamlPackage].pkg_name,
                         pkg_conf = pkg[DamlPackage].pkg_conf.path,
@@ -178,11 +183,11 @@ def _daml_package_db_impl(ctx):
                 ],
             ) +
             """
-      for lf_version in package_db/*; do
-        {ghc_pkg} recache --package-db=$lf_version --no-expand-pkgroot
-      done
-      tar cf {db_tar} package_db
-    """.format(
+        for lf_version in "$PACKAGE_DB"/*; do
+          {ghc_pkg} recache --package-db=$lf_version --no-expand-pkgroot
+        done
+        tar cf {db_tar} -C "$TMP_DIR" package_db
+        """.format(
                 db_tar = ctx.outputs.tar.path,
                 ghc_pkg = toolchain.tools.ghc_pkg.path,
             ),

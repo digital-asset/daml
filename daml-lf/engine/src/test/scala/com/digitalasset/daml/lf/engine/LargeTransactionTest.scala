@@ -3,13 +3,17 @@
 
 package com.digitalasset.daml.lf.engine
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, SimpleString, QualifiedName}
+import java.io.File
+
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName, SimpleString}
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Time}
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.daml.lf.transaction.{Node => N, Transaction => Tx}
 import com.digitalasset.daml.lf.value.Value
 import Value._
+import com.digitalasset.daml.lf.UniversalArchiveReader
+import com.digitalasset.daml.lf.lfpackage.Ast.Package
 import com.digitalasset.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalameter
 import org.scalameter.Quantity
@@ -18,23 +22,22 @@ import org.scalatest.{Assertion, Matchers, WordSpec}
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LargeTransactionTest extends WordSpec with Matchers {
 
-  private[this] val largeTransactionId = "daml-lf/tests/LargeTransaction.dalf"
-  private[this] val ghcPrimId =
-    "daml-foundations/daml-ghc/package-database/deprecated/daml-prim-1.3.dalf"
+  private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
+    val packages =
+      UniversalArchiveReader().readFile(new File(resource)).get
+    val packagesMap = Map(packages.all.map {
+      case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+    }: _*)
+    val (mainPkgId, mainPkgArchive) = packages.main
+    val mainPkg = Decode.readArchivePayloadAndVersion(mainPkgId, mainPkgArchive)._1._2
+    (mainPkgId, mainPkg, packagesMap)
+  }
 
-  private[this] val largeTx: (PackageId, Ast.Package) = loadArchiveAsResource(largeTransactionId)
-  private[this] val ghcPrim: (PackageId, Ast.Package) =
-    loadArchiveAsResource(ghcPrimId)
-  private[this] val allPackages: Map[PackageId, Ast.Package] = List(largeTx, ghcPrim).toMap
+  private[this] val (largeTxId, largeTxPkg, allPackages) = loadPackage(
+    "daml-lf/tests/LargeTransaction.dar")
+  private[this] val largeTx = (largeTxId, largeTxPkg)
 
   private[this] val party = SimpleString.assertFromString("party")
-
-  private def loadArchiveAsResource(resourceId: String): (PackageId, Ast.Package) = {
-    val loader = this.getClass.getClassLoader
-    Option(loader.getResourceAsStream(resourceId))
-      .map(Decode.decodeArchiveFromInputStream)
-      .getOrElse(sys.error(s"Could not find resource: $resourceId"))
-  }
 
   private def lookupPackage(pkgId: PackageId): Option[Ast.Package] = allPackages.get(pkgId)
 
@@ -141,7 +144,7 @@ class LargeTransactionTest extends WordSpec with Matchers {
       exerciseCmdTx: Transaction,
       expectedNumberOfContracts: Int): Assertion = {
 
-    val newContracts: List[N.GenNode[Tx.NodeId, Tx.ContractId, Tx.Value[Tx.ContractId]]] =
+    val newContracts: List[N.GenNode.WithTxValue[Tx.NodeId, Tx.ContractId]] =
       firstRootNode(exerciseCmdTx) match {
         case ne: N.NodeExercises[_, _, _] => ne.children.toList.map(nid => exerciseCmdTx.nodes(nid))
         case n @ _ => fail(s"Unexpected match: $n")
@@ -277,8 +280,8 @@ class LargeTransactionTest extends WordSpec with Matchers {
     exerciseCmdTx.roots.length shouldBe 1
     exerciseCmdTx.nodes.size shouldBe 2
 
-    val createNode: N.GenNode[Tx.NodeId, Tx.ContractId, Tx.Value[Tx.ContractId]] = firstRootNode(
-      exerciseCmdTx) match {
+    val createNode
+      : N.GenNode.WithTxValue[Tx.NodeId, Tx.ContractId] = firstRootNode(exerciseCmdTx) match {
       case ne: N.NodeExercises[_, _, _] => exerciseCmdTx.nodes(ne.children.head)
       case n @ _ => fail(s"Unexpected match: $n")
     }

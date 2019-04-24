@@ -27,8 +27,8 @@
 # be resolvable from external workspaces otherwise.
 
 rules_scala_version = "6f8ee3d951d2ac6154356314600f6edb4eb5df8b"
-rules_haskell_version = "7a306841b0fcca41c9fd62b3f7033fbd67d50e22"
-rules_haskell_sha256 = "55badbdc193a47c693ac94f33aa14f8fa5b8a5c9828e9e0a065a1c1280d4a3f5"
+rules_haskell_version = "ac1d2c17d873d48dde9d307b7b8913cd1d2970ec"
+rules_haskell_sha256 = "e2a9315a46f5edd099880c804e13dd8a743e02495eada02a885b2817f4d9ed8d"
 rules_nixpkgs_version = "40b5a9f23abca57f364c93245c7451206ef1a855"
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -43,8 +43,7 @@ def daml_deps():
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:haskell-static-linking.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-win-sys-includes.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-ld-library-path.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-win-so-name.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-drop-fake-static.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -64,10 +63,6 @@ def daml_deps():
             strip_prefix = "rules_haskell-{}/hazel".format(rules_haskell_version),
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             sha256 = rules_haskell_sha256,
-            patches = [
-                "@com_github_digital_asset_daml//bazel_tools:hackage_mirror.patch",
-            ],
-            patch_args = ["-p2"],
         )
 
     if "com_github_madler_zlib" not in native.existing_rules():
@@ -203,6 +198,35 @@ java_import(
                 urls = ["https://github.com/googleapis/googleapis/archive/6c48ab5aef47dc14e02e2dc718d232a28067129d.tar.gz"],
                 sha256 = "70d7be6ad49b4424313aad118c8622aab1c5fdd5a529d4215d3884ff89264a71",
             )
+
+    # Buildifier.
+    # It is written in Go and hence needs rules_go to be available.
+    if "com_github_bazelbuild_buildtools" not in native.existing_rules():
+        http_archive(
+            name = "com_github_bazelbuild_buildtools",
+            sha256 = "7525deb4d74e3aa4cb2b960da7d1c400257a324be4e497f75d265f2f508c518f",
+            strip_prefix = "buildtools-0.22.0",
+            url = "https://github.com/bazelbuild/buildtools/archive/0.22.0.tar.gz",
+        )
+
+    c2hs_version = "0.28.3"
+    c2hs_hash = "80cc6db945ee7c0328043b4e69213b2a1cb0806fb35c8362f9dea4a2c312f1cc"
+    c2hs_package_id = "c2hs-{0}".format(c2hs_version)
+    c2hs_url = "https://hackage.haskell.org/package/{0}/{1}.tar.gz".format(
+        c2hs_package_id,
+        c2hs_package_id,
+    )
+    c2hs_build_file = "//3rdparty/haskell:BUILD.c2hs"
+    if "haskell_c2hs" not in native.existing_rules():
+        http_archive(
+            name = "haskell_c2hs",
+            build_file = c2hs_build_file,
+            patch_args = ["-p1"],
+            patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-c2hs.patch"],
+            sha256 = c2hs_hash,
+            strip_prefix = c2hs_package_id,
+            urls = [c2hs_url],
+        )
 
     native.bind(
         name = "guava",

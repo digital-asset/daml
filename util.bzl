@@ -27,8 +27,8 @@ def hazel_ghclibs(version, shaParser, shaLibrary):
     ]
 
 # Things we override from Hackage
-def hazel_hackage(name, version, sha):
-    return [(name, {"version": version, "sha256": sha})]
+def hazel_hackage(name, version, sha, **kwargs):
+    return [(name, {"version": version, "sha256": sha} + kwargs)]
 
 # Things we override from GitHub
 def hazel_github_external(project, name, commit, sha):

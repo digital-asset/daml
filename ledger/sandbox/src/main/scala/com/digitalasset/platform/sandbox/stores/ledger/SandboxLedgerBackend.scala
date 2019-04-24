@@ -27,13 +27,20 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
   private class SandboxSubmissionHandle extends SubmissionHandle {
     override def abort: Future[Unit] = Future.successful(())
 
-    override def submit(submitted: TransactionSubmission): Future[Unit] = {
+    override def submit(submitted: TransactionSubmission): Future[SubmissionResult] = {
       ledger.publishTransaction(submitted)
     }
 
-    override def lookupActiveContract(contractId: Value.AbsoluteContractId)
+    override def lookupActiveContract(submitter: Party, contractId: Value.AbsoluteContractId)
       : Future[Option[Value.ContractInst[TxValue[Value.AbsoluteContractId]]]] =
-      ledger.lookupContract(contractId).map(_.map(_.contract))(DirectExecutionContext)
+      ledger
+        .lookupContract(contractId)
+        .map(_.collect {
+          case ac
+              if Ref.Party fromString submitter exists (p => ac.witnesses(p) || ac.divulgences(p)) =>
+            // ^ only parties disclosed or divulged to can lookup; see https://github.com/digital-asset/daml/issues/10
+            ac.contract
+        })(DirectExecutionContext)
 
     override def lookupContractKey(key: Node.GlobalKey): Future[Option[Value.AbsoluteContractId]] =
       ledger.lookupKey(key)

@@ -28,7 +28,7 @@ main = do
       liftIO $ createDirIfMissing True releaseDir
       $logInfo "Checking if we should release"
       sdkVersion <- readVersionAt "HEAD"
-      release <- isReleaseCommit "HEAD"
+      release <- isReleaseCommit
       let upload = if release then optsPerformUpload else PerformUpload False
       -- NOTE(MH): We add 100 to get version numbers for the individual
       -- components which are bigger than all version numbers we used

@@ -12,6 +12,7 @@ import com.daml.ledger.participant.state.index.v1.{IndexService, TransactionAcce
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset}
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.transaction.Transaction.NodeId
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -21,6 +22,7 @@ import com.digitalasset.ledger.api.messages.transaction._
 import com.digitalasset.ledger.api.v1.transaction.{Transaction => PTransaction}
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
+  TransactionServiceGrpc,
   TransactionServiceLogging
 }
 import com.digitalasset.ledger.api.validation.PartyNameChecker
@@ -48,7 +50,7 @@ object DamlOnXTransactionService {
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
-    : GrpcTransactionService with BindableService with TransactionServiceLogging =
+    : TransactionServiceGrpc.TransactionService with BindableService with TransactionServiceLogging =
     new GrpcTransactionService(
       new DamlOnXTransactionService(indexService),
       ledgerId.underlyingString,
@@ -62,6 +64,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     materializer: Materializer,
     esf: ExecutionSequencerFactory)
     extends TransactionService
+    with AutoCloseable
     with ErrorFactories
     with DamlOnXServiceUtils {
 
@@ -97,7 +100,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
 
           val submitterIsSubscriber =
             trans.optSubmitterInfo
-              .map(_.submitter.underlyingString)
+              .map(_.submitter)
               .fold(false)(eventFilter.isSubmitterSubscriber)
           if (events.nonEmpty || submitterIsSubscriber) {
             val transaction = PTransaction(
@@ -298,9 +301,12 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
       TransactionId(trans.transactionId),
       Tag.subst(trans.optSubmitterInfo.map(_.commandId)),
       Tag.subst(trans.optSubmitterInfo.map(_.applicationId)),
-      Tag.subst(trans.optSubmitterInfo.map(_.submitter.underlyingString)),
+      trans.optSubmitterInfo.map(_.submitter),
       WorkflowId(trans.transactionMeta.workflowId),
       trans.recordTime.toInstant,
       None
     )
+
+  override def close(): Unit = ()
+
 }

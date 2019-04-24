@@ -15,12 +15,12 @@ cleanup() {
 trap cleanup EXIT
 
 case "${MAIN##*.}" in
-  dalf)
+  dar)
     $DAML_LF_REPL testAll "$MAIN"
     ;;
   daml)
-    $DAMLC export-lf-v1 "$MAIN" -o $TMPDIR/out.dalf
-    $DAML_LF_REPL testAll $TMPDIR/out.dalf
+    $DAMLC compile "$MAIN" main -o $TMPDIR/out.dar
+    $DAML_LF_REPL testAll $TMPDIR/out.dar
     ;;
   *)
     echo "Unknown file extension on $MAIN" 1>&2

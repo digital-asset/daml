@@ -10,6 +10,7 @@ da_scala_library(
     name = "api-server-damlonx",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
+    tags = ["maven_coordinates=com.daml.ledger:api-server-damlonx:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

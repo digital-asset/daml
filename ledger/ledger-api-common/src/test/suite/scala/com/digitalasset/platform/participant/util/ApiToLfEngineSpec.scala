@@ -29,8 +29,20 @@ class ApiToLfEngineSpec extends WordSpec with Matchers {
 
     def verboseString(s: String) = if (verbose) Some(Label(s)) else None
 
-    val variantId = if (verbose) Some(Identifier(PackageId("v"), "module", "variantId")) else None
-    val recordId = if (verbose) Some(Identifier(PackageId("r"), "module", "recordId")) else None
+    val variantId =
+      if (verbose)
+        Some(
+          Ref.Identifier(
+            Ref.PackageId.assertFromString("v"),
+            Ref.QualifiedName.assertFromString("module:variantId")))
+      else None
+    val recordId =
+      if (verbose)
+        Some(
+          Ref.Identifier(
+            Ref.PackageId.assertFromString("r"),
+            Ref.QualifiedName.assertFromString("module:recordId")))
+      else None
     val variant = VariantValue(variantId, VariantConstructor("SomeInteger"), Int64Value(1))
 
     val nestedVariant =
@@ -41,10 +53,13 @@ class ApiToLfEngineSpec extends WordSpec with Matchers {
 
     RecordValue(
       if (verbose)
-        Some(Identifier(PackageId("templateIds"), "parameterShowcase", "parameterShowcase"))
+        Some(
+          Ref.Identifier(
+            Ref.PackageId.assertFromString("templateIds"),
+            Ref.QualifiedName.assertFromString("parameterShowcase:parameterShowcase")))
       else None,
       immutable.Seq(
-        RecordField(verboseString("operator"), PartyValue(Party("party"))),
+        RecordField(verboseString("operator"), PartyValue(Ref.Party.assertFromString("party"))),
         RecordField(verboseString("integer"), Int64Value(1)),
         RecordField(verboseString("decimal"), DecimalValue("1.1")),
         RecordField(verboseString("text"), TextValue("text")),

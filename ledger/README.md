@@ -1,7 +1,6 @@
 # ledger
 
-TODO: write something here
-
+Home of our reference ledger implementation (Sandbox) and various ledger related libraries.
 
 ## v1 gRPC API
 

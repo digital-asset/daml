@@ -1,6 +1,12 @@
 workspace(name = "com_github_digital_asset_daml")
 
 load("//:util.bzl", "hazel_ghclibs", "hazel_github", "hazel_hackage")
+
+# NOTE(JM): Load external dependencies from deps.bzl.
+# Do not put "http_archive" and similar rules into this file. Put them into
+# deps.bzl. This allows using this repository as an external workspace.
+# (though with the caviat that that user needs to repeat the relevant bits of
+#  magic in this file, but at least right versions of external rules are picked).
 load("//:deps.bzl", "daml_deps")
 
 daml_deps()
@@ -13,7 +19,6 @@ register_toolchains(
     "//:c2hs-toolchain",
 )
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("//bazel_tools/dev_env_package:dev_env_package.bzl", "dev_env_package")
 load("//bazel_tools/dev_env_package:dev_env_tool.bzl", "dev_env_tool")
 load(
@@ -169,34 +174,12 @@ dev_env_tool(
     win_tool = "msys2-20180531",
 )
 
-# c2hs
-nixpkgs_package(
-    name = "c2hs",
-    attribute_path = "ghcWithC2hs",
-    build_file_content = '''
-
-package(default_visibility = [ "//visibility:public" ])
-
-filegroup(
-    name = "bin",
-    srcs = ["bin/c2hs"],
-)
-  ''',
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps + [
-        "//nix:ghc.nix",
-        "//nix:with-packages-wrapper.nix",
-        "//nix:overrides/ghc-8.6.4.nix",
-        "//nix:overrides/c2hs-0.28.6.nix",
-        "//nix:overrides/ghc-8.6.3-binary.nix",
-        "//nix:overrides/language-c-0.8.2.nix",
-    ],
-    repositories = dev_env_nix_repos,
-)
-
 load(
     "@io_tweag_rules_haskell//haskell:haskell.bzl",
     "haskell_register_ghc_bindists",
+)
+load(
+    "@io_tweag_rules_haskell//haskell:nixpkgs.bzl",
     "haskell_register_ghc_nixpkgs",
 )
 
@@ -258,6 +241,14 @@ haskell_register_ghc_bindists(
 nixpkgs_package(
     name = "jq",
     attribute_path = "jq",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
+    name = "mvn_nix",
+    attribute_path = "mvn",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
@@ -414,39 +405,22 @@ hazel_repositories(
         extra =
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-            hazel_ghclibs("0.20190413", "278c29a27c74b9daf54300a7d1ddc6513c4403fa1b5a7008df526eb67154f149", "b3aaef778935aa5bc5a238b74703a3a274046bb09b195ad02ce2ab29f1dc45dd") +
+            hazel_ghclibs("0.20190417.1", "3ba013ab8707aa9bd357b7c38cce45eda3b4ede89528ffaf89c31439bc4a9ad9", "0c5206a842e26f9283181d69a820e1f9abda6d4a617a1c14fd42e29a2ebb594f") +
             hazel_hackage("bytestring-nums", "0.3.6", "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd") +
             hazel_hackage("unix-time", "0.4.5", "fe7805c62ad682589567afeee265e6e230170c3941cdce479a2318d1c5088faf") +
             hazel_hackage("zip-archive", "0.3.3", "988adee77c806e0b497929b24d5526ea68bd3297427da0d0b30b99c094efc84d") +
             hazel_hackage("js-dgtable", "0.5.2", "e28dd65bee8083b17210134e22e01c6349dc33c3b7bd17705973cd014e9f20ac") +
             hazel_hackage("shake", "0.17.8", "ade4162f7540f044f0446981120800076712d1f98d30c5b5344c0f7828ec49a2") +
             hazel_hackage("filepattern", "0.1.1", "f7fc5bdcfef0d43a793a3c64e7c0fd3b1d35eea97a37f0e69d6612ab255c9b4b") +
-            hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277"),
+            hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
+            hazel_hackage(
+                "unix-compat",
+                "0.5.1",
+                "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52",
+                patches = ["@com_github_digital_asset_daml//bazel_tools:unix-compat.patch"],
+            ),
         pkgs = packages,
     ),
-)
-
-c2hs_version = "0.28.3"
-
-c2hs_hash = "80cc6db945ee7c0328043b4e69213b2a1cb0806fb35c8362f9dea4a2c312f1cc"
-
-c2hs_package_id = "c2hs-{0}".format(c2hs_version)
-
-c2hs_url = "https://hackage.haskell.org/package/{0}/{1}.tar.gz".format(
-    c2hs_package_id,
-    c2hs_package_id,
-)
-
-c2hs_build_file = "//3rdparty/haskell:BUILD.c2hs"
-
-http_archive(
-    name = "haskell_c2hs",
-    build_file = c2hs_build_file,
-    patch_args = ["-p1"],
-    patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-c2hs.patch"],
-    sha256 = c2hs_hash,
-    strip_prefix = c2hs_package_id,
-    urls = [c2hs_url],
 )
 
 hazel_custom_package_hackage(
@@ -689,15 +663,6 @@ jar_jar_repositories()
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 
 grpc_deps()
-
-# Buildifier.
-# It is written in Go and hence needs rules_go to be available.
-http_archive(
-    name = "com_github_bazelbuild_buildtools",
-    sha256 = "7525deb4d74e3aa4cb2b960da7d1c400257a324be4e497f75d265f2f508c518f",
-    strip_prefix = "buildtools-0.22.0",
-    url = "https://github.com/bazelbuild/buildtools/archive/0.22.0.tar.gz",
-)
 
 load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
 

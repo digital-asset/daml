@@ -8,10 +8,10 @@ import java.nio.file.Files
 
 import com.digitalasset.daml.lf.codegen.backend.java.JavaBackend
 import com.digitalasset.daml.lf.codegen.conf.Conf
-import org.scalatest.FlatSpec
+import org.scalatest.{FlatSpec, Matchers}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class CodeGenRunnerTests extends FlatSpec {
+class CodeGenRunnerTests extends FlatSpec with Matchers {
 
   behavior of "collectDamlLfInterfaces"
 
@@ -21,12 +21,15 @@ class CodeGenRunnerTests extends FlatSpec {
 
   val dummyOutputDir = Files.createTempDirectory("codegen")
 
+  it should "always use JavaBackend, which is currently hardcoded" in {
+    CodeGenRunner.backend should be theSameInstanceAs JavaBackend
+  }
+
   it should "read interfaces from a single DAR file without a prefix" in {
 
     val conf = Conf(
       Map(testDar -> None),
       dummyOutputDir,
-      JavaBackend
     )
 
     val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
@@ -40,7 +43,6 @@ class CodeGenRunnerTests extends FlatSpec {
     val conf = Conf(
       Map(testDar -> Some("PREFIX")),
       dummyOutputDir,
-      JavaBackend
     )
 
     val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)

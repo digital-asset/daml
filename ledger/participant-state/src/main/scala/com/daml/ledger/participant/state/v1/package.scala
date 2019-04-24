@@ -100,12 +100,16 @@ package object v1 {
     * though that there usually are few elements in the array.
     *
     */
-  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final case class Offset(private val xs: Array[Int]) {
+  final case class Offset(private val xs: Array[Long]) {
     override def toString: String =
-      xs.mkString("-")
+      components.mkString("-")
 
-    def components: Iterable[Int] = xs
+    def components: Iterable[Long] = xs
+
+    override def equals(that: Any): Boolean = that match {
+      case o: Offset => Offset.compare(this, o) == 0
+      case _ => false
+    }
   }
   implicit object Offset extends Ordering[Offset] {
 
@@ -113,11 +117,21 @@ package object v1 {
       * NumberFormatException on misformatted strings.
       */
     def assertFromString(s: String): Offset =
-      Offset(s.split('-').map(_.toInt))
+      Offset(s.split('-').map(_.toLong))
 
     override def compare(x: Offset, y: Offset): Int =
-      scala.math.Ordering.Iterable[Int].compare(x.xs, y.xs)
+      scala.math.Ordering.Iterable[Long].compare(x.xs, y.xs)
   }
+
+  /** The initial conditions of the ledger.
+    *
+    * @param ledgerId: The static ledger identifier.
+    * @param initialRecordTime: The initial record time prior to any [[Update]] event.
+    */
+  final case class LedgerInitialConditions(
+      ledgerId: LedgerId,
+      initialRecordTime: Timestamp
+  )
 
   /** A transaction with relative and absolute contract identifiers.
     *
@@ -132,7 +146,7 @@ package object v1 {
     * absolute contract identifiers.
     */
   type CommittedTransaction =
-    GenTransaction[NodeId, Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]]
+    GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]
 
   /** A contract instance with absolute contract identifiers only. */
   type AbsoluteContractInst =
