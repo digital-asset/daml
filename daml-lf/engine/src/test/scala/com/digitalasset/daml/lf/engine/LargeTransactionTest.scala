@@ -144,7 +144,7 @@ class LargeTransactionTest extends WordSpec with Matchers {
       exerciseCmdTx: Transaction,
       expectedNumberOfContracts: Int): Assertion = {
 
-    val newContracts: List[N.GenNode[Tx.NodeId, Tx.ContractId, Tx.Value[Tx.ContractId]]] =
+    val newContracts: List[N.GenNode.WithTxValue[Tx.NodeId, Tx.ContractId]] =
       firstRootNode(exerciseCmdTx) match {
         case ne: N.NodeExercises[_, _, _] => ne.children.toList.map(nid => exerciseCmdTx.nodes(nid))
         case n @ _ => fail(s"Unexpected match: $n")
@@ -280,8 +280,8 @@ class LargeTransactionTest extends WordSpec with Matchers {
     exerciseCmdTx.roots.length shouldBe 1
     exerciseCmdTx.nodes.size shouldBe 2
 
-    val createNode: N.GenNode[Tx.NodeId, Tx.ContractId, Tx.Value[Tx.ContractId]] = firstRootNode(
-      exerciseCmdTx) match {
+    val createNode
+      : N.GenNode.WithTxValue[Tx.NodeId, Tx.ContractId] = firstRootNode(exerciseCmdTx) match {
       case ne: N.NodeExercises[_, _, _] => exerciseCmdTx.nodes(ne.children.head)
       case n @ _ => fail(s"Unexpected match: $n")
     }

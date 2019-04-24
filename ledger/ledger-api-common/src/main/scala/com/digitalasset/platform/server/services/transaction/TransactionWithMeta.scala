@@ -4,9 +4,9 @@
 package com.digitalasset.platform.server.services.transaction
 
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 
 /** Bundles all data extracted from ACTs together. */
 final case class TransactionWithMeta(
-    transaction: GenTransaction[String, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
+    transaction: GenTransaction.WithTxValue[String, AbsoluteContractId],
     meta: TransactionMeta)
