@@ -11,6 +11,8 @@ if (!(Test-Path .\.bazelrc.local)) {
    Set-Content -Path .\.bazelrc.local -Value 'build --config windows'
 }
 
+$ARTIFACT_DIRS = if ("$env:BUILD_ARTIFACTSTAGINGDIRECTORY") { $env:BUILD_ARTIFACTSTAGINGDIRECTORY } else { Get-Location }
+
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
@@ -26,7 +28,7 @@ function bazel() {
 }
 
 function build-partial() {
-    bazel build `
+    bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_partial_execution_windows.log `
         //:git-revision `
         //compiler/daml-lf-ast/... `
         //compiler/haskell-ide-core/... `
@@ -45,7 +47,7 @@ function build-partial() {
 
 function build-full() {
     # FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
-    bazel build `
+    bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_full_execution_windows.log `
         //release:sdk-release-tarball `
         //:git-revision `
         @com_github_grpc_grpc//:grpc `
