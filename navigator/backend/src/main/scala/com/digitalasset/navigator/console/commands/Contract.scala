@@ -5,6 +5,7 @@ package com.digitalasset.navigator.console.commands
 
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.console._
+import com.digitalasset.navigator.json.ApiCodecCompressed
 import com.digitalasset.navigator.model
 
 @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
@@ -26,6 +27,7 @@ case object Contract extends SimpleCommand {
       PrettyField("Id", ApiTypes.ContractId.unwrap(c.id)),
       PrettyField("TemplateId", c.template.idString),
       PrettyField("Argument", Pretty.argument(c.argument)),
+      PrettyField("ArgumentJson", ApiCodecCompressed.apiValueToJsValue(c.argument).compactPrint),
       PrettyField(
         "Created",
         PrettyObject(
