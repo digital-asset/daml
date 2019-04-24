@@ -118,7 +118,7 @@ runNew targetFolder templateName = do
         configTemplate <- readFileUTF8 configTemplatePath
         sdkVersion <- getSdkVersion
         let projectName = takeFileName (dropTrailingPathSeparator targetFolder)
-            config = replace "__SDK_VERSION__"  sdkVersion
+            config = replace "__VERSION__"  sdkVersion
                    . replace "__PROJECT_NAME__" projectName
                    $ configTemplate
         writeFileUTF8 configPath config
