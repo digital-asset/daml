@@ -177,10 +177,8 @@ typeOfBuiltin = \case
   BEAppendText       -> pure $ tBinop TText
   BEImplodeText      -> pure $ TList TText :-> TText
   BESha256Text       -> do
-      v <- view lfVersion
-      if supportsSha256Text v
-          then pure $ TText :-> TText
-          else throwWithContext $ EUnsupportedFeature "SHA256_TEXT" version1_2
+      checkFeature featureSha256Text
+      pure $ TText :-> TText
   BEFoldl -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
@@ -388,7 +386,7 @@ checkFetch tpl cid = do
 -- returns the contract id and contract type
 checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
 checkRetrieveByKey RetrieveByKey{..} = do
-  checkSupportsContractKeys
+  checkFeature featureContractKeys
   tpl <- inWorld (lookupTemplate retrieveByKeyTemplate)
   case tplKey tpl of
     Nothing -> throwWithContext (EKeyOperationOnTemplateWithNoKey retrieveByKeyTemplate)
@@ -504,7 +502,7 @@ checkTemplateChoice tpl (TemplateChoice _loc _ _ actors selfBinder (param, param
   checkType retType KStar
   v <- view lfVersion
   let checkActors = checkExpr actors (TList TParty)
-  if supportsDisjunctionChoices v
+  if v `supports` featureDisjunctionChoices
     then introExprVar param paramType checkActors
     else checkActors
   introExprVar selfBinder (TContractId (TCon tpl)) $ introExprVar param paramType $
@@ -546,15 +544,15 @@ checkValidProjectionsKey = \case
   expr ->
     throwWithContext (EInvalidKeyExpression expr)
 
-checkSupportsContractKeys :: MonadGamma m => m ()
-checkSupportsContractKeys = do
-    v <- view lfVersion
-    unless (supportsContractKeys v) $
-        throwWithContext $ EUnsupportedFeature "Contract keys" version1_3
+checkFeature :: MonadGamma m => Feature -> m ()
+checkFeature feature = do
+    version <- view lfVersion
+    unless (version `supports` feature) $
+        throwWithContext $ EUnsupportedFeature feature
 
 checkTemplateKey :: MonadGamma m => ExprVarName -> Qualified TypeConName -> TemplateKey -> m ()
 checkTemplateKey param tcon TemplateKey{..} = do
-    checkSupportsContractKeys
+    checkFeature featureContractKeys
     introExprVar param (TCon tcon) $ do
       checkType tplKeyType KStar
       checkValidKeyExpr tplKeyBody

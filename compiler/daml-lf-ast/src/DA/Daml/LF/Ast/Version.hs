@@ -50,29 +50,38 @@ supportedInputVersions = [version1_0, version1_1, version1_2, version1_3]
 supportedOutputVersions :: [Version]
 supportedOutputVersions = supportedInputVersions
 
-supportsOptional :: Version -> Bool
-supportsOptional v = v >= version1_1
 
-supportsTextMap :: Version -> Bool
-supportsTextMap v = v >= version1_3
+data Feature = Feature
+    { featureName :: !T.Text
+    , featureMinVersion :: !Version
+    }
 
-supportsPartyOrd :: Version -> Bool
-supportsPartyOrd v = v >= version1_1
+featureOptional :: Feature
+featureOptional = Feature "Optional type" version1_1
 
-supportsArrowType :: Version -> Bool
-supportsArrowType v = v >= version1_1
+featureTextMap :: Feature
+featureTextMap = Feature "Map type" version1_3
 
-supportsSha256Text :: Version -> Bool
-supportsSha256Text v = v >= version1_2
+featurePartyOrd :: Feature
+featurePartyOrd = Feature "Party comparison" version1_1
 
-supportsDisjunctionChoices :: Version -> Bool
-supportsDisjunctionChoices v = v >= version1_2
+featureArrowType :: Feature
+featureArrowType = Feature "Arrow type" version1_1
 
-supportsContractKeys :: Version -> Bool
-supportsContractKeys v = v >= version1_3
+featureSha256Text :: Feature
+featureSha256Text = Feature "sha256 function" version1_2
 
-supportsPartyFromText :: Version -> Bool
-supportsPartyFromText v = v >= version1_2
+featureDisjunctionChoices :: Feature
+featureDisjunctionChoices = Feature "Flexible controllers" version1_2
+
+featureContractKeys :: Feature
+featureContractKeys = Feature "Contract keys" version1_3
+
+featurePartyFromText :: Feature
+featurePartyFromText = Feature "partyFromText function" version1_2
+
+supports :: Version -> Feature -> Bool
+supports version feature = version >= featureMinVersion feature
 
 concatSequenceA $
   map (makeInstancesExcept [''FromJSON, ''ToJSON])
