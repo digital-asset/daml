@@ -1,6 +1,5 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-
 package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.io.InputStream
@@ -8,10 +7,11 @@ import java.security.MessageDigest
 import java.sql.Connection
 import java.util.Date
 
-import akka.Done
 import akka.stream.Materializer
+import akka.stream.scaladsl.Source
+import akka.{Done, NotUsed}
 import anorm.SqlParser.{str, _}
-import anorm.{AkkaStream, BatchSql, NamedParameter, SQL, SqlParser}
+import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -482,25 +482,110 @@ private class PostgresLedgerDao(
     }
 
   private val SQL_SELECT_ENTRY =
-    SQL("select * from ledger_entries t where ledger_offset={ledger_offset}")
+    SQL("select * from ledger_entries where ledger_offset={ledger_offset}")
 
   private val SQL_SELECT_DISCLOSURE =
     SQL("select * from disclosures where transaction_id={transaction_id}")
 
-  private val EntryParser = (str("typ")
-    ~ str("transaction_id").?
-    ~ str("command_id").?
-    ~ str("application_id").?
-    ~ str("submitter").?
-    ~ str("workflow_id").?
-    ~ date("effective_at").?
-    ~ date("recorded_at")
-    ~ binaryStream("transaction").?
-    ~ str("rejection_type").?
-    ~ str("rejection_description").?
-    map (flatten))
+  case class ParsedEntry(
+      typ: String,
+      transactionId: Option[String],
+      commandId: Option[String],
+      applicationId: Option[String],
+      submitter: Option[String],
+      workflowId: Option[String],
+      effectiveAt: Option[Date],
+      recordedAt: Option[Date],
+      transaction: Option[Array[Byte]],
+      rejectionType: Option[String],
+      rejectionDesc: Option[String],
+      offset: Long)
+
+  private val EntryParser: RowParser[ParsedEntry] =
+    Macro.parser[ParsedEntry](
+      "typ",
+      "transaction_id",
+      "command_id",
+      "application_id",
+      "submitter",
+      "workflow_id",
+      "effective_at",
+      "recorded_at",
+      "transaction",
+      "rejection_type",
+      "rejection_description",
+      "ledger_offset"
+    )
 
   private val DisclosureParser = (str("event_id") ~ str("party") map (flatten))
+
+  private def toLedgerEntry(parsedEntry: ParsedEntry)(
+      implicit conn: Connection): (Long, LedgerEntry) = parsedEntry match {
+    case ParsedEntry(
+        "transaction",
+        Some(transactionId),
+        Some(commandId),
+        Some(applicationId),
+        Some(submitter),
+        Some(workflowId),
+        Some(effectiveAt),
+        Some(recordedAt),
+        Some(transactionStream),
+        None,
+        None,
+        offset) =>
+      val disclosure = SQL_SELECT_DISCLOSURE
+        .on("transaction_id" -> transactionId)
+        .as(DisclosureParser.*)
+        .groupBy(_._1)
+        .mapValues(_.map(_._2).toSet)
+
+      offset -> LedgerEntry.Transaction(
+        commandId,
+        transactionId,
+        applicationId,
+        submitter,
+        workflowId,
+        effectiveAt.toInstant,
+        recordedAt.toInstant,
+        transactionSerializer
+          .deserializeTransaction(transactionStream)
+          .getOrElse(sys.error(s"failed to deserialise transaction! trId: ${transactionId}")),
+        disclosure
+      )
+    case ParsedEntry(
+        "rejection",
+        None,
+        Some(commandId),
+        Some(applicationId),
+        Some(submitter),
+        None,
+        None,
+        Some(recordedAt),
+        None,
+        Some(rejectionType),
+        Some(rejectionDescription),
+        offset) =>
+      val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
+      offset -> LedgerEntry
+        .Rejection(recordedAt.toInstant, commandId, applicationId, submitter, rejectionReason)
+    case ParsedEntry(
+        "checkpoint",
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(recordedAt),
+        None,
+        None,
+        None,
+        offset) =>
+      offset -> LedgerEntry.Checkpoint(recordedAt.toInstant)
+    case invalidRow =>
+      sys.error(s"invalid ledger entry for offset: ${invalidRow.offset}. database row: $invalidRow")
+  }
 
   override def lookupLedgerEntry(offset: Long): Future[Option[LedgerEntry]] = {
     dbDispatcher
@@ -508,64 +593,8 @@ private class PostgresLedgerDao(
         SQL_SELECT_ENTRY
           .on("ledger_offset" -> offset)
           .as(EntryParser.singleOpt)
-          .map {
-            case (
-                "transaction",
-                Some(transactionId),
-                Some(commandId),
-                Some(applicationId),
-                Some(submitter),
-                Some(workflowId),
-                Some(effectiveAt),
-                recordedAt,
-                Some(transactionStream),
-                None,
-                None) =>
-              val disclosure = SQL_SELECT_DISCLOSURE
-                .on("transaction_id" -> transactionId)
-                .as(DisclosureParser.*)
-                .groupBy(_._1)
-                .mapValues(_.map(_._2).toSet)
-
-              LedgerEntry.Transaction(
-                commandId,
-                transactionId,
-                applicationId,
-                submitter,
-                workflowId,
-                effectiveAt.toInstant,
-                recordedAt.toInstant,
-                transactionSerializer
-                  .deserializeTransaction(ByteStreams.toByteArray(transactionStream))
-                  .getOrElse(
-                    sys.error(s"failed to deserialise transaction! trId: ${transactionId}")),
-                disclosure
-              )
-            case (
-                "rejection",
-                None,
-                Some(commandId),
-                Some(applicationId),
-                Some(submitter),
-                None,
-                None,
-                recordedAt,
-                None,
-                Some(rejectionType),
-                Some(rejectionDescription)) =>
-              val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
-              LedgerEntry.Rejection(
-                recordedAt.toInstant,
-                commandId,
-                applicationId,
-                submitter,
-                rejectionReason)
-            case ("checkpoint", None, None, None, None, None, None, recordedAt, None, None, None) =>
-              LedgerEntry.Checkpoint(recordedAt.toInstant)
-            case invalidRow =>
-              sys.error(s"invalid ledger entry for offset: ${offset}. database row: $invalidRow")
-          }
-
+          .map(toLedgerEntry)
+          .map(_._2)
       }
   }
 
@@ -636,6 +665,22 @@ private class PostgresLedgerDao(
       .as(SqlParser.str("maintainer").*)
       .toSet
       .map(Ref.Party.assertFromString)
+
+  private val SQL_GET_LEDGER_ENTRIES = SQL(
+    "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
+
+  //TODO we should use paging instead, check if Alpakka can do that?
+  override def getLedgerEntries(
+      startInclusive: Long,
+      endExclusive: Long): Source[(Long, LedgerEntry), NotUsed] =
+    Source
+      .fromFuture(dbDispatcher.executeSql { implicit conn =>
+        SQL_GET_LEDGER_ENTRIES
+          .on("startInclusive" -> startInclusive, "endExclusive" -> endExclusive)
+          .as(EntryParser.*)
+          .map(toLedgerEntry)
+      })
+      .flatMapConcat(Source(_))
 
   private val SQL_SELECT_ACTIVE_CONTRACTS =
     SQL(
