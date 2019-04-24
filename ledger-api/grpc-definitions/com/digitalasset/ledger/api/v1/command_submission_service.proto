@@ -36,7 +36,7 @@ service CommandSubmissionService {
 
 }
 
-// The submitted commands will be processed atomically in a single transaction. Each `Command` in `commands` corresponds to one or more top-level `create` or `exercise` events in the resulting transaction and the order of commands is preserved in the order those events occur.
+// The submitted commands will be processed atomically in a single transaction. Each ``Command`` in ``commands`` corresponds to one or more top-level ``create`` or ``exercise`` events in the resulting transaction and the order of commands is preserved in the order those events occur.
 message SubmitRequest {
 
   // The commands to be submitted in a single transaction.
