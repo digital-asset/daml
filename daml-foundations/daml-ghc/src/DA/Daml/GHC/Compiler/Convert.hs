@@ -633,7 +633,7 @@ convertExpr env0 e = do
     -- for contract keys. Projections on sum-of-records types have to through
     -- the type class for `getField`.
     go env (VarIs "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : LExpr record : args)
-        | Just [_] <- tyConDataCons_maybe recordTyCon = fmap (, args) $ do
+        | isSingleConType recordTyCon = fmap (, args) $ do
             recordType <- convertType env recordType
             record <- convertExpr env record
             pure $ ERecProj (fromTCon recordType) (mkField $ unpackFS name) record
