@@ -18,7 +18,7 @@ import scala.collection.breakOut
 
 case class VersionedTransaction[Nid, Cid](
     version: TransactionVersion,
-    transaction: GenTransaction[Nid, Cid, VersionedValue[Cid]]) {
+    transaction: GenTransaction.WithTxValue[Nid, Cid]) {
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] = this.copy(
     transaction = transaction.mapContractIdAndValue(f, _.mapContractId(f))
   )
@@ -79,7 +79,7 @@ case class GenTransaction[Nid, Cid, +Val](
   }
 
   def mapContractId[Cid2](f: Cid => Cid2)(
-      implicit ev: Val <:< VersionedValue[Cid]): GenTransaction[Nid, Cid2, VersionedValue[Cid2]] = {
+      implicit ev: Val <:< VersionedValue[Cid]): WithTxValue[Nid, Cid2] = {
     def g(v: Val): VersionedValue[Cid2] = v.mapContractId(f)
     this.mapContractIdAndValue(f, g)
   }
@@ -317,6 +317,8 @@ case class GenTransaction[Nid, Cid, +Val](
 }
 
 object GenTransaction {
+  type WithTxValue[Nid, Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
+
   sealed trait TraverseOrder
   case object BottomUp extends TraverseOrder // visits exercise children before the exercise node itself
   case object TopDown extends TraverseOrder // visits exercise nodes first, then their children
@@ -338,7 +340,7 @@ object Transaction {
   type Value[+Cid] = Value.VersionedValue[Cid]
 
   /** Transaction nodes */
-  type Node = GenNode[NodeId, ContractId, Value[ContractId]]
+  type Node = GenNode.WithTxValue[NodeId, ContractId]
 
   /** (Complete) transactions, which are the result of interpreting a
     *  ledger-update. These transactions are consumed by either the
@@ -348,7 +350,7 @@ object Transaction {
     *  divulgence of contracts.
     *
     */
-  type Transaction = GenTransaction[NodeId, ContractId, Value[ContractId]]
+  type Transaction = GenTransaction.WithTxValue[NodeId, ContractId]
 
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable
@@ -463,7 +465,7 @@ object Transaction {
 
         def addToStringBuilder(
             nid: NodeId,
-            node: GenNode[NodeId, ContractId, Value[ContractId]],
+            node: GenNode.WithTxValue[NodeId, ContractId],
             rootPrefix: String): Unit = {
           sb.append(rootPrefix)
             .append("node ")
@@ -527,11 +529,9 @@ object Transaction {
         _ <- guard(0 <= lcoid.txnid.index)
         node <- nodes.get(lcoid.txnid)
         coinst <- node match {
-          case create: NodeCreate[ContractId, Transaction.Value[ContractId]] =>
+          case create: NodeCreate.WithTxValue[ContractId] =>
             Some((create.coinst, consumedBy.get(lcoid)))
-          case _: NodeExercises[NodeId, ContractId, Transaction.Value[ContractId]] => None
-          case _: NodeFetch[ContractId] => None
-          case _: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] => None
+          case _: NodeExercises[_, _, _] | _: NodeFetch[_] | _: NodeLookupByKey[_, _] => None
         }
       } yield coinst
     }
