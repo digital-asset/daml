@@ -29,6 +29,7 @@ import Control.Monad.Loops (untilJust)
 import Data.Aeson
 import Data.Aeson.Text
 import Data.Maybe
+import Data.List.Extra
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as T (toStrict)
 import qualified Network.HTTP.Client as HTTP
@@ -108,6 +109,21 @@ runNew targetFolder templateName = do
             ]
         exitFailure
     copyDirectory templateFolder targetFolder
+
+    -- update daml.yaml
+    let configPath = targetFolder </> projectConfigName
+        configTemplatePath = configPath <.> "template"
+
+    whenM (doesFileExist configTemplatePath) $ do
+        configTemplate <- readFileUTF8 configTemplatePath
+        sdkVersion <- getSdkVersion
+        let projectName = takeFileName (dropTrailingPathSeparator targetFolder)
+            config = replace "__VERSION__"  sdkVersion
+                   . replace "__PROJECT_NAME__" projectName
+                   $ configTemplate
+        writeFileUTF8 configPath config
+        removeFile configTemplatePath
+
 
 runListTemplates :: IO ()
 runListTemplates = do
