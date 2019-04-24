@@ -27,6 +27,8 @@ HEAD — ongoing
   implement "callable updates" (aka functions of type ``Update a`` that can be
   called from the Ledger API via a contract).
 - Publish the participant-state APIs and reference implementations.
+- Add `-s` option to Sandbox CLI to have a shortened version for `--static-time` as well
+- Change `--allow-dev` to be a hidden CLI option in Sandbox
 
 0.12.7 — 2019-04-17
 -------------------
