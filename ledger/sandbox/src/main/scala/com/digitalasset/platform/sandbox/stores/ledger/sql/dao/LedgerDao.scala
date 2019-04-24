@@ -47,11 +47,11 @@ object PersistenceResponse {
 
 }
 
+case class LedgerSnapshot(offset: Long, acs: Source[Contract, NotUsed])
+
 trait LedgerDao extends AutoCloseable {
 
   type LedgerOffset = Long
-
-  case class LedgerSnapshot(offset: LedgerOffset, acs: Source[Contract, NotUsed])
 
   /** Looks up the ledger id */
   def lookupLedgerId(): Future[Option[String]]

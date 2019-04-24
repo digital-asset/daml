@@ -3,7 +3,9 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
+import akka.NotUsed
 import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
@@ -31,6 +33,11 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends
 
   override def getActiveContractSnapshot()(implicit mat: Materializer): Future[LedgerSnapshot] =
     ledgerDao.getActiveContractSnapshot()
+
+  override def getLedgerEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed] =
+    ledgerDao.getLedgerEntries(startInclusive, endExclusive)
 
   override def storeInitialLedgerEnd(ledgerEnd: Long): Future[Unit] =
     ledgerDao.storeInitialLedgerEnd(ledgerEnd)
