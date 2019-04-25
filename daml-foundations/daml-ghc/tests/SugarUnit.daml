@@ -4,7 +4,7 @@
 -- Test that the type `GHC.Tuple.Unit`, which is only produced by ghc's
 -- desugarer, works correctly (cf. DEL-6656).
 -- Test that the generated code actually uses `GHC.Tuple.Unit`.
--- @ QUERY-LF [.packageModules[] | .moduleValues[] | .dvalBody | .. | .TCon? | objects |select(.qualObject == ["Unit"]) | .qualModule == ["GHC", "Tuple"], length > 0] | all
+-- @ QUERY-LF [.modules[] | .values[] | .. | objects | select(has("tycon")) | .tycon | select(.name.segments == ["Unit"]) | .module.module_name.segments == ["GHC", "Tuple"]] | all
 
 daml 1.2
 module SugarUnit where
