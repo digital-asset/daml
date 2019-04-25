@@ -26,7 +26,7 @@ template NameOfTemplate
     -- start of choice snippet
     -- option 1 for specifying choices: choice name first
     choice NameOfChoice :
-          () -- replace () with the actual return type
+          ReturnType -- replace ReturnType with the actual return type
         with
         party : Party -- parameters here
       controller party
@@ -36,7 +36,7 @@ template NameOfTemplate
     -- option 2 for specifying choices: controller first
     controller exampleParty can
       NameOfAnotherChoice :
-          () -- replace () with the actual return type
+          ReturnType -- replace ReturnType with the actual return type
         with
           party : Party -- parameters here
         do

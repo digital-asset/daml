@@ -51,11 +51,11 @@ template body
         Only create the contract if the conditions after ``ensure`` evaluate to true.
 
     :ref:`choices <daml-ref-choice-structure>`
-    	``controller nameOfParty can nameOfChoice do``
+        ``choice NameOfChoice : ReturnType controller nameOfParty do``
 
         or
 
-        ``choice : () controller do``
+    	``controller nameOfParty can NameOfChoice : ReturnType do``
 
         Defines choices that can be exercised. See `Choice structure`_ for what can go in a choice.
 
@@ -94,7 +94,7 @@ Here's the structure of a choice inside a template. There are two ways of specif
 :ref:`choice arguments <daml-ref-choice-arguments>`
     ``with`` keyword
 
-    If you start your choice with ``choice`` and include a ``Party`` as a parameter, you can make that ``Party`` the ``controller`` of the choice. This is a feature called "flexible controllers", and it means you don't have to specify the controller when you create the contract - you can specify it when you exercise the choice. The ``Party`` still needs to be a parameter to the contract as well, so that they can be added as an observer.
+    If you start your choice with ``choice`` and include a ``Party`` as a parameter, you can make that ``Party`` the ``controller`` of the choice. This is a feature called "flexible controllers", and it means you don't have to specify the controller when you create the contract - you can specify it when you exercise the choice. To exercise a choice, the party needs to be a signatory or an observer of the contract and must be explicitly declared as such.
 
 :ref:`a choice body <daml-ref-choice-body>`
     After ``do`` keyword

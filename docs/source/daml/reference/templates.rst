@@ -73,7 +73,7 @@ Observers
 - Observers are additional stakeholders, so the contract instance is visible to these parties (see the ``Party`` type).
 - Optional. You can have many, either as a comma-separated list or reusing the keyword. You could pass in a list (of type ``[Party]``).
 - Use when a party needs visibility on a contract, or be informed or contract events, but is not a :ref:`signatory <daml-ref-signatories>` or :ref:`controller <daml-ref-controllers>`.
-- If you start your choice with ``choice`` rather than ``controller`` (see :ref:`daml-ref-choices` below), you must make sure to add the controller as an observer. Otherwise, they will not be able to exercise the choice, because they won't be able to see the contract.
+- If you start your choice with ``choice`` rather than ``controller`` (see :ref:`daml-ref-choices` below), you must make sure to add any potential controller as an observer. Otherwise, they will not be able to exercise the choice, because they won't be able to see the contract.
 
 .. _daml-ref-choices:
 
