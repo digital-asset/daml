@@ -10,6 +10,7 @@ HEAD — ongoing
 --------------
 
 - Node.js bindings have been moved `here <https://github.com/digital-asset/daml-js>``
+- Add documentation for flexible controllers.
 
 0.12.10 — 2019-04-25
 --------------------
