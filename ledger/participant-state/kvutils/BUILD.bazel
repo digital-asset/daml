@@ -16,42 +16,42 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
+        ":daml_kvutils_java_proto",
+        "//3rdparty/jvm/com/google/guava",
         "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-        "//3rdparty/jvm/com/google/guava:guava",
+        "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/lfpackage",
         "//daml-lf/transaction",
         "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
         "//daml-lf/transaction/src/main/protobuf:value_java_proto",
-        "//daml-lf/engine",
-        "//daml-lf/lfpackage",
-        "//daml-lf/archive:daml_lf_archive_scala",
-        "//ledger/participant-state",
         "//ledger/ledger-api-common",
-        ":daml_kvutils_java_proto",
+        "//ledger/participant-state",
     ],
 )
 
 proto_library(
-  name = "daml_kvutils_proto",
-  srcs = ["src/main/protobuf/daml_kvutils.proto"],
-  deps = [
-    "@com_google_protobuf//:empty_proto",
-    "@com_google_protobuf//:timestamp_proto",
-    "@com_google_protobuf//:duration_proto",
-    "//daml-lf/transaction/src/main/protobuf:transaction_proto",
-    "//daml-lf/transaction/src/main/protobuf:value_proto",
-    "//daml-lf/archive:daml_lf_proto",
-  ],
-  visibility = [
-    "//visibility:public"
-  ],
+    name = "daml_kvutils_proto",
+    srcs = ["src/main/protobuf/daml_kvutils.proto"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//daml-lf/archive:daml_lf_proto",
+        "//daml-lf/transaction/src/main/protobuf:transaction_proto",
+        "//daml-lf/transaction/src/main/protobuf:value_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+    ],
 )
 
 java_proto_library(
-  name = "daml_kvutils_java_proto",
-  deps = [":daml_kvutils_proto"],
-  visibility = [
-    "//visibility:public"
-  ],
+    name = "daml_kvutils_java_proto",
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [":daml_kvutils_proto"],
 )

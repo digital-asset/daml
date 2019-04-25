@@ -32,9 +32,9 @@ message DamlLogEntry {
     // A rejected command.
     DamlRejectionEntry rejection_entry = 3;
 
-    // A marker for a DAML-LF archive. Actual contents stored under key `DamlStateKey.archive`.
+    // A DAML-LF archive.
     // Can be converted into `Update.PublicPackageUploaded`.
-    DamlStateKey package_mark = 4;
+    daml_lf.Archive archive = 4;
 
     // A DAML configuration change.
     DamlConfigurationEntry configuration_entry = 5;
@@ -140,7 +140,8 @@ message DamlStateValue {
   oneof value {
     google.protobuf.Empty empty = 1;
 
-    daml_lf.Archive archive = 2;
+    // Log entry containing the DAML-LF archive.
+    DamlLogEntryId archive_entry = 2;
 
     // A contract activeness state.
     DamlContractState contract_state = 3;

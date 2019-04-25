@@ -33,7 +33,7 @@ import com.google.protobuf.ByteString
   * Implements helpers and serialization/deserialization into protocol buffer messages
   * defined in daml_kvutils.proto.
   */
-object KeyValueUtils {
+object KeyValueUtils extends KeyValueSubmission with KeyValueCommitting with KeyValueConsuming {
 
   /** The effects of the transaction, that is what contracts
     * were consumed and created, and what contract keys were updated.
@@ -118,25 +118,22 @@ object KeyValueUtils {
     *
     * // FIXME(JM): Might need futures for the lookup?
     */
-  def logEntryToUpdate(
-      entryId: DamlLogEntryId,
-      entry: DamlLogEntry,
-      recordTime: Timestamp,
-      lookupFromState: DamlStateKey => Option[DamlStateValue]): Option[Update] = {
+  def logEntryToUpdate(entryId: DamlLogEntryId, entry: DamlLogEntry): Update = {
+
+    val recordTime = parseTimestamp(entry.getRecordTime)
+
     entry.getPayloadCase match {
-      case DamlLogEntry.PayloadCase.PACKAGE_MARK =>
-        lookupFromState(entry.getPackageMark).map { v =>
-          Update.PublicPackageUploaded(v.getArchive)
-        }
+      case DamlLogEntry.PayloadCase.ARCHIVE =>
+        Update.PublicPackageUploaded(entry.getArchive)
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
-        Some(txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime))
+        txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime)
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
-        Some(Update.ConfigurationChanged(decodeDamlConfigurationEntry(entry.getConfigurationEntry)))
+        Update.ConfigurationChanged(decodeDamlConfigurationEntry(entry.getConfigurationEntry))
 
       case DamlLogEntry.PayloadCase.REJECTION_ENTRY =>
-        Some(rejEntryToUpdate(entryId, entry.getRejectionEntry, recordTime))
+        rejEntryToUpdate(entryId, entry.getRejectionEntry, recordTime)
 
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
         throw new RuntimeException("entryToUpdate: Payload is not set!")
@@ -367,18 +364,7 @@ object KeyValueUtils {
   }
 
   // ------------------------------------------
-  /** Validates a submission, given the submission and its inputs.
-    * Produces a list of log entries to be committed, and new DAML state entries to be
-    * created/updated.
-    *
-    * @param engine: The DAML Engine. This instance should be persistent as it caches package compilation.
-    * @param config: The ledger configuration.
-    * @param entryId: The log entry id to which this submission is committed.
-    * @param recordTime: The record time for the log entry.
-    * @param submission: The submission to commit to the ledger.
-    * @param inputs: The resolved inputs to the submission.
-    * @return The log entries to be committed, and the state to be created/updated.
-    */
+
   def processSubmission(
       engine: Engine,
       config: Configuration,
@@ -396,10 +382,10 @@ object KeyValueUtils {
         (
           DamlLogEntry.newBuilder
             .setRecordTime(buildTimestamp(recordTime))
-            .setPackageMark(key)
+            .setArchive(archive)
             .build,
           Map(
-            key -> DamlStateValue.newBuilder.setArchive(archive).build
+            key -> DamlStateValue.newBuilder.setArchiveEntry(entryId).build
           )
         )
       case DamlSubmission.PayloadCase.CONFIGURATION_ENTRY =>
