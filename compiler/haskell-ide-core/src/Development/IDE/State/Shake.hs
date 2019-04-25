@@ -197,7 +197,7 @@ setValues :: IdeRule k v
           -> IO (Maybe [Diagnostic], [Diagnostic]) -- ^ (before, after)
 setValues state key file val = modifyVar state $ \inVal -> do
     let k = Key key
-        outVal = Map.insertWith Map.union file (Map.singleton k $ fmap toDyn <$> val) inVal
+        outVal = Map.insertWith Map.union file (Map.singleton k $ second (fmap toDyn) val) inVal
         f = concatMap fst . Map.elems
     return (outVal, (f <$> Map.lookup file inVal, f $ outVal Map.! file))
 
