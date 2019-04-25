@@ -174,7 +174,7 @@ stringParagraphs :: T.Text -> Doc a
 stringParagraphs = vcat . map (fillSep . map pretty . T.words) . T.lines
 
 prettyDiagnostic :: LSP.Diagnostic -> Doc SyntaxClass
-prettyDiagnostic (LSP.Diagnostic{..}) =
+prettyDiagnostic LSP.Diagnostic{..} =
     vcat
         [label_ "Range:   "
             $ prettyRange _range
@@ -194,7 +194,7 @@ prettyDiagnostic (LSP.Diagnostic{..}) =
 
 prettyDiagnosticStore :: DiagnosticStore -> Doc SyntaxClass
 prettyDiagnosticStore ds =
-    vcat $ map prettyFileDiagnostics $ Map.assocs ds where
+    vcat $ map prettyFileDiagnostics $ Map.assocs ds
 
 
 prettyFileDiagnostics :: FileDiagnostics -> Doc SyntaxClass
