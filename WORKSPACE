@@ -440,14 +440,12 @@ hazel_repositories(
                 patches = ["@com_github_digital_asset_daml//bazel_tools:unix-compat.patch"],
             ) +
             # This is a special version of Haskell LSP without GPL dependencies
-            hazel_github_external(
-                "DavidM-D",
+            hazel_github(
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
                 HASKELL_LSP_HASH
             ) +
-            hazel_github_external(
-                "DavidM-D",
+            hazel_github(
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
                 HASKELL_LSP_HASH,
