@@ -184,19 +184,20 @@ object CodeGen {
     val (unassociatedRecords, splattedVariants) = splatVariants(recordsAndVariants)
 
     // 2. put templates/types into single Namespace.fromHierarchy
-    val treeified = Namespace.fromHierarchy {
-      def widenDDT[R, V](iddt: Iterable[ScopedDataType.DT[R, V]]) = iddt
-      val ntdRights =
-        (widenDDT(unassociatedRecords.map {
-          case ((q, tp), rec) => ScopedDataType(q, ImmArraySeq(tp: _*), rec)
-        }) ++ splattedVariants)
-          .map(sdt => (sdt.name, \/-(sdt)))
-      val tmplLefts = supportedTemplateIds.transform((_, v) => -\/(v))
-      (ntdRights ++ tmplLefts) map {
-        case (ddtIdent @ Identifier(_, qualName), body) =>
-          (qualName.module.segments.toList ++ qualName.name.segments.toList, (ddtIdent, body))
+    val treeified: Namespace[String, Option[lf.HierarchicalOutput.TemplateOrDatatype]] =
+      Namespace.fromHierarchy {
+        def widenDDT[R, V](iddt: Iterable[ScopedDataType.DT[R, V]]) = iddt
+        val ntdRights =
+          (widenDDT(unassociatedRecords.map {
+            case ((q, tp), rec) => ScopedDataType(q, ImmArraySeq(tp: _*), rec)
+          }) ++ splattedVariants)
+            .map(sdt => (sdt.name, \/-(sdt)))
+        val tmplLefts = supportedTemplateIds.transform((_, v) => -\/(v))
+        (ntdRights ++ tmplLefts) map {
+          case (ddtIdent @ Identifier(_, qualName), body) =>
+            (qualName.module.segments.toList ++ qualName.name.segments.toList, (ddtIdent, body))
+        }
       }
-    }
 
     // fold up the tree to discover the hierarchy's roots, each of which produces a file
     val (treeErrors, topFiles) = lf.HierarchicalOutput.discoverFiles(treeified, util)
@@ -214,15 +215,15 @@ object CodeGen {
     filePlans ++ specialPlans
   }
 
-  type LHSIndexedRecords[+RF] = Map[(Identifier, List[String]), Record[RF]]
+  type LHSIndexedRecords[+RT] = Map[(Identifier, List[String]), Record[RT]]
 
-  private[this] def splitNTDs[RF, VF](recordsAndVariants: Iterable[ScopedDataType.DT[RF, VF]])
-    : (LHSIndexedRecords[RF], List[ScopedDataType[Variant[VF]]]) =
+  private[this] def splitNTDs[RT, VT](recordsAndVariants: Iterable[ScopedDataType.DT[RT, VT]])
+    : (LHSIndexedRecords[RT], List[ScopedDataType[Variant[VT]]]) =
     partitionEithers(recordsAndVariants map {
       case sdt @ ScopedDataType(qualName, typeVars, ddt) =>
         ddt match {
-          case r: Record[RF] => Left(((qualName, typeVars.toList), r))
-          case v: Variant[VF] => Right(sdt copy (dataType = v))
+          case r: Record[RT] => Left(((qualName, typeVars.toList), r))
+          case v: Variant[VT] => Right(sdt copy (dataType = v))
         }
     })(breakOut, breakOut)
 
@@ -234,9 +235,9 @@ object CodeGen {
     * figured by examining the _2: left means splatted, right means
     * unchanged.
     */
-  private[this] def splatVariants[RF, VN <: String, VT <: iface.Type](
-      recordsAndVariants: Iterable[ScopedDataType.DT[RF, (VN, VT)]])
-    : (LHSIndexedRecords[RF], List[ScopedDataType[Variant[(VN, List[RF] \/ VT)]]]) = {
+  private[this] def splatVariants[RT <: iface.Type, VT <: iface.Type](
+      recordsAndVariants: Iterable[ScopedDataType.DT[RT, VT]])
+    : (LHSIndexedRecords[RT], List[ScopedDataType[Variant[List[(String, RT)] \/ VT]]]) = {
 
     val (recordMap, variants) = splitNTDs(recordsAndVariants)
 
@@ -245,22 +246,21 @@ object CodeGen {
     // or Scala 2.13
     val (deletedRecords, newVariants) =
       variants.traverseU {
-        case vsdt @ ScopedDataType(Identifier(packageId, qualName), vTypeVars, _) =>
+        case ScopedDataType(ident @ Identifier(packageId, qualName), vTypeVars, Variant(fields)) =>
           val typeVarDelegate = Util simplyDelegates vTypeVars
-          vsdt.traverseU {
-            _.traverseU {
-              case (vn, vt) =>
-                val syntheticRecord = Identifier(
-                  packageId,
-                  qualName copy (name =
-                    DottedName.assertFromSegments(qualName.name.segments.slowSnoc(vn).toSeq)))
-                val key = (syntheticRecord, vTypeVars.toList)
-                typeVarDelegate(vt)
-                  .filter((_: Identifier) == syntheticRecord)
-                  .flatMap(_ => recordMap get key)
-                  .cata(nr => (Set(key), (vn, -\/(nr.fields.toList))), (noDeletion, (vn, \/-(vt))))
-            }
+          val (deleted, sdt) = fields.traverseU {
+            case (vn, vt) =>
+              val syntheticRecord = Identifier(
+                packageId,
+                qualName copy (name =
+                  DottedName.assertFromSegments(qualName.name.segments.slowSnoc(vn).toSeq)))
+              val key = (syntheticRecord, vTypeVars.toList)
+              typeVarDelegate(vt)
+                .filter((_: Identifier) == syntheticRecord)
+                .flatMap(_ => recordMap get key)
+                .cata(nr => (Set(key), (vn, -\/(nr.fields.toList))), (noDeletion, (vn, \/-(vt))))
           }
+          (deleted, ScopedDataType(ident, vTypeVars, Variant(sdt)))
       }
 
     (recordMap -- deletedRecords, newVariants)

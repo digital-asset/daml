@@ -215,7 +215,7 @@ class MultiTableDataFormat(
 
   private def createIOForTable(
       tableName: String,
-      params: iface.Record[(String, iface.Type)],
+      params: iface.Record.FWT,
       templateId: Identifier
   ): ConnectionIO[Unit] = {
     val drop = dropTableIfExists(tableName).update.run
@@ -262,7 +262,7 @@ class MultiTableDataFormat(
     case TypeCon(_, _) => "JSONB"
   }
 
-  private def mapColumnTypes(params: iface.Record[(String, iface.Type)]): List[String] = {
+  private def mapColumnTypes(params: iface.Record.FWT): List[String] = {
     params.fields.toList.map(_._2.fat).map {
       case TypePrim(iface.PrimTypeOptional, typeArg :: _) => mapSQLType(typeArg) + " NULL"
       case other => mapSQLType(other) + " NOT NULL"
