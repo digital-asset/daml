@@ -7,6 +7,10 @@ run() {
 
 systeminfo | findstr Build
 
+run fsutil fsinfo drives
+
+run wmic diskdrive
+
 exit 1
 
 run env
