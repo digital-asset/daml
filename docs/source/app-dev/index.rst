@@ -18,9 +18,9 @@ Resources available to you
 - **The Java bindings**: a library to help you write idiomatic applications using the Ledger API in Java.
 
   :doc:`Read the documentation for the Java bindings </app-dev/bindings-java/index>`
-- **The experimental Node.js bindings**: a library to help you write idiomatic applications using the Ledger API in JavaScript.
+- **The experimental Node.js bindings**: a library to help you write idiomatic applications using the Ledger API in JavaScript. Information about the Node.js bindings isn't available in this documentation, but is on GitHub.
 
-  :doc:`Read the documentation for the Node.js </app-dev/bindings-js/index>`
+  `Read the documentation for the Node.js bindings <http://www.github.com/digital-asset/daml-js>`__
 - **The underlying gRPC API**: if you want to interact with the ledger API from other languages, you'll need to use `gRPC <https://grpc.io>`__ directly.
 
   :doc:`Read the documentation for the gRPC API </app-dev/grpc/index>`

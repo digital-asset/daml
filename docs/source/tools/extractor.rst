@@ -18,7 +18,7 @@ It is useful for:
 Using the Extractor, you can:
 
 - Take a full snapshot of the ledger (from the start of the ledger to the current latest transaction)
-- Take a partial snapshot of the ledger (between specific :doc:`offsets <../../app-dev/ledger-api-introduction/proto-docs.html#ledgeroffset>`__)
+- Take a partial snapshot of the ledger (between specific :doc:`offsets <../../app-dev/ledger-api-introduction/proto-docs.html#ledgeroffset>`)
 - Extract historical data and then stream indefinitely (either from the start of the ledger or from a specific offset)
 
 Setting up
