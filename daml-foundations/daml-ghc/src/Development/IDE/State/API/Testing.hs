@@ -298,10 +298,10 @@ searchDiagnostics expected@(severity, cursor, message) actuals =
 -- | These functions live in the test framework rather that further down the stack because
 --   you really shouldn't be deconstructing LSP diagnostic stores in this manner bar when testing
 fromStore :: D.StoreItem -> [D.Diagnostic]
-fromStore (D.StoreItem _ ds) = join $ map toList $ Map.elems ds
+fromStore (D.StoreItem _ ds) = concatMap toList $ Map.elems ds
 
 allDiagnostics :: D.DiagnosticStore -> [D.Diagnostic]
-allDiagnostics = join . map fromStore . Map.elems
+allDiagnostics = concatMap fromStore . Map.elems
 
 expectDiagnostic :: D.DiagnosticSeverity -> Cursor -> T.Text -> ShakeTest ()
 expectDiagnostic severity cursor msg = do
