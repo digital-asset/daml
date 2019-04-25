@@ -8,7 +8,6 @@ option java_package = "com.digitalasset.daml_lf";
 
 import "da/daml_lf_0.proto";
 import "da/daml_lf_1.proto";
-import "da/daml_lf_dev.proto";
 
 message ArchivePayload {
   // this is number 3 for historical reasons -- we had
@@ -19,7 +18,7 @@ message ArchivePayload {
     daml_lf_0.Package daml_lf_0 = 1;
     daml_lf_1.Package daml_lf_1 = 2;
 
-    daml_lf_dev.Package daml_lf_dev = 9999;
+    // lf_2 = 4, lf_3 = 5, etc
   }
 }
 

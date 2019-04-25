@@ -138,7 +138,7 @@ object Reader extends Reader[(SimpleString, DamlLf.ArchivePayload)] {
     lf.getSumCase match {
       case SC.DAML_LF_0 => LMV.V0
       case SC.DAML_LF_1 => LMV.V1
-      case SC.DAML_LF_DEV | SC.SUM_NOT_SET => throw ParseError("Unrecognized LF version")
+      case SC.SUM_NOT_SET => throw ParseError("Unrecognized LF version")
     }
   }
 

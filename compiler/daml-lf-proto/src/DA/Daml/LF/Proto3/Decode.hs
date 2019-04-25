@@ -17,7 +17,6 @@ decodePayload :: ArchivePayload -> Decode Package
 decodePayload payload = case archivePayloadSum payload of
     Just ArchivePayloadSumDamlLf0{} -> Left $ ParseError "Payload is DamlLf0"
     Just (ArchivePayloadSumDamlLf1 package) -> DecodeV1.decodePackage minor package
-    Just ArchivePayloadSumDamlLfDev{} -> Left $ ParseError "LF Dev major no longer supported"
     Nothing -> Left $ ParseError "Empty payload"
     where
         minor = archivePayloadMinor payload

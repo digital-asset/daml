@@ -6,7 +6,6 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library")
 da_haskell_library(
     name = "daml-lf-proto",
     srcs = glob(["src/**/*.hs"]),
-    extra_srcs = ["//daml-lf/archive:da/daml_lf_dev.proto"],
     hazel_deps = [
         "base",
         "bytestring",
