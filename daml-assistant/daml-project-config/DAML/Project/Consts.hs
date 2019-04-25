@@ -7,6 +7,7 @@ module DAML.Project.Consts
     , sdkPathEnvVar
     , sdkVersionEnvVar
     , damlAssistantEnvVar
+    , damlAssistantVersionEnvVar
     , damlConfigName
     , projectConfigName
     , sdkConfigName
@@ -58,6 +59,12 @@ sdkVersionEnvVar = "DAML_SDK_VERSION"
 -- | The absolute path to the daml assistant executable.
 damlAssistantEnvVar :: String
 damlAssistantEnvVar = "DAML_ASSISTANT"
+
+-- | The SDK version of the daml assistant. This does not necessarily equal
+-- the DAML_SDK_VERSION, e.g. when working with a project with an older
+-- pinned SDK version.
+damlAssistantVersionEnvVar :: String
+damlAssistantVersionEnvVar = "DAML_ASSISTANT_VERSION"
 
 -- | File name of config file in DAML_HOME (~/.daml).
 damlConfigName :: FilePath
