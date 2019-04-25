@@ -277,7 +277,7 @@ define
 define op = defineEarlyCutoff $ \k v -> (Nothing,) <$> op k v
 
 use :: IdeRule k v
-    => k -> FilePath -> Action (IdeResult v)
+    => k -> FilePath -> Action (Maybe v)
 use key file = head <$> uses key [file]
 
 use_ :: IdeRule k v => k -> FilePath -> Action v
@@ -286,7 +286,7 @@ use_ key file = head <$> uses_ key [file]
 uses_ :: IdeRule k v => k -> [FilePath] -> Action [v]
 uses_ key files = do
     res <- uses key files
-    case mapM snd res of
+    case sequence res of
         Nothing -> liftIO $ throwIO BadDependency
         Just v -> return v
 
@@ -330,13 +330,8 @@ instance NFData (A v) where rnf (A v x) = v `seq` rnf x
 type instance RuleResult (Q k) = A (RuleResult k)
 
 
--- | Compute the value
-uses :: IdeRule k v
-    => k -> [FilePath] -> Action [IdeResult v]
-uses = undefined
-
-_uses' :: IdeRule k v => k -> [FilePath] -> Action [Maybe v]
-_uses' key files = map (\(A value _) -> value) <$> apply (map (Q . (key,)) files)
+uses :: IdeRule k v => k -> [FilePath] -> Action [Maybe v]
+uses key files = map (\(A value _) -> value) <$> apply (map (Q . (key,)) files)
 
 defineEarlyCutoff
     :: IdeRule k v
