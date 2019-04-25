@@ -267,7 +267,7 @@ final case class ReferenceIndexService(
           currentOffset = txs.lastOption.map(_._1)
           txs
             .dropWhile { t =>
-              toDrop.fold(false)(_.eq(getOffset(t)))
+              toDrop.fold(false)(_.equals(getOffset(t)))
             }
       }
       // Complete the stream once end (if given) has been reached.
