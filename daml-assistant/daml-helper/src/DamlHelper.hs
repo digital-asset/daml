@@ -162,7 +162,7 @@ runStart = withProjectRoot $ \_ -> do
         queryProjectConfigRequired ["name"] projectConfig
     let darName = projectName <> ".dar"
     assistant <- getDamlAssistant
-    callProcess assistant ["build", "-o", darName]
+    callCommand (unwords $ assistant : ["build", "-o", darName])
     withSandbox sandboxPort [darName] $ \sandboxPh -> do
         parties <- getProjectParties
         withTempDir $ \confDir -> do
