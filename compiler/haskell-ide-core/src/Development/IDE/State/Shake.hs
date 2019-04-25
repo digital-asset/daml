@@ -262,7 +262,7 @@ define
 define op = defineEarlyCutoff $ \k v -> (Nothing,) <$> op k v
 
 use :: IdeRule k v
-    => k -> FilePath -> Action (IdeResult v)
+    => k -> FilePath -> Action (Maybe v)
 use key file = head <$> uses key [file]
 
 use_ :: IdeRule k v => k -> FilePath -> Action v
@@ -271,7 +271,7 @@ use_ key file = head <$> uses_ key [file]
 uses_ :: IdeRule k v => k -> [FilePath] -> Action [v]
 uses_ key files = do
     res <- uses key files
-    case mapM snd res of
+    case sequence res of
         Nothing -> liftIO $ throwIO BadDependency
         Just v -> return v
 
@@ -307,7 +307,7 @@ instance Show k => Show (Q k) where
 
 -- | Invariant: the 'v' must be in normal form (fully evaluated).
 --   Otherwise we keep repeatedly 'rnf'ing values taken from the Shake database
-data A v = A (IdeResult v) (Maybe BS.ByteString)
+data A v = A (Maybe v) (Maybe BS.ByteString)
     deriving Show
 
 instance NFData (A v) where rnf (A v x) = v `seq` rnf x
@@ -317,7 +317,7 @@ type instance RuleResult (Q k) = A (RuleResult k)
 
 -- | Compute the value
 uses :: IdeRule k v
-    => k -> [FilePath] -> Action [IdeResult v]
+    => k -> [FilePath] -> Action [Maybe v]
 uses key files = map (\(A value _) -> value) <$> apply (map (Q . (key,)) files)
 
 defineEarlyCutoff
@@ -330,7 +330,7 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
         Just old | mode == RunDependenciesSame -> do
             v <- liftIO $ getValues state key file
             case v of
-                Just v -> return $ Just $ RunResult ChangedNothing old $ A v (unwrap old)
+                Just v -> return $ Just $ RunResult ChangedNothing old $ A (snd v) (unwrap old)
                 _ -> return Nothing
         _ -> return Nothing
     case val of
@@ -353,7 +353,7 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
             return $ RunResult
                 (if eq then ChangedRecomputeSame else ChangedRecomputeDiff)
                 (wrap bs)
-                $ A res bs
+                $ A (snd res) bs
     where
         wrap = maybe BS.empty (BS.cons '_')
         unwrap x = if BS.null x then Nothing else Just $ BS.tail x
