@@ -23,7 +23,7 @@ type SaveSessionCallback = (err :any, result: any, sessionId :string, save :Save
  */
 export function onTimeout(callback: Callback<any>) {
   store.on( "del", ( key :string, value :any) => {
-    debug("session removed: %s", key)
+    console.log("session removed: %s", key)
     callback(value || {})
   });
 }

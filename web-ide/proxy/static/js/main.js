@@ -1,3 +1,6 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 window.addEventListener('load', (event) => {
     var acceptButton = document.querySelector('#accept-btn');
     acceptButton.addEventListener('click', acceptClick);

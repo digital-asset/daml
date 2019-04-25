@@ -59,7 +59,7 @@ export default class WebIdeRoute {
             debug("requesting %s", req.url)
             Session.session(req, res, (err :any, state :any, sessionId :string, saveSession :any) => {
                 route.getImage()
-                    .then(image => route.ensureDockerContainer(req, state, saveSession, image))
+                    .then(image => route.ensureDockerContainer(req, state, saveSession, sessionId, image))
                     .then(containerInfo => {
                         const url = route.docker.getContainerUrl(containerInfo, 'http')
                         route.proxy.web(req, res, { target: url.href })
@@ -98,7 +98,7 @@ export default class WebIdeRoute {
         }
     }
 
-    private ensureDockerContainer(req :Request, state :any, saveSession :Session.SaveSession, image :ImageInspectInfo) {
+    private ensureDockerContainer(req :Request, state :any, saveSession :Session.SaveSession, sessionId :string, image :ImageInspectInfo) {
         if (!state.docker) {
             if (!state.initializing) {
                 state.initializing = true;
@@ -111,6 +111,7 @@ export default class WebIdeRoute {
                             return Promise.reject(new ProxyError(`Breach max instances ${conf.docker.maxInstances}`, 503)) 
                         }
                         return this.docker.startContainer(image.Id).then(c => {
+                            console.log("INFO attaching container %s to session %s", c.Id, sessionId)
                             state.initializing = false
                             state.docker = c
                             saveSession(state);
@@ -120,7 +121,7 @@ export default class WebIdeRoute {
             } else {
                 //this occurs sporadically (perhaps when developer tools is open) sending another request 
                 //TODO create better promise handling without timeout
-                console.log("request sent during initialization...waiting for docker to come up")
+                console.log("INFO request sent during initialization...waiting for docker to come up")
                 return new Promise((resolve, reject) => {
                     Session.readSession(req, (err, state, sessionId) => {
                         const wait = setTimeout(() => {

@@ -32,7 +32,7 @@ let stopContainersOnShutdown = true
 
 new ManagementRoute(managementApp).init()
 http.createServer(managementApp).listen(conf.http.managementPort, () => {
-    console.log("management server listening on port %s", conf.http.managementPort)
+    console.log("INFO management server listening on port %s", conf.http.managementPort)
 })
 
 const webideServer = createWebIdeServer()
@@ -60,7 +60,7 @@ process.on('SIGTERM', () => close());
 //stop docker container when session timeouts
 Session.onTimeout((state :any) => {
     if (state.docker && state.docker.Id) {
-        console.log("session timed out for containerId=%s", state.docker.Id)
+        console.log("INFO session timed out for containerId=%s", state.docker.Id)
         docker.stopContainer(state.docker.Id)
     }
 })
@@ -80,10 +80,10 @@ function createWebIdeServer() : Server{
 function startProxyServer(proxyServer :Server) {
     return new Promise((resolve, reject) => {
         proxyServer.listen(conf.http.port, () => {
-            console.log(`docker proxy listening on port ${conf.http.port}!`);
+            console.log(`INFO docker proxy listening on port ${conf.http.port}!`);
             docker.getImage(conf.docker.image)
             .then(image => {
-                console.log(`found image ${image.Id} ${image.RepoTags}`);
+                console.log(`INFO found image ${image.Id} ${image.RepoTags}`);
                 resolve(image);
             })
             .catch(e => reject(e));
@@ -101,7 +101,7 @@ function close() {
     docker.api.listContainers({all: false, filters: { label: [`${conf.docker.webIdeLabel}`] }})
     .then(containers => {
         containers.forEach(c => {
-            console.log("removing container %s", c.Id)
+            console.log("INFO removing container %s", c.Id)
             docker.api.getContainer(c.Id).remove({force: true})
         })
         if (containers.length == 0) {
