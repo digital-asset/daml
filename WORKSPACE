@@ -440,10 +440,20 @@ hazel_repositories(
                 patches = ["@com_github_digital_asset_daml//bazel_tools:unix-compat.patch"],
             ) +
             # This is a special version of Haskell LSP without GPL dependencies
-            [ ("haskell-lsp", {"url": "https://github.com/DavidM-D/haskell-lsp/archive/{}.zip".format(HASKELL_LSP_COMMIT), "sha256": "7d706fbc1beb49a9345083d3eadb5e311936a2a8449e7765a65aa7d298dff9d6", "stripPrefix": "haskell-lsp-{}".format(HASKELL_LSP_COMMIT)})
-            , ("haskell-lsp-types", {"url": "https://github.com/DavidM-D/haskell-lsp/archive/{}.zip".format(HASKELL_LSP_COMMIT), "sha256": "{}".format(HASKELL_LSP_HASH), "stripPrefix": "haskell-lsp-{}/haskell-lsp-types".format(HASKELL_LSP_COMMIT)})
-            ]
-
+            hazel_github_external(
+                "DavidM-D",
+                "haskell-lsp",
+                HASKELL_LSP_COMMIT,
+                HASKELL_LSP_HASH
+            ) +
+            hazel_github_external(
+                "DavidM-D",
+                "haskell-lsp",
+                HASKELL_LSP_COMMIT,
+                HASKELL_LSP_HASH,
+                directory="/haskell-lsp-types/",
+                name="haskell-lsp-types"
+            )
     ),
 )
 
