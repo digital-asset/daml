@@ -311,6 +311,8 @@ data A v = A (Maybe v) (Maybe BS.ByteString)
 
 instance NFData (A v) where rnf (A v x) = v `seq` rnf x
 
+-- In the Shake database we only store one type of key/result pairs,
+-- namely Q (question) / A (answer).
 type instance RuleResult (Q k) = A (RuleResult k)
 
 
