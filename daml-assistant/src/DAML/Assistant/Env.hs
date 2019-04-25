@@ -20,11 +20,13 @@ module DAML.Assistant.Env
 
 import DAML.Assistant.Types
 import DAML.Assistant.Util
+import DAML.Assistant.Install
 import DAML.Project.Config
 import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
 import System.Directory
 import System.FilePath
 import System.Environment
+import System.IO
 import Control.Monad.Extra
 import Control.Exception.Safe
 import Data.Maybe
@@ -139,6 +141,7 @@ getSdk damlPath projectPathM =
 
         sdkPath <- firstJustM id
             [ fmap SdkPath <$> lookupEnv sdkPathEnvVar
+            , autoInstall damlPath sdkVersion
             , pure (defaultSdkPath damlPath <$> sdkVersion)
             ]
 
@@ -181,3 +184,41 @@ getDispatchEnv Env{..} = do
            , (sdkVersionEnvVar, maybe "" versionToString envSdkVersion)
            , (damlAssistantEnvVar, unwrapDamlAssistantPath envDamlAssistantPath)
            ] ++ filter ((`notElem` damlEnvVars) . fst) originalEnv
+
+
+-- | Auto-installs requested version if it is missing and updates daml-assistant
+-- if it is the latest stable version.
+autoInstall :: DamlPath -> Maybe SdkVersion -> IO (Maybe SdkPath)
+autoInstall damlPath sdkVersionM = do
+    damlConfigE <- try $ readDamlConfig damlPath
+    let doAutoInstallME = queryDamlConfig ["auto-install"] =<< damlConfigE
+        doAutoInstallM  = either (const (Just True)) id doAutoInstallME
+        doAutoInstall   = fromMaybe True doAutoInstallM
+    whenMaybe (doAutoInstall && isJust sdkVersionM) $ do
+        let sdkVersion = fromJust sdkVersionM
+            sdkPath = defaultSdkPath damlPath sdkVersion
+
+        unlessM (doesDirectoryExist (unwrapSdkPath sdkPath)) $ do
+            -- sdk is missing, so let's install it!
+            -- first, determine if it is the latest stable version
+            latestVersionE :: Either AssistantError SdkVersion
+                <- try getLatestVersion
+            let isLatest = latestVersionE == Right sdkVersion
+                options = InstallOptions
+                    { iTargetM = Nothing
+                    , iQuiet = QuietInstall False
+                    , iActivate = ActivateInstall isLatest
+                    , iForce = ForceInstall False
+                    }
+                env = InstallEnv
+                    { options = options
+                    , damlPath = damlPath
+                    , targetVersionM = Just sdkVersion
+                    , projectPathM = Nothing
+                    , out = stderr
+                    }
+            versionInstall env sdkVersion
+
+        pure sdkPath
+
+

@@ -6,6 +6,8 @@ module DAML.Assistant.Install
     ( InstallOptions (..)
     , InstallURL (..)
     , InstallEnv (..)
+    , versionInstall
+    , getLatestVersion
     , install
     ) where
 
@@ -57,6 +59,7 @@ data InstallEnv = InstallEnv
     , targetVersionM :: Maybe SdkVersion
     , damlPath :: DamlPath
     , projectPathM :: Maybe ProjectPath
+    , out :: Handle
     }
 
 -- | Perform action unless user has passed --force flag.
@@ -173,7 +176,7 @@ activateDaml env@InstallEnv{..} targetPath = do
     unlessQuiet env $ do -- Ask user to add .daml/bin to PATH if it is absent.
         searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
         when (damlBinaryTargetDir `notElem` searchPaths) $ do
-            putStrLn ("Please add " <> damlBinaryTargetDir <> " to your PATH.")
+            hPutStrLn out ("Please add " <> damlBinaryTargetDir <> " to your PATH.")
 
 
 data WalkCallbacks = WalkCallbacks
@@ -315,8 +318,8 @@ extractAndInstall env source =
 
 -- | Download an sdk tarball and install it.
 httpInstall :: InstallEnv -> InstallURL -> IO ()
-httpInstall env (InstallURL url) = do
-    unlessQuiet env $ putStrLn "Downloading SDK release."
+httpInstall env@InstallEnv{..} (InstallURL url) = do
+    unlessQuiet env $ hPutStrLn out "Downloading SDK release."
     request <- parseRequest ("GET " <> unpack url)
     withResponse request $ \response -> do
         when (getResponseStatusCode response /= 200) $
@@ -338,21 +341,21 @@ httpInstall env (InstallURL url) = do
 
 -- | Install SDK from a path. If the path is a tarball, extract it first.
 pathInstall :: InstallEnv -> FilePath -> IO ()
-pathInstall env sourcePath = do
+pathInstall env@InstallEnv{..} sourcePath = do
     isDirectory <- doesDirectoryExist sourcePath
     if isDirectory
         then do
-            unlessQuiet env $ putStrLn "Installing SDK release from directory."
+            unlessQuiet env $ hPutStrLn out "Installing SDK release from directory."
             copyAndInstall env sourcePath
         else do
-            unlessQuiet env $ putStrLn "Installing SDK release from tarball."
+            unlessQuiet env $ hPutStrLn out "Installing SDK release from tarball."
             extractAndInstall env (sourceFileBS sourcePath)
 
 -- | Install a specific SDK version.
 versionInstall :: InstallEnv -> SdkVersion -> IO ()
 versionInstall env@InstallEnv{..} version = do
     unlessQuiet env $ do
-        putStrLn ("Installing DAML SDK version " <> versionToString version)
+        hPutStrLn out ("Installing DAML SDK version " <> versionToString version)
 
     let SdkPath path = defaultSdkPath damlPath version
     whenM (doesDirectoryExist path) $ do
@@ -362,7 +365,7 @@ versionInstall env@InstallEnv{..} version = do
                     " is already installed. Use --force to reinstall.")
                 ("path to existing installation = " <> pack path)
         unlessQuiet env $ do
-            putStrLn ("SDK version " <> versionToString version <>
+            hPutStrLn out ("SDK version " <> versionToString version <>
                 " is already installed. Reinstalling.")
 
     httpInstall env { targetVersionM = Just version }
@@ -371,8 +374,12 @@ versionInstall env@InstallEnv{..} version = do
 -- | Install the latest stable version of the SDK.
 latestInstall :: InstallEnv -> IO ()
 latestInstall env = do
-    version <- Github.getLatestVersion
+    version <- getLatestVersion
     versionInstall env version
+
+-- | Get the latest stable version.
+getLatestVersion :: IO SdkVersion
+getLatestVersion = Github.getLatestVersion
 
 -- | Install the SDK version of the current project.
 projectInstall :: InstallEnv -> ProjectPath -> IO ()
@@ -386,6 +393,7 @@ projectInstall env projectPath = do
 install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> IO ()
 install options damlPath projectPathM = do
     let targetVersionM = Nothing -- determined later
+        out = stdout
         env = InstallEnv {..}
     case iTargetM options of
         Nothing -> do
