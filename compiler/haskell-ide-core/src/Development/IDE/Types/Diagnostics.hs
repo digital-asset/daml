@@ -7,7 +7,7 @@
 {-# LANGUAGE BlockArguments #-}
 module Development.IDE.Types.Diagnostics (
   LSP.Diagnostic(..),
-  FileDiagnostics(..),
+  FileDiagnostics,
   Location(..),
   Range(..),
   LSP.DiagnosticSeverity(..),
@@ -22,7 +22,7 @@ module Development.IDE.Types.Diagnostics (
   ideTryIOException,
   prettyFileDiagnostics,
   prettyDiagnostic,
-  prettyDiagnosticStore,.
+  prettyDiagnosticStore,
   defDiagnostic,
   addDiagnostics,
   filterSeriousErrors,
@@ -32,16 +32,13 @@ module Development.IDE.Types.Diagnostics (
 
 import Control.Exception
 import qualified Control.Lens as L
-import Data.Aeson (FromJSON, ToJSON)
 import Data.Either.Combinators
-import Data.List.Extra
 import Data.Maybe as Maybe
 import Data.Foldable
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc.Syntax
 import Data.String (IsString(..))
-import GHC.Generics
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import           Language.Haskell.LSP.Types as LSP (
     DiagnosticSeverity(..)
@@ -50,6 +47,7 @@ import           Language.Haskell.LSP.Types as LSP (
   , uriToFilePath
   , List(..)
   , DiagnosticRelatedInformation(..)
+  , Uri(..)
   )
 import Language.Haskell.LSP.Diagnostics
 
@@ -155,27 +153,7 @@ ideTryIOException fp act =
 --   along with the related source location so that we can display the error
 --   on either the console or in the IDE at the right source location.
 --
-data FileDiagnostics = FileDiagnostics
-    { fdFilePath    :: !FilePath
-      -- ^ Path of the module that we were trying to process.
-      --   In a multi-module program this is the file that we started
-      --   trying to compile, not necessarily the one in which we found the
-      --   reported errors or warnings.
-    , fdDiagnostics :: ![LSP.Diagnostic]
-      -- ^ Diagnostics for the desired module,
-      --   as well as any transitively imported modules.
-    }
-    deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON FileDiagnostics
-instance ToJSON FileDiagnostics
-
-prettyFileDiagnostics :: FileDiagnostics -> Doc SyntaxClass
-prettyFileDiagnostics (FileDiagnostics filePath diagnostics) =
-    label_ "Compiler error in" $ vcat
-        [ label_ "File:" $ pretty filePath
-        , label_ "Errors:" $ vcat $ map prettyDiagnostic $ nubOrd diagnostics
-        ]
+type FileDiagnostics = (Uri, StoreItem)
 
 prettyRange :: Range -> Doc SyntaxClass
 prettyRange Range{..} =
@@ -214,20 +192,34 @@ prettyDiagnostic (LSP.Diagnostic{..}) =
 
 prettyDiagnosticStore :: DiagnosticStore -> Doc SyntaxClass
 prettyDiagnosticStore ds =
-    vcat $ map prettyFileDiags storeContents where
+    vcat $ map prettyFileDiagnostics $ Map.assocs ds where
+
+
+prettyFileDiagnostics :: FileDiagnostics -> Doc SyntaxClass
+prettyFileDiagnostics (uri, StoreItem _ diags) =
+    label_ "Compiler error in" $ vcat
+        [ label_ "File:" $ pretty filePath
+        , label_ "Errors:" $ prettyFileDiags storeContents
+        ] where
+
     prettyFileDiags :: (FilePath, [(T.Text, [LSP.Diagnostic])]) -> Doc SyntaxClass
-    prettyFileDiags (fp,stages) = label_ ("File: "<>fp) $ vcat $ map prettyStage stages
+    prettyFileDiags (fp,stages) =
+        label_ ("File: "<>fp) $ vcat $ map prettyStage stages
+
     prettyStage :: (T.Text, [LSP.Diagnostic]) -> Doc SyntaxClass
-    prettyStage (stage,diags) = label_ ("Stage: "<>T.unpack stage) $ vcat $ map prettyDiagnostic diags
+    prettyStage (stage,diags) =
+        label_ ("Stage: "<>T.unpack stage) $ vcat $ map prettyDiagnostic diags
+
+    filePath :: FilePath
+    filePath = fromMaybe dontKnow $ uriToFilePath uri
+
+    storeContents ::
+        (FilePath, [(T.Text, [LSP.Diagnostic])])
+        -- ^ Source File, Stage Source, Diags
+    storeContents = (fromMaybe dontKnow $ uriToFilePath uri, getDiags diags)
+
     dontKnow :: IsString s => s
     dontKnow = "<unknown>"
+
     getDiags :: DiagnosticsBySource -> [(T.Text, [LSP.Diagnostic])]
     getDiags = map (\(ds, diag) -> (fromMaybe dontKnow ds, toList diag)) . Map.assocs
-    storeContents ::
-        [(FilePath, [(T.Text, [LSP.Diagnostic])])]
-        -- ^ Source File, Stage Source, Diags
-    storeContents =
-        map (\(uri, (StoreItem _ diags)) ->
-                 (fromMaybe dontKnow $ uriToFilePath uri, getDiags diags)) $
-        Map.assocs ds
-
