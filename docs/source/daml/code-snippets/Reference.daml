@@ -32,53 +32,33 @@ template NameOfTemplate
       ""
 -- end template agree snippet
 -- start template choice snippet
-    -- option 2 for specifying choices: controller first
-    controller exampleParty can
-      NameOfChoice
-          : () -- replace () with the actual return type
-        with
-          exampleParameter : Text -- parameters here
-        do
-          return () -- replace this line with the choice body
-      nonconsuming NameOfChoice2
-          : ()  -- replace () with the actual return type
-        with
-          exampleParameter : Text -- parameters here
-        do
-          return () -- replace this line with the choice body
-
     -- option 1 for specifying choices: choice name first
-    choice NameOfChoice3
+    choice NameOfChoice1
           : ()  -- replace () with the actual return type
         with
           exampleParameter : Text -- parameters here
       controller exampleParty
         do
           return () -- replace this line with the choice body
+
+    -- option 2 for specifying choices: controller first
+    controller exampleParty can
+      NameOfChoice2
+          : () -- replace () with the actual return type
+        with
+          exampleParameter : Text -- parameters here
+        do
+          return () -- replace this line with the choice body
+      nonconsuming NameOfChoice3
+          : ()  -- replace () with the actual return type
+        with
+          exampleParameter : Text -- parameters here
+        do
+          return () -- replace this line with the choice body
 -- end template choice snippet
 
--- start controller-first controller snippet
-    controller exampleParty can
--- end controller-first controller snippet
--- start controller-first choice name snippet
-      NameOfChoice4
-          : () -- replace () with the actual return type
--- end controller-first choice name snippet
--- start controller-first params snippet
-        with
-          exampleParameter : Text
--- end controller-first params snippet
-        do
-          return () -- replace () with the actual return type
--- start controller-first nonconsuming snippet
-      nonconsuming NameOfChoice5
-          : () -- replace () with the actual return type
--- end controller-first nonconsuming snippet
-        do
-          return () -- replace () with the actual return type
-
 -- start choice-first choice name snippet
-    choice NameOfChoice6
+    choice ExampleChoice1
           : () -- replace () with the actual return type
 -- end choice-first choice name snippet
 -- start choice-first params snippet
@@ -90,13 +70,31 @@ template NameOfTemplate
 -- end choice-first controller snippet
         do
           return () -- replace () with the actual return type
--- end template choice snippet
-
 -- start choice-first nonconsuming snippet
-    nonconsuming choice NameOfChoice7
+    nonconsuming choice ExampleChoice3
           : () -- replace () with the actual return type
 -- end choice-first nonconsuming snippet
         with -- params
         controller exampleParty
           do
             return ()
+
+-- start controller-first controller snippet
+    controller exampleParty can
+-- end controller-first controller snippet
+-- start controller-first choice name snippet
+      ExampleChoice2
+          : () -- replace () with the actual return type
+-- end controller-first choice name snippet
+-- start controller-first params snippet
+        with
+          exampleParameter : Text
+-- end controller-first params snippet
+        do
+          return () -- replace () with the actual return type
+-- start controller-first nonconsuming snippet
+      nonconsuming ExampleChoice4
+          : () -- replace () with the actual return type
+-- end controller-first nonconsuming snippet
+        do
+          return () -- replace () with the actual return type

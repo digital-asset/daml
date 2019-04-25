@@ -10,32 +10,22 @@ This page gives reference information on choices:
 
 For information on the high-level structure of a choice, see :doc:`structure`.
 
-There are two ways you can start a choice: choice-name-first or controller-first.
+``choice`` first or ``controller`` first
+****************************************
+
+There are two ways you can start a choice:
+
+- start with the ``choice`` keyword
+- start with the ``controller`` keyword
 
 .. literalinclude:: ../code-snippets/Structure.daml
    :language: daml
    :start-after: -- start of choice snippet
    :end-before: -- end of choice snippet
 
-.. _daml-ref-controllers:
+The main difference is that starting with ``choice`` means that you can pass in a ``Party`` to use as a controller. If you do this, you **must** make sure that you add that party as an ``observer``, otherwise they won't be able to see the contract (and therefore won't be able to exercise the choice).
 
-Controllers
-***********
-
-.. literalinclude:: ../code-snippets/Reference.daml
-   :language: daml
-   :start-after: -- start controller-first controller snippet
-   :end-before: -- end controller-first controller snippet
-
-.. literalinclude:: ../code-snippets/Reference.daml
-   :language: daml
-   :start-after: -- start choice-first controller snippet
-   :end-before: -- end choice-first controller snippet
-
-- ``controller`` keyword
-- The controller is a comma-separated list of values, where each value is either a party or a collection of parties.
-
-  The conjunction of **all** the parties are required to authorize when this choice is exercised.
+In contrast, if you start with ``controller``, the ``controller`` is automatically added as an observer when you compile your DAML files.
 
 .. _daml-ref-choice-name:
 
@@ -44,18 +34,43 @@ Choice name
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
-   :start-after: -- start controller-first choice name snippet
-   :end-before: -- end controller-first choice name snippet
+   :start-after: -- start choice-first choice name snippet
+   :end-before: -- end choice-first choice name snippet
+   :caption: Option 1 for specifying choices: choice name first
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
-   :start-after: -- start choice-first choice name snippet
-   :end-before: -- end choice-first choice name snippet
+   :start-after: -- start controller-first choice name snippet
+   :end-before: -- end controller-first choice name snippet
+   :caption: Option 2 for specifying choices: controller first
+
 
 - The name of the choice. Must begin with a capital letter.
-- TODO: if using choice-first, preface with ``choice``.
+- If you're using choice-first, preface with ``choice``. Otherwise, this isn't needed.
 - Must be unique in your project. Choices in different templates can't have the same name.
-- TODO: if using controller-first, you can have multiple choices after one ``can``, for tidiness.
+- If you're using controller-first, you can have multiple choices after one ``can``, for tidiness.
+
+.. _daml-ref-controllers:
+
+Controllers
+***********
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start choice-first controller snippet
+   :end-before: -- end choice-first controller snippet
+   :caption: Option 1 for specifying choices: choice name first
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start controller-first controller snippet
+   :end-before: -- end controller-first controller snippet
+   :caption: Option 2 for specifying choices: controller first
+
+- ``controller`` keyword
+- The controller is a comma-separated list of values, where each value is either a party or a collection of parties.
+
+  The conjunction of **all** the parties are required to authorize when this choice is exercised.
 
 .. _daml-ref-anytime:
 
@@ -64,13 +79,15 @@ Non-consuming choices
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
-   :start-after: -- start controller-first nonconsuming snippet
-   :end-before: -- end controller-first nonconsuming snippet
+   :start-after: -- start choice-first nonconsuming snippet
+   :end-before: -- end choice-first nonconsuming snippet
+   :caption: Option 1 for specifying choices: choice name first
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
-   :start-after: -- start choice-first nonconsuming snippet
-   :end-before: -- end choice-first nonconsuming snippet
+   :start-after: -- start controller-first nonconsuming snippet
+   :end-before: -- end controller-first nonconsuming snippet
+   :caption: Option 2 for specifying choices: controller first
 
 - ``nonconsuming`` keyword. Optional.
 - Makes a choice non-consuming: that is, exercising the choice does not archive the contract.
@@ -91,11 +108,6 @@ Return type
 
 Choice arguments
 ****************
-
-.. literalinclude:: ../code-snippets/Reference.daml
-   :language: daml
-   :start-after: -- start controller-first params snippet
-   :end-before: -- end controller-first params snippet
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml

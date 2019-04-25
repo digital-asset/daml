@@ -8,8 +8,6 @@ This page covers what a template looks like: what parts of a template there are,
 
 For the structure of a DAML file *outside* a template, see :doc:`file-structure`.
 
-.. contents:: :local:
-
 .. _daml-ref-template-structure:
 
 Template outline structure
@@ -35,12 +33,12 @@ template body
     :ref:`signatories <daml-ref-signatories>`
         ``signatory`` keyword
 
-        The parties (see the :ref:`Party <daml-ref-built-in-types>` type) who must consent to the creation of an instance of this contract.
+        The parties (see the :ref:`Party <daml-ref-built-in-types>` type) who must consent to the creation of an instance of this contract. You won't be able to create an instance of this contract until all of these parties have authorized it.
 
     :ref:`observers <daml-ref-observers>`
     	``observer`` keyword
 
-    	Parties that aren't signatories but can still see this contract.
+    	Parties that aren't signatories but who you still want to be able to see this contract.
 
     :ref:`an agreement <daml-ref-agreements>`
         ``agreement`` keyword
@@ -71,8 +69,6 @@ Here's the structure of a choice inside a template. There are two ways of specif
 - start with the ``choice`` keyword
 - start with the ``controller`` keyword
 
-TODO compare and contrast
-
 .. literalinclude:: ../code-snippets/Structure.daml
    :language: daml
    :start-after: -- start of choice snippet
@@ -82,12 +78,12 @@ TODO compare and contrast
 :ref:`a controller (or controllers) <daml-ref-controllers>`
     ``controller`` keyword
 
-    Who can exercise the choice. TODO explain flexible controllers
+    Who can exercise the choice.
 
 :ref:`consumability <daml-ref-anytime>`
     ``nonconsuming`` keyword
 
-    By default, contracts are archived when a choice on them is exercised. If you include ``nonconsuming``, this choice can be exercised over and over.
+    By default, contracts are archived when a choice on them is exercised, which means that choices can no longer be exercised on them. If you include ``nonconsuming``, this choice can be exercised over and over.
 
 :ref:`a name <daml-ref-choice-name>`
     Must begin with a capital letter. Must be unique - choices in different templates can't have the same name.
@@ -98,7 +94,7 @@ TODO compare and contrast
 :ref:`choice arguments <daml-ref-choice-arguments>`
     ``with`` keyword
 
-    TODO: explain about passing party in
+    If you start your choice with ``choice`` and include a ``Party`` as a parameter, you can make that ``Party`` the ``controller`` of the choice. This is a feature called "flexible controllers", and it means you don't have to specify the controller when you create the contract - you can specify it when you exercise the choice. The ``Party`` still needs to be a parameter to the contract as well, so that they can be added as an observer.
 
 :ref:`a choice body <daml-ref-choice-body>`
     After ``do`` keyword
@@ -147,14 +143,12 @@ The update expressions are:
 :ref:`return <daml-ref-return>`
     Explicitly return a value. By default, a choice returns the result of its last update expression. This means you only need to use ``return`` if you want to return something else.
 
-    ``return amount``
+    ``return ContractID ExampleTemplate``
 
 The choice body can also contain:
 
 :ref:`let <daml-ref-let-update>` keyword
     Used to assign values or functions.
-
-    .. Changes in DAML 1.2.
 
 assign a value to the result of an update statement
    For example: ``contractFetched <- fetch someContractId``

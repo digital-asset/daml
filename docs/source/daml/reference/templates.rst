@@ -6,8 +6,6 @@ Reference: templates
 
 This page gives reference information on templates:
 
-.. contents:: :local:
-
 For the structure of a template, see :doc:`structure`.
 
 .. _daml-ref-template-name:
@@ -37,12 +35,7 @@ Template parameters
 - ``with`` keyword. The parameters are in the form of a :ref:`record type <daml-ref-record-types>`.
 - Passed in when :ref:`creating <daml-ref-create>` a contract instance from this template. These are then in scope inside the template body.
 - A template parameter can't have the same name as any :ref:`choice arguments <daml-ref-choice-arguments>` inside the template.
-
-- You must pass in the parties as parameters to the contract.
-
-  This means isn't valid to replace the ``giver`` variable in the ``Payout`` template above directly with ``'Elizabeth'``.
-
-  Parties can only be named explicitly in scenarios.
+- For all parties involved in the contract (whether they're a ``signatory``, ``observer``, or ``controller``) you must pass them in as parameters to the contract, whether individually or as a list (``[Party]``).
 
 .. Template has an *associated* data type with the same name?
 
@@ -59,10 +52,12 @@ Signatory parties
 - ``signatory`` keyword. After ``where``. Followed by at least one ``Party``.
 - Signatories are the parties (see the ``Party`` type) who must consent to the creation of an instance of this contract. They are the parties who would be put into an *obligable position* when this contract is created.
 
-  DAML won't let you put someone into an obligable position without their consent. So if the contract will cause obligations for a party, they *must* be a signatory.
+  DAML won't let you put someone into an obligable position without their consent. So if the contract will cause obligations for a party, they *must* be a signatory. **If they haven't authorized it, you won't be able to create the contract.** In this situation, you may see errors like:
+
+  ``NameOfTemplate requires authorizers Party1,Party2,Party, but only Party1 were given.``
 - When a signatory consents to the contract creation, this means they also authorize the consequences of :ref:`choices <daml-ref-choices>` that can be exercised on this contract.
-- The contract instance is visible to all signatories (as well as the other stakeholders of the contract).
-- You must have least one signatory per template. You can have many, either as a comma-separated list or reusing the keyword.
+- The contract instance is visible to all signatories (as well as the other stakeholders of the contract). That is, the compiler automatically adds signatories as observers.
+- You **must** have least one signatory per template. You can have many, either as a comma-separated list or reusing the keyword. You could pass in a list (of type ``[Party]``).
 
 .. _daml-ref-observers:
 
@@ -76,10 +71,9 @@ Observers
 
 - ``observer`` keyword. After ``where``. Followed by at least one ``Party``.
 - Observers are additional stakeholders, so the contract instance is visible to these parties (see the ``Party`` type).
-- Optional. You can have many, either as a comma-separated list or reusing the keyword.
+- Optional. You can have many, either as a comma-separated list or reusing the keyword. You could pass in a list (of type ``[Party]``).
 - Use when a party needs visibility on a contract, or be informed or contract events, but is not a :ref:`signatory <daml-ref-signatories>` or :ref:`controller <daml-ref-controllers>`.
-- TODO observer observers
-- TODO flexible controllers vs automatic adding if other option
+- If you start your choice with ``choice`` rather than ``controller`` (see :ref:`daml-ref-choices` below), you must make sure to add the controller as an observer. Otherwise, they will not be able to exercise the choice, because they won't be able to see the contract.
 
 .. _daml-ref-choices:
 
@@ -94,7 +88,9 @@ Choices
 - A right that the contract gives the controlling party. Can be *exercised*.
 - This is essentially where all the logic of the template goes.
 - By default, choices are *consuming*: that is, exercising the choice archives the contract, so no further choices can be exercised on it. You can make a choice non-consuming using the ``nonconsuming`` keyword.
-- TODO: Two different ways of specifying - choice first or controller first
+- There are two ways of specifying a choice: start with the ``choice`` keyword or start with the ``controller`` keyword.
+
+  Starting with ``choice`` lets you pass in a ``Party`` to use as a controller. But you must make sure to add that party as an ``observer``.
 - See :doc:`choices` for full reference information.
 
 .. _daml-ref-agreements:
