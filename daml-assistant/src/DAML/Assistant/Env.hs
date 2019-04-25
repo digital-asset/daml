@@ -142,7 +142,7 @@ getSdk damlPath projectPathM =
         sdkPath <- firstJustM id
             [ fmap SdkPath <$> lookupEnv sdkPathEnvVar
             , autoInstall damlPath sdkVersion
-            , pure (defaultSdkPath damlPath <$> sdkVersion)
+            , sdkPathFallback damlPath sdkVersion
             ]
 
         return (sdkVersion, sdkPath)
@@ -159,6 +159,12 @@ getSdk damlPath projectPathM =
                 fmap join . forM pathM $ \path -> do
                     config <- readConfig path
                     fromRightM throwIO (parseVersion config)
+
+        sdkPathFallback :: DamlPath -> Maybe SdkVersion -> IO (Maybe SdkPath)
+        sdkPathFallback damlPath sdkVersionM = do
+            let pathM = defaultSdkPath damlPath <$> sdkVersionM
+            testM <- mapM (doesDirectoryExist . unwrapSdkPath) pathM
+            pure (testM >>= guard >> pathM)
 
 -- | Determine the latest installed version of the SDK.
 getLatestInstalledSdkVersion :: DamlPath -> IO (Maybe SdkVersion)
