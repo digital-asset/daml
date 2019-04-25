@@ -220,7 +220,7 @@ haskell_register_ghc_nixpkgs(
     nix_file_deps = common_nix_file_deps + [
         "//nix:ghc.nix",
         "//nix:with-packages-wrapper.nix",
-        "//nix:overrides/ghc-8.6.4.nix",
+        "//nix:overrides/ghc-8.6.5.nix",
         "//nix:overrides/c2hs-0.28.6.nix",
         "//nix:overrides/ghc-8.6.3-binary.nix",
         "//nix:overrides/language-c-0.8.2.nix",
@@ -230,12 +230,12 @@ haskell_register_ghc_nixpkgs(
         "-fexternal-interpreter",
     ],
     repositories = dev_env_nix_repos,
-    version = "8.6.4",
+    version = "8.6.5",
 )
 
 # Used by Windows
 haskell_register_ghc_bindists(
-    version = "8.6.4",
+    version = "8.6.5",
 ) if is_windows else None
 
 nixpkgs_package(

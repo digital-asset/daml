@@ -46,7 +46,7 @@ hazel_symlink(
 
 cabal_haskell_package(
         package,
-        "8.6.4",
+        "8.6.5",
         "@io_tweag_rules_haskell_ghc_windows_amd64" if is_windows else "@io_tweag_rules_haskell_ghc-nixpkgs",
         extra_libs_with_headers,
         )
