@@ -198,13 +198,6 @@ getValues state key file = flip fmap (readVar state) $ \vs -> do
     k <- Map.lookup (Key key) f
     pure $ fromJust $ fromDynamic k
 
--- data ShakeExtras = ShakeExtras
---     {eventer :: Event -> IO ()
---     ,logger :: Logger.Handle IO
---     ,globals :: Var (Map.HashMap TypeRep Dynamic)
---     ,state :: Var Values
---     ,diagnostics :: Var LSP.DiagnosticStore
---     }
 -- | Open a 'IdeState', should be shut using 'shakeShut'.
 shakeOpen :: (Event -> IO ()) -- ^ diagnostic handler
           -> Logger.Handle IO
