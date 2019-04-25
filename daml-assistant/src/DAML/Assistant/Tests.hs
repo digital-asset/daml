@@ -152,7 +152,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Just expected2)
-                        ] (getSdk damlPath projectPath)
+                        ] (getSdk damlPath Nothing projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -168,7 +168,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Nothing)
-                        ] (getSdk damlPath projectPath)
+                        ] (getSdk damlPath Nothing projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -184,7 +184,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Just expected2)
-                        ] (getSdk damlPath projectPath)
+                        ] (getSdk damlPath Nothing projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -204,7 +204,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Nothing)
-                        ] (getSdk damlPath projectPath)
+                        ] (getSdk damlPath Nothing projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -226,7 +226,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Just expected2)
-                        ] (getSdk damlPath projectPath)
+                        ] (getSdk damlPath Nothing projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -246,7 +246,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Nothing)
-                        ] (getSdk damlPath projectPath)
+                        ] (getSdk damlPath Nothing projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -258,7 +258,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Nothing, Nothing) <- withEnv
                 [ (sdkVersionEnvVar, Nothing)
                 , (sdkPathEnvVar, Nothing)
-                ] (getSdk damlPath projPath)
+                ] (getSdk damlPath Nothing projPath)
             pure ()
     ]
 

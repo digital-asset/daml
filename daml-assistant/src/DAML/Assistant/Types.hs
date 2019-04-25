@@ -44,7 +44,7 @@ assistantErrorBecause msg e = (assistantError msg) { errInternal = Just e }
 data Env = Env
     { envDamlPath      :: DamlPath
     , envDamlAssistantPath :: DamlAssistantPath
-    , envDamlAssistantSdkVersion :: Maybe SdkVersion
+    , envDamlAssistantSdkVersion :: Maybe DamlAssistantSdkVersion
     , envProjectPath   :: Maybe ProjectPath
     , envSdkPath       :: Maybe SdkPath
     , envSdkVersion    :: Maybe SdkVersion

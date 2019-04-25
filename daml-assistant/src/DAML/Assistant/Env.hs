@@ -40,7 +40,8 @@ getDamlEnv = do
     envDamlAssistantPath <- getDamlAssistantPath envDamlPath
     envDamlAssistantSdkVersion <- getDamlAssistantSdkVersion
     envProjectPath <- getProjectPath
-    (envSdkVersion, envSdkPath) <- getSdk envDamlPath envProjectPath
+    (envSdkVersion, envSdkPath) <- getSdk envDamlPath
+        envDamlAssistantSdkVersion envProjectPath
     pure Env {..}
 
 -- | Determine the viability of running sdk commands in the environment.
@@ -72,8 +73,8 @@ getDamlAssistantPath (DamlPath damlPath)
     | otherwise = pure $ DamlAssistantPath $ damlPath </> "bin" </> "daml"
 
 -- | Determine SDK version of running daml assistant.
-getDamlAssistantSdkVersion :: IO (Maybe SdkVersion)
-getDamlAssistantSdkVersion = do
+getDamlAssistantSdkVersion :: IO (Maybe DamlAssistantSdkVersion)
+getDamlAssistantSdkVersion = fmap DamlAssistantSdkVersion <$> do
     exePath <- getExecutablePath
     sdkPathM <- fmap SdkPath <$> findM hasSdkConfig (ascendants exePath)
     case sdkPathM of
@@ -136,9 +137,10 @@ getProjectPath = wrapErr "Detecting daml project." $ do
 -- and DAML_SDK_PATH (and it ought to be enough to supply one of these
 -- and have the other be inferred).
 getSdk :: DamlPath
+       -> Maybe DamlAssistantSdkVersion
        -> Maybe ProjectPath
        -> IO (Maybe SdkVersion, Maybe SdkPath)
-getSdk damlPath projectPathM =
+getSdk damlPath damlAsstSdkVersionM projectPathM =
     wrapErr "Determining SDK version and path." $ do
 
         sdkVersion <- firstJustM id
@@ -158,7 +160,7 @@ getSdk damlPath projectPathM =
         sdkPath <- firstJustM id
             [ fmap SdkPath <$> lookupEnv sdkPathEnvVar
             , useInstalledPath damlPath sdkVersion
-            , autoInstall damlPath sdkVersion
+            , autoInstall damlPath damlAsstSdkVersionM sdkVersion
             ]
 
         return (sdkVersion, sdkPath)
@@ -206,24 +208,28 @@ getDispatchEnv Env{..} = do
            , (sdkPathEnvVar, maybe "" unwrapSdkPath envSdkPath)
            , (sdkVersionEnvVar, maybe "" versionToString envSdkVersion)
            , (damlAssistantEnvVar, unwrapDamlAssistantPath envDamlAssistantPath)
-           , (damlAssistantVersionEnvVar, maybe "" versionToString envDamlAssistantSdkVersion)
+           , (damlAssistantVersionEnvVar, maybe ""
+               (versionToString . unwrapDamlAssistantSdkVersion)
+               envDamlAssistantSdkVersion)
            ] ++ filter ((`notElem` damlEnvVars) . fst) originalEnv
 
 
 -- | Auto-installs requested version if it is missing and updates daml-assistant
 -- if it is the latest stable version.
-autoInstall :: DamlPath -> Maybe SdkVersion -> IO (Maybe SdkPath)
-autoInstall damlPath sdkVersionM = do
+autoInstall
+    :: DamlPath
+    -> Maybe DamlAssistantSdkVersion
+    -> Maybe SdkVersion
+    -> IO (Maybe SdkPath)
+autoInstall damlPath damlAsstSdkVersionM sdkVersionM = do
     damlConfigE <- try $ readDamlConfig damlPath
     let doAutoInstallE = queryDamlConfigRequired ["auto-install"] =<< damlConfigE
         doAutoInstall = fromRight True doAutoInstallE
     whenMaybe (doAutoInstall && isJust sdkVersionM) $ do
         let sdkVersion = fromJust sdkVersionM
         -- sdk is missing, so let's install it!
-        -- first, determine if it is the latest stable version
-        latestVersionE :: Either AssistantError SdkVersion
-            <- try getLatestVersion
-        let isLatest = latestVersionE == Right sdkVersion
+        let isLatest = maybe True ((< sdkVersion) . unwrapDamlAssistantSdkVersion)
+                damlAsstSdkVersionM
             options = InstallOptions
                 { iTargetM = Nothing
                 , iQuiet = QuietInstall False
