@@ -8,12 +8,10 @@ module DA.Cli.Options
 import qualified Data.Text           as T
 import           Data.List.Extra     (trim, splitOn)
 import           Options.Applicative
-import           Text.Read
 
 import           DA.Prelude
 import qualified DA.Pretty           as Pretty
 import qualified DA.Daml.LF.Ast.Version as LF
-import qualified DA.Daml.LF.Proto3.VersionVDev as LF
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
@@ -125,10 +123,8 @@ lfVersionOpt = option (str >>= select) $
       in Pretty.renderPretty v ++ def
     versionsStr = intercalate ", " (map renderVersion LF.supportedOutputVersions)
     select = \case
-      "dev" -> return LF.versionVDev
       versionStr
-        | Just minorStr <- stripPrefix "1." versionStr
-        , Just minor <- readMaybe minorStr
+        | Just minor <- LF.minorFromCliOption =<< stripPrefix "1." versionStr
         , let version = LF.V1 minor
         , version `elem` LF.supportedOutputVersions
         -> return version
