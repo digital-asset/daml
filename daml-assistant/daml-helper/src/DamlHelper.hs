@@ -6,7 +6,6 @@ module DamlHelper
     , runNew
     , runJar
     , runListTemplates
-    , runSandbox
     , runStart
 
     , withJar
@@ -154,11 +153,6 @@ withNavigator (SandboxPort sandboxPort) (NavigatorPort navigatorPort) config arg
         -- TODO We need to figure out a sane timeout for this step.
         waitForHttpServer (putStr "." *> threadDelay 500000) ("http://localhost:" <> show navigatorPort)
         a ph
-
-runSandbox :: SandboxPort -> [String] -> IO ()
-runSandbox port args = do
-    exitCode <- withSandbox port args waitForProcess
-    exitWith exitCode
 
 runStart :: IO ()
 runStart = withProjectRoot $ \_ -> do
