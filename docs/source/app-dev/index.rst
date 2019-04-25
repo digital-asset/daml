@@ -73,9 +73,11 @@ As a user, you don't need to interact with DAML-LF directly. But inside the DAML
 When you need to know about DAML-LF
 ===================================
 
-Knowledge of DAML-LF can be helpful when using the Ledger API or bindings on top of it. Development is easier if you know what the types in your DAML code look like at the DAML-LF level.
+DAML-LF is only really relevant when you're dealing with the objects you send to or receive from the ledger. If you use :doc:`code generation </app-dev/bindings-java/codegen>`, you don't need to know about DAML-LF at all, because this generates idiomatic representations of DAML for you.
 
-For example, if you are writing an application in Java that creates some DAML contracts, you need to construct values to pass as parameters to the contract. These values are determined by the Java classes generated from DAML-LF - specifically, by the DAML-LF types in that contract template. This means you need an idea of how the DAML-LF types correspond to the types in the original DAML model.
+Otherwise, it can be helpful to know what the types in your DAML code look like at the DAML-LF level, so you know what to expect from the Ledger API.
+
+For example, if you are writing an application that creates some DAML contracts, you need to construct values to pass as parameters to the contract. These values are determined by the DAML-LF types in that contract template. This means you need an idea of how the DAML-LF types correspond to the types in the original DAML model.
 
 For the most part the translation of types from DAML to DAML-LF should not be surprising. :doc:`This page goes through all the cases in detail </app-dev/daml-lf-translation>`.
 
