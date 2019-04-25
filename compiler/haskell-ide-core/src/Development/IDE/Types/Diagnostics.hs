@@ -14,6 +14,7 @@ module Development.IDE.Types.Diagnostics (
   Position(..),
   DiagnosticStore,
   StoreItem(..),
+  Uri(..),
   noLocation,
   noRange,
   ideErrorText,
@@ -27,7 +28,8 @@ module Development.IDE.Types.Diagnostics (
   addDiagnostics,
   filterSeriousErrors,
   addLocation,
-  addFilePath
+  addFilePath,
+  getDiagnosticsFromStore
   ) where
 
 import Control.Exception
@@ -223,3 +225,7 @@ prettyFileDiagnostics (uri, StoreItem _ diags) =
 
     getDiags :: DiagnosticsBySource -> [(T.Text, [LSP.Diagnostic])]
     getDiags = map (\(ds, diag) -> (fromMaybe dontKnow ds, toList diag)) . Map.assocs
+
+getDiagnosticsFromStore :: StoreItem -> [Diagnostic]
+getDiagnosticsFromStore (StoreItem _ diags) =
+    toList =<< Map.elems diags

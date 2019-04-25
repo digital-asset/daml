@@ -38,7 +38,6 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Char8 as BSC
 import Data.FileEmbed (embedFile)
 import Data.Functor
-import qualified Data.Set as Set
 import qualified Data.List.Split as Split
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -284,7 +283,7 @@ execPackageNew numProcessors mbOutFile =
                                 [ "Creation of DAR file failed:"
                                 , T.unpack $
                                   Pretty.renderColored $
-                                  Pretty.vcat $ map prettyDiagnostic errs
+                                  prettyDiagnosticStore errs
                                 ]
                         Right dar -> do
                             let fp = targetFilePath pName
@@ -418,10 +417,10 @@ execPackage filePath opts mbOutFile dumpPom dalfInput = withProjectRoot $ \relat
           Left errs
            -> ioError $ userError $ unlines
                 [ "Creation of DAR file failed:"
-                , T.unpack $ Pretty.renderColored
-                    $ Pretty.vcat
-                    $ map prettyDiagnostic
-                    $ Set.toList $ Set.fromList errs ]
+                , T.unpack
+                    $ Pretty.renderColored
+                    $ prettyDiagnosticStore errs
+                ]
           Right dar -> do
             createDirectoryIfMissing True $ takeDirectory targetFilePath
             B.writeFile targetFilePath dar
