@@ -60,15 +60,6 @@ daml_package_rule(
     visibility = ["//visibility:public"],
 )
 
-daml_package_rule(
-    name = "daml-prim-dev",
-    srcs = "//daml-foundations/daml-ghc/daml-prim-src",
-    daml_lf_version = "dev",
-    package_db = ":package_db_for_daml-prim",
-    pkg_name = "daml-prim",
-    pkg_root = "daml-foundations/daml-ghc/daml-prim-src",
-    visibility = ["//visibility:public"],
-)
 
 daml_package_rule(
     name = "daml-stdlib-1.0",
@@ -114,17 +105,6 @@ daml_package_rule(
     visibility = ["//visibility:public"],
 )
 
-daml_package_rule(
-    name = "daml-stdlib-dev",
-    srcs = "//daml-foundations/daml-ghc/daml-stdlib-src",
-    daml_lf_version = "dev",
-    dependencies = [":daml-prim-dev"],
-    package_db = ":package_db_for_daml-stdlib",
-    pkg_name = "daml-stdlib",
-    pkg_root = "daml-foundations/daml-ghc/daml-stdlib-src",
-    visibility = ["//visibility:public"],
-)
-
 daml_package_db(
     name = "package_db_for_daml-stdlib",
     pkgs = [
@@ -132,7 +112,6 @@ daml_package_db(
         ":daml-prim-1.1",
         ":daml-prim-1.2",
         ":daml-prim-1.3",
-        ":daml-prim-dev",
     ],
     visibility = ["//visibility:public"],
 )
@@ -144,12 +123,10 @@ daml_package_db(
         ":daml-prim-1.1",
         ":daml-prim-1.2",
         ":daml-prim-1.3",
-        ":daml-prim-dev",
         ":daml-stdlib-1.0",
         ":daml-stdlib-1.1",
         ":daml-stdlib-1.2",
         ":daml-stdlib-1.3",
-        ":daml-stdlib-dev",
     ],
     visibility = ["//visibility:public"],
 )
@@ -161,7 +138,6 @@ bundled_package_db(
         "1.1",
         "1.2",
         "1.3",
-        "dev",
     ],
     pkg_db = ":package_db_for_damlc",
     visibility = ["//visibility:public"],
