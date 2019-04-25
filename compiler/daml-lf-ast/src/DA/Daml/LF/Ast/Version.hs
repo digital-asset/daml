@@ -34,7 +34,7 @@ version1_3 = V1 3
 
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_2
+versionDefault = version1_3
 
 -- | The newest non-development DAML-LF version.
 versionNewest :: Version
@@ -68,8 +68,8 @@ supportsSha256Text v = v >= version1_2
 supportsDisjunctionChoices :: Version -> Bool
 supportsDisjunctionChoices v = v >= version1_2
 
-supportsRetrieveByKey :: Version -> Bool
-supportsRetrieveByKey v = v >= version1_3
+supportsContractKeys :: Version -> Bool
+supportsContractKeys v = v >= version1_3
 
 supportsPartyFromText :: Version -> Bool
 supportsPartyFromText v = v >= version1_2

@@ -325,7 +325,9 @@ execPackageNew numProcessors mbOutFile =
         case Split.splitOn ":" name of
             [_g, a, v] -> a <> "-" <> v <> ".dar"
             _otherwise -> name <> ".dar"
-    targetFilePath name = fromMaybe (defaultDarFile name) mbOutFile
+    targetFilePath name = fromMaybe (defaultOutDir </> defaultDarFile name) mbOutFile
+
+    defaultOutDir = "dist"
 
 -- | Read the daml.yaml field and create the project local package database.
 execInit :: IO ()

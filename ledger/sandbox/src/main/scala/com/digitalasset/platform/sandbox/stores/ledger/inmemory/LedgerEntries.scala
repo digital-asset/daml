@@ -8,10 +8,10 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.platform.akkastreams.Dispatcher
+import com.digitalasset.platform.akkastreams.SteppingMode.RangeQuery
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.TreeMap
-import scala.concurrent.Future
 
 private[ledger] class LedgerEntries[T](identify: T => String) {
 
@@ -32,11 +32,10 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
   }
 
   private val dispatcher = Dispatcher[Long, T](
-    (offset, _) => {
-      assert(offset != state.get.ledgerEnd)
-      offset + 1
-    },
-    o => Future.successful(state.get().items(o)),
+    RangeQuery(
+      (inclusiveStart, exclusiveEnd) =>
+        Source[(Long, T)](state.get().items.range(inclusiveStart, exclusiveEnd)),
+    ),
     ledgerBeginning,
     ledgerEnd
   )

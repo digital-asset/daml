@@ -15,8 +15,10 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger.backend.api.v1.{SubmissionResult, TransactionSubmission}
 import com.digitalasset.platform.akkastreams.Dispatcher
+import com.digitalasset.platform.akkastreams.SteppingMode.RangeQuery
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.config.LedgerIdGenerator
+import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
@@ -58,15 +60,17 @@ object SqlLedger {
       timeProvider: TimeProvider,
       ledgerEntries: immutable.Seq[LedgerEntry],
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists)(
-      implicit mat: Materializer): Future[Ledger] = {
+      implicit mat: Materializer,
+      mm: MetricsManager): Future[Ledger] = {
     implicit val ec: ExecutionContext = DirectExecutionContext
 
-    val noOfShortLivedConnections = 10
-    val noOfStreamingConnections = 8
+    val noOfShortLivedConnections = 8
+    val noOfStreamingConnections = 4
 
     val dbDispatcher = DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
-    val ledgerDao =
-      PostgresLedgerDao(dbDispatcher, ContractSerializer, TransactionSerializer, ValueSerializer)
+    val ledgerDao = LedgerDao.metered(
+      PostgresLedgerDao(dbDispatcher, ContractSerializer, TransactionSerializer, ValueSerializer))
+
     val sqlLedgerFactory = SqlLedgerFactory(ledgerDao)
 
     for {
@@ -88,10 +92,9 @@ private class SqlLedger(
   private def nextOffset(o: Long): Long = o + 1
 
   private val dispatcher = Dispatcher[Long, LedgerEntry](
-    readSuccessor = (o, _) => nextOffset(o),
-    readElement = ledgerDao.lookupLedgerEntryAssert,
-    firstIndex = 0l,
-    headAtInitialization = headAtInitialization
+    RangeQuery(ledgerDao.getLedgerEntries(_, _)),
+    0l,
+    headAtInitialization
   )
 
   @volatile

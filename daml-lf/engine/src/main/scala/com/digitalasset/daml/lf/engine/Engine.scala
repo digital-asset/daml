@@ -89,7 +89,7 @@ final class Engine {
     * create or an exercise choice.
     */
   def reinterpret(
-      nodes: Seq[GenNode[NodeId, ContractId, Transaction.Value[ContractId]]],
+      nodes: Seq[GenNode.WithTxValue[NodeId, ContractId]],
       ledgerEffectiveTime: Time.Timestamp
   ): Result[Transaction.Transaction] = {
     for {
@@ -138,7 +138,7 @@ final class Engine {
     * @param contractIdMaping a function that generates absolute contractIds
     */
   def validatePartial(
-      tx: GenTransaction[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]],
+      tx: GenTransaction.WithTxValue[Tx.NodeId, AbsoluteContractId],
       submitter: Option[SimpleString],
       ledgerEffectiveTime: Time.Timestamp,
       requestor: Party,
@@ -293,7 +293,7 @@ final class Engine {
 
   private[this] def translateTransactionRoots[Cid <: ContractId](
       commandPreprocessor: CommandPreprocessor,
-      tx: GenTransaction[Transaction.NodeId, Cid, Transaction.Value[Cid]]
+      tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid]
   ): Result[ImmArray[(Transaction.NodeId, (Type, SpeedyCommand))]] = {
     Result.sequence(tx.roots.map(id =>
       tx.nodes.get(id) match {

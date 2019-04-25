@@ -14,6 +14,7 @@ import com.digitalasset.ledger.client.configuration.TlsConfiguration
 import com.digitalasset.ledger.server.LedgerApiServer.LedgerApiServer
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
+import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger._
@@ -40,11 +41,13 @@ object SandboxApplication {
       maybeBundle: Option[SslContext] = None)
       extends AutoCloseable {
 
+    //TODO: get rid of these vars! Stateful resources should be created as vals when the owner object is created.
     @volatile private var system: ActorSystem = _
     @volatile private var materializer: ActorMaterializer = _
     @volatile private var server: LedgerApiServer = _
     @volatile private var ledgerId: String = _
     @volatile private var stopHeartbeats: () => Unit = () => ()
+    @volatile private var metricsManager: MetricsManager = _
 
     @volatile var port: Int = serverPort
 
@@ -74,6 +77,7 @@ object SandboxApplication {
         startMode: SqlStartMode = SqlStartMode.ContinueIfExists): Unit = {
       implicit val mat = materializer
       implicit val ec: ExecutionContext = mat.system.dispatcher
+      implicit val mm: MetricsManager = metricsManager
 
       ledgerId = config.ledgerIdMode.ledgerId()
 
@@ -93,7 +97,8 @@ object SandboxApplication {
         }
 
       val (ledgerType, ledger) = config.jdbcUrl match {
-        case None => ("in-memory", Ledger.inMemory(ledgerId, timeProvider, acs, records))
+        case None =>
+          ("in-memory", Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, records)))
         case Some(jdbcUrl) =>
           val ledgerF = Ledger.postgres(jdbcUrl, ledgerId, timeProvider, records, startMode)
 
@@ -103,7 +108,7 @@ object SandboxApplication {
             sys.error(msg)
           }, identity)
 
-          (s"sql", ledger)
+          (s"sql", Ledger.metered(ledger))
       }
 
       val ledgerBackend = new SandboxLedgerBackend(ledger)
@@ -143,6 +148,7 @@ object SandboxApplication {
     def start(): Unit = {
       system = ActorSystem(actorSystemName)
       materializer = ActorMaterializer()(system)
+      metricsManager = MetricsManager()
       buildAndStartServer()
     }
 
@@ -151,6 +157,7 @@ object SandboxApplication {
       Option(server).foreach(_.close())
       Option(materializer).foreach(_.shutdown())
       Option(system).foreach(s => Await.result(s.terminate(), asyncTolerance))
+      Option(metricsManager).foreach(_.close())
     }
   }
 

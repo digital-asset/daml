@@ -147,7 +147,7 @@ package object v1 {
     * absolute contract identifiers.
     */
   type CommittedTransaction =
-    GenTransaction[NodeId, Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]]
+    GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]
 
   /** A contract instance with absolute contract identifiers only. */
   type AbsoluteContractInst =

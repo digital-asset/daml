@@ -430,7 +430,7 @@ decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumDecimal sDec -> case readMay (TL.unpack sDec) of
     Nothing -> Left $ ParseError ("bad fixed while decoding Decimal: '" <> TL.unpack sDec <> "'")
     Just dec -> return (BEDecimal dec)
-  LF1.PrimLitSumTimestamp (Proto.Fixed sTime) -> pure $ BETimestamp sTime
+  LF1.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime
   LF1.PrimLitSumText x           -> pure $ BEText $ TL.toStrict x
   LF1.PrimLitSumParty p          -> pure $ BEParty (taggedT p)
   LF1.PrimLitSumDate days -> pure $ BEDate days

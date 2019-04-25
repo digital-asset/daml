@@ -45,10 +45,6 @@ def substitute_license(package, version):
   # Forked libraries, under nix/third-party.
   elif package == "grpc-haskell" or package == "grpc-haskell-core":
     return read_license("../../../../../nix/third-party/gRPC-haskell/LICENSE")
-  elif package == "proto3-suite":
-    return read_license("../../../../../nix/third-party/proto3-suite/LICENSE")
-  elif package == "proto3-wire":
-    return read_license("../../../../../nix/third-party/proto3-wire/LICENSE")
 
   # For the rest, retrieve the license from Hackage.
   else:

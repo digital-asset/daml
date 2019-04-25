@@ -65,12 +65,12 @@ genrule(
         "ORIGPWD=`pwd`\ncd daml-lf/archive\n" +
         "\n".join(
             [
-                "$$ORIGPWD/$(location //nix/third-party/proto3-suite:compile-proto-file) --proto da/daml_lf%s.proto --out $$ORIGPWD/$(@D)" % vx
+                "$$ORIGPWD/$(location @haskell_proto3__suite//:compile-proto-file) --proto da/daml_lf%s.proto --out $$ORIGPWD/$(@D)" % vx
                 for vx in [""] + ["_%s" % v for v in LF_MAJOR_VERSIONS]
             ],
         ),
     tools = [
-        "//nix/third-party/proto3-suite:compile-proto-file",
+        "@haskell_proto3__suite//:compile-proto-file",
     ],
 )
 
@@ -81,15 +81,14 @@ da_haskell_library(
     hazel_deps = [
         "base",
         "bytestring",
+        "containers",
         "deepseq",
+        "proto3-suite",
+        "proto3-wire",
         "text",
         "vector",
     ],
     visibility = ["//visibility:public"],
-    deps = [
-        "//nix/third-party/proto3-suite",
-        "//nix/third-party/proto3-wire",
-    ],
 )
 
 da_scala_library(

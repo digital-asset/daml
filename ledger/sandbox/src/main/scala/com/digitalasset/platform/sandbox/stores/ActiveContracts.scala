@@ -66,7 +66,7 @@ case class ActiveContractsInMemory(
       let: Instant,
       transactionId: String,
       workflowId: String,
-      transaction: GenTransaction[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
+      transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
       explicitDisclosure: Relation[Nid, Ref.Party],
       localImplicitDisclosure: Relation[Nid, Ref.Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party]
@@ -122,7 +122,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
       let: Instant,
       transactionId: String,
       workflowId: String,
-      transaction: GenTransaction[Nid, AbsoluteContractId, VersionedValue[AbsoluteContractId]],
+      transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
       explicitDisclosure: Relation[Nid, Ref.Party],
       localImplicitDisclosure: Relation[Nid, Ref.Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party])
@@ -151,7 +151,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
               case nf: N.NodeFetch[AbsoluteContractId] =>
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nf.coid)
                 AddTransactionState(Some(acc), contractCheck(absCoid, Fetch).fold(errs)(errs + _))
-              case nc: N.NodeCreate[AbsoluteContractId, VersionedValue[AbsoluteContractId]] =>
+              case nc: N.NodeCreate.WithTxValue[AbsoluteContractId] =>
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
                 val activeContract = ActiveContract(
                   let = let,
@@ -175,10 +175,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                       ats.copy(acc = Some(acc.addContract(absCoid, activeContract, Some(gk))))
                     }
                 }
-              case ne: N.NodeExercises[
-                    Nid,
-                    AbsoluteContractId,
-                    VersionedValue[AbsoluteContractId]] =>
+              case ne: N.NodeExercises.WithTxValue[Nid, AbsoluteContractId] =>
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(ne.targetCoid)
                 ats.copy(
                   errs = contractCheck(absCoid, Exercise).fold(errs)(errs + _),
@@ -191,9 +188,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                     acc
                   })
                 )
-              case nlkup: N.NodeLookupByKey[
-                    AbsoluteContractId,
-                    VersionedValue[AbsoluteContractId]] =>
+              case nlkup: N.NodeLookupByKey.WithTxValue[AbsoluteContractId] =>
                 // NOTE(FM) we do not need to check anything, since
                 // * this is a lookup, it does not matter if the key exists or not
                 // * if the key exists, we have it as an internal invariant that the backing coid exists.

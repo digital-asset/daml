@@ -271,7 +271,7 @@ object ValueGenerators {
     * 1. stakeholders may not be a superset of signatories
     * 2. key's maintainers may not be a subset of signatories
     */
-  val malformedCreateNodeGen: Gen[NodeCreate[Tx.ContractId, Tx.Value[Tx.ContractId]]] = {
+  val malformedCreateNodeGen: Gen[NodeCreate.WithTxValue[Tx.ContractId]] = {
     for {
       coid <- coidGen
       coinst <- contractInstanceGen

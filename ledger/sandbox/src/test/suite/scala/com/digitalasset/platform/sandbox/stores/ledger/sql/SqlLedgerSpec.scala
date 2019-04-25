@@ -5,6 +5,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
@@ -17,7 +18,8 @@ class SqlLedgerSpec
     with AsyncTimeLimitedTests
     with Matchers
     with PostgresAroundEach
-    with AkkaBeforeAndAfterAll {
+    with AkkaBeforeAndAfterAll
+    with MetricsAround {
 
   override val timeLimit: Span = 60.seconds
 

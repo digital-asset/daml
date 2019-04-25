@@ -22,7 +22,7 @@ eval "$(dev-env/bin/dade assist)"
 step "build release script"
 bazel build //release:release
 
-if [[ "$BUILD_SOURCEBRANCHNAME" == "master" ]]; then
+if [[ "${BUILD_SOURCEBRANCHNAME:-}" == "master" ]]; then
     # set up bintray credentials
     mkdir -p ~/.jfrog
     echo "$JFROG_CONFIG_CONTENT" > ~/.jfrog/jfrog-cli.conf

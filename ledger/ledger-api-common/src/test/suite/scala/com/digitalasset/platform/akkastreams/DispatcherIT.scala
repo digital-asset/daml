@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.digitalasset.platform.akkastreams.SteppingMode.OneAfterAnother
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{Matchers, WordSpec}
@@ -36,7 +37,7 @@ class DispatcherIT extends WordSpec with AkkaBeforeAndAfterAll with Matchers wit
 
       // compromise between catching flakes and not taking too long
       0 until 25 foreach { _ =>
-        val d = Dispatcher(readSuccessor, readElement, 0, 0)
+        val d = Dispatcher(OneAfterAnother(readSuccessor, readElement), 0, 0)
         head.set(0)
 
         // Verify that the results are what we expected
@@ -52,7 +53,7 @@ class DispatcherIT extends WordSpec with AkkaBeforeAndAfterAll with Matchers wit
         subscriptions.zipWithIndex foreach {
           case (f, i) =>
             whenReady(f) { vals =>
-              vals.map(_._1) should contain theSameElementsAs (i + 1 to 10)
+              vals.map(_._1) should contain theSameElementsAs (i to 9)
               vals.map(_._2) should contain theSameElementsAs (i until 10)
             }
         }

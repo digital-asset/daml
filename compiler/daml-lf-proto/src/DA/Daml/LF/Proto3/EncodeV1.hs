@@ -28,7 +28,7 @@ import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
 import qualified Da.DamlLf1 as P
 
-import qualified Proto3.Suite as P (Enumerated (..), Fixed(..))
+import qualified Proto3.Suite as P (Enumerated (..))
 
 -- | Encoding 'from' to type 'to'
 class Encode from to | from -> to where
@@ -218,7 +218,7 @@ instance Encode BuiltinExpr P.ExprSum where
     BEInt64 x -> lit $ P.PrimLitSumInt64 x
     BEDecimal dec -> lit $ P.PrimLitSumDecimal (TL.pack (show dec))
     BEText x -> lit $ P.PrimLitSumText (TL.fromStrict x)
-    BETimestamp x -> lit $ P.PrimLitSumTimestamp (P.Fixed x)
+    BETimestamp x -> lit $ P.PrimLitSumTimestamp x
     BEParty x -> lit $ P.PrimLitSumParty (encode version x)
     BEDate x -> lit $ P.PrimLitSumDate x
 
@@ -389,9 +389,9 @@ instance Encode Update P.Update where
     UFetch{..} -> P.UpdateSumFetch $ P.Update_Fetch (encode' version fetTemplate) (encode' version fetContractId)
     UGetTime -> P.UpdateSumGetTime P.Unit
     UEmbedExpr typ e -> P.UpdateSumEmbedExpr $ P.Update_EmbedExpr (encode' version typ) (encode' version e)
-    UFetchByKey rbk -> checkRetrieveByKey version $
+    UFetchByKey rbk -> checkContractKeys version $
        P.UpdateSumFetchByKey (encode version rbk)
-    ULookupByKey rbk -> checkRetrieveByKey version $
+    ULookupByKey rbk -> checkContractKeys version $
        P.UpdateSumLookupByKey (encode version rbk)
 
 instance Encode RetrieveByKey P.Update_RetrieveByKey where
@@ -472,7 +472,7 @@ instance Encode Template P.DefTemplate where
     }
 
 encodeTemplateKey :: Version -> ExprVarName -> TemplateKey -> P.DefTemplate_DefKey
-encodeTemplateKey version templateVar TemplateKey{..} = P.DefTemplate_DefKey
+encodeTemplateKey version templateVar TemplateKey{..} = checkContractKeys version $ P.DefTemplate_DefKey
   { P.defTemplate_DefKeyType = encode' version tplKeyType
   , P.defTemplate_DefKeyKey = case encodeKeyExpr version templateVar tplKeyBody of
       Left err -> error err
@@ -573,8 +573,8 @@ checkOptional = checkFeature supportsOptional "Optional"
 checkArrowType :: Version -> a -> a
 checkArrowType = checkFeature supportsArrowType "Partial application of (->)"
 
-checkRetrieveByKey :: Version -> a -> a
-checkRetrieveByKey = checkFeature supportsRetrieveByKey "Retrieve by key" 
+checkContractKeys :: Version -> a -> a
+checkContractKeys = checkFeature supportsContractKeys "Contract keys"
 
 checkTextMap :: Version -> a -> a
 checkTextMap = checkFeature supportsTextMap "TextMap"

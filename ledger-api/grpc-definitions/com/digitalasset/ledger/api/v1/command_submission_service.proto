@@ -36,7 +36,7 @@ service CommandSubmissionService {
 
 }
 
-// The submitted commands will be processed atomically in a single transaction.
+// The submitted commands will be processed atomically in a single transaction. Moreover, each ``Command`` in ``commands`` will be executed in the order specified by the request.
 message SubmitRequest {
 
   // The commands to be submitted in a single transaction.

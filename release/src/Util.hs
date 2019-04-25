@@ -28,7 +28,6 @@ module Util (
 
 import qualified Control.Concurrent.Async.Lifted.Safe as Async
 import qualified Control.Exception.Safe as E
-import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import Data.Aeson
@@ -282,10 +281,6 @@ releaseToBintray upload releaseDir artifacts = do
         else
             $logInfo ("(In dry run, skipping) "# msg)
 
-normalizeGitRev :: MonadCI m => GitRev -> m GitRev
-normalizeGitRev rev =
-  T.strip . T.unlines <$> loggedProcess "git" ["rev-parse", rev] C.sourceToList
-
 osName ::  Text
 osName
   | isWindows = "windows"
@@ -308,29 +303,15 @@ gitChangedFiles rev =
 versionFile :: Path Rel File
 versionFile = $(mkRelFile "VERSION")
 
-isReleaseCommit :: MonadCI m => GitRev -> m Bool
-isReleaseCommit rev = do
-    newRev <- normalizeGitRev rev
-    oldRev <- normalizeGitRev (newRev <> "~1")
+isReleaseCommit :: MonadCI m => m Bool
+isReleaseCommit = do
     files <- gitChangedFiles "HEAD"
-    if "VERSION" `elem` files
-        then do
-            unless ("docs/source/support/release-notes.rst" `elem` files) $
-                throwIO $ CIException "Release commit also needs to update release-notes.rst."
-            unless (length files == 2) $
-                throwIO $ CIException "Release commit should only change VERSION and release-notes.rst."
-            oldVersion <- readVersionAt oldRev
-            newVersion <- readVersionAt newRev
-            if
-              | newVersion `isVersionBumpOf` oldVersion -> pure True
-              -- NOTE(MH): We allow for decreasing the version in case we need
-              -- to backout a release commit.
-              | oldVersion `isVersionBumpOf` newVersion -> pure False
-              | otherwise ->
-                throwIO $ CIException $
-                    "Forbidden version bump from " <> renderVersion oldVersion
-                    <> " to " <> renderVersion newVersion
-        else pure False
+    let isRelease = "VERSION" `elem` files
+                 && "docs/source/support/release-notes.rst" `elem` files
+                 && length files == 2
+    if "VERSION" `elem` files && not isRelease
+    then throwIO $ CIException "Release commit should only change VERSION and release-notes.rst."
+    else return isRelease
 
 runFastLoggingT :: LoggingT IO c -> IO c
 runFastLoggingT m = do

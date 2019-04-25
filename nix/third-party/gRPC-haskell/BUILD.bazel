@@ -4,16 +4,16 @@ da_haskell_library(
     name = "grpc-haskell",
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
+        "async",
         "base",
         "bytestring",
-        "async",
+        "proto3-suite",
+        "proto3-wire",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
-        "//nix/third-party/proto3-suite",
-        "//nix/third-party/proto3-wire",
     ],
 )
 
@@ -21,10 +21,12 @@ da_haskell_binary(
     name = "hellos-server",
     srcs = glob(["examples/hellos/hellos-server/*.hs"]),
     hazel_deps = [
-        "base",
         "async",
+        "base",
         "bytestring",
         "containers",
+        "proto3-suite",
+        "proto3-wire",
         "text",
         "transformers",
     ],
@@ -32,8 +34,6 @@ da_haskell_binary(
     deps = [
         ":grpc-haskell",
         "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
-        "//nix/third-party/proto3-suite",
-        "//nix/third-party/proto3-wire",
     ],
 )
 
@@ -41,10 +41,12 @@ da_haskell_binary(
     name = "hellos-client",
     srcs = glob(["examples/hellos/hellos-client/*.hs"]),
     hazel_deps = [
-        "base",
         "async",
+        "base",
         "bytestring",
         "containers",
+        "proto3-suite",
+        "proto3-wire",
         "text",
         "transformers",
     ],
@@ -52,7 +54,5 @@ da_haskell_binary(
     deps = [
         ":grpc-haskell",
         "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
-        "//nix/third-party/proto3-suite",
-        "//nix/third-party/proto3-wire",
     ],
 )

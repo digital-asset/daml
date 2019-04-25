@@ -4,7 +4,13 @@ DADEW (DA Dev Env for Windows) is a tool, which can be used to setup a developer
 
 # How to use it?
 
-First you need to install your local DADEW environment by running:
+First you need to enable long file paths by running the following command in an admin powershell:
+
+```
+Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Type DWord -Value 1
+```
+
+Then you need to install your local DADEW environment by running:
 
     .\dev-env\windows\bin\dadew.ps1 install
     

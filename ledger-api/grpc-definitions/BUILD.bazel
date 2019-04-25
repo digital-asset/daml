@@ -1,15 +1,18 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
 load("//bazel_tools:pkg.bzl", "pkg_tar")
 load("//bazel_tools:proto.bzl", "proto_gen")
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 
+ledger_api_proto_source_root = "ledger-api/grpc-definitions"
+
 proto_library(
     name = "protos",
     srcs = glob(["**/*.proto"]),
-    proto_source_root = "ledger-api/grpc-definitions",
+    proto_source_root = ledger_api_proto_source_root,
     visibility = [
         "//visibility:public",
     ],
@@ -70,74 +73,129 @@ proto_gen(
     ],
 )
 
-# TODO(nic): When compile-proto-file handles map<key,value>, we will can run on:  **/*.proto
-# + glob(["**/*.proto",])
-filegroup(
-    name = "ledger-api-protos-fg",
-    srcs = [
-        #"com/digitalasset/ledger/api/v1/active_contracts_service.proto",
-        "com/digitalasset/ledger/api/v1/command_completion_service.proto",
-        "com/digitalasset/ledger/api/v1/command_service.proto",
-        "com/digitalasset/ledger/api/v1/command_submission_service.proto",
-        "com/digitalasset/ledger/api/v1/commands.proto",
-        "com/digitalasset/ledger/api/v1/completion.proto",
-        "com/digitalasset/ledger/api/v1/event.proto",
-        "com/digitalasset/ledger/api/v1/ledger_configuration_service.proto",
-        "com/digitalasset/ledger/api/v1/ledger_identity_service.proto",
-        "com/digitalasset/ledger/api/v1/ledger_offset.proto",
-        "com/digitalasset/ledger/api/v1/package_service.proto",
-        "com/digitalasset/ledger/api/v1/trace_context.proto",
-        #"com/digitalasset/ledger/api/v1/transaction.proto",
-        #"com/digitalasset/ledger/api/v1/transaction_filter.proto",
-        #"com/digitalasset/ledger/api/v1/transaction_service.proto",
-        "com/digitalasset/ledger/api/v1/value.proto",
-    ],
-    visibility = ["//visibility:private"],
-)
+google_protobuf_src = "external/com_google_protobuf/src"
 
 genrule(
-    name = "ledger-api-haskell-sources",
-    srcs = [
-        "BUILD.bazel",
-        "@com_google_protobuf//:well_known_protos",
-        "@com_github_googleapis_googleapis//google/rpc:status.proto",
-        ":ledger-api-protos-fg",
-    ],
-    # TODO(nic): Construct expected output list from the inputs. See example in: daml-lf/archive/BUILD.bazel
-    outs = [
-        #"ActiveContractsService.hs",
-        "CommandCompletionService.hs",
-        "CommandService.hs",
-        "CommandSubmissionService.hs",
-        "Commands.hs",
-        "Completion.hs",
-        "Event.hs",
-        "LedgerConfigurationService.hs",
-        "LedgerIdentityService.hs",
-        "LedgerOffset.hs",
-        "PackageService.hs",
-        "TraceContext.hs",
-        #"Transaction.hs",
-        #"TransactionFilter.hs",
-        #"TransactionService.hs",
-        "Value.hs",
-    ],
-    # TODO(nic): Can we improve the logic to set the includeDir(s)? Triple $$dirname is a bit pants.
+    name = "google-protobuf-haskellpb-sources",
+    srcs = ["@com_google_protobuf//:well_known_protos"],
+    outs = ["Google/Protobuf/" + b for b in [
+        "Any.hs",
+        "Duration.hs",
+        "Empty.hs",
+        "Timestamp.hs",
+        "Wrappers.hs",
+    ]],
     cmd = """
-        here=$$(dirname $(locations BUILD.bazel))
-        well_known=$$(dirname $$(dirname $$(dirname $$(echo $(locations @com_google_protobuf//:well_known_protos) | cut -d ' ' -f1))))
-        rpc_status=$$(dirname $$(dirname $$(dirname $$(echo $(location @com_github_googleapis_googleapis//google/rpc:status.proto)))))
-        for src in $(locations :ledger-api-protos-fg); do
-            $(location //nix/third-party/proto3-suite:compile-proto-file) \
-                --includeDir $$here \
-                --includeDir $$well_known \
-                --includeDir $$rpc_status \
-                --includeDir $$(dirname $$src) --proto $$(basename $$src) \
+        for src in \
+            external/com_google_protobuf/src/google/protobuf/any.proto \
+            external/com_google_protobuf/src/google/protobuf/duration.proto \
+            external/com_google_protobuf/src/google/protobuf/empty.proto \
+            external/com_google_protobuf/src/google/protobuf/timestamp.proto \
+            external/com_google_protobuf/src/google/protobuf/wrappers.proto \
+        ; do
+            $(location @haskell_proto3__suite//:compile-proto-file) \
+                --includeDir """ + google_protobuf_src + """ \
+                --proto google/protobuf/$$(basename $$src) \
                 --out $(@D)
         done
     """,
     tools = [
-        "//nix/third-party/proto3-suite:compile-proto-file",
+        "@haskell_proto3__suite//:compile-proto-file",
+    ],
+)
+
+google_rpc_src = "external/com_github_googleapis_googleapis"
+
+genrule(
+    name = "google-rpc-haskellpb-sources",
+    srcs = [
+        "@com_github_googleapis_googleapis//google/rpc:status.proto",
+        "@com_google_protobuf//:well_known_protos",
+    ],
+    outs = ["Google/Rpc/Status.hs"],
+    cmd = """
+        $(location @haskell_proto3__suite//:compile-proto-file) \
+            --includeDir """ + google_protobuf_src + """ \
+            --includeDir """ + google_rpc_src + """ \
+            --proto google/rpc/status.proto \
+            --out $$(dirname $$(dirname $(@D))) 
+               #2x dirname because @D works differently for a single output
+    """,
+    tools = [
+        "@haskell_proto3__suite//:compile-proto-file",
+    ],
+)
+
+filegroup(
+    name = "ledger-api-protos-fg",
+    srcs = glob(["com/digitalasset/ledger/api/v1/*.proto"]),
+    visibility = ["//visibility:private"],
+)
+
+ledger_api_haskellpb_sources = [
+    "ActiveContractsService.hs",
+    "CommandCompletionService.hs",
+    "CommandService.hs",
+    "CommandSubmissionService.hs",
+    "Commands.hs",
+    "Completion.hs",
+    "Event.hs",
+    "LedgerConfigurationService.hs",
+    "LedgerIdentityService.hs",
+    "LedgerOffset.hs",
+    "PackageService.hs",
+    "TraceContext.hs",
+    "Transaction.hs",
+    "TransactionFilter.hs",
+    "TransactionService.hs",
+    "Value.hs",
+]
+
+genrule(
+    name = "ledger-api-haskellpb-sources",
+    srcs = [
+        "@com_google_protobuf//:well_known_protos",
+        "@com_github_googleapis_googleapis//google/rpc:status.proto",
+        ":ledger-api-protos-fg",
+    ],
+    outs = ["Com/Digitalasset/Ledger/Api/V1/" + b for b in ledger_api_haskellpb_sources],
+    cmd = """
+        for src in $(locations :ledger-api-protos-fg); do
+            $(location @haskell_proto3__suite//:compile-proto-file) \
+                --includeDir """ + google_protobuf_src + """ \
+                --includeDir """ + google_rpc_src + """ \
+                --includeDir """ + ledger_api_proto_source_root + """ \
+                --proto com/digitalasset/ledger/api/v1/$$(basename $$src) \
+                --out $(@D)
+        done
+    """,
+    tools = [
+        "@haskell_proto3__suite//:compile-proto-file",
+    ],
+)
+
+da_haskell_library(
+    name = "ledger-api-haskellpb",
+    srcs = [
+        ":google-protobuf-haskellpb-sources",
+        ":google-rpc-haskellpb-sources",
+        ":ledger-api-haskellpb-sources",
+    ],
+    compiler_flags = ["-O0"],
+    hazel_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "proto3-suite",
+        "proto3-wire",
+        "text",
+        "vector",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//nix/third-party/gRPC-haskell:grpc-haskell",
+        "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
     ],
 )
 
@@ -172,7 +230,7 @@ proto_gen(
     plugin_exec = "@com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc",
     plugin_name = "doc",
     plugin_options = [
-        "ledger-api/grpc-definitions/rst_mmd.tmpl",
+        ledger_api_proto_source_root + "/rst_mmd.tmpl",
         "docs.rst",
     ],
     # this is _slightly_ hacky. we need to include the markdown template in the plugin_runfiles

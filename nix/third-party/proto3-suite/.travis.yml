@@ -1,2 +1,0 @@
-language: nix
-script: nix-build --attr proto3-suite-linux release.nix
