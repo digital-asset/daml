@@ -6,9 +6,9 @@ Application architecture guide
 
 This document is a guide to building applications that interact with a DA ledger deployment (the 'ledger'). It:
 
-- describes the characteristics of the ledger API, how this affects the way an application is built (the application architecture), and why it is important to understand this when building applications
+- describes the characteristics of the ledger API, how this affects the way an application is built (the 'application architecture'), and why it is important to understand this when building applications
 - describes the resources in the SDK to help with this task
-- gives some some guidelines to help you build correct, performant, and maintainable applications using all of the supported languages
+- gives some guidelines to help you build correct, performant, and maintainable applications using all of the supported languages
 
 Categories of application
 *************************
@@ -19,7 +19,7 @@ Applications that interact with the ledger normally fall into four categories:
    :header-rows: 1
 
    * - Category
-     - Receives transactions>
+     - Receives transactions?
      - Sends commands?
      - Example
    * - Source
@@ -230,7 +230,7 @@ Commonly used types
 
 Primitive and structured types (records, variants and lists) appearing in the contract constructors and choice arguments are compatible with the types defined in the current version of DAML-LF (v1). They appear in the submitted commands and in the event streams.
 
-There are some identifier fields that are represented as strings in the protobuf messages. They are opaque: you shouldn't interpret them in client code. They include:
+There are some identifier fields that are represented as strings in the protobuf messages. They are opaque: you shouldn't interpret them in client code, except by comparing them for equality. They include:
 
 -  Transaction IDs
 -  Event IDs

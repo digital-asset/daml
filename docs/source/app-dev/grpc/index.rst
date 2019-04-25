@@ -40,7 +40,12 @@ About the example project
 
 The example shows very simply how two parties can interact via a ledger, using two DAML contract templates, ``Ping`` and ``Pong``.
 
-Party ``Alice`` creates a ``Ping`` contract with Party ``Bob`` as the ``receiver``, who exercises the ``RespondPong`` choice on that contract. When he executes that choice, a ``Pong`` contract is created with ``Alice`` as the ``receiver``. She can exercise the ``RespondPing`` choice on that contract, which creates another ``Ping`` contract. This starts a new ping-pong cycle, and the cycle runs for a number of times defined in the DAML model.
+The logic of the application goes like this:
+
+#. The application injects a contract of type ``Ping`` for ``Alice``.
+#. ``Alice`` sees this contract and exercises the consuming choice ``RespondPong`` to create a contract of type ``Pong`` for ``Bob``.
+#. ``Bob`` sees this contract and exercises the consuming choice ``RespondPing``  to create a contract of type ``Ping`` for ``Alice``.
+#. Points 2 and 3 are repeated until the maximum number of contracts defined in the DAML is reached.
 
 The entry point for the Java code is the main class ``src/main/java/examples/pingpong/grpc/PingPongGrpcMain.java``. Look at it to see how connect to and interact with a ledger using gRPC.
 

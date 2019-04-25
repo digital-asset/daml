@@ -18,6 +18,8 @@ The notation used on this page for the protobuf messages is the same as you get 
 
 .. literalinclude:: ../code-snippets/notation.proto
 	:language: protobuf
+	:start-after: // start snippet
+	:end-before: // end snippet
 
 A particular value of ``Foo`` is then represented by the Ledger API in this way:
 

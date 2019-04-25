@@ -16,7 +16,7 @@ The logic of the application goes like this:
 #. The application injects a contract of type ``Ping`` for ``Alice``.
 #. ``Alice`` sees this contract and exercises the consuming choice ``RespondPong`` to create a contract of type ``Pong`` for ``Bob``.
 #. ``Bob`` sees this contract and exercises the consuming choice ``RespondPing``  to create a contract of type ``Ping`` for ``Alice``.
-#. Points 1 and 2 are repeated until the maximum number of contracts defined in the DAML is reached.
+#. Points 2 and 3 are repeated until the maximum number of contracts defined in the DAML is reached.
 
 Setting up the example projects
 *******************************
@@ -33,7 +33,7 @@ PingPongMain.java
 
 The entry point for the Java code is the main class ``src/main/java/examples/pingpong/PingPongMain.java``. Look at this class to see:
 
-- how to connect to and interact with the DML Ledger via the Java bindings
+- how to connect to and interact with the DAML Ledger via the Java bindings
 - how to use the Reactive layer to build an automation for both parties.
 
 At high level, the code does the following steps:
@@ -80,7 +80,7 @@ PingPongMain.java
 
 The entry point for the Java code is the main class ``src/main/java/examples/pingpong/PingPongMain.java``. Look at this class to see:
 
-- how to connect to and interact with the DML Ledger via the Java bindings 
+- how to connect to and interact with the DAML Ledger via the Java bindings 
 - how to use the Reactive Components to build an automation for both parties
 
 PingPongBot

@@ -10,7 +10,7 @@ Writing applications using the Ledger API
    services
    daml-lf-translation
 
-DAML contracts are stored on a ledger. In order to exercise choices on those contracts, create new ones, or read from the ledger, you need to use the **Ledger API**. (Every ledger that DAML can run on exposes this same API.) And to do anything sophisticated, you'll want to write an application. 
+DAML contracts are stored on a ledger. In order to exercise choices on those contracts, create new ones, or read from the ledger, you need to use the **Ledger API**. (Every ledger that DAML can run on exposes this same API.) To write an application around a DAML ledger, you'll need to interact with the Ledger API from another language.
 
 Resources available to you
 **************************
@@ -18,36 +18,38 @@ Resources available to you
 - **The Java bindings**: a library to help you write idiomatic applications using the Ledger API in Java.
 
   :doc:`Read the documentation for the Java bindings </app-dev/bindings-java/index>`
-- **The experimental node.js bindings**: a library to help you write idiomatic applications using the Ledger API in JavaScript.
+- **The experimental Node.js bindings**: a library to help you write idiomatic applications using the Ledger API in JavaScript.
 
-  :doc:`Read the documentation for the node.js </app-dev/bindings-js/index>`
-- **The underlying gRPC API**: if you want to write an application for the ledger API in other languages, you'll need to use `gRPC <https://grpc.io>`__ directly.
+  :doc:`Read the documentation for the Node.js </app-dev/bindings-js/index>`
+- **The underlying gRPC API**: if you want to interact with the ledger API from other languages, you'll need to use `gRPC <https://grpc.io>`__ directly.
 
   :doc:`Read the documentation for the gRPC API </app-dev/grpc/index>`
-- **The application architecture guide**: this documentation gives high-level guidance on how to build your application.
+- **The application architecture guide**: this documentation gives high-level guidance on designing DAML Ledger applications.
 
   :doc:`Read the application architecture guide </app-dev/app-arch>`
 
 What's in the Ledger API
 ************************
 
-No matter how you're accessing it (Java bindings, node.js bindings, or gRPC), the Ledger API exposes the same services:
+No matter how you're accessing it (Java bindings, Node.js bindings, or gRPC), the Ledger API exposes the same services:
 
 - Submitting commands to the ledger
 
-  - Use the **command submission service** to submit commands (create a contract or exercise a choice) to the ledger.
-  - Use the **command completion service** to track the status of submitted commands.
-  - Use the **command service** for a convenient service that wraps both of the above.
+  - Use the :ref:`command submission service <command-submission-service>` to submit commands (create a contract or exercise a choice) to the ledger.
+  - Use the :ref:`command completion service <command-completion-service>` to track the status of submitted commands.
+  - Use the :ref:`command service <command-service>` for a convenient service that combines the command submission and completion services.
 - Reading from the ledger
 
-  - Use the **transaction service** to retrieve transactions of events (contracts created and contracts archived) from the ledger.
-  - Use the **active contract service** to quickly bootstrap an application with active contracts. It means you don't need to read from the beginning of the ledger or process create events for contracts that have already been archived.
+  - Use the :ref:`transaction service <transaction-service>` to stream committed transactions and the resulting events (choices exercised, and contracts created or archived), and to look up transactions.
+  - Use the :ref:`active contract service <active-contract-service>` to quickly bootstrap an application with the currently active contracts. It saves you the work to process the ledger from the beginning to obtain its current state.
 - Utility services
 
-  - Use the **package service** to query the DAML packages deployed to the ledger.
-  - Use the **ledger identity service** to retrieve the Ledger ID of the ledger the application is connected to.
-  - Use the **ledger configuration service** to retrieve some dynamic properties of the ledger, like minimum and maximum TTL for commands.
-  - Use the **time service** to obtain the time as known by the ledger server.
+  - Use the :ref:`package service <package-service>` to query the DAML packages deployed to the ledger.
+  - Use the :ref:`ledger identity service <ledger-identity-service>` to retrieve the Ledger ID of the ledger the application is connected to.
+  - Use the :ref:`ledger configuration service <ledger-configuration-service>` to retrieve some dynamic properties of the ledger, like minimum and maximum TTL for commands.
+- Testing services (on Sandbox only, *not* for production ledgers)
+  - Use the :ref:`time service <time-service>` to obtain the time as known by the ledger.
+  - Use the :ref:`reset service <reset-service>` to reset the ledger state, as a quicker alternative to restarting the whole ledger application.
 
 For full information on the services see :doc:`/app-dev/services`.
 
@@ -58,7 +60,7 @@ You may also want to read the :doc:`protobuf documentation </app-dev/ledger-api-
 DAML-LF
 *******
 
-When you :ref:`compile DAML source into a .dar file <assistant-manual-building-dars>`, the underlying format is DAML-LF. DAML-LF is similar to DAML, but is stripped down to a core set of features. The relationship between the surface DAML syntax and DAML-LF is similar to that between Java and JVM bytecode.
+When you :ref:`compile DAML source into a .dar file <assistant-manual-building-dars>`, the underlying format is DAML-LF. DAML-LF is similar to DAML, but is stripped down to a core set of features. The relationship between the surface DAML syntax and DAML-LF is loosely similar to that between Java and JVM bytecode.
 
 As a user, you don't need to interact with DAML-LF directly. But inside the DAML SDK, it's used for:
 
