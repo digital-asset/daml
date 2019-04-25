@@ -29,7 +29,7 @@ main = withGRPCClient clientConfig $ \client -> do
         eithers <- mapM send [OneInt 1, OneInt 2, OneInt 3]
                      :: IO [Either GRPCIOError ()]
         case sequence eithers of
-          Left err -> error ("Error while streaming: " ++ show err)
+          Left err -> fail ("Error while streaming: " ++ show err)
           Right _  -> return ()
 
   case reply of
