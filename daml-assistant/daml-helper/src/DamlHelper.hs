@@ -37,6 +37,7 @@ import Network.Socket
 import System.FilePath
 import System.Directory.Extra
 import System.Exit
+import System.Info.Extra
 import System.Process hiding (runCommand)
 import System.IO
 import System.IO.Error
@@ -74,7 +75,9 @@ runDamlStudio overwriteExtension remainingArguments = do
     let vscodeExtensionTargetDir = vscodeExtensionsDir </> vscodeExtensionName
     when overwriteExtension $ removePathForcibly vscodeExtensionTargetDir
     installExtension vscodeExtensionSrcDir vscodeExtensionTargetDir
-    exitCode <- withCreateProcess (proc "code" ("-w" : remainingArguments)) $ \_ _ _ -> waitForProcess
+    -- Note that it is important that we use `shell` rather than `proc` here as
+    -- `proc` will look for `code.exe` in PATH which does not exist.
+    exitCode <- withCreateProcess (shell $ unwords $ "code" : remainingArguments) $ \_ _ _ -> waitForProcess
     exitWith exitCode
 
 runJar :: FilePath -> [String] -> IO ()
@@ -205,11 +208,18 @@ installExtension :: FilePath -> FilePath -> IO ()
 installExtension src target =
     catchJust
         (guard . isAlreadyExistsError)
-        (createDirectoryLink src target)
+        install
         (-- We might want to emit a warning if the extension is for a different SDK version
          -- but medium term it probably makes more sense to add the extension to the marketplace
          -- and make it backwards compatible
          const $ pure ())
+     where
+         install
+             | isWindows = do
+                   -- We create the directory to throw an isAlreadyExistsError.
+                   createDirectory target
+                   copyDirectory src target
+             | otherwise = createDirectoryLink src target
 
 -- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.
 -- Between each connection request it calls `sleep`.
