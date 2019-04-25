@@ -11,6 +11,8 @@ HEAD — ongoing
 
 - Node.js bindings have been moved `here <https://github.com/digital-asset/daml-js>``
 - Add documentation for flexible controllers.
+- Remove DAML-LF Dev major version, ``--target dev`` option, and sandbox ``--allow-dev``
+  option.  A "1.dev" target will handle the intended "Dev" use cases in a future release.
 
 0.12.10 — 2019-04-25
 --------------------
