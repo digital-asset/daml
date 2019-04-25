@@ -66,7 +66,7 @@ class RefTest extends FreeSpec with Matchers {
 
   "String" - {
 
-    val simpleChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_ "
+    val simpleChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_: "
 
     "accepts simple characters" in {
       for (c <- simpleChars)

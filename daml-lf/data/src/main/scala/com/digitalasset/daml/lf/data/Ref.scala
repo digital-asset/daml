@@ -29,7 +29,8 @@ object Ref {
       ('a' <= c && c <= 'z') ||
         ('A' <= c && c <= 'Z') ||
         ('0' <= c && c <= '9') ||
-        c == ' ' || c == '-' || c == '_'
+        c == ' ' || c == '-' || 
+        c == '_' || c == ':'
 
     def fromString(string: String): Either[String, SimpleString] =
       if (string.isEmpty)
