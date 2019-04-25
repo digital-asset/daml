@@ -35,7 +35,7 @@ import System.FilePath
 import qualified Text.XML.Light as XML
 
 
-newtype ColorTestResults = ColorTestResults{color :: Bool}
+newtype ColorTestResults = ColorTestResults{getColorTestResults :: Bool}
 
 -- | Test a DAML file.
 execTest :: [FilePath] -> ColorTestResults -> Maybe FilePath -> Compiler.Options -> IO ()
@@ -64,7 +64,7 @@ testStdio lfVersion hDamlGhc files colorTestResults = do
             liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> do
                 let doc = prettyResult lfVersion result
                 let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
-                let stringStyleToRender = if color colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
+                let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
                 putStrLn $ stringStyleToRender (name <> ": " <> doc)
             pure $ any (isLeft . snd) scenarioResults
     when failed exitFailure
