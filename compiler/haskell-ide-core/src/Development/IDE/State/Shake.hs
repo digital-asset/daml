@@ -135,7 +135,7 @@ instance Hashable Key where
 type IdeResult v = ([Diagnostic], Maybe v)
 
 type IdeRule k v =
-  ( Shake.RuleResult k ~ IdeResult v
+  ( Shake.RuleResult k ~ v
   , Shake.ShakeValue k
   , Show v
   , Typeable v
@@ -307,7 +307,7 @@ instance Show k => Show (Q k) where
 
 -- | Invariant: the 'v' must be in normal form (fully evaluated).
 --   Otherwise we keep repeatedly 'rnf'ing values taken from the Shake database
-data A v = A v (Maybe BS.ByteString)
+data A v = A (IdeResult v) (Maybe BS.ByteString)
     deriving Show
 
 instance NFData (A v) where rnf (A v x) = v `seq` rnf x
