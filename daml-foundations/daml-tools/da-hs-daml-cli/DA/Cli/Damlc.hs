@@ -98,7 +98,7 @@ cmdTest numProcessors =
   where
     cmd = execTest
       <$> many inputFileOpt
-      <*> fmap (\x -> ColorTestResults x) colorOutput
+      <*> fmap ColorTestResults colorOutput
       <*> junitOutput
       <*> optionsParser numProcessors optPackageName
     junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
