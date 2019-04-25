@@ -285,7 +285,7 @@ We can now define all the literals that a program can handle::
         LitInt64  ∈ (-?)[0-9]+                      -- LitInt64:
 
   Decimal literals:
-      LitDecimal  ∈  (-?)[0-9]+.[0-9]*              -- LitDecimal
+      LitDecimal  ∈  ([+-]?)\d{1,28}(.[0-9]\d{1-10})?  -- LitDecimal
 
   Date literals:
          LitDate  ∈  \d{4}-\d{4}-\d{4}              -- LitDate

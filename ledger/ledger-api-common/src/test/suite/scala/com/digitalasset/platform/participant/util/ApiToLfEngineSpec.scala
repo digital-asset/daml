@@ -5,7 +5,7 @@ package com.digitalasset.platform.participant.util
 
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, SortedLookupList}
 import com.digitalasset.daml.lf.lfpackage.Ast
-import com.digitalasset.daml.lf.value.Value.{ValueInt64, ValueMap, ValueRecord}
+import com.digitalasset.daml.lf.value.Value.{ValueDecimal, ValueInt64, ValueMap, ValueRecord}
 import com.digitalasset.ledger.api.domain.Value._
 import com.digitalasset.ledger.api.domain._
 import org.scalatest.{Matchers, WordSpec}
@@ -17,9 +17,11 @@ import com.digitalasset.ledger.api.v1.value.{
   Value => ApiValue,
   Variant => ApiVariant
 }
+import com.digitalasset.platform.participant.util.ApiToLfEngine.ApiToLfResult.{Done, Error}
 
 import scala.collection.immutable
 
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ApiToLfEngineSpec extends WordSpec with Matchers {
 
   val fakeDef: Ast.Definition =
@@ -151,13 +153,16 @@ class ApiToLfEngineSpec extends WordSpec with Matchers {
     }
 
     "handle Decimals exceeding scale correctly" in {
-      ApiToLfEngine.parseDecimal("0.0000000001") shouldBe Right(BigDecimal("0.0000000001"))
-      ApiToLfEngine.parseDecimal("0.00000000005") shouldBe 'left
+      ApiToLfEngine.apiValueToLfValue(DecimalValue("0.0000000001")) shouldBe Done(
+        ValueDecimal(BigDecimal("0.0000000001")))
+      ApiToLfEngine.apiValueToLfValue(DecimalValue("0.00000000005")) shouldBe a[Error[_]]
     }
 
     "handle Decimals exceeding bounds" in {
-      ApiToLfEngine.parseDecimal("10000000000000000000000000000.0000000000") shouldBe 'left
-      ApiToLfEngine.parseDecimal("-10000000000000000000000000000.0000000000") shouldBe 'left
+      ApiToLfEngine.apiValueToLfValue(DecimalValue("10000000000000000000000000000.0000000000")) shouldBe
+        a[Error[_]]
+      ApiToLfEngine.apiValueToLfValue(DecimalValue("-10000000000000000000000000000.0000000000")) shouldBe
+        a[Error[_]]
     }
   }
 }
