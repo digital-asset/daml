@@ -51,7 +51,7 @@ import qualified DA.Pretty as Pretty
 -- | Get an unvalidated DALF package.
 -- This must only be used for debugging/testing.
 getRawDalf :: FilePath -> Action (Maybe LF.Package)
-getRawDalf absFile = snd <$> use GenerateRawPackage absFile
+getRawDalf absFile = use GenerateRawPackage absFile
 
 -- | Get a validated DALF package.
 getDalf :: FilePath -> Action (Maybe LF.Package)
@@ -59,7 +59,7 @@ getDalf file = eitherToMaybe <$>
     (runExceptT $ useE GeneratePackage file)
 
 runScenarios :: FilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
-runScenarios file = snd <$> use RunScenarios file
+runScenarios file = use RunScenarios file
 
 -- | Get a list of the scenarios in a given file
 getScenarios :: FilePath -> Action [VirtualResource]
@@ -302,7 +302,7 @@ ofInterestRule = do
         let shouldRunScenarios = isJust envScenarioService
         when shouldRunScenarios $ do
             deps <- forP (Set.toList scenarioFiles) $ \file -> do
-                transitiveDeps <- maybe [] transitiveModuleDeps . snd <$> use GetDependencies file
+                transitiveDeps <- maybe [] transitiveModuleDeps <$> use GetDependencies file
                 pure $ Map.fromList [ (f, file) | f <- transitiveDeps ]
             -- We want to ensure that files of interest always map to themselves even if there are dependencies
             -- between files of interest so we union them separately.
@@ -315,7 +315,7 @@ ofInterestRule = do
   where
       gc :: Set FilePath -> Action ()
       gc roots = do
-        depInfoOrErr <- mapM snd <$> uses GetDependencyInformation (Set.toList roots)
+        depInfoOrErr <- sequence <$> uses GetDependencyInformation (Set.toList roots)
         -- We only clear results if there are no errors in the
         -- dependency information (in particular, no parse errors).
         -- This prevents us from clearing the results for files that are
