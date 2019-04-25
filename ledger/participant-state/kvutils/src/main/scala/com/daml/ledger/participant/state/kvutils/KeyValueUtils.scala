@@ -23,14 +23,10 @@ import com.digitalasset.daml.lf.value.Value.{
   RelativeContractId,
   VersionedValue
 }
-import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
-import com.digitalasset.daml.lf.value.ValueOuterClass
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.services.time.TimeModel
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
-
-import scala.util.Try
 
 /**
   * Utilities for implementing participant state on top of a key-value based ledger.
@@ -61,30 +57,6 @@ object KeyValueUtils {
       // FIXME(JM): updated contract keys
   )
 
-  /** Look up the contract instance from the log entry containing the transaction.
-    */
-  def lookupContractInstanceFromLogEntry(
-      entryId: DamlLogEntryId,
-      entry: DamlLogEntry,
-      nodeId: Int): Option[ContractInst[Transaction.Value[AbsoluteContractId]]] = {
-    val relTx = TransactionCoding.decodeTransaction(entry.getTransactionEntry.getTransaction)
-    relTx.nodes
-      .get(NodeId.unsafeFromIndex(nodeId))
-      .flatMap { (node: Transaction.Node) =>
-        node match {
-          case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
-            Some(
-              create.coinst.mapValue(
-                _.mapContractId(toAbsCoid(entryId, _))
-              )
-            )
-          case _ =>
-            // TODO(JM): Logging?
-            None
-        }
-      }
-  }
-
   /** Transform the submitted transaction into entry blob. */
   def transactionToSubmission(
       submitterInfo: SubmitterInfo,
@@ -94,11 +66,8 @@ object KeyValueUtils {
       .setTransactionEntry(
         DamlTransactionEntry.newBuilder
           .setTransaction(TransactionCoding.encodeTransaction(tx))
-          .setCommandId(submitterInfo.commandId)
-          .setSubmitter(submitterInfo.submitter.underlyingString)
-          .setApplicationId(submitterInfo.applicationId)
+          .setSubmitterInfo(buildSubmitterInfo(submitterInfo))
           .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
-          .setMaximumRecordTime(buildTimestamp(submitterInfo.maxRecordTime))
           .setWorkflowId(meta.workflowId)
           .build
       )
@@ -161,21 +130,48 @@ object KeyValueUtils {
         }
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
-        Some(makeTransactionAccepted(entryId, entry.getTransactionEntry, recordTime))
+        Some(txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime))
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
         Some(Update.ConfigurationChanged(decodeDamlConfigurationEntry(entry.getConfigurationEntry)))
 
       case DamlLogEntry.PayloadCase.REJECTION_ENTRY =>
-        ???
+        Some(rejEntryToUpdate(entryId, entry.getRejectionEntry, recordTime))
 
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
         throw new RuntimeException("entryToUpdate: Payload is not set!")
     }
   }
 
+  private def rejEntryToUpdate(
+      entryId: DamlLogEntryId,
+      rejEntry: DamlRejectionEntry,
+      recordTime: Timestamp): Update.CommandRejected = {
+
+    Update.CommandRejected(
+      submitterInfo = parseSubmitterInfo(rejEntry.getSubmitterInfo),
+      reason = RejectionReason.Inconsistent // FIXME
+    )
+  }
+
+  private def buildSubmitterInfo(subInfo: SubmitterInfo): DamlSubmitterInfo =
+    DamlSubmitterInfo.newBuilder
+      .setSubmitter(subInfo.submitter.underlyingString)
+      .setApplicationId(subInfo.applicationId)
+      .setCommandId(subInfo.commandId)
+      .setMaximumRecordTime(buildTimestamp(subInfo.maxRecordTime))
+      .build
+
+  private def parseSubmitterInfo(subInfo: DamlSubmitterInfo): SubmitterInfo =
+    SubmitterInfo(
+      submitter = SimpleString.assertFromString(subInfo.getSubmitter),
+      applicationId = subInfo.getApplicationId,
+      commandId = subInfo.getCommandId,
+      maxRecordTime = parseTimestamp(subInfo.getMaximumRecordTime)
+    )
+
   /** Transform the transaction entry into the [[Update.TransactionAccepted]] event. */
-  private def makeTransactionAccepted(
+  private def txEntryToUpdate(
       entryId: DamlLogEntryId,
       txEntry: DamlTransactionEntry,
       recordTime: Timestamp): Update.TransactionAccepted = {
@@ -183,13 +179,7 @@ object KeyValueUtils {
     val hexTxId = BaseEncoding.base16.encode(entryId.toByteArray)
 
     Update.TransactionAccepted(
-      optSubmitterInfo = Some(
-        SubmitterInfo(
-          submitter = SimpleString.assertFromString(txEntry.getSubmitter),
-          applicationId = txEntry.getApplicationId,
-          commandId = txEntry.getCommandId,
-          maxRecordTime = parseTimestamp(txEntry.getMaximumRecordTime),
-        )),
+      optSubmitterInfo = Some(parseSubmitterInfo(txEntry.getSubmitterInfo)),
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = parseTimestamp(txEntry.getLedgerEffectiveTime),
         workflowId = txEntry.getWorkflowId,
@@ -350,15 +340,12 @@ object KeyValueUtils {
     Duration.ofSeconds(dur.getSeconds, dur.getNanos.toLong)
   }
 
-  private def makeRejectionEntry(
+  private def buildRejectionEntry(
       txEntry: DamlTransactionEntry,
       reason: RejectionReason): DamlRejectionEntry = {
     val builder = DamlRejectionEntry.newBuilder
     builder
-      .setSubmitter(txEntry.getSubmitter)
-      .setCommandId(txEntry.getCommandId)
-      .setApplicationId(txEntry.getApplicationId)
-      .setWorkflowId(txEntry.getWorkflowId)
+      .setSubmitterInfo(txEntry.getSubmitterInfo)
 
     reason match {
       case RejectionReason.Inconsistent =>
@@ -433,6 +420,9 @@ object KeyValueUtils {
           inputLogEntries,
           inputState
         )
+
+      case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
+        throw new RuntimeException("DamlSubmission payload not set!")
     }
   }
 
@@ -457,7 +447,8 @@ object KeyValueUtils {
     val letCheckResult = config.timeModel.checkLet(
       currentTime = recordTime.toInstant,
       givenLedgerEffectiveTime = txLet.toInstant,
-      givenMaximumRecordTime = parseTimestamp(txEntry.getMaximumRecordTime).toInstant
+      givenMaximumRecordTime =
+        parseTimestamp(txEntry.getSubmitterInfo.getMaximumRecordTime).toInstant
     )
 
     // 3. Verify that the input contracts are active.
@@ -491,7 +482,7 @@ object KeyValueUtils {
         DamlLogEntry.newBuilder
           .setRecordTime(buildTimestamp(recordTime))
           .setRejectionEntry(
-            makeRejectionEntry(txEntry, RejectionReason.DuplicateCommand)
+            buildRejectionEntry(txEntry, RejectionReason.DuplicateCommand)
           )
           .build,
         Map.empty
@@ -545,79 +536,41 @@ object KeyValueUtils {
       .setEmpty(com.google.protobuf.Empty.newBuilder.build)
       .build
 
-  private def commandDedupKey(txEntry: DamlTransactionEntry): DamlStateKey =
+  private def commandDedupKey(txEntry: DamlTransactionEntry): DamlStateKey = {
+    val subInfo = txEntry.getSubmitterInfo
     DamlStateKey.newBuilder
       .setCommandDedup(
         DamlCommandDedupKey.newBuilder
-          .setApplicationId(txEntry.getApplicationId)
-          .setCommandId(txEntry.getCommandId)
-          .setSubmitter(txEntry.getSubmitter)
+          .setApplicationId(subInfo.getApplicationId)
+          .setCommandId(subInfo.getCommandId)
+          .setSubmitter(subInfo.getSubmitter)
           .build
       )
       .build
-
-  // ------------------------------------------
-
-  object TransactionCoding {
-
-    import com.digitalasset.daml.lf.transaction.TransactionCoder
-    import com.digitalasset.daml.lf.value.ValueCoder
-
-    def encodeTransaction(tx: SubmittedTransaction): TransactionOuterClass.Transaction = {
-      TransactionCoder
-        .encodeTransactionWithCustomVersion(
-          nidEncoder,
-          cidEncoder,
-          VersionedTransaction(TransactionVersions.assignVersion(tx), tx))
-        .fold(err => sys.error(s"encodeTransaction error: $err"), identity)
-    }
-
-    def decodeTransaction(tx: TransactionOuterClass.Transaction): SubmittedTransaction = {
-      TransactionCoder
-        .decodeVersionedTransaction(
-          nidDecoder,
-          cidDecoder,
-          tx
-        )
-        .fold(err => sys.error(s"decodeTransaction error: $err"), _.transaction)
-    }
-
-    // FIXME(JM): Should we have a well-defined schema for this?
-    private val cidEncoder: ValueCoder.EncodeCid[ContractId] = {
-      val asStruct: ContractId => (String, Boolean) = {
-        case RelativeContractId(nid) => (s"~${nid.index}", true)
-        case AbsoluteContractId(coid) => (s"$coid", false)
-      }
-      ValueCoder.EncodeCid(asStruct(_)._1, asStruct)
-    }
-    private val cidDecoder: ValueCoder.DecodeCid[ContractId] = {
-      def fromString(x: String): Either[DecodeError, ContractId] = {
-        if (x.startsWith("~"))
-          Try(x.tail.toInt).toOption match {
-            case None =>
-              Left(DecodeError(s"Invalid relative contract id: $x"))
-            case Some(i) =>
-              Right(RelativeContractId(NodeId.unsafeFromIndex(i)))
-          } else
-          Right(AbsoluteContractId(x))
-      }
-
-      ValueCoder.DecodeCid(
-        fromString,
-        { case (i, _) => fromString(i) }
-      )
-    }
-
-    private val nidDecoder: String => Either[ValueCoder.DecodeError, NodeId] =
-      nid => Right(NodeId.unsafeFromIndex(nid.toInt))
-    private val nidEncoder: TransactionCoder.EncodeNid[NodeId] =
-      nid => nid.index.toString
-    private val valEncoder: TransactionCoder.EncodeVal[Transaction.Value[ContractId]] =
-      a => ValueCoder.encodeVersionedValueWithCustomVersion(cidEncoder, a).map((a.version, _))
-    private val valDecoder: ValueOuterClass.VersionedValue => Either[
-      ValueCoder.DecodeError,
-      Transaction.Value[ContractId]] =
-      a => ValueCoder.decodeVersionedValue(cidDecoder, a)
-
   }
+
+  /** Look up the contract instance from the log entry containing the transaction.
+    */
+  private def lookupContractInstanceFromLogEntry(
+      entryId: DamlLogEntryId,
+      entry: DamlLogEntry,
+      nodeId: Int): Option[ContractInst[Transaction.Value[AbsoluteContractId]]] = {
+    val relTx = TransactionCoding.decodeTransaction(entry.getTransactionEntry.getTransaction)
+    relTx.nodes
+      .get(NodeId.unsafeFromIndex(nodeId))
+      .flatMap { (node: Transaction.Node) =>
+        node match {
+          case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
+            Some(
+              create.coinst.mapValue(
+                _.mapContractId(toAbsCoid(entryId, _))
+              )
+            )
+          case _ =>
+            // TODO(JM): Logging?
+            None
+        }
+      }
+  }
+
 }

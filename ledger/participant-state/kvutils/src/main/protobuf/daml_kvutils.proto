@@ -2,6 +2,9 @@
 // Protocol buffer messages used by the participant state key-value utilities
 // for implementing a DAML ledger backed by a key-value store.
 //
+// TODO(JM): We're consistently using the 'Daml' prefix to allow unqualified import
+// of the generated classes and to distinguish these from the scala types in participant-state.
+// Might want to use a more telling prefix.
 
 syntax = "proto3";
 package com.daml.ledger.participant.state.kvutils;
@@ -59,6 +62,13 @@ message DamlSubmission {
   }
 }
 
+message DamlSubmitterInfo {
+  string submitter = 1;
+  string command_id = 2;
+  string application_id = 3;
+  google.protobuf.Timestamp maximum_record_time = 4;
+}
+
 message DamlTransactionEntry {
   // The original submitted transaction, with relative identifiers.
   // For now we're deduplicating the data and storing the contract instances
@@ -67,33 +77,29 @@ message DamlTransactionEntry {
   // "DamlState".
   com.digitalasset.daml.lf.transaction.Transaction transaction = 1;
 
-  // Submitter info and transaction metadata.
-  string submitter = 2;
-  string command_id = 3;
-  string application_id = 4;
-  string workflow_id = 5;
-  google.protobuf.Timestamp ledger_effective_time = 6;
-  google.protobuf.Timestamp maximum_record_time = 7;
+  DamlSubmitterInfo submitter_info = 2;
+
+  // Transaction metadata
+  string workflow_id = 3;
+  google.protobuf.Timestamp ledger_effective_time = 4;
 }
 
 message DamlRejectionEntry {
-  string submitter = 1;
-  string command_id = 2;
-  string application_id = 3;
-  string workflow_id = 4;
+  DamlSubmitterInfo submitter_info = 1;
 
   oneof reason {
     // NOTE(JM): Not all payloads are used, but marked as 'string' for
     // extensibility.
-    string inconsistent = 5;
-    string disputed = 6;
-    string resources_exhausted = 7;
-    string maximum_record_time_exceeded = 8;
-    string duplicate_command = 9;
-    string party_not_known_on_ledger = 10;
-    string submitter_cannot_act_via_participant = 11;
+    string inconsistent = 2;
+    string disputed = 3;
+    string resources_exhausted = 4;
+    string maximum_record_time_exceeded = 5;
+    string duplicate_command = 6;
+    string party_not_known_on_ledger = 7;
+    string submitter_cannot_act_via_participant = 8;
   }
 }
+
 
 message DamlConfigurationEntry {
   DamlTimeModel time_model = 1;

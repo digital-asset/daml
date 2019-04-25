@@ -1,4 +1,5 @@
 package com.daml.ledger.participant.state.kvutils
+/*
 
 import java.util.concurrent.atomic.AtomicReference
 
@@ -132,12 +133,13 @@ class InMemoryKVParticipantState extends ReadService with WriteService {
   }
 
   /** Retrieve the static initial conditions of the ledger, containing
-    * the ledger identifier and the epoch of the ledger record time.
-    *
-    * Returns a future since the implementation may need to first establish
-    * connectivity to the underlying ledger. The implementer may assume that
-    * this method is called only once, or very rarely.
-    */
+ * the ledger identifier and the epoch of the ledger record time.
+ *
+ * Returns a future since the implementation may need to first establish
+ * connectivity to the underlying ledger. The implementer may assume that
+ * this method is called only once, or very rarely.
+ */
   override def getLedgerInitialConditions(): Future[LedgerInitialConditions] =
     Future.successful(LedgerInitialConditions(ledgerId, Timestamp.Epoch))
 }
+ */

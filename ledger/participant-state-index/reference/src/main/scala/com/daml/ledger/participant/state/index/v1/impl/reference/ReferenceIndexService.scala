@@ -301,13 +301,13 @@ final case class ReferenceIndexService(
         .from(beginFrom)
         .flatMap {
           case (offset, rejectedCmd) =>
-            rejectedCmd.optSubmitterInfo.flatMap { sinfo =>
-              if (sinfo.applicationId == applicationId) {
-                Some(CompletionEvent.CommandRejected(offset, sinfo.commandId, rejectedCmd.reason))
-              } else {
-                None
-              }
-            }.toList
+            if (rejectedCmd.submitterInfo.applicationId == applicationId) {
+              List(
+                CompletionEvent
+                  .CommandRejected(offset, rejectedCmd.submitterInfo.commandId, rejectedCmd.reason))
+            } else {
+              List.empty
+            }
         }
         .toList
 

@@ -115,12 +115,11 @@ object Update {
     * rejected.
     */
   final case class CommandRejected(
-      optSubmitterInfo: Option[SubmitterInfo],
+      submitterInfo: SubmitterInfo,
       reason: RejectionReason,
   ) extends Update {
     override def description: String = {
-      val commandId = optSubmitterInfo.map(_.commandId).getOrElse("???")
-      s"Reject command $commandId: $reason"
+      s"Reject command ${submitterInfo.commandId}: $reason"
     }
   }
 }

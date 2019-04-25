@@ -378,7 +378,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   }
 
   private def mkRejectedCommand(rejectionReason: RejectionReason, submitterInfo: SubmitterInfo) =
-    CommandRejected(Some(submitterInfo), rejectionReason)
+    CommandRejected(submitterInfo, rejectionReason)
 
   private def mkOffset(offset: Int): Offset =
     Offset(Array(offset.toLong))
