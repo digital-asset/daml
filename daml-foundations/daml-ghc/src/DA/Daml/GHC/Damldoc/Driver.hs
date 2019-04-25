@@ -49,7 +49,7 @@ damlDocDriver cInputFormat output cFormat prefixFile options files = do
 
     let onErrorExit act =
             act >>= either (printAndExit . renderDiags) pure
-        renderDiags = T.unpack . Pretty.renderColored . Pretty.vcat . map prettyDiagnostic
+        renderDiags = T.unpack . Pretty.renderColored . prettyDiagnosticStore
 
     docData <- case cInputFormat of
             InputJson -> do

@@ -22,6 +22,7 @@ module Development.IDE.Types.Diagnostics (
   ideTryIOException,
   prettyFileDiagnostics,
   prettyDiagnostic,
+  prettyDiagnosticStore,.
   defDiagnostic,
   addDiagnostics,
   filterSeriousErrors,
@@ -35,14 +36,18 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Either.Combinators
 import Data.List.Extra
 import Data.Maybe as Maybe
+import Data.Foldable
+import qualified Data.Map as Map
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc.Syntax
+import Data.String (IsString(..))
 import GHC.Generics
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import           Language.Haskell.LSP.Types as LSP (
     DiagnosticSeverity(..)
   , Diagnostic(..)
   , filePathToUri
+  , uriToFilePath
   , List(..)
   , DiagnosticRelatedInformation(..)
   )
@@ -206,3 +211,23 @@ prettyDiagnostic (LSP.Diagnostic{..}) =
         ]
     where
         sev = fromMaybe LSP.DsError _severity
+
+prettyDiagnosticStore :: DiagnosticStore -> Doc SyntaxClass
+prettyDiagnosticStore ds =
+    vcat $ map prettyFileDiags storeContents where
+    prettyFileDiags :: (FilePath, [(T.Text, [LSP.Diagnostic])]) -> Doc SyntaxClass
+    prettyFileDiags (fp,stages) = label_ ("File: "<>fp) $ vcat $ map prettyStage stages
+    prettyStage :: (T.Text, [LSP.Diagnostic]) -> Doc SyntaxClass
+    prettyStage (stage,diags) = label_ ("Stage: "<>T.unpack stage) $ vcat $ map prettyDiagnostic diags
+    dontKnow :: IsString s => s
+    dontKnow = "<unknown>"
+    getDiags :: DiagnosticsBySource -> [(T.Text, [LSP.Diagnostic])]
+    getDiags = map (\(ds, diag) -> (fromMaybe dontKnow ds, toList diag)) . Map.assocs
+    storeContents ::
+        [(FilePath, [(T.Text, [LSP.Diagnostic])])]
+        -- ^ Source File, Stage Source, Diags
+    storeContents =
+        map (\(uri, (StoreItem _ diags)) ->
+                 (fromMaybe dontKnow $ uriToFilePath uri, getDiags diags)) $
+        Map.assocs ds
+

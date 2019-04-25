@@ -31,7 +31,7 @@ import           Data.Tuple.Extra                          (second)
 -- | Parse, and process documentation in, a dependency graph of modules.
 mkDocs :: CompileOpts ->
           [FilePath] ->
-          Ex.ExceptT [Diagnostic] IO [ModuleDoc]
+          Ex.ExceptT DiagnosticStore IO [ModuleDoc]
 mkDocs opts fp = do
   parsed <- haddockParse opts fp
   pure $ map mkModuleDocs parsed
@@ -118,7 +118,7 @@ collectDocs = go Nothing []
 --   invoked by a CLI tool.
 haddockParse :: CompileOpts ->
                 [FilePath] ->
-                Ex.ExceptT [Diagnostic] IO [ParsedModule]
+                Ex.ExceptT DiagnosticStore IO [ParsedModule]
 haddockParse opts f = ExceptT $ do
   service <- Service.initialise Service.mainRule Nothing Logger.makeNopHandle opts
   Service.setFilesOfInterest service (Set.fromList f)

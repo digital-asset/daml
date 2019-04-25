@@ -87,8 +87,8 @@ convertDiagnostic
         message
   where
     convSeverity = \case
-        Base.Error -> Error
-        Base.Warning -> Warning
+        Base.DsError -> Error
+        Base.DsWarning -> Warning
 
 
 -- | Convert an AST location value.

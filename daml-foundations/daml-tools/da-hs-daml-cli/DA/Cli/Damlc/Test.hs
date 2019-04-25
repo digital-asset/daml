@@ -74,7 +74,7 @@ testJUnit lfVersion hDamlGhc files junitOutput = do
                     -- If we don’t get scenario results, we use the diagnostics
                     -- as the error message for each scenario.
                     diagnostics <- liftIO $ CompilerService.getDiagnostics hDamlGhc
-                    let errMsg = T.unlines (map (Pretty.renderPlain . prettyDiagnostic) diagnostics)
+                    let errMsg = Pretty.renderPlain $ prettyDiagnosticStore diagnostics
                     pure $ map (, Just errMsg) scenarios
                 Just scenarioResults -> pure $
                     map (\(vr, res) -> (vr, either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing) res))
