@@ -53,10 +53,13 @@ minorInProtobuf = TL.pack . \case
   PointDev -> "dev"
 
 minorFromProtobuf :: TL.Text -> Maybe MinorVersion
-minorFromProtobuf = go . TL.unpack
-  where go (Read.readMaybe -> Just i) = Just $ PointStable i
-        go "dev" = Just PointDev
-        go _ = Nothing
+minorFromProtobuf = minorFromCliOption . TL.unpack
+
+minorFromCliOption :: String -> Maybe MinorVersion
+minorFromCliOption = \case
+  (Read.readMaybe -> Just i) -> Just $ PointStable i
+  "dev" -> Just PointDev
+  _ -> Nothing
 
 supportedInputVersions :: [Version]
 supportedInputVersions = [version1_0, version1_1, version1_2, version1_3]
