@@ -33,15 +33,13 @@ object TransactionVersions
       },
       // a NodeCreate with defined `key` or a NodeLookupByKey
       // implies minimum version 3
-      a.fold(GenTransaction.AnyOrder, minVersion) {
-        case (z, (_, gn)) =>
-          val reqV3 = gn match {
-            case nc: Node.NodeCreate[_, _] => nc.key.isDefined
-            case _: Node.NodeLookupByKey[_, _] => true
-            case _: Node.NodeFetch[_] | _: Node.NodeExercises[_, _, _] => false
-          }
-          if (reqV3) minKeyOrLookupByKey else z
-      },
+      if (a.nodes.values.exists {
+          case nc: Node.NodeCreate[_, _] => nc.key.isDefined
+          case _: Node.NodeLookupByKey[_, _] => true
+          case _: Node.NodeFetch[_] | _: Node.NodeExercises[_, _, _] => false
+        }) minKeyOrLookupByKey
+      else minVersion,
+      // a NodeFetch with actingParties implies minimum version 5
       if (a.nodes.values
           .exists { case nf: Node.NodeFetch[_] => nf.actingParties.nonEmpty; case _ => false })
         minFetchActors
