@@ -43,6 +43,7 @@ pkg_tar(
         "@daml_extension_deps//vscode-languageclient:vscode-languageclient",
         "@daml_extension_deps//vscode-languageserver-types:vscode-languageserver-types",
         "@daml_extension_deps//which:which",
+        "//:VERSION",
     ],
     extension = "tar.gz",
     mode = "0755",

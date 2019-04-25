@@ -17,6 +17,7 @@ module DamlHelper
 
     , NavigatorPort(..)
     , SandboxPort(..)
+    , ReplaceExtension(..)
     ) where
 
 import Control.Concurrent
@@ -45,7 +46,7 @@ import System.IO.Extra
 
 import DAML.Project.Config
 import DAML.Project.Consts
-import DAML.Project.Types (ProjectPath(..))
+import DAML.Project.Types (ProjectPath(..), parseVersion)
 import DAML.Project.Util
 
 data DamlHelperError = DamlHelperError
@@ -66,19 +67,44 @@ required msg = fromMaybeM (throwIO $ DamlHelperError msg Nothing)
 requiredE :: Exception e => T.Text -> Either e t -> IO t
 requiredE msg = fromRightM (throwIO . DamlHelperError msg . Just . T.pack . displayException)
 
-runDamlStudio :: Bool -> [String] -> IO ()
-runDamlStudio overwriteExtension remainingArguments = do
+data ReplaceExtension
+    = ReplaceExtNever
+    -- ^ Never replace an existing extension.
+    | ReplaceExtNewer
+    -- ^ Replace the extension if the current extension is newer.
+    | ReplaceExtAlways
+    -- ^ Always replace the extension.
+
+runDamlStudio :: ReplaceExtension -> [String] -> IO ()
+runDamlStudio replaceExt remainingArguments = do
     sdkPath <- getSdkPath
     vscodeExtensionsDir <- fmap (</> ".vscode/extensions") getHomeDirectory
     let vscodeExtensionName = "da-vscode-daml-extension"
     let vscodeExtensionSrcDir = sdkPath </> "studio"
     let vscodeExtensionTargetDir = vscodeExtensionsDir </> vscodeExtensionName
-    when overwriteExtension $ removePathForcibly vscodeExtensionTargetDir
+    whenM (shouldReplaceExtension replaceExt vscodeExtensionTargetDir) $
+        removePathForcibly vscodeExtensionTargetDir
     installExtension vscodeExtensionSrcDir vscodeExtensionTargetDir
     -- Note that it is important that we use `shell` rather than `proc` here as
     -- `proc` will look for `code.exe` in PATH which does not exist.
     exitCode <- withCreateProcess (shell $ unwords $ "code" : remainingArguments) $ \_ _ _ -> waitForProcess
     exitWith exitCode
+
+shouldReplaceExtension :: ReplaceExtension -> FilePath -> IO Bool
+shouldReplaceExtension replaceExt dir =
+    case replaceExt of
+        ReplaceExtNever -> pure False
+        ReplaceExtAlways -> pure True
+        ReplaceExtNewer -> do
+            let installedVersionFile = dir </> "VERSION"
+            ifM (doesFileExist installedVersionFile)
+              (do installedVersion <-
+                      requiredE "Failed to parse version of VSCode extension" . parseVersion . T.strip . T.pack =<<
+                      readFileUTF8 installedVersionFile
+                  sdkVersion <- requiredE "Failed to parse SDK version" . parseVersion . T.pack =<< getSdkVersion
+                  pure (sdkVersion > installedVersion))
+              (pure True)
+              -- ^ If the VERSION file does not exist, we must have installed an older version.
 
 runJar :: FilePath -> [String] -> IO ()
 runJar jarPath remainingArguments = do
@@ -213,10 +239,8 @@ installExtension src target =
     catchJust
         (guard . isAlreadyExistsError)
         install
-        (-- We might want to emit a warning if the extension is for a different SDK version
-         -- but medium term it probably makes more sense to add the extension to the marketplace
-         -- and make it backwards compatible
-         const $ pure ())
+        (const $ pure ())
+        -- If we get an exception, we just keep the existing extension.
      where
          install
              | isWindows = do
