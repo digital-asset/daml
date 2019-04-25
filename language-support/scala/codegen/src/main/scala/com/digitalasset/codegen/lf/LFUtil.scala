@@ -25,7 +25,7 @@ import scalaz.syntax.id._
 import scalaz.syntax.foldable._
 import scalaz.syntax.std.option._
 
-case class DefTemplateWithRecord[+Type](`type`: Record[(String, Type)], template: DefTemplate[Type])
+case class DefTemplateWithRecord[+Type](`type`: Record[Type], template: DefTemplate[Type])
 object DefTemplateWithRecord {
   type FWT = DefTemplateWithRecord[IType]
 }

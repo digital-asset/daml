@@ -47,7 +47,7 @@ let
     };
   };
 
-  ghc = pkgs.callPackage ./overrides/ghc-8.6.4.nix rec {
+  ghc = pkgs.callPackage ./overrides/ghc-8.6.5.nix rec {
     bootPkgs = ghc863BinaryPackages;
     inherit (pkgs.python3Packages) sphinx;
     inherit (pkgs) buildLlvmPackages;

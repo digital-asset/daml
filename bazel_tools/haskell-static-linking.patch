@@ -36,7 +36,7 @@ index 2163c02..37a6d07 100644
  
 +    metadata_entries_extras = {
 +        "hs-libraries": pkg_id.library_name(hs, my_pkg_id),
-+        "extra-libraries": " ".join(extra_libs + ["stdc++", "crypt32", "ws2_32"]),
++        "extra-libraries": " ".join(extra_libs + ["stdc++", "crypt32", "shlwapi", "ws2_32"]),
 +        } if hs.toolchain.is_windows else {
 +        "extra-libraries": " ".join([pkg_id.library_name(hs, my_pkg_id)] + extra_libs),
 +    }

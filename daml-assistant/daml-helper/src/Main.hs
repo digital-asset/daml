@@ -11,7 +11,7 @@ main :: IO ()
 main = runCommand =<< execParser (info (commandParser <**> helper) idm)
 
 data Command
-    = DamlStudio { overwriteExtension :: Bool, remainingArguments :: [String] }
+    = DamlStudio { replaceExtension :: ReplaceExtension, remainingArguments :: [String] }
     | RunJar { jarPath :: FilePath, remainingArguments :: [String] }
     | New { targetFolder :: FilePath, templateName :: String }
     | ListTemplates
@@ -20,13 +20,17 @@ data Command
 commandParser :: Parser Command
 commandParser =
     subparser $ fold
-         [ command "studio" (info (damlStudioCmd <**> helper) idm)
+         [ command "studio" (info (damlStudioCmd <**> helper) forwardOptions)
          , command "new" (info (newCmd <**> helper) idm)
          , command "start" (info (startCmd <**> helper) idm)
          , command "run-jar" (info runJarCmd forwardOptions)
          ]
     where damlStudioCmd = DamlStudio
-              <$> switch (long "overwrite" <> help "Overwrite the VSCode extension if it already exists")
+              <$> option readReplacement
+                  (long "replace" <>
+                   help "Whether an existing extension should be overwritten. ('never', 'newer' or 'always', defaults to newer)" <>
+                   value ReplaceExtNewer
+                  )
               <*> many (argument str (metavar "ARG"))
           runJarCmd = RunJar
               <$> argument str (metavar "JAR" <> help "Path to JAR relative to SDK path")
@@ -38,9 +42,16 @@ commandParser =
                   <*> argument str (metavar "TEMPLATE" <> help "Name of the template used to create the project (default: quickstart-java)" <> value "quickstart-java")
               ]
           startCmd = pure Start
+          readReplacement :: ReadM ReplaceExtension
+          readReplacement = maybeReader $ \s -> case s of
+              "never" -> Just ReplaceExtNever
+              "newer" -> Just ReplaceExtNewer
+              "always" -> Just ReplaceExtAlways
+              _ -> Nothing
+
 
 runCommand :: Command -> IO ()
-runCommand DamlStudio {..} = runDamlStudio overwriteExtension remainingArguments
+runCommand DamlStudio {..} = runDamlStudio replaceExtension remainingArguments
 runCommand RunJar {..} = runJar jarPath remainingArguments
 runCommand New {..} = runNew targetFolder templateName
 runCommand ListTemplates = runListTemplates

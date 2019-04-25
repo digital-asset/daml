@@ -88,8 +88,7 @@ class TypeSpec extends WordSpec with Matchers {
         Record(ImmArraySeq("fld1" -> t"List a", "fld2" -> t"Mod:V b"))
       )
     )
-    inst shouldBe Record[FieldWithType](
-      ImmArraySeq("fld1" -> t"List Int64", "fld2" -> t"Mod:V Text"))
+    inst shouldBe Record[Type](ImmArraySeq("fld1" -> t"List Int64", "fld2" -> t"Mod:V Text"))
   }
 
   "mapTypeVars should replace all type variables in List(List a)" in {
