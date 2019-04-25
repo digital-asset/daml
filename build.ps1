@@ -7,6 +7,10 @@ $ErrorActionPreference = 'Stop'
 .\dev-env\windows\bin\dadew.ps1 sync
 .\dev-env\windows\bin\dadew.ps1 enable
 
+if (!(Test-Path .\.bazelrc.local)) {
+   Set-Content -Path .\.bazelrc.local -Value 'build --config windows'
+}
+
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
