@@ -2,8 +2,7 @@
 
 Basic example of using haskell-grpc. Nothing ledger specific here.
 
-This example is simply the tutorial example from: https://github.com/awakesecurity/gRPC-haskell/tree/master/examples/tutorial, setup to be build using bazel in the daml repo.
-
+This example is derived from the tutorial example here: https://github.com/awakesecurity/gRPC-haskell/tree/master/examples/tutorial, setup to be build using bazel.
 ## Build and Run
 
 	$ bazel build ...
