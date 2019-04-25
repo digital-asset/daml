@@ -9,6 +9,9 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Make DAML-LF 1.3 the default compilation target for the DAML compiler. This means that
+  contract keys and text maps are now available by default in DAML.
+
 0.12.9 — 2019-04-23
 -------------------
 
