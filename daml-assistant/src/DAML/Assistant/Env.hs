@@ -198,9 +198,8 @@ getDispatchEnv Env{..} = do
 autoInstall :: DamlPath -> Maybe SdkVersion -> IO (Maybe SdkPath)
 autoInstall damlPath sdkVersionM = do
     damlConfigE <- try $ readDamlConfig damlPath
-    let doAutoInstallME = queryDamlConfig ["auto-install"] =<< damlConfigE
-        doAutoInstallM  = either (const (Just True)) id doAutoInstallME
-        doAutoInstall   = fromMaybe True doAutoInstallM
+    let doAutoInstallE = queryDamlConfigRequired ["auto-install"] =<< damlConfigE
+        doAutoInstall = fromRight True doAutoInstallE
     whenMaybe (doAutoInstall && isJust sdkVersionM) $ do
         let sdkVersion = fromJust sdkVersionM
         -- sdk is missing, so let's install it!
@@ -219,7 +218,7 @@ autoInstall damlPath sdkVersionM = do
                 , damlPath = damlPath
                 , targetVersionM = Just sdkVersion
                 , projectPathM = Nothing
-                , out = stderr -- Print install messages to stderr.
+                , output = hPutStrLn stderr -- Print install messages to stderr.
                 }
         versionInstall env sdkVersion
         pure (defaultSdkPath damlPath sdkVersion)
