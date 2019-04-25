@@ -56,7 +56,6 @@ minorFromProtobuf = go . TL.unpack
         go "dev" = Just PointDev
         go _ = Nothing
 
--- NOTE(MH): 'VDev' does not appear in this list because it is handled differently.
 supportedInputVersions :: [Version]
 supportedInputVersions = [version1_0, version1_1, version1_2, version1_3]
 
