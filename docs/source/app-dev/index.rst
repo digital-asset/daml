@@ -73,7 +73,7 @@ As a user, you don't need to interact with DAML-LF directly. But inside the DAML
 When you need to know about DAML-LF
 ===================================
 
-DAML-LF is only really relevant when you're dealing with the objects you send to or receive from the ledger. If you use :doc:`code generation </app-dev/bindings-java/codegen>`, you don't need to know about DAML-LF at all, because this generates idiomatic representations of DAML for you.
+DAML-LF is only really relevant when you're dealing with the objects you send to or receive from the ledger. If you use :doc:`code generation </app-dev/bindings-java/codegen>`, you don't need to know about DAML-LF at all, because this generates idiomatic representations of DAML for you.`
 
 Otherwise, it can be helpful to know what the types in your DAML code look like at the DAML-LF level, so you know what to expect from the Ledger API.
 
