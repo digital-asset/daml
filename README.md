@@ -1,10 +1,8 @@
 [![DAML logo](daml-logo.png)](https://www.daml.com)
 
-
-[![Build Status](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=master&jobName=Linux&label=linux)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=master) [![Build Status](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=master&jobName=macOS&label=macOS)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=master)
+[![Download](https://api.bintray.com/packages/digitalassetsdk/DigitalAssetSDK/sdk/images/download.svg)](https://docs.daml.com/getting-started/installation.html)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/master/LICENSE)
-
-[![Download SDK](https://api.bintray.com/packages/digitalassetsdk/DigitalAssetSDK/sdk/images/download.svg)](https://docs.daml.com/getting-started/installation.html)
+[![Build](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=master&label=Build)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=master)
 
 Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
@@ -14,57 +12,80 @@ SPDX-License-Identifier: Apache-2.0
 This repository hosts all code for the [DAML smart contract language and SDK](https://daml.com/), originally created by
 [Digital Asset](https://www.digitalasset.com). DAML is an open-source smart contract language for building future-proof distributed applications on a safe, privacy-aware runtime. The DAML SDK is a set of tools to help you develop applications based on DAML.
 
-## To start using DAML
+## Using DAML
 
-To download DAML, follow [the installation instructions on docs.daml.com](https://docs.daml.com/getting-started/installation.html).
-To try out using it, follow the [quickstart guide](https://docs.daml.com/getting-started/quickstart.html).
+To download DAML, follow [the installation instructions](https://docs.daml.com/getting-started/installation.html).
+Once installed, to try it out, follow the [quickstart guide](https://docs.daml.com/getting-started/quickstart.html).
 
 If you have questions about how to use DAML or how to build DAML-based solutions, please ask
 them on [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
 
-## To start contributing to the DAML SDK
+## Contribuing to DAML
 
-We warmly welcome [contributions](./CONTRIBUTING.md). To get set up for contributing to the SDK, follow these instructions:
+We warmly welcome [contributions](./CONTRIBUTING.md). If you are looking for ideas on how to contribute, please browse our
+[issues](https://github.com/digital-asset/daml/issues). To build and test DAML:
 
 ### 1. Clone this repository
 
-`git clone git@github.com:digital-asset/daml.git`.
+```
+git clone git@github.com:digital-asset/daml.git
+cd daml
+```
 
-### 2. Set up the DA Development Environment ("`dev-env`")
+### 2. Set up the development dependencies
 
-`dev-env` provides dependencies required during the build phase, like Java, Bazel, and Python
-for some tooling scripts. The code itself is built using Bazel.
+Our builds require various development dependencies (e.g. Java, Bazel, Python), provided by a tool called `dev-env`.
 
-#### Set up `dev-env` on Linux or macOS
+#### Linux and Mac
 
-1. Use `cd daml` to switch into the new `daml` repository you just cloned
-2. Install Nix by running: `bash <(curl https://nixos.org/nix/install)`
-3. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
+On Linux and Mac `dev-env` can be installed with:
+
+1. Install Nix by running: `bash <(curl https://nixos.org/nix/install)`
+2. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
 
 If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
 you can also install [direnv](https://direnv.net). This repo already provides a `.envrc`
 file, with an option to add more in a `.envrc.private` file.
 
-#### Set up `dev-env` on Windows
+#### Windows
 
-We're working on Windows support (for both end users and developers), but it's not ready yet.
-[Sign up](https://hub.daml.com/sdk/windows) to be notified when it is available.
+On Windows you need to enable long file paths by running the following command in an admin powershell:
 
-### 3. Build the source code
+```
+Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Type DWord -Value 1
+```
 
-Run `bazel build //...`
+Then start `dev-env` from PowerShell with:
 
-This builds the code, and will likely take an hour or more.
+```
+.\dev-env\windows\bin\dadew.ps1 install
+.\dev-env\windows\bin\dadew.ps1 sync
+.\dev-env\windows\bin\dadew.ps1 enable
+```
 
-Now you've built, rebuilding the code after a change will be much faster because Bazel caches
-unchanged build artefacts. To read more about Bazel and how to use it, see [the Bazel site](https://bazel.build).
+In all new PowerShell processes started, you need to repeat the `enable` step.
 
-To run the tests, run `bazel test //...`
+### 3. First build and test
 
-### 4. Contribute!
+We have a single script to build most targets and run the tests. On Linux and Mac run `./build.sh`. On Windows run `.\build.ps1`. Note that these scripts may take over an hour the first time.
 
-If you are looking for ideas on how to contribute, please browse our
-[issues](https://github.com/digital-asset/daml/issues).
+To just build do `bazel build //...`, and to just test do `bazel test //...`. To read more about Bazel and how to use it, see [the Bazel site](https://bazel.build).
+
+### 4. Installing a local copy
+
+On Linux and Mac run `da-sdk-head` which installs a version of the SDK with version number `0.0.0`. Set the `version:` field in any DAML project to 0.0.0 and it will use the locally installed one.
+
+On Windows:
+
+```
+bazel build //release:sdk-release-tarball
+tar -vxf .\bazel-genfiles\release\sdk-release-tarball.tar.z
+cd sdk-*
+daml\daml.exe install . --activate
+```
+
+That should tell you what to put in the path, something along the lines of `C:\Users\admin\AppData\Roaming\daml\bin`.
+Note that the Windows build is not yet fully functional.
 
 ### Caching: build speed and disk space considerations
 
