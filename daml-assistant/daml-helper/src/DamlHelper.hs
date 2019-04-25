@@ -163,10 +163,14 @@ runStart = withProjectRoot $ \_ -> do
     projectName :: String <-
         requiredE "Project must have a name" $
         queryProjectConfigRequired ["name"] projectConfig
+    mbScenario :: Maybe String <-
+        requiredE "Failed to parse scenario" $
+        queryProjectConfig ["scenario"] projectConfig
     let darName = projectName <> ".dar"
     assistant <- getDamlAssistant
-    callProcess assistant ["build", "-o", darName]
-    withSandbox sandboxPort [darName] $ \sandboxPh -> do
+    callCommand (unwords $ assistant : ["build", "-o", darName])
+    let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
+    withSandbox sandboxPort (darName : scenarioArgs) $ \sandboxPh -> do
         parties <- getProjectParties
         withTempDir $ \confDir -> do
             -- Navigator determines the file format based on the extension so we need a .json file.
