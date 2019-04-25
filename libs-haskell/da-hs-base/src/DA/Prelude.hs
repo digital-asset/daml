@@ -66,7 +66,6 @@ module DA.Prelude
     -- ** Make default instances
   , concatSequenceA
   , makeInstances
-  , makeInstancesAltJson
   , makeInstancesExcept
   , makeConstrainedInstances
 
@@ -153,8 +152,6 @@ import Safe
 
 import qualified "template-haskell" Language.Haskell.TH        as TH
 import qualified Control.Lens.TH            as Lens.TH
-import qualified Data.Aeson                 as Aeson
-import qualified Data.Aeson.TH.Extended     as Aeson.TH
 import qualified Data.Binary                as Binary
 
 
@@ -177,16 +174,9 @@ concatSequenceA = fmap concat . sequenceA
 -- for declaring what instances our datatypes support by default.
 
 
--- | One TH line of deriving our usual instances (ToJSON, FromJSON, Generic, Eq, Show, Ord)
+-- | One TH line of deriving our usual instances (Generic, Eq, Show, Ord)
 makeInstances :: TH.Name -> TH.Q [TH.Dec]
 makeInstances = makeInstancesExcept []
-
-makeInstancesAltJson :: String -> TH.Name -> TH.Q [TH.Dec]
-makeInstancesAltJson prefix name =
-  concatSequenceA
-  [ makeConstrainedInstancesExcept [] [''Aeson.ToJSON, ''Aeson.FromJSON] name
-  , Aeson.TH.deriveDAJSON prefix name
-  ]
 
 makeInstancesExcept :: [TH.Name] -> TH.Name -> TH.Q [TH.Dec]
 makeInstancesExcept = makeConstrainedInstancesExcept []
@@ -213,8 +203,8 @@ makeConstrainedInstancesExcept constraints exceptions name = do
     appConT = TH.appT . TH.conT
 
     -- no type arguments, e.g.:
-    -- instance FromJSON X
-    -- instance ToJSON X
+    -- instance Eq X
+    -- instance Eq X
     arg0 :: TH.Q [TH.Dec]
     arg0 = do
       let genD :: TH.Name -> TH.Q [TH.Dec]
@@ -227,7 +217,7 @@ makeConstrainedInstancesExcept constraints exceptions name = do
           genI t = return <$>
               TH.instanceD
                    (return [])                          -- no predicates
-                   (appConT t (TH.conT name)) -- ToJSON X
+                   (appConT t (TH.conT name)) -- Eq X
                    []                                   -- no implementation, default is good
 
       fmap concat $ sequence $ concat
@@ -237,12 +227,10 @@ makeConstrainedInstancesExcept constraints exceptions name = do
         , except ''Show $ genD ''Show
         , except ''Data $ genD ''Data
         , except ''Generic $ genD ''Generic
-        , except ''Aeson.ToJSON $ Aeson.TH.deriveDAToJSON "" name
-        , except ''Aeson.FromJSON $ Aeson.TH.deriveDAFromJSON "" name
         ]
 
     -- specific number of type arguments, e.g. argN 2:
-    -- instance (FromJSON a, FromJSON b) => FromJSON (X a b)
+    -- instance (Eq a, Eq b) => Eq (X a b)
     argN :: Int -> TH.Q [TH.Dec]
     argN nArgs = do
         fmap concat $ sequence $ concat
@@ -252,19 +240,8 @@ makeConstrainedInstancesExcept constraints exceptions name = do
           , except ''Data           $ genD (''Data : constraints) ''Data
           , except ''Generic        $ genD [] ''Generic
           , except ''Binary.Binary  $ genI (''Binary.Binary : constraints) ''Binary.Binary
-          , except ''Aeson.ToJSON toJSON
-          , except ''Aeson.FromJSON fromJSON
           ]
       where
-        -- Use deriveDAToJSON/FromJSON when possible
-        toJSON
-          | null constraints = Aeson.TH.deriveDAToJSON "" name
-          | otherwise        = genI (''Aeson.ToJSON : constraints) ''Aeson.ToJSON
-
-        fromJSON = if null constraints
-          then Aeson.TH.deriveDAFromJSON "" name
-          else genI (''Aeson.FromJSON : constraints) ''Aeson.FromJSON
-
         genD :: [TH.Name] -> TH.Name -> TH.Q [TH.Dec]
         genD cs0 class_ = return <$>
             do
