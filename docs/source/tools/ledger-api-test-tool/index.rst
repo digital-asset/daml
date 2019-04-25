@@ -79,6 +79,8 @@ Run the tool with ``--help`` flag to obtain the list of options the tool provide
 
    $ java -jar ledger-api-test-tool.jar  --help
 
+|
+
 Try out the Ledger API Test Tool against DAML Sandbox
 =====================================================
 
@@ -89,7 +91,7 @@ If you wanted to test out the tool, you can run it against :doc:`DAML Sandbox
 
      $ java -jar ledger-api-test-tool.jar --extract
      $ da sandbox -- SemanticTests.dar
-     $ java -jar ledger-api-test-tool.jar 
+     $ java -jar ledger-api-test-tool.jar
 
 This should always succeed, as the Sandbox is tested to correctly implement the
 Ledger API. This is useful if you do not have yet a custom Ledger API endpoint.
@@ -119,7 +121,7 @@ Use flag ``--must-fail`` if you expect one or more or the scenario tests to
 fail. If enabled, the tool will return the success exit code when at least one
 test fails, and it will return a failure exit code when all tests succeed:
 
-    ``java -jar ledger-api-test-tool.jar  --must-fail -h localhost -p 6865``
+    ``java -jar ledger-api-test-tool.jar --must-fail -h localhost -p 6865``
 
 This is useful during development of a DAML ledger implementation, when tool
 needs to be used against a known-to-be-faulty implementation (e.g. in CI). It
