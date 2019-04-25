@@ -39,5 +39,5 @@ def hazel_github_external(project, repoName, commit, sha, directory="", name=Non
              })]
 
 # Things we get from the digital-asset GitHub
-def hazel_github(repoName, commit, sha):
-    return hazel_github_external("digital-asset", repoName, commit, sha)
+def hazel_github(repoName, commit, sha, directory="", name=None):
+    return hazel_github_external("digital-asset", repoName, commit, sha, directory=directory, name=name)
