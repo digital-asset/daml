@@ -32,7 +32,6 @@ where
 import           Control.Lens       (Iso', Prism', from, iso, prism')
 import           Control.DeepSeq    (NFData(..))
 
-import qualified Data.Aeson         as Aeson
 import qualified Data.Scientific    as Scientific
 
 import           DA.Prelude
@@ -70,16 +69,6 @@ instance Ord Decimal where
       then n <= m * 10^diff
       else n * 10^(-diff) <= m
 
-
--- | JSON encoding compatible with Apollo (expecting an array)
-instance Aeson.ToJSON Decimal where
-    toJSON (Decimal m e) = Aeson.toJSON [m, e]
-
-
-instance Aeson.FromJSON Decimal where
-    parseJSON jsn = do
-        [m, e] <- Aeson.parseJSON jsn
-        return $ Decimal m e
 
 -- The following are needed by core package
 -------------------------------------------

@@ -8,14 +8,13 @@ module DA.Daml.LF.Ast.Version where
 import           DA.Prelude
 import           DA.Pretty
 import           Control.DeepSeq
-import           Data.Aeson
 import qualified Data.Text as T
 
 -- | DAML-LF version of an archive payload.
 data Version
   = V1{versionMinor :: Int}
   | VDev T.Text
-  deriving (Eq, Data, Generic, NFData, Ord, Show, ToJSON)
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | DAML-LF version 1.0.
 version1_0 :: Version
