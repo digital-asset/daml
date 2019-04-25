@@ -1,7 +1,7 @@
-app-arch/index.html -> /app-dev/app-arch/index.html
+app-arch/index.html -> /app-dev/app-arch.html
 release-notes.html -> /support/release-notes.html
 tools/extractor.html
-integration.html -> /app-dev/app-arch/index.html
+integration.html -> /app-dev/app-arch.html
 index.html
 support.html -> /support/support.html
 daml.html -> /daml/reference/index.html

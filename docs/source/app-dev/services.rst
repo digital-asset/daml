@@ -9,7 +9,7 @@ The Ledger API is structured as a set of services. The core services are impleme
 
 This page gives more detail about each of the services in the API, and will be relevant whichever way you're accessing it.
 
-If you want to read low-level detail about each service, see the :doc:`protobuf documentation of the API </app-dev/ledger-api-introduction/proto-docs>`.
+If you want to read low-level detail about each service, see the :doc:`protobuf documentation of the API </app-dev/grpc/proto-docs>`.
 
 Overview
 ********

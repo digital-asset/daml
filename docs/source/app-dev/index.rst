@@ -53,7 +53,7 @@ No matter how you're accessing it (Java bindings, Node.js bindings, or gRPC), th
 
 For full information on the services see :doc:`/app-dev/services`.
 
-You may also want to read the :doc:`protobuf documentation </app-dev/ledger-api-introduction/proto-docs>`, which explains how each service is defined as protobuf messages.
+You may also want to read the :doc:`protobuf documentation </app-dev/grpc/proto-docs>`, which explains how each service is defined as protobuf messages.
 
 .. _daml-lf-intro:
 

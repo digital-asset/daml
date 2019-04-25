@@ -90,7 +90,7 @@ genrule(
         cp -rL $(location //daml-foundations/daml-ghc:daml-base-rst-docs) source/daml/stdlib/base.rst
 
         # Copy in Protobufs
-        cp -rL $(location //ledger-api/grpc-definitions:docs) source/app-dev/ledger-api-introduction/proto-docs.rst
+        cp -rL $(location //ledger-api/grpc-definitions:docs) source/app-dev/grpc/proto-docs.rst
 
         # Copy in License and Notices
         cp -L $(location //:LICENSE) source/LICENSE
