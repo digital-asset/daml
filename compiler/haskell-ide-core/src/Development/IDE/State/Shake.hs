@@ -6,6 +6,20 @@
 {-# LANGUAGE ConstraintKinds            #-}
 
 -- | A Shake implementation of the compiler service.
+--
+--   There are two primary locations where data lives, and both of
+--   these contain much the same data:
+--
+-- * The Shake database (inside 'shakeDb') stores a map of shake keys
+--   to shake values. In our case, these are all of type 'Q' to 'A'.
+--   During a single run all the values in the Shake database are consistent
+--   so are used in conjunction with each other, e.g. in 'uses'.
+--
+-- * The 'Values' type stores a map of keys to values. These values are
+--   always stored as real Haskell values, whereas Shake serialises all 'A' values
+--   between runs. To deserialise a Shake value, we just consult Values.
+--   Additionally, Values can be used in an inconsistent way, for example
+--   useStale.
 module Development.IDE.State.Shake(
     IdeState,
     IdeRule, IdeResult,
