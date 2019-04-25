@@ -1,8 +1,7 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-
-load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_binary")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
 
 genrule(
     name = "arith-haskellpb-sources",
@@ -21,7 +20,7 @@ genrule(
 
 da_haskell_library(
     name = "arith-haskellpb",
-    srcs = [":arith-haskellpb-sources",],
+    srcs = [":arith-haskellpb-sources"],
     compiler_flags = ["-O0"],
     hazel_deps = [
         "base",
