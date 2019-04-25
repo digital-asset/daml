@@ -38,6 +38,7 @@ getDamlEnv :: IO Env
 getDamlEnv = do
     envDamlPath <- getDamlPath
     envDamlAssistantPath <- getDamlAssistantPath envDamlPath
+    envDamlAssistantSdkVersion <- getDamlAssistantSdkVersion
     envProjectPath <- getProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath envProjectPath
     pure Env {..}
@@ -69,6 +70,21 @@ getDamlAssistantPath (DamlPath damlPath)
     -- both cases so we use this hack to figure out the executable name.
     | takeFileName damlPath == ".daml-head" = pure $ DamlAssistantPath $ damlPath </> "bin" </> "daml-head"
     | otherwise = pure $ DamlAssistantPath $ damlPath </> "bin" </> "daml"
+
+-- | Determine SDK version of running daml assistant.
+getDamlAssistantSdkVersion :: IO (Maybe SdkVersion)
+getDamlAssistantSdkVersion = do
+    exePath <- getExecutablePath
+    sdkPathM <- fmap SdkPath <$> findM hasSdkConfig (ascendants exePath)
+    case sdkPathM of
+        Nothing -> pure Nothing
+        Just sdkPath -> do
+            sdkConfigE <- try $ readSdkConfig sdkPath
+            pure $ eitherToMaybe (sdkVersionFromSdkConfig =<< sdkConfigE)
+    where
+        hasSdkConfig :: FilePath -> IO Bool
+        hasSdkConfig p = doesFileExist (p </> sdkConfigName)
+
 
 -- | Determine absolute path of daml home directory.
 --
@@ -190,6 +206,7 @@ getDispatchEnv Env{..} = do
            , (sdkPathEnvVar, maybe "" unwrapSdkPath envSdkPath)
            , (sdkVersionEnvVar, maybe "" versionToString envSdkVersion)
            , (damlAssistantEnvVar, unwrapDamlAssistantPath envDamlAssistantPath)
+           , (damlAssistantVersionEnvVar, maybe "" versionToString envDamlAssistantSdkVersion)
            ] ++ filter ((`notElem` damlEnvVars) . fst) originalEnv
 
 

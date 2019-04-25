@@ -59,7 +59,7 @@ readConfig name path = do
 sdkVersionFromProjectConfig :: ProjectConfig -> Either ConfigError (Maybe SdkVersion)
 sdkVersionFromProjectConfig = queryProjectConfig ["sdk-version"]
 
--- | Determine sdk version from project config, if it exists.
+-- | Determine sdk version from sdk config, if it exists.
 sdkVersionFromSdkConfig :: SdkConfig -> Either ConfigError SdkVersion
 sdkVersionFromSdkConfig = querySdkConfigRequired ["version"]
 
