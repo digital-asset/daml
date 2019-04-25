@@ -282,8 +282,9 @@ object Pretty {
       state: State,
       header: List[String],
       data: TraversableOnce[TraversableOnce[String]]): String = {
+    val width = state.reader.getTerminal.getWidth
     AsciiTable()
-      .width(state.reader.getTerminal.getWidth)
+      .width(if (width > 4) width else 80)
       .multiline(false)
       .columnMinWidth(4)
       .sampleAtMostRows(200)
