@@ -141,8 +141,8 @@ getSdk damlPath projectPathM =
 
         sdkPath <- firstJustM id
             [ fmap SdkPath <$> lookupEnv sdkPathEnvVar
+            , useInstalledPath damlPath sdkVersion
             , autoInstall damlPath sdkVersion
-            , sdkPathFallback damlPath sdkVersion
             ]
 
         return (sdkVersion, sdkPath)
@@ -160,11 +160,12 @@ getSdk damlPath projectPathM =
                     config <- readConfig path
                     fromRightM throwIO (parseVersion config)
 
-        sdkPathFallback :: DamlPath -> Maybe SdkVersion -> IO (Maybe SdkPath)
-        sdkPathFallback damlPath sdkVersionM = do
-            let pathM = defaultSdkPath damlPath <$> sdkVersionM
-            testM <- mapM (doesDirectoryExist . unwrapSdkPath) pathM
-            pure (testM >>= guard >> pathM)
+        useInstalledPath :: DamlPath -> Maybe SdkVersion -> IO (Maybe SdkPath)
+        useInstalledPath _ Nothing = pure Nothing
+        useInstalledPath damlPath (Just sdkVersion) = do
+            let sdkPath = defaultSdkPath damlPath sdkVersion
+            test <- doesDirectoryExist (unwrapSdkPath sdkPath)
+            pure (guard test >> Just sdkPath)
 
 -- | Determine the latest installed version of the SDK.
 getLatestInstalledSdkVersion :: DamlPath -> IO (Maybe SdkVersion)
@@ -202,29 +203,24 @@ autoInstall damlPath sdkVersionM = do
         doAutoInstall   = fromMaybe True doAutoInstallM
     whenMaybe (doAutoInstall && isJust sdkVersionM) $ do
         let sdkVersion = fromJust sdkVersionM
-            sdkPath = defaultSdkPath damlPath sdkVersion
-
-        unlessM (doesDirectoryExist (unwrapSdkPath sdkPath)) $ do
-            -- sdk is missing, so let's install it!
-            -- first, determine if it is the latest stable version
-            latestVersionE :: Either AssistantError SdkVersion
-                <- try getLatestVersion
-            let isLatest = latestVersionE == Right sdkVersion
-                options = InstallOptions
-                    { iTargetM = Nothing
-                    , iQuiet = QuietInstall False
-                    , iActivate = ActivateInstall isLatest
-                    , iForce = ForceInstall False
-                    }
-                env = InstallEnv
-                    { options = options
-                    , damlPath = damlPath
-                    , targetVersionM = Just sdkVersion
-                    , projectPathM = Nothing
-                    , out = stderr
-                    }
-            versionInstall env sdkVersion
-
-        pure sdkPath
-
+        -- sdk is missing, so let's install it!
+        -- first, determine if it is the latest stable version
+        latestVersionE :: Either AssistantError SdkVersion
+            <- try getLatestVersion
+        let isLatest = latestVersionE == Right sdkVersion
+            options = InstallOptions
+                { iTargetM = Nothing
+                , iQuiet = QuietInstall False
+                , iActivate = ActivateInstall isLatest
+                , iForce = ForceInstall False
+                }
+            env = InstallEnv
+                { options = options
+                , damlPath = damlPath
+                , targetVersionM = Just sdkVersion
+                , projectPathM = Nothing
+                , out = stderr -- Print install messages to stderr.
+                }
+        versionInstall env sdkVersion
+        pure (defaultSdkPath damlPath sdkVersion)
 
