@@ -254,6 +254,8 @@ object Pretty {
         values
           .map(v => arrayIndent + go(v, i + 1))
           .mkString("\n" + indent * i)
+      case PrettyObject(fields) if fields.isEmpty =>
+        "{}"
       case PrettyObject(fields) =>
         val maxFieldLength = fields.map(_.name.length).max + 1
         fields
