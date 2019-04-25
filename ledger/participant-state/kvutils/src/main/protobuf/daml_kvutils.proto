@@ -2,6 +2,10 @@
 // Protocol buffer messages used by the participant state key-value utilities
 // for implementing a DAML ledger backed by a key-value store.
 //
+// These messages must only be produced and consumed by the methods in
+// `KeyValueCommitting`, `KeyValueConsumption` and `KeyValueSubmission` classes.
+// You must not embed these messages in other protocol buffer messages.
+//
 // TODO(JM): We're consistently using the 'Daml' prefix to allow unqualified import
 // of the generated classes and to distinguish these from the scala types in participant-state.
 // Might want to use a more telling prefix.
@@ -51,10 +55,11 @@ message DamlLogEntryId {
   string entry_id = 1;
 }
 
+
 // A submission to the ledger: a payload and its inputs if any.
 message DamlSubmission {
-  repeated DamlLogEntryId input_entries = 1;
-  repeated DamlStateKey input_state = 2;
+  repeated DamlLogEntryId input_log_entries = 1;
+  repeated DamlStateKey input_daml_state = 2;
   oneof payload {
     DamlTransactionEntry transaction_entry = 3;
     daml_lf.Archive archive = 4;
