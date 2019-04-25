@@ -49,6 +49,8 @@ file, with an option to add more in a `.envrc.private` file.
 
 #### Windows
 
+Note that the Windows build is not yet fully functional and is not supported.
+
 On Windows you need to enable long file paths by running the following command in an admin powershell:
 
 ```
