@@ -253,7 +253,7 @@ digits of decimal precision.  In other words, in base-10, a number with
 A leading sign, + or -, may be optionally included.  In regular
 expression terms::
 
-  [+-]?[0-9]{0,28}(\.[0-9]{0,10})?
+  [+-]?[0-9]{1,28}(\.[0-9]{1,10})?
 
 Any value that does not conform, either by being outside the range or
 having too many decimal digits or for any other reason, must be rejected

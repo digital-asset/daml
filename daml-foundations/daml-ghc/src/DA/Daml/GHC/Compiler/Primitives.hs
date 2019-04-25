@@ -125,7 +125,7 @@ convertPrim _ "BEAppendText" (TText :-> TText :-> TText) =
 convertPrim _ "BETrace" (TText :-> a1 :-> a2) | a1 == a2 =
     EBuiltin BETrace `ETyApp` a1
 convertPrim version "BESha256Text" (TText :-> TText) =
-    if supportsSha256Text version
+    if version `supports` featureSha256Text
       then EBuiltin BESha256Text
       -- compile also if we do not support it, so that we can have DA.Text.sha256
       -- compiled without generating invalid packages regardless.
@@ -137,13 +137,13 @@ convertPrim version "BESha256Text" (TText :-> TText) =
 convertPrim _ "BEPartyToQuotedText" (TParty :-> TText) =
     EBuiltin BEPartyToQuotedText
 convertPrim version "BEPartyFromText" (TText :-> TOptional TParty) =
-    if supportsPartyFromText version
+    if version `supports` featurePartyFromText
       then EBuiltin BEPartyFromText
       -- compile also if we do not support it, so that we can have DA.Internal.LF.partyFromText
       -- compiled without generating invalid packages regardless.
       else runtimeUnsupportedPartyFromText (TOptional TParty)
 convertPrim version "BEPartyFromText" (TText :-> optionalParty)
-  | not (supportsOptional version)
+  | not (version `supports` featureOptional)
   , TApp (TCon (Qualified _pkg mod_ typ)) TParty <- optionalParty
   , mod_ == Tagged ["DA", "Internal", "Prelude"]
   , typ == Tagged ["Optional"] =
@@ -218,7 +218,7 @@ runtimeUnsupportedPartyFromText retType =
 -- DAML-LF 1.0.
 convertCompare :: Version -> (BuiltinType -> BuiltinExpr) -> BuiltinType -> Expr
 convertCompare version cmp typ
-    | typ /= BTParty || supportsPartyOrd version = EBuiltin (cmp typ)
+    | typ /= BTParty || version `supports` featurePartyOrd = EBuiltin (cmp typ)
     | otherwise =
         mkETmLams [(varV1, TParty), (varV2, TParty)] $
           mkETmApps (EBuiltin (cmp BTText)) $

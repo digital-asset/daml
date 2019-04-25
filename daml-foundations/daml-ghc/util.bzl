@@ -63,6 +63,7 @@ def daml_ghc_integration_test(name, main_function):
         deps = [
             ":daml-ghc-lib",
             "//compiler/daml-lf-ast",
+            "//compiler/daml-lf-proto",
             "//daml-lf/archive:daml_lf_haskell_proto",
             "//libs-haskell/da-hs-pretty",
             "//libs-haskell/da-hs-base",
@@ -87,6 +88,7 @@ def daml_ghc_integration_test(name, main_function):
             "managed",
             "optparse-applicative",
             "process",
+            "proto3-suite",
             "shake",
             "tagged",
             "tasty",

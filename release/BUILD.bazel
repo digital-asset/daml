@@ -126,9 +126,9 @@ genrule(
       # While we use this template for both da-assistant and daml-assistant we do some manual patching here.
       # Once da-assistant is dead, the quickstart-java rule should produce the final version.
       rm $$OUT/templates/quickstart-java/da-skeleton.yaml
-      cat > $$OUT/templates/quickstart-java/daml.yaml << EOF
-sdk-version: $$VERSION
-name: quickstart
+      cat > $$OUT/templates/quickstart-java/daml.yaml.template << EOF
+sdk-version: __VERSION__
+name: __PROJECT_NAME__
 source: daml/Main.daml
 scenario: Main:setup
 parties:
@@ -166,8 +166,6 @@ genrule(
 
       cp $(location :sdk-config.yaml.tmpl) $$OUT/sdk-config.yaml
       sed -i "s/__VERSION__/$$VERSION/" $$OUT/sdk-config.yaml
-
-      sed -i "s/sdk-version: .*/sdk-version: 0.0.0/" $$OUT/templates/quickstart-java/daml.yaml
 
       tar zcf $(location sdk-head-tarball.tar.gz) --format=ustar $$OUT
     """,

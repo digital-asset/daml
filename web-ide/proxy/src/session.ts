@@ -8,7 +8,7 @@ import * as uid from "uid-safe"
 import { Request, Response } from "express";
 
 const conf = require('./config').read(),
-      debug = require('debug')('webide-session'),
+      debug = require('debug')('webide:session'),
       store = new NodeCache({ stdTTL: conf.session.inactiveTimeout, checkperiod: 120, useClones: false })
 
 type Callback<T> = (error?: any, result?: T) => void;
@@ -23,7 +23,7 @@ type SaveSessionCallback = (err :any, result: any, sessionId :string, save :Save
  */
 export function onTimeout(callback: Callback<any>) {
   store.on( "del", ( key :string, value :any) => {
-    debug("session removed: %s", key)
+    console.log("session removed: %s", key)
     callback(value || {})
   });
 }

@@ -85,17 +85,6 @@ object ApiToLfEngine {
 
   type LfValue = Lf[AbsoluteContractId]
 
-  def parseDecimal(d: String): Either[String, Decimal.Decimal] = {
-    val expectedDecimalFormat = """^[+-]?\d+(\.\d+)?$""".r
-    // note that it is important to get the Decimal with Decimal.fromString even if
-    // we've already checked the string, because fromString checks that the decimal is within bounds.
-    val notValidErr: Either[String, Decimal.Decimal] =
-      Left(s"Failed to parse as decimal. ($d). Expected format is [+-]?\\d+(\\.\\d+)?")
-    expectedDecimalFormat
-      .findFirstIn(d)
-      .fold(notValidErr)(_ => Decimal.fromString(d))
-  }
-
   def toLfIdentifier(
       packages: Map[PackageId, Package],
       ident: Ref.Identifier): ApiToLfResult[(Map[PackageId, Package], Identifier)] = {
@@ -141,7 +130,8 @@ object ApiToLfEngine {
           .fold[ApiToLfResult[(Packages, LfValue)]](ok(Lf.ValueOptional(None)))(_.map(v =>
             (v._1, Lf.ValueOptional(Some(v._2)))))
       case ApiValue.DecimalValue(d) =>
-        parseDecimal(d)
+        Decimal
+          .fromString(d)
           .fold[ApiToLfResult[(Packages, LfValue)]](
             err => Error(LfError(err)),
             n => ok(Lf.ValueDecimal(n)))

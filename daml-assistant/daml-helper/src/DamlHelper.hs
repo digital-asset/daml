@@ -6,7 +6,6 @@ module DamlHelper
     , runNew
     , runJar
     , runListTemplates
-    , runSandbox
     , runStart
 
     , withJar
@@ -29,6 +28,7 @@ import Control.Monad.Loops (untilJust)
 import Data.Aeson
 import Data.Aeson.Text
 import Data.Maybe
+import Data.List.Extra
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as T (toStrict)
 import qualified Network.HTTP.Client as HTTP
@@ -37,6 +37,7 @@ import Network.Socket
 import System.FilePath
 import System.Directory.Extra
 import System.Exit
+import System.Info.Extra
 import System.Process hiding (runCommand)
 import System.IO
 import System.IO.Error
@@ -74,7 +75,9 @@ runDamlStudio overwriteExtension remainingArguments = do
     let vscodeExtensionTargetDir = vscodeExtensionsDir </> vscodeExtensionName
     when overwriteExtension $ removePathForcibly vscodeExtensionTargetDir
     installExtension vscodeExtensionSrcDir vscodeExtensionTargetDir
-    exitCode <- withCreateProcess (proc "code" ("-w" : remainingArguments)) $ \_ _ _ -> waitForProcess
+    -- Note that it is important that we use `shell` rather than `proc` here as
+    -- `proc` will look for `code.exe` in PATH which does not exist.
+    exitCode <- withCreateProcess (shell $ unwords $ "code" : remainingArguments) $ \_ _ _ -> waitForProcess
     exitWith exitCode
 
 runJar :: FilePath -> [String] -> IO ()
@@ -109,6 +112,21 @@ runNew targetFolder templateName = do
         exitFailure
     copyDirectory templateFolder targetFolder
 
+    -- update daml.yaml
+    let configPath = targetFolder </> projectConfigName
+        configTemplatePath = configPath <.> "template"
+
+    whenM (doesFileExist configTemplatePath) $ do
+        configTemplate <- readFileUTF8 configTemplatePath
+        sdkVersion <- getSdkVersion
+        let projectName = takeFileName (dropTrailingPathSeparator targetFolder)
+            config = replace "__VERSION__"  sdkVersion
+                   . replace "__PROJECT_NAME__" projectName
+                   $ configTemplate
+        writeFileUTF8 configPath config
+        removeFile configTemplatePath
+
+
 runListTemplates :: IO ()
 runListTemplates = do
     templatesFolder <- getTemplatesFolder
@@ -139,21 +157,20 @@ withNavigator (SandboxPort sandboxPort) (NavigatorPort navigatorPort) config arg
         waitForHttpServer (putStr "." *> threadDelay 500000) ("http://localhost:" <> show navigatorPort)
         a ph
 
-runSandbox :: SandboxPort -> [String] -> IO ()
-runSandbox port args = do
-    exitCode <- withSandbox port args waitForProcess
-    exitWith exitCode
-
 runStart :: IO ()
 runStart = withProjectRoot $ \_ -> do
     projectConfig <- getProjectConfig
     projectName :: String <-
         requiredE "Project must have a name" $
         queryProjectConfigRequired ["name"] projectConfig
+    mbScenario :: Maybe String <-
+        requiredE "Failed to parse scenario" $
+        queryProjectConfig ["scenario"] projectConfig
     let darName = projectName <> ".dar"
     assistant <- getDamlAssistant
-    callProcess assistant ["build", "-o", darName]
-    withSandbox sandboxPort [darName] $ \sandboxPh -> do
+    callCommand (unwords $ assistant : ["build", "-o", darName])
+    let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
+    withSandbox sandboxPort (darName : scenarioArgs) $ \sandboxPh -> do
         parties <- getProjectParties
         withTempDir $ \confDir -> do
             -- Navigator determines the file format based on the extension so we need a .json file.
@@ -195,11 +212,18 @@ installExtension :: FilePath -> FilePath -> IO ()
 installExtension src target =
     catchJust
         (guard . isAlreadyExistsError)
-        (createDirectoryLink src target)
+        install
         (-- We might want to emit a warning if the extension is for a different SDK version
          -- but medium term it probably makes more sense to add the extension to the marketplace
          -- and make it backwards compatible
          const $ pure ())
+     where
+         install
+             | isWindows = do
+                   -- We create the directory to throw an isAlreadyExistsError.
+                   createDirectory target
+                   copyDirectory src target
+             | otherwise = createDirectoryLink src target
 
 -- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.
 -- Between each connection request it calls `sleep`.

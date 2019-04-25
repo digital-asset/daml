@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.value.Value
 
 import scala.concurrent.Future
@@ -16,6 +17,7 @@ package object v1 {
 
   type TransactionAccepted = Update.TransactionAccepted
   type AsyncResult[T] = Future[Either[IndexService.Err, T]]
+  type TransactionUpdate = (Offset, (Update.TransactionAccepted, BlindingInfo))
 
   /** ACS event identifier */
   type EventId = Ref.SimpleString

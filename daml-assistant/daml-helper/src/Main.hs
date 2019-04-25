@@ -15,18 +15,15 @@ data Command
     | RunJar { jarPath :: FilePath, remainingArguments :: [String] }
     | New { targetFolder :: FilePath, templateName :: String }
     | ListTemplates
-    | Sandbox { port :: SandboxPort, remainingArguments :: [String] }
     | Start
 
 commandParser :: Parser Command
 commandParser =
-    subparser $ foldMap
-         (\(name, opts) -> command name (info (opts <**> helper) idm))
-         [ ("studio", damlStudioCmd)
-         , ("run-jar", runJarCmd)
-         , ("new", newCmd)
-         , ("sandbox", sandboxCmd)
-         , ("start", startCmd)
+    subparser $ fold
+         [ command "studio" (info (damlStudioCmd <**> helper) idm)
+         , command "new" (info (newCmd <**> helper) idm)
+         , command "start" (info (startCmd <**> helper) idm)
+         , command "run-jar" (info runJarCmd forwardOptions)
          ]
     where damlStudioCmd = DamlStudio
               <$> switch (long "overwrite" <> help "Overwrite the VSCode extension if it already exists")
@@ -40,9 +37,6 @@ commandParser =
                   <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
                   <*> argument str (metavar "TEMPLATE" <> help "Name of the template used to create the project (default: quickstart-java)" <> value "quickstart-java")
               ]
-          sandboxCmd = Sandbox
-              <$> option sandboxPortReader (long "port" <> help "Port used by the sandbox")
-              <*> many (argument str (metavar "ARG"))
           startCmd = pure Start
 
 runCommand :: Command -> IO ()
@@ -50,8 +44,5 @@ runCommand DamlStudio {..} = runDamlStudio overwriteExtension remainingArguments
 runCommand RunJar {..} = runJar jarPath remainingArguments
 runCommand New {..} = runNew targetFolder templateName
 runCommand ListTemplates = runListTemplates
-runCommand Sandbox {..} = runSandbox port remainingArguments
 runCommand Start = runStart
 
-sandboxPortReader :: ReadM SandboxPort
-sandboxPortReader = SandboxPort <$> auto

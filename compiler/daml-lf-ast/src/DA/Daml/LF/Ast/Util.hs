@@ -11,7 +11,6 @@ import DA.Prelude
 
 import           Control.Lens
 import           Control.Lens.Ast
-import           Data.Aeson (FromJSON, ToJSON)
 import qualified Data.Graph as G
 import           Data.List.Extra (nubSort)
 import qualified Data.NameMap as NM
@@ -291,4 +290,3 @@ _moduleDefinitions f mod0@(Module name path flags _ _ _) =
   moduleFromDefinitions name path flags <$> f (moduleDefinitions mod0)
 
 makePrisms ''Definition
-makeInstancesExcept [''Ord, ''FromJSON, ''ToJSON] ''Definition

@@ -11,7 +11,7 @@ function getUserDefinedFile() {
     if (userConfig) {
         const confFile = userConfig.startsWith('/') ? userConfig : `${__dirname}/${userConfig}`
         if (fs.existsSync(confFile)) {
-            console.log("Found user defined config file %s", userConfig)
+            console.log("INFO Found user defined config file %s", userConfig)
             return require(userConfig)
         } else {
             console.error("User defined config file %s not found.", userConfig)

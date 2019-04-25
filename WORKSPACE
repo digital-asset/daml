@@ -198,6 +198,19 @@ filegroup(
     repositories = dev_env_nix_repos,
 ) if is_linux else None
 
+# This is used to get ghc-pkg on Linux.
+nixpkgs_package(
+    name = "ghc_nix",
+    attribute_path = "ghc.ghc",
+    build_file_content = """
+package(default_visibility = ["//visibility:public"])
+exports_files(glob(["lib/**/*"]))
+""",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+) if not is_windows else None
+
 # Used by Darwin and Linux
 haskell_register_ghc_nixpkgs(
     attribute_path = "ghcWithC2hs",

@@ -98,12 +98,11 @@ cmdTest numProcessors =
   where
     cmd = execTest
       <$> many inputFileOpt
+      <*> fmap (\x -> ColorTestResults x) colorOutput
       <*> junitOutput
       <*> optionsParser numProcessors optPackageName
-    junitOutput = optional $ strOption $
-        long "junit" <>
-        metavar "FILENAME" <>
-        help "Filename of JUnit output file"
+    junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
+    colorOutput = switch $ long "color" <> help "Colored test results"
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
@@ -325,7 +324,9 @@ execPackageNew numProcessors mbOutFile =
         case Split.splitOn ":" name of
             [_g, a, v] -> a <> "-" <> v <> ".dar"
             _otherwise -> name <> ".dar"
-    targetFilePath name = fromMaybe (defaultDarFile name) mbOutFile
+    targetFilePath name = fromMaybe (defaultOutDir </> defaultDarFile name) mbOutFile
+
+    defaultOutDir = "dist"
 
 -- | Read the daml.yaml field and create the project local package database.
 execInit :: IO ()
@@ -376,7 +377,9 @@ createProjectPackageDb lfVersion fps = do
         unwords
             [ sdkRoot </> "damlc/resources/ghc-pkg"
             , "recache"
-            , "--package-db=" ++ dbPath
+            -- ghc-pkg insists on using a global package db and will trie
+            -- to find one automatically if we don’t specify it here.
+            , "--global-package-db=" ++ dbPath
             , "--expand-pkgroot"
             ]
 

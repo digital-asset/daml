@@ -10,7 +10,6 @@ The tools described in this section are actively being designed and are subject 
    :titlesonly:
    :maxdepth: 2
 
-   /app-dev/bindings-js/index
    Navigator Console </tools/navigator/console>
    Navigator Database </tools/navigator/database>
    Extractor </tools/extractor>

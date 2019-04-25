@@ -27,7 +27,7 @@ export default class Docker {
     init() : Promise<any[]>{
         const webIdeNetwork = config.docker.hostConfig.NetworkMode ? config.docker.hostConfig.NetworkMode : 'bridge'
         if (!this.onInternalNetwork) {
-            console.log("running web ide containers on network[%s], this is a non-internal network and is only suitable for local development", webIdeNetwork)
+            console.log("INFO running web ide containers on network[%s], this is a non-internal network and is only suitable for local development", webIdeNetwork)
             return Promise.resolve([])
         }
     
@@ -70,34 +70,37 @@ export default class Docker {
         }
     }
 
-    startContainer (imageId :string) {
+    startContainer (imageId :string) :Promise<ContainerInspectInfo>{
         return new Promise((resolve, reject) => {
             const createOptions = { HostConfig: config.docker.hostConfig }
             if (!this.onInternalNetwork && config.devMode) createOptions.HostConfig.PublishAllPorts=true
 
-            this.api.run(imageId, ["code-server", "--no-auth", "--allow-http"], process.stdout, createOptions, (err :any, result :any) => {
+            const runner = this.api.run(imageId, ["code-server", "--no-auth", "--allow-http", "--disable-telemetry"], [], createOptions, (err :any, result :any) => {
                 if (err) reject(err) 
             })
-            .on('start', (container :Container) => {
-                console.log(`started container ${container.id} ... waiting for coder-server to come up`)
-                //TODO remove static wait (perhaps scrape logs for "Connected to shared process")
-                const wait = setTimeout(() => {
-                    clearTimeout(wait);
-                    resolve(container.inspect())
-                }, 6000)
+            const containerP :Promise<Container> = new Promise((cResolve, _) => {
+                runner.on('start', (container :Container) => {
+                    console.log(`INFO started container ${container.id} ... waiting for coder-server to come up`)
+                    cResolve(container)
+                })
             })
-            .on('container', (container :Container) => {
-                debug(`created container ${container.id}`)       
+            runner.on('container', (container :Container) => debug(`created container ${container.id}`))
+            runner.on('stream', (stream :Stream) => {
+                let started = false
+                stream.pipe(process.stdout) //TODO should we create context aware log messages per container (including the user session info)??
+                stream.on('data', (chunk :any) => {
+                    if (started) return
+                    const line = chunk instanceof Buffer ? chunk.toString() : (chunk instanceof String ? chunk : typeof chunk)
+                    if (line.includes("Connected to shared process")) {
+                        containerP.then(container => {
+                            started = true
+                            resolve(container.inspect())
+                        })    
+                    }
+                });
+                stream.on('error', (error :any) => reject(error));
             })
-            .on('stream', (stream :Stream) => {
-                //TODO create context aware log messages per container (including the user session info)
-                debug(`attached stream to container`)
-            })
-            .on('data', (data : any) => {
-                //this occurs upon termination of container
-                debug("container stopped: %j",data);
-            })
-            .on('error', (err :any) => reject(err))
+            runner.on('error', (err :any) => reject(err))
         })
     }
 
