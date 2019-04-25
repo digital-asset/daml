@@ -107,12 +107,6 @@ object Cli {
       .text("The JDBC connection URL to a Postgres database containing the username and password as well. If missing the Sandbox will use an in memory store.")
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
-    opt[Unit]("allow-dev")
-      .action { (_, c) =>
-        c.copy(damlPackageContainer = c.damlPackageContainer.allowDev)
-      }
-      .text("Allow usage of DAML-LF dev version. Do not use in production!")
-
     //TODO (robert): Think about all implications of allowing users to set the ledger ID.
     opt[String]("ledgerid")
       .optional()

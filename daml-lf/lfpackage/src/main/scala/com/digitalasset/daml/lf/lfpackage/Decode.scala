@@ -66,15 +66,6 @@ object Decode extends Decode {
       PayloadDecoder(new DecodeV1(minor))(_.getDamlLf1)
   }
 
-  /** A decoder that won't reject the dev major version of LF. */
-  lazy val WithDevSupport: Decode = new Decode {
-    private val devDecoder: PartialFunction[LanguageVersion, PayloadDecoder] = {
-      case LanguageVersion(VDev, VDev.maxSupportedMinorVersion) =>
-        PayloadDecoder(DecodeVDev)(_.getDamlLfDev)
-    }
-    override private[lfpackage] val decoders = devDecoder orElse Decode.decoders
-  }
-
   private[lf] trait OfPackage[-Pkg] {
     def decodePackage(packageId: SimpleString, lfPackage: Pkg): Package
   }

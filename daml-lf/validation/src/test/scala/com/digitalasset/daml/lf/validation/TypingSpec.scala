@@ -620,7 +620,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       LV(LVM.V1, "0") -> true,
       LV(LVM.V1, "1") -> true,
       LV(LVM.V1, "2") -> false,
-      LV.defaultVDev -> false,
     )
 
     val pkg0 =
@@ -667,7 +666,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       LV(LVM.V1, "0") -> true,
       LV(LVM.V1, "1") -> true,
       LV(LVM.V1, "2") -> false,
-      LV.defaultVDev -> false,
     )
 
     val pkg0 =

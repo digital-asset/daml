@@ -16,7 +16,6 @@ class LanguageVersionSpec extends WordSpec with Matchers with TableDrivenPropert
       LV(LVM.V1, "0"),
       LV(LVM.V1, "1"),
       LV(LVM.V1, "2"),
-      LV.defaultVDev,
     )
 
     val versionRank = versionInOrder.zipWithIndex.toMap

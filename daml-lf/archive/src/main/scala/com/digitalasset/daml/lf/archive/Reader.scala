@@ -114,8 +114,6 @@ object Reader extends Reader[(SimpleString, DamlLf.ArchivePayload)] {
   val DamlLfVersion0 = LanguageMajorVersion.V0
   @deprecated("use lf.archive.LanguageMajorVersion.V1 instead", since = "47.0.0")
   val DamlLfVersion1 = LanguageMajorVersion.V1
-  @deprecated("use lf.archive.LanguageMajorVersion.VDev instead", since = "47.0.0")
-  lazy val DamlLfVersionDev = LanguageMajorVersion.VDev
 
   def damlLfCodedInputStreamFromBytes(
       payload: Array[Byte],
@@ -140,8 +138,7 @@ object Reader extends Reader[(SimpleString, DamlLf.ArchivePayload)] {
     lf.getSumCase match {
       case SC.DAML_LF_0 => LMV.V0
       case SC.DAML_LF_1 => LMV.V1
-      case SC.DAML_LF_DEV => LMV.VDev
-      case SC.SUM_NOT_SET => throw ParseError("Unrecognized LF version")
+      case SC.DAML_LF_DEV | SC.SUM_NOT_SET => throw ParseError("Unrecognized LF version")
     }
   }
 
