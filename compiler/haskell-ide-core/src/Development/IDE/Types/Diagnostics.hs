@@ -33,7 +33,6 @@ module Development.IDE.Types.Diagnostics (
   ) where
 
 import Control.Exception
-import qualified Control.Lens as L
 import Data.Either.Combinators
 import Data.Maybe as Maybe
 import Data.Foldable
@@ -111,17 +110,9 @@ addLocation ::
   LSP.Diagnostic
 addLocation loc d =
   d {
-    LSP._relatedInformation =
-        Just $
-        maybe
-        (LSP.List [rel loc])
-        (L.over lspList (rel loc:)) $
-        _relatedInformation d
+    LSP._relatedInformation = Just $ LSP.List (rel loc : maybe [] toList (_relatedInformation d))
     } where
       rel loc = DiagnosticRelatedInformation loc ""
-
-lspList :: L.Iso (LSP.List a) (LSP.List b) [a] [b]
-lspList = L.coerced
 
 filterSeriousErrors ::
     FilePath ->
