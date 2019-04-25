@@ -98,12 +98,11 @@ cmdTest numProcessors =
   where
     cmd = execTest
       <$> many inputFileOpt
+      <*> fmap (\x -> ColorTestResults x) colorOutput
       <*> junitOutput
       <*> optionsParser numProcessors optPackageName
-    junitOutput = optional $ strOption $
-        long "junit" <>
-        metavar "FILENAME" <>
-        help "Filename of JUnit output file"
+    junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
+    colorOutput = switch $ long "color" <> help "Colored test results"
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
