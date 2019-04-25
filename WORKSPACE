@@ -198,6 +198,15 @@ filegroup(
     repositories = dev_env_nix_repos,
 ) if is_linux else None
 
+nix_ghc_deps = common_nix_file_deps + [
+    "//nix:ghc.nix",
+    "//nix:with-packages-wrapper.nix",
+    "//nix:overrides/ghc-8.6.5.nix",
+    "//nix:overrides/c2hs-0.28.6.nix",
+    "//nix:overrides/ghc-8.6.3-binary.nix",
+    "//nix:overrides/language-c-0.8.2.nix",
+]
+
 # This is used to get ghc-pkg on Linux.
 nixpkgs_package(
     name = "ghc_nix",
@@ -207,7 +216,7 @@ package(default_visibility = ["//visibility:public"])
 exports_files(glob(["lib/**/*"]))
 """,
     nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
+    nix_file_deps = nix_ghc_deps,
     repositories = dev_env_nix_repos,
 ) if not is_windows else None
 
@@ -230,25 +239,18 @@ haskell_register_ghc_nixpkgs(
     ],
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps + [
-        "//nix:ghc.nix",
-        "//nix:with-packages-wrapper.nix",
-        "//nix:overrides/ghc-8.6.4.nix",
-        "//nix:overrides/c2hs-0.28.6.nix",
-        "//nix:overrides/ghc-8.6.3-binary.nix",
-        "//nix:overrides/language-c-0.8.2.nix",
-    ],
+    nix_file_deps = nix_ghc_deps,
     repl_ghci_args = [
         "-O0",
         "-fexternal-interpreter",
     ],
     repositories = dev_env_nix_repos,
-    version = "8.6.4",
+    version = "8.6.5",
 )
 
 # Used by Windows
 haskell_register_ghc_bindists(
-    version = "8.6.4",
+    version = "8.6.5",
 ) if is_windows else None
 
 nixpkgs_package(
@@ -372,7 +374,7 @@ bind(
     actual = "@com_google_protobuf//util/python:python_headers",
 )
 
-load("@ai_formation_hazel//:hazel.bzl", "hazel_custom_package_github", "hazel_custom_package_hackage", "hazel_repositories")
+load("@ai_formation_hazel//:hazel.bzl", "hazel_custom_package_github", "hazel_custom_package_hackage", "hazel_default_extra_libs", "hazel_repositories")
 load("//hazel:packages.bzl", "core_packages", "packages")
 load("//bazel_tools:haskell.bzl", "add_extra_packages")
 
@@ -404,7 +406,7 @@ hazel_repositories(
         "text": {"integer-simple": use_integer_simple},
         "scientific": {"integer-simple": use_integer_simple},
     },
-    extra_libs = {
+    extra_libs = hazel_default_extra_libs + {
         "z": "@com_github_madler_zlib//:z",
         "ffi": "@com_github_digital_asset_daml//3rdparty/haskell/ffi_windows:ffi" if is_windows else "@libffi_nix//:ffi",
     },
