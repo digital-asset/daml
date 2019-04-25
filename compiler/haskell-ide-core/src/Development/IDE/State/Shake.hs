@@ -201,11 +201,13 @@ setValues state key file val = modifyVar state $ \inVal -> do
         f = concatMap fst . Map.elems
     return (outVal, (f <$> Map.lookup file inVal, f $ outVal Map.! file))
 
-getValues :: forall k v. IdeRule k v => Var Values -> k -> FilePath -> IO (Maybe (IdeResult v))
-getValues state key file = flip fmap (readVar state) $ \vs -> do
-    f <- Map.lookup file vs
-    k <- Map.lookup (Key key) f
-    pure $ fmap (fromJust . fromDynamic) <$> k
+getValues :: forall k v. IdeRule k v => Var Values -> k -> FilePath -> IO (Maybe (Maybe v))
+getValues state key file = do
+    vs <- readVar state
+    return $ do
+        f <- Map.lookup file vs
+        v <- Map.lookup (Key key) f
+        pure $ fmap (fromJust . fromDynamic @v) $ snd v
 
 -- | Open a 'IdeState', should be shut using 'shakeShut'.
 shakeOpen :: (Event -> IO ()) -- ^ diagnostic handler
@@ -248,9 +250,8 @@ shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts = modifyVar shakeAbort $
 useStale
     :: IdeRule k v
     => IdeState -> k -> FilePath -> IO (Maybe v)
-useStale IdeState{shakeExtras=ShakeExtras{state}} k fp = do
-    v <- getValues state k fp
-    return $ maybe Nothing snd v
+useStale IdeState{shakeExtras=ShakeExtras{state}} k fp =
+    join <$> getValues state k fp
 
 
 getAllDiagnostics :: IdeState -> IO [Diagnostic]
@@ -345,7 +346,7 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
         Just old | mode == RunDependenciesSame -> do
             v <- liftIO $ getValues state key file
             case v of
-                Just v -> return $ Just $ RunResult ChangedNothing old $ A (snd v) (unwrap old)
+                Just v -> return $ Just $ RunResult ChangedNothing old $ A v (unwrap old)
                 _ -> return Nothing
         _ -> return Nothing
     case val of
