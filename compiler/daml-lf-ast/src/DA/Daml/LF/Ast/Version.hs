@@ -8,6 +8,7 @@ module DA.Daml.LF.Ast.Version where
 import           DA.Prelude
 import           DA.Pretty
 import           Control.DeepSeq
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Text.Read as Read
 
