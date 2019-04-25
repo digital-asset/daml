@@ -296,7 +296,7 @@ searchDiagnostics expected@(severity, cursor, message) actuals =
         Map.lookup (filePathToUri fp)
 
 -- | These functions live in the test framework rather that further down the stack because
---   you really should be deconstructing LSP diagnostic stores in this manner bar when testing
+--   you really shouldn't be deconstructing LSP diagnostic stores in this manner bar when testing
 fromStore :: D.StoreItem -> [D.Diagnostic]
 fromStore (D.StoreItem _ ds) = join $ map toList $ Map.elems ds
 
