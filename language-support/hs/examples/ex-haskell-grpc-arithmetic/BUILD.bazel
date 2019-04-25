@@ -1,0 +1,65 @@
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_binary")
+
+genrule(
+    name = "arith-haskellpb-sources",
+    srcs = ["arithmetic.proto"],
+    outs = ["Arithmetic.hs"],
+    cmd = """
+        $(location @haskell_proto3__suite//:compile-proto-file) \
+            --includeDir $$(dirname $<) \
+            --proto $$(basename $<) \
+            --out $(@D)
+    """,
+    tools = [
+        "@haskell_proto3__suite//:compile-proto-file",
+    ],
+)
+
+da_haskell_library(
+    name = "arith-haskellpb",
+    srcs = [":arith-haskellpb-sources",],
+    compiler_flags = ["-O0"],
+    hazel_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "proto3-suite",
+        "proto3-wire",
+        "text",
+        "vector",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//nix/third-party/gRPC-haskell:grpc-haskell",
+    ],
+)
+
+da_haskell_binary(
+    name = "arith-client",
+    srcs = ["ArithmeticClient.hs"],
+    compiler_flags = [],
+    hazel_deps = [
+        "base",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":arith-haskellpb",
+        "//nix/third-party/gRPC-haskell:grpc-haskell",
+    ],
+)
+
+da_haskell_binary(
+    name = "arith-server",
+    srcs = ["ArithmeticServer.hs"],
+    compiler_flags = [],
+    hazel_deps = [
+        "base",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":arith-haskellpb",
+        "//nix/third-party/gRPC-haskell:grpc-haskell",
+    ],
+)
