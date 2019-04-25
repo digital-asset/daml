@@ -79,7 +79,7 @@ object Decimal {
     if (hasExpectedFormat.matcher(s).matches())
       checkWithinBoundsAndWithinScale(unlimitedBigDecimal(s))
     else
-      Left(s"""Could not read Decimal string "$s" """)
+      Left(s"""Could not read Decimal string "$s"""")
 
   def toString(d: Decimal): String = {
     // Strip the trailing zeros (which BigDecimal keeps if the string

@@ -3,7 +3,8 @@
 
 package com.digitalasset.daml.lf.engine
 
-import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.command._
+import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 
@@ -54,6 +55,6 @@ object NodeToCommand {
             ExerciseCommand(templateId, contractId, e.choiceId, submitter, argument))
     }
 
-    cmd.map(p => Commands(Seq(p), ledgerEffectiveTime, workflowReference))
+    cmd.map(p => Commands(ImmArray(p), ledgerEffectiveTime, workflowReference))
   }
 }

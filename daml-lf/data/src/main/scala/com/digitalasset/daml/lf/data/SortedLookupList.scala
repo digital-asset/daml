@@ -28,7 +28,7 @@ class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) {
   override def hashCode(): Int = entries.hashCode()
 
   override def toString: String =
-    s"SortedMap(${entries.map { case (k, v) => k -> v }.toSeq.mkString(",")})"
+    s"SortedLookupList(${entries.map { case (k, v) => k -> v }.toSeq.mkString(",")})"
 }
 
 object SortedLookupList {

@@ -17,6 +17,7 @@ da_scala_library(
         "//3rdparty/jvm/io/zipkin/brave",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
+        "//daml-lf/transaction",
     ],
 )
 

@@ -22,9 +22,8 @@ import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.api.domain.Commands
+import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
-import com.digitalasset.platform.participant.util.ApiToLfEngine.apiCommandsToLfCommands
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
@@ -78,7 +77,7 @@ class DamlOnXSubmissionService private (
     recordOnLedger(commands)
   }
 
-  private def recordOnLedger(commands: Commands): Future[Unit] = {
+  private def recordOnLedger(commands: ApiCommands): Future[Unit] = {
     val ledgerId = Ref.SimpleString.assertFromString(commands.ledgerId.unwrap)
     val getPackage =
       (packageId: Ref.PackageId) =>
@@ -93,40 +92,29 @@ class DamlOnXSubmissionService private (
           indexService
             .lookupActiveContract(ledgerId, coid))
 
-    apiCommandsToLfCommands(commands)
-      .consumeAsync(getPackage)
+    consume(engine.submit(commands.commands))(getPackage, getContract)
       .flatMap {
-        case Left(e) =>
-          logger.error(s"Could not translate commands: $e")
-          Future.failed(invalidArgument(s"Could not translate command: $e"))
+        case Left(err) =>
+          Future.failed(invalidArgument(err.detailMsg))
 
-        case Right(lfCommands) =>
-          consume(engine.submit(lfCommands))(getPackage, getContract)
-            .flatMap {
-              case Left(err) =>
-                Future.failed(invalidArgument(err.detailMsg))
-
-              case Right(updateTx) =>
-                Future {
-                  logger.debug(
-                    s"Submitting transaction from ${commands.submitter.underlyingString} with ${commands.commandId.unwrap}")
-                  writeService.submitTransaction(
-                    submitterInfo = SubmitterInfo(
-                      submitter =
-                        Ref.SimpleString.assertFromString(commands.submitter.underlyingString),
-                      applicationId = commands.applicationId.unwrap,
-                      maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
-                      commandId = commands.commandId.unwrap
-                    ),
-                    transactionMeta = TransactionMeta(
-                      ledgerEffectiveTime =
-                        Timestamp.assertFromInstant(commands.ledgerEffectiveTime),
-                      workflowId = commands.workflowId.fold("")(_.unwrap) // FIXME(JM): sensible defaulting?
-                    ),
-                    transaction = updateTx
-                  )
-                }
-            }
+        case Right(updateTx) =>
+          Future {
+            logger.debug(
+              s"Submitting transaction from ${commands.submitter.underlyingString} with ${commands.commandId.unwrap}")
+            writeService.submitTransaction(
+              submitterInfo = SubmitterInfo(
+                submitter = Ref.SimpleString.assertFromString(commands.submitter.underlyingString),
+                applicationId = commands.applicationId.unwrap,
+                maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
+                commandId = commands.commandId.unwrap
+              ),
+              transactionMeta = TransactionMeta(
+                ledgerEffectiveTime = Timestamp.assertFromInstant(commands.ledgerEffectiveTime),
+                workflowId = commands.workflowId.fold("")(_.unwrap) // FIXME(JM): sensible defaulting?
+              ),
+              transaction = updateTx
+            )
+          }
       }
   }
 

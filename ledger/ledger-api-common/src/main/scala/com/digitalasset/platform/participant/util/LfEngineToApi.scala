@@ -7,13 +7,8 @@ import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.{BackStack, Decimal}
-import com.digitalasset.daml.lf.engine.{
-  Commands,
-  CreateCommand,
-  DeprecatedIdentifier,
-  ExerciseCommand,
-  CreateAndExerciseCommand
-}
+import com.digitalasset.daml.lf.command._
+import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.v1.commands.{
   Command => ApiCommand,
@@ -211,6 +206,6 @@ object LfEngineToApi {
       submitter,
       ledgerEffectiveTime,
       maximumRecordTime,
-      cmdss)
+      cmdss.toSeq)
   }
 }

@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.engine
 
 import java.util
 
+import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.lfpackage.Ast._
@@ -414,7 +415,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
     def goResume(processed: BackStack[(Type, SpeedyCommand)], toProcess: ImmArray[Command]) =
       go(processed, toProcess)
 
-    go(BackStack.empty, ImmArray(cmds0.commands))
+    go(BackStack.empty, cmds0.commands)
   }
 
 }
