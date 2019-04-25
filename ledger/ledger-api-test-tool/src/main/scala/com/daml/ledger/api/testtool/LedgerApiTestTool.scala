@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool
 
-import java.io.File
+import java.io.{File, StringWriter, PrintWriter}
 import java.nio.file.{Files, StandardCopyOption, Paths, Path}
 
 import akka.actor.ActorSystem
@@ -78,7 +78,9 @@ object LedgerApiTestTool {
                 )
               } catch {
                 case (t: Throwable) =>
-                  sys.error("Timed-out waiting for an expected event: " + t.getMessage)
+                  val sw = new StringWriter
+                  t.printStackTrace(new PrintWriter(sw))
+                  sys.error(s"Running scenario $name failed with: " + t.getMessage() + "\n\nWith stacktrace:\n"+sw.toString() + "\n\nTesting tool own stacktrace is:")
               }
             }
       }
