@@ -73,9 +73,8 @@ getShakeExtras = do
 
 getShakeExtrasRules :: Rules ShakeExtras
 getShakeExtrasRules = do
-    -- We'd like to use binding, but no MonadFail Rules https://github.com/ndmitchell/shake/issues/643
-    x <- getShakeExtraRules @ShakeExtras
-    return $ fromMaybe (error "Can't find ShakeExtras, serious error") x
+    Just x <- getShakeExtraRules @ShakeExtras
+    return x
 
 
 
