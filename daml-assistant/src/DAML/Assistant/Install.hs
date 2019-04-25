@@ -393,7 +393,7 @@ projectInstall env projectPath = do
 install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> IO ()
 install options damlPath projectPathM = do
     let targetVersionM = Nothing -- determined later
-        output = hPutStrLn stdout -- output install messages to stdout
+        output = hPutStrLn stdout -- Output install messages to stdout.
         env = InstallEnv {..}
     case iTargetM options of
         Nothing -> do

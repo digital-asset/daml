@@ -218,7 +218,12 @@ autoInstall damlPath sdkVersionM = do
                 , damlPath = damlPath
                 , targetVersionM = Just sdkVersion
                 , projectPathM = Nothing
-                , output = hPutStrLn stderr -- Print install messages to stderr.
+                , output = hPutStrLn stderr
+                    -- Print install messages to stderr since the install
+                    -- is only happening because of some other command,
+                    -- and we don't want to mess up the other command's
+                    -- output / have the install messages be gobbled
+                    -- up by a pipe.
                 }
         versionInstall env sdkVersion
         pure (defaultSdkPath damlPath sdkVersion)
