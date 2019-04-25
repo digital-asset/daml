@@ -3,9 +3,11 @@
 
 export class ProxyError extends Error {
     status :number
-    constructor (message :string, status :number) {
+    clientResponse :string
+    constructor (message :string, status ?:number, clientResponse ?:string) {
         super(message);
         this.name = this.constructor.name;
         this.status = status || 500;  
+        this.clientResponse = clientResponse || "Unknown error occured."
     }
 }

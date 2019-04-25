@@ -11,6 +11,7 @@ FROM node:8.15-alpine
 
 RUN mkdir -p /webide-proxy/src
 COPY src /webide-proxy/src/
+COPY static /webide-proxy/static
 COPY *.json /webide-proxy/
 
 WORKDIR /webide-proxy
@@ -20,6 +21,6 @@ RUN apk update \
     && npm install \
     && npm run compile
 
-EXPOSE 80 443
+EXPOSE 80 443 3001
 LABEL WEB-IDE-PROXY=""
 CMD ["npm", "run", "start"]
