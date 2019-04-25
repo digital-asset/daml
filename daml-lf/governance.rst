@@ -177,33 +177,24 @@ Also note that the DAML-LF versioning is independent from the DAML
 surface language versioning.
 
 We have one specification document per major version, with each document
-noting the differences between minor versions within that major version,
-with the exception of the document for the dev version (described
-below), which does not need to talk about minor versions since there is
-only ever one.
+noting the differences between minor versions within that major version.
 
 "dev" version
 ~~~~~~~~~~~~~
 
-We provide a special DAML-LF major version, the *dev* version, which we
-use as staging area for experimental features. Eventually, features from
-the dev version might make it into existing major versions as minor
-bumps, or into a new major version. The minor version for the dev
-version is always the hash of its ``.proto`` file, to allow consumers of
-the dev version to fail gracefully if provided with serialized proto
-messages produced with an out of sync revision. The dev version must be
-disabled in production -- but we might provide it to third parties to
-try out new features before fully investing in them.  The dev version
-may be used as a "staging" area for features that will eventually end up
-as minor bumps in (possibly multiple) existing major revisions.
+Every DAML-LF major version includes a minor version, the *dev* version,
+which we use as staging area for the next stable minor version of that
+major version.
 
-The "dev" DAML-LF major version can be changed freely. The minor version
-of the dev version is used to print helpful error messages when somebody
-tries to use two components (e.g. compiler and sandbox) which were built
-with two different "dev" versions.
+The "dev" DAML-LF major version can be changed freely without
+compatibility considerations to prior "dev" versions.  Since "dev" is
+always considered to be newer than every stable minor version of that
+major version, it must be backward-compatible with all such stable
+versions.
 
-The DAML-LF dev version is opt-in in the sandbox and ledger server. This
-highly decreases the likelihood of enabling it by mistake in production.
+The DAML-LF dev version is enabled in the sandbox and ledger server, but
+will never be emitted by damlc unless explicitly requested via
+``--target 1.dev`` or similar.
 
 Working with LF data
 --------------------
@@ -234,7 +225,7 @@ includes:
 
 The ``daml-lf/lfpackage`` library for the DAML-LF language includes:
 
-.. todo include this at some point? - Specifications, one per major revision (including dev)
+.. todo include this at some point? - Specifications, one per major revision
 
 - Data structures to work with DAML-LF packages. Currently, this is an
   AST that supports a set of DAML-LF versions, spanning across multiple
@@ -242,11 +233,6 @@ The ``daml-lf/lfpackage`` library for the DAML-LF language includes:
   features into other features (e.g. if we add dependent functions the
   library would convert non-dependent functions and foralls into
   dependent functions).
-- Special support for the "dev" DAML-LF version, whereby the encoder
-  stamps minor version with the current hash of the ``.proto`` file, and
-  the reader checks that the hash it knows matches the hash found in the
-  file. This avoids bad parsing errors and other subtle failures when
-  working on the bleeding edge.
 
 ``lfpackage`` is built upon the ``daml-lf/archive`` library, which
 includes:
