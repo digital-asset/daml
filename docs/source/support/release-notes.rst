@@ -9,6 +9,9 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.11 - 2019-04-26
+--------------------
+
 - Node.js bindings have been moved `here <https://github.com/digital-asset/daml-js>``
 - Add documentation for flexible controllers.
 
