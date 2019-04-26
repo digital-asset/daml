@@ -22,6 +22,7 @@ da_haskell_library(
         "hashable",
         "haskell-lsp",
         "haskell-lsp-types",
+        "lens",
         "mtl",
         "pretty",
         "safe-exceptions",

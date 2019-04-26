@@ -29,12 +29,14 @@ module Development.IDE.Types.Diagnostics (
   defDiagnostic,
   addDiagnostics,
   filterSeriousErrors,
-  setLocation,
-  setFilePath,
+  dLocation,
+  dFilePath,
+  filePathToUri,
   getDiagnosticsFromStore
   ) where
 
 import Control.Exception
+import Control.Lens (Lens', lens, set, view)
 import Data.Either.Combinators
 import Data.Maybe as Maybe
 import Data.Foldable
@@ -64,7 +66,7 @@ ideErrorPretty fp = ideErrorText fp . T.pack . Pretty.prettyShow
 
 errorDiag :: FilePath -> T.Text -> T.Text -> LSP.Diagnostic
 errorDiag fp src =
-  setFilePath fp . diagnostic noRange LSP.DsError src
+  set dFilePath (Just fp) . diagnostic noRange LSP.DsError src
 
 -- | This is for compatibility with our old diagnostic type
 diagnostic :: Range
@@ -97,21 +99,28 @@ defDiagnostic _range _message = LSP.Diagnostic {
   }
 
 -- | setLocation but with no range information
-setFilePath ::
-  FilePath ->
-  LSP.Diagnostic ->
-  LSP.Diagnostic
-setFilePath fp =
-  setLocation $ Location (filePathToUri fp) noRange
+dFilePath ::
+  Lens' LSP.Diagnostic (Maybe FilePath)
+dFilePath = lens g s where
+    g :: LSP.Diagnostic -> Maybe FilePath
+    g d = (uriToFilePath . _uri) =<< view dLocation d
+    s :: LSP.Diagnostic -> (Maybe FilePath) -> LSP.Diagnostic
+    s d fp = set dLocation (Location <$> (filePathToUri <$> fp) <*> pure noRange) d
 
 -- | This adds location information to the diagnostics but this is only used in
 --   the case of serious errors to give some context to what went wrong
-setLocation ::
-  Location ->
-  LSP.Diagnostic ->
-  LSP.Diagnostic
-setLocation loc d =
-  d {LSP._relatedInformation = Just $ LSP.List [DiagnosticRelatedInformation loc ""]}
+dLocation ::
+  Lens' LSP.Diagnostic (Maybe Location)
+dLocation = lens g s where
+    s :: LSP.Diagnostic -> Maybe Location -> LSP.Diagnostic
+    s d = \case
+        Just loc -> d {LSP._relatedInformation = Just $ LSP.List [DiagnosticRelatedInformation loc ""]}
+        Nothing -> d {LSP._relatedInformation = Nothing}
+    g :: LSP.Diagnostic -> Maybe Location
+    g Diagnostic{..} = case _relatedInformation of
+        Just (List [DiagnosticRelatedInformation loc _]) -> Just loc
+        Just (List xs) -> error $ "Diagnostic created, expected 1 related information but got" <> show xs
+        Nothing -> Nothing
 
 filterSeriousErrors ::
     FilePath ->
@@ -145,7 +154,7 @@ ideTryIOException fp act =
 --   along with the related source location so that we can display the error
 --   on either the console or in the IDE at the right source location.
 --
-type FileDiagnostics = (Uri, StoreItem)
+type FileDiagnostics = (Uri, [Diagnostic])
 
 prettyRange :: Range -> Doc SyntaxClass
 prettyRange Range{..} =
@@ -184,8 +193,10 @@ prettyDiagnostic LSP.Diagnostic{..} =
 
 prettyDiagnosticStore :: DiagnosticStore -> Doc SyntaxClass
 prettyDiagnosticStore ds =
-    vcat $ map prettyFileDiagnostics $ Map.assocs ds
-
+    vcat $
+    map prettyFileDiagnostics $
+    Map.assocs ds $
+    Map.map (concatMap getDiagnosticsFromStore)
 
 prettyFileDiagnostics :: FileDiagnostics -> Doc SyntaxClass
 prettyFileDiagnostics (uri, StoreItem _ diags) =
