@@ -21,6 +21,6 @@ RUN apk update \
     && npm install \
     && npm run compile
 
-EXPOSE 80 443 3001
+EXPOSE 80 443 3001 3002
 LABEL WEB-IDE-PROXY=""
 CMD ["npm", "run", "start"]

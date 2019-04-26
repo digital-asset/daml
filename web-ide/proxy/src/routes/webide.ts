@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser"
 import { createProxyServer } from "http-proxy"
 import { ProxyError } from "../errors"
 import { Server, Socket } from "net"
+import fs from "fs"
 import { Application, Request, Response, NextFunction } from "express"
 import { ImageInspectInfo } from "dockerode";
 
@@ -18,15 +19,18 @@ export default class WebIdeRoute {
     server :Server
     docker :Docker
     private proxy :any
-    constructor(app: Application, webideServer :Server, docker :Docker) {
+    private rootDir :string
+    constructor(app: Application, webideServer :Server, docker :Docker, rootDir :string) {
         this.app = app
         this.server = webideServer
         this.docker = docker
+        this.rootDir = rootDir
         this.proxy = createProxyServer({})
     }
 
     init() : WebIdeRoute {
         this.app.use(cookieParser())
+        this.app.get('/ide.main.*.css', (req :Request, res :Response, next :NextFunction) => this.handleIdeCss(req, res, next))
         this.server.on('upgrade', (req :Request, socket :Socket, head :any) => this.handleWsRequest(req, socket, head));
         return this
     }
@@ -40,8 +44,7 @@ export default class WebIdeRoute {
             return next(err)
         }
         if (err instanceof ProxyError) {
-            res.statusCode = err.status
-            res.send(err.clientResponse)
+            res.status(err.status).send(err.clientResponse)
         }
         else {
             res.statusCode = 500
@@ -50,6 +53,12 @@ export default class WebIdeRoute {
         res.end()
         //TODO render nice error message 
         //res.render('error', { error: err })
+    }
+
+    handleIdeCss(req :Request, res :Response, next: NextFunction) {
+        const f = `${this.rootDir}/static/css/ide.main.css`
+        console.log("lets use our own css for %s : %s", req.url, f)
+        res.sendFile(f)
     }
 
     handleHttpRequest(req :Request, res :Response) {

@@ -22,25 +22,37 @@ import ManagementRoute from "./routes/management"
 import WebIdeRoute from "./routes/webide"
 import { Server } from "net";
 import StaticRoute from "./routes/landing";
+import HttpToHttpsRoute from "./routes/httpToHttps";
+import { debug } from "util";
 
 const docker = new Docker()
 const conf = require('./config').read()
 const webIdeApp = express()
 const managementApp = express()
-const rootDir = path.dirname(__dirname).split(path.sep).pop()
+const httpToHttpsApp = express()
+const rootDir = path.dirname(__dirname)
+console.log("root dir = %s", rootDir)
 let stopContainersOnShutdown = true
 
+if (!conf.http.managementPort) throw new Error("MUST configure management port: 'conf.http.managementPort'")
 new ManagementRoute(managementApp).init()
 http.createServer(managementApp).listen(conf.http.managementPort, () => {
     console.log("INFO management server listening on port %s", conf.http.managementPort)
 })
 
+if (!conf.http.httpToHttpsPort) throw new Error("MUST configure port for insecure redirect: 'conf.http.httpToHttpsPort'")
+new HttpToHttpsRoute(httpToHttpsApp).init()
+http.createServer(httpToHttpsApp).listen(conf.http.httpToHttpsPort, () => {
+    console.log("INFO redirecting all insecure traffic on port %s to https", conf.http.httpToHttpsPort)
+})
+
+if (!conf.http.port) throw new Error("MUST configure port for webide: 'conf.http.port'")
 const webideServer = createWebIdeServer()
-const webIdeRoute = new WebIdeRoute(webIdeApp, webideServer, docker).init()
-const landingRoute = new StaticRoute(webIdeApp, <string>rootDir).init()
+const webIdeRoute = new WebIdeRoute(webIdeApp, webideServer, docker, rootDir).init()
+const landingRoute = new StaticRoute(webIdeApp, rootDir).init()
 webIdeApp.get('*', (req, res, next) => {
-    if (req.cookies.accepted) return webIdeRoute.handleHttpRequest(req,res)
-    else return landingRoute.handleLanding(req,res, next)
+    if (!req.cookies.accepted) return landingRoute.handleLanding(req,res, next)
+    else return webIdeRoute.handleHttpRequest(req,res)
 })
 webIdeApp.use((err :Error, req: express.Request, res :express.Response, next :express.NextFunction) => {
     webIdeRoute.errorHandler(err, req, res, next)

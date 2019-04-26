@@ -2,7 +2,8 @@
     "devMode" : false,
     "http" : {
         "port" : 3000,
-        "managementPort" : 3001
+        "managementPort" : 3001,
+        "httpToHttpsPort" : 3002
     },
     "session" : {
         "name" : "webide.connect.sid",
