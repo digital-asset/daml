@@ -87,7 +87,7 @@ template DummyFactory
           return ()
 
 
-data OptionalInteger = SomeInteger Int | None
+data OptionalInteger = SomeInteger Int | NoInteger
   deriving (Eq, Show)
 
 data NestedOptionalInteger = Nested {value: OptionalInteger}
@@ -96,13 +96,13 @@ data NestedOptionalInteger = Nested {value: OptionalInteger}
 template ParameterShowcase
   with
     operator: Party
-    integer: Integer
+    integer: Int
     decimal: Decimal
     text: Text
     bool: Bool
     time: Time
     nestedOptionalInteger: NestedOptionalInteger
-    integerList: List Integer
+    integerList: [Int]
     optionalText: Optional Text
   where
     signatory operator
@@ -111,13 +111,13 @@ template ParameterShowcase
     controller operator can
       Choice1 : ContractId ParameterShowcase
         with
-          newInteger: Integer
+          newInteger: Int
           newDecimal: Decimal
           newText: Text
           newBool: Bool
           newTime: Time
           newNestedOptionalInteger: NestedOptionalInteger
-          newIntegerList: List Integer
+          newIntegerList: [Int]
           newOptionalText: Optional Text
         do
           let new = this with
@@ -136,7 +136,7 @@ template ParameterShowcase
     controller operator can
       Choice2 : ContractId ParameterShowcase
         with
-          newInteger: Integer
+          newInteger: Int
         do
           let new = this with integer = newInteger
           create new
@@ -149,8 +149,8 @@ template Agreement
     signatory receiver, giver
 
     agreement (
-      toText giver <> " promise to pay the " <>
-      toText receiver <> " on demand the sum of five pounds.")
+      show giver <> " promise to pay the " <>
+      show receiver <> " on demand the sum of five pounds.")
 
     controller giver can
       AcceptTriProposal : ContractId TriAgreement
@@ -236,7 +236,7 @@ template NothingArgument
 template WithObservers
   with
     giver : Party
-    observers : List Party
+    observers : [Party]
   where
   signatory giver
   observer observers
@@ -274,8 +274,8 @@ template PayOut
     signatory receiver
     signatory giver
     agreement (
-      toText giver <> " must pay to " <>
-      toText receiver <> " the sum of five pounds.")
+      show giver <> " must pay to " <>
+      show receiver <> " the sum of five pounds.")
 
 
 template CallablePayout
@@ -295,18 +295,18 @@ template TextKey
   with
     tkParty : Party
     tkKey : Text
+    tkDisclosedTo : [Party]
   where
     signatory tkParty
+    observer tkDisclosedTo
+
+    key (tkParty, tkKey) : (Party, Text)
+    maintainer tkParty
 
     controller tkParty can
       TextKeyChoice : ()
         do
           return ()
-
-instance TemplateKey TextKey TextKey where
-  key tk = tk
-
-  maintainer tk = [tk.tkParty]
 
 template TextKeyOperations
   with
@@ -318,33 +318,33 @@ template TextKeyOperations
     controller tkoParty can
       nonconsuming TKOLookup: ()
         with
-          keyToLookup: TextKey
+          keyToLookup: (Party, Text)
           expected: Optional (ContractId TextKey)
         do
           actual <- lookupByKey @TextKey keyToLookup
-          assertMsg "lookup matches" (expected == actual)
+          assertMsg ("lookup matches (" <> show expected <> ", " <> show actual <> ")") (expected == actual)
 
     controller tkoParty can
       nonconsuming TKOFetch: ()
         with
-          keyToFetch: TextKey
+          keyToFetch: (Party, Text)
           expectedCid: ContractId TextKey
         do
           (actualCid, actualContract) <- fetchByKey @TextKey keyToFetch
           assertMsg "fetch contract id matches" (expectedCid == actualCid)
-          assertMsg "fetch contract matches" (keyToFetch == actualContract)
+          assertMsg "fetch contract matches" (keyToFetch == key actualContract)
 
     controller tkoParty can
       nonconsuming TKOConsumeAndLookup: ()
         with
           cidToConsume: ContractId TextKey
-          keyToLookup: TextKey
+          keyToLookup: (Party, Text)
         do
           mbCid1 <- lookupByKey @TextKey keyToLookup
-          assertMsg "gets contract the first time" (mbCid1 == Just cidToConsume)
+          assertMsg "gets contract the first time" (mbCid1 == Some cidToConsume)
           exercise cidToConsume TextKeyChoice
           mbCid2 <- lookupByKey @TextKey keyToLookup
-          assertMsg "does not get contract after exercise" (mbCid2 == Nothing)
+          assertMsg "does not get contract after exercise" (mbCid2 == None)
 
 
 -- dummy contract to be divulged out-of-band
@@ -407,8 +407,11 @@ testScenario = do
 template Delegated
   with
     owner : Party
+    -- k : Text
   where
     signatory owner
+    -- key (owner, k) : (Party, Text)
+    -- maintainer owner
 
 template Delegation
   with
@@ -420,6 +423,13 @@ template Delegation
       FetchDelegated: Delegated
         with delegated: ContractId Delegated
         do fetch delegated
+
+    {-
+    controller delegate can
+      LookupDelegated: Optional (ContractId Delegated)
+        with k: (Party, Text)
+        do lookupByKey @Delegated k
+    -}
 
 template ShowDelegated
   with
@@ -438,14 +448,14 @@ template ShowDelegated
 testDivulgenceVisibility = scenario do
   owner <- getParty "owner"
   delegate <- getParty "delegate"
-  delegated <- owner `submit` create Delegated with owner
+  delegated <- owner `submit` create Delegated with owner -- , k = "key"
   delegation <- owner `submit` create Delegation with owner, delegate
   delegate `submit` exercise delegation FetchDelegated with delegated
 
 testDivulgenceSuccess = scenario do
   owner <- getParty "owner"
   delegate <- getParty "delegate"
-  delegated <- owner `submit` create Delegated with owner
+  delegated <- owner `submit` create Delegated with owner -- , k = "key"
   delegation <- owner `submit` create Delegation with owner, delegate
   showId <- owner `submit` create ShowDelegated with owner, delegate
   owner `submit` exercise showId ShowIt with delegatedId = delegated

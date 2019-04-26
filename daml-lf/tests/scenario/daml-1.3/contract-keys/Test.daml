@@ -10,16 +10,13 @@ template TextKey
     tkKey : Text
   where
     signatory p
+    key (p, tkKey): (Party, Text)
+    maintainer p
 
     controller p can
       TextKeyChoice : ()
         do
           return ()
-
-instance TemplateKey TextKey (Party, Text) where
-  key tk = (tk.p, tk.tkKey)
-
-  maintainer tk = [tk.p]
 
 run = scenario do
   alice <- getParty "Alice"

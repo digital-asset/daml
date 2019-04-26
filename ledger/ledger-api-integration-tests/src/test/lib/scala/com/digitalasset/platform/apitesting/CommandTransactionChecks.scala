@@ -6,7 +6,7 @@ package com.digitalasset.platform.apitesting
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
-import com.digitalasset.ledger.api.testing.utils.MockMessages.{party, submitRequest, commandId}
+import com.digitalasset.ledger.api.testing.utils.MockMessages.{commandId, party, submitRequest}
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundEach,
@@ -629,22 +629,27 @@ abstract class CommandTransactionChecks
         // TODO currently we run multiple suites with the same sandbox, therefore we must generate
         // unique keys. This is not so great though, it'd be better to have a clean environment.
         val keyPrefix = UUID.randomUUID.toString
-        def textKeyRecord(p: String, k: String): Record =
+        def textKeyRecord(p: String, k: String, disclosedTo: List[String]): Record =
           Record(
             fields =
-                List(RecordField(value = p.asParty), RecordField(value = s"$k-$keyPrefix".asText)))
-        def textKeyValue(p: String, k: String): Value =
-          Value(Value.Sum.Record(textKeyRecord(p, k)))
+                List(
+                  RecordField(value = p.asParty),
+                  RecordField(value = s"$keyPrefix-$k".asText),
+                  RecordField(value = disclosedTo.map(_.asParty).asList)))
         val key = "some-key"
         val alice = "Alice"
         val bob = "Bob"
+        def textKeyValue(p: String, k: String, disclosedTo: List[String]): Value =
+          Value(Value.Sum.Record(textKeyRecord(p, k, disclosedTo)))
+        def textKeyKey(p: String, k: String): Value =
+          Value(Value.Sum.Record(Record(fields = List(RecordField(value = p.asParty), RecordField(value = s"$keyPrefix-$k".asText)))))
         for {
           cid1 <- simpleCreate(
             ctx,
             "CK-test-cid1",
             alice,
             templateIds.textKey,
-            textKeyRecord(alice, key)
+            textKeyRecord(alice, key, List(bob))
           )
           // duplicate keys are not ok
           _ <- failingCreate(
@@ -652,7 +657,7 @@ abstract class CommandTransactionChecks
              "CK-test-duplicate-key",
              alice,
              templateIds.textKey,
-             textKeyRecord(alice, key),
+             textKeyRecord(alice, key, List(bob)),
              Code.INVALID_ARGUMENT,
              "DuplicateKey"
            )
@@ -683,7 +688,7 @@ abstract class CommandTransactionChecks
             "TKOLookup",
             Value(
               Value.Sum.Record(Record(fields = List(
-                RecordField(value = textKeyValue(alice, key)),
+                RecordField(value = textKeyKey(alice, key)),
                 RecordField(value = lookupSome(cid1.contractId)))))),
             Code.INVALID_ARGUMENT,
             "requires authorizers"
@@ -699,7 +704,7 @@ abstract class CommandTransactionChecks
             Value(
               Value.Sum.Record(
                 Record(fields = List(
-                  RecordField(value = textKeyValue(alice, "bogus-key")),
+                  RecordField(value = textKeyKey(alice, "bogus-key")),
                   RecordField(value = lookupNone))))),
             Code.INVALID_ARGUMENT,
             "requires authorizers")
@@ -714,7 +719,7 @@ abstract class CommandTransactionChecks
             Value(
               Value.Sum.Record(
                 Record(fields = List(
-                  RecordField(value = textKeyValue(alice, key)),
+                  RecordField(value = textKeyKey(alice, key)),
                   RecordField(value = lookupSome(cid1.contractId)))))))
           // successful fetch
           _ <- simpleExercise(
@@ -727,7 +732,7 @@ abstract class CommandTransactionChecks
             Value(
               Value.Sum.Record(
                 Record(fields = List(
-                  RecordField(value = textKeyValue(alice, key)),
+                  RecordField(value = textKeyKey(alice, key)),
                   RecordField(value = cid1.contractId.asContractId))))))
           // failing, authorized lookup
           _ <- simpleExercise(
@@ -740,7 +745,7 @@ abstract class CommandTransactionChecks
             Value(
               Value.Sum.Record(
                 Record(fields = List(
-                  RecordField(value = textKeyValue(alice, "bogus-key")),
+                  RecordField(value = textKeyKey(alice, "bogus-key")),
                   RecordField(value = lookupNone))))))
           // failing fetch
           _ <- failingExercise(
@@ -753,7 +758,7 @@ abstract class CommandTransactionChecks
             Value(
               Value.Sum.Record(
                 Record(fields = List(
-                  RecordField(value = textKeyValue(alice, "bogus-key")),
+                  RecordField(value = textKeyKey(alice, "bogus-key")),
                   RecordField(value = cid1.contractId.asContractId))))),
             Code.INVALID_ARGUMENT,
             "couldn't find key")
@@ -777,14 +782,14 @@ abstract class CommandTransactionChecks
             Value(
               Value.Sum.Record(
                 Record(fields = List(
-                  RecordField(value = textKeyValue(alice, key)),
+                  RecordField(value = textKeyKey(alice, key)),
                   RecordField(value = lookupNone))))))
           cid2 <- simpleCreate(
             ctx,
             "CK-test-cid2",
             alice,
             templateIds.textKey,
-            textKeyRecord(alice, "test-key-2")
+            textKeyRecord(alice, "test-key-2", List(bob))
           )
           _ <- simpleExercise(
             ctx,
@@ -797,7 +802,7 @@ abstract class CommandTransactionChecks
               Value.Sum.Record(
                 Record(fields = List(
                   RecordField(value = cid2.contractId.asContractId),
-                  RecordField(value = textKeyValue(alice, "test-key-2"))))))
+                  RecordField(value = textKeyKey(alice, "test-key-2"))))))
           )
         } yield {
           succeed
