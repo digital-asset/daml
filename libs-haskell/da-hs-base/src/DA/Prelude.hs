@@ -71,8 +71,6 @@ module DA.Prelude
 -- orphan instances (all of them must be brought into scope here)
 -----------------------------------------------------------------
 
-import Orphans.Lib_aeson ()
-import Orphans.Lib_binary ()
 import Orphans.Lib_hashable ()
 
 
