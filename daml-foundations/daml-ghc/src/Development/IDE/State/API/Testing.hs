@@ -44,11 +44,12 @@ import Development.IDE.State.Rules.Daml
 import qualified Development.IDE.Logger as Logger
 import           Development.IDE.Types.LSP
 import DA.Daml.GHC.Compiler.Options (defaultOptionsIO)
-import Language.Haskell.LSP.Types (filePathToUri, uriToFilePath, Range)
+import Language.Haskell.LSP.Types (uriToFilePath, Range)
 
 -- * external dependencies
 import Control.Concurrent.STM
 import Control.Exception.Extra
+import Control.Lens
 import qualified Control.Monad.Reader   as Reader
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -60,7 +61,6 @@ import qualified Data.Set               as Set
 import qualified System.FilePath        as FilePath
 import qualified System.Directory       as Directory
 import qualified Data.Time.Clock        as Clock
-import GHC.Exts (toList)
 import           System.FilePath        ((</>))
 import           Control.Monad.Except   (ExceptT (..), MonadError(..), runExceptT)
 import           Control.Monad.Reader   (ReaderT (..))
@@ -194,7 +194,7 @@ setBufferModifiedMaybe absPath maybeText = ShakeTest $ do
     liftIO $ API.setBufferModified service absPath (maybeText, now)
 
 -- | (internal) Get diagnostics.
-getDiagnostics :: ShakeTest D.DiagnosticStore
+getDiagnostics :: ShakeTest [D.Diagnostic]
 getDiagnostics = ShakeTest $ do
     service <- Reader.asks steService
     liftIO $ do
@@ -278,30 +278,17 @@ cursorRangeList (path, line, cols) = map (\col -> (path, line, col)) cols
 -- "Parse error" vs "parse error" could both be correct.
 --
 -- In future, we may move to regex matching.
-searchDiagnostics :: (D.DiagnosticSeverity, Cursor, T.Text) -> D.DiagnosticStore -> ShakeTest ()
+searchDiagnostics :: (D.DiagnosticSeverity, Cursor, T.Text) -> [D.Diagnostic] -> ShakeTest ()
 searchDiagnostics expected@(severity, cursor, message) actuals =
-    let fileDiags = fileDiagnostics (cursorFilePath cursor) actuals
-    in unless (any match fileDiags) $
-        throwError $ ExpectedDiagnostics [expected] fileDiags
+    unless (any match actuals) $
+        throwError $ ExpectedDiagnostics [expected] actuals
   where
     match :: D.Diagnostic -> Bool
     match d =
-           Just severity == D._severity d
+        Just severity == D._severity d
+        && Just (cursorFilePath cursor) == view D.dFilePath d
         && cursorPosition cursor == D._start ((D._range :: D.Diagnostic -> Range) d)
-        && (T.toLower message `T.isInfixOf` T.toLower (D._message d))
-
-    fileDiagnostics :: FilePath -> D.DiagnosticStore -> [D.Diagnostic]
-    fileDiagnostics fp =
-        maybe [] fromStore .
-        Map.lookup (filePathToUri fp)
-
--- | These functions live in the test framework rather that further down the stack because
---   you really shouldn't be deconstructing LSP diagnostic stores in this manner bar when testing
-fromStore :: D.StoreItem -> [D.Diagnostic]
-fromStore (D.StoreItem _ ds) = concatMap toList $ Map.elems ds
-
-allDiagnostics :: D.DiagnosticStore -> [D.Diagnostic]
-allDiagnostics = concatMap fromStore . Map.elems
+        && (T.toLower message `T.isInfixOf` T.toLower ((D._message :: D.Diagnostic -> T.Text) d))
 
 expectDiagnostic :: D.DiagnosticSeverity -> Cursor -> T.Text -> ShakeTest ()
 expectDiagnostic severity cursor msg = do
@@ -318,7 +305,7 @@ expectOnlyDiagnostics expected = do
     actuals <- getDiagnostics
     forM_ expected $ \e -> searchDiagnostics e actuals
     unless (length expected == length actuals) $
-        throwError $ ExpectedDiagnostics expected $ allDiagnostics actuals
+        throwError $ ExpectedDiagnostics expected actuals
 
 -- | Check that the given virtual resource exists and that the given text is
 -- an infix of the content.
@@ -359,7 +346,7 @@ expectOnlyErrors = expectOnlyDiagnostics . map (\(cursor, msg) -> (D.DsError, cu
 expectNoErrors :: ShakeTest ()
 expectNoErrors = do
     diagnostics <- getDiagnostics
-    let errors = filter (\d -> D._severity d == Just D.DsError) $ allDiagnostics diagnostics
+    let errors = filter (\d -> D._severity d == Just D.DsError) diagnostics
     unless (null errors) $
         throwError (ExpectedNoErrors errors)
 
