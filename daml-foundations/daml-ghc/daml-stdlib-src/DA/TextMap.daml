@@ -14,6 +14,7 @@ module DA.TextMap
   , null
   , lookup
   , member
+  , filter
   , filterWithKey
   , delete
   , insert
@@ -54,6 +55,11 @@ lookup = primitive @"BEMapLookup"
 -- | Is the key a member of the map?
 member : Text -> TextMap v -> Bool
 member x m = isSome $ lookup x m
+
+{-# DEPRECATED filter "Use 'filterWithKey' instead of 'filter'" #-}
+-- | DEPRECATED: Use `filterWithKey` instead.
+filter : (Text -> v -> Bool) -> TextMap v -> TextMap v
+filter = filterWithKey
 
 -- | Filter all values that satisfy some predicate.
 filterWithKey : (Text -> v -> Bool) -> TextMap v -> TextMap v
