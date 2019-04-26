@@ -4,6 +4,11 @@
 DAML Integration Kit - PRE-ALPHA
 ################################
 
+.. toctree::
+   :hidden:
+
+   /tools/ledger-api-test-tool/index
+
 :doc:`DAML Applications </app-dev/index>` run on DAML Ledgers.
 A DAML Ledger is a server serving the
 :doc:`Ledger API </app-dev/index>` as per the semantics defined in
@@ -397,14 +402,29 @@ Deploying a DAML Ledger
 Testing a DAML Ledger
 *********************
 
-**TODO (ALPHA):**
+You can test your DAML ledger implementation using :doc:`Ledger API Test Tool
+</tools/ledger-api-test-tool/index>`, which will assess correctness of
+implementation of the :doc:`Ledger API
+</app-dev/index>`. For example, it will show you if
+there are consistency or conformance problem with your implementation.
 
-+See more in :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`.
+Assuming that your Ledger API endpoint is accessible at ``localhost:6864``, you can use the tool in the following manner:
 
-- explain how to use the ``ledger-api-test`` tool to test whether your
-  implementation correctly implements the Ledger API
-  (`GitHub issue <https://github.com/digital-asset/daml/issues/347>`__).
+#. Obtain the tool:
 
+   ``curl -L 'https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/ledger/testtool/ledger-api-test-tool_2.12/$latest/ledger-api-test-tool_2.12-$latest.jar?bt_package=sdk-components' -o ledger-api-test-tool.jar``
+
+#. Obtain the DAML archive required to run the tests:
+
+   ``java -jar ledger-api-test-tool.jar --extract``
+
+#. Load ``SemanticTests.dar`` which was created in the current directory into your Ledger.
+
+#. Run the tool against your ledger:
+
+   ``java -jar ledger-api-test-tool.jar -h localhost -p 6865``
+
+See more in :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`.
 
 .. _integration-kit_benchmarking:
 
@@ -416,4 +436,3 @@ Benchmarking a DAML Ledger
 - explain how to use the ``ledger-api-bench`` tool to evaluate the
   performance of your implementation of the Ledger API
   (`GitHub issue <https://github.com/digital-asset/daml/issues/671>`__).
-

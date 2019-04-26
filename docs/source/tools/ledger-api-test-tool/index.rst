@@ -37,7 +37,9 @@ specific set of DAML templates onto your ledger.
 
 #. To obtain the corresponding ``.dar`` file, run:
 
-   ``ledger-api-test-tool --extract``
+   .. code-block:: console
+
+     $ ledger-api-test-tool --extract
 
    This creates a file ``SemanticTests.dar`` in the current directory.
 
@@ -49,11 +51,15 @@ Running the tool against a custom Ledger API endpoint
 Run this command to test your Ledger API endpoint exposed at host ``<host>`` and
 at a port ``<port>``:
 
-    ``ledger-api-test-tool -h <host> -p <port>``
+.. code-block:: console
+
+   $ ledger-api-test-tool -h <host> -p <port>
 
 For example
 
-    ``ledger-api-test-tool -h localhost -p 6865``
+.. code-block:: console
+
+   $ ledger-api-test-tool -h localhost -p 6865
 
 If any test embedded in the tool fails, it will print out details of the failure
 for further debugging.
@@ -63,9 +69,11 @@ Exploring options the tool provides
 
 Run the tool with ``--help`` flag to obtain the list of options the tool provides:
 
-   .. code-block:: console
+.. code-block:: console
 
-     $ ledger-api-test-tool --help
+   $ ledger-api-test-tool --help
+
+|
 
 Try out the Ledger API Test Tool against DAML Sandbox
 =====================================================
