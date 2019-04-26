@@ -12,6 +12,7 @@ HEAD — ongoing
 - Add documentation for :doc:`/daml-integration-kit/index`, which explains
   what the DAML Integration Kit is, what state it is in, and how it is going
   to evolve.
+- Rename ``DA.TextMap.filter`` into ``filterWithKey``.
 
 0.12.11 - 2019-04-26
 --------------------
