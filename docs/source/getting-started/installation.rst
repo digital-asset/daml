@@ -12,7 +12,7 @@ The SDK currently runs on MacOS or Linux. For Windows support, we recommend inst
 You need to install:
 
 1. `Visual Studio Code <https://code.visualstudio.com/download>`_.
-2. `JDK 8 or greater <http://www.oracle.com/technetwork/java/javase/downloads/index.html>`_.
+2. `JDK 8 <https://openjdk.java.net/install/>`_.
 
 2. Set up the SDK Assistant
 ***************************
