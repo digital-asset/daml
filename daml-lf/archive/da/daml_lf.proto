@@ -19,6 +19,7 @@ message ArchivePayload {
     daml_lf_1.Package daml_lf_1 = 2;
 
     // lf_2 = 4, lf_3 = 5, etc
+    // 9999 is reserved for the removed "dev" major version
   }
 }
 
