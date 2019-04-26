@@ -101,7 +101,7 @@ class ScalaCodeGenIT
     port = port,
     damlPackageContainer = DamlPackageContainer(archives),
     timeProviderType = TimeProviderType.WallClock,
-    ledgerIdMode = LedgerIdMode.HardCoded(ledgerId),
+    ledgerIdMode = LedgerIdMode.Predefined(ledgerId),
   )
 
   private val sandbox: SandboxServer = SandboxApplication(serverConfig)

@@ -51,7 +51,7 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
     val cfg = SandboxConfig.default.copy(
       port = 0,
       damlPackageContainer = DamlPackageContainer(List(testDalf)),
-      ledgerIdMode = LedgerIdMode.HardCoded(LedgerID),
+      ledgerIdMode = LedgerIdMode.Predefined(LedgerID),
       timeProviderType = TimeProviderType.WallClock,
       timeModel = TimeModel.reasonableDefault
     )
