@@ -114,7 +114,7 @@ dLocation ::
 dLocation = lens g s where
     s :: LSP.Diagnostic -> Maybe Location -> LSP.Diagnostic
     s d = \case
-        Just loc -> d {LSP._relatedInformation = Just $ LSP.List [DiagnosticRelatedInformation loc ""]}
+        Just loc -> d {LSP._relatedInformation = Just $ LSP.List [DiagnosticRelatedInformation loc "dLocation: Unknown error"]}
         Nothing -> d {LSP._relatedInformation = Nothing}
     g :: LSP.Diagnostic -> Maybe Location
     g Diagnostic{..} = case _relatedInformation of
