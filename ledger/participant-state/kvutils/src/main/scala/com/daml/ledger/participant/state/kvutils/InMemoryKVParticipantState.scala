@@ -115,15 +115,6 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     */
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   class CommitActor extends Actor {
-    override def preStart(): Unit = {
-      // Schedule heartbeats.
-      // TODO(JM): Verify that this is kosher.
-      val _ = Source
-        .tick(HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL, ())
-        .map(_ => CommitHeartbeat(getNewRecordTime))
-        .to(Sink.actorRef(commitActorRef, onCompleteMessage = ()))
-        .run()
-    }
 
     override def receive: Receive = {
       case commit @ CommitHeartbeat(newRecordTime) =>
@@ -185,8 +176,21 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   }
 
   /** Instance of the [[CommitActor]] to which we send messages. */
-  private val commitActorRef =
-    system.actorOf(Props(new CommitActor), s"commit-actor-${ledgerId.underlyingString}")
+  private val commitActorRef = {
+    // Start the commit actor.
+    val actorRef =
+      system.actorOf(Props(new CommitActor), s"commit-actor-${ledgerId.underlyingString}")
+
+    // Schedule heartbeat messages to be delivered to the commit actor.
+    // This source stops when the actor dies.
+    val _ = Source
+      .tick(HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL, ())
+      .map(_ => CommitHeartbeat(getNewRecordTime))
+      .to(Sink.actorRef(actorRef, onCompleteMessage = ()))
+      .run()
+
+    actorRef
+  }
 
   /** The index of the beginning of the commit log */
   private val beginning: Int = 0
