@@ -15,10 +15,11 @@ steps:
       echo "Simulating release step..."
       echo "##vso[task.setvariable variable=has_released;isOutput=true]true"
       echo "##vso[task.setvariable variable=release_tag]$(cat VERSION)"
+    name: release
   - bash: |
       set -euo pipefail
       ARTIFACT=daml-sdk-$(release_tag)-windows.tar.gz
-      cp bazel-genfiles/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$ARTIFACT
+      cp bazel-genfiles/release/sdk-release-tarball.tar.gz '$(Build.StagingDirectory)'/$ARTIFACT
       echo "##vso[task.setvariable variable=artifact;isOutput=true]$ARTIFACT"
     name: publish
     condition: eq(variables['release.has_released'], 'true')
