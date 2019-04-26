@@ -11,8 +11,12 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.common.io.BaseEncoding
+import com.google.protobuf.ByteString
 
 object KeyValueConsumption {
+
+  def packDamlLogEntry(entry: DamlStateKey): ByteString = entry.toByteString
+  def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
 
   /** Construct a participant-state [[Update]] from a [[DamlLogEntry]].
     *
@@ -51,7 +55,27 @@ object KeyValueConsumption {
 
     Update.CommandRejected(
       submitterInfo = parseSubmitterInfo(rejEntry.getSubmitterInfo),
-      reason = RejectionReason.Inconsistent // FIXME
+      reason = rejEntry.getReasonCase match {
+        case DamlRejectionEntry.ReasonCase.DISPUTED =>
+          RejectionReason.Disputed(rejEntry.getDisputed)
+        case DamlRejectionEntry.ReasonCase.INCONSISTENT =>
+          RejectionReason.Inconsistent
+        case DamlRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
+          RejectionReason.ResourcesExhausted
+        case DamlRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED =>
+          RejectionReason.MaximumRecordTimeExceeded
+        case DamlRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
+          RejectionReason.DuplicateCommand
+        case DamlRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
+          RejectionReason.PartyNotKnownOnLedger
+        case DamlRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT =>
+          RejectionReason.SubmitterCannotActViaParticipant(
+            rejEntry.getSubmitterCannotActViaParticipant
+          )
+        case DamlRejectionEntry.ReasonCase.REASON_NOT_SET =>
+          // FIXME(JM): Should we have a generic reason?
+          RejectionReason.Disputed("unknown reason")
+      }
     )
   }
 

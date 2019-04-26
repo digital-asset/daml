@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.v1.{
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.google.protobuf.ByteString
 import Conversions._
+
 import scala.collection.JavaConverters._
 
 /** Methods to produce the [[DamlSubmission]] message.
@@ -30,7 +31,9 @@ object KeyValueSubmission {
       meta: TransactionMeta,
       tx: SubmittedTransaction): DamlSubmission = {
 
-    val (inputLogEntries, inputDamlState) = InputsAndEffects.computeInputs(tx)
+    val (inputLogEntries, inputDamlStateFromTx) = InputsAndEffects.computeInputs(tx)
+    val encodedSubInfo = buildSubmitterInfo(submitterInfo)
+    val inputDamlState = commandDedupKey(encodedSubInfo) :: inputDamlStateFromTx
 
     DamlSubmission.newBuilder
       .addAllInputLogEntries(inputLogEntries.asJava)
@@ -38,7 +41,7 @@ object KeyValueSubmission {
       .setTransactionEntry(
         DamlTransactionEntry.newBuilder
           .setTransaction(Conversions.encodeTransaction(tx))
-          .setSubmitterInfo(buildSubmitterInfo(submitterInfo))
+          .setSubmitterInfo(encodedSubInfo)
           .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
           .setWorkflowId(meta.workflowId)
           .build

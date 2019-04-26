@@ -46,7 +46,7 @@ private[kvutils] object Conversions {
     acoid.coid.split(':').toList match {
       case hexTxId :: nodeId :: Nil =>
         DamlLogEntryId.newBuilder
-          .setEntryIdBytes(ByteString.copyFrom(BaseEncoding.base16().decode(hexTxId)))
+          .setEntryId(ByteString.copyFrom(BaseEncoding.base16().decode(hexTxId)))
           .build -> nodeId.toInt
       case _ => sys.error(s"decodeAbsoluteContractId: Cannot decode '$acoid'")
     }
@@ -57,7 +57,7 @@ private[kvutils] object Conversions {
         DamlStateKey.newBuilder
           .setContractId(
             DamlContractId.newBuilder
-              .setEntryId(DamlLogEntryId.newBuilder.setEntryIdBytes(
+              .setEntryId(DamlLogEntryId.newBuilder.setEntryId(
                 ByteString.copyFrom(BaseEncoding.base16().decode(hexTxId))))
               .setNodeId(nodeId.toLong)
               .build
@@ -77,6 +77,18 @@ private[kvutils] object Conversions {
           .build
       )
       .build
+
+  def commandDedupKey(subInfo: DamlSubmitterInfo): DamlStateKey = {
+    DamlStateKey.newBuilder
+      .setCommandDedup(
+        DamlCommandDedupKey.newBuilder
+          .setApplicationId(subInfo.getApplicationId)
+          .setCommandId(subInfo.getCommandId)
+          .setSubmitter(subInfo.getSubmitter)
+          .build
+      )
+      .build
+  }
 
   def buildSubmitterInfo(subInfo: SubmitterInfo): DamlSubmitterInfo =
     DamlSubmitterInfo.newBuilder

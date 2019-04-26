@@ -36,8 +36,6 @@ private[kvutils] object InputsAndEffects {
         * id and the relative contract id (that is, the node index).
         */
       createdContracts: List[DamlStateKey]
-
-      // FIXME(JM): updated contract keys
   )
 
   def computeInputs(tx: SubmittedTransaction): (List[DamlLogEntryId], List[DamlStateKey]) = {

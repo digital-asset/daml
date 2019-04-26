@@ -46,13 +46,13 @@ message DamlLogEntry {
 }
 
 message DamlLogEntryId {
-  // Entry identifiers are opaque strings chosen by the implementation that provide a unique
-  // reference to the entry. This may be the database key used to store the entry, or a combination
-  // of a key and offset within a batch. Conceptually entry identifier should have 1-1 mapping into
-  // participant-state [[Offset]] as the implementation using these utilities is expected to produce the
-  // offset for each entry.
-  // When used as transactionId they're rendered in hexadecimal.
-  string entry_id = 1;
+  // Entry identifiers are opaque bytestrings chosen by the implementation that provide a unique
+  // reference to the entry.
+  // The entry identifier is used:
+  // * to lookup the log entry when producing `Update`.
+  // * as the DAML transaction identifier and rendered as hexadecimal.
+  // * as part of absolute contract identifiers.
+  bytes entry_id = 1;
 }
 
 

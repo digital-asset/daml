@@ -13,9 +13,9 @@ import akka.stream.scaladsl.Source
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.daml.ledger.api.server.damlonx.Server
 import com.daml.ledger.participant.state.index.v1.impl.reference.ReferenceIndexService
-import com.daml.ledger.participant.state.v1.impl.reference.Ledger
-import com.daml.ledger.participant.state.v1.{ReadService, Offset, Update, LedgerInitialConditions}
-//import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
+import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
+//import com.daml.ledger.participant.state.v1.impl.reference.Ledger
+import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset, ReadService, Update}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.GenTransaction
@@ -77,8 +77,8 @@ object ReferenceServer extends App {
 
   val timeModel = TimeModel.reasonableDefault
   val tsb = TimeServiceBackend.simple(Instant.EPOCH)
-  //val ledger = new InMemoryKVParticipantState
-  val ledger = new Ledger(timeModel, tsb)
+  val ledger = new InMemoryKVParticipantState
+  //val ledger = new Ledger(timeModel, tsb)
   def archivesFromDar(file: File): List[Archive] = {
     DarReader[Archive](x => Try(Archive.parseFrom(x)))
       .readArchive(new ZipFile(file))

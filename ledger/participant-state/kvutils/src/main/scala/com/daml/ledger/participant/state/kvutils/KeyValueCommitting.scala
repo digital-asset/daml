@@ -5,6 +5,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, PackageId, RejectionReason}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.lfpackage.Decode
 import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value.{
@@ -16,6 +17,8 @@ import com.digitalasset.daml.lf.value.Value.{
 }
 import com.google.protobuf.ByteString
 
+import scala.util.Try
+
 object KeyValueCommitting {
 
   def packDamlStateKey(key: DamlStateKey): ByteString = key.toByteString
@@ -23,6 +26,9 @@ object KeyValueCommitting {
 
   def packDamlStateValue(value: DamlStateValue): ByteString = value.toByteString
   def unpackDamlStateValue(bytes: ByteString): DamlStateValue = DamlStateValue.parseFrom(bytes)
+
+  def packDamlLogEntry(entry: DamlLogEntry): ByteString = entry.toByteString
+  def unpackDamLLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
 
   /** Processes a DAML submission, given the allocated log entry id, the submission and its resolved inputs.
     * Produces the log entry to be committed, and DAML state updates.
@@ -42,7 +48,7 @@ object KeyValueCommitting {
     * @param recordTime: The record time for the log entry.
     * @param submission: The submission to commit to the ledger.
     * @param inputLogEntries: The resolved inputs to the submission.
-    * @param inputState: The input DAML state entries.
+    * @param inputState: The input DAML state entries. Some state entries declared as input can be missing.
     * @return The log entry to be committed and the DAML state updates.
     */
   def processSubmission(
@@ -52,7 +58,7 @@ object KeyValueCommitting {
       recordTime: Timestamp,
       submission: DamlSubmission,
       inputLogEntries: Map[DamlLogEntryId, DamlLogEntry],
-      inputState: Map[DamlStateKey, DamlStateValue]
+      inputState: Map[DamlStateKey, Option[DamlStateValue]]
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
 
     submission.getPayloadCase match {
@@ -99,15 +105,15 @@ object KeyValueCommitting {
       recordTime: Timestamp,
       txEntry: DamlTransactionEntry,
       inputLogEntries: Map[DamlLogEntryId, DamlLogEntry],
-      inputState: Map[DamlStateKey, DamlStateValue]
+      inputState: Map[DamlStateKey, Option[DamlStateValue]]
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
 
-    // FIXME(JM): Dispatch on the submission type! The following is actually
-    // "validateTransactionSubmission"
     val txLet = parseTimestamp(txEntry.getLedgerEffectiveTime)
 
     // 1. Verify that this is not a duplicate command submission.
-    val dedupCheckResult = true
+    val dedupKey = commandDedupKey(txEntry.getSubmitterInfo)
+    val dedupEntry = inputState(dedupKey)
+    val dedupCheckResult = dedupEntry.isEmpty
 
     // 2. Verify that the ledger effective time falls within time bounds
     val letCheckResult = config.timeModel.checkLet(
@@ -119,7 +125,7 @@ object KeyValueCommitting {
 
     // 3. Verify that the input contracts are active.
     // FIXME(JM): Does this need to be done separately, or is it enough to
-    // have lookupContract?
+    // have lookupContract to check these?
     val activenessCheckResult = true
 
     // 4. Verify that the submission conforms to the DAML model
@@ -127,21 +133,37 @@ object KeyValueCommitting {
       val (eid, nid) = absoluteContractIdToLogEntryId(coid)
       val stateKey = absoluteContractIdToStateKey(coid)
       for {
-        contractState <- inputState.get(stateKey).map(_.getContractState)
+        contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState))
         if txLet > parseTimestamp(contractState.getActiveAt) && !contractState.hasActiveAt
         entry <- inputLogEntries.get(eid)
         coinst <- lookupContractInstanceFromLogEntry(eid, entry, nid)
       } yield (coinst)
     }
 
-    // FIXME(JM): Currently just faking this as we don't have the package inputs computed yet.
-    // The provided engine is assumed to have all packages loaded.
-    def lookupPackage(pkgId: PackageId) = sys.error("lookupPackage unimplemented")
+    def lookupPackage(pkgId: PackageId) = {
+      val stateKey = DamlStateKey.newBuilder.setPackageId(pkgId.underlyingString).build
+      inputState
+        .get(stateKey)
+        .flatMap(identity)
+        .flatMap { value =>
+          inputLogEntries.get(value.getArchiveEntry)
+        }
+        .flatMap { entry =>
+          entry.getPayloadCase match {
+            case DamlLogEntry.PayloadCase.ARCHIVE =>
+              // NOTE(JM): Engine only looks up packages once, compiles and caches,
+              // provided that the engine instance is persisted.
+              Try(Decode.decodeArchive(entry.getArchive)._2).toOption
+            case _ =>
+              None
+          }
+        }
+    }
 
     val relTx = Conversions.decodeTransaction(txEntry.getTransaction)
     val modelCheckResult = engine
       .validate(relTx, txLet)
-      .consume(lookupContract, lookupPackage, _ => sys.error("unimplemented"))
+      .consume(lookupContract, lookupPackage, _ => sys.error("contract keys unimplemented"))
 
     def reject(reason: RejectionReason): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
       (
@@ -173,10 +195,10 @@ object KeyValueCommitting {
         // with the committed command and the created and consumed contracts.
 
         var stateUpdates = scala.collection.mutable.Map.empty[DamlStateKey, DamlStateValue]
-        stateUpdates += commandDedupKey(txEntry) -> emptyDamlStateValue
+        stateUpdates += commandDedupKey(txEntry.getSubmitterInfo) -> emptyDamlStateValue
         val effects = InputsAndEffects.computeEffects(entryId, relTx)
         effects.consumedContracts.foreach { key =>
-          val cs = inputState(key).getContractState.toBuilder
+          val cs = inputState(key).fold(DamlContractState.newBuilder)(_.getContractState.toBuilder) // FIXME(JM): Previous contract state should always be there
           cs.setArchivedAt(buildTimestamp(recordTime))
           cs.setArchivedByEntry(entryId)
           stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs.build).build
@@ -229,19 +251,6 @@ object KeyValueCommitting {
     DamlStateValue.newBuilder
       .setEmpty(com.google.protobuf.Empty.newBuilder.build)
       .build
-
-  private def commandDedupKey(txEntry: DamlTransactionEntry): DamlStateKey = {
-    val subInfo = txEntry.getSubmitterInfo
-    DamlStateKey.newBuilder
-      .setCommandDedup(
-        DamlCommandDedupKey.newBuilder
-          .setApplicationId(subInfo.getApplicationId)
-          .setCommandId(subInfo.getCommandId)
-          .setSubmitter(subInfo.getSubmitter)
-          .build
-      )
-      .build
-  }
 
   /** Look up the contract instance from the log entry containing the transaction.
     */

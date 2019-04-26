@@ -16,7 +16,7 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        ":daml_kvutils_java_proto",
+        ":daml_kvutils_java_proto_bla2",
         "//3rdparty/jvm/com/google/guava",
         "//3rdparty/jvm/com/typesafe/akka:akka_stream",
         "//daml-lf/archive:daml_lf_archive_scala",
@@ -27,6 +27,24 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
         "//daml-lf/transaction/src/main/protobuf:value_java_proto",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-state",
+    ],
+)
+
+da_scala_test_suite(
+    name = "kvutils-tests",
+    srcs = glob(["src/test/suite/**/*.scala"]),
+    deps = [
+        ":kvutils",
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest",
+        "//daml-lf/archive:daml_lf_archive_scala",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
         "//ledger/participant-state",
     ],
@@ -49,7 +67,7 @@ proto_library(
 )
 
 java_proto_library(
-    name = "daml_kvutils_java_proto",
+    name = "daml_kvutils_java_proto_bla2",
     visibility = [
         "//visibility:public",
     ],

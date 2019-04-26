@@ -27,7 +27,7 @@ package object kvutils {
   * using a random number generator and validating uniqueness at commit time. We furthermore assume that
   * the log entry identifier can be derived from the transaction entry of the underlying ledger.
   *
-  * With these assumptions the process of submission looks as follows:
+  * With these assumptions an example submission looks as follows:
   *
   * 1. The [[v1.WriteService.submitTransaction]] is invoked in the DAML Ledger API server.
   *  The implementation assigns a unique log entry identifier "D8AF41AB" for the submission and using [[KeyValueSubmission]]
@@ -44,7 +44,7 @@ package object kvutils {
   *    damlLogEntries/D8AF41AB = DamlLogEntry(transaction_entry = <...>)
   *
   * 3. The implementation of [[v1.ReadService.stateUpdates]] receives event on newly committed ledger entry.
-  *  From the ledger's transaction it deduces the unique log entry identifier "X123" and queries the key-value
+  *  From the ledger's transaction it deduces the unique log entry identifier "D8AF41AB" and queries the key-value
   *  store to retrieve key `damlLogEntries/D8AF41AB`, and using [[KeyValueConsumption.logEntryToUpdate]] produces
   *  an [[v1.Update]], with an offset corresponding to the block height of the ledger (for example).
   */
