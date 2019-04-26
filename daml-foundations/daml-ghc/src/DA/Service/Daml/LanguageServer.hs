@@ -293,13 +293,12 @@ eventSlinger
 eventSlinger loggerH eventChan notifChan =
     forever $ do
         mbFatalErr <- atomically $ readTChan eventChan >>= \case
-            Compiler.EventFileDiagnostics (uri, diags) -> do
+            Compiler.EventFileDiagnostics (Compiler.Uri uri, diags) -> do
                 writeTChan notifChan
                     $ PublishDiagnostics
                     $ PublishDiagnosticsParams
-                    (Tagged $ Compiler.getUri uri)
-                    $ map convertDiagnostic
-                    $ Compiler.getDiagnosticsFromStore diags
+                    (Tagged uri)
+                    (map convertDiagnostic $ nubOrd diags)
                 pure Nothing
 
             Compiler.EventVirtualResourceChanged vr content -> do
