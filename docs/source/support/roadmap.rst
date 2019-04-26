@@ -55,9 +55,16 @@ We plan to update this roadmap roughly every three months.
 
   Provide a browser-based version of :doc:`DAML Studio </daml/daml-studio>` to make it easier to try DAML out.
 
-  `More about this on GitHub <https://github.com/digital-asset/daml/issues/118>`__.
+  `More about this on GitHub <https://github.com/digital-asset/daml/issues/118>`__
+
 - **DAML-on-X self-service package**
 
   Make it easier for external developers to integrate DAML with other ledgers.
 
-  `More about this on GitHub <https://github.com/digital-asset/daml/issues/121>`__. 
+  `More about this on GitHub <https://github.com/digital-asset/daml/issues/121>`__.
+  
+- **Scala Ecosystem in SDK**
+
+  `More about this on GitHub <https://github.com/digital-asset/daml/milestone/14>`__.
+
+  
