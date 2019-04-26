@@ -102,7 +102,6 @@ object Cli {
 
     opt[String]("jdbcurl")
       .optional()
-      .hidden()
       .text("The JDBC connection URL to a Postgres database containing the username and password as well. If missing the Sandbox will use an in memory store.")
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
