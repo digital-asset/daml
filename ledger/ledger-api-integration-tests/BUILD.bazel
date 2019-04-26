@@ -98,6 +98,11 @@ da_scala_test_suite(
         ":ledger-api-integration-tests-lib",
         "//daml-lf/testing-tools",
     ] + dependencies,
+    tags = [
+        # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it
+        # without competition to avoid flakyness.
+        "exclusive",
+    ],
 )
 
 TEST_FILES = [
