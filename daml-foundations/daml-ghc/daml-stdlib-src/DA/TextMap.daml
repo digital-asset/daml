@@ -14,7 +14,7 @@ module DA.TextMap
   , null
   , lookup
   , member
-  , filter
+  , filterWithKey
   , delete
   , insert
   , union
@@ -56,8 +56,8 @@ member : Text -> TextMap v -> Bool
 member x m = isSome $ lookup x m
 
 -- | Filter all values that satisfy some predicate.
-filter : (Text -> v -> Bool) -> TextMap v -> TextMap v
-filter p m = fromList $ List.filter (uncurry p) (toList m)
+filterWithKey : (Text -> v -> Bool) -> TextMap v -> TextMap v
+filterWithKey p m = fromList $ List.filter (uncurry p) (toList m)
 
 -- | Delete a key and its value from the map. When the key is not a
 -- member of the map, the original map is returned.

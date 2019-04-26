@@ -18,6 +18,7 @@ HEAD — ongoing
   option.  A "1.dev" target will handle the intended "Dev" use cases in a future release.
 - Include list of DAML packages used during interpretation in the produced transaction.
 - Release source jars for scala libraries.
+- Rename ``DA.TextMap.filter`` into ``filterWithKey``.
 
 0.12.11 - 2019-04-26
 --------------------
