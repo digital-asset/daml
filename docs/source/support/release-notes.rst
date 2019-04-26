@@ -8,6 +8,7 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+- Enabling support for Postgres persistence under the Sandbox
 
 - Add documentation for :doc:`/daml-integration-kit/index`, which explains
   what the DAML Integration Kit is, what state it is in, and how it is going
