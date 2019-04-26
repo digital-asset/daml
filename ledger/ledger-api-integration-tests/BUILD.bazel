@@ -66,6 +66,7 @@ da_scala_test_suite(
     deps = [
         ":ledger-api-integration-tests-lib",
     ] + dependencies,
+    size = "large",
 )
 
 # DEPRECATED in favor of //ledger/ledger-api-test-tool:ledger-api-test-tool
