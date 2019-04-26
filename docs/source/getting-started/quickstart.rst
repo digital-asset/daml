@@ -113,7 +113,7 @@ Run the application using prototyping tools
 
 In this section, you will run the quickstart application and get introduced to the main tools for prototyping DAML:
 
-#. To compile the DAML model, run ``daml package -o target/daml/iou.dar``
+#. To compile the DAML model, run ``daml build -o target/daml/iou.dar``
 
    This creates a DAR package called ``target/daml/iou.dar``. The output should look like this:
 
