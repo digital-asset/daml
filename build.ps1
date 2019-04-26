@@ -90,10 +90,7 @@ function build-full() {
         //ledger/ledger-api-server-example/... `
         //ledger/participant-state/... `
         //ledger/participant-state-index/... `
-        //ledger/sandbox:sandbox `
-        //ledger/sandbox:sandbox-binary `
-        //ledger/sandbox:sandbox-tarball `
-        //ledger/sandbox:sandbox-head-tarball `
+        //ledger/sandbox/... `
         //ledger-api/... `
         //navigator/backend/... `
         //navigator/frontend/... `
