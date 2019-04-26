@@ -13,6 +13,8 @@ module Development.IDE.Types.Diagnostics (
   LSP.DiagnosticSeverity(..),
   Position(..),
   DiagnosticStore,
+  DiagnosticRelatedInformation(..),
+  List(..),
   StoreItem(..),
   Uri(..),
   noLocation,
@@ -27,8 +29,8 @@ module Development.IDE.Types.Diagnostics (
   defDiagnostic,
   addDiagnostics,
   filterSeriousErrors,
-  addLocation,
-  addFilePath,
+  setLocation,
+  setFilePath,
   getDiagnosticsFromStore
   ) where
 
@@ -62,7 +64,7 @@ ideErrorPretty fp = ideErrorText fp . T.pack . Pretty.prettyShow
 
 errorDiag :: FilePath -> T.Text -> T.Text -> LSP.Diagnostic
 errorDiag fp src =
-  addFilePath fp . diagnostic noRange LSP.DsError src
+  setFilePath fp . diagnostic noRange LSP.DsError src
 
 -- | This is for compatibility with our old diagnostic type
 diagnostic :: Range
@@ -94,25 +96,22 @@ defDiagnostic _range _message = LSP.Diagnostic {
   , _relatedInformation = Nothing
   }
 
--- | addLocation but with no range information
-addFilePath ::
+-- | setLocation but with no range information
+setFilePath ::
   FilePath ->
   LSP.Diagnostic ->
   LSP.Diagnostic
-addFilePath fp =
-  addLocation $ Location (filePathToUri fp) noRange
+setFilePath fp =
+  setLocation $ Location (filePathToUri fp) noRange
 
 -- | This adds location information to the diagnostics but this is only used in
 --   the case of serious errors to give some context to what went wrong
-addLocation ::
+setLocation ::
   Location ->
   LSP.Diagnostic ->
   LSP.Diagnostic
-addLocation loc d =
-  d {
-    LSP._relatedInformation = Just $ LSP.List (rel loc : maybe [] toList (_relatedInformation d))
-    } where
-      rel loc = DiagnosticRelatedInformation loc ""
+setLocation loc d =
+  d {LSP._relatedInformation = Just $ LSP.List [DiagnosticRelatedInformation loc ""]}
 
 filterSeriousErrors ::
     FilePath ->

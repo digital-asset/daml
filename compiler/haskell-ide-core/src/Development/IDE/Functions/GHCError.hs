@@ -49,7 +49,7 @@ mkDiag dflags src e =
   case toDSeverity $ errMsgSeverity e of
     Nothing        -> Nothing
     Just bSeverity ->
-      Just $ addLocation (srcSpanToLocation $ errMsgSpan e)
+      Just $ setLocation (srcSpanToLocation $ errMsgSpan e)
         Diagnostic
         { _range    = srcSpanToRange $ errMsgSpan e
         , _severity = Just bSeverity
