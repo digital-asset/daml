@@ -139,9 +139,13 @@ In this section, you will run the quickstart application and get introduced to t
       /___/\_,_/_//_/\_,_/_.__/\___/_\_\
 
       Initialized sandbox version 100.12.1 with ledger-id = sandbox-5e12e502-817e-41f9-ad40-1c57b8845f9d, port = 6865, dar file = DamlPackageContainer(List(target/daml/iou.dar),false), time mode = Static, ledger = in-memory, daml-engine = {}
-
-   The sandbox is now running, and you can access its :ref:`ledger API <ledger-api-introduction>` on port ``6865``.
-
+      Initialized Static time provider, starting from 1970-01-01T00:00:00Z
+      DAML LF Engine supports LF versions: 1.0, 0; Transaction versions: 1; Value versions: 1
+      Starting plainText server
+      listening on localhost:6865
+   
+   The sandbox is now running, and you can access its :doc:`ledger API </app-dev/index>` on port ``6865``.
+   
    .. note::
 
       The parameter ``--scenario Main:setup`` loaded the sandbox ledger with some initial data. Only the sandbox has this prototyping feature - it's not available on the full ledger server. More on :ref:`scenarios <quickstart-scenarios>` later.
@@ -465,7 +469,7 @@ The ``submit`` function used in this scenario tries to perform a transaction and
 ..  Interact with the ledger through the command line
     *************************************************
 
-    All interaction with the DA ledger, be it sandbox or full ledger server, happens via the :doc:`Ledger API </app-dev/ledger-api-introduction/index>`. It is based on `gRPC <https://grpc.io/>`_.
+    All interaction with the DA ledger, be it sandbox or full ledger server, happens via the :doc:`Ledger API </app-dev/index>`. It is based on `gRPC <https://grpc.io/>`_.
 
     The Navigator uses this API, as will any :ref:`custom integration <quickstart-application>`.
 
@@ -585,7 +589,7 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
 The rest of the application sets up the REST services using `Spark Java <http://sparkjava.com/>`_, and does dynamic package Id detection using the Package Service. The latter is useful during development when package Ids change frequently.
 
-For a discussion of ledger application design and architecture, take a look at :doc:`Application Architecture Guide </app-dev/app-arch/index>`.
+For a discussion of ledger application design and architecture, take a look at :doc:`Application Architecture Guide </app-dev/app-arch>`.
 
 Next steps
 **********
@@ -596,5 +600,5 @@ Some steps you could take next include:
 
 - Explore :doc:`examples </examples/examples>` for guidance and inspiration.
 - :doc:`Learn DAML </daml/reference/index>`.
-- Learn more about :doc:`application development </app-dev/app-arch/index>`.
+- Learn more about :doc:`application development </app-dev/app-arch>`.
 - Learn about the :doc:`conceptual models </concepts/ledger-model/index>` behind DAML and platform.

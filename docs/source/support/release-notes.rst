@@ -184,7 +184,7 @@ Changes:
 - Documentation: Added a comprehensive :doc:`quickstart guide </getting-started/quickstart>` that replaces the old "My first project" example.
 
 	As part of this, removed the My first project, IOU and PvP examples.
-- Documentation: Added a :doc:`guide to building applications against a DA ledger </app-dev/app-arch/index>`.
+- Documentation: Added a :doc:`guide to building applications against a DA ledger </app-dev/app-arch>`.
 - Documentation: Updated the :doc:`support and feedback page <support>`.
 
 - Ledger API: Version 1.4.0 has support for multi-party subscriptions in the transactions and active contracts services.
