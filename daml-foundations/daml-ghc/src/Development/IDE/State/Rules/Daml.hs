@@ -8,6 +8,7 @@ module Development.IDE.State.Rules.Daml
 
 import Control.Concurrent.Extra
 import Control.Exception
+import Control.Lens (set)
 import Control.Monad.Except
 import Control.Monad.Extra
 import qualified Data.ByteString as BS
@@ -234,7 +235,7 @@ runScenariosRule =
       let scenarios = scenariosInModule m
           toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe Diagnostic
           toDiagnostic scenario (Left err) =
-              Just $ addFilePath file $ Diagnostic
+              Just $ set dFilePath (Just file) $ Diagnostic
               { _range = maybe noRange sourceLocToRange mbLoc
               , _severity = Just DsError
               , _source = Just "Scenario"
