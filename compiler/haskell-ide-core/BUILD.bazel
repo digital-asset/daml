@@ -20,6 +20,8 @@ da_haskell_library(
         "ghc-lib",
         "ghc-lib-parser",
         "hashable",
+        "haskell-lsp",
+        "haskell-lsp-types",
         "mtl",
         "pretty",
         "safe-exceptions",
