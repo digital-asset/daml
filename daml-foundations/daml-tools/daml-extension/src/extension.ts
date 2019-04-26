@@ -388,7 +388,7 @@ class DAMLDocumentContentProvider implements TextDocumentContentProvider {
         if (null === u || undefined === u){
             return window.showWarningMessage('Show Resource was called without a URI target')
         }
-        let options = {enableScripts : true, enableFindWidget: true};
+        let options = {enableScripts : true, enableFindWidget: true, enableCommandUris: true};
         let panel = window.createWebviewPanel('daml', title, getViewColumnForShowResource(), options);
         let uri = Uri.parse(u);
         let virtualResourceUri = this.getVirtualUriFromUri(uri);
