@@ -17,7 +17,7 @@ If you're not familiar with gRPC, we strongly recommend following the `gRPC quic
 Getting started
 ***************
 
-To add all of the necessary protobuf files to a project, run ``da project add ledger-api-protos``.
+.. TODO: how to get protobufs in world of new assistant
 
 Protobuf reference documentation
 ********************************

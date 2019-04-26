@@ -11,7 +11,7 @@ DAML assistant (``daml``)
   ``daml install <version>``
 - Launch the tools in the SDK:
 
-  - Launch :doc:`DAML Studio </daml/daml-studio>`: ``da studio``
+  - Launch :doc:`DAML Studio </daml/daml-studio>`: ``daml studio``
   - Launch :doc:`Sandbox </tools/sandbox>` and :doc:`Navigator <tools/navigator/index>` together: ``daml start``
   - Launch Sandbox: ``daml sandbox``
   - Launch Navigator: ``daml navigator``

@@ -14,42 +14,16 @@ You need to install:
 1. `Visual Studio Code <https://code.visualstudio.com/download>`_.
 2. `JDK 8 or greater <http://www.oracle.com/technetwork/java/javase/downloads/index.html>`_.
 
-2. Set up the SDK Assistant
-***************************
+2. Install the SDK
+*******************
 
-The SDK is distributed via a command-line tool called the :doc:`SDK Assistant </tools/assistant>`. To install the SDK Assistant:
+To install the SDK on Mac or Unix, run::
 
-#. Download the latest installer for your platform:
+  curl https://get.daml.com/ | bash
 
-   - .. rst-class:: cta-alt
-   
-        `Linux installer <https://cta-redirect.hubspot.com/cta/redirect/5388578/05b2410e-fba4-4d42-b125-f7fd2dc3ba5d>`_
-     
-     .. raw:: html
-
-        <!--HubSpot Call-to-Action Code --><span class="hs-cta-wrapper" id="hs-cta-wrapper-05b2410e-fba4-4d42-b125-f7fd2dc3ba5d"><span class="hs-cta-node hs-cta-05b2410e-fba4-4d42-b125-f7fd2dc3ba5d" id="hs-cta-05b2410e-fba4-4d42-b125-f7fd2dc3ba5d"><!--[if lte IE 8]><div id="hs-cta-ie-element"></div><![endif]--><a href="https://cta-redirect.hubspot.com/cta/redirect/5388578/05b2410e-fba4-4d42-b125-f7fd2dc3ba5d"  target="_blank" ><img class="hs-cta-img" id="hs-cta-img-05b2410e-fba4-4d42-b125-f7fd2dc3ba5d" style="border-width:0px;" src="https://no-cache.hubspot.com/cta/default/5388578/05b2410e-fba4-4d42-b125-f7fd2dc3ba5d.png"  alt="Linux installer"/></a></span><script charset="utf-8" src="https://js.hscta.net/cta/current.js"></script><script type="text/javascript"> hbspt.cta.load(5388578, '05b2410e-fba4-4d42-b125-f7fd2dc3ba5d', {}); </script></span><!-- end HubSpot Call-to-Action Code -->
-
-   - .. rst-class:: cta-alt
-   
-        `Mac installer <https://cta-redirect.hubspot.com/cta/redirect/5388578/1b93ea71-77c6-4e0e-adbb-de072226d474>`_
-     
-     .. raw:: html
-
-        <!--HubSpot Call-to-Action Code --><span class="hs-cta-wrapper" id="hs-cta-wrapper-1b93ea71-77c6-4e0e-adbb-de072226d474"><span class="hs-cta-node hs-cta-1b93ea71-77c6-4e0e-adbb-de072226d474" id="hs-cta-1b93ea71-77c6-4e0e-adbb-de072226d474"><!--[if lte IE 8]><div id="hs-cta-ie-element"></div><![endif]--><a href="https://cta-redirect.hubspot.com/cta/redirect/5388578/1b93ea71-77c6-4e0e-adbb-de072226d474"  target="_blank" ><img class="hs-cta-img" id="hs-cta-img-1b93ea71-77c6-4e0e-adbb-de072226d474" style="border-width:0px;" src="https://no-cache.hubspot.com/cta/default/5388578/1b93ea71-77c6-4e0e-adbb-de072226d474.png"  alt="Mac installer"/></a></span><script charset="utf-8" src="https://js.hscta.net/cta/current.js"></script><script type="text/javascript"> hbspt.cta.load(5388578, '1b93ea71-77c6-4e0e-adbb-de072226d474', {}); </script></span><!-- end HubSpot Call-to-Action Code -->
-
-   - Windows installer coming soon - `sign up to be notified <https://hub.daml.com/sdk/windows>`_
-
-   The SDK is distributed under the :download:`Apache 2.0 license </LICENSE>` (:download:`NOTICES </NOTICES>`).
-
-#. Run the installer:
-
-   .. code::
-
-     sh ./da-cli-<version>.run
-
-#. Follow the instructions in the output to update your ``PATH``.
-
-#. Run ``da setup``, which will download and install the SDK.
+.. Install the SDK on Windows
+.. ==========================
+.. TODO installer is coming
 
 .. _setup-maven-project:
 
@@ -67,5 +41,5 @@ Next steps
 
 - Follow the :doc:`quickstart guide <quickstart>`.
 - Read the :doc:`introduction <introduction>` page.
-- Use ``da --help`` to see all the commands that the SDK Assistant provides.
+- Use ``daml --help`` to see all the commands that the DAML assistant (``daml``) provides.
 - If you run into any problems, :doc:`use the support page </support/support>` to get in touch with us.

@@ -32,7 +32,7 @@ Prerequisites:
 
 Once you have the prerequisites, you can start the Extractor like this::
 
-$ da run extractor -- --help
+$ daml extractor -- --help
 
 Trying it out
 *************
@@ -48,7 +48,7 @@ This example extracts:
 
   .. code-block:: none
 
-    $ da run extractor -- postgresql --user postgres --connecturl jdbc:postgresql:daml_export --party Scrooge_McDuck -h 192.168.1.12 -p 6865 --to head
+    $ daml extractor -- postgresql --user postgres --connecturl jdbc:postgresql:daml_export --party Scrooge_McDuck -h 192.168.1.12 -p 6865 --to head
 
 This terminates after reaching the transaction which was the latest at the time the Extractor started streaming. 
 
@@ -59,7 +59,7 @@ Running the Extractor
 
 The basic command to run the Extractor is::
 
-  $ da run extractor -- [options]
+  $ daml extractor -- [options]
 
 For what options to use, see the next sections.
 
@@ -87,13 +87,13 @@ This example connects to a PostgreSQL instance running on ``localhost`` on the d
 
 .. code-block:: none
 
-  $ da run extractor -- postgres --connecturl jdbc:postgresql:daml_export --user postgres --party [party]
+  $ daml extractor -- postgres --connecturl jdbc:postgresql:daml_export --user postgres --party [party]
 
 This example connects to a database on host ``192.168.1.12``, listening on port ``5432``. The database is called ``daml_export``, and the user and password used for authentication are ``daml_exporter`` and ``ExamplePassword``
 
 .. code-block:: none
 
-  $ da run extractor -- postgres --connecturl jdbc:postgresql://192.168.1.12:5432/daml_export --user daml_exporter --password ExamplePassword --party [party]
+  $ daml extractor -- postgres --connecturl jdbc:postgresql://192.168.1.12:5432/daml_export --user daml_exporter --password ExamplePassword --party [party]
 
 Full list of options
 ********************
