@@ -94,11 +94,11 @@ da_scala_test_suite(
     data = [
         ":SemanticTests.dar",
     ],
+    tags = ["exclusive"],
     deps = [
         ":ledger-api-integration-tests-lib",
         "//daml-lf/testing-tools",
     ] + dependencies,
-    tags = ["exclusive",],
 )
 
 TEST_FILES = [
