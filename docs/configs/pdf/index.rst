@@ -37,10 +37,10 @@ Building Applications
    :titlesonly:
    :maxdepth: 2
 
-   app-dev/app-arch/index
-   app-dev/ledger-api-introduction/index
+   app-dev/index
    app-dev/bindings-java/index
-   app-dev/daml-lf-translation
+   app-dev/grpc/index
+   app-dev/app-arch
 
 SDK Tools
 ---------

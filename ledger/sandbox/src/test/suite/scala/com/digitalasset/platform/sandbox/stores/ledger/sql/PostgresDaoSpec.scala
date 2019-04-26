@@ -27,7 +27,8 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{Contract, Postgr
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   TransactionSerializer,
-  ValueSerializer
+  ValueSerializer,
+  KeyHasher
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import org.scalacheck.{Arbitrary, Gen}
@@ -47,7 +48,12 @@ class PostgresDaoSpec
   private lazy val dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, 4, 4)
 
   private lazy val ledgerDao =
-    PostgresLedgerDao(dbDispatcher, ContractSerializer, TransactionSerializer, ValueSerializer)
+    PostgresLedgerDao(
+      dbDispatcher,
+      ContractSerializer,
+      TransactionSerializer,
+      ValueSerializer,
+      KeyHasher)
 
   private val nextOffset: () => Long = {
     val counter = new AtomicLong(0)

@@ -18,7 +18,7 @@ It is useful for:
 Using the Extractor, you can:
 
 - Take a full snapshot of the ledger (from the start of the ledger to the current latest transaction)
-- Take a partial snapshot of the ledger (between specific `offsets <../../app-dev/ledger-api-introduction/proto-docs.html#ledgeroffset>`__)
+- Take a partial snapshot of the ledger (between specific `offsets <../../app-dev/grpc/proto-docs.html#ledgeroffset>`__)
 - Extract historical data and then stream indefinitely (either from the start of the ledger or from a specific offset)
 
 Setting up
@@ -169,7 +169,7 @@ Transactions are stored in the ``transaction table`` in the ``public`` schema, w
     );
 
 - **transaction_id**: The transaction ID, as appears on the ledger. This is the primary key of the table.
-- **transaction_id**, **effective_at, workflow_id, ledger_offset**: These columns are the properties of the transaction on the ledger. For more information, see the `specification <../../app-dev/ledger-api-introduction/proto-docs.html#transactiontree>`__.
+- **transaction_id**, **effective_at, workflow_id, ledger_offset**: These columns are the properties of the transaction on the ledger. For more information, see the `specification <../../app-dev/grpc/proto-docs.html#transactiontree>`__.
 - **seq**: Transaction IDs should be treated as arbitrary text values: you can’t rely on them for ordering transactions in the database. However, transactions appear on the Ledger API transaction stream in the same order as they were accepted on the ledger. You can use this to work around the arbitrary nature of the transaction IDs, which is the purpose of the ``seq`` field: it gives you a total ordering of the transactions, as they happened from the perspective of the ledger. Be aware that ``seq`` is not the exact index of the given transaction on the ledger. Due to the privacy model of the DAML Ledger, the transaction stream won’t deliver a transaction which doesn’t concern the party which is subscribed. The transaction with ``seq`` of 100 might be the 1000th transaction on the ledger; in the other 900, the transactions contained only events which mustn’t be seen by you.
 - **extracted_at**: The ``extracted_at`` field means the date the transaction row and its events were inserted into the database. When extracting historical data, this field will point to a possibly much later time than ``effective_at``.
 
@@ -193,7 +193,7 @@ Create events and contracts that are created in those events are stored in the `
     ,witness_parties JSONB NOT NULL
     );
 
-- **event_id, contract_id, create_arguments, witness_parties**: These fields are the properties of the corresponding ``CreatedEvent`` class in a transaction. For more information, see the `specification <../../app-dev/ledger-api-introduction/proto-docs.html#createdevent>`__.
+- **event_id, contract_id, create_arguments, witness_parties**: These fields are the properties of the corresponding ``CreatedEvent`` class in a transaction. For more information, see the `specification <../../app-dev/grpc/proto-docs.html#createdevent>`__.
 - **package_id, template**: The fields ``package_id`` and ``template`` are the exploded version of the ``template_id`` property of the ledger event.
 - **transaction_id**: The ``transaction_id`` field refers to the transaction in which the contract was created.
 - **archived_by_event_id, archived_by_transaction_id**: These fields will contain the event id and the transaction id in which the contract was archived once the archival happens.
@@ -226,7 +226,7 @@ Exercise events are stored in the ``exercise`` table in the ``public`` schema, w
 - **package_id, template**: The fields ``package_id`` and ``template`` are the exploded version of the ``template_id`` property of the ledger event.
 - **is_root_event**: Indicates whether the event in which the contract was created was a root event of the corresponding transaction.
 - **transaction_id**: The ``transaction_id`` field refers to the transaction in which the contract was created.
-- The other columns are properties of the ``ExercisedEvent`` class in a transaction. For more information, see the `specification <../../app-dev/ledger-api-introduction/proto-docs.html#exercisedevent>`__.
+- The other columns are properties of the ``ExercisedEvent`` class in a transaction. For more information, see the `specification <../../app-dev/grpc/proto-docs.html#exercisedevent>`__.
 
 JSON format
 ***********

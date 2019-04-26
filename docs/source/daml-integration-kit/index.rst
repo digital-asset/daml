@@ -4,9 +4,9 @@
 DAML Integration Kit - PRE-ALPHA
 ################################
 
-:doc:`DAML Applications </app-dev/app-arch/index>` run on DAML Ledgers.
+:doc:`DAML Applications </app-dev/index>` run on DAML Ledgers.
 A DAML Ledger is a server serving the
-:doc:`/app-dev/ledger-api-introduction/index` as per the semantics defined in
+:doc:`Ledger API </app-dev/index>` as per the semantics defined in
 the :doc:`/concepts/ledger-model/index` and the
 `DAML-LF specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>`_.
 
@@ -96,8 +96,43 @@ GA (`tracking GitHub issue <https://github.com/digital-asset/daml/issues/661>`__
 DAML Ledgers built or in development
 ====================================
 
-**TODO (ALPHA):** explain what ledgers exist; and what state they are in.
-(`GitHub issue <https://github.com/digital-asset/daml/issues/673>`__)
+The following table lists the ledgers that support DAML, or are implementing
+support for running DAML.
+
+.. note: the table renderer fails *silently* if you don't have the right
+   number of columns!
+
+.. list-table::
+   :widths: 25 25 25 25
+   :header-rows: 1
+
+   * - Ledger
+     - Status
+     - Developer
+     - More
+   * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
+     - In Development
+     - `VMware <https://www.vmware.com/>`__
+     - `press release (April 11th 2019)
+       <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
+   * - `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__
+     - In Development
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+     - `press release (April 16th 2019)
+       <https://www.hyperledger.org/blog/2019/04/16/daml-smart-contracts-coming-to-hyperledger-sawtooth>`__
+   * - :doc:`/tools/sandbox`
+     - Stable
+     - `Digital Asset <https://digitalasset.com/>`__
+     - `PostgreSQL <https://www.postgresql.org/>`__ backend coming soon
+       (`GitHub Milestone <https://github.com/digital-asset/daml/milestone/10>`__)
+   * - Canton
+     - In Development
+     - `Digital Asset <https://digitalasset.com/>`__
+     - native support for :doc:`DAML's fine-grained privacy model
+       </concepts/ledger-model/ledger-privacy>`; whitepaper coming soon
+       (contact `Ratko Veprek <mailto:ratko.veprek@digitalasset.com>`__  for a
+       preview)
+
 
 .. _integration-kit_implementing:
 
@@ -124,8 +159,8 @@ To acquire this context, you should:
 
 1. Complete the :doc:`/getting-started/quickstart`.
 2. Get an in-depth understanding of the :doc:`/concepts/ledger-model/index`.
-3. Build a mental model of how the :doc:`/app-dev/ledger-api-introduction/index`
-   is used to :doc:`build DAML Applications </app-dev/app-arch/index>`.
+3. Build a mental model of how the :doc:`Ledger API </app-dev/index>`
+   is used to :doc:`build DAML Applications </app-dev/index>`.
 
 .. _integration-kit_writing_code:
 
@@ -295,7 +330,7 @@ In the diagram above:
 Explaining this diagram in detail (for brevity, we drop prefixes
 of their qualified names where unambiguous):
 
-:doc:`/app-dev/ledger-api-introduction/index`
+:doc:`Ledger API </app-dev/index>`
   is the collection of gRPC
   services that you would like your `daml-on-<X>-server` to provide.
 ``<X> services``
@@ -355,7 +390,6 @@ Deploying a DAML Ledger
 - explain how testing of DAML applications (ledger reset, time manipulation,
   scripted package upload) can be supported by a uniform admin interface
   (`GitHub issue <https://github.com/digital-asset/daml/issues/347>`__).
-
 
 
 .. _integration-kit_testing:

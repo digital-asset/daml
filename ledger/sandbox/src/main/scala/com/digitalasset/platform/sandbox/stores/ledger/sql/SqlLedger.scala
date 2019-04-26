@@ -29,6 +29,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.PersistenceRespon
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{LedgerDao, PostgresLedgerDao}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
+  KeyHasher,
   TransactionSerializer,
   ValueSerializer
 }
@@ -69,7 +70,12 @@ object SqlLedger {
 
     val dbDispatcher = DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
     val ledgerDao = LedgerDao.metered(
-      PostgresLedgerDao(dbDispatcher, ContractSerializer, TransactionSerializer, ValueSerializer))
+      PostgresLedgerDao(
+        dbDispatcher,
+        ContractSerializer,
+        TransactionSerializer,
+        ValueSerializer,
+        KeyHasher))
 
     val sqlLedgerFactory = SqlLedgerFactory(ledgerDao)
 
