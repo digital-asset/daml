@@ -392,7 +392,6 @@ Deploying a DAML Ledger
   (`GitHub issue <https://github.com/digital-asset/daml/issues/347>`__).
 
 
-
 .. _integration-kit_testing:
 
 Testing a DAML Ledger
