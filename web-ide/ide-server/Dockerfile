@@ -8,6 +8,7 @@ USER root
 # Install VS Code's deps, libxkbfile-dev and libsecret-1-dev
 RUN curl -sL https://deb.nodesource.com/setup_8.x | bash - &&\
     apt-get update && apt-get install -y \
+        procps \
         nodejs \
         libxkbfile-dev \
         libsecret-1-dev

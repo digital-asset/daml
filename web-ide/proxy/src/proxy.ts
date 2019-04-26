@@ -23,7 +23,6 @@ import WebIdeRoute from "./routes/webide"
 import { Server } from "net";
 import StaticRoute from "./routes/landing";
 import HttpToHttpsRoute from "./routes/httpToHttps";
-import { debug } from "util";
 
 const docker = new Docker()
 const conf = require('./config').read()
@@ -31,8 +30,9 @@ const webIdeApp = express()
 const managementApp = express()
 const httpToHttpsApp = express()
 const rootDir = path.dirname(__dirname)
-console.log("root dir = %s", rootDir)
 let stopContainersOnShutdown = true
+
+console.log("INFO root dir = %s", rootDir)
 
 if (!conf.http.managementPort) throw new Error("MUST configure management port: 'conf.http.managementPort'")
 new ManagementRoute(managementApp).init()
@@ -93,7 +93,7 @@ function startProxyServer(proxyServer :Server) {
     return new Promise((resolve, reject) => {
         proxyServer.listen(conf.http.port, () => {
             console.log(`INFO docker proxy listening on port ${conf.http.port}!`);
-            docker.getImage(conf.docker.image)
+            docker.getImage(conf.docker.webIdeReference)
             .then(image => {
                 console.log(`INFO found image ${image.Id} ${image.RepoTags}`);
                 resolve(image);
@@ -110,7 +110,7 @@ function close() {
     
     if (!stopContainersOnShutdown) return
     stopContainersOnShutdown = false //in case we get multiple kill commands
-    docker.api.listContainers({all: false, filters: { label: [`${conf.docker.webIdeLabel}`] }})
+    docker.api.listContainers({all: false, filters: { ancestor: [`${conf.docker.webIdeReference}`] }})
     .then(containers => {
         containers.forEach(c => {
             console.log("INFO removing container %s", c.Id)

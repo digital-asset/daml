@@ -25,6 +25,7 @@ export default class Docker {
     }
 
     init() : Promise<any[]>{
+        debug("initializing docker")
         const webIdeNetwork = config.docker.hostConfig.NetworkMode ? config.docker.hostConfig.NetworkMode : 'bridge'
         if (!this.onInternalNetwork) {
             console.log("INFO running web ide containers on network[%s], this is a non-internal network and is only suitable for local development", webIdeNetwork)
@@ -42,9 +43,10 @@ export default class Docker {
                   externalNetworkP = hasExternal ? this.getNetwork(networks, externalName) : this.createNetwork(externalName, false)
             return Promise.all([internalNetworkP, externalNetworkP])
         })
-        const proxyIdP = this.api.listContainers({all: false, filters: { label: [config.docker.proxyLabel] }})
+        debug("getting proxy by image %s", config.docker.proxyReference)
+        const proxyIdP = this.api.listContainers({all: false, filters: { ancestor: [config.docker.proxyReference] }})
         .then(containers => { 
-            if (containers.length !== 1) throw new Error(`Found ${containers.length} instances labelled with ${config.docker.proxyLabel}. Make sure you're running a single docker instance of the proxy`)
+            if (containers.length !== 1) throw new Error(`Found ${containers.length} instances referenced by ${config.docker.proxyReference}. Make sure you're running a single docker instance of the proxy`)
             return containers[0].Id
         })
     

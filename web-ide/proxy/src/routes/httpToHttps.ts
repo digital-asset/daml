@@ -5,7 +5,9 @@ import { Application } from "express"
 const conf = require('../config').read()
 
 /**
- * Due to limitations in our gcp load balancers we implement redirects to https ourselves, on a separate port
+ * Due to limitations in our gcp load balancers we implement redirects to https ourselves, on a separate port.
+ * The load balancer will direct https traffic to our application by http:80 and direct http traffic to http:3002 
+ * so that the application can redirect it to https
  */
 export default class HttpToHttpsRoute {
     redirectApp :Application
