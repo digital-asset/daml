@@ -61,6 +61,6 @@ case class DamlPackageContainer(files: List[File] = Nil) {
 
   def getPackage(id: PackageId): Option[Ast.Package] = packages.get(id)
 
-  @deprecated("minor dev is always allowed; drop call to allowDev", since = "100.12.11")
+  @deprecated("minor dev is always allowed; drop call to allowDev", since = "100.12.12")
   def allowDev: this.type = this
 }

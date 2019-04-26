@@ -37,7 +37,7 @@ object LanguageMajorVersion {
 
   val All: List[LanguageMajorVersion] = List(V0, V1)
 
-  @deprecated("use All instead", since = "100.12.11")
+  @deprecated("use All instead", since = "100.12.12")
   val supported: List[LanguageMajorVersion] = All
 
   val ordering: Ordering[LanguageMajorVersion] =
