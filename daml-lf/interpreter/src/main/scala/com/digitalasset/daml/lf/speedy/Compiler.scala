@@ -418,43 +418,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             // }
             // in \token ->
             //   $create arg <precond> <agreement text> <signatories> <observers> <token> <key>
-            val tmpl = lookupTemplate(tmplId)
-            withEnv { _ =>
-              val argument = translate(arg)
-              env = (tmpl.param -> currentPosition) :: env
-              currentPosition += 1 // argument
-
-              val key = tmpl.key match {
-                case None => SEValue(SOptional(None))
-                case Some(tmplKey) =>
-                  SELet(translate(tmplKey.body)) in
-                    SBSome(
-                      SBTupleCon(Array("key", "maintainers"))(
-                        SEVar(1), // key
-                        SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ ))))
-              }
-
-              currentPosition += 1 // key
-              currentPosition += 1 // token
-
-              val precond = translate(tmpl.precond)
-              val agreement = translate(tmpl.agreementText)
-              val signatories = translate(tmpl.signatories)
-              val observers = translate(tmpl.observers)
-
-              SELet(argument, key) in
-                SEAbs(1) {
-                  SBUCreate(tmplId)(
-                    SEVar(3), /* argument */
-                    precond,
-                    agreement,
-                    signatories,
-                    observers,
-                    SEVar(2), /* key */
-                    SEVar(1) /* token */
-                  )
-                }
-            }
+            compileCreate(tmplId, translate(arg))
 
           case UpdateExercise(tmplId, chId, cidE, actorsE, argE) =>
             compileExercise(tmplId, translate(cidE), chId, translate(actorsE), translate(argE))
@@ -1134,7 +1098,18 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     }
   }
 
-  private def compileCreate(tmplId: Identifier, arg: SValue): SExpr = {
+  private def compileCreate(tmplId: Identifier, arg: SExpr): SExpr = {
+    // FIXME(JM): Lift to top-level?
+    // Translates 'create Foo with <params>' into:
+    // let arg = <params>
+    // let key = if (we have a key definition in the template) {
+    //   let keyBody = <key>
+    //   in Some {key: keyBody, maintainers: <key maintainers> keyBody}
+    // } else {
+    //   None
+    // }
+    // in \token ->
+    //   $create arg <precond> <agreement text> <signatories> <observers> <token> <key>
     val tmpl = lookupTemplate(tmplId)
     withEnv { _ =>
       env = (tmpl.param -> currentPosition) :: env
@@ -1154,23 +1129,27 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       currentPosition += 1 // token
 
       val precond = translate(tmpl.precond)
+
+      currentPosition += 1 // unit returned by SBCheckPrecond
       val agreement = translate(tmpl.agreementText)
       val signatories = translate(tmpl.signatories)
       val observers = translate(tmpl.observers)
 
-      SELet(SEValue(arg), key) in
+      SELet(arg, key) in
         SEAbs(1) {
-          SBUCreate(tmplId)(
-            SEVar(3), /* argument */
-            precond,
-            agreement,
-            signatories,
-            observers,
-            SEVar(2), /* key */
-            SEVar(1) /* token */
-          )
+          // We check precondition in a separated builtin to prevent
+          // further evaluation of agreement, signatories and observers
+          // in case of failed precondition.
+          SELet(SBCheckPrecond(tmplId)(SEVar(3), precond)) in
+            SBUCreate(tmplId)(
+              SEVar(4), /* argument */
+              agreement,
+              signatories,
+              observers,
+              SEVar(3), /* key */
+              SEVar(2) /* token */
+            )
         }
-
     }
   }
 
@@ -1203,7 +1182,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     withEnv { _ =>
       SEAbs(1) {
         SELet(
-          SEApp(compileCreate(tmplId, createArg), Array(SEVar(1))),
+          SEApp(compileCreate(tmplId, SEValue(createArg)), Array(SEVar(1))),
           SEApp(
             compileExercise(tmplId, SEVar(1), choiceId, actors, SEValue(choiceArg)),
             Array(SEVar(2)))
@@ -1214,7 +1193,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
   private def translateCommand(cmd: Command): SExpr = cmd match {
     case Command.Create(templateId, argument) =>
-      compileCreate(templateId, argument)
+      compileCreate(templateId, SEValue(argument))
     case Command.Exercise(templateId, contractId, choiceId, submitters, argument) =>
       compileExercise(
         templateId,
