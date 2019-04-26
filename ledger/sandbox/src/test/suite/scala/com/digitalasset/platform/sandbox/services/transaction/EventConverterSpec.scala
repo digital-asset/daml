@@ -23,7 +23,6 @@ import com.digitalasset.ledger.api.v1.value.Value.Sum.ContractId
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.digitalasset.ledger.api.validation.CommandSubmissionRequestValidator
 import com.digitalasset.platform.common.PlatformTypes.asVersionedValueOrThrow
-import com.digitalasset.platform.participant.util.ApiToLfEngine
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.damle.SandboxDamle
 import com.digitalasset.platform.sandbox.services.TestCommands
@@ -111,11 +110,8 @@ class EventConverterSpec
           .validateCommands(commands)
           .map(validatedCommands =>
             for {
-              lfCmds <- ApiToLfEngine
-                .apiCommandsToLfCommands(validatedCommands)
-                .consume(damlPackageContainer.packages.get)
               tx <- Await.result(
-                SandboxDamle.consume(engine.submit(lfCmds))(
+                SandboxDamle.consume(engine.submit(validatedCommands.commands))(
                   damlPackageContainer,
                   contractLookup(ActiveContractsInMemory.empty),
                   keyLookup(ActiveContractsInMemory.empty)),
@@ -150,11 +146,8 @@ class EventConverterSpec
         .validateCommands(commands)
         .map(validatedCommands =>
           for {
-            lfCmds <- ApiToLfEngine
-              .apiCommandsToLfCommands(validatedCommands)
-              .consume(damlPackageContainer.packages.get)
             tx <- Await.result(
-              SandboxDamle.consume(engine.submit(lfCmds))(
+              SandboxDamle.consume(engine.submit(validatedCommands.commands))(
                 damlPackageContainer,
                 contractLookup(ActiveContractsInMemory.empty),
                 keyLookup(ActiveContractsInMemory.empty)),

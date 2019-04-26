@@ -57,7 +57,7 @@ case class DamlPackageContainer(files: List[File] = Nil) {
 
   lazy val packageIds: Iterable[String] = archives.map(_.getHash)
 
-  def withFile(file: File): DamlPackageContainer = DamlPackageContainer(file :: files)
+  def withFile(file: File): DamlPackageContainer = copy(files = file :: files)
 
   def getPackage(id: PackageId): Option[Ast.Package] = packages.get(id)
 

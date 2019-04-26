@@ -9,6 +9,13 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Add documentation for :doc:`/daml-integration-kit/index`, which explains
+  what the DAML Integration Kit is, what state it is in, and how it is going
+  to evolve.
+
+0.12.11 - 2019-04-26
+--------------------
+
 - Node.js bindings have been moved `here <https://github.com/digital-asset/daml-js>``
 - Add documentation for flexible controllers.
 - Remove DAML-LF Dev major version, ``--target dev`` option, and sandbox ``--allow-dev``
@@ -29,6 +36,8 @@ HEAD — ongoing
   implement "callable updates" (aka functions of type ``Update a`` that can be
   called from the Ledger API via a contract).
 - Publish the participant-state APIs and reference implementations.
+- Add `-s` option to Sandbox CLI to have a shortened version for `--static-time` as well
+- Change `--allow-dev` to be a hidden CLI option in Sandbox
 
 0.12.7 — 2019-04-17
 -------------------

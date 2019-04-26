@@ -3,13 +3,14 @@
 
 package com.digitalasset.daml.lf.engine.testing
 
+import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Time}
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, QualifiedName, SimpleString}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.daml.lf.engine.Event.Events
-import com.digitalasset.daml.lf.lfpackage.Ast.{DValue, _}
+import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.ScenarioRunner
 import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction => Tx}
@@ -253,7 +254,7 @@ class SemanticTester(
                   currentTime <- ledger.currentTime
                   events <- ledger.submit(
                     submitterName,
-                    Commands(List(cmd), currentTime, reference))
+                    Commands(ImmArray(cmd), currentTime, reference))
                 } yield
                   checkEvents(
                     reference,

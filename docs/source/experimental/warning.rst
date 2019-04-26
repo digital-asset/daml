@@ -13,3 +13,4 @@ The tools described in this section are actively being designed and are subject 
    Navigator Console </tools/navigator/console>
    Navigator Database </tools/navigator/database>
    Extractor </tools/extractor>
+   /daml-integration-kit/index

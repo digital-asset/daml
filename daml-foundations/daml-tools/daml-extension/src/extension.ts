@@ -157,22 +157,27 @@ export function createLanguageClient(config: vscode.WorkspaceConfiguration, tele
     let command: string;
     let args: string[];
 
+    const daArgs = ["run", "damlc", "--", "lax", "ide"];
+
     try {
         command = which.sync("daml");
         args = ["ide"];
     } catch (ex) {
-        const damlCmdPath = path.join(damlRoot, "bin", "daml");
-        if (fs.existsSync(damlCmdPath)) {
-            command = damlCmdPath;
-            args = ["ide"];
-        } else if (fs.existsSync(daCmdPath)) {
-            // The old assistant does not support a different installation
-            // directory so we rely on it being in ~/.da.
-            command = daCmdPath;
-            args = ["run", "damlc", "--", "lax", "ide"];
-        } else {
-            vscode.window.showErrorMessage("Failed to start the DAML language server. Make sure the assistant is installed.");
-            throw new Error("Failed to locate assistant.");
+        try {
+            command = which.sync("da");
+            args = daArgs;
+        } catch (ex) {
+            const damlCmdPath = path.join(damlRoot, "bin", "daml");
+            if (fs.existsSync(damlCmdPath)) {
+                command = damlCmdPath;
+                args = ["ide"];
+            } else if (fs.existsSync(daCmdPath)) {
+                command = daCmdPath;
+                args = daArgs;
+            } else {
+                vscode.window.showErrorMessage("Failed to start the DAML language server. Make sure the assistant is installed.");
+                throw new Error("Failed to locate assistant.");
+            }
         }
     }
 

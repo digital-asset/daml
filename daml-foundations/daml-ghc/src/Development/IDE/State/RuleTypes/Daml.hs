@@ -24,28 +24,27 @@ import "ghc-lib-parser" Module (UnitId)
 
 import Development.IDE.Types.LSP
 import Development.IDE.State.RuleTypes
-import Development.IDE.State.Shake
 
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
 
-type instance RuleResult GenerateDalf = IdeResult LF.Module
-type instance RuleResult GenerateRawDalf = IdeResult LF.Module
-type instance RuleResult GeneratePackage = IdeResult LF.Package
-type instance RuleResult GenerateRawPackage = IdeResult LF.Package
-type instance RuleResult GeneratePackageDeps = IdeResult LF.Package
-type instance RuleResult GeneratePackageMap = IdeResult (Map UnitId (LF.PackageId, LF.Package, BS.ByteString, FilePath))
+type instance RuleResult GenerateDalf = LF.Module
+type instance RuleResult GenerateRawDalf = LF.Module
+type instance RuleResult GeneratePackage = LF.Package
+type instance RuleResult GenerateRawPackage = LF.Package
+type instance RuleResult GeneratePackageDeps = LF.Package
+type instance RuleResult GeneratePackageMap = (Map UnitId (LF.PackageId, LF.Package, BS.ByteString, FilePath))
 
 -- | Runs all scenarios in the given file (but not scenarios in imports).
-type instance RuleResult RunScenarios = IdeResult [(VirtualResource, Either SS.Error SS.ScenarioResult)]
+type instance RuleResult RunScenarios = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
 
 -- | Encode a module and produce a hash of the module and all its transitive dependencies.
 -- The hash is used to decide if a module needs to be reloaded in the scenario service.
-type instance RuleResult EncodeModule = IdeResult (SS.Hash, BS.ByteString)
+type instance RuleResult EncodeModule = (SS.Hash, BS.ByteString)
 
 -- | Create a scenario context for a given module. This context is valid both for the module
 -- itself but also for all of its transitive dependencies.
-type instance RuleResult CreateScenarioContext = IdeResult SS.ContextId
+type instance RuleResult CreateScenarioContext = SS.ContextId
 
 data GenerateDalf = GenerateDalf
     deriving (Eq, Show, Typeable, Generic)

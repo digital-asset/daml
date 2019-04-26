@@ -49,6 +49,10 @@ newtype SdkVersion = SdkVersion
     { unwrapSdkVersion :: V.Version
     } deriving (Eq, Ord, Show)
 
+newtype DamlAssistantSdkVersion = DamlAssistantSdkVersion
+    { unwrapDamlAssistantSdkVersion :: SdkVersion
+    } deriving (Eq, Ord, Show)
+
 instance Y.FromJSON SdkVersion where
     parseJSON y = do
         verE <- V.fromText <$> Y.parseJSON y
