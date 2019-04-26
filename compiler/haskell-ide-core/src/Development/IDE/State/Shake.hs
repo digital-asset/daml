@@ -4,6 +4,7 @@
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE DuplicateRecordFields      #-}
 
 -- | A Shake implementation of the compiler service.
 --
@@ -380,9 +381,13 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
 
 -- | If any diagnostic has the wrong filename, generate a new diagnostic with the right file name
 fixDiagnostic :: FilePath -> Diagnostic -> Diagnostic
-fixDiagnostic x d
-    | dFilePath d == x = d
-    | otherwise = d{dFilePath = x, dRange = noRange, dMessage = T.pack ("Originally reported at " ++ dFilePath d ++ "\n") <> dMessage d}
+fixDiagnostic x d = case _relatedInformation d of
+    Just (List [DiagnosticRelatedInformation (Location uri range) message]) ->
+        if uri == filePathToUri x
+        then d
+        else d{_range = noRange, _message = T.pack ("Originally reported at " ++ uri ++ "\n") <> message}
+    Just (List xs) -> error "Diagnostic created, expected 1 related information but got" <> xs
+    Nothing -> d
 
 
 updateFileDiagnostics ::
