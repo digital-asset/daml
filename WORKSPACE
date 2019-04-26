@@ -382,8 +382,9 @@ load("//bazel_tools:haskell.bzl", "add_extra_packages")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT="7024e38d4b463b3eaf1c44c6453eb608dd8f28a9"
-HASKELL_LSP_HASH="7d706fbc1beb49a9345083d3eadb5e311936a2a8449e7765a65aa7d298dff9d6"
+HASKELL_LSP_COMMIT = "7024e38d4b463b3eaf1c44c6453eb608dd8f28a9"
+
+HASKELL_LSP_HASH = "7d706fbc1beb49a9345083d3eadb5e311936a2a8449e7765a65aa7d298dff9d6"
 
 hazel_repositories(
     core_packages = core_packages + {
@@ -433,7 +434,7 @@ hazel_repositories(
             hazel_hackage("shake", "0.17.8", "ade4162f7540f044f0446981120800076712d1f98d30c5b5344c0f7828ec49a2") +
             hazel_hackage("filepattern", "0.1.1", "f7fc5bdcfef0d43a793a3c64e7c0fd3b1d35eea97a37f0e69d6612ab255c9b4b") +
             hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
-            hazel_hackage("rope-utf16-splay" , "0.2.0.0", "83d1961bf55355da49a6b55d6f58d02483eff1f8e6df53f4dccdab1ac49e101d") +
+            hazel_hackage("rope-utf16-splay", "0.2.0.0", "83d1961bf55355da49a6b55d6f58d02483eff1f8e6df53f4dccdab1ac49e101d") +
             hazel_hackage(
                 "unix-compat",
                 "0.5.1",
@@ -444,14 +445,14 @@ hazel_repositories(
             hazel_github(
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
-                HASKELL_LSP_HASH
+                HASKELL_LSP_HASH,
             ) +
             hazel_github(
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
                 HASKELL_LSP_HASH,
-                directory="/haskell-lsp-types/",
-                name="haskell-lsp-types"
+                name = "haskell-lsp-types",
+                directory = "/haskell-lsp-types/",
             ),
         pkgs = packages,
     ),
