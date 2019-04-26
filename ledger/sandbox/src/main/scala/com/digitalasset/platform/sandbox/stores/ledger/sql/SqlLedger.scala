@@ -38,6 +38,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, Led
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
+import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -54,6 +55,10 @@ object SqlStartMode {
 }
 
 object SqlLedger {
+
+  val noOfShortLivedConnections = 16
+  val noOfStreamingConnections = 2
+
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def apply(
       jdbcUrl: String,
@@ -64,9 +69,6 @@ object SqlLedger {
       implicit mat: Materializer,
       mm: MetricsManager): Future[Ledger] = {
     implicit val ec: ExecutionContext = DirectExecutionContext
-
-    val noOfShortLivedConnections = 8
-    val noOfStreamingConnections = 4
 
     val dbDispatcher = DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
     val ledgerDao = LedgerDao.metered(
@@ -93,9 +95,9 @@ private class SqlLedger(
     timeProvider: TimeProvider)(implicit mat: Materializer)
     extends Ledger {
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  import SqlLedger._
 
-  private def nextOffset(o: Long): Long = o + 1
+  private val logger = LoggerFactory.getLogger(getClass)
 
   private val dispatcher = Dispatcher[Long, LedgerEntry](
     RangeQuery(ledgerDao.getLedgerEntries(_, _)),
@@ -134,19 +136,30 @@ private class SqlLedger(
     })
 
     mergedSources
-      .mapAsync(1) { ledgerEntryGen => //strictly one after another!
-        val offset = headRef // we can only do this because there is not parallelism here!
-        val ledgerEntry = ledgerEntryGen(offset)
-        val newLedgerEnd = nextOffset(offset)
-        ledgerDao
-          .storeLedgerEntry(offset, newLedgerEnd, ledgerEntry)
-          .map {
-            case Ok =>
-              headRef = newLedgerEnd //updating the headRef
-              dispatcher.signalNewHead(newLedgerEnd) //signalling downstream subscriptions
-            case Duplicate =>
-              () //we are staying with offset we had
+      .batch(noOfShortLivedConnections * 2L, e => Queue(e))((batch, e) => batch :+ e)
+      .mapAsync(1) { queue =>
+        val startOffset = headRef // we can only do this because there is not parallelism here!
+        //shooting the SQL queries in parallel
+        Future
+          .sequence(queue.toIterator.zipWithIndex.map {
+            case (ledgerEntryGen, i) =>
+              //TODO head does not need to be updated every time, enough in the end! -> also, after a crash, we need to evict events possibly bigger then ledger-end
+              val offset = startOffset + i
+              ledgerDao
+                .storeLedgerEntry(offset, offset + 1, ledgerEntryGen(offset))
+                .map {
+                  case Ok =>
+                    () //TODO: ?
+                  case Duplicate =>
+                    () //we are staying with offset we had
+                }(DirectExecutionContext)
+          })
+          .map { _ =>
+            //note that we can have holes in offsets in case of the storing of an entry failed for some reason
+            headRef = startOffset + queue.length //updating the headRef
+            dispatcher.signalNewHead(headRef) //signalling downstream subscriptions
           }(DirectExecutionContext)
+
       }
       .toMat(Sink.ignore)(
         Keep.left[

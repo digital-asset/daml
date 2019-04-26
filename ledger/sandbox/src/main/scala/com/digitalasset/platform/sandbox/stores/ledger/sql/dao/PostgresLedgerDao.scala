@@ -446,7 +446,8 @@ private class PostgresLedgerDao(
     dbDispatcher
       .executeSql { implicit conn =>
         val resp = insertEntry(ledgerEntry)
-        updateParameter(LedgerEndKey, newLedgerEnd.toString)
+        //TODO we need to update it outside after every batch!
+        //updateParameter(LedgerEndKey, newLedgerEnd.toString)
         resp
       }
   }
