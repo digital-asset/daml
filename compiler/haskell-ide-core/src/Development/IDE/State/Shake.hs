@@ -5,6 +5,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DuplicateRecordFields      #-}
+{-# LANGUAGE OverloadedStrings          #-}
 
 -- | A Shake implementation of the compiler service.
 --
@@ -60,6 +61,7 @@ import           Development.IDE.Types.Diagnostics
 import           Control.Concurrent.Extra
 import           Control.Exception
 import           Control.DeepSeq
+import           Control.Lens (view)
 import           System.Time.Extra
 import           Data.Typeable
 import           Data.Tuple.Extra
@@ -361,7 +363,7 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
                 \(e :: SomeException) -> pure (Nothing, ([ideErrorText file $ T.pack $ show e | not $ isBadDependency e],Nothing))
             res <- return $ first (map $ fixDiagnostic file) res
 
-            let badErrors = filter (\d -> null file || dRange d == noRange) $ fst res
+            let badErrors = filter (\d -> null file || (_range :: Diagnostic -> Range) d == noRange) $ fst res
             when (badErrors /= []) $
                 reportSeriousError $ "Bad errors found for " ++ show (key, file) ++ " got " ++ show badErrors
 
@@ -381,13 +383,13 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
 
 -- | If any diagnostic has the wrong filename, generate a new diagnostic with the right file name
 fixDiagnostic :: FilePath -> Diagnostic -> Diagnostic
-fixDiagnostic x d = case _relatedInformation d of
-    Just (List [DiagnosticRelatedInformation (Location uri range) message]) ->
-        if uri == filePathToUri x
+fixDiagnostic x d =
+        if view dFilePath d == Just x
         then d
-        else d{_range = noRange, _message = T.pack ("Originally reported at " ++ uri ++ "\n") <> message}
-    Just (List xs) -> error "Diagnostic created, expected 1 related information but got" <> xs
-    Nothing -> d
+        else d{ _range = noRange
+              , _message = "Originally reported at " <> uri <> "\n" <> (_message :: Diagnostic -> T.Text) d}
+    where uri :: T.Text
+          uri = maybe "No where" (getUri . _uri) $ view dLocation d
 
 
 updateFileDiagnostics ::
@@ -396,11 +398,11 @@ updateFileDiagnostics ::
   -> [Diagnostic] -- ^ current results
   -> Action ()
 updateFileDiagnostics afp previousAll currentAll = do
-    let filt = Set.fromList . filter (\x -> dFilePath x == afp)
+    let filt = Set.fromList . filter (\x -> view dFilePath x == Just afp)
         previous = fmap filt previousAll
         current = filt currentAll
     when (Just current /= previous) $
-        sendEvent $ EventFileDiagnostics $ FileDiagnostics afp $ Set.toList current
+        sendEvent $ EventFileDiagnostics $ (filePathToUri afp, Set.toList current)
 
 
 setPriority :: (Enum a) => a -> Action ()
