@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 daml 1.2
@@ -58,6 +59,17 @@ lookupByKey = internalLookupByKey
 -- | HIDE pass the @c@ using type applications, otherwise it's ambiguous
 fetchByKey : forall c k. TemplateKey c k => k -> Update (ContractId c, c)
 fetchByKey k = fmap unpackPair (internalFetchByKey k)
+
+-- | Exercise a choice on a contract given by its key.
+--
+-- The `c` needs to be passed using an explicit type application. For
+-- instance, if you want to exercise a choice `Withdraw` on a contract of
+-- template `Account` given by its key `k`, you must call
+-- `exerciseByKey @Account k Withdraw`.
+exerciseByKey : forall c k e r. (TemplateKey c k, Choice c e r) => k -> e -> Update r
+exerciseByKey k e = do
+    (c, cc) <- fetchByKey @c k
+    exerciseExplicit (choiceController cc e) c e
 
 class Template c where
 
