@@ -12,14 +12,14 @@ HEAD — ongoing
 - Add documentation for :doc:`/daml-integration-kit/index`, which explains
   what the DAML Integration Kit is, what state it is in, and how it is going
   to evolve.
+- Remove DAML-LF Dev major version, ``--target dev`` option, and sandbox ``--allow-dev``
+  option.  A "1.dev" target will handle the intended "Dev" use cases in a future release.
 
 0.12.11 - 2019-04-26
 --------------------
 
 - Node.js bindings have been moved `here <https://github.com/digital-asset/daml-js>``
 - Add documentation for flexible controllers.
-- Remove DAML-LF Dev major version, ``--target dev`` option, and sandbox ``--allow-dev``
-  option.  A "1.dev" target will handle the intended "Dev" use cases in a future release.
 
 0.12.10 — 2019-04-25
 --------------------
