@@ -237,3 +237,17 @@ java_import(
         name = "gson",
         actual = "@com_google_code_gson_gson//jar",
     )
+
+    if "nsis_untgz_plugin" not in native.existing_rules():
+        http_archive(
+            name = "nsis_untgz_plugin",
+            url = "http://www.fdos.org/win32/nsis/plugins/untgz.1.0.18.zip",
+            sha256 = "2aad9f451b5a9c38f2c0ca103608a9f229734409922846060b5f15c6cfb79b71",
+            build_file_content = """
+package(default_visibility = ["//visibility:public"])
+filegroup(
+    name = "untgz",
+    srcs = glob(["untgz/**/*"]),
+)
+            """,
+        )

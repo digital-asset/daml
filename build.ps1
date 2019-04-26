@@ -47,6 +47,7 @@ function build-full() {
     # FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
     bazel build `
         //release:sdk-release-tarball `
+        //release/windows-installer:windows-installer `
         //:git-revision `
         @com_github_grpc_grpc//:grpc `
         //3rdparty/... `
