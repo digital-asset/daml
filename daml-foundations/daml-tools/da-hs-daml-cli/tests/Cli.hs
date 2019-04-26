@@ -2,19 +2,17 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module Cli
-        ( main
-        )
-where
+    ( main
+    ) where
 
-import           Test.Tasty
-import           Test.Tasty.HUnit
-import           System.Timeout
-import           System.Environment
-import           System.Exit
-import           Control.Exception
-import           Data.Maybe
-import qualified DA.Cli.Damlc                  as Damlc
+import Control.Exception
+import Options.Applicative
+import System.Environment
+import System.Exit
+import Test.Tasty
+import Test.Tasty.HUnit
 
+import DA.Cli.Args
 
 main :: IO ()
 main = do
@@ -23,30 +21,32 @@ main = do
 
 tests :: TestTree
 tests = testGroup
-        "Cli arguments"
-        [ testCase "No flags in strict mode" $ noExit ["ide"]
-        , testCase "Bad flags in strict mode" $ fails ["ide", "--badFlag"]
-        , testCase "Good flags in lax mode" $ noExit ["lax", "ide"]
-        , testCase "Bad flags in lax mode" $ noExit ["lax", "ide", "--badFlag"]
-        ]
+    "Cli arguments"
+    [ testCase "No flags in strict mode" $ parseSucceeds ["ide"]
+    , testCase "Bad flags in strict mode" $ parseFails ["ide", "--badFlag"]
+    , testCase "Good flags in lax mode" $ parseSucceeds ["lax", "ide"]
+    , testCase "Bad flags in lax mode" $ parseSucceeds ["lax", "ide", "--badFlag"]
+    ]
 
--- | when developing new tests change this to 10000 (10ms) to avoid flakiness on CI
-shortTime :: Int
--- shortTime = 10000
-shortTime = 20000
+parse :: [String] -> IO ()
+parse args = withArgs args $ execParserLax parserInfo
 
--- | When damlc is supplied with these arguments does it exit in the first 20ms
-runForShortTime
-        :: [String] -- ^ Cli arguments
-        -> IO (Maybe (Either ExitCode ()))
-runForShortTime args = timeout shortTime $ try $ withArgs args Damlc.main
+parseSucceeds :: [String] -> Assertion
+parseSucceeds = shouldSucceed . parse
 
-fails :: [String] -> Assertion
-fails a = do
-        b <- runForShortTime a
-        b @?= Just (Left $ ExitFailure 1)
+parseFails :: [String] -> Assertion
+parseFails = shouldFail . parse
 
-noExit :: [String] -> Assertion
-noExit a = do
-        b <- runForShortTime a
-        assertBool "should not exit immediately" $ isNothing b
+parserInfo :: ParserInfo ()
+parserInfo = info (subparser cmdIde) idm
+   where cmdIde = command "ide" $ info (pure ()) idm
+
+shouldFail :: IO () -> Assertion
+shouldFail a = do
+    b <- try a
+    b @?= Left (ExitFailure 1)
+
+shouldSucceed :: IO () -> Assertion
+shouldSucceed a = do
+    b :: Either ExitCode () <- try a
+    b @?= Right ()

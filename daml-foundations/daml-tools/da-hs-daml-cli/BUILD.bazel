@@ -70,11 +70,10 @@ da_haskell_test(
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-foundations/daml-ghc/package-database:package-db",
     ],
-    # TODO remove flakiness, see #990
-    flaky = True,
     hazel_deps = [
         "tasty",
         "base",
+        "optparse-applicative",
         "tasty-hunit",
     ],
     main_function = "Cli.main",
