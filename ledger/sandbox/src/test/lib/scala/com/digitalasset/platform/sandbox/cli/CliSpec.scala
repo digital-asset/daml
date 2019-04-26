@@ -96,12 +96,6 @@ class CliSpec extends WordSpec with Matchers {
         _.copy(tlsConfig = Some(TlsConfiguration(true, None, Some(new File(pem)), None))))
     }
 
-    "enable allow-dev when given" in {
-      checkOption(
-        Array(s"--allow-dev"),
-        c => c.copy(damlPackageContainer = c.damlPackageContainer.allowDev))
-    }
-
     "parse the ledger id when given" in {
       val ledgerId = "myledger"
       checkOption(Array(s"--ledgerid", ledgerId), _.copy(ledgerIdMode = Predefined(ledgerId)))
