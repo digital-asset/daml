@@ -48,6 +48,8 @@ class LargeTransactionBench {
       rangeOfIntsExerciseCommand(state, state.workflowId, "ToListContainer", None),
       perfTestTimeout)
 
+  //note that when running this with Postgres the bottleneck seems to originate from the fact the we traverse the huge
+  //Transaction and execute SQL queries one after another. We could potentially partition the transaction so we can have batch queries instead.
   @Benchmark
   def manySmallContracts(state: RangeOfIntsCreatedState): Unit =
     Await.result(
