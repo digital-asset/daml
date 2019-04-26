@@ -4,9 +4,9 @@
 DAML Integration Kit - PRE-ALPHA
 ################################
 
-:doc:`DAML Applications </app-dev/app-arch/index>` run on DAML Ledgers.
+:doc:`DAML Applications </app-dev/index>` run on DAML Ledgers.
 A DAML Ledger is a server serving the
-:doc:`/app-dev/ledger-api-introduction/index` as per the semantics defined in
+:doc:`Ledger API </app-dev/index>` as per the semantics defined in
 the :doc:`/concepts/ledger-model/index` and the
 `DAML-LF specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>`_.
 
@@ -159,8 +159,8 @@ To acquire this context, you should:
 
 1. Complete the :doc:`/getting-started/quickstart`.
 2. Get an in-depth understanding of the :doc:`/concepts/ledger-model/index`.
-3. Build a mental model of how the :doc:`/app-dev/ledger-api-introduction/index`
-   is used to :doc:`build DAML Applications </app-dev/app-arch/index>`.
+3. Build a mental model of how the :doc:`Ledger API </app-dev/index>`
+   is used to :doc:`build DAML Applications </app-dev/index>`.
 
 .. _integration-kit_writing_code:
 
@@ -330,7 +330,7 @@ In the diagram above:
 Explaining this diagram in detail (for brevity, we drop prefixes
 of their qualified names where unambiguous):
 
-:doc:`/app-dev/ledger-api-introduction/index`
+:doc:`Ledger API </app-dev/index>`
   is the collection of gRPC
   services that you would like your `daml-on-<X>-server` to provide.
 ``<X> services``
@@ -390,7 +390,6 @@ Deploying a DAML Ledger
 - explain how testing of DAML applications (ledger reset, time manipulation,
   scripted package upload) can be supported by a uniform admin interface
   (`GitHub issue <https://github.com/digital-asset/daml/issues/347>`__).
-
 
 
 .. _integration-kit_testing:
