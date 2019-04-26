@@ -389,10 +389,7 @@ execBuild numProcessors mbOutFile = do
   execPackageNew numProcessors mbOutFile
 
 lfVersionString :: LF.Version -> String
-lfVersionString lfVersion =
-    case lfVersion of
-        LF.VDev _ -> "dev"
-        _ -> DA.Pretty.renderPretty lfVersion
+lfVersionString = DA.Pretty.renderPretty
 
 execPackage:: FilePath -- ^ input file
             -> Compiler.Options

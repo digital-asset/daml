@@ -91,7 +91,7 @@ class EventConverterSpec
   object CommandsToTest extends TestCommands {
     override protected def darFile: File = new File("ledger/sandbox/Test.dar")
 
-    val damlPackageContainer = DamlPackageContainer(scala.collection.immutable.List(darFile), true)
+    val damlPackageContainer = DamlPackageContainer(scala.collection.immutable.List(darFile))
     val onKbCmd = oneKbCommandRequest("ledgerId", "big").getCommands
     val dummies = dummyCommands("ledgerId", "dummies").getCommands
     val paramShowcaseCreate = paramShowcase

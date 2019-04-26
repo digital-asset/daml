@@ -89,7 +89,6 @@ data ContextUpdate = ContextUpdate
 encodeModule :: LF.Version -> LF.Module -> BS.ByteString
 encodeModule version m = case version of
     LF.V1{} -> BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeModule version m))
-    LF.VDev _ -> error "The scenario service does not support DAML-LF dev."
 
 data BackendError
   = BErrorClient ClientError
@@ -250,8 +249,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
     -- FixMe(#415): the proper minor version should be passed instead of "0"
     convModule (_, bytes) =
         case updDamlLfVersion of
-            LF.VDev _ -> SS.Module (Just (SS.ModuleModuleDamlLfDev bytes)) ""
-            LF.V1 minor -> SS.Module (Just (SS.ModuleModuleDamlLf1 bytes)) (TL.pack $ show minor)
+            LF.V1 minor -> SS.Module (Just (SS.ModuleModuleDamlLf1 bytes)) (LF.minorInProtobuf minor)
 
 runScenario :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
 runScenario Handle{..} (ContextId ctxId) name = do

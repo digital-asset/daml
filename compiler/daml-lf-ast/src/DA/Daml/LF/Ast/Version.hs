@@ -9,28 +9,32 @@ import           DA.Prelude
 import           DA.Pretty
 import           Control.DeepSeq
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+import qualified Text.Read as Read
 
 -- | DAML-LF version of an archive payload.
 data Version
-  = V1{versionMinor :: Int}
-  | VDev T.Text
+  = V1{versionMinor :: MinorVersion}
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
+
+data MinorVersion = PointStable Int | PointDev
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | DAML-LF version 1.0.
 version1_0 :: Version
-version1_0 = V1 0
+version1_0 = V1 $ PointStable 0
 
 -- | DAML-LF version 1.1.
 version1_1 :: Version
-version1_1 = V1 1
+version1_1 = V1 $ PointStable 1
 
 -- | DAML-LF version 1.2.
 version1_2 :: Version
-version1_2 = V1 2
+version1_2 = V1 $ PointStable 2
 
 -- | DAML-LF version 1.3.
 version1_3 :: Version
-version1_3 = V1 3
+version1_3 = V1 $ PointStable 3
 
 -- | The DAML-LF version used by default.
 versionDefault :: Version
@@ -43,7 +47,20 @@ versionNewest = version1_3
 maxV1minor :: Int
 maxV1minor = 3
 
--- NOTE(MH): 'VDev' does not appear in this list because it is handled differently.
+minorInProtobuf :: MinorVersion -> TL.Text
+minorInProtobuf = TL.pack . \case
+  PointStable minor -> show minor
+  PointDev -> "dev"
+
+minorFromProtobuf :: TL.Text -> Maybe MinorVersion
+minorFromProtobuf = minorFromCliOption . TL.unpack
+
+minorFromCliOption :: String -> Maybe MinorVersion
+minorFromCliOption = \case
+  (Read.readMaybe -> Just i) -> Just $ PointStable i
+  "dev" -> Just PointDev
+  _ -> Nothing
+
 supportedInputVersions :: [Version]
 supportedInputVersions = [version1_0, version1_1, version1_2, version1_3]
 
@@ -86,4 +103,8 @@ supports version feature = version >= featureMinVersion feature
 instance Pretty Version where
   pPrint = \case
     V1 minor -> "1." <> pretty minor
-    VDev hash -> "dev-" <> pretty hash
+
+instance Pretty MinorVersion where
+  pPrint = \case
+    PointStable minor -> pretty minor
+    PointDev -> "dev"

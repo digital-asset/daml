@@ -15,9 +15,6 @@ object LanguageVersion {
   val defaultV1: LanguageVersion =
     LanguageVersion(LMV.V1, LMV.V1.maxSupportedMinorVersion)
 
-  val defaultVDev: LanguageVersion =
-    LanguageVersion(LMV.VDev, LMV.VDev.maxSupportedMinorVersion)
-
   def default: LanguageVersion =
     defaultV1
 

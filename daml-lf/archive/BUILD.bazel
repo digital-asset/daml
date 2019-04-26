@@ -21,7 +21,6 @@ load("@os_info//:os_info.bzl", "is_windows")
 LF_MAJOR_VERSIONS = [
     "0",
     "1",
-    "dev",
 ]
 
 filegroup(
@@ -94,9 +93,6 @@ da_haskell_library(
 da_scala_library(
     name = "daml_lf_archive_scala",
     srcs = glob(["src/main/**/*.scala"]),
-    # The daml_lf_dev.proto file is required for the 'dev' version
-    # has check.
-    resources = ["da/daml_lf_dev.proto"],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.digitalasset:daml-lf-archive-scala:__VERSION__"],
     visibility = ["//visibility:public"],
