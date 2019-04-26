@@ -104,7 +104,7 @@ dFilePath ::
 dFilePath = lens g s where
     g :: LSP.Diagnostic -> Maybe FilePath
     g d = (uriToFilePath . _uri) =<< view dLocation d
-    s :: LSP.Diagnostic -> (Maybe FilePath) -> LSP.Diagnostic
+    s :: LSP.Diagnostic -> Maybe FilePath -> LSP.Diagnostic
     s d fp = set dLocation (Location <$> (filePathToUri <$> fp) <*> pure noRange) d
 
 -- | This adds location information to the diagnostics but this is only used in
