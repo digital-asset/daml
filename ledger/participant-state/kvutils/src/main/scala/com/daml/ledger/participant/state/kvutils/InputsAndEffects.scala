@@ -16,6 +16,7 @@ import com.digitalasset.daml.lf.transaction.Node.{
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, RelativeContractId}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 
+/** Internal utilities to compute the inputs and effects of a DAML transaction */
 private[kvutils] object InputsAndEffects {
 
   /** The effects of the transaction, that is what contracts
@@ -38,6 +39,9 @@ private[kvutils] object InputsAndEffects {
       createdContracts: List[DamlStateKey]
   )
 
+  /** Compute the inputs to a DAML transaction, that is, the referenced contracts
+    * and packages.
+    */
   def computeInputs(tx: SubmittedTransaction): (List[DamlLogEntryId], List[DamlStateKey]) = {
     // FIXME(JM): Get referenced packages from the transaction (once they're added to it)
     def addInput(inputs: List[DamlLogEntryId], coid: ContractId): List[DamlLogEntryId] =
@@ -66,12 +70,12 @@ private[kvutils] object InputsAndEffects {
               }
             )
           case l: NodeLookupByKey[_, _] =>
-            // FIXME(JM): track fetched keys
-            (logEntryInputs, stateInputs)
+            sys.error("computeInputs: NodeLookupByKey not implemented!")
         }
     }
   }
 
+  /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
   def computeEffects(entryId: DamlLogEntryId, tx: SubmittedTransaction): Effects = {
     tx.fold(GenTransaction.TopDown, Effects(List.empty, List.empty)) {
       case (effects, (nodeId, node)) =>
@@ -99,7 +103,7 @@ private[kvutils] object InputsAndEffects {
               effects
             }
           case l: NodeLookupByKey[_, _] =>
-            effects
+            sys.error("computeEffects: NodeLookupByKey not implemented!")
         }
     }
   }

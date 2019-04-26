@@ -24,7 +24,7 @@ import scala.concurrent.Future
 trait ReadService {
 
   /** Retrieve the static initial conditions of the ledger, containing
-    * the ledger identifier and the epoch of the ledger record time.
+    * the ledger identifier and the initial the ledger record time.
     *
     * Returns a future since the implementation may need to first establish
     * connectivity to the underlying ledger. The implementer may assume that

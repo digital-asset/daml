@@ -1,10 +1,12 @@
 package com.daml.ledger.participant.state.kvutils
 
+import java.time.Clock
 import java.util.UUID
 
 import akka.NotUsed
 import akka.actor.{Actor, ActorSystem, Kill, Props}
-import akka.stream.scaladsl.Source
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.SimpleString
@@ -15,40 +17,61 @@ import com.digitalasset.platform.akkastreams.Dispatcher
 import com.digitalasset.platform.akkastreams.SteppingMode.OneAfterAnother
 import com.digitalasset.platform.services.time.TimeModel
 import com.google.protobuf.ByteString
+import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
-import scala.concurrent.Future
 import scala.collection.breakOut
+import scala.concurrent.Future
+import scala.concurrent.duration._
 
 object InMemoryKVParticipantState {
 
-  /** The complete state of the participant at a given point in time.
+  /** The complete state of the ledger at a given point in time.
     * This emulates a key-value blockchain with a log of commits and a key-value store.
     * The commit log provides the ordering for the log entries, and its height is used
     * as the [[Offset]].
     * */
   case class State(
-      log: Vector[(DamlLogEntryId, DamlSubmission)],
+      // Log of commits, which are either [[DamlSubmission]]s or heartbeats.
+      // Replaying the commits constructs the store.
+      commitLog: Vector[Commit],
+      // Current record time of the ledger.
       recordTime: Timestamp,
-      // Store is the key-value store that the commits mutate.
+      // Store containing both the [[DamlLogEntry]] and [[DamlStateValue]]s.
+      // The store is mutated by applying [[DamlSubmission]]s. The store can
+      // be reconstructed from scratch by replaying [[State.commits]].
       store: Map[ByteString, ByteString],
+      // Current ledger configuration.
       config: Configuration
   )
 
-  // Message sent to the commit actor to commit a submission to the state.
-  case class CommitMessage(
-      // Submitter chosen entry identifier
+  sealed trait Commit extends Serializable with Product
+
+  /** A commit sent to the [[InMemoryKVParticipantState.CommitActor]],
+    * which inserts it into [[State.commitLog]].
+    */
+  final case class CommitSubmission(
       entryId: DamlLogEntryId,
       submission: DamlSubmission
-  )
+  ) extends Commit
+
+  /** A periodically emitted heartbeat that is committed to the ledger. */
+  final case class CommitHeartbeat(recordTime: Timestamp) extends Commit
 }
 
-/* Implementation of the participant-state using the key-value utilities and an in-memory map. */
-class InMemoryKVParticipantState(implicit system: ActorSystem)
+/** Implementation of the participant-state [[ReadService]] and [[WriteService]] using
+  * the key-value utilities and an in-memory key-value store.
+  *
+  * This example uses Akka actors and streams.
+  * See Akka documentation for information on them:
+  * https://doc.akka.io/docs/akka/current/index-actors.html.
+  */
+class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer)
     extends ReadService
     with WriteService
     with AutoCloseable {
   import InMemoryKVParticipantState._
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   val ledgerId = SimpleString.assertFromString(UUID.randomUUID.toString)
 
@@ -64,11 +87,21 @@ class InMemoryKVParticipantState(implicit system: ActorSystem)
   // Namespace prefix for DAML state.
   private val NS_DAML_STATE = ByteString.copyFromUtf8("DS")
 
-  // Reference to the latest immutable state. Reference is only updated by the CommitActor.
-  // Reading from the state must happen by first taking the reference (val state = stateRef).
+  /** Interval for heartbeats. Heartbeats are committed to [[State.commitLog]]
+    * and sent as [[Update.Heartbeat]] to [[stateUpdates]] consumers.
+    */
+  private val HEARTBEAT_INTERVAL = 5.seconds
+
+  /** Reference to the latest state of the in-memory ledger.
+    * This state is only updated by the [[CommitActor]], which processes submissions
+    * sequentially and non-concurrently.
+    *
+    * Reading from the state must happen by first taking the reference (val state = stateRef),
+    * as otherwise the reads may cross update boundaries.
+    */
   @volatile private var stateRef: State =
     State(
-      log = Vector.empty[(DamlLogEntryId, DamlSubmission)],
+      commitLog = Vector.empty[Commit],
       recordTime = Timestamp.Epoch,
       store = Map.empty[ByteString, ByteString],
       config = Configuration(
@@ -76,22 +109,50 @@ class InMemoryKVParticipantState(implicit system: ActorSystem)
       )
     )
 
-  // Akka actor that receives submissions and commits them to the key-value store.
+  /** Akka actor that receives submissions sequentially and
+    * commits them one after another to the state, e.g. appending
+    * a new ledger commit entry, and applying it to the key-value store.
+    */
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   class CommitActor extends Actor {
+    override def preStart(): Unit = {
+      // Schedule heartbeats.
+      // TODO(JM): Verify that this is kosher.
+      val _ = Source
+        .tick(HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL, ())
+        .map(_ => CommitHeartbeat(getNewRecordTime))
+        .to(Sink.actorRef(commitActorRef, onCompleteMessage = ()))
+        .run()
+    }
+
     override def receive: Receive = {
-      case CommitMessage(entryId, submission) =>
+      case commit @ CommitHeartbeat(newRecordTime) =>
+        logger.trace(s"CommitActor: committing heartbeat, recordTime=$newRecordTime")
+        // Update the state.
+        stateRef = stateRef.copy(
+          commitLog = stateRef.commitLog :+ commit,
+          recordTime = newRecordTime
+        )
+        // Wake up consumers.
+        dispatcher.signalNewHead(stateRef.commitLog.size)
+
+      case commit @ CommitSubmission(entryId, submission) =>
         val state = stateRef
+        val newRecordTime = getNewRecordTime
+
         if (state.store.contains(entryId.getEntryId)) {
           // The entry identifier already in use, drop the message and let the
           // client retry submission.
+          logger.warn(s"CommitActor: duplicate entry identifier in commit message, ignoring.")
         } else {
+          logger.trace(
+            s"CommitActor: processing submission ${KeyValueCommitting.prettyEntryId(entryId)}...")
           // Process the submission to produce the log entry and the state updates.
           val (logEntry, damlStateUpdates) = KeyValueCommitting.processSubmission(
             engine,
             state.config,
             entryId,
-            state.recordTime,
+            newRecordTime,
             submission,
             submission.getInputLogEntriesList.asScala
               .map(eid => eid -> getLogEntry(state, eid))(breakOut),
@@ -107,23 +168,40 @@ class InMemoryKVParticipantState(implicit system: ActorSystem)
                   KeyValueCommitting.packDamlStateValue(v)
             } + (entryId.getEntryId -> KeyValueCommitting.packDamlLogEntry(logEntry))
 
-          // Atomically update the state reference, recording the commit
-          // and the updated state.
+          logger.trace(
+            s"CommitActor: committing ${KeyValueCommitting.prettyEntryId(entryId)} and ${allUpdates.size} updates to store.")
+
+          // Update the state.
           stateRef = state.copy(
-            log = state.log :+ (entryId -> submission),
+            recordTime = newRecordTime,
+            commitLog = state.commitLog :+ commit,
             store = state.store ++ allUpdates
           )
 
           // Wake up consumers.
-          dispatcher.signalNewHead(stateRef.log.size)
+          dispatcher.signalNewHead(stateRef.commitLog.size)
         }
     }
   }
+
+  /** Instance of the [[CommitActor]] to which we send messages. */
   private val commitActorRef =
     system.actorOf(Props(new CommitActor), s"commit-actor-${ledgerId.underlyingString}")
 
-  // Dispatcher to subscribe to 'Update' events derived from the state.
+  /** The index of the beginning of the commit log */
   private val beginning: Int = 0
+
+  /** Dispatcher to subscribe to 'Update' events derived from the state.
+    * The index we use here is the "height" of the [[State.commitLog]].
+    * This index is transformed into [[Offset]] in [[getUpdate]].
+    **
+    * [[Dispatcher]] is an utility written by Digital Asset implementing a fanout
+    * for a stream of events. It is initialized with an initial offset and a method for
+    * retrieving an event given an offset. It provides the method
+    * [[Dispatcher.startingAt]] to subscribe to the stream of events from a
+    * given offset, and the method [[Dispatcher.signalNewHead]] to signal that
+    * new elements has been added.
+    */
   private val dispatcher: Dispatcher[Int, Update] = Dispatcher(
     steppingMode = OneAfterAnother(
       (idx: Int, _) => idx + 1,
@@ -133,30 +211,118 @@ class InMemoryKVParticipantState(implicit system: ActorSystem)
     headAtInitialization = beginning
   )
 
+  /** Helper for [[dispatcher]] to fetch [[DamlLogEntry]] from the
+    * state and convert it into [[Update]].
+    */
   private def getUpdate(idx: Int, state: State): Update = {
-    if (idx < 0 || idx >= state.log.size)
-      sys.error(s"getUpdate: $idx out of bounds (${state.log.size})")
+    assert(idx >= 0 && idx < state.commitLog.size)
 
-    // Resolve the "height" to log entry.
-    val entryId = state.log(idx)._1
+    state.commitLog(idx) match {
+      case CommitSubmission(entryId, _) =>
+        state.store
+          .get(entryId.getEntryId)
+          .map { blob =>
+            KeyValueConsumption.logEntryToUpdate(
+              entryId,
+              KeyValueConsumption.unpackDamlLogEntry(blob))
+          }
+          .getOrElse(
+            sys.error(
+              s"getUpdate: ${KeyValueCommitting.prettyEntryId(entryId)} not found from store!")
+          )
 
-    state.store
-      .get(entryId.getEntryId)
-      .map { blob =>
-        KeyValueConsumption.logEntryToUpdate(entryId, KeyValueConsumption.unpackDamlLogEntry(blob))
-      }
-      .getOrElse(
-        sys.error(s"getUpdate: $entryId not found from store!")
-      )
+      case CommitHeartbeat(recordTime) =>
+        Update.Heartbeat(recordTime)
+    }
   }
 
+  /** Subscribe to updates to the participant state.
+    * Implemented using the [[Dispatcher]] helper which handles the signalling
+    * and fetching of entries from the state.
+    *
+    * See [[ReadService.stateUpdates]] for full documentation for the properties
+    * of this method.
+    */
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
     dispatcher
-      .startingAt(beginAfter.map(_.components.head.toInt + 1).getOrElse(beginning))
+      .startingAt(
+        beginAfter
+          .map(_.components.head.toInt + 1) // startingAt is inclusive, so jump over one element.
+          .getOrElse(beginning)
+      )
       .map {
         case (idx, update) =>
           Offset(Array(idx.toLong)) -> update
       }
+  }
+
+  /** Submit a transaction to the ledger.
+    *
+    * @param submitterInfo: the information provided by the submitter for
+    *   correlating this submission with its acceptance or rejection on the
+    *   associated [[ReadService]].
+    *
+    * @param transactionMeta: the meta-data accessible to all consumers of the
+    *   transaction. See [[TransactionMeta]] for more information.
+    *
+    * @param transaction: the submitted transaction. This transaction can
+    *   contain contract-ids that are relative to this transaction itself.
+    *   These are used to refer to contracts created in the transaction
+    *   itself. The participant state implementation is expected to convert
+    *   these into absolute contract-ids that are guaranteed to be unique.
+    *   This typically happens after a transaction has been assigned a
+    *   globally unique id, as then the contract-ids can be derived from that
+    *   transaction id.
+    *
+    * See [[WriteService.submitTransaction]] for full documentation for the properties
+    * of this method.
+    */
+  override def submitTransaction(
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction): Unit = {
+
+    // Construct a [[DamlSubmission]] message using the key-value utilities.
+    // [[DamlSubmission]] contains the serialized transaction and metadata such as
+    // the input contracts and other state required to validate the transaction.
+    val submission =
+      KeyValueSubmission.transactionToSubmission(submitterInfo, transactionMeta, transaction)
+
+    // Send the [[DamlSubmission]] to the commit actor. The messages are
+    // queued and the actor's receive method is invoked sequentially with
+    // each message, hence this is safe under concurrency.
+    commitActorRef ! CommitSubmission(
+      allocateEntryId,
+      submission
+    )
+  }
+
+  /** Back-channel for uploading DAML-LF archives.
+    * Currently participant-state interfaces do not specify an admin
+    * interface to upload packages.
+    * See issue https://github.com/digital-asset/daml/issues/347.
+    */
+  def uploadArchive(archive: Archive): Unit = {
+    commitActorRef ! CommitSubmission(
+      allocateEntryId,
+      KeyValueSubmission.archiveToSubmission(archive)
+    )
+  }
+
+  /** Retrieve the static initial conditions of the ledger, containing
+    * the ledger identifier and the initial ledger record time.
+    *
+    * Returns a future since the implementation may need to first establish
+    * connectivity to the underlying ledger. The implementer may assume that
+    * this method is called only once, or very rarely.
+    */
+  // FIXME(JM): Add configuration to initial conditions!
+  override def getLedgerInitialConditions(): Future[LedgerInitialConditions] =
+    Future.successful(initialConditions)
+
+  /** Shutdown by killing the [[CommitActor]]. */
+  override def close(): Unit = {
+    commitActorRef ! Kill
   }
 
   private def getLogEntry(state: State, entryId: DamlLogEntryId): DamlLogEntry =
@@ -167,50 +333,23 @@ class InMemoryKVParticipantState(implicit system: ActorSystem)
       .get(NS_DAML_STATE.concat(KeyValueCommitting.packDamlStateKey(key)))
       .map(DamlStateValue.parseFrom)
 
-  override def submitTransaction(
-      submitterInfo: SubmitterInfo,
-      transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): Unit = {
-
-    val submission =
-      KeyValueSubmission.transactionToSubmission(submitterInfo, transactionMeta, transaction)
-
-    // Submit the transaction to the committer.
-    commitActorRef ! CommitMessage(
-      allocateEntryId,
-      submission
-    )
-  }
-
-  // Back-channel for uploading DAML-LF archives.
-  def uploadArchive(archive: Archive): Unit = {
-    commitActorRef ! CommitMessage(
-      allocateEntryId,
-      KeyValueSubmission.archiveToSubmission(archive)
-    )
-  }
-
-  /** Retrieve the static initial conditions of the ledger, containing
-    * the ledger identifier and the epoch of the ledger record time.
-    *
-    * Returns a future since the implementation may need to first establish
-    * connectivity to the underlying ledger. The implementer may assume that
-    * this method is called only once, or very rarely.
-    */
-  // FIXME(JM): Add configuration to initial conditions!
-  override def getLedgerInitialConditions(): Future[LedgerInitialConditions] =
-    Future.successful(LedgerInitialConditions(ledgerId, Timestamp.Epoch))
-
   private def allocateEntryId(): DamlLogEntryId = {
-    val nonce: Array[Byte] = Array.ofDim(32)
+    val nonce: Array[Byte] = Array.ofDim(16)
     rng.nextBytes(nonce)
     DamlLogEntryId.newBuilder
       .setEntryId(NS_LOG_ENTRIES.concat(ByteString.copyFrom(nonce)))
       .build
   }
 
-  override def close(): Unit = {
-    // FIXME(JM): We'll want to wait for termination!
-    commitActorRef ! Kill
-  }
+  /** The initial conditions of the ledger. The initial record time is the instant
+    * at which this class has been instantiated.
+    */
+  private val initialConditions = LedgerInitialConditions(ledgerId, getNewRecordTime)
+
+  /** Get a new record time for the ledger from the system clock.
+    * Public for use from integration tests.
+    */
+  def getNewRecordTime(): Timestamp =
+    Timestamp.assertFromInstant(Clock.systemUTC().instant())
+
 }

@@ -13,6 +13,9 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
+/** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
+  * key-value based ledger.
+  */
 object KeyValueConsumption {
 
   def packDamlLogEntry(entry: DamlStateKey): ByteString = entry.toByteString
@@ -41,14 +44,14 @@ object KeyValueConsumption {
         Update.ConfigurationChanged(parseDamlConfigurationEntry(entry.getConfigurationEntry))
 
       case DamlLogEntry.PayloadCase.REJECTION_ENTRY =>
-        rejEntryToUpdate(entryId, entry.getRejectionEntry, recordTime)
+        rejectionEntryToUpdate(entryId, entry.getRejectionEntry, recordTime)
 
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
-        throw new RuntimeException("entryToUpdate: Payload is not set!")
+        sys.error("entryToUpdate: PAYLOAD_NOT_SET!")
     }
   }
 
-  private def rejEntryToUpdate(
+  private def rejectionEntryToUpdate(
       entryId: DamlLogEntryId,
       rejEntry: DamlRejectionEntry,
       recordTime: Timestamp): Update.CommandRejected = {
@@ -73,8 +76,7 @@ object KeyValueConsumption {
             rejEntry.getSubmitterCannotActViaParticipant
           )
         case DamlRejectionEntry.ReasonCase.REASON_NOT_SET =>
-          // FIXME(JM): Should we have a generic reason?
-          RejectionReason.Disputed("unknown reason")
+          sys.error("rejectionEntryToUpdate: REASON_NOT_SET!")
       }
     )
   }

@@ -16,9 +16,10 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        ":daml_kvutils_java_proto_bla2",
+        ":daml_kvutils_java_proto",
         "//3rdparty/jvm/com/google/guava",
         "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
@@ -67,7 +68,7 @@ proto_library(
 )
 
 java_proto_library(
-    name = "daml_kvutils_java_proto_bla2",
+    name = "daml_kvutils_java_proto",
     visibility = [
         "//visibility:public",
     ],

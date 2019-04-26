@@ -1,7 +1,6 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.time.{Duration, Instant}
-
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, SubmittedTransaction, SubmitterInfo}
 import com.digitalasset.daml.lf.data.Ref.SimpleString
@@ -25,9 +24,11 @@ import com.digitalasset.daml.lf.value.ValueCoder
 import com.digitalasset.platform.services.time.TimeModel
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
-
 import scala.util.Try
 
+/** Internal utilities for converting between protobuf messages and our scala
+  * data structures.
+  */
 private[kvutils] object Conversions {
 
   def toAbsCoid(txId: DamlLogEntryId, coid: ContractId): AbsoluteContractId = {

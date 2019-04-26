@@ -23,14 +23,14 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
   val emptyTransaction: SubmittedTransaction =
     PartialTransaction.initial.finish.right.get
 
-  val submitterInfo = SubmitterInfo(
+  def submitterInfo(rt: Timestamp) = SubmitterInfo(
     submitter = SimpleString.assertFromString("Alice"),
     applicationId = "tests",
     commandId = "X",
-    maxRecordTime = Timestamp.Epoch.addMicros(100000)
+    maxRecordTime = rt.addMicros(100000)
   )
-  var transactionMeta = TransactionMeta(
-    ledgerEffectiveTime = Timestamp.Epoch,
+  def transactionMeta(let: Timestamp) = TransactionMeta(
+    ledgerEffectiveTime = let,
     workflowId = "tests"
   )
 
@@ -68,6 +68,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     "provide update after transaction submission" in {
 
       val ps = new InMemoryKVParticipantState
+      val rt = ps.getNewRecordTime
 
       val waitForUpdateFuture =
         ps.stateUpdates(beginAfter = None).runWith(Sink.head).map {
@@ -76,13 +77,14 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
             assert(offset == Offset(Array(0L)))
         }
 
-      ps.submitTransaction(submitterInfo, transactionMeta, emptyTransaction)
+      ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
 
       waitForUpdateFuture
     }
 
     "reject duplicate commands" in {
       val ps = new InMemoryKVParticipantState
+      val rt = ps.getNewRecordTime
 
       val waitForUpdateFuture =
         ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq).map { updates =>
@@ -101,14 +103,16 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
               .reason == RejectionReason.DuplicateCommand)
         }
 
-      ps.submitTransaction(submitterInfo, transactionMeta, emptyTransaction)
-      ps.submitTransaction(submitterInfo, transactionMeta, emptyTransaction)
+      ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
+      ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
 
       waitForUpdateFuture
     }
 
     "return second update with beginAfter=1" in {
       val ps = new InMemoryKVParticipantState
+      val rt = ps.getNewRecordTime
+
       val waitForUpdateFuture =
         ps.stateUpdates(beginAfter = Some(Offset(Array(0L)))).runWith(Sink.head).map {
           case (offset, update) =>
@@ -116,8 +120,8 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
             assert(offset == Offset(Array(1L)))
             assert(update.isInstanceOf[Update.CommandRejected])
         }
-      ps.submitTransaction(submitterInfo, transactionMeta, emptyTransaction)
-      ps.submitTransaction(submitterInfo, transactionMeta, emptyTransaction)
+      ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
+      ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
       waitForUpdateFuture
     }
   }
