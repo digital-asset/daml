@@ -159,7 +159,7 @@ To acquire this context, you should:
 
 1. Complete the :doc:`/getting-started/quickstart`.
 2. Get an in-depth understanding of the :doc:`/concepts/ledger-model/index`.
-3. Build a mental model of how the :doc:`/app-dev/ledger-api-introduction/index`
+3. Build a mental model of how the :doc:`Ledger API </app-dev/index>`
    is used to :doc:`build DAML Applications </app-dev/index>`.
 
 .. _integration-kit_writing_code:
