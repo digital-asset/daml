@@ -5,6 +5,7 @@ package com.digitalasset.navigator.console.commands
 
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.console._
+import com.digitalasset.navigator.json.ApiCodecCompressed
 import com.digitalasset.navigator.model
 
 case object Event extends SimpleCommand {
@@ -29,7 +30,8 @@ case object Event extends SimpleCommand {
         PrettyField("Type", "Created"),
         PrettyField("Contract", ApiTypes.ContractId.unwrap(ev.contractId)),
         PrettyField("Template", Pretty.shortTemplateId(ev.templateId)),
-        PrettyField("Argument", Pretty.argument(ev.argument))
+        PrettyField("Argument", Pretty.argument(ev.argument)),
+        PrettyField("ArgumentJson", ApiCodecCompressed.apiValueToJsValue(ev.argument).compactPrint),
       )
     case ev: model.ChoiceExercised =>
       PrettyObject(
@@ -44,6 +46,7 @@ case object Event extends SimpleCommand {
         PrettyField("Contract", ApiTypes.ContractId.unwrap(ev.contractId)),
         PrettyField("Choice", ApiTypes.Choice.unwrap(ev.choice)),
         PrettyField("Argument", Pretty.argument(ev.argument)),
+        PrettyField("ArgumentJson", ApiCodecCompressed.apiValueToJsValue(ev.argument).compactPrint),
         PrettyField(
           "Children",
           PrettyArray(tx.events.filter(_.parentId.contains(ev.id)).map(prettyEvent(_, tx))))
