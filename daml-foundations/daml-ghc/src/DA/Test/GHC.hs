@@ -192,7 +192,7 @@ runJqQuery log qs = do
 data DiagnosticField
   = DFilePath !FilePath
   | DRange !Range
-  | DSeverity !Severity
+  | DSeverity !DiagnosticSeverity
   | DSource !String
   | DMessage !String
   deriving (Eq, Show)
@@ -214,10 +214,10 @@ checkDiagnostics log expected got = do
     where checkField :: D.Diagnostic -> DiagnosticField -> Bool
           checkField D.Diagnostic{..} f = case f of
             DFilePath p -> p == dFilePath
-            DRange r -> r == dRange
-            DSeverity s -> s == dSeverity
-            DSource s -> T.pack s == dSource
-            DMessage m -> T.pack m `T.isInfixOf` T.unwords (T.words dMessage)
+            DRange r -> r == _range
+            DSeverity s -> s == _severity
+            DSource s -> T.pack s == _source
+            DMessage m -> T.pack m `T.isInfixOf` T.unwords (T.words _message)
 
 ------------------------------------------------------------
 -- CLI argument handling

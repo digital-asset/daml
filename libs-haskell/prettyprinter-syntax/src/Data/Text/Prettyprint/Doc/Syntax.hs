@@ -32,6 +32,8 @@ data SyntaxClass
     | TypeSC
     | ErrorSC
     | WarningSC
+    | InfoSC
+    | HintSC
     | LinkSC T.Text T.Text
     -- ^ @LinkSC url title@: Create a link to the 'url'
     | IdSC T.Text
@@ -77,6 +79,8 @@ renderColored =
         TypeSC -> color Green
         ErrorSC -> color Red
         WarningSC -> color Yellow
+        InfoSC -> color Blue
+        HintSC -> color Magenta
         LinkSC _ _ -> color Green
         NoAnnotationSC -> mempty
         IdSC _ -> mempty
