@@ -233,12 +233,14 @@ runScenariosRule =
       world <- worldForFile file
       let scenarios = scenariosInModule m
           toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe Diagnostic
-          toDiagnostic scenario (Left err) = Just $ Diagnostic
-              { dFilePath = file
-              , dRange = maybe noRange sourceLocToRange mbLoc
-              , dSeverity = Error
-              , dSource = "Scenario"
-              , dMessage = Pretty.renderPlain $ formatScenarioError world err
+          toDiagnostic scenario (Left err) =
+              Just $ addFilePath file $ Diagnostic
+              { _range = maybe noRange sourceLocToRange mbLoc
+              , _severity = Just DsError
+              , _source = Just "Scenario"
+              , _message = Pretty.renderPlain $ formatScenarioError world err
+              , _code = Nothing
+              , _relatedInformation = Nothing
               }
             where scenarioName = LF.qualObject scenario
                   mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
