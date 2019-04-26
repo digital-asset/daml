@@ -96,8 +96,43 @@ GA (`tracking GitHub issue <https://github.com/digital-asset/daml/issues/661>`__
 DAML Ledgers built or in development
 ====================================
 
-**TODO (ALPHA):** explain what ledgers exist; and what state they are in.
-(`GitHub issue <https://github.com/digital-asset/daml/issues/673>`__)
+The following table lists the ledgers that support DAML, or are implementing
+support for running DAML.
+
+.. note: the table renderer fails *silently* if you don't have the right
+   number of columns!
+
+.. list-table::
+   :widths: 25 25 25 25
+   :header-rows: 1
+
+   * - Ledger
+     - Status
+     - Developer
+     - More
+   * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
+     - In Development
+     - `VMware <https://www.vmware.com/>`__
+     - `press release (April 11th 2019)
+       <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
+   * - `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__
+     - In Development
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+     - `press release (April 16th 2019)
+       <https://www.hyperledger.org/blog/2019/04/16/daml-smart-contracts-coming-to-hyperledger-sawtooth>`__
+   * - :doc:`/tools/sandbox`
+     - Stable
+     - `Digital Asset <https://digitalasset.com/>`__
+     - `PostgreSQL <https://www.postgresql.org/>`__ backend coming soon
+       (`GitHub Milestone <https://github.com/digital-asset/daml/milestone/10>`__)
+   * - Canton
+     - In Development
+     - `Digital Asset <https://digitalasset.com/>`__
+     - native support for :doc:`DAML's fine-grained privacy model
+       </concepts/ledger-model/ledger-privacy>`; whitepaper coming soon
+       (contact `Ratko Veprek <mailto:ratko.veprek@digitalasset.com>`__  for a
+       preview)
+
 
 .. _integration-kit_implementing:
 
