@@ -335,7 +335,7 @@ expectWarning :: Cursor -> T.Text -> ShakeTest ()
 expectWarning = expectDiagnostic D.DsWarning
 
 -- | Expect one error and no other diagnostics.
--- Fails by showing all the diagno stics.
+-- Fails by showing all the diagnostics.
 expectOneError :: Cursor -> T.Text -> ShakeTest ()
 expectOneError cursor message = expectOnlyDiagnostics [(D.DsError, cursor, message)]
 
