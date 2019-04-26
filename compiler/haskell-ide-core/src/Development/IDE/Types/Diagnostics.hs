@@ -195,37 +195,37 @@ prettyDiagnosticStore :: DiagnosticStore -> Doc SyntaxClass
 prettyDiagnosticStore ds =
     vcat $
     map prettyFileDiagnostics $
-    Map.assocs ds $
-    Map.map (concatMap getDiagnosticsFromStore)
+    Map.assocs $
+    Map.map getDiagnosticsFromStore ds
 
 prettyFileDiagnostics :: FileDiagnostics -> Doc SyntaxClass
-prettyFileDiagnostics (uri, StoreItem _ diags) =
+prettyFileDiagnostics (uri, diags) =
     label_ "Compiler error in" $ vcat
         [ label_ "File:" $ pretty filePath
-        , label_ "Errors:" $ prettyFileDiags storeContents
+        , label_ "Errors:" $ vcat $ map prettyDiagnostic diags
         ] where
 
-    prettyFileDiags :: (FilePath, [(T.Text, [LSP.Diagnostic])]) -> Doc SyntaxClass
-    prettyFileDiags (fp,stages) =
-        label_ ("File: "<>fp) $ vcat $ map prettyStage stages
+    -- prettyFileDiags :: (FilePath, [(T.Text, [LSP.Diagnostic])]) -> Doc SyntaxClass
+    -- prettyFileDiags (fp,stages) =
+    --     label_ ("File: "<>fp) $ vcat $ map prettyStage stages
 
-    prettyStage :: (T.Text, [LSP.Diagnostic]) -> Doc SyntaxClass
-    prettyStage (stage,diags) =
-        label_ ("Stage: "<>T.unpack stage) $ vcat $ map prettyDiagnostic diags
+    -- prettyStage :: (T.Text, [LSP.Diagnostic]) -> Doc SyntaxClass
+    -- prettyStage (stage,diags) =
+    --     label_ ("Stage: "<>T.unpack stage) $ vcat $ map prettyDiagnostic diags
 
     filePath :: FilePath
     filePath = fromMaybe dontKnow $ uriToFilePath uri
 
-    storeContents ::
-        (FilePath, [(T.Text, [LSP.Diagnostic])])
-        -- ^ Source File, Stage Source, Diags
-    storeContents = (fromMaybe dontKnow $ uriToFilePath uri, getDiags diags)
+    -- storeContents ::
+    --     (FilePath, [(T.Text, [LSP.Diagnostic])])
+    --     -- ^ Source File, Stage Source, Diags
+    -- storeContents = (fromMaybe dontKnow $ uriToFilePath uri, getDiags diags)
 
     dontKnow :: IsString s => s
     dontKnow = "<unknown>"
 
-    getDiags :: DiagnosticsBySource -> [(T.Text, [LSP.Diagnostic])]
-    getDiags = map (\(ds, diag) -> (fromMaybe dontKnow ds, toList diag)) . Map.assocs
+    -- getDiags :: DiagnosticsBySource -> [(T.Text, [LSP.Diagnostic])]
+    -- getDiags = map (\(ds, diag) -> (fromMaybe dontKnow ds, toList diag)) . Map.assocs
 
 getDiagnosticsFromStore :: StoreItem -> [Diagnostic]
 getDiagnosticsFromStore (StoreItem _ diags) =

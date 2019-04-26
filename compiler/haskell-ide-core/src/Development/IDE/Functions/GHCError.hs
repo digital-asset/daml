@@ -26,6 +26,7 @@ module Development.IDE.Functions.GHCError
   , noSpan
   ) where
 
+import Control.Lens
 import                     Development.IDE.Types.Diagnostics as D
 import qualified           Data.Text as T
 import Development.IDE.UtilGHC()
@@ -49,7 +50,7 @@ mkDiag dflags src e =
   case toDSeverity $ errMsgSeverity e of
     Nothing        -> Nothing
     Just bSeverity ->
-      Just $ setLocation (srcSpanToLocation $ errMsgSpan e)
+      Just $ set dLocation (Just $ srcSpanToLocation $ errMsgSpan e)
         Diagnostic
         { _range    = srcSpanToRange $ errMsgSpan e
         , _severity = Just bSeverity

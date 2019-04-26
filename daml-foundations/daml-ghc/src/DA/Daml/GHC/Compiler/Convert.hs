@@ -121,13 +121,16 @@ import           Safe.Exact (zipExact, zipExactMay)
 conversionError :: String -> ConvertM e
 conversionError msg = do
   ConversionEnv{..} <- ask
-  throwError Diagnostic
-      { dFilePath = fromMaybe "" convModuleFilePath
-      , dRange = maybe noRange sourceLocToRange convRange
-      , dSeverity = Error
-      , dSource = T.pack "Core to DAML-LF"
-      , dMessage = T.pack msg
-      }
+  let addFpIfExists =
+        maybe id (set dFilePath . Just) convModuleFilePath
+  throwError $ addFpIfExists $  Diagnostic
+      { _range = maybe noRange sourceLocToRange convRange
+      , _severity = Just DsError
+      , _source = Just $ T.pack "Core to DAML-LF"
+      , _message = T.pack msg
+      , _code = Nothing
+      , _relatedInformation = Nothing
+      } where
 
 unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
 unsupported typ x = conversionError errMsg
