@@ -259,6 +259,20 @@ genrule(
     ),
 )
 
+filegroup(
+    name = "daml-assistant-iou-setup",
+    srcs = glob(
+        ["source/getting-started/quickstart/template-root/*"],
+        # excluding quickstart-java stuff
+        exclude = [
+            "source/getting-started/quickstart/template-root/src",
+            "source/getting-started/quickstart/template-root/pom.xml",
+        ],
+        exclude_directories = 0,
+    ),
+    visibility = ["//visibility:public"],
+)
+
 genrule(
     name = "quickstart-java",
     srcs = ["//:component-version"] + glob(["source/getting-started/quickstart/template-root/**"]),

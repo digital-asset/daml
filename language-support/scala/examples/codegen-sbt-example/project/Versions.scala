@@ -2,15 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 object Versions {
-  val sdkVersion: String = sdkVersionFromSysProps().getOrElse("100.12.6")
+  private val daSdkVersionKey = "da.sdk.version"
 
-  println(s"DA sdkVersion: $sdkVersion")
+  val daSdkVersion: String = sys.props.get(daSdkVersionKey).getOrElse("100.12.12")
+  println(s"$daSdkVersionKey: $daSdkVersion")
 
   lazy val detectedOs: String = sys.props("os.name") match {
     case "Mac OS X" => "osx"
     case _ => "linux"
   }
-
-  private def sdkVersionFromSysProps(): Option[String] =
-    sys.props.get("DA.sdkVersion").map(_.toString)
 }

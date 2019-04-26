@@ -10,6 +10,9 @@ HEAD — ongoing
 --------------
 - Java Codegen: variants with unserializable cases are now accepted (see `#946 <https://github.com/digital-asset/daml/pull/946>`_)
 
+- Add ``quickstart-scala`` DAML Assistant project template.
+
+
 0.12.15 - 2019-05-06
 --------------------
 
