@@ -6,7 +6,7 @@ package com.digitalasset.extractor.config
 import java.util.UUID
 
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.client.configuration.TlsConfiguration
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 
 sealed abstract class SnapshotEndSetting
 object SnapshotEndSetting {
