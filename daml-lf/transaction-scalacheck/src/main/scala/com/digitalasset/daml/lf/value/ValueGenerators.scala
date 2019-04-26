@@ -361,7 +361,7 @@ object ValueGenerators {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
       roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId.unsafeFromIndex))
-    } yield GenTransaction(nodes.toMap, ImmArray(roots))
+    } yield GenTransaction(nodes.toMap, ImmArray(roots), Set.empty)
   }
 
   @deprecated("use malformedGenTransaction instead", since = "100.11.17")

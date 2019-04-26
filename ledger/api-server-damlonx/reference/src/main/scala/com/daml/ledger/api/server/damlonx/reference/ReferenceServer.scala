@@ -129,7 +129,7 @@ final case class BadReadService(ledger: Ledger) extends ReadService {
       case (updateId, update) =>
         val updatePrime = update match {
           case tx: Update.TransactionAccepted =>
-            tx.copy(transaction = GenTransaction(Map(), ImmArray.empty))
+            tx.copy(transaction = GenTransaction(Map(), ImmArray.empty, Set.empty))
           case _ => update
         }
         (updateId, updatePrime)

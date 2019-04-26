@@ -172,7 +172,7 @@ object ScenarioLoader {
         val workflowId = s"scenario-workflow-$stepId"
         // note that it's important that we keep the event ids in line with the contract ids, since
         // the sandbox code assumes that in TransactionConversion.
-        val txNoHash = GenTransaction(richTransaction.nodes, richTransaction.roots)
+        val txNoHash = GenTransaction(richTransaction.nodes, richTransaction.roots, Set.empty)
         val tx = txNoHash.mapContractIdAndValue(absCidWithHash, _.mapContractId(absCidWithHash))
         import richTransaction.{explicitDisclosure, implicitDisclosure}
         // copies non-absolute-able node IDs, but IDs that don't match

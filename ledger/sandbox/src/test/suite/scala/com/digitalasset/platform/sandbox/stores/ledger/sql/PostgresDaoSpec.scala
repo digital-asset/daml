@@ -113,7 +113,8 @@ class PostgresDaoSpec
               Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
               Some(keyWithMaintainers)
             )),
-          ImmArray("event1")
+          ImmArray("event1"),
+          Set.empty
         ),
         Map("event1" -> Set("Alice", "Bob"), "event2" -> Set("Alice", "In", "Chains"))
       )
@@ -229,7 +230,8 @@ class PostgresDaoSpec
               Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
               Some(keyWithMaintainers)
             )),
-          ImmArray("event1")
+          ImmArray("event1"),
+          Set.empty
         ),
         Map("event1" -> Set("Alice", "Bob"), "event2" -> Set("Alice", "In", "Chains"))
       )
@@ -289,7 +291,8 @@ class PostgresDaoSpec
                 Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
                 None
               )),
-            ImmArray(s"event$id")
+            ImmArray(s"event$id"),
+            Set.empty
           ),
           Map(s"event$id" -> Set("Alice", "Bob"))
         )
@@ -322,7 +325,8 @@ class PostgresDaoSpec
                 Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
                 ImmArray.empty
               )),
-            ImmArray(s"event$id")
+            ImmArray(s"event$id"),
+            Set.empty
           ),
           Map(s"event$id" -> Set("Alice", "Bob"))
         )

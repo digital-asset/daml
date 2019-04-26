@@ -381,6 +381,12 @@ class EngineTest extends WordSpec with Matchers {
         case Right(()) => ()
       }
     }
+
+    "cause used package to show up in transaction" in {
+      // NOTE(JM): Other packages are pulled in by BasicTests.daml, e.g. daml-prim, but we
+      // don't know the package ids here.
+      interpretResult.map(_.usedPackages.contains(basicTestsPkgId)) shouldBe Right(true)
+    }
   }
 
   "exercise command" should {
@@ -846,11 +852,13 @@ class EngineTest extends WordSpec with Matchers {
       val node2 = node1.copy(coid = AbsoluteContractId("0:1"))
 
       val tx = GenTx[NodeId, AbsoluteContractId, VersionedValue[AbsoluteContractId]](
-        Map(
+        nodes = Map(
           Tx.NodeId.unsafeFromIndex(0) -> node1,
           Tx.NodeId.unsafeFromIndex(1) -> node2
         ),
-        ImmArray(Tx.NodeId.unsafeFromIndex(0), Tx.NodeId.unsafeFromIndex(1)))
+        roots = ImmArray(Tx.NodeId.unsafeFromIndex(0), Tx.NodeId.unsafeFromIndex(1)),
+        usedPackages = Set.empty,
+      )
 
       val validationResult = engine
         .validatePartial(

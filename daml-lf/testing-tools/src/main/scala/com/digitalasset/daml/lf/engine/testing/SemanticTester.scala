@@ -259,7 +259,7 @@ class SemanticTester(
                   checkEvents(
                     reference,
                     richTransaction.explicitDisclosure,
-                    GenTransaction(richTransaction.nodes, ImmArray(nodeId)),
+                    GenTransaction(richTransaction.nodes, ImmArray(nodeId), Set.empty),
                     events,
                     scenarioToLedgerCoidMap)
               }
