@@ -593,9 +593,36 @@ object SBuiltin {
     }
   }
 
+  /** $checkPrecondition
+    *    :: arg (template argument)
+    *    -> Bool (false if ensure failed)
+    *    -> Unit
+    */
+  final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltin(2) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      if (args.get(0).isInstanceOf[SMap])
+        throw new Error(args.toString)
+      args.get(1) match {
+        case SBool(true) =>
+          ()
+        case SBool(false) =>
+          asVersionedValue(args.get(0).toValue) match {
+            case Left(err) => crash(err)
+            case Right(createArg) =>
+              throw DamlETemplatePreconditionViolated(
+                templateId = templateId,
+                optLocation = None,
+                arg = createArg)
+          }
+        case v =>
+          crash(s"PrecondCheck on non-boolean: $v")
+      }
+      machine.ctrl = CtrlValue(SUnit(()))
+    }
+  }
+
   /** $create
     *    :: arg  (template argument)
-    *    -> Bool (false if ensure failed)
     *    -> Text (agreement text)
     *    -> List Party (signatories)
     *    -> List Party (observers)
@@ -603,29 +630,20 @@ object SBuiltin {
     *    -> Token
     *    -> ContractId arg
     */
-  final case class SBUCreate(templateId: TypeConName) extends SBuiltin(7) {
+  final case class SBUCreate(templateId: TypeConName) extends SBuiltin(6) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(6))
+      checkToken(args.get(5))
       val createArg = asVersionedValue(args.get(0).toValue) match {
         case Left(err) => crash(err)
         case Right(x) => x
       }
-      args.get(1) match {
-        case SBool(true) =>
-          ()
-        case _ =>
-          throw DamlETemplatePreconditionViolated(
-            templateId = templateId,
-            optLocation = None,
-            arg = createArg)
-      }
-      val agreement = args.get(2) match {
+      val agreement = args.get(1) match {
         case SText(t) => t
         case v => crash(s"agreement not text: $v")
       }
-      val sigs = extractParties(args.get(3))
-      val obs = extractParties(args.get(4))
-      val key = args.get(5) match {
+      val sigs = extractParties(args.get(2))
+      val obs = extractParties(args.get(3))
+      val key = args.get(4) match {
         case SOptional(None) => None
         case SOptional(Some(STuple(flds, vals)))
             if flds.length == 2 && flds(0) == "key" && flds(1) == "maintainers" =>
