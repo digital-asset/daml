@@ -244,7 +244,11 @@ class TransactionCoderSpec
       val nodes = ImmArray((1 to 10000).map { nid =>
         (nid.toString, node)
       })
-      val tx = GenTransaction(Map(nodes.toSeq: _*), nodes.map(_._1))
+      val tx = GenTransaction(
+        nodes = Map(nodes.toSeq: _*),
+        roots = nodes.map(_._1),
+        usedPackages = Set.empty
+      )
       tx shouldEqual TransactionCoder
         .decodeVersionedTransaction(
           Right(_),
