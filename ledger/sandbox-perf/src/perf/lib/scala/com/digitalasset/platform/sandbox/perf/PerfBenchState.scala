@@ -25,7 +25,7 @@ class PerfBenchState extends InfiniteRetries {
 
   def config: PlatformApplications.Config = PlatformApplications.Config.default
 
-  @Param(Array("Postgres"))
+  @Param(Array("InMemory", "Postgres"))
   var store: String = _
 
   @Setup(Level.Trial)

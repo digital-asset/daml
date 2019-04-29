@@ -138,7 +138,7 @@ private class SqlLedger(
     mergedSources
       .batch(noOfShortLivedConnections * 2L, e => Queue(e))((batch, e) => batch :+ e)
       .mapAsync(1) { queue =>
-        val startOffset = headRef // we can only do this because there is not parallelism here!
+        val startOffset = headRef // we can only do this because there is no parallelism here!
         //shooting the SQL queries in parallel
         Future
           .sequence(queue.toIterator.zipWithIndex.map {
