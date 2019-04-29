@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state
 
-
 /** The participant-state key-value utilities provide methods to succintly implement
   * [[com.daml.ledger.participant.state.v1.ReadService]] and
   * [[com.daml.ledger.participant.state.v1.WriteService]] on top of ledger's that provide a key-value state storage.
