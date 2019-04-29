@@ -12,12 +12,14 @@ DAML assistant (``daml``)
 - Launch the tools in the SDK:
 
   - Launch :doc:`DAML Studio </daml/daml-studio>`: ``daml studio``
-  - Launch :doc:`Sandbox </tools/sandbox>` and :doc:`Navigator <tools/navigator/index>` together: ``daml start``
+  - Launch :doc:`Sandbox </tools/sandbox>` and :doc:`Navigator </tools/navigator/index>` together: ``daml start``
   - Launch Sandbox: ``daml sandbox``
   - Launch Navigator: ``daml navigator``
   - Launch :doc:`Extractor </tools/extractor>`: ``daml extractor``
 - Compile a DAML project: ``daml build``
 - Create new project based off built-in template: ``daml new <path to create project in> <name of template>``
+
+.. _daml-yaml-configuration:
 
 Configuration files
 *******************

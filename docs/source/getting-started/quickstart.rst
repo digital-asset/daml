@@ -25,7 +25,7 @@ On this page:
 Download the quickstart application
 ***********************************
 
-You can get the quickstart application as an :ref:`SDK template <cli-managing-templates>`:
+You can get the quickstart application using the DAML assistant (``daml``):
 
 #. Run ``da new quickstart``
 
