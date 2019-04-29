@@ -14,6 +14,7 @@ module DAML.Assistant.Install
 import DAML.Assistant.Types
 import DAML.Assistant.Util
 import qualified DAML.Assistant.Install.Github as Github
+import DAML.Assistant.Install.Path
 import DAML.Project.Consts
 import DAML.Project.Config
 import Safe
@@ -173,11 +174,7 @@ activateDaml env@InstallEnv{..} targetPath = do
                      ]
             else createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
 
-    unlessQuiet env $ do -- Ask user to add .daml/bin to PATH if it is absent.
-        searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
-        when (damlBinaryTargetDir `notElem` searchPaths) $ do
-            output ("Please add " <> damlBinaryTargetDir <> " to your PATH.")
-
+    updatePath (\s -> unlessQuiet env (output s)) damlBinaryTargetDir
 
 data WalkCallbacks = WalkCallbacks
     { walkOnFile :: FilePath -> IO ()
@@ -426,3 +423,4 @@ install options damlPath projectPathM = do
                 pathInstall env arg
             else
                 throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> pack arg))
+
