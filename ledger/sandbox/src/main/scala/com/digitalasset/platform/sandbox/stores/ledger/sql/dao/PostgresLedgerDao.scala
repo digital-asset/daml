@@ -159,8 +159,8 @@ private class PostgresLedgerDao(
       .execute()
 
   private val SQL_INSERT_CONTRACT =
-    """insert into contracts(id, transaction_id, workflow_id, package_id, module_name, entity_name, create_offset, contract, key)
-      |values({id}, {transaction_id}, {workflow_id}, {package_id}, {module_name}, {entity_name}, {create_offset}, {contract}, {key})""".stripMargin
+    """insert into contracts(id, transaction_id, workflow_id, package_id, name, create_offset, contract, key)
+      |values({id}, {transaction_id}, {workflow_id}, {package_id}, {name}, {create_offset}, {contract}, {key})""".stripMargin
 
   private val SQL_INSERT_CONTRACT_WITNESS =
     "insert into contract_witnesses(contract_id, witness) values({contract_id}, {witness})"
@@ -180,8 +180,7 @@ private class PostgresLedgerDao(
               "transaction_id" -> c.transactionId,
               "workflow_id" -> c.workflowId,
               "package_id" -> c.coinst.template.packageId.underlyingString,
-              "module_name" -> c.coinst.template.qualifiedName.module.dottedName,
-              "entity_name" -> c.coinst.template.qualifiedName.name.dottedName,
+              "name" -> c.coinst.template.qualifiedName.toString,
               "create_offset" -> offset,
               "contract" -> contractSerializer
                 .serialiseContractInstance(c.coinst)
