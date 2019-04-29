@@ -42,8 +42,17 @@ getDamlEnv = do
     envProjectPath <- getProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath
         envDamlAssistantSdkVersion envProjectPath
-    envLatestStableSdkVersion <- fmap eitherToMaybe (try getLatestVersion :: IO (Either AssistantError SdkVersion))
+    envLatestStableSdkVersion <- getLatestStableSdkVersion
     pure Env {..}
+
+-- | Get the latest stable SDK version. Designed to return Nothing if
+-- anything fails (e.g. machine is offline). TODO: Cache the result.
+getLatestStableSdkVersion :: IO (Maybe SdkVersion)
+getLatestStableSdkVersion = do
+    versionE :: Either AssistantError SdkVersion
+      <- try (wrapErr "" getLatestVersion)
+    pure (eitherToMaybe versionE)
+
 
 -- | Determine the viability of running sdk commands in the environment.
 -- Returns the first failing test's error message.
