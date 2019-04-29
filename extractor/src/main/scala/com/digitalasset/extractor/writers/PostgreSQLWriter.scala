@@ -3,7 +3,7 @@
 
 package com.digitalasset.extractor.writers
 
-import com.digitalasset.daml.lf.iface.reader.{InterfaceType, Interface}
+import com.digitalasset.daml.lf.iface.{InterfaceType, Interface}
 import com.digitalasset.extractor.config.ExtractorConfig
 import com.digitalasset.extractor.ledger.LedgerReader
 import com.digitalasset.extractor.ledger.LedgerReader.PackageStore

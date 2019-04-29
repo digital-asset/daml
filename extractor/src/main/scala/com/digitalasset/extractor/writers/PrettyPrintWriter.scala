@@ -3,7 +3,7 @@
 
 package com.digitalasset.extractor.writers
 
-import com.digitalasset.daml.lf.iface.reader.Interface
+import com.digitalasset.daml.lf.iface.Interface
 import com.digitalasset.extractor.ledger.types.Event
 import com.digitalasset.extractor.targets.PrettyPrintTarget
 import _root_.pprint.PPrinter
