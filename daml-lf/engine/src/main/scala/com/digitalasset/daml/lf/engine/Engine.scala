@@ -380,7 +380,7 @@ final class Engine {
         case SResultNeedTime(callback) =>
           callback(time)
 
-        case SResultNeedKey(gk, cbMissing, cbPresent) =>
+        case SResultNeedKey(gk, _, cbMissing, cbPresent) =>
           return ResultNeedKey(
             gk, {
               case None =>
