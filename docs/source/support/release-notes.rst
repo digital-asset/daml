@@ -198,8 +198,7 @@ Changes:
 
 .. - TODO: add changes here
 
-
 .. toctree::
    :hidden:
 
-   daml/1-2-conversion
+   /daml/1-2-conversion

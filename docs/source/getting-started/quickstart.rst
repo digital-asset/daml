@@ -325,7 +325,7 @@ A more interesting choice is ``IouTrade_Accept``. To look at it, open ``IouTrade
   :language: daml
   :lines: 25-46
 
-This choice uses the ``===`` operator from the :doc:`DAML Standard Library </daml/stdlib/base>` to check pre-conditions. The standard library is imported using ``import DA.Assert`` at the top of the module.
+This choice uses the ``===`` operator from the :doc:`DAML Standard Library </daml/reference/base>` to check pre-conditions. The standard library is imported using ``import DA.Assert`` at the top of the module.
 
 Then, it *composes* the ``Iou_Transfer`` and ``IouTransfer_Accept`` choices to build one big transaction. In this transaction, ``buyer`` and ``seller`` exchange their Ious atomically, without disclosing the entire transaction to all parties involved.
 

@@ -60,7 +60,7 @@ do
 
         #StdLib
         bazel build //daml-foundations/daml-ghc:daml-base-rst-docs
-        cp -L ../../bazel-genfiles/daml-foundations/daml-ghc/daml-base.rst ../source/daml/stdlib/base.rst
+        cp -L ../../bazel-genfiles/daml-foundations/daml-ghc/daml-base.rst ../source/daml/reference/base.rst
     fi
 done
 
