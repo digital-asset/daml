@@ -9,6 +9,12 @@ import com.digitalasset.ledger.api.tls.TlsConfiguration
 
 object Cli {
 
+  private val pemConfig = (path: String, config: Config) =>
+    config.copy(
+      tlsConfig = config.tlsConfig.fold(
+        Some(TlsConfiguration(enabled = true, None, Some(new File(path)), None)))(c =>
+        Some(c.copy(keyFile = Some(new File(path))))))
+
   private val crtConfig = (path: String, config: Config) =>
     config.copy(
       tlsConfig = config.tlsConfig.fold(
@@ -33,6 +39,10 @@ object Cli {
       .optional()
       .action((f, c) => c.copy(portFile = Some(f)))
       .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
+    opt[String]("pem")
+      .optional()
+      .text("TLS: The pem file to be used as the private key.")
+      .action(pemConfig)
     opt[String]("crt")
       .optional()
       .text("TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.")

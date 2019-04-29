@@ -6,18 +6,22 @@ package com.digitalasset.platform.apitesting
 import java.util.concurrent.TimeUnit
 
 import com.digitalasset.ledger.api.testing.utils.Resource
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import io.grpc.ManagedChannel
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.util.concurrent.DefaultThreadFactory
 
 object RemoteServerResource {
-  def apply(host: String, port: Int) = new RemoteServerResource(host, port)
+  def apply(host: String, port: Int, tlsConfig: Option[TlsConfiguration]) =
+    new RemoteServerResource(host, port, tlsConfig)
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.Null"))
-class RemoteServerResource(host: String, port: Int) extends Resource[PlatformChannels] {
+class RemoteServerResource(host: String, port: Int, tlsConfig: Option[TlsConfiguration])
+    extends Resource[PlatformChannels] {
+
   @volatile
   private var eventLoopGroup: EventLoopGroup = _
   @volatile
@@ -28,14 +32,21 @@ class RemoteServerResource(host: String, port: Int) extends Resource[PlatformCha
   override def setup(): Unit = {
     eventLoopGroup = createEventLoopGroup("remote-server-client")
 
-    channel = {
-      val channelBuilder: NettyChannelBuilder = NettyChannelBuilder
-        .forAddress(host, port)
-      channelBuilder.eventLoopGroup(eventLoopGroup)
-      channelBuilder.usePlaintext()
-      channelBuilder.directExecutor()
-      channelBuilder.build()
-    }
+    val channelBuilder: NettyChannelBuilder = NettyChannelBuilder
+      .forAddress(host, port)
+      .eventLoopGroup(eventLoopGroup)
+      .directExecutor()
+
+    tlsConfig
+      .flatMap(_.client)
+      .fold {
+        channelBuilder.usePlaintext()
+      } { sslContext =>
+        channelBuilder.sslContext(sslContext).negotiationType(NegotiationType.TLS)
+      }
+
+    channel = channelBuilder.build()
+
   }
 
   def createEventLoopGroup(threadPoolName: String): NioEventLoopGroup = {
