@@ -39,8 +39,10 @@ object InterfaceType {
   }
 }
 
-/** `templates` stores template info for record types which are templates. Note that all keys of `templates` must be
-  * present in `typeDecls`, too.'
+/** The interface of a single DALF archive.  Not expressive enough to
+  * represent a whole dar, as a dar can contain multiple DALF archives
+  * with separate package IDs and overlapping [[QualifiedName]]s; for a
+  * dar use [[EnvironmentInterface]] instead.
   */
 final case class Interface(packageId: PackageId, typeDecls: Map[QualifiedName, InterfaceType]) {
   def getTypeDecls: j.Map[QualifiedName, InterfaceType] = typeDecls.asJava
@@ -60,4 +62,3 @@ object Interface {
     : (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(f)
 }
-

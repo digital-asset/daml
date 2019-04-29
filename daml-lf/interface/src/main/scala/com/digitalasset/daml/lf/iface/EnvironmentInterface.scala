@@ -11,6 +11,7 @@ import scala.collection.immutable.Map
 import scalaz.syntax.std.map._
 import scalaz.Semigroup
 
+/** The combination of multiple [[Interface]]s, such as from a dar. */
 final case class EnvironmentInterface(typeDecls: Map[Identifier, InterfaceType])
 
 object EnvironmentInterface {
