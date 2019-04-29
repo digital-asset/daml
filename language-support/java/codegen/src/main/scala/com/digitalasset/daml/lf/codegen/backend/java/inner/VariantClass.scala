@@ -8,8 +8,7 @@ import com.digitalasset.daml.lf.codegen.TypeWithContext
 import com.digitalasset.daml.lf.codegen.backend.java.JavaEscaper
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.iface._
-import com.digitalasset.daml.lf.iface.reader.InterfaceType
-import com.digitalasset.daml.lf.iface.reader.InterfaceType.Normal
+import InterfaceType.Normal
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
