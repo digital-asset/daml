@@ -1,12 +1,10 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
-package lf
+package com.digitalasset.daml.lf
+package iface
 
-import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.{Dar, iface}
-import iface.reader
+import data.Ref.Identifier
 
 import scala.collection.breakOut
 import scala.collection.immutable.Map
@@ -25,11 +23,8 @@ object EnvironmentInterface {
   def fromReaderInterfaces(dar: Dar[reader.Interface]): EnvironmentInterface =
     fromReaderInterfaces(dar.main, dar.dependencies: _*)
 
-  val environmentInterfaceSemigroup = new Semigroup[EnvironmentInterface] {
-    override def append(
-        f1: EnvironmentInterface,
-        f2: => EnvironmentInterface): EnvironmentInterface = {
+  implicit val environmentInterfaceSemigroup: Semigroup[EnvironmentInterface] = Semigroup instance {
+    (f1, f2) =>
       EnvironmentInterface(f1.typeDecls ++ f2.typeDecls)
-    }
   }
 }

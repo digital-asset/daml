@@ -12,9 +12,8 @@ import java.io._
 import scala.collection.breakOut
 import com.digitalasset.codegen.dependencygraph._
 import com.digitalasset.codegen.exception.PackageInterfaceException
-import com.digitalasset.codegen.lf.EnvironmentInterface.environmentInterfaceSemigroup
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import lf.{DefTemplateWithRecord, EnvironmentInterface, LFUtil, ScopedDataType}
+import lf.{DefTemplateWithRecord, LFUtil, ScopedDataType}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.iface.reader.Errors.ErrorLoc
 import com.digitalasset.daml_lf.DamlLf
@@ -132,10 +131,8 @@ object CodeGen {
   private def combineInterfaces(dar: Dar[Interface]): EnvironmentInterface =
     EnvironmentInterface.fromReaderInterfaces(dar)
 
-  private def combineEnvInterfaces(as: NonEmptyList[EnvironmentInterface]): EnvironmentInterface = {
-    val z = EnvironmentInterface(Map.empty)
-    as.foldLeft(z)((a1, a2) => environmentInterfaceSemigroup.append(a1, a2))
-  }
+  private def combineEnvInterfaces(as: NonEmptyList[EnvironmentInterface]): EnvironmentInterface =
+    as.suml1
 
   private def packageInterfaceToScalaCode(util: Util): Unit = {
     val interface = util.iface

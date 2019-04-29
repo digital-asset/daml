@@ -22,7 +22,7 @@ class UtilTest extends UtilTestHelpers with GeneratorDrivenPropertyChecks {
   val util =
     lf.LFUtil(
       scalaPackage,
-      lf.EnvironmentInterface fromReaderInterfaces packageInterface,
+      I.EnvironmentInterface fromReaderInterfaces packageInterface,
       outputDir.toFile)
 
   def damlScalaName(damlNameSpace: Array[String], name: String): util.DamlScalaName =
