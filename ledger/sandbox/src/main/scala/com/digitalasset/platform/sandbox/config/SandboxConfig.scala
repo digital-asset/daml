@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.config
 
 import java.io.File
 
-import com.digitalasset.ledger.client.configuration.TlsConfiguration
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 
 import scala.concurrent.duration._

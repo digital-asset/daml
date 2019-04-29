@@ -6,7 +6,7 @@ package com.digitalasset.navigator.console.commands
 import java.util.concurrent.TimeUnit
 
 import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.ledger.client.configuration.TlsConfiguration
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.navigator.console._
 import com.digitalasset.navigator.store.Store._
 import com.digitalasset.navigator.time.TimeProviderType

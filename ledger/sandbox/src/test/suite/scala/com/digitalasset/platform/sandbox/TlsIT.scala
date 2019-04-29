@@ -11,12 +11,12 @@ import com.digitalasset.ledger.api.testing.utils.{
   Resource,
   SuiteResourceManagementAroundAll
 }
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement,
-  TlsConfiguration
+  LedgerIdRequirement
 }
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, SandboxServerResource}
