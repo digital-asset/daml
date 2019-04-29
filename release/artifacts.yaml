@@ -47,25 +47,25 @@
 - target: //daml-lf/transaction/src/main/protobuf:blindinginfo_java_proto
   type: jar-proto
 - target: //daml-lf/transaction:transaction
-  type: jar
+  type: jar-scala
 - target: //daml-lf/transaction-scalacheck:transaction-scalacheck
   type: jar
 - target: //daml-lf/lfpackage:lfpackage
-  type: jar
+  type: jar-scala
 - target: //daml-lf/interface:interface
-  type: jar
+  type: jar-scala
 - target: //daml-lf/validation:validation
-  type: jar
+  type: jar-scala
 - target: //daml-lf/interpreter:interpreter
-  type: jar
+  type: jar-scala
 - target: //daml-lf/scenario-interpreter:scenario-interpreter
-  type: jar
+  type: jar-scala
 - target: //daml-lf/engine:engine
-  type: jar
+  type: jar-scala
 - target: //daml-lf/repl:repl
   type: jar
 - target: //daml-lf/testing-tools:testing-tools
-  type: jar
+  type: jar-scala
 - target: //ledger-api/grpc-definitions:ledger-api-protos-tarball
   type: targz
   location:
@@ -92,27 +92,27 @@
 - target: //ledger-api/grpc-definitions:ledger-api-scalapb
   type: jar
 - target: //ledger-api/testing-utils:testing-utils
-  type: jar
+  type: jar-scala
 - target: //language-support/scala/bindings:bindings
-  type: jar
+  type: jar-scala
 - target: //ledger-api/rs-grpc-akka:rs-grpc-akka
-  type: jar
+  type: jar-scala
 - target: //ledger/ledger-api-akka:ledger-api-akka
-  type: jar
+  type: jar-scala
 - target: //scala-protoc-plugins/scala-logging:scala-logging-lib
-  type: jar
+  type: jar-scala
 - target: //ledger/ledger-api-scala-logging:ledger-api-scala-logging
-  type: jar
+  type: jar-scala
 - target: //ledger/backend-api:backend-api
-  type: jar
+  type: jar-scala
 - target: //ledger/ledger-api-client:ledger-api-client
-  type: jar
+  type: jar-scala
 - target: //ledger/ledger-api-domain:ledger-api-domain
-  type: jar
+  type: jar-scala
 - target: //ledger/ledger-api-common:ledger-api-common
-  type: jar
+  type: jar-scala
 - target: //ledger/sandbox:sandbox
-  type: jar
+  type: jar-scala
 - target: //ledger/ledger-api-integration-tests:semantic-test-runner
   type: jar-deploy
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
@@ -122,7 +122,7 @@
 - target: //language-support/scala/codegen:codegen-main
   type: jar
 - target: //language-support/scala/bindings-akka:bindings-akka
-  type: jar
+  type: jar-scala
 - target: //language-support/java/codegen:shaded_binary
   type: jar
 - target: //navigator/backend:navigator-binary
@@ -132,16 +132,16 @@
 - target: //language-support/codegen-main:shaded_binary
   type: jar
 - target: //ledger/participant-state:participant-state
-  type: jar
+  type: jar-scala
 - target: //ledger/participant-state/reference:reference
-  type: jar
+  type: jar-scala
 - target: //ledger/participant-state-index:participant-state-index
-  type: jar
+  type: jar-scala
 - target: //ledger/participant-state-index/reference:reference
-  type: jar
+  type: jar-scala
 - target: //ledger/api-server-damlonx:api-server-damlonx
-  type: jar
+  type: jar-scala
 - target: //ledger/participant-state/kvutils:daml_kvutils_java_proto
   type: jar-proto
 - target: //ledger/participant-state/kvutils:kvutils
-  type: jar
+  type: jar-scala

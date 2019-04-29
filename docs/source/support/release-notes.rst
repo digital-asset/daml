@@ -17,6 +17,7 @@ HEAD — ongoing
 - Remove DAML-LF Dev major version, ``--target dev`` option, and sandbox ``--allow-dev``
   option.  A "1.dev" target will handle the intended "Dev" use cases in a future release.
 - Include list of DAML packages used during interpretation in the produced transaction.
+- Release source jars for scala libraries.
 
 0.12.11 - 2019-04-26
 --------------------
