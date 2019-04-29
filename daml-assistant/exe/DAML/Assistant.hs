@@ -32,13 +32,13 @@ main = displayErrors $ do
 
     whenJust envLatestStableSdkVersion $ \latestVersion -> do
         let isHead = maybe False isHeadVersion envSdkVersion
-            test1 = not isHead && isJust envProjectPath && envSdkVersion < Just latestVersion
-            test2 = not isHead && not test1 && isJust envDamlAssistantSdkVersion &&
+            projectSdkVersionIsOld = isJust envProjectPath && envSdkVersion < Just latestVersion
+            assistantVersionIsOld = isJust envDamlAssistantSdkVersion &&
                 fmap unwrapDamlAssistantSdkVersion envDamlAssistantSdkVersion <
                 Just latestVersion
 
         -- Project SDK version is outdated.
-        when test1 $ do
+        when (not isHead && projectSdkVersionIsOld) $ do
             hPutStrLn stderr . unlines $
                 [ "WARNING: Using an outdated version of the DAML SDK in project."
                 , ""
@@ -51,7 +51,7 @@ main = displayErrors $ do
                 ]
 
         -- DAML assistant is outdated.
-        when test2 $ do
+        when (not isHead && not projectSdkVersionIsOld && assistantVersionIsOld) $ do
             hPutStrLn stderr . unlines $
                 [ "WARNING: Using an outdated version of the DAML assistant."
                 , ""
