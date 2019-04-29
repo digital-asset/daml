@@ -1,0 +1,36 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_binary")
+
+filegroup(
+    name = "hs-ledger-sources",
+    srcs = glob(["src/*.hs"]),
+    visibility = ["//visibility:private"],
+)
+
+da_haskell_library(
+    name = "hs-ledger",
+    srcs = [":hs-ledger-sources"],
+    hazel_deps = [
+        "base",
+        "text",
+        "containers",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ledger-api/grpc-definitions:ledger-api-haskellpb",
+        "//nix/third-party/gRPC-haskell:grpc-haskell",
+    ],
+)
+
+da_haskell_binary(
+    name = "examples/view",
+    srcs = ["examples/View.hs"],
+    compiler_flags = [],
+    hazel_deps = ["base",],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/hs/bindings:hs-ledger"
+    ],
+)
