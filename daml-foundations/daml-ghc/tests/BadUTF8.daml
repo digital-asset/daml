@@ -1,4 +1,4 @@
--- @ERROR range=5:1-5:1; file=daml-foundations/daml-ghc/tests/BadUTF8.daml; lexical error
+-- @ERROR range=5:1-5:1; file=/daml-ghc/tests/BadUTF8.daml; lexical error
 
 daml 1.2 -- important so we always trigger the DAML 1.2 path
 
