@@ -6,6 +6,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
+load("//bazel_tools:java.bzl", "da_java_proto_library")
 
 da_scala_library(
     name = "kvutils",
@@ -54,9 +55,6 @@ da_scala_test_suite(
 proto_library(
     name = "daml_kvutils_proto",
     srcs = ["src/main/protobuf/daml_kvutils.proto"],
-    visibility = [
-        "//visibility:public",
-    ],
     deps = [
         "//daml-lf/archive:daml_lf_proto",
         "//daml-lf/transaction/src/main/protobuf:transaction_proto",
@@ -66,10 +64,8 @@ proto_library(
     ],
 )
 
-java_proto_library(
+da_java_proto_library(
     name = "daml_kvutils_java_proto",
-    visibility = [
-        "//visibility:public",
-    ],
+    tags = ["maven_coordinates=com.daml.ledger:participant-state-kvutils-java-proto:__VERSION__"],
     deps = [":daml_kvutils_proto"],
 )
