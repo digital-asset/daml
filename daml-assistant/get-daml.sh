@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
@@ -9,7 +9,7 @@
 #
 
 readonly ORIGDIR="$(pwd)"
-function cleanup() {
+cleanup () {
   echo "$(tput setaf 3)FAILED TO INSTALL!$(tput sgr 0)"
   cd $ORIGDIR
 }
@@ -37,25 +37,21 @@ if [ -n "$MISSING" ]; then
 fi
 
 
-readonly DAML_HOME="$HOME/.daml"
-if [ -d $DAML_HOME ] ; then
-  chmod -R u+w $DAML_HOME
-  rm -rf $DAML_HOME
-fi
-
 
 echo "Determining latest DAML version..."
 readonly VERSION="$(curl -s https://github.com/digital-asset/daml/releases/latest | sed 's/^.*github.com\/digital-asset\/daml\/releases\/tag\/v//' | sed 's/".*$//')"
 echo "Latest DAML version is $VERSION."
 
 
-if [[ "$OSTYPE" == "linux-gnu" ]]; then
+
+readonly OSNAME="$(uname -s)"
+if [ "$OSNAME" = "Linux" ] ; then
   OS="linux"
-elif [[ "$OSTYPE" == "darwin"* ]]; then
+elif [ "$OSNAME" = "Darwin" ] ; then
   OS="macos"
 else
   echo "Operating system not supported:"
-  echo "  OSTYPE = $OSTYPE"
+  echo "  OSNAME = $OSNAME"
   exit 1
 fi
 
@@ -64,6 +60,13 @@ readonly URL="https://github.com/digital-asset/daml/releases/download/v$VERSION/
 
 echo "$(tput setaf 3)Downloading latest DAML SDK. This may take a while.$(tput sgr 0)"
 curl -L $URL --output $TARBALL --progress-bar
+
+readonly DAML_HOME="$HOME/.daml"
+if [ -d $DAML_HOME ] ; then
+  echo "Removing existing installation."
+  chmod -R u+w $DAML_HOME
+  rm -rf $DAML_HOME
+fi
 
 echo "Extracting SDK release tarball."
 mkdir -p $TMPDIR/sdk
