@@ -407,11 +407,11 @@ testScenario = do
 template Delegated
   with
     owner : Party
-    -- k : Text
+    k : Text
   where
     signatory owner
-    -- key (owner, k) : (Party, Text)
-    -- maintainer owner
+    key (owner, k) : (Party, Text)
+    maintainer owner
 
 template Delegation
   with
@@ -424,12 +424,10 @@ template Delegation
         with delegated: ContractId Delegated
         do fetch delegated
 
-    {-
     controller delegate can
       LookupDelegated: Optional (ContractId Delegated)
         with k: (Party, Text)
         do lookupByKey @Delegated k
-    -}
 
 template ShowDelegated
   with
@@ -448,14 +446,14 @@ template ShowDelegated
 testDivulgenceVisibility = scenario do
   owner <- getParty "owner"
   delegate <- getParty "delegate"
-  delegated <- owner `submit` create Delegated with owner -- , k = "key"
+  delegated <- owner `submit` create Delegated with owner, k = "key"
   delegation <- owner `submit` create Delegation with owner, delegate
   delegate `submit` exercise delegation FetchDelegated with delegated
 
 testDivulgenceSuccess = scenario do
   owner <- getParty "owner"
   delegate <- getParty "delegate"
-  delegated <- owner `submit` create Delegated with owner -- , k = "key"
+  delegated <- owner `submit` create Delegated with owner, k = "key"
   delegation <- owner `submit` create Delegation with owner, delegate
   showId <- owner `submit` create ShowDelegated with owner, delegate
   owner `submit` exercise showId ShowIt with delegatedId = delegated

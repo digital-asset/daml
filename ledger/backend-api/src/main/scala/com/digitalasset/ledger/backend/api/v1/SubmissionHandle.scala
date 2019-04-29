@@ -107,5 +107,5 @@ trait SubmissionHandle {
     * absolute contract id: successive lookups of the key corresponding
     * the absolute contract id must return [[Nothing]].
     */
-  def lookupContractKey(key: GlobalKey): Future[Option[AbsoluteContractId]]
+  def lookupContractKey(submitter: Party, key: GlobalKey): Future[Option[AbsoluteContractId]]
 }

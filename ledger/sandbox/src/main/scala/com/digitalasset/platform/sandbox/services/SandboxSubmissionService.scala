@@ -119,8 +119,9 @@ class SandboxSubmissionService private (
             commands.submitter,
             commands,
             handle.lookupActiveContract(commands.submitter.underlyingString, _),
-            handle.lookupContractKey,
-            commands.commands)
+            handle.lookupContractKey(commands.submitter.underlyingString, _),
+            commands.commands
+          )
           .flatMap {
             _.left
               .map(ec => grpcError(toStatus(ec)))

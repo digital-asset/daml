@@ -430,13 +430,19 @@ abstract class CommandTransactionChecks
         case TestFixture(SandboxInMemory, ctx) =>
         def pf(label: String, party: String) =
           RecordField(label, Some(Value(Value.Sum.Party(party))))
-        val odArgs = Seq(pf("owner", owner), pf("delegate", delegate))
+        // TODO currently we run multiple suites with the same sandbox, therefore we must generate
+        // unique keys. This is not so great though, it'd be better to have a clean environment.
+        val key = s"${UUID.randomUUID.toString}-key"
+        val odArgs = Seq(
+          pf("owner", owner),
+          pf("delegate", delegate)
+        )
         val delegatedCreate = simpleCreate(
           ctx,
           cid("SDVl3"),
           owner,
           templateIds.delegated,
-          Record(Some(templateIds.delegated), Seq(pf("owner", owner))))
+          Record(Some(templateIds.delegated), Seq(pf("owner", owner), RecordField(value = Some(Value(Value.Sum.Text(key)))))))
         val delegationCreate = simpleCreate(
           ctx,
           cid("SDVl4"),
@@ -485,12 +491,15 @@ abstract class CommandTransactionChecks
       "reject fetching an undisclosed contract" in allFixtures { ctx =>
         def pf(label: String, party: String) =
           RecordField(label, Some(Value(Value.Sum.Party(party))))
+        // TODO currently we run multiple suites with the same sandbox, therefore we must generate
+        // unique keys. This is not so great though, it'd be better to have a clean environment.
+        val key = s"${UUID.randomUUID.toString}-key"
         val delegatedCreate = simpleCreate(
           ctx,
           cid("TDVl3"),
           owner,
           templateIds.delegated,
-          Record(Some(templateIds.delegated), Seq(pf("owner", owner))))
+          Record(Some(templateIds.delegated), Seq(pf("owner", owner), RecordField(value = Some(Value(Value.Sum.Text(key)))))))
         val delegationCreate = simpleCreate(
           ctx,
           cid("TDVl4"),
