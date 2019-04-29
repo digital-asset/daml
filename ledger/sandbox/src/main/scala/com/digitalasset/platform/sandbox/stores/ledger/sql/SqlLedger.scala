@@ -134,6 +134,10 @@ private class SqlLedger(
       SourceShape(merge.out)
     })
 
+    // We process the requests in batches when under pressure (see semantics of `batch`). Note
+    // that this is safe on the read end because the readers rely on the dispatchers to know the
+    // ledger end, and not the database itself. This means that they will not start reading from the new
+    // ledger end until we tell them so, which we do when _all_ the entries have been committed.
     mergedSources
       .batch(noOfShortLivedConnections * 2L, e => Queue(e))((batch, e) => batch :+ e)
       .mapAsync(1) { queue =>
