@@ -110,6 +110,7 @@ jobs:
       artifact-linux: $[ dependencies.linux.outputs['publish.artifact'] ]
       artifact-macos: $[ dependencies.macos.outputs['publish.artifact'] ]
       artifact-windows: $[ dependencies.windows.outputs['publish.artifact'] ]
+      artifact-windows-installer: $[ dependencies.windows.outputs['publish.artifact-windows-installer'] ]
     steps:
       - checkout: self
         persistCredentials: true
@@ -129,6 +130,10 @@ jobs:
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(artifact-windows)
+          targetPath: $(Build.StagingDirectory)/release
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: $(artifact-windows-installer)
           targetPath: $(Build.StagingDirectory)/release
       - task: GitHubRelease@0
         inputs:
