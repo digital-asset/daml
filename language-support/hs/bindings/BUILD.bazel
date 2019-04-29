@@ -3,15 +3,9 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_binary")
 
-filegroup(
-    name = "hs-ledger-sources",
-    srcs = glob(["src/*.hs"]),
-    visibility = ["//visibility:private"],
-)
-
 da_haskell_library(
     name = "hs-ledger",
-    srcs = [":hs-ledger-sources"],
+    srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
         "base",
         "text",
@@ -25,7 +19,7 @@ da_haskell_library(
 )
 
 da_haskell_binary(
-    name = "examples/view",
+    name = "examples-view",
     srcs = ["examples/View.hs"],
     compiler_flags = [],
     hazel_deps = ["base",],

@@ -3,6 +3,7 @@
 
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs     #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module LedgerIdentity(
   LedgerId,
@@ -12,8 +13,7 @@ module LedgerIdentity(
 where
 
 import qualified Data.Map           as Map
-import           Data.String        (fromString)
-import qualified Data.Text.Lazy     as Text
+import           Data.Text.Lazy     (Text)
 
 import Network.GRPC.HighLevel.Generated (
   withGRPCClient,
@@ -42,7 +42,7 @@ import Network.GRPC.HighLevel.Client(
 import Com.Digitalasset.Ledger.Api.V1.TraceContext(TraceContext)
 import Com.Digitalasset.Ledger.Api.V1.LedgerIdentityService as LIS
     
-data LedgerId = LedgerId String deriving Show
+data LedgerId = LedgerId Text deriving Show
 
 ledgerId :: Port -> IO LedgerId
 ledgerId port = do
@@ -54,7 +54,7 @@ callLedgerIdService :: LIS.LedgerIdentityService ClientRequest ClientResult -> I
 callLedgerIdService (LIS.LedgerIdentityService rpc) = do
   response <- rpc (wrap (LIS.GetLedgerIdentityRequest noTrace))
   LIS.GetLedgerIdentityResponse text <- unwrap response
-  let id = LedgerId (Text.unpack text)
+  let id = LedgerId text
   return id
 
 noTrace :: Maybe TraceContext
@@ -71,7 +71,7 @@ unwrap = \case
 
 config :: Port -> ClientConfig
 config port =
-  ClientConfig { clientServerHost = Host (fromString "localhost")
+  ClientConfig { clientServerHost = Host "localhost"
                , clientServerPort = port
                , clientArgs = []
                , clientSSLConfig = Nothing
