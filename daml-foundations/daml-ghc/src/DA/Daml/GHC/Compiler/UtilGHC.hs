@@ -38,6 +38,9 @@ pattern TypeCon :: TyCon -> [GHC.Type] -> GHC.Type
 pattern TypeCon c ts <- (splitTyConApp_maybe -> Just (c, ts))
   where TypeCon = mkTyConApp
 
+pattern StrLitTy :: String -> Type
+pattern StrLitTy x <- (fmap unpackFS . isStrLitTy -> Just x)
+
 subst :: [(TyVar, GHC.Type)] -> GHC.Type -> GHC.Type
 subst env = transform $ \t ->
     case getTyVar_maybe t of
@@ -81,3 +84,18 @@ defaultMethods core = Set.fromList
   | ATyCon (tyConClass_maybe -> Just class_) <- nameEnvElts (cm_types core)
   , (_id, Just (name, VanillaDM)) <- classOpItems class_
   ]
+
+untick :: GHC.Expr b -> GHC.Expr b
+untick = \case
+    Tick _ e -> untick e
+    e -> e
+
+-- | An argument to a function together with the location information of the
+-- _function_.
+type LArg b = (Maybe RealSrcSpan, Arg b)
+
+pattern LType :: Type -> LArg b
+pattern LType x <- (_, Type x)
+
+pattern LExpr :: GHC.Expr b -> LArg b
+pattern LExpr x <- (_, x)

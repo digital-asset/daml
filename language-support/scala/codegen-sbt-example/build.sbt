@@ -82,7 +82,7 @@ lazy val commonSettings = Seq(
 
 lazy val sandboxDependencies = Seq(
   "com.daml.scala" %% "bindings-akka" % sdkVersion,
-  "com.digitalasset.platform" % "sandbox" % sdkVersion,
+  "com.digitalasset.platform" %% "sandbox" % sdkVersion,
 )
 
 lazy val codeGenDependencies = Seq(
@@ -145,23 +145,15 @@ def generateScalaFrom(
   // directory containing the dar is used as a work directory
   val outDir = darFile.getParentFile
 
-  // Unpack all dalf files in the dar. Note that there may be many ("fat dar"), but at least daml-prim.dalf
-  val dalfFiles = IO.unzip(darFile, outDir, new SimpleFilter(_ endsWith ".dalf"))
-
   // use a FileFunction.cached on the dar
-  val cache = FileFunction.cached(cacheDir, FileInfo.hash) { theDalfs =>
-    val mainDalf = theDalfs
-      .find(_.getName endsWith mainDalfName)
-      .getOrElse(sys.error(s"Main dalf file ($mainDalfName) not found in $theDalfs"))
-    val otherDalfs = theDalfs.filterNot(_ == mainDalf).toList
-
+  val cache = FileFunction.cached(cacheDir, FileInfo.hash) { _ =>
     if (srcManagedDir.exists) // purge output if exists
       IO.delete(srcManagedDir.listFiles)
 
-    CodeGen.generateCode(mainDalf, otherDalfs.map(_.toURI.toURL), packageName, srcManagedDir, Novel)
+    CodeGen.generateCode(List(darFile), packageName, srcManagedDir, Novel)
     (srcManagedDir ** "*.scala").get.toSet
   }
-  cache(dalfFiles)
+  cache(Set(darFile))
 }
 
 // #####################################   end sbt-daml   ##############################

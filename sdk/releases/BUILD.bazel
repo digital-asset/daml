@@ -4,13 +4,13 @@
 # Export the test runner and test cases so that they can be used
 # from the release tests.
 genrule(
-  name = 'test',
-  outs = ['test.sh'],
-  srcs = ['scripts/test.sh'],
-  cmd = '''
+    name = "test",
+    srcs = ["scripts/test.sh"],
+    outs = ["test.sh"],
+    cmd = """
     OUT=$$(dirname $(location test.sh))
     cp $(SRCS) $$OUT
     chmod +x $$OUT
-  ''',
-  visibility = ['//visibility:public']
+  """,
+    visibility = ["//visibility:public"],
 )

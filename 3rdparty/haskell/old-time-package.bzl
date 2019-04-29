@@ -1,0 +1,126 @@
+# This file was partly generated. See 3rdparty/haskell/BUILD.old-time for more
+# details.
+
+load(
+    "@ai_formation_hazel//third_party/cabal2bazel:bzl/cabal_package.bzl",
+    "cabal_haskell_package",
+)
+
+package = (
+    struct(
+        specVersionRaw = None,
+        package = struct(pkgName = "old-time", pkgVersion = "1.1.0.3"),
+        licenseRaw = None,
+        licenseFiles = ["LICENSE"],
+        copyright = "",
+        maintainer = "libraries@haskell.org",
+        author = "",
+        stability = "",
+        testedWith = [],
+        homepage = "",
+        pkgUrl = "",
+        bugReports = "https://github.com/haskell/old-time/issues",
+        sourceRepos =
+            [
+                struct(
+                    repoKind = "RepoHead",
+                    repoType = "Git",
+                    repoLocation = "https://github.com/haskell/old-time.git",
+                    repoModule = None,
+                    repoBranch = None,
+                    repoTag = None,
+                    repoSubdir = None,
+                ),
+            ],
+        synopsis = "Time library",
+        description =
+            "This package provides the old time library.\n\nFor new projects, the newer\n<http://hackage.haskell.org/package/time time library>\nis recommended.",
+        category = "System",
+        customFieldsPD = [],
+        buildTypeRaw = "Configure",
+        setupBuildInfo = None,
+        library =
+            struct(
+                libName = None,
+                exposedModules = ["System.Time"],
+                reexportedModules = [],
+                signatures = [],
+                libExposed = True,
+                libBuildInfo =
+                    struct(
+                        buildable = True,
+                        buildTools = [],
+                        buildToolDepends = [],
+                        cppOptions = [],
+                        asmOptions = [],
+                        cmmOptions = [],
+                        ccOptions = [],
+                        cxxOptions = [],
+                        ldOptions = [],
+                        pkgconfigDepends = [],
+                        frameworks = [],
+                        extraFrameworkDirs = [],
+                        asmSources = [],
+                        cmmSources = [],
+                        cSources = ["cbits/timeUtils.c"],
+                        cxxSources = [],
+                        jsSources = [],
+                        hsSourceDirs = [],
+                        otherModules = [],
+                        virtualModules = [],
+                        autogenModules = [],
+                        defaultLanguage = "Haskell2010",
+                        otherLanguages = [],
+                        defaultExtensions = [],
+                        otherExtensions = ["Trustworthy"],
+                        oldExtensions = [],
+                        extraLibs = ["old-time-headers"],
+                        extraGHCiLibs = [],
+                        extraBundledLibs = [],
+                        extraLibFlavours = [],
+                        extraLibDirs = [],
+                        includeDirs = ["include"],
+                        includes = ["HsTime.h"],
+                        installIncludes = ["HsTimeConfig.h", "HsTime.h"],
+                        options = [("ghc", ["-Wall"])],
+                        profOptions = [],
+                        sharedOptions = [],
+                        staticOptions = [],
+                        customFieldsBI = [],
+                        targetBuildDepends =
+                            [
+                                struct(name = "base", version = ">=4.7 && <4.9"),
+                                struct(name = "old-locale", version = "==1.0.*"),
+                            ],
+                        mixins = [],
+                    ),
+            ),
+        subLibraries = [],
+        executables = [],
+        foreignLibs = [],
+        testSuites = [],
+        benchmarks = [],
+        dataFiles = [],
+        dataDir = "",
+        extraSrcFiles =
+            [
+                "aclocal.m4",
+                "changelog.md",
+                "config.guess",
+                "config.sub",
+                "configure",
+                "configure.ac",
+                "include/HsTimeConfig.h.in",
+                "install-sh",
+                "old-time.buildinfo",
+            ],
+        extraTmpFiles =
+            [
+                "autom4te.cache",
+                "config.log",
+                "config.status",
+                "include/HsTimeConfig.h",
+            ],
+        extraDocFiles = [],
+    )
+)

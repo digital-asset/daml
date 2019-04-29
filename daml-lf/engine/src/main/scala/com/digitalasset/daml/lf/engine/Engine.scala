@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.engine
 
+import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref.{Party, SimpleString}
 import com.digitalasset.daml.lf.lfpackage.Ast._
@@ -14,8 +15,8 @@ import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx}
 import com.digitalasset.daml.lf.types.Ledger
-import com.digitalasset.daml.lf.types.Ledger.LedgerFeatureFlags
 import com.digitalasset.daml.lf.value.Value._
+import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
 
 import scala.annotation.tailrec
 
@@ -47,7 +48,7 @@ import scala.annotation.tailrec
   */
 final class Engine {
   private[this] val compiledPackages = ConcurrentCompiledPackages()
-  private[this] val commandTranslation = CommandTranslation(compiledPackages)
+  private[this] val commandTranslation = CommandPreprocessor(compiledPackages)
 
   /**
     * Executes commands `cmds` and returns one of the following:
@@ -68,10 +69,11 @@ final class Engine {
     * </li>
     * </ul>
     */
-  def submit(cmds: Commands): Result[Transaction.Transaction] =
+  def submit(cmds: Commands): Result[Transaction.Transaction] = {
     commandTranslation
-      .commandTranslation(cmds)
+      .preprocessCommands(cmds)
       .flatMap(interpret(_, cmds.ledgerEffectiveTime))
+  }
 
   /**
     * Behaves like `submit`, but it takes GenNode arguments instead of a Commands argument.
@@ -84,16 +86,16 @@ final class Engine {
     *   tx === tx' if tx and tx' are equivalent modulo a renaming of node and relative contract IDs
     *
     * In addition to the errors returned by `submit`, reinterpretation fails with a `ValidationError` whenever `nodes`
-    * contain a relative contract ID, either as the target contract of an exercise or a fetch, or as an argument to a
+    * contain a relative contract ID, either as the target contract of a fetch, or as an argument to a
     * create or an exercise choice.
     */
   def reinterpret(
-      nodes: Seq[GenNode[NodeId, ContractId, Transaction.Value[ContractId]]],
+      nodes: Seq[GenNode.WithTxValue[NodeId, ContractId]],
       ledgerEffectiveTime: Time.Timestamp
   ): Result[Transaction.Transaction] = {
     for {
-      expressions <- Result.sequence(ImmArray(nodes).map(translateNode(commandTranslation)))
-      result <- interpret(commandTranslation.buildUpdate(expressions), ledgerEffectiveTime)
+      commands <- Result.sequence(ImmArray(nodes).map(translateNode(commandTranslation)))
+      result <- interpret(commands, ledgerEffectiveTime)
     } yield result
   }
 
@@ -114,8 +116,8 @@ final class Engine {
   ): Result[Unit] = {
     //reinterpret
     for {
-      bindings_ <- translateTransactionRoots(commandTranslation, tx)
-      rtx <- interpret(commandTranslation.buildUpdate(bindings_.map(_._2)), ledgerEffectiveTime)
+      commands <- translateTransactionRoots(commandTranslation, tx)
+      rtx <- interpret(commands.map(_._2), ledgerEffectiveTime)
       validationResult <- if (tx isReplayedBy rtx) {
         ResultDone(())
       } else {
@@ -128,7 +130,7 @@ final class Engine {
 
   /**
     * Post-commit validation
-    * we damand that validatable transactions only contain AbsoluteContractIds in root nodes
+    * we demand that validatable transactions only contain AbsoluteContractIds in root nodes
     *
     * @param tx a transaction to be validated
     * @param submitter party name if known who originally submitted the transaction
@@ -137,7 +139,7 @@ final class Engine {
     * @param contractIdMaping a function that generates absolute contractIds
     */
   def validatePartial(
-      tx: GenTransaction[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]],
+      tx: GenTransaction.WithTxValue[Tx.NodeId, AbsoluteContractId],
       submitter: Option[SimpleString],
       ledgerEffectiveTime: Time.Timestamp,
       requestor: Party,
@@ -150,13 +152,13 @@ final class Engine {
       @tailrec
       def go(
           state: Result[Transaction.Transaction],
-          roots: FrontStack[(Transaction.NodeId, (Type, Expr))])
+          roots: FrontStack[(Transaction.NodeId, (Type, SpeedyCommand))])
         : Result[Transaction.Transaction] = {
         roots match {
           case FrontStack() => state
-          case FrontStackCons((id, (_, expr)), rs) =>
+          case FrontStackCons((id, (_, cmd)), rs) =>
             val nextStep: Result[Transaction.Transaction] = for {
-              t <- interpretFromNodeId(expr, id, ledgerEffectiveTime)
+              t <- interpretFromNodeId(cmd, id, ledgerEffectiveTime)
               o <- state
               newNodes = t.nodes ++ o.nodes
             } yield o.copy(nodes = newNodes, roots = (BackStack(o.roots) :++ t.roots).toImmArray)
@@ -196,11 +198,11 @@ final class Engine {
     // but the input has non-empty location, so when not given both locations we won't compare
     // this is not part of the generic utilities because it only valid in this context
     def nodeEqualityWithoutLocation(
-        n1: GenNode[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]],
-        n2: GenNode[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]]) = {
+        n1: GenNode.WithTxValue[Tx.NodeId, AbsoluteContractId],
+        n2: GenNode.WithTxValue[Tx.NodeId, AbsoluteContractId]) = {
 
-      def removeLocation(n: GenNode[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]])
-        : GenNode[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]] = {
+      def removeLocation(n: GenNode.WithTxValue[Tx.NodeId, AbsoluteContractId])
+        : GenNode.WithTxValue[Tx.NodeId, AbsoluteContractId] = {
         n match {
           case c: NodeCreate[_, _] => c.copy(optLocation = None)
           case e: NodeExercises[_, _, _] => e.copy(optLocation = None)
@@ -216,10 +218,7 @@ final class Engine {
     for {
       recreatedTx <- incrementalRunInterpreter()
       authorizerSet = submitter.map(s => Set(s)).getOrElse(Set.empty[Party])
-      enrichment = Ledger.enrichTransaction(
-        Ledger.Authorize(authorizerSet),
-        compiledPackages.ledgerFlags,
-        recreatedTx)
+      enrichment = Ledger.enrichTransaction(Ledger.Authorize(authorizerSet), recreatedTx)
       comparableTx = recreatedTx.mapContractIdAndValue(contractIdMaping, valMapping)
       _ <- Result.assert(!enrichment.failedAuthorizations.exists(checkedFailures))(
         Error("Post-commit validation failure: unauthorized transaction"))
@@ -256,18 +255,18 @@ final class Engine {
     }
 
   // Translate a GenNode into an expression re-interpretable by the interpreter
-  private[this] def translateNode[Cid <: ContractId](commandTranslation: CommandTranslation)(
-      node: GenNode[Transaction.NodeId, Cid, Transaction.Value[Cid]]): Result[(Type, Expr)] = {
+  private[this] def translateNode[Cid <: ContractId](commandPreprocessor: CommandPreprocessor)(
+      node: GenNode.WithTxValue[Transaction.NodeId, Cid]): Result[(Type, SpeedyCommand)] = {
 
     node match {
       case NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
         val identifier = coinst.template
         asValueWithAbsoluteContractIds(coinst.arg).flatMap(
-          absArg => commandTranslation.translateCreate(identifier, absArg)
+          absArg => commandPreprocessor.preprocessCreate(identifier, absArg)
         )
 
       case NodeExercises(
-          target,
+          coid,
           template,
           choice,
           optLoc @ _,
@@ -279,15 +278,14 @@ final class Engine {
           controllers @ _,
           children @ _) =>
         val templateId = template
-        asAbsoluteContractId(target).flatMap(
-          acoid =>
-            asValueWithAbsoluteContractIds(chosenVal).flatMap(absChosenVal =>
-              commandTranslation
-                .translateExercise(templateId, acoid, choice, actingParties, absChosenVal)))
+        asValueWithAbsoluteContractIds(chosenVal).flatMap(
+          absChosenVal =>
+            commandPreprocessor
+              .preprocessExercise(templateId, coid, choice, actingParties, absChosenVal))
 
       case NodeFetch(coid, templateId, _, _, _, _) =>
         asAbsoluteContractId(coid)
-          .flatMap(acoid => commandTranslation.translateFetch(templateId, acoid))
+          .flatMap(acoid => commandPreprocessor.preprocessFetch(templateId, acoid))
 
       case NodeLookupByKey(_, _, _, _) =>
         sys.error("TODO lookup by key command translate")
@@ -295,15 +293,15 @@ final class Engine {
   }
 
   private[this] def translateTransactionRoots[Cid <: ContractId](
-      commandTranslation: CommandTranslation,
-      tx: GenTransaction[Transaction.NodeId, Cid, Transaction.Value[Cid]])
-    : Result[ImmArray[(Transaction.NodeId, (Type, Expr))]] = {
+      commandPreprocessor: CommandPreprocessor,
+      tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid]
+  ): Result[ImmArray[(Transaction.NodeId, (Type, SpeedyCommand))]] = {
     Result.sequence(tx.roots.map(id =>
       tx.nodes.get(id) match {
         case None =>
           ResultError(ValidationError(s"invalid transaction, root refers to non-existing node $id"))
         case Some(node) =>
-          translateNode(commandTranslation)(node).map((id, _)) match {
+          translateNode(commandPreprocessor)(node).map((id, _)) match {
             case ResultError(ValidationError(msg)) =>
               ResultError(ValidationError(s"Transaction node $id: $msg"))
             case x => x
@@ -312,13 +310,13 @@ final class Engine {
   }
 
   private[engine] def interpretFromNodeId(
-      expr: Expr,
+      command: SpeedyCommand,
       nodeId: Transaction.NodeId,
       time: Time.Timestamp
   ): Result[Transaction.Transaction] = {
 
     val machine =
-      Machine.build(Compiler(compiledPackages.packages).compile(expr), compiledPackages)
+      Machine.build(Compiler(compiledPackages.packages).compile(command), compiledPackages)
     machine.ptx = machine.ptx.copy(nextNodeId = nodeId)
     interpretLoop(machine, time)
   }
@@ -328,6 +326,16 @@ final class Engine {
       time: Time.Timestamp): Result[Transaction.Transaction] = {
     val machine =
       Machine.build(Compiler(compiledPackages.packages).compile(expr), compiledPackages)
+
+    interpretLoop(machine, time)
+  }
+
+  private[engine] def interpret(
+      commands: ImmArray[(Type, SpeedyCommand)],
+      time: Time.Timestamp): Result[Transaction.Transaction] = {
+    val machine = Machine.build(
+      Compiler(compiledPackages.packages).compile(commands.map(_._2)),
+      compiledPackages)
 
     interpretLoop(machine, time)
   }
@@ -407,9 +415,6 @@ final class Engine {
       case Right(t) => ResultDone(t)
     }
   }
-
-  def ledgerFeatureFlags(): LedgerFeatureFlags =
-    compiledPackages.ledgerFlags
 
   def clearPackages(): Unit = compiledPackages.clear()
 }

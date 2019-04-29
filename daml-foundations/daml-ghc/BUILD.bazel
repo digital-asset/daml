@@ -1,157 +1,166 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load ("//bazel_tools:haskell.bzl"
-     , "da_haskell_library", "da_haskell_binary", "da_haskell_test")
-load ("//daml-foundations/daml-ghc:util.bzl"
-     , "daml_ghc_compile_test", "daml_ghc_integration_test")
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_binary",
+    "da_haskell_library",
+    "da_haskell_test",
+)
+load(
+    "//daml-foundations/daml-ghc:util.bzl",
+    "daml_ghc_compile_test",
+    "daml_ghc_integration_test",
+)
 
 da_haskell_library(
-    name = "daml-ghc-lib"
-  , srcs = glob([
-      "src/DA/Daml/GHC/**/*.hs"
-    , "src/DA/Service/**/*.hs"
-    , "src/Development/IDE/**/*.hs"
-    ])
-  , src_strip_prefix = "src"
-  , deps = [
-      "//compiler/daml-lf-ast"
-    , "//compiler/daml-lf-proto"
-    , "//compiler/daml-lf-tools"
-    , "//daml-lf/archive:daml_lf_haskell_proto"
-    , "//libs-haskell/bazel-runfiles"
-    , "//libs-haskell/da-hs-pretty"
-    , "//libs-haskell/da-hs-base"
-    , "//libs-haskell/prettyprinter-syntax"
-    , "//compiler/haskell-ide-core"
-    , "//libs-haskell/da-hs-language-server"
-    , "//compiler/scenario-service/client"
-    , "//nix/third-party/proto3-suite"
-    ]
-  , hazel_deps = [
-      "aeson",
-      "aeson-pretty",
-      "async",
-      "base",
-      "binary",
-      "blaze-html",
-      "bytestring",
-      "cmark-gfm",
-      "containers",
-      "deepseq",
-      "Diff",
-      "directory",
-      "either",
-      "extra",
-      "filepath",
-      "filepattern",
-      "ghc-lib",
-      "ghc-lib-parser",
-      "hashable",
-      "http-types",
-      "lens",
-      "managed",
-      "mtl",
-      "network-uri",
-      "prettyprinter",
-      "process",
-      "recursion-schemes",
-      "safe",
-      "safe-exceptions",
-      "shake",
-      "stm",
-      "syb",
-      "tagged",
-      "temporary",
-      "text",
-      "time",
-      "transformers",
-      "transformers-base",
-      "uniplate",
-      "unordered-containers",
-      "uri-encode",
-      "vector",
-      "zip-archive",
-  ]
-  , visibility = ["//visibility:public"]
+    name = "daml-ghc-lib",
+    srcs = glob([
+        "src/DA/Daml/GHC/**/*.hs",
+        "src/DA/Service/**/*.hs",
+        "src/Development/IDE/**/*.hs",
+    ]),
+    hazel_deps = [
+        "aeson-pretty",
+        "aeson",
+        "async",
+        "base",
+        "binary",
+        "blaze-html",
+        "bytestring",
+        "cmark-gfm",
+        "containers",
+        "deepseq",
+        "Diff",
+        "directory",
+        "either",
+        "extra",
+        "filepath",
+        "filepattern",
+        "ghc-lib-parser",
+        "ghc-lib",
+        "hashable",
+        "http-types",
+        "lens",
+        "managed",
+        "mtl",
+        "network-uri",
+        "prettyprinter",
+        "process",
+        "proto3-suite",
+        "recursion-schemes",
+        "safe-exceptions",
+        "safe",
+        "shake",
+        "stm",
+        "syb",
+        "tagged",
+        "temporary",
+        "text",
+        "time",
+        "transformers-base",
+        "transformers",
+        "uniplate",
+        "unordered-containers",
+        "uri-encode",
+        "vector",
+        "zip-archive",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-tools",
+        "//compiler/haskell-ide-core",
+        "//compiler/scenario-service/client",
+        "//daml-lf/archive:daml_lf_haskell_proto",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/da-hs-language-server",
+        "//libs-haskell/da-hs-pretty",
+        "//libs-haskell/prettyprinter-syntax",
+    ],
 )
 
 daml_ghc_integration_test("daml-ghc-test-newest", "DA.Test.GHC.mainVersionNewest")
+
 daml_ghc_integration_test("daml-ghc-test-default", "DA.Test.GHC.mainVersionDefault")
 
-da_haskell_test (
-    name = "tasty-test"
-  , srcs = ["src/DA/Test/TastyMain.hs"]
-  , src_strip_prefix = "src"
-  , main_function = "DA.Test.TastyMain.main"
-  , deps = [
-      ":daml-ghc-lib"
-    , "//libs-haskell/da-hs-base"
-    , "//daml-foundations/daml-tools/da-hs-daml-cli"
-  ]
-  , data = [
-      ":tests"
-    , "//daml-foundations/daml-ghc/daml-stdlib-src:daml-stdlib-src"
-    , "//daml-foundations/daml-ghc/package-database:package-db"
-  ]
-  , hazel_deps = [
-      "base",
-      "tasty-hunit",
-      "text",
-  ]
-  , visibility = ["//visibility:public"]
+da_haskell_test(
+    name = "tasty-test",
+    srcs = ["src/DA/Test/TastyMain.hs"],
+    data = [
+        ":tests",
+        "//daml-foundations/daml-ghc/package-database:package-db",
+    ],
+    hazel_deps = [
+        "base",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Test.TastyMain.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-ghc-lib",
+        "//daml-foundations/daml-tools/da-hs-daml-cli",
+        "//libs-haskell/da-hs-base",
+    ],
 )
 
-da_haskell_test (
-    name = "daml-ghc-shake-test-ci"
-  , srcs = ["src/DA/Test/ShakeIdeClient.hs"]
-  , src_strip_prefix = "src"
-  , main_function = "DA.Test.ShakeIdeClient.main"
-  , deps = [
-      ":daml-ghc-lib"
-    , "//libs-haskell/da-hs-base"
-    , "//compiler/haskell-ide-core"
-  ]
-  , data = [
-      "//compiler/scenario-service/server:scenario_service_jar"
-    , "//daml-foundations/daml-ghc/daml-stdlib-src:daml-stdlib-src"
-    , "//daml-foundations/daml-ghc/package-database:package-db"
-  ]
-  , hazel_deps = [
-      "base",
-      "directory",
-      "managed",
-      "tasty-hunit",
-      "text",
-  ]
-  , visibility = ["//visibility:public"]
-  # this test takes a while and often time out -- tell that to bazel
-  , timeout = "long"
-  , size = "large"
+da_haskell_test(
+    name = "daml-ghc-shake-test-ci",
+    size = "large",
+    # this test takes a while and often time out -- tell that to bazel
+    timeout = "long",
+    srcs = ["src/DA/Test/ShakeIdeClient.hs"],
+    data = [
+        "//compiler/scenario-service/server:scenario_service_jar",
+        "//daml-foundations/daml-ghc/package-database:package-db",
+    ],
+    hazel_deps = [
+        "base",
+        "directory",
+        "managed",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Test.ShakeIdeClient.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-ghc-lib",
+        "//compiler/haskell-ide-core",
+        "//libs-haskell/da-hs-base",
+    ],
 )
 
 da_haskell_binary(
-    name = "generate-module-tree"
-  , srcs = ["src/DA/Test/GenerateModuleTree.hs"]
-  , src_strip_prefix = "src"
-  , main_function = "DA.Test.GenerateModuleTree.main"
-  , deps = ["//libs-haskell/da-hs-base"]
-  , hazel_deps = ["base", "filepath"]
+    name = "generate-module-tree",
+    srcs = ["src/DA/Test/GenerateModuleTree.hs"],
+    hazel_deps = [
+        "base",
+        "filepath",
+    ],
+    main_function = "DA.Test.GenerateModuleTree.main",
+    src_strip_prefix = "src",
+    deps = ["//libs-haskell/da-hs-base"],
 )
 
 genrule(
     name = "module-tree-test",
+    outs = ["FatTree{i}.daml".format(i = i) for i in range(1, 19)],
     cmd = "$(location :generate-module-tree) $(@D) 18",
-    outs = ["FatTree{i}.daml".format(i=i) for i in range(1,19)],
     tools = [":generate-module-tree"],
-    visibility = ['//visibility:public']
+    visibility = ["//visibility:public"],
 )
 
 daml_ghc_compile_test(
     name = "module-tree-memory",
     srcs = [":module-tree-test"],
     main = "FatTree18.daml",
-    visibility = ['//visibility:public'],
+    visibility = ["//visibility:public"],
 )
 
 daml_ghc_compile_test(
@@ -161,97 +170,104 @@ daml_ghc_compile_test(
 )
 
 daml_ghc_compile_test(
-  name = 'compile-empty',
-  srcs = [":tests"],
-  main = 'tests/Empty.daml',
+    name = "compile-empty",
+    srcs = [":tests"],
+    main = "tests/Empty.daml",
 )
 
 daml_ghc_compile_test(
     name = "examples-memory",
     srcs = [":tests"],
-    main = 'tests/Examples.daml',
     heap_limit = "200M",
+    main = "tests/Examples.daml",
     stack_limit = "230K",
 )
 
 daml_ghc_compile_test(
     name = "bond-trading-memory",
     srcs = [":bond-trading"],
-    main = 'bond-trading/Test.daml',
     heap_limit = "100M",
+    main = "bond-trading/Test.daml",
     stack_limit = "35K",
 )
 
 filegroup(
-  name = "tests",
-  srcs = glob(["tests/**"]),
-  visibility = [
-    "__pkg__",
-    "//daml-foundations/integration-tests:__pkg__"
-  ]
+    name = "tests",
+    srcs = glob(["tests/**"]),
+    visibility = [
+        "__pkg__",
+        "//daml-foundations/integration-tests:__pkg__",
+    ],
 )
 
 filegroup(
-  name = "bond-trading",
-  srcs = glob(["bond-trading/**"]),
-  visibility = [
-    "__pkg__",
-    "//daml-foundations/integration-tests:__pkg__"
-  ]
+    name = "bond-trading",
+    srcs = glob(["bond-trading/**"]),
+    visibility = [
+        "__pkg__",
+        "//daml-foundations/integration-tests:__pkg__",
+    ],
 )
 
 # Check that DAML compilation is deterministic.
 sh_test(
-  name = "daml-ghc-deterministic",
-  srcs = ["tests/daml-ghc-deterministic.sh"],
-  args = [
-      "$(location //daml-foundations/daml-tools/da-hs-damlc-app)",
-      "$(location @com_google_protobuf//:protoc)",
-  ],
-  data = [
-      "//daml-foundations/daml-tools/da-hs-damlc-app",
-      "//daml-foundations/daml-ghc/daml-stdlib-src:daml-stdlib-src",
-      "//daml-foundations/daml-ghc/package-database:package-db",
-      ":tests",
-      "@com_google_protobuf//:protoc",
-  ]
+    name = "daml-ghc-deterministic",
+    srcs = ["tests/daml-ghc-deterministic.sh"],
+    args = [
+        "$(location //daml-foundations/daml-tools/da-hs-damlc-app)",
+        "$(location @com_google_protobuf//:protoc)",
+    ],
+    data = [
+        ":tests",
+        "//daml-foundations/daml-ghc/package-database:package-db",
+        "//daml-foundations/daml-tools/da-hs-damlc-app",
+        "@com_google_protobuf//:protoc",
+    ],
 )
 
 # Generating DAML stdlib docs.
 
 filegroup(
-  name = "daml-base-files", # DAML files to be included in DAML base docs.
-  srcs = ['//daml-foundations/daml-ghc/daml-stdlib-src'
-         ,'//daml-foundations/daml-ghc/daml-prim-src'],
-  visibility = ["__pkg__"]
+    name = "daml-base-files",  # DAML files to be included in DAML base docs.
+    srcs = [
+        "//daml-foundations/daml-ghc/daml-prim-src",
+        "//daml-foundations/daml-ghc/daml-stdlib-src",
+    ],
+    visibility = ["__pkg__"],
 )
 
 filegroup(
-  name = "daml-base-hoogle-prefix",
-  srcs = ['base-hoogle-prefix.txt'],
-  visibility = ["__pkg__"]
+    name = "daml-base-hoogle-prefix",
+    srcs = ["base-hoogle-prefix.txt"],
+    visibility = ["__pkg__"],
 )
 
 filegroup(
-  name = "daml-base-rst-prefix",
-  srcs = ['base-rst-prefix.rst'],
-  visibility = ["__pkg__"]
+    name = "daml-base-rst-prefix",
+    srcs = ["base-rst-prefix.rst"],
+    visibility = ["__pkg__"],
 )
 
 genrule(
-  name = 'daml-base-hoogle-docs',
-  outs = ['daml-base-hoogle.txt'],
-  tools = ['//daml-foundations/daml-tools/da-hs-damlc-app'],
-  srcs = [':daml-base-files', ':daml-base-hoogle-prefix'],
-  cmd  = '$(location //daml-foundations/daml-tools/da-hs-damlc-app) -- docs --output=$(OUTS) --format=Hoogle $(locations :daml-base-files) --prefix=$(location :daml-base-hoogle-prefix)',
-  visibility = ["//visibility:public"],
+    name = "daml-base-hoogle-docs",
+    srcs = [
+        ":daml-base-files",
+        ":daml-base-hoogle-prefix",
+    ],
+    outs = ["daml-base-hoogle.txt"],
+    cmd = "$(location //daml-foundations/daml-tools/da-hs-damlc-app) -- docs --output=$(OUTS) --format=Hoogle $(locations :daml-base-files) --prefix=$(location :daml-base-hoogle-prefix)",
+    tools = ["//daml-foundations/daml-tools/da-hs-damlc-app"],
+    visibility = ["//visibility:public"],
 )
 
 genrule(
-  name = 'daml-base-rst-docs',
-  outs = ['daml-base.rst'],
-  tools = ['//daml-foundations/daml-tools/da-hs-damlc-app'],
-  srcs = [':daml-base-files', ':daml-base-rst-prefix'],
-  cmd  = '$(location //daml-foundations/daml-tools/da-hs-damlc-app) -- docs --output=$(OUTS) --format=Rst $(locations :daml-base-files) --prefix=$(location :daml-base-rst-prefix)',
-  visibility = ["//visibility:public"],
+    name = "daml-base-rst-docs",
+    srcs = [
+        ":daml-base-files",
+        ":daml-base-rst-prefix",
+    ],
+    outs = ["daml-base.rst"],
+    cmd = "$(location //daml-foundations/daml-tools/da-hs-damlc-app) -- docs --output=$(OUTS) --format=Rst $(locations :daml-base-files) --prefix=$(location :daml-base-rst-prefix)",
+    tools = ["//daml-foundations/daml-tools/da-hs-damlc-app"],
+    visibility = ["//visibility:public"],
 )

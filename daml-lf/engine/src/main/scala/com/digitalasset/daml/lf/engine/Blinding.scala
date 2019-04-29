@@ -20,11 +20,10 @@ import scala.annotation.tailrec
 object Blinding {
 
   private[this] def maybeAuthorizeAndBlind(
-      ledgerFlags: LedgerFeatureFlags,
       tx: Transaction.Transaction,
       authorization: Authorization): Either[AuthorizationError, BlindingInfo] = {
     val enrichedTx =
-      enrichTransaction(authorization, ledgerFlags, tx)
+      enrichTransaction(authorization, tx)
     def authorizationErrors(failures: Map[Transaction.NodeId, FailedAuthorization]) = {
       failures
         .map {
@@ -78,16 +77,15 @@ object Blinding {
     *  @param initialAuthorizers set of parties claimed to be authorizers of the transaction
     */
   def checkAuthorizationAndBlind(
-      ledgerFlags: LedgerFeatureFlags,
       tx: Transaction.Transaction,
       initialAuthorizers: Set[Party]): Either[AuthorizationError, BlindingInfo] =
-    maybeAuthorizeAndBlind(ledgerFlags, tx, Authorize(initialAuthorizers))
+    maybeAuthorizeAndBlind(tx, Authorize(initialAuthorizers))
 
   /**
     * Like checkAuthorizationAndBlind, but does not authorize the transaction, just blinds it.
     */
-  def blind(ledgerFeatureFlags: LedgerFeatureFlags, tx: Transaction.Transaction): BlindingInfo =
-    maybeAuthorizeAndBlind(ledgerFeatureFlags, tx, DontAuthorize) match {
+  def blind(tx: Transaction.Transaction): BlindingInfo =
+    maybeAuthorizeAndBlind(tx, DontAuthorize) match {
       case Left(err) =>
         throw new RuntimeException(
           s"Impossible: got authorization exception even if we're not authorizing: $err")
@@ -127,9 +125,8 @@ object Blinding {
             go(filteredRoots :+ root, remainingRoots)
           } else {
             tx.nodes(root) match {
-              case _: NodeFetch[Cid] => go(filteredRoots, remainingRoots)
-              case _: NodeCreate[Cid, Val] => go(filteredRoots, remainingRoots)
-              case _: NodeLookupByKey[Cid, Val] => go(filteredRoots, remainingRoots)
+              case _: NodeFetch[Cid] | _: NodeCreate[Cid, Val] | _: NodeLookupByKey[Cid, Val] =>
+                go(filteredRoots, remainingRoots)
               case ne: NodeExercises[Nid, Cid, Val] =>
                 go(filteredRoots, ne.children ++: remainingRoots)
             }
@@ -137,6 +134,10 @@ object Blinding {
       }
     }
 
-    GenTransaction(roots = go(BackStack.empty, FrontStack(tx.roots)), nodes = filteredNodes)
+    GenTransaction(
+      roots = go(BackStack.empty, FrontStack(tx.roots)),
+      nodes = filteredNodes,
+      usedPackages = tx.usedPackages
+    )
   }
 }

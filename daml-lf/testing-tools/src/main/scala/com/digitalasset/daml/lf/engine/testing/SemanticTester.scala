@@ -3,13 +3,14 @@
 
 package com.digitalasset.daml.lf.engine.testing
 
+import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Time}
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, QualifiedName, SimpleString}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.daml.lf.engine.Event.Events
-import com.digitalasset.daml.lf.lfpackage.Ast.{DValue, _}
+import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.ScenarioRunner
 import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction => Tx}
@@ -98,7 +99,7 @@ class SemanticTester(
       // returns the matched event and the tail of the eventIds
       def popEvent[EvTyp: ClassTag](
           what: String,
-          scenarioNode: GenNode[L.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]],
+          scenarioNode: GenNode.WithTxValue[L.NodeId, AbsoluteContractId],
           remainingLedgerEventIds: FrontStack[ledger.EventNodeId])
         : (EvTyp, FrontStack[ledger.EventNodeId]) =
         remainingLedgerEventIds match {
@@ -253,12 +254,12 @@ class SemanticTester(
                   currentTime <- ledger.currentTime
                   events <- ledger.submit(
                     submitterName,
-                    Commands(List(cmd), currentTime, reference))
+                    Commands(ImmArray(cmd), currentTime, reference))
                 } yield
                   checkEvents(
                     reference,
                     richTransaction.explicitDisclosure,
-                    GenTransaction(richTransaction.nodes, ImmArray(nodeId)),
+                    GenTransaction(richTransaction.nodes, ImmArray(nodeId), Set.empty),
                     events,
                     scenarioToLedgerCoidMap)
               }
@@ -266,7 +267,7 @@ class SemanticTester(
               val node = richTransaction.nodes(nodeId)
 
               node match {
-                case nc: NodeCreate[AbsoluteContractId, Tx.Value[AbsoluteContractId]] =>
+                case nc: NodeCreate.WithTxValue[AbsoluteContractId] =>
                   previousMap.flatMap(m => {
                     val engineArg =
                       nc.coinst.arg.mapContractId(m)
@@ -274,10 +275,7 @@ class SemanticTester(
                     submitCommandCheckAndUpdateMap(richTransaction.committer, cmd, m)
                   })
 
-                case ne: NodeExercises[
-                      L.NodeId,
-                      AbsoluteContractId,
-                      Tx.Value[AbsoluteContractId]] =>
+                case ne: NodeExercises.WithTxValue[L.NodeId, AbsoluteContractId] =>
                   previousMap.flatMap(m => {
 
                     val engineTargetCoid = m(ne.targetCoid)
@@ -292,12 +290,8 @@ class SemanticTester(
                     submitCommandCheckAndUpdateMap(richTransaction.committer, cmd, m)
                   })
 
-                case _: NodeFetch[AbsoluteContractId] =>
-                  // nothing to do for fetches
-                  previousMap
-
-                case _: NodeLookupByKey[_, _] =>
-                  // nothing to do for lookup by key
+                case _: NodeFetch[_] | _: NodeLookupByKey[_, _] =>
+                  // nothing to do for fetches or lookup by key
                   previousMap
               }
           }
@@ -389,7 +383,7 @@ object SemanticTester {
       v.mapContractId(makeAbsoluteContractId)
 
     private[this] def updatePcs(
-        tx: GenTransaction[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]]): Unit = {
+        tx: GenTransaction.WithTxValue[Tx.NodeId, AbsoluteContractId]): Unit = {
       // traverse in topo order and add / remove
       @tailrec
       def go(remaining: FrontStack[Tx.NodeId]): Unit = remaining match {
@@ -397,14 +391,12 @@ object SemanticTester {
         case FrontStackCons(nodeId, nodeIds) =>
           val node = tx.nodes(nodeId)
           node match {
-            case _: NodeFetch[AbsoluteContractId] =>
+            case _: NodeFetch[_] | _: NodeLookupByKey[_, _] =>
               go(nodeIds)
-            case _: NodeLookupByKey[_, _] =>
-              go(nodeIds)
-            case nc: NodeCreate[AbsoluteContractId, Tx.Value[AbsoluteContractId]] =>
+            case nc: NodeCreate.WithTxValue[AbsoluteContractId] =>
               pcs += (nc.coid -> nc.coinst)
               go(nodeIds)
-            case ne: NodeExercises[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]] =>
+            case ne: NodeExercises.WithTxValue[Tx.NodeId, AbsoluteContractId] =>
               // Note: leaking some memory here; we cannot remove consumed contracts,
               // because later post-commit validation needs to find it
               go(ne.children ++: nodeIds)
@@ -418,7 +410,7 @@ object SemanticTester {
       val tx = consumeResult(cmds.commandsReference, engine.submit(cmds))
       val blindingInfo =
         Blinding
-          .checkAuthorizationAndBlind(engine.ledgerFeatureFlags(), tx, Set(submitterName))
+          .checkAuthorizationAndBlind(tx, Set(submitterName))
           .toOption
           .getOrElse(sys.error(s"authorization failed for ${cmds.commandsReference}"))
       val absTx = tx.mapContractIdAndValue(makeAbsoluteContractId, makeValueWithAbsoluteContractId)

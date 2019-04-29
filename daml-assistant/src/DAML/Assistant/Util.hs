@@ -1,9 +1,14 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module DAML.Assistant.Util where
+module DAML.Assistant.Util
+    ( module DAML.Assistant.Util
+    , fromRightM
+    , fromMaybeM
+    ) where
 
 import DAML.Assistant.Types
+import DAML.Project.Util
 import System.FilePath
 import Control.Exception.Safe
 import Control.Applicative
@@ -71,14 +76,6 @@ requiredE msg = fromRightM (throwIO . assistantErrorBecause msg . pack . display
 -- | Catch IOExceptions and re-throw them as AssistantError with a helpful message.
 requiredIO :: Text -> IO t -> IO t
 requiredIO msg m = requiredE msg =<< tryIO m
-
--- | Same as 'fromRight' but monadic in the applied function.
-fromRightM :: Applicative m => (a -> m b) -> Either a b -> m b
-fromRightM f = either f pure
-
--- | Same as 'fromMaybe' but monadic in the default.
-fromMaybeM :: Applicative m => m a -> Maybe a -> m a
-fromMaybeM d = maybe d pure
 
 -- | Like 'whenMaybeM' but only returns a 'Just' value if the test is false.
 unlessMaybeM :: Monad m => m Bool -> m t -> m (Maybe t)

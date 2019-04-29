@@ -95,6 +95,10 @@ object StandaloneSemanticTestRunner {
       .action((x, c) => c.copy(port = x))
       .text(s"Ledger API server port. Defaults to ${SandboxConfig.DefaultPort}.")
 
+    opt[Int]("target-port")
+      .action((x, c) => c.copy(port = x))
+      .text(s"Ledger API server port. Defaults to ${SandboxConfig.DefaultPort}.")
+
     opt[String]('h', "host")
       .action((x, c) => c.copy(host = x))
       .text("Ledger API server host. Defaults to localhost.")

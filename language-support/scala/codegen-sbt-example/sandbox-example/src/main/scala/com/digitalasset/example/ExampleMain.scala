@@ -40,22 +40,18 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 
 object ExampleMain extends App {
-  if (args.length == 0)
-    throw new IllegalArgumentException(
-      "Expected at least one DAR or DALF file passed as an argument")
+
+  private val dar = new File("./scala-codegen/target/repository/daml-codegen/Main.dar")
 
   private val ledgerId = "codegen-sbt-example-with-sandbox"
 
   private val port: Int = findOpenPort().fold(e => throw new IllegalStateException(e), identity)
 
-  private def archives(fileNames: List[String]): List[File] =
-    toFiles(args.toList).fold(e => throw new IllegalStateException(e), identity)
-
   private val serverConfig = SandboxConfig.default.copy(
     port = port,
-    damlPackageContainer = DamlPackageContainer(archives(args.toList)),
+    damlPackageContainer = DamlPackageContainer(List(dar)),
     timeProviderType = TimeProviderType.WallClock,
-    ledgerIdMode = LedgerIdMode.HardCoded(ledgerId),
+    ledgerIdMode = LedgerIdMode.Predefined(ledgerId),
   )
 
   private val server: SandboxServer = SandboxApplication(serverConfig)

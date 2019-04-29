@@ -375,7 +375,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       .map(nodeId => builder.setParent(convertNodeId(nodeId)))
 
     nodeInfo.node match {
-      case create: N.NodeCreate[V.AbsoluteContractId, V.VersionedValue[V.AbsoluteContractId]] =>
+      case create: N.NodeCreate[V.AbsoluteContractId, Tx.Value[V.AbsoluteContractId]] =>
         val createBuilder =
           Node.Create.newBuilder
             .setContractInstance(
@@ -401,7 +401,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       case ex: N.NodeExercises[
             Ledger.NodeId,
             V.AbsoluteContractId,
-            V.VersionedValue[V.AbsoluteContractId]] =>
+            Tx.Value[V.AbsoluteContractId]] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           Node.Exercise.newBuilder
@@ -421,7 +421,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .build
         )
 
-      case lbk: N.NodeLookupByKey[V.AbsoluteContractId, V.VersionedValue[V.AbsoluteContractId]] =>
+      case lbk: N.NodeLookupByKey[V.AbsoluteContractId, Tx.Value[V.AbsoluteContractId]] =>
         lbk.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))
         val lbkBuilder = Node.LookupByKey.newBuilder
           .setTemplateId(convertIdentifier(lbk.templateId))
@@ -448,7 +448,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       .setNodeId(NodeId.newBuilder.setId(nodeId.index.toString).build)
     // FIXME(JM): consumedBy, parent, ...
     node match {
-      case create: N.NodeCreate[V.ContractId, V.VersionedValue[V.ContractId]] =>
+      case create: N.NodeCreate.WithTxValue[V.ContractId] =>
         val createBuilder =
           Node.Create.newBuilder
             .setContractInstance(
@@ -472,7 +472,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
             .build
         )
-      case ex: N.NodeExercises[Tx.NodeId, V.ContractId, V.VersionedValue[V.ContractId]] =>
+      case ex: N.NodeExercises.WithTxValue[Tx.NodeId, V.ContractId] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           Node.Exercise.newBuilder
@@ -494,7 +494,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .build
         )
 
-      case lookup: N.NodeLookupByKey[V.ContractId, V.VersionedValue[V.ContractId]] =>
+      case lookup: N.NodeLookupByKey.WithTxValue[V.ContractId] =>
         lookup.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setLookupByKey({
           val builder = Node.LookupByKey.newBuilder
@@ -616,9 +616,10 @@ case class Conversions(homePackageId: Ref.PackageId) {
         builder.setOptional(optionalBuilder)
       case V.ValueMap(map) =>
         val mapBuilder = v1.Map.newBuilder
-        map.foreach {
+        map.toImmArray.foreach {
           case (k, v) =>
             mapBuilder.addEntries(v1.Map.Entry.newBuilder().setKey(k).setValue(convertValue(v)))
+            ()
         }
         builder.setMap(mapBuilder)
     }

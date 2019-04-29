@@ -1,101 +1,129 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE OverloadedStrings #-}
+
 module DAML.Project.Config
-    ( damlPathEnvVar
-    , projectPathEnvVar
-    , sdkPathEnvVar
-    , sdkVersionEnvVar
-    , damlEnvVars
-    , getDamlPath
-    , getProjectPath
-    , getSdkPath
-    , getSdkVersion
-    , withProjectRoot
+    ( DamlConfig
+    , ProjectConfig
+    , SdkConfig
+    , readSdkConfig
+    , readProjectConfig
+    , readDamlConfig
+    , sdkVersionFromProjectConfig
+    , sdkVersionFromSdkConfig
+    , listSdkCommands
+    , queryDamlConfig
+    , queryProjectConfig
+    , querySdkConfig
+    , queryDamlConfigRequired
+    , queryProjectConfigRequired
+    , querySdkConfigRequired
     ) where
 
-import System.Directory
-import System.Environment
+import DAML.Project.Consts
+import DAML.Project.Types
+import DAML.Project.Util
+import qualified Data.Text as T
+import Data.Text (Text)
+import qualified Data.Yaml as Y
+import Data.Yaml ((.:?))
+import Data.Either.Extra
+import Data.Foldable
 import System.FilePath
+import Control.Exception.Safe
 
--- | The DAML_HOME environment variable determines the path of the daml
--- assistant data directory. This defaults to:
+-- | Read daml config file.
+-- Throws a ConfigError if reading or parsing fails.
+readDamlConfig :: DamlPath -> IO DamlConfig
+readDamlConfig (DamlPath path) = readConfig "daml" (path </> damlConfigName)
+
+-- | Read project config file.
+-- Throws a ConfigError if reading or parsing fails.
+readProjectConfig :: ProjectPath -> IO ProjectConfig
+readProjectConfig (ProjectPath path) = readConfig "project" (path </> projectConfigName)
+
+-- | Read sdk config file.
+-- Throws a ConfigError if reading or parsing fails.
+readSdkConfig :: SdkPath -> IO SdkConfig
+readSdkConfig (SdkPath path) = readConfig "SDK" (path </> sdkConfigName)
+
+-- | (internal) Helper function for defining 'readXConfig' functions.
+-- Throws a ConfigError if reading or parsing fails.
+readConfig :: Y.FromJSON b => Text -> FilePath -> IO b
+readConfig name path = do
+    configE <- Y.decodeFileEither path
+    fromRightM (throwIO . ConfigFileInvalid name) configE
+
+-- | Determine pinned sdk version from project config, if it exists.
+sdkVersionFromProjectConfig :: ProjectConfig -> Either ConfigError (Maybe SdkVersion)
+sdkVersionFromProjectConfig = queryProjectConfig ["sdk-version"]
+
+-- | Determine sdk version from sdk config, if it exists.
+sdkVersionFromSdkConfig :: SdkConfig -> Either ConfigError SdkVersion
+sdkVersionFromSdkConfig = querySdkConfigRequired ["version"]
+
+-- | Read sdk config to get list of sdk commands.
+listSdkCommands :: SdkConfig -> Either ConfigError [SdkCommandInfo]
+listSdkCommands = querySdkConfigRequired ["commands"]
+
+-- | Query the daml config by passing a path to the desired property.
+-- See 'queryConfig' for more details.
+queryDamlConfig :: Y.FromJSON t => [Text] -> DamlConfig -> Either ConfigError (Maybe t)
+queryDamlConfig path = queryConfig "daml" "DamlConfig" path . unwrapDamlConfig
+
+-- | Query the project config by passing a path to the desired property.
+-- See 'queryConfig' for more details.
+queryProjectConfig :: Y.FromJSON t => [Text] -> ProjectConfig -> Either ConfigError (Maybe t)
+queryProjectConfig path = queryConfig "project" "ProjectConfig" path . unwrapProjectConfig
+
+-- | Query the sdk config by passing a list of members to the desired property.
+-- See 'queryConfig' for more details.
+querySdkConfig :: Y.FromJSON t => [Text] -> SdkConfig -> Either ConfigError (Maybe t)
+querySdkConfig path = queryConfig "SDK" "SdkConfig" path . unwrapSdkConfig
+
+-- | Like 'queryDamlConfig' but returns an error if the property is missing.
+queryDamlConfigRequired :: Y.FromJSON t => [Text] -> DamlConfig -> Either ConfigError t
+queryDamlConfigRequired path = queryConfigRequired "daml" "DamlConfig" path . unwrapDamlConfig
+
+-- | Like 'queryProjectConfig' but returns an error if the property is missing.
+queryProjectConfigRequired :: Y.FromJSON t => [Text] -> ProjectConfig -> Either ConfigError t
+queryProjectConfigRequired path = queryConfigRequired "project" "ProjectConfig" path . unwrapProjectConfig
+
+-- | Like 'querySdkConfig' but returns an error if the property is missing.
+querySdkConfigRequired :: Y.FromJSON t => [Text] -> SdkConfig -> Either ConfigError t
+querySdkConfigRequired path = queryConfigRequired "SDK" "SdkConfig" path . unwrapSdkConfig
+
+-- | (internal) Helper function for querying config data. The 'path' argument
+-- represents the location of the desired property within the config file.
+-- For example, if you had a YAML file like so:
 --
---     System.Directory.getAppUserDataDirectory "daml"
+--     a:
+--        b:
+--           c:
+--              <desired property>
 --
--- On Linux and Mac, that's ~/.daml
--- On Windows, that's %APPDATA%/daml
-damlPathEnvVar :: String
-damlPathEnvVar = "DAML_HOME"
-
--- | The DAML_PROJECT environment variable determines the path of
--- the current daml project. By default, this is done by traversing
--- up the directory structure until we find a "da.yaml" file.
-projectPathEnvVar :: String
-projectPathEnvVar = "DAML_PROJECT"
-
--- | The DAML_SDK environment variable determines the path of the
--- sdk folder. By default, this is calculated as
--- $DAML_HOME/sdk/$DAML_SDK_VERSION.
-sdkPathEnvVar :: String
-sdkPathEnvVar = "DAML_SDK"
-
--- | The DAML_SDK_VERSION environment variable determines the
--- current or preferred sdk version. By default this is, in order
--- of preference:
+-- Then you would pass ["a", "b", "c"] as path to get the desired property.
 --
--- 1. taken from the current $DAML_PROJECT config file, if it exists
--- 2. read from $DAML_SDK/VERSION file, if DAML_SDK is explicitly set
--- 3. the latest nightly SDK version available in $DAML_HOME/sdk.
-sdkVersionEnvVar :: String
-sdkVersionEnvVar = "DAML_SDK_VERSION"
+-- This distinguishes between a missing property and a poorly formed property:
+--    * If the property is missing, this returns (Right Nothing).
+--    * If the property is poorly formed, this returns (Left ...).
+queryConfig :: Y.FromJSON t => Text -> Text -> [Text] -> Y.Value -> Either ConfigError (Maybe t)
+queryConfig name root path cfg
+    = mapLeft (ConfigFieldInvalid name path)
+    . flip Y.parseEither cfg
+    $ \v0 -> do
+        let initial = (root, Just v0)
+            step (p, Nothing) _ = pure (p, Nothing)
+            step (p, Just v) n = do
+                v' <- Y.withObject (T.unpack p) (.:? n) v
+                pure (p <> "." <> n, v')
 
--- | List of all environment variables handled by daml assistant.
-damlEnvVars :: [String]
-damlEnvVars = [damlPathEnvVar, projectPathEnvVar, sdkPathEnvVar, sdkVersionEnvVar]
+        (_,v1) <- foldlM step initial path
+        mapM Y.parseJSON v1
 
--- | Returns the path to the daml assistant data directory.
---
--- This will throw an `IOException` if the environment has not been setup by
--- the assistant.
-getDamlPath :: IO FilePath
-getDamlPath = getEnv damlPathEnvVar
-
--- | Returns the path of the current daml project or
---`Nothing` if invoked outside of a project.
-getProjectPath :: IO (Maybe FilePath)
-getProjectPath = do
-    mbProjectPath <- lookupEnv projectPathEnvVar
-    pure ((\p -> if null p then Nothing else Just p) =<< mbProjectPath)
-
--- | Returns the path of the sdk folder.
---
--- This will throw an `IOException` if the environment has not been setup by
--- the assistant.
-getSdkPath :: IO FilePath
-getSdkPath = getEnv sdkPathEnvVar
-
--- | Returns the current SDK version.
---
--- This will throw an `IOException` if the environment has not been setup by
--- the assistant.
-getSdkVersion  :: IO String
-getSdkVersion = getEnv sdkVersionEnvVar
-
--- | This function changes the working directory to the project root and calls
--- the supplied action with a function to transform filepaths relative to the previous
--- directory into filepaths relative to the project root (absolute file paths will not be modified).
---
--- When called outside of a project or outside of the environment setup by the assistant,
--- this function will not modify the current directory.
-withProjectRoot :: ((FilePath -> IO FilePath) -> IO a) -> IO a
-withProjectRoot act = do
-    previousCwd <- getCurrentDirectory
-    mbProjectPath <- getProjectPath
-    case mbProjectPath of
-        Nothing -> act pure
-        Just projectPath -> do
-            projectPath <- canonicalizePath projectPath
-            withCurrentDirectory projectPath $ act $ \f -> do
-                absF <- canonicalizePath (previousCwd </> f)
-                pure (projectPath `makeRelative` absF)
+-- | (internal) Like 'queryConfig' but returns an error if property is missing.
+queryConfigRequired :: Y.FromJSON t => Text -> Text -> [Text] -> Y.Value -> Either ConfigError t
+queryConfigRequired name root path cfg = do
+    resultM <- queryConfig name root path cfg
+    fromMaybeM (Left $ ConfigFieldMissing name path) resultM

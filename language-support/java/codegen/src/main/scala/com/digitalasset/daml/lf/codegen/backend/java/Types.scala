@@ -20,6 +20,7 @@ object Types {
   val apiOptional = ClassName.get(classOf[javaapi.data.DamlOptional])
   val apiUnit = ClassName.get(classOf[javaapi.data.Unit])
   val apiContractId = ClassName.get(classOf[javaapi.data.ContractId])
+  val apiMap = ClassName.get(classOf[javaapi.data.DamlMap])
 
   // All the types part of the Java platform to which API types will be mapped to
   val javaNativeBoolean = TypeName.get(java.lang.Boolean.TYPE)
@@ -32,4 +33,5 @@ object Types {
   val javaLocalDate = ClassName.get(classOf[java.time.LocalDate])
   val javaList = ClassName.get(classOf[java.util.List[_]])
   val javaOptional = ClassName.get(classOf[java.util.Optional[_]])
+  val javaMap = ClassName.get(classOf[java.util.Map[_, _]])
 }

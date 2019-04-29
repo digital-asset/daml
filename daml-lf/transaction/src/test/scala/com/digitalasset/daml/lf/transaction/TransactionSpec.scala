@@ -80,9 +80,9 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
     import Node.isReplayedBy
     type CidVal[F[_, _]] = F[V.ContractId, V.VersionedValue[V.ContractId]]
     val genEmptyNode
-      : Gen[Node.GenNode[Nothing, V.ContractId, V.VersionedValue[V.ContractId]]] = danglingRefGenNode map {
+      : Gen[Node.GenNode.WithTxValue[Nothing, V.ContractId]] = danglingRefGenNode map {
       case (_, n: CidVal[Node.LeafOnlyNode]) => n
-      case (_, ne: Node.NodeExercises[_, V.ContractId, V.VersionedValue[V.ContractId]]) =>
+      case (_, ne: Node.NodeExercises.WithTxValue[_, V.ContractId]) =>
         ne copy (children = ImmArray.empty)
     }
 
@@ -100,7 +100,7 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
       val withoutLocation = n match {
         case nc: CidVal[Node.NodeCreate] => nc copy (optLocation = None)
         case nf: Node.NodeFetch[V.ContractId] => nf copy (optLocation = None)
-        case ne: Node.NodeExercises[Nothing, V.ContractId, V.VersionedValue[V.ContractId]] =>
+        case ne: Node.NodeExercises.WithTxValue[Nothing, V.ContractId] =>
           ne copy (optLocation = None)
         case nl: CidVal[Node.NodeLookupByKey] => nl copy (optLocation = None)
       }
@@ -115,7 +115,7 @@ object TransactionSpec {
   type StringTransaction = GenTransaction[String, String, Value[String]]
   def StringTransaction(
       nodes: Map[String, GenNode[String, String, Value[String]]],
-      roots: ImmArray[String]): StringTransaction = GenTransaction(nodes, roots)
+      roots: ImmArray[String]): StringTransaction = GenTransaction(nodes, roots, Set.empty)
 
   def dummyExerciseNode(children: ImmArray[String]): NodeExercises[String, String, Value[String]] =
     NodeExercises(

@@ -18,6 +18,7 @@ is added.
 -}
 module DA.Service.Logger.Impl.GCP (
     gcpLogger
+  , logOptOut
   -- * Test hooks
   , sendData
   , dfPath
@@ -36,7 +37,7 @@ import System.Random
 import qualified DA.Service.Logger as Lgr
 import qualified DA.Service.Logger.Impl.IO as Lgr.IO
 import qualified DA.Service.Logger.Impl.Pure as Lgr.Pure
-import DAML.Project.Config
+import DAML.Project.Consts
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8, decodeUtf8)
@@ -53,6 +54,7 @@ import Control.Monad.Trans.State
 import Control.Monad.Trans.Class
 import Network.HTTP.Simple
 import Network.HTTP.Types.Status
+
 
 data GCPState = GCPState {
     _env :: Env
@@ -197,7 +199,7 @@ flushLogsGCP
 flushLogsGCP gcp priority js = do
     le <- createLog (_env gcp) priority js
     pushLogQueue gcp [le]
-    void $ sendLogQueue gcp True
+    void $ sendLogQueue gcp Sync
 
 minBatchSize, maxBatchSize :: Int
 minBatchSize = 10
@@ -216,7 +218,7 @@ logGCP gcp priority js = do
     pushLogQueue gcp [le]
     len <- logQueueLength gcp
     when (len >= minBatchSize) $
-        sendLogQueue gcp False
+        sendLogQueue gcp Async
 
 -- | try sending logs and return the ones that weren't sent
 --   don't use this directly, instead use sendLogQueue
@@ -274,27 +276,36 @@ logQueueLength ::
 logQueueLength GCPState{..} =
     withVar _logQueue (pure . length)
 
+data RunSync =
+    Async
+  | Sync
+
 sendLogQueue ::
     GCPState ->
-    Bool -> -- ^ run synchronously
+    RunSync ->
     IO ()
 sendLogQueue gcp@GCPState{..} runSync = do
   let lgr = Lgr.logJson $ envLogger _env
       lgString = lgr Lgr.Error
   toSend <- popLogQueue gcp
+  -- return True on success
   let handleResult = \case
-          Left err -> do
-            lgString $ displayException err
-            pushLogQueue gcp toSend
-          Right [] ->  pure ()
-          Right unsent ->  pushLogQueue gcp unsent
+          Left (err :: SomeException) -> do
+              lgString $ displayException err
+              pushLogQueue gcp toSend
+          Right [] ->
+              pure ()
+          Right unsent -> do
+              pushLogQueue gcp unsent
   let send = sendLogs toSend
-  if runSync
-      then void $
-           timeout 5_000_000 $
-           handleResult =<< try send
-      else void $
-           forkFinally send handleResult
+  case runSync of
+      Sync ->
+          void $
+          timeout 5_000_000 $
+          handleResult =<< try send
+      Async ->
+          void $
+          forkFinally send (handleResult)
 
 
 --------------------------------------------------------------------------------
@@ -327,6 +338,20 @@ fetchMachineID = do
         maybe generateID pure uid
        else
         generateID
+
+-- | If it hasn't already been done log that the user has opted out of telemetry
+logOptOut :: IO ()
+logOptOut = do
+    fp <- fmap (</> ".opted_out") damlDir
+    exists <- doesFileExist fp
+    env <- initialiseEnv
+    let msg :: T.Text = "Opted out of telemetry"
+    optOut <- createLog env Lgr.Info msg
+    unless exists do
+        res <- sendLogs [optOut]
+        when (DA.Prelude.null res) $
+            writeFile fp ""
+
 -- | Reads the data file but doesn't check the values are valid
 readDF :: UTFBS.ByteString -> Maybe DataFile
 readDF s = do

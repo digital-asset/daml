@@ -1,9 +1,38 @@
 steps:
   - checkout: self
-    fetchDepth: 1 # speed up checkout from 30sec to 7sec
-  - powershell: '.\dev-env\windows\dadew-installer.ps1'
-    displayName: 'Install dev-env'
-    #- script: ./ci/configure-bazel.ps1
-    #  displayName: 'Configure Bazel'
-  - powershell: '.\build.ps1'
-    displayName: 'Bazel Build'
+
+  - bash: ci/configure-bazel.sh
+    displayName: 'Configure Bazel'
+    env:
+      IS_FORK: $(System.PullRequest.IsFork)
+      # to upload to the bazel cache
+      GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+
+  - powershell: '.\build.ps1 full'
+    displayName: 'Build'
+
+  - task: PublishBuildArtifacts@1
+    condition: succeededOrFailed()
+    displayName: 'Publish the bazel execution logs'
+    inputs:
+      pathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      artifactName: 'Execution logs'
+
+  - bash: |
+      set -euo pipefail
+      echo "Simulating release step..."
+      echo "##vso[task.setvariable variable=has_released;isOutput=true]true"
+      echo "##vso[task.setvariable variable=release_tag]$(cat VERSION)"
+    name: release
+  - bash: |
+      set -euo pipefail
+      ARTIFACT=daml-sdk-$(release_tag)-windows.tar.gz
+      cp bazel-genfiles/release/sdk-release-tarball.tar.gz '$(Build.StagingDirectory)'/$ARTIFACT
+      echo "##vso[task.setvariable variable=artifact;isOutput=true]$ARTIFACT"
+    name: publish
+    condition: eq(variables['release.has_released'], 'true')
+  - task: PublishPipelineArtifact@0
+    condition: eq(variables['release.has_released'], 'true')
+    inputs:
+      targetPath: $(Build.StagingDirectory)/$(publish.artifact)
+      artifactName: $(publish.artifact)

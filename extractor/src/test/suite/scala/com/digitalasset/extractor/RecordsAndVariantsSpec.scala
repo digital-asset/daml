@@ -25,7 +25,7 @@ class RecordsAndVariantsSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File("extractor/RecordsAndVariants.dalf")
+  override protected def darFile = new File("extractor/RecordsAndVariants.dar")
 
   override def scenario: Option[String] = Some("RecordsAndVariants:suite")
 

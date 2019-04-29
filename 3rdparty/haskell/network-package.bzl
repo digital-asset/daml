@@ -73,7 +73,7 @@ struct(
           extraFrameworkDirs = [ ],
           asmSources = [ ],
           cmmSources = [ ],
-          cSources = [ "cbits/ancilData.c", "cbits/HsNet.c", ],
+          cSources = [ "cbits/ancilData.c", "cbits/HsNet.c", "cbits/initWinSock.c", "cbits/winSockErr.c", "cbits/asyncAccept.c" ],
           cxxSources = [ ],
           jsSources = [ ],
           hsSourceDirs = [ ],

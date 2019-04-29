@@ -1,38 +1,15 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-How are DAML types translated to DAML-LF?
-#########################################
+How DAML types are translated to DAML-LF
+########################################
 
-This page explains what DAML-LF is, and shows how types in DAML are translated into DAML-LF. It should help you understand and predict the generated client interfaces, which is useful when you're building a DAML-based application that uses the Ledger API or client bindings in other languages.
+This page shows how types in DAML are translated into DAML-LF. It should help you understand and predict the generated client interfaces, which is useful when you're building a DAML-based application that uses the Ledger API or client bindings in other languages.
 
-What is DAML-LF?
-****************
-
-When you :ref:`compile DAML source into a .dar file <assistant-manual-building-dars>`, the underlying format is DAML-LF. DAML-LF is similar to DAML, but is stripped down to a core set of features.
-
-As a user, you don't need to interact with DAML-LF directly. But inside the DAML SDK, it's used for:
-
-- Executing DAML code on the Sandbox or on another platform
-- Sending and receiving values via the Ledger API (using a protocol such as gRPC)
-- Generating code in other languages for interacting with DAML models (often called “codegen”)
-
-When you need to know about DAML-LF
-***********************************
-
-Knowledge of DAML-LF can be helpful when using the Ledger API or bindings on top of it. Development is easier if you know what the types in your DAML code look like at the DAML-LF level.
-
-For example, if you are writing an application in Java that creates some DAML contracts, you need to construct values to pass as parameters to the contract. These values are determined by the Java classes generated from DAML-LF - specifically, by the DAML-LF types in that contract template. This means you need an idea of how the DAML-LF types correspond to the types in the original DAML model.
-
-For the most part the translation of types from DAML to DAML-LF should not be surprising. This page goes through all the cases in detail.
-
-For the bindings to your specific programming language, you should refer to the language-specific documentation.
-
-Translation of DAML types to DAML-LF
-************************************
+For an introduction to DAML-LF, see :ref:`daml-lf-intro`.
 
 Primitive types
-===============
+***************
 
 :ref:`Built-in data types <daml-ref-built-in-types>` in DAML have straightforward mappings to DAML-LF.
 
@@ -70,7 +47,7 @@ Most built-in types have the same name in DAML-LF as in DAML. These are the exac
 Be aware that only the DAML primitive types exported by the :ref:`Prelude <stdlib-reference-base>` module map to the DAML-LF primitive types above. That means that, if you define your own type named ``Party``, it will not translate to the DAML-LF primitive ``Party``.
 
 Tuple types
-===========
+***********
 
 DAML tuple type constructors take types ``T1, T2, …, TN`` to the type ``(T1, T2, …, TN)``. These are exposed in the DAML surface language through the :ref:`Prelude <stdlib-reference-base>` module.
 
@@ -79,7 +56,7 @@ The equivalent DAML-LF type constructors are ``ghc-prim:GHC.Tuple:TupleN``, for 
 For example: the DAML pair type ``(Int, Text)`` is translated to ``ghc-prim:GHC.Tuple:Tuple2 Int64 Text``.
 
 Data types
-==========
+**********
 
 DAML-LF has two kinds of data declarations: 
 
@@ -91,7 +68,7 @@ DAML-LF has two kinds of data declarations:
 .. In the tables below, the left column uses DAML 1.2 syntax and the right column uses the notation from the `DAML-LF specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>`_.
 
 Record declarations
--------------------
+===================
 
 This section uses the syntax for DAML :ref:`records <daml-ref-record-types>` with curly braces.
 
@@ -115,7 +92,7 @@ This section uses the syntax for DAML :ref:`records <daml-ref-record-types>` wit
      - ``record Foo ↦ {}``
 
 Variant declarations
---------------------
+====================
 
 .. list-table::
    :widths: 10 15
@@ -147,7 +124,7 @@ Variant declarations
      - ``data Foo ↦ Bar Foo.Bar | Baz Foo.Baz``, ``record Foo.Bar ↦ { bar1: Int64; bar2: Decimal }``, ``record Foo.Baz ↦ { baz1: Text; baz2: Date }``
 
 Banned declarations
--------------------
+===================
 
 There are two gotchas to be aware of: things you might expect to be able to do in DAML that you can't because of DAML-LF.
 
@@ -175,13 +152,13 @@ The second gotcha is that a constructor in a data type declaration can have at m
      - Name arguments to the Baz constructor, for example ``data Foo = Bar | Baz { x: Int; y: Text }``
 
 Type synonyms
-=============
+*************
 
 :ref:`Type synonyms <daml-ref-type-synonyms>` (starting with the ``type`` keyword) are eliminated during conversion to DAML-LF. The body of the type synonym is inlined for all occurrences of the type synonym name.
 
 For example, consider the following DAML type declarations.
 
-.. literalinclude:: daml-lf-translation.daml
+.. literalinclude:: code-snippets/daml-lf-translation.daml
    :language: daml
    :start-after: -- start code snippet: type synonyms
    :end-before: -- end code snippet: type synonyms
@@ -190,10 +167,10 @@ The ``Username`` type is eliminated in the DAML-LF translation, as follows:
 
 .. code-block:: none
 
-	record User ↦ { name: Text }
+	 record User ↦ { name: Text }
 
 Template types
-==============
+**************
 
 A :ref:`template declaration <daml-ref-template-name>` in DAML results in one or more data type declarations behind the scenes. These data types, detailed in this section, are not written explicitly in the DAML program but are created by the compiler.
 
@@ -202,20 +179,21 @@ They are translated to DAML-LF using the same rules as for record declarations a
 These declarations are all at the top level of the module in which the template is defined.
 
 Template data types
--------------------
+===================
 
 Every contract template defines a record type for the parameters of the contract. For example, the template declaration:
 
-.. literalinclude:: daml-lf-translation.daml
+.. literalinclude:: code-snippets/daml-lf-translation.daml
    :language: daml
    :start-after: -- start code snippet: template data types
    :end-before: -- end code snippet: template data types
 
 results in this record declaration:
 
-.. code-block:: daml
-
-	data Iou = Iou { issuer: Party; owner: Party; currency: Text; amount: Decimal }
+.. literalinclude:: code-snippets/daml-lf-result.daml
+   :language: daml
+   :start-after: -- start snippet: data from template
+   :end-before: -- end snippet: data from template
 
 This translates to the DAML-LF record declaration:
 
@@ -224,21 +202,21 @@ This translates to the DAML-LF record declaration:
 	record Iou ↦ { issuer: Party; owner: Party; currency: Text; amount: Decimal }
 
 Choice data types
------------------
+=================
 
 Every choice within a contract template results in a record type for the parameters of that choice. For example, let’s suppose the earlier ``Iou`` template has the following choices:
 
-.. literalinclude:: daml-lf-translation.daml
+.. literalinclude:: code-snippets/daml-lf-translation.daml
    :language: daml
    :start-after: -- start code snippet: choice data types
    :end-before: -- end code snippet: choice data types
 
 This results in these two record types:
 
-.. code-block:: daml
-
-	data DoNothing = DoNothing {}
-	data Transfer = Transfer { newOwner: Party }
+.. literalinclude:: code-snippets/daml-lf-result.daml
+   :language: daml
+   :start-after: -- start snippet: data from choices
+   :end-before: -- end snippet: data from choices
 
 Whether the choice is consuming or nonconsuming is irrelevant to the data type declaration. The data type is a record even if there are no fields.
 

@@ -8,9 +8,10 @@ import java.time.temporal.ChronoUnit
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import com.digitalasset.api.util.TimestampConversion
+import com.digitalasset.daml.lf.command.Commands
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.engine.testing.SemanticTester
-import com.digitalasset.daml.lf.engine.{Commands, Event}
+import com.digitalasset.daml.lf.engine.Event
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value

@@ -9,6 +9,7 @@ import com.digitalasset.codegen.Util
 import com.digitalasset.codegen.lf.LFUtil.{TupleNesting, escapeIfReservedName}
 import com.digitalasset.daml.lf.iface, iface.{Type => _, _}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName}
+import com.typesafe.scalalogging.Logger
 import scalaz.{-\/, \/, \/-}
 
 import scala.collection.breakOut
@@ -28,8 +29,10 @@ object DamlRecordOrVariantTypeGen {
 
   import runUni._
 
-  type VariantField = (String, List[FieldWithType] \/ iface.Type)
-  type RecordOrVariant = ScopedDataType.DT[FieldWithType, VariantField]
+  private val logger: Logger = Logger(getClass)
+
+  type VariantField = List[FieldWithType] \/ iface.Type
+  type RecordOrVariant = ScopedDataType.DT[iface.Type, VariantField]
 
   def generate(
       util: LFUtil,
@@ -54,7 +57,7 @@ object DamlRecordOrVariantTypeGen {
       rootClassChildren: Seq[Tree],
       companionChildren: Iterable[Tree]): (File, Iterable[Tree]) = {
 
-    LFUtil.lfprintln(s"generate typeDecl: $typeDecl")
+    logger.debug(s"generate typeDecl: $typeDecl")
 
     import typeDecl.name
     val damlScalaName = util.mkDamlScalaName(Util.UserDefinedType, name)
@@ -139,7 +142,7 @@ object DamlRecordOrVariantTypeGen {
       *  - A type class instance (i.e. implicit object) for serializing/deserializing
       *    to/from the ArgumentValue type (see typed-ledger-api project)
       */
-    def toScalaDamlVariantType(fields: List[VariantField]): (Tree, Tree) = {
+    def toScalaDamlVariantType(fields: List[(String, VariantField)]): (Tree, Tree) = {
       lazy val damlVariant =
         if (fields.isEmpty) damlVariantZeroFields
         else damlVariantOneOrMoreFields
@@ -191,7 +194,7 @@ object DamlRecordOrVariantTypeGen {
           }"""
       }
 
-      def variantWriteCase(variant: VariantField): CaseDef = variant match {
+      def variantWriteCase(variant: (String, VariantField)): CaseDef = variant match {
         case (label, \/-(genTyp)) =>
           cq"${TermName(label.capitalize)}(a) => ${typeObjectFromVariant(label, genTyp, Util.toIdent("a"))}"
         case (label, -\/(record)) =>
@@ -247,7 +250,7 @@ object DamlRecordOrVariantTypeGen {
         })
       }
 
-      def variantGetBody(valueExpr: Tree, field: VariantField): Tree =
+      def variantGetBody(valueExpr: Tree, field: (String, VariantField)): Tree =
         field match {
           case (label, \/-(genType)) => fieldGetBody(valueExpr, label, genType)
           case (label, -\/(record)) => recordGetBody(valueExpr, label, record)
@@ -375,7 +378,7 @@ object DamlRecordOrVariantTypeGen {
       damlRecord
     }
 
-    def lfEncodableForVariant(fields: Seq[VariantField]): Tree = {
+    def lfEncodableForVariant(fields: Seq[(String, VariantField)]): Tree = {
       val lfEncodableName = TermName(s"${damlScalaName.name} LfEncodable")
 
       val variantsWithNestedRecords: Seq[(String, List[(String, iface.Type)])] =
@@ -581,7 +584,7 @@ object DamlRecordOrVariantTypeGen {
   private def generateVariantCaseDefList(util: LFUtil)(
       appliedValueType: Tree,
       typeArgs: List[TypeName],
-      fields: Seq[VariantField],
+      fields: Seq[(String, VariantField)],
       recordFieldsByName: Map[String, TermName]): Seq[Tree] =
     fields.map {
       case (n, -\/(r)) =>

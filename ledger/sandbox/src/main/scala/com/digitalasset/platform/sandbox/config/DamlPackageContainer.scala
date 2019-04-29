@@ -14,8 +14,9 @@ import com.digitalasset.daml_lf.DamlLf.Archive
 import scala.collection.breakOut
 import scala.collection.immutable.Iterable
 import scala.util.control.NonFatal
+import scala.util.Try
 
-case class DamlPackageContainer(files: List[File] = Nil, devAllowed: Boolean = false) {
+case class DamlPackageContainer(files: List[File] = Nil) {
 
   lazy val archives: List[Archive] =
     files.flatMap { file =>
@@ -31,10 +32,9 @@ case class DamlPackageContainer(files: List[File] = Nil, devAllowed: Boolean = f
     }
 
   private def archivesFromDar(file: File): List[Archive] = {
-    new DarReader[Archive](Archive.parseFrom)
+    DarReader[Archive](x => Try(Archive.parseFrom(x)))
       .readArchive(new ZipFile(file))
-      .fold(t => throw new RuntimeException(s"Failed to parse DAR from $file", t), identity)
-
+      .fold(t => throw new RuntimeException(s"Failed to parse DAR from $file", t), dar => dar.all)
   }
 
   private def archivesFromDalf(file: File): List[Archive] = {
@@ -52,18 +52,15 @@ case class DamlPackageContainer(files: List[File] = Nil, devAllowed: Boolean = f
     }
   }
 
-  lazy val packages: Map[PackageId, Ast.Package] = {
-    val decode: Decode = if (devAllowed) {
-      Decode.WithDevSupport
-    } else Decode
-    archives.map(decode.decodeArchive)(breakOut)
-  }
+  lazy val packages: Map[PackageId, Ast.Package] =
+    archives.map(Decode.decodeArchive)(breakOut)
 
   lazy val packageIds: Iterable[String] = archives.map(_.getHash)
 
-  def withFile(file: File): DamlPackageContainer = DamlPackageContainer(file :: files)
+  def withFile(file: File): DamlPackageContainer = copy(files = file :: files)
 
   def getPackage(id: PackageId): Option[Ast.Package] = packages.get(id)
 
-  def allowDev: DamlPackageContainer = DamlPackageContainer(files, true)
+  @deprecated("minor dev is always allowed; drop call to allowDev", since = "100.12.12")
+  def allowDev: this.type = this
 }

@@ -8,7 +8,12 @@ import java.nio.file.Path
 import java.time.Duration
 
 import com.digitalasset.platform.sandbox.SandboxApplication
-import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, LedgerIdMode, SandboxConfig}
+import com.digitalasset.platform.sandbox.config.{
+  CommandConfiguration,
+  DamlPackageContainer,
+  LedgerIdMode,
+  SandboxConfig
+}
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import scalaz.NonEmptyList
 
@@ -17,8 +22,7 @@ import scala.concurrent.duration.{FiniteDuration, _}
 object PlatformApplications {
 
   /**
-    * Meant to be a simple common denominator between sandbox and LS
-    * configuration. The constructor is private to avoid using
+    * Meant to be a simple common denominator for fixture configuration. The constructor is private to avoid using
     * exceptions for validation.
     *
     * In the companion object add more smart constructors with
@@ -34,7 +38,8 @@ object PlatformApplications {
       timeModel: TimeModel,
       heartBeatInterval: FiniteDuration = 5.seconds,
       persistenceEnabled: Boolean = false,
-      maxNumberOfAcsContracts: Option[Int] = None) {
+      maxNumberOfAcsContracts: Option[Int] = None,
+      commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig) {
     require(
       Duration.ofSeconds(timeModel.minTtl.getSeconds) == timeModel.minTtl &&
         Duration.ofSeconds(timeModel.maxTtl.getSeconds) == timeModel.maxTtl,
@@ -45,7 +50,7 @@ object PlatformApplications {
       ledgerId.getOrElse(
         throw new IllegalStateException("Attempted to access ledger ID, but none is configured."))
 
-    def withDarFile(path: Path) = copy(darFiles = List(Config.ghcPrimFileName.toPath, path))
+    def withDarFile(path: Path) = copy(darFiles = List(path))
 
     def withDarFiles(path: List[Path]) = copy(darFiles = path)
 
@@ -62,22 +67,20 @@ object PlatformApplications {
     def withHeartBeatInterval(interval: FiniteDuration) = copy(heartBeatInterval = interval)
 
     def withMaxNumberOfAcsContracts(cap: Int) = copy(maxNumberOfAcsContracts = Some(cap))
+
+    def withCommandConfiguration(cc: CommandConfiguration) = copy(commandConfiguration = cc)
   }
 
   object Config {
     val defaultLedgerId = "ledger server"
 
-    val defaultDarFile = new File("ledger/sandbox/Test.dalf")
-    val ghcPrimFileName = new File("daml-foundations/daml-ghc/package-database/daml-prim-1.3.dalf")
+    val defaultDarFile = new File("ledger/sandbox/Test.dar")
 
     val defaultParties = NonEmptyList("party", "Alice", "Bob")
     val defaultTimeProviderType = TimeProviderType.Static
 
     def defaultWithLedgerId(ledgerId: Option[String]): Config = {
-      val ghcPrimUrl = ghcPrimFileName
-      val darFiles =
-        if (ghcPrimUrl.exists()) List(ghcPrimFileName, defaultDarFile)
-        else sys.error(s"daml-prim not found at location $ghcPrimFileName")
+      val darFiles = List(defaultDarFile)
       new Config(
         ledgerId,
         darFiles.map(_.toPath),
@@ -94,24 +97,22 @@ object PlatformApplications {
     def default: Config = defaultWithLedgerId(Some(defaultLedgerId))
   }
 
-  def sandboxApplication(config: Config) = {
+  def sandboxApplication(config: Config, jdbcUrl: Option[String]) = {
     val selectedPort = 0
-
-    val sandboxCommandConfig = SandboxConfig.defaultCommandConfig
 
     SandboxApplication(
       SandboxConfig(
-        addressOption = None,
+        address = None,
         port = selectedPort,
         damlPackageContainer = DamlPackageContainer(config.darFiles.map(_.toFile)),
         timeProviderType = config.timeProviderType,
         timeModel = config.timeModel,
-        commandConfig = sandboxCommandConfig,
+        commandConfig = config.commandConfiguration,
         scenario = None,
         tlsConfig = None,
         ledgerIdMode =
-          config.ledgerId.fold[LedgerIdMode](LedgerIdMode.Random)(LedgerIdMode.HardCoded),
-        jdbcUrl = None
+          config.ledgerId.fold[LedgerIdMode](LedgerIdMode.Random)(LedgerIdMode.Predefined),
+        jdbcUrl = jdbcUrl
       )
     )
   }

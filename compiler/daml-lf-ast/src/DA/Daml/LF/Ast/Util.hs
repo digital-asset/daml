@@ -11,7 +11,6 @@ import DA.Prelude
 
 import           Control.Lens
 import           Control.Lens.Ast
-import           Data.Aeson (FromJSON, ToJSON)
 import qualified Data.Graph as G
 import           Data.List.Extra (nubSort)
 import qualified Data.NameMap as NM
@@ -64,6 +63,10 @@ unwindr p = go []
 data Arg
   = TmArg Expr
   | TyArg Type
+
+mkEApp :: Expr -> Arg -> Expr
+mkEApp e (TmArg a) = ETmApp e a
+mkEApp e (TyArg t) = ETyApp e t
 
 _EApp :: Prism' Expr (Expr, Arg)
 _EApp = prism' inj proj
@@ -287,4 +290,3 @@ _moduleDefinitions f mod0@(Module name path flags _ _ _) =
   moduleFromDefinitions name path flags <$> f (moduleDefinitions mod0)
 
 makePrisms ''Definition
-makeInstancesExcept [''Ord, ''FromJSON, ''ToJSON] ''Definition

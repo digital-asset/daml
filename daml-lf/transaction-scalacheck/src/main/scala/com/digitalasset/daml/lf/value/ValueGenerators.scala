@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Decimal, FrontStack, ImmArray, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.transaction.Node.{
   KeyWithMaintainers,
   NodeCreate,
@@ -20,8 +20,6 @@ import scalaz.Equal
 import scalaz.syntax.apply._
 import scalaz.scalacheck.ScalaCheckBinding._
 import scalaz.std.string.parseInt
-
-import scala.collection.immutable.HashMap
 
 object ValueGenerators {
 
@@ -184,7 +182,7 @@ object ValueGenerators {
     for {
       list <- Gen.listOf(
         for { k <- Gen.asciiPrintableStr; v <- Gen.lzy(valueGen(nesting)) } yield k -> v)
-    } yield ValueMap[ContractId](HashMap(list: _*))
+    } yield ValueMap[ContractId](SortedLookupList(Map(list: _*)))
   def valueMapGen: Gen[ValueMap[ContractId]] = valueMapGen(0)
 
   def coidGen: Gen[ContractId] = {
@@ -273,7 +271,7 @@ object ValueGenerators {
     * 1. stakeholders may not be a superset of signatories
     * 2. key's maintainers may not be a subset of signatories
     */
-  val malformedCreateNodeGen: Gen[NodeCreate[Tx.ContractId, Tx.Value[Tx.ContractId]]] = {
+  val malformedCreateNodeGen: Gen[NodeCreate.WithTxValue[Tx.ContractId]] = {
     for {
       coid <- coidGen
       coinst <- contractInstanceGen
@@ -363,7 +361,7 @@ object ValueGenerators {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
       roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId.unsafeFromIndex))
-    } yield GenTransaction(nodes.toMap, ImmArray(roots))
+    } yield GenTransaction(nodes.toMap, ImmArray(roots), Set.empty)
   }
 
   @deprecated("use malformedGenTransaction instead", since = "100.11.17")

@@ -6,6 +6,20 @@
 {-# LANGUAGE ConstraintKinds            #-}
 
 -- | A Shake implementation of the compiler service.
+--
+--   There are two primary locations where data lives, and both of
+--   these contain much the same data:
+--
+-- * The Shake database (inside 'shakeDb') stores a map of shake keys
+--   to shake values. In our case, these are all of type 'Q' to 'A'.
+--   During a single run all the values in the Shake database are consistent
+--   so are used in conjunction with each other, e.g. in 'uses'.
+--
+-- * The 'Values' type stores a map of keys to values. These values are
+--   always stored as real Haskell values, whereas Shake serialises all 'A' values
+--   between runs. To deserialise a Shake value, we just consult Values.
+--   Additionally, Values can be used in an inconsistent way, for example
+--   useStale.
 module Development.IDE.State.Shake(
     IdeState,
     IdeRule, IdeResult,
@@ -23,6 +37,9 @@ module Development.IDE.State.Shake(
     setPriority,
     sendEvent,
     shakeLogDebug,
+    shakeLogInfo,
+    shakeLogWarning,
+    shakeLogError,
     ) where
 
 import           Development.Shake
@@ -36,7 +53,7 @@ import           Data.Maybe
 import           Data.Either
 import           Data.List.Extra
 import qualified Data.Text as T
-import qualified Development.IDE.Logger as Logger
+import Development.IDE.Logger as Logger
 import Development.IDE.Types.LSP
 import           Development.IDE.Types.Diagnostics
 import           Control.Concurrent.Extra
@@ -70,9 +87,8 @@ getShakeExtras = do
 
 getShakeExtrasRules :: Rules ShakeExtras
 getShakeExtrasRules = do
-    -- We'd like to use binding, but no MonadFail Rules https://github.com/ndmitchell/shake/issues/643
-    x <- getShakeExtraRules @ShakeExtras
-    return $ fromMaybe (error "Can't find ShakeExtras, serious error") x
+    Just x <- getShakeExtraRules @ShakeExtras
+    return x
 
 
 
@@ -132,7 +148,7 @@ instance Hashable Key where
 type IdeResult v = ([Diagnostic], Maybe v)
 
 type IdeRule k v =
-  ( Shake.RuleResult k ~ IdeResult v
+  ( Shake.RuleResult k ~ v
   , Shake.ShakeValue k
   , Show v
   , Typeable v
@@ -181,15 +197,20 @@ setValues :: IdeRule k v
           -> IO (Maybe [Diagnostic], [Diagnostic]) -- ^ (before, after)
 setValues state key file val = modifyVar state $ \inVal -> do
     let k = Key key
-        outVal = Map.insertWith Map.union file (Map.singleton k $ fmap toDyn <$> val) inVal
+        outVal = Map.insertWith Map.union file (Map.singleton k $ second (fmap toDyn) val) inVal
         f = concatMap fst . Map.elems
     return (outVal, (f <$> Map.lookup file inVal, f $ outVal Map.! file))
 
-getValues :: forall k v. IdeRule k v => Var Values -> k -> FilePath -> IO (Maybe (IdeResult v))
-getValues state key file = flip fmap (readVar state) $ \vs -> do
-    f <- Map.lookup file vs
-    k <- Map.lookup (Key key) f
-    pure $ fmap (fromJust . fromDynamic) <$> k
+-- | The outer Maybe is Nothing if this function hasn't been computed before
+--   the inner Maybe is Nothing if the result of the previous computation failed to produce
+--   a value
+getValues :: forall k v. IdeRule k v => Var Values -> k -> FilePath -> IO (Maybe (Maybe v))
+getValues state key file = do
+    vs <- readVar state
+    return $ do
+        f <- Map.lookup file vs
+        v <- Map.lookup (Key key) f
+        pure $ fmap (fromJust . fromDynamic @v) $ snd v
 
 -- | Open a 'IdeState', should be shut using 'shakeShut'.
 shakeOpen :: (Event -> IO ()) -- ^ diagnostic handler
@@ -232,9 +253,8 @@ shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts = modifyVar shakeAbort $
 useStale
     :: IdeRule k v
     => IdeState -> k -> FilePath -> IO (Maybe v)
-useStale IdeState{shakeExtras=ShakeExtras{state}} k fp = do
-    v <- getValues state k fp
-    return $ maybe Nothing snd v
+useStale IdeState{shakeExtras=ShakeExtras{state}} k fp =
+    join <$> getValues state k fp
 
 
 getAllDiagnostics :: IdeState -> IO [Diagnostic]
@@ -259,7 +279,7 @@ define
 define op = defineEarlyCutoff $ \k v -> (Nothing,) <$> op k v
 
 use :: IdeRule k v
-    => k -> FilePath -> Action (IdeResult v)
+    => k -> FilePath -> Action (Maybe v)
 use key file = head <$> uses key [file]
 
 use_ :: IdeRule k v => k -> FilePath -> Action v
@@ -268,19 +288,19 @@ use_ key file = head <$> uses_ key [file]
 uses_ :: IdeRule k v => k -> [FilePath] -> Action [v]
 uses_ key files = do
     res <- uses key files
-    case mapM snd res of
+    case sequence res of
         Nothing -> liftIO $ throwIO BadDependency
         Just v -> return v
 
 reportSeriousError :: String -> Action ()
 reportSeriousError t = do
     ShakeExtras{logger} <- getShakeExtras
-    liftIO $ Logger.logInfo logger $ T.pack t
+    liftIO $ Logger.logError logger $ T.pack t
 
 reportSeriousErrorDie :: String -> Action a
 reportSeriousErrorDie t = do
     ShakeExtras{logger} <- getShakeExtras
-    liftIO $ Logger.logInfo logger $ T.pack t
+    liftIO $ Logger.logError logger $ T.pack t
     fail t
 
 
@@ -304,17 +324,19 @@ instance Show k => Show (Q k) where
 
 -- | Invariant: the 'v' must be in normal form (fully evaluated).
 --   Otherwise we keep repeatedly 'rnf'ing values taken from the Shake database
-data A v = A v (Maybe BS.ByteString)
+data A v = A (Maybe v) (Maybe BS.ByteString)
     deriving Show
 
 instance NFData (A v) where rnf (A v x) = v `seq` rnf x
 
+-- In the Shake database we only store one type of key/result pairs,
+-- namely Q (question) / A (answer).
 type instance RuleResult (Q k) = A (RuleResult k)
 
 
 -- | Compute the value
 uses :: IdeRule k v
-    => k -> [FilePath] -> Action [IdeResult v]
+    => k -> [FilePath] -> Action [Maybe v]
 uses key files = map (\(A value _) -> value) <$> apply (map (Q . (key,)) files)
 
 defineEarlyCutoff
@@ -350,7 +372,7 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
             return $ RunResult
                 (if eq then ChangedRecomputeSame else ChangedRecomputeDiff)
                 (wrap bs)
-                $ A res bs
+                $ A (snd res) bs
     where
         wrap = maybe BS.empty (BS.cons '_')
         unwrap x = if BS.null x then Nothing else Just $ BS.tail x
@@ -385,5 +407,13 @@ sendEvent e = do
     ShakeExtras{eventer} <- getShakeExtras
     liftIO $ eventer e
 
-shakeLogDebug :: IdeState -> T.Text -> IO ()
-shakeLogDebug IdeState{shakeExtras=ShakeExtras{logger}} msg = Logger.logDebug logger msg
+-- | bit of an odd signature because we're trying to remove priority
+sl :: (Handle IO -> T.Text -> IO ()) -> IdeState -> T.Text -> IO ()
+sl f IdeState{shakeExtras=ShakeExtras{logger}} p = f logger p
+
+shakeLogDebug, shakeLogInfo, shakeLogWarning, shakeLogError
+    :: IdeState -> T.Text -> IO ()
+shakeLogDebug = sl logDebug
+shakeLogInfo = sl logInfo
+shakeLogWarning = sl logWarning
+shakeLogError = sl logError

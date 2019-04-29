@@ -419,24 +419,13 @@ instance Pretty DefDataType where
         "|" <-> prettyName name <-> pPrintPrec prettyNormal precHighest typ
 
 instance Pretty DefValue where
-  pPrint (DefValue mbLoc binder (HasNoPartyLiterals noParties) (IsTest isTest) body mbInfo) =
+  pPrint (DefValue mbLoc binder (HasNoPartyLiterals noParties) (IsTest isTest) body) =
     withSourceLoc mbLoc $
-    vcat $ concat
-      [ case mbInfo of
-          Nothing -> []
-          Just info -> [text "--" <-> pretty info]
-      , [ hang (keyword_ kind <-> annot <-> prettyNameAndType binder <-> "=") 2 (pretty body) ]
-      ]
+    vcat
+      [ hang (keyword_ kind <-> annot <-> prettyNameAndType binder <-> "=") 2 (pretty body) ]
     where
       kind = if isTest then "test" else "def"
       annot = if noParties then mempty else "@partyliterals"
-
-instance Pretty DefValueInfo where
-  pPrint = \case
-    DVIRecordConstructorProxy tyCon ->
-      text "proxy for record" <-> pretty tyCon
-    DVIRecordProjectionProxy tyCon fld ->
-      text "proxy for field" <-> text (unTagged fld) <-> text "of record" <-> pretty tyCon
 
 prettyTemplateChoice ::
   ModuleName -> TypeConName -> TemplateChoice -> Doc ann
@@ -478,13 +467,9 @@ prettyTemplate modName (Template mbLoc tpl param precond signatories observers a
 prettyFeatureFlags :: FeatureFlags -> Doc ann
 prettyFeatureFlags
   FeatureFlags
-  { forbidPartyLiterals
-  , dontDivulgeContractIdsInCreateArguments
-  , dontDiscloseNonConsumingChoicesToObservers } =
+  { forbidPartyLiterals } =
   fcommasep $ catMaybes
     [ optionalFlag forbidPartyLiterals "+ForbidPartyLiterals"
-    , optionalFlag dontDivulgeContractIdsInCreateArguments "+DontDivulgeContractIdsInCreateArguments"
-    , optionalFlag dontDiscloseNonConsumingChoicesToObservers "+DontDiscloseNonConsumingChoicesToObservers"
     ]
   where
     optionalFlag flag name

@@ -113,7 +113,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpLitInt64
         E"(( 42 ))" -> T"Int64",
         // ExpLitDecimal
-        E"(( 3.14159265359 ))" -> T"(( Decimal ))",
+        E"(( 3.1415926536 ))" -> T"(( Decimal ))",
         //ExpLitText
         E"""(( "text" ))""" -> T"(( Text ))",
         //ExpLitDate
@@ -620,7 +620,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       LV(LVM.V1, "0") -> true,
       LV(LVM.V1, "1") -> true,
       LV(LVM.V1, "2") -> false,
-      LV.defaultVDev -> false,
     )
 
     val pkg0 =
@@ -667,7 +666,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       LV(LVM.V1, "0") -> true,
       LV(LVM.V1, "1") -> true,
       LV(LVM.V1, "2") -> false,
-      LV.defaultVDev -> false,
     )
 
     val pkg0 =

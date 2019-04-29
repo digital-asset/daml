@@ -150,9 +150,9 @@ Version: 1.2
     * **Add** a built-in function to perform `SHA-256
       <https://en.wikipedia.org/wiki/SHA-2>`_ hashing of strings
 
-   * **Change** the scope when the controllers of a choice are
-     computed. Needed to support the so-called `flexible controllers`_
-     in the surface language
+    * **Change** the scope when the controllers of a choice are
+      computed. Needed to support the so-called `flexible controllers`_
+      in the surface language
 
 
 Version: 1.3
@@ -285,7 +285,7 @@ We can now define all the literals that a program can handle::
         LitInt64  ∈ (-?)[0-9]+                      -- LitInt64:
 
   Decimal literals:
-      LitDecimal  ∈  (-?)[0-9]+.[0-9]*              -- LitDecimal
+      LitDecimal  ∈  ([+-]?)\d{1,28}(.[0-9]\d{1-10})?  -- LitDecimal
 
   Date literals:
          LitDate  ∈  \d{4}-\d{4}-\d{4}              -- LitDate

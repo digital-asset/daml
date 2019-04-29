@@ -11,6 +11,8 @@ data SumOfProducts
       deriving (Eq,Ord)
 
 main = scenario do
-    alice <- getParty "alice"
-    submit alice $ assert $ Sum1 3 "test" /= Sum2
-    submit alice $ assert $ Sum1 3 "test" < Sum2
+    let sum1 = Sum1 3 "test"
+    let sum3 = Sum3 3 None True
+    assert $ sum1 /= Sum2
+    assert $ sum1 < Sum2
+    assert $ sum1.field1 == sum3.field1

@@ -40,11 +40,11 @@ DAML SDK documentation
    :hidden:
    :caption: Building applications
 
-   app-dev/app-arch/index
-   app-dev/ledger-api-introduction/index
+   app-dev/index
    app-dev/bindings-java/index
-   app-dev/daml-lf-translation
-
+   app-dev/grpc/index
+   app-dev/app-arch
+   
 .. toctree::
    :titlesonly:
    :maxdepth: 2
@@ -88,4 +88,3 @@ DAML SDK documentation
    support/support
    support/release-notes
    Roadmap <support/roadmap>
-

@@ -4,7 +4,7 @@
 package com.digitalasset.ledger.backend.api
 
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 
 /** Version 1 of the Ledger Backend API.
   *
@@ -46,5 +46,5 @@ package object v1 {
     *  [[com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction]] event on the [[LedgerBackend.ledgerSyncEvents]]
     *  stream. */
   type CommittedTransaction =
-    GenTransaction[NodeId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]
+    GenTransaction.WithTxValue[NodeId, AbsoluteContractId]
 }

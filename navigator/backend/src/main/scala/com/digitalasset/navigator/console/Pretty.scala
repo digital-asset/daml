@@ -235,6 +235,10 @@ object Pretty {
     case model.ApiUnit() => PrettyPrimitive("<unit>")
     case model.ApiOptional(None) => PrettyPrimitive("<none>")
     case model.ApiOptional(Some(v)) => PrettyObject(PrettyField("value", argument(v)))
+    case model.ApiMap(map) =>
+      PrettyObject(map.toImmArray.toList.map {
+        case (key, value) => PrettyField(key, argument(arg))
+      })
   }
 
   /** Outputs an object in YAML format */
@@ -250,6 +254,8 @@ object Pretty {
         values
           .map(v => arrayIndent + go(v, i + 1))
           .mkString("\n" + indent * i)
+      case PrettyObject(fields) if fields.isEmpty =>
+        "{}"
       case PrettyObject(fields) =>
         val maxFieldLength = fields.map(_.name.length).max + 1
         fields
@@ -276,8 +282,9 @@ object Pretty {
       state: State,
       header: List[String],
       data: TraversableOnce[TraversableOnce[String]]): String = {
+    val width = state.reader.getTerminal.getWidth
     AsciiTable()
-      .width(state.reader.getTerminal.getWidth)
+      .width(if (width > 4) width else 80)
       .multiline(false)
       .columnMinWidth(4)
       .sampleAtMostRows(200)

@@ -3,6 +3,9 @@
 
 package com.digitalasset.daml.lf.engine
 
+import java.util
+import java.io.File
+
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.lfpackage.Ast._
@@ -12,9 +15,14 @@ import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction => GenTx, Transaction => Tx}
 import com.digitalasset.daml.lf.value.Value
 import Value._
+import com.digitalasset.daml.lf.speedy.SValue
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.UniversalArchiveReader
+import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalatest.{Matchers, WordSpec}
-import scalaz.std.either._, scalaz.syntax.apply._ // above
+import scalaz.std.either._
+import scalaz.syntax.apply._
 
 import scala.language.implicitConversions
 
@@ -25,28 +33,25 @@ import scala.language.implicitConversions
     "org.wartremover.warts.Product"
   ))
 class EngineTest extends WordSpec with Matchers {
-  implicit def qualifiedNameStr(s: String): QualifiedName = QualifiedName.assertFromString(s)
-  implicit def simpleStr(s: String): SimpleString = SimpleString.assertFromString(s)
 
-  private val alice = SimpleString.assertFromString("Alice")
-  private val bob = SimpleString.assertFromString("Bob")
-  private val clara = SimpleString.assertFromString("Clara")
-  private val party = SimpleString.assertFromString("Party")
+  import EngineTest._
 
-  private val loader = Thread.currentThread().getContextClassLoader()
+  private val List(alice, bob, clara, party) =
+    List("Alice", "Bob", "Clara", "Party").map(SimpleString.assertFromString)
 
-  private def loadPackage(resource: String): (PackageId, Package) = {
-
-    if (loader.getResource(resource) == null) {
-      sys.error(s"Could not find resource $resource")
-    }
-    Decode.decodeArchiveFromInputStream(loader.getResourceAsStream(resource))
+  private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
+    val packages =
+      UniversalArchiveReader().readFile(new File(resource)).get
+    val packagesMap = Map(packages.all.map {
+      case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+    }: _*)
+    val (mainPkgId, mainPkgArchive) = packages.main
+    val mainPkg = Decode.readArchivePayloadAndVersion(mainPkgId, mainPkgArchive)._1._2
+    (mainPkgId, mainPkg, packagesMap)
   }
 
-  private val (basicTestsPkgId, basicTestsPkg) =
-    loadPackage("daml-lf/tests/BasicTests.dalf")
-  private val (ghcPrimPkgId, ghcPrimPkg) =
-    loadPackage("daml-foundations/daml-ghc/package-database/daml-prim-1.1.dalf")
+  private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
+    "daml-lf/tests/BasicTests.dar")
 
   private[this] def makeAbsoluteContractId(coid: ContractId): AbsoluteContractId =
     coid match {
@@ -90,11 +95,7 @@ class EngineTest extends WordSpec with Matchers {
   }
 
   def lookupPackage(pkgId: PackageId): Option[Package] = {
-    pkgId match {
-      case `basicTestsPkgId` => Some(basicTestsPkg)
-      case `ghcPrimPkgId` => Some(ghcPrimPkg)
-      case _ => None
-    }
+    allPackages.get(pkgId)
   }
 
   def lookupKey(@deprecated("", "") key: GlobalKey): Option[AbsoluteContractId] =
@@ -102,7 +103,7 @@ class EngineTest extends WordSpec with Matchers {
 
   // TODO make these two per-test, so that we make sure not to pollute the package cache and other possibly mutable stuff
   val engine = Engine()
-  val commandTranslator = CommandTranslation(ConcurrentCompiledPackages())
+  val commandTranslator = CommandPreprocessor(ConcurrentCompiledPackages())
 
   "valid data variant identifier" should {
     "found and return the argument types" in {
@@ -142,7 +143,7 @@ class EngineTest extends WordSpec with Matchers {
           assertAsVersionedValue(ValueRecord(Some(id), ImmArray((Some("p"), ValueParty(party))))))
 
       val res = commandTranslator
-        .commandTranslation(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContract, lookupPackage, lookupKey)
       res shouldBe 'right
 
@@ -157,7 +158,7 @@ class EngineTest extends WordSpec with Matchers {
           assertAsVersionedValue(ValueRecord(Some(id), ImmArray((None, ValueParty(party))))))
 
       val res = commandTranslator
-        .commandTranslation(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContract, lookupPackage, lookupKey)
       res shouldBe 'right
     }
@@ -172,7 +173,7 @@ class EngineTest extends WordSpec with Matchers {
             ValueRecord(Some(id), ImmArray((Some("this_is_not_the_one"), ValueParty(party))))))
 
       val res = commandTranslator
-        .commandTranslation(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContract, lookupPackage, lookupKey)
       res shouldBe 'left
     }
@@ -191,7 +192,7 @@ class EngineTest extends WordSpec with Matchers {
       )
 
       val res = commandTranslator
-        .commandTranslation(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContractForPayout, lookupPackage, lookupKey)
       res shouldBe 'right
     }
@@ -209,16 +210,102 @@ class EngineTest extends WordSpec with Matchers {
       )
 
       val res = commandTranslator
-        .commandTranslation(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContractForPayout, lookupPackage, lookupKey)
       res shouldBe 'right
     }
 
-    "translate Optional values" in {
-      val (optionalPkgId, optionalPkg) =
-        loadPackage("daml-lf/tests/Optional.dalf")
+    "translate create-and-exercise commands argument including labels" in {
+      val id = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
+      val let = Time.Timestamp.now()
+      val command =
+        CreateAndExerciseCommand(
+          id,
+          assertAsVersionedValue(
+            ValueRecord(
+              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+              ImmArray((Some("giver"), ValueParty(clara)), (Some("receiver"), ValueParty(clara))))),
+          "Transfer",
+          assertAsVersionedValue(
+            ValueRecord(None, ImmArray((Some("newReceiver"), ValueParty(clara))))),
+          clara
+        )
 
-      val translator = CommandTranslation(ConcurrentCompiledPackages.apply())
+      val res = commandTranslator
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
+        .consume(lookupContractForPayout, lookupPackage, lookupKey)
+      res shouldBe 'right
+
+    }
+
+    "translate create-and-exercise commands argument without labels" in {
+      val id = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
+      val let = Time.Timestamp.now()
+      val command =
+        CreateAndExerciseCommand(
+          id,
+          assertAsVersionedValue(
+            ValueRecord(
+              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+              ImmArray((None, ValueParty(clara)), (None, ValueParty(clara))))),
+          "Transfer",
+          assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty(clara))))),
+          clara
+        )
+
+      val res = commandTranslator
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
+        .consume(lookupContract, lookupPackage, lookupKey)
+      res shouldBe 'right
+    }
+
+    "not translate create-and-exercise commands argument wrong label in create arguments" in {
+      val id = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
+      val let = Time.Timestamp.now()
+      val command =
+        CreateAndExerciseCommand(
+          id,
+          assertAsVersionedValue(ValueRecord(
+            Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+            ImmArray((None, ValueParty(clara)), (Some("this_is_not_the_one"), ValueParty(clara))))),
+          "Transfer",
+          assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty(clara))))),
+          clara
+        )
+
+      val res = commandTranslator
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
+        .consume(lookupContract, lookupPackage, lookupKey)
+      res shouldBe 'left
+    }
+
+    "not translate create-and-exercise commands argument wrong label in choice arguments" in {
+      val id = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
+      val let = Time.Timestamp.now()
+      val command =
+        CreateAndExerciseCommand(
+          id,
+          assertAsVersionedValue(
+            ValueRecord(
+              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+              ImmArray((None, ValueParty(clara)), (None, ValueParty(clara))))),
+          "Transfer",
+          assertAsVersionedValue(
+            ValueRecord(None, ImmArray((Some("this_is_not_the_one"), ValueParty(clara))))),
+          clara
+        )
+
+      val res = commandTranslator
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
+        .consume(lookupContract, lookupPackage, lookupKey)
+      res shouldBe 'left
+    }
+
+    "translate Optional values" in {
+      val (optionalPkgId, optionalPkg @ _, allOptionalPackages) =
+        loadPackage("daml-lf/tests/Optional.dar")
+
+      val translator = CommandPreprocessor(ConcurrentCompiledPackages.apply())
 
       val id = Identifier(optionalPkgId, "Optional:Rec")
       val someValue = assertAsVersionedValue(
@@ -229,32 +316,20 @@ class EngineTest extends WordSpec with Matchers {
       )
       val typ = TTyConApp(id, ImmArray.empty)
 
-      def lookupOptionalPackage(pkgId: PackageId): Option[Package] = {
-        if (pkgId == optionalPkgId) {
-          Some(optionalPkg)
-        } else if (pkgId == ghcPrimPkgId) {
-          Some(ghcPrimPkg)
-        } else {
-          None
-        }
-      }
-
       translator
         .translateValue(typ, someValue)
-        .consume(lookupContract, lookupOptionalPackage, lookupKey) shouldBe
-        Right(
-          ERecCon(
-            TypeConApp(id, ImmArray.empty),
-            ImmArray("recField" -> ESome(TBuiltin(BTText), EPrimLit(PLText("foo"))))))
+        .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldBe
+        Right(SRecord(id, Array("recField"), ArrayList(SOptional(Some(SText("foo"))))))
+
       translator
         .translateValue(typ, noneValue)
-        .consume(lookupContract, lookupOptionalPackage, lookupKey) shouldBe
-        Right(
-          ERecCon(TypeConApp(id, ImmArray.empty), ImmArray("recField" -> ENone(TBuiltin(BTText)))))
+        .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldBe
+        Right(SRecord(id, Array("recField"), ArrayList(SOptional(None))))
+
     }
 
     "returns correct error when resuming" in {
-      val translator = CommandTranslation(ConcurrentCompiledPackages.apply())
+      val translator = CommandPreprocessor(ConcurrentCompiledPackages.apply())
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
       val wrongRecord = assertAsVersionedValue(
         ValueRecord(Some(id), ImmArray(Some("wrongLbl") -> ValueText("foo"))))
@@ -276,11 +351,11 @@ class EngineTest extends WordSpec with Matchers {
         assertAsVersionedValue(ValueRecord(Some(id), ImmArray((Some("p"), ValueParty(party))))))
 
     val res = commandTranslator
-      .commandTranslation(Commands(Seq(command), let, "test"))
+      .preprocessCommands(Commands(ImmArray(command), let, "test"))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe 'right
     val interpretResult = engine
-      .submit(Commands(Seq(command), let, "test"))
+      .submit(Commands(ImmArray(command), let, "test"))
       .consume(lookupContract, lookupPackage, lookupKey)
 
     "be translated" in {
@@ -289,7 +364,7 @@ class EngineTest extends WordSpec with Matchers {
 
     "reinterpret to the same result" in {
       val Right(tx) = interpretResult
-      val txRoots = tx.roots.map(id => tx.nodes.get(id).get).toSeq
+      val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
       val reinterpretResult =
         engine.reinterpret(txRoots, let).consume(lookupContract, lookupPackage, lookupKey)
       (interpretResult |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
@@ -306,6 +381,12 @@ class EngineTest extends WordSpec with Matchers {
         case Right(()) => ()
       }
     }
+
+    "cause used package to show up in transaction" in {
+      // NOTE(JM): Other packages are pulled in by BasicTests.daml, e.g. daml-prim, but we
+      // don't know the package ids here.
+      interpretResult.map(_.usedPackages.contains(basicTestsPkgId)) shouldBe Right(true)
+    }
   }
 
   "exercise command" should {
@@ -321,7 +402,7 @@ class EngineTest extends WordSpec with Matchers {
         assertAsVersionedValue(ValueRecord(Some(hello), ImmArray.empty)))
 
     val res = commandTranslator
-      .commandTranslation(Commands(Seq(command), let, "test"))
+      .preprocessCommands(Commands(ImmArray(command), let, "test"))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe 'right
     val interpretResult =
@@ -330,14 +411,14 @@ class EngineTest extends WordSpec with Matchers {
 
     "be translated" in {
       val submitResult = engine
-        .submit(Commands(Seq(command), let, "test"))
+        .submit(Commands(ImmArray(command), let, "test"))
         .consume(lookupContract, lookupPackage, lookupKey)
       interpretResult shouldBe 'right
       submitResult shouldBe interpretResult
     }
 
     "reinterpret to the same result" in {
-      val txRoots = tx.roots.map(id => tx.nodes.get(id).get).toSeq
+      val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
       val reinterpretResult =
         engine.reinterpret(txRoots, let).consume(lookupContract, lookupPackage, lookupKey)
       (interpretResult |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
@@ -415,13 +496,62 @@ class EngineTest extends WordSpec with Matchers {
 
     "events are collected" in {
       val Right(blindingInfo) =
-        Blinding.checkAuthorizationAndBlind(engine.ledgerFeatureFlags(), tx, Set(party))
+        Blinding.checkAuthorizationAndBlind(tx, Set(party))
       val events = Event.collectEvents(tx, blindingInfo.explicitDisclosure)
       val partyEvents = events.events.values.toList.filter(_.witnesses contains party)
       partyEvents.size shouldBe 1
       partyEvents(0) match {
         case _: ExerciseEvent[Tx.NodeId, ContractId, Tx.Value[ContractId]] => succeed
         case _ => fail("expected exercise")
+      }
+    }
+  }
+
+  "create-and-exercise command" should {
+    val templateId = Identifier(basicTestsPkgId, "BasicTests:Simple")
+    val hello = Identifier(basicTestsPkgId, "BasicTests:Hello")
+    val let = Time.Timestamp.now()
+    val command =
+      CreateAndExerciseCommand(
+        templateId,
+        assertAsVersionedValue(
+          ValueRecord(Some(templateId), ImmArray(Some("p") -> ValueParty(party)))),
+        "Hello",
+        assertAsVersionedValue(ValueRecord(Some(hello), ImmArray.empty)),
+        party
+      )
+
+    val res = commandTranslator
+      .preprocessCommands(Commands(ImmArray(command), let, "test"))
+      .consume(lookupContract, lookupPackage, lookupKey)
+    res shouldBe 'right
+    val interpretResult =
+      res.flatMap(r => engine.interpret(r, let).consume(lookupContract, lookupPackage, lookupKey))
+    val Right(tx) = interpretResult
+
+    "be translated" in {
+      tx.roots should have length 2
+      tx.nodes.keySet.toList should have length 2
+      val ImmArray(create, exercise) = tx.roots.map(tx.nodes)
+      create shouldBe a[NodeCreate[_, _]]
+      exercise shouldBe a[NodeExercises[_, _, _]]
+    }
+
+    "reinterpret to the same result" in {
+      val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
+      val reinterpretResult =
+        engine.reinterpret(txRoots, let).consume(lookupContract, lookupPackage, lookupKey)
+      (interpretResult |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
+    }
+
+    "be validated" in {
+      val validated = engine
+        .validate(tx, let)
+        .consume(lookupContract, lookupPackage, lookupKey)
+      validated match {
+        case Left(e) =>
+          fail(e.msg)
+        case Right(()) => ()
       }
     }
   }
@@ -433,7 +563,7 @@ class EngineTest extends WordSpec with Matchers {
         .translateValue(TList(TBuiltin(BTInt64)), assertAsVersionedValue(list))
         .consume(lookupContract, lookupPackage, lookupKey)
 
-      res shouldEqual Right(ENil(TBuiltin(BTInt64)))
+      res shouldEqual Right(SList(FrontStack.empty))
     }
 
     "translate singleton" in {
@@ -442,7 +572,7 @@ class EngineTest extends WordSpec with Matchers {
         .translateValue(TList(TBuiltin(BTInt64)), assertAsVersionedValue(list))
         .consume(lookupContract, lookupPackage, lookupKey)
 
-      listMatch(res, Array(EPrimLit(PLInt64(1))))
+      res shouldEqual Right(SList(FrontStack(ImmArray(SInt64(1)))))
     }
 
     "translate average list" in {
@@ -452,14 +582,8 @@ class EngineTest extends WordSpec with Matchers {
         .translateValue(TList(TBuiltin(BTInt64)), assertAsVersionedValue(list))
         .consume(lookupContract, lookupPackage, lookupKey)
 
-      listMatch(
-        res,
-        Array(
-          EPrimLit(PLInt64(1)),
-          EPrimLit(PLInt64(2)),
-          EPrimLit(PLInt64(3)),
-          EPrimLit(PLInt64(4)),
-          EPrimLit(PLInt64(5))))
+      res shouldEqual Right(
+        SValue.SList(FrontStack(ImmArray(SInt64(1), SInt64(2), SInt64(3), SInt64(4), SInt64(5)))))
     }
 
     "does not translate command with nesting of more than the value limit" in {
@@ -585,7 +709,7 @@ class EngineTest extends WordSpec with Matchers {
     )
 
     val res = commandTranslator
-      .commandTranslation(Commands(Seq(command), let, "test"))
+      .preprocessCommands(Commands(ImmArray(command), let, "test"))
       .consume(lookupContractForPayout, lookupPackage, lookupKey)
     res shouldBe 'right
     val interpretResult =
@@ -593,7 +717,7 @@ class EngineTest extends WordSpec with Matchers {
         engine.interpret(r, let).consume(lookupContractForPayout, lookupPackage, lookupKey))
     "be translated" in {
       val submitResult = engine
-        .submit(Commands(Seq(command), let, "test"))
+        .submit(Commands(ImmArray(command), let, "test"))
         .consume(lookupContractForPayout, lookupPackage, lookupKey)
       interpretResult shouldBe 'right
       submitResult shouldBe interpretResult
@@ -601,10 +725,10 @@ class EngineTest extends WordSpec with Matchers {
 
     val Right(tx) = interpretResult
     val Right(blindingInfo) =
-      Blinding.checkAuthorizationAndBlind(engine.ledgerFeatureFlags(), tx, Set(bob))
+      Blinding.checkAuthorizationAndBlind(tx, Set(bob))
 
     "reinterpret to the same result" in {
-      val txRoots = tx.roots.map(id => tx.nodes.get(id).get).toSeq
+      val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
       val reinterpretResult =
         engine.reinterpret(txRoots, let).consume(lookupContractForPayout, lookupPackage, lookupKey)
       (interpretResult |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
@@ -728,11 +852,13 @@ class EngineTest extends WordSpec with Matchers {
       val node2 = node1.copy(coid = AbsoluteContractId("0:1"))
 
       val tx = GenTx[NodeId, AbsoluteContractId, VersionedValue[AbsoluteContractId]](
-        Map(
+        nodes = Map(
           Tx.NodeId.unsafeFromIndex(0) -> node1,
           Tx.NodeId.unsafeFromIndex(1) -> node2
         ),
-        ImmArray(Tx.NodeId.unsafeFromIndex(0), Tx.NodeId.unsafeFromIndex(1)))
+        roots = ImmArray(Tx.NodeId.unsafeFromIndex(0), Tx.NodeId.unsafeFromIndex(1)),
+        usedPackages = Set.empty,
+      )
 
       val validationResult = engine
         .validatePartial(
@@ -752,7 +878,7 @@ class EngineTest extends WordSpec with Matchers {
     "events generated correctly" in {
       val Right(tx) = interpretResult
       val Right(blindingInfo) =
-        Blinding.checkAuthorizationAndBlind(engine.ledgerFeatureFlags(), tx, Set(bob))
+        Blinding.checkAuthorizationAndBlind(tx, Set(bob))
       val events = Event.collectEvents(tx, blindingInfo.explicitDisclosure)
       val partyEvents = events.filter(_.witnesses contains bob)
       partyEvents.roots.length shouldBe 1
@@ -861,7 +987,7 @@ class EngineTest extends WordSpec with Matchers {
       )
 
       val res = commandTranslator
-        .commandTranslation(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res.flatMap(r => engine.interpret(r, let).consume(lookupContract, lookupPackage, lookupKey))
@@ -881,11 +1007,17 @@ class EngineTest extends WordSpec with Matchers {
     }
   }
 
-  def listMatch(actual: Either[Error, Expr], expected: Array[Expr]) = {
-    actual match {
-      case Right(ECons(typ @ _, arr, _)) =>
-        for (i <- arr.indices) yield arr(i) shouldEqual expected(i)
-      case _ => fail("expected right value")
-    }
+}
+
+object EngineTest {
+
+  private implicit def qualifiedNameStr(s: String): QualifiedName =
+    QualifiedName.assertFromString(s)
+
+  private def ArrayList[X](as: X*): util.ArrayList[X] = {
+    val a = new util.ArrayList[X](as.length)
+    as.foreach(a.add)
+    a
   }
+
 }

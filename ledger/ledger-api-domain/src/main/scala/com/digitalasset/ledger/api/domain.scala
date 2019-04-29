@@ -6,27 +6,28 @@ package com.digitalasset.ledger.api
 import java.time.Instant
 
 import brave.propagation.TraceContext
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
-import com.digitalasset.ledger.api.domain.Value.RecordValue
 import scalaz.{@@, Tag}
+import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.daml.lf.command.{Commands => LfCommands}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
 
 import scala.collection.{breakOut, immutable}
 
 object domain {
 
-  final case class Identifier(packageId: PackageId, moduleName: String, entityName: String)
-
-  final case class TransactionFilter(filtersByParty: immutable.Map[Party, Filters])
+  final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters])
 
   object TransactionFilter {
 
     /** These parties subscribe for all templates */
-    def allForParties(parties: Set[Party]) =
+    def allForParties(parties: Set[Ref.Party]) =
       TransactionFilter(parties.map(_ -> Filters.noFilter)(breakOut))
   }
 
   final case class Filters(inclusive: Option[InclusiveFilters]) {
-    def containsTemplateId(identifier: Identifier): Boolean =
+    def containsTemplateId(identifier: Ref.Identifier): Boolean =
       inclusive.fold(true)(_.templateIds.contains(identifier))
   }
 
@@ -36,7 +37,7 @@ object domain {
     def apply(inclusive: InclusiveFilters) = new Filters(Some(inclusive))
   }
 
-  final case class InclusiveFilters(templateIds: immutable.Set[Identifier])
+  final case class InclusiveFilters(templateIds: immutable.Set[Ref.Identifier])
 
   sealed abstract class LedgerOffset extends Product with Serializable
 
@@ -56,9 +57,9 @@ object domain {
 
     def contractId: ContractId
 
-    def templateId: Identifier
+    def templateId: Ref.Identifier
 
-    def witnessParties: immutable.Set[Party]
+    def witnessParties: immutable.Set[Ref.Party]
   }
 
   object Event {
@@ -70,9 +71,9 @@ object domain {
     final case class CreatedEvent(
         eventId: EventId,
         contractId: ContractId,
-        templateId: Identifier,
-        createArguments: RecordValue,
-        witnessParties: immutable.Set[Party])
+        templateId: Ref.Identifier,
+        createArguments: ValueRecord[AbsoluteContractId],
+        witnessParties: immutable.Set[Ref.Party])
         extends Event
         with CreateOrExerciseEvent
         with CreateOrArchiveEvent
@@ -80,22 +81,22 @@ object domain {
     final case class ArchivedEvent(
         eventId: EventId,
         contractId: ContractId,
-        templateId: Identifier,
-        witnessParties: immutable.Set[Party])
+        templateId: Ref.Identifier,
+        witnessParties: immutable.Set[Ref.Party])
         extends Event
         with CreateOrExerciseEvent
 
     final case class ExercisedEvent(
         eventId: EventId,
         contractId: ContractId,
-        templateId: Identifier,
+        templateId: Ref.Identifier,
         contractCreatingEventId: EventId,
         choice: Choice,
         choiceArgument: Value,
-        actingParties: immutable.Set[Party],
+        actingParties: immutable.Set[Ref.Party],
         consuming: Boolean,
         children: Event,
-        witnessParties: immutable.Set[Party])
+        witnessParties: immutable.Set[Ref.Party])
         extends Event
         with CreateOrArchiveEvent
 
@@ -138,59 +139,7 @@ object domain {
       traceContext: Option[TraceContext])
       extends TransactionBase
 
-  sealed abstract class Value extends Product with Serializable
-
-  object Value {
-
-    final case class ListValue(elements: immutable.Seq[Value]) extends Value
-
-    final case class VariantValue(
-        variantId: Option[Identifier],
-        variantConstructor: VariantConstructor,
-        value: Value)
-        extends Value
-
-    final case class RecordValue(recordId: Option[Identifier], fields: immutable.Seq[RecordField])
-        extends Value
-
-    final case class ContractIdValue(contractId: ContractId) extends Value
-
-    final case class Int64Value(int64: Long) extends Value
-
-    final case class DecimalValue(value: String) extends Value
-
-    final case class TextValue(text: String) extends Value
-
-    final case class PartyValue(party: Party) extends Value
-
-    final case class BoolValue(bool: Boolean) extends Value
-
-    final case class TimeStampValue(microsSinceEpoch: Long) extends Value
-
-    final case class DateValue(daysSinceEpoch: Int) extends Value
-
-    final case class OptionalValue(opt: Option[Value]) extends Value { //TODO DEL-7054 test coverage
-      def isEmpty = opt.isEmpty
-    }
-    object OptionalValue {
-      val Empty = new OptionalValue(None)
-
-      def apply(opt: Option[Value]): OptionalValue =
-        opt.fold {
-          Empty
-        } { v =>
-          if (v != null)
-            new OptionalValue(opt)
-          else
-            Empty
-        }
-    }
-
-    final case class MapValue(map: Map[String, Value]) extends Value
-
-    case object UnitValue extends Value
-
-  }
+  type Value = Lf[Lf.AbsoluteContractId]
 
   final case class CommandStatus(
       code: Int,
@@ -219,11 +168,6 @@ object domain {
   }
 
   final case class RecordField(label: Option[Label], value: Value)
-
-  sealed trait PartyTag
-
-  type Party = String @@ PartyTag
-  val Party: Tag.TagOf[PartyTag] = Tag.of[PartyTag]
 
   sealed trait LabelTag
 
@@ -290,19 +234,9 @@ object domain {
       workflowId: Option[WorkflowId],
       applicationId: ApplicationId,
       commandId: CommandId,
-      submitter: Party,
+      submitter: Ref.Party,
       ledgerEffectiveTime: Instant,
       maximumRecordTime: Instant,
-      commands: immutable.Seq[Command])
-
-  sealed trait Command extends Product with Serializable
-
-  final case class CreateCommand(templateId: Identifier, record: RecordValue) extends Command
-  final case class ExerciseCommand(
-      templateId: Identifier,
-      contractId: ContractId,
-      choice: Choice,
-      choiceArgument: Value)
-      extends Command
+      commands: LfCommands)
 
 }

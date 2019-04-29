@@ -3,10 +3,10 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
-daml_provider = provider(doc='DAML provider', fields = {
-    'dalf': 'The DAML-LF file.',
-    'dar': 'The packaged archive.',
-    'srcjar': 'The generated Scala sources as srcjar.',
+daml_provider = provider(doc = "DAML provider", fields = {
+    "dalf": "The DAML-LF file.",
+    "dar": "The packaged archive.",
+    "srcjar": "The generated Scala sources as srcjar.",
 })
 
 def _daml_impl_compile_dalf(ctx):
@@ -22,7 +22,7 @@ def _daml_impl_compile_dalf(ctx):
         outputs = [ctx.outputs.dalf],
         arguments = [compile_args],
         progress_message = "Compiling DAML into DAML-LF archive %s" % ctx.outputs.dalf.short_path,
-        executable = ctx.executable._damlc,
+        executable = ctx.executable.damlc,
     )
 
 def _daml_impl_package_dar(ctx):
@@ -40,12 +40,13 @@ def _daml_impl_package_dar(ctx):
         outputs = [ctx.outputs.dar],
         arguments = [package_args],
         progress_message = "Creating DAR package %s" % ctx.outputs.dar.basename,
-        executable = ctx.executable._damlc,
+        executable = ctx.executable.damlc,
     )
 
 def _daml_impl_generate_scala(ctx):
     # Declare Scala source directory
     scala_dir = ctx.actions.declare_directory("%s_scala" % ctx.attr.name)
+
     # Call codegen
     gen_args = ctx.actions.args()
     gen_args.add("--input-file")
@@ -64,6 +65,7 @@ def _daml_impl_generate_scala(ctx):
         executable = ctx.executable._codegen,
         use_default_shell_env = True,
     )
+
     # Call jar to create srcjar
     jar_args = ctx.actions.args()
     jar_args.add("cf")
@@ -83,6 +85,7 @@ def _daml_impl(ctx):
     _daml_impl_compile_dalf(ctx)
     _daml_impl_package_dar(ctx)
     _daml_impl_generate_scala(ctx)
+
     # DAML provider
     daml = daml_provider(
         dalf = ctx.outputs.dalf,
@@ -102,10 +105,10 @@ def _daml_outputs_impl(name):
         for (k, v) in patterns.items()
     }
 
-
 def _daml_compile_impl(ctx):
     _daml_impl_compile_dalf(ctx)
     _daml_impl_package_dar(ctx)
+
     # DAML provider
     daml = daml_provider(
         dalf = ctx.outputs.dalf,
@@ -119,7 +122,7 @@ def _daml_compile_outputs_impl(name):
         "dar": "{name}.dar",
     }
     return {
-        k: v.format( name = name)
+        k: v.format(name = name)
         for (k, v) in patterns.items()
     }
 
@@ -131,16 +134,15 @@ daml_compile = rule(
         "main_src": attr.label(
             allow_single_file = [".daml"],
             mandatory = True,
-            doc = "The main DAML file that will be passed to the compiler."
+            doc = "The main DAML file that will be passed to the compiler.",
         ),
         "srcs": attr.label_list(
             allow_files = [".daml"],
             default = [],
-            doc = "Other DAML files that compilation depends on."
+            doc = "Other DAML files that compilation depends on.",
         ),
-
-        "target": attr.string(doc="DAML-LF version to output"),
-        "_damlc": attr.label(
+        "target": attr.string(doc = "DAML-LF version to output"),
+        "damlc": attr.label(
             executable = True,
             cfg = "host",
             allow_files = True,
@@ -153,39 +155,33 @@ daml_compile = rule(
 
 def _daml_test_impl(ctx):
     script = """
-      set -e
-      for f in {files}
-      do
-      echo "running damlc test on " $PWD/$f
-      {damlc} test $PWD/$f
-      done
-    """.format(damlc = ctx.executable._damlc.short_path, files = " ".join([f.short_path for f in ctx.files.srcs]))
+      {damlc} test {files}
+    """.format(damlc = ctx.executable.damlc.short_path, files = " ".join([f.short_path for f in ctx.files.srcs]))
 
     ctx.actions.write(
         output = ctx.outputs.executable,
         content = script,
     )
-    runfiles = ctx.runfiles(files = ctx.files.srcs + [ctx.executable._damlc])
+    runfiles = ctx.runfiles(files = ctx.files.srcs + [ctx.executable.damlc])
     return [DefaultInfo(runfiles = runfiles)]
 
 daml_test = rule(
-      implementation = _daml_test_impl,
-      attrs = {
-          "srcs": attr.label_list(
-              allow_files = [".daml"],
-              default = [],
-              doc = "DAML source files to test."
-          ),
-          "_damlc": attr.label(
-              executable = True,
-              cfg = "host",
-              allow_files = True,
-              default = Label("//daml-foundations/daml-tools/da-hs-damlc-app"),
-          ),
-      },
-      test = True,
+    implementation = _daml_test_impl,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = [".daml"],
+            default = [],
+            doc = "DAML source files to test.",
+        ),
+        "damlc": attr.label(
+            executable = True,
+            cfg = "host",
+            allow_files = True,
+            default = Label("//daml-foundations/daml-tools/da-hs-damlc-app"),
+        ),
+    },
+    test = True,
 )
-
 
 # Going forward this rule should be refactored by the DAML team and the
 # codegen parts should be separated into its own rule.
@@ -195,20 +191,20 @@ daml = rule(
         "main_src": attr.label(
             allow_single_file = [".daml"],
             mandatory = True,
-            doc = "The main DAML file that will be passed to the compiler."
+            doc = "The main DAML file that will be passed to the compiler.",
         ),
         "srcs": attr.label_list(
             allow_files = [".daml"],
             default = [],
-            doc = "Other DAML files that compilation depends on."
+            doc = "Other DAML files that compilation depends on.",
         ),
-        "target": attr.string(doc="DAML-LF version to output"),
-        "package": attr.string(mandatory=True, doc="Package name e.g. com.digitalasset.mypackage."),
-        "_damlc": attr.label(
+        "target": attr.string(doc = "DAML-LF version to output"),
+        "package": attr.string(mandatory = True, doc = "Package name e.g. com.digitalasset.mypackage."),
+        "damlc": attr.label(
             executable = True,
             cfg = "host",
             allow_files = True,
-            default = Label("//daml-foundations/daml-tools/damlc-jar:damlc_jar")
+            default = Label("//daml-foundations/daml-tools/damlc-jar:damlc_jar"),
         ),
         "_codegen": attr.label(
             executable = True,
@@ -220,7 +216,7 @@ daml = rule(
             executable = True,
             cfg = "host",
             allow_single_file = True,
-            default = Label ("@bazel_tools//tools/jdk:jar")
+            default = Label("@bazel_tools//tools/jdk:jar"),
         ),
     },
     executable = False,
@@ -248,7 +244,6 @@ Example:
   The generated DAML-LF file is available under `:example.lf`.
   The generated DAR file is available under the label `:example.dar`.
 """
-
 
 _daml_binary_script_template = """
 #!/usr/bin/env sh
@@ -336,7 +331,7 @@ dalf_compile = rule(
             doc = "Other DAML files that compilation depends on.",
         ),
         "target": attr.string(doc = "DAML-LF version to output"),
-        "_damlc": attr.label(
+        "damlc": attr.label(
             executable = True,
             cfg = "host",
             allow_files = True,

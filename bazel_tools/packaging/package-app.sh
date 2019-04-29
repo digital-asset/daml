@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # package-app <binary> <output file> <resources...>
+
+# On Linux and MacOS we handle dynamically linked binaries as follows:
 # 1. Create a temporary directory and lib directory
 # 2. Copy the binary to the temporary directory
 # 3. Use platform specific tools to extract names of the
@@ -10,7 +12,11 @@
 # 4. Create a wrapper or patch the binary.
 # 5. Create tarball out of the temporary directory.
 # 6. Clean up.
-set -e
+
+# On Windows we only handle statically linked binaries
+# (Haskell binaries are linked statically on Windows) so we
+# just copy the binary and the resources and create a tarball from that.
+set -eou pipefail
 
 WORKDIR="$(mktemp -d)"
 trap "rm -rf $WORKDIR" EXIT
@@ -20,13 +26,19 @@ OUT=$2
 shift 2
 NAME=$(basename $SRC)
 mkdir -p $WORKDIR/$NAME/lib
-export ORIGIN=$(dirname $SRC) # for rpaths relative to binary
+export ORIGIN=$(dirname $(readlink -f $SRC)) # for rpaths relative to binary
 
 # Copy in resources, if any.
 if [ $# -gt 0 ]; then
   mkdir -p $WORKDIR/$NAME/resources
   for res in $*; do
-    cp -aL "$res" "$WORKDIR/$NAME/resources"
+    if [[ "$res" == *.tar.gz ]]; then
+      # If a resource is a tarball, e.g., because it originates from another
+      # rule we extract it.
+      tar xf "$res" --strip-components=1 -C "$WORKDIR/$NAME/resources"
+    else
+      cp -aL "$res" "$WORKDIR/$NAME/resources"
+    fi
   done
 fi
 
@@ -100,16 +112,39 @@ LIB_DIR="\$SOURCE_DIR/lib"
 exec \$LIB_DIR/ld-linux-x86-64.so.2 --library-path "\$LIB_DIR" "\$LIB_DIR/$NAME" "\$@"
 EOF
   chmod a+x "$wrapper"
-else
+elif [[ "$(uname -s)" == "Darwin" ]]; then
   cp $SRC $WORKDIR/$NAME/$NAME
   chmod u+w $WORKDIR/$NAME/$NAME
   function copy_deps() {
     local from=$1
-    local needed="$(/usr/bin/otool -L "$from" | sed -n -e '1d' -e '/\/nix\/store/ s/^.*\(\/nix\/store[^ ]*\).*/\1/p')"
+    local needed="$(/usr/bin/otool -L "$from" | sed -n -e '1d' -e 's/^\s*\([^ ]*\).*$/\1/p')"
+    loader_path="$ORIGIN"
+    local rpaths="$(/usr/bin/otool -l $from | sed -n '/cmd LC_RPATH/{n;n;p;}' | sed -n -e 's/^.*path \([^ ]*\).*$/\1/p' | sed -e "s|@loader_path|$loader_path|")"
     for lib in $needed; do
       local libName="$(basename $lib)"
       if [[ "$libName" == "libSystem.B.dylib" ]]; then
-        /usr/bin/install_name_tool -change "$lib" "/usr/lib/$libName" "$from"
+          /usr/bin/install_name_tool -change "$lib" "/usr/lib/$libName" "$from"
+      elif [[ "$lib" == @rpath/* ]]; then
+          libName="${lib#@rpath/}"
+          local to="$WORKDIR/$NAME/lib/$libName"
+          if [[ ! -f "$to" ]]; then
+              libOK=0
+              for rpath in $rpaths; do
+                  if [[ -e "$rpath/$libName" ]]; then
+                      libOK=1
+                      cp "$rpath/$libName" "$to"
+                      chmod 0755 "$to"
+                      /usr/bin/install_name_tool -add_rpath "@loader_path/lib" "$to"
+                      copy_deps "$to"
+                      break
+                  fi
+              done
+              if [[ $libOK -ne 1 ]]; then
+                  echo "ERROR: Dynamic library $lib for $from not found from RPATH!"
+                  echo "RPATH=$rpaths"
+                  return 1
+              fi
+          fi
       else
         /usr/bin/install_name_tool -change "$lib" "@rpath/$libName" "$from"
 
@@ -130,6 +165,8 @@ else
 
   # Copy all dynamic library dependencies referred to from our binary
   copy_deps $WORKDIR/$NAME/$NAME
+else
+    cp "$SRC" "$WORKDIR/$NAME/$NAME"
 fi
 cd $WORKDIR && tar czf $OUT $NAME
 

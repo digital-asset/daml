@@ -125,10 +125,10 @@ package object model {
           case t @ DamlLfTypeCon(_, _) => DamlLfTypeCon(t.name, t.typArgs.map(mapTypeVars(_, f)))
           case t @ DamlLfTypePrim(_, _) => DamlLfTypePrim(t.typ, t.typArgs.map(mapTypeVars(_, f)))
         }
-        val withFWT: DamlLfFieldWithType => DamlLfFieldWithType = {
-          case (field, typ) => (field, mapTypeVars(typ, v => paramsMap.getOrElse(v.name, v)))
+        val withTyp: DamlLfIface.Type => DamlLfIface.Type = { typ =>
+          mapTypeVars(typ, v => paramsMap.getOrElse(v.name, v))
         }
-        defn.dataType.bimap(withFWT, withFWT)
+        defn.dataType.bimap(withTyp, withTyp)
       }
     }
 

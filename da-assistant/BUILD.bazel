@@ -1,100 +1,162 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load('//bazel_tools:haskell.bzl', 'da_haskell_binary', 'da_haskell_test')
-load ("//bazel_tools:packaging/packaging.bzl", "package_app")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
+load("//bazel_tools:packaging/packaging.bzl", "package_app")
 load("@ai_formation_hazel//:hazel.bzl", "hazel_binary")
 
-da_cli_version = '114-7582c1a0bd'
+da_cli_version = "114-7582c1a0bd"
+
 da_cli_version_flag = '-DDA_CLI_VERSION="%s"' % da_cli_version
 
 da_cli_hazel_deps = [
-    'aeson', 'aeson-extra', 'attoparsec',
-    'base', 'bytestring', 'conduit', 'conduit-extra',
-    'containers', 'cryptohash', 'directory', 'either',
-    'exceptions', 'extra', 'filepath', 'foldl', 'hashable',
-    'haskeline', 'http-api-data', 'http-client', 'http-client-tls',
-    'http-conduit', 'http-media', 'http-types', 'lens',
-    'lifted-base', 'monad-control', 'monad-logger',
-    'mtl', 'multimap', 'network', 'natural-sort',
-    'optparse-applicative', 'pipes-bytestring', 'pipes-http',
-    'pipes', 'pretty-simple', 'prettyprinter', 'process',
-    'safe-exceptions', 'safe', 'servant', 'servant-client',
-    'servant-client-core', 'servant-server', 'split', 'sqlite-simple',
-    'system-filepath', 'tar-conduit', 'tasty', 'tasty-hunit',
-    'temporary', 'terminal-size', 'text', 'these',
-    'tagged', 'time', 'transformers', 'transformers-base',
-    'random', 'QuickCheck', 'turtle', 'unix', 'unix-compat',
-    'unordered-containers', 'uri-encode', 'utf8-string', 'vector',
-    'warp', 'yaml',
+    "aeson",
+    "aeson-extra",
+    "attoparsec",
+    "base",
+    "bytestring",
+    "conduit",
+    "conduit-extra",
+    "containers",
+    "cryptohash",
+    "directory",
+    "either",
+    "exceptions",
+    "extra",
+    "filepath",
+    "foldl",
+    "hashable",
+    "haskeline",
+    "http-api-data",
+    "http-client",
+    "http-client-tls",
+    "http-conduit",
+    "http-media",
+    "http-types",
+    "lens",
+    "lifted-base",
+    "monad-control",
+    "monad-logger",
+    "mtl",
+    "multimap",
+    "network",
+    "natural-sort",
+    "optparse-applicative",
+    "pipes-bytestring",
+    "pipes-http",
+    "pipes",
+    "pretty-simple",
+    "prettyprinter",
+    "process",
+    "safe-exceptions",
+    "safe",
+    "servant",
+    "servant-client",
+    "servant-client-core",
+    "servant-server",
+    "split",
+    "sqlite-simple",
+    "system-filepath",
+    "tar-conduit",
+    "tasty",
+    "tasty-hunit",
+    "temporary",
+    "terminal-size",
+    "text",
+    "these",
+    "tagged",
+    "time",
+    "transformers",
+    "transformers-base",
+    "random",
+    "QuickCheck",
+    "turtle",
+    "unix",
+    "unix-compat",
+    "unordered-containers",
+    "uri-encode",
+    "utf8-string",
+    "vector",
+    "warp",
+    "yaml",
 ]
 
-da_haskell_binary (
-    name = 'da'
-    , srcs = native.glob(
-        [ 'DA/**/*.hs'
-        , 'Data/**/*.hs'
-        , 'apps/Main.hs'
-        ]
-    )
-    , main_function = "DA.Sdk.Cli.main"
-    , deps = [ "//libs-haskell/da-hs-base" ]
-    , compiler_flags = [da_cli_version_flag]
-    , hazel_deps = da_cli_hazel_deps
-    , visibility = ["//visibility:public"]
+da_haskell_binary(
+    name = "da",
+    srcs = native.glob(
+        [
+            "DA/**/*.hs",
+            "Data/**/*.hs",
+            "apps/Main.hs",
+        ],
+    ),
+    compiler_flags = [da_cli_version_flag],
+    hazel_deps = da_cli_hazel_deps,
+    main_function = "DA.Sdk.Cli.main",
+    visibility = ["//visibility:public"],
+    deps = ["//libs-haskell/da-hs-base"],
 )
 
 native.genrule(
-    name = 'version_file',
-    outs = ['VERSION'],
-    cmd = "echo -n " + da_cli_version + " > $(OUTS)"
+    name = "version_file",
+    outs = ["VERSION"],
+    cmd = "echo -n " + da_cli_version + " > $(OUTS)",
 )
 
 # Rule to package the DA application along with its dynamic libraries
-dist_name = 'dist'
+dist_name = "dist"
+
 package_app(
     name = dist_name,
-    binary = ':da',
-    visibility = ["//visibility:public"]
+    binary = ":da",
+    visibility = ["//visibility:public"],
 )
 
 installer_name = "installer.run"
+
 native.genrule(
     name = "installer_run",
     outs = [installer_name],
     visibility = ["//visibility:public"],
-    srcs = [dist_name + ".tar.gz", "setup.sh"],
+    srcs = [
+        dist_name + ".tar.gz",
+        "setup.sh",
+    ],
     tools = [hazel_binary("arx")],
-    cmd = "$(location " + hazel_binary("arx") + ") tmpx -o ./$(location " + installer_name + ") ./$(location " + dist_name + ".tar.gz ) -e ./$(location setup.sh)"
+    cmd = "$(location " + hazel_binary("arx") + ") tmpx -o ./$(location " + installer_name + ") ./$(location " + dist_name + ".tar.gz ) -e ./$(location setup.sh)",
 )
 
 exports_files(
-  srcs = ['setup.sh'],
-  visibility = ["//visibility:public"]
+    srcs = ["setup.sh"],
+    visibility = ["//visibility:public"],
 )
 
 da_haskell_test(
-    name = 'test',
+    name = "test",
     srcs = glob(
-        [ 'DA/**/*.hs'
-        , 'Data/**/*.hs'
-        , 'apps/Test.hs'
-        ]),
-    deps = ['//libs-haskell/da-hs-base:da-hs-base'],
+        [
+            "DA/**/*.hs",
+            "Data/**/*.hs",
+            "apps/Test.hs",
+        ],
+    ),
     compiler_flags = [da_cli_version_flag],
     hazel_deps = da_cli_hazel_deps,
     visibility = ["//visibility:public"],
+    deps = ["//libs-haskell/da-hs-base"],
 )
 
 da_haskell_binary(
-    name = 'mockserver-binary',
+    name = "mockserver-binary",
     srcs = glob(
-        [ 'DA/**/*.hs'
-        , 'Data/**/*.hs'
-        , 'apps/Mockserver.hs'
-        ]),
-    deps = ['//libs-haskell/da-hs-base:da-hs-base'],
+        [
+            "DA/**/*.hs",
+            "Data/**/*.hs",
+            "apps/Mockserver.hs",
+        ],
+    ),
     compiler_flags = [da_cli_version_flag],
     hazel_deps = da_cli_hazel_deps,
     visibility = ["//visibility:public"],
+    deps = ["//libs-haskell/da-hs-base"],
 )

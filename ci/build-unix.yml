@@ -1,6 +1,8 @@
+parameters:
+  name: ''
+
 steps:
   - checkout: self
-    fetchDepth: 2 # speed up checkout from 30sec to 7sec
 
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
@@ -15,22 +17,51 @@ steps:
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
 
-  - bash: ci/build.sh
-    displayName: 'Build'
+  - bash: ./fmt.sh --test
+    displayName: 'Platform-agnostic lints and checks'
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+
+  - bash: ci/configure-bazel.sh
+    displayName: 'Configure Bazel'
     env:
-      IS_FORK: variables['System.PullRequest.IsFork']
+      IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
+  - bash: ./build.sh "_$(uname)"
+    displayName: 'Build'
+
   - task: PublishBuildArtifacts@1
     condition: succeededOrFailed()
+    displayName: 'Publish the bazel execution logs'
     inputs:
       pathtoPublish: '$(Build.ArtifactStagingDirectory)'
-      artifactName: 'Bazel execution logs'
+      artifactName: 'Test logs'
+
+  - task: PublishBuildArtifacts@1
+    condition: failed()
+    displayName: 'Publish the bazel test logs'
+    inputs:
+      pathtoPublish: 'bazel-testlogs/'
+      artifactName: 'Bazel test logs'
 
   - bash: ci/release.sh
     displayName: 'Release'
-    condition: eq(variables['System.PullRequest.IsFork'], 'False')
+    condition: and(succeeded(),
+                   eq(variables['System.PullRequest.IsFork'], 'False'))
     env:
       # to connect to bintray
       JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)
+    name: release
+  - bash: |
+      set -euo pipefail
+      ARTIFACT=daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz
+      cp bazel-genfiles/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$ARTIFACT
+      echo "##vso[task.setvariable variable=artifact;isOutput=true]$ARTIFACT"
+    name: publish
+    condition: eq(variables['release.has_released'], 'true')
+  - task: PublishPipelineArtifact@0
+    condition: eq(variables['release.has_released'], 'true')
+    inputs:
+      targetPath: $(Build.StagingDirectory)/$(publish.artifact)
+      artifactName: $(publish.artifact)

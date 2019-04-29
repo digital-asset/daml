@@ -27,24 +27,24 @@ message Value {
     // Represents a homogenous list of values.
     List list = 4;
 
-    sint64 int64 = 5;
+    sint64 int64 = 5 [jstype = JS_STRING];
 
     // A decimal value with precision 38 (38 decimal digits), of which
     // 10 after the comma / period. in other words a decimal is a number
-    // of the form `x / 10^10` where `|x| < 10^38`.
+    // of the form ``x / 10^10`` where ``|x| < 10^38``.
     // The number can start with a leading sign [+-] followed by digits
     string decimal = 6;
 
     // A string.
     string text = 8;
 
-    // microseconds since the UNIX epoch. can go backwards. fixed
+    // Microseconds since the UNIX epoch. Can go backwards. Fixed
     // since the vast majority of values will be greater than
     // 2^28, since currently the number of microseconds since the
     // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
     // 9999-12-31T23:59:59.999999Z, so that we can convert to/from
     // https://www.ietf.org/rfc/rfc3339.txt
-    sfixed64 timestamp = 9;
+    sfixed64 timestamp = 9 [jstype = JS_STRING];
 
     // An agent operating on the ledger.
     string party = 11;
@@ -55,7 +55,7 @@ message Value {
     // This value is used for example for choices that don't take any arguments.
     google.protobuf.Empty unit = 13;
 
-    // days since the unix epoch. can go backwards. limited from
+    // Days since the unix epoch. Can go backwards. Limited from
     // 0001-01-01 to 9999-12-31, also to be compatible with
     // https://www.ietf.org/rfc/rfc3339.txt
     int32 date = 14;
@@ -101,7 +101,7 @@ message Identifier {
   string package_id = 1;
 
   // The identifier of the entity (unique within the package)
-  // DEPRECATED: use module_name and entity_name instead
+  // DEPRECATED: use ``module_name`` and ``entity_name`` instead
   // Optional
   string name = 2 [deprecated=true];
 
@@ -138,8 +138,8 @@ message List {
 }
 
 // Corresponds to Java's Optional type, Scala's Option, and Haskell's Maybe.
-// The reason why we need to wrap this in an additional `message` is that we
-// need to be able to encode the `None` case in the `Value` oneof.
+// The reason why we need to wrap this in an additional ``message`` is that we
+// need to be able to encode the ``None`` case in the ``Value`` oneof.
 message Optional {
   Value value = 1; // optional
 }
@@ -147,7 +147,7 @@ message Optional {
 
 message Map {
     message Entry {
-        Value key = 1; // key must be of type Text
+        string key = 1;
         Value value = 2;
     }
 

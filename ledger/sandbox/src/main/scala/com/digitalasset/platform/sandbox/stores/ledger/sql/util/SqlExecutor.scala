@@ -36,6 +36,9 @@ class SqlExecutor(noOfThread: Int) extends AutoCloseable {
       } catch {
         case NonFatal(e) =>
           promise.failure(e)
+        case t: Throwable =>
+          logger.error("got a fatal error!", t) //fatal errors don't make it for some reason to the setUncaughtExceptionHandler above
+          throw t
       }
     })
     promise.future

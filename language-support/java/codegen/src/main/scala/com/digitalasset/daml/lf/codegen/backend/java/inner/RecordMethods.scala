@@ -21,25 +21,34 @@ private[inner] object RecordMethods extends StrictLogging {
 
     val actualTypeParameters = findTypeParamsInFields(fields)
 
-    val fromValue = FromValueGenerator.generateFromValueForRecordLike(
-      fields,
-      className.parameterized(typeParameters),
-      actualTypeParameters,
-      (inVar, outVar) =>
-        CodeBlock.builder
-          .addStatement("$T $L = $L", classOf[javaapi.data.Value], outVar, inVar)
-          .build(),
-      packagePrefixes
-    )
-    val toValue = ToValueGenerator.generateToValueForRecordLike(
-      actualTypeParameters,
-      fields,
-      packagePrefixes,
-      ClassName.get(classOf[javaapi.data.Record]),
-      name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.Record], name)
-    )
+    val conversionMethods = Vector(actualTypeParameters, typeParameters).distinct.flatMap {
+      params =>
+        val fromValue = FromValueGenerator.generateFromValueForRecordLike(
+          fields,
+          className.parameterized(typeParameters),
+          params,
+          (inVar, outVar) =>
+            CodeBlock.builder
+              .addStatement(
+                "$T $L = $L",
+                classOf[javaapi.data.Value],
+                outVar,
+                inVar
+              )
+              .build(),
+          packagePrefixes
+        )
+        val toValue = ToValueGenerator.generateToValueForRecordLike(
+          params,
+          fields,
+          packagePrefixes,
+          ClassName.get(classOf[javaapi.data.Record]),
+          name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.Record], name)
+        )
+        List(fromValue, toValue)
+    }
 
-    Vector(constructor, toValue, fromValue) ++
+    Vector(constructor) ++ conversionMethods ++
       ObjectMethods(className, fields.map(_.javaName))
   }
 }

@@ -10,6 +10,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.VersionedValue
+import com.digitalasset.ledger.backend.api.v1.SubmissionResult.Acknowledged
 import com.digitalasset.ledger.backend.api.v1._
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.services.time.TimeModel
@@ -91,6 +92,9 @@ class Backend(
     logger.debug("shutdownTasks called.")
     ledger.shutdownTasks()
   }
+
+  override def close(): Unit = {}
+
 }
 
 class Handle(ledger: Ledger, ledgerSyncOffset: LedgerSyncOffset, ec: ExecutionContext)
@@ -106,14 +110,15 @@ class Handle(ledger: Ledger, ledgerSyncOffset: LedgerSyncOffset, ec: ExecutionCo
     * @param submission
     * @return
     */
-  override def submit(submission: TransactionSubmission): Future[Unit] = {
+  override def submit(submission: TransactionSubmission): Future[SubmissionResult] = {
     logger.debug("submit called: " + submission.toString)
     Future {
       ledger.submitAndNotify(submission)
+      Acknowledged
     }(ec)
   }
 
-  override def lookupActiveContract(contractId: Value.AbsoluteContractId)
+  override def lookupActiveContract(submitter: Party, contractId: Value.AbsoluteContractId)
     : Future[Option[Value.ContractInst[VersionedValue[Value.AbsoluteContractId]]]] = {
     logger.debug("lookupActiveContract called: " + contractId.toString)
     Future.successful {
@@ -125,4 +130,5 @@ class Handle(ledger: Ledger, ledgerSyncOffset: LedgerSyncOffset, ec: ExecutionCo
 
   override def lookupContractKey(key: Node.GlobalKey): Future[Option[Value.AbsoluteContractId]] =
     sys.error("contract keys not implemented in example backend")
+
 }

@@ -3,18 +3,17 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier => LfIdentifier, Party => LfParty}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.transaction.Node.GenNode
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node}
-import com.digitalasset.ledger.api.domain.{Identifier, PackageId, Party, TransactionFilter}
-import scalaz.syntax.tag._
+import com.digitalasset.ledger.api.domain.TransactionFilter
 
 import scala.collection.{breakOut, immutable, mutable}
 
 // This will be tested transitively by the semantic test suite.
 object TransactionFiltration {
 
-  private def templateId[I, C, V](node: GenNode[I, C, V]): Option[LfIdentifier] = node match {
+  private def templateId[I, C, V](node: GenNode[I, C, V]): Option[Identifier] = node match {
     case l: Node.NodeLookupByKey[I @unchecked, V @unchecked] => Some(l.templateId)
     case c: Node.NodeCreate[I @unchecked, V @unchecked] => Some(c.coinst.template)
     case e: Node.NodeExercises[I @unchecked, C @unchecked, V @unchecked] => Some(e.templateId)
@@ -34,12 +33,6 @@ object TransactionFiltration {
       }
       .withDefaultValue(invertedTransactionFilter.globalSubscribers)
 
-  private def toApiIdentifier(id: LfIdentifier): Identifier =
-    Identifier(
-      PackageId(id.packageId.underlyingString),
-      id.qualifiedName.module.toString(),
-      id.qualifiedName.name.toString())
-
   implicit class RichTransactionFilter(val transactionFilter: TransactionFilter) extends AnyVal {
 
     /**
@@ -55,39 +48,41 @@ object TransactionFiltration {
           InvertedTransactionFilter
             .extractFrom(transactionFilter))
 
-      val filteredPartiesByNode = mutable.Map.empty[Nid, immutable.Set[LfParty]]
+      val filteredPartiesByNode = mutable.Map.empty[Nid, immutable.Set[Party]]
       val inheritedWitnessesByNode =
-        mutable.Map.empty[Nid, immutable.Set[LfParty]].withDefaultValue(Set.empty)
+        mutable.Map.empty[Nid, immutable.Set[Party]].withDefaultValue(Set.empty)
 
       transaction.foreach(
         GenTransaction.TopDown, { (nodeId, node) =>
-          templateId(node).foreach {
-            tpl =>
-              val requestingParties =
-                partiesByTemplate(toApiIdentifier(tpl)).map(p => LfParty.assertFromString(p.unwrap))
-              val inheritedWitnesses = inheritedWitnessesByNode(nodeId)
-              val explicitWitnesses = explicitWitnessesForNode(node)
-              val allWitnesses = inheritedWitnesses union explicitWitnesses
-              val requestingWitnesses = requestingParties intersect allWitnesses
+          templateId(node).foreach { tpl =>
+            val requestingParties = partiesByTemplate(tpl)
+            val inheritedWitnesses = inheritedWitnessesByNode(nodeId)
+            val explicitWitnesses = explicitWitnessesForNode(node)
+            val allWitnesses = inheritedWitnesses union explicitWitnesses
+            val requestingWitnesses = requestingParties intersect allWitnesses
 
-              filteredPartiesByNode += ((nodeId, requestingWitnesses))
-              inheritedWitnessesByNode ++= children(node).map(_ -> allWitnesses)
+            filteredPartiesByNode += ((nodeId, requestingWitnesses))
+            inheritedWitnessesByNode ++= children(node).map(_ -> allWitnesses)
           }
         }
       )
 
       if (filteredPartiesByNode.exists(_._2.nonEmpty)) {
         val nodeIdToParty: Map[String, immutable.Set[Party]] = filteredPartiesByNode.map {
-          case (k, v) => (nidToString(k), v.map(e => Party(e.underlyingString)))
+          case (k, v) => (nidToString(k), v)
         }(breakOut)
         Some(nodeIdToParty)
       } else None
     }
 
-    private def explicitWitnessesForNode(node: GenNode[_, _, _]): Set[LfParty] = node match {
+    private def explicitWitnessesForNode(node: GenNode[_, _, _]): Set[Party] = node match {
       case n: Node.NodeCreate[_, _] => n.signatories union n.stakeholders
       case n: Node.NodeFetch[_] => n.signatories union n.stakeholders
-      case n: Node.NodeExercises[_, _, _] => n.signatories union n.stakeholders
+      case n: Node.NodeExercises[_, _, _] =>
+        if (n.consuming)
+          n.signatories union n.stakeholders
+        else
+          n.signatories
       case _: Node.NodeLookupByKey[_, _] => Set.empty
     }
   }

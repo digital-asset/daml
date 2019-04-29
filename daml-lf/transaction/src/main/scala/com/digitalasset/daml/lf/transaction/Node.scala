@@ -6,9 +6,9 @@ import com.digitalasset.daml.lf.data.{ImmArray, ScalazEqual}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 
+import scala.language.higherKinds
 import scalaz.Equal
 import scalaz.std.option._
-import scalaz.syntax.apply.^
 import scalaz.syntax.equal._
 
 /**
@@ -23,8 +23,12 @@ object Node {
     def mapNodeId[Nid2](f: Nid => Nid2): GenNode[Nid2, Cid, Val]
   }
 
+  object GenNode extends WithTxValue3[GenNode]
+
   /** A transaction node that can't possibly refer to `Nid`s. */
   sealed trait LeafOnlyNode[+Cid, +Val] extends GenNode[Nothing, Cid, Val]
+
+  object LeafOnlyNode extends WithTxValue2[LeafOnlyNode]
 
   /** Denotes the creation of a contract instance. */
   final case class NodeCreate[+Cid, +Val](
@@ -42,6 +46,8 @@ object Node {
 
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeCreate[Cid, Val] = this
   }
+
+  object NodeCreate extends WithTxValue2[NodeCreate]
 
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
   final case class NodeFetch[+Cid](
@@ -89,6 +95,8 @@ object Node {
       )
   }
 
+  object NodeExercises extends WithTxValue3[NodeExercises]
+
   final case class NodeLookupByKey[+Cid, +Val](
       templateId: Identifier,
       optLocation: Option[Location],
@@ -102,6 +110,8 @@ object Node {
 
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeLookupByKey[Cid, Val] = this
   }
+
+  object NodeLookupByKey extends WithTxValue2[NodeLookupByKey]
 
   case class KeyWithMaintainers[+Val](key: Val, maintainers: Set[Party]) {
     def mapValue[Val1](f: Val => Val1): KeyWithMaintainers[Val1] = copy(key = f(key))
@@ -122,10 +132,11 @@ object Node {
     recorded match {
       case nc: NodeCreate[Cid, Val] =>
         isReplayedBy match {
-          case NodeCreate(coid2, coinst2, optLocation2, signatories2, stakeholders2, key2) =>
+          case NodeCreate(coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
             import nc._
+            // NOTE(JM): Do not compare location annotations as they may differ due to
+            // differing update expression constructed from the root node.
             coid === coid2 && coinst === coinst2 &&
-            ^(optLocation, optLocation2)(_ == _).getOrElse(true) &&
             signatories == signatories2 && stakeholders == stakeholders2 && key === key2
           case _ => false
         }
@@ -134,13 +145,12 @@ object Node {
           case NodeFetch(
               coid2,
               templateId2,
-              optLocation2,
+              optLocation2 @ _,
               actingParties2,
               signatories2,
               stakeholders2) =>
             import nf._
             coid === coid2 && templateId == templateId2 &&
-            ^(optLocation, optLocation2)(_ == _).getOrElse(true) &&
             actingParties.forall(_ => actingParties == actingParties2) &&
             signatories == signatories2 && stakeholders == stakeholders2
           case _ => false
@@ -151,7 +161,7 @@ object Node {
               targetCoid2,
               templateId2,
               choiceId2,
-              optLocation2,
+              optLocation2 @ _,
               consuming2,
               actingParties2,
               chosenValue2,
@@ -161,17 +171,15 @@ object Node {
               _) =>
             import ne._
             targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
-            ^(optLocation, optLocation2)(_ == _).getOrElse(true) &&
             consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
             stakeholders == stakeholders2 && signatories == signatories2 && controllers == controllers2
           case _ => false
         }
       case nl: NodeLookupByKey[Cid, Val] =>
         isReplayedBy match {
-          case NodeLookupByKey(templateId2, optLocation2, key2, result2) =>
+          case NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2) =>
             import nl._
             templateId == templateId2 &&
-            ^(optLocation, optLocation2)(_ == _).getOrElse(true) &&
             key === key2 && result === result2
           case _ => false
         }
@@ -181,4 +189,12 @@ object Node {
     * a key.
     */
   case class GlobalKey(templateId: Identifier, key: VersionedValue[AbsoluteContractId])
+
+  sealed trait WithTxValue2[F[+ _, + _]] {
+    type WithTxValue[+Cid] = F[Cid, Transaction.Value[Cid]]
+  }
+
+  sealed trait WithTxValue3[F[+ _, + _, + _]] {
+    type WithTxValue[+Nid, +Cid] = F[Nid, Cid, Transaction.Value[Cid]]
+  }
 }

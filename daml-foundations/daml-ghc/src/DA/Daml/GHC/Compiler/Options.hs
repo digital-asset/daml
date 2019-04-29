@@ -4,9 +4,12 @@
 module DA.Daml.GHC.Compiler.Options
     ( Options(..)
     , defaultOptionsIO
+    , defaultOptions
     , mkOptions
     , getBaseDir
     , toCompileOpts
+    , projectPackageDatabase
+    , basePackages
     ) where
 
 
@@ -19,6 +22,7 @@ import DA.Daml.GHC.Compiler.Preprocessor
 
 import           Control.Monad.Reader
 import qualified Data.List.Extra as List
+import Data.Maybe (fromMaybe)
 import qualified "ghc-lib" GHC
 import "ghc-lib-parser" Module (moduleNameSlashes)
 import qualified System.Directory as Dir
@@ -49,6 +53,8 @@ data Options = Options
     -- ^ The target DAML LF version
   , optDebug :: Bool
     -- ^ Whether to enable debugging output
+  , optGhcCustomOpts :: [String]
+    -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   } deriving Show
 
 -- | Convert to the DAML-independent CompileOpts type.
@@ -59,7 +65,7 @@ toCompileOpts Options{..} =
       { optPreprocessor = damlPreprocessor
       , optRunGhcSession = \mbMod packageState m -> runGhcFast $ do
             let importPaths = maybe [] moduleImportPaths mbMod <> optImportPath
-            setupDamlGHC importPaths optMbPackageName packageState
+            setupDamlGHC importPaths optMbPackageName packageState optGhcCustomOpts
             m
       , optWriteIface = optWriteInterface
       , optMbPackageName = optMbPackageName
@@ -83,36 +89,39 @@ moduleImportPaths pm =
         | rootModDir == "." = Just rootPathDir
         | otherwise = dropTrailingPathSeparator <$> List.stripSuffix rootModDir rootPathDir
 
+-- | The project package database path relative to the project root.
+projectPackageDatabase :: FilePath
+projectPackageDatabase = ".package-database"
+
+-- | Packages that we ship with the compiler.
+basePackages :: [String]
+basePackages = ["daml-prim", "daml-stdlib"]
 
 -- | Check that import paths and package db directories exist
 -- and add the default package db if it exists
 mkOptions :: Options -> IO Options
-mkOptions opts@Options{..} = do
+mkOptions opts@Options {..} = do
     baseDir <- getBaseDir
     mapM_ checkDirExists $ optImportPath <> optPackageDbs
     let defaultPkgDb = baseDir </> "package-database"
-    hasDefaultPkgDb <- Dir.doesDirectoryExist defaultPkgDb
-    pure opts
-            { optPackageDbs =
-                  map (</> versionSuffix) $
-                  [defaultPkgDb | hasDefaultPkgDb] ++ optPackageDbs
-            }
+    pkgDbs <- filterM Dir.doesDirectoryExist [defaultPkgDb, projectPackageDatabase]
+    pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
           unless ok $ error $
             "Required configuration/package database directory does not exist: " <> f
-        versionSuffix = case optDamlLfVersion of
-            LF.VDev _ -> "dev"
-            _ -> renderPretty optDamlLfVersion
+        versionSuffix = renderPretty optDamlLfVersion
 
--- | Default configuration for the compiler, in particular the standard library
---   and configuration directory `daml-stdlib`.
---   By default, the directories are expected in the executable's location under resources.
-defaultOptionsIO :: IO Options
-defaultOptionsIO = do
-    baseDir <- getBaseDir
-    mkOptions Options
-        { optImportPath = [baseDir </> "daml-stdlib-src"]
+-- | Default configuration for the compiler with package database set according to daml-lf version
+-- and located runfiles. If the version argument is Nothing it is set to the default daml-lf
+-- version.
+defaultOptionsIO :: Maybe LF.Version -> IO Options
+defaultOptionsIO mbVersion = mkOptions $ defaultOptions mbVersion
+
+defaultOptions :: Maybe LF.Version -> Options
+defaultOptions mbVersion =
+    Options
+        { optImportPath = []
         , optPackageDbs = []
         , optMbPackageName = Nothing
         , optWriteInterface = False
@@ -120,8 +129,9 @@ defaultOptionsIO = do
         , optPackageImports = []
         , optShakeProfiling = Nothing
         , optThreads = 1
-        , optDamlLfVersion = LF.versionDefault
+        , optDamlLfVersion = fromMaybe LF.versionDefault mbVersion
         , optDebug = False
+        , optGhcCustomOpts = []
         }
 
 getBaseDir :: IO FilePath

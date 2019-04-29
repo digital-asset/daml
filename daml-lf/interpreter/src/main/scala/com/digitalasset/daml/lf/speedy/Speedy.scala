@@ -91,7 +91,8 @@ object Speedy {
         false
     }
 
-    def lookupVal(eval: SEVal): Ctrl =
+    def lookupVal(eval: SEVal): Ctrl = {
+      ptx = ptx.markPackage(eval.ref.packageId)
       eval.cached match {
         case Some(v) =>
           CtrlValue(v.asInstanceOf[SValue])
@@ -127,6 +128,7 @@ object Speedy {
             }
           }
       }
+    }
 
     /** Returns true when the machine has finished evaluation.
       * The machine is considered final when the kont stack

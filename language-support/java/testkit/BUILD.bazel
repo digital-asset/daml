@@ -2,22 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  "//bazel_tools:scala.bzl",
-  "da_scala_library"
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
 )
+
 da_scala_library(
-	name = 'testkit',
-
-	srcs = glob(['src/main/scala/**/*.scala']),
-
-	deps = [
-		'//ledger-api/grpc-definitions:ledger-api-scalapb',
-		'//ledger-api/rs-grpc-bridge:rs-grpc-bridge',
-		"//3rdparty/jvm/com/google/code/findbugs:jsr305",
-		"//3rdparty/jvm/io/reactivex/rxjava2:rxjava"
-	],
-
-	visibility = [
-		'//visibility:public',
-	]
+    name = "testkit",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//3rdparty/jvm/com/google/code/findbugs:jsr305",
+        "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//ledger-api/rs-grpc-bridge",
+    ],
 )

@@ -11,7 +11,6 @@ import scala.math.BigDecimal
   *  These are numbers of precision 38 (38 decimal digits), and scale 10 (10 digits after the comma)
   */
 object Decimal {
-
   type Decimal = BigDecimal
 
   val scale: Int = 10
@@ -28,7 +27,11 @@ object Decimal {
 
   val min: Decimal = unlimitedBigDecimal("-9999999999999999999999999999.9999999999")
 
-  def check(x0: Decimal): Either[String, Decimal] = {
+  /** Checks that a `Decimal` falls between `min` and `max`, and
+    * round the number according to `scale`. Note that it does _not_
+    * fail if the number contains data beyond `scale`.
+    */
+  def checkWithinBoundsAndRound(x0: Decimal): Either[String, Decimal] = {
     if (x0 > max || x0 < min) {
       Left(s"out-of-bounds Decimal $x0")
     } else {
@@ -38,14 +41,26 @@ object Decimal {
     }
   }
 
-  def add(x: Decimal, y: Decimal): Either[String, Decimal] = check(x + y)
-  def div(x: Decimal, y: Decimal): Either[String, Decimal] = check(x / y)
-  def mult(x: Decimal, y: Decimal): Either[String, Decimal] = check(x * y)
-  def sub(x: Decimal, y: Decimal): Either[String, Decimal] = check(x - y)
+  /** Like `checkWithinBoundsAndRound`, but _fails_ if the given number contains
+    * any data beyond `scale`.
+    */
+  def checkWithinBoundsAndWithinScale(x0: Decimal): Either[String, Decimal] = {
+    for {
+      x1 <- checkWithinBoundsAndRound(x0)
+      // if we've lost any data at all, it means that we weren't within the
+      // scale.
+      x2 <- Either.cond(x0 == x1, x1, s"out-of-bounds Decimal $x0")
+    } yield x2
+  }
+
+  def add(x: Decimal, y: Decimal): Either[String, Decimal] = checkWithinBoundsAndRound(x + y)
+  def div(x: Decimal, y: Decimal): Either[String, Decimal] = checkWithinBoundsAndRound(x / y)
+  def mult(x: Decimal, y: Decimal): Either[String, Decimal] = checkWithinBoundsAndRound(x * y)
+  def sub(x: Decimal, y: Decimal): Either[String, Decimal] = checkWithinBoundsAndRound(x - y)
 
   def round(newScale: Long, x0: Decimal): Either[String, Decimal] =
     // check to make sure the rounding mode is OK
-    check(x0).flatMap(x =>
+    checkWithinBoundsAndRound(x0).flatMap(x =>
       if (newScale > scale || newScale < -27) {
         Left(s"Bad scale $newScale, must be between -27 and $scale")
       } else {
@@ -57,14 +72,14 @@ object Decimal {
             .setScale(scale))
     })
 
+  private val hasExpectedFormat =
+    """[+-]?\d{1,28}(\.\d{1,10})?""".r.pattern
+
   def fromString(s: String): Either[String, Decimal] =
-    // parse with infinite precision, then check
-    try {
-      check(unlimitedBigDecimal(s))
-    } catch {
-      case err: NumberFormatException =>
-        Left(s"Could not read Decimal string: $err")
-    }
+    if (hasExpectedFormat.matcher(s).matches())
+      checkWithinBoundsAndWithinScale(unlimitedBigDecimal(s))
+    else
+      Left(s"""Could not read Decimal string "$s"""")
 
   def toString(d: Decimal): String = {
     // Strip the trailing zeros (which BigDecimal keeps if the string

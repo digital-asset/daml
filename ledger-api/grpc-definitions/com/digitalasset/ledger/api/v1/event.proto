@@ -12,7 +12,7 @@ option java_outer_classname = "EventOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1";
 
 // An event on the ledger can either be the creation or the archiving of a contract, or the exercise of a choice on a contract.
-// The GetTransactionTrees response will only contain create and exercise events.
+// The ``GetTransactionTrees`` response will only contain create and exercise events.
 // Archive events correspond to consuming exercise events.
 message Event {
   oneof event {
@@ -107,7 +107,7 @@ message ExercisedEvent {
   // Required
   repeated string witness_parties = 10;
 
-  // References to further events in the same transaction that appeared as a result of this ExercisedEvent.
+  // References to further events in the same transaction that appeared as a result of this ``ExercisedEvent``.
   // It contains only the immediate children of this event, not all members of the subtree rooted at this node.
   // Optional
   repeated string child_event_ids = 11;

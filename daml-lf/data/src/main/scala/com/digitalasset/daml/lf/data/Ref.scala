@@ -15,16 +15,6 @@ object Ref {
 
   object SimpleString {
 
-    /** Crashes if the string is not a valid [[SimpleString]]. We provide this for
-      * backwards compat, but generally we prefer `assertX` methods for other
-      * similar classes.
-      */
-    @deprecated(
-      "use SimpleString.fromString, SimpleString.assertFromString, Party.fromString, or Party.assertFromString",
-      since = "44.0.1")
-    @throws[IllegalArgumentException]
-    def apply(s: String): Party = assertFromString(s)
-
     private def valid(c: Char) =
       ('a' <= c && c <= 'z') ||
         ('A' <= c && c <= 'Z') ||
@@ -42,6 +32,7 @@ object Ref {
             Left(s"""Invalid character ${c.toInt.formatted("%#x")} found in "$string"""")
         }
 
+    /** Crashes if the string is not a valid [[SimpleString]]. */
     @throws[IllegalArgumentException]
     def assertFromString(s: String): SimpleString =
       assert(fromString(s))
@@ -96,6 +87,8 @@ object Ref {
     private val segmentPart: Set[Char] = asciiLetter ++ asciiDigit ++ allowedSymbols
 
     def fromString(s: String): Either[String, DottedName] = {
+      if (s.isEmpty)
+        return Left(s"Expected a non-empty string")
       val segments = split(s, '.')
       fromSegments(segments.toSeq)
     }

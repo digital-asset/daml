@@ -97,7 +97,6 @@ final case class ScenarioRunner(machine: Speedy.Machine) {
           committer = committer,
           effectiveAt = ledger.currentTime,
           optLocation = machine.commitLocation,
-          flags = machine.compiledPackages.ledgerFlags,
           tr = tx,
           l = ledger)
         .isRight) {
@@ -111,7 +110,6 @@ final case class ScenarioRunner(machine: Speedy.Machine) {
       committer = committer,
       effectiveAt = ledger.currentTime,
       optLocation = machine.commitLocation,
-      flags = machine.compiledPackages.ledgerFlags,
       tr = tx,
       l = ledger
     ) match {

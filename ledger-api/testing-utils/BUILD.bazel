@@ -2,21 +2,22 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  "//bazel_tools:scala.bzl",
-  "da_scala_library"
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
 )
 
 da_scala_library(
     name = "testing-utils",
-    srcs = glob(['src/**/*.scala']),
+    srcs = glob(["src/**/*.scala"]),
+    tags = ["maven_coordinates=com.digitalasset.ledger-api:testing-utils:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
     deps = [
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
         "//3rdparty/jvm/io/grpc:grpc_core",
         "//3rdparty/jvm/io/grpc:grpc_netty",
-        '//ledger-api/grpc-definitions:ledger-api-scalapb',
-        "//3rdparty/jvm/org/scalatest:scalatest",
-        '//3rdparty/jvm/com/typesafe/akka:akka_stream',
+        "//3rdparty/jvm/org/scalatest",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
     ],
-    visibility = [
-        '//visibility:public',
-    ]
 )

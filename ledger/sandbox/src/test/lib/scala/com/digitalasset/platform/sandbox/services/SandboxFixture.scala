@@ -28,10 +28,7 @@ import scala.util.Try
 trait SandboxFixture extends SuiteResource[Channel] {
   self: Suite =>
 
-  protected def darFile = new File("ledger/sandbox/Test.dalf")
-
-  protected def ghcPrimFile =
-    new File("daml-foundations/daml-ghc/package-database/daml-prim-1.3.dalf")
+  protected def darFile = new File("ledger/sandbox/Test.dar")
 
   protected def channel: Channel = suiteResource.value
 
@@ -57,10 +54,10 @@ trait SandboxFixture extends SuiteResource[Channel] {
         timeProviderType = TimeProviderType.Static,
         timeModel = TimeModel.reasonableDefault,
         scenario = scenario,
-        ledgerIdMode = LedgerIdMode.HardCoded("sandbox server")
+        ledgerIdMode = LedgerIdMode.Predefined("sandbox server")
       )
 
-  protected def packageFiles: List[File] = List(darFile, ghcPrimFile)
+  protected def packageFiles: List[File] = List(darFile)
 
   protected def scenario: Option[String] = None
 

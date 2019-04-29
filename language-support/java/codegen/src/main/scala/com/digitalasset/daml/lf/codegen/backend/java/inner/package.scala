@@ -71,6 +71,12 @@ package object inner {
           .get(
             ClassName.get(classOf[java.util.Optional[_]]),
             typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
+      case TypePrim(PrimTypeMap, typeParameters) =>
+        ParameterizedTypeName
+          .get(
+            ClassName.get(classOf[java.util.Map[String, _]]),
+            ClassName.get(classOf[java.lang.String]) +:
+              typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
       case TypePrim(PrimTypeUnit, _) => ClassName.get(classOf[javaapi.data.Unit])
       case TypeVar(name) => TypeVariableName.get(JavaEscaper.escapeString(name))
     }
@@ -90,7 +96,7 @@ package object inner {
         ClassName.get(classOf[DamlList])
       case TypePrim(PrimTypeOptional, _) =>
         ClassName.get(classOf[DamlOptional])
-      case TypePrim(PrimTypeMap, typeParameters) =>
+      case TypePrim(PrimTypeMap, _) =>
         ClassName.get(classOf[DamlMap])
       case TypePrim(PrimTypeUnit, _) => ClassName.get(classOf[javaapi.data.Unit])
 

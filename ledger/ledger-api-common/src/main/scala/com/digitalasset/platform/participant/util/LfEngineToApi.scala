@@ -7,18 +7,15 @@ import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.{BackStack, Decimal}
-import com.digitalasset.daml.lf.engine.{
-  Commands,
-  CreateCommand,
-  DeprecatedIdentifier,
-  ExerciseCommand
-}
+import com.digitalasset.daml.lf.command._
+import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.v1.commands.{
   Command => ApiCommand,
   Commands => ApiCommands,
   CreateCommand => ApiCreateCommand,
-  ExerciseCommand => ApiExerciseCommand
+  ExerciseCommand => ApiExerciseCommand,
+  CreateAndExerciseCommand => ApiCreateAndExerciseCommand
 }
 import com.digitalasset.ledger.api.v1.value.{
   Optional,
@@ -103,11 +100,11 @@ object LfEngineToApi {
           lfValueToApiValue(verbose, v).map(c =>
             ApiValue(ApiValue.Sum.Optional(Optional(Some(c))))))
       case Lf.ValueMap(m) =>
-        m.foldLeft[Either[String, List[ApiMap.Entry]]](Right(List.empty[ApiMap.Entry])) {
+        m.toImmArray.reverse
+          .foldLeft[Either[String, List[ApiMap.Entry]]](Right(List.empty[ApiMap.Entry])) {
             case (Right(list), (k, v)) =>
-              val key = ApiValue(ApiValue.Sum.Text(k))
-              lfValueToApiValue(verbose, v).map(w => ApiMap.Entry(Some(key), Some(w)) :: list)
-            case (l, _) => l
+              lfValueToApiValue(verbose, v).map(w => ApiMap.Entry(k, Some(w)) :: list)
+            case (left, _) => left
           }
           .map(list => ApiValue(ApiValue.Sum.Map(ApiMap(list))))
       case Lf.ValueTuple(_) => Left("tuples not allowed")
@@ -191,6 +188,14 @@ object LfEngineToApi {
               contractId,
               choiceId,
               LfEngineToApi.lfValueToApiValue(verbose = true, argument.value).toOption)))
+      case CreateAndExerciseCommand(templateId, createArgument, choiceId, choiceArgument, _) =>
+        ApiCommand(
+          ApiCommand.Command.CreateAndExercise(ApiCreateAndExerciseCommand(
+            Some(toApiIdentifier(templateId)),
+            LfEngineToApi.lfVersionedValueToApiRecord(verbose = true, createArgument).toOption,
+            choiceId,
+            LfEngineToApi.lfVersionedValueToApiValue(verbose = true, choiceArgument).toOption
+          )))
     }
 
     ApiCommands(
@@ -201,6 +206,6 @@ object LfEngineToApi {
       submitter,
       ledgerEffectiveTime,
       maximumRecordTime,
-      cmdss)
+      cmdss.toSeq)
   }
 }

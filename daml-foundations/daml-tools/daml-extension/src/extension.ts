@@ -147,7 +147,7 @@ function addIfInConfig(config:vscode.WorkspaceConfiguration, baseArgs: string[],
     return [].concat.apply([], <any>addedArgs);
 }
 
-export function createLanguageClient(config: vscode.WorkspaceConfiguration, telemetryConsent: boolean): LanguageClient {
+export function createLanguageClient(config: vscode.WorkspaceConfiguration, telemetryConsent: boolean|undefined): LanguageClient {
     // Options to control the language client
     let clientOptions: LanguageClientOptions = {
         // Register the server for DAML
@@ -157,27 +157,34 @@ export function createLanguageClient(config: vscode.WorkspaceConfiguration, tele
     let command: string;
     let args: string[];
 
+    const daArgs = ["run", "damlc", "--", "lax", "ide"];
+
     try {
         command = which.sync("daml");
         args = ["ide"];
     } catch (ex) {
-        const damlCmdPath = path.join(damlRoot, "bin", "daml");
-        if (fs.existsSync(damlCmdPath)) {
-            command = damlCmdPath;
-            args = ["ide"];
-        } else if (fs.existsSync(daCmdPath)) {
-            // The old assistant does not support a different installation
-            // directory so we rely on it being in ~/.da.
-            command = daCmdPath;
-            args = ["run", "damlc", "--", "lax", "ide"];
-        } else {
-            vscode.window.showErrorMessage("Failed to start the DAML language server. Make sure the assistant is installed.");
-            throw new Error("Failed to locate assistant.");
+        try {
+            command = which.sync("da");
+            args = daArgs;
+        } catch (ex) {
+            const damlCmdPath = path.join(damlRoot, "bin", "daml");
+            if (fs.existsSync(damlCmdPath)) {
+                command = damlCmdPath;
+                args = ["ide"];
+            } else if (fs.existsSync(daCmdPath)) {
+                command = daCmdPath;
+                args = daArgs;
+            } else {
+                vscode.window.showErrorMessage("Failed to start the DAML language server. Make sure the assistant is installed.");
+                throw new Error("Failed to locate assistant.");
+            }
         }
     }
 
     if (telemetryConsent === true){
         args.push('--telemetry');
+    } else if (telemetryConsent === false){
+        args.push('--optOutTelemetry')
     }
     const serverArgs : string[] = addIfInConfig(config, args,
         [ ['debug', ['--debug']]
@@ -386,7 +393,7 @@ class DAMLDocumentContentProvider implements TextDocumentContentProvider {
         if (null === u || undefined === u){
             return window.showWarningMessage('Show Resource was called without a URI target')
         }
-        let options = {enableScripts : true, enableFindWidget: true};
+        let options = {enableScripts : true, enableFindWidget: true, enableCommandUris: true};
         let panel = window.createWebviewPanel('daml', title, getViewColumnForShowResource(), options);
         let uri = Uri.parse(u);
         let virtualResourceUri = this.getVirtualUriFromUri(uri);
@@ -480,9 +487,9 @@ function resetTelemetryConsent(ex: ExtensionContext){
     }
 }
 
-function handleResult(ex : ExtensionContext, res : string|undefined) : boolean{
+function handleResult(ex : ExtensionContext, res : string|undefined) : boolean|undefined{
     if(typeof res === 'undefined'){
-        return false;
+        return undefined;
     }else switch(res){
         case options.yes: {
             setConsentState(ex, true);
@@ -513,7 +520,7 @@ async function telemetryPopUp () : Promise <string | undefined> {
     ] , qpo)
 }
 
-async function getTelemetryConsent (config: WorkspaceConfiguration, ex: ExtensionContext) : Promise<boolean> {
+async function getTelemetryConsent (config: WorkspaceConfiguration, ex: ExtensionContext) : Promise<boolean|undefined> {
     switch(config.get("telemetry") as string){
         case telemetryOverride.enable:
             return true;

@@ -63,7 +63,7 @@ import scala.concurrent.Future
   * the newly committed transaction.
   *
   */
-trait LedgerBackend {
+trait LedgerBackend extends AutoCloseable {
 
   /** Return the identifier of the Participant node's state that this
     * [[LedgerBackend]] reads from and writes to.

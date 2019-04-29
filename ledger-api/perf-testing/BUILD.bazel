@@ -2,20 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  "//bazel_tools:scala.bzl",
-  "da_scala_library"
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
 )
 
 da_scala_library(
     name = "perf-testing",
-    srcs = glob(['src/**/*.scala']),
-    deps = [
-        '//ledger-api/testing-utils:testing-utils',
-        "//3rdparty/jvm/com/storm_enroute:scalameter",
-        '//3rdparty/jvm/com/typesafe/akka:akka_stream',
-        '//3rdparty/jvm/org/slf4j:slf4j_api',
-    ],
+    srcs = glob(["src/**/*.scala"]),
     visibility = [
-        '//visibility:public',
-    ]
+        "//visibility:public",
+    ],
+    deps = [
+        "//3rdparty/jvm/com/storm_enroute:scalameter",
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//ledger-api/testing-utils",
+    ],
 )

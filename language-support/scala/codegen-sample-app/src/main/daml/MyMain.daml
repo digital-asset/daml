@@ -5,7 +5,7 @@ daml 1.2
 module MyMain where
 
 import Prelude hiding (Date, Enum, Maybe)
-import DA.Private.TextMap
+import DA.TextMap
 
 type Unit = ()
 
@@ -361,6 +361,7 @@ template TemplateWithUnusedTypeParam
   where signatory party
 
 
+
 {-
 SC commented out with DEL-6727's daml 1.2 port as we don't run them anyway
 
@@ -464,12 +465,39 @@ template Maybes
   where
     signatory party
 
-template TextMaps
+template OptTextMapInt
    with
       party: Party
-      intPlusOne: TextMap Int
-      intPlusTwo: TextMap (Optional Int)
-      listOfEm: List (TextMap Int)
-      optList: Optional (TextMap Int)
+      optMap: Optional (TextMap Int)
+    where
+      signatory party
+
+template ListTextMapInt
+   with
+      party: Party
+      listMap: List (TextMap Int)
+    where
+      signatory party
+
+template TextMapTextMapInt
+   with
+      party: Party
+      mapMap: TextMap (TextMap Int)
+    where
+      signatory party
+
+
+template TextMapInt
+   with
+      party: Party
+      aMap: TextMap Int
+    where
+      signatory party
+
+
+template TextMapText
+   with
+      party: Party
+      aMap: TextMap Text
     where
       signatory party

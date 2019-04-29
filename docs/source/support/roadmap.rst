@@ -15,9 +15,9 @@ We plan to update this roadmap roughly every three months.
   `More about this on GitHub <https://github.com/digital-asset/daml/issues/116>`__.
 - **JavaScript / TypeScript ecosystem**
 
-  Improve the currently experimental :doc:`JavaScript bindings </app-dev/bindings-js/index>` so they are stable, and add TypeScript code generation to generate code from DAML types.
+  Improve the currently experimental `Node.js bindings <https://github.com/digital-asset/daml-js>`__ so they are stable, and add TypeScript code generation to generate code from DAML types.
 
-  `More about this on GitHub <https://github.com/digital-asset/daml/milestone/8>`__.
+  `More about this on GitHub <https://github.com/digital-asset/daml-js>`__.
 - **Simplified da assistant**
 
   Rewritten :doc:`command line for the SDK </tools/assistant>` with improved usability.

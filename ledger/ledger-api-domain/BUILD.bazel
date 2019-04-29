@@ -2,30 +2,40 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  '//bazel_tools:scala.bzl',
-  'da_scala_library'
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
 )
 
 da_scala_library(
-  name = 'ledger-api-domain',
-  srcs = glob(['src/main/scala/**/*.scala']),
-  deps = [
-		'//3rdparty/jvm/org/scalaz:scalaz_core',		
-		'//3rdparty/jvm/io/zipkin/brave:brave',
-	],
-  visibility = [
-		'//visibility:public',
-  ]
-)
-
-da_scala_library(
-  name = "ledger-api-domain-tests-lib",
-  srcs = glob(['src/test/**/*.scala'], exclude = ['src/test/**/*Spec.scala', 'src/test/**/*Test.scala']),
-  deps = [
-    ':ledger-api-domain',
-    '//3rdparty/jvm/org/scalaz:scalaz_core'
+    name = "ledger-api-domain",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.digitalasset.ledger:ledger-api-domain:__VERSION__"],
+    visibility = [
+        "//visibility:public",
     ],
-  visibility = [
-		'//visibility:public',
-  ]
+    deps = [
+        "//3rdparty/jvm/io/zipkin/brave",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+    ],
+)
+
+da_scala_library(
+    name = "ledger-api-domain-tests-lib",
+    srcs = glob(
+        ["src/test/**/*.scala"],
+        exclude = [
+            "src/test/**/*Spec.scala",
+            "src/test/**/*Test.scala",
+        ],
+    ),
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":ledger-api-domain",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//daml-lf/data",
+    ],
 )

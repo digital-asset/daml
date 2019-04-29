@@ -22,7 +22,6 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
 import qualified Proto3.Suite as Proto
-import qualified Text.Read as Read
 
 decodeVersion :: TL.Text -> Decode Version
 decodeVersion minorText = do
@@ -32,8 +31,8 @@ decodeVersion minorText = do
   -- able to parse packages that were compiled before minor versions
   -- were a thing. DO NOT replicate this code bejond major version 1!
   minor <- if
-    | TL.null minorText -> pure 0
-    | Just minor <- Read.readMaybe (TL.unpack minorText) -> pure minor
+    | TL.null minorText -> pure $ LF.PointStable 0
+    | Just minor <- LF.minorFromProtobuf minorText -> pure minor
     | otherwise -> unsupported
   let version = V1 minor
   if version `elem` LF.supportedInputVersions then pure version else unsupported
@@ -54,12 +53,13 @@ decodeModule (LF1.Module name flags dataTypes values templates) =
     <*> decodeNM EDuplicateTemplate decodeDefTemplate templates
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
-decodeFeatureFlags LF1.FeatureFlags{..} =  pure $
-  FeatureFlags
-    { forbidPartyLiterals = featureFlagsForbidPartyLiterals
-    , dontDivulgeContractIdsInCreateArguments = featureFlagsDontDivulgeContractIdsInCreateArguments
-    , dontDiscloseNonConsumingChoicesToObservers = featureFlagsDontDiscloseNonConsumingChoicesToObservers
-    }
+decodeFeatureFlags LF1.FeatureFlags{..} =
+  if not featureFlagsDontDivulgeContractIdsInCreateArguments || not featureFlagsDontDiscloseNonConsumingChoicesToObservers
+    -- We do not support these anymore -- see #157
+    then Left (ParseError "Package uses unsupported flags dontDivulgeContractIdsInCreateArguments or dontDiscloseNonConsumingChoicesToObservers")
+    else Right FeatureFlags
+      { forbidPartyLiterals = featureFlagsForbidPartyLiterals
+      }
 
 decodeDefDataType :: LF1.DefDataType -> Decode DefDataType
 decodeDefDataType LF1.DefDataType{..} =
@@ -90,7 +90,6 @@ decodeDefValue (LF1.DefValue mbBinder mbBody noParties isTest mbLoc) =
     <*> pure (HasNoPartyLiterals noParties)
     <*> pure (IsTest isTest)
     <*> mayDecode "defValueExpr" mbBody decodeExpr
-    <*> pure Nothing
 
 decodeDefTemplate :: LF1.DefTemplate -> Decode Template
 decodeDefTemplate LF1.DefTemplate{..} =
@@ -443,7 +442,7 @@ decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumDecimal sDec -> case readMay (TL.unpack sDec) of
     Nothing -> Left $ ParseError ("bad fixed while decoding Decimal: '" <> TL.unpack sDec <> "'")
     Just dec -> return (BEDecimal dec)
-  LF1.PrimLitSumTimestamp (Proto.Fixed sTime) -> pure $ BETimestamp sTime
+  LF1.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime
   LF1.PrimLitSumText x           -> pure $ BEText $ TL.toStrict x
   LF1.PrimLitSumParty p          -> pure $ BEParty (taggedT p)
   LF1.PrimLitSumDate days -> pure $ BEDate days

@@ -17,13 +17,6 @@ module DA.Internal.RebindableSyntax
   ,negate
   ,(>>), (>>=), fail, return, guard
   ,(<*>), fmap, pure, join -- ApplicativeDo
-  -- Things we generate unqualified for template desugaring.  When
-  -- desugaring is done in terms of `DA.Internal.Desugar` this list
-  -- can disappear.
-  ,Template, Choice
-  ,Eq, Show
-  ,concat, toParties
   ) where
 
 import DA.Internal.Prelude
-import DA.Internal.Template

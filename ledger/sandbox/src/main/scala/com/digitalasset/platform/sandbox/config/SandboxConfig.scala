@@ -20,7 +20,7 @@ final case class TlsServerConfiguration(
   * Defines the basic configuration for running sandbox
   */
 final case class SandboxConfig(
-    addressOption: Option[String],
+    address: Option[String],
     port: Int,
     damlPackageContainer: DamlPackageContainer,
     timeProviderType: TimeProviderType,
@@ -29,7 +29,8 @@ final case class SandboxConfig(
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     ledgerIdMode: LedgerIdMode,
-    jdbcUrl: Option[String])
+    jdbcUrl: Option[String]
+)
 
 final case class CommandConfiguration(
     inputBufferSize: Int,

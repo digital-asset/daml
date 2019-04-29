@@ -11,7 +11,7 @@ import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.services.SandboxSubmissionService
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
+import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger.{
   CommandExecutorImpl,
   Ledger,
@@ -23,7 +23,7 @@ import com.digitalasset.platform.services.time.TimeModel
 import scala.concurrent.{ExecutionContext, Future}
 
 object TestDar {
-  val dalfFile: File = new File("ledger/sandbox/Test.dalf")
+  val dalfFile: File = new File("ledger/sandbox/Test.dar")
   // DamlLf1 test package
   lazy val parsedPackage = DamlPackageContainer(List(dalfFile))
   lazy val parsedArchive = parsedPackage.archives.head
@@ -41,7 +41,7 @@ trait TestHelpers {
     val ledger = Ledger.inMemory(
       "sandbox ledger",
       TimeProvider.Constant(Instant.EPOCH),
-      ActiveContracts.empty,
+      ActiveContractsInMemory.empty,
       Nil)
     SandboxSubmissionService.createApiService(
       damlPackageContainer,

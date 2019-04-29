@@ -95,7 +95,9 @@ class EventFilterSpec extends WordSpec with Matchers with ScalaFutures with Opti
     }
 
     s"not let $eventType through when packageId does not match" in {
-      filter(createEvent(party1, Identifier("some other package id", template1))) shouldEqual None
+      filter(createEvent(
+        party1,
+        Identifier("someOtherPackageId", moduleName = module1, entityName = template1))) shouldEqual None
     }
 
     s"not let $eventType through when templateId is not listened to" in {

@@ -51,11 +51,12 @@ const APP_NAME = 'Navigator';
  * - paths: https://www.typescriptlang.org/docs/handbook/compiler-options.html
  */
 module.exports = (env) => {
-  const in_dir        = env && env.bazel_in_dir  || __dirname;
-  const out_dir       = env && env.bazel_out_dir || path.join(__dirname, 'dist');
-  const build_version = env && env.bazel_version_file ? fs.readFileSync(env.bazel_version_file, 'utf8').trim() : 'HEAD';
-  const build_commit  = env && env.bazel_commit_file  ? fs.readFileSync(env.bazel_commit_file, 'utf8').trim()  : 'HEAD';
-  const isProduction  = env && env.prod || true
+  const paths_case_check = env && env.paths_case_check  || 'true';
+  const in_dir           = env && env.bazel_in_dir  || __dirname;
+  const out_dir          = env && env.bazel_out_dir || path.join(__dirname, 'dist');
+  const build_version    = env && env.bazel_version_file ? fs.readFileSync(env.bazel_version_file, 'utf8').trim() : 'HEAD';
+  const build_commit     = env && env.bazel_commit_file  ? fs.readFileSync(env.bazel_commit_file, 'utf8').trim()  : 'HEAD';
+  const isProduction     = env ? (!!env.prod || !!env.production) : false;
   console.log(isProduction ? 'PRODUCTION' : 'DEVELOPMENT');
 
   const modernizr_config  = path.join(in_dir, '.modernizrrc');
@@ -67,7 +68,38 @@ module.exports = (env) => {
   console.log(`  out_dir:           ${out_dir}`);
   console.log(`  modernizr_config:  ${modernizr_config}`);
   console.log(`  typescript_config: ${typescript_config}`);
+  console.log(`  paths_case_check:  ${paths_case_check}`);
   console.log(`============================== Webpack environment =============================`);
+
+  var plugins = [
+    new HtmlWebpackPlugin({
+      title: APP_NAME,
+      template: 'src/index.html'
+    }),
+    new FaviconsWebpackPlugin({
+      logo: './src/images/favicon.png',
+      prefix: 'icons-[hash]/',
+      inject: true, // into HtmlWebpackPlugin
+      background: '#fff',
+      title: APP_NAME,
+      icons: {
+        android: false,
+        appleIcon: true,
+        appleStartup: true,
+        coast: false,
+        favicons: true,
+        firefox: true,
+        opengraph: false,
+        twitter: false,
+        yandex: false,
+        windows: false
+      }
+    }),
+  ]
+
+  if (paths_case_check === 'true') {
+    plugins.push(new CaseSensitivePathsPlugin())
+  }
 
   return {
     entry: {
@@ -153,32 +185,7 @@ module.exports = (env) => {
         modernizr$: modernizr_config,
       }
     },
-    plugins: [
-      new HtmlWebpackPlugin({
-        title: APP_NAME,
-        template: 'src/index.html'
-      }),
-      new FaviconsWebpackPlugin({
-        logo: './src/images/favicon.png',
-        prefix: 'icons-[hash]/',
-        inject: true, // into HtmlWebpackPlugin
-        background: '#fff',
-        title: APP_NAME,
-        icons: {
-          android: false,
-          appleIcon: true,
-          appleStartup: true,
-          coast: false,
-          favicons: true,
-          firefox: true,
-          opengraph: false,
-          twitter: false,
-          yandex: false,
-          windows: false
-        }
-      }),
-      new CaseSensitivePathsPlugin(),
-    ],
+    plugins: plugins,
     devServer: {
       port: 8000,
       // host: '0.0.0.0', // enable to allow remote computers to connect

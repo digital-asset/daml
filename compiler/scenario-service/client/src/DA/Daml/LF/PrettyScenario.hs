@@ -35,7 +35,6 @@ import qualified Data.Time.Clock.POSIX      as CP
 import qualified Data.Time.Format           as TF
 import qualified Data.Vector                as V
 import qualified Network.URI.Encode
-import qualified Proto3.Suite.Types         as PT
 import           ScenarioService
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -414,8 +413,8 @@ prettyScenarioStep (ScenarioStep stepId (Just step)) = do
         dt = show (abs micros)
         n  = length dt
 
-prettyTimestamp :: PT.Fixed Int64 -> Doc SyntaxClass
-prettyTimestamp = prettyUtcTime . toUtcTime . fromIntegral . PT.fixed
+prettyTimestamp :: Int64 -> Doc SyntaxClass
+prettyTimestamp = prettyUtcTime . toUtcTime . fromIntegral
   where
     prettyUtcTime =
       string . TF.formatTime TF.defaultTimeLocale "%FT%T%QZ"

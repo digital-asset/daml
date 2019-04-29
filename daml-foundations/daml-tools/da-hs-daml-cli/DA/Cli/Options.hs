@@ -1,18 +1,17 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# Language ApplicativeDo #-}
 module DA.Cli.Options
   ( module DA.Cli.Options
   ) where
 
 import qualified Data.Text           as T
+import           Data.List.Extra     (trim, splitOn)
 import           Options.Applicative
-import           Text.Read
 
 import           DA.Prelude
 import qualified DA.Pretty           as Pretty
 import qualified DA.Daml.LF.Ast.Version as LF
-import qualified DA.Daml.LF.Proto3.VersionVDev as LF
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
@@ -124,10 +123,8 @@ lfVersionOpt = option (str >>= select) $
       in Pretty.renderPretty v ++ def
     versionsStr = intercalate ", " (map renderVersion LF.supportedOutputVersions)
     select = \case
-      "dev" -> return LF.versionVDev
       versionStr
-        | Just minorStr <- stripPrefix "1." versionStr
-        , Just minor <- readMaybe minorStr
+        | Just minor <- LF.minorFromCliOption =<< stripPrefix "1." versionStr
         , let version = LF.V1 minor
         , version `elem` LF.supportedOutputVersions
         -> return version
@@ -259,9 +256,32 @@ experimentalOpt =
     switch $
     help "Enable experimental IDE features" <> long "experimental"
 
-newtype Telemetry = Telemetry Bool
+data Telemetry = OptedIn | OptedOut | Undecided
 telemetryOpt :: Parser Telemetry
-telemetryOpt =
-    fmap Telemetry $
-    switch $
-    help "Send crash data + telemetry to Digital Asset" <> long "telemetry"
+telemetryOpt = do
+    let optInS = "telemetry"
+        optOutS = "optOutTelemetry"
+    optIn <-
+        switch $
+        help "Send crash data + telemetry to Digital Asset" <> long optInS
+    optOut <-
+        switch $
+        help "Opt out of sending + telemetry to Digital Asset" <> long optOutS
+    pure $ case (optIn, optOut) of
+        (False, False) -> Undecided
+        (True, False) -> OptedIn
+        (False, True) -> OptedOut
+        (True, True) ->
+            error $
+            "Both --"++optInS++" and --"++optOutS++" have been selected, you either have to opt into telemetry or opt out"
+
+-- Parse helper for non-empty string lists separated by the given separator
+stringsSepBy :: Char -> ReadM [String]
+stringsSepBy sep = eitherReader sepBy'
+  where sepBy' :: String -> Either String [String]
+        sepBy' input
+          | null items = Left "Failed to read items: empty list"
+          | any null items = Left $ "Failed to read items: empty item within " <> input
+          | otherwise = Right items
+          where
+            items = map trim $ splitOn [sep] input

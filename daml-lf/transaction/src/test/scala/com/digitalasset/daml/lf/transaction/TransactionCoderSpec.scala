@@ -4,12 +4,13 @@
 package com.digitalasset.daml.lf.transaction
 
 import com.digitalasset.daml.lf.EitherAssertions
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch}
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
-import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInst}
-import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInst, ValueParty, VersionedValue}
+import com.digitalasset.daml.lf.value.ValueCoder.{DecodeCid, DecodeError, EncodeCid, EncodeError}
 import com.digitalasset.daml.lf.value.{ValueVersion, ValueVersions}
-
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Inside, Matchers, WordSpec}
 
@@ -221,6 +222,49 @@ class TransactionCoderSpec
           BlindingCoder.encode(bi, defaultNidEncode),
           defaultNidDecode)
       }
+    }
+
+    "do tx with a lot of root nodes" in {
+      val node: Node.NodeCreate[String, VersionedValue[String]] = Node.NodeCreate(
+        "test-cid",
+        ContractInst(
+          Identifier(
+            PackageId.assertFromString("pkg-id"),
+            QualifiedName.assertFromString("Test:Name")),
+          VersionedValue(
+            ValueVersions.acceptedVersions.last,
+            ValueParty(Party.assertFromString("francesco"))),
+          "agreement"
+        ),
+        None,
+        Set(Party.assertFromString("alice")),
+        Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
+        None,
+      )
+      val nodes = ImmArray((1 to 10000).map { nid =>
+        (nid.toString, node)
+      })
+      val tx = GenTransaction(
+        nodes = Map(nodes.toSeq: _*),
+        roots = nodes.map(_._1),
+        usedPackages = Set.empty
+      )
+      tx shouldEqual TransactionCoder
+        .decodeVersionedTransaction(
+          Right(_),
+          DecodeCid(Right(_), { case (s, _) => Right(s) }),
+          TransactionCoder
+            .encodeTransaction(
+              identity[String],
+              EncodeCid(identity[String], (s: String) => (s, false)),
+              tx,
+            )
+            .right
+            .get
+        )
+        .right
+        .get
+        .transaction
     }
   }
 

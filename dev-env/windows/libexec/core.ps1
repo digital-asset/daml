@@ -17,7 +17,7 @@ function da_is_scoop_installed {
 function da_enable_scoop {
     if (-Not (da_is_scoop_on_path)) {
         da_reset_path
-        $env:PATH = "$scoopShimDir;$env:PATH" # for this session
+        $env:PATH = "$PSScriptRoot\..\bin;$scoopShimDir;$env:PATH" # for this session
         . "$PSScriptRoot\profile.ps1"
     }
 }
@@ -123,9 +123,10 @@ function da_install_all([String] $Directory) {
             If ($reinstalled -eq $True) {
                 da_success "<< ok"
             } Else {
-                da_error "<< $app installation failed after clean install."
+                $msg = "$app installation failed after clean install."
+                da_error "<< $msg"
                 da_error "<< Check Windows 'Control Panel \ Programs \ Programs and Features' and uninstall manually if installed."
-                return
+                throw $msg
             }
         } ElseIf ($alreadyInstalled) {
             $installedSha = ""
@@ -143,16 +144,18 @@ function da_install_all([String] $Directory) {
                 If ($reinstalled -eq $True) {
                     da_success "<< ok"
                 } Else {
-                    da_error "<< $app installation failed:"
+                    $msg = "$app installation failed:"
+                    da_error "<< $msg"
                     da_error $out
-                    return
+                    throw $msg
                 }
             }
         } ElseIf ($justInstalled) {
             da_success "<< ok"
         } Else {
-            da_error "<< Unknown state: `r`n$out"
-            return
+            $msg = "<< Unknown state: `r`n$out"
+            da_error $msg
+            throw $msg
         }
     }
 }

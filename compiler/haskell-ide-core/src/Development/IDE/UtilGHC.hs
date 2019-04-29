@@ -14,6 +14,8 @@
 module Development.IDE.UtilGHC where
 
 import           "ghc-lib-parser" Config
+import qualified "ghc-lib-parser" CmdLineParser as Cmd (warnMsg)
+import           "ghc-lib-parser" DynFlags (parseDynamicFilePragma)
 import           "ghc-lib-parser" Fingerprint
 import           "ghc-lib" GHC                         hiding (convertLit)
 import           "ghc-lib-parser" GHC.LanguageExtensions.Type
@@ -21,11 +23,13 @@ import           "ghc-lib-parser" GhcMonad
 import           "ghc-lib" GhcPlugins                  as GHC hiding (PackageState, fst3, (<>))
 import           "ghc-lib" HscMain
 import qualified "ghc-lib-parser" Packages
+import           "ghc-lib-parser" Panic (throwGhcExceptionIO)
 import           "ghc-lib-parser" Platform
 import qualified "ghc-lib-parser" StringBuffer                as SB
 import qualified "ghc-lib-parser" EnumSet
 
 import           Control.DeepSeq
+import           Control.Monad
 import           Data.IORef
 import           Data.List
 import qualified Data.Text as T
@@ -73,6 +77,7 @@ xExtensionsUnset = [  ]
 xFlagsSet :: [ GeneralFlag ]
 xFlagsSet = [
    Opt_Haddock
+ , Opt_Ticky
  ]
 
 -- | Warning options set for DAML compilation. Note that these can be modified
@@ -90,7 +95,6 @@ wOptsSet =
 wOptsSetFatal :: [ WarningFlag ]
 wOptsSetFatal =
   [ Opt_WarnMissingFields
-  , Opt_WarnOverflowedLiterals
   ]
 
 -- | Warning options unset for DAML compilation. Note that these can be modified
@@ -99,6 +103,7 @@ wOptsSetFatal =
 wOptsUnset :: [ WarningFlag ]
 wOptsUnset =
   [ Opt_WarnMissingMonadFailInstances -- failable pattern plus RebindableSyntax raises this error
+  , Opt_WarnOverflowedLiterals -- this does not play well with -ticky and the error message is misleading
   ]
 
 
@@ -117,6 +122,7 @@ adjustDynFlags paths packageState mbPackageName dflags
   $ apply gopt_set xFlagsSet
   dflags{
     mainModIs = mkModule primUnitId (mkModuleName "NotAnExistingName"), -- avoid DEL-6770
+    debugLevel = 1,
     ghcLink = NoLink, hscTarget = HscNothing -- avoid generating .o or .hi files
     {-, dumpFlags = Opt_D_ppr_debug `EnumSet.insert` dumpFlags dflags -- turn on debug output from GHC-}
   }
@@ -185,9 +191,26 @@ instance NFData PackageState where
 --     * Installs a custom log action;
 --     * Sets up the package databases;
 --     * Sets the import paths to the given list of 'FilePath'.
-setupDamlGHC :: GhcMonad m => [FilePath] -> Maybe String -> PackageState -> m ()
-setupDamlGHC importPaths mbPackageName packageState = do
+--     * if present, parses and applies custom options for GHC
+--       (may fail if the custom options are inconsistent with std DAML ones)
+setupDamlGHC :: GhcMonad m => [FilePath] -> Maybe String -> PackageState -> [String] -> m ()
+setupDamlGHC importPaths mbPackageName packageState [] =
   modifyDynFlags $ adjustDynFlags importPaths packageState mbPackageName
+-- if custom options are given, add them after the standard DAML flag setup
+setupDamlGHC importPaths mbPackageName packageState customOpts = do
+  setupDamlGHC importPaths mbPackageName packageState []
+  damlDFlags <- getSessionDynFlags
+  (dflags', leftover, warns) <- parseDynamicFilePragma damlDFlags $ map noLoc customOpts
+
+  let leftoverError = CmdLineError $
+        (unlines . ("Unable to parse custom flags:":) . map unLoc) leftover
+  unless (null leftover) $ liftIO $ throwGhcExceptionIO leftoverError
+
+  unless (null warns) $
+    liftIO $ putStrLn $ unlines $ "Warnings:" : map (unLoc . Cmd.warnMsg) warns
+
+  modifySession $ \h ->
+    h { hsc_dflags = dflags', hsc_IC = (hsc_IC h) {ic_dflags = dflags' } }
 
 -- | A version of `showSDoc` that uses default flags (to avoid uses of
 -- `showSDocUnsafe`).

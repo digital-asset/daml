@@ -33,6 +33,7 @@ module DA.Daml.LF.TypeChecker.Check where
 import DA.Prelude
 
 import           Control.Lens hiding (Context)
+import           Control.Monad.Extra
 import           Data.Foldable
 import           Data.Functor
 import qualified Data.HashSet as HS
@@ -176,10 +177,8 @@ typeOfBuiltin = \case
   BEAppendText       -> pure $ tBinop TText
   BEImplodeText      -> pure $ TList TText :-> TText
   BESha256Text       -> do
-      v <- view lfVersion
-      if supportsSha256Text v
-          then pure $ TText :-> TText
-          else throwWithContext $ EUnsupportedBuiltin BESha256Text version1_2
+      checkFeature featureSha256Text
+      pure $ TText :-> TText
   BEFoldl -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
@@ -387,6 +386,7 @@ checkFetch tpl cid = do
 -- returns the contract id and contract type
 checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
 checkRetrieveByKey RetrieveByKey{..} = do
+  checkFeature featureContractKeys
   tpl <- inWorld (lookupTemplate retrieveByKeyTemplate)
   case tplKey tpl of
     Nothing -> throwWithContext (EKeyOperationOnTemplateWithNoKey retrieveByKeyTemplate)
@@ -488,7 +488,7 @@ checkDefDataType (DefDataType _loc _name _serializable params dataCons) =
         traverse_ (`checkType` KStar) types
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
-checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr _info) = do
+checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do
   checkType typ KStar
   checkExpr expr typ
   when isTest $
@@ -502,7 +502,7 @@ checkTemplateChoice tpl (TemplateChoice _loc _ _ actors selfBinder (param, param
   checkType retType KStar
   v <- view lfVersion
   let checkActors = checkExpr actors (TList TParty)
-  if supportsDisjunctionChoices v
+  if v `supports` featureFlexibleControllers
     then introExprVar param paramType checkActors
     else checkActors
   introExprVar selfBinder (TContractId (TCon tpl)) $ introExprVar param paramType $
@@ -520,12 +520,14 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPObservers $ checkExpr observers (TList TParty)
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
-  checkTemplateKey param tcon mbKey
+  whenJust mbKey $ checkTemplateKey param tcon
   where
     withPart p = withContext (ContextTemplate m t p)
 
 checkValidKeyExpr :: MonadGamma m => Expr -> m ()
 checkValidKeyExpr = \case
+  ELocation _loc expr ->
+    checkValidKeyExpr expr
   ERecCon _typ recordExpr -> do
       traverse_ (checkValidKeyExpr . snd) recordExpr
   expr ->
@@ -533,6 +535,8 @@ checkValidKeyExpr = \case
 
 checkValidProjectionsKey :: MonadGamma m => Expr -> m ()
 checkValidProjectionsKey = \case
+  ELocation _loc expr ->
+    checkValidProjectionsKey expr
   EVar _var ->
     pure ()
   ERecProj _typ _field rec ->
@@ -540,9 +544,15 @@ checkValidProjectionsKey = \case
   expr ->
     throwWithContext (EInvalidKeyExpression expr)
 
-checkTemplateKey :: MonadGamma m => ExprVarName -> Qualified TypeConName -> Maybe TemplateKey -> m ()
-checkTemplateKey param tcon mbKey =
-  for_ mbKey $ \TemplateKey{..} -> do
+checkFeature :: MonadGamma m => Feature -> m ()
+checkFeature feature = do
+    version <- view lfVersion
+    unless (version `supports` feature) $
+        throwWithContext $ EUnsupportedFeature feature
+
+checkTemplateKey :: MonadGamma m => ExprVarName -> Qualified TypeConName -> TemplateKey -> m ()
+checkTemplateKey param tcon TemplateKey{..} = do
+    checkFeature featureContractKeys
     introExprVar param (TCon tcon) $ do
       checkType tplKeyType KStar
       checkValidKeyExpr tplKeyBody

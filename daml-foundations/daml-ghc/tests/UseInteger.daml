@@ -2,10 +2,10 @@
 -- All rights reserved.
 
 -- Test that foo is not overflowed
--- @ QUERY-LF .packageModules[] | .moduleValues[] | .. | objects | select(.dvalBinder? | .[0]? == "foo") | .dvalBody.EBuiltin.BEInt64 == "1.0"
+-- @ QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["foo"]) | .expr.prim_lit.int64 == "1"
 
 -- Test that we daml-lf can hold maxBound :: Int64
--- @ QUERY-LF .packageModules[] | .moduleValues[] | .. | objects | select(.dvalBinder? | .[0]?=="bar") | .dvalBody.EBuiltin.BEInt64 == "9.223372036854775807e18"
+-- @ QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["bar"]) | .expr.prim_lit.int64 == "9223372036854775807"
 
 daml 1.2 module UseInteger where
 

@@ -1,116 +1,265 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
 load("//bazel_tools:pkg.bzl", "pkg_tar")
 load("//bazel_tools:proto.bzl", "proto_gen")
+load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 
+ledger_api_proto_source_root = "ledger-api/grpc-definitions"
+
 proto_library(
-     name = 'protos',
-     proto_source_root = 'ledger-api/grpc-definitions',
-     srcs = glob(["**/*.proto"]),
-     deps = ['@com_google_protobuf//:empty_proto',
-            '@com_google_protobuf//:timestamp_proto',
-            '@com_google_protobuf//:duration_proto',
-            '@com_google_protobuf//:wrappers_proto',
-            '@com_google_protobuf//:any_proto',
-            '@com_google_protobuf//:descriptor_proto',
-    ],
+    name = "protos",
+    srcs = glob(["**/*.proto"]),
+    proto_source_root = ledger_api_proto_source_root,
     visibility = [
-        '//visibility:public',
-    ]
+        "//visibility:public",
+    ],
+    deps = [
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+    ],
 )
 
 pkg_tar(
-    name = 'ledger-api-protos',
-    strip_prefix = './',
-    srcs = glob(['**/*.proto']),
-    extension = 'tar.gz',
+    name = "ledger-api-protos",
+    srcs = glob(["**/*.proto"]),
+    extension = "tar.gz",
+    strip_prefix = "./",
     visibility = [
-        '//visibility:public',
-    ]
+        "//visibility:public",
+    ],
 )
 
 # FIXME(#448): This has the same contents as `:ledger-api-protos` but a
 # directory structure which is suitable for the SDK.
 pkg_tar(
-    name = 'ledger-api-protos-tarball',
-    strip_prefix = './',
-    package_dir = 'grpc-definitions',
-    srcs = glob(['**/*.proto']),
-    extension = 'tar.gz',
+    name = "ledger-api-protos-tarball",
+    srcs = glob(["**/*.proto"]),
+    extension = "tar.gz",
+    package_dir = "grpc-definitions",
+    strip_prefix = "./",
     visibility = [
-        '//visibility:public',
-    ]
+        "//visibility:public",
+    ],
 )
 
 proto_gen(
     name = "ledger-api-scalapb-sources",
-    srcs = [":protos"],
-    deps = [
-        '@com_google_protobuf//:empty_proto',
-        '@com_google_protobuf//:timestamp_proto',
-        '@com_google_protobuf//:duration_proto',
-        '@com_google_protobuf//:wrappers_proto',
-        '@com_google_protobuf//:any_proto',
-        '@com_google_protobuf//:descriptor_proto',
+    srcs = [
+        ":protos",
+        "@com_github_googleapis_googleapis//google/rpc:code_proto",
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
     ],
-    plugin_name = "scalapb",
     plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_name = "scalapb",
     plugin_options = ["grpc"],
     visibility = [
-        '//visibility:public',
+        "//visibility:public",
+    ],
+    deps = [
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+    ],
+)
+
+google_protobuf_src = "external/com_google_protobuf/src"
+
+genrule(
+    name = "google-protobuf-haskellpb-sources",
+    srcs = ["@com_google_protobuf//:well_known_protos"],
+    outs = ["Google/Protobuf/" + b for b in [
+        "Any.hs",
+        "Duration.hs",
+        "Empty.hs",
+        "Timestamp.hs",
+        "Wrappers.hs",
+    ]],
+    cmd = """
+        for src in \
+            external/com_google_protobuf/src/google/protobuf/any.proto \
+            external/com_google_protobuf/src/google/protobuf/duration.proto \
+            external/com_google_protobuf/src/google/protobuf/empty.proto \
+            external/com_google_protobuf/src/google/protobuf/timestamp.proto \
+            external/com_google_protobuf/src/google/protobuf/wrappers.proto \
+        ; do
+            $(location @haskell_proto3__suite//:compile-proto-file) \
+                --includeDir """ + google_protobuf_src + """ \
+                --proto google/protobuf/$$(basename $$src) \
+                --out $(@D)
+        done
+    """,
+    tools = [
+        "@haskell_proto3__suite//:compile-proto-file",
+    ],
+)
+
+google_rpc_src = "external/com_github_googleapis_googleapis"
+
+genrule(
+    name = "google-rpc-haskellpb-sources",
+    srcs = [
+        "@com_github_googleapis_googleapis//google/rpc:status.proto",
+        "@com_google_protobuf//:well_known_protos",
+    ],
+    outs = ["Google/Rpc/Status.hs"],
+    cmd = """
+        $(location @haskell_proto3__suite//:compile-proto-file) \
+            --includeDir """ + google_protobuf_src + """ \
+            --includeDir """ + google_rpc_src + """ \
+            --proto google/rpc/status.proto \
+            --out $$(dirname $$(dirname $(@D))) 
+               #2x dirname because @D works differently for a single output
+    """,
+    tools = [
+        "@haskell_proto3__suite//:compile-proto-file",
+    ],
+)
+
+filegroup(
+    name = "ledger-api-protos-fg",
+    srcs = glob(["com/digitalasset/ledger/api/v1/*.proto"]),
+    visibility = ["//visibility:private"],
+)
+
+ledger_api_haskellpb_sources = [
+    "ActiveContractsService.hs",
+    "CommandCompletionService.hs",
+    "CommandService.hs",
+    "CommandSubmissionService.hs",
+    "Commands.hs",
+    "Completion.hs",
+    "Event.hs",
+    "LedgerConfigurationService.hs",
+    "LedgerIdentityService.hs",
+    "LedgerOffset.hs",
+    "PackageService.hs",
+    "TraceContext.hs",
+    "Transaction.hs",
+    "TransactionFilter.hs",
+    "TransactionService.hs",
+    "Value.hs",
+]
+
+genrule(
+    name = "ledger-api-haskellpb-sources",
+    srcs = [
+        "@com_google_protobuf//:well_known_protos",
+        "@com_github_googleapis_googleapis//google/rpc:status.proto",
+        ":ledger-api-protos-fg",
+    ],
+    outs = ["Com/Digitalasset/Ledger/Api/V1/" + b for b in ledger_api_haskellpb_sources],
+    cmd = """
+        for src in $(locations :ledger-api-protos-fg); do
+            $(location @haskell_proto3__suite//:compile-proto-file) \
+                --includeDir """ + google_protobuf_src + """ \
+                --includeDir """ + google_rpc_src + """ \
+                --includeDir """ + ledger_api_proto_source_root + """ \
+                --proto com/digitalasset/ledger/api/v1/$$(basename $$src) \
+                --out $(@D)
+        done
+    """,
+    tools = [
+        "@haskell_proto3__suite//:compile-proto-file",
+    ],
+)
+
+da_haskell_library(
+    name = "ledger-api-haskellpb",
+    srcs = [
+        ":google-protobuf-haskellpb-sources",
+        ":google-rpc-haskellpb-sources",
+        ":ledger-api-haskellpb-sources",
+    ],
+    compiler_flags = ["-O0"],
+    hazel_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "proto3-suite",
+        "proto3-wire",
+        "text",
+        "vector",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//nix/third-party/gRPC-haskell:grpc-haskell",
+        "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
     ],
 )
 
 scalapb_deps = [
-    '//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime',
-    '//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime_grpc',
-    '//3rdparty/jvm/com/thesamet/scalapb:lenses',
-    '//3rdparty/jvm/com/google/protobuf:protobuf_java',
-    '//3rdparty/jvm/io/grpc:grpc_stub',
-    '//3rdparty/jvm/io/grpc:grpc_protobuf',
+    "//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime",
+    "//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime_grpc",
+    "//3rdparty/jvm/com/thesamet/scalapb:lenses",
+    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+    "//3rdparty/jvm/io/grpc:grpc_stub",
+    "//3rdparty/jvm/io/grpc:grpc_protobuf",
 ]
 
 scala_library(
     name = "ledger-api-scalapb",
-    srcs = [':ledger-api-scalapb-sources'],
-    deps = scalapb_deps,
+    srcs = [":ledger-api-scalapb-sources"],
+    tags = [
+        "maven_coordinates=com.digitalasset.ledger-api.grpc-definitions:ledger-api-scalapb:__VERSION__",
+    ],
+    visibility = ["//visibility:public"],
     exports = scalapb_deps,
-    visibility = ['//visibility:public', ],
+    deps = scalapb_deps,
+)
+
+pom_file(
+    name = "ledger-api-scalapb_pom",
+    target = ":ledger-api-scalapb",
+)
+
+proto_gen(
+    name = "ledger-api-docs",
+    srcs = [":protos"],
+    plugin_exec = "@com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc",
+    plugin_name = "doc",
+    plugin_options = [
+        ledger_api_proto_source_root + "/rst_mmd.tmpl",
+        "docs.rst",
+    ],
+    # this is _slightly_ hacky. we need to include the markdown template in the plugin_runfiles
+    # and refer to the file with a workspace relative path in plugin_options
+    plugin_runfiles = ["rst_mmd.tmpl"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@com_github_googleapis_googleapis//google/rpc:code_proto",
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+    ],
 )
 
 genrule(
-    name = 'docs',
-    srcs = glob(['**']) + ['@com_google_protobuf//:well_known_protos'],
-    tools = ["@docker_nix//:bin/docker", "@pandoc_nix//:bin/pandoc", "@com_google_protobuf//:protoc", "@com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc"],
-    outs = ['proto-docs.rst'],
+    name = "docs",
+    srcs = [":ledger-api-docs"],
+    outs = ["proto-docs.rst"],
     cmd = """
-        export PATH="$$( cd "$$(dirname "$(location @docker_nix//:bin/docker)")" ; pwd -P )":$$PATH
-        export PATH="$$( cd "$$(dirname "$(location @pandoc_nix//:bin/pandoc)")" ; pwd -P )":$$PATH
-        export PATH="$$( cd "$$(dirname "$(location @com_google_protobuf//:protoc)")" ; pwd -P )":$$PATH
-        export PATH="$$( cd "$$(dirname "$(location @com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc)")" ; pwd -P )":$$PATH
-
-        mkdir tmp
-        mkdir out
-        mkdir -p imports/google/protobuf
-
-        cp -L ledger-api/grpc-definitions/post-process.sh out
-        cp -RL ledger-api/grpc-definitions/* tmp
-        cp -L ledger-api/grpc-definitions/rst_mmd.tmpl tmp
-        cp $(locations @com_google_protobuf//:well_known_protos) imports/google/protobuf
-
-        cd tmp
-        PROTOS=$$(find . -name '*.proto' -print0 | xargs -0 echo)
-
-        protoc -I../imports -I. --plugin=../$(location @com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc) --doc_out=../out --doc_opt=rst_mmd.tmpl,docs_rst_mmd.md $$PROTOS
-
-        cd ../out
-        ./post-process.sh
-
-        mv docs_rst_mmd.rst ../$(location proto-docs.rst)
+        unzip -q $(location :ledger-api-docs)
+        $(location post-process.sh)
+        mv docs.rst '$@'
     """,
-    visibility = [
-        '//visibility:public',
-    ]
+    tools = ["post-process.sh"],
+    visibility = ["//visibility:public"],
 )

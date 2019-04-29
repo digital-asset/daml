@@ -70,16 +70,16 @@ object Pretty {
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyTransactionNode(node: Transaction.Node): Doc =
     node match {
-      case create: NodeCreate[ContractId, Transaction.Value[ContractId]] =>
+      case create: NodeCreate.WithTxValue[ContractId] =>
         "create" &: prettyContractInst(create.coinst)
       case fetch: NodeFetch[ContractId] =>
         "fetch" &: prettyContractId(fetch.coid)
-      case ex: NodeExercises[Transaction.NodeId, ContractId, Transaction.Value[ContractId]] =>
+      case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
         intercalate(text(", "), ex.actingParties.map(p => text(p.underlyingString))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
           text("with") & prettyVersionedValue(false)(ex.chosenValue)
-      case lbk: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
+      case lbk: NodeLookupByKey.WithTxValue[ContractId] =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
           text("key") & prettyKeyWithMaintainers(lbk.key) /
           (lbk.result match {
@@ -380,10 +380,10 @@ object Pretty {
       case ValueOptional(Some(v1)) => text("Option(") + prettyValue(verbose)(v1) + char(')')
       case ValueOptional(None) => text("None")
       case ValueMap(map) =>
-        val list = map.toList.sortBy(_._1).map {
+        val list = map.toImmArray.map {
           case (k, v) => text(k) + text(" -> ") + prettyValue(verbose)(v)
         }
-        text("Map(") + intercalate(text(", "), list) + text(")")
+        text("Map(") + intercalate(text(", "), list.toSeq) + text(")")
     }
 
   object SExpr {

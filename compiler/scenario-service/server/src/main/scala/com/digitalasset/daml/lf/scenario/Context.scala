@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.scenario
 
-import com.digitalasset.daml_lf.{DamlLf1, DamlLfDev}
+import com.digitalasset.daml_lf.DamlLf1
 import com.digitalasset.daml.lf.data.Ref.{
   DefinitionRef,
   Identifier,
@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.data.Ref.{
   SimpleString
 }
 import com.digitalasset.daml.lf.lfpackage.Ast
-import com.digitalasset.daml.lf.lfpackage.{Decode, DecodeV1, DecodeVDev}
+import com.digitalasset.daml.lf.lfpackage.{Decode, DecodeV1}
 import com.digitalasset.daml.lf.scenario.api.v1.{Module => ProtoModule}
 import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.speedy.ScenarioRunner
@@ -125,14 +125,7 @@ class Context(val contextId: Context.ContextId) {
               Decode.damlLfCodedInputStream(module.getDamlLf1.newInput)
             )
           new DecodeV1(module.getMinor).ModuleDecoder(homePackageId, lfMod).decode()
-        case ProtoModule.ModuleCase.DAML_LF_DEV =>
-          val lfMod = DamlLfDev.Module
-            .parser()
-            .parseFrom(
-              Decode.damlLfCodedInputStream(module.getDamlLfDev.newInput)
-            )
-          DecodeVDev.ModuleDecoder(homePackageId, lfMod).decode()
-        case ProtoModule.ModuleCase.MODULE_NOT_SET =>
+        case ProtoModule.ModuleCase.DAML_LF_DEV | ProtoModule.ModuleCase.MODULE_NOT_SET =>
           throw Context.ContextException("Module.MODULE_NOT_SET")
     })
     modules ++= lfModules.map(m => m.name -> m)

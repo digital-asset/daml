@@ -28,6 +28,7 @@ import           Control.Exception.Extra
 import           Control.Monad
 import           Control.Monad.IO.Class
 import Control.Monad.Managed
+import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
 import qualified DA.Service.Daml.Compiler.Impl.Scenario as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
@@ -60,6 +61,7 @@ import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.UtilGHC
 import           Data.Tagged                  (Tagged (..))
 import qualified GHC
+import qualified Proto3.Suite.JSONPB as JSONPB
 
 import Test.Tasty
 import qualified Test.Tasty.HUnit as HUnit
@@ -121,7 +123,7 @@ getIntegrationTests registerTODO scenarioService version = do
     let outdir = "daml-foundations/daml-ghc/output"
     createDirectoryIfMissing True outdir
 
-    opts <- fmap (\opts -> opts { optDamlLfVersion = version, optThreads = 0 } ) defaultOptionsIO
+    opts <- fmap (\opts ->  opts { optThreads = 0 }) $ defaultOptionsIO (Just version)
 
     -- initialise the compiler service
     pure $
@@ -175,7 +177,7 @@ runJqQuery log qs = do
     log $ "running jq query: " ++ q
 
     let jq = "external" </> "jq" </> "bin" </> "jq"
-    let json = unpack $ A.encode $ transformOn A._Value numToString $ A.toJSON pkg
+    let json = unpack $ A.encode $ transformOn A._Value numToString $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
     out <- readProcess jq [q] json
     case trim out of
       "true" -> pure Nothing

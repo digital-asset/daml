@@ -2,6 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds          #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -12,7 +14,6 @@ import DA.Prelude
 
 import           Control.DeepSeq
 import           Control.Lens
-import           Data.Aeson (FromJSON)
 import qualified Data.NameMap as NM
 import qualified Data.Text          as T
 import Data.Fixed
@@ -106,6 +107,7 @@ data PackageRef
     -- ^ Reference to the package being currently handled.
   | PRImport !PackageId
     -- ^ Reference to the package with the given id.
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Something qualified by a package and a module within that package.
 data Qualified a = Qualified
@@ -113,6 +115,7 @@ data Qualified a = Qualified
   , qualModule  :: !ModuleName
   , qualObject  :: !a
   }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Source location annotation.
 data SourceLoc = SourceLoc
@@ -125,16 +128,19 @@ data SourceLoc = SourceLoc
   , slocEndLine :: !Int
   , slocEndCol :: !Int
   }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Kinds.
 data Kind
   = KStar
   | KArrow Kind Kind
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Enumeration types like Bool and Unit.
 data EnumType
   = ETUnit
   | ETBool
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Builtin type.
 data BuiltinType
@@ -152,6 +158,7 @@ data BuiltinType
   | BTOptional
   | BTMap
   | BTArrow
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Type as used in typed binders.
 data Type
@@ -174,6 +181,7 @@ data Type
   -- | Type for tuples aka structural records. Parameterized by the names of the
   -- fields and their types.
   | TTuple      ![(FieldName, Type)]
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Fully applied qualified type constructor.
 data TypeConApp = TypeConApp
@@ -182,12 +190,14 @@ data TypeConApp = TypeConApp
   , tcaArgs    :: ![Type]
     -- ^ Type arguments which are applied to the type constructor.
   }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Constructors of builtin 'EnumType's.
 data EnumCon
   = ECUnit   -- ∷ Unit
   | ECFalse  -- ∷ Bool
   | ECTrue   -- ∷ Bool
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 data E10
 instance HasResolution E10 where
@@ -261,12 +271,14 @@ data BuiltinExpr
 
   | BETrace                      -- :: forall a. Text -> a -> a
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 
 data Binding = Binding
   { bindingBinder :: !(ExprVarName, Type)
   , bindingBound  :: !Expr
   }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Expression.
 data Expr
@@ -414,6 +426,7 @@ data Expr
   | EScenario !Scenario
   -- | An expression annotated with a source location.
   | ELocation !SourceLoc !Expr
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Pattern matching alternative.
 data CaseAlternative = CaseAlternative
@@ -422,6 +435,7 @@ data CaseAlternative = CaseAlternative
   , altExpr    :: !Expr
     -- ^ Expression to evaluate in case of a match.
   }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 data CasePattern
   -- | Match on constructor of variant type.
@@ -450,6 +464,7 @@ data CasePattern
   -- | Match on anything. Should be the last alternative. Also note that 'ECase'
   -- bind the value of the scrutinee to a variable.
   | CPDefault
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Expression in the update monad.
 data Update
@@ -505,6 +520,7 @@ data Update
     }
   | ULookupByKey !RetrieveByKey
   | UFetchByKey !RetrieveByKey
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Expression in the scenario monad
 data Scenario
@@ -567,13 +583,17 @@ data Scenario
     { scenarioEmbedType :: !Type
     , scenarioEmbedExpr :: !Expr
     }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 data RetrieveByKey = RetrieveByKey
   { retrieveByKeyTemplate :: !(Qualified TypeConName)
   , retrieveByKeyKey :: !Expr
   }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 newtype IsSerializable = IsSerializable{getIsSerializable :: Bool}
+  deriving stock (Eq, Data, Generic, Ord, Show)
+  deriving anyclass (NFData)
 
 -- | Definition of a data type.
 data DefDataType = DefDataType
@@ -588,6 +608,7 @@ data DefDataType = DefDataType
   , dataCons    :: !DataCons
     -- ^ Data constructor of the type.
   }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Data constructors for a data type definition.
 data DataCons
@@ -595,10 +616,15 @@ data DataCons
   = DataRecord  ![(FieldName, Type)]
   -- | A variant type given by its construtors and their payload types.
   | DataVariant ![(VariantConName, Type)]
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 newtype HasNoPartyLiterals = HasNoPartyLiterals{getHasNoPartyLiterals :: Bool}
+  deriving stock (Eq, Data, Generic, Ord, Show)
+  deriving anyclass (NFData)
 
 newtype IsTest = IsTest{getIsTest :: Bool}
+  deriving stock (Eq, Data, Generic, Ord, Show)
+  deriving anyclass (NFData)
 
 -- | Definition of a value.
 data DefValue = DefValue
@@ -613,54 +639,8 @@ data DefValue = DefValue
     -- ^ Is the value maked as a test to be run as a scenario?
   , dvalBody   :: !Expr
     -- ^ Expression whose value to bind to the name.
-  , dvalInfo   :: !(Maybe DefValueInfo)
-    -- ^ Includes additional info that we use in the simplifier. Note that
-    -- this information is generated by 'DA.Daml.LF.Ast.DefValueInfo' and
-    -- _not_ contained in the proto.
   }
-
-{-
-TODO currently we do not recognize proxies to variant constructors,
-since they're not required for contract keys, but if we were these data structures
-should work.
-
-data VariantConstructorProxyType =
-    VCPTNormal
-  -- ^ normal constructor proxy: just pass an argument through
-  | VCPTRecord
-      { vcptType :: !(Qualified TypeConName)
-      , vcptTyVars :: ![TypeVarName]
-      }
-  -- ^ constructors deriving from types like
-  --
-  -- @
-  -- data Foo = Bar with bar: Int; baz: Bool | ...
-  -- @
-  --
-  -- which will induce constructor proxies that take @bar@ and
-  -- @baz@ as parameters and construct the record directly.
--}
-
--- | Some additional metadata we generate for each value definition,
--- mostly used by the simplifier.
-data DefValueInfo =
-    DVIRecordConstructorProxy
-      { dviRecConTyCon :: !(Qualified TypeConName)
-      }
-  {-
-  TODO currently we do not recognize proxies to variant constructors,
-  since they're not required for contract keys, but if we were these data structures
-  should work.
-  | DVIVariantConstructorProxy
-      { dviVarConTyCon :: !(Qualified TypeConName)
-      , dviVarConVariant :: !VariantConName
-      , dviVarConType :: !VariantConstructorProxyType
-      }
-  -}
-  | DVIRecordProjectionProxy
-      { dviRecProjType :: !(Qualified TypeConName)
-      , dviRecProjField :: !FieldName
-      }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 data TemplateKey = TemplateKey
   { tplKeyType :: !Type
@@ -671,6 +651,7 @@ data TemplateKey = TemplateKey
   -- of that fragment in DAML-LF directly.
   , tplKeyMaintainers :: !Expr
   }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Definition of a contract template.
 data Template = Template
@@ -697,6 +678,7 @@ data Template = Template
   , tplKey             :: !(Maybe TemplateKey)
     -- ^ Template key definition, if any.
   }
+  deriving (Eq, Data, Generic, NFData, Show)
 
 -- | Single choice of a contract template.
 data TemplateChoice = TemplateChoice
@@ -721,32 +703,33 @@ data TemplateChoice = TemplateChoice
     -- ^ Follow-up update of the choice. It has type @Update <ret_type>@ and
     -- both the template parameter and the choice parameter in scope.
   }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Feature flags for a module.
 data FeatureFlags = FeatureFlags
   { forbidPartyLiterals :: !Bool
   -- ^ If set to true, party literals are forbidden to appear in daml-lf packages.
+  {-
+  DAML-LF has these but our ecosystem does not support them anymore, see #157
   , dontDivulgeContractIdsInCreateArguments :: !Bool
   -- ^ If set to true, arguments to creates are not divulged. Instead target contract id's of
   -- exercises are divulged and fetch is checked for authorization.
   , dontDiscloseNonConsumingChoicesToObservers :: !Bool
   -- ^ If set to true, exercise nodes of non-consuming choices are only disclosed to the signatories
   -- and controllers of the target contract/choice and not to the observers of the target contract.
+  -}
   }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 defaultFeatureFlags :: FeatureFlags
 defaultFeatureFlags = FeatureFlags
   { forbidPartyLiterals = False
-  , dontDivulgeContractIdsInCreateArguments = False
-  , dontDiscloseNonConsumingChoicesToObservers = False
   }
 
 -- | Feature flags for DAML 1.2.
 daml12FeatureFlags :: FeatureFlags
 daml12FeatureFlags = FeatureFlags
   { forbidPartyLiterals = True
-  , dontDivulgeContractIdsInCreateArguments = True
-  , dontDiscloseNonConsumingChoicesToObservers = True
   }
 
 -- | A module.
@@ -765,12 +748,14 @@ data Module = Module
   , moduleTemplates :: !(NM.NameMap Template)
     -- ^ Template definitions.
   }
+  deriving (Eq, Data, Generic, NFData, Show)
 
 -- | A package.
 data Package = Package
     { packageLfVersion :: Version
     , packageModules :: NM.NameMap Module
     }
+  deriving (Eq, Data, Generic, NFData, Show)
 
 -- | Type synonym for a reference to an LF value.
 type ValueRef = Qualified ExprValName
@@ -778,60 +763,6 @@ type ValueRef = Qualified ExprValName
 deriving instance Foldable    Qualified
 deriving instance Functor     Qualified
 deriving instance Traversable Qualified
-
-concatSequenceA $
-  [ makePrisms ''Kind
-  , makePrisms ''Type
-  , makePrisms ''Expr
-  , makePrisms ''Update
-  , makePrisms ''Scenario
-  , makePrisms ''DataCons
-  , makePrisms ''Package
-  -- , makePrisms ''VariantConstructorProxyType
-  , makeUnderscoreLenses ''DefDataType
-  , makeUnderscoreLenses ''DefValue
-  , makeUnderscoreLenses ''TemplateChoice
-  , makeUnderscoreLenses ''Template
-  , makeUnderscoreLenses ''Module
-  , makeUnderscoreLenses ''Package
-  , makeUnderscoreLenses ''DefValueInfo
-  , makeUnderscoreLenses ''TemplateKey
-  ] ++
-  map (makeInstancesExcept [''FromJSON])
-  [ ''PackageRef
-  , ''Qualified
-  , ''SourceLoc
-  , ''Kind
-  , ''EnumType
-  , ''BuiltinType
-  , ''Type
-  , ''TypeConApp
-  , ''EnumCon
-  , ''BuiltinExpr
-  , ''Binding
-  , ''Expr
-  , ''CaseAlternative
-  , ''CasePattern
-  , ''RetrieveByKey
-  , ''Update
-  , ''Scenario
-  , ''IsSerializable
-  , ''DefDataType
-  , ''DataCons
-  , ''HasNoPartyLiterals
-  , ''IsTest
-  , ''DefValue
-  , ''TemplateChoice
-  , ''FeatureFlags
-  , ''TemplateKey
-  -- , ''VariantConstructorProxyType
-  , ''DefValueInfo
-  ] ++
-  map (makeInstancesExcept [''Ord, ''FromJSON])
-  [ ''Template
-  , ''Module
-  , ''Package
-  ]
 
 instance Hashable PackageRef
 instance Hashable a => Hashable (Qualified a)
@@ -856,35 +787,19 @@ instance NM.Named Module where
   type Name Module = ModuleName
   name = moduleName
 
-instance NFData Binding
-instance NFData BuiltinExpr
-instance NFData BuiltinType
-instance NFData CaseAlternative
-instance NFData CasePattern
-instance NFData DataCons
-instance NFData DefDataType
-instance NFData DefValue
-instance NFData EnumCon
-instance NFData EnumType
-instance NFData Expr
-instance NFData FeatureFlags
-instance NFData HasNoPartyLiterals
-instance NFData IsSerializable
-instance NFData IsTest
-instance NFData Kind
-instance NFData Module
-instance NFData Package
-instance NFData PackageRef
-instance NFData Scenario
-instance NFData SourceLoc
-instance NFData TemplateKey
-instance NFData Template
-instance NFData TemplateChoice
-instance NFData Type
-instance NFData TypeConApp
-instance NFData RetrieveByKey
-instance NFData Update
--- instance NFData VariantConstructorProxyType
-instance NFData DefValueInfo
-
-instance NFData a => NFData (Qualified a)
+concatSequenceA
+  [ makePrisms ''Kind
+  , makePrisms ''Type
+  , makePrisms ''Expr
+  , makePrisms ''Update
+  , makePrisms ''Scenario
+  , makePrisms ''DataCons
+  , makePrisms ''Package
+  , makeUnderscoreLenses ''DefDataType
+  , makeUnderscoreLenses ''DefValue
+  , makeUnderscoreLenses ''TemplateChoice
+  , makeUnderscoreLenses ''Template
+  , makeUnderscoreLenses ''Module
+  , makeUnderscoreLenses ''Package
+  , makeUnderscoreLenses ''TemplateKey
+  ]

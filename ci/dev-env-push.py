@@ -28,7 +28,7 @@ def make_workdir():
 
     def unlink_workdir():
         shutil.rmtree(workdir)
-        log("%s cleaned" % workdir)
+        log("{} cleaned".format(workdir))
     atexit.register(unlink_workdir)
 
     return workdir
@@ -43,8 +43,8 @@ def log_cmd(cmd):
 # doesn't exist.
 def get_secret(workdir, key):
     value = os.environ.pop(key, None)
-    if value is None or value == f'$({key})':
-        log(f'could not find secret {key}')
+    if value is None or value == '$({})'.format(key):
+        log('could not find secret {}'.format(key))
         sys.exit(1)
 
     filepath = os.path.join(workdir, key)

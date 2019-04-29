@@ -1,18 +1,20 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//bazel_tools:java.bzl", "da_java_proto_library")
 
 proto_library(
-  name = "value_proto",
-  srcs = ["com/digitalasset/daml/lf/value.proto"],
-  deps = ["@com_google_protobuf//:empty_proto"],
-  visibility = ['//visibility:public'],
+    name = "value_proto",
+    srcs = ["com/digitalasset/daml/lf/value.proto"],
+    visibility = ["//visibility:public"],
+    deps = ["@com_google_protobuf//:empty_proto"],
 )
 
-java_proto_library(
-  name = "value_java_proto",
-  deps = [":value_proto"],
-  visibility = ['//visibility:public'],
+da_java_proto_library(
+    name = "value_java_proto",
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-value-java-proto:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [":value_proto"],
 )
 
 # FIXME(JM): This hack is not needed after we upgrade to latest Bazel which has the
@@ -21,30 +23,31 @@ genrule(
     name = "transaction_proto_patched",
     srcs = ["com/digitalasset/daml/lf/transaction.proto"],
     outs = ["transaction.proto"],
-    cmd = "sed $(SRCS) -e 's,import \"com,import \"daml-lf/transaction/src/main/protobuf/com,' > \"$@\""
+    cmd = "sed $(SRCS) -e 's,import \"com,import \"daml-lf/transaction/src/main/protobuf/com,' > \"$@\"",
 )
 
 proto_library(
-  name = "transaction_proto",
-  srcs = [":transaction_proto_patched"],
-  deps = [":value_proto"],
-  visibility = ['//visibility:public'],
+    name = "transaction_proto",
+    srcs = [":transaction_proto_patched"],
+    visibility = ["//visibility:public"],
+    deps = [":value_proto"],
 )
 
-java_proto_library(
-  name = "transaction_java_proto",
-  deps = [":transaction_proto"],
-  visibility = ['//visibility:public'],
+da_java_proto_library(
+    name = "transaction_java_proto",
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction-java-proto:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [":transaction_proto"],
 )
 
 proto_library(
-  name = "blindinginfo_proto",
-  srcs = ["com/digitalasset/daml/lf/blindinginfo.proto"]
+    name = "blindinginfo_proto",
+    srcs = ["com/digitalasset/daml/lf/blindinginfo.proto"],
 )
 
-java_proto_library(
-  name = "blindinginfo_java_proto",
-  deps = [":blindinginfo_proto"],
-  visibility = ['//visibility:public'],
+da_java_proto_library(
+    name = "blindinginfo_java_proto",
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-blindinginfo-java-proto:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [":blindinginfo_proto"],
 )
-

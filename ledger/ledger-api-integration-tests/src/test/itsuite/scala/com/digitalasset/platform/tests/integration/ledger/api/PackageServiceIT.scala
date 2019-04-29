@@ -23,8 +23,8 @@ import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class PackageServiceIT
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
+    with AkkaBeforeAndAfterAll
     with SuiteResourceManagementAroundAll
     with AsyncTimeLimitedTests
     with Matchers
@@ -49,7 +49,7 @@ class PackageServiceIT
 
       "return it" in allFixtures { context =>
         client(context.packageService).listPackages() map {
-          _.packageIds.size shouldEqual 2
+          _.packageIds.size shouldEqual 3 // package, stdlib, daml-prim
         }
       }
 

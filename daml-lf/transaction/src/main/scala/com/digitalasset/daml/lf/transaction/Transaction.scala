@@ -18,7 +18,7 @@ import scala.collection.breakOut
 
 case class VersionedTransaction[Nid, Cid](
     version: TransactionVersion,
-    transaction: GenTransaction[Nid, Cid, VersionedValue[Cid]]) {
+    transaction: GenTransaction.WithTxValue[Nid, Cid]) {
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] = this.copy(
     transaction = transaction.mapContractIdAndValue(f, _.mapContractId(f))
   )
@@ -61,6 +61,13 @@ case class VersionedTransaction[Nid, Cid](
   *
   * @param nodes The nodes of this transaction.
   * @param roots References to the root nodes of the transaction.
+  * @param usedPackages The set of packages used during interpretation.
+  *                     This is a hint for what packages are required to validate
+  *                     the transaction using the current interpreter. This assumption
+  *                     may not hold if new DAML engine implementations are introduced
+  *                     as some packages may be only referenced during compilation to
+  *                     engine's internal form. The used packages are not serialized
+  *                     using [[TransactionCoder]].
   *
   * Users of this class may assume that all instances are well-formed, i.e., `isWellFormed.isEmpty`.
   * For performance reasons, users are not required to call `isWellFormed`.
@@ -68,7 +75,8 @@ case class VersionedTransaction[Nid, Cid](
   */
 case class GenTransaction[Nid, Cid, +Val](
     nodes: Map[Nid, GenNode[Nid, Cid, Val]],
-    roots: ImmArray[Nid]) {
+    roots: ImmArray[Nid],
+    usedPackages: Set[PackageId]) {
   import GenTransaction._
 
   def mapContractIdAndValue[Cid2, Val2](
@@ -79,16 +87,20 @@ case class GenTransaction[Nid, Cid, +Val](
   }
 
   def mapContractId[Cid2](f: Cid => Cid2)(
-      implicit ev: Val <:< VersionedValue[Cid]): GenTransaction[Nid, Cid2, VersionedValue[Cid2]] = {
+      implicit ev: Val <:< VersionedValue[Cid]): WithTxValue[Nid, Cid2] = {
     def g(v: Val): VersionedValue[Cid2] = v.mapContractId(f)
     this.mapContractIdAndValue(f, g)
   }
 
   /** Note: the provided function must be injective, otherwise the transaction will be corrupted. */
   def mapNodeId[Nid2](f: Nid => Nid2): GenTransaction[Nid2, Cid, Val] =
-    transaction.GenTransaction(roots = roots.map(f), nodes = nodes.map {
-      case (nid, node) => (f(nid), node.mapNodeId(f))
-    })
+    transaction.GenTransaction(
+      roots = roots.map(f),
+      nodes = nodes.map {
+        case (nid, node) => (f(nid), node.mapNodeId(f))
+      },
+      usedPackages = usedPackages
+    )
 
   /**
     * This function traverses the roots in order, visiting children based on the traverse order provided.
@@ -317,6 +329,8 @@ case class GenTransaction[Nid, Cid, +Val](
 }
 
 object GenTransaction {
+  type WithTxValue[Nid, Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
+
   sealed trait TraverseOrder
   case object BottomUp extends TraverseOrder // visits exercise children before the exercise node itself
   case object TopDown extends TraverseOrder // visits exercise nodes first, then their children
@@ -338,7 +352,7 @@ object Transaction {
   type Value[+Cid] = Value.VersionedValue[Cid]
 
   /** Transaction nodes */
-  type Node = GenNode[NodeId, ContractId, Value[ContractId]]
+  type Node = GenNode.WithTxValue[NodeId, ContractId]
 
   /** (Complete) transactions, which are the result of interpreting a
     *  ledger-update. These transactions are consumed by either the
@@ -348,7 +362,7 @@ object Transaction {
     *  divulgence of contracts.
     *
     */
-  type Transaction = GenTransaction[NodeId, ContractId, Value[ContractId]]
+  type Transaction = GenTransaction.WithTxValue[NodeId, ContractId]
 
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable
@@ -436,6 +450,12 @@ object Transaction {
     *              we archive. This is not an optimization and is required for
     *              correct semantics, since otherwise lookups for keys for
     *              locally archived absolute contract ids will succeed wrongly.
+    * @param usedPackages The set of packages used during interpretation.
+    *                     This is a hint for what packages are required to validate
+    *                     the transaction using the current interpreter. This assumption
+    *                     may not hold if new DAML engine implementations are introduced
+    *                     as some packages may be only referenced during compilation to
+    *                     engine's internal form.
     */
   case class PartialTransaction(
       nextNodeId: NodeId,
@@ -444,7 +464,8 @@ object Transaction {
       consumedBy: Map[ContractId, NodeId],
       context: Context,
       aborted: Option[TransactionError],
-      keys: Map[GlobalKey, Option[ContractId]]
+      keys: Map[GlobalKey, Option[ContractId]],
+      usedPackages: Set[PackageId]
   ) {
 
     private def computeRoots: Set[NodeId] = {
@@ -463,7 +484,7 @@ object Transaction {
 
         def addToStringBuilder(
             nid: NodeId,
-            node: GenNode[NodeId, ContractId, Value[ContractId]],
+            node: GenNode.WithTxValue[NodeId, ContractId],
             rootPrefix: String): Unit = {
           sb.append(rootPrefix)
             .append("node ")
@@ -481,7 +502,7 @@ object Transaction {
         // roots field is not initialized when this method is executed on a failed transaction,
         // so we need to compute them.
         val rootNodes = computeRoots
-        val tx = GenTransaction(nodes, ImmArray(rootNodes))
+        val tx = GenTransaction(nodes, ImmArray(rootNodes), usedPackages)
 
         tx.foreach(GenTransaction.TopDown, { (nid, node) =>
           val rootPrefix = if (rootNodes.contains(nid)) "root " else ""
@@ -511,7 +532,8 @@ object Transaction {
             Right(
               GenTransaction(
                 nodes = nodes,
-                roots = roots.toImmArray
+                roots = roots.toImmArray,
+                usedPackages = usedPackages
               ))
           case _ => Left(this)
         }
@@ -527,17 +549,15 @@ object Transaction {
         _ <- guard(0 <= lcoid.txnid.index)
         node <- nodes.get(lcoid.txnid)
         coinst <- node match {
-          case create: NodeCreate[ContractId, Transaction.Value[ContractId]] =>
+          case create: NodeCreate.WithTxValue[ContractId] =>
             Some((create.coinst, consumedBy.get(lcoid)))
-          case _: NodeExercises[NodeId, ContractId, Transaction.Value[ContractId]] => None
-          case _: NodeFetch[ContractId] => None
-          case _: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] => None
+          case _: NodeExercises[_, _, _] | _: NodeFetch[_] | _: NodeLookupByKey[_, _] => None
         }
       } yield coinst
     }
 
     /** Extend the 'PartialTransaction' with a node for creating a
-      *  contract instance.
+      * contract instance.
       */
     def create(
         coinst: ContractInst[Value[ContractId]],
@@ -566,6 +586,12 @@ object Transaction {
         Right(ntx.copy(_1 = nodeIdToContractId(ntx._1)))
       }
     }
+
+    /** Mark a package as being used in the process of preparing the
+      * transaction.
+      */
+    def markPackage(packageId: PackageId): PartialTransaction =
+      this.copy(usedPackages = usedPackages + packageId)
 
     def serializable(a: Value[ContractId]): ImmArray[String] = a.value.serializable()
 
@@ -744,7 +770,8 @@ object Transaction {
       consumedBy = Map.empty,
       context = ContextRoot,
       aborted = None,
-      keys = Map.empty
+      keys = Map.empty,
+      usedPackages = Set.empty
     )
   }
 

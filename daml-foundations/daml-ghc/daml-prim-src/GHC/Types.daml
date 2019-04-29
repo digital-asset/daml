@@ -22,7 +22,6 @@ module GHC.Types (
         Opaque,
         ifThenElse,
         primitive, magic,
-        Proxy(..)
     ) where
 
 import GHC.Prim
@@ -149,5 +148,3 @@ data Text =
 data Decimal =
   -- | HIDE
   Decimal Opaque
-
-data Proxy a = Proxy

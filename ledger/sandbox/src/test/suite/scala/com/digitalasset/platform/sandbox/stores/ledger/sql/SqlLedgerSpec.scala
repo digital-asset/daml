@@ -5,24 +5,30 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
+import org.scalatest.concurrent.AsyncTimeLimitedTests
+import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
+
+import scala.concurrent.duration._
 
 class SqlLedgerSpec
     extends AsyncWordSpec
+    with AsyncTimeLimitedTests
     with Matchers
     with PostgresAroundEach
-    with AkkaBeforeAndAfterAll {
+    with AkkaBeforeAndAfterAll
+    with MetricsAround {
+
+  override val timeLimit: Span = 60.seconds
 
   "SQL Ledger" should {
     "be able to be created from scratch with a random ledger id" in {
       val ledgerF = SqlLedger(
         jdbcUrl = postgresFixture.jdbcUrl,
-        jdbcUser = testUser,
         ledgerId = None,
         timeProvider = TimeProvider.UTC,
-        acs = ActiveContracts.empty,
         ledgerEntries = Nil)
 
       ledgerF.map { ledger =>
@@ -35,10 +41,8 @@ class SqlLedgerSpec
 
       val ledgerF = SqlLedger(
         jdbcUrl = postgresFixture.jdbcUrl,
-        jdbcUser = testUser,
         ledgerId = Some(ledgerId),
         timeProvider = TimeProvider.UTC,
-        acs = ActiveContracts.empty,
         ledgerEntries = Nil)
 
       ledgerF.map { ledger =>
@@ -52,24 +56,18 @@ class SqlLedgerSpec
       for {
         ledger1 <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
-          jdbcUser = testUser,
           ledgerId = Some(ledgerId),
           timeProvider = TimeProvider.UTC,
-          acs = ActiveContracts.empty,
           ledgerEntries = Nil)
         ledger2 <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
-          jdbcUser = testUser,
           ledgerId = Some(ledgerId),
           timeProvider = TimeProvider.UTC,
-          acs = ActiveContracts.empty,
           ledgerEntries = Nil)
         ledger3 <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
-          jdbcUser = testUser,
           ledgerId = None,
           timeProvider = TimeProvider.UTC,
-          acs = ActiveContracts.empty,
           ledgerEntries = Nil)
       } yield {
         ledger1.ledgerId should not be equal(ledgerId)
@@ -83,18 +81,14 @@ class SqlLedgerSpec
       val ledgerF = for {
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
-          jdbcUser = testUser,
           ledgerId = Some("TheLedger"),
           timeProvider = TimeProvider.UTC,
-          acs = ActiveContracts.empty,
           ledgerEntries = Nil
         )
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
-          jdbcUser = testUser,
           ledgerId = Some("AnotherLedger"),
           timeProvider = TimeProvider.UTC,
-          acs = ActiveContracts.empty,
           ledgerEntries = Nil
         )
       } yield (())

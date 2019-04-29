@@ -28,11 +28,11 @@ object DamlLfV1ArchiveReader {
     case _ => s"Unexpected exception: ${t.getMessage}"
   }
 
-  private[this] def readPackage(lf: DamlLf.ArchivePayload): String \/ DamlLf1.Package = {
+  private[iface] def readPackage(lf: DamlLf.ArchivePayload): String \/ DamlLf1.Package = {
     import DamlLf.ArchivePayload.{SumCase => SC}
     lf.getSumCase match {
       case SC.DAML_LF_1 => \/-(lf.getDamlLf1)
-      case SC.DAML_LF_0 | SC.DAML_LF_DEV | SC.SUM_NOT_SET => -\/("LF other than v1 not supported")
+      case SC.DAML_LF_0 | SC.SUM_NOT_SET => -\/("LF other than v1 not supported")
     }
   }
 }

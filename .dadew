@@ -3,7 +3,6 @@
     "manifests": "dev-env\\windows\\manifests",
     "tools": [
         "7zip",
-        "java-oraclejdk-8u111",
         "java-openjdk-8u201",
         "patch-2.6.1",
         "msys2-20180531",
@@ -12,10 +11,7 @@
         "vcredist-14.0.23026",
         "bazel",
         "nodejs-10.12.0",
-        "pester-4.4.2",
         "python-3.6.7",
-        "pipenv-2018.11.26",
-        "wget-1.19.4",
-        "git-2.19.2"
+        "nsis-3.04"
     ]
 }

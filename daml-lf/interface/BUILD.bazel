@@ -3,19 +3,21 @@
 
 load(
     "//bazel_tools:scala.bzl",
-    "lf_scalacopts",
     "da_scala_library",
     "da_scala_test",
+    "lf_scalacopts",
 )
 
 da_scala_library(
     name = "interface",
     srcs = glob(["src/main/**/*.scala"]),
+    scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-interface:__VERSION__"],
     visibility = [
         "//daml-lf:__subpackages__",
-        "//language-support:__subpackages__",
         "//extractor:__subpackages__",
-        "//navigator:__subpackages__"
+        "//language-support:__subpackages__",
+        "//navigator:__subpackages__",
     ],
     deps = [
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
@@ -24,13 +26,13 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
     ],
-    scalacopts = lf_scalacopts,
 )
 
 da_scala_test(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
+    scalacopts = lf_scalacopts,
     deps = [
         ":interface",
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
@@ -43,6 +45,4 @@ da_scala_test(
         "//daml-lf/lfpackage",
         "//daml-lf/parser",
     ],
-    scalacopts = lf_scalacopts,
 )
-

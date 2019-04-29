@@ -36,10 +36,10 @@ Building applications
    :titlesonly:
    :maxdepth: 2
 
-   app-dev/app-arch/index
-   app-dev/ledger-api-introduction/index
+   app-dev/index
    app-dev/bindings-java/index
-   app-dev/daml-lf-translation
+   app-dev/grpc/index
+   app-dev/app-arch
 
 SDK tools
 ---------
@@ -59,7 +59,6 @@ Background concepts
    :titlesonly:
    :maxdepth: 2
 
-   concepts/platform-gsl/index
    concepts/ledger-model/index
 
 Examples

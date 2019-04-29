@@ -1,0 +1,29 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+compileDependencies = [
+    "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+    "//daml-lf/archive:daml_lf_java_proto",
+    "//daml-lf/data",
+    "//daml-lf/transaction",
+    "//ledger/ledger-api-domain",
+    "//ledger/participant-state",
+]
+
+da_scala_library(
+    name = "participant-state-index",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    tags = ["maven_coordinates=com.daml.ledger:participant-state-index:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = compileDependencies,
+)

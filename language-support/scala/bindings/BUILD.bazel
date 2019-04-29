@@ -2,50 +2,51 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  "//bazel_tools:scala.bzl",
-  "da_scala_test_suite",
-  "da_scala_library"
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
 )
 
 da_scala_library(
-  name = "bindings",
-  srcs = glob(["src/main/**/*.scala"]),
-  deps = [
-    "//ledger-api/grpc-definitions:ledger-api-scalapb",
-    "//3rdparty/jvm/io/grpc:grpc_core",
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//3rdparty/jvm/com/github/ghik:silencer_lib",
-  ],
-  exports = [
-    "//ledger-api/grpc-definitions:ledger-api-scalapb"
-  ],
-  plugins = [
-    "//external:jar/org/spire_math/kind_projector_2_12",
-    "//external:jar/com/github/ghik/silencer_plugin_2_12",
-  ],
-  # NOTE(JM): commented out deprecation warnings to get this to compile with the
-  # versions matching sbt. Please remove when deprecations are fixed.
-  scalacopts = ["-deprecation", "-Xfatal-warnings:false", "-Xsource:2.13"],
-  visibility = [
-      '//visibility:public',
-  ]
+    name = "bindings",
+    srcs = glob(["src/main/**/*.scala"]),
+    plugins = [
+        "//external:jar/org/spire_math/kind_projector_2_12",
+        "//external:jar/com/github/ghik/silencer_plugin_2_12",
+    ],
+    scalacopts = [
+        "-Xsource:2.13",
+    ],
+    tags = ["maven_coordinates=com.daml.scala:bindings:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    exports = [
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+    ],
+    deps = [
+        "//3rdparty/jvm/com/github/ghik:silencer_lib",
+        "//3rdparty/jvm/io/grpc:grpc_core",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+    ],
 )
 
 da_scala_test_suite(
-  name = "tests",
-  size = "small",
-  srcs = glob(['src/test/**/*.scala']),
-  deps = [
-    ":bindings",
-    "//3rdparty/jvm/org/scalacheck:scalacheck",
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//3rdparty/jvm/com/chuusai:shapeless",
-    "//3rdparty/jvm/org/scalatest:scalatest",
-  ],
-  plugins = [
-    "//external:jar/org/spire_math/kind_projector_2_12",
-  ],
-  # NOTE(JM): commented out deprecation warnings to get this to compile with the
-  # versions matching sbt. Please remove when deprecations are fixed.
-  scalacopts = ["-deprecation", "-Xfatal-warnings:false", "-Xsource:2.13"],
+    name = "tests",
+    size = "small",
+    srcs = glob(["src/test/**/*.scala"]),
+    plugins = [
+        "//external:jar/org/spire_math/kind_projector_2_12",
+    ],
+    scalacopts = [
+        "-Xsource:2.13",
+    ],
+    deps = [
+        ":bindings",
+        "//3rdparty/jvm/com/chuusai:shapeless",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+    ],
 )

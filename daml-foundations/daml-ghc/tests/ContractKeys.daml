@@ -1,9 +1,7 @@
 -- Check that the compiler bits of contract keys work.
--- @TODO (#177): Fix the engine such that this test passes. Remove `ContractKeysSimple.daml` when it does.
 -- @IGNORE-LF 1.0
 -- @IGNORE-LF 1.1
 -- @IGNORE-LF 1.2
--- @ERROR CRASH: RecProj on non-record
 daml 1.2
 module ContractKeys where
 
@@ -23,9 +21,10 @@ template Account with
   where
     signatory [bank, accountHolder]
 
-instance Key Account (Party, Text, Int) where
-    key acc = (acc.bank, acc.accountNumber._1, acc.accountNumber._2)
-    keyMaintainers Proxy (bank, _, _) = [bank]
+instance TemplateKey Account (Party, Text, Int) where
+    key this@Account{..} = (bank, accountNumber._1, this.accountNumber._2)
+    -- NOTE(MH): Thus duplication is intended to test both `this.bank` and `bank`.
+    maintainer this@Account{..} = [this.bank, bank]
 
 test = scenario do
     bank <- getParty "Bank"

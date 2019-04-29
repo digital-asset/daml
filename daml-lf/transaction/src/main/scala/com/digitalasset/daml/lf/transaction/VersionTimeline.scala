@@ -50,11 +50,6 @@ private[lf] object VersionTimeline {
       // do *not* backfill to make more Boths, because such would
       // invalidate the timeline; use This and That instead as needed.
       // Backfill *is* appropriate if a release of the last hasn't happened
-
-      // it isn't necessary for every dev version to be present, because
-      // we can only load the one identified here, anyway; all that matters
-      // is that it comes last
-      That(LanguageVersion(LMV.VDev, LMV.VDev.maxSupportedMinorVersion))
     )
 
   def foldRelease[Z: Semigroup](av: AllVersions[\&/])(

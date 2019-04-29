@@ -5,19 +5,17 @@
 module DAML.Assistant.Install
     ( InstallOptions (..)
     , InstallURL (..)
-    , installExtracted
-    , extractAndInstall
-    , httpInstall
-    , pathInstall
-    , targetInstallURL
-    , defaultInstallURL
+    , InstallEnv (..)
+    , versionInstall
+    , getLatestVersion
     , install
     ) where
 
 import DAML.Assistant.Types
-import DAML.Assistant.Consts
 import DAML.Assistant.Util
-import DAML.Assistant.Config
+import qualified DAML.Assistant.Install.Github as Github
+import DAML.Project.Consts
+import DAML.Project.Config
 import Safe
 import Conduit
 import qualified Data.Conduit.List as List
@@ -27,98 +25,81 @@ import Network.HTTP.Simple
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS.UTF8
 import Data.List.Extra
+import System.Exit
+import System.IO
 import System.IO.Temp
 import System.FilePath
 import System.Directory
 import Control.Monad.Extra
 import Control.Exception.Safe
 import System.ProgressBar
-import System.Posix.Types
-import System.Posix.Files -- forget windows for now
-import qualified System.Info
-import qualified Data.Text as T
+import System.Info.Extra (isWindows)
+import Data.Maybe
 
-displayInstallTarget :: InstallTarget -> Text
-displayInstallTarget = \case
-    InstallChannel (SdkChannel c) -> "channel " <> c
-    InstallVersion (SdkVersion v) -> "version " <> v
-    InstallPath p -> pack p
+-- unix specific
+import System.PosixCompat.Types ( FileMode )
+import System.PosixCompat.Files
+    ( removeLink
+    , createSymbolicLink
+    , fileMode
+    , getFileStatus
+    , setFileMode
+    , intersectFileModes
+    , unionFileModes
+    , ownerReadMode
+    , ownerWriteMode
+    , ownerExecuteMode
+    , groupReadMode
+    , groupExecuteMode
+    , otherReadMode
+    , otherExecuteMode)
 
-versionMatchesTarget :: SdkVersion -> InstallTarget -> Bool
-versionMatchesTarget version = \case
-    InstallChannel c -> c == fst (splitVersion version)
-    InstallVersion v -> v == version
-    InstallPath _ -> True -- tarball path could be any version
-
-newtype InstallURL = InstallURL { unwrapInstallURL :: Text }
-
-data SdkChannelInfo = SdkChannelInfo
-    { channelName       :: SdkChannel
-    , channelLatestURL  :: InstallURL
-    , channelVersionURL :: SdkSubVersion -> InstallURL
+data InstallEnv = InstallEnv
+    { options :: InstallOptions
+    , targetVersionM :: Maybe SdkVersion
+    , damlPath :: DamlPath
+    , projectPathM :: Maybe ProjectPath
+    , output :: String -> IO ()
     }
 
-knownChannels :: [SdkChannelInfo]
-knownChannels =
-    [ SdkChannelInfo
-        { channelName = SdkChannel "nightly"
-        , channelLatestURL  = bintrayLatestURL
-        , channelVersionURL = bintrayVersionURL
-        }
-    ]
+-- | Perform action unless user has passed --force flag.
+unlessForce :: InstallEnv -> IO () -> IO ()
+unlessForce InstallEnv{..} | ForceInstall b <- iForce options =
+    unless b
 
-lookupChannel :: SdkChannel -> [SdkChannelInfo] -> Maybe SdkChannelInfo
-lookupChannel ch = find ((== ch) . channelName)
+-- | Perform action unless user has passed --quiet flag.
+unlessQuiet :: InstallEnv -> IO () -> IO ()
+unlessQuiet InstallEnv{..} | QuietInstall b <- iQuiet options =
+    unless b
 
-targetInstallURL :: InstallTarget -> Maybe InstallURL
-targetInstallURL = \case
-    InstallChannel ch -> channelLatestURL <$> lookupChannel ch knownChannels
-    InstallVersion v | (ch, sv) <- splitVersion v ->
-        flip channelVersionURL sv <$> lookupChannel ch knownChannels
-    InstallPath _ -> Nothing
+-- | Execute action if --activate flag is set.
+whenActivate :: InstallEnv -> IO () -> IO ()
+whenActivate InstallEnv{..} | ActivateInstall b <- iActivate options =
+    when b
 
-defaultInstallURL :: InstallURL
-defaultInstallURL = bintrayLatestURL
-
-osName :: Text
-osName = case System.Info.os of
-    "darwin"  -> "osx"
-    "linux"   -> "linux"
-    "mingw32" -> "win"
-    p -> error ("daml: Unknown operating system " ++ p)
-
-
-bintrayVersionURL :: SdkSubVersion -> InstallURL
-bintrayVersionURL (SdkSubVersion subVersion) = InstallURL $ T.concat
-    [ "https://bintray.com/api/v1/content"  -- api call
-    , "/digitalassetsdk/DigitalAssetSDK"    -- repo/subject
-    , "/com/digitalasset/sdk-tarball/"      -- file path
-    , subVersion
-    , "/sdk-tarball-"
-    , subVersion
-    , "-"
-    , osName
-    , ".tar.gz"
-    , "?bt_package=sdk-components"          -- package
-    ]
-
-bintrayLatestURL :: InstallURL
-bintrayLatestURL = bintrayVersionURL (SdkSubVersion "$latest")
+-- | Set up .daml directory if it's missing.
+setupDamlPath :: DamlPath -> IO ()
+setupDamlPath (DamlPath path) = do
+    createDirectoryIfMissing True (path </> "bin")
+    createDirectoryIfMissing True (path </> "sdk")
+    -- For now, we only ensure that the config file exists.
+    appendFile (path </> damlConfigName) ""
 
 -- | Install (extracted) SDK directory to the correct place, after performing
 -- a version sanity check. Then run the sdk install hook if applicable.
-installExtracted :: InstallOptions -> DamlPath -> SdkPath -> IO ()
-installExtracted InstallOptions{..} damlPath sourcePath =
-    wrapErr "Installing extracted SDK tarball." $ do
+installExtracted :: InstallEnv -> SdkPath -> IO ()
+installExtracted env@InstallEnv{..} sourcePath =
+    wrapErr "Installing extracted SDK release." $ do
         sourceConfig <- readSdkConfig sourcePath
         sourceVersion <- fromRightM throwIO (sdkVersionFromSdkConfig sourceConfig)
 
-
-        whenJust iTargetM $ \target ->
-            unless (versionMatchesTarget sourceVersion target) $
-                throwIO (assistantErrorBecause "SDK release version mismatch."
-                    ("Expected " <> displayInstallTarget target
-                    <> " but got version " <> unwrapSdkVersion sourceVersion))
+        -- Check that source version matches expected target version.
+        whenJust targetVersionM $ \targetVersion -> do
+            unless (sourceVersion == targetVersion) $ do
+                throwIO $ assistantErrorBecause
+                    "SDK release version mismatch."
+                    ("Expected " <> versionToText targetVersion
+                    <> " but got version " <> versionToText sourceVersion)
 
         -- Set file mode of files to install.
         requiredIO "Failed to set file modes for extracted SDK files." $
@@ -127,10 +108,27 @@ installExtracted InstallOptions{..} damlPath sourcePath =
                 , walkOnDirectoryPost = \path ->
                     when (path /= addTrailingPathSeparator (unwrapSdkPath sourcePath)) $
                         setSdkFileMode path
-                , walkOnDirectoryPre = \_ -> pure ()
+                , walkOnDirectoryPre = const (pure ())
                 }
 
+        setupDamlPath damlPath
+
         let targetPath = defaultSdkPath damlPath sourceVersion
+
+        whenM (doesDirectoryExist (unwrapSdkPath targetPath)) $ do
+            unlessForce env $ do
+                throwIO $ assistantErrorBecause
+                    ("SDK version " <> versionToText sourceVersion <> " already installed. Use --force to overwrite.")
+                    ("Directory " <> pack (unwrapSdkPath targetPath) <> " already exists.")
+
+            requiredIO "Failed to set file modes for SDK to remove." $ do
+                walkRecursive (unwrapSdkPath targetPath) WalkCallbacks
+                    { walkOnFile = setRemoveFileMode
+                    , walkOnDirectoryPre = setRemoveFileMode
+                    , walkOnDirectoryPost = const (pure ())
+                    }
+
+
         when (sourcePath /= targetPath) $ do -- should be true 99.9% of the time,
                                             -- but in that 0.1% this check prevents us
                                             -- from deleting the sdk we want to install
@@ -138,35 +136,48 @@ installExtracted InstallOptions{..} damlPath sourcePath =
             requiredIO "Failed to remove existing SDK installation." $
                 removePathForcibly (unwrapSdkPath targetPath)
                 -- Always removePathForcibly to uniformize renameDirectory behavior
-                -- between windows and unices. (This is the wrong place for a --force check.
-                -- That should occur before downloading or extracting any tarball.)
+                -- between windows and unices.
             requiredIO "Failed to move extracted SDK release to final location." $
                 renameDirectory (unwrapSdkPath sourcePath) (unwrapSdkPath targetPath)
 
         requiredIO "Failed to set file mode of installed SDK directory." $
             setSdkFileMode (unwrapSdkPath targetPath)
 
-        when iActivate $ do
-            let damlBinarySourcePath = unwrapSdkPath targetPath </> "daml" </> "daml"
-                damlBinaryTargetDir  = unwrapDamlPath damlPath </> "bin"
-                damlBinaryTargetPath = damlBinaryTargetDir </> "daml"
+        whenActivate env $ activateDaml env targetPath
 
-            unlessM (doesFileExist damlBinarySourcePath) $
-                throwIO $ assistantErrorBecause
-                    "daml binary is missing from SDK release."
-                    ("expected path = " <> pack damlBinarySourcePath)
+activateDaml :: InstallEnv -> SdkPath -> IO ()
+activateDaml env@InstallEnv{..} targetPath = do
 
-            whenM (doesFileExist damlBinaryTargetPath) $
-                requiredIO "Failed to delete existing daml binary symbolic link." $
-                    removeLink damlBinaryTargetPath
+    let damlSourceName = if isWindows then "daml.exe" else "daml"
+        damlTargetName = if isWindows then "daml.cmd" else "daml"
+        damlBinarySourcePath = unwrapSdkPath targetPath </> "daml" </> damlSourceName
+        damlBinaryTargetDir  = unwrapDamlPath damlPath </> "bin"
+        damlBinaryTargetPath = damlBinaryTargetDir </> damlTargetName
 
-            requiredIO ("Failed to link daml binary in " <> pack damlBinaryTargetDir) $
-                createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
+    unlessM (doesFileExist damlBinarySourcePath) $
+        throwIO $ assistantErrorBecause
+            "daml binary is missing from SDK release."
+            ("expected path = " <> pack damlBinarySourcePath)
 
-            unless iQuiet $ do -- Ask user to add .daml/bin to PATH if it is absent.
-                searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
-                when (damlBinaryTargetDir `notElem` searchPaths) $ do
-                    putStrLn ("Please add " <> damlBinaryTargetDir <> " to your PATH.")
+    whenM (doesFileExist damlBinaryTargetPath) $
+        requiredIO "Failed to delete existing daml binary link." $
+            if isWindows
+                then removePathForcibly damlBinaryTargetPath
+                else removeLink damlBinaryTargetPath
+
+    requiredIO ("Failed to link daml binary in " <> pack damlBinaryTargetDir) $
+        if isWindows
+            then writeFile damlBinaryTargetPath $ unlines
+                     [ "@echo off"
+                     , damlBinarySourcePath <> " %*"
+                     ]
+            else createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
+
+    unlessQuiet env $ do -- Ask user to add .daml/bin to PATH if it is absent.
+        searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
+        when (damlBinaryTargetDir `notElem` searchPaths) $ do
+            output ("Please add " <> damlBinaryTargetDir <> " to your PATH.")
+
 
 data WalkCallbacks = WalkCallbacks
     { walkOnFile :: FilePath -> IO ()
@@ -203,6 +214,12 @@ setSdkFileMode path = do
     sourceMode <- fileMode <$> getFileStatus path
     setFileMode path (intersectFileModes fileModeMask sourceMode)
 
+-- | Add write permissions to allow for removal.
+setRemoveFileMode :: FilePath -> IO ()
+setRemoveFileMode path = do
+    sourceMode <- fileMode <$> getFileStatus path
+    setFileMode path (unionFileModes ownerWriteMode sourceMode)
+
 -- | File mode mask to be applied to installed SDK files.
 fileModeMask :: FileMode
 fileModeMask = foldl1 unionFileModes
@@ -215,8 +232,8 @@ fileModeMask = foldl1 unionFileModes
     ]
 
 -- | Copy an extracted SDK release directory and install it.
-copyAndInstall :: InstallOptions -> DamlPath -> FilePath -> IO ()
-copyAndInstall options damlPath sourcePath =
+copyAndInstall :: InstallEnv -> FilePath -> IO ()
+copyAndInstall env sourcePath =
     wrapErr "Copying SDK release directory." $ do
         withSystemTempDirectory "daml-update" $ \tmp -> do
             let copyPath = tmp </> "release"
@@ -229,13 +246,13 @@ copyAndInstall options damlPath sourcePath =
                 , walkOnDirectoryPost = \_ -> pure ()
                 }
 
-            installExtracted options damlPath (SdkPath copyPath)
+            installExtracted env (SdkPath copyPath)
 
 
 -- | Extract a tarGz bytestring and install it.
-extractAndInstall :: InstallOptions -> DamlPath
+extractAndInstall :: InstallEnv
     -> ConduitT () BS.ByteString (ResourceT IO) () -> IO ()
-extractAndInstall options damlPath source =
+extractAndInstall env source =
     wrapErr "Extracting SDK release tarball." $ do
         withSystemTempDirectory "daml-update" $ \tmp -> do
             let extractPath = tmp </> "release"
@@ -244,7 +261,7 @@ extractAndInstall options damlPath source =
                 $ source
                 .| Zlib.ungzip
                 .| Tar.untar (restoreFile extractPath)
-            installExtracted options damlPath (SdkPath extractPath)
+            installExtracted env (SdkPath extractPath)
     where
         restoreFile :: MonadResource m => FilePath -> Tar.FileInfo
             -> ConduitT BS.ByteString Void m ()
@@ -254,6 +271,11 @@ extractAndInstall options damlPath source =
                 targetPath = extractPath </> dropTrailingPathSeparator newPath
                 parentPath = takeDirectory targetPath
 
+            when (pathEscapes newPath) $ do
+                liftIO $ throwIO $ assistantErrorBecause
+                    "Invalid SDK release: file path escapes tarball."
+                    ("path = " <> pack oldPath)
+
             when (notNull newPath) $ do
                 case Tar.fileType info of
                     Tar.FTNormal -> do
@@ -262,19 +284,42 @@ extractAndInstall options damlPath source =
                         liftIO $ setFileMode targetPath (Tar.fileMode info)
                     Tar.FTDirectory -> do
                         liftIO $ createDirectoryIfMissing True targetPath
+                    Tar.FTSymbolicLink bs | not isWindows -> do
+                        let path = Tar.decodeFilePath bs
+                        unless (isRelative path) $
+                            liftIO $ throwIO $ assistantErrorBecause
+                                "Invalid SDK release: symbolic link target is absolute."
+                                ("target = " <> pack path <>  ", path = " <> pack oldPath)
+
+                        when (pathEscapes (takeDirectory newPath </> path)) $
+                            liftIO $ throwIO $ assistantErrorBecause
+                                "Invalid SDK release: symbolic link target escapes tarball."
+                                ("target = " <> pack path <> ", path = " <> pack oldPath)
+
+                        liftIO $ createDirectoryIfMissing True parentPath
+                        liftIO $ createSymbolicLink path targetPath
                     unsupported ->
                         liftIO $ throwIO $ assistantErrorBecause
                             "Invalid SDK release: unsupported file type."
                             ("type = " <> pack (show unsupported) <>  ", path = " <> pack oldPath)
+
+        -- | Check whether a relative path escapes its root.
+        pathEscapes :: FilePath -> Bool
+        pathEscapes path = isNothing $ foldM step "" (splitDirectories path)
+            where
+                step acc "."  = Just acc
+                step ""  ".." = Nothing
+                step acc ".." = Just (takeDirectory acc)
+                step acc name = Just (acc </> name)
 
         -- | Drop first component from path
         dropDirectory1 :: FilePath -> FilePath
         dropDirectory1 = joinPath . tail . splitPath
 
 -- | Download an sdk tarball and install it.
-httpInstall :: InstallOptions -> DamlPath -> InstallURL -> IO ()
-httpInstall options@InstallOptions{..} damlPath (InstallURL url) = do
-    unless iQuiet $ putStrLn "Downloading SDK release."
+httpInstall :: InstallEnv -> InstallURL -> IO ()
+httpInstall env@InstallEnv{..} (InstallURL url) = do
+    unlessQuiet env $ output "Downloading SDK release."
     request <- parseRequest ("GET " <> unpack url)
     withResponse request $ \response -> do
         when (getResponseStatusCode response /= 200) $
@@ -282,7 +327,7 @@ httpInstall options@InstallOptions{..} damlPath (InstallURL url) = do
                     . pack . show $ getResponseStatus response
         let totalSizeM = readMay . BS.UTF8.toString =<< headMay
                 (getResponseHeader "Content-Length" response)
-        extractAndInstall options damlPath
+        extractAndInstall env
             . maybe id (\s -> (.| observeProgress s)) totalSizeM
             $ getResponseBody response
     where
@@ -295,51 +340,89 @@ httpInstall options@InstallOptions{..} damlPath (InstallURL url) = do
                 pure bs
 
 -- | Install SDK from a path. If the path is a tarball, extract it first.
-pathInstall :: InstallOptions -> DamlPath -> FilePath -> IO ()
-pathInstall options@InstallOptions{..} damlPath sourcePath = do
+pathInstall :: InstallEnv -> FilePath -> IO ()
+pathInstall env@InstallEnv{..} sourcePath = do
     isDirectory <- doesDirectoryExist sourcePath
     if isDirectory
         then do
-            unless iQuiet $ putStrLn "Installing SDK release from directory."
-            copyAndInstall options damlPath sourcePath
+            unlessQuiet env $ output "Installing SDK release from directory."
+            copyAndInstall env sourcePath
         else do
-            unless iQuiet $ putStrLn "Installing SDK release from tarball."
-            extractAndInstall options damlPath (sourceFileBS sourcePath)
+            unlessQuiet env $ output "Installing SDK release from tarball."
+            extractAndInstall env (sourceFileBS sourcePath)
 
--- | Set up initial .daml directory.
-initialInstall :: InstallOptions -> DamlPath -> IO ()
-initialInstall InstallOptions{..} (DamlPath damlPath) = do
-    whenM (doesDirectoryExist damlPath) $ do
-        unless iForce $ do
+-- | Install a specific SDK version.
+versionInstall :: InstallEnv -> SdkVersion -> IO ()
+versionInstall env@InstallEnv{..} version = do
+    unlessQuiet env $ do
+        output ("Installing DAML SDK version " <> versionToString version)
+
+    let SdkPath path = defaultSdkPath damlPath version
+    whenM (doesDirectoryExist path) $ do
+        unlessForce env $ do
             throwIO $ assistantErrorBecause
-                ("DAML home directory " <> pack damlPath <> " already exists. "
-                    <> "Please remove it or use --force to continue.")
-                ("path = " <> pack damlPath)
-    createDirectoryIfMissing True (damlPath </> "bin")
-    createDirectoryIfMissing True (damlPath </> "sdk")
-    -- For now, we only ensure that the file exists.
-    appendFile (damlPath </> damlConfigName) ""
+                ("SDK version " <> versionToText version <>
+                    " is already installed. Use --force to reinstall.")
+                ("path to existing installation = " <> pack path)
+        unlessQuiet env $ do
+            output ("SDK version " <> versionToString version <>
+                " is already installed. Reinstalling.")
+
+    httpInstall env { targetVersionM = Just version }
+        (Github.versionURL version)
+
+-- | Install the latest stable version of the SDK.
+latestInstall :: InstallEnv -> IO ()
+latestInstall env = do
+    version <- getLatestVersion
+    versionInstall env version
+
+-- | Get the latest stable version.
+getLatestVersion :: IO SdkVersion
+getLatestVersion = Github.getLatestVersion
+
+-- | Install the SDK version of the current project.
+projectInstall :: InstallEnv -> ProjectPath -> IO ()
+projectInstall env projectPath = do
+    projectConfig <- readProjectConfig projectPath
+    versionM <- fromRightM throwIO $ sdkVersionFromProjectConfig projectConfig
+    version <- required "SDK version missing from project config (daml.yaml)." versionM
+    versionInstall env version
 
 -- | Run install command.
-install :: InstallOptions -> DamlPath -> IO ()
-install options damlPath = do
-    when (iInitial options) $ do
-        initialInstall options damlPath
-
+install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> IO ()
+install options damlPath projectPathM = do
+    let targetVersionM = Nothing -- determined later
+        output = putStrLn -- Output install messages to stdout.
+        env = InstallEnv {..}
     case iTargetM options of
-        Nothing ->
-            httpInstall options damlPath defaultInstallURL
+        Nothing -> do
+            hPutStrLn stderr $ unlines
+                [ "ERROR: daml install requires a target."
+                , ""
+                , "Available install targets:"
+                , "    daml install latest     Install the latest stable SDK version."
+                , "    daml install project    Install the project SDK version."
+                , "    daml install VERSION    Install a specific SDK version."
+                , "    daml install PATH       Install SDK from an SDK release tarball."
+                ]
+            exitFailure
 
-        Just (InstallPath tarballPath) ->
-            pathInstall options damlPath tarballPath
+        Just (RawInstallTarget "project") -> do
+            projectPath <- required "'daml install project' must be run from within a project."
+                projectPathM
+            projectInstall env projectPath
 
-        Just (InstallChannel channel) -> do
-            channelInfo <- required ("Unknown channel " <> unwrapSdkChannel channel) $
-                lookupChannel channel knownChannels
-            httpInstall options damlPath (channelLatestURL channelInfo)
+        Just (RawInstallTarget "latest") ->
+            latestInstall env
 
-        Just (InstallVersion version) -> do
-            let (channel, subVersion) = splitVersion version
-            channelInfo <- required ("Unknown channel " <> unwrapSdkChannel channel) $
-                lookupChannel channel knownChannels
-            httpInstall options damlPath (channelVersionURL channelInfo subVersion)
+        Just (RawInstallTarget arg) | Right version <- parseVersion (pack arg) ->
+            versionInstall env version
+
+        Just (RawInstallTarget arg) -> do
+            testD <- doesDirectoryExist arg
+            testF <- doesFileExist arg
+            if testD || testF then
+                pathInstall env arg
+            else
+                throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> pack arg))

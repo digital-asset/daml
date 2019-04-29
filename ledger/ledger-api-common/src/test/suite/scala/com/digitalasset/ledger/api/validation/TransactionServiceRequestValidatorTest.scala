@@ -35,7 +35,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
     Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.LEDGER_BEGIN))),
     Some(LedgerOffset(LedgerOffset.Value.Absolute(absoluteOffset))),
     Some(
-      TransactionFilter(Map(party ->
+      TransactionFilter(Map(party.underlyingString ->
         Filters(Some(InclusiveFilters(Seq(
           Identifier(packageId, moduleName = includedModule, entityName = includedTemplate)))))))),
     verbose,
@@ -45,7 +45,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
     expectedLedgerId,
     Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.LEDGER_BEGIN))),
     Some(LedgerOffset(LedgerOffset.Value.Absolute(absoluteOffset))),
-    Some(TransactionFilter(Map(party -> Filters.defaultInstance))),
+    Some(TransactionFilter(Map(party.underlyingString -> Filters.defaultInstance))),
     verbose,
     Some(traceContext)
   )
@@ -53,10 +53,18 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
   private val endReq = GetLedgerEndRequest(expectedLedgerId, Some(traceContext))
 
   private val txByEvIdReq =
-    GetTransactionByEventIdRequest(expectedLedgerId, eventId, Seq(party), Some(traceContext))
+    GetTransactionByEventIdRequest(
+      expectedLedgerId,
+      eventId,
+      Seq(party.underlyingString),
+      Some(traceContext))
 
   private val txByIdReq =
-    GetTransactionByIdRequest(expectedLedgerId, transactionId, Seq(party), Some(traceContext))
+    GetTransactionByIdRequest(
+      expectedLedgerId,
+      transactionId,
+      Seq(party.underlyingString),
+      Some(traceContext))
 
   val sut = new TransactionServiceRequestValidator(
     expectedLedgerId,
@@ -341,7 +349,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
           "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.")
       }
 
-      "fail on empty eventId" in {
+      "fail on empty transactionId" in {
         requestMustFailWith(
           sut.validateTransactionById(txByIdReq.withTransactionId("")),
           INVALID_ARGUMENT,
@@ -420,13 +428,14 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
       val knowsPartyOnly =
         new TransactionServiceRequestValidator(
           expectedLedgerId,
-          PartyNameChecker.AllowPartySet(Set(domain.Party("party"))),
+          PartyNameChecker.AllowPartySet(Set(party)),
           new IdentifierResolver(_ => Future.successful(None)))
 
       val partyWithUnknowns = List("party", "Alice", "Bob")
       val filterWithUnknown =
         TransactionFilter(partyWithUnknowns.map(_ -> Filters.defaultInstance).toMap)
-      val filterWithKnown = TransactionFilter(Map("party" -> Filters.defaultInstance))
+      val filterWithKnown =
+        TransactionFilter(Map(party.underlyingString -> Filters.defaultInstance))
 
       "reject transaction requests for unknown parties" in {
         requestMustFailWith(

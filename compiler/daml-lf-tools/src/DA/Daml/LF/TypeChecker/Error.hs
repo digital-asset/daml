@@ -90,7 +90,7 @@ data Error
   | EContext               !Context !Error
   | ENonValueDefinition    ![(String, Expr)] -- contains the non-value subexpressions and why they're bad
   | EKeyOperationOnTemplateWithNoKey !(Qualified TypeConName)
-  | EUnsupportedBuiltin !BuiltinExpr !Version
+  | EUnsupportedFeature !Feature
   | EInvalidKeyExpression !Expr
 
 contextLocation :: Context -> Maybe SourceLoc
@@ -271,9 +271,9 @@ instance Pretty Error where
       ]
     EExpectedOptionalType typ -> do
       "expected list type, but found: " <> pretty typ
-    EUnsupportedBuiltin builtin version ->
-      "unsupported builtin:" <-> pretty builtin
-      <-> "only supported in DAML-LF version" <-> pretty version <-> "and later"
+    EUnsupportedFeature Feature{..} ->
+      "unsupported feature:" <-> pretty featureName
+      <-> "only supported in DAML-LF version" <-> pretty featureMinVersion <-> "and later"
 
 instance Pretty Context where
   pPrint = \case

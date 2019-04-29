@@ -22,7 +22,7 @@ import GHC.Num as GHC
 import GHC.Real as GHC (fromRational)
 import GHC.Show as GHC
 import GHC.Tuple()
-import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, ifThenElse, primitive, Proxy (..))
+import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, ifThenElse, primitive)
 
 infixr 0 $
 ($) : (a -> b) -> a -> b
@@ -35,33 +35,6 @@ curry f x y = f (x, y)
 -- | Turn a function that takes two arguments into a function that takes a pair.
 uncurry : (a -> b -> c) -> (a, b) -> c
 uncurry f (x, y) = f x y
-
-infixr 8 ^
--- | `x ^ n` raises `x` to the power of `n`.
-(^) : Int -> Int -> Int
-(^) = primitive @"BEExpInt64"
-
-infixl 7 /
-class (Multiplicative a) => Fractional a where
-    -- | `x / y` divides `x` by `y`.
-    (/)                 : a -> a -> a
-
-    -- | Calculate the reciprocal: `recip x` is `1/x`.
-    recip               : a -> a
-    x / y               = x * recip y
-
-instance Fractional Decimal where
-    (/) = primitive @"BEDivDecimal"
-    recip x = 1.0 / x
-
-instance Fractional Int where
-    (/) = primitive @"BEDivInt64"
-    recip x = 1 / x
-
-infixl 7 %
--- | `x % y` calculates the remainder of `x` by `y`
-(%) : Int -> Int -> Int
-(%) = primitive @"BEModInt64"
 
 infixl 4 <*>
 infixl 4 *>
@@ -218,7 +191,8 @@ infixl 4 <$>
 data Optional a  =  None | Some a
     deriving (Eq, Ord, Show)
 
--- | The type of a `TextMap` from keys of type Text to values of type `v`.
+-- | The `TextMap a` type represents an associative array from keys of type
+-- `Text` to values of type `a`.
 data TextMap a =
   -- | HIDE
   TextMap

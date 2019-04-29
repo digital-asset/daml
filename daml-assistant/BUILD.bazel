@@ -1,64 +1,92 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load('//bazel_tools:haskell.bzl', 'da_haskell_binary', 'da_haskell_library', 'da_haskell_test')
-load('//bazel_tools:packaging/packaging.bzl', 'package_app')
-
-deps = [
-    'base',
-    'bytestring',
-    'conduit',
-    'conduit-extra',
-    'directory',
-    'extra',
-    'filepath',
-    'http-conduit',
-    'main-tester',
-    'optparse-applicative',
-    'process',
-    'safe',
-    'safe-exceptions',
-    'tar-conduit',
-    'tasty',
-    'tasty-hunit',
-    'tasty-quickcheck',
-    'temporary',
-    'terminal-progress-bar',
-    'text',
-    'unix',
-    'utf8-string',
-    'yaml',
-]
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
+load("//bazel_tools:packaging/packaging.bzl", "package_app")
 
 # This library is intended to be used by applications called by the assistant,
 # e.g., damlc, to get the names of the various environment variables set by the assistant.
 da_haskell_library(
-    name = 'daml-project-config',
-    srcs = native.glob(['daml-project-config/**/*.hs']),
-    src_strip_prefix = 'daml-project-config',
+    name = "daml-project-config",
+    srcs = native.glob(["daml-project-config/**/*.hs"]),
+    hazel_deps = [
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "lens",
+        "safe-exceptions",
+        "semver",
+        "text",
+        "yaml",
+    ],
+    src_strip_prefix = "daml-project-config",
+    visibility = ["//visibility:public"],
     deps = [],
+)
+
+da_haskell_library(
+    name = "daml-lib",
+    srcs = native.glob(
+        ["src/**/*.hs"],
+        exclude = [
+            "src/DAML/Assistant.hs",
+            "src/DAML/Assistant/Tests.hs",
+        ],
+    ),
+    hazel_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "conduit",
+        "conduit-extra",
+        "directory",
+        "extra",
+        "filepath",
+        "http-client",
+        "http-client-tls",
+        "http-conduit",
+        "lens",
+        "main-tester",
+        "optparse-applicative",
+        "process",
+        "safe",
+        "safe-exceptions",
+        "semver",
+        "tar-conduit",
+        "tasty",
+        "tasty-hunit",
+        "tasty-quickcheck",
+        "temporary",
+        "terminal-progress-bar",
+        "text",
+        "unix-compat",
+        "utf8-string",
+        "yaml",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [":daml-project-config"],
+)
+
+da_haskell_binary(
+    name = "daml",
+    srcs = ["exe/DAML/Assistant.hs"],
     hazel_deps = [
         "base",
         "directory",
         "filepath",
+        "process",
         "safe-exceptions",
     ],
-    visibility = ["//visibility:public"]
-)
-
-# TODO Factor shared code between the binary and the test suite into a library
-# instead of compiling it twice.
-
-da_haskell_binary (
-    name = 'daml',
-    srcs = native.glob(['src/**/*.hs']),
     main_function = "DAML.Assistant.main",
-    deps = [
-        "//libs-haskell/da-hs-base",
-        ":daml-project-config",
-    ],
-    hazel_deps = deps,
+    src_strip_prefix = "exe",
     visibility = ["//visibility:public"],
+    deps = [
+        ":daml-lib",
+        ":daml-project-config",
+        "//libs-haskell/da-hs-base",
+    ],
 )
 
 package_app(
@@ -68,15 +96,31 @@ package_app(
 )
 
 da_haskell_test(
-    name = 'test',
-    srcs = native.glob(['src/**/*.hs']),
-    main_function = "DAML.Assistant.runTests",
-    deps = [
-        "//libs-haskell/da-hs-base",
-        ":daml-project-config",
+    name = "test",
+    srcs = ["test/DAML/Assistant/Tests.hs"],
+    hazel_deps = [
+        "base",
+        "conduit",
+        "conduit-extra",
+        "directory",
+        "extra",
+        "filepath",
+        "main-tester",
+        "safe-exceptions",
+        "tar-conduit",
+        "tasty",
+        "tasty-hunit",
+        "tasty-quickcheck",
+        "temporary",
+        "text",
+        "unix-compat",
     ],
-    hazel_deps = deps,
+    main_function = "DAML.Assistant.Tests.runTests",
+    src_strip_prefix = "test",
     visibility = ["//visibility:public"],
+    deps = [
+        ":daml-lib",
+        ":daml-project-config",
+        "//libs-haskell/da-hs-base",
+    ],
 )
-
-exports_files(["daml-studio.py"])

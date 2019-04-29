@@ -2,24 +2,24 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-  "//bazel_tools:scala.bzl",
-  "da_scala_library",
-  "da_scala_binary",
-  "da_scala_test_suite",
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
 )
 
 da_scala_library(
-  name = "scenario-interpreter",
-  srcs = glob(["src/main/**/*.scala"]),
-  main_class = 'com.digitalasset.daml.lf.speedy.Main',
-  deps = [
-    "//daml-lf/data",
-    "//daml-lf/transaction",
-    "//daml-lf/lfpackage",
-    "//daml-lf/interpreter",
-  ],
-  visibility = [
-    "//visibility:public"
-  ]
+    name = "scenario-interpreter",
+    srcs = glob(["src/main/**/*.scala"]),
+    main_class = "com.digitalasset.daml.lf.speedy.Main",
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-scenario-interpreter:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/lfpackage",
+        "//daml-lf/transaction",
+    ],
 )
-

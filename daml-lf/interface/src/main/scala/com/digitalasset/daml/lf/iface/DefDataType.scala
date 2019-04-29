@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.iface
 
 import scalaz.std.map._
+import scalaz.std.tuple._
 import scalaz.syntax.applicative.^
 import scalaz.syntax.traverse._
 import scalaz.{Applicative, Bifunctor, Bitraverse, Functor, Traverse}
@@ -23,8 +24,11 @@ case class DefDataType[+RF, +VF](typeVars: ImmArraySeq[String], dataType: DataTy
 
 object DefDataType {
 
-  /** Alias for application to [[FieldWithType]]. */
-  type FWT = DefDataType[FieldWithType, FieldWithType]
+  /** Alias for application to [[Type]]. Note that FWT stands for "Field with
+    * type", because before we parametrized over both the field and the type,
+    * while now we only parametrize over the type.
+    */
+  type FWT = DefDataType[Type, Type]
 
   implicit val `DDT bitraverse`: Bitraverse[DefDataType] =
     new Bitraverse[DefDataType] {
@@ -36,11 +40,11 @@ object DefDataType {
     }
 }
 
-sealed trait DataType[+RF, +VF] extends Product with Serializable {
-  def bimap[C, D](f: RF => C, g: VF => D): DataType[C, D] =
+sealed trait DataType[+RT, +VT] extends Product with Serializable {
+  def bimap[C, D](f: RT => C, g: VT => D): DataType[C, D] =
     Bifunctor[DataType].bimap(this)(f, g)
 
-  def fold[Z](record: Record[RF] => Z, variant: Variant[VF] => Z): Z = this match {
+  def fold[Z](record: Record[RT] => Z, variant: Variant[VT] => Z): Z = this match {
     case r @ Record(_) => record(r)
     case v @ Variant(_) => variant(v)
   }
@@ -48,8 +52,11 @@ sealed trait DataType[+RF, +VF] extends Product with Serializable {
 
 object DataType {
 
-  /** Alias for application to [[FieldWithType]]. */
-  type FWT = DataType[FieldWithType, FieldWithType]
+  /** Alias for application to [[Type]]. Note that FWT stands for "Field with
+    * type", because before we parametrized over both the field and the type,
+    * while now we only parametrize over the type.
+    */
+  type FWT = DataType[Type, Type]
 
   // While this instance appears to overlap the subclasses' traversals,
   // naturality holds with respect to those instances and this one, so there is
@@ -67,18 +74,18 @@ object DataType {
     }
 
   sealed trait GetFields[+A] {
-    def fields: ImmArraySeq[A]
-    final def getFields: j.List[_ <: A] = fields.asJava
+    def fields: ImmArraySeq[(String, A)]
+    final def getFields: j.List[_ <: (String, A)] = fields.asJava
   }
 }
 
 // Record TypeDecl`s have an object generated for them in their own file
-final case class Record[+RF](fields: ImmArraySeq[RF])
-    extends DataType[RF, Nothing]
-    with DataType.GetFields[RF] {
+final case class Record[+RT](fields: ImmArraySeq[(String, RT)])
+    extends DataType[RT, Nothing]
+    with DataType.GetFields[RT] {
 
   /** Widen to DataType, in Java. */
-  def asDataType[PRF >: RF, VF]: DataType[PRF, VF] = this
+  def asDataType[PRT >: RT, VT]: DataType[PRT, VT] = this
 }
 
 object Record extends FWTLike[Record] {
@@ -86,17 +93,17 @@ object Record extends FWTLike[Record] {
     new Traverse[Record] {
       override def traverseImpl[G[_]: Applicative, A, B](fa: Record[A])(
           f: A => G[B]): G[Record[B]] =
-        Applicative[G].map(fa.fields traverse f)(bs => fa.copy(fields = bs))
+        Applicative[G].map(fa.fields traverse (_ traverse f))(bs => fa.copy(fields = bs))
     }
 }
 
 // Variant TypeDecl`s have an object generated for them in their own file
-final case class Variant[+VF](fields: ImmArraySeq[VF])
-    extends DataType[Nothing, VF]
-    with DataType.GetFields[VF] {
+final case class Variant[+VT](fields: ImmArraySeq[(String, VT)])
+    extends DataType[Nothing, VT]
+    with DataType.GetFields[VT] {
 
   /** Widen to DataType, in Java. */
-  def asDataType[RF, PVF >: VF]: DataType[RF, PVF] = this
+  def asDataType[RT, PVT >: VT]: DataType[RT, PVT] = this
 }
 
 object Variant extends FWTLike[Variant] {
@@ -104,7 +111,7 @@ object Variant extends FWTLike[Variant] {
     new Traverse[Variant] {
       override def traverseImpl[G[_]: Applicative, A, B](fa: Variant[A])(
           f: A => G[B]): G[Variant[B]] =
-        Applicative[G].map(fa.fields traverse f)(bs => fa.copy(fields = bs))
+        Applicative[G].map(fa.fields traverse (_ traverse f))(bs => fa.copy(fields = bs))
     }
 }
 
@@ -149,6 +156,9 @@ object TemplateChoice {
 /** Add aliases to companions. */
 sealed abstract class FWTLike[F[+ _]] {
 
-  /** Alias for application to [[FieldWithType]]. */
-  type FWT = F[FieldWithType]
+  /** Alias for application to [[Type]]. Note that FWT stands for "Field with
+    * type", because before we parametrized over both the field and the type,
+    * while now we only parametrize over the type.
+    */
+  type FWT = F[Type]
 }

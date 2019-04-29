@@ -23,9 +23,7 @@ object UsedTypeParams {
 
   private def foldMapGenTypes[Z: Monoid](typeDecl: RecordOrVariant)(f: Type => Z): Z = {
     val notAGT = (s: String) => mzero[Z]
-    typeDecl.foldMap(
-      _.bifoldMap(_.bifoldMap(notAGT)(f))(
-        _.bifoldMap(notAGT)(_.bifoldMap(_ foldMap (_.bifoldMap(notAGT)(f)))(f))))
+    typeDecl.foldMap(_.bifoldMap(f)(_.bifoldMap(_ foldMap (_.bifoldMap(notAGT)(f)))(f)))
   }
 
   private def collectTypeParams(field: Type): Set[String] = field match {

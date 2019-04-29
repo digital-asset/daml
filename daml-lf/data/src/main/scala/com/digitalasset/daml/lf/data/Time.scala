@@ -54,10 +54,6 @@ object Time {
       else
         Left(s"out of bound Date $days")
 
-    @deprecated("use fromDaysSinceEpoch instead", since = "44.0.1")
-    def fromLong(days: Long): Either[String, Date] =
-      asInt(days) flatMap fromDaysSinceEpoch
-
     def fromString(str: String): Either[String, Date] =
       Try(assertDaysFromString(str)).toEither.left
         .map(_ => s"cannot interpret $str as Date")
@@ -65,11 +61,6 @@ object Time {
 
     def assertFromDaysSinceEpoch(days: Int): Date =
       assert(fromDaysSinceEpoch(days))
-
-    @deprecated("use assertFromDaysSinceEpoch instead", since = "44.0.1")
-    @throws[IllegalArgumentException]
-    def assertFromLong(days: Long): Date =
-      assert(fromLong(days))
 
     @throws[IllegalArgumentException]
     def assertFromString(str: String): Date =

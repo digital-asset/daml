@@ -392,9 +392,9 @@ Creating contracts
 Contracts in a ledger can be created directly from a template, or when you exercise a choice. You can do both of these things using Navigator Console.
 
 To create a contract of a given template, use the ``create`` command.
-The contract argument is written using the same syntax as in the DAML language::
+The contract argument is written in JSON format (DAML primitives are strings, DAML records are objects, DAML lists are arrays)::
 
-    >create Main.RightOfUseOffer@07ca8611d05ec14ea4b973192ef6caa5d53323bba50720a8d7142c2a246cfb73 with {landlord="BANK1", tenant="BANK2", address="Example Street", expirationDate="2018-01-01T00:00:00Z"}
+    >create Main.RightOfUseOffer@07ca8611d05ec14ea4b973192ef6caa5d53323bba50720a8d7142c2a246cfb73 with {"landlord": "BANK1", "tenant": "BANK2", "address": "Example Street", "expirationDate": "2018-01-01T00:00:00Z"}
     CommandId: 1e4c1610eadba6b
     Status: Success
     TransactionId: 2005

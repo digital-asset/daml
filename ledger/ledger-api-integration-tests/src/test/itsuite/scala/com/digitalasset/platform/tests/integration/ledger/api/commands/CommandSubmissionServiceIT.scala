@@ -34,7 +34,7 @@ class CommandSubmissionServiceIT
 
   private def client(channel: Channel) = CommandSubmissionServiceGrpc.stub(channel)
 
-  "Command Service" when {
+  "Command Submission Service" when {
 
     "commands arrive with extreme TTLs" should {
 
@@ -45,7 +45,6 @@ class CommandSubmissionServiceIT
             succeed
         }
       }
-
     }
   }
 }

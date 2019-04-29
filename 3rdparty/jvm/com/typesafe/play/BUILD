@@ -23,6 +23,22 @@ scala_import(
 
 
 scala_import(
+    name = "anorm_akka",
+    exports = [
+        "//3rdparty/jvm/org/scala_lang:scala_library",
+        ":anorm"
+    ],
+    jars = [
+        "//external:jar/com/typesafe/play/anorm_akka_2_12"
+    ],
+    visibility = [
+        "//visibility:public"
+    ]
+)
+
+
+
+scala_import(
     name = "anorm_tokenizer",
     exports = [
         "//3rdparty/jvm/org/scala_lang:scala_library",

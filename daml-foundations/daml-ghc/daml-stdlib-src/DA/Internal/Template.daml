@@ -1,20 +1,21 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 daml 1.2
 -- | MOVE Prelude DAML-LF primitives, just templates/contracts
 module DA.Internal.Template(
     Template(ensure, signatory, observer, agreement),
-    Choice(consuming, choiceController, choice), nonconsuming, NoEvent(..),
+    Choice(consuming, choiceController, choice), preconsuming, nonconsuming, postconsuming, NoEvent(..),
     stakeholder,
     create, exercise, fetch,
     archive, Archive(..),
     lookupByKey, fetchByKey,
     exerciseExplicit,
     IsParties(toParties),
-    Key(..)
+    TemplateKey(key, maintainer)
     ) where
 
 import GHC.Types (magic)
@@ -38,6 +39,8 @@ exercise c e = do
     exerciseExplicit (choiceController cc e) c e
 
 -- | Fetch the contract data associated with the given contract id.
+-- This fails and aborts the entire transaction if the `ContractId c`
+-- supplied is not the contract ID of an active contract.
 fetch : Template c => ContractId c -> Update c
 fetch = internalFetch
 
@@ -49,13 +52,33 @@ archive c = exercise c Archive
 stakeholder : Template c => c -> [Party]
 stakeholder c = signatory c ++ observer c
 
--- | HIDE pass the @c@ using type applications, otherwise it's ambiguous
-lookupByKey : forall c k. Key c k => k -> Update (Optional (ContractId c))
+-- | Look up the contract id associated with a given contract key.
+--
+-- The `c` needs to be passed using an explicit type application. For
+-- instance, if you want to look up a contract of template `Account` by its
+-- key `k`, you must call `lookupByKey @Account k`.
+lookupByKey : forall c k. TemplateKey c k => k -> Update (Optional (ContractId c))
 lookupByKey = internalLookupByKey
 
--- | HIDE pass the @c@ using type applications, otherwise it's ambiguous
-fetchByKey : Key c k => k -> Update (ContractId c, c)
-fetchByKey = internalFetchByKey
+-- | Fetch the contract id and contract data associated with a given
+-- contract key.
+--
+-- The `c` needs to be passed using an explicit type application. For
+-- instance, if you want to fetch a contract of template `Account` by its
+-- key `k`, you must call `fetchByKey @Account k`.
+fetchByKey : forall c k. TemplateKey c k => k -> Update (ContractId c, c)
+fetchByKey k = fmap unpackPair (internalFetchByKey k)
+
+-- | Exercise a choice on a contract given by its key.
+--
+-- The `c` needs to be passed using an explicit type application. For
+-- instance, if you want to exercise a choice `Withdraw` on a contract of
+-- template `Account` given by its key `k`, you must call
+-- `exerciseByKey @Account k Withdraw`.
+exerciseByKey : forall c k e r. (TemplateKey c k, Choice c e r) => k -> e -> Update r
+exerciseByKey k e = do
+    (c, cc) <- fetchByKey @c k
+    exerciseExplicit (choiceController cc e) c e
 
 class Template c where
 
@@ -87,12 +110,27 @@ class Template c where
     internalArchive = magic @"archive"
 
 
+-- Deliberately not exported.
+data Consuming = PreConsuming  -- Archive before executing exercise body.
+               | PostConsuming -- Execute exercise body then archive.
+               | NonConsuming  -- Don't archive.
+
+-- | HIDE
+nonconsuming : NoEvent c e -> Consuming
+nonconsuming _ = NonConsuming
+
+-- | HIDE
+preconsuming : NoEvent c e -> Consuming
+preconsuming _ = PreConsuming
+
+-- | HIDE
+postconsuming : NoEvent c e -> Consuming
+postconsuming _ = PostConsuming
+
 class Template c => Choice c e r | c e -> r where
     -- | HIDE
-    consuming : NoEvent c e -> ChoiceType
-    -- must be a lambda since otherwise the default-dictionary method causes a runtime loop as the method
-    -- exists in the dictionary, takes the dictionary, and can't be eta expanded.
-    consuming _ = Consuming
+    consuming : NoEvent c e -> Consuming
+    consuming = preconsuming
 
     choiceController : c -> e -> [Party]
     choice : c -> ContractId c -> e -> Update r
@@ -109,14 +147,6 @@ instance Template c => Choice c Archive () where
 
     internalExercise p c _ = internalArchive p c
 
-
--- Deliberately not exported, they either have to use the default, or 'nonconsuming' below.
-data ChoiceType = Consuming | NonConsuming
-
--- | HIDE
-nonconsuming : NoEvent c e -> ChoiceType
-nonconsuming _ = NonConsuming
-
 -- | HIDE
 data NoEvent c e = NoEvent
 
@@ -131,14 +161,15 @@ instance IsParties Party where
 instance IsParties [Party] where
   toParties ps = ps
 
--- | HIDE
-class Template c => Key c k | c -> k where
+class Template c => TemplateKey c k | c -> k where
+    -- | The key of a contract.
     key : c -> k
 
-    keyMaintainers : Proxy c -> k -> [Party]
+    -- | The maintainers of the contract key.
+    maintainer : c -> [Party]
 
     -- | HIDE
-    internalFetchByKey : k -> Update (ContractId c, c)
+    internalFetchByKey : k -> Update (Pair "contractId" "contract" (ContractId c) c)
     internalFetchByKey = magic @"fetchByKey"
 
     -- | HIDE

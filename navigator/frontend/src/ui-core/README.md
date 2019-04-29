@@ -13,9 +13,7 @@ Navigator components library
 This library contains React components intended to be used by ledger frontend
 apps. The components have TypeScript declarations and they use
 [`styled-component`](https://www.styled-components.com/) for styling, which
-affords customisation and theming. It is published under the private `@da` scope
-to the private [Digital Asset NPM
-registry](https://digitalasset.jfrog.io/digitalasset/api/npm/npm-navigator/).
+affords customisation and theming.
 
 ### Usage
 
@@ -105,9 +103,6 @@ ledger. It can be configured to watch:
 
 ### Usage
 
-The library uses the private `@da` scope and is published to the private Digital
-Asset NPM registry.
-
 To use the watcher, instantiate and start a single watcher in your app (usually
 in your main `index` file) with your Apollo `client`, your Redux `store`, and
 the appropriate function to dispatch a watcher action:
@@ -150,9 +145,6 @@ with pure state- and action-based URL handling as implemented in
 `@da/redux-router`.
 
 ### Usage
-
-The library uses the private `@da` scope and is published to the private Digital
-Asset NPM registry.
 
 An application should define a route for each URL pattern it uses and then use
 these in links and for History API handling. This gives the application a single

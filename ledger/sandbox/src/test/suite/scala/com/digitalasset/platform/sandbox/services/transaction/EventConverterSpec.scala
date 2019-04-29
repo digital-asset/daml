@@ -23,11 +23,10 @@ import com.digitalasset.ledger.api.v1.value.Value.Sum.ContractId
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.digitalasset.ledger.api.validation.CommandSubmissionRequestValidator
 import com.digitalasset.platform.common.PlatformTypes.asVersionedValueOrThrow
-import com.digitalasset.platform.participant.util.ApiToLfEngine
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.damle.SandboxDamle
 import com.digitalasset.platform.sandbox.services.TestCommands
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
+import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.EventId
 import com.digitalasset.platform.sandbox.{TestDar, TestHelpers}
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
@@ -90,9 +89,9 @@ class EventConverterSpec
     .withCommands(Seq(create))
 
   object CommandsToTest extends TestCommands {
-    override protected def darFile: File = new File("ledger/sandbox/Test.dalf")
+    override protected def darFile: File = new File("ledger/sandbox/Test.dar")
 
-    val damlPackageContainer = DamlPackageContainer(scala.collection.immutable.List(darFile), true)
+    val damlPackageContainer = DamlPackageContainer(scala.collection.immutable.List(darFile))
     val onKbCmd = oneKbCommandRequest("ledgerId", "big").getCommands
     val dummies = dummyCommands("ledgerId", "dummies").getCommands
     val paramShowcaseCreate = paramShowcase
@@ -111,18 +110,15 @@ class EventConverterSpec
           .validateCommands(commands)
           .map(validatedCommands =>
             for {
-              lfCmds <- ApiToLfEngine
-                .apiCommandsToLfCommands(validatedCommands)
-                .consume(damlPackageContainer.packages.get)
               tx <- Await.result(
-                SandboxDamle.consume(engine.submit(lfCmds))(
+                SandboxDamle.consume(engine.submit(validatedCommands.commands))(
                   damlPackageContainer,
-                  contractLookup(ActiveContracts.empty),
-                  keyLookup(ActiveContracts.empty)),
+                  contractLookup(ActiveContractsInMemory.empty),
+                  keyLookup(ActiveContractsInMemory.empty)),
                 5.seconds
               )
               blinding <- Blinding
-                .checkAuthorizationAndBlind(engine.ledgerFeatureFlags(), tx, Set(commands.party))
+                .checkAuthorizationAndBlind(tx, Set(commands.party))
             } yield {
               val txId = "testTx"
               val absCoid: Lf.ContractId => Lf.AbsoluteContractId =
@@ -150,18 +146,15 @@ class EventConverterSpec
         .validateCommands(commands)
         .map(validatedCommands =>
           for {
-            lfCmds <- ApiToLfEngine
-              .apiCommandsToLfCommands(validatedCommands)
-              .consume(damlPackageContainer.packages.get)
             tx <- Await.result(
-              SandboxDamle.consume(engine.submit(lfCmds))(
+              SandboxDamle.consume(engine.submit(validatedCommands.commands))(
                 damlPackageContainer,
-                contractLookup(ActiveContracts.empty),
-                keyLookup(ActiveContracts.empty)),
+                contractLookup(ActiveContractsInMemory.empty),
+                keyLookup(ActiveContractsInMemory.empty)),
               5.seconds
             )
             blinding <- Blinding
-              .checkAuthorizationAndBlind(engine.ledgerFeatureFlags(), tx, Set(commands.party))
+              .checkAuthorizationAndBlind(tx, Set(commands.party))
           } yield {
             val txId = "testTx"
             val absCoid: Lf.ContractId => Lf.AbsoluteContractId =
@@ -250,8 +243,9 @@ class EventConverterSpec
           Lf.AbsoluteContractId,
           Lf.VersionedValue[Lf.AbsoluteContractId]]] =
         Seq(nod0, node1).toMap
-      val tx: LfTx = GenTransaction(nodes, ImmArray(Transaction.NodeId.unsafeFromIndex(0)))
-      val blinding = Blinding.blind(engine.ledgerFeatureFlags(), tx)
+      val tx: LfTx =
+        GenTransaction(nodes, ImmArray(Transaction.NodeId.unsafeFromIndex(0)), Set.empty)
+      val blinding = Blinding.blind(tx)
       val absCoid: Lf.ContractId => Lf.AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid("transactionId")
       val recordTx = tx
@@ -444,10 +438,10 @@ class EventConverterSpec
     }
   }
 
-  private def contractLookup(ac: ActiveContracts)(c: AbsoluteContractId) = {
+  private def contractLookup(ac: ActiveContractsInMemory)(c: AbsoluteContractId) = {
     Future.successful(ac.contracts.get(c).map(_.contract))
   }
 
-  private def keyLookup(ac: ActiveContracts)(gk: GlobalKey) =
+  private def keyLookup(ac: ActiveContractsInMemory)(gk: GlobalKey) =
     Future.successful(ac.keys.get(gk))
 }

@@ -56,13 +56,16 @@ in rec {
     hlint           = bazel_dependencies.hlint;
     ghci            = bazel_dependencies.ghc.ghc;
 
+    # Hazel’s configure step currently searches for the C compiler in
+    # PATH instead of taking it from our cc toolchain so we have to add
+    # it to dev-env. See https://github.com/FormationAI/hazel/issues/80
+    # for the upstream issue.
+    cc = bazel_dependencies.bazel-cc-toolchain;
+
     # TLA+ with the command-line model checker TLC
     tlc2            = pkgs.tlaplus;
 
-    # Java 8 development
-    mvn = pkgs.writeScriptBin "mvn" ''
-      exec ${pkgs.maven}/bin/mvn ''${MVN_SETTINGS:+-s "$MVN_SETTINGS"} "$@"
-    '';
+    mvn = bazel_dependencies.mvn;
 
     zinc = pkgs.callPackage ./tools/zinc {};
 
@@ -158,8 +161,6 @@ in rec {
     cqlsh     = cassandra;
     nodetool  = cassandra;
 
-    pandoc = bazel_dependencies.pandoc;
-
     sphinx            = pkgs.python36.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
@@ -192,6 +193,8 @@ in rec {
 
     # Build tools
 
+    # wrap the .bazelrc to automate the configuration of
+    # `build --config <kernel>`
     bazelrc =
       let
         kernel =
@@ -201,7 +204,6 @@ in rec {
       in
         pkgs.writeText "daml-bazelrc" ''
           build --config ${kernel}
-          ${builtins.readFile ./bazelrc}
         '';
 
     bazel = pkgs.writeScriptBin "bazel" (''
@@ -250,15 +252,16 @@ in rec {
     undmg = pkgs.undmg;
     jfrog = pkgs.callPackage ./tools/jfrog-cli {};
 
-    nix-prefetch-git = pkgs.nix-prefetch-git;
-
     # Cloud tools
     gcloud = pkgs.google-cloud-sdk;
     bq     = gcloud;
     gsutil = gcloud;
     terraform = pkgs-1903.terraform.withPlugins (p: with p; [
       google
+      google-beta
       random
+      secret
+      template
     ]);
     nix-store-gcs-proxy = pkgs.callPackage ./tools/nix-store-gcs-proxy {};
   });

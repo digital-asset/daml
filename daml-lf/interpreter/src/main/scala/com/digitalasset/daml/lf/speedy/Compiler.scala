@@ -44,6 +44,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   /** Environment mapping names into stack positions */
   private var env = List[(String, Int)]()
 
+  def compile(cmds: ImmArray[Command]): SExpr =
+    validate(closureConvert(Map.empty, 0, translateCommands(cmds)))
+
+  def compile(cmd: Command): SExpr =
+    validate(closureConvert(Map.empty, 0, translateCommand(cmd)))
+
   def compile(expr: Expr): SExpr =
     validate(closureConvert(Map.empty, 0, translate(expr)))
 
@@ -394,30 +400,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             //   let arg = $fetch coid token
             //       _ = $insertFetch coid <signatories> <observers>
             //   in arg
-            val tmpl = lookupTemplate(tmplId)
-            withEnv { _ =>
-              val coid = translate(coidE)
-              currentPosition += 1 // token
-              env = (tmpl.param -> currentPosition) :: env
-              currentPosition += 1 // argument
-              val signatories = translate(tmpl.signatories)
-              val observers = translate(tmpl.observers)
-              SELet(coid) in
-                SEAbs(1) {
-                  SELet(
-                    SBUFetch(tmplId)(
-                      SEVar(2), /* coid */
-                      SEVar(1) /* token */
-                    ),
-                    SBUInsertFetchNode(tmplId)(
-                      SEVar(3), /* coid */
-                      signatories,
-                      observers,
-                      SEVar(2) /* token */
-                    )
-                  ) in SEVar(2) /* fetch result */
-                }
-            }
+            val coid = translate(coidE)
+            compileFetch(tmplId, coid)
 
           case UpdateEmbedExpr(_, e) =>
             translateEmbedExpr(e)
@@ -434,53 +418,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             // }
             // in \token ->
             //   $create arg <precond> <agreement text> <signatories> <observers> <token> <key>
-            val tmpl = lookupTemplate(tmplId)
-            withEnv { _ =>
-              val argument = translate(arg)
-              env = (tmpl.param -> currentPosition) :: env
-              currentPosition += 1 // argument
-
-              val key = tmpl.key match {
-                case None => SEValue(SOptional(None))
-                case Some(tmplKey) =>
-                  SELet(translate(tmplKey.body)) in
-                    SBSome(
-                      SBTupleCon(Array("key", "maintainers"))(
-                        SEVar(1), // key
-                        SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ ))))
-              }
-
-              currentPosition += 1 // key
-              currentPosition += 1 // token
-
-              val precond = translate(tmpl.precond)
-              val agreement = translate(tmpl.agreementText)
-              val signatories = translate(tmpl.signatories)
-              val observers = translate(tmpl.observers)
-
-              SELet(argument, key) in
-                SEAbs(1) {
-                  SBUCreate(tmplId)(
-                    SEVar(3), /* argument */
-                    precond,
-                    agreement,
-                    signatories,
-                    observers,
-                    SEVar(2), /* key */
-                    SEVar(1) /* token */
-                  )
-                }
-            }
+            compileCreate(tmplId, translate(arg))
 
           case UpdateExercise(tmplId, chId, cidE, actorsE, argE) =>
-            // Translates 'A does exercise cid Choice with <params>'
-            // into:
-            // SomeTemplate$SomeChoice <actorsE> <cidE> <argE>
-            withEnv { _ =>
-              SEApp(
-                SEVal(makeChoiceRef(tmplId, chId), None),
-                Array(translate(actorsE), translate(cidE), translate(argE)))
-            }
+            compileExercise(tmplId, translate(cidE), chId, translate(actorsE), translate(argE))
 
           case UpdateGetTime =>
             SEAbs(1) { SBGetTime(SEVar(1)) }
@@ -1062,6 +1003,18 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   def validate(expr: SExpr): SExpr = {
     var bound = 0
 
+    def goV(v: SValue): Unit = {
+      v match {
+        case _: SPrimLit =>
+        case SList(a) => a.iterator.foreach(goV)
+        case SOptional(x) => x.foreach(goV)
+        case SMap(map) => map.values.foreach(goV)
+        case SRecord(_, _, args) => args.forEach(goV)
+        case SVariant(_, _, value) => goV(value)
+        case _ => throw CompileError("validate: unexpected SEValue")
+      }
+    }
+
     def go(expr: SExpr): Unit =
       expr match {
         case SEVar(i) =>
@@ -1070,17 +1023,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           }
         case _: SEVal => ()
         case _: SEBuiltin => ()
-        case SEValue(v) =>
-          v match {
-            case _: SPrimLit => ()
-            case _: SList => ()
-            case _: SOptional => ()
-            // NOTE(JM): Currently we can handle the above two types of values.
-            // Validation would not work for e.g. SPAP(PClosure(...), ...), so we're
-            // just crashing here. If you're using SEValue for a wider range, please fix
-            // the validation.
-            case _ => throw CompileError("validate: unexpected SEValue")
-          }
+        case SEValue(v) => goV(v)
         case SEApp(fun, args) =>
           go(fun)
           args.foreach(go)
@@ -1128,4 +1071,177 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     go(expr)
     expr
   }
+
+  private def compileFetch(tmplId: Identifier, coid: SExpr): SExpr = {
+    val tmpl = lookupTemplate(tmplId)
+    withEnv { _ =>
+      currentPosition += 1 // token
+      env = (tmpl.param -> currentPosition) :: env
+      currentPosition += 1 // argument
+      val signatories = translate(tmpl.signatories)
+      val observers = translate(tmpl.observers)
+      SELet(coid) in
+        SEAbs(1) {
+          SELet(
+            SBUFetch(tmplId)(
+              SEVar(2), /* coid */
+              SEVar(1) /* token */
+            ),
+            SBUInsertFetchNode(tmplId)(
+              SEVar(3), /* coid */
+              signatories,
+              observers,
+              SEVar(2) /* token */
+            )
+          ) in SEVar(2) /* fetch result */
+        }
+    }
+  }
+
+  private def compileCreate(tmplId: Identifier, arg: SExpr): SExpr = {
+    // FIXME(JM): Lift to top-level?
+    // Translates 'create Foo with <params>' into:
+    // let arg = <params>
+    // let key = if (we have a key definition in the template) {
+    //   let keyBody = <key>
+    //   in Some {key: keyBody, maintainers: <key maintainers> keyBody}
+    // } else {
+    //   None
+    // }
+    // in \token ->
+    //   $create arg <precond> <agreement text> <signatories> <observers> <token> <key>
+    val tmpl = lookupTemplate(tmplId)
+    withEnv { _ =>
+      env = (tmpl.param -> currentPosition) :: env
+      currentPosition += 1 // argument
+
+      val key = tmpl.key match {
+        case None => SEValue(SOptional(None))
+        case Some(tmplKey) =>
+          SELet(translate(tmplKey.body)) in
+            SBSome(
+              SBTupleCon(Array("key", "maintainers"))(
+                SEVar(1), // key
+                SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ ))))
+      }
+
+      currentPosition += 1 // key
+      currentPosition += 1 // token
+
+      val precond = translate(tmpl.precond)
+
+      currentPosition += 1 // unit returned by SBCheckPrecond
+      val agreement = translate(tmpl.agreementText)
+      val signatories = translate(tmpl.signatories)
+      val observers = translate(tmpl.observers)
+
+      SELet(arg, key) in
+        SEAbs(1) {
+          // We check precondition in a separated builtin to prevent
+          // further evaluation of agreement, signatories and observers
+          // in case of failed precondition.
+          SELet(SBCheckPrecond(tmplId)(SEVar(3), precond)) in
+            SBUCreate(tmplId)(
+              SEVar(4), /* argument */
+              agreement,
+              signatories,
+              observers,
+              SEVar(3), /* key */
+              SEVar(2) /* token */
+            )
+        }
+    }
+  }
+
+  private def compileExercise(
+      tmplId: Identifier,
+      contractId: SExpr,
+      choiceId: ChoiceName,
+      // actors are either the singleton set of submitter of an exercise command,
+      // or the acting parties of an exercise node
+      // of a transaction under reconstruction for validation
+      actors: SExpr,
+      argument: SExpr): SExpr =
+    // Translates 'A does exercise cid Choice with <params>'
+    // into:
+    // SomeTemplate$SomeChoice <actorsE> <cidE> <argE>
+    withEnv { _ =>
+      SEApp(SEVal(makeChoiceRef(tmplId, choiceId), None), Array(actors, contractId, argument))
+    }
+
+  private def compileCreateAndExercise(
+      tmplId: Identifier,
+      createArg: SValue,
+      choiceId: ChoiceName,
+      choiceArg: SValue,
+      // actors are either the singleton set of submitter of an exercise command,
+      // or the acting parties of an exercise node
+      // of a transaction under reconstruction for validation
+      actors: SExpr): SExpr = {
+
+    withEnv { _ =>
+      SEAbs(1) {
+        SELet(
+          SEApp(compileCreate(tmplId, SEValue(createArg)), Array(SEVar(1))),
+          SEApp(
+            compileExercise(tmplId, SEVar(1), choiceId, actors, SEValue(choiceArg)),
+            Array(SEVar(2)))
+        ) in SEVar(1)
+      }
+    }
+  }
+
+  private def translateCommand(cmd: Command): SExpr = cmd match {
+    case Command.Create(templateId, argument) =>
+      compileCreate(templateId, SEValue(argument))
+    case Command.Exercise(templateId, contractId, choiceId, submitters, argument) =>
+      compileExercise(
+        templateId,
+        SEValue(contractId),
+        choiceId,
+        SEValue(SList(FrontStack(submitters))),
+        SEValue(argument))
+    case Command.Fetch(templateId, coid) =>
+      compileFetch(templateId, SEValue(coid))
+    case Command.CreateAndExercise(templateId, createArg, choice, choiceArg, submitters) =>
+      compileCreateAndExercise(
+        templateId,
+        createArg,
+        choice,
+        choiceArg,
+        SEValue(SList(FrontStack(submitters))))
+  }
+
+  private def translateCommands(bindings: ImmArray[Command]): SExpr = {
+
+    if (bindings.isEmpty)
+      translate(EUpdate(UpdatePure(TBuiltin(BTUnit), EPrimCon(PCUnit))))
+    else
+      withEnv { _ =>
+        val boundHead = translateCommand(bindings.head)
+        currentPosition += 1 // evaluated body of first binding
+
+        val tokenPosition = currentPosition
+        currentPosition += 1 // token
+
+        // add the first binding into the environment
+        val appBoundHead = SEVar(2)(SEVar(1))
+        currentPosition += 1
+
+        // and then the rest
+        val boundTail = bindings.tail.toList.map { cmd =>
+          val tokenIndex = currentPosition - tokenPosition
+          currentPosition += 1
+          SEApp(translateCommand(cmd), Array(SEVar(tokenIndex)))
+        }
+        val allBounds = appBoundHead +: boundTail
+        SELet(boundHead) in
+          SEAbs(1) {
+            SELet(allBounds: _*) in
+              translate(EUpdate(UpdatePure(TBuiltin(BTUnit), EPrimCon(PCUnit))))(
+                SEVar(currentPosition - tokenPosition))
+          }
+      }
+  }
+
 }

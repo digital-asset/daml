@@ -66,6 +66,10 @@ object Interface {
   def read(lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(lf)
 
+  def read(lf: (PackageId, DamlLf.ArchivePayload))
+    : (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
+    readInterface(lf)
+
   def read(f: () => String \/ (PackageId, DamlLf1.Package))
     : (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(f)
@@ -123,13 +127,20 @@ object InterfaceReader {
   def readInterface(lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(() => DamlLfV1ArchiveReader.readPackage(lf))
 
+  def readInterface(lf: (PackageId, DamlLf.ArchivePayload))
+    : (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) = {
+    readInterface(() => lf.traverseU(DamlLfV1ArchiveReader.readPackage))
+  }
+
   private val dummyPkgId = SimpleString.assertFromString("-dummyPkg-")
+
+  private val dummyInterface = Interface(dummyPkgId, Map.empty)
 
   def readInterface(f: () => String \/ (PackageId, DamlLf1.Package))
     : (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     f() match {
       case -\/(e) =>
-        (point(InvalidDataTypeDefinition(e)), Interface(dummyPkgId, Map.empty))
+        (point(InvalidDataTypeDefinition(e)), dummyInterface)
       case \/-((templateGroupId, lfPackage)) =>
         lfprintln(s"templateGroupId: $templateGroupId")
         lfprintln(s"package: $lfPackage")
@@ -350,7 +361,7 @@ object InterfaceReader {
       case PT.LIST => \/-((1, PrimType.List))
       case PT.CONTRACT_ID => \/-((1, PrimType.ContractId))
       case PT.OPTIONAL => \/-((1, PrimType.Optional))
-      case PT.MAP => \/-((4, PrimType.Map))
+      case PT.MAP => \/-((1, PrimType.Map))
       case PT.UPDATE | PT.SCENARIO | PT.ARROW =>
         -\/(unserializableDataType(a, s"Unserializable data type: DamlLf1.PrimType.${pt.name}"))
       case PT.UNRECOGNIZED =>

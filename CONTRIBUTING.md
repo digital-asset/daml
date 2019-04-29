@@ -1,10 +1,12 @@
 # Contributing to DAML
 
-Welcome! This document provides a high-level overview of how to contribute to the development of DAML.
+Welcome! This page gives a high-level overview of how to contribute to the development of DAML.
 
-(For information on how to build, test, and work on the codebase, see the [README](./README.md).)
+There are many ways you can contribute beyond coding. For example, you can report problems, clarify [issues](https://github.com/digital-asset/daml/issues), and write documentation. If you're completely new to open source development, the [Open Source Guides](https://opensource.guide) is a great place to start.
 
-There are many ways you can contribute beyond coding. For example, you can report problems, report and clarify issues, and write documentation. If you're completely new to open source, the [Open Source Guides](https://opensource.guide) is a great place to start.
+## Working on the codebase
+
+For information on how to build, test, and work on the codebase, see ["To start contributing to DAML" in the README](./README.md#to-start-contributing-to-daml).
 
 ## Code of conduct
 
@@ -26,7 +28,7 @@ For Git commit messages, our principle is that `git log --pretty=oneline` should
 
 - Read this document (contribution guidelines).
 - Does your PR include appropriate tests?
-- Make sure your PR title and description makes it easy for other developers to understand what the contained commits do.
+- Make sure your PR title and description makes it easy for other developers to understand what the contained commits do. The title should say what the changes do. The description should expand on what it does (if not obvious from the title alone), and say why it is being done.
 - If your PR corresponds to an issue, add “Fixes #XX” to your pull request description. This will auto-close the corresponding issue when the commit is merged into master and tie the PR to the issue.
 - If your PR includes user-facing changes, you must add a line describing the change to the [release notes](docs/source/support/release-notes.rst) as part of your PR.
 

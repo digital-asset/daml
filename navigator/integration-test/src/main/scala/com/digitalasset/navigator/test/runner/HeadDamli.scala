@@ -10,9 +10,9 @@ import scala.sys.error
 import scala.sys.process.Process
 
 /**
-  * Run the HEAD version of damli from source, to create a DAR file from a DAML file.
+  * Run the HEAD version of damlc from source, to create a DAR file from a DAML file.
   */
-object HeadDamli {
+object HeadDamlc {
   private val packageName = "Test"
 
   def run(damlPath: String): (File, Unit => Unit) = {
@@ -27,10 +27,10 @@ object HeadDamli {
 
     // DAML -> DAR
     val exitCode = Process(
-      s"bazel run damli -- package $damlPath $packageName --output ${darFile.getAbsolutePath}").!
+      s"bazel run damlc -- package $damlPath $packageName --output ${darFile.getAbsolutePath}").!
     if (exitCode != 0) {
       shutdown(())
-      error(s"Dar packager: error while running DAMLI package for $damlPath: exit code $exitCode")
+      error(s"Dar packager: error while running damlc package for $damlPath: exit code $exitCode")
     }
 
     (darFile, shutdown)

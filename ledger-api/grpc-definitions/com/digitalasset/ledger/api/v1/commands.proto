@@ -16,7 +16,7 @@ option java_package = "com.digitalasset.ledger.api.v1";
 // A composite command that groups multiple commands together.
 message Commands {
 
-  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Required
   string ledger_id = 1;
 
@@ -29,7 +29,7 @@ message Commands {
   // Required
   string application_id = 3;
 
-  // Unique command id. This number should be unique for each new command within an application domain. It can be used for matching
+  // Unique command ID. This number should be unique for each new command within an application domain. It can be used for matching
   // the requests with their respective completions.
   // Required
   string command_id = 4;
@@ -58,6 +58,7 @@ message Command {
   oneof command {
     CreateCommand create = 1;
     ExerciseCommand exercise = 2;
+    CreateAndExerciseCommand createAndExercise = 3;
   }
 }
 
@@ -83,6 +84,25 @@ message ExerciseCommand {
   // The ID of the contract the client wants to exercise upon.
   // Required
   string contract_id = 2;
+
+  // The name of the choice the client wants to exercise.
+  // Required
+  string choice = 3;
+
+  // The argument for this choice.
+  // Required
+  Value choice_argument = 4;
+}
+
+// Create a contract and exercise a choice on it in the same transaction.
+message CreateAndExerciseCommand {
+  // The template of the contract the client wants to create
+  // Required
+  Identifier template_id = 1;
+
+  // The arguments required for creating a contract from this template.
+  // Required
+  Record create_arguments = 2;
 
   // The name of the choice the client wants to exercise.
   // Required

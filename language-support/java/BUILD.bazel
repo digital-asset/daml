@@ -6,12 +6,12 @@ load("@os_info//:os_info.bzl", "is_windows")
 genrule(
     name = "javadocs",
     srcs = [
-        '//language-support/java/bindings-rxjava:sources',
+        "//language-support/java/bindings-rxjava:sources",
         "//language-support/java/bindings:sources",
-        '//language-support/java/bindings-rxjava:bindings-rxjava',
+        "//language-support/java/bindings-rxjava",
         "//language-support/java/bindings:bindings-java",
-        '//external:jar/org/slf4j/slf4j_api',
-        '//ledger-api/rs-grpc-bridge:rs-grpc-bridge',
+        "//external:jar/org/slf4j/slf4j_api",
+        "//ledger-api/rs-grpc-bridge",
         "//external:jar/io/reactivex/rxjava2/rxjava",
         "//external:jar/com/google/protobuf/protobuf_java",
         "//external:jar/org/pcollections/pcollections",
@@ -22,7 +22,6 @@ genrule(
         "//external:jar/io/netty/netty_handler",
         "//external:jar/com/google/code/findbugs/jsr305",
     ],
-    tools = ["@javadoc_dev_env//:javadoc"],
     outs = ["javadocs.tar.gz"],
     cmd = """
         CP=$(location //external:jar/org/slf4j/slf4j_api)
@@ -44,7 +43,8 @@ genrule(
     """.format(
         delim = "\;" if is_windows else ":",
     ),
+    tools = ["@javadoc_dev_env//:javadoc"],
     visibility = [
-        '//visibility:public',
-    ]
+        "//visibility:public",
+    ],
 )

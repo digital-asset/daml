@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.Simplifier(
     freeVarsStep,
     simplifyModule,
@@ -12,12 +11,7 @@ import Data.Functor.Foldable
 import qualified Data.Set as Set
 import qualified Safe
 import qualified Safe.Exact as Safe
-import DA.Daml.LF.Decimal (mkDecimal, Decimal)
-import DA.Daml.LF.Decimal as Decimal
-import Control.Monad (guard)
-import Data.Fixed (Fixed(..))
 
-import DA.Prelude
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.Ast.Recursive
@@ -246,131 +240,8 @@ simplifyExpr = fst . cata go
           s1 = Info fv (sf `min` Safe 0)
           s2 = Info (Set.insert x fv) sf
 
-      -- constant folding of some binary expressions. particularly useful since
-      -- we forbid top-level definitions which are not values, but we want to allow
-      -- top level definitions which like @1 + 2 + 3@.
-      --
-      -- see 'DA.Daml.LF.TypeChecker.Value' for more info on the check mentioned above.
-      --
-      -- we give up on anything ill typed, since we haven't type checked yet here.
-      e0@(ETmAppF (ETmApp (EBuiltin bltin) arg1, _) (arg2, _)) -> do
-        let giveUp = (embed (fmap fst e0), infoStep (fmap snd e0))
-        let expectInt64 = \case
-              EBuiltin (BEInt64 i) -> Just i
-              _ -> Nothing
-        let expectDecimal = \case
-              EBuiltin (BEDecimal i) -> Just i
-              _ -> Nothing
-        -- primitive values have no free variables and the take no arguments.
-        let primitiveInfo = Info mempty (Safe 0)
-        let binaryDecimal f checkSecondArg = maybe giveUp ((, primitiveInfo) . EBuiltin . BEDecimal) $ do
-              dec1 <- expectDecimal arg1
-              dec2 <- expectDecimal arg2 >>= checkSecondArg
-              f dec1 dec2
-        let binaryInt64 f checkSecondArg = maybe giveUp ((, primitiveInfo) . EBuiltin . BEInt64) $ do
-              int1 <- expectInt64 arg1
-              int2 <- expectInt64 arg2 >>= checkSecondArg
-              f int1 int2
-        let dontCheckSecondArg arg = pure arg
-        case bltin of
-          BEAddDecimal -> binaryDecimal (checkDecimal (+)) dontCheckSecondArg
-          BESubDecimal -> binaryDecimal (checkDecimal (-)) dontCheckSecondArg
-          BEMulDecimal -> binaryDecimal (checkDecimal (*)) dontCheckSecondArg
-          BEAddInt64 -> binaryInt64 (checkInt64 (+)) dontCheckSecondArg
-          BESubInt64 -> binaryInt64 (checkInt64 (-)) dontCheckSecondArg
-          BEMulInt64 -> binaryInt64 (checkInt64 (*)) dontCheckSecondArg
-          _ -> giveUp
-
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep (fmap snd e))
 
-    fixed10ToDecimal (MkFixed x) = mkDecimal x 10
-
-    fixed10FromDecimal = either (const Nothing) Just . legacyDecimalToDamlLfDecimal
-
-    checkInt64 :: (Integer -> Integer -> Integer) -> Int64 -> Int64 -> Maybe Int64
-    checkInt64 f (toInteger -> a) (toInteger -> b) = do
-      let res = f a b
-      guard (res >= toInteger (minBound :: Int64) && res <= toInteger (maxBound :: Int64))
-      return (fromInteger res)
-
-    checkDecimal :: (Decimal -> Decimal -> Decimal) -> Fixed E10 -> Fixed E10 -> Maybe (Fixed E10)
-    checkDecimal f (fixed10ToDecimal -> a) (fixed10ToDecimal -> b) = fixed10FromDecimal (f a b)
-
-{-
--- this floats out outermost lets in their own definitions.
---
--- e.g.
---
--- @
--- def foo: Integer = let x: Integer = <x-body> in let y: Integer = <y-body> in <foo-body>
--- @
---
--- becomes
---
--- @
--- def foo$x: Integer = <x-body>
--- def foo$y: Integer = <y-body> -- with x substituted with foo$x
--- def foo: Integer = <foo-body> -- with x substituted with foo$x and y substituted with foo$y
--- @
---
--- we do this because we force all top-level definitions to be values,
--- which is quite annoying in conjunction with lets, since
---
--- @
--- def bar: Int = do
---   let z = <z-body>
---   <bar-body>
--- @
---
--- is not a value even if <bar-body> is.
-floatOutOutermostLets ::
-     ModuleName -- ^ only used to generate names for the generated defs
-  -> DefValue
-  -> [DefValue]
-floatOutOutermostLets modName def0@(DefValue loc (defName, _) noPartyLits _isTest body mbInfo) =
-  case mbInfo of
-    Nothing -> maybe [def0] (\(defs, body') -> def0{dvalBody = body'} : defs) (go mempty loc body)
-    Just{} -> error ("floatOutOutermostLets: trying to process DefValue " ++ show defName ++ " with info -- please fill in the infos _after_ this function")
-  where
-    -- we store the current mapping to newly created values to avoid
-    -- quadratic behavior if we were to replace at each step. likewise,
-    -- we also store directly the Expr in the HashMap rather than
-    -- ExprValName, also to avoid retraversing all of the hash map at
-    -- each step.
-    --
-    -- however this means that we don't work if we encounter two lets
-    -- with the same name. right now we just give up. TODO(FM) do not
-    -- give up.
-    --
-    -- that's what the 'Maybe' is for -- if it's 'Nothing' it means
-    -- that we've given up.
-    go :: HMS.HashMap ExprVarName Expr -> Maybe SourceLoc -> Expr -> Maybe ([DefValue], Expr)
-    go replaced loc0 = \case
-      ELet (Binding (varName, typ) body0) rest0 -> do
-        guard (not (HMS.member varName replaced))
-        let body1 = substVars replaced body0
-        let valName = Tagged (untag defName <> "$" <> untag varName)
-        let def = DefValue loc0 (valName, typ) noPartyLits (IsTest False) body1 Nothing
-        let qualifiedValName = Qualified PRSelf modName valName
-        (defs, rest) <- go (HMS.insert varName (EVal qualifiedValName) replaced) loc0 rest0
-        return (def : defs, rest)
-      ELocation loc1 e -> go replaced (Just loc1) e
-      e -> return ([], substVars replaced e)
--}
-
 simplifyModule :: Module -> Module
 simplifyModule = over moduleExpr simplifyExpr
-
-legacyDecimalToDamlLfDecimal :: Decimal -> Either String (Fixed E10)
-legacyDecimalToDamlLfDecimal scaled = do
-  let scaledShown = review Decimal.stringToDecimal scaled
-  let unscaled = scaled * 10^(10 :: Integer)
-  let unscaledRounded = toIntegerD unscaled
-  if unscaled /= fromIntegerD unscaledRounded
-    then Left $
-      "Decimal does not fit in precision 38, scale 10, because we'd lose decimal digits: " ++ scaledShown
-    else do
-      if abs unscaledRounded >= 10^(38::Integer)
-        then Left ("Decimal overflows precision 38: " ++ scaledShown)
-        else pure (MkFixed unscaledRounded)

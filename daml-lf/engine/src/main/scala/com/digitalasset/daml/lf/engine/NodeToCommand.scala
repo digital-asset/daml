@@ -3,14 +3,15 @@
 
 package com.digitalasset.daml.lf.engine
 
-import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.command._
+import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 
 object NodeToCommand {
 
   /** a node incoming without use of internal nodeIds */
-  type TranslatableNode = GenNode[_, AbsoluteContractId, VersionedValue[AbsoluteContractId]]
+  type TranslatableNode = GenNode.WithTxValue[_, AbsoluteContractId]
 
   import Error._
 
@@ -29,17 +30,17 @@ object NodeToCommand {
       ledgerEffectiveTime: Time.Timestamp,
       workflowReference: String): Either[Error, Commands] = {
     val cmd: Either[Error, Command] = node match {
-      case _: NodeFetch[AbsoluteContractId] =>
+      case _: NodeFetch[_] =>
         Left(Error(s"Fetch node cannot be translated to command in: $workflowReference"))
-      case _: NodeLookupByKey[AbsoluteContractId, VersionedValue[AbsoluteContractId]] =>
+      case _: NodeLookupByKey[_, _] =>
         Left(Error(s"LookupByKey node cannot be translated to a command in: $workflowReference"))
-      case c: NodeCreate[AbsoluteContractId, VersionedValue[AbsoluteContractId]] =>
+      case c: NodeCreate.WithTxValue[AbsoluteContractId] =>
         val templateId = c.coinst.template
         val value = c.coinst.arg
 
         Right(CreateCommand(templateId, value))
 
-      case e: NodeExercises[_, AbsoluteContractId, VersionedValue[AbsoluteContractId]] =>
+      case e: NodeExercises.WithTxValue[_, AbsoluteContractId] =>
         val templateId = e.templateId
         val contractId = e.targetCoid.coid
         val argument = e.chosenValue
@@ -54,6 +55,6 @@ object NodeToCommand {
             ExerciseCommand(templateId, contractId, e.choiceId, submitter, argument))
     }
 
-    cmd.map(p => Commands(Seq(p), ledgerEffectiveTime, workflowReference))
+    cmd.map(p => Commands(ImmArray(p), ledgerEffectiveTime, workflowReference))
   }
 }

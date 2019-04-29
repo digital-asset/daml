@@ -3,10 +3,9 @@
 
 load("//bazel_tools:pkg.bzl", "pkg_tar")
 
-
 # taken from rules_proto:
 # https://github.com/stackb/rules_proto/blob/f5d6eea6a4528bef3c1d3a44d486b51a214d61c2/compile.bzl#L369-L393
-def get_plugin_runfiles(tool):
+def get_plugin_runfiles(tool, plugin_runfiles):
     """Gather runfiles for a plugin.
     """
     files = []
@@ -30,6 +29,10 @@ def get_plugin_runfiles(tool):
         if runfiles.files:
             files += runfiles.files.to_list()
 
+    if plugin_runfiles:
+        for target in plugin_runfiles:
+            files += target.files.to_list()
+
     return files
 
 def _proto_gen_impl(ctx):
@@ -43,18 +46,18 @@ def _proto_gen_impl(ctx):
 
     args = []
     args += [
-        "--descriptor_set_in=" + descriptor_set_delim.join([d.path for d in descriptors])
+        "--descriptor_set_in=" + descriptor_set_delim.join([d.path for d in descriptors]),
     ]
     args += [
-        "--{}_out={}:{}".format(ctx.attr.plugin_name, ",".join(ctx.attr.plugin_options), sources_out.path)
+        "--{}_out={}:{}".format(ctx.attr.plugin_name, ",".join(ctx.attr.plugin_options), sources_out.path),
     ]
     plugins = []
     plugin_runfiles = []
     if ctx.attr.plugin_name not in ["java", "python"]:
         plugins = [ctx.executable.plugin_exec]
-        plugin_runfiles = get_plugin_runfiles(ctx.attr.plugin_exec)
+        plugin_runfiles = get_plugin_runfiles(ctx.attr.plugin_exec, ctx.attr.plugin_runfiles)
         args += [
-            "--plugin=protoc-gen-{}={}".format(ctx.attr.plugin_name, ctx.executable.plugin_exec.path)
+            "--plugin=protoc-gen-{}={}".format(ctx.attr.plugin_name, ctx.executable.plugin_exec.path),
         ]
 
     inputs = []
@@ -63,9 +66,10 @@ def _proto_gen_impl(ctx):
         src_root = src.proto.proto_source_root
         for direct_source in src.proto.direct_sources:
             path = ""
+
             # in some cases the paths of src_root and direct_source are only partially
             # overlapping. the following for loop finds the maximum overlap of these two paths
-            for i in range(len(src_root)+1):
+            for i in range(len(src_root) + 1):
                 if direct_source.path.startswith(src_root[-i:]):
                     path = direct_source.path[i:]
                 else:
@@ -85,9 +89,8 @@ def _proto_gen_impl(ctx):
         inputs = descriptors + [ctx.executable.protoc] + plugin_runfiles,
         command = "mkdir -p " + sources_out.path + " && " + ctx.executable.protoc.path + " " + " ".join(args),
         tools = plugins,
-        use_default_shell_env = True
+        use_default_shell_env = True,
     )
-
 
     # since we only have the output directory of the protoc compilation,
     # we need to find all the files below sources_out and add them to the zipper args file
@@ -97,11 +100,11 @@ def _proto_gen_impl(ctx):
         outputs = [zipper_args_file],
         inputs = [sources_out],
         command = "find -L {src_path} -type f | sed -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | sort > {args_file}".format(
-            src_path = sources_out.path, 
-            args_file = zipper_args_file.path
+            src_path = sources_out.path,
+            args_file = zipper_args_file.path,
         ),
         progress_message = "zipper_args_file %s" % zipper_args_file.path,
-        use_default_shell_env = True
+        use_default_shell_env = True,
     )
 
     # Call zipper to create srcjar
@@ -119,16 +122,19 @@ def _proto_gen_impl(ctx):
 
 proto_gen = rule(
     implementation = _proto_gen_impl,
-
-    attrs = { 
+    attrs = {
         "srcs": attr.label_list(allow_files = True),
         "deps": attr.label_list(providers = [ProtoInfo]),
         "plugin_name": attr.string(),
         "plugin_exec": attr.label(
             cfg = "host",
-            executable = True
+            executable = True,
         ),
         "plugin_options": attr.string_list(),
+        "plugin_runfiles": attr.label_list(
+            default = [],
+            allow_files = True,
+        ),
         "protoc": attr.label(
             default = Label("@com_google_protobuf//:protoc"),
             cfg = "host",
@@ -143,11 +149,9 @@ proto_gen = rule(
         ),
     },
     outputs = {
-        "out" : "%{name}.srcjar"
+        "out": "%{name}.srcjar",
     },
-    output_to_genfiles = True
-    
-
+    output_to_genfiles = True,
 )
 
 def _is_windows(ctx):

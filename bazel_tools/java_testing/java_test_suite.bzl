@@ -3,25 +3,23 @@
 
 # Taken from https://github.com/bazelbuild/rules_scala/blob/2676400bed17b03fdd0fe13a8794eb0ff0129284/scala/scala.bzl#L413
 def _sanitize_string_for_usage(s):
-  res_array = []
-  for idx in range(len(s)):
-    c = s[idx]
-    if c.isalnum() or c == ".":
-      res_array.append(c)
-    else:
-      res_array.append("_")
-  return "".join(res_array)
-
+    res_array = []
+    for idx in range(len(s)):
+        c = s[idx]
+        if c.isalnum() or c == ".":
+            res_array.append(c)
+        else:
+            res_array.append("_")
+    return "".join(res_array)
 
 def _junit_class_name(test_file, strip):
-  (_, _, stripped) = test_file.partition(strip)
-  (sansext, _, _) = stripped.rpartition('.')
-  c = sansext.replace('/', '.')
-  return c
-
+    (_, _, stripped) = test_file.partition(strip)
+    (sansext, _, _) = stripped.rpartition(".")
+    c = sansext.replace("/", ".")
+    return c
 
 # Similar to https://github.com/bazelbuild/rules_scala/blob/2676400bed17b03fdd0fe13a8794eb0ff0129284/scala/scala.bzl#L425
-def java_test_suite(name, srcs=[], strip='', visibility = None, **kwargs):
+def java_test_suite(name, srcs = [], strip = "", visibility = None, **kwargs):
     """Define a Java test-suite.
 
     Generates a java_test for each given source file and bundles them in a

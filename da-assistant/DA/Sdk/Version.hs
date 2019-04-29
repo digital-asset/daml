@@ -8,6 +8,7 @@ module DA.Sdk.Version
   ( SemVersion(..)
   , showSemVersion
   , parseSemVersion
+  , showSemVersionCompatible
   , semVersionParser
   , BuildVersion(..)
   , showBuildVersion
@@ -75,6 +76,15 @@ showSemVersion (SemVersion major minor patch mbPreRelease) =
             format (d%"."%d%"."%d%"-"%s) major minor patch preRelease
         Nothing ->
             format (d%"."%d%"."%d) major minor patch
+
+-- | Format a semantic version according to spec Compatible for new daml-assitant.
+showSemVersionCompatible :: SemVersion -> T.Text
+showSemVersionCompatible (SemVersion _ minor patch mbPreRelease) =
+    case mbPreRelease of
+        Just preRelease ->
+            format (s%"-"%d%"."%d%"-"%s) "nightly-100" minor patch preRelease
+        Nothing ->
+            format (s%"."%d%"."%d) "nightly-100" minor patch
 
 -- | Parse a semantic version.
 -- Note: Versions of the form "0.8" will get parsed as version "0.8.0".

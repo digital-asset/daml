@@ -11,7 +11,8 @@ import com.digitalasset.testing.BuildSystemSupport
 import com.typesafe.scalalogging.LazyLogging
 
 object SandboxFixture {
-  private val ghcPrimDar = new File("daml-foundations/daml-ghc/package-database/daml-prim.dar")
+  private val ghcPrimDar = new File(
+    "daml-foundations/daml-ghc/package-database/deprecated/daml-prim.dar")
 
   class SandboxContext(
       val host: String,
@@ -81,14 +82,14 @@ object SandboxFixture {
         .getAbsoluteFile
 
     def defaultGhcPrimDalf: File =
-      Option(getClass getResource "/da-hs-damlc-app/resources/package-db/gen/daml-prim.dalf")
+      Option(getClass getResource "/da-hs-damlc-app/resources/package-db/gen/daml-prim-1.3.dalf")
         .map { ghcPrimUrl =>
           val res = File createTempFile ("daml-prim", ".dalf")
           FileUtils copyURLToFile (ghcPrimUrl, res)
           res
         }
         .getOrElse {
-          throw new IllegalStateException("No daml-prim.dalf available in classpath")
+          throw new IllegalStateException("No daml-prim-1.3.dalf available in classpath")
         }
 
     private def locateSandboxJar: File = {

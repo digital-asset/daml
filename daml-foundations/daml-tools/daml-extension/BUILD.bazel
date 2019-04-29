@@ -1,7 +1,8 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-package(default_visibility=["//visibility:public"])
+package(default_visibility = ["//visibility:public"])
+
 load("@build_bazel_rules_typescript//:defs.bzl", "ts_library")
 load("@build_bazel_rules_nodejs//:defs.bzl", "npm_package")
 load("//bazel_tools:pkg.bzl", "pkg_tar")
@@ -16,49 +17,48 @@ ts_library(
     tsconfig = ":tsconfig.json",
 )
 
-
 # With this rule we get access to extension.js, as
 # the ts_library only has the .d.ts file in the outputs.
 # Could possibly also use filegroup, which allows specifying
 # the output group (es5_source).
 npm_package(
-  name = "out", # named out, so it goes to same place as before
-  deps = [
-    ":daml_extension_lib",
-  ]
+    name = "out",  # named out, so it goes to same place as before
+    deps = [
+        ":daml_extension_lib",
+    ],
 )
 
 pkg_tar(
-  name = "dot-dist",
-  extension = "tar.gz",
-  mode = "0755",
-  package_dir = "daml-extension",
-  remap_paths = {
-    "../daml_extension_deps/node_modules": "node_modules"
-  },
-  strip_prefix = "./",
-  srcs = glob([
-    "package.json",
-    "syntaxes/*",
-    "snippets/*",
-    "images/*",
-    "*.json",
-    "README.md",
-    "CHANGELOG.md"
-  ]) + [
-    ":out",
-    "@daml_extension_deps//vscode-jsonrpc:vscode-jsonrpc",
-    "@daml_extension_deps//vscode-languageclient:vscode-languageclient",
-    "@daml_extension_deps//vscode-languageserver-types:vscode-languageserver-types",
-    "@daml_extension_deps//which:which",
-  ],
+    name = "dot-dist",
+    srcs = glob([
+        "package.json",
+        "syntaxes/*",
+        "snippets/*",
+        "images/*",
+        "*.json",
+        "README.md",
+    ]) + [
+        ":out",
+        "@daml_extension_deps//vscode-jsonrpc:vscode-jsonrpc",
+        "@daml_extension_deps//vscode-languageclient:vscode-languageclient",
+        "@daml_extension_deps//vscode-languageserver-types:vscode-languageserver-types",
+        "@daml_extension_deps//which:which",
+        "//:VERSION",
+    ],
+    extension = "tar.gz",
+    mode = "0755",
+    package_dir = "daml-extension",
+    remap_paths = {
+        "../daml_extension_deps/node_modules": "node_modules",
+    },
+    strip_prefix = "./",
 )
 
 # NOTE(MH): The `pkg_tar` rule puts a `.` at the beginning of every path, which
 # would break assumptions made in the sdk assistant. Hence we need to repack
 # the tarball to get rid of the `.`.
 genrule(
-    name = 'dist',
+    name = "dist",
     srcs = [":dot-dist"],
     outs = ["dist.tar.gz"],
     cmd = """
