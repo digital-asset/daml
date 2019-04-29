@@ -38,7 +38,9 @@ To set this up, you must:
 
   This is because the Sandbox manages its own database schema, applying migrations if necessary when upgrading versions. 
 
-In order to start the Sandox using persistence you need to pass an ``--jdbcurl <value>`` option, where `<value>` is a valid jdbc url containing the username, password and database name to connect to. Here is an example for such a url: ``jdbc:postgresql://localhost/test?user=fred&password=secret``
+To start Sandbox using persistence, pass an ``--jdbcurl <value>`` option, where `<value>` is a valid jdbc url containing the username, password and database name to connect to.
+
+Here is an example for such a url: ``jdbc:postgresql://localhost/test?user=fred&password=secret``
 
 More on jdbc urls can be found here: https://jdbc.postgresql.org/documentation/head/connect.html
 
