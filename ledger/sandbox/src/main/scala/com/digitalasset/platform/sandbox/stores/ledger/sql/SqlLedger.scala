@@ -143,7 +143,6 @@ private class SqlLedger(
         Future
           .sequence(queue.toIterator.zipWithIndex.map {
             case (ledgerEntryGen, i) =>
-              //TODO head does not need to be updated every time, enough in the end! -> also, after a crash, we need to evict events possibly bigger then ledger-end
               val offset = startOffset + i
               ledgerDao
                 .storeLedgerEntry(offset, offset + 1, ledgerEntryGen(offset))

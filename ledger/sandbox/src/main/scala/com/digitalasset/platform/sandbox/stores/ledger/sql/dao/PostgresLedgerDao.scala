@@ -69,8 +69,6 @@ private class PostgresLedgerDao(
 
   private val SQL_INSERT_PARAM = SQL("insert into parameters(key, value) values ({k}, {v})")
 
-  private val SQL_UPDATE_PARAM = SQL("update parameters set value = {v} where key = {k}")
-
   private def storeParameter(key: String, value: String): Future[Unit] =
     dbDispatcher
       .executeSql(
@@ -82,10 +80,12 @@ private class PostgresLedgerDao(
       )
       .map(_ => ())(DirectExecutionContext)
 
-  private def updateParameter(key: String, value: String)(implicit conn: Connection): Unit = {
-    SQL_UPDATE_PARAM
-      .on("k" -> key)
-      .on("v" -> value)
+  private val SQL_UPDATE_LEDGER_END = SQL(
+    s"update parameters set value = {v} where key = '$LedgerEndKey' and value < {v}")
+
+  private def updateLedgerEnd(ledgerEnd: LedgerOffset)(implicit conn: Connection): Unit = {
+    SQL_UPDATE_LEDGER_END
+      .on("v" -> ledgerEnd.toString)
       .execute()
     ()
   }
@@ -446,8 +446,7 @@ private class PostgresLedgerDao(
     dbDispatcher
       .executeSql { implicit conn =>
         val resp = insertEntry(ledgerEntry)
-        //TODO we need to update it outside after every batch!
-        //updateParameter(LedgerEndKey, newLedgerEnd.toString)
+        updateLedgerEnd(newLedgerEnd)
         resp
       }
   }
