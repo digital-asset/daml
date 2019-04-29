@@ -1,3 +1,6 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 //
 // Protocol buffer messages used by the participant state key-value utilities
 // for implementing a DAML ledger backed by a key-value store.
@@ -162,3 +165,4 @@ message DamlContractState {
   // Optional. The log entry that caused the contract to be archived.
   DamlLogEntryId archived_by_entry = 3;
 }
+
