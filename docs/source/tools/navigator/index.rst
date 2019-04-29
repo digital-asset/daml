@@ -387,4 +387,4 @@ To run Navigator against a secured Digital Asset Ledger,
 configure TLS certificates using the ``--pem``, ``--crt``, and ``--cacrt`` command line parameters.
 Details of these parameters are explained in the command line help::
 
-  daml navigator -- --help
+  daml navigator --help

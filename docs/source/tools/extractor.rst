@@ -32,7 +32,7 @@ Prerequisites:
 
 Once you have the prerequisites, you can start the Extractor like this::
 
-$ daml extractor -- --help
+$ daml extractor --help
 
 Trying it out
 *************
@@ -48,7 +48,7 @@ This example extracts:
 
   .. code-block:: none
 
-    $ daml extractor -- postgresql --user postgres --connecturl jdbc:postgresql:daml_export --party Scrooge_McDuck -h 192.168.1.12 -p 6865 --to head
+    $ daml extractor postgresql --user postgres --connecturl jdbc:postgresql:daml_export --party Scrooge_McDuck -h 192.168.1.12 -p 6865 --to head
 
 This terminates after reaching the transaction which was the latest at the time the Extractor started streaming. 
 
@@ -93,7 +93,7 @@ This example connects to a database on host ``192.168.1.12``, listening on port 
 
 .. code-block:: none
 
-  $ daml extractor -- postgres --connecturl jdbc:postgresql://192.168.1.12:5432/daml_export --user daml_exporter --password ExamplePassword --party [party]
+  $ daml extractor postgres --connecturl jdbc:postgresql://192.168.1.12:5432/daml_export --user daml_exporter --password ExamplePassword --party [party]
 
 Full list of options
 ********************

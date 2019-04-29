@@ -14,7 +14,7 @@ It is possible to execute the Sandbox launching step in isolation by typing ``da
 
 Sandbox can also be run manually as in this example::
 
-  $ daml sandbox -- Main.dar --scenario Main:example
+  $ daml sandbox Main.dar --scenario Main:example
 
      ____             ____
     / __/__ ____  ___/ / /  ___ __ __
@@ -24,7 +24,7 @@ Sandbox can also be run manually as in this example::
   Initialized Static time provider, starting from 1970-01-01T00:00:00Z
   listening on localhost:6865
 
-Here, ``daml sandbox --`` tells the SDK Assistant to run ``sandbox`` from the active SDK release and pass it any arguments that follow. The example passes the DAR file to load (``Main.dar``) and the optional ``--scenario`` flag tells Sandbox to run the ``Main:example`` scenario on startup. The scenario must be fully qualified; here ``Main`` is the module and ``example`` is the name of the scenario, separated by a ``:``. The scenario is used for testing and development; it is not run in production.
+Here, ``daml sandbox `` tells the SDK Assistant to run ``sandbox`` from the active SDK release and pass it any arguments that follow. The example passes the DAR file to load (``Main.dar``) and the optional ``--scenario`` flag tells Sandbox to run the ``Main:example`` scenario on startup. The scenario must be fully qualified; here ``Main`` is the module and ``example`` is the name of the scenario, separated by a ``:``. The scenario is used for testing and development; it is not run in production.
 
 
 Running with persistence
