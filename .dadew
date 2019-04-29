@@ -11,6 +11,7 @@
         "vcredist-14.0.23026",
         "bazel",
         "nodejs-10.12.0",
-        "python-3.6.7"
+        "python-3.6.7",
+        "nsis-3.04"
     ]
 }

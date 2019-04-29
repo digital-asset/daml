@@ -366,6 +366,23 @@ dev_env_tool(
     win_tool = "java-openjdk-8u201",
 )
 
+# This only makes sense on Windows so we just put dummy values in the nix fields.
+dev_env_tool(
+    name = "makensis_dev_env",
+    nix_include = [""],
+    nix_path = "bin/makensis.exe",
+    tool = "makensis",
+    win_include = [
+        "bin",
+        "contrib",
+        "include",
+        "plugins",
+        "stubs",
+    ],
+    win_path = "bin/makensis.exe",
+    win_tool = "nsis-3.04",
+) if is_windows else None
+
 # Dummy target //external:python_headers.
 # To avoid query errors due to com_google_protobuf.
 # See https://github.com/protocolbuffers/protobuf/blob/d9ccd0c0e6bbda9bf4476088eeb46b02d7dcd327/util/python/BUILD

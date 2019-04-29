@@ -69,7 +69,7 @@ dev_env_tool = repository_rule(
             mandatory = False,
         ),
         "nix_label": attr.label(
-            mandatory = True,
+            mandatory = False,
         ),
         "nix_include": attr.string_list(
             mandatory = True,

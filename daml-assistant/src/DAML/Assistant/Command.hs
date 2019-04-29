@@ -46,22 +46,22 @@ dispatch info = subcommand
 commandParser :: [SdkCommandInfo] -> Parser Command
 commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
     [ subparser -- visible commands
-        $  builtin "version" "Display SDK version" mempty (pure Version <**> helper)
-        <> builtin "install" "Install SDK version" mempty (Install <$> installParser <**> helper)
-        <> builtin "exec" "Execute command with daml environment." forwardOptions
-            (Exec <$> strArgument (metavar "CMD") <*> many (strArgument (metavar "ARGS")))
+        $  builtin "version" "Display the current DAML SDK version in use" mempty (pure Version <**> helper)
+        <> builtin "install" "Install the specified DAML SDK version" mempty (Install <$> installParser <**> helper)
         <> foldMap dispatch visible
     , subparser -- hidden commands
         $  internal
+        <> builtin "exec" "Execute command with daml environment." forwardOptions
+            (Exec <$> strArgument (metavar "CMD") <*> many (strArgument (metavar "ARGS")))
         <> foldMap dispatch hidden
     ]
 
 
 installParser :: Parser InstallOptions
 installParser = InstallOptions
-    <$> optional (RawInstallTarget <$> argument str (metavar "TARGET"))
+    <$> optional (RawInstallTarget <$> argument str (metavar "TARGET" <> help "The SDK version to install. Use 'latest' to download and install the latest stable SDK version available. Run 'daml install' to see the full set of options."))
     <*> iflag ActivateInstall "activate" mempty "Activate installed version of daml"
     <*> iflag ForceInstall "force" (short 'f') "Overwrite existing installation"
-    <*> iflag QuietInstall "quiet" (short 'q') "Quiet verbosity"
+    <*> iflag QuietInstall "quiet" (short 'q') "Don't display installation messages"
     where
         iflag p name opts desc = fmap p (switch (long name <> help desc <> opts))
