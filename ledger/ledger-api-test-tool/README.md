@@ -7,6 +7,8 @@ implementations.
 
 ## Development
 
+### Running via Bazel
+
 To build and run the tool, use:
 
     bazel run //ledger/ledger-api-test-tool:ledger-api-test-tool
@@ -15,6 +17,24 @@ It wraps
 [SemanticTester.scala](../../daml-lf/testing-tools/src/main/scala/com/digitalasset/daml/lf/engine/testing/SemanticTester.scala)
 into a standalone command line tool with embedded
 `//ledger/ledger-api-integration-tests:SemanticTests.dar`.
+
+### Running standalone
+
+Run
+
+    bazel build //ledger/ledger-api-test-tool:ledger-api-test-tool_deploy.jar
+
+to a "fat" JAR at
+`bazel-bin/ledger/ledger-api-test-tool/ledger-api-test-tool_deploy.jar` which
+can be run with:
+
+    java -jar bazel-bin/ledger/ledger-api-test-tool/ledger-api-test-tool_deploy.jar
+
+### Publishing
+
+The tool is automatically released as part of SDK releases into paths like (note
+the version string in the url)
+https://bintray.com/digitalassetsdk/DigitalAssetSDK/sdk-components/100.11.31#files/com%2Fdaml%2Fledger%2Ftesttool
 
 ## Usage
 

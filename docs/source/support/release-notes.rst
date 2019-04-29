@@ -12,6 +12,8 @@ HEAD — ongoing
 - Add documentation for :doc:`/daml-integration-kit/index`, which explains
   what the DAML Integration Kit is, what state it is in, and how it is going
   to evolve.
+- Add Ledger API Test Tool, see :doc:`Ledger API Test Tool
+  </tools/ledger-api-test-tool/index>`.
 - Remove DAML-LF Dev major version, ``--target dev`` option, and sandbox ``--allow-dev``
   option.  A "1.dev" target will handle the intended "Dev" use cases in a future release.
 - Include list of DAML packages used during interpretation in the produced transaction.
