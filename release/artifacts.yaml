@@ -141,3 +141,7 @@
   type: jar
 - target: //ledger/api-server-damlonx:api-server-damlonx
   type: jar
+- target: //ledger/participant-state/kvutils:daml_kvutils_java_proto
+  type: jar-proto
+- target: //ledger/participant-state/kvutils:kvutils
+  type: jar
