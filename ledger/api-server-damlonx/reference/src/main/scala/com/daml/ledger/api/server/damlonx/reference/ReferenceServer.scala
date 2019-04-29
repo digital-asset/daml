@@ -130,7 +130,7 @@ final case class BadReadService(readService: ReadService) extends ReadService {
       case (updateId, update) =>
         val updatePrime = update match {
           case tx: Update.TransactionAccepted =>
-            tx.copy(transaction = GenTransaction(Map(), ImmArray.empty))
+            tx.copy(transaction = GenTransaction(Map(), ImmArray.empty, Set.empty))
           case _ => update
         }
         (updateId, updatePrime)

@@ -110,9 +110,7 @@ mkOptions opts@Options {..} = do
           Dir.doesDirectoryExist f >>= \ok ->
           unless ok $ error $
             "Required configuration/package database directory does not exist: " <> f
-        versionSuffix = case optDamlLfVersion of
-            LF.VDev _ -> "dev"
-            _ -> renderPretty optDamlLfVersion
+        versionSuffix = renderPretty optDamlLfVersion
 
 -- | Default configuration for the compiler with package database set according to daml-lf version
 -- and located runfiles. If the version argument is Nothing it is set to the default daml-lf

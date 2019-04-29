@@ -27,7 +27,8 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{Contract, Postgr
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   TransactionSerializer,
-  ValueSerializer
+  ValueSerializer,
+  KeyHasher
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import org.scalacheck.{Arbitrary, Gen}
@@ -47,7 +48,12 @@ class PostgresDaoSpec
   private lazy val dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, 4, 4)
 
   private lazy val ledgerDao =
-    PostgresLedgerDao(dbDispatcher, ContractSerializer, TransactionSerializer, ValueSerializer)
+    PostgresLedgerDao(
+      dbDispatcher,
+      ContractSerializer,
+      TransactionSerializer,
+      ValueSerializer,
+      KeyHasher)
 
   private val nextOffset: () => Long = {
     val counter = new AtomicLong(0)
@@ -107,7 +113,8 @@ class PostgresDaoSpec
               Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
               Some(keyWithMaintainers)
             )),
-          ImmArray("event1")
+          ImmArray("event1"),
+          Set.empty
         ),
         Map("event1" -> Set("Alice", "Bob"), "event2" -> Set("Alice", "In", "Chains"))
       )
@@ -223,7 +230,8 @@ class PostgresDaoSpec
               Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
               Some(keyWithMaintainers)
             )),
-          ImmArray("event1")
+          ImmArray("event1"),
+          Set.empty
         ),
         Map("event1" -> Set("Alice", "Bob"), "event2" -> Set("Alice", "In", "Chains"))
       )
@@ -283,7 +291,8 @@ class PostgresDaoSpec
                 Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
                 None
               )),
-            ImmArray(s"event$id")
+            ImmArray(s"event$id"),
+            Set.empty
           ),
           Map(s"event$id" -> Set("Alice", "Bob"))
         )
@@ -316,7 +325,8 @@ class PostgresDaoSpec
                 Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
                 ImmArray.empty
               )),
-            ImmArray(s"event$id")
+            ImmArray(s"event$id"),
+            Set.empty
           ),
           Map(s"event$id" -> Set("Alice", "Bob"))
         )

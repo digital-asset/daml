@@ -50,19 +50,13 @@ do
         cp -L ../../bazel-genfiles/daml-foundations/daml-ghc/daml-base-hoogle.txt $BUILD_DIR/gen/hoogle_db/base.txt
 
         # Javadoc
-        bazel build //language-support/java/bindings:javadocs
+        bazel build //language-support/java:javadocs
         mkdir -p $BUILD_DIR/gen/app-dev/bindings-java
-        tar -zxf ../../bazel-genfiles/language-support/java/bindings/javadocs.tar.gz -C $BUILD_DIR/gen/app-dev/bindings-java
-
-        # JSdoc
-        bazel build //language-support/js/docs
-        mkdir -p $BUILD_DIR/gen/app-dev/bindings-js
-        tar -zxf ../../bazel-genfiles/language-support/js/docs/docs.tar.gz -C $BUILD_DIR/gen/app-dev/bindings-js
-        mv $BUILD_DIR/gen/app-dev/bindings-js/docs $BUILD_DIR/gen/app-dev/bindings-js/reference
+        tar -zxf ../../bazel-genfiles/language-support/java/javadocs.tar.gz -C $BUILD_DIR/gen/app-dev/bindings-java
 
         # Proto-docs
         bazel build //ledger-api/grpc-definitions:docs
-        cp -L ../../bazel-genfiles/ledger-api/grpc-definitions/proto-docs.rst ../source/app-dev/ledger-api-introduction
+        cp -L ../../bazel-genfiles/ledger-api/grpc-definitions/proto-docs.rst ../source/app-dev/grpc/
 
         #StdLib
         bazel build //daml-foundations/daml-ghc:daml-base-rst-docs

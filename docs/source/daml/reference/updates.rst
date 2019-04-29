@@ -51,10 +51,9 @@ do
 create
 ******
 
-.. literalinclude:: ../code-snippets/Reference.daml
-   :language: daml
-   :lines: 44
-   :dedent: 8
+.. code-block:: daml
+
+   create NameOfTemplate with exampleParameters
 
 - ``create`` keyword.
 - Creates an instance of that contract on the ledger. When a contract is committed to the ledger, it is given a unique contract identifier of type ``ContractId <name of template>``.

@@ -54,12 +54,23 @@ package_app(
     name = "damlc-dist",
     binary = ":da-hs-damlc-app",
     resources = [
+        ":ghc-pkg-dist",
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-foundations/daml-ghc/package-database:gen-daml-prim.dar",
         "//daml-foundations/daml-ghc/package-database:package-db",
-        "@io_tweag_rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@io_tweag_rules_haskell_ghc-nixpkgs//:bin/ghc-pkg",
     ],
     tags = ["no-cache"],
+    visibility = ["//visibility:public"],
+)
+
+# ghc-pkg is linked dynamically on Linux by default so we need to run it through package_app
+# before we distribute it.
+package_app(
+    name = "ghc-pkg-dist",
+    # bin/ghc-pkg is actually a wrapper script on Unix systems so it is
+    # important that we use lib/ghc-$VERSION/bin/ghc-pkg instead which is the
+    # actual executable.
+    binary = "@io_tweag_rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.6.5/bin/ghc-pkg",
     visibility = ["//visibility:public"],
 )
 

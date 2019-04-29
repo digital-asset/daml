@@ -31,15 +31,15 @@ commands:
 - name: sandbox
   path: daml-helper/daml-helper
   desc: "Start the sandbox"
-  args: ["sandbox"]
+  args: ["run-jar", "sandbox/sandbox.jar"]
 - name: navigator
   path: daml-helper/daml-helper
   desc: "Start the navigator"
-  args: ["run-jar", "navigator/navigator.jar", "--"]
+  args: ["run-jar", "navigator/navigator.jar"]
 - name: extractor
   path: daml-helper/daml-helper
   desc: "Start the extractor"
-  args: ["run-jar", "extractor/extractor.jar", "--"]
+  args: ["run-jar", "extractor/extractor.jar"]
 - name: new
   path: daml-helper/daml-helper
   desc: "Create a new project"

@@ -3,7 +3,6 @@
 
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE MultiWayIf         #-}
-{-# LANGUAGE TemplateHaskell    #-}
 
 -- | The model of our floating point decimal numbers.
 module DA.Daml.LF.Decimal
@@ -33,7 +32,6 @@ where
 import           Control.Lens       (Iso', Prism', from, iso, prism')
 import           Control.DeepSeq    (NFData(..))
 
-import qualified Data.Aeson         as Aeson
 import qualified Data.Scientific    as Scientific
 
 import           DA.Prelude
@@ -43,10 +41,7 @@ import           Data.Ratio((%))
 -- | A decimal `d` is represented as a tuple `(n :: Integer, k :: Natural)`
 -- such that `d = n / 10 ^^ k = n * 10 ^^ -k`.
 data Decimal = Decimal {_mantissa :: Integer, _exponent :: Integer}
-  deriving (Read)
-
-makeInstancesExcept [''Ord, ''Eq, ''Aeson.FromJSON, ''Aeson.ToJSON] ''Decimal
-deriving instance NFData Decimal
+  deriving (Generic, NFData, Show)
 
 
 instance Num Decimal where
@@ -74,16 +69,6 @@ instance Ord Decimal where
       then n <= m * 10^diff
       else n * 10^(-diff) <= m
 
-
--- | JSON encoding compatible with Apollo (expecting an array)
-instance Aeson.ToJSON Decimal where
-    toJSON (Decimal m e) = Aeson.toJSON [m, e]
-
-
-instance Aeson.FromJSON Decimal where
-    parseJSON jsn = do
-        [m, e] <- Aeson.parseJSON jsn
-        return $ Decimal m e
 
 -- The following are needed by core package
 -------------------------------------------

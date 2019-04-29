@@ -66,7 +66,7 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
       new TemplateCompanion.Empty[MockTemplate] {
         override val onlyInstance = MockTemplate()
         override val id: Primitive.TemplateId[MockTemplate] =
-          Primitive.TemplateId("packageId", "templateId")
+          ` templateId`("packageId", "moduleId", "templateId")
         override val consumingChoices: Set[Choice] = Set.empty
       }
   }

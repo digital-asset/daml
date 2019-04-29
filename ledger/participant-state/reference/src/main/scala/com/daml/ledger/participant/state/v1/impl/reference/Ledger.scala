@@ -303,9 +303,8 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       .statefulMapConcat { () =>
         var currentOffset: Long = offset.flatMap(_.components.headOption).getOrElse(0)
         state =>
-          val newEvents = state.ledger
+          val newEvents = state.ledger.zipWithIndex
             .drop(currentOffset.toInt)
-            .zipWithIndex
             .map { case (u, i) => (mkOffset(i), u) }
           currentOffset += newEvents.size
 

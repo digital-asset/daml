@@ -23,7 +23,6 @@ import com.digitalasset.ledger.api.v1.value.Value.Sum.ContractId
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.digitalasset.ledger.api.validation.CommandSubmissionRequestValidator
 import com.digitalasset.platform.common.PlatformTypes.asVersionedValueOrThrow
-import com.digitalasset.platform.participant.util.ApiToLfEngine
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.damle.SandboxDamle
 import com.digitalasset.platform.sandbox.services.TestCommands
@@ -92,7 +91,7 @@ class EventConverterSpec
   object CommandsToTest extends TestCommands {
     override protected def darFile: File = new File("ledger/sandbox/Test.dar")
 
-    val damlPackageContainer = DamlPackageContainer(scala.collection.immutable.List(darFile), true)
+    val damlPackageContainer = DamlPackageContainer(scala.collection.immutable.List(darFile))
     val onKbCmd = oneKbCommandRequest("ledgerId", "big").getCommands
     val dummies = dummyCommands("ledgerId", "dummies").getCommands
     val paramShowcaseCreate = paramShowcase
@@ -111,11 +110,8 @@ class EventConverterSpec
           .validateCommands(commands)
           .map(validatedCommands =>
             for {
-              lfCmds <- ApiToLfEngine
-                .apiCommandsToLfCommands(validatedCommands)
-                .consume(damlPackageContainer.packages.get)
               tx <- Await.result(
-                SandboxDamle.consume(engine.submit(lfCmds))(
+                SandboxDamle.consume(engine.submit(validatedCommands.commands))(
                   damlPackageContainer,
                   contractLookup(ActiveContractsInMemory.empty),
                   keyLookup(ActiveContractsInMemory.empty)),
@@ -150,11 +146,8 @@ class EventConverterSpec
         .validateCommands(commands)
         .map(validatedCommands =>
           for {
-            lfCmds <- ApiToLfEngine
-              .apiCommandsToLfCommands(validatedCommands)
-              .consume(damlPackageContainer.packages.get)
             tx <- Await.result(
-              SandboxDamle.consume(engine.submit(lfCmds))(
+              SandboxDamle.consume(engine.submit(validatedCommands.commands))(
                 damlPackageContainer,
                 contractLookup(ActiveContractsInMemory.empty),
                 keyLookup(ActiveContractsInMemory.empty)),
@@ -250,7 +243,8 @@ class EventConverterSpec
           Lf.AbsoluteContractId,
           Lf.VersionedValue[Lf.AbsoluteContractId]]] =
         Seq(nod0, node1).toMap
-      val tx: LfTx = GenTransaction(nodes, ImmArray(Transaction.NodeId.unsafeFromIndex(0)))
+      val tx: LfTx =
+        GenTransaction(nodes, ImmArray(Transaction.NodeId.unsafeFromIndex(0)), Set.empty)
       val blinding = Blinding.blind(tx)
       val absCoid: Lf.ContractId => Lf.AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid("transactionId")

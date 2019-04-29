@@ -67,6 +67,7 @@ package_app = rule(
         "binary": attr.label(
             cfg = "target",
             executable = True,
+            allow_files = True,
         ),
         "resources": attr.label_list(
             allow_files = True,

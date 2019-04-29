@@ -5,16 +5,17 @@
   "main": "./out/src/proxy.js",
   "scripts": {
     "prelocal-start": "cp ./src/config.local.json ./out/src/",
-    "local-start": "DEBUG=webide-proxy WEBIDE_PROXY_CONFIG=./config.local.json node ./out/src/proxy.js",
+    "local-start": "DEBUG=webide:* WEBIDE_PROXY_CONFIG=./config.local.json node ./out/src/proxy.js",
     "start": "node ./out/src/proxy.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "compile": "node ./node_modules/typescript/bin/tsc -p ./",
-    "build": "node ./node_modules/typescript/bin/tsc -p ./"
+    "postcompile": "cp -R ./static ./out/"
   },
   "author": "Digital Asset",
   "license": "All Rights Reserved",
   "dependencies": {
     "cookie": "^0.3.1",
+    "cookie-parser": "^1.4.4",
     "cookie-signature": "^1.1.0",
     "debug": "^4.1.1",
     "dockerode": "^2.5.8",
@@ -26,6 +27,7 @@
   "devDependencies": {
     "typescript": "3.3.3",
     "@types/cookie": "^0.3.1",
+    "@types/cookie-parser": "^1.4.1",
     "@types/cookie-signature": "^1.0.2",
     "@types/node": "^6.0.42",
     "@types/express": "^4.16.1",

@@ -103,9 +103,6 @@ lookupChoice (tplRef, chName) world = do
     Nothing -> Left (LEChoice tplRef chName)
     Just choice -> Right choice
 
-deriving instance Eq World
-deriving instance Show World
-
 instance Pretty LookupError where
   pPrint = \case
     LEPackage pkgId -> "unknown package:" <-> prettyName pkgId

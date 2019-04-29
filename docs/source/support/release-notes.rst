@@ -9,6 +9,22 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Add documentation for :doc:`/daml-integration-kit/index`, which explains
+  what the DAML Integration Kit is, what state it is in, and how it is going
+  to evolve.
+- Remove DAML-LF Dev major version, ``--target dev`` option, and sandbox ``--allow-dev``
+  option.  A "1.dev" target will handle the intended "Dev" use cases in a future release.
+- Include list of DAML packages used during interpretation in the produced transaction.
+
+0.12.11 - 2019-04-26
+--------------------
+
+- Node.js bindings have been moved `here <https://github.com/digital-asset/daml-js>``
+- Add documentation for flexible controllers.
+
+0.12.10 — 2019-04-25
+--------------------
+
 - Make DAML-LF 1.3 the default compilation target for the DAML compiler. This means that
   contract keys and text maps are now available by default in DAML.
 
@@ -21,6 +37,8 @@ HEAD — ongoing
   implement "callable updates" (aka functions of type ``Update a`` that can be
   called from the Ledger API via a contract).
 - Publish the participant-state APIs and reference implementations.
+- Add `-s` option to Sandbox CLI to have a shortened version for `--static-time` as well
+- Change `--allow-dev` to be a hidden CLI option in Sandbox
 
 0.12.7 — 2019-04-17
 -------------------
@@ -169,7 +187,7 @@ Changes:
 - Documentation: Added a comprehensive :doc:`quickstart guide </getting-started/quickstart>` that replaces the old "My first project" example.
 
 	As part of this, removed the My first project, IOU and PvP examples.
-- Documentation: Added a :doc:`guide to building applications against a DA ledger </app-dev/app-arch/index>`.
+- Documentation: Added a :doc:`guide to building applications against a DA ledger </app-dev/app-arch>`.
 - Documentation: Updated the :doc:`support and feedback page <support>`.
 
 - Ledger API: Version 1.4.0 has support for multi-party subscriptions in the transactions and active contracts services.

@@ -170,9 +170,9 @@ instance Encode BuiltinType P.PrimType where
     BTScenario -> P.PrimTypeSCENARIO
     BTDate -> P.PrimTypeDATE
     BTContractId -> P.PrimTypeCONTRACT_ID
-    BTOptional -> checkOptional version P.PrimTypeOPTIONAL
-    BTMap -> checkTextMap version P.PrimTypeMAP
-    BTArrow -> checkArrowType version P.PrimTypeARROW
+    BTOptional -> checkFeature featureOptional version P.PrimTypeOPTIONAL
+    BTMap -> checkFeature featureTextMap version P.PrimTypeMAP
+    BTArrow -> checkFeature featureArrowType version P.PrimTypeARROW
 
 instance Encode Type P.Type where
   encode version typ = P.Type . Just $
@@ -182,7 +182,7 @@ instance Encode Type P.Type where
       (TCon con, args) ->
         P.TypeSumCon (P.Type_Con (encode' version con) (encodeV version args))
       (TBuiltin BTArrow, args)
-        | not (supportsArrowType version) -> case args of
+        | not (version `supports` featureArrowType) -> case args of
             [param, result] ->
               P.TypeSumFun (P.Type_Fun (encodeV version [param]) (encode' version result))
             _ -> error "TArrow must be used with exactly two arguments"
@@ -240,7 +240,7 @@ instance Encode BuiltinExpr P.ExprSum where
       BTText -> builtin P.BuiltinFunctionLEQ_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionLEQ_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionLEQ_DATE
-      BTParty | supportsPartyOrd version -> builtin P.BuiltinFunctionLEQ_PARTY
+      BTParty | version `supports` featurePartyOrd -> builtin P.BuiltinFunctionLEQ_PARTY
       other -> error $ "BELessEq unexpected type " <> show other
 
     BELess typ -> case typ of
@@ -249,7 +249,7 @@ instance Encode BuiltinExpr P.ExprSum where
       BTText -> builtin P.BuiltinFunctionLESS_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionLESS_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionLESS_DATE
-      BTParty | supportsPartyOrd version -> builtin P.BuiltinFunctionLESS_PARTY
+      BTParty | version `supports` featurePartyOrd -> builtin P.BuiltinFunctionLESS_PARTY
       other -> error $ "BELess unexpected type " <> show other
 
     BEGreaterEq typ -> case typ of
@@ -258,7 +258,7 @@ instance Encode BuiltinExpr P.ExprSum where
       BTText -> builtin P.BuiltinFunctionGEQ_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionGEQ_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionGEQ_DATE
-      BTParty | supportsPartyOrd version -> builtin P.BuiltinFunctionGEQ_PARTY
+      BTParty | version `supports` featurePartyOrd -> builtin P.BuiltinFunctionGEQ_PARTY
       other -> error $ "BEGreaterEq unexpected type " <> show other
 
     BEGreater typ -> case typ of
@@ -267,7 +267,7 @@ instance Encode BuiltinExpr P.ExprSum where
       BTText -> builtin P.BuiltinFunctionGREATER_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionGREATER_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionGREATER_DATE
-      BTParty | supportsPartyOrd version -> builtin P.BuiltinFunctionGREATER_PARTY
+      BTParty | version `supports` featurePartyOrd -> builtin P.BuiltinFunctionGREATER_PARTY
       other -> error $ "BEGreater unexpected type " <> show other
 
     BEToText typ -> case typ of
@@ -371,9 +371,9 @@ encodeExpr version = \case
   ELocation loc e ->
     let (P.Expr _ esum) = encodeExpr version e
     in P.Expr (Just (encode version loc)) esum
-  ENone typ -> checkOptional version $
+  ENone typ -> checkFeature featureOptional version $
     expr (P.ExprSumNone (P.Expr_None (encode' version typ)))
-  ESome typ body -> checkOptional version $
+  ESome typ body -> checkFeature featureOptional version $
     expr (P.ExprSumSome (P.Expr_Some (encode' version typ) (encode' version body)))
   where
     expr = P.Expr Nothing . Just
@@ -389,9 +389,9 @@ instance Encode Update P.Update where
     UFetch{..} -> P.UpdateSumFetch $ P.Update_Fetch (encode' version fetTemplate) (encode' version fetContractId)
     UGetTime -> P.UpdateSumGetTime P.Unit
     UEmbedExpr typ e -> P.UpdateSumEmbedExpr $ P.Update_EmbedExpr (encode' version typ) (encode' version e)
-    UFetchByKey rbk -> checkContractKeys version $
+    UFetchByKey rbk -> checkFeature featureContractKeys version $
        P.UpdateSumFetchByKey (encode version rbk)
-    ULookupByKey rbk -> checkContractKeys version $
+    ULookupByKey rbk -> checkFeature featureContractKeys version $
        P.UpdateSumLookupByKey (encode version rbk)
 
 instance Encode RetrieveByKey P.Update_RetrieveByKey where
@@ -433,9 +433,9 @@ instance Encode CaseAlternative P.CaseAlt where
           CPEnumCon con -> P.CaseAltSumPrimCon (encodeE version con)
           CPNil         -> P.CaseAltSumNil P.Unit
           CPCons{..}    -> P.CaseAltSumCons $ P.CaseAlt_Cons (encode version patHeadBinder) (encode version patTailBinder)
-          CPNone        -> checkOptional version $
+          CPNone        -> checkFeature featureOptional version $
             P.CaseAltSumNone P.Unit
-          CPSome{..}    -> checkOptional version $
+          CPSome{..}    -> checkFeature featureOptional version $
             P.CaseAltSumSome $ P.CaseAlt_Some (encode version patBodyBinder)
     in P.CaseAlt (Just pat) (encode' version altExpr)
 
@@ -472,7 +472,7 @@ instance Encode Template P.DefTemplate where
     }
 
 encodeTemplateKey :: Version -> ExprVarName -> TemplateKey -> P.DefTemplate_DefKey
-encodeTemplateKey version templateVar TemplateKey{..} = checkContractKeys version $ P.DefTemplate_DefKey
+encodeTemplateKey version templateVar TemplateKey{..} = checkFeature featureContractKeys version $ P.DefTemplate_DefKey
   { P.defTemplate_DefKeyType = encode' version tplKeyType
   , P.defTemplate_DefKeyKey = case encodeKeyExpr version templateVar tplKeyBody of
       Left err -> error err
@@ -562,19 +562,7 @@ encodeDefName version txt = case mangleIdentifier txt of
 
 -- | NOTE(MH): This functions is used for sanity checking. The actual checks
 -- are done in the conversion to DAML-LF.
-checkFeature :: (Version -> Bool) -> String -> Version -> a -> a
-checkFeature hasFeature name version x
-    | hasFeature version = x
-    | otherwise = error (error "DAML-LF " ++ renderPretty version ++ " cannot encode feature: " ++ name)
-
-checkOptional :: Version -> a -> a
-checkOptional = checkFeature supportsOptional "Optional"
-
-checkArrowType :: Version -> a -> a
-checkArrowType = checkFeature supportsArrowType "Partial application of (->)"
-
-checkContractKeys :: Version -> a -> a
-checkContractKeys = checkFeature supportsContractKeys "Contract keys"
-
-checkTextMap :: Version -> a -> a
-checkTextMap = checkFeature supportsTextMap "TextMap"
+checkFeature :: Feature -> Version -> a -> a
+checkFeature feature version x
+    | version `supports` feature = x
+    | otherwise = error $ "DAML-LF " ++ renderPretty version ++ " cannot encode feature: " ++ T.unpack (featureName feature)

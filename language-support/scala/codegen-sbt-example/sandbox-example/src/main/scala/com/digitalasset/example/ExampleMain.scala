@@ -51,7 +51,7 @@ object ExampleMain extends App {
     port = port,
     damlPackageContainer = DamlPackageContainer(List(dar)),
     timeProviderType = TimeProviderType.WallClock,
-    ledgerIdMode = LedgerIdMode.HardCoded(ledgerId),
+    ledgerIdMode = LedgerIdMode.Predefined(ledgerId),
   )
 
   private val server: SandboxServer = SandboxApplication(serverConfig)

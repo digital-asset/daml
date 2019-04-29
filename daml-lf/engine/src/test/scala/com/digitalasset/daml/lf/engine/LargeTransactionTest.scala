@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.transaction.{Node => N, Transaction => Tx}
 import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.UniversalArchiveReader
+import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.lfpackage.Ast.Package
 import com.digitalasset.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalameter
@@ -160,7 +161,7 @@ class LargeTransactionTest extends WordSpec with Matchers {
       cmd: Command,
       cmdReference: String): Tx.Transaction = {
     engine
-      .submit(Commands(Seq(cmd), Time.Timestamp.now(), cmdReference))
+      .submit(Commands(ImmArray(cmd), Time.Timestamp.now(), cmdReference))
       .consume(pcs.get, lookupPackage, { _ =>
         sys.error("TODO keys for LargeTransactionTest")
       }) match {

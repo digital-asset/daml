@@ -7,7 +7,6 @@ da_haskell_library(
     name = "daml-lf-ast",
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
-        "aeson",
         "base",
         "containers",
         "deepseq",

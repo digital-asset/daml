@@ -18,6 +18,7 @@ import Value._
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.UniversalArchiveReader
+import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.std.either._
@@ -142,7 +143,7 @@ class EngineTest extends WordSpec with Matchers {
           assertAsVersionedValue(ValueRecord(Some(id), ImmArray((Some("p"), ValueParty(party))))))
 
       val res = commandTranslator
-        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContract, lookupPackage, lookupKey)
       res shouldBe 'right
 
@@ -157,7 +158,7 @@ class EngineTest extends WordSpec with Matchers {
           assertAsVersionedValue(ValueRecord(Some(id), ImmArray((None, ValueParty(party))))))
 
       val res = commandTranslator
-        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContract, lookupPackage, lookupKey)
       res shouldBe 'right
     }
@@ -172,7 +173,7 @@ class EngineTest extends WordSpec with Matchers {
             ValueRecord(Some(id), ImmArray((Some("this_is_not_the_one"), ValueParty(party))))))
 
       val res = commandTranslator
-        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContract, lookupPackage, lookupKey)
       res shouldBe 'left
     }
@@ -191,7 +192,7 @@ class EngineTest extends WordSpec with Matchers {
       )
 
       val res = commandTranslator
-        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContractForPayout, lookupPackage, lookupKey)
       res shouldBe 'right
     }
@@ -209,7 +210,7 @@ class EngineTest extends WordSpec with Matchers {
       )
 
       val res = commandTranslator
-        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContractForPayout, lookupPackage, lookupKey)
       res shouldBe 'right
     }
@@ -231,7 +232,7 @@ class EngineTest extends WordSpec with Matchers {
         )
 
       val res = commandTranslator
-        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContractForPayout, lookupPackage, lookupKey)
       res shouldBe 'right
 
@@ -253,7 +254,7 @@ class EngineTest extends WordSpec with Matchers {
         )
 
       val res = commandTranslator
-        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContract, lookupPackage, lookupKey)
       res shouldBe 'right
     }
@@ -273,7 +274,7 @@ class EngineTest extends WordSpec with Matchers {
         )
 
       val res = commandTranslator
-        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContract, lookupPackage, lookupKey)
       res shouldBe 'left
     }
@@ -295,7 +296,7 @@ class EngineTest extends WordSpec with Matchers {
         )
 
       val res = commandTranslator
-        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContract, lookupPackage, lookupKey)
       res shouldBe 'left
     }
@@ -350,11 +351,11 @@ class EngineTest extends WordSpec with Matchers {
         assertAsVersionedValue(ValueRecord(Some(id), ImmArray((Some("p"), ValueParty(party))))))
 
     val res = commandTranslator
-      .preprocessCommands(Commands(Seq(command), let, "test"))
+      .preprocessCommands(Commands(ImmArray(command), let, "test"))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe 'right
     val interpretResult = engine
-      .submit(Commands(Seq(command), let, "test"))
+      .submit(Commands(ImmArray(command), let, "test"))
       .consume(lookupContract, lookupPackage, lookupKey)
 
     "be translated" in {
@@ -363,7 +364,7 @@ class EngineTest extends WordSpec with Matchers {
 
     "reinterpret to the same result" in {
       val Right(tx) = interpretResult
-      val txRoots = tx.roots.map(id => tx.nodes.get(id).get).toSeq
+      val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
       val reinterpretResult =
         engine.reinterpret(txRoots, let).consume(lookupContract, lookupPackage, lookupKey)
       (interpretResult |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
@@ -380,6 +381,12 @@ class EngineTest extends WordSpec with Matchers {
         case Right(()) => ()
       }
     }
+
+    "cause used package to show up in transaction" in {
+      // NOTE(JM): Other packages are pulled in by BasicTests.daml, e.g. daml-prim, but we
+      // don't know the package ids here.
+      interpretResult.map(_.usedPackages.contains(basicTestsPkgId)) shouldBe Right(true)
+    }
   }
 
   "exercise command" should {
@@ -395,15 +402,23 @@ class EngineTest extends WordSpec with Matchers {
         assertAsVersionedValue(ValueRecord(Some(hello), ImmArray.empty)))
 
     val res = commandTranslator
-      .preprocessCommands(Commands(Seq(command), let, "test"))
+      .preprocessCommands(Commands(ImmArray(command), let, "test"))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe 'right
     val interpretResult =
       res.flatMap(r => engine.interpret(r, let).consume(lookupContract, lookupPackage, lookupKey))
     val Right(tx) = interpretResult
 
+    "be translated" in {
+      val submitResult = engine
+        .submit(Commands(ImmArray(command), let, "test"))
+        .consume(lookupContract, lookupPackage, lookupKey)
+      interpretResult shouldBe 'right
+      submitResult shouldBe interpretResult
+    }
+
     "reinterpret to the same result" in {
-      val txRoots = tx.roots.map(id => tx.nodes.get(id).get).toSeq
+      val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
       val reinterpretResult =
         engine.reinterpret(txRoots, let).consume(lookupContract, lookupPackage, lookupKey)
       (interpretResult |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
@@ -507,7 +522,7 @@ class EngineTest extends WordSpec with Matchers {
       )
 
     val res = commandTranslator
-      .preprocessCommands(Commands(Seq(command), let, "test"))
+      .preprocessCommands(Commands(ImmArray(command), let, "test"))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe 'right
     val interpretResult =
@@ -694,7 +709,7 @@ class EngineTest extends WordSpec with Matchers {
     )
 
     val res = commandTranslator
-      .preprocessCommands(Commands(Seq(command), let, "test"))
+      .preprocessCommands(Commands(ImmArray(command), let, "test"))
       .consume(lookupContractForPayout, lookupPackage, lookupKey)
     res shouldBe 'right
     val interpretResult =
@@ -702,7 +717,7 @@ class EngineTest extends WordSpec with Matchers {
         engine.interpret(r, let).consume(lookupContractForPayout, lookupPackage, lookupKey))
     "be translated" in {
       val submitResult = engine
-        .submit(Commands(Seq(command), let, "test"))
+        .submit(Commands(ImmArray(command), let, "test"))
         .consume(lookupContractForPayout, lookupPackage, lookupKey)
       interpretResult shouldBe 'right
       submitResult shouldBe interpretResult
@@ -713,7 +728,7 @@ class EngineTest extends WordSpec with Matchers {
       Blinding.checkAuthorizationAndBlind(tx, Set(bob))
 
     "reinterpret to the same result" in {
-      val txRoots = tx.roots.map(id => tx.nodes.get(id).get).toSeq
+      val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
       val reinterpretResult =
         engine.reinterpret(txRoots, let).consume(lookupContractForPayout, lookupPackage, lookupKey)
       (interpretResult |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
@@ -837,11 +852,13 @@ class EngineTest extends WordSpec with Matchers {
       val node2 = node1.copy(coid = AbsoluteContractId("0:1"))
 
       val tx = GenTx[NodeId, AbsoluteContractId, VersionedValue[AbsoluteContractId]](
-        Map(
+        nodes = Map(
           Tx.NodeId.unsafeFromIndex(0) -> node1,
           Tx.NodeId.unsafeFromIndex(1) -> node2
         ),
-        ImmArray(Tx.NodeId.unsafeFromIndex(0), Tx.NodeId.unsafeFromIndex(1)))
+        roots = ImmArray(Tx.NodeId.unsafeFromIndex(0), Tx.NodeId.unsafeFromIndex(1)),
+        usedPackages = Set.empty,
+      )
 
       val validationResult = engine
         .validatePartial(
@@ -970,7 +987,7 @@ class EngineTest extends WordSpec with Matchers {
       )
 
       val res = commandTranslator
-        .preprocessCommands(Commands(Seq(command), let, "test"))
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res.flatMap(r => engine.interpret(r, let).consume(lookupContract, lookupPackage, lookupKey))

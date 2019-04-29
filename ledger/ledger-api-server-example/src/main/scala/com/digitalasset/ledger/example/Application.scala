@@ -139,7 +139,7 @@ object Application {
 
     new Server(
       "LedgerApiServer",
-      config.addressOption,
+      config.address,
       config.port,
       config,
       serverSslContext(config.tlsConfig, ClientAuth.REQUIRE),

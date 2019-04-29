@@ -3,7 +3,6 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.io.InputStream
-import java.security.MessageDigest
 import java.sql.Connection
 import java.util.Date
 
@@ -30,6 +29,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   TransactionSerializer,
+  KeyHasher,
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
@@ -45,7 +45,8 @@ private class PostgresLedgerDao(
     dbDispatcher: DbDispatcher,
     contractSerializer: ContractSerializer,
     transactionSerializer: TransactionSerializer,
-    valueSerializer: ValueSerializer)
+    valueSerializer: ValueSerializer,
+    keyHasher: KeyHasher)
     extends LedgerDao {
 
   private val logger = LoggerFactory.getLogger(getClass)
@@ -111,25 +112,13 @@ private class PostgresLedgerDao(
     SQL(
       "delete from contract_keys where package_id={package_id} and name={name} and value_hash={value_hash}")
 
-  /**
-    * TODO: This hash is currently not stable. The default value serializer uses protobuf serialization, which may change.
-    * See https://github.com/digital-asset/daml/issues/497
-    */
-  private[this] def keyHash(key: GlobalKey): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    valueSerializer
-      .serialiseValue(key.key)
-      .map(ba => digest.digest(ba).map("%02x" format _).mkString)
-      .fold[String](e => sys.error(e.toString), identity)
-  }
-
   private[this] def storeContractKey(key: GlobalKey, cid: AbsoluteContractId)(
       implicit connection: Connection): Boolean =
     SQL_INSERT_CONTRACT_KEY
       .on(
         "package_id" -> key.templateId.packageId.underlyingString,
         "name" -> key.templateId.qualifiedName.toString,
-        "value_hash" -> keyHash(key),
+        "value_hash" -> keyHasher.hashKeyString(key),
         "contract_id" -> cid.coid
       )
       .execute()
@@ -139,7 +128,7 @@ private class PostgresLedgerDao(
       .on(
         "package_id" -> key.templateId.packageId.underlyingString,
         "name" -> key.templateId.qualifiedName.toString,
-        "value_hash" -> keyHash(key)
+        "value_hash" -> keyHasher.hashKeyString(key)
       )
       .execute()
 
@@ -149,7 +138,7 @@ private class PostgresLedgerDao(
       .on(
         "package_id" -> key.templateId.packageId.underlyingString,
         "name" -> key.templateId.qualifiedName.toString,
-        "value_hash" -> keyHash(key)
+        "value_hash" -> keyHasher.hashKeyString(key)
       )
       .as(SqlParser.str("contract_id").singleOpt)
       .map(s => AbsoluteContractId(s))
@@ -734,6 +723,12 @@ object PostgresLedgerDao {
       dbDispatcher: DbDispatcher,
       contractSerializer: ContractSerializer,
       transactionSerializer: TransactionSerializer,
-      valueSerializer: ValueSerializer): LedgerDao =
-    new PostgresLedgerDao(dbDispatcher, contractSerializer, transactionSerializer, valueSerializer)
+      valueSerializer: ValueSerializer,
+      keyHasher: KeyHasher): LedgerDao =
+    new PostgresLedgerDao(
+      dbDispatcher,
+      contractSerializer,
+      transactionSerializer,
+      valueSerializer,
+      keyHasher)
 }

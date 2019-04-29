@@ -6,7 +6,6 @@ module DamlHelper
     , runNew
     , runJar
     , runListTemplates
-    , runSandbox
     , runStart
 
     , withJar
@@ -18,6 +17,7 @@ module DamlHelper
 
     , NavigatorPort(..)
     , SandboxPort(..)
+    , ReplaceExtension(..)
     ) where
 
 import Control.Concurrent
@@ -38,6 +38,7 @@ import Network.Socket
 import System.FilePath
 import System.Directory.Extra
 import System.Exit
+import System.Info.Extra
 import System.Process hiding (runCommand)
 import System.IO
 import System.IO.Error
@@ -45,7 +46,7 @@ import System.IO.Extra
 
 import DAML.Project.Config
 import DAML.Project.Consts
-import DAML.Project.Types (ProjectPath(..))
+import DAML.Project.Types (ProjectPath(..), parseVersion)
 import DAML.Project.Util
 
 data DamlHelperError = DamlHelperError
@@ -66,17 +67,44 @@ required msg = fromMaybeM (throwIO $ DamlHelperError msg Nothing)
 requiredE :: Exception e => T.Text -> Either e t -> IO t
 requiredE msg = fromRightM (throwIO . DamlHelperError msg . Just . T.pack . displayException)
 
-runDamlStudio :: Bool -> [String] -> IO ()
-runDamlStudio overwriteExtension remainingArguments = do
+data ReplaceExtension
+    = ReplaceExtNever
+    -- ^ Never replace an existing extension.
+    | ReplaceExtNewer
+    -- ^ Replace the extension if the current extension is newer.
+    | ReplaceExtAlways
+    -- ^ Always replace the extension.
+
+runDamlStudio :: ReplaceExtension -> [String] -> IO ()
+runDamlStudio replaceExt remainingArguments = do
     sdkPath <- getSdkPath
     vscodeExtensionsDir <- fmap (</> ".vscode/extensions") getHomeDirectory
     let vscodeExtensionName = "da-vscode-daml-extension"
     let vscodeExtensionSrcDir = sdkPath </> "studio"
     let vscodeExtensionTargetDir = vscodeExtensionsDir </> vscodeExtensionName
-    when overwriteExtension $ removePathForcibly vscodeExtensionTargetDir
+    whenM (shouldReplaceExtension replaceExt vscodeExtensionTargetDir) $
+        removePathForcibly vscodeExtensionTargetDir
     installExtension vscodeExtensionSrcDir vscodeExtensionTargetDir
-    exitCode <- withCreateProcess (proc "code" ("-w" : remainingArguments)) $ \_ _ _ -> waitForProcess
+    -- Note that it is important that we use `shell` rather than `proc` here as
+    -- `proc` will look for `code.exe` in PATH which does not exist.
+    exitCode <- withCreateProcess (shell $ unwords $ "code" : remainingArguments) $ \_ _ _ -> waitForProcess
     exitWith exitCode
+
+shouldReplaceExtension :: ReplaceExtension -> FilePath -> IO Bool
+shouldReplaceExtension replaceExt dir =
+    case replaceExt of
+        ReplaceExtNever -> pure False
+        ReplaceExtAlways -> pure True
+        ReplaceExtNewer -> do
+            let installedVersionFile = dir </> "VERSION"
+            ifM (doesFileExist installedVersionFile)
+              (do installedVersion <-
+                      requiredE "Failed to parse version of VSCode extension" . parseVersion . T.strip . T.pack =<<
+                      readFileUTF8 installedVersionFile
+                  sdkVersion <- requiredE "Failed to parse SDK version" . parseVersion . T.pack =<< getSdkVersion
+                  pure (sdkVersion > installedVersion))
+              (pure True)
+              -- ^ If the VERSION file does not exist, we must have installed an older version.
 
 runJar :: FilePath -> [String] -> IO ()
 runJar jarPath remainingArguments = do
@@ -155,21 +183,20 @@ withNavigator (SandboxPort sandboxPort) (NavigatorPort navigatorPort) config arg
         waitForHttpServer (putStr "." *> threadDelay 500000) ("http://localhost:" <> show navigatorPort)
         a ph
 
-runSandbox :: SandboxPort -> [String] -> IO ()
-runSandbox port args = do
-    exitCode <- withSandbox port args waitForProcess
-    exitWith exitCode
-
 runStart :: IO ()
 runStart = withProjectRoot $ \_ -> do
     projectConfig <- getProjectConfig
     projectName :: String <-
         requiredE "Project must have a name" $
         queryProjectConfigRequired ["name"] projectConfig
+    mbScenario :: Maybe String <-
+        requiredE "Failed to parse scenario" $
+        queryProjectConfig ["scenario"] projectConfig
     let darName = projectName <> ".dar"
     assistant <- getDamlAssistant
-    callProcess assistant ["build", "-o", darName]
-    withSandbox sandboxPort [darName] $ \sandboxPh -> do
+    callCommand (unwords $ assistant : ["build", "-o", darName])
+    let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
+    withSandbox sandboxPort (darName : scenarioArgs) $ \sandboxPh -> do
         parties <- getProjectParties
         withTempDir $ \confDir -> do
             -- Navigator determines the file format based on the extension so we need a .json file.
@@ -211,11 +238,16 @@ installExtension :: FilePath -> FilePath -> IO ()
 installExtension src target =
     catchJust
         (guard . isAlreadyExistsError)
-        (createDirectoryLink src target)
-        (-- We might want to emit a warning if the extension is for a different SDK version
-         -- but medium term it probably makes more sense to add the extension to the marketplace
-         -- and make it backwards compatible
-         const $ pure ())
+        install
+        (const $ pure ())
+        -- If we get an exception, we just keep the existing extension.
+     where
+         install
+             | isWindows = do
+                   -- We create the directory to throw an isAlreadyExistsError.
+                   createDirectory target
+                   copyDirectory src target
+             | otherwise = createDirectoryLink src target
 
 -- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.
 -- Between each connection request it calls `sleep`.

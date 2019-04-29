@@ -52,6 +52,7 @@ testDependencies = [
     "//daml-lf/transaction",
     "//daml-lf/engine",
     "//daml-lf/lfpackage",
+    "//daml-lf/parser",
     "//language-support/scala/bindings",
     "//ledger-api/testing-utils",
     "//ledger-api/rs-grpc-bridge",

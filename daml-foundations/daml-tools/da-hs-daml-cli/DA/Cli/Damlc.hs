@@ -98,12 +98,11 @@ cmdTest numProcessors =
   where
     cmd = execTest
       <$> many inputFileOpt
+      <*> fmap ColorTestResults colorOutput
       <*> junitOutput
       <*> optionsParser numProcessors optPackageName
-    junitOutput = optional $ strOption $
-        long "junit" <>
-        metavar "FILENAME" <>
-        help "Filename of JUnit output file"
+    junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
+    colorOutput = switch $ long "color" <> help "Colored test results"
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
@@ -378,7 +377,9 @@ createProjectPackageDb lfVersion fps = do
         unwords
             [ sdkRoot </> "damlc/resources/ghc-pkg"
             , "recache"
-            , "--package-db=" ++ dbPath
+            -- ghc-pkg insists on using a global package db and will trie
+            -- to find one automatically if we don’t specify it here.
+            , "--global-package-db=" ++ dbPath
             , "--expand-pkgroot"
             ]
 
@@ -388,10 +389,7 @@ execBuild numProcessors mbOutFile = do
   execPackageNew numProcessors mbOutFile
 
 lfVersionString :: LF.Version -> String
-lfVersionString lfVersion =
-    case lfVersion of
-        LF.VDev _ -> "dev"
-        _ -> DA.Pretty.renderPretty lfVersion
+lfVersionString = DA.Pretty.renderPretty
 
 execPackage:: FilePath -- ^ input file
             -> Compiler.Options

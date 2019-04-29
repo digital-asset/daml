@@ -14,7 +14,7 @@ import scalaz.std.string._
 import scalaz.std.tuple._
 import scalaz.syntax.equal._
 
-/** Values  */
+/** Values   */
 sealed abstract class Value[+Cid] extends Product with Serializable {
   import Value._
   // TODO (FM) make this tail recursive

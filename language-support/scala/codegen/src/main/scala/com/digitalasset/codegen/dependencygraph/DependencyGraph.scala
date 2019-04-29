@@ -10,7 +10,6 @@ import com.digitalasset.codegen.{Util, lf}
 import lf.{DefTemplateWithRecord, EnvironmentInterface}
 
 import scalaz.std.list._
-import scalaz.std.tuple._
 import scalaz.syntax.bifoldable._
 import scalaz.syntax.foldable._
 import scalaz.Bifoldable
@@ -39,7 +38,7 @@ private final case class LFDependencyGraph(private val util: lf.LFUtil)
     }
     val templateNodes = decls.collect {
       case (qualName, InterfaceType.Template(typ, tpl)) =>
-        val recDeps = typ.foldMap((fwt: FieldWithType) => Util.genTypeTopLevelDeclNames(fwt._2))
+        val recDeps = typ.foldMap(Util.genTypeTopLevelDeclNames)
         val choiceDeps = tpl.foldMap(Util.genTypeTopLevelDeclNames)
         (
           qualName,
@@ -51,12 +50,9 @@ private final case class LFDependencyGraph(private val util: lf.LFUtil)
     Graph.cyclicDependencies(internalNodes = typeDeclNodes, roots = templateNodes)
   }
 
-  private[this] def genTypeDependencies[B[_, _]: Bifoldable, I](gts: B[I, Type]): List[Identifier] =
-    Bifoldable[B].rightFoldable.foldMap(gts)(Util.genTypeTopLevelDeclNames)
-
-  private[this] def symmGenTypeDependencies[B[_, _]: Bifoldable, I, J](
-      gts: B[(I, Type), (J, Type)]): List[Identifier] =
-    gts.bifoldMap(genTypeDependencies(_))(genTypeDependencies(_))
+  private[this] def symmGenTypeDependencies[B[_, _]: Bifoldable](
+      gts: B[Type, Type]): List[Identifier] =
+    gts.bifoldMap(Util.genTypeTopLevelDeclNames)(Util.genTypeTopLevelDeclNames)
 }
 
 object DependencyGraph {

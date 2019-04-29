@@ -32,7 +32,7 @@ object DamlLfV1ArchiveReader {
     import DamlLf.ArchivePayload.{SumCase => SC}
     lf.getSumCase match {
       case SC.DAML_LF_1 => \/-(lf.getDamlLf1)
-      case SC.DAML_LF_0 | SC.DAML_LF_DEV | SC.SUM_NOT_SET => -\/("LF other than v1 not supported")
+      case SC.DAML_LF_0 | SC.SUM_NOT_SET => -\/("LF other than v1 not supported")
     }
   }
 }

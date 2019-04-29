@@ -57,7 +57,7 @@ object LedgerApiServer {
         services(config, ledgerBackend, engine, timeProvider, optTimeServiceBackend)(mat, esf)
       },
       optResetService,
-      config.addressOption,
+      config.address,
       serverPort,
       serverSslContext(config.tlsConfig, ClientAuth.REQUIRE)
     ).start()

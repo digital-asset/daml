@@ -12,9 +12,9 @@ import scalaz._
 
 object Types {
   final case class TypeDecls(
-      templates: Map[Identifier, iface.Record[iface.FieldWithType]] = Map.empty,
-      records: Map[Identifier, iface.Record[iface.FieldWithType]] = Map.empty,
-      variants: Map[Identifier, iface.Variant[iface.FieldWithType]] = Map.empty
+      templates: Map[Identifier, iface.Record.FWT] = Map.empty,
+      records: Map[Identifier, iface.Record.FWT] = Map.empty,
+      variants: Map[Identifier, iface.Variant.FWT] = Map.empty
   )
 
   /**

@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 daml 1.2
@@ -51,13 +52,33 @@ archive c = exercise c Archive
 stakeholder : Template c => c -> [Party]
 stakeholder c = signatory c ++ observer c
 
--- | HIDE pass the @c@ using type applications, otherwise it's ambiguous
+-- | Look up the contract id associated with a given contract key.
+--
+-- The `c` needs to be passed using an explicit type application. For
+-- instance, if you want to look up a contract of template `Account` by its
+-- key `k`, you must call `lookupByKey @Account k`.
 lookupByKey : forall c k. TemplateKey c k => k -> Update (Optional (ContractId c))
 lookupByKey = internalLookupByKey
 
--- | HIDE pass the @c@ using type applications, otherwise it's ambiguous
+-- | Fetch the contract id and contract data associated with a given
+-- contract key.
+--
+-- The `c` needs to be passed using an explicit type application. For
+-- instance, if you want to fetch a contract of template `Account` by its
+-- key `k`, you must call `fetchByKey @Account k`.
 fetchByKey : forall c k. TemplateKey c k => k -> Update (ContractId c, c)
 fetchByKey k = fmap unpackPair (internalFetchByKey k)
+
+-- | Exercise a choice on a contract given by its key.
+--
+-- The `c` needs to be passed using an explicit type application. For
+-- instance, if you want to exercise a choice `Withdraw` on a contract of
+-- template `Account` given by its key `k`, you must call
+-- `exerciseByKey @Account k Withdraw`.
+exerciseByKey : forall c k e r. (TemplateKey c k, Choice c e r) => k -> e -> Update r
+exerciseByKey k e = do
+    (c, cc) <- fetchByKey @c k
+    exerciseExplicit (choiceController cc e) c e
 
 class Template c where
 
@@ -140,10 +161,11 @@ instance IsParties Party where
 instance IsParties [Party] where
   toParties ps = ps
 
--- | HIDE
 class Template c => TemplateKey c k | c -> k where
+    -- | The key of a contract.
     key : c -> k
 
+    -- | The maintainers of the contract key.
     maintainer : c -> [Party]
 
     -- | HIDE

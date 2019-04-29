@@ -6,22 +6,23 @@ package com.digitalasset.ledger.api
 import java.time.Instant
 
 import brave.propagation.TraceContext
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.{Ref, SortedLookupList}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
-import com.digitalasset.ledger.api.domain.Value.RecordValue
 import scalaz.{@@, Tag}
+import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.daml.lf.command.{Commands => LfCommands}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
 
 import scala.collection.{breakOut, immutable}
 
 object domain {
 
-  final case class TransactionFilter(filtersByParty: immutable.Map[Party, Filters])
+  final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters])
 
   object TransactionFilter {
 
     /** These parties subscribe for all templates */
-    def allForParties(parties: Set[Party]) =
+    def allForParties(parties: Set[Ref.Party]) =
       TransactionFilter(parties.map(_ -> Filters.noFilter)(breakOut))
   }
 
@@ -58,7 +59,7 @@ object domain {
 
     def templateId: Ref.Identifier
 
-    def witnessParties: immutable.Set[Party]
+    def witnessParties: immutable.Set[Ref.Party]
   }
 
   object Event {
@@ -71,8 +72,8 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        createArguments: RecordValue,
-        witnessParties: immutable.Set[Party])
+        createArguments: ValueRecord[AbsoluteContractId],
+        witnessParties: immutable.Set[Ref.Party])
         extends Event
         with CreateOrExerciseEvent
         with CreateOrArchiveEvent
@@ -81,7 +82,7 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        witnessParties: immutable.Set[Party])
+        witnessParties: immutable.Set[Ref.Party])
         extends Event
         with CreateOrExerciseEvent
 
@@ -92,10 +93,10 @@ object domain {
         contractCreatingEventId: EventId,
         choice: Choice,
         choiceArgument: Value,
-        actingParties: immutable.Set[Party],
+        actingParties: immutable.Set[Ref.Party],
         consuming: Boolean,
         children: Event,
-        witnessParties: immutable.Set[Party])
+        witnessParties: immutable.Set[Ref.Party])
         extends Event
         with CreateOrArchiveEvent
 
@@ -138,61 +139,7 @@ object domain {
       traceContext: Option[TraceContext])
       extends TransactionBase
 
-  sealed abstract class Value extends Product with Serializable
-
-  object Value {
-
-    final case class ListValue(elements: immutable.Seq[Value]) extends Value
-
-    final case class VariantValue(
-        variantId: Option[Ref.Identifier],
-        variantConstructor: VariantConstructor,
-        value: Value)
-        extends Value
-
-    final case class RecordValue(
-        recordId: Option[Ref.Identifier],
-        fields: immutable.Seq[RecordField])
-        extends Value
-
-    final case class ContractIdValue(contractId: ContractId) extends Value
-
-    final case class Int64Value(int64: Long) extends Value
-
-    final case class DecimalValue(value: String) extends Value
-
-    final case class TextValue(text: String) extends Value
-
-    final case class PartyValue(party: Party) extends Value
-
-    final case class BoolValue(bool: Boolean) extends Value
-
-    final case class TimeStampValue(microsSinceEpoch: Long) extends Value
-
-    final case class DateValue(daysSinceEpoch: Int) extends Value
-
-    final case class OptionalValue(opt: Option[Value]) extends Value { //TODO DEL-7054 test coverage
-      def isEmpty = opt.isEmpty
-    }
-    object OptionalValue {
-      val Empty = new OptionalValue(None)
-
-      def apply(opt: Option[Value]): OptionalValue =
-        opt.fold {
-          Empty
-        } { v =>
-          if (v != null)
-            new OptionalValue(opt)
-          else
-            Empty
-        }
-    }
-
-    final case class MapValue(map: SortedLookupList[Value]) extends Value
-
-    case object UnitValue extends Value
-
-  }
+  type Value = Lf[Lf.AbsoluteContractId]
 
   final case class CommandStatus(
       code: Int,
@@ -287,26 +234,9 @@ object domain {
       workflowId: Option[WorkflowId],
       applicationId: ApplicationId,
       commandId: CommandId,
-      submitter: Party,
+      submitter: Ref.Party,
       ledgerEffectiveTime: Instant,
       maximumRecordTime: Instant,
-      commands: immutable.Seq[Command])
-
-  sealed trait Command extends Product with Serializable
-
-  final case class CreateCommand(templateId: Ref.Identifier, record: RecordValue) extends Command
-  final case class ExerciseCommand(
-      templateId: Ref.Identifier,
-      contractId: ContractId,
-      choice: Choice,
-      choiceArgument: Value)
-      extends Command
-
-  final case class CreateAndExerciseCommand(
-      templateId: Ref.Identifier,
-      createArgument: RecordValue,
-      choice: Choice,
-      choiceArgument: Value)
-      extends Command
+      commands: LfCommands)
 
 }

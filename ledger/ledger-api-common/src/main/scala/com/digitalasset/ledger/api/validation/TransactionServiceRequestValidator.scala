@@ -17,7 +17,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionsRequest
 }
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
-import com.digitalasset.platform.server.api.validation.FieldValidations.{requireNonEmpty, _}
+import com.digitalasset.platform.server.api.validation.FieldValidations._
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.util.context.TraceContextConversions._
 import io.grpc.StatusRuntimeException

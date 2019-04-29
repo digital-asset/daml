@@ -90,7 +90,7 @@ genrule(
         cp -rL $(location //daml-foundations/daml-ghc:daml-base-rst-docs) source/daml/stdlib/base.rst
 
         # Copy in Protobufs
-        cp -rL $(location //ledger-api/grpc-definitions:docs) source/app-dev/ledger-api-introduction/proto-docs.rst
+        cp -rL $(location //ledger-api/grpc-definitions:docs) source/app-dev/grpc/proto-docs.rst
 
         # Copy in License and Notices
         cp -L $(location //:LICENSE) source/LICENSE
@@ -158,7 +158,6 @@ genrule(
         "//daml-foundations/daml-ghc:daml-base-rst-docs",
         "//daml-foundations/daml-ghc:daml-base-hoogle-docs",
         "//language-support/java:javadocs",
-        "//language-support/js/docs",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -189,10 +188,6 @@ genrule(
 
         # Copy Javadoc
         tar -zxf ../$(locations //language-support/java:javadocs) -C html/app-dev/bindings-java
-
-        # Copy in JS docs
-        tar -zxf ../$(location //language-support/js/docs) -C html/app-dev/bindings-js
-        mv html/app-dev/bindings-js/docs html/app-dev/bindings-js/reference
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db
