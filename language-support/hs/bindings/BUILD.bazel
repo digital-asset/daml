@@ -1,7 +1,7 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_binary")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
 
 da_haskell_library(
     name = "hs-ledger",
@@ -22,9 +22,9 @@ da_haskell_binary(
     name = "examples-view",
     srcs = ["examples/View.hs"],
     compiler_flags = [],
-    hazel_deps = ["base",],
+    hazel_deps = ["base"],
     visibility = ["//visibility:public"],
     deps = [
-        "//language-support/hs/bindings:hs-ledger"
+        "//language-support/hs/bindings:hs-ledger",
     ],
 )
