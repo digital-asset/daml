@@ -4,15 +4,15 @@
 DAML Studio
 ###########
 
-DAML Studio is an integrated development environment (IDE) for DAML. It is
-built on top of `Visual Studio Code <https://code.visualstudio.com>`_ (VS Code),
-a cross-platform, open-source editor providing a
-`rich code editing experience <https://code.visualstudio.com/docs/editor/editingevolved>`_.
-DAML-specific features are provided via the DAML Studio extension for Visual
-Studio Code.
+DAML Studio is an integrated development environment (IDE) for DAML. It is an extension on top of `Visual Studio Code <https://code.visualstudio.com>`__ (VS Code), a cross-platform, open-source editor providing a `rich code editing experience <https://code.visualstudio.com/docs/editor/editingevolved>`__.
 
-Creating your first DAML file using DAML Studio
-***********************************************
+Installing
+**********
+
+To install DAML Studio, :doc:`install the SDK </getting-started/installation>`. DAML Studio isn't currently available in the Visual Studio Marketplace.
+
+Creating your first DAML file
+*****************************
 
 1. Start Visual Studio Code. To start it in the current project, use the ``da studio`` command.
    Alternatively you can simply start VS Code as you would normally start any application.
@@ -49,11 +49,8 @@ Supported features
 ******************
 
 Visual Studio Code provides many helpful features for editing DAML files and Digital Asset recommends reviewing
-`Visual Studio Code Basics`_ and `Visual Studio Code Keyboard Shortcuts for OS X`_.
-The DAML Studio extension for Visual Studio Code provides the following DAML-specific features.
-
-.. _Visual Studio Code Basics: https://code.visualstudio.com/docs/editor/codebasics
-.. _Visual Studio Code Keyboard Shortcuts for OS X: https://code.visualstudio.com/shortcuts/keyboard-shortcuts-macos.pdf
+`Visual Studio Code Basics <https://code.visualstudio.com/docs/editor/codebasics>`__ and `Visual Studio Code Keyboard Shortcuts for OS X <https://code.visualstudio.com/shortcuts/keyboard-shortcuts-macos.pdf>`_.
+The DAML Studio extension for Visual Studio Code provides the following DAML-specific features:
 
 Symbols and problem reporting
 =============================
