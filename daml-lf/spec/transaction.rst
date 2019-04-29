@@ -4,7 +4,7 @@
 DAML-LF Transaction Specification
 =================================
 
-**version 5, 12 March 2019**
+**version 6, 29 April 2019**
 
 This specification, in concert with the ``transaction.proto``
 machine-readable definition, defines a format for _transactions_, to be
@@ -155,6 +155,8 @@ This table lists every version of this specification in ascending order
 +--------------------+-----------------+
 |                  5 |      2019-03-12 |
 +--------------------+-----------------+
+|                  6 |      2019-04-29 |
++--------------------+-----------------+
 
 message Transaction
 ^^^^^^^^^^^^^^^^^^^
@@ -300,6 +302,15 @@ As of version 1, these fields are included:
 Every element of ``stakeholders`` is a party identifier.
 ``signatories`` must be a non-empty subset of ``stakeholders``.
 
+.. note:: *This section is non-normative.*
+
+  The stakeholders of a contract are the signatories and the observers of
+  said contract.
+
+  The signatories of a contract are specified in the DAML-LF definition of
+  the template for said contract. Conceptually, they are the parties that
+  agreed for that contract to be created.
+
 *since version 3*
 
 A new field is included:
@@ -313,6 +324,9 @@ A new field is included:
   a key definition;
 * Its ``key`` must conform to the key definition for the ``template_id``
   in the ``contract_instance``.
+
+The maintainers of a contract key are specified in the DAML-LF definition of
+the template for the contract.
 
 *since version 4*
 
@@ -386,6 +400,12 @@ As of version 5, this new field is required to be non-empty:
 
 Every element of ``actors`` is a party identifier.
 
+.. note:: *This section is non-normative.*
+
+  Actors are specified explicitly by the user invoking fetching the
+  contract -- or in other words, they are _not_ a property of the
+  contract itself.
+
 message NodeExercise
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -432,6 +452,17 @@ this choice.
 Every element of ``actors``, ``stakeholders``, ``signatories``, and
 ``controllers`` is a party identifier.
 
+.. note:: *This section is non-normative.*
+
+  The ``stakeholders`` and ``signatories`` field have the same meaning
+  they have for ``NodeCreate``.
+
+  The ``actors`` field contains the parties that exercised the choice.
+  The ``controllers`` field contains the parties that _can_ exercise
+  the choice. Note that according to the ledger model these two fields
+  _must_ be the same. For this reason the ``controllers`` field was
+  removed in version 6 -- see *since version 6* below.
+
 *since version 4*
 
 ``contract_id`` must not be set, and this new field is required:
@@ -448,6 +479,12 @@ If ``contract_id_struct``'s ``relative`` field is ``true``, then:
    ``NodeCreate``'s ``stakeholders`` field, and
 3. ``signatories`` must have the same elements as the corresponding
    ``NodeCreate``'s ``signatories`` field.
+
+*since version 6*
+
+The ``controllers`` field must be empty. Software needing to fill in
+data structures that demand both actors and controllers must use
+the ``actors`` field as the controllers.
 
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^

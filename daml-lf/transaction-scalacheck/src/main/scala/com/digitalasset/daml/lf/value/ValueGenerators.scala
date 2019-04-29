@@ -306,7 +306,6 @@ object ValueGenerators {
       chosenValue <- versionedValueGen
       stakeholders <- genNonEmptyParties
       signatories <- genNonEmptyParties
-      controllers <- genNonEmptyParties
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(Transaction.NodeId.unsafeFromIndex))
@@ -322,7 +321,7 @@ object ValueGenerators {
         chosenValue,
         stakeholders,
         signatories,
-        controllers,
+        actingParties,
         children
       )
   }
