@@ -658,6 +658,7 @@ private class PostgresLedgerDao(
   private val SQL_GET_LEDGER_ENTRIES = SQL(
     "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
 
+  // queryPage has to return values monotonically increasing by their offsets!
   private def paginatingStream[T](
       startInclusive: Long,
       endExclusive: Long,
