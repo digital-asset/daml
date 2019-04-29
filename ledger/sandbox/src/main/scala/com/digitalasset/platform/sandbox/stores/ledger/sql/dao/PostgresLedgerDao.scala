@@ -80,8 +80,9 @@ private class PostgresLedgerDao(
       )
       .map(_ => ())(DirectExecutionContext)
 
+  //TODO: casting is not nice, shall we have a table for the params instead?
   private val SQL_UPDATE_LEDGER_END = SQL(
-    s"update parameters set value = {v} where key = '$LedgerEndKey' and value < {v}")
+    s"update parameters set value = {v} where key = '$LedgerEndKey' and CAST(value as INTEGER) < CAST({v} as INTEGER)")
 
   private def updateLedgerEnd(ledgerEnd: LedgerOffset)(implicit conn: Connection): Unit = {
     SQL_UPDATE_LEDGER_END
