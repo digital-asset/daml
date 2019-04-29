@@ -3,9 +3,8 @@
 
 package com.daml.ledger.participant.state
 
-package object kvutils {
 
-  /** The participant-state key-value utilities provide methods to succintly implement
+/** The participant-state key-value utilities provide methods to succintly implement
   * [[com.daml.ledger.participant.state.v1.ReadService]] and
   * [[com.daml.ledger.participant.state.v1.WriteService]] on top of ledger's that provide a key-value state storage.
   *
@@ -51,5 +50,4 @@ package object kvutils {
   *  store to retrieve key `damlLogEntries/D8AF41AB`, and using [[KeyValueConsumption.logEntryToUpdate]] produces
   *  an [[v1.Update]], with an offset corresponding to the block height of the ledger (for example).
   */
-
-}
+package object kvutils {}
