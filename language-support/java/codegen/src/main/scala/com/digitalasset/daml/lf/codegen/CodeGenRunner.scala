@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.codegen.backend.Backend
 import com.digitalasset.daml.lf.codegen.backend.java.JavaBackend
 import com.digitalasset.daml.lf.codegen.conf.Conf
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.iface.reader.{Interface, InterfaceReader}
+import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.iface.{Type => _, _}
 import com.digitalasset.daml_lf.DamlLf
 import com.typesafe.scalalogging.StrictLogging
