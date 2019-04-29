@@ -246,3 +246,8 @@ Changes:
 - Java Bindings: Examples updated to use version 2.5.2 which implements Ledger API version 1.4.0.
 
 .. - TODO: add changes here
+
+.. toctree::
+   :hidden:
+
+   /support/new-assistant
