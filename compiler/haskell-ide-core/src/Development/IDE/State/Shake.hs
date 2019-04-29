@@ -61,7 +61,7 @@ import           Development.IDE.Types.Diagnostics
 import           Control.Concurrent.Extra
 import           Control.Exception
 import           Control.DeepSeq
-import           Control.Lens (view)
+import           Control.Lens (view, set)
 import           System.Time.Extra
 import           Data.Typeable
 import           Data.Tuple.Extra
@@ -361,11 +361,7 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
             (bs, res) <- actionCatch
                 (do v <- op key file; liftIO $ evaluate $ force v) $
                 \(e :: SomeException) -> pure (Nothing, ([ideErrorText file $ T.pack $ show e | not $ isBadDependency e],Nothing))
-            res <- return $ first (map $ fixDiagnostic file) res
-
-            let badErrors = filter (\d -> null file || (_range :: Diagnostic -> Range) d == noRange) $ fst res
-            when (badErrors /= []) $
-                reportSeriousError $ "Bad errors found for " ++ show (key, file) ++ " got " ++ show badErrors
+            res <- return $ first (map $ set dFilePath $ Just file) res
 
             (before, after) <- liftIO $ setValues state key file res
             updateFileDiagnostics file before after
@@ -379,17 +375,6 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
     where
         wrap = maybe BS.empty (BS.cons '_')
         unwrap x = if BS.null x then Nothing else Just $ BS.tail x
-
-
--- | If any diagnostic has the wrong filename, generate a new diagnostic with the right file name
-fixDiagnostic :: FilePath -> Diagnostic -> Diagnostic
-fixDiagnostic x d =
-        if view dFilePath d == Just x
-        then d
-        else d{ _range = noRange
-              , _message = "Originally reported at " <> uri <> "\n" <> (_message :: Diagnostic -> T.Text) d}
-    where uri :: T.Text
-          uri = maybe "No where" (getUri . _uri) $ view dLocation d
 
 
 updateFileDiagnostics ::
