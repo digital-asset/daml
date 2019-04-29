@@ -71,7 +71,7 @@ da_haskell_library(
 
 da_haskell_binary(
     name = "daml",
-    srcs = ["src/DAML/Assistant.hs"],
+    srcs = ["exe/DAML/Assistant.hs"],
     hazel_deps = [
         "base",
         "directory",
@@ -80,7 +80,7 @@ da_haskell_binary(
         "safe-exceptions",
     ],
     main_function = "DAML.Assistant.main",
-    src_strip_prefix = "src",
+    src_strip_prefix = "exe",
     visibility = ["//visibility:public"],
     deps = [
         ":daml-lib",
@@ -97,7 +97,7 @@ package_app(
 
 da_haskell_test(
     name = "test",
-    srcs = ["src/DAML/Assistant/Tests.hs"],
+    srcs = ["test/DAML/Assistant/Tests.hs"],
     hazel_deps = [
         "base",
         "conduit",
@@ -116,7 +116,7 @@ da_haskell_test(
         "unix-compat",
     ],
     main_function = "DAML.Assistant.Tests.runTests",
-    src_strip_prefix = "src",
+    src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
         ":daml-lib",
