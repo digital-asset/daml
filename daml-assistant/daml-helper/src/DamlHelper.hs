@@ -223,17 +223,6 @@ navigatorConfig parties =
     T.toStrict $ encodeToLazyText $
        object ["users" .= object (map (\p -> p .= object [ "party" .= p ]) parties)]
 
-copyDirectory :: FilePath -> FilePath -> IO ()
-copyDirectory src target = do
-    files <- listFilesRecursive src
-    forM_ files $ \file -> do
-        let baseName = makeRelative src file
-        let targetFile = target </> baseName
-        createDirectoryIfMissing True (takeDirectory targetFile)
-        copyFile file targetFile
-        p <- getPermissions targetFile
-        setPermissions targetFile p { writable = True }
-
 installExtension :: FilePath -> FilePath -> IO ()
 installExtension src target =
     catchJust

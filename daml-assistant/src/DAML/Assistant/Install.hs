@@ -16,6 +16,7 @@ import DAML.Assistant.Util
 import qualified DAML.Assistant.Install.Github as Github
 import DAML.Project.Consts
 import DAML.Project.Config
+import DAML.Project.Util
 import Safe
 import Conduit
 import qualified Data.Conduit.List as List
@@ -25,8 +26,10 @@ import Network.HTTP.Simple
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS.UTF8
 import Data.List.Extra
+import GHC.IO.Exception
 import System.Exit
 import System.IO
+import System.IO.Error
 import System.IO.Temp
 import System.FilePath
 import System.Directory
@@ -138,12 +141,23 @@ installExtracted env@InstallEnv{..} sourcePath =
                 -- Always removePathForcibly to uniformize renameDirectory behavior
                 -- between windows and unices.
             requiredIO "Failed to move extracted SDK release to final location." $
-                renameDirectory (unwrapSdkPath sourcePath) (unwrapSdkPath targetPath)
+                moveDirectory (unwrapSdkPath sourcePath) (unwrapSdkPath targetPath)
 
         requiredIO "Failed to set file mode of installed SDK directory." $
             setSdkFileMode (unwrapSdkPath targetPath)
 
         whenActivate env $ activateDaml env targetPath
+
+moveDirectory :: FilePath -> FilePath -> IO ()
+moveDirectory src target =
+    -- renameDirectory only works across the same file system so we fall back to
+    -- a copy + delete since it is common for TMP_DIR to point to a tmpfs.
+    catchJust
+        (\ex -> guard (ioeGetErrorType ex == UnsupportedOperation))
+        (renameDirectory src target)
+        (const $ do
+             copyDirectory src target
+             removePathForcibly src)
 
 activateDaml :: InstallEnv -> SdkPath -> IO ()
 activateDaml env@InstallEnv{..} targetPath = do
