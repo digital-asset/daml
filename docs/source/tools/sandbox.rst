@@ -42,9 +42,11 @@ To start Sandbox using persistence, pass an ``--jdbcurl <value>`` option, where 
 
 Here is an example for such a url: ``jdbc:postgresql://localhost/test?user=fred&password=secret``
 
-More on jdbc urls can be found here: https://jdbc.postgresql.org/documentation/head/connect.html
+If you're not familiar with JDBC URLs, see the JDBC docs for more information: https://jdbc.postgresql.org/documentation/head/connect.html
 
 Command-line reference
 **********************
 
-You can start the Sandbox by running: ``sandbox [options] <archive>...`` All the available options can be seen by running ``da run sandbox -- --help``
+To start Sandbox, run: ``sandbox [options] <archive>...``
+
+To see all the available options, run ``da run sandbox -- --help``
