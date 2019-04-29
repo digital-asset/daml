@@ -105,7 +105,8 @@ dFilePath = lens g s where
     g :: LSP.Diagnostic -> Maybe FilePath
     g d = (uriToFilePath . _uri) =<< view dLocation d
     s :: LSP.Diagnostic -> Maybe FilePath -> LSP.Diagnostic
-    s d fp = set dLocation (Location <$> (filePathToUri <$> fp) <*> pure noRange) d
+    s d@Diagnostic{..} fp = set dLocation
+        (Location <$> (filePathToUri <$> fp) <*> pure _range) d
 
 -- | This adds location information to the diagnostics but this is only used in
 --   the case of serious errors to give some context to what went wrong
@@ -114,8 +115,10 @@ dLocation ::
 dLocation = lens g s where
     s :: LSP.Diagnostic -> Maybe Location -> LSP.Diagnostic
     s d = \case
-        Just loc -> d {LSP._relatedInformation = Just $ LSP.List [DiagnosticRelatedInformation loc "dLocation: Unknown error"]}
-        Nothing -> d {LSP._relatedInformation = Nothing}
+        Just loc ->
+            d {LSP._range=(_range :: Location -> Range) loc
+              , LSP._relatedInformation = Just $ LSP.List [DiagnosticRelatedInformation loc "dLocation: Unknown error"]}
+        Nothing -> d {LSP._range = noRange, LSP._relatedInformation = Nothing}
     g :: LSP.Diagnostic -> Maybe Location
     g Diagnostic{..} = case _relatedInformation of
         Just (List [DiagnosticRelatedInformation loc _]) -> Just loc
