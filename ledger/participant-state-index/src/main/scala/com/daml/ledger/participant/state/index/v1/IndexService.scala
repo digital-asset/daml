@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.index.v1
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1._
+import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
@@ -25,6 +26,8 @@ trait IndexService {
 
   def getLedgerBeginning(ledgerId: LedgerId): AsyncResult[Offset]
   def getLedgerEnd(ledgerId: LedgerId): AsyncResult[Offset]
+
+  def getLedgerRecordTimeStream(ledgerId: LedgerId): AsyncResult[Source[Time.Timestamp, NotUsed]]
 
   def lookupActiveContract(
       ledgerId: LedgerId,

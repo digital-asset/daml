@@ -4,7 +4,6 @@
 package com.daml.ledger.api.server.damlonx.reference
 
 import java.io.{File, FileWriter}
-import java.time.Instant
 import java.util.zip.ZipFile
 
 import akka.NotUsed
@@ -13,15 +12,14 @@ import akka.stream.scaladsl.Source
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.daml.ledger.api.server.damlonx.Server
 import com.daml.ledger.participant.state.index.v1.impl.reference.ReferenceIndexService
-import com.daml.ledger.participant.state.v1.impl.reference.Ledger
-import com.daml.ledger.participant.state.v1.{ReadService, Offset, Update, LedgerInitialConditions}
+import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
+//import com.daml.ledger.participant.state.v1.impl.reference.Ledger
+import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset, ReadService, Update}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.platform.server.services.testing.TimeServiceBackend
-import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
@@ -74,10 +72,8 @@ object ReferenceServer extends App {
         Supervision.Stop
       })
 
-  val timeModel = TimeModel.reasonableDefault
-  val tsb = TimeServiceBackend.simple(Instant.EPOCH)
-  val ledger = new Ledger(timeModel, tsb)
-
+  val ledger = new InMemoryKVParticipantState
+  //val ledger = new Ledger(timeModel, tsb)
   def archivesFromDar(file: File): List[Archive] = {
     DarReader[Archive](x => Try(Archive.parseFrom(x)))
       .readArchive(new ZipFile(file))
@@ -103,7 +99,6 @@ object ReferenceServer extends App {
       serverPort = config.port,
       indexService = indexService,
       writeService = ledger,
-      tsb
     )
 
     // If port file was provided, write out the allocated server port to it.
@@ -120,12 +115,12 @@ object ReferenceServer extends App {
 
 // simulate a bad read service by returning only
 // empty transactions.
-final case class BadReadService(ledger: Ledger) extends ReadService {
+final case class BadReadService(readService: ReadService) extends ReadService {
   override def getLedgerInitialConditions(): Future[LedgerInitialConditions] =
-    ledger.getLedgerInitialConditions
+    readService.getLedgerInitialConditions
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
-    ledger.stateUpdates(beginAfter).map {
+    readService.stateUpdates(beginAfter).map {
       case (updateId, update) =>
         val updatePrime = update match {
           case tx: Update.TransactionAccepted =>

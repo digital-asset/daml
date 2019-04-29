@@ -35,6 +35,7 @@ da_scala_binary(
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "//ledger/participant-state-index/reference",
+        "//ledger/participant-state/kvutils",
         "//ledger/participant-state/reference",
     ],
 )

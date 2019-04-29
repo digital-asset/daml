@@ -1,0 +1,75 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+da_scala_library(
+    name = "kvutils",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml.ledger:participant-state-kvutils:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        ":daml_kvutils_java_proto",
+        "//3rdparty/jvm/com/google/guava",
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//daml-lf/archive:daml_lf_archive_scala",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/lfpackage",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
+        "//daml-lf/transaction/src/main/protobuf:value_java_proto",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-state",
+    ],
+)
+
+da_scala_test_suite(
+    name = "kvutils-tests",
+    srcs = glob(["src/test/suite/**/*.scala"]),
+    deps = [
+        ":kvutils",
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest",
+        "//daml-lf/archive:daml_lf_archive_scala",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-state",
+    ],
+)
+
+proto_library(
+    name = "daml_kvutils_proto",
+    srcs = ["src/main/protobuf/daml_kvutils.proto"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//daml-lf/archive:daml_lf_proto",
+        "//daml-lf/transaction/src/main/protobuf:transaction_proto",
+        "//daml-lf/transaction/src/main/protobuf:value_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:timestamp_proto",
+    ],
+)
+
+java_proto_library(
+    name = "daml_kvutils_java_proto",
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [":daml_kvutils_proto"],
+)

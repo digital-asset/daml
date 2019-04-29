@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.server.damlonx.services
 
-import java.time.Duration
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -17,7 +15,6 @@ import com.digitalasset.platform.api.grpc.{GrpcApiService, GrpcApiUtil}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import io.grpc.{BindableService, ServerServiceDefinition}
 import org.slf4j.{Logger, LoggerFactory}
-
 import scala.concurrent.ExecutionContext
 
 class DamlOnXLedgerConfigurationService private (indexService: IndexService)(
@@ -38,15 +35,12 @@ class DamlOnXLedgerConfigurationService private (indexService: IndexService)(
         consumeAsyncResult(indexService
           .getLedgerConfiguration(Ref.SimpleString.assertFromString(request.ledgerId))))
       .map { config =>
-        // FIXME(JM): Configuration type not yet defined.
-        //GetLedgerConfigurationResponse(Some(config))
         GetLedgerConfigurationResponse(
           Some(
             LedgerConfiguration(
-              Some(GrpcApiUtil.durationToProto(Duration.ofSeconds(1L))),
-              Some(GrpcApiUtil.durationToProto(Duration.ofSeconds(30L)))),
-          )
-        )
+              Some(GrpcApiUtil.durationToProto(config.timeModel.minTtl)),
+              Some(GrpcApiUtil.durationToProto(config.timeModel.maxTtl))
+            )))
       }
   }
 
