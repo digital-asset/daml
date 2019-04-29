@@ -87,7 +87,7 @@ This example connects to a PostgreSQL instance running on ``localhost`` on the d
 
 .. code-block:: none
 
-  $ daml extractor -- postgres --connecturl jdbc:postgresql:daml_export --user postgres --party [party]
+  $ daml extractor postgres --connecturl jdbc:postgresql:daml_export --user postgres --party [party]
 
 This example connects to a database on host ``192.168.1.12``, listening on port ``5432``. The database is called ``daml_export``, and the user and password used for authentication are ``daml_exporter`` and ``ExamplePassword``
 
