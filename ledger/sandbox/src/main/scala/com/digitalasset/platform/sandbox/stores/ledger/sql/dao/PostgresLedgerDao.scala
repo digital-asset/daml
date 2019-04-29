@@ -69,8 +69,6 @@ private class PostgresLedgerDao(
 
   private val SQL_INSERT_PARAM = SQL("insert into parameters(key, value) values ({k}, {v})")
 
-  private val SQL_UPDATE_PARAM = SQL("update parameters set value = {v} where key = {k}")
-
   private def storeParameter(key: String, value: String): Future[Unit] =
     dbDispatcher
       .executeSql(
@@ -82,10 +80,16 @@ private class PostgresLedgerDao(
       )
       .map(_ => ())(DirectExecutionContext)
 
-  private def updateParameter(key: String, value: String)(implicit conn: Connection): Unit = {
-    SQL_UPDATE_PARAM
-      .on("k" -> key)
-      .on("v" -> value)
+  // TODO: casting is not nice, shall we have a table for the params instead?
+  // Note that the ledger entries grow monotonically, however we store many ledger entries in parallel,
+  // and thus we need to make sure to only update the ledger end when the ledger entry we're committing
+  // is advancing it.
+  private val SQL_UPDATE_LEDGER_END = SQL(
+    s"update parameters set value = {v} where key = '$LedgerEndKey' and CAST(value as INTEGER) < CAST({v} as INTEGER)")
+
+  private def updateLedgerEnd(ledgerEnd: LedgerOffset)(implicit conn: Connection): Unit = {
+    SQL_UPDATE_LEDGER_END
+      .on("v" -> ledgerEnd.toString)
       .execute()
     ()
   }
@@ -445,7 +449,7 @@ private class PostgresLedgerDao(
     dbDispatcher
       .executeSql { implicit conn =>
         val resp = insertEntry(ledgerEntry)
-        updateParameter(LedgerEndKey, newLedgerEnd.toString)
+        updateLedgerEnd(newLedgerEnd)
         resp
       }
   }
