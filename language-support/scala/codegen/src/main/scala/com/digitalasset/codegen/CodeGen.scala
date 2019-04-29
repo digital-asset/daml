@@ -6,7 +6,7 @@ package com.digitalasset.codegen
 import com.digitalasset.codegen.types.Namespace
 import com.digitalasset.daml.lf.{Dar, UniversalArchiveReader, iface}
 import iface.{Type => _, _}
-import com.digitalasset.daml.lf.iface.reader.{Errors, Interface, InterfaceReader}
+import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
 import java.io._
 
 import scala.collection.breakOut
