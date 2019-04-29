@@ -1,0 +1,36 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+
+da_haskell_binary(
+    name = "windows-installer-gen",
+    srcs = glob(["src/**/*.hs"]),
+    hazel_deps = [
+        "base",
+        "nsis",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = ["//:sdk-version-hs-lib"],
+)
+
+genrule(
+    name = "windows-installer",
+    srcs = ["//release:sdk-release-tarball.tar.gz"],
+    outs = ["daml-sdk-installer.exe"],
+    cmd = """
+        set -eou pipefail
+        PLUGINFILES=( $(locations @nsis_untgz_plugin//:untgz) )
+        PLUGINDIR=$$(dirname $$PLUGINFILES[0])
+        $(location :windows-installer-gen) ./installer.nsi $(location //release:sdk-release-tarball.tar.gz) $$PLUGINDIR
+        $(location @makensis_dev_env//:makensis) ./installer.nsi
+        cp ./daml-sdk-installer.exe $(location daml-sdk-installer.exe)
+    """,
+    tools = [
+        ":windows-installer-gen",
+        "@makensis_dev_env//:makensis",
+        "@nsis_untgz_plugin//:untgz",
+    ],
+) if is_windows else None
