@@ -61,6 +61,7 @@ da_haskell_library(
         "temporary",
         "terminal-progress-bar",
         "text",
+        "time",
         "unix-compat",
         "utf8-string",
         "yaml",
