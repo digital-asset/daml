@@ -3,6 +3,7 @@
 
 package com.digitalasset.navigator.console.commands
 
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.navigator.console._
 
 case object Package extends SimpleCommand {
@@ -21,7 +22,7 @@ case object Package extends SimpleCommand {
     for {
       arg1 <- args.headOption ~> "Missing <id> argument"
       ps <- state.getPartyState ~> s"Unknown party ${state.party}"
-      pack <- ps.packageRegistry.pack(arg1) ~> s"Unknown package $arg1"
+      pack <- ps.packageRegistry.pack(PackageId.assertFromString(arg1)) ~> s"Unknown package $arg1"
     } yield {
       val header = List(
         "Module",

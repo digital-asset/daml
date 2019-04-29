@@ -51,7 +51,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
       workflowId = Option(commands.workflowId).filterNot(_.isEmpty).map(domain.WorkflowId(_))
       commandId <- requireNonEmptyString(commands.commandId, "command_id")
       appId <- requireNonEmptyString(commands.applicationId, "application_id")
-      submitter <- requireSimpleString(commands.party, "party")
+      submitter <- requireParty(commands.party, "party")
       let <- requirePresence(commands.ledgerEffectiveTime, "ledger_effective_time")
       ledgerEffectiveTime = TimestampConversion.toInstant(let)
       mrt <- requirePresence(commands.maximumRecordTime, "maximum_record_time")
@@ -160,7 +160,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
       Decimal.fromString(value).left.map(invalidArgument).map(Lf.ValueDecimal)
 
     case Sum.Party(party) =>
-      Ref.SimpleString.fromString(party).left.map(invalidArgument).map(Lf.ValueParty)
+      Ref.Party.fromString(party).left.map(invalidArgument).map(Lf.ValueParty)
     case Sum.Bool(b) => Right(Lf.ValueBool(b))
     case Sum.Timestamp(micros) =>
       Time.Timestamp.fromLong(micros).left.map(invalidArgument).map(Lf.ValueTimestamp)

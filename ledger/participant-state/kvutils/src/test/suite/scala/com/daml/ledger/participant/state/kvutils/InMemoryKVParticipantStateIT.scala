@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.v1.{
   TransactionMeta,
   Update
 }
-import com.digitalasset.daml.lf.data.Ref.SimpleString
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
 import com.digitalasset.daml_lf.DamlLf
@@ -26,7 +26,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     PartialTransaction.initial.finish.right.get
 
   def submitterInfo(rt: Timestamp) = SubmitterInfo(
-    submitter = SimpleString.assertFromString("Alice"),
+    submitter = Party.assertFromString("Alice"),
     applicationId = "tests",
     commandId = "X",
     maxRecordTime = rt.addMicros(100000)

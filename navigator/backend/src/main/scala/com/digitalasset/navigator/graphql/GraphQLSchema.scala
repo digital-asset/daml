@@ -130,7 +130,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     "DamlLfNode",
     fields[GraphQLContext, DamlLfNode](
       Field("id", IDType, resolve = _.value.idString),
-      Field("package", StringType, resolve = _.value.id.packageId.underlyingString),
+      Field("package", StringType, resolve = _.value.id.packageId.toString),
       Field("module", StringType, resolve = _.value.id.qualifiedName.module.toString()),
       Field("name", StringType, resolve = _.value.id.qualifiedName.name.toString())
     )

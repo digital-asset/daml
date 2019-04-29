@@ -82,7 +82,7 @@ class TransactionServiceRequestValidator(
     parties.foldLeft[Result[Set[Party]]](Right(Set.empty)) { (acc, partyTxt) =>
       for {
         parties <- acc
-        party <- requireSimpleString(partyTxt)
+        party <- requireParty(partyTxt)
       } yield parties + party
     }
 
@@ -94,7 +94,7 @@ class TransactionServiceRequestValidator(
     if (unknownParties.nonEmpty)
       Left(
         invalidArgument(
-          s"Unknown parties: ${unknownParties.map(_.underlyingString).mkString("[", ", ", "]")}"))
+          s"Unknown parties: ${unknownParties.map(_.toString).mkString("[", ", ", "]")}"))
     else Right(())
   }
   def validate(

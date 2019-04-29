@@ -5,8 +5,8 @@ package com.digitalasset.navigator.model
 
 import java.time.Instant
 
+import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
 import com.digitalasset.ledger.api.refinements.ApiTypes
-
 import scalaz.{@@, Tag}
 
 // ------------------------------------------------------------------------------------------------
@@ -96,7 +96,7 @@ final case class Result(id: ApiTypes.CommandId, errorOrTx: Either[Error, Transac
 // ------------------------------------------------------------------------------------------------
 
 case class DamlLfPackage(
-    id: DamlLfPackageId,
+    id: DamlLfRef.PackageId,
     typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType],
     templates: Map[DamlLfIdentifier, Template]
 )

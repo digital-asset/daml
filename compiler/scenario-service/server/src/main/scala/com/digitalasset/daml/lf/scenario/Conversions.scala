@@ -119,7 +119,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       case SError.ScenarioErrorMustFailSucceeded(tx @ _) =>
         builder.setScenarioMustfailSucceeded(empty)
 
-      case SError.ScenarioErrorInvalidPartyName(party) =>
+      case SError.ScenarioErrorInvalidPartyName(party, _) =>
         builder.setScenarioInvalidPartyName(party)
 
     }
@@ -514,7 +514,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       // Reconstitute the self package reference.
       packageIdSelf
     else
-      PackageIdentifier.newBuilder.setPackageId(pkg.underlyingString).build
+      PackageIdentifier.newBuilder.setPackageId(pkg.toString).build
 
   def convertIdentifier(identifier: Ref.Identifier): Identifier =
     Identifier.newBuilder
@@ -604,7 +604,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       case V.ValueText(t) => builder.setText(t)
       case V.ValueTimestamp(ts) => builder.setTimestamp(ts.micros)
       case V.ValueDate(d) => builder.setDate(d.days)
-      case V.ValueParty(p) => builder.setParty(p.underlyingString)
+      case V.ValueParty(p) => builder.setParty(p.toString)
       case V.ValueBool(b) => builder.setBool(b)
       case V.ValueUnit => builder.setUnit(empty)
       case V.ValueOptional(mbV) =>
@@ -627,6 +627,6 @@ case class Conversions(homePackageId: Ref.PackageId) {
   }
 
   def convertParty(p: Ref.Party): Party =
-    Party.newBuilder.setParty(p.underlyingString).build
+    Party.newBuilder.setParty(p.toString).build
 
 }

@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
@@ -43,7 +43,10 @@ private[parser] object ExprParser {
       acceptMatch("Text", { case Text(s) => PLText(s) }) |
       acceptMatch("Timestamp", { case Timestamp(l) => PLTimestamp(l) }) |
       acceptMatch("Date", { case Date(l) => PLDate(l) }) |
-      acceptMatch("Party", { case SimpleString(s) => PLParty(s) })
+      acceptMatch("Party", {
+        case SimpleString(s) if Ref.Party.fromString(s).isRight =>
+          PLParty(Ref.Party.assertFromString(s))
+      })
 
   private lazy val primCon =
     Id("True") ^^^ PCTrue |

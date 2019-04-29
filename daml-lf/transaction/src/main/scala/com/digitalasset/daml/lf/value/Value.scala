@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.archive.LanguageVersion
-import com.digitalasset.daml.lf.data.Ref.{Identifier, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data._
 
 import scala.annotation.tailrec
@@ -186,7 +186,7 @@ object Value {
   final case class ValueText(value: String) extends Value[Nothing]
   final case class ValueTimestamp(value: Time.Timestamp) extends Value[Nothing]
   final case class ValueDate(value: Time.Date) extends Value[Nothing]
-  final case class ValueParty(value: SimpleString) extends Value[Nothing]
+  final case class ValueParty(value: Ref.Party) extends Value[Nothing]
   final case class ValueBool(value: Boolean) extends Value[Nothing]
   case object ValueUnit extends Value[Nothing]
   final case class ValueOptional[+Cid](value: Option[Value[Cid]]) extends Value[Cid]

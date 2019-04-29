@@ -63,7 +63,7 @@ object ValueCoder {
     * @return wire format identifier
     */
   def encodeIdentifier(id: Identifier): proto.Identifier = {
-    val builder = proto.Identifier.newBuilder().setPackageId(id.packageId.underlyingString)
+    val builder = proto.Identifier.newBuilder().setPackageId(id.packageId.toString)
     builder.addAllModuleName(id.qualifiedName.module.segments.toSeq.asJava)
     builder.addAllName(id.qualifiedName.name.segments.toSeq.asJava)
     builder.build()
@@ -92,7 +92,7 @@ object ValueCoder {
     */
   def decodeIdentifier(id: proto.Identifier): Either[DecodeError, Identifier] =
     for {
-      pkgId <- SimpleString
+      pkgId <- PackageId
         .fromString(id.getPackageId)
         .left
         .map(err => DecodeError(s"Invalid package id '${id.getPackageId}': $err"))
@@ -295,8 +295,8 @@ object ValueCoder {
             val t = Time.Timestamp.fromLong(protoValue.getTimestamp)
             t.fold(e => throw Err("error decoding timestamp: " + e), ValueTimestamp)
           case proto.Value.SumCase.PARTY =>
-            val pkgId = SimpleString.fromString(protoValue.getParty)
-            pkgId.fold(e => throw Err("error decoding packaged: " + e), ValueParty)
+            val party = Party.fromString(protoValue.getParty)
+            party.fold(e => throw Err("error decoding party: " + e), ValueParty)
           case proto.Value.SumCase.CONTRACT_ID | proto.Value.SumCase.CONTRACT_ID_STRUCT =>
             val cid = protoValue.decodeContractIdOrStruct(decodeCid, valueVersion)(
               _.getContractId,
@@ -409,7 +409,7 @@ object ValueCoder {
           case ValueText(t) =>
             builder.setText(t).build()
           case ValueParty(p) =>
-            builder.setParty(p.underlyingString).build()
+            builder.setParty(p.toString).build()
           case ValueDate(d) =>
             builder.setDate(d.days).build()
           case ValueTimestamp(t) =>

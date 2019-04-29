@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.transaction
 
 import scala.language.higherKinds
 
-import com.digitalasset.daml.lf.data.Ref.{SimpleString, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction.{
   AliasedNode,
@@ -123,7 +123,7 @@ object TransactionSpec {
     NodeExercises(
       "dummyCoid",
       Ref.Identifier(
-        SimpleString.assertFromString("-dummyPkg-"),
+        PackageId.assertFromString("-dummyPkg-"),
         QualifiedName.assertFromString("DummyModule:dummyName")),
       "dummyChoice",
       None,
@@ -142,7 +142,7 @@ object TransactionSpec {
       "dummyCoid",
       ContractInst(
         Ref.Identifier(
-          SimpleString.assertFromString("-dummyPkg-"),
+          PackageId.assertFromString("-dummyPkg-"),
           QualifiedName.assertFromString("DummyModule:dummyName")),
         V.ValueUnit,
         "dummyAgreement"),

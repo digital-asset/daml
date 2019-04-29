@@ -22,7 +22,7 @@ private case class SRunnerException(err: SError) extends RuntimeException(err.to
   *        before they are executed against a ledger. The function should be idempotent
   *        in the context of a single {@code ScenarioRunner} life-time, i.e. return the
   *        same result each time given the same argument. Should return values compatible
-  *        with [[com.digitalasset.daml.lf.data.Ref.SimpleString]].
+  *        with [[com.digitalasset.daml.lf.data.Ref.Party]].
   */
 final case class ScenarioRunner(
     machine: Speedy.Machine,
@@ -93,9 +93,9 @@ final case class ScenarioRunner(
 
   private def getParty(partyText: String, callback: Party => Unit) = {
     val mangledPartyText = partyNameMangler(partyText)
-    SimpleString.fromString(mangledPartyText) match {
+    Party.fromString(mangledPartyText) match {
       case Right(s) => callback(s)
-      case _ => throw SRunnerException(ScenarioErrorInvalidPartyName(partyText))
+      case Left(msg) => throw SRunnerException(ScenarioErrorInvalidPartyName(partyText, msg))
     }
   }
 

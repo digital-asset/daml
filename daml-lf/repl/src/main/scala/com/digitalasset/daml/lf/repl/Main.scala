@@ -277,7 +277,7 @@ object Repl {
       else
         m.qualifiedName.toString
     else
-      m.qualifiedName.toString + "@" + m.packageId.underlyingString
+      m.qualifiedName.toString + "@" + m.packageId.toString
   }
 
   def prettyType(typ: Type, pkgId: PackageId, modId: ModuleName): String = {
@@ -485,7 +485,7 @@ object Repl {
     (failures == 0, state)
   }
 
-  private val unknownPackageId = SimpleString.assertFromString("-unknownPackage-")
+  private val unknownPackageId = PackageId.assertFromString("-unknownPackage-")
 
   def idToRef(state: State, id: String): DefinitionRef[PackageId] = {
     val defaultPackageId =
@@ -493,9 +493,9 @@ object Repl {
         .map(_._1)
         .getOrElse(unknownPackageId)
 
-    val (defRef, packageId): (String, SimpleString) =
+    val (defRef, packageId): (String, PackageId) =
       id.split("@").toList match {
-        case defRef :: packageId :: Nil => (defRef, SimpleString.assertFromString(packageId))
+        case defRef :: packageId :: Nil => (defRef, PackageId.assertFromString(packageId))
         case _ => (id, defaultPackageId)
       }
     val qualName = QualifiedName.fromString(defRef) match {
@@ -506,10 +506,10 @@ object Repl {
   }
 
   def lookup(state: State, id: String): Option[Definition] = {
-    val (defRef, optPackageId): (String, Option[SimpleString]) =
+    val (defRef, optPackageId): (String, Option[PackageId]) =
       id.split("@").toList match {
         case defRef :: packageId :: Nil =>
-          (defRef, Some(SimpleString.assertFromString(packageId)))
+          (defRef, Some(PackageId.assertFromString(packageId)))
         case _ => (id, None)
       }
     val qualName = QualifiedName.fromString(defRef) match {
@@ -551,7 +551,7 @@ object Repl {
     // FIXME(JM): Parse types as well to allow creation of nominal records?
     val dummyId =
       Ref.Identifier(
-        SimpleString.assertFromString("-dummy package-"),
+        PackageId.assertFromString("-dummy package-"),
         QualifiedName.assertFromString("Dummy:Dummy"))
 
     def pDecimal: Parser[Value[Nothing]] = """\d+\.\d+""".r ^^ { s =>
@@ -630,7 +630,7 @@ object Repl {
     // FIXME(JM): Fix the handling of types.
     val dummyTyCon =
       TypeConName(
-        SimpleString.assertFromString("-dummy-"),
+        PackageId.assertFromString("-dummy-"),
         QualifiedName.assertFromString("Dummy:Dummy"))
     val dummyTyApp = TypeConApp(dummyTyCon, ImmArray.empty)
     v match {

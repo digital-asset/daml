@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.data.Ref.{
   DottedName,
   Identifier,
   ModuleName,
-  SimpleString,
+  PackageId,
   QualifiedName
 }
 
@@ -86,7 +86,7 @@ object InterfaceReader {
     readInterface(() => lf.traverseU(DamlLfV1ArchiveReader.readPackage))
   }
 
-  private val dummyPkgId = SimpleString.assertFromString("-dummyPkg-")
+  private val dummyPkgId = PackageId.assertFromString("-dummyPkg-")
 
   private val dummyInterface = Interface(dummyPkgId, Map.empty)
 
@@ -139,8 +139,8 @@ object InterfaceReader {
       case Right(x) => \/-(x)
     }
 
-  private[reader] def packageId(a: DamlLf1.PackageRef): InterfaceReaderError \/ SimpleString =
-    SimpleString.fromString(a.getPackageId).disjunction leftMap (err =>
+  private[reader] def packageId(a: DamlLf1.PackageRef): InterfaceReaderError \/ PackageId =
+    PackageId.fromString(a.getPackageId).disjunction leftMap (err =>
       invalidDataTypeDefinition(a, s"Invalid packageId : $err"))
 
   private[this] def addPartitionToState[A](
@@ -291,7 +291,7 @@ object InterfaceReader {
       (pkgId, mname)
     }
 
-  private def packageRef(a: DamlLf1.PackageRef): InterfaceReaderError \/ Option[SimpleString] =
+  private def packageRef(a: DamlLf1.PackageRef): InterfaceReaderError \/ Option[PackageId] =
     a.getSumCase match {
       case DamlLf1.PackageRef.SumCase.SELF => \/-(None)
       case DamlLf1.PackageRef.SumCase.PACKAGE_ID =>

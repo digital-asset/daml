@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.iface
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName, PackageId}
 import com.digitalasset.daml.lf.data.BackStack
 import org.scalatest.{Matchers, WordSpec}
 import com.digitalasset.daml.lf.testing.parser.Implicits._
@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.lfpackage.{Ast => Pkg}
 import scala.language.implicitConversions
 
 class TypeSpec extends WordSpec with Matchers {
-  implicit def simpleString(s: String): SimpleString = SimpleString.assertFromString(s)
+  implicit def packageId(s: String): PackageId = PackageId.assertFromString(s)
   implicit def qualifiedName(s: String): QualifiedName = QualifiedName.assertFromString(s)
 
   implicit def fromLfPackageType(pkgTyp00: Pkg.Type): Type = {

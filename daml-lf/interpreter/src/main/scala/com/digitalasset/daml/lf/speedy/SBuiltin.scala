@@ -202,7 +202,7 @@ object SBuiltin {
         case SDecimal(d) => Decimal.toString(d)
         case STimestamp(t) => t.toString
         case SText(t) => t
-        case SParty(p) => p.underlyingString
+        case SParty(p) => p.toString
         case SUnit(_) => s"<unit>"
         case SDate(date) => date.toString
         case SContractId(_) => crash("litToText: ContractId not supported")
@@ -213,7 +213,7 @@ object SBuiltin {
   final case object SBToQuotedTextParty extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val v = args.get(0).asInstanceOf[SParty]
-      machine.ctrl = CtrlValue(SText(s"'${v.value.underlyingString}'"))
+      machine.ctrl = CtrlValue(SText(s"'${v.value.toString}'"))
     }
   }
 
@@ -417,7 +417,6 @@ object SBuiltin {
   //
   // Equality and comparisons
   //
-
   final case object SBEqual extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(

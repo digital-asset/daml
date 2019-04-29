@@ -231,7 +231,7 @@ object SExpr {
   /** Construct a reference to a builtin compiled function */
   def makeBuiltinRef(name: String): DefinitionRef[PackageId] =
     DefinitionRef(
-      SimpleString.assertFromString("-builtins-"),
+      PackageId.assertFromString("-builtins-"),
       QualifiedName(
         ModuleName.unsafeFromSegments(ImmArray("$")),
         DottedName.unsafeFromSegments(ImmArray(name)))

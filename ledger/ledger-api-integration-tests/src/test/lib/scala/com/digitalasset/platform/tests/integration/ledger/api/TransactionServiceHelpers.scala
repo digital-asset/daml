@@ -26,7 +26,7 @@ trait TransactionServiceHelpers extends Matchers {
   lazy val defaultDar: File = PlatformApplications.Config.defaultDarFile
 
   lazy val parsedPackageId: String = {
-    UniversalArchiveReader().readFile(defaultDar).get.main._1.underlyingString
+    UniversalArchiveReader().readFile(defaultDar).get.main._1.toString
   }
 
   val failingCommandId: String = "asyncFail"

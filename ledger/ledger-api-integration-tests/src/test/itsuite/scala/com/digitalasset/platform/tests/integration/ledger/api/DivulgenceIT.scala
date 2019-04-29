@@ -5,7 +5,7 @@ package com.digitalasset.platform.tests.integration.ledger.api
 
 import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.SimpleString
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
@@ -47,7 +47,8 @@ class DivulgenceIT
     with TestTemplateIds {
   override protected def config: Config = Config.default
 
-  private implicit def simpleStringStr(s: String): SimpleString = SimpleString.assertFromString(s)
+  private implicit def party(s: String): Ref.Party = Ref.Party.assertFromString(s)
+  private implicit def pkgId(s: String): Ref.PackageId = Ref.PackageId.assertFromString(s)
 
   private def commandClient(ctx: LedgerContext): SynchronousCommandClient =
     new SynchronousCommandClient(ctx.commandService)

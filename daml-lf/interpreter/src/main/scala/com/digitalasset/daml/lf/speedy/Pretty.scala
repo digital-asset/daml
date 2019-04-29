@@ -36,7 +36,7 @@ object Pretty {
     })
 
   def prettyParty(p: Party): Doc =
-    char('\'') + text(p.underlyingString) + char('\'')
+    char('\'') + text(p.toString) + char('\'')
 
   def prettyDamlException(ex: SErrorDamlException, ptx: PartialTransaction): Doc =
     ex match {
@@ -75,7 +75,7 @@ object Pretty {
       case fetch: NodeFetch[ContractId] =>
         "fetch" &: prettyContractId(fetch.coid)
       case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
-        intercalate(text(", "), ex.actingParties.map(p => text(p.underlyingString))) &
+        intercalate(text(", "), ex.actingParties.map(p => text(p.toString))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
           text("with") & prettyVersionedValue(false)(ex.chosenValue)
@@ -116,9 +116,7 @@ object Pretty {
         // TODO(JM): Further info needed. Location annotations?
         text("due to a mustfailAt that succeeded.")
 
-      case ScenarioErrorInvalidPartyName(name) =>
-        text(
-          s"Invalid party name '$name'. Party names must match the regular expression `[A-Za-z0-9\\ \\-_]+`.")
+      case ScenarioErrorInvalidPartyName(_, msg) => text(s"Invalid party: $msg")
     })
 
   def prettyFailedAuthorizations(fas: L.FailedAuthorizations): Doc =
@@ -182,7 +180,7 @@ object Pretty {
     )
 
   def prettyValueRef(ref: ValueRef): Doc =
-    text(ref.qualifiedName.toString + "@" + ref.packageId.underlyingString)
+    text(ref.qualifiedName.toString + "@" + ref.packageId.toString)
 
   def prettyLedger(l: L.Ledger): Doc =
     (text("transactions:") / prettyTransactions(l)) / line +
@@ -237,7 +235,7 @@ object Pretty {
             text("children:") / stack(ex.children.toList.map(prettyNodeInfo(l)))
           else
             text("")
-        intercalate(text(", "), ex.actingParties.map(p => text(p.underlyingString))) &
+        intercalate(text(", "), ex.actingParties.map(p => text(p.toString))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
           (text("    ") + text("with") & prettyVersionedValue(false)(ex.chosenValue) / children)
@@ -250,6 +248,7 @@ object Pretty {
             case Some(coid) => text("found") & prettyContractId(coid)
           })
     }
+
     val ppDisclosedTo =
       if (ni.observingSince.nonEmpty)
         meta(
@@ -259,11 +258,11 @@ object Pretty {
               ni.observingSince.toSeq
                 .sortWith {
                   case ((p1, id1), (p2, id2)) =>
-                    id1 <= id2 && p1.underlyingString < p2.underlyingString
+                    id1 <= id2 && p1 < p2
                 }
                 .map {
                   case (p, txid) =>
-                    text(p.underlyingString) & text("(#") + str(txid) + char(')')
+                    text(p.toString) & text("(#") + str(txid) + char(')')
                 }
             )
         )
@@ -318,8 +317,8 @@ object Pretty {
         .map((acoid: AbsoluteContractId) => prettyLedgerNodeId(L.NodeId(acoid))))
   }
 
-  def prettyPackageId(pkgId: SimpleString): Doc =
-    text(pkgId.underlyingString.take(8))
+  def prettyPackageId(pkgId: PackageId): Doc =
+    text(pkgId.toString.take(8))
 
   def prettyIdentifier(id: Identifier): Doc =
     text(id.qualifiedName.toString) + char('@') + prettyPackageId(id.packageId)
@@ -376,7 +375,7 @@ object Pretty {
           ']')
       case ValueTimestamp(t) => str(t)
       case ValueDate(days) => str(days)
-      case ValueParty(p) => char('\'') + str(p.underlyingString) + char('\'')
+      case ValueParty(p) => char('\'') + str(p.toString) + char('\'')
       case ValueOptional(Some(v1)) => text("Option(") + prettyValue(verbose)(v1) + char(')')
       case ValueOptional(None) => text("None")
       case ValueMap(map) =>
@@ -417,7 +416,7 @@ object Pretty {
           str(defId)
         case SEValue(lit) =>
           lit match {
-            case SParty(p) => char('\'') + text(p.underlyingString) + char('\'')
+            case SParty(p) => char('\'') + text(p.toString) + char('\'')
             case SText(t) => char('"') + text(t) + char('"')
             case other => str(other)
           }

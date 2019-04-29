@@ -35,7 +35,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
     Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.LEDGER_BEGIN))),
     Some(LedgerOffset(LedgerOffset.Value.Absolute(absoluteOffset))),
     Some(
-      TransactionFilter(Map(party.underlyingString ->
+      TransactionFilter(Map(party.toString ->
         Filters(Some(InclusiveFilters(Seq(
           Identifier(packageId, moduleName = includedModule, entityName = includedTemplate)))))))),
     verbose,
@@ -45,7 +45,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
     expectedLedgerId,
     Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.LEDGER_BEGIN))),
     Some(LedgerOffset(LedgerOffset.Value.Absolute(absoluteOffset))),
-    Some(TransactionFilter(Map(party.underlyingString -> Filters.defaultInstance))),
+    Some(TransactionFilter(Map(party.toString -> Filters.defaultInstance))),
     verbose,
     Some(traceContext)
   )
@@ -56,14 +56,14 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
     GetTransactionByEventIdRequest(
       expectedLedgerId,
       eventId,
-      Seq(party.underlyingString),
+      Seq(party.toString),
       Some(traceContext))
 
   private val txByIdReq =
     GetTransactionByIdRequest(
       expectedLedgerId,
       transactionId,
-      Seq(party.underlyingString),
+      Seq(party.toString),
       Some(traceContext))
 
   val sut = new TransactionServiceRequestValidator(
@@ -435,7 +435,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
       val filterWithUnknown =
         TransactionFilter(partyWithUnknowns.map(_ -> Filters.defaultInstance).toMap)
       val filterWithKnown =
-        TransactionFilter(Map(party.underlyingString -> Filters.defaultInstance))
+        TransactionFilter(Map(party.toString -> Filters.defaultInstance))
 
       "reject transaction requests for unknown parties" in {
         requestMustFailWith(

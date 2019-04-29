@@ -10,7 +10,6 @@ import com.digitalasset.daml.lf.data.Ref.{
   ModuleName,
   PackageId,
   QualifiedName,
-  SimpleString
 }
 import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.lfpackage.Ast
@@ -60,7 +59,7 @@ class Context(val contextId: Context.ContextId) {
     * in extPackages.
     */
   val homePackageId: PackageId =
-    SimpleString.assertFromString("-homePackageId-")
+    PackageId.assertFromString("-homePackageId-")
 
   private var modules: Map[ModuleName, Ast.Module] = Map.empty
   private var extPackages: Map[PackageId, Ast.Package] = Map.empty
@@ -104,7 +103,7 @@ class Context(val contextId: Context.ContextId) {
         ref.packageId != homePackageId || ref.qualifiedName.module != lfModuleId)
     }
     unloadPackages.foreach { pkgId =>
-      val lfPkgId = assert(SimpleString.fromString(pkgId))
+      val lfPkgId = assert(PackageId.fromString(pkgId))
       extPackages -= lfPkgId
       defns = defns.filterKeys(ref => ref.packageId != lfPkgId)
     }
@@ -165,7 +164,7 @@ class Context(val contextId: Context.ContextId) {
       name: String
   ): Option[(Ledger, Speedy.Machine, Either[SError, SValue])] =
     buildMachine(
-      Identifier(assert(SimpleString.fromString(pkgId)), assert(QualifiedName.fromString(name))))
+      Identifier(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))))
       .map { machine =>
         ScenarioRunner(machine).run() match {
           case Right((diff @ _, steps @ _, ledger)) =>

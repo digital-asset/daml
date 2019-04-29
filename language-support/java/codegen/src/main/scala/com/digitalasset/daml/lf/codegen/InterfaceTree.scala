@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.codegen
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName, PackageId}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.iface.{DefDataType, Interface, InterfaceType, Record, Variant}
 import com.typesafe.scalalogging.StrictLogging
@@ -65,7 +65,7 @@ private[codegen] sealed trait NodeWithContext {
   def childrenLineages: Iterable[NodeWithContext]
   def typesLineages: Iterable[TypeWithContext]
 
-  final def packageId: SimpleString = interface.packageId
+  final def packageId: PackageId = interface.packageId
 }
 
 private[codegen] final case class ModuleWithContext(
@@ -154,7 +154,7 @@ private[codegen] object InterfaceTree extends StrictLogging {
       )
       nameAndNode._2.children.foreach(printTree(offset + 2))
     }
-    logger.info(s"Content of Package ${`package`.interface.packageId.underlyingString}")
+    logger.info(s"Content of Package ${`package`.interface.packageId.toString}")
     `package`.modules.foreach(printTree(2))
   }
 
@@ -227,7 +227,7 @@ private[codegen] object InterfaceTree extends StrictLogging {
   }
 
   private final class InterfaceTreeBuilder(
-      val name: SimpleString,
+      val name: PackageId,
       children: mutable.HashMap[String, ModuleBuilder]) {
 
     def build(interface: Interface): InterfaceTree =
@@ -241,7 +241,7 @@ private[codegen] object InterfaceTree extends StrictLogging {
   }
 
   private object InterfaceTreeBuilder {
-    def fromPackageId(packageId: SimpleString) =
+    def fromPackageId(packageId: PackageId) =
       new InterfaceTreeBuilder(packageId, new mutable.HashMap())
   }
 }

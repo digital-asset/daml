@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.codegen
 
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{DottedName, QualifiedName, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.{DottedName, QualifiedName, PackageId}
 import com.digitalasset.daml.lf.iface.{DefDataType, Interface, InterfaceType, Record, Variant}
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -17,7 +17,7 @@ class InterfaceTreeSpec extends FlatSpec with Matchers {
 
   it should "traverse an empty tree" in {
     val interfaceTree =
-      InterfaceTree(Map.empty, Interface(SimpleString.assertFromString("packageid"), Map.empty))
+      InterfaceTree(Map.empty, Interface(PackageId.assertFromString("packageid"), Map.empty))
     interfaceTree.bfs(0)((x, _) => x + 1) shouldEqual 0
   }
 
@@ -31,7 +31,7 @@ class InterfaceTreeSpec extends FlatSpec with Matchers {
     val record2 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
     val typeDecls =
       Map(qualifiedName1 -> record1, qualifiedName2 -> variant1, qualifiedName3 -> record2)
-    val interface = new Interface(SimpleString.assertFromString("packageId2"), typeDecls)
+    val interface = new Interface(PackageId.assertFromString("packageId2"), typeDecls)
     val tree = InterfaceTree.fromInterface(interface)
     val result = tree.bfs(ArrayBuffer.empty[InterfaceType])((ab, n) =>
       n match {

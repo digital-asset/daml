@@ -35,7 +35,7 @@ object LfEngineToApi {
 
   def toApiIdentifier(identifier: Identifier) = {
     ApiIdentifier(
-      identifier.packageId.underlyingString,
+      identifier.packageId.toString,
       DeprecatedIdentifier.toString(identifier.qualifiedName),
       identifier.qualifiedName.module.toString(),
       identifier.qualifiedName.name.toString()
@@ -92,7 +92,7 @@ object LfEngineToApi {
       case Lf.ValueDate(d) => Right(ApiValue(ApiValue.Sum.Date(d.days)))
       case Lf.ValueTimestamp(t) => Right(ApiValue(ApiValue.Sum.Timestamp(t.micros)))
       case Lf.ValueInt64(i) => Right(ApiValue(ApiValue.Sum.Int64(i)))
-      case Lf.ValueParty(p) => Right(ApiValue(ApiValue.Sum.Party(p.underlyingString)))
+      case Lf.ValueParty(p) => Right(ApiValue(ApiValue.Sum.Party(p.toString)))
       case Lf.ValueText(t) => Right(ApiValue(ApiValue.Sum.Text(t)))
       case Lf.ValueOptional(o) => // TODO DEL-7054 add test coverage
         o.fold[Either[String, ApiValue]](

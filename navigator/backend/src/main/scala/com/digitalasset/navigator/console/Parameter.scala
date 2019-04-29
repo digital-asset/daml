@@ -71,7 +71,7 @@ final case class ParameterPackageId(name: String, description: String) extends P
   def paramName: String = s"<$name>"
   def completer(state: State): Completer = {
     val packageNames: List[String] = state.getPartyState
-      .map(s => s.packageRegistry.allPackages().toList.map(p => p.id.underlyingString))
+      .map(s => s.packageRegistry.allPackages().toList.map(p => p.id.toString))
       .getOrElse(List.empty)
     new StringsCompleter(packageNames.asJava)
   }

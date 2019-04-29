@@ -4,9 +4,9 @@
 package com.digitalasset.daml.lf.codegen.backend.java.inner
 import com.digitalasset.daml.lf.codegen.TypeWithContext
 import com.digitalasset.daml.lf.codegen.backend.java.JavaEscaper
-import com.digitalasset.daml.lf.data.Ref.SimpleString
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.iface.reader.InterfaceType.{Normal, Template}
-import com.digitalasset.daml.lf.iface.{DefDataType, PackageId, Record, Variant}
+import com.digitalasset.daml.lf.iface.{DefDataType, Record, Variant}
 import com.squareup.javapoet.{ClassName, FieldSpec, JavaFile, TypeSpec}
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
@@ -60,10 +60,10 @@ object ClassForType extends StrictLogging {
     JavaFile.builder(javaPackage, withField).build()
   }
 
-  private def createPackageIdField(packageId: SimpleString): FieldSpec = {
+  private def createPackageIdField(packageId: PackageId): FieldSpec = {
     FieldSpec
       .builder(classOf[String], "_packageId", Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
-      .initializer("$S", packageId.underlyingString)
+      .initializer("$S", packageId.toString)
       .build()
   }
 }

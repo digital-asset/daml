@@ -47,7 +47,7 @@ private[kvutils] object InputsAndEffects {
     */
   def computeInputs(tx: SubmittedTransaction): (List[DamlLogEntryId], List[DamlStateKey]) = {
     val packageInputs: List[DamlStateKey] = tx.usedPackages.map { pkgId =>
-      DamlStateKey.newBuilder.setPackageId(pkgId.underlyingString).build
+      DamlStateKey.newBuilder.setPackageId(pkgId.toString).build
     }.toList
 
     def addLogEntryInput(inputs: List[DamlLogEntryId], coid: ContractId): List[DamlLogEntryId] =

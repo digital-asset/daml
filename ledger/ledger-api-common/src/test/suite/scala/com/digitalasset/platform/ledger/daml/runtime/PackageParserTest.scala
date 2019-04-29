@@ -17,14 +17,14 @@ class PackageParserTest extends WordSpec with Matchers {
 
   "PackageParserTest" should {
     "successfully parse DAR file" in {
-      val Some(simpleString) =
-        Ref.SimpleString
+      val Some(pkgId) =
+        Ref.PackageId
           .fromString("497b17f4f5148e0a7102a5a402c3e35e67aa67a663520089922c677819ee4875")
           .right
           .toOption
       val result = PackageParser.parseDarOrDalf(() => getDarStream)
       result should matchPattern {
-        case Right((`simpleString`, Ast.Package(_))) =>
+        case Right((pkgId, Ast.Package(_))) =>
       }
     }
 

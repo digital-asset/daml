@@ -71,7 +71,7 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
         .flatMap { context =>
           val packageId = scenarioId.getPackage.getSumCase match {
             case PackageIdentifier.SumCase.SELF =>
-              context.homePackageId.underlyingString
+              context.homePackageId.toString
             case PackageIdentifier.SumCase.PACKAGE_ID =>
               scenarioId.getPackage.getPackageId
             case PackageIdentifier.SumCase.SUM_NOT_SET =>
@@ -204,7 +204,7 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
           )
 
           resp.addAllLoadedModules(ctx.loadedModules().map(_.toString).asJava)
-          resp.addAllLoadedPackages(ctx.loadedPackages().map(_.underlyingString).asJava)
+          resp.addAllLoadedPackages(ctx.loadedPackages().map(_.toString).asJava)
           respObs.onNext(resp.build)
           respObs.onCompleted()
 

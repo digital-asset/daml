@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.engine
 
 import java.io.File
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName, SimpleString}
+import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Time}
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
@@ -38,7 +38,7 @@ class LargeTransactionTest extends WordSpec with Matchers {
     "daml-lf/tests/LargeTransaction.dar")
   private[this] val largeTx = (largeTxId, largeTxPkg)
 
-  private[this] val party = SimpleString.assertFromString("party")
+  private[this] val party = Party.assertFromString("party")
 
   private def lookupPackage(pkgId: PackageId): Option[Ast.Package] = allPackages.get(pkgId)
 

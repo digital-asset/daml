@@ -50,11 +50,12 @@ object DamlOnXTransactionService {
       identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
-    : TransactionServiceGrpc.TransactionService with BindableService with TransactionServiceLogging =
+      esf: ExecutionSequencerFactory): TransactionServiceGrpc.TransactionService
+    with BindableService
+    with TransactionServiceLogging =
     new GrpcTransactionService(
       new DamlOnXTransactionService(indexService),
-      ledgerId.underlyingString,
+      ledgerId.toString,
       PartyNameChecker.AllowAllParties,
       identifierResolver
     ) with TransactionServiceLogging
@@ -81,7 +82,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
       request)
 
     val eventFilter = EventFilter.byTemplates(request.filter)
-    val ledgerId = Ref.SimpleString.assertFromString(request.ledgerId.unwrap)
+    val ledgerId = Ref.PackageId.assertFromString(request.ledgerId.unwrap)
     runTransactionPipeline(ledgerId, request.begin, request.end, request.filter)
       .mapConcat {
         case (offset, (trans, blindingInfo)) =>
@@ -119,7 +120,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
           transactionWithEventIds,
           blindingInfo.explicitDisclosure.map {
             case (nodeId, parties) =>
-              nodeIdToEventId(trans.transactionId, nodeId) -> parties.map(_.underlyingString)
+              nodeIdToEventId(trans.transactionId, nodeId) -> parties.map(_.toString)
           },
           verbose
         )
@@ -152,7 +153,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     val filter = TransactionFilter(request.parties.map(_ -> Filters.noFilter)(breakOut))
 
     runTransactionPipeline(
-      Ref.SimpleString.assertFromString(request.ledgerId.unwrap),
+      Ref.PackageId.assertFromString(request.ledgerId.unwrap),
       request.begin,
       request.end,
       filter,
@@ -219,7 +220,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     // FIXME(JM): Move to IndexService
 
     runTransactionPipeline(
-      Ref.SimpleString.assertFromString(ledgerId),
+      Ref.PackageId.assertFromString(ledgerId),
       LedgerOffset.LedgerBegin,
       Some(LedgerOffset.LedgerEnd),
       filter)
@@ -252,7 +253,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     // FIXME(JM): Move to IndexService
 
     runTransactionPipeline(
-      Ref.SimpleString.assertFromString(ledgerId),
+      Ref.PackageId.assertFromString(ledgerId),
       LedgerOffset.LedgerBegin,
       Some(LedgerOffset.LedgerEnd),
       filter)

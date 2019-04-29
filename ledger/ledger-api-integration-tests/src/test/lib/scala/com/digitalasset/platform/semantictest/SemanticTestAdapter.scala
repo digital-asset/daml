@@ -57,13 +57,13 @@ class SemanticTestAdapter(
       cmds
     )
 
-  override def submit(submitterName: Ref.SimpleString, cmds: Commands)
+  override def submit(submitterName: Ref.Party, cmds: Commands)
     : Future[Event.Events[String, Value.AbsoluteContractId, TxValue[Value.AbsoluteContractId]]] = {
     for {
       tx <- LedgerTestingHelpers
         .sync(lc.commandService.submitAndWaitForTransactionId, lc)
         .submitAndListenForSingleTreeResultOfCommand(
-          SubmitRequest(Some(apiCommand(submitterName.underlyingString, cmds))),
+          SubmitRequest(Some(apiCommand(submitterName.toString, cmds))),
           TransactionFilter(parties.map(_ -> Filters.defaultInstance)(breakOut)),
           true,
           true)

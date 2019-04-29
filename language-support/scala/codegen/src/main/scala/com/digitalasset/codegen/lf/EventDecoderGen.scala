@@ -43,13 +43,13 @@ object EventDecoderGen {
     // the ledger api still uses names with only dots in them, while QualifiedName.toString
     // separates the module and the name in the module with colon.
     def legacyDottedName(identifier: Identifier) = {
-      val Identifier(SimpleString(packageId), QualifiedName(module, name)) = identifier
-      s"${module.dottedName: String}.${name.dottedName: String}@${packageId: String}"
+      val Identifier(packageId, QualifiedName(module, name)) = identifier
+      s"${module.dottedName: String}.${name.dottedName: String}@${packageId.toString}"
     }
 
     val rawUnsupportedTemplates = unsupportedTemplates.map {
-      case tIdent @ Identifier(SimpleString(packageId), qualName) =>
-        q"(${qualName.qualifiedName}, ($packageId, ${legacyDottedName(tIdent)}))"
+      case tIdent @ Identifier(packageId, qualName) =>
+        q"(${qualName.qualifiedName}, (${packageId.toString}, ${legacyDottedName(tIdent)}))"
     }
 
     val decoder: Tree =

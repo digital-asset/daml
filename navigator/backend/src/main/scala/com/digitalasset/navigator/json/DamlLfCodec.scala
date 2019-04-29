@@ -3,6 +3,7 @@
 
 package com.digitalasset.navigator.json
 
+import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
 import com.digitalasset.navigator.{model => Model}
 import com.digitalasset.navigator.json.Util._
 import spray.json._
@@ -93,7 +94,7 @@ object DamlLfCodec {
   def damlLfIdentifierToJsValue(value: Model.DamlLfIdentifier): JsValue = JsObject(
     propName -> JsString(value.qualifiedName.name.toString()),
     propModule -> JsString(value.qualifiedName.module.toString()),
-    propPackage -> JsString(value.packageId.underlyingString)
+    propPackage -> JsString(value.packageId.toString)
   )
 
   def damlLfDataTypeToJsValue(value: Model.DamlLfDataType): JsValue = value match {
@@ -194,7 +195,7 @@ object DamlLfCodec {
 
   def jsValueToDamlLfIdentifier(value: JsValue): Model.DamlLfIdentifier =
     Model.DamlLfIdentifier(
-      Model.DamlLfPackageId.assertFromString(strField(value, propPackage, "DamlLfIdentifier")),
+      DamlLfRef.PackageId.assertFromString(strField(value, propPackage, "DamlLfIdentifier")),
       Model.DamlLfQualifiedName(
         Model.DamlLfDottedName.assertFromString(strField(value, propModule, "DamlLfIdentifier")),
         Model.DamlLfDottedName.assertFromString(strField(value, propName, "DamlLfIdentifier"))

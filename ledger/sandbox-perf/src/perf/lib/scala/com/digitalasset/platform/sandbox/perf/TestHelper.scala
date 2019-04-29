@@ -38,13 +38,13 @@ trait TestHelper {
   val party = "party"
   val rangeOfIntsTemplateId =
     Identifier(
-      packageId = largeTxPackageId.underlyingString,
+      packageId = largeTxPackageId.toString,
       name = "LargeTransaction.RangeOfInts",
       moduleName = "LargeTransaction",
       entityName = "RangeOfInts")
 
   val listUtilTemplateId = Identifier(
-    packageId = largeTxPackageId.underlyingString,
+    packageId = largeTxPackageId.toString,
     name = "LargeTransaction.ListUtil",
     moduleName = "LargeTransaction",
     entityName = "ListUtil")

@@ -29,16 +29,11 @@ trait TransactionConversion {
       explicitDisclosure: Relation[EventId, Party],
       verbose: Boolean = false): TransactionTreeNodes = {
     val disclosure: Map[EventId, Set[LfRef.Party]] =
-      explicitDisclosure.mapValues(parties => parties.map(convert))
+      explicitDisclosure.mapValues(parties => parties.map(LfRef.Party.assertFromString))
     val events = engine.Event.collectEvents(transaction, disclosure)
     eventsToTransaction(events, verbose)
   }
-
-  private def convert(p: Party): LfRef.Party = LfRef.Party.assertFromString(p)
-
-  private def convert(p: LfRef.Party): Party = p.underlyingString
-
-  private def convert(ps: Set[LfRef.Party]): Seq[Party] = ps.map(convert)(breakOut)
+  private def convert(ps: Set[LfRef.Party]): Seq[Party] = ps.map(_.toString)(breakOut)
 
   def eventsToTransaction(
       allEvents: P.Events[EventId, AbsoluteContractId],
@@ -152,7 +147,9 @@ trait TransactionConversion {
       explicitDisclosure: Relation[EventId, Party],
       verbose: Boolean = false): List[Event] = {
     val events = engine.Event
-      .collectEvents(transaction, explicitDisclosure.mapValues(parties => parties.map(convert)))
+      .collectEvents(
+        transaction,
+        explicitDisclosure.mapValues(parties => parties.map(LfRef.Party.assertFromString)))
     val allEvents = events.roots.toSeq
       .sortBy(getEventIndex)
       .foldLeft(List.empty[Event])((l, evId) => l ::: flattenEvents(events.events, evId, verbose))

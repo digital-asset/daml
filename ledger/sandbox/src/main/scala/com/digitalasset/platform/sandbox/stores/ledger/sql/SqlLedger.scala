@@ -228,7 +228,7 @@ private class SqlLedger(
         .map {
           case (nodeId, party) =>
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> party.map(
-              _.underlyingString)
+              _.toString)
         }
 
       LedgerEntry.Transaction(

@@ -23,13 +23,16 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
 
   val id: Parser[String] = accept("Identifier", { case Id(s) => s })
   val text: Parser[String] = accept("Text", { case Text(s) => s })
-  val simple: Parser[Ref.SimpleString] = accept("SimpleString", { case SimpleString(s) => s })
+  val pkgId: Parser[Ref.PackageId] = accept("PackageId", {
+    case SimpleString(s) if Ref.PackageId.fromString(s).isRight =>
+      Ref.PackageId.assertFromString(s)
+  })
 
   val dottedName: Parser[DottedName] =
     rep1sep(id, `.`) ^^ (s => DottedName(ImmArray(s)))
 
   val fullIdentifier: Parser[Identifier] =
-    opt(simple <~ `:`) ~ dottedName ~ `:` ~ dottedName ^^ {
+    opt(pkgId <~ `:`) ~ dottedName ~ `:` ~ dottedName ^^ {
       case pkgId ~ modName ~ _ ~ name =>
         Identifier(pkgId.getOrElse(defaultPkgId), QualifiedName(modName, name))
     }

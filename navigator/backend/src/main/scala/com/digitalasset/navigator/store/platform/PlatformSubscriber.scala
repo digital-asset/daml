@@ -9,6 +9,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.stream._
 import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
 import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
 import com.digitalasset.daml.lf.archive.Reader
 import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
@@ -262,7 +263,7 @@ class PlatformSubscriber(ledgerClient: LedgerClient, party: PartyState, applicat
     ledgerClient.packageClient.listPackages
       .flatMap(response => {
         Future.traverse(response.packageIds)(id => {
-          party.packageRegistry.pack(id) match {
+          party.packageRegistry.pack(DamlLfRef.PackageId.assertFromString(id)) match {
             case Some(pack) =>
               Future.successful(None)
             case None =>
@@ -289,7 +290,7 @@ class PlatformSubscriber(ledgerClient: LedgerClient, party: PartyState, applicat
     val payload = DamlLf.ArchivePayload.parseFrom(cos)
     val (errors, out) =
       InterfaceReader.readInterface(() =>
-        \/-((DamlLfPackageId.assertFromString(res.hash), payload.getDamlLf1)))
+        \/-((DamlLfRef.PackageId.assertFromString(res.hash), payload.getDamlLf1)))
     if (!errors.equals(Errors.zeroErrors)) {
       log.error("Errors loading package {}: {}", res.hash, errors.toString)
     }

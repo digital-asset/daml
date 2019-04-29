@@ -22,7 +22,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
   private val languageVersion = LanguageVersion(V1, minor)
 
-  override def decodePackage(packageId: SimpleString, lfPackage: PLF.Package): Package =
+  override def decodePackage(packageId: PackageId, lfPackage: PLF.Package): Package =
     Package(lfPackage.getModulesList.asScala.map(ModuleDecoder(packageId, _).decode))
 
   private[this] def eitherToParseError[A](x: Either[String, A]): A = {
@@ -36,7 +36,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
     }
   }
 
-  case class ModuleDecoder(val packageId: SimpleString, val lfModule: PLF.Module) {
+  case class ModuleDecoder(val packageId: PackageId, val lfModule: PLF.Module) {
     import LanguageMinorVersion.Implicits._
 
     val moduleName = eitherToParseError(
@@ -271,7 +271,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
         case PLF.PackageRef.SumCase.SELF =>
           (this.packageId, modName)
         case PLF.PackageRef.SumCase.PACKAGE_ID =>
-          val pkgId = SimpleString
+          val pkgId = PackageId
             .fromString(lfRef.getPackageRef.getPackageId)
             .getOrElse(throw ParseError(s"invalid packageId '${lfRef.getPackageRef.getPackageId}'"))
           (pkgId, modName)
@@ -636,7 +636,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
         case PLF.PrimLit.SumCase.TEXT =>
           PLText(lfPrimLit.getText)
         case PLF.PrimLit.SumCase.PARTY =>
-          val p = SimpleString
+          val p = Party
             .fromString(lfPrimLit.getParty)
             .getOrElse(throw ParseError(s"invalid party '${lfPrimLit.getParty}'"))
           PLParty(p)
