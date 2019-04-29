@@ -6,12 +6,7 @@
 The standard library
 ====================
 
-The DAML standard library is a collection of DAML modules organised in domains
-that can be used to implement concrete applications.
-
-This page covers the Base domain, which contains various modules with
-common definitions and helper functions.
-
+The DAML standard library is a collection of DAML modules that can be used to implement concrete applications.
 
 Usage
 *****
@@ -24,4 +19,5 @@ You can import modules from the standard library just like your own, e.g.:
 .. code-block:: daml
 
   import DA.Optional
+  import DA.Time
 
