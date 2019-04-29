@@ -19,6 +19,7 @@ module Development.IDE.Types.Diagnostics (
   Uri(..),
   noLocation,
   noRange,
+  noFilePath,
   ideErrorText,
   ideErrorPretty,
   errorDiag,

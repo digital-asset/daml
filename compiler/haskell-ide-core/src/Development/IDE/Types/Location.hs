@@ -12,20 +12,24 @@ module Development.IDE.Types.Location
     , Location(..)
     , appendLocation
     , noLocation
+    , noFilePath
     , noRange
     , Position(..)
     , Range(..)
     , appendRange
     ) where
 
-import Language.Haskell.LSP.Types (Location(..), Range(..), Position(..), Uri(..))
+import Language.Haskell.LSP.Types (Location(..), Range(..), Position(..), Uri(..), filePathToUri)
 
 -- | A dummy location to use when location information is missing.
 noLocation :: Location
 noLocation = Location
-    { _uri = Uri "<unknown>"
+    { _uri = filePathToUri noFilePath
     , _range = noRange
     }
+
+noFilePath :: FilePath
+noFilePath = "<unknown>"
 
 -- A dummy range to use when range is unknown
 noRange :: Range

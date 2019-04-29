@@ -256,7 +256,8 @@ cursorPosition :: Cursor -> D.Position
 cursorPosition (_absPath,  line,  col) = D.Position line col
 
 locationStartCursor :: D.Location -> Cursor
-locationStartCursor (D.Location path (D.Range (D.Position line col) _)) = (fromJust $ uriToFilePath path, line, col)
+locationStartCursor (D.Location path (D.Range (D.Position line col) _)) =
+    (fromMaybe D.noFilePath $ uriToFilePath path, line, col)
 
 -- | Same as Cursor, but passing a list of columns, so you can specify a range
 -- such as (foo,1,[10..20]).
