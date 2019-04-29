@@ -6,8 +6,6 @@ package com.daml.ledger.participant.state.v1
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 
-import scala.concurrent.Future
-
 /** An interface for reading the state of a ledger participant.
   *
   * The state of a ledger participant is communicated as a stream of state
@@ -26,11 +24,13 @@ trait ReadService {
   /** Retrieve the static initial conditions of the ledger, containing
     * the ledger identifier and the initial the ledger record time.
     *
-    * Returns a future since the implementation may need to first establish
-    * connectivity to the underlying ledger. The implementer may assume that
-    * this method is called only once, or very rarely.
+    * Returns a single element Source since the implementation may need to
+    * first establish connectivity to the underlying ledger. The implementer
+    * may assume that this method is called only once, or very rarely.
+    * Source is being used instead of Future as this is in line with [[stateUpdates]],
+    * and is easy to implement from both Java and Scala.
     */
-  def getLedgerInitialConditions(): Future[LedgerInitialConditions]
+  def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed]
 
   /** Get the stream of state [[Update]]s starting from the beginning or right
     * after the given [[Offset]]
