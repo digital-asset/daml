@@ -80,7 +80,10 @@ private class PostgresLedgerDao(
       )
       .map(_ => ())(DirectExecutionContext)
 
-  //TODO: casting is not nice, shall we have a table for the params instead?
+  // TODO: casting is not nice, shall we have a table for the params instead?
+  // Note that the ledger entries grow monotonically, however we store many ledger entries in parallel,
+  // and thus we need to make sure to only update the ledger end when the ledger entry we're committing
+  // is advancing it.
   private val SQL_UPDATE_LEDGER_END = SQL(
     s"update parameters set value = {v} where key = '$LedgerEndKey' and CAST(value as INTEGER) < CAST({v} as INTEGER)")
 
