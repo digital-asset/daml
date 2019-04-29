@@ -32,7 +32,11 @@ Running with persistence
 
 By default, Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. If you want to keep the state, you can use a Postgres database for persistence. This allows you to shut down Sandbox and start it up later, continuing where it left off.
 
-The application has to have access to an initially empty database, and the database user needs to have authority to execute DDL operations as the Sandbox manages its own database schema, applying migrations if necessary when upgrading versions. 
+To set this up, you must:
+- create an initially empty Postgres database that the Sandbox application can access 
+- have a database user for Sandbox that has authority to execute DDL operations 
+
+  This is because the Sandbox manages its own database schema, applying migrations if necessary when upgrading versions. 
 
 In order to start the Sandox using persistence you need to pass an ``--jdbcurl <value>`` option, where `<value>` is a valid jdbc url containing the username, password and database name to connect to. Here is an example for such a url: ``jdbc:postgresql://localhost/test?user=fred&password=secret``
 
