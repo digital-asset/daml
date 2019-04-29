@@ -30,7 +30,7 @@ Here, ``da run sandbox --`` tells the SDK Assistant to run ``sandbox`` from the 
 Running with persistence
 ************************
 
-By default the Sandbox uses an in-memory store and as such it loses its state when stopped or restarted. There is a possibility to use a Postgres database for persistence, which allows the Sandbox to be shut down and continued later where it left off.
+By default, Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. If you want to keep the state, you can use a Postgres database for persistence. This allows you to shut down Sandbox and start it up later, continuing where it left off.
 
 The application has to have access to an initially empty database, and the database user needs to have authority to execute DDL operations as the Sandbox manages its own database schema, applying migrations if necessary when upgrading versions. 
 
