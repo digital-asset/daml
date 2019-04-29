@@ -43,7 +43,10 @@ private[kvutils] object InputsAndEffects {
     * and packages.
     */
   def computeInputs(tx: SubmittedTransaction): (List[DamlLogEntryId], List[DamlStateKey]) = {
-    // FIXME(JM): Get referenced packages from the transaction (once they're added to it)
+    val packageInputs: List[DamlStateKey] = tx.usedPackages.map { pkgId =>
+      DamlStateKey.newBuilder.setPackageId(pkgId.underlyingString).build
+    }.toList
+
     def addInput(inputs: List[DamlLogEntryId], coid: ContractId): List[DamlLogEntryId] =
       coid match {
         case acoid: AbsoluteContractId =>
@@ -52,7 +55,7 @@ private[kvutils] object InputsAndEffects {
           inputs
       }
 
-    tx.fold(GenTransaction.TopDown, (List.empty[DamlLogEntryId], List.empty[DamlStateKey])) {
+    tx.fold(GenTransaction.TopDown, (List.empty[DamlLogEntryId], packageInputs)) {
       case ((logEntryInputs, stateInputs), (nodeId, node)) =>
         node match {
           case fetch: NodeFetch[ContractId] =>

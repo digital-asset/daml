@@ -18,7 +18,6 @@ import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ReferenceCommandService
 import com.digitalasset.platform.server.services.identity.LedgerIdentityServiceImpl
-import com.digitalasset.platform.server.services.testing.{ReferenceTimeService, TimeServiceBackend}
 import io.grpc.BindableService
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -32,11 +31,7 @@ import scala.concurrent.duration._
 object Server {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  def apply(
-      serverPort: Int,
-      indexService: IndexService,
-      writeService: WriteService,
-      tsb: TimeServiceBackend /* FIXME(JM): Remove */ )(
+  def apply(serverPort: Int, indexService: IndexService, writeService: WriteService)(
       implicit materializer: ActorMaterializer): Server = {
     implicit val serverEsf: AkkaExecutionSequencerPool =
       new AkkaExecutionSequencerPool(
@@ -52,7 +47,7 @@ object Server {
     new Server(
       serverEsf,
       serverPort,
-      createServices(indexService, writeService, tsb),
+      createServices(indexService, writeService),
     )
   }
 
@@ -71,10 +66,7 @@ object Server {
     )
   }
 
-  private def createServices(
-      indexService: IndexService,
-      writeService: WriteService,
-      tsb: TimeServiceBackend)(
+  private def createServices(indexService: IndexService, writeService: WriteService)(
       implicit mat: ActorMaterializer,
       serverEsf: ExecutionSequencerFactory): List[BindableService] = {
     implicit val ec: ExecutionContext = mat.system.dispatcher
@@ -135,11 +127,7 @@ object Server {
 
     val packageService = DamlOnXPackageService(indexService, ledgerId.underlyingString)
 
-    val timeService = ReferenceTimeService(
-      ledgerId.underlyingString,
-      tsb,
-      false
-    )
+    val timeService = new DamlOnXTimeService(indexService)
 
     val configurationService = DamlOnXLedgerConfigurationService(
       indexService

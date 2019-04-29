@@ -329,8 +329,16 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     commitActorRef ! Kill
   }
 
-  private def getLogEntry(state: State, entryId: DamlLogEntryId): DamlLogEntry =
-    DamlLogEntry.parseFrom(state.store(entryId.getEntryId))
+  private def getLogEntry(state: State, entryId: DamlLogEntryId): DamlLogEntry = {
+    DamlLogEntry
+      .parseFrom(
+        state.store
+          .getOrElse(
+            entryId.getEntryId,
+            sys.error(s"getLogEntry: Cannot find ${KeyValueCommitting.prettyEntryId(entryId)}!")
+          )
+      )
+  }
 
   private def getDamlState(state: State, key: DamlStateKey): Option[DamlStateValue] =
     state.store
@@ -338,7 +346,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
       .map(DamlStateValue.parseFrom)
 
   private def allocateEntryId(): DamlLogEntryId = {
-    val nonce: Array[Byte] = Array.ofDim(16)
+    val nonce: Array[Byte] = Array.ofDim(8)
     rng.nextBytes(nonce)
     DamlLogEntryId.newBuilder
       .setEntryId(NS_LOG_ENTRIES.concat(ByteString.copyFrom(nonce)))

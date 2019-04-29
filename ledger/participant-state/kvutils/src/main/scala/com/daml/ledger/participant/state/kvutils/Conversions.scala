@@ -33,7 +33,7 @@ private[kvutils] object Conversions {
 
   def toAbsCoid(txId: DamlLogEntryId, coid: ContractId): AbsoluteContractId = {
     val hexTxId =
-      BaseEncoding.base16.encode(txId.toByteArray)
+      BaseEncoding.base16.encode(txId.getEntryId.toByteArray)
     coid match {
       case a @ AbsoluteContractId(_) => a
       case RelativeContractId(txnid) =>
@@ -47,7 +47,7 @@ private[kvutils] object Conversions {
     acoid.coid.split(':').toList match {
       case hexTxId :: nodeId :: Nil =>
         DamlLogEntryId.newBuilder
-          .setEntryId(ByteString.copyFrom(BaseEncoding.base16().decode(hexTxId)))
+          .setEntryId(ByteString.copyFrom(BaseEncoding.base16.decode(hexTxId)))
           .build -> nodeId.toInt
       case _ => sys.error(s"decodeAbsoluteContractId: Cannot decode '$acoid'")
     }
@@ -58,8 +58,10 @@ private[kvutils] object Conversions {
         DamlStateKey.newBuilder
           .setContractId(
             DamlContractId.newBuilder
-              .setEntryId(DamlLogEntryId.newBuilder.setEntryId(
-                ByteString.copyFrom(BaseEncoding.base16().decode(hexTxId))))
+              .setEntryId(
+                DamlLogEntryId.newBuilder
+                  .setEntryId(ByteString.copyFrom(BaseEncoding.base16.decode(hexTxId)))
+                  .build)
               .setNodeId(nodeId.toLong)
               .build
           )

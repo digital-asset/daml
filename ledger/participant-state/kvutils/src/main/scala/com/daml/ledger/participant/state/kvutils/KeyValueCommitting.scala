@@ -51,7 +51,7 @@ object KeyValueCommitting {
     * @param recordTime: Record time at which this log entry is committed.
     * @param submission: Submission to commit to the ledger.
     * @param inputLogEntries: Resolved input log entries specified in submission.
-    * @param inputState: Resolved input state specified in submission. Potentially not all keys present.
+    * @param inputState: Resolved input state specified in submission. Potentially not all keys present, hence optional.
     * @return Log entry to be committed and the DAML state updates to be applied.
     */
   def processSubmission(
@@ -69,6 +69,9 @@ object KeyValueCommitting {
       case DamlSubmission.PayloadCase.ARCHIVE =>
         val archive = submission.getArchive
         val key = DamlStateKey.newBuilder.setPackageId(archive.getHash).build
+        // TODO(JM): We're duplicating the archive data. This way we don't have an indirection
+        // to fetch by packageId or when building [[Update]], and we don't have to declare
+        // the log entry containing the archive as an input (which would be messy).
         logger.trace(
           s"processSubmission[entryId=${prettyEntryId(entryId)}]: Package ${archive.getHash} committed.")
         (
@@ -77,7 +80,7 @@ object KeyValueCommitting {
             .setArchive(archive)
             .build,
           Map(
-            key -> DamlStateValue.newBuilder.setArchiveEntry(entryId).build
+            key -> DamlStateValue.newBuilder.setArchive(archive).build
           )
         )
       case DamlSubmission.PayloadCase.CONFIGURATION_ENTRY =>
@@ -142,9 +145,26 @@ object KeyValueCommitting {
       val (eid, nid) = absoluteContractIdToLogEntryId(coid)
       val stateKey = absoluteContractIdToStateKey(coid)
       for {
-        contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState))
-        if txLet > parseTimestamp(contractState.getActiveAt) && !contractState.hasActiveAt
-        entry <- inputLogEntries.get(eid)
+        contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState)).orElse {
+          tracelog(s"lookupContract($coid): Contract state not found!")
+          None
+        }
+        _ <- if (contractState.hasActiveAt && txLet >= parseTimestamp(contractState.getActiveAt))
+          Some(())
+        else {
+          val activeAtStr =
+            if (contractState.hasActiveAt)
+              parseTimestamp(contractState.getActiveAt).toString
+            else "<activeAt missing>"
+          tracelog(
+            s"lookupContract($coid): Contract not active (let=$txLet, activeAt=$activeAtStr).")
+          None
+        }
+
+        entry <- inputLogEntries.get(eid).orElse {
+          tracelog(s"lookupContract($coid): Log entry ${prettyEntryId(eid)} not found!")
+          None
+        }
         coinst <- lookupContractInstanceFromLogEntry(eid, entry, nid)
       } yield (coinst)
     }
@@ -155,21 +175,26 @@ object KeyValueCommitting {
     def lookupPackage(pkgId: PackageId) = {
       val stateKey = DamlStateKey.newBuilder.setPackageId(pkgId.underlyingString).build
       for {
-        optValue <- inputState.get(stateKey)
-        value <- optValue
-        entry <- inputLogEntries.get(value.getArchiveEntry)
-        pkg <- entry.getPayloadCase match {
-          case DamlLogEntry.PayloadCase.ARCHIVE =>
+        value <- inputState
+          .get(stateKey)
+          .flatten
+          .orElse {
+            tracelog(s"lookupPackage($pkgId) not found!")
+            None
+          }
+        pkg <- value.getValueCase match {
+          case DamlStateValue.ValueCase.ARCHIVE =>
             // NOTE(JM): Engine only looks up packages once, compiles and caches,
             // provided that the engine instance is persisted.
-            Try(Decode.decodeArchive(entry.getArchive)).toEither match {
+            Try(Decode.decodeArchive(value.getArchive)).toEither match {
               case Left(err) =>
-                tracelog(s"decoding of $pkgId failed: $err")
+                tracelog(s"lookupPackage($pkgId): decoding failed: $err")
                 None
               case Right((_, pkg)) =>
                 Some(pkg)
             }
           case _ =>
+            tracelog(s"lookupPackage($pkgId): value not a DAML-LF archive!")
             None
         }
       } yield pkg
@@ -208,7 +233,7 @@ object KeyValueCommitting {
         // Update contract state entries to mark contracts as consumed (checked by step 3 above)
         effects.consumedContracts.foreach { key =>
           val cs = inputState(key).fold(DamlContractState.newBuilder)(_.getContractState.toBuilder) // FIXME(JM): Previous contract state should always be there
-          cs.setArchivedAt(buildTimestamp(recordTime))
+          cs.setArchivedAt(buildTimestamp(txLet))
           cs.setArchivedByEntry(entryId)
           stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs.build).build
         }
@@ -216,12 +241,12 @@ object KeyValueCommitting {
         // Add contract state entries to mark contract activeness (checked by step 3 above)
         effects.createdContracts.foreach { key =>
           val cs = DamlContractState.newBuilder
-          cs.setActiveAt(buildTimestamp(recordTime))
+          cs.setActiveAt(buildTimestamp(txLet))
           stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs).build
         }
 
         tracelog(
-          s"accepted. ${effects.createdContracts} created and ${effects.consumedContracts} contracts consumed."
+          s"accepted. ${effects.createdContracts.size} created and ${effects.consumedContracts.size} contracts consumed."
         )
 
         (
@@ -241,9 +266,7 @@ object KeyValueCommitting {
       txEntry: DamlTransactionEntry,
       reason: RejectionReason): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
 
-    def buildRejectionEntry(
-        txEntry: DamlTransactionEntry,
-        reason: RejectionReason): DamlRejectionEntry = {
+    val rejectionEntry = {
       val builder = DamlRejectionEntry.newBuilder
       builder
         .setSubmitterInfo(txEntry.getSubmitterInfo)
@@ -270,9 +293,7 @@ object KeyValueCommitting {
     (
       DamlLogEntry.newBuilder
         .setRecordTime(buildTimestamp(recordTime))
-        .setRejectionEntry(
-          buildRejectionEntry(txEntry, RejectionReason.DuplicateCommand)
-        )
+        .setRejectionEntry(rejectionEntry)
         .build,
       Map.empty
     )
@@ -300,6 +321,11 @@ object KeyValueCommitting {
     val relTx = Conversions.decodeTransaction(entry.getTransactionEntry.getTransaction)
     relTx.nodes
       .get(NodeId.unsafeFromIndex(nodeId))
+      .orElse {
+        logger.trace(
+          "lookupContractInstanceFromLogEntry: Cannot find node $nodeId from ${prettyEntryId(entryId)}!")
+        None
+      }
       .flatMap { node: Transaction.Node =>
         node match {
           case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
@@ -309,13 +335,13 @@ object KeyValueCommitting {
               )
             )
           case n =>
-            logger.error(s"lookupContractInstanceFromLogEntry: node was not create: $n")
+            logger.error(s"lookupContractInstanceFromLogEntry: node was not a create: $n")
             None
         }
       }
   }
 
   def prettyEntryId(entryId: DamlLogEntryId): String =
-    BaseEncoding.base64.encode(entryId.getEntryId.toByteArray)
+    BaseEncoding.base16.encode(entryId.getEntryId.toByteArray)
 
 }

@@ -4,7 +4,6 @@
 package com.daml.ledger.api.server.damlonx.reference
 
 import java.io.{File, FileWriter}
-import java.time.Instant
 import java.util.zip.ZipFile
 
 import akka.NotUsed
@@ -21,8 +20,6 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.platform.server.services.testing.TimeServiceBackend
-import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
@@ -75,8 +72,6 @@ object ReferenceServer extends App {
         Supervision.Stop
       })
 
-  val timeModel = TimeModel.reasonableDefault
-  val tsb = TimeServiceBackend.simple(Instant.EPOCH)
   val ledger = new InMemoryKVParticipantState
   //val ledger = new Ledger(timeModel, tsb)
   def archivesFromDar(file: File): List[Archive] = {
@@ -104,7 +99,6 @@ object ReferenceServer extends App {
       serverPort = config.port,
       indexService = indexService,
       writeService = ledger,
-      tsb
     )
 
     // If port file was provided, write out the allocated server port to it.

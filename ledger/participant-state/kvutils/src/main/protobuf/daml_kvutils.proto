@@ -145,8 +145,7 @@ message DamlStateValue {
   oneof value {
     google.protobuf.Empty empty = 1;
 
-    // Log entry containing the DAML-LF archive.
-    DamlLogEntryId archive_entry = 2;
+    daml_lf.Archive archive = 2;
 
     // A contract activeness state.
     DamlContractState contract_state = 3;
