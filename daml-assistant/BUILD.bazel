@@ -76,6 +76,7 @@ da_haskell_binary(
     hazel_deps = [
         "base",
         "directory",
+        "extra",
         "filepath",
         "process",
         "safe-exceptions",

@@ -46,7 +46,7 @@ dispatch info = subcommand
 commandParser :: [SdkCommandInfo] -> Parser Command
 commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
     [ subparser -- visible commands
-        $  builtin "version" "Display the current DAML SDK version in use" mempty (pure Version <**> helper)
+        $  builtin "version" "Display DAML version information" mempty (pure Version <**> helper)
         <> builtin "install" "Install the specified DAML SDK version" mempty (Install <$> installParser <**> helper)
         <> foldMap dispatch visible
     , subparser -- hidden commands

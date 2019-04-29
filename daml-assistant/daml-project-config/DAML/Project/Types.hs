@@ -66,6 +66,9 @@ versionToString = V.toString . unwrapSdkVersion
 versionToText :: SdkVersion -> Text
 versionToText = V.toText . unwrapSdkVersion
 
+isHeadVersion :: SdkVersion -> Bool
+isHeadVersion v = "0.0.0" == versionToString v
+
 data InvalidVersion = InvalidVersion
     { ivSource :: !Text -- ^ invalid version
     , ivMessage :: !String -- ^ error message

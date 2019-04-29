@@ -42,6 +42,7 @@ getDamlEnv = do
     envProjectPath <- getProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath
         envDamlAssistantSdkVersion envProjectPath
+    envLatestStableSdkVersion <- fmap eitherToMaybe (try getLatestVersion :: IO (Either AssistantError SdkVersion))
     pure Env {..}
 
 -- | Determine the viability of running sdk commands in the environment.
