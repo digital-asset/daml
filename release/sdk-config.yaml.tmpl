@@ -1,50 +1,36 @@
 version: __VERSION__
 commands:
-- name: compile
-  path: damlc/da-hs-damlc-app
-  args: ["compile"]
-  desc: "Compile a DAML file"
-- name: package
-  path: damlc/da-hs-damlc-app
-  args: ["package-new"]
-  desc: "Compile a DAML project into a DAR"
-- name: init
-  path: damlc/da-hs-damlc-app
-  args: ["init"]
-  desc: "Initialize a DAML project"
+- name: studio
+  path: daml-helper/daml-helper
+  desc: "Launch DAML Studio"
+  args: ["studio"]
+- name: new
+  path: daml-helper/daml-helper
+  desc: "Create a new DAML project"
+  args: ["new"]
 - name: build
   path: damlc/da-hs-damlc-app
   args: ["build"]
-  desc: "Initialize, build and package a DAML project"
-- name: test
-  path: damlc/da-hs-damlc-app
-  args: ["test"]
-  desc: "Run the scenarios in the given DAML file and all dependencies"
-- name: ide
-  path: damlc/da-hs-damlc-app
-  args: ["lax", "ide"]
-  desc: "Run the DAML language server"
-- name: studio
-  path: daml-helper/daml-helper
-  desc: "Launch DAML studio"
-  args: ["studio"]
-- name: sandbox
-  path: daml-helper/daml-helper
-  desc: "Start the sandbox"
-  args: ["run-jar", "sandbox/sandbox.jar"]
-- name: navigator
-  path: daml-helper/daml-helper
-  desc: "Start the navigator"
-  args: ["run-jar", "navigator/navigator.jar"]
-- name: extractor
-  path: daml-helper/daml-helper
-  desc: "Start the extractor"
-  args: ["run-jar", "extractor/extractor.jar"]
-- name: new
-  path: daml-helper/daml-helper
-  desc: "Create a new project"
-  args: ["new"]
+  desc: "Build the current DAML project into a DAR file"
 - name: start
   path: daml-helper/daml-helper
   args: ["start"]
-  desc: "Start the sandbox and the navigator using the given DAR"
+  desc: "Launch Sandbox and Navigator for current DAML project"
+- name: damlc
+  path: damlc/da-hs-damlc-app
+  desc: "Run the DAML compiler"
+- name: sandbox
+  path: daml-helper/daml-helper
+  desc: "Launch the Sandbox"
+  args: ["run-jar", "sandbox/sandbox.jar"]
+- name: navigator
+  path: daml-helper/daml-helper
+  desc: "Launch the Navigator"
+  args: ["run-jar", "navigator/navigator.jar"]
+- name: extractor
+  path: daml-helper/daml-helper
+  desc: "Launch the Extractor"
+  args: ["run-jar", "extractor/extractor.jar"]
+- name: ide
+  path: damlc/da-hs-damlc-app
+  args: ["lax", "ide"]

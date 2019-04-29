@@ -49,6 +49,7 @@ function build-full() {
     # FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
     bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_full_execution_windows.log `
         //release:sdk-release-tarball `
+        //release/windows-installer:windows-installer `
         //:git-revision `
         @com_github_grpc_grpc//:grpc `
         //3rdparty/... `

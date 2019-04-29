@@ -19,11 +19,11 @@ import com.digitalasset.navigator.time._
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement,
-  TlsConfiguration
+  LedgerIdRequirement
 }
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.ledger.api.refinements.{ApiTypes, IdGenerator}
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.LedgerClient

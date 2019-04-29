@@ -8,12 +8,16 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
-
+- Add support for using a Postgres database as a back end for the Sandbox, which gives you persistent data storage. See more at: https://docs.daml.com/tools/sandbox.html
 - Add documentation for :doc:`/daml-integration-kit/index`, which explains
   what the DAML Integration Kit is, what state it is in, and how it is going
   to evolve.
+- Add Ledger API Test Tool, see :doc:`Ledger API Test Tool
+  </tools/ledger-api-test-tool/index>`.
 - Remove DAML-LF Dev major version, ``--target dev`` option, and sandbox ``--allow-dev``
   option.  A "1.dev" target will handle the intended "Dev" use cases in a future release.
+- Include list of DAML packages used during interpretation in the produced transaction.
+- Release source jars for scala libraries.
 
 0.12.11 - 2019-04-26
 --------------------

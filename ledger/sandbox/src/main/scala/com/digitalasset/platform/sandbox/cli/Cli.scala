@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.cli
 import java.io.File
 import java.time.Duration
 
-import com.digitalasset.ledger.client.configuration.TlsConfiguration
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.LedgerIdMode.Predefined
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -102,7 +102,6 @@ object Cli {
 
     opt[String]("jdbcurl")
       .optional()
-      .hidden()
       .text("The JDBC connection URL to a Postgres database containing the username and password as well. If missing the Sandbox will use an in memory store.")
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
 

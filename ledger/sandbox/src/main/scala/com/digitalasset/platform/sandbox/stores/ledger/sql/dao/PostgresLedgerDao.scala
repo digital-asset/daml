@@ -159,8 +159,8 @@ private class PostgresLedgerDao(
       .execute()
 
   private val SQL_INSERT_CONTRACT =
-    """insert into contracts(id, transaction_id, workflow_id, package_id, module_name, entity_name, create_offset, contract, key)
-      |values({id}, {transaction_id}, {workflow_id}, {package_id}, {module_name}, {entity_name}, {create_offset}, {contract}, {key})""".stripMargin
+    """insert into contracts(id, transaction_id, workflow_id, package_id, name, create_offset, contract, key)
+      |values({id}, {transaction_id}, {workflow_id}, {package_id}, {name}, {create_offset}, {contract}, {key})""".stripMargin
 
   private val SQL_INSERT_CONTRACT_WITNESS =
     "insert into contract_witnesses(contract_id, witness) values({contract_id}, {witness})"
@@ -180,8 +180,7 @@ private class PostgresLedgerDao(
               "transaction_id" -> c.transactionId,
               "workflow_id" -> c.workflowId,
               "package_id" -> c.coinst.template.packageId.underlyingString,
-              "module_name" -> c.coinst.template.qualifiedName.module.dottedName,
-              "entity_name" -> c.coinst.template.qualifiedName.name.dottedName,
+              "name" -> c.coinst.template.qualifiedName.toString,
               "create_offset" -> offset,
               "contract" -> contractSerializer
                 .serialiseContractInstance(c.coinst)
@@ -658,18 +657,45 @@ private class PostgresLedgerDao(
   private val SQL_GET_LEDGER_ENTRIES = SQL(
     "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
 
-  //TODO we should use paging instead, check if Alpakka can do that?
+  // Note that here we are reading, non transactionally, the stream in chunks. The reason why this is
+  // safe is that
+  // * The ledger entries are never removed;
+  // * We fix the ledger end at the beginning.
+  private def paginatingStream[T](
+      startInclusive: Long,
+      endExclusive: Long,
+      pageSize: Int,
+      queryPage: (Long, Long) => Source[T, NotUsed]): Source[T, NotUsed] =
+    Source
+      .lazily[T, NotUsed] { () =>
+        if (endExclusive - startInclusive <= pageSize)
+          queryPage(startInclusive, endExclusive)
+        else
+          queryPage(startInclusive, startInclusive + pageSize)
+            .concat(paginatingStream(startInclusive + pageSize, endExclusive, pageSize, queryPage))
+      }
+      .mapMaterializedValue(_ => NotUsed)
+
+  private val PageSize = 100
+
   override def getLedgerEntries(
       startInclusive: Long,
       endExclusive: Long): Source[(Long, LedgerEntry), NotUsed] =
-    Source
-      .fromFuture(dbDispatcher.executeSql { implicit conn =>
-        SQL_GET_LEDGER_ENTRIES
-          .on("startInclusive" -> startInclusive, "endExclusive" -> endExclusive)
-          .as(EntryParser.*)
-          .map(toLedgerEntry)
-      })
-      .flatMapConcat(Source(_))
+    paginatingStream(
+      startInclusive,
+      endExclusive,
+      PageSize,
+      (startI, endE) => {
+        Source
+          .fromFuture(dbDispatcher.executeSql { implicit conn =>
+            SQL_GET_LEDGER_ENTRIES
+              .on("startInclusive" -> startI, "endExclusive" -> endE)
+              .as(EntryParser.*)
+              .map(toLedgerEntry)
+          })
+          .flatMapConcat(Source(_))
+      }
+    )
 
   private val SQL_SELECT_ACTIVE_CONTRACTS =
     SQL(

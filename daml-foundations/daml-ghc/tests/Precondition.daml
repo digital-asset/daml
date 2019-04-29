@@ -1,0 +1,27 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR Template pre-condition violated
+daml 1.2
+module Ensures where
+
+import DA.List
+
+template Confirmation with
+    confirmed : [Party]
+    pending : [Party]
+  where
+    signatory confirmed
+    ensure not (null pending)
+
+    controller head pending can
+      Skip : ContractId Confirmation
+        do
+          create this with pending = tail pending
+
+test = scenario do
+  alice <- getParty "Alice"
+  submit alice do
+    create Confirmation with
+      confirmed = [alice]
+      pending = []

@@ -243,7 +243,8 @@ class EventConverterSpec
           Lf.AbsoluteContractId,
           Lf.VersionedValue[Lf.AbsoluteContractId]]] =
         Seq(nod0, node1).toMap
-      val tx: LfTx = GenTransaction(nodes, ImmArray(Transaction.NodeId.unsafeFromIndex(0)))
+      val tx: LfTx =
+        GenTransaction(nodes, ImmArray(Transaction.NodeId.unsafeFromIndex(0)), Set.empty)
       val blinding = Blinding.blind(tx)
       val absCoid: Lf.ContractId => Lf.AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid("transactionId")

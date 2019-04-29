@@ -18,11 +18,11 @@ import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ReferenceCommandService
 import com.digitalasset.platform.server.services.identity.LedgerIdentityServiceImpl
-import com.digitalasset.platform.server.services.testing.{ReferenceTimeService, TimeServiceBackend}
 import io.grpc.BindableService
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
 import org.slf4j.LoggerFactory
 
@@ -34,10 +34,9 @@ object Server {
 
   def apply(
       serverPort: Int,
+      sslContext: Option[SslContext],
       indexService: IndexService,
-      writeService: WriteService,
-      tsb: TimeServiceBackend /* FIXME(JM): Remove */ )(
-      implicit materializer: ActorMaterializer): Server = {
+      writeService: WriteService)(implicit materializer: ActorMaterializer): Server = {
     implicit val serverEsf: AkkaExecutionSequencerPool =
       new AkkaExecutionSequencerPool(
         // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server
@@ -52,7 +51,8 @@ object Server {
     new Server(
       serverEsf,
       serverPort,
-      createServices(indexService, writeService, tsb),
+      sslContext,
+      createServices(indexService, writeService),
     )
   }
 
@@ -71,10 +71,7 @@ object Server {
     )
   }
 
-  private def createServices(
-      indexService: IndexService,
-      writeService: WriteService,
-      tsb: TimeServiceBackend)(
+  private def createServices(indexService: IndexService, writeService: WriteService)(
       implicit mat: ActorMaterializer,
       serverEsf: ExecutionSequencerFactory): List[BindableService] = {
     implicit val ec: ExecutionContext = mat.system.dispatcher
@@ -135,11 +132,7 @@ object Server {
 
     val packageService = DamlOnXPackageService(indexService, ledgerId.underlyingString)
 
-    val timeService = ReferenceTimeService(
-      ledgerId.underlyingString,
-      tsb,
-      false
-    )
+    val timeService = new DamlOnXTimeService(indexService)
 
     val configurationService = DamlOnXLedgerConfigurationService(
       indexService
@@ -164,6 +157,7 @@ object Server {
 final class Server private (
     serverEsf: AkkaExecutionSequencerPool,
     serverPort: Int,
+    sslContext: Option[SslContext],
     services: Iterable[BindableService])(implicit materializer: ActorMaterializer)
     extends AutoCloseable {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -182,6 +176,14 @@ final class Server private (
       .workerEventLoopGroup(serverEventLoopGroup)
       .permitKeepAliveTime(10, TimeUnit.SECONDS)
       .permitKeepAliveWithoutCalls(true)
+
+    sslContext
+      .fold {
+        logger.info("Starting plainText server")
+      } { sslContext =>
+        logger.info("Starting TLS server")
+        val _ = builder.sslContext(sslContext)
+      }
 
     val server = services.foldLeft(builder)(_ addService _).build
 

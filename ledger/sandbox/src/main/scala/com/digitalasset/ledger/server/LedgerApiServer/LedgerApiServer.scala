@@ -16,7 +16,6 @@ import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSeque
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
 import com.digitalasset.ledger.backend.api.v1.LedgerBackend
-import com.digitalasset.ledger.client.configuration.TlsConfiguration
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.api.grpc.GrpcApiUtil
 import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
@@ -28,11 +27,11 @@ import com.digitalasset.platform.server.services.command.ReferenceCommandService
 import com.digitalasset.platform.server.services.identity.LedgerIdentityServiceImpl
 import com.digitalasset.platform.server.services.testing.{ReferenceTimeService, TimeServiceBackend}
 import com.digitalasset.platform.services.time.TimeProviderType
-import io.grpc.netty.{GrpcSslContexts, NettyServerBuilder}
+import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.grpc.{BindableService, Server}
 import io.netty.channel.nio.NioEventLoopGroup
-import io.netty.handler.ssl.{ClientAuth, SslContext}
+import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
 import org.slf4j.LoggerFactory
 
@@ -59,29 +58,9 @@ object LedgerApiServer {
       optResetService,
       config.address,
       serverPort,
-      serverSslContext(config.tlsConfig, ClientAuth.REQUIRE)
+      config.tlsConfig.flatMap(_.server)
     ).start()
   }
-
-  /** If enabled and all required fields are present, it returns an SslContext suitable for server usage */
-  private def serverSslContext(
-      tlsConfig: Option[TlsConfiguration],
-      clientAuth: ClientAuth): Option[SslContext] =
-    tlsConfig.flatMap { c =>
-      if (c.enabled)
-        Some(
-          GrpcSslContexts
-            .forServer(
-              c.keyCertChainFile.getOrElse(throw new IllegalStateException(
-                s"Unable to convert ${this.toString} to SSL Context: cannot create server context without keyCertChainFile.")),
-              c.keyFileOrFail
-            )
-            .trustManager(c.trustCertCollectionFile.orNull)
-            .clientAuth(clientAuth)
-            .build
-        )
-      else None
-    }
 
   private def services(
       config: SandboxConfig,

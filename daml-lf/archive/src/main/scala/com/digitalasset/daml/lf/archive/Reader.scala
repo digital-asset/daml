@@ -35,10 +35,6 @@ abstract class Reader[+Pkg] {
     readArchiveAndVersion(DamlLf.Archive.parser().parseFrom(cos))
   }
 
-  @deprecated("use decodeArchiveFromInputStream instead", since = "13.8.1")
-  @throws[ParseError]
-  final def readArchive(is: InputStream): Pkg = decodeArchiveFromInputStream(is)
-
   @throws[ParseError]
   final def decodeArchiveFromInputStream(is: InputStream): Pkg =
     readArchiveAndVersion(is)._1
@@ -64,10 +60,6 @@ abstract class Reader[+Pkg] {
         throw ParseError("Unrecognized hash function")
     }
   }
-
-  @deprecated("use decodeArchive instead", since = "13.8.1")
-  @throws[ParseError]
-  def readArchive(lf: DamlLf.Archive): Pkg = decodeArchive(lf)
 
   @throws[ParseError]
   final def decodeArchive(lf: DamlLf.Archive): Pkg =
@@ -107,13 +99,6 @@ abstract class Reader[+Pkg] {
 
 object Reader extends Reader[(SimpleString, DamlLf.ArchivePayload)] {
   final case class ParseError(error: String) extends RuntimeException(error)
-
-  @deprecated("use lf.archive.LanguageMajorVersion instead", since = "47.0.0")
-  type DamlLfMajorVersion = LanguageMajorVersion
-  @deprecated("use lf.archive.LanguageMajorVersion.V0 instead", since = "47.0.0")
-  val DamlLfVersion0 = LanguageMajorVersion.V0
-  @deprecated("use lf.archive.LanguageMajorVersion.V1 instead", since = "47.0.0")
-  val DamlLfVersion1 = LanguageMajorVersion.V1
 
   def damlLfCodedInputStreamFromBytes(
       payload: Array[Byte],

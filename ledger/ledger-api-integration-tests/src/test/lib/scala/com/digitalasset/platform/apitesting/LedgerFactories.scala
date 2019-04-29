@@ -98,13 +98,4 @@ object LedgerFactories {
     }
 
   }
-
-  def createRemoteServerResource(config: PlatformApplications.Config, host: String, port: Int)(
-      implicit esf: ExecutionSequencerFactory): Resource[LedgerContext.SingleChannelContext] = {
-    val packageIds = config.darFiles.map(getPackageIdOrThrow)
-    RemoteServerResource(host, port).map {
-      case PlatformChannels(channel) =>
-        LedgerContext.SingleChannelContext(channel, None, packageIds)
-    }
-  }
 }

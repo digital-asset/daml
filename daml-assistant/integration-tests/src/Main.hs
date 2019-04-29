@@ -59,15 +59,10 @@ quickstartTests :: FilePath -> FilePath -> TestTree
 quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     [ testCase "daml new" $
           callProcessQuiet "daml" ["new", quickstartDir]
-    , testCase "daml init" $ withCurrentDirectory quickstartDir $
-          callProcessQuiet "daml" ["init"]
-    , testCase "daml package" $ withCurrentDirectory quickstartDir $
-          -- This location is assumed by the codegen in the quickstart example.
-          callProcessQuiet "daml" ["package", "-o", "target/daml/iou.dar"]
     , testCase "daml build " $ withCurrentDirectory quickstartDir $
-          callProcessQuiet "daml" ["build"]
-    , testCase "daml test" $ withCurrentDirectory quickstartDir $
-          callProcessQuiet "daml" ["test", "daml/Main.daml"]
+          callProcessQuiet "daml" ["build", "-o", "target/daml/iou.dar"]
+    , testCase "daml damlc test" $ withCurrentDirectory quickstartDir $
+          callProcessQuiet "daml" ["damlc", "test", "daml/Main.daml"]
     , testCase "sandbox startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do

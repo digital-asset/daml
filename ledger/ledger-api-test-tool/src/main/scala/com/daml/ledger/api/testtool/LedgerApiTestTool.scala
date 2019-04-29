@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool
 
-import java.io.File
+import java.io.{File, StringWriter, PrintWriter}
 import java.nio.file.{Files, StandardCopyOption, Paths, Path}
 
 import akka.actor.ActorSystem
@@ -14,7 +14,6 @@ import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.platform.apitesting.{LedgerContext, PlatformChannels, RemoteServerResource}
-import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.semantictest.SemanticTestAdapter
 
 import scala.concurrent.duration._
@@ -22,6 +21,7 @@ import scala.concurrent.{Await, ExecutionContext}
 import scala.collection.breakOut
 
 object LedgerApiTestTool {
+
   def main(args: Array[String]): Unit = {
     implicit val system: ActorSystem = ActorSystem("LedgerApiTestTool")
     implicit val mat: ActorMaterializer = ActorMaterializer()(system)
@@ -31,8 +31,8 @@ object LedgerApiTestTool {
 
     val testResources = List("/ledger/ledger-api-integration-tests/SemanticTests.dar")
 
-    val config = argParser
-      .parse(args, defaultConfig)
+    val config = Cli
+      .parse(args)
       .getOrElse(sys.exit(1))
 
     if (config.extract) {
@@ -46,9 +46,9 @@ object LedgerApiTestTool {
     val scenarios = SemanticTester.scenarios(packages)
     val nScenarios: Int = scenarios.foldLeft(0)((c, xs) => c + xs._2.size)
 
-    println(s"Running ${nScenarios} scenarios against ${config.host}:${config.port}...")
+    println(s"Running $nScenarios scenarios against ${config.host}:${config.port}...")
 
-    val ledgerResource = RemoteServerResource(config.host, config.port)
+    val ledgerResource = RemoteServerResource(config.host, config.port, config.tlsConfig)
       .map {
         case PlatformChannels(channel) =>
           LedgerContext.SingleChannelContext(channel, None, packages.keys)
@@ -78,16 +78,20 @@ object LedgerApiTestTool {
                 )
               } catch {
                 case (t: Throwable) =>
-                  sys.error("Timed-out waiting for an expected event: " + t.getMessage)
+                  val sw = new StringWriter
+                  t.printStackTrace(new PrintWriter(sw))
+                  sys.error(
+                    s"Running scenario $name failed with: " + t
+                      .getMessage() + "\n\nWith stacktrace:\n" + sw
+                      .toString() + "\n\nTesting tool own stacktrace is:")
               }
             }
       }
       println("All scenarios completed.")
     } catch {
-      case (t: Throwable) => {
+      case (t: Throwable) =>
         failed = true
         if (!config.mustFail) throw t
-      }
     } finally {
       ledgerResource.close()
       mat.shutdown()
@@ -109,8 +113,8 @@ object LedgerApiTestTool {
     if (is == null) sys.error(s"Could not find $resource in classpath")
     val targetPath: Path = Files.createTempFile("ledger-api-test-tool-", "-test.dar")
     Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
-    val f: File = targetPath.toFile();
-    if (f == null) sys.error(s"Could not open ${targetPath}")
+    val f: File = targetPath.toFile
+    if (f == null) sys.error(s"Could not open $targetPath")
     val packages = UniversalArchiveReader().readFile(f).get
     Map(packages.all.map {
       case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
@@ -118,61 +122,15 @@ object LedgerApiTestTool {
   }
 
   private def extractTestFiles(testResources: List[String]): Unit = {
-    val pwd = Paths.get(".").toAbsolutePath()
+    val pwd = Paths.get(".").toAbsolutePath
     println(s"Extracting all DAML resources necessary to run the tests into $pwd.")
     testResources
       .foreach { n =>
         val is = getClass.getResourceAsStream(n)
         if (is == null) sys.error(s"Could not find $n in classpath")
         val targetFile = new File(new File(n).getName)
-        Files.copy(is, targetFile.toPath, StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(is, targetFile.toPath, StandardCopyOption.REPLACE_EXISTING)
         println(s"Extracted $n to $targetFile")
       }
   }
-
-  final case class Config(
-      host: String,
-      port: Int,
-      packageContainer: DamlPackageContainer,
-      performReset: Boolean,
-      mustFail: Boolean,
-      extract: Boolean)
-
-  private val defaultConfig = Config(
-    host = "localhost",
-    port = 6865,
-    packageContainer = DamlPackageContainer(),
-    performReset = false,
-    mustFail = false,
-    extract = false
-  )
-
-  private val argParser = new scopt.OptionParser[Config]("ledger-api-test-tool") {
-    head("""The Ledger API Test Tool is a command line tool for testing the correctness of
-           |ledger implementations based on DAML and Ledger API.""".stripMargin)
-
-    help("help").text("prints this usage text")
-
-    opt[Int]('p', "target-port")
-      .action((x, c) => c.copy(port = x))
-      .text("Ledger API server port. Defaults to 6865.")
-
-    opt[String]('h', "host")
-      .action((x, c) => c.copy(host = x))
-      .text("Ledger API server host. Defaults to localhost.")
-
-    opt[Unit]("must-fail")
-      .action((_, c) => c.copy(mustFail = true))
-      .text("One or more of the scenario tests must fail. Defaults to false.")
-
-    opt[Unit]('r', "reset")
-      .action((_, c) => c.copy(performReset = true))
-      .text("Perform a ledger reset before running the tests. Defaults to false.")
-
-    opt[Unit]('x', "extract")
-      .action((_, c) => c.copy(extract = true))
-      .text("Extract the testing archive files and exit.")
-
-  }
-
 }

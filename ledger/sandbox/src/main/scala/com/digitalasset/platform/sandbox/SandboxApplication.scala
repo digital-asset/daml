@@ -10,7 +10,6 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.ledger.client.configuration.TlsConfiguration
 import com.digitalasset.ledger.server.LedgerApiServer.LedgerApiServer
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
@@ -21,8 +20,6 @@ import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeProviderType
-import io.grpc.netty.GrpcSslContexts
-import io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
@@ -33,13 +30,7 @@ object SandboxApplication {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val asyncTolerance = 30.seconds
 
-  class SandboxServer(
-      actorSystemName: String,
-      addressOption: Option[String],
-      serverPort: Int,
-      config: => SandboxConfig,
-      maybeBundle: Option[SslContext] = None)
-      extends AutoCloseable {
+  class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends AutoCloseable {
 
     //TODO: get rid of these vars! Stateful resources should be created as vals when the owner object is created.
     @volatile private var system: ActorSystem = _
@@ -49,7 +40,7 @@ object SandboxApplication {
     @volatile private var stopHeartbeats: () => Unit = () => ()
     @volatile private var metricsManager: MetricsManager = _
 
-    @volatile var port: Int = serverPort
+    @volatile var port: Int = config.port
 
     def getMaterializer: ActorMaterializer = materializer
 
@@ -165,32 +156,9 @@ object SandboxApplication {
 
     new SandboxServer(
       "sandbox",
-      config.address,
-      config.port,
-      config,
-      serverSslContext(config.tlsConfig, ClientAuth.REQUIRE),
+      config
     )
   }
-
-  /** If enabled and all required fields are present, it returns an SslContext suitable for server usage */
-  def serverSslContext(
-      tlsConfig: Option[TlsConfiguration],
-      clientAuth: ClientAuth): Option[SslContext] =
-    tlsConfig.flatMap { c =>
-      if (c.enabled)
-        Some(
-          GrpcSslContexts
-            .forServer(
-              c.keyCertChainFile.getOrElse(throw new IllegalStateException(
-                s"Unable to convert ${this.toString} to SSL Context: cannot create server context without keyCertChainFile.")),
-              c.keyFileOrFail
-            )
-            .trustManager(c.trustCertCollectionFile.orNull)
-            .clientAuth(clientAuth)
-            .build
-        )
-      else None
-    }
 
   private def scheduleHeartbeats(timeProvider: TimeProvider, onTimeChange: Instant => Future[Unit])(
       implicit mat: ActorMaterializer,

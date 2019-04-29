@@ -14,14 +14,6 @@ da_scala_library(
         "//external:jar/org/spire_math/kind_projector_2_12",
     ],
     resources = glob(["src/main/resources/**/*"]),
-    # TODO SC DEL-6727 for old Identifier field, to be removed when TemplateId.unapply changes back
-    # NOTE(JM): commented out deprecation warnings to get this to compile with the
-    # versions matching sbt. Please reenable when deprecations are fixed.
-    # scalacopts = ['-deprecation', '-Xfatal-warnings'],
-    scalacopts = [
-        "-deprecation:false",
-        "-Xfatal-warnings",
-    ],
     tags = ["maven_coordinates=com.daml.scala:bindings-akka:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -91,9 +83,6 @@ da_scala_test_suite(
         ],
         exclude = testing_utils,
     ),
-    # NOTE(JM): commented out deprecation warnings to get this to compile with the
-    # versions matching sbt. Please remove when deprecations are fixed.
-    scalacopts = ["-deprecation:false"],
     visibility = [
         "//visibility:public",
     ],

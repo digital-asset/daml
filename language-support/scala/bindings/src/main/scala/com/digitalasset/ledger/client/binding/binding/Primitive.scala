@@ -91,11 +91,8 @@ sealed abstract class Primitive {
   }
 
   sealed abstract class TemplateIdApi {
-    // private as the sole source of valid Template-associated template IDs is
+    // the sole source of valid Template-associated template IDs is
     // their codegenned companions
-    @deprecated("Use 3-argument version instead", since = "15.0.0")
-    def apply[Tpl <: Template[Tpl]](packageId: String, name: String): TemplateId[Tpl]
-
     def apply[Tpl <: Template[Tpl]](
         packageId: String,
         moduleName: String,
@@ -177,9 +174,6 @@ private[client] object OnlyPrimitive extends Primitive {
   }
 
   object TemplateId extends TemplateIdApi {
-    override def apply[Tpl <: Template[Tpl]](packageId: String, name: String) =
-      ApiTypes.TemplateId(rpcvalue.Identifier(packageId = packageId, name = name))
-
     // the ledger api still uses names with only dots in them, while QualifiedName.toString
     // separates the module and the name in the module with colon.
     override def apply[Tpl <: Template[Tpl]](

@@ -12,7 +12,7 @@ import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.participant
 import com.daml.ledger.participant.state.index.v1._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf
@@ -303,13 +303,13 @@ final case class ReferenceIndexService(
         .from(beginFrom)
         .flatMap {
           case (offset, rejectedCmd) =>
-            rejectedCmd.optSubmitterInfo.flatMap { sinfo =>
-              if (sinfo.applicationId == applicationId) {
-                Some(CompletionEvent.CommandRejected(offset, sinfo.commandId, rejectedCmd.reason))
-              } else {
-                None
-              }
-            }.toList
+            if (rejectedCmd.submitterInfo.applicationId == applicationId) {
+              List(
+                CompletionEvent
+                  .CommandRejected(offset, rejectedCmd.submitterInfo.commandId, rejectedCmd.reason))
+            } else {
+              List.empty
+            }
         }
         .toList
 
@@ -352,4 +352,19 @@ final case class ReferenceIndexService(
   private def getOffset: TransactionUpdate => Offset = {
     case (offset, _) => offset
   }
+
+  override def getLedgerRecordTimeStream(
+      ledgerId: LedgerId): AsyncResult[Source[Time.Timestamp, NotUsed]] =
+    asyncResultWithState(ledgerId) { state =>
+      Future {
+        StateController
+          .subscribe(ledgerId)
+          .map(_.recordTime)
+          .scan[Option[Time.Timestamp]](Some(state.recordTime)) {
+            case (Some(prevTime), currentTime) if prevTime == currentTime => None
+            case (_, currentTime) => Some(currentTime)
+          }
+          .mapConcat(_.toList)
+      }
+    }
 }

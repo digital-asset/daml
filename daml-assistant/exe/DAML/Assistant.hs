@@ -5,13 +5,11 @@
 
 module DAML.Assistant
     ( main
-    , runTests
     ) where
 
 import DAML.Project.Config
 import DAML.Project.Types
 import DAML.Assistant.Env
-import DAML.Assistant.Tests
 import DAML.Assistant.Command
 import DAML.Assistant.Install
 import DAML.Assistant.Util

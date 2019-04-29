@@ -26,6 +26,7 @@ dependencies = [
     "//3rdparty/jvm/io/grpc:grpc_services",
     "//3rdparty/jvm/io/netty:netty_codec_http2",
     "//3rdparty/jvm/io/netty:netty_handler",
+    "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",
     "//3rdparty/jvm/org/scalatest:scalatest",
     "//3rdparty/jvm/org/scalaz:scalaz_concurrent",
     "//3rdparty/jvm/org/scalaz:scalaz_core",
@@ -56,12 +57,18 @@ dependencies = [
 # This is used to test new ledger backend implementations.
 da_scala_binary(
     name = "ledger-api-test-tool",
-    srcs = [
-        "src/main/scala/com/daml/ledger/api/testtool/LedgerApiTestTool.scala",
-    ],
+    srcs = glob([
+        "src/main/scala/com/daml/ledger/api/testtool/**/*.scala",
+    ]),
     main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
     resources = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+    ],
+    tags = [
+        "maven_coordinates=com.daml.ledger.testtool:ledger-api-test-tool:__VERSION__",
+        # We release this as a fat jar so this tag ensures that the dependencies in the generated
+        # POM file are set correctly.
+        "fat_jar",
     ],
     deps = dependencies + [
         "//ledger/ledger-api-integration-tests:ledger-api-integration-tests-lib",
@@ -83,6 +90,34 @@ client_server_test(
     server = "//ledger/api-server-damlonx/reference:reference",
     server_args = [
         "$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar)",
+    ],
+    tags = [
+        # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it
+        # without competition to avoid flakyness.
+        "exclusive",
+    ],
+)
+
+client_server_test(
+    name = "ledger-api-test-tool-ssltest",
+    timeout = "short",
+    client = ":ledger-api-test-tool",
+    client_args = [
+        "--crt $(rootpath testdata/client.crt) " +
+        "--cacrt $(rootpath testdata/ca.crt) " +
+        "--pem $(rootpath testdata/client.pem)",
+    ],
+
+    # Data files available to both client and server.
+    data = [
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+    ] + glob(["testdata/*"]),
+    server = "//ledger/api-server-damlonx/reference:reference",
+    server_args = [
+        "$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar) " +
+        "--crt $(rootpath testdata/server.crt) " +
+        "--cacrt $(rootpath testdata/ca.crt) " +
+        "--pem $(rootpath testdata/server.pem)",
     ],
     tags = [
         # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it

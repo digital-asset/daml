@@ -1,0 +1,191 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+//
+// Protocol buffer messages used by the participant state key-value utilities
+// for implementing a DAML ledger backed by a key-value store.
+//
+// These messages must only be produced and consumed by the methods in
+// `KeyValueCommitting`, `KeyValueConsumption` and `KeyValueSubmission` objects.
+// You must not embed these messages in other protocol buffer messages.
+//
+// TODO(JM): We're consistently using the 'Daml' prefix to allow unqualified import
+// of the generated classes and to distinguish these from the scala types in participant-state.
+// Might want to use a more telling prefix.
+
+syntax = "proto3";
+package com.daml.ledger.participant.state.kvutils;
+option java_package = "com.daml.ledger.participant.state.kvutils";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "da/daml_lf.proto";
+import "daml-lf/transaction/src/main/protobuf/transaction.proto";
+
+
+// A submission to the ledger: a payload and its inputs if any.
+// Produced by [[KeyValueSubmission]].
+// Transformed into `DamlLogEntry` when committed.
+message DamlSubmission {
+  repeated DamlLogEntryId input_log_entries = 1;
+  repeated DamlStateKey input_daml_state = 2;
+  oneof payload {
+    DamlTransactionEntry transaction_entry = 3;
+    daml_lf.Archive archive = 4;
+    DamlConfigurationEntry configuration_entry = 5;
+  }
+}
+
+// A log entry for a committed DAML submission.
+// Produced by [[KeyValueCommitting]] from the `DamlSubmission` message.
+// Each entry can be converted into a participant state `Update` event
+// with [[KeyValueConsumption]].
+//
+// Please read comments in [[com.daml.ledger.participant.state.v1.package]]
+// and  [[com.daml.ledger.participant.state.kvutils.package]] for background
+// information. See example implementation in [[InMemoryKeyValueParticipant]].
+message DamlLogEntry {
+  // The record time at which this entry was committed.
+  google.protobuf.Timestamp record_time = 1;
+
+  oneof payload {
+    // A committed DAML transaction.
+    // Can be converted into `Update.TransactionAccepted`.
+    DamlTransactionEntry transaction_entry = 2;
+
+    // A rejected command.
+    DamlRejectionEntry rejection_entry = 3;
+
+    // A DAML-LF archive.
+    // Can be converted into `Update.PublicPackageUploaded`.
+    daml_lf.Archive archive = 4;
+
+    // A DAML configuration change.
+    DamlConfigurationEntry configuration_entry = 5;
+  }
+}
+
+message DamlLogEntryId {
+  // Entry identifiers are opaque bytestrings chosen by the implementation that provide a unique
+  // reference to the entry. They do not need to be comparable, as long as the implementation can
+  // provide an ordered sequence of log entries.
+  // The entry identifier is used:
+  // * to lookup the log entry when producing `Update`.
+  // * as the DAML transaction identifier and rendered as hexadecimal.
+  // * as part of absolute contract identifiers.
+  bytes entry_id = 1;
+}
+
+message DamlSubmitterInfo {
+  string submitter = 1;
+  string command_id = 2;
+  string application_id = 3;
+  google.protobuf.Timestamp maximum_record_time = 4;
+}
+
+// DAML transaction entry, used in both `DamlSubmission` and `DamlLogEntry`.
+// Contains the original relative transaction as produced by DAML Engine, along
+// with submitter information and metadata (see Ledger API `commands.proto` for
+// their source).
+message DamlTransactionEntry {
+  // The original submitted transaction, with relative identifiers.
+  // For now we're deduplicating the data and storing the contract instances
+  // both in this transaction, and in "DamlState". Later on the transaction here
+  // will only record the node identifiers, and nodes themselves are stored under
+  // "DamlState".
+  com.digitalasset.daml.lf.transaction.Transaction transaction = 1;
+
+  DamlSubmitterInfo submitter_info = 2;
+
+  // Transaction metadata
+  string workflow_id = 3;
+  google.protobuf.Timestamp ledger_effective_time = 4;
+}
+
+// DAML command rejection entry. A failed commit of a submission creates a
+// rejection log entry.
+message DamlRejectionEntry {
+  DamlSubmitterInfo submitter_info = 1;
+
+  oneof reason {
+    // NOTE(JM): Not all payloads are used, but marked as 'string' for
+    // extensibility.
+    string inconsistent = 2;
+    string disputed = 3;
+    string resources_exhausted = 4;
+    string maximum_record_time_exceeded = 5;
+    string duplicate_command = 6;
+    string party_not_known_on_ledger = 7;
+    string submitter_cannot_act_via_participant = 8;
+  }
+}
+
+message DamlConfigurationEntry {
+  DamlTimeModel time_model = 1;
+}
+
+message DamlTimeModel {
+  // The expected minimum latency of a transaction.
+  google.protobuf.Duration minTransactionLatency = 1;
+
+  // The maximum allowed clock skew between the ledger and clients.
+  google.protobuf.Duration maxClockSkew = 2;
+
+  // The maximum allowed time to live for a transaction.
+  // Must be greater than the derived minimum time to live.
+  google.protobuf.Duration maxTtl = 3;
+}
+
+
+// DAML state key. [[KeyValueCommitting]] produces effects that are committed
+// to the ledger from the `DamlSubmission`: a log entry to be created, and
+// the set of DAML state updates.
+message DamlStateKey {
+  oneof key {
+    // NOTE(JM): Match field numbers with `DamlStateValue`
+    string package_id = 1;
+    DamlContractId contract_id = 2;
+    DamlCommandDedupKey command_dedup = 3;
+  }
+}
+
+// DAML state values pointed to by `DamlStateKey`.
+message DamlStateValue {
+  oneof value {
+    // NOTE(JM): Match field numbers with `DamlStateKey`
+    daml_lf.Archive archive = 1;
+    DamlContractState contract_state = 2;
+    DamlCommandDedupValue command_dedup = 3;
+
+  }
+}
+
+message DamlContractId {
+  DamlLogEntryId entry_id = 1;
+  int64 node_id = 2;
+}
+
+message DamlCommandDedupKey {
+  string submitter = 1;
+  string application_id = 2;
+  string command_id = 3;
+}
+message DamlCommandDedupValue {
+  // NOTE(JM): Currently no content. Could store pointer to log entry.
+}
+
+// DAML contract state, recording the activeness state of a contract.
+// The contract instance itself is stored within the transaction in a log entry.
+// See https://github.com/digital-asset/daml/issues/734 for future work on contract
+// instance storage.
+message DamlContractState {
+  // The time from which the contract is active.
+  google.protobuf.Timestamp active_at = 1;
+
+  // Optional, if set the contract has been archived.
+  google.protobuf.Timestamp archived_at = 2;
+
+  // Optional. The log entry that caused the contract to be archived.
+  DamlLogEntryId archived_by_entry = 3;
+}
+

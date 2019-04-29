@@ -115,7 +115,7 @@ object TransactionSpec {
   type StringTransaction = GenTransaction[String, String, Value[String]]
   def StringTransaction(
       nodes: Map[String, GenNode[String, String, Value[String]]],
-      roots: ImmArray[String]): StringTransaction = GenTransaction(nodes, roots)
+      roots: ImmArray[String]): StringTransaction = GenTransaction(nodes, roots, Set.empty)
 
   def dummyExerciseNode(children: ImmArray[String]): NodeExercises[String, String, Value[String]] =
     NodeExercises(
