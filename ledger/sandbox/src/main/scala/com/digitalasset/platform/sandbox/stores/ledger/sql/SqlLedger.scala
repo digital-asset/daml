@@ -25,7 +25,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   AlwaysReset,
   ContinueIfExists
 }
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.PersistenceResponse.{Duplicate, Ok}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{LedgerDao, PostgresLedgerDao}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
@@ -146,19 +145,13 @@ private class SqlLedger(
               val offset = startOffset + i
               ledgerDao
                 .storeLedgerEntry(offset, offset + 1, ledgerEntryGen(offset))
-                .map {
-                  case Ok =>
-                    () //TODO: ?
-                  case Duplicate =>
-                    () //we are staying with offset we had
-                }(DirectExecutionContext)
+                .map(_ => ())(DirectExecutionContext)
           })
           .map { _ =>
             //note that we can have holes in offsets in case of the storing of an entry failed for some reason
             headRef = startOffset + queue.length //updating the headRef
             dispatcher.signalNewHead(headRef) //signalling downstream subscriptions
           }(DirectExecutionContext)
-
       }
       .toMat(Sink.ignore)(
         Keep.left[
