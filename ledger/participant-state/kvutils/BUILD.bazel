@@ -62,7 +62,6 @@ proto_library(
         "//daml-lf/transaction/src/main/protobuf:transaction_proto",
         "//daml-lf/transaction/src/main/protobuf:value_proto",
         "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:empty_proto",
         "@com_google_protobuf//:timestamp_proto",
     ],
 )

@@ -229,7 +229,7 @@ object KeyValueCommitting {
         var stateUpdates = scala.collection.mutable.Map.empty[DamlStateKey, DamlStateValue]
 
         // Add command dedup state entry for command deduplication (checked by step 1 above).
-        stateUpdates += commandDedupKey(txEntry.getSubmitterInfo) -> emptyDamlStateValue
+        stateUpdates += commandDedupKey(txEntry.getSubmitterInfo) -> commandDedupValue
 
         val effects = InputsAndEffects.computeEffects(entryId, relTx)
 
@@ -303,9 +303,9 @@ object KeyValueCommitting {
   }
 
   /** DamlStateValue presenting the empty value. Used for command deduplication entries. */
-  private val emptyDamlStateValue: DamlStateValue =
+  private val commandDedupValue: DamlStateValue =
     DamlStateValue.newBuilder
-      .setEmpty(com.google.protobuf.Empty.newBuilder.build)
+      .setCommandDedup(DamlCommandDedupValue.newBuilder.build)
       .build
 
   /** Look up the contract instance from the log entry containing the transaction.

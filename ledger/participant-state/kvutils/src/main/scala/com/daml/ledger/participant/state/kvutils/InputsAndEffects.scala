@@ -50,10 +50,17 @@ private[kvutils] object InputsAndEffects {
       DamlStateKey.newBuilder.setPackageId(pkgId.underlyingString).build
     }.toList
 
-    def addInput(inputs: List[DamlLogEntryId], coid: ContractId): List[DamlLogEntryId] =
+    def addLogEntryInput(inputs: List[DamlLogEntryId], coid: ContractId): List[DamlLogEntryId] =
       coid match {
         case acoid: AbsoluteContractId =>
           absoluteContractIdToLogEntryId(acoid)._1 :: inputs
+        case _ =>
+          inputs
+      }
+    def addStateInput(inputs: List[DamlStateKey], coid: ContractId): List[DamlStateKey] =
+      coid match {
+        case acoid: AbsoluteContractId =>
+          absoluteContractIdToStateKey(acoid) :: inputs
         case _ =>
           inputs
       }
@@ -62,18 +69,16 @@ private[kvutils] object InputsAndEffects {
       case ((logEntryInputs, stateInputs), (nodeId, node)) =>
         node match {
           case fetch: NodeFetch[ContractId] =>
-            (addInput(logEntryInputs, fetch.coid), stateInputs)
+            (
+              addLogEntryInput(logEntryInputs, fetch.coid),
+              addStateInput(stateInputs, fetch.coid)
+            )
           case create: NodeCreate[_, _] =>
             (logEntryInputs, stateInputs)
           case exe: NodeExercises[_, ContractId, _] =>
             (
-              addInput(logEntryInputs, exe.targetCoid),
-              (exe.consuming, exe.targetCoid) match {
-                case (true, acoid: AbsoluteContractId) =>
-                  absoluteContractIdToStateKey(acoid) :: stateInputs
-                case _ =>
-                  stateInputs
-              }
+              addLogEntryInput(logEntryInputs, exe.targetCoid),
+              addStateInput(stateInputs, exe.targetCoid)
             )
           case l: NodeLookupByKey[_, _] =>
             sys.error("computeInputs: NodeLookupByKey not implemented!")
