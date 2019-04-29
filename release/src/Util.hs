@@ -62,7 +62,18 @@ data ReleaseType
     | Jar JarType
     deriving Show
 
-data JarType = Plain | Lib | Deploy | Proto
+data JarType
+    = Plain
+      -- ^ Plain java or scala library, without source jar.
+    | Lib
+      -- ^ A java library jar, with a source jar.
+    | Deploy
+      -- ^ Deploy jar, e.g. a fat jar containing transitive deps.
+    | Proto
+      -- ^ A java protobuf library (*-speed.jar).
+    | Scala
+      -- ^ A scala library jar, with a source jar. Use when source jar
+      -- is desired, otherwise use 'Plain'.
     deriving (Eq, Show)
 
 instance FromJSON ReleaseType where
@@ -74,6 +85,7 @@ instance FromJSON ReleaseType where
             "jar-lib" -> pure $ Jar Lib
             "jar-deploy" -> pure $ Jar Deploy
             "jar-proto" -> pure $ Jar Proto
+            "jar-scala" -> pure $ Jar Scala
             _ -> fail ("Could not parse release type: " <> unpack t)
 
 data Artifact c = Artifact
@@ -115,7 +127,8 @@ buildTargets art@Artifact{..} =
                           | otherwise = artTarget
                 (directory, _) = splitBazelTarget artTarget
             in [jarTarget, pomTar] <>
-               [BazelTarget ("//" <> directory <> ":" <> srcJar) | Just srcJar <- pure (sourceJarName art)]
+               [BazelTarget ("//" <> directory <> ":" <> srcJar) | Just srcJar <- pure (sourceJarName art)] <>
+               [BazelTarget ("//" <> directory <> ":" <> srcJar) | Just srcJar <- pure (scalaSourceJarName art)]
         Zip -> [artTarget]
         TarGz -> [artTarget]
 
@@ -191,12 +204,17 @@ mainFileName releaseType name =
             Lib -> "lib" <> name <> ".jar"
             Deploy -> name <> "_deploy.jar"
             Proto -> "lib" <> T.replace "_java" "" name <> "-speed.jar"
+            Scala -> name <> ".jar"
 
 sourceJarName :: Artifact a -> Maybe Text
 sourceJarName Artifact{..}
   | Jar Lib <- artReleaseType = Just $ "lib" <> snd (splitBazelTarget artTarget) <> "-src.jar"
   | otherwise = Nothing
 
+scalaSourceJarName :: Artifact a -> Maybe Text
+scalaSourceJarName Artifact{..}
+  | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
+  | otherwise = Nothing
 
 -- | Given an artifact, produce a list of pairs of an input file and the corresponding output file.
 artifactFiles :: E.MonadThrow m => AllArtifacts -> Artifact PomData -> m [(Path Rel File, Path Rel File)]
@@ -217,10 +235,14 @@ artifactFiles allArtifacts art@Artifact{..} = do
     mbSourceJarIn <- traverse (parseRelFile . unpack) (sourceJarName art)
     sourceJarOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "-sources" # mainExt artReleaseType))
 
+    mbScalaSourceJarIn <- traverse (parseRelFile . unpack) (scalaSourceJarName art)
+    scalaSourceJarOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "-sources" # mainExt artReleaseType))
+
     pure $
         [(directory </> mainArtifactIn, outDir </> mainArtifactOut) | shouldRelease allArtifacts artPlatformDependent] <>
         [(directory </> pomFileIn, outDir </> pomFileOut) | isJar artReleaseType, shouldRelease allArtifacts (PlatformDependent False)] <>
-        [(directory </> sourceJarIn, outDir </> sourceJarOut) | shouldRelease allArtifacts (PlatformDependent False), Just sourceJarIn <- pure mbSourceJarIn]
+        [(directory </> sourceJarIn, outDir </> sourceJarOut) | shouldRelease allArtifacts (PlatformDependent False), Just sourceJarIn <- pure mbSourceJarIn] <>
+        [(directory </> scalaSourceJarIn, outDir </> scalaSourceJarOut) | shouldRelease allArtifacts (PlatformDependent False), Just scalaSourceJarIn <- pure mbScalaSourceJarIn]
 
 shouldRelease :: AllArtifacts -> PlatformDependent -> Bool
 shouldRelease (AllArtifacts allArtifacts) (PlatformDependent platformDependent) =
