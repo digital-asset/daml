@@ -51,7 +51,7 @@ import scalaz.syntax.tag._
 import scalaz.{ICons, NonEmptyList, Tag}
 
 import scala.collection.{breakOut, immutable}
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionServiceIT
@@ -133,15 +133,9 @@ class TransactionServiceIT
             le <- client.getLedgerEnd
             _ <- insertCommands("deduplicated", 1, context)
             _ = insertCommands("deduplicated", 1, context) // we don't wait for this since the result won't be seen
-            _ <- {
-              val p = Promise[Unit]()
-              system.scheduler.scheduleOnce(100.millis, { () =>
-                p.success(()); ()
-              })
-              p.future
-            }
             txs <- client
-              .getTransactions(le.getOffset, Some(ledgerEnd), getAllContracts)
+              .getTransactions(le.getOffset, None, getAllContracts)
+              .takeWithin(2.seconds)
               .runWith(Sink.seq)
           } yield {
             txs should have length 1
