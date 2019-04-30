@@ -28,6 +28,8 @@ resource "google_storage_bucket_iam_member" "nix_cache_writer" {
   member = "serviceAccount:${google_service_account.writer.email}"
 }
 
+// provide a nix-cache-info file setting a higher priority
+// than cache.nixos.org, so we prefer it
 resource "google_storage_bucket_object" "nix-cache-info" {
   name   = "nix-cache-info"
   bucket = "${module.nix_cache.bucket_name}"
