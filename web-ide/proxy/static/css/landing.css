@@ -25,9 +25,13 @@ body {
 }
 
 .legal {
-    font-size: 25px;
-    line-height: 30px;
-    max-width: 600px;
+    font-size: 20px;
+    line-height: 24px;
+    max-width: 900px;
+}
+
+.legal .emphasize {
+    font-weight: 800;
 }
 
 .accept-btn {
@@ -50,7 +54,11 @@ body {
 }
 
 a {
-    color: #677ba3;
+    color: #5d86df;
+    font-weight: 600;
     text-decoration: none;
     display: inline-block;
+}
+a:visited {
+    color: #5d86df;
 }

@@ -1,0 +1,102 @@
+/* Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.  */
+/* SPDX-License-Identifier: Apache-2.0  */
+
+/************************** swap microsoft trademark image ********************************************/
+.monaco-workbench .part.titlebar > div.window-appicon {
+    width: 35px;
+    height: 100%;
+    position: relative;
+    z-index: 3000;
+    background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyODkgNzgiIHdpZHRoPSIyODkiIGhlaWdodD0iNzgiPgoJPGRlZnM+CgkJPGxpbmVhckdyYWRpZW50IGlkPSJncmQxIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgIHgxPSIxNTAuMzcyIiB5MT0iNzAuMzg1IiB4Mj0iODguMzE0IiB5Mj0iOC4zMjgiPgoJCQk8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM1ZDg1ZGYiICAvPgoJCQk8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMyYjU4YjkiICAvPgoJCTwvbGluZWFyR3JhZGllbnQ+Cgk8L2RlZnM+Cgk8c3R5bGU+CgkJdHNwYW4geyB3aGl0ZS1zcGFjZTpwcmUgfQoJCS5zaHAwIHsgZmlsbDogI2ZmZmZmZiB9IAoJCS5zaHAxIHsgZmlsbDogdXJsKCNncmQxKSB9IAoJCS5zaHAyIHsgZmlsbDogIzgxYTlmZiB9IAoJPC9zdHlsZT4KCTxwYXRoIGlkPSJETUwiIGNsYXNzPSJzaHAwIiBkPSJNMjM2LjQzIDAuMTZMMjE2LjEzIDAuMTZMMTk1LjcyIDU0LjJMMTc1LjA5IDAuMTZMMTU0LjQ1IDAuMTZMMTU0LjQ1IDc3LjgzTDE3MS44OSA3Ny44M0wxNzEuODkgMjkuNjdMMTg5LjEgNzcuODNMMjAyLjM0IDc3LjgzTDIxOC45OSAyOS42N0wyMTguOTkgNzcuODNMMjM2LjQzIDc3LjgzTDIzNi40MyAwLjE2Wk0yNjYuODcgNjIuM0wyNjYuODcgMC4xNkwyNDkgMC4xNkwyNDkgNzcuODNMMjg4LjgzIDc3LjgzTDI4OC44MyA2Mi4zTDI2Ni44NyA2Mi4zWk0wLjgzIDAuMTZMMC44MyA3Ny44M0wyOS4xOCA3Ny44M0MzNS41OCA3Ny44MyA0MS4yOCA3Ni43NCA0Ni4yOCA3NC41NkM1MS4yOCA3Mi4zOCA1NS40OSA2OS40NyA1OC45MSA2NS44NUM2Mi4zMyA2Mi4yMiA2NC45MyA1OC4wOCA2Ni42OSA1My40MkM2OC40NiA0OC43NiA2OS4zNCA0My45NSA2OS4zNCAzOC45OUM2OS4zNCAzNC4wNCA2OC40NCAyOS4yMyA2Ni42NCAyNC41N0M2NC44MyAxOS45MSA2Mi4yMiAxNS43NyA1OC44IDEyLjE0QzU1LjM4IDguNTIgNTEuMTkgNS42MSA0Ni4yMyAzLjQzQzQxLjI2IDEuMjUgMzUuNTggMC4xNiAyOS4xOCAwLjE2TDAuODMgMC4xNlpNMjguMyAxNS42OUMzMS45IDE1LjY5IDM1LjEyIDE2LjM0IDM3Ljk1IDE3LjYzQzQwLjc4IDE4LjkzIDQzLjE3IDIwLjY3IDQ1LjEyIDIyLjg1QzQ3LjA3IDI1LjAzIDQ4LjU2IDI3LjUzIDQ5LjU5IDMwLjM0QzUwLjYyIDMzLjE1IDUxLjE0IDM2LjA0IDUxLjE0IDM4Ljk5QzUxLjE0IDQyLjAzIDUwLjYyIDQ0LjkzIDQ5LjU5IDQ3LjdDNDguNTYgNTAuNDggNDcuMDcgNTIuOTYgNDUuMTIgNTUuMTRDNDMuMTcgNTcuMzIgNDAuNzggNTkuMDYgMzcuOTUgNjAuMzVDMzUuMTIgNjEuNjUgMzEuOSA2Mi4zIDI4LjMgNjIuM0wxOC43IDYyLjNMMTguNyAxNS42OUwyOC4zIDE1LjY5WiIgLz4KCTxnIGlkPSJBIj4KCQk8cGF0aCBpZD0iU2hhcGUgMiBjb3B5IiBjbGFzcz0ic2hwMSIgZD0iTTEyMi43OSw3Ny44NGgxNy4yNGwtMjQuMTMsLTc2Ljk3aC0xNy4yNHpNMTIyLjc5LDc3Ljg0aDE3LjI0bC0yNC4xMywtNzYuOTdoLTE3LjI0eiIgLz4KCQk8cGF0aCBpZD0iUmVjdGFuZ2xlIDIiIGNsYXNzPSJzaHAwIiBkPSJNODMuMTUsNTAuMzRsLTguNjIsMjcuNWgxNy4yNGw4LjYyLC0yNy41eiIgLz4KCQk8cGF0aCBpZD0iUmVjdGFuZ2xlIDIgY29weSIgY2xhc3M9InNocDIiIGQ9Ik05OC42NiwwLjg3bC04Ljg0LDI4LjJoMTcuMjRsOC44NCwtMjguMnoiIC8+Cgk8L2c+Cjwvc3ZnPg==) !important;
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: 16px;
+    flex-shrink: 0; }
+  
+div.window-appicon {
+  background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyODkgNzgiIHdpZHRoPSIyODkiIGhlaWdodD0iNzgiPgoJPGRlZnM+CgkJPGxpbmVhckdyYWRpZW50IGlkPSJncmQxIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgIHgxPSIxNTAuMzcyIiB5MT0iNzAuMzg1IiB4Mj0iODguMzE0IiB5Mj0iOC4zMjgiPgoJCQk8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM1ZDg1ZGYiICAvPgoJCQk8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMyYjU4YjkiICAvPgoJCTwvbGluZWFyR3JhZGllbnQ+Cgk8L2RlZnM+Cgk8c3R5bGU+CgkJdHNwYW4geyB3aGl0ZS1zcGFjZTpwcmUgfQoJCS5zaHAwIHsgZmlsbDogI2ZmZmZmZiB9IAoJCS5zaHAxIHsgZmlsbDogdXJsKCNncmQxKSB9IAoJCS5zaHAyIHsgZmlsbDogIzgxYTlmZiB9IAoJPC9zdHlsZT4KCTxwYXRoIGlkPSJETUwiIGNsYXNzPSJzaHAwIiBkPSJNMjM2LjQzIDAuMTZMMjE2LjEzIDAuMTZMMTk1LjcyIDU0LjJMMTc1LjA5IDAuMTZMMTU0LjQ1IDAuMTZMMTU0LjQ1IDc3LjgzTDE3MS44OSA3Ny44M0wxNzEuODkgMjkuNjdMMTg5LjEgNzcuODNMMjAyLjM0IDc3LjgzTDIxOC45OSAyOS42N0wyMTguOTkgNzcuODNMMjM2LjQzIDc3LjgzTDIzNi40MyAwLjE2Wk0yNjYuODcgNjIuM0wyNjYuODcgMC4xNkwyNDkgMC4xNkwyNDkgNzcuODNMMjg4LjgzIDc3LjgzTDI4OC44MyA2Mi4zTDI2Ni44NyA2Mi4zWk0wLjgzIDAuMTZMMC44MyA3Ny44M0wyOS4xOCA3Ny44M0MzNS41OCA3Ny44MyA0MS4yOCA3Ni43NCA0Ni4yOCA3NC41NkM1MS4yOCA3Mi4zOCA1NS40OSA2OS40NyA1OC45MSA2NS44NUM2Mi4zMyA2Mi4yMiA2NC45MyA1OC4wOCA2Ni42OSA1My40MkM2OC40NiA0OC43NiA2OS4zNCA0My45NSA2OS4zNCAzOC45OUM2OS4zNCAzNC4wNCA2OC40NCAyOS4yMyA2Ni42NCAyNC41N0M2NC44MyAxOS45MSA2Mi4yMiAxNS43NyA1OC44IDEyLjE0QzU1LjM4IDguNTIgNTEuMTkgNS42MSA0Ni4yMyAzLjQzQzQxLjI2IDEuMjUgMzUuNTggMC4xNiAyOS4xOCAwLjE2TDAuODMgMC4xNlpNMjguMyAxNS42OUMzMS45IDE1LjY5IDM1LjEyIDE2LjM0IDM3Ljk1IDE3LjYzQzQwLjc4IDE4LjkzIDQzLjE3IDIwLjY3IDQ1LjEyIDIyLjg1QzQ3LjA3IDI1LjAzIDQ4LjU2IDI3LjUzIDQ5LjU5IDMwLjM0QzUwLjYyIDMzLjE1IDUxLjE0IDM2LjA0IDUxLjE0IDM4Ljk5QzUxLjE0IDQyLjAzIDUwLjYyIDQ0LjkzIDQ5LjU5IDQ3LjdDNDguNTYgNTAuNDggNDcuMDcgNTIuOTYgNDUuMTIgNTUuMTRDNDMuMTcgNTcuMzIgNDAuNzggNTkuMDYgMzcuOTUgNjAuMzVDMzUuMTIgNjEuNjUgMzEuOSA2Mi4zIDI4LjMgNjIuM0wxOC43IDYyLjNMMTguNyAxNS42OUwyOC4zIDE1LjY5WiIgLz4KCTxnIGlkPSJBIj4KCQk8cGF0aCBpZD0iU2hhcGUgMiBjb3B5IiBjbGFzcz0ic2hwMSIgZD0iTTEyMi43OSw3Ny44NGgxNy4yNGwtMjQuMTMsLTc2Ljk3aC0xNy4yNHpNMTIyLjc5LDc3Ljg0aDE3LjI0bC0yNC4xMywtNzYuOTdoLTE3LjI0eiIgLz4KCQk8cGF0aCBpZD0iUmVjdGFuZ2xlIDIiIGNsYXNzPSJzaHAwIiBkPSJNODMuMTUsNTAuMzRsLTguNjIsMjcuNWgxNy4yNGw4LjYyLC0yNy41eiIgLz4KCQk8cGF0aCBpZD0iUmVjdGFuZ2xlIDIgY29weSIgY2xhc3M9InNocDIiIGQ9Ik05OC42NiwwLjg3bC04Ljg0LDI4LjJoMTcuMjRsOC44NCwtMjguMnoiIC8+Cgk8L2c+Cjwvc3ZnPg==) !important;
+  background-size: 56px !important;
+  width: 56px !important;
+  margin-right: 4px; 
+  margin-left: 4px; 
+}
+/**************************************************************************************************/
+
+/*************************** Hide menu items ******************************************************/
+.part.titlebar .menubar div.menubar-menu-button[aria-label="Terminal"],
+.part.titlebar .menubar div.menubar-menu-button[aria-label="Debug"],
+.part.titlebar .menubar div.menubar-menu-button[aria-label="View"],
+.part.titlebar .menubar div.menubar-menu-button[aria-label="Help"]{
+  display: none !important;
+}
+/**************************************************************************************************/
+
+
+/*************************** Hide activity bar items **********************************************/
+/*The aria-label in the activitybar have system specific / special characters in them so we opt to 
+use the more concrete nth-child selector*/
+.part.activitybar ul.actions-container li:nth-child(3), /*Source Control*/
+.part.activitybar ul.actions-container li:nth-child(4), /*Debug*/
+.part.activitybar ul.actions-container li:nth-child(5){ /*Extension*/
+  display: none !important;
+}
+/**************************************************************************************************/
+
+/*************************** Remove welcome text and modify style *********************************/
+.monaco-workbench .part.editor > .content div.welcomePageContainer {
+  align-items: flex-start;
+  margin-top: 30px;
+}   
+.monaco-workbench .part.editor > .content .welcomePage .caption,
+.monaco-workbench .part.editor > .content .welcomePage .subtitle {
+  display:none !important;
+}
+.monaco-workbench .part.editor > .content .welcomePage div.title {
+  margin-top: 0px;
+  margin-bottom: 25px;
+  border: none;
+  font-weight: normal;
+  font-size: 3.6em;
+  white-space: nowrap;
+}
+
+.monaco-workbench .part.editor > .content .welcomePage .title:before {
+  content: "DAML Code Editor";
+}
+
+.monaco-workbench .part.editor > .content .welcomePage div.row {
+  margin-top: 0px;
+  padding: 0px;
+  color: rgba(204, 204, 204, 0.7);
+  border: none;
+  font-weight: normal;
+  font-size: 1.5em;
+  max-width: 800px;
+}
+.monaco-workbench .part.editor > .content .welcomePage .row:after {
+  white-space: pre-wrap;
+  content: "Check out the daml examples in the workspace to the left. \
+  You can view definitions, auto complete templates, and much more. \
+  Run interactive tests, called DAML scenarios, by clicking \"Scenario results\" \
+  above the scenario definitions. You'll have 45 minutes before this environment \
+  is deleted.\A\
+  \A\
+  \A\
+DAML Studio extends Visual Studio Code with the following DAML-specific features.  \A\
+  \A\
+      \2022  DAML syntax highlighting  \A\
+      \2022  Real-time feedback on parse, name resolution, type-checking \A\
+      \2022  Scenario interpretation errors and viewer for the resulting ledger \A\
+      \2022  Jumping to and peeking at the definition of referenced toplevel functions \A\
+      \2022  Type-information on hover \A\
+      \2022  Renaming of symbols \A\
+      \2022  DAML snippet support \A\
+  \A\
+For more information on DAML please see docs.daml.com."
+}
+
+.monaco-workbench .part.editor > .content .welcomePage .row .splash
+.monaco-workbench .part.editor > .content .welcomePage .row .commands {
+  display:none !important;
+}
+/****************************************************************************************************/

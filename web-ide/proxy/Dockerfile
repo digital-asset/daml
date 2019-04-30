@@ -21,6 +21,8 @@ RUN apk update \
     && npm install \
     && npm run compile
 
-EXPOSE 80 443 3001
+# 3001: management port
+# 3002: gcp load balancer will direct http:80 traffic here. See httpToHttps.ts for more details
+EXPOSE 80 443 3001 3002
 LABEL WEB-IDE-PROXY=""
 CMD ["npm", "run", "start"]

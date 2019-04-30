@@ -7,8 +7,12 @@ import cookieParser from "cookie-parser"
 import { createProxyServer } from "http-proxy"
 import { ProxyError } from "../errors"
 import { Server, Socket } from "net"
+import fs from "fs"
 import { Application, Request, Response, NextFunction } from "express"
 import { ImageInspectInfo } from "dockerode";
+import request from "request"
+import zlib from "zlib"
+import { Readable } from "stream"
 
 const conf = require('../config').read()
 const debug = require('debug')('webide:route')
@@ -18,21 +22,26 @@ export default class WebIdeRoute {
     server :Server
     docker :Docker
     private proxy :any
-    constructor(app: Application, webideServer :Server, docker :Docker) {
+    private rootDir :string
+    private daWebideCss :Buffer
+    constructor(app: Application, webideServer :Server, docker :Docker, rootDir :string) {
         this.app = app
         this.server = webideServer
         this.docker = docker
+        this.rootDir = rootDir
         this.proxy = createProxyServer({})
+        this.daWebideCss = fs.readFileSync(`${this.rootDir}/static/css/webide.main.css`)
     }
 
     init() : WebIdeRoute {
         this.app.use(cookieParser())
+        this.app.get('/ide.main.*.css', (req :Request, res :Response, next :NextFunction) => this.handleIdeCss(req, res, next))
         this.server.on('upgrade', (req :Request, socket :Socket, head :any) => this.handleWsRequest(req, socket, head));
         return this
     }
 
     private getImage() :Promise<ImageInspectInfo> {
-        return this.docker.getImage(conf.docker.image)
+        return this.docker.getImage(conf.docker.webIdeReference)
     }
 
     errorHandler(err :Error, req: Request, res :Response, next :NextFunction) {
@@ -40,8 +49,7 @@ export default class WebIdeRoute {
             return next(err)
         }
         if (err instanceof ProxyError) {
-            res.statusCode = err.status
-            res.send(err.clientResponse)
+            res.status(err.status).send(err.clientResponse)
         }
         else {
             res.statusCode = 500
@@ -50,6 +58,31 @@ export default class WebIdeRoute {
         res.end()
         //TODO render nice error message 
         //res.render('error', { error: err })
+    }
+
+    /*we request the css and add our own css to the end of it. This involves grabbing the port mapping from our session,
+    unzipping the response, appending our css and zipping it back up. */
+    handleIdeCss(req :Request, res :Response, next: NextFunction) {
+        const route = this
+        Session.readSession(req, (error, state, _) => {
+            if (error) next(error)
+            const cHost = route.docker.getContainerUrl(state.docker, 'http')
+            if(typeof cHost.href === "string") {
+                const urlString = `${cHost.href}${req.url.substr(1)}`
+                debug("css appending for request %s", req.url)
+                request.get({ url: urlString, headers: req.headers, gzip: true}, (webIdeError: any, webIdeRes: request.Response, body: any) => {
+                    if (webIdeError) return next(webIdeError)
+                    const s = new Readable
+                    s.push(body)
+                    s.push(this.daWebideCss)
+                    s.push(null)
+
+                    res.setHeader('Content-Encoding', 'gzip')
+                    s.pipe(zlib.createGzip()).pipe(res)
+                })
+            }
+        })
+        
     }
 
     handleHttpRequest(req :Request, res :Response) {
@@ -90,6 +123,9 @@ export default class WebIdeRoute {
                 socket.on('data', () => {
                     Session.keepActive(sessionId)    //TODO debounce this as it could get chatty   
                 })
+                socket.on('error', (err) => {
+                    console.error("Socket failure", err)
+                })
                 const url = route.docker.getContainerUrl(state.docker, 'ws')
                 route.proxy.ws(req, socket, head, { target: url.href });
             })
@@ -103,7 +139,7 @@ export default class WebIdeRoute {
             if (!state.initializing) {
                 state.initializing = true;
                 saveSession(state);
-                return this.docker.api.listContainers({all: false, filters: { label: [`${conf.docker.webIdeLabel}`] }})
+                return this.docker.api.listContainers({all: false, filters: { ancestor: [`${conf.docker.webIdeReference}`] }})
                     .then(containers => { 
                         if (containers.length >= conf.docker.maxInstances) {
                             state.initializing = false;
