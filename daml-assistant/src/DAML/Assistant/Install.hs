@@ -26,10 +26,8 @@ import Network.HTTP.Simple
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS.UTF8
 import Data.List.Extra
-import GHC.IO.Exception
 import System.Exit
 import System.IO
-import System.IO.Error
 import System.IO.Temp
 import System.FilePath
 import System.Directory
@@ -147,17 +145,6 @@ installExtracted env@InstallEnv{..} sourcePath =
             setSdkFileMode (unwrapSdkPath targetPath)
 
         whenActivate env $ activateDaml env targetPath
-
-moveDirectory :: FilePath -> FilePath -> IO ()
-moveDirectory src target =
-    -- renameDirectory only works across the same file system so we fall back to
-    -- a copy + delete since it is common for TMP_DIR to point to a tmpfs.
-    catchJust
-        (\ex -> guard (ioeGetErrorType ex == UnsupportedOperation))
-        (renameDirectory src target)
-        (const $ do
-             copyDirectory src target
-             removePathForcibly src)
 
 activateDaml :: InstallEnv -> SdkPath -> IO ()
 activateDaml env@InstallEnv{..} targetPath = do
