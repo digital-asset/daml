@@ -46,7 +46,7 @@ execTest inFiles color mbJUnitOutput cliOptions = do
         eventLogger _ = return ()
     Managed.with (Compiler.newIdeState opts (Just eventLogger) loggerH) $ \h -> do
         let lfVersion = Compiler.optDamlLfVersion cliOptions
-        _ <- testRun h inFiles lfVersion color mbJUnitOutput
+        testRun h inFiles lfVersion color mbJUnitOutput
         diags <- CompilerService.getDiagnostics h
         when (any ((==) Error . dSeverity) diags) exitFailure
 
