@@ -86,7 +86,7 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks {
         implicit val ev: SubVersion[easva.T] = easva.run._2
         val result = latestWhenAllPresent(sv, svs: _*)
         import Implicits._
-        ((sv: SpecifiedVersion) :: svs).map(releasePrecedes(_, result)) should contain(false)
+        ((sv: SpecifiedVersion) :: svs).map(_ precedes result) should contain(false)
       }
 
       "be idempotent" in forAll(genLatestInput, Gen.listOf(genSpecifiedVersion)) { (easva, svs) =>

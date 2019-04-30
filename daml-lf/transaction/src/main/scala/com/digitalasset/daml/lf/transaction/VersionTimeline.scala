@@ -121,7 +121,7 @@ private[lf] object VersionTimeline {
       case (None, None) => None
     }
 
-  def releasePrecedes(left: SpecifiedVersion, right: SpecifiedVersion): Boolean =
+  private def releasePrecedes(left: SpecifiedVersion, right: SpecifiedVersion): Boolean =
     compareReleaseTime(left, right) contains Ordering.LT
 
   // not antisymmetric, as unknown versions can't be compared
