@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger.backend.api.v1.{SubmissionResult, TransactionSubmission}
 import com.digitalasset.platform.akkastreams.Dispatcher
 import com.digitalasset.platform.akkastreams.SteppingMode.RangeQuery
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.sandbox.config.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
@@ -67,7 +67,7 @@ object SqlLedger {
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists)(
       implicit mat: Materializer,
       mm: MetricsManager): Future[Ledger] = {
-    implicit val ec: ExecutionContext = DirectExecutionContext
+    implicit val ec: ExecutionContext = DE
 
     val dbDispatcher = DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
     val ledgerDao = LedgerDao.metered(
@@ -119,7 +119,7 @@ private class SqlLedger(
     val checkpointQueue = Source.queue[Long => LedgerEntry](1, OverflowStrategy.dropHead)
     val persistenceQueue = Source.queue[Long => LedgerEntry](128, OverflowStrategy.dropNew)
 
-    implicit val ec: ExecutionContext = DirectExecutionContext
+    implicit val ec: ExecutionContext = DE
 
     val mergedSources = Source.fromGraph(GraphDSL.create(checkpointQueue, persistenceQueue) {
       case (q1Mat, q2Mat) =>
@@ -149,13 +149,13 @@ private class SqlLedger(
               val offset = startOffset + i
               ledgerDao
                 .storeLedgerEntry(offset, offset + 1, ledgerEntryGen(offset))
-                .map(_ => ())(DirectExecutionContext)
+                .map(_ => ())(DE)
           })
           .map { _ =>
             //note that we can have holes in offsets in case of the storing of an entry failed for some reason
             headRef = startOffset + queue.length //updating the headRef
             dispatcher.signalNewHead(headRef) //signalling downstream subscriptions
-          }(DirectExecutionContext)
+          }(DE)
       }
       .toMat(Sink.ignore)(
         Keep.left[
@@ -174,7 +174,7 @@ private class SqlLedger(
   private def loadStartingState(ledgerEntries: immutable.Seq[LedgerEntry]): Future[Unit] =
     if (ledgerEntries.nonEmpty) {
       logger.info("initializing ledger with scenario output")
-      implicit val ec: ExecutionContext = DirectExecutionContext
+      implicit val ec: ExecutionContext = DE
       //ledger entries must be persisted via the transactionQueue!
       val fDone = Source(ledgerEntries)
         .mapAsync(1) { ledgerEntry =>
@@ -190,7 +190,6 @@ private class SqlLedger(
     } else Future.successful(())
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] = {
-    //TODO perf optimisation: the Dispatcher queries every ledger entry one by one, which is really not optimal having a relational db. We should change this behaviour and use a simple sql query fetching the ledger entry at once, at least until ledger end.
     dispatcher.startingAt(offset.getOrElse(0))
   }
 
@@ -199,14 +198,13 @@ private class SqlLedger(
   override def snapshot(): Future[LedgerSnapshot] =
     //TODO (robert): SQL DAO does not know about ActiveContract, this method does a (trivial) mapping from DAO Contract to Ledger ActiveContract. Intended? The DAO layer was introduced its own Contract abstraction so it can also reason read archived ones if it's needed. In hindsight, this might be necessary at all  so we could probably collapse the two
     ledgerDao.getActiveContractSnapshot
-      .map(s => LedgerSnapshot(s.offset, s.acs.map(c => (c.contractId, c.toActiveContract))))(
-        DirectExecutionContext)
+      .map(s => LedgerSnapshot(s.offset, s.acs.map(c => (c.contractId, c.toActiveContract))))(DE)
 
   override def lookupContract(
       contractId: Value.AbsoluteContractId): Future[Option[ActiveContract]] =
     ledgerDao
       .lookupActiveContract(contractId)
-      .map(_.map(c => c.toActiveContract))(DirectExecutionContext)
+      .map(_.map(c => c.toActiveContract))(DE)
 
   override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
     ledgerDao.lookupKey(key)
@@ -214,7 +212,7 @@ private class SqlLedger(
   override def publishHeartbeat(time: Instant): Future[Unit] =
     checkpointQueue
       .offer(_ => LedgerEntry.Checkpoint(time))
-      .map(_ => ())(DirectExecutionContext) //this never pushes back, see createQueues above!
+      .map(_ => ())(DE) //this never pushes back, see createQueues above!
 
   override def publishTransaction(tx: TransactionSubmission): Future[SubmissionResult] =
     enqueue { offset =>
@@ -258,7 +256,7 @@ private class SqlLedger(
           Failure(new IllegalStateException("queue closed"))
         case Success(QueueOfferResult.Failure(e)) => Failure(e)
         case Failure(f) => Failure(f)
-      }(DirectExecutionContext)
+      }(DE)
   }
 }
 
@@ -281,7 +279,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       timeProvider: TimeProvider,
       startMode: SqlStartMode)(implicit mat: Materializer): Future[SqlLedger] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    implicit val ec = DirectExecutionContext
+    implicit val ec = DE
 
     def init() = startMode match {
       case AlwaysReset =>
@@ -301,7 +299,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
   private def reset(): Future[Unit] =
     ledgerDao.reset()
 
-  private def initialize(initialLedgerId: Option[String]) = initialLedgerId match {
+  private def initialize(initialLedgerId: Option[String]): Future[String] = initialLedgerId match {
     case Some(initialId) =>
       ledgerDao
         .lookupLedgerId()
@@ -314,18 +312,19 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
             logger.error(errorMsg)
             sys.error(errorMsg)
           case None =>
-            doInit(initialId)
-        }(DirectExecutionContext)
+            doInit(initialId).map(_ => initialId)(DE)
+        }(DE)
 
     case None =>
       logger.info("No ledger id given. Looking for existing ledger in database.")
       ledgerDao
         .lookupLedgerId()
         .flatMap {
-          case Some(foundLedgerId) =>
-            ledgerFound(foundLedgerId)
-          case None => doInit(LedgerIdGenerator.generateRandomId())
-        }(DirectExecutionContext)
+          case Some(foundLedgerId) => ledgerFound(foundLedgerId)
+          case None =>
+            val randomLedgerId = LedgerIdGenerator.generateRandomId()
+            doInit(randomLedgerId).map(_ => randomLedgerId)(DE)
+        }(DE)
   }
 
   private def ledgerFound(foundLedgerId: String) = {
@@ -333,13 +332,9 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     Future.successful(foundLedgerId)
   }
 
-  private def doInit(ledgerId: String): Future[String] = {
+  private def doInit(ledgerId: String): Future[Unit] = {
     logger.info(s"Initializing ledger with id: $ledgerId")
-    implicit val ec: ExecutionContext = DirectExecutionContext
-    for {
-      _ <- ledgerDao.storeLedgerId(ledgerId)
-      _ <- ledgerDao.storeInitialLedgerEnd(0)
-    } yield (ledgerId)
+    ledgerDao.initializeLedger(ledgerId, 0)
   }
 
 }
