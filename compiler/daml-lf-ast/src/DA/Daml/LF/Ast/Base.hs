@@ -794,12 +794,6 @@ concatSequenceA
   , makePrisms ''Update
   , makePrisms ''Scenario
   , makePrisms ''DataCons
-  , makePrisms ''Package
-  , makeUnderscoreLenses ''DefDataType
   , makeUnderscoreLenses ''DefValue
-  , makeUnderscoreLenses ''TemplateChoice
-  , makeUnderscoreLenses ''Template
-  , makeUnderscoreLenses ''Module
   , makeUnderscoreLenses ''Package
-  , makeUnderscoreLenses ''TemplateKey
   ]
