@@ -1,7 +1,8 @@
 # DAML
 
 This is the terraform code used by the DAML repository to deploy supporting
-infrastructure such as the Bazel and Nix caches.
+infrastructure such as the Bazel caches, Nix caches and Azure Pipeline (VSTS)
+Agents.
 
 ## Setup
 
