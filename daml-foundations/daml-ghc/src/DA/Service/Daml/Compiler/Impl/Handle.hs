@@ -44,7 +44,6 @@ import           DA.Daml.LF.Proto3.Archive                  (encodeArchiveLazy)
 import qualified DA.Service.Logger                          as Logger
 import qualified DA.Service.Daml.Compiler.Impl.Dar          as Dar
 
-import           Control.Concurrent.STM
 import           Control.Monad.Except.Extended              as Ex
 import           Control.Monad.IO.Class                     (liftIO)
 import           Control.Monad.Managed.Extended
@@ -148,11 +147,11 @@ newtype GlobalPkgMap = GlobalPkgMap (Map.Map UnitId (LF.PackageId, LF.Package, B
 instance Shake.IsIdeGlobal GlobalPkgMap
 
 newIdeState :: Options
-            -> Maybe (Event -> STM ())
+            -> Maybe (Event -> IO ())
             -> Logger.Handle IO
             -> Managed IdeState
 newIdeState compilerOpts mbEventHandler loggerH = do
-  mbScenarioService <- for mbEventHandler $ \eventHandler -> Scenario.startScenarioService (atomically . eventHandler) loggerH
+  mbScenarioService <- for mbEventHandler $ \eventHandler -> Scenario.startScenarioService eventHandler loggerH
 
   -- Load the packages from the package database for the scenario service. We swallow errors here
   -- but shake will report them when typechecking anything.
