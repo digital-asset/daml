@@ -7,7 +7,7 @@ Agents.
 ## Setup
 
 To deploy the infrastructure changes, you will to get access to the
-`da-dev-gcp-daml-language` Google project from IT. Then run
+`da-dev-gcp-daml-language` Google project from DA IT. Then run
 `gcloud auth login` to configure the local credentials.
 
 ## Deployment
