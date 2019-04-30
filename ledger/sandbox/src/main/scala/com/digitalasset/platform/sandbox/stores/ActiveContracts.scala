@@ -159,9 +159,8 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                   workflowId = workflowId,
                   contract = nc.coinst.mapValue(
                     _.mapContractId(SandboxEventIdFormatter.makeAbsCoid(transactionId))),
-                  witnesses = explicitDisclosure(nodeId) intersect nc.stakeholders,
-                  divulgences = explicitDisclosure(nodeId) union localImplicitDisclosure
-                    .getOrElse(nodeId, Set.empty) diff nc.stakeholders,
+                  witnesses = explicitDisclosure(nodeId),
+                  divulgences = localImplicitDisclosure(nodeId),
                   key = nc.key
                 )
                 activeContract.key match {
