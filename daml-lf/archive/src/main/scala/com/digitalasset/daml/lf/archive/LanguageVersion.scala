@@ -9,11 +9,20 @@ final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMin
 
 object LanguageVersion {
 
+  type Major = LanguageMajorVersion
+  val Major = LanguageMajorVersion
+
+  type Minor = LanguageMinorVersion
+  val Minor = LanguageMinorVersion
+
   val defaultV0: LanguageVersion =
-    LanguageVersion(LMV.V0, LMV.V0.maxSupportedMinorVersion)
+    LanguageVersion(LMV.V0, LMV.V0.maxSupportedStableMinorVersion)
 
   val defaultV1: LanguageVersion =
-    LanguageVersion(LMV.V1, LMV.V1.maxSupportedMinorVersion)
+    LanguageVersion(LMV.V1, LMV.V1.maxSupportedStableMinorVersion)
+
+  private[lf] def apply(major: LanguageMajorVersion, minor: String): LanguageVersion =
+    apply(major, Minor fromProtoIdentifier minor)
 
   def default: LanguageVersion =
     defaultV1

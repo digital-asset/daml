@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.engine
 
-import com.digitalasset.daml.lf.archive.{LanguageMajorVersion => LMV}
+import com.digitalasset.daml.lf.archive.{LanguageVersion => LV}
 import com.digitalasset.daml.lf.transaction.TransactionVersions
 import com.digitalasset.daml.lf.value.ValueVersions
 
@@ -22,15 +22,14 @@ object EngineInfo {
 
   private def formatLfVersions: String = {
     val allVersions: Iterable[String] =
-      lfVersions("0", LMV.V0.supportedMinorVersions) ++
-        lfVersions("1", LMV.V1.supportedMinorVersions)
+      LV.Major.All flatMap (mv => lfVersions(mv.pretty, mv.supportedMinorVersions))
     format(allVersions)
   }
 
   private def lfVersions(
       majorVersion: String,
-      minorVersions: Iterable[String]): Iterable[String] = {
-    val nonEmptyMinorVersions = minorVersions.filter(_.nonEmpty)
+      minorVersions: Iterable[LV.Minor]): Iterable[String] = {
+    val nonEmptyMinorVersions = minorVersions.map(_.toProtoIdentifier).filter(_.nonEmpty)
     if (nonEmptyMinorVersions.isEmpty) Seq(majorVersion)
     else nonEmptyMinorVersions.map(a => s"$majorVersion.$a")
   }

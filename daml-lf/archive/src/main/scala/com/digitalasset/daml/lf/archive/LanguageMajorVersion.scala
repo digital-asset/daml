@@ -6,21 +6,27 @@ package archive
 
 // an ADT version of the DAML-LF version
 sealed abstract class LanguageMajorVersion(
-    val maxSupportedMinorVersion: LanguageMinorVersion,
-    previousMinorVersions: List[LanguageMinorVersion])
-    extends LfVersions(maxSupportedMinorVersion, previousMinorVersions)(identity)
+    val pretty: String,
+    maxSupportedStable: String,
+    previousStable: List[String])
+    extends LfVersions(
+      LanguageMinorVersion.Dev,
+      (previousStable :+ maxSupportedStable) map LanguageMinorVersion.Stable)(_.toProtoIdentifier)
     with Product
     with Serializable {
 
+  val maxSupportedStableMinorVersion: LanguageMinorVersion.Stable =
+    LanguageMinorVersion.Stable(maxSupportedStable)
+
   // do *not* use implicitly unless type `LanguageMinorVersion` becomes
   // indexed by the enclosing major version's singleton type --SC
-  def minorVersionOrdering: Ordering[LanguageMinorVersion] =
+  final def minorVersionOrdering: Ordering[LanguageMinorVersion] =
     Ordering.by(acceptedVersions.zipWithIndex.toMap)
 
   val supportedMinorVersions: List[LanguageMinorVersion] =
     acceptedVersions
 
-  final def supportsMinorVersion(fromLFFile: LanguageMinorVersion): Boolean =
+  private[archive] final def supportsMinorVersion(fromLFFile: String): Boolean =
     isAcceptedVersion(fromLFFile).isDefined
 }
 
@@ -28,12 +34,13 @@ object LanguageMajorVersion {
 
   // Note that DAML-LF v0 never had and never will have minor versions.
   case object V0
-      extends LanguageMajorVersion(maxSupportedMinorVersion = "", previousMinorVersions = List())
+      extends LanguageMajorVersion(pretty = "0", maxSupportedStable = "", previousStable = List())
 
   case object V1
       extends LanguageMajorVersion(
-        maxSupportedMinorVersion = "3",
-        previousMinorVersions = List("0", "1", "2"))
+        pretty = "1",
+        maxSupportedStable = "3",
+        previousStable = List("0", "1", "2"))
 
   val All: List[LanguageMajorVersion] = List(V0, V1)
 
