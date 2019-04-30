@@ -19,7 +19,6 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
 import qualified DA.Daml.LF.ScenarioServiceClient as SSC
 import Data.Either
-import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Prettyprint.Doc.Syntax as Pretty
 import qualified Data.Vector as V
@@ -67,7 +66,7 @@ testRun hDamlGhc inFiles lfVersion colorTestResults mbJUnitOutput  = do
     case mbDeps of
         Nothing -> return Fail
         Just depFiles -> do
-            let files = Set.toList $ Set.fromList inFiles `Set.union` Set.fromList (concat depFiles)
+            let files = nubOrd $ concat $ inFiles : depFiles
             case mbJUnitOutput of
                 Nothing -> testStdio lfVersion hDamlGhc files colorTestResults
                 Just junitOutput -> testJUnit lfVersion hDamlGhc files junitOutput
