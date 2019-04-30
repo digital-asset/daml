@@ -19,12 +19,12 @@ import           DA.Pretty
 import qualified DA.Daml.LF.Ast           as LF
 import qualified DA.Daml.LF.Proto3.Decode as Decode
 import qualified DA.Daml.LF.Proto3.Encode as Encode
-import qualified DA.Daml.LF.Proto3.Hash   as Hash
 import qualified Data.ByteArray           as BA
 import qualified Data.ByteString          as BS
 import qualified Data.ByteString.Lazy     as BSL
 import qualified Data.Text                as T
 import qualified Data.Text.Lazy           as TL
+import qualified Numeric
 import qualified Proto3.Suite             as Proto
 
 data ArchiveError
@@ -42,7 +42,7 @@ decodeArchive bytes = do
 
     computedHash <- case ProtoLF.archiveHashFunction archive of
       Proto.Enumerated (Right ProtoLF.HashFunctionSHA256) ->
-        Right $ Hash.encodeHash (BA.convert (Crypto.hash @_ @Crypto.SHA256 payloadBytes) :: BS.ByteString)
+        Right $ encodeHash (BA.convert (Crypto.hash @_ @Crypto.SHA256 payloadBytes) :: BS.ByteString)
       Proto.Enumerated (Left idx) ->
         Left (UnknownHashFunction idx)
 
@@ -59,7 +59,7 @@ decodeArchive bytes = do
 encodeArchiveLazy :: LF.Package -> BSL.ByteString
 encodeArchiveLazy package =
     let payload = BSL.toStrict $ Proto.toLazyByteString $ Encode.encodePayload package
-        hash = Hash.encodeHash (BA.convert (Crypto.hash @_ @Crypto.SHA256 payload) :: BS.ByteString)
+        hash = encodeHash (BA.convert (Crypto.hash @_ @Crypto.SHA256 payload) :: BS.ByteString)
         archive =
           ProtoLF.Archive
           { ProtoLF.archivePayload = payload
@@ -70,6 +70,17 @@ encodeArchiveLazy package =
 
 encodeArchive :: LF.Package -> BS.ByteString
 encodeArchive = BSL.toStrict . encodeArchiveLazy
+
+-- | Encode the hash bytes of the payload in the canonical
+-- lower-case ascii7 hex presentation.
+encodeHash :: BS.ByteString -> T.Text
+encodeHash = T.pack . reverse . foldl' toHex [] . BS.unpack
+  where
+    toHex xs c =
+      case Numeric.showHex c "" of
+        [n1, n2] -> n2 : n1 : xs
+        [n2]     -> n2 : '0' : xs
+        _        -> error "impossible: showHex returned [] on Word8"
 
 instance Pretty ArchiveError where
   pPrint =
