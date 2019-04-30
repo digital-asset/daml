@@ -36,6 +36,16 @@ import System.FilePath
 import qualified Text.XML.Light as XML
 
 
+data Result = Pass | Fail deriving Eq
+
+instance Semigroup Result where
+    Pass <> Pass = Pass
+    _ <> _ = Fail
+
+instance Monoid Result where
+    mempty = Pass
+
+
 newtype ColorTestResults = ColorTestResults{getColorTestResults :: Bool}
 
 -- | Test a DAML file.
@@ -57,19 +67,19 @@ execTest inFiles colorTestResults mbJUnitOutput cliOptions = do
 
 testStdio :: LF.Version -> IdeState -> [FilePath] -> ColorTestResults -> IO ()
 testStdio lfVersion hDamlGhc files colorTestResults = do
-    failed <- fmap or $ CompilerService.runAction hDamlGhc $
+    failed <- fmap mconcat $ CompilerService.runAction hDamlGhc $
         Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
             case mbScenarioResults of
-                Nothing -> return True
+                Nothing -> return Fail
                 Just scenarioResults -> do
                     liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> do
                         let doc = prettyResult lfVersion result
                         let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
                         let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
                         putStrLn $ stringStyleToRender (name <> ": " <> doc)
-                    pure $ any (isLeft . snd) scenarioResults
-    when failed exitFailure
+                    pure $ if any (isLeft . snd) scenarioResults then Fail else Pass
+    when (failed == Fail) exitFailure
 
 testJUnit :: LF.Version -> IdeState -> [FilePath] -> FilePath -> IO ()
 testJUnit lfVersion hDamlGhc files junitOutput = do
@@ -91,8 +101,8 @@ testJUnit lfVersion hDamlGhc files junitOutput = do
         liftIO $ do
             createDirectoryIfMissing True $ takeDirectory junitOutput
             writeFile junitOutput $ XML.showTopElement $ toJUnit results
-        pure (any (any (isJust . snd) . snd) results)
-    when failed exitFailure
+        pure $ if any (any (isJust . snd) . snd) results then Fail else Pass
+    when (failed == Fail) exitFailure
 
 
 prettyErr :: LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.SyntaxClass
