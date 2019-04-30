@@ -53,8 +53,14 @@ execTest inFiles color mbJUnitOutput cliOptions = do
 
 testRun :: IdeState -> [FilePath] -> LF.Version -> UseColor -> Maybe FilePath -> IO ()
 testRun h inFiles lfVersion color mbJUnitOutput  = do
+    -- make sure none of the files disappear
     liftIO $ Compiler.setFilesOfInterest h inFiles
-    files <- filesToTest h inFiles
+
+    -- take the transitive closure of all imports and run on all of them
+    -- If some dependencies can't be resolved we'll get a Diagnostic out anyway, so don't worry
+    deps <- CompilerService.runAction h $ mapM CompilerService.getDependencies inFiles
+    files <- return $ nubOrd $ concat $ inFiles : catMaybes deps
+
     results <- CompilerService.runAction h $
         Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
@@ -66,18 +72,10 @@ testRun h inFiles lfVersion color mbJUnitOutput  = do
                     let f = either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing)
                     pure $ map (second f) scenarioResults
             pure (file, results)
+
     whenJust mbJUnitOutput $ \junitOutput -> do
         createDirectoryIfMissing True $ takeDirectory junitOutput
         writeFile junitOutput $ XML.showTopElement $ toJUnit results
-
-
--- | Given the files the user asked for, figure out which are the complete sets of files to test on.
---   Basically, the transitive closure.
---   If some dependencies can't be resolved we'll get an error message out anyway, so don't worry
-filesToTest :: IdeState -> [FilePath] -> IO [FilePath]
-filesToTest h files = do
-    deps <- CompilerService.runAction h $ mapM CompilerService.getDependencies files
-    return $ nubOrd $ concat $ files : catMaybes deps
 
 
 -- We didn't get scenario results, so we use the diagnostics as the error message for each scenario.
