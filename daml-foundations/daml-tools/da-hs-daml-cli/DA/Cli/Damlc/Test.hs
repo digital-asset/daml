@@ -56,9 +56,7 @@ testRun :: IdeState -> [FilePath] -> LF.Version -> ColorTestResults -> Maybe Fil
 testRun h inFiles lfVersion colorTestResults mbJUnitOutput  = do
     liftIO $ Compiler.setFilesOfInterest h inFiles
     files <- filesToTest h inFiles
-    case mbJUnitOutput of
-        Nothing -> testStdio h files colorTestResults
-        Just _ -> testJUnit lfVersion h files mbJUnitOutput colorTestResults
+    testJUnit lfVersion h files mbJUnitOutput colorTestResults
 
 -- | Given the files the user asked for, figure out which are the complete sets of files to test on.
 --   Basically, the transitive closure.
@@ -68,18 +66,6 @@ filesToTest h files = do
     deps <- CompilerService.runAction h $ mapM CompilerService.getDependencies files
     return $ nubOrd $ concat $ files : catMaybes deps
 
-
-testStdio :: IdeState -> [FilePath] -> ColorTestResults -> IO ()
-testStdio h files colorTestResults = do
-    CompilerService.runAction h $
-        void $ Shake.forP files $ \file -> do
-            mbScenarioResults <- CompilerService.runScenarios file
-            whenJust mbScenarioResults $ \scenarioResults -> do
-            liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> whenRight result $ \result -> do
-                let doc = prettyResult result
-                let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
-                let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
-                putStrLn $ stringStyleToRender (name <> ": " <> doc)
 
 testJUnit :: LF.Version -> IdeState -> [FilePath] -> Maybe FilePath -> ColorTestResults -> IO ()
 testJUnit lfVersion h files junitOutput colorTestResults = do
