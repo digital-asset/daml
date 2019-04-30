@@ -192,7 +192,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
                     case item =>
                       // the offset we get from LedgerBackend is the actual offset of the entry. We need to return the next one
                       // however on the API so clients can resubscribe with the received offset without getting duplicates
-                      subscribeUntil.fold(true)(until => until != (item.offset.toLong + 1).toString)
+                      subscribeUntil.fold(true)(until => until.toLong >= (item.offset.toLong + 1))
                   },
                   inclusive = true
                 )
