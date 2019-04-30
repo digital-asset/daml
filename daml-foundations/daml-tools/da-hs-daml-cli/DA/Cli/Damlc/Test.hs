@@ -62,14 +62,19 @@ execTest inFiles colorTestResults mbJUnitOutput cliOptions = do
 testRun :: IdeState -> [FilePath] -> LF.Version -> ColorTestResults -> Maybe FilePath -> IO Result
 testRun hDamlGhc inFiles lfVersion colorTestResults mbJUnitOutput  = do
     liftIO $ Compiler.setFilesOfInterest hDamlGhc inFiles
-    mbDeps <- liftIO $ CompilerService.runAction hDamlGhc $ fmap sequence $ mapM CompilerService.getDependencies inFiles
-    case mbDeps of
-        Nothing -> return Fail
-        Just depFiles -> do
-            let files = nubOrd $ concat $ inFiles : depFiles
-            case mbJUnitOutput of
-                Nothing -> testStdio lfVersion hDamlGhc files colorTestResults
-                Just junitOutput -> testJUnit lfVersion hDamlGhc files junitOutput
+    (res, files) <- filesToTest hDamlGhc inFiles
+    (res <>) <$> case mbJUnitOutput of
+        Nothing -> testStdio lfVersion hDamlGhc files colorTestResults
+        Just junitOutput -> testJUnit lfVersion hDamlGhc files junitOutput
+
+-- | Given the files the user asked for, figure out which are the complete sets of files to test on.
+--   Basically, the transitive closure.
+--   If some dependencies can't be resolved we'll get an error message out anyway, so don't worry
+filesToTest :: IdeState -> [FilePath] -> IO (Result, [FilePath])
+filesToTest h files = do
+    deps <- CompilerService.runAction h $ mapM CompilerService.getDependencies files
+    return (if any isNothing deps then Fail else Pass, nubOrd $ concat $ files : catMaybes deps)
+
 
 testStdio :: LF.Version -> IdeState -> [FilePath] -> ColorTestResults -> IO Result
 testStdio lfVersion hDamlGhc files colorTestResults = do
