@@ -55,7 +55,21 @@ testRun :: IdeState -> [FilePath] -> LF.Version -> ColorTestResults -> Maybe Fil
 testRun h inFiles lfVersion colorTestResults mbJUnitOutput  = do
     liftIO $ Compiler.setFilesOfInterest h inFiles
     files <- filesToTest h inFiles
-    testJUnit lfVersion h files mbJUnitOutput colorTestResults
+    results <- CompilerService.runAction h $
+        Shake.forP files $ \file -> do
+            mbScenarioResults <- CompilerService.runScenarios file
+            results <- case mbScenarioResults of
+                Nothing -> failedTestOutput h file
+                Just scenarioResults -> do
+                    -- failures are printed out through diagnostics, so just print the sucesses
+                    liftIO $ printScenarioResults [(v, r) | (v, Right r) <- scenarioResults] colorTestResults
+                    let f = either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing)
+                    pure $ map (second f) scenarioResults
+            pure (file, results)
+    whenJust mbJUnitOutput $ \junitOutput -> do
+        createDirectoryIfMissing True $ takeDirectory junitOutput
+        writeFile junitOutput $ XML.showTopElement $ toJUnit results
+
 
 -- | Given the files the user asked for, figure out which are the complete sets of files to test on.
 --   Basically, the transitive closure.
@@ -82,24 +96,6 @@ printScenarioResults results colorTestResults = do
         let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
         let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
         putStrLn $ stringStyleToRender (name <> ": " <> doc)
-
-
-testJUnit :: LF.Version -> IdeState -> [FilePath] -> Maybe FilePath -> ColorTestResults -> IO ()
-testJUnit lfVersion h files junitOutput colorTestResults = do
-    results <- CompilerService.runAction h $
-        Shake.forP files $ \file -> do
-            mbScenarioResults <- CompilerService.runScenarios file
-            results <- case mbScenarioResults of
-                Nothing -> failedTestOutput h file
-                Just scenarioResults -> do
-                    -- failures are printed out through diagnostics, so just print the sucesses
-                    liftIO $ printScenarioResults [(v, r) | (v, Right r) <- scenarioResults] colorTestResults
-                    let f = either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing)
-                    pure $ map (second f) scenarioResults
-            pure (file, results)
-    whenJust junitOutput $ \junitOutput -> do
-        createDirectoryIfMissing True $ takeDirectory junitOutput
-        writeFile junitOutput $ XML.showTopElement $ toJUnit results
 
 
 prettyErr :: LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.SyntaxClass
