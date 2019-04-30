@@ -40,7 +40,7 @@ tests = testGroup
               , "module Foo where"
               , "abc"
               ]
-            shouldThrow (Damlc.execTest [path] (Damlc.UseColor False) Nothing opts)
+            shouldThrowExitFailure (Damlc.execTest [path] (Damlc.UseColor False) Nothing opts)
     , testCase "File with failing scenario" $ do
         withTempFile $ \path -> do
             T.writeFileUtf8 path $ T.unlines
