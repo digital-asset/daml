@@ -19,6 +19,7 @@ module "nix_cache" {
   cache_retention_days = 360
 }
 
+// allow rw access for CI writer (see writer.tf)
 resource "google_storage_bucket_iam_member" "nix_cache_writer" {
   bucket = "${module.nix_cache.bucket_name}"
 
