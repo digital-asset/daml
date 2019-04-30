@@ -14,11 +14,11 @@ import qualified Control.Monad.Managed             as Managed
 import           DA.Prelude
 import qualified DA.Pretty
 import DA.Cli.Damlc.Base
+import Control.Monad.Extra
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
 import qualified DA.Daml.LF.ScenarioServiceClient as SSC
-import Data.Either
 import qualified Data.Text as T
 import qualified Data.Text.Prettyprint.Doc.Syntax as Pretty
 import qualified Data.Vector as V
@@ -32,16 +32,6 @@ import System.Directory (createDirectoryIfMissing)
 import System.Exit (exitFailure)
 import System.FilePath
 import qualified Text.XML.Light as XML
-
-
-data Result = Pass | Fail deriving Eq
-
-instance Semigroup Result where
-    Pass <> Pass = Pass
-    _ <> _ = Fail
-
-instance Monoid Result where
-    mempty = Pass
 
 
 newtype ColorTestResults = ColorTestResults{getColorTestResults :: Bool}
@@ -60,39 +50,36 @@ execTest inFiles colorTestResults mbJUnitOutput cliOptions = do
         when (any ((==) Error . dSeverity) diags) exitFailure
 
 
-testRun :: IdeState -> [FilePath] -> LF.Version -> ColorTestResults -> Maybe FilePath -> IO Result
+testRun :: IdeState -> [FilePath] -> LF.Version -> ColorTestResults -> Maybe FilePath -> IO ()
 testRun hDamlGhc inFiles lfVersion colorTestResults mbJUnitOutput  = do
     liftIO $ Compiler.setFilesOfInterest hDamlGhc inFiles
-    (res, files) <- filesToTest hDamlGhc inFiles
-    (res <>) <$> case mbJUnitOutput of
+    files <- filesToTest hDamlGhc inFiles
+    case mbJUnitOutput of
         Nothing -> testStdio lfVersion hDamlGhc files colorTestResults
         Just junitOutput -> testJUnit lfVersion hDamlGhc files junitOutput
 
 -- | Given the files the user asked for, figure out which are the complete sets of files to test on.
 --   Basically, the transitive closure.
 --   If some dependencies can't be resolved we'll get an error message out anyway, so don't worry
-filesToTest :: IdeState -> [FilePath] -> IO (Result, [FilePath])
+filesToTest :: IdeState -> [FilePath] -> IO [FilePath]
 filesToTest h files = do
     deps <- CompilerService.runAction h $ mapM CompilerService.getDependencies files
-    return (if any isNothing deps then Fail else Pass, nubOrd $ concat $ files : catMaybes deps)
+    return $ nubOrd $ concat $ files : catMaybes deps
 
 
-testStdio :: LF.Version -> IdeState -> [FilePath] -> ColorTestResults -> IO Result
+testStdio :: LF.Version -> IdeState -> [FilePath] -> ColorTestResults -> IO ()
 testStdio lfVersion hDamlGhc files colorTestResults = do
-    fmap mconcat $ CompilerService.runAction hDamlGhc $
-        Shake.forP files $ \file -> do
+    CompilerService.runAction hDamlGhc $
+        void $ Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
-            case mbScenarioResults of
-                Nothing -> return Fail
-                Just scenarioResults -> do
-                    liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> do
-                        let doc = prettyResult lfVersion result
-                        let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
-                        let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
-                        putStrLn $ stringStyleToRender (name <> ": " <> doc)
-                    pure $ if any (isLeft . snd) scenarioResults then Fail else Pass
+            whenJust mbScenarioResults $ \scenarioResults -> do
+            liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> do
+                let doc = prettyResult lfVersion result
+                let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
+                let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
+                putStrLn $ stringStyleToRender (name <> ": " <> doc)
 
-testJUnit :: LF.Version -> IdeState -> [FilePath] -> FilePath -> IO Result
+testJUnit :: LF.Version -> IdeState -> [FilePath] -> FilePath -> IO ()
 testJUnit lfVersion hDamlGhc files junitOutput =
     CompilerService.runAction hDamlGhc $ do
         results <- Shake.forP files $ \file -> do
@@ -112,7 +99,6 @@ testJUnit lfVersion hDamlGhc files junitOutput =
         liftIO $ do
             createDirectoryIfMissing True $ takeDirectory junitOutput
             writeFile junitOutput $ XML.showTopElement $ toJUnit results
-        pure $ if any (any (isJust . snd) . snd) results then Fail else Pass
 
 
 prettyErr :: LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.SyntaxClass
