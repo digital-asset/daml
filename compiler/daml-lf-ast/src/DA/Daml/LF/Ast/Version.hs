@@ -62,7 +62,7 @@ minorFromCliOption = \case
   _ -> Nothing
 
 supportedInputVersions :: [Version]
-supportedInputVersions = [version1_0, version1_1, version1_2, version1_3]
+supportedInputVersions = [version1_0, version1_1, version1_2, version1_3, V1 PointDev]
 
 supportedOutputVersions :: [Version]
 supportedOutputVersions = supportedInputVersions
