@@ -455,14 +455,25 @@ abstract class CommandTransactionChecks
           owner,
           templateIds.showDelegated,
           Record(Some(templateIds.showDelegated), odArgs))
-        val exerciseOfFetch = for {
+        for {
           delegatedEv <- delegatedCreate
           delegationEv <- delegationCreate
           showIdEv <- showIdCreate
           fetchArg = Record(
             None,
             Seq(RecordField("", Some(Value(Value.Sum.ContractId(delegatedEv.contractId))))))
-          showResult <- failingExercise(
+          lookupArg = (expected: Option[String]) => Record(
+            None,
+            Seq(
+              pf("", "owner"),
+              RecordField(value = Some(Value(Value.Sum.Text(key)))),
+              RecordField(value = expected match {
+                case None => Value(Value.Sum.Optional(Optional(None)))
+                case Some(cid) => Value(Value.Sum.Optional(Optional(Some(cid.asContractId))))
+              })
+            )
+          )
+          _ <- simpleExercise(
             ctx,
             cid("SDVl6"),
             submitter = owner,
@@ -470,10 +481,8 @@ abstract class CommandTransactionChecks
             contractId = showIdEv.contractId,
             choice = "ShowIt",
             arg = Value(Value.Sum.Record(fetchArg)),
-            Code.OK,
-            pattern = ""
           )
-          fetchResult <- failingExercise(
+          _ <- simpleExercise(
             ctx,
             cid("SDVl7"),
             submitter = delegate,
@@ -481,11 +490,17 @@ abstract class CommandTransactionChecks
             contractId = delegationEv.contractId,
             choice = "FetchDelegated",
             arg = Value(Value.Sum.Record(fetchArg)),
-            Code.OK,
-            pattern = ""
           )
-        } yield fetchResult
-        exerciseOfFetch
+          _ <- simpleExercise(
+            ctx,
+            cid("SDVl8"),
+            submitter = delegate,
+            template = templateIds.delegation,
+            contractId = delegationEv.contractId,
+            choice = "LookupDelegated",
+            arg = Value(Value.Sum.Record(lookupArg(Some(delegatedEv.contractId)))),
+          )
+        } yield (succeed)
       }
 
       "reject fetching an undisclosed contract" in allFixtures { ctx =>
@@ -506,12 +521,23 @@ abstract class CommandTransactionChecks
           owner,
           templateIds.delegation,
           Record(Some(templateIds.delegation), Seq(pf("owner", owner), pf("delegate", delegate))))
-        val exerciseOfFetch = for {
+        for {
           delegatedEv <- delegatedCreate
           delegationEv <- delegationCreate
           fetchArg = Record(
             None,
             Seq(RecordField("", Some(Value(Value.Sum.ContractId(delegatedEv.contractId))))))
+          lookupArg = (expected: Option[String]) => Record(
+            None,
+            Seq(
+              pf("", "owner"),
+              RecordField(value = Some(Value(Value.Sum.Text(key)))),
+              RecordField(value = expected match {
+                case None => Value(Value.Sum.Optional(Optional(None)))
+                case Some(cid) => Value(Value.Sum.Optional(Optional(Some(cid.asContractId))))
+              }),
+            )
+          )
           fetchResult <- failingExercise(
             ctx,
             cid("TDVl5"),
@@ -523,8 +549,16 @@ abstract class CommandTransactionChecks
             Code.INVALID_ARGUMENT,
             pattern = "dependency error: couldn't find contract"
           )
-        } yield fetchResult
-        exerciseOfFetch
+          _ <- simpleExercise(
+            ctx,
+            cid("TDVl6"),
+            submitter = delegate,
+            template = templateIds.delegation,
+            contractId = delegationEv.contractId,
+            choice = "LookupDelegated",
+            arg = Value(Value.Sum.Record(lookupArg(None))),
+          )
+        } yield (succeed)
       }
 
       "DAML engine returns Unit as argument to Nothing" in allFixtures { ctx =>

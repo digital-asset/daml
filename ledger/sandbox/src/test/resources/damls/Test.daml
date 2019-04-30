@@ -419,15 +419,22 @@ template Delegation
     delegate : Party
   where
     signatory owner
+    observer delegate
+
     controller delegate can
-      FetchDelegated: Delegated
+      nonconsuming FetchDelegated: Delegated
         with delegated: ContractId Delegated
         do fetch delegated
 
     controller delegate can
-      LookupDelegated: Optional (ContractId Delegated)
-        with k: (Party, Text)
-        do lookupByKey @Delegated k
+      nonconsuming LookupDelegated: ()
+        with
+          p: Party
+          k: Text
+          expected: Optional (ContractId Delegated)
+        do
+          actual <- lookupByKey @Delegated (p, k)
+          assertMsg "lookup matches" (expected == actual)
 
 template ShowDelegated
   with
