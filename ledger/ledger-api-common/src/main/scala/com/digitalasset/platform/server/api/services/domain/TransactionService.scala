@@ -13,6 +13,7 @@ import com.digitalasset.ledger.api.messages.transaction.{
   GetTransactionsRequest
 }
 import com.digitalasset.ledger.api.v1.transaction_service.GetTransactionsResponse
+import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.platform.server.api.WithOffset
 import com.digitalasset.platform.server.services.transaction.VisibleTransaction
 
@@ -30,8 +31,9 @@ trait TransactionService {
 
   def offsetOrdering: Ordering[LedgerOffset.Absolute]
 
-  def getTransactionById(req: GetTransactionByIdRequest): Future[Option[VisibleTransaction]]
+  def getTransactionById(
+      req: GetTransactionByIdRequest): Future[Option[Either[VisibleTransaction, Transaction]]]
 
   def getTransactionByEventId(
-      req: GetTransactionByEventIdRequest): Future[Option[VisibleTransaction]]
+      req: GetTransactionByEventIdRequest): Future[Option[Either[VisibleTransaction, Transaction]]]
 }

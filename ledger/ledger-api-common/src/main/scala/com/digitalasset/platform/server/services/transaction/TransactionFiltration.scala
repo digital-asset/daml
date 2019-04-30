@@ -67,7 +67,11 @@ object TransactionFiltration {
         }
       )
 
-      if (filteredPartiesByNode.exists(_._2.nonEmpty)) {
+      // We currently allow composite commands without any actual commands and
+      // emit empty flat transactions. To be consistent with that behavior,
+      // we check for filteredPartiesByNode.isEmpty so that we also emit empty
+      // transaction trees.
+      if (filteredPartiesByNode.exists(_._2.nonEmpty) || filteredPartiesByNode.isEmpty) {
         val nodeIdToParty: Map[String, immutable.Set[Party]] = filteredPartiesByNode.map {
           case (k, v) => (nidToString(k), v)
         }(breakOut)
@@ -76,13 +80,13 @@ object TransactionFiltration {
     }
 
     private def explicitWitnessesForNode(node: GenNode[_, _, _]): Set[Party] = node match {
-      case n: Node.NodeCreate[_, _] => n.signatories union n.stakeholders
-      case n: Node.NodeFetch[_] => n.signatories union n.stakeholders
+      case n: Node.NodeCreate[_, _] => n.stakeholders
+      case n: Node.NodeFetch[_] => n.signatories union n.actingParties.getOrElse(Set.empty)
       case n: Node.NodeExercises[_, _, _] =>
         if (n.consuming)
-          n.signatories union n.stakeholders
+          n.stakeholders union n.actingParties
         else
-          n.signatories
+          n.signatories union n.actingParties
       case _: Node.NodeLookupByKey[_, _] => Set.empty
     }
   }

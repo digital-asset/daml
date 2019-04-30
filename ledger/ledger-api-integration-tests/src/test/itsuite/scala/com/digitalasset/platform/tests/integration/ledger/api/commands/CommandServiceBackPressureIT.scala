@@ -11,6 +11,7 @@ import com.digitalasset.ledger.api.testing.utils.{
   MockMessages,
   SuiteResourceManagementAroundAll
 }
+import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitResponse
 import com.digitalasset.platform.apitesting.LedgerBackend.SandboxSql
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -80,11 +81,11 @@ class CommandServiceBackPressureIT
   "Commands Service" when {
     "overloaded with commands" should {
       "reject requests with RESOURCE_EXHAUSTED" in allFixtures { ctx =>
-        val responses: immutable.Seq[Future[Empty]] = (1 to 256) map { _ =>
+        val responses = (1 to 256) map { _ =>
           ctx.commandService.submitAndWait(submitAndWaitRequest(ctx))
         }
 
-        val done: Future[immutable.Seq[Try[Empty]]] =
+        val done =
           Future.sequence(responses.map(_.map(Success(_)).recover({
             case ex => Failure(ex)
           })))

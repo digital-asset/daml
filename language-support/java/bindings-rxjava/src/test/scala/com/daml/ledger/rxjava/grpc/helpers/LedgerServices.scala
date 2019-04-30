@@ -8,14 +8,15 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.{CommandCompletionClient, LedgerConfigurationClient, PackageClient}
-import com.daml.ledger.testkit.services._
 import com.daml.ledger.testkit.services.TransactionServiceImpl.LedgerItem
+import com.daml.ledger.testkit.services._
 import com.digitalasset.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
   CompletionStreamResponse
 }
+import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitResponse
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.digitalasset.ledger.api.v1.package_service.{
   GetPackageResponse,
@@ -128,7 +129,7 @@ class LedgerServices(val ledgerId: String) {
     }
   }
 
-  def withCommandClient(response: Future[Empty])(
+  def withCommandClient(response: Future[SubmitAndWaitResponse])(
       f: (CommandClientImpl, CommandServiceImpl) => Any): Any = {
     val (service, serviceImpl) = CommandServiceImpl.createWithRef(response)(executionContext)
     withServerAndChannel(service) { channel =>
@@ -167,7 +168,7 @@ class LedgerServices(val ledgerId: String) {
       commandSubmissionResponse: Future[Empty],
       completions: List[CompletionStreamResponse],
       completionsEnd: CompletionEndResponse,
-      commandResponse: Future[Empty],
+      commandResponse: Future[SubmitAndWaitResponse],
       getTimeResponses: List[GetTimeResponse],
       getLedgerConfigurationResponses: Seq[GetLedgerConfigurationResponse],
       listPackagesResponse: Future[ListPackagesResponse],

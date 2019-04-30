@@ -150,7 +150,8 @@ object LedgerApiServer {
           completionService.service
             .asInstanceOf[SandboxCommandCompletionService]
             .completionStreamSource(r),
-        () => completionService.completionEnd(CompletionEndRequest(ledgerBackend.ledgerId))
+        () => completionService.completionEnd(CompletionEndRequest(ledgerBackend.ledgerId)),
+        transactionService.getTransactionById
       )
     )
 

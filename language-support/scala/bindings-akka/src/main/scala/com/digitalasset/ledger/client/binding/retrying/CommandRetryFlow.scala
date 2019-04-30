@@ -66,7 +66,7 @@ object CommandRetryFlow {
             outputPorts = 2, {
               case Ctx(
                   RetryInfo(request, nrOfRetries, firstSubmissionTime, _),
-                  Completion(_, Some(status: Status), _)) =>
+                  Completion(_, Some(status: Status), _, _)) =>
                 if (status.code == Code.OK_VALUE) {
                   PROPAGATE_PORT
                 } else if ((firstSubmissionTime plus maxRetryTime) isBefore timeProvider.getCurrentTime) {
@@ -79,7 +79,7 @@ object CommandRetryFlow {
                   RetryLogger.logNonFatal(request, status, nrOfRetries)
                   RETRY_PORT
                 }
-              case Ctx(_, Completion(commandId, _, _)) =>
+              case Ctx(_, Completion(commandId, _, _, _)) =>
                 statusNotFoundError(commandId)
             }
           ))

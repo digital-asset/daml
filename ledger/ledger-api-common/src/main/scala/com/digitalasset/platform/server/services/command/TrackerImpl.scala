@@ -13,10 +13,9 @@ import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.client.services.commands.CommandTrackerFlow.Materialized
-import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.util.Ctx
-import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
 import io.grpc.{Status => GrpcStatus}
 import org.slf4j.LoggerFactory
@@ -37,14 +36,14 @@ class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput], histor
 
   require(historySize > 0, " History size must be a positive integer.")
 
-  private val knownResults: util.Map[String, Future[Empty]] =
+  private val knownResults: util.Map[String, Future[Completion]] =
     Collections.synchronizedMap(new SizeCappedMap(historySize / 2, historySize))
 
   override def track(request: SubmitAndWaitRequest)(
-      implicit ec: ExecutionContext): Future[Empty] = {
+      implicit ec: ExecutionContext): Future[Completion] = {
     logger.trace(
       s"tracking command for party: ${request.getCommands.party}, commandId: ${request.getCommands.commandId}")
-    val promise = Promise[Empty]
+    val promise = Promise[Completion]
 
     val storedResult =
       knownResults.putIfAbsent(request.getCommands.commandId, promise.future)
@@ -55,8 +54,8 @@ class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput], histor
     }
   }
 
-  private def submitNewRequest(request: SubmitAndWaitRequest, promise: Promise[Empty])(
-      implicit ec: ExecutionContext): Future[Empty] = {
+  private def submitNewRequest(request: SubmitAndWaitRequest, promise: Promise[Completion])(
+      implicit ec: ExecutionContext): Future[Completion] = {
 
     queue
       .offer(
@@ -86,9 +85,9 @@ object TrackerImpl {
 
   def apply(
       tracker: Flow[
-        Ctx[Promise[Empty], SubmitRequest],
-        Ctx[Promise[Empty], Completion],
-        Materialized[NotUsed, Promise[Empty]]],
+        Ctx[Promise[Completion], SubmitRequest],
+        Ctx[Promise[Completion], Completion],
+        Materialized[NotUsed, Promise[Completion]]],
       inputBufferSize: Int,
       historySize: Int)(implicit materializer: Materializer): TrackerImpl = {
     val ((queue, mat), foreachMat) = Source
@@ -97,10 +96,10 @@ object TrackerImpl {
       .toMat(Sink.foreach {
         case Ctx(promise, result) =>
           result match {
-            case Completion(_, Some(Status(0, _, _)), _) =>
+            case compl @ Completion(_, Some(Status(0, _, _)), _, _) =>
               logger.trace("Completing promise with success")
-              promise.trySuccess(Empty())
-            case Completion(_, statusO, _) =>
+              promise.trySuccess(compl)
+            case Completion(_, statusO, _, _) =>
               val status = statusO
                 .map(
                   status =>
@@ -140,5 +139,5 @@ object TrackerImpl {
     new TrackerImpl(queue, historySize)
   }
 
-  type QueueInput = Ctx[Promise[Empty], SubmitRequest]
+  type QueueInput = Ctx[Promise[Completion], SubmitRequest]
 }

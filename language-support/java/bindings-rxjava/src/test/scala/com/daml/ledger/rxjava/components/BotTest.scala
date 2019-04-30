@@ -16,6 +16,7 @@ import com.daml.ledger.javaapi.data.{Unit => DAMLUnit, _}
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices}
 import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient}
 import com.daml.ledger.testkit.services.TransactionServiceImpl
+import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitResponse
 import com.digitalasset.ledger.api.{v1 => scalaAPI}
 import com.google.protobuf.Empty
 import com.google.rpc.Status
@@ -371,7 +372,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       Future.successful(com.google.protobuf.empty.Empty.defaultInstance),
       List.empty,
       scalaAPI.command_completion_service.CompletionEndResponse.defaultInstance,
-      Future.successful(com.google.protobuf.empty.Empty.defaultInstance),
+      Future.successful(SubmitAndWaitResponse.defaultInstance),
       List.empty,
       Seq.empty,
       Future.successful(scalaAPI.package_service.ListPackagesResponse.defaultInstance),

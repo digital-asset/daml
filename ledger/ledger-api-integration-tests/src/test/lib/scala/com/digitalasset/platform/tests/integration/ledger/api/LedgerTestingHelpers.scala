@@ -7,7 +7,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.ledger.api.v1.command_service.{SubmitAndWaitRequest, SubmitAndWaitResponse}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
@@ -19,7 +19,6 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFi
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
-import com.google.protobuf.empty.Empty
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
@@ -337,7 +336,7 @@ class LedgerTestingHelpers(
 object LedgerTestingHelpers extends OptionValues {
 
   def sync(
-      submitCommand: SubmitAndWaitRequest => Future[Empty],
+      submitCommand: SubmitAndWaitRequest => Future[SubmitAndWaitResponse],
       transactionClient: TransactionClient)(
       implicit ec: ExecutionContext,
       mat: ActorMaterializer): LedgerTestingHelpers =
@@ -366,10 +365,15 @@ object LedgerTestingHelpers extends OptionValues {
       mat: ActorMaterializer): LedgerTestingHelpers =
     new LedgerTestingHelpers(submitCommand, transactionClient)
 
-  def emptyToCompletion(commandId: String, emptyF: Future[Empty])(
+  def responseToCompletion(commandId: String, respF: Future[SubmitAndWaitResponse])(
       implicit ec: ExecutionContext): Future[Completion] =
-    emptyF
-      .map(_ => Completion(commandId, Some(Status(io.grpc.Status.OK.getCode.value(), ""))))
+    respF
+      .map(
+        tx =>
+          Completion(
+            commandId,
+            Some(Status(io.grpc.Status.OK.getCode.value(), "")),
+            tx.transactionId))
       .recover {
         case sre: StatusRuntimeException =>
           Completion(
@@ -377,9 +381,9 @@ object LedgerTestingHelpers extends OptionValues {
             Some(Status(sre.getStatus.getCode.value(), sre.getStatus.getDescription)))
       }
 
-  private def helper(submitCommand: SubmitAndWaitRequest => Future[Empty])(
+  private def helper(submitCommand: SubmitAndWaitRequest => Future[SubmitAndWaitResponse])(
       implicit ec: ExecutionContext) = { req: SubmitRequest =>
-    emptyToCompletion(
+    responseToCompletion(
       req.commands.value.commandId,
       submitCommand(SubmitAndWaitRequest(req.commands, req.traceContext)))
   }

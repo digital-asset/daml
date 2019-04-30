@@ -91,6 +91,11 @@ message GetTransactionByEventIdRequest {
   // Required
   repeated string requesting_parties = 3;
 
+  // This flag indicates whether the response should contain a TransactionTree (in case of false)
+  // or the flat Transaction (in case of true).
+  // Optional
+  bool return_flat_transaction = 4;
+
   // Server side tracing will be registered as a child of the submitted context.
   // This field is a future extension point and is currently not supported.
   // Optional
@@ -111,6 +116,11 @@ message GetTransactionByIdRequest {
   // Required
   repeated string requesting_parties = 3;
 
+  // This flag indicates whether the response should contain a TransactionTree (in case of false)
+  // or the flat Transaction (in case of true).
+  // Optional
+  bool return_flat_transaction = 4;
+
   // Server side tracing will be registered as a child of the submitted context.
   // This field is a future extension point and is currently not supported.
   // Optional
@@ -118,7 +128,13 @@ message GetTransactionByIdRequest {
 }
 
 message GetTransactionResponse {
-  TransactionTree transaction = 1;
+  // The transaction tree in case of return_flat_transaction == false
+  // Optional
+  TransactionTree transaction_tree = 1;
+
+  // The transaction tree in case of return_flat_transaction == true
+  // Optional
+  Transaction flat_transaction = 2;
 }
 
 message GetLedgerEndRequest {

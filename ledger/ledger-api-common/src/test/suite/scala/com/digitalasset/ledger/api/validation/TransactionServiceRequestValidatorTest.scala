@@ -57,6 +57,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
       expectedLedgerId,
       eventId,
       Seq(party.underlyingString),
+      returnFlatTransaction = false,
       Some(traceContext))
 
   private val txByIdReq =
@@ -64,6 +65,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
       expectedLedgerId,
       transactionId,
       Seq(party.underlyingString),
+      returnFlatTransaction = false,
       Some(traceContext))
 
   val sut = new TransactionServiceRequestValidator(
@@ -379,6 +381,16 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
         }
       }
 
+      "translate returnFlatTransaction flag correctly" in {
+        inside(sut.validateTransactionById(txByIdReq.copy(returnFlatTransaction = false))) {
+          case Right(out) =>
+            out should have('returnFlatTransaction (false))
+        }
+        inside(sut.validateTransactionById(txByIdReq.copy(returnFlatTransaction = true))) {
+          case Right(out) =>
+            out should have('returnFlatTransaction (true))
+        }
+      }
     }
 
     "validating transaction by event id requests" should {
@@ -418,6 +430,17 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
           case Right(out) =>
             out should have('ledgerId (domain.LedgerId(expectedLedgerId)))
             isExpectedTraceContext(out.traceContext.value)
+        }
+      }
+
+      "translate returnFlatTransaction flag correctly" in {
+        inside(sut.validateTransactionByEventId(txByEvIdReq.copy(returnFlatTransaction = false))) {
+          case Right(out) =>
+            out should have('returnFlatTransaction (false))
+        }
+        inside(sut.validateTransactionByEventId(txByEvIdReq.copy(returnFlatTransaction = true))) {
+          case Right(out) =>
+            out should have('returnFlatTransaction (true))
         }
       }
 

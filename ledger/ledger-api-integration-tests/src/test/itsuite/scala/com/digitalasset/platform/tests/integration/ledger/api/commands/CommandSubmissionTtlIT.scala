@@ -11,10 +11,9 @@ import com.digitalasset.ledger.api.testing.utils.{
   IsStatusException,
   SuiteResourceManagementAroundAll
 }
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.ledger.api.v1.command_service.{SubmitAndWaitRequest, SubmitAndWaitResponse}
 import com.digitalasset.ledger.api.v1.commands.Commands
 import com.digitalasset.platform.apitesting.LedgerContext
-import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{AsyncWordSpec, Matchers, TryValues}
@@ -72,7 +71,9 @@ class CommandSubmissionTtlIT
         fromInstant(toInstant(submitRequest.getCommands.getLedgerEffectiveTime).plus(ttl)))
       .withCommandId(s"TTL of $ttl")
 
-  private def submitSingleCommand(ctx: LedgerContext, commands: Commands): Future[Empty] =
+  private def submitSingleCommand(
+      ctx: LedgerContext,
+      commands: Commands): Future[SubmitAndWaitResponse] =
     ctx.commandService.submitAndWait(SubmitAndWaitRequest(Some(commands)))
 
 }

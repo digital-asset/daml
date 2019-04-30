@@ -15,6 +15,12 @@ HEAD — ongoing
 - Remove DAML-LF Dev major version, ``--target dev`` option, and sandbox ``--allow-dev``
   option.  A "1.dev" target will handle the intended "Dev" use cases in a future release.
 - Include list of DAML packages used during interpretation in the produced transaction.
+- Ledger API: Return transaction for commands submitted via :ref:`CommandService#SubmitAndWait <com.digitalasset.ledger.api.v1.commandservice>`
+  - *binary backwards-compatible, source-breaking*
+  - This avoids having to inspect the transaction stream to get hold of the result of a command
+    submitted via the command service.
+  - This breaking change is reflected in the Ledger API, the Java Bindings, and the Scala Bindings.
+    Previously released versions of the bindings will continue to work with newer ledgers and vice versa.
 
 0.12.11 - 2019-04-26
 --------------------

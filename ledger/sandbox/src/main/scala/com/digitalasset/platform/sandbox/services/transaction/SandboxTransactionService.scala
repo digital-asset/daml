@@ -22,6 +22,7 @@ import com.digitalasset.ledger.api.validation.PartyNameChecker
 import com.digitalasset.ledger.backend.api.v1.LedgerBackend
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction
 import com.digitalasset.platform.participant.util.EventFilter
+import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter.TransactionIdWithIndex
 import com.digitalasset.platform.server.api._
 import com.digitalasset.platform.server.api.services.domain.TransactionService
@@ -75,43 +76,52 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
     val requestingParties = request.filter.filtersByParty.keys.toList
     runTransactionPipeline(requestingParties, request.begin, request.end)
       .mapConcat { trans =>
-        val events =
-          TransactionConversion
-            .genToFlatTransaction(
-              trans.transaction,
-              trans.explicitDisclosure.mapValues(set => set.map(_.underlyingString)),
-              request.verbose)
-            .flatMap(eventFilter.filterEvent _)
-
-        val submitterIsSubscriber =
-          trans.submitter
-            .map(SimpleString.assertFromString)
-            .fold(false)(eventFilter.isSubmitterSubscriber)
-        if (events.nonEmpty || submitterIsSubscriber) {
-          val transaction = PTransaction(
-            transactionId = trans.transactionId,
-            commandId = if (submitterIsSubscriber) trans.commandId.getOrElse("") else "",
-            workflowId = trans.workflowId,
-            effectiveAt = Some(fromInstant(trans.recordTime)),
-            events = events,
-            offset = trans.offset
-          )
-          val response = GetTransactionsResponse(Seq(transaction))
-          logger.debug(
-            "Serving item {} (offset: {}) in transaction subscription {} to client",
-            transaction.transactionId,
-            transaction.offset,
-            subscriptionId)
-          List(response)
-        } else {
-          logger.trace(
-            "Not serving item {} for transaction subscription {} as no events are visible",
-            trans.transactionId,
-            subscriptionId: Any)
-          Nil
+        acceptedToFlat(trans, request.verbose, Some(eventFilter)) match {
+          case Some(transaction) =>
+            val response = GetTransactionsResponse(Seq(transaction))
+            logger.debug(
+              "Serving item {} (offset: {}) in transaction subscription {} to client",
+              transaction.transactionId,
+              transaction.offset,
+              subscriptionId)
+            List(response)
+          case None =>
+            logger.trace(
+              "Not serving item {} for transaction subscription {} as no events are visible",
+              trans.transactionId,
+              subscriptionId: Any)
+            Nil
         }
-
       }
+  }
+
+  private def acceptedToFlat(
+      trans: AcceptedTransaction,
+      verbose: Boolean,
+      eventFilter: Option[TemplateAwareFilter]): Option[PTransaction] = {
+    val events =
+      TransactionConversion
+        .genToFlatTransaction(
+          trans.transaction,
+          trans.explicitDisclosure.mapValues(set => set.map(_.underlyingString)),
+          verbose)
+        .flatMap(e => eventFilter.map(_.filterEvent(e)).getOrElse(Some(e)).toList)
+
+    val submitterIsSubscriber =
+      trans.submitter
+        .map(SimpleString.assertFromString)
+        .fold(false)(sub => eventFilter.forall(_.isSubmitterSubscriber(sub)))
+    if (events.nonEmpty || submitterIsSubscriber) {
+      Some(
+        PTransaction(
+          transactionId = trans.transactionId,
+          commandId = if (submitterIsSubscriber) trans.commandId.getOrElse("") else "",
+          workflowId = trans.workflowId,
+          effectiveAt = Some(fromInstant(trans.recordTime)),
+          events = events,
+          offset = trans.offset
+        ))
+    } else None
   }
 
   override def getTransactionTrees(request: GetTransactionTreesRequest)
@@ -122,49 +132,44 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       request.begin,
       request.end
     ).mapConcat { trans =>
-      toResponseIfVisible(request, request.parties, trans.offset, trans)
+      toResponseIfVisible(request.parties, trans)
         .fold(List.empty[WithOffset[String, VisibleTransaction]])(e =>
           List(WithOffset(trans.offset, e)))
 
     }
   }
 
-  private def toResponseIfVisible(
-      request: GetTransactionTreesRequest,
-      subscribingParties: Set[Party],
-      offset: String,
-      trans: AcceptedTransaction) = {
-
-    val eventFilter = TransactionFilter(request.parties.map(_ -> Filters.noFilter)(breakOut))
+  private def toResponseIfVisible(subscribingParties: Set[Party], trans: AcceptedTransaction) = {
+    val eventFilter = TransactionFilter(subscribingParties.map(_ -> Filters.noFilter)(breakOut))
     val withMeta = toTransactionWithMeta(trans)
     VisibleTransaction.toVisibleTransaction(eventFilter, withMeta)
   }
 
-  def getTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[Option[VisibleTransaction]] = {
+  def getTransactionByEventId(request: GetTransactionByEventIdRequest)
+    : Future[Option[Either[VisibleTransaction, PTransaction]]] = {
     logger.debug("Received {}", request)
     SandboxEventIdFormatter
       .split(request.eventId.unwrap)
       .fold(
-        Future.failed[Option[VisibleTransaction]](
+        Future.failed[Option[Either[VisibleTransaction, PTransaction]]](
           Status.INVALID_ARGUMENT
             .withDescription(s"invalid eventId: ${request.eventId}")
             .asRuntimeException())) {
         case TransactionIdWithIndex(transactionId, index) =>
-          ledgerBackend.getCurrentLedgerEnd.flatMap(
-            le =>
-              lookUpByTransactionId(
-                TransactionId(transactionId),
-                request.requestingParties,
-                le,
-                true))
+          lookUpByTransactionId(
+            TransactionId(transactionId),
+            request.requestingParties,
+            request.returnFlatTransaction)
       }
   }
 
-  def getTransactionById(request: GetTransactionByIdRequest): Future[Option[VisibleTransaction]] = {
+  def getTransactionById(request: GetTransactionByIdRequest)
+    : Future[Option[Either[VisibleTransaction, PTransaction]]] = {
     logger.debug("Received {}", request)
-    ledgerBackend.getCurrentLedgerEnd.flatMap(le =>
-      lookUpByTransactionId(request.transactionId, request.requestingParties, le, true))
+    lookUpByTransactionId(
+      request.transactionId,
+      request.requestingParties,
+      request.returnFlatTransaction)
   }
 
   def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
@@ -220,23 +225,25 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
   private def lookUpByTransactionId(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-      ledgerEnd: String,
-      verbose: Boolean): Future[Option[VisibleTransaction]] = {
-
-    ledgerBackend
-      .ledgerSyncEvents(None)
-      .takeWhile(t => t.offset != ledgerEnd, inclusive = true)
+      returnFlatTransaction: Boolean): Future[Option[Either[VisibleTransaction, PTransaction]]] = {
+    runTransactionPipeline(
+      requestingParties.toList,
+      LedgerOffset.LedgerBegin,
+      Some(LedgerOffset.LedgerEnd))
       .collect {
         case t: AcceptedTransaction if t.transactionId == transactionId => t
       }
       .runWith(Sink.headOption)
       .flatMap {
-        case Some(trans) =>
-          val result = VisibleTransaction.toVisibleTransaction(
-            TransactionFilter.allForParties(requestingParties),
-            toTransactionWithMeta(trans)
-          )
+        case Some(trans) if returnFlatTransaction =>
+          val eventFilter = EventFilter.byTemplates(
+            TransactionFilter(requestingParties.map(_ -> Filters.noFilter)(breakOut)))
+          val result = acceptedToFlat(trans, verbose = true, Some(eventFilter)).map(Right(_))
           Future.successful(result)
+
+        case Some(trans) =>
+          val result = toResponseIfVisible(requestingParties, trans)
+          Future.successful(result.map(Left(_)))
 
         case None =>
           Future.failed(

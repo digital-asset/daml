@@ -41,16 +41,31 @@ final class TransactionClient(ledgerId: String, transactionService: TransactionS
       GetTransactionsRequest(ledgerId, Some(start), end, Some(transactionFilter), verbose))
   }
 
-  def getTransactionById(transactionId: String, parties: Seq[String])(
+  def getTransactionTreeById(transactionId: String, parties: Seq[String])(
       implicit ec: ExecutionContext): Future[GetTransactionResponse] = {
     transactionService
-      .getTransactionById(GetTransactionByIdRequest(ledgerId, transactionId, parties))
+      .getTransactionById(
+        GetTransactionByIdRequest(ledgerId, transactionId, parties, returnFlatTransaction = false))
   }
 
-  def getTransactionByEventId(eventId: String, parties: Seq[String])(
+  def getTransactionTreeByEventId(eventId: String, parties: Seq[String])(
       implicit ec: ExecutionContext): Future[GetTransactionResponse] =
     transactionService
-      .getTransactionByEventId(GetTransactionByEventIdRequest(ledgerId, eventId, parties))
+      .getTransactionByEventId(
+        GetTransactionByEventIdRequest(ledgerId, eventId, parties, returnFlatTransaction = false))
+
+  def getFlatTransactionById(transactionId: String, parties: Seq[String])(
+      implicit ec: ExecutionContext): Future[GetTransactionResponse] = {
+    transactionService
+      .getTransactionById(
+        GetTransactionByIdRequest(ledgerId, transactionId, parties, returnFlatTransaction = true))
+  }
+
+  def getFlatTransactionByEventId(eventId: String, parties: Seq[String])(
+      implicit ec: ExecutionContext): Future[GetTransactionResponse] =
+    transactionService
+      .getTransactionByEventId(
+        GetTransactionByEventIdRequest(ledgerId, eventId, parties, returnFlatTransaction = true))
 
   def getLedgerEnd: Future[GetLedgerEndResponse] =
     transactionService.getLedgerEnd(GetLedgerEndRequest(ledgerId))

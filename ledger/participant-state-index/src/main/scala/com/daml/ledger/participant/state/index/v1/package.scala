@@ -55,7 +55,11 @@ package object v1 {
   }
   object CompletionEvent {
     final case class Checkpoint(offset: Offset, recordTime: Timestamp) extends CompletionEvent
-    final case class CommandAccepted(offset: Offset, commandId: CommandId) extends CompletionEvent
+    final case class CommandAccepted(
+        offset: Offset,
+        commandId: CommandId,
+        transactionId: TransactionId)
+        extends CompletionEvent
     final case class CommandRejected(offset: Offset, commandId: CommandId, reason: RejectionReason)
         extends CompletionEvent
   }

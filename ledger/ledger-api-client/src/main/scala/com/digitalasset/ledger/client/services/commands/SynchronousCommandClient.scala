@@ -5,13 +5,12 @@ package com.digitalasset.ledger.client.services.commands
 
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.digitalasset.ledger.api.v1.command_service._
-import com.google.protobuf.empty.Empty
 
 import scala.concurrent.Future
 
 class SynchronousCommandClient(commandService: CommandService) {
 
-  def submitAndWait(submitAndWaitRequest: SubmitAndWaitRequest): Future[Empty] = {
+  def submitAndWait(submitAndWaitRequest: SubmitAndWaitRequest): Future[SubmitAndWaitResponse] = {
     commandService.submitAndWait(submitAndWaitRequest)
   }
 }

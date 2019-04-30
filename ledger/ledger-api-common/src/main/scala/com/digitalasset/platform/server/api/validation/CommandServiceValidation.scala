@@ -4,11 +4,10 @@
 package com.digitalasset.platform.server.api.validation
 
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
-import com.digitalasset.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
+import com.digitalasset.ledger.api.v1.command_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.server.api.ProxyCloseable
-import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -26,9 +25,21 @@ class CommandServiceValidation(
 
   protected val logger: Logger = LoggerFactory.getLogger(CommandService.getClass)
 
-  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {
+  override def submitAndWait(request: SubmitAndWaitRequest): Future[SubmitAndWaitResponse] = {
     val validation = requirePresence(request.commands, "commands").flatMap(validateCommands)
     validation.fold(Future.failed, _ => service.submitAndWait(request))
+  }
+
+  override def submitAndWaitForTransaction(
+      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] = {
+    val validation = requirePresence(request.commands, "commands").flatMap(validateCommands)
+    validation.fold(Future.failed, _ => service.submitAndWaitForTransaction(request))
+  }
+
+  override def submitAndWaitForTransactionTree(
+      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] = {
+    val validation = requirePresence(request.commands, "commands").flatMap(validateCommands)
+    validation.fold(Future.failed, _ => service.submitAndWaitForTransactionTree(request))
   }
 
   override def bindService(): ServerServiceDefinition =

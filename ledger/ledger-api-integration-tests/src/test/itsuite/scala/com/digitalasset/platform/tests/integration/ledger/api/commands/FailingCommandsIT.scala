@@ -75,7 +75,7 @@ class FailingCommandsIT
             .runWith(Sink.head)
         } yield {
           result.value should matchPattern {
-            case Completion(`failingCommandId`, Some(status), _) if status.code == 3 =>
+            case Completion(`failingCommandId`, Some(status), _, _) if status.code == 3 =>
           }
         }
       }

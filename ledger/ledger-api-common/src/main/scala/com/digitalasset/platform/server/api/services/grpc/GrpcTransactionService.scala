@@ -9,7 +9,7 @@ import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction.TransactionTree
+import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.{
   TransactionService => ApiTransactionService
 }
@@ -73,11 +73,19 @@ class GrpcTransactionService(
     }
   }
 
-  private def optionalVisibleToApiTx(visibleTxO: Option[VisibleTransaction]) =
-    visibleTxO.fold {
-      throw new ApiException(
-        Status.INVALID_ARGUMENT.withDescription("Transaction not found, or not visible."))
-    }(v => GetTransactionResponse(Some(visibleToApiTxTree(v, "", true))))
+  private def optionalTxToApiTx(txO: Option[Either[VisibleTransaction, Transaction]]) =
+    txO match {
+      case None =>
+        throw new ApiException(
+          Status.INVALID_ARGUMENT.withDescription("Transaction not found, or not visible."))
+
+      case Some(Left(visibleTransaction)) =>
+        GetTransactionResponse(
+          transactionTree = Some(visibleToApiTxTree(visibleTransaction, "", true)))
+
+      case Some(Right(flatTransaction)) =>
+        GetTransactionResponse(flatTransaction = Some(flatTransaction))
+    }
 
   private def visibleToApiTxTree(
       visibleTx: VisibleTransaction,
@@ -139,7 +147,7 @@ class GrpcTransactionService(
       eventId =>
         service
           .getTransactionByEventId(eventId)
-          .map(opt => optionalVisibleToApiTx(opt))(DirectExecutionContext))
+          .map(opt => optionalTxToApiTx(opt))(DirectExecutionContext))
   }
 
   override def getTransactionById(
@@ -151,7 +159,7 @@ class GrpcTransactionService(
       txId =>
         service
           .getTransactionById(txId)
-          .map(opt => optionalVisibleToApiTx(opt))(DirectExecutionContext))
+          .map(opt => optionalTxToApiTx(opt))(DirectExecutionContext))
   }
 
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] = {

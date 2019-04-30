@@ -9,6 +9,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
   CompletionStreamResponse
 }
+import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitResponse
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.digitalasset.ledger.api.v1.package_service.{
   GetPackageResponse,
@@ -42,7 +43,7 @@ object LedgerServicesImpls {
       commandSubmissionResponse: Future[Empty],
       completions: List[CompletionStreamResponse],
       completionsEnd: CompletionEndResponse,
-      commandResponse: Future[Empty],
+      commandResponse: Future[SubmitAndWaitResponse],
       getTimeResponses: List[GetTimeResponse],
       getLedgerConfigurationResponses: Seq[GetLedgerConfigurationResponse],
       listPackagesResponse: Future[ListPackagesResponse],

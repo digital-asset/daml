@@ -168,6 +168,7 @@ class TransactionServiceRequestValidator(
         ledgerId,
         domain.TransactionId(req.transactionId),
         parties,
+        req.returnFlatTransaction,
         req.traceContext.map(toBrave))
     }
   }
@@ -185,6 +186,7 @@ class TransactionServiceRequestValidator(
         ledgerId,
         domain.EventId(req.eventId),
         parties,
+        req.returnFlatTransaction,
         req.traceContext.map(toBrave))
     }
   }

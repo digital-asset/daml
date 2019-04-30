@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.javaapi.data.{CreateCommand, Identifier, Record}
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
-import com.google.protobuf.empty.Empty
+import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitResponse
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 
 import scala.collection.JavaConverters._
@@ -21,7 +21,7 @@ class CommandClientImplTest extends FlatSpec with Matchers with OptionValues wit
   behavior of "[2.1] CommandClientImpl.submitAndWait"
 
   it should "send the given command to the Ledger" in {
-    ledgerServices.withCommandClient(Future.successful(Empty.defaultInstance)) {
+    ledgerServices.withCommandClient(Future.successful(SubmitAndWaitResponse.defaultInstance)) {
       (client, service) =>
         val commands = genCommands(List.empty)
         client
@@ -43,7 +43,7 @@ class CommandClientImplTest extends FlatSpec with Matchers with OptionValues wit
   behavior of "[2.2] CommandClientImpl.submitAndWait"
 
   it should "send the given command with the correct parameters" in {
-    ledgerServices.withCommandClient(Future.successful(Empty.defaultInstance)) {
+    ledgerServices.withCommandClient(Future.successful(SubmitAndWaitResponse.defaultInstance)) {
       (client, service) =>
         val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
         val record = new Record(recordId, List.empty[Record.Field].asJava)

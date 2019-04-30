@@ -4,19 +4,32 @@
 package com.daml.ledger.testkit.services
 
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
-import com.digitalasset.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
-import com.google.protobuf.empty.Empty
+import com.digitalasset.ledger.api.v1.command_service._
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class CommandServiceImpl(response: Future[Empty]) extends CommandService {
+class CommandServiceImpl(
+                          submitAndWaitResponse: Future[SubmitAndWaitResponse],
+                          submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
+                          submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse]) extends CommandService {
 
   private var lastRequest: Option[SubmitAndWaitRequest] = None
 
-  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {
+  override def submitAndWait(request: SubmitAndWaitRequest): Future[SubmitAndWaitResponse] = {
     this.lastRequest = Some(request)
-    response
+    submitAndWaitResponse
+  }
+
+
+  override def submitAndWaitForTransaction(request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] = {
+    this.lastRequest = Some(request)
+    submitAndWaitForTransactionResponse
+  }
+
+  override def submitAndWaitForTransactionTree(request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] = {
+    this.lastRequest = Some(request)
+    submitAndWaitForTransactionTreeResponse
   }
 
   def getLastRequest: Option[SubmitAndWaitRequest] = this.lastRequest
@@ -24,9 +37,11 @@ class CommandServiceImpl(response: Future[Empty]) extends CommandService {
 
 object CommandServiceImpl {
 
-  def createWithRef(response: Future[Empty])(
+  def createWithRef(submitAndWaitResponse: Future[SubmitAndWaitResponse],
+                    submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
+                    submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse])(
       implicit ec: ExecutionContext): (ServerServiceDefinition, CommandServiceImpl) = {
-    val serviceImpl = new CommandServiceImpl(response)
+    val serviceImpl = new CommandServiceImpl(submitAndWaitResponse, submitAndWaitForTransactionResponse, submitAndWaitForTransactionTreeResponse)
     (CommandServiceGrpc.bindService(serviceImpl, ec), serviceImpl)
   }
 }

@@ -27,6 +27,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
 }
 import com.digitalasset.ledger.api.validation.PartyNameChecker
 import com.digitalasset.platform.participant.util.EventFilter
+import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.server.api._
 import com.digitalasset.platform.server.api.services.domain.TransactionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcTransactionService
@@ -85,50 +86,65 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     runTransactionPipeline(ledgerId, request.begin, request.end, request.filter)
       .mapConcat {
         case (offset, (trans, blindingInfo)) =>
-          val transactionWithEventIds =
-            trans.transaction.mapNodeId(nodeIdToEventId(trans.transactionId, _))
-          val events =
-            TransactionConversion
-              .genToFlatTransaction(
-                transactionWithEventIds,
-                blindingInfo.explicitDisclosure.map {
-                  case (nodeId, parties) =>
-                    nodeIdToEventId(trans.transactionId, nodeId) -> parties.map(_.underlyingString)
-                },
-                request.verbose
-              )
+          acceptedToFlat(offset, trans, blindingInfo, request.verbose, Some(eventFilter)) match {
+            case Some(transaction) =>
+              val response = GetTransactionsResponse(Seq(transaction))
+              logger.debug(
+                "Serving item {} (offset: {}) in transaction subscription {} to client",
+                transaction.transactionId,
+                transaction.offset,
+                subscriptionId)
+              List(response)
 
-          val submitterIsSubscriber =
-            trans.optSubmitterInfo
-              .map(_.submitter)
-              .fold(false)(eventFilter.isSubmitterSubscriber)
-          if (events.nonEmpty || submitterIsSubscriber) {
-            val transaction = PTransaction(
-              transactionId = trans.transactionId,
-              commandId =
-                if (submitterIsSubscriber)
-                  trans.optSubmitterInfo.map(_.commandId).getOrElse("")
-                else "",
-              workflowId = trans.transactionMeta.workflowId,
-              effectiveAt = Some(fromInstant(trans.transactionMeta.ledgerEffectiveTime.toInstant)), // FIXME(JM): conversion
-              events = events,
-              offset = offset.toString,
-            )
-            val response = GetTransactionsResponse(Seq(transaction))
-            logger.debug(
-              "Serving item {} (offset: {}) in transaction subscription {} to client",
-              transaction.transactionId,
-              transaction.offset,
-              subscriptionId)
-            List(response)
-          } else {
-            logger.trace(
-              "Not serving item {} for transaction subscription {} as no events are visible",
-              trans.transactionId,
-              subscriptionId: Any)
-            Nil
+            case None =>
+              logger.trace(
+                "Not serving item {} for transaction subscription {} as no events are visible",
+                trans.transactionId,
+                subscriptionId: Any)
+              Nil
           }
       }
+  }
+
+  private def acceptedToFlat(
+      offset: Offset,
+      trans: TransactionAccepted,
+      blindingInfo: BlindingInfo,
+      verbose: Boolean,
+      eventFilter: Option[TemplateAwareFilter]) = {
+    val transactionWithEventIds =
+      trans.transaction.mapNodeId(nodeIdToEventId(trans.transactionId, _))
+    val events =
+      TransactionConversion
+        .genToFlatTransaction(
+          transactionWithEventIds,
+          blindingInfo.explicitDisclosure.map {
+            case (nodeId, parties) =>
+              nodeIdToEventId(trans.transactionId, nodeId) -> parties.map(_.underlyingString)
+          },
+          verbose
+        )
+
+    val submitterIsSubscriber =
+      trans.optSubmitterInfo
+        .map(_.submitter)
+        .fold(false)(sub => eventFilter.forall(_.isSubmitterSubscriber(sub)))
+    if (events.nonEmpty || submitterIsSubscriber) {
+      Some(
+        PTransaction(
+          transactionId = trans.transactionId,
+          commandId =
+            if (submitterIsSubscriber)
+              trans.optSubmitterInfo.map(_.commandId).getOrElse("")
+            else "",
+          workflowId = trans.transactionMeta.workflowId,
+          effectiveAt = Some(fromInstant(trans.transactionMeta.ledgerEffectiveTime.toInstant)), // FIXME(JM): conversion
+          events = events,
+          offset = offset.toString,
+        ))
+    } else {
+      None
+    }
   }
 
   override def getTransactionTrees(request: GetTransactionTreesRequest)
@@ -162,64 +178,69 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     filter.filtersByParty.size > 1
   }
 
-  def getTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[Option[VisibleTransaction]] = {
+  def getTransactionByEventId(request: GetTransactionByEventIdRequest)
+    : Future[Option[Either[VisibleTransaction, PTransaction]]] = {
     logger.debug("Received {}", request)
     eventIdToTransactionId(request.eventId) match {
       case None => Future.successful(None)
       case Some(txId) =>
-        lookupTransactionById(request.ledgerId.unwrap, txId, request.requestingParties)
+        lookupTransactionById(
+          request.ledgerId.unwrap,
+          txId,
+          request.requestingParties,
+          request.returnFlatTransaction)
     }
   }
 
-  def getTransactionById(request: GetTransactionByIdRequest): Future[Option[VisibleTransaction]] = {
+  def getTransactionById(request: GetTransactionByIdRequest)
+    : Future[Option[Either[VisibleTransaction, PTransaction]]] = {
     logger.debug("Received {}", request)
 
     lookupTransactionById(
       request.ledgerId.unwrap,
       request.transactionId.unwrap,
-      request.requestingParties)
+      request.requestingParties,
+      request.returnFlatTransaction)
   }
 
   private def lookupTransactionById(
       ledgerId: String,
       txId: String,
-      requestingParties: Set[Party]): Future[Option[VisibleTransaction]] = {
+      requestingParties: Set[Party],
+      returnFlatTransaction: Boolean): Future[Option[Either[VisibleTransaction, PTransaction]]] = {
     val filter = TransactionFilter.allForParties(requestingParties)
 
     // FIXME(JM): Move to IndexService
 
-    consumeAsyncResult(
-      indexService
-        .getAcceptedTransactions(
-          ledgerId = Ref.SimpleString.assertFromString(ledgerId),
-          beginAfter = None,
-          endAt = None,
-          filter = filter
-        )).flatMap { txs =>
-      txs
-        .collect {
-          case (offset: Offset, (t: TransactionAccepted, _)) if t.transactionId == txId =>
-            t
-        }
-        .runWith(Sink.headOption)
-        .flatMap {
-          case Some(trans) =>
-            val result = VisibleTransaction.toVisibleTransaction(
-              filter,
-              toTransactionWithMeta(trans)
-            )
-            Future.successful(result)
+    runTransactionPipeline(
+      Ref.SimpleString.assertFromString(ledgerId),
+      LedgerOffset.LedgerBegin,
+      Some(LedgerOffset.LedgerEnd),
+      filter)
+      .collect {
+        case (o, (t: TransactionAccepted, bi)) if t.transactionId == txId => (o, t, bi)
+      }
+      .runWith(Sink.headOption)
+      .flatMap {
+        case Some((offset, trans, blindingInfo)) if returnFlatTransaction =>
+          val eventFilter = EventFilter.byTemplates(
+            TransactionFilter(requestingParties.map(_ -> Filters.noFilter)(breakOut)))
+          Future.successful(
+            acceptedToFlat(offset, trans, blindingInfo, verbose = true, Some(eventFilter))
+              .map(Right(_)))
+        case Some((_, trans, _)) =>
+          val result = VisibleTransaction.toVisibleTransaction(
+            filter,
+            toTransactionWithMeta(trans)
+          )
+          Future.successful(result.map(Left(_)))
 
-          case None =>
-            Future.failed(
-              Status.INVALID_ARGUMENT
-                .withDescription(s"$txId could not be found")
-                .asRuntimeException)
-
-        }
-
-    }
+        case None =>
+          Future.failed(
+            Status.INVALID_ARGUMENT
+              .withDescription(s"$txId could not be found")
+              .asRuntimeException)
+      }
   }
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =

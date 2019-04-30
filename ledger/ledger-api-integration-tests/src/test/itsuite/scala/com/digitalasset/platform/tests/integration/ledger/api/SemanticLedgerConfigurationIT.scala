@@ -19,7 +19,6 @@ import com.digitalasset.ledger.client.services.configuration.LedgerConfiguration
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.tests.integration.ledger.api.commands.MultiLedgerCommandUtils
-import com.google.protobuf.empty.Empty
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
@@ -82,7 +81,7 @@ class SemanticLedgerConfigurationIT
           request = createRequest(
             _.commands.maximumRecordTime.seconds := (ledgerEffectiveTime.seconds + config.minTtl.value.seconds))
           resp <- syncClient.submitAndWait(request)
-        } yield (resp should equal(Empty()))
+        } yield resp.transactionId should not be empty
       }
 
       "not accept an MRT less than minTTL greater than LET" in allFixtures { context =>
@@ -93,7 +92,7 @@ class SemanticLedgerConfigurationIT
             _.commands.maximumRecordTime.seconds := ledgerEffectiveTime.seconds + config.minTtl.value.seconds - 1)
 
           resp <- syncClient.submitAndWait(request)
-        } yield (resp)
+        } yield resp
 
         resF.failed.map { failure =>
           val exception = failure.asInstanceOf[StatusRuntimeException]
@@ -110,7 +109,7 @@ class SemanticLedgerConfigurationIT
           request = createRequest(
             _.commands.maximumRecordTime.seconds := ledgerEffectiveTime.seconds + config.maxTtl.value.seconds)
           resp <- syncClient.submitAndWait(request)
-        } yield (resp should equal(Empty()))
+        } yield resp.transactionId should not be empty
       }
 
       "not accept an MRT more than maxTTL greater than LET" in allFixtures { context =>
@@ -120,7 +119,7 @@ class SemanticLedgerConfigurationIT
           request = createRequest(
             _.commands.maximumRecordTime.seconds := ledgerEffectiveTime.seconds + config.maxTtl.value.seconds + 1)
           resp <- syncClient.submitAndWait(request)
-        } yield (resp)
+        } yield resp
 
         resF.failed.map { failure =>
           val exception = failure.asInstanceOf[StatusRuntimeException]
