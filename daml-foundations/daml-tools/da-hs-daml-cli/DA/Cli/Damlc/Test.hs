@@ -15,6 +15,7 @@ import           DA.Prelude
 import qualified DA.Pretty
 import DA.Cli.Damlc.Base
 import Control.Monad.Extra
+import           Data.Either.Combinators    (whenRight)
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
@@ -55,7 +56,7 @@ testRun h inFiles lfVersion colorTestResults mbJUnitOutput  = do
     liftIO $ Compiler.setFilesOfInterest h inFiles
     files <- filesToTest h inFiles
     case mbJUnitOutput of
-        Nothing -> testStdio lfVersion h files colorTestResults
+        Nothing -> testStdio h files colorTestResults
         Just junitOutput -> testJUnit lfVersion h files junitOutput
 
 -- | Given the files the user asked for, figure out which are the complete sets of files to test on.
@@ -67,14 +68,14 @@ filesToTest h files = do
     return $ nubOrd $ concat $ files : catMaybes deps
 
 
-testStdio :: LF.Version -> IdeState -> [FilePath] -> ColorTestResults -> IO ()
-testStdio lfVersion h files colorTestResults = do
+testStdio :: IdeState -> [FilePath] -> ColorTestResults -> IO ()
+testStdio h files colorTestResults = do
     CompilerService.runAction h $
         void $ Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
             whenJust mbScenarioResults $ \scenarioResults -> do
-            liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> do
-                let doc = prettyResult lfVersion result
+            liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> whenRight result $ \result -> do
+                let doc = prettyResult result
                 let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
                 let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
                 putStrLn $ stringStyleToRender (name <> ": " <> doc)
@@ -111,18 +112,13 @@ prettyErr lfVersion err = case err of
           serr
     SSC.ExceptionError e -> DA.Pretty.string $ show e
 
-prettyResult :: LF.Version -> Either SSC.Error SS.ScenarioResult -> DA.Pretty.Doc Pretty.SyntaxClass
-prettyResult lfVersion errOrResult = case errOrResult of
-  Left err ->
-      DA.Pretty.error_ "fail. " DA.Pretty.$$
-      DA.Pretty.error_ (DA.Pretty.nest 2 (prettyErr lfVersion err))
-  Right result ->
+prettyResult :: SS.ScenarioResult -> DA.Pretty.Doc Pretty.SyntaxClass
+prettyResult result =
     let nTx = length (SS.scenarioResultScenarioSteps result)
         isActive node =
-          case SS.nodeNode node of
-            Just SS.NodeNodeCreate{} ->
-              isNothing (SS.nodeConsumedBy node)
-            _otherwise -> False
+            case SS.nodeNode node of
+                Just SS.NodeNodeCreate{} -> isNothing (SS.nodeConsumedBy node)
+                _ -> False
         nActive = length $ filter isActive (V.toList (SS.scenarioResultNodes result))
     in DA.Pretty.typeDoc_ "ok, "
     <> DA.Pretty.int nActive <> DA.Pretty.typeDoc_ " active contracts, "
