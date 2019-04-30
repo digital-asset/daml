@@ -8,6 +8,10 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+
+0.12.12 - 2019-04-30
+--------------------
+
 - Add support for using a Postgres database as a back end for the Sandbox, which gives you persistent data storage. See more at: https://docs.daml.com/tools/sandbox.html
 - Add documentation for :doc:`/daml-integration-kit/index`, which explains
   what the DAML Integration Kit is, what state it is in, and how it is going
