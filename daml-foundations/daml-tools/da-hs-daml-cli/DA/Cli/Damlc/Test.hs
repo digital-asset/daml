@@ -49,7 +49,7 @@ execTest inFiles colorTestResults mbJUnitOutput cliOptions = do
         liftIO $ Compiler.setFilesOfInterest hDamlGhc inFiles
         mbDeps <- liftIO $ CompilerService.runAction hDamlGhc $ fmap sequence $ mapM CompilerService.getDependencies inFiles
         depFiles <- maybe (reportDiagnostics hDamlGhc "Failed get dependencies") pure mbDeps
-        let files = Set.toList $ Set.fromList inFiles `Set.union`  Set.fromList (concat depFiles)
+        let files = Set.toList $ Set.fromList inFiles `Set.union` Set.fromList (concat depFiles)
         let lfVersion = Compiler.optDamlLfVersion cliOptions
         case mbJUnitOutput of
             Nothing -> testStdio lfVersion hDamlGhc files colorTestResults
