@@ -488,3 +488,20 @@ template Witnesses
      controller p_actor
      do
       return ()
+
+-- Contract used to divulge instances of Witnesses to the actor
+-- of witnesses. Otherwise we cannot exercise!
+template DivulgeWitnesses
+  with
+    p_signatory: Party
+    p_actor: Party
+  where
+    signatory p_actor
+
+    controller p_signatory can
+      Divulge: ()
+        with
+          toFetch: ContractId Witnesses
+        do
+          _ <- fetch toFetch
+          return ()

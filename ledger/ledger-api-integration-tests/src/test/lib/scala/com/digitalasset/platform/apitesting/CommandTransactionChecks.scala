@@ -409,6 +409,7 @@ abstract class CommandTransactionChecks
         }
       }
 
+      // TODO test for all fixtures once <https://github.com/digital-asset/daml/issues/784> is fixed
       "permit fetching a divulged contract" in forAllMatchingFixtures {
         case TestFixture(SandboxInMemory, ctx) =>
         def pf(label: String, party: String) =
