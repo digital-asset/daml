@@ -14,7 +14,6 @@ import qualified Control.Monad.Managed             as Managed
 import           DA.Prelude
 import qualified DA.Pretty
 import DA.Cli.Damlc.Base
-import Control.Monad.Extra
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
@@ -56,15 +55,22 @@ execTest inFiles colorTestResults mbJUnitOutput cliOptions = do
     let eventLogger (EventFileDiagnostics diag) = printDiagnostics $ fdDiagnostics diag
         eventLogger _ = return ()
     Managed.with (Compiler.newIdeState opts (Just eventLogger) loggerH) $ \hDamlGhc -> do
-        liftIO $ Compiler.setFilesOfInterest hDamlGhc inFiles
-        mbDeps <- liftIO $ CompilerService.runAction hDamlGhc $ fmap sequence $ mapM CompilerService.getDependencies inFiles
-        whenJust mbDeps $ \depFiles -> do
-        let files = Set.toList $ Set.fromList inFiles `Set.union` Set.fromList (concat depFiles)
         let lfVersion = Compiler.optDamlLfVersion cliOptions
-        res <- case mbJUnitOutput of
-            Nothing -> testStdio lfVersion hDamlGhc files colorTestResults
-            Just junitOutput -> testJUnit lfVersion hDamlGhc files junitOutput
+        res <- testRun hDamlGhc inFiles lfVersion colorTestResults mbJUnitOutput
         when (res == Fail) exitFailure
+
+
+testRun :: IdeState -> [FilePath] -> LF.Version -> ColorTestResults -> Maybe FilePath -> IO Result
+testRun hDamlGhc inFiles lfVersion colorTestResults mbJUnitOutput  = do
+    liftIO $ Compiler.setFilesOfInterest hDamlGhc inFiles
+    mbDeps <- liftIO $ CompilerService.runAction hDamlGhc $ fmap sequence $ mapM CompilerService.getDependencies inFiles
+    case mbDeps of
+        Nothing -> return Fail
+        Just depFiles -> do
+            let files = Set.toList $ Set.fromList inFiles `Set.union` Set.fromList (concat depFiles)
+            case mbJUnitOutput of
+                Nothing -> testStdio lfVersion hDamlGhc files colorTestResults
+                Just junitOutput -> testJUnit lfVersion hDamlGhc files junitOutput
 
 testStdio :: LF.Version -> IdeState -> [FilePath] -> ColorTestResults -> IO Result
 testStdio lfVersion hDamlGhc files colorTestResults = do
