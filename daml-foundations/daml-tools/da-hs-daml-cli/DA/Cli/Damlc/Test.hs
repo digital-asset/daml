@@ -61,13 +61,14 @@ execTest inFiles colorTestResults mbJUnitOutput cliOptions = do
         whenJust mbDeps $ \depFiles -> do
         let files = Set.toList $ Set.fromList inFiles `Set.union` Set.fromList (concat depFiles)
         let lfVersion = Compiler.optDamlLfVersion cliOptions
-        case mbJUnitOutput of
+        res <- case mbJUnitOutput of
             Nothing -> testStdio lfVersion hDamlGhc files colorTestResults
             Just junitOutput -> testJUnit lfVersion hDamlGhc files junitOutput
+        when (res == Fail) exitFailure
 
-testStdio :: LF.Version -> IdeState -> [FilePath] -> ColorTestResults -> IO ()
+testStdio :: LF.Version -> IdeState -> [FilePath] -> ColorTestResults -> IO Result
 testStdio lfVersion hDamlGhc files colorTestResults = do
-    failed <- fmap mconcat $ CompilerService.runAction hDamlGhc $
+    fmap mconcat $ CompilerService.runAction hDamlGhc $
         Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
             case mbScenarioResults of
@@ -79,11 +80,10 @@ testStdio lfVersion hDamlGhc files colorTestResults = do
                         let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
                         putStrLn $ stringStyleToRender (name <> ": " <> doc)
                     pure $ if any (isLeft . snd) scenarioResults then Fail else Pass
-    when (failed == Fail) exitFailure
 
-testJUnit :: LF.Version -> IdeState -> [FilePath] -> FilePath -> IO ()
-testJUnit lfVersion hDamlGhc files junitOutput = do
-    failed <- CompilerService.runAction hDamlGhc $ do
+testJUnit :: LF.Version -> IdeState -> [FilePath] -> FilePath -> IO Result
+testJUnit lfVersion hDamlGhc files junitOutput =
+    CompilerService.runAction hDamlGhc $ do
         results <- Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
             results <- case mbScenarioResults of
@@ -102,7 +102,6 @@ testJUnit lfVersion hDamlGhc files junitOutput = do
             createDirectoryIfMissing True $ takeDirectory junitOutput
             writeFile junitOutput $ XML.showTopElement $ toJUnit results
         pure $ if any (any (isJust . snd) . snd) results then Fail else Pass
-    when (failed == Fail) exitFailure
 
 
 prettyErr :: LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.SyntaxClass
