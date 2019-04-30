@@ -399,9 +399,9 @@ load("//bazel_tools:haskell.bzl", "add_extra_packages")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "7024e38d4b463b3eaf1c44c6453eb608dd8f28a9"
+HASKELL_LSP_COMMIT = "15096280b3542d56d8df728d3bce9ea34141debd"
 
-HASKELL_LSP_HASH = "7d706fbc1beb49a9345083d3eadb5e311936a2a8449e7765a65aa7d298dff9d6"
+HASKELL_LSP_HASH = "170de7aeb1da63198139a667c074a05f7ecd30017d54c78569a6aa1cc565be89"
 
 hazel_repositories(
     core_packages = core_packages + {
@@ -414,6 +414,8 @@ hazel_repositories(
     exclude_packages = [
         "arx",
         "clock",
+        "data-default",
+        "data-default-instances-containers",
         "c2hs",
         "streaming-commons",
         "wai-app-static",
@@ -475,6 +477,27 @@ hazel_custom_package_hackage(
     build_file = "//3rdparty/haskell:BUILD.clock",
     sha256 = "886601978898d3a91412fef895e864576a7125d661e1f8abc49a2a08840e691f",
     version = "0.7.2",
+)
+
+hazel_custom_package_hackage(
+    package_name = "data-default",
+    build_file = "//3rdparty/haskell:BUILD.data-default",
+    sha256 = "b0f95d279cd75cacaa8152a01590dc3460f7134f6840b37052abb3ba3cb2a511",
+    version = "0.7.1.1",
+)
+
+hazel_custom_package_hackage(
+    package_name = "data-default-instances-containers",
+    build_file = "//3rdparty/haskell:BUILD.data-default-instances-containers",
+    sha256 = "a55e07af005c9815d82f3fc95e125db82994377c9f4a769428878701d4ec081a",
+    version = "0.0.1",
+)
+
+hazel_custom_package_hackage(
+    package_name = "data-default-instances-old-locale",
+    build_file = "//3rdparty/haskell:BUILD.data-default-instances-old-locale",
+    sha256 = "60d3b02922958c4908d7bf2b24ddf61511665745f784227d206745784b0c0802",
+    version = "0.0.1",
 )
 
 # We only use a custom build on Windows

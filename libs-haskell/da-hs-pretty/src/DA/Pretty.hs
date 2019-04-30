@@ -211,6 +211,8 @@ renderColored doc =
       TypeSC         -> CSNode (Vivid, Green)
       ErrorSC        -> CSNode (Vivid, Red)
       WarningSC      -> CSNode (Vivid, Yellow)
+      HintSC         -> CSNode (Vivid, Blue)
+      InfoSC         -> CSNode (Vivid, Magenta)
       LinkSC _ _     -> CSNode (Vivid, Green)
       NoAnnotationSC -> id
       IdSC _         -> id
@@ -290,6 +292,8 @@ applySyntaxClass = \case
     TypeSC         -> apply "type"
     WarningSC      -> apply "warning"
     ErrorSC        -> apply "error"
+    HintSC         -> apply "hint"
+    InfoSC         -> apply "info"
     IdSC  x        -> H.span H.! A.id (H.preEscapedTextValue x)
     LinkSC url title ->
       H.a H.! A.href (H.preEscapedTextValue url) H.! A.title (H.preEscapedTextValue title)

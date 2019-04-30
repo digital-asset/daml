@@ -74,28 +74,29 @@ absoluteFilePathToDocumentUri p
 
 -- | Convert an compiler build diagnostic.
 convertDiagnostic :: Base.Diagnostic -> Diagnostic
-convertDiagnostic
-    (Base.Diagnostic
-        _filePath
-        (Base.Range (Base.Position sLine sChar) (Base.Position eLine eChar))
-        severity source message) =
+convertDiagnostic Base.Diagnostic{..} =
     Diagnostic
-        (Range (Position sLine sChar) (Position eLine eChar))
-        (Just $ convSeverity severity)
-        Nothing -- Code
-        (Just source)
-        message
+        (convRange _range)
+        (convSeverity <$> _severity)
+        Nothing
+        _source
+        _message
   where
     convSeverity = \case
-        Base.Error -> Error
-        Base.Warning -> Warning
+        Base.DsError -> Error
+        Base.DsWarning -> Warning
+        Base.DsInfo -> Information
+        Base.DsHint -> Hint
+
+    convRange (Base.Range start end) = Range (convPosition start) (convPosition end)
+    convPosition (Base.Position line char) = Position line char
 
 
 -- | Convert an AST location value.
 fromAstLocation :: Base.Location -> Location
-fromAstLocation (Base.Location filePath range)
+fromAstLocation (Base.Location uri range)
  = Location
-    (Tagged $ T.pack $ "file://" <> filePath)
+    (Tagged $ Base.getUri uri)
     (fromAstRange range)
 
 
