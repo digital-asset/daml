@@ -31,8 +31,6 @@ copyDirectory src target = do
         let targetFile = target </> baseName
         createDirectoryIfMissing True (takeDirectory targetFile)
         copyFile file targetFile
-        p <- getPermissions targetFile
-        setPermissions targetFile p { writable = True }
 
 -- Similar to `renameDirectory` but falls back to a non-atomic copy + delete
 -- if renameDirectory is unsupported, e.g., because src and target are on different
