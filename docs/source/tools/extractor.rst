@@ -59,7 +59,7 @@ Running the Extractor
 
 The basic command to run the Extractor is::
 
-  $ daml extractor -- [options]
+  $ daml extractor [options]
 
 For what options to use, see the next sections.
 
