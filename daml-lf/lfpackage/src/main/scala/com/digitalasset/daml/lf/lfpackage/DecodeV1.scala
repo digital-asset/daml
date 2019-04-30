@@ -43,7 +43,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
       ModuleName.fromSegments(lfModule.getName.getSegmentsList.asScala))
 
     // FIXME(JM): rewrite.
-    var currentDefinitionRef: Option[DefinitionRef[PackageId]] = None
+    var currentDefinitionRef: Option[DefinitionRef] = None
 
     def decode(): Module = {
       val defs = mutable.ArrayBuffer[(DottedName, Definition)]()

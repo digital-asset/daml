@@ -46,9 +46,9 @@ object ScenarioLoader {
 
   private def buildScenarioLedger(
       packages: DamlPackageContainer,
-      scenario: String): (L.Ledger, Ref.DefinitionRef[Ref.PackageId]) = {
+      scenario: String): (L.Ledger, Ref.DefinitionRef) = {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
-    val candidateScenarios: List[(Ref.DefinitionRef[Ref.PackageId], Definition)] =
+    val candidateScenarios: List[(Ref.DefinitionRef, Definition)] =
       getCandidateScenarios(packages, scenarioQualName)
     val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
     val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
@@ -59,7 +59,7 @@ object ScenarioLoader {
   }
 
   private def getScenarioLedger(
-      scenarioRef: Ref.DefinitionRef[Ref.PackageId],
+      scenarioRef: Ref.DefinitionRef,
       speedyMachine: Speedy.Machine): L.Ledger = {
     ScenarioRunner(speedyMachine).run match {
       case Left(e) =>
@@ -84,9 +84,7 @@ object ScenarioLoader {
     }
   }
 
-  private def getScenarioExpr(
-      scenarioRef: Ref.DefinitionRef[Ref.PackageId],
-      scenarioDef: Definition): Ast.Expr = {
+  private def getScenarioExpr(scenarioRef: Ref.DefinitionRef, scenarioDef: Definition): Ast.Expr = {
     scenarioDef match {
       case DValue(_, _, body, _) => body
       case _: DDataType =>
@@ -98,8 +96,8 @@ object ScenarioLoader {
   private def identifyScenario(
       packages: DamlPackageContainer,
       scenario: String,
-      candidateScenarios: List[(Ref.DefinitionRef[Ref.PackageId], Definition)])
-    : (Ref.DefinitionRef[Ref.PackageId], Definition) = {
+      candidateScenarios: List[(Ref.DefinitionRef, Definition)])
+    : (Ref.DefinitionRef, Definition) = {
     candidateScenarios match {
       case Nil =>
         throw new RuntimeException(
@@ -149,7 +147,7 @@ object ScenarioLoader {
 
   private def executeScenarioStep(
       ledger: ArrayBuffer[LedgerEntry],
-      scenarioRef: Ref.DefinitionRef[Ref.PackageId],
+      scenarioRef: Ref.DefinitionRef,
       acs: ActiveContractsInMemory,
       time: Time.Timestamp,
       mbOldTxId: Option[TransactionId],

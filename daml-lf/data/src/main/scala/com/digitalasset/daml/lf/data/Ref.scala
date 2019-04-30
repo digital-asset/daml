@@ -138,7 +138,7 @@ object Ref {
   val ValueRef = Identifier
 
   /** Reference to a value defined in the specified module. */
-  type DefinitionRef[PkgId] = Identifier
+  type DefinitionRef = Identifier
   val DefinitionRef = Identifier
 
   /** Reference to a type constructor. */

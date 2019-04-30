@@ -63,7 +63,7 @@ class Context(val contextId: Context.ContextId) {
 
   private var modules: Map[ModuleName, Ast.Module] = Map.empty
   private var extPackages: Map[PackageId, Ast.Package] = Map.empty
-  private var defns: Map[DefinitionRef[PackageId], SExpr] = Map.empty
+  private var defns: Map[DefinitionRef, SExpr] = Map.empty
 
   def loadedModules(): Iterable[ModuleName] = modules.keys
   def loadedPackages(): Iterable[PackageId] = extPackages.keys

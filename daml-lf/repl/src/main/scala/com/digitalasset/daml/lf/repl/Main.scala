@@ -487,7 +487,7 @@ object Repl {
 
   private val unknownPackageId = PackageId.assertFromString("-unknownPackage-")
 
-  def idToRef(state: State, id: String): DefinitionRef[PackageId] = {
+  def idToRef(state: State, id: String): DefinitionRef = {
     val defaultPackageId =
       state.packages.headOption
         .map(_._1)
