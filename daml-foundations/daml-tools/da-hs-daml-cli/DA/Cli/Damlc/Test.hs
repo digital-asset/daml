@@ -43,20 +43,20 @@ execTest inFiles colorTestResults mbJUnitOutput cliOptions = do
     opts <- Compiler.mkOptions cliOptions
     let eventLogger (EventFileDiagnostics diag) = printDiagnostics $ fdDiagnostics diag
         eventLogger _ = return ()
-    Managed.with (Compiler.newIdeState opts (Just eventLogger) loggerH) $ \hDamlGhc -> do
+    Managed.with (Compiler.newIdeState opts (Just eventLogger) loggerH) $ \h -> do
         let lfVersion = Compiler.optDamlLfVersion cliOptions
-        _ <- testRun hDamlGhc inFiles lfVersion colorTestResults mbJUnitOutput
-        diags <- CompilerService.getDiagnostics hDamlGhc
+        _ <- testRun h inFiles lfVersion colorTestResults mbJUnitOutput
+        diags <- CompilerService.getDiagnostics h
         when (any ((==) Error . dSeverity) diags) exitFailure
 
 
 testRun :: IdeState -> [FilePath] -> LF.Version -> ColorTestResults -> Maybe FilePath -> IO ()
-testRun hDamlGhc inFiles lfVersion colorTestResults mbJUnitOutput  = do
-    liftIO $ Compiler.setFilesOfInterest hDamlGhc inFiles
-    files <- filesToTest hDamlGhc inFiles
+testRun h inFiles lfVersion colorTestResults mbJUnitOutput  = do
+    liftIO $ Compiler.setFilesOfInterest h inFiles
+    files <- filesToTest h inFiles
     case mbJUnitOutput of
-        Nothing -> testStdio lfVersion hDamlGhc files colorTestResults
-        Just junitOutput -> testJUnit lfVersion hDamlGhc files junitOutput
+        Nothing -> testStdio lfVersion h files colorTestResults
+        Just junitOutput -> testJUnit lfVersion h files junitOutput
 
 -- | Given the files the user asked for, figure out which are the complete sets of files to test on.
 --   Basically, the transitive closure.
@@ -68,8 +68,8 @@ filesToTest h files = do
 
 
 testStdio :: LF.Version -> IdeState -> [FilePath] -> ColorTestResults -> IO ()
-testStdio lfVersion hDamlGhc files colorTestResults = do
-    CompilerService.runAction hDamlGhc $
+testStdio lfVersion h files colorTestResults = do
+    CompilerService.runAction h $
         void $ Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
             whenJust mbScenarioResults $ \scenarioResults -> do
@@ -80,8 +80,8 @@ testStdio lfVersion hDamlGhc files colorTestResults = do
                 putStrLn $ stringStyleToRender (name <> ": " <> doc)
 
 testJUnit :: LF.Version -> IdeState -> [FilePath] -> FilePath -> IO ()
-testJUnit lfVersion hDamlGhc files junitOutput =
-    CompilerService.runAction hDamlGhc $ do
+testJUnit lfVersion h files junitOutput =
+    CompilerService.runAction h $ do
         results <- Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
             results <- case mbScenarioResults of
@@ -89,7 +89,7 @@ testJUnit lfVersion hDamlGhc files junitOutput =
                     -- If we don’t get scenario results, we use the diagnostics
                     -- as the error message for each scenario.
                     mbScenarioNames <- CompilerService.getScenarioNames file
-                    diagnostics <- liftIO $ CompilerService.getDiagnostics hDamlGhc
+                    diagnostics <- liftIO $ CompilerService.getDiagnostics h
                     let errMsg = T.unlines (map (Pretty.renderPlain . prettyDiagnostic) diagnostics)
                     pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
                 Just scenarioResults -> pure $
