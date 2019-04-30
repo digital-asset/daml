@@ -14,6 +14,7 @@ import qualified Control.Monad.Managed             as Managed
 import           DA.Prelude
 import qualified DA.Pretty
 import DA.Cli.Damlc.Base
+import Control.Monad.Extra
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
@@ -74,15 +75,15 @@ testJUnit :: LF.Version -> IdeState -> [FilePath] -> FilePath -> IO ()
 testJUnit lfVersion hDamlGhc files junitOutput = do
     failed <- CompilerService.runAction hDamlGhc $ do
         results <- Shake.forP files $ \file -> do
-            scenarios <- CompilerService.getScenarios file
             mbScenarioResults <- CompilerService.runScenarios file
             results <- case mbScenarioResults of
                 Nothing -> do
                     -- If we don’t get scenario results, we use the diagnostics
                     -- as the error message for each scenario.
+                    mbScenarioNames <- CompilerService.getScenarioNames file
                     diagnostics <- liftIO $ CompilerService.getDiagnostics hDamlGhc
                     let errMsg = T.unlines (map (Pretty.renderPlain . prettyDiagnostic) diagnostics)
-                    pure $ map (, Just errMsg) scenarios
+                    pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
                 Just scenarioResults -> pure $
                     map (\(vr, res) -> (vr, either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing) res))
                         scenarioResults
