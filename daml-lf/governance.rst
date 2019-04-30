@@ -192,6 +192,10 @@ always considered to be newer than every stable minor version of that
 major version, it must be backward-compatible with all such stable
 versions.
 
+Newly-implemented minor version level features do not themselves entail
+a minor version bump; instead, they must be staged in the *dev* version
+for later release as a stable group of backward-compatible features.
+
 The DAML-LF dev version is enabled in the sandbox and ledger server, but
 will never be emitted by damlc unless explicitly requested via
 ``--target 1.dev`` or similar.
