@@ -6,7 +6,7 @@
 -- | Main entry-point of the DAML compiler
 module DA.Cli.Damlc.Test (
     execTest
-    , ColorTestResults(..)
+    , UseColor(..)
     ) where
 
 import Control.Monad.Except
@@ -35,10 +35,10 @@ import System.FilePath
 import qualified Text.XML.Light as XML
 
 
-newtype ColorTestResults = ColorTestResults{getColorTestResults :: Bool}
+newtype UseColor = UseColor {getUseColor :: Bool}
 
 -- | Test a DAML file.
-execTest :: [FilePath] -> ColorTestResults -> Maybe FilePath -> Compiler.Options -> IO ()
+execTest :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
 execTest inFiles colorTestResults mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
     opts <- Compiler.mkOptions cliOptions
@@ -51,7 +51,7 @@ execTest inFiles colorTestResults mbJUnitOutput cliOptions = do
         when (any ((==) Error . dSeverity) diags) exitFailure
 
 
-testRun :: IdeState -> [FilePath] -> LF.Version -> ColorTestResults -> Maybe FilePath -> IO ()
+testRun :: IdeState -> [FilePath] -> LF.Version -> UseColor -> Maybe FilePath -> IO ()
 testRun h inFiles lfVersion colorTestResults mbJUnitOutput  = do
     liftIO $ Compiler.setFilesOfInterest h inFiles
     files <- filesToTest h inFiles
@@ -89,12 +89,12 @@ failedTestOutput h file = do
     pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
 
 
-printScenarioResults :: [(VirtualResource, SS.ScenarioResult)] -> ColorTestResults -> IO ()
+printScenarioResults :: [(VirtualResource, SS.ScenarioResult)] -> UseColor -> IO ()
 printScenarioResults results colorTestResults = do
     liftIO $ forM_ results $ \(VRScenario vrFile vrName, result) -> do
         let doc = prettyResult result
         let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
-        let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
+        let stringStyleToRender = if getUseColor colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
         putStrLn $ stringStyleToRender (name <> ": " <> doc)
 
 
