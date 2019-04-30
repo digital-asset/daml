@@ -65,6 +65,7 @@ import           Control.Lens (view, set)
 import           System.Time.Extra
 import           Data.Typeable
 import           Data.Tuple.Extra
+import System.Directory
 import           System.FilePath
 import qualified Development.Shake as Shake
 import           Control.Monad.Extra
@@ -383,9 +384,19 @@ updateFileDiagnostics ::
   -> [Diagnostic] -- ^ current results
   -> Action ()
 updateFileDiagnostics afp previousAll currentAll = do
-    let filt = Set.fromList . filter (\x -> view dFilePath x == Just afp)
-        previous = fmap filt previousAll
-        current = filt currentAll
+    -- TODO (MK) We canonicalize to make sure that the two files agree on use of
+    -- / and \ and other shenanigans.
+    -- Once we have finished the migration to haskell-lsp we should make sure that
+    -- this is no longer necessary.
+    afp' <- liftIO $ canonicalizePath afp
+    let filtM diags = do
+            diags' <-
+                filterM
+                    (\x -> fmap (== Just afp') (traverse canonicalizePath $ view dFilePath x))
+                    diags
+            pure (Set.fromList diags')
+    previous <- liftIO $ traverse filtM previousAll
+    current <- liftIO $ filtM currentAll
     when (Just current /= previous) $
         sendEvent $ EventFileDiagnostics $ (filePathToUri afp, Set.toList current)
 
