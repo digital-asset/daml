@@ -19,7 +19,7 @@ You need to install:
 
 To install the SDK on Mac or Unix, run::
 
-  curl https://get.daml.com/ | bash
+  curl -sSL https://get.daml.com/ | sh
 
 .. Install the SDK on Windows
 .. ==========================

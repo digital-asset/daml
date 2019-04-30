@@ -6,9 +6,14 @@ DAML assistant (``daml``)
 
 ``daml`` is a command-line tool that does a bunch of useful stuff with the SDK. Using ``daml``, you can:
 
-- Install new SDK versions (but you need to update your config file yourself)
+- Create new DAML projects: ``daml new <path to create project in>``
+- Compile a DAML project: ``daml build``
 
-  ``daml install <version>``
+  - This will build the DAML project according to the project config file ``daml.yaml`` (see below).
+  - In particular, it will download and install the specified version of the SDK (the ``sdk-version`` 
+    field in ``daml.yaml``) if missing, and use that SDK version to resolve dependencies and compile
+    the DAML project.
+
 - Launch the tools in the SDK:
 
   - Launch :doc:`DAML Studio </daml/daml-studio>`: ``daml studio``
@@ -16,31 +21,79 @@ DAML assistant (``daml``)
   - Launch Sandbox: ``daml sandbox``
   - Launch Navigator: ``daml navigator``
   - Launch :doc:`Extractor </tools/extractor>`: ``daml extractor``
-- Compile a DAML project: ``daml build``
-- Create new project based off built-in template: ``daml new <path to create project in> <name of template>``
+
+- Install new SDK versions manually: ``daml install <version>``
 
 .. _daml-yaml-configuration:
 
 Configuration files
 *******************
 
+The DAML assistant and the DAML SDK are configured using two kinds of config files:
+
+- the global config file, one per installation, controls some options regarding SDK installation and updates
+- the project config file, one per DAML project, controls how the DAML SDK builds and interacts with the project
+
 Global config file
 ==================
 
-The ``daml`` configuration file, ``daml.yaml`` is in TODO directory.
+The global config file ``daml-config.yaml`` is in the daml home directory, which is ``~/.daml`` on Linux and Mac, and ``C:/Users/<user>/AppData/Roaming/daml`` on Windows. It controls certain options related to SDK version installation and upgrades. By default it is blank, and you will probably not need to change it, but you can edit it to suit your needs. The assistant recognizes the following options:
 
-Specifies global configuration options. TODO list.
+- ``auto-install`` controls whether ``daml`` will automatically install a missing SDK version when it is required (defaults to ``true``)
+- ``update-check`` controls how often ``daml`` will check for new versions of the SDK (default to ``86400``, i.e. once a day)
 
-TODO example file.
+  - This setting is only to inform the user when an update is available.
+  - ``update-check: <number>`` will check for new versions every N seconds.
+  - ``update-check: never`` will never check for new versions.
+
+Here is an example of the global config file ``daml-config.yaml``:
+
+.. code-block:: yaml
+
+   auto-install: true
+   update-check: 86400
 
 Project config file
 ===================
 
-The project configuration file must be in the root of your project. Specifies project configuration and can override global configuration properties.
+The project config file ``daml.yaml``, at the root of your DAML project directory, controls how the DAML project is built and how tools like Sandbox and Navigator interact with it. The ``daml.yaml`` file is necessary for ``daml`` assistant to recognize a DAML project, and to use project-aware commands like ``daml build`` and ``daml start``.
 
-.. Make sure to include this from old docs: Some tools, like the Navigator, require parties to be configured before they are started. Do this in the ``project.parties`` property of the ``daml.yaml`` file for the project.
+The ``daml new`` command will create a config file for you, along with an example app in a new project folder. For example, ``daml new my_project`` creates a new folder ``my_project`` with a project config file ``daml.yaml`` like this:
 
-TODO example files.
+.. code-block:: yaml
+
+   sdk-version: 0.13.0
+   name: my_project
+   source: daml/Main.daml
+   scenario: Main:setup
+   parties:
+     - Alice
+     - Bob
+     - USD_Bank
+     - EUR_Bank
+   version: 1.0.0
+   exposed-modules:
+     - Main
+   dependencies:
+     - daml-prim
+     - daml-stdlib
+
+Here is what each field means:
+
+- ``sdk-version`` specifies the SDK version to be used to build this project. The assistant will automatically download and install
+  this version if needed (see the ``auto-install`` setting in the global config). We recommend keeping this up to date with the 
+  latest stable release of the SDK. The assistant will warn you when it is time to update this setting (see the ``update-check`` setting
+  in the global config  to control how often it checks, or to disable this check entirely).
+- ``name`` is the name of the project.
+- ``source`` is the location of your main DAML source code file, relative to the project root
+- ``scenario`` is the name of the main scenario to run with ``daml start``
+- ``parties`` is the list of parties to display in the Navigator, when running with ``daml start``
+- ``version`` is the project version.
+- ``exposed-modules`` is the list of DAML modules that are exposed by this project, which can be imported in other projects
+- ``dependencies`` is the list of dependencies this module has
+
+..  TODO (@robin-da) document the dependency syntax
+
 
 Full help for commands
 *******************************
@@ -68,7 +121,7 @@ Plus components don't run in the background, so stop with ctrl+c.
      - No longer needed. You can access the docs at docs.daml.com, which includes a PDF download for offline use.
    * - ``da new``
      - Create a new project from template
-     - ``daml new  <path to create project in> <name of template>``
+     - ``daml new  <path to create project in> [<name of template>]``
    * - ``da project``
      - Manage SDK projects
      - No longer needed
@@ -77,10 +130,10 @@ Plus components don't run in the background, so stop with ctrl+c.
      - No longer needed
    * - ``da upgrade``
      - Upgrade SDK version
-     - ``daml install <version>``
+     - ``daml install latest --activate``
    * - ``da list``
      - List installed SDK versions
-     - ``daml version`` prints the current SDK version in use.
+     - ``daml version`` prints SDK version information.
    * - ``da use``
      - Set the default SDK version
      - No direct equivalent; you now set the new SDK version (``sdk-version: X.Y.Z``) in your project config file (``daml.yaml``) manually.
@@ -104,10 +157,10 @@ Plus components don't run in the background, so stop with ctrl+c.
      - ``daml studio``
    * - ``da navigator``
      - Launch Navigator
-     - ``daml navigator``
+     - No direct equivalent; ``daml navigator`` is equivalent to ``da run navigator``.
    * - ``da sandbox``
      - Launch Sandbox
-     - ``daml sandbox``
+     - No direct equivalent; ``daml sandbox`` is equivalent to ``da run sandbox``.
    * - ``da compile``
      - Compile a DAML project into a .dar file
      - ``daml build``
@@ -116,7 +169,7 @@ Plus components don't run in the background, so stop with ctrl+c.
      - No equivalent
    * - ``da run``
      - Run an SDK component
-     - ``daml studio``, ``daml navigator``, etc
+     - ``daml sandbox``, ``daml navigator``, ``daml damlc``, etc
    * - ``da setup``
      - Initialize the SDK
      - No longer needed: this is handled by the installer
@@ -141,36 +194,60 @@ Plus components don't run in the background, so stop with ctrl+c.
 
 .. _assistant-manual-building-dars:
 
-Building .dar files
-*******************
+Building DAML Project
+*********************
 
 Compiling your DAML source code into a DAML archive (a ``.dar`` file)::
 
   daml build
 
-Configuring compilation
-=======================
+You can control the build by changing your project's ``daml.yaml``:
 
-In your project's ``daml.yaml``. The variables you can set are:
+``sdk-version``
+  The SDK version to use for building the project.
 
-``project.name``
+``name``
   The name of the project.
 
-``project.source``
+``source``
   The path to the source code.
 
-``project.output-path``
-  The directory to store generated ``.dar`` files, the default is ``target``.
+The generated ``.dar`` file will be stored in ``dist/${name}.dar`` by default. You can override the default location by
+passing the ``-o`` argument to ``daml build``::
 
-The generated ``.dar`` file will be stored in
-``${project.output-path}/${project.name}.dar``.
-
+  daml build -o path/to/darfile.dar
 
 .. _assistant-manual-managing-releases:
 
 Managing SDK releases
 *********************
 
-``daml`` automatically checks for updates and notifies you if there is
-a new version. But when there's a new version, you need to specify that you want a project to use it in the project config file.
+In general the ``daml`` assistant will install versions and guide you when you need to update SDK versions or project settings. If you disable ``auto-install`` and ``update-check`` in the global config file you will have to manage SDK releases manually.
+
+To find out what version
+
+.. TODO (@associahedron) Add output of revamped version command here.
+
+To download and install the latest stable SDK release and update your ``daml`` assistant::
+
+  daml install latest --activate
+
+Remove the ``--activate`` flag if you only want to install the latest release without updating the ``daml`` assistant in the process.
+If it is already installed, you can force reinstallation by passing the ``--force`` flag. See ``daml install --help`` for a full list of options.
+
+To install the SDK release specified in the project config::
+
+  daml install project
+
+To install a specific SDK version, for example version ``0.13.0``::
+
+  daml install 0.13.0
+
+To install an SDK release from a downloaded SDK release tarball, run::
+
+  daml install path-to-tarball.tar.gz
+
+but beware, this is an advanced feature and you should only ever perform this on an SDK release tarball that is released through the official ``digital-asset/daml`` github repository, otherwise your ``daml`` installation may become inconsistent with everyone elses.
+
+.. TODO (@associahedron) Add ``daml uninstall`` and ``daml version --list`` commands.
 
