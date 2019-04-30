@@ -42,24 +42,6 @@ topoSortPackage (Package version mods) = do
         G.CyclicSCC modCycle -> Left (map moduleName modCycle)
   Package version . NM.fromList <$> traverse isAcyclic sccs
 
--- | Unwind a left associative operation like an application node of an AST,
--- e.g., @unwindl ('matching' _EApp)@.
-unwindl :: (e -> Either e (e, a)) -> e -> (e, [a])
-unwindl p = go []
-  where
-    go as e0 = case p e0 of
-      Right (e1, a) -> go (a:as) e1
-      Left  e1      -> (e1, as)
-
--- | Unwind a right associative operation like an abstraction node of an AST,
--- e.g., @unwindl ('matching' _EAbs)@.
-unwindr :: (e -> Either e (x, e)) -> e -> ([x], e)
-unwindr p = go []
-  where
-    go xs e0 = case p e0 of
-      Right (x, e1) -> go (x:xs) e1
-      Left  e1      -> (reverse xs, e1)
-
 data Arg
   = TmArg Expr
   | TyArg Type
@@ -245,18 +227,6 @@ mkTApps = curry (review _TApps)
 typeConAppToType :: TypeConApp -> Type
 typeConAppToType (TypeConApp tcon targs) = TConApp tcon targs
 
-packListLit :: Type -> [Expr] -> Expr
-packListLit t = foldr (ECons t) (ENil t)
-
-unpackListLit :: Expr -> Maybe [Expr]
-unpackListLit e0 = case unwindr p e0 of
-  (es, ENil{}) -> Just es
-  _ -> Nothing
-  where
-    p = \case
-      ECons _ e es -> Right (e, es)
-      e -> Left e
-
 -- Compatibility type and functions
 
 data Definition
@@ -276,17 +246,3 @@ partitionDefinitions = foldr f ([], [], [])
       DDataType d -> over _1 (d:)
       DValue v    -> over _2 (v:)
       DTemplate t -> over _3 (t:)
-
-moduleDefinitions :: Module -> [Definition]
-moduleDefinitions (Module _name _path _flags dats vals tpls) =
-  concat
-  [ map DDataType (NM.toList dats)
-  , map DValue (NM.toList vals)
-  , map DTemplate (NM.toList tpls)
-  ]
-
-_moduleDefinitions :: Lens' Module [Definition]
-_moduleDefinitions f mod0@(Module name path flags _ _ _) =
-  moduleFromDefinitions name path flags <$> f (moduleDefinitions mod0)
-
-makePrisms ''Definition
