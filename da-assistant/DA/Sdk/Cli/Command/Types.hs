@@ -4,7 +4,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module DA.Sdk.Cli.Command.Types where
+module DA.Sdk.Cli.Command.Types(module DA.Sdk.Cli.Command.Types) where
 
 import           Control.Monad.Logger        (LogLevel)
 import           DA.Sdk.Prelude

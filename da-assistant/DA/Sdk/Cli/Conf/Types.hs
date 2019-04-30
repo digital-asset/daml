@@ -6,7 +6,7 @@
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
-module DA.Sdk.Cli.Conf.Types where
+module DA.Sdk.Cli.Conf.Types(module DA.Sdk.Cli.Conf.Types) where
 
 import           Control.Lens                  (makePrisms)
 import qualified DA.Sdk.Cli.Message            as M

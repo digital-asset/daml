@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
-module Orphans.Lib_pretty where
+module Orphans.Lib_pretty() where
 
 import qualified Data.Text as T
 import           Text.PrettyPrint.Annotated.HughesPJClass

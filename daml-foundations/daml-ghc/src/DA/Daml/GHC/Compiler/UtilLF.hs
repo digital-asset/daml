@@ -5,7 +5,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | DAML-LF utility functions, may move to the LF utility if they are generally useful
-module DA.Daml.GHC.Compiler.UtilLF where
+module DA.Daml.GHC.Compiler.UtilLF(
+    module DA.Daml.GHC.Compiler.UtilLF
+    ) where
 
 import           DA.Daml.LF.Ast
 import qualified DA.Daml.LF.Proto3.Archive  as Archive

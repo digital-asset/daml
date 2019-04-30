@@ -1,7 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module DataLimit where
+module DataLimit(main) where
 
 import Test.Tasty
 import Test.Tasty.HUnit

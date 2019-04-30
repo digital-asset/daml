@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
-module DA.Service.JsonRpc.Arbitrary where
+module DA.Service.JsonRpc.Arbitrary() where
 
 import Data.Aeson.Types
 import qualified Data.HashMap.Strict as M

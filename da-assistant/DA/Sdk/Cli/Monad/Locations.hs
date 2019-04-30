@@ -6,7 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module DA.Sdk.Cli.Monad.Locations where
+module DA.Sdk.Cli.Monad.Locations(module DA.Sdk.Cli.Monad.Locations) where
 
 import           DA.Sdk.Prelude
 import           DA.Sdk.Cli.System           (installationDir)
@@ -17,7 +17,7 @@ import           DA.Sdk.Cli.Conf.Types       (Project(..))
 import           DA.Sdk.Prelude.Path (stringToPath)
 import qualified DA.Sdk.Cli.Monad.FileSystem as FS
 import qualified Control.Monad.Logger as Log
-import Control.Monad.Trans.Except (ExceptT (..), runExceptT) 
+import Control.Monad.Trans.Except (ExceptT (..), runExceptT)
 import qualified Control.Monad.Except as EE
 import Control.Monad.Trans (lift)
 import System.Directory (getAppUserDataDirectory)
@@ -32,7 +32,7 @@ class Monad m => MonadLocations m where
     default getInstallationDir :: MonadIO m => m L.FilePathOfInstallationDir
     getInstallationDir = installationDir
 
-    default getVscodeExtensionPath :: MonadIO m => m (Either GetVsCodeExtensionPathFailed FilePath) 
+    default getVscodeExtensionPath :: MonadIO m => m (Either GetVsCodeExtensionPathFailed FilePath)
     getVscodeExtensionPath = liftIO $ runExceptT $ do
       vscodePath <- lift $ stringToPath <$> getAppUserDataDirectory "vscode"
       whenM (notM $ FS.testdir' vscodePath) $
