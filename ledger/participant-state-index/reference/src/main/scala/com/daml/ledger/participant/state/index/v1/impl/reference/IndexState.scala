@@ -57,56 +57,61 @@ final case class IndexState(
     * invariant violation in case that is not possible.
     */
   def tryApply(uId: Offset, u0: Update): Either[InvariantViolation, IndexState] = {
-    val state = this.copy(
-      updateId = Some(uId),
-      beginning = if (this.beginning.isEmpty) Some(uId) else this.beginning
-    )
-    // apply update to state with new offset
-    u0 match {
-      case u: Update.Heartbeat =>
-        if (this.recordTime <= u.recordTime)
-          Right(state.copy(recordTime = u.recordTime))
-        else
-          Left(NonMonotonicRecordTimeUpdate)
+    if (this.updateId.fold(false)(uId <= _))
+      Left(NonMonotonicOffset)
+    else {
+      val state = this.copy(
+        updateId = Some(uId),
+        beginning = if (this.beginning.isEmpty) Some(uId) else this.beginning
+      )
+      // apply update to state with new offset
+      u0 match {
+        case u: Update.Heartbeat =>
+          if (this.recordTime <= u.recordTime)
+            Right(state.copy(recordTime = u.recordTime))
+          else
+            Left(NonMonotonicRecordTimeUpdate)
 
-      case u: Update.ConfigurationChanged =>
-        Right(state.copy(configuration = Some(u.newConfiguration)))
+        case u: Update.ConfigurationChanged =>
+          Right(state.copy(configuration = Some(u.newConfiguration)))
 
-      case u: Update.PartyAddedToParticipant =>
-        Right(state.copy(hostedParties = state.hostedParties + u.party))
+        case u: Update.PartyAddedToParticipant =>
+          Right(state.copy(hostedParties = state.hostedParties + u.party))
 
-      case Update.PublicPackageUploaded(archive) =>
-        val newPackages =
-          state.packages + (Ref.PackageId.assertFromString(archive.getHash) -> archive)
+        case Update.PublicPackageUploaded(archive) =>
+          val newPackages =
+            state.packages + (Ref.PackageId.assertFromString(archive.getHash) -> archive)
 
-        val decodedPackages = newPackages.mapValues(archive => Decode.decodeArchive(archive)._2)
-        Right(
-          state
-            .copy(
-              packages = newPackages
-            ))
+          val decodedPackages = newPackages.mapValues(archive => Decode.decodeArchive(archive)._2)
+          Right(
+            state
+              .copy(
+                packages = newPackages
+              ))
 
-      case u: Update.CommandRejected =>
-        Right(
-          state.copy(
-            rejections = rejections + (uId -> u)
+        case u: Update.CommandRejected =>
+          Right(
+            state.copy(
+              rejections = rejections + (uId -> u)
+            )
           )
-        )
-      case u: Update.TransactionAccepted =>
-        val blindingInfo = Blinding.blind(
-          u.transaction.asInstanceOf[Transaction.Transaction]
-        )
-        logger.debug(s"blindingInfo=$blindingInfo")
-        Right(
-          state.copy(
-            txs = txs + (uId -> ((u, blindingInfo))),
-            activeContracts =
-              // FIXME (SM): this likely needs turning around to not
-              // accidentallly miss the consumption of contracts created in
-              // the transaction.
-              activeContracts -- consumedContracts(u.transaction) ++ createdContracts(u.transaction)
+        case u: Update.TransactionAccepted =>
+          val blindingInfo = Blinding.blind(
+            u.transaction.asInstanceOf[Transaction.Transaction]
           )
-        )
+          logger.debug(s"blindingInfo=$blindingInfo")
+          Right(
+            state.copy(
+              txs = txs + (uId -> ((u, blindingInfo))),
+              activeContracts =
+                // FIXME (SM): this likely needs turning around to not
+                // accidentallly miss the consumption of contracts created in
+                // the transaction.
+                activeContracts -- consumedContracts(u.transaction) ++ createdContracts(
+                  u.transaction)
+            )
+          )
+      }
     }
   }
 
@@ -136,6 +141,7 @@ object IndexState {
   sealed trait InvariantViolation
   case object NonMonotonicRecordTimeUpdate extends InvariantViolation
   case object StateAlreadyInitialized extends InvariantViolation
+  case object NonMonotonicOffset extends InvariantViolation
 
   def initialState(lic: LedgerInitialConditions): IndexState = IndexState(
     ledgerId = lic.ledgerId,
