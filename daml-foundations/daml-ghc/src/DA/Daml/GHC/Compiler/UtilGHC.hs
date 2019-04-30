@@ -11,7 +11,9 @@
 -- * Call runGhc, use runGhcFast instead. It's faster and doesn't require config we don't have.
 --
 -- * Call setSessionDynFlags, use modifyDynFlags instead. It's faster and avoids loading packages.
-module DA.Daml.GHC.Compiler.UtilGHC where
+module DA.Daml.GHC.Compiler.UtilGHC(
+    module DA.Daml.GHC.Compiler.UtilGHC
+    ) where
 
 import           "ghc-lib-parser" Class
 import           "ghc-lib" GHC                         hiding (convertLit)

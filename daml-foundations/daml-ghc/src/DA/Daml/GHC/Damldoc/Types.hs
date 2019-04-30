@@ -3,8 +3,9 @@
 
 {-# LANGUAGE TemplateHaskell #-}
 
-module DA.Daml.GHC.Damldoc.Types
-  where
+module DA.Daml.GHC.Damldoc.Types(
+    module DA.Daml.GHC.Damldoc.Types
+    ) where
 
 import qualified Data.Aeson.TH.Extended as Aeson.TH
 import           Data.Text              (Text)

@@ -3,7 +3,7 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module DA.Sdk.Cli.Monad.FileSystem.Types where
+module DA.Sdk.Cli.Monad.FileSystem.Types(module DA.Sdk.Cli.Monad.FileSystem.Types) where
 
 import DA.Sdk.Prelude
 import qualified Data.Yaml as Y

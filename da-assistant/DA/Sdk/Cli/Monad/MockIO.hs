@@ -7,7 +7,7 @@
 {-# LANGUAGE InstanceSigs   #-}
 {-# LANGUAGE OverloadedStrings   #-}
 
-module DA.Sdk.Cli.Monad.MockIO where
+module DA.Sdk.Cli.Monad.MockIO(module DA.Sdk.Cli.Monad.MockIO) where
 
 import DA.Sdk.Prelude
 import Control.Monad.Trans.Except
