@@ -55,8 +55,9 @@ execTest inFiles colorTestResults mbJUnitOutput cliOptions = do
         eventLogger _ = return ()
     Managed.with (Compiler.newIdeState opts (Just eventLogger) loggerH) $ \hDamlGhc -> do
         let lfVersion = Compiler.optDamlLfVersion cliOptions
-        res <- testRun hDamlGhc inFiles lfVersion colorTestResults mbJUnitOutput
-        when (res == Fail) exitFailure
+        _ <- testRun hDamlGhc inFiles lfVersion colorTestResults mbJUnitOutput
+        diags <- CompilerService.getDiagnostics hDamlGhc
+        when (any ((==) Error . dSeverity) diags) exitFailure
 
 
 testRun :: IdeState -> [FilePath] -> LF.Version -> ColorTestResults -> Maybe FilePath -> IO Result
