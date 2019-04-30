@@ -39,20 +39,20 @@ newtype UseColor = UseColor {getUseColor :: Bool}
 
 -- | Test a DAML file.
 execTest :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
-execTest inFiles colorTestResults mbJUnitOutput cliOptions = do
+execTest inFiles color mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
     opts <- Compiler.mkOptions cliOptions
     let eventLogger (EventFileDiagnostics diag) = printDiagnostics $ fdDiagnostics diag
         eventLogger _ = return ()
     Managed.with (Compiler.newIdeState opts (Just eventLogger) loggerH) $ \h -> do
         let lfVersion = Compiler.optDamlLfVersion cliOptions
-        _ <- testRun h inFiles lfVersion colorTestResults mbJUnitOutput
+        _ <- testRun h inFiles lfVersion color mbJUnitOutput
         diags <- CompilerService.getDiagnostics h
         when (any ((==) Error . dSeverity) diags) exitFailure
 
 
 testRun :: IdeState -> [FilePath] -> LF.Version -> UseColor -> Maybe FilePath -> IO ()
-testRun h inFiles lfVersion colorTestResults mbJUnitOutput  = do
+testRun h inFiles lfVersion color mbJUnitOutput  = do
     liftIO $ Compiler.setFilesOfInterest h inFiles
     files <- filesToTest h inFiles
     results <- CompilerService.runAction h $
@@ -62,7 +62,7 @@ testRun h inFiles lfVersion colorTestResults mbJUnitOutput  = do
                 Nothing -> failedTestOutput h file
                 Just scenarioResults -> do
                     -- failures are printed out through diagnostics, so just print the sucesses
-                    liftIO $ printScenarioResults [(v, r) | (v, Right r) <- scenarioResults] colorTestResults
+                    liftIO $ printScenarioResults [(v, r) | (v, Right r) <- scenarioResults] color
                     let f = either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing)
                     pure $ map (second f) scenarioResults
             pure (file, results)
@@ -90,11 +90,11 @@ failedTestOutput h file = do
 
 
 printScenarioResults :: [(VirtualResource, SS.ScenarioResult)] -> UseColor -> IO ()
-printScenarioResults results colorTestResults = do
+printScenarioResults results color = do
     liftIO $ forM_ results $ \(VRScenario vrFile vrName, result) -> do
         let doc = prettyResult result
         let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
-        let stringStyleToRender = if getUseColor colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
+        let stringStyleToRender = if getUseColor color then DA.Pretty.renderColored else DA.Pretty.renderPlain
         putStrLn $ stringStyleToRender (name <> ": " <> doc)
 
 
