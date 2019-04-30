@@ -58,7 +58,7 @@ testRun h inFiles lfVersion colorTestResults mbJUnitOutput  = do
     files <- filesToTest h inFiles
     case mbJUnitOutput of
         Nothing -> testStdio h files colorTestResults
-        Just junitOutput -> testJUnit lfVersion h files junitOutput colorTestResults
+        Just _ -> testJUnit lfVersion h files mbJUnitOutput colorTestResults
 
 -- | Given the files the user asked for, figure out which are the complete sets of files to test on.
 --   Basically, the transitive closure.
@@ -81,10 +81,10 @@ testStdio h files colorTestResults = do
                 let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
                 putStrLn $ stringStyleToRender (name <> ": " <> doc)
 
-testJUnit :: LF.Version -> IdeState -> [FilePath] -> FilePath -> ColorTestResults -> IO ()
-testJUnit lfVersion h files junitOutput colorTestResults =
-    CompilerService.runAction h $ do
-        results <- Shake.forP files $ \file -> do
+testJUnit :: LF.Version -> IdeState -> [FilePath] -> Maybe FilePath -> ColorTestResults -> IO ()
+testJUnit lfVersion h files junitOutput colorTestResults = do
+    results <- CompilerService.runAction h $
+        Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
             results <- case mbScenarioResults of
                 Nothing -> do
@@ -104,9 +104,9 @@ testJUnit lfVersion h files junitOutput colorTestResults =
                     let f = either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing)
                     pure $ map (second f) scenarioResults
             pure (file, results)
-        liftIO $ do
-            createDirectoryIfMissing True $ takeDirectory junitOutput
-            writeFile junitOutput $ XML.showTopElement $ toJUnit results
+    whenJust junitOutput $ \junitOutput -> do
+        createDirectoryIfMissing True $ takeDirectory junitOutput
+        writeFile junitOutput $ XML.showTopElement $ toJUnit results
 
 
 prettyErr :: LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.SyntaxClass
