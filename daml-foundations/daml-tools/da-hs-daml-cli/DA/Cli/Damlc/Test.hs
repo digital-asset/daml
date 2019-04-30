@@ -42,13 +42,12 @@ execTest :: [FilePath] -> ColorTestResults -> Maybe FilePath -> Compiler.Options
 execTest inFiles colorTestResults mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
     opts <- Compiler.mkOptions cliOptions
-    -- TODO (MK): For now the scenario service is only started if we have an event logger
-    -- so we insert a dummy event logger.
-    let eventLogger _ = pure ()
+    let eventLogger (EventFileDiagnostics diag) = printDiagnostics $ fdDiagnostics diag
+        eventLogger _ = return ()
     Managed.with (Compiler.newIdeState opts (Just eventLogger) loggerH) $ \hDamlGhc -> do
         liftIO $ Compiler.setFilesOfInterest hDamlGhc inFiles
         mbDeps <- liftIO $ CompilerService.runAction hDamlGhc $ fmap sequence $ mapM CompilerService.getDependencies inFiles
-        depFiles <- maybe (reportDiagnostics hDamlGhc "Failed get dependencies") pure mbDeps
+        whenJust mbDeps $ \depFiles -> do
         let files = Set.toList $ Set.fromList inFiles `Set.union` Set.fromList (concat depFiles)
         let lfVersion = Compiler.optDamlLfVersion cliOptions
         case mbJUnitOutput of
@@ -60,13 +59,15 @@ testStdio lfVersion hDamlGhc files colorTestResults = do
     failed <- fmap or $ CompilerService.runAction hDamlGhc $
         Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
-            scenarioResults <- liftIO $ maybe (reportDiagnostics hDamlGhc "Failed to run scenarios") pure mbScenarioResults
-            liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> do
-                let doc = prettyResult lfVersion result
-                let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
-                let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
-                putStrLn $ stringStyleToRender (name <> ": " <> doc)
-            pure $ any (isLeft . snd) scenarioResults
+            case mbScenarioResults of
+                Nothing -> return True
+                Just scenarioResults -> do
+                    liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> do
+                        let doc = prettyResult lfVersion result
+                        let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
+                        let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
+                        putStrLn $ stringStyleToRender (name <> ": " <> doc)
+                    pure $ any (isLeft . snd) scenarioResults
     when failed exitFailure
 
 testJUnit :: LF.Version -> IdeState -> [FilePath] -> FilePath -> IO ()
@@ -151,9 +152,3 @@ toJUnit results =
                  ],
                  maybe [] (\err -> [XML.node (XML.unqual "failure") (T.unpack err)]) mbErr
                 )
-
-
-reportDiagnostics :: CompilerService.IdeState -> String -> IO a
-reportDiagnostics service err = do
-    diagnostic <- CompilerService.getDiagnostics service
-    reportErr err diagnostic
