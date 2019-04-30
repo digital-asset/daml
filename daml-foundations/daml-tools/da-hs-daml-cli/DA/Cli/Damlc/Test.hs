@@ -16,7 +16,6 @@ import qualified DA.Pretty
 import DA.Cli.Damlc.Base
 import Data.Tuple.Extra
 import Control.Monad.Extra
-import           Data.Either.Combinators    (whenRight)
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
@@ -67,26 +66,34 @@ filesToTest h files = do
     return $ nubOrd $ concat $ files : catMaybes deps
 
 
+-- We didn't get scenario results, so we use the diagnostics as the error message for each scenario.
+failedTestOutput :: IdeState -> FilePath -> CompilerService.Action [(VirtualResource, Maybe T.Text)]
+failedTestOutput h file = do
+    mbScenarioNames <- CompilerService.getScenarioNames file
+    diagnostics <- liftIO $ CompilerService.getDiagnostics h
+    let errMsg = T.unlines (map (Pretty.renderPlain . prettyDiagnostic) diagnostics)
+    pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
+
+
+printScenarioResults :: [(VirtualResource, SS.ScenarioResult)] -> ColorTestResults -> IO ()
+printScenarioResults results colorTestResults = do
+    liftIO $ forM_ results $ \(VRScenario vrFile vrName, result) -> do
+        let doc = prettyResult result
+        let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
+        let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
+        putStrLn $ stringStyleToRender (name <> ": " <> doc)
+
+
 testJUnit :: LF.Version -> IdeState -> [FilePath] -> Maybe FilePath -> ColorTestResults -> IO ()
 testJUnit lfVersion h files junitOutput colorTestResults = do
     results <- CompilerService.runAction h $
         Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
             results <- case mbScenarioResults of
-                Nothing -> do
-                    -- If we don’t get scenario results, we use the diagnostics
-                    -- as the error message for each scenario.
-                    mbScenarioNames <- CompilerService.getScenarioNames file
-                    diagnostics <- liftIO $ CompilerService.getDiagnostics h
-                    let errMsg = T.unlines (map (Pretty.renderPlain . prettyDiagnostic) diagnostics)
-                    pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
+                Nothing -> failedTestOutput h file
                 Just scenarioResults -> do
-                    -- failuers are printed out through diagnostics, so just print hte successes
-                    liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> whenRight result $ \result -> do
-                        let doc = prettyResult result
-                        let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
-                        let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
-                        putStrLn $ stringStyleToRender (name <> ": " <> doc)
+                    -- failures are printed out through diagnostics, so just print the sucesses
+                    liftIO $ printScenarioResults [(v, r) | (v, Right r) <- scenarioResults] colorTestResults
                     let f = either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing)
                     pure $ map (second f) scenarioResults
             pure (file, results)
