@@ -19,8 +19,20 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 
 private case class SRunnerException(err: SError) extends RuntimeException(err.toString)
 
-final case class ScenarioRunner(machine: Speedy.Machine) {
+/** Speedy scenario runner that uses the reference ledger.
+  *
+  * @constructor Creates a runner using an instance of [[Speedy.Machine]].
+  * @param partyNameMangler allows to amend party names defined in scenarios,
+  *        before they are executed against a ledger. The function should be idempotent
+  *        in the context of a single {@code ScenarioRunner} life-time, i.e. return the
+  *        same result each time given the same argument. Should return values compatible
+  *        with [[com.digitalasset.daml.lf.data.Ref.SimpleString]].
+  */
+final case class ScenarioRunner(
+    machine: Speedy.Machine,
+    partyNameMangler: (String => String) = identity) {
   var ledger: Ledger = Ledger.initialLedger(Time.Timestamp.Epoch)
+
   import scala.util.{Try, Success, Failure}
 
   def run(): Either[(SError, Ledger), (Double, Int, Ledger)] =
@@ -83,11 +95,13 @@ final case class ScenarioRunner(machine: Speedy.Machine) {
   private def crash(reason: String) =
     throw SRunnerException(SErrorCrash(reason))
 
-  private def getParty(partyText: String, callback: Party => Unit) =
-    SimpleString.fromString(partyText) match {
+  private def getParty(partyText: String, callback: Party => Unit) = {
+    val mangledPartyText = partyNameMangler(partyText)
+    SimpleString.fromString(mangledPartyText) match {
       case Right(s) => callback(s)
       case _ => throw SRunnerException(ScenarioErrorInvalidPartyName(partyText))
     }
+  }
 
   private def mustFail(tx: Transaction, committer: Party) = {
     // Update expression evaluated successfully,
