@@ -6,11 +6,13 @@ module DA.Cli.Output
   ( writeOutput
   , writeOutputBSL
   , reportErr
+  , printDiagnostics
   ) where
 
 import qualified Data.ByteString.Lazy                           as BSL
 import           Data.String                                    (IsString)
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Development.IDE.Types.Diagnostics
 import Data.List.Extra
 import qualified Data.Text.Prettyprint.Doc.Syntax as Pretty
@@ -55,3 +57,7 @@ reportErr msg errs =
       Pretty.renderColored $
       Pretty.vcat $ map prettyDiagnostic $ nubOrd errs
     ]
+
+printDiagnostics :: [Diagnostic] -> IO ()
+printDiagnostics [] = return ()
+printDiagnostics xs = T.putStrLn $ Pretty.renderColored $ Pretty.vcat $ map prettyDiagnostic xs

@@ -14,7 +14,6 @@ module Development.IDE.State.Service.Daml(
     ) where
 
 import Control.Concurrent.Extra
-import Control.Concurrent.STM
 import Control.Monad
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -79,7 +78,7 @@ setOpenVirtualResources state resources = do
     void $ shakeRun state []
 
 initialise :: Rules ()
-           -> Maybe (Event -> STM ())
+           -> Maybe (Event -> IO ())
            -> Logger.Handle IO
            -> Options
            -> Maybe SS.Handle

@@ -764,7 +764,7 @@ downloadExactProjectTemplateTest = testCase "A new project template with exact v
                 (fmap Repo.semToGenericVersion [SemVersion 1 0 0 Nothing, SemVersion 2 0 0 Nothing])
                 "dummy"
                 (MP.fromList [("template", ["true"]), ("release-line", ["1.2.3"]), ("type", ["project"])])
-    onlyExact = \(Repo.PackageName pn) -> pn == "test-template-1.2.3"
+    onlyExact (Repo.PackageName pn) = pn == "test-template-1.2.3"
     ex = [GetInfo fakeSubject fakeRepo' fakePkgNameExact',
           GetInfo fakeSubject fakeRepo' fakePkgName',
           GetLatestVsn fakeSubject fakeRepo' fakePkgNameExact',
@@ -788,7 +788,7 @@ downloadReleaseLineProjectTemplateTest = testCase "A new project template with r
                 (fmap Repo.semToGenericVersion [SemVersion 1 0 0 Nothing, SemVersion 2 0 0 Nothing])
                 "dummy"
                 (MP.fromList [("template", ["true"]), ("release-line", ["1.2.x"]), ("type", ["project"])])
-    onlyExact = \(Repo.PackageName pn) -> pn == "test-template-1.2.x"
+    onlyExact (Repo.PackageName pn) = pn == "test-template-1.2.x"
     ex = [GetInfo fakeSubject fakeRepo' fakePkgNameExact',
           GetInfo fakeSubject fakeRepo' fakePkgName',
           GetLatestVsn fakeSubject fakeRepo' fakePkgName',

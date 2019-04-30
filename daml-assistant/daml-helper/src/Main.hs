@@ -43,7 +43,7 @@ commandParser =
               ]
           startCmd = pure Start
           readReplacement :: ReadM ReplaceExtension
-          readReplacement = maybeReader $ \s -> case s of
+          readReplacement = maybeReader $ \case
               "never" -> Just ReplaceExtNever
               "newer" -> Just ReplaceExtNewer
               "always" -> Just ReplaceExtAlways

@@ -261,14 +261,12 @@ final case class ReferenceIndexService(
         state =>
           val txs =
             currentOffset
-              .fold(state.txs)(state.txs.from)
+              .fold(state.txs) { offset =>
+                state.txs.from(offset).dropWhile(getOffset(_) == offset)
+              }
               .take(100) // produce in chunks of 100
-          val toDrop = currentOffset
-          currentOffset = txs.lastOption.map(_._1)
+          currentOffset = txs.lastOption.map(getOffset).orElse(currentOffset)
           txs
-            .dropWhile { t =>
-              toDrop.fold(false)(_.equals(getOffset(t)))
-            }
       }
       // Complete the stream once end (if given) has been reached.
       .takeWhile { t =>
