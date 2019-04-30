@@ -450,7 +450,7 @@ runAsDaemon job command args = do
              -- TODO introduce a pid path type
 
     logDebug $ "Executing: " <> pathToText command <> " " <> (T.pack $ show args)
-    let writePidFile = \pid -> Y.encodeFile (pathToString pidPath) $ Process (fromIntegral pid) path job
+    let writePidFile pid = Y.encodeFile (pathToString pidPath) $ Process (fromIntegral pid) path job
     liftIO $ runAsDaemonProcess procPath logPath command (fmap T.unpack args) writePidFile
     -- Wait for the job to be properly running
     liftIO $ waitUntilRunning job `catch`

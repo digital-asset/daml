@@ -18,16 +18,11 @@
 - ignore: {name: "Parse error"}
 - ignore: {name: "Reduce duplication"}
 - ignore: {name: "Use ++"}
-- ignore: {name: "Use list comprehension"}
-- ignore: {name: "Use lambda-case"}
 - ignore: {name: "Use $>"}
 - ignore: {name: "Use section"}
-- ignore: {name: "Use forM_"}
 - ignore: {name: "Use record patterns"}
 - ignore: {name: "Use camelCase"}
-- ignore: {name: "Use >=>"}
 - ignore: {name: "Use uncurry"}
-- ignore: {name: "Redundant lambda"}
 - ignore: {name: "Avoid lambda using `infix`"}
 
 # Under Linux/MacOS, Foreign function interface language pragma is unused.
