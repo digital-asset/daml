@@ -223,17 +223,6 @@ navigatorConfig parties =
     T.toStrict $ encodeToLazyText $
        object ["users" .= object (map (\p -> p .= object [ "party" .= p ]) parties)]
 
-copyDirectory :: FilePath -> FilePath -> IO ()
-copyDirectory src target = do
-    files <- listFilesRecursive src
-    forM_ files $ \file -> do
-        let baseName = makeRelative src file
-        let targetFile = target </> baseName
-        createDirectoryIfMissing True (takeDirectory targetFile)
-        copyFile file targetFile
-        p <- getPermissions targetFile
-        setPermissions targetFile p { writable = True }
-
 installExtension :: FilePath -> FilePath -> IO ()
 installExtension src target =
     catchJust
@@ -247,6 +236,10 @@ installExtension src target =
                    -- We create the directory to throw an isAlreadyExistsError.
                    createDirectory target
                    copyDirectory src target
+                   files <- listFilesRecursive target
+                   forM_ files $ \file -> do
+                       p <- getPermissions file
+                       setPermissions file p { writable = True }
              | otherwise = createDirectoryLink src target
 
 -- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.

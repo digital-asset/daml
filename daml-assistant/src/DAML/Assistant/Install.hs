@@ -17,6 +17,7 @@ import qualified DAML.Assistant.Install.Github as Github
 import DAML.Assistant.Install.Path
 import DAML.Project.Consts
 import DAML.Project.Config
+import DAML.Project.Util
 import Safe
 import Conduit
 import qualified Data.Conduit.List as List
@@ -139,7 +140,7 @@ installExtracted env@InstallEnv{..} sourcePath =
                 -- Always removePathForcibly to uniformize renameDirectory behavior
                 -- between windows and unices.
             requiredIO "Failed to move extracted SDK release to final location." $
-                renameDirectory (unwrapSdkPath sourcePath) (unwrapSdkPath targetPath)
+                moveDirectory (unwrapSdkPath sourcePath) (unwrapSdkPath targetPath)
 
         requiredIO "Failed to set file mode of installed SDK directory." $
             setSdkFileMode (unwrapSdkPath targetPath)
