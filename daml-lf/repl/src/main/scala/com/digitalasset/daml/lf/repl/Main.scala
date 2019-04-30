@@ -30,7 +30,7 @@ import scala.collection.JavaConverters._
 import scala.util.parsing.combinator._
 
 object Main extends App {
-  // force stdout to output in UTF-8 -- in theory it should pick it up from
+  // idempotent; force stdout to output in UTF-8 -- in theory it should pick it up from
   // the locale, but in practice it often seems to _not_ do that.
   val out = new PrintStream(System.out, true, "UTF-8")
   System.setOut(out)

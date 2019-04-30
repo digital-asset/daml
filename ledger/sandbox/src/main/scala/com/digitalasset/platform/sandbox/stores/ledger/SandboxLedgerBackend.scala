@@ -57,8 +57,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
         case None => Future.successful(None)
         case Some(cid) =>
           ledger.lookupContract(cid) map {
-            case Some(ac) if canSeeContract(submitter, ac) => Some(cid)
-            case Some(ac) => None
+            _ flatMap (ac => if (canSeeContract(submitter, ac)) Some(cid) else None)
           }
       }
     }
