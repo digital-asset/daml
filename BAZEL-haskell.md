@@ -160,15 +160,15 @@ sets the default visibility property globally for our targets as `public`. This 
 The `load` statments
 ```
 load("@io_tweag_rules_haskell//haskell:haskell.bzl",
-  "haskell_toolchain", "haskell_import", "haskell_cc_import",
+  "haskell_toolchain", "haskell_toolchain_library", "haskell_cc_import",
 )
 load("@io_tweag_rules_haskell//haskell:c2hs.bzl",
   "c2hs_toolchain",
 )
 ```
-bring the macros `haskell_toolchain`, `haskell_import`, `haskell_cc_import` and `c2hs_toolchain` into scope from `rules_haskell`.
+bring the macros `haskell_toolchain`, `haskell_toolchain_library`, `haskell_cc_import` and `c2hs_toolchain` into scope from `rules_haskell`.
 
-`haskell_import`:
+`haskell_toolchain_library`:
 - import a package that is prebuilt outside of Bazel
 
 `haskell_cc_import`:

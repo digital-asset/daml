@@ -103,7 +103,7 @@ ppFullLicense libFullText =  "\n\n" ++ replicate 80 '-' ++ "\n" ++ packageName l
 
 generateDepsFileFromBazel :: IO String
 generateDepsFileFromBazel = do
-  let cmd = "bazel query 'kind(\"(haskell_library|haskell_import)\",filter(\"^((?!da-hs-|:daml-|:daml_).)*$\", deps(//...)))' --output xml" 
+  let cmd = "bazel query 'kind(\"(haskell_library|haskell_toolchain_library)\",filter(\"^((?!da-hs-|:daml-|:daml_).)*$\", deps(//...)))' --output xml"
   readCreateProcess (shell cmd) "" 
   
 

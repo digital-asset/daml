@@ -452,12 +452,7 @@ hazel_repositories(
             hazel_hackage("filepattern", "0.1.1", "f7fc5bdcfef0d43a793a3c64e7c0fd3b1d35eea97a37f0e69d6612ab255c9b4b") +
             hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
             hazel_hackage("rope-utf16-splay", "0.2.0.0", "83d1961bf55355da49a6b55d6f58d02483eff1f8e6df53f4dccdab1ac49e101d") +
-            hazel_hackage(
-                "unix-compat",
-                "0.5.1",
-                "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52",
-                patches = ["@com_github_digital_asset_daml//bazel_tools:unix-compat.patch"],
-            ) +
+            hazel_hackage("unix-compat", "0.5.1", "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52") +
             # This is a special version of Haskell LSP without GPL dependencies
             hazel_github(
                 "haskell-lsp",
