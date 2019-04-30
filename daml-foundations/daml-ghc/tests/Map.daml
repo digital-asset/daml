@@ -52,8 +52,8 @@ testInsert = scenario do
   [(1, True), (2, False), (3, True), (4, False), (5, False)] === toList
     (foldl (\a b -> (uncurry insert) b a) M.empty [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)])
 
-testFilter = scenario do
-  [(1, True), (2, False), (3, True)] === toList (M.filter (\k v -> k < 3 || v) (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
+testFilterWithKey = scenario do
+  [(1, True), (2, False), (3, True)] === toList (M.filterWithKey (\k v -> k < 3 || v) (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
 
 testDelete = scenario do
   [(2, False), (3, True), (4, False), (5, False)] === toList (delete 1 (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
@@ -79,7 +79,7 @@ main = scenario do
   testMember
   testNull
   testInsert
-  testFilter
+  testFilterWithKey
   testDelete
   testMerge
 

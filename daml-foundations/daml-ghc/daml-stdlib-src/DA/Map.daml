@@ -17,6 +17,7 @@ module DA.Map
   , lookup
   , member
   , filter
+  , filterWithKey
   , delete
   , insert
   , merge
@@ -82,9 +83,14 @@ lookup x m = L.lookup x (toList m)
 member : (Eq k, Ord k) => k -> Map k v -> Bool
 member x m = M.isSome $ lookup x m
 
--- | Filter all values that satisfy some predicate.
+{-# DEPRECATED filter "Use 'filterWithKey' instead of 'filter'" #-}
+-- | DEPRECATED: Use `filterWithKey` instead.
 filter : Eq k => (k -> v -> Bool) -> Map k v -> Map k v
-filter p m = Map_internal $ L.filter (uncurry p) (toList m)
+filter = filterWithKey
+
+-- | Filter all values that satisfy some predicate.
+filterWithKey : Eq k => (k -> v -> Bool) -> Map k v -> Map k v
+filterWithKey p m = Map_internal $ L.filter (uncurry p) (toList m)
 
 -- | Delete a key and its value from the map. When the key is not a
 -- member of the map, the original map is returned.
