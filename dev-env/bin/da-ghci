@@ -72,7 +72,7 @@ def main():
             # Generate a -ghci-script that loads the module.
             script_fd, script_path = tempfile.mkstemp(text=True)
             os.write(script_fd, ":m {}".format(module_name).encode())
-            ghci_args = ["-ghci-script", script_path] + ghci_args
+            ghci_args = ["-ghci-script", script_path,"-Wwarn"] + ghci_args
 
         # Ignore SIGINT, so that Ctrl-C in GHCi doesn't kill the outer process.
         signal.signal(signal.SIGINT, signal.SIG_IGN)
