@@ -16,13 +16,13 @@ import org.scalatest.prop.GeneratorDrivenPropertyChecks
 class UtilTest extends UtilTestHelpers with GeneratorDrivenPropertyChecks {
 
   val packageInterface =
-    I.reader.Interface(packageId = SimpleString assertFromString "abcdef", typeDecls = Map.empty)
+    I.Interface(packageId = SimpleString assertFromString "abcdef", typeDecls = Map.empty)
   val scalaPackageParts = Array("com", "digitalasset")
   val scalaPackage: String = scalaPackageParts.mkString(".")
   val util =
     lf.LFUtil(
       scalaPackage,
-      lf.EnvironmentInterface fromReaderInterfaces packageInterface,
+      I.EnvironmentInterface fromReaderInterfaces packageInterface,
       outputDir.toFile)
 
   def damlScalaName(damlNameSpace: Array[String], name: String): util.DamlScalaName =

@@ -39,12 +39,6 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends
       endExclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed] =
     ledgerDao.getLedgerEntries(startInclusive, endExclusive)
 
-  override def storeInitialLedgerEnd(ledgerEnd: Long): Future[Unit] =
-    ledgerDao.storeInitialLedgerEnd(ledgerEnd)
-
-  override def storeLedgerId(ledgerId: String): Future[Unit] =
-    ledgerDao.storeLedgerId(ledgerId)
-
   override def storeLedgerEntry(
       offset: Long,
       newLedgerEnd: Long,
@@ -52,6 +46,9 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends
     mm.timedFuture(
       "storeLedgerEntry",
       ledgerDao.storeLedgerEntry(offset, newLedgerEnd, ledgerEntry))
+
+  override def initializeLedger(ledgerId: String, ledgerEnd: LedgerOffset): Future[Unit] =
+    ledgerDao.initializeLedger(ledgerId, ledgerEnd)
 
   override def reset(): Future[Unit] =
     ledgerDao.reset()

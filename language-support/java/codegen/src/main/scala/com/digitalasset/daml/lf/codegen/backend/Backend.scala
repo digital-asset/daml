@@ -5,8 +5,7 @@ package com.digitalasset.daml.lf.codegen.backend
 
 import com.digitalasset.daml.lf.codegen.conf.Conf
 import com.digitalasset.daml.lf.codegen.{InterfaceTrees, NodeWithContext}
-import com.digitalasset.daml.lf.iface.PackageId
-import com.digitalasset.daml.lf.iface.reader.Interface
+import com.digitalasset.daml.lf.iface.{Interface, PackageId}
 
 import scala.concurrent.{ExecutionContext, Future}
 

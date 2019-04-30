@@ -8,7 +8,7 @@ import java.util.zip.ZipFile
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.daml.ledger.api.server.damlonx.Server
 import com.daml.ledger.participant.state.index.v1.impl.reference.ReferenceIndexService
@@ -21,7 +21,6 @@ import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
 import scala.util.Try
 
 /** The reference server is a fully compliant DAML Ledger API server
@@ -61,8 +60,8 @@ object ReferenceServer extends App {
     }
   }
 
-  ledger
-    .getLedgerInitialConditions()
+  ledger.getLedgerInitialConditions
+    .runWith(Sink.head)
     .foreach { initialConditions =>
       val indexService = ReferenceIndexService(
         participantReadService = if (config.badServer) BadReadService(ledger) else ledger,
@@ -80,7 +79,7 @@ object ReferenceServer extends App {
       config.portFile.foreach { f =>
         val w = new FileWriter(f)
         w.write(s"${server.port}\n")
-        w.close()
+        w.close
       }
 
       // Add a hook to close the server. Invoked when Ctrl-C is pressed.
@@ -91,8 +90,8 @@ object ReferenceServer extends App {
 // simulate a bad read service by returning only
 // empty transactions.
 final case class BadReadService(readService: ReadService) extends ReadService {
-  override def getLedgerInitialConditions(): Future[LedgerInitialConditions] =
-    readService.getLedgerInitialConditions()
+  override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+    readService.getLedgerInitialConditions
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
     readService.stateUpdates(beginAfter).map {

@@ -29,6 +29,9 @@ steps:
       ARTIFACT=daml-sdk-$(release_tag)-windows.tar.gz
       cp bazel-genfiles/release/sdk-release-tarball.tar.gz '$(Build.StagingDirectory)'/$ARTIFACT
       echo "##vso[task.setvariable variable=artifact;isOutput=true]$ARTIFACT"
+      WINDOWS_INSTALLER=daml-sdk-$(release_tag)-windows.exe
+      cp bazel-genfiles/release/windows-installer/daml-sdk-installer.exe '$(Build.StagingDirectory)'/$WINDOWS_INSTALLER
+      echo "##vso[task.setvariable variable=artifact-windows-installer;isOutput=true]$WINDOWS_INSTALLER"
     name: publish
     condition: eq(variables['release.has_released'], 'true')
   - task: PublishPipelineArtifact@0
@@ -36,3 +39,8 @@ steps:
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.artifact)
       artifactName: $(publish.artifact)
+  - task: PublishPipelineArtifact@0
+    condition: eq(variables['release.has_released'], 'true')
+    inputs:
+      targetPath: $(Build.StagingDirectory)/$(publish.artifact-windows-installer)
+      artifactName: $(publish.artifact-windows-installer)

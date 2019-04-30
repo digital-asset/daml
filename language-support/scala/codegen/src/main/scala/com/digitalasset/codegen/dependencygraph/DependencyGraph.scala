@@ -7,7 +7,7 @@ import com.digitalasset.daml.lf.iface._
 import com.digitalasset.daml.lf.iface.reader.InterfaceType
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.codegen.{Util, lf}
-import lf.{DefTemplateWithRecord, EnvironmentInterface}
+import lf.DefTemplateWithRecord
 
 import scalaz.std.list._
 import scalaz.syntax.bifoldable._

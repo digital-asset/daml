@@ -870,12 +870,6 @@ subset of the attributes of `da_scala_binary`, namely: `name`, `deps`, `srcs`,
 The end result of building the benchmark is a Scala binary of the same name,
 which can be executed with `bazel run`.
 
-A sample project declaring a Scala benchmark using Scala and Java dependencies
-can be found in the `pipeline/samples/bazel/scala/jmh` directory. Build and run
-instructions may be found [in the README][jmh_sample_readme].
-
-[jmh_sample_readme]: pipeline/samples/bazel/scala/jmh/README.md
-
 ### Java and Scala Deployment
 
 Bazel's builtin Java rules and `rules_scala` will automatically generate a fat
@@ -1012,23 +1006,3 @@ program directly. Please refer to //daml-lf/archive/BUILD.bazel for example usag
 If you find yourself writing similar rules, please take a moment to write some Starlark to abstract
 it out and document it here. Note that proto3-suite isn't compatible with protoc, so it is not currently
 possible to hook it up into the "proto_library" tooling.
-
-## Application examples
-
-There are several simple examples of applications written in multiple languages stored in `/pipeline/samples/bazel` folder:
-
-### Python example
-
-See [pipeline/samples/bazel/python/README.md](pipeline/samples/bazel/python/README.md)
-
-### Java example
-
-See [pipeline/samples/bazel/java/README.md](pipeline/samples/bazel/java/README.md)
-
-### Scala example
-
-See [pipeline/samples/bazel/scala/README.md](pipeline/samples/bazel/scala/README.md)
-
-### Haskell example
-
-See [pipeline/samples/bazel/haskell/README.md](pipeline/samples/bazel/haskell/README.md)

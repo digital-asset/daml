@@ -7,7 +7,9 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationEntry,
   DamlSubmission,
   DamlTimeModel,
-  DamlTransactionEntry
+  DamlTransactionEntry,
+  DamlStateKey,
+  DamlLogEntryId
 }
 import com.daml.ledger.participant.state.v1.{
   Configuration,
@@ -22,13 +24,25 @@ import Conversions._
 import scala.collection.JavaConverters._
 
 /** Methods to produce the [[DamlSubmission]] message.
-  * These methods are the only acceptable way of producing the submission messages.
+  * [[DamlSubmission]] is processed for committing with [[KeyValueCommitting.processSubmission]].
   *
+  * These methods are the only acceptable way of producing the submission messages.
   * The protocol buffer messages must not be embedded in other protocol buffer messages,
   * and embedding should happen through conversion into a byte string (via [[KeyValueSubmission.packDamlSubmission]])
   */
 object KeyValueSubmission {
 
+  /** Given the assigned log entry id, compute the output state entries that would result
+    * from committing the given transaction.
+    *
+    * Useful for implementations that require outputs to be known up-front.
+    */
+  def transactionOutputs(entryId: DamlLogEntryId, tx: SubmittedTransaction): List[DamlStateKey] = {
+    val effects = InputsAndEffects.computeEffects(entryId, tx)
+    effects.createdContracts ++ effects.consumedContracts
+  }
+
+  /** Convert a transaction into a submission. */
   def transactionToSubmission(
       submitterInfo: SubmitterInfo,
       meta: TransactionMeta,
@@ -52,12 +66,14 @@ object KeyValueSubmission {
       .build
   }
 
+  /** Convert an archive into a submission message. */
   def archiveToSubmission(archive: Archive): DamlSubmission = {
     DamlSubmission.newBuilder
       .setArchive(archive)
       .build
   }
 
+  /** Convert ledger configuratino into a submission message. */
   def configurationToSubmission(config: Configuration): DamlSubmission = {
     val tm = config.timeModel
     DamlSubmission.newBuilder

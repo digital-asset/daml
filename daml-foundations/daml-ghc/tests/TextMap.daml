@@ -55,10 +55,10 @@ testInsert = scenario do
     ===
     toList (foldl (\a b -> (uncurry TM.insert) b a) TM.empty [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)])
 
-testFilter = scenario do
+testFilterWithKey = scenario do
   (fromList [("1", True), ("2", False), ("3", True)])
     ===
-    (TM.filter (\k v -> k < "3" || v) (fromList [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)]))
+    (TM.filterWithKey (\k v -> k < "3" || v) (fromList [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)]))
 
 testDelete = scenario do
   (fromList [("2", False), ("3", True), ("4", False), ("5", False)])

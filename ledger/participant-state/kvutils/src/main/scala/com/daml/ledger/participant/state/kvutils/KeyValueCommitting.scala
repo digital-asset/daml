@@ -34,7 +34,13 @@ object KeyValueCommitting {
   def unpackDamlStateValue(bytes: ByteString): DamlStateValue = DamlStateValue.parseFrom(bytes)
 
   def packDamlLogEntry(entry: DamlLogEntry): ByteString = entry.toByteString
-  def unpackDamLLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
+  def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
+
+  /** Pretty-printing of the entry identifier. Uses the same hexadecimal encoding as is used
+    * for absolute contract identifiers.
+    */
+  def prettyEntryId(entryId: DamlLogEntryId): String =
+    BaseEncoding.base16.encode(entryId.getEntryId.toByteArray)
 
   /** Processes a DAML submission, given the allocated log entry id, the submission and its resolved inputs.
     * Produces the log entry to be committed, and DAML state updates.
@@ -343,8 +349,5 @@ object KeyValueCommitting {
         }
       }
   }
-
-  def prettyEntryId(entryId: DamlLogEntryId): String =
-    BaseEncoding.base16.encode(entryId.getEntryId.toByteArray)
 
 }

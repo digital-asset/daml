@@ -18,7 +18,6 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.platform.common.util.DirectExecutionContext
 import org.scalatest.AsyncWordSpec
 
 class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfterAll {
@@ -44,10 +43,12 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 
     "return initial conditions" in {
       val ps = new InMemoryKVParticipantState
-      ps.getLedgerInitialConditions.map { ic =>
-        ps.close
-        assert(true)
-      }(DirectExecutionContext)
+      ps.getLedgerInitialConditions
+        .runWith(Sink.head)
+        .map { _ =>
+          ps.close
+          assert(true)
+        }
     }
 
     "provide update after uploadArchive" in {

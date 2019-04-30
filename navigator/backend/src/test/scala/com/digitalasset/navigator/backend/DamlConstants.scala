@@ -240,7 +240,7 @@ case object DamlConstants {
 
   // Note: these templates may not be valid DAML templates
   val simpleRecordTemplateId: DamlLfIdentifier = id("SimpleRecordTemplate")
-  val simpleRecordTemplate = DamlLfIface.reader.InterfaceType.Template(
+  val simpleRecordTemplate = DamlLfIface.InterfaceType.Template(
     simpleRecordT,
     DamlLfIface.DefTemplate(
       Map(
@@ -250,7 +250,7 @@ case object DamlConstants {
         "replace" -> DamlLfIface.TemplateChoice(simpleRecordTC, false, simpleUnitT)
       ))
   )
-  val complexRecordTemplate = DamlLfIface.reader.InterfaceType.Template(
+  val complexRecordTemplate = DamlLfIface.InterfaceType.Template(
     complexRecordT,
     DamlLfIface.DefTemplate(
       Map(
@@ -260,7 +260,7 @@ case object DamlConstants {
         "replace" -> DamlLfIface.TemplateChoice(complexRecordTC, false, simpleUnitT)
       ))
   )
-  val treeNodeTemplate = DamlLfIface.reader.InterfaceType.Template(
+  val treeNodeTemplate = DamlLfIface.InterfaceType.Template(
     treeNodeT,
     DamlLfIface.DefTemplate(
       Map(
@@ -271,14 +271,14 @@ case object DamlConstants {
       ))
   )
 
-  val iface = DamlLfIface.reader.Interface(
+  val iface = DamlLfIface.Interface(
     packageId0,
     Map(
-      emptyRecordId.qualifiedName -> DamlLfIface.reader.InterfaceType.Normal(emptyRecordGC),
-      simpleRecordId.qualifiedName -> DamlLfIface.reader.InterfaceType.Normal(simpleRecordGC),
-      simpleVariantId.qualifiedName -> DamlLfIface.reader.InterfaceType.Normal(simpleVariantGC),
-      treeId.qualifiedName -> DamlLfIface.reader.InterfaceType.Normal(treeGC),
-      treeNodeId.qualifiedName -> DamlLfIface.reader.InterfaceType.Normal(treeNodeGC),
+      emptyRecordId.qualifiedName -> DamlLfIface.InterfaceType.Normal(emptyRecordGC),
+      simpleRecordId.qualifiedName -> DamlLfIface.InterfaceType.Normal(simpleRecordGC),
+      simpleVariantId.qualifiedName -> DamlLfIface.InterfaceType.Normal(simpleVariantGC),
+      treeId.qualifiedName -> DamlLfIface.InterfaceType.Normal(treeGC),
+      treeNodeId.qualifiedName -> DamlLfIface.InterfaceType.Normal(treeNodeGC),
       simpleRecordTemplateId.qualifiedName -> simpleRecordTemplate,
       complexRecordId.qualifiedName -> complexRecordTemplate,
       treeNodeId.qualifiedName -> treeNodeTemplate

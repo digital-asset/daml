@@ -5,8 +5,7 @@ package com.digitalasset.daml.lf.codegen
 
 import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName, SimpleString}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
-import com.digitalasset.daml.lf.iface.reader.{Interface, InterfaceType}
-import com.digitalasset.daml.lf.iface.{DefDataType, Record, Variant}
+import com.digitalasset.daml.lf.iface.{DefDataType, Interface, InterfaceType, Record, Variant}
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.annotation.tailrec

@@ -97,7 +97,6 @@ function build-full() {
         //ledger-api/... `
         //navigator/backend/... `
         //navigator/frontend/... `
-        //pipeline/... `
         //scala-protoc-plugins/...
 
     # ScalaCInvoker, a Bazel worker, created by rules_scala opens some of the bazel execroot's files,
@@ -125,8 +124,7 @@ function build-full() {
         //ledger/ledger-api-client/... `
         //ledger/ledger-api-common/... `
         //ledger-api/... `
-        //navigator/backend/... `
-        //pipeline/...
+        //navigator/backend/...
 }
 
 # FIXME:

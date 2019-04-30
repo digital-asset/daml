@@ -36,7 +36,7 @@ class PartyState(val name: ApiTypes.Party, val useDatabase: Boolean) {
     ()
   }
 
-  def addPackages(packs: List[DamlLfIface.reader.Interface]): Unit = {
+  def addPackages(packs: List[DamlLfIface.Interface]): Unit = {
     stateRef.updateAndGet(state =>
       state.copy(packageRegistry = packageRegistry.withPackages(packs)))
     ()
