@@ -29,15 +29,33 @@ div.window-appicon {
 .part.titlebar .menubar div.menubar-menu-button[aria-label="Help"]{
   display: none !important;
 }
+
+/*remove Extensions from preference menu*/
+.part.titlebar .menubar div.menubar-menu-button[aria-label="File"] .action-item .menubar-menu-items-holder .actions-container[aria-label="File"] li.action-item:nth-child(2),  /*Extensions*/
+.part.titlebar .menubar div.menubar-menu-button[aria-label="File"] .action-item .menubar-menu-items-holder .actions-container[aria-label="File"] li.action-item:nth-child(3),  /*empty*/
+.part.titlebar .menubar div.menubar-menu-button[aria-label="File"] .action-item .menubar-menu-items-holder .actions-container[aria-label="File"] li.action-item:nth-child(4),  /*keyboard shortcuts (too many references to advanced features*/
+.part.titlebar .menubar div.menubar-menu-button[aria-label="File"] .action-item .menubar-menu-items-holder .actions-container[aria-label="File"] li.action-item:nth-child(5),  /*key maps*/
+.part.titlebar .menubar div.menubar-menu-button[aria-label="File"] .action-item .menubar-menu-items-holder .actions-container[aria-label="File"] li.action-item:nth-child(6),  /*empty*/
+.part.titlebar .menubar div.menubar-menu-button[aria-label="File"] .action-item .menubar-menu-items-holder .actions-container[aria-label="File"] li.action-item:nth-child(7),  /*user snippets*/
+.part.titlebar .menubar div.menubar-menu-button[aria-label="File"] .action-item .menubar-menu-items-holder .actions-container[aria-label="File"] li.action-item:nth-child(8) { /*empty*/
+  display: none !important;
+}  
+
+.part.editor.has-watermark .watermark-box dl:nth-child(n+4) {
+  display:none !important;  
+}
 /**************************************************************************************************/
 
+/*************************** Hide action items in actions toolbar *********************************/
+.tabs-and-actions-container .editor-actions .actions-container li.action-item a[title="Open Changes"] {
+  display:none !important;
+}
+/**************************************************************************************************/
 
 /*************************** Hide activity bar items **********************************************/
 /*The aria-label in the activitybar have system specific / special characters in them so we opt to 
 use the more concrete nth-child selector*/
-.part.activitybar ul.actions-container li:nth-child(3), /*Source Control*/
-.part.activitybar ul.actions-container li:nth-child(4), /*Debug*/
-.part.activitybar ul.actions-container li:nth-child(5){ /*Extension*/
+.part.activitybar ul.actions-container li:nth-child(n+3){ /*Source Control, Debug, Extension*/
   display: none !important;
 }
 /**************************************************************************************************/

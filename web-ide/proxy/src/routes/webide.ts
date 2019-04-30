@@ -10,7 +10,7 @@ import { Server, Socket } from "net"
 import fs from "fs"
 import { Application, Request, Response, NextFunction } from "express"
 import { ImageInspectInfo } from "dockerode";
-import request from "request"
+import request, { HttpArchiveRequest } from "request"
 import zlib from "zlib"
 import { Readable } from "stream"
 
@@ -29,7 +29,6 @@ export default class WebIdeRoute {
         this.server = webideServer
         this.docker = docker
         this.rootDir = rootDir
-        this.proxy = createProxyServer({})
         this.daWebideCss = fs.readFileSync(`${this.rootDir}/static/css/webide.main.css`)
     }
 
@@ -37,11 +36,26 @@ export default class WebIdeRoute {
         this.app.use(cookieParser())
         this.app.get('/ide.main.*.css', (req :Request, res :Response, next :NextFunction) => this.handleIdeCss(req, res, next))
         this.server.on('upgrade', (req :Request, socket :Socket, head :any) => this.handleWsRequest(req, socket, head));
+        this.initProxy()
         return this
+    }
+
+    private initProxy() {
+        this.proxy = createProxyServer({})
+        this.proxy.on('error', this.proxyError.bind(this))
     }
 
     private getImage() :Promise<ImageInspectInfo> {
         return this.docker.getImage(conf.docker.webIdeReference)
+    }
+
+    private proxyError(err :any, req :Request, res :Response) {
+        Session.session(req, res, (err :any, state :any, sessionId :string, saveSession :any) => {
+            console.error("proxy error occurred for session[%s], restarting.", sessionId)
+            this.proxy.removeAllListeners()
+            this.resetState(state, saveSession)
+            this.initProxy()
+        })
     }
 
     errorHandler(err :Error, req: Request, res :Response, next :NextFunction) {
@@ -132,6 +146,12 @@ export default class WebIdeRoute {
         } catch (error) {
             console.error(error)
         }
+    }
+
+    private resetState(state :any, saveSession :Session.SaveSession) {
+        state.docker = undefined
+        state.initializing = false
+        saveSession(state)
     }
 
     private ensureDockerContainer(req :Request, state :any, saveSession :Session.SaveSession, sessionId :string, image :ImageInspectInfo) {
