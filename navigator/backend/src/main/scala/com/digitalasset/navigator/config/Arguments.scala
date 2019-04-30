@@ -6,7 +6,7 @@ package com.digitalasset.navigator.config
 import java.io.File
 import java.nio.file.{Path, Paths}
 
-import com.digitalasset.ledger.client.configuration._
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.navigator.time.TimeProviderType
 import scopt.{OptionDef, OptionParser}
 

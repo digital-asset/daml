@@ -7,9 +7,9 @@ import java.io.File
 import java.nio.file.Files
 
 import com.digitalasset.daml.lf.data.Ref.SimpleString
-import com.digitalasset.daml.lf.iface.reader.{InterfaceType, Interface, InterfaceReader}
+import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.iface.DefDataType
+import com.digitalasset.daml.lf.iface.{DefDataType, InterfaceType, Interface}
 import com.digitalasset.daml.lf.archive.Reader
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.daml_lf.DamlLf.Archive

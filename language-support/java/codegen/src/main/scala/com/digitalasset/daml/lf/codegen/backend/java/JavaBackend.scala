@@ -7,8 +7,7 @@ import com.digitalasset.daml.lf.codegen.backend.Backend
 import com.digitalasset.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass}
 import com.digitalasset.daml.lf.codegen.conf.Conf
 import com.digitalasset.daml.lf.codegen.{InterfaceTrees, ModuleWithContext, NodeWithContext}
-import com.digitalasset.daml.lf.iface.PackageId
-import com.digitalasset.daml.lf.iface.reader.Interface
+import com.digitalasset.daml.lf.iface.{Interface, PackageId}
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.MDC

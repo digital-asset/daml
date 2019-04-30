@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.cli
 import java.io.File
 import java.time.Duration
 
-import com.digitalasset.ledger.client.configuration.TlsConfiguration
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.LedgerIdMode.Predefined
 import com.digitalasset.platform.sandbox.config.SandboxConfig

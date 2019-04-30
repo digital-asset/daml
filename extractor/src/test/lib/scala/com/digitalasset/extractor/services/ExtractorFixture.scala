@@ -7,7 +7,7 @@ import com.digitalasset.extractor.Extractor
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.digitalasset.extractor.targets.PostgreSQLTarget
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.client.configuration.TlsConfiguration
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.sandbox.persistence.PostgresAround
 import com.digitalasset.platform.sandbox.services.SandboxFixture
 

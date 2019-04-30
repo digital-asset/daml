@@ -8,7 +8,7 @@ import java.nio.file.Paths
 
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.extractor.targets._
-import com.digitalasset.ledger.client.configuration.TlsConfiguration
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 
 import scala.util.Try
 import scopt.OptionParser

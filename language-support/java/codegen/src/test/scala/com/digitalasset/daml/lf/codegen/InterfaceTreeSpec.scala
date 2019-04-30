@@ -6,8 +6,7 @@ package com.digitalasset.daml.lf.codegen
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{DottedName, QualifiedName, SimpleString}
-import com.digitalasset.daml.lf.iface.reader.{Interface, InterfaceType}
-import com.digitalasset.daml.lf.iface.{DefDataType, Record, Variant}
+import com.digitalasset.daml.lf.iface.{DefDataType, Interface, InterfaceType, Record, Variant}
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.collection.mutable.ArrayBuffer

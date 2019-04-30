@@ -9,14 +9,11 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.ledger.client.configuration.TlsConfiguration
 import com.digitalasset.ledger.server.LedgerApiServer.LedgerApiServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeProviderType
-import io.grpc.netty.GrpcSslContexts
-import io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
@@ -33,13 +30,7 @@ object Application {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  class Server(
-      actorSystemName: String,
-      addressOption: Option[String],
-      serverPort: Int,
-      config: => SandboxConfig,
-      maybeBundle: Option[SslContext] = None)
-      extends AutoCloseable {
+  class Server(actorSystemName: String, config: => SandboxConfig) extends AutoCloseable {
 
     @volatile private var system: ActorSystem = _
     @volatile private var materializer: ActorMaterializer = _
@@ -47,7 +38,7 @@ object Application {
     @volatile private var ledgerId: String = _
     @volatile private var shutdownTasks: () => Unit = () => ()
 
-    @volatile var port: Int = serverPort
+    @volatile var port: Int = config.port
 
     def getMaterializer: ActorMaterializer = materializer
 
@@ -139,33 +130,9 @@ object Application {
 
     new Server(
       "LedgerApiServer",
-      config.address,
-      config.port,
-      config,
-      serverSslContext(config.tlsConfig, ClientAuth.REQUIRE),
+      config
     )
   }
-
-  /** If enabled and all required fields are present, it returns an SslContext suitable for server usage */
-  @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Throw"))
-  def serverSslContext(
-      tlsConfig: Option[TlsConfiguration],
-      clientAuth: ClientAuth): Option[SslContext] =
-    tlsConfig.flatMap { c =>
-      if (c.enabled)
-        Some(
-          GrpcSslContexts
-            .forServer(
-              c.keyCertChainFile.getOrElse(throw new IllegalStateException(
-                s"Unable to convert ${this.toString} to SSL Context: cannot create server context without keyCertChainFile.")),
-              c.keyFileOrFail
-            )
-            .trustManager(c.trustCertCollectionFile.orNull)
-            .clientAuth(clientAuth)
-            .build
-        )
-      else None
-    }
 
   def showBanner(resourceName: String): Unit = {
     if (getClass.getClassLoader.getResource(resourceName) != null)

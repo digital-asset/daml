@@ -13,7 +13,6 @@ import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.daml.ledger.api.server.damlonx.Server
 import com.daml.ledger.participant.state.index.v1.impl.reference.ReferenceIndexService
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
-//import com.daml.ledger.participant.state.v1.impl.reference.Ledger
 import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset, ReadService, Update}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.ImmArray
@@ -32,39 +31,11 @@ import scala.util.Try
 object ReferenceServer extends App {
   val logger = LoggerFactory.getLogger(this.getClass)
 
-  final case class Config(
-      port: Int,
-      portFile: Option[File],
-      archiveFiles: List[File],
-      badServer: Boolean
-  )
-
-  val argParser = new scopt.OptionParser[Config]("reference-server") {
-    head(
-      "A fully compliant DAML Ledger API server backed by an in-memory store.\n" +
-        "Due to its lack of persistence it is not meant for production, but to serve as a blueprint for other DAML Ledger API server implementations.")
-    opt[Int]("port")
-      .optional()
-      .action((p, c) => c.copy(port = p))
-      .text("Server port. If not set, a random port is allocated.")
-    opt[File]("port-file")
-      .optional()
-      .action((f, c) => c.copy(portFile = Some(f)))
-      .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
-    opt[Unit]("bad-server")
-      .optional()
-      .action((_, c) => c.copy(badServer = true))
-      .text("Simulate a badly behaving server that returns empty transactions. Defaults to false.")
-    arg[File]("<archive>...")
-      .unbounded()
-      .action((f, c) => c.copy(archiveFiles = f :: c.archiveFiles))
-      .text("DAR files to load. Scenarios are ignored. The servers starts with an empty ledger by default.")
-  }
-  val config = argParser.parse(args, Config(0, None, List.empty, false)).getOrElse(sys.exit(1))
+  val config = Cli.parse(args).getOrElse(sys.exit(1))
 
   // Initialize Akka and log exceptions in flows.
-  implicit val system = ActorSystem("ReferenceServer")
-  implicit val materializer = ActorMaterializer(
+  implicit val system: ActorSystem = ActorSystem("ReferenceServer")
+  implicit val materializer: ActorMaterializer = ActorMaterializer(
     ActorMaterializerSettings(system)
       .withSupervisionStrategy { e =>
         logger.error(s"Supervision caught exception: $e")
@@ -72,6 +43,7 @@ object ReferenceServer extends App {
       })
 
   val ledger = new InMemoryKVParticipantState
+
   //val ledger = new Ledger(timeModel, tsb)
   def archivesFromDar(file: File): List[Archive] = {
     DarReader[Archive](x => Try(Archive.parseFrom(x)))
@@ -98,6 +70,7 @@ object ReferenceServer extends App {
 
       val server = Server(
         serverPort = config.port,
+        sslContext = config.tlsConfig.flatMap(_.server),
         indexService = indexService,
         writeService = ledger,
       )

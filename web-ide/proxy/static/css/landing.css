@@ -1,0 +1,64 @@
+/* Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.  */
+/* SPDX-License-Identifier: Apache-2.0  */
+
+.primary-header {
+    padding: 25px 0;
+    border-bottom-width: 2px;
+    border-bottom-style: solid;
+    border-bottom-color: #e2ebf8;
+}
+.container {
+    padding: 0 15px;
+    margin: 0 auto;
+}
+
+body {
+    background-color: #f4f8fe;
+    color: #677ba3;
+    font-family: Helvetica, "Trebuchet MS", Verdana, sans-serif;
+}
+
+.content-pane {
+    margin: 60px 30px 10px 30px;
+    display: flex;
+    justify-content: center
+}
+
+.legal {
+    font-size: 20px;
+    line-height: 24px;
+    max-width: 900px;
+}
+
+.legal .emphasize {
+    font-weight: 800;
+}
+
+.accept-btn {
+    float: right;
+    margin-top: 50px;
+    margin-right: 50px;
+}
+
+.btn {
+    font-size: 15px;
+    line-height: 36px;
+    background: #5d86df;
+    color: #ffffff;
+    padding: 9px 9px 9px 22px;
+    -webkit-border-radius: 27px;
+    -moz-border-radius: 27px;
+    -ms-border-radius: 27px;
+    border-radius: 27px;
+    box-shadow: 0px 2px 5px 0px rgba(58, 71, 143, 0.26), 0px 2px 10px 0px rgba(58, 71, 143, 0.16);
+}
+
+a {
+    color: #5d86df;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-block;
+}
+a:visited {
+    color: #5d86df;
+}

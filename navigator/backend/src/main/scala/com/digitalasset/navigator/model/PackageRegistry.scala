@@ -32,7 +32,7 @@ case class PackageRegistry(
     c.consuming
   )
 
-  def withPackages(interfaces: List[DamlLfIface.reader.Interface]): PackageRegistry = {
+  def withPackages(interfaces: List[DamlLfIface.Interface]): PackageRegistry = {
     val newPackages: Map[DamlLfPackageId, DamlLfPackage] = interfaces
       .filterNot(p => packages.contains(p.packageId))
       .map(p => {

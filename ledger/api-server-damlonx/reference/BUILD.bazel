@@ -23,6 +23,8 @@ da_scala_binary(
     deps = [
         "//3rdparty/jvm/com/github/scopt",
         "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/io/netty:netty_handler",
+        "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",
         "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/archive:daml_lf_java_proto",
@@ -31,6 +33,7 @@ da_scala_binary(
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/api-server-damlonx",
+        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/participant-state",
         "//ledger/participant-state-index",

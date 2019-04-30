@@ -35,7 +35,7 @@ object StandaloneSemanticTestRunner {
 
     println(s"Running ${nScenarios} scenarios against ${config.host}:${config.port}...")
 
-    val ledgerResource = RemoteServerResource(config.host, config.port)
+    val ledgerResource = RemoteServerResource(config.host, config.port, None)
       .map {
         case PlatformChannels(channel) =>
           LedgerContext.SingleChannelContext(channel, None, packages.keys)

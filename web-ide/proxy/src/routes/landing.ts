@@ -16,10 +16,11 @@ export default class StaticRoute {
     }
 
     init() : StaticRoute {
-        //we do some url manipulation just so we don't bump heads with webide (by default all traffic gets proxied into the webide)
+        //we do some url manipulation ("/_internal" route points to our static folder) just so we don't bump heads with webide (by default all traffic gets proxied into the webide)
         this.app.use('/_internal/css', express.static(path.join(this.rootDir, '/static/css')))
         this.app.use('/_internal/js', express.static(path.join(this.rootDir, '/static/js')))
         this.app.use('/_internal/images', express.static(path.join(this.rootDir, '/static/images')))
+        this.app.use('/favicon.ico', express.static(path.join(this.rootDir, '/static/images/favicon-32x32.png')))
         return this
     }
 
