@@ -14,6 +14,7 @@ import qualified Control.Monad.Managed             as Managed
 import           DA.Prelude
 import qualified DA.Pretty
 import DA.Cli.Damlc.Base
+import Data.Tuple.Extra
 import Control.Monad.Extra
 import           Data.Either.Combinators    (whenRight)
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
@@ -57,7 +58,7 @@ testRun h inFiles lfVersion colorTestResults mbJUnitOutput  = do
     files <- filesToTest h inFiles
     case mbJUnitOutput of
         Nothing -> testStdio h files colorTestResults
-        Just junitOutput -> testJUnit lfVersion h files junitOutput
+        Just junitOutput -> testJUnit lfVersion h files junitOutput colorTestResults
 
 -- | Given the files the user asked for, figure out which are the complete sets of files to test on.
 --   Basically, the transitive closure.
@@ -80,8 +81,8 @@ testStdio h files colorTestResults = do
                 let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
                 putStrLn $ stringStyleToRender (name <> ": " <> doc)
 
-testJUnit :: LF.Version -> IdeState -> [FilePath] -> FilePath -> IO ()
-testJUnit lfVersion h files junitOutput =
+testJUnit :: LF.Version -> IdeState -> [FilePath] -> FilePath -> ColorTestResults -> IO ()
+testJUnit lfVersion h files junitOutput colorTestResults =
     CompilerService.runAction h $ do
         results <- Shake.forP files $ \file -> do
             mbScenarioResults <- CompilerService.runScenarios file
@@ -93,9 +94,15 @@ testJUnit lfVersion h files junitOutput =
                     diagnostics <- liftIO $ CompilerService.getDiagnostics h
                     let errMsg = T.unlines (map (Pretty.renderPlain . prettyDiagnostic) diagnostics)
                     pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
-                Just scenarioResults -> pure $
-                    map (\(vr, res) -> (vr, either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing) res))
-                        scenarioResults
+                Just scenarioResults -> do
+                    -- failuers are printed out through diagnostics, so just print hte successes
+                    liftIO $ forM_ scenarioResults $ \(VRScenario vrFile vrName, result) -> whenRight result $ \result -> do
+                        let doc = prettyResult result
+                        let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
+                        let stringStyleToRender = if getColorTestResults colorTestResults then DA.Pretty.renderColored else DA.Pretty.renderPlain
+                        putStrLn $ stringStyleToRender (name <> ": " <> doc)
+                    let f = either (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lfVersion) (const Nothing)
+                    pure $ map (second f) scenarioResults
             pure (file, results)
         liftIO $ do
             createDirectoryIfMissing True $ takeDirectory junitOutput
@@ -111,6 +118,7 @@ prettyErr lfVersion err = case err of
           (LF.emptyWorld lfVersion)
           serr
     SSC.ExceptionError e -> DA.Pretty.string $ show e
+
 
 prettyResult :: SS.ScenarioResult -> DA.Pretty.Doc Pretty.SyntaxClass
 prettyResult result =
