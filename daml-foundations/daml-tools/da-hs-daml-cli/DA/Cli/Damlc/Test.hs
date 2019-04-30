@@ -59,7 +59,7 @@ testRun h inFiles lfVersion color mbJUnitOutput  = do
     -- take the transitive closure of all imports and run on all of them
     -- If some dependencies can't be resolved we'll get a Diagnostic out anyway, so don't worry
     deps <- CompilerService.runAction h $ mapM CompilerService.getDependencies inFiles
-    files <- return $ nubOrd $ concat $ inFiles : catMaybes deps
+    let files = return $ nubOrd $ concat $ inFiles : catMaybes deps
 
     results <- CompilerService.runAction h $
         Shake.forP files $ \file -> do
