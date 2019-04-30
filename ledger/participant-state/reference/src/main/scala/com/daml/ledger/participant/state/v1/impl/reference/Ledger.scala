@@ -28,7 +28,6 @@ import com.digitalasset.platform.server.services.command.time.TimeModelValidator
 import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 /** TODO (SM): update/complete comments on this example as part of
@@ -382,8 +381,8 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   private def mkOffset(offset: Int): Offset =
     Offset(Array(offset.toLong))
 
-  override def getLedgerInitialConditions(): Future[LedgerInitialConditions] =
-    Future.successful(
+  override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+    Source.single(
       LedgerInitialConditions(
         ledgerId = StateController.getState.ledgerId,
         initialRecordTime = initialRecordTime

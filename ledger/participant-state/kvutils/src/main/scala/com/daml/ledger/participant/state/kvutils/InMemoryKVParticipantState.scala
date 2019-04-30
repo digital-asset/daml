@@ -324,8 +324,8 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     * this method is called only once, or very rarely.
     */
   // FIXME(JM): Add configuration to initial conditions!
-  override def getLedgerInitialConditions(): Future[LedgerInitialConditions] =
-    Future.successful(initialConditions)
+  override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+    Source.single(initialConditions)
 
   /** Shutdown by killing the [[CommitActor]]. */
   override def close(): Unit = {
