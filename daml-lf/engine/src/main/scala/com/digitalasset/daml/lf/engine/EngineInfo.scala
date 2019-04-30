@@ -28,11 +28,11 @@ object EngineInfo {
 
   private def lfVersions(
       majorVersion: String,
-      minorVersions: Iterable[LV.Minor]): Iterable[String] = {
-    val nonEmptyMinorVersions = minorVersions.map(_.toProtoIdentifier).filter(_.nonEmpty)
-    if (nonEmptyMinorVersions.isEmpty) Seq(majorVersion)
-    else nonEmptyMinorVersions.map(a => s"$majorVersion.$a")
-  }
+      minorVersions: Iterable[LV.Minor]): Iterable[String] =
+    minorVersions.map { a =>
+      val ap = a.toProtoIdentifier
+      s"$majorVersion${if (ap.isEmpty) "" else s".$ap"}"
+    }
 
   private def format(as: Iterable[String]): String = as.mkString(", ")
 }

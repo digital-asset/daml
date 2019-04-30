@@ -9,6 +9,9 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- DAML-LF "dev" minor version. Write with ``--target 1.dev``, supported by all tools by
+  default.
+
 0.12.12 - 2019-04-30
 --------------------
 
