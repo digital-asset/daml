@@ -152,7 +152,7 @@ newIdeState :: Options
             -> Logger.Handle IO
             -> Managed IdeState
 newIdeState compilerOpts mbEventHandler loggerH = do
-  mbScenarioService <- for mbEventHandler $ \eventHandler -> Scenario.startScenarioService eventHandler loggerH
+  mbScenarioService <- for mbEventHandler $ \eventHandler -> Scenario.startScenarioService (atomically . eventHandler) loggerH
 
   -- Load the packages from the package database for the scenario service. We swallow errors here
   -- but shake will report them when typechecking anything.
