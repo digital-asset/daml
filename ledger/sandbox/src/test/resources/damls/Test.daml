@@ -481,3 +481,10 @@ template Witnesses
      controller p_actor
      do
       return ()
+
+    -- need to use new choice syntax for the controller to not
+    -- be an observer
+    nonconsuming choice WitnessesNonConsumingChoice: ()
+     controller p_actor
+     do
+      return ()
