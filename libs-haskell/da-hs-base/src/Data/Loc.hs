@@ -12,13 +12,10 @@ module Data.Loc(
     Loc(..),
     ) where
 
-import Data.Data (Data)
-import GHC.Generics
-
 -- | Source locations, we can't use Parsec's built-in source location,
 -- because they implement a silly (non pretty-print compatible) Show
 -- instance.
 data Loc
     = Loc FilePath Int Int
     | NoLoc String -- reason for no location information
-    deriving (Read, Data, Show, Ord, Eq, Generic)
+    deriving (Show)
