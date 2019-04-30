@@ -11,7 +11,7 @@ module DA.Service.Daml.LanguageServer
 
 import           Control.Concurrent                        (threadDelay)
 import qualified Control.Concurrent.Async                  as Async
-import           Control.Concurrent.STM                    (STM, TChan, atomically, newTChanIO,
+import           Control.Concurrent.STM                    (TChan, atomically, newTChanIO,
                                                             readTChan, writeTChan)
 import qualified Control.Monad.Managed                     as Managed
 
@@ -252,7 +252,7 @@ handleNotification (IHandle stateRef loggerH compilerH _notifChan) = \case
 -- Server execution
 ------------------------------------------------------------------------
 
-runLanguageServer  :: (  Maybe (Compiler.Event -> STM ())
+runLanguageServer  :: (  Maybe (Compiler.Event -> IO ())
                       -> Logger.Handle IO
                       -> Managed.Managed Compiler.IdeState
                       )
@@ -262,7 +262,7 @@ runLanguageServer handleBuild loggerH = Managed.runManaged $ do
     notifChan <- liftIO newTChanIO
     eventChan <- liftIO newTChanIO
     state     <- liftIO $ newIORef $ State S.empty S.empty
-    compilerH <- handleBuild (Just (writeTChan eventChan)) loggerH
+    compilerH <- handleBuild (Just (atomically . writeTChan eventChan)) loggerH
 
     let ihandle = IHandle {
         ihState = state

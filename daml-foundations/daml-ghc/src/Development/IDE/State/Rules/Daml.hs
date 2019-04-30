@@ -62,12 +62,9 @@ runScenarios :: FilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.
 runScenarios file = use RunScenarios file
 
 -- | Get a list of the scenarios in a given file
-getScenarios :: FilePath -> Action [VirtualResource]
-getScenarios file = do
-    m <- use_ GenerateRawDalf file
-    pure [ VRScenario file (unTagged $ LF.qualObject ref)
-         | ref <- scenariosInModule m
-         ]
+getScenarioNames :: FilePath -> Action (Maybe [VirtualResource])
+getScenarioNames file = fmap f <$> use GenerateRawDalf file
+    where f = map (VRScenario file . unTagged . LF.qualObject) . scenariosInModule
 
 -- Generates the DALF for a module without adding serializability information
 -- or type checking it.
