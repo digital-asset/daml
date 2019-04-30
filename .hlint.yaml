@@ -30,16 +30,6 @@
 - ignore: {name: "Redundant lambda"}
 - ignore: {name: "Avoid lambda using `infix`"}
 
-# Warnings triggered by our code only very locally
-- ignore: {name: "Redundant if", within: DA.Service.Daml.Compiler.Impl.VersionCheck}
-- ignore: {name: "Redundant compare", within: DA.Daml.CSP}
-- ignore: {name: "Take on a non-positive", within: DA.Daml.Parser.Tests}
-- ignore: {name: "Use head", within: EDSL}
-- ignore: {name: "Redundant return", within: DA.Daml.Renamer.Check.Judge.Eq}
-- ignore: {name: "Redundant return", within: DA.Daml.Renamer.Check.Judge.Inst}
-- ignore: {name: "Redundant return", within: DA.Daml.Renamer.Check.Judge.Sub}
-- ignore: {name: "Redundant return", within: DA.Daml.LF.TypeChecker.Check.typeOfTupleProj}
-- ignore: {name: "Unused LANGUAGE pragma", within: Intero.GhciMonad}
 # Under Linux/MacOS, Foreign function interface language pragma is unused.
 - ignore: {name: Unused LANGUAGE pragma, within: DA.Sdk.Cli.System}
 
