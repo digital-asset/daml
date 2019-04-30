@@ -76,6 +76,8 @@ object TransactionFiltration {
     }
 
     private def explicitWitnessesForNode(node: GenNode[_, _, _]): Set[Party] = node match {
+      // Note that for nodes that will not be translated to events we just return empty
+      // sets.
       case n: Node.NodeCreate[_, _] => n.stakeholders
       case n: Node.NodeFetch[_] => Set.empty
       case n: Node.NodeExercises[_, _, _] =>

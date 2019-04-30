@@ -35,7 +35,7 @@ object LedgerContextExtensions extends Matchers with OptionValues {
 
       new LedgerTestingHelpers(
         req => commandClient.flatMap(_.trackSingleCommand(req))(mat.executionContext),
-        context.transactionClient
+        context
       )
     }
 
@@ -45,7 +45,7 @@ object LedgerContextExtensions extends Matchers with OptionValues {
 
       new LedgerTestingHelpers(
         req => commandClient.flatMap(_.trackSingleCommand(req))(mat.executionContext),
-        context.transactionClient
+        context
       )
     }
 

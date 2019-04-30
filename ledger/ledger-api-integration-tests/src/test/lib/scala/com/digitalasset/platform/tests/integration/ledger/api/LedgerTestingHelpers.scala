@@ -18,12 +18,16 @@ import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree,
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.google.protobuf.empty.Empty
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
 import org.scalatest.{Assertion, Inside, Matchers, OptionValues}
+import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
+import com.digitalasset.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
+import com.digitalasset.platform.participant.util.ValueConversions._
+import com.digitalasset.platform.apitesting.LedgerContext
+import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
 
 import scala.collection.{breakOut, immutable}
 import scala.concurrent.duration._
@@ -33,11 +37,13 @@ import scala.language.implicitConversions
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LedgerTestingHelpers(
     submitCommand: SubmitRequest => Future[Completion],
-    transactionClient: TransactionClient)(implicit mat: ActorMaterializer)
+    context: LedgerContext)(implicit mat: ActorMaterializer)
     extends Matchers
     with FutureTimeouts
     with Inside
     with OptionValues {
+
+  private val transactionClient = context.transactionClient
 
   implicit private val ec: ExecutionContextExecutor = mat.executionContext
 
@@ -332,21 +338,267 @@ class LedgerTestingHelpers(
 
   }
 
+  // Create a template instance and return the resulting create event.
+  def simpleCreateWithListener(
+      commandId: String,
+      submitter: String,
+      listener: String,
+      template: Identifier,
+      arg: Record
+  ): Future[CreatedEvent] = {
+    for {
+      tx <- submitAndListenForSingleResultOfCommand(
+        submitRequestWithId(commandId)
+          .update(
+            _.commands.commands :=
+              List(CreateCommand(Some(template), Some(arg)).wrap),
+            _.commands.party := submitter
+          ),
+        TransactionFilter(Map(listener -> Filters.defaultInstance))
+      )
+    } yield {
+      getHead(createdEventsIn(tx))
+    }
+  }
+
+  // Create a template instance and return the resulting create event.
+  def simpleCreate(
+      commandId: String,
+      submitter: String,
+      template: Identifier,
+      arg: Record
+  ): Future[CreatedEvent] =
+    simpleCreateWithListener(commandId, submitter, submitter, template, arg)
+
+  def failingCreate(
+      commandId: String,
+      submitter: String,
+      template: Identifier,
+      arg: Record,
+      code: Code,
+      pattern: String
+  ): Future[Assertion] =
+    assertCommandFailsWithCode(
+      submitRequestWithId(commandId)
+        .update(
+          _.commands.commands :=
+            List(CreateCommand(Some(template), Some(arg)).wrap),
+          _.commands.party := submitter
+        ),
+      code,
+      pattern
+    )
+
+  // Exercise a choice and return all resulting create events.
+  def simpleExerciseWithListener(
+      commandId: String,
+      submitter: String,
+      listener: String,
+      template: Identifier,
+      contractId: String,
+      choice: String,
+      arg: Value
+  ): Future[TransactionTree] = {
+    submitAndListenForSingleTreeResultOfCommand(
+      submitRequestWithId(commandId)
+        .update(
+          _.commands.commands :=
+            List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap),
+          _.commands.party := submitter
+        ),
+      TransactionFilter(Map(listener -> Filters.defaultInstance)),
+      false
+    )
+  }
+
+  def simpleCreateWithListenerForTransactions(
+      commandId: String,
+      submitter: String,
+      listener: String,
+      template: Identifier,
+      arg: Record
+  ): Future[CreatedEvent] = {
+    for {
+      tx <- submitAndListenForSingleResultOfCommand(
+        submitRequestWithId(commandId)
+          .update(
+            _.commands.commands :=
+              List(CreateCommand(Some(template), Some(arg)).wrap),
+            _.commands.party := submitter
+          ),
+        TransactionFilter(Map(listener -> Filters.defaultInstance))
+      )
+    } yield {
+      getHead(createdEventsIn(tx))
+    }
+  }
+
+  def submitAndListenForTransactionResultOfCommand(
+      command: SubmitRequest,
+      transactionFilter: TransactionFilter,
+      filterCid: Boolean = true): Future[Seq[Transaction]] = {
+    submitAndListenForTransactionResultsOfCommand(command, transactionFilter, filterCid)
+  }
+
+  def submitAndListenForTransactionResultsOfCommand(
+      submitRequest: SubmitRequest,
+      transactionFilter: TransactionFilter,
+      filterCid: Boolean = true): Future[immutable.Seq[Transaction]] = {
+    val commandId = submitRequest.getCommands.commandId
+    for {
+      txEndOffset <- submitSuccessfullyAndReturnOffset(submitRequest)
+      transactions <- listenForTransactionResultOfCommand(
+        transactionFilter,
+        if (filterCid) Some(commandId) else None,
+        txEndOffset)
+    } yield {
+      transactions
+    }
+  }
+
+  def listenForTransactionResultOfCommand(
+      transactionFilter: TransactionFilter,
+      commandId: Option[String],
+      txEndOffset: LedgerOffset): Future[immutable.Seq[Transaction]] = {
+    transactionClient
+      .getTransactions(
+        txEndOffset,
+        None,
+        transactionFilter
+      )
+      .filter(x => commandId.fold(true)(cid => x.commandId == cid))
+      .take(1)
+      .takeWithin(3.seconds)
+      .runWith(Sink.seq)
+  }
+
+  def simpleExerciseWithListenerForTransactions(
+      commandId: String,
+      submitter: String,
+      listener: String,
+      template: Identifier,
+      contractId: String,
+      choice: String,
+      arg: Value
+  ): Future[Seq[Transaction]] = {
+    submitAndListenForTransactionResultOfCommand(
+      submitRequestWithId(commandId)
+        .update(
+          _.commands.commands :=
+            List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap),
+          _.commands.party := submitter
+        ),
+      TransactionFilter(Map(listener -> Filters.defaultInstance)),
+      false
+    )
+  }
+
+  def transactionsFromSimpleExercise(
+      commandId: String,
+      submitter: String,
+      template: Identifier,
+      contractId: String,
+      choice: String,
+      arg: Value): Future[Seq[Transaction]] =
+    simpleExerciseWithListenerForTransactions(
+      commandId,
+      submitter,
+      submitter,
+      template,
+      contractId,
+      choice,
+      arg)
+
+  def assertCommandFailsWithCode(
+      submitRequest: SubmitRequest,
+      expectedErrorCode: Code,
+      expectedMessageSubString: String): Future[Assertion] = {
+    for {
+      ledgerEnd <- transactionClient.getLedgerEnd
+      completion <- submitCommand(submitRequest)
+      // TODO(FM) in the contract keys test this hangs forever after expecting a failedExercise.
+      // Could it be that the ACS behaves like that sometimes? In that case that'd be a bug. We must investigate
+      /*
+      txs <- listenForResultOfCommand(
+        getAllContracts(List(submitRequest.getCommands.party)),
+        Some(submitRequest.getCommands.commandId),
+        ledgerEnd.getOffset)
+     */
+    } yield {
+      completion.getStatus should have('code (expectedErrorCode.value))
+      completion.getStatus.message should include(expectedMessageSubString)
+      // txs shouldBe empty
+    }
+  }
+
+  def submitRequestWithId(commandId: String): SubmitRequest =
+    M.submitRequest.update(
+      _.commands.modify(_.copy(commandId = commandId, ledgerId = context.ledgerId)))
+
+  // Exercise a choice and return all resulting create events.
+  def simpleExercise(
+      commandId: String,
+      submitter: String,
+      template: Identifier,
+      contractId: String,
+      choice: String,
+      arg: Value
+  ): Future[TransactionTree] =
+    simpleExerciseWithListener(commandId, submitter, submitter, template, contractId, choice, arg)
+
+  // Exercise a choice that is supposed to fail.
+  def failingExercise(
+      commandId: String,
+      submitter: String,
+      template: Identifier,
+      contractId: String,
+      choice: String,
+      arg: Value,
+      code: Code,
+      pattern: String
+  ): Future[Assertion] =
+    assertCommandFailsWithCode(
+      submitRequestWithId(commandId)
+        .update(
+          _.commands.commands :=
+            List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap),
+          _.commands.party := submitter
+        ),
+      code,
+      pattern
+    )
+
+  def listenForCompletionAsApplication(
+      applicationId: String,
+      requestingParty: String,
+      offset: LedgerOffset,
+      commandIdToListenFor: String) = {
+    context.commandClient(applicationId = applicationId).flatMap { commandClient =>
+      commandClient
+        .completionSource(List(requestingParty), offset)
+        .collect {
+          case CompletionStreamElement.CompletionElement(completion)
+              if completion.commandId == commandIdToListenFor =>
+            completion
+        }
+        .take(1)
+        .takeWithin(3.seconds)
+        .runWith(Sink.seq)
+        .map(_.headOption)
+    }
+  }
 }
 
 object LedgerTestingHelpers extends OptionValues {
-
-  def sync(
-      submitCommand: SubmitAndWaitRequest => Future[Empty],
-      transactionClient: TransactionClient)(
+  def sync(submitCommand: SubmitAndWaitRequest => Future[Empty], context: LedgerContext)(
       implicit ec: ExecutionContext,
       mat: ActorMaterializer): LedgerTestingHelpers =
-    async(helper(submitCommand), transactionClient)
+    async(helper(submitCommand), context)
 
   def asyncFromTimeService(
       timeService: TimeService,
       submit: TimeProvider => SubmitRequest => Future[Completion],
-      transactionClient: TransactionClient)(
+      context: LedgerContext)(
       implicit ec: ExecutionContext,
       mat: ActorMaterializer,
       esf: ExecutionSequencerFactory): LedgerTestingHelpers = {
@@ -356,15 +608,13 @@ object LedgerTestingHelpers extends OptionValues {
         res <- submit(st)(submitRequest)
       } yield res
     }
-    async(submitCommand, transactionClient)
+    async(submitCommand, context)
   }
 
-  def async(
-      submitCommand: SubmitRequest => Future[Completion],
-      transactionClient: TransactionClient)(
+  def async(submitCommand: SubmitRequest => Future[Completion], context: LedgerContext)(
       implicit ec: ExecutionContext,
       mat: ActorMaterializer): LedgerTestingHelpers =
-    new LedgerTestingHelpers(submitCommand, transactionClient)
+    new LedgerTestingHelpers(submitCommand, context)
 
   def emptyToCompletion(commandId: String, emptyF: Future[Empty])(
       implicit ec: ExecutionContext): Future[Completion] =
@@ -383,5 +633,4 @@ object LedgerTestingHelpers extends OptionValues {
       req.commands.value.commandId,
       submitCommand(SubmitAndWaitRequest(req.commands, req.traceContext)))
   }
-
 }

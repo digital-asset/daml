@@ -465,3 +465,19 @@ testDivulgenceSuccess = scenario do
   showId <- owner `submit` create ShowDelegated with owner, delegate
   owner `submit` exercise showId ShowIt with delegatedId = delegated
   delegate `submit` exercise delegation  FetchDelegated with delegated
+
+template Witnesses
+  with
+    p_signatory: Party
+    p_observer: Party
+    p_actor: Party
+  where
+    signatory p_signatory
+    observer p_observer
+
+    -- need to use new choice syntax for the controller to not
+    -- be an observer
+    choice WitnessesChoice: ()
+     controller p_actor
+     do
+      return ()

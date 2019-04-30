@@ -61,7 +61,7 @@ class SemanticTestAdapter(
     : Future[Event.Events[String, Value.AbsoluteContractId, TxValue[Value.AbsoluteContractId]]] = {
     for {
       tx <- LedgerTestingHelpers
-        .sync(lc.commandService.submitAndWait, lc.transactionClient)
+        .sync(lc.commandService.submitAndWait, lc)
         .submitAndListenForSingleTreeResultOfCommand(
           SubmitRequest(Some(apiCommand(submitterName.underlyingString, cmds))),
           TransactionFilter(parties.map(_ -> Filters.defaultInstance)(breakOut)),
