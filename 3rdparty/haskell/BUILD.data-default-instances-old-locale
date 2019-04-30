@@ -1,0 +1,15 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_tweag_rules_haskell//haskell:haskell.bzl",
+  "haskell_library",
+)
+load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
+
+haskell_library(
+  name = "lib",
+  visibility = ["//visibility:public"],
+  srcs = [":Data/Default/Instances/OldLocale.hs"],
+  deps = [hazel_library("base"), hazel_library("data-default-class"), hazel_library("old-locale")],
+  compiler_flags = ["-XHaskell98", "-w", "-Wwarn"],
+  version = "0.0.1",
+)

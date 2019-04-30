@@ -1,0 +1,31 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_tweag_rules_haskell//haskell:haskell.bzl",
+  "haskell_library",
+)
+load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
+
+haskell_library(
+  name = "data-default",
+  visibility = ["//visibility:public"],
+  generator_name = "data-default",
+  generator_function = "cabal_haskell_package",
+  generator_location = "/home/moritz/.cache/bazel/_bazel_moritz/bb4e4404f889dc1b816f246b08c0d9ea/external/haskell_data__default/BUILD:15",
+  srcs = ["@haskell_data__default//:Data/Default.hs"],
+  extra_srcs = [],
+  deps = [
+      hazel_library("base"),
+      hazel_library("data-default-class"),
+      "@haskell_data__default__instances__containers//:lib",
+      hazel_library("data-default-instances-dlist"),
+      "@haskell_data__default__instances__old__locale//:lib"
+  ],
+  compiler_flags = ["-XHaskell98", "-w", "-Wwarn"],
+  version = "0.7.1.1",
+)
+
+# /home/moritz/.cache/bazel/_bazel_moritz/bb4e4404f889dc1b816f246b08c0d9ea/external/haskell_data__default/BUILD:15:1
+cc_library(
+  name = "data-default-cbits",
+  visibility = ["//visibility:public"],
+)
