@@ -28,8 +28,8 @@ import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
-  TransactionSerializer,
   KeyHasher,
+  TransactionSerializer,
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
@@ -50,59 +50,48 @@ private class PostgresLedgerDao(
     extends LedgerDao {
 
   private val logger = LoggerFactory.getLogger(getClass)
-  private val LedgerIdKey = "LedgerId"
-  private val LedgerEndKey = "LedgerEnd"
 
-  override def lookupLedgerEnd(): Future[Long] =
-    lookupParameter(LedgerEndKey)
-      .map(_.map(_.toLong).getOrElse(sys.error("No ledger end found in database!")))(
-        DirectExecutionContext)
-
-  override def storeInitialLedgerEnd(ledgerEnd: Long): Future[Unit] =
-    storeParameter(LedgerEndKey, ledgerEnd.toString)
+  private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
 
   override def lookupLedgerId(): Future[Option[String]] =
-    lookupParameter(LedgerIdKey)
+    dbDispatcher.executeSql { implicit conn =>
+      SQL_SELECT_LEDGER_ID
+        .as(SqlParser.str("ledger_id").singleOpt)
 
-  override def storeLedgerId(ledgerId: String): Future[Unit] =
-    storeParameter(LedgerIdKey, ledgerId)
+    }
 
-  private val SQL_INSERT_PARAM = SQL("insert into parameters(key, value) values ({k}, {v})")
+  private val SQL_SELECT_LEDGER_END = SQL("select ledger_end from parameters")
 
-  private def storeParameter(key: String, value: String): Future[Unit] =
-    dbDispatcher
-      .executeSql(
-        implicit conn =>
-          SQL_INSERT_PARAM
-            .on("k" -> key)
-            .on("v" -> value)
-            .execute()
-      )
-      .map(_ => ())(DirectExecutionContext)
+  override def lookupLedgerEnd(): Future[Long] =
+    dbDispatcher.executeSql { implicit conn =>
+      SQL_SELECT_LEDGER_END
+        .as[Long](SqlParser.long("ledger_end").single)
+    }
 
-  // TODO: casting is not nice, shall we have a table for the params instead?
+  private val SQL_INITIALIZE = SQL(
+    "insert into parameters(ledger_id, ledger_end) VALUES({LedgerId}, {LedgerEnd})")
+
+  override def initializeLedger(ledgerId: String, ledgerEnd: LedgerOffset): Future[Unit] =
+    dbDispatcher.executeSql { implicit conn =>
+      val _ = SQL_INITIALIZE
+        .on("LedgerId" -> ledgerId)
+        .on("LedgerEnd" -> ledgerEnd)
+        .execute()
+      ()
+    }
+
   // Note that the ledger entries grow monotonically, however we store many ledger entries in parallel,
   // and thus we need to make sure to only update the ledger end when the ledger entry we're committing
   // is advancing it.
   private val SQL_UPDATE_LEDGER_END = SQL(
-    s"update parameters set value = {v} where key = '$LedgerEndKey' and CAST(value as INTEGER) < CAST({v} as INTEGER)")
+    "update parameters set ledger_end = {LedgerEnd} where ledger_end < {LedgerEnd}")
 
   private def updateLedgerEnd(ledgerEnd: LedgerOffset)(implicit conn: Connection): Unit = {
     SQL_UPDATE_LEDGER_END
-      .on("v" -> ledgerEnd.toString)
+      .on("LedgerEnd" -> ledgerEnd)
       .execute()
     ()
   }
-
-  private val SQL_SELECT_PARAM = SQL("select value from parameters where key = {key}")
-
-  private def lookupParameter(key: String): Future[Option[String]] =
-    dbDispatcher.executeSql(
-      implicit conn =>
-        SQL_SELECT_PARAM
-          .on("key" -> key)
-          .as(SqlParser.str("value").singleOpt)
-    )
 
   private val SQL_INSERT_CONTRACT_KEY =
     SQL(

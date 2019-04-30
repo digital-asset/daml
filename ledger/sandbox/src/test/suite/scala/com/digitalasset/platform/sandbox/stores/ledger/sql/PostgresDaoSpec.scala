@@ -26,9 +26,9 @@ import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{Contract, PostgresLedgerDao}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
+  KeyHasher,
   TransactionSerializer,
-  ValueSerializer,
-  KeyHasher
+  ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import org.scalacheck.{Arbitrary, Gen}
@@ -37,6 +37,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
+
 //TODO: use scalacheck when we have generators available for contracts and transactions
 class PostgresDaoSpec
     extends AsyncWordSpec
@@ -63,7 +64,7 @@ class PostgresDaoSpec
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    Await.result(ledgerDao.storeInitialLedgerEnd(0), Duration.Inf)
+    Await.result(ledgerDao.initializeLedger("test-ledger", 0), Duration.Inf)
   }
 
   "Postgres Ledger DAO" should {

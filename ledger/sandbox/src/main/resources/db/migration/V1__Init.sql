@@ -1,10 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- IMPORTANT: We can use and change this V1 schema definition script during the implementation of Postgres persistence.
---            As soon we released it, every schema change must be a separate file, so future migrations can work from any
---            released Sandbox version.
-
 -- Stores the history of the ledger -- mostly transactions. This table
 -- is immutable in the sense that rows can never be modified, only
 -- added.
@@ -125,10 +121,12 @@ CREATE TABLE contract_key_maintainers (
 CREATE UNIQUE INDEX contract_key_maintainers_idx
   ON contract_key_maintainers (contract_id, maintainer);
 
--- a generic table to store meta information such as: ledger id and ledger end
+-- this table is meant to have a single row storing all the
 CREATE TABLE parameters (
-  key   varchar primary key not null,
-  value varchar             not null
+  -- the generated or configured id identifying the ledger
+  ledger_id varchar not null,
+  -- stores the head offset, meant to change with every new ledger entry
+  ledger_end bigint not null
 );
 
 -- table to store a mapping from (template_id, contract value) to contract_id

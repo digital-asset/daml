@@ -109,18 +109,12 @@ trait LedgerDao extends AutoCloseable {
   def getActiveContractSnapshot()(implicit mat: Materializer): Future[LedgerSnapshot]
 
   /**
-    * Stores the initial ledger end. Can be called only once.
+    * Initializes the ledger. Must be called only once.
     *
+    * @param ledgerId  the ledger id to be stored
     * @param ledgerEnd the ledger end to be stored
     */
-  def storeInitialLedgerEnd(ledgerEnd: LedgerOffset): Future[Unit]
-
-  /**
-    * Stores the ledger id. Can be called only once.
-    *
-    * @param ledgerId the ledger id to be stored
-    */
-  def storeLedgerId(ledgerId: String): Future[Unit]
+  def initializeLedger(ledgerId: String, ledgerEnd: LedgerOffset): Future[Unit]
 
   /**
     * Stores a ledger entry. The ledger end gets updated as well in the same transaction.
