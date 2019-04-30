@@ -21,15 +21,24 @@ import qualified Data.Aeson                   as Aeson
 import           Data.Aeson.Encode.Pretty     (encodePretty)
 import qualified Data.ByteString.Lazy         as BSL
 import qualified Data.Map.Strict              as MS
-import           Data.Loc                     (Loc(..))
 import qualified Data.Text.Extended           as T
 import qualified Data.Text.Encoding           as E
 
 import           DA.Prelude
 import qualified DA.Service.Logger            as Logger
 
+-- | Source locations, we can't use Parsec's built-in source location,
+-- because they implement a silly (non pretty-print compatible) Show
+-- instance.
+data Loc
+    = Loc FilePath Int Int
+    | NoLoc String -- reason for no location information
+    deriving (Show)
+
+
 callStackToLoc :: Loc
 callStackToLoc = NoLoc "N/A"
+
 
 ------------------------------------------------------------------------------
 -- Types
