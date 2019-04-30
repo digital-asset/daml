@@ -121,7 +121,7 @@ CREATE TABLE contract_key_maintainers (
 CREATE UNIQUE INDEX contract_key_maintainers_idx
   ON contract_key_maintainers (contract_id, maintainer);
 
--- this table is meant to have a single row storing all the
+-- this table is meant to have a single row storing all the parameters we have
 CREATE TABLE parameters (
   -- the generated or configured id identifying the ledger
   ledger_id varchar not null,
