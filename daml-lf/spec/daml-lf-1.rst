@@ -79,7 +79,7 @@ mark lines within inference rules with annotations of the form
 ``[DAML-LF < x.y]`` and ``[DAML-LF ≥ x.y]`` to make the respective
 line conditional upon the DAML-LF version.
 
-Below, we list the versions of DAML-LF major version 1 that a DAML-LF
+Below, we list the versions of DAML-LF 1.x that a DAML-LF
 engine compliant with the present specification must handle [except for
 1.dev], in ascending order.  The list comes with a brief description of
 the changes, and some links to help unfamiliar readers learn about the
