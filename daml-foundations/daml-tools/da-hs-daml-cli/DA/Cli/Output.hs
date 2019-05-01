@@ -55,9 +55,9 @@ reportErr msg errs =
     [ msg
     , T.unpack $
       Pretty.renderColored $
-      Pretty.vcat $ map prettyDiagnostic $ nubOrd errs
+      prettyDiagnostics $ nubOrd errs
     ]
 
 printDiagnostics :: [Diagnostic] -> IO ()
 printDiagnostics [] = return ()
-printDiagnostics xs = T.putStrLn $ Pretty.renderColored $ Pretty.vcat $ map prettyDiagnostic xs
+printDiagnostics xs = T.putStrLn $ Pretty.renderColored $ prettyDiagnostics xs

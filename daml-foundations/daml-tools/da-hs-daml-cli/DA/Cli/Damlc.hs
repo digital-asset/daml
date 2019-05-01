@@ -283,7 +283,7 @@ execPackageNew numProcessors mbOutFile =
                                 [ "Creation of DAR file failed:"
                                 , T.unpack $
                                   Pretty.renderColored $
-                                  Pretty.vcat $ map prettyDiagnostic errs
+                                  prettyDiagnostics errs
                                 ]
                         Right dar -> do
                             let fp = targetFilePath pName
@@ -415,8 +415,7 @@ execPackage filePath opts mbOutFile dumpPom dalfInput = withProjectRoot $ \relat
            -> ioError $ userError $ unlines
                 [ "Creation of DAR file failed:"
                 , T.unpack $ Pretty.renderColored
-                    $ Pretty.vcat
-                    $ map prettyDiagnostic
+                    $ prettyDiagnostics
                     $ Set.toList $ Set.fromList errs ]
           Right dar -> do
             createDirectoryIfMissing True $ takeDirectory targetFilePath

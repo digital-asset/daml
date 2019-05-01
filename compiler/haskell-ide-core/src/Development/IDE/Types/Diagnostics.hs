@@ -24,8 +24,7 @@ module Development.IDE.Types.Diagnostics (
   ideErrorPretty,
   errorDiag,
   ideTryIOException,
-  prettyFileDiagnostics,
-  prettyDiagnostic,
+  prettyDiagnostics,
   prettyDiagnosticStore,
   defDiagnostic,
   addDiagnostics,
@@ -175,6 +174,9 @@ prettyPosition Position{..} = label_ "Position" $ vcat
 
 stringParagraphs :: T.Text -> Doc a
 stringParagraphs = vcat . map (fillSep . map pretty . T.words) . T.lines
+
+prettyDiagnostics :: [LSP.Diagnostic] -> Doc SyntaxClass
+prettyDiagnostics = vcat . map prettyDiagnostic
 
 prettyDiagnostic :: LSP.Diagnostic -> Doc SyntaxClass
 prettyDiagnostic LSP.Diagnostic{..} =
