@@ -27,7 +27,7 @@ checkModule ::
   -> Module
   -> Either Error ()
 checkModule world0 version m = do
-    runGamma (extendWorld m world0) version $ do
+    runGamma (extendWorldSelf m world0) version $ do
       Check.checkModule m
       Recursion.checkModule m
       Serializability.checkModule m
@@ -41,5 +41,5 @@ checkPackage pkgDeps pkg = do
     Package version mods <- mapLeft EImportCycle (topoSortPackage pkg)
     let check1 world0 mod0 = do
           checkModule world0 version mod0
-          pure (extendWorld mod0 world0)
+          pure (extendWorldSelf mod0 world0)
     void (foldlM check1 (initWorld pkgDeps version) mods)

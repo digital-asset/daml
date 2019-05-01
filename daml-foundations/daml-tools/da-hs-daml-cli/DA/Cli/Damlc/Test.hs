@@ -102,7 +102,7 @@ prettyErr lfVersion err = case err of
         DA.Pretty.string (show berr)
     SSC.ScenarioError serr ->
         SS.prettyBriefScenarioError
-          (LF.emptyWorld lfVersion)
+          (LF.initWorld [] lfVersion)
           serr
     SSC.ExceptionError e -> DA.Pretty.string $ show e
 

@@ -3,9 +3,20 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
-module DA.Daml.LF.Ast.World where
 
-import DA.Prelude
+module DA.Daml.LF.Ast.World(
+    World,
+    initWorld,
+    initWorldSelf,
+    extendWorldSelf,
+    LookupError,
+    lookupTemplate,
+    lookupDataType,
+    lookupChoice,
+    lookupValue,
+    lookupModule
+    ) where
+
 import DA.Pretty
 
 import           Control.Lens
@@ -21,14 +32,11 @@ import DA.Daml.LF.Ast.Version
 -- the modules of the current package. The latter shall always be closed under
 -- module dependencies but we don't enforce this here.
 data World = World
-  { worldImported :: HMS.HashMap PackageId Package
-  , worldSelf :: Package
+  { _worldImported :: HMS.HashMap PackageId Package
+  , _worldSelf :: Package
   }
 
-makeUnderscoreLenses ''World
-
-emptyWorld :: Version -> World
-emptyWorld = initWorld []
+makeLensesFor [("_worldSelf","worldSelf")] ''World
 
 -- | Construct the 'World' from only the imported packages.
 initWorld :: [(PackageId, Package)] -> Version -> World
@@ -46,12 +54,13 @@ initWorld importedPkgs version =
       PRSelf -> PRImport pkgId
       ref@PRImport{} -> ref
 
-singlePackageWorld :: Package -> World
-singlePackageWorld = World HMS.empty
+-- | Create a World with an initial self package
+initWorldSelf :: [(PackageId, Package)] -> Version -> Package -> World
+initWorldSelf a b c = (initWorld a b){_worldSelf = c}
 
 -- | Extend the 'World' by a module in the current package.
-extendWorld :: Module -> World -> World
-extendWorld = over (_worldSelf . _packageModules) . NM.insert
+extendWorldSelf :: Module -> World -> World
+extendWorldSelf = over (worldSelf . _packageModules) . NM.insert
 
 data LookupError
   = LEPackage !PackageId
