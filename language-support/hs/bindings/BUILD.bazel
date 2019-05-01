@@ -9,7 +9,9 @@ da_haskell_library(
     hazel_deps = [
         "base",
         "text",
+        "vector",
         "containers",
+        "proto3-suite",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -22,7 +24,10 @@ da_haskell_binary(
     name = "examples-view",
     srcs = ["examples/View.hs"],
     compiler_flags = [],
-    hazel_deps = ["base"],
+    hazel_deps = [
+        "base",
+        "extra",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//language-support/hs/bindings:hs-ledger",
