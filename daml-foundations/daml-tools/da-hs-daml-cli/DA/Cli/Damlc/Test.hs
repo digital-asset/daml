@@ -83,7 +83,7 @@ failedTestOutput :: IdeState -> FilePath -> CompilerService.Action [(VirtualReso
 failedTestOutput h file = do
     mbScenarioNames <- CompilerService.getScenarioNames file
     diagnostics <- liftIO $ CompilerService.getDiagnostics h
-    let errMsg = Pretty.renderPlain $ prettyDiagnostics diagnostics
+    let errMsg = Pretty.srenderPlain $ prettyDiagnostics diagnostics
     pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
 
 

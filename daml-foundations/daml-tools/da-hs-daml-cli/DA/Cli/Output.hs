@@ -54,10 +54,10 @@ reportErr msg errs =
   unlines
     [ msg
     , T.unpack $
-      Pretty.renderColored $
+      Pretty.srenderColored $
       prettyDiagnostics $ nubOrd errs
     ]
 
 printDiagnostics :: [Diagnostic] -> IO ()
 printDiagnostics [] = return ()
-printDiagnostics xs = T.putStrLn $ Pretty.renderColored $ prettyDiagnostics xs
+printDiagnostics xs = T.putStrLn $ Pretty.srenderColored $ prettyDiagnostics xs

@@ -4,17 +4,20 @@
 module Data.Text.Prettyprint.Doc.Syntax
     ( module Data.Text.Prettyprint.Doc
     , SyntaxClass(..)
-    , label_
     , reflow
-    , renderPlain
-    , renderColored
+    -- prefixing these names with an 's' is not pleasant
+    -- but we have duplicates of the functions with identical signatures
+    -- and different semantics at DA.Pretty, so important to try and disambiguate
+    , slabel_
+    , srenderPlain
+    , srenderColored
     ) where
 
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
 import qualified Data.Text.Prettyprint.Doc.Render.Terminal as Terminal
 import Data.Text.Prettyprint.Doc.Render.Terminal (Color(..), color, colorDull)
-import Data.Text.Prettyprint.Doc.Util
+import Data.Text.Prettyprint.Doc.Util(reflow)
 import qualified Data.Text as T
 
 -- | Classes of syntax elements, which are used for highlighting.
@@ -37,8 +40,8 @@ data SyntaxClass
     deriving (Eq, Ord, Show)
 
 -- | Label a document.
-label_ :: String -> Doc a -> Doc a
-label_ t d = nest 2 $ sep [pretty t, d]
+slabel_ :: String -> Doc a -> Doc a
+slabel_ t d = nest 2 $ sep [pretty t, d]
 
 -- | The layout options used for the SDK assistant.
 cliLayout ::
@@ -50,12 +53,12 @@ cliLayout renderWidth = LayoutOptions
     }
 
 -- | Render without any syntax annotations
-renderPlain :: Doc ann -> T.Text
-renderPlain = renderStrict . layoutSmart (cliLayout defaultTermWidth)
+srenderPlain :: Doc ann -> T.Text
+srenderPlain = renderStrict . layoutSmart (cliLayout defaultTermWidth)
 
 -- | Render a 'Document' as an ANSII colored string.
-renderColored :: Doc SyntaxClass -> T.Text
-renderColored =
+srenderColored :: Doc SyntaxClass -> T.Text
+srenderColored =
     Terminal.renderStrict .
     layoutSmart defaultLayoutOptions { layoutPageWidth = AvailablePerLine 100 1.0 } .
     fmap toAnsiStyle

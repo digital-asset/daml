@@ -282,7 +282,7 @@ execPackageNew numProcessors mbOutFile =
                             unlines
                                 [ "Creation of DAR file failed:"
                                 , T.unpack $
-                                  Pretty.renderColored $
+                                  Pretty.srenderColored $
                                   prettyDiagnostics errs
                                 ]
                         Right dar -> do
@@ -414,7 +414,7 @@ execPackage filePath opts mbOutFile dumpPom dalfInput = withProjectRoot $ \relat
           Left errs
            -> ioError $ userError $ unlines
                 [ "Creation of DAR file failed:"
-                , T.unpack $ Pretty.renderColored
+                , T.unpack $ Pretty.srenderColored
                     $ prettyDiagnostics
                     $ Set.toList $ Set.fromList errs ]
           Right dar -> do
