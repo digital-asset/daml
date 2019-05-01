@@ -201,7 +201,7 @@ data DiagnosticField
 checkDiagnostics :: (String -> IO ()) -> [[DiagnosticField]] -> [D.Diagnostic] -> IO (Maybe String)
 checkDiagnostics log expected got = do
     when (got /= []) $
-        log $ T.unpack $ Pretty.srenderPlain $ prettyDiagnostics got
+        log $ T.unpack $ showDiagnostics got
 
     -- you require the same number of diagnostics as expected
     -- and each diagnostic is at least partially expected

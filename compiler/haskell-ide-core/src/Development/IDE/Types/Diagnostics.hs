@@ -24,7 +24,8 @@ module Development.IDE.Types.Diagnostics (
   ideErrorPretty,
   errorDiag,
   ideTryIOException,
-  prettyDiagnostics,
+  showDiagnostics,
+  showDiagnosticsColored,
   prettyDiagnosticStore,
   defDiagnostic,
   addDiagnostics,
@@ -174,6 +175,13 @@ prettyPosition Position{..} = slabel_ "Position" $ vcat
 
 stringParagraphs :: T.Text -> Doc a
 stringParagraphs = vcat . map (fillSep . map pretty . T.words) . T.lines
+
+showDiagnostics :: [LSP.Diagnostic] -> T.Text
+showDiagnostics = srenderPlain . prettyDiagnostics
+
+showDiagnosticsColored :: [LSP.Diagnostic] -> T.Text
+showDiagnosticsColored = srenderColored . prettyDiagnostics
+
 
 prettyDiagnostics :: [LSP.Diagnostic] -> Doc SyntaxClass
 prettyDiagnostics = vcat . map prettyDiagnostic

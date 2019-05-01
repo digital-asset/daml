@@ -42,7 +42,6 @@ import qualified Data.Set as Set
 import qualified Data.List.Split as Split
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import qualified Data.Text.Prettyprint.Doc.Syntax as Pretty
 import Development.IDE.Types.Diagnostics
 import GHC.Conc
 import qualified Network.Socket                    as NS
@@ -282,8 +281,7 @@ execPackageNew numProcessors mbOutFile =
                             unlines
                                 [ "Creation of DAR file failed:"
                                 , T.unpack $
-                                  Pretty.srenderColored $
-                                  prettyDiagnostics errs
+                                  showDiagnosticsColored errs
                                 ]
                         Right dar -> do
                             let fp = targetFilePath pName
@@ -414,8 +412,7 @@ execPackage filePath opts mbOutFile dumpPom dalfInput = withProjectRoot $ \relat
           Left errs
            -> ioError $ userError $ unlines
                 [ "Creation of DAR file failed:"
-                , T.unpack $ Pretty.srenderColored
-                    $ prettyDiagnostics
+                , T.unpack $ showDiagnosticsColored
                     $ Set.toList $ Set.fromList errs ]
           Right dar -> do
             createDirectoryIfMissing True $ takeDirectory targetFilePath
