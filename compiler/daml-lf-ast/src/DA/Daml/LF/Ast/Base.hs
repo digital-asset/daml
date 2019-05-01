@@ -8,7 +8,9 @@
 {-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TypeFamilies #-}
 -- | Types and pretty-printer for the AST of the DAML Ledger Fragment.
-module DA.Daml.LF.Ast.Base where
+module DA.Daml.LF.Ast.Base(
+    module DA.Daml.LF.Ast.Base
+    ) where
 
 import DA.Prelude
 

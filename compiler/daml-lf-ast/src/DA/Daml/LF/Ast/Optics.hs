@@ -5,7 +5,16 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
-module DA.Daml.LF.Ast.Optics where
+module DA.Daml.LF.Ast.Optics(
+    moduleModuleRef,
+    unlocate,
+    moduleExpr,
+    dataConsType,
+    _PRSelfModule,
+    exprPartyLiteral,
+    exprValueRef,
+    templateExpr
+    ) where
 
 import DA.Prelude
 

@@ -5,7 +5,12 @@
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE PatternSynonyms #-}
-module DA.Daml.LF.Ast.Pretty where
+module DA.Daml.LF.Ast.Pretty(
+    prettyName,
+    prettyDottedName,
+    prettyQualified,
+    (<:>)
+    ) where
 
 import DA.Prelude
 

@@ -3,7 +3,7 @@
 
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
-module DA.Daml.LF.Ast.Version where
+module DA.Daml.LF.Ast.Version(module DA.Daml.LF.Ast.Version) where
 
 import           DA.Prelude
 import           DA.Pretty
