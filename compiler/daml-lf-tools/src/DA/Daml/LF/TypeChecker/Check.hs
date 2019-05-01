@@ -500,7 +500,7 @@ checkTemplateChoice :: MonadGamma m => Qualified TypeConName -> TemplateChoice -
 checkTemplateChoice tpl (TemplateChoice _loc _ _ actors selfBinder (param, paramType) retType upd) = do
   checkType paramType KStar
   checkType retType KStar
-  v <- view lfVersion
+  v <- getLfVersion
   let checkActors = checkExpr actors (TList TParty)
   if v `supports` featureFlexibleControllers
     then introExprVar param paramType checkActors
@@ -546,7 +546,7 @@ checkValidProjectionsKey = \case
 
 checkFeature :: MonadGamma m => Feature -> m ()
 checkFeature feature = do
-    version <- view lfVersion
+    version <- getLfVersion
     unless (version `supports` feature) $
         throwWithContext $ EUnsupportedFeature feature
 

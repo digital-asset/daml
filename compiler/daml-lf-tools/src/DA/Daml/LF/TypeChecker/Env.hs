@@ -4,9 +4,23 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
+
 -- | This module provides the data type for the environment of the DAML-LF type
 -- checker and functions to manipulate it.
-module DA.Daml.LF.TypeChecker.Env where
+module DA.Daml.LF.TypeChecker.Env(
+    MonadGamma,
+    throwWithContext,
+    inWorld,
+    match,
+    lookupTypeVar,
+    introTypeVar,
+    introExprVar,
+    lookupExprVar,
+    withContext,
+    getLfVersion,
+    getWorld,
+    runGamma
+    ) where
 
 import           Control.Lens hiding (Context)
 import           Control.Monad.Error.Class (MonadError (..))
@@ -32,11 +46,17 @@ data Gamma = Gamma
     -- ^ The DAML-LF version of the package being type checked.
   }
 
+makeLenses ''Gamma
+
+getLfVersion :: MonadGamma m => m Version
+getLfVersion = view lfVersion
+
+getWorld :: MonadGamma m => m World
+getWorld = view world
+
 -- | Type class constraint capturing the needed monadic effects for the
 -- functions manipulating the type checker environment.
 type MonadGamma m = (MonadError Error m, MonadReader Gamma m)
-
-makeLenses ''Gamma
 
 runGamma
   :: World
