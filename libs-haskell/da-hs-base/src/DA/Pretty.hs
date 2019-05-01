@@ -18,21 +18,10 @@ module DA.Pretty
     -- * Convenience re-export
     module Text.PrettyPrint.Annotated.Extended
 
-    -- ** Bytestring combinators
-  , byteStringBase64
-  , byteStringUtf8Decoded
-
     -- ** List combinators
-  , numbered
-  , numberedNOutOf
-  , bracketedList
-  , bracketedSemicolonList
-  , bracedList, vbracedList
-  , angledList, vangledList
-  , parallelBracedList
+  , angledList
   , fcommasep
 
-  , PrettyLevel(..)
   , Pretty(..)
   , prettyNormal
   , pretty
@@ -49,44 +38,21 @@ module DA.Pretty
 
   -- * Syntax-highlighted html support
   , renderHtmlDocumentText
-  , renderHtmlDocument
-
-  , renderHtmlDocumentWithStyleText
-  , renderHtmlDocumentWithStyle
-
   , renderHtml
-
   , highlightStylesheet
-  , highlightClass
 
   -- ** Annotation combinators
-  , comment_
-  , predicate_
   , operator_
   , error_
-  , warning_
   , type_
   , typeDoc_
   , keyword_
   , label_
-  , paren_
-
-    -- ** Comment combinators
-  , lineComment
-  , lineComment_
-  , multiComment
-
-    -- Utilities
-  , prettyText
-  , toPrettyprinter
   ) where
 
 
-import qualified Data.ByteString.Base64.URL  as Base64.Url
-import qualified Data.ByteString.Char8       as BC8
 import           Data.String
 import qualified Data.Text.Extended          as T
-import qualified Data.Text.Encoding          as TE
 
 import           DA.Prelude
 
@@ -105,13 +71,7 @@ import           System.Console.ANSI
                  )
 
 import Data.Text.Prettyprint.Doc.Syntax (SyntaxClass(..))
-import qualified Data.Text.Prettyprint.Doc.Syntax as Prettyprinter
 
--- | Adapter to ease migration to prettyprinter. This drops all annotations.
-toPrettyprinter :: Pretty a => a -> Prettyprinter.Doc ann
-toPrettyprinter a =
-    Prettyprinter.concatWith (\x y -> x <> Prettyprinter.hardline <> y) $
-    fmap Prettyprinter.pretty $ T.splitOn "\n" (renderPlain $ pretty a :: T.Text)
 
 ------------------------------------------------------------------------------
 -- Types and classes to organize pretty-pringing
@@ -203,18 +163,14 @@ renderColored doc =
     handleAnn ann = case ann of
       OperatorSC     -> CSNode (Dull,  Red)
       KeywordSC      -> CSNode (Dull,  Green)
-      ParensSC       -> CSNode (Dull,  Yellow)
-      CommentSC      -> CSNode (Dull,  White)
       PredicateSC    -> CSNode (Dull,  Magenta)
       ConstructorSC  -> CSNode (Vivid, Blue)
-      ProofStepSC    -> CSNode (Dull,  Blue)
       TypeSC         -> CSNode (Vivid, Green)
       ErrorSC        -> CSNode (Vivid, Red)
       WarningSC      -> CSNode (Vivid, Yellow)
       HintSC         -> CSNode (Vivid, Blue)
       InfoSC         -> CSNode (Vivid, Magenta)
       LinkSC _ _     -> CSNode (Vivid, Green)
-      NoAnnotationSC -> id
       IdSC _         -> id
       OnClickSC _    -> id
 
@@ -238,9 +194,6 @@ renderPlainOneLine = renderStyle (defaultStyle { mode = OneLineMode })
 -- How many chars should be at most in a rendered line?
 type LineWidth = Int
 
--- What style should be used for the body?
-type BodyStyle = T.Text
-
 -- Use the standard DA colors for highlighting
 cssStyle :: H.Html
 cssStyle = H.style $ H.text highlightStylesheet
@@ -256,17 +209,6 @@ renderHtmlDocument lineWidth doc =
     H.docTypeHtml $ H.head cssStyle <> (H.body H.! A.class_ (H.textValue highlightClass) $ renderHtml lineWidth doc)
 
 
--- Render a whole 'H.Html' document with DA colors for highlighting to 'T.Text'
-renderHtmlDocumentWithStyleText :: LineWidth -> BodyStyle -> Doc SyntaxClass -> T.Text
-renderHtmlDocumentWithStyleText lineWidth style =
-    T.pack . BlazeRenderer.renderHtml . renderHtmlDocumentWithStyle lineWidth style
-
-renderHtmlDocumentWithStyle :: LineWidth -> BodyStyle -> Doc SyntaxClass -> H.Html
-renderHtmlDocumentWithStyle lineWidth style doc =
-    H.docTypeHtml $ H.head cssStyle
-      <> (H.body H.! A.class_ (H.textValue highlightClass) H.! A.style (H.textValue style))
-         (renderHtml lineWidth doc)
-
 -- | Render one of our documents to 'H.Html'
 renderHtml
     :: LineWidth
@@ -281,14 +223,10 @@ renderHtml lineWidth =
 -- | Apply a syntax-class annotation.
 applySyntaxClass :: SyntaxClass -> H.Html -> H.Html
 applySyntaxClass = \case
-    NoAnnotationSC -> id
     OperatorSC     -> apply "operator"
     KeywordSC      -> apply "keyword"
-    ParensSC       -> apply "parens"
     PredicateSC    -> apply "predicate"
     ConstructorSC  -> apply "constructor"
-    ProofStepSC    -> apply "proof-step"
-    CommentSC      -> apply "comment"
     TypeSC         -> apply "type"
     WarningSC      -> apply "warning"
     ErrorSC        -> apply "error"
@@ -328,23 +266,8 @@ prettyCharToHtml = prettyStringToHtml . return
 -- Additional generic combinators
 ------------------------------------------------------------------------------
 
--- | The default 'B.ByteString' encoding, which is guaranteed to be parseable.
-byteStringBase64 :: BC8.ByteString -> Doc a
-byteStringBase64 bs = string $ "0b64." ++ (BC8.unpack $ Base64.Url.encode bs)
-
--- | A more reable 'B.ByteString' pretty-printing, which tries to perform
--- UTF-8 decoding and falls back to 'byteStringBase64' if that fails.
-byteStringUtf8Decoded :: BC8.ByteString -> Doc a
-byteStringUtf8Decoded bs =
-    case TE.decodeUtf8' bs of
-      Left _unicodeExc -> byteStringBase64 bs
-      Right t          -> fsep $ map text $ T.lines t
-
 annotateSC :: SyntaxClass -> Doc SyntaxClass -> Doc SyntaxClass
 annotateSC = annotate
-
-comment_ :: Doc SyntaxClass -> Doc SyntaxClass
-comment_ = annotateSC CommentSC
 
 type_ :: String -> Doc SyntaxClass
 type_ = typeDoc_ . string
@@ -355,38 +278,15 @@ typeDoc_ = annotateSC TypeSC
 operator_ :: String -> Doc SyntaxClass
 operator_ = annotateSC OperatorSC . string
 
-predicate_ :: String -> Doc SyntaxClass
-predicate_ = annotateSC PredicateSC . string
-
 keyword_ :: String -> Doc SyntaxClass
 keyword_ = annotateSC KeywordSC . string
-
-paren_ :: Doc SyntaxClass -> Doc SyntaxClass
-paren_ = annotateSC ParensSC
 
 error_ :: Doc SyntaxClass -> Doc SyntaxClass
 error_ = annotateSC ErrorSC
 
-warning_ :: Doc SyntaxClass -> Doc SyntaxClass
-warning_ = annotateSC WarningSC
-
--- | Pretty print a list of documents with prefixed bracs and commas.
-bracedList :: [Doc a] -> Doc a
-bracedList = prefixedList lbrace rbrace ","
-
 -- | Pretty print a list of documents with prefixed bracs and commas.
 angledList :: [Doc a] -> Doc a
 angledList = prefixedList "<" ">" ","
-
--- | Pretty print a list of documents with prefixed '{|' braces and commas.
-parallelBracedList :: [Doc a] -> Doc a
-parallelBracedList = prefixedList "{|" "|}" " |"
-
-bracketedList :: [Doc a] -> Doc a
-bracketedList = prefixedList lbrack rbrack ","
-
-bracketedSemicolonList :: [Doc a] -> Doc a
-bracketedSemicolonList = prefixedList lbrack rbrack ";"
 
 -- | Generic combinator for prefixing a list with delimiters and commas.
 prefixedList :: Doc a -> Doc a -> Doc a -> [Doc a] -> Doc a
@@ -394,68 +294,15 @@ prefixedList leftParen rightParen separator = \case
     []     -> leftParen <-> rightParen
     (d:ds) -> sep [cat (leftParen <-> d : map (separator <->) ds), rightParen]
 
--- | A 'braced-list whose elements are vertically concatenated with empty lines.
-vbracedList :: [Doc a] -> Doc a
-vbracedList []     = string "{ }"
-vbracedList (d:ds) = vsep (lbrace <-> d : map (comma <->) ds) $-$ rbrace
-
--- | An 'angled-list whose elements are vertically concatenated with empty lines.
-vangledList :: [Doc a] -> Doc a
-vangledList []     = string "< >"
-vangledList (d:ds) = vsep ("<" <-> d : map (comma <->) ds) $-$ ">"
-
 -- | Pretty print a list of values as a comma-separated list wrapped in
 -- paragraph mode.
 fcommasep :: [Doc a] -> Doc a
 fcommasep = fsep . punctuate comma
 
--- | Pretty-print a list of documents with prefixed numbers.
-numbered :: [Doc a] -> Doc a
-numbered docs =
-    vcat $ zipWith pp [(1::Int)..] docs
-  where
-    n            = length docs
-    nString      = show n
-    padding      = length nString
-    pad cs       = replicate (max 0 (padding - length cs)) ' ' <> cs
-    showNumber i = pad (show i) <> "."
-    indent       = length (showNumber n) + 1
-    pp i doc     = string (showNumber i) $$ nest indent doc
-
--- | Pretty-print a list of documents with prefixed numbers in the style of
--- @i/n@.
-numberedNOutOf :: [Doc a] -> Doc a
-numberedNOutOf docs =
-    vcat $ zipWith pp [(1::Int)..] docs
-  where
-    n            = length docs
-    nString      = show n
-    padding      = length nString
-    pad cs       = replicate (max 0 (padding - length cs)) ' ' <> cs
-    showNumber i = pad (show i) <> "/" <> nString
-    indent       = length (showNumber n) + 1
-    pp i doc     = string (showNumber i) $-$ nest indent doc
-
 -- | Label a document.
 label_ :: String -> Doc a -> Doc a
 label_ t d = sep [string t, nest 2 d]
 
-
-------------------------------------------------------------------------------
--- Comments
-------------------------------------------------------------------------------
-
-lineComment :: Doc SyntaxClass -> Doc SyntaxClass
-lineComment d = comment_ $ string "//" <-> d
-
-lineComment_ :: String -> Doc SyntaxClass
-lineComment_ = lineComment . string
-
-multiComment :: Doc SyntaxClass -> Doc SyntaxClass
-multiComment d = comment_ $ fsep [string "/*", d, string "*/"]
-
-prettyText :: Pretty a => a -> T.Text
-prettyText = T.pack . renderPlain . pretty
 
 ------------------------------------------------------------------------------
 --- Embedded stylesheets
@@ -483,4 +330,3 @@ highlightStylesheet = "\
 \.da-hl-proof-step { color: var(--vscode-terminal-ansiBlue); } \
 \.da-hl-link { color: var(--link-color); text-decoration: underline; cursor: pointer; } \
 \.da-hl-nobr { white-space: pre; }"
-

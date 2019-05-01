@@ -5,7 +5,6 @@ module Data.Text.Prettyprint.Doc.Syntax
     ( module Data.Text.Prettyprint.Doc
     , SyntaxClass(..)
     , label_
-    , comment_
     , reflow
     , renderPlain
     , renderColored
@@ -20,15 +19,11 @@ import qualified Data.Text as T
 
 -- | Classes of syntax elements, which are used for highlighting.
 data SyntaxClass
-    = NoAnnotationSC
-      -- ^ Annotation to use as a no-op for highlighting.
-    | OperatorSC
+    = -- ^ Annotation to use as a no-op for highlighting.
+      OperatorSC
     | KeywordSC
-    | ParensSC
     | PredicateSC
     | ConstructorSC
-    | CommentSC
-    | ProofStepSC
     | TypeSC
     | ErrorSC
     | WarningSC
@@ -44,9 +39,6 @@ data SyntaxClass
 -- | Label a document.
 label_ :: String -> Doc a -> Doc a
 label_ t d = nest 2 $ sep [pretty t, d]
-
-comment_ :: Doc SyntaxClass -> Doc SyntaxClass
-comment_ = annotate CommentSC
 
 -- | The layout options used for the SDK assistant.
 cliLayout ::
@@ -71,18 +63,14 @@ renderColored =
     toAnsiStyle ann = case ann of
         OperatorSC -> colorDull Red
         KeywordSC -> colorDull Green
-        ParensSC -> colorDull Yellow
-        CommentSC -> colorDull White
         PredicateSC -> colorDull Magenta
         ConstructorSC -> color Blue
-        ProofStepSC -> colorDull Blue
         TypeSC -> color Green
         ErrorSC -> color Red
         WarningSC -> color Yellow
         InfoSC -> color Blue
         HintSC -> color Magenta
         LinkSC _ _ -> color Green
-        NoAnnotationSC -> mempty
         IdSC _ -> mempty
         OnClickSC _ -> mempty
 
