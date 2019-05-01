@@ -246,11 +246,24 @@ markdownToRst = renderStrict . layoutPretty defaultLayoutOptions . render . comm
             Pretty.width (foldMap render ns) $ \n ->
             pretty (replicate n (headingSymbol i))
 
-        TEXT t -> pretty t
+        TEXT t -> prettyRst t
         CODE t -> Pretty.enclose "``" "``" (pretty t)
 
         SOFTBREAK -> Pretty.line
+
+        LINK url _text -> foldMap render ns <> Pretty.enclose "(" ")" (pretty url)
+          -- Proper links in RST mean to render the content within backticks
+          -- and trailing underscore, and then carry around the URL to generate
+          -- a ref under the paragraph.
+          -- Simple solution: slap the URL into the text to avoid introducing
+          -- that ref-collecting state.
+
+        HTML_INLINE txt -> pretty txt
+          -- Treat alleged HTML as text (no support for inline html) to avoid
+          -- introducing bad line breaks (which would lead to misaligned rst).
+
         _ -> pretty (nodeToCommonmark opts Nothing node)
+
     renderListItem :: ListType -> Int -> Node -> Doc ()
     renderListItem ty i (Node _ _ ns) =
       itemStart <+> Pretty.align (foldMap render ns)
@@ -258,3 +271,12 @@ markdownToRst = renderStrict . layoutPretty defaultLayoutOptions . render . comm
         itemStart = case ty of
           BULLET_LIST -> "*"
           ORDERED_LIST -> pretty (show i) <> "."
+
+    -- escape a trailing underscore (which means a link in Rst). Loses the
+    -- newline structure (unwords . ... . words), but which commonMarkToNode
+    -- destroyed earlier at the call site here.
+    prettyRst :: T.Text -> Doc ()
+    prettyRst = pretty . T.unwords . map escapeTrailing_ . T.words
+      where escapeTrailing_ w | T.null w        = w
+                              | T.last w == '_' = T.init w <> "\\_"
+                              | otherwise       = w
