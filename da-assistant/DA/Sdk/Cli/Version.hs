@@ -3,7 +3,7 @@
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
-module DA.Sdk.Cli.Version where
+module DA.Sdk.Cli.Version(module DA.Sdk.Cli.Version) where
 
 import Data.Text (Text)
 version :: Text

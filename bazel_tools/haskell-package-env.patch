@@ -1,0 +1,100 @@
+diff --git a/haskell/private/actions/compile.bzl b/haskell/private/actions/compile.bzl
+index 7fca51c..1e8b78e 100644
+--- a/haskell/private/actions/compile.bzl
++++ b/haskell/private/actions/compile.bzl
+@@ -1,6 +1,6 @@
+ """Actions for compiling Haskell source code"""
+ 
+-load(":private/packages.bzl", "expose_packages", "pkg_info_to_ghc_args")
++load(":private/packages.bzl", "expose_packages", "pkg_info_to_ghc_args", "pkg_info_to_ghc_env_args")
+ load("@bazel_skylib//lib:dicts.bzl", "dicts")
+ load("@bazel_skylib//lib:paths.bzl", "paths")
+ load(
+@@ -149,18 +149,28 @@ def _compilation_defaults(hs, cc, java, dep_info, plugin_dep_info, srcs, import_
+     if hs.toolchain.is_darwin:
+         ghc_args += ["-optl-Wl,-dead_strip_dylibs"]
+ 
+-    ghc_args.extend(
+-        pkg_info_to_ghc_args(
+-            expose_packages(
++    ghc_args.extend(["-hide-all-packages"])
++
++    package_env_file = hs.actions.declare_file("package_env_%s" % hs.name)
++    package_args = hs.actions.args()
++    package_env_args, other_args = pkg_info_to_ghc_env_args(
++        package_env_file,
++        expose_packages(
+                 dep_info,
+                 lib_info = None,
+                 use_direct = True,
+                 use_my_pkg_id = my_pkg_id,
+                 custom_package_caches = None,
+                 version = version,
+-            ),
+         ),
+     )
++    package_args.add_all(package_env_args)
++    package_args.set_param_file_format("multiline")
++    hs.actions.write(package_env_file, package_args)
++    ghc_args.extend(["-package-env", package_env_file])
++    ghc_args.extend(other_args)
++
++    # Plugin arguments cannot be redirected via package environment files afaict.
+     ghc_args.extend(
+         pkg_info_to_ghc_args(
+             expose_packages(
+@@ -337,6 +347,7 @@ def _compilation_defaults(hs, cc, java, dep_info, plugin_dep_info, srcs, import_
+             locale_archive_depset,
+             depset(transitive = plugin_tool_inputs),
+             depset([optp_args_file]),
++            depset([package_env_file]),
+         ]),
+         input_manifests = plugin_tool_input_manifests,
+         objects_dir = objects_dir,
+diff --git a/haskell/private/packages.bzl b/haskell/private/packages.bzl
+index 91236fc..6d7a073 100644
+--- a/haskell/private/packages.bzl
++++ b/haskell/private/packages.bzl
+@@ -41,6 +41,42 @@ def pkg_info_to_ghc_args(pkg_info, for_plugin = False):
+ 
+     return args
+ 
++def pkg_info_to_ghc_env_args(pkg_env_file, pkg_info):
++    """Map package info to GHC command-line arguments.
++
++    Args:
++      pkg_env_file: The package environment file (we need the path)
++      pkg_info: Package info collected by `ghc_info()`.
++
++    Returns:
++      A tuple of the arguments that should go in the GHC environment file and arguments
++      passed as CLI args.
++    """
++    package_env_args = ["clear-package-db", "global-package-db"]
++    other_args = []
++    if not pkg_info.has_version:
++        other_args.extend([
++            # Macro version are disabled for all packages by default
++            # and enabled for package with version
++            # see https://github.com/tweag/rules_haskell/issues/414
++            "-fno-version-macros",
++        ])
++
++    # GHC environment files only support -package-id
++    for package in pkg_info.packages:
++        other_args.extend(["-package", package])
++
++    for package_id in pkg_info.package_ids:
++        package_env_args.extend(["package-id {}".format(package_id)])
++
++    # GHC insists on interpreting the paths in package environment files relative
++    # to the package environment files, so we use this horrible hack.
++    package_db_loc_prefix = "/".join([".." for f in pkg_env_file.dirname.split("/")])
++    for package_db in pkg_info.package_dbs:
++        package_env_args.extend(["package-db {}/{}".format(package_db_loc_prefix, package_db)])
++
++    return package_env_args, other_args
++
+ def expose_packages(build_info, lib_info, use_direct, use_my_pkg_id, custom_package_caches, version):
+     """
+     Returns the information that is needed by GHC in order to enable haskell

@@ -42,13 +42,13 @@ execTest :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO (
 execTest inFiles color mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
     opts <- Compiler.mkOptions cliOptions
-    let eventLogger (EventFileDiagnostics diag) = printDiagnostics $ fdDiagnostics diag
+    let eventLogger (EventFileDiagnostics diag) = printDiagnostics $ snd diag
         eventLogger _ = return ()
     Managed.with (Compiler.newIdeState opts (Just eventLogger) loggerH) $ \h -> do
         let lfVersion = Compiler.optDamlLfVersion cliOptions
         testRun h inFiles lfVersion color mbJUnitOutput
         diags <- CompilerService.getDiagnostics h
-        when (any ((==) Error . dSeverity) diags) exitFailure
+        when (any ((Just DsError ==) . _severity) diags) exitFailure
 
 
 testRun :: IdeState -> [FilePath] -> LF.Version -> UseColor -> Maybe FilePath -> IO ()

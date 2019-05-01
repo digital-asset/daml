@@ -5,7 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module DA.LanguageServer.Protocol where
+module DA.LanguageServer.Protocol(module DA.LanguageServer.Protocol) where
 import qualified Data.Map.Strict  as MS
 import qualified Data.Aeson       as Aeson
 import qualified Data.Aeson.Types as Aeson

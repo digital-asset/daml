@@ -22,6 +22,7 @@ import           "ghc-lib-parser" UniqSupply
 import           "ghc-lib-parser" Unique
 
 import           Control.Lens.Plated (transformOn)
+import           Control.Lens (view)
 import           Control.Concurrent.Extra
 import           Control.DeepSeq
 import           Control.Exception.Extra
@@ -192,7 +193,7 @@ runJqQuery log qs = do
 data DiagnosticField
   = DFilePath !FilePath
   | DRange !Range
-  | DSeverity !Severity
+  | DSeverity !DiagnosticSeverity
   | DSource !String
   | DMessage !String
   deriving (Eq, Show)
@@ -212,12 +213,12 @@ checkDiagnostics log expected got = do
       | null bad -> Nothing
       | otherwise -> Just $ unlines ("Could not find matching diagnostics:" : map show bad)
     where checkField :: D.Diagnostic -> DiagnosticField -> Bool
-          checkField D.Diagnostic{..} f = case f of
-            DFilePath p -> p == dFilePath
-            DRange r -> r == dRange
-            DSeverity s -> s == dSeverity
-            DSource s -> T.pack s == dSource
-            DMessage m -> T.pack m `T.isInfixOf` T.unwords (T.words dMessage)
+          checkField d@D.Diagnostic{..} f = case f of
+            DFilePath p -> Just p == view dFilePath d
+            DRange r -> r == _range
+            DSeverity s -> Just s == _severity
+            DSource s -> Just (T.pack s) == _source
+            DMessage m -> T.pack m `T.isInfixOf` T.unwords (T.words _message)
 
 ------------------------------------------------------------
 -- CLI argument handling
@@ -240,7 +241,6 @@ withTestArguments f =
 
 ------------------------------------------------------------
 -- functionality
-
 data Ann
     = Ignore                             -- Don't run this test at all
     | IgnoreLfVersion String             -- Don't run this test when testing the given DAML-LF version
@@ -259,8 +259,8 @@ readFileAnns file = do
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
             ("IGNORE",_) -> Just Ignore
             ("IGNORE-LF", x) -> Just (IgnoreLfVersion (trim x))
-            ("ERROR",x) -> Just (DiagnosticFields (DSeverity Error : parseFields x))
-            ("WARN",x) -> Just (DiagnosticFields (DSeverity Warning : parseFields x))
+            ("ERROR",x) -> Just (DiagnosticFields (DSeverity DsError : parseFields x))
+            ("WARN",x) -> Just (DiagnosticFields (DSeverity DsWarning : parseFields x))
             ("QUERY-LF", x) -> Just $ QueryLF x
             ("TODO",x) -> Just $ Todo x
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x

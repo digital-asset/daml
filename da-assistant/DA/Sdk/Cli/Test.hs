@@ -5,7 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Hidden test commands
-module DA.Sdk.Cli.Test where
+module DA.Sdk.Cli.Test(module DA.Sdk.Cli.Test) where
 
 import           DA.Sdk.Prelude             hiding (group)
 import DA.Sdk.Cli.Command (TestAction(..))

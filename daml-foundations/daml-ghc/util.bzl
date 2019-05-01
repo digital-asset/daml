@@ -65,7 +65,6 @@ def daml_ghc_integration_test(name, main_function):
             "//compiler/daml-lf-ast",
             "//compiler/daml-lf-proto",
             "//daml-lf/archive:daml_lf_haskell_proto",
-            "//libs-haskell/da-hs-pretty",
             "//libs-haskell/da-hs-base",
             "//libs-haskell/prettyprinter-syntax",
             "//compiler/haskell-ide-core",

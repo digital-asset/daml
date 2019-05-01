@@ -215,9 +215,9 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
             expectNoErrors
             liftIO $ removeFile b
             expectOnlyDiagnostics
-                [(Error, (a,0,32), "Could not find module")
+                [(DsError, (a,0,32), "Could not find module")
                 -- the warning says around because of DEL-7199
-                ,(Warning, (a,0,25), "The import of ‘B’ is redundant")]
+                ,(DsWarning, (a,0,25), "The import of ‘B’ is redundant")]
 
     ,   testCaseFails mbScenarioService "Early errors kill later warnings DEL-7199" $ do
             a <- makeFile "A.daml" "daml 1.2 module A where; import B"

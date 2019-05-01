@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 
-module DA.LanguageServer.TH where
+module DA.LanguageServer.TH(deriveJSON) where
 
 import Data.Char
 import "template-haskell" Language.Haskell.TH (Name, Q, Dec)
@@ -20,4 +20,3 @@ deriveJSON name = Aeson.TH.deriveJSON options name
        case dropWhile isLower label of
          (x:xs) -> toLower x : xs
          _ -> []
-
