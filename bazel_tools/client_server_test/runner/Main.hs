@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE OverloadedStrings #-}
-module Main where
+module Main(main) where
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
