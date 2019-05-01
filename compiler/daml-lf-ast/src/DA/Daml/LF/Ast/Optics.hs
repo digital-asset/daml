@@ -75,10 +75,6 @@ moduleExpr f (Module name path flags dataTypes values templates) =
   <$> (NM.traverse . _dvalBody) f values
   <*> (NM.traverse . templateExpr) f templates
 
-packageExpr :: Traversal' Package Expr
-packageExpr f (Package version modules) =
-    Package version <$> (NM.traverse . moduleExpr) f modules
-
 dataConsType :: Traversal' DataCons Type
 dataConsType f = \case
   DataRecord  fs -> DataRecord  <$> (traverse . _2) f fs
