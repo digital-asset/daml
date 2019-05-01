@@ -26,6 +26,5 @@ da_haskell_library(
     deps = [
         "//libs-haskell/da-hs-base",
         "//libs-haskell/da-hs-json-rpc",
-        "//libs-haskell/da-hs-pretty",
     ],
 )
