@@ -32,6 +32,7 @@ import Data.Maybe
 import Data.List.Extra
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as T (toStrict)
+import qualified Network.Socket.Free as NF
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Types as HTTP
 import Network.Socket
@@ -196,6 +197,10 @@ runStart = withProjectRoot $ \_ -> do
     assistant <- getDamlAssistant
     callCommand (unwords $ assistant : ["build", "-o", darName])
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
+    sandboxP <- getFreePort
+    navigatorP <- getFreePort
+    let sandboxPort = SandboxPort sandboxP
+    let navigatorPort = NavigatorPort navigatorP
     withSandbox sandboxPort (darName : scenarioArgs) $ \sandboxPh -> do
         parties <- getProjectParties
         withTempDir $ \confDir -> do
@@ -204,8 +209,13 @@ runStart = withProjectRoot $ \_ -> do
             writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig parties)
             withNavigator sandboxPort navigatorPort navigatorConfPath [] $ \navigatorPh ->
                 void $ race (waitForProcess navigatorPh) (waitForProcess sandboxPh)
-    where sandboxPort = SandboxPort 6865
-          navigatorPort = NavigatorPort 7500
+
+-- there is a same function in port-util lib but does not expose it.
+getFreePort :: IO Int
+getFreePort = do
+    (port, socket) <- NF.openFreePort
+    close socket
+    pure port
 
 
 getProjectConfig :: IO ProjectConfig

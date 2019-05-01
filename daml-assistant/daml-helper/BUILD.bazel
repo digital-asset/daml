@@ -24,6 +24,7 @@ da_haskell_library(
         "optparse-applicative",
         "process",
         "safe-exceptions",
+        "port-utils",
         "text",
     ],
     visibility = ["//visibility:public"],
