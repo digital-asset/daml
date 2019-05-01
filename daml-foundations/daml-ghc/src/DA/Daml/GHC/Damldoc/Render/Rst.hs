@@ -150,7 +150,7 @@ fieldTable fds = T.unlines $ -- NB final empty line is essential and intended
                 , "  - Type"
                 , "  - Description" ]
     fieldRows = concat
-       [ [ prefix "* - "   fd_name
+       [ [ prefix "* - " $ escapeTr_ fd_name
          , prefix "  - " $ type2rst fd_type
          , prefix "  - " $ maybe " " (markdownToRst . T.unwords . T.lines) fd_descr ]
        | FieldDoc{..} <- fds ]
@@ -258,7 +258,7 @@ markdownToRst = renderStrict . layoutPretty defaultLayoutOptions . render . comm
           -- Simple solution: slap the URL into the text to avoid introducing
           -- that ref-collecting state.
 
-        HTML_INLINE txt -> pretty txt
+        HTML_INLINE txt -> prettyRst txt
           -- Treat alleged HTML as text (no support for inline html) to avoid
           -- introducing bad line breaks (which would lead to misaligned rst).
 
@@ -272,11 +272,15 @@ markdownToRst = renderStrict . layoutPretty defaultLayoutOptions . render . comm
           BULLET_LIST -> "*"
           ORDERED_LIST -> pretty (show i) <> "."
 
-    -- escape a trailing underscore (which means a link in Rst). Loses the
-    -- newline structure (unwords . ... . words), but which commonMarkToNode
-    -- destroyed earlier at the call site here.
+    -- escape trailing underscores (which means a link in Rst) from words.
+    -- Loses the newline structure (unwords . ... . words), but which
+    -- commonMarkToNode destroyed earlier at the call site here.
     prettyRst :: T.Text -> Doc ()
-    prettyRst = pretty . T.unwords . map escapeTrailing_ . T.words
-      where escapeTrailing_ w | T.null w        = w
-                              | T.last w == '_' = T.init w <> "\\_"
-                              | otherwise       = w
+    prettyRst txt = pretty $ leadingWhite <> T.unwords (map escapeTr_ (T.words txt)) <> trailingWhite
+      where trailingWhite = T.takeWhileEnd isSpace txt
+            leadingWhite  = T.takeWhile isSpace txt
+
+escapeTr_ :: T.Text -> T.Text
+escapeTr_ w | T.null w        = w
+            | T.last w == '_' = T.init w <> "\\_"
+            | otherwise       = w
