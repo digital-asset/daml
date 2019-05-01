@@ -7,7 +7,6 @@ module DA.Daml.LF.Ast
   ) where
 
 import DA.Daml.LF.Ast.Base   as LF
-import DA.Daml.LF.Ast.Make   as LF
 import DA.Daml.LF.Ast.Util   as LF
 import DA.Daml.LF.Ast.Version as LF
 import DA.Daml.LF.Ast.World  as LF
