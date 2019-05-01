@@ -15,8 +15,6 @@ module DA.Test.GHC
 import DA.Daml.GHC.Compiler.Options
 import           DA.Daml.GHC.Compiler.UtilLF
 
-import qualified Data.Text.Prettyprint.Doc.Syntax as Pretty
-
 import           DA.Daml.LF.Ast as LF hiding (IsTest)
 import           "ghc-lib-parser" UniqSupply
 import           "ghc-lib-parser" Unique
