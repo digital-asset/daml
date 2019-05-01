@@ -72,7 +72,7 @@ identity LedgerHandle{id} = id
 newtype Party = Party { party :: Text }
 
 instance Show Party where
-    show Party{party} = Text.unpack party
+    show = Text.unpack . party
     
 
 newtype ResponseStream a = ResponseStream { chan :: Chan a }
@@ -84,7 +84,7 @@ nextResponse ResponseStream{chan} = readChan chan
 connect :: Port -> IO LedgerHandle
 connect port = do
     id <- getLedgerIdentity port
-    return$ LedgerHandle {port, id}
+    return $ LedgerHandle {port, id}
 
 getLedgerIdentity :: Port -> IO LedgerId
 getLedgerIdentity port = do
@@ -97,7 +97,7 @@ callLedgerIdService :: LIS.LedgerIdentityService ClientRequest ClientResult -> I
 callLedgerIdService (LIS.LedgerIdentityService rpc) = do
     response <- rpc (wrap (LIS.GetLedgerIdentityRequest noTrace))
     LIS.GetLedgerIdentityResponse text <- unwrap response
-    return$ LedgerId text
+    return $ LedgerId text
 
 wrap :: r -> ClientRequest 'Normal r a
 wrap r = ClientNormalRequest r timeout mdm
@@ -120,7 +120,7 @@ getTransactionStream h party = do
             rpcs <- TS.transactionServiceClient client
             let (TS.TransactionService rpc1 _ _ _ _) = rpcs
             sendToChan request fromServiceResponse chan  rpc1
-    return$ ResponseStream{chan}
+    return $ ResponseStream{chan}
 
 sendToChan :: a -> (b -> [c]) -> Chan c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
 sendToChan request f chan rpc1 = do
@@ -182,11 +182,11 @@ noTrace = Nothing
 
 forkIO_ :: String -> IO () -> IO ()
 forkIO_ tag m = do
-    tid <- forkIO$ do m; log$ tag <> " is done"
-    log$ "forking " <> tag <> " on " <> show tid
+    tid <- forkIO $ do m; log $ tag <> " is done"
+    log $ "forking " <> tag <> " on " <> show tid
     return ()
     
 log :: String -> IO ()
 log s = do
     tid <- myThreadId
-    putStrLn$ "[" <> show tid <> "]: " ++ s
+    putStrLn $ "[" <> show tid <> "]: " ++ s

@@ -12,7 +12,6 @@ da_haskell_library(
         "vector",
         "containers",
         "proto3-suite",
-        #"proto3-wire",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -25,7 +24,7 @@ da_haskell_binary(
     name = "examples-view",
     srcs = ["examples/View.hs"],
     compiler_flags = [],
-    hazel_deps = ["base"],
+    hazel_deps = ["base","extra"],
     visibility = ["//visibility:public"],
     deps = [
         "//language-support/hs/bindings:hs-ledger",
