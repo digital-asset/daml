@@ -47,7 +47,7 @@ template Iou
                   && issuer == otherIou.issuer )
           -- Retire the old IOU by transferring to the
           -- issuer and archiving
-          transferCid <- exercise otherCid Transfer with newOwner = issuer
+          transferCid <- exercise otherCid Transfer with owner_ = issuer
           exercise transferCid Archive
           -- Return the merged IOU
           create this with amount = amount + otherIou.amount
@@ -83,7 +83,7 @@ main = scenario do
   (split, rest) <- submit alice do
     exercise iouAliceCid Split with splitAmount = 40.0
   iouOtherCid <- submit alice do
-    exercise split Transfer with newOwner = bob
+    exercise split Transfer with owner_ = bob
 
   -- Bob merges them with the ones he had already.
   iouTotalCid <- submit bob do
