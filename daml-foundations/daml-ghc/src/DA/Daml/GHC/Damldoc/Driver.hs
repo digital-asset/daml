@@ -16,7 +16,6 @@ import           DA.Daml.GHC.Damldoc.Transform
 import qualified DA.Service.Daml.Compiler.Impl.Handle as DGHC
 import DA.Daml.GHC.Compiler.Options
 
-import qualified Data.Text.Prettyprint.Doc.Syntax as Pretty
 import Development.IDE.Types.Diagnostics
 
 import           Control.Monad.Extra
@@ -49,7 +48,7 @@ damlDocDriver cInputFormat output cFormat prefixFile options files = do
 
     let onErrorExit act =
             act >>= either (printAndExit . renderDiags) pure
-        renderDiags = T.unpack . Pretty.renderColored . Pretty.vcat . map prettyDiagnostic
+        renderDiags = T.unpack . showDiagnosticsColored
 
     docData <- case cInputFormat of
             InputJson -> do
