@@ -24,7 +24,10 @@ da_haskell_binary(
     name = "examples-view",
     srcs = ["examples/View.hs"],
     compiler_flags = [],
-    hazel_deps = ["base","extra"],
+    hazel_deps = [
+        "base",
+        "extra",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//language-support/hs/bindings:hs-ledger",
