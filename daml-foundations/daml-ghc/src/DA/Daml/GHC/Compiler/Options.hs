@@ -101,9 +101,9 @@ basePackages = ["daml-prim", "daml-stdlib"]
 -- and add the default package db if it exists
 mkOptions :: Options -> IO Options
 mkOptions opts@Options {..} = do
-    baseDir <- getBaseDir
     mapM_ checkDirExists $ optImportPath <> optPackageDbs
-    let defaultPkgDb = baseDir </> "package-database"
+    defaultPkgDbDir <- locateRunfiles (mainWorkspace </> "daml-foundations" </> "daml-ghc" </> "package-database")
+    let defaultPkgDb = defaultPkgDbDir </> "package-db_dir"
     pkgDbs <- filterM Dir.doesDirectoryExist [defaultPkgDb, projectPackageDatabase]
     pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =

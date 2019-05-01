@@ -56,7 +56,6 @@ package_app(
     resources = [
         ":ghc-pkg-dist",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-foundations/daml-ghc/package-database:gen-daml-prim.dar",
         "//daml-foundations/daml-ghc/package-database:package-db",
     ],
     tags = ["no-cache"],
