@@ -243,6 +243,7 @@ haskell_register_ghc_nixpkgs(
     repl_ghci_args = [
         "-O0",
         "-fexternal-interpreter",
+        "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
     version = "8.6.5",
