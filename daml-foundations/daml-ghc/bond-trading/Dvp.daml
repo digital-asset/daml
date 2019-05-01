@@ -5,12 +5,12 @@ daml 1.2
 module Dvp where
 
 import Bond hiding (Withdraw, Reject, Accept)
-import qualified Bond
+import Bond qualified
 import Cash hiding (Withdraw, Reject, Accept)
-import qualified Cash
+import Cash qualified
 import DvpTerms
 import DvpNotification hiding (Accept)
-import qualified DvpNotification
+import DvpNotification qualified
 
 import DA.Date
 
