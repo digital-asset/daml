@@ -335,7 +335,7 @@ archiveChoice signatories = TemplateChoice{..}
         chcReturnType = TUnit
         chcConsuming = True
         chcControllers = signatories
-        chcUpdate = EUpdate $ UPure TUnit mkEUnit
+        chcUpdate = EUpdate $ UPure TUnit EUnit
         chcSelfBinder = mkVar "self"
         chcArgBinder = (mkVar "arg", TUnit)
 
@@ -382,7 +382,7 @@ convertChoice env signatories
             --     expr this self arg >>= \res ->
             --     archive signatories self >>= \_ ->
             --     return res
-            let archive = EUpdate $ UExercise tmplTyCon' (mkChoiceName "Archive") selfVar signatories mkEUnit
+            let archive = EUpdate $ UExercise tmplTyCon' (mkChoiceName "Archive") selfVar signatories EUnit
             in EUpdate $ UBind (Binding (mkVar "res", chcReturnType) expr) $
                EUpdate $ UBind (Binding (mkVar "_", TUnit) archive) $
                EUpdate $ UPure chcReturnType (EVar $ mkVar "res")
@@ -473,7 +473,7 @@ convertCtors env (Ctors name tys cs) = do
       convertCtor :: Ctor -> ConvertM ((VariantConName, LF.Type), [Definition])
       convertCtor o@(Ctor ctor fldNames fldTys) =
         case (fldNames, fldTys) of
-          ([], []) -> pure ((ctorName, TUnit), [ctorFun [] mkEUnit])
+          ([], []) -> pure ((ctorName, TUnit), [ctorFun [] EUnit])
           ([], [typ]) -> pure ((ctorName, typ), [ctorFun [mkField "arg"] (EVar (mkVar "arg"))])
           ([], _:_:_) -> unsupported "Data constructor with multiple unnamed fields" (show name)
           (_:_, _) ->
@@ -593,7 +593,7 @@ convertExpr env0 e = do
         tmpl' <- convertQualified env tmpl
         pure $
             ETmLam (varV1, TList TParty) $ ETmLam (varV2, TContractId t') $
-            EUpdate $ UExercise tmpl' (mkChoiceName "Archive") (EVar varV2) (EVar varV1) mkEUnit
+            EUpdate $ UExercise tmpl' (mkChoiceName "Archive") (EVar varV2) (EVar varV1) EUnit
     go env (VarIs f) (LType t@(TypeCon tmpl []) : LType key : _dict : args)
         | f == "$dminternalFetchByKey" = conv UFetchByKey
         | f == "$dminternalLookupByKey" = conv ULookupByKey
@@ -684,7 +684,7 @@ convertExpr env0 e = do
         Ctors _ _ cs@(c1:_) <- toCtors env t
         tt' <- convertType env tt
         x' <- convertExpr env x
-        let mkCtor (Ctor c _ _) = EVariantCon (fromTCon tt') (mkVariantCon (getOccString c)) mkEUnit
+        let mkCtor (Ctor c _ _) = EVariantCon (fromTCon tt') (mkVariantCon (getOccString c)) EUnit
             mkEqInt i = EBuiltin (BEEqual BTInt64) `ETmApp` x' `ETmApp` EBuiltin (BEInt64 i)
         pure (foldr ($) (mkCtor c1) [mkIf (mkEqInt i) (mkCtor c) | (i,c) <- zipFrom 0 cs])
 
@@ -779,7 +779,7 @@ convertExpr env0 e = do
         | Just internals <- MS.lookup modName internalFunctions
         , is x `elem` internals
         = unsupported "Direct call to internal function" x
-        | is x == "()" = fmap (, args) $ pure mkEUnit
+        | is x == "()" = fmap (, args) $ pure EUnit
         | is x == "True" = fmap (, args) $ pure $ mkBool True
         | is x == "False" = fmap (, args) $ pure $ mkBool False
         | is x == "I#" = fmap (, args) $ pure $ mkIdentity TInt64 -- we pretend Int and Int# are the same thing
