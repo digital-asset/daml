@@ -11,7 +11,7 @@ import           System.Environment
 
 main :: IO ()
 main = do
-    port <- fmap (Port . read . head) $ getArgs
+    port <- fmap (Port . read . head) getArgs
     putStrLn$ "Connecting to ledger on port: " ++ show port
     h <- Ledger.connect port
     let id = Ledger.identity h

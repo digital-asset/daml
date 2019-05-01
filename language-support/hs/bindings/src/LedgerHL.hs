@@ -50,11 +50,15 @@ import Com.Digitalasset.Ledger.Api.V1.LedgerIdentityService as LIS
 import Com.Digitalasset.Ledger.Api.V1.TransactionService as TS
 
 import Com.Digitalasset.Ledger.Api.V1.TransactionService(GetTransactionsRequest(..))
-import Com.Digitalasset.Ledger.Api.V1.TransactionFilter(TransactionFilter(..))
-import Com.Digitalasset.Ledger.Api.V1.TransactionFilter(Filters(..))
-import Com.Digitalasset.Ledger.Api.V1.LedgerOffset(LedgerOffset(..))
-import Com.Digitalasset.Ledger.Api.V1.LedgerOffset(LedgerOffsetValue(..))
-import Com.Digitalasset.Ledger.Api.V1.LedgerOffset(LedgerOffset_LedgerBoundary(..))
+import Com.Digitalasset.Ledger.Api.V1.TransactionFilter(
+    TransactionFilter(..),
+    Filters(..))
+
+import Com.Digitalasset.Ledger.Api.V1.LedgerOffset(
+    LedgerOffset(..),
+    LedgerOffsetValue(..),
+    LedgerOffset_LedgerBoundary(..))
+
 import Com.Digitalasset.Ledger.Api.V1.TraceContext(TraceContext)
 import qualified Proto3.Suite.Types as PST
 
@@ -84,7 +88,7 @@ connect port = do
 
 getLedgerIdentity :: Port -> IO LedgerId
 getLedgerIdentity port = do
-    log$ "ledgerIdentity"
+    log "ledgerIdentity"
     withGRPCClient (config port) $ \client -> do
         rpcs <- LIS.ledgerIdentityServiceClient client
         callLedgerIdService rpcs
@@ -127,7 +131,7 @@ sendToChan request f chan rpc1 = do
             case either of
                 Left e -> fail (show e)
                 Right Nothing -> return ()
-                Right (Just x) -> do mapM_ (writeChan chan) (f x); again
+                Right (Just x) -> do writeList2Chan chan (f x); again
     return ()
         -- After a minute, we stop collecting the events.
         -- But we ought to wait indefinitely.
