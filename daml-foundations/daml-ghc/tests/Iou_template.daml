@@ -29,9 +29,9 @@ template Iou
           return (splitCid, restCid)
 
       Transfer : ContractId Iou -- ^ changes the owner
-        with newOwner : Party
+        with owner_ : Party
         do
-          create this with owner = newOwner
+          create this with owner = owner_
 
       Merge : ContractId Iou
         -- ^ merges two "compatible" `Iou`s
@@ -47,11 +47,16 @@ template Iou
                   && issuer == otherIou.issuer )
           -- Retire the old IOU by transferring to the
           -- issuer and archiving
-          transferCid <- exercise otherCid Transfer with newOwner = issuer
+          transferCid <- exercise otherCid Transfer with owner_ = issuer
           exercise transferCid Archive
           -- Return the merged IOU
           create this with amount = amount + otherIou.amount
 
+{- |
+A single test scenario covering all functionality that `Iou` implements.
+This description contains [a link](http://example.com), some bogus <inline html>,
+and words_ with_ underscore, to test damldoc capabilities.
+-}
 main = scenario do
   bank <- getParty "Acme Bank"
   alice <- getParty "Alice"
@@ -78,7 +83,7 @@ main = scenario do
   (split, rest) <- submit alice do
     exercise iouAliceCid Split with splitAmount = 40.0
   iouOtherCid <- submit alice do
-    exercise split Transfer with newOwner = bob
+    exercise split Transfer with owner_ = bob
 
   -- Bob merges them with the ones he had already.
   iouTotalCid <- submit bob do
