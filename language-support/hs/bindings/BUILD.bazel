@@ -9,7 +9,10 @@ da_haskell_library(
     hazel_deps = [
         "base",
         "text",
+        "vector",
         "containers",
+        "proto3-suite",
+        #"proto3-wire",
     ],
     visibility = ["//visibility:public"],
     deps = [
