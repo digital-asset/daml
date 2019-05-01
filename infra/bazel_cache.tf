@@ -19,6 +19,7 @@ module "bazel_cache" {
   cache_retention_days = 60
 }
 
+// allow rw access for CI writer (see writer.tf)
 resource "google_storage_bucket_iam_member" "bazel_cache_writer" {
   bucket = "${module.bazel_cache.bucket_name}"
 
