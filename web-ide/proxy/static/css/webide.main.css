@@ -30,7 +30,7 @@ div.window-appicon {
   display: none !important;
 }
 
-/*remove Extensions from preference menu*/
+/*remove from preference menu*/
 .part.titlebar .menubar div.menubar-menu-button[aria-label="File"] .action-item .menubar-menu-items-holder .actions-container[aria-label="File"] li.action-item:nth-child(2),  /*Extensions*/
 .part.titlebar .menubar div.menubar-menu-button[aria-label="File"] .action-item .menubar-menu-items-holder .actions-container[aria-label="File"] li.action-item:nth-child(3),  /*empty*/
 .part.titlebar .menubar div.menubar-menu-button[aria-label="File"] .action-item .menubar-menu-items-holder .actions-container[aria-label="File"] li.action-item:nth-child(4),  /*keyboard shortcuts (too many references to advanced features*/
@@ -41,8 +41,23 @@ div.window-appicon {
   display: none !important;
 }  
 
+/*remove from global actions menu*/
+.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(4), /*Extensions*/
+.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(5), /*Keyboard shortcuts*/
+.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(6), /*empty*/
+.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(7), /*User Snippets*/
+.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(8) { /*empty*/
+  display: none !important;
+}
+
+/* watermark text when no page is displayed in editor...removing references to extension and key mapping*/
 .part.editor.has-watermark .watermark-box dl:nth-child(n+4) {
   display:none !important;  
+}
+
+/*remove link to guidelines (having the link work requires changes in the actual DAML plugin*/
+.editor-actions ul.actions-container .action-label[title*="DAML User"] {
+  display:none !important;
 }
 /**************************************************************************************************/
 
