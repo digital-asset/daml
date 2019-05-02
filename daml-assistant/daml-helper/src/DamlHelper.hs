@@ -90,7 +90,6 @@ runDamlStudio replaceExt remainingArguments = do
     projectPathM <- getProjectPath
     let codeCommand
             | isMac = "open -a \"Visual Studio Code\""
-            | isWindows = "cmd /C code"
             | otherwise = "code"
         path = fromMaybe "." projectPathM
         command = unwords $ codeCommand : path : remainingArguments
