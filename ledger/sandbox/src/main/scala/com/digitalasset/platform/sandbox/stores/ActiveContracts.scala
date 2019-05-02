@@ -160,7 +160,10 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                   contract = nc.coinst.mapValue(
                     _.mapContractId(SandboxEventIdFormatter.makeAbsCoid(transactionId))),
                   witnesses = explicitDisclosure(nodeId),
-                  divulgences = localImplicitDisclosure(nodeId),
+                  // we need to `getOrElse` here because the `Nid` might include absolute
+                  // contract ids, and those are never present in the local disclosure.
+                  divulgences = localImplicitDisclosure
+                    .getOrElse(nodeId, Set.empty) diff nc.stakeholders,
                   key = nc.key
                 )
                 activeContract.key match {
