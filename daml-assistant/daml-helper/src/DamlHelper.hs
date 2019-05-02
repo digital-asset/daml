@@ -241,6 +241,8 @@ installExtension src target =
      where
          install
              | isWindows = do
+                   -- Create .vscode/extensions if it does not already exist.
+                   createDirectoryIfMissing True (takeDirectory target)
                    -- We create the directory to throw an isAlreadyExistsError.
                    createDirectory target
                    copyDirectory src target
