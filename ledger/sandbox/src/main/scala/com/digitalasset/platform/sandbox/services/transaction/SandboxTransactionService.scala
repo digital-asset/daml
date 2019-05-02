@@ -190,6 +190,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
                 .takeWhile(
                   {
                     case item =>
+                      //note that we can have gaps in the increasing offsets
                       subscribeUntil.fold(true)(until => until.toLong > (item.offset.toLong + 1))
                   },
                   inclusive = true
