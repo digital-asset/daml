@@ -62,15 +62,16 @@ object TransactionPipeline {
   implicit class EventOps(events: Source[LedgerSyncEvent, NotUsed]) {
 
     /** Consumes the events until the ceiling offset, handling possible gaps as well. */
-    def untilRequired(ceilingOffset: Long): Source[LedgerSyncEvent, NotUsed] =
+    def untilRequired(ceilingOffset: Long): Source[LedgerSyncEvent, NotUsed] = {
       events.takeWhile(
         {
           case item =>
             //note that we can have gaps in the increasing offsets!
-            ceilingOffset >= (item.offset.toLong + 1) //api offsets are +1 compared to backend offsets
+            (item.offset.toLong + 1) < ceilingOffset //api offsets are +1 compared to backend offsets
         },
-        inclusive = false
+        inclusive = true // we need this to be inclusive otherwise the stream will be hanging until a new element from upstream arrives
       )
+    }.filter(_.offset.toLong < ceilingOffset) //we need this due to the inclusive nature of the logic above, as in case of gaps a bigger offset might get into the result
   }
 
 }
