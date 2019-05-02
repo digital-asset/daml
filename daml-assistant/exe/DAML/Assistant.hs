@@ -21,7 +21,6 @@ import System.Exit
 import System.IO
 import Control.Exception.Safe
 import Data.Maybe
-import Data.List.Extra
 import Control.Monad.Extra
 
 -- | Run the assistant and exit.
