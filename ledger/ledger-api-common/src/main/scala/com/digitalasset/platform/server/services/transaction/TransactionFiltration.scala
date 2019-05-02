@@ -67,7 +67,11 @@ object TransactionFiltration {
         }
       )
 
-      if (filteredPartiesByNode.exists(_._2.nonEmpty)) {
+      // We currently allow composite commands without any actual commands and
+      // emit empty flat transactions. To be consistent with that behavior,
+      // we check for filteredPartiesByNode.isEmpty so that we also emit empty
+      // transaction trees.
+      if (filteredPartiesByNode.exists(_._2.nonEmpty) || filteredPartiesByNode.isEmpty) {
         val nodeIdToParty: Map[String, immutable.Set[Party]] = filteredPartiesByNode.map {
           case (k, v) => (nidToString(k), v)
         }(breakOut)

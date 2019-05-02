@@ -29,6 +29,10 @@ public interface TransactionsClient {
 
     Single<TransactionTree> getTransactionById(String transactionId, Set<String> requestingParties);
 
+    Single<Transaction> getFlatTransactionByEventId(String eventId, Set<String> requestingParties);
+
+    Single<Transaction> getFlatTransactionById(String transactionId, Set<String> requestingParties);
+
     Single<LedgerOffset> getLedgerEnd();
 
 }

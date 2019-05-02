@@ -51,7 +51,7 @@ class LedgerViewFlowableSpec extends FlatSpec with Matchers {
     )
 
     ledgerViewFlowable
-      .timeout(10, TimeUnit.MILLISECONDS)
+      .timeout(1, TimeUnit.SECONDS)
       .blockingFirst() shouldBe initialLedgerView
   }
 

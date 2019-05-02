@@ -383,7 +383,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       client.connect()
 
       /* The bot is wired here and inside wire is where the race condition can happen. We catch the possible
-       * error to pretty-print it. This try-catch depends on the implementation of `TRansactionServiceImpl.getTransaction()`
+       * error to pretty-print it. This try-catch depends on the implementation of `TransactionServiceImpl.getTransactionTree()`
        */
       try {
         Bot.wireSimple(
