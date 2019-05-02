@@ -79,6 +79,11 @@ mark lines within inference rules with annotations of the form
 ``[DAML-LF < x.y]`` and ``[DAML-LF ≥ x.y]`` to make the respective
 line conditional upon the DAML-LF version.
 
+The version 1.dev is a special staging area for the next 1.x version to
+be released. Compliant implementations are not required to implement any
+features exclusive to version 1.dev, but should take them under
+advisement as likely elements of the next 1.x version.
+
 Below, we list the versions of DAML-LF 1.x that a DAML-LF
 engine compliant with the present specification must handle [except for
 1.dev], in ascending order.  The list comes with a brief description of
@@ -176,11 +181,11 @@ Version: 1.dev
 
   * Introduction date:
 
-      2019-03-25
+      2019-05-02
 
   * Last amendment date:
 
-      2019-03-25
+      2019-05-02
 
   * Description:
 
