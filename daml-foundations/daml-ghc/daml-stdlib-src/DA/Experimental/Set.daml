@@ -11,6 +11,8 @@ module DA.Experimental.Set
   , size
   , toList
   , fromList
+  , toTextMap
+  , fromTextMap
   , member
   , null
   , insert
@@ -46,6 +48,14 @@ toList (Set t) = map (keyFromText . fst) $ TextMap.toList t
 -- | Create a set from a list of elements.
 fromList : MapKey a => [a] -> Set a
 fromList xs = Set $ TextMap.fromList $ map (\x -> (keyToText x, ())) xs
+
+-- | Convert a `Set` into a `TextMap`.
+toTextMap : Set Text -> TextMap ()
+toTextMap (Set t) = t
+
+-- | Create a `Set` from a `TextMap`.
+fromTextMap : TextMap () -> Set Text
+fromTextMap = Set
 
 -- | Is the element in the set?
 member : MapKey a => a -> Set a -> Bool
