@@ -4,13 +4,15 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.domain.LedgerOffset
-import com.digitalasset.ledger.backend.api.v1.LedgerBackend
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction
+import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, LedgerSyncEvent}
 import com.digitalasset.platform.server.services.transaction.{OffsetHelper, OffsetSection}
 
 import scala.util.{Failure, Success, Try}
 
 protected class TransactionPipeline(ledgerBackend: LedgerBackend) {
+
+  import TransactionPipeline._
 
   def run(
       requestingParties: List[Party],
@@ -19,7 +21,6 @@ protected class TransactionPipeline(ledgerBackend: LedgerBackend) {
     Source
       .fromFuture(ledgerBackend.getCurrentLedgerEnd)
       .flatMapConcat { ledgerEnd =>
-        //TODO: refactor the OffsetSection logic here..
         OffsetSection(begin, end)(getOffsetHelper(ledgerEnd)) match {
           case Failure(exception) => Source.failed(exception)
           case Success(value) =>
@@ -28,14 +29,7 @@ protected class TransactionPipeline(ledgerBackend: LedgerBackend) {
               case OffsetSection.NonEmpty(subscribeFrom, subscribeUntil) =>
                 ledgerBackend
                   .ledgerSyncEvents(Some(subscribeFrom))
-                  .takeWhile(
-                    {
-                      case item =>
-                        //note that we can have gaps in the increasing offsets
-                        subscribeUntil.fold(true)(until => until.toLong > (item.offset.toLong + 1))
-                    },
-                    inclusive = true
-                  )
+                  .untilRequired(subscribeUntil)
                   .collect {
                     // the offset we get from LedgerBackend is the actual offset of the entry. We need to return the next one
                     // however on the API so clients can resubscribe with the received offset without getting duplicates
@@ -63,4 +57,19 @@ protected class TransactionPipeline(ledgerBackend: LedgerBackend) {
 object TransactionPipeline {
   def apply(ledgerBackend: LedgerBackend): TransactionPipeline =
     new TransactionPipeline(ledgerBackend)
+
+  implicit class EventOps(events: Source[LedgerSyncEvent, NotUsed]) {
+
+    /** Consumes the events until the optional ceiling offset */
+    def untilRequired(ceilingOffset: Option[String]): Source[LedgerSyncEvent, NotUsed] =
+      events.takeWhile(
+        {
+          case item =>
+            //note that we can have gaps in the increasing offsets!
+            ceilingOffset.fold(true)(until => until.toLong > (item.offset.toLong + 1))
+        },
+        inclusive = true
+      )
+  }
+
 }
