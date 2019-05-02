@@ -9,6 +9,8 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Fix an issue with Postgres of potentially not stopping the transaction stream at required ceiling offset
+
 0.12.12 - 2019-04-30
 --------------------
 
