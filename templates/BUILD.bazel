@@ -4,15 +4,25 @@
 
 genrule(
     name = "templates-tarball",
-    srcs = glob(["skeleton/**"]),
+    srcs = glob(["skeleton/**", 'quickstart-java/**']) + ["//docs:quickstart-java.tar.gz"],
     outs = ["templates-tarball.tar.gz"],
     cmd = """
-        mkdir -p templates-tarball/skeleton
-        cp -r templates/skeleton/* templates-tarball/skeleton
+        SRC=templates
+        OUT=templates-tarball
+
+        # skeleton template
+        mkdir -p $$OUT/skeleton
+        cp -r $$SRC/skeleton/* $$OUT/skeleton/
+
+        # quickstart-java template
+        # right now, uses the preexisting quickstart-java rule and replaces the da.yaml template with a daml.yaml template
+        # in the future, move everything into //templates/quickstart-java and avoid untar, rm here
+        mkdir -p $$OUT/quickstart-java
+        tar xf $(location //docs:quickstart-java.tar.gz) --strip-components=1 -C $$OUT/quickstart-java
+        rm $$OUT/quickstart-java/da-skeleton.yaml
+        cp $$SRC/quickstart-java/* $$OUT/quickstart-java/
+
         tar zcf $(location :templates-tarball.tar.gz) templates-tarball
     """,
     visibility = ["//visibility:public"],
 )
-
-
-
