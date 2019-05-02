@@ -9,6 +9,8 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Drop support for DAML-LF 1.0 from compiler
+
 0.12.13 - 2019-05-02
 --------------------
 
