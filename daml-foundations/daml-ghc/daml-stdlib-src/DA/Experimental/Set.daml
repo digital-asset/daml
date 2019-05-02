@@ -32,6 +32,9 @@ import DA.TextMap qualified as TextMap
 -- | The type of a set.
 newtype Set a = Set with textMap : TextMap ()
   deriving (Eq, Ord)
+-- NOTE(MH): This is not a newtype wrapper around the `Map` type such that
+-- people using `Set` over the Ledger API don't have to wrap every set into
+-- two layers of newtypes.
 
 -- | The empty set.
 empty : MapKey a => Set a
