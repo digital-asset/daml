@@ -75,6 +75,12 @@ object SExpr {
     def execute(machine: Machine): Ctrl = CtrlValue(v)
   }
 
+  object SEValue {
+    val True = SEValue(SBool(true))
+    val False = SEValue(SBool(false))
+    val Unit = SEValue(SUnit(()))
+  }
+
   /** Function application. Apply 'args' to function 'fun', where 'fun'
     * evaluates to a builtin or a closure.
     */
@@ -93,6 +99,7 @@ object SExpr {
     def execute(machine: Machine): Ctrl =
       crash("unexpected SEAbs, expected SEMakeClo")
   }
+
   object SEAbs {
     // Helper for constructing abstraction expressions:
     // SEAbs(1) { ... }
@@ -119,6 +126,7 @@ object SExpr {
   }
 
   object SECase {
+
     // Helper for constructing case expressions:
     // SECase(scrut) of(
     //   SECaseAlt(SCPNil ,...),
@@ -127,6 +135,7 @@ object SExpr {
     case class PartialSECase(scrut: SExpr) {
       def of(alts: SCaseAlt*): SExpr = SECase(scrut, alts.toArray)
     }
+
     def apply(scrut: SExpr) = PartialSECase(scrut)
   }
 
@@ -164,6 +173,7 @@ object SExpr {
     case class PartialSELet(bounds: Array[SExpr]) extends SomeArrayEquals {
       def in(body: => SExpr): SExpr = SELet(bounds, body)
     }
+
     def apply(bounds: SExpr*) = PartialSELet(bounds.toArray)
 
   }
@@ -226,5 +236,128 @@ object SExpr {
         ModuleName.unsafeFromSegments(ImmArray("$")),
         DottedName.unsafeFromSegments(ImmArray(name)))
     )
+
+  //
+  // List builtins (foldl, foldr, equalList) are implemented as recursive
+  // definition to save java stack
+  //
+
+  final case class SEBuiltinRecursiveDefinition(ref: SEBuiltinRecursiveDefinition.Reference)
+      extends SExpr {
+
+    import SEBuiltinRecursiveDefinition._
+
+    def execute(machine: Machine): Ctrl = {
+      val body = ref match {
+        case Reference.FoldL => foldLBody
+        case Reference.FoldR => foldRBody
+        case Reference.EqualList => equalListBody
+      }
+      body.execute(machine)
+    }
+  }
+
+  final object SEBuiltinRecursiveDefinition {
+
+    sealed abstract class Reference
+
+    final object Reference {
+      final case object FoldL extends Reference
+      final case object FoldR extends Reference
+      final case object EqualList extends Reference
+    }
+
+    val FoldL: SEBuiltinRecursiveDefinition = SEBuiltinRecursiveDefinition(Reference.FoldL)
+    val FoldR: SEBuiltinRecursiveDefinition = SEBuiltinRecursiveDefinition(Reference.FoldR)
+    val EqualList: SEBuiltinRecursiveDefinition = SEBuiltinRecursiveDefinition(Reference.EqualList)
+
+    private val foldLBody: SExpr =
+      // foldl f z xs =
+      SEMakeClo(
+        Array(),
+        3,
+        // case xs of
+        SECase(SEVar(1)) of (
+          // nil -> z
+          SCaseAlt(SCPNil, SEVar(2)),
+          // cons y ys ->
+          SCaseAlt(
+            SCPCons,
+            // foldl f (f z y) ys
+            FoldL(
+              SEVar(5), /* f */
+              SEVar(5)(
+                SEVar(4) /* z */,
+                SEVar(2) /* y */
+              ),
+              SEVar(1)) /* ys */
+          )
+        )
+      )
+
+    private val foldRBody: SExpr =
+      // foldr f z xs =
+      SEMakeClo(
+        Array(),
+        3,
+        // case xs of
+        SECase(SEVar(1)) of (
+          // nil -> z
+          SCaseAlt(SCPNil, SEVar(2)),
+          // cons y ys ->
+          SCaseAlt(
+            SCPCons,
+            // f y (foldr f z ys)
+            SEVar(5)(
+              /* f */
+              SEVar(2), /* y */
+              FoldR(
+                /* foldr f z ys */
+                SEVar(5), /* f */
+                SEVar(4), /* z */
+                SEVar(1) /* ys */
+              ))
+          )
+        )
+      )
+
+    private val equalListBody: SExpr =
+      // equalList f xs ys =
+      SEMakeClo(
+        Array(),
+        3,
+        // case xs of
+        SECase(SEVar(2) /* xs */ ) of (
+          // nil ->
+          SCaseAlt(
+            SCPNil,
+            // case ys of
+            //   nil -> True
+            //   default -> False
+            SECase(SEVar(1)) of (SCaseAlt(SCPNil, SEValue.True),
+            SCaseAlt(SCPDefault, SEValue.False))),
+          // cons x xss ->
+          SCaseAlt(
+            SCPCons,
+            // case ys of
+            //       True -> listEqual f xss yss
+            //       False -> False
+            SECase(SEVar(3) /* ys */ ) of (
+              // nil -> False
+              SCaseAlt(SCPNil, SEValue.False),
+              // cons y yss ->
+              SCaseAlt(
+                SCPCons,
+                // case f x y of
+                SECase(SEVar(7)(SEVar(4), SEVar(2))) of (
+                  SCaseAlt(SCPPrimCon(PCTrue), EqualList(SEVar(7), SEVar(1), SEVar(3))),
+                  SCaseAlt(SCPPrimCon(PCFalse), SEValue.False)
+                )
+              )
+            )
+          )
+        )
+      )
+  }
 
 }
