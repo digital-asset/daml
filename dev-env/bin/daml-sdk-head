@@ -37,7 +37,10 @@ tar xzf $TARBALL -C $TMPDIR/sdk-head --strip-components 1
 DAML_HOME=$DAML_HEAD $TMPDIR/sdk-head/install.sh
 mv $DAML_HEAD/bin/{daml,daml-head}
 
-echo "auto-install: false" > $DAML_HEAD/daml-config.yaml
+cat > $DAML_HEAD/daml-config.yaml << EOF
+auto-install: false
+update-check: never
+EOF
 
 trap - EXIT
 echo "$(tput setaf 3)Successfully installed daml-head command.$(tput sgr 0)"

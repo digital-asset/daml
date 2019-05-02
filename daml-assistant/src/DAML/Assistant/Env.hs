@@ -221,6 +221,7 @@ getDispatchEnv Env{..} = do
            , (projectPathEnvVar, maybe "" unwrapProjectPath envProjectPath)
            , (sdkPathEnvVar, maybe "" unwrapSdkPath envSdkPath)
            , (sdkVersionEnvVar, maybe "" versionToString envSdkVersion)
+           , (sdkVersionLatestEnvVar, maybe "" versionToString envLatestStableSdkVersion)
            , (damlAssistantEnvVar, unwrapDamlAssistantPath envDamlAssistantPath)
            , (damlAssistantVersionEnvVar, maybe ""
                (versionToString . unwrapDamlAssistantSdkVersion)

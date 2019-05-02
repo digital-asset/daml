@@ -8,10 +8,12 @@ module DAML.Assistant.Cache
     ) where
 
 import DAML.Assistant.Types
+import DAML.Project.Config
 import Control.Exception.Safe
 import Control.Monad.Extra
-import Data.String
 import Data.Either.Extra
+import Data.Maybe
+import Data.String
 import Data.Time.Clock
 import qualified Data.Yaml as Y
 import System.Directory
@@ -24,13 +26,29 @@ newtype CacheKey = CacheKey String
 newtype CacheTimeout = CacheTimeout NominalDiffTime
     deriving (Show, Eq, Ord, Y.FromJSON)
 
+data UpdateCheck
+    = UpdateCheckNever
+    | UpdateCheckEvery CacheTimeout
+    deriving (Show, Eq, Ord)
+
+instance Y.FromJSON UpdateCheck where
+    parseJSON (Y.String "never") = pure UpdateCheckNever
+    parseJSON y = UpdateCheckEvery <$> Y.parseJSON y
+
 cacheLatestSdkVersion
     :: DamlPath
     -> IO (Maybe SdkVersion)
     -> IO (Maybe SdkVersion)
-cacheLatestSdkVersion =
-    cacheWith "latest-sdk-version" (CacheTimeout 86400)
-        serializeMaybeSdkVersion deserializeMaybeSdkVersion
+cacheLatestSdkVersion damlPath getVersion = do
+    damlConfigE <- try $ readDamlConfig damlPath
+    let updateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
+        defaultUpdateCheck = UpdateCheckEvery (CacheTimeout 86400)
+    case fromMaybe defaultUpdateCheck updateCheckM of
+        UpdateCheckNever -> pure Nothing
+        UpdateCheckEvery timeout ->
+            cacheWith "latest-sdk-version" timeout
+                serializeMaybeSdkVersion deserializeMaybeSdkVersion
+                damlPath getVersion
 
 serializeMaybeSdkVersion :: Maybe SdkVersion -> String
 serializeMaybeSdkVersion = \case

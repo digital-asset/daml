@@ -6,6 +6,7 @@ module DAML.Project.Consts
     , projectPathEnvVar
     , sdkPathEnvVar
     , sdkVersionEnvVar
+    , sdkVersionLatestEnvVar
     , damlAssistantEnvVar
     , damlAssistantVersionEnvVar
     , damlConfigName
@@ -55,6 +56,12 @@ sdkPathEnvVar = "DAML_SDK"
 -- 3. the latest stable SDK version available in $DAML_HOME/sdk.
 sdkVersionEnvVar :: String
 sdkVersionEnvVar = "DAML_SDK_VERSION"
+
+-- | Latest stable version available from GitHub. Note that this is
+-- updated based on the update-check property in the user's daml-config.yaml
+-- file, which means it will possibly never be available.
+sdkVersionLatestEnvVar :: String
+sdkVersionLatestEnvVar = "DAML_SDK_VERSION_LATEST"
 
 -- | The absolute path to the daml assistant executable.
 damlAssistantEnvVar :: String
