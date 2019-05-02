@@ -58,7 +58,7 @@ tests tmpDir = testGroup "Integration tests"
 quickstartTests :: FilePath -> FilePath -> TestTree
 quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     [ testCase "daml new" $
-          callProcessQuiet "daml" ["new", quickstartDir]
+          callProcessQuiet "daml" ["new", quickstartDir, "quickstart-java"]
     , testCase "daml build " $ withCurrentDirectory quickstartDir $
           callProcessQuiet "daml" ["build", "-o", "target/daml/iou.dar"]
     , testCase "daml damlc test" $ withCurrentDirectory quickstartDir $
