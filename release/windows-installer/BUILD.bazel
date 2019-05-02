@@ -9,6 +9,7 @@ da_haskell_binary(
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
         "base",
+        "filepath",
         "nsis",
     ],
     src_strip_prefix = "src",
