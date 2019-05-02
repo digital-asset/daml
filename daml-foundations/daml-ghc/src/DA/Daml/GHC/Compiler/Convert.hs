@@ -887,7 +887,7 @@ withTyArg env (v, k) args cont = do
     pure (ETyLam (v, k) x, args)
 
 withTmArg :: Env -> (LF.ExprVarName, LF.Type) -> [LArg Var] -> (LF.Expr-> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
-withTmArg env _ (LType x:args) cont = do
+withTmArg env _ (LExpr x:args) cont = do
     x <- convertExpr env x
     cont x args
 withTmArg env (v, t) args cont = do
