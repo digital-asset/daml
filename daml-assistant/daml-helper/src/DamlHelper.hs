@@ -137,6 +137,8 @@ runNew targetFolder templateName = do
             ]
         exitFailure
     copyDirectory templateFolder targetFolder
+    files <- listFilesRecursive targetFolder
+    mapM_ setWritable files
 
     -- update daml.yaml
     let configPath = targetFolder </> projectConfigName
@@ -152,6 +154,12 @@ runNew targetFolder templateName = do
         writeFileUTF8 configPath config
         removeFile configTemplatePath
 
+-- | Our SDK installation is read-only to prevent users from accidentally modifying it.
+-- But when we copy from it in "daml new" we want the result to be writable.
+setWritable :: FilePath -> IO ()
+setWritable f = do
+    p <- getPermissions f
+    setPermissions f p { writable = True }
 
 runListTemplates :: IO ()
 runListTemplates = do
@@ -236,10 +244,6 @@ installExtension src target =
                    -- We create the directory to throw an isAlreadyExistsError.
                    createDirectory target
                    copyDirectory src target
-                   files <- listFilesRecursive target
-                   forM_ files $ \file -> do
-                       p <- getPermissions file
-                       setPermissions file p { writable = True }
              | otherwise = createDirectoryLink src target
 
 -- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.
