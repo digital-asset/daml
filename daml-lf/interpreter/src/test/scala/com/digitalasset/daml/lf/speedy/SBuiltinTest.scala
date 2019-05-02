@@ -809,7 +809,7 @@ object SBuiltinTest {
       case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
     }
 
-    Right(machine.toSValue())
+    Right(machine.toSValue)
   }
 
   def intList(xs: Long*): String =

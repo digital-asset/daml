@@ -3,8 +3,9 @@
 
 package com.digitalasset.daml.lf
 
-import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, PackageId}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.lfpackage.Ast.Package
+import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
 import com.digitalasset.daml.lf.speedy.{Compiler, SExpr}
 
 /** Trait to abstract over a collection holding onto DAML-LF package definitions + the
@@ -12,19 +13,19 @@ import com.digitalasset.daml.lf.speedy.{Compiler, SExpr}
   */
 trait CompiledPackages {
   def getPackage(pkgId: PackageId): Option[Package]
-  def getDefinition(dref: DefinitionRef): Option[SExpr]
+  def getDefinition(dref: SDefinitionRef): Option[SExpr]
 
   def packages: PartialFunction[PackageId, Package] = Function.unlift(this.getPackage)
-  def definitions: PartialFunction[DefinitionRef, SExpr] =
+  def definitions: PartialFunction[SDefinitionRef, SExpr] =
     Function.unlift(this.getDefinition)
 }
 
 final class PureCompiledPackages private (
     packages: Map[PackageId, Package],
-    defns: Map[DefinitionRef, SExpr])
+    defns: Map[SDefinitionRef, SExpr])
     extends CompiledPackages {
   override def getPackage(pkgId: PackageId): Option[Package] = packages.get(pkgId)
-  override def getDefinition(dref: DefinitionRef): Option[SExpr] = defns.get(dref)
+  override def getDefinition(dref: SDefinitionRef): Option[SExpr] = defns.get(dref)
 }
 
 object PureCompiledPackages {
@@ -34,7 +35,7 @@ object PureCompiledPackages {
     */
   def apply(
       packages: Map[PackageId, Package],
-      defns: Map[DefinitionRef, SExpr]): Either[String, PureCompiledPackages] = {
+      defns: Map[SDefinitionRef, SExpr]): Either[String, PureCompiledPackages] = {
     Right(new PureCompiledPackages(packages, defns))
   }
 

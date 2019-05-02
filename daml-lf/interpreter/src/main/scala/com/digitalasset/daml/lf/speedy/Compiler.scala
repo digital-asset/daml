@@ -56,17 +56,17 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   def compileDefn(
       identifier: Identifier,
       defn: Definition
-  ): List[(DefinitionRef, SExpr)] =
+  ): List[(SDefinitionRef, SExpr)] =
     defn match {
       case DValue(_, _, body, _) =>
-        List(identifier -> compile(body))
+        List(LfDefRef(identifier) -> compile(body))
 
       case DDataType(_, _, DataRecord(_, Some(tmpl))) =>
         // Compile choices into top-level definitions that exercise
         // the choice.
         tmpl.choices.toList.map {
           case (cname, choice) =>
-            makeChoiceRef(identifier, cname) ->
+            ChoiceDefRef(identifier, cname) ->
               compileChoice(identifier, tmpl, choice)
         }
 
@@ -83,7 +83,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     */
   @throws(classOf[PackageNotFound])
   @throws(classOf[ValidationError])
-  def compilePackage(pkgId: PackageId): Iterable[(DefinitionRef, SExpr)] = {
+  def compilePackage(pkgId: PackageId): Iterable[(SDefinitionRef, SExpr)] = {
 
     Validation.checkPackage(packages, pkgId).left.foreach {
       case EUnknownDefinition(_, LEPackage(pkgId_)) =>
@@ -108,8 +108,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     * they transitively reference are in the [[packages]] in the compiler.
     */
   @throws(classOf[PackageNotFound])
-  def compilePackages(toCompile0: Iterable[PackageId]): Map[DefinitionRef, SExpr] = {
-    var defns = Map.empty[DefinitionRef, SExpr]
+  def compilePackages(toCompile0: Iterable[PackageId]): Map[SDefinitionRef, SExpr] = {
+    var defns = Map.empty[SDefinitionRef, SExpr]
     val compiled = mutable.Set.empty[PackageId]
     var toCompile = toCompile0.toList
     val foundDependencies = mutable.Set.empty[PackageId]
@@ -137,7 +137,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   private def translate(expr: Expr): SExpr =
     expr match {
       case EVar(name) => SEVar(lookupIndex(name))
-      case EVal(ref) => SEVal(ref, None)
+      case EVal(ref) => SEVal(LfDefRef(ref), None)
       case EBuiltin(bf) =>
         bf match {
           case BFoldl => SEBuiltinRecursiveDefinition.FoldL
@@ -805,10 +805,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       .getOrElse(throw CompileError(s"record type $tapp not found"))
   }
 
-  private def makeChoiceRef(tmplId: TypeConName, ch: ChoiceName): DefinitionRef =
-    tmplId.copy(qualifiedName = tmplId.qualifiedName.copy(
-      name = DottedName.unsafeFromSegments(tmplId.qualifiedName.name.segments.slowSnoc("$" + ch))))
-
   private def withBinder[A](binder: String)(f: Unit => A): A =
     withBinders(Seq(binder))(f)
 
@@ -1166,7 +1162,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     // into:
     // SomeTemplate$SomeChoice <actorsE> <cidE> <argE>
     withEnv { _ =>
-      SEApp(SEVal(makeChoiceRef(tmplId, choiceId), None), Array(actors, contractId, argument))
+      SEApp(SEVal(ChoiceDefRef(tmplId, choiceId), None), Array(actors, contractId, argument))
     }
 
   private def compileCreateAndExercise(

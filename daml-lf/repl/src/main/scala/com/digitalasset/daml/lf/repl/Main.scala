@@ -18,6 +18,7 @@ import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
 
+import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
 import com.digitalasset.daml.lf.{PureCompiledPackages, UniversalArchiveReader}
 import com.digitalasset.daml.lf.validation.Validation
 import org.jline.builtins.Completers
@@ -487,7 +488,7 @@ object Repl {
 
   private val unknownPackageId = PackageId.assertFromString("-unknownPackage-")
 
-  def idToRef(state: State, id: String): DefinitionRef = {
+  def idToRef(state: State, id: String): LfDefRef = {
     val defaultPackageId =
       state.packages.headOption
         .map(_._1)
@@ -502,7 +503,7 @@ object Repl {
       case Left(err) => sys.error(s"Cannot parse qualified name $defRef: $err")
       case Right(x) => x
     }
-    DefinitionRef(packageId, qualName)
+    LfDefRef(DefinitionRef(packageId, qualName))
   }
 
   def lookup(state: State, id: String): Option[Definition] = {

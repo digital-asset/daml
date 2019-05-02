@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.lfpackage.Util._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.LanguageVersion
+import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
 import org.scalatest.{Matchers, WordSpec}
 
 class InterpTest extends WordSpec with Matchers {
@@ -174,7 +175,7 @@ class InterpTest extends WordSpec with Matchers {
       run()
       result match {
         case SResultMissingDefinition(ref2, cb) =>
-          ref shouldBe ref2
+          LfDefRef(ref) shouldBe ref2
           cb(pkgs2)
           result = SResultContinue
           run()
@@ -198,7 +199,7 @@ class InterpTest extends WordSpec with Matchers {
       run()
       result match {
         case SResultMissingDefinition(ref2, cb) =>
-          ref shouldBe ref2
+          LfDefRef(ref) shouldBe ref2
           result = SResultContinue
           try {
             cb(pkgs1)
