@@ -877,20 +877,22 @@ convertExpr env0 e = do
     convertArg env = \case
         Type t -> TyArg <$> convertType env t
         e -> TmArg <$> convertExpr env e
-    withTyArg :: Env -> (LF.TypeVarName, LF.Kind) -> [LArg Var] -> (LF.Type -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
-    withTyArg env _ (LType t:args) cont = do
-        t <- convertType env t
-        cont t args
-    withTyArg env (v, k) args cont = do
-        (x, args) <- cont (TVar v) args
-        pure (ETyLam (v, k) x, args)
-    withTmArg :: Env -> (LF.ExprVarName, LF.Type) -> [LArg Var] -> (LF.Expr-> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
-    withTmArg env _ (LType x:args) cont = do
-        x <- convertExpr env x
-        cont x args
-    withTmArg env (v, t) args cont = do
-        (x, args) <- cont (EVar v) args
-        pure (ETmLam (v, t) x, args)
+
+withTyArg :: Env -> (LF.TypeVarName, LF.Kind) -> [LArg Var] -> (LF.Type -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
+withTyArg env _ (LType t:args) cont = do
+    t <- convertType env t
+    cont t args
+withTyArg env (v, k) args cont = do
+    (x, args) <- cont (TVar v) args
+    pure (ETyLam (v, k) x, args)
+
+withTmArg :: Env -> (LF.ExprVarName, LF.Type) -> [LArg Var] -> (LF.Expr-> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
+withTmArg env _ (LType x:args) cont = do
+    x <- convertExpr env x
+    cont x args
+withTmArg env (v, t) args cont = do
+    (x, args) <- cont (EVar v) args
+    pure (ETmLam (v, t) x, args)
 
 convertLet :: Env -> Var -> GHC.Expr Var -> (Env -> ConvertM LF.Expr) -> ConvertM LF.Expr
 convertLet env binder bound mkBody = do
