@@ -15,8 +15,6 @@ module DA.Test.GHC
 import DA.Daml.GHC.Compiler.Options
 import           DA.Daml.GHC.Compiler.UtilLF
 
-import qualified Data.Text.Prettyprint.Doc.Syntax as Pretty
-
 import           DA.Daml.LF.Ast as LF hiding (IsTest)
 import           "ghc-lib-parser" UniqSupply
 import           "ghc-lib-parser" Unique
@@ -201,7 +199,7 @@ data DiagnosticField
 checkDiagnostics :: (String -> IO ()) -> [[DiagnosticField]] -> [D.Diagnostic] -> IO (Maybe String)
 checkDiagnostics log expected got = do
     when (got /= []) $
-        log $ T.unpack $ Pretty.renderPlain $ Pretty.vcat $ map prettyDiagnostic got
+        log $ T.unpack $ showDiagnostics got
 
     -- you require the same number of diagnostics as expected
     -- and each diagnostic is at least partially expected

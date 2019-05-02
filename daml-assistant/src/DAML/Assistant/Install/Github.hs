@@ -25,6 +25,7 @@ import qualified Data.Text.Encoding as T
 -- where <VERSION> is an SDK version. For example, "v0.11.1".
 newtype Tag = Tag { unTag :: Text } deriving (Eq, Show, FromJSON)
 
+
 -- | Convert a version to a git tag.
 versionToTag :: SdkVersion -> Tag
 versionToTag v = Tag ("v" <> versionToText v)
@@ -55,12 +56,12 @@ tagToVersion (Tag t) =
 --
 -- So we take that URL to get the tag, and from there the version of
 -- the latest stable release.
-getLatestVersion ::  IO SdkVersion
+getLatestVersion :: IO SdkVersion
 getLatestVersion = do
 
     manager <- newTlsManager -- TODO: share a single manager throughout the daml install process.
     request <- parseRequest "HEAD https://github.com/digital-asset/daml/releases/latest"
-    finalRequest <- requiredIO "Failed to get latest SDK version from GitHub." $
+    finalRequest <- requiredHttps "Failed to get latest SDK version from GitHub." $
         withResponseHistory request manager $ pure . hrFinalRequest
 
     let pathText = T.decodeUtf8 (path finalRequest)

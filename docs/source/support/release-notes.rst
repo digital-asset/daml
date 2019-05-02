@@ -9,6 +9,9 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Fix an issue with Postgres of potentially not stopping the transaction stream at
+  required ceiling offset. See more `here
+  <https://github.com/digital-asset/daml/pull/802>`
 - DAML-LF "dev" minor version. Write with ``--target 1.dev``, supported by all tools by
   default.
 
@@ -26,6 +29,10 @@ HEAD — ongoing
 - Include list of DAML packages used during interpretation in the produced transaction.
 - Release source jars for scala libraries.
 - Rename ``DA.TextMap.filter`` and ``DA.Map.filter`` to ``filterWithKey``.
+- Fix bug releated to visibility and contract keys -- see
+  `#751 <https://github.com/digital-asset/daml/issues/751>`.
+- Fix bug related witness parties in transaction events -- see
+  `#794 <https://github.com/digital-asset/daml/issues/794>`.
 
 0.12.11 - 2019-04-26
 --------------------

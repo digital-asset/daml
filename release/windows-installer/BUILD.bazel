@@ -9,6 +9,7 @@ da_haskell_binary(
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
         "base",
+        "filepath",
         "nsis",
     ],
     src_strip_prefix = "src",
@@ -22,15 +23,15 @@ genrule(
     outs = ["daml-sdk-installer.exe"],
     cmd = """
         set -eou pipefail
-        PLUGINFILES=( $(locations @nsis_untgz_plugin//:untgz) )
-        PLUGINDIR=$$(dirname $$PLUGINFILES[0])
-        $(location :windows-installer-gen) ./installer.nsi $(location //release:sdk-release-tarball.tar.gz) $$PLUGINDIR
+        rm -rf release-dir
+        mkdir -p release-dir
+        tar xf $(location //release:sdk-release-tarball.tar.gz) --strip-components=1 -C release-dir
+        $(location :windows-installer-gen) ./installer.nsi release-dir
         $(location @makensis_dev_env//:makensis) ./installer.nsi
         cp ./daml-sdk-installer.exe $(location daml-sdk-installer.exe)
     """,
     tools = [
         ":windows-installer-gen",
         "@makensis_dev_env//:makensis",
-        "@nsis_untgz_plugin//:untgz",
     ],
 ) if is_windows else None

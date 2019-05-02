@@ -71,8 +71,8 @@ final case class ScenarioRunner(machine: Speedy.Machine) {
         case SResultScenarioGetParty(partyText, callback) =>
           getParty(partyText, callback)
 
-        case SResultNeedKey(gk, cbMissing, cbPresent) =>
-          lookupKey(gk, cbMissing, cbPresent)
+        case SResultNeedKey(gk, optCommitter, cbMissing, cbPresent) =>
+          lookupKey(gk, optCommitter, cbMissing, cbPresent)
       }
     }
     val endTime = System.nanoTime()
@@ -167,15 +167,40 @@ final case class ScenarioRunner(machine: Speedy.Machine) {
 
   private def lookupKey(
       gk: GlobalKey,
+      optCommitter: Option[Party],
       cbMissing: Unit => Boolean,
       cbPresent: AbsoluteContractId => Unit) = {
+    val committer = optCommitter.getOrElse(crash("committer missing"))
+    val effectiveAt = ledger.currentTime
+
     def missingWith(err: SError) =
       if (!cbMissing(())) {
         throw SRunnerException(err)
       }
     ledger.ledgerData.activeKeys.get(gk) match {
       case None => missingWith(SErrorCrash(s"Key $gk not found"))
-      case Some(acoid) => cbPresent(acoid)
+      case Some(acoid) =>
+        // make sure that the contract is visible, see
+        // <https://github.com/digital-asset/daml/issues/751>.
+        ledger.lookupGlobalContract(
+          view = ParticipantView(committer),
+          effectiveAt = effectiveAt,
+          acoid) match {
+          case LookupOk(_, _) =>
+            cbPresent(acoid)
+
+          case LookupContractNotFound(coid) =>
+            missingWith(SErrorCrash(s"contract $coid not found, but we found its key!"))
+
+          case LookupContractNotEffective(_, _, _) =>
+            missingWith(SErrorCrash(s"contract $acoid not effective, but we found its key!"))
+
+          case LookupContractNotActive(_, _, _) =>
+            missingWith(SErrorCrash(s"contract $acoid not active, but we found its key!"))
+
+          case LookupContractNotVisible(_, _, _) =>
+            missingWith(SErrorCrash(s"Key $gk not found"))
+        }
     }
   }
 }

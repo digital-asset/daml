@@ -10,7 +10,7 @@
 daml 1.2
 module QualifiedPrelude where
 
-import qualified Prelude as P
+import Prelude qualified as P
 
 main = P.scenario do P.assert P.True
 

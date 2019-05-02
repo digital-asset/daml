@@ -99,35 +99,28 @@ object Speedy {
         case None =>
           val ref = eval.ref
           kont.add(KCacheVal(eval))
-          if (ref == SBuiltin.builtinFoldlRef)
-            CtrlExpr(SBuiltin.builtinFoldl)
-          else if (ref == SBuiltin.builtinFoldrRef)
-            CtrlExpr(SBuiltin.builtinFoldr)
-          else if (ref == SBuiltin.builtinEqualListRef)
-            CtrlExpr(SBuiltin.builtinEqualList)
-          else {
-            compiledPackages.getDefinition(ref) match {
-              case Some(body) =>
-                CtrlExpr(body)
-              case None =>
-                println(s"missing definition: $ref")
-                throw SpeedyHungry(
-                  SResultMissingDefinition(
-                    ref, { packages =>
-                      println(s"reloaded packages")
-                      this.compiledPackages = packages
-                      compiledPackages.getDefinition(ref) match {
-                        case Some(body) =>
-                          this.ctrl = CtrlExpr(body)
-                        case None =>
-                          crash(
-                            s"definition $ref not found even after caller provided new set of packages")
-                      }
+          compiledPackages.getDefinition(ref) match {
+            case Some(body) =>
+              CtrlExpr(body)
+            case None =>
+              println(s"missing definition: $ref")
+              throw SpeedyHungry(
+                SResultMissingDefinition(
+                  ref, { packages =>
+                    println(s"reloaded packages")
+                    this.compiledPackages = packages
+                    compiledPackages.getDefinition(ref) match {
+                      case Some(body) =>
+                        this.ctrl = CtrlExpr(body)
+                      case None =>
+                        crash(
+                          s"definition $ref not found even after caller provided new set of packages")
                     }
-                  ))
-            }
+                  }
+                ))
           }
       }
+
     }
 
     /** Returns true when the machine has finished evaluation.

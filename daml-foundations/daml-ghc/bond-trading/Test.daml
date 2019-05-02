@@ -4,11 +4,11 @@
 daml 1.2
 module Test where
 
-import qualified Bond
-import qualified Cash
-import qualified Dvp
-import qualified Helper
-import qualified Setup
+import Bond qualified
+import Cash qualified
+import Dvp qualified
+import Helper qualified
+import Setup qualified
 
 main = scenario do
   Bond.main

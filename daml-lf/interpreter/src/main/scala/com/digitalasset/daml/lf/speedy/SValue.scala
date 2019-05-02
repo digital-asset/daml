@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.speedy
 
-import java.util.ArrayList
+import java.util
 
 import com.digitalasset.daml.lf.data.Decimal.Decimal
 import com.digitalasset.daml.lf.data.Ref._
@@ -76,8 +76,10 @@ sealed trait SValue {
         throw SErrorCrash("SValue.toValue: unexpected SToken")
     }
 
-  private def mapArrayList(as: ArrayList[SValue], f: SValue => SValue): ArrayList[SValue] = {
-    val bs = new ArrayList[SValue](as.size)
+  private def mapArrayList(
+      as: util.ArrayList[SValue],
+      f: SValue => SValue): util.ArrayList[SValue] = {
+    val bs = new util.ArrayList[SValue](as.size)
     as.forEach { a =>
       val _ = bs.add(f(a))
     }
@@ -157,13 +159,13 @@ object SValue {
     * If the primitive is a closure, the arguments are pushed to the environment and the
     * closure body is entered.
     */
-  final case class SPAP(prim: Prim, args: ArrayList[SValue], arity: Int) extends SValue
+  final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue
 
-  final case class SRecord(id: Identifier, fields: Array[String], values: ArrayList[SValue])
+  final case class SRecord(id: Identifier, fields: Array[String], values: util.ArrayList[SValue])
       extends SValue
       with SomeArrayEquals
 
-  final case class STuple(fields: Array[String], values: ArrayList[SValue])
+  final case class STuple(fields: Array[String], values: util.ArrayList[SValue])
       extends SValue
       with SomeArrayEquals
 
@@ -178,15 +180,15 @@ object SValue {
   // NOTE(JM): We are redefining PrimLit here so it can be unified
   // with SValue and we can remove one layer of indirection.
   sealed trait SPrimLit extends SValue with Equals
-  final case class SInt64(val value: Long) extends SPrimLit
-  final case class SDecimal(val value: Decimal) extends SPrimLit
-  final case class SText(val value: String) extends SPrimLit
-  final case class STimestamp(val value: Time.Timestamp) extends SPrimLit
-  final case class SParty(val value: Party) extends SPrimLit
-  final case class SBool(val value: Boolean) extends SPrimLit
-  final case class SUnit(val value: Unit) extends SPrimLit
-  final case class SDate(val value: Time.Date) extends SPrimLit
-  final case class SContractId(val value: V.ContractId) extends SPrimLit
+  final case class SInt64(value: Long) extends SPrimLit
+  final case class SDecimal(value: Decimal) extends SPrimLit
+  final case class SText(value: String) extends SPrimLit
+  final case class STimestamp(value: Time.Timestamp) extends SPrimLit
+  final case class SParty(value: Party) extends SPrimLit
+  final case class SBool(value: Boolean) extends SPrimLit
+  final case class SUnit(value: Unit) extends SPrimLit
+  final case class SDate(value: Time.Date) extends SPrimLit
+  final case class SContractId(value: V.ContractId) extends SPrimLit
 
   // The "effect" token for update or scenario builtin functions.
   final case object SToken extends SValue
@@ -207,7 +209,7 @@ object SValue {
 
       case V.ValueRecord(Some(id), fs) =>
         val fields = Array.ofDim[String](fs.length)
-        val values = new ArrayList[SValue](fields.length)
+        val values = new util.ArrayList[SValue](fields.length)
         fs.foreach {
           case (optk, v) =>
             optk match {
@@ -226,7 +228,7 @@ object SValue {
 
       case V.ValueTuple(fs) =>
         val fields = Array.ofDim[String](fs.length)
-        val values = new ArrayList[SValue](fields.length)
+        val values = new util.ArrayList[SValue](fields.length)
         fs.foreach {
           case (k, v) =>
             fields(values.size) = k

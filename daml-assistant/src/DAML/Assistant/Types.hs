@@ -25,8 +25,8 @@ data AssistantError = AssistantError
 instance Exception AssistantError where
     displayException AssistantError {..} = unpack . T.unlines . catMaybes $
         [ Just ("daml: " <> fromMaybe "An unknown error has occured" errMessage)
-        , fmap ("   context: " <>) errContext
-        , fmap ("   reason:  " <>) errInternal
+        , fmap ("  context: " <>) errContext
+        , fmap ("  details: " <>) errInternal
         ]
 
 -- | Standard error message.
@@ -48,6 +48,7 @@ data Env = Env
     , envProjectPath   :: Maybe ProjectPath
     , envSdkPath       :: Maybe SdkPath
     , envSdkVersion    :: Maybe SdkVersion
+    , envLatestStableSdkVersion :: Maybe SdkVersion
     } deriving (Eq, Show)
 
 data BuiltinCommand

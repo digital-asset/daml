@@ -28,11 +28,14 @@
 # Under Linux/MacOS, Foreign function interface language pragma is unused.
 - ignore: {name: Unused LANGUAGE pragma, within: DA.Sdk.Cli.System}
 
+# Off by default hints we like
+- warn: {name: Use module export list}
+
 # Condemn nub and friends
-- warn: {lhs: nub (sort x), rhs: Data.List.Extended.nubSort x}
-- warn: {lhs: nub, rhs: Data.List.Extended.nubOrd}
-- warn: {lhs: nubBy, rhs: Data.List.Extended.nubOrdBy}
-- warn: {lhs: Data.List.Extra.nubOn, rhs: Data.List.Extended.nubOrdOn}
+- warn: {lhs: nub (sort x), rhs: Data.List.Extra.nubSort x}
+- warn: {lhs: nub, rhs: Data.List.Extra.nubOrd}
+- warn: {lhs: nubBy, rhs: Data.List.Extra.nubOrdBy}
+- warn: {lhs: Data.List.Extra.nubOn, rhs: Data.List.Extra.nubOrdOn}
 
 # DA specific hints
 - warn: {lhs: Data.Text.pack (DA.Pretty.renderPlain x), rhs: DA.Pretty.renderPlain x}

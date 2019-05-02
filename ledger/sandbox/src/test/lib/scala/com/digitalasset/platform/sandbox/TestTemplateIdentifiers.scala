@@ -96,6 +96,8 @@ class TestTemplateIdentifiers(testPackageId: String) {
       "Test.TextKeyOperations",
       moduleName = "Test",
       entityName = "TextKeyOperations")
+  val witnesses =
+    Identifier(testPackageId, "Test.Witnesses", moduleName = "Test", entityName = "Witnesses")
   val allTemplates =
     List(
       dummy,
@@ -107,5 +109,6 @@ class TestTemplateIdentifiers(testPackageId: String) {
       triAgreement,
       textContainer,
       textKey,
-      textKeyOperations)
+      textKeyOperations,
+      witnesses)
 }

@@ -844,6 +844,7 @@ object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               gkey,
+              machine.committer,
               cbMissing = _ => {
                 machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
                 machine.ctrl = CtrlValue(SOptional(None))
@@ -923,6 +924,7 @@ object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               gkey,
+              machine.committer,
               cbMissing = _ => {
                 machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
                 machine.tryHandleException()
@@ -1080,108 +1082,6 @@ object SBuiltin {
     }
   }
 
-  //
-  // Builtins implemented as normal functions
-  //
-
-  final val builtinEqualListRef = makeBuiltinRef("equalList")
-  final val builtinFoldrRef = makeBuiltinRef("foldr")
-  final val builtinFoldlRef = makeBuiltinRef("foldl")
-
-  final val builtinFoldl: SExpr =
-    // foldl f z xs =
-    SEMakeClo(
-      Array(),
-      3,
-      // case xs of
-      SECase(SEVar(1)) of (
-        // nil -> z
-        SCaseAlt(SCPNil, SEVar(2)),
-        // cons y ys ->
-        SCaseAlt(
-          SCPCons,
-          // foldl f (f z y) ys
-          SEVal(builtinFoldlRef, None)(
-            SEVar(5), /* f */
-            SEVar(5)(
-              SEVar(4) /* z */,
-              SEVar(2) /* y */
-            ),
-            SEVar(1)) /* ys */
-        )
-      )
-    )
-
-  final val builtinFoldr: SExpr =
-    // foldr f z xs =
-    SEMakeClo(
-      Array(),
-      3,
-      // case xs of
-      SECase(SEVar(1)) of (
-        // nil -> z
-        SCaseAlt(SCPNil, SEVar(2)),
-        // cons y ys ->
-        SCaseAlt(
-          SCPCons,
-          // f y (foldr f z ys)
-          SEVar(5)(
-            /* f */
-            SEVar(2), /* y */
-            SEVal(builtinFoldrRef, None)(
-              /* foldr f z ys */
-              SEVar(5), /* f */
-              SEVar(4), /* z */
-              SEVar(1) /* ys */
-            ))
-        )
-      )
-    )
-
-  final val builtinEqualList: SExpr = {
-    val false_ = SEValue(SBool(false))
-    val true_ = SEValue(SBool(true))
-    // equalList f xs ys =
-    SEMakeClo(
-      Array(),
-      3,
-      // case xs of
-      SECase(SEVar(2) /* xs */ ) of (
-        // nil ->
-        SCaseAlt(
-          SCPNil,
-          // case ys of
-          //   nil -> True
-          //   default -> False
-          SECase(SEVar(1)) of (SCaseAlt(SCPNil, true_),
-          SCaseAlt(SCPDefault, false_))),
-        // cons x xss ->
-        SCaseAlt(
-          SCPCons,
-          // case ys of
-          //       True -> listEqual f xss yss
-          //       False -> False
-          SECase(SEVar(3) /* ys */ ) of (
-            // nil -> False
-            SCaseAlt(SCPNil, false_),
-            // cons y yss ->
-            SCaseAlt(
-              SCPCons,
-              // case f x y of
-              SECase(SEVar(7)(SEVar(4), SEVar(2))) of (
-                SCaseAlt(
-                  SCPPrimCon(PCTrue),
-                  SEVal(builtinEqualListRef, None)(SEVar(7), SEVar(1), SEVar(3))),
-                SCaseAlt(SCPPrimCon(PCFalse), false_)
-              )
-            )
-          )
-        )
-      )
-    )
-  }
-
-  //
   // Helpers
   //
 

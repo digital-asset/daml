@@ -21,10 +21,9 @@ template Account with
   where
     signatory [bank, accountHolder]
 
-instance TemplateKey Account (Party, Text, Int) where
-    key this@Account{..} = (bank, accountNumber._1, this.accountNumber._2)
-    -- NOTE(MH): Thus duplication is intended to test both `this.bank` and `bank`.
-    maintainer this@Account{..} = [this.bank, bank]
+    key (bank, accountNumber._1, this.accountNumber._2) : (Party, Text, Int)
+    -- NOTE(MH): This duplication is intended to test both `this.bank` and `bank`.
+    maintainer [this.bank, bank]
 
 test = scenario do
     bank <- getParty "Bank"

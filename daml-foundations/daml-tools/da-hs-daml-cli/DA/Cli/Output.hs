@@ -15,7 +15,6 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Development.IDE.Types.Diagnostics
 import Data.List.Extra
-import qualified Data.Text.Prettyprint.Doc.Syntax as Pretty
 import           System.IO                                      (Handle, hClose, hPutStr, stdout, openFile, IOMode (WriteMode))
 import           Control.Exception (bracket)
 
@@ -54,10 +53,9 @@ reportErr msg errs =
   unlines
     [ msg
     , T.unpack $
-      Pretty.renderColored $
-      Pretty.vcat $ map prettyDiagnostic $ nubOrd errs
+      showDiagnosticsColored $ nubOrd errs
     ]
 
 printDiagnostics :: [Diagnostic] -> IO ()
 printDiagnostics [] = return ()
-printDiagnostics xs = T.putStrLn $ Pretty.renderColored $ Pretty.vcat $ map prettyDiagnostic xs
+printDiagnostics xs = T.putStrLn $ showDiagnosticsColored xs

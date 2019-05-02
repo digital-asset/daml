@@ -83,7 +83,7 @@ failedTestOutput :: IdeState -> FilePath -> CompilerService.Action [(VirtualReso
 failedTestOutput h file = do
     mbScenarioNames <- CompilerService.getScenarioNames file
     diagnostics <- liftIO $ CompilerService.getDiagnostics h
-    let errMsg = T.unlines (map (Pretty.renderPlain . prettyDiagnostic) diagnostics)
+    let errMsg = showDiagnostics diagnostics
     pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
 
 
@@ -102,7 +102,7 @@ prettyErr lfVersion err = case err of
         DA.Pretty.string (show berr)
     SSC.ScenarioError serr ->
         SS.prettyBriefScenarioError
-          (LF.emptyWorld lfVersion)
+          (LF.initWorld [] lfVersion)
           serr
     SSC.ExceptionError e -> DA.Pretty.string $ show e
 

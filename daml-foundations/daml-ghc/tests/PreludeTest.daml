@@ -5,7 +5,7 @@ daml 1.2
 module PreludeTest where
 
 import DA.List as L
-import qualified DA.Text as T
+import DA.Text qualified as T
 import DA.Assert
 import DA.Date
 

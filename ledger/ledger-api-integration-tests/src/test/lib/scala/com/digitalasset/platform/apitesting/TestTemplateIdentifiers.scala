@@ -105,6 +105,14 @@ final case class TestTemplateIdentifiers(testPackageId: String) {
   val delegation = Identifier(testPackageId, moduleName = "Test", entityName = "Delegation")
   val showDelegated =
     Identifier(testPackageId, moduleName = "Test", entityName = "ShowDelegated")
+  val witnesses =
+    Identifier(testPackageId, "Test.Witnesses", moduleName = "Test", entityName = "Witnesses")
+  val divulgeWitnesses =
+    Identifier(
+      testPackageId,
+      "Test.DivulgeWitnesses",
+      moduleName = "Test",
+      entityName = "DivulgeWitnesses")
   val allTemplates =
     List(
       dummy,
@@ -118,5 +126,7 @@ final case class TestTemplateIdentifiers(testPackageId: String) {
       textKey,
       textKeyOperations,
       divulgence1,
-      divulgence2)
+      divulgence2,
+      witnesses
+    )
 }

@@ -5,8 +5,8 @@
 daml 1.2
 module Import where
 
-import qualified Good
-import qualified Bad
+import Good qualified
+import Bad qualified
 
 -- this checks that qualified names show up in error messages
 a : Good.T

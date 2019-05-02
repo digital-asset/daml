@@ -5,7 +5,16 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
-module DA.Daml.LF.Ast.Optics where
+module DA.Daml.LF.Ast.Optics(
+    moduleModuleRef,
+    unlocate,
+    moduleExpr,
+    dataConsType,
+    _PRSelfModule,
+    exprPartyLiteral,
+    exprValueRef,
+    templateExpr
+    ) where
 
 import DA.Prelude
 
@@ -74,10 +83,6 @@ moduleExpr f (Module name path flags dataTypes values templates) =
   Module name path flags dataTypes
   <$> (NM.traverse . _dvalBody) f values
   <*> (NM.traverse . templateExpr) f templates
-
-packageExpr :: Traversal' Package Expr
-packageExpr f (Package version modules) =
-    Package version <$> (NM.traverse . moduleExpr) f modules
 
 dataConsType :: Traversal' DataCons Type
 dataConsType f = \case

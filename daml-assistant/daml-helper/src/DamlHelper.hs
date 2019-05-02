@@ -87,7 +87,10 @@ runDamlStudio replaceExt remainingArguments = do
     installExtension vscodeExtensionSrcDir vscodeExtensionTargetDir
     -- Note that it is important that we use `shell` rather than `proc` here as
     -- `proc` will look for `code.exe` in PATH which does not exist.
-    exitCode <- withCreateProcess (shell $ unwords $ "code" : remainingArguments) $ \_ _ _ -> waitForProcess
+    let codeCommand
+            | isMac = "open -a \"Visual Studio Code\""
+            | otherwise = "code"
+    exitCode <- withCreateProcess (shell $ unwords $ codeCommand : remainingArguments) $ \_ _ _ -> waitForProcess
     exitWith exitCode
 
 shouldReplaceExtension :: ReplaceExtension -> FilePath -> IO Bool
@@ -137,6 +140,8 @@ runNew targetFolder templateName = do
             ]
         exitFailure
     copyDirectory templateFolder targetFolder
+    files <- listFilesRecursive targetFolder
+    mapM_ setWritable files
 
     -- update daml.yaml
     let configPath = targetFolder </> projectConfigName
@@ -152,6 +157,12 @@ runNew targetFolder templateName = do
         writeFileUTF8 configPath config
         removeFile configTemplatePath
 
+-- | Our SDK installation is read-only to prevent users from accidentally modifying it.
+-- But when we copy from it in "daml new" we want the result to be writable.
+setWritable :: FilePath -> IO ()
+setWritable f = do
+    p <- getPermissions f
+    setPermissions f p { writable = True }
 
 runListTemplates :: IO ()
 runListTemplates = do
@@ -233,13 +244,11 @@ installExtension src target =
      where
          install
              | isWindows = do
+                   -- Create .vscode/extensions if it does not already exist.
+                   createDirectoryIfMissing True (takeDirectory target)
                    -- We create the directory to throw an isAlreadyExistsError.
                    createDirectory target
                    copyDirectory src target
-                   files <- listFilesRecursive target
-                   forM_ files $ \file -> do
-                       p <- getPermissions file
-                       setPermissions file p { writable = True }
              | otherwise = createDirectoryLink src target
 
 -- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.

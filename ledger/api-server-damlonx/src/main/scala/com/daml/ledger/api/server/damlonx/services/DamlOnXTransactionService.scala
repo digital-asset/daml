@@ -279,7 +279,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
       override def getLedgerEnd(): Offset = ledgerEnd
 
       override def compare(o1: Offset, o2: Offset): Int =
-        Offset.compare(o1, o2)
+        o1.compare(o2)
     }
   }
 

@@ -479,9 +479,6 @@ prettyContractId :: TL.Text -> Doc SyntaxClass
 prettyContractId coid =
   linkToIdSC ("n" <> TL.toStrict coid) $ char '#' <> ltext coid
 
--- commentSC :: EmbedsSyntaxClass a => Doc SyntaxClass -> Doc SyntaxClass
--- commentSC = annotateSC CommentSC -- White
-
 linkSC :: T.Text -> T.Text -> Doc SyntaxClass -> Doc SyntaxClass
 linkSC url title = annotateSC (LinkSC url title)
 

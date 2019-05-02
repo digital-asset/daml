@@ -61,6 +61,8 @@ da_haskell_library(
         "temporary",
         "terminal-progress-bar",
         "text",
+        "time",
+        "tls",
         "unix-compat",
         "utf8-string",
         "yaml",
@@ -76,6 +78,7 @@ da_haskell_binary(
     hazel_deps = [
         "base",
         "directory",
+        "extra",
         "filepath",
         "process",
         "safe-exceptions",
