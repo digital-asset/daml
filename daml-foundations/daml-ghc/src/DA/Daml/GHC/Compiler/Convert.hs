@@ -885,9 +885,9 @@ convertExpr env0 e = do
         (x, args) <- cont (TVar v) args
         pure (ETyLam (v, k) x, args)
     withTmArg :: Env -> (LF.ExprVarName, LF.Type) -> [LArg Var] -> (LF.Expr-> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
-    withTmArg env _ ((mbLoc, x):args) cont = do
+    withTmArg env _ (LType x:args) cont = do
         x <- convertExpr env x
-        cont (maybe id (ELocation . convRealSrcSpan) mbLoc $ x) args
+        cont x args
     withTmArg env (v, t) args cont = do
         (x, args) <- cont (EVar v) args
         pure (ETmLam (v, t) x, args)
