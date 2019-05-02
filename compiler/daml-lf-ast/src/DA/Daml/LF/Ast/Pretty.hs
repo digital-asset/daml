@@ -5,7 +5,12 @@
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE PatternSynonyms #-}
-module DA.Daml.LF.Ast.Pretty where
+module DA.Daml.LF.Ast.Pretty(
+    prettyName,
+    prettyDottedName,
+    prettyQualified,
+    (<:>)
+    ) where
 
 import DA.Prelude
 
@@ -264,9 +269,6 @@ prettyTyArg t = type_ ("@" <> pPrintPrec prettyNormal precHighest t)
 
 prettyBTyArg :: BuiltinType -> Doc ann
 prettyBTyArg = prettyTyArg . TBuiltin
-
-prettyTyArgTpl :: Qualified TypeConName -> Doc ann
-prettyTyArgTpl tpl = prettyTyArg (TCon tpl)
 
 prettyTmArg :: Expr -> Doc ann
 prettyTmArg = pPrintPrec prettyNormal (succ precEApp)

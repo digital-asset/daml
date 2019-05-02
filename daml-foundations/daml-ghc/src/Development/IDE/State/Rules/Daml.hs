@@ -92,7 +92,7 @@ generateDalfRule =
         -- The file argument isn’t used in the rule, so we leave it empty to increase caching.
         pkgMap <- useE GeneratePackageMap ""
         let pkgs = [(pId, pkg) | (pId, pkg, _bs, _fp) <- Map.elems pkgMap]
-        let world = (LF.initWorld pkgs lfVersion) {LF.worldSelf = pkg}
+        let world = LF.initWorldSelf pkgs lfVersion pkg
         unsimplifiedRawDalf <- useE GenerateRawDalf file
         let rawDalf = LF.simplifyModule unsimplifiedRawDalf
         lift $ setPriority PriorityGenerateDalf
@@ -193,7 +193,7 @@ worldForFile file = do
     pkg <- use_ GeneratePackage file
     pkgMap <- use_ GeneratePackageMap ""
     let pkgs = [ (pId, pkg) | (pId, pkg, _, _) <- Map.elems pkgMap ]
-    pure (LF.initWorld pkgs lfVersion) { LF.worldSelf = pkg }
+    pure $ LF.initWorldSelf pkgs lfVersion pkg
 
 data ScenarioBackendException = ScenarioBackendException
     { scenarioNote :: String

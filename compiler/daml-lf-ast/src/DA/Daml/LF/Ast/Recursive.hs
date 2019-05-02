@@ -6,7 +6,14 @@
 
 -- | This module provides all the boilerplate necessary to make the DAML-LF AST
 -- work with the recursion-schemes package.
-module DA.Daml.LF.Ast.Recursive where
+module DA.Daml.LF.Ast.Recursive(
+    ExprF(..),
+    UpdateF(..),
+    ScenarioF(..),
+    BindingF(..),
+    TypeF(..),
+    retrieveByKeyFKey
+    ) where
 
 import Data.Functor.Foldable
 

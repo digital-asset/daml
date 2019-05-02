@@ -43,5 +43,5 @@ inferPackage :: [(PackageId, Package)] -> Package -> Either String Package
 inferPackage pkgDeps (Package version mods0) = do
       let infer1 (mods1, world0) mod0 = do
             mod1 <- inferModule world0 mod0
-            pure (NM.insert mod1 mods1, extendWorld mod1 world0)
+            pure (NM.insert mod1 mods1, extendWorldSelf mod1 world0)
       Package version . fst <$> foldlM infer1 (NM.empty, initWorld pkgDeps version) mods0

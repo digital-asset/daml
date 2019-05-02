@@ -2,7 +2,14 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE OverloadedStrings #-}
-module DA.Daml.LF.TypeChecker.Error where
+module DA.Daml.LF.TypeChecker.Error(
+    Context(..),
+    Error(..),
+    TemplatePart(..),
+    UnserializabilityReason(..),
+    SerializabilityRequirement(..),
+    errorLocation
+    ) where
 
 import DA.Pretty
 import Data.Tagged(untag)

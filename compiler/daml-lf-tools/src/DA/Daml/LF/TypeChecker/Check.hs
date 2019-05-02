@@ -28,7 +28,9 @@
 -- * FIXME(MH): The @actor@ parameter of a 'UFetch' is /not/ checked. This is a
 --   temporary measure to circumvent some issues with the translation from the
 --   Renamer AST.
-module DA.Daml.LF.TypeChecker.Check where
+module DA.Daml.LF.TypeChecker.Check(
+    checkModule
+    ) where
 
 import DA.Prelude
 
@@ -500,7 +502,7 @@ checkTemplateChoice :: MonadGamma m => Qualified TypeConName -> TemplateChoice -
 checkTemplateChoice tpl (TemplateChoice _loc _ _ actors selfBinder (param, paramType) retType upd) = do
   checkType paramType KStar
   checkType retType KStar
-  v <- view lfVersion
+  v <- getLfVersion
   let checkActors = checkExpr actors (TList TParty)
   if v `supports` featureFlexibleControllers
     then introExprVar param paramType checkActors
@@ -546,7 +548,7 @@ checkValidProjectionsKey = \case
 
 checkFeature :: MonadGamma m => Feature -> m ()
 checkFeature feature = do
-    version <- view lfVersion
+    version <- getLfVersion
     unless (version `supports` feature) $
         throwWithContext $ EUnsupportedFeature feature
 

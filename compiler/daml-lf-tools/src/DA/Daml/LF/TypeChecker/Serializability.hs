@@ -19,7 +19,7 @@ module DA.Daml.LF.TypeChecker.Serializability
 
 import DA.Prelude
 
-import           Control.Lens (matching, toListOf, view)
+import           Control.Lens (matching, toListOf)
 import           Control.Monad.Extra (mconcatMapM)
 import           Data.Either (isRight)
 import           Data.Foldable (for_)
@@ -119,7 +119,7 @@ serializabilityConditionsDataType world0 mbModNameTpls (DefDataType _loc _ _ par
 -- | Check whether a type is serializable.
 checkType :: MonadGamma m => SerializabilityRequirement -> Type -> m ()
 checkType req typ = do
-  world0 <- view world
+  world0 <- getWorld
   case serializabilityConditionsType world0 Nothing HS.empty typ of
     Left reason -> throwWithContext (EExpectedSerializableType req typ reason)
     Right _ -> pure ()
@@ -128,7 +128,7 @@ checkType req typ = do
 checkDataType :: MonadGamma m => ModuleName -> DefDataType -> m ()
 checkDataType modName dataType =
   when (getIsSerializable (dataSerializable dataType)) $ do
-    world0 <- view world
+    world0 <- getWorld
     case serializabilityConditionsDataType world0 Nothing dataType of
       Left reason -> do
         let typ = TCon (Qualified PRSelf modName (dataTypeCon dataType))
