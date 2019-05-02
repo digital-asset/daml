@@ -14,7 +14,6 @@ load(
 )
 
 DAML_LF_VERSIONS = [
-    "1.0",
     "1.1",
     "1.2",
     "1.3",
@@ -80,7 +79,7 @@ genrule(
     outs = ["daml-prim.dar"],
     cmd = """
     $(location //daml-foundations/daml-tools/da-hs-damlc-app) \
-      package daml-foundations/daml-ghc/daml-prim-src/LibraryModules.daml daml-prim --target 1.0 -o $(location daml-prim.dar)
+      package daml-foundations/daml-ghc/daml-prim-src/LibraryModules.daml daml-prim --target 1.1 -o $(location daml-prim.dar)
   """,
     tools = ["//daml-foundations/daml-tools/da-hs-damlc-app"],
     visibility = ["//visibility:public"],

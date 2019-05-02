@@ -11,6 +11,8 @@ module DA.Experimental.Map
   , size
   , toList
   , fromList
+  , toTextMap
+  , fromTextMap
   , null
   , lookup
   , member

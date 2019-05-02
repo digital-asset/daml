@@ -46,16 +46,16 @@ convertPrim _ "SGetParty" (t1@TText :-> TScenario TParty) =
     ETmLam (varV1, t1) $ EScenario $ SGetParty $ EVar varV1
 
 -- Comparison
-convertPrim _"BEEqual" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
+convertPrim _ "BEEqual" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
     EBuiltin $ BEEqual a1
-convertPrim version "BELess" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    convertCompare version BELess a1
-convertPrim version "BELessEq" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    convertCompare version BELessEq a1
-convertPrim version "BEGreaterEq" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    convertCompare version BEGreaterEq a1
-convertPrim version "BEGreater" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    convertCompare version BEGreater a1
+convertPrim _ "BELess" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
+    EBuiltin $ BELess a1
+convertPrim _ "BELessEq" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
+    EBuiltin $ BELessEq a1
+convertPrim _ "BEGreaterEq" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
+    EBuiltin $ BEGreaterEq a1
+convertPrim _ "BEGreater" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
+    EBuiltin $ BEGreater a1
 convertPrim _ "BEEqualList" ((a1 :-> a2 :-> TBool) :-> TList a3 :-> TList a4 :-> TBool) | a1 == a2, a2 == a3, a3 == a4 =
     EBuiltin BEEqualList `ETyApp` a1
 convertPrim _ "BEEqualContractId" (TContractId a1 :-> TContractId a2 :-> TBool) | a1 == a2 =
@@ -142,14 +142,6 @@ convertPrim version "BEPartyFromText" (TText :-> TOptional TParty) =
       -- compile also if we do not support it, so that we can have DA.Internal.LF.partyFromText
       -- compiled without generating invalid packages regardless.
       else runtimeUnsupportedPartyFromText (TOptional TParty)
-convertPrim version "BEPartyFromText" (TText :-> optionalParty)
-  | not (version `supports` featureOptional)
-  , TApp (TCon (Qualified _pkg mod_ typ)) TParty <- optionalParty
-  , mod_ == Tagged ["DA", "Internal", "Prelude"]
-  , typ == Tagged ["Optional"] =
-    -- before DAML-LF 1.1 we didn't even have a built in optional optional yet,
-    -- so we need an additional case here.
-    runtimeUnsupportedPartyFromText optionalParty
 
 -- Map operations
 
@@ -212,14 +204,3 @@ runtimeUnsupportedPartyFromText retType =
     (ETmApp
       (ETyApp (EBuiltin BEError) retType)
       (EBuiltin (BEText "PARTY_FROM_TEXT only supported when compiling to DAML-LF >= 1.2")))
-
--- NOTE(MH): DAML-LF 1.0 does not support the comparison operators for Party.
--- We rewrite them using ToText and comparison on Text when targeting
--- DAML-LF 1.0.
-convertCompare :: Version -> (BuiltinType -> BuiltinExpr) -> BuiltinType -> Expr
-convertCompare version cmp typ
-    | typ /= BTParty || version `supports` featurePartyOrd = EBuiltin (cmp typ)
-    | otherwise =
-        mkETmLams [(varV1, TParty), (varV2, TParty)] $
-          mkETmApps (EBuiltin (cmp BTText)) $
-            map (\v -> EBuiltin (BEToText BTParty) `ETmApp` EVar v) [varV1, varV2]

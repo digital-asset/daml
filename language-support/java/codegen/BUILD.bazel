@@ -104,7 +104,6 @@ pom_file(
 )
 
 daml_lf_target_versions = [
-    "1.0",
     "1.1",
     "1.3",
 ]

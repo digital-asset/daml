@@ -20,10 +20,6 @@ data Version
 data MinorVersion = PointStable Int | PointDev
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
--- | DAML-LF version 1.0.
-version1_0 :: Version
-version1_0 = V1 $ PointStable 0
-
 -- | DAML-LF version 1.1.
 version1_1 :: Version
 version1_1 = V1 $ PointStable 1
@@ -62,7 +58,7 @@ minorFromCliOption = \case
   _ -> Nothing
 
 supportedInputVersions :: [Version]
-supportedInputVersions = [version1_0, version1_1, version1_2, version1_3, V1 PointDev]
+supportedInputVersions = [version1_1, version1_2, version1_3, V1 PointDev]
 
 supportedOutputVersions :: [Version]
 supportedOutputVersions = supportedInputVersions
@@ -73,17 +69,8 @@ data Feature = Feature
     , featureMinVersion :: !Version
     }
 
-featureOptional :: Feature
-featureOptional = Feature "Optional type" version1_1
-
 featureTextMap :: Feature
 featureTextMap = Feature "Map type" version1_3
-
-featurePartyOrd :: Feature
-featurePartyOrd = Feature "Party comparison" version1_1
-
-featureArrowType :: Feature
-featureArrowType = Feature "Arrow type" version1_1
 
 featureSha256Text :: Feature
 featureSha256Text = Feature "sha256 function" version1_2

@@ -9,6 +9,7 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Drop support for DAML-LF 1.0 from compiler
 - DAML-LF "dev" minor version. Write with ``--target 1.dev``, supported by all tools by
   default.
 
