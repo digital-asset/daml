@@ -33,7 +33,7 @@ test_testXyzTest = scenario do
   pure testXyz
 
 idToText : Int -> Text
-idToText x = id show x
+idToText x = identity show x
 
 double : Int -> Int
 double x = 2 * x
@@ -42,7 +42,7 @@ myrecFoo : MyRec -> Text
 myrecFoo x =  x.foo
 
 four : () -> Int
-four tok = 2 + (id 2)
+four tok = 2 + (identity 2)
 
 shadowTest : Int -> Int
 shadowTest x = (\x -> x) $ 2 * x
