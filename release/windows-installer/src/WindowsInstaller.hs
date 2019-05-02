@@ -7,6 +7,7 @@ module Main (main) where
 import Data.String
 import Development.NSIS
 import System.Environment
+import System.FilePath
 
 import SdkVersion
 
@@ -20,7 +21,11 @@ installer sdkDir = do
     name "DAML SDK installer"
     outFile "daml-sdk-installer.exe"
     section "" [] $ do
-        setOutPath "$TEMP"
+        -- We use PLUGINSDIR as an easy way to get a temporary directory
+        -- that nsis will cleanup automatically.
+        unsafeInject "InitPluginsDir"
+        let dir = "$PLUGINSDIR" </> "daml-sdk-" <> sdkVersion
+        setOutPath (fromString dir)
         file [Recursive] (fromString (sdkDir <> "\\*.*"))
-        let dir = "$TEMP/sdk-" <> sdkVersion
-        execWait $ fromString $ "\"" <> dir <> "\\daml\\daml.exe\" install " <> dir <> " --activate"
+        -- install --activate will copy the SDK to the final location.
+        execWait $ fromString $ "\"" <> dir </> "daml" </> "daml.exe" <> "\" install " <> dir <> " --activate"
