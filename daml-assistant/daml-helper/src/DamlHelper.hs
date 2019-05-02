@@ -87,10 +87,14 @@ runDamlStudio replaceExt remainingArguments = do
     installExtension vscodeExtensionSrcDir vscodeExtensionTargetDir
     -- Note that it is important that we use `shell` rather than `proc` here as
     -- `proc` will look for `code.exe` in PATH which does not exist.
+    projectPathM <- getProjectPath
     let codeCommand
             | isMac = "open -a \"Visual Studio Code\""
+            | isWindows = "cmd /C code"
             | otherwise = "code"
-    exitCode <- withCreateProcess (shell $ unwords $ codeCommand : remainingArguments) $ \_ _ _ -> waitForProcess
+        path = fromMaybe "." projectPathM
+        command = unwords $ codeCommand : path : remainingArguments
+    exitCode <- withCreateProcess (shell command) $ \_ _ _ -> waitForProcess
     exitWith exitCode
 
 shouldReplaceExtension :: ReplaceExtension -> FilePath -> IO Bool
