@@ -9,6 +9,17 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.13 - 2019-05-02
+--------------------
+
+- Beta release of the Windows SDK:
+  You can download the installer from
+  `GitHub releases <https://github.com/digital-asset/daml/releases>`_.
+  The Windows SDK ships with the new `daml` installer which will soon also
+  become the default on Linux and MacOS. Documentation is still in progress,
+  take a look at the `Migration guide <https://github.com/digital-asset/daml/pull/768>`_
+  and the `updated documentation <https://github.com/digital-asset/daml/pull/740>`_.
+
 0.12.12 - 2019-04-30
 --------------------
 
