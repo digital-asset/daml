@@ -140,12 +140,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       case EVal(ref) => SEVal(ref, None)
       case EBuiltin(bf) =>
         bf match {
-          case BFoldl =>
-            SEVal(SBuiltin.builtinFoldlRef, None)
-          case BFoldr =>
-            SEVal(SBuiltin.builtinFoldrRef, None)
-          case BEqualList =>
-            SEVal(SBuiltin.builtinEqualListRef, None)
+          case BFoldl => SEBuiltinRecursiveDefinition.FoldL
+          case BFoldr => SEBuiltinRecursiveDefinition.FoldR
+          case BEqualList => SEBuiltinRecursiveDefinition.EqualList
           case _ =>
             SEBuiltin(bf match {
               case BTrace => SBTrace
@@ -874,6 +871,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       case v: SEVal => v
       case be: SEBuiltin => be
       case pl: SEValue => pl
+      case f: SEBuiltinRecursiveDefinition => f
       case SELocation(loc, body) =>
         SELocation(loc, closureConvert(remaps, bound, body))
 
@@ -957,6 +955,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case _: SEVal => ()
         case _: SEBuiltin => ()
         case _: SEValue => ()
+        case _: SEBuiltinRecursiveDefinition => ()
         case SELocation(_, body) =>
           go(body)
         case SEApp(fun, args) =>
@@ -1023,6 +1022,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           }
         case _: SEVal => ()
         case _: SEBuiltin => ()
+        case _: SEBuiltinRecursiveDefinition => ()
         case SEValue(v) => goV(v)
         case SEApp(fun, args) =>
           go(fun)
