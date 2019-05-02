@@ -5,19 +5,19 @@ index 7fca51c..1e8b78e 100644
 @@ -1,6 +1,6 @@
  """Actions for compiling Haskell source code"""
  
--load(":private/packages.bzl", "expose_packages", "pkg_info_to_ghc_args")
-+load(":private/packages.bzl", "expose_packages", "pkg_info_to_ghc_args", "pkg_info_to_ghc_env_args")
+-load(":private/packages.bzl", "expose_packages", "pkg_info_to_compile_flags")
++load(":private/packages.bzl", "expose_packages", "pkg_info_to_compile_flags", "pkg_info_to_ghc_env_args")
  load("@bazel_skylib//lib:dicts.bzl", "dicts")
  load("@bazel_skylib//lib:paths.bzl", "paths")
  load(
-@@ -149,18 +149,28 @@ def _compilation_defaults(hs, cc, java, dep_info, plugin_dep_info, srcs, import_
+@@ -150,18 +150,28 @@ def _compilation_defaults(hs, cc, java, dep_info, plugin_dep_info, srcs, import_
      if hs.toolchain.is_darwin:
-         ghc_args += ["-optl-Wl,-dead_strip_dylibs"]
+         compile_flags += ["-optl-Wl,-dead_strip_dylibs"]
  
--    ghc_args.extend(
--        pkg_info_to_ghc_args(
+-    compile_flags.extend(
+-        pkg_info_to_compile_flags(
 -            expose_packages(
-+    ghc_args.extend(["-hide-all-packages"])
++    compile_flags.extend(["-hide-all-packages"])
 +
 +    package_env_file = hs.actions.declare_file("package_env_%s" % hs.name)
 +    package_args = hs.actions.args()
@@ -28,7 +28,7 @@ index 7fca51c..1e8b78e 100644
                  lib_info = None,
                  use_direct = True,
                  use_my_pkg_id = my_pkg_id,
-                 custom_package_caches = None,
+                 custom_package_databases = None,
                  version = version,
 -            ),
          ),
@@ -36,12 +36,12 @@ index 7fca51c..1e8b78e 100644
 +    package_args.add_all(package_env_args)
 +    package_args.set_param_file_format("multiline")
 +    hs.actions.write(package_env_file, package_args)
-+    ghc_args.extend(["-package-env", package_env_file])
-+    ghc_args.extend(other_args)
++    compile_flags.extend(["-package-env", package_env_file])
++    compile_flags.extend(other_args)
 +
 +    # Plugin arguments cannot be redirected via package environment files afaict.
-     ghc_args.extend(
-         pkg_info_to_ghc_args(
+     compile_flags.extend(
+         pkg_info_to_compile_flags(
              expose_packages(
 @@ -337,6 +347,7 @@ def _compilation_defaults(hs, cc, java, dep_info, plugin_dep_info, srcs, import_
              locale_archive_depset,
@@ -55,7 +55,7 @@ diff --git a/haskell/private/packages.bzl b/haskell/private/packages.bzl
 index 91236fc..6d7a073 100644
 --- a/haskell/private/packages.bzl
 +++ b/haskell/private/packages.bzl
-@@ -41,6 +41,42 @@ def pkg_info_to_ghc_args(pkg_info, for_plugin = False):
+@@ -41,6 +41,42 @@ def pkg_info_to_compile_flags(pkg_info, for_plugin = False):
  
      return args
  
@@ -95,6 +95,6 @@ index 91236fc..6d7a073 100644
 +
 +    return package_env_args, other_args
 +
- def expose_packages(build_info, lib_info, use_direct, use_my_pkg_id, custom_package_caches, version):
+ def expose_packages(hs_info, lib_info, use_direct, use_my_pkg_id, custom_package_databases, version):
      """
      Returns the information that is needed by GHC in order to enable haskell

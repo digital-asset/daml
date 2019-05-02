@@ -27,8 +27,8 @@
 # be resolvable from external workspaces otherwise.
 
 rules_scala_version = "6f8ee3d951d2ac6154356314600f6edb4eb5df8b"
-rules_haskell_version = "23eaaa8c85d908fb3ccc69b470d3730dcef165a0"
-rules_haskell_sha256 = "9fab4f50a0ea0e02d98c918fdf0859cf0f6828b6dbf167c7acb1293cd2b37d65"
+rules_haskell_version = "6c550c8eb7ce7950e702420be39d932b8b31ef22"
+rules_haskell_sha256 = "aef68cf5d732b2fa9ae0efea344cb83cb0c16f0f08a8d6901776a0085fbe7a8b"
 rules_nixpkgs_version = "40b5a9f23abca57f364c93245c7451206ef1a855"
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -42,7 +42,6 @@ def daml_deps():
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:haskell-static-linking.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-optp-response.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-package-env.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-win-sys-includes.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-drop-fake-static.patch",
