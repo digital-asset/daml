@@ -16,8 +16,8 @@ import com.digitalasset.daml.lf.data.Ref.SimpleString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.platform.akkastreams.Dispatcher
-import com.digitalasset.platform.akkastreams.SteppingMode.OneAfterAnother
+import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
+import com.digitalasset.platform.akkastreams.dispatcher.SteppingMode.OneAfterAnother
 import com.digitalasset.platform.services.time.TimeModel
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory

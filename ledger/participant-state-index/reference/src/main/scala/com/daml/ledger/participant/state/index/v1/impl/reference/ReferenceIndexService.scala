@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.api.domain.TransactionFilter
-import com.digitalasset.platform.akkastreams.SignalDispatcher
+import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.FiniteDuration

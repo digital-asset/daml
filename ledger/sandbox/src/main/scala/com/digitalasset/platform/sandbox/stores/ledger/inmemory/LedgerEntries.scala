@@ -7,8 +7,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.platform.akkastreams.Dispatcher
-import com.digitalasset.platform.akkastreams.SteppingMode.RangeQuery
+import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
+import com.digitalasset.platform.akkastreams.dispatcher.SteppingMode.RangeQuery
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.TreeMap

@@ -10,7 +10,8 @@ import java.util.concurrent.{Executors, TimeUnit}
 import akka.stream.DelayOverflowStrategy
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.platform.akkastreams.SteppingMode.{OneAfterAnother, RangeQuery}
+import com.digitalasset.platform.akkastreams.dispatcher.{Dispatcher, SteppingMode}
+import com.digitalasset.platform.akkastreams.dispatcher.SteppingMode.{OneAfterAnother, RangeQuery}
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._

@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.platform.akkastreams.SignalDispatcher
+import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher
 import com.digitalasset.platform.server.services.command.time.TimeModelValidator
 import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory

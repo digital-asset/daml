@@ -8,6 +8,7 @@ import java.lang
 import akka.stream.scaladsl.Sink
 import akka.stream.testkit.scaladsl.TestSink
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher
 import org.awaitility.Awaitility.await
 import org.awaitility.Duration
 import org.scalatest.concurrent.AsyncTimeLimitedTests

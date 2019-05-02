@@ -1,47 +1,19 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-
-package com.digitalasset.platform.akkastreams
+//TODO: move the tests as well
+package com.digitalasset.platform.akkastreams.dispatcher
 
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.platform.akkastreams.Dispatcher._
-import com.digitalasset.platform.akkastreams.SteppingMode.{OneAfterAnother, RangeQuery}
+import com.digitalasset.platform.akkastreams.dispatcher.SteppingMode.{OneAfterAnother, RangeQuery}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.github.ghik.silencer.silent
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
 import scala.concurrent.Future
-
-/** Defines how the progress on the ledger should be mapped to look-up operations  */
-sealed abstract class SteppingMode[Index: Ordering, T] extends Product with Serializable {}
-
-object SteppingMode {
-
-  /**
-    * Useful when range queries are not possible. For instance streaming a linked-list from Cassandra
-    *
-    * @param readSuccessor extracts the next index
-    * @param readElement   reads the element on the given index
-    */
-  final case class OneAfterAnother[Index: Ordering, T](
-      readSuccessor: (Index, T) => Index,
-      readElement: Index => Future[T])
-      extends SteppingMode[Index, T]
-
-  /**
-    * Applicable when the persistence layer supports efficient range queries.
-    *
-    * @param range (startInclusive, endExclusive) => Source[(Index, T), NotUsed]
-    */
-  final case class RangeQuery[Index: Ordering, T](
-      range: (Index, Index) => Source[(Index, T), NotUsed])
-      extends SteppingMode[Index, T]
-
-}
 
 /**
   * A fanout signaller, representing a stream of external updates,
@@ -59,12 +31,13 @@ object SteppingMode {
   * @tparam T     The stored type
   */
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class Dispatcher[Index: Ordering, T] private (
+final class DispatcherImpl[Index: Ordering, T](
     steppingMode: SteppingMode[Index, T],
     zeroIndex: Index,
     headAtInitialization: Index)
-    extends HeadAwareDispatcher[Index, T]
-    with AutoCloseable {
+    extends Dispatcher[Index, T] {
+
+  private val logger = LoggerFactory.getLogger(getClass)
 
   require(
     !indexIsBeforeZero(headAtInitialization),
@@ -135,6 +108,7 @@ class Dispatcher[Index: Ordering, T] private (
     * Gets all values from start, inclusive, to end, exclusive.
     */
   private def subsource(start: Index, end: Index): Source[(Index, T), NotUsed] =
+    //TODO: stepping mode could be this function and have the implementation as factories
     steppingMode match {
       case OneAfterAnother(readSuccessor, readElement) =>
         Source
@@ -151,11 +125,8 @@ class Dispatcher[Index: Ordering, T] private (
         queryRange(start, end)
     }
 
-  /**
-    * Return a source of all values starting at the given index, in the form (successor index, value).
-    */
   // noinspection MatchToPartialFunction, ScalaUnusedSymbol
-  def startingAt(start: Index): Source[(Index, T), NotUsed] =
+  override def startingAt(start: Index): Source[(Index, T), NotUsed] =
     if (indexIsBeforeZero(start))
       Source.failed(
         new IllegalArgumentException(
@@ -198,29 +169,7 @@ class Dispatcher[Index: Ordering, T] private (
       case c: Closed => ()
     }
 
-}
-
-object Dispatcher {
-
-  private val logger = LoggerFactory.getLogger(Dispatcher.getClass)
-
-  private def closedError: IllegalStateException = {
+  private def closedError: IllegalStateException =
     new IllegalStateException("Dispatcher is closed")
-  }
 
-  /**
-    * Construct a new Dispatcher. This will consume Akka resources until closed.
-    *
-    * @param steppingMode         the chosen SteppingMode
-    * @param zeroIndex            the initial starting Index instance
-    * @param headAtInitialization the head index at the time of creation
-    * @tparam Index The index type
-    * @tparam T     The element type
-    * @return A new Dispatcher.
-    */
-  def apply[Index: Ordering, T](
-      steppingMode: SteppingMode[Index, T],
-      zeroIndex: Index,
-      headAtInitialization: Index): Dispatcher[Index, T] =
-    new Dispatcher(steppingMode, zeroIndex, headAtInitialization)
 }
