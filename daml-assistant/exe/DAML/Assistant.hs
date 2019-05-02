@@ -29,7 +29,7 @@ main :: IO ()
 main = displayErrors $ do
     rawArgs <- getArgs
     let isInstall = notNull rawArgs && head rawArgs == "install"
-    env@Env{..} <- getDamlEnv
+    env@Env{..} <- if isInstall then getMinimalDamlEnv else getDamlEnv
     sdkConfigM <- mapM readSdkConfig envSdkPath
     sdkCommandsM <- mapM (fromRightM throwIO . listSdkCommands) sdkConfigM
     userCommand <- getCommand (fromMaybe [] sdkCommandsM)
@@ -42,7 +42,7 @@ main = displayErrors $ do
                 Just latestVersion
 
         -- Project SDK version is outdated.
-        when (not isHead && not isInstall && projectSdkVersionIsOld) $ do
+        when (not isHead && projectSdkVersionIsOld) $ do
             hPutStrLn stderr . unlines $
                 [ "WARNING: Using an outdated version of the DAML SDK in project."
                 , ""
@@ -55,7 +55,7 @@ main = displayErrors $ do
                 ]
 
         -- DAML assistant is outdated.
-        when (not isHead && not isInstall && not projectSdkVersionIsOld && assistantVersionIsOld) $ do
+        when (not isHead && not projectSdkVersionIsOld && assistantVersionIsOld) $ do
             hPutStrLn stderr . unlines $
                 [ "WARNING: Using an outdated version of the DAML assistant."
                 , ""
