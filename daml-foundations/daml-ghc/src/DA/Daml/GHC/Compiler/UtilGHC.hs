@@ -106,8 +106,8 @@ pattern LExpr :: GHC.Expr b -> LArg b
 pattern LExpr x <- (_, x)
 
 
-decodeLitStringLatin1 :: BS.ByteString -> T.Text
-decodeLitStringLatin1 = T.decodeLatin1
+unpackCString :: BS.ByteString -> T.Text
+unpackCString = T.decodeLatin1
 
-decodeLitStringUtf8 :: BS.ByteString -> T.Text
-decodeLitStringUtf8 = T.decodeUtf8
+unpackCStringUtf8 :: BS.ByteString -> T.Text
+unpackCStringUtf8 = T.decodeUtf8
