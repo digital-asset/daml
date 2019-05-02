@@ -252,3 +252,6 @@ testParseDecimal = scenario do
   Some 10.0 === parseDecimal "0010"
   Some 1.0 === parseDecimal "01.00"
 
+testReverse = scenario do
+  T.reverse "DAML" === "LMAD"
+

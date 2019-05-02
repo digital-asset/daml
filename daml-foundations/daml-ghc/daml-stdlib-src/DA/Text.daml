@@ -17,6 +17,7 @@ module DA.Text
   , DA.Text.unwords
   , DA.Text.linesBy
   , DA.Text.wordsBy
+  , DA.Text.reverse
   , DA.Text.intercalate
   , DA.Text.dropPrefix
   , DA.Text.dropSuffix
@@ -302,3 +303,11 @@ parseDecimal t =
 -- This function will crash at runtime if you compile DAML to DAML-LF < 1.2.
 sha256 : Text -> Text
 sha256 = primitive @"BESha256Text"
+
+
+-- | Reverse some `Text`.
+-- ```
+--   reverse "DAML" == "LMAD"
+-- ```
+reverse : Text -> Text
+reverse = implode . P.reverse . explode
