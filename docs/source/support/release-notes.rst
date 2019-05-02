@@ -10,6 +10,11 @@ HEAD — ongoing
 --------------
 
 - Delete the `id` function, use `identity` instead.
+- Drop support for DAML-LF 1.0 from compiler
+
+0.12.13 - 2019-05-02
+--------------------
+
 - Fix an issue with Postgres of potentially not stopping the transaction stream at required ceiling offset. See more `here <https://github.com/digital-asset/daml/pull/802>`
 
 0.12.12 - 2019-04-30

@@ -22,10 +22,10 @@ testLength = scenario do
   1 === T.length "a"
   3 === T.length "abc"
 
-testTrim =
+testTrim = scenario do
     assert $  trim "  digital asset  " == "digital asset"
 
-testReplace = do
+testReplace = scenario do
     assert $ replace "el" "_" "Hello Bella" == "H_lo B_la"
     assert $ replace "el" "e" "Hello"       == "Helo"
 
@@ -47,7 +47,7 @@ testUnwords = scenario do
   unwords [] === ""
   unwords ["one", "two"] === "one two"
 
-testLinesBy = do
+testLinesBy = scenario do
     assert $ linesBy (== "a") "aabbaca"  == ["","","bb","c"]
     assert $ linesBy (== "a") "aabbacaa" == ["","","bb","c",""]
     assert $ linesBy (== "a") ""         == []
@@ -55,7 +55,7 @@ testLinesBy = do
     assert $ linesBy (== ":") "::xyz:abc::123::" == ["","","xyz","abc","","123",""]
     assert $ linesBy (== ",") "my,list,here" == ["my","list","here"]
 
-testWordsBy = do
+testWordsBy = scenario do
     assert $ wordsBy (== "a") "aabbaca"  == ["bb","c"]
     assert $ wordsBy (== "a") "aabbacaa" == ["bb","c"]
     assert $ wordsBy (== "a") ""         == []
@@ -69,21 +69,21 @@ testIntercalate = scenario do
   ", 2, " === intercalate ", " ["", "2", ""]
   "" === intercalate ", " []
 
-testDropPrefix = do
+testDropPrefix = scenario do
     assert $ dropPrefix "Mr. " "Mr. Men" == "Men"
     assert $ dropPrefix "Mr. " "Dr. Men" == "Dr. Men"
 
-testDropSuffix = do
+testDropSuffix = scenario do
     assert $ dropSuffix "!" "Hello World!"  == "Hello World"
     assert $ dropSuffix "!" "Hello World!!" == "Hello World!"
     assert $ dropSuffix "!" "Hello World."  == "Hello World."
 
-testStripSuffix = do
+testStripSuffix = scenario do
     assert $ stripSuffix "bar" "foobar" == Some "foo"
     assert $ stripSuffix ""    "baz"    == Some "baz"
     assert $ stripSuffix "foo" "quux"   == None
 
-testStripPrefix = do
+testStripPrefix = scenario do
     assert $ stripPrefix "foo" "foobar" == Some "bar"
     assert $ stripPrefix ""    "baz"    == Some "baz"
     assert $ stripPrefix "foo" "quux"   == None
@@ -252,39 +252,16 @@ testParseDecimal = scenario do
   Some 10.0 === parseDecimal "0010"
   Some 1.0 === parseDecimal "01.00"
 
-main = scenario do
-    testExplode
-    testImplode
-    testLength
-    testTrim
-    testReplace
-    testLines
-    testUnlines
-    testWords
-    testUnwords
-    testLinesBy
-    testWordsBy
-    testIntercalate
-    testDropPrefix
-    testDropSuffix
-    testStripSuffix
-    testStripPrefix
-    testIsPrefixOf
-    testIsSuffixOf
-    testIsInfixOf
-    testTakeWhile
-    testTakeWhileEnd
-    testDropWhile
-    testDropWhileEnd
-    testSplitOn
-    testTake
-    testDrop
-    testSubstring
-    testIsSpace
-    testIsNewLine
-    testIsUpper
-    testIsLower
-    testIsDigit
-    testIsAlphaNum
-    testParseInt
-    testParseDecimal
+testReverse = scenario do
+  T.reverse "DAML" === "LMAD"
+
+testNuls = scenario do
+  "\0" === "\0"
+  "£" === "£"
+  "£\0" === "£\0"
+  "\0DAML" === "\0DAML"
+  "DA\0ML" === "DA\0ML"
+  T.reverse "DA\0⛄ML" === "LM⛄\0AD"
+  T.reverse "\0\1\2\3" === "\3\2\1\0"
+  parseInt (T.drop 1 "\0\&123") === Some 123
+  T.splitOn "\0" "Hello\0World" === ["Hello","World"]

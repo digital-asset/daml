@@ -14,6 +14,7 @@ import DA.Bifunctor
 import DA.Date
 import DA.Either
 import DA.Experimental.Map
+import DA.Experimental.Set
 import DA.Foldable
 import DA.Functor
 import DA.HKTemplate

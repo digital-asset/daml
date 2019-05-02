@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.index.v1.impl.reference
 
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.data.Time.Timestamp

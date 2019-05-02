@@ -4,10 +4,8 @@
 package com.daml.ledger.participant.state
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.platform.services.time.TimeModel
 
 /** Interfaces to read from and write to an (abstract) participant state.
   *
@@ -87,53 +85,6 @@ package object v1 {
   /** Identifiers for parties. */
   type Party = Ref.Party
 
-  /** Offsets into streams with hierarchical addressing.
-    *
-    * We use these [[Offset]]'s to address changes to the participant state.
-    * We allow for array of [[Int]] to allow for hierarchical addresses.
-    * These [[Int]] values are expected to be positive. Offsets are ordered by
-    * lexicographic ordering of the array elements.
-    *
-    * A typical use case for [[Offset]]s would be addressing a transaction in a
-    * blockchain by `[<blockheight>, <transactionId>]`. Depending on the
-    * structure of the underlying ledger these offsets are more or less
-    * nested, which is why we use an array of [[Int]]s. The expectation is
-    * though that there usually are few elements in the array.
-    *
-    */
-  final case class Offset(private val xs: Array[Long]) {
-    override def toString: String =
-      components.mkString("-")
-
-    def components: Iterable[Long] = xs
-
-    override def equals(that: Any): Boolean = that match {
-      case o: Offset => Offset.compare(this, o) == 0
-      case _ => false
-    }
-  }
-  implicit object Offset extends Ordering[Offset] {
-
-    /** Create an offset from a string of form 1-2-3. Throws
-      * NumberFormatException on misformatted strings.
-      */
-    def assertFromString(s: String): Offset =
-      Offset(s.split('-').map(_.toLong))
-
-    override def compare(x: Offset, y: Offset): Int =
-      scala.math.Ordering.Iterable[Long].compare(x.xs, y.xs)
-  }
-
-  /** The initial conditions of the ledger.
-    *
-    * @param ledgerId: The static ledger identifier.
-    * @param initialRecordTime: The initial record time prior to any [[Update]] event.
-    */
-  final case class LedgerInitialConditions(
-      ledgerId: LedgerId,
-      initialRecordTime: Timestamp
-  )
-
   /** A transaction with relative and absolute contract identifiers.
     *
     *  See [[WriteService.submitTransaction]] for details.
@@ -152,57 +103,5 @@ package object v1 {
   /** A contract instance with absolute contract identifiers only. */
   type AbsoluteContractInst =
     Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]
-
-  /** TODO (SM): expand this into a record for time-limit configuration and an
-    *  explanation of how it is intended to be implemented.
-    *  https://github.com/digital-asset/daml/issues/385
-    */
-  final case class Configuration(
-      timeModel: TimeModel
-  )
-
-  /** Information provided by the submitter of changes submitted to the ledger.
-    *
-    * Note that this is used for party-originating changes only. They are
-    * usually issued via the Ledger API.
-    *
-    * @param submitter: the party that submitted the change.
-    *
-    * @param applicationId: an identifier for the DAML application that
-    *   submitted the command. This is used for monitoring and to allow DAML
-    *   applications subscribe to their own submissions only.
-    *
-    * @param commandId: a submitter provided identifier that he can use to
-    *   correlate the stream of changes to the participant state with the
-    *   changes he submitted.
-    *
-    * @param maxRecordTime: the maximum record time (inclusive) until which
-    *   the submitted change can be validly added to the ledger. This is used
-    *   by DAML applications to deduce from the record time reported by the
-    *   ledger whether a change that they submitted has been lost in transit.
-    *
-    */
-  final case class SubmitterInfo(
-      submitter: Party,
-      applicationId: ApplicationId,
-      commandId: CommandId,
-      maxRecordTime: Timestamp,
-  )
-
-  /** Meta-data of a transaction visible to all parties that can see a part of
-    * the transaction.
-    *
-    * @param ledgerEffectiveTime: the submitter-provided time at which the
-    *   transaction should be interpreted. This is the time returned by the
-    *   DAML interpreter on a `getTime :: Update Time` call. See the docs on
-    *   [[WriteService.submitTransaction]] for how it relates to the notion of
-    *   `recordTime`.
-    *
-    * @param workflowId: a submitter-provided identifier used for monitoring
-    *   and to traffic-shape the work handled by DAML applications
-    *   communicating over the ledger.
-    *
-    */
-  final case class TransactionMeta(ledgerEffectiveTime: Timestamp, workflowId: WorkflowId)
 
 }
