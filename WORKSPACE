@@ -417,7 +417,6 @@ hazel_repositories(
         "clock",
         "data-default",
         "data-default-instances-containers",
-        "c2hs",
         "streaming-commons",
         "wai-app-static",
         "zlib",
