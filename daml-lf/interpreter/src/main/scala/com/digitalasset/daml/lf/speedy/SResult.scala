@@ -82,6 +82,7 @@ object SResult {
 
   final case class SResultNeedKey(
       key: GlobalKey,
+      optCommitter: Option[Party],
       // Callback to signal that the key was not present.
       // returns true if this was recoverable.
       cbMissing: Unit => Boolean,

@@ -844,6 +844,7 @@ object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               gkey,
+              machine.committer,
               cbMissing = _ => {
                 machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
                 machine.ctrl = CtrlValue(SOptional(None))
@@ -923,6 +924,7 @@ object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               gkey,
+              machine.committer,
               cbMissing = _ => {
                 machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
                 machine.tryHandleException()

@@ -826,9 +826,7 @@ object Ledger {
           // ------------------------------------------------------------------
           // witnesses            : stakeholders union witnesses of parent exercise
           //                        node
-          // divulge
-          //  | default           : all contract-ids in the instance to witnesses
-          //  | dontDivulgeContractIdsInCreateArguments: Nothing
+          // divulge              : Nothing
           // well-authorized by A : signatories subsetOf A && non-empty signatories
           // ------------------------------------------------------------------
 
@@ -846,10 +844,7 @@ object Ledger {
           // ------------------------------------------------------------------
           // witnesses            : parent exercise witnesses
           // divulge              : referenced contract to witnesses of parent exercise node
-          // well-authorized by A
-          //  | default           : always
-          //  | dontDivulgeContractIdsInCreateArguments: A `intersect`
-          //                                              stakeholders(fetched contract id) = non-empty
+          // well-authorized by A : A `intersect` stakeholders(fetched contract id) = non-empty
           // ------------------------------------------------------------------
           val state1 = state
             .divulgeCoidTo(parentExerciseWitnesses -- fetch.stakeholders, fetch.coid)
@@ -863,15 +858,10 @@ object Ledger {
         case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
           // ------------------------------------------------------------------
           // witnesses:
-          //  | default: stakeholders(targetId) union witnesses of parent exercise node
-          //  | dontDiscloseNonConsumingChoicesToObservers:
-          //      | consuming  -> default
-          //      | non-consuming ->  signatories(targetId) union actors
-          //                          union witnesses of parent exercise
-          // divulge
-          // | default: nothing
-          // | dontDivulgeContractIdsInCreateArguments: target contract id to parent
-          //                                                    exercise witnesses.
+          //    | consuming  -> stakeholders(targetId) union witnesses of parent exercise node
+          //    | non-consuming ->  signatories(targetId) union actors
+          //                        union witnesses of parent exercise
+          // divulge: target contract id to parent exercise witnesses.
           // well-authorized by A : actors == controllers(c)
           //                        && actors subsetOf A
           //                        && childrenActions well-authorized by

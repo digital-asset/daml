@@ -25,6 +25,10 @@ HEAD — ongoing
 - Include list of DAML packages used during interpretation in the produced transaction.
 - Release source jars for scala libraries.
 - Rename ``DA.TextMap.filter`` and ``DA.Map.filter`` to ``filterWithKey``.
+- Fix bug releated to visibility and contract keys -- see
+  `#751 <https://github.com/digital-asset/daml/issues/751>`.
+- Fix bug related witness parties in transaction events -- see
+  `#794 <https://github.com/digital-asset/daml/issues/794>`.
 
 0.12.11 - 2019-04-26
 --------------------
