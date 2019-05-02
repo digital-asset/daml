@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-} -- to enable prettyPrint
@@ -23,6 +24,12 @@ import           Data.Generics.Uniplate.Data
 import           Data.List
 import qualified Data.Set as Set
 import           Data.Tuple.Extra
+import qualified Data.ByteString as BS
+import qualified Data.Text as T
+import Control.Exception
+import GHC.Ptr(Ptr(..))
+import System.IO.Unsafe
+
 
 ----------------------------------------------------------------------
 -- GHC utility functions
@@ -101,3 +108,20 @@ pattern LType x <- (_, Type x)
 
 pattern LExpr :: GHC.Expr b -> LArg b
 pattern LExpr x <- (_, x)
+
+
+-- | GHC uses unpackCString only when there are only
+--   characters in the range 1..127 - so compatible with UTF8 too.
+--   We just use the UTF8 decoder anyway.
+unpackCString :: BS.ByteString -> T.Text
+unpackCString = unpackCStringUtf8
+
+-- | Convert a GHC encoded String literal to Text.
+--   Problematic since GHC uses a weird encoding where NUL becomes
+--   "\xc0\x80" and the string is NUL terminated.
+--   Fortunately Text contains a helper for rewrite rules that deals with it.
+unpackCStringUtf8 :: BS.ByteString -> T.Text
+-- A "safe" unsafePerformIO since we copy into a strict result Text string
+unpackCStringUtf8 bs = unsafePerformIO $
+    BS.useAsCString bs $ \(Ptr a) -> do
+        evaluate $ T.unpackCString# a

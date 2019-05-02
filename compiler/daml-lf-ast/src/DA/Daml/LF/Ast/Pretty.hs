@@ -179,7 +179,7 @@ instance Pretty BuiltinExpr where
   pPrintPrec _lvl prec = \case
     BEInt64 n -> pretty (toInteger n)
     BEDecimal dec -> string (show dec)
-    BEText t -> doubleQuotes (pretty t)
+    BEText t -> string (show t) -- includes the double quotes, and escapes characters
     BEParty p -> pretty p
     BEEnumCon c -> pretty c
     BEError -> "ERROR"
