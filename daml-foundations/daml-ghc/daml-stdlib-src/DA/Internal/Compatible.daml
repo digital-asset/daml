@@ -108,7 +108,3 @@ pattern Just x = Some x
 {-# DEPRECATED maybe "DAML 1.2 compatibility helper, use 'optional' instead of 'maybe'" #-}
 maybe : b -> (a -> b) -> Maybe a -> b
 maybe = optional
-
-{-# DEPRECATED id "DAML 1.2 compatibility helper, use 'identity' instead of 'id'" #-}
-id : a -> a
-id = identity
