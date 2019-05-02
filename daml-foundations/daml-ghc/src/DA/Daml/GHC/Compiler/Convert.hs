@@ -104,7 +104,6 @@ import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import           Data.Tagged
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import           Data.Tuple.Extra
 import           Data.Ratio
 import           "ghc-lib" GHC
@@ -646,9 +645,9 @@ convertExpr env0 e = do
     go env (VarIs "fromString") (LExpr x : args)
         = fmap (, args) $ convertExpr env x
     go env (VarIs "unpackCString#") (LExpr (Lit (LitString x)) : args)
-        = fmap (, args) $ pure $ EBuiltin $ BEText $ T.decodeLatin1 x
+        = fmap (, args) $ pure $ EBuiltin $ BEText $ decodeLitStringLatin1 x
     go env (VarIs "unpackCStringUtf8#") (LExpr (Lit (LitString x)) : args)
-        = fmap (, args) $ pure $ EBuiltin $ BEText $ T.decodeUtf8 x
+        = fmap (, args) $ pure $ EBuiltin $ BEText $ decodeLitStringUtf8 x
     go env x@(Var f) (LType t1 : LType t2 : LExpr (untick -> Lit (LitString s)) : args)
         | Just m <- nameModule_maybe (getName f)
         , moduleNameString (GHC.moduleName m) == "Control.Exception.Base"
@@ -656,7 +655,7 @@ convertExpr env0 e = do
         x' <- convertExpr env x
         t1' <- convertType env t1
         t2' <- convertType env t2
-        pure (x' `ETyApp` t1' `ETyApp` t2' `ETmApp` EBuiltin (BEText (T.decodeUtf8 s)))
+        pure (x' `ETyApp` t1' `ETyApp` t2' `ETmApp` EBuiltin (BEText (decodeLitStringUtf8 s)))
 
     -- conversion of bodies of $con2tag functions
     go env (VarIs "getTag") (LType (TypeCon t _) : LExpr x : args) = fmap (, args) $ do

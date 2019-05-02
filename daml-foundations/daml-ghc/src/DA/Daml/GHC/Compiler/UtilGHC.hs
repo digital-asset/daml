@@ -23,6 +23,9 @@ import           Data.Generics.Uniplate.Data
 import           Data.List
 import qualified Data.Set as Set
 import           Data.Tuple.Extra
+import qualified Data.ByteString as BS
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 
 ----------------------------------------------------------------------
 -- GHC utility functions
@@ -101,3 +104,10 @@ pattern LType x <- (_, Type x)
 
 pattern LExpr :: GHC.Expr b -> LArg b
 pattern LExpr x <- (_, x)
+
+
+decodeLitStringLatin1 :: BS.ByteString -> T.Text
+decodeLitStringLatin1 = T.decodeLatin1
+
+decodeLitStringUtf8 :: BS.ByteString -> T.Text
+decodeLitStringUtf8 = T.decodeUtf8
