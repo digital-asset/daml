@@ -20,7 +20,7 @@ genrule(
         mkdir -p $$OUT/quickstart-java
         tar xf $(location //docs:quickstart-java.tar.gz) --strip-components=1 -C $$OUT/quickstart-java
         rm $$OUT/quickstart-java/da-skeleton.yaml
-        cp $$SRC/quickstart-java/* $$OUT/quickstart-java/
+        cp -rL $$SRC/quickstart-java/* $$OUT/quickstart-java/
 
         tar zcf $(location :templates-tarball.tar.gz) templates-tarball
     """,
