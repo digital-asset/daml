@@ -6,6 +6,7 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
+    "lf_scalacopts",
 )
 
 da_scala_library(
@@ -21,5 +22,18 @@ da_scala_library(
         "//daml-lf/interpreter",
         "//daml-lf/lfpackage",
         "//daml-lf/transaction",
+    ],
+)
+
+da_scala_test_suite(
+    name = "scenario-interpreter_tests",
+    size = "small",
+    srcs = glob(["src/test/**/*.scala"]),
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":scenario-interpreter",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/lfpackage",
     ],
 )

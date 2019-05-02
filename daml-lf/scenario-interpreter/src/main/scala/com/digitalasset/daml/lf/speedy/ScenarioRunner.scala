@@ -13,10 +13,6 @@ import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 
-//
-// Speedy scenario runner that uses the reference ledger.
-//
-
 private case class SRunnerException(err: SError) extends RuntimeException(err.toString)
 
 /** Speedy scenario runner that uses the reference ledger.
