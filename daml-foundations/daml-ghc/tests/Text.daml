@@ -252,39 +252,3 @@ testParseDecimal = scenario do
   Some 10.0 === parseDecimal "0010"
   Some 1.0 === parseDecimal "01.00"
 
-main = scenario do
-    testExplode
-    testImplode
-    testLength
-    testTrim
-    testReplace
-    testLines
-    testUnlines
-    testWords
-    testUnwords
-    testLinesBy
-    testWordsBy
-    testIntercalate
-    testDropPrefix
-    testDropSuffix
-    testStripSuffix
-    testStripPrefix
-    testIsPrefixOf
-    testIsSuffixOf
-    testIsInfixOf
-    testTakeWhile
-    testTakeWhileEnd
-    testDropWhile
-    testDropWhileEnd
-    testSplitOn
-    testTake
-    testDrop
-    testSubstring
-    testIsSpace
-    testIsNewLine
-    testIsUpper
-    testIsLower
-    testIsDigit
-    testIsAlphaNum
-    testParseInt
-    testParseDecimal
