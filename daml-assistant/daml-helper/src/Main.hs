@@ -39,7 +39,7 @@ commandParser =
               [ ListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
               , New
                   <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-                  <*> argument str (metavar "TEMPLATE" <> help "Name of the template used to create the project (default: quickstart-java)" <> value "quickstart-java")
+                  <*> argument str (metavar "TEMPLATE" <> help "Name of the template used to create the project (default: skeleton)" <> value "skeleton")
               ]
           startCmd = pure Start
           readReplacement :: ReadM ReplaceExtension
