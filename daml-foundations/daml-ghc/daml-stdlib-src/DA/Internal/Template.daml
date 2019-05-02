@@ -12,7 +12,7 @@ module DA.Internal.Template(
     stakeholder,
     create, exercise, fetch,
     archive, Archive(..),
-    lookupByKey, fetchByKey,
+    lookupByKey, fetchByKey, exerciseByKey,
     exerciseExplicit,
     IsParties(toParties),
     TemplateKey(key, maintainer)
