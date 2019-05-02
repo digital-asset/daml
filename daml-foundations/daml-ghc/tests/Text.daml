@@ -255,3 +255,13 @@ testParseDecimal = scenario do
 testReverse = scenario do
   T.reverse "DAML" === "LMAD"
 
+testNuls = scenario do
+  "\0" === "\0"
+  "£" === "£"
+  "£\0" === "£\0"
+  "\0DAML" === "\0DAML"
+  "DA\0ML" === "DA\0ML"
+  T.reverse "DA\0⛄ML" === "LM⛄\0AD"
+  T.reverse "\0\1\2\3" === "\3\2\1\0"
+  parseInt (T.drop 1 "\0\&123") === Some 123
+  T.splitOn "\0" "Hello\0World" === ["Hello","World"]
