@@ -15,12 +15,10 @@ Creating your first DAML file
 *****************************
 
 1. Start DAML Studio by running ``daml studio`` in the current project.
-   This command will start Visual Studio Code and install the DAML Studio
-   extension, or upgrade it to the latest version.
 
-2. Verify that the DAML Studio extension is installed by first clicking on
-   the Extensions icon at the bottom of the VS Code sidebar, and
-   then clicking on the DAML Studio extension that should be listed on the pane.
+   This command will start Visual Studio Code and install the DAML Studio extension, or upgrade it to the latest version.
+
+2. Verify that the DAML Studio extension is installed by first clicking on the Extensions icon at the bottom of the VS Code sidebar, and then clicking on the DAML Studio extension that should be listed on the pane.
 
    .. image:: daml-studio/images/daml_studio_extension_view.png
 

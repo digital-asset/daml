@@ -6,9 +6,9 @@
 DAML Sandbox
 ############
 
-The DAML Sandbox, or Sandbox for short, is a simple ledger implementation that enables rapid application prototyping by simulating the Digital Asset Distributed Ledger. 
+The DAML Sandbox, or Sandbox for short, is a simple ledger implementation that enables rapid application prototyping by simulating a Digital Asset Distributed Ledger. 
 
-You can start DAML Sandbox together with :doc:`Navigator </tools/navigator/index>` using the ``daml start`` command in a DAML SDK project. This command will compile the DAML file and its dependencies as specified in the ``da.yaml``. It will then launch Sandbox passing the just obtained DAR packages. Sandbox will also be given the name of the startup scenario specified in the project's ``da.yaml``. Finally, it launches the navigator connecting it to the running Sandbox.
+You can start Sandbox together with :doc:`Navigator </tools/navigator/index>` using the ``daml start`` command in a DAML SDK project. This command will compile the DAML file and its dependencies as specified in the ``daml.yaml``. It will then launch Sandbox passing the just obtained DAR packages. Sandbox will also be given the name of the startup scenario specified in the project's ``daml.yaml``. Finally, it launches the navigator connecting it to the running Sandbox.
 
 It is possible to execute the Sandbox launching step in isolation by typing ``daml sandbox``.
 
