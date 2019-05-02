@@ -76,7 +76,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
     val requestingParties = request.filter.filtersByParty.keys.toList
 
     transactionPipeline
-      .run(requestingParties, request.begin, request.end)
+      .run(request.begin, request.end)
       .mapConcat { trans =>
         val events =
           TransactionConversion
@@ -122,7 +122,6 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
     logger.debug("Received {}", request)
     transactionPipeline
       .run(
-        request.parties.toList,
         request.begin,
         request.end
       )
@@ -182,11 +181,10 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       transactionId: TransactionId,
       requestingParties: Set[Party],
       ledgerEnd: String,
-      verbose: Boolean): Future[Option[VisibleTransaction]] = {
-
-    ledgerBackend
-      .ledgerSyncEvents(None)
-      .takeWhile(t => t.offset != ledgerEnd, inclusive = true)
+      verbose: Boolean): Future[Option[VisibleTransaction]] =
+    //TODO: very inefficient especially with Postgres, see https://github.com/digital-asset/daml/issues/831
+    transactionPipeline
+      .run(LedgerOffset.LedgerBegin, Some(LedgerOffset.Absolute(ledgerEnd)))
       .collect {
         case t: AcceptedTransaction if t.transactionId == transactionId => t
       }
@@ -205,7 +203,6 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
               .withDescription(s"$transactionId could not be found")
               .asRuntimeException())
       }
-  }
 
   private def toTransactionWithMeta(trans: AcceptedTransaction) =
     TransactionWithMeta(

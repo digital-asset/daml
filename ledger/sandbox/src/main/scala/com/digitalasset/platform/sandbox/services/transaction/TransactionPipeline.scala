@@ -5,7 +5,6 @@ package com.digitalasset.platform.sandbox.services.transaction
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.domain.LedgerOffset
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction
 import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, LedgerSyncEvent}
@@ -17,10 +16,7 @@ protected class TransactionPipeline(ledgerBackend: LedgerBackend) {
 
   import TransactionPipeline._
 
-  def run(
-      requestingParties: List[Party],
-      begin: LedgerOffset,
-      end: Option[LedgerOffset]): Source[AcceptedTransaction, NotUsed] =
+  def run(begin: LedgerOffset, end: Option[LedgerOffset]): Source[AcceptedTransaction, NotUsed] =
     Source
       .fromFuture(ledgerBackend.getCurrentLedgerEnd)
       .flatMapConcat { ledgerEnd =>
