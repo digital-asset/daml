@@ -27,9 +27,11 @@ protected class TransactionPipeline(ledgerBackend: LedgerBackend) {
             value match {
               case OffsetSection.Empty => Source.empty
               case OffsetSection.NonEmpty(subscribeFrom, subscribeUntil) =>
-                ledgerBackend
+                val eventStream = ledgerBackend
                   .ledgerSyncEvents(Some(subscribeFrom))
-                  .untilRequired(subscribeUntil)
+
+                subscribeUntil
+                  .fold(eventStream)(su => eventStream.untilRequired(su.toLong))
                   .collect {
                     // the offset we get from LedgerBackend is the actual offset of the entry. We need to return the next one
                     // however on the API so clients can resubscribe with the received offset without getting duplicates
@@ -60,15 +62,15 @@ object TransactionPipeline {
 
   implicit class EventOps(events: Source[LedgerSyncEvent, NotUsed]) {
 
-    /** Consumes the events until the optional ceiling offset */
-    def untilRequired(ceilingOffset: Option[String]): Source[LedgerSyncEvent, NotUsed] =
+    /** Consumes the events until the ceiling offset, handling possible gaps as well. */
+    def untilRequired(ceilingOffset: Long): Source[LedgerSyncEvent, NotUsed] =
       events.takeWhile(
         {
           case item =>
             //note that we can have gaps in the increasing offsets!
-            ceilingOffset.fold(true)(until => until.toLong > (item.offset.toLong + 1))
+            ceilingOffset >= (item.offset.toLong + 1) //api offsets are +1 compared to backend offsets
         },
-        inclusive = true
+        inclusive = false
       )
   }
 
