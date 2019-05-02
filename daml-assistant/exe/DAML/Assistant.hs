@@ -16,15 +16,19 @@ import DAML.Assistant.Util
 import System.FilePath
 import System.Directory
 import System.Process
+import System.Environment
 import System.Exit
 import System.IO
 import Control.Exception.Safe
 import Data.Maybe
+import Data.List.Extra
 import Control.Monad.Extra
 
 -- | Run the assistant and exit.
 main :: IO ()
 main = displayErrors $ do
+    rawArgs <- getArgs
+    let isInstall = notNull rawArgs && head rawArgs == "install"
     env@Env{..} <- getDamlEnv
     sdkConfigM <- mapM readSdkConfig envSdkPath
     sdkCommandsM <- mapM (fromRightM throwIO . listSdkCommands) sdkConfigM
@@ -38,7 +42,7 @@ main = displayErrors $ do
                 Just latestVersion
 
         -- Project SDK version is outdated.
-        when (not isHead && projectSdkVersionIsOld) $ do
+        when (not isHead && not isInstall && projectSdkVersionIsOld) $ do
             hPutStrLn stderr . unlines $
                 [ "WARNING: Using an outdated version of the DAML SDK in project."
                 , ""
@@ -51,7 +55,7 @@ main = displayErrors $ do
                 ]
 
         -- DAML assistant is outdated.
-        when (not isHead && not projectSdkVersionIsOld && assistantVersionIsOld) $ do
+        when (not isHead && not isInstall && not projectSdkVersionIsOld && assistantVersionIsOld) $ do
             hPutStrLn stderr . unlines $
                 [ "WARNING: Using an outdated version of the DAML assistant."
                 , ""
