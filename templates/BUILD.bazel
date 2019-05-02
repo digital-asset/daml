@@ -12,7 +12,7 @@ genrule(
 
         # skeleton template
         mkdir -p $$OUT/skeleton
-        cp -r $$SRC/skeleton/* $$OUT/skeleton/
+        cp -rL $$SRC/skeleton/* $$OUT/skeleton/
 
         # quickstart-java template
         # right now, uses the preexisting quickstart-java rule and replaces the da.yaml template with a daml.yaml template

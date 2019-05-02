@@ -86,7 +86,7 @@ genrule(
         "//ledger/sandbox:sandbox-binary_deploy.jar",
         "//navigator/backend:navigator-binary_deploy.jar",
         "//extractor:extractor-binary_deploy.jar",
-        "//docs:quickstart-java.tar.gz",
+        "//templates:templates-tarball.tar.gz",
     ],
     outs = ["sdk-release-tarball.tar.gz"],
     cmd = """
@@ -121,28 +121,8 @@ genrule(
       mkdir -p $$OUT/extractor
       cp $(location //extractor:extractor-binary_deploy.jar) $$OUT/extractor/extractor.jar
 
-      mkdir -p $$OUT/templates/quickstart-java
-      tar xf $(location //docs:quickstart-java.tar.gz) --strip-components=1 -C $$OUT/templates/quickstart-java
-      # While we use this template for both da-assistant and daml-assistant we do some manual patching here.
-      # Once da-assistant is dead, the quickstart-java rule should produce the final version.
-      rm $$OUT/templates/quickstart-java/da-skeleton.yaml
-      cat > $$OUT/templates/quickstart-java/daml.yaml.template << EOF
-sdk-version: __VERSION__
-name: __PROJECT_NAME__
-source: daml/Main.daml
-scenario: Main:setup
-parties:
-  - Alice
-  - Bob
-  - USD_Bank
-  - EUR_Bank
-version: 1.0.0
-exposed-modules:
-  - Main
-dependencies:
-  - daml-prim
-  - daml-stdlib
-EOF
+      mkdir -p $$OUT/templates
+      tar xf $(location //templates:templates-tarball.tar.gz) --strip-components=1 -C $$OUT/templates
 
       tar zcf $(location sdk-release-tarball.tar.gz) --format=ustar $$OUT
     """,
