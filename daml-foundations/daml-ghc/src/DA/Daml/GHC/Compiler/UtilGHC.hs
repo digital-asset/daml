@@ -25,7 +25,6 @@ import           Data.List
 import qualified Data.Set as Set
 import           Data.Tuple.Extra
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Unsafe as BS
 import qualified Data.Text as T
 import Control.Exception
 import GHC.Ptr(Ptr(..))
@@ -124,5 +123,5 @@ unpackCString = unpackCStringUtf8
 unpackCStringUtf8 :: BS.ByteString -> T.Text
 -- A "safe" unsafePerformIO since we copy into a strict result Text string
 unpackCStringUtf8 bs = unsafePerformIO $
-    BS.unsafeUseAsCString (bs <> BS.singleton 0) $ \(Ptr a) -> do
+    BS.useAsCString bs $ \(Ptr a) -> do
         evaluate $ T.unpackCString# a
