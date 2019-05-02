@@ -13,6 +13,8 @@ import System.FilePath
 import Control.Exception.Safe
 import Control.Applicative
 import Control.Monad.Extra
+import Network.HTTP.Client
+import Network.TLS
 
 -- | Calculate the ascendants of a path, i.e. the successive parents of a path,
 -- including the path itself, all the way to its root. For example:
@@ -76,6 +78,18 @@ requiredE msg = fromRightM (throwIO . assistantErrorBecause msg . pack . display
 -- | Catch IOExceptions and re-throw them as AssistantError with a helpful message.
 requiredIO :: Text -> IO t -> IO t
 requiredIO msg m = requiredE msg =<< tryIO m
+
+-- | Same as requiredIO but also catches and re-throws TLSException and HttpExceptions.
+requiredHttps :: Text -> IO a -> IO a
+requiredHttps msg m = m `catches`
+    [ Handler $ \ (e :: IOException) -> rethrow e
+    , Handler $ \ (e :: HttpException) -> rethrow e
+    , Handler $ \ (e :: TLSException) -> rethrow e
+    ]
+    where
+        rethrow :: Exception e => e -> IO a
+        rethrow = throwIO . assistantErrorBecause msg . pack . displayException
+
 
 -- | Like 'whenMaybeM' but only returns a 'Just' value if the test is false.
 unlessMaybeM :: Monad m => m Bool -> m t -> m (Maybe t)

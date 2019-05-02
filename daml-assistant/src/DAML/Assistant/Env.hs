@@ -53,8 +53,9 @@ getLatestStableSdkVersion :: DamlPath -> IO (Maybe SdkVersion)
 getLatestStableSdkVersion damlPath =
     cacheLatestSdkVersion damlPath $ do
         versionE :: Either AssistantError SdkVersion
-            <- try (wrapErr "" getLatestVersion)
+            <- try getLatestVersion
         pure (eitherToMaybe versionE)
+
 
 
 -- | Determine the viability of running sdk commands in the environment.
