@@ -2568,17 +2568,17 @@ Contract Key
 
 [*Available since version 1.3*]
 
-Since DAML-LF 1.3, contract key can be associated to a key at
-creation. Subsequently, contract can be retrieved by the corresponding
+Since DAML-LF 1.3, a contract key can be associated to a contract at
+creation. Subsequently, the contract can be retrieved by the corresponding
 key using the update statements ``fetch_by_key`` or
 ``lookup_by_key``.
 
 DAML-LF 1.3 is the first version that supports the statements
-``fetch_by_key`` and ``lookup_by_key``. Key is an optional field
-``key`` int the Protocol buffer message ``DefTemplate``
+``fetch_by_key`` and ``lookup_by_key``. The key is an optional field
+``key`` in the Protocol buffer message ``DefTemplate``
 
 The deserialization process will reject any DAML-LF 1.2 (or earlier)
-program using the two statements above or the field ``key`` withing
+program using the two statements above or the field ``key`` within
 the message ``DefTemplate`` .
 
 Map
