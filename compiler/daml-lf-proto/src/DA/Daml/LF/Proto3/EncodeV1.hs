@@ -170,9 +170,9 @@ instance Encode BuiltinType P.PrimType where
     BTScenario -> P.PrimTypeSCENARIO
     BTDate -> P.PrimTypeDATE
     BTContractId -> P.PrimTypeCONTRACT_ID
-    BTOptional -> checkFeature featureOptional version P.PrimTypeOPTIONAL
+    BTOptional -> P.PrimTypeOPTIONAL
     BTMap -> checkFeature featureTextMap version P.PrimTypeMAP
-    BTArrow -> checkFeature featureArrowType version P.PrimTypeARROW
+    BTArrow -> P.PrimTypeARROW
 
 instance Encode Type P.Type where
   encode version typ = P.Type . Just $
@@ -181,11 +181,6 @@ instance Encode Type P.Type where
         P.TypeSumVar (P.Type_Var (encode version var) (encodeV version args))
       (TCon con, args) ->
         P.TypeSumCon (P.Type_Con (encode' version con) (encodeV version args))
-      (TBuiltin BTArrow, args)
-        | not (version `supports` featureArrowType) -> case args of
-            [param, result] ->
-              P.TypeSumFun (P.Type_Fun (encodeV version [param]) (encode' version result))
-            _ -> error "TArrow must be used with exactly two arguments"
       (TBuiltin bltn, args) ->
         P.TypeSumPrim (P.Type_Prim (encodeE version bltn) (encodeV version args))
       (t@TForall{}, []) ->
@@ -240,7 +235,7 @@ instance Encode BuiltinExpr P.ExprSum where
       BTText -> builtin P.BuiltinFunctionLEQ_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionLEQ_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionLEQ_DATE
-      BTParty | version `supports` featurePartyOrd -> builtin P.BuiltinFunctionLEQ_PARTY
+      BTParty -> builtin P.BuiltinFunctionLEQ_PARTY
       other -> error $ "BELessEq unexpected type " <> show other
 
     BELess typ -> case typ of
@@ -249,7 +244,7 @@ instance Encode BuiltinExpr P.ExprSum where
       BTText -> builtin P.BuiltinFunctionLESS_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionLESS_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionLESS_DATE
-      BTParty | version `supports` featurePartyOrd -> builtin P.BuiltinFunctionLESS_PARTY
+      BTParty -> builtin P.BuiltinFunctionLESS_PARTY
       other -> error $ "BELess unexpected type " <> show other
 
     BEGreaterEq typ -> case typ of
@@ -258,7 +253,7 @@ instance Encode BuiltinExpr P.ExprSum where
       BTText -> builtin P.BuiltinFunctionGEQ_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionGEQ_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionGEQ_DATE
-      BTParty | version `supports` featurePartyOrd -> builtin P.BuiltinFunctionGEQ_PARTY
+      BTParty -> builtin P.BuiltinFunctionGEQ_PARTY
       other -> error $ "BEGreaterEq unexpected type " <> show other
 
     BEGreater typ -> case typ of
@@ -267,7 +262,7 @@ instance Encode BuiltinExpr P.ExprSum where
       BTText -> builtin P.BuiltinFunctionGREATER_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionGREATER_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionGREATER_DATE
-      BTParty | version `supports` featurePartyOrd -> builtin P.BuiltinFunctionGREATER_PARTY
+      BTParty -> builtin P.BuiltinFunctionGREATER_PARTY
       other -> error $ "BEGreater unexpected type " <> show other
 
     BEToText typ -> case typ of
@@ -371,10 +366,8 @@ encodeExpr version = \case
   ELocation loc e ->
     let (P.Expr _ esum) = encodeExpr version e
     in P.Expr (Just (encode version loc)) esum
-  ENone typ -> checkFeature featureOptional version $
-    expr (P.ExprSumNone (P.Expr_None (encode' version typ)))
-  ESome typ body -> checkFeature featureOptional version $
-    expr (P.ExprSumSome (P.Expr_Some (encode' version typ) (encode' version body)))
+  ENone typ -> expr (P.ExprSumNone (P.Expr_None (encode' version typ)))
+  ESome typ body -> expr (P.ExprSumSome (P.Expr_Some (encode' version typ) (encode' version body)))
   where
     expr = P.Expr Nothing . Just
 
@@ -433,10 +426,8 @@ instance Encode CaseAlternative P.CaseAlt where
           CPEnumCon con -> P.CaseAltSumPrimCon (encodeE version con)
           CPNil         -> P.CaseAltSumNil P.Unit
           CPCons{..}    -> P.CaseAltSumCons $ P.CaseAlt_Cons (encode version patHeadBinder) (encode version patTailBinder)
-          CPNone        -> checkFeature featureOptional version $
-            P.CaseAltSumNone P.Unit
-          CPSome{..}    -> checkFeature featureOptional version $
-            P.CaseAltSumSome $ P.CaseAlt_Some (encode version patBodyBinder)
+          CPNone        -> P.CaseAltSumNone P.Unit
+          CPSome{..}    -> P.CaseAltSumSome $ P.CaseAlt_Some (encode version patBodyBinder)
     in P.CaseAlt (Just pat) (encode' version altExpr)
 
 instance Encode DefDataType P.DefDataType where

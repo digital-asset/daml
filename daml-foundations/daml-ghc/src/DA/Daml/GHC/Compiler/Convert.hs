@@ -219,18 +219,6 @@ isBuiltinName expected a
   , GHC.moduleName m == mkModuleName "DA.Internal.Prelude" = True
   | otherwise = False
 
-isBuiltinOptional :: NamedThing a => Env -> a -> Bool
-isBuiltinOptional env a =
-    envLfVersion env `supports` featureOptional && isBuiltinName "Optional" a
-
-isBuiltinSome :: NamedThing a => Env -> a -> Bool
-isBuiltinSome env a =
-    envLfVersion env `supports` featureOptional && isBuiltinName "Some" a
-
-isBuiltinNone :: NamedThing a => Env -> a -> Bool
-isBuiltinNone env a =
-    envLfVersion env `supports` featureOptional && isBuiltinName "None" a
-
 isBuiltinTextMap :: NamedThing a => Env -> a -> Bool
 isBuiltinTextMap env a =
     envLfVersion env `supports` featureTextMap && isBuiltinName "TextMap" a
@@ -759,18 +747,18 @@ convertExpr env0 e = do
             let t' = TVar (fst varT1)
             pure $ ETyLam varT1 $ mkETmLams [(varV1, t'), (varV2, TList t')] $ ECons t' (EVar varV1) (EVar varV2)
     go env (Var v) (LType t : args)
-        | isBuiltinNone env v
+        | isBuiltinName "None" v
         = fmap (, args) $ ENone <$> convertType env t
     go env (Var v) args
-        | isBuiltinNone env v
+        | isBuiltinName "None" v
         = fmap (, args) $ pure $ ETyLam varT1 $ ENone (TVar (fst varT1))
     go env (Var v) (LType t : args)
-        | isBuiltinSome env v
+        | isBuiltinName "Some" v
         = fmap (, args) $ do
             t' <- convertType env t
             pure $ mkETmLams [(varV1, t')] $ ESome t' (EVar varV1)
     go env (Var v) args
-        | isBuiltinSome env v
+        | isBuiltinName "Some" v
         = fmap (, args) $ do
             let t' = TVar (fst varT1)
             pure $ ETyLam varT1 $ mkETmLams [(varV1, t')] $ ESome t' (EVar varV1)
@@ -930,12 +918,12 @@ convertAlt env ty (DataAlt con, [], x)
     | is con == "False" = CaseAlternative (CPEnumCon ECFalse) <$> convertExpr env x
     | is con == "[]" = CaseAlternative CPNil <$> convertExpr env x
     | is con == "()" = CaseAlternative (CPEnumCon ECUnit) <$> convertExpr env x
-    | isBuiltinNone env con
+    | isBuiltinName "None" con
     = CaseAlternative CPNone <$> convertExpr env x
 convertAlt env ty (DataAlt con, [a,b], x)
     | is con == ":" = CaseAlternative (CPCons (convVar a) (convVar b)) <$> convertExpr env x
 convertAlt env ty (DataAlt con, [a], x)
-    | isBuiltinSome env con
+    | isBuiltinName "Some" con
     = CaseAlternative (CPSome (convVar a)) <$> convertExpr env x
 convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
     Ctor (mkVariantCon . getOccString -> variantName) fldNames fldTys <- toCtor env con
@@ -1105,7 +1093,7 @@ convertTyCon env t
             "Date" -> pure TDate
             "Time" -> pure TTimestamp
             _ -> defaultTyCon
-    | isBuiltinOptional env t = pure (TBuiltin BTOptional)
+    | isBuiltinName "Optional" t = pure (TBuiltin BTOptional)
     | isBuiltinTextMap env t = pure (TBuiltin BTMap)
     | otherwise = defaultTyCon
     where
@@ -1117,9 +1105,7 @@ convertType env o@(TypeCon t ts)
     | t == listTyCon, ts `eqTypes` [charTy] = pure TText
     | t == anyTyCon, [_] <- ts = pure TUnit -- used for type-zonking
     | t == funTyCon, _:_:ts' <- ts =
-        if envLfVersion env `supports` featureArrowType || length ts' == 2
-          then foldl TApp TArrow <$> traverse (convertType env) ts'
-          else unsupported "Partial application of (->)" o
+        foldl TApp TArrow <$> traverse (convertType env) ts'
     | Just m <- nameModule_maybe (getName t)
     , GHC.moduleName m == mkModuleName "DA.Internal.LF"
     , getOccString t == "Pair"
