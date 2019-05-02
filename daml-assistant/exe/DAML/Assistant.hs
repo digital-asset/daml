@@ -28,7 +28,7 @@ import Control.Monad.Extra
 main :: IO ()
 main = displayErrors $ do
     rawArgs <- getArgs
-    let isInstall = notNull rawArgs && head rawArgs == "install"
+    let isInstall = listToMaybe rawArgs == Just "install"
     env@Env{..} <- if isInstall then getMinimalDamlEnv else getDamlEnv
     sdkConfigM <- mapM readSdkConfig envSdkPath
     sdkCommandsM <- mapM (fromRightM throwIO . listSdkCommands) sdkConfigM
