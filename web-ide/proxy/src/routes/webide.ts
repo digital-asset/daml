@@ -47,14 +47,6 @@ export default class WebIdeRoute {
         this.proxy.on('proxyRes', this.handleProxyResponse.bind(this));
     }
 
-    /* this occurs when  */
-    errorHandler(err :Error, req: Request, res :Response, next :NextFunction) {
-        if (res.headersSent) {
-            return next(err)
-        }
-        this.sendErrorResponse(err, req, res)
-    }
-
     /*we request the css and add our own css to the end of it. This involves grabbing the port mapping from our session,
     unzipping the response, appending our css and zipping it back up. */
     handleIdeCss(req :Request, res :Response, next: NextFunction) {
@@ -107,19 +99,7 @@ export default class WebIdeRoute {
         }
     }
 
-    /* we override response messages so as to ensure we don't expose too much information */
-    private handleProxyResponse(proxyRes :Response, req :Request, res :Response) {
-        if (proxyRes.statusCode >= 500) {
-            const err = new ProxyError(`webide response ${proxyRes.statusCode}: ${proxyRes.statusMessage}`, proxyRes.statusCode, "Server could not process request. Try refreshing the browser")
-            this.sendErrorResponse(err, req, res)
-        } else if (proxyRes.statusCode >= 400) {
-            const err = new ProxyError(`webide response ${proxyRes.statusCode}: ${proxyRes.statusMessage}`, proxyRes.statusCode, "Bad request")
-            this.sendErrorResponse(err, req, res)
-        }
-        //doing nothing we let the proxy handle the response
-    }
-
-    private sendErrorResponse(err :Error, req: Request, res :Response) {
+    sendErrorResponse(err :Error, req: Request, res :Response) {
         if (err instanceof ProxyError) {
             res.status(err.status).send(err.clientResponse)
         }
@@ -130,6 +110,18 @@ export default class WebIdeRoute {
         res.end()
         //TODO render nice error message 
         //res.render('error', { error: err })
+    }
+
+    /* we override response messages so as to ensure we don't expose too much information */
+    private handleProxyResponse(proxyRes :Response, req :Request, res :Response) {
+        if (proxyRes.statusCode >= 500) {
+            const err = new ProxyError(`webide response ${proxyRes.statusCode}: ${proxyRes.statusMessage}`, proxyRes.statusCode, "Server could not process request. Try refreshing the browser")
+            this.sendErrorResponse(err, req, res)
+        } else if (proxyRes.statusCode >= 400) {
+            const err = new ProxyError(`webide response ${proxyRes.statusCode}: ${proxyRes.statusMessage}`, proxyRes.statusCode, "Bad request")
+            this.sendErrorResponse(err, req, res)
+        }
+        //doing nothing we let the proxy handle the response
     }
 
     private getImage() :Promise<ImageInspectInfo> {

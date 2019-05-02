@@ -55,7 +55,10 @@ webIdeApp.get('*', (req, res, next) => {
     else return webIdeRoute.handleHttpRequest(req,res)
 })
 webIdeApp.use((err :Error, req: express.Request, res :express.Response, next :express.NextFunction) => {
-    webIdeRoute.errorHandler(err, req, res, next)
+    if (res.headersSent) {
+        return next(err)
+    }
+    webIdeRoute.sendErrorResponse(err, req, res)
 })
 
 docker.init()

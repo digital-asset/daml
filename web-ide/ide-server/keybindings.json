@@ -1,0 +1,60 @@
+[
+    {
+        "key": "cmd+f1",
+        "command": "-daml.showDamlUserGuide"
+    },
+    {
+        "key": "ctrl+shift+`",
+        "command": "-workbench.action.terminal.new"
+    },
+    {
+        "key": "ctrl+`",
+        "command": "-workbench.action.terminal.toggleTerminal"
+    },
+    {
+        "key": "ctrl+f5",
+        "command": "-workbench.action.debug.run",
+        "when": "!inDebugMode"
+    },
+    {
+        "key": "f5",
+        "command": "-workbench.action.debug.start",
+        "when": "!inDebugMode"
+    },
+    {
+        "key": "shift+cmd+y",
+        "command": "-workbench.debug.action.toggleRepl"
+    },
+    {
+        "key": "shift+cmd+d",
+        "command": "-workbench.view.debug"
+    },
+    {
+        "key": "cmd+k cmd+r",
+        "command": "-workbench.action.keybindingsReference"
+    },
+    {
+        "key": "cmd+k cmd+s",
+        "command": "-workbench.action.openGlobalKeybindings"
+    },
+    {
+        "key": "shift+cmd+b",
+        "command": "-workbench.action.tasks.build"
+    },
+    {
+        "key": "shift+cmd+x",
+        "command": "-workbench.view.extensions"
+    },
+    {
+        "key": "cmd+k cmd+m",
+        "command": "-workbench.extensions.action.showRecommendedKeymapExtensions"
+    },
+    {
+        "key": "shift+cmd+p",
+        "command": "-workbench.action.showCommands"
+    },
+    {
+        "key": "f1",
+        "command": "-workbench.action.showCommands"
+    }
+]

@@ -42,6 +42,8 @@ div.window-appicon {
 }  
 
 /*remove from global actions menu*/
+.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(1), /*command pallete*/
+.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(2), /*empty*/
 .monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(4), /*Extensions*/
 .monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(5), /*Keyboard shortcuts*/
 .monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(6), /*empty*/
