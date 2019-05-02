@@ -9,7 +9,7 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
-- Fix an issue with Postgres of potentially not stopping the transaction stream at required ceiling offset
+- Fix an issue with Postgres of potentially not stopping the transaction stream at required ceiling offset. See more `here <https://github.com/digital-asset/daml/pull/802>`
 
 0.12.12 - 2019-04-30
 --------------------
