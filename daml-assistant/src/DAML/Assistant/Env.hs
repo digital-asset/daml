@@ -20,6 +20,7 @@ module DAML.Assistant.Env
 
 import DAML.Assistant.Types
 import DAML.Assistant.Util
+import DAML.Assistant.Cache
 import DAML.Assistant.Install
 import DAML.Project.Config
 import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
@@ -42,7 +43,20 @@ getDamlEnv = do
     envProjectPath <- getProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath
         envDamlAssistantSdkVersion envProjectPath
+    envLatestStableSdkVersion <- getLatestStableSdkVersion envDamlPath
     pure Env {..}
+
+-- | Get the latest stable SDK version. Designed to return Nothing if
+-- anything fails (e.g. machine is offline). The result is cached in
+-- $DAML_HOME/cache/latest-sdk-version.txt and only polled once a day.
+getLatestStableSdkVersion :: DamlPath -> IO (Maybe SdkVersion)
+getLatestStableSdkVersion damlPath =
+    cacheLatestSdkVersion damlPath $ do
+        versionE :: Either AssistantError SdkVersion
+            <- try getLatestVersion
+        pure (eitherToMaybe versionE)
+
+
 
 -- | Determine the viability of running sdk commands in the environment.
 -- Returns the first failing test's error message.
