@@ -35,7 +35,6 @@ import scalaz.syntax.tag._
 
 import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 
 object SandboxTransactionService {
 
@@ -63,6 +62,8 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
 
   private val subscriptionIdCounter = new AtomicLong()
 
+  private val transactionPipeline = TransactionPipeline(ledgerBackend)
+
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   def getTransactions(request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] = {
     val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
@@ -73,7 +74,9 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
 
     val eventFilter = EventFilter.byTemplates(request.filter)
     val requestingParties = request.filter.filtersByParty.keys.toList
-    runTransactionPipeline(requestingParties, request.begin, request.end)
+
+    transactionPipeline
+      .run(requestingParties, request.begin, request.end)
       .mapConcat { trans =>
         val events =
           TransactionConversion
@@ -117,16 +120,18 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
   override def getTransactionTrees(request: GetTransactionTreesRequest)
     : Source[WithOffset[String, VisibleTransaction], NotUsed] = {
     logger.debug("Received {}", request)
-    runTransactionPipeline(
-      request.parties.toList,
-      request.begin,
-      request.end
-    ).mapConcat { trans =>
-      toResponseIfVisible(request, request.parties, trans.offset, trans)
-        .fold(List.empty[WithOffset[String, VisibleTransaction]])(e =>
-          List(WithOffset(trans.offset, e)))
+    transactionPipeline
+      .run(
+        request.parties.toList,
+        request.begin,
+        request.end
+      )
+      .mapConcat { trans =>
+        toResponseIfVisible(request, request.parties, trans.offset, trans)
+          .fold(List.empty[WithOffset[String, VisibleTransaction]])(e =>
+            List(WithOffset(trans.offset, e)))
 
-    }
+      }
   }
 
   private def toResponseIfVisible(
@@ -172,51 +177,6 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
 
   override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
     Ordering.by(abs => BigInt(abs.value))
-
-  private def runTransactionPipeline(
-      requestingParties: List[Party],
-      begin: LedgerOffset,
-      end: Option[LedgerOffset]): Source[AcceptedTransaction, NotUsed] = {
-
-    Source.fromFuture(ledgerBackend.getCurrentLedgerEnd).flatMapConcat { ledgerEnd =>
-      OffsetSection(begin, end)(getOffsetHelper(ledgerEnd)) match {
-        case Failure(exception) => Source.failed(exception)
-        case Success(value) =>
-          value match {
-            case OffsetSection.Empty => Source.empty
-            case OffsetSection.NonEmpty(subscribeFrom, subscribeUntil) =>
-              ledgerBackend
-                .ledgerSyncEvents(Some(subscribeFrom))
-                .takeWhile(
-                  {
-                    case item =>
-                      //note that we can have gaps in the increasing offsets
-                      subscribeUntil.fold(true)(until => until.toLong > (item.offset.toLong + 1))
-                  },
-                  inclusive = true
-                )
-                .collect {
-                  // the offset we get from LedgerBackend is the actual offset of the entry. We need to return the next one
-                  // however on the API so clients can resubscribe with the received offset without getting duplicates
-                  case t: AcceptedTransaction => t.copy(offset = (t.offset.toLong + 1).toString)
-                }
-          }
-      }
-    }
-  }
-
-  private def getOffsetHelper(ledgerEnd: String) = {
-    new OffsetHelper[String] {
-      override def fromOpaque(opaque: String): Try[String] = Success(opaque)
-
-      override def getLedgerBeginning(): String = "0"
-
-      override def getLedgerEnd(): String = ledgerEnd
-
-      override def compare(o1: String, o2: String): Int =
-        java.lang.Long.compare(o1.toLong, o2.toLong)
-    }
-  }
 
   private def lookUpByTransactionId(
       transactionId: TransactionId,
