@@ -137,6 +137,10 @@ runNew targetFolder templateName = do
             ]
         exitFailure
     copyDirectory templateFolder targetFolder
+    files <- listFilesRecursive targetFolder
+    forM_ files $ \file -> do
+        p <- getPermissions file
+        setPermissions file p { writable = True }
 
     -- update daml.yaml
     let configPath = targetFolder </> projectConfigName
@@ -236,10 +240,6 @@ installExtension src target =
                    -- We create the directory to throw an isAlreadyExistsError.
                    createDirectory target
                    copyDirectory src target
-                   files <- listFilesRecursive target
-                   forM_ files $ \file -> do
-                       p <- getPermissions file
-                       setPermissions file p { writable = True }
              | otherwise = createDirectoryLink src target
 
 -- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.
