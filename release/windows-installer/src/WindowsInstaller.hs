@@ -12,17 +12,15 @@ import SdkVersion
 
 main :: IO ()
 main = do
-    [installerFile, sdkTarball, pluginDir] <- getArgs
-    writeFile installerFile $ nsis $ installer sdkTarball pluginDir
+    [installerFile, sdkDir] <- getArgs
+    writeFile installerFile $ nsis $ installer sdkDir
 
-installer :: FilePath -> FilePath -> Action SectionId
-installer sdkTarball pluginDir = do
+installer :: FilePath -> Action SectionId
+installer sdkDir = do
     name "DAML SDK installer"
     outFile "daml-sdk-installer.exe"
-    addPluginDir (fromString pluginDir)
     section "" [] $ do
         setOutPath "$TEMP"
-        file [] (fromString sdkTarball)
-        plugin "untgz" "extract" ["-d" :: Exp String, "$TEMP", "$TEMP/sdk-release-tarball.tar.gz"]
+        file [Recursive] (fromString (sdkDir <> "\\*.*"))
         let dir = "$TEMP/sdk-" <> sdkVersion
         execWait $ fromString $ "\"" <> dir <> "\\daml\\daml.exe\" install " <> dir <> " --activate"
