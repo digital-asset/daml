@@ -232,3 +232,11 @@ java_import(
         name = "gson",
         actual = "@com_google_code_gson_gson//jar",
     )
+
+    if "com_github_google_bazel_common" not in native.existing_rules():
+        http_archive(
+            name = "com_github_google_bazel_common",
+            sha256 = "ccdd09559b49c7efd9e4b0b617b18e2a4bbdb2142fc30dfd3501eb5fa1294dcc",
+            strip_prefix = "bazel-common-f3dc1a775d21f74fc6f4bbcf076b8af2f6261a69",
+            urls = ["https://github.com/google/bazel-common/archive/f3dc1a775d21f74fc6f4bbcf076b8af2f6261a69.zip"],
+        )
