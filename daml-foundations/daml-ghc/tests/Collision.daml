@@ -4,6 +4,3 @@ module Collision where
 
 data Record = Record {}
 data RECORD = RECORD {}
-
-main = scenario do
-  pure ()

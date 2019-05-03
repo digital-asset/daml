@@ -18,8 +18,3 @@ testFromSomeNote = scenario do
   v === "abc"
   (Right 42 : Either Text Int) === fromSomeNote "problem" (Some 42)
   (Left "problem" : Either Text Int) === fromSomeNote "problem" None
-
-main = scenario do
-  testFromSome
-  testFromSomeNote
-

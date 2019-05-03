@@ -7,5 +7,3 @@ daml 1.2
 module InternalImport where
 
 import DA.Internal.Template
-
-main = scenario do return ()

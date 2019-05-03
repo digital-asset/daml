@@ -8,5 +8,3 @@ daml 1.2
 module Warnings where
 	-- a tab
 import DA.List
-
-main = scenario $ return ()
