@@ -387,12 +387,12 @@ updateFileDiagnostics fp previousAll currentAll = do
     -- / and \ and other shenanigans.
     -- Once we have finished the migration to haskell-lsp we should make sure that
     -- this is no longer necessary.
-    afp' <- liftIO $ canonicalizePath fp
-    let uri = filePathToUri afp'
+    afp <- liftIO $ canonicalizePath fp
+    let uri = filePathToUri afp
     let filtM diags = do
             diags' <-
                 filterM
-                    (\x -> fmap (== afp') (canonicalizePath $ fst x))
+                    (\x -> fmap (== afp) (canonicalizePath $ fst x))
                     diags
             pure (Set.fromList diags')
     previous <- liftIO $ traverse filtM previousAll
