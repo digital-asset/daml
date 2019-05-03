@@ -3,22 +3,29 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api.commands
 
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.ledger.api.v1.command_service.{
+  SubmitAndWaitForTransactionIdResponse,
+  SubmitAndWaitRequest
+}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.platform.apitesting.{CommandTransactionChecks, LedgerContext}
-import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
 
 import scala.concurrent.Future
 
 class CommandTransactionChecksHighLevelIT extends CommandTransactionChecks {
-  private[this] def emptyToCompletion(
+  private[this] def responseToCompletion(
       commandId: String,
-      emptyF: Future[Empty]): Future[Completion] =
-    emptyF
-      .map(_ => Completion(commandId, Some(Status(io.grpc.Status.OK.getCode.value(), ""))))
+      txF: Future[SubmitAndWaitForTransactionIdResponse]): Future[Completion] =
+    txF
+      .map(
+        tx =>
+          Completion(
+            commandId,
+            Some(Status(io.grpc.Status.OK.getCode.value(), "")),
+            tx.transactionId))
       .recover {
         case sre: StatusRuntimeException =>
           Completion(
@@ -29,9 +36,10 @@ class CommandTransactionChecksHighLevelIT extends CommandTransactionChecks {
   override protected def submitCommand(
       ctx: LedgerContext,
       submitRequest: SubmitRequest): Future[Completion] = {
-    emptyToCompletion(
+    responseToCompletion(
       submitRequest.commands.value.commandId,
-      ctx.commandService.submitAndWait(
-        SubmitAndWaitRequest(submitRequest.commands, submitRequest.traceContext)))
+      ctx.commandService.submitAndWaitForTransactionId(
+        SubmitAndWaitRequest(submitRequest.commands, submitRequest.traceContext))
+    )
   }
 }

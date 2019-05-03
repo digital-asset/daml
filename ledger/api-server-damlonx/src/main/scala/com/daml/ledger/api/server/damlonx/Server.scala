@@ -126,7 +126,9 @@ object Server {
             .asInstanceOf[DamlOnXCommandCompletionService]
             .completionStreamSource(r),
         () =>
-          commandCompletionService.completionEnd(CompletionEndRequest(ledgerId.underlyingString))
+          commandCompletionService.completionEnd(CompletionEndRequest(ledgerId.underlyingString)),
+        transactionService.getTransactionById,
+        transactionService.getFlatTransactionById
       )
     )
 

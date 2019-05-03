@@ -235,7 +235,7 @@ private[commands] class CommandTracker[Context]
                     trackingData.commandId,
                     Some(
                       com.google.rpc.status.Status(RpcStatus.ABORTED.getCode.value(), "Timeout")),
-                    trackingData.traceContext)
+                    traceContext = trackingData.traceContext)
                 ))
             } else {
               Nil
@@ -276,7 +276,7 @@ private[commands] class CommandTracker[Context]
             Some(
               Ctx(
                 trackingData.context,
-                Completion(commandId, Some(status), trackingData.traceContext)))
+                Completion(commandId, Some(status), traceContext = trackingData.traceContext)))
           }
       }
 

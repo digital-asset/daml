@@ -15,8 +15,9 @@ import com.digitalasset.ledger.api.testing.utils.{
 }
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands.Commands
+import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.google.protobuf.empty.Empty
+import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterEach, Matchers, Succeeded, WordSpec}
@@ -40,7 +41,7 @@ class TrackerImplTest
     val (q, sink) = Source
       .queue[TrackerImpl.QueueInput](1, OverflowStrategy.dropNew)
       .map { in =>
-        in.context.success(Empty())
+        in.context.success(Completion(in.value.getCommands.commandId, Some(RpcStatus())))
         NotUsed
       }
       .toMat(TestSink.probe[NotUsed])(Keep.both)

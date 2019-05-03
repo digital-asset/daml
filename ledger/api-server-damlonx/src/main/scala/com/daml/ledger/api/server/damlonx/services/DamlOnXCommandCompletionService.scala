@@ -77,12 +77,12 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
       .fromFuture(compsFuture)
       .flatMapConcat(src => {
         src.map {
-          case CompletionEvent.CommandAccepted(offset, commandId) =>
+          case CompletionEvent.CommandAccepted(offset, commandId, transactionId) =>
             logger.debug(s"sending completion accepted $offset: $commandId")
 
             CompletionStreamResponse(
               None, // FIXME(JM): is the checkpoint present in each response?
-              List(Completion(commandId, Some(Status())))
+              List(Completion(commandId, Some(Status()), transactionId))
             )
           case CompletionEvent.CommandRejected(offset, commandId, reason) =>
             logger.debug(s"sending completion rejected $offset: $commandId: $reason")
@@ -124,7 +124,7 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
         Code.INVALID_ARGUMENT
       case RejectionReason.PartyNotKnownOnLedger => Code.INVALID_ARGUMENT
     }
-    Completion(commandId, Some(Status(code.value(), error.description)), None)
+    Completion(commandId, Some(Status(code.value(), error.description)), traceContext = None)
   }
 
   override def close(): Unit = {

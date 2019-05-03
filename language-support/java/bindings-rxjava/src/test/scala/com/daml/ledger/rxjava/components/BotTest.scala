@@ -9,15 +9,21 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 import java.util.{Collections, Optional}
 
+import com.daml.ledger.javaapi.data.{Unit => DAMLUnit, _}
 import com.daml.ledger.rxjava.components.LedgerViewFlowable.LedgerView
 import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
 import com.daml.ledger.rxjava.components.tests.helpers.DummyLedgerClient
-import com.daml.ledger.javaapi.data.{Unit => DAMLUnit, _}
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices}
 import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient}
 import com.daml.ledger.testkit.services.TransactionServiceImpl
+import com.digitalasset.ledger.api.v1.command_service.{
+  SubmitAndWaitForTransactionIdResponse,
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse
+}
 import com.digitalasset.ledger.api.{v1 => scalaAPI}
-import com.google.protobuf.Empty
+import com.google.protobuf.{Empty => JEmpty}
+import com.google.protobuf.empty.Empty
 import com.google.rpc.Status
 import io.grpc.Metadata
 import io.grpc.Status.Code
@@ -132,7 +138,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
                 party: String,
                 ledgerEffectiveTime: Instant,
                 maximumRecordTime: Instant,
-                commands: util.List[Command]): Single[Empty] = {
+                commands: util.List[Command]): Single[JEmpty] = {
               submitted.append(
                 new SubmitCommandsRequest(
                   workflowId,
@@ -371,7 +377,10 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       Future.successful(com.google.protobuf.empty.Empty.defaultInstance),
       List.empty,
       scalaAPI.command_completion_service.CompletionEndResponse.defaultInstance,
-      Future.successful(com.google.protobuf.empty.Empty.defaultInstance),
+      Future.successful(Empty.defaultInstance),
+      Future.successful(SubmitAndWaitForTransactionIdResponse.defaultInstance),
+      Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance),
+      Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance),
       List.empty,
       Seq.empty,
       Future.successful(scalaAPI.package_service.ListPackagesResponse.defaultInstance),

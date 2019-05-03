@@ -8,13 +8,18 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.{CommandCompletionClient, LedgerConfigurationClient, PackageClient}
-import com.daml.ledger.testkit.services._
 import com.daml.ledger.testkit.services.TransactionServiceImpl.LedgerItem
+import com.daml.ledger.testkit.services._
 import com.digitalasset.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
   CompletionStreamResponse
+}
+import com.digitalasset.ledger.api.v1.command_service.{
+  SubmitAndWaitForTransactionIdResponse,
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse
 }
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.digitalasset.ledger.api.v1.package_service.{
@@ -128,9 +133,17 @@ class LedgerServices(val ledgerId: String) {
     }
   }
 
-  def withCommandClient(response: Future[Empty])(
+  def withCommandClient(
+      submitAndWaitResponse: Future[Empty],
+      submitAndWaitForTransactionIdResponse: Future[SubmitAndWaitForTransactionIdResponse],
+      submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
+      submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse])(
       f: (CommandClientImpl, CommandServiceImpl) => Any): Any = {
-    val (service, serviceImpl) = CommandServiceImpl.createWithRef(response)(executionContext)
+    val (service, serviceImpl) = CommandServiceImpl.createWithRef(
+      submitAndWaitResponse,
+      submitAndWaitForTransactionIdResponse,
+      submitAndWaitForTransactionResponse,
+      submitAndWaitForTransactionTreeResponse)(executionContext)
     withServerAndChannel(service) { channel =>
       f(new CommandClientImpl(ledgerId, channel), serviceImpl)
     }
@@ -167,7 +180,10 @@ class LedgerServices(val ledgerId: String) {
       commandSubmissionResponse: Future[Empty],
       completions: List[CompletionStreamResponse],
       completionsEnd: CompletionEndResponse,
-      commandResponse: Future[Empty],
+      submitAndWaitResponse: Future[Empty],
+      submitAndWaitForTransactionIdResponse: Future[SubmitAndWaitForTransactionIdResponse],
+      submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
+      submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
       getTimeResponses: List[GetTimeResponse],
       getLedgerConfigurationResponses: Seq[GetLedgerConfigurationResponse],
       listPackagesResponse: Future[ListPackagesResponse],
@@ -181,7 +197,10 @@ class LedgerServices(val ledgerId: String) {
       commandSubmissionResponse,
       completions,
       completionsEnd,
-      commandResponse,
+      submitAndWaitResponse,
+      submitAndWaitForTransactionIdResponse,
+      submitAndWaitForTransactionResponse,
+      submitAndWaitForTransactionTreeResponse,
       getTimeResponses,
       getLedgerConfigurationResponses,
       listPackagesResponse,

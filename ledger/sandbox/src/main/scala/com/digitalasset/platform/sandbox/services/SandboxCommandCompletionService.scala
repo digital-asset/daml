@@ -88,7 +88,8 @@ class SandboxCommandCompletionService private (
                 tx.submitter) =>
             CompletionStreamResponse(
               checkpoint,
-              tx.commandId.fold(List.empty[Completion])(c => List(Completion(c, Some(Status())))))
+              tx.commandId.fold(List.empty[Completion])(c =>
+                List(Completion(c, Some(Status()), tx.transactionId))))
           case err: LedgerSyncEvent.RejectedCommand
               if isRequested(
                 requestedApplicationId,
@@ -127,7 +128,7 @@ class SandboxCommandCompletionService private (
       case RejectionReason.DuplicateCommandId(description) => Code.INVALID_ARGUMENT
     }
 
-    Completion(commandId, Some(Status(code.value(), error.description)), None)
+    Completion(commandId, Some(Status(code.value(), error.description)), traceContext = None)
   }
 
   override def close(): Unit = {

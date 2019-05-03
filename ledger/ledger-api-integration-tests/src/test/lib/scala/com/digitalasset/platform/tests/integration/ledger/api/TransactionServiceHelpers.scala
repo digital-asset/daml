@@ -69,8 +69,9 @@ trait TransactionServiceHelpers extends Matchers {
     } yield c)
       .via(trackingFlow)
       .runWith(Sink.foreach {
-        case Ctx(i, Completion(_, Some(status), _)) =>
+        case Ctx(i, Completion(_, Some(status), transactionId, _)) =>
           status should have('code (0))
+          transactionId should not be empty
           ()
       })
   }

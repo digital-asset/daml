@@ -9,6 +9,15 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Ledger API: Added three new methods to :ref:`CommandService <com.digitalasset.ledger.api.v1.commandservice>`:
+
+  - ``SubmitAndWaitForTransactionId`` returns the transaction id.
+  - ``SubmitAndWaitForTransaction`` returns the transaction.
+  - ``SubmitAndWaitForTransactionTree`` returns the transaction tree.
+
+- Ledger API: Added field ``transaction_id`` to command completions. It is only set by the ledger
+  with the id of the transaction for a successful command.
+
 0.12.14 - 2019-05-03
 --------------------
 

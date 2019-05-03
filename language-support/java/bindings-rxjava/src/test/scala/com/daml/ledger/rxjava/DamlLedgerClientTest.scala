@@ -12,6 +12,11 @@ import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier, Record}
 import com.daml.ledger.rxjava.grpc.helpers._
 import com.daml.ledger.testkit.services._
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.digitalasset.ledger.api.v1.command_service.{
+  SubmitAndWaitForTransactionIdResponse,
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse
+}
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.digitalasset.ledger.api.v1.package_service._
 import com.google.protobuf.ByteString
@@ -214,6 +219,9 @@ class DamlLedgerClientTest extends FlatSpec with Matchers with OptionValues with
       List(CompletionStreamResponse(None, Seq())),
       genCompletionEndResponse("completionEndResponse"),
       Future.successful(Empty.defaultInstance),
+      Future.successful(SubmitAndWaitForTransactionIdResponse.defaultInstance),
+      Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance),
+      Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance),
       List(genGetTimeResponse),
       Seq(GetLedgerConfigurationResponse.defaultInstance),
       Future.successful(ListPackagesResponse(Seq("id1"))),

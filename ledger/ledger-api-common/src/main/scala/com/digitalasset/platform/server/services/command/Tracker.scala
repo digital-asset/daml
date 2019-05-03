@@ -4,13 +4,13 @@
 package com.digitalasset.platform.server.services.command
 
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.google.protobuf.empty.Empty
+import com.digitalasset.ledger.api.v1.completion.Completion
 
 import scala.concurrent.{ExecutionContext, Future}
 
 trait Tracker extends AutoCloseable {
 
-  def track(request: SubmitAndWaitRequest)(implicit ec: ExecutionContext): Future[Empty]
+  def track(request: SubmitAndWaitRequest)(implicit ec: ExecutionContext): Future[Completion]
 }
 
 object Tracker {
@@ -24,7 +24,7 @@ object Tracker {
     def getLastSubmission: Long = lastSubmission
 
     override def track(request: SubmitAndWaitRequest)(
-        implicit ec: ExecutionContext): Future[Empty] = {
+        implicit ec: ExecutionContext): Future[Completion] = {
       lastSubmission = System.nanoTime()
       delegate.track(request)
     }

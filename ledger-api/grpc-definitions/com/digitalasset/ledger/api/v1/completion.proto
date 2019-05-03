@@ -24,6 +24,11 @@ message Completion {
   // Optional
   google.rpc.Status status = 2;
 
+  // The transaction_id of the transaction that resulted from the command with command_id.
+  // Only set for successfully executed commands.
+  // Optional
+  string transaction_id = 3;
+
   // The trace context submitted with the command.
   // This field is a future extension point and is currently not supported.
   // Optional

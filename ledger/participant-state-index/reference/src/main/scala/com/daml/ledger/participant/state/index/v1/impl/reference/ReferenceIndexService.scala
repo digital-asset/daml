@@ -289,7 +289,9 @@ final case class ReferenceIndexService(
           case (offset, (acceptedTx, _blindingInfo)) =>
             acceptedTx.optSubmitterInfo.flatMap { sinfo =>
               if (sinfo.applicationId == applicationId) {
-                Some(CompletionEvent.CommandAccepted(offset, sinfo.commandId))
+                Some(
+                  CompletionEvent
+                    .CommandAccepted(offset, sinfo.commandId, acceptedTx.transactionId))
               } else {
                 None
               }

@@ -15,7 +15,6 @@ import com.digitalasset.ledger.api.v1.command_completion_service.{
   Checkpoint,
   CompletionStreamRequest
 }
-import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
@@ -28,7 +27,6 @@ import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.apitesting.MultiLedgerFixture
 import com.digitalasset.platform.services.time.TimeProviderType.WallClock
 import com.digitalasset.util.Ctx
-import com.google.rpc.status.Status
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration._
@@ -62,8 +60,8 @@ class CommandCompletionServiceIT
           commands = configuredParties.map(p => Ctx(p, ctx.command(p, Nil)))
           result <- Source(commands).via(tracker).runWith(Sink.seq)
         } yield {
-          val expected = configuredParties.map(p => Ctx(p, Completion(p, Some(Status(0)))))
-          result should contain theSameElementsAs expected
+          val expected = configuredParties.map(p => (p, 0))
+          result.map(ctx => (ctx.value.commandId, ctx.value.getStatus.code)) should contain theSameElementsAs expected
         }
       }
 
@@ -88,8 +86,7 @@ class CommandCompletionServiceIT
           .take(2)
           .runWith(Sink.seq)
           .map { noOfHeartBeats =>
-            noOfHeartBeats.foreach(_ should be >= 2) // should be fine for 1Hz
-            succeed
+            all(noOfHeartBeats) should be >= 2 // should be fine for 1Hz
           }
       }
     }
