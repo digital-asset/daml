@@ -196,7 +196,7 @@ class CommandTrackerFlowTest
           Completion(
             commandId,
             Some(Status(Code.RESOURCE_EXHAUSTED.value)),
-            submitRequest.value.traceContext)
+            traceContext = submitRequest.value.traceContext)
 
         results.expectNext(Ctx(context, failureCompletion))
         succeed
@@ -214,7 +214,10 @@ class CommandTrackerFlowTest
         results.expectNoMessage(3.seconds)
 
         val completion =
-          Completion(commandId, Some(Status(Code.ABORTED.value)), submitRequest.value.traceContext)
+          Completion(
+            commandId,
+            Some(Status(Code.ABORTED.value)),
+            traceContext = submitRequest.value.traceContext)
         completionStreamMock.send(CompletionStreamElement.CompletionElement(completion))
         results.requestNext().value shouldEqual completion
         succeed
@@ -230,7 +233,10 @@ class CommandTrackerFlowTest
         submissions.sendNext(submitRequest)
 
         val completion =
-          Completion(commandId, Some(Status(Code.ABORTED.value)), submitRequest.value.traceContext)
+          Completion(
+            commandId,
+            Some(Status(Code.ABORTED.value)),
+            traceContext = submitRequest.value.traceContext)
         completionStreamMock.send(CompletionStreamElement.CompletionElement(completion))
         results.requestNext().value shouldEqual completion
       }
@@ -317,7 +323,7 @@ class CommandTrackerFlowTest
           Completion(
             commandId,
             Some(Status(Code.INVALID_ARGUMENT.value)),
-            submitRequest.value.traceContext)
+            traceContext = submitRequest.value.traceContext)
         completionStreamMock.send(CompletionStreamElement.CompletionElement(failureCompletion))
 
         results.expectNext(Ctx(context, failureCompletion))
@@ -347,7 +353,7 @@ class CommandTrackerFlowTest
 
         results.expectNextUnorderedN(commandIds.map { commandId =>
           val successCompletion =
-            Completion(commandId, Some(Status()), submitRequest.value.traceContext)
+            Completion(commandId, Some(Status()), traceContext = submitRequest.value.traceContext)
           Ctx(context, successCompletion)
         })
         succeed
@@ -375,7 +381,12 @@ class CommandTrackerFlowTest
             _ <- completionStreamMock.send(successfulCompletion(commandId))
             _ = results.request(1)
             _ = results.expectNext(
-              Ctx(context, Completion(commandId, Some(Status()), submitRequest.value.traceContext)))
+              Ctx(
+                context,
+                Completion(
+                  commandId,
+                  Some(Status()),
+                  traceContext = submitRequest.value.traceContext)))
           } yield ()
         }
 

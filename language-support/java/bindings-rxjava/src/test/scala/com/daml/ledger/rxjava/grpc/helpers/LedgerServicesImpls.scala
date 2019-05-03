@@ -9,6 +9,11 @@ import com.digitalasset.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
   CompletionStreamResponse
 }
+import com.digitalasset.ledger.api.v1.command_service.{
+  SubmitAndWaitForTransactionIdResponse,
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse
+}
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.digitalasset.ledger.api.v1.package_service.{
   GetPackageResponse,
@@ -42,7 +47,10 @@ object LedgerServicesImpls {
       commandSubmissionResponse: Future[Empty],
       completions: List[CompletionStreamResponse],
       completionsEnd: CompletionEndResponse,
-      commandResponse: Future[Empty],
+      submitAndWaitResponse: Future[Empty],
+      submitAndWaitForTransactionIdResponse: Future[SubmitAndWaitForTransactionIdResponse],
+      submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
+      submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
       getTimeResponses: List[GetTimeResponse],
       getLedgerConfigurationResponses: Seq[GetLedgerConfigurationResponse],
       listPackagesResponse: Future[ListPackagesResponse],
@@ -58,7 +66,11 @@ object LedgerServicesImpls {
       CommandSubmissionServiceImpl.createWithRef(commandSubmissionResponse)(ec)
     val (ccServiceDef, ccService) =
       CommandCompletionServiceImpl.createWithRef(completions, completionsEnd)(ec)
-    val (cServiceDef, cService) = CommandServiceImpl.createWithRef(commandResponse)(ec)
+    val (cServiceDef, cService) = CommandServiceImpl.createWithRef(
+      submitAndWaitResponse,
+      submitAndWaitForTransactionIdResponse,
+      submitAndWaitForTransactionResponse,
+      submitAndWaitForTransactionTreeResponse)(ec)
     val (lcServiceDef, lcService) =
       LedgerConfigurationServiceImpl.createWithRef(getLedgerConfigurationResponses)(ec)
     val (timeServiceDef, timeService) = TimeServiceImpl.createWithRef(getTimeResponses: _*)(ec)

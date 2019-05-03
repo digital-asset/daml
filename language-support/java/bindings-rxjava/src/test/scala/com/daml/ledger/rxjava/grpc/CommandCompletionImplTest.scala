@@ -56,8 +56,8 @@ class CommandCompletionImplTest
 
   it should "return a stream with all the completions" in {
     val applicationId = "applicationId"
-    val completion1 = Completion("cid1", Option(new Status(0)), None)
-    val completion2 = Completion("cid2", Option(new Status(1)), None)
+    val completion1 = Completion("cid1", Option(new Status(0)), "1", None)
+    val completion2 = Completion("cid2", Option(new Status(1)), traceContext = None)
     val completionResponse = CompletionStreamResponse(None, List(completion1, completion2))
     ledgerServices.withCommandCompletionClient(
       List(completionResponse),
@@ -75,6 +75,7 @@ class CommandCompletionImplTest
       val receivedCompletion2 = completions.getCompletions.get(1)
       receivedCompletion1.getCommandId shouldBe completion1.commandId
       receivedCompletion1.getStatus.getCode shouldBe completion1.getStatus.code
+      receivedCompletion1.getTransactionId shouldBe completion1.transactionId
       receivedCompletion2.getCommandId shouldBe completion2.commandId
       receivedCompletion2.getStatus.getCode shouldBe completion2.getStatus.code
     }
@@ -84,7 +85,7 @@ class CommandCompletionImplTest
 
   it should "send the request with the correct ledgerId" in {
     val applicationId = "applicationId"
-    val completion1 = Completion("cid1", Option(new Status(0)), None)
+    val completion1 = Completion("cid1", Option(new Status(0)), traceContext = None)
     val completionResponse = CompletionStreamResponse(None, List(completion1))
     val parties = Set("Alice")
     ledgerServices.withCommandCompletionClient(

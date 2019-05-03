@@ -7,8 +7,13 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
+import com.digitalasset.ledger.api.v1.command_service.{
+  SubmitAndWaitForTransactionIdResponse,
+  SubmitAndWaitRequest
+}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
+import com.digitalasset.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
@@ -17,17 +22,14 @@ import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeS
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.google.protobuf.empty.Empty
+import com.digitalasset.platform.apitesting.LedgerContext
+import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
 import org.scalatest.{Assertion, Inside, Matchers, OptionValues}
-import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
-import com.digitalasset.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
-import com.digitalasset.platform.participant.util.ValueConversions._
-import com.digitalasset.platform.apitesting.LedgerContext
-import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
 
 import scala.collection.{breakOut, immutable}
 import scala.concurrent.duration._
@@ -590,7 +592,9 @@ class LedgerTestingHelpers(
 }
 
 object LedgerTestingHelpers extends OptionValues {
-  def sync(submitCommand: SubmitAndWaitRequest => Future[Empty], context: LedgerContext)(
+  def sync(
+      submitCommand: SubmitAndWaitRequest => Future[SubmitAndWaitForTransactionIdResponse],
+      context: LedgerContext)(
       implicit ec: ExecutionContext,
       mat: ActorMaterializer): LedgerTestingHelpers =
     async(helper(submitCommand), context)
@@ -616,10 +620,15 @@ object LedgerTestingHelpers extends OptionValues {
       mat: ActorMaterializer): LedgerTestingHelpers =
     new LedgerTestingHelpers(submitCommand, context)
 
-  def emptyToCompletion(commandId: String, emptyF: Future[Empty])(
+  def responseToCompletion(commandId: String, respF: Future[SubmitAndWaitForTransactionIdResponse])(
       implicit ec: ExecutionContext): Future[Completion] =
-    emptyF
-      .map(_ => Completion(commandId, Some(Status(io.grpc.Status.OK.getCode.value(), ""))))
+    respF
+      .map(
+        tx =>
+          Completion(
+            commandId,
+            Some(Status(io.grpc.Status.OK.getCode.value(), "")),
+            tx.transactionId))
       .recover {
         case sre: StatusRuntimeException =>
           Completion(
@@ -627,9 +636,10 @@ object LedgerTestingHelpers extends OptionValues {
             Some(Status(sre.getStatus.getCode.value(), sre.getStatus.getDescription)))
       }
 
-  private def helper(submitCommand: SubmitAndWaitRequest => Future[Empty])(
+  private def helper(
+      submitCommand: SubmitAndWaitRequest => Future[SubmitAndWaitForTransactionIdResponse])(
       implicit ec: ExecutionContext) = { req: SubmitRequest =>
-    emptyToCompletion(
+    responseToCompletion(
       req.commands.value.commandId,
       submitCommand(SubmitAndWaitRequest(req.commands, req.traceContext)))
   }

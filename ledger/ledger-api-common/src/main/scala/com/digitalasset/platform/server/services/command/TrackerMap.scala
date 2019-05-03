@@ -6,16 +6,16 @@ package com.digitalasset.platform.server.services.command
 import java.util.concurrent.atomic.AtomicReference
 
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.server.services.command.TrackerMap.{AsyncResource, Key}
-import com.google.protobuf.empty.Empty
+import com.github.ghik.silencer.silent
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.collection.immutable.HashMap
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
-import com.github.ghik.silencer.silent
 
 /**
   * A map for [[Tracker]]s with thread-safe tracking methods and automatic cleanup. A tracker tracker, if you will.
@@ -54,7 +54,7 @@ class TrackerMap(retentionPeriod: FiniteDuration) extends AutoCloseable with Laz
   }
 
   def track(submitter: Key, request: SubmitAndWaitRequest)(newTracker: => Future[Tracker])(
-      implicit ec: ExecutionContext): Future[Empty] =
+      implicit ec: ExecutionContext): Future[Completion] =
     // double-checked locking
     trackerBySubmitter
       .getOrElse(
