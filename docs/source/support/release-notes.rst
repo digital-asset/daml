@@ -9,6 +9,9 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Ledger API: You can now look up flat transactions with the new TransactionService methods
+  ``GetFlatTransactionByEventId`` and ``GetFlatTransactionById``.
+
 0.12.14 - 2019-05-03
 --------------------
 
@@ -26,8 +29,6 @@ HEAD — ongoing
 --------------------
 
 - Fix an issue with Postgres of potentially not stopping the transaction stream at required ceiling offset. See more `here <https://github.com/digital-asset/daml/pull/802>`
-- Ledger API: You can now look up flat transactions with the new TransactionService methods
-  ``GetFlatTransactionByEventId`` and ``GetFlatTransactionById``.
 
 0.12.12 - 2019-04-30
 --------------------
