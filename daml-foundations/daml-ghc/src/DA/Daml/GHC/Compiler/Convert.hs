@@ -771,7 +771,6 @@ convertExpr env0 e = do
         -- work. Constructor workers are not handled (yet).
         | Just m <- nameModule_maybe $ varName x
         , Just con <- isDataConId_maybe x
-        -- , not ("$W" `isPrefixOf` is x)
         = do
             unitId <- convertUnitId (envModuleUnitId env) (envPkgMap env) $ GHC.moduleUnitId m
             let qualify = Qualified unitId (convertModuleName $ GHC.moduleName m)
