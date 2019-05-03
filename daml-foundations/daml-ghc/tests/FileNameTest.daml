@@ -1,0 +1,8 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR file=/daml-ghc/tests/FileNameTest.daml; Not in scope
+daml 1.2 module Test where
+
+foo : Scenario In
+foo = return 1
