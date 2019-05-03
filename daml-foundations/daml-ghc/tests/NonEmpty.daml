@@ -11,6 +11,3 @@ testApplicative = scenario do
   let l = NonEmpty 1 [2, 3, 4]
   let fs = NonEmpty (*2) [(*3)]
   (fs <*> l) === NonEmpty 2 [4, 6, 8, 3, 6, 9, 12]
-
-main = scenario do
-    testApplicative

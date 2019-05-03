@@ -7,5 +7,3 @@ module ValueRecursion where
 
 foo : [Int]
 foo = 1 :: foo
-
-main = scenario $ return ()

@@ -44,6 +44,3 @@ data FungibleRv a = SplitRv (ContractId a)
     archive otherCid
     create this with amount = amount + otherBond.amount
 -}
-
-main = scenario do
-  pure ()

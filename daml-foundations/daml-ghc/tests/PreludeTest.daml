@@ -279,30 +279,30 @@ testFilter = scenario do
 testFixedpoint = scenario do
   89 === fixedpoint (\f x -> if x < 2 then 1 else f (x-1) + f (x-2)) 10
 
-testIntToDecimal = do
+testIntToDecimal = scenario do
     assert $ intToDecimal 1 == 1.0
     assert $ intToDecimal (-7) == (-7.0)
     assert $ intToDecimal 0 == 0.0
 
-testTruncate = do
+testTruncate = scenario do
     assert $ truncate 14.9 == 14
     assert $ truncate 15.0 == 15
     assert $ truncate (-9.3) == (-9)
     assert $ truncate 0.0 == 0
 
-testCeiling = do
+testCeiling = scenario do
     assert $ ceiling 14.9 == 15
     assert $ ceiling 15.0 == 15
     assert $ ceiling (-9.3) == (-9)
     assert $ ceiling 0.0 == 0
 
-testFloor = do
+testFloor = scenario do
     assert $ floor 14.9 == 14
     assert $ floor 15.0 == 15
     assert $ floor (-9.3) == (-10)
     assert $ floor 0.0 == 0
 
-testRound = do
+testRound = scenario do
     assert $ roundCommercial 0 10.5 == 11.0
     assert $ roundCommercial 2 22.105 == 22.110
     assert $ roundBankers 0 10.5 == 10.0
@@ -312,12 +312,12 @@ testRound = do
     assert $ roundBankers 0 (-10.5) == -10.0
     assert $ roundBankers 2 (-22.105) == -22.100
 
-testNth = do
+testNth = scenario do
     let l = [1, 5, 10]
     let v = l !! 1
     assert $ v == 5
 
-testDiv = do
+testDiv = scenario do
     assert $ 10.0 / 2.0 == 5.0
     assert $ 13.2 / 5.0 == 2.64
 
@@ -336,65 +336,3 @@ testDiv = do
 testDayOfWeek = scenario do
     assert $ dayOfWeek (date 1900 Jan 01) == Monday
     assert $ dayOfWeek (date 2018 Jan 17) == Wednesday
-
-
-main = scenario do
-    testDollar
-    testCurry
-    testUncurry
-    testPow
-    testRemainder
-    testId
-    testFoldl
-    testFoldr
-    testFind
-    testLength
-    testAny
-    testAll
-    testOr
-    testAnd
-    testElem
-    testNotElem
-    testFmap
-    testOptional
-    testEither
-    testAppend
-    testPlusPlus
-    testConcat
-    testFlip
-    testReverse
-    testMapA
-    testForA
-    testSequence
-    testRbind
-    testConcatMap
-    testReplicate
-    testTake
-    testDrop
-    testSplitAt
-    testTakeWhile
-    testDropWhile
-    testSpan
-    testBreak
-    testLookup
-    testZip
-    testZip3
-    testZipWith
-    testZipWith3
-    testUnzip
-    testUnzip3
-    testFst
-    testSnd
-    testNull
-    testFilter
-    testFixedpoint
-
-    testRound
-    testNth
-    testDiv
-    testTruncate
-    testCeiling
-    testFloor
-    testIntToDecimal
-
-    testDayOfWeek

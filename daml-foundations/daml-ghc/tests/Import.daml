@@ -11,6 +11,3 @@ import Bad qualified
 -- this checks that qualified names show up in error messages
 a : Good.T
 a = Bad.T
-
-main = scenario do
-  assert True

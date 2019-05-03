@@ -56,6 +56,3 @@ template BondTransferRequest
       Withdraw : ContractId Bond
         do
           create Bond with ..
-
-main = scenario do
-  assert True
