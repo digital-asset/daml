@@ -16,6 +16,7 @@ import DAML.Assistant.Util
 import System.FilePath
 import System.Directory
 import System.Process
+import System.Environment
 import System.Exit
 import System.IO
 import Control.Exception.Safe
@@ -25,7 +26,9 @@ import Control.Monad.Extra
 -- | Run the assistant and exit.
 main :: IO ()
 main = displayErrors $ do
-    env@Env{..} <- getDamlEnv
+    rawArgs <- getArgs
+    let isInstall = listToMaybe rawArgs == Just "install"
+    env@Env{..} <- if isInstall then getMinimalDamlEnv else getDamlEnv
     sdkConfigM <- mapM readSdkConfig envSdkPath
     sdkCommandsM <- mapM (fromRightM throwIO . listSdkCommands) sdkConfigM
     userCommand <- getCommand (fromMaybe [] sdkCommandsM)
