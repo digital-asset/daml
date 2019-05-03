@@ -21,12 +21,15 @@ da_haskell_library(
 )
 
 da_haskell_binary(
-    name = "examples-view",
-    srcs = ["examples/View.hs"],
+    name = "play",
+    srcs = ["examples/Play.hs"],
     compiler_flags = [],
     hazel_deps = [
         "base",
         "extra",
+        "random",
+        "text",
+        "uuid",
     ],
     visibility = ["//visibility:public"],
     deps = [
