@@ -1,0 +1,238 @@
+diff --git a/haskell/CROSSTOOL.windows b/haskell/CROSSTOOL.windows
+deleted file mode 100644
+index ae16776..0000000
+--- a/haskell/CROSSTOOL.windows
++++ /dev/null
+@@ -1,49 +0,0 @@
+-major_version: "local"
+-minor_version: ""
+-
+-toolchain {
+-  toolchain_identifier: "ghc_windows_mingw64"
+-  abi_version: "local"
+-  abi_libc_version: "local"
+-  builtin_sysroot: ""
+-  compiler: "ghc-mingw-gcc"
+-  host_system_name: "local"
+-  needsPic: false
+-  target_libc: "mingw"
+-  target_cpu: "x64_windows"
+-  target_system_name: "local"
+-
+-  artifact_name_pattern {
+-     category_name: 'executable'
+-     prefix: ''
+-     extension: '.exe'
+-  }
+-
+-  tool_path { name: "ar" path: "mingw/bin/ar" }
+-  tool_path { name: "compat-ld" path: "mingw/bin/ld" }
+-  tool_path { name: "cpp" path: "mingw/bin/cpp" }
+-  tool_path { name: "dwp" path: "mingw/bin/dwp" }
+-  tool_path { name: "gcc" path: "mingw/bin/gcc" }
+-  tool_path { name: "gcov" path: "mingw/bin/gcov" }
+-  tool_path { name: "ld" path: "mingw/bin/ld" }
+-  tool_path { name: "nm" path: "mingw/bin/nm" }
+-  tool_path { name: "objcopy" path: "mingw/bin/objcopy" }
+-  tool_path { name: "objdump" path: "mingw/bin/objdump" }
+-  tool_path { name: "strip" path: "mingw/bin/strip" }
+-  cxx_builtin_include_directory: "mingw"
+-  cxx_flag: "-std=gnu++0x"
+-
+-  # Needed to prevent Bazel from complaining about undeclared inclusions of
+-  # MingW headers.
+-  #
+-  # See: https://github.com/bazelbuild/bazel/issues/4605
+-  unfiltered_cxx_flag: "-no-canonical-prefixes"
+-  unfiltered_cxx_flag: "-fno-canonical-system-headers"
+-
+-  linker_flag: "-lstdc++"
+-  objcopy_embed_flag: "-I"
+-  objcopy_embed_flag: "binary"
+-  feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }
+-  feature { name: "copy_dynamic_libraries_to_binary" }
+-  linking_mode_flags { mode: DYNAMIC }
+-}
+diff --git a/haskell/cc_toolchain_config.bzl b/haskell/cc_toolchain_config.bzl
+new file mode 100644
+index 0000000..cb6b9c0
+--- /dev/null
++++ b/haskell/cc_toolchain_config.bzl
+@@ -0,0 +1,107 @@
++load(
++    "@bazel_tools//tools/build_defs/cc:action_names.bzl",
++    "ACTION_NAMES",
++)
++load(
++    "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
++    "artifact_name_pattern",
++    "feature",
++    "flag_group",
++    "flag_set",
++    "tool_path",
++)
++
++def _impl(ctx):
++    tool_paths = [
++        tool_path(
++            name = "ar",
++            path = "mingw/bin/ar",
++        ),
++        tool_path(
++            name = "compat-ld",
++            path = "mingw/bin/ld",
++        ),
++        tool_path(
++            name = "cpp",
++            path = "mingw/bin/cpp",
++        ),
++        tool_path(
++            name = "dwp",
++            path = "mingw/bin/dwp",
++        ),
++        tool_path(
++            name = "gcc",
++            path = "mingw/bin/gcc",
++        ),
++        tool_path(
++            name = "gcov",
++            path = "mingw/bin/gcov",
++        ),
++        tool_path(
++            name = "ld",
++            path = "mingw/bin/ld",
++        ),
++        tool_path(
++            name = "nm",
++            path = "mingw/bin/nm",
++        ),
++        tool_path(
++            name = "objcopy",
++            path = "mingw/bin/objcopy",
++        ),
++        tool_path(
++            name = "objdump",
++            path = "mingw/bin/objdump",
++        ),
++        tool_path(
++            name = "strip",
++            path = "mingw/bin/strip",
++        ),
++    ]
++    artifact_name_patterns = [
++        artifact_name_pattern(
++            category_name = "executable",
++            prefix = "",
++            extension = ".exe",
++        ),
++    ]
++    default_link_flags_feature = feature(
++        name = "default_link_flags",
++        enabled = True,
++        flag_sets = [
++            flag_set(
++                actions = [
++                    ACTION_NAMES.cpp_link_executable,
++                    ACTION_NAMES.cpp_link_dynamic_library,
++                    ACTION_NAMES.cpp_link_nodeps_dynamic_library,
++                ],
++                flag_groups = [
++                    flag_group(
++                        flags = [
++                            "-lstdc++",
++                        ],
++                    ),
++                ],
++            ),
++        ],
++    )
++    return cc_common.create_cc_toolchain_config_info(
++        ctx = ctx,
++        toolchain_identifier = "ghc_windows_mingw64",
++        host_system_name = "local",
++        target_system_name = "local",
++        target_cpu = "x64_windows",
++        target_libc = "local",
++        compiler = "ghc-mingw-gcc",
++        abi_version = "local",
++        abi_libc_version = "local",
++        tool_paths = tool_paths,
++        artifact_name_patterns = artifact_name_patterns,
++        features = [default_link_flags_feature],
++    )
++
++cc_toolchain_config = rule(
++    implementation = _impl,
++    attrs = {},
++    provides = [CcToolchainConfigInfo],
++)
+diff --git a/haskell/ghc.BUILD b/haskell/ghc.BUILD
+index 67a42b0..5c44e4f 100644
+--- a/haskell/ghc.BUILD
++++ b/haskell/ghc.BUILD
+@@ -1,3 +1,5 @@
++load("@io_tweag_rules_haskell//haskell:cc_toolchain_config.bzl", "cc_toolchain_config")
++
+ package(default_visibility = ["//visibility:public"])
+ 
+ filegroup(
+@@ -54,8 +56,8 @@ cc_library(
+ # Expose embedded MinGW toolchain when on Windows.
+ 
+ filegroup(
+-    name = "empty",
+-    srcs = [],
++    name = "mingw",
++    srcs = glob(["mingw/**"]),
+ )
+ 
+ cc_toolchain_suite(
+@@ -69,15 +71,20 @@ cc_toolchain_suite(
+ # Keep in sync with @bazel_tools//cpp:cc-compiler-x64_windows definition.
+ cc_toolchain(
+     name = "cc-compiler-mingw64",
+-    all_files = ":empty",
+-    ar_files = ":empty",
+-    as_files = ":empty",
+-    compiler_files = ":empty",
++    all_files = ":mingw",
++    ar_files = ":mingw",
++    as_files = ":mingw",
++    compiler_files = ":mingw",
+     cpu = "x64_windows",
+-    dwp_files = ":empty",
+-    linker_files = ":empty",
+-    objcopy_files = ":empty",
+-    strip_files = ":empty",
++    dwp_files = ":mingw",
++    dynamic_runtime_libs = [":mingw"],
++    linker_files = ":mingw",
++    objcopy_files = ":mingw",
++    static_runtime_libs = [":mingw"],
++    strip_files = ":mingw",
+     supports_param_files = 0,
++    toolchain_config = ":ghc_windows_mingw64_config",
+     toolchain_identifier = "ghc_windows_mingw64",
+ )
++
++cc_toolchain_config(name = "ghc_windows_mingw64_config")
+diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
+index 7766239..af55a1f 100644
+--- a/haskell/ghc_bindist.bzl
++++ b/haskell/ghc_bindist.bzl
+@@ -182,7 +182,6 @@ def _ghc_bindist_impl(ctx):
+     # Avoid rule restart by resolving these labels early. See
+     # https://github.com/bazelbuild/bazel/blob/master/tools/cpp/lib_cc_configure.bzl#L17.
+     ghc_build = ctx.path(Label("//haskell:ghc.BUILD"))
+-    crosstool_windows = ctx.path(Label("//haskell:CROSSTOOL.windows"))
+ 
+     version = ctx.attr.version
+     target = ctx.attr.target
+@@ -230,7 +229,6 @@ grep -lZ {bindist_dir} bin/* | xargs -0 --verbose \\
+         ghc_build,
+         executable = False,
+     )
+-    ctx.template("CROSSTOOL", crosstool_windows, executable = False)
+ 
+ _ghc_bindist = repository_rule(
+     _ghc_bindist_impl,
