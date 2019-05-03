@@ -23,10 +23,9 @@ testFromList = scenario do
   True === member 3 (fromList [(1, "a"), (3, "b"), (4, "c")])
   [(1, "b")] === toList (fromList [(1, "a"), (1, "c"), (1, "b")])
 
--- TODO(#881): Reenable this key when `fromListWith` gets added again.
--- testFromListWith = scenario do
---   fromListWith (<>) [(5,"a"), (5,"b"), (3,"b"), (3,"a"), (5,"c")] === fromList [(3, "ab"), (5, "cba")]
---   fromListWith (<>) [] === (M.empty : Map Int Text)
+testFromListWith = scenario do
+  fromListWith (<>) [(5,"a"), (5,"b"), (3,"b"), (3,"a"), (5,"c")] === fromList [(3, "ba"), (5, "abc")]
+  fromListWith (<>) [] === (M.empty : Map Int Text)
 
 testMember = scenario do
   False === member "a" (fromList [("", 1.0), ("b", 2.0), ("c", 3.0)])
@@ -55,3 +54,12 @@ testDelete = scenario do
   [(2, False), (3, True), (4, False), (5, False)] === toList (delete 1 (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
   [(1, False), (2, True)] === toList (delete 3 (fromList [(2, False), (1, True), (2, True), (1, False)]))
 
+testMerge = scenario do
+  let m1 = fromList [(3, "aa"), (1, "bb"), (4, "cc"), (2, "dd"), (6, "ee")]
+  let m2 = fromList [(1, "a"), (3, "b"), (2, "c"), (5, "d"), (0, "e")]
+
+  [] === toList (merge (\k v -> Some v) (\k v -> Some v) (\k v w -> Some v) M.empty (M.empty : Map Int Text))
+  [] === toList (merge (\k v -> Some v) (\k v -> Some v) (\k v w -> None) m1 m1)
+  [(1, "bb"), (3, "aa")] === toList (merge (\k v -> if v <= "bb" then Some v else None) (\k v -> Some v) (\k v w -> None) m1 M.empty)
+  [(1, "a"), (3, "b")] === toList (merge (\k v -> Some v) (\k v -> if v <= "bb" then Some v else None) (\k v w -> None) M.empty m2)
+  [(1,"bb"), (2,"dd"), (3,"aa")] === toList (merge (\k v -> None) (\k v -> None) (\k v w -> Some v) m1 m2)

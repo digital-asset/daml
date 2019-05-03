@@ -11,6 +11,7 @@ module DA.TextMap
   , size
   , toList
   , fromList
+  , fromListWith
   , null
   , lookup
   , member
@@ -19,6 +20,7 @@ module DA.TextMap
   , delete
   , insert
   , union
+  , merge
   ) where
 
 import Prelude hiding (lookup, null, filter, empty)
@@ -30,6 +32,21 @@ import DA.Traversable qualified as Traversable
 -- | Create a map from a list of key/value pairs.
 fromList : [(Text, a)] -> TextMap a
 fromList list = foldl (\acc (key, value) -> insert key value acc) empty list
+
+-- | Create a map from a list of key/value pairs with a combining
+-- function. Examples:
+-- ```
+--   fromListWith (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])] == fromList [("A", [1, 2, 3]), ("B", [2, 1])]
+--   fromListWith (++) [] == (empty : TextMap [Int])
+-- ```
+fromListWith : (a -> a -> a) -> [(Text, a)] -> TextMap a
+fromListWith f = foldl g empty
+  where
+    g acc (k, x) =
+      let z = case lookup k acc of
+            None -> x
+            Some y -> f y x
+      in insert k z acc
 
 -- | Convert the map to a list of key/value pairs where the keys are
 -- in ascending order.
@@ -80,6 +97,36 @@ insert = primitive @"BEMapInsert"
 -- keys are encountered.
 union : TextMap a -> TextMap a -> TextMap a
 union m1 m2 = foldl (\acc (k, v) -> insert k v acc) m2 (toList m1)
+
+-- | Merge two maps.
+merge
+  :  (Text -> a -> Optional c)
+  -> (Text -> b -> Optional c)
+  -> (Text -> a -> b -> Optional c)
+  -> TextMap a
+  -> TextMap b
+  -> TextMap c
+merge f g h xs ys = fromList $ mergeList f g h (toList xs) (toList ys)
+
+-- | HIDE Auxiliary function for `merge`.
+mergeList
+  :  (Text -> a -> Optional c)
+  -> (Text -> b -> Optional c)
+  -> (Text -> a -> b -> Optional c)
+  -> [(Text, a)]
+  -> [(Text, b)]
+  -> [(Text, c)]
+mergeList f g h xs ys = case (xs, ys) of
+  ([], []) -> []
+  ([], _::_) -> foldr (\(l, y) -> prepend l (g l y)) [] ys
+  (_::_, []) -> foldr (\(k, x) -> prepend k (f k x)) [] xs
+  ((k, x)::xs', (l, y)::ys') -> case k `compare` l of
+    LT -> prepend k (f k x) $ mergeList f g h xs' ys
+    EQ -> prepend k (h k x y) $ mergeList f g h xs' ys'
+    GT -> prepend l (g l y) $ mergeList f g h xs ys'
+  where
+    prepend _ None xs = xs
+    prepend k (Some x) xs = (k, x)::xs
 
 instance Show a => Show (TextMap a) where
   show m = "TextMap " <> show (toList m)
