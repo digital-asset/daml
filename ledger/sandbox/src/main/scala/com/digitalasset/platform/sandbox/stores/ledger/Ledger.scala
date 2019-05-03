@@ -85,11 +85,19 @@ object Ledger {
       jdbcUrl: String,
       ledgerId: String,
       timeProvider: TimeProvider,
+      acs: ActiveContractsInMemory,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int,
       startMode: SqlStartMode
   )(implicit mat: Materializer, mm: MetricsManager): Future[Ledger] =
-    SqlLedger(jdbcUrl, Some(ledgerId), timeProvider, ledgerEntries, queueDepth, startMode)
+    SqlLedger(
+      jdbcUrl,
+      Some(ledgerId),
+      timeProvider,
+      acs,
+      ledgerEntries,
+      queueDepth,
+      startMode)
 
   /** Wraps the given Ledger adding metrics around important calls */
   def metered(ledger: Ledger)(implicit mm: MetricsManager): Ledger = MeteredLedger(ledger)

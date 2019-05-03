@@ -9,8 +9,10 @@ import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
+import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 
+import scala.collection.immutable
 import scala.concurrent.Future
 
 private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends LedgerDao {
@@ -42,10 +44,16 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends
   override def storeLedgerEntry(
       offset: Long,
       newLedgerEnd: Long,
-      ledgerEntry: LedgerEntry): Future[PersistenceResponse] =
+      ledgerEntry: PersistenceEntry): Future[PersistenceResponse] =
     mm.timedFuture(
       "storeLedgerEntry",
       ledgerDao.storeLedgerEntry(offset, newLedgerEnd, ledgerEntry))
+
+  def storeInitialState(
+      acs: ActiveContractsInMemory,
+      ledgerEntries: immutable.Seq[LedgerEntry]
+  ): Future[Unit] =
+    mm.timedFuture("storeInitialState", ledgerDao.storeInitialState(acs, ledgerEntries))
 
   override def initializeLedger(ledgerId: String, ledgerEnd: LedgerOffset): Future[Unit] =
     ledgerDao.initializeLedger(ledgerId, ledgerEnd)
