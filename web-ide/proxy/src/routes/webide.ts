@@ -41,37 +41,10 @@ export default class WebIdeRoute {
     }
 
     private initProxy() {
+        const route = this
         this.proxy = createProxyServer({})
         this.proxy.on('error', this.proxyError.bind(this))
-    }
-
-    private getImage() :Promise<ImageInspectInfo> {
-        return this.docker.getImage(conf.docker.webIdeReference)
-    }
-
-    private proxyError(err :any, req :Request, res :Response) {
-        Session.session(req, res, (err :any, state :any, sessionId :string, saveSession :any) => {
-            console.error("proxy error occurred for session[%s], restarting.", sessionId)
-            this.proxy.removeAllListeners()
-            this.resetState(state, saveSession)
-            this.initProxy()
-        })
-    }
-
-    errorHandler(err :Error, req: Request, res :Response, next :NextFunction) {
-        if (res.headersSent) {
-            return next(err)
-        }
-        if (err instanceof ProxyError) {
-            res.status(err.status).send(err.clientResponse)
-        }
-        else {
-            res.statusCode = 500
-            res.send("Unknown error occured.")
-        }
-        res.end()
-        //TODO render nice error message 
-        //res.render('error', { error: err })
+        this.proxy.on('proxyRes', this.handleProxyResponse.bind(this));
     }
 
     /*we request the css and add our own css to the end of it. This involves grabbing the port mapping from our session,
@@ -92,6 +65,7 @@ export default class WebIdeRoute {
                     s.push(null)
 
                     res.setHeader('Content-Encoding', 'gzip')
+                    res.setHeader('Cache-Control', 'max-age=86400,must-revalidate')
                     s.pipe(zlib.createGzip()).pipe(res)
                 })
             }
@@ -123,6 +97,44 @@ export default class WebIdeRoute {
             res.statusCode = 500
             res.end()
         }
+    }
+
+    sendErrorResponse(err :Error, req: Request, res :Response) {
+        if (err instanceof ProxyError) {
+            res.status(err.status).send(err.clientResponse)
+        }
+        else {
+            res.statusCode = 500
+            res.send("Unknown error occured.")
+        }
+        res.end()
+        //TODO render nice error message 
+        //res.render('error', { error: err })
+    }
+
+    /* we override response messages so as to ensure we don't expose too much information */
+    private handleProxyResponse(proxyRes :Response, req :Request, res :Response) {
+        if (proxyRes.statusCode >= 500) {
+            const err = new ProxyError(`webide response ${proxyRes.statusCode}: ${proxyRes.statusMessage}`, proxyRes.statusCode, "Server could not process request. Try refreshing the browser")
+            this.sendErrorResponse(err, req, res)
+        } else if (proxyRes.statusCode >= 400) {
+            const err = new ProxyError(`webide response ${proxyRes.statusCode}: ${proxyRes.statusMessage}`, proxyRes.statusCode, "Bad request")
+            this.sendErrorResponse(err, req, res)
+        }
+        //doing nothing we let the proxy handle the response
+    }
+
+    private getImage() :Promise<ImageInspectInfo> {
+        return this.docker.getImage(conf.docker.webIdeReference)
+    }
+
+    private proxyError(err :any, req :Request, res :Response) {
+        Session.session(req, res, (err :any, state :any, sessionId :string, saveSession :any) => {
+            console.error("proxy error occurred for session[%s], restarting.", sessionId)
+            this.proxy.removeAllListeners()
+            this.resetState(state, saveSession)
+            this.initProxy()
+        })
     }
 
     private handleWsRequest(req :Request, socket :Socket, head :any) {
