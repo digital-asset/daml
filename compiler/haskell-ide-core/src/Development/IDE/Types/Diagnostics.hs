@@ -190,8 +190,7 @@ prettyDiagnostic (fp, LSP.Diagnostic{..}) =
 prettyDiagnosticStore :: DiagnosticStore -> Doc SyntaxClass
 prettyDiagnosticStore ds =
     vcat $
-    map prettyFileDiagnostics $
-    map (\(uri, diags) -> (fromMaybe noFilePath $ uriToFilePath uri, diags)) $
+    map (\(uri, diags) -> prettyFileDiagnostics (fromMaybe noFilePath $ uriToFilePath uri, diags)) $
     Map.assocs $
     Map.map getDiagnosticsFromStore ds
 
