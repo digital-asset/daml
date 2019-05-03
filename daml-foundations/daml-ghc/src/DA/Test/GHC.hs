@@ -299,20 +299,15 @@ mainProj TestArguments{..} service outdir log file = do
     let lfPrettyPrint = timed log "LF pretty-printing" . liftIO . writeFile (outdir </> proj <.> "pdalf") . renderPretty
 
     Compile.setFilesOfInterest service (Set.singleton file)
-    pkg <- Compile.runAction service $ lfTypeCheck log file
-    void $ Compile.runActions service
-        [do
+    Compile.runAction service $ do
             cores <- ghcCompile log file
             corePrettyPrint cores
-        ,do
             lf <- lfConvert log file
             lfPrettyPrint lf
-        ,do
             lf <- lfTypeCheck log file
             lfSave lf
             lfRunScenarios log file
-        ]
-    pure pkg
+            pure lf
 
 unjust :: Action (Maybe b) -> Action b
 unjust act = do
