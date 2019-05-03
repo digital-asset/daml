@@ -264,7 +264,7 @@ useStale IdeState{shakeExtras=ShakeExtras{state}} k fp =
 getAllDiagnostics :: IdeState -> IO [Diagnostic]
 getAllDiagnostics IdeState{shakeExtras = ShakeExtras{state}} = do
     val <- readVar state
-    return $ concatMap (concatMap fst . Map.elems) $ Map.elems val
+    return $ concatMap (\(fp,v) -> map (set dFilePath $ Just fp) $ concatMap fst $ Map.elems v) $ Map.toList val
 
 -- | FIXME: This function is temporary! Only required because the files of interest doesn't work
 unsafeClearAllDiagnostics :: IdeState -> IO ()
