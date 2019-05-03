@@ -81,6 +81,11 @@ object Node {
       chosenValue: Val,
       stakeholders: Set[Party],
       signatories: Set[Party],
+      /** Note that here we have both actors and controllers because we use this
+        * data structure _before_ we validate the transaction. However for every
+        * valid transaction the actors must be the same as the controllers. This
+        * is why we removed the controllers field in transaction version 6.
+        */
       controllers: Set[Party],
       children: ImmArray[Nid])
       extends GenNode[Nid, Cid, Val] {
@@ -95,7 +100,36 @@ object Node {
       )
   }
 
-  object NodeExercises extends WithTxValue3[NodeExercises]
+  object NodeExercises extends WithTxValue3[NodeExercises] {
+
+    /** After interpretation authorization, it must be the case that
+      * the controllers are the same as the acting parties. This
+      * apply method enforces it.
+      */
+    def apply[Nid, Cid, Val](
+        targetCoid: Cid,
+        templateId: Identifier,
+        choiceId: ChoiceName,
+        optLocation: Option[Location],
+        consuming: Boolean,
+        actingParties: Set[Party],
+        chosenValue: Val,
+        stakeholders: Set[Party],
+        signatories: Set[Party],
+        children: ImmArray[Nid]): NodeExercises[Nid, Cid, Val] =
+      NodeExercises(
+        targetCoid,
+        templateId,
+        choiceId,
+        optLocation,
+        consuming,
+        actingParties,
+        chosenValue,
+        stakeholders,
+        signatories,
+        actingParties,
+        children)
+  }
 
   final case class NodeLookupByKey[+Cid, +Val](
       templateId: Identifier,

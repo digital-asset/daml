@@ -99,7 +99,7 @@ object TransactionCoder {
       nodeId: Nid,
       node: GenNode[Nid, Cid, Val]): Either[EncodeError, TransactionOuterClass.Node] = {
     val nodeBuilder = TransactionOuterClass.Node.newBuilder().setNodeId(encodeNid(nodeId))
-    import TransactionVersions.minKeyOrLookupByKey
+    import TransactionVersions.{minKeyOrLookupByKey, minNoControllers}
     node match {
       case c: NodeCreate[Cid, Val] =>
         encodeContractInstance(encodeVal, c.coinst).flatMap { inst =>
@@ -151,7 +151,7 @@ object TransactionCoder {
         }
 
       case e: NodeExercises[Nid, Cid, Val] =>
-        encodeVal(e.chosenValue).map {
+        encodeVal(e.chosenValue).flatMap {
           case (vversion, arg) =>
             val exBuilder =
               TransactionOuterClass.NodeExercise
@@ -165,11 +165,21 @@ object TransactionCoder {
                   _.setContractIdStruct(_))
                 .addAllActors(e.actingParties.map(_.underlyingString).asJava)
                 .addAllChildren(e.children.map(encodeNid).toList.asJava)
-                .addAllControllers(e.controllers.map(_.underlyingString).asJava)
                 .addAllSignatories(e.signatories.map(_.underlyingString).asJava)
                 .addAllStakeholders(e.stakeholders.map(_.underlyingString).asJava)
 
-            nodeBuilder.setExercise(exBuilder).build()
+            if (transactionVersion precedes minNoControllers) {
+              if (e.controllers == e.actingParties) {
+                exBuilder.addAllControllers(e.controllers.map(_.underlyingString).asJava)
+                Right(nodeBuilder.setExercise(exBuilder).build())
+              } else {
+                Left(EncodeError(
+                  s"As of version $transactionVersion, the controllers and actingParties of an exercise node _must_ be the same, but I got ${e.controllers} as controllers and ${e.actingParties} as actingParties."))
+              }
+            } else {
+              Right(nodeBuilder.setExercise(exBuilder).build())
+            }
+
         }
 
       case nlbk: NodeLookupByKey[Cid, Val] =>
@@ -221,7 +231,7 @@ object TransactionCoder {
       protoNode: TransactionOuterClass.Node): Either[DecodeError, (Nid, GenNode[Nid, Cid, Val])] = {
     val nodeId = decodeNid(protoNode.getNodeId)
 
-    import TransactionVersions.minKeyOrLookupByKey
+    import TransactionVersions.{minKeyOrLookupByKey, minNoControllers}
     protoNode.getNodeTypeCase match {
       case NodeTypeCase.CREATE =>
         for {
@@ -274,10 +284,19 @@ object TransactionCoder {
           children <- childrenOrError
           cv <- decodeVal(protoExe.getChosenValue)
           templateId <- ValueCoder.decodeIdentifier(protoExe.getTemplateId)
-          controllers <- toPartySet(protoExe.getControllersList)
+          actingParties <- toPartySet(protoExe.getActorsList)
+          encodedControllers <- toPartySet(protoExe.getControllersList)
+          controllers <- if (!(txVersion precedes minNoControllers)) {
+            if (encodedControllers.isEmpty) {
+              Right(actingParties)
+            } else {
+              Left(DecodeError(s"As of version $txVersion, exercise controllers must be empty."))
+            }
+          } else {
+            Right(encodedControllers)
+          }
           signatories <- toPartySet(protoExe.getSignatoriesList)
           stakeholders <- toPartySet(protoExe.getStakeholdersList)
-          actingParties <- toPartySet(protoExe.getActorsList)
         } yield
           (
             ni,

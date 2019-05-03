@@ -15,12 +15,13 @@ final case class TransactionVersion(protoValue: String)
   */
 object TransactionVersions
     extends LfVersions(
-      maxVersion = TransactionVersion("5"),
-      previousVersions = List("1", "2", "3", "4") map TransactionVersion)(_.protoValue) {
+      maxVersion = TransactionVersion("6"),
+      previousVersions = List("1", "2", "3", "4", "5") map TransactionVersion)(_.protoValue) {
 
   private[this] val minVersion = TransactionVersion("1")
   private[transaction] val minKeyOrLookupByKey = TransactionVersion("3")
   private[transaction] val minFetchActors = TransactionVersion("5")
+  private[transaction] val minNoControllers = TransactionVersion("6")
 
   def assignVersion(a: GenTransaction[_, _, _ <: VersionedValue[_]]): TransactionVersion = {
     require(a != null)

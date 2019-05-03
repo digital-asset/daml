@@ -10,6 +10,7 @@
 // * 3: new node type NodeLookupByKey
 // * 4: string contract_id replaced globally by ContractId message
 // * 5: new field actors in NodeFetch
+// * 6: removal of controllers in exercise nodes
 
 syntax = "proto3";
 
