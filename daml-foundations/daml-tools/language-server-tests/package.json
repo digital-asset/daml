@@ -15,7 +15,7 @@
         "deep-equal": "1.0.1",
         "mocha": "3.2.0",
         "mocha-jenkins-reporter": "0.3.7",
-        "typescript": "3.3.1",
+        "typescript": "3.3.3",
         "vscode-languageserver-types": "3.2.x",
         "vscode-languageclient": "3.2.x",
         "vscode-jsonrpc": "3.2.x"
@@ -28,7 +28,7 @@
     "devDependencies": {
         "@bazel/bazel": "0.22.0",
         "@types/node": "6.0.42",
-        "typescript": "3.3.1",
-        "vscode": "1.1.24"
+        "typescript": "3.3.3",
+        "vscode": "1.1.33"
     }
 }
