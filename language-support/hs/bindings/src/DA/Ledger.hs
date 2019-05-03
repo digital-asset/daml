@@ -141,7 +141,7 @@ getTransactionStream h party = do
     forkIO_ tag $
         LL.withGRPCClient (config port) $ \client -> do
             rpcs <- LL.transactionServiceClient client
-            let (TransactionService rpc1 _ _ _ _) = rpcs
+            let (TransactionService rpc1 _ _ _ _ _ _) = rpcs
             sendToChan request f chan rpc1
     return $ ResponseStream{chan}
     where f = map LL_Transaction . Vector.toList . getTransactionsResponseTransactions
