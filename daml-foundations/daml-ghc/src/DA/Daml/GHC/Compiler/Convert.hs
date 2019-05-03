@@ -490,6 +490,20 @@ convertBind2 env (NonRec name x)
     | Just internals <- MS.lookup (envGHCModuleName env) internalFunctions
     , is name `elem` internals
     = pure []
+    -- NOTE(MH): Our inline return type syntax produces a local letrec for
+    -- recursive functions. We currently don't support local letrecs.
+    -- However, we can work around this issue by rewriting
+    -- > name = \@a_1 ... @a_n -> letrec f = \v -> y in f  -- (n >= 0)
+    -- into
+    -- > name = \@a_1 ... @a_n -> \v -> let f = name @a_1 ... @a_n in y
+    -- We need to make sure `f` is a term lambda here since we'd end up with a
+    -- recursive value otherwise.
+    -- (This rewriting can be regarded as a very limited form of lambda
+    -- lifting where the lifted version of `f` happens to be `name`.)
+    -- This workaround should be removed once we either have a proper lambda
+    -- lifter or DAML-LF supports local recursion.
+    | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectTyBinders x, f == f'
+    = convertBind2 env $ NonRec name $ mkLams as $ Lam v $ Let (NonRec f $ mkTyApps (Var name) $ map mkTyVarTy as) y
     | otherwise
     = withRange (convNameLoc name) $ do
     x' <- convertExpr env x
