@@ -28,4 +28,11 @@ installer sdkDir = do
         setOutPath (fromString dir)
         file [Recursive] (fromString (sdkDir <> "\\*.*"))
         -- install --activate will copy the SDK to the final location.
-        execWait $ fromString $ "\"" <> dir </> "daml" </> "daml.exe" <> "\" install " <> dir <> " --activate"
+        plugin "nsExec" "ExecToLog"
+            [ fromString $ unwords
+                  [ "\"" <> dir </> "daml" </> "daml.exe\""
+                  , "install"
+                  , "\"" <> dir <> "\""
+                  , "--activate"
+                  ] :: Exp String
+            ]
