@@ -11,7 +11,7 @@ import scalaz.syntax.equal._
 import scala.collection.immutable.HashMap
 
 /** We use this container to pass around DAML-LF maps as flat lists in various parts of the codebase. */
-class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) {
+final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extends Equals {
 
   def mapValue[Y](f: X => Y) = new SortedLookupList(entries.map { case (k, v) => k -> f(v) })
 
@@ -23,9 +23,11 @@ class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) {
 
   def toHashMap: HashMap[String, X] = HashMap(entries.toSeq: _*)
 
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[SortedLookupList[_]]
+
   override def equals(obj: Any): Boolean = {
     obj match {
-      case other: SortedLookupList[X] => other.toImmArray == entries
+      case other: SortedLookupList[X] if other canEqual this => other.toImmArray == entries
       case _ => false
     }
   }
