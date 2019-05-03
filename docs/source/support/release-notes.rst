@@ -17,6 +17,7 @@ HEAD — ongoing
 
 - Ledger API: Added field ``transaction_id`` to command completions. It is only set by the ledger
   with the id of the transaction for a successful command.
+- Add instances of ``Functor``/``Applicative``/``Action`` for ``(->) r`` (aka the reader monad)
 
 0.12.14 - 2019-05-03
 --------------------
