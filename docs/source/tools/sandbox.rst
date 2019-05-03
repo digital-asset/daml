@@ -33,6 +33,7 @@ Running with persistence
 By default, Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. If you want to keep the state, you can use a Postgres database for persistence. This allows you to shut down Sandbox and start it up later, continuing where it left off.
 
 To set this up, you must:
+
 - create an initially empty Postgres database that the Sandbox application can access 
 - have a database user for Sandbox that has authority to execute DDL operations 
 
