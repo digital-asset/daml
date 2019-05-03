@@ -33,12 +33,19 @@ import scala.reflect.{ClassTag, classTag}
   * @param partyNameMangler allows to amend party names defined in scenarios,
   *        before they are executed against ledger created with {@code createLedger}.
   *        See {@code ScenarioRunner.partyNameMangler} for details.
+  * @param commandIdMangler allows to compute command identifiers based on scenario
+  *                         name, scenario step identifier and scenario node identifier.
+  *                         It can be used to ensure that generated command identifiers
+  *                         are unique between runs of two scenarios.
   */
 class SemanticTester(
     createLedger: Set[SimpleString] => SemanticTester.GenericLedger,
     packageToTest: PackageId,
     packages: Map[PackageId, Package],
-    partyNameMangler: (String => String) = identity)(implicit ec: ExecutionContext) {
+    partyNameMangler: (String => String) = identity,
+    commandIdMangler: ((QualifiedName, Int, L.NodeId) => String) = (scenario, stepId, nodeId) =>
+      s"semantic-testing-$scenario-$stepId-$nodeId"
+)(implicit ec: ExecutionContext) {
   import SemanticTester._
 
   // result ledgers from all scenarios found in packages
@@ -126,7 +133,7 @@ class SemanticTester(
 
       // walk through the scenario nodes and ledger events
       @tailrec
-      def go(state: TestScenarioState): Map[AbsoluteContractId, AbsoluteContractId] =
+      def go(state: TestScenarioState): Map[AbsoluteContractId, AbsoluteContractId] = {
         state.remainingScenarioNodeIds match {
           // we're done with scenario nodes, we should also be done with ledger events
           case FrontStack() =>
@@ -235,6 +242,7 @@ class SemanticTester(
             // keep looping
             go(nextState)
         }
+      }
 
       // GO GO GO
       // walk from the roots, return the updated contract id mapping
@@ -245,14 +253,13 @@ class SemanticTester(
           scenarioCoidToLedgerCoid = scenarioToLedgerMap
         ))
     }
-
     scenarioLedger.scenarioSteps.toList
       .foldLeft(Future(Map.empty[AbsoluteContractId, AbsoluteContractId])) {
         case (initialMap, (stepId, L.Commit(txId @ _, richTransaction, optLocation @ _))) =>
           richTransaction.roots.foldLeft(initialMap) {
             case (previousMap, nodeId) =>
               val reference: String =
-                s"semantic-testing-$scenario-$stepId-$nodeId"
+                commandIdMangler(scenario, stepId, nodeId)
               def submitCommandCheckAndUpdateMap(
                   submitterName: SimpleString,
                   cmd: Command,

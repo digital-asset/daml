@@ -9,7 +9,8 @@ import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.digitalasset.daml.lf.UniversalArchiveReader
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.types.{Ledger => L}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
@@ -63,7 +64,9 @@ object LedgerApiTestTool {
     var failed = false
 
     val runSuffix = Random.alphanumeric.take(10).mkString
-    var partyNameMangler = (partyText: String) => s"$partyText-$runSuffix"
+    val partyNameMangler = (partyText: String) => s"$partyText-$runSuffix"
+    val commandIdMangler: ((QualifiedName, Int, L.NodeId) => String) = (scenario, stepId, nodeId) =>
+      s"ledger-api-test-tool-$scenario-$stepId-$nodeId-$runSuffix"
 
     try {
       scenarios.foreach {
@@ -72,7 +75,9 @@ object LedgerApiTestTool {
             parties => new SemanticTestAdapter(ledger, packages, parties.map(_.underlyingString)),
             pkgId,
             packages,
-            partyNameMangler)
+            partyNameMangler,
+            commandIdMangler
+          )
           names
             .foreach { name =>
               println(s"Testing scenario: $name")
