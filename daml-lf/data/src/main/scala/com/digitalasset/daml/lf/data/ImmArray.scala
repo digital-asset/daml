@@ -362,9 +362,7 @@ object ImmArray {
     case ias: ImmArraySeq[T] => ias.toImmArray
     case _ =>
       val builder = ImmArray.newBuilder[T]
-      for (element <- elements) {
-        builder += element
-      }
+      builder ++= elements
       builder.result()
   }
 
