@@ -68,7 +68,7 @@ createIOU party currency quantity = CreateCommand {tid,args}
             RecordField "issuer" (VParty party),
             RecordField "owner" (VParty party),
             RecordField "currency" (VString currency),
-            RecordField "amount" (VDecimal $ Text.pack $ show $ quantity),
+            RecordField "amount" (VDecimal $ Text.pack $ show quantity),
             RecordField "observers" (VList [])
             ]
 
