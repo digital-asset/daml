@@ -112,6 +112,12 @@ object Cli {
       .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.")
 
     help("help").text("Print the usage text")
+
+    checkConfig(c => {
+      if (c.scenario.isDefined && c.timeProviderType == TimeProviderType.WallClock)
+        failure("Wallclock mode (-w / --wall-clock-time) and scenario initialisation (--scenario) may not be used together.")
+      else success
+    })
   }
   // format: on
   private def assertTimeModeIsDefault(c: SandboxConfig): Unit = {
