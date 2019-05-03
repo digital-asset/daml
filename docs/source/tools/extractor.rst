@@ -257,9 +257,7 @@ These types are translated to `JSON types <https://json-schema.org/understanding
 Examples of output
 ******************
 
-The following examples show you what output you should expect.
-
-The examples use the default built-in SDK project which you get by running ``$ da new [project_name]``. The Sandbox has already run the scenarios of the DAML model which created two transactions: one creating a ``Main:RightOfUseOffer`` and one accepting it, thus archiving the original contract and creating a new ``Main:RightOfUseAgreement`` contract. We also added a new offer manually.
+The following examples show you what output you should expect. The Sandbox has already run the scenarios of a DAML model that created two transactions: one creating a ``Main:RightOfUseOffer`` and one accepting it, thus archiving the original contract and creating a new ``Main:RightOfUseAgreement`` contract. We also added a new offer manually.
 
 This is how the ``transaction`` table looks after extracting data from the ledger:
 

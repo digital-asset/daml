@@ -63,25 +63,23 @@ The project config file ``daml.yaml`` must be in the root of your DAML project d
 
 The existence of a ``daml.yaml`` file is what tells ``daml`` assistant that this directory contains a DAML project, and lets you use project-aware commands like ``daml build`` and ``daml start``.
 
-``daml new`` creates an example application in a new project folder, which includes a config file. For example, ``daml new my_project`` creates a new folder ``my_project`` with a project config file ``daml.yaml`` like this:
+``daml new`` creates a skeleton application in a new project folder, which includes a config file. For example, ``daml new my_project`` creates a new folder ``my_project`` with a project config file ``daml.yaml`` like this:
 
 .. code-block:: yaml
 
-   sdk-version: 0.13.0
-   name: my_project
-   source: daml/Main.daml
-   scenario: Main:setup
-   parties:
-     - Alice
-     - Bob
-     - USD_Bank
-     - EUR_Bank
-   version: 1.0.0
-   exposed-modules:
-     - Main
-   dependencies:
-     - daml-prim
-     - daml-stdlib
+    sdk-version: __VERSION__
+    name: __PROJECT_NAME__
+    source: daml/Main.daml
+    scenario: Main:setup
+    parties:
+      - Alice
+      - Bob
+    version: 1.0.0
+    exposed-modules:
+      - Main
+    dependencies:
+      - daml-prim
+      - daml-stdlib
 
 Here is what each field means:
 
