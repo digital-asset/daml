@@ -37,8 +37,8 @@ nixpkgs_local_repository(
     name = "nixpkgs",
     nix_file = "//nix:nixpkgs.nix",
     nix_file_deps = [
-        "//nix:nixpkgs/nixos-18.09/default.nix",
-        "//nix:nixpkgs/nixos-18.09/default.src.json",
+        "//nix:nixpkgs/nixos-19.03/default.nix",
+        "//nix:nixpkgs/nixos-19.03/default.src.json",
     ],
 )
 
@@ -63,8 +63,8 @@ dev_env_nix_repos = {
 common_nix_file_deps = [
     "//nix:bazel.nix",
     "//nix:nixpkgs.nix",
-    "//nix:nixpkgs/nixos-18.09/default.nix",
-    "//nix:nixpkgs/nixos-18.09/default.src.json",
+    "//nix:nixpkgs/nixos-19.03/default.nix",
+    "//nix:nixpkgs/nixos-19.03/default.src.json",
 ]
 
 # Use Nix provisioned cc toolchain
@@ -606,7 +606,7 @@ load("@io_bazel_rules_go//go:deps.bzl", "go_wrap_sdk")
 # an upstream one.
 go_wrap_sdk(
     name = "go_sdk",
-    root_file = "@go_nix//:share/go/README.md",
+    root_file = "@go_nix//:share/go/ROOT",
 ) if not is_windows else None
 
 go_rules_dependencies()
