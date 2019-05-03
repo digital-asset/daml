@@ -63,6 +63,10 @@ def daml_deps():
             name = "ai_formation_hazel",
             strip_prefix = "rules_haskell-{}/hazel".format(rules_haskell_version),
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
+            patches = [
+                "@com_github_digital_asset_daml//bazel_tools:hazel-configure.patch",
+            ],
+            patch_args = ["-p2"],
             sha256 = rules_haskell_sha256,
         )
 
