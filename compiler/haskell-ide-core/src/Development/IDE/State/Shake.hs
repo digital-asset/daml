@@ -61,7 +61,6 @@ import           Development.IDE.Types.Diagnostics
 import           Control.Concurrent.Extra
 import           Control.Exception
 import           Control.DeepSeq
-import           Control.Lens (view, set)
 import           System.Time.Extra
 import           Data.Typeable
 import           Data.Tuple.Extra
@@ -362,7 +361,7 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
             (bs, res) <- actionCatch
                 (do v <- op key file; liftIO $ evaluate $ force v) $
                 \(e :: SomeException) -> pure (Nothing, ([ideErrorText file $ T.pack $ show e | not $ isBadDependency e],Nothing))
-            res <- return $ first (map $ set dFilePath file) res
+            res <- return $ first (map $ \(_,d) -> (file,d)) res
 
             (before, after) <- liftIO $ setValues state key file res
             updateFileDiagnostics file before after
@@ -392,7 +391,7 @@ updateFileDiagnostics afp previousAll currentAll = do
     let filtM diags = do
             diags' <-
                 filterM
-                    (\x -> fmap (== afp') (canonicalizePath $ view dFilePath x))
+                    (\x -> fmap (== afp') (canonicalizePath $ fst x))
                     diags
             pure (Set.fromList diags')
     previous <- liftIO $ traverse filtM previousAll

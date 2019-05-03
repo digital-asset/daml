@@ -31,14 +31,11 @@ module Development.IDE.Types.Diagnostics (
   defDiagnostic,
   addDiagnostics,
   filterSeriousErrors,
-  dLocation,
-  dFilePath,
   filePathToUri,
   getDiagnosticsFromStore
   ) where
 
 import Control.Exception
-import Control.Lens (Lens', lens)
 import Data.Either.Combinators
 import Data.Maybe as Maybe
 import Data.Foldable
@@ -98,23 +95,6 @@ defDiagnostic _range _message = LSP.Diagnostic {
   , _source = Nothing
   , _relatedInformation = Nothing
   }
-
--- | setLocation but with no range information
-dFilePath ::
-  Lens' FileDiagnostic FilePath
-dFilePath = lens g s where
-    g = fst
-    s (_, d) fpB = (fpB, d)
-
--- | This adds location information to the diagnostics but this is only used in
---   the case of serious errors to give some context to what went wrong
-dLocation ::
-  Lens' FileDiagnostic Location
-dLocation = lens g s where
-    s :: FileDiagnostic -> Location -> FileDiagnostic
-    s (_, d) loc = (fromMaybe noFilePath $ uriToFilePath $ _uri loc, d {LSP._range=(_range :: Location -> Range) loc})
-    g :: FileDiagnostic -> Location
-    g (fp, Diagnostic{..}) = Location (filePathToUri fp) _range
 
 filterSeriousErrors ::
     FilePath ->

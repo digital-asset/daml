@@ -5,6 +5,7 @@ module Development.IDE.Functions.GHCError
   ( mkDiag
   , toDiagnostics
   , srcSpanToLocation
+  , srcSpanToFilename
 
     -- * Producing GHC ErrorMessages
   , mkErrors

@@ -25,7 +25,6 @@ module Development.IDE.State.Rules(
 
 import           Control.Concurrent.Extra
 import Control.Exception (evaluate)
-import Control.Lens (set)
 import           Control.Monad.Except
 import Control.Monad.Extra (whenJust)
 import qualified Development.IDE.Functions.Compile             as Compile
@@ -241,7 +240,7 @@ reportImportCyclesRule =
     where cycleErrorInFile f (PartOfCycle imp fs)
             | f `elem` fs = Just (imp, fs)
           cycleErrorInFile _ _ = Nothing
-          toDiag imp mods = set dLocation loc $ ("",) $ Diagnostic
+          toDiag imp mods = (fp ,) $ Diagnostic
             { _range = (_range :: Location -> Range) loc
             , _severity = Just DsError
             , _source = Just "Import cycle detection"
@@ -250,6 +249,7 @@ reportImportCyclesRule =
             , _relatedInformation = Nothing
             }
             where loc = srcSpanToLocation (getLoc imp)
+                  fp = srcSpanToFilename (getLoc imp)
           getModuleName file = do
            pm <- useE GetParsedModule file
            pure (moduleNameString . moduleName . ms_mod $ pm_mod_summary pm)
