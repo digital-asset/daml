@@ -1,0 +1,30 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+genrule(
+    name = "templates-tarball",
+    srcs = glob([
+        "skeleton/**",
+        "quickstart-java/**",
+    ]) + ["//docs:quickstart-java.tar.gz"],
+    outs = ["templates-tarball.tar.gz"],
+    cmd = """
+        SRC=templates
+        OUT=templates-tarball
+
+        # skeleton template
+        mkdir -p $$OUT/skeleton
+        cp -rL $$SRC/skeleton/* $$OUT/skeleton/
+
+        # quickstart-java template
+        # right now, uses the preexisting quickstart-java rule and replaces the da.yaml template with a daml.yaml template
+        # in the future, move everything into //templates/quickstart-java and avoid untar, rm here
+        mkdir -p $$OUT/quickstart-java
+        tar xf $(location //docs:quickstart-java.tar.gz) --strip-components=1 -C $$OUT/quickstart-java
+        rm $$OUT/quickstart-java/da-skeleton.yaml
+        cp -rL $$SRC/quickstart-java/* $$OUT/quickstart-java/
+
+        tar zcf $(location :templates-tarball.tar.gz) templates-tarball
+    """,
+    visibility = ["//visibility:public"],
+)
