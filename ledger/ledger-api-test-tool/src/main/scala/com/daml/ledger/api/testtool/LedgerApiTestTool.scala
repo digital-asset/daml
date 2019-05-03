@@ -38,7 +38,7 @@ object LedgerApiTestTool {
 
     if (config.extract) {
       extractTestFiles(testResources)
-      System.exit(1)
+      System.exit(0)
     }
 
     val packages: Map[PackageId, Ast.Package] = testResources
