@@ -560,39 +560,39 @@ convertExpr env0 e = do
     go env (VarIs "$") (LType _ : LType _ : LExpr x : y : args)
         = go env x (y : args)
 
-    go env (VarIs "$dminternalCreate") (LType t@(TypeCon tmpl []) : _dict : args) = fmap (, args) $ do
+    go env (VarIs "$dminternalCreate") (LType t@(TypeCon tmpl []) : _dict : args) = do
         t' <- convertType env t
         tmpl' <- convertQualified env tmpl
-        pure $ ETmLam (varV1, t') $ EUpdate $ UCreate tmpl' $ EVar varV1
-    go env (VarIs "$dminternalFetch") (LType t@(TypeCon tmpl []) : _dict : args) = fmap (, args) $ do
+        withTmArg env (varV1, t') args $ \x args ->
+            pure (EUpdate $ UCreate tmpl' x, args)
+    go env (VarIs "$dminternalFetch") (LType t@(TypeCon tmpl []) : _dict : args) = do
         t' <- convertType env t
         tmpl' <- convertQualified env tmpl
-        pure . ETmLam (varV1, TContractId t') $ EUpdate $ UFetch tmpl' $ EVar varV1
-    go env (VarIs "$dminternalExercise") (LType t@(TypeCon tmpl []) : LType c@(TypeCon chc []) : LType _result : _dict : args) = fmap (, args) $ do
+        withTmArg env (varV1, TContractId t') args $ \x args ->
+            pure (EUpdate $ UFetch tmpl' x, args)
+    go env (VarIs "$dminternalExercise") (LType t@(TypeCon tmpl []) : LType c@(TypeCon chc []) : LType _result : _dict : args) = do
         t' <- convertType env t
         c' <- convertType env c
         tmpl' <- convertQualified env tmpl
-        pure $
-            ETmLam (varV1, TList TParty) $ ETmLam (varV2, TContractId t') $ ETmLam (varV3, c') $
-            EUpdate $ UExercise tmpl' (mkChoiceName $ is chc) (EVar varV2) (EVar varV1) (EVar varV3)
-    go env (VarIs "$dminternalArchive") (LType t@(TypeCon tmpl []) : _dict : args) = fmap (, args) $ do
+        withTmArg env (varV1, TList TParty) args $ \x1 args ->
+            withTmArg env (varV2, TContractId t') args $ \x2 args ->
+            withTmArg env (varV3, c') args $ \x3 args ->
+                pure (EUpdate $ UExercise tmpl' (mkChoiceName $ is chc) x2 x1 x3, args)
+    go env (VarIs "$dminternalArchive") (LType t@(TypeCon tmpl []) : _dict : args) = do
         t' <- convertType env t
         tmpl' <- convertQualified env tmpl
-        pure $
-            ETmLam (varV1, TList TParty) $ ETmLam (varV2, TContractId t') $
-            EUpdate $ UExercise tmpl' (mkChoiceName "Archive") (EVar varV2) (EVar varV1) EUnit
+        withTmArg env (varV1, TList TParty) args $ \x1 args ->
+            withTmArg env (varV2, TContractId t') args $ \x2 args ->
+                pure (EUpdate $ UExercise tmpl' (mkChoiceName "Archive") x2 x1 EUnit, args)
     go env (VarIs f) (LType t@(TypeCon tmpl []) : LType key : _dict : args)
         | f == "$dminternalFetchByKey" = conv UFetchByKey
         | f == "$dminternalLookupByKey" = conv ULookupByKey
         where
-            conv prim = fmap (, args) $ do
+            conv prim = do
                 key' <- convertType env key
                 tmpl' <- convertQualified env tmpl
-                pure $ ETmLam (varV1, key') $
-                  EUpdate $ prim RetrieveByKey
-                    { retrieveByKeyTemplate = tmpl'
-                    , retrieveByKeyKey = EVar varV1
-                    }
+                withTmArg env (varV1, key') args $ \x args ->
+                    pure (EUpdate $ prim $ RetrieveByKey tmpl' x, args)
     go env (VarIs "unpackPair") (LType (StrLitTy f1) : LType (StrLitTy f2) : LType t1 : LType t2 : args)
         = fmap (, args) $ do
             t1 <- convertType env t1
@@ -605,9 +605,10 @@ convertExpr env0 e = do
             mkFieldProj i (name, _typ) = (mkField ("_" ++ show i), ETupleProj name (EVar varV1))
     go env (VarIs "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
-    go env (VarIs "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = fmap (, args) $ do
+    go env (VarIs "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
         record' <- convertType env record
-        pure $ ETmLam (varV1, record') $ ERecProj (fromTCon record') (mkField $ unpackFS name) $ EVar varV1
+        withTmArg env (varV1, record') args $ \x args ->
+            pure (ERecProj (fromTCon record') (mkField $ unpackFS name) x, args)
     -- NOTE(MH): We only inline `getField` for record types. This is required
     -- for contract keys. Projections on sum-of-records types have to through
     -- the type class for `getField`.
@@ -616,12 +617,12 @@ convertExpr env0 e = do
             recordType <- convertType env recordType
             record <- convertExpr env record
             pure $ ERecProj (fromTCon recordType) (mkField $ unpackFS name) record
-    go env (VarIs "setFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType field : args) = fmap (, args) $ do
+    go env (VarIs "setFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType field : args) = do
         record' <- convertType env record
         field' <- convertType env field
-        pure $
-            ETmLam (varV1, field') $ ETmLam (varV2, record') $
-            ERecUpd (fromTCon record') (mkField $ unpackFS name) (EVar varV2) (EVar varV1)
+        withTmArg env (varV1, field') args $ \x1 args ->
+            withTmArg env (varV2, record') args $ \x2 args ->
+                pure (ERecUpd (fromTCon record') (mkField $ unpackFS name) x2 x1, args)
     go env (VarIs "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRational top bot
     go env (VarIs "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
