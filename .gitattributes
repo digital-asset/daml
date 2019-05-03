@@ -1,4 +1,3 @@
-CHANGELOG.md merge=union
-UNRELEASED.md merge=union
+docs/source/support/release-notes.rst merge=union
 
 *.daml linguist-language=Haskell
