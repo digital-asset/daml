@@ -4,7 +4,7 @@
 daml 1.2
 module Set where
 
-import DA.Set as S
+import DA.Next.Set as S
 import DA.Assert
 
 testEmpty = scenario do

@@ -36,6 +36,8 @@ import DA.Maybe.Total
 import DA.Maybe
 import DA.Monoid
 import DA.Newtype
+import DA.Next.Map
+import DA.Next.Set
 import DA.NonEmpty
 import DA.Optional.Total
 import DA.Optional
