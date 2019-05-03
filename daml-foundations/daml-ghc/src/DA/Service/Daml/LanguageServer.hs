@@ -293,11 +293,11 @@ eventSlinger
 eventSlinger loggerH eventChan notifChan =
     forever $ do
         mbFatalErr <- atomically $ readTChan eventChan >>= \case
-            Compiler.EventFileDiagnostics (Compiler.Uri uri, diags) -> do
+            Compiler.EventFileDiagnostics (fp, diags) -> do
                 writeTChan notifChan
                     $ PublishDiagnostics
                     $ PublishDiagnosticsParams
-                    (Tagged uri)
+                    (Tagged $ Compiler.getUri $ Compiler.filePathToUri fp)
                     (map convertDiagnostic $ nubOrd diags)
                 pure Nothing
 

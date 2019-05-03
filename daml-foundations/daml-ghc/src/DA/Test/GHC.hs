@@ -20,7 +20,6 @@ import           "ghc-lib-parser" UniqSupply
 import           "ghc-lib-parser" Unique
 
 import           Control.Lens.Plated (transformOn)
-import           Control.Lens (view)
 import           Control.Concurrent.Extra
 import           Control.DeepSeq
 import           Control.Exception.Extra
@@ -196,7 +195,7 @@ data DiagnosticField
   | DMessage !String
   deriving (Eq, Show)
 
-checkDiagnostics :: (String -> IO ()) -> [[DiagnosticField]] -> [D.Diagnostic] -> IO (Maybe String)
+checkDiagnostics :: (String -> IO ()) -> [[DiagnosticField]] -> [D.FileDiagnostic] -> IO (Maybe String)
 checkDiagnostics log expected got = do
     when (got /= []) $
         log $ T.unpack $ showDiagnostics got
@@ -210,9 +209,9 @@ checkDiagnostics log expected got = do
       | length expected /= length got -> Just $ "Wrong number of diagnostics, expected " ++ show (length expected)
       | null bad -> Nothing
       | otherwise -> Just $ unlines ("Could not find matching diagnostics:" : map show bad)
-    where checkField :: D.Diagnostic -> DiagnosticField -> Bool
-          checkField d@D.Diagnostic{..} f = case f of
-            DFilePath p -> Just p == view dFilePath d
+    where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool
+          checkField (fp, D.Diagnostic{..}) f = case f of
+            DFilePath p -> p == fp
             DRange r -> r == _range
             DSeverity s -> Just s == _severity
             DSource s -> Just (T.pack s) == _source
