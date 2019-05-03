@@ -490,11 +490,6 @@ convertBind2 env (NonRec name x)
     | Just internals <- MS.lookup (envGHCModuleName env) internalFunctions
     , is name `elem` internals
     = pure []
-    -- NOTE(MH): String literals should never appear at the top level since
-    -- they must be wrapped in either 'unpackCString#' or 'unpackCStringUtf8#'
-    -- to decide how to decode them.
-    | Lit LitString {} <- x
-    = unhandled "String literal at top level" x
     | otherwise
     = withRange (convNameLoc name) $ do
     x' <- convertExpr env x
