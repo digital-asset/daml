@@ -122,6 +122,16 @@ instance Action [] where
 instance ActionFail [] where
     fail _   = []
 
+instance Functor ((->) r) where
+    fmap = (.)
+
+instance Applicative ((->) r) where
+    pure = const
+    f <*> x = \r -> f r (x r)
+
+instance Action ((->) r) where
+    f >>= g = \r -> g (f r) r
+
 guard : ActionFail m => Bool -> m ()
 guard False = fail "guard is false"
 guard True = pure ()
