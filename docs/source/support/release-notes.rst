@@ -21,6 +21,8 @@ HEAD — ongoing
   and the `updated documentation <https://github.com/digital-asset/daml/pull/740>`_.
 - Delete the `id` function, use `identity` instead.
 - Drop support for DAML-LF 1.0 from compiler
+- DAML-LF "dev" minor version. Write with ``--target 1.dev``, supported by all tools by
+  default.
 
 0.12.13 - 2019-05-02
 --------------------

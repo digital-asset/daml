@@ -66,8 +66,8 @@ and operate on the same major version of the serialization format in
 a backward compatible way. This document describes DAML-LF major version
 1, including all its minor versions.
 
-Each DAML-LF program is accompanied by the version number of the
-language is was serialized in. This number enables the DAML-LF engine
+Each DAML-LF program is accompanied by the version identifier of the
+language it was serialized in. This number enables the DAML-LF engine
 to interpret previous versions of the language in a backward
 compatibility way.
 
@@ -79,12 +79,18 @@ mark lines within inference rules with annotations of the form
 ``[DAML-LF < x.y]`` and ``[DAML-LF ≥ x.y]`` to make the respective
 line conditional upon the DAML-LF version.
 
-Below, we list the versions of DAML-LF that a DAML-LF engine
-compliant with the present specification must handle.  The list comes
-with a brief description of the changes, and some links to help
-unfamiliar readers learn about the features involved in the change.
-One can refer also to the `Serialization` section which is
-particularly concerned about versioning and backward compatibility.
+The version 1.dev is a special staging area for the next 1.x version to
+be released. Compliant implementations are not required to implement any
+features exclusive to version 1.dev, but should take them under
+advisement as likely elements of the next 1.x version.
+
+Below, we list the versions of DAML-LF 1.x that a DAML-LF
+engine compliant with the present specification must handle [except for
+1.dev], in ascending order.  The list comes with a brief description of
+the changes, and some links to help unfamiliar readers learn about the
+features involved in the change.  One can refer also to the
+`Serialization` section which is particularly concerned about versioning
+and backward compatibility.
 
 
 Version 1.0
@@ -169,6 +175,21 @@ Version: 1.3
   * **Add** support for contract keys.
 
   * **Add** support for built-in Map.
+
+Version: 1.dev
+..............
+
+  * Introduction date:
+
+      2019-05-02
+
+  * Last amendment date:
+
+      2019-05-02
+
+  * Description:
+
+    * **Change** nothing yet.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
