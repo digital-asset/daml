@@ -46,7 +46,7 @@ writeOutputBSL :: FilePath -> BSL.ByteString -> IO ()
 writeOutputBSL = writeOutputWith BSL.hPutStr
 
 
-reportErr :: String -> [Diagnostic] -> IO a
+reportErr :: String -> [FileDiagnostic] -> IO a
 reportErr msg errs =
   ioError $
   userError $
@@ -56,6 +56,6 @@ reportErr msg errs =
       showDiagnosticsColored $ nubOrd errs
     ]
 
-printDiagnostics :: [Diagnostic] -> IO ()
+printDiagnostics :: [FileDiagnostic] -> IO ()
 printDiagnostics [] = return ()
 printDiagnostics xs = T.putStrLn $ showDiagnosticsColored xs

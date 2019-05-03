@@ -121,8 +121,8 @@ conversionError :: String -> ConvertM e
 conversionError msg = do
   ConversionEnv{..} <- ask
   let addFpIfExists =
-        maybe id (set dFilePath . Just) convModuleFilePath
-  throwError $ addFpIfExists $  Diagnostic
+        (fromMaybe noFilePath convModuleFilePath,)
+  throwError $ addFpIfExists $ Diagnostic
       { _range = maybe noRange sourceLocToRange convRange
       , _severity = Just DsError
       , _source = Just $ T.pack "Core to DAML-LF"
@@ -200,13 +200,13 @@ data ConversionEnv = ConversionEnv
   , convRange :: !(Maybe SourceLoc)
   }
 
-newtype ConvertM a = ConvertM (ReaderT ConversionEnv (Except Diagnostic) a)
-  deriving (Functor, Applicative, Monad, MonadError Diagnostic, MonadReader ConversionEnv)
+newtype ConvertM a = ConvertM (ReaderT ConversionEnv (Except FileDiagnostic) a)
+  deriving (Functor, Applicative, Monad, MonadError FileDiagnostic, MonadReader ConversionEnv)
 
 instance MonadFail ConvertM where
     fail = conversionError
 
-runConvertM :: ConversionEnv -> ConvertM a -> Either Diagnostic a
+runConvertM :: ConversionEnv -> ConvertM a -> Either FileDiagnostic a
 runConvertM s (ConvertM a) = runExcept (runReaderT a s)
 
 withRange :: Maybe SourceLoc -> ConvertM a -> ConvertM a
@@ -251,7 +251,7 @@ convertRational num denom
     upperBound128Bit = 10 ^ (38 :: Integer)
     maxPrecision = 10 :: Integer
 
-convertModule :: LF.Version -> MS.Map UnitId T.Text -> GhcModule -> Either Diagnostic LF.Module
+convertModule :: LF.Version -> MS.Map UnitId T.Text -> GhcModule -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) Nothing) $ do
     definitions <- concat <$> traverse (convertBind env) (cm_binds x)
     types <- concat <$> traverse (convertTypeDef env) (eltsUFM (cm_types x))

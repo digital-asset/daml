@@ -49,7 +49,6 @@ import Language.Haskell.LSP.Types (uriToFilePath, Range)
 -- * external dependencies
 import Control.Concurrent.STM
 import Control.Exception.Extra
-import Control.Lens
 import qualified Control.Monad.Reader   as Reader
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -75,10 +74,10 @@ import           Data.List.Extra
 data ShakeTestError
     = ExpectedRelativePath FilePath
     | FilePathEscapesTestDir FilePath
-    | ExpectedDiagnostics [(D.DiagnosticSeverity, Cursor, T.Text)] [D.Diagnostic]
+    | ExpectedDiagnostics [(D.DiagnosticSeverity, Cursor, T.Text)] [D.FileDiagnostic]
     | ExpectedVirtualResource VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResource VirtualResource (Map VirtualResource T.Text)
-    | ExpectedNoErrors [D.Diagnostic]
+    | ExpectedNoErrors [D.FileDiagnostic]
     | ExpectedDefinition Cursor GoToDefinitionPattern (Maybe D.Location)
     | ExpectedHoverText Cursor HoverExpectation [T.Text]
     | TimedSectionTookTooLong Clock.NominalDiffTime Clock.NominalDiffTime
@@ -194,7 +193,7 @@ setBufferModifiedMaybe absPath maybeText = ShakeTest $ do
     liftIO $ API.setBufferModified service absPath (maybeText, now)
 
 -- | (internal) Get diagnostics.
-getDiagnostics :: ShakeTest [D.Diagnostic]
+getDiagnostics :: ShakeTest [D.FileDiagnostic]
 getDiagnostics = ShakeTest $ do
     service <- Reader.asks steService
     liftIO $ do
@@ -279,15 +278,15 @@ cursorRangeList (path, line, cols) = map (\col -> (path, line, col)) cols
 -- "Parse error" vs "parse error" could both be correct.
 --
 -- In future, we may move to regex matching.
-searchDiagnostics :: (D.DiagnosticSeverity, Cursor, T.Text) -> [D.Diagnostic] -> ShakeTest ()
+searchDiagnostics :: (D.DiagnosticSeverity, Cursor, T.Text) -> [D.FileDiagnostic] -> ShakeTest ()
 searchDiagnostics expected@(severity, cursor, message) actuals =
     unless (any match actuals) $
         throwError $ ExpectedDiagnostics [expected] actuals
   where
-    match :: D.Diagnostic -> Bool
-    match d =
+    match :: D.FileDiagnostic -> Bool
+    match (fp, d) =
         Just severity == D._severity d
-        && Just (cursorFilePath cursor) == view D.dFilePath d
+        && (cursorFilePath cursor) == fp
         && cursorPosition cursor == D._start ((D._range :: D.Diagnostic -> Range) d)
         && (T.toLower message `T.isInfixOf` T.toLower ((D._message :: D.Diagnostic -> T.Text) d))
 
@@ -347,7 +346,7 @@ expectOnlyErrors = expectOnlyDiagnostics . map (\(cursor, msg) -> (D.DsError, cu
 expectNoErrors :: ShakeTest ()
 expectNoErrors = do
     diagnostics <- getDiagnostics
-    let errors = filter (\d -> D._severity d == Just D.DsError) diagnostics
+    let errors = filter (\(_,d) -> D._severity d == Just D.DsError) diagnostics
     unless (null errors) $
         throwError (ExpectedNoErrors errors)
 

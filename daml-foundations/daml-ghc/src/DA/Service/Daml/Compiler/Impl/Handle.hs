@@ -239,7 +239,7 @@ compileFile
     -- -> Options
     -- -> Bool -- ^ collect and display warnings
     -> FilePath
-    -> ExceptT [Diagnostic] IO LF.Package
+    -> ExceptT [FileDiagnostic] IO LF.Package
 compileFile service fp = do
     -- We need to mark the file we are compiling as a file of interest.
     -- Otherwise all diagnostics produced during compilation will be garbage
@@ -272,7 +272,7 @@ buildDar ::
   -> String
   -> [(String, BS.ByteString)]
   -> UseDalf
-  -> ExceptT [Diagnostic] IO BS.ByteString
+  -> ExceptT [FileDiagnostic] IO BS.ByteString
 buildDar service file pkgName dataFiles dalfInput = do
   liftIO $
     CompilerService.logDebug service $
@@ -314,7 +314,7 @@ buildDar service file pkgName dataFiles dalfInput = do
 
 -- | Get the transitive package dependencies on other dalfs.
 getDalfDependencies ::
-       IdeState -> FilePath -> ExceptT [Diagnostic] IO [DalfDependency]
+       IdeState -> FilePath -> ExceptT [FileDiagnostic] IO [DalfDependency]
 getDalfDependencies service afp = do
     res <-
         liftIO $
