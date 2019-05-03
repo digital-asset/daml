@@ -485,6 +485,9 @@ hazel_custom_package_hackage(
     version = "0.7.2",
 )
 
+# We patch various data-default packages to give them shorter filenames
+# to fix Windows builds.
+
 hazel_custom_package_hackage(
     package_name = "data-default",
     build_file = "//3rdparty/haskell:BUILD.data-default",
@@ -503,6 +506,13 @@ hazel_custom_package_hackage(
     package_name = "data-default-instances-old-locale",
     build_file = "//3rdparty/haskell:BUILD.data-default-instances-old-locale",
     sha256 = "60d3b02922958c4908d7bf2b24ddf61511665745f784227d206745784b0c0802",
+    version = "0.0.1",
+)
+
+hazel_custom_package_hackage(
+    package_name = "data-default-instances-dlist",
+    build_file = "//3rdparty/haskell:BUILD.data-default-instances-dlist",
+    sha256 = "7d683711cbf08abd7adcd5ac2be825381308d220397315a5570fe61b719b5959",
     version = "0.0.1",
 )
 
