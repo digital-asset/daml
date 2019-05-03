@@ -98,7 +98,10 @@ insert = primitive @"BEMapInsert"
 union : TextMap a -> TextMap a -> TextMap a
 union m1 m2 = foldl (\acc (k, v) -> insert k v acc) m2 (toList m1)
 
--- | Merge two maps.
+-- | Merge two maps. `merge f g h x y` applies `f` to all key/value pairs
+-- whose key only appears in `x`, `g` to all pairs whose key only appears
+-- in `y` and `h` to all pairs whose key appears in both `x` and `y`.
+-- In the end, all pairs yielding `Some` are collected as the result.
 merge
   :  (Text -> a -> Optional c)
   -> (Text -> b -> Optional c)

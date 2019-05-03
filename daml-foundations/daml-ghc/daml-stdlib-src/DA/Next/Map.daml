@@ -132,6 +132,10 @@ insert k v (Map t) = Map $ TextMap.insert (keyToText k) v t
 union : MapKey k => Map k v -> Map k v -> Map k v
 union (Map t1) (Map t2) = Map $ TextMap.union t1 t2
 
+-- | Merge two maps. `merge f g h x y` applies `f` to all key/value pairs
+-- whose key only appears in `x`, `g` to all pairs whose key only appears
+-- in `y` and `h` to all pairs whose key appears in both `x` and `y`.
+-- In the end, all pairs yielding `Some` are collected as the result.
 merge
   :  MapKey k
   => (k -> a -> Optional c)
