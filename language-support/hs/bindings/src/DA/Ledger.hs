@@ -50,11 +50,11 @@ import DA.Ledger.LowLevel(
     Host(..),
 
     LedgerIdentityService(..),
-    GetLedgerIdentityRequest(..),  
+    GetLedgerIdentityRequest(..),
     GetLedgerIdentityResponse(..),
 
     TransactionService(..),
-    GetTransactionsRequest(..),    
+    GetTransactionsRequest(..),
     GetTransactionsResponse(..),
 
     CommandSubmissionService(..),
@@ -62,8 +62,8 @@ import DA.Ledger.LowLevel(
     Empty(..),
 
     CommandCompletionService(..),
-    CompletionStreamRequest(..),    
-    CompletionStreamResponse(completionStreamResponseCompletions),    
+    CompletionStreamRequest(..),
+    CompletionStreamResponse(completionStreamResponseCompletions),
 
     TransactionFilter(..),
     Filters(..),
@@ -231,7 +231,7 @@ forkIO_ tag m = do
     tid <- forkIO $ do m; log $ tag <> " is done"
     log $ "forking " <> tag <> " on " <> show tid
     return ()
-    
+
 log :: String -> IO ()
 log s = do
     tid <- myThreadId
