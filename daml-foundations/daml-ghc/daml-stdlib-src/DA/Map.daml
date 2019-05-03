@@ -5,7 +5,7 @@ daml 1.2
 -- | Map - A map is an associative array data type composed of a
 -- collection of key/value pairs such that, each possible key appears
 -- at most once in the collection.
-module DA.Map
+module DA.Map {-# DEPRECATED "Use DA.Next.Map instead" #-}
   ( Map
   , empty
   , size

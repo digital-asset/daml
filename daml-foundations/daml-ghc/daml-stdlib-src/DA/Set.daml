@@ -5,7 +5,7 @@ daml 1.2
 -- | Set - The `Set e` type represents a set of elements of type
 -- `e`. Most operations require that `e` be an instance of the `Ord`
 -- class.
-module DA.Set
+module DA.Set {-# DEPRECATED "Use DA.Next.Set instead" #-}
   ( Set
   , empty
   , size
