@@ -3,8 +3,8 @@
 
 package com.daml.ledger.api.testtool
 
-import java.io.{File, StringWriter, PrintWriter}
-import java.nio.file.{Files, StandardCopyOption, Paths, Path}
+import java.io.{File, PrintWriter, StringWriter}
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -19,6 +19,7 @@ import com.digitalasset.platform.semantictest.SemanticTestAdapter
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 import scala.collection.breakOut
+import scala.util.Random
 
 object LedgerApiTestTool {
 
@@ -61,13 +62,17 @@ object LedgerApiTestTool {
     }
     var failed = false
 
+    val runSuffix = Random.alphanumeric.take(10).mkString
+    var partyNameMangler = (partyText: String) => s"$partyText-$runSuffix"
+
     try {
       scenarios.foreach {
         case (pkgId, names) =>
           val tester = new SemanticTester(
             parties => new SemanticTestAdapter(ledger, packages, parties.map(_.underlyingString)),
             pkgId,
-            packages)
+            packages,
+            partyNameMangler)
           names
             .foreach { name =>
               println(s"Testing scenario: $name")

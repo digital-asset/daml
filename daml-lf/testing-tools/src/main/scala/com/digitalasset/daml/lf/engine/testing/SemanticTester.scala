@@ -27,10 +27,18 @@ import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.{ClassTag, classTag}
 
+/** Scenario tester.
+  *
+  * @constructor Creates new tester.
+  * @param partyNameMangler allows to amend party names defined in scenarios,
+  *        before they are executed against ledger created with {@code createLedger}.
+  *        See {@code ScenarioRunner.partyNameMangler} for details.
+  */
 class SemanticTester(
     createLedger: Set[SimpleString] => SemanticTester.GenericLedger,
     packageToTest: PackageId,
-    packages: Map[PackageId, Package])(implicit ec: ExecutionContext) {
+    packages: Map[PackageId, Package],
+    partyNameMangler: (String => String) = identity)(implicit ec: ExecutionContext) {
   import SemanticTester._
 
   // result ledgers from all scenarios found in packages
@@ -48,7 +56,7 @@ class SemanticTester(
           case (name, DValue(_, _, body, isTest)) if isTest =>
             val qualifiedName = QualifiedName(module.name, name)
             val machine = buildMachine(body)
-            ScenarioRunner(machine).run() match {
+            ScenarioRunner(machine, partyNameMangler = partyNameMangler).run() match {
               case Left((err, _ledger @ _)) =>
                 sys.error(s"error running scenario $err in scenario: $qualifiedName")
               case Right((_time @ _, _steps @ _, ledger)) =>
