@@ -5,6 +5,3 @@ daml 1.2
 module DataRecursion where
 
 data Foo a = Foo (Foo a)
-
-main = scenario do
-  return ()

@@ -76,15 +76,3 @@ testWhenSome = scenario do
   submit p (fetch cid)
   whenSome (Some 5) (\x -> submit p $ exercise cid $ ConsumeIfPositive x cid)
   submitMustFail p (fetch cid)
-
-main = scenario do
-  testFromSome
-  testFromSomeNote
-  testCatOptionals
-  testListToOptional
-  testOptionalToList
-  testFromSome
-  testIsSome
-  testIsNone
-  testMapOptional
-  testWhenSome

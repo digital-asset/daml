@@ -55,13 +55,3 @@ testDelete = scenario do
   [(2, False), (3, True), (4, False), (5, False)] === toList (delete 1 (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
   [(1, False), (2, True)] === toList (delete 3 (fromList [(2, False), (1, True), (2, True), (1, False)]))
 
-main = scenario do
-  testEmpty
-  testSize
-  testToList
-  testFromList
-  testMember
-  testNull
-  testInsert
-  testFilterWithKey
-  testDelete

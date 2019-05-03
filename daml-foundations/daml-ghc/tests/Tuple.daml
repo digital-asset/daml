@@ -29,10 +29,3 @@ testTuple = scenario do
 f : Int -> [Int]
 f 0 = []
 f i = i :: f (i-1)
-
-main = scenario do
-  testFirst
-  testSecond
-  testBoth
-  testSwap
-  testTuple

@@ -13,5 +13,3 @@ data Formula t
   | Conjunction [Formula t]
   | Disjunction [Formula t]
   deriving (Eq, Ord, Show, Functor)
-
-main = scenario (pure ())
