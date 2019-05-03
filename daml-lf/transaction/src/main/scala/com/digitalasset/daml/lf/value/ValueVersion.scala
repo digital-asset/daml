@@ -39,18 +39,13 @@ object ValueVersions
           case FrontStackCons(value, values) =>
             value match {
               // for things supported since version 1, we do not need to check
-              case ValueContractId(_) => go(currentVersion, values)
               case ValueRecord(_, fs) => go(currentVersion, fs.map(v => v._2) ++: values)
               case ValueVariant(_, _, arg) => go(currentVersion, arg +: values)
               case ValueList(vs) => go(currentVersion, vs.toImmArray ++: values)
-              case ValueInt64(_) => go(currentVersion, values)
-              case ValueDecimal(_) => go(currentVersion, values)
-              case ValueText(_) => go(currentVersion, values)
-              case ValueTimestamp(_) => go(currentVersion, values)
-              case ValueParty(_) => go(currentVersion, values)
-              case ValueBool(_) => go(currentVersion, values)
-              case ValueDate(_) => go(currentVersion, values)
-              case ValueUnit => go(currentVersion, values)
+              case ValueContractId(_) | ValueInt64(_) | ValueDecimal(_) | ValueText(_) |
+                  ValueTimestamp(_) | ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit =>
+                go(currentVersion, values)
+              // for things added after version 1, we raise the minimum if present
               case ValueOptional(x) =>
                 go(maxVV(minOptional, currentVersion), ImmArray(x.toList) ++: values)
               case ValueMap(map) =>

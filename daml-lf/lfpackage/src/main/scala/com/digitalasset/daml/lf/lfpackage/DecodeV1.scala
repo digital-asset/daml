@@ -37,6 +37,8 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
   }
 
   case class ModuleDecoder(val packageId: SimpleString, val lfModule: PLF.Module) {
+    import LanguageMinorVersion.Implicits._
+
     val moduleName = eitherToParseError(
       ModuleName.fromSegments(lfModule.getName.getSegmentsList.asScala))
 
@@ -664,6 +666,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 }
 
 object DecodeV1 {
+  import LanguageMinorVersion.Implicits._
 
   protected[lfpackage] val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
     import PLF.PrimType._

@@ -78,15 +78,16 @@ abstract class Reader[+Pkg] {
     // since we introduced minor versions once DAML-LF v1 was already
     // out, and we want to be able to parse packages that were compiled
     // before minor versions were a thing. DO NOT replicate this code
-    // bejond major version 1!
+    // beyond major version 1!
     val minorVersion = (majorVersion, lf.getMinor) match {
       case (LanguageMajorVersion.V1, "") => "0"
       case (_, minor) => minor
     }
-    val version = LanguageVersion(majorVersion, minorVersion)
+    val version =
+      LanguageVersion(majorVersion, LanguageVersion.Minor fromProtoIdentifier minorVersion)
     if (!(majorVersion supportsMinorVersion minorVersion)) {
       throw ParseError(
-        s"LF file $majorVersion.$minorVersion unsupported; maximum supported $majorVersion.x is $majorVersion.${majorVersion.maxSupportedMinorVersion}")
+        s"LF file $majorVersion.$minorVersion unsupported; maximum supported $majorVersion.x is $majorVersion.${majorVersion.maxSupportedStableMinorVersion.toProtoIdentifier: String}")
     }
     (readArchivePayloadOfVersion(hash, lf, version), majorVersion)
   }

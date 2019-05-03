@@ -857,29 +857,35 @@ class TransactionServiceIT
       }
     }
 
-    "asking for historical transactions by id" should {
+    "asking for historical transaction trees by id" should {
 
-      "return the transaction if it exists, and the party can see it" in allFixtures { context =>
-        val beginOffset =
-          LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
-        for {
-          _ <- insertCommands(getTrackerFlow(context), "provenance-by-id", 1, config.getLedgerId)
-          firstTransaction <- context.transactionClient
-            .getTransactions(beginOffset, None, transactionFilter)
-            .runWith(Sink.head)
-          transactionId = firstTransaction.transactionId
-          response <- context.transactionClient.getTransactionById(transactionId, List("party"))
-          notVisibleError <- context.transactionClient
-            .getTransactionById(transactionId, List("Alice"))
-            .failed
-        } yield {
-          response.transaction should not be empty
-          inside(notVisibleError) {
-            case sre: StatusRuntimeException =>
-              sre.getStatus.getCode shouldEqual Status.INVALID_ARGUMENT.getCode
-              sre.getStatus.getDescription shouldEqual "Transaction not found, or not visible."
+      "return the transaction tree if it exists, and the party can see it" in allFixtures {
+        context =>
+          val beginOffset =
+            LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
+          for {
+            _ <- insertCommands(
+              getTrackerFlow(context),
+              "tree-provenance-by-id",
+              1,
+              config.getLedgerId)
+            firstTransaction <- context.transactionClient
+              .getTransactions(beginOffset, None, transactionFilter)
+              .runWith(Sink.head)
+            transactionId = firstTransaction.transactionId
+            response <- context.transactionClient
+              .getTransactionById(transactionId, List("party"))
+            notVisibleError <- context.transactionClient
+              .getTransactionById(transactionId, List("Alice"))
+              .failed
+          } yield {
+            response.transaction should not be empty
+            inside(notVisibleError) {
+              case sre: StatusRuntimeException =>
+                sre.getStatus.getCode shouldEqual Status.INVALID_ARGUMENT.getCode
+                sre.getStatus.getDescription shouldEqual "Transaction not found, or not visible."
+            }
           }
-        }
       }
 
       "return INVALID_ARGUMENT if it does not exist" in allFixtures { context =>
@@ -950,14 +956,86 @@ class TransactionServiceIT
       }
     }
 
-    "asking for historical transactions by event id" should {
-      "return the transaction if it exists" in allFixtures { context =>
+    "asking for historical flat transactions by id" should {
+
+      "return the flat transaction if it exists, and the party can see it" in allFixtures {
+        context =>
+          val beginOffset =
+            LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
+          for {
+            _ <- insertCommands(
+              getTrackerFlow(context),
+              "flat-provenance-by-id",
+              1,
+              config.getLedgerId)
+            firstTransaction <- context.transactionClient
+              .getTransactions(beginOffset, None, transactionFilter)
+              .runWith(Sink.head)
+            transactionId = firstTransaction.transactionId
+            response <- context.transactionClient
+              .getFlatTransactionById(transactionId, List("party"))
+            notVisibleError <- context.transactionClient
+              .getFlatTransactionById(transactionId, List("Alice"))
+              .failed
+          } yield {
+            response.transaction should not be empty
+            inside(notVisibleError) {
+              case sre: StatusRuntimeException =>
+                sre.getStatus.getCode shouldEqual Status.INVALID_ARGUMENT.getCode
+                sre.getStatus.getDescription shouldEqual "Transaction not found, or not visible."
+            }
+          }
+      }
+
+      "return INVALID_ARGUMENT if it does not exist" in allFixtures { context =>
+        context.transactionClient
+          .getFlatTransactionById(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            List("party"))
+          .failed
+          .map(IsStatusException(Status.INVALID_ARGUMENT))
+      }
+
+      "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
+        newClient(context.transactionService, "not" + config.getLedgerId)
+          .getFlatTransactionById(transactionId, List("party"))
+          .failed
+          .map(IsStatusException(Status.NOT_FOUND))
+      }
+
+      "fail with INVALID_ARGUMENT status if the requesting parties field is empty" in allFixtures {
+        context =>
+          context.transactionClient
+            .getFlatTransactionById(transactionId, Nil)
+            .failed
+            .map(IsStatusException(Status.INVALID_ARGUMENT))
+      }
+
+      "return the same events for each tx as the transaction stream itself" in allFixtures {
+        context =>
+          val requestingParties = transactionFilter.filtersByParty.keySet
+          context.transactionClient
+            .getTransactions(ledgerBegin, Some(ledgerEnd), transactionFilter, true)
+            .mapAsyncUnordered(16) { tx =>
+              context.transactionClient
+                .getFlatTransactionById(tx.transactionId, requestingParties.toList)
+                .map(tx -> _.getTransaction)
+            }
+            .runFold(succeed) {
+              case (acc, (original, byId)) =>
+                byId shouldBe original
+            }
+      }
+    }
+
+    "asking for historical transaction trees by event id" should {
+      "return the transaction tree if it exists" in allFixtures { context =>
         val beginOffset =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         for {
           _ <- insertCommands(
             getTrackerFlow(context),
-            "provenance-by-event-id",
+            "tree provenance-by-event-id",
             1,
             config.getLedgerId)
           tx <- context.transactionClient
@@ -973,13 +1051,12 @@ class TransactionServiceIT
             .value
           result <- context.transactionClient
             .getTransactionByEventId(eventId, Seq(party))
-            .map(_.transaction)
 
           notVisibleError <- context.transactionClient
             .getTransactionByEventId(eventId, List("Alice"))
             .failed
         } yield {
-          result should not be empty
+          result.transaction should not be empty
 
           inside(notVisibleError) {
             case sre: StatusRuntimeException =>
@@ -1016,6 +1093,76 @@ class TransactionServiceIT
         context =>
           context.transactionClient
             .getTransactionByEventId(transactionId, Nil)
+            .failed
+            .map(IsStatusException(Status.INVALID_ARGUMENT))
+      }
+    }
+
+    "asking for historical flat transactions by event id" should {
+      "return the flat transaction if it exists" in allFixtures { context =>
+        val beginOffset =
+          LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
+        for {
+          _ <- insertCommands(
+            getTrackerFlow(context),
+            "flat-provenance-by-event-id",
+            1,
+            config.getLedgerId)
+          tx <- context.transactionClient
+            .getTransactions(beginOffset, None, transactionFilter)
+            .runWith(Sink.head)
+          eventId = tx.events.headOption
+            .map(_.event match {
+              case Archived(v) => v.eventId
+              case Created(v) => v.eventId
+              case Event.Event.Exercised(v) => v.eventId
+              case Event.Event.Empty => fail(s"Received empty event in $tx")
+            })
+            .value
+          result <- context.transactionClient
+            .getFlatTransactionByEventId(eventId, Seq(party))
+
+          notVisibleError <- context.transactionClient
+            .getFlatTransactionByEventId(eventId, List("Alice"))
+            .failed
+        } yield {
+          result.transaction should not be empty
+
+          inside(notVisibleError) {
+            case sre: StatusRuntimeException =>
+              sre.getStatus.getCode shouldEqual Status.INVALID_ARGUMENT.getCode
+              sre.getStatus.getDescription shouldEqual "Transaction not found, or not visible."
+          }
+        }
+      }
+
+      "return INVALID_ARGUMENT for invalid event IDs" in allFixtures { context =>
+        context.transactionClient
+          .getFlatTransactionByEventId("don't worry, be happy", List("party"))
+          .failed
+          .map(IsStatusException(Status.INVALID_ARGUMENT))
+      }
+
+      "return INVALID_ARGUMENT if it does not exist" in allFixtures { context =>
+        context.transactionClient
+          .getFlatTransactionByEventId(
+            "#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:000",
+            List("party"))
+          .failed
+          .map(IsStatusException(Status.INVALID_ARGUMENT))
+      }
+
+      "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
+        newClient(context.transactionService, "not" + config.getLedgerId)
+          .getFlatTransactionByEventId("#42:0", List("party"))
+          .failed
+          .map(IsStatusException(Status.NOT_FOUND))
+      }
+
+      "fail with INVALID_ARGUMENT status if the requesting parties field is empty" in allFixtures {
+        context =>
+          context.transactionClient
+            .getFlatTransactionByEventId(transactionId, Nil)
             .failed
             .map(IsStatusException(Status.INVALID_ARGUMENT))
       }

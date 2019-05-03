@@ -1,0 +1,39 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Main where
+
+type AssetId = ContractId Asset
+
+template Asset
+  with
+    issuer : Party
+    owner  : Party
+    name   : Text
+  where
+    ensure name /= ""
+    signatory issuer
+    controller owner can
+      Give : AssetId
+        with
+          newOwner : Party
+        do
+          create this with
+            owner = newOwner
+
+setup = scenario do
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+
+  aliceTV <- submit alice do
+    create Asset with
+      issuer = alice
+      owner = alice
+      name = "TV"
+
+  bobTV <- submit alice do
+    exercise aliceTV Give with newOwner = bob
+
+  submit bob do
+    exercise bobTV Give with newOwner = alice

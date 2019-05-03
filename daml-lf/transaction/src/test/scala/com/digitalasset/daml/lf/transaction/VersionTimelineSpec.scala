@@ -64,6 +64,21 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks {
 
   }
 
+  "compareReleaseTime" when {
+    import scalaz.Ordering._, Implicits._
+    "given defined versions" should {
+      "be defined" in forAll(genSpecifiedVersion, genSpecifiedVersion) { (l, r) =>
+        compareReleaseTime(l, r) shouldBe 'defined
+      }
+    }
+
+    "given a dev version" should {
+      "never precede another version of same major" in forAll(genDefinedLanguageVersion) { lv =>
+        compareReleaseTime(lv, lv copy (minor = LanguageVersion.Minor.Dev)) should contain oneOf (LT, EQ)
+      }
+    }
+  }
+
   "latestWhenAllPresent" when {
     "given only one version" should {
       "give it back" in forAll(genLatestInput) { easva =>
@@ -86,7 +101,7 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks {
         implicit val ev: SubVersion[easva.T] = easva.run._2
         val result = latestWhenAllPresent(sv, svs: _*)
         import Implicits._
-        ((sv: SpecifiedVersion) :: svs).map(releasePrecedes(_, result)) should contain(false)
+        ((sv: SpecifiedVersion) :: svs).map(_ precedes result) should contain(false)
       }
 
       "be idempotent" in forAll(genLatestInput, Gen.listOf(genSpecifiedVersion)) { (easva, svs) =>
@@ -152,13 +167,16 @@ object VersionTimelineSpec {
     ExistsImpl(_run)
   }
 
+  private val genDefinedLanguageVersion: Gen[LanguageVersion] =
+    Gen oneOf inAscendingOrder.foldMap(foldRelease(_)(constNil, constNil, List(_)))
+
   private final case class Variety[A](gen: Gen[A])(implicit val sv: SubVersion[A])
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private val varieties = NonEmptyList[Variety[_]](
     Variety(Gen oneOf ValueVersions.acceptedVersions),
     Variety(Gen oneOf TransactionVersions.acceptedVersions),
-    Variety(Gen oneOf inAscendingOrder.foldMap(foldRelease(_)(constNil, constNil, List(_)))),
+    Variety(genDefinedLanguageVersion),
   )
 
   private def oneOf[A](xs: NonEmptyList[Gen[A]]): Gen[A] = xs.tail match {

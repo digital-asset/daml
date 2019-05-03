@@ -28,6 +28,7 @@ import scalaz.syntax.std.option._
   */
 private[lf] object VersionTimeline {
   import \&/.{This, That, Both}
+  import LanguageVersion.Minor.Dev
 
   type AllVersions[:&:[_, _]] = (ValueVersion :&: TransactionVersion) :&: LanguageVersion
   type Release = AllVersions[\&/]
@@ -39,6 +40,7 @@ private[lf] object VersionTimeline {
   private[transaction] val inAscendingOrder: NonEmptyList[Release] =
     NonEmptyList(
       That(LanguageVersion(LMV.V0, "")),
+      That(LanguageVersion(LMV.V0, Dev)),
       Both(Both(ValueVersion("1"), TransactionVersion("1")), LanguageVersion(LMV.V1, "0")),
       Both(Both(ValueVersion("2"), TransactionVersion("2")), LanguageVersion(LMV.V1, "1")),
       This(That(TransactionVersion("3"))),
@@ -46,10 +48,18 @@ private[lf] object VersionTimeline {
       This(That(TransactionVersion("5"))),
       That(LanguageVersion(LMV.V1, "2")),
       Both(This(ValueVersion("4")), LanguageVersion(LMV.V1, "3")),
+      That(LanguageVersion(LMV.V1, Dev)),
       // add new versions above this line
       // do *not* backfill to make more Boths, because such would
-      // invalidate the timeline; use This and That instead as needed.
+      // invalidate the timeline, except to accompany Dev language
+      // versions; use This and That instead as needed.
       // Backfill *is* appropriate if a release of the last hasn't happened
+      //
+      // "Dev" versions float through the timeline with little rationale
+      // due to their ephemeral contents; don't worry too much about their exact
+      // positioning, except where you desire a temporal implication between dev
+      // and some other version you're introducing. Dev always means "the dev
+      // supported by this release".
     )
 
   def foldRelease[Z: Semigroup](av: AllVersions[\&/])(
@@ -121,7 +131,7 @@ private[lf] object VersionTimeline {
       case (None, None) => None
     }
 
-  def releasePrecedes(left: SpecifiedVersion, right: SpecifiedVersion): Boolean =
+  private def releasePrecedes(left: SpecifiedVersion, right: SpecifiedVersion): Boolean =
     compareReleaseTime(left, right) contains Ordering.LT
 
   // not antisymmetric, as unknown versions can't be compared

@@ -35,6 +35,8 @@ class TransactionServiceImpl(ledgerContent: Observable[LedgerItem]) extends Tran
   val lastTransactionsTreesRequest = new AtomicReference[GetTransactionsRequest]()
   val lastTransactionByEventIdRequest = new AtomicReference[GetTransactionByEventIdRequest]()
   val lastTransactionByIdRequest = new AtomicReference[GetTransactionByIdRequest]()
+  val lastFlatTransactionByEventIdRequest = new AtomicReference[GetTransactionByEventIdRequest]()
+  val lastFlatTransactionByIdRequest = new AtomicReference[GetTransactionByIdRequest]()
   val lastLedgerEndRequest = new AtomicReference[GetLedgerEndRequest]()
 
   override def getTransactions(
@@ -84,6 +86,22 @@ class TransactionServiceImpl(ledgerContent: Observable[LedgerItem]) extends Tran
       request: GetTransactionByIdRequest): Future[GetTransactionResponse] =
     Future.failed[GetTransactionResponse] {
       lastTransactionByIdRequest.set(request)
+      //  TODO DEL-6007
+      new StatusRuntimeException(Status.UNIMPLEMENTED.withDescription("Pending"))
+    }
+
+  override def getFlatTransactionByEventId(
+      request: GetTransactionByEventIdRequest): Future[GetFlatTransactionResponse] =
+    Future.failed[GetFlatTransactionResponse] {
+      lastFlatTransactionByEventIdRequest.set(request)
+      //  TODO DEL-6007
+      new StatusRuntimeException(Status.UNIMPLEMENTED.withDescription("Pending"))
+    }
+
+  override def getFlatTransactionById(
+      request: GetTransactionByIdRequest): Future[GetFlatTransactionResponse] =
+    Future.failed[GetFlatTransactionResponse] {
+      lastFlatTransactionByIdRequest.set(request)
       //  TODO DEL-6007
       new StatusRuntimeException(Status.UNIMPLEMENTED.withDescription("Pending"))
     }
