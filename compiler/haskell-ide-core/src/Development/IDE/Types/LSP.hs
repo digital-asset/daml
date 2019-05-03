@@ -43,10 +43,12 @@ instance NFData VirtualResource
 
 -- | Compiler service events
 data Event
-    = EventFileDiagnostics !FileDiagnostics
+    = EventFileDiagnostics !(Uri, FilePath, [Diagnostic])
       -- ^ @EventFileDiagnostics fileDiagnostics@
       -- How many validations have we finished of how many total
       -- together with new file diagnostics for a given file.
+      -- The filepath is used for the printing of relative file paths
+      -- the Uri and File path should point to the same place
     | EventVirtualResourceChanged !VirtualResource T.Text
       -- ^ @EventVirtualResourceChanged resource contents@ a virtual
       -- resource @resource@ changed to @contents

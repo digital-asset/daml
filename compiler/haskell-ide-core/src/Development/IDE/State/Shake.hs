@@ -382,12 +382,13 @@ updateFileDiagnostics ::
   -> Maybe [FileDiagnostic] -- ^ previous results for this file
   -> [FileDiagnostic] -- ^ current results
   -> Action ()
-updateFileDiagnostics afp previousAll currentAll = do
+updateFileDiagnostics fp previousAll currentAll = do
     -- TODO (MK) We canonicalize to make sure that the two files agree on use of
     -- / and \ and other shenanigans.
     -- Once we have finished the migration to haskell-lsp we should make sure that
     -- this is no longer necessary.
-    afp' <- liftIO $ canonicalizePath afp
+    afp' <- liftIO $ canonicalizePath fp
+    let uri = filePathToUri afp'
     let filtM diags = do
             diags' <-
                 filterM
@@ -397,7 +398,7 @@ updateFileDiagnostics afp previousAll currentAll = do
     previous <- liftIO $ traverse filtM previousAll
     current <- liftIO $ filtM currentAll
     when (Just current /= previous) $
-        sendEvent $ EventFileDiagnostics $ (afp, map snd $ Set.toList current)
+        sendEvent $ EventFileDiagnostics $ (uri, fp, map snd $ Set.toList current)
 
 
 setPriority :: (Enum a) => a -> Action ()

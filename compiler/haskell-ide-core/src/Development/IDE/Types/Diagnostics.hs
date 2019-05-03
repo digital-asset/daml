@@ -32,6 +32,7 @@ module Development.IDE.Types.Diagnostics (
   addDiagnostics,
   filterSeriousErrors,
   filePathToUri,
+  uriToFilePath,
   getDiagnosticsFromStore
   ) where
 
