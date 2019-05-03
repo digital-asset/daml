@@ -43,7 +43,6 @@ def daml_deps():
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:haskell-static-linking.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-package-env.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-win-sys-includes.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-drop-fake-static.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-short-names.patch",
             ],
