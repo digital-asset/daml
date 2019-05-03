@@ -243,7 +243,7 @@ object Value {
         case ValueMap(map1) =>
           b match {
             case ValueMap(map2) =>
-              map1 == map2
+              map1 === map2
             case _ =>
               false
           }
