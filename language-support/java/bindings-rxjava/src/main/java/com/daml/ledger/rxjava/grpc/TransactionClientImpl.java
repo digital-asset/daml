@@ -97,6 +97,33 @@ public class TransactionClientImpl implements TransactionsClient {
     }
 
     @Override
+    public Single<Transaction> getFlatTransactionByEventId(String eventId, Set<String> requestingParties) {
+        TransactionServiceOuterClass.GetTransactionByEventIdRequest request = TransactionServiceOuterClass.GetTransactionByEventIdRequest.newBuilder()
+                .setLedgerId(ledgerId)
+                .setEventId(eventId)
+                .addAllRequestingParties(requestingParties)
+                .build();
+        return extractTransaction(serviceFutureStub.getFlatTransactionByEventId(request));
+    }
+
+    @Override
+    public Single<Transaction> getFlatTransactionById(String transactionId, Set<String> requestingParties) {
+        TransactionServiceOuterClass.GetTransactionByIdRequest request = TransactionServiceOuterClass.GetTransactionByIdRequest.newBuilder()
+                .setLedgerId(ledgerId)
+                .setTransactionId(transactionId)
+                .addAllRequestingParties(requestingParties)
+                .build();
+        return extractTransaction(serviceFutureStub.getFlatTransactionById(request));
+    }
+
+    private Single<Transaction> extractTransaction(Future<TransactionServiceOuterClass.GetFlatTransactionResponse> future) {
+        return Single
+                .fromFuture(future)
+                .map(GetFlatTransactionResponse::fromProto)
+                .map(GetFlatTransactionResponse::getTransaction);
+    }
+
+    @Override
     public Single<LedgerOffset> getLedgerEnd() {
         TransactionServiceOuterClass.GetLedgerEndRequest request = TransactionServiceOuterClass.GetLedgerEndRequest.newBuilder().setLedgerId(ledgerId).build();
         return Single

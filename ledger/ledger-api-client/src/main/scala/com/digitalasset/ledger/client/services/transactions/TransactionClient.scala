@@ -52,6 +52,17 @@ final class TransactionClient(ledgerId: String, transactionService: TransactionS
     transactionService
       .getTransactionByEventId(GetTransactionByEventIdRequest(ledgerId, eventId, parties))
 
+  def getFlatTransactionById(transactionId: String, parties: Seq[String])(
+      implicit ec: ExecutionContext): Future[GetFlatTransactionResponse] = {
+    transactionService
+      .getFlatTransactionById(GetTransactionByIdRequest(ledgerId, transactionId, parties))
+  }
+
+  def getFlatTransactionByEventId(eventId: String, parties: Seq[String])(
+      implicit ec: ExecutionContext): Future[GetFlatTransactionResponse] =
+    transactionService
+      .getFlatTransactionByEventId(GetTransactionByEventIdRequest(ledgerId, eventId, parties))
+
   def getLedgerEnd: Future[GetLedgerEndResponse] =
     transactionService.getLedgerEnd(GetLedgerEndRequest(ledgerId))
 }

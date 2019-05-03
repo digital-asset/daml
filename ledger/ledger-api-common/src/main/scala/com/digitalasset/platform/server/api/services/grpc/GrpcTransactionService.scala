@@ -9,7 +9,7 @@ import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction.TransactionTree
+import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.{
   TransactionService => ApiTransactionService
 }
@@ -104,6 +104,12 @@ class GrpcTransactionService(
     )
   }
 
+  private def optionalTransactionToApiResponse(txO: Option[Transaction]) =
+    txO.fold {
+      throw new ApiException(
+        Status.INVALID_ARGUMENT.withDescription("Transaction not found, or not visible."))
+    }(t => GetFlatTransactionResponse(Some(t)))
+
   override protected def getTransactionTreesSource(
       request: GetTransactionsRequest): Source[GetTransactionTreesResponse, NotUsed] = {
     logger.debug("Received new transaction tree request {}", request)
@@ -152,6 +158,32 @@ class GrpcTransactionService(
         service
           .getTransactionById(txId)
           .map(opt => optionalVisibleToApiTx(opt))(DirectExecutionContext))
+  }
+
+  override def getFlatTransactionByEventId(
+      request: GetTransactionByEventIdRequest): Future[GetFlatTransactionResponse] = {
+    val validation = validator.validateTransactionByEventId(request)
+
+    validation.fold(
+      Future.failed,
+      txId =>
+        service
+          .getFlatTransactionByEventId(txId)
+          .map(optionalTransactionToApiResponse)(DirectExecutionContext)
+    )
+  }
+
+  override def getFlatTransactionById(
+      request: GetTransactionByIdRequest): Future[GetFlatTransactionResponse] = {
+    val validation = validator.validateTransactionById(request)
+
+    validation.fold(
+      Future.failed,
+      txId =>
+        service
+          .getFlatTransactionById(txId)
+          .map(optionalTransactionToApiResponse)(DirectExecutionContext)
+    )
   }
 
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] = {

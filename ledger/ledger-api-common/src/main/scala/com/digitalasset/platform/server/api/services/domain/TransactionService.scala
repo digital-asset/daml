@@ -13,6 +13,7 @@ import com.digitalasset.ledger.api.messages.transaction.{
   GetTransactionsRequest
 }
 import com.digitalasset.ledger.api.v1.transaction_service.GetTransactionsResponse
+import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.platform.server.api.WithOffset
 import com.digitalasset.platform.server.services.transaction.VisibleTransaction
 
@@ -34,4 +35,8 @@ trait TransactionService {
 
   def getTransactionByEventId(
       req: GetTransactionByEventIdRequest): Future[Option[VisibleTransaction]]
+
+  def getFlatTransactionById(req: GetTransactionByIdRequest): Future[Option[Transaction]]
+
+  def getFlatTransactionByEventId(req: GetTransactionByEventIdRequest): Future[Option[Transaction]]
 }

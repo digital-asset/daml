@@ -79,6 +79,14 @@ class DummyLedgerClient(
         requestingParties: util.Set[String]): Single[TransactionTree] =
       ???
 
+    override def getFlatTransactionByEventId(
+        eventId: String,
+        requestingParties: util.Set[String]): Single[Transaction] = ???
+
+    override def getFlatTransactionById(
+        transactionId: String,
+        requestingParties: util.Set[String]): Single[Transaction] = ???
+
     override def getLedgerEnd: Single[LedgerOffset] = Single.just(ledgerEnd)
   }
 

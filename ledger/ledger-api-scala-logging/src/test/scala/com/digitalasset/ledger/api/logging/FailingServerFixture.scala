@@ -9,14 +9,7 @@ import com.digitalasset.ledger.api.logging.FailingServerFixture.Exceptions.{
   InternalGrpc
 }
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
-import com.digitalasset.ledger.api.v1.command_completion_service.{
-  CommandCompletionServiceGrpc,
-  CommandCompletionServiceLogging,
-  CompletionEndRequest,
-  CompletionEndResponse,
-  CompletionStreamRequest,
-  CompletionStreamResponse
-}
+import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
@@ -24,39 +17,11 @@ import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   LedgerIdentityServiceGrpc,
   LedgerIdentityServiceLogging
 }
-import com.digitalasset.ledger.api.v1.package_service.{
-  GetPackageRequest,
-  GetPackageResponse,
-  GetPackageStatusRequest,
-  GetPackageStatusResponse,
-  ListPackagesRequest,
-  ListPackagesResponse,
-  PackageServiceGrpc,
-  PackageServiceLogging
-}
+import com.digitalasset.ledger.api.v1.package_service._
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
-import com.digitalasset.ledger.api.v1.transaction_service.{
-  GetLedgerEndRequest,
-  GetLedgerEndResponse,
-  GetTransactionByEventIdRequest,
-  GetTransactionByIdRequest,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsRequest,
-  GetTransactionsResponse,
-  TransactionServiceGrpc,
-  TransactionServiceLogging
-}
+import com.digitalasset.ledger.api.v1.transaction_service._
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
-import io.grpc.{
-  BindableService,
-  Channel,
-  ManagedChannel,
-  Server,
-  ServerServiceDefinition,
-  Status,
-  StatusRuntimeException
-}
+import io.grpc._
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.stub.StreamObserver
 import org.scalatest.{BeforeAndAfterAll, Suite}
@@ -136,6 +101,12 @@ object FailingServerFixture {
       throw InternalGrpc
     override def getTransactionById(
         request: GetTransactionByIdRequest): Future[GetTransactionResponse] =
+      Future.failed(AbortedGrpc)
+    override def getFlatTransactionByEventId(
+        request: GetTransactionByEventIdRequest): Future[GetFlatTransactionResponse] =
+      Future.failed(AbortedGrpc)
+    override def getFlatTransactionById(
+        request: GetTransactionByIdRequest): Future[GetFlatTransactionResponse] =
       Future.failed(AbortedGrpc)
     override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] =
       throw AbortedGrpc

@@ -118,7 +118,7 @@ getTransactionStream h party = do
     forkIO_ tag $
         withGRPCClient (config port) $ \client -> do
             rpcs <- TS.transactionServiceClient client
-            let (TS.TransactionService rpc1 _ _ _ _) = rpcs
+            let (TS.TransactionService rpc1 _ _ _ _ _ _) = rpcs
             sendToChan request fromServiceResponse chan  rpc1
     return $ ResponseStream{chan}
 
