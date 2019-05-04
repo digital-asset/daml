@@ -27,6 +27,12 @@ jobs:
           name: linux
       - bash: |
           set -euo pipefail
+          # Linux builders don't seem to get recycled often enough to avoid
+          # disk fill up.
+          bazel clean --expunge
+        condition: always()
+      - bash: |
+          set -euo pipefail
           MESSAGE=$(git log --pretty=format:%s -n1)
           curl -XPOST \
                -H 'Content-type: application/json' \
