@@ -119,7 +119,7 @@ da_haskell_test(
         "text",
         "unix-compat",
     ],
-    main_function = "DAML.Assistant.Tests.runTests",
+    main_function = "DAML.Assistant.Tests.main",
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [

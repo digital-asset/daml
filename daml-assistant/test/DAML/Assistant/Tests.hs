@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module DAML.Assistant.Tests
-    ( runTests
+    ( main
     ) where
 
 import DAML.Assistant.Env
@@ -36,8 +36,8 @@ import qualified Data.Conduit.Tar as Tar
 -- unix specific
 import System.PosixCompat.Files (createSymbolicLink)
 
-runTests :: IO ()
-runTests = do
+main :: IO ()
+main = do
     setEnv "TASTY_NUM_THREADS" "1" -- we need this because we use withEnv in our tests
     Tasty.defaultMain $ Tasty.testGroup "DAML.Assistant"
         [ testAscendants
