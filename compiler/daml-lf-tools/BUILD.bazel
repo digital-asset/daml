@@ -11,6 +11,7 @@ da_haskell_library(
         "containers",
         "either",
         "extra",
+        "hashable",
         "lens",
         "mtl",
         "recursion-schemes",
