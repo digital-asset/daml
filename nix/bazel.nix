@@ -10,6 +10,7 @@ rec {
     docker
     gawk
     gnutar
+    go
     gzip
     hlint
     imagemagick
@@ -21,13 +22,6 @@ rec {
     protobuf3_5
     zip
     ;
-
-  # We need to have a file in GOPATH that we can use as
-  # root_file in go_wrap_sdk.
-  go = pkgs.go.overrideAttrs (oldAttrs: {
-    doCheck = false;
-    postFixup = ''touch $out/share/go/ROOT'';
-  });
 
   # the GHC version we use plus custom overrides to sync with the
   # stackage version as specified in stack.yaml. Prefer to use this for

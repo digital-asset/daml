@@ -4,7 +4,7 @@ This folder contains the upstream Nix channels that are used for the dev-env.
 
 ## Channels
 
-- `nixos-19.03`
+- `nixos-18.03`
 
 ## Updating
 
@@ -17,6 +17,6 @@ $ nix-update-src-json [CHANNEL]
 Eg:
 
 ```
-nix-update-src-json ./nixos-19.03
+nix-update-src-json ./nixos-18.03
 ```
 
