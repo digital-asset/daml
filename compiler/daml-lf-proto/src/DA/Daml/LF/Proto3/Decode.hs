@@ -1,13 +1,11 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE NoImplicitPrelude #-}
 module DA.Daml.LF.Proto3.Decode
   ( Error(..)
   , decodePayload
   ) where
 
-import DA.Prelude
 import Da.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
 import DA.Daml.LF.Ast (Package)
 import DA.Daml.LF.Proto3.Error (Error(ParseError), Decode)

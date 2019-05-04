@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Go to the definition of a variable.
@@ -11,7 +10,6 @@ module DA.Service.Daml.LanguageServer.Definition
 
 import           DA.LanguageServer.Protocol
 
-import           DA.Prelude
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import           DA.Service.Daml.LanguageServer.Common
 import qualified DA.Service.Logger                     as Logger

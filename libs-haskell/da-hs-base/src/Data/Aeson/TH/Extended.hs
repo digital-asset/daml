@@ -1,8 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE NoImplicitPrelude #-}
-
 -- | An extended version of "Data.Aeson.TH", which provides our own
 -- 'daAesonEncodingOptions' and the corresponding 'deriveDAJSON'.
 module Data.Aeson.TH.Extended

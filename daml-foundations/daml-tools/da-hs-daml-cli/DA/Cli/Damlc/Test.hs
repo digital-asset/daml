@@ -11,7 +11,6 @@ module DA.Cli.Damlc.Test (
 
 import Control.Monad.Except
 import qualified Control.Monad.Managed             as Managed
-import           DA.Prelude
 import qualified DA.Pretty
 import DA.Cli.Damlc.Base
 import Data.Tuple.Extra
