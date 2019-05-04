@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -24,7 +23,6 @@ import qualified Data.Map.Strict              as MS
 import qualified Data.Text.Extended           as T
 import qualified Data.Text.Encoding           as E
 
-import           DA.Prelude
 import qualified DA.Service.Logger            as Logger
 
 -- | Source locations, we can't use Parsec's built-in source location,

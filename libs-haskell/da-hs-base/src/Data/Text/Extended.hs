@@ -1,14 +1,13 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE NoImplicitPrelude #-}
 -- | An extended version of "Data.Text", which provides a slightly more
 -- extensive export lists and missing orphan instances.
 module Data.Text.Extended
   (
     module Data.Text
 
-  , show
+  , Data.Text.Extended.show
   , Data.Text.Extended.splitOn
   , startsWithLower
   , startsWithUpper

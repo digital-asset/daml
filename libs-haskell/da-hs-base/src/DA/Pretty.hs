@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | This library provides the basis for all our pretty-printing. It extends
@@ -53,8 +52,6 @@ module DA.Pretty
 
 import           Data.String
 import qualified Data.Text.Extended          as T
-
-import           DA.Prelude
 
 import           Orphans.Lib_pretty ()
 
