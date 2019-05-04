@@ -50,8 +50,9 @@ object DamlOnXTransactionService {
       identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
-    : TransactionServiceGrpc.TransactionService with BindableService with TransactionServiceLogging =
+      esf: ExecutionSequencerFactory): TransactionServiceGrpc.TransactionService
+    with BindableService
+    with TransactionServiceLogging =
     new GrpcTransactionService(
       new DamlOnXTransactionService(indexService),
       ledgerId.underlyingString,
