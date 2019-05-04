@@ -16,8 +16,7 @@ import qualified Data.Aeson.Encode.Pretty as AP
 import           Data.Algorithm.Diff (getGroupedDiff)
 import           Data.Algorithm.DiffOutput (ppDiff)
 import qualified Data.ByteString.Lazy.Char8 as BS
-import           Data.List (sort)
-import           Data.List.Extra (nubOrd)
+import           Data.List.Extra
 import qualified Data.Text          as T
 import qualified Data.Text.Extended as T
 import qualified Data.Text.Encoding as T
@@ -26,8 +25,7 @@ import           System.FilePath
 import           System.IO.Extra
 import qualified Test.Tasty.Extended as Tasty
 import           Test.Tasty.HUnit.Extended
-
-import DA.Prelude
+import Data.Maybe
 
 
 testDir :: FilePath

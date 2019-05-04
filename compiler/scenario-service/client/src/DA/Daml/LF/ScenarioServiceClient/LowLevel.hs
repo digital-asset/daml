@@ -26,14 +26,15 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , ScenarioServiceException(..)
   ) where
 
-import DA.Prelude
-
 import Conduit (runConduit, (.|))
+import GHC.Generics
+import Text.Read
+import Data.Tagged
 import Control.Concurrent.Async
 import Control.Concurrent.MVar
 import Control.DeepSeq
 import Control.Exception
-import Control.Monad (void)
+import Control.Monad
 import Control.Monad.Managed
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import qualified Data.ByteString as BS
@@ -163,7 +164,7 @@ start opts@Options{..} = do
               liftIO (putMVar portMVar (Left "Stdout of scenario service terminated before we got the PORT=<port> message"))
             Just (T.unpack -> line) ->
               case splitOn "=" line of
-                ["PORT", ps] | Just p <- readMay ps ->
+                ["PORT", ps] | Just p <- readMaybe ps ->
                   liftIO (putMVar portMVar (Right p)) >> C.awaitForever printStdout
                 _ -> do
                   liftIO (optLogError ("Expected PORT=<port> from scenario service, but got '" <> line <> "'. Ignoring it."))

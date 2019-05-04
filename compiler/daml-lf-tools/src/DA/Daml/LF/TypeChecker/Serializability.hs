@@ -17,10 +17,9 @@ module DA.Daml.LF.TypeChecker.Serializability
   , checkModule
   ) where
 
-import DA.Prelude
-
 import           Control.Lens (matching, toListOf)
-import           Control.Monad.Extra (mconcatMapM)
+import           Control.Monad.Extra
+import Data.List
 import           Data.Either (isRight)
 import           Data.Foldable (for_)
 import qualified Data.HashSet as HS

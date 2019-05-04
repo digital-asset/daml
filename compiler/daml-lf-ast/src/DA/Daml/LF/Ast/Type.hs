@@ -8,13 +8,13 @@ module DA.Daml.LF.Ast.Type
   , substitute
   ) where
 
-import DA.Prelude
-
 import           Data.Bifunctor
 import           Data.Functor.Foldable (cata)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import Data.Tagged
+import Data.List
 import           Safe (findJust)
 import           Safe.Exact (zipWithExactMay)
 

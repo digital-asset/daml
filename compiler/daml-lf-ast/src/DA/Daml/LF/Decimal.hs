@@ -33,8 +33,8 @@ import           Control.Lens       (Iso', Prism', from, iso, prism')
 import           Control.DeepSeq    (NFData(..))
 
 import qualified Data.Scientific    as Scientific
-
-import           DA.Prelude
+import GHC.Generics(Generic)
+import Text.Read
 import           Data.Ratio((%))
 
 
@@ -134,7 +134,7 @@ decimalToScientific =
 
 stringToScientific :: Prism' String Scientific.Scientific
 stringToScientific =
-    prism' (Scientific.formatScientific Scientific.Fixed Nothing) readMay
+    prism' (Scientific.formatScientific Scientific.Fixed Nothing) readMaybe
 
 
 -- | Converts a `Decimal` to an `Integer` by truncating towards 0.
@@ -154,4 +154,3 @@ fromIntegerD n = Decimal n 0
 
 stringToDecimal :: Prism' String Decimal
 stringToDecimal = stringToScientific . from decimalToScientific
-
