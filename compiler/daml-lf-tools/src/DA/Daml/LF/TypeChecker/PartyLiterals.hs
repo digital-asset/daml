@@ -18,11 +18,10 @@ module DA.Daml.LF.TypeChecker.PartyLiterals
   ( checkModule
   ) where
 
-import DA.Prelude
-
 import           Control.Lens
+import Control.Monad
 import           Data.Foldable (for_)
-import           Data.List.Extra (nubOrd)
+import           Data.List.Extra
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics (exprPartyLiteral, exprValueRef, templateExpr)

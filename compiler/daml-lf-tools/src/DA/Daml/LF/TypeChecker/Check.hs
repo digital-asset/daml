@@ -32,8 +32,8 @@ module DA.Daml.LF.TypeChecker.Check(
     checkModule
     ) where
 
-import DA.Prelude
-
+import Data.Hashable
+import Data.Tagged
 import           Control.Lens hiding (Context)
 import           Control.Monad.Extra
 import           Data.Foldable

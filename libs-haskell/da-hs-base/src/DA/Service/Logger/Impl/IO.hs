@@ -17,7 +17,8 @@ import           Control.Concurrent.MVar      (MVar, newMVar, withMVar)
 import           Control.Concurrent.STM.TVar  (TVar, newTVarIO, readTVarIO, modifyTVar')
 import           Control.Exception            (bracket_)
 
-import           DA.Prelude
+import Control.Monad
+import Data.Maybe
 
 import qualified Data.Aeson                   as Aeson
 import           Data.Aeson.Encode.Pretty     (encodePretty)

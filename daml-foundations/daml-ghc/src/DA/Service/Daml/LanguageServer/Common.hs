@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE NoImplicitPrelude  #-}
 {-# LANGUAGE OverloadedStrings  #-}
 
 -- | Defaults and conversions between Ast types and protocol types
@@ -28,7 +27,7 @@ module DA.Service.Daml.LanguageServer.Common
 
 import           DA.LanguageServer.Protocol
 
-import           DA.Prelude
+import Data.Tagged
 import qualified DA.Pretty                        as Pretty
 
 import qualified Data.Aeson                       as Aeson

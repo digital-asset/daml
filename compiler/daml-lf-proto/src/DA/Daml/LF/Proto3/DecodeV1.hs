@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE MultiWayIf #-}
 
 module DA.Daml.LF.Proto3.DecodeV1
@@ -12,8 +11,10 @@ module DA.Daml.LF.Proto3.DecodeV1
 
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Proto3.Error
-import           DA.Prelude
-import           Data.List (foldl)
+import Data.Tagged
+import Control.Monad
+import Text.Read
+import           Data.List
 import           DA.Daml.LF.Mangling
 import qualified Da.DamlLf1 as LF1
 import           Data.Either.Combinators (mapLeft)
@@ -439,7 +440,7 @@ decodeVarWithType LF1.VarWithType{..} =
 decodePrimLit :: LF1.PrimLit -> Decode BuiltinExpr
 decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumInt64 sInt -> pure $ BEInt64 sInt
-  LF1.PrimLitSumDecimal sDec -> case readMay (TL.unpack sDec) of
+  LF1.PrimLitSumDecimal sDec -> case readMaybe (TL.unpack sDec) of
     Nothing -> Left $ ParseError ("bad fixed while decoding Decimal: '" <> TL.unpack sDec <> "'")
     Just dec -> return (BEDecimal dec)
   LF1.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime

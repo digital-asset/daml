@@ -1,11 +1,11 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# Language OverloadedStrings #-}
-{-# Language DataKinds #-}
-{-# Language MultiWayIf #-}
-{-# Language BlockArguments #-}
-{-# Language GADTs #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE GADTs #-}
 {-|
 This uses the Google Cloud Platform (GCP) Stackdriver logging service to store
 log information. It builds up a queue of messages and attempts to send those
@@ -25,8 +25,12 @@ module DA.Service.Logger.Impl.GCP (
   , test
   ) where
 
-import DA.Prelude
+import GHC.Generics(Generic)
+import Data.Int
+import Data.Tuple
+import Text.Read(readMaybe)
 import Data.Aeson as Aeson
+import Control.Monad
 import GHC.Stack
 import System.Directory
 import System.Environment
@@ -349,7 +353,7 @@ logOptOut = do
     optOut <- createLog env Lgr.Info msg
     unless exists do
         res <- sendLogs [optOut]
-        when (DA.Prelude.null res) $
+        when (Prelude.null res) $
             writeFile fp ""
 
 -- | Reads the data file but doesn't check the values are valid
@@ -360,8 +364,8 @@ readDF s = do
     case lines t of
       [date, sent] -> Just (date, sent)
       _ -> Nothing
-  date <- readMay date'
-  sent <- readMay sent'
+  date <- readMaybe date'
+  sent <- readMaybe sent'
   pure DataFile{..}
 
 -- | ensure the datatracker data is from today

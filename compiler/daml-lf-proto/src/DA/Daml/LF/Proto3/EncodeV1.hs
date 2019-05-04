@@ -21,8 +21,9 @@ import qualified Data.Vector         as V
 import qualified Data.Scientific     as Scientific
 import           GHC.Stack (HasCallStack)
 
-import           DA.Prelude
 import           DA.Pretty
+import Data.Tagged
+import Control.Monad
 import qualified DA.Daml.LF.Decimal  as Decimal
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling

@@ -18,6 +18,7 @@ da_haskell_library(
         "mtl",
         "scientific",
         "stm",
+        "tagged",
         "template-haskell",
         "text",
     ],

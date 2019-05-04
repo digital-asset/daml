@@ -31,8 +31,7 @@ module Text.PrettyPrint.Annotated.Extended
 
 
 import qualified Data.Text             as T
-
-import           DA.Prelude
+import Data.List
 
 import           Text.PrettyPrint.Annotated.HughesPJ
           hiding ( (<>), (<+>), empty, style, text, ($+$)
@@ -129,4 +128,3 @@ renderMonoidal style applyAnn convChar convText =
         Chr  c -> (convChar c <> currentDoc, stack)
         Str  s -> (convText s <> currentDoc, stack)
         PStr s -> (convText s <> currentDoc, stack)
-

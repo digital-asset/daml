@@ -3,7 +3,6 @@
 
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
 module DA.LanguageServer.Protocol(module DA.LanguageServer.Protocol) where
 import qualified Data.Map.Strict  as MS
@@ -13,7 +12,7 @@ import qualified Data.Text        as T
 import qualified Data.Scientific  as Scientific
 
 import           DA.LanguageServer.TH (deriveJSON)
-import           DA.Prelude
+import Data.Tagged
 import qualified DA.Service.JsonRpc  as JsonRpc
 import qualified DA.Pretty           as P
 
@@ -576,7 +575,7 @@ data LogMessageParams = LogMessageParams
 -- Instances
 -------------------------------------------------------------------------
 
-concatSequenceA
+fmap concat $ sequenceA
     [ deriveJSON ''CompletionItem
     , deriveJSON ''CodeLensEntry
     , deriveJSON ''CodeLensParams

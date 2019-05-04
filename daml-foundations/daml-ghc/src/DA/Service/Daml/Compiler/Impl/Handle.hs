@@ -30,8 +30,6 @@ module DA.Service.Daml.Compiler.Impl.Handle
   , getBaseDir
   ) where
 
-import           DA.Prelude
-
 -- HS/DAML to LF compiler (daml-ghc)
 import DA.Daml.GHC.Compiler.Convert (sourceLocToRange)
 import DA.Daml.GHC.Compiler.Options
@@ -54,6 +52,10 @@ import qualified Data.Map.Strict                            as Map
 import qualified Data.NameMap as NM
 import qualified Data.Set                                   as S
 import qualified Data.Text                                  as T
+import Data.List
+import Data.Maybe
+import Data.Tagged
+import Safe
 
 import           Data.Time.Clock
 import           Data.Traversable                           (for)
@@ -116,7 +118,7 @@ uriToVirtualResource uri = do
             file <- Map.lookup "file" decoded
             topLevelDecl <- Map.lookup "top-level-decl" decoded
             pure $ VRScenario file (T.pack topLevelDecl)
-        _ -> empty
+        _ -> Nothing
 
   where
     queryString :: URI.URI -> Map.Map String String

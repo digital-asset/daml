@@ -1,6 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# Language ApplicativeDo #-}
+{-# LANGUAGE ApplicativeDo #-}
 module DA.Cli.Options
   ( module DA.Cli.Options
   ) where
@@ -8,8 +8,8 @@ module DA.Cli.Options
 import qualified Data.Text           as T
 import           Data.List.Extra     (trim, splitOn)
 import           Options.Applicative
-
-import           DA.Prelude
+import Data.List
+import Text.Read
 import qualified DA.Pretty           as Pretty
 import qualified DA.Daml.LF.Ast.Version as LF
 
@@ -212,7 +212,7 @@ portOpt defaultValue = option (str >>= parse) $
     <> long "port"
     <> value defaultValue
   where
-    parse cs = case readMay cs of
+    parse cs = case readMaybe cs of
       Just p  -> return p
       Nothing -> readerError $ "Invalid port '" <> cs <> "'."
 
@@ -230,7 +230,7 @@ ekgPortOpt = option (str >>= parse) $
     <> value Nothing
     <> long "ekg"
   where
-    parse cs = case readMay cs of
+    parse cs = case readMaybe cs of
       Nothing -> readerError $ "Invalid port '" <> cs <> "'."
       p       -> pure p
 

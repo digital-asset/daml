@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE NoImplicitPrelude  #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TemplateHaskell    #-}
 
@@ -18,7 +17,11 @@ import qualified Control.Monad.Managed                     as Managed
 import           DA.LanguageServer.Protocol
 import           DA.LanguageServer.Server
 
-import           DA.Prelude
+import Data.Tagged
+import Control.Monad
+import Data.List.Extra
+import Control.Monad.IO.Class
+import Safe
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified DA.Service.Daml.LanguageServer.CodeLens   as LS.CodeLens

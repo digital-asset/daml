@@ -9,8 +9,8 @@ import           DA.Cli.Damlc.Base(Command)
 import           DA.Cli.Options
 import           DA.Daml.GHC.Damldoc.Driver
 
-import           DA.Prelude
 import           Options.Applicative
+import Data.Maybe
 
 ------------------------------------------------------------
 

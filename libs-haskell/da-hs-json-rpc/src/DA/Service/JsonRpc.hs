@@ -11,9 +11,8 @@ module DA.Service.JsonRpc
     ) where
 
 
-import DA.Prelude
-
-
+import Data.Functor
+import Control.Monad.IO.Class
 import           Control.Concurrent.Async.Lifted
 import           Control.Concurrent.STM
 
@@ -116,5 +115,3 @@ runServer loggerH snk src notifChan requestHandler notificationHandler = do
 
           EventNop ->
               processEvents reqChan outChan
-
-

@@ -6,8 +6,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.Ast.Util(module DA.Daml.LF.Ast.Util) where
 
-import DA.Prelude
-
+import Data.Tagged
+import Data.Maybe
 import           Control.Lens
 import           Control.Lens.Ast
 import qualified Data.Graph as G
