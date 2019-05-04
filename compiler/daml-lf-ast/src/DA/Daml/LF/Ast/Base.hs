@@ -22,7 +22,7 @@ import           Control.Lens
 import qualified Data.NameMap as NM
 import qualified Data.Text          as T
 import Data.Fixed
-import qualified "template-haskell" Language.Haskell.TH        as TH
+import qualified "template-haskell" Language.Haskell.TH as TH
 import qualified Control.Lens.TH            as Lens.TH
 import Orphans.Lib_hashable ()
 
