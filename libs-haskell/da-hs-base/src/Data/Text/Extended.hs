@@ -22,6 +22,7 @@ module Data.Text.Extended
 
 import qualified Data.ByteString as BS
 import           Data.List.NonEmpty as NE
+import Data.Char
 
 import           Data.Text.Lens (packed, unpacked)
 import qualified Data.Text as T
@@ -29,13 +30,10 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.Encoding.Error as T
 import           Data.Text hiding (splitOn)
 
-import           DA.Prelude hiding (show)
-import qualified DA.Prelude
-
 
 -- | 'Show' a value and pack it into a strict 'Text' value.
 show :: Show a => a -> Text
-show = pack . DA.Prelude.show
+show = pack . Prelude.show
 
 -- | A version of `T.splitOn` with the more precise non-empty list as its result type.
 splitOn :: Text

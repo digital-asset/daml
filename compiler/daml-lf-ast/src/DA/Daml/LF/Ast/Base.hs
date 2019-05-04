@@ -12,7 +12,7 @@ module DA.Daml.LF.Ast.Base(
     module DA.Daml.LF.Ast.Base
     ) where
 
-import DA.Prelude
+import DA.Prelude(Hashable, Tagged, Data, Generic, Int64, Int32, concatSequenceA, makeUnderscoreLenses)
 
 import           Control.DeepSeq
 import           Control.Lens
