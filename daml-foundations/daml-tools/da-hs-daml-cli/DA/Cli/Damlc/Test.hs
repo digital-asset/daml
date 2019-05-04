@@ -13,6 +13,8 @@ import Control.Monad.Except
 import qualified Control.Monad.Managed             as Managed
 import qualified DA.Pretty
 import DA.Cli.Damlc.Base
+import Data.Maybe
+import Data.List.Extra
 import Data.Tuple.Extra
 import Control.Monad.Extra
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler

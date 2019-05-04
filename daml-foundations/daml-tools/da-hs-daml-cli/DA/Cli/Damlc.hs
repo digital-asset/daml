@@ -11,6 +11,9 @@ module DA.Cli.Damlc (main) where
 import Control.Monad.Except
 import qualified Control.Monad.Managed             as Managed
 import DA.Cli.Damlc.Base
+import Data.List
+import Data.Tagged
+import Data.Maybe
 import Control.Exception
 import qualified "cryptonite" Crypto.Hash as Crypto
 import Codec.Archive.Zip
