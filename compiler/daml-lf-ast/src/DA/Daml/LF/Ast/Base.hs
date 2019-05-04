@@ -12,13 +12,19 @@ module DA.Daml.LF.Ast.Base(
     module DA.Daml.LF.Ast.Base
     ) where
 
-import DA.Prelude(Hashable, Tagged, Data, Generic, Int64, Int32, concatSequenceA, makeUnderscoreLenses)
-
+import Data.Hashable
+import Data.Data
+import Data.Tagged
+import GHC.Generics(Generic)
+import Data.Int
 import           Control.DeepSeq
 import           Control.Lens
 import qualified Data.NameMap as NM
 import qualified Data.Text          as T
 import Data.Fixed
+import qualified "template-haskell" Language.Haskell.TH        as TH
+import qualified Control.Lens.TH            as Lens.TH
+import Orphans.Lib_hashable ()
 
 import           DA.Daml.LF.Ast.Version
 
@@ -789,7 +795,23 @@ instance NM.Named Module where
   type Name Module = ModuleName
   name = moduleName
 
-concatSequenceA
+fmap concat $ sequenceA $
+  let
+    -- | Generate a lens for every field in a record. The name of the lens is the
+    -- name of the field prefixed by an underscore. For instance, for
+    --
+    -- > data Foo = Foo{bar :: Int, _baz :: Bool}
+    --
+    -- it will generate
+    --
+    -- > _bar :: Lens' Foo Int
+    -- > __baz :: Lens' Foo Bool
+    makeUnderscoreLenses :: TH.Name -> TH.DecsQ
+    makeUnderscoreLenses =
+      Lens.TH.makeLensesWith (set Lens.TH.lensField noUnderscoreNoPrefixNamer Lens.TH.lensRules)
+      where
+        noUnderscoreNoPrefixNamer _ _ n = [Lens.TH.TopName (TH.mkName ('_':TH.nameBase n))]
+  in
   [ makePrisms ''Kind
   , makePrisms ''Type
   , makePrisms ''Expr
