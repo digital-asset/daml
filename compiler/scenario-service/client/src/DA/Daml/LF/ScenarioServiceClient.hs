@@ -20,8 +20,6 @@ module DA.Daml.LF.ScenarioServiceClient
   , encodeModule
   ) where
 
-import DA.Prelude
-
 import Control.Concurrent.Extra
 import Control.DeepSeq
 import Control.Exception
