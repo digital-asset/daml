@@ -1,11 +1,11 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# Language OverloadedStrings #-}
-{-# Language DataKinds #-}
-{-# Language MultiWayIf #-}
-{-# Language BlockArguments #-}
-{-# Language GADTs #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE GADTs #-}
 {-|
 This uses the Google Cloud Platform (GCP) Stackdriver logging service to store
 log information. It builds up a queue of messages and attempts to send those

@@ -1,6 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# Language ApplicativeDo #-}
+{-# LANGUAGE ApplicativeDo #-}
 module DA.Cli.Options
   ( module DA.Cli.Options
   ) where
