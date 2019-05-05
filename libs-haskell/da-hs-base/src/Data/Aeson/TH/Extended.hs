@@ -5,13 +5,8 @@
 -- 'daAesonEncodingOptions' and the corresponding 'deriveDAJSON'.
 module Data.Aeson.TH.Extended
     ( module Data.Aeson.TH
-
-    , daAesonEncodingOptions
-    , deriveDAJSON
     , deriveDAToJSON
     , deriveDAFromJSON
-    , daAesonEncodingOptionsTagged
-    , deriveDAToJSONTagged
     ) where
 
 
@@ -42,27 +37,8 @@ daAesonEncodingOptions prefix = defaultOptions
         (x:xs) -> toLower x : xs
         []     -> []
 
-deriveDAJSON :: String -> TH.Name -> TH.Q [TH.Dec]
-deriveDAJSON prefix = deriveJSON $ daAesonEncodingOptions prefix
-
 deriveDAToJSON :: String -> TH.Name -> TH.Q [TH.Dec]
 deriveDAToJSON = deriveToJSON . daAesonEncodingOptions
 
 deriveDAFromJSON :: String -> TH.Name -> TH.Q [TH.Dec]
 deriveDAFromJSON = deriveFromJSON . daAesonEncodingOptions
-
--- | Like 'daAesonEncodingOptions', but will strip and make lowercase
--- also constructor tags, on top of field modifiers.
-daAesonEncodingOptionsTagged :: String -> Options
-daAesonEncodingOptionsTagged prefix = (daAesonEncodingOptions prefix)
-    { constructorTagModifier = \label ->
-        maybe label lowerHead $ stripPrefix prefix label
-    }
-  where
-    lowerHead = \case
-        (x:xs) -> toLower x : xs
-        []     -> []
-
--- | Like 'deriveDAToJSON', but uses 'daAesonEncodingOptionsTagged'
-deriveDAToJSONTagged :: String -> TH.Name -> TH.Q [TH.Dec]
-deriveDAToJSONTagged = deriveToJSON . daAesonEncodingOptionsTagged
