@@ -195,8 +195,8 @@ getAssociatedVirtualResources
   :: IdeState
   -> FilePath
   -> IO [(Base.Range, T.Text, VirtualResource)]
-getAssociatedVirtualResources service filePath =
-  runDefaultExceptT [] $ logExceptT "GetAssociatedVirtualResources" $ do
+getAssociatedVirtualResources service filePath = fmap (either (const []) id) $
+  runExceptT $ logExceptT "GetAssociatedVirtualResources" $ do
     mods <- NM.toList . LF.packageModules <$> compileFile service filePath
     when (null mods) $
       throwError [errorDiag filePath "Get associated virtual resources"
