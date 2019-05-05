@@ -24,11 +24,7 @@ if [[ ! -e /nix ]]; then
   sudo chown "$(id -u):$(id -g)" /nix
 
   # 2.2.2 seems to segfault on MacOS in CI so for now we use 2.2.1.
-  if [[ $(uname -s) == "Darwin" ]]; then
-      curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
-  else
-      curl -sfL https://nixos.org/releases/nix/nix-2.2.2/install | bash
-  fi
+  curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
 fi
 
 # shellcheck source=../dev-env/lib/ensure-nix

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "$DADE_CURRENT_SCRIPT_DIR/../lib/dade-common"
+
+# Path to out default.nix file.
+nix="$DADE_CURRENT_SCRIPT_DIR/../../nix"
+
+# We use Python to turn the positional arguments to this script into a
+# string that we can pass to the --run command below. This is
+# necessary to handle things like spaces in filenames.
+args=$(python3 -c 'import sys, shlex; print(" ".join(map(shlex.quote, sys.argv[1:])))' "$@")
+
+# The Nix packages we wish to see in the environment.
+tools="tools.notebook tools.numpy tools.scipy tools.matplotlib tools.pandas"
+
+# We can now import our set of the Nix packages and run Jupyter.
+nix-shell -E "with import $nix {}; pkgs.runCommand \"shell\" { buildInputs = [ $tools ]; } \"\"" \
+          --run "jupyter $args"

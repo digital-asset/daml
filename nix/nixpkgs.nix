@@ -4,7 +4,7 @@
 
 let
   # See ./nixpkgs/README.md for upgrade instructions.
-  src = import ./nixpkgs/nixos-19.03;
+  src = import ./nixpkgs/nixos-18.09;
 
   # package overrides
   overrides = _: pkgs: rec {
@@ -43,6 +43,48 @@ let
           wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql}/bin:$out/bin
         '';
       });
+      buildBazelPackage = pkgs.callPackage ./overrides/buildBazelPackage {
+        stdenv =
+          let
+          # XXX On Darwin, workaround
+          # https://github.com/NixOS/nixpkgs/issues/42059. See also
+          # https://github.com/NixOS/nixpkgs/pull/41589.
+          cc =
+            with pkgs;
+            with darwin.apple_sdk.frameworks;
+            runCommand "cc-wrapper-bazel" {
+              buildInputs = [ stdenv.cc makeWrapper ];
+            }
+            ''
+              mkdir -p $out/bin
+
+              # Copy the content of stdenv.cc
+              for i in ${stdenv.cc}/bin/*
+              do
+                ln -sf $i $out/bin
+              done
+
+              # Override clang
+              rm $out/bin/clang
+
+              makeWrapper ${stdenv.cc}/bin/clang $out/bin/clang \
+                --add-flags "-isystem ${libcxx}/include/c++/v1 \
+                             -F${CoreFoundation}/Library/Frameworks \
+                             -F${CoreServices}/Library/Frameworks \
+                             -F${Security}/Library/Frameworks \
+                             -F${Foundation}/Library/Frameworks \
+                             -L${libcxx}/lib \
+                             -L${darwin.libobjc}/lib"
+            '';
+        in
+        if pkgs.stdenv.isDarwin then
+          pkgs.overrideCC pkgs.stdenv cc
+        else
+          pkgs.stdenv
+        ;
+        bazel = bazel;
+        enableNixHacks = false;
+      };
       haskellPackages = pkgs.haskellPackages.override {
         overrides = self: super: {
           hlint = super.callPackage ./overrides/hlint-2.1.15.nix {};
