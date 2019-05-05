@@ -11,7 +11,7 @@ import           DA.Daml.GHC.Damldoc.HaddockParse
 import           DA.Daml.GHC.Damldoc.Render
 import DA.Daml.GHC.Compiler.Options
 
-import           Control.Monad.Except.Extended
+import           Control.Monad.Except
 import qualified Data.Aeson.Encode.Pretty as AP
 import           Data.Algorithm.Diff (getGroupedDiff)
 import           Data.Algorithm.DiffOutput (ppDiff)
@@ -24,7 +24,7 @@ import           System.Directory
 import           System.FilePath
 import           System.IO.Extra
 import qualified Test.Tasty.Extended as Tasty
-import           Test.Tasty.HUnit.Extended
+import           Test.Tasty.HUnit
 import Data.Maybe
 
 

@@ -42,7 +42,8 @@ import           DA.Daml.LF.Proto3.Archive                  (encodeArchiveLazy)
 import qualified DA.Service.Logger                          as Logger
 import qualified DA.Service.Daml.Compiler.Impl.Dar          as Dar
 
-import           Control.Monad.Except.Extended              as Ex
+import           Control.Monad.Trans.Except              as Ex
+import           Control.Monad.Except              as Ex
 import           Control.Monad.IO.Class                     (liftIO)
 import           Control.Monad.Managed.Extended
 import qualified Data.ByteString                            as BS
@@ -195,26 +196,25 @@ getAssociatedVirtualResources
   :: IdeState
   -> FilePath
   -> IO [(Base.Range, T.Text, VirtualResource)]
-getAssociatedVirtualResources service filePath =
-  runDefaultExceptT [] $ logExceptT "GetAssociatedVirtualResources" $ do
-    mods <- NM.toList . LF.packageModules <$> compileFile service filePath
-    when (null mods) $
-      throwError [errorDiag filePath "Get associated virtual resources"
-        "No modules returned by compiler."]
-    -- NOTE(MH): 'compile' returns the modules in topologically sorted order.
-    -- Thus, the module we care about is the last in the list.
-    let mod0 = last mods
-    pure
-      [ (sourceLocToRange loc, "Scenario: " <> name, vr)
-      | value@LF.DefValue{dvalLocation = Just loc} <- NM.toList (LF.moduleValues mod0)
-      , LF.getIsTest (LF.dvalIsTest value)
-      , let name = unTagged (LF.dvalName value)
-      , let vr = VRScenario filePath name
-      ]
-  where
-    logExceptT src act = act `catchError` \err -> do
-      lift $ CompilerService.logError service $ T.unlines ["ERROR in " <> src <> ":", T.pack (show err)]
-      throwError err
+getAssociatedVirtualResources service filePath = do
+    mod0 <- runExceptT $ do
+        mods <- NM.toList . LF.packageModules <$> compileFile service filePath
+        case lastMay mods of
+            Nothing -> throwError [errorDiag filePath "Get associated virtual resources"
+                "No modules returned by compiler."]
+            Just mod0 -> return mod0
+    case mod0 of
+        Left err -> do
+            CompilerService.logError service $ T.unlines ["ERROR in GetAssociatedVirtualResources:", T.pack (show err)]
+            return []
+        Right mod0 -> pure
+            [ (sourceLocToRange loc, "Scenario: " <> name, vr)
+            | value@LF.DefValue{dvalLocation = Just loc} <- NM.toList (LF.moduleValues mod0)
+            , LF.getIsTest (LF.dvalIsTest value)
+            , let name = unTagged (LF.dvalName value)
+            , let vr = VRScenario filePath name
+            ]
+
 
 gotoDefinition
     :: IdeState

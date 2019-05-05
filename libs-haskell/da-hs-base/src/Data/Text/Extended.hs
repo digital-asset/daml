@@ -9,12 +9,6 @@ module Data.Text.Extended
 
   , Data.Text.Extended.show
   , Data.Text.Extended.splitOn
-  , startsWithLower
-  , startsWithUpper
-
-    -- ** Lenses
-  , packed
-  , unpacked
 
   , readFileUtf8
   , writeFileUtf8
@@ -22,9 +16,7 @@ module Data.Text.Extended
 
 import qualified Data.ByteString as BS
 import           Data.List.NonEmpty as NE
-import Data.Char
 
-import           Data.Text.Lens (packed, unpacked)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Encoding.Error as T
@@ -46,14 +38,6 @@ splitOn pat src =
   case T.splitOn pat src of
     [] -> error "Data.Text.Extended.splitOn: got an empty list. This is an implementation error in 'Data.Text.splitOn'."
     x : xs -> x NE.:| xs
-
--- | Check if a 'T.Text' starts with a lowercase character.
-startsWithLower :: T.Text -> Bool
-startsWithLower = maybe False (isLower . fst) . T.uncons
-
--- | Check if a 'T.Text' starts with an uppercase character.
-startsWithUpper :: T.Text -> Bool
-startsWithUpper = maybe False (isUpper . fst) . T.uncons
 
 -- | Read a file as UTF-8.
 readFileUtf8 :: FilePath -> IO T.Text

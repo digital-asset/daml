@@ -9,12 +9,12 @@ module DA.Daml.GHC.Damldoc.Render.Tests(mkTestTree)
 import           DA.Daml.GHC.Damldoc.Types
 import           DA.Daml.GHC.Damldoc.Render
 
-import           Control.Monad.Except.Extended
+import           Control.Monad.Except
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
 import qualified Test.Tasty.Extended as Tasty
-import           Test.Tasty.HUnit.Extended
+import           Test.Tasty.HUnit
 
 
 

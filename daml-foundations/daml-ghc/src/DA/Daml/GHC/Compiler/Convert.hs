@@ -88,7 +88,7 @@ import           Development.IDE.UtilGHC
 
 import           Control.Applicative
 import           Control.Lens
-import           Control.Monad.Except.Extended
+import           Control.Monad.Except
 import Control.Monad.Fail
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
