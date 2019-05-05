@@ -18,7 +18,7 @@ import qualified "ghc-lib-parser" Outputable                      as Out
 import qualified "ghc-lib-parser" DynFlags                        as DF
 import           "ghc-lib-parser" Bag (bagToList)
 
-import           Control.Monad.Except.Extended             as Ex
+import           Control.Monad.Except             as Ex
 import           Data.Char (isSpace)
 import Data.Either.Extra
 import           Data.List.Extra

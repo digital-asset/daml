@@ -42,7 +42,8 @@ import           DA.Daml.LF.Proto3.Archive                  (encodeArchiveLazy)
 import qualified DA.Service.Logger                          as Logger
 import qualified DA.Service.Daml.Compiler.Impl.Dar          as Dar
 
-import           Control.Monad.Except.Extended              as Ex
+import           Control.Monad.Trans.Except              as Ex
+import           Control.Monad.Except              as Ex
 import           Control.Monad.IO.Class                     (liftIO)
 import           Control.Monad.Managed.Extended
 import qualified Data.ByteString                            as BS

@@ -11,7 +11,7 @@ import           DA.Daml.GHC.Damldoc.HaddockParse
 import           DA.Daml.GHC.Damldoc.Render
 import DA.Daml.GHC.Compiler.Options
 
-import           Control.Monad.Except.Extended
+import           Control.Monad.Except
 import qualified Data.Aeson.Encode.Pretty as AP
 import           Data.Algorithm.Diff (getGroupedDiff)
 import           Data.Algorithm.DiffOutput (ppDiff)

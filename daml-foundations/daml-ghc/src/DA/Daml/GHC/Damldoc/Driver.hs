@@ -19,7 +19,7 @@ import DA.Daml.GHC.Compiler.Options
 import Development.IDE.Types.Diagnostics
 
 import           Control.Monad.Extra
-import           Control.Monad.Except.Extended
+import           Control.Monad.Except
 import qualified Data.Aeson                        as AE
 import qualified Data.Aeson.Encode.Pretty          as AP
 import qualified Data.ByteString.Lazy              as BS
