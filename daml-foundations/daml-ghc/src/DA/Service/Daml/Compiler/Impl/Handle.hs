@@ -204,7 +204,7 @@ getAssociatedVirtualResources service filePath = do
             Just mod0 -> return mod0
     case mod0 of
         Left err -> do
-            CompilerService.logError service $ T.unlines ["ERROR in " <> src <> ":", T.pack (show err)]
+            CompilerService.logError service $ T.unlines ["ERROR in GetAssociatedVirtualResources:", T.pack (show err)]
             return []
         Right mod0 -> pure
             [ (sourceLocToRange loc, "Scenario: " <> name, vr)
@@ -212,6 +212,7 @@ getAssociatedVirtualResources service filePath = do
             , LF.getIsTest (LF.dvalIsTest value)
             , let name = unTagged (LF.dvalName value)
             , let vr = VRScenario filePath name
+            ]
 
 
 gotoDefinition
