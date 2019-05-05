@@ -236,6 +236,7 @@ haskell_register_ghc_nixpkgs(
     compiler_flags = [
         "-O1",
         "-fexternal-dynamic-refs",
+        "-hide-package=ghc-boot-th",
     ],
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
