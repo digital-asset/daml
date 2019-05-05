@@ -24,7 +24,7 @@ import           System.Directory
 import           System.FilePath
 import           System.IO.Extra
 import qualified Test.Tasty.Extended as Tasty
-import           Test.Tasty.HUnit.Extended
+import           Test.Tasty.HUnit
 import Data.Maybe
 
 

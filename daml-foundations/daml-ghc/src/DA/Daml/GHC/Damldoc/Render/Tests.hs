@@ -14,7 +14,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
 import qualified Test.Tasty.Extended as Tasty
-import           Test.Tasty.HUnit.Extended
+import           Test.Tasty.HUnit
 
 
 
