@@ -7,6 +7,7 @@ module DamlHelper
     , runJar
     , runListTemplates
     , runStart
+    , runDamlcTest
 
     , withJar
     , withSandbox
@@ -222,6 +223,12 @@ runStart = withProjectRoot $ \_ -> do
           navigatorPort = NavigatorPort 7500
 
 
+runDamlcTest :: IO ()
+runDamlcTest = do
+    sourcePath <- getProjectSource
+    _ <-  callProcess damlcPath [sourcePath]
+    return ()
+
 getProjectConfig :: IO ProjectConfig
 getProjectConfig = do
     projectPath <- required "Must be called from within a project" =<< getProjectPath
@@ -231,6 +238,11 @@ getProjectParties :: IO [T.Text]
 getProjectParties = do
     projectConfig <- getProjectConfig
     requiredE "Project config does not have a list of parties" $ queryProjectConfigRequired ["parties"] projectConfig
+
+getProjectSource ::IO String
+getProjectSource = do
+    projectConfig <- getProjectConfig
+    requiredE "Project config does not have source key defined" $ queryProjectConfigRequired ["source"] projectConfig
 
 navigatorConfig :: [T.Text] -> T.Text
 navigatorConfig parties =
@@ -291,3 +303,6 @@ sandboxPath = "sandbox/sandbox.jar"
 
 navigatorPath :: FilePath
 navigatorPath = "navigator/navigator.jar"
+
+damlcPath :: FilePath
+damlcPath = "damlc/da-hs-damlc-app"

@@ -48,6 +48,7 @@ tests tmpDir = testGroup "Integration tests"
           callProcessQuiet (tarballDir </> "install.sh") []
     , testCase "daml version" $ callProcessQuiet "daml" ["version"]
     , testCase "daml --help" $ callProcessQuiet "daml" ["--help"]
+    , testCase "daml test" $ callProcessQuiet "daml" ["test"]
     , testCase "daml new --list" $ callProcessQuiet "daml" ["new", "--list"]
     , quickstartTests quickstartDir mvnDir
     ]
