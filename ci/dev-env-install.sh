@@ -6,6 +6,7 @@
 
 # Installs nix on a fresh machine
 set -euo pipefail
+shopt -s nullglob
 
 ## Functions ##
 
@@ -27,7 +28,7 @@ if [[ ! -e /nix ]]; then
   if [[ $(uname -s) == "Darwin" ]]; then
       curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
   else
-      curl -sfL https://nixos.org/releases/nix/nix-2.2.2/install | bash
+      curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
   fi
 fi
 
@@ -36,5 +37,12 @@ source dev-env/lib/ensure-nix
 
 export NIX_CONF_DIR=$PWD/dev-env/etc
 
+step "Cleaning up nix store to make sure that we redownload"
+for res in result*; do
+    unlink $res
+done
+nix-store --gc --print-roots
+nix-store --gc
+
 step "Building dev-env dependencies"
-nix-build nix -A tools -A cached
+nix-build nix -A tools -A cached --no-out-link
