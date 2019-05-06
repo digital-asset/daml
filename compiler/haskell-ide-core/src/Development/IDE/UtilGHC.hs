@@ -24,6 +24,9 @@ module Development.IDE.UtilGHC(
     importGenerated,
     mkImport,
     runGhcFast,
+    setImports,
+    setPackageState,
+    setThisInstalledUnitId,
     modIsInternal
     ) where
 
@@ -165,6 +168,23 @@ fakeSettings = Settings
 
 fakeLlvmConfig :: (LlvmTargets, LlvmPasses)
 fakeLlvmConfig = ([], [])
+
+
+setThisInstalledUnitId :: UnitId -> DynFlags -> DynFlags
+setThisInstalledUnitId unitId dflags =
+  dflags {thisInstalledUnitId = toInstalledUnitId unitId}
+
+setImports :: [FilePath] -> DynFlags -> DynFlags
+setImports paths dflags = dflags { importPaths = paths }
+
+setPackageState :: PackageState -> DynFlags -> DynFlags
+setPackageState state dflags =
+  dflags
+    { pkgDatabase = pkgStateDb state
+    , pkgState = pkgStateState state
+    , thisUnitIdInsts_ = pkgThisUnitIdInsts state
+    }
+
 
 
 -- Orphan instances for types from the GHC API.
