@@ -24,7 +24,7 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception.Safe
 import Control.Monad
-import Control.Monad.Extra
+import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.Loops (untilJust)
 import Data.Aeson
 import Data.Aeson.Text
