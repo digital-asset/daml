@@ -72,6 +72,10 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val initialRecordTime: Timestamp =
     Timestamp.assertFromInstant(timeProvider.getCurrentTime)
+  private val ledgerConfig: Configuration = Configuration(
+    timeModel = timeModel
+  )
+  private val ledgerId: LedgerId = Ref.SimpleString.assertFromString(UUID.randomUUID().toString)
 
   /**
     * Task to send out transient heartbeat events to subscribers.
@@ -182,7 +186,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
           submitterInfo.applicationId,
           submitterInfo.commandId))
 
-      LedgerState(prevState.ledgerId, ledger, prevState.packages, activeContracts, duplicationCheck)
+      LedgerState(ledger, prevState.packages, activeContracts, duplicationCheck)
     }
   }
 
@@ -381,17 +385,18 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   private def mkOffset(offset: Int): Offset =
     Offset(Array(offset.toLong))
 
-  override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+  override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = {
     Source.single(
       LedgerInitialConditions(
-        ledgerId = StateController.getState.ledgerId,
+        ledgerId = ledgerId,
+        config = ledgerConfig,
         initialRecordTime = initialRecordTime
       )
     )
+  }
 
   private def emptyLedgerState = {
     LedgerState(
-      Ref.SimpleString.assertFromString(UUID.randomUUID().toString),
       List(),
       Map.empty,
       Map.empty[AbsoluteContractId, AbsoluteContractInst],
@@ -403,7 +408,6 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     * The state of the ledger, which must be updated atomically.
     */
   case class LedgerState(
-      ledgerId: LedgerId,
       ledger: List[v1.Update],
       packages: Map[Ref.PackageId, (Ast.Package, Archive)],
       activeContracts: Map[AbsoluteContractId, AbsoluteContractInst],

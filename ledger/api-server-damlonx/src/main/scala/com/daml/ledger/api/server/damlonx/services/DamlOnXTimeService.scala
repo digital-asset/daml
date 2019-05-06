@@ -8,7 +8,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v1.IndexService
 import com.digitalasset.api.util.TimestampConversion.fromInstant
-import com.digitalasset.daml.lf.data.Ref.SimpleString
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.testing.time_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -24,22 +23,17 @@ class DamlOnXTimeService(indexService: IndexService)(
     protected val esf: ExecutionSequencerFactory)
     extends TimeServiceAkkaGrpc
     with AutoCloseable
-    with GrpcApiService
-    with DamlOnXServiceUtils {
+    with GrpcApiService {
 
   override def close(): Unit = ()
 
   override protected def getTimeSource(
       request: GetTimeRequest): Source[GetTimeResponse, NotUsed] = {
 
-    val ledgerId = SimpleString.assertFromString(request.ledgerId)
-    Source
-      .fromFuture(consumeAsyncResult(indexService.getLedgerRecordTimeStream(ledgerId)))
-      .flatMapConcat { recordTimes =>
-        recordTimes.map { recordTime =>
-          // TODO(JM): More direct timestamp conversion
-          GetTimeResponse(Some(fromInstant(recordTime.toInstant)))
-        }
+    indexService.getLedgerRecordTimeStream
+      .map { recordTime =>
+        // TODO(JM): More direct timestamp conversion
+        GetTimeResponse(Some(fromInstant(recordTime.toInstant)))
       }
   }
 

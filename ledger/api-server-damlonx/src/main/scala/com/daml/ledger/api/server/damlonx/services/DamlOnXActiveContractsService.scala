@@ -11,7 +11,6 @@ import com.daml.ledger.participant.state.index.v1.{
   ActiveContractSetSnapshot,
   IndexService
 }
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service._
@@ -38,8 +37,7 @@ class DamlOnXActiveContractsService private (
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory)
     extends ActiveContractsServiceAkkaGrpc
-    with ErrorFactories
-    with DamlOnXServiceUtils {
+    with ErrorFactories {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val txFilterValidator = new TransactionFilterValidator(identifierResolver)
@@ -54,12 +52,7 @@ class DamlOnXActiveContractsService private (
         Source.failed, { filter =>
           Source
             .fromFuture(
-              consumeAsyncResult(
-                indexService.getActiveContractSetSnapshot(
-                  Ref.SimpleString.assertFromString(request.ledgerId),
-                  filter
-                )
-              )
+              indexService.getActiveContractSetSnapshot(filter)
             )
             .flatMapConcat { (snapshot: ActiveContractSetSnapshot) =>
               snapshot.activeContracts

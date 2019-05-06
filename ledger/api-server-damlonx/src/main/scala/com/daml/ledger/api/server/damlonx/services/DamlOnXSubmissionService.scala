@@ -62,8 +62,7 @@ class DamlOnXSubmissionService private (
 )(implicit ec: ExecutionContext, mat: ActorMaterializer)
     extends CommandSubmissionService
     with ErrorFactories
-    with AutoCloseable
-    with DamlOnXServiceUtils {
+    with AutoCloseable {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -81,16 +80,13 @@ class DamlOnXSubmissionService private (
     val ledgerId = Ref.SimpleString.assertFromString(commands.ledgerId.unwrap)
     val getPackage =
       (packageId: Ref.PackageId) =>
-        consumeAsyncResult(
-          indexService.getPackage(ledgerId, packageId)
-        ).flatMap { optArchive =>
-          Future.fromTry(Try(optArchive.map(Decode.decodeArchive(_)._2)))
-      }
+        indexService
+          .getPackage(packageId)
+          .flatMap { optArchive =>
+            Future.fromTry(Try(optArchive.map(Decode.decodeArchive(_)._2)))
+        }
     val getContract =
-      (coid: AbsoluteContractId) =>
-        consumeAsyncResult(
-          indexService
-            .lookupActiveContract(ledgerId, coid))
+      (coid: AbsoluteContractId) => indexService.lookupActiveContract(coid)
 
     consume(engine.submit(commands.commands))(getPackage, getContract)
       .flatMap {
