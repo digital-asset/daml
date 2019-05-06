@@ -36,8 +36,10 @@ module Development.IDE.Types.Diagnostics (
   Diagnostics,
   setStageDiagnostics,
   getStageDiagnostics,
-  setStageDiagnostics,
-  getAllDiagnostics
+  getAllDiagnostics,
+  filterDiagnostics,
+  getFileDiagnostics,
+  prettyDiagnostics
   ) where
 
 import Control.Exception
@@ -296,11 +298,13 @@ getAllDiagnostics =
 getFileDiagnostics ::
     FilePath ->
     Diagnostics stage ->
-    [LSP.Diagnostic]
-getFileDiagnostics fp =
-    maybe [] getDiagnosticsFromStore .
-    Map.lookup (filePathToUri fp) .
-    getStore
+    IO [LSP.Diagnostic]
+getFileDiagnostics fp ds = do
+    uri <- toUri fp
+    pure $
+        maybe [] getDiagnosticsFromStore $
+        Map.lookup uri $
+        getStore ds
 
 getStageDiagnostics ::
     Show stage =>
