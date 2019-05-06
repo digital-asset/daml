@@ -47,7 +47,7 @@ cleanUp s = runManaged $ do
 -- | The CI env doesn't have a home directory so set and unset it if it doesn't exist
 withHomeDir :: IO (Maybe String)
 withHomeDir = do
-    home <- lookupEnv "HOME"
+    home <- getEnv "HOME"
     case home of
         Nothing -> fakeHome
         Just "" -> fakeHome
