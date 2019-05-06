@@ -44,6 +44,6 @@ haskell_library(
 )
 
 cc_import(
-    name = "cbits",
+    name = "wai-app-static-cbits",
     visibility = ["//visibility:public"],
 )

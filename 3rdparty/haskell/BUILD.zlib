@@ -7,7 +7,7 @@ load("@io_tweag_rules_haskell//haskell:haskell.bzl",
 load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
 
 cc_library(
-  name = "cbits",
+  name = "zlib-cbits",
   hdrs = glob(["cbits/*.h"]),
   srcs = glob(["cbits/*.c"]),
   strip_include_prefix = "cbits",
@@ -21,7 +21,7 @@ haskell_library(
     "Codec/Compression/Zlib/*.hsc",
   ]),
   deps = [
-      ":cbits",
+      ":zlib-cbits",
       hazel_library("base"),
       hazel_library("bytestring"),
       hazel_library("ghc-prim"),

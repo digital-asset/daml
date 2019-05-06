@@ -9,7 +9,7 @@ load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
 load("@os_info//:os_info.bzl", "is_windows")
 
 cc_library(
-  name = "cbits",
+  name = "streaming-commons-cbits",
   hdrs = glob(["include/*.h"]),
   srcs = glob(["cbits/*.c"]),
   strip_include_prefix = "include",
@@ -27,7 +27,7 @@ haskell_library(
     "System/**/*.hs",
   ] + ([ "System/Win32File.hsc" ] if is_windows else [] ) ),
   deps = [
-      ":cbits",
+      ":streaming-commons-cbits",
       hazel_library("base"),
       hazel_library("array"),
       hazel_library("async"),

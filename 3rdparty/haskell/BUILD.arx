@@ -21,6 +21,6 @@ haskell_binary(
     ],
 )
 cc_library(
-  name = "cbits",
+  name = "arx-cbits",
   visibility = ["//visibility:public"],
 )

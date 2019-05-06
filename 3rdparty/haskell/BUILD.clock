@@ -29,7 +29,7 @@ cc_library(
 )
 
 cc_library(
-  name = "cbits",
+  name = "clock-cbits",
   deps = select({
     "@bazel_tools//src/conditions:darwin": [":cbits-darwin"],
     "@bazel_tools//src/conditions:windows": [":cbits-windows"],
@@ -50,7 +50,7 @@ haskell_library(
   deps = [
       hazel_library("base"),
       hazel_library("ghc-prim"),
-      ":cbits",
+      ":clock-cbits",
   ],
   package_name = "clock",
   version = "0.7.2",

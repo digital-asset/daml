@@ -15,7 +15,7 @@ index 61994e4..7b05a9c 100644
              doc = """Library version. Not normally necessary unless to build a library
              originally defined as a Cabal package. If this is specified, CPP version macro will be generated.""",
 diff --git a/haskell/private/haskell_impl.bzl b/haskell/private/haskell_impl.bzl
-index 2f107a3..ae51cc0 100644
+index a58239f..a05fe0a 100644
 --- a/haskell/private/haskell_impl.bzl
 +++ b/haskell/private/haskell_impl.bzl
 @@ -313,8 +313,9 @@ def haskell_library_impl(ctx):
