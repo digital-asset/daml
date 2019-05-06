@@ -10,8 +10,8 @@ import java.util.concurrent.{Executors, TimeUnit}
 import akka.stream.DelayOverflowStrategy
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.platform.akkastreams.dispatcher.{Dispatcher, SteppingMode}
-import com.digitalasset.platform.akkastreams.dispatcher.SteppingMode.{OneAfterAnother, RangeQuery}
+import com.digitalasset.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
+import com.digitalasset.platform.akkastreams.dispatcher.SubSource.{OneAfterAnother, RangeSource}
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
@@ -139,11 +139,11 @@ class DispatcherSpec
           store.get()(i)
       })
 
-  private val rangeQuerySteppingMode = RangeQuery[Index, Value](
+  private val rangeQuerySteppingMode = RangeSource[Index, Value](
     (startInclusive, endExclusive) => Source(store.get().range(startInclusive, endExclusive))
   )
 
-  private def slowRangeQuerySteppingMode(delayMs: Int) = RangeQuery[Index, Value](
+  private def slowRangeQuerySteppingMode(delayMs: Int) = RangeSource[Index, Value](
     (startInclusive, endExclusive) =>
       Source(store.get().range(startInclusive, endExclusive))
         .throttle(1, delayMs.milliseconds * 2)
@@ -152,10 +152,10 @@ class DispatcherSpec
   def vanillaDispatcher(
       begin: Index = genesis,
       end: Index = genesis,
-      steppingMode: SteppingMode[Index, Value]): Dispatcher[Index, Value] =
+      steppingMode: SubSource[Index, Value]): Dispatcher[Index, Value] =
     Dispatcher[Index, Value](steppingMode, begin, end)
 
-  def slowDispatcher(steppingMode: SteppingMode[Index, Value]): Dispatcher[Index, Value] =
+  def slowDispatcher(steppingMode: SubSource[Index, Value]): Dispatcher[Index, Value] =
     Dispatcher[Index, Value](
       steppingMode,
       genesis,
@@ -164,8 +164,8 @@ class DispatcherSpec
 
   private def forAllSteppingModes(
       oneAfterAnother: OneAfterAnother[Index, Value] = oneAfterAnotherSteppingMode,
-      rangeQuery: RangeQuery[Index, Value] = rangeQuerySteppingMode)(
-      f: SteppingMode[Index, Value] => Future[Assertion]): Future[Assertion] =
+      rangeQuery: RangeSource[Index, Value] = rangeQuerySteppingMode)(
+      f: SubSource[Index, Value] => Future[Assertion]): Future[Assertion] =
     for {
       _ <- f(oneAfterAnother)
       _ = clearUp()

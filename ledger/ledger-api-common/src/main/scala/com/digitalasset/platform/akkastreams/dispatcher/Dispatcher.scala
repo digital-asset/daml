@@ -43,7 +43,7 @@ object Dispatcher {
     * @return A new Dispatcher.
     */
   def apply[Index: Ordering, T](
-      steppingMode: SteppingMode[Index, T],
+      steppingMode: SubSource[Index, T],
       zeroIndex: Index,
       headAtInitialization: Index): Dispatcher[Index, T] =
     new DispatcherImpl[Index, T](steppingMode, zeroIndex, headAtInitialization)

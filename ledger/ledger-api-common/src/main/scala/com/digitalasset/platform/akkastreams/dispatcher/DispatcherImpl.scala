@@ -7,17 +7,14 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.platform.akkastreams.dispatcher.SteppingMode.{OneAfterAnother, RangeQuery}
-import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.github.ghik.silencer.silent
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
-import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class DispatcherImpl[Index: Ordering, T](
-    steppingMode: SteppingMode[Index, T],
+    subsource: SubSource[Index, T],
     zeroIndex: Index,
     headAtInitialization: Index)
     extends Dispatcher[Index, T] {
@@ -88,25 +85,6 @@ final class DispatcherImpl[Index: Ordering, T](
           Source.failed(new IllegalArgumentException(
             s"Invalid index section: start '$start' is after end '$end'"))
         else startingAt(start).takeWhile(_._1 != end, inclusive = true))
-
-  /** Gets all values from start, inclusive, to end, exclusive. */
-  private def subsource(start: Index, end: Index): Source[(Index, T), NotUsed] =
-    //TODO: stepping mode could be this function and have the implementation as factories
-    steppingMode match {
-      case OneAfterAnother(readSuccessor, readElement) =>
-        Source
-          .unfoldAsync[Index, (Index, T)](start) { i =>
-            if (i == end) Future.successful(None)
-            else
-              readElement(i).map { t =>
-                val nextIndex = readSuccessor(i, t)
-                Some((nextIndex, (i, t)))
-              }(DirectExecutionContext)
-          }
-
-      case RangeQuery(queryRange) =>
-        queryRange(start, end)
-    }
 
   // noinspection MatchToPartialFunction, ScalaUnusedSymbol
   override def startingAt(start: Index): Source[(Index, T), NotUsed] =

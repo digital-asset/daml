@@ -9,7 +9,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
-import com.digitalasset.platform.akkastreams.dispatcher.SteppingMode.OneAfterAnother
+import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{Matchers, WordSpec}
