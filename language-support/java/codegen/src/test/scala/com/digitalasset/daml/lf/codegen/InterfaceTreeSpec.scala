@@ -23,17 +23,17 @@ class InterfaceTreeSpec extends FlatSpec with Matchers {
 
   it should "traverse a tree with n elements in bfs order" in {
     val qualifiedName1 = QualifiedName(
-      DottedName.assertFromSegments(ImmArray("foo")),
-      DottedName.assertFromSegments(ImmArray("bar")))
+      DottedName.assertFromStrings(ImmArray("foo")),
+      DottedName.assertFromStrings(ImmArray("bar")))
     val record1 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
     val qualifiedName2 =
       QualifiedName(
-        DottedName.assertFromSegments(ImmArray("foo")),
-        DottedName.assertFromSegments(ImmArray("bar", "baz")))
+        DottedName.assertFromStrings(ImmArray("foo")),
+        DottedName.assertFromStrings(ImmArray("bar", "baz")))
     val variant1 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Variant(ImmArraySeq())))
     val qualifiedName3 = QualifiedName(
-      DottedName.assertFromSegments(ImmArray("foo")),
-      DottedName.assertFromSegments(ImmArray("qux")))
+      DottedName.assertFromStrings(ImmArray("foo")),
+      DottedName.assertFromStrings(ImmArray("qux")))
     val record2 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
     val typeDecls =
       Map(qualifiedName1 -> record1, qualifiedName2 -> variant1, qualifiedName3 -> record2)

@@ -22,8 +22,8 @@ case object DamlConstants {
   def id(name: String): DamlLfIdentifier = DamlLfIdentifier(
     packageId0,
     DamlLfQualifiedName(
-      DamlLfDottedName.assertFromSegments(DamlLfImmArray("module")),
-      DamlLfDottedName.assertFromSegments(DamlLfImmArray(name))
+      DamlLfDottedName.assertFromStrings(DamlLfImmArray("module")),
+      DamlLfDottedName.assertFromStrings(DamlLfImmArray(name))
     )
   )
   val id0: DamlLfIdentifier = id("T0")

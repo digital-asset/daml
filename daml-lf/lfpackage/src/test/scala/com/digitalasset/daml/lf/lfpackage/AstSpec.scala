@@ -51,7 +51,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     val variantDef = DDataType(true, ImmArray.empty, DataVariant(ImmArray.empty))
     val valDef = DValue(tUnit, false, eUnit, false)
 
-    def defName(s: String) = DottedName.assertFromSegments(ImmArray(s))
+    def defName(s: String) = DottedName.assertFromStrings(ImmArray(s))
 
     "catch definition name collisions" in {
 
@@ -192,8 +192,8 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     }
   }
 
-  private val modName1 = DottedName.assertFromSegments(ImmArray("Mod1"))
-  private val modName2 = DottedName.assertFromSegments(ImmArray("Mod2"))
+  private val modName1 = DottedName.assertFromStrings(ImmArray("Mod1"))
+  private val modName2 = DottedName.assertFromStrings(ImmArray("Mod2"))
 
   private val tUnit = TBuiltin(BTUnit)
   private val tBool = TBuiltin(BTUnit)

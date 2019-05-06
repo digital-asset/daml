@@ -27,7 +27,15 @@ object Ref {
     segments.result()
   }
 
-  final class DottedName private (val segments: ImmArray[String]) extends Equals {
+  // We are very restrictive with regards to identifiers, taking inspiration
+  // from the lexical structure of Java:
+  // <https://docs.oracle.com/javase/specs/jls/se10/html/jls-3.html#jls-3.8>.
+  //
+  // In a language like C# you'll need to use some other unicode char for `$`.
+  val Identifier = MatchingStringModule("""[A-Za-z\$_][A-Za-z0-9\$_]*""".r)
+  type Identifier = Identifier.T
+
+  final class DottedName private (val segments: ImmArray[Identifier]) extends Equals {
     def dottedName: String = segments.toSeq.mkString(".")
 
     override def equals(obj: Any): Boolean =
@@ -44,58 +52,43 @@ object Ref {
   }
 
   object DottedName {
-    // We are very restrictive with regards to names, taking inspiration
-    // from the lexical structure of Java:
-    // <https://docs.oracle.com/javase/specs/jls/se10/html/jls-3.html#jls-3.8>.
-    //
-    // In a language like C# you'll need to use some other unicode char for `$`.
-    private val asciiLetter: Set[Char] = Set('a' to 'z': _*) ++ Set('A' to 'Z': _*)
-    private val asciiDigit: Set[Char] = Set('0' to '9': _*)
-    private val allowedSymbols: Set[Char] = Set('_', '$')
-    private val segmentStart: Set[Char] = asciiLetter ++ allowedSymbols
-    private val segmentPart: Set[Char] = asciiLetter ++ asciiDigit ++ allowedSymbols
-
-    def fromString(s: String): Either[String, DottedName] = {
+    def fromString(s: String): Either[String, DottedName] =
       if (s.isEmpty)
-        return Left(s"Expected a non-empty string")
-      val segments = split(s, '.')
-      fromSegments(segments)
-    }
+        Left(s"Expected a non-empty string")
+      else
+        fromStrings(split(s, '.'))
 
     @throws[IllegalArgumentException]
     def assertFromString(s: String): DottedName =
       assert(fromString(s))
 
-    def fromSegments(segments: ImmArray[String]): Either[String, DottedName] = {
-      if (segments.isEmpty) {
-        return Left(s"No segments provided")
-      }
-      var validatedSegments = BackStack.empty[String]
-      for (segment <- segments) {
-        val segmentChars = segment.toArray
-        if (segmentChars.length() == 0) {
-          return Left(s"Empty dotted segment provided in segments ${segments.toList}")
-        }
-        val err = s"Dotted segment $segment contains invalid characters"
-        if (!segmentStart.contains(segmentChars(0))) {
-          return Left(err)
-        }
-        if (!segmentChars.tail.forall(segmentPart.contains)) {
-          return Left(err)
-        }
-        validatedSegments = validatedSegments :+ segment
-      }
-      Right(new DottedName(validatedSegments.toImmArray))
+    def fromStrings(strings: ImmArray[String]): Either[String, DottedName] = {
+      var validatedSegments = BackStack.empty[Identifier]
+      for (string <- strings)
+        Identifier
+          .fromString(string)
+          .fold(
+            e => return Left(e),
+            x => validatedSegments = validatedSegments :+ x
+          )
+      fromSegments(validatedSegments.toImmArray)
     }
 
     @throws[IllegalArgumentException]
-    def assertFromSegments(segments: ImmArray[String]): DottedName =
-      assert(fromSegments(segments))
+    def assertFromStrings(s: ImmArray[String]): DottedName =
+      assert(fromStrings(s))
+
+    def fromSegments(segments: ImmArray[Identifier]): Either[String, DottedName] =
+      Either.cond(segments.nonEmpty, new DottedName(segments), "No segments provided")
+
+    @throws[IllegalArgumentException]
+    def assertFromSegment(segments: ImmArray[Identifier]): DottedName =
+      assert(fromStrings(segments))
 
     /** You better know what you're doing if you use this one -- specifically you need to comply
-      * to the lexical specification embodied by `fromSegments`.
+      * to the lexical specification embodied by `fromStrings`.
       */
-    def unsafeFromSegments(segments: ImmArray[String]): DottedName = {
+    def unsafeFromSegments(segments: ImmArray[Identifier]): DottedName = {
       new DottedName(segments)
     }
   }

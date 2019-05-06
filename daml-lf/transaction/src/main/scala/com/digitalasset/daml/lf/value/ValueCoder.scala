@@ -64,8 +64,8 @@ object ValueCoder {
     */
   def encodeIdentifier(id: DefinitionRef): proto.Identifier = {
     val builder = proto.Identifier.newBuilder().setPackageId(id.packageId)
-    builder.addAllModuleName(id.qualifiedName.module.segments.toSeq.asJava)
-    builder.addAllName(id.qualifiedName.name.segments.toSeq.asJava)
+    builder.addAllModuleName((id.qualifiedName.module.segments.toSeq: Seq[String]).asJava)
+    builder.addAllName((id.qualifiedName.name.segments.toSeq: Seq[String]).asJava)
     builder.build()
   }
 
@@ -99,13 +99,13 @@ object ValueCoder {
 
       moduleSegments = id.getModuleNameList.asScala
       module <- ModuleName
-        .fromSegments(ImmArray(id.getModuleNameList.asScala))
+        .fromStrings(ImmArray(id.getModuleNameList.asScala))
         .left
         .map(err => DecodeError(s"Invalid module segments $moduleSegments: $err"))
 
       nameSegments = ImmArray(id.getNameList.asScala)
       name <- DottedName
-        .fromSegments(nameSegments)
+        .fromStrings(nameSegments)
         .left
         .map(err => DecodeError(s"Invalid name segments $nameSegments: $err"))
 

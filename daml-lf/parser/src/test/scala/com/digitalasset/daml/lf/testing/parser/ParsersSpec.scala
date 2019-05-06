@@ -67,8 +67,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "A.B:C.D" -> DefinitionRef(
           defaultPkgId,
           QualifiedName(
-            DottedName.assertFromSegments(ImmArray("A", "B")),
-            DottedName.assertFromSegments(ImmArray("C", "D"))))
+            DottedName.assertFromStrings(ImmArray("A", "B")),
+            DottedName.assertFromStrings(ImmArray("C", "D"))))
       )
 
       forEvery(testCases)((stringToParse, expectedTypeConstructor) =>
@@ -401,8 +401,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         List(Module(
           name = modName,
           definitions = List(
-            DottedName.assertFromSegments(ImmArray("Tree", "Node")) -> recDef,
-            DottedName.assertFromSegments(ImmArray("Tree")) -> varDef),
+            DottedName.assertFromStrings(ImmArray("Tree", "Node")) -> recDef,
+            DottedName.assertFromStrings(ImmArray("Tree")) -> varDef),
           templates = List.empty,
           languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
