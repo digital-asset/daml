@@ -36,7 +36,10 @@ class FlywayMigrationsSpec extends WordSpec with Matchers {
           val expectedDigest = getExpectedDigest(fileName.dropRight(4) + ".sha256")
           val currentDigest = getCurrentDigest(res)
 
-          currentDigest shouldEqual expectedDigest
+          assert(
+            currentDigest == expectedDigest,
+            s"Digest of migration file $fileName has changed! It is NOT allowed to change neither existing sql migrations files nor their digests!"
+          )
         }
     }
   }
