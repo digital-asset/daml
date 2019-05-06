@@ -4,6 +4,6 @@
 Node.js bindings
 ################
 
-The documentation for the Node.js bindings has been moved to `github.com/digital-asset/daml-js <http://www.github.com/digital-asset/daml-js>`__. 
+The documentation for the Node.js bindings has been moved to `digital-asset.github.io/daml-js <http://digital-asset.github.io/daml-js/>`__. 
 
 You can also try the Node.js bindings tutorial, which is at `github.com/digital-asset/ex-tutorial-nodejs <https://github.com/digital-asset/ex-tutorial-nodejs>`__.
