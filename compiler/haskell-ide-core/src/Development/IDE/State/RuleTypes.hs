@@ -61,7 +61,7 @@ type instance RuleResult GenerateCore = GhcModule
 
 -- | We capture the subset of `DynFlags` that is computed by package initialization in a rule to
 -- make session initialization cheaper by reusing it.
-type instance RuleResult GeneratePackageState = Compile.PackageState
+type instance RuleResult LoadPackageState = Compile.PackageState
 
 -- | Resolve the imports in a module to the list of either external packages or absolute file paths
 -- for modules in the same package.
@@ -123,10 +123,10 @@ data GenerateCore = GenerateCore
 instance Hashable GenerateCore
 instance NFData   GenerateCore
 
-data GeneratePackageState = GeneratePackageState [FilePath] Bool [(String, [(String, String)])]
+data LoadPackageState = LoadPackageState
     deriving (Eq, Show, Typeable, Generic)
-instance Hashable GeneratePackageState
-instance NFData   GeneratePackageState
+instance Hashable LoadPackageState
+instance NFData   LoadPackageState
 
 ------------------------------------------------------------
 -- Orphan Instances

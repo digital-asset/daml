@@ -323,10 +323,12 @@ generateCoreRule =
         opt <- getOpts
         liftIO $ Compile.compileModule opt pm packageState us tms lps tm
 
-generatePackageStateRule :: Rules ()
-generatePackageStateRule =
-    defineNoFile $ \(GeneratePackageState paths hideAllPkgs pkgImports) -> do
-        liftIO $ Compile.generatePackageState paths hideAllPkgs pkgImports
+loadPackageStateRule :: Rules ()
+loadPackageStateRule =
+    defineNoFile $ \LoadPackageState -> do
+        opts <- envOptions <$> getServiceEnv
+        liftIO $ Compile.generatePackageState
+            (Compile.optPackageDbs opts) (Compile.optHideAllPkgs opts) (Compile.optPackageImports opts)
 
 -- | A rule that wires per-file rules together
 mainRule :: Rules ()
@@ -339,7 +341,7 @@ mainRule = do
     typeCheckRule
     getSpanInfoRule
     generateCoreRule
-    generatePackageStateRule
+    loadPackageStateRule
     loadPackageRule
 
 ------------------------------------------------------------
@@ -348,9 +350,7 @@ fileFromParsedModule :: ParsedModule -> IO FilePath
 fileFromParsedModule = pure . ms_hspp_file . pm_mod_summary
 
 getPackageState :: Action PackageState
-getPackageState = do
-  opts <- envOptions <$> getServiceEnv
-  use_ (GeneratePackageState (Compile.optPackageDbs opts) (Compile.optHideAllPkgs opts) (Compile.optPackageImports opts)) ""
+getPackageState = use_ LoadPackageState ""
 
 fileImports ::
      [(Located ModuleName, Maybe Import)]
