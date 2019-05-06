@@ -12,9 +12,11 @@ package object parser {
 
   val defaultLanguageVersion: LanguageVersion = LanguageVersion.default
   val defaultPkgId: PackageId = PackageId.assertFromString("-pkgId-")
-  val defaultModName: ModuleName = DottedName(ImmArray("Mod"))
+  val defaultModName: ModuleName = DottedName.assertFromSegments(ImmArray("Mod"))
   val defaultTemplName: TypeConName =
-    DefinitionRef(defaultPkgId, QualifiedName(defaultModName, DottedName(ImmArray("T"))))
+    DefinitionRef(
+      defaultPkgId,
+      QualifiedName(defaultModName, DottedName.assertFromSegments(ImmArray("T"))))
 
   private def safeParse[T](p: Parsers.Parser[T], s: String): Either[String, T] =
     try {

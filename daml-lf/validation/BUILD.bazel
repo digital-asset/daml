@@ -21,6 +21,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/data",
         "//daml-lf/lfpackage",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
     ],
 )
 

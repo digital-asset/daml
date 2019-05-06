@@ -29,7 +29,7 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
   })
 
   val dottedName: Parser[DottedName] =
-    rep1sep(id, `.`) ^^ (s => DottedName(ImmArray(s)))
+    rep1sep(id, `.`) ^^ (s => DottedName.assertFromSegments(ImmArray(s)))
 
   val fullIdentifier: Parser[DefinitionRef] =
     opt(pkgId <~ `:`) ~ dottedName ~ `:` ~ dottedName ^^ {

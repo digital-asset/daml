@@ -27,9 +27,20 @@ object Ref {
     segments.result()
   }
 
-  case class DottedName private (segments: ImmArray[String]) {
-    override def toString: String = segments.toSeq.mkString(".")
-    def dottedName: String = toString
+  final class DottedName private (val segments: ImmArray[String]) extends Equals {
+    def dottedName: String = segments.toSeq.mkString(".")
+
+    override def equals(obj: Any): Boolean =
+      obj match {
+        case that: DottedName => segments == that.segments
+        case _ => false
+      }
+
+    override def hashCode(): Int = segments.hashCode()
+
+    def canEqual(that: Any): Boolean = that.isInstanceOf[DottedName]
+
+    override def toString: String = dottedName
   }
 
   object DottedName {
@@ -48,14 +59,14 @@ object Ref {
       if (s.isEmpty)
         return Left(s"Expected a non-empty string")
       val segments = split(s, '.')
-      fromSegments(segments.toSeq)
+      fromSegments(segments)
     }
 
     @throws[IllegalArgumentException]
     def assertFromString(s: String): DottedName =
       assert(fromString(s))
 
-    def fromSegments(segments: Iterable[String]): Either[String, DottedName] = {
+    def fromSegments(segments: ImmArray[String]): Either[String, DottedName] = {
       if (segments.isEmpty) {
         return Left(s"No segments provided")
       }
@@ -74,11 +85,11 @@ object Ref {
         }
         validatedSegments = validatedSegments :+ segment
       }
-      Right(DottedName(validatedSegments.toImmArray))
+      Right(new DottedName(validatedSegments.toImmArray))
     }
 
     @throws[IllegalArgumentException]
-    def assertFromSegments(segments: Iterable[String]): DottedName =
+    def assertFromSegments(segments: ImmArray[String]): DottedName =
       assert(fromSegments(segments))
 
     /** You better know what you're doing if you use this one -- specifically you need to comply

@@ -105,7 +105,7 @@ object ValueGenerators {
   val moduleGen: Gen[ModuleName] = for {
     n <- Gen.choose(1, 10)
     segments <- Gen.listOfN(n, moduleSegmentGen)
-  } yield ModuleName.assertFromSegments(segments)
+  } yield ModuleName.assertFromSegments(ImmArray(segments))
 
   val dottedNameSegmentGen: Gen[String] = for {
     ch <- Gen.alphaLowerChar
@@ -115,7 +115,7 @@ object ValueGenerators {
   val dottedNameGen: Gen[DottedName] = for {
     n <- Gen.choose(1, 10)
     segments <- Gen.listOfN(n, dottedNameSegmentGen)
-  } yield DottedName.assertFromSegments(segments)
+  } yield DottedName.assertFromSegments(ImmArray(segments))
 
   // generate a junk identifier
   val idGen: Gen[DefinitionRef] = for {

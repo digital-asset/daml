@@ -99,11 +99,11 @@ object ValueCoder {
 
       moduleSegments = id.getModuleNameList.asScala
       module <- ModuleName
-        .fromSegments(id.getModuleNameList.asScala)
+        .fromSegments(ImmArray(id.getModuleNameList.asScala))
         .left
         .map(err => DecodeError(s"Invalid module segments $moduleSegments: $err"))
 
-      nameSegments = id.getNameList.asScala
+      nameSegments = ImmArray(id.getNameList.asScala)
       name <- DottedName
         .fromSegments(nameSegments)
         .left

@@ -19,13 +19,13 @@ class ContractFilterSpec extends FlatSpec with Matchers {
   val damlLfId0 = DamlLfIdentifier(
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
-      DamlLfDottedName(DamlLfImmArray("module")),
-      DamlLfDottedName(DamlLfImmArray("T0"))))
+      DamlLfDottedName.assertFromString("module"),
+      DamlLfDottedName.assertFromString("T0")))
   val damlLfId1 = DamlLfIdentifier(
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
-      DamlLfDottedName(DamlLfImmArray("module")),
-      DamlLfDottedName(DamlLfImmArray("T1"))))
+      DamlLfDottedName.assertFromString("module"),
+      DamlLfDottedName.assertFromString("T1")))
 
   val damlLfRecord0 = DamlLfDefDataType(
     DamlLfImmArraySeq(),

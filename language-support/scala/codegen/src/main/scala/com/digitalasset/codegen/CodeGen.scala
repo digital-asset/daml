@@ -253,7 +253,7 @@ object CodeGen {
               val syntheticRecord = DefinitionRef(
                 packageId,
                 qualName copy (name =
-                  DottedName.assertFromSegments(qualName.name.segments.slowSnoc(vn).toSeq)))
+                  DottedName.assertFromSegments(qualName.name.segments.slowSnoc(vn))))
               val key = (syntheticRecord, vTypeVars.toList)
               typeVarDelegate(vt)
                 .filter((_: DefinitionRef) == syntheticRecord)

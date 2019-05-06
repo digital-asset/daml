@@ -66,7 +66,9 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "'-pkgId-':Mod:T" -> T.tycon,
         "A.B:C.D" -> DefinitionRef(
           defaultPkgId,
-          QualifiedName(DottedName(ImmArray("A", "B")), DottedName(ImmArray("C", "D"))))
+          QualifiedName(
+            DottedName.assertFromSegments(ImmArray("A", "B")),
+            DottedName.assertFromSegments(ImmArray("C", "D"))))
       )
 
       forEvery(testCases)((stringToParse, expectedTypeConstructor) =>
@@ -399,8 +401,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         List(Module(
           name = modName,
           definitions = List(
-            DottedName(ImmArray("Tree", "Node")) -> recDef,
-            DottedName(ImmArray("Tree")) -> varDef),
+            DottedName.assertFromSegments(ImmArray("Tree", "Node")) -> recDef,
+            DottedName.assertFromSegments(ImmArray("Tree")) -> varDef),
           templates = List.empty,
           languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
@@ -425,7 +427,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       parseModules(p) shouldBe Right(
         List(Module(
           name = modName,
-          definitions = List(DottedName(ImmArray("fact")) -> valDef),
+          definitions = List(DottedName.assertFromString("fact") -> valDef),
           templates = List.empty,
           languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
@@ -493,7 +495,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       parseModules(p) shouldBe Right(
         List(Module(
           name = modName,
-          definitions = List(DottedName(ImmArray("Person")) -> recDef),
+          definitions = List(DottedName.assertFromString("Person") -> recDef),
           templates = List.empty,
           languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
@@ -538,7 +540,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       parseModules(p) shouldBe Right(
         List(Module(
           name = modName,
-          definitions = List(DottedName(ImmArray("R")) -> recDef),
+          definitions = List(DottedName.assertFromString("R") -> recDef),
           templates = List.empty,
           languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
@@ -563,10 +565,10 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
     "to",
   )
 
-  private val modName = DottedName(ImmArray("Mod"))
+  private val modName = DottedName.assertFromString("Mod")
 
   private def qualify(s: String) =
-    DefinitionRef(defaultPkgId, QualifiedName(modName, DottedName(ImmArray(s))))
+    DefinitionRef(defaultPkgId, QualifiedName(modName, DottedName.assertFromString(s)))
 
   private val T: TTyCon = TTyCon(qualify("T"))
   private val R: TTyCon = TTyCon(qualify("R"))

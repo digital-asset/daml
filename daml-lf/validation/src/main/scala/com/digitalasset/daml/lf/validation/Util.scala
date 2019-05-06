@@ -27,13 +27,13 @@ private[validation] object Util {
 
   implicit final class DottedNameOps(val name: DottedName) extends AnyVal {
     def ++(other: DottedName): DottedName =
-      DottedName(name.segments.slowAppend(other.segments))
+      DottedName.unsafeFromSegments(name.segments.slowAppend(other.segments))
 
     def +(id: String): DottedName =
-      DottedName(name.segments.slowSnoc(id))
+      DottedName.assertFromSegments(name.segments.slowSnoc(id))
 
     def toUpperCase: DottedName =
-      DottedName(name.segments.map(_.toUpperCase))
+      DottedName.unsafeFromSegments(name.segments.map(_.toUpperCase))
   }
 
 }

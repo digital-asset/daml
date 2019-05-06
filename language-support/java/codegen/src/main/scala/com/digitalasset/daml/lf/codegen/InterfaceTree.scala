@@ -108,9 +108,11 @@ private[codegen] final case class TypeWithContext(
     modulesLineage.toImmArray.slowAppend[(String, Node)](typesLineage.toImmArray)
 
   /* The name of this in the module */
-  def fullName: Ref.DottedName = Ref.DottedName(typesLineage.map(_._1).:+(name).toImmArray)
+  def fullName: Ref.DottedName =
+    Ref.DottedName.assertFromSegments(typesLineage.map(_._1).:+(name).toImmArray)
 
-  def module: Ref.ModuleName = Ref.ModuleName(modulesLineage.map(_._1).toImmArray)
+  def module: Ref.ModuleName =
+    Ref.ModuleName.assertFromSegments(modulesLineage.map(_._1).toImmArray)
 
   def qualifiedName: QualifiedName = QualifiedName(module, fullName)
 

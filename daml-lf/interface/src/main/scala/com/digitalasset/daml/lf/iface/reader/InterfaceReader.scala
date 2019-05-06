@@ -134,7 +134,7 @@ object InterfaceReader {
     dottedName(a.getName)
 
   private[reader] def dottedName(a: DamlLf1.DottedName): InterfaceReaderError \/ DottedName =
-    DottedName.fromSegments(a.getSegmentsList.asScala) match {
+    DottedName.fromSegments(ImmArray(a.getSegmentsList.asScala)) match {
       case Left(err) => -\/(invalidDataTypeDefinition(a, s"Couldn't parse dotted name: $err"))
       case Right(x) => \/-(x)
     }
