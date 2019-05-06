@@ -126,9 +126,8 @@ object DamlOnXCommandCompletionService {
   def create(indexService: IndexService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory): CommandCompletionServiceValidation
-    with BindableService
-    with CommandCompletionServiceLogging = {
+      esf: ExecutionSequencerFactory)
+    : CommandCompletionServiceValidation with BindableService with CommandCompletionServiceLogging = {
 
     val ledgerId = Await.result(indexService.getLedgerId(), 5.seconds)
     new CommandCompletionServiceValidation(
