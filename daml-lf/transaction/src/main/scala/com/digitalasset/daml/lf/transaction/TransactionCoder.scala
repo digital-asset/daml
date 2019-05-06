@@ -156,45 +156,38 @@ object TransactionCoder {
           argValue <- encodeVal(e.chosenValue)
           (vversion, arg) = argValue
           retValue <- e.exerciseResult traverseU encodeVal
-        } yield {
-          val exBuilder =
-            TransactionOuterClass.NodeExercise
-              .newBuilder()
-              .setChoice(e.choiceId)
-              .setTemplateId(ValueCoder.encodeIdentifier(e.templateId, Some(vversion))._2)
-              .setChosenValue(arg)
-              .setConsuming(e.consuming)
-              .setContractIdOrStruct(encodeCid, transactionVersion, e.targetCoid)(
-                _.setContractId(_),
-                _.setContractIdStruct(_))
-              .addAllActors(e.actingParties.map(_.underlyingString).asJava)
-              .addAllChildren(e.children.map(encodeNid).toList.asJava)
-              .addAllSignatories(e.signatories.map(_.underlyingString).asJava)
-              .addAllStakeholders(e.stakeholders.map(_.underlyingString).asJava)
-
-          if (transactionVersion precedes minNoControllers) {
+          exBuilder = TransactionOuterClass.NodeExercise
+            .newBuilder()
+            .setChoice(e.choiceId)
+            .setTemplateId(ValueCoder.encodeIdentifier(e.templateId, Some(vversion))._2)
+            .setChosenValue(arg)
+            .setConsuming(e.consuming)
+            .setContractIdOrStruct(encodeCid, transactionVersion, e.targetCoid)(
+              _.setContractId(_),
+              _.setContractIdStruct(_))
+            .addAllActors(e.actingParties.map(_.underlyingString).asJava)
+            .addAllChildren(e.children.map(encodeNid).toList.asJava)
+            .addAllSignatories(e.signatories.map(_.underlyingString).asJava)
+            .addAllStakeholders(e.stakeholders.map(_.underlyingString).asJava)
+          _ <- if (transactionVersion precedes minNoControllers) {
             if (e.controllers == e.actingParties) {
               exBuilder.addAllControllers(e.controllers.map(_.underlyingString).asJava)
+              Right(())
             } else {
-              return Left(EncodeError(
+              Left(EncodeError(
                 s"As of version $transactionVersion, the controllers and actingParties of an exercise node _must_ be the same, but I got ${e.controllers} as controllers and ${e.actingParties} as actingParties."))
             }
+          } else Right(())
+          _ <- (retValue, transactionVersion precedes minExerciseResult) match {
+            case (Some(rv), false) =>
+              exBuilder.setReturnValue(rv._2)
+              Right(())
+            case (None, false) =>
+              Left(EncodeError(
+                s"Trying to encode transaction of version $transactionVersion, which requires the exercise return value, but did not get exercise return value in node."))
+            case (_, true) => Right(())
           }
-
-          retValue match {
-            case Some(rv) =>
-              if (!(transactionVersion precedes minExerciseResult)) {
-                exBuilder.setReturnValue(rv._2)
-              }
-            case None =>
-              if (!(transactionVersion precedes minExerciseResult)) {
-                return Left(EncodeError(
-                  s"Trying to encode transaction of version $transactionVersion, which requires the exercise return value, but did not get exercise return value in node."))
-              }
-          }
-
-          nodeBuilder.setExercise(exBuilder).build()
-        }
+        } yield nodeBuilder.setExercise(exBuilder).build()
 
       case nlbk: NodeLookupByKey[Cid, Val] =>
         if (transactionVersion precedes minKeyOrLookupByKey)

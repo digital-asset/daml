@@ -803,13 +803,16 @@ object SBuiltinTest {
 
   private def eval(e: Expr): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromExpr(e, PureCompiledPackages(Map.empty).right.get, false)
-    while (!machine.isFinal) machine.step() match {
-      case SResultContinue => ()
-      case SResultError(err) => return Left(err)
-      case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-    }
+    final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
+    try {
+      while (!machine.isFinal) machine.step() match {
+        case SResultContinue => ()
+        case SResultError(err) => throw Goodbye(err)
+        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
+      }
 
-    Right(machine.toSValue())
+      Right(machine.toSValue())
+    } catch { case Goodbye(err) => Left(err) }
   }
 
   def intList(xs: Long*): String =

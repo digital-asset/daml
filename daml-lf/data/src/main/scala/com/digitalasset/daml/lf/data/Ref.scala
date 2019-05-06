@@ -86,38 +86,33 @@ object Ref {
     private val segmentStart: Set[Char] = asciiLetter ++ allowedSymbols
     private val segmentPart: Set[Char] = asciiLetter ++ asciiDigit ++ allowedSymbols
 
-    def fromString(s: String): Either[String, DottedName] = {
+    def fromString(s: String): Either[String, DottedName] =
       if (s.isEmpty)
-        return Left(s"Expected a non-empty string")
-      val segments = split(s, '.')
-      fromSegments(segments.toSeq)
-    }
+        Left(s"Expected a non-empty string")
+      else {
+        val segments = split(s, '.')
+        fromSegments(segments.toSeq)
+      }
 
     @throws[IllegalArgumentException]
     def assertFromString(s: String): DottedName =
       assert(fromString(s))
 
-    def fromSegments(segments: Iterable[String]): Either[String, DottedName] = {
-      if (segments.isEmpty) {
-        return Left(s"No segments provided")
+    def fromSegments(segments: Iterable[String]): Either[String, DottedName] =
+      if (segments.isEmpty)
+        Left(s"No segments provided")
+      else {
+        val firstError = segments collectFirst (Function unlift { segment =>
+          val segmentChars = segment.toArray
+          if (segmentChars.length() == 0)
+            Some(s"Empty dotted segment provided in segments ${segments.toList}")
+          else if (!segmentStart.contains(segmentChars(0)) || !segmentChars.tail.forall(
+              segmentPart.contains))
+            Some(s"Dotted segment $segment contains invalid characters")
+          else None
+        })
+        firstError toLeft DottedName(ImmArray(segments))
       }
-      var validatedSegments = BackStack.empty[String]
-      for (segment <- segments) {
-        val segmentChars = segment.toArray
-        if (segmentChars.length() == 0) {
-          return Left(s"Empty dotted segment provided in segments ${segments.toList}")
-        }
-        val err = s"Dotted segment $segment contains invalid characters"
-        if (!segmentStart.contains(segmentChars(0))) {
-          return Left(err)
-        }
-        if (!segmentChars.tail.forall(segmentPart.contains)) {
-          return Left(err)
-        }
-        validatedSegments = validatedSegments :+ segment
-      }
-      Right(DottedName(validatedSegments.toImmArray))
-    }
 
     @throws[IllegalArgumentException]
     def assertFromSegments(segments: Iterable[String]): DottedName =
@@ -138,14 +133,14 @@ object Ref {
   object QualifiedName {
     def fromString(s: String): Either[String, QualifiedName] = {
       val segments = split(s, ':')
-      if (segments.length != 2) {
-        return Left(s"Expecting two segments in $s, but got ${segments.length}")
-      }
-      ModuleName.fromString(segments(0)).flatMap { module =>
-        DottedName.fromString(segments(1)).map { name =>
-          QualifiedName(module, name)
+      if (segments.length != 2)
+        Left(s"Expecting two segments in $s, but got ${segments.length}")
+      else
+        ModuleName.fromString(segments(0)).flatMap { module =>
+          DottedName.fromString(segments(1)).map { name =>
+            QualifiedName(module, name)
+          }
         }
-      }
     }
 
     @throws[IllegalArgumentException]
