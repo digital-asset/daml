@@ -14,8 +14,8 @@ import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger.backend.api.v1.{SubmissionResult, TransactionSubmission}
-import com.digitalasset.platform.akkastreams.Dispatcher
-import com.digitalasset.platform.akkastreams.SteppingMode.RangeQuery
+import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
+import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.sandbox.config.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
@@ -99,7 +99,7 @@ private class SqlLedger(
   private val logger = LoggerFactory.getLogger(getClass)
 
   private val dispatcher = Dispatcher[Long, LedgerEntry](
-    RangeQuery(ledgerDao.getLedgerEntries(_, _)),
+    RangeSource(ledgerDao.getLedgerEntries(_, _)),
     0l,
     headAtInitialization
   )

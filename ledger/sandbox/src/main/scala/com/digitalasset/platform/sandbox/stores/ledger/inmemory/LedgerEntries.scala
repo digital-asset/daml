@@ -7,8 +7,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.platform.akkastreams.Dispatcher
-import com.digitalasset.platform.akkastreams.SteppingMode.RangeQuery
+import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
+import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.TreeMap
@@ -32,7 +32,7 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
   }
 
   private val dispatcher = Dispatcher[Long, T](
-    RangeQuery(
+    RangeSource(
       (inclusiveStart, exclusiveEnd) =>
         Source[(Long, T)](state.get().items.range(inclusiveStart, exclusiveEnd)),
     ),

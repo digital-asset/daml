@@ -1,21 +1,22 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams
+package com.digitalasset.platform.akkastreams.dispatcher
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.platform.akkastreams.SteppingMode.OneAfterAnother
+import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
-class DispatcherIT extends WordSpec with AkkaBeforeAndAfterAll with Matchers with ScalaFutures {
+//TODO: merge/review the tests we have around the Dispatcher!
+class DispatcherTest extends WordSpec with AkkaBeforeAndAfterAll with Matchers with ScalaFutures {
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(scaled(Span(10, Seconds)), scaled(Span(250, Milliseconds)))
