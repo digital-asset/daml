@@ -139,7 +139,7 @@ In this section, you will run the quickstart application and get introduced to t
 
       Initialized sandbox version 100.12.10 with ledger-id = sandbox-5e12e502-817e-41f9-ad40-1c57b8845f9d, port = 6865, dar file = DamlPackageContainer(List(target/daml/iou.dar),false), time mode = Static, ledger = in-memory, daml-engine = {}
 
-   The sandbox is now running, and you can access its :ref:`ledger API <ledger-api-introduction>` on port ``6865``.
+   The sandbox is now running, and you can access its :doc:`ledger API </app-dev/index>` on port ``6865``.
 
    .. note::
 
@@ -464,7 +464,7 @@ The ``submit`` function used in this scenario tries to perform a transaction and
 ..  Interact with the ledger through the command line
     *************************************************
 
-    All interaction with the DA ledger, be it sandbox or full ledger server, happens via the :doc:`Ledger API </app-dev/ledger-api-introduction/index>`. It is based on `gRPC <https://grpc.io/>`_.
+    All interaction with the DA ledger, be it sandbox or full ledger server, happens via the :doc:`Ledger API </app-dev/index>``. It is based on `gRPC <https://grpc.io/>`_.
 
     The Navigator uses this API, as will any :ref:`custom integration <quickstart-application>`.
 
