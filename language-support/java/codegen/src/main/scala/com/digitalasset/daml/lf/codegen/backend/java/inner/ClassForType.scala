@@ -23,7 +23,7 @@ object ClassForType extends StrictLogging {
 
     typeWithContext.`type`.typ match {
 
-      case Normal(DefDataType(typeVars, record: Record.FWT)) =>
+      case Some(Normal(DefDataType(typeVars, record: Record.FWT))) =>
         val typeSpec =
           RecordClass.generate(
             className,
@@ -33,7 +33,7 @@ object ClassForType extends StrictLogging {
             packagePrefixes)
         List(javaFile(typeWithContext, javaPackage, typeSpec))
 
-      case Normal(DefDataType(typeVars, variant: Variant.FWT)) =>
+      case Some(Normal(DefDataType(typeVars, variant: Variant.FWT))) =>
         val subPackage = className.packageName() + "." + JavaEscaper.escapeString(
           className.simpleName().toLowerCase)
         val (tpe, constructors) =
@@ -47,10 +47,15 @@ object ClassForType extends StrictLogging {
         javaFile(typeWithContext, javaPackage, tpe) ::
           constructors.map(cons => javaFile(typeWithContext, subPackage, cons))
 
-      case Template(record, template) =>
+      case Some(Template(record, template)) =>
         val typeSpec =
           TemplateClass.generate(className, record, template, typeWithContext, packagePrefixes)
         List(JavaFile.builder(javaPackage, typeSpec).build())
+
+      case None =>
+        // This typeWithContext didn't contain a type itself, but has children nodes
+        // which we treat as any other TypeWithContext
+        typeWithContext.typesLineages.flatMap(ClassForType(_, packagePrefixes)).toList
     }
   }
 

@@ -199,7 +199,7 @@ private[inner] object VariantClass extends StrictLogging {
       if (variantRecords.contains(child.name)) {
         logger.debug(s"${child.name} is a variant record")
         child.`type`.typ match {
-          case Normal(DefDataType(typeVars, record: Record.FWT)) =>
+          case Some(Normal(DefDataType(typeVars, record: Record.FWT))) =>
             innerClasses += VariantRecordClass
               .generate(
                 typeVars.map(JavaEscaper.escapeString),

@@ -44,7 +44,7 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
       case (res, module: ModuleWithContext) =>
         val templateNames = module.typesLineages
           .collect {
-            case t if t.`type`.typ.getTemplate.isPresent =>
+            case t if t.`type`.typ.exists(_.getTemplate.isPresent) =>
               ClassName.bestGuess(inner.fullyQualifiedName(t.identifier, packagePrefixes))
           }
         res ++ templateNames
