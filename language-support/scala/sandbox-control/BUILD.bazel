@@ -10,9 +10,6 @@ da_scala_library(
         "src/main/scala/**/*.scala",
         "src/main/java/**/*.java",
     ]),
-    data = [
-        "//daml-foundations/daml-ghc/package-database:daml-prim-1.1",
-    ],
     visibility = [
         "//visibility:public",
     ],
