@@ -22,9 +22,9 @@ import scala.collection.immutable.TreeMap
 final case class IndexState(
     ledgerId: LedgerId,
     recordTime: Timestamp,
+    configuration: Configuration,
     private val updateId: Option[Offset],
     private val beginning: Option[Offset],
-    private val configuration: Option[Configuration],
     // Accepted transactions indexed by offset.
     txs: TreeMap[Offset, (Update.TransactionAccepted, BlindingInfo)],
     activeContracts: Map[
@@ -43,8 +43,7 @@ final case class IndexState(
 
   /** Return True if the mandatory fields have been initialized. */
   def initialized: Boolean = {
-    return this.updateId.isDefined
-    // FIXME(JM): && this.configuration.isDefined
+    return this.updateId.isDefined && this.beginning.isDefined
   }
 
   private def getIfInitialized[T](x: Option[T]): T =
@@ -52,7 +51,6 @@ final case class IndexState(
 
   def getUpdateId: Offset = getIfInitialized(updateId)
   def getBeginning: Offset = getIfInitialized(beginning)
-  def getConfiguration: Configuration = getIfInitialized(configuration)
 
   /** Return a new state with the given update applied or the
     * invariant violation in case that is not possible.
@@ -74,7 +72,7 @@ final case class IndexState(
             Left(NonMonotonicRecordTimeUpdate)
 
         case u: Update.ConfigurationChanged =>
-          Right(state.copy(configuration = Some(u.newConfiguration)))
+          Right(state.copy(configuration = u.newConfiguration))
 
         case u: Update.PartyAddedToParticipant =>
           Right(state.copy(hostedParties = state.hostedParties + u.party))
@@ -148,7 +146,7 @@ object IndexState {
     ledgerId = lic.ledgerId,
     updateId = None,
     beginning = None,
-    configuration = None,
+    configuration = lic.config,
     recordTime = lic.initialRecordTime,
     txs = TreeMap.empty,
     activeContracts = Map.empty,

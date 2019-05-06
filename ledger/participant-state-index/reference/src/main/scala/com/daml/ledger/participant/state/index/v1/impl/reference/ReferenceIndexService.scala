@@ -86,11 +86,23 @@ final case class ReferenceIndexService(
       .to(updateStateSink)
       .run()
 
+  // Return a result using a given handler function, after verifying that ledgerId matches,
+  // and that the index state has been initialized. Waits for state to be initialized (e.g. first
+  // update to arrive in order to established ledger beginning and current end) before calling the handler.
   private def asyncResultWithState[T](ledgerId: LedgerId)(
       handler: IndexState => Future[T]): AsyncResult[T] = {
     val s = StateController.getState
     if (s.ledgerId == ledgerId) {
-      handler(s).map(Right(_))
+      if (s.initialized) {
+        handler(s).map(Right(_))
+      } else {
+        // Wait until state is initialized.
+        StateController
+          .subscribe(ledgerId)
+          .dropWhile(_.initialized)
+          .runWith(Sink.head)
+          .flatMap(s2 => handler(s2).map(Right(_)))
+      }
     } else {
       Future.successful(
         Left(
@@ -126,20 +138,20 @@ final case class ReferenceIndexService(
 
   override def getLedgerConfiguration(ledgerId: LedgerId): AsyncResult[Configuration] =
     asyncResultWithState(ledgerId) { state =>
-      Future.successful(state.getConfiguration)
+      Future.successful(state.configuration)
     }
 
   override def getLedgerId(): Future[LedgerId] =
     Future.successful(StateController.getState.ledgerId)
 
   override def getLedgerBeginning(ledgerId: LedgerId): AsyncResult[Offset] =
-    asyncResultWithState(ledgerId) { state =>
-      Future.successful(state.getBeginning)
+    asyncResultWithState(ledgerId) { s =>
+      Future.successful(s.getBeginning)
     }
 
   override def getLedgerEnd(ledgerId: LedgerId): AsyncResult[Offset] =
-    asyncResultWithState(ledgerId) { state =>
-      Future.successful(state.getUpdateId)
+    asyncResultWithState(ledgerId) { s =>
+      Future.successful(s.getUpdateId)
     }
 
   private def nodeIdToEventId(txId: TransactionId, nodeId: NodeId): EventId =
