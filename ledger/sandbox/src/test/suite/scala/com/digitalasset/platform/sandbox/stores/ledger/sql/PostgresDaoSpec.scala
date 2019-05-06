@@ -323,7 +323,11 @@ class PostgresDaoSpec
                 VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some choice value")),
                 Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
                 Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
-                ImmArray.empty
+                ImmArray.empty,
+                Some(
+                  VersionedValue(
+                    ValueVersions.acceptedVersions.head,
+                    ValueText("some exercise result"))),
               )),
             ImmArray(s"event$id"),
             Set.empty

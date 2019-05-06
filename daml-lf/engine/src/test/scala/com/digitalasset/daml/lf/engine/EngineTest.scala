@@ -753,7 +753,7 @@ class EngineTest extends WordSpec with Matchers {
       postCommitForBob shouldBe 'right
 
       bobView.nodes(Tx.NodeId.unsafeFromIndex(0)) match {
-        case NodeExercises(coid, _, choice, _, consuming, actingParties, _, _, _, _, children) =>
+        case NodeExercises(coid, _, choice, _, consuming, actingParties, _, _, _, _, children, _) =>
           coid shouldBe AbsoluteContractId(originalCoid)
           consuming shouldBe true
           actingParties shouldBe Set(bob)
@@ -897,6 +897,9 @@ class EngineTest extends WordSpec with Matchers {
           children = ImmArray(Tx.NodeId.unsafeFromIndex(1)),
           stakeholders = Set(bob, alice),
           witnesses = Set(bob, alice),
+          exerciseResult = Some(
+            assertAsVersionedValue(
+              ValueContractId(RelativeContractId(Tx.NodeId.unsafeFromIndex(1)))))
         )
       val bobVisibleCreate = partyEvents.events(Tx.NodeId.unsafeFromIndex(1))
       bobVisibleCreate shouldBe

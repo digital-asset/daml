@@ -310,6 +310,7 @@ object ValueGenerators {
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(Transaction.NodeId.unsafeFromIndex))
         .map(ImmArray(_))
+      exerciseResultValue <- versionedValueGen
     } yield
       NodeExercises(
         targetCoid,
@@ -322,7 +323,8 @@ object ValueGenerators {
         stakeholders,
         signatories,
         actingParties,
-        children
+        children,
+        Some(exerciseResultValue)
       )
   }
 

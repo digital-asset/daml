@@ -15,7 +15,7 @@ import com.digitalasset.ledger.api.v1.command_service.{
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
 import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
+import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Exercised}
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
@@ -282,6 +282,11 @@ class LedgerTestingHelpers(
       .collect {
         case TreeEvent.Kind.Exercised(exercisedEvent) => exercisedEvent
       }(breakOut)
+
+  def exercisedEventsIn(transaction: Transaction): Seq[ExercisedEvent] =
+    transaction.events.map(_.event).collect {
+      case Exercised(exercisedEvent) => exercisedEvent
+    }
 
   def archivedEventsIn(transaction: Transaction): Seq[ArchivedEvent] =
     transaction.events.map(_.event).collect {

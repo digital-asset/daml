@@ -1375,6 +1375,41 @@ class TransactionServiceIT
           }
         }
       }
+
+      "reading transactions" should {
+
+        "serve a stream of transactions" in allFixtures { context =>
+          val treesF = context.transactionClient
+            .getTransactionTrees(
+              ledgerBegin,
+              Some(ledgerEnd),
+              TransactionFilter(Map("Bob" -> Filters())))
+            .runWith(Sink.seq)
+          val txsF = context.transactionClient
+            .getTransactions(
+              ledgerBegin,
+              Some(ledgerEnd),
+              TransactionFilter(Map("Bob" -> Filters())))
+            .runWith(Sink.seq)
+
+          for {
+            txs <- txsF
+            trees <- treesF
+            _ = txs.map(_.transactionId) shouldEqual trees.map(_.transactionId)
+          } yield {
+            for {
+              tx <- txs
+              exEvents = context.testingHelpers.exercisedEventsIn(tx)
+              _ = exEvents should not be empty
+              exEvent <- exEvents
+            } yield {
+              exEvent.exerciseResult should not be empty
+            }
+          }
+          succeed
+        }
+      }
+
     }
 
   }
