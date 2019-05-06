@@ -7,7 +7,7 @@ module DamlcTest
 
 import Control.Exception
 import qualified Data.Text.Extended as T
-import System.Environment
+import System.Environment.Blank
 import System.IO.Extra
 import System.Exit
 import Test.Tasty
@@ -18,7 +18,7 @@ import DA.Daml.GHC.Compiler.Options
 
 main :: IO ()
 main = do
-    setEnv "TASTY_NUM_THREADS" "1"
+    setEnv "TASTY_NUM_THREADS" "1" True
     defaultMain tests
 
 -- execTest will call mkOptions internally. Since each call to mkOptions
