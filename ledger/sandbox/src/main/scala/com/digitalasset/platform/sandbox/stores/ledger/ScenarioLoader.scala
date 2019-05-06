@@ -6,12 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.data.Ref.{
-  DefinitionRef,
-  QualifiedName,
-  Identifier => LfIdentifier,
-  PackageId => LfPackageId
-}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
 import com.digitalasset.daml.lf.lfpackage.Ast
@@ -51,9 +46,9 @@ object ScenarioLoader {
 
   private def buildScenarioLedger(
       packages: DamlPackageContainer,
-      scenario: String): (L.Ledger, DefinitionRef[LfPackageId]) = {
-    val scenarioQualName: QualifiedName = getScenarioQualifiedName(packages, scenario)
-    val candidateScenarios: List[(DefinitionRef[LfPackageId], Definition)] =
+      scenario: String): (L.Ledger, Ref.DefinitionRef) = {
+    val scenarioQualName = getScenarioQualifiedName(packages, scenario)
+    val candidateScenarios: List[(Ref.DefinitionRef, Definition)] =
       getCandidateScenarios(packages, scenarioQualName)
     val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
     val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
@@ -64,7 +59,7 @@ object ScenarioLoader {
   }
 
   private def getScenarioLedger(
-      scenarioRef: DefinitionRef[LfPackageId],
+      scenarioRef: Ref.DefinitionRef,
       speedyMachine: Speedy.Machine): L.Ledger = {
     ScenarioRunner(speedyMachine).run match {
       case Left(e) =>
@@ -89,9 +84,7 @@ object ScenarioLoader {
     }
   }
 
-  private def getScenarioExpr(
-      scenarioRef: DefinitionRef[LfPackageId],
-      scenarioDef: Definition): Ast.Expr = {
+  private def getScenarioExpr(scenarioRef: Ref.DefinitionRef, scenarioDef: Definition): Ast.Expr = {
     scenarioDef match {
       case DValue(_, _, body, _) => body
       case _: DDataType =>
@@ -103,8 +96,8 @@ object ScenarioLoader {
   private def identifyScenario(
       packages: DamlPackageContainer,
       scenario: String,
-      candidateScenarios: List[(DefinitionRef[LfPackageId], Definition)])
-    : (DefinitionRef[LfPackageId], Definition) = {
+      candidateScenarios: List[(Ref.DefinitionRef, Definition)])
+    : (Ref.DefinitionRef, Definition) = {
     candidateScenarios match {
       case Nil =>
         throw new RuntimeException(
@@ -118,11 +111,12 @@ object ScenarioLoader {
 
   private def getCandidateScenarios(
       packages: DamlPackageContainer,
-      scenarioQualName: QualifiedName): List[(LfIdentifier, Definition)] = {
+      scenarioQualName: Ref.QualifiedName
+  ): List[(Ref.Identifier, Definition)] = {
     packages.packages.flatMap {
       case (packageId, pkg) =>
         pkg.lookupIdentifier(scenarioQualName) match {
-          case Right(x) => List((LfIdentifier(packageId, scenarioQualName), x))
+          case Right(x) => List((Ref.Identifier(packageId, scenarioQualName), x))
           case Left(_) => List()
         }
     }(breakOut)
@@ -130,8 +124,9 @@ object ScenarioLoader {
 
   private def getScenarioQualifiedName(
       packages: DamlPackageContainer,
-      scenario: String): QualifiedName = {
-    QualifiedName.fromString(scenario) match {
+      scenario: String
+  ): Ref.QualifiedName = {
+    Ref.QualifiedName.fromString(scenario) match {
       case Left(err) =>
         logger.warn(
           "Dot-separated scenario specification is deprecated. Names are Module.Name:Inner.Name, with a colon between module name and the name of the definition. Falling back to deprecated name resolution.")
@@ -152,12 +147,13 @@ object ScenarioLoader {
 
   private def executeScenarioStep(
       ledger: ArrayBuffer[LedgerEntry],
-      scenarioRef: DefinitionRef[LfPackageId],
+      scenarioRef: Ref.DefinitionRef,
       acs: ActiveContractsInMemory,
       time: Time.Timestamp,
       mbOldTxId: Option[TransactionId],
       stepId: Int,
-      step: L.ScenarioStep): (ActiveContractsInMemory, Time.Timestamp, Option[TransactionId]) = {
+      step: L.ScenarioStep
+  ): (ActiveContractsInMemory, Time.Timestamp, Option[TransactionId]) = {
     step match {
       case L.Commit(txId: TransactionId, richTransaction: L.RichTransaction, _) =>
         mbOldTxId match {
@@ -198,12 +194,12 @@ object ScenarioLoader {
                 transactionId,
                 transactionId,
                 "scenario-loader",
-                richTransaction.committer.underlyingString,
+                richTransaction.committer,
                 workflowId,
                 time.toInstant,
                 time.toInstant,
                 recordTx,
-                recordDisclosure.mapValues(_.map(_.underlyingString))
+                recordDisclosure.transform((_, v) => v.toSet[String])
               )
             (newAcs, time, Some(txId))
           case Left(err) =>

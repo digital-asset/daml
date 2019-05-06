@@ -33,7 +33,7 @@ import scala.collection.mutable
 object Compiler {
   case class CompileError(error: String) extends RuntimeException(error, null, true, false)
   case class PackageNotFound(pkgId: PackageId)
-      extends RuntimeException(s"Package not found ${pkgId.underlyingString}", null, true, false)
+      extends RuntimeException(s"Package not found $pkgId", null, true, false)
 }
 
 final case class Compiler(packages: PackageId PartialFunction Package) {
@@ -56,7 +56,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   def compileDefn(
       identifier: Identifier,
       defn: Definition
-  ): List[(DefinitionRef[PackageId], SExpr)] =
+  ): List[(DefinitionRef, SExpr)] =
     defn match {
       case DValue(_, _, body, _) =>
         List(identifier -> compile(body))
@@ -83,7 +83,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     */
   @throws(classOf[PackageNotFound])
   @throws(classOf[ValidationError])
-  def compilePackage(pkgId: PackageId): Iterable[(DefinitionRef[PackageId], SExpr)] = {
+  def compilePackage(pkgId: PackageId): Iterable[(DefinitionRef, SExpr)] = {
 
     Validation.checkPackage(packages, pkgId).left.foreach {
       case EUnknownDefinition(_, LEPackage(pkgId_)) =>
@@ -108,8 +108,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     * they transitively reference are in the [[packages]] in the compiler.
     */
   @throws(classOf[PackageNotFound])
-  def compilePackages(toCompile0: Iterable[PackageId]): Map[DefinitionRef[PackageId], SExpr] = {
-    var defns = Map.empty[DefinitionRef[PackageId], SExpr]
+  def compilePackages(toCompile0: Iterable[PackageId]): Map[DefinitionRef, SExpr] = {
+    var defns = Map.empty[DefinitionRef, SExpr]
     val compiled = mutable.Set.empty[PackageId]
     var toCompile = toCompile0.toList
     val foundDependencies = mutable.Set.empty[PackageId]
@@ -805,7 +805,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       .getOrElse(throw CompileError(s"record type $tapp not found"))
   }
 
-  private def makeChoiceRef(tmplId: TypeConName, ch: ChoiceName): DefinitionRef[PackageId] =
+  private def makeChoiceRef(tmplId: TypeConName, ch: ChoiceName): DefinitionRef =
     tmplId.copy(qualifiedName = tmplId.qualifiedName.copy(
       name = DottedName.unsafeFromSegments(tmplId.qualifiedName.name.segments.slowSnoc("$" + ch))))
 

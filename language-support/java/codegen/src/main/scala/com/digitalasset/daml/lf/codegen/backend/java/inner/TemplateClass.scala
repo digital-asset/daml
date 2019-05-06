@@ -7,7 +7,7 @@ import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.ContractId
 import com.digitalasset.daml.lf.codegen.TypeWithContext
 import com.digitalasset.daml.lf.codegen.backend.java.ObjectMethods
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, QualifiedName, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, QualifiedName, PackageId}
 import com.digitalasset.daml.lf.iface._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
@@ -125,7 +125,7 @@ private[inner] object TemplateClass extends StrictLogging {
       templateClassName: ClassName,
       choices: Map[ChoiceName, TemplateChoice[com.digitalasset.daml.lf.iface.Type]],
       typeDeclarations: Map[QualifiedName, InterfaceType],
-      packageId: SimpleString,
+      packageId: PackageId,
       packagePrefixes: Map[PackageId, String]): TypeSpec = {
 
     val idClassBuilder =
@@ -176,7 +176,7 @@ private[inner] object TemplateClass extends StrictLogging {
   private def getRecord(
       typeCon: TypeCon,
       identifierToType: Map[QualifiedName, InterfaceType],
-      packageId: SimpleString
+      packageId: PackageId
   ): Option[Record.FWT] = {
     // TODO: at the moment we don't support other packages Records because the codegen works on single packages
     if (typeCon.name.identifier.packageId == packageId) {
@@ -247,7 +247,7 @@ private[inner] object TemplateClass extends StrictLogging {
       .initializer(
         "new $T($S, $S, $S)",
         classOf[javaapi.data.Identifier],
-        typeWithContext.packageId.underlyingString,
+        typeWithContext.packageId,
         typeWithContext.modulesLineage.map(_._1).toImmArray.iterator.mkString("."),
         typeWithContext.name
       )

@@ -92,6 +92,6 @@ object SError {
   final case class ScenarioErrorMustFailSucceeded(tx: Transaction) extends SErrorScenario
 
   /** Invalid party name supplied to 'getParty'. */
-  final case class ScenarioErrorInvalidPartyName(name: String) extends SErrorScenario
+  final case class ScenarioErrorInvalidPartyName(name: String, msg: String) extends SErrorScenario
 
 }

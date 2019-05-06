@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf.testing.parser
 
 import com.digitalasset.daml.lf.data
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.testing.parser.Token._
 
@@ -108,11 +107,10 @@ private[parser] object Lexer extends RegexParsers {
       Try(Success(Text(StringContext.treatEscapes(s.drop(1).dropRight(1))), in))
         .getOrElse(Error(s"cannot interpret $s as a Text", in))
 
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   private def toSimpleString(s: String): Parser[SimpleString] =
     (in: Input) =>
-      Ref.SimpleString.fromString(StringContext.treatEscapes(s.drop(1).dropRight(1))) match {
-        case Right(s) => Success(SimpleString(s), in)
-        case _ => Error(s"cannot interpret $s as a Printable", in)
-    }
+      Try(Success(SimpleString(StringContext.treatEscapes(s.drop(1).dropRight(1))), in))
+        .getOrElse(Error(s"cannot interpret $s as a SimpleText", in))
 
 }

@@ -6,7 +6,7 @@ package com.digitalasset.extractor.ledger
 import java.io.File
 import java.nio.file.Files
 
-import com.digitalasset.daml.lf.data.Ref.SimpleString
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.iface.{DefDataType, InterfaceType, Interface}
@@ -51,7 +51,7 @@ object LedgerReader {
     packageResponses
       .traverseU { packageResponse: GetPackageResponse =>
         decodeInterfaceFromPackageResponse(packageResponse).map { interface =>
-          (interface.packageId.underlyingString, interface)
+          (interface.packageId, interface)
         }
       }
       .map(packageIdsWithIfaces => {
@@ -97,7 +97,7 @@ object LedgerReader {
       val cos = Reader.damlLfCodedInputStream(archivePayload.newInput)
       val payload = DamlLf.ArchivePayload.parseFrom(cos)
       val (errors, out) = InterfaceReader.readInterface(() =>
-        \/-((SimpleString.assertFromString(hash), payload.getDamlLf1())))
+        \/-((PackageId.assertFromString(hash), payload.getDamlLf1())))
       if (!errors.empty) \/.left("Errors reading LF archive:\n" + errors.toString)
       else \/.right(out)
     }.leftMap(_.getLocalizedMessage).join

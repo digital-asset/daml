@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.EitherAssertions
-import com.digitalasset.daml.lf.data.Ref.SimpleString
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
@@ -70,7 +70,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     }
 
     "do Party" in {
-      forAll(simpleStr) { p: SimpleString =>
+      forAll(party) { p: Party =>
         val value = ValueParty(p)
         testRoundTrip(value)
       }

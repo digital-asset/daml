@@ -6,15 +6,16 @@ package com.digitalasset.navigator.model
 import com.digitalasset.navigator.{model => Model}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.daml.lf.{iface => DamlLfIface}
+import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
 
 /** Manages a set of known DAML-LF packages. */
 case class PackageRegistry(
-    private val packages: Map[DamlLfPackageId, DamlLfPackage] = Map.empty,
+    private val packages: Map[DamlLfRef.PackageId, DamlLfPackage] = Map.empty,
     private val templates: Map[DamlLfIdentifier, Template] = Map.empty,
     private val typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType] = Map.empty
 ) {
   private[this] def template(
-      packageId: DamlLfPackageId,
+      packageId: DamlLfRef.PackageId,
       qname: DamlLfQualifiedName,
       r: DamlLfRecord,
       t: DamlLfIface.DefTemplate[DamlLfIface.Type]
@@ -33,7 +34,7 @@ case class PackageRegistry(
   )
 
   def withPackages(interfaces: List[DamlLfIface.Interface]): PackageRegistry = {
-    val newPackages: Map[DamlLfPackageId, DamlLfPackage] = interfaces
+    val newPackages: Map[DamlLfRef.PackageId, DamlLfPackage] = interfaces
       .filterNot(p => packages.contains(p.packageId))
       .map(p => {
         val typeDefs = p.typeDecls.collect {
@@ -72,10 +73,7 @@ case class PackageRegistry(
   def packageCount: Int =
     packages.size
 
-  def pack(id: String): Option[DamlLfPackage] =
-    packages.get(DamlLfPackageId.assertFromString(id))
-
-  def pack(id: DamlLfPackageId): Option[DamlLfPackage] =
+  def pack(id: DamlLfRef.PackageId): Option[DamlLfPackage] =
     packages.get(id)
 
   def allPackages(): Stream[DamlLfPackage] =

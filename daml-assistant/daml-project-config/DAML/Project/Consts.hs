@@ -87,7 +87,15 @@ sdkConfigName = "sdk-config.yaml"
 
 -- | List of all environment variables handled by daml assistant.
 damlEnvVars :: [String]
-damlEnvVars = [damlPathEnvVar, projectPathEnvVar, sdkPathEnvVar, sdkVersionEnvVar, damlAssistantEnvVar]
+damlEnvVars =
+    [ damlPathEnvVar
+    , projectPathEnvVar
+    , sdkPathEnvVar
+    , sdkVersionEnvVar
+    , sdkVersionLatestEnvVar
+    , damlAssistantEnvVar
+    , damlAssistantVersionEnvVar
+    ]
 
 -- | Returns the path to the daml assistant data directory.
 --

@@ -7,7 +7,8 @@ import com.digitalasset.daml.lf.codegen.backend.Backend
 import com.digitalasset.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass}
 import com.digitalasset.daml.lf.codegen.conf.Conf
 import com.digitalasset.daml.lf.codegen.{InterfaceTrees, ModuleWithContext, NodeWithContext}
-import com.digitalasset.daml.lf.iface.{Interface, PackageId}
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.iface.Interface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.MDC
@@ -77,8 +78,8 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
   private def createTypeDefinitionClasses(
       moduleWithContext: ModuleWithContext,
       packagePrefixes: Map[PackageId, String]): Iterable[JavaFile] = {
-    MDC.put("packageId", moduleWithContext.packageId.underlyingString)
-    MDC.put("packageIdShort", moduleWithContext.packageId.underlyingString.take(7))
+    MDC.put("packageId", moduleWithContext.packageId)
+    MDC.put("packageIdShort", moduleWithContext.packageId.take(7))
     MDC.put("moduleName", moduleWithContext.name)
     val typeSpecs = for {
       typeWithContext <- moduleWithContext.typesLineages

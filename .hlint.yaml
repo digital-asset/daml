@@ -45,6 +45,7 @@
 - warn: {lhs: Data.Text.writeFile, rhs: Data.Text.Extended.writeFileUtf8}
 - warn: {lhs: Data.Text.Lazy.readFile, rhs: Data.Text.Extended.readFileUtf8}
 - warn: {lhs: Data.Text.Lazy.writeFile, rhs: Data.Text.Extended.writeFileUtf8}
+- warn: {lhs: System.Environment.setEnv, rhs: System.Environment.Blank.setEnv}
 
 # Specify additional command line arguments
 #

@@ -18,11 +18,11 @@ import com.digitalasset.daml.lf.speedy.{Compiler, SExpr}
 final class ConcurrentCompiledPackages extends CompiledPackages {
   private[this] val _packages: ConcurrentHashMap[PackageId, Package] =
     new ConcurrentHashMap()
-  private[this] val _defns: ConcurrentHashMap[DefinitionRef[PackageId], SExpr] =
+  private[this] val _defns: ConcurrentHashMap[DefinitionRef, SExpr] =
     new ConcurrentHashMap()
 
   def getPackage(pId: PackageId): Option[Package] = Option(_packages.get(pId))
-  def getDefinition(dref: DefinitionRef[PackageId]): Option[SExpr] = Option(_defns.get(dref))
+  def getDefinition(dref: DefinitionRef): Option[SExpr] = Option(_defns.get(dref))
 
   /** Might ask for a package if the package you're trying to add references it.
     *

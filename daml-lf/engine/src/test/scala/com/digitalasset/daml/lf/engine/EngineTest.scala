@@ -37,7 +37,7 @@ class EngineTest extends WordSpec with Matchers {
   import EngineTest._
 
   private val List(alice, bob, clara, party) =
-    List("Alice", "Bob", "Clara", "Party").map(SimpleString.assertFromString)
+    List("Alice", "Bob", "Clara", "Party").map(Party.assertFromString)
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages =
@@ -479,7 +479,7 @@ class EngineTest extends WordSpec with Matchers {
       val validated = engine
         .validatePartial(
           tx.mapContractIdAndValue(makeAbsoluteContractId, makeValueWithAbsoluteContractId),
-          Some(SimpleString.assertFromString("non-submitting-party")),
+          Some(Party.assertFromString("non-submitting-party")),
           let,
           party,
           makeAbsoluteContractId,
@@ -865,7 +865,7 @@ class EngineTest extends WordSpec with Matchers {
           tx,
           None,
           let,
-          SimpleString.assertFromString("giver"),
+          Party.assertFromString("giver"),
           makeAbsoluteContractId,
           makeValueWithAbsoluteContractId)
         .consume(lookupContractForPayout, lookupPackage, lookupKey)

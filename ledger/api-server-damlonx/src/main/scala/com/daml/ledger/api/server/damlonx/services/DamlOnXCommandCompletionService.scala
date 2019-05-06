@@ -38,7 +38,7 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
   override def completionStreamSource(
       request: CompletionStreamRequest): Source[CompletionStreamResponse, NotUsed] = {
 
-    val ledgerId = Ref.SimpleString.assertFromString(request.ledgerId)
+    val ledgerId = Ref.PackageId.assertFromString(request.ledgerId)
 
     val offsetFuture: Future[Option[Offset]] =
       request.offset match {
@@ -69,7 +69,7 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
           .getCompletions(
             optOffset,
             request.applicationId,
-            request.parties.toList.map(Ref.SimpleString.assertFromString))
+            request.parties.toList.map(Ref.Party.assertFromString))
           .map {
             case CompletionEvent.CommandAccepted(offset, commandId, transactionId) =>
               logger.debug(s"sending completion accepted $offset: $commandId")
@@ -132,6 +132,6 @@ object DamlOnXCommandCompletionService {
     val ledgerId = Await.result(indexService.getLedgerId(), 5.seconds)
     new CommandCompletionServiceValidation(
       new DamlOnXCommandCompletionService(indexService),
-      ledgerId.underlyingString) with CommandCompletionServiceLogging
+      ledgerId) with CommandCompletionServiceLogging
   }
 }

@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.command
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
 
@@ -32,7 +32,7 @@ final case class ExerciseCommand(
     templateId: Identifier,
     contractId: String,
     choiceId: String,
-    submitter: SimpleString,
+    submitter: Party,
     argument: VersionedValue[AbsoluteContractId])
     extends Command
 
@@ -50,7 +50,7 @@ final case class CreateAndExerciseCommand(
     createArgument: VersionedValue[AbsoluteContractId],
     choiceId: String,
     choiceArgument: VersionedValue[AbsoluteContractId],
-    submitter: SimpleString)
+    submitter: Party)
     extends Command
 
 /** Commands input adapted from ledger-api

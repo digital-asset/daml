@@ -4,7 +4,6 @@
 package com.digitalasset.ledger.api
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.SimpleString
 import com.digitalasset.ledger.api.domain._
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.v1.value.Value
@@ -34,12 +33,12 @@ object DomainMocks {
 
     private val validPartyString = "party"
     val validApiParty = Value(Sum.Party(validPartyString))
-    val validLfParty = Lf.ValueParty(SimpleString.assertFromString(validPartyString))
+    val validLfParty = Lf.ValueParty(Ref.Party.assertFromString(validPartyString))
 
     private val invalidPartyString = "p@rty"
     val invalidApiParty = Value(Sum.Party(invalidPartyString))
     val invalidPartyMsg =
-      s"""Invalid argument: Invalid character 0x40 found in "$invalidPartyString""""
+      """Invalid argument: string "p@rty" does not match regex "[a-zA-Z0-9\-_ ]+""""
   }
 
 }

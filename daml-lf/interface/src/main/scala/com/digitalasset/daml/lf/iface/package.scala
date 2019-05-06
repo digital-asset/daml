@@ -5,16 +5,12 @@ package com.digitalasset.daml.lf
 
 import java.{util => j}
 
-import com.digitalasset.daml.lf.data.Ref.SimpleString
-
 import scala.collection.generic.CanBuildFrom
 import scala.collection.TraversableLike
 
 // Types to be used internally
 package object iface {
   type FieldWithType = (String, Type)
-
-  type PackageId = SimpleString
 
   type ChoiceName = String
 

@@ -7,7 +7,7 @@ import java.io.File
 import java.time.Instant
 
 import com.digitalasset.api.util.TimestampConversion.fromInstant
-import com.digitalasset.daml.lf.data.Ref.{QualifiedName, SimpleString, TypeConName}
+import com.digitalasset.daml.lf.data.Ref.{QualifiedName, TypeConName}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Event.Events
 import com.digitalasset.daml.lf.engine._
@@ -48,12 +48,14 @@ class EventConverterSpec
     with TestHelpers
     with AkkaBeforeAndAfterAll
     with Inside {
-  implicit def qualifiedNameStr(s: String): QualifiedName = QualifiedName.assertFromString(s)
-  implicit def simpleStr(s: String): SimpleString = SimpleString.assertFromString(s)
+  private implicit def qualifiedNameStr(s: String): QualifiedName =
+    QualifiedName.assertFromString(s)
+  private implicit def party(s: String): Ref.Party = Ref.Party.assertFromString(s)
+  private implicit def pkgId(s: String): Ref.PackageId = Ref.PackageId.assertFromString(s)
 
   type LfTx = com.digitalasset.daml.lf.transaction.Transaction.Transaction
 
-  implicit val ec: ExecutionContext = system.dispatcher
+  private implicit val ec: ExecutionContext = system.dispatcher
 
   private val etc = TransactionConversion
 
@@ -134,7 +136,7 @@ class EventConverterSpec
               val eventsFromViews =
                 etc.genToApiTransaction(
                   recordTr,
-                  recordBlinding.mapValues(_.map(_.underlyingString)))
+                  recordBlinding.transform((_, v) => v.toSet[String]))
 
               eventsFromViews.eventsById should have size expectedSize.toLong
           })
@@ -169,7 +171,7 @@ class EventConverterSpec
             val eventsFromViews =
               etc.genToApiTransaction(
                 recordTr,
-                recordBlinding.mapValues(_.map(_.underlyingString)),
+                recordBlinding.transform((_, v) => v.toSet[String]),
                 true)
 
             tx.nodes.size shouldBe 1
@@ -260,7 +262,7 @@ class EventConverterSpec
       val events =
         etc.genToApiTransaction(
           recordTx,
-          recordBlinding.mapValues(_.map(_.underlyingString)),
+          recordBlinding.transform((_, v) => v.toSet[String]),
           verbose = true)
 
       val exercise = events.rootEventIds.headOption.map(events.eventsById).map(_.getExercised)

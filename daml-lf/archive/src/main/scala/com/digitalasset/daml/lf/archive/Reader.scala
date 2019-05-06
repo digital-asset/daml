@@ -7,7 +7,7 @@ package archive
 import java.io.InputStream
 import java.security.MessageDigest
 
-import com.digitalasset.daml.lf.data.Ref.SimpleString
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml_lf.DamlLf
 import com.google.protobuf.CodedInputStream
 
@@ -22,7 +22,7 @@ abstract class Reader[+Pkg] {
   def withRecursionLimit(recursionLimit: Int): Reader[Pkg] = new Reader[Pkg] {
     override val PROTOBUF_RECURSION_LIMIT = recursionLimit
     protected[this] override def readArchivePayloadOfVersion(
-        hash: SimpleString,
+        hash: PackageId,
         lf: DamlLf.ArchivePayload,
         version: LanguageVersion
     ): Pkg =
@@ -44,12 +44,12 @@ abstract class Reader[+Pkg] {
     lf.getHashFunction match {
       case DamlLf.HashFunction.SHA256 =>
         val payload = lf.getPayload.toByteArray()
-        val theirHash = SimpleString.fromString(lf.getHash) match {
+        val theirHash = PackageId.fromString(lf.getHash) match {
           case Right(hash) => hash
           case Left(err) => throw ParseError(s"Invalid hash: $err")
         }
         val ourHash =
-          SimpleString.assertFromString(
+          PackageId.assertFromString(
             MessageDigest.getInstance("SHA-256").digest(payload).map("%02x" format _).mkString)
         if (ourHash != theirHash) {
           throw ParseError(s"Mismatching hashes! Expected $ourHash but got $theirHash")
@@ -66,12 +66,12 @@ abstract class Reader[+Pkg] {
     readArchiveAndVersion(lf)._1
 
   @throws[ParseError]
-  final def readArchivePayload(hash: SimpleString, lf: DamlLf.ArchivePayload): Pkg =
+  final def readArchivePayload(hash: PackageId, lf: DamlLf.ArchivePayload): Pkg =
     readArchivePayloadAndVersion(hash, lf)._1
 
   @throws[ParseError]
   final def readArchivePayloadAndVersion(
-      hash: SimpleString,
+      hash: PackageId,
       lf: DamlLf.ArchivePayload): (Pkg, LanguageMajorVersion) = {
     val majorVersion = readArchiveVersion(lf)
     // for DAML-LF v1, we translate "no version" to minor version 0,
@@ -93,12 +93,12 @@ abstract class Reader[+Pkg] {
   }
 
   protected[this] def readArchivePayloadOfVersion(
-      hash: SimpleString,
+      hash: PackageId,
       lf: DamlLf.ArchivePayload,
       version: LanguageVersion): Pkg
 }
 
-object Reader extends Reader[(SimpleString, DamlLf.ArchivePayload)] {
+object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
   final case class ParseError(error: String) extends RuntimeException(error)
 
   def damlLfCodedInputStreamFromBytes(
@@ -129,8 +129,8 @@ object Reader extends Reader[(SimpleString, DamlLf.ArchivePayload)] {
   }
 
   protected[this] override def readArchivePayloadOfVersion(
-      hash: SimpleString,
+      hash: PackageId,
       lf: DamlLf.ArchivePayload,
       version: LanguageVersion,
-  ): (SimpleString, DamlLf.ArchivePayload) = (hash, lf)
+  ): (PackageId, DamlLf.ArchivePayload) = (hash, lf)
 }

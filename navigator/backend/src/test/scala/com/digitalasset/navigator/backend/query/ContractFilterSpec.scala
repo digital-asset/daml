@@ -3,6 +3,7 @@
 
 package com.digitalasset.navigator.query
 
+import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
 import com.digitalasset.navigator.graphql.GraphQLSchema
 import com.digitalasset.navigator.model.{Contract, Template}
 import com.digitalasset.ledger.api.refinements.ApiTypes
@@ -16,12 +17,12 @@ class ContractFilterSpec extends FlatSpec with Matchers {
   behavior of "ContractFilter"
 
   val damlLfId0 = DamlLfIdentifier(
-    DamlLfPackageId.assertFromString("hash"),
+    DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName(DamlLfImmArray("module")),
       DamlLfDottedName(DamlLfImmArray("T0"))))
   val damlLfId1 = DamlLfIdentifier(
-    DamlLfPackageId.assertFromString("hash"),
+    DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName(DamlLfImmArray("module")),
       DamlLfDottedName(DamlLfImmArray("T1"))))

@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.engine
 
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.data.Ref.{Party, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.speedy.Pretty
@@ -140,7 +140,7 @@ final class Engine {
     */
   def validatePartial(
       tx: GenTransaction.WithTxValue[Tx.NodeId, AbsoluteContractId],
-      submitter: Option[SimpleString],
+      submitter: Option[Party],
       ledgerEffectiveTime: Time.Timestamp,
       requestor: Party,
       contractIdMaping: ContractId => AbsoluteContractId,

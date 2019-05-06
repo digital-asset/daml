@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.engine.testing
 
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, QualifiedName, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Time}
 import com.digitalasset.daml.lf.engine.Event.Events
@@ -38,7 +38,7 @@ import scala.reflect.{ClassTag, classTag}
   *                         are unique between runs of two scenarios.
   */
 class SemanticTester(
-    createLedger: Set[SimpleString] => SemanticTester.GenericLedger,
+    createLedger: Set[Party] => SemanticTester.GenericLedger,
     packageToTest: PackageId,
     packages: Map[PackageId, Package],
     partyNameMangler: (String => String) = identity,
@@ -75,7 +75,7 @@ class SemanticTester(
   // collect all parties for scenarios in a package
   // this is to be used for initializing platform,
   // and setting listeners on the ledger-api calls
-  lazy val packageParties: Set[SimpleString] =
+  lazy val packageParties: Set[Party] =
     allScenarioLedgers.flatMap {
       case (_, ledger) =>
         ledger.ledgerData.nodeInfos.values.flatMap {
@@ -298,7 +298,7 @@ class SemanticTester(
               val reference: String =
                 commandIdMangler(scenario, stepId, nodeId)
               def submitCommandCheckAndUpdateMap(
-                  submitterName: SimpleString,
+                  submitterName: Party,
                   cmd: Command,
                   scenarioToLedgerCoidMap: Map[AbsoluteContractId, AbsoluteContractId])
                 : Future[Map[AbsoluteContractId, AbsoluteContractId]] = {
@@ -388,7 +388,7 @@ object SemanticTester {
 
     // create commands deliberately do NOT contain submitter,
     // but in general for tests we should pass in the submitter for the commands
-    def submit(submitterName: SimpleString, cmds: Commands)
+    def submit(submitterName: Party, cmds: Commands)
       : Future[Events[EventNodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]]]
 
     def passTime(dtMicros: Long): Future[Unit]
