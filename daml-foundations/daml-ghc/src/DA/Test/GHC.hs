@@ -45,7 +45,7 @@ import           Development.IDE.Types.Diagnostics
 import           Data.Maybe
 import           Development.Shake hiding (cmd, withResource)
 import           System.Directory.Extra
-import           System.Environment (setEnv)
+import           System.Environment.Blank (setEnv)
 import           System.FilePath
 import           System.Process (readProcess)
 import           System.IO.Extra
@@ -83,7 +83,7 @@ mainVersionDefault = mainWithVersion versionDefault
 mainWithVersion :: Version -> IO ()
 mainWithVersion version =
   with (SS.startScenarioService (\_ -> pure ()) Logger.makeNopHandle) $ \scenarioService -> do
-  setEnv "TASTY_NUM_THREADS" "1"
+  setEnv "TASTY_NUM_THREADS" "1" True
   todoRef <- newIORef DList.empty
   let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
   integrationTest <- getIntegrationTests registerTODO scenarioService version

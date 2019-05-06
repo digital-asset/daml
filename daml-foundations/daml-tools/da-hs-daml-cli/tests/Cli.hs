@@ -7,7 +7,7 @@ module Cli
 
 import Control.Exception
 import Options.Applicative
-import System.Environment
+import System.Environment.Blank
 import System.Exit
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -16,7 +16,7 @@ import DA.Cli.Args
 
 main :: IO ()
 main = do
-    setEnv "TASTY_NUM_THREADS" "1"
+    setEnv "TASTY_NUM_THREADS" "1" True
     defaultMain tests
 
 tests :: TestTree

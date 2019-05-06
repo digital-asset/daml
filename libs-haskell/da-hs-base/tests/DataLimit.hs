@@ -11,7 +11,7 @@ import Data.Maybe
 import System.Directory
 import qualified Data.Text as T
 import Data.Aeson (encode)
-import System.Environment
+import System.Environment.Blank
 import Data.Functor
 
 main :: IO ()
@@ -54,4 +54,4 @@ withHomeDir = do
         Just _ -> pure Nothing
 
 fakeHome :: IO (Maybe String)
-fakeHome = setEnv "HOME" "." $> Just "HOME"
+fakeHome = setEnv "HOME" "." True $> Just "HOME"
