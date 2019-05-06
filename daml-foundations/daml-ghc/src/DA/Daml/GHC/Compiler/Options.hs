@@ -13,7 +13,8 @@ module DA.Daml.GHC.Compiler.Options
     ) where
 
 
-import Development.IDE.UtilGHC (runGhcFast, setupDamlGHC)
+import Development.IDE.UtilGHC (runGhcFast)
+import DA.Daml.GHC.Compiler.Config (setupDamlGHC)
 import qualified Development.IDE.Functions.Compile as Compile
 
 import DA.Bazel.Runfiles
