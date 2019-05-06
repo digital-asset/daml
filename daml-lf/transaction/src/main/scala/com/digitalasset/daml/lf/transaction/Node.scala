@@ -169,63 +169,56 @@ object Node {
   private[transaction] def isReplayedBy[Cid: Equal, Val: Equal](
       recorded: GenNode[Nothing, Cid, Val],
       isReplayedBy: GenNode[Nothing, Cid, Val]): Boolean =
-    recorded match {
-      case nc: NodeCreate[Cid, Val] =>
-        isReplayedBy match {
-          case NodeCreate(coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
-            import nc._
-            // NOTE(JM): Do not compare location annotations as they may differ due to
-            // differing update expression constructed from the root node.
-            coid === coid2 && coinst === coinst2 &&
-            signatories == signatories2 && stakeholders == stakeholders2 && key === key2
-          case _ => false
-        }
-      case nf: NodeFetch[Cid] =>
-        isReplayedBy match {
-          case NodeFetch(
-              coid2,
-              templateId2,
-              optLocation2 @ _,
-              actingParties2,
-              signatories2,
-              stakeholders2) =>
-            import nf._
-            coid === coid2 && templateId == templateId2 &&
-            actingParties.forall(_ => actingParties == actingParties2) &&
-            signatories == signatories2 && stakeholders == stakeholders2
-          case _ => false
-        }
-      case ne: NodeExercises[Nothing, Cid, Val] =>
-        isReplayedBy match {
-          case NodeExercises(
-              targetCoid2,
-              templateId2,
-              choiceId2,
-              optLocation2 @ _,
-              consuming2,
-              actingParties2,
-              chosenValue2,
-              stakeholders2,
-              signatories2,
-              controllers2,
-              _,
-              exerciseResult2) =>
-            import ne._
-            targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
-            consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
-            stakeholders == stakeholders2 && signatories == signatories2 && controllers == controllers2 &&
-            exerciseResult.fold(true)(_ => exerciseResult === exerciseResult2)
-          case _ => false
-        }
-      case nl: NodeLookupByKey[Cid, Val] =>
-        isReplayedBy match {
-          case NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2) =>
-            import nl._
-            templateId == templateId2 &&
-            key === key2 && result === result2
-          case _ => false
-        }
-    }
+    ScalazEqual.match2[recorded.type, isReplayedBy.type, Boolean](fallback = false) {
+      case nc: NodeCreate[Cid, Val] => {
+        case NodeCreate(coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
+          import nc._
+          // NOTE(JM): Do not compare location annotations as they may differ due to
+          // differing update expression constructed from the root node.
+          coid === coid2 && coinst === coinst2 &&
+          signatories == signatories2 && stakeholders == stakeholders2 && key === key2
+        case _ => false
+      }
+      case nf: NodeFetch[Cid] => {
+        case NodeFetch(
+            coid2,
+            templateId2,
+            optLocation2 @ _,
+            actingParties2,
+            signatories2,
+            stakeholders2) =>
+          import nf._
+          coid === coid2 && templateId == templateId2 &&
+          actingParties.forall(_ => actingParties == actingParties2) &&
+          signatories == signatories2 && stakeholders == stakeholders2
+      }
+      case ne: NodeExercises[Nothing, Cid, Val] => {
+        case NodeExercises(
+            targetCoid2,
+            templateId2,
+            choiceId2,
+            optLocation2 @ _,
+            consuming2,
+            actingParties2,
+            chosenValue2,
+            stakeholders2,
+            signatories2,
+            controllers2,
+            _,
+            exerciseResult2) =>
+          import ne._
+          targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
+          consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
+          stakeholders == stakeholders2 && signatories == signatories2 && controllers == controllers2 &&
+          exerciseResult.fold(true)(_ => exerciseResult === exerciseResult2)
+      }
+      case nl: NodeLookupByKey[Cid, Val] => {
+        case NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2) =>
+          import nl._
+          templateId == templateId2 &&
+          key === key2 && result === result2
+      }
+    }(recorded, isReplayedBy)
 
   /** Useful in various circumstances -- basically this is what a ledger implementation must use as
     * a key.
