@@ -724,7 +724,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               // stack: <actors> <cid> <choice arg> <token> <template arg> ()
               update(SEVar(3)),
               // stack: <actors> <cid> <choice arg> <token> <template arg> () <ret value>
-              SBUEndExercise(tmplId)(SEVar(4))
+              SBUEndExercise(tmplId)(SEVar(4), SEVar(1))
             ) in
               // stack: <actors> <cid> <choice arg> <token> <template arg> () <ret value> ()
               SEVar(2)

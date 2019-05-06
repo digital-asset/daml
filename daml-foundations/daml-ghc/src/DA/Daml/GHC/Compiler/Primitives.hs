@@ -13,7 +13,7 @@ module DA.Daml.GHC.Compiler.Primitives(convertPrim) where
 import           DA.Daml.GHC.Compiler.UtilLF
 import           DA.Daml.LF.Ast
 import           DA.Pretty (renderPretty)
-import           DA.Prelude (Tagged(..))
+import           Data.Tagged
 import qualified Data.Text as T
 
 convertPrim :: Version -> String -> Type -> Expr

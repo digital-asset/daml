@@ -8,7 +8,6 @@ module Development.IDE.State.Rules.Daml
 
 import Control.Concurrent.Extra
 import Control.Exception
-import Control.Lens (set)
 import Control.Monad.Except
 import Control.Monad.Extra
 import qualified Data.ByteString as BS
@@ -111,7 +110,7 @@ generateDalfRule =
 -- filename to match the package name.
 -- TODO (drsk): We might want to change this to load only needed packages in the future.
 generatePackageMap ::
-     [FilePath] -> IO ([Diagnostic], Map.Map UnitId (LF.PackageId, LF.Package, BS.ByteString, FilePath))
+     [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId (LF.PackageId, LF.Package, BS.ByteString, FilePath))
 generatePackageMap fps = do
   (diags, pkgs) <-
     fmap (partitionEithers . concat) $
@@ -233,9 +232,9 @@ runScenariosRule =
       m <- use_ GenerateRawDalf file
       world <- worldForFile file
       let scenarios = scenariosInModule m
-          toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe Diagnostic
+          toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe FileDiagnostic
           toDiagnostic scenario (Left err) =
-              Just $ set dFilePath (Just file) $ Diagnostic
+              Just $ (file,) $ Diagnostic
               { _range = maybe noRange sourceLocToRange mbLoc
               , _severity = Just DsError
               , _source = Just "Scenario"

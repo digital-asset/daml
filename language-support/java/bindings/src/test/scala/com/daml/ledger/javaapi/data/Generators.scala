@@ -236,7 +236,7 @@ object Generators {
       isConsuming <- Arbitrary.arbBool.arbitrary
       contractCreatingEventId <- Arbitrary.arbString.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
-
+      exerciseResult <- valueGen
     } yield
       EventOuterClass.ExercisedEvent
         .newBuilder()
@@ -249,6 +249,7 @@ object Generators {
         .setContractCreatingEventId(contractCreatingEventId)
         .setEventId(eventId)
         .addAllWitnessParties(witnessParties.asJava)
+        .setExerciseResult(exerciseResult)
         .build()
 
   def transactionFilterGen: Gen[TransactionFilterOuterClass.TransactionFilter] =

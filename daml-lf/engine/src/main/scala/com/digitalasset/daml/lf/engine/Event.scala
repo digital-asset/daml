@@ -57,6 +57,7 @@ final case class CreateEvent[Cid, Val](
   *  @param children consequence events. note that they're paired with the NodeId of the transaction that originated the event.
   *  @param stakeholders the stakeholders of the target contract -- must be a subset of witnesses. see comment for `collectEvents`
   *  @param witnesses additional witnesses induced by parent exercises
+  *  @param exerciseResult result of exercise of the choice. Optional since this feature was introduced in transaction version 6.
   */
 final case class ExerciseEvent[Nid, Cid, Val](
     contractId: Cid,
@@ -67,12 +68,17 @@ final case class ExerciseEvent[Nid, Cid, Val](
     isConsuming: Boolean,
     children: ImmArray[Nid],
     stakeholders: Set[Party],
-    witnesses: Set[Party])
+    witnesses: Set[Party],
+    exerciseResult: Option[Val])
     extends Event[Nid, Cid, Val] {
   override def mapContractId[Cid2, Val2](
       f: Cid => Cid2,
       g: Val => Val2): ExerciseEvent[Nid, Cid2, Val2] =
-    copy(contractId = f(contractId), choiceArgument = g(choiceArgument))
+    copy(
+      contractId = f(contractId),
+      choiceArgument = g(choiceArgument),
+      exerciseResult = exerciseResult.map(g)
+    )
 
   override def mapNodeId[Nid2](f: Nid => Nid2): ExerciseEvent[Nid2, Cid, Val] =
     copy(children = children.map(f))
@@ -166,7 +172,8 @@ object Event {
                 ne.consuming,
                 relevantChildren,
                 stakeholders intersect disclosure(nodeId),
-                disclosure(nodeId)
+                disclosure(nodeId),
+                ne.exerciseResult
               )
               evts += (nodeId -> evt)
               go(relevantChildren ++: remaining)

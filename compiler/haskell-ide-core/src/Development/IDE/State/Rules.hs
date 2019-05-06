@@ -25,7 +25,6 @@ module Development.IDE.State.Rules(
 
 import           Control.Concurrent.Extra
 import Control.Exception (evaluate)
-import Control.Lens (set)
 import           Control.Monad.Except
 import Control.Monad.Extra (whenJust)
 import qualified Development.IDE.Functions.Compile             as Compile
@@ -46,9 +45,9 @@ import           Development.Shake                        hiding (Diagnostic, En
 import           Development.IDE.Types.LSP as Compiler
 import Development.IDE.State.RuleTypes
 
-import           "ghc-lib" GHC
-import           "ghc-lib-parser" UniqSupply
-import           "ghc-lib-parser" Module                         as M
+import           GHC
+import           UniqSupply
+import           Module                         as M
 
 import qualified Development.IDE.Functions.AtPoint as AtPoint
 import Development.IDE.State.Service
@@ -56,11 +55,11 @@ import Development.IDE.State.Shake
 
 -- LEGACY STUFF ON THE OLD STYLE
 
-toIdeResultNew :: Either [Diagnostic] v -> IdeResult v
+toIdeResultNew :: Either [FileDiagnostic] v -> IdeResult v
 toIdeResultNew = either (, Nothing) (([],) . Just)
 
 -- Convert to a legacy Ide result but dropping dependencies
-toIdeResultSilent :: Maybe v -> Either [Diagnostic] v
+toIdeResultSilent :: Maybe v -> Either [FileDiagnostic] v
 toIdeResultSilent val = maybe (Left []) Right val
 
 
@@ -116,17 +115,17 @@ getDefinition file pos = do
 
 useE
     :: IdeRule k v
-    => k -> FilePath -> ExceptT [Diagnostic] Action v
+    => k -> FilePath -> ExceptT [FileDiagnostic] Action v
 useE k = ExceptT . fmap toIdeResultSilent . use k
 
 -- picks the first error
 usesE
     :: IdeRule k v
-    => k -> [FilePath] -> ExceptT [Diagnostic] Action [v]
+    => k -> [FilePath] -> ExceptT [FileDiagnostic] Action [v]
 usesE k = ExceptT . fmap (mapM toIdeResultSilent) . uses k
 
 -- | Generate the GHC Core for the supplied file and its dependencies.
-coresForFile :: FilePath -> ExceptT [Diagnostic] Action [CoreModule]
+coresForFile :: FilePath -> ExceptT [FileDiagnostic] Action [CoreModule]
 coresForFile file = do
     files <- transitiveModuleDeps <$> useE  GetDependencies file
     pms   <- usesE GetParsedModule $ files ++ [file]
@@ -141,14 +140,14 @@ coresForFile file = do
 getAtPointForFile
   :: FilePath
   -> Position
-  -> ExceptT [Diagnostic] Action (Maybe (Maybe Range, [HoverText]))
+  -> ExceptT [FileDiagnostic] Action (Maybe (Maybe Range, [HoverText]))
 getAtPointForFile file pos = do
   files <- transitiveModuleDeps <$> useE GetDependencies file
   tms   <- usesE TypeCheck (file : files)
   spans <- useE  GetSpanInfo file
   return $ AtPoint.atPoint (map Compile.tmrModule tms) spans pos
 
-getDefinitionForFile :: FilePath -> Position -> ExceptT [Diagnostic] Action (Maybe Location)
+getDefinitionForFile :: FilePath -> Position -> ExceptT [FileDiagnostic] Action (Maybe Location)
 getDefinitionForFile file pos = do
     spans <- useE GetSpanInfo file
     return $ AtPoint.gotoDefinition spans pos
@@ -173,7 +172,7 @@ getParsedModuleRule :: Rules ()
 getParsedModuleRule =
     define $ \GetParsedModule file -> do
         contents <- getFileContents file
-        packageState <- getPackageState
+        packageState <- use_ LoadPackageState ""
         opt <- getOpts
         liftIO $ Compile.parseModule opt packageState file contents
 
@@ -183,7 +182,7 @@ getLocatedImportsRule =
         pm <- use_ GetParsedModule file
         let ms = pm_mod_summary pm
         let imports = ms_textual_imps ms
-        packageState <- getPackageState
+        packageState <- use_ LoadPackageState ""
         opt <- getOpts
         dflags <- liftIO $ Compile.getGhcDynFlags opt pm packageState
         xs <- forM imports $ \(mbPkgName, modName) ->
@@ -193,7 +192,7 @@ getLocatedImportsRule =
 
 -- | Given a target file path, construct the raw dependency results by following
 -- imports recursively.
-rawDependencyInformation :: FilePath -> ExceptT [Diagnostic] Action RawDependencyInformation
+rawDependencyInformation :: FilePath -> ExceptT [FileDiagnostic] Action RawDependencyInformation
 rawDependencyInformation f = go (Set.singleton f) Map.empty Map.empty
   where go fs !modGraph !pkgs =
           case Set.minView fs of
@@ -205,7 +204,7 @@ rawDependencyInformation f = go (Set.singleton f) Map.empty Map.empty
                   let modGraph' = Map.insert f (Left ModuleParseError) modGraph
                   in go fs modGraph' pkgs
                 Just imports -> do
-                  packageState <- lift getPackageState
+                  packageState <- lift $ use_ LoadPackageState ""
                   opt <- lift getOpts
                   modOrPkgImports <- forM imports $ \imp -> do
                     case imp of
@@ -241,7 +240,7 @@ reportImportCyclesRule =
     where cycleErrorInFile f (PartOfCycle imp fs)
             | f `elem` fs = Just (imp, fs)
           cycleErrorInFile _ _ = Nothing
-          toDiag imp mods = set dLocation (Just loc) $ Diagnostic
+          toDiag imp mods = (fp ,) $ Diagnostic
             { _range = (_range :: Location -> Range) loc
             , _severity = Just DsError
             , _source = Just "Import cycle detection"
@@ -250,6 +249,7 @@ reportImportCyclesRule =
             , _relatedInformation = Nothing
             }
             where loc = srcSpanToLocation (getLoc imp)
+                  fp = srcSpanToFilename (getLoc imp)
           getModuleName file = do
            pm <- useE GetParsedModule file
            pure (moduleNameString . moduleName . ms_mod $ pm_mod_summary pm)
@@ -272,7 +272,7 @@ getSpanInfoRule =
         pm <- use_ GetParsedModule file
         tc <- use_ TypeCheck file
         imports <- use_ GetLocatedImports file
-        packageState <- getPackageState
+        packageState <- use_ LoadPackageState ""
         opt <- getOpts
         x <- liftIO $ Compile.getSrcSpanInfos opt pm packageState (fileImports imports) tc
         return ([], Just x)
@@ -287,7 +287,7 @@ typeCheckRule =
         tms <- uses_ TypeCheck (transitiveModuleDeps deps)
         setPriority PriorityTypeCheck
         us <- getUniqSupply
-        packageState <- getPackageState
+        packageState <- use_ LoadPackageState ""
         opt <- getOpts
         liftIO $ Compile.typecheckModule opt pm packageState us tms lps pm
 
@@ -295,7 +295,7 @@ typeCheckRule =
 loadPackageRule :: Rules ()
 loadPackageRule =
   defineNoFile $ \(LoadPackage pkg) -> do
-      packageState <- getPackageState
+      packageState <- use_ LoadPackageState ""
       opt <- getOpts
       pkgs <- liftIO $ Compile.computePackageDeps opt packageState pkg
       case pkgs of
@@ -319,14 +319,16 @@ generateCoreRule =
         let pm = tm_parsed_module . Compile.tmrModule $ tm
         setPriority PriorityGenerateDalf
         us <- getUniqSupply
-        packageState <- getPackageState
+        packageState <- use_ LoadPackageState ""
         opt <- getOpts
         liftIO $ Compile.compileModule opt pm packageState us tms lps tm
 
-generatePackageStateRule :: Rules ()
-generatePackageStateRule =
-    defineNoFile $ \(GeneratePackageState paths hideAllPkgs pkgImports) -> do
-        liftIO $ Compile.generatePackageState paths hideAllPkgs pkgImports
+loadPackageStateRule :: Rules ()
+loadPackageStateRule =
+    defineNoFile $ \LoadPackageState -> do
+        opts <- envOptions <$> getServiceEnv
+        liftIO $ Compile.generatePackageState
+            (Compile.optPackageDbs opts) (Compile.optHideAllPkgs opts) (Compile.optPackageImports opts)
 
 -- | A rule that wires per-file rules together
 mainRule :: Rules ()
@@ -339,18 +341,13 @@ mainRule = do
     typeCheckRule
     getSpanInfoRule
     generateCoreRule
-    generatePackageStateRule
+    loadPackageStateRule
     loadPackageRule
 
 ------------------------------------------------------------
 
 fileFromParsedModule :: ParsedModule -> IO FilePath
 fileFromParsedModule = pure . ms_hspp_file . pm_mod_summary
-
-getPackageState :: Action PackageState
-getPackageState = do
-  opts <- envOptions <$> getServiceEnv
-  use_ (GeneratePackageState (Compile.optPackageDbs opts) (Compile.optHideAllPkgs opts) (Compile.optPackageImports opts)) ""
 
 fileImports ::
      [(Located ModuleName, Maybe Import)]

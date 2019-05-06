@@ -66,8 +66,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     esf: ExecutionSequencerFactory)
     extends TransactionService
     with AutoCloseable
-    with ErrorFactories
-    with DamlOnXServiceUtils {
+    with ErrorFactories {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -277,7 +276,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
   }
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
-    consumeAsyncResult(indexService.getLedgerEnd(Ref.SimpleString.assertFromString(ledgerId)))
+    indexService.getLedgerEnd
       .map(offset => LedgerOffset.Absolute(offset.toString))
 
   override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
@@ -290,37 +289,30 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
       filter: TransactionFilter): Source[(Offset, (TransactionAccepted, BlindingInfo)), NotUsed] = {
 
     val ledgerBounds =
-      consumeAsyncResult(indexService.getLedgerBeginning(ledgerId))
+      indexService.getLedgerBeginning
         .flatMap { b =>
-          consumeAsyncResult(indexService.getLedgerEnd(ledgerId))
+          indexService.getLedgerEnd
             .map(e => (b, e))
         }
 
     Source
-      .fromFuture(
-        ledgerBounds.flatMap {
-          case (ledgerBegin, ledgerEnd) =>
-            OffsetSection(begin, end)(getOffsetHelper(ledgerBegin, ledgerEnd)) match {
-              case Failure(exception) =>
-                Future.failed(exception)
-              case Success(value) =>
-                value match {
-                  case OffsetSection.Empty =>
-                    Future { Source.empty }
-                  case OffsetSection.NonEmpty(subscribeFrom, subscribeUntil) =>
-                    consumeAsyncResult(
-                      indexService
-                        .getAcceptedTransactions(
-                          ledgerId,
-                          Some(subscribeFrom),
-                          subscribeUntil,
-                          filter)
-                    )
-                }
-            }
-        }
-      )
-      .flatMapConcat(identity)
+      .fromFuture(ledgerBounds)
+      .flatMapConcat {
+        case (ledgerBegin, ledgerEnd) =>
+          OffsetSection(begin, end)(getOffsetHelper(ledgerBegin, ledgerEnd)) match {
+            case Failure(exception) =>
+              Source.failed(exception)
+            case Success(value) =>
+              value match {
+                case OffsetSection.Empty =>
+                  Source.empty
+                case OffsetSection.NonEmpty(subscribeFrom, subscribeUntil) =>
+                  indexService
+                    .getAcceptedTransactions(Some(subscribeFrom), subscribeUntil, filter)
+
+              }
+          }
+      }
   }
 
   private def getOffsetHelper(ledgerBeginning: Offset, ledgerEnd: Offset) = {

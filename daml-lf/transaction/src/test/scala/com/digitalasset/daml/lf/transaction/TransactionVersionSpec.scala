@@ -25,6 +25,19 @@ class TransactionVersionSpec extends WordSpec with Matchers {
         ValueOptional(Some(v)): Value[String])
       assignVersion(assignValueVersions(usingOptional)) shouldBe TransactionVersion("2")
     }
+
+    "pick version 7 when confronted with exercise result" in {
+      val hasExerciseResult = dummyExerciseWithResultTransaction mapContractIdAndValue (identity, v =>
+        ValueOptional(Some(v)): Value[String])
+      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe TransactionVersion("7")
+    }
+
+    "pick version 2 when confronted with exercise result" in {
+      val hasExerciseResult = dummyExerciseTransaction mapContractIdAndValue (identity, v =>
+        ValueOptional(Some(v)): Value[String])
+      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe TransactionVersion("2")
+    }
+
   }
 
   private[this] def assignValueVersions[Nid, Cid, Cid2](
@@ -35,8 +48,13 @@ class TransactionVersionSpec extends WordSpec with Matchers {
 }
 
 object TransactionVersionSpec {
-  import TransactionSpec.{dummyCreateNode, StringTransaction}
+  import TransactionSpec.{dummyCreateNode, dummyExerciseNode, StringTransaction}
   private[this] val singleId = "a"
   private val dummyCreateTransaction =
     StringTransaction(Map((singleId, dummyCreateNode)), ImmArray(singleId))
+  private val dummyExerciseWithResultTransaction =
+    StringTransaction(Map((singleId, dummyExerciseNode(ImmArray.empty))), ImmArray(singleId))
+  private val dummyExerciseTransaction =
+    StringTransaction(Map((singleId, dummyExerciseNode(ImmArray.empty, false))), ImmArray(singleId))
+
 }

@@ -28,6 +28,8 @@ apt-get install -qy \
   git \
   netcat
 
+curl -sSO https://dl.google.com/cloudagents/install-logging-agent.sh | bash
+
 ## Install the VSTS agent
 groupadd --gid 3000 vsts
 useradd \

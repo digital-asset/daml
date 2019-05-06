@@ -16,8 +16,8 @@ import com.digitalasset.daml.lf.data.Ref.SimpleString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.platform.akkastreams.Dispatcher
-import com.digitalasset.platform.akkastreams.SteppingMode.OneAfterAnother
+import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
+import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import com.digitalasset.platform.services.time.TimeModel
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
@@ -77,6 +77,9 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   val ledgerId = SimpleString.assertFromString(UUID.randomUUID.toString)
+
+  // The ledger configuration
+  private val ledgerConfig = Configuration(timeModel = TimeModel.reasonableDefault)
 
   // DAML Engine for transaction validation.
   private val engine = Engine()
@@ -359,7 +362,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   /** The initial conditions of the ledger. The initial record time is the instant
     * at which this class has been instantiated.
     */
-  private val initialConditions = LedgerInitialConditions(ledgerId, getNewRecordTime)
+  private val initialConditions = LedgerInitialConditions(ledgerId, ledgerConfig, getNewRecordTime)
 
   /** Get a new record time for the ledger from the system clock.
     * Public for use from integration tests.

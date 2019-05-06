@@ -24,7 +24,7 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception.Safe
 import Control.Monad
-import Control.Monad.Extra
+import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.Loops (untilJust)
 import Data.Aeson
 import Data.Aeson.Text
@@ -159,6 +159,10 @@ runNew targetFolder templateName = do
                    $ configTemplate
         writeFileUTF8 configPath config
         removeFile configTemplatePath
+
+    putStrLn $
+        "Created a new project in \"" <> targetFolder <>
+        "\" based on the template \"" <> templateName <> "\"."
 
 -- | Our SDK installation is read-only to prevent users from accidentally modifying it.
 -- But when we copy from it in "daml new" we want the result to be writable.

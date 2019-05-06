@@ -12,11 +12,11 @@ module DA.Daml.LF.Ast.Pretty(
     (<:>)
     ) where
 
-import DA.Prelude
-
 import qualified Data.Ratio                 as Ratio
 import           Control.Lens
 import           Control.Lens.Ast   (rightSpine)
+import Data.Tagged
+import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Text          as T
 import qualified Data.Time.Clock.POSIX      as Clock.Posix

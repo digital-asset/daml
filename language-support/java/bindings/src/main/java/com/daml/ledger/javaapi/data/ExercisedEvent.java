@@ -32,6 +32,8 @@ public class ExercisedEvent extends Event {
 
     private final List<String> childEventIds;
 
+    private final Value exerciseResult;
+
     public ExercisedEvent(@NonNull List<@NonNull String> witnessParties,
                           @NonNull String eventId,
                           @NonNull Identifier templateId,
@@ -41,7 +43,8 @@ public class ExercisedEvent extends Event {
                           @NonNull Value choiceArgument,
                           @NonNull List<@NonNull String> actingParties,
                           boolean consuming,
-                          @NonNull List<@NonNull String> childEventIds) {
+                          @NonNull List<@NonNull String> childEventIds,
+                          @NonNull Value exerciseResult) {
         this.witnessParties = witnessParties;
         this.eventId = eventId;
         this.templateId = templateId;
@@ -52,6 +55,7 @@ public class ExercisedEvent extends Event {
         this.actingParties = actingParties;
         this.consuming = consuming;
         this.childEventIds = childEventIds;
+        this.exerciseResult = exerciseResult;
     }
 
     @NonNull
@@ -106,6 +110,11 @@ public class ExercisedEvent extends Event {
         return consuming;
     }
 
+    @NonNull
+    public Value getExerciseResult() {
+        return exerciseResult;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -119,13 +128,14 @@ public class ExercisedEvent extends Event {
                 Objects.equals(contractCreatingEventId, that.contractCreatingEventId) &&
                 Objects.equals(choice, that.choice) &&
                 Objects.equals(choiceArgument, that.choiceArgument) &&
-                Objects.equals(actingParties, that.actingParties);
+                Objects.equals(actingParties, that.actingParties) &&
+                Objects.equals(exerciseResult, that.exerciseResult);
     }
 
     @Override
     public int hashCode() {
 
-        return Objects.hash(witnessParties, eventId, templateId, contractId, contractCreatingEventId, choice, choiceArgument, actingParties, consuming);
+        return Objects.hash(witnessParties, eventId, templateId, contractId, contractCreatingEventId, choice, choiceArgument, actingParties, consuming, exerciseResult);
     }
 
     @Override
@@ -141,6 +151,7 @@ public class ExercisedEvent extends Event {
                 ", actingParties=" + actingParties +
                 ", consuming=" + consuming +
                 ", childEventIds=" + childEventIds +
+                ", exerciseResult=" + exerciseResult +
                 '}';
     }
 
@@ -156,6 +167,7 @@ public class ExercisedEvent extends Event {
                 .addAllActingParties(getActingParties())
                 .addAllWitnessParties(getWitnessParties())
                 .addAllChildEventIds(getChildEventIds())
+                .setExerciseResult(getExerciseResult().toProto())
                 .build();
     }
 
@@ -170,6 +182,7 @@ public class ExercisedEvent extends Event {
                 Value.fromProto(exercisedEvent.getChoiceArgument()),
                 exercisedEvent.getActingPartiesList(),
                 exercisedEvent.getConsuming(),
-                exercisedEvent.getChildEventIdsList());
+                exercisedEvent.getChildEventIdsList(),
+                Value.fromProto(exercisedEvent.getExerciseResult()));
     }
 }

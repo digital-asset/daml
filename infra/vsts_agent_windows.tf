@@ -74,6 +74,12 @@ Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name
 # Disable UAC
 New-ItemProperty -Path HKLM:Software\Microsoft\Windows\CurrentVersion\policies\system -Name EnableLUA -PropertyType DWord -Value 0 -Force
 
+# Redirect logs to SumoLogic
+
+cd $env:UserProfile;
+Invoke-WebRequest https://dl.google.com/cloudagents/windows/StackdriverLogging-v1-9.exe -OutFile StackdriverLogging-v1-9.exe;
+.\StackdriverLogging-v1-9.exe /S /D="C:\Stackdriver\Logging\"
+
 # Install chocolatey
 iex (New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')
 

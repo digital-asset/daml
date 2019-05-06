@@ -230,7 +230,8 @@ getLatestInstalledSdkVersion (DamlPath path) = do
 getDispatchEnv :: Env -> IO [(String, String)]
 getDispatchEnv Env{..} = do
     originalEnv <- getEnvironment
-    pure $ [ (damlPathEnvVar, unwrapDamlPath envDamlPath)
+    pure $ filter ((`notElem` damlEnvVars) . fst) originalEnv
+        ++ [ (damlPathEnvVar, unwrapDamlPath envDamlPath)
            , (projectPathEnvVar, maybe "" unwrapProjectPath envProjectPath)
            , (sdkPathEnvVar, maybe "" unwrapSdkPath envSdkPath)
            , (sdkVersionEnvVar, maybe "" versionToString envSdkVersion)
@@ -239,7 +240,7 @@ getDispatchEnv Env{..} = do
            , (damlAssistantVersionEnvVar, maybe ""
                (versionToString . unwrapDamlAssistantSdkVersion)
                envDamlAssistantSdkVersion)
-           ] ++ filter ((`notElem` damlEnvVars) . fst) originalEnv
+           ]
 
 
 -- | Auto-installs requested version if it is missing and updates daml-assistant

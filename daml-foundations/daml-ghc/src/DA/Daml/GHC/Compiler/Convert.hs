@@ -88,7 +88,7 @@ import           Development.IDE.UtilGHC
 
 import           Control.Applicative
 import           Control.Lens
-import           Control.Monad.Except.Extended
+import           Control.Monad.Except
 import Control.Monad.Fail
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
@@ -121,8 +121,8 @@ conversionError :: String -> ConvertM e
 conversionError msg = do
   ConversionEnv{..} <- ask
   let addFpIfExists =
-        maybe id (set dFilePath . Just) convModuleFilePath
-  throwError $ addFpIfExists $  Diagnostic
+        (fromMaybe noFilePath convModuleFilePath,)
+  throwError $ addFpIfExists $ Diagnostic
       { _range = maybe noRange sourceLocToRange convRange
       , _severity = Just DsError
       , _source = Just $ T.pack "Core to DAML-LF"
@@ -200,13 +200,13 @@ data ConversionEnv = ConversionEnv
   , convRange :: !(Maybe SourceLoc)
   }
 
-newtype ConvertM a = ConvertM (ReaderT ConversionEnv (Except Diagnostic) a)
-  deriving (Functor, Applicative, Monad, MonadError Diagnostic, MonadReader ConversionEnv)
+newtype ConvertM a = ConvertM (ReaderT ConversionEnv (Except FileDiagnostic) a)
+  deriving (Functor, Applicative, Monad, MonadError FileDiagnostic, MonadReader ConversionEnv)
 
 instance MonadFail ConvertM where
     fail = conversionError
 
-runConvertM :: ConversionEnv -> ConvertM a -> Either Diagnostic a
+runConvertM :: ConversionEnv -> ConvertM a -> Either FileDiagnostic a
 runConvertM s (ConvertM a) = runExcept (runReaderT a s)
 
 withRange :: Maybe SourceLoc -> ConvertM a -> ConvertM a
@@ -251,7 +251,7 @@ convertRational num denom
     upperBound128Bit = 10 ^ (38 :: Integer)
     maxPrecision = 10 :: Integer
 
-convertModule :: LF.Version -> MS.Map UnitId T.Text -> GhcModule -> Either Diagnostic LF.Module
+convertModule :: LF.Version -> MS.Map UnitId T.Text -> GhcModule -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) Nothing) $ do
     definitions <- concat <$> traverse (convertBind env) (cm_binds x)
     types <- concat <$> traverse (convertTypeDef env) (eltsUFM (cm_types x))
@@ -490,11 +490,20 @@ convertBind2 env (NonRec name x)
     | Just internals <- MS.lookup (envGHCModuleName env) internalFunctions
     , is name `elem` internals
     = pure []
-    -- NOTE(MH): String literals should never appear at the top level since
-    -- they must be wrapped in either 'unpackCString#' or 'unpackCStringUtf8#'
-    -- to decide how to decode them.
-    | Lit LitString {} <- x
-    = unhandled "String literal at top level" x
+    -- NOTE(MH): Our inline return type syntax produces a local letrec for
+    -- recursive functions. We currently don't support local letrecs.
+    -- However, we can work around this issue by rewriting
+    -- > name = \@a_1 ... @a_n -> letrec f = \v -> y in f  -- (n >= 0)
+    -- into
+    -- > name = \@a_1 ... @a_n -> \v -> let f = name @a_1 ... @a_n in y
+    -- We need to make sure `f` is a term lambda here since we'd end up with a
+    -- recursive value otherwise.
+    -- (This rewriting can be regarded as a very limited form of lambda
+    -- lifting where the lifted version of `f` happens to be `name`.)
+    -- This workaround should be removed once we either have a proper lambda
+    -- lifter or DAML-LF supports local recursion.
+    | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectTyBinders x, f == f'
+    = convertBind2 env $ NonRec name $ mkLams as $ Lam v $ Let (NonRec f $ mkTyApps (Var name) $ map mkTyVarTy as) y
     | otherwise
     = withRange (convNameLoc name) $ do
     x' <- convertExpr env x
@@ -742,10 +751,10 @@ convertExpr env0 e = do
         withTmArg env (varV2, TList t) args $ \y args ->
           pure (ECons t x y, args)
     go env (Var v) args
-        | isBuiltinName "None" v
+        | isBuiltinName "None" v || isBuiltinName "$WNone" v
         = withTyArg env varT1 args $ \t args -> pure (ENone t, args)
     go env (Var v) args
-        | isBuiltinName "Some" v
+        | isBuiltinName "Some" v || isBuiltinName "$WSome" v
         = withTyArg env varT1 args $ \t args ->
           withTmArg env (varV1, t) args $ \x args ->
             pure (ESome t x, args)
@@ -762,13 +771,13 @@ convertExpr env0 e = do
         -- work. Constructor workers are not handled (yet).
         | Just m <- nameModule_maybe $ varName x
         , Just con <- isDataConId_maybe x
-        , not ("$W" `isPrefixOf` is x)
         = do
             unitId <- convertUnitId (envModuleUnitId env) (envPkgMap env) $ GHC.moduleUnitId m
             let qualify = Qualified unitId (convertModuleName $ GHC.moduleName m)
             ctor@(Ctor _ fldNames _) <- toCtor env con
-            let renameTuple ('(':',':xs) | dropWhile (== ',') xs == ")" = "Tuple" ++ show (length xs + 1)
-                renameTuple t = t
+            let renameCons ('(':',':xs) | dropWhile (== ',') xs == ")" = "Tuple" ++ show (length xs + 1)
+                renameCons ('$':'W':t) = t
+                renameCons t = t
             -- NOTE(MH): The first case are fully applied record constructors,
             -- the second case is everything else.
             if  | let tycon = dataConTyCon con
@@ -781,10 +790,10 @@ convertExpr env0 e = do
                 -> fmap (, []) $ do
                     tyArgs <- mapM (convertType env) tyArgs
                     tmArgs <- mapM (convertExpr env) tmArgs
-                    let tcon = TypeConApp (qualify (mkTypeCon [renameTuple (is (dataConTyCon con))])) tyArgs
+                    let tcon = TypeConApp (qualify (mkTypeCon [renameCons (is (dataConTyCon con))])) tyArgs
                     pure $ ERecCon tcon (zip fldNames tmArgs)
                 | otherwise
-                -> fmap (, args) $ pure $ EVal $ qualify $ mkVal ("$ctor:" ++ renameTuple (is x))
+                -> fmap (, args) $ pure $ EVal $ qualify $ mkVal ("$ctor:" ++ renameCons (is x))
         | Just m <- nameModule_maybe $ varName x = fmap (, args) $ do
             unitId <- convertUnitId (envModuleUnitId env) (envPkgMap env) $ GHC.moduleUnitId m
             pure $ EVal $

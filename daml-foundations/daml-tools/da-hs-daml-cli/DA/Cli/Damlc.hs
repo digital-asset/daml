@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE NoImplicitPrelude   #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ApplicativeDo       #-}
@@ -12,7 +11,10 @@ module DA.Cli.Damlc (main) where
 import Control.Monad.Except
 import qualified Control.Monad.Managed             as Managed
 import DA.Cli.Damlc.Base
-import Control.Exception (throwIO)
+import Data.List
+import Data.Tagged
+import Data.Maybe
+import Control.Exception
 import qualified "cryptonite" Crypto.Hash as Crypto
 import Codec.Archive.Zip
 import qualified Da.DamlLf as PLF
@@ -48,12 +50,12 @@ import qualified Network.Socket                    as NS
 import           Options.Applicative
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
-import System.Directory (createDirectoryIfMissing)
-import System.Environment (withProgName)
-import System.Exit (exitFailure)
-import System.FilePath (takeDirectory, (<.>), (</>), isExtensionOf, takeFileName, dropExtension, takeBaseName)
+import System.Directory
+import System.Environment
+import System.Exit
+import System.FilePath
 import System.Process(callCommand)
-import           System.IO                         (stderr, hPutStrLn)
+import           System.IO
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 import DA.Cli.Damlc.Test
 
@@ -250,6 +252,7 @@ execPackageNew numProcessors mbOutFile =
         case parseProjectConfig project of
             Left err -> throwIO err
             Right PackageConfigFields {..} -> do
+                putStrLn $ "Compiling " <> pMain <> " to a DAR."
                 defaultOpts <- Compiler.defaultOptionsIO Nothing
                 let opts =
                         defaultOpts

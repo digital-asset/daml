@@ -7,6 +7,7 @@ import java.io.File
 import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, ZoneOffset}
 import java.util.Collections.singletonList
+import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Collections, UUID}
 
@@ -74,6 +75,7 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
   def sendCmd(channel: Channel, cmds: Command*) = {
     CommandServiceGrpc
       .newBlockingStub(channel)
+      .withDeadlineAfter(40, TimeUnit.SECONDS)
       .submitAndWait(
         SubmitAndWaitRequest
           .newBuilder()

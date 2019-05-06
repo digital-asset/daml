@@ -13,7 +13,8 @@ module DA.Daml.GHC.Compiler.Options
     ) where
 
 
-import Development.IDE.UtilGHC (runGhcFast, setupDamlGHC)
+import Development.IDE.UtilGHC (runGhcFast)
+import DA.Daml.GHC.Compiler.Config (setupDamlGHC)
 import qualified Development.IDE.Functions.Compile as Compile
 
 import DA.Bazel.Runfiles
@@ -22,7 +23,9 @@ import DA.Daml.GHC.Compiler.Preprocessor
 
 import           Control.Monad.Reader
 import qualified Data.List.Extra as List
-import Data.Maybe (fromMaybe)
+import Data.Maybe
+import Data.Tuple.Extra
+import "ghc-lib-parser" DynFlags
 import qualified "ghc-lib" GHC
 import "ghc-lib-parser" Module (moduleNameSlashes)
 import qualified System.Directory as Dir
@@ -71,10 +74,12 @@ toCompileOpts Options{..} =
       , optMbPackageName = optMbPackageName
       , optPackageDbs = optPackageDbs
       , optHideAllPkgs = optHideAllPkgs
-      , optPackageImports = optPackageImports
+      , optPackageImports = map (second toRenaming) optPackageImports
       , optThreads = optThreads
       , optShakeProfiling = optShakeProfiling
       }
+  where
+    toRenaming aliases = ModRenaming False [(GHC.mkModuleName mod, GHC.mkModuleName alias) | (mod, alias) <- aliases]
 
 moduleImportPaths :: GHC.ParsedModule -> [FilePath]
 moduleImportPaths pm =

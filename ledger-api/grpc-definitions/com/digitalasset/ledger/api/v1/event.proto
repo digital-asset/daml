@@ -146,4 +146,9 @@ message ExercisedEvent {
   // It contains only the immediate children of this event, not all members of the subtree rooted at this node.
   // Optional
   repeated string child_event_ids = 11;
+
+  // The result of exercising the choice
+  // Required
+  Value exercise_result = 12;
+
 }

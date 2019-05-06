@@ -36,6 +36,7 @@ da_haskell_library(
         "safe-exceptions",
         "shake",
         "split",
+        "tagged",
         "tasty-ant-xml",
         "tasty-hunit",
         "tasty",

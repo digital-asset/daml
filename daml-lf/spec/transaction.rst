@@ -4,7 +4,7 @@
 DAML-LF Transaction Specification
 =================================
 
-**version 6, 29 April 2019**
+**version 7, 5 May 2019**
 
 This specification, in concert with the ``transaction.proto``
 machine-readable definition, defines a format for _transactions_, to be
@@ -156,6 +156,8 @@ This table lists every version of this specification in ascending order
 |                  5 |      2019-03-12 |
 +--------------------+-----------------+
 |                  6 |      2019-04-29 |
++--------------------+-----------------+
+|                  7 |      2019-05-06 |
 +--------------------+-----------------+
 
 message Transaction
@@ -485,6 +487,14 @@ If ``contract_id_struct``'s ``relative`` field is ``true``, then:
 The ``controllers`` field must be empty. Software needing to fill in
 data structures that demand both actors and controllers must use
 the ``actors`` field as the controllers.
+
+*since version 7*
+
+A new field ``result_value`` is required:
+
+* `message VersionedValue`_ result_value
+
+Containing the result of the exercised choice.
 
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^

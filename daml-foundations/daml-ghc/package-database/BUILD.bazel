@@ -69,18 +69,3 @@ daml_package_db(
         [":daml-stdlib-{}".format(ver) for ver in DAML_LF_VERSIONS],
     visibility = ["//visibility:public"],
 )
-
-# TODO Make sure that tools no longer rely on this.
-# The daml-prim .dar archive. It is shipped as DAML-LF 1.0 such that we can link it from DAML-LF 1.0
-# as well as DAML-LF 1.1 dalfs.
-genrule(
-    name = "gen-daml-prim.dar",
-    srcs = ["//daml-foundations/daml-ghc/daml-prim-src"],
-    outs = ["daml-prim.dar"],
-    cmd = """
-    $(location //daml-foundations/daml-tools/da-hs-damlc-app) \
-      package daml-foundations/daml-ghc/daml-prim-src/LibraryModules.daml daml-prim --target 1.1 -o $(location daml-prim.dar)
-  """,
-    tools = ["//daml-foundations/daml-tools/da-hs-damlc-app"],
-    visibility = ["//visibility:public"],
-)

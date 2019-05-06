@@ -12,7 +12,7 @@ import DAML.Project.Util
 import System.FilePath
 import Control.Exception.Safe
 import Control.Applicative
-import Control.Monad.Extra
+import Control.Monad.Extra hiding (fromMaybeM)
 import Network.HTTP.Client
 import Network.TLS
 

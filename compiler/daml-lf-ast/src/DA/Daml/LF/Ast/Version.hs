@@ -5,7 +5,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.Ast.Version(module DA.Daml.LF.Ast.Version) where
 
-import           DA.Prelude
+import           Data.Data
+import GHC.Generics
 import           DA.Pretty
 import           Control.DeepSeq
 import qualified Data.Text as T

@@ -16,8 +16,7 @@ module DA.Daml.LF.Ast.Optics(
     templateExpr
     ) where
 
-import DA.Prelude
-
+import Data.Tagged
 import Control.Lens
 import Control.Lens.Ast
 import Control.Lens.MonoTraversal

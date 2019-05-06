@@ -4,7 +4,6 @@
 module DA.Cli.Damlc.Base
     ( module DA.Cli.Options
     , module DA.Cli.Output
-    , module DA.Prelude
     , CommandM
     , Command
     , getLogger
@@ -12,7 +11,6 @@ module DA.Cli.Damlc.Base
 where
 import           DA.Cli.Options
 import           DA.Cli.Output
-import           DA.Prelude
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified Data.Text as T
 import qualified DA.Service.Logger                 as Logger

@@ -236,6 +236,7 @@ haskell_register_ghc_nixpkgs(
     compiler_flags = [
         "-O1",
         "-fexternal-dynamic-refs",
+        "-hide-package=ghc-boot-th",
     ],
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
@@ -453,11 +454,7 @@ hazel_repositories(
                 "c8905268b7e3b4cf624a40245bf11b35274a6dd836a5d4d531b5760075645303",
                 patches = ["@ai_formation_hazel//third_party/haskell:network.patch"],
             ) +
-            hazel_hackage("unix-time", "0.4.5", "fe7805c62ad682589567afeee265e6e230170c3941cdce479a2318d1c5088faf") +
             hazel_hackage("zip-archive", "0.3.3", "988adee77c806e0b497929b24d5526ea68bd3297427da0d0b30b99c094efc84d") +
-            hazel_hackage("js-dgtable", "0.5.2", "e28dd65bee8083b17210134e22e01c6349dc33c3b7bd17705973cd014e9f20ac") +
-            hazel_hackage("shake", "0.17.8", "ade4162f7540f044f0446981120800076712d1f98d30c5b5344c0f7828ec49a2") +
-            hazel_hackage("filepattern", "0.1.1", "f7fc5bdcfef0d43a793a3c64e7c0fd3b1d35eea97a37f0e69d6612ab255c9b4b") +
             hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
             hazel_hackage("rope-utf16-splay", "0.2.0.0", "83d1961bf55355da49a6b55d6f58d02483eff1f8e6df53f4dccdab1ac49e101d") +
             hazel_hackage("unix-compat", "0.5.1", "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52") +
@@ -485,6 +482,9 @@ hazel_custom_package_hackage(
     version = "0.7.2",
 )
 
+# We patch various data-default packages to give them shorter filenames
+# to fix Windows builds.
+
 hazel_custom_package_hackage(
     package_name = "data-default",
     build_file = "//3rdparty/haskell:BUILD.data-default",
@@ -503,6 +503,13 @@ hazel_custom_package_hackage(
     package_name = "data-default-instances-old-locale",
     build_file = "//3rdparty/haskell:BUILD.data-default-instances-old-locale",
     sha256 = "60d3b02922958c4908d7bf2b24ddf61511665745f784227d206745784b0c0802",
+    version = "0.0.1",
+)
+
+hazel_custom_package_hackage(
+    package_name = "data-default-instances-dlist",
+    build_file = "//3rdparty/haskell:BUILD.data-default-instances-dlist",
+    sha256 = "7d683711cbf08abd7adcd5ac2be825381308d220397315a5570fe61b719b5959",
     version = "0.0.1",
 )
 

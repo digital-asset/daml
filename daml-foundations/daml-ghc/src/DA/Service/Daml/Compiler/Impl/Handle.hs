@@ -30,8 +30,6 @@ module DA.Service.Daml.Compiler.Impl.Handle
   , getBaseDir
   ) where
 
-import           DA.Prelude
-
 -- HS/DAML to LF compiler (daml-ghc)
 import DA.Daml.GHC.Compiler.Convert (sourceLocToRange)
 import DA.Daml.GHC.Compiler.Options
@@ -44,7 +42,8 @@ import           DA.Daml.LF.Proto3.Archive                  (encodeArchiveLazy)
 import qualified DA.Service.Logger                          as Logger
 import qualified DA.Service.Daml.Compiler.Impl.Dar          as Dar
 
-import           Control.Monad.Except.Extended              as Ex
+import           Control.Monad.Trans.Except              as Ex
+import           Control.Monad.Except              as Ex
 import           Control.Monad.IO.Class                     (liftIO)
 import           Control.Monad.Managed.Extended
 import qualified Data.ByteString                            as BS
@@ -54,6 +53,10 @@ import qualified Data.Map.Strict                            as Map
 import qualified Data.NameMap as NM
 import qualified Data.Set                                   as S
 import qualified Data.Text                                  as T
+import Data.List
+import Data.Maybe
+import Data.Tagged
+import Safe
 
 import           Data.Time.Clock
 import           Data.Traversable                           (for)
@@ -116,7 +119,7 @@ uriToVirtualResource uri = do
             file <- Map.lookup "file" decoded
             topLevelDecl <- Map.lookup "top-level-decl" decoded
             pure $ VRScenario file (T.pack topLevelDecl)
-        _ -> empty
+        _ -> Nothing
 
   where
     queryString :: URI.URI -> Map.Map String String
@@ -193,26 +196,25 @@ getAssociatedVirtualResources
   :: IdeState
   -> FilePath
   -> IO [(Base.Range, T.Text, VirtualResource)]
-getAssociatedVirtualResources service filePath =
-  runDefaultExceptT [] $ logExceptT "GetAssociatedVirtualResources" $ do
-    mods <- NM.toList . LF.packageModules <$> compileFile service filePath
-    when (null mods) $
-      throwError [errorDiag filePath "Get associated virtual resources"
-        "No modules returned by compiler."]
-    -- NOTE(MH): 'compile' returns the modules in topologically sorted order.
-    -- Thus, the module we care about is the last in the list.
-    let mod0 = last mods
-    pure
-      [ (sourceLocToRange loc, "Scenario: " <> name, vr)
-      | value@LF.DefValue{dvalLocation = Just loc} <- NM.toList (LF.moduleValues mod0)
-      , LF.getIsTest (LF.dvalIsTest value)
-      , let name = unTagged (LF.dvalName value)
-      , let vr = VRScenario filePath name
-      ]
-  where
-    logExceptT src act = act `catchError` \err -> do
-      lift $ CompilerService.logError service $ T.unlines ["ERROR in " <> src <> ":", T.pack (show err)]
-      throwError err
+getAssociatedVirtualResources service filePath = do
+    mod0 <- runExceptT $ do
+        mods <- NM.toList . LF.packageModules <$> compileFile service filePath
+        case lastMay mods of
+            Nothing -> throwError [errorDiag filePath "Get associated virtual resources"
+                "No modules returned by compiler."]
+            Just mod0 -> return mod0
+    case mod0 of
+        Left err -> do
+            CompilerService.logError service $ T.unlines ["ERROR in GetAssociatedVirtualResources:", T.pack (show err)]
+            return []
+        Right mod0 -> pure
+            [ (sourceLocToRange loc, "Scenario: " <> name, vr)
+            | value@LF.DefValue{dvalLocation = Just loc} <- NM.toList (LF.moduleValues mod0)
+            , LF.getIsTest (LF.dvalIsTest value)
+            , let name = unTagged (LF.dvalName value)
+            , let vr = VRScenario filePath name
+            ]
+
 
 gotoDefinition
     :: IdeState
@@ -239,7 +241,7 @@ compileFile
     -- -> Options
     -- -> Bool -- ^ collect and display warnings
     -> FilePath
-    -> ExceptT [Diagnostic] IO LF.Package
+    -> ExceptT [FileDiagnostic] IO LF.Package
 compileFile service fp = do
     -- We need to mark the file we are compiling as a file of interest.
     -- Otherwise all diagnostics produced during compilation will be garbage
@@ -272,7 +274,7 @@ buildDar ::
   -> String
   -> [(String, BS.ByteString)]
   -> UseDalf
-  -> ExceptT [Diagnostic] IO BS.ByteString
+  -> ExceptT [FileDiagnostic] IO BS.ByteString
 buildDar service file pkgName dataFiles dalfInput = do
   liftIO $
     CompilerService.logDebug service $
@@ -314,7 +316,7 @@ buildDar service file pkgName dataFiles dalfInput = do
 
 -- | Get the transitive package dependencies on other dalfs.
 getDalfDependencies ::
-       IdeState -> FilePath -> ExceptT [Diagnostic] IO [DalfDependency]
+       IdeState -> FilePath -> ExceptT [FileDiagnostic] IO [DalfDependency]
 getDalfDependencies service afp = do
     res <-
         liftIO $

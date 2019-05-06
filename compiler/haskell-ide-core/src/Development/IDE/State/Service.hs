@@ -32,7 +32,7 @@ import           Development.IDE.Functions.GHCError
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
 import           Development.IDE.Types.LSP as Compiler
 
-import           "ghc-lib-parser" UniqSupply
+import           UniqSupply
 
 import           Development.IDE.State.Shake
 
@@ -59,7 +59,7 @@ mkEnv options = do
         , envUniqSupplyVar = uniqSupplyVar
         }
 
-getDiagnostics :: IdeState -> IO [Diagnostic]
+getDiagnostics :: IdeState -> IO [FileDiagnostic]
 getDiagnostics = getAllDiagnostics
 
 unsafeClearDiagnostics :: IdeState -> IO ()

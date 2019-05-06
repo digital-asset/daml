@@ -87,12 +87,16 @@ object Node {
         * is why we removed the controllers field in transaction version 6.
         */
       controllers: Set[Party],
-      children: ImmArray[Nid])
+      children: ImmArray[Nid],
+      exerciseResult: Option[Val])
       extends GenNode[Nid, Cid, Val] {
     override def mapContractIdAndValue[Cid2, Val2](
         f: Cid => Cid2,
         g: Val => Val2): NodeExercises[Nid, Cid2, Val2] =
-      copy(targetCoid = f(targetCoid), chosenValue = g(chosenValue))
+      copy(
+        targetCoid = f(targetCoid),
+        chosenValue = g(chosenValue),
+        exerciseResult = exerciseResult.map(g))
 
     override def mapNodeId[Nid2](f: Nid => Nid2): NodeExercises[Nid2, Cid, Val] =
       copy(
@@ -116,7 +120,8 @@ object Node {
         chosenValue: Val,
         stakeholders: Set[Party],
         signatories: Set[Party],
-        children: ImmArray[Nid]): NodeExercises[Nid, Cid, Val] =
+        children: ImmArray[Nid],
+        exerciseResult: Option[Val]): NodeExercises[Nid, Cid, Val] =
       NodeExercises(
         targetCoid,
         templateId,
@@ -128,7 +133,8 @@ object Node {
         stakeholders,
         signatories,
         actingParties,
-        children)
+        children,
+        exerciseResult)
   }
 
   final case class NodeLookupByKey[+Cid, +Val](
@@ -171,6 +177,7 @@ object Node {
           // differing update expression constructed from the root node.
           coid === coid2 && coinst === coinst2 &&
           signatories == signatories2 && stakeholders == stakeholders2 && key === key2
+        case _ => false
       }
       case nf: NodeFetch[Cid] => {
         case NodeFetch(
@@ -197,11 +204,13 @@ object Node {
             stakeholders2,
             signatories2,
             controllers2,
-            _) =>
+            _,
+            exerciseResult2) =>
           import ne._
           targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
           consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
-          stakeholders == stakeholders2 && signatories == signatories2 && controllers == controllers2
+          stakeholders == stakeholders2 && signatories == signatories2 && controllers == controllers2 &&
+          exerciseResult.fold(true)(_ => exerciseResult === exerciseResult2)
       }
       case nl: NodeLookupByKey[Cid, Val] => {
         case NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2) =>

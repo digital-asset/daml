@@ -4,7 +4,6 @@
 package com.daml.ledger.api.server.damlonx.services
 
 import com.daml.ledger.participant.state.index.v1.IndexService
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml_lf.DamlLf.{Archive, HashFunction}
 import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
@@ -26,8 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class DamlOnXPackageService private (indexService: IndexService)
     extends PackageService
-    with AutoCloseable
-    with DamlOnXServiceUtils {
+    with AutoCloseable {
 
   override def close(): Unit = ()
 
@@ -42,17 +40,13 @@ class DamlOnXPackageService private (indexService: IndexService)
   }
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
-    consumeAsyncResult(
-      indexService.listPackages(Ref.SimpleString.assertFromString(request.ledgerId))).map {
-      packageIds =>
-        ListPackagesResponse(packageIds.map(pkgId => pkgId.underlyingString))
+    indexService.listPackages.map { packageIds =>
+      ListPackagesResponse(packageIds.map(pkgId => pkgId.underlyingString))
     }
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] = {
-    consumeAsyncResult(
-      indexService.getPackage(
-        Ref.SimpleString.assertFromString(request.ledgerId),
-        PackageId.assertFromString(request.packageId)))
+    indexService
+      .getPackage(PackageId.assertFromString(request.packageId))
       .flatMap { optArchive =>
         optArchive.fold(Future.failed[GetPackageResponse](Status.NOT_FOUND.asRuntimeException()))(
           archive => Future.successful(toGetPackageResponse(archive)))
@@ -61,16 +55,15 @@ class DamlOnXPackageService private (indexService: IndexService)
 
   override def getPackageStatus(
       request: GetPackageStatusRequest): Future[GetPackageStatusResponse] =
-    consumeAsyncResult(
-      indexService.listPackages(Ref.SimpleString.assertFromString(request.ledgerId))).map {
-      packageIds =>
+    indexService.listPackages
+      .map { packageIds =>
         GetPackageStatusResponse {
           if (packageIds.contains(PackageId.assertFromString(request.packageId)))
             PackageStatus.REGISTERED
           else
             PackageStatus.UNKNOWN
         }
-    }
+      }
 
 }
 

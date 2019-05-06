@@ -11,9 +11,10 @@ module DA.Cli.Damlc.Test (
 
 import Control.Monad.Except
 import qualified Control.Monad.Managed             as Managed
-import           DA.Prelude
 import qualified DA.Pretty
 import DA.Cli.Damlc.Base
+import Data.Maybe
+import Data.List.Extra
 import Data.Tuple.Extra
 import Control.Monad.Extra
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
@@ -42,13 +43,13 @@ execTest :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO (
 execTest inFiles color mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
     opts <- Compiler.mkOptions cliOptions
-    let eventLogger (EventFileDiagnostics diag) = printDiagnostics $ snd diag
+    let eventLogger (EventFileDiagnostics (fp, diags)) = printDiagnostics $ map (fp,) diags
         eventLogger _ = return ()
     Managed.with (Compiler.newIdeState opts (Just eventLogger) loggerH) $ \h -> do
         let lfVersion = Compiler.optDamlLfVersion cliOptions
         testRun h inFiles lfVersion color mbJUnitOutput
         diags <- CompilerService.getDiagnostics h
-        when (any ((Just DsError ==) . _severity) diags) exitFailure
+        when (any ((Just DsError ==) . _severity . snd) diags) exitFailure
 
 
 testRun :: IdeState -> [FilePath] -> LF.Version -> UseColor -> Maybe FilePath -> IO ()

@@ -18,7 +18,7 @@ import qualified "ghc-lib-parser" Outputable                      as Out
 import qualified "ghc-lib-parser" DynFlags                        as DF
 import           "ghc-lib-parser" Bag (bagToList)
 
-import           Control.Monad.Except.Extended             as Ex
+import           Control.Monad.Except             as Ex
 import           Data.Char (isSpace)
 import Data.Either.Extra
 import           Data.List.Extra
@@ -31,7 +31,7 @@ import           Data.Tuple.Extra                          (second)
 -- | Parse, and process documentation in, a dependency graph of modules.
 mkDocs :: CompileOpts ->
           [FilePath] ->
-          Ex.ExceptT [Diagnostic] IO [ModuleDoc]
+          Ex.ExceptT [FileDiagnostic] IO [ModuleDoc]
 mkDocs opts fp = do
   parsed <- haddockParse opts fp
   pure $ map mkModuleDocs parsed
@@ -118,7 +118,7 @@ collectDocs = go Nothing []
 --   invoked by a CLI tool.
 haddockParse :: CompileOpts ->
                 [FilePath] ->
-                Ex.ExceptT [Diagnostic] IO [ParsedModule]
+                Ex.ExceptT [FileDiagnostic] IO [ParsedModule]
 haddockParse opts f = ExceptT $ do
   service <- Service.initialise Service.mainRule Nothing Logger.makeNopHandle opts
   Service.setFilesOfInterest service (Set.fromList f)

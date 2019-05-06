@@ -1,10 +1,28 @@
 daml 1.2
 module FunRetTypeSig where
 
+import DA.Assert
+
 -- Test parsing of function return type signature syntax
 -- (see Tim's proposal at
 -- https://github.com/ghc-proposals/ghc-proposals/pull/185).
 
-succ (x : Int) : Int = x + 1
+mysucc (x : Int) : Int = x + 1
 
--- Related issue : https://github.com/digital-asset/daml/issues/747.
+-- Regression tests for https://github.com/digital-asset/daml/issues/747
+
+-- Monomorphic test
+fact (n : Int) : Int
+  | n <= 1    = 1
+  | otherwise = n * fact (n - 1)
+
+-- Polymorphic test
+mymap (f : a -> b) (xs : [a]) : [b] = case xs of
+    [] -> []
+    x::xs -> f x::mymap f xs
+
+-- Test that the rewriting in the compiler works.
+testFact = scenario do
+  mysucc 12 === 13
+  fact 5 === 120
+  mymap show [1, 2] === ["1", "2"]

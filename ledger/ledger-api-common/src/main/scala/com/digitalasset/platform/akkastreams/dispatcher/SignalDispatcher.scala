@@ -1,14 +1,14 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams
+package com.digitalasset.platform.akkastreams.dispatcher
 
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
-import com.digitalasset.platform.akkastreams.SignalDispatcher._
+import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher.Signal
 import com.digitalasset.platform.common.util.DirectExecutionContext
 
 /**
@@ -60,6 +60,8 @@ class SignalDispatcher private () extends AutoCloseable {
         NotUsed
       }
 
+  private def throwClosed(): Nothing = throw new IllegalStateException("SignalDispatcher is closed")
+
   /**
     * Closes this SignalDispatcher.
     * For any downstream with pending signals, at least one such signal will be sent first.
@@ -71,20 +73,16 @@ class SignalDispatcher private () extends AutoCloseable {
       // fire and forget complete signals -- we can't control how long downstream takes
       .fold(throw new IllegalStateException("SignalDispatcher is already closed"))(
         _.foreach(_.complete()))
+
 }
 
 object SignalDispatcher {
 
-  /**
-    * The signal sent by SignalDispatcher.
-    */
   sealed abstract class Signal
-  object Signal extends Signal
 
-  private def throwClosed(): Nothing = throw new IllegalStateException("SignalDispatcher is closed")
+  /** The signal sent by SignalDispatcher. */
+  final case object Signal extends Signal
 
-  /**
-    * Construct a new SignalDispatcher. Created Sources will consume Akka resources until closed.
-    */
+  /** Construct a new SignalDispatcher. Created Sources will consume Akka resources until closed. */
   def apply(): SignalDispatcher = new SignalDispatcher()
 }

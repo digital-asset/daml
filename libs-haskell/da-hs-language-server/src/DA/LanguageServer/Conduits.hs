@@ -11,8 +11,7 @@ module DA.LanguageServer.Conduits
 
 import           Control.Monad.Catch              (MonadThrow)
 import           Control.Monad.Trans              (MonadIO)
-
-import           DA.Prelude
+import Control.Monad.IO.Class
 
 import qualified Data.Attoparsec.ByteString.Char8 as AP
 import qualified Data.ByteString.Char8            as B

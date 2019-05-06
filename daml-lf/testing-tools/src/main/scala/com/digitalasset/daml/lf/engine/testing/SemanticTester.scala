@@ -3,18 +3,17 @@
 
 package com.digitalasset.daml.lf.engine.testing
 
-import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Time}
+import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, QualifiedName, SimpleString}
 import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.engine._
+import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Time}
 import com.digitalasset.daml.lf.engine.Event.Events
+import com.digitalasset.daml.lf.engine._
 import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.speedy.ScenarioRunner
-import com.digitalasset.daml.lf.speedy.Speedy
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction => Tx}
+import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
 import com.digitalasset.daml.lf.transaction.Node._
+import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction => Tx}
 import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
@@ -33,12 +32,19 @@ import scala.reflect.{ClassTag, classTag}
   * @param partyNameMangler allows to amend party names defined in scenarios,
   *        before they are executed against ledger created with {@code createLedger}.
   *        See {@code ScenarioRunner.partyNameMangler} for details.
+  * @param commandIdMangler allows to compute command identifiers based on scenario
+  *                         name, scenario step identifier and scenario node identifier.
+  *                         It can be used to ensure that generated command identifiers
+  *                         are unique between runs of two scenarios.
   */
 class SemanticTester(
     createLedger: Set[SimpleString] => SemanticTester.GenericLedger,
     packageToTest: PackageId,
     packages: Map[PackageId, Package],
-    partyNameMangler: (String => String) = identity)(implicit ec: ExecutionContext) {
+    partyNameMangler: (String => String) = identity,
+    commandIdMangler: ((QualifiedName, Int, L.NodeId) => String) = (scenario, stepId, nodeId) =>
+      s"semantic-testing-$scenario-$stepId-$nodeId"
+)(implicit ec: ExecutionContext) {
   import SemanticTester._
 
   // result ledgers from all scenarios found in packages
@@ -83,11 +89,24 @@ class SemanticTester(
     val scenarioLedger = allScenarioLedgers(scenario)
     val ledger: GenericLedger = createLedger(packageParties)
 
+    //
+    // Wrapper for the NodeId and a flag used for handling ExerciseNodes.
+    //
+    // The children of the exercise node need to be processed before the testing the exercise node as testing
+    // the result value of the exercise requires knowing the contract IDs of child contracts and records.
+    //
+    case class StackNode(
+        /** Identifier for the Node */
+        nid: L.NodeId,
+        /** True if the children of the exercise node has been added to the stack */
+        exerciseAddedChildren: Boolean
+    )
+
     case class TestScenarioState(
         /** Mapping between scenario contracts and ledger contracts */
         scenarioCoidToLedgerCoid: Map[AbsoluteContractId, AbsoluteContractId],
         /** Stack of remaining scenario nodes to visit */
-        remainingScenarioNodeIds: FrontStack[L.NodeId],
+        remainingScenarioNodeIds: FrontStack[StackNode],
         /** Stack of remaining ledger events to visit */
         remainingLedgerEventIds: FrontStack[ledger.EventNodeId])
 
@@ -126,7 +145,7 @@ class SemanticTester(
 
       // walk through the scenario nodes and ledger events
       @tailrec
-      def go(state: TestScenarioState): Map[AbsoluteContractId, AbsoluteContractId] =
+      def go(state: TestScenarioState): Map[AbsoluteContractId, AbsoluteContractId] = {
         state.remainingScenarioNodeIds match {
           // we're done with scenario nodes, we should also be done with ledger events
           case FrontStack() =>
@@ -140,7 +159,9 @@ class SemanticTester(
             }
 
           // we still have nodes...
-          case FrontStackCons(scenarioNodeId, remainingScenarioNodeIds) =>
+          case FrontStackCons(
+              StackNode(scenarioNodeId, exerciseAddedChildren),
+              remainingScenarioNodeIds) =>
             val scenarioNode = scenarioTransaction.nodes(scenarioNodeId)
 
             // utility to assert that we still have a ledger event,
@@ -194,7 +215,7 @@ class SemanticTester(
                 case scenarioExercisesNode: NodeExercises[
                       L.NodeId,
                       AbsoluteContractId,
-                      Tx.Value[AbsoluteContractId]] =>
+                      Tx.Value[AbsoluteContractId]] if exerciseAddedChildren =>
                   val (ledgerExerciseEvent, remainingLedgerEventIds) =
                     popEvent[ExerciseEvent[
                       ledger.EventNodeId,
@@ -203,6 +224,7 @@ class SemanticTester(
                       "exercise event",
                       scenarioNode,
                       state.remainingLedgerEventIds)
+
                   // create synthetic exercise event, again rewriting the appropriate bits. note that we intentionally
                   // blank the children because we compare them in the recursive call anyway.
                   val scenarioExerciseEvent = ExerciseEvent(
@@ -215,6 +237,8 @@ class SemanticTester(
                     ImmArray.empty,
                     scenarioExercisesNode.stakeholders intersect scenarioWitnesses(scenarioNodeId),
                     scenarioWitnesses(scenarioNodeId),
+                    scenarioExercisesNode.exerciseResult.map(
+                      _.mapContractId(state.scenarioCoidToLedgerCoid))
                   )
                   val ledgerExerciseEventToCompare =
                     ledgerExerciseEvent.copy(children = ImmArray.empty, stakeholders = Set.empty)
@@ -226,33 +250,53 @@ class SemanticTester(
                       s"Expected exercise event $comparedScenarioExerciseEvent but got $ledgerExerciseEventToCompare"
                     )
                   }
-                  // add the exercise children to the stack
                   state.copy(
-                    remainingLedgerEventIds = ledgerExerciseEvent.children ++: remainingLedgerEventIds,
-                    remainingScenarioNodeIds = scenarioExercisesNode.children ++: remainingScenarioNodeIds,
+                    remainingScenarioNodeIds = remainingScenarioNodeIds,
+                    remainingLedgerEventIds = remainingLedgerEventIds,
                   )
+
+                case scenarioExercisesNode: NodeExercises[
+                      L.NodeId,
+                      AbsoluteContractId,
+                      Tx.Value[AbsoluteContractId]] if !exerciseAddedChildren =>
+                  val exerciseChildren =
+                    popEvent[ExerciseEvent[
+                      ledger.EventNodeId,
+                      AbsoluteContractId,
+                      Tx.Value[AbsoluteContractId]]](
+                      "exercise event",
+                      scenarioNode,
+                      state.remainingLedgerEventIds)._1.children
+
+                  state.copy(
+                    remainingLedgerEventIds = exerciseChildren ++: state.remainingLedgerEventIds,
+                    remainingScenarioNodeIds = scenarioExercisesNode.children.map(
+                      StackNode(_, false)) ++:
+                      StackNode(scenarioNodeId, true) +: remainingScenarioNodeIds,
+                  )
+
               }
             // keep looping
             go(nextState)
         }
+      }
 
       // GO GO GO
       // walk from the roots, return the updated contract id mapping
       go(
         TestScenarioState(
           remainingLedgerEventIds = FrontStack(ledgerEvents.roots),
-          remainingScenarioNodeIds = FrontStack(scenarioTransaction.roots),
+          remainingScenarioNodeIds = FrontStack(scenarioTransaction.roots.map(StackNode(_, false))),
           scenarioCoidToLedgerCoid = scenarioToLedgerMap
         ))
     }
-
     scenarioLedger.scenarioSteps.toList
       .foldLeft(Future(Map.empty[AbsoluteContractId, AbsoluteContractId])) {
         case (initialMap, (stepId, L.Commit(txId @ _, richTransaction, optLocation @ _))) =>
           richTransaction.roots.foldLeft(initialMap) {
             case (previousMap, nodeId) =>
               val reference: String =
-                s"semantic-testing-$scenario-$stepId-$nodeId"
+                commandIdMangler(scenario, stepId, nodeId)
               def submitCommandCheckAndUpdateMap(
                   submitterName: SimpleString,
                   cmd: Command,

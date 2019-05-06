@@ -11,6 +11,7 @@ module DA.Next.Map
   , size
   , toList
   , fromList
+  , fromListWith
   , toTextMap
   , fromTextMap
   , null
@@ -20,6 +21,7 @@ module DA.Next.Map
   , delete
   , insert
   , union
+  , merge
   ) where
 
 import Prelude hiding (lookup, null, empty)
@@ -67,6 +69,15 @@ instance MapKey Decimal where
 -- | Create a map from a list of key/value pairs.
 fromList : MapKey k => [(k, v)] -> Map k v
 fromList kvs = Map $ TextMap.fromList $ map (first keyToText) kvs
+
+-- | Create a map from a list of key/value pairs with a combining
+-- function. Examples:
+-- ```
+--   fromListWith (<>) [(5,"a"), (5,"b"), (3,"b"), (3,"a"), (5,"c")] == fromList [(3, "ba"), (5, "abc")]
+--   fromListWith (<>) [] == (empty : Map Int Text)
+-- ```
+fromListWith : MapKey k => (v -> v -> v) -> [(k, v)] -> Map k v
+fromListWith f kvs = Map $ TextMap.fromListWith f $ map (first keyToText) kvs
 
 -- | Convert the map to a list of key/value pairs where the keys are
 -- in ascending order of their textual representation.
@@ -120,6 +131,20 @@ insert k v (Map t) = Map $ TextMap.insert (keyToText k) v t
 -- keys are encountered.
 union : MapKey k => Map k v -> Map k v -> Map k v
 union (Map t1) (Map t2) = Map $ TextMap.union t1 t2
+
+-- | Merge two maps. `merge f g h x y` applies `f` to all key/value pairs
+-- whose key only appears in `x`, `g` to all pairs whose key only appears
+-- in `y` and `h` to all pairs whose key appears in both `x` and `y`.
+-- In the end, all pairs yielding `Some` are collected as the result.
+merge
+  :  MapKey k
+  => (k -> a -> Optional c)
+  -> (k -> b -> Optional c)
+  -> (k -> a -> b -> Optional c)
+  -> Map k a
+  -> Map k b
+  -> Map k c
+merge f g h (Map xs) (Map ys) = Map $ TextMap.merge (f . keyFromText) (g . keyFromText) (h . keyFromText) xs ys
 
 instance (MapKey k, Show k, Show v) => Show (Map k v) where
   show m = "Map " <> show (toList m)

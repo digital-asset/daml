@@ -17,6 +17,7 @@ import scala.collection.JavaConverters._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.traverse.ToTraverseOps
 import scalaz.std.either.eitherMonad
+import scalaz.std.option._
 
 object TransactionCoder {
 
@@ -99,7 +100,7 @@ object TransactionCoder {
       nodeId: Nid,
       node: GenNode[Nid, Cid, Val]): Either[EncodeError, TransactionOuterClass.Node] = {
     val nodeBuilder = TransactionOuterClass.Node.newBuilder().setNodeId(encodeNid(nodeId))
-    import TransactionVersions.{minKeyOrLookupByKey, minNoControllers}
+    import TransactionVersions.{minKeyOrLookupByKey, minNoControllers, minExerciseResult}
     node match {
       case c: NodeCreate[Cid, Val] =>
         encodeContractInstance(encodeVal, c.coinst).flatMap { inst =>
@@ -151,35 +152,48 @@ object TransactionCoder {
         }
 
       case e: NodeExercises[Nid, Cid, Val] =>
-        encodeVal(e.chosenValue).flatMap {
-          case (vversion, arg) =>
-            val exBuilder =
-              TransactionOuterClass.NodeExercise
-                .newBuilder()
-                .setChoice(e.choiceId)
-                .setTemplateId(ValueCoder.encodeIdentifier(e.templateId, Some(vversion))._2)
-                .setChosenValue(arg)
-                .setConsuming(e.consuming)
-                .setContractIdOrStruct(encodeCid, transactionVersion, e.targetCoid)(
-                  _.setContractId(_),
-                  _.setContractIdStruct(_))
-                .addAllActors(e.actingParties.map(_.underlyingString).asJava)
-                .addAllChildren(e.children.map(encodeNid).toList.asJava)
-                .addAllSignatories(e.signatories.map(_.underlyingString).asJava)
-                .addAllStakeholders(e.stakeholders.map(_.underlyingString).asJava)
+        for {
+          argValue <- encodeVal(e.chosenValue)
+          (vversion, arg) = argValue
+          retValue <- e.exerciseResult traverseU encodeVal
+        } yield {
+          val exBuilder =
+            TransactionOuterClass.NodeExercise
+              .newBuilder()
+              .setChoice(e.choiceId)
+              .setTemplateId(ValueCoder.encodeIdentifier(e.templateId, Some(vversion))._2)
+              .setChosenValue(arg)
+              .setConsuming(e.consuming)
+              .setContractIdOrStruct(encodeCid, transactionVersion, e.targetCoid)(
+                _.setContractId(_),
+                _.setContractIdStruct(_))
+              .addAllActors(e.actingParties.map(_.underlyingString).asJava)
+              .addAllChildren(e.children.map(encodeNid).toList.asJava)
+              .addAllSignatories(e.signatories.map(_.underlyingString).asJava)
+              .addAllStakeholders(e.stakeholders.map(_.underlyingString).asJava)
 
-            if (transactionVersion precedes minNoControllers) {
-              if (e.controllers == e.actingParties) {
-                exBuilder.addAllControllers(e.controllers.map(_.underlyingString).asJava)
-                Right(nodeBuilder.setExercise(exBuilder).build())
-              } else {
-                Left(EncodeError(
-                  s"As of version $transactionVersion, the controllers and actingParties of an exercise node _must_ be the same, but I got ${e.controllers} as controllers and ${e.actingParties} as actingParties."))
-              }
+          if (transactionVersion precedes minNoControllers) {
+            if (e.controllers == e.actingParties) {
+              exBuilder.addAllControllers(e.controllers.map(_.underlyingString).asJava)
             } else {
-              Right(nodeBuilder.setExercise(exBuilder).build())
+              return Left(EncodeError(
+                s"As of version $transactionVersion, the controllers and actingParties of an exercise node _must_ be the same, but I got ${e.controllers} as controllers and ${e.actingParties} as actingParties."))
             }
+          }
 
+          retValue match {
+            case Some(rv) =>
+              if (!(transactionVersion precedes minExerciseResult)) {
+                exBuilder.setReturnValue(rv._2)
+              }
+            case None =>
+              if (!(transactionVersion precedes minExerciseResult)) {
+                return Left(EncodeError(
+                  s"Trying to encode transaction of version $transactionVersion, which requires the exercise return value, but did not get exercise return value in node."))
+              }
+          }
+
+          nodeBuilder.setExercise(exBuilder).build()
         }
 
       case nlbk: NodeLookupByKey[Cid, Val] =>
@@ -231,7 +245,7 @@ object TransactionCoder {
       protoNode: TransactionOuterClass.Node): Either[DecodeError, (Nid, GenNode[Nid, Cid, Val])] = {
     val nodeId = decodeNid(protoNode.getNodeId)
 
-    import TransactionVersions.{minKeyOrLookupByKey, minNoControllers}
+    import TransactionVersions.{minKeyOrLookupByKey, minNoControllers, minExerciseResult}
     protoNode.getNodeTypeCase match {
       case NodeTypeCase.CREATE =>
         for {
@@ -277,6 +291,11 @@ object TransactionCoder {
           .map(_.toImmArray)
 
         for {
+          rv <- if (txVersion precedes minExerciseResult) {
+            if (protoExe.hasReturnValue)
+              Left(DecodeError(txVersion, isTooOldFor = "exercise result"))
+            else Right(None)
+          } else decodeVal(protoExe.getReturnValue).map(Some(_))
           ni <- nodeId
           targetCoid <- protoExe.decodeContractIdOrStruct(decodeCid, txVersion)(
             _.getContractId,
@@ -311,7 +330,8 @@ object TransactionCoder {
               stakeholders = stakeholders,
               signatories = signatories,
               controllers = controllers,
-              children = children
+              children = children,
+              exerciseResult = rv
             ))
       case NodeTypeCase.LOOKUP_BY_KEY =>
         val protoLookupByKey = protoNode.getLookupByKey

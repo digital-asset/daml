@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Pretty-printing of scenario results
@@ -15,15 +14,19 @@ module DA.Daml.LF.PrettyScenario
   ) where
 
 import           Control.Lens               (preview, review)
-import           Control.Monad              ((>=>))
-import           Control.Monad.Reader       (Reader, asks, runReader)
-import           Control.Monad.Trans.Except (ExceptT (..), runExceptT, throwE)
+import           Control.Monad
+import           Control.Monad.Reader
+import           Control.Monad.Trans.Except
 import           DA.Daml.LF.Decimal  (stringToDecimal)
 import qualified DA.Daml.LF.Ast             as LF
-import           DA.Prelude
+import Data.Tagged
+import Control.Applicative
+import Text.Read hiding (parens)
 import           DA.Pretty as Pretty
-import           Data.Either.Extra          (eitherToMaybe)
-import           Data.Int                   (Int32)
+import           Data.Either.Extra
+import           Data.Int
+import Data.List
+import Data.Maybe
 import qualified Data.NameMap               as NM
 import qualified Data.Map.Strict            as MS
 import qualified Data.Ratio                 as Ratio
@@ -94,7 +97,7 @@ lookupModuleFromQualifiedName world mbPkgId qualName = do
 
 parseNodeId :: NodeId -> [Integer]
 parseNodeId =
-    fmap (fromMaybe 0 . readMay . TL.unpack)
+    fmap (fromMaybe 0 . readMaybe . TL.unpack)
   . TL.splitOn ":"
   . nodeIdId
 

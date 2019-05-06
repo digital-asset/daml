@@ -33,4 +33,18 @@ source dev-env/lib/ensure-nix
 export NIX_CONF_DIR=$PWD/dev-env/etc
 
 step "Building dev-env dependencies"
-nix-build nix -A tools -A cached
+
+# Nix cache downloads can sometimes be flaky and end with "unexpected end-of-file" so we
+# repeat this a few times. There does not seem to be an option that we can pass to nix
+# to make it retry itself. See https://github.com/NixOS/nix/issues/2794 for the issue requesting
+# this feature.
+for i in `seq 10`; do
+    nix-build nix -A tools -A cached 2>&1 | tee nix_log
+    # It should be in the last line but let’s use the last 3 and wildcards
+    # to be robust against slight changes.
+    if [[ $(tail -n 3 nix_log) == *"unexpected end-of-file"* ]]; then
+        echo "Restarting nix-build due to failed cache download"
+        continue
+    fi
+    break
+done

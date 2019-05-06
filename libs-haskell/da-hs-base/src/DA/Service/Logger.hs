@@ -22,13 +22,15 @@ module DA.Service.Logger
   , liftHandle
   ) where
 
-import           DA.Prelude
 
 import           Control.Monad.Base
 import           Control.Monad.Trans.Control
 import qualified Data.Aeson                   as Aeson
 import qualified Data.Text                    as T
 import GHC.Stack
+import Data.Data
+import GHC.Generics
+
 
 ------------------------------------------------------------------------------
 -- Types

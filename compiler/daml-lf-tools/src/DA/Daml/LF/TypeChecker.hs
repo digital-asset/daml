@@ -8,8 +8,7 @@ module DA.Daml.LF.TypeChecker
   , errorLocation
   ) where
 
-import           DA.Prelude
-
+import Data.Functor
 import           Data.Either.Combinators           (mapLeft)
 import           Data.Foldable
 

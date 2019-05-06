@@ -10,13 +10,10 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.value.Value
 
-import scala.concurrent.Future
-
 package object v1 {
   import com.daml.ledger.participant.state.v1._
 
   type TransactionAccepted = Update.TransactionAccepted
-  type AsyncResult[T] = Future[Either[IndexService.Err, T]]
   type TransactionUpdate = (Offset, (Update.TransactionAccepted, BlindingInfo))
 
   /** ACS event identifier */

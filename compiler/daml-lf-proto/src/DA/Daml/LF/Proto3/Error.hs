@@ -1,8 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE NoImplicitPrelude #-}
-
 module DA.Daml.LF.Proto3.Error
     ( Decode
     , Error(..)
@@ -11,7 +9,6 @@ module DA.Daml.LF.Proto3.Error
 import qualified Data.Text as T
 
 import DA.Daml.LF.Ast
-import DA.Prelude
 
 data Error
   = MissingField String
