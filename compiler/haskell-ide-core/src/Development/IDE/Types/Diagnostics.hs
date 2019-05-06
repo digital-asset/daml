@@ -33,7 +33,11 @@ module Development.IDE.Types.Diagnostics (
   filterSeriousErrors,
   filePathToUri,
   getDiagnosticsFromStore,
-  Diagnostics
+  Diagnostics,
+  setStageDiagnostics,
+  getStageDiagnostics,
+  setStageDiagnostics,
+  getAllDiagnostics
   ) where
 
 import Control.Exception
@@ -45,6 +49,7 @@ import Data.String (IsString)
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc.Syntax
 import qualified Data.SortedList as SL
+import System.Directory
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import           Language.Haskell.LSP.Types as LSP (
     DiagnosticSeverity(..)
@@ -175,7 +180,7 @@ diagSC LSP.Diagnostic{..} =
 prettyDiagnosticStore :: DiagnosticStore -> Doc SyntaxClass
 prettyDiagnosticStore ds =
     vcat $
-    map (\(uri, diags) -> prettyFileDiagnostics (fromMaybe noFilePath $ uriToFilePath uri, diags)) $
+    map (\(uri, diags) -> prettyFileDiagnostics (fromUri uri, diags)) $
     Map.assocs $
     Map.map getDiagnosticsFromStore ds
 
@@ -243,22 +248,20 @@ emptyDiagnostics = Diagnostics mempty
 
 -- | Sets the diagnostics for a file and compilation step
 --   if you want to clear the diagnostics call this with an empty list
-setDiagnostics ::
+setStageDiagnostics ::
   Show stage =>
   FilePath ->
   stage ->
   [LSP.Diagnostic] ->
   Diagnostics stage ->
-  Diagnostics stage
-setDiagnostics fp stage diags (Diagnostics ds) =
-    Diagnostics $ Map.insert uri addedStage ds where
+  IO (Diagnostics stage)
+setStageDiagnostics fp stage diags (Diagnostics ds) = do
+    uri <- toUri fp
+    let thisFile = Map.lookup uri ds
+        addedStage :: StoreItem
+        addedStage = StoreItem Nothing $ storeItem thisFile
+    pure $ Diagnostics $ Map.insert uri addedStage ds where
 
-    uri = filePathToUri fp
-
-    addedStage :: StoreItem
-    addedStage = StoreItem Nothing $ storeItem thisFile
-
-    thisFile = Map.lookup uri ds
 
     storeItem :: Maybe StoreItem -> DiagnosticsBySource
     storeItem = \case
@@ -275,11 +278,20 @@ noVersions :: HasCallStack => a
 noVersions =
     error "Unsupported use of document versions"
 
+fromUri :: LSP.Uri -> FilePath
+fromUri = fromMaybe noFilePath . uriToFilePath
+
+-- TODO (MK) We canonicalize to make sure that the two files agree on use of
+-- / and \ and other shenanigans.
+-- haskell-lsp also has serious problems with relative file paths
+toUri :: FilePath -> IO LSP.Uri
+toUri = fmap filePathToUri . canonicalizePath
+
 getAllDiagnostics ::
     Diagnostics stage ->
-    [LSP.Diagnostic]
+    [FileDiagnostic]
 getAllDiagnostics =
-    concatMap getDiagnosticsFromStore . Map.elems . getStore
+    concatMap (\(k,v) -> map (fromUri k,) $ getDiagnosticsFromStore v) . Map.toList . getStore
 
 getFileDiagnostics ::
     FilePath ->
@@ -295,11 +307,12 @@ getStageDiagnostics ::
     FilePath ->
     stage ->
     Diagnostics stage ->
-    [LSP.Diagnostic]
-getStageDiagnostics fp stage (Diagnostics ds) =
-    fromMaybe [] $ do
-    (StoreItem _ f) <- Map.lookup (filePathToUri fp) ds
-    toList <$> Map.lookup (Just $ T.pack $ show stage) f
+    IO [LSP.Diagnostic]
+getStageDiagnostics fp stage (Diagnostics ds) = do
+    uri <- toUri fp
+    pure $ fromMaybe [] $ do
+        (StoreItem _ f) <- Map.lookup uri ds
+        toList <$> Map.lookup (Just $ T.pack $ show stage) f
 
 filterDiagnostics ::
     (FilePath -> Bool) ->
