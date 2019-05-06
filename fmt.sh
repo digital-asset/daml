@@ -81,7 +81,7 @@ done
 trap - EXIT
 
 # check for scala code style
-run ./scalafmt.sh "${scalafmt_args[@]}"
+run ./scalafmt.sh "${scalafmt_args[@]:-}"
 
 # check for Bazel build files code formatting
 run bazel run "$buildifier_target"
