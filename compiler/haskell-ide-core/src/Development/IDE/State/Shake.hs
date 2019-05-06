@@ -79,6 +79,7 @@ data ShakeExtras = ShakeExtras
     ,logger :: Logger.Handle
     ,globals :: Var (Map.HashMap TypeRep Dynamic)
     ,state :: Var Values
+    ,diagnostics :: Var Diagnostics
     }
 
 getShakeExtras :: Action ShakeExtras
@@ -119,7 +120,7 @@ getIdeGlobalState = getIdeGlobalExtras . shakeExtras
 type Values =
     Map.HashMap FilePath
         (Map.HashMap Key
-            (IdeResult Dynamic)
+            (Maybe Dynamic)
         )
 
 
@@ -198,13 +199,10 @@ setValues :: IdeRule k v
           => Var Values
           -> k
           -> FilePath
-          -> IdeResult v
-          -> IO (Maybe [FileDiagnostic], [FileDiagnostic]) -- ^ (before, after)
-setValues state key file val = modifyVar state $ \inVal -> do
-    let k = Key key
-        outVal = Map.insertWith Map.union file (Map.singleton k $ second (fmap toDyn) val) inVal
-        f = concatMap fst . Map.elems
-    return (outVal, (f <$> Map.lookup file inVal, f $ outVal Map.! file))
+          -> Maybe v
+          -> IO ()
+setValues state key file val = modifyVar_ state $ \inVal ->
+    return $ Map.insertWith Map.union file (Map.singleton (Key k) $ second (fmap toDyn) val) inVal
 
 -- | The outer Maybe is Nothing if this function hasn't been computed before
 --   the inner Maybe is Nothing if the result of the previous computation failed to produce
@@ -354,7 +352,7 @@ defineEarlyCutoff
     => (k -> FilePath -> Action (Maybe BS.ByteString, IdeResult v))
     -> Rules ()
 defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old mode -> do
-    ShakeExtras{state} <- getShakeExtras
+    ShakeExtras{state, diagnostics} <- getShakeExtras
     val <- case old of
         Just old | mode == RunDependenciesSame -> do
             v <- liftIO $ getValues state key file
@@ -365,13 +363,12 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
     case val of
         Just res -> return res
         Nothing -> do
-            (bs, res) <- actionCatch
+            (bs, (diags, res)) <- actionCatch
                 (do v <- op key file; liftIO $ evaluate $ force v) $
                 \(e :: SomeException) -> pure (Nothing, ([ideErrorText file $ T.pack $ show e | not $ isBadDependency e],Nothing))
-            res <- return $ first (map $ \(_,d) -> (file,d)) res
 
-            (before, after) <- liftIO $ setValues state key file res
-            updateFileDiagnostics file before after
+            liftIO $ setValues state key file res
+            updateFileDiagnostics file diagnostics diags
             let eq = case (bs, fmap unwrap old) of
                     (Just a, Just (Just b)) -> a == b
                     _ -> False
@@ -386,24 +383,17 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
 
 updateFileDiagnostics ::
      FilePath
-  -> Maybe [FileDiagnostic] -- ^ previous results for this file
-  -> [FileDiagnostic] -- ^ current results
+  -> Var Diagnostics
+  -> [Diagnostic] -- ^ current results
   -> Action ()
-updateFileDiagnostics afp previousAll currentAll = do
+updateFileDiagnostics fp diagnosticsV diags = do
     -- TODO (MK) We canonicalize to make sure that the two files agree on use of
     -- / and \ and other shenanigans.
     -- Once we have finished the migration to haskell-lsp we should make sure that
     -- this is no longer necessary.
-    afp' <- liftIO $ canonicalizePath afp
-    let filtM diags = do
-            diags' <-
-                filterM
-                    (\x -> fmap (== afp') (canonicalizePath $ fst x))
-                    diags
-            pure (Set.fromList diags')
-    previous <- liftIO $ traverse filtM previousAll
-    current <- liftIO $ filtM currentAll
-    when (Just current /= previous) $
+    previous <- liftIO $ modifyVar diagnosticsV $ \old ->
+        (setDiagnosticsForFile old fp current, getDiagnosticsForFile fp old)
+    when (current /= previous) $
         sendEvent $ EventFileDiagnostics $ (afp, map snd $ Set.toList current)
 
 
