@@ -90,9 +90,18 @@ testDamlEnv Env{..} = firstJustM (\(test, msg) -> unlessMaybeM test (pure msg))
       , "The project directory does not exist. Please check if DAML_PROJECT is incorrectly set.")
     ]
 
+-- | Determine the absolute path to the assistant. Can be overriden with
+-- DAML_ASSISTANT env var.
+getDamlAssistantPath :: DamlPath -> IO DamlAssistantPath
+getDamlAssistantPath damlPath = do
+    pathM <- lookupEnv damlAssistantEnvVar
+    case pathM of
+        Just path -> pure (DamlAssistantPath path)
+        Nothing -> getDamlAssistantPathDefault damlPath
+
 -- | Determine the absolute path to the assistant.
-getDamlAssistantPath :: Applicative f => DamlPath -> f DamlAssistantPath
-getDamlAssistantPath (DamlPath damlPath)
+getDamlAssistantPathDefault :: Applicative f => DamlPath -> f DamlAssistantPath
+getDamlAssistantPathDefault (DamlPath damlPath)
     -- Our packaging logic for Haskell results in getExecutablePath
     -- pointing to the dynamic linker and getProgramName returning "daml" in
     -- both cases so we use this hack to figure out the executable name.
