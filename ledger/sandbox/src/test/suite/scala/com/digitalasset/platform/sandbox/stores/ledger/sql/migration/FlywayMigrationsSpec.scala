@@ -1,3 +1,6 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.digitalasset.platform.sandbox.stores.ledger.sql.migration
 
 import java.math.BigInteger
@@ -48,8 +51,7 @@ class FlywayMigrationsSpec extends WordSpec with Matchers {
     new String(
       Option(resourceScanner.getResource(digestFile))
         .getOrElse(sys.error(
-          s"Missing sha-256 file $digestFile! Are you introducing a new Flyway migration step? You need to create a sha-256 digest file by running: " +
-            s"cat ${digestFile.dropRight(6) + ".sql"} | shasum -a 256"))
+          s"Missing sha-256 file $digestFile! Are you introducing a new Flyway migration step? You need to create a sha-256 digest file."))
         .loadAsBytes())
 
 }
