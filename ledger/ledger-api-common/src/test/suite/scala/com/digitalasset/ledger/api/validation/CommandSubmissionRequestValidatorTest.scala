@@ -130,7 +130,7 @@ class CommandSubmissionRequestValidatorTest
         requestMustFailWith(
           sut.validateCommands(api.commands.withParty("")),
           INVALID_ARGUMENT,
-          "Invalid field party: Expected a non-empty string")
+          """Invalid field party: string "" does not match regex "[a-zA-Z0-9\-_ ]+"""")
       }
 
       "not allow missing let" in {

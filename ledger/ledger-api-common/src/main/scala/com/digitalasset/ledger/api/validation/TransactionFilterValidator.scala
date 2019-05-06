@@ -26,7 +26,7 @@ class TransactionFilterValidator(identifierResolver: IdentifierResolver) {
       txFilter.filtersByParty.toList.traverseU {
         case (k, v) =>
           for {
-            key <- requireSimpleString(k)
+            key <- requireParty(k)
             value <- validateFilters(v)
           } yield key -> value
       }

@@ -9,7 +9,7 @@ import scalaz._
 import java.{util => j}
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.QualifiedName
+import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Map

@@ -35,15 +35,6 @@ package object model {
   // Types used in DAML-LF
   // ----------------------------------------------------------------------------------------------
 
-  type DamlLfPackageId = DamlLfRef.PackageId
-  val DamlLfPackageId = DamlLfRef.PackageId
-
-  type DamlLfSimpleString = DamlLfRef.SimpleString
-  val DamlLfSimpleString = DamlLfRef.SimpleString
-
-  type DamlLfParty = DamlLfRef.Party
-  val DamlLfParty = DamlLfRef.Party
-
   /** A dot-separated list of strings */
   type DamlLfDottedName = DamlLfRef.DottedName
   val DamlLfDottedName = DamlLfRef.DottedName
@@ -138,7 +129,7 @@ package object model {
   implicit class IdentifierApiConversions(val id: ApiV1.value.Identifier) extends AnyVal {
     def asDaml: DamlLfRef.Identifier =
       DamlLfRef.Identifier(
-        DamlLfPackageId.assertFromString(id.packageId),
+        DamlLfRef.PackageId.assertFromString(id.packageId),
         DamlLfRef.QualifiedName(
           DamlLfRef.DottedName.assertFromString(id.moduleName),
           DamlLfRef.DottedName.assertFromString(id.entityName))
@@ -151,14 +142,14 @@ package object model {
   implicit class IdentifierDamlConversions(val id: DamlLfRef.Identifier) extends AnyVal {
     def asApi: ApiV1.value.Identifier =
       ApiV1.value.Identifier(
-        id.packageId.underlyingString,
+        id.packageId,
         "",
         id.qualifiedName.module.toString(),
         id.qualifiedName.name.toString())
 
     /** An opaque unique string for this identifier */
     def asOpaqueString: String =
-      opaqueIdentifier(id.qualifiedName.toString, id.packageId.underlyingString)
+      opaqueIdentifier(id.qualifiedName.toString, id.packageId)
   }
 
   private[this] def opaqueIdentifier(qualifiedName: String, packageId: String): String =
@@ -170,7 +161,7 @@ package object model {
       case opaqueIdentifierRegex(qualifiedName, packageId) =>
         Some(
           DamlLfRef.Identifier(
-            DamlLfPackageId.assertFromString(packageId),
+            DamlLfRef.PackageId.assertFromString(packageId),
             DamlLfRef.QualifiedName.assertFromString(qualifiedName)))
       case _ =>
         None

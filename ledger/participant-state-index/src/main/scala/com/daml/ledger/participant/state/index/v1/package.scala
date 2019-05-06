@@ -17,7 +17,7 @@ package object v1 {
   type TransactionUpdate = (Offset, (Update.TransactionAccepted, BlindingInfo))
 
   /** ACS event identifier */
-  type EventId = Ref.SimpleString
+  type EventId = Ref.PackageId
 
   final case class AcsUpdate(
       optSubmitterInfo: Option[SubmitterInfo],

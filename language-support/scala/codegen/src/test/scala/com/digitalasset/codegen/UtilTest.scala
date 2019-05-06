@@ -3,7 +3,7 @@
 
 package com.digitalasset.codegen
 
-import com.digitalasset.daml.lf.data.Ref.{QualifiedName, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.{QualifiedName, PackageId}
 
 import java.io.IOException
 import java.nio.file.attribute.BasicFileAttributes
@@ -16,7 +16,7 @@ import org.scalatest.prop.GeneratorDrivenPropertyChecks
 class UtilTest extends UtilTestHelpers with GeneratorDrivenPropertyChecks {
 
   val packageInterface =
-    I.Interface(packageId = SimpleString assertFromString "abcdef", typeDecls = Map.empty)
+    I.Interface(packageId = PackageId assertFromString "abcdef", typeDecls = Map.empty)
   val scalaPackageParts = Array("com", "digitalasset")
   val scalaPackage: String = scalaPackageParts.mkString(".")
   val util =

@@ -97,12 +97,12 @@ object Server {
     val transactionService =
       DamlOnXTransactionService.create(ledgerId, indexService, identifierResolver)
 
-    val identityService = LedgerIdentityServiceImpl(ledgerId.underlyingString)
+    val identityService = LedgerIdentityServiceImpl(ledgerId)
 
     // FIXME(JM): hard-coded values copied from SandboxConfig.
     val commandService = ReferenceCommandService(
       ReferenceCommandService.Configuration(
-        ledgerId.underlyingString,
+        ledgerId,
         512, // config.commandConfig.inputBufferSize,
         128, // config.commandConfig.maxParallelSubmissions,
         256, // config.commandConfig.maxCommandsInFlight,
@@ -120,14 +120,13 @@ object Server {
           commandCompletionService.service
             .asInstanceOf[DamlOnXCommandCompletionService]
             .completionStreamSource(r),
-        () =>
-          commandCompletionService.completionEnd(CompletionEndRequest(ledgerId.underlyingString)),
+        () => commandCompletionService.completionEnd(CompletionEndRequest(ledgerId)),
         transactionService.getTransactionById,
         transactionService.getFlatTransactionById
       )
     )
 
-    val packageService = DamlOnXPackageService(indexService, ledgerId.underlyingString)
+    val packageService = DamlOnXPackageService(indexService, ledgerId)
 
     val timeService = new DamlOnXTimeService(indexService)
 

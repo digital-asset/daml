@@ -12,19 +12,19 @@ import com.digitalasset.daml.lf.speedy.{Compiler, SExpr}
   */
 trait CompiledPackages {
   def getPackage(pkgId: PackageId): Option[Package]
-  def getDefinition(dref: DefinitionRef[PackageId]): Option[SExpr]
+  def getDefinition(dref: DefinitionRef): Option[SExpr]
 
   def packages: PartialFunction[PackageId, Package] = Function.unlift(this.getPackage)
-  def definitions: PartialFunction[DefinitionRef[PackageId], SExpr] =
+  def definitions: PartialFunction[DefinitionRef, SExpr] =
     Function.unlift(this.getDefinition)
 }
 
 final class PureCompiledPackages private (
     packages: Map[PackageId, Package],
-    defns: Map[DefinitionRef[PackageId], SExpr])
+    defns: Map[DefinitionRef, SExpr])
     extends CompiledPackages {
   override def getPackage(pkgId: PackageId): Option[Package] = packages.get(pkgId)
-  override def getDefinition(dref: DefinitionRef[PackageId]): Option[SExpr] = defns.get(dref)
+  override def getDefinition(dref: DefinitionRef): Option[SExpr] = defns.get(dref)
 }
 
 object PureCompiledPackages {
@@ -34,7 +34,7 @@ object PureCompiledPackages {
     */
   def apply(
       packages: Map[PackageId, Package],
-      defns: Map[DefinitionRef[PackageId], SExpr]): Either[String, PureCompiledPackages] = {
+      defns: Map[DefinitionRef, SExpr]): Either[String, PureCompiledPackages] = {
     Right(new PureCompiledPackages(packages, defns))
   }
 

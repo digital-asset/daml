@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.speedy
 import java.util
 
 import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.data.Ref.{Party, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{Decimal, FrontStack, Time}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.SError.SError
@@ -766,7 +766,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           "True" -> SBool(true),
           "()" -> SUnit(()),
           """ "text" """ -> SText("text"),
-          " 'party' " -> SParty(SimpleString.assertFromString("party")),
+          " 'party' " -> SParty(Party.assertFromString("party")),
           intList(1, 2, 3) -> SList(FrontStack(SInt64(1), SInt64(2), SInt64(3))),
           " UNIX_DAYS_TO_DATE 1 " -> SDate(Time.Date.assertFromDaysSinceEpoch(1)),
           """ TRACE "another message" (ADD_INT64 1 1)""" -> SInt64(2)

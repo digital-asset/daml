@@ -109,7 +109,7 @@ private class PostgresLedgerDao(
       implicit connection: Connection): Boolean =
     SQL_INSERT_CONTRACT_KEY
       .on(
-        "package_id" -> key.templateId.packageId.underlyingString,
+        "package_id" -> (key.templateId.packageId: String),
         "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHasher.hashKeyString(key),
         "contract_id" -> cid.coid
@@ -119,7 +119,7 @@ private class PostgresLedgerDao(
   private[this] def removeContractKey(key: GlobalKey)(implicit connection: Connection): Boolean =
     SQL_REMOVE_CONTRACT_KEY
       .on(
-        "package_id" -> key.templateId.packageId.underlyingString,
+        "package_id" -> (key.templateId.packageId: String),
         "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHasher.hashKeyString(key)
       )
@@ -129,7 +129,7 @@ private class PostgresLedgerDao(
       implicit connection: Connection): Option[AbsoluteContractId] =
     SQL_SELECT_CONTRACT_KEY
       .on(
-        "package_id" -> key.templateId.packageId.underlyingString,
+        "package_id" -> (key.templateId.packageId: String),
         "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHasher.hashKeyString(key)
       )
@@ -172,7 +172,7 @@ private class PostgresLedgerDao(
               "id" -> c.contractId.coid,
               "transaction_id" -> c.transactionId,
               "workflow_id" -> c.workflowId,
-              "package_id" -> c.coinst.template.packageId.underlyingString,
+              "package_id" -> (c.coinst.template.packageId: String),
               "name" -> c.coinst.template.qualifiedName.toString,
               "create_offset" -> offset,
               "contract" -> contractSerializer
@@ -202,7 +202,7 @@ private class PostgresLedgerDao(
               w =>
                 Seq[NamedParameter](
                   "contract_id" -> c.contractId.coid,
-                  "witness" -> w.underlyingString
+                  "witness" -> (w: String)
               ))
         )
         .toArray
@@ -226,7 +226,7 @@ private class PostgresLedgerDao(
                     p =>
                       Seq[NamedParameter](
                         "contract_id" -> c.contractId.coid,
-                        "maintainer" -> p.underlyingString
+                        "maintainer" -> (p: String)
                     )))
               .getOrElse(Set.empty)
         )

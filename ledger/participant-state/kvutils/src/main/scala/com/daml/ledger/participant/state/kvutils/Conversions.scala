@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.{Duration, Instant}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, SubmittedTransaction, SubmitterInfo}
-import com.digitalasset.daml.lf.data.Ref.SimpleString
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.{
   Transaction,
@@ -98,7 +98,7 @@ private[kvutils] object Conversions {
 
   def buildSubmitterInfo(subInfo: SubmitterInfo): DamlSubmitterInfo =
     DamlSubmitterInfo.newBuilder
-      .setSubmitter(subInfo.submitter.underlyingString)
+      .setSubmitter(subInfo.submitter)
       .setApplicationId(subInfo.applicationId)
       .setCommandId(subInfo.commandId)
       .setMaximumRecordTime(buildTimestamp(subInfo.maxRecordTime))
@@ -106,7 +106,7 @@ private[kvutils] object Conversions {
 
   def parseSubmitterInfo(subInfo: DamlSubmitterInfo): SubmitterInfo =
     SubmitterInfo(
-      submitter = SimpleString.assertFromString(subInfo.getSubmitter),
+      submitter = Party.assertFromString(subInfo.getSubmitter),
       applicationId = subInfo.getApplicationId,
       commandId = subInfo.getCommandId,
       maxRecordTime = parseTimestamp(subInfo.getMaximumRecordTime)

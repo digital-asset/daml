@@ -36,7 +36,8 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils {
       requestMustFailWith(
         sut.validateIdentifier(api.identifier.withPackageId(""), noneResolver),
         INVALID_ARGUMENT,
-        "Invalid field package_id: Expected a non-empty string")
+        """Invalid field package_id: string "" does not match regex "[a-zA-Z0-9\-_ ]+""""
+      )
     }
 
     "not allow missing names" in {
@@ -48,7 +49,7 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils {
     }
 
     "convert a valid deprecated identifier" in {
-      val recordType = Ast.DDataType(true, ImmArray(Seq()), Ast.DataRecord(ImmArray(Seq()), None))
+      val recordType = Ast.DDataType(true, ImmArray.empty, Ast.DataRecord(ImmArray.empty, None))
       val moduleName = Ref.ModuleName.assertFromString("module")
       val module =
         Ast.Module(

@@ -50,7 +50,7 @@ object StandaloneSemanticTestRunner {
     scenarios.foreach {
       case (pkgId, names) =>
         val tester = new SemanticTester(
-          parties => new SemanticTestAdapter(ledger, packages, parties.map(_.underlyingString)),
+          parties => new SemanticTestAdapter(ledger, packages, parties),
           pkgId,
           packages)
         names.foreach { name =>

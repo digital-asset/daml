@@ -49,7 +49,7 @@ object SExpr {
     * stored in 'cached'.
     */
   final case class SEVal(
-      ref: DefinitionRef[PackageId],
+      ref: DefinitionRef,
       var cached: Option[SValue]
   ) extends SExpr {
     def execute(machine: Machine): Ctrl = {
@@ -229,9 +229,9 @@ object SExpr {
   final case class SCaseAlt(pattern: SCasePat, body: SExpr)
 
   /** Construct a reference to a builtin compiled function */
-  def makeBuiltinRef(name: String): DefinitionRef[PackageId] =
+  def makeBuiltinRef(name: String): DefinitionRef =
     DefinitionRef(
-      SimpleString.assertFromString("-builtins-"),
+      PackageId.assertFromString("-builtins-"),
       QualifiedName(
         ModuleName.unsafeFromSegments(ImmArray("$")),
         DottedName.unsafeFromSegments(ImmArray(name)))

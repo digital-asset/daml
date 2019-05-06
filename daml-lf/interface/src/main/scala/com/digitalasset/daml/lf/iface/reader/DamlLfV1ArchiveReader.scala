@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.iface
 package reader
 
 import com.digitalasset.daml.lf.archive.{Reader => LFAR}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml_lf.{DamlLf, DamlLf1}
 import com.google.protobuf.InvalidProtocolBufferException
 import scalaz.std.tuple._

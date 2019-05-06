@@ -35,7 +35,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
     builder += None -> ValueTimestamp(Time.Timestamp.assertFromLong(123456))
     builder += None -> ValueText("")
     builder += None -> ValueText("abcd-äöü€")
-    builder += None -> ValueParty(SimpleString.assertFromString("Alice"))
+    builder += None -> ValueParty(Party.assertFromString("Alice"))
     builder += None -> ValueUnit
     builder += None -> ValueOptional(None)
     builder += None -> ValueOptional(Some(ValueText("Some")))

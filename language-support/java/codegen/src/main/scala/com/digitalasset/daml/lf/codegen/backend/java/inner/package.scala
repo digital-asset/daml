@@ -6,9 +6,9 @@ package com.digitalasset.daml.lf.codegen.backend.java
 import java.util
 
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.{DamlList, DamlOptional, DamlMap}
+import com.daml.ledger.javaapi.data.{DamlList, DamlMap, DamlOptional}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.iface._
 import com.squareup.javapoet._
 

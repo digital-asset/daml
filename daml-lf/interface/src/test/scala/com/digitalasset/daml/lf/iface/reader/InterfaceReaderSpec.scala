@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.Ref.{
   DottedName,
   Identifier,
   ModuleName,
-  SimpleString,
+  PackageId,
   QualifiedName
 }
 import com.digitalasset.daml_lf.DamlLf1
@@ -22,7 +22,7 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
 
   private def dnfs(args: String*): DottedName = DottedName.assertFromSegments(args)
   private val moduleName: ModuleName = dnfs("Main")
-  private val packageId: PackageId = SimpleString.assertFromString("dummy-package-id")
+  private val packageId: PackageId = PackageId.assertFromString("dummy-package-id")
   private val ctx: InterfaceReader.Context = InterfaceReader.Context(packageId)
 
   "variant should extract a variant with type params" in {
