@@ -23,9 +23,9 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
 
   val id: Parser[String] = accept("Identifier", { case Id(s) => s })
   val text: Parser[String] = accept("Text", { case Text(s) => s })
-  val pkgId: Parser[Ref.PackageId] = accept("PackageId", {
-    case SimpleString(s) if Ref.PackageId.fromString(s).isRight =>
-      Ref.PackageId.assertFromString(s)
+  val pkgId: Parser[Ref.PackageId] = accept("PackageId", Function unlift {
+    case SimpleString(s) => Ref.PackageId.fromString(s).toOption
+    case _ => None
   })
 
   val dottedName: Parser[DottedName] =

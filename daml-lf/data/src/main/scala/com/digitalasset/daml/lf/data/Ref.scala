@@ -121,7 +121,7 @@ object Ref {
   type ModuleName = DottedName
   val ModuleName = DottedName
 
-  /** PackageId/Party are non empty US-ASCII strings built with letters, digits, space, minus and,
+  /** Party are non empty US-ASCII strings built with letters, digits, space, minus and,
       underscore. We use them to represent [PackageId]s and [Party] literals. In this way, we avoid
       empty identifiers, escaping problems, and other similar pitfalls.
     */

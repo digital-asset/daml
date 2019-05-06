@@ -213,7 +213,7 @@ object SBuiltin {
   final case object SBToQuotedTextParty extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val v = args.get(0).asInstanceOf[SParty]
-      machine.ctrl = CtrlValue(SText(s"'${v.value}'"))
+      machine.ctrl = CtrlValue(SText(s"'${v.value: String}'"))
     }
   }
 

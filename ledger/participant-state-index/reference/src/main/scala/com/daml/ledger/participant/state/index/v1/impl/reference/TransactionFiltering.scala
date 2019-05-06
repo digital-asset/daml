@@ -8,6 +8,8 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.ledger.api.domain.TransactionFilter
 import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter
 
+import scalaz.syntax.std.map._
+
 case class TransactionFiltering(filter: TransactionFilter) {
   val richTxFilter = RichTransactionFilter(filter)
 
@@ -17,8 +19,8 @@ case class TransactionFiltering(filter: TransactionFilter) {
         tx,
         n => n.index.toString)
       .getOrElse(Map.empty)
-      .map {
+      .mapKeys(k =>
         // FIXME(JM): Refactor transaction filtering to not go via strings
-        case (k, v) => Value.NodeId.unsafeFromIndex(k.toInt) -> v
-      }
+        Value.NodeId.unsafeFromIndex(k.toInt))
+
 }

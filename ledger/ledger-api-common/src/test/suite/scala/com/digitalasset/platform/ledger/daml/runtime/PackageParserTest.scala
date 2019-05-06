@@ -24,7 +24,7 @@ class PackageParserTest extends WordSpec with Matchers {
           .toOption
       val result = PackageParser.parseDarOrDalf(() => getDarStream)
       result should matchPattern {
-        case Right((pkgId, Ast.Package(_))) =>
+        case Right((`pkgId`, Ast.Package(_))) =>
       }
     }
 

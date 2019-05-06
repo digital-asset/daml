@@ -22,7 +22,8 @@ case object Package extends SimpleCommand {
     for {
       arg1 <- args.headOption ~> "Missing <id> argument"
       ps <- state.getPartyState ~> s"Unknown party ${state.party}"
-      pack <- ps.packageRegistry.pack(PackageId.assertFromString(arg1)) ~> s"Unknown package $arg1"
+      packId <- PackageId.fromString(arg1).toOption ~> s"Invalid <id> argument $arg1"
+      pack <- ps.packageRegistry.pack(packId) ~> s"Unknown package $arg1"
     } yield {
       val header = List(
         "Module",
