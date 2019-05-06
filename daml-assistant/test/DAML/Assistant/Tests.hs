@@ -265,7 +265,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
 
 testGetDispatchEnv :: Tasty.TestTree
 testGetDispatchEnv = Tasty.testGroup "DAML.Assistant.Env.getDispatchEnv"
-    [ Tasty.testCase "getDispatchEnv: Should be idempotent." $ do
+    [ Tasty.testCase "getDispatchEnv should be idempotent" $ do
         withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
             version <- requiredE "expected this to be valid version" $ parseVersion "1.0.1"
             let denv = Env
@@ -280,7 +280,7 @@ testGetDispatchEnv = Tasty.testGroup "DAML.Assistant.Env.getDispatchEnv"
             env1 <- withEnv [] (getDispatchEnv denv)
             env2 <- withEnv (fmap (fmap Just) env1) (getDispatchEnv denv)
             Tasty.assertEqual "dispatch envs" env1 env2
-    , Tasty.testCase "getDispatchEnv: Should override getDamlEnv." $ do
+    , Tasty.testCase "getDispatchEnv should override getDamlEnv" $ do
         withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
             version <- requiredE "expected this to be valid version" $ parseVersion "1.0.1"
             let denv1 = Env
