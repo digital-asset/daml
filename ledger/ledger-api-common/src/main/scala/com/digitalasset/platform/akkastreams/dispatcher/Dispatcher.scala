@@ -6,7 +6,15 @@ package com.digitalasset.platform.akkastreams.dispatcher
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 
-//TODO write better documentation
+/**
+  * A fanout signaller, representing a stream of external updates,
+  * that can be subscribed to dynamically at a given point in the stream.
+  * Stream positions are given by the Index type, and stream values are given by T. Subscribing to a point
+  * yields all values starting at that point.
+  * It is assumed that the head index is the "end of the stream" and has no value.
+  *
+  * Implementations must be thread-safe, so must the callbacks provided to it.
+  */
 trait Dispatcher[Index, T] extends AutoCloseable {
 
   /** Returns the head index where this Dispatcher is at */
