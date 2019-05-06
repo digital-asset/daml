@@ -97,13 +97,21 @@ cmdTest numProcessors =
        progDesc "Test the given DAML file by running all test declarations."
     <> fullDesc
   where
-    cmd = execTest
+    cmd = runTestsInProjectOrFiles
       <$> many inputFileOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
       <*> optionsParser numProcessors optPackageName
     junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
+
+runTestsInProjectOrFiles :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
+runTestsInProjectOrFiles [] color mbJUnitOutput cliOptions = do
+    project <- readProjectConfig $ ProjectPath "."
+    case parseProjectConfig project of
+      Left err -> throwIO err
+      Right PackageConfigFields {..} -> execTest [pMain] color mbJUnitOutput cliOptions
+runTestsInProjectOrFiles inFiles color mbJUnitOutput cliOptions = execTest inFiles color mbJUnitOutput cliOptions
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
