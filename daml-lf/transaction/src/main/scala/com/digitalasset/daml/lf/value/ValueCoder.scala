@@ -62,7 +62,7 @@ object ValueCoder {
     * @param id identifier value
     * @return wire format identifier
     */
-  def encodeIdentifier(id: Identifier): proto.Identifier = {
+  def encodeIdentifier(id: DefinitionRef): proto.Identifier = {
     val builder = proto.Identifier.newBuilder().setPackageId(id.packageId)
     builder.addAllModuleName(id.qualifiedName.module.segments.toSeq.asJava)
     builder.addAllName(id.qualifiedName.name.segments.toSeq.asJava)
@@ -77,7 +77,7 @@ object ValueCoder {
     * @note result _1 = requireVersion if defined
     */
   def encodeIdentifier(
-      id: Identifier,
+      id: DefinitionRef,
       requireVersion: Option[ValueVersion]): (ValueVersion, proto.Identifier) =
     // NB SC: if ValueVersion("1") is no longer a good default in *every* case,
     // you must fold over NodeFetches' identifiers in TransactionVersions.assignVersion
@@ -90,7 +90,7 @@ object ValueCoder {
     * @param id proto identifier
     * @return identifier
     */
-  def decodeIdentifier(id: proto.Identifier): Either[DecodeError, Identifier] =
+  def decodeIdentifier(id: proto.Identifier): Either[DecodeError, DefinitionRef] =
     for {
       pkgId <- PackageId
         .fromString(id.getPackageId)
@@ -109,7 +109,7 @@ object ValueCoder {
         .left
         .map(err => DecodeError(s"Invalid name segments $nameSegments: $err"))
 
-    } yield Identifier(pkgId, QualifiedName(module, name))
+    } yield DefinitionRef(pkgId, QualifiedName(module, name))
 
   /** Codecs for ContractId that don't break the method chain style
     * of builders.

@@ -118,14 +118,14 @@ object ValueGenerators {
   } yield DottedName.assertFromSegments(segments)
 
   // generate a junk identifier
-  val idGen: Gen[Identifier] = for {
+  val idGen: Gen[DefinitionRef] = for {
     n <- Gen.choose(1, 200)
     packageId <- Gen
       .listOfN(n, Gen.alphaNumChar)
       .map(s => PackageId.assertFromString(s.mkString))
     module <- moduleGen
     name <- dottedNameGen
-  } yield Identifier(packageId, QualifiedName(module, name))
+  } yield DefinitionRef(packageId, QualifiedName(module, name))
 
   // generate a more or less acceptable date value
   private val minDate = Time.Date.assertFromString("1900-01-01")
@@ -148,8 +148,8 @@ object ValueGenerators {
         .oneOf(true, false)
         .map(
           withoutLabels =>
-            if (withoutLabels) (_: Identifier) => None
-            else (variantId: Identifier) => Some(variantId))
+            if (withoutLabels) (_: DefinitionRef) => None
+            else (variantId: DefinitionRef) => Some(variantId))
       value <- Gen.lzy(valueGen(nesting))
     } yield ValueVariant(toOption(id), variantName, value)
   def variantGen: Gen[ValueVariant[ContractId]] = variantGen(0)
@@ -161,8 +161,8 @@ object ValueGenerators {
         .oneOf(true, false)
         .map(
           a =>
-            if (a) (_: Identifier) => None
-            else (x: Identifier) => Some(x))
+            if (a) (_: DefinitionRef) => None
+            else (x: DefinitionRef) => Some(x))
       labelledValues <- Gen.listOf(Gen.alphaStr.flatMap(label =>
         Gen.lzy(valueGen(nesting)).map(x => if (label.isEmpty) (None, x) else (Some(label), x))))
     } yield ValueRecord[ContractId](toOption(id), ImmArray(labelledValues))

@@ -325,7 +325,7 @@ object Pretty {
   def prettyPackageId(pkgId: PackageId): Doc =
     text(pkgId.take(8))
 
-  def prettyIdentifier(id: Identifier): Doc =
+  def prettyIdentifier(id: DefinitionRef): Doc =
     text(id.qualifiedName.toString) + char('@') + prettyPackageId(id.packageId)
 
   def prettyVersionedValue(verbose: Boolean)(v: Transaction.Value[ContractId]): Doc =

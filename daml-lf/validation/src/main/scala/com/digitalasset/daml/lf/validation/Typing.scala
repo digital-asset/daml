@@ -168,7 +168,7 @@ private[validation] object Typing {
           case DataRecord(fields, template) =>
             env.checkRecordType(fields)
             template.foreach(
-              env.checkTemplate(TypeConName(pkgId, QualifiedName(mod.name, dfnName)), _))
+              env.checkTemplate(DefinitionRef(pkgId, QualifiedName(mod.name, dfnName)), _))
           case DataVariant(fields) =>
             env.checkDVariantType(fields)
         }

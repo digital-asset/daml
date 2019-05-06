@@ -52,7 +52,7 @@ object Node {
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
   final case class NodeFetch[+Cid](
       coid: Cid,
-      templateId: Identifier,
+      templateId: DefinitionRef,
       optLocation: Option[Location], // Optional location of the fetch expression
       actingParties: Option[Set[Party]],
       signatories: Set[Party],
@@ -73,7 +73,7 @@ object Node {
     */
   final case class NodeExercises[+Nid, +Cid, +Val](
       targetCoid: Cid,
-      templateId: Identifier,
+      templateId: DefinitionRef,
       choiceId: ChoiceName,
       optLocation: Option[Location], // Optional location of the exercise expression
       consuming: Boolean,
@@ -112,7 +112,7 @@ object Node {
       */
     def apply[Nid, Cid, Val](
         targetCoid: Cid,
-        templateId: Identifier,
+        templateId: DefinitionRef,
         choiceId: ChoiceName,
         optLocation: Option[Location],
         consuming: Boolean,
@@ -138,7 +138,7 @@ object Node {
   }
 
   final case class NodeLookupByKey[+Cid, +Val](
-      templateId: Identifier,
+      templateId: DefinitionRef,
       optLocation: Option[Location],
       key: KeyWithMaintainers[Val],
       result: Option[Cid])
@@ -223,7 +223,7 @@ object Node {
   /** Useful in various circumstances -- basically this is what a ledger implementation must use as
     * a key.
     */
-  case class GlobalKey(templateId: Identifier, key: VersionedValue[AbsoluteContractId])
+  case class GlobalKey(templateId: DefinitionRef, key: VersionedValue[AbsoluteContractId])
 
   sealed trait WithTxValue2[F[+ _, + _]] {
     type WithTxValue[+Cid] = F[Cid, Transaction.Value[Cid]]

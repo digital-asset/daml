@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.transaction
 
 import com.digitalasset.daml.lf.EitherAssertions
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
 import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInst, ValueParty, VersionedValue}
@@ -238,7 +238,7 @@ class TransactionCoderSpec
       val node: Node.NodeCreate[String, VersionedValue[String]] = Node.NodeCreate(
         "test-cid",
         ContractInst(
-          Identifier(
+          DefinitionRef(
             PackageId.assertFromString("pkg-id"),
             QualifiedName.assertFromString("Test:Name")),
           VersionedValue(

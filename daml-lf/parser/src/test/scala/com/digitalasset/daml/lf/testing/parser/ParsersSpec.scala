@@ -64,7 +64,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "string to parse" -> "expected type constructor",
         "Mod:T" -> T.tycon,
         "'-pkgId-':Mod:T" -> T.tycon,
-        "A.B:C.D" -> Identifier(
+        "A.B:C.D" -> DefinitionRef(
           defaultPkgId,
           QualifiedName(DottedName(ImmArray("A", "B")), DottedName(ImmArray("C", "D"))))
       )
@@ -566,7 +566,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
   private val modName = DottedName(ImmArray("Mod"))
 
   private def qualify(s: String) =
-    Identifier(defaultPkgId, QualifiedName(modName, DottedName(ImmArray(s))))
+    DefinitionRef(defaultPkgId, QualifiedName(modName, DottedName(ImmArray(s))))
 
   private val T: TTyCon = TTyCon(qualify("T"))
   private val R: TTyCon = TTyCon(qualify("R"))

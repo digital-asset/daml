@@ -5,7 +5,7 @@ package com.digitalasset.codegen
 package lf
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.data.Ref.DefinitionRef
 import com.digitalasset.daml.lf.iface.{DataType, DefDataType}
 
 import scala.language.higherKinds
@@ -18,12 +18,12 @@ final case class ScopedDataType[+DT](
     dataType: DT)
 
 object ScopedDataType {
-  type Name = Identifier
+  type Name = DefinitionRef
   type FWT = ScopedDataType[DataType.FWT]
   type DT[+RF, +VF] = ScopedDataType[DataType[RF, VF]]
 
   def fromDefDataType[RF, VF](
-      name: Identifier,
+      name: DefinitionRef,
       ddt: DefDataType[RF, VF]): ScopedDataType[DataType[RF, VF]] = {
     val DefDataType(typeVars, dataType) = ddt
     apply(name, typeVars, dataType)

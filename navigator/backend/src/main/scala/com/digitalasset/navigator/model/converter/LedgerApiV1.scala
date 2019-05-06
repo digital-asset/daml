@@ -259,8 +259,8 @@ case object LedgerApiV1 {
         case _ => Left(GenericConversionError(s"Cannot read $value as $typ"))
       }
       ddt <- ctx.templates
-        .damlLfDefDataType(typeCon.name.identifier)
-        .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
+        .damlLfDefDataType(typeCon.name.ref)
+        .toRight(GenericConversionError(s"Unknown type ${typeCon.name.ref}"))
       dt <- typeCon
         .instantiate(ddt)
         .fold(Right(_), _ => Left(GenericConversionError(s"Variant expected")))
@@ -273,7 +273,7 @@ case object LedgerApiV1 {
                 .checkExists("RecordField.value", p._1.value)
                 .flatMap(value => readArgument(value, p._2._2, ctx))
                 .map(a => Model.ApiRecordField(p._2._1, a))))
-    } yield Model.ApiRecord(Some(typeCon.name.identifier), fields)
+    } yield Model.ApiRecord(Some(typeCon.name.ref), fields)
   }
 
   private def readListArgument(
@@ -353,8 +353,8 @@ case object LedgerApiV1 {
         case _ => Left(GenericConversionError(s"Cannot read $variant as $typ"))
       }
       ddt <- ctx.templates
-        .damlLfDefDataType(typeCon.name.identifier)
-        .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
+        .damlLfDefDataType(typeCon.name.ref)
+        .toRight(GenericConversionError(s"Unknown type ${typeCon.name.ref}"))
       dt <- typeCon
         .instantiate(ddt)
         .fold(_ => Left(GenericConversionError(s"Variant expected")), Right(_))
@@ -363,7 +363,7 @@ case object LedgerApiV1 {
         .toRight(GenericConversionError(s"Unknown choice ${variant.constructor}"))
       argument <- readArgument(value, choice._2, ctx)
     } yield {
-      Model.ApiVariant(Some(typeCon.name.identifier), variant.constructor, argument)
+      Model.ApiVariant(Some(typeCon.name.ref), variant.constructor, argument)
     }
   }
 

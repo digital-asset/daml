@@ -5,7 +5,7 @@ package com.digitalasset.codegen
 
 import com.digitalasset.codegen.dependencygraph.{OrderedDependencies, TypeDeclOrTemplateWrapper}
 import com.digitalasset.daml.lf.iface.{Type => IType, _}
-import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, QualifiedName}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 
 import java.io.File
@@ -37,7 +37,7 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
   val packageNameElems: Array[String] = packageName.split('.')
 
   private[codegen] def orderedDependencies(library: Interface)
-    : OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[TemplateInterface]]
+    : OrderedDependencies[DefinitionRef, TypeDeclOrTemplateWrapper[TemplateInterface]]
 
   def templateAndTypeFiles(wp: WriteParams[TemplateInterface]): TraversableOnce[FilePlan]
 
@@ -133,7 +133,7 @@ object Util {
   type FilePlan = String \/ (Option[String], File, Iterable[Tree])
 
   final case class WriteParams[+TmplI](
-      supportedTemplateIds: Map[Identifier, TmplI],
+      supportedTemplateIds: Map[DefinitionRef, TmplI],
       recordsAndVariants: Iterable[lf.ScopedDataType.FWT])
 
   val reservedNames: Set[String] =
@@ -180,7 +180,7 @@ object Util {
     }
   }
 
-  private[codegen] def genTypeTopLevelDeclNames(genType: IType): List[Identifier] =
+  private[codegen] def genTypeTopLevelDeclNames(genType: IType): List[DefinitionRef] =
     genType foldMapConsPrims {
       case TypeConName(nm) => List(nm)
       case _: PrimType => Nil
@@ -195,11 +195,11 @@ object Util {
     * verbatim) to another type constructor?  If so, yield that type
     * constructor as a string.
     */
-  def simplyDelegates(typeVars: ImmArraySeq[String]): IType => Option[Identifier] = {
+  def simplyDelegates(typeVars: ImmArraySeq[String]): IType => Option[DefinitionRef] = {
     val ptv = typeVars.map(TypeVar(_): IType)
 
     {
-      case TypeCon(tc, `ptv`) => Some(tc.identifier)
+      case TypeCon(tc, `ptv`) => Some(tc.ref)
       case _ => None
     }
   }

@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.command
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
+import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, Party}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
 
@@ -17,7 +17,9 @@ sealed trait Command extends Product with Serializable
   *  @param templateId identifier of the template that the contract is instantiating
   *  @param argument value passed to the template
   */
-final case class CreateCommand(templateId: Identifier, argument: VersionedValue[AbsoluteContractId])
+final case class CreateCommand(
+    templateId: DefinitionRef,
+    argument: VersionedValue[AbsoluteContractId])
     extends Command
 
 /** Command for exercising a choice on an existing contract
@@ -29,7 +31,7 @@ final case class CreateCommand(templateId: Identifier, argument: VersionedValue[
   *  @param argument value passed for the choice
   */
 final case class ExerciseCommand(
-    templateId: Identifier,
+    templateId: DefinitionRef,
     contractId: String,
     choiceId: String,
     submitter: Party,
@@ -46,7 +48,7 @@ final case class ExerciseCommand(
   *  @param submitter party submitting the choice
   */
 final case class CreateAndExerciseCommand(
-    templateId: Identifier,
+    templateId: DefinitionRef,
     createArgument: VersionedValue[AbsoluteContractId],
     choiceId: String,
     choiceArgument: VersionedValue[AbsoluteContractId],

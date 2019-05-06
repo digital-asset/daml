@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.archive.LanguageVersion
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.data.Ref.DefinitionRef
 import com.digitalasset.daml.lf.data._
 
 import scala.annotation.tailrec
@@ -49,7 +49,7 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
   /** returns a list of validation errors: if the result is non-empty the value is
     * _not_ serializable.
     *
-    * note that this does not check the validity of the [[Identifier]]s, it just checks
+    * note that this does not check the validity of the [[DefinitionRef]]s, it just checks
     * that the shape of the value is serializable.
     */
   def serializable(): ImmArray[String] = {
@@ -169,10 +169,13 @@ object Value {
   }
 
   final case class ValueRecord[+Cid](
-      tycon: Option[Identifier],
+      tycon: Option[DefinitionRef],
       fields: ImmArray[(Option[String], Value[Cid])])
       extends Value[Cid]
-  final case class ValueVariant[+Cid](tycon: Option[Identifier], variant: String, value: Value[Cid])
+  final case class ValueVariant[+Cid](
+      tycon: Option[DefinitionRef],
+      variant: String,
+      value: Value[Cid])
       extends Value[Cid]
   final case class ValueContractId[+Cid](value: Cid) extends Value[Cid]
 
@@ -235,7 +238,7 @@ object Value {
     }
 
   /** A contract instance is a value plus the template that originated it. */
-  final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: String) {
+  final case class ContractInst[+Val](template: DefinitionRef, arg: Val, agreementText: String) {
     def mapValue[Val2](f: Val => Val2): ContractInst[Val2] =
       this.copy(arg = f(arg))
   }

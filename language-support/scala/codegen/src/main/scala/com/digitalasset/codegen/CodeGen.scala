@@ -138,17 +138,17 @@ object CodeGen {
     val interface = util.iface
 
     val orderedDependencies
-      : OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[util.TemplateInterface]] =
+      : OrderedDependencies[DefinitionRef, TypeDeclOrTemplateWrapper[util.TemplateInterface]] =
       util.orderedDependencies(interface)
     val (supportedTemplateIds, typeDeclsToGenerate): (
-        Map[Identifier, util.TemplateInterface],
+        Map[DefinitionRef, util.TemplateInterface],
         Vector[ScopedDataType.FWT]) = {
 
       /* Here we collect templates and the
        * [[TypeDecl]]s without generating code for them.
        */
       val templateIdOrTypeDecls
-        : Vector[(Identifier, util.TemplateInterface) Either ScopedDataType.FWT] =
+        : Vector[(DefinitionRef, util.TemplateInterface) Either ScopedDataType.FWT] =
         orderedDependencies.deps.flatMap {
           case (templateId, Node(TypeDeclWrapper(typeDecl), _, _)) =>
             Seq(Right(ScopedDataType fromDefDataType (templateId, typeDecl)))
@@ -191,7 +191,7 @@ object CodeGen {
             .map(sdt => (sdt.name, \/-(sdt)))
         val tmplLefts = supportedTemplateIds.transform((_, v) => -\/(v))
         (ntdRights ++ tmplLefts) map {
-          case (ddtIdent @ Identifier(_, qualName), body) =>
+          case (ddtIdent @ DefinitionRef(_, qualName), body) =>
             (qualName.module.segments.toList ++ qualName.name.segments.toList, (ddtIdent, body))
         }
       }
@@ -212,7 +212,7 @@ object CodeGen {
     filePlans ++ specialPlans
   }
 
-  type LHSIndexedRecords[+RT] = Map[(Identifier, List[String]), Record[RT]]
+  type LHSIndexedRecords[+RT] = Map[(DefinitionRef, List[String]), Record[RT]]
 
   private[this] def splitNTDs[RT, VT](recordsAndVariants: Iterable[ScopedDataType.DT[RT, VT]])
     : (LHSIndexedRecords[RT], List[ScopedDataType[Variant[VT]]]) =
@@ -238,22 +238,25 @@ object CodeGen {
 
     val (recordMap, variants) = splitNTDs(recordsAndVariants)
 
-    val noDeletion = Set.empty[(Identifier, List[String])]
+    val noDeletion = Set.empty[(DefinitionRef, List[String])]
     // both traverseU can change to traverse with -Ypartial-unification
     // or Scala 2.13
     val (deletedRecords, newVariants) =
       variants.traverseU {
-        case ScopedDataType(ident @ Identifier(packageId, qualName), vTypeVars, Variant(fields)) =>
+        case ScopedDataType(
+            ident @ DefinitionRef(packageId, qualName),
+            vTypeVars,
+            Variant(fields)) =>
           val typeVarDelegate = Util simplyDelegates vTypeVars
           val (deleted, sdt) = fields.traverseU {
             case (vn, vt) =>
-              val syntheticRecord = Identifier(
+              val syntheticRecord = DefinitionRef(
                 packageId,
                 qualName copy (name =
                   DottedName.assertFromSegments(qualName.name.segments.slowSnoc(vn).toSeq)))
               val key = (syntheticRecord, vTypeVars.toList)
               typeVarDelegate(vt)
-                .filter((_: Identifier) == syntheticRecord)
+                .filter((_: DefinitionRef) == syntheticRecord)
                 .flatMap(_ => recordMap get key)
                 .cata(nr => (Set(key), (vn, -\/(nr.fields.toList))), (noDeletion, (vn, \/-(vt))))
           }

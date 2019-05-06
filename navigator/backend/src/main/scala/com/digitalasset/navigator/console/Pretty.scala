@@ -129,18 +129,18 @@ object Pretty {
   ): (Option[String], PrettyNode) = param match {
     case typeCon: model.DamlLfTypeCon =>
       val id = model
-        .DamlLfIdentifier(typeCon.name.identifier.packageId, typeCon.name.identifier.qualifiedName)
+        .DamlLfIdentifier(typeCon.name.ref.packageId, typeCon.name.ref.qualifiedName)
       if (doNotExpand.contains(id)) {
         // val dt = typeCon.instantiate(typeDefs(id).get)
         val dt = model.damlLfInstantiate(typeCon, typeDefs(id).get)
-        (Some(typeCon.name.identifier.qualifiedName.name.toString), PrettyPrimitive("..."))
+        (Some(typeCon.name.ref.qualifiedName.name.toString), PrettyPrimitive("..."))
       } else {
         // Once a type is instantiated, do not instantiate it in any child node.
         // Required to prevent infinite expansion of recursive types.
         // val dt = typeCon.instantiate(typeDefs(id).get)
         val dt = model.damlLfInstantiate(typeCon, typeDefs(id).get)
         (
-          Some(typeCon.name.identifier.qualifiedName.name.toString),
+          Some(typeCon.name.ref.qualifiedName.name.toString),
           damlLfDataType(dt, typeDefs, doNotExpand + id))
       }
     case typePrim: model.DamlLfTypePrim =>

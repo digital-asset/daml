@@ -12,7 +12,7 @@ import org.scalatest.{Matchers, WordSpec}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.KeyHasher
 
 class KeyHasherSpec extends WordSpec with Matchers {
-  private[this] def templateId(module: String, name: String) = Identifier(
+  private[this] def templateId(module: String, name: String) = DefinitionRef(
     PackageId.assertFromString("package"),
     QualifiedName(
       ModuleName(ImmArray(module)),

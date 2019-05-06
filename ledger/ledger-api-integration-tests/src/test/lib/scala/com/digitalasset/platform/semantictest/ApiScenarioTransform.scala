@@ -89,7 +89,7 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
       toLfVersionedValue(createdEvent.getCreateArguments).map { value =>
         P.CreateEvent(
           AbsoluteContractId(createdEvent.contractId),
-          Ref.Identifier(
+          Ref.DefinitionRef(
             P.packageId(createdEvent.getTemplateId.packageId),
             QualifiedName(
               P.mn(createdEvent.getTemplateId.moduleName),
@@ -115,7 +115,7 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
       } yield {
         P.ExerciseEvent(
           AbsoluteContractId(exercisedEvent.contractId),
-          Ref.Identifier(
+          Ref.DefinitionRef(
             P.packageId(exercisedEvent.getTemplateId.packageId),
             QualifiedName(
               Ref.ModuleName.fromString(exercisedEvent.getTemplateId.moduleName).right.get,
@@ -167,7 +167,7 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
       .map { value =>
         P.CreateEvent(
           AbsoluteContractId(createdEvent.contractId),
-          Ref.Identifier(
+          Ref.DefinitionRef(
             P.packageId(createdEvent.getTemplateId.packageId),
             Ref.QualifiedName(
               P.mn(createdEvent.getTemplateId.moduleName),

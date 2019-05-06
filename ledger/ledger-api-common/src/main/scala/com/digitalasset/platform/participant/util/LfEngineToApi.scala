@@ -5,7 +5,7 @@ package com.digitalasset.platform.participant.util
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.data.Ref.DefinitionRef
 import com.digitalasset.daml.lf.data.{BackStack, Decimal}
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
@@ -33,7 +33,7 @@ import com.google.protobuf.timestamp.Timestamp
 object LfEngineToApi {
   private[this] type LfValue[+Cid] = Lf[Cid]
 
-  def toApiIdentifier(identifier: Identifier) = {
+  def toApiIdentifier(identifier: DefinitionRef) = {
     ApiIdentifier(
       identifier.packageId,
       DeprecatedIdentifier.toString(identifier.qualifiedName),

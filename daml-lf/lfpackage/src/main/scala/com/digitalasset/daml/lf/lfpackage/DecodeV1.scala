@@ -283,14 +283,14 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
     private[this] def decodeValName(lfVal: PLF.ValName): ValueRef = {
       val (packageId, module) = decodeModuleRef(lfVal.getModule)
       val name = decodeSegments(ImmArray(lfVal.getNameList.asScala))
-      ValueRef(packageId, QualifiedName(module, name))
+      DefinitionRef(packageId, QualifiedName(module, name))
     }
 
     private[this] def decodeTypeConName(lfTyConName: PLF.TypeConName): TypeConName = {
       val (packageId, module) = decodeModuleRef(lfTyConName.getModule)
       val name = eitherToParseError(
         DottedName.fromSegments(lfTyConName.getName.getSegmentsList.asScala))
-      TypeConName(packageId, QualifiedName(module, name))
+      DefinitionRef(packageId, QualifiedName(module, name))
     }
 
     private[this] def decodeTypeConApp(lfTyConApp: PLF.Type.Con): TypeConApp =

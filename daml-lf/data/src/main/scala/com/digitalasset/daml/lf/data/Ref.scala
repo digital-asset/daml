@@ -113,7 +113,7 @@ object Ref {
 
   /* A fully-qualified identifier pointing to a definition in the
    * specified package. */
-  case class Identifier(packageId: PackageId, qualifiedName: QualifiedName)
+  case class DefinitionRef(packageId: PackageId, qualifiedName: QualifiedName)
 
   /* Choice name in a template. */
   type ChoiceName = String
@@ -134,16 +134,10 @@ object Ref {
   type PackageId = PackageId.T
 
   /** Reference to a value defined in the specified module. */
-  type ValueRef = Identifier
-  val ValueRef = Identifier
-
-  /** Reference to a value defined in the specified module. */
-  type DefinitionRef = Identifier
-  val DefinitionRef = Identifier
+  type ValueRef = DefinitionRef
 
   /** Reference to a type constructor. */
-  type TypeConName = Identifier
-  val TypeConName = Identifier
+  type TypeConName = DefinitionRef
 
   private def assert[X](either: Either[String, X]): X =
     either.fold(e => throw new IllegalArgumentException(e), identity)

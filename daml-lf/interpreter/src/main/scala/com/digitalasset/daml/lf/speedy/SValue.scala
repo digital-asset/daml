@@ -161,7 +161,7 @@ object SValue {
     */
   final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue
 
-  final case class SRecord(id: Identifier, fields: Array[String], values: util.ArrayList[SValue])
+  final case class SRecord(id: DefinitionRef, fields: Array[String], values: util.ArrayList[SValue])
       extends SValue
       with SomeArrayEquals
 
@@ -169,7 +169,8 @@ object SValue {
       extends SValue
       with SomeArrayEquals
 
-  final case class SVariant(id: Identifier, variant: VariantConName, value: SValue) extends SValue
+  final case class SVariant(id: DefinitionRef, variant: VariantConName, value: SValue)
+      extends SValue
 
   final case class SOptional(value: Option[SValue]) extends SValue
 

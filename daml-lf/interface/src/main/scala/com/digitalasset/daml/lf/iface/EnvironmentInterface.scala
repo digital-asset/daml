@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package iface
 
-import data.Ref.Identifier
+import data.Ref.DefinitionRef
 
 import scala.collection.breakOut
 import scala.collection.immutable.Map
@@ -12,13 +12,13 @@ import scalaz.syntax.std.map._
 import scalaz.Semigroup
 
 /** The combination of multiple [[Interface]]s, such as from a dar. */
-final case class EnvironmentInterface(typeDecls: Map[Identifier, InterfaceType])
+final case class EnvironmentInterface(typeDecls: Map[DefinitionRef, InterfaceType])
 
 object EnvironmentInterface {
   def fromReaderInterfaces(i: Interface, o: Interface*): EnvironmentInterface =
     EnvironmentInterface((i +: o).flatMap {
       case Interface(packageId, typeDecls) =>
-        typeDecls mapKeys (Identifier(packageId, _))
+        typeDecls mapKeys (DefinitionRef(packageId, _))
     }(breakOut))
 
   def fromReaderInterfaces(dar: Dar[Interface]): EnvironmentInterface =

@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
+import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, Party}
 import com.digitalasset.daml.lf.transaction.Node.GenNode
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node}
 import com.digitalasset.ledger.api.domain.TransactionFilter
@@ -13,7 +13,7 @@ import scala.collection.{breakOut, immutable, mutable}
 // This will be tested transitively by the semantic test suite.
 object TransactionFiltration {
 
-  private def templateId[I, C, V](node: GenNode[I, C, V]): Option[Identifier] = node match {
+  private def templateId[I, C, V](node: GenNode[I, C, V]): Option[DefinitionRef] = node match {
     case l: Node.NodeLookupByKey[I @unchecked, V @unchecked] => Some(l.templateId)
     case c: Node.NodeCreate[I @unchecked, V @unchecked] => Some(c.coinst.template)
     case e: Node.NodeExercises[I @unchecked, C @unchecked, V @unchecked] => Some(e.templateId)

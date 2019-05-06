@@ -48,17 +48,17 @@ final case class ContextDefValue(ref: ValueRef) extends Context {
 
 object ContextDefDataType {
   def apply(pkgId: PackageId, module: DottedName, name: DottedName): ContextDefDataType =
-    ContextDefDataType(TypeConName(pkgId, QualifiedName(module, name)))
+    ContextDefDataType(DefinitionRef(pkgId, QualifiedName(module, name)))
 }
 
 object ContextTemplate {
   def apply(pkgId: PackageId, module: DottedName, name: DottedName): ContextTemplate =
-    ContextTemplate(TypeConName(pkgId, QualifiedName(module, name)))
+    ContextTemplate(DefinitionRef(pkgId, QualifiedName(module, name)))
 }
 
 object ContextDefValue {
   def apply(pkgId: PackageId, module: DottedName, name: DottedName): ContextDefValue =
-    ContextDefValue(ValueRef(pkgId, QualifiedName(module, name)))
+    ContextDefValue(DefinitionRef(pkgId, QualifiedName(module, name)))
 }
 
 sealed abstract class TemplatePart extends Product with Serializable

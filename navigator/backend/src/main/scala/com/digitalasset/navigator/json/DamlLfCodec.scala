@@ -57,7 +57,7 @@ object DamlLfCodec {
 
   def damlLfTypeConToJsValue(value: Model.DamlLfTypeCon): JsValue = {
     val id =
-      Model.DamlLfIdentifier(value.name.identifier.packageId, value.name.identifier.qualifiedName)
+      Model.DamlLfIdentifier(value.name.ref.packageId, value.name.ref.qualifiedName)
     JsObject(
       propType -> JsString(tagTypeCon),
       propName -> damlLfIdentifierToJsValue(id),

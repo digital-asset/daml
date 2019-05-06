@@ -14,7 +14,7 @@ package object parser {
   val defaultPkgId: PackageId = PackageId.assertFromString("-pkgId-")
   val defaultModName: ModuleName = DottedName(ImmArray("Mod"))
   val defaultTemplName: TypeConName =
-    Identifier(defaultPkgId, QualifiedName(defaultModName, DottedName(ImmArray("T"))))
+    DefinitionRef(defaultPkgId, QualifiedName(defaultModName, DottedName(ImmArray("T"))))
 
   private def safeParse[T](p: Parsers.Parser[T], s: String): Either[String, T] =
     try {

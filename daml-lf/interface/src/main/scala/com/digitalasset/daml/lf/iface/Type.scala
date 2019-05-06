@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.iface
 import java.{util => j}
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.data.Ref.DefinitionRef
 import scalaz.Monoid
 import scalaz.syntax.foldable._
 import scalaz.syntax.monoid._
@@ -115,7 +115,7 @@ sealed abstract class TypeConNameOrPrimType extends Product with Serializable {
   }
 }
 
-final case class TypeConName(identifier: Identifier) extends TypeConNameOrPrimType
+final case class TypeConName(ref: DefinitionRef) extends TypeConNameOrPrimType
 sealed abstract class PrimType extends TypeConNameOrPrimType {
 
   /** Named pattern match for Java. */

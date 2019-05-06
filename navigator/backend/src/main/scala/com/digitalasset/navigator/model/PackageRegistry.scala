@@ -130,14 +130,14 @@ case class PackageRegistry(
         case t @ DamlLfTypePrim(_, vars) =>
           vars.foldLeft(deps)((r, v) => foldType(v, r, instantiatesRemaining))
         case t @ DamlLfTypeCon(name, vars) =>
-          deps.get(t.name.identifier) match {
+          deps.get(t.name.ref) match {
             // Dependency already added
             case Some(_) => deps
             // New dependency
             case None =>
               if (instantiatesRemaining > 0) {
-                damlLfDefDataType(name.identifier).fold(deps)(ddt => {
-                  val r1 = deps + (name.identifier -> ddt)
+                damlLfDefDataType(name.ref).fold(deps)(ddt => {
+                  val r1 = deps + (name.ref -> ddt)
                   val r2 = foldDataType(ddt, r1, instantiatesRemaining - 1)
                   vars.foldLeft(r2)((r, v) => foldType(v, r, instantiatesRemaining - 1))
                 })

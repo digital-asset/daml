@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.testing.parser
 
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.data.Ref.{DottedName, Identifier, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{DottedName, DefinitionRef, QualifiedName}
 import com.digitalasset.daml.lf.testing.parser.Token._
 
 import scala.util.parsing.input.{NoPosition, Position}
@@ -31,10 +31,10 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
   val dottedName: Parser[DottedName] =
     rep1sep(id, `.`) ^^ (s => DottedName(ImmArray(s)))
 
-  val fullIdentifier: Parser[Identifier] =
+  val fullIdentifier: Parser[DefinitionRef] =
     opt(pkgId <~ `:`) ~ dottedName ~ `:` ~ dottedName ^^ {
       case pkgId ~ modName ~ _ ~ name =>
-        Identifier(pkgId.getOrElse(defaultPkgId), QualifiedName(modName, name))
+        DefinitionRef(pkgId.getOrElse(defaultPkgId), QualifiedName(modName, name))
     }
 
   def parseAll[A](p: Parser[A], s: String): A =

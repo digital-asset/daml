@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.codegen
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, QualifiedName, PackageId}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.iface.{Interface, InterfaceType}
 import com.typesafe.scalalogging.StrictLogging
@@ -114,7 +114,7 @@ private[codegen] final case class TypeWithContext(
 
   def qualifiedName: QualifiedName = QualifiedName(module, fullName)
 
-  def identifier: Identifier = Identifier(packageId, qualifiedName)
+  def identifier: DefinitionRef = DefinitionRef(packageId, qualifiedName)
 }
 
 private[codegen] object InterfaceTree extends StrictLogging {

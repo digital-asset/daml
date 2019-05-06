@@ -263,7 +263,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
     builder.build
   }
 
-  def mkContractRef(coid: V.ContractId, templateId: Ref.Identifier): ContractRef =
+  def mkContractRef(coid: V.ContractId, templateId: Ref.DefinitionRef): ContractRef =
     coid match {
       case V.AbsoluteContractId(coid) =>
         ContractRef.newBuilder
@@ -519,7 +519,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
     else
       PackageIdentifier.newBuilder.setPackageId(pkg).build
 
-  def convertIdentifier(identifier: Ref.Identifier): Identifier =
+  def convertIdentifier(identifier: Ref.DefinitionRef): Identifier =
     Identifier.newBuilder
       .setPackage(convertPackageId(identifier.packageId))
       .setName(identifier.qualifiedName.toString)

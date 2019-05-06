@@ -35,7 +35,7 @@ package object filter {
       parameter match {
         case tc: DamlLfTypeCon =>
           val next = for {
-            ddt <- ps(tc.name.identifier)
+            ddt <- ps(tc.name.ref)
             nextCursor <- cursor.next
             //nextField   <- tc.instantiate(ddt) match {
             nextField <- damlLfInstantiate(tc, ddt) match {

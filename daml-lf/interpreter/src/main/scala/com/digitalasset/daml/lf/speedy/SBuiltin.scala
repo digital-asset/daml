@@ -519,7 +519,7 @@ object SBuiltin {
   }
 
   /** $rcon[R, fields] :: a -> b -> ... -> R */
-  final case class SBRecCon(id: Identifier, fields: Array[String])
+  final case class SBRecCon(id: DefinitionRef, fields: Array[String])
       extends SBuiltin(fields.length)
       with SomeArrayEquals {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
@@ -528,7 +528,7 @@ object SBuiltin {
   }
 
   /** $rupd[R, field] :: R -> a -> R */
-  final case class SBRecUpd(id: Identifier, field: Int) extends SBuiltin(2) {
+  final case class SBRecUpd(id: DefinitionRef, field: Int) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
         case SRecord(id2, fields, values) =>
@@ -545,7 +545,7 @@ object SBuiltin {
   }
 
   /** $rproj[R, field] :: R -> a */
-  final case class SBRecProj(id: Identifier, field: Int) extends SBuiltin(1) {
+  final case class SBRecProj(id: DefinitionRef, field: Int) extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
         case SRecord(id @ _, _, values) => values.get(field)
@@ -591,7 +591,7 @@ object SBuiltin {
   }
 
   /** $vcon[V, variant] :: a -> V */
-  final case class SBVariantCon(id: Identifier, variant: VariantConName) extends SBuiltin(1) {
+  final case class SBVariantCon(id: DefinitionRef, variant: VariantConName) extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(SVariant(id, variant, args.get(0)))
     }

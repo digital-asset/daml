@@ -28,17 +28,17 @@ private final case class InvertedTransactionFilter[I, P](
 
 }
 private object InvertedTransactionFilter {
-  val empty: InvertedTransactionFilter[Identifier, Party] =
+  val empty: InvertedTransactionFilter[DefinitionRef, Party] =
     InvertedTransactionFilter(Map.empty, Set.empty)
 
-  private type TF = InvertedTransactionFilter[Identifier, Party]
+  private type TF = InvertedTransactionFilter[DefinitionRef, Party]
 
   // implementation is way simpler with mutable collections
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def extractFrom(
-      transactionFilter: TransactionFilter): InvertedTransactionFilter[Identifier, Party] = {
-    val specific = new mutable.HashMap[Identifier, mutable.Set[Party]]()
-    with mutable.MultiMap[Identifier, Party]
+      transactionFilter: TransactionFilter): InvertedTransactionFilter[DefinitionRef, Party] = {
+    val specific = new mutable.HashMap[DefinitionRef, mutable.Set[Party]]()
+    with mutable.MultiMap[DefinitionRef, Party]
     val global = mutable.Set[Party]()
 
     transactionFilter.filtersByParty.foreach {

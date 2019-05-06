@@ -4,7 +4,7 @@
 package com.digitalasset.codegen.lf
 
 import com.digitalasset.{codegen => parent}
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DefinitionRef, QualifiedName}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import parent.dependencygraph.DependencyGraph
 import parent.exception.UnsupportedDamlTypeException
@@ -58,7 +58,9 @@ final case class LFUtil(
 
   // XXX DamlScalaName doesn't depend on packageId at the moment, but
   // there are good reasons to make it do so
-  def mkDamlScalaName(codeGenDeclKind: CodeGenDeclKind, metadataAlias: Identifier): DamlScalaName =
+  def mkDamlScalaName(
+      codeGenDeclKind: CodeGenDeclKind,
+      metadataAlias: DefinitionRef): DamlScalaName =
     mkDamlScalaName(codeGenDeclKind, metadataAlias.qualifiedName)
 
   def mkDamlScalaName(

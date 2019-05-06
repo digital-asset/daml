@@ -214,7 +214,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
   }
 
   private def validateOptionalIdentifier(
-      variantIdO: Option[Identifier]): Either[StatusRuntimeException, Option[Ref.Identifier]] = {
+      variantIdO: Option[Identifier]): Either[StatusRuntimeException, Option[Ref.DefinitionRef]] = {
     variantIdO
       .map { variantId =>
         identifierResolver.resolveIdentifier(variantId).map(Some.apply)

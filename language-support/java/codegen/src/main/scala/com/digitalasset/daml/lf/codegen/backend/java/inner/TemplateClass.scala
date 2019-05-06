@@ -179,8 +179,8 @@ private[inner] object TemplateClass extends StrictLogging {
       packageId: PackageId
   ): Option[Record.FWT] = {
     // TODO: at the moment we don't support other packages Records because the codegen works on single packages
-    if (typeCon.name.identifier.packageId == packageId) {
-      identifierToType.get(typeCon.name.identifier.qualifiedName) match {
+    if (typeCon.name.ref.packageId == packageId) {
+      identifierToType.get(typeCon.name.ref.qualifiedName) match {
         case Some(InterfaceType.Normal(DefDataType(_, record: Record.FWT))) =>
           Some(record)
         case _ => None

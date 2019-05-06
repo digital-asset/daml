@@ -75,7 +75,7 @@ class LargeTransactionTest extends WordSpec with Matchers {
 
   private def testLargeTransactionOneContract(pcs: PrivateLedgerData, engine: Engine)(
       txSize: Int): Quantity[Double] = {
-    val rangeOfIntsTemplateId = Identifier(largeTx._1, qn("LargeTransaction:RangeOfInts"))
+    val rangeOfIntsTemplateId = DefinitionRef(largeTx._1, qn("LargeTransaction:RangeOfInts"))
     val createCmd = rangeOfIntsCreateCmd(rangeOfIntsTemplateId, 0, 1, txSize)
     val createCmdTx: Transaction = submitCommand(pcs, engine)(createCmd, "create RangeOfInts")
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
@@ -92,7 +92,7 @@ class LargeTransactionTest extends WordSpec with Matchers {
 
   private def testLargeTransactionManySmallContracts(pcs: PrivateLedgerData, engine: Engine)(
       num: Int): Quantity[Double] = {
-    val rangeOfIntsTemplateId = Identifier(largeTx._1, qn("LargeTransaction:RangeOfInts"))
+    val rangeOfIntsTemplateId = DefinitionRef(largeTx._1, qn("LargeTransaction:RangeOfInts"))
     val createCmd = rangeOfIntsCreateCmd(rangeOfIntsTemplateId, 0, 1, num)
     val createCmdTx: Transaction = submitCommand(pcs, engine)(createCmd, "create RangeOfInts")
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
@@ -109,7 +109,7 @@ class LargeTransactionTest extends WordSpec with Matchers {
 
   private def testLargeChoiceArgument(pcs: PrivateLedgerData, engine: Engine)(
       size: Int): Quantity[Double] = {
-    val listUtilTemplateId = Identifier(largeTx._1, qn("LargeTransaction:ListUtil"))
+    val listUtilTemplateId = DefinitionRef(largeTx._1, qn("LargeTransaction:ListUtil"))
     val createCmd = listUtilCreateCmd(listUtilTemplateId)
     val createCmdTx: Transaction = submitCommand(pcs, engine)(createCmd, "create ListUtil")
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
@@ -174,7 +174,7 @@ class LargeTransactionTest extends WordSpec with Matchers {
   }
 
   private def rangeOfIntsCreateCmd(
-      templateId: Identifier,
+      templateId: DefinitionRef,
       start: Int,
       step: Int,
       number: Int): CreateCommand = {
@@ -189,7 +189,7 @@ class LargeTransactionTest extends WordSpec with Matchers {
   }
 
   private def toListContainerExerciseCmd(
-      templateId: Identifier,
+      templateId: DefinitionRef,
       contractId: AbsoluteContractId): ExerciseCommand = {
     val choice = "ToListContainer"
     val emptyArgs = ValueRecord(None, ImmArray(Seq()))
@@ -203,7 +203,7 @@ class LargeTransactionTest extends WordSpec with Matchers {
   }
 
   private def toListOfIntContainers(
-      templateId: Identifier,
+      templateId: DefinitionRef,
       contractId: AbsoluteContractId): ExerciseCommand = {
     val choice = "ToListOfIntContainers"
     val emptyArgs = ValueRecord(None, ImmArray(Seq()))
@@ -216,16 +216,16 @@ class LargeTransactionTest extends WordSpec with Matchers {
     )
   }
 
-  private def listUtilCreateCmd(templateId: Identifier): CreateCommand = {
+  private def listUtilCreateCmd(templateId: DefinitionRef): CreateCommand = {
     val fields = ImmArray((Some("party"), ValueParty(party)))
     val argument = assertAsVersionedValue(ValueRecord(Some(templateId), fields))
     CreateCommand(templateId, argument)
   }
 
-  private def sizeExerciseCmd(templateId: Identifier, contractId: AbsoluteContractId)(
+  private def sizeExerciseCmd(templateId: DefinitionRef, contractId: AbsoluteContractId)(
       size: Int): ExerciseCommand = {
     val choice = "Size"
-    val choiceId = Identifier(templateId.packageId, qn(s"LargeTransaction:$choice"))
+    val choiceId = DefinitionRef(templateId.packageId, qn(s"LargeTransaction:$choice"))
     val damlList = ValueList(FrontStack(elements = List.range(0L, size.toLong).map(ValueInt64)))
     val choiceArgs = ValueRecord(Some(choiceId), ImmArray((None, damlList)))
     ExerciseCommand(

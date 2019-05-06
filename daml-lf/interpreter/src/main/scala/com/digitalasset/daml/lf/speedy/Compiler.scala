@@ -54,7 +54,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     validate(closureConvert(Map.empty, 0, translate(expr)))
 
   def compileDefn(
-      identifier: Identifier,
+      identifier: DefinitionRef,
       defn: Definition
   ): List[(SDefinitionRef, SExpr)] =
     defn match {
@@ -96,7 +96,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       module <- lookupPackage(pkgId).modules.values
       defnWithId <- module.definitions
       (defnId, defn) = defnWithId
-      fullId = Identifier(pkgId, QualifiedName(module.name, defnId))
+      fullId = DefinitionRef(pkgId, QualifiedName(module.name, defnId))
       exprWithId <- compileDefn(fullId, defn)
     } yield exprWithId
 
@@ -1068,7 +1068,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     expr
   }
 
-  private def compileFetch(tmplId: Identifier, coid: SExpr): SExpr = {
+  private def compileFetch(tmplId: DefinitionRef, coid: SExpr): SExpr = {
     val tmpl = lookupTemplate(tmplId)
     withEnv { _ =>
       currentPosition += 1 // token
@@ -1094,7 +1094,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     }
   }
 
-  private def compileCreate(tmplId: Identifier, arg: SExpr): SExpr = {
+  private def compileCreate(tmplId: DefinitionRef, arg: SExpr): SExpr = {
     // FIXME(JM): Lift to top-level?
     // Translates 'create Foo with <params>' into:
     // let arg = <params>
@@ -1150,7 +1150,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   }
 
   private def compileExercise(
-      tmplId: Identifier,
+      tmplId: DefinitionRef,
       contractId: SExpr,
       choiceId: ChoiceName,
       // actors are either the singleton set of submitter of an exercise command,
@@ -1166,7 +1166,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     }
 
   private def compileCreateAndExercise(
-      tmplId: Identifier,
+      tmplId: DefinitionRef,
       createArg: SValue,
       choiceId: ChoiceName,
       choiceArg: SValue,

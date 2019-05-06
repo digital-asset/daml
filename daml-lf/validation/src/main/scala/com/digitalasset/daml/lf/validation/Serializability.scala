@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Util.{TContractId, TList, TOptional, TMap}
 
@@ -112,7 +112,7 @@ private[validation] object Serializability {
   def checkModule(world: World, pkgId: PackageId, module: Module): Unit =
     module.definitions.foreach {
       case (defName, DDataType(serializable, params, dataCons)) =>
-        val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
+        val tyCon = TTyCon(DefinitionRef(pkgId, QualifiedName(module.name, defName)))
         if (serializable) checkDataType(world, tyCon, params, dataCons)
         dataCons match {
           case DataRecord(_, Some(template)) =>
