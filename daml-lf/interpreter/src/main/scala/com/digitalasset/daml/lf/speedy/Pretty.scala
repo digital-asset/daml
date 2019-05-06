@@ -36,7 +36,7 @@ object Pretty {
     })
 
   def prettyParty(p: Party): Doc =
-    char('\'') + text(p.toString) + char('\'')
+    char('\'') + text(p) + char('\'')
 
   def prettyDamlException(ex: SErrorDamlException, ptx: PartialTransaction): Doc =
     ex match {
@@ -75,7 +75,7 @@ object Pretty {
       case fetch: NodeFetch[ContractId] =>
         "fetch" &: prettyContractId(fetch.coid)
       case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
-        intercalate(text(", "), ex.actingParties.map(p => text(p.toString))) &
+        intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
           text("with") & prettyVersionedValue(false)(ex.chosenValue)
@@ -180,7 +180,7 @@ object Pretty {
     )
 
   def prettyValueRef(ref: ValueRef): Doc =
-    text(ref.qualifiedName.toString + "@" + ref.packageId.toString)
+    text(ref.qualifiedName.toString + "@" + ref.packageId)
 
   def prettyLedger(l: L.Ledger): Doc =
     (text("transactions:") / prettyTransactions(l)) / line +
@@ -235,7 +235,7 @@ object Pretty {
             text("children:") / stack(ex.children.toList.map(prettyNodeInfo(l)))
           else
             text("")
-        intercalate(text(", "), ex.actingParties.map(p => text(p.toString))) &
+        intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
           (text("    ") + text("with") & prettyVersionedValue(false)(ex.chosenValue) / children)
@@ -262,7 +262,7 @@ object Pretty {
                 }
                 .map {
                   case (p, txid) =>
-                    text(p.toString) & text("(#") + str(txid) + char(')')
+                    text(p) & text("(#") + str(txid) + char(')')
                 }
             )
         )
@@ -318,7 +318,7 @@ object Pretty {
   }
 
   def prettyPackageId(pkgId: PackageId): Doc =
-    text(pkgId.toString.take(8))
+    text(pkgId.take(8))
 
   def prettyIdentifier(id: Identifier): Doc =
     text(id.qualifiedName.toString) + char('@') + prettyPackageId(id.packageId)
@@ -375,7 +375,7 @@ object Pretty {
           ']')
       case ValueTimestamp(t) => str(t)
       case ValueDate(days) => str(days)
-      case ValueParty(p) => char('\'') + str(p.toString) + char('\'')
+      case ValueParty(p) => char('\'') + str(p) + char('\'')
       case ValueOptional(Some(v1)) => text("Option(") + prettyValue(verbose)(v1) + char(')')
       case ValueOptional(None) => text("None")
       case ValueMap(map) =>
@@ -416,7 +416,7 @@ object Pretty {
           str(defId)
         case SEValue(lit) =>
           lit match {
-            case SParty(p) => char('\'') + text(p.toString) + char('\'')
+            case SParty(p) => char('\'') + text(p) + char('\'')
             case SText(t) => char('"') + text(t) + char('"')
             case other => str(other)
           }

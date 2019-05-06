@@ -33,7 +33,7 @@ import scala.collection.mutable
 object Compiler {
   case class CompileError(error: String) extends RuntimeException(error, null, true, false)
   case class PackageNotFound(pkgId: PackageId)
-      extends RuntimeException(s"Package not found ${pkgId.toString}", null, true, false)
+      extends RuntimeException(s"Package not found $pkgId", null, true, false)
 }
 
 final case class Compiler(packages: PackageId PartialFunction Package) {

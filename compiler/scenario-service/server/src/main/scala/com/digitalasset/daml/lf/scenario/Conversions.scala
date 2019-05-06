@@ -514,7 +514,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       // Reconstitute the self package reference.
       packageIdSelf
     else
-      PackageIdentifier.newBuilder.setPackageId(pkg.toString).build
+      PackageIdentifier.newBuilder.setPackageId(pkg).build
 
   def convertIdentifier(identifier: Ref.Identifier): Identifier =
     Identifier.newBuilder
@@ -604,7 +604,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       case V.ValueText(t) => builder.setText(t)
       case V.ValueTimestamp(ts) => builder.setTimestamp(ts.micros)
       case V.ValueDate(d) => builder.setDate(d.days)
-      case V.ValueParty(p) => builder.setParty(p.toString)
+      case V.ValueParty(p) => builder.setParty(p)
       case V.ValueBool(b) => builder.setBool(b)
       case V.ValueUnit => builder.setUnit(empty)
       case V.ValueOptional(mbV) =>
@@ -627,6 +627,6 @@ case class Conversions(homePackageId: Ref.PackageId) {
   }
 
   def convertParty(p: Ref.Party): Party =
-    Party.newBuilder.setParty(p.toString).build
+    Party.newBuilder.setParty(p).build
 
 }

@@ -277,7 +277,7 @@ object Repl {
       else
         m.qualifiedName.toString
     else
-      m.qualifiedName.toString + "@" + m.packageId.toString
+      m.qualifiedName.toString + "@" + m.packageId
   }
 
   def prettyType(typ: Type, pkgId: PackageId, modId: ModuleName): String = {

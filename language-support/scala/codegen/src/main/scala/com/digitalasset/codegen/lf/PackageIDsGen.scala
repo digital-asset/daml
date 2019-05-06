@@ -24,7 +24,7 @@ object PackageIDsGen {
       util.iface.typeDecls.keys.map(id => (id.qualifiedName.module, id.packageId))(breakOut)
     val packageIdBindings = packageIdsByModule.toSeq.sortBy(_._1.dottedName) map {
       case (mn, pid) =>
-        q"val ${TermName(mn.dottedName)}: _root_.scala.Predef.String = ${pid.toString}"
+        q"val ${TermName(mn.dottedName)}: _root_.scala.Predef.String = $pid"
     }
 
     val packageIdsSrc: Tree =

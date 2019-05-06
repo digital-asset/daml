@@ -63,7 +63,7 @@ class SemanticTestAdapter(
       tx <- LedgerTestingHelpers
         .sync(lc.commandService.submitAndWaitForTransactionId, lc)
         .submitAndListenForSingleTreeResultOfCommand(
-          SubmitRequest(Some(apiCommand(submitterName.toString, cmds))),
+          SubmitRequest(Some(apiCommand(submitterName, cmds))),
           TransactionFilter(parties.map(_ -> Filters.defaultInstance)(breakOut)),
           true,
           true)

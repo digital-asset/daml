@@ -73,7 +73,7 @@ private[codegen] object CodeGenRunner extends StrictLogging {
         val dar = ArchiveReader.readArchive(new ZipFile(path.toFile)).get
         dar.all.map { archive =>
           val (_, interface) = InterfaceReader.readInterface(archive)
-          logger.trace(s"DAML-LF Archive decoded, packageId '${interface.packageId.toString}'")
+          logger.trace(s"DAML-LF Archive decoded, packageId '${interface.packageId}'")
           (interface, interface.packageId -> pkgPrefix)
         }
     }
@@ -109,7 +109,7 @@ private[codegen] object CodeGenRunner extends StrictLogging {
       conf: Conf,
       pkgPrefixes: Map[PackageId, String])(implicit ec: ExecutionContext): Unit = {
     logger.info(
-      s"Start processing packageIds '${interfaces.map(_.packageId.toString).mkString(", ")}' in directory '${conf.outputDirectory}'")
+      s"Start processing packageIds '${interfaces.map(_.packageId).mkString(", ")}' in directory '${conf.outputDirectory}'")
 
     // TODO (mp): pre-processing and escaping
     val preprocessingFuture: Future[InterfaceTrees] =
@@ -125,8 +125,7 @@ private[codegen] object CodeGenRunner extends StrictLogging {
 
     // TODO (mp): make the timeout configurable
     val _ = Await.result(future, Duration.create(10l, TimeUnit.MINUTES))
-    logger.info(
-      s"Finish processing packageIds ''${interfaces.map(_.packageId.toString).mkString(", ")}''")
+    logger.info(s"Finish processing packageIds ''${interfaces.map(_.packageId).mkString(", ")}''")
   }
 
   // TODO (#584): Make Java Codegen Backend configurable
@@ -136,11 +135,11 @@ private[codegen] object CodeGenRunner extends StrictLogging {
       interfaceTree: InterfaceTree,
       conf: Conf,
       packagePrefixes: Map[PackageId, String])(implicit ec: ExecutionContext): Future[Unit] = {
-    logger.info(s"Start processing packageId '${interfaceTree.interface.packageId.toString}'")
+    logger.info(s"Start processing packageId '${interfaceTree.interface.packageId}'")
     for {
       _ <- interfaceTree.process(backend.process(_, conf, packagePrefixes))
     } yield {
-      logger.info(s"Stop processing packageId '${interfaceTree.interface.packageId.toString}'")
+      logger.info(s"Stop processing packageId '${interfaceTree.interface.packageId}'")
     }
   }
 

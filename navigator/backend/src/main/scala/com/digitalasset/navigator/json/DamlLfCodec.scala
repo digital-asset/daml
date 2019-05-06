@@ -94,7 +94,7 @@ object DamlLfCodec {
   def damlLfIdentifierToJsValue(value: Model.DamlLfIdentifier): JsValue = JsObject(
     propName -> JsString(value.qualifiedName.name.toString()),
     propModule -> JsString(value.qualifiedName.module.toString()),
-    propPackage -> JsString(value.packageId.toString)
+    propPackage -> JsString(value.packageId)
   )
 
   def damlLfDataTypeToJsValue(value: Model.DamlLfDataType): JsValue = value match {

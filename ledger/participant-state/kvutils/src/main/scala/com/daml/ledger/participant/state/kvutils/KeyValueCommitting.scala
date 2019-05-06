@@ -182,7 +182,7 @@ object KeyValueCommitting {
     // are stored in the [[DamlLogEntry]], which we find by looking up
     // the DAML state entry at `DamlStateKey(packageId = pkgId)`.
     def lookupPackage(pkgId: PackageId) = {
-      val stateKey = DamlStateKey.newBuilder.setPackageId(pkgId.toString).build
+      val stateKey = DamlStateKey.newBuilder.setPackageId(pkgId).build
       for {
         value <- inputState
           .get(stateKey)

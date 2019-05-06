@@ -78,8 +78,8 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
   private def createTypeDefinitionClasses(
       moduleWithContext: ModuleWithContext,
       packagePrefixes: Map[PackageId, String]): Iterable[JavaFile] = {
-    MDC.put("packageId", moduleWithContext.packageId.toString)
-    MDC.put("packageIdShort", moduleWithContext.packageId.toString.take(7))
+    MDC.put("packageId", moduleWithContext.packageId)
+    MDC.put("packageIdShort", moduleWithContext.packageId.take(7))
     MDC.put("moduleName", moduleWithContext.name)
     val typeSpecs = for {
       typeWithContext <- moduleWithContext.typesLineages

@@ -131,7 +131,7 @@ class InMemoryLedger(
             tx.ledgerEffectiveTime,
             timeProvider.getCurrentTime,
             recordTx,
-            recordBlinding.transform((_, v) => v.map(_.toString))
+            recordBlinding.transform((_, v) => v.toSet[String])
           )
         entries.publish(entry)
         ()

@@ -51,21 +51,21 @@ object BlindingCoder {
     val localImplicit = blindingInfo.localImplicitDisclosure.map(nodeParties => {
       val b1 = proto.Blindinginfo.NodeParties.newBuilder()
       b1.setNodeId(nodeIdWriter(nodeParties._1))
-      b1.addAllParties(nodeParties._2.map(_.toString).asJava)
+      b1.addAllParties(nodeParties._2.toSet[String].asJava)
       b1.build()
     })
 
     val explicit = blindingInfo.explicitDisclosure.map(nodeParties => {
       val b1 = proto.Blindinginfo.NodeParties.newBuilder()
       b1.setNodeId(nodeIdWriter(nodeParties._1))
-      b1.addAllParties(nodeParties._2.map(_.toString).asJava)
+      b1.addAllParties(nodeParties._2.toSet[String].asJava)
       b1.build()
     })
 
     val global = blindingInfo.globalImplicitDisclosure.map(contractParties => {
       val b1 = proto.Blindinginfo.ContractParties.newBuilder()
       b1.setContractId(contractParties._1.coid)
-      b1.addAllParties(contractParties._2.map(_.toString).asJava)
+      b1.addAllParties(contractParties._2.toSet[String].asJava)
       b1.build()
     })
 

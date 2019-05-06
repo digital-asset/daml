@@ -14,7 +14,7 @@ sealed abstract class MatchingStringModule {
   def assertFromString(s: String): T =
     fromString(s).fold(e => throw new IllegalArgumentException(e), identity)
 
-  def unapply(x: T): Option[String] = Some(x.toString)
+  def unapply(x: T): Option[String] = Some(x)
 }
 
 object MatchingStringModule extends (Regex => MatchingStringModule) {

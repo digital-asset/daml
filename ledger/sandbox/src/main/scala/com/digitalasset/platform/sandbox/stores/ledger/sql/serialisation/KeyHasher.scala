@@ -52,7 +52,7 @@ object KeyHasher extends KeyHasher {
       case ValueDecimal(v) => op(z, HashTokenBigDecimal(v))
       case ValueText(v) => op(z, HashTokenText(v))
       case ValueTimestamp(v) => op(z, HashTokenLong(v.micros))
-      case ValueParty(v) => op(z, HashTokenText(v.toString))
+      case ValueParty(v) => op(z, HashTokenText(v))
       case ValueBool(v) => op(z, HashTokenByte(if (v) 1.toByte else 0.toByte))
       case ValueDate(v) => op(z, HashTokenInt(v.days))
       case ValueUnit => op(z, HashTokenByte(0))
@@ -120,7 +120,7 @@ object KeyHasher extends KeyHasher {
     val digest = MessageDigest.getInstance("SHA-256")
 
     // First, write the template ID
-    putString(digest, key.templateId.packageId.toString)
+    putString(digest, key.templateId.packageId)
     putString(digest, key.templateId.qualifiedName.toString())
 
     // Note: We do not emit the value or language version, as both are

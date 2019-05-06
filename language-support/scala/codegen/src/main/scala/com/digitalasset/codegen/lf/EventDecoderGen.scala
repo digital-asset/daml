@@ -44,12 +44,12 @@ object EventDecoderGen {
     // separates the module and the name in the module with colon.
     def legacyDottedName(identifier: Identifier) = {
       val Identifier(packageId, QualifiedName(module, name)) = identifier
-      s"${module.dottedName: String}.${name.dottedName: String}@${packageId.toString}"
+      s"${module.dottedName: String}.${name.dottedName: String}@$packageId"
     }
 
     val rawUnsupportedTemplates = unsupportedTemplates.map {
       case tIdent @ Identifier(packageId, qualName) =>
-        q"(${qualName.qualifiedName}, (${packageId.toString}, ${legacyDottedName(tIdent)}))"
+        q"(${qualName.qualifiedName}, ($packageId, ${legacyDottedName(tIdent)}))"
     }
 
     val decoder: Tree =

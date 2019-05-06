@@ -247,7 +247,7 @@ private[inner] object TemplateClass extends StrictLogging {
       .initializer(
         "new $T($S, $S, $S)",
         classOf[javaapi.data.Identifier],
-        typeWithContext.packageId.toString,
+        typeWithContext.packageId,
         typeWithContext.modulesLineage.map(_._1).toImmArray.iterator.mkString("."),
         typeWithContext.name
       )

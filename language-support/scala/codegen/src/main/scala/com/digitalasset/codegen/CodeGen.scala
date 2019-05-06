@@ -115,7 +115,7 @@ object CodeGen {
   private def decodeInterface(p: Payload): String \/ Interface =
     \/.fromTryCatchNonFatal {
       val packageId: PackageId = p._1
-      logger.info(s"decoding archive with Package ID: ${packageId.toString: String}")
+      logger.info(s"decoding archive with Package ID: $packageId")
       val (errors, out) = Interface.read(p)
       if (!errors.empty) {
         \/.left(formatDecodeErrors(packageId, errors))
@@ -125,7 +125,7 @@ object CodeGen {
   private def formatDecodeErrors(
       packageId: PackageId,
       errors: Errors[ErrorLoc, InterfaceReader.InvalidDataTypeDefinition]): String =
-    (Cord(s"Errors decoding LF archive (Package ID: ${packageId.toString: String}):\n") ++
+    (Cord(s"Errors decoding LF archive (Package ID: $packageId):\n") ++
       InterfaceReader.InterfaceReaderError.treeReport(errors)).toString
 
   private def combineInterfaces(dar: Dar[Interface]): EnvironmentInterface =

@@ -41,7 +41,7 @@ class DamlOnXPackageService private (indexService: IndexService)
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
     indexService.listPackages.map { packageIds =>
-      ListPackagesResponse(packageIds.map(pkgId => pkgId.toString))
+      ListPackagesResponse(packageIds)
     }
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] = {

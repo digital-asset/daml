@@ -118,8 +118,8 @@ class SandboxSubmissionService private (
           .execute(
             commands.submitter,
             commands,
-            handle.lookupActiveContract(commands.submitter.toString, _),
-            handle.lookupContractKey(commands.submitter.toString, _),
+            handle.lookupActiveContract(commands.submitter, _),
+            handle.lookupContractKey(commands.submitter, _),
             commands.commands
           )
           .flatMap {

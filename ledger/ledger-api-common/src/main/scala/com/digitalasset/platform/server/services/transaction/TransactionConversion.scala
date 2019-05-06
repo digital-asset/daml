@@ -33,7 +33,7 @@ trait TransactionConversion {
     val events = engine.Event.collectEvents(transaction, disclosure)
     eventsToTransaction(events, verbose)
   }
-  private def convert(ps: Set[LfRef.Party]): Seq[Party] = ps.map(_.toString)(breakOut)
+  private def convert(ps: Set[LfRef.Party]): Seq[Party] = ps.toSeq
 
   def eventsToTransaction(
       allEvents: P.Events[EventId, AbsoluteContractId],

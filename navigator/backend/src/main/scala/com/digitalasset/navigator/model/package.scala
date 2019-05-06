@@ -142,14 +142,14 @@ package object model {
   implicit class IdentifierDamlConversions(val id: DamlLfRef.Identifier) extends AnyVal {
     def asApi: ApiV1.value.Identifier =
       ApiV1.value.Identifier(
-        id.packageId.toString,
+        id.packageId,
         "",
         id.qualifiedName.module.toString(),
         id.qualifiedName.name.toString())
 
     /** An opaque unique string for this identifier */
     def asOpaqueString: String =
-      opaqueIdentifier(id.qualifiedName.toString, id.packageId.toString)
+      opaqueIdentifier(id.qualifiedName.toString, id.packageId)
   }
 
   private[this] def opaqueIdentifier(qualifiedName: String, packageId: String): String =

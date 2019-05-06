@@ -136,7 +136,7 @@ class EventConverterSpec
               val eventsFromViews =
                 etc.genToApiTransaction(
                   recordTr,
-                  recordBlinding.transform((_, v) => v.map(_.toString)))
+                  recordBlinding.transform((_, v) => v.toSet[String]))
 
               eventsFromViews.eventsById should have size expectedSize.toLong
           })
@@ -171,7 +171,7 @@ class EventConverterSpec
             val eventsFromViews =
               etc.genToApiTransaction(
                 recordTr,
-                recordBlinding.transform((_, v) => v.map(_.toString)),
+                recordBlinding.transform((_, v) => v.toSet[String]),
                 true)
 
             tx.nodes.size shouldBe 1
@@ -262,7 +262,7 @@ class EventConverterSpec
       val events =
         etc.genToApiTransaction(
           recordTx,
-          recordBlinding.mapValues(_.map(_.toString)),
+          recordBlinding.transform((_, v) => v.toSet[String]),
           verbose = true)
 
       val exercise = events.rootEventIds.headOption.map(events.eventsById).map(_.getExercised)

@@ -63,7 +63,7 @@ object ValueCoder {
     * @return wire format identifier
     */
   def encodeIdentifier(id: Identifier): proto.Identifier = {
-    val builder = proto.Identifier.newBuilder().setPackageId(id.packageId.toString)
+    val builder = proto.Identifier.newBuilder().setPackageId(id.packageId)
     builder.addAllModuleName(id.qualifiedName.module.segments.toSeq.asJava)
     builder.addAllName(id.qualifiedName.name.segments.toSeq.asJava)
     builder.build()
@@ -409,7 +409,7 @@ object ValueCoder {
           case ValueText(t) =>
             builder.setText(t).build()
           case ValueParty(p) =>
-            builder.setParty(p.toString).build()
+            builder.setParty(p).build()
           case ValueDate(d) =>
             builder.setDate(d.days).build()
           case ValueTimestamp(t) =>

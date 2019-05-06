@@ -50,11 +50,12 @@ object DamlOnXTransactionService {
       identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
-    : TransactionServiceGrpc.TransactionService with BindableService with TransactionServiceLogging =
+      esf: ExecutionSequencerFactory): TransactionServiceGrpc.TransactionService
+    with BindableService
+    with TransactionServiceLogging =
     new GrpcTransactionService(
       new DamlOnXTransactionService(indexService),
-      ledgerId.toString,
+      ledgerId,
       PartyNameChecker.AllowAllParties,
       identifierResolver
     ) with TransactionServiceLogging
@@ -119,7 +120,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
           transactionWithEventIds,
           blindingInfo.explicitDisclosure.map {
             case (nodeId, parties) =>
-              nodeIdToEventId(trans.transactionId, nodeId) -> parties.map(_.toString)
+              nodeIdToEventId(trans.transactionId, nodeId) -> parties.toSet[String]
           },
           verbose
         )

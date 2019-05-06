@@ -90,7 +90,7 @@ class SandboxActiveContractsService private (
                 throw new RuntimeException(
                   s"Unexpected error when converting stored contract: $err"),
               identity)),
-        a.witnesses.map(_.toString).toSeq
+        a.witnesses.toSet[String].toSeq
       ))
   }
 

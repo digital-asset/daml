@@ -98,7 +98,7 @@ private[kvutils] object Conversions {
 
   def buildSubmitterInfo(subInfo: SubmitterInfo): DamlSubmitterInfo =
     DamlSubmitterInfo.newBuilder
-      .setSubmitter(subInfo.submitter.toString)
+      .setSubmitter(subInfo.submitter)
       .setApplicationId(subInfo.applicationId)
       .setCommandId(subInfo.commandId)
       .setMaximumRecordTime(buildTimestamp(subInfo.maxRecordTime))

@@ -154,7 +154,7 @@ private[codegen] object InterfaceTree extends StrictLogging {
       )
       nameAndNode._2.children.foreach(printTree(offset + 2))
     }
-    logger.info(s"Content of Package ${`package`.interface.packageId.toString}")
+    logger.info(s"Content of Package ${`package`.interface.packageId}")
     `package`.modules.foreach(printTree(2))
   }
 

@@ -98,7 +98,7 @@ class DamlOnXActiveContractsService private (
                 throw new RuntimeException(
                   s"Unexpected error when converting stored contract: $err"),
               identity)),
-        a.stakeholders.map(_.toString)
+        a.stakeholders
       ))
   }
 }
@@ -115,7 +115,7 @@ object DamlOnXActiveContractsService {
 
     new ActiveContractsServiceValidation(
       new DamlOnXActiveContractsService(indexService, identifierResolver)(ec, mat, esf),
-      ledgerId.toString
+      ledgerId
     ) with ActiveContractsServiceLogging
   }
 }

@@ -30,7 +30,7 @@ case object Packages extends SimpleCommand {
       val data = packs.map(
         p =>
           List(
-            p.id.toString,
+            p.id,
             p.templates.size.toString,
             p.typeDefs.size.toString
         ))

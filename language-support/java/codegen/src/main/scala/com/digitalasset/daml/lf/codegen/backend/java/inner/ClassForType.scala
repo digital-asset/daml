@@ -63,7 +63,7 @@ object ClassForType extends StrictLogging {
   private def createPackageIdField(packageId: PackageId): FieldSpec = {
     FieldSpec
       .builder(classOf[String], "_packageId", Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
-      .initializer("$S", packageId.toString)
+      .initializer("$S", packageId)
       .build()
   }
 }

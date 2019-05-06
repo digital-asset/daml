@@ -51,7 +51,7 @@ object LedgerReader {
     packageResponses
       .traverseU { packageResponse: GetPackageResponse =>
         decodeInterfaceFromPackageResponse(packageResponse).map { interface =>
-          (interface.packageId.toString, interface)
+          (interface.packageId, interface)
         }
       }
       .map(packageIdsWithIfaces => {

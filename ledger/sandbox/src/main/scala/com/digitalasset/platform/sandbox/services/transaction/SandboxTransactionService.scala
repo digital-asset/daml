@@ -107,7 +107,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       TransactionConversion
         .genToFlatTransaction(
           trans.transaction,
-          trans.explicitDisclosure.mapValues(set => set.map(_.toString)),
+          trans.explicitDisclosure.mapValues(set => set.toSet[String]),
           verbose)
         .flatMap(eventFilter.filterEvent(_).toList)
 

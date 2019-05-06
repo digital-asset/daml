@@ -185,7 +185,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   private val commitActorRef = {
     // Start the commit actor.
     val actorRef =
-      system.actorOf(Props(new CommitActor), s"commit-actor-${ledgerId.toString}")
+      system.actorOf(Props(new CommitActor), s"commit-actor-$ledgerId")
 
     // Schedule heartbeat messages to be delivered to the commit actor.
     // This source stops when the actor dies.

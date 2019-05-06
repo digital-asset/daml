@@ -92,9 +92,7 @@ class TransactionServiceRequestValidator(
   private def requireKnownParties(partiesInRequest: Iterable[Party]): Result[Unit] = {
     val unknownParties = partiesInRequest.filterNot(partyNameChecker.isKnownParty)
     if (unknownParties.nonEmpty)
-      Left(
-        invalidArgument(
-          s"Unknown parties: ${unknownParties.map(_.toString).mkString("[", ", ", "]")}"))
+      Left(invalidArgument(s"Unknown parties: ${unknownParties.mkString("[", ", ", "]")}"))
     else Right(())
   }
   def validate(

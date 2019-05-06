@@ -52,7 +52,7 @@ class SandboxSemanticTestsLfRunner
         for {
           _ <- ledger.reset()
           _ <- new SemanticTester(
-            parties => new SemanticTestAdapter(ledger, packages, parties.map(_.toString)),
+            parties => new SemanticTestAdapter(ledger, packages, parties),
             pkgId,
             packages)
             .testScenario(name)

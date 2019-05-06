@@ -35,7 +35,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
     Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.LEDGER_BEGIN))),
     Some(LedgerOffset(LedgerOffset.Value.Absolute(absoluteOffset))),
     Some(
-      TransactionFilter(Map(party.toString ->
+      TransactionFilter(Map(party ->
         Filters(Some(InclusiveFilters(Seq(
           Identifier(packageId, moduleName = includedModule, entityName = includedTemplate)))))))),
     verbose,
@@ -45,7 +45,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
     expectedLedgerId,
     Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.LEDGER_BEGIN))),
     Some(LedgerOffset(LedgerOffset.Value.Absolute(absoluteOffset))),
-    Some(TransactionFilter(Map(party.toString -> Filters.defaultInstance))),
+    Some(TransactionFilter(Map(party -> Filters.defaultInstance))),
     verbose,
     Some(traceContext)
   )
@@ -53,18 +53,10 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
   private val endReq = GetLedgerEndRequest(expectedLedgerId, Some(traceContext))
 
   private val txByEvIdReq =
-    GetTransactionByEventIdRequest(
-      expectedLedgerId,
-      eventId,
-      Seq(party.toString),
-      Some(traceContext))
+    GetTransactionByEventIdRequest(expectedLedgerId, eventId, Seq(party), Some(traceContext))
 
   private val txByIdReq =
-    GetTransactionByIdRequest(
-      expectedLedgerId,
-      transactionId,
-      Seq(party.toString),
-      Some(traceContext))
+    GetTransactionByIdRequest(expectedLedgerId, transactionId, Seq(party), Some(traceContext))
 
   val sut = new TransactionServiceRequestValidator(
     expectedLedgerId,
@@ -435,7 +427,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
       val filterWithUnknown =
         TransactionFilter(partyWithUnknowns.map(_ -> Filters.defaultInstance).toMap)
       val filterWithKnown =
-        TransactionFilter(Map(party.toString -> Filters.defaultInstance))
+        TransactionFilter(Map(party -> Filters.defaultInstance))
 
       "reject transaction requests for unknown parties" in {
         requestMustFailWith(

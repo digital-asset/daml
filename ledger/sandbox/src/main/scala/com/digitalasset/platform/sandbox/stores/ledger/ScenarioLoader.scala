@@ -194,12 +194,12 @@ object ScenarioLoader {
                 transactionId,
                 transactionId,
                 "scenario-loader",
-                richTransaction.committer.toString,
+                richTransaction.committer,
                 workflowId,
                 time.toInstant,
                 time.toInstant,
                 recordTx,
-                recordDisclosure.transform((_, v) => v.map(_.toString))
+                recordDisclosure.transform((_, v) => v.toSet[String])
               )
             (newAcs, time, Some(txId))
           case Left(err) =>
