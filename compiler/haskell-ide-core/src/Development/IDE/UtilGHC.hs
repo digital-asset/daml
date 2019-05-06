@@ -24,7 +24,6 @@ module Development.IDE.UtilGHC(
     importGenerated,
     mkImport,
     runGhcFast,
-    Development.IDE.UtilGHC.RealLocated,
     modIsInternal
     ) where
 
@@ -194,5 +193,3 @@ instance Show (GenLocated SrcSpan ModuleName) where show = prettyPrint
 instance Show PackageName where show = prettyPrint
 instance Show Packages.PackageState where show _ = "PackageState"
 instance Show Name where show = prettyPrint
-
-type RealLocated = GenLocated RealSrcSpan
