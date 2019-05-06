@@ -29,6 +29,7 @@ import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
+import org.scalatest.concurrent.Waiters
 import org.scalatest.{Assertion, Inside, Matchers, OptionValues}
 
 import scala.collection.{breakOut, immutable}
@@ -39,8 +40,10 @@ import scala.language.implicitConversions
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LedgerTestingHelpers(
     submitCommand: SubmitRequest => Future[Completion],
-    context: LedgerContext)(implicit mat: ActorMaterializer)
+    context: LedgerContext,
+    timeoutScaleFactor: Double = 1.0)(implicit mat: ActorMaterializer)
     extends Matchers
+    with Waiters
     with FutureTimeouts
     with Inside
     with OptionValues {
@@ -123,7 +126,7 @@ class LedgerTestingHelpers(
         )
         .filter(_.transactionId == transactionId)
         .take(1)
-        .takeWithin(3.seconds)
+        .takeWithin(scaled(3.seconds))
         .runWith(Sink.headOption)
     } yield {
       tx shouldBe empty
@@ -234,7 +237,7 @@ class LedgerTestingHelpers(
       )
       .filter(x => commandId.fold(true)(cid => x.commandId == cid))
       .take(1)
-      .takeWithin(15.seconds)
+      .takeWithin(scaled(15.seconds))
       .runWith(Sink.seq)
   }
 
@@ -252,7 +255,7 @@ class LedgerTestingHelpers(
       )
       .filter(x => commandId.fold(true)(cid => x.commandId == cid))
       .take(1)
-      .takeWithin(3.seconds)
+      .takeWithin(scaled(3.seconds))
       .runWith(Sink.seq)
   }
 
@@ -475,7 +478,7 @@ class LedgerTestingHelpers(
       )
       .filter(x => commandId.fold(true)(cid => x.commandId == cid))
       .take(1)
-      .takeWithin(3.seconds)
+      .takeWithin(scaled(3.seconds))
       .runWith(Sink.seq)
   }
 
@@ -589,25 +592,31 @@ class LedgerTestingHelpers(
             completion
         }
         .take(1)
-        .takeWithin(3.seconds)
+        .takeWithin(scaled(3.seconds))
         .runWith(Sink.seq)
         .map(_.headOption)
     }
   }
+
+  override def spanScaleFactor: Double = timeoutScaleFactor
 }
 
 object LedgerTestingHelpers extends OptionValues {
+
   def sync(
       submitCommand: SubmitAndWaitRequest => Future[SubmitAndWaitForTransactionIdResponse],
-      context: LedgerContext)(
+      context: LedgerContext,
+      timeoutScaleFactor: Double = 1.0)(
       implicit ec: ExecutionContext,
       mat: ActorMaterializer): LedgerTestingHelpers =
-    async(helper(submitCommand), context)
+    async(helper(submitCommand), context, timeoutScaleFactor = timeoutScaleFactor)
 
   def asyncFromTimeService(
       timeService: TimeService,
       submit: TimeProvider => SubmitRequest => Future[Completion],
-      context: LedgerContext)(
+      context: LedgerContext,
+      timeoutScaleFactor: Double = 1.0
+  )(
       implicit ec: ExecutionContext,
       mat: ActorMaterializer,
       esf: ExecutionSequencerFactory): LedgerTestingHelpers = {
@@ -617,13 +626,16 @@ object LedgerTestingHelpers extends OptionValues {
         res <- submit(st)(submitRequest)
       } yield res
     }
-    async(submitCommand, context)
+    async(submitCommand, context, timeoutScaleFactor = timeoutScaleFactor)
   }
 
-  def async(submitCommand: SubmitRequest => Future[Completion], context: LedgerContext)(
+  def async(
+      submitCommand: SubmitRequest => Future[Completion],
+      context: LedgerContext,
+      timeoutScaleFactor: Double = 1.0)(
       implicit ec: ExecutionContext,
       mat: ActorMaterializer): LedgerTestingHelpers =
-    new LedgerTestingHelpers(submitCommand, context)
+    new LedgerTestingHelpers(submitCommand, context, timeoutScaleFactor)
 
   def responseToCompletion(commandId: String, respF: Future[SubmitAndWaitForTransactionIdResponse])(
       implicit ec: ExecutionContext): Future[Completion] =

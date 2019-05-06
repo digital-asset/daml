@@ -4,16 +4,19 @@
 package com.digitalasset.platform.tests.integration.ledger.api
 import akka.actor.ActorSystem
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import org.scalatest.concurrent.Waiters
 
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise, TimeoutException}
 import scala.util.control.NoStackTrace
 
-trait FutureTimeouts {
+trait FutureTimeouts extends Waiters {
 
   // TODO get rid of the default timeout, see issue: #464 and #548
-  protected def timeout[T](f: Future[T], opName: String, duration: FiniteDuration = 500.seconds)(
-      implicit system: ActorSystem): Future[T] = {
+  protected def timeout[T](
+      f: Future[T],
+      opName: String,
+      duration: FiniteDuration = scaled(500.seconds))(implicit system: ActorSystem): Future[T] = {
     val promise: Promise[T] = Promise[T]()
 
     val cancellable = system.scheduler.scheduleOnce(duration, { () =>
