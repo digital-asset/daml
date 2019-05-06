@@ -61,12 +61,7 @@ object Server {
     IdentifierResolver(
       pkgId =>
         indexService
-          .getLedgerId()
-          .flatMap { ledgerId =>
-            indexService
-              .getPackage(ledgerId, pkgId)
-              .map(_.getOrElse(sys.error("IMPOSSIBLE: LedgerId mismatch")))
-          }
+          .getPackage(pkgId)
           .map(optArchive => optArchive.map(Decode.decodeArchive(_)._2))
     )
   }

@@ -5,7 +5,7 @@ package com.daml.ledger.api.server.damlonx.services
 
 import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
@@ -31,8 +31,7 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory)
     extends CommandCompletionServiceAkkaGrpc
-    with ErrorFactories
-    with DamlOnXServiceUtils {
+    with ErrorFactories {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -58,60 +57,50 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
                     ))
                 case domain.LedgerOffset.LedgerBegin => Future.successful(None)
                 case domain.LedgerOffset.LedgerEnd =>
-                  consumeAsyncResult(indexService.getLedgerEnd(ledgerId))
-                    .map(Some(_))
+                  indexService.getLedgerEnd.map(Some(_))
               }
             )
       }
-    val compsFuture = offsetFuture.flatMap { optOffset =>
-      consumeAsyncResult(
-        indexService
-          .getCompletions(
-            ledgerId,
-            optOffset,
-            request.applicationId,
-            request.parties.toList.map(Ref.SimpleString.assertFromString)))
-    }
 
     Source
-      .fromFuture(compsFuture)
-      .flatMapConcat(src => {
-        src.map {
-          case CompletionEvent.CommandAccepted(offset, commandId, transactionId) =>
-            logger.debug(s"sending completion accepted $offset: $commandId")
+      .fromFuture(offsetFuture)
+      .flatMapConcat { optOffset =>
+        indexService
+          .getCompletions(
+            optOffset,
+            request.applicationId,
+            request.parties.toList.map(Ref.SimpleString.assertFromString))
+          .map {
+            case CompletionEvent.CommandAccepted(offset, commandId, transactionId) =>
+              logger.debug(s"sending completion accepted $offset: $commandId")
 
-            CompletionStreamResponse(
-              None, // FIXME(JM): is the checkpoint present in each response?
-              List(Completion(commandId, Some(Status()), transactionId))
-            )
-          case CompletionEvent.CommandRejected(offset, commandId, reason) =>
-            logger.debug(s"sending completion rejected $offset: $commandId: $reason")
-            CompletionStreamResponse(
-              None, // FIXME(JM): is the checkpoint present in each response?
-              List(toCompletion(commandId, reason)))
+              CompletionStreamResponse(
+                None, // FIXME(JM): is the checkpoint present in each response?
+                List(Completion(commandId, Some(Status()), transactionId))
+              )
+            case CompletionEvent.CommandRejected(offset, commandId, reason) =>
+              logger.debug(s"sending completion rejected $offset: $commandId: $reason")
+              CompletionStreamResponse(
+                None, // FIXME(JM): is the checkpoint present in each response?
+                List(toCompletion(commandId, reason)))
 
-          case CompletionEvent.Checkpoint(offset, recordTime) =>
-            logger.debug(s"sending checkpoint $offset: $recordTime")
+            case CompletionEvent.Checkpoint(offset, recordTime) =>
+              logger.debug(s"sending checkpoint $offset: $recordTime")
 
-            CompletionStreamResponse(
-              Some(
-                Checkpoint(
-                  Some(fromInstant(recordTime.toInstant)), // FIXME(JM): conversion
-                  Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
-            )
-        }
-      })
-      .alsoTo(Sink.onComplete { _ =>
-        logger.trace("Completion stream closed")
-      })
+              CompletionStreamResponse(
+                Some(
+                  Checkpoint(
+                    Some(fromInstant(recordTime.toInstant)), // FIXME(JM): conversion
+                    Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
+              )
+          }
+      }
   }
 
   override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =
-    consumeAsyncResult(
-      indexService
-        .getLedgerEnd(Ref.SimpleString.assertFromString(request.ledgerId))
-    ).map(offset =>
-      CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
+    indexService.getLedgerEnd
+      .map(offset =>
+        CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
 
   private def toCompletion(commandId: String, error: RejectionReason): Completion = {
     val code = error match {
@@ -137,8 +126,9 @@ object DamlOnXCommandCompletionService {
   def create(indexService: IndexService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
-    : CommandCompletionServiceValidation with BindableService with CommandCompletionServiceLogging = {
+      esf: ExecutionSequencerFactory): CommandCompletionServiceValidation
+    with BindableService
+    with CommandCompletionServiceLogging = {
 
     val ledgerId = Await.result(indexService.getLedgerId(), 5.seconds)
     new CommandCompletionServiceValidation(

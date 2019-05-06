@@ -45,16 +45,17 @@ final case class ReferenceIndexService(
 
     def getState: IndexState = currentState.get
 
-    def subscribe(ledgerId: LedgerId): Source[IndexState, NotUsed] =
+    // Subscribe to stream of new states. Does not emit a state until it
+    // has been initialized (e.g. first update has been processed).
+    def subscribe(): Source[IndexState, NotUsed] =
       stateChangeDispatcher
         .subscribe(signalOnSubscribe = true)
         .flatMapConcat { _signal =>
           val s = getState
-          if (s.ledgerId != ledgerId) {
-            Source.empty // FIXME(JM): or error?
-          } else {
+          if (s.initialized)
             Source.single(s)
-          }
+          else
+            Source.empty
         }
 
     def close(): Unit =
@@ -86,29 +87,19 @@ final case class ReferenceIndexService(
       .to(updateStateSink)
       .run()
 
-  // Return a result using a given handler function, after verifying that ledgerId matches,
-  // and that the index state has been initialized. Waits for state to be initialized (e.g. first
+  // Return a result using a given handler function
+  // Waits for state to be initialized (e.g. first
   // update to arrive in order to established ledger beginning and current end) before calling the handler.
-  private def asyncResultWithState[T](ledgerId: LedgerId)(
-      handler: IndexState => Future[T]): AsyncResult[T] = {
+  private def futureWithState[T](handler: IndexState => Future[T]): Future[T] = {
     val s = StateController.getState
-    if (s.ledgerId == ledgerId) {
-      if (s.initialized) {
-        handler(s).map(Right(_))
-      } else {
-        // Wait until state is initialized.
-        StateController
-          .subscribe(ledgerId)
-          .dropWhile(_.initialized)
-          .runWith(Sink.head)
-          .flatMap(s2 => handler(s2).map(Right(_)))
-      }
+    if (s.initialized) {
+      handler(s)
     } else {
-      Future.successful(
-        Left(
-          IndexService.Err.LedgerIdMismatch(ledgerId, s.ledgerId)
-        )
-      )
+      // Wait until state is initialized.
+      StateController
+        .subscribe()
+        .runWith(Sink.head)
+        .flatMap(handler)
     }
   }
 
@@ -117,40 +108,38 @@ final case class ReferenceIndexService(
     stateUpdateKillSwitch.shutdown()
   }
 
-  override def listPackages(ledgerId: LedgerId): AsyncResult[List[PackageId]] =
-    asyncResultWithState(ledgerId) { state =>
+  override def listPackages(): Future[List[PackageId]] =
+    futureWithState { state =>
       Future.successful(state.packages.keys.toList)
     }
 
-  override def isPackageRegistered(ledgerId: LedgerId, packageId: PackageId): AsyncResult[Boolean] =
-    asyncResultWithState(ledgerId) { state =>
+  override def isPackageRegistered(packageId: PackageId): Future[Boolean] =
+    futureWithState { state =>
       Future.successful(state.packages.contains(packageId))
     }
 
-  override def getPackage(
-      ledgerId: LedgerId,
-      packageId: PackageId): AsyncResult[Option[DamlLf.Archive]] =
-    asyncResultWithState(ledgerId) { state =>
+  override def getPackage(packageId: PackageId): Future[Option[DamlLf.Archive]] =
+    futureWithState { state =>
       Future.successful(
         state.packages.get(packageId)
       )
     }
 
-  override def getLedgerConfiguration(ledgerId: LedgerId): AsyncResult[Configuration] =
-    asyncResultWithState(ledgerId) { state =>
+  override def getLedgerConfiguration(): Future[Configuration] =
+    futureWithState { state =>
       Future.successful(state.configuration)
     }
 
   override def getLedgerId(): Future[LedgerId] =
     Future.successful(StateController.getState.ledgerId)
 
-  override def getLedgerBeginning(ledgerId: LedgerId): AsyncResult[Offset] =
-    asyncResultWithState(ledgerId) { s =>
+  override def getLedgerBeginning(): Future[Offset] =
+    futureWithState { s =>
       Future.successful(s.getBeginning)
     }
 
-  override def getLedgerEnd(ledgerId: LedgerId): AsyncResult[Offset] =
-    asyncResultWithState(ledgerId) { s =>
+  override def getLedgerEnd(): Future[Offset] =
+    futureWithState { s =>
       Future.successful(s.getUpdateId)
     }
 
@@ -199,9 +188,8 @@ final case class ReferenceIndexService(
   }
 
   override def getActiveContractSetSnapshot(
-      ledgerId: LedgerId,
-      filter: TransactionFilter): AsyncResult[ActiveContractSetSnapshot] =
-    asyncResultWithState(ledgerId) { state =>
+      filter: TransactionFilter): Future[ActiveContractSetSnapshot] =
+    futureWithState { state =>
       val filtering = TransactionFiltering(filter)
       val events =
         Source.fromIterator(
@@ -221,53 +209,42 @@ final case class ReferenceIndexService(
     }
 
   override def getActiveContractSetUpdates(
-      ledgerId: LedgerId,
       beginAfter: Option[Offset],
       endAt: Option[Offset],
-      filter: TransactionFilter): AsyncResult[Source[AcsUpdate, NotUsed]] =
-    asyncResultWithState(ledgerId) { _ =>
-      Future {
-        logger.debug(s"getActiveContractSetUpdates: $ledgerId, $beginAfter")
-        val filtering = TransactionFiltering(filter)
+      filter: TransactionFilter): Source[AcsUpdate, NotUsed] = {
+    logger.trace(
+      s"getActiveContractSetUpdates: beginAfter=$beginAfter, endAt=$endAt, filter=$filter")
+    val filtering = TransactionFiltering(filter)
 
-        getTransactionStream(ledgerId, beginAfter, endAt)
-          .map {
-            case (offset, (acceptedTx, blindingInfo)) =>
-              val events =
-                transactionToAcsUpdateEvents(filtering, acceptedTx)
-                  .map(_._2) /* ignore workflow id */
-              // FIXME(JM): skip if events empty?
-              AcsUpdate(
-                optSubmitterInfo = acceptedTx.optSubmitterInfo,
-                offset = offset,
-                transactionMeta = acceptedTx.transactionMeta,
-                transactionId = acceptedTx.transactionId,
-                events = events
-              )
-          }
+    getTransactionStream(beginAfter, endAt)
+      .map {
+        case (offset, (acceptedTx, blindingInfo)) =>
+          val events =
+            transactionToAcsUpdateEvents(filtering, acceptedTx)
+              .map(_._2) /* ignore workflow id */
+          // FIXME(JM): skip if events empty?
+          AcsUpdate(
+            optSubmitterInfo = acceptedTx.optSubmitterInfo,
+            offset = offset,
+            transactionMeta = acceptedTx.transactionMeta,
+            transactionId = acceptedTx.transactionId,
+            events = events
+          )
       }
-    }
+  }
 
   override def getAcceptedTransactions(
-      ledgerId: LedgerId,
       beginAfter: Option[Offset],
       endAt: Option[Offset],
-      filter: TransactionFilter): AsyncResult[Source[TransactionUpdate, NotUsed]] =
-    asyncResultWithState(ledgerId) { state0 =>
-      Future {
-        logger.debug(s"getAcceptedTransactions: $ledgerId, $beginAfter")
-        getTransactionStream(ledgerId, beginAfter, endAt)
-        // FIXME(JM): Filter out non-matching transactions. Currently the service does this.
-      }
-    }
+      filter: TransactionFilter): Source[TransactionUpdate, NotUsed] =
+    getTransactionStream(beginAfter, endAt)
 
   private def getTransactionStream(
-      ledgerId: LedgerId,
       beginAfter: Option[Offset],
       endAt: Option[Offset]): Source[TransactionUpdate, NotUsed] = {
 
     StateController
-      .subscribe(ledgerId)
+      .subscribe()
       .statefulMapConcat { () =>
         var currentOffset: Option[Offset] = beginAfter
         state =>
@@ -292,11 +269,13 @@ final case class ReferenceIndexService(
 
   private def getCompletionsFromState(
       state: IndexState,
-      beginFrom: Offset,
+      currentOffset: Option[Offset],
       applicationId: ApplicationId): List[CompletionEvent] = {
     val accepted =
-      state.txs
-        .from(beginFrom)
+      currentOffset
+        .fold(state.txs) { offset =>
+          state.txs.from(offset).dropWhile(getOffset(_) == offset)
+        }
         .flatMap {
           case (offset, (acceptedTx, _blindingInfo)) =>
             acceptedTx.optSubmitterInfo.flatMap { sinfo =>
@@ -311,8 +290,10 @@ final case class ReferenceIndexService(
         }
         .toList
     val rejected =
-      state.rejections
-        .from(beginFrom)
+      currentOffset
+        .fold(state.rejections) { offset =>
+          state.rejections.from(offset).dropWhile(_._1 == offset)
+        }
         .flatMap {
           case (offset, rejectedCmd) =>
             if (rejectedCmd.submitterInfo.applicationId == applicationId) {
@@ -330,53 +311,41 @@ final case class ReferenceIndexService(
   }
 
   override def getCompletions(
-      ledgerId: LedgerId,
       beginAfter: Option[Offset],
       applicationId: ApplicationId,
-      parties: List[Party]): AsyncResult[Source[CompletionEvent, NotUsed]] =
-    asyncResultWithState(ledgerId) { state0 =>
-      // FIXME(JM): Move the ledgerId check into the state subscription?
-      logger.debug(s"getCompletions: $ledgerId, $beginAfter")
+      parties: List[Party]): Source[CompletionEvent, NotUsed] = {
+    logger.trace(s"getCompletions: beginAfter=$beginAfter")
+    StateController
+      .subscribe()
+      .statefulMapConcat({ () =>
+        var currentOffset: Option[Offset] = beginAfter
+        state =>
+          val completions = getCompletionsFromState(state, currentOffset, applicationId)
+          currentOffset = completions.lastOption.map(_.offset).orElse(currentOffset)
+          logger.debug(s"Sending completions: ${completions}")
+          completions
+      })
+  }
 
-      Future {
-        StateController
-          .subscribe(ledgerId)
-          .statefulMapConcat({ () =>
-            var currentOffset: Offset =
-              beginAfter.getOrElse(state0.getBeginning)
-            state =>
-              val completions = getCompletionsFromState(state, currentOffset, applicationId)
-              currentOffset = completions.last.offset
-              logger.debug(s"Sending completions: ${completions}")
-              completions
-          })
-      }
-    }
-
-  override def lookupActiveContract(ledgerId: LedgerId, contractId: Value.AbsoluteContractId)
-    : AsyncResult[Option[Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]]] =
-    asyncResultWithState(ledgerId) { state =>
-      Future {
-        state.activeContracts.get(contractId)
-      }
+  override def lookupActiveContract(contractId: Value.AbsoluteContractId)
+    : Future[Option[Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]]] =
+    futureWithState { state =>
+      Future.successful(state.activeContracts.get(contractId))
     }
 
   private def getOffset: TransactionUpdate => Offset = {
     case (offset, _) => offset
   }
 
-  override def getLedgerRecordTimeStream(
-      ledgerId: LedgerId): AsyncResult[Source[Time.Timestamp, NotUsed]] =
-    asyncResultWithState(ledgerId) { state =>
-      Future {
-        StateController
-          .subscribe(ledgerId)
-          .map(_.recordTime)
-          .scan[Option[Time.Timestamp]](Some(state.recordTime)) {
-            case (Some(prevTime), currentTime) if prevTime == currentTime => None
-            case (_, currentTime) => Some(currentTime)
-          }
-          .mapConcat(_.toList)
+  override def getLedgerRecordTimeStream(): Source[Time.Timestamp, NotUsed] =
+    StateController
+      .subscribe()
+      .map(_.recordTime)
+      // Scan over the states, only emitting a new timestamp when the record time has changed.
+      .scan[Option[Time.Timestamp]](None) {
+        case (Some(prevTime), currentTime) if prevTime == currentTime => None
+        case (None, currentTime) => Some(currentTime)
       }
-    }
+      .mapConcat(_.toList)
+
 }
