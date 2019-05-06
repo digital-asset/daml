@@ -252,6 +252,7 @@ execPackageNew numProcessors mbOutFile =
         case parseProjectConfig project of
             Left err -> throwIO err
             Right PackageConfigFields {..} -> do
+                putStrLn $ "Compiling " <> pMain <> " to a DAR."
                 defaultOpts <- Compiler.defaultOptionsIO Nothing
                 let opts =
                         defaultOpts
