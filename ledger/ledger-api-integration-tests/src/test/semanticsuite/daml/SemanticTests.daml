@@ -173,6 +173,7 @@ authorization_rule2_failure = scenario do
     submitMustFail peggy do
        exercise offerCid PaintOffer_Accept with iouCid
 
+
 ------------------------------------------------------------
 -- Privacy
 --
@@ -262,7 +263,6 @@ test_divulgence_of_token _this_test_is_disabled_ = do
 
     -- Bob
     pure ()
-
 
 ------------------------------------------------------------
 -- Time provider tests

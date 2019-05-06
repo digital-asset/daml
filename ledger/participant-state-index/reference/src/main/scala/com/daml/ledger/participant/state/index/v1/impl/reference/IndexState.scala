@@ -3,18 +3,17 @@
 
 package com.daml.ledger.participant.state.index.v1.impl.reference
 
-import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.participant.state.v1.{Offset, _}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.lfpackage.Decode
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.TreeMap
@@ -27,9 +26,7 @@ final case class IndexState(
     private val beginning: Option[Offset],
     // Accepted transactions indexed by offset.
     txs: TreeMap[Offset, (Update.TransactionAccepted, BlindingInfo)],
-    activeContracts: Map[
-      AbsoluteContractId,
-      Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]],
+    activeContracts: ActiveContractsInMemory,
     // Rejected commands indexed by offset.
     rejections: TreeMap[Offset, Update.CommandRejected],
     // Uploaded packages.
@@ -96,20 +93,26 @@ final case class IndexState(
           )
         case u: Update.TransactionAccepted =>
           val blindingInfo = Blinding.blind(
+            // FIXME(JM): Make Blinding.blind polymorphic.
             u.transaction.asInstanceOf[Transaction.Transaction]
           )
-          logger.debug(s"blindingInfo=$blindingInfo")
-          Right(
-            state.copy(
-              txs = txs + (uId -> ((u, blindingInfo))),
-              activeContracts =
-                // FIXME (SM): this likely needs turning around to not
-                // accidentallly miss the consumption of contracts created in
-                // the transaction.
-                activeContracts -- consumedContracts(u.transaction) ++ createdContracts(
-                  u.transaction)
+          activeContracts
+            .addTransaction(
+              let = u.transactionMeta.ledgerEffectiveTime.toInstant,
+              transactionId = u.transactionId,
+              workflowId = u.transactionMeta.workflowId,
+              transaction = u.transaction,
+              explicitDisclosure = blindingInfo.explicitDisclosure,
+              localImplicitDisclosure = blindingInfo.localImplicitDisclosure,
+              globalImplicitDisclosure = blindingInfo.globalImplicitDisclosure
             )
-          )
+            .fold(_ => Left(SequencingError), { newActiveContracts =>
+              Right(
+                state.copy(
+                  txs = txs + (uId -> ((u, blindingInfo))),
+                  activeContracts = newActiveContracts
+                ))
+            })
       }
     }
   }
@@ -141,6 +144,7 @@ object IndexState {
   case object NonMonotonicRecordTimeUpdate extends InvariantViolation
   case object StateAlreadyInitialized extends InvariantViolation
   case object NonMonotonicOffset extends InvariantViolation
+  case object SequencingError extends InvariantViolation
 
   def initialState(lic: LedgerInitialConditions): IndexState = IndexState(
     ledgerId = lic.ledgerId,
@@ -149,10 +153,11 @@ object IndexState {
     configuration = lic.config,
     recordTime = lic.initialRecordTime,
     txs = TreeMap.empty,
-    activeContracts = Map.empty,
+    activeContracts = ActiveContractsInMemory.empty,
     rejections = TreeMap.empty,
     packages = Map.empty,
     packageKnownTo = Map.empty,
     hostedParties = Set.empty
   )
+
 }

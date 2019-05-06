@@ -30,6 +30,7 @@ trait IndexService {
   def getLedgerRecordTimeStream(): Source[Time.Timestamp, NotUsed]
 
   def lookupActiveContract(
+      submitter: Party,
       contractId: AbsoluteContractId
   ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]]
 
