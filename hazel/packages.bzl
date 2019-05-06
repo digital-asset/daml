@@ -1,7 +1,7 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# Generated from resolver: lts-13.4
+# Generated from resolver: lts-13.19
 core_packages = (
 { "array": "0.5.3.0",
   "base": "4.12.0.0",
@@ -11,12 +11,12 @@ core_packages = (
   "deepseq": "1.4.4.0",
   "directory": "1.3.3.0",
   "filepath": "1.4.2.1",
-  "ghc": "8.6.3",
-  "ghc-boot": "8.6.3",
-  "ghc-boot-th": "8.6.3",
-  "ghc-heap": "8.6.3",
+  "ghc": "8.6.4",
+  "ghc-boot": "8.6.4",
+  "ghc-boot-th": "8.6.4",
+  "ghc-heap": "8.6.4",
   "ghc-prim": "0.5.3",
-  "ghci": "8.6.3",
+  "ghci": "8.6.4",
   "hpc": "0.6.0.3",
   "integer-gmp": "1.0.2.0",
   "pretty": "1.1.3.6",
@@ -42,6 +42,12 @@ packages = (
       sha256 =
         "f6ae0d1b663100a2aa3dfdab12f4af0851408659eb5c2f78b8b443b0d29dbb1a",
     ),
+  "Allure":
+    struct(
+      version = "0.8.3.0",
+      sha256 =
+        "6b83013281da6ccc5f0bf4c483a53acdbff7679c7234a1dfa57261c45a8cf8fb",
+    ),
   "Boolean":
     struct(
       version = "0.2.4",
@@ -66,6 +72,18 @@ packages = (
       sha256 =
         "3e215d425e3cfccf2e4d84b1402fb39a2081cb33b6556059db616e722a7c77a0",
     ),
+  "Chart":
+    struct(
+      version = "1.9.1",
+      sha256 =
+        "34a1c7f2dd46029efa471689ec3b8ab63321223fbe23d86a5ab4bb986619c7de",
+    ),
+  "Chart-diagrams":
+    struct(
+      version = "1.9.2",
+      sha256 =
+        "96b4bfd1d2f9fae2962defc4f6b73e0490acebb590cfbb3997f12a82260ba52a",
+    ),
   "Clipboard":
     struct(
       version = "2.3.2.0",
@@ -80,9 +98,9 @@ packages = (
     ),
   "DBFunctor":
     struct(
-      version = "0.1.0.0",
+      version = "0.1.1.1",
       sha256 =
-        "87a978ed52c47d3a42f8b89705f47cfd64c2f2f8c7c6306bbde84b341714ad29",
+        "640686bb59b95eec912dc96b15da298192d4168719c1adedddc5d3e4e4ab7858",
     ),
   "Decimal":
     struct(
@@ -98,9 +116,9 @@ packages = (
     ),
   "Earley":
     struct(
-      version = "0.13.0.0",
+      version = "0.13.0.1",
       sha256 =
-        "0f50ec9bd2f612ed0d1da74741081930031000cdce82775b257f77d30a4bd25f",
+        "1e60bcfda0d7441ce2886d7f3523e017e74c225506dd9d0e7a3c012959943899",
     ),
   "Ebnf2ps":
     struct(
@@ -206,9 +224,9 @@ packages = (
     ),
   "HSvm":
     struct(
-      version = "0.1.0.3.22",
+      version = "0.1.1.3.22",
       sha256 =
-        "8dac8a583c762675f2d64138303618f017d6be95d59e60774ea7cbfc040dab04",
+        "8f348ff87d7312a5a41d99a1df558df72592aa34f4520c4b03fad4376e0f326e",
     ),
   "HTF":
     struct(
@@ -218,9 +236,9 @@ packages = (
     ),
   "HTTP":
     struct(
-      version = "4000.3.12",
+      version = "4000.3.13",
       sha256 =
-        "a3ff6a9c93771079121083f1691188fe45f84380118e0f76bc4578153c361990",
+        "a718d3db22139f7ede9c8ab71a5d0702720716dffc288072dfa499fc74356675",
     ),
   "HUnit":
     struct(
@@ -254,9 +272,9 @@ packages = (
     ),
   "HsOpenSSL":
     struct(
-      version = "0.11.4.15",
+      version = "0.11.4.16",
       sha256 =
-        "cebdceef21d8f00feaa3dcc31b18fc960bbfeaec1326ece1edeb56d4cc54b545",
+        "29e84933c5f55d2fb9ebd72d44a542fcc8950a3db06c1e1ea0c10fba17cc6bc9",
       flags = { "fast-bignum": False, },
     ),
   "HsOpenSSL-x509-system":
@@ -273,9 +291,9 @@ packages = (
     ),
   "IPv6Addr":
     struct(
-      version = "1.1.1",
+      version = "1.1.2",
       sha256 =
-        "3b0959a9f1357b12aff50bda88e3af6e13ba0787758209c68a60fb6e88755e50",
+        "8bf3f9f1367f193552213473481d92440e3e8038cf375bbfe942fb404894f27e",
     ),
   "Imlib":
     struct(
@@ -285,9 +303,9 @@ packages = (
     ),
   "IntervalMap":
     struct(
-      version = "0.6.1.0",
+      version = "0.6.1.1",
       sha256 =
-        "133676b9e01008b9d9bfeb5dbf3f51aabdc53b3a334588e68a8b6f5089ab873c",
+        "e8955ae2accc7529b41893a540d0c6943d118554d25857c1f6721f0777dfb46d",
     ),
   "JuicyPixels":
     struct(
@@ -306,6 +324,12 @@ packages = (
       version = "0.1.2",
       sha256 =
         "f7381b88446224897e6677692bbdc39cb5b755216212f0ad8050046865cd3013",
+    ),
+  "LambdaHack":
+    struct(
+      version = "0.8.3.0",
+      sha256 =
+        "5a9b23a893ba809d8f7ff1ef810d4d542fcd7419876aef4208cf237a3662076c",
     ),
   "LibZip":
     struct(
@@ -460,15 +484,21 @@ packages = (
     ),
   "SVGFonts":
     struct(
-      version = "1.7",
+      version = "1.7.0.1",
       sha256 =
-        "da3ccd65e0963473df035f4543b56dfc84b45edca540990050e5de444fa431cd",
+        "30b1eb325312b6dda99da23997197cda9dbc93e0829e2b795849a790e7bc761b",
     ),
   "SafeSemaphore":
     struct(
       version = "0.10.1",
       sha256 =
         "21e5b737a378cae9e1faf85cab015316d4c84d4b37e6d9d202111cef8c4cef66",
+    ),
+  "ShellCheck":
+    struct(
+      version = "0.6.0",
+      sha256 =
+        "f6e79fb34d076504176761cc8b7c3f996f8d31bed23250fb1570e32283cd7df6",
     ),
   "Spintax":
     struct(
@@ -574,9 +604,9 @@ packages = (
     ),
   "ad":
     struct(
-      version = "4.3.5",
+      version = "4.3.6",
       sha256 =
-        "9c5e754b1f0ff83490bcc30f5dfa8504de5a34ab8f7be03ac232882940dc8d60",
+        "6580f376b4c1a55cd35baccdcfd6ddcc240bcd514743e629df610251e9d8f739",
     ),
   "adjunctions":
     struct(
@@ -622,9 +652,9 @@ packages = (
     ),
   "aeson-casing":
     struct(
-      version = "0.1.0.5",
+      version = "0.1.1.0",
       sha256 =
-        "cfec563dc6822f035858a7190153d8818c200be565806b43b70f198bf5410577",
+        "0011268f2246b66b94138639a24176bd471302cd77459eb56aab0897b10a1d93",
     ),
   "aeson-compat":
     struct(
@@ -718,9 +748,9 @@ packages = (
     ),
   "alg":
     struct(
-      version = "0.2.9.0",
+      version = "0.2.10.0",
       sha256 =
-        "98724f959ada2387e94cc17a7bdc39eb868d8ef291daa12b82535b517eedb470",
+        "a97d0ad38b01b9d1e37c70dad0b33ec447842a6d9dd6034de4ee0c69ed1cf9fe",
     ),
   "algebraic-graphs":
     struct(
@@ -772,549 +802,549 @@ packages = (
     ),
   "amazonka":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "3721892c87946c12bbd87ddba38d9e244aa962db190d8897c16a264c4f3fc41c",
+        "edb794b7ed0db3f5955ec08ded68b5eca753f62978312c881f3cb0c6eb769180",
     ),
   "amazonka-apigateway":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "56e63ecfbd8358d0d2766e08f8f2b08362bb435c1059a5791964089dbab75ae8",
+        "3b843dd490d09c45aac415269bf3d7db894fad8104cdd76292058adb03adf385",
     ),
   "amazonka-application-autoscaling":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "5536a7d1c24cd5907b85bd743df5989d91cb3325602944062c9c640178a61df7",
+        "da0eaaa282cc04c6aa486dfe00cdb5f42afc77e6785493ffdaa2ff7c9a8ad286",
     ),
   "amazonka-appstream":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "eb90692b932d62c4e7006d661b8022c4dd9f7d4dcc07e5499eceae14b33747df",
+        "6644fac750a0a415439df14567597de57bbe75cfe259feb42265af58867c088c",
     ),
   "amazonka-athena":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "99d4eeb81656e876d5d65d0bfeacf9db5871215bd3bee99949979bbc2ccd77db",
+        "370ee46f0d9b7f09b911b25d97457d727510fa049b42921f5f6e4a730fe15b9d",
     ),
   "amazonka-autoscaling":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "1b52132b23ef899937d20cef595d9f8757f85861d142616bcb5ee0ba8ed5f8d3",
+        "2fb4adc14d35ce6a24b1c294bbf3974317ff8b315fc10dc8f9609399a8acc914",
     ),
   "amazonka-budgets":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "ccc692856a7f7ddfba573cde6506108a30a59f641748ecc787aece894d7ce4b7",
+        "84ab20850439ba786153a6e0c27bc8a321ef1c79524a8bf2d89adb56442d6273",
     ),
   "amazonka-certificatemanager":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "1fdf93c685a1b348a851b793b170a0a2282b06dc65a91c016d4756ea5726aa6a",
+        "833d7b67e7bae4c8633d34109998675edbc95478ac0eb86ec1cf866079689ef2",
     ),
   "amazonka-cloudformation":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "15e2c82574906a13d390f68f5a57a83f4bbfc37fb9ce590c9f73e00dcafa8335",
+        "e823eab5456b0b6f86f9cd391cf2572998e30ecbed9ce373cd8e3ac6f5d3afc8",
     ),
   "amazonka-cloudfront":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "956a60988ff3b9bef042bf523b63c882cd7b2c386483cc3f1d1d8534aad334a2",
+        "8c5900fb0d34878ecfe9470bcd897259e2575dbf7e13fc526a515a0e52dfa779",
     ),
   "amazonka-cloudhsm":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "e4227038a39486e8c390198997571ca1b14ebf5e15fec1146169da7378a41b5f",
+        "34dfe223cf33e207be71c6c0f092e892b549f5332eb392a0c474493be0e0a019",
     ),
   "amazonka-cloudsearch":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "dd17345576acd8f44fd3af82f07b00fdce0781abbd51ab2df827fa48528c6394",
+        "d04812c26d5c19b5ad00f343e2607e18a91f12743508903ee76f12999bcd7adc",
     ),
   "amazonka-cloudsearch-domains":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "24f0d36f9aeed5041fd893b8a0d60e5df6f31c8a126cead4652115c6b28f7ca7",
+        "041b6c655878f0ae85803cc4ef338bf1c4eab48ec327c46ffadb78b5c886b11f",
     ),
   "amazonka-cloudtrail":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "d9d99df96ac2e46321e0da7d1797f12472ee32011f126d2881a2f19aa7491c24",
+        "55cc7c15a2e26824621ddb7e8086605bac315f994ac4cefb56b6b9726e0f7da9",
     ),
   "amazonka-cloudwatch":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "25c812b364b22d96d082e3598cd75d988cb8e3decdb8e3291a0deb9714dbee51",
+        "4e56b617c7b14f0074812562c52f05059c83921800cf737e231e3a8a4149326d",
     ),
   "amazonka-cloudwatch-events":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "13fb5e436fc4c534d6e01c47ef23f589c01042f8a9d7efb622e89bd8f5d2ec4d",
+        "8b323d428e163bebb83bbcc3790666356c53bde5c418c84ac48898ebcc3f7646",
     ),
   "amazonka-cloudwatch-logs":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "80e4e74af0fb29f5ecc04f4d956ba0e9950f7936c858c1ff84461b62ca87ee7d",
+        "61dfdebb7c99d7d2875cd5ddba10000923c14a0d8a22e233ed3bbe617aa4d490",
     ),
   "amazonka-codebuild":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "fdbf43578e0aa54c616b2daf8b442b32a8765b62da0c3b7f6b1df95f4e55a0ab",
+        "1375ef0b6b261e6762a3c35837055af3f0066f1da00c62f00fb28def8d39a6b0",
     ),
   "amazonka-codecommit":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "8a2f2630bfabd3c71fdb811a9bbafefb058ce085ad18c1756a82f59bdd682415",
+        "b639a3106095c6dc5d3885a75e20bd9ae4c270ae70b3fb342a40d191da1d0733",
     ),
   "amazonka-codedeploy":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "3315b99ab8851acb5ae1251344474e0ec03796e9fd59f1d18278abc7add3c2df",
+        "3dff6fd082f1dc5c0f5992229499432e97b1a958a810a98330e25cf7175b54fa",
     ),
   "amazonka-codepipeline":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "c46eea221931601ced439454d3a3fe0030acccbb776bf153182010ca8f2ec043",
+        "bfa0ffffdf925b5e8693c10d4d73c1fbe310cb8f51a20d155ed08761cb3965c9",
     ),
   "amazonka-cognito-identity":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "3aac30e210d3fc0f45166b6211c4c61eb7cc4480fb550f106cd6206c8dc9b6d5",
+        "b97778558ce4ba5b8703d5549cd0ffa0b899812e2dd044d7515435070f9e8204",
     ),
   "amazonka-cognito-idp":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "a98989c8ca10bb938fb4f27803920462fc8f88d7104cebb5106b9e3728e81fff",
+        "df62c34ef4269974d71cc8a1ed6a8160dd739a4dd7ef5e18a5c061a9f2e8f01b",
     ),
   "amazonka-cognito-sync":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "5fde10d8e1f31e676433dfd32d061739d805a076ee58abd9c05d8faba36cf435",
+        "e048f9d072b5655f8da36d47c40c45f2d77d85a0a0e4ae0adf14b0e30590db63",
     ),
   "amazonka-config":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "5cb03ebc049efbccfb48ab926e08f0e9824880bb349129601f724679fe42c9cd",
+        "ff36ba897040319981edf9736115ca541e000eb37fe6fd408f07f32792f06834",
     ),
   "amazonka-core":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "afe1c5b74aadc0222419bd792688fd179e4f5693aeb75b74232f770fff093dc9",
+        "4198f52da9d20338bd6a3a18748d4312d3ff2c06bc84503cb18406251b28a243",
     ),
   "amazonka-datapipeline":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "1b212dd70864ef1ccc45e3a7deca936e0e1803c97aacefc34fad966fd85f3ae5",
+        "6bf752844ec49c59be856bb082b600959ec187cc890f1bb7f7d9641e9b78b122",
     ),
   "amazonka-devicefarm":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "d81b74b8b0c254a487ce464b1d6f0679d774bd42daf32312867e4dd37e35c569",
+        "bed85bba8a891f7c626e0b1e41cb4912974c250a6534e5438a3f51e5379a83ec",
     ),
   "amazonka-directconnect":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "8d85b9ce865eac817610a3a1db2e28100ff0069b85f41c4359a6aa5978533832",
+        "dc61998ad1145118be5138df37bd97cb1a61298e8fbc506ef1a22a33bafa045b",
     ),
   "amazonka-discovery":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "7bc67ad76b1413c2aebe48324d56b2e6f4279db6e7d4951e93bdaa5329199213",
+        "02abc932bf71df3ee03f5503d08414e3c01c49f08b4720e14e1a1e8fa13f449d",
     ),
   "amazonka-dms":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "a75f19dc2a7642840a97a135f24cd9120d3f5a81ad924aad6a46c514fba180f3",
+        "8c79f617ccd7035f709ae8057a8e1a6c5a89cdab3aa9c3aabaee7c0628e3ed87",
     ),
   "amazonka-ds":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "06fa338938aee62f81f93755cdc7039515dc0c6b32bb7c0bac33d7c92066d389",
+        "fb4807974a865556eafc99b7c030244cf7da0b5b1ade9365fcb8689a48d6c8ff",
     ),
   "amazonka-dynamodb":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "33f54ee4f898972f1539a00e65a851bb940c8d26058d63ddfcd07fbca57f9a3f",
+        "0420486c88f10636a4407c8732b927498c5a809b235e2da56750d012f05c1d82",
     ),
   "amazonka-dynamodb-streams":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "b3f832ddf70e95232cb79d71633276aa65c72e51c6c553118b4bc9db3a48e57f",
+        "fe2dab6892599dac4ec9f4408283019d670f6ba0a24723914aabe718b14ed959",
     ),
   "amazonka-ec2":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "2221c2c4e188aac9f0c9e4bb2e0bce65eb21102e6199c3783c20f3797da955cc",
+        "b04a9924ceb3e78a7d7ebdde087cc707e8a51a109f2d15483e6d01d3458aadd3",
     ),
   "amazonka-ecr":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "42088ad4b4d4c01b87267a372fec706f57db4db19b27c06a3c6826ef62ef8450",
+        "2d0d5dd640f63e11b6009d3b486505e93afd379c5f5738df79582b5eeb6c7358",
     ),
   "amazonka-ecs":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "309535abe8359475b3430488c84c398ed8d25a05321101c725e4a04d5f4cde3f",
+        "55071129ab02b9bf3feb5b5ca04feb64ea8709a125b67a35fda15b25cc1a1bba",
     ),
   "amazonka-efs":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "268456294406d63eb49422027226af8ef15ce08dc2095be9a6657bf9bf41afbb",
+        "741e047eb04c3bbd8dcbb03579bc82e4546abd0ae9a835ae128e2b3843d6b18c",
     ),
   "amazonka-elasticache":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "e4a74a2ce2d89534fd738c429dc9a0ee7564ee3539bd93488eba211176763969",
+        "4d2d8ae02e7c43eb77ba3a52863a4a2be305fb7f219a568709e830d647feeb60",
     ),
   "amazonka-elasticbeanstalk":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "c1dc065763475b705aabf61086546bcd312e6802dbb328775b9777e682b2386a",
+        "2ad4f9e80217d544f5fdd837eb2749d54f3ca3b210dcbada70fec1c920879f69",
     ),
   "amazonka-elasticsearch":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "3429fcae1c6fec5ebbc8acf1597532615b39def394d2296d641614c0225f3083",
+        "9ef91d5db4b13a0164a83674763ce25cb104ba92afd6f8ee5c70aa379006ca13",
     ),
   "amazonka-elastictranscoder":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "ab12a7c97e09cd1a60e81525e793f5f7b84799f8f9968a2b62bae8b9c9f3c10a",
+        "df80e7de3db78431eddb2d5413ac5e2271ec282c50ee1a23076aca90d697fb5b",
     ),
   "amazonka-elb":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "59c974009a2c26f7d267ae9736c71893a82ae69c19f344b87b4e3afd19f97e4d",
+        "5b5eecb81db898daa55ac1628bf65ac124d44e616dca5b33356ced32e6ba109d",
     ),
   "amazonka-elbv2":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "2a53d35e29b613ac7261a3202023cb8221607fd8df5f034c572d6aa751c622c9",
+        "6740907fe448cbee8512b91b570204d56018e520239fc9f1689601eb382f7b79",
     ),
   "amazonka-emr":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "e9a07458ee61feadeff2e98fc83c1542320d5b97744225304dc1cc568ad9774f",
+        "4b93c73647239e0bb1f779c876e933126fae48d51777b15ae4c4750dec2d87bc",
     ),
   "amazonka-gamelift":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "ebcdbd4a43c8d02dc0a0d7302f4b27c8e106a783e910c5cdaa68a7a7ee775ffc",
+        "c9c85550858c9eac54e86b226d31270de09cc8d71099a075829cc512fbe0e3b2",
     ),
   "amazonka-glacier":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "5307434d1fbddfba54b56ceb5eea2e5dfa3ece05b9353e61a998788af3e0f913",
+        "5b55cf733d0f987c1b3b61fb3fd0e29cdcfdc2bb7c9fcc0fa3c959d4bd540887",
     ),
   "amazonka-health":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "c216b18e93e998ff04b00a5fc3ab6df8d36ef95d4b9988587eceb837615ba67b",
+        "a2b533d5ac019b7dce0a8cc07f2515b577cabbd3caa613372018a37fa8764677",
     ),
   "amazonka-iam":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "a335813a795c3d28400b95b94f1b14ada3e621e83d07cb9fd9c7e7edb285905d",
+        "1d5106a4af75fae4444a3353b2568d4e1f751e81c7e9e263d26cd81466c3e7d7",
     ),
   "amazonka-importexport":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "0951f2bcd74e24c687ab39a044cfc9334b68fdb3c885d54693c918a1c97dcd04",
+        "ce142494cc9d5a063ee93224e488380d3730ab507b57ebc53b215dafb0d6dd8e",
     ),
   "amazonka-inspector":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "bcef005e38e63b742c1d7c63de84f582a447042a19ea611b1b617751f3cce13e",
+        "68b4b3c335ce13754d08726a203fc01a5731f8b9147948b8848a986505efb674",
     ),
   "amazonka-iot":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "180b2169c97bd021e5f013cc72b64fe701270a7a5000950e20fa6373d38a26d0",
+        "51763922dbb965d5c01ec60f1090eed03bec959a77e451cef70c55a42a2dc683",
     ),
   "amazonka-iot-dataplane":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "aee63bc0e6eca4cc4f76f7c8aa5e20f97e3f98268160006099014c66f4a88742",
+        "7b43f97fe9eb1d81c7ec9ea865fb49c4cd364fa532d4c50d8676306bb8c20b48",
     ),
   "amazonka-kinesis":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "549e41d29e46ff6aa485676436cb7cf15d2d37c2d0c62e6358b9b12b92e22f38",
+        "5fe3dcf3fbf9aded3e27eb430be32400ebb84a01c0aec237e330a9480cbb5167",
     ),
   "amazonka-kinesis-analytics":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "7efb5438596ef4541ebca35e4b87adf3c989bf88032be2d2e617bb14a7f685ee",
+        "af589c9afa3f253efefb95b356a5f2a7a280d6abbf5314f182f0beecb1066e99",
     ),
   "amazonka-kinesis-firehose":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "120545cdc888c031290b2f8a6745b911ebc6e2e5c077005067683118d197549c",
+        "e4a10bfe3f334c9ec27b86096b671b363357c8b417268444b7600dfdcd68872d",
     ),
   "amazonka-kms":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "7aa5333583b494d0a5585f78ead67833a7e72942b264673ee8b91d7be89e8e99",
+        "6d333ec392d1f47c850449e78a1071f2265b46f699f3c58ad9e30bd99c956285",
     ),
   "amazonka-lambda":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "649626896a7572979c5628e9406eb9be090106b7468473455e77aa59cec99b06",
+        "972b5ff15cad609f44761d485563496ca3584884e1fa367193ddaf76260fcca3",
     ),
   "amazonka-lightsail":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "741b4c6aff2f0e08fe9868aa858708a8ab36f95859bc0a9eecfdd9bd2060aceb",
+        "7c678ea0f8aa5beee2e0473ac5055a17aeb50c148362739adc84c940beb3931e",
     ),
   "amazonka-marketplace-analytics":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "4d6c0db0e9c17b5131c6b03cd27bc53fbddb144c3910d46639edfdccbecd5d6a",
+        "6ff582afb73e30d97d1f74e815ae03cdf919c4be4581b23691346a6d48a2137d",
     ),
   "amazonka-marketplace-metering":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "672de14acac579673c8c3cf032c3806554355cc84ae1b61882a589af2afb5f77",
+        "928bdbe8fbd3b81429ff4936590f3e04fd3632737fb39048afdc6be8ade85037",
     ),
   "amazonka-ml":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "9dc12d7b71a72ea720efe9de60668ab904adddfdfbe9c422f5ebda940a556dfe",
+        "b8c7c0b8663ffe570c79a1abc3d387b02e69b61b3f0d39b9ffa39e3049a7b872",
     ),
   "amazonka-opsworks":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "9a4372339b8ec556331b0198b5faf74bd8116f0816176aa8626d31f3b372d918",
+        "0a1716f0d6e5edaad37d86f2f3c0be043a0b0086d1f7a2f06cdd539f717faa96",
     ),
   "amazonka-opsworks-cm":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "4f9e9b755f70fffd15cea08d0dfef5dc23ee4f822471f8e89f4d9b2f77a748f4",
+        "51857803a2f0bee215c92119c3c5899df01e9195c2dc133e3f9774d4b93eca57",
     ),
   "amazonka-pinpoint":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "b0f8cdaabd9f357d5a687999ce83c7670f43023507ab9b25e94bc717f916b005",
+        "aa38c2d154b7ad3c16f0760c5304fd7d9875b1e8c7d48bb32b87a5616717fc87",
     ),
   "amazonka-polly":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "773edcfa2628cb9e616b9f1f5fab461cd6f0e5822dafa43fef4403c54e958ad0",
+        "b0887545cce2a01b16733b1d329570b4c79e6cfd6412813ec5c9c6c0a79fccef",
     ),
   "amazonka-rds":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "c793613c53773b3ba8c5db1fa342e68c25fcada39f8557c6ed39feb05f1bc24d",
+        "fcd2400a359093bd075ccfc76e16c42c3f3bdc65828bf4cb24c9e5cfdc389421",
     ),
   "amazonka-redshift":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "426ab96936e8d42ed85b31f076d99304148a6eb0896edbe90c6b1e570a90b329",
+        "87ea855e565636cc06396172e108df6aeca1e5fac1efc194d7bd98fc56402214",
     ),
   "amazonka-rekognition":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "462e427021e5362747b155ba4f77e4c1d99d794087dca273697fae93aff532a8",
+        "3e20fbeea825447a063684e40b3a3a71342ac32df15f9c40a580279fe6a9f8f8",
     ),
   "amazonka-route53":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "68ef773bd9c44b28cb6166d86e3e499d9d32581915548ba08670f5cb1caa6317",
+        "7c6442da5b6ded2a26b4f2b642cffe578456ffda8903f424590744f0dbc75773",
     ),
   "amazonka-route53-domains":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "f75bfe2f5f57c7367412479f3406cabcafa11a1436dd19f9a00ead6932e1a5ea",
+        "2c2bcd7445c391235d3a8af2fcd8f641d5a4996379fbbdb8645a24c77f4ba2e8",
     ),
   "amazonka-s3":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "eca18ebbd0df13a78768d9665827c7624282f76d512b3cf8f0f22a3afd463f47",
+        "47a0b0124eaf34b8f14bdac4a8ed2a61f86984da4f6fc9e34b44acda07167e28",
     ),
   "amazonka-sdb":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "b9c28b21326fdb78a0acee0968188ffb6fb156c7fe0faf688a2ec83d3f5fbdfd",
+        "53b4585f2cc3d192ce85163e23b153e605563b3938d9f9da28244fec8db92a7a",
     ),
   "amazonka-servicecatalog":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "11f8df3b1b2b43ec636eb5a428c43c8534eae9d9554071298688005bcb46f264",
+        "b4d6ad7c79db7f1b106aa79f7477cff6191aa77d7c1c2b614c108b627507f54b",
     ),
   "amazonka-ses":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "778d32e738faae3fd1a7e12a67dddce063c0480740b95e1a58b5c23dc052bd02",
+        "054c576d30341d11ce79869ac1ac5bc0d92ecab88f0fffe9895b78f4b614ece8",
     ),
   "amazonka-shield":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "b983a85b2b5a617bc3cbc911bc8d00a3fbf199ddd5dee67bdb3882b23747ebf4",
+        "1b8a71a8ef5055e8c100ba81ee0fb0a6af7af1e2b29020f546f896f712a07519",
     ),
   "amazonka-sms":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "fc4d359d2988d7604780a5eca5b3371d3d3034180e96d2cbc6148559f0cda47f",
+        "d6eb434bde9424080f68691775867e119a9f802cb4e7b7761de31e9a800b4b85",
     ),
   "amazonka-snowball":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "534b30fe9205ba1edf8b1c5c4f4f91dccbe124f95a599f5efdf0cc4cd502ee25",
+        "48c11fb69fed73bb3e7ed7b4cbaba28eb8cd3013b987479d8fb2d35eaa477cd3",
     ),
   "amazonka-sns":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "1d16b548031359ed593b14d172e7880847934e76bbedf535d014674414e37573",
+        "db98a53c40addfcff33938cdfc4daf4ca35e49bbab01b804562abfb1e613e735",
     ),
   "amazonka-sqs":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "743838707d28707095700afdf2d875ff34c5fe1d90b214f5a7e48be04c900433",
+        "ee067dd46f51af2ad33ee351d5c85a7d9599a669139fde30fcad825ff80843d4",
     ),
   "amazonka-ssm":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "11218249760a2d06cfd5ad2b41bf67233b6178f86e2ab979c199088a5a1c701a",
+        "952dff5e1fba8d79cfc5df93c9e6e782e93462554ce446d4ef4e8aaa313cb0af",
     ),
   "amazonka-stepfunctions":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "99ac8e545d28d7d765e180a26572d216f88d1e6ab9a2cd0f0a874992fa89acbf",
+        "60af76621df8ba65cd64dcba3a8b0ca54445599accd0de8c54338920577dd013",
     ),
   "amazonka-storagegateway":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "6f06376650f03107ebd13a622b77b1983da91c6030927e2d10afb4040b48b43d",
+        "1041b53029d829dd11b30c08d21a87af8da0b4ed92e51376b3233327b1817e3f",
     ),
   "amazonka-sts":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "36056b67d6f97a5b137f7ae35f39fb5417c61991333347129ed3e77f79a99a12",
+        "ee2364bb14e931528aa3d271c1688829c0975251bc5ffc5c824710841e1c8fb9",
     ),
   "amazonka-support":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "7f434aef975f2817d4b9d7aa1c6055d788988e817fdb5c8fae20a787f26853e9",
+        "5a2d0dd5dd00a067b915e5dfb13c1848683ed7b9bdcfd6ac40d712b417c719ba",
     ),
   "amazonka-swf":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "1f0e437ba9c1511f46c64df16ae4551667fee39ade3c32f251f9e34b2255aa90",
+        "7b9ce6704f7fe46607722daaa35d11dc2c239fa82ab26ae8a456cdc390b8744a",
     ),
   "amazonka-test":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "46a8b77900370524a487f2ca0490473e23d0155664db2461c5504678d275dd28",
+        "751ed583302c4d8dd1dabe8628e8eb8d97b807a899bb71fe208158fe44f222a9",
     ),
   "amazonka-waf":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "880b9ec52be2d8fb0f5711d1e5357b0ce566e98b775e3bb7921e8f4295bbb980",
+        "45c2f517d858891fa85e70e73969721c97ee22236d6932f0df87cd139255516a",
     ),
   "amazonka-workspaces":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "56cf348d8c519a4db23693e81cccf822975ec5b37e74dda54f9f020415c91c84",
+        "e589385b8a86f9997d0831ca350d5591484b9e1245374d3e0e88ab45d45c37bf",
     ),
   "amazonka-xray":
     struct(
-      version = "1.6.0",
+      version = "1.6.1",
       sha256 =
-        "8f510075361aa600cd7759763f4de55aed07b8a7cce65eb445dfcf9f475590f0",
+        "348cf06a7529d78a1b48d84e46a9c527b590355b4133473e8091052b34a5d00d",
     ),
   "amqp":
     struct(
-      version = "0.18.1",
+      version = "0.18.2",
       sha256 =
-        "4678e2eb976df97e27cacbc4b1feafeb5a1800a9779b0a36666f04804f43e248",
+        "bbfb593dce62ab427a66904e571fbe1864d944c10210e6602eacabb77662e76a",
     ),
   "annotated-wl-pprint":
     struct(
@@ -1384,9 +1414,9 @@ packages = (
     ),
   "apecs":
     struct(
-      version = "0.7.1",
+      version = "0.7.3",
       sha256 =
-        "47dec2adc2d269c863767be5524a1178b9b3f8a4a5bb1903b8fbcbf5cdc67233",
+        "1425137b691819a574ff3590b159ee135d2df53a6c064c51e35ec378edad2eef",
     ),
   "apecs-gloss":
     struct(
@@ -1396,9 +1426,9 @@ packages = (
     ),
   "apecs-physics":
     struct(
-      version = "0.3.1",
+      version = "0.3.2",
       sha256 =
-        "f29db921206b594e9549838f3206a7b2f02393ce1f42049d3d2dabbcd3e64846",
+        "4e7b98e1221a409450f13d75a72ec56099d556842a9cb47dde593d60a284bc97",
     ),
   "api-field-json-th":
     struct(
@@ -1636,9 +1666,9 @@ packages = (
     ),
   "auto-update":
     struct(
-      version = "0.1.4",
+      version = "0.1.4.1",
       sha256 =
-        "5e96c151024e8bcaf4eaa932e16995872b2017f46124b967e155744d9580b425",
+        "35ff4b15ecf505f1cf3eb78f83deaa89879d92d40335b6580b2383c622efcfc9",
     ),
   "autoexporter":
     struct(
@@ -1666,9 +1696,9 @@ packages = (
     ),
   "avro":
     struct(
-      version = "0.4.1.2",
+      version = "0.4.4.2",
       sha256 =
-        "62c7ef79265a9984964995e27a50cf3e25a62b7128d2ad1da85573f7ec60531d",
+        "809752b326f9787219fac0ba1de0b558aac44e4025aabffe86967c980b7001f4",
     ),
   "avwx":
     struct(
@@ -1684,9 +1714,9 @@ packages = (
     ),
   "backprop":
     struct(
-      version = "0.2.6.1",
+      version = "0.2.6.2",
       sha256 =
-        "d22261e11129c43e68ead4f0a82b82d504085e3176fb79be5f00f4c89513c7e6",
+        "b58d70a2191ebcb1529dfd433e16696d7d58de51a04143d51afa7059c4728383",
     ),
   "bank-holidays-england":
     struct(
@@ -1696,9 +1726,9 @@ packages = (
     ),
   "barbies":
     struct(
-      version = "1.1.0.0",
+      version = "1.1.2.1",
       sha256 =
-        "9a857f00dfd7dc0a1471eda450d5b09f16a4066d70c24c4910b91c5b9cc0960a",
+        "3edcf3e994d8ce6f71325030dea17d3482c90e1d377f3c1ef499c401b46c6c6b",
     ),
   "barrier":
     struct(
@@ -1726,9 +1756,9 @@ packages = (
     ),
   "base-orphans":
     struct(
-      version = "0.8",
+      version = "0.8.1",
       sha256 =
-        "aceec656bfb4222ad3035c3d87d80130b42b595b72888f9ab59c6dbb7ed24817",
+        "442bd63aed102e753b2fed15df8ae19f35ee07af26590da63837c523b64a99db",
     ),
   "base-prelude":
     struct(
@@ -1768,9 +1798,9 @@ packages = (
     ),
   "base64-bytestring-type":
     struct(
-      version = "1",
+      version = "1.0.1",
       sha256 =
-        "74019bd11f8012ae5ccc88c206bc5a8024f7605130099aabbac012073160e440",
+        "f607d07c4aab227b4536c495fa7c07b35ddc9c2c013d385c16c02f236526780e",
     ),
   "base64-string":
     struct(
@@ -1780,9 +1810,9 @@ packages = (
     ),
   "basement":
     struct(
-      version = "0.0.8",
+      version = "0.0.10",
       sha256 =
-        "c7f41b97f2b0a71804c3c7d760047dc9adc9734e789084ca1198c4764ce192a4",
+        "e3471b037187da02814fa710c4d59a804c5446a3617122aca63f32d4f8c4f505",
     ),
   "basic-prelude":
     struct(
@@ -1807,6 +1837,12 @@ packages = (
       version = "0.0.11",
       sha256 =
         "e4331788eda7b65064d88930b4b7a50f5011bdec0ad46059d8c4ee6a5e72fcef",
+    ),
+  "beam-core":
+    struct(
+      version = "0.8.0.0",
+      sha256 =
+        "2893b34228b6888fdd0c49b0c7e2498d40628e74db390d9b33ce026febeee1d0",
     ),
   "bench":
     struct(
@@ -1840,9 +1876,9 @@ packages = (
     ),
   "bifunctors":
     struct(
-      version = "5.5.3",
+      version = "5.5.4",
       sha256 =
-        "d434528fd2ea765bace57c4ade0bc9fa32ba2c425f563b33a4b60f625ecfc9ca",
+        "29d62cf43fcef94534a585623357ab6d89a940db8d3931cb092485c6c3b19b8c",
     ),
   "bimap":
     struct(
@@ -2116,9 +2152,9 @@ packages = (
     ),
   "boring":
     struct(
-      version = "0.1",
+      version = "0.1.1",
       sha256 =
-        "73d60829c3a789f3d377d56ce7844aaaea6b517bcea43e06579ab785181b4664",
+        "8fc34a3b0f97834fd0aa56f3f39866c6d8716619ad4a154c38143c9c89ac63ec",
     ),
   "both":
     struct(
@@ -2332,11 +2368,17 @@ packages = (
       sha256 =
         "1029991d52add00d7ea68cc03e7d87301cf23f644a0ffa8dbbaed91c9eb05f11",
     ),
+  "cachix":
+    struct(
+      version = "0.2.0",
+      sha256 =
+        "16ba70af7f2ba4bc147ba84c34c9884bee589237a1d935f932c5e0b68157665a",
+    ),
   "cachix-api":
     struct(
-      version = "0.1.0.3",
+      version = "0.2.0",
       sha256 =
-        "aefd2d623cb8b0da0ac6861df37f2f5673659ebd341943e4da9c538befa84502",
+        "73f27484d3748fe02ce834549dd3a04c92110390f7d9adb4c391bad2ececbef2",
     ),
   "cacophony":
     struct(
@@ -2419,15 +2461,15 @@ packages = (
     ),
   "category":
     struct(
-      version = "0.2.2.0",
+      version = "0.2.4.0",
       sha256 =
-        "2323558f9fd9b741815663ff69e090cadde4c2d5f7133b5edd8cbfdd658801a8",
+        "d1da3da972543c6a7dea7f2774e4cf79221d21bc563316007121e541f7012530",
     ),
   "cayley-client":
     struct(
-      version = "0.4.8",
+      version = "0.4.9",
       sha256 =
-        "b1b1328fb855211a78b9c7da74eecc7ee81c9f92101debb9ca87238d66c01926",
+        "ff9ce08f141477cb855ac1f91505f7ab400722ee74b6e420a3179288bb182016",
     ),
   "cborg":
     struct(
@@ -2533,9 +2575,9 @@ packages = (
     ),
   "checkers":
     struct(
-      version = "0.4.11",
+      version = "0.4.14",
       sha256 =
-        "d0602d3561b9c3d9365387543e363e40b11851ace42698feb519c6567d842d38",
+        "7fc50d394490541e21fba90f0e9f744e144ec00a9f910691e09960055b3fcb5e",
     ),
   "checksum":
     struct(
@@ -2671,21 +2713,21 @@ packages = (
     ),
   "clumpiness":
     struct(
-      version = "0.17.0.0",
+      version = "0.17.0.2",
       sha256 =
-        "fd4b303d206eaf242c779bb65c42256e42220c8497a6bcf3bc59589b9396c495",
+        "eca2c21c6d3d9d3e6f26f7ca36db99680120c8f959fdbfef8c970aac131936c0",
     ),
   "cmark":
     struct(
-      version = "0.5.6",
+      version = "0.5.6.3",
       sha256 =
-        "855c4b7aca6d4e9eb076beb6cc6f74e7578fae7aa3625fd3fca5e3b4901a32b0",
+        "eee2e205d6502d3eb19c6940e58154802353835365edf34f9e1e08a8a1597f27",
     ),
   "cmark-gfm":
     struct(
-      version = "0.1.6",
+      version = "0.1.8",
       sha256 =
-        "c8f916c8fbc9b3c564dcd6946cd530a292a055b60c784dde303803199a6c6968",
+        "34ed9c997d08936bb6abd9d84be45918e69f803504f570601cab9cd4159cbf7c",
     ),
   "cmdargs":
     struct(
@@ -2875,9 +2917,9 @@ packages = (
     ),
   "conduit":
     struct(
-      version = "1.3.1",
+      version = "1.3.1.1",
       sha256 =
-        "ae129b66ada785c43a693d3b260f0e7b2f01d79fbf04ae43f7341405455320d6",
+        "84dfafc92e9553c7bae4b4fe0cba3da29b37def606f88b989db95ee2dc933fa2",
     ),
   "conduit-algorithms":
     struct(
@@ -2905,9 +2947,9 @@ packages = (
     ),
   "conduit-extra":
     struct(
-      version = "1.3.0",
+      version = "1.3.1.1",
       sha256 =
-        "2c41c925fc53d9ba2e640c7cdca72c492b28c0d45f1a82e94baef8dfa65922ae",
+        "dcb1a9d6b5e1f34454133adeb29b97f9bbcf1ff998f1f68c58ab9abd41195249",
     ),
   "conduit-iconv":
     struct(
@@ -3109,9 +3151,9 @@ packages = (
     ),
   "criterion":
     struct(
-      version = "1.5.3.0",
+      version = "1.5.4.0",
       sha256 =
-        "b602a99439de710778b8d8ad4a3799caf872db4c8c793bfd13b725aa936c049f",
+        "6f616a9577d884f8941a388b370c17606169626212d92ac597a39908c96c04fa",
     ),
   "criterion-measurement":
     struct(
@@ -3313,9 +3355,9 @@ packages = (
     ),
   "cue-sheet":
     struct(
-      version = "2.0.0",
+      version = "2.0.1",
       sha256 =
-        "14dbfc86fc5ec497c4dbacf03225f41a708366cc8c65e04ea5f27c9c79afcff0",
+        "71e42497329b9ebf74e94920ed2bd7a2ffe15e385906a37cbd5160d607a5575d",
     ),
   "cufft":
     struct(
@@ -3512,9 +3554,9 @@ packages = (
     ),
   "data-ref":
     struct(
-      version = "0.0.1.2",
+      version = "0.0.2",
       sha256 =
-        "605cf65aa01f93a5834305001056b2206a95830e25b7f969b34c9479a7e42621",
+        "7b14399e9d8df50ed7ee3b10ea2ea4b7fdd8922896da000b171eac742ffb0f77",
     ),
   "data-reify":
     struct(
@@ -3560,9 +3602,9 @@ packages = (
     ),
   "dbus":
     struct(
-      version = "1.2.1",
+      version = "1.2.6",
       sha256 =
-        "99d8c136041d63bf7e2018e5c4f23c324381b9efb5a47f676f866e2a8694b1d7",
+        "f471af3bb453fd6b062e200b4f989911a24c43ee833ad0f3f36e847020330a63",
     ),
   "debian-build":
     struct(
@@ -3584,9 +3626,9 @@ packages = (
     ),
   "decidable":
     struct(
-      version = "0.1.4.0",
+      version = "0.1.5.0",
       sha256 =
-        "7eb222eaa16bdc1780def19cdb7d428c8b44dec1f5f6cf96ce77c4b8a1149c1d",
+        "72f139dd300898388ec41d0ba128c24358adb3d915c2788db8b192be76e54fe7",
     ),
   "declarative":
     struct(
@@ -3650,9 +3692,9 @@ packages = (
     ),
   "deriving-compat":
     struct(
-      version = "0.5.2",
+      version = "0.5.5",
       sha256 =
-        "495660f8b41bbb5ab372e2d393eaf57ba8ebd5d4f80b1477b2fd5caef875b240",
+        "8aad0b4b271d5dda270dfe1a1a90b4d272c64682ee9877d83497646578f13df8",
     ),
   "derulo":
     struct(
@@ -3686,9 +3728,9 @@ packages = (
     ),
   "dhall-text":
     struct(
-      version = "1.0.15",
+      version = "1.0.16",
       sha256 =
-        "afa2dd0cbb6d261b5cf79988f673cf2405f5419c306c55181d9aae3ec6c932b2",
+        "a1f14c45d3454e0e8a3fea91923bd186d3fa397e32119aed9d3721b907a858c2",
     ),
   "di-core":
     struct(
@@ -3725,6 +3767,12 @@ packages = (
       version = "1.4.2.3",
       sha256 =
         "25a7adccbe3175cdb081a3824413ba431e561026c6ddd9a647cd133e4bfcbe9c",
+    ),
+  "diagrams-postscript":
+    struct(
+      version = "1.4.1",
+      sha256 =
+        "a758191d99c30bd663dc0df2dedef13cd735a33c143e77906aa88baceb282c9c",
     ),
   "diagrams-rasterific":
     struct(
@@ -3764,9 +3812,9 @@ packages = (
     ),
   "direct-sqlite":
     struct(
-      version = "2.3.23",
+      version = "2.3.24",
       sha256 =
-        "1fdb6f6ea34ac978e72f61a845786e4b4b945014ccc64ddb07ddcafa1254937b",
+        "41d23bee2c48407300bd3a118802131b5c73a263ada5f624e64d7da82be3a675",
     ),
   "directory-tree":
     struct(
@@ -3788,9 +3836,9 @@ packages = (
     ),
   "distributed-closure":
     struct(
-      version = "0.4.1",
+      version = "0.4.1.1",
       sha256 =
-        "de4efea05ec685e9b5b087857ea3460a24d4314862e329279b99ca914b2e7ce6",
+        "3921de35800d1e96d651f5810945fb119b94adcb3bea010b6726b60cd4087670",
     ),
   "distribution-nixpkgs":
     struct(
@@ -3812,9 +3860,9 @@ packages = (
     ),
   "dlist":
     struct(
-      version = "0.8.0.5",
+      version = "0.8.0.6",
       sha256 =
-        "98a88aa839b40d4aee8b08880030d282d627b63de311f5414dca6e831a951b43",
+        "780b4ac91d6e88e77ebf1629568bddd45959b8e0cd295b17c7d55d835c03c73f",
     ),
   "dlist-instances":
     struct(
@@ -3872,9 +3920,9 @@ packages = (
     ),
   "doctest-driver-gen":
     struct(
-      version = "0.3.0.0",
+      version = "0.3.0.1",
       sha256 =
-        "614245e6b957ff3d380ef33e750df1ac109870c6d7de242ce5f999034a70a58e",
+        "56af5e7401d0995f7ac89b0239e6e123afef265bff0548200013d1ca033b44e9",
     ),
   "dom-parser":
     struct(
@@ -3908,9 +3956,9 @@ packages = (
     ),
   "download":
     struct(
-      version = "0.3.2.6",
+      version = "0.3.2.7",
       sha256 =
-        "a06d401a2ca58b6ee494ce462c753939ef0a2d11b4d475ae40848884fb44eef2",
+        "7154571d2c55c14b7a2d36a924ee10fd56511b70fe856dddbfbd15f04f0be6e1",
     ),
   "drinkery":
     struct(
@@ -4026,11 +4074,23 @@ packages = (
       sha256 =
         "f4b6bbafbc658f028f000fa0711e038206688c9b9ce842bf62e6c3ba16547bd1",
     ),
+  "ekg":
+    struct(
+      version = "0.4.0.15",
+      sha256 =
+        "482ae3be495cfe4f03332ad1c79ce8b5ad4f9c8eec824980c664808ae32c6dcc",
+    ),
   "ekg-core":
     struct(
       version = "0.1.1.6",
       sha256 =
         "66a8dd79ad27659052168f08dd41fabb8593e364de00fb857ef5cc943acd5742",
+    ),
+  "ekg-json":
+    struct(
+      version = "0.1.0.6",
+      sha256 =
+        "1e6a80aa0a28bbf41c9c6364cbb5731160d14fa54145f27a82d0b3467a04dd47",
     ),
   "ekg-statsd":
     struct(
@@ -4052,9 +4112,9 @@ packages = (
     ),
   "eliminators":
     struct(
-      version = "0.5",
+      version = "0.5.1",
       sha256 =
-        "f97f4c7b9a2bdc236cb3b8ea14bfbc02e5b21e181b25848b88ea898cee152d34",
+        "8166f2697acebd23ebf27416f489f5bf731ae081fe49fd34834a9b7194760f4f",
     ),
   "elm-core-sources":
     struct(
@@ -4070,9 +4130,9 @@ packages = (
     ),
   "elm2nix":
     struct(
-      version = "0.1.0",
+      version = "0.1.1",
       sha256 =
-        "9ec1f1f694a38b466ebd03aaa1a035bbdb9bdae390be5b9a030611bcbfd91890",
+        "974be3482f2ea85f87440ffb449ffeaa8946eb9514e602debc15d966cfde6799",
     ),
   "emacs-module":
     struct(
@@ -4082,9 +4142,9 @@ packages = (
     ),
   "email-validate":
     struct(
-      version = "2.3.2.9",
+      version = "2.3.2.11",
       sha256 =
-        "aeac6eea61192683bbde6bb8bdcf2150a03f79fa2bf4a1deb5e838a0011a4e8b",
+        "ebbaacb562ef0c01c144678e1e698b1939aebf18beeb159e14f336d20d0d3014",
     ),
   "emd":
     struct(
@@ -4109,6 +4169,18 @@ packages = (
       version = "0.1.0.0",
       sha256 =
         "dd07c2089495ee5b07bdb371bc10004341edb58cbc287d4862ee96b797b14581",
+    ),
+  "enum-text":
+    struct(
+      version = "0.5.0.0",
+      sha256 =
+        "44bbacfebf3f2c264fd79938258e94a1e79bf4cacbcf39790d99ebc0d7cce779",
+    ),
+  "enummapset":
+    struct(
+      version = "0.6.0.1",
+      sha256 =
+        "f8b8defb03621ab36a450dbae559eff0afa4ef103bc05a288f97cceecaba925a",
     ),
   "enumset":
     struct(
@@ -4176,6 +4248,12 @@ packages = (
       sha256 =
         "42dca507046c32e00459bf6167d02bb508b72bb47669470a0eb3fba20b73a019",
     ),
+  "esqueleto":
+    struct(
+      version = "2.6.0",
+      sha256 =
+        "d62653a7187b9ad2303d742c0bcd2ac955ec362bc428a45d26a4f95525db4bab",
+    ),
   "etc":
     struct(
       version = "0.4.1.0",
@@ -4220,9 +4298,9 @@ packages = (
     ),
   "eventstore":
     struct(
-      version = "1.2.1",
+      version = "1.2.4",
       sha256 =
-        "c813b213db61addee309aa04d360c8bc49108f1d0a2197557eeee9319728cafb",
+        "b567b5442c56a46db52a1e257ce4d89ae682d633a08095fcfa6e6c7430edf614",
     ),
   "every":
     struct(
@@ -4232,9 +4310,9 @@ packages = (
     ),
   "exact-combinatorics":
     struct(
-      version = "0.2.0.8",
+      version = "0.2.0.9",
       sha256 =
-        "32a822b109ab6e9f62fe23d76bd5af593c20ba0e589005d3985ccda00dd4475e",
+        "725785ac22c252b0753aefffd8eb591f8a4184cec08a5d50bca1d57c5345c9ab",
     ),
   "exact-pi":
     struct(
@@ -4262,9 +4340,9 @@ packages = (
     ),
   "exceptions":
     struct(
-      version = "0.10.0",
+      version = "0.10.1",
       sha256 =
-        "1edd912e5ea5cbda37941b06738597d35214dc247d332b1bfffc82adadfa49d7",
+        "3ba4032df6b115bab1dad294948cf43fb9e1f566d3c513e9e1c363131739df9d",
     ),
   "executable-hash":
     struct(
@@ -4316,9 +4394,9 @@ packages = (
     ),
   "extra":
     struct(
-      version = "1.6.14",
+      version = "1.6.15",
       sha256 =
-        "a60641530d96653ecc365aa042f4061892154995915d91f432ea5a2e3aaf129c",
+        "fb1187283ce279eed31093d7184e6bc4c684aafff12a529bffad1a1f7a097dcd",
     ),
   "extractable-singleton":
     struct(
@@ -4352,9 +4430,9 @@ packages = (
     ),
   "fast-logger":
     struct(
-      version = "2.4.13",
+      version = "2.4.15",
       sha256 =
-        "4bd4ef406f661e603320a34c353c29c5160644e3c4a446dd47efb279088a32b2",
+        "ce2794db18be51077a0af6fe5eb843ff6ad3f74f699f2c59e5660cb63d57c2d5",
     ),
   "fast-math":
     struct(
@@ -4382,9 +4460,9 @@ packages = (
     ),
   "fedora-dists":
     struct(
-      version = "1.0.0.2",
+      version = "1.0.1",
       sha256 =
-        "d4d2436703278d09df0f310b7e7877fc42d414379513d6e272bc53f7c59e8749",
+        "942ea841f4ec99e79f0934da7eb29741560e68afa36cd7297c65b8e0c69dfe80",
     ),
   "fedora-haskell-tools":
     struct(
@@ -4446,6 +4524,12 @@ packages = (
       sha256 =
         "8836da17baaaf02ca080c9990ece4e0b0c8d6a128f458f8b64fd07b225ca9846",
     ),
+  "filepattern":
+    struct(
+      version = "0.1.1",
+      sha256 =
+        "f7fc5bdcfef0d43a793a3c64e7c0fd3b1d35eea97a37f0e69d6612ab255c9b4b",
+    ),
   "fileplow":
     struct(
       version = "0.1.0.0",
@@ -4466,9 +4550,9 @@ packages = (
     ),
   "fin":
     struct(
-      version = "0.0.1",
+      version = "0.0.2",
       sha256 =
-        "34d28a951f2899f1d27bfb75d53818204d6d7e5aeaaef1a326c50ae915361a57",
+        "b17427744cf39b5b8328ca1f736f0c67f9c8da7872fca32622661086fd9fbeb9",
     ),
   "fingertree":
     struct(
@@ -4532,9 +4616,9 @@ packages = (
     ),
   "flac-picture":
     struct(
-      version = "0.1.1",
+      version = "0.1.2",
       sha256 =
-        "3c1cf80c48521370ce6351d4b544c14891442bfe47c65e5bf436fe58f6fec1ce",
+        "15689d14d382588697ec0da88a0025c2b156061c060979deaec0d75ecc37030a",
     ),
   "flat-mcmc":
     struct(
@@ -4562,9 +4646,9 @@ packages = (
     ),
   "flow":
     struct(
-      version = "1.0.17",
+      version = "1.0.18",
       sha256 =
-        "86ec19d8bec13afc58e21d53f4225c3fcafda2ff902b05f64062919edbe84d19",
+        "f08e388d5e9104fb764f87386045fbe119481999908ad6ee84e7dda36860cab3",
     ),
   "fmlist":
     struct(
@@ -4586,15 +4670,15 @@ packages = (
     ),
   "focus":
     struct(
-      version = "1.0.1.2",
+      version = "1.0.1.3",
       sha256 =
-        "adf4e7fd24a441548a450828881baea013f6374811230beb6437cfcdc2616e02",
+        "bdb56955fdd0fe0f97e2292d121bdc7d679c37f7a87aed9195ab4c73fc7720bc",
     ),
   "focuslist":
     struct(
-      version = "0.1.0.1",
+      version = "0.1.0.2",
       sha256 =
-        "fdee9ae7a68f139f9b4b88df27e4f373815293da93a1df91e5c2f3dc558f05e3",
+        "78527aad6212617d4c8c3183c02750693d5bd30be1a26f1caff7db434b31481b",
     ),
   "fold-debounce":
     struct(
@@ -4646,9 +4730,9 @@ packages = (
     ),
   "forma":
     struct(
-      version = "1.1.0",
+      version = "1.1.1",
       sha256 =
-        "b7dc7270e0a294cdaf40e99f067928411d82ed50af4dad51a6088830d539c325",
+        "abef8c326efdeca2b69fca3b396abad530b0c5093499022a16091af3a5370083",
     ),
   "format-numbers":
     struct(
@@ -4664,9 +4748,9 @@ packages = (
     ),
   "foundation":
     struct(
-      version = "0.0.21",
+      version = "0.0.23",
       sha256 =
-        "4ed3a0e7f8052b52d27c9806eff3bea51acc2587f74f81db4b8e03e938f283e0",
+        "a26036f61909fdfdde7e014800741cea1246620dbee0f29c1408d8ff301b043c",
     ),
   "free":
     struct(
@@ -4827,9 +4911,9 @@ packages = (
     ),
   "generic-deriving":
     struct(
-      version = "1.12.2",
+      version = "1.12.4",
       sha256 =
-        "5688b85ff1e3484e3f6073a52f99624a41c8b01ddaab9fcec20afa242f33edc4",
+        "4401c13d38938338fb152bbc1049c5e1f880199afc2015421d5496811b4eaf6d",
     ),
   "generic-lens":
     struct(
@@ -4845,9 +4929,9 @@ packages = (
     ),
   "generics-eot":
     struct(
-      version = "0.4",
+      version = "0.4.0.1",
       sha256 =
-        "5abedc86df738c8ff7a8c6ca9ee97605406a1b6fadd4924fa93f7aacd2fece9b",
+        "9be6de962c003365752b6fcb181ca9f443b68223c69c728c7991f5408d86df68",
     ),
   "generics-mrsop":
     struct(
@@ -4869,9 +4953,9 @@ packages = (
     ),
   "genvalidity":
     struct(
-      version = "0.7.0.0",
+      version = "0.7.0.2",
       sha256 =
-        "81231459cfc02d6bc85e9c2b58f2fd25615cd5801ad1e6583460d8903dc65aae",
+        "dbbfa8d7542ca9ab68d19fb2b7174861b76cb8f6d2fd796ca534f772dc5d5bfa",
     ),
   "genvalidity-aeson":
     struct(
@@ -4893,9 +4977,9 @@ packages = (
     ),
   "genvalidity-hspec":
     struct(
-      version = "0.6.2.2",
+      version = "0.6.2.3",
       sha256 =
-        "2e4fb7ce3a0e5ec4b2c52665b869eb4694fb1237f4ed309daa351e473542feda",
+        "462c423ab80fe9f60e438e3aca29e2e2fd423ede558d6060533b3df4f900468a",
     ),
   "genvalidity-hspec-aeson":
     struct(
@@ -5013,9 +5097,9 @@ packages = (
     ),
   "ghc-syntax-highlighter":
     struct(
-      version = "0.0.3.0",
+      version = "0.0.3.1",
       sha256 =
-        "a137f484740f4eee967fbc8d8366e053e52e073b948ffb3001b4e1227adeec1c",
+        "a73dc70ef9ef4e53d64962792754a89abf88afd92de3316dccc54266494985e4",
     ),
   "ghc-tcplugins-extra":
     struct(
@@ -5043,15 +5127,15 @@ packages = (
     ),
   "ghci-hexcalc":
     struct(
-      version = "0.1.0.1",
+      version = "0.1.0.2",
       sha256 =
-        "429f96f698e7edc26f8b74ce4abdb9c8ee31e64ac18309a203b032363e2790d7",
+        "db8d0605e68be1b402086128dd4a188a315dc4200068ddba05941040845f968c",
     ),
   "ghcid":
     struct(
-      version = "0.7.1",
+      version = "0.7.4",
       sha256 =
-        "a73719b5d03c24726b60d1cd4cd7379d7e50690c9b738b760149c450763bc31a",
+        "f73e3180812c6866d4861b787f265aeffed6271d17c38f92c4e0be483b3aa2f1",
     ),
   "ghcjs-codemirror":
     struct(
@@ -5091,9 +5175,9 @@ packages = (
     ),
   "gi-gio":
     struct(
-      version = "2.0.18",
+      version = "2.0.19",
       sha256 =
-        "13ebcd9c5d804de97db1f0ce7de520a73ba2eed950cbf5be84950fe33a8ef440",
+        "0c43d7ab172afad8d7e30bb6d7e4c18d3b78552cb57914f3b50890db2b0ccff7",
     ),
   "gi-glib":
     struct(
@@ -5175,9 +5259,9 @@ packages = (
     ),
   "github-webhooks":
     struct(
-      version = "0.10.0",
+      version = "0.10.1",
       sha256 =
-        "084a8aa9cc71f89a47a0c8cdb1d0f9eac79fb7d4360ed224efd8443f0c7271df",
+        "ddc410e81a607b1b758d5e0e94ba707bb85631b184fd50120507c2be9f2f54c2",
     ),
   "gitrev":
     struct(
@@ -5193,9 +5277,9 @@ packages = (
     ),
   "glabrous":
     struct(
-      version = "1.0.0",
+      version = "1.0.1",
       sha256 =
-        "7364ad72a415659f2ad3b37f703d5c94225b96f8aba0f5338f56675a8e390003",
+        "434fadf483c4fb0aaec37fe3767c2bc9f7ba0e21543809040408abb129744787",
     ),
   "glaze":
     struct(
@@ -5241,9 +5325,9 @@ packages = (
     ),
   "gnuplot":
     struct(
-      version = "0.5.5.3",
+      version = "0.5.6",
       sha256 =
-        "4f742082835978919db75abc570e6cd924d63c6bdd951e1280f97d5d98540504",
+        "f7658e15f6d3b8051a753393bef26e46e86d053d98e66077dcea0438a97dddbc",
     ),
   "goggles":
     struct(
@@ -5277,9 +5361,9 @@ packages = (
     ),
   "graph-wrapper":
     struct(
-      version = "0.2.5.2",
+      version = "0.2.6.0",
       sha256 =
-        "98a42ef1eee9a5012b0bb2a91f645dd8487df6cfdcfcab5e387a8abf42768dcd",
+        "b89ed6f47a6d44b9466d090eabddc9d9ec4b2d7e4b52a61b26d0cf19dac95ba6",
     ),
   "graphs":
     struct(
@@ -5308,9 +5392,9 @@ packages = (
     ),
   "greskell-core":
     struct(
-      version = "0.1.2.4",
+      version = "0.1.2.5",
       sha256 =
-        "201d3f76a503948114f387f0c63d88e1170ed26305b2c2a8b799a47d37dc4f85",
+        "b772c09a65dc657992652555656bc31340ebf4ce03de8dbd7f123964124dbfd3",
     ),
   "greskell-websocket":
     struct(
@@ -5330,6 +5414,12 @@ packages = (
       sha256 =
         "38fb65889878a50fd16e2ad8a04f0a9e2c774794086fbe156361d797b1a893f1",
     ),
+  "groundhog-inspector":
+    struct(
+      version = "0.10.0",
+      sha256 =
+        "4215ad3d497d0e9b66f0a3430a1db68abecdc013ed1cec1976f761dc7cac9ad0",
+    ),
   "groundhog-mysql":
     struct(
       version = "0.10",
@@ -5348,6 +5438,12 @@ packages = (
       sha256 =
         "fdf0377924ac6214ced50a5670b2d4811801c1a20e480b22090a705582d6defc",
     ),
+  "groundhog-th":
+    struct(
+      version = "0.10.2",
+      sha256 =
+        "f3532d16633e0a8592696a5e4f92064e44fbefba9b4a1f4a9ac6b4aef3ddfdae",
+    ),
   "groups":
     struct(
       version = "0.4.1.0",
@@ -5356,9 +5452,9 @@ packages = (
     ),
   "guarded-allocation":
     struct(
-      version = "0.0",
+      version = "0.0.1",
       sha256 =
-        "5257dbe3088099ee19874d0657513b5662dcd207eff8d8fc426deedc92fb48ba",
+        "0cac10d1790817bdbc44ffe4ee8fcb649e350bb831987ee80739393917784695",
     ),
   "gym-http-api":
     struct(
@@ -5398,9 +5494,9 @@ packages = (
     ),
   "hailgun":
     struct(
-      version = "0.4.1.8",
+      version = "0.4.2",
       sha256 =
-        "9dcc7367afec6605045246d4959f27a29a54bbdbcec543e6f5ae59b048e2dcc3",
+        "7416c800f1bb652136c5d6b6e36e2fa30455d56a96f89f8819cfb06b5b794b97",
     ),
   "half":
     struct(
@@ -5422,9 +5518,9 @@ packages = (
     ),
   "hapistrano":
     struct(
-      version = "0.3.9.0",
+      version = "0.3.9.2",
       sha256 =
-        "7eac3f9c870445693ec2c4b1ed9cbb91b18bc96e54a71cd9dfdaca8b05566485",
+        "0deee3a40075e1bd3e215f5f01f8392b2f216275205cfec29d9dd36d70c94011",
     ),
   "happy":
     struct(
@@ -5434,9 +5530,9 @@ packages = (
     ),
   "hasbolt":
     struct(
-      version = "0.1.3.2",
+      version = "0.1.3.3",
       sha256 =
-        "31acb64497ce06eecfc2c54297b561a373d8584142a8d9b8f67cbabc701c5893",
+        "6b695962e0f63ef47687a40c9197cbb3c5bb4473cc3456b26221a2997e4c37d0",
     ),
   "hashable":
     struct(
@@ -5500,15 +5596,15 @@ packages = (
     ),
   "haskell-lsp":
     struct(
-      version = "0.8.0.1",
+      version = "0.8.2.0",
       sha256 =
-        "18f1fd93ef7191dfe5feca9d58fbff9aeee60db226238a9082bb976d6ec779d3",
+        "cdffd2e60def5ea228c334449e7836da687c5f943cc93e002cdfd7cd97cf13a3",
     ),
   "haskell-lsp-types":
     struct(
-      version = "0.8.0.1",
+      version = "0.8.2.0",
       sha256 =
-        "c8a3fec8c38ebe7da931e14e9b0381acde33882d2a46ced5ece5fe9fb133f033",
+        "e7c631eba7e965faf5dd76e7f38eac839b17cbb1ac8460e93a17867a4395ef8e",
     ),
   "haskell-names":
     struct(
@@ -5536,15 +5632,15 @@ packages = (
     ),
   "haskell-src-exts-util":
     struct(
-      version = "0.2.4",
+      version = "0.2.5",
       sha256 =
-        "beb8af3a29322c72a9c9ac9988953c5aacc8f3b882780dd4f03f621d15126ef5",
+        "c802f9ec4e05668e3eeb2cbb0a827f342854211315f9bb74c1e79253c589783b",
     ),
   "haskell-src-meta":
     struct(
-      version = "0.8.0.3",
+      version = "0.8.2",
       sha256 =
-        "8473e3555080860c2043581b398dbab67319584a568463b074a092fd4d095822",
+        "7970d29ef9a96dc21c4ac94b4072c7dddec663cf64e8b5ab221d21868cc1166f",
     ),
   "haskey-btree":
     struct(
@@ -5560,9 +5656,9 @@ packages = (
     ),
   "hasql":
     struct(
-      version = "1.3.0.3",
+      version = "1.3.0.5",
       sha256 =
-        "519ac7c3b06dec89fcd4c881328c2b77c8f74ef34faaba2a4395417fcc257407",
+        "5b2ed858f2d7346209706b169d85fd191bd6f71982ac1d9bedd939b51ee94263",
     ),
   "hasql-optparse-applicative":
     struct(
@@ -5572,15 +5668,15 @@ packages = (
     ),
   "hasql-pool":
     struct(
-      version = "0.5.0.1",
+      version = "0.5.0.2",
       sha256 =
-        "28c67fd0263d3418b51f3a514abbd1527b5dd690da19bcf90899e14de7b056c7",
+        "24ab7c97eceac5d5e7ef512ccffc8d256fe724e32b0180342af61ddb8d4a4888",
     ),
   "hasql-transaction":
     struct(
-      version = "0.7",
+      version = "0.7.1",
       sha256 =
-        "decb3c5b08f710413ee65861c30766c53dc79d05f388fab6f8e1105e4d907fcf",
+        "49a335195797b8975500f37cbcb85daf7267ea5e57fcf78f2a17b6d1bf7c3a0a",
     ),
   "hasty-hamiltonian":
     struct(
@@ -5614,15 +5710,15 @@ packages = (
     ),
   "heaps":
     struct(
-      version = "0.3.6",
+      version = "0.3.6.1",
       sha256 =
-        "181c3cd7f2be698f903dc9649e5ec9311245ad2b9fed91b61f05d0dd7b7dddb2",
+        "91d552f3c8992f745607de39239b950db78295b533eda43d083699872a4ee36d",
     ),
   "hebrew-time":
     struct(
-      version = "0.1.1",
+      version = "0.1.2",
       sha256 =
-        "c7997ee86df43d5d734df63c5e091543bb7fd75a93d530c1857067e27a8b7932",
+        "4316e2ab829a7344900fe15966460bc553e3a60989a14c08ecadf00d2674462b",
     ),
   "hedgehog":
     struct(
@@ -5644,9 +5740,9 @@ packages = (
     ),
   "hedn":
     struct(
-      version = "0.2.0.0",
+      version = "0.2.0.1",
       sha256 =
-        "52070c65da41928688115a86839d3bf07392c34663bf0fc5d834b43ba39027fa",
+        "326c54efc9a6bc92b2f7b5a6900442b8aff8cb9dac93c6f15bea1ff14c27d19b",
     ),
   "here":
     struct(
@@ -5842,9 +5938,9 @@ packages = (
     ),
   "hmatrix-vector-sized":
     struct(
-      version = "0.1.1.2",
+      version = "0.1.1.3",
       sha256 =
-        "86981a7f412b68e42abff0d929db8ed2eab264d1bde3e4e75fa789066a0f437e",
+        "8f151601331ffa2002237595e1938d366031d68321a0516b53a8f684b31082dc",
     ),
   "hmpfr":
     struct(
@@ -5854,9 +5950,9 @@ packages = (
     ),
   "hoauth2":
     struct(
-      version = "1.8.3",
+      version = "1.8.4",
       sha256 =
-        "a7fc28f8bd3c49f5c9727e00b48d0de9eb205596a064451c180d45c9a68ba0d7",
+        "5d5313221980bad30a30649633c821ad25604b09dd9065aa2170115cda5ff14c",
     ),
   "hoogle":
     struct(
@@ -5914,15 +6010,15 @@ packages = (
     ),
   "hpack":
     struct(
-      version = "0.31.1",
+      version = "0.31.2",
       sha256 =
-        "ac3ab2b42339f6e3d45b89e4ee9acf33550f7fac6518b8cf47a874226b5d373a",
+        "6f00834e99463f022fe9346b9c2cdb1054a6d89e9d6b70a4869c2b5a50304dd0",
     ),
   "hpack-dhall":
     struct(
-      version = "0.5.1",
+      version = "0.5.2",
       sha256 =
-        "739ef8c197784e91f9ad3489f93dcb7367e222732b476314cf847e166598ed65",
+        "f187092f60fddda9f4f453cbbf9c536b3f3af193ebd23c2c234280cb6182b69a",
     ),
   "hreader":
     struct(
@@ -5956,9 +6052,9 @@ packages = (
     ),
   "hs-functors":
     struct(
-      version = "0.1.3.0",
+      version = "0.1.4.0",
       sha256 =
-        "3312807260f463dc58b26765379114c144be86a94868ab2091812127902eefc8",
+        "4e8536fa34a50585239ceb84d69c405c742201d8e16bd6490d1cbc1f76803133",
     ),
   "hs-php-session":
     struct(
@@ -6197,9 +6293,9 @@ packages = (
     ),
   "hsyslog":
     struct(
-      version = "5.0.1",
+      version = "5.0.2",
       sha256 =
-        "86de0d8820a6cb7fe166e046ae00c1bbe37d27885cd3aa701deaca8fdf646016",
+        "3eec43c8fb42c23d03f1db7b0b594d39cd94275c2284dcd0c64aa4d680bd7ece",
     ),
   "htaglib":
     struct(
@@ -6227,9 +6323,9 @@ packages = (
     ),
   "html-entities":
     struct(
-      version = "1.1.4.2",
+      version = "1.1.4.3",
       sha256 =
-        "161a0c9193b4c1279e41b2ce1203ee821e8d6ee2cf755b9f070d68602ed5cee7",
+        "ceeab562184a5921381e41eddd7a91dc98e85431ab445e286320ba3aa0ad5556",
     ),
   "html-entity-map":
     struct(
@@ -6269,15 +6365,21 @@ packages = (
     ),
   "http-conduit":
     struct(
-      version = "2.3.4",
+      version = "2.3.7",
       sha256 =
-        "2548b8705442817443e930c4ba19d4a6f4bfe862487a3eb028226cfbaa4f510f",
+        "fe043c89d1df1fec9bee207b125e2c96a9ab83a80b3781abf0591cfa8a3bf2a2",
     ),
   "http-date":
     struct(
       version = "0.0.8",
       sha256 =
         "0f4c6348487abe4f9d58e43d3c23bdefc7fd1fd5672effd3c7d84aaff05f5427",
+    ),
+  "http-directory":
+    struct(
+      version = "0.1.1",
+      sha256 =
+        "9964562b5d3d31f61e21a856b6d33d00617776efd844859327b76bd7061769f3",
     ),
   "http-link-header":
     struct(
@@ -6305,15 +6407,15 @@ packages = (
     ),
   "http-types":
     struct(
-      version = "0.12.2",
+      version = "0.12.3",
       sha256 =
-        "523102d7ba8923e1b399cfd2a1c821e858146ecd934fc147c3acd0fd2b2f9305",
+        "4e8a4a66477459fa436a331c75e46857ec8026283df984d54f90576cd3024016",
     ),
   "http2":
     struct(
-      version = "1.6.4",
+      version = "1.6.5",
       sha256 =
-        "2fcadd614cb8fa031e23a0fae096be76b08af7bbd525dc67096bd575cc3f1e66",
+        "16ebd1ee766f7a62a2cd2bd6ff98d68dbef85d512a847c8515b49a6b37f295ee",
     ),
   "httpd-shed":
     struct(
@@ -6323,15 +6425,15 @@ packages = (
     ),
   "human-readable-duration":
     struct(
-      version = "0.2.1.2",
+      version = "0.2.1.3",
       sha256 =
-        "6552def225a0bde18dd4d416e02dc9a83472924550834529a349dd9286785690",
+        "66888464010654f560c5a300799ebc2e06113898c4664cd364e3303bd32e08ff",
     ),
   "hunit-dejafu":
     struct(
-      version = "1.2.0.6",
+      version = "1.2.1.0",
       sha256 =
-        "54aac2479fec2ecefeb7ff42e659d2d0d1fba125a339eb3df33ed2fb266ff683",
+        "2c7bbc213648cbd380ec83d869518d3960c709f82e4f7a0190beaff0b3e9bd1c",
     ),
   "hvect":
     struct(
@@ -6353,9 +6455,9 @@ packages = (
     ),
   "hw-bits":
     struct(
-      version = "0.7.0.5",
+      version = "0.7.0.6",
       sha256 =
-        "1a4561307e8df6a6334db962fd772bf5bcc7d545727a9e2133e6d7aaffc46bdc",
+        "75c350b867fa851ad94e8829b1cd48d89edfddeaa4d8e8c7dddb89d249766b30",
     ),
   "hw-conduit":
     struct(
@@ -6437,9 +6539,9 @@ packages = (
     ),
   "hw-prim":
     struct(
-      version = "0.6.2.22",
+      version = "0.6.2.23",
       sha256 =
-        "114cc374cf048f99f46c524d76f3ecd5f7d1774b47098cee79274eeabf54ae99",
+        "bee666cf324dfeeb505260963f734a4392aac35221780cd37f84c86770f434ce",
     ),
   "hw-rankselect":
     struct(
@@ -6613,15 +6715,15 @@ packages = (
     ),
   "include-file":
     struct(
-      version = "0.1.0.3",
+      version = "0.1.0.4",
       sha256 =
-        "208f1f3bdc717f5f953cb7c9935c84d6a6291b7cd5ed8a22fa8567184be33d29",
+        "5b1f93482bc5ed85bbe04a1c63fa8bee6d4156b79cee43f812db92765fa1666e",
     ),
   "incremental-parser":
     struct(
-      version = "0.3.2.1",
+      version = "0.3.2.2",
       sha256 =
-        "d9515a1938d47bc9861600aac5304ac1b98727905145a061dc12664b45b56a1d",
+        "a7bb3daef40c36407d1982fad383ce1ff66aaadb9c3d72ae0b5417681d88d856",
     ),
   "indentation-core":
     struct(
@@ -6661,9 +6763,9 @@ packages = (
     ),
   "influxdb":
     struct(
-      version = "1.6.1.1",
+      version = "1.6.1.3",
       sha256 =
-        "d167219c93d0c900ec58824a225b34ac9e465f671728d7890d7f4b0036f1b032",
+        "0715a5d7a9a3e81a72eeb8e64e27ab47243d4d30d28d8d146482acce2b5f03d0",
     ),
   "ini":
     struct(
@@ -6697,9 +6799,9 @@ packages = (
     ),
   "inspection-testing":
     struct(
-      version = "0.4.1.1",
+      version = "0.4.1.2",
       sha256 =
-        "9474250584400659a420e6860b255dc0d808933c7b6b9580020ed25263d73ed2",
+        "9be094b294240e0edb77d5fa22436b969cbf72e938ed272637f150ae2d2107e6",
     ),
   "instance-control":
     struct(
@@ -6709,9 +6811,9 @@ packages = (
     ),
   "integer-logarithms":
     struct(
-      version = "1.0.2.2",
+      version = "1.0.3",
       sha256 =
-        "ba86628d5c14f31fddccea86eeec122ed992af28d5b7ad964b2f5487605e7fc3",
+        "5ae262018698af35bb74916fad170d96d3eb44669c72ed36db9a19a3392cec16",
     ),
   "integration":
     struct(
@@ -6739,9 +6841,9 @@ packages = (
     ),
   "interpolation":
     struct(
-      version = "0.1.0.3",
+      version = "0.1.1",
       sha256 =
-        "e29794d7bb07e13c0fc3e6a05948862fd5ccd50910b9718e4818d354e26f3049",
+        "c71f502252914caadbb57f789fbef6a8e1d475c270def41de31d34ca3e8dff66",
     ),
   "interpolator":
     struct(
@@ -6755,12 +6857,6 @@ packages = (
       sha256 =
         "9ce3bf9d31b9ab2296fccc25031fd52e1c3e4abeca5d3bb452a725b586eb7e03",
     ),
-  "intro":
-    struct(
-      version = "0.5.2.1",
-      sha256 =
-        "e8e2124179c749e597998628bf2cd167d15e977db0f1105f5856a02e8bbaac44",
-    ),
   "intset-imperative":
     struct(
       version = "0.1.0.0",
@@ -6769,9 +6865,9 @@ packages = (
     ),
   "invariant":
     struct(
-      version = "0.5.1",
+      version = "0.5.2",
       sha256 =
-        "eb8c9c45ad24020af2978f22271458bf3787937d931c50c86b580c53ca3f122b",
+        "8037d03bccf11aa54e57ba9caa569d6790044b8ffae27891b43aa9f75f81794c",
     ),
   "invertible":
     struct(
@@ -6817,21 +6913,21 @@ packages = (
     ),
   "io-streams":
     struct(
-      version = "1.5.0.1",
+      version = "1.5.1.0",
       sha256 =
-        "5dcb3717933197a84f31be74abf545126b3d25eb0e0d64f722c480d3c46b2c8b",
+        "8aa2f0afb83ee2e43c472509ecd45475b9ed4409dfaec16eb781f44152f6ebb0",
     ),
   "io-streams-haproxy":
     struct(
-      version = "1.0.0.2",
+      version = "1.0.1.0",
       sha256 =
-        "77814f8258b5c32707a13e0d30ab2e144e7ad073aee821d6def65554024ed086",
+        "b74eca9290fe838a0e3be857a38b62cf6fb7478acee400eac19e47471a2c96b5",
     ),
   "ip":
     struct(
-      version = "1.4.1",
+      version = "1.4.2.1",
       sha256 =
-        "f1c2f1993c82cbbc2e6230d4b669b3df4128286490473528d642c16e5617ec5b",
+        "41c92e12ba99adc31d1d2113909ae85784d9f0bb42ff054f4252b4b79e5fc118",
     ),
   "ip6addr":
     struct(
@@ -6925,9 +7021,9 @@ packages = (
     ),
   "jailbreak-cabal":
     struct(
-      version = "1.3.3",
+      version = "1.3.4",
       sha256 =
-        "6bac08ad1a1ff7452a2963272f96f5de0a3df200fb3219dde6ee93e4963dd01c",
+        "c8e0e72acf380b770483878798faa266cab17c4b14b72989c4fd21158c6d7277",
     ),
   "jose":
     struct(
@@ -6940,6 +7036,12 @@ packages = (
       version = "0.8.0",
       sha256 =
         "4fb098e8ec18ebec7ab93f229dbaca992c704d006bc0f1ca98e8f00a579db6c2",
+    ),
+  "js-dgtable":
+    struct(
+      version = "0.5.2",
+      sha256 =
+        "e28dd65bee8083b17210134e22e01c6349dc33c3b7bd17705973cd014e9f20ac",
     ),
   "js-flot":
     struct(
@@ -7111,21 +7213,9 @@ packages = (
     ),
   "lackey":
     struct(
-      version = "1.0.8",
+      version = "1.0.9",
       sha256 =
-        "751375ed4cc752c4612b690941308b5500e76d217a5fee2c40961faa97c83e5b",
-    ),
-  "lambdabot-core":
-    struct(
-      version = "5.1.0.4",
-      sha256 =
-        "f33bcef0e390c50569613696fa2dad8e5b5f6407a981e5e90f1a5c770807d7b2",
-    ),
-  "lambdabot-irc-plugins":
-    struct(
-      version = "5.1.0.4",
-      sha256 =
-        "4e3d5b8e464c1ccbf12c5a255785c07cdd7208943d2cdeab4a537b899b9e4c4f",
+        "99ee0589c3f62193837361c3973822118add643954ff31862a7500975457335f",
     ),
   "lame":
     struct(
@@ -7147,9 +7237,9 @@ packages = (
     ),
   "language-docker":
     struct(
-      version = "8.0.0",
+      version = "8.0.2",
       sha256 =
-        "f64c31a468ad70d6ee5f4c6747c7586883535bb9313c84b53fe100a6edf4f903",
+        "32424a420f5a95a5be370a56826a801fb9d5351a38643a593f30d4485bebcf01",
     ),
   "language-ecmascript":
     struct(
@@ -7183,9 +7273,9 @@ packages = (
     ),
   "language-puppet":
     struct(
-      version = "1.4.2",
+      version = "1.4.4",
       sha256 =
-        "18976ee3ada02c828342c4194c94e84fb5ee775ad4483c2943a4222a5928b12d",
+        "901da320b4c5206ad807b867fdbfddad4c74eb86d55fe1998230e084be5feb35",
     ),
   "lapack-ffi":
     struct(
@@ -7195,9 +7285,9 @@ packages = (
     ),
   "lapack-ffi-tools":
     struct(
-      version = "0.1.1",
+      version = "0.1.2",
       sha256 =
-        "739b40bdd776a057ab272195f54a8ef76534abd780076f48a02dca356b3270f8",
+        "186861751469b27097b3360a68f663501d55ed694b3d3e2a44901de55bb38e93",
     ),
   "largeword":
     struct(
@@ -7243,9 +7333,9 @@ packages = (
     ),
   "leancheck-instances":
     struct(
-      version = "0.0.2",
+      version = "0.0.3",
       sha256 =
-        "6b3d17fb827e5342509e35fe04374d81322da0aecd1422f1cc8549b20fb911dd",
+        "a671ee53d343208ef3dccc93f3f64b1ed8e9ed4f6c509072fa4ab2b69de0cac0",
     ),
   "leapseconds-announced":
     struct(
@@ -7255,9 +7345,9 @@ packages = (
     ),
   "lens":
     struct(
-      version = "4.17",
+      version = "4.17.1",
       sha256 =
-        "473664de541023bef44aa29105abbb1e35542e9254cdc846963183e0dd3f08cc",
+        "4711bd5703ba22cc4a5cf62679775b92f92c108c6496f7b2b3ef31414761f3be",
     ),
   "lens-action":
     struct(
@@ -7375,9 +7465,9 @@ packages = (
     ),
   "libyaml":
     struct(
-      version = "0.1.0.0",
+      version = "0.1.1.0",
       sha256 =
-        "9cd688e316938d8a80536cb1b329c4b651c845e34e045b0c443b345580fb6f07",
+        "6a034047f45c2f5d3acb8a5b0852075bd4b4f7d6a222a992f45afac152b55f5f",
     ),
   "lift-generics":
     struct(
@@ -7423,9 +7513,9 @@ packages = (
     ),
   "list-t":
     struct(
-      version = "1.0.3",
+      version = "1.0.3.1",
       sha256 =
-        "6ec335daf2052417cd868b5985f8f93a9251b03a64fc00953c71a87cbef371ce",
+        "c9930779f25fe83b103b3c7678d766f2b36de9a32f9480b50b1533e025e5cb40",
     ),
   "listsafe":
     struct(
@@ -7543,9 +7633,9 @@ packages = (
     ),
   "lsp-test":
     struct(
-      version = "0.5.0.2",
+      version = "0.5.1.2",
       sha256 =
-        "aa33cf1bd1e68122f86d71147cda41931f0c020a2ef2ff8ffcbead543ce2b33c",
+        "48f6ac5a1fe90047efc84c3ebb179e1b3f7b64eba76036bf12098baaf34485b9",
     ),
   "lucid":
     struct(
@@ -7603,9 +7693,9 @@ packages = (
     ),
   "main-tester":
     struct(
-      version = "0.2.0.0",
+      version = "0.2.0.1",
       sha256 =
-        "ccb278588b0d68eb98626acc5e588348cdae5acffbb6e699becf6b08d23d0b47",
+        "cf06f5934e374e1972f2cc76701c03d67c5536034d9ad32cace4e03819a57842",
     ),
   "mainland-pretty":
     struct(
@@ -7651,15 +7741,15 @@ packages = (
     ),
   "massiv":
     struct(
-      version = "0.2.6.0",
+      version = "0.2.8.0",
       sha256 =
-        "4e10b3617ce46385067ef4c2827e8ea8a8331657f86209d04ed8ef899dd1b61e",
+        "c365fcecb26c495937b411e0e5e41c02ad3b41c2326408135d396fbfcc3de507",
     ),
   "massiv-io":
     struct(
-      version = "0.1.5.0",
+      version = "0.1.6.0",
       sha256 =
-        "dc89ab0f965adec0c16784f6feec75903b99b8366426c85e167b405b5b36f8ed",
+        "f659dda8a9089ee1e5b8d7439ec47a223a84a3cae90cd880a370257f3811f43d",
     ),
   "math-functions":
     struct(
@@ -7756,6 +7846,12 @@ packages = (
       version = "0.14.18",
       sha256 =
         "f5458d170a291788ac8da896bb44b0cc84021c99dd596c52adf2f7a7f6c03507",
+    ),
+  "menshen":
+    struct(
+      version = "0.0.3",
+      sha256 =
+        "8be77ec070a9bd5b1f7ce05da19ee322bf7ecdebe04c43d767f583a52718a57f",
     ),
   "mercury-api":
     struct(
@@ -7954,9 +8050,9 @@ packages = (
     ),
   "mmark":
     struct(
-      version = "0.0.6.0",
+      version = "0.0.6.2",
       sha256 =
-        "bbdf608f3d756a49995e0bd87e704bfe6ac2aa32c490c54e90b4b9b21d20df45",
+        "e30c5b4b815e41cf370aaf4dd75960abbfee16ece8a73b2ad82095ee64161649",
     ),
   "mmark-cli":
     struct(
@@ -7966,9 +8062,9 @@ packages = (
     ),
   "mmark-ext":
     struct(
-      version = "0.2.1.1",
+      version = "0.2.1.2",
       sha256 =
-        "98554e8b04c47e208cb0e3d5a61fb064eb25fbdaf9eb3ebf4faf9663533b5b05",
+        "2ca4d826e1714a0079f409a35a1f413870dbe95b9f7d5b7d3c734224eddf84e8",
     ),
   "mmorph":
     struct(
@@ -8044,9 +8140,9 @@ packages = (
     ),
   "monad-logger-prefix":
     struct(
-      version = "0.1.10",
+      version = "0.1.11",
       sha256 =
-        "a3ac2d043a13d9e9296692dc729a299361b04757690894cac1b6904510a0d975",
+        "dba2d125ecebdee0600fd5f1b750f7ccec5345f3be6e20f7191efb876d48857f",
     ),
   "monad-logger-syslog":
     struct(
@@ -8140,15 +8236,15 @@ packages = (
     ),
   "mongoDB":
     struct(
-      version = "2.4.0.0",
+      version = "2.4.0.1",
       sha256 =
-        "fdb80241825c70d795a1e552b25afc916e58d7755ec31feaf7ab7afdd5aee719",
+        "37def57b78f562e20581e63d078438cc1539992a33e11edce7c157bf43724d71",
     ),
   "mono-traversable":
     struct(
-      version = "1.0.10.0",
+      version = "1.0.11.0",
       sha256 =
-        "0096dbf6f3651b3834637a2ba4dcb6fafcd782546a542a286d2ecfae277b8811",
+        "c1a0d727a06131174bf6da3733084c284ec70e4f6aa398981e8ba5d4289137d2",
     ),
   "mono-traversable-instances":
     struct(
@@ -8278,9 +8374,9 @@ packages = (
     ),
   "mysql-haskell":
     struct(
-      version = "0.8.4.1",
+      version = "0.8.4.2",
       sha256 =
-        "9da45fb74c7bacbf4a56ba6493f8d77592fac5ee7ac0f5c07e87f8464bc57354",
+        "5f51eb5a77934cd9046d85bce7477288752e3de0d4119111493d5bc967e2e9d1",
     ),
   "mysql-haskell-nem":
     struct(
@@ -8374,9 +8470,15 @@ packages = (
     ),
   "netpbm":
     struct(
-      version = "1.0.2",
+      version = "1.0.3",
       sha256 =
-        "846a04bca94be31c779888febc390c64cfba93e40f3a7a2f80ff6a6e44fcc2d7",
+        "68fcb39e7097ccfd0327d36588d18faea438c389a5310d9ea4a91ec74b809d9d",
+    ),
+  "netrc":
+    struct(
+      version = "0.2.0.0",
+      sha256 =
+        "9a5e07efa44f4b715b110aa4f9687e2b75458fb7537a2f4f1a3582c9e2e82a86",
     ),
   "nettle":
     struct(
@@ -8404,9 +8506,9 @@ packages = (
     ),
   "network":
     struct(
-      version = "2.8.0.0",
+      version = "2.8.0.1",
       sha256 =
-        "c8905268b7e3b4cf624a40245bf11b35274a6dd836a5d4d531b5760075645303",
+        "61f55dbfed0f0af721a8ea36079e9309fcc5a1be20783b44ae500d9e4399a846",
     ),
   "network-anonymous-i2p":
     struct(
@@ -8476,9 +8578,9 @@ packages = (
     ),
   "network-simple-tls":
     struct(
-      version = "0.3.1",
+      version = "0.3.2",
       sha256 =
-        "d25f5b0ecf1d11755e01c23b60714910f6091d14d8fac33307613cc4a4887c8a",
+        "5077aed7b57c25001f8f5305fce93b4e184399e5d3dc6805931cf8bcad3fdc25",
     ),
   "network-transport":
     struct(
@@ -8525,9 +8627,9 @@ packages = (
     ),
   "non-empty":
     struct(
-      version = "0.3.0.1",
+      version = "0.3.1",
       sha256 =
-        "3fbd074804df96f307ae60a67b13e215b635e80a3505ee5f5b0bb26ad9b5eb03",
+        "70010fbf85651e9aa033015d9fafabb9edf2bb4eac2ad2ffd5a1ff8b90db2804",
     ),
   "non-empty-sequence":
     struct(
@@ -8643,6 +8745,12 @@ packages = (
       sha256 =
         "8a692c0b898f5d89e607f9593697a24827981a1cfee53045c192084015061b8e",
     ),
+  "oeis2":
+    struct(
+      version = "1.0.2",
+      sha256 =
+        "adc3ae14acdda7bafd57d1191d924ae015d0aff10b928ba1d37c3c3978eabede",
+    ),
   "ofx":
     struct(
       version = "0.4.2.0",
@@ -8723,9 +8831,9 @@ packages = (
     ),
   "openssl-streams":
     struct(
-      version = "1.2.1.3",
+      version = "1.2.2.0",
       sha256 =
-        "dc7170e835cf71a132903e2a6ccc976bd2984f9241ea2e4e99a9ece74f868f5f",
+        "b966b06f579bc9d1f4698408deff77ff6f7047a083d7d44fbeb379af4cf5f466",
     ),
   "operational":
     struct(
@@ -8771,9 +8879,9 @@ packages = (
     ),
   "optparse-simple":
     struct(
-      version = "0.1.1",
+      version = "0.1.1.2",
       sha256 =
-        "03d31baa535cecba5761e66adcc9514a6d93875eb956b8e4646c0f62dbe055a4",
+        "02716473cc57ff1212c5174cc213f5b1bb744e680c222a4ae97e0b12f38400e4",
     ),
   "optparse-text":
     struct(
@@ -8855,9 +8963,9 @@ packages = (
     ),
   "parseargs":
     struct(
-      version = "0.2.0.8",
+      version = "0.2.0.9",
       sha256 =
-        "7b789204c15d0c478db3d133f349a6970b5509fc6af655faedc03c7426dcf7d6",
+        "3c469ddcee3a63ef790d88f676dcf99b9d90b8815112f18c17febafc9e8025a9",
     ),
   "parsec":
     struct(
@@ -8885,9 +8993,9 @@ packages = (
     ),
   "parser-combinators":
     struct(
-      version = "1.0.1",
+      version = "1.0.2",
       sha256 =
-        "edf5ab8fa69a04334baa8707252036563a8339a96a86956c90febe93830cea32",
+        "3e07f2969fe32d111d3dd0833b97d85355e297ddfab4a4be8edea53bfaea66f1",
     ),
   "parsers":
     struct(
@@ -8909,9 +9017,9 @@ packages = (
     ),
   "partial-semigroup":
     struct(
-      version = "0.5.0.0",
+      version = "0.5.1.0",
       sha256 =
-        "15f7e8941d848a85a0b6fef85f27d2414b7544dd42562ca2d8f65235fd8f8e0f",
+        "49bf2439247b9ffc1a691cee5db8a18580b0c05a576bf71ff8b272f51a402f97",
     ),
   "path":
     struct(
@@ -8927,9 +9035,9 @@ packages = (
     ),
   "path-io":
     struct(
-      version = "1.4.1",
+      version = "1.4.2",
       sha256 =
-        "57cce9e14b56fed60071bdb0f3c27c54eeeb38ca5954d9a2a4a235e475e3bf6c",
+        "23c7f203347bc20e5649476e9b5df662a09ffbb8c1a2f3e658935845621d1d4b",
     ),
   "path-pieces":
     struct(
@@ -9036,9 +9144,9 @@ packages = (
     ),
   "persist":
     struct(
-      version = "0.1.1.1",
+      version = "0.1.1.3",
       sha256 =
-        "6715cf359697e72ba4807ffb622037d27bb494fdd4d4fcf4d9cc66a294eb24e4",
+        "97c44a513079a90d8dc2aeaaedb3e09f2d8e71ee6973fb07a30c839eb0989251",
     ),
   "persistable-record":
     struct(
@@ -9054,9 +9162,9 @@ packages = (
     ),
   "persistent":
     struct(
-      version = "2.9.1",
+      version = "2.9.2",
       sha256 =
-        "6742fd0834463489343feeeddc171124197ebcaef42141e455ed5cd4c282daac",
+        "497e5d2c96aaa370f147ece995a798d1ea217e35996f908d42681f41ec1c4af3",
     ),
   "persistent-iproute":
     struct(
@@ -9072,21 +9180,21 @@ packages = (
     ),
   "persistent-mysql-haskell":
     struct(
-      version = "0.5.1",
+      version = "0.5.2",
       sha256 =
-        "ac85be0c46f5a1df2303685125560d6a22ff528fd6d0162ce49425cce48b80c2",
+        "56c27a690be1ebeb1b6a74d7b3fe7fd9894d92f14c82f3675945c6b758c282cd",
     ),
   "persistent-postgresql":
     struct(
-      version = "2.9.0",
+      version = "2.9.1",
       sha256 =
-        "bd029ca877f9536398e9703e5886731059dbcbd7015cdc470b54727e7e5b14e7",
+        "f8d2be7aea65149da7dd96449394c38acf676ffc74b0638d0f9ba5230da6250a",
     ),
   "persistent-sqlite":
     struct(
-      version = "2.9.2",
+      version = "2.9.3",
       sha256 =
-        "0fe538410b18bb9a61832fc5c1726ed161f4eb685c399d3660c4c41f54f0b5de",
+        "985b9f7323e88f784ff93dd6f5bc65cb0183435dea052a5d238dec1e11b28b8f",
     ),
   "persistent-template":
     struct(
@@ -9192,9 +9300,9 @@ packages = (
     ),
   "pipes-http":
     struct(
-      version = "1.0.5",
+      version = "1.0.6",
       sha256 =
-        "49a196466de1638f3806a49bf10fef9eb3c06456ababf09ffd025b6b64f23055",
+        "a231fb08dfac54c1fac7a0c805f1b6c6e60a380021bb5722b508d6b36e4ba700",
     ),
   "pipes-misc":
     struct(
@@ -9300,15 +9408,21 @@ packages = (
     ),
   "port-utils":
     struct(
-      version = "0.2.0.0",
+      version = "0.2.1.0",
       sha256 =
-        "e19d8ba0c05d1a617f303d184b83a57830b0175d345041d7cd79d71f17a76ad3",
+        "b6f830946a9daa829bb14dc7f105f28ae2cfa2ee8540af8550e3c975ac7117de",
     ),
   "posix-paths":
     struct(
       version = "0.2.1.6",
       sha256 =
         "7239746716761bfc268b60348c5da3c2cf098fe2583f365096a6bef10f637e45",
+    ),
+  "possibly":
+    struct(
+      version = "1.0.0.0",
+      sha256 =
+        "52cd989873c966faffe60d0fe41a0222cb4dccc50313f9c9ed61a0d09db5ea22",
     ),
   "post-mess-age":
     struct(
@@ -9336,9 +9450,9 @@ packages = (
     ),
   "postgresql-simple":
     struct(
-      version = "0.6",
+      version = "0.6.2",
       sha256 =
-        "c96839c35485c7df0c84c76493c31435781c989a8d42e1dfc2e20202de46e0ca",
+        "fbfaf2b326d5d43798f60b25862a9ac5006c0074fe295ba523fb55443a75f396",
     ),
   "postgresql-simple-migration":
     struct(
@@ -9564,9 +9678,9 @@ packages = (
     ),
   "proto-lens-arbitrary":
     struct(
-      version = "0.1.2.5",
+      version = "0.1.2.7",
       sha256 =
-        "0d8e201f65d71a2ee6c9414bb341a64df393f693f4d4d1c61d213d91534e8d8d",
+        "0e345352356bd77dd88149c00ef787bec6c85995e8f9f7fb05172e19786f4f24",
     ),
   "proto-lens-combinators":
     struct(
@@ -9576,9 +9690,9 @@ packages = (
     ),
   "proto-lens-optparse":
     struct(
-      version = "0.1.1.4",
+      version = "0.1.1.5",
       sha256 =
-        "f053140fddc73b7450f897536c0da196d6236b353ba5ed029c9e3db5b864c5b6",
+        "c209b27e07da0cbbc2772139531fd2f1af96c615d1c50acf5f4931b5a1640a5d",
     ),
   "proto-lens-protobuf-types":
     struct(
@@ -9600,9 +9714,9 @@ packages = (
     ),
   "proto-lens-setup":
     struct(
-      version = "0.4.0.1",
+      version = "0.4.0.2",
       sha256 =
-        "5762ce4e02ae0bf9272ffbca8b417a430f3bc9a32036504f3940c0287e9114f5",
+        "1bc500c0a032da878833ae46964b635b4b5d7f0a1e6c5f8577bea6d7fe9c14ff",
     ),
   "protobuf":
     struct(
@@ -9648,9 +9762,9 @@ packages = (
     ),
   "proxied":
     struct(
-      version = "0.3",
+      version = "0.3.1",
       sha256 =
-        "534d4d425f2834b39689e2af301bd5ff81d1619e65664a5efd797a0c88dbeb26",
+        "996894e00af70c715a208a09824a38c001963762f3715cecec8ac4f2fef6ac51",
     ),
   "psql-helpers":
     struct(
@@ -9735,6 +9849,12 @@ packages = (
       version = "0.3.0",
       sha256 =
         "9b0328a788dcac0824a7d7496ab403eef04170551255c9e58fb6e2e319a9cacf",
+    ),
+  "quickcheck-classes":
+    struct(
+      version = "0.6.0.0",
+      sha256 =
+        "9e19335edc92ba1a4957c522a45af31ef31c7b80e2693962f7ef1d14e1de5a0b",
     ),
   "quickcheck-instances":
     struct(
@@ -9858,9 +9978,9 @@ packages = (
     ),
   "rank2classes":
     struct(
-      version = "1.2",
+      version = "1.2.1",
       sha256 =
-        "57c8359d29b84f9837f99ddf23e4d5a2ee494bcac10b929ddb0d6ed7c9d358e1",
+        "60595259892e20014ba4e1713916fe8e5f597e6a29c1c4fd8c16f88d182c6f35",
     ),
   "rasterific-svg":
     struct(
@@ -9936,15 +10056,15 @@ packages = (
     ),
   "rebase":
     struct(
-      version = "1.3",
+      version = "1.3.1",
       sha256 =
-        "073aedeef6788525d069b4d4b7e3acd2a0918149a5e439d54ef82f4cf626e109",
+        "c4371298d99ae94de49e6a125a254997666c432190a34fe0d281a3db4460dcee",
     ),
   "record-dot-preprocessor":
     struct(
-      version = "0.1.4",
+      version = "0.1.5",
       sha256 =
-        "9dd32e7c89f4ac9480035639c2b17da32b90ad7501c2501843270d67db4c43d6",
+        "948b56a4df7139579b035214d1ef4e6c220547d7de2dd249d636c1775e0257ed",
     ),
   "records-sop":
     struct(
@@ -9954,9 +10074,9 @@ packages = (
     ),
   "recursion-schemes":
     struct(
-      version = "5.1",
+      version = "5.1.3",
       sha256 =
-        "01db11b8eb64b11a9f2b65a4d5422dee351b8991aa3ae04c91a2ed016745f3d2",
+        "b21736e54b1d5fb0149624e95f2d8d8fd3413bb0972eda6a70e5753d3c9f1528",
     ),
   "reducers":
     struct(
@@ -9975,12 +10095,6 @@ packages = (
       version = "0.3.3.1",
       sha256 =
         "bc07606d36639148374e7a29a67ac489c7a0ed02655311b5d633a144a746c10e",
-    ),
-  "refined":
-    struct(
-      version = "0.3.0.0",
-      sha256 =
-        "7acef92eb96ec709133556896c37193d95aad8b1421c9e117d8d5ab3f981cf80",
     ),
   "reflection":
     struct(
@@ -10068,9 +10182,9 @@ packages = (
     ),
   "registry":
     struct(
-      version = "0.1.2.2",
+      version = "0.1.3.5",
       sha256 =
-        "8741ec54316a115ac39472d321c2f8d20f1366189f54454e4237f922656ed0ce",
+        "503815692101b4376290ce27c98b00851f9610f00d9e54c45f1ace1a9718d3db",
     ),
   "reinterpret-cast":
     struct(
@@ -10164,9 +10278,9 @@ packages = (
     ),
   "rerebase":
     struct(
-      version = "1.3",
+      version = "1.3.1",
       sha256 =
-        "ca155b086b4c83da781602427203f2180e7ee581fc4aae02783f7da893c98599",
+        "1e64f3ca012e42360862db2e329218c4a6b7796f119f8fa69d34053edffdcf1c",
     ),
   "resource-pool":
     struct(
@@ -10338,9 +10452,9 @@ packages = (
     ),
   "salak":
     struct(
-      version = "0.1.7",
+      version = "0.1.11",
       sha256 =
-        "669640d42444ccf4d839355406b3abdb02a2ff14e1f2f77a43c21240a33f23e5",
+        "37d4e31ddfe3f3ebe211b5b9aaaabf7a368b0f04b4ab19dc15fff3f29ada860e",
     ),
   "saltine":
     struct(
@@ -10536,9 +10650,9 @@ packages = (
     ),
   "sendfile":
     struct(
-      version = "0.7.9",
+      version = "0.7.10",
       sha256 =
-        "102fdf6db8c00f5a5981c6eed5acba1368a2d79b2970ce5b22ceb180aa0fdc42",
+        "4b9199354bfb2931602b90b7a7edf32accba84a53667f062d423604d0caecef2",
     ),
   "seqalign":
     struct(
@@ -10590,9 +10704,9 @@ packages = (
     ),
   "servant-auth-server":
     struct(
-      version = "0.4.3.0",
+      version = "0.4.4.0",
       sha256 =
-        "74a565bc60e89795394e7680643f79e9bd1e4de45fd3be1cfc12a3108c24f0cf",
+        "2c14fcf628c95efaca64251db2e9a368ce06cb471d7f3d622e22ac6aa732298c",
     ),
   "servant-auth-swagger":
     struct(
@@ -10636,6 +10750,12 @@ packages = (
       sha256 =
         "9b8e49e5e3cdda9216c393164e7c4b6d693bb159959dd52648f27f7adbca7960",
     ),
+  "servant-conduit":
+    struct(
+      version = "0.15",
+      sha256 =
+        "dfd115301f29fd517cab6805211b8d10d4bdcf1cc5eb399aebb9124d199ef656",
+    ),
   "servant-docs":
     struct(
       version = "0.11.3",
@@ -10668,9 +10788,9 @@ packages = (
     ),
   "servant-kotlin":
     struct(
-      version = "0.1.1.5",
+      version = "0.1.1.7",
       sha256 =
-        "dbf2f037523d25ca2c81c82490ebad8c8e616c760d092e39ad047965981ffd71",
+        "a4c5fd6a8e898c16d70060f2f1c2338c15e7e23a51eba6b243c32b61e5e81d8d",
     ),
   "servant-lucid":
     struct(
@@ -10764,9 +10884,9 @@ packages = (
     ),
   "serverless-haskell":
     struct(
-      version = "0.8.5",
+      version = "0.8.7",
       sha256 =
-        "0fe307cadc5f0297e11e7dcac15b9371ad98f04683db7f6f5e1faf03cb17d84a",
+        "02f3f53a27962e1b2283d3c0bcabe406cd49245b5994aacb964a9462ac91e360",
     ),
   "serversession":
     struct(
@@ -10806,9 +10926,9 @@ packages = (
     ),
   "shake":
     struct(
-      version = "0.17.4",
+      version = "0.17.8",
       sha256 =
-        "beaddfbd55559ecd2b00eaaa660c2c79925bbe22619e2f5c4dc8b8ef678575aa",
+        "ade4162f7540f044f0446981120800076712d1f98d30c5b5344c0f7828ec49a2",
     ),
   "shake-language-c":
     struct(
@@ -10878,9 +10998,9 @@ packages = (
     ),
   "show-prettyprint":
     struct(
-      version = "0.2.2",
+      version = "0.2.3",
       sha256 =
-        "f07d860b9bb4176a4e46038c5100ecf07d443daa1b15455ca4c2bd4d10e9af55",
+        "ed92c28a7ecdebfa27f27f4ac3df78df9fc88045d8e55497f6d43773ff0a8f07",
     ),
   "siggy-chardust":
     struct(
@@ -10902,15 +11022,21 @@ packages = (
     ),
   "simple-cmd":
     struct(
-      version = "0.1.2",
+      version = "0.1.4",
       sha256 =
-        "e6a15592fbbcc5667b7e45563b55d08228ea483241a3b80aef9f7df802f54d82",
+        "2f277fce90118ab71693c0dac103ddcbf8ebb42d248ae0b00a438cda1660c3bc",
+    ),
+  "simple-cmd-args":
+    struct(
+      version = "0.1.1",
+      sha256 =
+        "9fc6e9d759a75e0ae308673f1de803274389c50339895d60c21e25fcb042ef65",
     ),
   "simple-log":
     struct(
-      version = "0.9.10",
+      version = "0.9.11",
       sha256 =
-        "b398e8649e06a05e88b84532f0ced426a7f18bafe1eeab6b178574773db6ffa5",
+        "533200932d552a04b3ba7689299c00161542f61683eec516868071cb2e5b11d7",
     ),
   "simple-reflect":
     struct(
@@ -10920,9 +11046,9 @@ packages = (
     ),
   "simple-sendfile":
     struct(
-      version = "0.2.27",
+      version = "0.2.28",
       sha256 =
-        "f68572592099a2db3f7212ac7d133447ae5bbb2605285d3de1a29a52d9c79caf",
+        "a9800b79d41c3896181c93b3805135440bca31b5524a33303b7e32aa1bb29870",
     ),
   "simple-vec3":
     struct(
@@ -10980,9 +11106,9 @@ packages = (
     ),
   "skews":
     struct(
-      version = "0.1.0.1",
+      version = "0.1.0.2",
       sha256 =
-        "b544480c3e7d676f008faccd1d31639114f773aac8d2b8828be48122a120b60d",
+        "1740e41a60a2ccd09205473483c4833cedceab9f83cd431822e01c7736fd8977",
     ),
   "skip-var":
     struct(
@@ -10992,21 +11118,21 @@ packages = (
     ),
   "skylighting":
     struct(
-      version = "0.7.5",
+      version = "0.7.7",
       sha256 =
-        "7de100e42e7dac3687372f85225a6d905d534f75990c5a25c6e640acf0ad1320",
+        "7ee358bce3895fe6078312b005b9019e7bf20df893afcab2af853c79cc2fd60e",
     ),
   "skylighting-core":
     struct(
-      version = "0.7.5",
+      version = "0.7.7",
       sha256 =
-        "f706a2eb5d37d1323525d9c4944da2ad8d29c1ccf7d0ae7b433695d981413889",
+        "893cffd4fcd1ab2f5205c93b4b7bf01d7da7156ac378fad68b5980b8bc7ea77d",
     ),
   "slack-web":
     struct(
-      version = "0.2.0.9",
+      version = "0.2.0.11",
       sha256 =
-        "421d2cd3a1626b637224e94c800312673b1a0f0c980d7346c0061e71bb8287d3",
+        "47d1226c6f0870ec23edfed17f09c91013bc49309bd4408011b1581d8ea5cf92",
     ),
   "smallcheck":
     struct(
@@ -11034,9 +11160,9 @@ packages = (
     ),
   "snap-core":
     struct(
-      version = "1.0.3.2",
+      version = "1.0.4.0",
       sha256 =
-        "4c4398476fe882122ce8adc03f69509588d071fc011f50162cd69706093dd88c",
+        "b902602f8422b22a1986bdcf2c2bf72148efc84365b048d832cb42bcf2eb7436",
     ),
   "snap-server":
     struct(
@@ -11154,9 +11280,9 @@ packages = (
     ),
   "splitmix":
     struct(
-      version = "0.0.1",
+      version = "0.0.2",
       sha256 =
-        "2a6c8003a941640ceab9dc358aadf69e08800e2cb10a267422e4436fe1e8772f",
+        "e6abb71ab9c1daeb35262523f23adf7d5d70dfbf097ec40caf91b35866a43bf9",
     ),
   "spoon":
     struct(
@@ -11202,9 +11328,9 @@ packages = (
     ),
   "stack":
     struct(
-      version = "1.9.3",
+      version = "1.9.3.1",
       sha256 =
-        "8e11e315f7f27f670ede9f55ab9e2a0501c15b16eb4346ff2a59b6715fca8b06",
+        "92a2d5d0326eda939c7eb284b2a9d33ffd52a16dd31fd392877212c8f913bd53",
     ),
   "stack2nix":
     struct(
@@ -11238,9 +11364,9 @@ packages = (
     ),
   "static-text":
     struct(
-      version = "0.2.0.3",
+      version = "0.2.0.4",
       sha256 =
-        "599d7a3e432f37128aa6d5ffa985bea7d35961698fc0df7c1cba7e3875413da1",
+        "07cfa2b73e98c67a95f64de5ed8c8a1b088c7f8d3b1b4683418f9bcbc41ea4a5",
     ),
   "statistics":
     struct(
@@ -11328,9 +11454,9 @@ packages = (
     ),
   "store":
     struct(
-      version = "0.5.0.1",
+      version = "0.5.1.0",
       sha256 =
-        "238e8585de3cc551a39003499b4f8ade161630ef18525b30a790a22bca39f536",
+        "19a6d287a92be4135c4cafbec42085fd7ed3182536ec0c54218ab9be09582564",
     ),
   "store-core":
     struct(
@@ -11532,9 +11658,9 @@ packages = (
     ),
   "swagger2":
     struct(
-      version = "2.3.1",
+      version = "2.3.1.1",
       sha256 =
-        "c61fa150dfd4e6f8c17ef66044b7fd1c15f404fc7a91e4dae25e9fb41789271c",
+        "477793bbbe0017d2fcbb762e0b16fe6b7dd9ada5ae69c4826a605a8625a4daa5",
     ),
   "swish":
     struct(
@@ -11683,15 +11809,15 @@ packages = (
     ),
   "tasty-ant-xml":
     struct(
-      version = "1.1.5",
+      version = "1.1.6",
       sha256 =
-        "62ccee94bc5c3d7c6ed99037788262d8d971eeac487fe43b06760f969430a5df",
+        "1c17899e3870922113bbfbf50e33b24478b53cae85dc76906a2de57c03bd188f",
     ),
   "tasty-dejafu":
     struct(
-      version = "1.2.0.8",
+      version = "1.2.1.0",
       sha256 =
-        "24b7cfb2c9d59b878b785ab3c261faa533801059effbfadc1feade2d781a296d",
+        "2811ad5cb2b7a6f9cdfa034e9c7ce737369f2fcb8a9e0309514466bb13c31128",
     ),
   "tasty-discover":
     struct(
@@ -11773,9 +11899,9 @@ packages = (
     ),
   "tcp-streams":
     struct(
-      version = "1.0.1.0",
+      version = "1.0.1.1",
       sha256 =
-        "77d812e5db567875ca26c2682ceddf4bcf825d90dd10dcb171279bd7e96e4861",
+        "0a6313e4b329b6f9fd3854963868cc2208aaad4259ae6618afa91950990fe2b7",
     ),
   "tcp-streams-openssl":
     struct(
@@ -11827,9 +11953,9 @@ packages = (
     ),
   "tensors":
     struct(
-      version = "0.1.2",
+      version = "0.1.4",
       sha256 =
-        "67981055c33d5365eabc90b7b0058731da3a90b54f03cd96ac726db4ae9421a7",
+        "d65d2c0dc7c6c90357c892b42dc13f853c95b96270e4b5afb3d717d42f1a38f2",
     ),
   "termbox":
     struct(
@@ -11893,9 +12019,9 @@ packages = (
     ),
   "texmath":
     struct(
-      version = "0.11.1.2",
+      version = "0.11.2.2",
       sha256 =
-        "373f1281832c0f397976eec8f94117d2e298443ae2591f64a92e734631224cf1",
+        "fe4e24af001104ed3c95ee44076e6819ffad67684efdabee5ae07cf8ceb81087",
     ),
   "text":
     struct(
@@ -11912,9 +12038,9 @@ packages = (
     ),
   "text-builder":
     struct(
-      version = "0.6.4",
+      version = "0.6.5",
       sha256 =
-        "ef3151775bf3061938a6bc94b79144a37a476aebe37f5a9f5a77b47433bc7968",
+        "b8fc1edc1fb2d5a5e89b956f6aa7d6f08e7b68829679a81d5783639219c9c5cd",
     ),
   "text-conversions":
     struct(
@@ -12008,9 +12134,9 @@ packages = (
     ),
   "th-abstraction":
     struct(
-      version = "0.2.10.0",
+      version = "0.2.11.0",
       sha256 =
-        "c9dbffcaa4ed04f257427e61da135797190b572d4e37662f7821844cbd2114af",
+        "51884bcc31d825b93e6788f5731bd7234478dd4ada379816a88228ccc8e0800c",
     ),
   "th-data-compat":
     struct(
@@ -12044,15 +12170,15 @@ packages = (
     ),
   "th-lift-instances":
     struct(
-      version = "0.1.11",
+      version = "0.1.12",
       sha256 =
-        "1da46afabdc73c86f279a0557d5a8f9af1296f9f6043264ba354b1c9cc65a6b8",
+        "2dca1f72e7f9fdf8f4be41c5e1e472540e1086a2c402a5292e231f3babe34ece",
     ),
   "th-orphans":
     struct(
-      version = "0.13.6",
+      version = "0.13.7",
       sha256 =
-        "7745e6b93a73cbc0a6aa0da0a7b7377f0be4fffb4fd311e5502de199ec1dd469",
+        "fe6de44ff0d3279155ad5e0d39bb05efbabdf3335728c3993000624b40cd1d63",
     ),
   "th-printf":
     struct(
@@ -12068,9 +12194,9 @@ packages = (
     ),
   "th-reify-many":
     struct(
-      version = "0.1.8",
+      version = "0.1.9",
       sha256 =
-        "cecaae187df911de515d08929e1394d6d6f7ce129795be8189a6b10d3734fe43",
+        "f889dd029d5ab191ace99fe595f363c60314d536e61c8c58f6167f1a9d29ae43",
     ),
   "th-strict-compat":
     struct(
@@ -12086,9 +12212,9 @@ packages = (
     ),
   "these":
     struct(
-      version = "0.7.5",
+      version = "0.7.6",
       sha256 =
-        "dbac2412ad609d2ccd180722ac73a3f0fb2df300460a78d687660135efec35fb",
+        "9464b83d98e626360a8ad9836ba77e5201cd1e9c89b95b1b11a28ef3c23ac746",
     ),
   "thread-hierarchy":
     struct(
@@ -12132,6 +12258,12 @@ packages = (
       sha256 =
         "84c6701fb7b40841d22582202382c362fd9e0d6e5f1c959b7e0f2f91a85c796c",
     ),
+  "tidal":
+    struct(
+      version = "1.0.13",
+      sha256 =
+        "f2c4f60ec354b75421aacd2f44bbbe963ce49d86813ff9ed0f059b4bebf84854",
+    ),
   "tile":
     struct(
       version = "0.3.0.0",
@@ -12165,9 +12297,9 @@ packages = (
     ),
   "time-parsers":
     struct(
-      version = "0.1.2.0",
+      version = "0.1.2.1",
       sha256 =
-        "4e50d40f13f8e6c5175be22b91586f909607ecb631f8209ff45bce2031bb3c24",
+        "bbf133bd986e79664560f42f2a36b7ad2e89c1095316029e7d6b228412355380",
     ),
   "time-qq":
     struct(
@@ -12261,9 +12393,9 @@ packages = (
     ),
   "tmp-postgres":
     struct(
-      version = "0.1.1.1",
+      version = "0.1.2.2",
       sha256 =
-        "2c5d557c53f60179d5e5e8c7fb6e393ff703e45b55c126359b308ab7a82be863",
+        "d6d485d29107199454693d2d2f492ee6461655357d4c290aa1b805e19a474ed3",
     ),
   "token-bucket":
     struct(
@@ -12303,9 +12435,9 @@ packages = (
     ),
   "transformers-compat":
     struct(
-      version = "0.6.2",
+      version = "0.6.4",
       sha256 =
-        "dc06228b7b8a546f9d257b4fe2b369fc2cb279240bbe4312aa8f47bb2752e4be",
+        "ad7fb455d636533ba37fcae7b01666ebca07f668f3bd773d754b76f82d3ece0c",
       flags = { "five-three": True, },
     ),
   "transformers-fix":
@@ -12313,12 +12445,6 @@ packages = (
       version = "1.0",
       sha256 =
         "65d1fff36b844d8ac22d47eb47e2c7e9d7ece54fafeeca4d4e38a08910be4a09",
-    ),
-  "transformers-lift":
-    struct(
-      version = "0.2.0.1",
-      sha256 =
-        "0bd8bf23fb29874daf9ff990bf25035e21208cfa292f9f18e8cfdb0b4b1ee09d",
     ),
   "traverse-with-class":
     struct(
@@ -12388,9 +12514,9 @@ packages = (
     ),
   "turtle":
     struct(
-      version = "1.5.13",
+      version = "1.5.14",
       sha256 =
-        "0f06763f7a50b19862bd048e9387ddc441f085c5e1aa3a392322210a38f44484",
+        "ff9835a739cb91ff5b60b9a50f23ef2096eff32c334ea7a7c8e50ba4635d5d83",
     ),
   "type-fun":
     struct(
@@ -12466,9 +12592,9 @@ packages = (
     ),
   "typerep-map":
     struct(
-      version = "0.3.0",
+      version = "0.3.1",
       sha256 =
-        "6e1d5bf975f9810f1fc3d235f370b57a338bb60a5f239c2ea5ca95b3dc17aa34",
+        "e4784457e6a9f83fb86a2e6c89048886b1f43e02c7077727711b9d020f999ef9",
     ),
   "tz":
     struct(
@@ -12478,9 +12604,9 @@ packages = (
     ),
   "tzdata":
     struct(
-      version = "0.1.20181026.0",
+      version = "0.1.20190325.0",
       sha256 =
-        "ee99daf34ed04513ec69d4d97b719f0f8adbc1a1a2b12b3f217898c59a0fa32c",
+        "62cd3542a9fb6a5935d09d3ba666891b69b6bf91aa029b059c24100502d7b16f",
     ),
   "ua-parser":
     struct(
@@ -12586,9 +12712,9 @@ packages = (
     ),
   "uniq-deep":
     struct(
-      version = "1.1.0.0",
+      version = "1.1.1",
       sha256 =
-        "f8953f91cbf90c5073ca90d4e9235dbe0a399ff811709d051b037a8a7db0d38e",
+        "c642d17af439700fc359ac3a3c35cc7ce79ab77e0f34fdc9a0a26aacb7df33cf",
     ),
   "unique":
     struct(
@@ -12646,9 +12772,9 @@ packages = (
     ),
   "unix-time":
     struct(
-      version = "0.4.4",
+      version = "0.4.5",
       sha256 =
-        "1d4636e664b45ec5ff3af7794c7c7a2f400017b832dad560328d69d6c53ef0c1",
+        "fe7805c62ad682589567afeee265e6e230170c3941cdce479a2318d1c5088faf",
     ),
   "unliftio":
     struct(
@@ -12754,9 +12880,9 @@ packages = (
     ),
   "util":
     struct(
-      version = "0.1.11.0",
+      version = "0.1.13.0",
       sha256 =
-        "8bc5a5f56cc94f17bf9460efb47e79f430c98adddaf646be22fe78980207119b",
+        "ed8d899852d1f36cb8b71c87278228db5e816de4f79ae658314b911db6a86595",
     ),
   "utility-ht":
     struct(
@@ -12784,9 +12910,9 @@ packages = (
     ),
   "validity":
     struct(
-      version = "0.9.0.0",
+      version = "0.9.0.1",
       sha256 =
-        "78fc7728861013f828f389c3fa5ead5ce949f4450e599c4b4ceeec44007fa0e6",
+        "2bfa1b8afce0497513979253f2f72b2d07b80e8b924e37578a2e0d5a30645c84",
     ),
   "validity-aeson":
     struct(
@@ -12796,9 +12922,9 @@ packages = (
     ),
   "validity-bytestring":
     struct(
-      version = "0.4.0.0",
+      version = "0.4.1.0",
       sha256 =
-        "4c86f016d2ed9721e00a85a349c5df5a28ae037787eea01731b76851b310c77d",
+        "6defe19346145230a0f41dd873767700ee10834c1ba1dfc4bfe31811e2d6d84b",
     ),
   "validity-containers":
     struct(
@@ -12862,9 +12988,9 @@ packages = (
     ),
   "vec":
     struct(
-      version = "0.1",
+      version = "0.1.1",
       sha256 =
-        "be54ef0a53ff4f27a7a0f14b249d1fd47ede63c085d4c68962db24bf4ba3e054",
+        "c51eccac3d154b1d7d1fad6ad2fb2a03f0091d799c38da8380cd880ab534cce7",
     ),
   "vector":
     struct(
@@ -12892,9 +13018,9 @@ packages = (
     ),
   "vector-builder":
     struct(
-      version = "0.3.6",
+      version = "0.3.7.2",
       sha256 =
-        "c8562d4d5daecbebc175c5895ecc1e2796dd3dfe4a66430fcdcd8fe582baa219",
+        "aeb191a7504162c5b05b8265a02bc1c721f934367427bef3859433ecc288b911",
     ),
   "vector-bytes-instances":
     struct(
@@ -12946,9 +13072,9 @@ packages = (
     ),
   "versions":
     struct(
-      version = "3.5.0",
+      version = "3.5.1",
       sha256 =
-        "9c707e3e48fdf32188641243e6a7d37dd1bfce57e076cf4b0dd3a3031558cdbc",
+        "9ca42ae3ab2c2a554399471368104f30828ea09113f74d756d93a7c4b18771e1",
     ),
   "vinyl":
     struct(
@@ -12988,15 +13114,15 @@ packages = (
     ),
   "wai":
     struct(
-      version = "3.2.1.2",
+      version = "3.2.2",
       sha256 =
-        "282351461f19fbac26aa0a7896d7ab583b4abef522fcd9aba944f1848e58234b",
+        "2a64d54901d7bcc3c59dd94dcc99b5dcbbb95b4ec9176e677877888526c17fe1",
     ),
   "wai-app-static":
     struct(
-      version = "3.1.6.2",
+      version = "3.1.6.3",
       sha256 =
-        "d0b0a566be61ef4c8f800922a71dbc4de64287f8f73782b1461cd5d294c1dc3e",
+        "8cb091eab6b4b303b3cd3a5cb90c81c19ce4792d3e706bd749c7cbfacabfcb68",
     ),
   "wai-cli":
     struct(
@@ -13024,9 +13150,9 @@ packages = (
     ),
   "wai-extra":
     struct(
-      version = "3.0.24.3",
+      version = "3.0.25",
       sha256 =
-        "41e8f93ff03947623f5b447c71806f07819e1006f8267c84fd050e89fbafc439",
+        "def0216fdad1da6015fc076c1405a65ffae6fc8a673fd79e79587acb630d5f31",
     ),
   "wai-handler-launch":
     struct(
@@ -13114,21 +13240,21 @@ packages = (
     ),
   "warp":
     struct(
-      version = "3.2.25",
+      version = "3.2.27",
       sha256 =
-        "7e0b8f2c6f156b5969832923e16fbf87cd1ac20678c5c03ce77cb094f44a8566",
+        "e660ab02f34537df314e0be51489186e7d0ce2ba917a0c84aea5b40f30425c5c",
     ),
   "warp-tls":
     struct(
-      version = "3.2.4.3",
+      version = "3.2.5",
       sha256 =
-        "84cd511e32019ba5bef07b0e8a3550b2da06d534bf3df1673d14a5ec4a12f29d",
+        "ae524ad4de6588bb2a1f22671ccbdd1f758bc8674649292034b7261a6c9728fd",
     ),
   "warp-tls-uid":
     struct(
-      version = "0.2.0.5",
+      version = "0.2.0.6",
       sha256 =
-        "b856932108364220abbba3cdebc86740a9b7436684f39936c6dda6a8d6ed73ac",
+        "9c78b530e5ac00984233913696351132eb48e9ea2da1d1cdadde306bd6e6bb27",
     ),
   "wave":
     struct(
@@ -13162,9 +13288,9 @@ packages = (
     ),
   "web3":
     struct(
-      version = "0.8.3.0",
+      version = "0.8.3.1",
       sha256 =
-        "38e8810c0b85a9c467711dd03ac4e53f18971cae89c42f82a1ac451ec86e27bd",
+        "f17ef4b6cb70c105487f17a7f47001066d88dce0ba88dffd155ff6aad4f67edf",
     ),
   "webdriver":
     struct(
@@ -13198,9 +13324,9 @@ packages = (
     ),
   "websockets":
     struct(
-      version = "0.12.5.2",
+      version = "0.12.5.3",
       sha256 =
-        "912d256bce5d460f9185e843c9fa31c772602e6275e980bbd96e4ebda48b4c71",
+        "445b50cc38cb4eb57c91b288330b891030b2111129caad0117f416cae3a17d56",
     ),
   "websockets-snap":
     struct(
@@ -13216,21 +13342,21 @@ packages = (
     ),
   "weigh":
     struct(
-      version = "0.0.13",
+      version = "0.0.14",
       sha256 =
-        "e4baa4b5dd90e882f83c13a3f653204d3dbb6ba285c6c6a96003a29a3ce88efa",
+        "2f18b9e0e0642cc83d35b0f8c864982ec5926d13a445c042b689e6b2b2aa0551",
     ),
   "wide-word":
     struct(
-      version = "0.1.0.7",
+      version = "0.1.0.8",
       sha256 =
-        "2d7796a5987af65f246e12fac22d1695ea2f74a6069588f220b86bdd75a80a63",
+        "b2093afcd8dacb17b412a10823ff5fb5482fe22d332e872216f1a179ec4ccfd8",
     ),
   "wikicfp-scraper":
     struct(
-      version = "0.1.0.9",
+      version = "0.1.0.11",
       sha256 =
-        "9e3cfd6dae669c34c8037cfc0996f371799297f4d08588702399413d8a4242e2",
+        "2ba40e64e5a77534dd747a75f6db2ac3c4db55a5a62d2880be2eb408e5cbdfb8",
     ),
   "wild-bind":
     struct(
@@ -13341,42 +13467,6 @@ packages = (
       sha256 =
         "e33b4ea7a4008ed933744de13d98f6e8d0a54b8778ecf4e7c78812d4fb124ec4",
     ),
-  "writer-cps-exceptions":
-    struct(
-      version = "0.1.0.0",
-      sha256 =
-        "9bb4d8df625bc0822d4e2040a66f141f4ef304963bbb62e4e08720075a8184e8",
-    ),
-  "writer-cps-full":
-    struct(
-      version = "0.1.0.0",
-      sha256 =
-        "ba51df5149470be6d70fd179f2af4cae30824a3a63528f1549a97f57610a5e95",
-    ),
-  "writer-cps-lens":
-    struct(
-      version = "0.1.0.1",
-      sha256 =
-        "2d6b8b6f4f86dcb3cc75bdd25d4ab186d09c2859023f3a6ef2171576b0d306ef",
-    ),
-  "writer-cps-morph":
-    struct(
-      version = "0.1.0.2",
-      sha256 =
-        "e91d07b7dce83973c8ad8f489e161ea8092bd3c7d161f4e57cddeedd2f3fd5d8",
-    ),
-  "writer-cps-mtl":
-    struct(
-      version = "0.1.1.5",
-      sha256 =
-        "1557f5a4ee9d320f62acd0aee99164774327bdb3578e1f63dd695cc839de5627",
-    ),
-  "writer-cps-transformers":
-    struct(
-      version = "0.1.1.4",
-      sha256 =
-        "d6f08b4e20399cec93d8f61fd99c2fbaf0abb67364c4a9f713c5fdab110185fd",
-    ),
   "ws":
     struct(
       version = "0.0.5",
@@ -13385,9 +13475,9 @@ packages = (
     ),
   "wuss":
     struct(
-      version = "1.1.11",
+      version = "1.1.12",
       sha256 =
-        "e06ee98d38d2083f76d82b21ac6d249610102e8f8a828c8a04ab950c507c98d6",
+        "3deabd48ced44c5c07966de804adcf8996237ea08b2452b56d4cb837b7f2d6f6",
     ),
   "x11-xim":
     struct(
@@ -13595,15 +13685,15 @@ packages = (
     ),
   "yam":
     struct(
-      version = "0.5.11",
+      version = "0.5.17",
       sha256 =
-        "8edd7035d26abc6cb8db4a04d44b551e2dae1bf8b436379859bd2d1dde473e4d",
+        "f8e31cfd5602ddef81980e6c40dec05a756162390d0e322f4459cbb485041089",
     ),
   "yam-datasource":
     struct(
-      version = "0.5.11",
+      version = "0.5.17",
       sha256 =
-        "f4a29f8a9f82c40c30e9f7fee7e8f1187c35fbfa251ddd7e7a03103e43bb1d9c",
+        "4e3b1aeafd89ba4c5c9b95b7c3cfe74201af575644999ddbac43014a82f102aa",
     ),
   "yaml":
     struct(
@@ -13649,21 +13739,21 @@ packages = (
     ),
   "yesod-auth":
     struct(
-      version = "1.6.5",
+      version = "1.6.6",
       sha256 =
-        "b9dd963473a4d18d6a6921c0c321d86c77f264d8be2849b4aadcfa8f3ac337b3",
+        "6a1a4b0179303aa4fd082cf2ad29a190f093b9e5e4c9b4b09432e70edfd87545",
     ),
   "yesod-auth-hashdb":
     struct(
-      version = "1.7.1",
+      version = "1.7.1.1",
       sha256 =
-        "0d6f27a49aa862af8f4d1a84f8fe540300e42f9208728fba03a7996a5517dfe5",
+        "25af9464b8a1594265bcf90f6363ca6f5973da14472e475503fce5ececf93528",
     ),
   "yesod-auth-oauth2":
     struct(
-      version = "0.6.1.0",
+      version = "0.6.1.1",
       sha256 =
-        "5ad514358e1f29a65cf0f06bf821961e5a8938fd22f7ea3d36b602672c131c91",
+        "f7b34863ab1865af4919ccbec58f3bb2916052f1ff666fe9db46586949aac5a7",
     ),
   "yesod-bin":
     struct(
@@ -13673,15 +13763,15 @@ packages = (
     ),
   "yesod-core":
     struct(
-      version = "1.6.9",
+      version = "1.6.14",
       sha256 =
-        "ca64d08184c7775e2a985c903e74f32efedcf6c217b3370ca7e136082eeb8e4b",
+        "da3c0c133fa28fb8e128debd1c2397483a8777058119fce13ca28de54aaaf9dc",
     ),
   "yesod-csp":
     struct(
-      version = "0.2.4.0",
+      version = "0.2.5.0",
       sha256 =
-        "e05d31857d6d0e8aececdd83b6a896267ecab2c29426d559e3dafb259eac92a5",
+        "257401c4e5a12524e567c8c9727ab88cb2d6a81e74caea528df9f0ce65326599",
     ),
   "yesod-eventsource":
     struct(
@@ -13697,9 +13787,9 @@ packages = (
     ),
   "yesod-form":
     struct(
-      version = "1.6.3",
+      version = "1.6.4",
       sha256 =
-        "40d7d85039fb2bb3081f695cfed4a6d4f8adac413d86dd11ccfc948b677e9b97",
+        "2c9110fd6213d3bbeb0fcaa148ea3c19ff98461c365811313ad33dc8ebca0c47",
     ),
   "yesod-form-bootstrap4":
     struct(
@@ -13715,15 +13805,15 @@ packages = (
     ),
   "yesod-gitrev":
     struct(
-      version = "0.2.0.0",
+      version = "0.2.1",
       sha256 =
-        "df9f374e6099e55eb62cc273451605ce8746785a293e76115d25002355fee052",
+        "fc34c48eee25a15a55a6052fc1d15bb63bbc63514059483cb2212895f0eea671",
     ),
   "yesod-markdown":
     struct(
-      version = "0.12.6.0",
+      version = "0.12.6.1",
       sha256 =
-        "9569b16ae115e4da9817aae8688f143a2c9143146a9eee06c8068bf231ccab00",
+        "d233ad5589ffcb62d7fa529b1d952313057e37ee60cd3c67e12d87617819c201",
     ),
   "yesod-newsfeed":
     struct(
@@ -13733,15 +13823,15 @@ packages = (
     ),
   "yesod-paginator":
     struct(
-      version = "1.1.0.1",
+      version = "1.1.0.2",
       sha256 =
-        "6e241fb7e55debfe3b674e62faeb02967abb982cd77295847085423d23230b90",
+        "49a3d10b93a16576bf0ca2f47221e7e34231b4af3d764296f0705a9175be1864",
     ),
   "yesod-persistent":
     struct(
-      version = "1.6.0.1",
+      version = "1.6.0.2",
       sha256 =
-        "748acc0a08e371548920a1b5e2e8b2c95b95014becd63acf259712d306a9bd4f",
+        "cd950fd57fe3249c0ed035bbcdcb0206094202186aca11e3513109a914e04d9d",
     ),
   "yesod-recaptcha2":
     struct(
@@ -13841,9 +13931,9 @@ packages = (
     ),
   "zip-archive":
     struct(
-      version = "0.4",
+      version = "0.4.1",
       sha256 =
-        "5fbea91d95ae1b1ec73aed8a8c67c8bae89bc3b6f7d9da898f07209e4a4ada19",
+        "c5d5c9976241dcc25b0d8753dc526bb1bfef60f30dee38c53a7ae56e6be9b1b1",
     ),
   "zip-stream":
     struct(
