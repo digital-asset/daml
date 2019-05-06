@@ -6,10 +6,51 @@ Moving to the new DAML assistant
 
 New command-line tool for working with the DAML SDK: DAML Assistant, or ``daml``. Many commands are similar to using the old SDK Assistant (``da``), but with some changes:
 
-- Simplified installation process
-- Consistent behaviour of the ``new`` command
-- In-built templates mechanism mostly gone, replaced with more standard mechanism of cloning from open-source repositories
-- Components don't run in the background, so you stop them with ``ctrl+c``
+- Simplified installation process: ``curl -sSL https://get.daml.com/ | sh`` for Linux and Mac.
+-
+
+- Overhaul and simplification of templates:
+  - ``daml new`` takes arguments in a consistent order (i.e. project folder first, template name last).
+  - Mix-in template mechanism is gone (``da add``)
+  - No publishing or subscribing of templates, they are distributed with the SDK.
+- Use ``daml build`` to compile your project into a DAR.
+- ``daml start`` components don't run in the background, you stop them with ``ctrl+c``
+  - There is no ``da stop`` and ``da restart`` command.
+- No ``da run`` equivalent, but:
+  - ``daml sandbox`` is the same as ``da run sandbox``
+  - ``daml navigator`` is the same as ``da run navigator``
+  - ``daml damlc`` is the same as ``da run damlc``
+
+
+Migrating a da project to daml
+==============================
+
+.. The easy way is to run ``da migrate``. This will create a ``daml.yaml`` file based on the project's ``da.yaml`` file. If this does not work for you.  --- NOT AVAILABLE YET.
+
+To migrate a ``da`` project to the new assistant ``daml``, you will need to create a ``daml.yaml`` file te replace the ``da.yaml`` config file. They are very similar, with ``daml.yaml`` being just the ``project`` section of the ``da.yaml`` with some additional package information. Here is an example of a ``daml.yaml`` file, from the quickstart-java template:
+
+.. code-block:: yaml
+
+   sdk-version: 0.12.14
+   name: my_project
+   source: daml/Main.daml
+   scenario: Main:setup
+   parties:
+   - Alice
+   - Bob
+   - USD_Bank
+   - EUR_Bank
+   version: 1.0.0
+   exposed-modules:
+   - Main
+   dependencies:
+   - daml-prim
+   - daml-stdlib
+
+Here is the equivalent ``da.yaml`` file for comparison:
+
+.. TODO
+
 
 Switching from old commands to new ones
 =======================================
@@ -17,7 +58,7 @@ Switching from old commands to new ones
 Managing versions and config
 ****************************
 
-.. list-table:: 
+.. list-table::
    :header-rows: 1
 
    * - Old command
