@@ -1011,7 +1011,7 @@ possible to hook it up into the "proto_library" tooling.
 
 ### Unchanged Haskell library being rebuilt
 
-Unfortunately, [GHC builds are not deterministic](https://gitlab.haskell.org/ghc/ghc/issues/12262). This, coupled with the way Bazel works, may lead to Haskell libraries that have not being changed to be rebuilt. If the library sits at the base of build, it may cause a ripple effect that forces you to rebuild most of the workspace without an actual need for it (`ghc-lib` is one example of this).
+Unfortunately, [GHC builds are not deterministic](https://gitlab.haskell.org/ghc/ghc/issues/12262). This, coupled with the way Bazel works, may lead to Haskell libraries that have not been changed to be rebuilt. If the library sits at the base of the dependency graph, it may cause a ripple effect that forces you to rebuild most of the workspace without an actual need for it (`ghc-lib` is one example of this).
 
 **To work around this issue** you can clean the local and build cache, making sure you are fetching the GHC build artifacts from remote:
 
