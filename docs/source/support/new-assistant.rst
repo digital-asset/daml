@@ -25,9 +25,13 @@ New command-line tool for working with the DAML SDK: DAML Assistant, or ``daml``
 Migrating a da project to daml
 ==============================
 
-.. The easy way is to run ``da migrate``. This will create a ``daml.yaml`` file based on the project's ``da.yaml`` file. If this does not work for you.  --- NOT AVAILABLE YET.
+Before you begin migrating an existing project to ``daml``, make sure you upgrade your project to SDK version 0.12.15 or later.
 
-To migrate a ``da`` project to the new assistant ``daml``, you will need to create a ``daml.yaml`` file te replace the ``da.yaml`` config file. They are very similar, with ``daml.yaml`` being just the ``project`` section of the ``da.yaml`` with some additional package information. Here is an example of a ``daml.yaml`` file, from the quickstart-java template:
+The biggest difference between a ``da`` project and a ``daml`` project is that the latter requires a ``daml.yaml`` file instead of a ``da.yaml`` file.
+
+.. The ``da migrate`` command, from the old assistant, will create a ``daml.yaml`` file based on the existing ``da.yaml``. This command is not complete at this time.
+
+So to migrate an existing project, you will need to create a ``daml.yaml`` file. The two files are very similar, with ``daml.yaml`` being the ``project`` section of ``da.yaml``, with some additional packaging information. Here is an example of a ``daml.yaml`` file, from the quickstart-java template:
 
 .. code-block:: yaml
 
@@ -47,9 +51,27 @@ To migrate a ``da`` project to the new assistant ``daml``, you will need to crea
    - daml-prim
    - daml-stdlib
 
-Here is the equivalent ``da.yaml`` file for comparison:
+Here is the corresponding ``da.yaml`` file for comparison:
 
-.. TODO
+.. code-block:: yaml
+
+   project:
+     sdk-version: 0.12.12
+     scenario: Main:setup
+     name: foobar
+     source: daml/Main.daml
+     parties:
+     - Alice
+     - Bob
+     - USD_Bank
+     - EUR_Bank
+   version: 2
+
+The extra fields in ``daml.yaml`` are related to the new packaging functionality in ``damlc``. When you build a DAML project with ``daml build`` (or ``daml start``) it creates a ``.dar`` package from your project inside the ``dist/`` folder. (You can supply a different target location by passing the ``-o`` option.) To create the package properly, the new config file ``daml.yaml`` needs the following additional fields that were not present in ``da.yaml``:
+
+- ``version``: This is the version number for the DAML project, which becomes the version number for the compiled package.
+- ``exposed-modules``: This is used when building the ``.dar`` file for the project. It determines what modules are exposed for users of the package.
+- ``dependencies``: These are the DAML packages that this project depends on. The two packages ``daml-prim`` and ``daml-stdlib`` give access to the basic definitions of DAML, and you should add them both as dependencies. At this time, additional dependencies can only be added by giving the path to the ``.dar`` file of the other package.
 
 
 Switching from old commands to new ones
