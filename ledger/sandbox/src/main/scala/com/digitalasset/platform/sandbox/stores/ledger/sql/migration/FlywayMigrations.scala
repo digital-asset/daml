@@ -10,12 +10,13 @@ import org.slf4j.LoggerFactory
 import scala.util.control.NonFatal
 
 class FlywayMigrations(ds: DataSource) {
+  import FlywayMigrations._
 
   private val logger = LoggerFactory.getLogger(getClass)
 
   def migrate(): Unit = {
     try {
-      val flyway = Flyway.configure().dataSource(ds).load()
+      val flyway = configurationBase.dataSource(ds).load()
       logger.info(s"running Flyway migration..")
       val stepsTaken = flyway.migrate()
       logger.info(s"Flyway schema migration finished successfully applying ${stepsTaken} steps.")
@@ -31,5 +32,8 @@ class FlywayMigrations(ds: DataSource) {
 }
 
 object FlywayMigrations {
+
+  val configurationBase = Flyway.configure()
+
   def apply(ds: DataSource): FlywayMigrations = new FlywayMigrations(ds)
 }
