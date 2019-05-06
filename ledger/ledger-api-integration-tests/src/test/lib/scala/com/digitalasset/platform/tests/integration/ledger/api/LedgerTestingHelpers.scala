@@ -122,10 +122,12 @@ class LedgerTestingHelpers(
         )
         .filter(_.transactionId == transactionId)
         .take(1)
-        .takeWithin(scaled(3.seconds))
+        .takeWithin(scaled(5.seconds))
         .runWith(Sink.headOption)
     } yield {
-      tx shouldBe empty
+      withClue(s"No transactions are expected to be received as result of command ${submitRequest.commands.map(_.commandId).getOrElse("(empty id)")}") {
+        tx shouldBe empty
+      }
     }
   }
 
@@ -159,8 +161,12 @@ class LedgerTestingHelpers(
       verbose: Boolean = false): Future[TransactionTree] = {
     submitAndListenForAllResultsOfCommand(command, transactionFilter, filterCid, verbose).map {
       transactions =>
-        transactions._2 should have length 1
-        transactions._2.headOption.value
+        {
+          withClue(s"Transaction tree received in response to command ${command.commands.map(_.commandId).getOrElse("(empty id)")} on behalf of ${command.commands.map(_.party).getOrElse("")} should have length of 1") {
+            transactions._2 should have length (1)
+            transactions._2.headOption.value
+          }
+        }
     }
   }
 
@@ -237,6 +243,9 @@ class LedgerTestingHelpers(
       .runWith(Sink.seq)
   }
 
+  /**
+    * This is meant to be ran from [timeout] block, as it has no timeout mechanism of its own.
+    */
   def listenForTreeResultOfCommand(
       transactionFilter: TransactionFilter,
       commandId: Option[String],
@@ -251,7 +260,6 @@ class LedgerTestingHelpers(
       )
       .filter(x => commandId.fold(true)(cid => x.commandId == cid))
       .take(1)
-      .takeWithin(scaled(3.seconds))
       .runWith(Sink.seq)
   }
 
@@ -293,7 +301,8 @@ class LedgerTestingHelpers(
     }
 
   /**
-    * @return A LedgerOffset before the result transaction.
+    * @return A LedgerOffset before the result transaction. If the ledger under test is used concurrently, the returned
+    *         offset can be arbitrary distanced from the submitted command.
     */
   def submitSuccessfullyAndReturnOffset(submitRequest: SubmitRequest): Future[LedgerOffset] = {
     for {
