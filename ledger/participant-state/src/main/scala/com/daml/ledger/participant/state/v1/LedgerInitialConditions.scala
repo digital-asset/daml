@@ -12,5 +12,6 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
   */
 final case class LedgerInitialConditions(
     ledgerId: LedgerId,
+    config: Configuration,
     initialRecordTime: Timestamp
 )
