@@ -36,6 +36,9 @@ import qualified Data.Conduit.Tar as Tar
 import System.PosixCompat.Files (createSymbolicLink)
 
 -- | Replace all environment variables for test action, then restore them.
+-- Avoids System.Environment.setEnv because it treats empty strings as
+-- "delete environment variable", unlike main-tester's withEnv which
+-- consequently conflates (Just "") with Nothing.
 withEnv :: [(String, Maybe String)] -> IO t -> IO t
 withEnv vs m = bracket pushEnv popEnv (const m)
     where
