@@ -1006,3 +1006,16 @@ program directly. Please refer to //daml-lf/archive/BUILD.bazel for example usag
 If you find yourself writing similar rules, please take a moment to write some Starlark to abstract
 it out and document it here. Note that proto3-suite isn't compatible with protoc, so it is not currently
 possible to hook it up into the "proto_library" tooling.
+
+## Known issues
+
+### Unchanged Haskell library being rebuilt
+
+Unfortunately, [GHC builds are not deterministic](https://gitlab.haskell.org/ghc/ghc/issues/12262). This, coupled with the way Bazel works, may lead to Haskell libraries that have not being changed to be rebuilt. If the library sits at the base of build, it may cause a ripple effect that forces you to rebuild most of the workspace without an actual need for it (`ghc-lib` is one example of this).
+
+**To work around this issue** you can clean the local and build cache, making sure you are fetching the GHC build artifacts from remote:
+
+    bazel clean --expunge # clean the build cache
+    rm -r .bazel-cache    # clean the local cache
+
+This will also mean that changes made locally will need to be rebuilt, but it's likely that this will still result in a net positive gain on your build time.
