@@ -50,9 +50,8 @@ object DamlOnXTransactionService {
       identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory): TransactionServiceGrpc.TransactionService
-    with BindableService
-    with TransactionServiceLogging =
+      esf: ExecutionSequencerFactory)
+    : TransactionServiceGrpc.TransactionService with BindableService with TransactionServiceLogging =
     new GrpcTransactionService(
       new DamlOnXTransactionService(indexService),
       ledgerId.underlyingString,
@@ -302,8 +301,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
         case (ledgerBegin, ledgerEnd) =>
           OffsetSection(begin, end)(getOffsetHelper(ledgerBegin, ledgerEnd)) match {
             case Failure(exception) =>
-              ???
-            //Source.failed(exception)
+              Source.failed(exception)
             case Success(value) =>
               value match {
                 case OffsetSection.Empty =>
