@@ -8,19 +8,26 @@ New command-line tool for working with the DAML SDK: DAML Assistant, or ``daml``
 
 - Simplified installation process: ``curl -sSL https://get.daml.com/ | sh`` for Linux and Mac.
 - Overhaul and simplification of templates:
+
   - ``daml new`` takes arguments in a consistent order:
+
     - ``daml new proj`` creates a new project named ``proj`` with a skeleton template.
     - ``daml new proj quickstart-java`` creates a new project with the quickstart-java template.
+
   - ``daml new`` templates are built-in to the SDK.
   - Mix-in template mechanism is gone (``da add``)
   - No more publishing or subscribing of templates on Bintray, use Github and ``git clone`` to distribute templates outside of the SDK.
+
 - Use ``daml build`` to compile your project into a DAR.
 - ``daml start`` components don't run in the background, you stop them with ``ctrl+c``
+
   - There is no ``da stop`` and ``da restart`` command.
+
 - No ``da run`` equivalent, but:
-  - ``daml sandbox`` is the same as ``da run sandbox``
-  - ``daml navigator`` is the same as ``da run navigator``
-  - ``daml damlc`` is the same as ``da run damlc``
+
+  - ``daml sandbox`` is the same as ``da run sandbox --``
+  - ``daml navigator`` is the same as ``da run navigator --``
+  - ``daml damlc`` is the same as ``da run damlc --``
 
 
 Migrating a da project to daml
