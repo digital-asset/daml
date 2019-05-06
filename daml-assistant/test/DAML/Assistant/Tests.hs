@@ -44,6 +44,7 @@ main = do
         , testGetDamlPath
         , testGetProjectPath
         , testGetSdk
+        , testGetDispatchEnv
         , testInstall
         ]
 
@@ -260,6 +261,40 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
                 , (sdkPathEnvVar, Nothing)
                 ] (getSdk damlPath Nothing projPath)
             pure ()
+    ]
+
+testGetDispatchEnv :: Tasty.TestTree
+testGetDispatchEnv = Tasty.testGroup "DAML.Assistant.Env.getDispatchEnv"
+    [ Tasty.testCase "getDispatchEnv: Should be idempotent." $ do
+        withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
+            version <- requiredE "expected this to be valid version" $ parseVersion "1.0.1"
+            let denv = Env
+                    { envDamlPath = DamlPath (base </> ".daml")
+                    , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
+                    , envDamlAssistantSdkVersion = Just $ DamlAssistantSdkVersion version
+                    , envSdkVersion = Just version
+                    , envLatestStableSdkVersion = Just version
+                    , envSdkPath = Just $ SdkPath (base </> "sdk")
+                    , envProjectPath = Just $ ProjectPath (base </> "proj")
+                    }
+            env1 <- withEnv [] (getDispatchEnv denv)
+            env2 <- withEnv (fmap (fmap Just) env1) (getDispatchEnv denv)
+            Tasty.assertEqual "dispatch envs" env1 env2
+    , Tasty.testCase "getDispatchEnv: Should override getDamlEnv." $ do
+        withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
+            version <- requiredE "expected this to be valid version" $ parseVersion "1.0.1"
+            let denv1 = Env
+                    { envDamlPath = DamlPath (base </> ".daml")
+                    , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
+                    , envDamlAssistantSdkVersion = Just $ DamlAssistantSdkVersion version
+                    , envSdkVersion = Just version
+                    , envLatestStableSdkVersion = Just version
+                    , envSdkPath = Just $ SdkPath (base </> "sdk")
+                    , envProjectPath = Just $ ProjectPath (base </> "proj")
+                    }
+            env <- withEnv [] (getDispatchEnv denv1)
+            denv2 <- withEnv (fmap (fmap Just) env) getDamlEnv
+            Tasty.assertEqual "daml envs" denv1 denv2
     ]
 
 
