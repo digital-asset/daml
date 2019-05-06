@@ -160,6 +160,10 @@ runNew targetFolder templateName = do
         writeFileUTF8 configPath config
         removeFile configTemplatePath
 
+    putStrLn $
+        "Created a new project in \"" <> targetFolder <>
+        "\" based on the template \"" <> templateName <> "\"."
+
 -- | Our SDK installation is read-only to prevent users from accidentally modifying it.
 -- But when we copy from it in "daml new" we want the result to be writable.
 setWritable :: FilePath -> IO ()
