@@ -45,11 +45,8 @@ object DamlOnXSubmissionService {
       ledgerId: LedgerId,
       indexService: IndexService,
       writeService: WriteService,
-      engine: Engine)(
-      implicit ec: ExecutionContext,
-      mat: ActorMaterializer): CommandSubmissionServiceGrpc.CommandSubmissionService
-    with BindableService
-    with CommandSubmissionServiceLogging =
+      engine: Engine)(implicit ec: ExecutionContext, mat: ActorMaterializer)
+    : CommandSubmissionServiceGrpc.CommandSubmissionService with BindableService with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new DamlOnXSubmissionService(indexService, writeService, engine),
       ledgerId.underlyingString,
