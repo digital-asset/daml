@@ -74,7 +74,7 @@
   - {name: ViewPatterns, within: []}
 
   # Shady extensions
-  - {name: CPP, within: [DA.Sdk.Cli.System, DA.Sdk.Cli.Version, DAML.Assistant.Install.Path]}
+  - {name: CPP, within: [DA.Sdk.Cli.System, DA.Sdk.Cli.Version, DAML.Assistant.Install.Path, Development.IDE.Functions.Compile]}
   - {name: ImplicitParams, within: []}
 
 - flags:
