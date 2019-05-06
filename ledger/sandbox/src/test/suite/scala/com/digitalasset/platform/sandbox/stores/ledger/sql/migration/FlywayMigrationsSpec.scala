@@ -18,7 +18,7 @@ import scala.collection.JavaConverters._
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.StringPlusAny"))
 class FlywayMigrationsSpec extends WordSpec with Matchers {
 
-  private val digester = MessageDigest.getInstance("SHA-256");
+  private val digester = MessageDigest.getInstance("SHA-256")
 
   private val resourceScanner = new Scanner(
     configurationBase.getLocations.toList.asJava,
@@ -33,7 +33,7 @@ class FlywayMigrationsSpec extends WordSpec with Matchers {
         .asScala
         .map { res =>
           val fileName = res.getFilename
-          val expectedDigest = getExpectedDigest(fileName.dropRight(4) + ".sha256")
+          val expectedDigest = getExpectedDigest(fileName, fileName.dropRight(4) + ".sha256")
           val currentDigest = getCurrentDigest(res)
 
           assert(
@@ -44,17 +44,15 @@ class FlywayMigrationsSpec extends WordSpec with Matchers {
     }
   }
 
+  private def getExpectedDigest(sourceFile: String, digestFile: String) =
+    new String(Option(resourceScanner.getResource(digestFile))
+      .getOrElse(sys.error(
+        s"Missing sha-256 file $digestFile! Are you introducing a new Flyway migration step? You need to create a sha-256 digest file by running this under the db/migration folder: shasum -a 256 $sourceFile | awk '{print $$1}' > $digestFile"))
+      .loadAsBytes())
+
   private def getCurrentDigest(res: LoadableResource) = {
     val digest = digester.digest(res.loadAsBytes())
     val bi = new BigInteger(1, digest)
-    String.format("%0" + (digest.length << 1) + "X", bi).toLowerCase
+    (String.format("%0" + (digest.length << 1) + "X", bi) + "\n").toLowerCase
   }
-
-  private def getExpectedDigest(digestFile: String) =
-    new String(
-      Option(resourceScanner.getResource(digestFile))
-        .getOrElse(sys.error(
-          s"Missing sha-256 file $digestFile! Are you introducing a new Flyway migration step? You need to create a sha-256 digest file."))
-        .loadAsBytes())
-
 }
