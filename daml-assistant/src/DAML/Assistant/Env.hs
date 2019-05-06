@@ -66,11 +66,8 @@ overrideWithEnvVar
     -> (String -> t)            -- ^ parser for env var
     -> IO t                     -- ^ calculation to override
     -> IO t
-overrideWithEnvVar envVar parse calculate = do
-    valueM <- getEnv envVar
-    case valueM of
-        Nothing -> calculate
-        Just value -> pure (parse value)
+overrideWithEnvVar envVar parse calculate =
+    maybeM calculate (pure . parse) (getEnv envVar)
 
 -- | (internal) Same as overrideWithEnvVar but accepts "" as
 -- Nothing and throws exception on parse failure.
@@ -149,17 +146,10 @@ getDamlAssistantPathDefault (DamlPath damlPath)
 -- | Determine SDK version of running daml assistant. Can be overriden
 -- with DAML_ASSISTANT_VERSION env var.
 getDamlAssistantSdkVersion :: IO (Maybe DamlAssistantSdkVersion)
-getDamlAssistantSdkVersion = do
-    versionStrM <- getEnv damlAssistantVersionEnvVar
-    case versionStrM of
-        Nothing -> getDamlAssistantSdkVersionDefault
-        Just "" -> pure Nothing
-        Just versionStr -> do
-            version <- requiredE
-                ("Invalid version passed in environment variable "
-                    <> pack damlAssistantVersionEnvVar <> ".")
-                (parseVersion (pack versionStr))
-            pure (Just (DamlAssistantSdkVersion version))
+getDamlAssistantSdkVersion =
+    overrideWithEnvVarMaybe damlAssistantVersionEnvVar
+        (fmap DamlAssistantSdkVersion . parseVersion . pack)
+        getDamlAssistantSdkVersionDefault
 
 -- | Determine SDK version of running daml assistant.
 getDamlAssistantSdkVersionDefault :: IO (Maybe DamlAssistantSdkVersion)
