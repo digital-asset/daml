@@ -114,20 +114,6 @@ adjustDynFlags paths packageState mbPackageName dflags
   }
   where apply f xs d = foldl' f d xs
 
-setThisInstalledUnitId :: UnitId -> DynFlags -> DynFlags
-setThisInstalledUnitId unitId dflags =
-  dflags {thisInstalledUnitId = toInstalledUnitId unitId}
-
-setImports :: [FilePath] -> DynFlags -> DynFlags
-setImports paths dflags = dflags { importPaths = paths }
-
-setPackageState :: PackageState -> DynFlags -> DynFlags
-setPackageState state dflags =
-  dflags
-    { pkgDatabase = pkgStateDb state
-    , pkgState = pkgStateState state
-    , thisUnitIdInsts_ = pkgThisUnitIdInsts state
-    }
 
 -- | Configures the @DynFlags@ for this session to DAML-1.2
 --  compilation:
