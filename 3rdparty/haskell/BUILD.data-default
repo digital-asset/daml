@@ -6,7 +6,7 @@ load("@io_tweag_rules_haskell//haskell:haskell.bzl",
 load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
 
 haskell_library(
-  name = "data-default",
+  name = "lib",
   visibility = ["//visibility:public"],
   srcs = ["@haskell_data__default//:Data/Default.hs"],
   extra_srcs = [],
@@ -22,6 +22,6 @@ haskell_library(
 )
 
 cc_library(
-  name = "data-default-cbits",
+  name = "cbits",
   visibility = ["//visibility:public"],
 )

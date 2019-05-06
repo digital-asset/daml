@@ -3,7 +3,7 @@ package(default_visibility = ["//visibility:public"])
 load("@io_tweag_rules_haskell//haskell:haskell.bzl", "haskell_binary")
 load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
 haskell_binary(
-  name = "arx_bin",
+  name = "bin",
   visibility = ["//visibility:public"],
   srcs = glob(["**/*.hs"], exclude = ["Setup.hs"]),
   extra_srcs = glob(["LICENSE", "README", "docs/blessed/arx.man", "docs/blessed/arx.txt", "model-scripts/tmpx.sh", "version"]),
@@ -19,4 +19,8 @@ haskell_binary(
      "-XMultiParamTypeClasses", "-XOverloadedStrings", "-XStandaloneDeriving",
      "-XTupleSections", "-w", "-Wwarn"
     ],
+)
+cc_library(
+  name = "cbits",
+  visibility = ["//visibility:public"],
 )
