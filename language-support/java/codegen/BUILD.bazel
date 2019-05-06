@@ -184,7 +184,8 @@ da_scala_test(
         ":ledger-tests-model.dar",
     ],
     resource_strip_prefix = "language-support/java/codegen/src/ledger-tests/resources",
-    resources = glob(["src/it/resources/**/*"]),
+    resources = ["src/ledger-tests/resources/logback-test.xml"],
+    tags = ["exclusive"],
     deps = test_deps + [
         ":ledger-tests-model.jar",
         "//ledger/sandbox:sandbox",
