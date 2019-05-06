@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams
+package com.digitalasset.platform.akkastreams.dispatcher
 
 import java.util.Random
 import java.util.concurrent.atomic.AtomicReference
@@ -10,7 +10,7 @@ import java.util.concurrent.{Executors, TimeUnit}
 import akka.stream.DelayOverflowStrategy
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
+import com.digitalasset.platform.akkastreams.FutureTimeouts
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.{OneAfterAnother, RangeSource}
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
