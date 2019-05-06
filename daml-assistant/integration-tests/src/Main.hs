@@ -13,7 +13,7 @@ import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket
 import System.Directory.Extra
-import System.Environment
+import System.Environment.Blank
 import System.FilePath
 import System.IO.Extra
 import System.Process
@@ -29,14 +29,14 @@ main =
     withTempDir $ \tmpDir -> do
     -- We manipulate global state via the working directory and
     -- the environment so running tests in parallel will cause trouble.
-    setEnv "TASTY_NUM_THREADS" "1"
+    setEnv "TASTY_NUM_THREADS" "1" True
     oldPath <- getEnv "PATH"
     javaPath <- locateRunfiles "local_jdk/bin"
     mvnPath <- locateRunfiles "mvn_nix/bin"
     let damlDir = tmpDir </> "daml"
     withEnv
         [ ("DAML_HOME", Just damlDir)
-        , ("PATH", Just $ (damlDir </> "bin") <> ":" <> javaPath <> ":" <> mvnPath <> ":" <> oldPath)
+        , ("PATH", Just $ (damlDir </> "bin") <> ":" <> javaPath <> ":" <> mvnPath <> maybe "" (":" <>) oldPath)
         ] $ defaultMain (tests tmpDir)
 
 tests :: FilePath -> TestTree

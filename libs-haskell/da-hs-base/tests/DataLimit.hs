@@ -11,7 +11,7 @@ import Data.Maybe
 import System.Directory
 import qualified Data.Text as T
 import Data.Aeson (encode)
-import System.Environment
+import System.Environment.Blank
 import Data.Functor
 
 main :: IO ()
@@ -47,11 +47,11 @@ cleanUp s = runManaged $ do
 -- | The CI env doesn't have a home directory so set and unset it if it doesn't exist
 withHomeDir :: IO (Maybe String)
 withHomeDir = do
-    home <- lookupEnv "HOME"
+    home <- getEnv "HOME"
     case home of
         Nothing -> fakeHome
         Just "" -> fakeHome
         Just _ -> pure Nothing
 
 fakeHome :: IO (Maybe String)
-fakeHome = setEnv "HOME" "." $> Just "HOME"
+fakeHome = setEnv "HOME" "." True $> Just "HOME"
