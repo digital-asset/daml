@@ -13,7 +13,7 @@ import DAML.Assistant.Types
 import DAML.Assistant.Util
 import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
 import System.Directory
-import System.Environment
+import System.Environment.Blank
 import System.FilePath
 import System.Info.Extra (isWindows)
 import System.IO.Temp
@@ -24,7 +24,6 @@ import qualified Test.Tasty.HUnit as Tasty
 import qualified Test.Tasty.QuickCheck as Tasty
 import qualified Data.Text as T
 import Test.Tasty.QuickCheck ((==>))
-import Test.Main (withEnv)
 import System.Info (os)
 import Data.Maybe
 import Control.Exception.Safe
@@ -36,9 +35,33 @@ import qualified Data.Conduit.Tar as Tar
 -- unix specific
 import System.PosixCompat.Files (createSymbolicLink)
 
+-- | Replace all environment variables for test action, then restore them.
+withEnv :: [(String, Maybe String)] -> IO t -> IO t
+withEnv vs m = bracket pushEnv popEnv (const m)
+    where
+        pushEnv :: IO [(String, Maybe String)]
+        pushEnv = do
+            oldEnv <- getEnvironment
+            let ks  = map fst vs
+                vs' = [(key, Nothing)  | (key, _) <- oldEnv, key `notElem` ks] ++ vs
+            replaceEnv vs'
+
+        popEnv :: [(String, Maybe String)] -> IO ()
+        popEnv vs' = void $ replaceEnv vs'
+
+        replaceEnv :: [(String, Maybe String)] -> IO [(String, Maybe String)]
+        replaceEnv vs' = do
+            forM vs' $ \(key, newVal) -> do
+                oldVal <- getEnv key
+                case newVal of
+                    Nothing -> unsetEnv key
+                    Just val -> setEnv key val True
+                pure (key, oldVal)
+
+
 main :: IO ()
 main = do
-    setEnv "TASTY_NUM_THREADS" "1" -- we need this because we use withEnv in our tests
+    setEnv "TASTY_NUM_THREADS" "1" True -- we need this because we use withEnv in our tests
     Tasty.defaultMain $ Tasty.testGroup "DAML.Assistant"
         [ testAscendants
         , testGetDamlPath
