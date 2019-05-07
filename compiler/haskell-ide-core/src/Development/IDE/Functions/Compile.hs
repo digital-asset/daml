@@ -89,7 +89,7 @@ data LoadPackageResult = LoadPackageResult
 getSrcSpanInfos
     :: IdeOptions
     -> ParsedModule
-    -> PackageState
+    -> PackageDynFlags
     -> [(Located ModuleName, Maybe FilePath)]
     -> TcModuleResult
     -> IO [SpanInfo]
@@ -102,7 +102,7 @@ getSrcSpanInfos opt mod packageState imports tc =
 -- | Given a string buffer, return a pre-processed @ParsedModule@.
 parseModule
     :: IdeOptions
-    -> PackageState
+    -> PackageDynFlags
     -> FilePath
     -> (UTCTime, SB.StringBuffer)
     -> IO ([FileDiagnostic], Maybe ParsedModule)
@@ -112,7 +112,7 @@ parseModule opt@IdeOptions{..} packageState file =
     runGhcSessionExcept opt Nothing packageState . parseFileContents optPreprocessor file
 
 computePackageDeps ::
-     IdeOptions -> PackageState -> InstalledUnitId -> IO (Either [FileDiagnostic] [InstalledUnitId])
+     IdeOptions -> PackageDynFlags -> InstalledUnitId -> IO (Either [FileDiagnostic] [InstalledUnitId])
 computePackageDeps opts packageState iuid =
   Ex.runExceptT $
   runGhcSessionExcept opts Nothing packageState $
@@ -132,7 +132,7 @@ getPackage dflags p =
 typecheckModule
     :: IdeOptions
     -> ParsedModule
-    -> PackageState
+    -> PackageDynFlags
     -> UniqSupply
     -> [TcModuleResult]
     -> [LoadPackageResult]
@@ -151,7 +151,7 @@ typecheckModule opt mod packageState uniqSupply deps pkgs pm =
 -- | Load a pkg and populate the name cache and external package state.
 loadPackage ::
      IdeOptions
-  -> PackageState
+  -> PackageDynFlags
   -> UniqSupply
   -> [LoadPackageResult]
   -> InstalledUnitId
@@ -179,7 +179,7 @@ loadPackage opt packageState us lps p =
 compileModule
     :: IdeOptions
     -> ParsedModule
-    -> PackageState
+    -> PackageDynFlags
     -> UniqSupply
     -> [TcModuleResult]
     -> [LoadPackageResult]
@@ -216,14 +216,14 @@ compileModule opt mod packageState uniqSupply deps pkgs tmr =
 runGhcSessionExcept
     :: IdeOptions
     -> Maybe ParsedModule
-    -> PackageState
+    -> PackageDynFlags
     -> Ex.ExceptT e Ghc a
     -> Ex.ExceptT e IO a
 runGhcSessionExcept opts mbMod pkg m =
     Ex.ExceptT $ runGhcSession opts mbMod pkg $ Ex.runExceptT m
 
 
-getGhcDynFlags :: IdeOptions -> ParsedModule -> PackageState -> IO DynFlags
+getGhcDynFlags :: IdeOptions -> ParsedModule -> PackageDynFlags -> IO DynFlags
 getGhcDynFlags opts mod pkg = runGhcSession opts (Just mod) pkg getSessionDynFlags
 
 -- | Evaluate a GHC session using a new environment constructed with
@@ -231,7 +231,7 @@ getGhcDynFlags opts mod pkg = runGhcSession opts (Just mod) pkg getSessionDynFla
 runGhcSession
     :: IdeOptions
     -> Maybe ParsedModule
-    -> PackageState
+    -> PackageDynFlags
     -> Ghc a
     -> IO a
 runGhcSession IdeOptions{..} = optRunGhcSession
@@ -477,11 +477,11 @@ parsePragmasIntoDynFlags fp contents = catchSrcErrors $ do
     (dflags, _, _) <- parseDynamicFilePragma dflags0 opts
     return dflags
 
-generatePackageState :: [FilePath] -> Bool -> [(String, ModRenaming)] -> IO PackageState
+generatePackageState :: [FilePath] -> Bool -> [(String, ModRenaming)] -> IO PackageDynFlags
 generatePackageState paths hideAllPkgs pkgImports = do
   let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs paths (defaultDynFlags fakeSettings fakeLlvmConfig)
   (newDynFlags, _) <- initPackages dflags
-  pure $ PackageState (pkgDatabase newDynFlags) (pkgState newDynFlags) (thisUnitIdInsts_ newDynFlags)
+  pure $ PackageDynFlags (pkgDatabase newDynFlags) (pkgState newDynFlags) (thisUnitIdInsts_ newDynFlags)
 
 -- | Run something in a Ghc monad and catch the errors (SourceErrors and
 -- compiler-internal exceptions like Panic or InstallationError).

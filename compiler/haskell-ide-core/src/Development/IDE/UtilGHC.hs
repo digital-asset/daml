@@ -12,7 +12,7 @@
 --
 -- * Call setSessionDynFlags, use modifyDynFlags instead. It's faster and avoids loading packages.
 module Development.IDE.UtilGHC(
-    PackageState(..),
+    PackageDynFlags(..),
     modifyDynFlags,
     textToStringBuffer,
     removeTypeableInfo,
@@ -82,15 +82,24 @@ modifyDynFlags f = do
   modifySession $ \h ->
     h { hsc_dflags = newFlags, hsc_IC = (hsc_IC h) {ic_dflags = newFlags} }
 
--- | This is the subset of `DynFlags` that is computed by package initialization.
-data PackageState = PackageState
+-- | The subset of @DynFlags@ computed by package initialization.
+data PackageDynFlags = PackageDynFlags
   { pkgStateDb :: !(Maybe [(FilePath, [Packages.PackageConfig])])
   , pkgStateState :: !Packages.PackageState
   , pkgThisUnitIdInsts :: !(Maybe [(ModuleName, Module)])
   } deriving (Generic, Show)
 
-instance NFData PackageState where
-  rnf (PackageState db state insts) = db `seq` state `seq` rnf insts
+instance NFData PackageDynFlags where
+  rnf (PackageDynFlags db state insts) = db `seq` state `seq` rnf insts
+
+setPackageState :: PackageDynFlags -> DynFlags -> DynFlags
+setPackageState state dflags =
+  dflags
+    { pkgDatabase = pkgStateDb state
+    , pkgState = pkgStateState state
+    , thisUnitIdInsts_ = pkgThisUnitIdInsts state
+    }
+
 
 
 -- | A version of `showSDoc` that uses default flags (to avoid uses of
@@ -176,14 +185,6 @@ setThisInstalledUnitId unitId dflags =
 
 setImports :: [FilePath] -> DynFlags -> DynFlags
 setImports paths dflags = dflags { importPaths = paths }
-
-setPackageState :: PackageState -> DynFlags -> DynFlags
-setPackageState state dflags =
-  dflags
-    { pkgDatabase = pkgStateDb state
-    , pkgState = pkgStateState state
-    , thisUnitIdInsts_ = pkgThisUnitIdInsts state
-    }
 
 
 

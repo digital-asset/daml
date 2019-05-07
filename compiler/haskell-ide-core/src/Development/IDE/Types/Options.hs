@@ -15,7 +15,7 @@ import           GhcPlugins                     as GHC hiding (PackageState, fst
 
 data IdeOptions = IdeOptions
   { optPreprocessor :: GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
-  , optRunGhcSession :: forall a. Maybe ParsedModule -> PackageState -> Ghc a -> IO a
+  , optRunGhcSession :: forall a. Maybe ParsedModule -> PackageDynFlags -> Ghc a -> IO a
   -- ^ Setup a GHC session using a given package state. If a `ParsedModule` is supplied,
   -- the import path should be setup for that module.
   , optWriteIface :: Bool
