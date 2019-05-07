@@ -38,7 +38,7 @@ cc_library(
 )
 
 haskell_library(
-  name = "clock",
+  name = "lib",
   srcs = glob([
     "System/Clock.hsc",
   ]),
@@ -52,4 +52,6 @@ haskell_library(
       hazel_library("ghc-prim"),
       ":clock-cbits",
   ],
+  package_name = "clock",
+  version = "0.7.2",
 )

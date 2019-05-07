@@ -21,7 +21,7 @@ cc_library(
 # For Windows-specific flags, see
 # https://github.com/fpco/streaming-commons/blob/9946d9bdc4924d6c6f904c42b70faad053a1cb25/streaming-commons.cabal#L65-L71
 haskell_library(
-  name = "streaming-commons",
+  name = "lib",
   srcs = glob([
     "Data/**/*.hs",
     "System/**/*.hs",

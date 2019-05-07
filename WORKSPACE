@@ -416,8 +416,6 @@ hazel_repositories(
     exclude_packages = [
         "arx",
         "clock",
-        "data-default",
-        "data-default-instances-containers",
         "streaming-commons",
         "wai-app-static",
         "zlib",
@@ -480,37 +478,6 @@ hazel_custom_package_hackage(
     build_file = "//3rdparty/haskell:BUILD.clock",
     sha256 = "886601978898d3a91412fef895e864576a7125d661e1f8abc49a2a08840e691f",
     version = "0.7.2",
-)
-
-# We patch various data-default packages to give them shorter filenames
-# to fix Windows builds.
-
-hazel_custom_package_hackage(
-    package_name = "data-default",
-    build_file = "//3rdparty/haskell:BUILD.data-default",
-    sha256 = "b0f95d279cd75cacaa8152a01590dc3460f7134f6840b37052abb3ba3cb2a511",
-    version = "0.7.1.1",
-)
-
-hazel_custom_package_hackage(
-    package_name = "data-default-instances-containers",
-    build_file = "//3rdparty/haskell:BUILD.data-default-instances-containers",
-    sha256 = "a55e07af005c9815d82f3fc95e125db82994377c9f4a769428878701d4ec081a",
-    version = "0.0.1",
-)
-
-hazel_custom_package_hackage(
-    package_name = "data-default-instances-old-locale",
-    build_file = "//3rdparty/haskell:BUILD.data-default-instances-old-locale",
-    sha256 = "60d3b02922958c4908d7bf2b24ddf61511665745f784227d206745784b0c0802",
-    version = "0.0.1",
-)
-
-hazel_custom_package_hackage(
-    package_name = "data-default-instances-dlist",
-    build_file = "//3rdparty/haskell:BUILD.data-default-instances-dlist",
-    sha256 = "7d683711cbf08abd7adcd5ac2be825381308d220397315a5570fe61b719b5959",
-    version = "0.0.1",
 )
 
 hazel_custom_package_hackage(

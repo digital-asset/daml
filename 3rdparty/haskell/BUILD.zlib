@@ -14,7 +14,7 @@ cc_library(
 )
 
 haskell_library(
-  name = "zlib",
+  name = "lib",
   srcs = glob([
     "Codec/Compression/*.hs",
     "Codec/Compression/Zlib/*.hs",
