@@ -33,7 +33,7 @@ import           Config
 import           Fingerprint
 import           GHC                         hiding (convertLit)
 import           GhcMonad
-import           GhcPlugins                  as GHC hiding (PackageState, fst3, (<>))
+import           GhcPlugins                  as GHC hiding (fst3, (<>))
 import           HscMain
 import qualified Packages
 import           Platform

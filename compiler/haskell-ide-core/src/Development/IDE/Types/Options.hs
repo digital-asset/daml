@@ -10,7 +10,7 @@ module Development.IDE.Types.Options
 
 import Development.IDE.UtilGHC
 import           GHC hiding (parseModule, typecheckModule)
-import           GhcPlugins                     as GHC hiding (PackageState, fst3, (<>))
+import           GhcPlugins                     as GHC hiding (fst3, (<>))
 
 
 data IdeOptions = IdeOptions

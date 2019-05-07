@@ -37,7 +37,7 @@ import           Bag
 import qualified GHC
 import           Panic
 import           GhcMonad
-import           GhcPlugins                     as GHC hiding (PackageState, fst3, (<>))
+import           GhcPlugins                     as GHC hiding (fst3, (<>))
 import qualified HeaderInfo                     as Hdr
 import           MkIface
 import           NameCache

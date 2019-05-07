@@ -15,7 +15,7 @@ import           DynFlags (parseDynamicFilePragma)
 import           GHC                         hiding (convertLit)
 import           GHC.LanguageExtensions.Type
 import           GhcMonad
-import           GhcPlugins                  as GHC hiding (PackageState, fst3, (<>))
+import           GhcPlugins                  as GHC hiding (fst3, (<>))
 import           Panic (throwGhcExceptionIO)
 
 import           Control.Monad
