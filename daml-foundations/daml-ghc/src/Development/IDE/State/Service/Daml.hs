@@ -79,7 +79,7 @@ setOpenVirtualResources state resources = do
 
 initialise :: Rules ()
            -> Maybe (Event -> IO ())
-           -> Logger.Handle IO
+           -> Logger.Handle
            -> Options
            -> Maybe SS.Handle
            -> IO IdeState

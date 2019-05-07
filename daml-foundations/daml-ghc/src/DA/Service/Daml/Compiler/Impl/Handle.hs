@@ -165,7 +165,7 @@ newIdeState compilerOpts mbEventHandler loggerH = do
   liftIO $ CompilerService.initialise rule mbEventHandler (toIdeLogger loggerH) compilerOpts mbScenarioService
 
 -- | Adapter to the IDE logger module.
-toIdeLogger :: Logger.Handle m -> IdeLogger.Handle m
+toIdeLogger :: Logger.Handle IO -> IdeLogger.Handle
 toIdeLogger h = IdeLogger.Handle {
        logError = Logger.logError h
      , logWarning = Logger.logWarning h

@@ -78,7 +78,7 @@ import           Numeric.Extra
 -- information we stash inside the shakeExtra field
 data ShakeExtras = ShakeExtras
     {eventer :: Event -> IO ()
-    ,logger :: Logger.Handle IO
+    ,logger :: Logger.Handle
     ,globals :: Var (Map.HashMap TypeRep Dynamic)
     ,state :: Var Values
     }
@@ -221,7 +221,7 @@ getValues state key file = do
 
 -- | Open a 'IdeState', should be shut using 'shakeShut'.
 shakeOpen :: (Event -> IO ()) -- ^ diagnostic handler
-          -> Logger.Handle IO
+          -> Logger.Handle
           -> ShakeOptions
           -> Rules ()
           -> IO IdeState
@@ -419,7 +419,7 @@ sendEvent e = do
     liftIO $ eventer e
 
 -- | bit of an odd signature because we're trying to remove priority
-sl :: (Handle IO -> T.Text -> IO ()) -> IdeState -> T.Text -> IO ()
+sl :: (Handle -> T.Text -> IO ()) -> IdeState -> T.Text -> IO ()
 sl f IdeState{shakeExtras=ShakeExtras{logger}} p = f logger p
 
 shakeLogDebug, shakeLogInfo, shakeLogWarning, shakeLogError

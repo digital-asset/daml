@@ -72,7 +72,7 @@ unsafeClearDiagnostics = unsafeClearAllDiagnostics
 -- | Initialise the Compiler Service.
 initialise :: Rules ()
            -> Maybe (Event -> IO ())
-           -> Logger.Handle IO
+           -> Logger.Handle
            -> CompileOpts
            -> IO IdeState
 initialise mainRule toDiags logger options =
