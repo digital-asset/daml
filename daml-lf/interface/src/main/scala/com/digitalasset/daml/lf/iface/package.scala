@@ -12,8 +12,6 @@ import scala.collection.TraversableLike
 package object iface {
   type FieldWithType = (String, Type)
 
-  type ChoiceName = String
-
   private[iface] def lfprintln(
       @deprecated("shut up unused arguments warning", "") s: => String): Unit = ()
 

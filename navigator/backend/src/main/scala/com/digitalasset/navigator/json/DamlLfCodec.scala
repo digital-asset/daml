@@ -57,7 +57,7 @@ object DamlLfCodec {
 
   def damlLfTypeConToJsValue(value: Model.DamlLfTypeCon): JsValue = {
     val id =
-      Model.DamlLfIdentifier(value.name.ref.packageId, value.name.ref.qualifiedName)
+      Model.DamlLfDefRef(value.name.ref.packageId, value.name.ref.qualifiedName)
     JsObject(
       propType -> JsString(tagTypeCon),
       propName -> damlLfIdentifierToJsValue(id),
@@ -91,7 +91,7 @@ object DamlLfCodec {
     case Model.DamlLfPrimType.Unit => JsString(tagTypeUnit)
   }
 
-  def damlLfIdentifierToJsValue(value: Model.DamlLfIdentifier): JsValue = JsObject(
+  def damlLfIdentifierToJsValue(value: Model.DamlLfDefRef): JsValue = JsObject(
     propName -> JsString(value.qualifiedName.name.toString()),
     propModule -> JsString(value.qualifiedName.module.toString()),
     propPackage -> JsString(value.packageId)
@@ -193,8 +193,8 @@ object DamlLfCodec {
     Model.DamlLfDefDataType(Model.DamlLfImmArraySeq(vars: _*), dataType)
   }
 
-  def jsValueToDamlLfIdentifier(value: JsValue): Model.DamlLfIdentifier =
-    Model.DamlLfIdentifier(
+  def jsValueToDamlLfIdentifier(value: JsValue): Model.DamlLfDefRef =
+    Model.DamlLfDefRef(
       DamlLfRef.PackageId.assertFromString(strField(value, propPackage, "DamlLfIdentifier")),
       Model.DamlLfQualifiedName(
         Model.DamlLfDottedName.assertFromString(strField(value, propModule, "DamlLfIdentifier")),
@@ -221,9 +221,9 @@ object DamlLfCodec {
       def read(v: JsValue): Model.DamlLfDefDataType = jsValueToDamlLfDefDataType(v)
     }
 
-    implicit object DamlLfIdentifierJsonFormat extends RootJsonFormat[Model.DamlLfIdentifier] {
-      def write(v: Model.DamlLfIdentifier): JsValue = damlLfIdentifierToJsValue(v)
-      def read(v: JsValue): Model.DamlLfIdentifier = jsValueToDamlLfIdentifier(v)
+    implicit object DamlLfIdentifierJsonFormat extends RootJsonFormat[Model.DamlLfDefRef] {
+      def write(v: Model.DamlLfDefRef): JsValue = damlLfIdentifierToJsValue(v)
+      def read(v: JsValue): Model.DamlLfDefRef = jsValueToDamlLfIdentifier(v)
     }
   }
 }

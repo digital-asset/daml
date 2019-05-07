@@ -147,7 +147,7 @@ case object LedgerApiV1 {
   }
 
   private def getTemplate(
-      id: Model.DamlLfIdentifier,
+      id: Model.DamlLfDefRef,
       ctx: Context
   ): Result[Model.Template] =
     ctx.templates
@@ -240,7 +240,7 @@ case object LedgerApiV1 {
 
   private def readRecordArgument(
       value: V1.value.Record,
-      typId: Model.DamlLfIdentifier,
+      typId: Model.DamlLfDefRef,
       ctx: Context
   ): Result[Model.ApiRecord] =
     readRecordArgument(
@@ -514,7 +514,7 @@ case object LedgerApiV1 {
 
   def writeCreateContract(
       party: Model.PartyState,
-      templateId: Model.DamlLfIdentifier,
+      templateId: Model.DamlLfDefRef,
       value: Model.ApiRecord
   ): Result[V1.commands.Command] = {
     for {

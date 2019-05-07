@@ -3,12 +3,12 @@
 
 package com.digitalasset.navigator.model.converter
 
-import com.digitalasset.navigator.model.DamlLfIdentifier
+import com.digitalasset.navigator.model.DamlLfDefRef
 
 sealed trait ConversionError extends Throwable
 
 /** Conversion failed because a type is missing. */
-final case class TypeNotFoundError(id: DamlLfIdentifier) extends ConversionError {
+final case class TypeNotFoundError(id: DamlLfDefRef) extends ConversionError {
   override def getMessage: String = s"Type $id not found"
 }
 

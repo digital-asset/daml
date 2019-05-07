@@ -195,11 +195,10 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
       )
 
     private[this] def decodeChoice(lfChoice: PLF.TemplateChoice): TemplateChoice = {
-      checkIdentifier(lfChoice.getName)
       checkIdentifier(lfChoice.getSelfBinder)
       val (v, t) = decodeBinder(lfChoice.getArgBinder)
       TemplateChoice(
-        name = lfChoice.getName,
+        name = Identifier.assertFromString(lfChoice.getName),
         consuming = lfChoice.getConsuming,
         controllers = decodeExpr(lfChoice.getControllers),
         selfBinder = lfChoice.getSelfBinder,
@@ -525,7 +524,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           val exercise = lfUpdate.getExercise
           UpdateExercise(
             templateId = decodeTypeConName(exercise.getTemplate),
-            choice = exercise.getChoice,
+            choice = Identifier.assertFromString(exercise.getChoice),
             cidE = decodeExpr(exercise.getCid),
             actorsE = decodeExpr(exercise.getActor),
             argE = decodeExpr(exercise.getArg)

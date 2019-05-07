@@ -7,7 +7,7 @@ import com.digitalasset.daml.lf.data.{SortedLookupList, ImmArray}
 import com.digitalasset.navigator.{model => Model}
 import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
 import com.digitalasset.navigator.json.Util._
-import com.digitalasset.navigator.model.DamlLfIdentifier
+import com.digitalasset.navigator.model.DamlLfDefRef
 import spray.json._
 
 /**
@@ -157,7 +157,7 @@ object ApiCodecVerbose {
         Model.ApiRecord(
           asObject(value, "ApiRecord").fields
             .get(propId)
-            .flatMap(_.convertTo[Option[DamlLfIdentifier]]),
+            .flatMap(_.convertTo[Option[DamlLfDefRef]]),
           arrayField(value, propFields, "ApiRecord").map(jsValueToApiRecordField)
         )
       case t =>
@@ -184,7 +184,7 @@ object ApiCodecVerbose {
         Model.ApiVariant(
           asObject(value, "ApiVariant").fields
             .get(propId)
-            .flatMap(_.convertTo[Option[DamlLfIdentifier]]),
+            .flatMap(_.convertTo[Option[DamlLfDefRef]]),
           strField(value, propConstructor, "ApiVariant"),
           jsValueToApiValue(anyField(value, propValue, "ApiVariant"))
         )

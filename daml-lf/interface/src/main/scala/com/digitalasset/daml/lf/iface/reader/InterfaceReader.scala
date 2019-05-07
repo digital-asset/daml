@@ -14,19 +14,21 @@ import scalaz.syntax.apply._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.monoid._
 import scalaz.syntax.traverse._
-
+import scalaz.std.list._
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{
-  DottedName,
+  ChoiceName,
   DefinitionRef,
+  DottedName,
+  Identifier,
   ModuleName,
   PackageId,
   QualifiedName
 }
+import com.digitalasset.daml.lf.iface.TemplateChoice.FWT
 
 import scala.collection.JavaConverters._
-import scala.collection.breakOut
 import scala.collection.immutable.Map
 
 object InterfaceReader {
@@ -189,7 +191,10 @@ object InterfaceReader {
               point(InvalidDataTypeDefinition(
                 s"Cannot find a record associated with template: $templateName")))
           case Some((rec, newState)) =>
-            locate('choices, choices(a, ctx)).fold(
+            val y: Errors[ErrorLoc, InterfaceReaderError] \/ Map[ChoiceName, FWT] =
+              locate('choices, choices(a, ctx))
+
+            y.fold(
               newState.addError, { cs =>
                 newState.addTemplate(templateName, rec, DefTemplate(cs))
               }
@@ -198,12 +203,20 @@ object InterfaceReader {
       }
     )
 
+  private def identifier(s: String): InvalidDataTypeDefinition \/ Identifier =
+    Identifier.fromString(s).disjunction leftMap InvalidDataTypeDefinition
+
   private def choices(
       a: DamlLf1.DefTemplate,
-      ctx: Context): InterfaceReaderError.Tree \/ Map[ChoiceName, TemplateChoice.FWT] = {
-    val z: Map[ChoiceName, DamlLf1.TemplateChoice] =
-      a.getChoicesList.asScala.map(a => (a.getName, a))(breakOut)
-    traverseIndexedErrsMap(z)(c => rootErr(visitChoice(c, ctx)))
+      ctx: Context
+  ): InterfaceReaderError.Tree \/ Map[ChoiceName, TemplateChoice.FWT] = {
+
+    val z: Errors[ErrorLoc, InterfaceReaderError] \/ List[(Identifier, DamlLf1.TemplateChoice)] =
+      locate(
+        'choices,
+        rootErr(a.getChoicesList.asScala.toList.traverseU(a => identifier(a.getName).map(_ -> a))))
+
+    z flatMap (z => traverseIndexedErrsMap(z.toMap)(c => rootErr(visitChoice(c, ctx))))
   }
 
   private def visitChoice(

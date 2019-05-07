@@ -24,8 +24,8 @@ sealed trait TaggedNode[IdTag] extends Node[String @@ IdTag] {
   override def idString: String = Tag.unwrap(id)
 }
 
-sealed trait DamlLfNode extends Node[DamlLfIdentifier] {
-  def id: DamlLfIdentifier
+sealed trait DamlLfNode extends Node[DamlLfDefRef] {
+  def id: DamlLfDefRef
   override def idString: String = id.asOpaqueString
 }
 
@@ -71,7 +71,7 @@ final case class CreateCommand(
     index: Long,
     workflowId: ApiTypes.WorkflowId,
     platformTime: Instant,
-    template: DamlLfIdentifier,
+    template: DamlLfDefRef,
     argument: ApiRecord
 ) extends Command
 
@@ -82,7 +82,7 @@ final case class ExerciseCommand(
     platformTime: Instant,
     contract: ApiTypes.ContractId,
     /** The template of the given contract. Not required for the ledger API, but we keep this denormalized information so that it's easier to serialize/deserialize the choice argument. */
-    template: DamlLfIdentifier,
+    template: DamlLfDefRef,
     choice: ApiTypes.Choice,
     argument: ApiValue
 ) extends Command
@@ -97,15 +97,15 @@ final case class Result(id: ApiTypes.CommandId, errorOrTx: Either[Error, Transac
 
 case class DamlLfPackage(
     id: DamlLfRef.PackageId,
-    typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType],
-    templates: Map[DamlLfIdentifier, Template]
+    typeDefs: Map[DamlLfDefRef, DamlLfDefDataType],
+    templates: Map[DamlLfDefRef, Template]
 )
 
 /**
   * A boxed DefDataType that also includes the ID of the type.
   * This is useful for the GraphQL schema.
   */
-final case class DamlLfDefDataTypeBoxed(id: DamlLfIdentifier, value: DamlLfDefDataType)
+final case class DamlLfDefDataTypeBoxed(id: DamlLfDefRef, value: DamlLfDefDataType)
     extends DamlLfNode
 
 // ------------------------------------------------------------------------------------------------
@@ -145,7 +145,7 @@ final case class ContractCreated(
     witnessParties: List[ApiTypes.Party],
     workflowId: ApiTypes.WorkflowId,
     contractId: ApiTypes.ContractId,
-    templateId: DamlLfIdentifier,
+    templateId: DamlLfDefRef,
     argument: ApiRecord
 ) extends Event
 
@@ -157,7 +157,7 @@ final case class ChoiceExercised(
     workflowId: ApiTypes.WorkflowId,
     contractId: ApiTypes.ContractId,
     contractCreateEvent: ApiTypes.EventId,
-    templateId: DamlLfIdentifier,
+    templateId: DamlLfDefRef,
     choice: ApiTypes.Choice,
     argument: ApiValue,
     actingParties: List[ApiTypes.Party],
@@ -181,7 +181,7 @@ final case class Contract(
 
 /** Template for instantiating contracts. */
 final case class Template(
-    id: DamlLfIdentifier,
+    id: DamlLfDefRef,
     choices: List[Choice]
 ) extends DamlLfNode {
   def topLevelDecl: String = id.qualifiedName.toString()

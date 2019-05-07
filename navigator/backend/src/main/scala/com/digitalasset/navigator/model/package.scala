@@ -14,7 +14,7 @@ package object model {
 
   /**
     * An opaque identifier used for templates.
-    * Templates are usually identified using a composite type (see [[DamlLfIdentifier]]).
+    * Templates are usually identified using a composite type (see [[DamlLfDefRef]]).
     */
   sealed trait TemplateStringIdTag
   type TemplateStringId = String @@ TemplateStringIdTag
@@ -44,15 +44,15 @@ package object model {
   val DamlLfQualifiedName = DamlLfRef.QualifiedName
 
   /**
-    * An absolute identifier of a DAML-LF entity.
+    * An absolute reference of a DAML-LF entity.
     * Contains a DAML-LF package ID and a qualified name.
     * Currently, such identifiers can point to:
     * - Templates
     * - User-defined records
     * - User-defined variants
     */
-  type DamlLfIdentifier = DamlLfRef.DefinitionRef
-  val DamlLfIdentifier = DamlLfRef.DefinitionRef
+  type DamlLfDefRef = DamlLfRef.DefinitionRef
+  val DamlLfDefRef = DamlLfRef.DefinitionRef
 
   /**
     * A simple DAML-LF type
@@ -100,7 +100,7 @@ package object model {
 
   type DamlLfFieldWithType = DamlLfIface.FieldWithType
 
-  type DamlLfTypeLookup = DamlLfIdentifier => Option[DamlLfDefDataType]
+  type DamlLfTypeLookup = DamlLfDefRef => Option[DamlLfDefDataType]
 
   def damlLfInstantiate(typeCon: DamlLfTypeCon, defn: DamlLfDefDataType): DamlLfDataType =
     if (defn.typeVars.length != typeCon.typArgs.length) {

@@ -23,7 +23,7 @@ case class Ledger(
     private val choiceExercisedEventByContractById: Map[
       ApiTypes.ContractId,
       List[ChoiceExercised]] = Map.empty,
-    private val contractsByTemplateId: Map[DamlLfIdentifier, Set[Contract]] = Map.empty,
+    private val contractsByTemplateId: Map[DamlLfDefRef, Set[Contract]] = Map.empty,
     private val commandById: Map[ApiTypes.CommandId, Command] = Map.empty,
     private val statusByCommandId: Map[ApiTypes.CommandId, CommandStatus] = Map.empty,
     private val db: DatabaseActions = new DatabaseActions

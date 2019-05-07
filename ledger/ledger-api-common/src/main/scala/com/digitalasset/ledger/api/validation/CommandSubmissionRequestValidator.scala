@@ -108,7 +108,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
           templateId <- requirePresence(e.value.templateId, "template_id")
           validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
           contractId <- requireNonEmptyString(e.value.contractId, "contract_id")
-          choice <- requireNonEmptyString(e.value.choice, "choice")
+          choice <- requireIdentifier(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
         } yield
@@ -125,7 +125,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
           createArguments <- requirePresence(ce.value.createArguments, "create_arguments")
           recordId <- validateOptionalIdentifier(createArguments.recordId)
           validatedRecordField <- validateRecordFields(createArguments.fields)
-          choice <- requireNonEmptyString(ce.value.choice, "choice")
+          choice <- requireIdentifier(ce.value.choice, "choice")
           value <- requirePresence(ce.value.choiceArgument, "value")
           validatedChoiceArgument <- validateValue(value)
         } yield

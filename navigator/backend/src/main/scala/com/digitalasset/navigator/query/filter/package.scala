@@ -149,7 +149,7 @@ package object filter {
       checkParameter(t, c, e, p))
 
   lazy val parameterIdFilter =
-    opaque[DamlLfIdentifier, Boolean, DamlLfTypeLookup]("parameter")((id, c, e, p) =>
+    opaque[DamlLfDefRef, Boolean, DamlLfTypeLookup]("parameter")((id, c, e, p) =>
       checkParameter(DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq()), c, e, p))
 
   lazy val argumentFilter =

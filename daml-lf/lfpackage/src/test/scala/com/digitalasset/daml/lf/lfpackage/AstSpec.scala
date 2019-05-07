@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.lfpackage
 
 import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.DottedName
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Identifier}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Decode.ParseError
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -149,7 +149,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
   "Template.apply" should {
 
-    def builder(name: String, typ: Type, expr: Expr) = TemplateChoice(
+    def builder(name: ChoiceName, typ: Type, expr: Expr) = TemplateChoice(
       name = name,
       consuming = true,
       controllers = eParties,
@@ -159,6 +159,9 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       update = EUpdate(UpdatePure(typ, expr)),
     )
 
+    val List(choice1, choice2, choice3) =
+      List("choice1", "choice2", "choice3").map(Identifier.assertFromString)
+
     "catch choice name collisions" in {
 
       Template(
@@ -167,9 +170,9 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         signatories = eParties,
         agreementText = eText,
         choices = List(
-          "choice1" -> builder("choice1", tUnit, eUnit),
-          "choice2" -> builder("choice2", tBool, eTrue),
-          "choice3" -> builder("choice3", tText, eText)
+          choice1 -> builder(choice1, tUnit, eUnit),
+          choice2 -> builder(choice2, tBool, eTrue),
+          choice3 -> builder(choice3, tText, eText)
         ),
         observers = eParties,
         key = None
@@ -182,9 +185,9 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           signatories = eParties,
           agreementText = eText,
           choices = List(
-            "choice1" -> builder("choice1", tUnit, eUnit),
-            "choice2" -> builder("choice2", tBool, eTrue),
-            "choice1" -> builder("choice1", tText, eText)
+            choice1 -> builder(choice1, tUnit, eUnit),
+            choice2 -> builder(choice2, tBool, eTrue),
+            choice1 -> builder(choice1, tText, eText)
           ),
           observers = eParties,
           key = None

@@ -11,6 +11,7 @@ import scalaz.{Applicative, Bifunctor, Bitraverse, Functor, Traverse}
 import java.{util => j}
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref.ChoiceName
 
 import scala.language.higherKinds
 import scala.collection.JavaConverters._

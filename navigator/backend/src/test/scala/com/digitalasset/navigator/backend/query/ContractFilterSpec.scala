@@ -16,12 +16,12 @@ class ContractFilterSpec extends FlatSpec with Matchers {
 
   behavior of "ContractFilter"
 
-  val damlLfId0 = DamlLfIdentifier(
+  val damlLfId0 = DamlLfDefRef(
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
       DamlLfDottedName.assertFromString("T0")))
-  val damlLfId1 = DamlLfIdentifier(
+  val damlLfId1 = DamlLfDefRef(
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
@@ -40,7 +40,7 @@ class ContractFilterSpec extends FlatSpec with Matchers {
         "int" -> DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
       )))
 
-  val damlLfDefDataTypes: Map[DamlLfIdentifier, DamlLfDefDataType] = Map(
+  val damlLfDefDataTypes: Map[DamlLfDefRef, DamlLfDefDataType] = Map(
     damlLfId0 -> damlLfRecord0,
     damlLfId1 -> damlLfRecord1
   )

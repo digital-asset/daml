@@ -348,7 +348,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "fetch @Mod:T e" ->
           UpdateFetch(T.tycon, e"e"),
         "exercise @Mod:T Choice cid actor arg" ->
-          UpdateExercise(T.tycon, "Choice", e"cid", e"actor", e"arg"),
+          UpdateExercise(T.tycon, id"Choice", e"cid", e"actor", e"arg"),
         "fetch_by_key @Mod:T e" ->
           UpdateFetchByKey(RetrieveByKey(T.tycon, e"e")),
         "lookup_by_key @Mod:T e" ->
@@ -464,8 +464,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           signatories = e"Cons @Party [person] (Nil @Party)",
           agreementText = e""" "Agreement" """,
           choices = Map(
-            "Sleep" -> TemplateChoice(
-              name = "Sleep",
+            id"Sleep" -> TemplateChoice(
+              name = id"Sleep",
               consuming = true,
               controllers = e"Cons @Party [person] (Nil @Party)",
               selfBinder = "this",
@@ -473,8 +473,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
               returnType = t"Unit",
               update = e"upure @Unit ()"
             ),
-            "Nap" -> TemplateChoice(
-              name = "Nap",
+            id"Nap" -> TemplateChoice(
+              name = id"Nap",
               consuming = false,
               controllers = e"Cons @Party [person] (Nil @Party)",
               selfBinder = "this",

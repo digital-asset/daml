@@ -645,7 +645,7 @@ object Transaction {
     def beginExercises(
         targetId: ContractId,
         templateId: TypeConName,
-        choiceId: String,
+        choiceId: ChoiceName,
         optLocation: Option[Location],
         consuming: Boolean,
         actingParties: Set[Party],

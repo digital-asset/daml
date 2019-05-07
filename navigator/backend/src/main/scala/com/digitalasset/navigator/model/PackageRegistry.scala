@@ -11,8 +11,8 @@ import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
 /** Manages a set of known DAML-LF packages. */
 case class PackageRegistry(
     private val packages: Map[DamlLfRef.PackageId, DamlLfPackage] = Map.empty,
-    private val templates: Map[DamlLfIdentifier, Template] = Map.empty,
-    private val typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType] = Map.empty
+    private val templates: Map[DamlLfDefRef, Template] = Map.empty,
+    private val typeDefs: Map[DamlLfDefRef, DamlLfDefDataType] = Map.empty
 ) {
   private[this] def template(
       packageId: DamlLfRef.PackageId,
@@ -20,7 +20,7 @@ case class PackageRegistry(
       r: DamlLfRecord,
       t: DamlLfIface.DefTemplate[DamlLfIface.Type]
   ): Template = Template(
-    DamlLfIdentifier(packageId, qname),
+    DamlLfDefRef(packageId, qname),
     t.choices.toList.map(c => choice(c._1, c._2))
   )
 
@@ -39,13 +39,13 @@ case class PackageRegistry(
       .map(p => {
         val typeDefs = p.typeDecls.collect {
           case (qname, DamlLfIface.reader.InterfaceType.Normal(t)) =>
-            DamlLfIdentifier(p.packageId, qname) -> t
+            DamlLfDefRef(p.packageId, qname) -> t
           case (qname, DamlLfIface.reader.InterfaceType.Template(r, _)) =>
-            DamlLfIdentifier(p.packageId, qname) -> DamlLfDefDataType(DamlLfImmArraySeq.empty, r)
+            DamlLfDefRef(p.packageId, qname) -> DamlLfDefDataType(DamlLfImmArraySeq.empty, r)
         }
         val templates = p.typeDecls.collect {
           case (qname, DamlLfIface.reader.InterfaceType.Template(r, t)) =>
-            DamlLfIdentifier(p.packageId, qname) -> template(p.packageId, qname, r, t)
+            DamlLfDefRef(p.packageId, qname) -> template(p.packageId, qname, r, t)
         }
         p.packageId -> DamlLfPackage(p.packageId, typeDefs, templates)
       })
@@ -83,7 +83,7 @@ case class PackageRegistry(
   // Templates
   // ------------------------------------------------------------------------------------------------------------------
 
-  def template(id: DamlLfIdentifier): Option[Template] =
+  def template(id: DamlLfDefRef): Option[Template] =
     templates.get(id)
 
   def templateByIdentifier(id: ApiTypes.TemplateId): Option[Template] = {
@@ -110,7 +110,7 @@ case class PackageRegistry(
   // Types
   // ------------------------------------------------------------------------------------------------------------------
 
-  def damlLfDefDataType(id: DamlLfIdentifier): Option[DamlLfDefDataType] =
+  def damlLfDefDataType(id: DamlLfDefRef): Option[DamlLfDefDataType] =
     typeDefs.get(id)
 
   /**
@@ -119,12 +119,12 @@ case class PackageRegistry(
     */
   def typeDependencies(
       typ: DamlLfDefDataType,
-      maxDepth: Int = Int.MaxValue): Map[DamlLfIdentifier, DamlLfDefDataType] = {
+      maxDepth: Int = Int.MaxValue): Map[DamlLfDefRef, DamlLfDefDataType] = {
     def foldType(
         typ: DamlLfType,
-        deps: Map[DamlLfIdentifier, DamlLfDefDataType],
+        deps: Map[DamlLfDefRef, DamlLfDefDataType],
         instantiatesRemaining: Int
-    ): Map[DamlLfIdentifier, DamlLfDefDataType] = {
+    ): Map[DamlLfDefRef, DamlLfDefDataType] = {
       typ match {
         case t @ DamlLfTypeVar(_) => deps
         case t @ DamlLfTypePrim(_, vars) =>
@@ -150,9 +150,9 @@ case class PackageRegistry(
 
     def foldDataType(
         ddt: DamlLfDefDataType,
-        deps: Map[DamlLfIdentifier, DamlLfDefDataType],
+        deps: Map[DamlLfDefRef, DamlLfDefDataType],
         instantiatesRemaining: Int
-    ): Map[DamlLfIdentifier, DamlLfDefDataType] = {
+    ): Map[DamlLfDefRef, DamlLfDefDataType] = {
       ddt.dataType match {
         case DamlLfRecord(fields) =>
           fields.foldLeft(deps)((r, field) => foldType(field._2, r, instantiatesRemaining))

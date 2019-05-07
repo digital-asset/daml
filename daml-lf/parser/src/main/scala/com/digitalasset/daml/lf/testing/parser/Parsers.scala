@@ -21,7 +21,10 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
     override def toString: String = l.mkString(" ")
   }
 
-  val id: Parser[String] = accept("Identifier", { case Id(s) => s })
+  val id: Parser[Ref.Identifier] = accept("Identifier", Function unlift {
+    case Id(s) => Ref.Identifier.fromString(s).toOption
+    case _ => None
+  })
   val text: Parser[String] = accept("Text", { case Text(s) => s })
   val pkgId: Parser[Ref.PackageId] = accept("PackageId", Function unlift {
     case SimpleString(s) => Ref.PackageId.fromString(s).toOption

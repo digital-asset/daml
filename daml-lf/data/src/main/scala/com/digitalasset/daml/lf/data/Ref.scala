@@ -120,7 +120,7 @@ object Ref {
   case class DefinitionRef(packageId: PackageId, qualifiedName: QualifiedName)
 
   /* Choice name in a template. */
-  type ChoiceName = String
+  type ChoiceName = Identifier
 
   type ModuleName = DottedName
   val ModuleName = DottedName

@@ -118,7 +118,7 @@ object ValueGenerators {
   } yield DottedName.assertFromStrings(ImmArray(segments))
 
   // generate a junk identifier
-  val idGen: Gen[DefinitionRef] = for {
+  val defRefGen: Gen[DefinitionRef] = for {
     n <- Gen.choose(1, 200)
     packageId <- Gen
       .listOfN(n, Gen.alphaNumChar)
@@ -126,6 +126,17 @@ object ValueGenerators {
     module <- moduleGen
     name <- dottedNameGen
   } yield DefinitionRef(packageId, QualifiedName(module, name))
+
+  val idGen: Gen[Identifier] = {
+    val firstChars =
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_".toVector
+    val mainChars =
+      firstChars ++ "1234567890"
+    for {
+      h <- Gen.oneOf(firstChars)
+      t <- Gen.listOf(Gen.oneOf(mainChars))
+    } yield Identifier.assertFromString((h :: t).mkString)
+  }
 
   // generate a more or less acceptable date value
   private val minDate = Time.Date.assertFromString("1900-01-01")
@@ -142,7 +153,7 @@ object ValueGenerators {
   // generate a variant with arbitrary value
   private def variantGen(nesting: Int): Gen[ValueVariant[ContractId]] =
     for {
-      id <- idGen
+      id <- defRefGen
       variantName <- Gen.alphaStr
       toOption <- Gen
         .oneOf(true, false)
@@ -156,7 +167,7 @@ object ValueGenerators {
 
   private def recordGen(nesting: Int): Gen[ValueRecord[ContractId]] =
     for {
-      id <- idGen
+      id <- defRefGen
       toOption <- Gen
         .oneOf(true, false)
         .map(
@@ -257,7 +268,7 @@ object ValueGenerators {
 
   val contractInstanceGen: Gen[ContractInst[Tx.Value[Tx.ContractId]]] = {
     for {
-      template <- idGen
+      template <- defRefGen
       arg <- versionedValueGen
       agreement <- Arbitrary.arbitrary[String]
     } yield ContractInst(template, arg, agreement)
@@ -291,7 +302,7 @@ object ValueGenerators {
   val fetchNodeGen: Gen[NodeFetch[ContractId]] = {
     for {
       coid <- coidGen
-      templateId <- idGen
+      templateId <- defRefGen
       actingParties <- genNonEmptyParties
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
@@ -303,8 +314,8 @@ object ValueGenerators {
     : Gen[NodeExercises[Tx.NodeId, Tx.ContractId, Tx.Value[Tx.ContractId]]] = {
     for {
       targetCoid <- coidGen
-      templateId <- idGen
-      choiceId <- Gen.alphaStr
+      templateId <- defRefGen
+      choiceId <- idGen
       consume <- Gen.oneOf(true, false)
       actingParties <- genNonEmptyParties
       chosenValue <- versionedValueGen

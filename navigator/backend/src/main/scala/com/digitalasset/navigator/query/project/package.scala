@@ -169,7 +169,7 @@ object project {
       checkParameter(t, c, e, p))
 
   lazy val parameterIdProject =
-    opaque[DamlLfIdentifier, ProjectValue, DamlLfTypeLookup]("parameter")((id, c, e, p) =>
+    opaque[DamlLfDefRef, ProjectValue, DamlLfTypeLookup]("parameter")((id, c, e, p) =>
       checkParameter(DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq()), c, e, p))
 
   lazy val argumentProject =

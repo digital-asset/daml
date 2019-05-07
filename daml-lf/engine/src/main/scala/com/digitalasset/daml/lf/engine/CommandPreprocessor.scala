@@ -340,7 +340,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
   private[engine] def preprocessCreateAndExercise(
       templateId: ValueRef,
       createArgument: VersionedValue[AbsoluteContractId],
-      choiceId: String,
+      choiceId: ChoiceName,
       choiceArgument: VersionedValue[AbsoluteContractId],
       actors: Set[Party]): Result[(Type, SpeedyCommand)] = {
     Result.needDataType(
