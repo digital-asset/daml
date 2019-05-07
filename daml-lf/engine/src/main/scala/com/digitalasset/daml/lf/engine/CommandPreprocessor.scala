@@ -27,18 +27,18 @@ private[engine] object CommandPreprocessor {
     as.foreach(a.add)
     a
   }
+
+  // we use this for easier error handling in translateValues
+  private final case class CommandPreprocessingException(err: Error)
+      extends RuntimeException(err.toString, null, true, false)
+
+  private def fail(s: String): Nothing =
+    throw CommandPreprocessingException(Error(s))
 }
 
 private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPackages) {
 
-  import CommandPreprocessor.ArrayList
-
-  // we use this for easier error handling in translateValues
-  private[this] case class CommandPreprocessingException(err: Error)
-      extends RuntimeException(err.toString, null, true, false)
-
-  private[this] def fail[A](s: String): A =
-    throw CommandPreprocessingException(Error(s))
+  import CommandPreprocessor.{ArrayList, CommandPreprocessingException, fail}
 
   // note: all the types in params must be closed.
   //
@@ -63,10 +63,10 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
           case TApp(tyfun, arg) => TApp(go(tyfun), go(arg))
           case forall: TForall =>
             fail(
-              s"Unexpected forall when replacing parameters in command translation -- all types should be serialiable, and foralls are not: $forall")
+              s"Unexpected forall when replacing parameters in command translation -- all types should be serializable, and foralls are not: $forall")
           case tuple: TTuple =>
             fail(
-              s"Unexpected tuple when replacing parameters in command translation -- all types should be serialiable, and tuples are not: $tuple")
+              s"Unexpected tuple when replacing parameters in command translation -- all types should be serializable, and tuples are not: $tuple")
         }
 
       go(typ0)
@@ -193,7 +193,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
                   case Some(pkg) =>
                     PackageLookup.lookupRecord(pkg, recordId.qualifiedName) match {
                       case Left(err) => ResultError(err)
-                      case Right((dataTypParams, DataRecord(recordFlds, _mbTpl @ _))) =>
+                      case Right((dataTypParams, DataRecord(recordFlds, _))) =>
                         if (recordFlds.length != flds.length) {
                           fail(
                             s"Expecting ${recordFlds.length} field for record $recordId, but got ${flds.length}")
@@ -203,18 +203,29 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
                             "TODO(FM) impossible: type constructor applied to wrong number of parameters, this should never happen on a well-typed package, return better error")
                         }
                         val params = dataTypParams.map(_._1).zip(tyConArgs)
-                        recordFlds
-                          .zip(flds)
-                          .traverseU {
-                            case ((lbl, typ), (mbLbl, v)) =>
-                              mbLbl match {
-                                case Some(lbl_) if lbl != lbl_ =>
-                                  fail(
-                                    s"Mismatching record label $lbl_ (expecting $lbl) for record $recordId")
-                                case _ => ()
-                              }
-                              val replacedTyp = replaceParameters(params, typ)
-                              go(newNesting, replacedTyp, v).map(e => (lbl, e))
+                        labeledRecordToMap(flds)
+                          .fold {
+                            recordFlds.zip(flds).traverseU {
+                              case ((lbl, typ), (mbLbl, v)) =>
+                                mbLbl
+                                  .filter(_ != lbl)
+                                  .foreach(lbl_ =>
+                                    fail(
+                                      s"Mismatching record label $lbl_ (expecting $lbl) for record $recordId"))
+                                val replacedTyp = replaceParameters(params, typ)
+                                go(newNesting, replacedTyp, v).map(e => (lbl, e))
+                            }
+                          } { labeledRecords =>
+                            recordFlds.traverseU {
+                              case ((lbl, typ)) =>
+                                labeledRecords
+                                  .get(lbl)
+                                  .fold(fail(s"Missing record label $lbl for record $recordId")) {
+                                    v =>
+                                      val replacedTyp = replaceParameters(params, typ)
+                                      go(newNesting, replacedTyp, v).map(e => (lbl, e))
+                                  }
+                            }
                           }
                           .map(
                             flds =>
@@ -235,6 +246,32 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
     }
 
     exceptionToResultError(go(0, ty0, v0.value))
+  }
+
+  private[engine] def labeledRecordToMap(
+      fields: ImmArray[(Option[String], Value[AbsoluteContractId])])
+    : Option[Map[String, Value[AbsoluteContractId]]] = {
+    @tailrec
+    def go(
+        fields: ImmArray[(Option[String], Value[AbsoluteContractId])],
+        map: Map[String, Value[AbsoluteContractId]])
+      : Option[Map[String, Value[AbsoluteContractId]]] = {
+      fields match {
+        case ImmArrayCons(LabeledValue(label, value), tail) =>
+          go(tail, map + (label -> value))
+        case _ if fields.isEmpty =>
+          Some(map)
+        case _ =>
+          None
+      }
+    }
+    go(fields, Map.empty)
+  }
+
+  private[engine] object LabeledValue {
+    def unapply(field: (Option[String], Value[AbsoluteContractId]))
+      : Option[(String, Value[AbsoluteContractId])] =
+      field._1.map(_ -> field._2)
   }
 
   private[engine] def preprocessCreate(
