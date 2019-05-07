@@ -128,10 +128,15 @@ object IouMain extends App with StrictLogging {
 
   } yield ()
 
-  Try(Await.result(issuerFlow, Duration.Inf)) match {
-    case Success(a) => logger.info(s"Terminating with result: $a")
-    case Failure(e) => logger.error(s"Terminating with error", e)
+  val returnCode = Try(Await.result(issuerFlow, Duration.Inf)) match {
+    case Success(a) =>
+      logger.info(s"Terminating with result: $a")
+      0
+    case Failure(e) =>
+      logger.error(s"Terminating with error", e)
+      1
   }
 
   asys.terminate()
+  System.exit(returnCode)
 }
