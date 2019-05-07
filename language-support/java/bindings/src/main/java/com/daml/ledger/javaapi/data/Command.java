@@ -17,6 +17,8 @@ public abstract class Command {
                 return CreateCommand.fromProto(command.getCreate());
             case EXERCISE:
                 return ExerciseCommand.fromProto(command.getExercise());
+            case CREATEANDEXERCISE:
+                return CreateAndExerciseCommand.fromProto(command.getCreateAndExercise());
             case COMMAND_NOT_SET:
             default:
                 throw new ProtoCommandUnknown(command);
@@ -24,19 +26,17 @@ public abstract class Command {
     }
 
     public CommandsOuterClass.Command toProtoCommand() {
+        CommandsOuterClass.Command.Builder builder = CommandsOuterClass.Command.newBuilder();
         if (this instanceof CreateCommand) {
-            CreateCommand command = (CreateCommand) this;
-            return CommandsOuterClass.Command.newBuilder()
-                    .setCreate(command.toProto())
-                    .build();
+            builder.setCreate(((CreateCommand) this).toProto());
         } else if (this instanceof ExerciseCommand) {
-            ExerciseCommand command = (ExerciseCommand) this;
-            return CommandsOuterClass.Command.newBuilder()
-                    .setExercise(command.toProto())
-                    .build();
+            builder.setExercise(((ExerciseCommand) this).toProto());
+        } else if (this instanceof CreateAndExerciseCommand) {
+            builder.setCreateAndExercise(((CreateAndExerciseCommand) this).toProto());
         } else {
             throw new CommandUnknown(this);
         }
+        return builder.build();
     }
 
     public final Optional<CreateCommand> asCreateCommand() {

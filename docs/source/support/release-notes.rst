@@ -11,6 +11,7 @@ HEAD — ongoing
 
 - Fix two issues related to contract key visibility within a single update: `#969 <https://github.com/digital-asset/daml/pull/969>`_ and `#973 <https://github.com/digital-asset/daml/pull/973>`_.
 - Java Codegen: variants with unserializable cases are now accepted (see `#946 <https://github.com/digital-asset/daml/pull/946>`_)
+- Java Bindings: ``CreateAndExerciseCommand`` is now properly converted in the Java Bindings data layer (see `#979 <https://github.com/digital-asset/daml/pull/979>`_)
 
 0.12.15 - 2019-05-06
 --------------------

@@ -5,12 +5,7 @@ package com.daml.ledger.javaapi.data
 
 import java.time.{Instant, LocalDate}
 
-import com.digitalasset.ledger.api.v1.{
-  ActiveContractsServiceOuterClass,
-  EventOuterClass,
-  TransactionFilterOuterClass,
-  ValueOuterClass
-}
+import com.digitalasset.ledger.api.v1._
 import com.google.protobuf.Empty
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -297,4 +292,55 @@ object Generators {
         .setFilter(transactionFilter)
         .setVerbose(verbose)
         .build()
+
+  val createCommandGen: Gen[CommandsOuterClass.Command] =
+    for {
+      templateId <- identifierGen
+      record <- recordGen
+    } yield
+      CommandsOuterClass.Command
+        .newBuilder()
+        .setCreate(
+          CommandsOuterClass.CreateCommand
+            .newBuilder()
+            .setTemplateId(templateId)
+            .setCreateArguments(record))
+        .build()
+
+  val exerciseCommandGen: Gen[CommandsOuterClass.Command] =
+    for {
+      templateId <- identifierGen
+      choiceName <- Arbitrary.arbString.arbitrary
+      value <- valueGen
+    } yield
+      CommandsOuterClass.Command
+        .newBuilder()
+        .setExercise(
+          CommandsOuterClass.ExerciseCommand
+            .newBuilder()
+            .setTemplateId(templateId)
+            .setChoice(choiceName)
+            .setChoiceArgument(value))
+        .build()
+
+  val createAndExerciseCommandGen: Gen[CommandsOuterClass.Command] =
+    for {
+      templateId <- identifierGen
+      record <- recordGen
+      choiceName <- Arbitrary.arbString.arbitrary
+      value <- valueGen
+    } yield
+      CommandsOuterClass.Command
+        .newBuilder()
+        .setCreateAndExercise(
+          CommandsOuterClass.CreateAndExerciseCommand
+            .newBuilder()
+            .setTemplateId(templateId)
+            .setCreateArguments(record)
+            .setChoice(choiceName)
+            .setChoiceArgument(value))
+        .build()
+
+  val commandGen: Gen[CommandsOuterClass.Command] =
+    Gen.oneOf(createCommandGen, exerciseCommandGen, createAndExerciseCommandGen)
 }
