@@ -22,7 +22,8 @@ private[codegen] final case class Module(modules: Map[String, Module], types: Ma
   override def children: Map[String, Node] = modules ++ [Node] types
 }
 
-private[codegen] final case class Type(typ: InterfaceType, types: Map[String, Type]) extends Node {
+private[codegen] final case class Type(typ: Option[InterfaceType], types: Map[String, Type])
+    extends Node {
   override def children: Map[String, Node] = types
 }
 
@@ -147,9 +148,10 @@ private[codegen] object InterfaceTree extends StrictLogging {
         s"${" " * offset}⤷ ${nameAndNode._1}",
         nameAndNode._2 match {
           case _: Module => "Module"
-          case Type(InterfaceType.Normal(DefDataType(_, _: Record.FWT)), _) => "Record"
-          case Type(InterfaceType.Normal(DefDataType(_, _: Variant.FWT)), _) => "Variant"
-          case Type(_: InterfaceType.Template, _) => "Template"
+          case Type(Some(InterfaceType.Normal(DefDataType(_, _: Record.FWT))), _) => "Record"
+          case Type(Some(InterfaceType.Normal(DefDataType(_, _: Variant.FWT))), _) => "Variant"
+          case Type(Some(_: InterfaceType.Template), _) => "Template"
+          case Type(None, _) => "<not defined>"
         }
       )
       nameAndNode._2.children.foreach(printTree(offset + 2))
@@ -166,6 +168,7 @@ private[codegen] object InterfaceTree extends StrictLogging {
       extends NodeBuilder {
     def build(): Module =
       Module(modules.mapValues(_.build()).toMap, types.mapValues(_.build()).toMap)
+
     @tailrec
     def insert(module: ImmArray[String], name: ImmArray[String], `type`: InterfaceType): Unit = {
       if (module.isEmpty) {
@@ -193,9 +196,10 @@ private[codegen] object InterfaceTree extends StrictLogging {
       extends NodeBuilder {
     def build(): Type = {
       typ match {
-        case None =>
+        // we allow TypeBuilder nodes with no InterfaceType if they have children nodes
+        case None if children.isEmpty =>
           throw new IllegalStateException(s"Found a Type node without a type at build() time")
-        case Some(definedType) => Type(definedType, children.mapValues(_.build()).toMap)
+        case definedTypeOpt => Type(definedTypeOpt, children.mapValues(_.build()).toMap)
       }
     }
     @tailrec

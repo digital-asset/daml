@@ -8,6 +8,7 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+- Java Codegen: variants with unserializable cases are now accepted (see `#946 <https://github.com/digital-asset/daml/pull/946>`_)
 
 0.12.15 - 2019-05-06
 --------------------
