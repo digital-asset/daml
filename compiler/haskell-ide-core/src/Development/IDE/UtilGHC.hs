@@ -1,10 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-} -- to enable prettyPrint
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | GHC utility functions. Importantly, code using our GHC should never:
 --
@@ -33,11 +30,8 @@ import           HscMain
 import qualified Packages
 import           Platform
 import qualified EnumSet
-
-import           Control.DeepSeq
 import           Data.IORef
 import GHC.Generics (Generic)
-import qualified StringBuffer as SB
 
 ----------------------------------------------------------------------
 -- GHC setup
@@ -79,10 +73,7 @@ data PackageDynFlags = PackageDynFlags
     { pdfPkgDatabase :: !(Maybe [(FilePath, [Packages.PackageConfig])])
     , pdfPkgState :: !Packages.PackageState
     , pdfThisUnitIdInsts :: !(Maybe [(ModuleName, Module)])
-    } deriving (Generic, Show)
-
-instance NFData PackageDynFlags where
-  rnf (PackageDynFlags db state insts) = db `seq` state `seq` rnf insts
+    } deriving (Generic)
 
 setPackageDynFlags :: PackageDynFlags -> DynFlags -> DynFlags
 setPackageDynFlags PackageDynFlags{..} dflags = dflags
@@ -143,30 +134,3 @@ fakeSettings = Settings
 
 fakeLlvmConfig :: (LlvmTargets, LlvmPasses)
 fakeLlvmConfig = ([], [])
-
-
--- Orphan instances for types from the GHC API.
-instance Show CoreModule where show = prettyPrint
-instance NFData CoreModule where rnf !_ = ()
-
-instance Show RdrName where show = prettyPrint
-
-instance Show InstalledUnitId where
-  show = installedUnitIdString
-
-instance NFData InstalledUnitId where
-  rnf = rwhnf
-
-instance NFData SB.StringBuffer where
-    rnf = rwhnf
-
-instance Show Module where
-  show = moduleNameString . moduleName
-
-instance Show ComponentId where show = prettyPrint
-instance Show SourcePackageId where show = prettyPrint
-instance Show ModuleName where show = prettyPrint
-instance Show (GenLocated SrcSpan ModuleName) where show = prettyPrint
-instance Show PackageName where show = prettyPrint
-instance Show Packages.PackageState where show _ = "PackageState"
-instance Show Name where show = prettyPrint

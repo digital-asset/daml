@@ -12,7 +12,7 @@ module Development.IDE.State.FileStore(
 
 
 import           StringBuffer
-import Development.IDE.UtilGHC()
+import Development.IDE.Orphans()
 
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
