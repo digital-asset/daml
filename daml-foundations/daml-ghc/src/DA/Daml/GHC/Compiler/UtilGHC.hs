@@ -18,7 +18,7 @@ module DA.Daml.GHC.Compiler.UtilGHC(
 
 import           "ghc-lib-parser" Class
 import           "ghc-lib" GHC                         hiding (convertLit)
-import           "ghc-lib" GhcPlugins                  as GHC hiding (PackageState, fst3, (<>))
+import           "ghc-lib" GhcPlugins                  as GHC hiding (fst3, (<>))
 
 import           Data.Generics.Uniplate.Data
 import           Data.List

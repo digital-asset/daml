@@ -15,7 +15,7 @@ import           DynFlags (parseDynamicFilePragma)
 import           GHC                         hiding (convertLit)
 import           GHC.LanguageExtensions.Type
 import           GhcMonad
-import           GhcPlugins                  as GHC hiding (PackageState, fst3, (<>))
+import           GhcPlugins                  as GHC hiding (fst3, (<>))
 import           Panic (throwGhcExceptionIO)
 
 import           Control.Monad
@@ -93,10 +93,10 @@ wOptsUnset =
   ]
 
 
-adjustDynFlags :: [FilePath] -> PackageState -> Maybe String -> DynFlags -> DynFlags
+adjustDynFlags :: [FilePath] -> PackageDynFlags -> Maybe String -> DynFlags -> DynFlags
 adjustDynFlags paths packageState mbPackageName dflags
   = setImports paths
-  $ setPackageState packageState
+  $ setPackageDynFlags packageState
   $ setThisInstalledUnitId (maybe mainUnitId stringToUnitId mbPackageName)
   -- once we have package imports working, we want to import the base package and set this to
   -- the default instead of always compiling in the context of ghc-prim.
@@ -122,7 +122,7 @@ adjustDynFlags paths packageState mbPackageName dflags
 --     * Sets the import paths to the given list of 'FilePath'.
 --     * if present, parses and applies custom options for GHC
 --       (may fail if the custom options are inconsistent with std DAML ones)
-setupDamlGHC :: GhcMonad m => [FilePath] -> Maybe String -> PackageState -> [String] -> m ()
+setupDamlGHC :: GhcMonad m => [FilePath] -> Maybe String -> PackageDynFlags -> [String] -> m ()
 setupDamlGHC importPaths mbPackageName packageState [] =
   modifyDynFlags $ adjustDynFlags importPaths packageState mbPackageName
 -- if custom options are given, add them after the standard DAML flag setup

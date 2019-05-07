@@ -25,7 +25,7 @@ import "ghc-lib-parser" Module (UnitId, stringToUnitId)
 import System.Directory.Extra (listFilesRecursive)
 import System.FilePath
 
-import Development.IDE.Functions.Compile (CompileOpts(..))
+import Development.IDE.Types.Options (IdeOptions(..))
 import Development.IDE.Functions.DependencyInformation
 import Development.IDE.State.Rules hiding (mainRule)
 import qualified Development.IDE.State.Rules as IDE
