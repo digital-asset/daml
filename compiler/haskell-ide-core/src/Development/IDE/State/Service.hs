@@ -16,7 +16,7 @@ module Development.IDE.State.Service(
     setFilesOfInterest,
     writeProfile,
     getDiagnostics, unsafeClearDiagnostics,
-    logDebug, logInfo, logWarning, logError
+    logDebug, logSeriousError
     ) where
 
 import           Control.Concurrent.Extra
@@ -27,7 +27,6 @@ import qualified Development.IDE.Logger as Logger
 import Data.Maybe
 import           Data.Set                                 (Set)
 import qualified Data.Set                                 as Set
-import qualified Data.Text as T
 import           Development.IDE.Functions.GHCError
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
 import           Development.IDE.Types.LSP as Compiler
@@ -119,9 +118,3 @@ setFilesOfInterest state files = do
 
 getServiceEnv :: Action Env
 getServiceEnv = getIdeGlobalAction
-
-logDebug, logInfo, logWarning, logError :: IdeState -> T.Text -> IO ()
-logDebug = shakeLogDebug
-logInfo = shakeLogInfo
-logWarning = shakeLogWarning
-logError = shakeLogError

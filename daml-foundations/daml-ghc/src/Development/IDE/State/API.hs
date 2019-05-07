@@ -23,9 +23,7 @@ module Development.IDE.State.API
     , generatePackageMap
     , getDependencies
     , logDebug
-    , logInfo
-    , logWarning
-    , logError
+    , logSeriousError
     ) where
 
 import           Development.IDE.Types.LSP

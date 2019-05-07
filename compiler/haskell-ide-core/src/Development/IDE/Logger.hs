@@ -14,12 +14,10 @@ import qualified Data.Text as T
 import GHC.Stack
 
 data Handle = Handle {
-      logError :: HasCallStack => T.Text -> IO ()
-    , logWarning :: HasCallStack => T.Text -> IO ()
-    , logInfo :: HasCallStack => T.Text -> IO ()
+      logSeriousError :: HasCallStack => T.Text -> IO ()
     , logDebug :: HasCallStack => T.Text -> IO ()
     }
 
 makeNopHandle :: Handle
-makeNopHandle = Handle e e e e where
+makeNopHandle = Handle e e where
     e _ = pure ()

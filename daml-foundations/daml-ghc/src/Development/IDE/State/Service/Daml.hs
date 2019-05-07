@@ -10,7 +10,7 @@ module Development.IDE.State.Service.Daml(
     setFilesOfInterest, setOpenVirtualResources,
     writeProfile,
     getDiagnostics, unsafeClearDiagnostics,
-    logDebug, logInfo, logWarning, logError
+    logDebug, logSeriousError
     ) where
 
 import Control.Concurrent.Extra
