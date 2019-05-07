@@ -97,7 +97,7 @@ runGhcFast act = do
   ref <- newIORef (error "empty session")
   let session = Session ref
   flip unGhc session $ do
-    dflags <- liftIO $ initDynFlags $ fakeDynFlags
+    dflags <- liftIO $ initDynFlags fakeDynFlags
     liftIO $ setUnsafeGlobalDynFlags dflags
     env <- liftIO $ newHscEnv dflags
     setSession env
