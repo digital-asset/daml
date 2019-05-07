@@ -12,7 +12,7 @@
 --
 -- * Call setSessionDynFlags, use modifyDynFlags instead. It's faster and avoids loading packages.
 module Development.IDE.UtilGHC(
-    PackageDynFlags(..), setPackageDynFlags,
+    PackageDynFlags(..), setPackageDynFlags, getPackageDynFlags,
     modifyDynFlags,
     textToStringBuffer,
     removeTypeableInfo,
@@ -83,10 +83,10 @@ modifyDynFlags f = do
 
 -- | The subset of @DynFlags@ computed by package initialization.
 data PackageDynFlags = PackageDynFlags
-  { pdfPkgDatabase :: !(Maybe [(FilePath, [Packages.PackageConfig])])
-  , pdfPkgState :: !Packages.PackageState
-  , pdfThisUnitIdInsts :: !(Maybe [(ModuleName, Module)])
-  } deriving (Generic, Show)
+    { pdfPkgDatabase :: !(Maybe [(FilePath, [Packages.PackageConfig])])
+    , pdfPkgState :: !Packages.PackageState
+    , pdfThisUnitIdInsts :: !(Maybe [(ModuleName, Module)])
+    } deriving (Generic, Show)
 
 instance NFData PackageDynFlags where
   rnf (PackageDynFlags db state insts) = db `seq` state `seq` rnf insts
@@ -98,6 +98,12 @@ setPackageDynFlags PackageDynFlags{..} dflags = dflags
     , thisUnitIdInsts_ = pdfThisUnitIdInsts
     }
 
+getPackageDynFlags :: DynFlags -> PackageDynFlags
+getPackageDynFlags DynFlags{..} = PackageDynFlags
+    { pdfPkgDatabase = pkgDatabase
+    , pdfPkgState = pkgState
+    , pdfThisUnitIdInsts = thisUnitIdInsts_
+    }
 
 
 -- | A version of `showSDoc` that uses default flags (to avoid uses of

@@ -481,7 +481,7 @@ generatePackageState :: [FilePath] -> Bool -> [(String, ModRenaming)] -> IO Pack
 generatePackageState paths hideAllPkgs pkgImports = do
   let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs paths (defaultDynFlags fakeSettings fakeLlvmConfig)
   (newDynFlags, _) <- initPackages dflags
-  pure $ PackageDynFlags (pkgDatabase newDynFlags) (pkgState newDynFlags) (thisUnitIdInsts_ newDynFlags)
+  pure $ getPackageDynFlags newDynFlags
 
 -- | Run something in a Ghc monad and catch the errors (SourceErrors and
 -- compiler-internal exceptions like Panic or InstallationError).
