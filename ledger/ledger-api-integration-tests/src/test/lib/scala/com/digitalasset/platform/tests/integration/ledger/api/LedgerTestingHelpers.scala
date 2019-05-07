@@ -5,8 +5,6 @@ package com.digitalasset.platform.tests.integration.ledger.api
 
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
@@ -18,12 +16,10 @@ import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Exercised}
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
-import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.apitesting.LedgerContext
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
@@ -126,10 +122,13 @@ class LedgerTestingHelpers(
         )
         .filter(_.transactionId == transactionId)
         .take(1)
-        .takeWithin(scaled(3.seconds))
+        .takeWithin(scaled(5.seconds))
         .runWith(Sink.headOption)
     } yield {
-      tx shouldBe empty
+      withClue(
+        s"No transactions are expected to be received as result of command ${submitRequest.commands.map(_.commandId).getOrElse("(empty id)")}") {
+        tx shouldBe empty
+      }
     }
   }
 
@@ -160,11 +159,20 @@ class LedgerTestingHelpers(
       command: SubmitRequest,
       transactionFilter: TransactionFilter,
       filterCid: Boolean = true,
-      verbose: Boolean = false): Future[TransactionTree] = {
+      verbose: Boolean = false,
+      opDescription: String = ""): Future[TransactionTree] = {
     submitAndListenForAllResultsOfCommand(command, transactionFilter, filterCid, verbose).map {
       transactions =>
-        transactions._2 should have length 1
-        transactions._2.headOption.value
+        {
+          withClue(
+            s"Transaction tree received in response to command ${command.commands.map(_.commandId).getOrElse("(empty id)")} " +
+              s"on behalf of ${command.commands.map(_.party).getOrElse("")} " +
+              s"${if (opDescription != "") s"as part of $opDescription "}" +
+              s"should have length of 1") {
+            transactions._2 should have length (1)
+            transactions._2.headOption.value
+          }
+        }
     }
   }
 
@@ -241,6 +249,9 @@ class LedgerTestingHelpers(
       .runWith(Sink.seq)
   }
 
+  /**
+    * This is meant to be ran from [timeout] block, as it has no timeout mechanism of its own.
+    */
   def listenForTreeResultOfCommand(
       transactionFilter: TransactionFilter,
       commandId: Option[String],
@@ -255,7 +266,6 @@ class LedgerTestingHelpers(
       )
       .filter(x => commandId.fold(true)(cid => x.commandId == cid))
       .take(1)
-      .takeWithin(scaled(3.seconds))
       .runWith(Sink.seq)
   }
 
@@ -297,7 +307,8 @@ class LedgerTestingHelpers(
     }
 
   /**
-    * @return A LedgerOffset before the result transaction.
+    * @return A LedgerOffset before the result transaction. If the ledger under test is used concurrently, the returned
+    *         offset can be arbitrary distanced from the submitted command.
     */
   def submitSuccessfullyAndReturnOffset(submitRequest: SubmitRequest): Future[LedgerOffset] = {
     for {
@@ -610,24 +621,6 @@ object LedgerTestingHelpers extends OptionValues {
       implicit ec: ExecutionContext,
       mat: ActorMaterializer): LedgerTestingHelpers =
     async(helper(submitCommand), context, timeoutScaleFactor = timeoutScaleFactor)
-
-  def asyncFromTimeService(
-      timeService: TimeService,
-      submit: TimeProvider => SubmitRequest => Future[Completion],
-      context: LedgerContext,
-      timeoutScaleFactor: Double = 1.0
-  )(
-      implicit ec: ExecutionContext,
-      mat: ActorMaterializer,
-      esf: ExecutionSequencerFactory): LedgerTestingHelpers = {
-    val submitCommand: SubmitRequest => Future[Completion] = submitRequest => {
-      for {
-        st <- StaticTime.updatedVia(timeService, submitRequest.getCommands.ledgerId)
-        res <- submit(st)(submitRequest)
-      } yield res
-    }
-    async(submitCommand, context, timeoutScaleFactor = timeoutScaleFactor)
-  }
 
   def async(
       submitCommand: SubmitRequest => Future[Completion],
