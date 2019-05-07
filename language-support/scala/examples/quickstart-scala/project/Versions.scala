@@ -14,7 +14,7 @@ object Versions {
     .get(darFileKey)
     .map(s => new sbt.File(s))
     .filter(_.exists)
-    .getOrElse(new sbt.File("dist/iou.dar"))
+    .getOrElse(new sbt.File(s"dist/${getProjectName(): String}.dar"))
   println(s"$darFileKey = ${darFile.getAbsolutePath: String}")
 
   lazy val detectedOs: String = sys.props("os.name") match {
@@ -24,4 +24,11 @@ object Versions {
 
   private def getSdkVersionFromFile(): String =
     "10" + sbt.IO.read(new sbt.File("./SDK_VERSION").getAbsoluteFile).trim
+
+  private def getProjectName(): String =
+    sbt.IO
+      .readLines(new sbt.File("./daml.yaml").getAbsoluteFile)
+      .find(_.startsWith("name:"))
+      .map(_.replaceFirst("name:", "").trim)
+      .getOrElse("iou")
 }

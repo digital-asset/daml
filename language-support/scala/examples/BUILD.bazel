@@ -26,7 +26,6 @@ genrule(
         rm -rf $@/project/project/*
         ln -s ../Artifactory.scala $@/project/project/Artifactory.scala
         ln -s ../Versions.scala $@/project/project/Versions.scala
-        ln -s ../Versions.scala.template $@/project/project/Versions.scala.template
         rm -rf $@/target
         rm -rf $@/project/target
         rm -rf $@/application/target
