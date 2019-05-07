@@ -10,7 +10,11 @@ import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.backend.api.v1.{SubmissionResult, TransactionSubmission}
+import com.digitalasset.ledger.backend.api.v1.{
+  SubmissionResult,
+  TransactionId,
+  TransactionSubmission
+}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 
@@ -41,6 +45,10 @@ private class MeteredLedger(ledger: Ledger, mm: MetricsManager) extends Ledger {
   override def publishTransaction(
       transactionSubmission: TransactionSubmission): Future[SubmissionResult] =
     mm.timedFuture("Ledger:publishTransaction", ledger.publishTransaction(transactionSubmission))
+
+  override def lookupTransaction(
+      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] =
+    mm.timedFuture("Ledger:lookupTransaction", ledger.lookupTransaction(transactionId))
 
   override def close(): Unit = {
     ledger.close()

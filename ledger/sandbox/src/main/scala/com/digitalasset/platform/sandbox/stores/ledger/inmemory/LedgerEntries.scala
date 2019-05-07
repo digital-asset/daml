@@ -52,4 +52,7 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
   def ledgerBeginning: Long = 0L
 
   def ledgerEnd: Long = state.get().ledgerEnd
+
+  def getEntryAt(offset: Long): Option[T] =
+    state.get.items.get(offset)
 }

@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -75,7 +75,6 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       request)
 
     val eventFilter = EventFilter.byTemplates(request.filter)
-    val requestingParties = request.filter.filtersByParty.keys.toList
 
     transactionPipeline
       .run(request.begin, request.end)
@@ -198,13 +197,9 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
 
   private def lookUpTreeByTransactionId(
       transactionId: TransactionId,
-      requestingParties: Set[Party]): Future[Option[VisibleTransaction]] = {
-    transactionPipeline
-      .run(LedgerOffset.LedgerBegin, Some(LedgerOffset.LedgerEnd))
-      .collect {
-        case t: AcceptedTransaction if t.transactionId == transactionId => t
-      }
-      .runWith(Sink.headOption)
+      requestingParties: Set[Party]): Future[Option[VisibleTransaction]] =
+    ledgerBackend
+      .getTransactionById(transactionId.unwrap)
       .flatMap {
         case Some(trans) =>
           Future.successful(toResponseIfVisible(requestingParties, trans))
@@ -215,17 +210,12 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
               .withDescription(s"$transactionId could not be found")
               .asRuntimeException())
       }
-  }
 
   private def lookUpFlatByTransactionId(
       transactionId: TransactionId,
-      requestingParties: Set[Party]): Future[Option[PTransaction]] = {
-    transactionPipeline
-      .run(LedgerOffset.LedgerBegin, Some(LedgerOffset.LedgerEnd))
-      .collect {
-        case t: AcceptedTransaction if t.transactionId == transactionId => t
-      }
-      .runWith(Sink.headOption)
+      requestingParties: Set[Party]): Future[Option[PTransaction]] =
+    ledgerBackend
+      .getTransactionById(transactionId.unwrap)
       .flatMap {
         case Some(trans) =>
           val eventFilter = EventFilter.byTemplates(
@@ -239,7 +229,6 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
               .withDescription(s"$transactionId could not be found")
               .asRuntimeException())
       }
-  }
 
   private def toTransactionWithMeta(trans: AcceptedTransaction) =
     TransactionWithMeta(

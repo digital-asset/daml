@@ -5,6 +5,7 @@ package com.digitalasset.ledger.backend.api.v1
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction
 
 import scala.concurrent.Future
 
@@ -153,4 +154,7 @@ trait LedgerBackend extends AutoCloseable {
     *
     */
   def getCurrentLedgerEnd: Future[LedgerSyncOffset]
+
+  //TODO: doc
+  def getTransactionById(transactionId: TransactionId): Future[Option[AcceptedTransaction]]
 }
