@@ -31,7 +31,7 @@ module Development.IDE.Types.Diagnostics (
   defDiagnostic,
   addDiagnostics,
   filterSeriousErrors,
-  filePathToUri,
+  Development.IDE.Types.Diagnostics.filePathToUri,
   getDiagnosticsFromStore
   ) where
 
@@ -43,16 +43,16 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc.Syntax
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
-import           Language.Haskell.LSP.Types as LSP (
-    DiagnosticSeverity(..)
-  , Diagnostic(..)
-  , filePathToUri
+import           Language.Haskell.LSP.Types (
+    Diagnostic(..)
   , uriToFilePath
   , List(..)
   , DiagnosticRelatedInformation(..)
   , Uri(..)
   )
+import qualified Language.Haskell.LSP.Types as LSP
 import Language.Haskell.LSP.Diagnostics
+import Debug.Trace
 
 import Development.IDE.Types.Location
 
@@ -82,6 +82,10 @@ diagnostic rng sev src msg
           _relatedInformation = Nothing
           }
 
+filePathToUri :: FilePath -> LSP.Uri
+filePathToUri =
+    traceShowId . LSP.filePathToUri . traceId
+
 -- | Any optional field is instantiated to Nothing
 defDiagnostic ::
   Range ->
@@ -105,7 +109,7 @@ filterSeriousErrors fp =
     where
         hasSeriousErrors :: List DiagnosticRelatedInformation -> Bool
         hasSeriousErrors (List a) = any ((/=) uri . _uri . _location) a
-        uri = LSP.filePathToUri fp
+        uri = filePathToUri fp
 
 addDiagnostics ::
   FilePath ->
@@ -114,7 +118,7 @@ addDiagnostics ::
 addDiagnostics fp diags ds =
     updateDiagnostics
     ds
-    (LSP.filePathToUri fp)
+    (filePathToUri fp)
     Nothing $
     partitionBySource diags
 
