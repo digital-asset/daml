@@ -21,9 +21,7 @@ module Development.IDE.UtilGHC(
     prettyPrint,
     importGenerated,
     mkImport,
-    runGhcFast,
-    setImports,
-    setThisInstalledUnitId
+    runGhcFast
     ) where
 
 import           Config
@@ -145,15 +143,6 @@ fakeSettings = Settings
 
 fakeLlvmConfig :: (LlvmTargets, LlvmPasses)
 fakeLlvmConfig = ([], [])
-
-
-setThisInstalledUnitId :: UnitId -> DynFlags -> DynFlags
-setThisInstalledUnitId unitId dflags =
-  dflags {thisInstalledUnitId = toInstalledUnitId unitId}
-
-setImports :: [FilePath] -> DynFlags -> DynFlags
-setImports paths dflags = dflags { importPaths = paths }
-
 
 
 -- Orphan instances for types from the GHC API.
