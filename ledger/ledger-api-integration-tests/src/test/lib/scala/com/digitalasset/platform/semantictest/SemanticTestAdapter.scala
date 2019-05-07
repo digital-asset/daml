@@ -31,11 +31,13 @@ import scala.concurrent.{ExecutionContext, Future}
 class SemanticTestAdapter(
     lc: LedgerContext,
     packages: Map[Ref.PackageId, Ast.Package],
-    parties: Iterable[String])(
+    parties: Iterable[String],
+    timeoutScaleFactor: Double = 1.0
+)(
     implicit ec: ExecutionContext,
     am: ActorMaterializer,
-    esf: ExecutionSequencerFactory)
-    extends SemanticTester.GenericLedger {
+    esf: ExecutionSequencerFactory
+) extends SemanticTester.GenericLedger {
   override type EventNodeId = String
 
   private def ledgerId = lc.ledgerId
@@ -61,7 +63,10 @@ class SemanticTestAdapter(
     : Future[Event.Events[String, Value.AbsoluteContractId, TxValue[Value.AbsoluteContractId]]] = {
     for {
       tx <- LedgerTestingHelpers
-        .sync(lc.commandService.submitAndWaitForTransactionId, lc)
+        .sync(
+          lc.commandService.submitAndWaitForTransactionId,
+          lc,
+          timeoutScaleFactor = timeoutScaleFactor)
         .submitAndListenForSingleTreeResultOfCommand(
           SubmitRequest(Some(apiCommand(submitterName, cmds))),
           TransactionFilter(parties.map(_ -> Filters.defaultInstance)(breakOut)),

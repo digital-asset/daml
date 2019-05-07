@@ -81,6 +81,9 @@ client_server_test(
     timeout = "short",
     client = ":ledger-api-test-tool",
     client_args = [
+        # NOTE(GP): our CI has a tendency to be more unpredictable than local
+        # machine with timeouts, we value lack of flakes on CI.
+        "--timeout-scale-factor=10",
     ],
 
     # Data files available to both client and server.
@@ -103,9 +106,11 @@ client_server_test(
     timeout = "short",
     client = ":ledger-api-test-tool",
     client_args = [
-        "--crt $(rootpath testdata/client.crt) " +
-        "--cacrt $(rootpath testdata/ca.crt) " +
+        "--crt $(rootpath testdata/client.crt)",
+        "--cacrt $(rootpath testdata/ca.crt)",
         "--pem $(rootpath testdata/client.pem)",
+        # See note above.
+        "--timeout-scale-factor=10",
     ],
 
     # Data files available to both client and server.
