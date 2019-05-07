@@ -164,7 +164,8 @@ object LedgerContextExtensions extends Matchers with OptionValues {
         filters: Filters = Filters.defaultInstance)(
         implicit mat: ActorMaterializer,
         ec: ExecutionContext): Future[Assertion] = {
-      withClue(s"Creation of a template instance should not be visible to the listener (for command ${commandId} using template ${template} on behalf of ${submitter})") {
+      withClue(
+        s"Creation of a template instance should not be visible to the listener (for command ${commandId} using template ${template} on behalf of ${submitter})") {
         testingHelpers.submitAndVerifyFilterCantSeeResultOf(
           createCommand(commandId, template, args, submitter),
           TransactionFilter(Map(listener -> filters))

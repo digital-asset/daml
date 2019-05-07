@@ -59,7 +59,7 @@ class SemanticTestAdapter(
       cmds
     )
 
-  override def submit(submitterName: Ref.Party, cmds: Commands)
+  override def submit(submitterName: Ref.Party, cmds: Commands, opDescription: String)
     : Future[Event.Events[String, Value.AbsoluteContractId, TxValue[Value.AbsoluteContractId]]] = {
     for {
       tx <- LedgerTestingHelpers
@@ -71,7 +71,9 @@ class SemanticTestAdapter(
           SubmitRequest(Some(apiCommand(submitterName, cmds))),
           TransactionFilter(parties.map(_ -> Filters.defaultInstance)(breakOut)),
           true,
-          true)
+          true,
+          opDescription = opDescription
+        )
       events <- Future.fromTry(tr.eventsFromApiTransaction(tx).toTry)
     } yield events
   }

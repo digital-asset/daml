@@ -125,7 +125,8 @@ class LedgerTestingHelpers(
         .takeWithin(scaled(5.seconds))
         .runWith(Sink.headOption)
     } yield {
-      withClue(s"No transactions are expected to be received as result of command ${submitRequest.commands.map(_.commandId).getOrElse("(empty id)")}") {
+      withClue(
+        s"No transactions are expected to be received as result of command ${submitRequest.commands.map(_.commandId).getOrElse("(empty id)")}") {
         tx shouldBe empty
       }
     }
@@ -158,11 +159,16 @@ class LedgerTestingHelpers(
       command: SubmitRequest,
       transactionFilter: TransactionFilter,
       filterCid: Boolean = true,
-      verbose: Boolean = false): Future[TransactionTree] = {
+      verbose: Boolean = false,
+      opDescription: String = ""): Future[TransactionTree] = {
     submitAndListenForAllResultsOfCommand(command, transactionFilter, filterCid, verbose).map {
       transactions =>
         {
-          withClue(s"Transaction tree received in response to command ${command.commands.map(_.commandId).getOrElse("(empty id)")} on behalf of ${command.commands.map(_.party).getOrElse("")} should have length of 1") {
+          withClue(
+            s"Transaction tree received in response to command ${command.commands.map(_.commandId).getOrElse("(empty id)")} " +
+              s"on behalf of ${command.commands.map(_.party).getOrElse("")} " +
+              s"${if (opDescription != "") s"as part of $opDescription "}" +
+              s"should have length of 1") {
             transactions._2 should have length (1)
             transactions._2.headOption.value
           }

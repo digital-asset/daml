@@ -306,7 +306,8 @@ class SemanticTester(
                   currentTime <- ledger.currentTime
                   events <- ledger.submit(
                     submitterName,
-                    Commands(ImmArray(cmd), currentTime, reference))
+                    Commands(ImmArray(cmd), currentTime, reference),
+                    opDescription = s"scenario ${scenario} step ${stepId} node ${nodeId}")
                 } yield
                   checkEvents(
                     reference,
@@ -388,7 +389,7 @@ object SemanticTester {
 
     // create commands deliberately do NOT contain submitter,
     // but in general for tests we should pass in the submitter for the commands
-    def submit(submitterName: Party, cmds: Commands)
+    def submit(submitterName: Party, cmds: Commands, opDescription: String)
       : Future[Events[EventNodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]]]
 
     def passTime(dtMicros: Long): Future[Unit]
@@ -457,7 +458,7 @@ object SemanticTester {
       go(FrontStack(tx.roots))
     }
 
-    override def submit(submitterName: Party, cmds: Commands)
+    override def submit(submitterName: Party, cmds: Commands, opDescription: String)
       : Future[Events[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]]] = Future {
       val tx = consumeResult(cmds.commandsReference, engine.submit(cmds))
       val blindingInfo =
