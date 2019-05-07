@@ -109,12 +109,12 @@ runTestsInProjectOrFiles :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler
 runTestsInProjectOrFiles [] color mbJUnitOutput cliOptions = do
     projectPath <- getProjectPath
     case projectPath of
-      Just pPath ->
+      Nothing -> execTest [] color mbJUnitOutput cliOptions
+      Just pPath -> do
         project <- readProjectConfig $ ProjectPath pPath
-          case parseProjectConfig project of
-            Left err -> throwIO err
-            Right PackageConfigFields {..} -> execTest [pMain] color mbJUnitOutput cliOptions
-      Nothing  -> execTest [] color mbJUnitOutput cliOptions
+        case parseProjectConfig project of
+          Left err -> throwIO err
+          Right PackageConfigFields {..} -> execTest [pMain] color mbJUnitOutput cliOptions
 runTestsInProjectOrFiles inFiles color mbJUnitOutput cliOptions = execTest inFiles color mbJUnitOutput cliOptions
 
 cmdInspect :: Mod CommandFields Command
