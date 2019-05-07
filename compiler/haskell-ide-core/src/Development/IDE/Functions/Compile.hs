@@ -479,7 +479,7 @@ parsePragmasIntoDynFlags fp contents = catchSrcErrors $ do
 
 generatePackageState :: [FilePath] -> Bool -> [(String, ModRenaming)] -> IO PackageDynFlags
 generatePackageState paths hideAllPkgs pkgImports = do
-  let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs paths (defaultDynFlags fakeSettings fakeLlvmConfig)
+  let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs paths fakeDynFlags
   (newDynFlags, _) <- initPackages dflags
   pure $ getPackageDynFlags newDynFlags
 

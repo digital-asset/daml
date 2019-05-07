@@ -13,8 +13,7 @@ module Development.IDE.UtilGHC(
     modifyDynFlags,
     setPackageImports,
     setPackageDbs,
-    fakeSettings,
-    fakeLlvmConfig,
+    fakeDynFlags,
     prettyPrint,
     runGhcFast
     ) where
@@ -91,8 +90,7 @@ getPackageDynFlags DynFlags{..} = PackageDynFlags
 -- | A version of `showSDoc` that uses default flags (to avoid uses of
 -- `showSDocUnsafe`).
 showSDocDefault :: SDoc -> String
-showSDocDefault = showSDoc dynFlags
-  where dynFlags = defaultDynFlags fakeSettings fakeLlvmConfig
+showSDocDefault = showSDoc fakeDynFlags
 
 prettyPrint :: Outputable a => a -> String
 prettyPrint = showSDocDefault . ppr
@@ -104,11 +102,15 @@ runGhcFast act = do
   ref <- newIORef (error "empty session")
   let session = Session ref
   flip unGhc session $ do
-    dflags <- liftIO $ initDynFlags $ defaultDynFlags fakeSettings fakeLlvmConfig
+    dflags <- liftIO $ initDynFlags $ fakeDynFlags
     liftIO $ setUnsafeGlobalDynFlags dflags
     env <- liftIO $ newHscEnv dflags
     setSession env
     withCleanupSession act
+
+-- Fake DynFlags which are mostly undefined, but define enough to do a little bit
+fakeDynFlags :: DynFlags
+fakeDynFlags = defaultDynFlags fakeSettings fakeLlvmConfig
 
 -- These settings are mostly undefined, but define just enough for what we want to do (which isn't code gen)
 fakeSettings :: Settings
