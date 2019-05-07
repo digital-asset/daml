@@ -13,6 +13,9 @@ HEAD — ongoing
 - Java Codegen: variants with unserializable cases are now accepted (see `#946 <https://github.com/digital-asset/daml/pull/946>`_)
 - Java Bindings: ``CreateAndExerciseCommand`` is now properly converted in the Java Bindings data layer (see `#979 <https://github.com/digital-asset/daml/pull/979>`_)
 
+- Add ``quickstart-scala`` DAML Assistant project template.
+
+
 0.12.15 - 2019-05-06
 --------------------
 

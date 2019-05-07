@@ -1,0 +1,48 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:pkg.bzl", "pkg_tar")
+
+filegroup(
+    name = "quickstart-scala-src",
+    srcs = glob(
+        ["quickstart-scala/*"],
+        exclude = [
+            "**/.*",
+            "**/target",
+        ],
+        exclude_directories = 0,
+    ),
+)
+
+genrule(
+    name = "quickstart-scala-dir",
+    srcs = [
+        ":quickstart-scala-src",
+        "//docs:daml-assistant-iou-setup",
+    ],
+    outs = ["quickstart-scala"],
+    cmd = """
+        mkdir -p $@
+        cp -rL $(SRCS) $@
+        rm -rf $@/project/project/*
+        rm -rf $@/target
+        rm -rf $@/project/target
+        rm -rf $@/application/target
+        rm -rf $@/scala-codegen/target
+    """,
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "quickstart-scala-dist",
+    srcs = [":quickstart-scala-dir"],
+    extension = "tar.gz",
+    mode = "0644",
+    symlinks = {
+        "./quickstart-scala/project/project/Versions.scala": "../Versions.scala",
+        "./quickstart-scala/project/project/Versions.scala.template": "../Versions.scala.template",
+        "./quickstart-scala/project/project/Artifactory.scala": "../Artifactory.scala",
+    },
+    visibility = ["//visibility:public"],
+)
