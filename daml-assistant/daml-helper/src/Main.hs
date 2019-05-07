@@ -8,7 +8,8 @@ import Options.Applicative
 import DamlHelper
 
 main :: IO ()
-main = runCommand =<< execParser (info (commandParser <**> helper) idm)
+main = runCommand =<< customExecParser parserPrefs (info (commandParser <**> helper) idm)
+  where parserPrefs = prefs showHelpOnError
 
 data Command
     = DamlStudio { replaceExtension :: ReplaceExtension, remainingArguments :: [String] }
