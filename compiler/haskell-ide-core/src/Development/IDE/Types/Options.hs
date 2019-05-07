@@ -18,6 +18,13 @@ data IdeOptions = IdeOptions
   , optRunGhcSession :: forall a. Maybe ParsedModule -> PackageDynFlags -> Ghc a -> IO a
   -- ^ Setup a GHC session using a given package state. If a `ParsedModule` is supplied,
   -- the import path should be setup for that module.
+  , optLocateHieFile :: PackageConfig -> Module -> IO (Maybe FilePath)
+  -- ^ Locate the HIE file for the given module. The PackageConfig can be
+  -- used to lookup settings like importDirs.
+  , optLocateSrcFile :: PackageConfig -> Module -> IO (Maybe FilePath)
+  -- ^ Locate the source file for the given module. The PackageConfig can be
+  -- used to lookup settings like importDirs. For DAML, we place them in the package DB.
+  -- For cabal this could point somewhere in ~/.cabal/packages.
   , optWriteIface :: Bool
 
   , optMbPackageName :: Maybe String

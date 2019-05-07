@@ -28,6 +28,7 @@ import Data.Tuple.Extra
 import "ghc-lib-parser" DynFlags
 import qualified "ghc-lib" GHC
 import "ghc-lib-parser" Module (moduleNameSlashes)
+import "ghc-lib-parser" PackageConfig
 import qualified System.Directory as Dir
 import           System.FilePath
 import DA.Pretty (renderPretty)
@@ -70,6 +71,8 @@ toCompileOpts Options{..} =
             let importPaths = maybe [] moduleImportPaths mbMod <> optImportPath
             setupDamlGHC importPaths optMbPackageName packageState optGhcCustomOpts
             m
+      , optLocateHieFile = locateInPkgDb "hie"
+      , optLocateSrcFile = locateInPkgDb "daml"
       , optWriteIface = optWriteInterface
       , optMbPackageName = optMbPackageName
       , optPackageDbs = optPackageDbs
@@ -80,6 +83,16 @@ toCompileOpts Options{..} =
       }
   where
     toRenaming aliases = ModRenaming False [(GHC.mkModuleName mod, GHC.mkModuleName alias) | (mod, alias) <- aliases]
+    locateInPkgDb :: String -> PackageConfig -> GHC.Module -> IO (Maybe FilePath)
+    locateInPkgDb ext pkgConfig mod
+      | (importDir : _) <- importDirs pkgConfig = do
+            -- We only produce package configs with exactly one importDir.
+            let path = importDir </> moduleNameSlashes (GHC.moduleName mod) <.> ext
+            exists <- Dir.doesFileExist path
+            pure $ if exists
+                then Just path
+                else Nothing
+      | otherwise = pure Nothing
 
 moduleImportPaths :: GHC.ParsedModule -> [FilePath]
 moduleImportPaths pm =

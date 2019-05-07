@@ -421,6 +421,15 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             expectGoToDefinition (foo,2,[6..13]) (In "Prelude") -- "Optional"
             expectGoToDefinition (foo,2,[16..19]) (In "GHC.Types") -- "List"
             expectGoToDefinition (foo,2,[21..24]) (In "GHC.Types") -- "Bool"
+    ,    testCase' "Cross-package goto definition" $ do
+            foo <- makeModule "Foo"
+                [ "test = scenario do"
+                , "  p <- getParty \"Alice\""
+                , "  pure ()"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectGoToDefinition (foo, 3, [7..14]) (In "DA.Internal.LF")
     ]
     where
         testCase' = testCase mbScenarioService
