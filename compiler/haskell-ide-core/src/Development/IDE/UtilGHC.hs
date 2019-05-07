@@ -23,8 +23,7 @@ module Development.IDE.UtilGHC(
     mkImport,
     runGhcFast,
     setImports,
-    setThisInstalledUnitId,
-    modIsInternal
+    setThisInstalledUnitId
     ) where
 
 import           Config
@@ -110,24 +109,6 @@ showSDocDefault = showSDoc dynFlags
 
 prettyPrint :: Outputable a => a -> String
 prettyPrint = showSDocDefault . ppr
-
--- FIXME(#1203): This must move out of `haskell-ide-core` and into `damlc`.
-internalModules :: [String]
-internalModules =
-  [ "Data.String"
-  , "GHC.CString"
-  , "GHC.Integer.Type"
-  , "GHC.Natural"
-  , "GHC.Real"
-  , "GHC.Types"
-  ]
-
--- | Checks if a given module is internal, i.e. gets removed in the Core->LF
--- translation. TODO where should this live?
-modIsInternal :: Module -> Bool
-modIsInternal m = moduleNameString (moduleName m) `elem` internalModules
-  -- TODO should we consider DA.Internal.* internal? Difference to GHC.*
-  -- modules is that these do not disappear in the LF conversion.
 
 -- | This import was generated, not user written, so should not produce unused import warnings
 importGenerated :: Bool -> ImportDecl phase -> ImportDecl phase
