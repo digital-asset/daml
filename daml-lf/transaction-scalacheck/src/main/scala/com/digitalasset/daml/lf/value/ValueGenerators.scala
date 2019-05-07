@@ -154,7 +154,7 @@ object ValueGenerators {
   private def variantGen(nesting: Int): Gen[ValueVariant[ContractId]] =
     for {
       id <- defRefGen
-      variantName <- Gen.alphaStr
+      variantName <- idGen
       toOption <- Gen
         .oneOf(true, false)
         .map(
@@ -174,7 +174,7 @@ object ValueGenerators {
           a =>
             if (a) (_: DefinitionRef) => None
             else (x: DefinitionRef) => Some(x))
-      labelledValues <- Gen.listOf(Gen.alphaStr.flatMap(label =>
+      labelledValues <- Gen.listOf(idGen.flatMap(label =>
         Gen.lzy(valueGen(nesting)).map(x => if (label.isEmpty) (None, x) else (Some(label), x))))
     } yield ValueRecord[ContractId](toOption(id), ImmArray(labelledValues))
   def recordGen: Gen[ValueRecord[ContractId]] = recordGen(0)

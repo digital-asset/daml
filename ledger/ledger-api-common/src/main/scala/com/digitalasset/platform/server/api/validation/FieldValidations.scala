@@ -27,7 +27,10 @@ trait FieldValidations {
       s: String,
       fieldName: String
   ): Either[StatusRuntimeException, Ref.Identifier] =
-    Ref.Identifier.fromString(s).left.map(invalidField(fieldName, _))
+    if (s.nonEmpty)
+      Ref.Identifier.fromString(s).left.map(invalidField(fieldName, _))
+    else
+      Left(missingField(fieldName))
 
   def requireNumber(s: String, fieldName: String): Either[StatusRuntimeException, Long] =
     for {

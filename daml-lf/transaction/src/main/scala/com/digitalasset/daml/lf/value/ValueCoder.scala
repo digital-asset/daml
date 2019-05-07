@@ -269,6 +269,14 @@ object ValueCoder {
       protoValue0: proto.Value): Either[DecodeError, Value[Cid]] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
+    def identifier(s: String): Identifier =
+      Identifier
+        .fromString(s)
+        .fold(
+          err => throw Err(s"error decoding variant constructor: $err"),
+          identity
+        )
+
     def go(nesting: Int, protoValue: proto.Value): Value[Cid] = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
@@ -319,7 +327,7 @@ object ValueCoder {
                     Some(id)
                   }
                 )
-            ValueVariant(id, variant.getConstructor, go(newNesting, variant.getValue))
+            ValueVariant(id, identifier(variant.getConstructor), go(newNesting, variant.getValue))
 
           case proto.Value.SumCase.RECORD =>
             val record = protoValue.getRecord
@@ -336,7 +344,7 @@ object ValueCoder {
             ValueRecord(
               id,
               ImmArray(protoValue.getRecord.getFieldsList.asScala.map(fld => {
-                val lbl = if (fld.getLabel.isEmpty) None else Option(fld.getLabel)
+                val lbl = if (fld.getLabel.isEmpty) None else Option(identifier(fld.getLabel))
                 (lbl, go(newNesting, fld.getValue))
               }))
             )

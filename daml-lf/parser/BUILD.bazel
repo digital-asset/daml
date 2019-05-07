@@ -38,5 +38,6 @@ da_scala_test(
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/data",
         "//daml-lf/lfpackage",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
     ],
 )

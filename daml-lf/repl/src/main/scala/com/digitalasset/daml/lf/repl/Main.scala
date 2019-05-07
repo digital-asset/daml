@@ -573,7 +573,10 @@ object Repl {
     def pVariant: Parser[Value[Nothing]] =
       """[A-Z][a-z]*""".r ~ ("(" ~> pValue <~ ")").? ^^ {
         case variant ~ optValue =>
-          ValueVariant(Some(dummyId), variant, optValue.getOrElse(ValueUnit))
+          ValueVariant(
+            Some(dummyId),
+            Identifier.assertFromString(variant),
+            optValue.getOrElse(ValueUnit))
       }
     def pList: Parser[Value[Nothing]] =
       """\[\s*""".r ~> (pValue <~ """\s*,\s*""".r).* ~ pValue.? <~ """\s*\]""".r ^^ {
@@ -581,11 +584,11 @@ object Repl {
         case _ => ValueList(FrontStack.empty)
       }
 
-    def pField: Parser[(String, Value[Nothing])] =
+    def pField: Parser[(Identifier, Value[Nothing])] =
       ("""(\w+)""".r ~ """\s*=\s*""".r ~ pValue) ^^ {
-        case field ~ _ ~ value => (field, value)
+        case field ~ _ ~ value => Identifier.assertFromString(field) -> value
       }
-    def pFields: Parser[List[(String, Value[Nothing])]] =
+    def pFields: Parser[List[(Identifier, Value[Nothing])]] =
       ("""\s*""".r ~> pField <~ """\ *,\ *""".r).* ~ pField.? ^^ {
         case fs ~ Some(last) => fs :+ last
         case _ => List()
@@ -641,9 +644,9 @@ object Repl {
       case ValueVariant(_, variant, value) =>
         EVariantCon(dummyTyApp, variant, valueToExpr(value))
       case ValueRecord(_, fs) =>
-        ETupleCon(fs.map[(String, Expr)](kv => (kv._1.get, valueToExpr(kv._2))))
+        ETupleCon(fs.map(kv => (kv._1.get, valueToExpr(kv._2))))
       case ValueTuple(fs) =>
-        ETupleCon(fs.map[(String, Expr)](kv => (kv._1, valueToExpr(kv._2))))
+        ETupleCon(fs.map(kv => (kv._1, valueToExpr(kv._2))))
       case ValueUnit => EPrimCon(PCUnit)
       case ValueBool(b) => EPrimCon(if (b) PCTrue else PCFalse)
       case ValueList(xs) =>

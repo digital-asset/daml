@@ -60,7 +60,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
     }
 
     "parses properly type constructor" in {
-      val testCases = Table[VariantConName, TypeConName](
+      val testCases = Table[String, TypeConName](
         "string to parse" -> "expected type constructor",
         "Mod:T" -> T.tycon,
         "'-pkgId-':Mod:T" -> T.tycon,
@@ -85,7 +85,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "a -> b -> a" -> TApp(TApp(TBuiltin(BTArrow), α), TApp(TApp(TBuiltin(BTArrow), β), α)),
         "forall (a: *). Mod:T a" -> TForall((α.name, KStar), TApp(T, α)),
         "<f1: a, f2: Bool, f3:Mod:T>" -> TTuple(
-          ImmArray[(String, Type)]("f1" -> α, "f2" -> TBuiltin(BTBool), "f3" -> T))
+          ImmArray[(FieldName, Type)](id"f1" -> α, id"f2" -> TBuiltin(BTBool), id"f3" -> T))
       )
 
       forEvery(testCases)((stringToParse, expectedType) =>
@@ -235,17 +235,17 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "Mod:R {}" ->
           ERecCon(TypeConApp(R.tycon, ImmArray.empty), ImmArray.empty),
         "Mod:R @Int64 @Bool {f1 = 1, f2 = False}" ->
-          ERecCon(RIntBool, ImmArray("f1" -> e"1", "f2" -> e"False")),
+          ERecCon(RIntBool, ImmArray(id"f1" -> e"1", id"f2" -> e"False")),
         "Mod:R @Int64 @Bool {f1} x" ->
-          ERecProj(RIntBool, "f1", e"x"),
+          ERecProj(RIntBool, id"f1", e"x"),
         "Mod:R @Int64 @Bool {x with f1 = 1}" ->
-          ERecUpd(RIntBool, "f1", e"x", e"1"),
+          ERecUpd(RIntBool, id"f1", e"x", e"1"),
         "Mod:R:V @Int64 @Bool 1" ->
-          EVariantCon(RIntBool, "V", e"1"),
+          EVariantCon(RIntBool, id"V", e"1"),
         "< f1 =2, f2=False >" ->
-          ETupleCon(ImmArray("f1" -> e"2", "f2" -> e"False")),
+          ETupleCon(ImmArray(id"f1" -> e"2", id"f2" -> e"False")),
         "(x).f1" ->
-          ETupleProj("f1", e"x"),
+          ETupleProj(id"f1", e"x"),
         "x y" ->
           EApp(e"x", e"y"),
         "x y z" ->
@@ -291,7 +291,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "case e of Some x -> x" ->
           ECase(e"e", ImmArray(CaseAlt(CPSome("x"), e"x"))),
         "case e of Mod:T:V x -> x " ->
-          ECase(e"e", ImmArray(CaseAlt(CPVariant(T.tycon, "V", "x"), e"x"))),
+          ECase(e"e", ImmArray(CaseAlt(CPVariant(T.tycon, id"V", "x"), e"x"))),
         "case e of True -> False | False -> True" ->
           ECase(
             e"e",
@@ -387,13 +387,13 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       val varDef = DDataType(
         false,
         ImmArray("a" -> KStar),
-        DataVariant(ImmArray("Leaf" -> t"Unit", "Node" -> t"Mod:Tree.Node a"))
+        DataVariant(ImmArray(id"Leaf" -> t"Unit", id"Node" -> t"Mod:Tree.Node a"))
       )
       val recDef = DDataType(
         false,
         ImmArray("a" -> KStar),
         DataRecord(
-          ImmArray("value" -> t"a", "left" -> t"Mod:Tree a", "right" -> t"Mod:Tree a"),
+          ImmArray(id"value" -> t"a", id"left" -> t"Mod:Tree a", id"right" -> t"Mod:Tree a"),
           None)
       )
 
@@ -490,7 +490,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       val recDef = DDataType(
         false,
         ImmArray.empty,
-        DataRecord(ImmArray("person" -> t"Party", "name" -> t"Text"), Some(template))
+        DataRecord(ImmArray(id"person" -> t"Party", id"name" -> t"Text"), Some(template))
       )
       parseModules(p) shouldBe Right(
         List(Module(

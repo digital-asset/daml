@@ -5,6 +5,8 @@ package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Ref.Identifier.classTag
+import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompileError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.SBuiltin._
@@ -269,12 +271,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         withBinders(binders) { _ =>
           SEAbs(binders.length, translate(body))
         }
-      case ERecCon(tapp, fields) =>
+      case ERecCon(tApp, fields) =>
         if (fields.isEmpty)
-          SEBuiltin(SBRecCon(tapp.tycon, Array.empty))
+          SEBuiltin(SBRecCon(tApp.tycon, Array.empty))
         else {
           SEApp(
-            SEBuiltin(SBRecCon(tapp.tycon, fields.iterator.map(_._1).toArray)),
+            SEBuiltin(SBRecCon(tApp.tycon, fields.iterator.map(_._1).toArray)),
             fields.iterator.map(f => translate(f._2)).toArray
           )
         }
@@ -505,7 +507,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                       observers,
                       SEVar(3) // token
                     )
-                  ) in SBTupleCon(Array("contractId", "contract"))(
+                  ) in SBTupleCon(Array(Ast.contractIdFieldName, Ast.contractFieldName))(
                     SEVar(3), // contract id
                     SEVar(2) // contract
                   )
@@ -1116,7 +1118,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case Some(tmplKey) =>
           SELet(translate(tmplKey.body)) in
             SBSome(
-              SBTupleCon(Array("key", "maintainers"))(
+              SBTupleCon(Array(Ast.keyFieldName, Ast.maintainersFieldName))(
                 SEVar(1), // key
                 SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ ))))
       }

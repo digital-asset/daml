@@ -224,13 +224,15 @@ class EventConverterSpec
                 Some(
                   Ref.DefinitionRef("unimportant", QualifiedName.assertFromString("in.this:test"))),
                 ImmArray(
-                  (Some("field"), Lf.ValueText("someText")),
-                  (
-                    Some("field2"),
+                  Some[Ref.Identifier]("field") ->
+                    Lf.ValueText("someText"),
+                  Some[Ref.Identifier]("field2") ->
                     Lf.ValueVariant(
                       None,
                       "variant",
-                      Lf.ValueRecord(None, ImmArray((Some("nested"), Lf.ValueInt64(100))))))
+                      Lf.ValueRecord(
+                        None,
+                        ImmArray(Some[Ref.Identifier]("nested") -> Lf.ValueInt64(100))))
                 )
               )),
             ""
@@ -305,7 +307,8 @@ class EventConverterSpec
               Ref.DefinitionRef(
                 "0d25e199ed26977b3082864c62f8d154ca6042ed521712e2b3eb172dc79c87a2",
                 "Test:Agreement.AcceptTriProposal")),
-            ImmArray((Some("cid"), Lf.ValueContractId(Lf.AbsoluteContractId("#6:0"))))
+            ImmArray(
+              (Some[Ref.Identifier]("cid"), Lf.ValueContractId(Lf.AbsoluteContractId("#6:0"))))
           )),
         Set("giver"),
         true,

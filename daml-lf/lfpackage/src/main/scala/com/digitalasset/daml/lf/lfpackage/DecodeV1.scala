@@ -22,6 +22,8 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
   private val languageVersion = LanguageVersion(V1, minor)
 
+  private def id(s: String): Identifier = Identifier.assertFromString(s)
+
   override def decodePackage(packageId: PackageId, lfPackage: PLF.Package): Package =
     Package(lfPackage.getModulesList.asScala.map(ModuleDecoder(packageId, _).decode))
 
@@ -110,20 +112,16 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
     }
 
     private[this] def decodeFields(
-        lfFields: ImmArray[PLF.FieldWithType]): ImmArray[(String, Type)] =
-      lfFields.map { field =>
-        checkIdentifier(field.getField)
-        (field.getField, decodeType(field.getType))
-      }
+        lfFields: ImmArray[PLF.FieldWithType]): ImmArray[(Identifier, Type)] =
+      lfFields.map(field => id(field.getField) -> decodeType(field.getType))
 
-    private[this] def decodeDefValue(lfValue: PLF.DefValue): DValue = {
+    private[this] def decodeDefValue(lfValue: PLF.DefValue): DValue =
       DValue(
         typ = decodeType(lfValue.getNameWithType.getType),
         noPartyLiterals = lfValue.getNoPartyLiterals,
         body = decodeExpr(lfValue.getExpr),
         isTest = lfValue.getIsTest
       )
-    }
 
     private def decodeLocation(lfExpr: PLF.Expr): Option[Location] =
       if (lfExpr.hasLocation && lfExpr.getLocation.hasRange) {
@@ -162,18 +160,14 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           val recCon = expr.getRecord
           ERecCon(
             tycon = decodeTypeConApp(recCon.getTycon),
-            fields = ImmArray(recCon.getFieldsList.asScala).map { field =>
-              checkIdentifier(field.getField)
-              (field.getField, decodeKeyExpr(field.getExpr, tplVar))
-            }
+            fields = ImmArray(recCon.getFieldsList.asScala).map(field =>
+              id(field.getField) -> decodeKeyExpr(field.getExpr, tplVar))
           )
 
         case PLF.KeyExpr.SumCase.PROJECTIONS =>
           val lfProjs = expr.getProjections.getProjectionsList.asScala
-          lfProjs.foldLeft(EVar(tplVar): Expr) {
-            case (acc, lfProj) =>
-              ERecProj(decodeTypeConApp(lfProj.getTycon), lfProj.getField, acc)
-          }
+          lfProjs.foldLeft(EVar(tplVar): Expr)((acc, lfProj) =>
+            ERecProj(decodeTypeConApp(lfProj.getTycon), id(lfProj.getField), acc))
 
         case PLF.KeyExpr.SumCase.SUM_NOT_SET =>
           throw ParseError("KeyExpr.SUM_NOT_SET")
@@ -182,7 +176,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
     private[this] def decodeTemplate(lfTempl: PLF.DefTemplate): Template =
       Template(
-        param = lfTempl.getParam,
+        param = id(lfTempl.getParam),
         precond = if (lfTempl.hasPrecond) decodeExpr(lfTempl.getPrecond) else EPrimCon(PCTrue),
         signatories = decodeExpr(lfTempl.getSignatories),
         agreementText = decodeExpr(lfTempl.getAgreement),
@@ -191,17 +185,17 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           .map(ch => (ch.name, ch)),
         observers = decodeExpr(lfTempl.getObservers),
         key =
-          if (lfTempl.hasKey) Some(decodeTemplateKey(lfTempl.getKey, lfTempl.getParam)) else None
+          if (lfTempl.hasKey) Some(decodeTemplateKey(lfTempl.getKey, id(lfTempl.getParam)))
+          else None
       )
 
     private[this] def decodeChoice(lfChoice: PLF.TemplateChoice): TemplateChoice = {
-      checkIdentifier(lfChoice.getSelfBinder)
       val (v, t) = decodeBinder(lfChoice.getArgBinder)
       TemplateChoice(
-        name = Identifier.assertFromString(lfChoice.getName),
+        name = id(lfChoice.getName),
         consuming = lfChoice.getConsuming,
         controllers = decodeExpr(lfChoice.getControllers),
-        selfBinder = lfChoice.getSelfBinder,
+        selfBinder = id(lfChoice.getSelfBinder),
         argBinder = Some(v) -> t,
         returnType = decodeType(lfChoice.getRetType),
         update = decodeExpr(lfChoice.getUpdate)
@@ -224,9 +218,8 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
       lfType.getSumCase match {
         case PLF.Type.SumCase.VAR =>
           val tvar = lfType.getVar
-          checkIdentifier(tvar.getVar)
           tvar.getArgsList.asScala
-            .foldLeft[Type](TVar(tvar.getVar))((typ, arg) => TApp(typ, decodeType(arg)))
+            .foldLeft[Type](TVar(id(tvar.getVar)))((typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.CON =>
           val tcon = lfType.getCon
           (TTyCon(decodeTypeConName(tcon.getTycon)) /: [Type] tcon.getArgsList.asScala)(
@@ -254,10 +247,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           val fields = tuple.getFieldsList.asScala
           checkNonEmpty(fields, "fields")
           TTuple(
-            ImmArray(fields.map { ft =>
-              checkIdentifier(ft.getField)
-              ft.getField -> decodeType(ft.getType)
-            })
+            ImmArray(fields.map(ft => id(ft.getField) -> decodeType(ft.getType)))
           )
 
         case PLF.Type.SumCase.SUM_NOT_SET =>
@@ -308,8 +298,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
     private[this] def decodeExprBody(lfExpr: PLF.Expr): Expr =
       lfExpr.getSumCase match {
         case PLF.Expr.SumCase.VAR =>
-          checkIdentifier(lfExpr.getVar)
-          EVar(lfExpr.getVar)
+          EVar(id(lfExpr.getVar))
 
         case PLF.Expr.SumCase.VAL =>
           EVal(decodeValName(lfExpr.getVal))
@@ -335,56 +324,47 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           val recCon = lfExpr.getRecCon
           ERecCon(
             tycon = decodeTypeConApp(recCon.getTycon),
-            fields = ImmArray(recCon.getFieldsList.asScala).map { field =>
-              checkIdentifier(field.getField)
-              (field.getField, decodeExpr(field.getExpr))
-            }
+            fields = ImmArray(recCon.getFieldsList.asScala).map(field =>
+              id(field.getField) -> decodeExpr(field.getExpr))
           )
 
         case PLF.Expr.SumCase.REC_PROJ =>
           val recProj = lfExpr.getRecProj
-          checkIdentifier(recProj.getField)
           ERecProj(
             tycon = decodeTypeConApp(recProj.getTycon),
-            field = recProj.getField,
+            field = id(recProj.getField),
             record = decodeExpr(recProj.getRecord))
 
         case PLF.Expr.SumCase.REC_UPD =>
           val recUpd = lfExpr.getRecUpd
-          checkIdentifier(recUpd.getField)
           ERecUpd(
             tycon = decodeTypeConApp(recUpd.getTycon),
-            field = recUpd.getField,
+            field = id(recUpd.getField),
             record = decodeExpr(recUpd.getRecord),
             update = decodeExpr(recUpd.getUpdate))
 
         case PLF.Expr.SumCase.VARIANT_CON =>
           val varCon = lfExpr.getVariantCon
-          checkIdentifier(varCon.getVariantCon)
           EVariantCon(
             decodeTypeConApp(varCon.getTycon),
-            varCon.getVariantCon,
+            id(varCon.getVariantCon),
             decodeExpr(varCon.getVariantArg))
 
         case PLF.Expr.SumCase.TUPLE_CON =>
           val tupleCon = lfExpr.getTupleCon
           ETupleCon(
-            ImmArray(tupleCon.getFieldsList.asScala).map { field =>
-              checkIdentifier(field.getField)
-              (field.getField, decodeExpr(field.getExpr))
-            }
+            ImmArray(tupleCon.getFieldsList.asScala).map(field =>
+              id(field.getField) -> decodeExpr(field.getExpr))
           )
 
         case PLF.Expr.SumCase.TUPLE_PROJ =>
           val tupleProj = lfExpr.getTupleProj
-          checkIdentifier(tupleProj.getField)
-          ETupleProj(tupleProj.getField, decodeExpr(tupleProj.getTuple))
+          ETupleProj(id(tupleProj.getField), decodeExpr(tupleProj.getTuple))
 
         case PLF.Expr.SumCase.TUPLE_UPD =>
           val tupleUpd = lfExpr.getTupleUpd
-          checkIdentifier(tupleUpd.getField)
           ETupleUpd(
-            field = tupleUpd.getField,
+            field = id(tupleUpd.getField),
             tuple = decodeExpr(tupleUpd.getTuple),
             update = decodeExpr(tupleUpd.getUpdate))
 
@@ -465,28 +445,25 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           CPDefault
         case PLF.CaseAlt.SumCase.VARIANT =>
           val variant = lfCaseAlt.getVariant
-          checkIdentifier(variant.getBinder)
-          checkIdentifier(variant.getBinder)
-          CPVariant(decodeTypeConName(variant.getCon), variant.getVariant, variant.getBinder)
+          CPVariant(
+            decodeTypeConName(variant.getCon),
+            id(variant.getVariant),
+            id(variant.getBinder))
         case PLF.CaseAlt.SumCase.PRIM_CON =>
           CPPrimCon(decodePrimCon(lfCaseAlt.getPrimCon))
         case PLF.CaseAlt.SumCase.NIL =>
           CPNil
         case PLF.CaseAlt.SumCase.CONS =>
           val cons = lfCaseAlt.getCons
-          checkIdentifier(cons.getVarHead)
-          checkIdentifier(cons.getVarTail)
-          CPCons(cons.getVarHead, cons.getVarTail)
+          CPCons(id(cons.getVarHead), id(cons.getVarTail))
 
         case PLF.CaseAlt.SumCase.NONE =>
           assertSince("1", "CaseAlt.None")
           CPNone
 
         case PLF.CaseAlt.SumCase.SOME =>
-          checkIdentifier(lfCaseAlt.getSome.getVarBody)
           assertSince("1", "CaseAlt.Some")
-
-          CPSome(lfCaseAlt.getSome.getVarBody)
+          CPSome(id(lfCaseAlt.getSome.getVarBody))
 
         case PLF.CaseAlt.SumCase.SUM_NOT_SET =>
           throw ParseError("CaseAlt.SUM_NOT_SET")
@@ -524,7 +501,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           val exercise = lfUpdate.getExercise
           UpdateExercise(
             templateId = decodeTypeConName(exercise.getTemplate),
-            choice = Identifier.assertFromString(exercise.getChoice),
+            choice = id(exercise.getChoice),
             cidE = decodeExpr(exercise.getCid),
             actorsE = decodeExpr(exercise.getActor),
             argE = decodeExpr(exercise.getArg)
@@ -599,20 +576,16 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
       }
 
     private[this] def decodeTypeVarWithKind(
-        lfTypeVarWithKind: PLF.TypeVarWithKind): (TypeVarName, Kind) = {
-      checkIdentifier(lfTypeVarWithKind.getVar)
-      lfTypeVarWithKind.getVar -> decodeKind(lfTypeVarWithKind.getKind)
-    }
+        lfTypeVarWithKind: PLF.TypeVarWithKind): (TypeVarName, Kind) =
+      id(lfTypeVarWithKind.getVar) -> decodeKind(lfTypeVarWithKind.getKind)
 
     private[this] def decodeBinding(lfBinding: PLF.Binding): Binding = {
       val (binder, typ) = decodeBinder(lfBinding.getBinder)
       Binding(Some(binder), typ, decodeExpr(lfBinding.getBound))
     }
 
-    private[this] def decodeBinder(lfBinder: PLF.VarWithType): (ExprVarName, Type) = {
-      checkIdentifier(lfBinder.getVar)
-      lfBinder.getVar -> decodeType(lfBinder.getType)
-    }
+    private[this] def decodeBinder(lfBinder: PLF.VarWithType): (ExprVarName, Type) =
+      id(lfBinder.getVar) -> decodeType(lfBinder.getType)
 
     private[this] def decodePrimCon(lfPrimCon: PLF.PrimCon): PrimCon =
       lfPrimCon match {

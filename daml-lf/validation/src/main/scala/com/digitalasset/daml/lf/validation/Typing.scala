@@ -102,7 +102,7 @@ private[validation] object Typing {
       BMapToList ->
         TForall(
           alpha.name -> KStar,
-          TMap(alpha) ->: TList(TTuple(ImmArray("key" -> TText, "value" -> alpha)))
+          TMap(alpha) ->: TList(TTuple(ImmArray(keyFieldName -> TText, valueFieldName -> alpha)))
         ),
       BMapSize ->
         TForall(
@@ -532,7 +532,7 @@ private[validation] object Typing {
 
     private def typeOfScenarioBlock(bindings: ImmArray[Binding], body: Expr): Type = {
       val env = bindings.foldLeft(this) {
-        case (env: Env, Binding(vName, typ, bound)) =>
+        case (env, Binding(vName, typ, bound)) =>
           env.checkType(typ, KStar)
           env.checkExpr(bound, TScenario(typ))
           env.introExprVar(vName, typ)
@@ -545,7 +545,7 @@ private[validation] object Typing {
 
     private def typeOfUpdateBlock(bindings: ImmArray[Binding], body: Expr): Type = {
       val env = bindings.foldLeft(this) {
-        case (env: Env, Binding(vName, typ, bound)) =>
+        case (env, Binding(vName, typ, bound)) =>
           env.checkType(typ, KStar)
           env.checkExpr(bound, TUpdate(typ))
           env.introExprVar(vName, typ)
@@ -614,8 +614,8 @@ private[validation] object Typing {
         TUpdate(
           TTuple(
             ImmArray(
-              ("contractId", TContractId(TTyCon(retrieveByKey.templateId))),
-              ("contract", TTyCon(retrieveByKey.templateId)))))
+              (contractIdFieldName, TContractId(TTyCon(retrieveByKey.templateId))),
+              (contractFieldName, TTyCon(retrieveByKey.templateId)))))
       case UpdateLookupByKey(retrieveByKey) =>
         checkRetrieveByKey(retrieveByKey)
         TUpdate(TOptional(TContractId(TTyCon(retrieveByKey.templateId))))
@@ -662,27 +662,27 @@ private[validation] object Typing {
         lookupExpVar(name)
       case EVal(ref) =>
         lookupValue(ctx, ref).typ
-      case EBuiltin(fun: BuiltinFunction) =>
+      case EBuiltin(fun) =>
         typeOfBuiltinFunction(fun)
       case EPrimCon(con) =>
         typeOfPRimCon(con)
       case EPrimLit(lit) =>
         typeOfPrimLit(lit)
-      case ERecCon(tycon: TypeConApp, fields: ImmArray[(FieldName, Expr)]) =>
+      case ERecCon(tycon, fields) =>
         checkRecCon(tycon, fields)
         typeConAppToType(tycon)
-      case ERecProj(tycon: TypeConApp, field: FieldName, record: Expr) =>
+      case ERecProj(tycon, field, record) =>
         typeOfRecProj(tycon, field, record)
-      case ERecUpd(tycon: TypeConApp, field: FieldName, record: Expr, update: Expr) =>
+      case ERecUpd(tycon, field, record, update) =>
         typeOfRecUpd(tycon, field, record, update)
-      case EVariantCon(tycon: TypeConApp, variant: VariantConName, arg: Expr) =>
+      case EVariantCon(tycon, variant, arg) =>
         checkVariantCon(tycon, variant, arg)
         typeConAppToType(tycon)
-      case ETupleCon(fields: ImmArray[(FieldName, Expr)]) =>
+      case ETupleCon(fields) =>
         typeOfTupleCon(fields)
-      case ETupleProj(field: FieldName, tuple: Expr) =>
+      case ETupleProj(field, tuple) =>
         typeOfTupleProj(field, tuple)
-      case ETupleUpd(field: FieldName, tuple: Expr, update: Expr) =>
+      case ETupleUpd(field, tuple, update) =>
         typeOfTupleUpd(field, tuple, update)
       case EApp(fun, arg) =>
         typeOfTmApp(fun, arg)
@@ -692,11 +692,11 @@ private[validation] object Typing {
         typeOfTmLam(varName, typ, body)
       case ETyAbs((vName, kind), body) =>
         typeofTyLam(vName, kind, body)
-      case ECase(scrut, alts) =>
-        typeOfCase(scrut, alts)
+      case ECase(scruct, alts) =>
+        typeOfCase(scruct, alts)
       case ELet(binding, body) =>
         typeOfLet(binding, body)
-      case ENil(typ: Type) =>
+      case ENil(typ) =>
         checkType(typ, KStar)
         TList(typ)
       case ECons(typ, front, tail) =>

@@ -27,10 +27,10 @@ object Ast {
   type TypeVarName = String
 
   /* Reference to a field in a record or variant. */
-  type FieldName = String
+  type FieldName = Identifier
 
   /* Variant constructor name. */
-  type VariantConName = String
+  type VariantConName = Identifier
 
   /* Binding in a let/update/scenario block. */
   case class Binding(binder: Option[ExprVarName], typ: Type, bound: Expr)
@@ -233,12 +233,12 @@ object Ast {
   final case class TForall(binder: (TypeVarName, Kind), body: Type) extends Type
 
   /** Tuples */
-  final case class TTuple private (sortedFields: ImmArray[(String, Type)]) extends Type
+  final case class TTuple private (sortedFields: ImmArray[(FieldName, Type)]) extends Type
 
   object TTuple extends (ImmArray[(FieldName, Type)] => TTuple) {
     // should be dropped once the compiler sort fields.
-    def apply(fields: ImmArray[(String, Type)]): TTuple =
-      new TTuple(ImmArray(fields.toSeq.sortBy(_._1)))
+    def apply(fields: ImmArray[(FieldName, Type)]): TTuple =
+      new TTuple(ImmArray(fields.toSeq.sortBy(_._1: String)))
   }
 
   sealed abstract class BuiltinType extends Product with Serializable
@@ -632,5 +632,11 @@ object Ast {
       Package(modulesWithNames.toMap)
     }
   }
+
+  val keyFieldName = Identifier.assertFromString("key")
+  val valueFieldName = Identifier.assertFromString("value")
+  val maintainersFieldName = Identifier.assertFromString("maintainers")
+  val contractIdFieldName = Identifier.assertFromString("contractId")
+  val contractFieldName = Identifier.assertFromString("contract")
 
 }

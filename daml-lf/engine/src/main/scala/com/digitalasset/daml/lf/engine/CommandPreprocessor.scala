@@ -7,6 +7,7 @@ import java.util
 
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Ref.Identifier.classTag
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Util._

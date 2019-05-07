@@ -36,7 +36,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
   "Module.apply" should {
 
     val template = Template(
-      param = "x",
+      param = id("x"),
       precond = eTrue,
       signatories = eParties,
       agreementText = eText,
@@ -153,7 +153,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       name = name,
       consuming = true,
       controllers = eParties,
-      selfBinder = "self",
+      selfBinder = id("self"),
       argBinder = (None, tUnit),
       returnType = tUnit,
       update = EUpdate(UpdatePure(typ, expr)),
@@ -165,7 +165,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     "catch choice name collisions" in {
 
       Template(
-        param = "x",
+        param = id("x"),
         precond = eTrue,
         signatories = eParties,
         agreementText = eText,
@@ -180,7 +180,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
       an[ParseError] shouldBe thrownBy(
         Template(
-          param = "x",
+          param = id("x"),
           precond = eTrue,
           signatories = eParties,
           agreementText = eText,
@@ -205,5 +205,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
   private val eText = EPrimLit(PLText("some text"))
   private val eUnit = EPrimCon(PCUnit)
   private val eTrue = EPrimCon(PCTrue)
+
+  private def id(s: String) = Identifier.assertFromString(s)
 
 }

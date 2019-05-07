@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package testing.parser
 
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Identifier}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.testing.parser.ExprParser.{expr, expr0}
 import com.digitalasset.daml.lf.testing.parser.Parsers._
@@ -53,7 +53,7 @@ private[parser] object ModParser {
       tags.toSet
     }
 
-  private lazy val binder: Parser[(String, Type)] =
+  private lazy val binder: Parser[(Identifier, Type)] =
     id ~ `:` ~ typ ^^ { case id ~ _ ~ typ => id -> typ }
 
   private lazy val recDefinition: Parser[DataDef] =
@@ -108,7 +108,7 @@ private[parser] object ModParser {
           Template(x, precon, signatories, agreement, choices.map(_(x)), observers, key))
     }
 
-  private lazy val choiceParam: Parser[(Option[ExprVarName], Type)] =
+  private lazy val choiceParam: Parser[(Option[Identifier], Type)] =
     `(` ~> id ~ `:` ~ typ <~ `)` ^^ { case name ~ _ ~ typ => Some(name) -> typ } |
       success(None -> TBuiltin(BTUnit))
 
