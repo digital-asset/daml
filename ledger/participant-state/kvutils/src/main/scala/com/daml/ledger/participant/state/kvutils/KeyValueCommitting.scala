@@ -36,6 +36,9 @@ object KeyValueCommitting {
   def packDamlLogEntry(entry: DamlLogEntry): ByteString = entry.toByteString
   def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
 
+  def packDamlLogEntryId(entry: DamlLogEntryId): ByteString = entry.toByteString
+  def unpackDamlLogEntryId(bytes: ByteString): DamlLogEntryId = DamlLogEntryId.parseFrom(bytes)
+
   /** Pretty-printing of the entry identifier. Uses the same hexadecimal encoding as is used
     * for absolute contract identifiers.
     */
