@@ -197,7 +197,7 @@ compileModule opt mod packageState uniqSupply deps pkgs tmr =
                 let pm = tm_parsed_module tm
                 let pm' = pm{pm_mod_summary = tweak $ pm_mod_summary pm}
                 let tm' = tm{tm_parsed_module  = pm'}
-                removeTypeableInfo . GHC.dm_core_module <$> GHC.desugarModule tm'
+                GHC.dm_core_module <$> GHC.desugarModule tm'
 
             -- give variables unique OccNames
             (tidy, details) <- liftIO $ tidyProgram session desugar

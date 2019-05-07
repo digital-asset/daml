@@ -254,7 +254,7 @@ convertRational num denom
 
 convertModule :: LF.Version -> MS.Map UnitId T.Text -> GhcModule -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) Nothing) $ do
-    definitions <- concatMapM (convertBind env) (cm_binds x)
+    definitions <- concatMapM (convertBind env) $ filter (not . isTypeableInfo) $ cm_binds x
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     pure (LF.moduleFromDefinitions lfModName (gmPath mod0) flags (types ++ definitions))
     where
@@ -290,6 +290,11 @@ convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) N
           , envPkgMap = pkgMap
           , envLfVersion = lfVersion
           }
+
+-- | We can't cope with the generated Typeable stuff, so remove those bindings
+isTypeableInfo :: Bind Var -> Bool
+isTypeableInfo (NonRec name _) = any (`isPrefixOf` getOccString name) ["$krep", "$tc", "$trModule"]
+isTypeableInfo _ = False
 
 
 convertTemplate :: Env -> GHC.Expr Var -> ConvertM [Definition]

@@ -14,7 +14,6 @@
 module Development.IDE.UtilGHC(
     PackageDynFlags(..), setPackageDynFlags, getPackageDynFlags,
     modifyDynFlags,
-    removeTypeableInfo,
     setPackageImports,
     setPackageDbs,
     fakeSettings,
@@ -40,7 +39,6 @@ import qualified EnumSet
 
 import           Control.DeepSeq
 import           Data.IORef
-import           Data.List
 import GHC.Generics (Generic)
 import qualified StringBuffer as SB
 
@@ -137,15 +135,6 @@ importGenerated qual i = i{ideclImplicit=True, ideclQualified=qual}
 
 mkImport :: Located ModuleName -> ImportDecl GhcPs
 mkImport mname = GHC.ImportDecl GHC.NoExt GHC.NoSourceText mname Nothing False False False False Nothing Nothing
-
--- FIXME(#1203): This needs to move out of haskell-ide-core.
-removeTypeableInfo :: ModGuts -> ModGuts
-removeTypeableInfo guts =
-  guts{mg_binds = filter (not . isTypeableInfo) (mg_binds guts)}
-  where
-    isTypeableInfo = \case
-      NonRec name _ -> any (`isPrefixOf` getOccString name) ["$krep", "$tc", "$trModule"]
-      Rec _ -> False
 
 -- | Like 'runGhc' but much faster (400x), with less IO and no file dependency
 runGhcFast :: Ghc a -> IO a
