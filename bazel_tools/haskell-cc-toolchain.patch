@@ -55,11 +55,21 @@ index ae16776..0000000
 -}
 diff --git a/haskell/cc_toolchain_config.bzl b/haskell/cc_toolchain_config.bzl
 new file mode 100644
-index 0000000..7a80805
+index 0000000..f6850f9
 --- /dev/null
 +++ b/haskell/cc_toolchain_config.bzl
-@@ -0,0 +1,67 @@
-+load("@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl", "tool_path")
+@@ -0,0 +1,98 @@
++load(
++    "@bazel_tools//tools/build_defs/cc:action_names.bzl",
++    "ACTION_NAMES",
++)
++load(
++    "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
++    "feature",
++    "flag_group",
++    "flag_set",
++    "tool_path",
++)
 +
 +def _impl(ctx):
 +    tool_paths = [
@@ -108,6 +118,26 @@ index 0000000..7a80805
 +            path = "mingw/bin/strip",
 +        ),
 +    ]
++    default_link_flags_feature = feature(
++        name = "default_link_flags",
++        enabled = True,
++        flag_sets = [
++            flag_set(
++                actions = [
++                    ACTION_NAMES.cpp_link_executable,
++                    ACTION_NAMES.cpp_link_dynamic_library,
++                    ACTION_NAMES.cpp_link_nodeps_dynamic_library,
++                ],
++                flag_groups = [
++                    flag_group(
++                        flags = [
++                            "-lstdc++",
++                        ],
++                    ),
++                ],
++            ),
++        ],
++    )
 +    return cc_common.create_cc_toolchain_config_info(
 +        ctx = ctx,
 +        toolchain_identifier = "ghc_windows_mingw64",
@@ -119,6 +149,7 @@ index 0000000..7a80805
 +        abi_version = "local",
 +        abi_libc_version = "local",
 +        tool_paths = tool_paths,
++        features = [default_link_flags_feature],
 +    )
 +
 +cc_toolchain_config = rule(
