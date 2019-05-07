@@ -19,6 +19,7 @@ data IdeOptions = IdeOptions
   -- ^ Setup a GHC session using a given package state. If a `ParsedModule` is supplied,
   -- the import path should be setup for that module.
   , optWriteIface :: Bool
+  , optExtensions :: [String]
 
   , optMbPackageName :: Maybe String
 

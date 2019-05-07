@@ -71,6 +71,7 @@ toCompileOpts Options{..} =
             setupDamlGHC importPaths optMbPackageName packageState optGhcCustomOpts
             m
       , optWriteIface = optWriteInterface
+      , optExtensions = ["daml"]
       , optMbPackageName = optMbPackageName
       , optPackageDbs = optPackageDbs
       , optHideAllPkgs = optHideAllPkgs
