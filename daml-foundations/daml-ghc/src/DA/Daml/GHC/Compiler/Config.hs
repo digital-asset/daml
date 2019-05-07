@@ -115,6 +115,15 @@ adjustDynFlags paths packageState mbPackageName dflags
   where apply f xs d = foldl' f d xs
 
 
+setThisInstalledUnitId :: UnitId -> DynFlags -> DynFlags
+setThisInstalledUnitId unitId dflags =
+  dflags {thisInstalledUnitId = toInstalledUnitId unitId}
+
+setImports :: [FilePath] -> DynFlags -> DynFlags
+setImports paths dflags = dflags { importPaths = paths }
+
+
+
 -- | Configures the @DynFlags@ for this session to DAML-1.2
 --  compilation:
 --     * Installs a custom log action;

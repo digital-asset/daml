@@ -7,7 +7,6 @@ module Development.IDE.State.API
     , IdeState
     , Action
     , initialise
-    , getGhcCore
     , getDalf
     , getAtPoint
     , getDefinition
