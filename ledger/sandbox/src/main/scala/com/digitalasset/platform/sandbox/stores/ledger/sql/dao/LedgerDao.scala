@@ -16,7 +16,6 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, V
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
-import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 
 import scala.collection.immutable
@@ -28,7 +27,7 @@ final case class Contract(
     transactionId: String,
     workflowId: String,
     witnesses: Set[Ref.Party],
-    divulgences: Set[Ref.Party],
+    divulgences: Map[Ref.Party, String],
     coinst: ContractInst[VersionedValue[AbsoluteContractId]],
     key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]]) {
   def toActiveContract: ActiveContract =
@@ -162,13 +161,14 @@ trait LedgerDao extends AutoCloseable {
     * Stores the initial ledger state, e.g., computed by the scenario loader.
     * Must be called at most once, before any call to storeLedgerEntry.
     *
-    * @param acs           the active contract set
+    * @param activeContracts the active contract set
     * @param ledgerEntries the list of LedgerEntries to save
     * @return Ok when the operation was successful
     */
   def storeInitialState(
-      acs: ActiveContractsInMemory,
-      ledgerEntries: immutable.Seq[LedgerEntry]
+      activeContracts: immutable.Seq[Contract],
+      ledgerEntries: immutable.Seq[(LedgerOffset, LedgerEntry)],
+      newLedgerEnd: LedgerOffset
   ): Future[Unit]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */

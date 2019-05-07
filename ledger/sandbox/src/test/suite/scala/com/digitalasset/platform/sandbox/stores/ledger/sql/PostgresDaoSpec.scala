@@ -102,7 +102,7 @@ class PostgresDaoSpec
         "trId1",
         "workflowId",
         Set(alice, bob),
-        Set(alice, bob),
+        Map(alice -> "trId1", bob -> "trId1"),
         contractInstance,
         Some(keyWithMaintainers)
       )
@@ -229,7 +229,7 @@ class PostgresDaoSpec
         "trId2",
         "workflowId",
         Set(alice, bob),
-        Set(alice, bob),
+        Map(alice -> "trId2", bob -> "trId2"),
         contractInstance,
         Some(keyWithMaintainers)
       )
@@ -294,7 +294,7 @@ class PostgresDaoSpec
           txId,
           "workflowId",
           Set(alice, bob),
-          Set(alice, bob),
+          Map(alice -> txId, bob -> txId),
           contractInstance,
           None
         )
