@@ -96,7 +96,7 @@ wOptsUnset =
 adjustDynFlags :: [FilePath] -> PackageDynFlags -> Maybe String -> DynFlags -> DynFlags
 adjustDynFlags paths packageState mbPackageName dflags
   = setImports paths
-  $ setPackageState packageState
+  $ setPackageDynFlags packageState
   $ setThisInstalledUnitId (maybe mainUnitId stringToUnitId mbPackageName)
   -- once we have package imports working, we want to import the base package and set this to
   -- the default instead of always compiling in the context of ghc-prim.

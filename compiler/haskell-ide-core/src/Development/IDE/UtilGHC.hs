@@ -12,7 +12,7 @@
 --
 -- * Call setSessionDynFlags, use modifyDynFlags instead. It's faster and avoids loading packages.
 module Development.IDE.UtilGHC(
-    PackageDynFlags(..),
+    PackageDynFlags(..), setPackageDynFlags,
     modifyDynFlags,
     textToStringBuffer,
     removeTypeableInfo,
@@ -25,7 +25,6 @@ module Development.IDE.UtilGHC(
     mkImport,
     runGhcFast,
     setImports,
-    setPackageState,
     setThisInstalledUnitId,
     modIsInternal
     ) where
@@ -84,20 +83,19 @@ modifyDynFlags f = do
 
 -- | The subset of @DynFlags@ computed by package initialization.
 data PackageDynFlags = PackageDynFlags
-  { pkgStateDb :: !(Maybe [(FilePath, [Packages.PackageConfig])])
-  , pkgStateState :: !Packages.PackageState
-  , pkgThisUnitIdInsts :: !(Maybe [(ModuleName, Module)])
+  { pdfPkgDatabase :: !(Maybe [(FilePath, [Packages.PackageConfig])])
+  , pdfPkgState :: !Packages.PackageState
+  , pdfThisUnitIdInsts :: !(Maybe [(ModuleName, Module)])
   } deriving (Generic, Show)
 
 instance NFData PackageDynFlags where
   rnf (PackageDynFlags db state insts) = db `seq` state `seq` rnf insts
 
-setPackageState :: PackageDynFlags -> DynFlags -> DynFlags
-setPackageState state dflags =
-  dflags
-    { pkgDatabase = pkgStateDb state
-    , pkgState = pkgStateState state
-    , thisUnitIdInsts_ = pkgThisUnitIdInsts state
+setPackageDynFlags :: PackageDynFlags -> DynFlags -> DynFlags
+setPackageDynFlags PackageDynFlags{..} dflags = dflags
+    { pkgDatabase = pdfPkgDatabase
+    , pkgState = pdfPkgState
+    , thisUnitIdInsts_ = pdfThisUnitIdInsts
     }
 
 
