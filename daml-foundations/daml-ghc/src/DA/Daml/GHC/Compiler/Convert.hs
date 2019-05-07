@@ -89,6 +89,7 @@ import           Development.IDE.UtilGHC
 import           Control.Applicative
 import           Control.Lens
 import           Control.Monad.Except
+import           Control.Monad.Extra
 import Control.Monad.Fail
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
@@ -253,8 +254,8 @@ convertRational num denom
 
 convertModule :: LF.Version -> MS.Map UnitId T.Text -> GhcModule -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) Nothing) $ do
-    definitions <- concat <$> traverse (convertBind env) (cm_binds x)
-    types <- concat <$> traverse (convertTypeDef env) (eltsUFM (cm_types x))
+    definitions <- concatMapM (convertBind env) (cm_binds x)
+    types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     pure (LF.moduleFromDefinitions lfModName (gmPath mod0) flags (types ++ definitions))
     where
         x = gmCore mod0
@@ -307,7 +308,7 @@ convertTemplate env (VarIs "C:Template" `App` Type (TypeCon ty [])
     pure [DTemplate Template{..}]
     where
         applyTplParam e = e `ETmApp` EVar tplParam
-        choices signatories = traverse (convertChoice env signatories) $ envFindChoices env $ is ty
+        choices signatories = mapM (convertChoice env signatories) $ envFindChoices env $ is ty
         keys = mapM (convertKey env) $ envFindKeys env $ is ty
         tplLocation = Nothing
         tplTypeCon = mkTypeCon [is ty]
@@ -453,7 +454,7 @@ convertCtors env (Ctors name tys [o@(Ctor ctor fldNames fldTys)])
         tcon = TypeConApp (Qualified PRSelf (envLFModuleName env) tconName) $ map (TVar . fst) tys
         expr = mkETyLams tys $ mkETmLams (map (first retag) flds) $ ERecCon tcon [(l, EVar $ retag l) | l <- fldNames]
 convertCtors env (Ctors name tys cs) = do
-    (constrs, funs) <- unzip <$> traverse convertCtor cs
+    (constrs, funs) <- mapAndUnzipM convertCtor cs
     pure $ [defDataType tconName tys $ DataVariant constrs] ++ concat funs
     where
       tconName = mkTypeCon [getOccString name]
@@ -514,7 +515,7 @@ convertBind2 env (NonRec name x)
           _ -> id
     name' <- convValWithType env name
     pure [defValue name name' (sanitize x')]
-convertBind2 env (Rec xs) = concat <$> traverse (\(a, b) -> convertBind env (NonRec a b)) xs
+convertBind2 env (Rec xs) = concatMapM (\(a, b) -> convertBind env (NonRec a b)) xs
 
 -- NOTE(MH): These are the names of the builtin DAML-LF types whose Surface
 -- DAML counterpart is not defined in 'GHC.Types'. They are all defined in
@@ -872,7 +873,7 @@ convertExpr env0 e = do
     go env (Case scrutinee bind _ (defaultLast -> alts)) args = fmap (, args) $ do
         scrutinee' <- convertExpr env scrutinee
         bindTy <- convertType env $ varType bind
-        alts' <- traverse (convertAlt env bindTy) alts
+        alts' <- mapM (convertAlt env bindTy) alts
         bind' <- convVarWithType env bind
         if isDeadOcc (occInfo (idInfo bind))
           then pure $ ECase scrutinee' alts'
@@ -1043,7 +1044,7 @@ convertCast env expr0 co0 = evalStateT (go expr0 co0) 0
       , applyTysX tvs rhs ts `eqType` s
       , [field] <- ctorLabels flv data_con
       = do
-      ts' <- traverse (convertType env) ts
+      ts' <- mapM (convertType env) ts
       t' <- convertQualified env t
       pure $ Just (TypeConApp t' ts', field, flv)
       where
@@ -1117,7 +1118,7 @@ convertType env o@(TypeCon t ts)
     | t == listTyCon, ts `eqTypes` [charTy] = pure TText
     | t == anyTyCon, [_] <- ts = pure TUnit -- used for type-zonking
     | t == funTyCon, _:_:ts' <- ts =
-        foldl TApp TArrow <$> traverse (convertType env) ts'
+        foldl TApp TArrow <$> mapM (convertType env) ts'
     | Just m <- nameModule_maybe (getName t)
     , GHC.moduleName m == mkModuleName "DA.Internal.LF"
     , getOccString t == "Pair"
@@ -1126,7 +1127,7 @@ convertType env o@(TypeCon t ts)
         t2 <- convertType env t2
         pure $ TTuple [(mkField f1, t1), (mkField f2, t2)]
     | tyConFlavour t == TypeSynonymFlavour = convertType env $ expandTypeSynonyms o
-    | otherwise = mkTApps <$> convertTyCon env t <*> traverse (convertType env) ts
+    | otherwise = mkTApps <$> convertTyCon env t <*> mapM (convertType env) ts
 convertType env t | Just (v, t') <- splitForAllTy_maybe t
   = TForall <$> convTypeVar v <*> convertType env t'
 convertType env t | Just t' <- getTyVar_maybe t
@@ -1185,10 +1186,10 @@ data Ctors = Ctors Name [(TypeVarName, LF.Kind)] [Ctor] deriving Show
 data Ctor = Ctor Name [FieldName] [LF.Type] deriving Show
 
 toCtors :: Env -> GHC.TyCon -> ConvertM Ctors
-toCtors env t = Ctors (getName t) <$> traverse convTypeVar (tyConTyVars t) <*> cs
+toCtors env t = Ctors (getName t) <$> mapM convTypeVar (tyConTyVars t) <*> cs
     where
         cs = case algTyConRhs t of
-                DataTyCon cs' _ _ -> traverse (toCtor env) cs'
+                DataTyCon cs' _ _ -> mapM (toCtor env) cs'
                 NewTyCon{..} -> sequence [toCtor env data_con]
                 x -> unsupported "Data definition, with unexpected RHS" t
 
@@ -1223,7 +1224,7 @@ toCtor env con =
         -- NOTE(MH): This is DICTIONARY SANITIZATION step (1).
         | flv == ClassFlavour = TUnit :-> ty
         | otherwise = ty
-  in Ctor (getName con) (ctorLabels flv con) <$> traverse (fmap sanitize . convertType env) tys
+  in Ctor (getName con) (ctorLabels flv con) <$> mapM (fmap sanitize . convertType env) tys
 
 isRecordCtor :: Ctor -> Bool
 isRecordCtor (Ctor _ fldNames fldTys) = not (null fldNames) || null fldTys
@@ -1275,7 +1276,7 @@ rewriteMaintainer key maintainer = do
         (EVar "this", fields)
           | Just expr' <- MS.lookup fields keyMap -> pure expr'
           | null fields -> unhandled "Unbound reference to this in maintainer" expr
-        _ -> embed <$> traverse (rewriteThisProjections keyMap) (project expr)
+        _ -> embed <$> mapM (rewriteThisProjections keyMap) (project expr)
 
 
 ---------------------------------------------------------------------
