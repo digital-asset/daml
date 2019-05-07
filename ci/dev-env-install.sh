@@ -38,13 +38,18 @@ step "Building dev-env dependencies"
 # repeat this a few times. There does not seem to be an option that we can pass to nix
 # to make it retry itself. See https://github.com/NixOS/nix/issues/2794 for the issue requesting
 # this feature.
+NIX_FAILED=0
 for i in `seq 10`; do
-    nix-build nix -A tools -A cached 2>&1 | tee nix_log
+    NIX_FAILED=0
+    nix-build nix -A tools -A cached 2>&1 | tee nix_log || NIX_FAILED=1
     # It should be in the last line but let’s use the last 3 and wildcards
     # to be robust against slight changes.
-    if [[ $(tail -n 3 nix_log) == *"unexpected end-of-file"* ]]; then
+    if [[ $NIX_FAILED -ne 0 ]] && [[ $(tail -n 3 nix_log) == *"unexpected end-of-file"* ]]; then
         echo "Restarting nix-build due to failed cache download"
         continue
     fi
     break
 done
+if [[ $NIX_FAILED -ne 0 ]]; then
+    exit 1
+fi
