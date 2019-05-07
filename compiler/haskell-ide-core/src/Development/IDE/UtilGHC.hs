@@ -14,7 +14,6 @@
 module Development.IDE.UtilGHC(
     PackageDynFlags(..), setPackageDynFlags, getPackageDynFlags,
     modifyDynFlags,
-    textToStringBuffer,
     removeTypeableInfo,
     setPackageImports,
     setPackageDbs,
@@ -37,14 +36,13 @@ import           GhcPlugins                  as GHC hiding (fst3, (<>))
 import           HscMain
 import qualified Packages
 import           Platform
-import qualified StringBuffer                as SB
 import qualified EnumSet
 
 import           Control.DeepSeq
 import           Data.IORef
 import           Data.List
-import qualified Data.Text as T
 import GHC.Generics (Generic)
+import qualified StringBuffer as SB
 
 ----------------------------------------------------------------------
 -- GHC setup
@@ -114,10 +112,6 @@ showSDocDefault = showSDoc dynFlags
 
 prettyPrint :: Outputable a => a -> String
 prettyPrint = showSDocDefault . ppr
-
-textToStringBuffer :: T.Text -> SB.StringBuffer
--- would be nice to do this more efficiently...
-textToStringBuffer = SB.stringToStringBuffer . T.unpack
 
 -- FIXME(#1203): This must move out of `haskell-ide-core` and into `damlc`.
 internalModules :: [String]
