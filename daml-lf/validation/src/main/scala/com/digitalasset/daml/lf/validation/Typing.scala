@@ -37,121 +37,132 @@ private[validation] object Typing {
     case PLDate(_) => TDate
   }
 
-  protected[validation] lazy val typeOfBuiltinFunction = Map[BuiltinFunction, Type](
-    BTrace -> TForall(alpha.name -> KStar, TText ->: alpha ->: alpha),
-    // Decimal arithmetic
-    BAddDecimal -> tBinop(TDecimal),
-    BSubDecimal -> tBinop(TDecimal),
-    BMulDecimal -> tBinop(TDecimal),
-    BDivDecimal -> tBinop(TDecimal),
-    BRoundDecimal -> (TInt64 ->: TDecimal ->: TDecimal),
-    // Int64 arithmetic
-    BAddInt64 -> tBinop(TInt64),
-    BSubInt64 -> tBinop(TInt64),
-    BMulInt64 -> tBinop(TInt64),
-    BDivInt64 -> tBinop(TInt64),
-    BModInt64 -> tBinop(TInt64),
-    BExpInt64 -> tBinop(TInt64),
-    // Conversions
-    BInt64ToDecimal -> (TInt64 ->: TDecimal),
-    BDecimalToInt64 -> (TDecimal ->: TInt64),
-    BDateToUnixDays -> (TDate ->: TInt64),
-    BUnixDaysToDate -> (TInt64 ->: TDate),
-    BTimestampToUnixMicroseconds -> (TTimestamp ->: TInt64),
-    BUnixMicrosecondsToTimestamp -> (TInt64 ->: TTimestamp),
-    // Folds
-    BFoldl ->
-      TForall(
-        alpha.name -> KStar,
-        TForall(beta.name -> KStar, (beta ->: alpha ->: beta) ->: beta ->: TList(alpha) ->: beta)),
-    BFoldr ->
-      TForall(
-        alpha.name -> KStar,
-        TForall(beta.name -> KStar, (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta)),
-    // Maps
-    BMapEmpty ->
-      TForall(
-        alpha.name -> KStar,
-        TMap(alpha)
-      ),
-    BMapInsert ->
-      TForall(
-        alpha.name -> KStar,
-        TText ->: alpha ->: TMap(alpha) ->: TMap(alpha)
-      ),
-    BMapLookup ->
-      TForall(
-        alpha.name -> KStar,
-        TText ->: TMap(alpha) ->: TOptional(alpha)
-      ),
-    BMapDelete ->
-      TForall(
-        alpha.name -> KStar,
-        TText ->: TMap(alpha) ->: TMap(alpha)
-      ),
-    BMapToList ->
-      TForall(
-        alpha.name -> KStar,
-        TMap(alpha) ->: TList(TTuple(ImmArray("key" -> TText, "value" -> alpha)))
-      ),
-    BMapSize ->
-      TForall(
-        alpha.name -> KStar,
-        TMap(alpha) ->: TInt64
-      ),
-    // Text functions
-    BExplodeText -> (TText ->: TList(TText)),
-    BAppendText -> tBinop(TText),
-    BToTextInt64 -> (TInt64 ->: TText),
-    BToTextDecimal -> (TDecimal ->: TText),
-    BToTextText -> (TText ->: TText),
-    BToTextTimestamp -> (TTimestamp ->: TText),
-    BToTextParty -> (TParty ->: TText),
-    BToTextDate -> (TDate ->: TText),
-    BSHA256Text -> (TText ->: TText),
-    BToQuotedTextParty -> (TParty ->: TText),
-    BFromTextParty -> (TText ->: TOptional(TParty)),
-    BError -> TForall(alpha.name -> KStar, TText ->: alpha),
-    // ComparisonsA
-    BLessInt64 -> tComparison(BTInt64),
-    BLessDecimal -> tComparison(BTDecimal),
-    BLessText -> tComparison(BTText),
-    BLessTimestamp -> tComparison(BTTimestamp),
-    BLessDate -> tComparison(BTDate),
-    BLessParty -> tComparison(BTParty),
-    BLessEqInt64 -> tComparison(BTInt64),
-    BLessEqDecimal -> tComparison(BTDecimal),
-    BLessEqText -> tComparison(BTText),
-    BLessEqTimestamp -> tComparison(BTTimestamp),
-    BLessEqDate -> tComparison(BTDate),
-    BLessEqParty -> tComparison(BTParty),
-    BGreaterInt64 -> tComparison(BTInt64),
-    BGreaterDecimal -> tComparison(BTDecimal),
-    BGreaterText -> tComparison(BTText),
-    BGreaterTimestamp -> tComparison(BTTimestamp),
-    BGreaterDate -> tComparison(BTDate),
-    BGreaterParty -> tComparison(BTParty),
-    BGreaterEqInt64 -> tComparison(BTInt64),
-    BGreaterEqDecimal -> tComparison(BTDecimal),
-    BGreaterEqText -> tComparison(BTText),
-    BGreaterEqTimestamp -> tComparison(BTTimestamp),
-    BGreaterEqDate -> tComparison(BTDate),
-    BGreaterEqParty -> tComparison(BTParty),
-    BImplodeText -> (TList(TText) ->: TText),
-    BEqualInt64 -> tComparison(BTInt64),
-    BEqualDecimal -> tComparison(BTDecimal),
-    BEqualText -> tComparison(BTText),
-    BEqualTimestamp -> tComparison(BTTimestamp),
-    BEqualDate -> tComparison(BTDate),
-    BEqualParty -> tComparison(BTParty),
-    BEqualBool -> tComparison(BTBool),
-    BEqualList ->
-      TForall(
-        alpha.name -> KStar,
-        (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool),
-    BEqualContractId ->
-      TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
-  )
+  protected[validation] lazy val typeOfBuiltinFunction = {
+    val alpha = TVar("$alpha$")
+    val beta = TVar("$beta$")
+    def tBinop(typ: Type): Type = typ ->: typ ->: typ
+    def tComparison(bType: BuiltinType): Type = TBuiltin(bType) ->: TBuiltin(bType) ->: TBool
+
+    Map[BuiltinFunction, Type](
+      BTrace -> TForall(alpha.name -> KStar, TText ->: alpha ->: alpha),
+      // Decimal arithmetic
+      BAddDecimal -> tBinop(TDecimal),
+      BSubDecimal -> tBinop(TDecimal),
+      BMulDecimal -> tBinop(TDecimal),
+      BDivDecimal -> tBinop(TDecimal),
+      BRoundDecimal -> (TInt64 ->: TDecimal ->: TDecimal),
+      // Int64 arithmetic
+      BAddInt64 -> tBinop(TInt64),
+      BSubInt64 -> tBinop(TInt64),
+      BMulInt64 -> tBinop(TInt64),
+      BDivInt64 -> tBinop(TInt64),
+      BModInt64 -> tBinop(TInt64),
+      BExpInt64 -> tBinop(TInt64),
+      // Conversions
+      BInt64ToDecimal -> (TInt64 ->: TDecimal),
+      BDecimalToInt64 -> (TDecimal ->: TInt64),
+      BDateToUnixDays -> (TDate ->: TInt64),
+      BUnixDaysToDate -> (TInt64 ->: TDate),
+      BTimestampToUnixMicroseconds -> (TTimestamp ->: TInt64),
+      BUnixMicrosecondsToTimestamp -> (TInt64 ->: TTimestamp),
+      // Folds
+      BFoldl ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            (beta ->: alpha ->: beta) ->: beta ->: TList(alpha) ->: beta)),
+      BFoldr ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta)),
+      // Maps
+      BMapEmpty ->
+        TForall(
+          alpha.name -> KStar,
+          TMap(alpha)
+        ),
+      BMapInsert ->
+        TForall(
+          alpha.name -> KStar,
+          TText ->: alpha ->: TMap(alpha) ->: TMap(alpha)
+        ),
+      BMapLookup ->
+        TForall(
+          alpha.name -> KStar,
+          TText ->: TMap(alpha) ->: TOptional(alpha)
+        ),
+      BMapDelete ->
+        TForall(
+          alpha.name -> KStar,
+          TText ->: TMap(alpha) ->: TMap(alpha)
+        ),
+      BMapToList ->
+        TForall(
+          alpha.name -> KStar,
+          TMap(alpha) ->: TList(TTuple(ImmArray("key" -> TText, "value" -> alpha)))
+        ),
+      BMapSize ->
+        TForall(
+          alpha.name -> KStar,
+          TMap(alpha) ->: TInt64
+        ),
+      // Text functions
+      BExplodeText -> (TText ->: TList(TText)),
+      BAppendText -> tBinop(TText),
+      BToTextInt64 -> (TInt64 ->: TText),
+      BToTextDecimal -> (TDecimal ->: TText),
+      BToTextText -> (TText ->: TText),
+      BToTextTimestamp -> (TTimestamp ->: TText),
+      BToTextParty -> (TParty ->: TText),
+      BToTextDate -> (TDate ->: TText),
+      BSHA256Text -> (TText ->: TText),
+      BToQuotedTextParty -> (TParty ->: TText),
+      BFromTextParty -> (TText ->: TOptional(TParty)),
+      BError -> TForall(alpha.name -> KStar, TText ->: alpha),
+      // ComparisonsA
+      BLessInt64 -> tComparison(BTInt64),
+      BLessDecimal -> tComparison(BTDecimal),
+      BLessText -> tComparison(BTText),
+      BLessTimestamp -> tComparison(BTTimestamp),
+      BLessDate -> tComparison(BTDate),
+      BLessParty -> tComparison(BTParty),
+      BLessEqInt64 -> tComparison(BTInt64),
+      BLessEqDecimal -> tComparison(BTDecimal),
+      BLessEqText -> tComparison(BTText),
+      BLessEqTimestamp -> tComparison(BTTimestamp),
+      BLessEqDate -> tComparison(BTDate),
+      BLessEqParty -> tComparison(BTParty),
+      BGreaterInt64 -> tComparison(BTInt64),
+      BGreaterDecimal -> tComparison(BTDecimal),
+      BGreaterText -> tComparison(BTText),
+      BGreaterTimestamp -> tComparison(BTTimestamp),
+      BGreaterDate -> tComparison(BTDate),
+      BGreaterParty -> tComparison(BTParty),
+      BGreaterEqInt64 -> tComparison(BTInt64),
+      BGreaterEqDecimal -> tComparison(BTDecimal),
+      BGreaterEqText -> tComparison(BTText),
+      BGreaterEqTimestamp -> tComparison(BTTimestamp),
+      BGreaterEqDate -> tComparison(BTDate),
+      BGreaterEqParty -> tComparison(BTParty),
+      BImplodeText -> (TList(TText) ->: TText),
+      BEqualInt64 -> tComparison(BTInt64),
+      BEqualDecimal -> tComparison(BTDecimal),
+      BEqualText -> tComparison(BTText),
+      BEqualTimestamp -> tComparison(BTTimestamp),
+      BEqualDate -> tComparison(BTDate),
+      BEqualParty -> tComparison(BTParty),
+      BEqualBool -> tComparison(BTBool),
+      BEqualList ->
+        TForall(
+          alpha.name -> KStar,
+          (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool),
+      BEqualContractId ->
+        TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
+    )
+  }
 
   private def typeOfPRimCon(con: PrimCon): Type = con match {
     case PCTrue => TBool
@@ -731,14 +742,6 @@ private[validation] object Typing {
   private implicit final class TypeOp(val rightType: Type) extends AnyVal {
     def ->:(leftType: Type) = TFun(leftType, rightType)
   }
-
-  private val alpha = TVar("::alpha::")
-  private val beta = TVar("::beta::")
-
-  private def tBinop(typ: Type): Type = typ ->: typ ->: typ
-
-  private def tComparison(bType: BuiltinType): Type =
-    TBuiltin(bType) ->: TBuiltin(bType) ->: TBool
 
   private def typeConAppToType(app: TypeConApp): Type = app match {
     case TypeConApp(tcon, targs) => targs.foldLeft[Type](TTyCon(tcon))(TApp)

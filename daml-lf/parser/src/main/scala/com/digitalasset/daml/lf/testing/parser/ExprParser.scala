@@ -141,7 +141,7 @@ private[parser] object ExprParser {
       case tuple ~ ((fName, value)) => ETupleUpd(fName, tuple, value)
     }
 
-  private[parser] lazy val varBinder: Parser[(String, Type)] =
+  private[parser] lazy val varBinder: Parser[(ExprVarName, Type)] =
     `(` ~> id ~ (`:` ~> typ <~ `)`) ^^ { case name ~ t => name -> t }
 
   private lazy val eAbs: Parser[Expr] =

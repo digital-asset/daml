@@ -27,7 +27,7 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
   }
 
   private def freshTypeVarName: TypeVarName =
-    Stream.from(0).map("::" + _.toString + "::").filterNot(freeVars.contains)(0)
+    Stream.from(0).map(i => "$freshVar" + i.toString).filterNot(freeVars.contains)(0)
 
   def apply(dataCons: DataCons): DataCons = dataCons match {
     case DataRecord(fields, optTemplate: Option[Template]) =>

@@ -42,7 +42,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   private var currentPosition: Int = 0
 
   /** Environment mapping names into stack positions */
-  private var env = List[(String, Int)]()
+  private var env = List[(ExprVarName, Int)]()
 
   def compile(cmds: ImmArray[Command]): SExpr =
     validate(closureConvert(Map.empty, 0, translateCommands(cmds)))
@@ -732,7 +732,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         }
       ))
 
-  private def lookupIndex(binder: String): Int = {
+  private def lookupIndex(binder: ExprVarName): Int = {
     val idx =
       env
         .find(_._1 == binder)
@@ -805,10 +805,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       .getOrElse(throw CompileError(s"record type $tapp not found"))
   }
 
-  private def withBinder[A](binder: String)(f: Unit => A): A =
+  private def withBinder[A](binder: ExprVarName)(f: Unit => A): A =
     withBinders(Seq(binder))(f)
 
-  private def withBinders[A](binders: Seq[String])(f: Unit => A): A = {
+  private def withBinders[A](binders: Seq[ExprVarName])(f: Unit => A): A = {
     val oldEnv = env
     val oldPosition = currentPosition
     binders.foreach { binder =>

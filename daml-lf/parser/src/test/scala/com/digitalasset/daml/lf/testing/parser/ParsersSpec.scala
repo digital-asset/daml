@@ -307,7 +307,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "string to parse" ->
           "expected scenario",
         "spure @tau e" ->
-          ScenarioPure(TVar("tau"), e"e"),
+          ScenarioPure(t"tau", e"e"),
         "sbind x: tau <- e in f x" ->
           ScenarioBlock(ImmArray(Binding(Some("x"), t"tau", e"e")), e"f x"),
         "sbind x: tau <- e1 ; y: sigma <- e2 in f x y" ->

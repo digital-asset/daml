@@ -33,7 +33,7 @@ object Ast {
   type VariantConName = String
 
   /* Binding in a let/update/scenario block. */
-  case class Binding(binder: Option[String], typ: Type, bound: Expr)
+  case class Binding(binder: Option[ExprVarName], typ: Type, bound: Expr)
 
   //
   // Expressions
