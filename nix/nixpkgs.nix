@@ -8,6 +8,17 @@ let
 
   # package overrides
   overrides = _: pkgs: rec {
+    maven = pkgs.maven.overrideAttrs(_: { jdk = pkgs.jdk11; });
+    nodejs = pkgs.nodejs-12_x;
+    grpc = pkgs.grpc.overrideAttrs (oldAttrs: {
+      version = "1.23.1";
+      src = pkgs.fetchFromGitHub {
+        owner = "grpc";
+        repo = "grpc";
+        rev = "v1.23.1";
+        sha256 = "1jcyd9jy7kz5zfch25s4inwlivb1y1w52fzfjy5ra5vcnp3hmqyr";
+        fetchSubmodules = true;
+      };
     nodejs = pkgs.nodejs-12_x;
     grpc = pkgs.grpc.overrideAttrs (oldAttrs: {
       version = "1.23.1";
