@@ -345,7 +345,7 @@ nixpkgs_package(
 #Javadoc
 nixpkgs_package(
     name = "jdk_nix",
-    attribute_path = "jdk8",
+    attribute_path = "jdk11",
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
@@ -368,7 +368,7 @@ dev_env_tool(
         "lib",
     ],
     win_path = "bin/javadoc.exe",
-    win_tool = "java-openjdk-8u201",
+    win_tool = "java-openjdk-11.0.3.7",
 )
 
 # This only makes sense on Windows so we just put dummy values in the nix fields.

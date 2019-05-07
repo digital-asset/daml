@@ -8,6 +8,7 @@ let
 
   # package overrides
   overrides = _: pkgs: rec {
+    maven = pkgs.maven.overrideAttrs(_: { jdk = pkgs.jdk11; });
     # We can't use pkgs.bazel here, as it is somewhat outdated. It features
     # version 0.10.1, while rules_haskell (for example) requires bazel >= 0.14.
     bazel = pkgs.callPackage ./overrides/bazel {
@@ -15,7 +16,7 @@ let
       inherit (pkgs.darwin.apple_sdk.frameworks) CoreFoundation CoreServices Foundation;
       buildJdk = pkgs.jdk8;
       buildJdkName = "jdk8";
-      runJdk = pkgs.jdk8;
+      runJdk = pkgs.jdk11;
       # Create a C binary
       # Required by Bazel.
       # Added to nixpkgs in 88fe22d0d7d6626b7735a4a4e606215b951ad267

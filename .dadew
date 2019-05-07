@@ -3,7 +3,7 @@
     "manifests": "dev-env\\windows\\manifests",
     "tools": [
         "7zip",
-        "java-openjdk-8u201",
+        "java-openjdk-11.0.3.7",
         "patch-2.6.1",
         "msys2-20180531",
         "curl-7.64.0",

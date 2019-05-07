@@ -104,9 +104,9 @@ def daml_deps():
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "9510dd2afc29e7245e9e884336f848c8a6600a14ae726adb6befdb4f786f0be2",
-            strip_prefix = "protobuf-3.6.1.3",
-            urls = ["https://github.com/google/protobuf/archive/v3.6.1.3.zip"],
+            sha256 = "f976a4cd3f1699b6d20c1e944ca1de6754777918320c719742e1674fcf247b7e",
+            strip_prefix = "protobuf-3.7.1",
+            urls = ["https://github.com/google/protobuf/archive/v3.7.1.zip"],
         )
 
     if "com_google_protobuf_javalite" not in native.existing_rules():

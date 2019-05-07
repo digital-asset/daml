@@ -68,7 +68,7 @@ go_binary(
     name = "protoc-gen-scala-logging",
     data = [
         ":compiler_plugin_deploy.jar",
-        "@bazel_tools//tools/jdk:jre",
+        "@local_jdk//:jdk-bin",
     ],
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],

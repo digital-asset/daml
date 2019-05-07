@@ -16,7 +16,7 @@ func main() {
 	// ./bazel-out/host/bin/external/build_stack_rules_proto/scala/linux_amd64_stripped/protoc-gen-scala
 
 	jar := mustFindInSandbox(path.Dir(os.Args[0]), "compiler_plugin_deploy.jar")
-	err, exitCode := run("external/local_jdk/jre/bin/java", append([]string{"-jar", jar}, os.Args...), ".", nil)
+	err, exitCode := run("external/local_jdk/bin/java", append([]string{"-jar", jar}, os.Args...), ".", nil)
 	if err != nil {
 		log.Printf("%v", err)
 	}
