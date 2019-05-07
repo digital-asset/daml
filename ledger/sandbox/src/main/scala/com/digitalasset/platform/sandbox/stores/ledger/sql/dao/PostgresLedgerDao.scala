@@ -311,7 +311,7 @@ private class PostgresLedgerDao(
           this
         }
 
-        def implicitlyDisclose(global: Relation[AbsoluteContractId, Ref.Party]) = {
+        def divulgeAlreadyCommitedContract(global: Relation[AbsoluteContractId, Ref.Party]) = {
           val divulgenceParams = global
             .flatMap {
               case (cid, parties) =>
@@ -337,7 +337,7 @@ private class PostgresLedgerDao(
         }
       }
 
-      //this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
+      // this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
       val acsManager = new ActiveContractsManager(new AcsStoreAcc)
 
       // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state

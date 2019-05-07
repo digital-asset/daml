@@ -46,7 +46,7 @@ case class ActiveContractsInMemory(
     case Some(key) => copy(contracts = contracts - cid, keys = keys - key)
   }
 
-  override def implicitlyDisclose(
+  override def divulgeAlreadyCommitedContract(
       global: Relation[AbsoluteContractId, Ref.Party]): ActiveContractsInMemory =
     if (global.nonEmpty)
       copy(
@@ -198,7 +198,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
             }
         }
 
-    st.mapAcs(_ implicitlyDisclose globalImplicitDisclosure).result
+    st.mapAcs(_ divulgeAlreadyCommitedContract globalImplicitDisclosure).result
   }
 
 }
@@ -208,7 +208,13 @@ trait ActiveContracts[+Self] { this: ActiveContracts[Self] =>
   def keyExists(key: GlobalKey): Boolean
   def addContract(cid: AbsoluteContractId, c: ActiveContract, keyO: Option[GlobalKey]): Self
   def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]): Self
-  def implicitlyDisclose(global: Relation[AbsoluteContractId, Ref.Party]): Self
+
+  /** Note that this method is about disclosing contracts _that have already been
+    * committed_. Implementors of `ActiveContracts` must take care to also store
+    * divulgence information already present in `ActiveContract#divulgences` in the `addContract`
+    * method.
+    */
+  def divulgeAlreadyCommitedContract(global: Relation[AbsoluteContractId, Ref.Party]): Self
 }
 
 object ActiveContracts {
