@@ -150,7 +150,6 @@ instance Show CoreModule where show = prettyPrint
 instance NFData CoreModule where rnf !_ = ()
 
 instance Show RdrName where show = prettyPrint
-instance NFData RdrName where rnf !_ = ()
 
 instance Show InstalledUnitId where
   show = installedUnitIdString
