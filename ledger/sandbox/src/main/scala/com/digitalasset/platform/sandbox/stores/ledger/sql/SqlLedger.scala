@@ -13,7 +13,11 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
-import com.digitalasset.ledger.backend.api.v1.{SubmissionResult, TransactionSubmission}
+import com.digitalasset.ledger.backend.api.v1.{
+  RejectionReason,
+  SubmissionResult,
+  TransactionSubmission
+}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
@@ -231,17 +235,32 @@ private class SqlLedger(
               parties.toSet[String]
         }
 
-      LedgerEntry.Transaction(
-        tx.commandId,
-        transactionId,
-        tx.applicationId,
-        tx.submitter,
-        tx.workflowId,
-        tx.ledgerEffectiveTime,
-        timeProvider.getCurrentTime,
-        mappedTx,
-        mappedDisclosure
-      )
+      val recordTime = timeProvider.getCurrentTime
+      if (recordTime.isAfter(tx.maximumRecordTime)) {
+        // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
+        // than the time window between LET and MRT allows for.
+        // See https://github.com/digital-asset/daml/issues/987
+        LedgerEntry.Rejection(
+          recordTime,
+          tx.commandId,
+          tx.applicationId,
+          tx.submitter,
+          RejectionReason.TimedOut(
+            s"RecordTime $recordTime is after MaximumRecordTime ${tx.maximumRecordTime}")
+        )
+      } else {
+        LedgerEntry.Transaction(
+          tx.commandId,
+          transactionId,
+          tx.applicationId,
+          tx.submitter,
+          tx.workflowId,
+          tx.ledgerEffectiveTime,
+          recordTime,
+          mappedTx,
+          mappedDisclosure
+        )
+      }
     }
 
   private def enqueue(f: Long => LedgerEntry): Future[SubmissionResult] = {

@@ -9,6 +9,9 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- Sandbox: Transactions with a record time that is after the maximum record time (as provided in the original command)
+  are now properly rejected instead of committed to the ledger: `#987 <https://github.com/digital-asset/daml/issues/987>`_
+
 .. _release-0-12-16:
 
 0.12.16 - 2019-05-07

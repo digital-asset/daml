@@ -94,47 +94,57 @@ class InMemoryLedger(
     )
 
   private def handleSuccessfulTx(transactionId: String, tx: TransactionSubmission): Unit = {
-
-    val toAbsCoid: ContractId => AbsoluteContractId =
-      SandboxEventIdFormatter.makeAbsCoid(transactionId)
-    val mappedTx = tx.transaction.mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
-    // 5b. modify the ActiveContracts, while checking that we do not have double
-    // spends or timing issues
-    val acsRes = acs.addTransaction(
-      let = tx.ledgerEffectiveTime,
-      workflowId = tx.workflowId,
-      transactionId = transactionId,
-      transaction = mappedTx,
-      explicitDisclosure = tx.blindingInfo.explicitDisclosure,
-      localImplicitDisclosure = tx.blindingInfo.localImplicitDisclosure,
-      globalImplicitDisclosure = tx.blindingInfo.globalImplicitDisclosure,
-    )
-    acsRes match {
-      case Left(err) =>
-        handleError(tx, RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
-      case Right(newAcs) =>
-        acs = newAcs
-        val recordTx = mappedTx
-          .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _))
-        val recordBlinding =
-          tx.blindingInfo.explicitDisclosure.map {
-            case (nid, parties) =>
-              (SandboxEventIdFormatter.fromTransactionId(transactionId, nid), parties)
-          }
-        val entry = LedgerEntry
-          .Transaction(
-            tx.commandId,
-            transactionId,
-            tx.applicationId,
-            tx.submitter,
-            tx.workflowId,
-            tx.ledgerEffectiveTime,
-            timeProvider.getCurrentTime,
-            recordTx,
-            recordBlinding.transform((_, v) => v.toSet[String])
-          )
-        entries.publish(entry)
-        ()
+    val recordTime = timeProvider.getCurrentTime
+    if (recordTime.isAfter(tx.maximumRecordTime)) {
+      // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
+      // than the time window between LET and MRT allows for.
+      // See https://github.com/digital-asset/daml/issues/987
+      handleError(
+        tx,
+        RejectionReason.TimedOut(
+          s"RecordTime $recordTime is after MaxiumRecordTime ${tx.maximumRecordTime}"))
+    } else {
+      val toAbsCoid: ContractId => AbsoluteContractId =
+        SandboxEventIdFormatter.makeAbsCoid(transactionId)
+      val mappedTx = tx.transaction.mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
+      // 5b. modify the ActiveContracts, while checking that we do not have double
+      // spends or timing issues
+      val acsRes = acs.addTransaction(
+        let = tx.ledgerEffectiveTime,
+        workflowId = tx.workflowId,
+        transactionId = transactionId,
+        transaction = mappedTx,
+        explicitDisclosure = tx.blindingInfo.explicitDisclosure,
+        localImplicitDisclosure = tx.blindingInfo.localImplicitDisclosure,
+        globalImplicitDisclosure = tx.blindingInfo.globalImplicitDisclosure,
+      )
+      acsRes match {
+        case Left(err) =>
+          handleError(tx, RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
+        case Right(newAcs) =>
+          acs = newAcs
+          val recordTx = mappedTx
+            .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _))
+          val recordBlinding =
+            tx.blindingInfo.explicitDisclosure.map {
+              case (nid, parties) =>
+                (SandboxEventIdFormatter.fromTransactionId(transactionId, nid), parties)
+            }
+          val entry = LedgerEntry
+            .Transaction(
+              tx.commandId,
+              transactionId,
+              tx.applicationId,
+              tx.submitter,
+              tx.workflowId,
+              tx.ledgerEffectiveTime,
+              recordTime,
+              recordTx,
+              recordBlinding.transform((_, v) => v.toSet[String])
+            )
+          entries.publish(entry)
+          ()
+      }
     }
 
   }
