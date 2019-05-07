@@ -42,6 +42,7 @@ java_library(
         "//3rdparty/jvm/io/grpc:grpc_core",
         "//3rdparty/jvm/io/grpc:grpc_protobuf",
         "//3rdparty/jvm/io/grpc:grpc_stub",
+        "//3rdparty/jvm/javax/annotation:javax_annotation_api",
     ],
 )
 

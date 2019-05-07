@@ -59,6 +59,7 @@ da_java_library(
     deps = [
         "//3rdparty/jvm/io/grpc:grpc_protobuf",
         "//3rdparty/jvm/io/grpc:grpc_stub",
+        "//3rdparty/jvm/javax/annotation:javax_annotation_api",
         "//3rdparty/jvm/org/checkerframework:checker",
     ],
 )

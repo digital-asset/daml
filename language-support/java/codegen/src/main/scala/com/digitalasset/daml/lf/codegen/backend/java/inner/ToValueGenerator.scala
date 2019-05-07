@@ -56,7 +56,7 @@ object ToValueGenerator {
         "$T fields = new $T($L)",
         arrayOfFields,
         arrayOfFields,
-        new Integer(fields.length))
+        Integer.valueOf(fields.length))
 
     for (FieldInfo(damlName, damlType, javaName, _) <- fields) {
       val anonNameGen = newNameGenerator
