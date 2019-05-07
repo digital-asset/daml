@@ -87,13 +87,8 @@ getPackageDynFlags DynFlags{..} = PackageDynFlags
     }
 
 
--- | A version of `showSDoc` that uses default flags (to avoid uses of
--- `showSDocUnsafe`).
-showSDocDefault :: SDoc -> String
-showSDocDefault = showSDoc fakeDynFlags
-
 prettyPrint :: Outputable a => a -> String
-prettyPrint = showSDocDefault . ppr
+prettyPrint = showSDoc fakeDynFlags . ppr
 
 -- | Like 'runGhc' but much faster (400x), with less IO and no file dependency
 runGhcFast :: Ghc a -> IO a
