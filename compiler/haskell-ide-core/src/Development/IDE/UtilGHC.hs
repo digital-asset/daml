@@ -16,8 +16,6 @@ module Development.IDE.UtilGHC(
     fakeSettings,
     fakeLlvmConfig,
     prettyPrint,
-    importGenerated,
-    mkImport,
     runGhcFast
     ) where
 
@@ -98,13 +96,6 @@ showSDocDefault = showSDoc dynFlags
 
 prettyPrint :: Outputable a => a -> String
 prettyPrint = showSDocDefault . ppr
-
--- | This import was generated, not user written, so should not produce unused import warnings
-importGenerated :: Bool -> ImportDecl phase -> ImportDecl phase
-importGenerated qual i = i{ideclImplicit=True, ideclQualified=qual}
-
-mkImport :: Located ModuleName -> ImportDecl GhcPs
-mkImport mname = GHC.ImportDecl GHC.NoExt GHC.NoSourceText mname Nothing False False False False Nothing Nothing
 
 -- | Like 'runGhc' but much faster (400x), with less IO and no file dependency
 runGhcFast :: Ghc a -> IO a
