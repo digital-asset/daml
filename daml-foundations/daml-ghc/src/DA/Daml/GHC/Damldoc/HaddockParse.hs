@@ -6,7 +6,7 @@
 module DA.Daml.GHC.Damldoc.HaddockParse(mkDocs) where
 
 import           DA.Daml.GHC.Damldoc.Types                 as DDoc
-import Development.IDE.Types.Options (CompileOpts(..))
+import Development.IDE.Types.Options (IdeOptions(..))
 import qualified Development.IDE.State.Service     as Service
 import qualified Development.IDE.State.Rules     as Service
 import           Development.IDE.Types.Diagnostics
@@ -29,7 +29,7 @@ import qualified Data.Text                                 as T
 import           Data.Tuple.Extra                          (second)
 
 -- | Parse, and process documentation in, a dependency graph of modules.
-mkDocs :: CompileOpts ->
+mkDocs :: IdeOptions ->
           [FilePath] ->
           Ex.ExceptT [FileDiagnostic] IO [ModuleDoc]
 mkDocs opts fp = do
@@ -116,7 +116,7 @@ collectDocs = go Nothing []
 --
 --   Not using the cached file store, as it is expected to run stand-alone
 --   invoked by a CLI tool.
-haddockParse :: CompileOpts ->
+haddockParse :: IdeOptions ->
                 [FilePath] ->
                 Ex.ExceptT [FileDiagnostic] IO [ParsedModule]
 haddockParse opts f = ExceptT $ do

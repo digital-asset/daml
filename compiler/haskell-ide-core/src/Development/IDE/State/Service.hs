@@ -21,7 +21,7 @@ module Development.IDE.State.Service(
 
 import           Control.Concurrent.Extra
 import           Control.Monad.Except
-import Development.IDE.Types.Options (CompileOpts(..))
+import Development.IDE.Types.Options (IdeOptions(..))
 import           Development.IDE.State.FileStore
 import qualified Development.IDE.Logger as Logger
 import Data.Maybe
@@ -38,7 +38,7 @@ import           Development.IDE.State.Shake
 
 -- | Environment threaded through the Shake actions.
 data Env = Env
-    { envOptions       :: CompileOpts
+    { envOptions       :: IdeOptions
       -- ^ Compiler options.
     , envOfInterestVar :: Var (Set FilePath)
       -- ^ The files of interest.
@@ -48,7 +48,7 @@ data Env = Env
 instance IsIdeGlobal Env
 
 
-mkEnv :: CompileOpts -> IO Env
+mkEnv :: IdeOptions -> IO Env
 mkEnv options = do
     ofInterestVar <- newVar Set.empty
     uniqSupplyVar <- mkSplitUniqSupply 'a' >>= newVar
@@ -72,7 +72,7 @@ unsafeClearDiagnostics = unsafeClearAllDiagnostics
 initialise :: Rules ()
            -> Maybe (Event -> IO ())
            -> Logger.Handle
-           -> CompileOpts
+           -> IdeOptions
            -> IO IdeState
 initialise mainRule toDiags logger options =
     shakeOpen
@@ -89,7 +89,7 @@ initialise mainRule toDiags logger options =
 writeProfile :: IdeState -> FilePath -> IO ()
 writeProfile = shakeProfile
 
-setProfiling :: CompileOpts -> ShakeOptions -> ShakeOptions
+setProfiling :: IdeOptions -> ShakeOptions -> ShakeOptions
 setProfiling opts shakeOpts =
   maybe shakeOpts (\p -> shakeOpts { shakeReport = [p], shakeTimings = True }) (optShakeProfiling opts)
 

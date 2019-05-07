@@ -62,9 +62,9 @@ data Options = Options
 
 -- | Convert to the DAML-independent CompileOpts type.
 -- TODO (MK) Cleanup as part of the Options vs CompileOpts cleanup
-toCompileOpts :: Options -> Compile.CompileOpts
+toCompileOpts :: Options -> Compile.IdeOptions
 toCompileOpts Options{..} =
-    Compile.CompileOpts
+    Compile.IdeOptions
       { optPreprocessor = damlPreprocessor
       , optRunGhcSession = \mbMod packageState m -> runGhcFast $ do
             let importPaths = maybe [] moduleImportPaths mbMod <> optImportPath

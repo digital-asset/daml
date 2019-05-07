@@ -87,7 +87,7 @@ data LoadPackageResult = LoadPackageResult
 
 -- | Get source span info, used for e.g. AtPoint and Goto Definition.
 getSrcSpanInfos
-    :: CompileOpts
+    :: IdeOptions
     -> ParsedModule
     -> PackageState
     -> [(Located ModuleName, Maybe FilePath)]
@@ -101,18 +101,18 @@ getSrcSpanInfos opt mod packageState imports tc =
 
 -- | Given a string buffer, return a pre-processed @ParsedModule@.
 parseModule
-    :: CompileOpts
+    :: IdeOptions
     -> PackageState
     -> FilePath
     -> (UTCTime, SB.StringBuffer)
     -> IO ([FileDiagnostic], Maybe ParsedModule)
-parseModule opt@CompileOpts{..} packageState file =
+parseModule opt@IdeOptions{..} packageState file =
     fmap (either (, Nothing) (second Just)) . Ex.runExceptT .
     -- We need packages since imports fail to resolve otherwise.
     runGhcSessionExcept opt Nothing packageState . parseFileContents optPreprocessor file
 
 computePackageDeps ::
-     CompileOpts -> PackageState -> InstalledUnitId -> IO (Either [FileDiagnostic] [InstalledUnitId])
+     IdeOptions -> PackageState -> InstalledUnitId -> IO (Either [FileDiagnostic] [InstalledUnitId])
 computePackageDeps opts packageState iuid =
   Ex.runExceptT $
   runGhcSessionExcept opts Nothing packageState $
@@ -130,7 +130,7 @@ getPackage dflags p =
 
 -- | Typecheck a single module using the supplied dependencies and packages.
 typecheckModule
-    :: CompileOpts
+    :: IdeOptions
     -> ParsedModule
     -> PackageState
     -> UniqSupply
@@ -150,7 +150,7 @@ typecheckModule opt mod packageState uniqSupply deps pkgs pm =
 
 -- | Load a pkg and populate the name cache and external package state.
 loadPackage ::
-     CompileOpts
+     IdeOptions
   -> PackageState
   -> UniqSupply
   -> [LoadPackageResult]
@@ -177,7 +177,7 @@ loadPackage opt packageState us lps p =
 -- | Compile a single type-checked module to a 'CoreModule' value, or
 -- provide errors.
 compileModule
-    :: CompileOpts
+    :: IdeOptions
     -> ParsedModule
     -> PackageState
     -> UniqSupply
@@ -214,7 +214,7 @@ compileModule opt mod packageState uniqSupply deps pkgs tmr =
 -- | Evaluate a GHC session using a new environment constructed with
 -- the supplied options.
 runGhcSessionExcept
-    :: CompileOpts
+    :: IdeOptions
     -> Maybe ParsedModule
     -> PackageState
     -> Ex.ExceptT e Ghc a
@@ -223,18 +223,18 @@ runGhcSessionExcept opts mbMod pkg m =
     Ex.ExceptT $ runGhcSession opts mbMod pkg $ Ex.runExceptT m
 
 
-getGhcDynFlags :: CompileOpts -> ParsedModule -> PackageState -> IO DynFlags
+getGhcDynFlags :: IdeOptions -> ParsedModule -> PackageState -> IO DynFlags
 getGhcDynFlags opts mod pkg = runGhcSession opts (Just mod) pkg getSessionDynFlags
 
 -- | Evaluate a GHC session using a new environment constructed with
 -- the supplied options.
 runGhcSession
-    :: CompileOpts
+    :: IdeOptions
     -> Maybe ParsedModule
     -> PackageState
     -> Ghc a
     -> IO a
-runGhcSession CompileOpts{..} = optRunGhcSession
+runGhcSession IdeOptions{..} = optRunGhcSession
 
 -- When we make a fresh GHC environment, the OrigNameCache comes already partially
 -- populated. So to be safe, we simply extend this one.

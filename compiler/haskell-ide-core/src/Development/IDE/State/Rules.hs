@@ -153,7 +153,7 @@ getDefinitionForFile file pos = do
     spans <- useE GetSpanInfo file
     return $ AtPoint.gotoDefinition spans pos
 
-getOpts :: Action Compile.CompileOpts
+getOpts :: Action Compile.IdeOptions
 getOpts = envOptions <$> getServiceEnv
 
 ------------------------------------------------------------
