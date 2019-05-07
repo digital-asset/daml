@@ -31,4 +31,18 @@ This will take a while.
 
 ## Nixpkgs
 
-TODO
+To update the nixpkgs revision, go to the `nix/nixpkgs` directory in
+this repository and run `nix-update-src-json ./nixos-*` to update to
+the latest release in the current NixOS channel. To upgrade to a new
+channel move `nixos-18.09` to `nixos-19.03` (adapt to the channels you
+want to move from and to), change the `branch` field in
+`default.src.json` and modify `nix/nixpkgs.nix` to point to the new
+channel.
+
+After upgrading the revision, the easiest solution is usually to open
+a PR and see what fails on CI (running the builds locally can take
+quite some time). The most common reason for failures is usually that
+we have overriden a specific package with certain patches that no
+longer work. In that case, a good first step is to check if these
+patches are still necessary and if not try to switch to the unpatched
+package from nixpkgs.
