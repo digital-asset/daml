@@ -4,11 +4,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
--- | GHC utility functions. Importantly, code using our GHC should never:
---
--- * Call runGhc, use runGhcFast instead. It's faster and doesn't require config we don't have.
---
--- * Call setSessionDynFlags, use modifyDynFlags instead. It's faster and avoids loading packages.
+-- | Orphan instances for GHC.
+--   Note that the 'NFData' instances may not be law abiding.
 module Development.IDE.Orphans() where
 
 import           GHC                         hiding (convertLit)
