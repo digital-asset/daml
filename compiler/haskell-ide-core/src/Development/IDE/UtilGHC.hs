@@ -110,20 +110,19 @@ runGhcFast act = do
 
 -- Fake DynFlags which are mostly undefined, but define enough to do a little bit
 fakeDynFlags :: DynFlags
-fakeDynFlags = defaultDynFlags fakeSettings fakeLlvmConfig
-
--- These settings are mostly undefined, but define just enough for what we want to do (which isn't code gen)
-fakeSettings :: Settings
-fakeSettings = Settings
-  {sTargetPlatform=platform
-  ,sPlatformConstants=platformConstants
-  ,sProjectVersion=cProjectVersion
-  ,sProgramName="ghc"
-  ,sOpt_P_fingerprint=fingerprint0
-  }
-  where
-    platform = Platform{platformWordSize=8, platformOS=OSUnknown, platformUnregisterised=True}
-    platformConstants = PlatformConstants{pc_DYNAMIC_BY_DEFAULT=False,pc_WORD_SIZE=8}
-
-fakeLlvmConfig :: (LlvmTargets, LlvmPasses)
-fakeLlvmConfig = ([], [])
+fakeDynFlags = defaultDynFlags settings ([], [])
+    where
+        settings = Settings
+            {sTargetPlatform = Platform
+                {platformWordSize = 8
+                ,platformOS = OSUnknown
+                ,platformUnregisterised = True
+                }
+            ,sPlatformConstants = PlatformConstants
+                {pc_DYNAMIC_BY_DEFAULT = False
+                ,pc_WORD_SIZE = 8
+                }
+            ,sProjectVersion = cProjectVersion
+            ,sProgramName = "ghc"
+            ,sOpt_P_fingerprint = fingerprint0
+            }
