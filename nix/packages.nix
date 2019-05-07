@@ -96,6 +96,7 @@ in rec {
     scalac   = scala;
     scaladoc = scala;
     scalap   = scala;
+    sbt      = pkgs.sbt;
 
     coursier = pkgs.coursier;
     scalafmt = pkgs.scalafmt.override { jre = jdk; };
