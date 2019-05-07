@@ -22,6 +22,11 @@ template TextKey
         do
           return ()
 
+    controller p can
+      nonconsuming TextKeyNonconsumingChoice : ()
+        do
+          return ()
+
 template CreateAndLookup
   with
     p: Party
@@ -128,3 +133,14 @@ run = scenario do
   -- creating a dupe in a single choice should fail
   submitMustFail alice do
     exercise createAndLookupCid Dupe
+
+  -- nonconsuming choices should not affect key activeness
+  submit alice $ do
+    cid <- create TextKey with
+      p = alice
+      k = "non-consuming-choice"
+      disclosedTo = []
+    exercise cid TextKeyNonconsumingChoice
+    mbCid <- lookupByKey @TextKey (alice, "non-consuming-choice")
+    assertMsg ("Some cid == mbCid") (Some cid == mbCid)
+

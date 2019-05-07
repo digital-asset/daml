@@ -694,7 +694,9 @@ object Transaction {
                     keys = mbKey match {
                       case None => keys
                       case Some(key) =>
-                        keys + (GlobalKey(templateId, key) -> None)
+                        if (consuming) {
+                          keys + (GlobalKey(templateId, key) -> None)
+                        } else keys
                     },
                   )
             }
