@@ -33,7 +33,6 @@ import Development.IDE.Functions.DependencyInformation
 import Development.IDE.Functions.FindImports
 import           Development.IDE.State.FileStore
 import           Development.IDE.Types.Diagnostics as Base
-import Development.IDE.UtilGHC
 import Data.Bifunctor
 import Data.Either.Extra
 import Data.Maybe
@@ -91,11 +90,10 @@ getGhcCore file = eitherToMaybe <$> runExceptT (coresForFile file)
 -- | Generate the GHC Core for the supplied file and its dependencies.
 coresForFile :: FilePath -> ExceptT [FileDiagnostic] Action [CoreModule]
 coresForFile file = do
-    files <- transitiveModuleDeps <$> useE  GetDependencies file
+    files <- transitiveModuleDeps <$> useE GetDependencies file
     pms   <- usesE GetParsedModule $ files ++ [file]
     fs <- liftIO
           . mapM fileFromParsedModule
-          . filter (not . modIsInternal . ms_mod . pm_mod_summary)
           $ pms
     cores <- usesE GenerateCore fs
     pure (map Compile.gmCore cores)
