@@ -26,6 +26,10 @@ genrule(
         mkdir -p $@
         cp -rL $(SRCS) $@
         rm -rf $@/project/project/*
+        rm -rf $@/target
+        rm -rf $@/project/target
+        rm -rf $@/application/target
+        rm -rf $@/scala-codegen/target
     """,
     visibility = ["//visibility:public"],
 )
