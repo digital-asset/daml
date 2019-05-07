@@ -34,3 +34,7 @@ commands:
 - name: ide
   path: damlc/da-hs-damlc-app
   args: ["lax", "ide"]
+- name: test
+  path: damlc/da-hs-damlc-app
+  args: ["test"]
+  desc: "Run the scenarios in the given DAML file and all dependencies"
