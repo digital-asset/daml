@@ -1,8 +1,6 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:pkg.bzl", "pkg_tar")
-
 filegroup(
     name = "quickstart-scala-src",
     srcs = glob(
@@ -26,23 +24,13 @@ genrule(
         mkdir -p $@
         cp -rL $(SRCS) $@
         rm -rf $@/project/project/*
+        ln -s ../Artifactory.scala $@/project/project/Artifactory.scala
+        ln -s ../Versions.scala $@/project/project/Versions.scala
+        ln -s ../Versions.scala.template $@/project/project/Versions.scala.template
         rm -rf $@/target
         rm -rf $@/project/target
         rm -rf $@/application/target
         rm -rf $@/scala-codegen/target
     """,
-    visibility = ["//visibility:public"],
-)
-
-pkg_tar(
-    name = "quickstart-scala-dist",
-    srcs = [":quickstart-scala-dir"],
-    extension = "tar.gz",
-    mode = "0644",
-    symlinks = {
-        "./quickstart-scala/project/project/Versions.scala": "../Versions.scala",
-        "./quickstart-scala/project/project/Versions.scala.template": "../Versions.scala.template",
-        "./quickstart-scala/project/project/Artifactory.scala": "../Artifactory.scala",
-    },
     visibility = ["//visibility:public"],
 )
