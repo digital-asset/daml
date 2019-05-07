@@ -188,12 +188,10 @@ private class PostgresLedgerDao(
           )
         )
 
-      val batchInsertContracts = BatchSql(
+      executeBatchSql(
         SQL_INSERT_CONTRACT,
-        namedContractParams.head,
-        namedContractParams.drop(1).toArray: _*)
-
-      batchInsertContracts.execute()
+        namedContractParams
+      )
 
       val namedWitnessesParams = contracts
         .flatMap(
@@ -208,12 +206,10 @@ private class PostgresLedgerDao(
         .toArray
 
       if (!namedWitnessesParams.isEmpty) {
-        val batchInsertWitnesses = BatchSql(
+        executeBatchSql(
           SQL_INSERT_CONTRACT_WITNESS,
-          namedWitnessesParams.head,
-          namedWitnessesParams.drop(1).toArray: _*
+          namedWitnessesParams
         )
-        batchInsertWitnesses.execute()
       }
 
       val namedKeyMaintainerParams = contracts
@@ -233,12 +229,10 @@ private class PostgresLedgerDao(
         .toArray
 
       if (!namedKeyMaintainerParams.isEmpty) {
-        val batchInsertKeyMaintainers = BatchSql(
+        executeBatchSql(
           SQL_INSERT_CONTRACT_KEY_MAINTAINERS,
-          namedKeyMaintainerParams.head,
-          namedKeyMaintainerParams.drop(1).toArray: _*
+          namedKeyMaintainerParams
         )
-        batchInsertKeyMaintainers.execute()
       }
     }
     ()
@@ -386,12 +380,10 @@ private class PostgresLedgerDao(
                 ))
           }
           if (!disclosureParams.isEmpty) {
-            val batchInsertDisclosures =
-              BatchSql(
-                SQL_BATCH_INSERT_DISCLOSURES,
-                disclosureParams.head,
-                disclosureParams.drop(1).toArray: _*)
-            batchInsertDisclosures.execute()
+            executeBatchSql(
+              SQL_BATCH_INSERT_DISCLOSURES,
+              disclosureParams
+            )
           }
 
           updateActiveContractSet(offset, tx).fold[PersistenceResponse](Ok) { rejectionReason =>
@@ -737,6 +729,12 @@ private class PostgresLedgerDao(
 
   override def close(): Unit =
     dbDispatcher.close()
+
+  private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
+      implicit con: Connection) = {
+    require(params.size > 0, "batch sql statement must have at least one set of name parameters")
+    BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
+  }
 
 }
 
