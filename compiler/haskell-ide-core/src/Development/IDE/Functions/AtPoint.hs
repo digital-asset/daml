@@ -103,10 +103,10 @@ locationsAtPoint IdeOptions{..} pkgState pos =
                 let mod = nameModule name
                 let unitId = moduleUnitId mod
                 pkgConfig <- MaybeT $ pure $ lookupPackageConfig unitId pkgState
-                hiePath <- MaybeT $ liftIO $ optLocateHieFile pkgConfig mod
+                hiePath <- MaybeT $ liftIO $ optLocateHieFile optPkgLocationOpts pkgConfig mod
                 hieFile <- MaybeT $ use (GetHieFile hiePath) ""
                 avail <- MaybeT $ pure $ listToMaybe (filterAvails (eqName name) $ hie_exports hieFile)
-                srcPath <- MaybeT $ liftIO $ optLocateSrcFile pkgConfig mod
+                srcPath <- MaybeT $ liftIO $ optLocateSrcFile optPkgLocationOpts pkgConfig mod
                 -- The location will point to the source file used during compilation.
                 -- This file might no longer exists and even if it does the path will be relative
                 -- to the compilation directory which we don’t know.

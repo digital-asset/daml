@@ -71,8 +71,10 @@ toCompileOpts Options{..} =
             let importPaths = maybe [] moduleImportPaths mbMod <> optImportPath
             setupDamlGHC importPaths optMbPackageName packageState optGhcCustomOpts
             m
-      , optLocateHieFile = locateInPkgDb "hie"
-      , optLocateSrcFile = locateInPkgDb "daml"
+      , optPkgLocationOpts = Compile.IdePkgLocationOptions
+          { optLocateHieFile = locateInPkgDb "hie"
+          , optLocateSrcFile = locateInPkgDb "daml"
+          }
       , optWriteIface = optWriteInterface
       , optMbPackageName = optMbPackageName
       , optPackageDbs = optPackageDbs
