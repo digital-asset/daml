@@ -17,11 +17,11 @@ da_scala_library(
         "//ledger:__subpackages__",
     ],
     deps = [
+        "//3rdparty/jvm/org/scala_lang/modules:scala_parser_combinators",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/data",
         "//daml-lf/lfpackage",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//3rdparty/jvm/org/scala_lang/modules:scala_parser_combinators",
     ],
 )
 
@@ -35,9 +35,9 @@ da_scala_test(
     ],
     deps = [
         ":parser",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/data",
         "//daml-lf/lfpackage",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
     ],
 )
