@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.interp.testing
 
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.speedy.{SValue, Speedy}
 import com.digitalasset.daml.lf.speedy.SResult
 import com.digitalasset.daml.lf.speedy.SResult._
@@ -17,7 +17,12 @@ import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
 import org.scalatest.{Matchers, WordSpec}
 
+import scala.language.implicitConversions
+
 class InterpTest extends WordSpec with Matchers {
+
+  private implicit def id(s: String): Ref.Identifier.T = Identifier.assertFromString(s)
+
   private def runExpr(e: Expr): SValue = {
     val machine = Speedy.Machine.fromExpr(e, PureCompiledPackages(Map.empty).right.get, false)
     while (!machine.isFinal) {

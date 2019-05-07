@@ -263,15 +263,15 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           e"""\ (y:Bool) -> <f1=x, f2=y>""",
           None),
         """/\ (a:*). x @a""" ->
-          ETyAbs("a" -> KStar, e"x @a"),
+          ETyAbs(id"a" -> KStar, e"x @a"),
         "Nil @a" ->
-          ENil(TVar("a")),
+          ENil(TVar(id"a")),
         "Cons @a [e1, e2] tail" ->
-          ECons(TVar("a"), ImmArray(EVar("e1"), EVar("e2")), EVar("tail")),
+          ECons(TVar(id"a"), ImmArray(EVar(id"e1"), EVar(id"e2")), EVar(id"tail")),
         "None @a" ->
-          ENone(TVar("a")),
+          ENone(TVar(id"a")),
         "Some @a e" ->
-          ESome(TVar("a"), EVar("e")),
+          ESome(TVar(id"a"), EVar(id"e")),
         "let x:Int64 = 2 in x" ->
           ELet(Binding(Some(x.value), t"Int64", e"2"), e"x"),
         "#id @Mod:T" ->
@@ -285,13 +285,13 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "case e of Nil -> True" ->
           ECase(e"e", ImmArray(CaseAlt(CPNil, e"True"))),
         "case e of Cons h t -> Mod:f h t" ->
-          ECase(e"e", ImmArray(CaseAlt(CPCons("h", "t"), e"Mod:f h t"))),
+          ECase(e"e", ImmArray(CaseAlt(CPCons(id"h", id"t"), e"Mod:f h t"))),
         "case e of None -> ()" ->
           ECase(e"e", ImmArray(CaseAlt(CPNone, e"()"))),
         "case e of Some x -> x" ->
-          ECase(e"e", ImmArray(CaseAlt(CPSome("x"), e"x"))),
+          ECase(e"e", ImmArray(CaseAlt(CPSome(id"x"), e"x"))),
         "case e of Mod:T:V x -> x " ->
-          ECase(e"e", ImmArray(CaseAlt(CPVariant(T.tycon, id"V", "x"), e"x"))),
+          ECase(e"e", ImmArray(CaseAlt(CPVariant(T.tycon, id"V", id"x"), e"x"))),
         "case e of True -> False | False -> True" ->
           ECase(
             e"e",
@@ -309,10 +309,10 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "spure @tau e" ->
           ScenarioPure(t"tau", e"e"),
         "sbind x: tau <- e in f x" ->
-          ScenarioBlock(ImmArray(Binding(Some("x"), t"tau", e"e")), e"f x"),
+          ScenarioBlock(ImmArray(Binding(Some(id"x"), t"tau", e"e")), e"f x"),
         "sbind x: tau <- e1 ; y: sigma <- e2 in f x y" ->
           ScenarioBlock(
-            ImmArray(Binding(Some("x"), t"tau", e"e1"), Binding(Some("y"), t"sigma", e"e2")),
+            ImmArray(Binding(Some(id"x"), t"tau", e"e1"), Binding(Some(id"y"), t"sigma", e"e2")),
             e"f x y"),
         "commit @tau party body" ->
           ScenarioCommit(e"party", e"body", t"tau"),
@@ -338,10 +338,10 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "upure @tau e" ->
           UpdatePure(t"tau", e"e"),
         "ubind x: tau <- e in f x" ->
-          UpdateBlock(ImmArray(Binding(Some("x"), t"tau", e"e")), e"f x"),
+          UpdateBlock(ImmArray(Binding(Some(id"x"), t"tau", e"e")), e"f x"),
         "ubind x: tau <- e1; y: sigma <- e2 in f x y" ->
           UpdateBlock(
-            ImmArray(Binding(Some("x"), t"tau", e"e1"), Binding(Some("y"), t"sigma", e"e2")),
+            ImmArray(Binding(Some(id"x"), t"tau", e"e1"), Binding(Some(id"y"), t"sigma", e"e2")),
             e"f x y"),
         "create @Mod:T e" ->
           UpdateCreate(T.tycon, e"e"),
@@ -386,12 +386,12 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
 
       val varDef = DDataType(
         false,
-        ImmArray("a" -> KStar),
+        ImmArray(id"a" -> KStar),
         DataVariant(ImmArray(id"Leaf" -> t"Unit", id"Node" -> t"Mod:Tree.Node a"))
       )
       val recDef = DDataType(
         false,
-        ImmArray("a" -> KStar),
+        ImmArray(id"a" -> KStar),
         DataRecord(
           ImmArray(id"value" -> t"a", id"left" -> t"Mod:Tree a", id"right" -> t"Mod:Tree a"),
           None)
@@ -459,7 +459,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
 
       val template =
         Template(
-          param = "this",
+          param = id"this",
           precond = e"True",
           signatories = e"Cons @Party [person] (Nil @Party)",
           agreementText = e""" "Agreement" """,
@@ -468,7 +468,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
               name = id"Sleep",
               consuming = true,
               controllers = e"Cons @Party [person] (Nil @Party)",
-              selfBinder = "this",
+              selfBinder = id"this",
               argBinder = None -> TBuiltin(BTUnit),
               returnType = t"Unit",
               update = e"upure @Unit ()"
@@ -477,8 +477,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
               name = id"Nap",
               consuming = false,
               controllers = e"Cons @Party [person] (Nil @Party)",
-              selfBinder = "this",
-              argBinder = Some("i") -> TBuiltin(BTInt64),
+              selfBinder = id"this",
+              argBinder = Some(id"i") -> TBuiltin(BTInt64),
               returnType = t"Int64",
               update = e"upure @Int64 i"
             )
@@ -523,7 +523,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
 
       val template =
         Template(
-          param = "this",
+          param = id"this",
           precond = e"True",
           signatories = e"Nil @Unit",
           agreementText = e""" "Agreement" """,
@@ -573,9 +573,9 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
   private val T: TTyCon = TTyCon(qualify("T"))
   private val R: TTyCon = TTyCon(qualify("R"))
   private val RIntBool = TypeConApp(R.tycon, ImmArray(t"Int64", t"Bool"))
-  private val α: TVar = TVar("a")
-  private val β: TVar = TVar("b")
+  private val α: TVar = TVar(id"a")
+  private val β: TVar = TVar(id"b")
 
-  private val x = EVar("x")
+  private val x = EVar(id"x")
   private val v = EVal(qualify("v"))
 }

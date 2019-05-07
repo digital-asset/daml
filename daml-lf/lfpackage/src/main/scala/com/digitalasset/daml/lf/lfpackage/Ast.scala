@@ -21,10 +21,10 @@ object Ast {
   }
 
   /* Expression variable name. */
-  type ExprVarName = String
+  type ExprVarName = Identifier
 
   /* Type variable name. */
-  type TypeVarName = String
+  type TypeVarName = Identifier
 
   /* Reference to a field in a record or variant. */
   type FieldName = Identifier
