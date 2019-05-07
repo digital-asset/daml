@@ -257,21 +257,13 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
         map: Map[String, Value[AbsoluteContractId]])
       : Option[Map[String, Value[AbsoluteContractId]]] = {
       fields match {
-        case ImmArrayCons(LabeledValue(label, value), tail) =>
+        case ImmArray() => Some(map)
+        case ImmArrayCons((None, _), _) => None
+        case ImmArrayCons((Some(label), value), tail) =>
           go(tail, map + (label -> value))
-        case _ if fields.isEmpty =>
-          Some(map)
-        case _ =>
-          None
       }
     }
     go(fields, Map.empty)
-  }
-
-  private[engine] object LabeledValue {
-    def unapply(field: (Option[String], Value[AbsoluteContractId]))
-      : Option[(String, Value[AbsoluteContractId])] =
-      field._1.map(_ -> field._2)
   }
 
   private[engine] def preprocessCreate(
