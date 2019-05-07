@@ -15,7 +15,7 @@ module DA.Daml.GHC.Compiler.Options
 
 import Development.IDE.UtilGHC (runGhcFast)
 import DA.Daml.GHC.Compiler.Config (setupDamlGHC)
-import qualified Development.IDE.Functions.Compile as Compile
+import qualified Development.IDE.Types.Options as Compile
 
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF

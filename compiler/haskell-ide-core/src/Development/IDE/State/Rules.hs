@@ -28,6 +28,7 @@ import Control.Exception (evaluate)
 import           Control.Monad.Except
 import Control.Monad.Extra (whenJust)
 import qualified Development.IDE.Functions.Compile             as Compile
+import qualified Development.IDE.Types.Options as Compile
 import Development.IDE.Functions.DependencyInformation
 import Development.IDE.Functions.FindImports
 import           Development.IDE.State.FileStore

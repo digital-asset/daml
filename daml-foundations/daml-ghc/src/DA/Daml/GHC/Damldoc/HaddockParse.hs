@@ -6,7 +6,7 @@
 module DA.Daml.GHC.Damldoc.HaddockParse(mkDocs) where
 
 import           DA.Daml.GHC.Damldoc.Types                 as DDoc
-import Development.IDE.Functions.Compile (CompileOpts(..))
+import Development.IDE.Types.Options (CompileOpts(..))
 import qualified Development.IDE.State.Service     as Service
 import qualified Development.IDE.State.Rules     as Service
 import           Development.IDE.Types.Diagnostics

@@ -21,7 +21,7 @@ module Development.IDE.State.Service(
 
 import           Control.Concurrent.Extra
 import           Control.Monad.Except
-import Development.IDE.Functions.Compile (CompileOpts(..))
+import Development.IDE.Types.Options (CompileOpts(..))
 import           Development.IDE.State.FileStore
 import qualified Development.IDE.Logger as Logger
 import Data.Maybe

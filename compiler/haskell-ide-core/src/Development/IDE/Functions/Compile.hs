@@ -8,9 +8,7 @@
 -- | Based on https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/API.
 --   Given a list of paths to find libraries, and a file to compile, produce a list of 'CoreModule' values.
 module Development.IDE.Functions.Compile
-  ( CompileOpts(..)
-  , PackageState(..)
-  , GhcModule(..)
+  ( GhcModule(..)
   , TcModuleResult(..)
   , LoadPackageResult(..)
   , getGhcDynFlags
@@ -29,6 +27,7 @@ import qualified Development.IDE.Functions.FindImports as FindImports
 import           Development.IDE.Functions.GHCError
 import           Development.IDE.Functions.SpanInfo
 import Development.IDE.UtilGHC
+import Development.IDE.Types.Options
 
 import           GHC hiding (parseModule, typecheckModule)
 import qualified Parser
@@ -60,24 +59,6 @@ import           Data.Time
 import           Development.IDE.Types.SpanInfo
 import GHC.Generics (Generic)
 import           System.FilePath
-
--- TODO (MK) Move to a separate Options module
-data CompileOpts = CompileOpts
-  { optPreprocessor :: GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
-  , optRunGhcSession :: forall a. Maybe ParsedModule -> PackageState -> Ghc a -> IO a
-  -- ^ Setup a GHC session using a given package state. If a `ParsedModule` is supplied,
-  -- the import path should be setup for that module.
-  , optWriteIface :: Bool
-
-  , optMbPackageName :: Maybe String
-
-  , optPackageDbs :: [FilePath]
-  , optHideAllPkgs :: Bool
-  , optPackageImports :: [(String, ModRenaming)]
-
-  , optThreads :: Int
-  , optShakeProfiling :: Maybe FilePath
-  }
 
 -- | 'CoreModule' together with some additional information required for the
 -- conversion to DAML-LF.
