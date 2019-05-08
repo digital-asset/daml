@@ -30,9 +30,13 @@ def main():
             "--data",
             action="store",
             dest="data",
-            choices=["yes","no"],
-            default="yes",
-            help="Whether to load data dependencies into the REPL.")
+            choices=["auto", "yes","no"],
+            default="auto",
+            help=(
+                "Whether to load data dependencies into the REPL. "
+                "'yes' can imply that additional targets need to be built. "
+                "If that fails you may want to retry with 'no'. "
+                "'auto' will try 'yes' first, and fall back to 'no' on failure."))
     parser.add_argument(
             "target",
             metavar="TARGET",
@@ -62,12 +66,35 @@ def main():
         # Assume we were given a Bazel target.
         target = args.target
 
-    try:
-        bazel_args = ["{}@ghci".format(target)]
-        if args.data == "yes":
-            bazel_args += ["--define", "ghci_data=True"]
+    # In auto mode we try to build with data "yes" first, and fall back to data
+    # "no" on failure. We separate the build step so that we can check for
+    # build failure in isolation. In non-auto mode we don't need to separate
+    # the build step and can call `bazel run` right away.
+    with_data = args.data == "yes" or args.data == "auto"
+    bazel_args = mk_bazel_args(target, with_data)
+    if args.data == "auto":
+        try:
+            bazel_build(bazel_args)
+        except subprocess.CalledProcessError:
+            print("WARNING: Build with runfiles failed. Retrying without runfiles.", file=sys.stderr)
+            bazel_args = mk_bazel_args(target, False)
+            try:
+                bazel_build(bazel_args)
+            except subprocess.CalledProcessError:
+                sys.exit(1)
 
-        ghci_args = args.ghci_args
+    try:
+        run_repl(bazel_args, args.ghci_args, module_name)
+    except subprocess.CalledProcessError:
+        sys.exit(1)
+
+
+def bazel_build(bazel_args):
+    subprocess.run(["bazel", "build"] + bazel_args, check=True)
+
+
+def run_repl(bazel_args, ghci_args, module_name):
+    try:
         if module_name:
             # Generate a -ghci-script that loads the module.
             script_fd, script_path = tempfile.mkstemp(text=True)
@@ -78,15 +105,20 @@ def main():
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
         # Start GHCi.
-        subprocess.run(
-                ["bazel", "run"] +
-                bazel_args +
-                ["--"] + ghci_args
-        )
+        subprocess.run(["bazel", "run"] + bazel_args + ["--"] + ghci_args, check=True)
     finally:
         if module_name:
             os.close(script_fd)
             os.remove(script_path)
+
+
+def mk_bazel_args(target, with_data):
+    bazel_args = ["{}@ghci".format(target)]
+
+    if with_data:
+        bazel_args += ["--define", "ghci_data=True"]
+
+    return bazel_args
 
 
 def query_haskell_target(source_file):
