@@ -661,6 +661,23 @@ class EngineTest extends WordSpec with Matchers {
       res shouldBe 'right
     }
 
+    "fail with fields with labels, with repetitions" in {
+      val rec = ValueRecord(
+        Some(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")),
+        ImmArray((Some("p"), ValueParty(alice)), (Some("p"), ValueParty(bob)))
+      )
+
+      val Right(DDataType(_, ImmArray(), _)) =
+        PackageLookup.lookupDataType(basicTestsPkg, "BasicTests:TypeWithParameters")
+      val res = commandTranslator
+        .translateValue(
+          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
+          assertAsVersionedValue(rec))
+        .consume(lookupContract, lookupPackage, lookupKey)
+
+      res shouldBe 'left
+    }
+
     "work with fields without labels, in right order" in {
       val rec = ValueRecord(
         Some(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")),
