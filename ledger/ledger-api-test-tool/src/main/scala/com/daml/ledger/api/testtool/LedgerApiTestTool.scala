@@ -50,11 +50,12 @@ object LedgerApiTestTool {
 
     println(s"Running $nScenarios scenarios against ${config.host}:${config.port}...")
 
-    val ledgerResource = RemoteServerResource(config.host, config.port, config.tlsConfig)
-      .map {
-        case PlatformChannels(channel) =>
-          LedgerContext.SingleChannelContext(channel, None, packages.keys)
-      }
+    val ledgerResource =
+      RemoteServerResource(config.host, config.port, config.tlsConfig, config.authorizationConfig)
+        .map {
+          case PlatformChannels(channel) =>
+            LedgerContext.SingleChannelContext(channel, None, packages.keys)
+        }
     ledgerResource.setup()
     val ledger = ledgerResource.value
 

@@ -130,7 +130,8 @@ class ScalaCodeGenIT
     applicationId = applicationId,
     ledgerIdRequirement = LedgerIdRequirement(ledgerId, enabled = true),
     commandClient = CommandClientConfiguration.default,
-    sslContext = None
+    sslContext = None,
+    authorizationConfig = None
   )
 
   private val ledgerF: Future[LedgerClient] =

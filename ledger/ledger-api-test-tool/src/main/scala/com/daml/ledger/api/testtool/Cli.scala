@@ -6,6 +6,7 @@ package com.daml.ledger.api.testtool
 import java.io.File
 
 import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.digitalasset.ledger.client.grpcHeaders.AuthorizationConfig
 
 object Cli {
 
@@ -26,6 +27,9 @@ object Cli {
       tlsConfig = config.tlsConfig.fold(
         Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))))(c =>
         Some(c.copy(trustCertCollectionFile = Some(new File(path))))))
+
+  private val accessTokenFileConfig = (path: String, config: Config) =>
+    config.copy(authorizationConfig = Some(AuthorizationConfig.FileAccessToken(path)))
 
   private val argParser = new scopt.OptionParser[Config]("ledger-api-test-tool") {
     head("""The Ledger API Test Tool is a command line tool for testing the correctness of
@@ -55,6 +59,11 @@ object Cli {
       .optional()
       .text("TLS: The crt file to be used as the the trusted root CA.")
       .action(cacrtConfig)
+
+    opt[String]("access-token-file")
+      .optional()
+      .text("Authoriztion: The file containing access token to be used for communication with teh server.")
+      .action(accessTokenFileConfig)
 
     opt[Double](name = "timeout-scale-factor")
       .optional()

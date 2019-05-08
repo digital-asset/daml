@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool
 
 import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.digitalasset.ledger.client.grpcHeaders.AuthorizationConfig
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 
 final case class Config(
@@ -14,7 +15,8 @@ final case class Config(
     mustFail: Boolean,
     timeoutScaleFactor: Double,
     extract: Boolean,
-    tlsConfig: Option[TlsConfiguration]
+    tlsConfig: Option[TlsConfiguration],
+    authorizationConfig: Option[AuthorizationConfig]
 )
 
 object Config {
@@ -26,6 +28,7 @@ object Config {
     mustFail = false,
     timeoutScaleFactor = 1.0,
     extract = false,
-    tlsConfig = None
+    tlsConfig = None,
+    authorizationConfig = None
   )
 }

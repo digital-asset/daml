@@ -214,7 +214,8 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
         config.appId,
         LedgerIdRequirement(ledgerId = "", enabled = false),
         CommandClientConfiguration(1, 1, overrideTtl = true, java.time.Duration.ofSeconds(20L)),
-        sslContext = config.tlsConfig.client
+        sslContext = config.tlsConfig.client,
+        None
       ),
       channel
     )

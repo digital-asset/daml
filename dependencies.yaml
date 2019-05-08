@@ -14,6 +14,11 @@ options:
 
 dependencies:
 
+  com.google.auth:
+    google-auth-library-oauth2-http:
+      lang: java
+      version: "0.15.0"
+        
   com.google.code.findbugs:
     jsr305:
       lang: java

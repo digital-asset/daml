@@ -15,6 +15,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
+        "//3rdparty/jvm/com/google/auth:google_auth_library_oauth2_http",
         "//3rdparty/jvm/com/typesafe/akka:akka_stream",
         "//3rdparty/jvm/io/grpc:grpc_netty",
         "//3rdparty/jvm/io/netty:netty_handler",

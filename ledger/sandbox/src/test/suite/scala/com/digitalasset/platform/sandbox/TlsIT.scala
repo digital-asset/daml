@@ -13,11 +13,7 @@ import com.digitalasset.ledger.api.testing.utils.{
 }
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
+import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, SandboxServerResource}
 import io.grpc.Channel
@@ -56,11 +52,9 @@ class TlsIT
 
   private implicit def str2File(str: String) = new File(str)
 
-  private lazy val tlsEnabledConfig = LedgerClientConfiguration(
-    "appId",
-    LedgerIdRequirement("", false),
-    CommandClientConfiguration.default,
-    TlsConfiguration(
+  private lazy val tlsEnabledConfig = LedgerClientConfiguration.default.copy(
+    applicationId = "appId",
+    sslContext = TlsConfiguration(
       true,
       Some(clientCertChainFilePath),
       Some(clientPrivateKeyFilePath),

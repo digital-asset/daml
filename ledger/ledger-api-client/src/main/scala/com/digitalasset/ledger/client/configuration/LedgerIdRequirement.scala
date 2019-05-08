@@ -12,3 +12,7 @@ final case class LedgerIdRequirement(ledgerId: String, enabled: Boolean) {
 
   def isAccepted(checkedLedgerId: String): Boolean = !enabled || checkedLedgerId == ledgerId
 }
+
+object LedgerIdRequirement {
+  def default = LedgerIdRequirement("", false)
+}
