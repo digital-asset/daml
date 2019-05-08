@@ -31,7 +31,6 @@ genrule(
         # quickstart-scala template
         mkdir -p $$OUT/quickstart-scala
         cp -r $(location //language-support/scala/examples:quickstart-scala-dir)/* $$OUT/quickstart-scala/
-        rm $$OUT/quickstart-scala/da-skeleton.yaml
         cp -rL $$SRC/quickstart-scala/* $$OUT/quickstart-scala/
 
         tar zcf $(location :templates-tarball.tar.gz) templates-tarball
