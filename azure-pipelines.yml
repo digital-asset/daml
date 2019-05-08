@@ -36,7 +36,6 @@ jobs:
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
 
   - job: macOS
-    displayName: macos
     timeoutInMinutes: 360
     pool:
       vmImage: 'macOS-10.14'
@@ -55,7 +54,6 @@ jobs:
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
 
   - job: Windows
-    displayName: windows
     timeoutInMinutes: 360
     pool:
       vmImage: 'vs2017-win2016'
