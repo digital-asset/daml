@@ -41,7 +41,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
       case (p, filters) =>
         p shouldEqual party
         filters shouldEqual domain.Filters(
-          Some(domain.InclusiveFilters(Set(Ref.DefinitionRef(
+          Some(domain.InclusiveFilters(Set(Ref.Identifier(
             Ref.PackageId.assertFromString(packageId),
             Ref.QualifiedName(
               Ref.DottedName.assertFromString(includedModule),

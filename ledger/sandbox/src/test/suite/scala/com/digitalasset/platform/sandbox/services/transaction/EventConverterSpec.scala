@@ -7,7 +7,7 @@ import java.io.File
 import java.time.Instant
 
 import com.digitalasset.api.util.TimestampConversion.fromInstant
-import com.digitalasset.daml.lf.data.Ref.{QualifiedName, DefinitionRef}
+import com.digitalasset.daml.lf.data.Ref.{QualifiedName, TypeConName}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Event.Events
 import com.digitalasset.daml.lf.engine._
@@ -188,7 +188,7 @@ class EventConverterSpec
 
     "should generate the right event for an exercise" in {
 
-      val ty = DefinitionRef("unimportant", "in.this:test")
+      val ty = TypeConName("unimportant", "in.this:test")
 
       val nod0: (
           Transaction.NodeId,
@@ -221,8 +221,7 @@ class EventConverterSpec
             ty,
             asVersionedValueOrThrow(
               Lf.ValueRecord(
-                Some(
-                  Ref.DefinitionRef("unimportant", QualifiedName.assertFromString("in.this:test"))),
+                Some(Ref.Identifier("unimportant", QualifiedName.assertFromString("in.this:test"))),
                 ImmArray(
                   Some[Ref.Name]("field") ->
                     Lf.ValueText("someText"),
@@ -297,14 +296,14 @@ class EventConverterSpec
     "nested exercises" in {
       val rootEx = ExerciseEvent(
         Lf.AbsoluteContractId("#5:1"),
-        Ref.DefinitionRef(
+        Ref.Identifier(
           "0d25e199ed26977b3082864c62f8d154ca6042ed521712e2b3eb172dc79c87a2",
           "Test:Agreement"),
         "AcceptTriProposal",
         asVersionedValueOrThrow(
           Lf.ValueRecord(
             Some(
-              Ref.DefinitionRef(
+              Ref.Identifier(
                 "0d25e199ed26977b3082864c62f8d154ca6042ed521712e2b3eb172dc79c87a2",
                 "Test:Agreement.AcceptTriProposal")),
             ImmArray((Some[Ref.Name]("cid"), Lf.ValueContractId(Lf.AbsoluteContractId("#6:0"))))
@@ -325,7 +324,7 @@ class EventConverterSpec
           Map(
             "#txId:2" -> ExerciseEvent(
               Lf.AbsoluteContractId("#6:0"),
-              Ref.DefinitionRef(
+              Ref.Identifier(
                 "0d25e199ed26977b3082864c62f8d154ca6042ed521712e2b3eb172dc79c87a2",
                 "Test:TriProposal"),
               "TriProposalAccept",
@@ -342,11 +341,11 @@ class EventConverterSpec
             ),
             "#txId:3" -> CreateEvent(
               Lf.AbsoluteContractId("#txId:3"),
-              Ref.DefinitionRef(
+              Ref.Identifier(
                 "0d25e199ed26977b3082864c62f8d154ca6042ed521712e2b3eb172dc79c87a2",
                 "Test:TriAgreement"),
               asVersionedValueOrThrow(Lf.ValueRecord(
-                Some(Ref.DefinitionRef(
+                Some(Ref.Identifier(
                   "0d25e199ed26977b3082864c62f8d154ca6042ed521712e2b3eb172dc79c87a2",
                   "Test:TriAgreement")),
                 ImmArray(

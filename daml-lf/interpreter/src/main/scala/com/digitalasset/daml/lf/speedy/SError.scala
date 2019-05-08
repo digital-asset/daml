@@ -66,13 +66,13 @@ object SError {
 
   final case class ScenarioErrorContractNotEffective(
       coid: AbsoluteContractId,
-      templateId: DefinitionRef,
+      templateId: Identifier,
       effectiveAt: Time.Timestamp)
       extends SErrorScenario
 
   final case class ScenarioErrorContractNotActive(
       coid: AbsoluteContractId,
-      templateId: DefinitionRef,
+      templateId: Identifier,
       consumedBy: Ledger.NodeId)
       extends SErrorScenario
 
@@ -89,7 +89,7 @@ object SError {
     * been disclosed to 'committer'. */
   final case class ScenarioErrorContractNotVisible(
       coid: AbsoluteContractId,
-      templateId: DefinitionRef,
+      templateId: Identifier,
       committer: Party,
       observers: Set[Party])
       extends SErrorScenario

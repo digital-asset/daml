@@ -118,16 +118,16 @@ object ValueGenerators {
   } yield DottedName.assertFromStrings(ImmArray(segments))
 
   // generate a junk identifier
-  val defRefGen: Gen[DefinitionRef] = for {
+  val idGen: Gen[Identifier] = for {
     n <- Gen.choose(1, 200)
     packageId <- Gen
       .listOfN(n, Gen.alphaNumChar)
       .map(s => PackageId.assertFromString(s.mkString))
     module <- moduleGen
     name <- dottedNameGen
-  } yield DefinitionRef(packageId, QualifiedName(module, name))
+  } yield Identifier(packageId, QualifiedName(module, name))
 
-  val idGen: Gen[Name] = {
+  val nameGen: Gen[Name] = {
     val firstChars =
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_".toVector
     val mainChars =
@@ -153,28 +153,28 @@ object ValueGenerators {
   // generate a variant with arbitrary value
   private def variantGen(nesting: Int): Gen[ValueVariant[ContractId]] =
     for {
-      id <- defRefGen
-      variantName <- idGen
+      id <- idGen
+      variantName <- nameGen
       toOption <- Gen
         .oneOf(true, false)
         .map(
           withoutLabels =>
-            if (withoutLabels) (_: DefinitionRef) => None
-            else (variantId: DefinitionRef) => Some(variantId))
+            if (withoutLabels) (_: Identifier) => None
+            else (variantId: Identifier) => Some(variantId))
       value <- Gen.lzy(valueGen(nesting))
     } yield ValueVariant(toOption(id), variantName, value)
   def variantGen: Gen[ValueVariant[ContractId]] = variantGen(0)
 
   private def recordGen(nesting: Int): Gen[ValueRecord[ContractId]] =
     for {
-      id <- defRefGen
+      id <- idGen
       toOption <- Gen
         .oneOf(true, false)
         .map(
           a =>
-            if (a) (_: DefinitionRef) => None
-            else (x: DefinitionRef) => Some(x))
-      labelledValues <- Gen.listOf(idGen.flatMap(label =>
+            if (a) (_: Identifier) => None
+            else (x: Identifier) => Some(x))
+      labelledValues <- Gen.listOf(nameGen.flatMap(label =>
         Gen.lzy(valueGen(nesting)).map(x => if (label.isEmpty) (None, x) else (Some(label), x))))
     } yield ValueRecord[ContractId](toOption(id), ImmArray(labelledValues))
   def recordGen: Gen[ValueRecord[ContractId]] = recordGen(0)
@@ -268,7 +268,7 @@ object ValueGenerators {
 
   val contractInstanceGen: Gen[ContractInst[Tx.Value[Tx.ContractId]]] = {
     for {
-      template <- defRefGen
+      template <- idGen
       arg <- versionedValueGen
       agreement <- Arbitrary.arbitrary[String]
     } yield ContractInst(template, arg, agreement)
@@ -302,7 +302,7 @@ object ValueGenerators {
   val fetchNodeGen: Gen[NodeFetch[ContractId]] = {
     for {
       coid <- coidGen
-      templateId <- defRefGen
+      templateId <- idGen
       actingParties <- genNonEmptyParties
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
@@ -314,8 +314,8 @@ object ValueGenerators {
     : Gen[NodeExercises[Tx.NodeId, Tx.ContractId, Tx.Value[Tx.ContractId]]] = {
     for {
       targetCoid <- coidGen
-      templateId <- defRefGen
-      choiceId <- idGen
+      templateId <- idGen
+      choiceId <- nameGen
       consume <- Gen.oneOf(true, false)
       actingParties <- genNonEmptyParties
       chosenValue <- versionedValueGen

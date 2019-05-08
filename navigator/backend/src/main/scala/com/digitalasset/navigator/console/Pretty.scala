@@ -61,7 +61,7 @@ object Pretty {
     shortTemplateName(ident.moduleName + ":" + ident.entityName)
   }
 
-  def shortTemplateId(name: model.DamlLfDefRef): String =
+  def shortTemplateId(name: model.DamlLfIdentifier): String =
     shortTemplateName(name.qualifiedName.name.toString())
 
   /** A short template name (i.e., without the module or package name) */
@@ -125,22 +125,22 @@ object Pretty {
   def damlLfType(
       param: model.DamlLfType,
       typeDefs: model.DamlLfTypeLookup,
-      doNotExpand: Set[model.DamlLfDefRef] = Set.empty
+      doNotExpand: Set[model.DamlLfIdentifier] = Set.empty
   ): (Option[String], PrettyNode) = param match {
     case typeCon: model.DamlLfTypeCon =>
       val id = model
-        .DamlLfDefRef(typeCon.name.ref.packageId, typeCon.name.ref.qualifiedName)
+        .DamlLfIdentifier(typeCon.name.identifier.packageId, typeCon.name.identifier.qualifiedName)
       if (doNotExpand.contains(id)) {
         // val dt = typeCon.instantiate(typeDefs(id).get)
         val dt = model.damlLfInstantiate(typeCon, typeDefs(id).get)
-        (Some(typeCon.name.ref.qualifiedName.name.toString), PrettyPrimitive("..."))
+        (Some(typeCon.name.identifier.qualifiedName.name.toString), PrettyPrimitive("..."))
       } else {
         // Once a type is instantiated, do not instantiate it in any child node.
         // Required to prevent infinite expansion of recursive types.
         // val dt = typeCon.instantiate(typeDefs(id).get)
         val dt = model.damlLfInstantiate(typeCon, typeDefs(id).get)
         (
-          Some(typeCon.name.ref.qualifiedName.name.toString),
+          Some(typeCon.name.identifier.qualifiedName.name.toString),
           damlLfDataType(dt, typeDefs, doNotExpand + id))
       }
     case typePrim: model.DamlLfTypePrim =>
@@ -154,7 +154,7 @@ object Pretty {
       param: model.DamlLfPrimType,
       typArgs: model.DamlLfImmArraySeq[model.DamlLfType],
       typeDefs: model.DamlLfTypeLookup,
-      doNotExpand: Set[model.DamlLfDefRef]
+      doNotExpand: Set[model.DamlLfIdentifier]
   ): PrettyNode = param match {
     case model.DamlLfPrimType.List =>
       val listType = typArgs.headOption
@@ -178,7 +178,7 @@ object Pretty {
   private def damlLfDataType(
       dt: model.DamlLfDataType,
       typeDefs: model.DamlLfTypeLookup,
-      doNotExpand: Set[model.DamlLfDefRef]
+      doNotExpand: Set[model.DamlLfIdentifier]
   ): PrettyNode = {
     dt match {
       case r: model.DamlLfRecord =>
@@ -197,9 +197,9 @@ object Pretty {
   }
 
   def damlLfDefDataType(
-      id: model.DamlLfDefRef,
-      typeDefs: model.DamlLfDefRef => Option[model.DamlLfDefDataType],
-      doNotExpand: Set[model.DamlLfDefRef] = Set.empty
+      id: model.DamlLfIdentifier,
+      typeDefs: model.DamlLfIdentifier => Option[model.DamlLfDefDataType],
+      doNotExpand: Set[model.DamlLfIdentifier] = Set.empty
   ): PrettyNode = {
     val ddt = typeDefs(id)
     ddt match {

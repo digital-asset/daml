@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.transaction.Node.{
   NodeFetch,
   NodeLookupByKey
 }
-import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, Party}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.data.Relation.Relation
@@ -35,7 +35,7 @@ sealed trait Event[+Nid, +Cid, +Val] extends Product with Serializable {
   */
 final case class CreateEvent[Cid, Val](
     contractId: Cid,
-    templateId: DefinitionRef,
+    templateId: Identifier,
     argument: Val,
     stakeholders: Set[Party],
     witnesses: Set[Party])
@@ -61,7 +61,7 @@ final case class CreateEvent[Cid, Val](
   */
 final case class ExerciseEvent[Nid, Cid, Val](
     contractId: Cid,
-    templateId: DefinitionRef,
+    templateId: Identifier,
     choice: String,
     choiceArgument: Val,
     actingParties: Set[Party],

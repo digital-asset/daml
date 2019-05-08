@@ -13,7 +13,7 @@ object DomainMocks {
 
   val party = Ref.Party.assertFromString("party")
 
-  val identifier = Ref.DefinitionRef(
+  val identifier = Ref.Identifier(
     Ref.PackageId.assertFromString("package"),
     Ref.QualifiedName.assertFromString("module:entity"))
 

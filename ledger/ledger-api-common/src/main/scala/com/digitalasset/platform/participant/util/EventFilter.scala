@@ -28,7 +28,7 @@ object EventFilter {
     def isSubmitterSubscriber(submitterParty: Party): Boolean =
       transactionFilter.filtersByParty.contains(submitterParty)
 
-    private val subscribersByTemplateId: Map[Ref.DefinitionRef, Set[Party]] = {
+    private val subscribersByTemplateId: Map[Ref.Identifier, Set[Party]] = {
       val (specificSubscriptions, globalSubscriptions) = getSpecificAndGlobalSubscriptions(
         transactionFilter)
       specificSubscriptions
@@ -71,9 +71,9 @@ object EventFilter {
 
   }
 
-  private def getSpecificAndGlobalSubscriptions(transactionFilter: TransactionFilter)
-    : (ArrayBuffer[(Ref.DefinitionRef, Party)], Set[Party]) = {
-    val specificSubscriptions = new ArrayBuffer[(Ref.DefinitionRef, Party)]
+  private def getSpecificAndGlobalSubscriptions(
+      transactionFilter: TransactionFilter): (ArrayBuffer[(Ref.Identifier, Party)], Set[Party]) = {
+    val specificSubscriptions = new ArrayBuffer[(Ref.Identifier, Party)]
     val globalSubscriptions = immutable.Set.newBuilder[Party]
     transactionFilter.filtersByParty.foreach {
       case (party, filters) =>

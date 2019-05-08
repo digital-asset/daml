@@ -35,7 +35,7 @@ package object filter {
       parameter match {
         case tc: DamlLfTypeCon =>
           val next = for {
-            ddt <- ps(tc.name.ref)
+            ddt <- ps(tc.name.identifier)
             nextCursor <- cursor.next
             //nextField   <- tc.instantiate(ddt) match {
             nextField <- damlLfInstantiate(tc, ddt) match {
@@ -149,7 +149,7 @@ package object filter {
       checkParameter(t, c, e, p))
 
   lazy val parameterIdFilter =
-    opaque[DamlLfDefRef, Boolean, DamlLfTypeLookup]("parameter")((id, c, e, p) =>
+    opaque[DamlLfIdentifier, Boolean, DamlLfTypeLookup]("parameter")((id, c, e, p) =>
       checkParameter(DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq()), c, e, p))
 
   lazy val argumentFilter =

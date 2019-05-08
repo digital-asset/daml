@@ -147,12 +147,12 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     }
 
     "do identifier" in {
-      forAll(defRefGen) { i =>
+      forAll(idGen) { i =>
         ValueCoder.decodeIdentifier(ValueCoder.encodeIdentifier(i, None)._2) shouldEqual Right(i)
       }
     }
 
-    "do identifier with supported override version" in forAll(defRefGen, valueVersionGen) {
+    "do identifier with supported override version" in forAll(idGen, valueVersionGen) {
       (i, version) =>
         val (v2, ei) = ValueCoder.encodeIdentifier(i, Some(version))
         v2 shouldEqual version

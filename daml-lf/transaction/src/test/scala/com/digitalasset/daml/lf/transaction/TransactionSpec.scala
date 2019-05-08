@@ -122,7 +122,7 @@ object TransactionSpec {
       hasExerciseResult: Boolean = true): NodeExercises[String, String, Value[String]] =
     NodeExercises(
       "dummyCoid",
-      Ref.DefinitionRef(
+      Ref.Identifier(
         PackageId.assertFromString("-dummyPkg-"),
         QualifiedName.assertFromString("DummyModule:dummyName")),
       "dummyChoice",
@@ -141,7 +141,7 @@ object TransactionSpec {
     NodeCreate(
       "dummyCoid",
       ContractInst(
-        Ref.DefinitionRef(
+        Ref.Identifier(
           PackageId.assertFromString("-dummyPkg-"),
           QualifiedName.assertFromString("DummyModule:dummyName")),
         V.ValueUnit,

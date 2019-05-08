@@ -18,7 +18,7 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 trait IdentifierResolverLike {
-  def resolveIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.DefinitionRef]
+  def resolveIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier]
 }
 
 class IdentifierResolver(packageResolver: Ref.PackageId => Future[Option[Package]])
@@ -40,12 +40,10 @@ class IdentifierResolver(packageResolver: Ref.PackageId => Future[Option[Package
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def buildCache() = {
     Scaffeine(CaffeineSpec.parse(cacheSpec))
-      .buildAsyncFuture[Identifier, Ref.DefinitionRef](resolveIdentifierAsync)(
-        DirectExecutionContext)
+      .buildAsyncFuture[Identifier, Ref.Identifier](resolveIdentifierAsync)(DirectExecutionContext)
   }
 
-  def resolveIdentifier(
-      identifier: Identifier): Either[StatusRuntimeException, Ref.DefinitionRef] = {
+  def resolveIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] = {
     try {
       Right(Await.result(idCache.get(identifier), 5.seconds))
     } catch {
@@ -58,7 +56,7 @@ class IdentifierResolver(packageResolver: Ref.PackageId => Future[Option[Package
       Status.ABORTED.withDescription(s"Failed to resolve identifier named $identifier in time. " +
         "Please use module_name and entity_name fields to uniquely identify DAML entities."))
   }
-  private def resolveIdentifierAsync(identifier: Identifier): Future[Ref.DefinitionRef] = {
+  private def resolveIdentifierAsync(identifier: Identifier): Future[Ref.Identifier] = {
     IdentifierValidator
       .validateIdentifier(identifier, packageResolver)
       .transform {

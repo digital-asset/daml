@@ -13,7 +13,7 @@ sealed trait ApiValue
 
 final case class ApiRecordField(label: String, value: ApiValue)
 
-final case class ApiRecord(recordId: Option[DamlLfDefRef], fields: List[ApiRecordField])
+final case class ApiRecord(recordId: Option[DamlLfIdentifier], fields: List[ApiRecordField])
     extends ApiValue {
 
   /**
@@ -31,7 +31,10 @@ final case class ApiRecord(recordId: Option[DamlLfDefRef], fields: List[ApiRecor
  */
 }
 
-final case class ApiVariant(variantId: Option[DamlLfDefRef], constructor: String, value: ApiValue)
+final case class ApiVariant(
+    variantId: Option[DamlLfIdentifier],
+    constructor: String,
+    value: ApiValue)
     extends ApiValue
 final case class ApiList(elements: List[ApiValue]) extends ApiValue
 final case class ApiOptional(value: Option[ApiValue]) extends ApiValue

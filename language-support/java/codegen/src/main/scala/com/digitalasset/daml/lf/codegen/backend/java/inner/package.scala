@@ -8,7 +8,7 @@ import java.util
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.{DamlList, DamlMap, DamlOptional}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, PackageId, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.iface._
 import com.squareup.javapoet._
 
@@ -43,11 +43,11 @@ package object inner {
       damlType: Type,
       packagePrefixes: Map[PackageId, String]): TypeName =
     damlType match {
-      case TypeCon(TypeConName(ref), Seq()) =>
-        ClassName.bestGuess(fullyQualifiedName(ref, packagePrefixes)).box()
-      case TypeCon(TypeConName(ref), typeParameters) =>
+      case TypeCon(TypeConName(ident), Seq()) =>
+        ClassName.bestGuess(fullyQualifiedName(ident, packagePrefixes)).box()
+      case TypeCon(TypeConName(ident), typeParameters) =>
         ParameterizedTypeName.get(
-          ClassName.bestGuess(fullyQualifiedName(ref, packagePrefixes)),
+          ClassName.bestGuess(fullyQualifiedName(ident, packagePrefixes)),
           typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
       case TypePrim(PrimTypeBool, _) => ClassName.get(classOf[java.lang.Boolean])
       case TypePrim(PrimTypeInt64, _) => ClassName.get(classOf[java.lang.Long])
@@ -105,9 +105,9 @@ package object inner {
     }
 
   def fullyQualifiedName(
-      identifier: DefinitionRef,
+      identifier: Identifier,
       packagePrefixes: Map[PackageId, String]): String = {
-    val DefinitionRef(packageId, QualifiedName(module, name)) = identifier
+    val Identifier(packageId, QualifiedName(module, name)) = identifier
 
     // consider all but the last name segment to be part of the java package name
     val packageSegments = module.segments.slowAppend(name.segments).toSeq.dropRight(1)

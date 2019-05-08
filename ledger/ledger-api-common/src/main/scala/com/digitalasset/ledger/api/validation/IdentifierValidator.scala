@@ -20,18 +20,18 @@ object IdentifierValidator {
 
   def validateIdentifier(
       identifier: Identifier,
-      packageResolver: Ref.PackageId => Future[Option[Package]]): Future[Ref.DefinitionRef] =
+      packageResolver: Ref.PackageId => Future[Option[Package]]): Future[Ref.Identifier] =
     lift(validateNewStyleIdentifier(identifier)).recoverWith {
       case error: StatusRuntimeException =>
         fromDeprecatedIdentifier(identifier, error, packageResolver)
     }
 
   def validateNewStyleIdentifier(
-      identifier: Identifier): Either[StatusRuntimeException, Ref.DefinitionRef] =
+      identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] =
     for {
       packageId <- requirePackageId(identifier.packageId, "package_id")
       name <- validateSplitIdentifier(identifier)
-    } yield Ref.DefinitionRef(packageId, name)
+    } yield Ref.Identifier(packageId, name)
 
   // Validating the new identifier message with split module and entity name
   private def validateSplitIdentifier(identifier: Identifier) =
@@ -49,7 +49,7 @@ object IdentifierValidator {
   private def fromDeprecatedIdentifier(
       identifier: Identifier,
       error: StatusRuntimeException,
-      packageResolver: Ref.PackageId => Future[Option[Package]]): Future[Ref.DefinitionRef] =
+      packageResolver: Ref.PackageId => Future[Option[Package]]): Future[Ref.Identifier] =
     for {
       // if `name` is not empty, we give back the error from validating the non-deprecated fields
       name <- lift(requireNonEmptyString(identifier.name, "name")).transform(identity, _ => error)
@@ -65,7 +65,7 @@ object IdentifierValidator {
           .lookup(pkg, identifier.name)
           .left
           .map(ErrorFactories.invalidArgument))
-    } yield Ref.DefinitionRef(packageId, result)
+    } yield Ref.Identifier(packageId, result)
 
   private def lift[A](value: Either[StatusRuntimeException, A]): Future[A] =
     Future.fromTry(value.toTry)

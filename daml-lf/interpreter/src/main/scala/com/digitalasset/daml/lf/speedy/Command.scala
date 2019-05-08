@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DefinitionRef}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier}
 import com.digitalasset.daml.lf.speedy.SValue._
 
 // ---------------------
@@ -15,12 +15,12 @@ sealed abstract class Command extends Product with Serializable
 object Command {
 
   final case class Create(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       argument: SValue
   ) extends Command
 
   final case class Exercise(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       contractId: SContractId,
       choiceId: ChoiceName,
       submitter: ImmArray[SParty],
@@ -28,12 +28,12 @@ object Command {
   ) extends Command
 
   final case class Fetch(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       coid: SContractId
   ) extends Command
 
   final case class CreateAndExercise(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       createArgument: SValue,
       choiceId: ChoiceName,
       choiceArgument: SValue,

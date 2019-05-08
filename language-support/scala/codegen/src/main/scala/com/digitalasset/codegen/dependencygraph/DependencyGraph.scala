@@ -5,7 +5,7 @@ package com.digitalasset.codegen.dependencygraph
 
 import com.digitalasset.daml.lf.iface._
 import com.digitalasset.daml.lf.iface.reader.InterfaceType
-import com.digitalasset.daml.lf.data.Ref.DefinitionRef
+import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.codegen.{Util, lf}
 import lf.DefTemplateWithRecord
 
@@ -18,13 +18,13 @@ import scala.language.higherKinds
 
 sealed abstract class DependencyGraph[Iface, TmplI] {
   def orderedDependencies(
-      library: Iface): OrderedDependencies[DefinitionRef, TypeDeclOrTemplateWrapper[TmplI]]
+      library: Iface): OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[TmplI]]
 }
 
 private final case class LFDependencyGraph(private val util: lf.LFUtil)
     extends DependencyGraph[lf.LFUtil#Interface, lf.LFUtil#TemplateInterface] {
   def orderedDependencies(library: EnvironmentInterface)
-    : OrderedDependencies[DefinitionRef, TypeDeclOrTemplateWrapper[DefTemplateWithRecord.FWT]] = {
+    : OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[DefTemplateWithRecord.FWT]] = {
     val EnvironmentInterface(decls) = library
     // invariant: no type decl name equals any template alias
     val typeDeclNodes = decls.collect {
@@ -51,7 +51,7 @@ private final case class LFDependencyGraph(private val util: lf.LFUtil)
   }
 
   private[this] def symmGenTypeDependencies[B[_, _]: Bifoldable](
-      gts: B[Type, Type]): List[DefinitionRef] =
+      gts: B[Type, Type]): List[Identifier] =
     gts.bifoldMap(Util.genTypeTopLevelDeclNames)(Util.genTypeTopLevelDeclNames)
 }
 

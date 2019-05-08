@@ -12,11 +12,10 @@ import org.scalatest.{Matchers, OptionValues, WordSpec}
 class InvertedTransactionFilterTest extends WordSpec with Matchers with OptionValues {
 
   private def invert(
-      transactionFilter: TransactionFilter): InvertedTransactionFilter[Ref.DefinitionRef, Party] =
+      transactionFilter: TransactionFilter): InvertedTransactionFilter[Ref.Identifier, Party] =
     InvertedTransactionFilter.extractFrom(transactionFilter)
 
-  private def invert(
-      map: Map[Party, Filters]): InvertedTransactionFilter[Ref.DefinitionRef, Party] =
+  private def invert(map: Map[Party, Filters]): InvertedTransactionFilter[Ref.Identifier, Party] =
     invert(TransactionFilter(map))
 
   private val filter: Map[Party, Filters] => TransactionFilter = TransactionFilter.apply

@@ -151,7 +151,7 @@ class InterpTest extends WordSpec with Matchers {
   /** Test that the package reloading works */
   "package reloading" should {
     val dummyPkg = PackageId.assertFromString("dummy")
-    val ref = DefinitionRef(dummyPkg, QualifiedName.assertFromString("Foo:bar"))
+    val ref = Identifier(dummyPkg, QualifiedName.assertFromString("Foo:bar"))
     val modName = DottedName.assertFromString("Foo")
     val pkgs1 = PureCompiledPackages(Map.empty).right.get
     val pkgs2 =

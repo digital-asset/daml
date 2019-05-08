@@ -55,8 +55,8 @@ object project {
       parameter match {
         case tc: DamlLfTypeCon =>
           val next = for {
-            ddt <- ps(tc.name.ref)
-              .toRight(UnknownType(tc.name.ref.toString, cursor, value))
+            ddt <- ps(tc.name.identifier)
+              .toRight(UnknownType(tc.name.identifier.toString, cursor, value))
             nextCursor <- cursor.next.toRight(MustNotBeLastPart("DataType", cursor, value))
             //nextField   <- tc.instantiate(ddt) match {
             nextField <- damlLfInstantiate(tc, ddt) match {
@@ -169,7 +169,7 @@ object project {
       checkParameter(t, c, e, p))
 
   lazy val parameterIdProject =
-    opaque[DamlLfDefRef, ProjectValue, DamlLfTypeLookup]("parameter")((id, c, e, p) =>
+    opaque[DamlLfIdentifier, ProjectValue, DamlLfTypeLookup]("parameter")((id, c, e, p) =>
       checkParameter(DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq()), c, e, p))
 
   lazy val argumentProject =

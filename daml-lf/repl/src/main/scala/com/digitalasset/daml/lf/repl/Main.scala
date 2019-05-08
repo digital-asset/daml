@@ -271,7 +271,7 @@ object Repl {
       case DValue(typ, _, _, _) => prettyType(typ, pkgId, modId)
     }
 
-  def prettyQualified(pkgId: PackageId, modId: ModuleName, m: DefinitionRef): String = {
+  def prettyQualified(pkgId: PackageId, modId: ModuleName, m: Identifier): String = {
     if (pkgId == m.packageId)
       if (modId == m.qualifiedName.module)
         m.qualifiedName.name.toString
@@ -551,7 +551,7 @@ object Repl {
   object ValueParser extends RegexParsers {
     // FIXME(JM): Parse types as well to allow creation of nominal records?
     val dummyId =
-      Ref.DefinitionRef(
+      Ref.Identifier(
         PackageId.assertFromString("-dummy package-"),
         QualifiedName.assertFromString("Dummy:Dummy"))
 
@@ -630,7 +630,7 @@ object Repl {
   def valueToExpr(v: Value[AbsoluteContractId]): Expr = {
     // FIXME(JM): Fix the handling of types.
     val dummyTyCon =
-      DefinitionRef(
+      TypeConName(
         PackageId.assertFromString("-dummy-"),
         QualifiedName.assertFromString("Dummy:Dummy"))
     val dummyTyApp = TypeConApp(dummyTyCon, ImmArray.empty)

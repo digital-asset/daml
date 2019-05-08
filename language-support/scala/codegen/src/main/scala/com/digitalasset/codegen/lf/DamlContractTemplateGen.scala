@@ -7,7 +7,7 @@ import java.io.File
 
 import com.digitalasset.codegen.Util
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName}
 import com.typesafe.scalalogging.Logger
 
 import scala.reflect.runtime.universe._
@@ -26,7 +26,7 @@ object DamlContractTemplateGen {
 
   def generate(
       util: LFUtil,
-      templateId: DefinitionRef,
+      templateId: Identifier,
       templateInterface: DefTemplateWithRecord.FWT,
       companionMembers: Iterable[Tree]): (File, Iterable[Tree]) = {
 
@@ -61,7 +61,7 @@ object DamlContractTemplateGen {
 
     def consumingChoicesMethod = LFUtil.genConsumingChoicesMethod(templateInterface.template)
 
-    val DefinitionRef(_, QualifiedName(moduleName, baseName)) = templateId
+    val Identifier(_, QualifiedName(moduleName, baseName)) = templateId
     val packageIdRef = PackageIDsGen.reference(util)(moduleName)
 
     def templateObjectMembers = Seq(

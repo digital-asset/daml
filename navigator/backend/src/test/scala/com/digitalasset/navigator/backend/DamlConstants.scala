@@ -18,16 +18,16 @@ case object DamlConstants {
   // ------------------------------------------------------------------------------------------------------------------
   val packageId0 = DamlLfRef.PackageId.assertFromString("hash")
 
-  def defRef(name: String): DamlLfDefRef = DamlLfDefRef(
+  def defRef(name: String): DamlLfIdentifier = DamlLfIdentifier(
     packageId0,
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromStrings(DamlLfImmArray("module")),
       DamlLfDottedName.assertFromStrings(DamlLfImmArray(name))
     )
   )
-  val ref0: DamlLfDefRef = defRef("T0")
-  val ref1: DamlLfDefRef = defRef("T1")
-  val ref2: DamlLfDefRef = defRef("T2")
+  val ref0: DamlLfIdentifier = defRef("T0")
+  val ref1: DamlLfIdentifier = defRef("T1")
+  val ref2: DamlLfIdentifier = defRef("T2")
 
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: simple types
@@ -60,7 +60,7 @@ case object DamlConstants {
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: empty record
   // ------------------------------------------------------------------------------------------------------------------
-  val emptyRecordId: DamlLfDefRef = defRef("EmptyRecord")
+  val emptyRecordId: DamlLfIdentifier = defRef("EmptyRecord")
   val emptyRecordGD = DamlLfRecord(DamlLfImmArraySeq())
   val emptyRecordGC = DamlLfDefDataType(DamlLfImmArraySeq(), emptyRecordGD)
   val emptyRecordTC = DamlLfTypeCon(DamlLfTypeConName(emptyRecordId), DamlLfImmArraySeq())
@@ -70,7 +70,7 @@ case object DamlConstants {
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: simple record (data SimpleRecord a b = {fA: a, fB: b})
   // ------------------------------------------------------------------------------------------------------------------
-  val simpleRecordId: DamlLfDefRef = defRef("SimpleRecord")
+  val simpleRecordId: DamlLfIdentifier = defRef("SimpleRecord")
   val simpleRecordGD = DamlLfRecord(
     DamlLfImmArraySeq(
       "fA" -> DamlLfTypeVar("a"),
@@ -93,7 +93,7 @@ case object DamlConstants {
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: simple variant (data DamlLfVariant a b = fA a | fB b)
   // ------------------------------------------------------------------------------------------------------------------
-  val simpleVariantId: DamlLfDefRef = defRef("SimpleVariant")
+  val simpleVariantId: DamlLfIdentifier = defRef("SimpleVariant")
   val simpleVariantGD = DamlLfVariant(
     DamlLfImmArraySeq(
       "fA" -> DamlLfTypeVar("a"),
@@ -110,8 +110,8 @@ case object DamlConstants {
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: recursive type (data Tree = Leaf a | Node {left: Tree a, right: Tree a})
   // ------------------------------------------------------------------------------------------------------------------
-  val treeNodeId: DamlLfDefRef = defRef("TreeNode")
-  val treeId: DamlLfDefRef = defRef("Tree")
+  val treeNodeId: DamlLfIdentifier = defRef("TreeNode")
+  val treeId: DamlLfIdentifier = defRef("Tree")
 
   val treeNodeGD = DamlLfRecord(
     DamlLfImmArraySeq(
@@ -177,7 +177,7 @@ case object DamlConstants {
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: complex record containing all DAML types
   // ------------------------------------------------------------------------------------------------------------------
-  val complexRecordId: DamlLfDefRef = defRef("ComplexRecord")
+  val complexRecordId: DamlLfIdentifier = defRef("ComplexRecord")
   val complexRecordGD = DamlLfRecord(
     DamlLfImmArraySeq(
       "fText" -> simpleTextT,
@@ -229,7 +229,7 @@ case object DamlConstants {
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: package mockup
   // ------------------------------------------------------------------------------------------------------------------
-  val allTypes: Map[DamlLfDefRef, DamlLfDefDataType] = Map(
+  val allTypes: Map[DamlLfIdentifier, DamlLfDefDataType] = Map(
     emptyRecordId -> emptyRecordGC,
     simpleRecordId -> simpleRecordGC,
     simpleVariantId -> simpleVariantGC,
@@ -239,7 +239,7 @@ case object DamlConstants {
   )
 
   // Note: these templates may not be valid DAML templates
-  val simpleRecordTemplateId: DamlLfDefRef = defRef("SimpleRecordTemplate")
+  val simpleRecordTemplateId: DamlLfIdentifier = defRef("SimpleRecordTemplate")
   private val ChoiceUnit = DamlLfRef.Name.assertFromString("unit")
   private val choiceText = DamlLfRef.Name.assertFromString("text")
   private val choiceNonconsuming = DamlLfRef.Name.assertFromString("nonconsuming")

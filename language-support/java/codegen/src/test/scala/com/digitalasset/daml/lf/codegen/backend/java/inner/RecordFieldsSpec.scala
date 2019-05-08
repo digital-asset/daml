@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.codegen.backend.java.inner
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{DottedName, DefinitionRef, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{DottedName, Identifier, QualifiedName}
 import com.digitalasset.daml.lf.iface._
 import com.squareup.javapoet.{ClassName, TypeName}
 import javax.lang.model.element.Modifier
@@ -45,14 +45,14 @@ final class RecordFieldsSpec extends FlatSpec with Matchers {
 
   it should "use the supplied package prefix" in {
     val packageId = Ref.PackageId.assertFromString("some other package")
-    val ref = DefinitionRef(
+    val ident = Identifier(
       packageId,
       QualifiedName(DottedName.assertFromString("Foo.Bar"), DottedName.assertFromString("Baz")))
 
     val fields =
       RecordFields(
         getFieldsWithTypes(
-          ImmArraySeq("field" -> TypeCon(TypeConName(ref), ImmArraySeq.empty)),
+          ImmArraySeq("field" -> TypeCon(TypeConName(ident), ImmArraySeq.empty)),
           Map()))
 
     fields should have length 1

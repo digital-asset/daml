@@ -325,17 +325,17 @@ object Ledger {
 
   final case class LookupContractNotEffective(
       coid: AbsoluteContractId,
-      templateId: DefinitionRef,
+      templateId: Identifier,
       effectiveAt: Time.Timestamp)
       extends LookupResult
   final case class LookupContractNotActive(
       coid: AbsoluteContractId,
-      templateId: DefinitionRef,
+      templateId: Identifier,
       consumedBy: NodeId)
       extends LookupResult
   final case class LookupContractNotVisible(
       coid: AbsoluteContractId,
-      templateId: DefinitionRef,
+      templateId: Identifier,
       observers: Set[Party])
       extends LookupResult
 
@@ -506,21 +506,21 @@ object Ledger {
   type FailedAuthorizations = Map[Transaction.NodeId, FailedAuthorization]
 
   final case class FACreateMissingAuthorization(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       optLocation: Option[Location],
       authorizingParties: Set[Party],
       requiredParties: Set[Party]
   ) extends FailedAuthorization
 
   final case class FAFetchMissingAuthorization(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       optLocation: Option[Location],
       stakeholders: Set[Party],
       authorizingParties: Set[Party]
   ) extends FailedAuthorization
 
   final case class FAExerciseMissingAuthorization(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       choiceId: ChoiceName,
       optLocation: Option[Location],
       authorizingParties: Set[Party],
@@ -528,7 +528,7 @@ object Ledger {
   ) extends FailedAuthorization
 
   final case class FAActorMismatch(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       choiceId: ChoiceName,
       optLocation: Option[Location],
       controllers: Set[Party],
@@ -536,18 +536,18 @@ object Ledger {
   ) extends FailedAuthorization
 
   final case class FANoSignatories(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       optLocation: Option[Location]
   ) extends FailedAuthorization
 
   final case class FANoControllers(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       choiceid: ChoiceName,
       optLocation: Option[Location]
   ) extends FailedAuthorization
 
   final case class FALookupByKeyMissingAuthorization(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       optLocation: Option[Location],
       maintainers: Set[Party],
       authorizingParties: Set[Party]

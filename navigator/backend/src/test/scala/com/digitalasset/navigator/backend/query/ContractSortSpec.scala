@@ -14,12 +14,12 @@ class ContractSortSpec extends FlatSpec with Matchers {
 
   behavior of "ContractSort"
 
-  val damlLfId0 = DamlLfDefRef(
+  val damlLfId0 = DamlLfIdentifier(
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
       DamlLfDottedName.assertFromString("T0")))
-  val damlLfId1 = DamlLfDefRef(
+  val damlLfId1 = DamlLfIdentifier(
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
@@ -38,7 +38,7 @@ class ContractSortSpec extends FlatSpec with Matchers {
         "int" -> DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
       )))
 
-  val damlLfDefDataTypes: Map[DamlLfDefRef, DamlLfDefDataType] = Map(
+  val damlLfDefDataTypes: Map[DamlLfIdentifier, DamlLfDefDataType] = Map(
     damlLfId0 -> damlLfRecord0,
     damlLfId1 -> damlLfRecord1
   )

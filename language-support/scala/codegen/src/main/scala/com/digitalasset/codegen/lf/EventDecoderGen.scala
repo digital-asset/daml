@@ -24,15 +24,14 @@ import scala.reflect.runtime.universe._
 object EventDecoderGen {
   import LFUtil._
 
-  def generate(util: LFUtil, supportedTemplateIds: Set[DefinitionRef]): (File, Iterable[Tree]) = {
+  def generate(util: LFUtil, supportedTemplateIds: Set[Identifier]): (File, Iterable[Tree]) = {
 
     val imports: Seq[Tree] = Seq(
       LFUtil.domainApiImport
     )
 
     def contractDamlName(alias: QualifiedName) = util.mkDamlScalaName(Util.Contract, alias)
-    def contractName(alias: DefinitionRef): RefTree =
-      contractDamlName(alias.qualifiedName).toRefTree
+    def contractName(alias: Identifier): RefTree = contractDamlName(alias.qualifiedName).toRefTree
 
     val (supportedTemplates, unsupportedTemplates) =
       util.iface.typeDecls
@@ -43,13 +42,13 @@ object EventDecoderGen {
 
     // the ledger api still uses names with only dots in them, while QualifiedName.toString
     // separates the module and the name in the module with colon.
-    def legacyDottedName(identifier: DefinitionRef) = {
-      val DefinitionRef(packageId, QualifiedName(module, name)) = identifier
+    def legacyDottedName(identifier: Identifier) = {
+      val Identifier(packageId, QualifiedName(module, name)) = identifier
       s"${module.dottedName: String}.${name.dottedName: String}@${packageId: String}"
     }
 
     val rawUnsupportedTemplates = unsupportedTemplates.map {
-      case tIdent @ DefinitionRef(packageId, qualName) =>
+      case tIdent @ Identifier(packageId, qualName) =>
         q"(${qualName.qualifiedName}, ($packageId, ${legacyDottedName(tIdent)}))"
     }
 

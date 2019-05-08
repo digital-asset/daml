@@ -8,7 +8,7 @@ import java.io.File
 import com.digitalasset.codegen.Util
 import com.digitalasset.codegen.lf.LFUtil.{TupleNesting, escapeIfReservedName}
 import com.digitalasset.daml.lf.iface, iface.{Type => _, _}
-import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName}
 import com.typesafe.scalalogging.Logger
 import scalaz.{-\/, \/, \/-}
 
@@ -71,7 +71,7 @@ object DamlRecordOrVariantTypeGen {
     val typeArgs: List[TypeName] = typeVars.map(TypeName(_))
     val covariantTypeParams: List[TypeDef] = typeVars map LFUtil.toCovariantTypeDef
 
-    val DefinitionRef(_, QualifiedName(moduleName, baseName)) = name
+    val Identifier(_, QualifiedName(moduleName, baseName)) = name
 
     val appliedValueType: Tree =
       if (typeVars.isEmpty) damlScalaName.qualifiedTypeName

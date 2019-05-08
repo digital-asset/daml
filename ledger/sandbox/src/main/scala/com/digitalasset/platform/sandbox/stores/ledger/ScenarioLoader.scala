@@ -112,11 +112,11 @@ object ScenarioLoader {
   private def getCandidateScenarios(
       packages: DamlPackageContainer,
       scenarioQualName: Ref.QualifiedName
-  ): List[(Ref.DefinitionRef, Definition)] = {
+  ): List[(Ref.Identifier, Definition)] = {
     packages.packages.flatMap {
       case (packageId, pkg) =>
         pkg.lookupIdentifier(scenarioQualName) match {
-          case Right(x) => List((Ref.DefinitionRef(packageId, scenarioQualName), x))
+          case Right(x) => List((Ref.Identifier(packageId, scenarioQualName), x))
           case Left(_) => List()
         }
     }(breakOut)

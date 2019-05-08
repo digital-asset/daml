@@ -428,7 +428,7 @@ class DatabaseActions {
     }.flatMap(_.sequence)
   }
 
-  def contractsForTemplate(tId: DamlLfDefRef, types: PackageRegistry): Try[List[Contract]] = {
+  def contractsForTemplate(tId: DamlLfIdentifier, types: PackageRegistry): Try[List[Contract]] = {
     Try {
       Queries
         .contractsForTemplate(tId.asOpaqueString)
@@ -440,7 +440,9 @@ class DatabaseActions {
     }.flatMap(_.sequence)
   }
 
-  def activeContractsForTemplate(tId: DamlLfDefRef, types: PackageRegistry): Try[List[Contract]] = {
+  def activeContractsForTemplate(
+      tId: DamlLfIdentifier,
+      types: PackageRegistry): Try[List[Contract]] = {
     Try {
       Queries
         .activeContractsForTemplate(tId.asOpaqueString)

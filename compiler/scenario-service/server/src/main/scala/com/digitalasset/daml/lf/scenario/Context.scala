@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.scenario
 
 import com.digitalasset.daml_lf.DamlLf1
-import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, ModuleName, PackageId, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.lfpackage.{Decode, DecodeV1}
@@ -139,8 +139,7 @@ class Context(val contextId: Context.ContextId) {
         newDefns.filterKeys(ref => ref.packageId != homePackageId || ref.modName != m.name)
           ++ m.definitions.flatMap {
             case (defName, defn) =>
-              compiler
-                .compileDefn(DefinitionRef(homePackageId, QualifiedName(m.name, defName)), defn)
+              compiler.compileDefn(Identifier(homePackageId, QualifiedName(m.name, defName)), defn)
 
         }
     )
@@ -149,7 +148,7 @@ class Context(val contextId: Context.ContextId) {
   def allPackages: Map[PackageId, Ast.Package] =
     extPackages + (homePackageId -> Ast.Package(modules))
 
-  private def buildMachine(identifier: DefinitionRef): Option[Speedy.Machine] = {
+  private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     for {
       defn <- defns.get(LfDefRef(identifier))
     } yield Speedy.Machine.build(defn, PureCompiledPackages(allPackages, defns).right.get)
@@ -160,7 +159,7 @@ class Context(val contextId: Context.ContextId) {
       name: String
   ): Option[(Ledger, Speedy.Machine, Either[SError, SValue])] =
     buildMachine(
-      DefinitionRef(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))))
+      Identifier(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))))
       .map { machine =>
         ScenarioRunner(machine).run() match {
           case Right((diff @ _, steps @ _, ledger)) =>

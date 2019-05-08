@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{
   DottedName,
-  DefinitionRef,
+  Identifier,
   ModuleName,
   PackageId,
   QualifiedName
@@ -51,7 +51,7 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
 
   private[this] def nameClashRecordVariantName(tail: String): TypeConName =
     TypeConName(
-      DefinitionRef(packageId, QualifiedName(dnfs("Main"), dnfs("NameClashRecordVariant", tail))))
+      Identifier(packageId, QualifiedName(dnfs("Main"), dnfs("NameClashRecordVariant", tail))))
 
   "variant should extract a variant, nested records are not be resolved" in {
     val variantDataType = DamlLf1.DefDataType

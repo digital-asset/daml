@@ -7,7 +7,7 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, Party}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
@@ -77,7 +77,7 @@ class PostgresDaoSpec
       val absCid = AbsoluteContractId("cId1")
       val let = Instant.now
       val contractInstance = ContractInst(
-        DefinitionRef(
+        Identifier(
           Ref.PackageId.assertFromString("packageId"),
           Ref.QualifiedName(
             Ref.ModuleName.assertFromString("moduleName"),
@@ -193,7 +193,7 @@ class PostgresDaoSpec
       val absCid = AbsoluteContractId("cId2")
       val let = Instant.now
       val contractInstance = ContractInst(
-        DefinitionRef(
+        Identifier(
           Ref.PackageId.assertFromString("packageId"),
           Ref.QualifiedName(
             Ref.ModuleName.assertFromString("moduleName"),
@@ -253,7 +253,7 @@ class PostgresDaoSpec
     }
 
     "be able to produce a valid snapshot" in {
-      val templateId = DefinitionRef(
+      val templateId = Identifier(
         Ref.PackageId.assertFromString("packageId"),
         Ref.QualifiedName(
           Ref.ModuleName.assertFromString("moduleName"),

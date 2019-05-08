@@ -38,7 +38,7 @@ class TransactionFilterValidator(identifierResolver: IdentifierResolver) {
       .fold[Either[StatusRuntimeException, domain.Filters]](Right(domain.Filters.noFilter)) {
         inclusive =>
           val validatedIdents =
-            Traverse[List].traverseU[Identifier, Either[StatusRuntimeException, Ref.DefinitionRef]](
+            Traverse[List].traverseU[Identifier, Either[StatusRuntimeException, Ref.Identifier]](
               inclusive.templateIds.toList)((id: Identifier) =>
               identifierResolver.resolveIdentifier(id))
           validatedIdents.map(ids => domain.Filters(Some(InclusiveFilters(ids.toSet))))

@@ -112,7 +112,7 @@ object Result {
 
   def needDefinition[A](
       packagesCache: ConcurrentCompiledPackages,
-      identifier: DefinitionRef,
+      identifier: Identifier,
       resume: Definition => Result[A]): Result[A] =
     needPackage(
       packagesCache,
@@ -124,7 +124,7 @@ object Result {
 
   def needDataType[A](
       packagesCache: ConcurrentCompiledPackages,
-      identifier: DefinitionRef,
+      identifier: Identifier,
       resume: DDataType => Result[A]): Result[A] =
     needPackage(
       packagesCache,
@@ -136,7 +136,7 @@ object Result {
 
   def needTemplate[A](
       packagesCache: ConcurrentCompiledPackages,
-      identifier: DefinitionRef,
+      identifier: Identifier,
       resume: Template => Result[A]): Result[A] =
     needPackage(
       packagesCache,

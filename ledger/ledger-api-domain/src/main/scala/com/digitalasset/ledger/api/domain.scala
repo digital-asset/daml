@@ -27,7 +27,7 @@ object domain {
   }
 
   final case class Filters(inclusive: Option[InclusiveFilters]) {
-    def containsTemplateId(identifier: Ref.DefinitionRef): Boolean =
+    def containsTemplateId(identifier: Ref.Identifier): Boolean =
       inclusive.fold(true)(_.templateIds.contains(identifier))
   }
 
@@ -37,7 +37,7 @@ object domain {
     def apply(inclusive: InclusiveFilters) = new Filters(Some(inclusive))
   }
 
-  final case class InclusiveFilters(templateIds: immutable.Set[Ref.DefinitionRef])
+  final case class InclusiveFilters(templateIds: immutable.Set[Ref.Identifier])
 
   sealed abstract class LedgerOffset extends Product with Serializable
 
@@ -57,7 +57,7 @@ object domain {
 
     def contractId: ContractId
 
-    def templateId: Ref.DefinitionRef
+    def templateId: Ref.Identifier
 
     def witnessParties: immutable.Set[Ref.Party]
   }
@@ -71,7 +71,7 @@ object domain {
     final case class CreatedEvent(
         eventId: EventId,
         contractId: ContractId,
-        templateId: Ref.DefinitionRef,
+        templateId: Ref.Identifier,
         createArguments: ValueRecord[AbsoluteContractId],
         witnessParties: immutable.Set[Ref.Party])
         extends Event
@@ -81,7 +81,7 @@ object domain {
     final case class ArchivedEvent(
         eventId: EventId,
         contractId: ContractId,
-        templateId: Ref.DefinitionRef,
+        templateId: Ref.Identifier,
         witnessParties: immutable.Set[Ref.Party])
         extends Event
         with CreateOrExerciseEvent
@@ -89,7 +89,7 @@ object domain {
     final case class ExercisedEvent(
         eventId: EventId,
         contractId: ContractId,
-        templateId: Ref.DefinitionRef,
+        templateId: Ref.Identifier,
         contractCreatingEventId: EventId,
         choice: Choice,
         choiceArgument: Value,

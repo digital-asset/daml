@@ -11,7 +11,7 @@ import parent.exception.UnsupportedDamlTypeException
 import java.io._
 import scala.reflect.runtime.universe._
 
-import com.digitalasset.daml.lf.data.Ref.DefinitionRef
+import com.digitalasset.daml.lf.data.Ref.Identifier
 import scalaz.{Tree => _, _}
 import scalaz.std.tuple._
 import scalaz.std.vector._
@@ -34,7 +34,7 @@ private[codegen] object HierarchicalOutput {
   type ErrorsAndFiles[E, F] = (Vector[E], Vector[(F, Iterable[Tree])])
 
   type TemplateOrDatatype =
-    (DefinitionRef, DefTemplateWithRecord.FWT \/ DamlRecordOrVariantTypeGen.RecordOrVariant)
+    (Identifier, DefTemplateWithRecord.FWT \/ DamlRecordOrVariantTypeGen.RecordOrVariant)
 
   /** Pull up each `Rec` into the companion implied, or not, by the keys. */
   private[this] def liftSubtrees[S, F](

@@ -4,7 +4,7 @@
 package com.digitalasset.navigator.json
 
 import com.digitalasset.daml.lf.data.SortedLookupList
-import com.digitalasset.navigator.model.DamlLfDefRef
+import com.digitalasset.navigator.model.DamlLfIdentifier
 import com.digitalasset.navigator.{model => Model}
 import spray.json._
 
@@ -95,7 +95,7 @@ object ApiCodecCompressed {
 
   def jsValueToApiDataType(
       value: JsValue,
-      id: DamlLfDefRef,
+      id: DamlLfIdentifier,
       dt: Model.DamlLfDataType,
       defs: Model.DamlLfTypeLookup): Model.ApiValue = {
     (value, dt) match {
@@ -143,7 +143,9 @@ object ApiCodecCompressed {
       case prim: Model.DamlLfTypePrim =>
         jsValueToApiPrimitive(value, prim, defs)
       case typeCon: Model.DamlLfTypeCon =>
-        val id = Model.DamlLfDefRef(typeCon.name.ref.packageId, typeCon.name.ref.qualifiedName)
+        val id = Model.DamlLfIdentifier(
+          typeCon.name.identifier.packageId,
+          typeCon.name.identifier.qualifiedName)
         // val dt = typeCon.instantiate(defs(id).getOrElse(deserializationError(s"Type $id not found")))
         val dt = Model.damlLfInstantiate(
           typeCon,
@@ -157,7 +159,7 @@ object ApiCodecCompressed {
   /** Deserialize a value, given the ID of the corresponding closed type */
   def jsValueToApiType(
       value: JsValue,
-      id: Model.DamlLfDefRef,
+      id: Model.DamlLfIdentifier,
       defs: Model.DamlLfTypeLookup): Model.ApiValue = {
     val typeCon = Model.DamlLfTypeCon(Model.DamlLfTypeConName(id), Model.DamlLfImmArraySeq())
     // val dt = typeCon.instantiate(defs(id).getOrElse(deserializationError(s"Type $id not found")))
@@ -177,7 +179,7 @@ object ApiCodecCompressed {
   /** Same as jsValueToApiType, but with unparsed input */
   def stringToApiType(
       value: String,
-      id: Model.DamlLfDefRef,
+      id: Model.DamlLfIdentifier,
       defs: Model.DamlLfTypeLookup): Model.ApiValue =
     jsValueToApiType(value.parseJson, id, defs)
 

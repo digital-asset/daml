@@ -19,7 +19,7 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{
   ChoiceName,
-  DefinitionRef,
+  Identifier,
   DottedName,
   Name,
   ModuleName,
@@ -295,7 +295,7 @@ object InterfaceReader {
       ctx: Context): InterfaceReaderError \/ TypeConName =
     (moduleRef(a.getModule) |@| dottedName(a.getName)) {
       case ((pkgId, mname), name) =>
-        TypeConName(DefinitionRef(pkgId.getOrElse(ctx.packageId), QualifiedName(mname, name)))
+        TypeConName(Identifier(pkgId.getOrElse(ctx.packageId), QualifiedName(mname, name)))
     }
 
   private def moduleRef(

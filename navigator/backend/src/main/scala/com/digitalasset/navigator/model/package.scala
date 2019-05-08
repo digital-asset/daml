@@ -51,8 +51,8 @@ package object model {
     * - User-defined records
     * - User-defined variants
     */
-  type DamlLfDefRef = DamlLfRef.DefinitionRef
-  val DamlLfDefRef = DamlLfRef.DefinitionRef
+  type DamlLfIdentifier = DamlLfRef.Identifier
+  val DamlLfIdentifier = DamlLfRef.Identifier
 
   /**
     * A simple DAML-LF type
@@ -100,7 +100,7 @@ package object model {
 
   type DamlLfFieldWithType = DamlLfIface.FieldWithType
 
-  type DamlLfTypeLookup = DamlLfDefRef => Option[DamlLfDefDataType]
+  type DamlLfTypeLookup = DamlLfIdentifier => Option[DamlLfDefDataType]
 
   def damlLfInstantiate(typeCon: DamlLfTypeCon, defn: DamlLfDefDataType): DamlLfDataType =
     if (defn.typeVars.length != typeCon.typArgs.length) {
@@ -127,8 +127,8 @@ package object model {
   // Conversion between API Identifier, DAML-LF Identifier, and String
   // ----------------------------------------------------------------------------------------------
   implicit class IdentifierApiConversions(val id: ApiV1.value.Identifier) extends AnyVal {
-    def asDaml: DamlLfRef.DefinitionRef =
-      DamlLfRef.DefinitionRef(
+    def asDaml: DamlLfRef.Identifier =
+      DamlLfRef.Identifier(
         DamlLfRef.PackageId.assertFromString(id.packageId),
         DamlLfRef.QualifiedName(
           DamlLfRef.DottedName.assertFromString(id.moduleName),
@@ -139,7 +139,7 @@ package object model {
     def asOpaqueString: String = id.asDaml.asOpaqueString
   }
 
-  implicit class IdentifierDamlConversions(val id: DamlLfRef.DefinitionRef) extends AnyVal {
+  implicit class IdentifierDamlConversions(val id: DamlLfRef.Identifier) extends AnyVal {
     def asApi: ApiV1.value.Identifier =
       ApiV1.value.Identifier(
         id.packageId,
@@ -156,11 +156,11 @@ package object model {
     s"$qualifiedName@$packageId"
 
   private[this] val opaqueIdentifierRegex = "([^@]*)@([^@]*)".r
-  def parseOpaqueIdentifier(id: String): Option[DamlLfRef.DefinitionRef] = {
+  def parseOpaqueIdentifier(id: String): Option[DamlLfRef.Identifier] = {
     id match {
       case opaqueIdentifierRegex(qualifiedName, packageId) =>
         Some(
-          DamlLfRef.DefinitionRef(
+          DamlLfRef.Identifier(
             DamlLfRef.PackageId.assertFromString(packageId),
             DamlLfRef.QualifiedName.assertFromString(qualifiedName)))
       case _ =>
@@ -168,6 +168,6 @@ package object model {
     }
   }
 
-  def parseOpaqueIdentifier(id: TemplateStringId): Option[DamlLfRef.DefinitionRef] =
+  def parseOpaqueIdentifier(id: TemplateStringId): Option[DamlLfRef.Identifier] =
     parseOpaqueIdentifier(TemplateStringId.unwrap(id))
 }

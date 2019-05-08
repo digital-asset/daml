@@ -32,7 +32,7 @@ package object v1 {
     final case class Create(
         eventId: EventId,
         contractId: Value.AbsoluteContractId,
-        templateId: Ref.DefinitionRef,
+        templateId: Ref.Identifier,
         argument: Value.VersionedValue[Value.AbsoluteContractId],
         // TODO(JM,SM): understand witnessing parties
         stakeholders: List[Party],
@@ -41,7 +41,7 @@ package object v1 {
     final case class Archive(
         eventId: EventId,
         contractId: Value.AbsoluteContractId,
-        templateId: Ref.DefinitionRef,
+        templateId: Ref.Identifier,
         // TODO(JM,SM): understand witnessing parties
         stakeholders: List[Party],
     ) extends AcsUpdateEvent

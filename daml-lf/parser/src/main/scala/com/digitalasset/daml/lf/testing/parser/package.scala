@@ -14,7 +14,7 @@ package object parser {
   val defaultPkgId: PackageId = PackageId.assertFromString("-pkgId-")
   val defaultModName: ModuleName = DottedName.assertFromStrings(ImmArray("Mod"))
   val defaultTemplName: TypeConName =
-    DefinitionRef(
+    Identifier(
       defaultPkgId,
       QualifiedName(defaultModName, DottedName.assertFromStrings(ImmArray("T"))))
 

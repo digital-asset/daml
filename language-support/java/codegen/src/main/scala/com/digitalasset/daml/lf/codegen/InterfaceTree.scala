@@ -116,7 +116,7 @@ private[codegen] final case class TypeWithContext(
 
   def qualifiedName: Ref.QualifiedName = Ref.QualifiedName(module, fullName)
 
-  def identifier: Ref.DefinitionRef = Ref.DefinitionRef(packageId, qualifiedName)
+  def identifier: Ref.Identifier = Ref.Identifier(packageId, qualifiedName)
 }
 
 private[codegen] object InterfaceTree extends StrictLogging {

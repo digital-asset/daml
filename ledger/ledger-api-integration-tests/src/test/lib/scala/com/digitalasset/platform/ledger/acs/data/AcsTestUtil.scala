@@ -8,12 +8,12 @@ trait AcsTestUtil {
   val parties = Set("harry", "ron", "hermione", "neville", "luna", "ginny", "voldemort")
 
   val templateId =
-    Ref.DefinitionRef(
+    Ref.Identifier(
       Ref.PackageId.assertFromString("package-id"),
       Ref.QualifiedName.assertFromString("module:template")
     )
   val templateId2 =
-    Ref.DefinitionRef(
+    Ref.Identifier(
       Ref.PackageId.assertFromString("package-id2"),
       Ref.QualifiedName.assertFromString("module:template2")
     )

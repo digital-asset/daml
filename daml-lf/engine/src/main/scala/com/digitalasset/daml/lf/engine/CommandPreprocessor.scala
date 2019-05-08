@@ -273,7 +273,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
   }
 
   private[engine] def preprocessCreate(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       argument: VersionedValue[AbsoluteContractId]): Result[(Type, SpeedyCommand)] =
     Result.needDataType(
       compiledPackages,
@@ -292,7 +292,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
     )
 
   private[engine] def preprocessFetch(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       coid: AbsoluteContractId): Result[(Type, SpeedyCommand)] =
     Result.needDataType(
       compiledPackages,
@@ -311,7 +311,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
     )
 
   private[engine] def preprocessExercise(
-      templateId: DefinitionRef,
+      templateId: Identifier,
       contractId: ContractId,
       choiceId: ChoiceName,
       // actors are either the singleton set of submitter of an exercise command,

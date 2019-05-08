@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.iface
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, QualifiedName, PackageId}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName, PackageId}
 import com.digitalasset.daml.lf.data.BackStack
 import org.scalatest.{Matchers, WordSpec}
 import com.digitalasset.daml.lf.testing.parser.Implicits._
@@ -79,7 +79,7 @@ class TypeSpec extends WordSpec with Matchers {
 
   "instantiate type arguments correctly" in {
     val tyCon = TypeCon(
-      TypeConName(DefinitionRef("dummyPkg", "Mod:R")),
+      TypeConName(Identifier("dummyPkg", "Mod:R")),
       ImmArraySeq(t"Int64", t"Text"),
     )
     val inst = tyCon.instantiate(
@@ -99,8 +99,8 @@ class TypeSpec extends WordSpec with Matchers {
   }
 
   "instantiate should work for a nested record" in {
-    val id1 = TypeConName(DefinitionRef("P", "M:T1"))
-    val id2 = TypeConName(DefinitionRef("P", "M:T2"))
+    val id1 = TypeConName(Identifier("P", "M:T1"))
+    val id2 = TypeConName(Identifier("P", "M:T2"))
 
     val tc = TypeCon(id1, ImmArraySeq(t"Text"))
     val ddt = DefDataType(

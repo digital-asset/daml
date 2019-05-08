@@ -67,7 +67,7 @@ object PlatformTypes {
 
   def ss(str: String): Ref.PackageId = Ref.PackageId.assertFromString(str)
 
-  def identifier(aPackageId: String, name: String): Ref.DefinitionRef =
-    Ref.DefinitionRef(packageId(aPackageId), qn(name))
+  def identifier(aPackageId: String, name: String): Ref.Identifier =
+    Ref.Identifier(packageId(aPackageId), qn(name))
 
 }
