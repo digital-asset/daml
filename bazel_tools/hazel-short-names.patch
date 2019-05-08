@@ -21,7 +21,7 @@ index 964a304..e7e5f73 100644
        on-demand when needed by other rules.)  This repository automatically
        downloads the package's Cabal distribution from Hackage and parses the
 diff --git a/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl b/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl
-index 16d5c3b..0847c01 100644
+index 16d5c3b..348302e 100644
 --- a/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl
 +++ b/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl
 @@ -71,6 +71,8 @@ def _get_core_dependency_includes(ghc_workspace):
@@ -78,6 +78,15 @@ index 16d5c3b..0847c01 100644
                      chs_targets
                  ),
              )
+@@ -326,7 +341,7 @@ def _get_build_attrs(
+         for m in (extra_modules_dict.get(condition, []) +
+                   other_modules_dict.get(condition, [])):
+             if m == paths_module:
+-                deps[condition] += [":" + paths_module]
++                deps[condition] += [":paths"]
+             elif m in module_map:
+                 srcs[condition] += [module_map[m]]
+ 
 @@ -411,7 +426,7 @@ def _get_build_attrs(
      )
      ghcopts += ["-I" + native.package_name() + "/" + d for d in build_info.includeDirs]
@@ -96,6 +105,15 @@ index 16d5c3b..0847c01 100644
          srcs = build_info.cSources,
          includes = build_info.includeDirs,
          copts = ([o for o in build_info.ccOptions if not o.startswith("-D")] +
+@@ -484,7 +499,7 @@ def cabal_haskell_package(
+     name = description.package.pkgName
+ 
+     cabal_paths(
+-        name = _paths_module(description),
++        name = "paths",
+         package = name.replace("-", "_"),
+         version = [int(v) for v in description.package.pkgVersion.split(".")],
+         data_dir = description.dataDir,
 @@ -492,51 +507,54 @@ def cabal_haskell_package(
      )
  

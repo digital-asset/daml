@@ -14,17 +14,31 @@ index 61994e4..7b05a9c 100644
          version = attr.string(
              doc = """Library version. Not normally necessary unless to build a library
              originally defined as a Cabal package. If this is specified, CPP version macro will be generated.""",
+diff --git a/haskell/private/actions/package.bzl b/haskell/private/actions/package.bzl
+index 1c438e8..bdcdfdd 100644
+--- a/haskell/private/actions/package.bzl
++++ b/haskell/private/actions/package.bzl
+@@ -81,7 +81,7 @@ def package(
+     (extra_lib_dirs, extra_libs) = _get_extra_libraries(dep_info)
+ 
+     metadata_entries = {
+-        "name": my_pkg_id.name,
++        "name": my_pkg_id.package_name,
+         "version": my_pkg_id.version,
+         "id": pkg_id.to_string(my_pkg_id),
+         "key": pkg_id.to_string(my_pkg_id),
 diff --git a/haskell/private/haskell_impl.bzl b/haskell/private/haskell_impl.bzl
-index a58239f..a05fe0a 100644
+index 2f107a3..e2db3f5 100644
 --- a/haskell/private/haskell_impl.bzl
 +++ b/haskell/private/haskell_impl.bzl
 @@ -313,8 +313,9 @@ def haskell_library_impl(ctx):
          ctx,
          [dep for plugin in ctx.attr.plugins for dep in plugin[GhcPluginInfo].deps],
      )
-+    package_name = ctx.attr.package_name if ctx.attr.package_name else None
-     version = ctx.attr.version if ctx.attr.version else None
+-    version = ctx.attr.version if ctx.attr.version else None
 -    my_pkg_id = pkg_id.new(ctx.label, version)
++    package_name = getattr(ctx.attr, "package_name", None)
++    version = getattr(ctx.attr, "version", None)
 +    my_pkg_id = pkg_id.new(ctx.label, package_name, version)
      with_profiling = is_profiling_enabled(hs)
      with_shared = False if hs.toolchain.is_windows else not ctx.attr.linkstatic
@@ -39,7 +53,7 @@ index a58239f..a05fe0a 100644
  
      hs_info = HaskellInfo(
 diff --git a/haskell/private/pkg_id.bzl b/haskell/private/pkg_id.bzl
-index 0a3c5fa..e6056aa 100644
+index 0a3c5fa..a7cbec1 100644
 --- a/haskell/private/pkg_id.bzl
 +++ b/haskell/private/pkg_id.bzl
 @@ -27,7 +27,7 @@ def _to_string(my_pkg_id):
@@ -47,24 +61,27 @@ index 0a3c5fa..e6056aa 100644
      )
  
 -def _new(label, version = None):
-+def _new(label, name = None, version = None):
++def _new(label, package_name = None, version = None):
      """Create a new package identifier.
  
      Package identifiers should be globally unique. This is why we use
-@@ -35,6 +35,7 @@ def _new(label, version = None):
+@@ -35,15 +35,18 @@ def _new(label, version = None):
  
      Args:
        label: The label of the rule declaring the package.
-+      name: an optional override of the package name.
++      package_name: an optional override of the package name.
        version: an optional version annotation.
  
      Returns:
-@@ -43,7 +44,7 @@ def _new(label, version = None):
+       string: GHC package ID to use.
+ 
      """
++    name = label.name.replace("_", "-")
      return struct(
          label = label,
 -        name = label.name.replace("_", "-"),
-+        name = name if name else label.name.replace("_", "-"),
++        name = name,
++        package_name = package_name if package_name else name,
          version = version,
      )
  
