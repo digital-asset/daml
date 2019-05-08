@@ -63,15 +63,16 @@ object Ref {
       assert(fromString(s))
 
     def fromStrings(strings: ImmArray[String]): Either[String, DottedName] = {
-      var validatedSegments = BackStack.empty[Identifier]
-      for (string <- strings)
-        Identifier
-          .fromString(string)
-          .fold(
-            e => return Left(e),
-            x => validatedSegments = validatedSegments :+ x
-          )
-      fromSegments(validatedSegments.toImmArray)
+      val init: Either[String, BackStack[Identifier]] = Right(BackStack.empty)
+      val validatedSegments = strings.foldLeft(init)((acc, string) =>
+        for {
+          stack <- acc
+          segment <- Identifier.fromString(string)
+        } yield stack :+ segment)
+      for {
+        segments <- validatedSegments
+        name <- fromSegments(segments.toImmArray)
+      } yield name
     }
 
     @throws[IllegalArgumentException]
@@ -100,14 +101,14 @@ object Ref {
   object QualifiedName {
     def fromString(s: String): Either[String, QualifiedName] = {
       val segments = split(s, ':')
-      if (segments.length != 2) {
-        return Left(s"Expecting two segments in $s, but got ${segments.length}")
-      }
-      ModuleName.fromString(segments(0)).flatMap { module =>
-        DottedName.fromString(segments(1)).map { name =>
-          QualifiedName(module, name)
+      if (segments.length != 2)
+        Left(s"Expecting two segments in $s, but got ${segments.length}")
+      else
+        ModuleName.fromString(segments(0)).flatMap { module =>
+          DottedName.fromString(segments(1)).map { name =>
+            QualifiedName(module, name)
+          }
         }
-      }
     }
 
     @throws[IllegalArgumentException]
