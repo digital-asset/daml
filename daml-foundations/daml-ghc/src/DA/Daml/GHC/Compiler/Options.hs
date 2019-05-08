@@ -23,6 +23,7 @@ import DA.Daml.GHC.Compiler.Preprocessor
 
 import           Control.Monad.Reader
 import qualified Data.List.Extra as List
+import Data.Foldable (toList)
 import Data.Maybe
 import Data.Tuple.Extra
 import "ghc-lib-parser" DynFlags
@@ -122,9 +123,9 @@ basePackages = ["daml-prim", "daml-stdlib"]
 mkOptions :: Options -> IO Options
 mkOptions opts@Options {..} = do
     mapM_ checkDirExists $ optImportPath <> optPackageDbs
-    defaultPkgDbDir <- locateRunfiles (mainWorkspace </> "daml-foundations" </> "daml-ghc" </> "package-database")
-    let defaultPkgDb = defaultPkgDbDir </> "package-db_dir"
-    pkgDbs <- filterM Dir.doesDirectoryExist [defaultPkgDb, projectPackageDatabase]
+    mbDefaultPkgDb <- locateRunfilesMb (mainWorkspace </> "daml-foundations" </> "daml-ghc" </> "package-database")
+    let mbDefaultPkgDbDir = fmap (</> "package-db_dir") mbDefaultPkgDb
+    pkgDbs <- filterM Dir.doesDirectoryExist (toList mbDefaultPkgDbDir ++ [projectPackageDatabase])
     pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
