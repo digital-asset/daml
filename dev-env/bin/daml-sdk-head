@@ -10,6 +10,13 @@ then
   exit 1
 fi
 
+# get rid of old .daml-head installation
+if [ -d "$HOME/.daml-head" ] ; then
+  chmod -R u+w "$HOME/.daml-head"
+  rm -rf "$HOME/.daml-head"
+fi
+
+
 NUKE=0
 for opt in "$@" ; do
   case $opt in
