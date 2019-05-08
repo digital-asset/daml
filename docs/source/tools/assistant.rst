@@ -1,7 +1,7 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML assistant (``daml``)
+DAML Assistant (``daml``)
 #########################
 
 ``daml`` is a command-line tool that does a lot of useful things related to the SDK. Using ``daml``, you can:
@@ -25,20 +25,30 @@ DAML assistant (``daml``)
 
    Note that you need to update your `project config file <#configuration-files>` to use the new version.
 
+Moving to the ``daml`` assistant
+********************************
+
+To move your projects to use ``daml``, and see the difference between ``da`` commands and ``daml`` commands, read the :doc:`/support/new-assistant`.
+
+Full help for commands
+**********************
+
+To see information about any command, run it with ``--help``.
+
 .. _daml-yaml-configuration:
 
 Configuration files
 *******************
 
-The DAML assistant and the DAML SDK are configured using two kinds of config files:
+The DAML assistant and the DAML SDK are configured using two files:
 
 - The global config file, one per installation, which controls some options regarding SDK installation and updates
 - The project config file, one per DAML project, which controls how the DAML SDK builds and interacts with the project
 
-Global config file: (``daml-config.yaml``)
-==========================================
+Global config file (``daml-config.yaml``)
+=========================================
 
-The global config file ``daml-config.yaml`` is in the ``daml`` home directory, which is ``~/.daml`` on Linux and Mac, and ``C:/Users/<user>/AppData/Roaming/daml`` on Windows. It controls options related to SDK version installation and upgrades.
+The global config file ``daml-config.yaml`` is in the ``daml`` home directory (``~/.daml`` on Linux and Mac, ``C:/Users/<user>/AppData/Roaming/daml`` on Windows). It controls options related to SDK version installation and upgrades.
 
 By default it's blank, and you usually won't need to edit it. It recognizes the following options:
 
@@ -49,19 +59,19 @@ By default it's blank, and you usually won't need to edit it. It recognizes the 
     
    Set ``update-check: <number>`` to check for new versions every N seconds. Set ``update-check: never`` to never check for new versions.
 
-Here is an example of the global config file ``daml-config.yaml``:
+Here is an example ``daml-config.yaml``:
 
 .. code-block:: yaml
 
    auto-install: true
    update-check: 86400
 
-Project config file: ``daml.yaml``
-==================================
+Project config file (``daml.yaml``)
+===================================
 
 The project config file ``daml.yaml`` must be in the root of your DAML project directory. It controls how the DAML project is built and how tools like Sandbox and Navigator interact with it.
 
-The existence of a ``daml.yaml`` file is what tells ``daml`` assistant that this directory contains a DAML project, and lets you use project-aware commands like ``daml build`` and ``daml start``.
+The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory contains a DAML project, and lets you use project-aware commands like ``daml build`` and ``daml start``.
 
 ``daml new`` creates a skeleton application in a new project folder, which includes a config file. For example, ``daml new my_project`` creates a new folder ``my_project`` with a project config file ``daml.yaml`` like this:
 
@@ -98,99 +108,6 @@ Here is what each field means:
 
 ..  TODO (@robin-da) document the dependency syntax
 
-Full help for commands
-**********************
-
-Use ``--help`` with any command.
-
-Comparing to the old SDK assistant
-**********************************
-
-.. list-table:: 
-   :header-rows: 1
-
-   * - Old ``da`` command
-     - Purpose
-     - New ``daml`` equivalent
-   * - ``da status``
-     - Show a list of running services
-     - No longer needed, as components no longer run in the background
-   * - ``da docs``
-     - Display the documentation
-     - No longer needed. You can access the docs at docs.daml.com, which includes a PDF download for offline use.
-   * - ``da new``
-     - Create a new project from template
-     - ``daml new  <path to create project in> [<name of template>]``
-   * - ``da project``
-     - Manage SDK projects
-     - No longer needed
-   * - ``da template``
-     - Manage SDK templates
-     - No longer needed
-   * - ``da upgrade``
-     - Upgrade SDK version
-     - ``daml install latest --activate``
-   * - ``da list``
-     - List installed SDK versions
-     - ``daml version`` prints SDK version information.
-   * - ``da use``
-     - Set the default SDK version
-     - No direct equivalent; you now set the new SDK version (``sdk-version: X.Y.Z``) in your project config file (``daml.yaml``) manually.
-   * - ``da uninstall``
-     - Uninstall the SDK
-     - No direct equivalent
-   * - ``da start``
-     - Start Navigator and Sandbox
-     - ``daml build`` then ``daml start``. Now stops by ctrl+c, rather than a ``stop`` command.
-   * - ``da restart``
-     - Shut down and restart Navigator and Sandbox.
-     - ``ctrl+c`` and ``daml start``
-   * - ``da stop``
-     - Stop running Navigator and Sandbo
-     - ``ctrl+c``
-   * - ``da feedback``
-     - Send us feedback
-     - No longer needed. See :doc:`/support/support` for how to give feedback.
-   * - ``da studio``
-     - Launch DAML Studio
-     - ``daml studio``
-   * - ``da navigator``
-     - Launch Navigator
-     - No direct equivalent; ``daml navigator`` is equivalent to ``da run navigator``.
-   * - ``da sandbox``
-     - Launch Sandbox
-     - No direct equivalent; ``daml sandbox`` is equivalent to ``da run sandbox``.
-   * - ``da compile``
-     - Compile a DAML project into a .dar file
-     - ``daml build``
-   * - ``da path <component>``
-     - Show the path to an SDK component
-     - No equivalent
-   * - ``da run``
-     - Run an SDK component
-     - ``daml sandbox``, ``daml navigator``, ``daml damlc``, etc
-   * - ``da setup``
-     - Initialize the SDK
-     - No longer needed: this is handled by the installer
-   * - ``da subscribe``
-     - Subscribe to a template namespace
-     - No longer needed
-   * - ``da unsubscribe``
-     - Unsubscribe from a template namespace
-     - No longer needed
-   * - ``da config-help``
-     - Show help about config files
-     - No longer needed: config files are documented on this page
-   * - ``da config``
-     - Query and manage config
-     - No equivalent: view and edit your config files directly
-   * - ``da changelog``
-     - Show release notes
-     - No longer needed: see the :doc:`/support/release-notes`.
-   * - ``da update-info``
-     - Show assistant update channel information
-     - No longer needed
-
 .. _assistant-manual-building-dars:
 
 Building DAML projects
@@ -222,8 +139,6 @@ Managing SDK releases
 
 In general the ``daml`` assistant will install versions and guide you when you need to update SDK versions or project settings. If you disable ``auto-install`` and ``update-check`` in the global config file, you will have to manage SDK releases manually.
 
-.. To find out what version: TODO (@associahedron) Add output of revamped version command here.
-
 To download and install the latest stable SDK release and update the assistant, run::
 
   daml install latest --activate
@@ -238,11 +153,7 @@ To install a specific SDK version, for example version ``0.13.0``, run::
 
   daml install 0.13.0
 
-To install an SDK release from a downloaded SDK release tarball, run::
+Rarely, you might need to install an SDK release from a downloaded SDK release tarball. **This is an advanced feature**: you should only ever perform this on an SDK release tarball that is released through the official ``digital-asset/daml`` github repository. Otherwise your ``daml`` installation may become inconsistent with everyone else's. To do this, run::
 
   daml install path-to-tarball.tar.gz
-
-but beware, this is an advanced feature and you should only ever perform this on an SDK release tarball that is released through the official ``digital-asset/daml`` github repository. Otherwise your ``daml`` installation may become inconsistent with everyone elses.
-
-.. TODO (@associahedron) Add ``daml uninstall`` and ``daml version --list`` commands.
 
