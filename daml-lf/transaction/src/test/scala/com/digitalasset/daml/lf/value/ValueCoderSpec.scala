@@ -45,8 +45,8 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     "do Decimal" in {
       forAll("Decimal (BigDecimal) invariant") { d: BigDecimal =>
         // we are filtering on decimals invariant under string conversion
-        whenever(Decimal.fromString(Decimal.toString(d)).isRight) {
-          val Right(dec) = Decimal.fromString(Decimal.toString(d))
+        whenever(Decimal.fromBigDecimal(d).isRight) {
+          val Right(dec) = Decimal.fromBigDecimal(d)
           val value = ValueDecimal(dec)
           val recoveredDecimal = ValueCoder.decodeValue[ContractId](
             defaultCidDecode,

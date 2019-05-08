@@ -95,7 +95,7 @@ object ValueGenerators {
         (1, Gen.const(Decimal.min)),
         (5, bd)
       )
-      .map(d => ValueDecimal(d))
+      .map(d => ValueDecimal(Decimal.assertFromBigDecimal(d)))
   }
 
   val moduleSegmentGen: Gen[String] = for {
