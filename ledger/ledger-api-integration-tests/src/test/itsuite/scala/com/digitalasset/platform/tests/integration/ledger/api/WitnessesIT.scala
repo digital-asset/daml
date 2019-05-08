@@ -20,7 +20,7 @@ import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.ledger.api.v1.event.{ExercisedEvent}
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent
-import com.digitalasset.platform.apitesting.LedgerBackend.SandboxInMemory
+import com.digitalasset.platform.testing.LedgerBackend.SandboxInMemory
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class WitnessIT
