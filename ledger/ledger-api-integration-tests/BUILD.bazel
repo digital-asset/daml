@@ -50,6 +50,7 @@ dependencies = [
 da_scala_library(
     name = "ledger-api-integration-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
+    resources = ["src/test/resources/logback-test.xml"],
     visibility = [
         "//visibility:public",
     ],
