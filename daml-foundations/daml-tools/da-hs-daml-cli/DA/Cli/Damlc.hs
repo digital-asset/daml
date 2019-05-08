@@ -279,7 +279,6 @@ execPackageNew numProcessors mbOutFile =
                         mkConfFile
                             pName
                             pVersion
-                            LF.versionDefault
                             pExposedModules
                             pDependencies
                 Managed.with (Compiler.newIdeState opts Nothing loggerH) $ \compilerH -> do
@@ -310,14 +309,12 @@ execPackageNew numProcessors mbOutFile =
     mkConfFile ::
            String
         -> String
-        -> LF.Version
         -> [String]
         -> [FilePath]
         -> (String, B.ByteString)
-    mkConfFile name version lfVersion exposedMods deps = (confName, bs)
+    mkConfFile name version exposedMods deps = (confName, bs)
       where
         confName = name ++ ".conf"
-        lfVersionStr = lfVersionString lfVersion
         bs =
             BSC.pack $
             unlines
@@ -327,9 +324,9 @@ execPackageNew numProcessors mbOutFile =
                 , "version: " ++ version
                 , "exposed: True"
                 , "exposed-modules: " ++ unwords exposedMods
-                , "import-dirs: ${pkgroot}" </> lfVersionStr </> name
-                , "library-dirs: ${pkgroot}" </> lfVersionStr </> name
-                , "data-dir: ${pkgroot}" </> lfVersionStr </> name
+                , "import-dirs: ${pkgroot}" </> name
+                , "library-dirs: ${pkgroot}" </> name
+                , "data-dir: ${pkgroot}" </> name
                 , "depends: " ++
                   unwords [dropExtension $ takeFileName dep | dep <- deps]
                 ]
@@ -358,7 +355,7 @@ execInit =
 createProjectPackageDb :: LF.Version -> [FilePath] -> IO ()
 createProjectPackageDb lfVersion fps = do
     let dbPath = projectPackageDatabase </> lfVersionString lfVersion
-    createDirectoryIfMissing True dbPath
+    createDirectoryIfMissing True $ dbPath </> "package.conf.d"
     let fps0 = filter (`notElem` basePackages) fps
     forM_ fps0 $ \fp -> do
         bs <- BSL.readFile fp
@@ -383,7 +380,7 @@ createProjectPackageDb lfVersion fps = do
             BSL.writeFile (dbPath </> eRelativePath dalf) (fromEntry dalf)
         forM_ confFiles $ \conf ->
             BSL.writeFile
-                (dbPath </> (takeFileName $ eRelativePath conf))
+                (dbPath </> "package.conf.d" </> (takeFileName $ eRelativePath conf))
                 (fromEntry conf)
         createDirectoryIfMissing True $ dbPath </> pkgName
         forM_ srcs $ \src ->
@@ -395,7 +392,7 @@ createProjectPackageDb lfVersion fps = do
             , "recache"
             -- ghc-pkg insists on using a global package db and will trie
             -- to find one automatically if we don’t specify it here.
-            , "--global-package-db=" ++ dbPath
+            , "--global-package-db=" ++ (dbPath </> "package.conf.d")
             , "--expand-pkgroot"
             ]
 
