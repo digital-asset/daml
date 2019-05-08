@@ -138,13 +138,15 @@ getDamlAssistantPath damlPath damlVersion =
 -- | Determine the absolute path to the assistant. Note that there is no
 -- daml-head on Windows at the moment.
 getDamlAssistantPathDefault :: DamlPath -> Maybe DamlAssistantSdkVersion -> DamlAssistantPath
-getDamlAssistantPathDefault (DamlPath damlPath) _ | isWindows =
-    DamlAssistantPath (damlPath </> "bin" </> "daml" <.> "cmd")
-getDamlAssistantPathDefault (DamlPath damlPath) (Just (DamlAssistantSdkVersion v)) | isHeadVersion v =
-    DamlAssistantPath (damlPath </> "bin" </> "daml-head")
-getDamlAssistantPathDefault (DamlPath damlPath) _ =
-    DamlAssistantPath (damlPath </> "bin" </> "daml")
-
+getDamlAssistantPathDefault (DamlPath damlPath) damlVersion =
+  let commandNameNoExt
+          | Just (DamlAssistantSdkVersion v) <- damlVersion, isHeadVersion v = "daml-head"
+          | otherwise = "daml"
+      commandName
+          | isWindows = commandNameNoExt <.> "cmd"
+          | otherwise = commandNameNoExt
+      path = damlPath </> "bin" </> commandName
+  in DamlAssistantPath path
 
 -- | Determine SDK version of running daml assistant. Can be overriden
 -- with DAML_ASSISTANT_VERSION env var.
