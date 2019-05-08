@@ -13,9 +13,10 @@ import           Data.Maybe
 import qualified Data.Text as T
 import           Development.IDE.Functions.GHCError
 import           Development.IDE.Functions.SpanInfo
-import Development.IDE.UtilGHC
 import           FastString
 import           GHC
+import SrcLoc
+
 
 getDocumentation
  ::  Name -- ^ The name you want documentation for.
@@ -79,7 +80,7 @@ getDocumentation targetName tcs = fromMaybe [] $ do
 -- | Shows this part of the documentation
 docHeaders :: [RealLocated AnnotationComment]
            -> [T.Text]
-docHeaders = mapMaybe (wrk . unRealSrcSpan)
+docHeaders = mapMaybe (\(L _ x) -> wrk x)
   where
   wrk = \case
     AnnDocCommentNext s -> Just $ T.pack s

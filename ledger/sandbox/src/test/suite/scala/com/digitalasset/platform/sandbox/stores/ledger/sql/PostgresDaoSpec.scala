@@ -7,7 +7,7 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.daml.lf.data.Ref.{Identifier, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
@@ -67,7 +67,11 @@ class PostgresDaoSpec
     Await.result(ledgerDao.initializeLedger("test-ledger", 0), Duration.Inf)
   }
 
+  private val alice = Party.assertFromString("Alice")
+  private val bob = Party.assertFromString("Bob")
+
   "Postgres Ledger DAO" should {
+
     "be able to persist and load contracts" in {
       val offset = nextOffset()
       val absCid = AbsoluteContractId("cId1")
@@ -83,7 +87,7 @@ class PostgresDaoSpec
       )
       val keyWithMaintainers = KeyWithMaintainers(
         VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key")),
-        Set(Ref.Party.assertFromString("Alice"))
+        Set(alice)
       )
 
       val contract = Contract(
@@ -91,7 +95,7 @@ class PostgresDaoSpec
         let,
         "trId1",
         "workflowId",
-        Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+        Set(alice, bob),
         contractInstance,
         Some(keyWithMaintainers)
       )
@@ -110,8 +114,8 @@ class PostgresDaoSpec
               absCid,
               contractInstance,
               None,
-              Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
-              Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+              Set(alice, bob),
+              Set(alice, bob),
               Some(keyWithMaintainers)
             )),
           ImmArray("event1"),
@@ -208,7 +212,7 @@ class PostgresDaoSpec
         let,
         "trId2",
         "workflowId",
-        Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+        Set(alice, bob),
         contractInstance,
         Some(keyWithMaintainers)
       )
@@ -227,8 +231,8 @@ class PostgresDaoSpec
               absCid,
               contractInstance,
               None,
-              Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
-              Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+              Set(alice, bob),
+              Set(alice, bob),
               Some(keyWithMaintainers)
             )),
           ImmArray("event1"),
@@ -269,7 +273,7 @@ class PostgresDaoSpec
           let,
           txId,
           "workflowId",
-          Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+          Set(alice, bob),
           contractInstance,
           None
         )
@@ -288,8 +292,8 @@ class PostgresDaoSpec
                 absCid,
                 contractInstance,
                 None,
-                Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
-                Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+                Set(alice, bob),
+                Set(alice, bob),
                 None
               )),
             ImmArray(s"event$id"),
@@ -319,10 +323,10 @@ class PostgresDaoSpec
                 "choice",
                 None,
                 true,
-                Set(SimpleString.assertFromString("Alice")),
+                Set(alice),
                 VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some choice value")),
-                Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
-                Set(SimpleString.assertFromString("Alice"), SimpleString.assertFromString("Bob")),
+                Set(alice, bob),
+                Set(alice, bob),
                 ImmArray.empty,
                 Some(
                   VersionedValue(

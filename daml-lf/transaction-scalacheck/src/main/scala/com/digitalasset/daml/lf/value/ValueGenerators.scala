@@ -122,7 +122,7 @@ object ValueGenerators {
     n <- Gen.choose(1, 200)
     packageId <- Gen
       .listOfN(n, Gen.alphaNumChar)
-      .map(s => SimpleString.assertFromString(s.mkString))
+      .map(s => PackageId.assertFromString(s.mkString))
     module <- moduleGen
     name <- dottedNameGen
   } yield Identifier(packageId, QualifiedName(module, name))
@@ -215,7 +215,7 @@ object ValueGenerators {
         (sz + 1, Gen.alphaStr.map(ValueText)),
         (sz + 1, timestampGen.map(ValueTimestamp)),
         (sz + 1, coidValueGen),
-        (sz + 1, simpleStr.map(ValueParty)),
+        (sz + 1, party.map(ValueParty)),
         (sz + 1, Gen.oneOf(true, false).map(ValueBool))
       )
       val all =
@@ -228,10 +228,16 @@ object ValueGenerators {
   private val simpleChars =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_ ".toVector
 
-  def simpleStr: Gen[SimpleString] = {
+  def simpleStr: Gen[PackageId] = {
     Gen
       .nonEmptyListOf(Gen.oneOf(simpleChars))
-      .map(s => SimpleString.assertFromString(s.mkString))
+      .map(s => PackageId.assertFromString(s.mkString))
+  }
+
+  def party: Gen[Party] = {
+    Gen
+      .nonEmptyListOf(Gen.oneOf(simpleChars))
+      .map(s => Party.assertFromString(s.mkString))
   }
 
   def valueGen: Gen[Value[ContractId]] = valueGen(0)
@@ -242,11 +248,9 @@ object ValueGenerators {
       value <- valueGen
     } yield VersionedValue(version, value)
 
-  private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(simpleStr).map(_.toSet)
+  private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
 
-  val genNonEmptyParties: Gen[Set[Party]] = ^(simpleStr, genMaybeEmptyParties) { (hd, tl) =>
-    tl.toSet + hd
-  }
+  val genNonEmptyParties: Gen[Set[Party]] = ^(party, genMaybeEmptyParties)((hd, tl) => tl + hd)
 
   @deprecated("use genNonEmptyParties instead", since = "100.11.17")
   private[lf] def genParties = genNonEmptyParties

@@ -20,7 +20,7 @@ import Data.Either
 import Control.Monad
 import Control.Monad.Managed (with)
 import System.Directory
-import System.Environment
+import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
 
 import DA.Service.Daml.Compiler.Impl.Scenario as SS
@@ -31,7 +31,7 @@ import Development.IDE.State.API.Testing
 main :: IO ()
 main = with (SS.startScenarioService (\_ -> pure ()) Logger.makeNopHandle) $ \scenarioService -> do
   -- The scenario service is a shared resource so running tests in parallel doesn’t work properly.
-  setEnv "TASTY_NUM_THREADS" "1"
+  setEnv "TASTY_NUM_THREADS" "1" True
   -- The startup of the scenario service is fairly expensive so instead of launching a separate
   -- service for each test, we launch a single service that is shared across all tests.
   Tasty.deterministicMain (ideTests (Just scenarioService))
@@ -421,6 +421,15 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             expectGoToDefinition (foo,2,[6..13]) (In "Prelude") -- "Optional"
             expectGoToDefinition (foo,2,[16..19]) (In "GHC.Types") -- "List"
             expectGoToDefinition (foo,2,[21..24]) (In "GHC.Types") -- "Bool"
+    ,    testCase' "Cross-package goto definition" $ do
+            foo <- makeModule "Foo"
+                [ "test = scenario do"
+                , "  p <- getParty \"Alice\""
+                , "  pure ()"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectGoToDefinition (foo, 3, [7..14]) (In "DA.Internal.LF")
     ]
     where
         testCase' = testCase mbScenarioService

@@ -6,8 +6,6 @@ In this directory:
 
 * `daml-contract-keys` contains draft documentation for Contract Keys and Quantities
 
-* `daml-lf-specification` contains the specification for DAML LF.
-
 * `daml-licenses` produces a document containing the licenses of all of our dependencies.
 
 * `time-model` provides documentation on the time model used by DAML

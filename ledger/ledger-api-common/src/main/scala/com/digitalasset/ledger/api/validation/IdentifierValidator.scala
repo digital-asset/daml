@@ -29,7 +29,7 @@ object IdentifierValidator {
   def validateNewStyleIdentifier(
       identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] =
     for {
-      packageId <- requireSimpleString(identifier.packageId, "package_id")
+      packageId <- requirePackageId(identifier.packageId, "package_id")
       name <- validateSplitIdentifier(identifier)
     } yield Ref.Identifier(packageId, name)
 
@@ -53,7 +53,7 @@ object IdentifierValidator {
     for {
       // if `name` is not empty, we give back the error from validating the non-deprecated fields
       name <- lift(requireNonEmptyString(identifier.name, "name")).transform(identity, _ => error)
-      packageId <- lift(requireSimpleString(identifier.packageId, "package_id"))
+      packageId <- lift(requirePackageId(identifier.packageId, "package_id"))
       pkgOpt <- packageResolver(packageId)
       pkg <- pkgOpt
         .map(Future.successful)

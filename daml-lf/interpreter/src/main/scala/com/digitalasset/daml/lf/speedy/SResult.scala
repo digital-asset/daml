@@ -40,7 +40,7 @@ object SResult {
     * the packages cache it had provided to initialize the machine.
     */
   final case class SResultMissingDefinition(
-      ref: DefinitionRef[PackageId],
+      ref: DefinitionRef,
       callback: CompiledPackages => Unit,
   ) extends SResult
 

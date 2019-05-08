@@ -3,7 +3,7 @@
 
 package com.digitalasset.ledger.example
 
-import com.digitalasset.daml.lf.data.Ref.SimpleString
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{
   Blinding,
@@ -59,7 +59,7 @@ object Validation {
     }
 
     val engine = new Engine()
-    val submitter = SimpleString.assertFromString(submission.submitter)
+    val submitter = Party.assertFromString(submission.submitter)
     val tx = submission.transaction
 
     val result = for {

@@ -19,7 +19,7 @@ sealed abstract class Decode extends archive.Reader[(PackageId, Package)] {
   private[lfpackage] val decoders: PartialFunction[LanguageVersion, PayloadDecoder]
 
   override protected[this] def readArchivePayloadOfVersion(
-      hash: SimpleString,
+      hash: PackageId,
       lf: DamlLf.ArchivePayload,
       version: LanguageVersion
   ): (PackageId, Package) = {
@@ -67,7 +67,7 @@ object Decode extends Decode {
   }
 
   private[lf] trait OfPackage[-Pkg] {
-    def decodePackage(packageId: SimpleString, lfPackage: Pkg): Package
+    def decodePackage(packageId: PackageId, lfPackage: Pkg): Package
   }
 
   private def identifierStart(c: Char) =

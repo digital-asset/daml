@@ -45,6 +45,7 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell-package-env.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-win-sys-includes.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-drop-fake-static.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-short-names.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -65,6 +66,7 @@ def daml_deps():
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:hazel-configure.patch",
+                "@com_github_digital_asset_daml//bazel_tools:hazel-short-names.patch",
             ],
             patch_args = ["-p2"],
             sha256 = rules_haskell_sha256,

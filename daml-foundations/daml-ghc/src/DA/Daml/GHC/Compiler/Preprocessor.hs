@@ -9,7 +9,7 @@ module DA.Daml.GHC.Compiler.Preprocessor
 
 import           DA.Daml.GHC.Compiler.Records
 
-import Development.IDE.UtilGHC
+import DA.Daml.GHC.Compiler.UtilGHC
 
 import qualified "ghc-lib" GHC
 import Outputable

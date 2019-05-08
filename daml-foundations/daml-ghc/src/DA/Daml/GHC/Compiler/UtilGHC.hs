@@ -18,7 +18,7 @@ module DA.Daml.GHC.Compiler.UtilGHC(
 
 import           "ghc-lib-parser" Class
 import           "ghc-lib" GHC                         hiding (convertLit)
-import           "ghc-lib" GhcPlugins                  as GHC hiding (PackageState, fst3, (<>))
+import           "ghc-lib" GhcPlugins                  as GHC hiding (fst3, (<>))
 
 import           Data.Generics.Uniplate.Data
 import           Data.List
@@ -125,3 +125,10 @@ unpackCStringUtf8 :: BS.ByteString -> T.Text
 unpackCStringUtf8 bs = unsafePerformIO $
     BS.useAsCString bs $ \(Ptr a) -> do
         evaluate $ T.unpackCString# a
+
+-- | This import was generated, not user written, so should not produce unused import warnings
+importGenerated :: Bool -> ImportDecl phase -> ImportDecl phase
+importGenerated qual i = i{ideclImplicit=True, ideclQualified=qual}
+
+mkImport :: Located ModuleName -> ImportDecl GhcPs
+mkImport mname = GHC.ImportDecl GHC.NoExt GHC.NoSourceText mname Nothing False False False False Nothing Nothing

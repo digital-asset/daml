@@ -75,7 +75,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   private val ledgerConfig: Configuration = Configuration(
     timeModel = timeModel
   )
-  private val ledgerId: LedgerId = Ref.SimpleString.assertFromString(UUID.randomUUID().toString)
+  private val ledgerId: LedgerId = Ref.PackageId.assertFromString(UUID.randomUUID().toString)
 
   /**
     * Task to send out transient heartbeat events to subscribers.
@@ -318,7 +318,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   }
 
   def uploadArchive(archive: Archive): Unit = {
-    val (pkgId: PackageId, pkg: Ast.Package) = Decode.decodeArchive(archive)
+    val (pkgId, pkg) = Decode.decodeArchive(archive)
 
     StateController.updateState { state =>
       state.copy(

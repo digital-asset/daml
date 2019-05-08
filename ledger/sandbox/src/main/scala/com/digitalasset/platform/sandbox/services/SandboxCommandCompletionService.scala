@@ -140,8 +140,10 @@ object SandboxCommandCompletionService {
   def apply(ledgerBackend: LedgerBackend)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
-    : CommandCompletionServiceValidation with BindableService with AutoCloseable with CommandCompletionServiceLogging = {
+      esf: ExecutionSequencerFactory): CommandCompletionServiceValidation
+    with BindableService
+    with AutoCloseable
+    with CommandCompletionServiceLogging = {
     val impl = new SandboxCommandCompletionService(ledgerBackend)
     new CommandCompletionServiceValidation(impl, ledgerBackend.ledgerId) with BindableService
     with AutoCloseable with CommandCompletionServiceLogging {

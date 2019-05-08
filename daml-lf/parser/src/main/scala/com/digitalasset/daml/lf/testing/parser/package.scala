@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.lfpackage.Ast.{Expr, Kind, Module, Type}
 package object parser {
 
   val defaultLanguageVersion: LanguageVersion = LanguageVersion.default
-  val defaultPkgId: PackageId = SimpleString.assertFromString("-pkgId-")
+  val defaultPkgId: PackageId = PackageId.assertFromString("-pkgId-")
   val defaultModName: ModuleName = DottedName(ImmArray("Mod"))
   val defaultTemplName: TypeConName =
     Identifier(defaultPkgId, QualifiedName(defaultModName, DottedName(ImmArray("T"))))

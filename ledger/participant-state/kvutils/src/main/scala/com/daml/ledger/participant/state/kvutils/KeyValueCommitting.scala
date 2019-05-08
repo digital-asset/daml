@@ -36,6 +36,9 @@ object KeyValueCommitting {
   def packDamlLogEntry(entry: DamlLogEntry): ByteString = entry.toByteString
   def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
 
+  def packDamlLogEntryId(entry: DamlLogEntryId): ByteString = entry.toByteString
+  def unpackDamlLogEntryId(bytes: ByteString): DamlLogEntryId = DamlLogEntryId.parseFrom(bytes)
+
   /** Pretty-printing of the entry identifier. Uses the same hexadecimal encoding as is used
     * for absolute contract identifiers.
     */
@@ -182,7 +185,7 @@ object KeyValueCommitting {
     // are stored in the [[DamlLogEntry]], which we find by looking up
     // the DAML state entry at `DamlStateKey(packageId = pkgId)`.
     def lookupPackage(pkgId: PackageId) = {
-      val stateKey = DamlStateKey.newBuilder.setPackageId(pkgId.underlyingString).build
+      val stateKey = DamlStateKey.newBuilder.setPackageId(pkgId).build
       for {
         value <- inputState
           .get(stateKey)

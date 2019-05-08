@@ -9,7 +9,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimestampConversion._
-import com.digitalasset.daml.lf.data.Ref.{Party, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain._
 import com.digitalasset.ledger.api.messages.transaction._
@@ -107,13 +107,13 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       TransactionConversion
         .genToFlatTransaction(
           trans.transaction,
-          trans.explicitDisclosure.mapValues(set => set.map(_.underlyingString)),
+          trans.explicitDisclosure.mapValues(set => set.toSet[String]),
           verbose)
         .flatMap(eventFilter.filterEvent(_).toList)
 
     val submitterIsSubscriber =
       trans.submitter
-        .map(SimpleString.assertFromString)
+        .map(Party.assertFromString)
         .fold(false)(eventFilter.isSubmitterSubscriber)
     if (events.nonEmpty || submitterIsSubscriber) {
       Some(

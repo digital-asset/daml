@@ -6,6 +6,7 @@ package com.digitalasset.navigator
 import com.digitalasset.daml.lf.data.SortedLookupList
 import com.digitalasset.navigator.model._
 import com.digitalasset.daml.lf.{iface => DamlLfIface}
+import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
 
 case class DamlConstants()
 
@@ -16,7 +17,7 @@ case object DamlConstants {
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: Ids
   // ------------------------------------------------------------------------------------------------------------------
-  val packageId0 = DamlLfPackageId.assertFromString("hash")
+  val packageId0 = DamlLfRef.PackageId.assertFromString("hash")
 
   def id(name: String): DamlLfIdentifier = DamlLfIdentifier(
     packageId0,

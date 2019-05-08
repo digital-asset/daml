@@ -4,9 +4,9 @@
 package com.digitalasset.daml.lf.codegen.backend.java.inner
 import com.digitalasset.daml.lf.codegen.TypeWithContext
 import com.digitalasset.daml.lf.codegen.backend.java.JavaEscaper
-import com.digitalasset.daml.lf.data.Ref.SimpleString
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.iface.reader.InterfaceType.{Normal, Template}
-import com.digitalasset.daml.lf.iface.{DefDataType, PackageId, Record, Variant}
+import com.digitalasset.daml.lf.iface.{DefDataType, Record, Variant}
 import com.squareup.javapoet.{ClassName, FieldSpec, JavaFile, TypeSpec}
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
@@ -23,7 +23,7 @@ object ClassForType extends StrictLogging {
 
     typeWithContext.`type`.typ match {
 
-      case Normal(DefDataType(typeVars, record: Record.FWT)) =>
+      case Some(Normal(DefDataType(typeVars, record: Record.FWT))) =>
         val typeSpec =
           RecordClass.generate(
             className,
@@ -33,7 +33,7 @@ object ClassForType extends StrictLogging {
             packagePrefixes)
         List(javaFile(typeWithContext, javaPackage, typeSpec))
 
-      case Normal(DefDataType(typeVars, variant: Variant.FWT)) =>
+      case Some(Normal(DefDataType(typeVars, variant: Variant.FWT))) =>
         val subPackage = className.packageName() + "." + JavaEscaper.escapeString(
           className.simpleName().toLowerCase)
         val (tpe, constructors) =
@@ -47,10 +47,15 @@ object ClassForType extends StrictLogging {
         javaFile(typeWithContext, javaPackage, tpe) ::
           constructors.map(cons => javaFile(typeWithContext, subPackage, cons))
 
-      case Template(record, template) =>
+      case Some(Template(record, template)) =>
         val typeSpec =
           TemplateClass.generate(className, record, template, typeWithContext, packagePrefixes)
         List(JavaFile.builder(javaPackage, typeSpec).build())
+
+      case None =>
+        // This typeWithContext didn't contain a type itself, but has children nodes
+        // which we treat as any other TypeWithContext
+        typeWithContext.typesLineages.flatMap(ClassForType(_, packagePrefixes)).toList
     }
   }
 
@@ -60,10 +65,10 @@ object ClassForType extends StrictLogging {
     JavaFile.builder(javaPackage, withField).build()
   }
 
-  private def createPackageIdField(packageId: SimpleString): FieldSpec = {
+  private def createPackageIdField(packageId: PackageId): FieldSpec = {
     FieldSpec
       .builder(classOf[String], "_packageId", Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
-      .initializer("$S", packageId.underlyingString)
+      .initializer("$S", packageId)
       .build()
   }
 }

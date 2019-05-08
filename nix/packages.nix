@@ -96,6 +96,7 @@ in rec {
     scalac   = scala;
     scaladoc = scala;
     scalap   = scala;
+    sbt      = pkgs.sbt;
 
     coursier = pkgs.coursier;
     scalafmt = pkgs.scalafmt.override { jre = jdk; };
@@ -138,13 +139,6 @@ in rec {
     python3     = python36;
     python36    = pkgs.python36Packages.python;
 
-    ipython = pkgs.python36Packages.ipython;
-    notebook = pkgs.python36Packages.notebook;
-    numpy = pkgs.python36Packages.numpy;
-    scipy = pkgs.python36Packages.scipy;
-    matplotlib = pkgs.python36Packages.matplotlib;
-    pandas = pkgs.python36Packages.pandas;
-    cram = pkgs.callPackage ./python-modules/cram {};
     flake8 = pkgs.python36Packages.flake8;
     yapf = pkgs.python36Packages.yapf;
 
@@ -152,9 +146,7 @@ in rec {
     # https://github.com/NixOS/nixpkgs/pull/45497.
     # However, this one is for a newer version
     pex = pkgs.callPackage ./tools/pex {};
-    # Pipenv packaging is taken from upstream commit:
-    # https://github.com/NixOS/nixpkgs/commit/40887a6dc635.
-    pipenv = pkgs.callPackage ./tools/pipenv {};
+    pipenv = pkgs.pipenv;
 
     # Databases
     cassandra = pkgs.cassandra;
@@ -287,7 +279,6 @@ in rec {
     cacert = pkgs.cacert;
     cheat = pkgs.cheat;
     coreutils = pkgs.coreutils;
-    docker-compose  = pkgs.python36Packages.docker_compose;
     dockerd = pkgs.docker;
     findutils = pkgs.findutils;
     ftop = pkgs.ftop;

@@ -7,7 +7,6 @@ module Development.IDE.State.API
     , IdeState
     , Action
     , initialise
-    , getGhcCore
     , getDalf
     , getAtPoint
     , getDefinition
@@ -23,9 +22,7 @@ module Development.IDE.State.API
     , generatePackageMap
     , getDependencies
     , logDebug
-    , logInfo
-    , logWarning
-    , logError
+    , logSeriousError
     ) where
 
 import           Development.IDE.Types.LSP

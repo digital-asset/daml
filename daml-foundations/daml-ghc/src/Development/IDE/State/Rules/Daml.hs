@@ -25,7 +25,7 @@ import "ghc-lib-parser" Module (UnitId, stringToUnitId)
 import System.Directory.Extra (listFilesRecursive)
 import System.FilePath
 
-import Development.IDE.Functions.Compile (CompileOpts(..))
+import Development.IDE.Types.Options (IdeOptions(..))
 import Development.IDE.Functions.DependencyInformation
 import Development.IDE.State.Rules hiding (mainRule)
 import qualified Development.IDE.State.Rules as IDE
@@ -33,7 +33,6 @@ import Development.IDE.State.Service.Daml
 import Development.IDE.State.Shake
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.LSP
-import Development.IDE.UtilGHC
 
 import Development.IDE.State.RuleTypes.Daml
 
@@ -381,6 +380,24 @@ discardInternalModules files =
     mapM (liftIO . fileFromParsedModule) .
     filter (not . modIsInternal . ms_mod . pm_mod_summary) =<<
     uses_ GetParsedModule files
+
+internalModules :: [String]
+internalModules =
+  [ "Data.String"
+  , "GHC.CString"
+  , "GHC.Integer.Type"
+  , "GHC.Natural"
+  , "GHC.Real"
+  , "GHC.Types"
+  ]
+
+-- | Checks if a given module is internal, i.e. gets removed in the Core->LF
+-- translation. TODO where should this live?
+modIsInternal :: Module -> Bool
+modIsInternal m = moduleNameString (moduleName m) `elem` internalModules
+  -- TODO should we consider DA.Internal.* internal? Difference to GHC.*
+  -- modules is that these do not disappear in the LF conversion.
+
 
 damlRule :: Rules ()
 damlRule = do

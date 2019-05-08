@@ -109,7 +109,7 @@ private class PostgresLedgerDao(
       implicit connection: Connection): Boolean =
     SQL_INSERT_CONTRACT_KEY
       .on(
-        "package_id" -> key.templateId.packageId.underlyingString,
+        "package_id" -> (key.templateId.packageId: String),
         "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHasher.hashKeyString(key),
         "contract_id" -> cid.coid
@@ -119,7 +119,7 @@ private class PostgresLedgerDao(
   private[this] def removeContractKey(key: GlobalKey)(implicit connection: Connection): Boolean =
     SQL_REMOVE_CONTRACT_KEY
       .on(
-        "package_id" -> key.templateId.packageId.underlyingString,
+        "package_id" -> (key.templateId.packageId: String),
         "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHasher.hashKeyString(key)
       )
@@ -129,7 +129,7 @@ private class PostgresLedgerDao(
       implicit connection: Connection): Option[AbsoluteContractId] =
     SQL_SELECT_CONTRACT_KEY
       .on(
-        "package_id" -> key.templateId.packageId.underlyingString,
+        "package_id" -> (key.templateId.packageId: String),
         "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHasher.hashKeyString(key)
       )
@@ -172,7 +172,7 @@ private class PostgresLedgerDao(
               "id" -> c.contractId.coid,
               "transaction_id" -> c.transactionId,
               "workflow_id" -> c.workflowId,
-              "package_id" -> c.coinst.template.packageId.underlyingString,
+              "package_id" -> (c.coinst.template.packageId: String),
               "name" -> c.coinst.template.qualifiedName.toString,
               "create_offset" -> offset,
               "contract" -> contractSerializer
@@ -188,12 +188,10 @@ private class PostgresLedgerDao(
           )
         )
 
-      val batchInsertContracts = BatchSql(
+      executeBatchSql(
         SQL_INSERT_CONTRACT,
-        namedContractParams.head,
-        namedContractParams.drop(1).toArray: _*)
-
-      batchInsertContracts.execute()
+        namedContractParams
+      )
 
       val namedWitnessesParams = contracts
         .flatMap(
@@ -202,18 +200,16 @@ private class PostgresLedgerDao(
               w =>
                 Seq[NamedParameter](
                   "contract_id" -> c.contractId.coid,
-                  "witness" -> w.underlyingString
+                  "witness" -> (w: String)
               ))
         )
         .toArray
 
       if (!namedWitnessesParams.isEmpty) {
-        val batchInsertWitnesses = BatchSql(
+        executeBatchSql(
           SQL_INSERT_CONTRACT_WITNESS,
-          namedWitnessesParams.head,
-          namedWitnessesParams.drop(1).toArray: _*
+          namedWitnessesParams
         )
-        batchInsertWitnesses.execute()
       }
 
       val namedKeyMaintainerParams = contracts
@@ -226,19 +222,17 @@ private class PostgresLedgerDao(
                     p =>
                       Seq[NamedParameter](
                         "contract_id" -> c.contractId.coid,
-                        "maintainer" -> p.underlyingString
+                        "maintainer" -> (p: String)
                     )))
               .getOrElse(Set.empty)
         )
         .toArray
 
       if (!namedKeyMaintainerParams.isEmpty) {
-        val batchInsertKeyMaintainers = BatchSql(
+        executeBatchSql(
           SQL_INSERT_CONTRACT_KEY_MAINTAINERS,
-          namedKeyMaintainerParams.head,
-          namedKeyMaintainerParams.drop(1).toArray: _*
+          namedKeyMaintainerParams
         )
-        batchInsertKeyMaintainers.execute()
       }
     }
     ()
@@ -386,12 +380,10 @@ private class PostgresLedgerDao(
                 ))
           }
           if (!disclosureParams.isEmpty) {
-            val batchInsertDisclosures =
-              BatchSql(
-                SQL_BATCH_INSERT_DISCLOSURES,
-                disclosureParams.head,
-                disclosureParams.drop(1).toArray: _*)
-            batchInsertDisclosures.execute()
+            executeBatchSql(
+              SQL_BATCH_INSERT_DISCLOSURES,
+              disclosureParams
+            )
           }
 
           updateActiveContractSet(offset, tx).fold[PersistenceResponse](Ok) { rejectionReason =>
@@ -737,6 +729,12 @@ private class PostgresLedgerDao(
 
   override def close(): Unit =
     dbDispatcher.close()
+
+  private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
+      implicit con: Connection) = {
+    require(params.size > 0, "batch sql statement must have at least one set of name parameters")
+    BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
+  }
 
 }
 

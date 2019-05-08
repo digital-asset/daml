@@ -1,0 +1,35 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+filegroup(
+    name = "quickstart-scala-src",
+    srcs = glob(
+        ["quickstart-scala/*"],
+        exclude = [
+            "**/.*",
+            "**/target",
+        ],
+        exclude_directories = 0,
+    ),
+)
+
+genrule(
+    name = "quickstart-scala-dir",
+    srcs = [
+        ":quickstart-scala-src",
+        "//docs:daml-assistant-iou-setup",
+    ],
+    outs = ["quickstart-scala"],
+    cmd = """
+        mkdir -p $@
+        cp -rL $(SRCS) $@
+        rm -rf $@/project/project/*
+        ln -s ../Artifactory.scala $@/project/project/Artifactory.scala
+        ln -s ../Versions.scala $@/project/project/Versions.scala
+        rm -rf $@/target
+        rm -rf $@/project/target
+        rm -rf $@/application/target
+        rm -rf $@/scala-codegen/target
+    """,
+    visibility = ["//visibility:public"],
+)

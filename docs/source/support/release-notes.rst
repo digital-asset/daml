@@ -9,6 +9,17 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.16 - 2019-05-07
+--------------------
+
+- Fix two issues related to contract key visibility within a single update: `#969 <https://github.com/digital-asset/daml/pull/969>`_ and `#973 <https://github.com/digital-asset/daml/pull/973>`_.
+- Java Codegen: variants with unserializable cases are now accepted (see `#946 <https://github.com/digital-asset/daml/pull/946>`_)
+- Java Bindings: ``CreateAndExerciseCommand`` is now properly converted in the Java Bindings data layer (see `#979 <https://github.com/digital-asset/daml/pull/979>`_)
+- Alpha release of :doc:`DAML Integration Kit </daml-integration-kit/index>`.
+
+- Add ``quickstart-scala`` DAML Assistant project template.
+
+
 0.12.15 - 2019-05-06
 --------------------
 
@@ -246,3 +257,8 @@ Changes:
 - Java Bindings: Examples updated to use version 2.5.2 which implements Ledger API version 1.4.0.
 
 .. - TODO: add changes here
+
+.. toctree::
+   :hidden:
+
+   /support/new-assistant

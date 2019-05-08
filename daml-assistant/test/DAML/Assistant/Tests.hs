@@ -13,7 +13,7 @@ import DAML.Assistant.Types
 import DAML.Assistant.Util
 import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
 import System.Directory
-import System.Environment
+import System.Environment.Blank
 import System.FilePath
 import System.Info.Extra (isWindows)
 import System.IO.Temp
@@ -24,7 +24,6 @@ import qualified Test.Tasty.HUnit as Tasty
 import qualified Test.Tasty.QuickCheck as Tasty
 import qualified Data.Text as T
 import Test.Tasty.QuickCheck ((==>))
-import Test.Main (withEnv)
 import System.Info (os)
 import Data.Maybe
 import Control.Exception.Safe
@@ -36,14 +35,42 @@ import qualified Data.Conduit.Tar as Tar
 -- unix specific
 import System.PosixCompat.Files (createSymbolicLink)
 
+-- | Replace all environment variables for test action, then restore them.
+-- Avoids System.Environment.setEnv because it treats empty strings as
+-- "delete environment variable", unlike main-tester's withEnv which
+-- consequently conflates (Just "") with Nothing.
+withEnv :: [(String, Maybe String)] -> IO t -> IO t
+withEnv vs m = bracket pushEnv popEnv (const m)
+    where
+        pushEnv :: IO [(String, Maybe String)]
+        pushEnv = do
+            oldEnv <- getEnvironment
+            let ks  = map fst vs
+                vs' = [(key, Nothing)  | (key, _) <- oldEnv, key `notElem` ks] ++ vs
+            replaceEnv vs'
+
+        popEnv :: [(String, Maybe String)] -> IO ()
+        popEnv vs' = void $ replaceEnv vs'
+
+        replaceEnv :: [(String, Maybe String)] -> IO [(String, Maybe String)]
+        replaceEnv vs' = do
+            forM vs' $ \(key, newVal) -> do
+                oldVal <- getEnv key
+                case newVal of
+                    Nothing -> unsetEnv key
+                    Just val -> setEnv key val True
+                pure (key, oldVal)
+
+
 main :: IO ()
 main = do
-    setEnv "TASTY_NUM_THREADS" "1" -- we need this because we use withEnv in our tests
+    setEnv "TASTY_NUM_THREADS" "1" True -- we need this because we use withEnv in our tests
     Tasty.defaultMain $ Tasty.testGroup "DAML.Assistant"
         [ testAscendants
         , testGetDamlPath
         , testGetProjectPath
         , testGetSdk
+        , testGetDispatchEnv
         , testInstall
         ]
 
@@ -260,6 +287,56 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
                 , (sdkPathEnvVar, Nothing)
                 ] (getSdk damlPath Nothing projPath)
             pure ()
+    ]
+
+testGetDispatchEnv :: Tasty.TestTree
+testGetDispatchEnv = Tasty.testGroup "DAML.Assistant.Env.getDispatchEnv"
+    [ Tasty.testCase "getDispatchEnv should be idempotent" $ do
+        withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
+            version <- requiredE "expected this to be valid version" $ parseVersion "1.0.1"
+            let denv = Env
+                    { envDamlPath = DamlPath (base </> ".daml")
+                    , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
+                    , envDamlAssistantSdkVersion = Just $ DamlAssistantSdkVersion version
+                    , envSdkVersion = Just version
+                    , envLatestStableSdkVersion = Just version
+                    , envSdkPath = Just $ SdkPath (base </> "sdk")
+                    , envProjectPath = Just $ ProjectPath (base </> "proj")
+                    }
+            env1 <- withEnv [] (getDispatchEnv denv)
+            env2 <- withEnv (fmap (fmap Just) env1) (getDispatchEnv denv)
+            Tasty.assertEqual "dispatch envs" env1 env2
+
+    , Tasty.testCase "getDispatchEnv should override getDamlEnv" $ do
+        withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
+            version <- requiredE "expected this to be valid version" $ parseVersion "1.0.1"
+            let denv1 = Env
+                    { envDamlPath = DamlPath (base </> ".daml")
+                    , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
+                    , envDamlAssistantSdkVersion = Just $ DamlAssistantSdkVersion version
+                    , envSdkVersion = Just version
+                    , envLatestStableSdkVersion = Just version
+                    , envSdkPath = Just $ SdkPath (base </> "sdk")
+                    , envProjectPath = Just $ ProjectPath (base </> "proj")
+                    }
+            env <- withEnv [] (getDispatchEnv denv1)
+            denv2 <- withEnv (fmap (fmap Just) env) getDamlEnv
+            Tasty.assertEqual "daml envs" denv1 denv2
+
+    , Tasty.testCase "getDispatchEnv should override getDamlEnv (2)" $ do
+        withSystemTempDirectory "test-getDispatchEnv" $ \base -> do
+            let denv1 = Env
+                    { envDamlPath = DamlPath (base </> ".daml")
+                    , envDamlAssistantPath = DamlAssistantPath (base </> ".daml" </> "bin" </> "strange-daml")
+                    , envDamlAssistantSdkVersion = Nothing
+                    , envSdkVersion = Nothing
+                    , envLatestStableSdkVersion = Nothing
+                    , envSdkPath = Nothing
+                    , envProjectPath = Nothing
+                    }
+            env <- withEnv [] (getDispatchEnv denv1)
+            denv2 <- withEnv (fmap (fmap Just) env) getDamlEnv
+            Tasty.assertEqual "daml envs" denv1 denv2
     ]
 
 

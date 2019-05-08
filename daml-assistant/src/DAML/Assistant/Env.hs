@@ -27,7 +27,7 @@ import DAML.Project.Config
 import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
 import System.Directory
 import System.FilePath
-import System.Environment
+import System.Environment.Blank
 import System.IO
 import Control.Monad.Extra
 import Control.Exception.Safe
@@ -59,11 +59,48 @@ getDamlEnv = do
     envLatestStableSdkVersion <- getLatestStableSdkVersion envDamlPath
     pure Env {..}
 
+-- | (internal) Override function with environment variable
+-- if it is available.
+overrideWithEnvVar
+    :: String                   -- ^ env var name
+    -> (String -> t)            -- ^ parser for env var
+    -> IO t                     -- ^ calculation to override
+    -> IO t
+overrideWithEnvVar envVar parse calculate =
+    maybeM calculate (pure . parse) (getEnv envVar)
+
+-- | (internal) Same as overrideWithEnvVar but accepts "" as
+-- Nothing and throws exception on parse failure.
+overrideWithEnvVarMaybe
+    :: Exception e
+    => String                   -- ^ env var name
+    -> (String -> Either e t)   -- ^ parser for env var
+    -> IO (Maybe t)             -- ^ calculation to override
+    -> IO (Maybe t)
+overrideWithEnvVarMaybe envVar parse calculate = do
+    valueM <- getEnv envVar
+    case valueM of
+        Nothing -> calculate
+        Just "" -> pure Nothing
+        Just value ->
+            Just <$> requiredE
+                ("Invalid value for environment variable " <> pack envVar <> ".")
+                (parse value)
+
+
+
+-- | Get the latest stable SDK version. Can be overriden with
+-- DAML_SDK_LATEST_VERSION environment variable.
+getLatestStableSdkVersion :: DamlPath -> IO (Maybe SdkVersion)
+getLatestStableSdkVersion damlPath =
+    overrideWithEnvVarMaybe sdkVersionLatestEnvVar (parseVersion . pack) $
+        getLatestStableSdkVersionDefault damlPath
+
 -- | Get the latest stable SDK version. Designed to return Nothing if
 -- anything fails (e.g. machine is offline). The result is cached in
 -- $DAML_HOME/cache/latest-sdk-version.txt and only polled once a day.
-getLatestStableSdkVersion :: DamlPath -> IO (Maybe SdkVersion)
-getLatestStableSdkVersion damlPath =
+getLatestStableSdkVersionDefault :: DamlPath -> IO (Maybe SdkVersion)
+getLatestStableSdkVersionDefault damlPath =
     cacheLatestSdkVersion damlPath $ do
         versionE :: Either AssistantError SdkVersion
             <- try getLatestVersion
@@ -90,18 +127,33 @@ testDamlEnv Env{..} = firstJustM (\(test, msg) -> unlessMaybeM test (pure msg))
       , "The project directory does not exist. Please check if DAML_PROJECT is incorrectly set.")
     ]
 
+-- | Determine the absolute path to the assistant. Can be overriden with
+-- DAML_ASSISTANT env var.
+getDamlAssistantPath :: DamlPath -> IO DamlAssistantPath
+getDamlAssistantPath damlPath =
+    overrideWithEnvVar damlAssistantEnvVar DamlAssistantPath $
+        getDamlAssistantPathDefault damlPath
+
 -- | Determine the absolute path to the assistant.
-getDamlAssistantPath :: Applicative f => DamlPath -> f DamlAssistantPath
-getDamlAssistantPath (DamlPath damlPath)
+getDamlAssistantPathDefault :: Applicative f => DamlPath -> f DamlAssistantPath
+getDamlAssistantPathDefault (DamlPath damlPath)
     -- Our packaging logic for Haskell results in getExecutablePath
     -- pointing to the dynamic linker and getProgramName returning "daml" in
     -- both cases so we use this hack to figure out the executable name.
     | takeFileName damlPath == ".daml-head" = pure $ DamlAssistantPath $ damlPath </> "bin" </> "daml-head"
     | otherwise = pure $ DamlAssistantPath $ damlPath </> "bin" </> "daml"
 
--- | Determine SDK version of running daml assistant.
+-- | Determine SDK version of running daml assistant. Can be overriden
+-- with DAML_ASSISTANT_VERSION env var.
 getDamlAssistantSdkVersion :: IO (Maybe DamlAssistantSdkVersion)
-getDamlAssistantSdkVersion = fmap DamlAssistantSdkVersion <$> do
+getDamlAssistantSdkVersion =
+    overrideWithEnvVarMaybe damlAssistantVersionEnvVar
+        (fmap DamlAssistantSdkVersion . parseVersion . pack)
+        getDamlAssistantSdkVersionDefault
+
+-- | Determine SDK version of running daml assistant.
+getDamlAssistantSdkVersionDefault :: IO (Maybe DamlAssistantSdkVersion)
+getDamlAssistantSdkVersionDefault = fmap DamlAssistantSdkVersion <$> do
     exePath <- getExecutablePath
     sdkPathM <- fmap SdkPath <$> findM hasSdkConfig (ascendants exePath)
     case sdkPathM of
@@ -128,7 +180,7 @@ getDamlAssistantSdkVersion = fmap DamlAssistantSdkVersion <$> do
 getDamlPath :: IO DamlPath
 getDamlPath = wrapErr "Determining daml home directory." $ do
     path <- required "Failed to determine daml path." =<< firstJustM id
-        [ lookupEnv damlPathEnvVar
+        [ getEnv damlPathEnvVar
         , findM hasDamlConfig . ascendants =<< getExecutablePath
         , Just <$> getAppUserDataDirectory "daml"
         ]
@@ -147,10 +199,9 @@ getDamlPath = wrapErr "Determining daml home directory." $ do
 -- environment variable.
 getProjectPath :: IO (Maybe ProjectPath)
 getProjectPath = wrapErr "Detecting daml project." $ do
-        pathM <- firstJustM id
-            [ lookupEnv projectPathEnvVar
-            , findM hasProjectConfig . ascendants =<< getCurrentDirectory
-            ]
+        pathM <- overrideWithEnvVarMaybe @SomeException projectPathEnvVar Right $ do
+            cwd <- getCurrentDirectory
+            findM hasProjectConfig (ascendants cwd)
         pure (ProjectPath <$> pathM)
 
     where
@@ -170,12 +221,8 @@ getSdk :: DamlPath
 getSdk damlPath damlAsstSdkVersionM projectPathM =
     wrapErr "Determining SDK version and path." $ do
 
-        sdkVersion <- firstJustM id
-            [ lookupEnv sdkVersionEnvVar >>= \ vstrM -> pure $ do
-                vstr <- vstrM
-                eitherToMaybe (parseVersion (pack vstr))
-
-            , fromConfig "SDK" (lookupEnv sdkPathEnvVar)
+        sdkVersion <- overrideWithEnvVarMaybe sdkVersionEnvVar (parseVersion . pack) $ firstJustM id
+            [ fromConfig "SDK" (getEnv sdkPathEnvVar)
                                (readSdkConfig . SdkPath)
                                (fmap Just . sdkVersionFromSdkConfig)
             , fromConfig "project" (pure projectPathM)
@@ -184,9 +231,8 @@ getSdk damlPath damlAsstSdkVersionM projectPathM =
             , getLatestInstalledSdkVersion damlPath
             ]
 
-        sdkPath <- firstJustM id
-            [ fmap SdkPath <$> lookupEnv sdkPathEnvVar
-            , useInstalledPath damlPath sdkVersion
+        sdkPath <- overrideWithEnvVarMaybe @SomeException sdkPathEnvVar (Right . SdkPath) $ firstJustM id
+            [ useInstalledPath damlPath sdkVersion
             , autoInstall damlPath damlAsstSdkVersionM sdkVersion
             ]
 

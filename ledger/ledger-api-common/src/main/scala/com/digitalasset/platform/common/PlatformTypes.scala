@@ -65,7 +65,7 @@ object PlatformTypes {
 
   def parties(as: Iterable[String]): Set[Ref.Party] = as.map(a => party(a))(breakOut)
 
-  def ss(str: String): Ref.SimpleString = Ref.SimpleString.assertFromString(str)
+  def ss(str: String): Ref.PackageId = Ref.PackageId.assertFromString(str)
 
   def identifier(aPackageId: String, name: String): Ref.Identifier =
     Ref.Identifier(packageId(aPackageId), qn(name))

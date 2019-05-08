@@ -32,7 +32,7 @@ case object Templates extends SimpleCommand {
         t =>
           List(
             t.topLevelDecl,
-            t.id.packageId.underlyingString.take(8),
+            t.id.packageId.take(8),
             t.choices.length.toString,
             Pretty
               .yaml(Pretty.damlLfDefDataType(t.id, ps.packageRegistry.damlLfDefDataType))

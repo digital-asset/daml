@@ -97,7 +97,7 @@ object Ast {
   final case class EAbs(
       binder: (ExprVarName, Type),
       body: Expr,
-      ref: Option[DefinitionRef[PackageId]] // The definition in which this abstraction is defined.
+      ref: Option[DefinitionRef] // The definition in which this abstraction is defined.
   ) extends Expr
 
   /** Type abstraction. */

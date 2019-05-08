@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi
 import com.digitalasset.daml.lf.codegen.TypeWithContext
 import com.digitalasset.daml.lf.codegen.backend.java.JavaEscaper
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
 import com.digitalasset.daml.lf.iface._
 import InterfaceType.Normal
 import com.squareup.javapoet._
@@ -199,7 +199,7 @@ private[inner] object VariantClass extends StrictLogging {
       if (variantRecords.contains(child.name)) {
         logger.debug(s"${child.name} is a variant record")
         child.`type`.typ match {
-          case Normal(DefDataType(typeVars, record: Record.FWT)) =>
+          case Some(Normal(DefDataType(typeVars, record: Record.FWT))) =>
             innerClasses += VariantRecordClass
               .generate(
                 typeVars.map(JavaEscaper.escapeString),

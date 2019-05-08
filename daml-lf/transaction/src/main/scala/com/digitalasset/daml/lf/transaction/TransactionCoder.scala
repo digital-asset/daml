@@ -76,7 +76,7 @@ object TransactionCoder {
           TransactionOuterClass.KeyWithMaintainers
             .newBuilder()
             .setKey(encodedKey)
-            .addAllMaintainers(key.maintainers.map(_.underlyingString).asJava)
+            .addAllMaintainers(key.maintainers.toSet[String].asJava)
             .build())
     }
   }
@@ -110,8 +110,8 @@ object TransactionCoder {
               _.setContractId(_),
               _.setContractIdStruct(_))
             .setContractInstance(inst)
-            .addAllStakeholders(c.stakeholders.map(_.underlyingString).asJava)
-            .addAllSignatories(c.signatories.map(_.underlyingString).asJava)
+            .addAllStakeholders(c.stakeholders.toSet[String].asJava)
+            .addAllSignatories(c.signatories.toSet[String].asJava)
           c.key match {
             case None => Right(nodeBuilder.setCreate(createBuilder).build())
             case Some(key) =>
@@ -137,8 +137,8 @@ object TransactionCoder {
             _.setContractIdStruct(_))
           .setTemplateId(etid)
           .setValueVersion(vversion.protoValue)
-          .addAllStakeholders(f.stakeholders.map(_.underlyingString).asJava)
-          .addAllSignatories(f.signatories.map(_.underlyingString).asJava)
+          .addAllStakeholders(f.stakeholders.toSet[String].asJava)
+          .addAllSignatories(f.signatories.toSet[String].asJava)
 
         if (transactionVersion precedes TransactionVersions.minFetchActors) {
           if (f.actingParties.nonEmpty)
@@ -146,8 +146,7 @@ object TransactionCoder {
           else Right(nodeBuilder.setFetch(fetchBuilder).build())
         } else {
           val fetchBuilderWithActors =
-            fetchBuilder.addAllActors(
-              f.actingParties.getOrElse(Set.empty).map(_.underlyingString).asJava)
+            fetchBuilder.addAllActors(f.actingParties.getOrElse(Set.empty).toSet[String].asJava)
           Right(nodeBuilder.setFetch(fetchBuilderWithActors).build())
         }
 
@@ -167,14 +166,14 @@ object TransactionCoder {
               .setContractIdOrStruct(encodeCid, transactionVersion, e.targetCoid)(
                 _.setContractId(_),
                 _.setContractIdStruct(_))
-              .addAllActors(e.actingParties.map(_.underlyingString).asJava)
+              .addAllActors(e.actingParties.toSet[String].asJava)
               .addAllChildren(e.children.map(encodeNid).toList.asJava)
-              .addAllSignatories(e.signatories.map(_.underlyingString).asJava)
-              .addAllStakeholders(e.stakeholders.map(_.underlyingString).asJava)
+              .addAllSignatories(e.signatories.toSet[String].asJava)
+              .addAllStakeholders(e.stakeholders.toSet[String].asJava)
 
           if (transactionVersion precedes minNoControllers) {
             if (e.controllers == e.actingParties) {
-              exBuilder.addAllControllers(e.controllers.map(_.underlyingString).asJava)
+              exBuilder.addAllControllers(e.controllers.toSet[String].asJava)
             } else {
               return Left(EncodeError(
                 s"As of version $transactionVersion, the controllers and actingParties of an exercise node _must_ be the same, but I got ${e.controllers} as controllers and ${e.actingParties} as actingParties."))

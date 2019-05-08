@@ -8,6 +8,7 @@ import java.util.stream.Collectors
 import com.daml.ledger.javaapi
 import com.digitalasset.daml.lf.codegen.backend.java.JavaEscaper
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.iface._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging

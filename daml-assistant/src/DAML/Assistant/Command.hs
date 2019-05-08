@@ -22,7 +22,8 @@ import Options.Applicative
 
 getCommand :: [SdkCommandInfo] -> IO Command
 getCommand sdkCommands =
-    execParser $ info (commandParser sdkCommands <**> helper) forwardOptions
+    customExecParser parserPrefs $ info (commandParser sdkCommands <**> helper) forwardOptions
+    where parserPrefs = prefs showHelpOnError
 
 subcommand :: Text -> Text -> InfoMod Command -> Parser Command -> Mod CommandFields Command
 subcommand name desc infoMod parser =

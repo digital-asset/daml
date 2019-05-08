@@ -36,9 +36,9 @@ class DarReaderTest extends WordSpec with Matchers with Inside {
             ((packageId2, archive2), LanguageMajorVersion.V1) :: (
               (packageId3, archive3),
               LanguageMajorVersion.V1) :: Nil)) =>
-        packageId1.underlyingString shouldNot be('empty)
-        packageId2.underlyingString shouldNot be('empty)
-        packageId3.underlyingString shouldNot be('empty)
+        packageId1 shouldNot be('empty)
+        packageId2 shouldNot be('empty)
+        packageId3 shouldNot be('empty)
         archive1.getDamlLf1.getModulesCount should be > 0
         archive2.getDamlLf1.getModulesCount should be > 0
         archive3.getDamlLf1.getModulesCount should be > 0

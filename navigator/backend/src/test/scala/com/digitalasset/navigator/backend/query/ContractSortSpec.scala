@@ -4,6 +4,7 @@
 package com.digitalasset.navigator.query
 
 import org.scalatest.{FlatSpec, Matchers}
+import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
 import com.digitalasset.navigator.model._
 import scalaz.syntax.tag._
 import com.digitalasset.navigator.query.SortDirection.{ASCENDING, DESCENDING}
@@ -14,12 +15,12 @@ class ContractSortSpec extends FlatSpec with Matchers {
   behavior of "ContractSort"
 
   val damlLfId0 = DamlLfIdentifier(
-    DamlLfPackageId.assertFromString("hash"),
+    DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName(DamlLfImmArray("module")),
       DamlLfDottedName(DamlLfImmArray("T0"))))
   val damlLfId1 = DamlLfIdentifier(
-    DamlLfPackageId.assertFromString("hash"),
+    DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName(DamlLfImmArray("module")),
       DamlLfDottedName(DamlLfImmArray("T1"))))

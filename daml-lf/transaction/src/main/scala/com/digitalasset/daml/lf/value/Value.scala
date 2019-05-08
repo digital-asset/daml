@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.archive.LanguageVersion
-import com.digitalasset.daml.lf.data.Ref.{Identifier, SimpleString}
+import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data._
 
 import scala.annotation.tailrec
@@ -186,7 +186,7 @@ object Value {
   final case class ValueText(value: String) extends Value[Nothing]
   final case class ValueTimestamp(value: Time.Timestamp) extends Value[Nothing]
   final case class ValueDate(value: Time.Date) extends Value[Nothing]
-  final case class ValueParty(value: SimpleString) extends Value[Nothing]
+  final case class ValueParty(value: Ref.Party) extends Value[Nothing]
   final case class ValueBool(value: Boolean) extends Value[Nothing]
   case object ValueUnit extends Value[Nothing]
   final case class ValueOptional[+Cid](value: Option[Value[Cid]]) extends Value[Cid]
@@ -197,56 +197,40 @@ object Value {
   final case class ValueTuple[+Cid](fields: ImmArray[(String, Value[Cid])]) extends Value[Cid]
 
   implicit def `Value Equal instance`[Cid: Equal]: Equal[Value[Cid]] =
-    ScalazEqual.withNatural(Equal[Cid].equalIsNatural) { (a, b) =>
-      a match {
-        case _: ValueInt64 | _: ValueDecimal | _: ValueText | _: ValueTimestamp | _: ValueParty |
-            _: ValueBool | _: ValueDate | ValueUnit =>
-          a == b
-        case r: ValueRecord[Cid] =>
-          b match {
-            case ValueRecord(tycon2, fields2) =>
-              import r._
-              tycon == tycon2 && fields === fields2
-            case _ => false
-          }
-        case v: ValueVariant[Cid] =>
-          b match {
-            case ValueVariant(tycon2, variant2, value2) =>
-              import v._
-              tycon == tycon2 && variant == variant2 && value === value2
-            case _ => false
-          }
-        case ValueContractId(value) =>
-          b match {
-            case ValueContractId(value2) =>
-              value === value2
-            case _ => false
-          }
-        case ValueList(values) =>
-          b match {
-            case ValueList(values2) =>
-              values === values2
-            case _ => false
-          }
-        case ValueOptional(value) =>
-          b match {
-            case ValueOptional(value2) =>
-              value === value2
-            case _ => false
-          }
-        case ValueTuple(fields) =>
-          b match {
-            case ValueTuple(fields2) =>
-              fields === fields2
-            case _ => false
-          }
-        case ValueMap(map1) =>
-          b match {
-            case ValueMap(map2) =>
-              map1 == map2
-            case _ =>
-              false
-          }
+    ScalazEqual.withNatural(Equal[Cid].equalIsNatural) {
+      ScalazEqual.match2(fallback = false) {
+        case a @ (_: ValueInt64 | _: ValueDecimal | _: ValueText | _: ValueTimestamp |
+            _: ValueParty | _: ValueBool | _: ValueDate | ValueUnit) => { case b => a == b }
+        case r: ValueRecord[Cid] => {
+          case ValueRecord(tycon2, fields2) =>
+            import r._
+            tycon == tycon2 && fields === fields2
+        }
+        case v: ValueVariant[Cid] => {
+          case ValueVariant(tycon2, variant2, value2) =>
+            import v._
+            tycon == tycon2 && variant == variant2 && value === value2
+        }
+        case ValueContractId(value) => {
+          case ValueContractId(value2) =>
+            value === value2
+        }
+        case ValueList(values) => {
+          case ValueList(values2) =>
+            values === values2
+        }
+        case ValueOptional(value) => {
+          case ValueOptional(value2) =>
+            value === value2
+        }
+        case ValueTuple(fields) => {
+          case ValueTuple(fields2) =>
+            fields === fields2
+        }
+        case ValueMap(map1) => {
+          case ValueMap(map2) =>
+            map1 === map2
+        }
       }
     }
 

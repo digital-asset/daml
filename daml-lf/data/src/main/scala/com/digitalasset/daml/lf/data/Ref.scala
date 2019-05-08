@@ -5,50 +5,8 @@ package com.digitalasset.daml.lf.data
 
 object Ref {
 
-  // SimpleString are non empty US-ASCII strings built with letters, digits, space, minus and,
-  // underscore. We use them to represent packageIds and party literals. In this way, we avoid
-  // empty identifiers, escaping problems, and other similar pitfalls.
-  final case class SimpleString private (underlyingString: String) extends Ordered[SimpleString] {
-    def compare(that: SimpleString): Int =
-      underlyingString.compareTo(that.underlyingString)
-  }
-
-  object SimpleString {
-
-    private def valid(c: Char) =
-      ('a' <= c && c <= 'z') ||
-        ('A' <= c && c <= 'Z') ||
-        ('0' <= c && c <= '9') ||
-        c == ' ' || c == '-' || c == '_'
-
-    def fromString(string: String): Either[String, SimpleString] =
-      if (string.isEmpty)
-        Left(s"Expected a non-empty string")
-      else
-        string.find(c => !valid(c)) match {
-          case None =>
-            Right(new SimpleString(string))
-          case Some(c) =>
-            Left(s"""Invalid character ${c.toInt.formatted("%#x")} found in "$string"""")
-        }
-
-    /** Crashes if the string is not a valid [[SimpleString]]. */
-    @throws[IllegalArgumentException]
-    def assertFromString(s: String): SimpleString =
-      assert(fromString(s))
-  }
-
-  type Party = SimpleString
-  val Party = SimpleString
-
   /* Location annotation */
   case class Location(packageId: PackageId, module: ModuleName, start: (Int, Int), end: (Int, Int))
-
-  /* Choice name in a template. */
-  type ChoiceName = String
-
-  type ModuleName = DottedName
-  val ModuleName = DottedName
 
   // we do not use String.split because `":foo".split(":")`
   // results in `List("foo")` rather than `List("", "foo")`
@@ -157,17 +115,30 @@ object Ref {
    * specified package. */
   case class Identifier(packageId: PackageId, qualifiedName: QualifiedName)
 
+  /* Choice name in a template. */
+  type ChoiceName = String
+
+  type ModuleName = DottedName
+  val ModuleName = DottedName
+
+  /** Party are non empty US-ASCII strings built with letters, digits, space, minus and,
+      underscore. We use them to represent [PackageId]s and [Party] literals. In this way, we avoid
+      empty identifiers, escaping problems, and other similar pitfalls.
+    */
+  val Party = MatchingStringModule("""[a-zA-Z0-9\-_ ]+""".r)
+  type Party = Party.T
+
   /** Reference to a package via a package identifier. The identifier is the ascii7
     * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
-  type PackageId = SimpleString
-  val PackageId = SimpleString
+  val PackageId = MatchingStringModule("""[a-zA-Z0-9\-_ ]+""".r)
+  type PackageId = PackageId.T
 
   /** Reference to a value defined in the specified module. */
   type ValueRef = Identifier
   val ValueRef = Identifier
 
   /** Reference to a value defined in the specified module. */
-  type DefinitionRef[PkgId] = Identifier
+  type DefinitionRef = Identifier
   val DefinitionRef = Identifier
 
   /** Reference to a type constructor. */

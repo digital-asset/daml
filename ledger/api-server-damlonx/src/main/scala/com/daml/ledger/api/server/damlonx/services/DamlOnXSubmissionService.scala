@@ -45,11 +45,14 @@ object DamlOnXSubmissionService {
       ledgerId: LedgerId,
       indexService: IndexService,
       writeService: WriteService,
-      engine: Engine)(implicit ec: ExecutionContext, mat: ActorMaterializer)
-    : CommandSubmissionServiceGrpc.CommandSubmissionService with BindableService with CommandSubmissionServiceLogging =
+      engine: Engine)(
+      implicit ec: ExecutionContext,
+      mat: ActorMaterializer): CommandSubmissionServiceGrpc.CommandSubmissionService
+    with BindableService
+    with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new DamlOnXSubmissionService(indexService, writeService, engine),
-      ledgerId.underlyingString,
+      ledgerId,
       identifierResolver
     ) with CommandSubmissionServiceLogging
 
@@ -77,7 +80,7 @@ class DamlOnXSubmissionService private (
   }
 
   private def recordOnLedger(commands: ApiCommands): Future[Unit] = {
-    val ledgerId = Ref.SimpleString.assertFromString(commands.ledgerId.unwrap)
+    val ledgerId = Ref.PackageId.assertFromString(commands.ledgerId.unwrap)
     val getPackage =
       (packageId: Ref.PackageId) =>
         indexService
@@ -96,7 +99,7 @@ class DamlOnXSubmissionService private (
         case Right(updateTx) =>
           Future {
             logger.debug(
-              s"Submitting transaction from ${commands.submitter.underlyingString} with ${commands.commandId.unwrap}")
+              s"Submitting transaction from ${commands.submitter} with ${commands.commandId.unwrap}")
             writeService.submitTransaction(
               submitterInfo = SubmitterInfo(
                 submitter = commands.submitter,

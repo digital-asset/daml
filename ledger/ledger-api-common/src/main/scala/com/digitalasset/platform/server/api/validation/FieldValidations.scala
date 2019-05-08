@@ -19,13 +19,19 @@ trait FieldValidations {
     if (s.nonEmpty) Right(s)
     else Left(missingField(fieldName))
 
-  def requireSimpleString(
+  def requirePackageId(
       s: String,
-      fieldName: String): Either[StatusRuntimeException, Ref.SimpleString] =
-    Ref.SimpleString.fromString(s).left.map(invalidField(fieldName, _))
+      fieldName: String): Either[StatusRuntimeException, Ref.PackageId] =
+    Ref.PackageId.fromString(s).left.map(invalidField(fieldName, _))
 
-  def requireSimpleString(s: String): Either[StatusRuntimeException, Ref.SimpleString] =
-    Ref.SimpleString.fromString(s).left.map(invalidArgument)
+  def requirePackageId(s: String): Either[StatusRuntimeException, Ref.PackageId] =
+    Ref.PackageId.fromString(s).left.map(invalidArgument)
+
+  def requireParty(s: String, fieldName: String): Either[StatusRuntimeException, Ref.Party] =
+    Ref.Party.fromString(s).left.map(invalidField(fieldName, _))
+
+  def requireParty(s: String): Either[StatusRuntimeException, Ref.Party] =
+    Ref.Party.fromString(s).left.map(invalidArgument)
 
   def requireDottedName(
       s: String,

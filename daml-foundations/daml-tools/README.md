@@ -33,8 +33,6 @@ Contains internal documentation:
 
 * `daml-contract-keys`: requirements and planning for contract keys, disclosure and contract quantities
 
-* `daml-lf-specification`
-
 * `daml-licenses`
 
 * `time-model`

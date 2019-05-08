@@ -57,7 +57,7 @@ buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name = do
     -- produces interface files per default, hence we filter for existent files.
     fileDeps <-
         filterM doesFileExist $
-        concat [[dep, replaceExtension dep "hi"] | dep <- fileDependencies]
+        concat [[dep, dep -<.> "hi", dep -<.> "hie"] | dep <- fileDependencies]
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
     -- is modified to have prefix <name> instead of the original root path.

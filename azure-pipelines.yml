@@ -31,7 +31,7 @@ jobs:
           curl -XPOST \
                -i \
                -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!channel> *FAILED* Linux: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
+               --data "{\"text\":\"<!here> *FAILED* Linux: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
                $(Slack.URL)
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
 
@@ -50,7 +50,7 @@ jobs:
           curl -XPOST \
                -i \
                -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!channel> *FAILED* macOS: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
+               --data "{\"text\":\"<!here> *FAILED* macOS: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
                $(Slack.URL)
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
 
@@ -67,7 +67,7 @@ jobs:
           curl -XPOST \
                -i \
                -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!channel> *FAILED* Windows: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
+               --data "{\"text\":\"<!here> *FAILED* Windows: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
                $(Slack.URL)
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
 
@@ -100,7 +100,7 @@ jobs:
           curl -XPOST \
                -i \
                -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!channel> *FAILED* perf: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
+               --data "{\"text\":\"<!here> *FAILED* perf: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
                $(Slack.URL)
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
 
@@ -158,6 +158,6 @@ jobs:
           curl -XPOST \
                -i \
                -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!channel> *FAILED* Release: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
+               --data "{\"text\":\"<!here> *FAILED* Release: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
                $(Slack.URL)
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))

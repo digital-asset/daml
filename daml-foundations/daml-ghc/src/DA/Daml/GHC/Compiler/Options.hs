@@ -15,7 +15,7 @@ module DA.Daml.GHC.Compiler.Options
 
 import Development.IDE.UtilGHC (runGhcFast)
 import DA.Daml.GHC.Compiler.Config (setupDamlGHC)
-import qualified Development.IDE.Functions.Compile as Compile
+import qualified Development.IDE.Types.Options as Compile
 
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
@@ -28,6 +28,7 @@ import Data.Tuple.Extra
 import "ghc-lib-parser" DynFlags
 import qualified "ghc-lib" GHC
 import "ghc-lib-parser" Module (moduleNameSlashes)
+import "ghc-lib-parser" PackageConfig
 import qualified System.Directory as Dir
 import           System.FilePath
 import DA.Pretty (renderPretty)
@@ -62,14 +63,18 @@ data Options = Options
 
 -- | Convert to the DAML-independent CompileOpts type.
 -- TODO (MK) Cleanup as part of the Options vs CompileOpts cleanup
-toCompileOpts :: Options -> Compile.CompileOpts
+toCompileOpts :: Options -> Compile.IdeOptions
 toCompileOpts Options{..} =
-    Compile.CompileOpts
+    Compile.IdeOptions
       { optPreprocessor = damlPreprocessor
       , optRunGhcSession = \mbMod packageState m -> runGhcFast $ do
             let importPaths = maybe [] moduleImportPaths mbMod <> optImportPath
             setupDamlGHC importPaths optMbPackageName packageState optGhcCustomOpts
             m
+      , optPkgLocationOpts = Compile.IdePkgLocationOptions
+          { optLocateHieFile = locateInPkgDb "hie"
+          , optLocateSrcFile = locateInPkgDb "daml"
+          }
       , optWriteIface = optWriteInterface
       , optMbPackageName = optMbPackageName
       , optPackageDbs = optPackageDbs
@@ -80,6 +85,16 @@ toCompileOpts Options{..} =
       }
   where
     toRenaming aliases = ModRenaming False [(GHC.mkModuleName mod, GHC.mkModuleName alias) | (mod, alias) <- aliases]
+    locateInPkgDb :: String -> PackageConfig -> GHC.Module -> IO (Maybe FilePath)
+    locateInPkgDb ext pkgConfig mod
+      | (importDir : _) <- importDirs pkgConfig = do
+            -- We only produce package configs with exactly one importDir.
+            let path = importDir </> moduleNameSlashes (GHC.moduleName mod) <.> ext
+            exists <- Dir.doesFileExist path
+            pure $ if exists
+                then Just path
+                else Nothing
+      | otherwise = pure Nothing
 
 moduleImportPaths :: GHC.ParsedModule -> [FilePath]
 moduleImportPaths pm =
