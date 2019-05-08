@@ -11,7 +11,12 @@ This examples requires a running sandbox. To start a sandbox, run the following 
 $ daml start
 ```
 
-To run the quickstart example:
+To run the quickstart-scala example as part of a DAML Assistant project:
+```
+$ sbt "application/runMain com.digitalasset.quickstart.iou.IouMain localhost 6865"
+```
+
+To run the quickstart-scala as a standalone project, you have to specify `da.sdk.version` and `dar.file` JVM system properties:
 ```
 $ sbt -Dda.sdk.version=<DA_SDK_VERSION> -Ddar.file=<DAR_FILE_PATH> "application/runMain com.digitalasset.quickstart.iou.IouMain localhost 6865"
 ```
