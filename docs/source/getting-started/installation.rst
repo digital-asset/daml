@@ -20,9 +20,12 @@ You need to install:
 Mac and Linux
 ============
 
-To install the SDK on Mac or Linux, run::
+To install the SDK on Mac or Linux:
 
-  curl -sSL https://get.daml.com/ | sh
+1. Run::
+
+     curl -sSL https://get.daml.com/ | sh
+2. If prompted, add ``~/.daml/bin`` to your PATH.
 
 Windows
 =======

@@ -28,7 +28,7 @@ Navigator ships with the DAML SDK. To launch it:
 2. The Navigator web-app is automatically started in your browser. If it fails to start,
    open a browser window and point it to the Navigator URL
 
-  When running ``daml start`` you will see the Navigator URL. By default it will be `<http://localhost:7500/>`_. However, if port ``7500`` is taken, a different port will be picked.
+  When running ``daml start`` you will see the Navigator URL. By default it will be `<http://localhost:7500/>`_.
 
 .. note:: Navigator is compatible with these browsers: Safari, Chrome, or
    Firefox.
