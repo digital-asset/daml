@@ -77,6 +77,7 @@ toCompileOpts Options{..} =
           , optLocateSrcFile = locateInPkgDb "daml"
           }
       , optWriteIface = optWriteInterface
+      , optExtensions = ["daml"]
       , optMbPackageName = optMbPackageName
       , optPackageDbs = optPackageDbs
       , optHideAllPkgs = optHideAllPkgs
