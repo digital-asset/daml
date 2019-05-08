@@ -11,7 +11,12 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.Speedy.{CtrlValue, Machine, SpeedyHungry}
+import com.digitalasset.daml.lf.speedy.Speedy.{
+  CtrlValue,
+  CtrlWronglyTypeContractId,
+  Machine,
+  SpeedyHungry
+}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.transaction.Transaction._
@@ -774,6 +779,17 @@ object SBuiltin {
             case Some((_, Some(consumedBy))) =>
               throw DamlELocalContractNotActive(coid, templateId, consumedBy)
             case Some((coinst, None)) =>
+              // Here we crash hard rather than throwing a "nice" error
+              // ([[DamlEWronglyTypedContract]]) since if _relative_ contract
+              // id to be of the wrong template it means that the DAML-LF
+              // program that generated it is ill-typed.
+              //
+              // On the other hand absolute contract ids can come from outside
+              // (e.g. Ledger API) and thus we need to fail more gracefully
+              // (see below).
+              if (coinst.template != templateId) {
+                crash(s"Relative contract $rcoid ($templateId) not found from partial transaction")
+              }
               coinst.arg
           }
         case acoid: V.AbsoluteContractId =>
@@ -784,7 +800,14 @@ object SBuiltin {
               machine.committer,
               cbMissing = _ => machine.tryHandleException(),
               cbPresent = { coinst =>
-                machine.ctrl = CtrlValue(SValue.fromValue(coinst.arg.value))
+                // Note that we cannot throw in this continuation -- instead
+                // set the control appropriately which will crash the machine
+                // correctly later.
+                if (coinst.template != templateId) {
+                  machine.ctrl = CtrlWronglyTypeContractId(acoid, templateId, coinst.template)
+                } else {
+                  machine.ctrl = CtrlValue(SValue.fromValue(coinst.arg.value))
+                }
               }
             ))
       }

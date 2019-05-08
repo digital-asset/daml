@@ -65,6 +65,11 @@ object Pretty {
                 (line + text("Recursive exercise of ") + prettyTypeConName(tid)).nested(4)
               case Some(nid) => (line + prettyTransactionNode(nid)).nested(4)
             })
+
+      case DamlEWronglyTypedContract(coid, expected, actual) =>
+        text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
+          text("Expected contract of type") & prettyTypeConName(expected) & text("but got") & prettyTypeConName(
+          actual)
     }
 
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..

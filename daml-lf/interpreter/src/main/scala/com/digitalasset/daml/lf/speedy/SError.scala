@@ -76,6 +76,15 @@ object SError {
       consumedBy: Ledger.NodeId)
       extends SErrorScenario
 
+  /** We tried to fetch / exercise a contract of the wrong type --
+    * see <https://github.com/digital-asset/daml/issues/1005>.
+    */
+  final case class DamlEWronglyTypedContract(
+      coid: ContractId,
+      expected: TypeConName,
+      actual: TypeConName)
+      extends SErrorDamlException
+
   /** A fetch or exercise was being made against a contract that has not
     * been disclosed to 'committer'. */
   final case class ScenarioErrorContractNotVisible(
