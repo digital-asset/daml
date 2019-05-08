@@ -83,9 +83,10 @@ message Record {
 // A named nested value within a record.
 message RecordField {
 
-  // Omitted from the transaction stream when verbose streaming is not enabled.
-  // If any of the keys are omitted within a single record, the order of fields MUST match the order of declaration in the DAML template.
-  // Optional, when submitting commands.
+  // When reading a transaction stream, it's omitted if verbose streaming is not enabled.
+  // When submitting a commmand, it's optional:
+  //   - if all keys within a single record are present, the order in which fields appear does not matter. however, each key must appear exactly once.
+  //   - if any of the keys within a single record are omitted, the order of fields MUST match the order of declaration in the DAML template.
   string label = 1;
 
   // A nested value of a record.

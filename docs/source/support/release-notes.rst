@@ -19,6 +19,7 @@ HEAD — ongoing
 
 - Add ``quickstart-scala`` DAML Assistant project template.
 
+- DAML-LF Engine: if all labels in a record are set, fields no longer need to be ordered (see `#988 <https://github.com/digital-asset/daml/issues/988>`_)
 
 0.12.15 - 2019-05-06
 --------------------
