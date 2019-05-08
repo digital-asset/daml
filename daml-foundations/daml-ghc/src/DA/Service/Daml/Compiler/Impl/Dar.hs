@@ -51,8 +51,9 @@ buildDar ::
   -> [FilePath]
   -> [(String, BS.ByteString)]
   -> String
+  -> String
   -> IO BS.ByteString
-buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name = do
+buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersion = do
     -- Take all source file dependencies and produced interface files. Only the new package command
     -- produces interface files per default, hence we filter for existent files.
     fileDeps <-
@@ -87,6 +88,7 @@ buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name = do
         manifestHeader location dalfs = BSC.pack $ unlines
           [ "Manifest-Version: 1.0"
           , "Created-By: Digital Asset packager (DAML-GHC)"
+          , "Sdk-Version: " <> sdkVersion
           , breakAt72Chars $ "Main-Dalf: " <> location
           , breakAt72Chars $ "Dalfs: " <> intercalate ", " dalfs
           , "Format: daml-lf"

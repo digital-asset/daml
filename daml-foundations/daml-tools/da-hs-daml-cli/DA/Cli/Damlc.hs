@@ -242,6 +242,7 @@ data PackageConfigFields = PackageConfigFields
     , pExposedModules :: [String]
     , pVersion :: String
     , pDependencies :: [String]
+    , pSdkVersion :: String
     }
 
 -- | Parse the daml.yaml for package specific config fields.
@@ -254,7 +255,8 @@ parseProjectConfig project = do
     version <- queryProjectConfigRequired ["version"] project
     dependencies <-
         queryProjectConfigRequired ["dependencies"] project
-    Right $ PackageConfigFields name main exposedModules version dependencies
+    sdkVersion <- queryProjectConfigRequired ["sdk-version"] project
+    Right $ PackageConfigFields name main exposedModules version dependencies sdkVersion
 
 -- | Package command that takes all arguments of daml.yaml.
 execPackageNew :: Int -> Maybe FilePath -> IO ()
@@ -287,6 +289,7 @@ execPackageNew numProcessors mbOutFile =
                             compilerH
                             pMain
                             pName
+                            pSdkVersion
                             [confFile]
                             (UseDalf False)
                     case darOrErr of
@@ -422,7 +425,9 @@ execPackage filePath opts mbOutFile dumpPom dalfInput = withProjectRoot $ \relat
     -- but I don’t think that is worth the complexity of carrying around a type parameter.
     name = fromMaybe (error "Internal error: Package name was not present") (Compiler.optMbPackageName opts)
     buildDar path compilerH = do
-        darOrErr <- runExceptT $ Compiler.buildDar compilerH path name [] dalfInput
+        -- We leave the sdk version blank, this command is being removed anytime now and not present
+        -- in the new daml assistant.
+        darOrErr <- runExceptT $ Compiler.buildDar compilerH path name "" [] dalfInput
         case darOrErr of
           Left errs
            -> ioError $ userError $ unlines
