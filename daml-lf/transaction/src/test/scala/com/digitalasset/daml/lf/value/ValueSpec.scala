@@ -15,11 +15,11 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
     val emptyTuple = ValueTuple(ImmArray.empty)
     val emptyTupleError = "contains tuple ValueTuple(ImmArray())"
     val exceedsNesting = (1 to MAXIMUM_NESTING + 1).foldRight[Value[Nothing]](ValueInt64(42)) {
-      case (_, v) => ValueVariant(None, Ref.Identifier.assertFromString("foo"), v)
+      case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
     }
     val exceedsNestingError = s"exceeds maximum nesting value of $MAXIMUM_NESTING"
     val matchesNesting = (1 to MAXIMUM_NESTING).foldRight[Value[Nothing]](ValueInt64(42)) {
-      case (_, v) => ValueVariant(None, Ref.Identifier.assertFromString("foo"), v)
+      case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
     }
 
     "rejects tuple" in {

@@ -20,15 +20,15 @@ trait FieldValidations {
     if (s.nonEmpty) Right(s)
     else Left(missingField(fieldName))
 
-  def requireIdentifier(s: String): Either[StatusRuntimeException, Ref.Identifier] =
-    Ref.Identifier.fromString(s).left.map(invalidArgument)
+  def requireIdentifier(s: String): Either[StatusRuntimeException, Ref.Name] =
+    Ref.Name.fromString(s).left.map(invalidArgument)
 
   def requireIdentifier(
       s: String,
       fieldName: String
-  ): Either[StatusRuntimeException, Ref.Identifier] =
+  ): Either[StatusRuntimeException, Ref.Name] =
     if (s.nonEmpty)
-      Ref.Identifier.fromString(s).left.map(invalidField(fieldName, _))
+      Ref.Name.fromString(s).left.map(invalidField(fieldName, _))
     else
       Left(missingField(fieldName))
 

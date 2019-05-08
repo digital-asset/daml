@@ -152,6 +152,6 @@ object TransactionSpec {
       None
     )
 
-  private implicit def toChoiceName(s: String): Ref.Identifier = Ref.Identifier.assertFromString(s)
+  private implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)
 
 }

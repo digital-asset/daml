@@ -38,8 +38,8 @@ private[validation] object Typing {
   }
 
   protected[validation] lazy val typeOfBuiltinFunction = {
-    val alpha = TVar(Identifier.assertFromString("$alpha$"))
-    val beta = TVar(Identifier.assertFromString("$beta$"))
+    val alpha = TVar(Name.assertFromString("$alpha$"))
+    val beta = TVar(Name.assertFromString("$beta$"))
     def tBinop(typ: Type): Type = typ ->: typ ->: typ
     def tComparison(bType: BuiltinType): Type = TBuiltin(bType) ->: TBuiltin(bType) ->: TBool
 

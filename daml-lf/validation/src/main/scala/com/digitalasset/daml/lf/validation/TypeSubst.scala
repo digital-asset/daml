@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.data.Ref.Name
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.validation.Util._
 import com.digitalasset.daml.lf.validation.traversable.TypeTraversable
@@ -30,7 +30,7 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
   private def freshTypeVarName: TypeVarName =
     Stream
       .from(0)
-      .map(i => Identifier.assertFromString("$freshVar" + i.toString))
+      .map(i => Name.assertFromString("$freshVar" + i.toString))
       .filterNot(freeVars.contains)(0)
 
   def apply(dataCons: DataCons): DataCons = dataCons match {

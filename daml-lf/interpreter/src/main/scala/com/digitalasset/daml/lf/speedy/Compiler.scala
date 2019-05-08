@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref.Identifier.classTag
+import com.digitalasset.daml.lf.data.Ref.Name.classTag
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompileError, PackageNotFound}

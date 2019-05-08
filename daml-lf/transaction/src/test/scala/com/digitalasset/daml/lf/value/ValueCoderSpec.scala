@@ -128,7 +128,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     }
 
     "don't tuple" in {
-      val tuple = ValueTuple(ImmArray((Ref.Identifier.assertFromString("foo"), ValueInt64(42))))
+      val tuple = ValueTuple(ImmArray((Ref.Name.assertFromString("foo"), ValueInt64(42))))
       val res = ValueCoder.encodeValue[ContractId](defaultCidEncode, defaultValueVersion, tuple)
       res.left.get.errorMessage should include("serializable")
     }

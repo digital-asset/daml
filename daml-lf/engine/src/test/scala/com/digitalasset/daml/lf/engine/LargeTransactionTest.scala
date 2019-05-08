@@ -181,10 +181,10 @@ class LargeTransactionTest extends WordSpec with Matchers {
       step: Int,
       number: Int): CreateCommand = {
     val fields = ImmArray(
-      (Some[Identifier]("party"), ValueParty(party)),
-      (Some[Identifier]("start"), ValueInt64(start.toLong)),
-      (Some[Identifier]("step"), ValueInt64(step.toLong)),
-      (Some[Identifier]("size"), ValueInt64(number.toLong))
+      (Some[Name]("party"), ValueParty(party)),
+      (Some[Name]("start"), ValueInt64(start.toLong)),
+      (Some[Name]("step"), ValueInt64(step.toLong)),
+      (Some[Name]("size"), ValueInt64(number.toLong))
     )
     val argument = assertAsVersionedValue(ValueRecord(Some(templateId), fields))
     CreateCommand(templateId, argument)
@@ -219,7 +219,7 @@ class LargeTransactionTest extends WordSpec with Matchers {
   }
 
   private def listUtilCreateCmd(templateId: DefinitionRef): CreateCommand = {
-    val fields = ImmArray((Some[Identifier]("party"), ValueParty(party)))
+    val fields = ImmArray((Some[Name]("party"), ValueParty(party)))
     val argument = assertAsVersionedValue(ValueRecord(Some(templateId), fields))
     CreateCommand(templateId, argument)
   }
@@ -303,6 +303,6 @@ class LargeTransactionTest extends WordSpec with Matchers {
     (result, quantity)
   }
 
-  private implicit def toChoiceName(s: String): Ref.Identifier = Identifier.assertFromString(s)
+  private implicit def toChoiceName(s: String): Ref.Name = Name.assertFromString(s)
 
 }

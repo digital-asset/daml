@@ -32,10 +32,10 @@ object Ref {
   // <https://docs.oracle.com/javase/specs/jls/se10/html/jls-3.html#jls-3.8>.
   //
   // In a language like C# you'll need to use some other unicode char for `$`.
-  val Identifier = MatchingStringModule("""[A-Za-z\$_][A-Za-z0-9\$_]*""".r)
-  type Identifier = Identifier.T
+  val Name = MatchingStringModule("""[A-Za-z\$_][A-Za-z0-9\$_]*""".r)
+  type Name = Name.T
 
-  final class DottedName private (val segments: ImmArray[Identifier]) extends Equals {
+  final class DottedName private (val segments: ImmArray[Name]) extends Equals {
     def dottedName: String = segments.toSeq.mkString(".")
 
     override def equals(obj: Any): Boolean =
@@ -63,11 +63,11 @@ object Ref {
       assert(fromString(s))
 
     def fromStrings(strings: ImmArray[String]): Either[String, DottedName] = {
-      val init: Either[String, BackStack[Identifier]] = Right(BackStack.empty)
+      val init: Either[String, BackStack[Name]] = Right(BackStack.empty)
       val validatedSegments = strings.foldLeft(init)((acc, string) =>
         for {
           stack <- acc
-          segment <- Identifier.fromString(string)
+          segment <- Name.fromString(string)
         } yield stack :+ segment)
       for {
         segments <- validatedSegments
@@ -79,17 +79,17 @@ object Ref {
     def assertFromStrings(s: ImmArray[String]): DottedName =
       assert(fromStrings(s))
 
-    def fromSegments(segments: ImmArray[Identifier]): Either[String, DottedName] =
+    def fromSegments(segments: ImmArray[Name]): Either[String, DottedName] =
       Either.cond(segments.nonEmpty, new DottedName(segments), "No segments provided")
 
     @throws[IllegalArgumentException]
-    def assertFromSegment(segments: ImmArray[Identifier]): DottedName =
+    def assertFromSegment(segments: ImmArray[Name]): DottedName =
       assert(fromStrings(segments))
 
     /** You better know what you're doing if you use this one -- specifically you need to comply
       * to the lexical specification embodied by `fromStrings`.
       */
-    def unsafeFromSegments(segments: ImmArray[Identifier]): DottedName = {
+    def unsafeFromSegments(segments: ImmArray[Name]): DottedName = {
       new DottedName(segments)
     }
   }
@@ -121,7 +121,7 @@ object Ref {
   case class DefinitionRef(packageId: PackageId, qualifiedName: QualifiedName)
 
   /* Choice name in a template. */
-  type ChoiceName = Identifier
+  type ChoiceName = Name
 
   type ModuleName = DottedName
   val ModuleName = DottedName

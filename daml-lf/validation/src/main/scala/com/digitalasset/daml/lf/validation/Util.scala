@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{DottedName, Identifier}
+import com.digitalasset.daml.lf.data.Ref.{DottedName, Name}
 
 private[validation] object Util {
 
@@ -34,7 +34,7 @@ private[validation] object Util {
 
     def toUpperCase: DottedName =
       DottedName.unsafeFromSegments(
-        name.segments.map(i => Identifier.assertFromString(i.toUpperCase))
+        name.segments.map(i => Name.assertFromString(i.toUpperCase))
       )
   }
 

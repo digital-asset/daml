@@ -21,16 +21,16 @@ object Ast {
   }
 
   /* Expression variable name. */
-  type ExprVarName = Identifier
+  type ExprVarName = Name
 
   /* Type variable name. */
-  type TypeVarName = Identifier
+  type TypeVarName = Name
 
   /* Reference to a field in a record or variant. */
-  type FieldName = Identifier
+  type FieldName = Name
 
   /* Variant constructor name. */
-  type VariantConName = Identifier
+  type VariantConName = Name
 
   /* Binding in a let/update/scenario block. */
   case class Binding(binder: Option[ExprVarName], typ: Type, bound: Expr)
@@ -633,10 +633,10 @@ object Ast {
     }
   }
 
-  val keyFieldName = Identifier.assertFromString("key")
-  val valueFieldName = Identifier.assertFromString("value")
-  val maintainersFieldName = Identifier.assertFromString("maintainers")
-  val contractIdFieldName = Identifier.assertFromString("contractId")
-  val contractFieldName = Identifier.assertFromString("contract")
+  val keyFieldName = Name.assertFromString("key")
+  val valueFieldName = Name.assertFromString("value")
+  val maintainersFieldName = Name.assertFromString("maintainers")
+  val contractIdFieldName = Name.assertFromString("contractId")
+  val contractFieldName = Name.assertFromString("contract")
 
 }

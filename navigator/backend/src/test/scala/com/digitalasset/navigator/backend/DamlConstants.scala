@@ -240,10 +240,10 @@ case object DamlConstants {
 
   // Note: these templates may not be valid DAML templates
   val simpleRecordTemplateId: DamlLfDefRef = defRef("SimpleRecordTemplate")
-  private val ChoiceUnit = DamlLfRef.Identifier.assertFromString("unit")
-  private val choiceText = DamlLfRef.Identifier.assertFromString("text")
-  private val choiceNonconsuming = DamlLfRef.Identifier.assertFromString("nonconsuming")
-  private val ChoiceReplace = DamlLfRef.Identifier.assertFromString("replace")
+  private val ChoiceUnit = DamlLfRef.Name.assertFromString("unit")
+  private val choiceText = DamlLfRef.Name.assertFromString("text")
+  private val choiceNonconsuming = DamlLfRef.Name.assertFromString("nonconsuming")
+  private val ChoiceReplace = DamlLfRef.Name.assertFromString("replace")
 
   val simpleRecordTemplate = DamlLfIface.InterfaceType.Template(
     simpleRecordT,

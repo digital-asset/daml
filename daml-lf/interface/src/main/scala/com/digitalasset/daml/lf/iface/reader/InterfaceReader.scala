@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.data.Ref.{
   ChoiceName,
   DefinitionRef,
   DottedName,
-  Identifier,
+  Name,
   ModuleName,
   PackageId,
   QualifiedName
@@ -203,15 +203,15 @@ object InterfaceReader {
       }
     )
 
-  private def identifier(s: String): InvalidDataTypeDefinition \/ Identifier =
-    Identifier.fromString(s).disjunction leftMap InvalidDataTypeDefinition
+  private def identifier(s: String): InvalidDataTypeDefinition \/ Name =
+    Name.fromString(s).disjunction leftMap InvalidDataTypeDefinition
 
   private def choices(
       a: DamlLf1.DefTemplate,
       ctx: Context
   ): InterfaceReaderError.Tree \/ Map[ChoiceName, TemplateChoice.FWT] = {
 
-    val z: Errors[ErrorLoc, InterfaceReaderError] \/ List[(Identifier, DamlLf1.TemplateChoice)] =
+    val z: Errors[ErrorLoc, InterfaceReaderError] \/ List[(Name, DamlLf1.TemplateChoice)] =
       locate(
         'choices,
         rootErr(a.getChoicesList.asScala.toList.traverseU(a => identifier(a.getName).map(_ -> a))))

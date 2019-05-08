@@ -7,7 +7,7 @@ import java.util
 
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.data.{Decimal, FrontStack, Ref, Time}
-import com.digitalasset.daml.lf.data.Ref.Identifier.classTag
+import com.digitalasset.daml.lf.data.Ref.Name.classTag
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
@@ -816,8 +816,8 @@ object SBuiltinTest {
     if (xs.isEmpty) "(Nil @Int64)"
     else xs.mkString(s"(Cons @Int64 [", ", ", s"] (Nil @Int64))")
 
-  private val entryFields: Array[Ref.Identifier] =
-    Array(Ref.Identifier.assertFromString("key"), Ref.Identifier.assertFromString("value"))
+  private val entryFields: Array[Ref.Name] =
+    Array(Ref.Name.assertFromString("key"), Ref.Name.assertFromString("value"))
 
   private def mapEntry(k: String, v: SValue) = {
     val args = new util.ArrayList[SValue](2)

@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.lfpackage
 
 import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Identifier}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Decode.ParseError
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -160,7 +160,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     )
 
     val List(choice1, choice2, choice3) =
-      List("choice1", "choice2", "choice3").map(Identifier.assertFromString)
+      List("choice1", "choice2", "choice3").map(Name.assertFromString)
 
     "catch choice name collisions" in {
 
@@ -206,6 +206,6 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
   private val eUnit = EPrimCon(PCUnit)
   private val eTrue = EPrimCon(PCTrue)
 
-  private def id(s: String) = Identifier.assertFromString(s)
+  private def id(s: String) = Name.assertFromString(s)
 
 }

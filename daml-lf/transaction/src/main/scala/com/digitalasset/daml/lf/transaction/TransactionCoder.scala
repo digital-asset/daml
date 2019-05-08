@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.transaction
 
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray}
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
+import com.digitalasset.daml.lf.data.Ref.{Name, Party}
 import com.digitalasset.daml.lf.transaction.Node._
 import VersionTimeline.Implicits._
 import com.digitalasset.daml.lf.value.Value.{ContractInst, VersionedValue}
@@ -499,7 +499,7 @@ object TransactionCoder {
     }
   }
 
-  private def toIdentifier(s: String): Either[DecodeError, Identifier] =
-    Identifier.fromString(s).left.map(DecodeError)
+  private def toIdentifier(s: String): Either[DecodeError, Name] =
+    Name.fromString(s).left.map(DecodeError)
 
 }

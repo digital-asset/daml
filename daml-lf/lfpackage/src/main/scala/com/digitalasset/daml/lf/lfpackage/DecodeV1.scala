@@ -22,7 +22,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
   private val languageVersion = LanguageVersion(V1, minor)
 
-  private def id(s: String): Identifier = Identifier.assertFromString(s)
+  private def id(s: String): Name = Name.assertFromString(s)
 
   override def decodePackage(packageId: PackageId, lfPackage: PLF.Package): Package =
     Package(lfPackage.getModulesList.asScala.map(ModuleDecoder(packageId, _).decode))
@@ -111,8 +111,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
       )
     }
 
-    private[this] def decodeFields(
-        lfFields: ImmArray[PLF.FieldWithType]): ImmArray[(Identifier, Type)] =
+    private[this] def decodeFields(lfFields: ImmArray[PLF.FieldWithType]): ImmArray[(Name, Type)] =
       lfFields.map(field => id(field.getField) -> decodeType(field.getType))
 
     private[this] def decodeDefValue(lfValue: PLF.DefValue): DValue =

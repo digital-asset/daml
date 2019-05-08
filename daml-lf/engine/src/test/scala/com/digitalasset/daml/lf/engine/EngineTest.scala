@@ -7,7 +7,7 @@ import java.util
 import java.io.File
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref.Identifier.classTag
+import com.digitalasset.daml.lf.data.Ref.Name.classTag
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Decode
@@ -70,7 +70,7 @@ class EngineTest extends WordSpec with Matchers {
         assertAsVersionedValue(
           ValueRecord(
             Some(DefinitionRef(basicTestsPkgId, "BasicTests:Simple")),
-            ImmArray((Some[Identifier]("p"), ValueParty("Party"))))),
+            ImmArray((Some[Name]("p"), ValueParty("Party"))))),
         ""
       ))
   }
@@ -139,7 +139,7 @@ class EngineTest extends WordSpec with Matchers {
         CreateCommand(
           id,
           assertAsVersionedValue(
-            ValueRecord(Some(id), ImmArray((Some[Identifier]("p"), ValueParty("Party"))))))
+            ValueRecord(Some(id), ImmArray((Some[Name]("p"), ValueParty("Party"))))))
 
       val res = commandTranslator
         .preprocessCommands(Commands(ImmArray(command), let, "test"))
@@ -171,7 +171,7 @@ class EngineTest extends WordSpec with Matchers {
           assertAsVersionedValue(
             ValueRecord(
               Some(id),
-              ImmArray((Some[Identifier]("this_is_not_the_one"), ValueParty("Party"))))))
+              ImmArray((Some[Name]("this_is_not_the_one"), ValueParty("Party"))))))
 
       val res = commandTranslator
         .preprocessCommands(Commands(ImmArray(command), let, "test"))
@@ -189,7 +189,7 @@ class EngineTest extends WordSpec with Matchers {
         "Transfer",
         "Bob",
         assertAsVersionedValue(
-          ValueRecord(None, ImmArray((Some[Identifier]("newReceiver"), ValueParty("Clara")))))
+          ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty("Clara")))))
       )
 
       val res = commandTranslator
@@ -230,7 +230,7 @@ class EngineTest extends WordSpec with Matchers {
                 (Some("receiver"), ValueParty("Clara"))))),
           "Transfer",
           assertAsVersionedValue(
-            ValueRecord(None, ImmArray((Some[Identifier]("newReceiver"), ValueParty("Clara"))))),
+            ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty("Clara"))))),
           "Clara"
         )
 
@@ -298,9 +298,7 @@ class EngineTest extends WordSpec with Matchers {
               ImmArray((None, ValueParty("Clara")), (None, ValueParty("Clara"))))),
           "Transfer",
           assertAsVersionedValue(
-            ValueRecord(
-              None,
-              ImmArray((Some[Identifier]("this_is_not_the_one"), ValueParty("Clara"))))),
+            ValueRecord(None, ImmArray((Some[Name]("this_is_not_the_one"), ValueParty("Clara"))))),
           "Clara"
         )
 
@@ -320,22 +318,22 @@ class EngineTest extends WordSpec with Matchers {
       val someValue = assertAsVersionedValue(
         ValueRecord(
           Some(id),
-          ImmArray(Some[Identifier]("recField") -> ValueOptional(Some(ValueText("foo")))))
+          ImmArray(Some[Name]("recField") -> ValueOptional(Some(ValueText("foo")))))
       )
       val noneValue = assertAsVersionedValue(
-        ValueRecord(Some(id), ImmArray(Some[Identifier]("recField") -> ValueOptional(None)))
+        ValueRecord(Some(id), ImmArray(Some[Name]("recField") -> ValueOptional(None)))
       )
       val typ = TTyConApp(id, ImmArray.empty)
 
       translator
         .translateValue(typ, someValue)
         .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldBe
-        Right(SRecord(id, Array[Identifier]("recField"), ArrayList(SOptional(Some(SText("foo"))))))
+        Right(SRecord(id, Array[Name]("recField"), ArrayList(SOptional(Some(SText("foo"))))))
 
       translator
         .translateValue(typ, noneValue)
         .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldBe
-        Right(SRecord(id, Array[Identifier]("recField"), ArrayList(SOptional(None))))
+        Right(SRecord(id, Array[Name]("recField"), ArrayList(SOptional(None))))
 
     }
 
@@ -343,7 +341,7 @@ class EngineTest extends WordSpec with Matchers {
       val translator = CommandPreprocessor(ConcurrentCompiledPackages.apply())
       val id = DefinitionRef(basicTestsPkgId, "BasicTests:MyRec")
       val wrongRecord = assertAsVersionedValue(
-        ValueRecord(Some(id), ImmArray(Some[Identifier]("wrongLbl") -> ValueText("foo"))))
+        ValueRecord(Some(id), ImmArray(Some[Name]("wrongLbl") -> ValueText("foo"))))
       translator
         .translateValue(
           TTyConApp(id, ImmArray.empty),
@@ -360,7 +358,7 @@ class EngineTest extends WordSpec with Matchers {
       CreateCommand(
         id,
         assertAsVersionedValue(
-          ValueRecord(Some(id), ImmArray((Some[Identifier]("p"), ValueParty("Party"))))))
+          ValueRecord(Some(id), ImmArray((Some[Name]("p"), ValueParty("Party"))))))
 
     val res = commandTranslator
       .preprocessCommands(Commands(ImmArray(command), let, "test"))
@@ -527,7 +525,7 @@ class EngineTest extends WordSpec with Matchers {
       CreateAndExerciseCommand(
         templateId,
         assertAsVersionedValue(
-          ValueRecord(Some(templateId), ImmArray(Some[Identifier]("p") -> ValueParty("Party")))),
+          ValueRecord(Some(templateId), ImmArray(Some[Name]("p") -> ValueParty("Party")))),
         "Hello",
         assertAsVersionedValue(ValueRecord(Some(hello), ImmArray.empty)),
         "Party"
@@ -618,13 +616,13 @@ class EngineTest extends WordSpec with Matchers {
       val rec = ValueRecord(
         Some(DefinitionRef(basicTestsPkgId, "BasicTests:MyNestedRec")),
         ImmArray(
-          (Some[Identifier]("bar"), ValueText("bar")),
+          (Some[Name]("bar"), ValueText("bar")),
           (
-            Some[Identifier]("nested"),
+            Some[Name]("nested"),
             ValueRecord(
               Some(DefinitionRef(basicTestsPkgId, "BasicTests:MyRec")),
               ImmArray(
-                (Some[Identifier]("foo"), ValueText("bar"))
+                (Some[Name]("foo"), ValueText("bar"))
               )))
         )
       )
@@ -643,8 +641,8 @@ class EngineTest extends WordSpec with Matchers {
       val rec = ValueRecord(
         Some(DefinitionRef(basicTestsPkgId, "BasicTests:TypeWithParameters")),
         ImmArray(
-          (Some[Identifier]("p"), ValueParty("Alice")),
-          (Some[Identifier]("v"), ValueOptional(Some(ValueInt64(42)))))
+          (Some[Name]("p"), ValueParty("Alice")),
+          (Some[Name]("v"), ValueOptional(Some(ValueInt64(42)))))
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
@@ -664,8 +662,8 @@ class EngineTest extends WordSpec with Matchers {
       val rec = ValueRecord(
         Some(DefinitionRef(basicTestsPkgId, "BasicTests:TypeWithParameters")),
         ImmArray(
-          (Some[Identifier]("v"), ValueOptional(Some(ValueInt64(42)))),
-          (Some[Identifier]("p"), ValueParty("Alice")))
+          (Some[Name]("v"), ValueOptional(Some(ValueInt64(42)))),
+          (Some[Name]("p"), ValueParty("Alice")))
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
@@ -748,7 +746,7 @@ class EngineTest extends WordSpec with Matchers {
       "Transfer",
       "Bob",
       assertAsVersionedValue(
-        ValueRecord(None, ImmArray((Some[Identifier]("newReceiver"), ValueParty("Clara")))))
+        ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty("Clara")))))
     )
 
     val res = commandTranslator
@@ -844,8 +842,8 @@ class EngineTest extends WordSpec with Matchers {
           ValueRecord(
             Some(DefinitionRef(basicTestsPkgId, "BasicTests:CallablePayout")),
             ImmArray(
-              (Some[Identifier]("giver"), ValueParty("Clara")),
-              (Some[Identifier]("receiver"), ValueParty("Clara")))
+              (Some[Name]("giver"), ValueParty("Clara")),
+              (Some[Name]("receiver"), ValueParty("Clara")))
           ))
       val tweaked = claraView
         .mapContractIdAndValue(makeAbsoluteContractId, makeValueWithAbsoluteContractId)
@@ -886,8 +884,8 @@ class EngineTest extends WordSpec with Matchers {
           ValueRecord(
             Some(DefinitionRef(basicTestsPkgId, "BasicTests:CallablePayout")),
             ImmArray(
-              Some[Identifier]("giver") -> ValueParty("Clara"),
-              Some[Identifier]("receiver") -> ValueParty("Clara")
+              Some[Name]("giver") -> ValueParty("Clara"),
+              Some[Name]("receiver") -> ValueParty("Clara")
             )
           ))
       val node1 = NodeCreate(
@@ -941,7 +939,7 @@ class EngineTest extends WordSpec with Matchers {
           choiceArgument = assertAsVersionedValue(
             ValueRecord(
               Some(DefinitionRef(basicTestsPkgId, "BasicTests:Transfer")),
-              ImmArray((Some[Identifier]("newReceiver"), ValueParty("Clara"))))),
+              ImmArray((Some[Name]("newReceiver"), ValueParty("Clara"))))),
           actingParties = Set("Bob"),
           isConsuming = true,
           children = ImmArray(Tx.NodeId.unsafeFromIndex(1)),
@@ -960,8 +958,8 @@ class EngineTest extends WordSpec with Matchers {
             ValueRecord(
               Some(DefinitionRef(basicTestsPkgId, "BasicTests:CallablePayout")),
               ImmArray(
-                (Some[Identifier]("giver"), ValueParty("Alice")),
-                (Some[Identifier]("receiver"), ValueParty("Clara")))
+                (Some[Name]("giver"), ValueParty("Alice")),
+                (Some[Name]("receiver"), ValueParty("Clara")))
             )),
           Set("Clara", "Alice"),
           Set("Bob", "Clara", "Alice"),
@@ -977,9 +975,9 @@ class EngineTest extends WordSpec with Matchers {
     val fetchedCid = AbsoluteContractId(fetchedStrCid)
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTArgs = ImmArray(
-      (Some[Identifier]("sig1"), ValueParty("Alice")),
-      (Some[Identifier]("sig2"), ValueParty("Bob")),
-      (Some[Identifier]("obs"), ValueParty("Clara"))
+      (Some[Name]("sig1"), ValueParty("Alice")),
+      (Some[Name]("sig2"), ValueParty("Bob")),
+      (Some[Name]("obs"), ValueParty("Clara"))
     )
 
     val fetcherStrTid = "BasicTests:Fetcher"
@@ -988,22 +986,20 @@ class EngineTest extends WordSpec with Matchers {
     val fetcher1StrCid = "2"
     val fetcher1Cid = AbsoluteContractId(fetcher1StrCid)
     val fetcher1TArgs = ImmArray(
-      (Some[Identifier]("sig"), ValueParty("Alice")),
-      (Some[Identifier]("obs"), ValueParty("Bob")),
-      (Some[Identifier]("fetcher"), ValueParty("Clara")),
+      (Some[Name]("sig"), ValueParty("Alice")),
+      (Some[Name]("obs"), ValueParty("Bob")),
+      (Some[Name]("fetcher"), ValueParty("Clara")),
     )
 
     val fetcher2StrCid = "3"
     val fetcher2Cid = AbsoluteContractId(fetcher2StrCid)
     val fetcher2TArgs = ImmArray(
-      (Some[Identifier]("sig"), ValueParty("Party")),
-      (Some[Identifier]("obs"), ValueParty("Alice")),
-      (Some[Identifier]("fetcher"), ValueParty("Party")),
+      (Some[Name]("sig"), ValueParty("Party")),
+      (Some[Name]("obs"), ValueParty("Alice")),
+      (Some[Name]("fetcher"), ValueParty("Party")),
     )
 
-    def makeContract[Cid](
-        tid: Ref.QualifiedName,
-        targs: ImmArray[(Option[Identifier], Value[Cid])]) =
+    def makeContract[Cid](tid: Ref.QualifiedName, targs: ImmArray[(Option[Name], Value[Cid])]) =
       ContractInst(
         DefinitionRef(basicTestsPkgId, tid),
         assertAsVersionedValue(ValueRecord(Some(DefinitionRef(basicTestsPkgId, tid)), targs)),
@@ -1041,7 +1037,7 @@ class EngineTest extends WordSpec with Matchers {
         "DoFetch",
         exerciseActor,
         assertAsVersionedValue(
-          ValueRecord(None, ImmArray((Some[Identifier]("cid"), ValueContractId(fetchedCid)))))
+          ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(fetchedCid)))))
       )
 
       val res = commandTranslator
@@ -1072,8 +1068,8 @@ object EngineTest {
   private implicit def qualifiedNameStr(s: String): QualifiedName =
     QualifiedName.assertFromString(s)
 
-  private implicit def toIdentifier(s: String): Identifier =
-    Identifier.assertFromString(s)
+  private implicit def toIdentifier(s: String): Name =
+    Name.assertFromString(s)
 
   private implicit def toParty(s: String): Party =
     Party.assertFromString(s)

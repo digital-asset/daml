@@ -21,7 +21,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
   )
 
   private[this] def complexValue = {
-    val builder = ImmArray.newBuilder[(Option[Identifier], Value[AbsoluteContractId])]
+    val builder = ImmArray.newBuilder[(Option[Name], Value[AbsoluteContractId])]
     builder += None -> ValueInt64(0)
     builder += None -> ValueInt64(123456)
     builder += None -> ValueInt64(-1)
@@ -40,7 +40,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
     builder += None -> ValueOptional(None)
     builder += None -> ValueOptional(Some(ValueText("Some")))
     builder += None -> ValueList(FrontStack(ValueText("A"), ValueText("B"), ValueText("C")))
-    builder += None -> ValueVariant(None, Identifier.assertFromString("Variant"), ValueInt64(0))
+    builder += None -> ValueVariant(None, Name.assertFromString("Variant"), ValueInt64(0))
     builder += None -> ValueRecord(
       None,
       ImmArray(
@@ -163,12 +163,10 @@ class KeyHasherSpec extends WordSpec with Matchers {
     }
 
     "not produce collision in Variant constructor" in {
-      val value1 = VersionedValue(
-        ValueVersion("4"),
-        ValueVariant(None, Identifier.assertFromString("A"), ValueUnit))
-      val value2 = VersionedValue(
-        ValueVersion("4"),
-        ValueVariant(None, Identifier.assertFromString("B"), ValueUnit))
+      val value1 =
+        VersionedValue(ValueVersion("4"), ValueVariant(None, Name.assertFromString("A"), ValueUnit))
+      val value2 =
+        VersionedValue(ValueVersion("4"), ValueVariant(None, Name.assertFromString("B"), ValueUnit))
 
       val tid = templateId("module", "name")
 
@@ -181,10 +179,10 @@ class KeyHasherSpec extends WordSpec with Matchers {
     "not produce collision in Variant value" in {
       val value1 = VersionedValue(
         ValueVersion("4"),
-        ValueVariant(None, Identifier.assertFromString("A"), ValueInt64(0L)))
+        ValueVariant(None, Name.assertFromString("A"), ValueInt64(0L)))
       val value2 = VersionedValue(
         ValueVersion("4"),
-        ValueVariant(None, Identifier.assertFromString("A"), ValueInt64(1L)))
+        ValueVariant(None, Name.assertFromString("A"), ValueInt64(1L)))
 
       val tid = templateId("module", "name")
 

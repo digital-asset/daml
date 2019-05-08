@@ -141,9 +141,9 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
     }
 
   private def validateRecordFields(recordFields: Seq[RecordField])
-    : Either[StatusRuntimeException, ImmArray[(Option[Ref.Identifier], domain.Value)]] =
+    : Either[StatusRuntimeException, ImmArray[(Option[Ref.Name], domain.Value)]] =
     recordFields
-      .foldLeft[Either[StatusRuntimeException, BackStack[(Option[Ref.Identifier], domain.Value)]]](
+      .foldLeft[Either[StatusRuntimeException, BackStack[(Option[Ref.Name], domain.Value)]]](
         Right(BackStack.empty))((acc, rf) => {
         for {
           fields <- acc

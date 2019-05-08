@@ -21,7 +21,7 @@ import scala.language.implicitConversions
 
 class InterpTest extends WordSpec with Matchers {
 
-  private implicit def id(s: String): Ref.Identifier.T = Identifier.assertFromString(s)
+  private implicit def id(s: String): Ref.Name.T = Name.assertFromString(s)
 
   private def runExpr(e: Expr): SValue = {
     val machine = Speedy.Machine.fromExpr(e, PureCompiledPackages(Map.empty).right.get, false)

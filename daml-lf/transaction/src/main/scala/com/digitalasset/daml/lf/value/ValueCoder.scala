@@ -269,8 +269,8 @@ object ValueCoder {
       protoValue0: proto.Value): Either[DecodeError, Value[Cid]] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
-    def identifier(s: String): Identifier =
-      Identifier
+    def identifier(s: String): Name =
+      Name
         .fromString(s)
         .fold(
           err => throw Err(s"error decoding variant constructor: $err"),

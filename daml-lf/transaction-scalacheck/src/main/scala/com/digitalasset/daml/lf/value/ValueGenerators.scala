@@ -127,7 +127,7 @@ object ValueGenerators {
     name <- dottedNameGen
   } yield DefinitionRef(packageId, QualifiedName(module, name))
 
-  val idGen: Gen[Identifier] = {
+  val idGen: Gen[Name] = {
     val firstChars =
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_".toVector
     val mainChars =
@@ -135,7 +135,7 @@ object ValueGenerators {
     for {
       h <- Gen.oneOf(firstChars)
       t <- Gen.listOf(Gen.oneOf(mainChars))
-    } yield Identifier.assertFromString((h :: t).mkString)
+    } yield Name.assertFromString((h :: t).mkString)
   }
 
   // generate a more or less acceptable date value

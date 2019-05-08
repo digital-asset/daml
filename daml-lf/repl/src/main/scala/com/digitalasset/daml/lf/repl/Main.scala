@@ -573,10 +573,7 @@ object Repl {
     def pVariant: Parser[Value[Nothing]] =
       """[A-Z][a-z]*""".r ~ ("(" ~> pValue <~ ")").? ^^ {
         case variant ~ optValue =>
-          ValueVariant(
-            Some(dummyId),
-            Identifier.assertFromString(variant),
-            optValue.getOrElse(ValueUnit))
+          ValueVariant(Some(dummyId), Name.assertFromString(variant), optValue.getOrElse(ValueUnit))
       }
     def pList: Parser[Value[Nothing]] =
       """\[\s*""".r ~> (pValue <~ """\s*,\s*""".r).* ~ pValue.? <~ """\s*\]""".r ^^ {
@@ -584,11 +581,11 @@ object Repl {
         case _ => ValueList(FrontStack.empty)
       }
 
-    def pField: Parser[(Identifier, Value[Nothing])] =
+    def pField: Parser[(Name, Value[Nothing])] =
       ("""(\w+)""".r ~ """\s*=\s*""".r ~ pValue) ^^ {
-        case field ~ _ ~ value => Identifier.assertFromString(field) -> value
+        case field ~ _ ~ value => Name.assertFromString(field) -> value
       }
-    def pFields: Parser[List[(Identifier, Value[Nothing])]] =
+    def pFields: Parser[List[(Name, Value[Nothing])]] =
       ("""\s*""".r ~> pField <~ """\ *,\ *""".r).* ~ pField.? ^^ {
         case fs ~ Some(last) => fs :+ last
         case _ => List()

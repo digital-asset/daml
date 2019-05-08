@@ -7,7 +7,7 @@ import java.util
 
 import com.digitalasset.daml.lf.data.Decimal.Decimal
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref.Identifier.classTag
+import com.digitalasset.daml.lf.data.Ref.Name.classTag
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, SortedLookupList, Time}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
@@ -162,14 +162,11 @@ object SValue {
     */
   final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue
 
-  final case class SRecord(
-      id: DefinitionRef,
-      fields: Array[Identifier],
-      values: util.ArrayList[SValue])
+  final case class SRecord(id: DefinitionRef, fields: Array[Name], values: util.ArrayList[SValue])
       extends SValue
       with SomeArrayEquals
 
-  final case class STuple(fields: Array[Identifier], values: util.ArrayList[SValue])
+  final case class STuple(fields: Array[Name], values: util.ArrayList[SValue])
       extends SValue
       with SomeArrayEquals
 
@@ -213,7 +210,7 @@ object SValue {
       case V.ValueUnit => SUnit(())
 
       case V.ValueRecord(Some(id), fs) =>
-        val fields = Array.ofDim[Identifier](fs.length)
+        val fields = Array.ofDim[Name](fs.length)
         val values = new util.ArrayList[SValue](fields.length)
         fs.foreach {
           case (optk, v) =>
@@ -232,7 +229,7 @@ object SValue {
         throw SErrorCrash("SValue.fromValue: record missing identifier")
 
       case V.ValueTuple(fs) =>
-        val fields = Array.ofDim[Identifier](fs.length)
+        val fields = Array.ofDim[Name](fs.length)
         val values = new util.ArrayList[SValue](fields.length)
         fs.foreach {
           case (k, v) =>
