@@ -9,6 +9,8 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+.. _release-0-12-16:
+
 0.12.16 - 2019-05-07
 --------------------
 
@@ -20,6 +22,8 @@ HEAD — ongoing
 - Add ``quickstart-scala`` DAML Assistant project template.
 
 - DAML-LF Engine: if all labels in a record are set, fields no longer need to be ordered (see `#988 <https://github.com/digital-asset/daml/issues/988>`_)
+
+.. _release-0-12-15:
 
 0.12.15 - 2019-05-06
 --------------------
@@ -43,6 +47,8 @@ HEAD — ongoing
   with the id of the transaction for a successful command.
 - Add instances of ``Functor``/``Applicative``/``Action`` for ``(->) r`` (aka the reader monad)
 
+.. _release-0-12-14:
+
 0.12.14 - 2019-05-03
 --------------------
 
@@ -53,10 +59,14 @@ HEAD — ongoing
 - Ledger API: You can now look up flat transactions with the new TransactionService methods
   ``GetFlatTransactionByEventId`` and ``GetFlatTransactionById``.
 
+.. _release-0-12-13:
+
 0.12.13 - 2019-05-02
 --------------------
 
 - Fix an issue with Postgres of potentially not stopping the transaction stream at required ceiling offset. See more `here <https://github.com/digital-asset/daml/pull/802>`
+
+.. _release-0-12-12:
 
 0.12.12 - 2019-04-30
 --------------------
@@ -77,17 +87,23 @@ HEAD — ongoing
 - Fix bug related witness parties in transaction events -- see
   `#794 <https://github.com/digital-asset/daml/issues/794>`.
 
+.. _release-0-12-11:
+
 0.12.11 - 2019-04-26
 --------------------
 
 - Node.js bindings have been moved `here <https://github.com/digital-asset/daml-js>``
 - Add documentation for flexible controllers.
 
+.. _release-0-12-10:
+
 0.12.10 — 2019-04-25
 --------------------
 
 - Make DAML-LF 1.3 the default compilation target for the DAML compiler. This means that
   contract keys and text maps are now available by default in DAML.
+
+.. _release-0-12-9:
 
 0.12.9 — 2019-04-23
 -------------------
@@ -101,10 +117,14 @@ HEAD — ongoing
 - Add `-s` option to Sandbox CLI to have a shortened version for `--static-time` as well
 - Change `--allow-dev` to be a hidden CLI option in Sandbox
 
+.. _release-0-12-7:
+
 0.12.7 — 2019-04-17
 -------------------
 
 - Fix release pipeline (hopefully)
+
+.. _release-0-12-6:
 
 0.12.6 — 2019-04-16
 -------------------
@@ -112,12 +132,16 @@ HEAD — ongoing
 - RxJava Bindings: remove blocking call inside Bot.wire, which could lead to an
   application not making progress in certain situations.
 
+.. _release-0-12-5:
+
 0.12.5 — 2019-04-15
 -------------------
 
 - Fix release pipeline (hopefully)
 - DAML-LF Archive packaging: the DAML-LF Archive Protobuf definitions are now
   packaged so that it's possible to use them without mangling the path.
+
+.. _release-0-12-4:
 
 0.12.4 — 2019-04-15
 -------------------
@@ -129,10 +153,14 @@ HEAD — ongoing
   (see `#399 <https://github.com/digital-asset/daml/issues/399>` and
   `#439 <https://github.com/digital-asset/daml/pull/439>`).
 
+.. _release-0-12-3:
+
 0.12.3 — 2019-04-12
 -------------------
 
 - Fix navigator and extractor packaging in the SDK.
+
+.. _release-0-12-2:
 
 0.12.2 — 2019-04-12
 -------------------
@@ -159,10 +187,14 @@ HEAD — ongoing
   sandbox. Note that the SDK has removed support for _compiling_ DAML 1.0
   months ago.
 
+.. _release-0-12-1:
+
 0.12.1 — 2019-04-04
 -------------------
 
 - Fix release process
+
+.. _release-0-12-0:
 
 0.12.0 — 2019-04-04
 -------------------
@@ -179,6 +211,8 @@ HEAD — ongoing
        DamlLfValue.evalPath(argument, ["foo", "bar"])
        DamlLfValue.toJSON(argument).foo.bar
 
+
+.. _release-0-11-32:
 
 0.11.32
 -------
@@ -201,6 +235,8 @@ HEAD — ongoing
 - Navigator: Fix issues where the console could not read some events or commands from its database.
 - DAML syntax (breaking change) : For the time being, datatypes with a single data constructor not associated with an argument are not accepted. For example ``data T = T``. To workaround this use ``data T = T {}`` or ``data T = T ()`` (depending on whether you desire ``T`` be interpreted as a product or a sum).
 
+.. _release-0-11-3:
+
 0.11.3
 ------
 
@@ -210,6 +246,8 @@ Changes:
 
 - Navigator: Fix display of Date values.
 - Extractor: Add first version of Extractor with PostgreSQL support.
+
+.. _release-0-11-2:
 
 0.11.2
 ------
@@ -225,6 +263,8 @@ Changes:
 - DAML Standard Library: New type classes.
 - Node.js bindings: Documentation updated to use version 0.4.0 and DAML 1.2.
 
+.. _release-0-11-1:
+
 0.11.1
 ------
 
@@ -234,6 +274,8 @@ Changes:
 
 - Java Bindings: Fixed Timestamp.fromInstant and Timestamp.toInstant.
 - Java Bindings: Added Timestamp.getMicroseconds.
+
+.. _release-0-11-0:
 
 0.11.0
 ------
