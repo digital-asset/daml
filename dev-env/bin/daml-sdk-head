@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -eu
 
 # Make sure they are in the right repo
@@ -10,18 +10,49 @@ then
   exit 1
 fi
 
-# This is where we install the head version. Clean it up before we start.
-readonly DAML_HEAD="$HOME/.daml-head"
-if [ -d $DAML_HEAD ] ; then
-  chmod -R  u+w $DAML_HEAD
-  rm -rf $DAML_HEAD
+# get rid of old .daml-head installation
+if [ -d "$HOME/.daml-head" ] ; then
+  chmod -R u+w "$HOME/.daml-head"
+  rm -rf "$HOME/.daml-head"
 fi
+
+
+NUKE=0
+for opt in "$@" ; do
+  case $opt in
+    "--nuke")
+      NUKE=1
+      ;;
+    *)
+      echo "Unknown option: $opt"
+      echo "Available options:"
+      echo "  --nuke  Remove existing daml installation before installing daml-head."
+      exit 1
+  esac
+done
+
+
+readonly DAML_HOME="$HOME/.daml"
+if [ -d $DAML_HOME ] && [ "$NUKE" -ne "0" ] ; then
+  echo "$(tput setaf 3)Removing existing daml installation.$(tput sgr 0)"
+  chmod -R u+w $DAML_HOME
+  rm -rf $DAML_HOME
+fi
+
+readonly DAML_HEAD_SDK="$DAML_HOME/sdk/0.0.0"
+if [ -d $DAML_HEAD_SDK ] ; then
+  echo "$(tput setaf 3)Removing existing daml-head installation.$(tput sgr 0)"
+  rm -f $DAML_HOME/bin/daml-head
+  chmod -R u+w $DAML_HEAD_SDK
+  rm -rf $DAML_HEAD_SDK
+fi
+
 
 echo "$(tput setaf 3)Building version 0.0.0 - this may take a while ...$(tput sgr 0)"
 echo ""
 
 function cleanup() {
-  echo "SDK 0.0.0 failed to build/install - if you need help ask on #team-daml"
+  echo "SDK 0.0.0 failed to build/install - if you need help ask on #product-daml"
   echo "$(tput setaf 3)FAILED TO INSTALL! $(tput sgr 0)"
 }
 trap cleanup EXIT
@@ -34,13 +65,22 @@ readonly TMPDIR=$(mktemp -d)
 mkdir -p $TMPDIR/sdk-head
 
 tar xzf $TARBALL -C $TMPDIR/sdk-head --strip-components 1
-DAML_HOME=$DAML_HEAD $TMPDIR/sdk-head/install.sh
-mv $DAML_HEAD/bin/{daml,daml-head}
 
-cat > $DAML_HEAD/daml-config.yaml << EOF
-auto-install: false
-update-check: never
+if [ -d $DAML_HOME ] ; then
+  # A daml installation already exists, so just install SDK version 0.0.0.
+  $DAML_HOME/bin/daml install $TMPDIR/sdk-head --force
+else
+  # No daml installation exists, so install the tarball normally but disable auto-install.
+  $TMPDIR/sdk-head/install.sh
+  echo "auto-install: false" > $DAML_HOME/daml-config.yaml
+fi
+
+cat > $DAML_HOME/bin/daml-head << EOF
+#!/bin/bash
+DAML_SDK_VERSION=0.0.0 $DAML_HEAD_SDK/daml/daml "\$@"
 EOF
+chmod +x $DAML_HOME/bin/daml-head
 
 trap - EXIT
 echo "$(tput setaf 3)Successfully installed daml-head command.$(tput sgr 0)"
+

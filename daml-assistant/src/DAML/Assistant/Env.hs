@@ -29,6 +29,7 @@ import System.Directory
 import System.FilePath
 import System.Environment.Blank
 import System.IO
+import System.Info.Extra
 import Control.Monad.Extra
 import Control.Exception.Safe
 import Data.Maybe
@@ -39,7 +40,7 @@ import Safe
 getMinimalDamlEnv :: IO Env
 getMinimalDamlEnv = do
     envDamlPath <- getDamlPath
-    envDamlAssistantPath <- getDamlAssistantPath envDamlPath
+    envDamlAssistantPath <- getDamlAssistantPath envDamlPath Nothing
     let envDamlAssistantSdkVersion = Nothing
         envProjectPath = Nothing
         envSdkVersion = Nothing
@@ -51,8 +52,8 @@ getMinimalDamlEnv = do
 getDamlEnv :: IO Env
 getDamlEnv = do
     envDamlPath <- getDamlPath
-    envDamlAssistantPath <- getDamlAssistantPath envDamlPath
     envDamlAssistantSdkVersion <- getDamlAssistantSdkVersion
+    envDamlAssistantPath <- getDamlAssistantPath envDamlPath envDamlAssistantSdkVersion
     envProjectPath <- getProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath
         envDamlAssistantSdkVersion envProjectPath
@@ -129,19 +130,23 @@ testDamlEnv Env{..} = firstJustM (\(test, msg) -> unlessMaybeM test (pure msg))
 
 -- | Determine the absolute path to the assistant. Can be overriden with
 -- DAML_ASSISTANT env var.
-getDamlAssistantPath :: DamlPath -> IO DamlAssistantPath
-getDamlAssistantPath damlPath =
+getDamlAssistantPath :: DamlPath -> Maybe DamlAssistantSdkVersion -> IO DamlAssistantPath
+getDamlAssistantPath damlPath damlVersion =
     overrideWithEnvVar damlAssistantEnvVar DamlAssistantPath $
-        getDamlAssistantPathDefault damlPath
+        pure (getDamlAssistantPathDefault damlPath damlVersion)
 
--- | Determine the absolute path to the assistant.
-getDamlAssistantPathDefault :: Applicative f => DamlPath -> f DamlAssistantPath
-getDamlAssistantPathDefault (DamlPath damlPath)
-    -- Our packaging logic for Haskell results in getExecutablePath
-    -- pointing to the dynamic linker and getProgramName returning "daml" in
-    -- both cases so we use this hack to figure out the executable name.
-    | takeFileName damlPath == ".daml-head" = pure $ DamlAssistantPath $ damlPath </> "bin" </> "daml-head"
-    | otherwise = pure $ DamlAssistantPath $ damlPath </> "bin" </> "daml"
+-- | Determine the absolute path to the assistant. Note that there is no
+-- daml-head on Windows at the moment.
+getDamlAssistantPathDefault :: DamlPath -> Maybe DamlAssistantSdkVersion -> DamlAssistantPath
+getDamlAssistantPathDefault (DamlPath damlPath) damlVersion =
+  let commandNameNoExt
+          | Just (DamlAssistantSdkVersion v) <- damlVersion, isHeadVersion v = "daml-head"
+          | otherwise = "daml"
+      commandName
+          | isWindows = commandNameNoExt <.> "cmd"
+          | otherwise = commandNameNoExt
+      path = damlPath </> "bin" </> commandName
+  in DamlAssistantPath path
 
 -- | Determine SDK version of running daml assistant. Can be overriden
 -- with DAML_ASSISTANT_VERSION env var.
