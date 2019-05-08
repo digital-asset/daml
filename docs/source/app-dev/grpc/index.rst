@@ -12,17 +12,15 @@ The Ledger API using gRPC
 
 If you want to write an application for the ledger API in other languages, you'll need to use `gRPC <https://grpc.io>`__ directly.
 
-If you're not familiar with gRPC, we strongly recommend following the `gRPC quickstart <https://grpc.io/docs/quickstart/>`__ and `gRPC tutorials <https://grpc.io/docs/tutorials/>`__. You need an understanding of gRPC before you can use this version of the Ledger API.
+If you're not familiar with gRPC and protobuf, we strongly recommend following the `gRPC quickstart <https://grpc.io/docs/quickstart/>`__ and `gRPC tutorials <https://grpc.io/docs/tutorials/>`__. This documentation is written assuming you already have an understanding of gRPC.
 
 Getting started
 ***************
 
-.. TODO: how to get protobufs in world of new assistant
+You can either get the protobufs `from Bintray here <https://bintray.com/digitalassetsdk/DigitalAssetSDK/sdk-components#files/com%2Fdigitalasset%2Fledger-api-protos>`__, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions>`__.
 
 Protobuf reference documentation
 ********************************
-
-.. TODO brief explanation of protos.
 
 For full details of all of the Ledger API services and their RPC methods, see  :doc:`/app-dev/grpc/proto-docs`.
 
