@@ -17,13 +17,17 @@ You need to install:
 2. Install the SDK
 *******************
 
+Mac and Unix
+============
+
 To install the SDK on Mac or Unix, run::
 
   curl -sSL https://get.daml.com/ | sh
 
-.. Install the SDK on Windows
-.. ==========================
-.. TODO installer is coming
+Windows
+=======
+
+To install the SDK on Windows, download and run the installer from `github.com/digital-asset/daml/releases/latest <https://github.com/digital-asset/daml/releases/latest>`__.
 
 .. _setup-maven-project:
 
