@@ -55,16 +55,17 @@ index ae16776..0000000
 -}
 diff --git a/haskell/cc_toolchain_config.bzl b/haskell/cc_toolchain_config.bzl
 new file mode 100644
-index 0000000..f6850f9
+index 0000000..cb6b9c0
 --- /dev/null
 +++ b/haskell/cc_toolchain_config.bzl
-@@ -0,0 +1,98 @@
+@@ -0,0 +1,107 @@
 +load(
 +    "@bazel_tools//tools/build_defs/cc:action_names.bzl",
 +    "ACTION_NAMES",
 +)
 +load(
 +    "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
++    "artifact_name_pattern",
 +    "feature",
 +    "flag_group",
 +    "flag_set",
@@ -118,6 +119,13 @@ index 0000000..f6850f9
 +            path = "mingw/bin/strip",
 +        ),
 +    ]
++    artifact_name_patterns = [
++        artifact_name_pattern(
++            category_name = "executable",
++            prefix = "",
++            extension = ".exe",
++        ),
++    ]
 +    default_link_flags_feature = feature(
 +        name = "default_link_flags",
 +        enabled = True,
@@ -149,6 +157,7 @@ index 0000000..f6850f9
 +        abi_version = "local",
 +        abi_libc_version = "local",
 +        tool_paths = tool_paths,
++        artifact_name_patterns = artifact_name_patterns,
 +        features = [default_link_flags_feature],
 +    )
 +
