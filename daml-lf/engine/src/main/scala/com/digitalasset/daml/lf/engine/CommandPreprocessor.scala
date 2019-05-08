@@ -194,6 +194,11 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
                     PackageLookup.lookupRecord(pkg, recordId.qualifiedName) match {
                       case Left(err) => ResultError(err)
                       case Right((dataTypParams, DataRecord(recordFlds, _))) =>
+                        // note that we check the number of fields _before_ checking if we can do
+                        // field reordering by looking at the labels. this means that it's forbidden to
+                        // repeat keys even if we provide all the labels, which might be surprising
+                        // since in JavaScript / Scala / most languages (but _not_ JSON, interestingly)
+                        // it's ok to do `{"a": 1, "a": 2}`, where the second occurrence would just win.
                         if (recordFlds.length != flds.length) {
                           fail(
                             s"Expecting ${recordFlds.length} field for record $recordId, but got ${flds.length}")
