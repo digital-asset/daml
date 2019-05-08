@@ -202,7 +202,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
   private def lookUpTreeByTransactionId(
       transactionId: TransactionId,
       requestingParties: Set[Party]): Future[Option[VisibleTransaction]] =
-    ledgerBackend
+    transactionPipeline
       .getTransactionById(transactionId.unwrap)
       .flatMap {
         case Some(trans) =>
@@ -218,7 +218,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
   private def lookUpFlatByTransactionId(
       transactionId: TransactionId,
       requestingParties: Set[Party]): Future[Option[PTransaction]] =
-    ledgerBackend
+    transactionPipeline
       .getTransactionById(transactionId.unwrap)
       .flatMap {
         case Some(trans) =>
