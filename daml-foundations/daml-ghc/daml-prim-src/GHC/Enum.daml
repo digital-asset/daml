@@ -25,40 +25,37 @@ import GHC.Show()
 import GHC.Classes
 import GHC.CString (fromString)
 
--- | The `Bounded` class is used to name the upper and lower limits of a
--- type.  `Ord` is not a superclass of `Bounded` since types that are not
--- totally ordered may also have upper and lower bounds.
+-- | Use the `Bounded` class to name the upper and lower limits of a
+-- type.
 --
--- The `Bounded` class may be derived for any enumeration type;
--- `minBound` is the first constructor listed in the `data` declaration
+-- You can derive `Bounded` class for any enumeration type. `minBound`
+-- is the first constructor listed in the `data` declaration
 -- and `maxBound` is the last.
--- `Bounded` may also be derived for single-constructor datatypes whose
+-- You can also derive `Bounded` for single-constructor datatypes whose
 -- constituent types are in `Bounded`.
-class  Bounded a  where
+--
+-- `Ord` is not a superclass of `Bounded` because types that are not
+-- totally ordered can still have upper and lower bounds.
+class Bounded a where
     minBound, maxBound : a
 
--- | Class `Enum` defines operations on sequentially ordered types.
---
--- The `enumFrom`... methods are used in Haskell's translation of
--- arithmetic sequences.
---
--- Instances of `Enum` may be derived for any enumeration type (types
--- whose constructors have no fields).  The nullary constructors are
--- assumed to be numbered left-to-right by `fromEnum` from `0` through `n-1`.
--- See Chapter 10 of the /Haskell Report/ for more details.
+-- | Use the `Enum` class to define operations on sequentially ordered
+-- types: that is, types that can be enumerated. `Enum` members have
+-- defined successors and predecessors, which you can get with the `succ`
+-- and `pred` functions.
 --
 -- For any type that is an instance of class `Bounded` as well as `Enum`,
 -- the following should hold:
 --
--- * The calls `succ` `maxBound` and `pred` `minBound` should result in
+-- * Both `succ` `maxBound` and `pred` `minBound` should result in
 --   a runtime error.
 --
 -- * `fromEnum` and `toEnum` should give a runtime error if the
 --   result value is not representable in the result type.
---   For example, `toEnum` 7 :: `Bool`` is an error.
+--   For example, `toEnum 7 : Bool` is an error.
 --
 -- * `enumFrom` and `enumFromThen` should be defined with an implicit bound,
---   thus:
+--   like this:
 --
 -- ```
 -- enumFrom     x   = enumFromTo     x maxBound
@@ -69,32 +66,37 @@ class  Bounded a  where
 -- ```
 --
 class  Enum a   where
-    -- | the successor of a value.  For numeric types, 'succ' adds 1.
+    -- | Returns the successor of the given value. For example, for
+    -- numeric types, `succ` adds 1.
+    --
+    -- If the type is also an instance of `Bounded`, `succ maxBound`
+    -- results in a runtime error.
     succ                : a -> a
-    -- | the predecessor of a value.  For numeric types, 'pred' subtracts 1.
+    -- | Returns the predecessor of the given value. For example, for
+    -- numeric types, `pred` subtracts 1.
+    --
+    -- If the type is also an instance of `Bounded`, `pred minBound`
+    -- results in a runtime error.
     pred                : a -> a
-    -- | Convert from an 'Int'.
+    -- | Convert a value from an `Int` to an `Enum` value: ie, returns 
+    -- the item at the `Int` position from the `Enum`.
+
     toEnum              : Int -> a
-    -- | Convert to an 'Int'.
-    -- It is implementation-dependent what 'fromEnum' returns when
-    -- applied to a value that is too large to fit in an 'Int'.
+    -- | Convert a value from an `Enum` value to an `Int`: ie, returns
+    -- the `Int` position of the element within the `Enum`.
+    -- 
+    -- If `fromEnum` is applied to a value that's too large to
+    -- fit in an `Int`, what is returned is up to your implementation.
     fromEnum            : a -> Int
 
-    -- | Used in Haskell's translation of `[n..]` with `[n..] = enumFrom n`,
-    --   a possible implementation being `enumFrom n = n : enumFrom (succ n)`.
-    --   For example:
+    -- | Return an array of the `Enum` values starting at the `Int`
+    -- position. For example:
     --
-    --     * `enumFrom 4 :: [Integer] = [4,5,6,7,...]`
-    --     * `enumFrom 6 :: [Int] = [6,7,8,9,...,maxBound :: Int]`
+    --     * `enumFrom 6 : [Int] = [6,7,8,9,...,maxBound : Int]`
     enumFrom            : a -> [a]
-    -- | Used in Haskell's translation of `[n,n'..]`
-    --   with `[n,n'..] = enumFromThen n n'`, a possible implementation being
-    --   `enumFromThen n n' = n : n' : worker (f x) (f x n')`,
-    --   `worker s v = v : worker s (s v)`, `x = fromEnum n' - fromEnum n` and
-    --   `f n y
-    --     | n > 0 = f (n - 1) (succ y)
-    --     | n < 0 = f (n + 1) (pred y)
-    --     | otherwise = y`
+    -- | Retruns an array of the `Enum` values where:
+    -- 
+    -- The first 
     --   For example:
     --
     --     * `enumFromThen 4 6 :: [Integer] = [4,6,8,10...]`

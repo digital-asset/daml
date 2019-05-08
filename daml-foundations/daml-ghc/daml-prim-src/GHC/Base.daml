@@ -57,12 +57,23 @@ infixr 9 .
 const                   : a -> b -> a
 const x _               =  x
 
+-- | A `Functor` is a typeclass for things that can be mapped over (using
+-- its `fmap` function. Examples include `Maybe` and `[]`.
+
+-- For a detailed explanation, see 
+-- http://learnyouahaskell.com/making-our-own-types-and-typeclasses#the-functor-typeclass
+
 class Functor f where
+    -- | `fmap` must take a function from type `a` to type `b`, and a 
+    -- `Functor` of type `a`, and return a `Functor` of type `b`.
+    -- 
+    -- For example, `map` is an `fmap` that only works on lists.
+    -- It takes a function `a -> b` and a `[a]`, and returns a `[b]`. 
     fmap        : (a -> b) -> f a -> f b
 
-    -- | Replace all locations in the input with the same value.
-    -- The default definition is `fmap . const`, but this may be
-    -- overridden with a more efficient version.
+    -- | Replace all locations in the input `f b` with the same value `a`.
+    -- The default definition is `fmap . const`, but you can override
+    -- this with a more efficient version.
     (<$)        : a -> f b -> f a
     (<$)        =  fmap . const
 
