@@ -81,6 +81,9 @@ object Decimal {
     else
       Left(s"""Could not read Decimal string "$s"""")
 
+  def assertFromString(s: String): Decimal =
+    assert(fromString(s))
+
   def toString(d: Decimal): String = {
     // Strip the trailing zeros (which BigDecimal keeps if the string
     // it was created from had them), and use the plain notation rather
@@ -110,5 +113,8 @@ object Decimal {
     else
       Left(s"Decimal $x does not fit into an Int64")
   }
+
+  private def assert[X](either: Either[String, X]): X =
+    either.fold(e => throw new IllegalArgumentException(e), identity)
 
 }
