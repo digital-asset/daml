@@ -64,6 +64,10 @@ da_scala_test_suite(
     data = [
         "//ledger/sandbox:Test.dar",
     ],
+    # this test suite is very intensive, long, and relying on timeouts. Moreover,
+    # the test suite already parallelizes each scala test, so we'll still be busy
+    # only with this one.
+    tags = ["exclusive"],
     deps = [
         ":ledger-api-integration-tests-lib",
     ] + dependencies,
