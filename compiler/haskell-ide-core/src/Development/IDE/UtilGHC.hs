@@ -29,7 +29,7 @@ import qualified Packages
 import           Platform
 import qualified EnumSet
 import           Data.IORef
-import System.FilePath ((</>))
+import           System.FilePath
 import GHC.Generics (Generic)
 
 ----------------------------------------------------------------------
