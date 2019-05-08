@@ -59,9 +59,15 @@ compileDependencies = [
 da_scala_library(
     name = "sandbox",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    resources = glob(["src/main/resources/**/*"]) + [
-        "//:COMPONENT-VERSION",
-    ],
+    resources =
+        glob(
+            ["src/main/resources/**/*"],
+            # Do not include logback.xml into the library: let the user
+            # of the sandbox-as-a-library decide how to log.
+            exclude = ["src/main/resources/logback.xml"],
+        ) + [
+            "//:COMPONENT-VERSION",
+        ],
     tags = ["maven_coordinates=com.digitalasset.platform:sandbox:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -76,6 +82,7 @@ da_scala_library(
 da_scala_binary(
     name = "sandbox-binary",
     main_class = "com.digitalasset.platform.sandbox.SandboxMain",
+    resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox",

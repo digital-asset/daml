@@ -89,7 +89,7 @@ class DamlOnXSubmissionService private (
             Future.fromTry(Try(optArchive.map(Decode.decodeArchive(_)._2)))
         }
     val getContract =
-      (coid: AbsoluteContractId) => indexService.lookupActiveContract(coid)
+      (coid: AbsoluteContractId) => indexService.lookupActiveContract(commands.submitter, coid)
 
     consume(engine.submit(commands.commands))(getPackage, getContract)
       .flatMap {
