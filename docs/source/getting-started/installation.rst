@@ -17,10 +17,10 @@ You need to install:
 2. Install the SDK
 *******************
 
-Mac and Unix
+Mac and Linux
 ============
 
-To install the SDK on Mac or Unix, run::
+To install the SDK on Mac or Linux, run::
 
   curl -sSL https://get.daml.com/ | sh
 

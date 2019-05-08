@@ -29,7 +29,7 @@ You can get the quickstart application using the DAML assistant (``daml``):
 
 #. Run ``daml new quickstart quickstart-java``
 
-   This creates the ``quickstart-java`` application into a folder called ``quickstart``.
+   This creates the ``quickstart-java`` application into a new folder called ``quickstart``.
 #. Run ``cd quickstart`` to change into the new directory.
 
 Folder structure
