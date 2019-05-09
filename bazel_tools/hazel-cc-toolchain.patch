@@ -1,0 +1,13 @@
+diff --git a/hazel/third_party/haskell/BUILD.zlib b/hazel/third_party/haskell/BUILD.zlib
+index 623ecd5..a992510 100644
+--- a/hazel/third_party/haskell/BUILD.zlib
++++ b/hazel/third_party/haskell/BUILD.zlib
+@@ -10,7 +10,7 @@ cc_library(
+   name = "zlib-cbits",
+   hdrs = glob(["cbits/*.h"]),
+   srcs = glob(["cbits/*.c"]),
+-  strip_include_prefix = "cbits",
++  includes = ["cbits"],
+ )
+ 
+ haskell_library(

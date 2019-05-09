@@ -10,6 +10,7 @@ cc_library(
   name = "zlib-cbits",
   hdrs = glob(["cbits/*.h"]),
   srcs = glob(["cbits/*.c"]),
+  includes = ["cbits"],
   strip_include_prefix = "cbits",
 )
 
