@@ -112,6 +112,7 @@ import           "ghc-lib" GhcPlugins as GHC hiding ((<>))
 import           "ghc-lib-parser" Pair
 import           "ghc-lib-parser" PrelNames
 import           "ghc-lib-parser" TysPrim
+import           "ghc-lib-parser" TyCoRep
 import qualified "ghc-lib-parser" Name
 import           Safe.Exact (zipExact, zipExactMay)
 
@@ -1024,38 +1025,87 @@ convertCast env expr0 co0 = evalStateT (go expr0 co0) 0
 
       -- Case (1) & (2)
       | Pair s t <- coercionKind co
-      = lift $ do
-        mCase1 <- isSatNewTyCon s t
-        mCase2 <- isSatNewTyCon t s
-        case (mCase1, mCase2) of
-          (Just (tcon, field, flv), _) ->
-            let sanitize x
-                  -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
-                  | flv == ClassFlavour = ETmLam (mkVar "_", TUnit) x
-                  | otherwise = x
-            in pure $ ERecCon tcon [(field, sanitize expr)]
-          (_, Just (tcon, field, flv)) ->
-            let sanitize x
-                  -- NOTE(MH): This is DICTIONARY SANITIZATION step (2).
-                  | flv == ClassFlavour = x `ETmApp` EUnit
-                  | otherwise = x
-            in pure $ sanitize (ERecProj tcon field expr)
-          _ -> unhandled "Coercion" co
-    isSatNewTyCon :: GHC.Type -> GHC.Type -> ConvertM (Maybe (TypeConApp, FieldName, TyConFlavour))
+      , Just (t, ts, field, flv) <- isSatNewTyCon s t
+      = do
+        ts' <- lift $ traverse (convertType env) ts
+        t' <- lift $ convertQualified env t
+        let
+            tcon = TypeConApp t' ts'
+            sanitize x
+                -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
+                | flv == ClassFlavour = ETmLam (mkVar "_", TUnit) x
+                | otherwise = x
+        pure $ ERecCon tcon [(field, sanitize expr)]
+
+      | Pair s t <- coercionKind co
+      , Just (t, ts, field, flv) <- isSatNewTyCon t s
+      = do
+        ts' <- lift $ traverse (convertType env) ts
+        t' <- lift $ convertQualified env t
+        let
+            tcon = TypeConApp t' ts'
+            sanitize x
+                -- NOTE(MH): This is DICTIONARY SANITIZATION step (2).
+                | flv == ClassFlavour = x `ETmApp` EUnit
+                | otherwise = x
+        pure $ sanitize (ERecProj tcon field expr)
+
+      | Just (coX, coY) <- splitAppCo_maybe co
+      , ETyApp tyX tyY <- expr
+      , Pair _s t <- coercionKind coY
+      = do
+        tyX' <- go tyX coX
+        tyY' <- lift $ convertType env t
+        pure $ ETyApp tyX' tyY'
+
+      | Just (coX, coY) <- splitAppCo_maybe co
+      , ETmApp exX exY <- expr
+      , Pair s t <- coercionKind coY
+      = do
+        exX' <- go exX coX
+        exY' <- go exY coY
+        pure $ ETmApp exX' exY'
+
+      | Just (_coX, _coY) <- splitAppCo_maybe co
+      , ERecCon _typeCon fields <- expr
+      , Pair _s t <- coercionKind co
+      = do
+        t' <- lift $ convertType env t
+        case t' of
+          TConApp tcon targs -> pure $ ERecCon (TypeConApp tcon targs) fields
+          _ -> lift $ unhandled "Coercion" co
+
+      | AxiomInstCo _coAxBranched i bs <- co
+      , length bs > 0
+      = go expr (bs !! i)
+
+      | AxiomInstCo coAxBranched i bs <- co
+      , length bs == 0
+      = pure expr -- TODO (drsk): do nothing?
+
+      | SymCo co' <- co
+      = go expr co'
+
+      | SubCo co' <- co
+      = go expr co'
+
+      | otherwise
+      = lift $ unhandled "Coercion" co
+
+
+    isSatNewTyCon :: GHC.Type -> GHC.Type -> Maybe (TyCon, [GHC.Type], FieldName, TyConFlavour)
     isSatNewTyCon s (TypeCon t ts)
       | Just data_con <- newTyConDataCon_maybe t
       , (tvs, rhs) <- newTyConRhs t
       , length ts == length tvs
       , applyTysX tvs rhs ts `eqType` s
       , [field] <- ctorLabels flv data_con
-      = do
-      ts' <- mapM (convertType env) ts
-      t' <- convertQualified env t
-      pure $ Just (TypeConApp t' ts', field, flv)
+      = Just (t, ts, field, flv)
       where
         flv = tyConFlavour t
     isSatNewTyCon _ _
-      = pure Nothing
+      = Nothing
+
 
 convertModuleName :: GHC.ModuleName -> LF.ModuleName
 convertModuleName (moduleNameString -> x)
