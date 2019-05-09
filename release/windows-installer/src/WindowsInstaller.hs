@@ -20,6 +20,7 @@ installer :: FilePath -> Action SectionId
 installer sdkDir = do
     name "DAML SDK installer"
     outFile "daml-sdk-installer.exe"
+    requestExecutionLevel User
     section "" [] $ do
         -- We use PLUGINSDIR as an easy way to get a temporary directory
         -- that nsis will cleanup automatically.
