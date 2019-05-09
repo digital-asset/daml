@@ -36,19 +36,20 @@ ascendants p =
 throwErr :: Text -> IO a
 throwErr msg = throwIO (assistantError msg)
 
--- | Handle IOExceptions by wrapping them in an AssistantError, and
+-- | Handle synchronous exceptions by wrapping them in an AssistantError,
 -- add context to any assistant errors that are missing context.
-wrapErr :: Text -> (IO a -> IO a)
-wrapErr ctx = handleIO (throwIO . wrapIOException)
-            . handle   (throwIO . addErrorContext)
-
+wrapErr :: Text -> IO a -> IO a
+wrapErr ctx m = m `catches`
+    [ Handler $ throwIO . addErrorContext
+    , Handler $ throwIO . wrapException
+    ]
     where
-        wrapIOException :: IOException -> AssistantError
-        wrapIOException ioErr =
+        wrapException :: SomeException -> AssistantError
+        wrapException err =
             AssistantError
                 { errContext  = Just ctx
                 , errMessage  = Nothing
-                , errInternal = Just (pack (show ioErr))
+                , errInternal = Just (pack (show err))
                 }
 
         addErrorContext :: AssistantError -> AssistantError
