@@ -829,14 +829,24 @@ renderRow world parties NodeInfo{..} =
             ]
     in (header, row)
 
+renderHeader :: LF.World -> S.Set T.Text -> NodeInfo -> H.Html
+renderHeader world parties NodeInfo{..} = 
+  H.tr $ mconcat
+            [ foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
+            , H.th "id"
+            , H.th "status"
+            , snd $ renderValue world [] niValue
+            ]
+        
 -- TODO(MH): The header should be rendered from the type rather than from the
 -- first value.
 renderTable :: LF.World -> Table -> H.Html
 renderTable world Table{..} = H.div H.! A.class_ active $ do
     let parties = S.unions $ map niObservers tRows
     H.h1 $ renderPlain $ prettyDefName world tTemplateId
-    let (headers, rows) = unzip $ map (renderRow world parties) tRows
-    H.table $ head headers <> mconcat rows
+    let (_, rows) = unzip $ map (renderRow world parties) tRows
+    let headers = renderHeader world parties (head tRows)
+    H.table $ head [headers] <> mconcat rows
     where
         active = if any niActive tRows then "active" else "archived"
 
