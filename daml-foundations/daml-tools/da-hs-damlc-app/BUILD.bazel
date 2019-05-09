@@ -79,13 +79,13 @@ sh_test(
     args = [
         "$(location :damlc-dist.tar.gz)",
         "$(location :test/Main.daml)",
-        "$(location @tar_nix//:bin/tar)",
-        "$(location @gzip_nix//:bin/gzip)",
+        "$(location @tar_dev_env//:tar)",
+        "$(location @gzip_dev_env//:gzip)",
     ],
     data = [
         ":damlc-dist.tar.gz",
         ":test/Main.daml",
-        "@gzip_nix//:bin/gzip",
-        "@tar_nix//:bin/tar",
+        "@gzip_dev_env//:gzip",
+        "@tar_dev_env//:tar",
     ],
 )

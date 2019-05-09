@@ -77,6 +77,7 @@ da_haskell_test(
         "tasty-hunit",
     ],
     main_function = "Cli.main",
+    src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
         ":da-hs-daml-cli",
@@ -97,6 +98,7 @@ da_haskell_test(
         "tasty-hunit",
     ],
     main_function = "DamlcTest.main",
+    src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
         ":da-hs-daml-cli",
