@@ -57,6 +57,7 @@ def da_java_library(
         tags = tags,
         visibility = visibility,
         exports = exports,
+        **kwargs
     )
     pom_file(
         name = name + "_pom",
