@@ -10,8 +10,9 @@ import java.util.Collections
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.testkit.services.TransactionServiceImpl
 import com.daml.ledger.testkit.services.TransactionServiceImpl.LedgerItem
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Exercised}
+import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
 import com.digitalasset.ledger.api.v1.value
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
@@ -246,12 +247,12 @@ object TransactionGenerator {
       )
     )
 
-  val eventGen: Gen[(Event, data.Event)] =
-    Gen.oneOf(createdEventGen, archivedEventGen, exercisedEventGen).map {
+  val eventGen: Gen[(Event, data.FlatEvent)] =
+    Gen.oneOf(createdEventGen, archivedEventGen).map {
       case (scalaEvent, javaEvent) => (Event(scalaEvent), javaEvent)
     }
 
-  def eventsGen: Gen[(List[Event], util.List[data.Event])] = eventGen.map {
+  def eventsGen: Gen[(List[Event], util.List[data.FlatEvent])] = eventGen.map {
     case (scalaEvent, javaEvent) => (List(scalaEvent), List(javaEvent).asJava)
   }
 

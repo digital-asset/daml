@@ -4,16 +4,23 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.EventOuterClass;
-
 import com.digitalasset.ledger.api.v1.TransactionOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
+/**
+ * @see FlatEvent
+ * @see TreeEvent
+ * @see <a href="https://github.com/digital-asset/daml/issues/960">#960</a>
+ * @deprecated This class is deprecated in favour of the interfaces {@link FlatEvent} used by {@link Transaction}
+ * and {@link TreeEvent} used by {@link TransactionTree}.
+ */
+@Deprecated
 public abstract class Event {
 
-    public abstract @NonNull List<@NonNull String> getWitnessParties();
+    @NonNull
+    public abstract List<@NonNull String> getWitnessParties();
 
     @NonNull
     public abstract String getEventId();
@@ -24,80 +31,13 @@ public abstract class Event {
     @NonNull
     public abstract String getContractId();
 
-    public static Event fromProtoEvent(EventOuterClass.Event event) {
 
-        if (event.hasCreated()) {
-            EventOuterClass.CreatedEvent createdEvent = event.getCreated();
-            return new CreatedEvent(createdEvent.getWitnessPartiesList(), createdEvent.getEventId(),
-                    Identifier.fromProto(createdEvent.getTemplateId()),
-                    createdEvent.getContractId(), Record.fromProto(createdEvent.getCreateArguments()));
-        } else if (event.hasArchived()) {
-            EventOuterClass.ArchivedEvent archivedEvent = event.getArchived();
-            return new ArchivedEvent(archivedEvent.getWitnessPartiesList(), archivedEvent.getEventId(),
-                    Identifier.fromProto(archivedEvent.getTemplateId()),
-                    archivedEvent.getContractId());
-        } else if (event.hasExercised()) {
-            EventOuterClass.ExercisedEvent exercisedEvent = event.getExercised();
-            return new ExercisedEvent(exercisedEvent.getWitnessPartiesList(), exercisedEvent.getEventId(),
-                    Identifier.fromProto(exercisedEvent.getTemplateId()),
-                    exercisedEvent.getContractId(), exercisedEvent.getContractCreatingEventId(),
-                    exercisedEvent.getChoice(), Value.fromProto(exercisedEvent.getChoiceArgument()),
-                    exercisedEvent.getActingPartiesList(), exercisedEvent.getConsuming(),
-                    exercisedEvent.getChildEventIdsList(), Value.fromProto(exercisedEvent.getExerciseResult()));
-        } else {
-            throw new UnsupportedEventTypeException(event.toString());
-        }
+    public static TreeEvent fromProtoTreeEvent(TransactionOuterClass.TreeEvent event) {
+        return TreeEvent.fromProtoTreeEvent(event);
     }
 
-    public static Event fromProtoTreeEvent(TransactionOuterClass.TreeEvent event) {
-
-        if (event.hasCreated()) {
-            EventOuterClass.CreatedEvent createdEvent = event.getCreated();
-            return new CreatedEvent(createdEvent.getWitnessPartiesList(), createdEvent.getEventId(),
-                    Identifier.fromProto(createdEvent.getTemplateId()),
-                    createdEvent.getContractId(), Record.fromProto(createdEvent.getCreateArguments()));
-        } else if (event.hasExercised()) {
-            EventOuterClass.ExercisedEvent exercisedEvent = event.getExercised();
-            return new ExercisedEvent(exercisedEvent.getWitnessPartiesList(), exercisedEvent.getEventId(),
-                    Identifier.fromProto(exercisedEvent.getTemplateId()),
-                    exercisedEvent.getContractId(), exercisedEvent.getContractCreatingEventId(),
-                    exercisedEvent.getChoice(), Value.fromProto(exercisedEvent.getChoiceArgument()),
-                    exercisedEvent.getActingPartiesList(), exercisedEvent.getConsuming(),
-                    exercisedEvent.getChildEventIdsList(), Value.fromProto(exercisedEvent.getExerciseResult()));
-        } else {
-            throw new UnsupportedEventTypeException(event.toString());
-        }
-    }
-
-    public EventOuterClass.Event toProtoEvent() {
-        EventOuterClass.Event.Builder eventBuilder = EventOuterClass.Event.newBuilder();
-        if (this instanceof ArchivedEvent) {
-            ArchivedEvent event = (ArchivedEvent) this;
-            eventBuilder.setArchived(event.toProto());
-        } else if (this instanceof CreatedEvent) {
-            CreatedEvent event = (CreatedEvent) this;
-            eventBuilder.setCreated(event.toProto());
-        } else if (this instanceof ExercisedEvent) {
-            ExercisedEvent event = (ExercisedEvent) this;
-            eventBuilder.setExercised(event.toProto());
-        } else {
-            throw new RuntimeException("this should be ArchivedEvent or CreatedEvent or ExercisedEvent, found " + this.toString());
-        }
-        return eventBuilder.build();
-    }
-
-    public TransactionOuterClass.TreeEvent toProtoTreeEvent() {
-        TransactionOuterClass.TreeEvent.Builder eventBuilder = TransactionOuterClass.TreeEvent.newBuilder();
-        if (this instanceof CreatedEvent) {
-            CreatedEvent event = (CreatedEvent) this;
-            eventBuilder.setCreated(event.toProto());
-        } else if (this instanceof ExercisedEvent) {
-            ExercisedEvent event = (ExercisedEvent) this;
-            eventBuilder.setExercised(event.toProto());
-        } else {
-            throw new RuntimeException("this should be CreatedEvent or ExercisedEvent, found " + this.toString());
-        }
-        return eventBuilder.build();
+    public static FlatEvent fromProtoEvent(EventOuterClass.Event event) {
+        return FlatEvent.fromProtoEvent(event);
     }
 }
 

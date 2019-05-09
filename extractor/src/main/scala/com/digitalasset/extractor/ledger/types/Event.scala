@@ -47,9 +47,8 @@ object Event {
   final implicit class ApiEventOps(val apiEvent: api.event.Event.Event) extends AnyVal {
     def convert: String \/ Event = apiEvent match {
       case api.event.Event.Event.Archived(event) =>
-        s"Unexpected `Archived` event: $event. Only `Created` and `Exercised` events are expected.".left
+        s"Unexpected `Archived` event: $event. Only `Created` events are expected.".left
       case api.event.Event.Event.Created(event) => event.convert
-      case api.event.Event.Event.Exercised(event) => event.convert
       case api.event.Event.Event.Empty => "Unexpected `Empty` event.".left
     }
   }

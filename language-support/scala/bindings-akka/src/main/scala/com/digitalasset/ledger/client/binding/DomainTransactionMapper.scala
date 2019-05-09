@@ -6,7 +6,7 @@ package com.digitalasset.ledger.client.binding
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.digitalasset.ledger.api.refinements.ApiTypes._
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty, Exercised}
+import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
 import com.digitalasset.ledger.api.v1.event._
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
@@ -30,8 +30,6 @@ object DomainTransactionMapper {
   private final case class RequiredFieldDoesNotExistError(field: String)
       extends InputValidationError
   private final case object EmptyEvent extends InputValidationError
-  private final case class UnexpectedExercisedEvent(event: ExercisedEvent)
-      extends InputValidationError
 }
 
 class DomainTransactionMapper(decoder: DecoderType) extends LazyLogging {
@@ -92,9 +90,6 @@ class DomainTransactionMapper(decoder: DecoderType) extends LazyLogging {
           .fold(logAndDiscard(createdEvent), mapCreatedEvent(createdEvent, _).map(Some.apply))
       case Archived(archivedEvent) =>
         mapArchivedEvent(archivedEvent).map(Some.apply)
-      case Exercised(exercisedEvent) =>
-        logger.error("Exercised event should not come from the transactions endpoint")
-        Left(UnexpectedExercisedEvent(exercisedEvent))
       case Empty =>
         Left(EmptyEvent)
     }

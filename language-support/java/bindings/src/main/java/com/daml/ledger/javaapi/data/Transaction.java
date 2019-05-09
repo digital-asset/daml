@@ -21,11 +21,11 @@ public class Transaction implements WorkflowEvent {
 
     private final Instant effectiveAt;
 
-    private final java.util.List<Event> events;
+    private final java.util.List<FlatEvent> events;
 
     private final String offset;
 
-    public Transaction(@NonNull String transactionId, @NonNull String commandId, @NonNull String workflowId, @NonNull Instant effectiveAt, @NonNull List<@NonNull Event> events, @NonNull String offset) {
+    public Transaction(@NonNull String transactionId, @NonNull String commandId, @NonNull String workflowId, @NonNull Instant effectiveAt, @NonNull List<@NonNull FlatEvent> events, @NonNull String offset) {
         this.transactionId = transactionId;
         this.commandId = commandId;
         this.workflowId = workflowId;
@@ -39,7 +39,7 @@ public class Transaction implements WorkflowEvent {
         String commandId = transaction.getCommandId();
         Instant effectiveAt = Instant.ofEpochSecond(transaction.getEffectiveAt().getSeconds(), transaction.getEffectiveAt().getNanos());
         String workflowId = transaction.getWorkflowId();
-        java.util.List<Event> events = transaction.getEventsList().stream().map(Event::fromProtoEvent).collect(Collectors.toList());
+        java.util.List<FlatEvent> events = transaction.getEventsList().stream().map(FlatEvent::fromProtoEvent).collect(Collectors.toList());
         String offset = transaction.getOffset();
         return new Transaction(transactionId, commandId, workflowId, effectiveAt, events, offset);
     }
@@ -49,7 +49,7 @@ public class Transaction implements WorkflowEvent {
                 .setTransactionId(this.transactionId)
                 .setCommandId(this.commandId)
                 .setEffectiveAt(com.google.protobuf.Timestamp.newBuilder().setSeconds(this.effectiveAt.getEpochSecond()).setNanos(this.effectiveAt.getNano()).build())
-                .addAllEvents(this.events.stream().map(Event::toProtoEvent).collect(Collectors.toList()))
+                .addAllEvents(this.events.stream().map(FlatEvent::toProtoEvent).collect(Collectors.toList()))
                 .setOffset(this.offset)
                 .build();
     }
@@ -70,7 +70,7 @@ public class Transaction implements WorkflowEvent {
     }
 
     @NonNull
-    public List<Event> getEvents() {
+    public List<FlatEvent> getEvents() {
         return events;
     }
 

@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.ledger.testkit.services.TransactionServiceImpl.LedgerItem
 import com.digitalasset.ledger.api.v1.event.Event
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty, Exercised}
+import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.{
   LEDGER_BEGIN,
@@ -153,7 +153,6 @@ object TransactionServiceImpl {
   def eventId(event: Event): String = event.event match {
     case Archived(archivedEvent) => archivedEvent.eventId
     case Created(createdEvent) => createdEvent.eventId
-    case Exercised(exercisedEvent) => exercisedEvent.eventId
     case Empty => ""
   }
 

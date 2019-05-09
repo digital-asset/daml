@@ -14,7 +14,7 @@ class EventSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyCheck
 
   "Event.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
     eventGen) { event =>
-    val converted = Event.fromProtoEvent(event)
-    Event.fromProtoEvent(converted.toProtoEvent) shouldEqual converted
+    val converted = FlatEvent.fromProtoEvent(event)
+    FlatEvent.fromProtoEvent(converted.toProtoEvent) shouldEqual converted
   }
 }

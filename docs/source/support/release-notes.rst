@@ -25,6 +25,20 @@ HEAD — ongoing
 - **SDK**: The Windows installer no longer requires elevated privileges.
 
 - **DAML Assistant**: The assistant handles network failures gracefully.
+- Sandbox: Transactions with a record time that is after the maximum record time (as provided in the original command)
+  are now properly rejected instead of committed to the ledger: `#987 <https://github.com/digital-asset/daml/issues/987>`_
+- **BREAKING** Ledger API: Removed the unused field :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` from :ref:`com.digitalasset.ledger.api.v1.Event`.
+  ``Event`` is only used in :ref:`com.digitalasset.ledger.api.v1.Transaction`, which in turn by definition never contains exercised events.
+  If you check for the presence of ``ExercisedEvent`` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
+- **BREAKING** Java Bindings: Reflect breaking change of Ledger API in the event class hierarchy
+
+  - The ``data.Event`` class is now deprecated.
+  - Added interface ``data.FlatEvent``.
+  - Added interface ``data.TreeEvent``.
+  - ``data.CreatedEvent`` and ``data.ArchivedEvent`` now implement ``data.FlatEvent``.
+  - ``data.CreatedEvent`` and ``data.ExercisedEvent`` now implement ``data.TreeEvent``.
+  - ``data.Transaction#events`` is now ``List<FlatEvent>`` (was previously ``List<Event>``).
+  - ``data.TransactionTree#eventsById`` is now ``Map<String, TreeEvent>`` (was previously ``Map<String, Event>``).
 
 .. _release-0-12-16:
 

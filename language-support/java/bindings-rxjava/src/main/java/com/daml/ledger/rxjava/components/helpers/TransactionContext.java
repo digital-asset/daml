@@ -10,7 +10,7 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * A {@link Transaction} without the {@link com.daml.ledger.javaapi.data.Event}s.
+ * A {@link Transaction} without the {@link com.daml.ledger.javaapi.data.FlatEvent}s.
  */
 public class TransactionContext implements CreatedContractContext {
 
