@@ -13,7 +13,7 @@
 import Docker from "./docker"
 import http from "http"
 import https from "https"
-import express from "express"
+import express, { Response } from "express"
 import fs from "fs"
 import cookie from "cookie"
 import path from "path"
@@ -48,6 +48,12 @@ http.createServer(httpToHttpsApp).listen(conf.http.httpToHttpsPort, () => {
 
 if (!conf.http.port) throw new Error("MUST configure port for webide: 'conf.http.port'")
 const webideServer = createWebIdeServer()
+if (conf.secureHeaders || conf.secureHeaders === undefined) {
+    webIdeApp.use((req, res, next) => {
+        addSecureHeaders(res, conf)
+        next()
+    })
+}
 const webIdeRoute = new WebIdeRoute(webIdeApp, webideServer, docker, rootDir).init()
 const landingRoute = new StaticRoute(webIdeApp, rootDir).init()
 webIdeApp.get('*', (req, res, next) => {
@@ -129,4 +135,13 @@ function close() {
             }, 10000)
         }
     })
+}
+
+function addSecureHeaders(res :Response, config :any) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubdomains")
+    res.setHeader("X-Content-Type-Options", "nosniff")
+    res.setHeader("X-Frame-Options", "sameorigin")
+    res.setHeader("X-XSS-Protection", "1; mode=block")
+    res.setHeader("Referrer-Policy", "no-referrer-when-downgrade")
+    res.setHeader("Content-Security-Policy", `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;`)
 }

@@ -11,7 +11,8 @@ RUN curl -sL https://deb.nodesource.com/setup_8.x | bash - &&\
         procps \
         nodejs \
         libxkbfile-dev \
-        libsecret-1-dev
+        libsecret-1-dev &&\
+    apt-get remove -y --allow-remove-essential apt
 
 USER sdk
 ENV VERSION=0.11.19 \
