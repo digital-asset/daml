@@ -13,23 +13,11 @@ import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, T
 import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode'
 import * as which from 'which';
 
-// NOTE(JM): We're keeping these variables here for backwards compatibility
-// to the "legacy distribution" built in //sdk/distribution.
 let damlRoot: string = path.join(os.homedir(), '.daml');
 let daSdkPath: string = path.join(os.homedir(), '.da');
 let daCmdPath: string = path.join(daSdkPath, 'bin', 'da');
-let damlUserGuidePath: string = path.join(damlRoot, 'da-docs-daml-user-guide', 'index.html');
 
 var damlLanguageClient: LanguageClient;
-
-// the location of this extension
-// const extPath = vscode.extensions.getExtension ("Digital Asset.da-vscode-daml-extension").extensionPath;
-
-// function onExtPath(fp : string): string{
-//     return path.join(extPath, fp);
-// }
-
-// const syntaxLocation = onExtPath("syntaxes/damlSyntax");
 // Extension activation
 export async function activate(context: vscode.ExtensionContext) {
     // Start the language clients
@@ -453,26 +441,6 @@ const telemetryConsentKey = 'telemetry-consent'
 const privacyPolicy = 'https://www.digitalasset.com/privacy-policy'
 
 
-// remove this once env.openExternal has been around for 6 months (1st July 2019)
-function openURL(url: string) {
-    var helper: string;
-    switch (process.platform) {
-        case 'darwin':
-            helper = 'open';
-            break;
-        case 'win32':
-            helper = 'start';
-            break;
-        default:
-            helper = 'xdg-open';
-    }
-    cp.exec(`${helper} ${url}`, err => {
-        if (err) {
-            window.showErrorMessage(`openURL error: ${err}`);
-        }
-    });
-}
-
 function setConsentState(ex : ExtensionContext, val : undefined|boolean){
     ex.globalState.update(telemetryConsentKey, val);
 }
@@ -498,7 +466,7 @@ function handleResult(ex : ExtensionContext, res : string|undefined) : boolean|u
             return false;
         }
         case options.read: {
-            openURL(privacyPolicy);
+            vscode.env.openExternal(vscode.Uri.parse(privacyPolicy));
             return false;
         }
         default: throw "Unrecognised telemetry option";
