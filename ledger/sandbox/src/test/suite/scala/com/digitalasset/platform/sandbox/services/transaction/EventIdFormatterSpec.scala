@@ -11,7 +11,7 @@ import org.scalatest.{Matchers, WordSpec}
 class EventIdFormatterSpec extends WordSpec with Matchers with ScalaFutures {
 
   "EventIdFormatter" should {
-    val transactionId = "SOME_TRANSACTION_ID"
+    val transactionId = "42"
     val index: Transaction.NodeId = Transaction.NodeId.unsafeFromIndex(42)
     val referenceEventID = s"#$transactionId:${index.index}"
 
@@ -21,7 +21,7 @@ class EventIdFormatterSpec extends WordSpec with Matchers with ScalaFutures {
 
     "split an eventId into a transactionId and an index" in {
       SandboxEventIdFormatter.split(referenceEventID) should equal(
-        Some(TransactionIdWithIndex(transactionId, index)))
+        Some(TransactionIdWithIndex(transactionId.toLong, index)))
     }
 
     "return None when parsing an invalid argument" in {
