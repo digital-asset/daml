@@ -1212,7 +1212,7 @@ toCtors env t = Ctors (getName t) <$> mapM convTypeVar (tyConTyVars t) <*> cs
 -- * We add a field for every constraint containt in the thetas.
 ctorLabels :: TyConFlavour -> DataCon -> [FieldName]
 ctorLabels flv con =
-    [mkField $ "f" <> show i | i <- [1 .. length thetas]] ++ conFields flv con
+    [mkField $ "$dict" <> show i | i <- [1 .. length thetas]] ++ conFields flv con
   where
   thetas = dataConTheta con
   conFields flv con
@@ -1229,8 +1229,7 @@ ctorLabels flv con =
 
 toCtor :: Env -> DataCon -> ConvertM Ctor
 toCtor env con =
-  let (_,_, tys,_) = dataConSig con
-      thetas = dataConTheta con
+  let (_, thetas, tys,_) = dataConSig con
       flv = tyConFlavour (dataConTyCon con)
       sanitize ty
         -- NOTE(MH): This is DICTIONARY SANITIZATION step (1).
