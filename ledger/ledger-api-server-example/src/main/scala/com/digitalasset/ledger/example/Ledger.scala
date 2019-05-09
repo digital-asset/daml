@@ -199,46 +199,44 @@ class Ledger(
       txDelta: TxDelta,
       recordedAt: Instant,
       ledgerState: LedgerState): Either[LedgerSyncOffset => LedgerSyncEvent, Unit] = {
+    import scalaz.syntax.std.boolean._
+    type LSO = LedgerSyncOffset
 
-    // check for and ignore duplicates
-    if (ledgerState.duplicationCheck.contains((submission.applicationId, submission.commandId))) {
-      return Left(
-        offset =>
-          mkRejectedCommand(
-            DuplicateCommandId("duplicate submission detected"),
-            offset,
-            submission,
-            recordedAt))
+    (// check for and ignore duplicates
+    ledgerState.duplicationCheck.contains((submission.applicationId, submission.commandId)).option {
+      offset: LSO =>
+        mkRejectedCommand(
+          DuplicateCommandId("duplicate submission detected"),
+          offset,
+          submission,
+          recordedAt)
     }
-
-    // time validation
-    validator
-      .checkLet(
-        timeProvider.getCurrentTime,
-        submission.ledgerEffectiveTime,
-        submission.maximumRecordTime,
-        submission.commandId,
-        submission.applicationId)
-      .fold(
-        t =>
-          return Left(
-            offset => mkRejectedCommand(TimedOut(t.getMessage), offset, submission, recordedAt)),
-        _ => ())
-
-    // check for consistency
-    // NOTE: we do this by checking the activeness of all input contracts, both
-    // consuming and non-consuming.
-    if (!txDelta.inputs.subsetOf(ledgerState.activeContracts.keySet) ||
-      !txDelta.inputs_nc.subsetOf(ledgerState.activeContracts.keySet)) {
-      return Left(
-        offset =>
+      orElse
+        // time validation
+        validator
+          .checkLet(
+            timeProvider.getCurrentTime,
+            submission.ledgerEffectiveTime,
+            submission.maximumRecordTime,
+            submission.commandId,
+            submission.applicationId)
+          .fold(
+            t =>
+              Some((offset: LSO) =>
+                mkRejectedCommand(TimedOut(t.getMessage), offset, submission, recordedAt)),
+            _ => None)
+      orElse
+        // check for consistency
+        // NOTE: we do this by checking the activeness of all input contracts, both
+        // consuming and non-consuming.
+        (!txDelta.inputs.subsetOf(ledgerState.activeContracts.keySet) ||
+          !txDelta.inputs_nc.subsetOf(ledgerState.activeContracts.keySet)).option { offset: LSO =>
           mkRejectedCommand(
             Inconsistent("one or more of the inputs has been consumed"),
             offset,
             submission,
-            recordedAt))
-    }
-    Right(())
+            recordedAt)
+        }) toLeft (())
   }
 
   /**
