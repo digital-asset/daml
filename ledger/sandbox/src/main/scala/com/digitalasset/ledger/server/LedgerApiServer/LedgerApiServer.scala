@@ -84,6 +84,7 @@ class LedgerApiServer(
       with NoStackTrace
 
   private val logger = LoggerFactory.getLogger(this.getClass)
+  @volatile
   private var actualPort
     : Int = -1 // we need this to remember ephemeral ports when using ResetService
   def port: Int = if (actualPort == -1) serverPort else actualPort
@@ -99,12 +100,14 @@ class LedgerApiServer(
   )(mat.system)
   private val serverEventLoopGroup = createEventLoopGroup(mat.system.name)
 
+  @volatile
   private var runningServices: Iterable[BindableService] =
     services(config, ledgerBackend, engine, timeProvider, optTimeServiceBackend)
 
-  def getServer = server
+  def getServer = grpcServer
 
-  private var server: Server = _
+  @volatile
+  private var grpcServer: Server = _
 
   private def start(): LedgerApiServer = {
     val builder = addressOption.fold(NettyServerBuilder.forPort(port))(address =>
@@ -122,17 +125,17 @@ class LedgerApiServer(
     builder.workerEventLoopGroup(serverEventLoopGroup)
     builder.permitKeepAliveTime(10, TimeUnit.SECONDS)
     builder.permitKeepAliveWithoutCalls(true)
-    server = optResetService.toList
+    grpcServer = optResetService.toList
       .foldLeft(runningServices.foldLeft(builder)(_ addService _))(_ addService _)
       .build
     try {
-      server.start()
-      actualPort = server.getPort
+      grpcServer.start()
+      actualPort = grpcServer.getPort
     } catch {
       case io: IOException if io.getCause != null && io.getCause.isInstanceOf[BindException] =>
         throw new UnableToBind(port, io.getCause)
     }
-    logger.info(s"listening on ${addressOption.getOrElse("localhost")}:${server.getPort}")
+    logger.info(s"listening on ${addressOption.getOrElse("localhost")}:${grpcServer.getPort}")
     this
   }
 
@@ -154,10 +157,10 @@ class LedgerApiServer(
   override def close(): Unit = {
     closeAllServices()
     ledgerBackend.close()
-    Option(server).foreach { s =>
+    Option(grpcServer).foreach { s =>
       s.shutdownNow()
       s.awaitTermination(10, TimeUnit.SECONDS)
-      server = null
+      grpcServer = null
     }
     // `shutdownGracefully` has a "quiet period" which specifies a time window in which
     // _no requests_ must be witnessed before shutdown is _initiated_. Here we want to
