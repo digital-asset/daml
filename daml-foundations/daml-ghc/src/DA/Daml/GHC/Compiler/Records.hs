@@ -51,7 +51,7 @@ onModule x = x { hsmodImports = onImports $ hsmodImports x
 
 
 onImports :: [LImportDecl GhcPs] -> [LImportDecl GhcPs]
-onImports = (:) $ noL $ importGenerated True (mkImport $ noL mod_records)
+onImports = (:) $ noL $ importGenerated QualifiedPost (mkImport $ noL mod_records)
 
 
 {-
