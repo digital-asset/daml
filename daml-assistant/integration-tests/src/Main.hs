@@ -23,6 +23,7 @@ import Test.Tasty.HUnit
 
 import DA.Bazel.Runfiles
 import DamlHelper
+import SdkVersion
 
 main :: IO ()
 main =
@@ -49,11 +50,64 @@ tests tmpDir = testGroup "Integration tests"
     , testCase "daml version" $ callProcessQuiet "daml" ["version"]
     , testCase "daml --help" $ callProcessQuiet "daml" ["--help"]
     , testCase "daml new --list" $ callProcessQuiet "daml" ["new", "--list"]
+    , packagingTests tmpDir
     , quickstartTests quickstartDir mvnDir
     ]
     where quickstartDir = tmpDir </> "quickstart"
           mvnDir = tmpDir </> "m2"
           tarballDir = tmpDir </> "tarball"
+
+
+packagingTests :: FilePath -> TestTree
+packagingTests tmpDir = testGroup "packaging"
+    [ testCaseSteps "Build package with dependency" $ \step -> do
+        let projectA = tmpDir </> "a"
+        let projectB = tmpDir </> "b"
+        let aDar = projectA </> "dist" </> "a.dar"
+        let bDar = projectB </> "dist" </> "b.dar"
+        step "Creating project a..."
+        createDirectoryIfMissing True (projectA </> "daml")
+        writeFileUTF8 (projectA </> "daml" </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A (a) where"
+            , "a : ()"
+            , "a = ()"
+            ]
+        writeFileUTF8 (projectA </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: \"1.0\""
+            , "source: daml/A.daml"
+            , "exposed-modules: [A]"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            ]
+        withCurrentDirectory projectA $ callProcessQuiet "daml" ["build"]
+        assertBool "a.dar was not created." =<< doesFileExist aDar
+        step "Creating project b..."
+        createDirectoryIfMissing True (projectB </> "daml")
+        writeFileUTF8 (projectB </> "daml" </> "B.daml") $ unlines
+            [ "daml 1.2"
+            , "module B where"
+            , "import A"
+            , "b : ()"
+            , "b = a"
+            ]
+        writeFileUTF8 (projectB </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "version: \"1.0\""
+            , "name: b"
+            , "source: daml/B.daml"
+            , "exposed-modules: [B]"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            , "  - " <> aDar
+            ]
+        withCurrentDirectory projectB $ callProcessQuiet "daml" ["build"]
+        assertBool "b.dar was not created." =<< doesFileExist bDar
+    ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
 quickstartTests quickstartDir mvnDir = testGroup "quickstart"
