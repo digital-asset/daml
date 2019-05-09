@@ -310,18 +310,18 @@ final class ImmArray[+A] private (
   /** O(n) */
   override def equals(that: Any): Boolean = that match {
     case thatArr: ImmArray[_] if len == thatArr.len =>
-      0 until len collectFirst {
-        case i if uncheckedGet(i) != thatArr.uncheckedGet(i) => false
-      } getOrElse true
+      indices forall { i =>
+        uncheckedGet(i) == thatArr.uncheckedGet(i)
+      }
     case _ => false
   }
 
   /** O(n) */
   private def equalz[B >: A](thatArr: ImmArray[B])(implicit B: Equal[B]): Boolean =
     (len == thatArr.len) && {
-      0 until len collectFirst {
-        case i if !B.equal(uncheckedGet(i), thatArr.uncheckedGet(i)) => false
-      } getOrElse true
+      indices forall { i =>
+        B.equal(uncheckedGet(i), thatArr.uncheckedGet(i))
+      }
     }
 
   /** O(n) */
