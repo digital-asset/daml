@@ -61,7 +61,7 @@ getLatestVersion = do
 
     manager <- newTlsManager -- TODO: share a single manager throughout the daml install process.
     request <- parseRequest "HEAD https://github.com/digital-asset/daml/releases/latest"
-    finalRequest <- requiredHttps "Failed to get latest SDK version from GitHub." $
+    finalRequest <- requiredAny "Failed to get latest SDK version from GitHub." $
         withResponseHistory request manager $ pure . hrFinalRequest
 
     let pathText = T.decodeUtf8 (path finalRequest)

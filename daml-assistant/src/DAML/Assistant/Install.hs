@@ -318,8 +318,8 @@ extractAndInstall env source =
 httpInstall :: InstallEnv -> InstallURL -> IO ()
 httpInstall env@InstallEnv{..} (InstallURL url) = do
     unlessQuiet env $ output "Downloading SDK release."
-    request <- requiredHttps "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
-    requiredHttps "Failed to download SDK release." $ withResponse request $ \response -> do
+    request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
+    requiredAny "Failed to download SDK release." $ withResponse request $ \response -> do
         when (getResponseStatusCode response /= 200) $
             throwIO . assistantErrorBecause "Failed to download release."
                     . pack . show $ getResponseStatus response
