@@ -11,7 +11,7 @@ HEAD — ongoing
 - Making transaction lookups performant so we can handle such requests for large ledgers as well
 
 - Sandbox: Transactions with a record time that is after the maximum record time (as provided in the original command)
-  are now properly rejected instead of committed to the ledger: `#987 <https://github.com/digital-asset/daml/issues/987>`_
+  are now properly rejected instead of committed to the ledger: `#987 <https://github.com/digital-asset/daml/issues/987>`__
 
 .. _release-0-12-16:
 
@@ -40,7 +40,7 @@ HEAD — ongoing
 
 - **Windows support**: Beta release of the Windows SDK.
 
-  To try it out, download the installer from `GitHub releases <https://github.com/digital-asset/daml/releases>`_. The Windows SDK uses the new ``daml`` command-line which will soon also
+  To try it out, download the installer from `GitHub releases <https://github.com/digital-asset/daml/releases>`__. The Windows SDK uses the new ``daml`` command-line which will soon also
   become the default on Linux and MacOS.
 
   Documentation is still in progress, but you can see the :doc:`Migration guide </support/new-assistant>` and the `pull request for the updated documentation <https://github.com/digital-asset/daml/pull/740>`__.
