@@ -3,8 +3,10 @@
 
 package com.digitalasset.platform.apitesting
 
+import java.io.File
 import java.util
 
+import com.digitalasset.daml.lf.UniversalArchiveReader
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{
   applicationId,
   ledgerEffectiveTime,
@@ -18,10 +20,14 @@ import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, Exercise
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{Party, Text}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.digitalasset.platform.tests.integration.ledger.api.TransactionServiceHelpers
+import com.digitalasset.platform.PlatformApplications
 import com.google.protobuf.timestamp.Timestamp
 
-trait TestTemplateIds extends TransactionServiceHelpers {
+trait TestTemplateIds {
+  lazy val defaultDar: File = PlatformApplications.Config.defaultDarFile
+  lazy val parsedPackageId: String =
+    UniversalArchiveReader().readFile(defaultDar).get.main._1
+
   protected lazy val templateIds: TestTemplateIdentifiers = {
     new TestTemplateIdentifiers(parsedPackageId)
   }

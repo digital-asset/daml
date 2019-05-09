@@ -59,6 +59,19 @@ da_scala_library(
     ],
 )
 
+# TODO(gleber): clean this up!
+da_scala_library(
+    name = "ledger-api-integration-tests-as-library",
+    srcs = glob(["src/test/itsuite/**/*.scala"]),
+    visibility = [
+        "//ledger/ledger-api-test-tool:__subpackages__",
+    ],
+    deps = [
+        ":ledger-api-integration-tests-lib",
+    ] + dependencies,
+)
+
+
 da_scala_test_suite(
     name = "ledger-api-integration-tests",
     size = "large",

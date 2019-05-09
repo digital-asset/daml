@@ -53,13 +53,16 @@ import scala.concurrent.duration._
 
 trait LedgerContext {
   import LedgerContext._
+  val DEFAULT = "party"
+
+  def forParty(party: String): LedgerContext = ???
 
   implicit protected def esf: ExecutionSequencerFactory
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   def ledgerId: String
   def packageIds: Iterable[Ref.PackageId]
-  def ledgerIdentityService: LedgerIdentityService
+  def ledgerIdentityService: LedgerIdentityService = forParty(DEFAULT).ledgerIdentityService
   def ledgerConfigurationService: LedgerConfigurationService
   def packageService: PackageService
   def commandSubmissionService: CommandSubmissionService

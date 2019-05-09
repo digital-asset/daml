@@ -49,7 +49,7 @@ class RemoteServerResource(host: String, port: Int, tlsConfig: Option[TlsConfigu
 
   }
 
-  def createEventLoopGroup(threadPoolName: String): NioEventLoopGroup = {
+  private def createEventLoopGroup(threadPoolName: String): NioEventLoopGroup = {
     val threadFactory = new DefaultThreadFactory(s"$threadPoolName-grpc-eventloop", true)
     val parallelism = Runtime.getRuntime.availableProcessors
     new NioEventLoopGroup(parallelism, threadFactory)

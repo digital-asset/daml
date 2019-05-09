@@ -63,6 +63,7 @@ da_scala_binary(
     main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
     resources = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "//ledger/sandbox:Test.dar",
     ],
     tags = [
         "maven_coordinates=com.daml.ledger.testtool:ledger-api-test-tool:__VERSION__",
@@ -71,6 +72,7 @@ da_scala_binary(
         "fat_jar",
     ],
     deps = dependencies + [
+        "//ledger/ledger-api-integration-tests:ledger-api-integration-tests-as-library",
         "//ledger/ledger-api-integration-tests:ledger-api-integration-tests-lib",
         "//daml-lf/testing-tools",
     ],
@@ -116,13 +118,15 @@ client_server_test(
     # Data files available to both client and server.
     data = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "//ledger/sandbox:Test.dar",
     ] + glob(["testdata/*"]),
     server = "//ledger/api-server-damlonx/reference:reference",
     server_args = [
-        "$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar) " +
-        "--crt $(rootpath testdata/server.crt) " +
-        "--cacrt $(rootpath testdata/ca.crt) " +
+        "--crt $(rootpath testdata/server.crt)",
+        "--cacrt $(rootpath testdata/ca.crt)",
         "--pem $(rootpath testdata/server.pem)",
+        "$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar)",
+        "$(rootpath //ledger/sandbox:Test.dar)",
     ],
     tags = [
         # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it

@@ -62,15 +62,16 @@ class TransactionServiceIT
     with Inside
     with AsyncTimeLimitedTests
     with TestExecutionSequencerFactory
-    with TransactionServiceHelpers
     with ParameterShowcaseTesting
     with OptionValues
     with Matchers
     with TestTemplateIds {
 
-  override protected val config: Config =
+  override protected def config: Config =
     Config
       .defaultWithTimeProvider(TimeProviderType.WallClock)
+
+  val helpers = new TransactionServiceHelpers(config)
 
   override val timeLimit: Span = 300.seconds
 
@@ -116,7 +117,7 @@ class TransactionServiceIT
         val elemsToTake = 10L
 
         for {
-          _ <- insertCommands(getTrackerFlow(context), "cancellation-test", 14, config.getLedgerId)
+          _ <- insertCommands("cancellation-test", 14, context)
           transactions <- context.transactionClient
             .getTransactions(ledgerBegin, None, getAllContracts)
             .take(elemsToTake)
@@ -156,10 +157,9 @@ class TransactionServiceIT
 
         for {
           _ <- insertCommands(
-            getTrackerFlow(context),
             "stream-completion-test",
             14,
-            config.getLedgerId)
+            context)
           _ <- resultsF
         } yield {
           succeed // resultF would not complete unless the server terminates the connection
@@ -865,17 +865,16 @@ class TransactionServiceIT
             LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
           for {
             _ <- insertCommands(
-              getTrackerFlow(context),
               "tree-provenance-by-id",
               1,
-              config.getLedgerId)
+              context)
             firstTransaction <- context.transactionClient
               .getTransactions(beginOffset, None, transactionFilter)
               .runWith(Sink.head)
             transactionId = firstTransaction.transactionId
-            response <- context.transactionClient
+            response <- context.forParty("party").transactionClient
               .getTransactionById(transactionId, List("party"))
-            notVisibleError <- context.transactionClient
+            notVisibleError <- context.forParty("Alice").transactionClient
               .getTransactionById(transactionId, List("Alice"))
               .failed
           } yield {
@@ -964,10 +963,9 @@ class TransactionServiceIT
             LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
           for {
             _ <- insertCommands(
-              getTrackerFlow(context),
               "flat-provenance-by-id",
               1,
-              config.getLedgerId)
+              context)
             firstTransaction <- context.transactionClient
               .getTransactions(beginOffset, None, transactionFilter)
               .runWith(Sink.head)
@@ -1034,10 +1032,9 @@ class TransactionServiceIT
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         for {
           _ <- insertCommands(
-            getTrackerFlow(context),
             "tree provenance-by-event-id",
             1,
-            config.getLedgerId)
+            context)
           tx <- context.transactionClient
             .getTransactions(beginOffset, None, transactionFilter)
             .runWith(Sink.head)
@@ -1103,10 +1100,9 @@ class TransactionServiceIT
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         for {
           _ <- insertCommands(
-            getTrackerFlow(context),
             "flat-provenance-by-event-id",
             1,
-            config.getLedgerId)
+            context)
           tx <- context.transactionClient
             .getTransactions(beginOffset, None, transactionFilter)
             .runWith(Sink.head)
@@ -1254,10 +1250,9 @@ class TransactionServiceIT
 
           for {
             _ <- insertCommands(
-              getTrackerFlow(context),
               "cancellation-test-tree",
               commandsToSend,
-              config.getLedgerId)
+              context)
             elems <- resultsF
           } yield (elems should have length elemsToTake)
         }
@@ -1317,10 +1312,9 @@ class TransactionServiceIT
               .getTransactionTrees(ledgerBegin, Some(ledgerEnd), transactionFilter)
               .runWith(Sink.seq)
             _ <- insertCommands(
-              getTrackerFlow(context),
               "complete_test",
               noOfCommands,
-              config.getLedgerId)
+              context)
             r2 <- context.transactionClient
               .getTransactionTrees(ledgerBegin, Some(ledgerEnd), transactionFilter)
               .runWith(Sink.seq)
@@ -1456,7 +1450,7 @@ class TransactionServiceIT
       prefix: String,
       commandsPerSection: Int,
       context: LedgerContext): Future[Done] = {
-    insertCommands(getTrackerFlow(context), prefix, commandsPerSection, config.getLedgerId)
+    helpers.insertCommands(getTrackerFlow(context), prefix, commandsPerSection, config.getLedgerId)
   }
 
   private def lastOffsetIn(secondSection: immutable.Seq[Transaction]): Option[LedgerOffset] = {

@@ -7,13 +7,9 @@ import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.sandbox.SandboxApplication
-import com.digitalasset.platform.sandbox.config.{
-  CommandConfiguration,
-  DamlPackageContainer,
-  LedgerIdMode,
-  SandboxConfig
-}
+import com.digitalasset.platform.sandbox.config.{CommandConfiguration, DamlPackageContainer, LedgerIdMode, SandboxConfig}
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import scalaz.NonEmptyList
 
@@ -39,7 +35,11 @@ object PlatformApplications {
       heartBeatInterval: FiniteDuration = 5.seconds,
       persistenceEnabled: Boolean = false,
       maxNumberOfAcsContracts: Option[Int] = None,
-      commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig) {
+      commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig,
+      // TODO(gleber): move these options into RemoteAPIProxy-specific configuration.
+      host: Option[String] = None,
+      port: Option[Int] = None,
+      tlsConfig: Option[TlsConfiguration] = None) {
     require(
       Duration.ofSeconds(timeModel.minTtl.getSeconds) == timeModel.minTtl &&
         Duration.ofSeconds(timeModel.maxTtl.getSeconds) == timeModel.maxTtl,
@@ -69,6 +69,11 @@ object PlatformApplications {
     def withMaxNumberOfAcsContracts(cap: Int) = copy(maxNumberOfAcsContracts = Some(cap))
 
     def withCommandConfiguration(cc: CommandConfiguration) = copy(commandConfiguration = cc)
+
+    def withHost(host: String) = copy(host = Some(host))
+    def withPort(port: Int) = copy(port = Some(port))
+    def withTlsConfig(tlsConfig: TlsConfiguration) = copy(tlsConfig = Some(tlsConfig))
+    def withTlsConfigOption(tlsConfig: Option[TlsConfiguration]) = copy(tlsConfig = tlsConfig)
   }
 
   object Config {

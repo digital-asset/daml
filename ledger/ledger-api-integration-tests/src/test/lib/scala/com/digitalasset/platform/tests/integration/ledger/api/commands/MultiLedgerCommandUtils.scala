@@ -17,8 +17,10 @@ import org.scalatest.AsyncTestSuite
   Array(
     "org.wartremover.warts.Any"
   ))
-trait MultiLedgerCommandUtils extends TransactionServiceHelpers with MultiLedgerFixture {
+trait MultiLedgerCommandUtils extends MultiLedgerFixture {
   self: AsyncTestSuite =>
+
+  val helpers = new TransactionServiceHelpers(config)
 
   protected final def newSynchronousCommandClient(ctx: LedgerContext): SynchronousCommandClient =
     new SynchronousCommandClient(ctx.commandService)
@@ -34,10 +36,10 @@ trait MultiLedgerCommandUtils extends TransactionServiceHelpers with MultiLedger
         Commands()
           .withParty("Alice")
           .withLedgerId(testLedgerId)
-          .withCommandId(failingCommandId)
+          .withCommandId(helpers.failingCommandId)
           .withWorkflowId(workflowId)
           .withApplicationId(applicationId)
-          .withCommands(Seq(wrongCreate))))
+          .withCommands(Seq(helpers.wrongCreate))))
 
   protected val submitAndWaitRequest: SubmitAndWaitRequest =
     MockMessages.submitAndWaitRequest

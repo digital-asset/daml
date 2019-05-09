@@ -22,8 +22,8 @@ import org.scalatest.Matchers
 
 import scala.concurrent.Future
 
-trait TransactionServiceHelpers extends Matchers {
-  lazy val defaultDar: File = PlatformApplications.Config.defaultDarFile
+class TransactionServiceHelpers(config: PlatformApplications.Config) extends Matchers {
+  lazy val defaultDar: File = config.darFiles.head.toFile
 
   lazy val parsedPackageId: String =
     UniversalArchiveReader().readFile(defaultDar).get.main._1
