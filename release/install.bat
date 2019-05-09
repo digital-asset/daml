@@ -1,1 +1,1 @@
-%cd%/daml/daml install %cd% --activate
+%~dp0daml\daml install %~dp0 --activate
