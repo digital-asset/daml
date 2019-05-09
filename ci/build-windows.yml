@@ -8,7 +8,7 @@ steps:
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
-  - powershell: '.\build.ps1 full'
+  - powershell: '.\build.ps1'
     displayName: 'Build'
 
   - task: PublishBuildArtifacts@1
