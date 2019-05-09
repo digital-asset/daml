@@ -1208,12 +1208,14 @@ toCtors env t = Ctors (getName t) <$> mapM convTypeVar (tyConTyVars t) <*> cs
 --   this would considerably complicate converting coercions. Second, it makes
 --   unpacking them faster in the current intepreter. Since the constructor
 --   names of newtypes are meant to be meaningless, this is acceptable.
+--
+-- * We add a field for every constraint containt in the thetas.
 ctorLabels :: TyConFlavour -> DataCon -> [FieldName]
 ctorLabels flv con =
-    [mkField $ "_d" <> show i | i <- [1 .. length thetas]] ++ (ctorLabels0 flv con)
+    [mkField $ "f" <> show i | i <- [1 .. length thetas]] ++ conFields flv con
   where
   thetas = dataConTheta con
-  ctorLabels0 flv con
+  conFields flv con
     | flv `elem` [ClassFlavour, TupleFlavour Boxed] || isTupleDataCon con
       -- NOTE(MH): The line below is a workaround for ghc issue
       -- https://github.com/ghc/ghc/blob/ae4f1033cfe131fca9416e2993bda081e1f8c152/compiler/types/TyCon.hs#L2030
