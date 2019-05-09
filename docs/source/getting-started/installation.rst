@@ -14,21 +14,11 @@ You need to install:
 #. Install `Visual Studio Code <https://code.visualstudio.com/download>`_
 #. Install JDK8
 
-   .. rst-class:: cta-alt
-   
-        `Windows installer <https://github.com/ojdkbuild/ojdkbuild/releases/tag/1.8.0.201-1>`_
+   `Windows installer <https://github.com/ojdkbuild/ojdkbuild/releases/tag/1.8.0.201-1>`_
         
-   .. rst-class:: cta-alt
-   
-        `MacOS installer <https://www.azul.com/downloads/zulu/#java8>`_        
+   `MacOS installer <https://www.azul.com/downloads/zulu/#java8>`_        
 
-   .. rst-class:: cta-alt
-   
-        `Linux installer <https://github.com/ojdkbuild/ojdkbuild/releases/tag/1.8.0.201-1>`_
-        
-   .. code::
-
-     sh ./da-cli-<version>.run
+   `Linux installer <https://github.com/ojdkbuild/ojdkbuild/releases/tag/1.8.0.201-1>`_     
      
 
 2. Set up the SDK Assistant
