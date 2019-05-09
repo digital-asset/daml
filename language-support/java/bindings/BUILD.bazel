@@ -52,7 +52,10 @@ da_java_library(
         ":ledger-api-java",
         ":ledger-api-java-grpc",
     ],
-    tags = ["maven_coordinates=com.daml.ledger:bindings-java:__VERSION__"],
+    tags = [
+        "maven_coordinates=com.daml.ledger:bindings-java:__VERSION__",
+        "javadoc_root_packages=com.daml.ledger.javaapi.data"
+    ],
     visibility = [
         "//visibility:public",
     ],

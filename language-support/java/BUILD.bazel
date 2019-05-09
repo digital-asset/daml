@@ -1,13 +1,15 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@os_info//:os_info.bzl", "is_windows")
+load("@com_github_google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
 
-genrule(
-    name = "javadocs",
+javadoc_library(
+    name = "javadoc",
     srcs = [
         "//language-support/java/bindings-rxjava:sources",
         "//language-support/java/bindings:sources",
+    ],
+    deps = [
         "//language-support/java/bindings-rxjava",
         "//language-support/java/bindings:bindings-java",
         "//external:jar/org/slf4j/slf4j_api",
@@ -22,28 +24,11 @@ genrule(
         "//external:jar/io/netty/netty_handler",
         "//external:jar/com/google/code/findbugs/jsr305",
     ],
-    outs = ["javadocs.tar.gz"],
-    cmd = """
-        CP=$(location //external:jar/org/slf4j/slf4j_api)
-        CP=$$CP{delim}$(location //language-support/java/bindings-rxjava:bindings-rxjava)
-        CP=$$CP{delim}$(location //language-support/java/bindings:bindings-java)
-        CP=$$CP{delim}$(location //ledger-api/rs-grpc-bridge:rs-grpc-bridge)
-        CP=$$CP{delim}$(location //external:jar/io/reactivex/rxjava2/rxjava)
-        CP=$$CP{delim}$(location //external:jar/com/google/protobuf/protobuf_java)
-        CP=$$CP{delim}$(location //external:jar/org/pcollections/pcollections)
-        CP=$$CP{delim}$(location //external:jar/org/checkerframework/checker)
-        CP=$$CP{delim}$(location //external:jar/io/grpc/grpc_netty)
-        CP=$$CP{delim}$(location //external:jar/io/grpc/grpc_core)
-        CP=$$CP{delim}$(location //external:jar/io/grpc/grpc_stub)
-        CP=$$CP{delim}$(location //external:jar/io/netty/netty_handler)
-        CP=$$CP{delim}$(location //external:jar/com/google/code/findbugs/jsr305)
-        echo $$CP
-        $(location @javadoc_dev_env//:javadoc) -quiet -d javadocs -classpath $$CP $(locations //language-support/java/bindings-rxjava:sources) $(locations //language-support/java/bindings:sources)
-        tar -zcf $(location javadocs.tar.gz) javadocs
-    """.format(
-        delim = "\;" if is_windows else ":",
-    ),
-    tools = ["@javadoc_dev_env//:javadoc"],
+    root_packages = [
+       "com.daml.ledger.javaapi.data",
+       "com.daml.ledger.rxjava",
+       "com.digitalasset.ledger.api.v1"
+    ],
     visibility = [
         "//visibility:public",
     ],

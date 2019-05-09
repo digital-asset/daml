@@ -37,6 +37,6 @@ if [[ "${BUILD_SOURCEBRANCHNAME:-}" == "master" ]]; then
     ./bazel-bin/release/release --artifacts release/artifacts.yaml --upload --log-level debug --release-dir "${release_dir}"
 else
     step "run release script (dry run)"
-    ./bazel-bin/release/release --artifacts release/artifacts.yaml --log-level debug --release-dir "${release_dir}"
+    ./bazel-bin/release/release --artifacts release/artifacts.yaml --log-level debug --release-dir "${release_dir}" --all-artifacts
     step "release artifacts got stored in ${release_dir}"
 fi

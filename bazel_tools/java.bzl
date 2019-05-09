@@ -36,7 +36,7 @@ def da_java_library(name, deps, srcs, data = [], resources = [], resource_jars =
     root_packages = None
     for tag in tags:
        if tag.startswith("javadoc_root_packages="):
-            root_packages = [ tag[len("javadoc_root_packages="):] ]
+            root_packages = tag[len("javadoc_root_packages="):].split(":")
 
     native.java_library(
         name = name,
@@ -46,22 +46,23 @@ def da_java_library(name, deps, srcs, data = [], resources = [], resource_jars =
         resources = resources,
         resource_jars = resource_jars,
         resource_strip_prefix = resource_strip_prefix,
+        tags = tags,
         visibility = visibility,
         exports = exports
     )
-    if (root_packages):
-        javadoc_library(
-            name = name + "_javadoc",
-            deps = deps,
-            srcs = srcs,
-            root_packages = root_packages
-        )
     pom_file(
         name = name + "_pom",
         tags = tags,
         target = ":" + name,
         visibility = ["//visibility:public"],
     )
+    if (root_packages):
+        javadoc_library(
+            name = name + "_javadoc",
+            deps = deps + [ name ],
+            srcs = srcs,
+            root_packages = root_packages
+        )
 
 def da_java_binary(name, **kwargs):
     _wrap_rule(native.java_binary, name, **kwargs)

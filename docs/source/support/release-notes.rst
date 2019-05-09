@@ -118,6 +118,19 @@ Java Bindings
 - **Ledger API**: Added three new methods to the :ref:`CommandService <com.digitalasset.ledger.api.v1.commandservice>`:
 
   - ``SubmitAndWaitForTransactionId`` returns the transaction ID.
+- Beta release of the Windows SDK:
+  You can download the installer from
+  `GitHub releases <https://github.com/digital-asset/daml/releases>`_.
+  The Windows SDK ships with the new `daml` installer which will soon also
+  become the default on Linux and MacOS. Documentation is still in progress,
+  take a look at the `Migration guide <https://github.com/digital-asset/daml/pull/768>`_
+  and the `updated documentation <https://github.com/digital-asset/daml/pull/740>`_.
+- Add ``fromListWith`` and ``merge`` to ``DA.TextMap``.
+- Release Javadoc artifacts as part of the SDK. See more `here https://github.com/digital-asset/daml/pull/896`
+- Add ``DA.Next.Map`` and ``DA.Next.Set`` and deprecate ``DA.Map`` and ``DA.Set`` in favor of those.
+- Ledger API: Added three new methods to :ref:`CommandService <com.digitalasset.ledger.api.v1.commandservice>`:
+
+  - ``SubmitAndWaitForTransactionId`` returns the transaction id.
   - ``SubmitAndWaitForTransaction`` returns the transaction.
   - ``SubmitAndWaitForTransactionTree`` returns the transaction tree.
 

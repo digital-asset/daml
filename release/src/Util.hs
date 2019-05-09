@@ -128,7 +128,8 @@ buildTargets art@Artifact{..} =
                 (directory, _) = splitBazelTarget artTarget
             in [jarTarget, pomTar] <>
                [BazelTarget ("//" <> directory <> ":" <> srcJar) | Just srcJar <- pure (sourceJarName art)] <>
-               [BazelTarget ("//" <> directory <> ":" <> srcJar) | Just srcJar <- pure (scalaSourceJarName art)]
+               [BazelTarget ("//" <> directory <> ":" <> srcJar) | Just srcJar <- pure (scalaSourceJarName art)] <>
+               [BazelTarget ("//" <> directory <> ":" <> javadocJar) | Just javadocJar <- pure (javadocJarName art)]
         Zip -> [artTarget]
         TarGz -> [artTarget]
 
@@ -216,6 +217,11 @@ scalaSourceJarName Artifact{..}
   | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
   | otherwise = Nothing
 
+javadocJarName :: Artifact a -> Maybe Text
+javadocJarName Artifact{..}
+  | Jar Lib <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_javadoc.jar"
+  | otherwise = Nothing
+
 -- | Given an artifact, produce a list of pairs of an input file and the corresponding output file.
 artifactFiles :: E.MonadThrow m => AllArtifacts -> Artifact PomData -> m [(Path Rel File, Path Rel File)]
 artifactFiles allArtifacts art@Artifact{..} = do
@@ -238,11 +244,15 @@ artifactFiles allArtifacts art@Artifact{..} = do
     mbScalaSourceJarIn <- traverse (parseRelFile . unpack) (scalaSourceJarName art)
     scalaSourceJarOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "-sources" # mainExt artReleaseType))
 
+    mbJavadocJarIn <- traverse (parseRelFile . unpack) (javadocJarName art)
+    javadocJarOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "-javadoc" # mainExt artReleaseType))
+
     pure $
         [(directory </> mainArtifactIn, outDir </> mainArtifactOut) | shouldRelease allArtifacts artPlatformDependent] <>
         [(directory </> pomFileIn, outDir </> pomFileOut) | isJar artReleaseType, shouldRelease allArtifacts (PlatformDependent False)] <>
         [(directory </> sourceJarIn, outDir </> sourceJarOut) | shouldRelease allArtifacts (PlatformDependent False), Just sourceJarIn <- pure mbSourceJarIn] <>
-        [(directory </> scalaSourceJarIn, outDir </> scalaSourceJarOut) | shouldRelease allArtifacts (PlatformDependent False), Just scalaSourceJarIn <- pure mbScalaSourceJarIn]
+        [(directory </> scalaSourceJarIn, outDir </> scalaSourceJarOut) | shouldRelease allArtifacts (PlatformDependent False), Just scalaSourceJarIn <- pure mbScalaSourceJarIn] <>
+        [(directory </> javadocJarIn, outDir </> javadocJarOut) | shouldRelease allArtifacts (PlatformDependent False), Just javadocJarIn <- pure mbJavadocJarIn]
 
 shouldRelease :: AllArtifacts -> PlatformDependent -> Bool
 shouldRelease (AllArtifacts allArtifacts) (PlatformDependent platformDependent) =
