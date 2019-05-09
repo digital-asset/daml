@@ -1,7 +1,8 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 da_haskell_library(
     name = "hs-ledger",
@@ -31,6 +32,38 @@ da_haskell_binary(
         "text",
         "uuid",
     ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/hs/bindings:hs-ledger",
+    ],
+)
+
+daml_compile(
+    name = "quickstart",
+    srcs = glob(["test/daml/quickstart/*.daml"]),
+    main_src = "test/daml/quickstart/Main.daml",
+)
+
+da_haskell_test(
+    name = "test",
+    srcs = glob(["test/**/*.hs"]),
+    data = [
+        ":quickstart.dar",
+        "//ledger/sandbox:sandbox-binary",
+    ],
+    hazel_deps = [
+        "async",
+        "base",
+        "directory",
+        "extra",
+        "process",
+        "split",
+        "tasty",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Ledger.Tests.main",
+    src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
         "//language-support/hs/bindings:hs-ledger",

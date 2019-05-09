@@ -6,14 +6,11 @@
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
 module DA.Ledger.Convert (lowerCommands) where
 
-import           Data.Maybe         (fromMaybe)
-import           Data.Vector        as Vector (fromList)
+import Data.Maybe (fromMaybe)
+import Data.Vector as Vector (fromList)
 
 import qualified DA.Ledger.LowLevel as LL
-import           DA.Ledger.Types
-
-xxx :: a -- TODO: not finished while any instances of "xxx" of "_" remain in this file
-xxx = undefined
+import DA.Ledger.Types
 
 lowerCommands :: Commands -> LL.Commands
 lowerCommands = \case
@@ -34,7 +31,7 @@ lowerCommand = \case
         LL.Command $ Just $ LL.CommandCommandCreate $ LL.CreateCommand {
         createCommandTemplateId = Just (lowerTemplateId tid),
         createCommandCreateArguments = Just (lowerRecord args)}
-        
+
     ExerciseCommand{tid,cid,choice,arg} ->
         LL.Command $ Just $ LL.CommandCommandExercise $ LL.ExerciseCommand {
         exerciseCommandTemplateId = Just (lowerTemplateId tid),
@@ -72,19 +69,19 @@ lowerTimestamp = \case
 lowerValue :: Value -> LL.Value
 lowerValue = \case -- TODO: more cases here
     VRecord r -> LL.Value $ Just $ LL.ValueSumRecord $ lowerRecord r
-    VVariant _ -> xxx
-    VContract _ -> xxx
+    VVariant _ -> undefined
+    VContract _ -> undefined
     VList vs -> LL.Value $ Just $ LL.ValueSumList $ LL.List $ Vector.fromList $ map lowerValue vs
     VInt i -> LL.Value $ Just $ LL.ValueSumInt64 $ fromIntegral i
     VDecimal s -> LL.Value $ Just $ LL.ValueSumDecimal s
     VString s -> LL.Value $ Just $ LL.ValueSumText s
-    VTimestamp _ -> xxx
+    VTimestamp _ -> undefined
     VParty p -> LL.Value $ Just $ LL.ValueSumParty $ unParty p
-    VBool _ -> xxx
-    VUnit -> xxx
-    VDate _ -> xxx
-    VOpt _ -> xxx
-    VMap _ -> xxx
+    VBool _ -> undefined
+    VUnit -> undefined
+    VDate _ -> undefined
+    VOpt _ -> undefined
+    VMap _ -> undefined
 
 lowerRecord :: Record -> LL.Record
 lowerRecord = \case

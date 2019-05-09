@@ -20,12 +20,12 @@ module DA.Ledger( -- WIP: High level interface to the Ledger API services
     getCompletionStream,
     ) where
 
-import           Control.Concurrent
-import           Control.Monad.Fix  (fix)
-import qualified Data.Map           as Map
-import qualified Data.Text.Lazy     as Text
-import           Data.Vector        as Vector (fromList, toList)
-import           Prelude            hiding (log)
+import Control.Concurrent
+import Control.Monad.Fix (fix)
+import qualified Data.Map as Map
+import qualified Data.Text.Lazy as Text
+import Data.Vector as Vector (fromList, toList)
+import Prelude hiding (log)
 
 import DA.Ledger.Types
 import DA.Ledger.Convert(lowerCommands)
