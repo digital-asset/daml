@@ -7,7 +7,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, PackageId, RejectionReason}
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.engine.{Blinding, Engine}
 import com.digitalasset.daml.lf.lfpackage.Decode
 import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.transaction.Transaction
@@ -22,10 +22,25 @@ import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
-import scala.util.Try
+import scala.collection.JavaConverters._
 
 object KeyValueCommitting {
   private val logger = LoggerFactory.getLogger(this.getClass)
+
+  /** Errors that can result from improper calls to processSubmission.
+    * Validation and consistency errors are turned into command rejections.
+    * Note that processSubmission can also fail with a protobuf exception,
+    * e.g. https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/InvalidProtocolBufferException.
+    */
+  sealed trait Err extends RuntimeException with Product with Serializable
+  object Err {
+    final case class InvalidPayload(message: String) extends Err
+    final case class MissingInputLogEntry(entryId: DamlLogEntryId) extends Err
+    final case class MissingInputState(key: DamlStateKey) extends Err
+    final case class NodeMissingFromLogEntry(entryId: DamlLogEntryId, nodeId: Int) extends Err
+    final case class NodeNotACreate(entryId: DamlLogEntryId, nodeId: Int) extends Err
+    final case class ArchiveDecodingFailed(packageId: PackageId, reason: String) extends Err
+  }
 
   def packDamlStateKey(key: DamlStateKey): ByteString = key.toByteString
   def unpackDamlStateKey(bytes: ByteString): DamlStateKey = DamlStateKey.parseFrom(bytes)
@@ -63,7 +78,10 @@ object KeyValueCommitting {
     * @param recordTime: Record time at which this log entry is committed.
     * @param submission: Submission to commit to the ledger.
     * @param inputLogEntries: Resolved input log entries specified in submission.
-    * @param inputState: Resolved input state specified in submission. Potentially not all keys present, hence optional.
+    * @param inputState:
+    *   Resolved input state specified in submission. Optional to mork that input state was resolved
+    *   but not present. Specifically we require the command de-duplication input to be resolved, but don't
+    *   expect to be there.
     * @return Log entry to be committed and the DAML state updates to be applied.
     */
   def processSubmission(
@@ -117,7 +135,7 @@ object KeyValueCommitting {
         )
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
-        throw new RuntimeException("DamlSubmission payload not set!")
+        throw Err.InvalidPayload("DamlSubmission.payload not set.")
     }
   }
 
@@ -136,9 +154,10 @@ object KeyValueCommitting {
         s"processTransactionSubmission[entryId=${prettyEntryId(entryId)}, cmdId=$commandId]: $msg")
 
     val txLet = parseTimestamp(txEntry.getLedgerEffectiveTime)
+    val submitterInfo = txEntry.getSubmitterInfo
 
     // 1. Verify that this is not a duplicate command submission.
-    val dedupKey = commandDedupKey(txEntry.getSubmitterInfo)
+    val dedupKey = commandDedupKey(submitterInfo)
     val dedupEntry = inputState(dedupKey)
     val dedupCheckResult = dedupEntry.isEmpty
 
@@ -157,10 +176,24 @@ object KeyValueCommitting {
       val (eid, nid) = absoluteContractIdToLogEntryId(coid)
       val stateKey = absoluteContractIdToStateKey(coid)
       for {
+        // Fetch the state of the contract so that activeness and visibility can be checked.
         contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState)).orElse {
           tracelog(s"lookupContract($coid): Contract state not found!")
+          throw Err.MissingInputState(stateKey)
+        }
+        locallyDisclosedTo = contractState.getLocallyDisclosedToList.asScala.toSet
+        divulgedTo = contractState.getDivulgedToList.asScala.toSet
+        submitter = submitterInfo.getSubmitter
+
+        // 1. Verify that the submitter can view the contract.
+        _ <- if (locallyDisclosedTo.contains(submitter) || divulgedTo.contains(submitter))
+          Some(())
+        else {
+          tracelog(s"lookupContract($coid): Contract not visible to submitter $submitter")
           None
         }
+
+        // 2. Verify that the contract is active
         _ <- if (contractState.hasActiveAt && txLet >= parseTimestamp(contractState.getActiveAt))
           Some(())
         else {
@@ -173,10 +206,9 @@ object KeyValueCommitting {
           None
         }
 
-        entry <- inputLogEntries.get(eid).orElse {
-          tracelog(s"lookupContract($coid): Log entry ${prettyEntryId(eid)} not found!")
-          None
-        }
+        // Finally lookup the log entry containing the create node and the contract instance.
+        entry = inputLogEntries
+          .getOrElse(eid, throw Err.MissingInputLogEntry(eid))
         coinst <- lookupContractInstanceFromLogEntry(eid, entry, nid)
       } yield (coinst)
     }
@@ -191,20 +223,13 @@ object KeyValueCommitting {
           .get(stateKey)
           .flatten
           .orElse {
-            tracelog(s"lookupPackage($pkgId) not found!")
-            None
+            throw Err.MissingInputState(stateKey)
           }
         pkg <- value.getValueCase match {
           case DamlStateValue.ValueCase.ARCHIVE =>
             // NOTE(JM): Engine only looks up packages once, compiles and caches,
             // provided that the engine instance is persisted.
-            Try(Decode.decodeArchive(value.getArchive)).toEither match {
-              case Left(err) =>
-                tracelog(s"lookupPackage($pkgId): decoding failed: $err")
-                None
-              case Right((_, pkg)) =>
-                Some(pkg)
-            }
+            Some(Decode.decodeArchive(value.getArchive)._2)
           case _ =>
             tracelog(s"lookupPackage($pkgId): value not a DAML-LF archive!")
             None
@@ -217,6 +242,9 @@ object KeyValueCommitting {
     val modelCheckResult = engine
       .validate(relTx, txLet)
       .consume(lookupContract, lookupPackage, _ => sys.error("contract keys unimplemented"))
+
+    // Compute blinding info to update contract visibility.
+    val blindingInfo = Blinding.blind(relTx)
 
     (dedupCheckResult, letCheckResult, modelCheckResult) match {
       case (false, _, _) =>
@@ -235,7 +263,7 @@ object KeyValueCommitting {
         // All checks passed. Return transaction log entry, and update the DAML state
         // with the committed command and the created and consumed contracts.
 
-        var stateUpdates = scala.collection.mutable.Map.empty[DamlStateKey, DamlStateValue]
+        val stateUpdates = scala.collection.mutable.Map.empty[DamlStateKey, DamlStateValue]
 
         // Add command dedup state entry for command deduplication (checked by step 1 above).
         stateUpdates += commandDedupKey(txEntry.getSubmitterInfo) -> commandDedupValue
@@ -244,7 +272,8 @@ object KeyValueCommitting {
 
         // Update contract state entries to mark contracts as consumed (checked by step 3 above)
         effects.consumedContracts.foreach { key =>
-          val cs = inputState(key).fold(DamlContractState.newBuilder)(_.getContractState.toBuilder) // FIXME(JM): Previous contract state should always be there
+          val cs =
+            inputState(key).getOrElse(throw Err.MissingInputState(key)).getContractState.toBuilder
           cs.setArchivedAt(buildTimestamp(txLet))
           cs.setArchivedByEntry(entryId)
           stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs.build).build
@@ -254,7 +283,20 @@ object KeyValueCommitting {
         effects.createdContracts.foreach { key =>
           val cs = DamlContractState.newBuilder
           cs.setActiveAt(buildTimestamp(txLet))
+          val localDisclosure =
+            blindingInfo.localDisclosure(NodeId.unsafeFromIndex(key.getContractId.getNodeId.toInt))
+          cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
           stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs).build
+        }
+
+        // Update contract state of divulged contracts
+        blindingInfo.globalImplicitDisclosure.foreach {
+          case (absCoid, parties) =>
+            val key = absoluteContractIdToStateKey(absCoid)
+            val cs =
+              inputState(key).getOrElse(throw Err.MissingInputState(key)).getContractState.toBuilder
+            cs.addAllDivulgedTo((parties: Iterable[String]).asJava)
+            stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs.build).build
         }
 
         tracelog(
@@ -334,9 +376,7 @@ object KeyValueCommitting {
     relTx.nodes
       .get(NodeId.unsafeFromIndex(nodeId))
       .orElse {
-        logger.trace(
-          "lookupContractInstanceFromLogEntry: Cannot find node $nodeId from ${prettyEntryId(entryId)}!")
-        None
+        throw Err.NodeMissingFromLogEntry(entryId, nodeId)
       }
       .flatMap { node: Transaction.Node =>
         node match {
@@ -347,8 +387,7 @@ object KeyValueCommitting {
               )
             )
           case n =>
-            logger.error(s"lookupContractInstanceFromLogEntry: node was not a create: $n")
-            None
+            throw Err.NodeNotACreate(entryId, nodeId)
         }
       }
   }
