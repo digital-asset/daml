@@ -10,8 +10,9 @@ HEAD — ongoing
 --------------
 - Making transaction lookups performant so we can handle such requests for large ledgers as well
 
-- Sandbox: Transactions with a record time that is after the maximum record time (as provided in the original command)
-  are now properly rejected instead of committed to the ledger: `#987 <https://github.com/digital-asset/daml/issues/987>`__
+- **Sandbox**: Transactions with a record time that is after the maximum record time (as provided in the original command) are now properly rejected instead of committed to the ledger.
+
+  See `issue #987 <https://github.com/digital-asset/daml/issues/987>`__ for details.
 
 .. _release-0-12-16:
 
