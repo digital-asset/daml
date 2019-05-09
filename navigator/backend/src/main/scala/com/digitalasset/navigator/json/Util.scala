@@ -10,20 +10,23 @@ import spray.json._
   * JSON encoding utils
   */
 object Util {
-  def strField(obj: JsValue, name: String, as: String): Ref.Name =
+  def strField(obj: JsValue, name: String, as: String): String =
     asObject(obj, as).fields.get(name) match {
       case Some(JsString(v)) =>
-        Ref.Name
-          .fromString(v)
-          .fold(
-            err => deserializationError(s"Can't read ${obj.prettyPrint} as $as, $err"),
-            identity
-          )
+        v
       case Some(_) =>
         deserializationError(s"Can't read ${obj.prettyPrint} as $as, field '$name' is not a string")
       case None =>
         deserializationError(s"Can't read ${obj.prettyPrint} as $as, missing field '$name'")
     }
+
+  def nameField(obj: JsValue, name: String, as: String): Ref.Name =
+    Ref.Name
+      .fromString(strField(obj, name, as))
+      .fold(
+        err => deserializationError(s"Can't read ${obj.prettyPrint} as $as, $err"),
+        identity
+      )
 
   def intField(obj: JsValue, name: String, as: String): Long =
     asObject(obj, as).fields.get(name) match {
