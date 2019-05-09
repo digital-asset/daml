@@ -1208,28 +1208,34 @@ toCtors env t = Ctors (getName t) <$> mapM convTypeVar (tyConTyVars t) <*> cs
 --   this would considerably complicate converting coercions. Second, it makes
 --   unpacking them faster in the current intepreter. Since the constructor
 --   names of newtypes are meant to be meaningless, this is acceptable.
+--
+-- * We add a field for every constraint containt in the thetas.
 ctorLabels :: TyConFlavour -> DataCon -> [FieldName]
-ctorLabels flv con
-  | flv `elem` [ClassFlavour, TupleFlavour Boxed] || isTupleDataCon con
-    -- NOTE(MH): The line below is a workaround for ghc issue
-    -- https://github.com/ghc/ghc/blob/ae4f1033cfe131fca9416e2993bda081e1f8c152/compiler/types/TyCon.hs#L2030
-    || (is con == "Unit" && moduleNameString (GHC.moduleName (nameModule (getName con))) == "GHC.Tuple")
-  = map (mkField . (:) '_' . show) [1..dataConSourceArity con]
-  | flv == NewtypeFlavour && null lbls
-  = [mkField "unpack"]
-  | otherwise
-  = map convFieldName lbls
-  where lbls = dataConFieldLabels con
+ctorLabels flv con =
+    [mkField $ "$dict" <> show i | i <- [1 .. length thetas]] ++ conFields flv con
+  where
+  thetas = dataConTheta con
+  conFields flv con
+    | flv `elem` [ClassFlavour, TupleFlavour Boxed] || isTupleDataCon con
+      -- NOTE(MH): The line below is a workaround for ghc issue
+      -- https://github.com/ghc/ghc/blob/ae4f1033cfe131fca9416e2993bda081e1f8c152/compiler/types/TyCon.hs#L2030
+      || (is con == "Unit" && moduleNameString (GHC.moduleName (nameModule (getName con))) == "GHC.Tuple")
+    = map (mkField . (:) '_' . show) [1..dataConSourceArity con]
+    | flv == NewtypeFlavour && null lbls
+    = [mkField "unpack"]
+    | otherwise
+    = map convFieldName lbls
+  lbls = dataConFieldLabels con
 
 toCtor :: Env -> DataCon -> ConvertM Ctor
 toCtor env con =
-  let (_,_,tys,_) = dataConSig con
+  let (_, thetas, tys,_) = dataConSig con
       flv = tyConFlavour (dataConTyCon con)
       sanitize ty
         -- NOTE(MH): This is DICTIONARY SANITIZATION step (1).
         | flv == ClassFlavour = TUnit :-> ty
         | otherwise = ty
-  in Ctor (getName con) (ctorLabels flv con) <$> mapM (fmap sanitize . convertType env) tys
+  in Ctor (getName con) (ctorLabels flv con) <$> mapM (fmap sanitize . convertType env) (thetas ++ tys)
 
 isRecordCtor :: Ctor -> Bool
 isRecordCtor (Ctor _ fldNames fldTys) = not (null fldNames) || null fldTys
