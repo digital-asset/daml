@@ -45,8 +45,8 @@ HEAD — ongoing
   become the default on Linux and MacOS.
 
   Documentation is still in progress, but you can see the :doc:`Migration guide </support/new-assistant>` and the `pull request for the updated documentation <https://github.com/digital-asset/daml/pull/740>`__.
-- **DAML**: Added ``fromListWith`` and ``merge`` to ``DA.TextMap``.
-- **DAML**: Deprecated ``DA.Map`` and ``DA.Set``. Use the new ``DA.Next.Map`` and ``DA.Next.Set`` instead.
+- **DAML Standard Library**: Added ``fromListWith`` and ``merge`` to ``DA.TextMap``.
+- **DAML Standard Library**: Deprecated ``DA.Map`` and ``DA.Set``. Use the new ``DA.Next.Map`` and ``DA.Next.Set`` instead.
 - **Ledger API**: Added three new methods to the :ref:`CommandService <com.digitalasset.ledger.api.v1.commandservice>`:
 
   - ``SubmitAndWaitForTransactionId`` returns the transaction ID.
@@ -54,14 +54,14 @@ HEAD — ongoing
   - ``SubmitAndWaitForTransactionTree`` returns the transaction tree.
 
 - **Ledger API**: Added field ``transaction_id`` to command completions. This field is only set when a command is successful.
-- **DAML**: Added instances of ``Functor``, ``Applicative``, and ``Action`` for ``(->) r`` (the reader monad).
+- **DAML  Standard Library**: Added instances of ``Functor``, ``Applicative``, and ``Action`` for ``(->) r`` (the reader monad).
 
 .. _release-0-12-14:
 
 0.12.14 - 2019-05-03
 --------------------
 
-- **DAML**: The ``id`` function was previously deprecated and has now been removed. Use ``identity`` instead.
+- **DAML Standard Library**: The ``id`` function was previously deprecated and has now been removed. Use ``identity`` instead.
 - **DAML and Assistant**: The compiler no longer supports DAML-LF 1.0.
 - **DAML-LF**: As a new "dev" minor version, writing with ``--target 1.dev`` is now supported by all tools by default.
 - **Ledger API**: You can now look up flat transactions with the new TransactionService methods ``GetFlatTransactionByEventId`` and ``GetFlatTransactionById``.
@@ -88,7 +88,7 @@ HEAD — ongoing
   A "1.dev" target will handle the intended "Dev" use cases in a future release.
 - **Ledger API**: The list of DAML packages used during interpretation is now included in the produced transaction.
 - **Scala**: Source JARs are now released for Scala libraries.
-- **DAML**: Renamed ``DA.TextMap.filter`` and ``DA.Map.filter`` to ``filterWithKey``.
+- **DAML  Standard Library**: Renamed ``DA.TextMap.filter`` and ``DA.Map.filter`` to ``filterWithKey``.
 - **Contract keys**: Fixed bug releated to visibility and contract keys.
 
   For details, see `issue #751 <https://github.com/digital-asset/daml/issues/751>`__.
@@ -116,7 +116,7 @@ HEAD — ongoing
 0.12.9 — 2019-04-23
 -------------------
 
-- **DAML**: Added the ``DA.Math`` library containing exponentiation, logarithms and trig functions
+- **DAML Standard Library**: Added the ``DA.Math`` library containing exponentiation, logarithms and trig functions
 - **Ledger API**: Added ``CreateAndExerciseCommand`` to the Ledger API and DAMLe for creating a contract and exercising a choice on it within the same transaction.
 
   You can use this to implement "callable updates": functions of type ``Update a`` that can be called from the Ledger API via a contract.
