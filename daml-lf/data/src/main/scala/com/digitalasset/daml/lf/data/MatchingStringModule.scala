@@ -14,10 +14,8 @@ sealed abstract class MatchingStringModule {
   def fromString(s: String): Either[String, T]
 
   @throws[IllegalArgumentException]
-  def assertFromString(s: String): T =
+  final def assertFromString(s: String): T =
     fromString(s).fold(e => throw new IllegalArgumentException(e), identity)
-
-  def unapply(x: T): Some[String] = Some(x)
 
   implicit def equalInstance: Equal[T]
 
