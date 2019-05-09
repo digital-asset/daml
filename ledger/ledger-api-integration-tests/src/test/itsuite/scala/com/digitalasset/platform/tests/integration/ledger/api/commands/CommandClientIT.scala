@@ -337,7 +337,7 @@ class CommandClientIT
 
       "not accept commands with unknown args, return INVALID_ARGUMENT" in allFixtures { c =>
         val expectedMessageSubstring =
-          "Mismatching record label"
+          "Missing record label"
         val command =
           c.command(
             "Param with wrong name",

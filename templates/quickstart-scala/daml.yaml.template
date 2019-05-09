@@ -1,0 +1,15 @@
+sdk-version: __VERSION__
+name: __PROJECT_NAME__
+source: daml/Main.daml
+scenario: Main:setup
+parties:
+  - Alice
+  - Bob
+  - USD_Bank
+  - EUR_Bank
+version: 1.0.0
+exposed-modules:
+  - Main
+dependencies:
+  - daml-prim
+  - daml-stdlib

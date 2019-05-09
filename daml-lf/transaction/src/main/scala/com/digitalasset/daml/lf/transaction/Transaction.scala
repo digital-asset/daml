@@ -15,6 +15,7 @@ import scalaz.Equal
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.breakOut
+import scala.util.Try
 
 case class VersionedTransaction[Nid, Cid](
     version: TransactionVersion,
@@ -572,7 +573,7 @@ object Transaction {
           s"""Trying to create a contract with a non-serializable value: ${serializableErrs.iterator
             .mkString(",")}""")
       } else {
-        val ntx =
+        val (nid, ptx) =
           insertFreshNode(
             nid =>
               NodeCreate(
@@ -583,7 +584,25 @@ object Transaction {
                 stakeholders,
                 key),
             None)
-        Right(ntx.copy(_1 = nodeIdToContractId(ntx._1)))
+        val cid = nodeIdToContractId(nid)
+        // if we have a contract key being added, include it in the list of
+        // active keys
+        key match {
+          case None => Right((cid, ptx))
+          case Some(k) =>
+            // TODO is there a nicer way of doing this?
+            val mbNoRels =
+              Try(k.key.mapContractId {
+                case abs: AbsoluteContractId => abs
+                case rel: RelativeContractId =>
+                  throw new RuntimeException(
+                    s"Trying to create contract key with relative contract id $rel")
+              }).toEither.left.map(_.getMessage)
+            mbNoRels.map { noRels =>
+              val gk = GlobalKey(coinst.template, noRels)
+              (cid, ptx.copy(keys = ptx.keys + (gk -> Some(cid))))
+            }
+        }
       }
     }
 
@@ -675,7 +694,9 @@ object Transaction {
                     keys = mbKey match {
                       case None => keys
                       case Some(key) =>
-                        keys + (GlobalKey(templateId, key) -> None)
+                        if (consuming) {
+                          keys + (GlobalKey(templateId, key) -> None)
+                        } else keys
                     },
                   )
             }

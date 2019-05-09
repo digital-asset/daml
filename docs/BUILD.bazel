@@ -259,6 +259,21 @@ genrule(
     ),
 )
 
+filegroup(
+    name = "daml-assistant-iou-setup",
+    srcs = glob(
+        ["source/getting-started/quickstart/template-root/*"],
+        # excluding quickstart-java stuff and da-skeleton.yaml (which should be removed once DA Assistant is gone)
+        exclude = [
+            "source/getting-started/quickstart/template-root/src",
+            "source/getting-started/quickstart/template-root/pom.xml",
+            "source/getting-started/quickstart/template-root/da-skeleton.yaml",
+        ],
+        exclude_directories = 0,
+    ),
+    visibility = ["//visibility:public"],
+)
+
 genrule(
     name = "quickstart-java",
     srcs = ["//:component-version"] + glob(["source/getting-started/quickstart/template-root/**"]),

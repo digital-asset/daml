@@ -15,6 +15,7 @@ module Development.IDE.State.RuleTypes(
 import           Control.DeepSeq
 import           Development.IDE.Functions.Compile             (TcModuleResult, GhcModule, LoadPackageResult(..))
 import qualified Development.IDE.Functions.Compile             as Compile
+import qualified Development.IDE.UtilGHC as Compile
 import           Development.IDE.Functions.FindImports         (Import(..))
 import           Development.IDE.Functions.DependencyInformation
 import           Data.Hashable
@@ -23,6 +24,7 @@ import           Development.Shake                        hiding (Env, newCache)
 import           GHC.Generics                             (Generic)
 
 import           GHC
+import HieTypes
 import           Module
 
 import           Development.IDE.Types.SpanInfo
@@ -61,7 +63,7 @@ type instance RuleResult GenerateCore = GhcModule
 
 -- | We capture the subset of `DynFlags` that is computed by package initialization in a rule to
 -- make session initialization cheaper by reusing it.
-type instance RuleResult LoadPackageState = Compile.PackageState
+type instance RuleResult LoadPackageState = Compile.PackageDynFlags
 
 -- | Resolve the imports in a module to the list of either external packages or absolute file paths
 -- for modules in the same package.
@@ -71,6 +73,9 @@ type instance RuleResult GetLocatedImports = [(Located ModuleName, Maybe Import)
 -- We cannot report the cycles directly from GetDependencyInformation since
 -- we can only report diagnostics for the current file.
 type instance RuleResult ReportImportCycles = ()
+
+-- | Read the given HIE file.
+type instance RuleResult GetHieFile = HieFile
 
 
 data OfInterest = OfInterest
@@ -128,6 +133,13 @@ data LoadPackageState = LoadPackageState
 instance Hashable LoadPackageState
 instance NFData   LoadPackageState
 
+-- Note that we embed the filepath here instead of using the filepath associated with Shake keys.
+-- Otherwise we will garbage collect the result since files in package dependencies will not be declared reachable.
+data GetHieFile = GetHieFile FilePath
+    deriving (Eq, Show, Typeable, Generic)
+instance Hashable GetHieFile
+instance NFData   GetHieFile
+
 ------------------------------------------------------------
 -- Orphan Instances
 
@@ -165,4 +177,10 @@ instance Show LoadPackageResult where
   show = installedUnitIdString . lprInstalledUnitId
 
 instance NFData LoadPackageResult where
+    rnf = rwhnf
+
+instance Show HieFile where
+    show = show . hie_module
+
+instance NFData HieFile where
     rnf = rwhnf

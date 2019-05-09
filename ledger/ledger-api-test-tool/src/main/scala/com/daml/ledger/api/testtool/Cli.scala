@@ -29,7 +29,7 @@ object Cli {
 
   private val argParser = new scopt.OptionParser[Config]("ledger-api-test-tool") {
     head("""The Ledger API Test Tool is a command line tool for testing the correctness of
-           |ledger implementations based on DAML and Ledger API.""".stripMargin)
+        |ledger implementations based on DAML and Ledger API.""".stripMargin)
 
     help("help").text("prints this usage text")
 
@@ -56,17 +56,25 @@ object Cli {
       .text("TLS: The crt file to be used as the the trusted root CA.")
       .action(cacrtConfig)
 
+    opt[Double](name = "timeout-scale-factor")
+      .optional()
+      .action((v, c) => c.copy(timeoutScaleFactor = v))
+      .text("""Scale factor for timeouts used in testing. Useful to tune timeouts
+          |depending on the environment and the Ledger implementation under test.
+          |Defaults to 1.0. Use numbers higher than 1.0 to make test timeouts more lax,
+          |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin)
+
     opt[Unit]("must-fail")
       .action((_, c) => c.copy(mustFail = true))
       .text("""Reverse success status logic of the tool. Use this flag if you expect one or
-              |more or the scenario tests to fail. If enabled, the tool will succeed when at
-              |least one test fails, and it will fail when all tests succeed. Defaults to
-              |false.""".stripMargin)
+          |more or the scenario tests to fail. If enabled, the tool will succeed when at
+          |least one test fails, and it will fail when all tests succeed. Defaults to
+          |false.""".stripMargin)
 
     opt[Unit]('r', "reset")
       .action((_, c) => c.copy(performReset = true))
       .text("""Perform a ledger reset before running the tests. If enabled, the tool will wipe
-              |all of the contents of the target ledger. Defaults to false.""".stripMargin)
+          |all of the contents of the target ledger. Defaults to false.""".stripMargin)
 
     opt[Unit]('x', "extract")
       .action((_, c) => c.copy(extract = true))

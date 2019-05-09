@@ -28,11 +28,11 @@ import Control.Exception (evaluate)
 import           Control.Monad.Except
 import Control.Monad.Extra (whenJust)
 import qualified Development.IDE.Functions.Compile             as Compile
+import qualified Development.IDE.Types.Options as Compile
 import Development.IDE.Functions.DependencyInformation
 import Development.IDE.Functions.FindImports
 import           Development.IDE.State.FileStore
 import           Development.IDE.Types.Diagnostics as Base
-import Development.IDE.UtilGHC
 import Data.Bifunctor
 import Data.Either.Extra
 import Data.Maybe
@@ -46,8 +46,10 @@ import           Development.IDE.Types.LSP as Compiler
 import Development.IDE.State.RuleTypes
 
 import           GHC
+import HieBin
 import           UniqSupply
 import           Module                         as M
+import NameCache
 
 import qualified Development.IDE.Functions.AtPoint as AtPoint
 import Development.IDE.State.Service
@@ -87,6 +89,19 @@ getUniqSupplyFrom Env{..} =
 getGhcCore :: FilePath -> Action (Maybe [CoreModule])
 getGhcCore file = eitherToMaybe <$> runExceptT (coresForFile file)
 
+-- | Generate the GHC Core for the supplied file and its dependencies.
+coresForFile :: FilePath -> ExceptT [FileDiagnostic] Action [CoreModule]
+coresForFile file = do
+    files <- transitiveModuleDeps <$> useE GetDependencies file
+    pms   <- usesE GetParsedModule $ files ++ [file]
+    fs <- liftIO
+          . mapM fileFromParsedModule
+          $ pms
+    cores <- usesE GenerateCore fs
+    pure (map Compile.gmCore cores)
+
+
+
 -- | Get all transitive file dependencies of a given module.
 -- Does not include the file itself.
 getDependencies :: FilePath -> Action (Maybe [FilePath])
@@ -124,18 +139,6 @@ usesE
     => k -> [FilePath] -> ExceptT [FileDiagnostic] Action [v]
 usesE k = ExceptT . fmap (mapM toIdeResultSilent) . uses k
 
--- | Generate the GHC Core for the supplied file and its dependencies.
-coresForFile :: FilePath -> ExceptT [FileDiagnostic] Action [CoreModule]
-coresForFile file = do
-    files <- transitiveModuleDeps <$> useE  GetDependencies file
-    pms   <- usesE GetParsedModule $ files ++ [file]
-    fs <- liftIO
-          . mapM fileFromParsedModule
-          . filter (not . modIsInternal . ms_mod . pm_mod_summary)
-          $ pms
-    cores <- usesE GenerateCore fs
-    pure (map Compile.gmCore cores)
-
 -- | Try to get hover text for the name under point.
 getAtPointForFile
   :: FilePath
@@ -150,9 +153,11 @@ getAtPointForFile file pos = do
 getDefinitionForFile :: FilePath -> Position -> ExceptT [FileDiagnostic] Action (Maybe Location)
 getDefinitionForFile file pos = do
     spans <- useE GetSpanInfo file
-    return $ AtPoint.gotoDefinition spans pos
+    pkgState <- useE LoadPackageState ""
+    opts <- lift getOpts
+    lift $ AtPoint.gotoDefinition opts pkgState spans pos
 
-getOpts :: Action Compile.CompileOpts
+getOpts :: Action Compile.IdeOptions
 getOpts = envOptions <$> getServiceEnv
 
 ------------------------------------------------------------
@@ -186,7 +191,7 @@ getLocatedImportsRule =
         opt <- getOpts
         dflags <- liftIO $ Compile.getGhcDynFlags opt pm packageState
         xs <- forM imports $ \(mbPkgName, modName) ->
-            (modName, ) <$> locateModule dflags getFileExists modName mbPkgName
+            (modName, ) <$> locateModule dflags (Compile.optExtensions opt) getFileExists modName mbPkgName
         return (concat $ lefts $ map snd xs, Just $ map (second eitherToMaybe) xs)
 
 
@@ -330,6 +335,13 @@ loadPackageStateRule =
         liftIO $ Compile.generatePackageState
             (Compile.optPackageDbs opts) (Compile.optHideAllPkgs opts) (Compile.optPackageImports opts)
 
+getHieFileRule :: Rules ()
+getHieFileRule =
+    defineNoFile $ \(GetHieFile f) -> do
+        u <- liftIO $ mkSplitUniqSupply 'a'
+        let nameCache = initNameCache u []
+        liftIO $ fmap fst $ readHieFile nameCache f
+
 -- | A rule that wires per-file rules together
 mainRule :: Rules ()
 mainRule = do
@@ -343,6 +355,7 @@ mainRule = do
     generateCoreRule
     loadPackageStateRule
     loadPackageRule
+    getHieFileRule
 
 ------------------------------------------------------------
 

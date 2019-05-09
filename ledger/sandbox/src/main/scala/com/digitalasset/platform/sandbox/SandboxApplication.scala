@@ -91,7 +91,14 @@ object SandboxApplication {
         case None =>
           ("in-memory", Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, records)))
         case Some(jdbcUrl) =>
-          val ledgerF = Ledger.postgres(jdbcUrl, ledgerId, timeProvider, records, startMode)
+          val ledgerF = Ledger.postgres(
+            jdbcUrl,
+            ledgerId,
+            timeProvider,
+            records,
+            config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
+            startMode
+          )
 
           val ledger = Try(Await.result(ledgerF, asyncTolerance)).fold(t => {
             val msg = "Could not start PostgreSQL persistence layer"

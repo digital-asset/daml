@@ -12,6 +12,7 @@ final case class Config(
     packageContainer: DamlPackageContainer,
     performReset: Boolean,
     mustFail: Boolean,
+    timeoutScaleFactor: Double,
     extract: Boolean,
     tlsConfig: Option[TlsConfiguration]
 )
@@ -23,6 +24,7 @@ object Config {
     packageContainer = DamlPackageContainer(),
     performReset = false,
     mustFail = false,
+    timeoutScaleFactor = 1.0,
     extract = false,
     tlsConfig = None
   )

@@ -1,7 +1,7 @@
 [
     {
         "key": "cmd+f1",
-        "command": "-daml.showDamlUserGuide"
+        "command": "-daml.openDamlDocs"
     },
     {
         "key": "ctrl+shift+`",

@@ -26,10 +26,10 @@
 # prefix: @com_github_digital_asset_daml//..., as these won't
 # be resolvable from external workspaces otherwise.
 
-rules_scala_version = "6f8ee3d951d2ac6154356314600f6edb4eb5df8b"
+rules_scala_version = "78104d8014d4e4fc8f905cd34b91dfabd9a268c8"
 rules_haskell_version = "6c550c8eb7ce7950e702420be39d932b8b31ef22"
 rules_haskell_sha256 = "aef68cf5d732b2fa9ae0efea344cb83cb0c16f0f08a8d6901776a0085fbe7a8b"
-rules_nixpkgs_version = "40b5a9f23abca57f364c93245c7451206ef1a855"
+rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
@@ -45,6 +45,7 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell-package-env.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-win-sys-includes.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-drop-fake-static.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-short-names.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -55,7 +56,7 @@ def daml_deps():
             name = "io_tweag_rules_nixpkgs",
             strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version,
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
-            sha256 = "a1e113bbd69c97e49cbedce9af0f256756cc5ab1b77aafaab476f1d9d47e9d81",
+            sha256 = "085d480232c0bada20c0d0b8b1b4ba8c62fcc006d9dc826aa0e4205e4dca6cb3",
         )
 
     if "ai_formation_hazel" not in native.existing_rules():
@@ -65,6 +66,7 @@ def daml_deps():
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:hazel-configure.patch",
+                "@com_github_digital_asset_daml//bazel_tools:hazel-short-names.patch",
             ],
             patch_args = ["-p2"],
             sha256 = rules_haskell_sha256,
@@ -89,14 +91,10 @@ def daml_deps():
     if "io_bazel_rules_scala" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_scala",
-            # TODO: switch back to bazelbuild/rules_scala repo after merge of these PRs:
-            # https://github.com/bazelbuild/rules_scala/pull/717
-            # https://github.com/bazelbuild/rules_scala/pull/718
-            #url = 'https://github.com/bazelbuild/rules_scala/archive/%s.zip' % rules_scala_version,
-            url = "https://github.com/majcherm-da/rules_scala/archive/%s.zip" % rules_scala_version,
+            url = "https://github.com/bazelbuild/rules_scala/archive/%s.zip" % rules_scala_version,
             type = "zip",
             strip_prefix = "rules_scala-%s" % rules_scala_version,
-            sha256 = "9774acd82267cdf486af38b325b410abf34965dc173e7188406852dd28ed6660",
+            sha256 = "2b39ea3eba5ce86126980fa2bf20db9e0896b75aec23f0c639d9bb47dd9914b9",
         )
 
     if "com_google_protobuf" not in native.existing_rules():

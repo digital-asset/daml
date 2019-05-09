@@ -69,6 +69,7 @@ object Ledger {
     * @param ledgerId      the id to be used for the ledger
     * @param timeProvider  the provider of time
     * @param ledgerEntries the starting entries
+    * @param queueDepth    the depth of the buffer for persisting entries. When gets full, the system will signal back-pressure upstream
     * @param startMode     whether the ledger should be reset, or continued where it was
     * @return a Postgres backed Ledger
     */
@@ -77,10 +78,17 @@ object Ledger {
       ledgerId: String,
       timeProvider: TimeProvider,
       ledgerEntries: Seq[LedgerEntry],
+      queueDepth: Int,
       startMode: SqlStartMode
   )(implicit mat: Materializer, mm: MetricsManager): Future[Ledger] =
     //TODO (robert): casting from Seq to immutable.Seq, make ledgerEntries immutable throughout the Sandbox?
-    SqlLedger(jdbcUrl, Some(ledgerId), timeProvider, immutable.Seq(ledgerEntries: _*), startMode)
+    SqlLedger(
+      jdbcUrl,
+      Some(ledgerId),
+      timeProvider,
+      immutable.Seq(ledgerEntries: _*),
+      queueDepth,
+      startMode)
 
   /** Wraps the given Ledger adding metrics around important calls */
   def metered(ledger: Ledger)(implicit mm: MetricsManager): Ledger = MeteredLedger(ledger)

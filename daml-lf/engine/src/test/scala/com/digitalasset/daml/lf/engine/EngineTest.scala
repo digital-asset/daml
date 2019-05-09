@@ -644,7 +644,7 @@ class EngineTest extends WordSpec with Matchers {
       res shouldBe 'right
     }
 
-    "fail with fields wrong order" in {
+    "work with fields with labels, in the wrong order" in {
       val rec = ValueRecord(
         Some(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")),
         ImmArray((Some("v"), ValueOptional(Some(ValueInt64(42)))), (Some("p"), ValueParty(alice)))
@@ -658,10 +658,27 @@ class EngineTest extends WordSpec with Matchers {
           assertAsVersionedValue(rec))
         .consume(lookupContract, lookupPackage, lookupKey)
 
+      res shouldBe 'right
+    }
+
+    "fail with fields with labels, with repetitions" in {
+      val rec = ValueRecord(
+        Some(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")),
+        ImmArray((Some("p"), ValueParty(alice)), (Some("p"), ValueParty(bob)))
+      )
+
+      val Right(DDataType(_, ImmArray(), _)) =
+        PackageLookup.lookupDataType(basicTestsPkg, "BasicTests:TypeWithParameters")
+      val res = commandTranslator
+        .translateValue(
+          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
+          assertAsVersionedValue(rec))
+        .consume(lookupContract, lookupPackage, lookupKey)
+
       res shouldBe 'left
     }
 
-    "work with fields without labels in right order" in {
+    "work with fields without labels, in right order" in {
       val rec = ValueRecord(
         Some(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")),
         ImmArray((None, ValueParty(alice)), (None, ValueOptional(Some(ValueInt64(42)))))
@@ -678,7 +695,7 @@ class EngineTest extends WordSpec with Matchers {
       res shouldBe 'right
     }
 
-    "fail with fields without labels wrong order" in {
+    "fail with fields without labels, in the wrong order" in {
       val rec = ValueRecord(
         Some(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")),
         ImmArray((None, ValueOptional(Some(ValueInt64(42)))), (None, ValueParty(alice)))
@@ -694,6 +711,7 @@ class EngineTest extends WordSpec with Matchers {
 
       res shouldBe 'left
     }
+
   }
 
   "exercise callable command" should {

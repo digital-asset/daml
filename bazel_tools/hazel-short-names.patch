@@ -1,0 +1,395 @@
+diff --git a/hazel/hazel.bzl b/hazel/hazel.bzl
+index 964a304..e7e5f73 100644
+--- a/hazel/hazel.bzl
++++ b/hazel/hazel.bzl
+@@ -56,7 +56,7 @@ def _core_library_repository_impl(ctx):
+         content = """
+ load("@io_tweag_rules_haskell//haskell:haskell.bzl", "haskell_toolchain_library")
+ haskell_toolchain_library(
+-    name = "{pkg}",
++    name = "lib",
+     package = "{pkg}",
+     visibility = ["//visibility:public"],
+ )
+@@ -136,7 +136,7 @@ def hazel_repositories(
+     external dependencies corresponding to the given packages:
+     - @hazel_base_repository: The compiled "hazel" Haskell binary, along with
+       support files.
+-    - @haskell_{package}_{hash}: A build of the given Cabal package, one per entry
++    - @haskell_{package}: A build of the given Cabal package, one per entry
+       of the "packages" argument.  (Note that Bazel only builds these
+       on-demand when needed by other rules.)  This repository automatically
+       downloads the package's Cabal distribution from Hackage and parses the
+diff --git a/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl b/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl
+index 16d5c3b..348302e 100644
+--- a/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl
++++ b/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl
+@@ -71,6 +71,8 @@ def _get_core_dependency_includes(ghc_workspace):
+         "unix": "{}//:unix-includes".format(ghc_workspace),
+     }
+ 
++_lib_name = "lib"
++
+ def _paths_module(desc):
+     return "Paths_" + desc.package.pkgName.replace("-", "_")
+ 
+@@ -238,12 +240,25 @@ def _get_build_attrs(
+     # build_files will contain a list of all files in the build directory.
+     build_files = []
+ 
+-    clib_name = name + "-cbits"
+     generated_modules = [_paths_module(desc)]
+ 
+     # Keep track of chs modules, as later chs modules may depend on earlier ones.
+     chs_targets = []
+ 
++    # XXX: We would like to also shorten the library components cbits' name to
++    # 'cbits'. However, on Windows, where we only create static libraries, no
++    # dynamic libraries, this causes name clashes. Bazel does not mangle static
++    # library names, only dynamic library names. If a dynamic library is
++    # present, then rules_haskell will mangle the static library the same, so
++    # that one entry in the package configuration file's extra-libraries
++    # section covers both static and dynamic libraries. However, if no dynamic
++    # library is present, then no such mangling is performed. The
++    # extra-libraries field will then hold only one 'cbits' entry which can be
++    # ambiguous if the target depends on multuple cbits.
++    cbits_name = name + "-cbits"
++    if name == _lib_name:
++        cbits_name = desc.package.pkgName + "-cbits"
++
+     for module in build_info.otherModules + extra_modules:
+         if module in generated_modules:
+             continue
+@@ -266,7 +281,7 @@ def _get_build_attrs(
+                 boot_module_map[module] = boot_out
+                 build_files.append(boot_out)
+         elif info.type in ["chs"]:
+-            chs_name = name + "-" + module + "-chs"
++            chs_name = module + "-chs"
+             module_map[module] = chs_name
+             build_files.append(info.src)
+             c2hs_library(
+@@ -274,7 +289,7 @@ def _get_build_attrs(
+                 srcs = [info.src],
+                 deps = (
+                     _get_extra_libs(build_info.extraLibs, extra_libs) +
+-                    [clib_name] +
++                    [cbits_name] +
+                     chs_targets
+                 ),
+             )
+@@ -326,7 +341,7 @@ def _get_build_attrs(
+         for m in (extra_modules_dict.get(condition, []) +
+                   other_modules_dict.get(condition, [])):
+             if m == paths_module:
+-                deps[condition] += [":" + paths_module]
++                deps[condition] += [":paths"]
+             elif m in module_map:
+                 srcs[condition] += [module_map[m]]
+ 
+@@ -411,7 +426,7 @@ def _get_build_attrs(
+     )
+     ghcopts += ["-I" + native.package_name() + "/" + d for d in build_info.includeDirs]
+     for xs in deps.values():
+-        xs.append(":" + clib_name)
++        xs.append(cbits_name)
+ 
+     ghc_version_components = ghc_version.split(".")
+     if len(ghc_version_components) != 3:
+@@ -426,7 +441,7 @@ def _get_build_attrs(
+     elibs_targets = _get_extra_libs(build_info.extraLibs, extra_libs)
+ 
+     native.cc_library(
+-        name = clib_name,
++        name = cbits_name,
+         srcs = build_info.cSources,
+         includes = build_info.includeDirs,
+         copts = ([o for o in build_info.ccOptions if not o.startswith("-D")] +
+@@ -484,7 +499,7 @@ def cabal_haskell_package(
+     name = description.package.pkgName
+ 
+     cabal_paths(
+-        name = _paths_module(description),
++        name = "paths",
+         package = name.replace("-", "_"),
+         version = [int(v) for v in description.package.pkgVersion.split(".")],
+         data_dir = description.dataDir,
+@@ -492,51 +507,54 @@ def cabal_haskell_package(
+     )
+ 
+     lib = description.library
+-    if lib and lib.libBuildInfo.buildable:
+-        if not lib.exposedModules:
+-            native.cc_library(
+-                name = name,
+-                visibility = ["//visibility:public"],
+-                linkstatic = select({
+-                    "@bazel_tools//src/conditions:windows": True,
+-                    "//conditions:default": False,
+-                }),
+-            )
+-            native.cc_library(
+-                name = name + "-cbits",
+-                visibility = ["//visibility:public"],
+-                linkstatic = select({
+-                    "@bazel_tools//src/conditions:windows": True,
+-                    "//conditions:default": False,
+-                }),
+-            )
+-        else:
+-            lib_attrs = _get_build_attrs(
+-                name,
+-                lib.libBuildInfo,
+-                description,
+-                "dist/build",
+-                lib.exposedModules,
+-                ghc_version,
+-                ghc_workspace,
+-                extra_libs,
+-            )
+-            srcs = lib_attrs.pop("srcs")
+-            deps = lib_attrs.pop("deps")
++    if lib and lib.libBuildInfo.buildable and lib.exposedModules:
++        lib_attrs = _get_build_attrs(
++            _lib_name,
++            lib.libBuildInfo,
++            description,
++            "dist/build",
++            lib.exposedModules,
++            ghc_version,
++            ghc_workspace,
++            extra_libs,
++        )
++        srcs = lib_attrs.pop("srcs")
++        deps = lib_attrs.pop("deps")
+ 
+-            elibs_targets = _get_extra_libs(lib.libBuildInfo.extraLibs, extra_libs)
++        elibs_targets = _get_extra_libs(lib.libBuildInfo.extraLibs, extra_libs)
+ 
+-            hidden_modules = [m for m in lib.libBuildInfo.otherModules if not m.startswith("Paths_")]
++        hidden_modules = [m for m in lib.libBuildInfo.otherModules if not m.startswith("Paths_")]
+ 
+-            haskell_library(
+-                name = name,
+-                srcs = select(srcs),
+-                hidden_modules = hidden_modules,
+-                version = description.package.pkgVersion,
+-                deps = select(deps) + elibs_targets,
+-                visibility = ["//visibility:public"],
+-                **lib_attrs
+-            )
++        haskell_library(
++            name = _lib_name,
++            srcs = select(srcs),
++            hidden_modules = hidden_modules,
++            package_name = description.package.pkgName,
++            version = description.package.pkgVersion,
++            deps = select(deps) + elibs_targets,
++            visibility = ["//visibility:public"],
++            **lib_attrs
++        )
++    else:
++        # No exposed library modules. Generate an empty dummy library target.
++        native.cc_library(
++            name = _lib_name,
++            visibility = ["//visibility:public"],
++            linkstatic = select({
++                "@bazel_tools//src/conditions:windows": True,
++                "//conditions:default": False,
++            }),
++        )
++
++        # No exposed library modules. Generate an empty dummy cbits target.
++        native.cc_library(
++            name = name + "-cbits",
++            visibility = ["//visibility:public"],
++            linkstatic = select({
++                "@bazel_tools//src/conditions:windows": True,
++                "//conditions:default": False,
++            }),
++        )
+ 
+     for exe in description.executables:
+         if not exe.buildInfo.buildable:
+@@ -546,7 +564,7 @@ def cabal_haskell_package(
+         # Avoid a name clash with the library.  For stability, make this logic
+         # independent of whether the package actually contains a library.
+         if exe_name == name:
+-            exe_name = name + "_bin"
++            exe_name = "bin"
+         paths_mod = _paths_module(description)
+         attrs = _get_build_attrs(
+             exe_name,
+diff --git a/hazel/third_party/haskell/BUILD.conduit b/hazel/third_party/haskell/BUILD.conduit
+index a1213b6..a116b54 100644
+--- a/hazel/third_party/haskell/BUILD.conduit
++++ b/hazel/third_party/haskell/BUILD.conduit
+@@ -7,7 +7,7 @@ load("@ai_formation_hazel//tools:mangling.bzl", "hazel_library")
+ load("@ai_formation_hazel//:tools/mangling.bzl", "hazel_workspace")
+ 
+ haskell_library(
+-  name = "conduit",
++  name = "lib",
+   srcs = glob([
+     "Data/*.hs",
+     "Data/**/*.hs",
+@@ -31,6 +31,7 @@ haskell_library(
+     hazel_library("transformers-compat"),
+     hazel_library("vector"),
+   ],
++  package_name = "conduit",
+   version = "1.2.13.1",
+ )
+ 
+diff --git a/hazel/third_party/haskell/BUILD.ghc-paths b/hazel/third_party/haskell/BUILD.ghc-paths
+index 49aab10..cf5e39f 100644
+--- a/hazel/third_party/haskell/BUILD.ghc-paths
++++ b/hazel/third_party/haskell/BUILD.ghc-paths
+@@ -11,11 +11,13 @@ ghc_paths_module(
+     name = "paths_module")
+ 
+ haskell_library(
+-    name = "ghc-paths",
++    name = "lib",
+     srcs = [":paths_module"],
+     deps = [
+         hazel_library("base"),
+     ],
++    package_name = "ghc-paths",
++    version = "0.1.0.9",
+ )
+ 
+ cc_import(
+diff --git a/hazel/third_party/haskell/BUILD.text-metrics b/hazel/third_party/haskell/BUILD.text-metrics
+index a86eef1..a20d513 100644
+--- a/hazel/third_party/haskell/BUILD.text-metrics
++++ b/hazel/third_party/haskell/BUILD.text-metrics
+@@ -6,7 +6,7 @@ load("@io_tweag_rules_haskell//haskell:haskell.bzl",
+ load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
+ 
+ haskell_library(
+-  name = "text-metrics",
++  name = "lib",
+   srcs = ["Data/Text/Metrics.hs"],
+   deps = [
+     hazel_library("base"),
+@@ -14,6 +14,7 @@ haskell_library(
+     hazel_library("text"),
+     hazel_library("vector"),
+   ],
++  package_name = "text-metrics",
+   version = "0.3.0",
+ )
+ 
+diff --git a/hazel/third_party/haskell/BUILD.vault b/hazel/third_party/haskell/BUILD.vault
+index 8967875..a4eb484 100644
+--- a/hazel/third_party/haskell/BUILD.vault
++++ b/hazel/third_party/haskell/BUILD.vault
+@@ -4,7 +4,7 @@ load("@io_tweag_rules_haskell//haskell:haskell.bzl", "haskell_library")
+ load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
+ 
+ haskell_library(
+-  name = "vault",
++  name = "lib",
+   srcs = [
+     "src/Data/Unique/Really.hs",
+     "src/Data/Vault/IO.h",
+@@ -29,6 +29,8 @@ haskell_library(
+     hazel_library("semigroups"),
+     hazel_library("unordered-containers"),
+   ],
++  package_name = "vault",
++  version = "0.3.1.1",
+ )
+ 
+ cc_import(
+diff --git a/hazel/third_party/haskell/BUILD.wai-app-static b/hazel/third_party/haskell/BUILD.wai-app-static
+index 65edca1..4b90ae7 100644
+--- a/hazel/third_party/haskell/BUILD.wai-app-static
++++ b/hazel/third_party/haskell/BUILD.wai-app-static
+@@ -4,7 +4,7 @@ load("@io_tweag_rules_haskell//haskell:haskell.bzl", "haskell_library")
+ load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
+ 
+ haskell_library(
+-  name = "wai-app-static",
++  name = "lib",
+   srcs = glob([
+     "Network/Wai/Application/Static.hs",
+     "Util.hs",
+@@ -40,6 +40,7 @@ haskell_library(
+     hazel_library("warp"),
+     hazel_library("zlib"),
+   ],
++  package_name = "wai-app-static",
+   version = "3.1.6.2",
+ )
+ 
+diff --git a/hazel/third_party/haskell/BUILD.zlib b/hazel/third_party/haskell/BUILD.zlib
+index 623ecd5..9bc2eb0 100644
+--- a/hazel/third_party/haskell/BUILD.zlib
++++ b/hazel/third_party/haskell/BUILD.zlib
+@@ -14,7 +14,7 @@ cc_library(
+ )
+ 
+ haskell_library(
+-  name = "zlib",
++  name = "lib",
+   srcs = glob([
+     "Codec/Compression/*.hs",
+     "Codec/Compression/Zlib/*.hs",
+@@ -26,4 +26,6 @@ haskell_library(
+       hazel_library("bytestring"),
+       hazel_library("ghc-prim"),
+   ],
++  package_name = "zlib",
++  version = "0.6.2",
+ )
+diff --git a/hazel/third_party/haskell/BUILD.zlib-bindings b/hazel/third_party/haskell/BUILD.zlib-bindings
+index 5872eae..d70e991 100644
+--- a/hazel/third_party/haskell/BUILD.zlib-bindings
++++ b/hazel/third_party/haskell/BUILD.zlib-bindings
+@@ -7,22 +7,24 @@ load("@io_tweag_rules_haskell//haskell:haskell.bzl",
+ load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
+ 
+ cc_library(
+-  name = "cbits",
++  name = "zlib-bindings-cbits",
+   hdrs = glob(["cbits/*.h"]),
+   srcs = glob(["cbits/*.c"]),
+   strip_include_prefix = "cbits",
+ )
+ 
+ haskell_library(
+-  name = "zlib-bindings",
++  name = "lib",
+   srcs = glob([
+     "Codec/Zlib.hs",
+     "Codec/Zlib/Lowlevel.hs",
+   ]),
+   deps = [
+-      ":cbits",
++      ":zlib-bindings-cbits",
+       hazel_library("base"),
+       hazel_library("bytestring"),
+       hazel_library("zlib"),
+   ],
++  package_name "zlib-bindings",
++  version = "0.1.1.5",
+ )
+diff --git a/hazel/tools/mangling.bzl b/hazel/tools/mangling.bzl
+index 26e2506..8b1817f 100644
+--- a/hazel/tools/mangling.bzl
++++ b/hazel/tools/mangling.bzl
+@@ -1,10 +1,10 @@
+ def hazel_library(package_name):
+     """Returns the label of the haskell_library rule for the given package."""
+-    return "@{}//:{}".format(hazel_workspace(package_name), package_name)
++    return "@{}//:lib".format(hazel_workspace(package_name))
+ 
+ def hazel_binary(package_name):
+     """Returns the label of the haskell_binary rule for the given package."""
+-    return "@{}//:{}_bin".format(hazel_workspace(package_name), package_name)
++    return "@{}//:bin".format(hazel_workspace(package_name))
+ 
+ def hazel_cbits(package_name):
+     """Returns the label of the cc_library rule for the given package."""

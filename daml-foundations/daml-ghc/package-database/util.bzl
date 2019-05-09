@@ -156,14 +156,14 @@ def _daml_package_db_impl(ctx):
         shopt -s nullglob
         mkdir -p {db_dir}
         for ver in {daml_lf_versions}; do
-            mkdir -p "{db_dir}/$ver"
+            mkdir -p "{db_dir}/$ver/package.conf.d"
         done
         """.format(db_dir = db_dir.path, daml_lf_versions = " ".join(ctx.attr.daml_lf_versions)) +
             "".join(
                 [
                     """
         mkdir -p "{db_dir}/{daml_lf_version}/{pkg_name}"
-        cp {pkg_conf} "{db_dir}/{daml_lf_version}/{pkg_name}.conf"
+        cp {pkg_conf} "{db_dir}/{daml_lf_version}/package.conf.d/{pkg_name}.conf"
         cp -aL {iface_dir}/* "{db_dir}/{daml_lf_version}/{pkg_name}/"
         cp {dalf} "{db_dir}/{daml_lf_version}/{pkg_name}.dalf"
         """.format(
@@ -179,7 +179,7 @@ def _daml_package_db_impl(ctx):
             ) +
             """
         for lf_version in "{db_dir}"/*; do
-          {ghc_pkg} recache --package-db=$lf_version --no-expand-pkgroot
+          {ghc_pkg} recache --package-db=$lf_version/package.conf.d --no-expand-pkgroot
         done
         """.format(
                 db_dir = db_dir.path,

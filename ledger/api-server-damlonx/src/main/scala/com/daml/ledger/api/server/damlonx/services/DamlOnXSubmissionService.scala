@@ -45,8 +45,11 @@ object DamlOnXSubmissionService {
       ledgerId: LedgerId,
       indexService: IndexService,
       writeService: WriteService,
-      engine: Engine)(implicit ec: ExecutionContext, mat: ActorMaterializer)
-    : CommandSubmissionServiceGrpc.CommandSubmissionService with BindableService with CommandSubmissionServiceLogging =
+      engine: Engine)(
+      implicit ec: ExecutionContext,
+      mat: ActorMaterializer): CommandSubmissionServiceGrpc.CommandSubmissionService
+    with BindableService
+    with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new DamlOnXSubmissionService(indexService, writeService, engine),
       ledgerId,
@@ -86,7 +89,7 @@ class DamlOnXSubmissionService private (
             Future.fromTry(Try(optArchive.map(Decode.decodeArchive(_)._2)))
         }
     val getContract =
-      (coid: AbsoluteContractId) => indexService.lookupActiveContract(coid)
+      (coid: AbsoluteContractId) => indexService.lookupActiveContract(commands.submitter, coid)
 
     consume(engine.submit(commands.commands))(getPackage, getContract)
       .flatMap {

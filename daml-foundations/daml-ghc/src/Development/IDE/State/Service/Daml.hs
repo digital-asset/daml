@@ -10,7 +10,7 @@ module Development.IDE.State.Service.Daml(
     setFilesOfInterest, setOpenVirtualResources,
     writeProfile,
     getDiagnostics, unsafeClearDiagnostics,
-    logDebug, logInfo, logWarning, logError
+    logDebug, logSeriousError
     ) where
 
 import Control.Concurrent.Extra
@@ -79,7 +79,7 @@ setOpenVirtualResources state resources = do
 
 initialise :: Rules ()
            -> Maybe (Event -> IO ())
-           -> Logger.Handle IO
+           -> Logger.Handle
            -> Options
            -> Maybe SS.Handle
            -> IO IdeState

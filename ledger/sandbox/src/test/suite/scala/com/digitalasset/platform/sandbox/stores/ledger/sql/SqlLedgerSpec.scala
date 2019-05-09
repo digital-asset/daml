@@ -23,13 +23,16 @@ class SqlLedgerSpec
 
   override val timeLimit: Span = 60.seconds
 
+  private val queueDepth = 128
+
   "SQL Ledger" should {
     "be able to be created from scratch with a random ledger id" in {
       val ledgerF = SqlLedger(
         jdbcUrl = postgresFixture.jdbcUrl,
         ledgerId = None,
         timeProvider = TimeProvider.UTC,
-        ledgerEntries = Nil)
+        ledgerEntries = Nil,
+        queueDepth)
 
       ledgerF.map { ledger =>
         ledger.ledgerId should not be equal("")
@@ -43,7 +46,8 @@ class SqlLedgerSpec
         jdbcUrl = postgresFixture.jdbcUrl,
         ledgerId = Some(ledgerId),
         timeProvider = TimeProvider.UTC,
-        ledgerEntries = Nil)
+        ledgerEntries = Nil,
+        queueDepth)
 
       ledgerF.map { ledger =>
         ledger.ledgerId should not be equal(ledgerId)
@@ -58,17 +62,20 @@ class SqlLedgerSpec
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(ledgerId),
           timeProvider = TimeProvider.UTC,
-          ledgerEntries = Nil)
+          ledgerEntries = Nil,
+          queueDepth)
         ledger2 <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(ledgerId),
           timeProvider = TimeProvider.UTC,
-          ledgerEntries = Nil)
+          ledgerEntries = Nil,
+          queueDepth)
         ledger3 <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = None,
           timeProvider = TimeProvider.UTC,
-          ledgerEntries = Nil)
+          ledgerEntries = Nil,
+          queueDepth)
       } yield {
         ledger1.ledgerId should not be equal(ledgerId)
         ledger1.ledgerId shouldEqual ledger2.ledgerId
@@ -83,13 +90,15 @@ class SqlLedgerSpec
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some("TheLedger"),
           timeProvider = TimeProvider.UTC,
-          ledgerEntries = Nil
+          ledgerEntries = Nil,
+          queueDepth
         )
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some("AnotherLedger"),
           timeProvider = TimeProvider.UTC,
-          ledgerEntries = Nil
+          ledgerEntries = Nil,
+          queueDepth
         )
       } yield (())
 

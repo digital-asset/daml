@@ -1,10 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-} -- to enable prettyPrint
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | GHC utility functions. Importantly, code using our GHC should never:
 --
@@ -12,39 +9,27 @@
 --
 -- * Call setSessionDynFlags, use modifyDynFlags instead. It's faster and avoids loading packages.
 module Development.IDE.UtilGHC(
-    PackageState(..),
+    PackageDynFlags(..), setPackageDynFlags, getPackageDynFlags,
+    lookupPackageConfig,
     modifyDynFlags,
-    textToStringBuffer,
-    removeTypeableInfo,
     setPackageImports,
     setPackageDbs,
-    fakeSettings,
-    fakeLlvmConfig,
+    fakeDynFlags,
     prettyPrint,
-    importGenerated,
-    mkImport,
-    runGhcFast,
-    setImports,
-    setPackageState,
-    setThisInstalledUnitId,
-    modIsInternal
+    runGhcFast
     ) where
 
 import           Config
 import           Fingerprint
 import           GHC                         hiding (convertLit)
 import           GhcMonad
-import           GhcPlugins                  as GHC hiding (PackageState, fst3, (<>))
+import           GhcPlugins                  as GHC hiding (fst3, (<>))
 import           HscMain
 import qualified Packages
 import           Platform
-import qualified StringBuffer                as SB
 import qualified EnumSet
-
-import           Control.DeepSeq
 import           Data.IORef
-import           Data.List
-import qualified Data.Text as T
+import           System.FilePath
 import GHC.Generics (Generic)
 
 ----------------------------------------------------------------------
@@ -54,7 +39,7 @@ setPackageDbs :: [FilePath] -> DynFlags -> DynFlags
 setPackageDbs paths dflags =
   dflags
     { packageDBFlags =
-        [PackageDB $ PkgConfFile path | path <- paths] ++ [NoGlobalPackageDB, ClearPackageDBs]
+        [PackageDB $ PkgConfFile $ path </> "package.conf.d" | path <- paths] ++ [NoGlobalPackageDB, ClearPackageDBs]
     , pkgDatabase = if null paths then Just [] else Nothing
       -- if we don't load any packages set the package database to empty and loaded.
     , settings = (settings dflags)
@@ -82,63 +67,40 @@ modifyDynFlags f = do
   modifySession $ \h ->
     h { hsc_dflags = newFlags, hsc_IC = (hsc_IC h) {ic_dflags = newFlags} }
 
--- | This is the subset of `DynFlags` that is computed by package initialization.
-data PackageState = PackageState
-  { pkgStateDb :: !(Maybe [(FilePath, [Packages.PackageConfig])])
-  , pkgStateState :: !Packages.PackageState
-  , pkgThisUnitIdInsts :: !(Maybe [(ModuleName, Module)])
-  } deriving (Generic, Show)
+-- | The subset of @DynFlags@ computed by package initialization.
+data PackageDynFlags = PackageDynFlags
+    { pdfPkgDatabase :: !(Maybe [(FilePath, [Packages.PackageConfig])])
+    , pdfPkgState :: !Packages.PackageState
+    , pdfThisUnitIdInsts :: !(Maybe [(ModuleName, Module)])
+    } deriving (Generic)
 
-instance NFData PackageState where
-  rnf (PackageState db state insts) = db `seq` state `seq` rnf insts
+setPackageDynFlags :: PackageDynFlags -> DynFlags -> DynFlags
+setPackageDynFlags PackageDynFlags{..} dflags = dflags
+    { pkgDatabase = pdfPkgDatabase
+    , pkgState = pdfPkgState
+    , thisUnitIdInsts_ = pdfThisUnitIdInsts
+    }
+
+getPackageDynFlags :: DynFlags -> PackageDynFlags
+getPackageDynFlags DynFlags{..} = PackageDynFlags
+    { pdfPkgDatabase = pkgDatabase
+    , pdfPkgState = pkgState
+    , pdfThisUnitIdInsts = thisUnitIdInsts_
+    }
+
+lookupPackageConfig :: UnitId -> PackageDynFlags -> Maybe PackageConfig
+lookupPackageConfig unitId PackageDynFlags {..} =
+    lookupPackage' False pkgConfigMap unitId
+    where
+        pkgConfigMap =
+            -- For some weird reason, the GHC API does not provide a way to get the PackageConfigMap
+            -- from PackageState so we have to wrap it in DynFlags first.
+            getPackageConfigMap fakeDynFlags { pkgState = pdfPkgState }
 
 
--- | A version of `showSDoc` that uses default flags (to avoid uses of
--- `showSDocUnsafe`).
-showSDocDefault :: SDoc -> String
-showSDocDefault = showSDoc dynFlags
-  where dynFlags = defaultDynFlags fakeSettings fakeLlvmConfig
 
 prettyPrint :: Outputable a => a -> String
-prettyPrint = showSDocDefault . ppr
-
-textToStringBuffer :: T.Text -> SB.StringBuffer
--- would be nice to do this more efficiently...
-textToStringBuffer = SB.stringToStringBuffer . T.unpack
-
--- FIXME(#1203): This must move out of `haskell-ide-core` and into `damlc`.
-internalModules :: [String]
-internalModules =
-  [ "Data.String"
-  , "GHC.CString"
-  , "GHC.Integer.Type"
-  , "GHC.Natural"
-  , "GHC.Real"
-  , "GHC.Types"
-  ]
-
--- | Checks if a given module is internal, i.e. gets removed in the Core->LF
--- translation. TODO where should this live?
-modIsInternal :: Module -> Bool
-modIsInternal m = moduleNameString (moduleName m) `elem` internalModules
-  -- TODO should we consider DA.Internal.* internal? Difference to GHC.*
-  -- modules is that these do not disappear in the LF conversion.
-
--- | This import was generated, not user written, so should not produce unused import warnings
-importGenerated :: Bool -> ImportDecl phase -> ImportDecl phase
-importGenerated qual i = i{ideclImplicit=True, ideclQualified=qual}
-
-mkImport :: Located ModuleName -> ImportDecl GhcPs
-mkImport mname = GHC.ImportDecl GHC.NoExt GHC.NoSourceText mname Nothing False False False False Nothing Nothing
-
--- FIXME(#1203): This needs to move out of haskell-ide-core.
-removeTypeableInfo :: ModGuts -> ModGuts
-removeTypeableInfo guts =
-  guts{mg_binds = filter (not . isTypeableInfo) (mg_binds guts)}
-  where
-    isTypeableInfo = \case
-      NonRec name _ -> any (`isPrefixOf` getOccString name) ["$krep", "$tc", "$trModule"]
-      Rec _ -> False
+prettyPrint = showSDoc fakeDynFlags . ppr
 
 -- | Like 'runGhc' but much faster (400x), with less IO and no file dependency
 runGhcFast :: Ghc a -> IO a
@@ -147,69 +109,27 @@ runGhcFast act = do
   ref <- newIORef (error "empty session")
   let session = Session ref
   flip unGhc session $ do
-    dflags <- liftIO $ initDynFlags $ defaultDynFlags fakeSettings fakeLlvmConfig
+    dflags <- liftIO $ initDynFlags fakeDynFlags
     liftIO $ setUnsafeGlobalDynFlags dflags
     env <- liftIO $ newHscEnv dflags
     setSession env
     withCleanupSession act
 
--- These settings are mostly undefined, but define just enough for what we want to do (which isn't code gen)
-fakeSettings :: Settings
-fakeSettings = Settings
-  {sTargetPlatform=platform
-  ,sPlatformConstants=platformConstants
-  ,sProjectVersion=cProjectVersion
-  ,sProgramName="ghc"
-  ,sOpt_P_fingerprint=fingerprint0
-  }
-  where
-    platform = Platform{platformWordSize=8, platformOS=OSUnknown, platformUnregisterised=True}
-    platformConstants = PlatformConstants{pc_DYNAMIC_BY_DEFAULT=False,pc_WORD_SIZE=8}
-
-fakeLlvmConfig :: (LlvmTargets, LlvmPasses)
-fakeLlvmConfig = ([], [])
-
-
-setThisInstalledUnitId :: UnitId -> DynFlags -> DynFlags
-setThisInstalledUnitId unitId dflags =
-  dflags {thisInstalledUnitId = toInstalledUnitId unitId}
-
-setImports :: [FilePath] -> DynFlags -> DynFlags
-setImports paths dflags = dflags { importPaths = paths }
-
-setPackageState :: PackageState -> DynFlags -> DynFlags
-setPackageState state dflags =
-  dflags
-    { pkgDatabase = pkgStateDb state
-    , pkgState = pkgStateState state
-    , thisUnitIdInsts_ = pkgThisUnitIdInsts state
-    }
-
-
-
--- Orphan instances for types from the GHC API.
-instance Show CoreModule where show = prettyPrint
-instance NFData CoreModule where rnf !_ = ()
-
-instance Show RdrName where show = prettyPrint
-instance NFData RdrName where rnf !_ = ()
-
-instance Show InstalledUnitId where
-  show = installedUnitIdString
-
-instance NFData InstalledUnitId where
-  rnf = rwhnf
-
-instance NFData SB.StringBuffer where
-    rnf = rwhnf
-
-instance Show Module where
-  show = moduleNameString . moduleName
-
-instance Show ComponentId where show = prettyPrint
-instance Show SourcePackageId where show = prettyPrint
-instance Show ModuleName where show = prettyPrint
-instance Show (GenLocated SrcSpan ModuleName) where show = prettyPrint
-instance Show PackageName where show = prettyPrint
-instance Show Packages.PackageState where show _ = "PackageState"
-instance Show Name where show = prettyPrint
+-- Fake DynFlags which are mostly undefined, but define enough to do a little bit
+fakeDynFlags :: DynFlags
+fakeDynFlags = defaultDynFlags settings ([], [])
+    where
+        settings = Settings
+            {sTargetPlatform = Platform
+                {platformWordSize = 8
+                ,platformOS = OSUnknown
+                ,platformUnregisterised = True
+                }
+            ,sPlatformConstants = PlatformConstants
+                {pc_DYNAMIC_BY_DEFAULT = False
+                ,pc_WORD_SIZE = 8
+                }
+            ,sProjectVersion = cProjectVersion
+            ,sProgramName = "ghc"
+            ,sOpt_P_fingerprint = fingerprint0
+            }

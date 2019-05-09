@@ -6,8 +6,8 @@ module Test where
 
 template TextKey
   with
-    p : Party
-    k : Text
+    p: Party
+    k: Text
     disclosedTo : [Party]
   where
     signatory p
@@ -20,6 +20,41 @@ template TextKey
     controller p can
       TextKeyChoice : ()
         do
+          return ()
+
+    controller p can
+      nonconsuming TextKeyNonconsumingChoice : ()
+        do
+          return ()
+
+template CreateAndLookup
+  with
+    p: Party
+    k: Text
+  where
+    signatory p
+
+    controller p can
+      nonconsuming Good : ()
+        do
+          cid <- create TextKey with
+            p = p
+            k = k
+            disclosedTo = []
+          mbCid <- lookupByKey @TextKey (p, k)
+          assertMsg ("Some cid == mbCid") (Some cid == mbCid)
+
+    controller p can
+      nonconsuming Dupe : ()
+        do
+          _ <- create TextKey with
+            p = p
+            k = k
+            disclosedTo = []
+          _ <- create TextKey with
+            p = p
+            k = k
+            disclosedTo = []
           return ()
 
 run = scenario do
@@ -79,4 +114,33 @@ run = scenario do
     exercise cid4 TextKeyChoice
     lookupByKey @TextKey (alice, "some-key-2")
   assertMsg "None == noCid4" (None == noCid4)
+
+  -- we should be able to wintness keys within a single submit
+  submit alice do
+    cid <- create TextKey with
+      p = alice
+      k = "same-submit-key"
+      disclosedTo = []
+    mbCid <- lookupByKey @TextKey (alice, "same-submit-key")
+    assertMsg ("Some cid == mbCid") (Some cid == mbCid)
+  -- and a single choice
+  createAndLookupCid <- submit alice do
+    create CreateAndLookup with
+      p = alice
+      k = "same-choice-key"
+  submit alice do
+    exercise createAndLookupCid Good
+  -- creating a dupe in a single choice should fail
+  submitMustFail alice do
+    exercise createAndLookupCid Dupe
+
+  -- nonconsuming choices should not affect key activeness
+  submit alice $ do
+    cid <- create TextKey with
+      p = alice
+      k = "non-consuming-choice"
+      disclosedTo = []
+    exercise cid TextKeyNonconsumingChoice
+    mbCid <- lookupByKey @TextKey (alice, "non-consuming-choice")
+    assertMsg ("Some cid == mbCid") (Some cid == mbCid)
 

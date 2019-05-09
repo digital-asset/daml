@@ -41,6 +41,7 @@ import com.digitalasset.ledger.client.services.commands.CommandClient
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
+import com.digitalasset.platform.testing.ResourceExtensions
 import io.grpc.{Channel, StatusRuntimeException}
 import io.grpc.reflection.v1alpha.ServerReflectionGrpc
 import org.slf4j.LoggerFactory

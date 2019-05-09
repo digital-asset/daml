@@ -9,7 +9,7 @@ import           Data.Generics.Uniplate.Data
 import           Data.List.Extra
 import           Data.Tuple.Extra
 
-import Development.IDE.UtilGHC
+import DA.Daml.GHC.Compiler.UtilGHC
 
 import           "ghc-lib-parser" Bag
 import qualified "ghc-lib" GHC

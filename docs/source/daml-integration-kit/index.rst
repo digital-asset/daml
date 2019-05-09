@@ -1,7 +1,7 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML Integration Kit - PRE-ALPHA
+DAML Integration Kit - ALPHA
 ################################
 
 .. toctree::
@@ -32,20 +32,12 @@ implementing the DAML Ledger API.
 Status and roadmap
 ******************
 
-The current status of the integration kit is PRE-ALPHA. We expect it to evolve
-to ALPHA soon, BETA later, and GA quite a bit later. The roadmap below
-explains what we mean by these different statuses, and what's missing to
-progress.
+The current status of the integration kit is ALPHA. We are working towards BETA,
+and GA will come quite a bit later. The roadmap below explains what we mean by
+these different statuses, and what's missing to progress.
 
-PRE-ALPHA (current status)
-  We develop the DAML Integration Kit in an open-first model. The PRE-ALPHA
-  status means that there is enough information for interested third-parties
-  to follow the *development* of the DAML integration kit. **We do though not
-  make any stability guarantees!** Moreover the documentation is expected to
-  contain holes, which are usually linked to GitHub issues.
-
-ALPHA (`tracking GitHub issue <https://github.com/digital-asset/daml/issues/658>`__)
-  Once we reach ALPHA status, the DAML Integration Kit is ready to be used by
+ALPHA (current status)
+  In the ALPHA status, the DAML Integration Kit is ready to be used by
   third-parties willing to accept the following caveats:
 
   - The architecture includes everything required to run DAML Applications in
@@ -71,9 +63,6 @@ ALPHA (`tracking GitHub issue <https://github.com/digital-asset/daml/issues/658>
   You can get into contact with us using the feedback form on this
   documentation page or by creating issues or pull-requests against the `digital-asset/daml
   <https://github.com/digital-asset/daml>`__ GitHub repository.
-
-  Use this `GitHub milestone <https://github.com/digital-asset/daml/milestone/4>`__
-  to see the work outstanding to reach ALPHA status.
 
 
 BETA (`tracking GitHub issue <https://github.com/digital-asset/daml/issues/660>`__)
@@ -178,17 +167,14 @@ to implement your own server and validator:
 1. Clone our example DAML Ledger (which is backed by an in-memory key-value store)
    from the `digital-asset/daml-on-x-example <https://github.com/digital-asset/daml-on-x-example>`__.
 
-   **TODO (ALPHA):** create this example repository
-   (`issue <https://github.com/digital-asset/daml/issues/139>`__)
-
-2. Read the example code jointly with
+1. Read the example code jointly with
    the `Architectural overview`_, `Resources we provide`_, and
    the `Library infrastructure overview`_ below.
 
-3. Combine all the knowledge gained to decide on the architecture for your
+1. Combine all the knowledge gained to decide on the architecture for your
    DAML on `X` ledger.
 
-4. Implement your architecture; and let the world know about it by creating a
+1. Implement your architecture; and let the world know about it by creating a
    PR against the
    `digital-asset/daml <https://github.com/digital-asset/daml>`__ repository
    to add your ledger to the list of `DAML Ledgers built or in development`_.
@@ -260,9 +246,6 @@ Resources we provide
   It builds on our Scala libraries and demonstrates how they
   can be assembled to serve the Ledger API and validate DAML transactions.
 
-  **TODO (ALPHA):** actually create this repository
-  (`GitHub issue <https://github.com/digital-asset/daml/issues/139>`__)!
-
   For ledgers where data is shared between all participant nodes, we
   recommend using this example as a starting point for implementing your
   server and validator.
@@ -301,6 +284,13 @@ this section is best read jointly with the code in
   reference implementation of that interface.
   We expect to provide a persistent, SQL-backed index in the future
   (`tracking GitHub issue <https://github.com/digital-asset/daml/issues/581>`__).
+``participant-state-kvutils.jar`` (`source code <https://github.com/digital-asset/daml/tree/master/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils>`__)
+  These utilities provide methods to succintly implement interfaces from
+  ``participant-state.jar`` on top of a key-value state storage.
+
+  See documentation in `package.scala
+  <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils/package.scala>__`
+
 ``api-server-damlonx.jar`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/api-server-damlonx/src/main/scala/com/daml/ledger/api/server/damlonx/Server.scala>`__)
   Contains code that implements a DAML Ledger API
   server given implementations of the interfaces in ``participant-state.jar``.

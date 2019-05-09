@@ -28,4 +28,4 @@ bazel test -j 200 //... --experimental_execution_log_file "$ARTIFACT_DIRS/test_e
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' > /dev/null
 # Check that we can load damlc in ghci
-da-ghci damlc -e '()'
+da-ghci --data yes damlc -e '()'

@@ -25,8 +25,8 @@ class KeyHasherSpec extends WordSpec with Matchers {
     builder += None -> ValueInt64(0)
     builder += None -> ValueInt64(123456)
     builder += None -> ValueInt64(-1)
-    builder += None -> ValueDecimal(BigDecimal(0))
-    builder += None -> ValueDecimal(BigDecimal(1) / BigDecimal(3))
+    builder += None -> ValueDecimal(Decimal.assertFromString("0"))
+    builder += None -> ValueDecimal(Decimal.assertFromString("0.3333333333"))
     builder += None -> ValueBool(true)
     builder += None -> ValueBool(false)
     builder += None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(0))
@@ -63,7 +63,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
     "be stable" in {
       // Hashing function must not change
       val value = VersionedValue(ValueVersion("4"), complexValue)
-      val hash = "4f44a1674ef37e1019fcfd1c74047aef97a4cf34991bb9ee3368166254b7c77c"
+      val hash = "ecbc3f9c121e23ef2851c06d77de82d0f58f27acdf9c5fecff9b904ad236621b"
 
       KeyHasher.hashKeyString(GlobalKey(templateId("module", "name"), value)) shouldBe hash
     }

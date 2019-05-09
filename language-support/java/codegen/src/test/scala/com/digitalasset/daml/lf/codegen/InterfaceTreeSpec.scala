@@ -37,8 +37,28 @@ class InterfaceTreeSpec extends FlatSpec with Matchers {
       n match {
         case ModuleWithContext(interface @ _, modulesLineage @ _, name @ _, module @ _) => ab
         case TypeWithContext(interface @ _, modulesLineage @ _, typesLineage @ _, name @ _, typ) =>
-          ab += typ.typ
+          ab ++= typ.typ.toList
     })
     result should contain theSameElementsInOrderAs Seq(record1, record2, variant1)
   }
+
+  behavior of "InterfaceTree.fromInterface"
+
+  it should "permit standalone types with multi-component names" in {
+    val bazQuux =
+      QualifiedName(DottedName(ImmArray("foo", "bar")), DottedName(ImmArray("baz", "quux")))
+    val record = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
+
+    val typeDecls = Map(bazQuux -> record)
+    val interface = new Interface(PackageId.assertFromString("pkgid"), typeDecls)
+    val tree = InterfaceTree.fromInterface(interface)
+    val result = tree.bfs(ArrayBuffer.empty[InterfaceType])((types, n) =>
+      n match {
+        case _: ModuleWithContext => types
+        case TypeWithContext(_, _, _, _, tpe) =>
+          types ++= tpe.typ.toList
+    })
+    result.toList shouldBe List(record)
+  }
+
 }

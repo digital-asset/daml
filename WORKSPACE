@@ -37,8 +37,8 @@ nixpkgs_local_repository(
     name = "nixpkgs",
     nix_file = "//nix:nixpkgs.nix",
     nix_file_deps = [
-        "//nix:nixpkgs/nixos-18.09/default.nix",
-        "//nix:nixpkgs/nixos-18.09/default.src.json",
+        "//nix:nixpkgs/nixos-19.03/default.nix",
+        "//nix:nixpkgs/nixos-19.03/default.src.json",
     ],
 )
 
@@ -63,8 +63,8 @@ dev_env_nix_repos = {
 common_nix_file_deps = [
     "//nix:bazel.nix",
     "//nix:nixpkgs.nix",
-    "//nix:nixpkgs/nixos-18.09/default.nix",
-    "//nix:nixpkgs/nixos-18.09/default.src.json",
+    "//nix:nixpkgs/nixos-19.03/default.nix",
+    "//nix:nixpkgs/nixos-19.03/default.src.json",
 ]
 
 # Use Nix provisioned cc toolchain
@@ -72,6 +72,7 @@ nixpkgs_cc_configure(
     nix_file = "//nix:bazel-cc-toolchain.nix",
     nix_file_deps = common_nix_file_deps + [
         "//nix:bazel-cc-toolchain.nix",
+        "//nix:tools/bazel-cc-toolchain/default.nix",
     ],
     repositories = dev_env_nix_repos,
 )
@@ -296,6 +297,8 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps + [
         "//nix:overrides/sass/default.nix",
+        "//nix:overrides/sass/Gemfile",
+        "//nix:overrides/sass/Gemfile.lock",
         "//nix:overrides/sass/gemset.nix",
     ],
     repositories = dev_env_nix_repos,
@@ -416,8 +419,6 @@ hazel_repositories(
     exclude_packages = [
         "arx",
         "clock",
-        "data-default",
-        "data-default-instances-containers",
         "streaming-commons",
         "wai-app-static",
         "zlib",
@@ -444,7 +445,7 @@ hazel_repositories(
         extra =
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-            hazel_ghclibs("0.20190426", "fa850fb39da15d18ae367b3ec29ec78eb94f4bf6c7ba3bce158fa2dd9eba2688", "edae9d9a69c02d652c1af55bada2d214c9715b7029365e9739741a257cbf56c4") +
+            hazel_ghclibs("0.20190508", "2302edc1fadc1a9edd59a9ee468f1b4067f032292e12bcd5dbfff96bbd50c705", "97b4e7bc4b506a6ae450fffb31872360141ba5b9349a5ca66545f7a9a4a0a3d9") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
             hazel_hackage("bytestring-nums", "0.3.6", "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd") +
@@ -480,37 +481,6 @@ hazel_custom_package_hackage(
     build_file = "//3rdparty/haskell:BUILD.clock",
     sha256 = "886601978898d3a91412fef895e864576a7125d661e1f8abc49a2a08840e691f",
     version = "0.7.2",
-)
-
-# We patch various data-default packages to give them shorter filenames
-# to fix Windows builds.
-
-hazel_custom_package_hackage(
-    package_name = "data-default",
-    build_file = "//3rdparty/haskell:BUILD.data-default",
-    sha256 = "b0f95d279cd75cacaa8152a01590dc3460f7134f6840b37052abb3ba3cb2a511",
-    version = "0.7.1.1",
-)
-
-hazel_custom_package_hackage(
-    package_name = "data-default-instances-containers",
-    build_file = "//3rdparty/haskell:BUILD.data-default-instances-containers",
-    sha256 = "a55e07af005c9815d82f3fc95e125db82994377c9f4a769428878701d4ec081a",
-    version = "0.0.1",
-)
-
-hazel_custom_package_hackage(
-    package_name = "data-default-instances-old-locale",
-    build_file = "//3rdparty/haskell:BUILD.data-default-instances-old-locale",
-    sha256 = "60d3b02922958c4908d7bf2b24ddf61511665745f784227d206745784b0c0802",
-    version = "0.0.1",
-)
-
-hazel_custom_package_hackage(
-    package_name = "data-default-instances-dlist",
-    build_file = "//3rdparty/haskell:BUILD.data-default-instances-dlist",
-    sha256 = "7d683711cbf08abd7adcd5ac2be825381308d220397315a5570fe61b719b5959",
-    version = "0.0.1",
 )
 
 hazel_custom_package_hackage(
@@ -603,7 +573,7 @@ load("@io_bazel_rules_go//go:deps.bzl", "go_wrap_sdk")
 # an upstream one.
 go_wrap_sdk(
     name = "go_sdk",
-    root_file = "@go_nix//:share/go/README.md",
+    root_file = "@go_nix//:share/go/ROOT",
 ) if not is_windows else None
 
 go_rules_dependencies()

@@ -24,15 +24,6 @@ class TimestampSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyC
     }
   }
 
-  it should "be convertible to java.time.Instant" in {
-    val instant = java.time.Instant.now()
-    val timestamp = Timestamp.fromInstant(instant)
-    withClue(
-      s"input: ${instant} instant.getEpochSeconds: ${instant.getEpochSecond} instant.getNanos: ${instant.getNano} timestamp: ${timestamp} issue: ") {
-      timestamp.toInstant shouldBe instant
-    }
-  }
-
   it should "lose nanoseconds when doing TimeStamp.fromInstant(_).toInstant()" in {
     val instant = java.time.Instant.ofEpochSecond(1, 42)
     val timestamp = Timestamp.fromInstant(instant)

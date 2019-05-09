@@ -15,6 +15,7 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
+    exports = [":daml_kvutils_java_proto"],
     runtime_deps = [],
     deps = [
         ":daml_kvutils_java_proto",

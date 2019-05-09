@@ -23,6 +23,7 @@ compileDependencies = [
     "//ledger/ledger-api-domain",
     "//ledger/participant-state",
     "//ledger/participant-state-index",
+    "//ledger/sandbox",  # For ActiveContracts. TODO(JM): Move to common library?
 ]
 
 da_scala_library(

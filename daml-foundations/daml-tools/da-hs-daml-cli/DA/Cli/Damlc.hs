@@ -97,13 +97,25 @@ cmdTest numProcessors =
        progDesc "Test the given DAML file by running all test declarations."
     <> fullDesc
   where
-    cmd = execTest
+    cmd = runTestsInProjectOrFiles
       <$> many inputFileOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
       <*> optionsParser numProcessors optPackageName
     junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
+
+runTestsInProjectOrFiles :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
+runTestsInProjectOrFiles [] color mbJUnitOutput cliOptions = do
+    projectPath <- getProjectPath
+    case projectPath of
+      Nothing -> execTest [] color mbJUnitOutput cliOptions
+      Just pPath -> do
+        project <- readProjectConfig $ ProjectPath pPath
+        case parseProjectConfig project of
+          Left err -> throwIO err
+          Right PackageConfigFields {..} -> execTest [pMain] color mbJUnitOutput cliOptions
+runTestsInProjectOrFiles inFiles color mbJUnitOutput cliOptions = execTest inFiles color mbJUnitOutput cliOptions
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
@@ -230,6 +242,7 @@ data PackageConfigFields = PackageConfigFields
     , pExposedModules :: [String]
     , pVersion :: String
     , pDependencies :: [String]
+    , pSdkVersion :: String
     }
 
 -- | Parse the daml.yaml for package specific config fields.
@@ -242,7 +255,8 @@ parseProjectConfig project = do
     version <- queryProjectConfigRequired ["version"] project
     dependencies <-
         queryProjectConfigRequired ["dependencies"] project
-    Right $ PackageConfigFields name main exposedModules version dependencies
+    sdkVersion <- queryProjectConfigRequired ["sdk-version"] project
+    Right $ PackageConfigFields name main exposedModules version dependencies sdkVersion
 
 -- | Package command that takes all arguments of daml.yaml.
 execPackageNew :: Int -> Maybe FilePath -> IO ()
@@ -265,7 +279,6 @@ execPackageNew numProcessors mbOutFile =
                         mkConfFile
                             pName
                             pVersion
-                            LF.versionDefault
                             pExposedModules
                             pDependencies
                 Managed.with (Compiler.newIdeState opts Nothing loggerH) $ \compilerH -> do
@@ -275,6 +288,7 @@ execPackageNew numProcessors mbOutFile =
                             compilerH
                             pMain
                             pName
+                            pSdkVersion
                             [confFile]
                             (UseDalf False)
                     case darOrErr of
@@ -295,14 +309,12 @@ execPackageNew numProcessors mbOutFile =
     mkConfFile ::
            String
         -> String
-        -> LF.Version
         -> [String]
         -> [FilePath]
         -> (String, B.ByteString)
-    mkConfFile name version lfVersion exposedMods deps = (confName, bs)
+    mkConfFile name version exposedMods deps = (confName, bs)
       where
         confName = name ++ ".conf"
-        lfVersionStr = lfVersionString lfVersion
         bs =
             BSC.pack $
             unlines
@@ -312,9 +324,9 @@ execPackageNew numProcessors mbOutFile =
                 , "version: " ++ version
                 , "exposed: True"
                 , "exposed-modules: " ++ unwords exposedMods
-                , "import-dirs: ${pkgroot}" </> lfVersionStr </> name
-                , "library-dirs: ${pkgroot}" </> lfVersionStr </> name
-                , "data-dir: ${pkgroot}" </> lfVersionStr </> name
+                , "import-dirs: ${pkgroot}" </> name
+                , "library-dirs: ${pkgroot}" </> name
+                , "data-dir: ${pkgroot}" </> name
                 , "depends: " ++
                   unwords [dropExtension $ takeFileName dep | dep <- deps]
                 ]
@@ -343,7 +355,7 @@ execInit =
 createProjectPackageDb :: LF.Version -> [FilePath] -> IO ()
 createProjectPackageDb lfVersion fps = do
     let dbPath = projectPackageDatabase </> lfVersionString lfVersion
-    createDirectoryIfMissing True dbPath
+    createDirectoryIfMissing True $ dbPath </> "package.conf.d"
     let fps0 = filter (`notElem` basePackages) fps
     forM_ fps0 $ \fp -> do
         bs <- BSL.readFile fp
@@ -368,7 +380,7 @@ createProjectPackageDb lfVersion fps = do
             BSL.writeFile (dbPath </> eRelativePath dalf) (fromEntry dalf)
         forM_ confFiles $ \conf ->
             BSL.writeFile
-                (dbPath </> (takeFileName $ eRelativePath conf))
+                (dbPath </> "package.conf.d" </> (takeFileName $ eRelativePath conf))
                 (fromEntry conf)
         createDirectoryIfMissing True $ dbPath </> pkgName
         forM_ srcs $ \src ->
@@ -380,7 +392,7 @@ createProjectPackageDb lfVersion fps = do
             , "recache"
             -- ghc-pkg insists on using a global package db and will trie
             -- to find one automatically if we don’t specify it here.
-            , "--global-package-db=" ++ dbPath
+            , "--global-package-db=" ++ (dbPath </> "package.conf.d")
             , "--expand-pkgroot"
             ]
 
@@ -410,7 +422,9 @@ execPackage filePath opts mbOutFile dumpPom dalfInput = withProjectRoot $ \relat
     -- but I don’t think that is worth the complexity of carrying around a type parameter.
     name = fromMaybe (error "Internal error: Package name was not present") (Compiler.optMbPackageName opts)
     buildDar path compilerH = do
-        darOrErr <- runExceptT $ Compiler.buildDar compilerH path name [] dalfInput
+        -- We leave the sdk version blank, this command is being removed anytime now and not present
+        -- in the new daml assistant.
+        darOrErr <- runExceptT $ Compiler.buildDar compilerH path name "" [] dalfInput
         case darOrErr of
           Left errs
            -> ioError $ userError $ unlines

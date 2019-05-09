@@ -6,7 +6,11 @@ genrule(
     srcs = glob([
         "skeleton/**",
         "quickstart-java/**",
-    ]) + ["//docs:quickstart-java.tar.gz"],
+        "quickstart-scala/**",
+    ]) + [
+        "//docs:quickstart-java.tar.gz",
+        "//language-support/scala/examples:quickstart-scala-dir",
+    ],
     outs = ["templates-tarball.tar.gz"],
     cmd = """
         SRC=templates
@@ -23,6 +27,11 @@ genrule(
         tar xf $(location //docs:quickstart-java.tar.gz) --strip-components=1 -C $$OUT/quickstart-java
         rm $$OUT/quickstart-java/da-skeleton.yaml
         cp -rL $$SRC/quickstart-java/* $$OUT/quickstart-java/
+
+        # quickstart-scala template
+        mkdir -p $$OUT/quickstart-scala
+        cp -r $(location //language-support/scala/examples:quickstart-scala-dir)/* $$OUT/quickstart-scala/
+        cp -rL $$SRC/quickstart-scala/* $$OUT/quickstart-scala/
 
         tar zcf $(location :templates-tarball.tar.gz) templates-tarball
     """,
