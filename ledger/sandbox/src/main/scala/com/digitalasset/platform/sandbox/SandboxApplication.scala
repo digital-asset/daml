@@ -118,7 +118,6 @@ object SandboxApplication {
         timeProvider,
         engine,
         config,
-        port,
         timeServiceBackendO
           .map(
             TimeServiceBackend.withObserver(

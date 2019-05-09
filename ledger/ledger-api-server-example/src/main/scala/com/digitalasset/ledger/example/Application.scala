@@ -89,7 +89,6 @@ object Application {
         timeProvider,
         Engine(),
         config,
-        port,
         timeServiceBackendO,
         Some(resetService),
       )
