@@ -269,13 +269,14 @@ newtype UseDalf = UseDalf{unUseDalf :: Bool}
 buildDar ::
      IdeState
   -> FilePath
+  -> FilePath
   -> [String]
   -> String
   -> String
   -> [(String, BS.ByteString)]
   -> UseDalf
   -> ExceptT [FileDiagnostic] IO BS.ByteString
-buildDar service file exposedModules pkgName sdkVersion dataFiles dalfInput = do
+buildDar service file ifaceDir exposedModules pkgName sdkVersion dataFiles dalfInput = do
   liftIO $
     CompilerService.logDebug service $
     "Creating dar: " <> T.pack file
@@ -285,6 +286,7 @@ buildDar service file exposedModules pkgName sdkVersion dataFiles dalfInput = do
       Dar.buildDar
         bytes
         (takeDirectory file)
+        ifaceDir
         []
         []
         dataFiles
@@ -318,6 +320,7 @@ buildDar service file exposedModules pkgName sdkVersion dataFiles dalfInput = do
             Dar.buildDar
               dalf
               (takeDirectory file)
+              ifaceDir
               dalfDependencies
               (file:fileDependencies)
               dataFiles

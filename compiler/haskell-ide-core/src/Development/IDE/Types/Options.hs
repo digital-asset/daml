@@ -21,6 +21,7 @@ data IdeOptions = IdeOptions
   -- the import path should be setup for that module.
   , optPkgLocationOpts :: IdePkgLocationOptions
   , optWriteIface :: Bool
+  , optIfaceDir :: FilePath
   , optExtensions :: [String]
 
   , optMbPackageName :: Maybe String

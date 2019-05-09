@@ -43,9 +43,9 @@ data Options = Options
   , optMbPackageName :: Maybe String
     -- ^ compile in the context of the given package name and create interface files
   , optWriteInterface :: Bool
-  -- ^ Whether we should write interface files during typechecking.
-  -- Until the stdlib moves to a separate package, this should only be used
-  -- with the bootstrap compiler since the stdlib files are mounted read-only.
+    -- ^ Whether we should write interface files during typechecking.
+  , optIfaceDir :: FilePath
+    -- ^ Directory to write interface files to. Default is current working directory.
   , optHideAllPkgs :: Bool
     -- ^ hide all imported packages
   , optPackageImports :: [(String, [(String, String)])]
@@ -77,6 +77,7 @@ toCompileOpts Options{..} =
           , optLocateSrcFile = locateInPkgDb "daml"
           }
       , optWriteIface = optWriteInterface
+      , optIfaceDir = optIfaceDir
       , optExtensions = ["daml"]
       , optMbPackageName = optMbPackageName
       , optPackageDbs = optPackageDbs
@@ -147,6 +148,7 @@ defaultOptions mbVersion =
         , optPackageDbs = []
         , optMbPackageName = Nothing
         , optWriteInterface = False
+        , optIfaceDir = "."
         , optHideAllPkgs = False
         , optPackageImports = []
         , optShakeProfiling = Nothing

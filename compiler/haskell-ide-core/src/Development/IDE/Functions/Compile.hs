@@ -62,6 +62,7 @@ import           Data.Time
 import           Development.IDE.Types.SpanInfo
 import GHC.Generics (Generic)
 import           System.FilePath
+import           System.Directory
 
 -- | 'CoreModule' together with some additional information required for the
 -- conversion to DAML-LF.
@@ -148,7 +149,7 @@ typecheckModule opt mod packageState uniqSupply deps pkgs pm =
             setupEnv uniqSupply deps pkgs
             (warnings, tcm) <- withWarnings "Typechecker" $ \tweak ->
                 GHC.typecheckModule pm{pm_mod_summary = tweak $ pm_mod_summary pm}
-            tcm2 <- mkTcModuleResult (WriteInterface $ optWriteIface opt) tcm
+            tcm2 <- mkTcModuleResult (WriteInterface $ optWriteIface opt) (optIfaceDir opt) tcm
             return (warnings, tcm2)
 
 -- | Load a pkg and populate the name cache and external package state.
@@ -267,19 +268,22 @@ newtype WriteInterface = WriteInterface Bool
 mkTcModuleResult
     :: GhcMonad m
     => WriteInterface
+    -> FilePath
     -> TypecheckedModule
     -> m TcModuleResult
-mkTcModuleResult (WriteInterface writeIface) tcm = do
+mkTcModuleResult (WriteInterface writeIface) ifaceDir tcm = do
     session   <- getSession
     nc        <- liftIO $ readIORef (hsc_NC session)
     (iface,_) <- liftIO $ mkIfaceTc session Nothing Sf_None details tcGblEnv
     liftIO $ when writeIface $ do
-        writeIfaceFile (hsc_dflags session) (replaceExtension (file tcm) ".hi") iface
+        let path = ifaceDir </> file tcm
+        createDirectoryIfMissing True (takeDirectory path)
+        writeIfaceFile (hsc_dflags session) (replaceExtension path ".hi") iface
         -- For now, we write .hie files whenever we write .hi files which roughly corresponds to
         -- when we are building a package. It should be easily decoupable if that turns out to be
         -- useful.
         hieFile <- runHsc session $ mkHieFile (tcModSummary tcm) tcGblEnv (fromJust $ renamedSource tcm)
-        writeHieFile (replaceExtension (file tcm) ".hie") hieFile
+        writeHieFile (replaceExtension path ".hie") hieFile
     let mod_info = HomeModInfo iface details Nothing
         origNc = nsNames nc
     case lookupModuleEnv origNc (tcmModule tcm) of
