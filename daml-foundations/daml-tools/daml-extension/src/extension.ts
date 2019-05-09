@@ -59,7 +59,7 @@ export async function activate(context: vscode.ExtensionContext) {
         (title,uri)=> damlContentProvider.showResource(title,uri)
         );
 
-    let d2 = vscode.commands.registerCommand('daml.showDamlUserGuide', showDamlUserGuide);
+    let d2 = vscode.commands.registerCommand('daml.openDamlDocs', openDamlDocs);
 
     let highlight = vscode.window.createTextEditorDecorationType({ backgroundColor: 'rgba(200,200,200,.35)' });
 
@@ -122,12 +122,8 @@ function getViewColumnForShowResource(): ViewColumn {
     }
 }
 
-function showDamlUserGuide() {
-    cp.exec(`${daCmdPath} docs`, (err) => {
-        if (err) {
-            vscode.window.showErrorMessage(`openURL error: ${err}`);
-        }
-    });
+function openDamlDocs() {
+    vscode.env.openExternal(vscode.Uri.parse("https://docs.daml.com"));
 }
 
 function modifyBuffer(filePath: {uri: string}) {
