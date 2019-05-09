@@ -9,18 +9,16 @@ module DA.Ledger.Sandbox ( -- Run a sandbox for testing on a dynamically selecte
     withSandbox
     ) where
 
-import           Control.Monad            (when)
-import           Control.Exception        (Exception, bracket, evaluate, onException, throw)
-import           DA.Ledger                (Port (..), unPort)
-import           Data.List                (isInfixOf)
-import           Data.List.Split          (splitOn)
-import           GHC.IO.Handle            (Handle, hGetLine)
-import           Prelude                  hiding (log)
-import           System.IO                (hFlush, stdout)
-import           System.Process           (CreateProcess (..), ProcessHandle,
-                                           StdStream (CreatePipe), createProcess, getPid,
-                                           interruptProcessGroupOf, proc, waitForProcess)
-import           System.Time.Extra        (Seconds, timeout)
+import Control.Monad (when)
+import Control.Exception (Exception, bracket, evaluate, onException, throw)
+import DA.Ledger (Port (..), unPort)
+import Data.List (isInfixOf)
+import Data.List.Split (splitOn)
+import GHC.IO.Handle (Handle, hGetLine)
+import Prelude hiding (log)
+import System.IO (hFlush, stdout)
+import System.Process (CreateProcess (..), ProcessHandle, StdStream (CreatePipe), createProcess, getPid, interruptProcessGroupOf, proc, waitForProcess)
+import System.Time.Extra (Seconds, timeout)
 
 data SandboxSpec = SandboxSpec {dar :: String}
 

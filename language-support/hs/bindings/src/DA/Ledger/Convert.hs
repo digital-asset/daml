@@ -6,11 +6,11 @@
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
 module DA.Ledger.Convert (lowerCommands) where
 
-import           Data.Maybe         (fromMaybe)
-import           Data.Vector        as Vector (fromList)
+import Data.Maybe (fromMaybe)
+import Data.Vector as Vector (fromList)
 
 import qualified DA.Ledger.LowLevel as LL
-import           DA.Ledger.Types
+import DA.Ledger.Types
 
 xxx :: a -- TODO: not finished while any instances of "xxx" of "_" remain in this file
 xxx = undefined

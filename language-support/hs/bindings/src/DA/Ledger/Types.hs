@@ -39,8 +39,8 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
 
     ) where
 
-import           Data.Map       (Map)
-import           Data.Text.Lazy (Text)
+import Data.Map (Map)
+import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as Text
 
 -- TODO: deriving Show everywhere?

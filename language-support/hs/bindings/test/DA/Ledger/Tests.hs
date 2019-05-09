@@ -5,14 +5,14 @@
 
 module DA.Ledger.Tests (main) where
 
-import           Control.Exception (SomeException, try)
-import qualified DA.Ledger         as Ledger
-import           Data.List         (isPrefixOf)
-import qualified Data.Text.Lazy    as Text (unpack)
-import           Prelude           hiding (log)
-import           DA.Ledger.Sandbox as Sandbox(SandboxSpec (..), port, shutdownSandbox, withSandbox)
-import           Test.Tasty        as Tasty (TestTree, defaultMain, testGroup)
-import           Test.Tasty.HUnit  as Tasty (assertBool, assertFailure, testCase)
+import Control.Exception (SomeException, try)
+import qualified DA.Ledger as Ledger
+import Data.List (isPrefixOf)
+import qualified Data.Text.Lazy as Text (unpack)
+import Prelude hiding (log)
+import DA.Ledger.Sandbox as Sandbox(SandboxSpec (..), port, shutdownSandbox, withSandbox)
+import Test.Tasty as Tasty (TestTree, defaultMain, testGroup)
+import Test.Tasty.HUnit as Tasty (assertBool, assertFailure, testCase)
 
 main :: IO ()
 main = Tasty.defaultMain tests

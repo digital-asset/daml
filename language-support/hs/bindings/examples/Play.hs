@@ -5,16 +5,16 @@
 
 module Main(main) where
 
-import           Control.Concurrent
-import           Control.Monad      (void)
-import           Data.Text.Lazy     (Text)
-import qualified Data.Text.Lazy     as Text
+import Control.Concurrent
+import Control.Monad (void)
+import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as Text
 
-import           Data.UUID          as UUID
-import           System.Random
-import           System.Time.Extra  (sleep)
+import Data.UUID as UUID
+import System.Random
+import System.Time.Extra (sleep)
 
-import           DA.Ledger          as Ledger
+import DA.Ledger as Ledger
 
 main :: IO ()
 main = do
