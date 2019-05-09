@@ -16,6 +16,7 @@ import scala.collection.JavaConverters._
 import java.util.ArrayList
 
 import com.digitalasset.daml.lf.CompiledPackages
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 
 object Speedy {
 
@@ -224,7 +225,10 @@ object Speedy {
     def execute(machine: Machine): Unit
   }
 
-  /** A special control object to guard against misbehaving operations */
+  /** A special control object to guard against misbehaving operations.
+    * It is set by default, so for example if an action forgets to set the
+    * control we won't loop but rather we'll crash.
+    */
   final case class CtrlCrash(before: Ctrl) extends Ctrl {
     def execute(machine: Machine) =
       crash(s"CtrlCrash: control set to crash after evaluting: $before")
@@ -265,6 +269,20 @@ object Speedy {
       case v =>
         machine.ctrl = CtrlValue(v)
         machine.kontPop.execute(value, machine)
+    }
+  }
+
+  /** When we fetch a contract id from upstream we cannot crash in the
+    * that upstream calls. Rather, we set the control to this and then crash
+    * when executing.
+    */
+  final case class CtrlWronglyTypeContractId(
+      acoid: AbsoluteContractId,
+      expected: TypeConName,
+      actual: TypeConName)
+      extends Ctrl {
+    override def execute(machine: Machine): Unit = {
+      throw DamlEWronglyTypedContract(acoid, expected, actual)
     }
   }
 

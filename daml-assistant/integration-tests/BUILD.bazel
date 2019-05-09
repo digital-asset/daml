@@ -90,6 +90,7 @@ da_haskell_test(
         "text",
     ],
     deps = [
+        "//:sdk-version-hs-lib",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//libs-haskell/bazel-runfiles",
     ],

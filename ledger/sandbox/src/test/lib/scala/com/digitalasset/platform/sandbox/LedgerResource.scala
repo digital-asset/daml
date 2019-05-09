@@ -62,7 +62,7 @@ object LedgerResource {
               ledgerId,
               timeProvider,
               Nil,
-              2,
+              128,
               SqlStartMode.AlwaysReset))
         ledger.setup()
       }

@@ -122,6 +122,9 @@ case class Conversions(homePackageId: Ref.PackageId) {
       case SError.ScenarioErrorInvalidPartyName(party, _) =>
         builder.setScenarioInvalidPartyName(party)
 
+      case wtc: SError.DamlEWronglyTypedContract =>
+        sys.error(
+          s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked.")
     }
     builder.build
   }

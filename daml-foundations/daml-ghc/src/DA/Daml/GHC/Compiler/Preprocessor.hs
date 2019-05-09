@@ -69,7 +69,7 @@ checkImports x =
 
 
 checkDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
-checkDataTypes m = checkAmbiguousDataTypes m ++ checkUnlabelledConArgs m
+checkDataTypes m = checkAmbiguousDataTypes m ++ checkUnlabelledConArgs m ++ checkThetas m
 
 
 checkAmbiguousDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
@@ -102,6 +102,20 @@ checkUnlabelledConArgs m =
         isBad GHC.InfixCon{} = True
         isBad GHC.RecCon{} = False
 
+-- | We only allow non-empty thetas (i.e. constraints) in data types with named fields.
+checkThetas :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkThetas m =
+    [ ( ss
+      , "Constructors with type constraints must give explicit field names, e.g. data Foo = Show a => Foo {bar : a}")
+    | GHC.L ss con <- universeConDecl m
+    , isJust $ GHC.con_mb_cxt con
+    , isBad $ GHC.con_args con
+    ]
+  where
+    isBad :: GHC.HsConDeclDetails GHC.GhcPs -> Bool
+    isBad (GHC.PrefixCon _) = True
+    isBad GHC.InfixCon {} = True
+    isBad GHC.RecCon {} = False
 
 -- Extract all data constructors with their locations
 universeConDecl :: GHC.ParsedSource -> [GHC.LConDecl GHC.GhcPs]

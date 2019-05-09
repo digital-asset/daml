@@ -82,12 +82,12 @@ main = displayErrors $ do
         Builtin (Install options) -> wrapErr "Installing the SDK." $ do
             install options envDamlPath envProjectPath
 
-        Builtin (Exec cmd args) ->
+        Builtin (Exec cmd args) -> do
             wrapErr "Running executable in daml environment." $ do
                 path <- fromMaybe cmd <$> findExecutable cmd
                 exitWith =<< dispatch env path args
 
-        Dispatch SdkCommandInfo{..} cmdArgs ->
+        Dispatch SdkCommandInfo{..} cmdArgs -> do
             wrapErr ("Running " <> unwrapSdkCommandName sdkCommandName <> " command.") $ do
                 sdkPath <- required "Could not determine SDK path." envSdkPath
                 let path = unwrapSdkPath sdkPath </> unwrapSdkCommandPath sdkCommandPath

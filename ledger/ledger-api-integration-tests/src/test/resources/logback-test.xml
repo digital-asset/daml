@@ -62,7 +62,7 @@
     <logger name="org.apache.cassandra" level="warn"/>
     <logger name="com.digitalasset.grpc" level="warn"/>
     <logger name="io.grpc.netty" level="warn"/>
-
+    <logger name="io.netty" level="warn"/>
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />
