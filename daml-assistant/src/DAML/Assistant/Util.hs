@@ -9,6 +9,7 @@ module DAML.Assistant.Util
 
 import DAML.Assistant.Types
 import DAML.Project.Util
+import System.Exit
 import System.FilePath
 import Control.Exception.Safe
 import Control.Applicative
@@ -40,7 +41,8 @@ throwErr msg = throwIO (assistantError msg)
 -- add context to any assistant errors that are missing context.
 wrapErr :: Text -> IO a -> IO a
 wrapErr ctx m = m `catches`
-    [ Handler $ throwIO . addErrorContext
+    [ Handler $ throwIO @IO @ExitCode
+    , Handler $ throwIO . addErrorContext
     , Handler $ throwIO . wrapException
     ]
     where
