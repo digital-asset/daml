@@ -89,8 +89,9 @@ object Application {
         timeProvider,
         Engine(),
         config,
+        port,
         timeServiceBackendO,
-        Some(resetService),
+        Some(resetService)
       )
 
       shutdownTasks = () => ledgerBackend.shutdownTasks()

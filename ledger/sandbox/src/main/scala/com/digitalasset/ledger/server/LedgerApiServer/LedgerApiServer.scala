@@ -44,6 +44,8 @@ object LedgerApiServer {
       timeProvider: TimeProvider,
       engine: Engine,
       config: SandboxConfig,
+      //even though the port is in the config as well, in case of a reset we have to keep the port to what it was originally set for the first time
+      serverPort: Int,
       optTimeServiceBackend: Option[TimeServiceBackend],
       optResetService: Option[SandboxResetService])(
       implicit mat: ActorMaterializer): LedgerApiServer = {
@@ -53,6 +55,7 @@ object LedgerApiServer {
       timeProvider,
       engine,
       config,
+      serverPort,
       optTimeServiceBackend,
       optResetService,
       config.address,
@@ -66,6 +69,7 @@ class LedgerApiServer(
     timeProvider: TimeProvider,
     engine: Engine,
     config: SandboxConfig,
+    serverPort: Int,
     optTimeServiceBackend: Option[TimeServiceBackend],
     optResetService: Option[SandboxResetService],
     addressOption: Option[String],
@@ -82,7 +86,7 @@ class LedgerApiServer(
   private val logger = LoggerFactory.getLogger(this.getClass)
   private var actualPort
     : Int = -1 // we need this to remember ephemeral ports when using ResetService
-  def port: Int = if (actualPort == -1) config.port else actualPort
+  def port: Int = if (actualPort == -1) serverPort else actualPort
 
   private implicit val serverEsf = new AkkaExecutionSequencerPool(
     // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server
