@@ -219,7 +219,13 @@ shakeOpen :: (Event -> IO ()) -- ^ diagnostic handler
           -> Rules ()
           -> IO IdeState
 shakeOpen diags shakeLogger opts rules = do
-    shakeExtras <- ShakeExtras diags shakeLogger <$> newVar Map.empty <*> newVar Map.empty <*> newVar mempty
+    shakeExtras <- do
+        let eventer = diags
+            logger = shakeLogger
+        globals <- newVar Map.empty
+        state <- newVar Map.empty
+        diagnostics <- newVar emptyDiagnostics
+        pure ShakeExtras{..}
     (shakeDb, shakeClose) <- shakeOpenDatabase opts{shakeExtra = addShakeExtra shakeExtras $ shakeExtra opts} rules
     shakeAbort <- newVar $ return ()
     shakeDb <- shakeDb

@@ -34,6 +34,7 @@ module Development.IDE.Types.Diagnostics (
   filePathToUri,
   getDiagnosticsFromStore,
   Diagnostics,
+  emptyDiagnostics,
   setStageDiagnostics,
   getStageDiagnostics,
   getAllDiagnostics,
