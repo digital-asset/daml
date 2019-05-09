@@ -42,7 +42,6 @@ daml_compile(
     name = "quickstart",
     srcs = glob(["test/daml/quickstart/*.daml"]),
     main_src = "test/daml/quickstart/Main.daml",
-    target = "1.1",
 )
 
 da_haskell_test(
