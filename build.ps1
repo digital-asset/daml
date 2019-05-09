@@ -7,6 +7,11 @@ $ErrorActionPreference = 'Stop'
 .\dev-env\windows\bin\dadew.ps1 sync
 .\dev-env\windows\bin\dadew.ps1 enable
 
+echo $(Get-Location)
+Write-Host "BAZEL_SH: $env:BAZEL_SH"
+Write-Host "JAVA_HOME: $env:JAVA_HOME"
+ls "C:\users\vssadministrator\_bazel_vssadministrator\w3d6ug6o\execroot\com_github_digital_asset_daml\external\local_jdk\bin"
+
 if (!(Test-Path .\.bazelrc.local)) {
    Set-Content -Path .\.bazelrc.local -Value 'build --config windows'
 }
