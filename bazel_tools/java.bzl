@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:pom_file.bzl", "pom_file")
+load("@os_info//:os_info.bzl", "is_windows")
 load("@com_github_google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
 
 _java_home_runtime_build_template = """
@@ -40,7 +41,8 @@ def da_java_library(
         resource_strip_prefix = None,
         tags = [],
         visibility = None,
-        exports = []):
+        exports = [],
+        **kwargs):
     root_packages = None
     for tag in tags:
         if tag.startswith("javadoc_root_packages="):
@@ -65,7 +67,9 @@ def da_java_library(
         target = ":" + name,
         visibility = ["//visibility:public"],
     )
-    if (root_packages):
+    # Disable the building of Javadoc on Windows as the rule fails to
+    # find the sources under Windows.
+    if root_packages and is_windows == False:
         javadoc_library(
             name = name + "_javadoc",
             deps = deps + [name],
