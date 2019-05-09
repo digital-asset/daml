@@ -96,8 +96,9 @@ object SandboxApplication {
             ledgerId,
             timeProvider,
             records,
-            config.commandConfig.maxCommandsInFlight,
-            startMode)
+            config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
+            startMode
+          )
 
           val ledger = Try(Await.result(ledgerF, asyncTolerance)).fold(t => {
             val msg = "Could not start PostgreSQL persistence layer"
