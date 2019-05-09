@@ -194,7 +194,7 @@ export function createLanguageClient(config: vscode.WorkspaceConfiguration, tele
 
     return new LanguageClient(
         'daml-language-server', 'DAML Language Server',
-        { args: serverArgs, command: command},
+        { args: serverArgs, command: command, options: {cwd: vscode.workspace.rootPath }},
         clientOptions, true);
 }
 
