@@ -9,7 +9,6 @@ module Sandbox ( -- Run a sandbox for testing on a dynamically selected port
     withSandbox
     ) where
 
-import           Control.Concurrent.Async (race)
 import           Control.Monad            (when)
 import           Control.Exception        (Exception, bracket, evaluate, onException, throw)
 import           DA.Ledger                (Port (..), unPort)
@@ -21,7 +20,7 @@ import           System.IO                (hFlush, stdout)
 import           System.Process           (CreateProcess (..), ProcessHandle,
                                            StdStream (CreatePipe), createProcess, getPid,
                                            interruptProcessGroupOf, proc, waitForProcess)
-import           System.Time.Extra        (Seconds, sleep)
+import           System.Time.Extra        (Seconds, timeout)
 
 data SandboxSpec = SandboxSpec {dar :: String}
 
@@ -53,7 +52,7 @@ shutdownSandboxProcess proh = do
     pidOpt <- getPid proh
     log $ "Sending INT to sandbox process: " <> show pidOpt
     interruptProcessGroupOf proh
-    x <- timeout 5 "Sandbox process didn't exit" (waitForProcess proh)
+    x <- timeoutError 5 "Sandbox process didn't exit" (waitForProcess proh)
     log $ "Sandbox process exited with: " <> show x
     return ()
 
@@ -94,7 +93,7 @@ startSandbox :: SandboxSpec-> IO Sandbox
 startSandbox spec = do
     (proh,hOpt) <-startSandboxProcess spec
     port <-
-        timeout 5 "Didn't discover sandbox port" (discoverListeningPort hOpt)
+        timeoutError 5 "Didn't discover sandbox port" (discoverListeningPort hOpt)
         `onException` shutdownSandboxProcess proh
     return Sandbox { port, proh }
 
@@ -107,17 +106,17 @@ withSandbox spec f =
     shutdownSandbox
     f
 
-data Timeout = Timeout deriving Show
+data Timeout = Timeout String deriving Show
 instance Exception Timeout
 
-timeout :: Seconds -> String -> IO a -> IO a
-timeout n tag io = do
-    race (sleep n) io >>= \case
-        Right x -> return x
-        Left _ -> do
+timeoutError :: Seconds -> String -> IO a -> IO a
+timeoutError n tag io =
+    timeout n io >>= \case
+        Just x -> return x
+        Nothing -> do
             log $ "Timeout: " <> tag <> ", after " <> show n <> " seconds."
-            throw Timeout
+            throw (Timeout tag)
 
 _log,log :: String -> IO ()
-_log s = do putStrLn s; hFlush stdout -- debugging
+_log s = do putStr ("\n["<>s<>"]"); hFlush stdout -- debugging
 log _ = return ()
