@@ -78,7 +78,7 @@ da_scala_test(
     name = "test",
     srcs = glob(["src/test/**/*.scala"]),
     data = [":test-daml.dar"],
-    resource_strip_prefix = "language-support/java/codegen/src/test/resources",
+    resource_strip_prefix = "language-support/java/codegen/src/test/resources/",
     resources = glob(["src/test/resources/**/*"]),
     deps = test_deps,
 )
@@ -183,7 +183,7 @@ da_scala_test(
     data = [
         ":ledger-tests-model.dar",
     ],
-    resource_strip_prefix = "language-support/java/codegen/src/ledger-tests/resources",
+    resource_strip_prefix = "language-support/java/codegen/src/ledger-tests/resources/",
     resources = ["src/ledger-tests/resources/logback-test.xml"],
     tags = ["exclusive"],
     deps = test_deps + [

@@ -26,7 +26,7 @@
 # prefix: @com_github_digital_asset_daml//..., as these won't
 # be resolvable from external workspaces otherwise.
 
-rules_scala_version = "6f8ee3d951d2ac6154356314600f6edb4eb5df8b"
+rules_scala_version = "78104d8014d4e4fc8f905cd34b91dfabd9a268c8"
 rules_haskell_version = "6c550c8eb7ce7950e702420be39d932b8b31ef22"
 rules_haskell_sha256 = "aef68cf5d732b2fa9ae0efea344cb83cb0c16f0f08a8d6901776a0085fbe7a8b"
 rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
@@ -91,14 +91,10 @@ def daml_deps():
     if "io_bazel_rules_scala" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_scala",
-            # TODO: switch back to bazelbuild/rules_scala repo after merge of these PRs:
-            # https://github.com/bazelbuild/rules_scala/pull/717
-            # https://github.com/bazelbuild/rules_scala/pull/718
-            #url = 'https://github.com/bazelbuild/rules_scala/archive/%s.zip' % rules_scala_version,
-            url = "https://github.com/majcherm-da/rules_scala/archive/%s.zip" % rules_scala_version,
+            url = "https://github.com/bazelbuild/rules_scala/archive/%s.zip" % rules_scala_version,
             type = "zip",
             strip_prefix = "rules_scala-%s" % rules_scala_version,
-            sha256 = "9774acd82267cdf486af38b325b410abf34965dc173e7188406852dd28ed6660",
+            sha256 = "2b39ea3eba5ce86126980fa2bf20db9e0896b75aec23f0c639d9bb47dd9914b9",
         )
 
     if "com_google_protobuf" not in native.existing_rules():

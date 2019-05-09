@@ -25,7 +25,7 @@ da_scala_library(
         "src/test/java/**/*.java",
         "src/test/scala/**/*.scala",
     ]),
-    resource_strip_prefix = "ledger-api/rs-grpc-bridge/src/test/resources",
+    resource_strip_prefix = "ledger-api/rs-grpc-bridge/src/test/resources/",
     resources = glob(["src/test/resources/**/*"]),
     visibility = [
         "//visibility:public",
