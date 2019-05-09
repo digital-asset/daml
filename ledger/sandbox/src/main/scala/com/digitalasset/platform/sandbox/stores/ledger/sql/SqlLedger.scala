@@ -64,6 +64,7 @@ object SqlLedger {
       ledgerId: Option[String],
       timeProvider: TimeProvider,
       ledgerEntries: immutable.Seq[LedgerEntry],
+      queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists)(
       implicit mat: Materializer,
       mm: MetricsManager): Future[Ledger] = {
@@ -81,7 +82,7 @@ object SqlLedger {
     val sqlLedgerFactory = SqlLedgerFactory(ledgerDao)
 
     for {
-      sqlLedger <- sqlLedgerFactory.createSqlLedger(ledgerId, timeProvider, startMode)
+      sqlLedger <- sqlLedgerFactory.createSqlLedger(ledgerId, timeProvider, startMode, queueDepth)
       _ <- sqlLedger.loadStartingState(ledgerEntries)
     } yield sqlLedger
   }
@@ -91,7 +92,8 @@ private class SqlLedger(
     val ledgerId: String,
     headAtInitialization: Long,
     ledgerDao: LedgerDao,
-    timeProvider: TimeProvider)(implicit mat: Materializer)
+    timeProvider: TimeProvider,
+    queueDepth: Int)(implicit mat: Materializer)
     extends Ledger {
 
   import SqlLedger._
@@ -117,7 +119,7 @@ private class SqlLedger(
       SourceQueueWithComplete[Long => LedgerEntry]) = {
 
     val checkpointQueue = Source.queue[Long => LedgerEntry](1, OverflowStrategy.dropHead)
-    val persistenceQueue = Source.queue[Long => LedgerEntry](128, OverflowStrategy.dropNew)
+    val persistenceQueue = Source.queue[Long => LedgerEntry](queueDepth, OverflowStrategy.dropNew)
 
     implicit val ec: ExecutionContext = DE
 
@@ -272,12 +274,15 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     *                        be equal to the one in the database.
     * @param timeProvider    to get the current time when sequencing transactions
     * @param startMode       whether we should start with a clean state or continue where we left off
+    * @param queueDepth      the depth of the buffer for persisting entries. When gets full, the system will signal back-pressure
+    *                        upstream
     * @return a compliant Ledger implementation
     */
   def createSqlLedger(
       initialLedgerId: Option[String],
       timeProvider: TimeProvider,
-      startMode: SqlStartMode)(implicit mat: Materializer): Future[SqlLedger] = {
+      startMode: SqlStartMode,
+      queueDepth: Int)(implicit mat: Materializer): Future[SqlLedger] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val ec = DE
 
@@ -293,7 +298,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     for {
       ledgerId <- init()
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
-    } yield new SqlLedger(ledgerId, ledgerEnd, ledgerDao, timeProvider)
+    } yield new SqlLedger(ledgerId, ledgerEnd, ledgerDao, timeProvider, queueDepth)
   }
 
   private def reset(): Future[Unit] =
