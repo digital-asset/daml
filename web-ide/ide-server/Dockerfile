@@ -1,4 +1,4 @@
-ARG VERSION=0.11.19
+ARG VERSION=0.12.16
 
 FROM "digitalasset/daml-sdk:${VERSION}-master"
 
@@ -15,7 +15,7 @@ RUN curl -sL https://deb.nodesource.com/setup_8.x | bash - &&\
     apt-get remove -y --allow-remove-essential apt
 
 USER sdk
-ENV VERSION=0.11.19 \
+ENV VERSION=0.12.16 \
     CODESERVER_SHA256=4fe5b4d10d3048a5e5aa3e0772c09ece56241b91e76eeaa7404b4da292442881\
     CODESERVER_VERSION=1.939-vsc1.33.1
 RUN mkdir -p /home/sdk/.local/share/code-server/extensions/ &&\
