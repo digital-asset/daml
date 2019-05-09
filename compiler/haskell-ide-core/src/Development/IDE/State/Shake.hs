@@ -24,7 +24,7 @@
 --   useStale.
 module Development.IDE.State.Shake(
     IdeState,
-    IdeRule, IdeResult,
+    IdeRule, IdeResult, GetModificationTime(..),
     shakeOpen, shakeShut,
     shakeRun,
     shakeProfile,
@@ -66,10 +66,9 @@ import           System.FilePath
 import qualified Development.Shake as Shake
 import           Control.Monad.Extra
 import           Data.Time
+import           GHC.Generics
 import           System.IO.Unsafe
 import           Numeric.Extra
-
-
 
 -- information we stash inside the shakeExtra field
 data ShakeExtras = ShakeExtras
@@ -253,8 +252,8 @@ shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts = modifyVar shakeAbort $
 -- | Use the last stale value, if it's ever been computed.
 useStale
     :: IdeRule k v
-    => IdeState -> k -> FilePath -> IO (Maybe v)
-useStale IdeState{shakeExtras=ShakeExtras{state}} k fp =
+    => ShakeExtras -> k -> FilePath -> IO (Maybe v)
+useStale ShakeExtras{state} k fp =
     join <$> getValues state k fp
 
 
@@ -351,7 +350,7 @@ defineEarlyCutoff
     => (k -> FilePath -> Action (Maybe BS.ByteString, IdeResult v))
     -> Rules ()
 defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old mode -> do
-    ShakeExtras{state, diagnostics} <- getShakeExtras
+    extras@ShakeExtras{state} <- getShakeExtras
     val <- case old of
         Just old | mode == RunDependenciesSame -> do
             v <- liftIO $ getValues state key file
@@ -367,7 +366,7 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
                 \(e :: SomeException) -> pure (Nothing, ([ideErrorText file $ T.pack $ show e | not $ isBadDependency e],Nothing))
 
             liftIO $ setValues state key file res
-            updateFileDiagnostics file (Key key) diagnostics $ map snd diags
+            updateFileDiagnostics file (Key key) extras $ map snd diags
             let eq = case (bs, fmap unwrap old) of
                     (Just a, Just (Just b)) -> a == b
                     _ -> False
@@ -383,14 +382,19 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
 updateFileDiagnostics ::
      FilePath
   -> Key
-  -> Var (Diagnostics Key)
+  -> ShakeExtras
   -> [Diagnostic] -- ^ current results
   -> Action ()
-updateFileDiagnostics fp k diagnosticsV current = do
-    previous <- liftIO $ modifyVar diagnosticsV $ \old ->
-        (,) <$> (setStageDiagnostics fp k current old) <*> (getFileDiagnostics fp old)
-    when (current /= previous) $
-        sendEvent $ EventFileDiagnostics $ (fp, current)
+updateFileDiagnostics fp k extras@ShakeExtras{diagnostics} current = do
+    (newFD, oldFD) <- liftIO $ do
+        modTime <- useStale extras GetModificationTime fp
+        modifyVar diagnostics $ \old -> do
+            oldFD <- getFileDiagnostics fp old
+            new <- setStageDiagnostics fp modTime k current old
+            newFD <- getFileDiagnostics fp new
+            pure (new, (newFD, oldFD))
+    when (newFD /= oldFD) $
+        sendEvent $ EventFileDiagnostics $ (fp, newFD)
 
 
 setPriority :: (Enum a) => a -> Action ()
@@ -410,3 +414,11 @@ logDebug, logSeriousError
     :: IdeState -> T.Text -> IO ()
 logDebug = sl Logger.logDebug
 logSeriousError = sl Logger.logSeriousError
+
+data GetModificationTime = GetModificationTime
+    deriving (Eq, Show, Generic)
+instance Hashable GetModificationTime
+instance NFData   GetModificationTime
+
+-- | Get the modification time of a file.
+type instance RuleResult GetModificationTime = UTCTime

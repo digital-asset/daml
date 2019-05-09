@@ -48,6 +48,8 @@ import Data.Maybe as Maybe
 import Data.Foldable
 import qualified Data.Map as Map
 import Data.String (IsString)
+import Data.Time.Clock
+import Data.Time.Clock.POSIX
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc.Syntax
 import qualified Data.SortedList as SL
@@ -253,32 +255,59 @@ emptyDiagnostics = Diagnostics mempty
 setStageDiagnostics ::
   Show stage =>
   FilePath ->
+  Maybe UTCTime ->
+  -- ^ the time that the file these diagnostics originate from was last edited
   stage ->
   [LSP.Diagnostic] ->
   Diagnostics stage ->
   IO (Diagnostics stage)
-setStageDiagnostics fp stage diags (Diagnostics ds) = do
+setStageDiagnostics fp timeM stage diags (Diagnostics ds) = do
     uri <- toUri fp
     let thisFile = Map.lookup uri ds
         addedStage :: StoreItem
-        addedStage = StoreItem Nothing $ storeItem thisFile
+        addedStage = StoreItem (Just posixTime) $ storeItem thisFile
     pure $ Diagnostics $ Map.insert uri addedStage ds where
-
 
     storeItem :: Maybe StoreItem -> DiagnosticsBySource
     storeItem = \case
-        Just (StoreItem Nothing bySource) ->
-            Map.insert k v bySource
         Nothing ->
             Map.singleton k v
-        Just (StoreItem (Just _) _) ->
+
+        Just (StoreItem Nothing _) ->
             noVersions
+
+        Just (StoreItem (Just prevTime) bySource) ->
+            case compare posixTime prevTime of
+                EQ -> insert bySource
+                GT -> insert $ Map.map (SL.map tagOutdated)  bySource
+                LT -> bySource
+
+    -- Change the color of outdated diagnostics
+    tagOutdated :: Diagnostic -> Diagnostic
+    tagOutdated d = d{_severity = Just DsInfo}
+
+    isOutdated :: Diagnostic -> Bool
+    isOutdated Diagnostic{_severity} = _severity == Just DsInfo
+
+    removeOutdated, insert :: DiagnosticsBySource -> DiagnosticsBySource
+    removeOutdated = Map.filter (not . any isOutdated)
+
+    insert bySource =
+        let removeExpired =
+                if Map.lookup k bySource == Just (SL.map tagOutdated v)
+                then removeOutdated
+                else id
+        in Map.insert k v $ removeExpired bySource
+
     k = Just $ T.pack $ show stage
     v = SL.toSortedList diags
 
+    posixTime :: Int
+    posixTime = maybe 0 (fromEnum . utcTimeToPOSIXSeconds) timeM
+
 noVersions :: HasCallStack => a
 noVersions =
-    error "Unsupported use of document versions"
+    error "All store items must have versions"
 
 fromUri :: LSP.Uri -> FilePath
 fromUri = fromMaybe noFilePath . uriToFilePath
