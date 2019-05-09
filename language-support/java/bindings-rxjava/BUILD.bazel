@@ -13,8 +13,8 @@ da_java_library(
     name = "bindings-rxjava",
     srcs = glob(["src/main/java/**/*.java"]),
     tags = [
+        "javadoc_root_packages=com.daml.ledger.rxjava",
         "maven_coordinates=com.daml.ledger:bindings-rxjava:__VERSION__",
-        "javadoc_root_packages=com.daml.ledger.rxjava"
     ],
     visibility = [
         "//visibility:public",

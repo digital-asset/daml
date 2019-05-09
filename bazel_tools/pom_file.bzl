@@ -155,7 +155,6 @@ CLASSIFIER_DEP_BLOCK = """
 """.strip()
 
 def _pom_file(ctx):
-
     mvn_deps = ctx.attr.target[MavenInfo].maven_dependencies
 
     if not ctx.attr.target[MavenInfo].maven_coordinates:

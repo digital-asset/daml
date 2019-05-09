@@ -30,12 +30,20 @@ java_home_runtime = repository_rule(
 def _wrap_rule(rule, name = "", **kwargs):
     rule(name = name, **kwargs)
 
-def da_java_library(name, deps, srcs, data = [], resources = [], resource_jars = [], resource_strip_prefix = None,
-                    tags = [], visibility = None, exports = []):
-
+def da_java_library(
+        name,
+        deps,
+        srcs,
+        data = [],
+        resources = [],
+        resource_jars = [],
+        resource_strip_prefix = None,
+        tags = [],
+        visibility = None,
+        exports = []):
     root_packages = None
     for tag in tags:
-       if tag.startswith("javadoc_root_packages="):
+        if tag.startswith("javadoc_root_packages="):
             root_packages = tag[len("javadoc_root_packages="):].split(":")
 
     native.java_library(
@@ -48,7 +56,7 @@ def da_java_library(name, deps, srcs, data = [], resources = [], resource_jars =
         resource_strip_prefix = resource_strip_prefix,
         tags = tags,
         visibility = visibility,
-        exports = exports
+        exports = exports,
     )
     pom_file(
         name = name + "_pom",
@@ -59,9 +67,9 @@ def da_java_library(name, deps, srcs, data = [], resources = [], resource_jars =
     if (root_packages):
         javadoc_library(
             name = name + "_javadoc",
-            deps = deps + [ name ],
+            deps = deps + [name],
             srcs = srcs,
-            root_packages = root_packages
+            root_packages = root_packages,
         )
 
 def da_java_binary(name, **kwargs):

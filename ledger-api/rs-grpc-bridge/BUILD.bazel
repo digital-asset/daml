@@ -8,8 +8,8 @@ da_java_library(
     name = "rs-grpc-bridge",
     srcs = glob(["src/main/java/**/*.java"]),
     tags = [
+        "javadoc_root_packages=com.digitalasset.grpc.adapter",
         "maven_coordinates=com.digitalasset.ledger-api:rs-grpc-bridge:__VERSION__",
-        "javadoc_root_packages=com.digitalasset.grpc.adapter"
     ],
     visibility = [
         "//visibility:public",
