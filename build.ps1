@@ -61,12 +61,7 @@ bazel run `
 bazel shutdown
 
 bazel test `
-    //daml-lf/data/... `
-    //daml-lf/interface/... `
-    //daml-lf/interpreter/... `
-    //daml-lf/lfpackage/... `
-    //daml-lf/parser/... `
-    //daml-lf/validation/... `
+    //daml-lf/... `
     //language-support/java/bindings/... `
     //language-support/java/bindings-rxjava/... `
     //ledger/ledger-api-client/... `
