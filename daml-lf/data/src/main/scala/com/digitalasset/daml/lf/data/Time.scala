@@ -17,6 +17,9 @@ object Time {
     override def toString: String =
       Date.formatter.format(LocalDate.ofEpochDay(days.toLong))
 
+    def toUtf8String: Utf8String =
+      Utf8String(toString)
+
     override def compare(that: Date): Int =
       days.compareTo(that.days)
   }
@@ -72,6 +75,9 @@ object Time {
 
     override def toString: String =
       Timestamp.formatter.format(toInstant)
+
+    def toUtf8String: Utf8String =
+      Utf8String(toString)
 
     def compare(that: Timestamp): Int =
       micros.compareTo(that.micros)

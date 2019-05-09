@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.speedy
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.data.{Time, Utf8String}
 import com.digitalasset.daml.lf.transaction.Transaction._
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
@@ -77,7 +77,7 @@ object SResult {
 
   /** A conversion of a string into a party is requested. */
   final case class SResultScenarioGetParty(
-      partyText: String,
+      partyText: Utf8String,
       callback: Party => Unit
   ) extends SResult
 

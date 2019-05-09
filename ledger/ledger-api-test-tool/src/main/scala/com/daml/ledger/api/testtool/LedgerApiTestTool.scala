@@ -11,6 +11,7 @@ import akka.stream.ActorMaterializer
 import com.digitalasset.daml.lf.UniversalArchiveReader
 import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
+import com.digitalasset.daml.lf.data.Utf8String
 import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
@@ -63,8 +64,8 @@ object LedgerApiTestTool {
     }
     var failed = false
 
-    val runSuffix = Random.alphanumeric.take(10).mkString
-    val partyNameMangler = (partyText: String) => s"$partyText-$runSuffix"
+    val runSuffix = Utf8String("-" + Random.alphanumeric.take(10).mkString)
+    val partyNameMangler = (partyText: Utf8String) => partyText + runSuffix
     val commandIdMangler: ((QualifiedName, Int, L.NodeId) => String) = (scenario, stepId, nodeId) =>
       s"ledger-api-test-tool-$scenario-$stepId-$nodeId-$runSuffix"
 

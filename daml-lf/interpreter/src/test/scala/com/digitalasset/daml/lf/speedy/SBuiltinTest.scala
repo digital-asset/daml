@@ -6,8 +6,7 @@ package com.digitalasset.daml.lf.speedy
 import java.util
 
 import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.data.Decimal.Decimal
-import com.digitalasset.daml.lf.data.{Decimal, FrontStack, Ref, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
@@ -17,6 +16,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
 
 import scala.collection.immutable.HashMap
+import scala.language.implicitConversions
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks {
@@ -192,8 +192,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "ADD_DECIMAL" - {
       "throw exception in case of overflow" in {
-        eval(e"ADD_DECIMAL $bigBigDecimal 2.0") shouldBe Right(
-          SDecimal(toDecimal(bigBigDecimal + 2)))
+        eval(e"ADD_DECIMAL $bigBigDecimal 2.0") shouldBe Right(SDecimal(bigBigDecimal + 2))
         eval(e"ADD_DECIMAL $maxDecimal $minPosDecimal") shouldBe 'left
         eval(e"ADD_DECIMAL ${-maxDecimal} ${-minPosDecimal}") shouldBe 'left
         eval(e"ADD_DECIMAL $bigBigDecimal $bigBigDecimal") shouldBe 'left
@@ -202,8 +201,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "SUB_DECIMAL" - {
       "throws exception in case of overflow" in {
-        eval(e"SUB_DECIMAL $bigBigDecimal 2.0") shouldBe Right(
-          SDecimal(toDecimal(bigBigDecimal - 2)))
+        eval(e"SUB_DECIMAL $bigBigDecimal 2.0") shouldBe Right(SDecimal(bigBigDecimal - 2))
         eval(e"SUB_DECIMAL $maxDecimal -$minPosDecimal") shouldBe 'left
         eval(e"SUB_DECIMAL ${-maxDecimal} $minPosDecimal") shouldBe 'left
         eval(e"SUB_DECIMAL ${-bigBigDecimal} $bigBigDecimal") shouldBe 'left
@@ -212,9 +210,9 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "MUL_DECIMAL" - {
       "throws exception in case of overflow" in {
-        eval(e"MUL_DECIMAL 1.1 2.2") shouldBe Right(SDecimal(toDecimal(2.42)))
+        eval(e"MUL_DECIMAL 1.1 2.2") shouldBe Right(SDecimal(decimal(2.42)))
         eval(e"MUL_DECIMAL $bigBigDecimal $bigBigDecimal") shouldBe 'left
-        eval(e"MUL_DECIMAL ${1E13} ${1E14}") shouldBe Right(SDecimal(toDecimal(1E27)))
+        eval(e"MUL_DECIMAL ${1E13} ${1E14}") shouldBe Right(SDecimal(decimal(1E27)))
         eval(e"MUL_DECIMAL ${1E14} ${1E14}") shouldBe 'left
       }
     }
@@ -240,9 +238,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           (10, d, d)
         )
 
-        forEvery(testCases) { (rounding, decimal, result) =>
-          eval(e"ROUND_DECIMAL $rounding $decimal") shouldBe Right(
-            SDecimal(toDecimal(BigDecimal(result))))
+        forEvery(testCases) { (rounding, input, result) =>
+          eval(e"ROUND_DECIMAL $rounding $input") shouldBe Right(SDecimal(BigDecimal(result)))
         }
       }
     }
@@ -253,10 +250,10 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       val testCases = Table[String, (Decimal, Decimal) => Either[Any, SValue]](
         ("builtin", "reference"),
-        ("ADD_DECIMAL", (a, b) => Right(SDecimal(toDecimal(a + b)))),
-        ("SUB_DECIMAL", (a, b) => Right(SDecimal(toDecimal(a - b)))),
-        ("MUL_DECIMAL", (a, b) => Right(SDecimal(toDecimal(round(a * b))))),
-        ("DIV_DECIMAL", (a, b) => Either.cond(b != 0, SDecimal(toDecimal(round(a / b))), ())),
+        ("ADD_DECIMAL", (a, b) => Right(SDecimal(a + b))),
+        ("SUB_DECIMAL", (a, b) => Right(SDecimal(a - b))),
+        ("MUL_DECIMAL", (a, b) => Right(SDecimal(round(a * b)))),
+        ("DIV_DECIMAL", (a, b) => Either.cond(b != 0, SDecimal(round(a / b)), ())),
         ("LESS_EQ_DECIMAL", (a, b) => Right(SBool(a <= b))),
         ("GREATER_EQ_DECIMAL", (a, b) => Right(SBool(a >= b))),
         ("LESS_DECIMAL", (a, b) => Right(SBool(a < b))),
@@ -268,7 +265,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         forEvery(decimals) { a =>
           forEvery(decimals) { b =>
             eval(e"$builtin $a $b").left
-              .map(_ => ()) shouldBe ref(toDecimal(BigDecimal(a)), toDecimal(BigDecimal(b)))
+              .map(_ => ()) shouldBe ref(decimal(BigDecimal(a)), decimal(BigDecimal(b)))
           }
         }
       }
@@ -526,16 +523,18 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       "inserts as expected" in {
         eval(e"${buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)}") shouldBe
-          Right(SMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
+          Right(
+            SMap(HashMap(utf8("a") -> SInt64(1), utf8("b") -> SInt64(2), utf8("c") -> SInt64(3))))
       }
 
       "replaces already present key" in {
         val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
 
         eval(e"$map") shouldBe
-          Right(SMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
+          Right(
+            SMap(HashMap(utf8("a") -> SInt64(1), utf8("b") -> SInt64(2), utf8("c") -> SInt64(3))))
         eval(e"""MAP_INSERT @Int64 "b" 4 $map""") shouldBe Right(
-          SMap(HashMap("a" -> SInt64(1), "b" -> SInt64(4), "c" -> SInt64(3))))
+          SMap(HashMap(utf8("a") -> SInt64(1), utf8("b") -> SInt64(4), utf8("c") -> SInt64(3))))
       }
     }
 
@@ -558,13 +557,13 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       "deletes existing key" in {
         eval(e"""MAP_DELETE @Int64 "a" $map""") shouldBe Right(
-          SMap(HashMap("b" -> SInt64(2), "c" -> SInt64(3))))
+          SMap(HashMap(utf8("b") -> SInt64(2), utf8("c") -> SInt64(3))))
         eval(e"""MAP_DELETE @Int64 "b" $map""") shouldBe Right(
-          SMap(HashMap("a" -> SInt64(1), "c" -> SInt64(3))))
+          SMap(HashMap(utf8("a") -> SInt64(1), utf8("c") -> SInt64(3))))
       }
       "does nothing with non-existing key" in {
         eval(e"""MAP_DELETE @Int64 "d" $map""") shouldBe Right(
-          SMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
+          SMap(HashMap(utf8("a") -> SInt64(1), utf8("b") -> SInt64(2), utf8("c") -> SInt64(3))))
       }
     }
 
@@ -654,7 +653,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         val testCases = Table[Long]("Int64", 167, 11, 2, 1, 0, -1, -2, -13, -113)
 
         forEvery(testCases) { int64 =>
-          eval(e"INT64_TO_DECIMAL $int64") shouldBe Right(SDecimal(toDecimal(int64)))
+          eval(e"INT64_TO_DECIMAL $int64") shouldBe Right(SDecimal(decimal(int64)))
         }
       }
     }
@@ -765,7 +764,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         val testCases = Table[String, SValue](
           "expression" -> "result",
           "1" -> SInt64(1),
-          "1.0" -> SDecimal(toDecimal(1)),
+          "1.0" -> SDecimal(decimal(1)),
           "True" -> SBool(true),
           "()" -> SUnit(()),
           """ "text" """ -> SText("text"),
@@ -825,12 +824,13 @@ object SBuiltinTest {
   private val entryFields: Array[Ref.Name] =
     Ref.Name.Array(Ref.Name.assertFromString("key"), Ref.Name.assertFromString("value"))
 
-  private def mapEntry(k: String, v: SValue) = {
+  private def mapEntry(k: Utf8String, v: SValue) = {
     val args = new util.ArrayList[SValue](2)
     args.add(SText(k))
     args.add(v)
     STuple(entryFields, args)
   }
 
-  private def toDecimal(x: BigDecimal) = Decimal.assertFromBigDecimal(x)
+  private implicit def decimal(x: BigDecimal): Decimal = Decimal.assertFromBigDecimal(x)
+  private implicit def utf8(s: String): Utf8String = Utf8String(s)
 }

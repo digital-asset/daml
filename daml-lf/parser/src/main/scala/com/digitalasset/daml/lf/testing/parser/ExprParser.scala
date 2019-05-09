@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.testing.parser
 
 import com.digitalasset.daml.lf.data.Ref.Name
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Utf8String}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
@@ -41,7 +41,7 @@ private[parser] object ExprParser {
   private lazy val literal: Parsers.Parser[PrimLit] =
     acceptMatch[PrimLit]("Number", { case Number(l) => PLInt64(l) }) |
       acceptMatch("Decimal", { case Decimal(d) => PLDecimal(d) }) |
-      acceptMatch("Text", { case Text(s) => PLText(s) }) |
+      acceptMatch("Text", { case Text(s) => PLText(Utf8String(s)) }) |
       acceptMatch("Timestamp", { case Timestamp(l) => PLTimestamp(l) }) |
       acceptMatch("Date", { case Date(l) => PLDate(l) }) |
       acceptMatch("Party", {

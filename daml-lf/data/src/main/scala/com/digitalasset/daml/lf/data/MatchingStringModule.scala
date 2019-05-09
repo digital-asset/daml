@@ -9,13 +9,18 @@ import scala.reflect.ClassTag
 import scala.util.matching.Regex
 
 sealed abstract class MatchingStringModule {
+
   type T <: String
 
   def fromString(s: String): Either[String, T]
 
   @throws[IllegalArgumentException]
-  final def assertFromString(s: String): T =
-    fromString(s).fold(e => throw new IllegalArgumentException(e), identity)
+  final def assertFromString(s: String): T = MatchingStringModule.assert(fromString(s))
+
+  final def fromUtf8String(s: Utf8String): Either[String, T] = fromString(s.toString)
+
+  @throws[IllegalArgumentException]
+  final def assertFromUtf8String(s: Utf8String): T = assertFromString(s.toString)
 
   def equalInstance: Equal[T]
 
@@ -51,5 +56,8 @@ object MatchingStringModule extends (Regex => MatchingStringModule) {
 
     val Array: ArrayFactory[T] = new ArrayFactory[T] {}
   }
+
+  def assert[X](x: Either[String, X]): X =
+    x.fold(e => throw new IllegalArgumentException(e), identity)
 
 }

@@ -11,6 +11,8 @@ import com.digitalasset.daml.lf.value.{Value, ValueVersion}
 import org.scalatest.{Matchers, WordSpec}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.KeyHasher
 
+import scala.language.implicitConversions
+
 class KeyHasherSpec extends WordSpec with Matchers {
   private[this] def templateId(module: String, name: String) = Identifier(
     PackageId.assertFromString("package"),
@@ -25,8 +27,8 @@ class KeyHasherSpec extends WordSpec with Matchers {
     builder += None -> ValueInt64(0)
     builder += None -> ValueInt64(123456)
     builder += None -> ValueInt64(-1)
-    builder += None -> ValueDecimal(toDecimal(0))
-    builder += None -> ValueDecimal(toDecimal(BigDecimal(1) / BigDecimal(3)))
+    builder += None -> ValueDecimal(decimal(0))
+    builder += None -> ValueDecimal(decimal(BigDecimal("0.3333333333")))
     builder += None -> ValueBool(true)
     builder += None -> ValueBool(false)
     builder += None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(0))
@@ -50,8 +52,8 @@ class KeyHasherSpec extends WordSpec with Matchers {
     builder += None -> ValueMap(
       SortedLookupList(
         Map(
-          "keyA" -> ValueText("valueA"),
-          "keyB" -> ValueText("valueB")
+          utf8("keyA") -> ValueText("valueA"),
+          utf8("keyB") -> ValueText("valueB")
         )))
     val fields = builder.result()
 
@@ -127,11 +129,11 @@ class KeyHasherSpec extends WordSpec with Matchers {
       val value1 =
         VersionedValue(
           ValueVersion("4"),
-          ValueList(FrontStack(ValueDecimal(toDecimal(10)), ValueDecimal(toDecimal(10)))))
+          ValueList(FrontStack(ValueDecimal(decimal(10)), ValueDecimal(decimal(10)))))
       val value2 =
         VersionedValue(
           ValueVersion("4"),
-          ValueList(FrontStack(ValueDecimal(toDecimal(101)), ValueDecimal(toDecimal(0)))))
+          ValueList(FrontStack(ValueDecimal(decimal(101)), ValueDecimal(decimal(0)))))
 
       val tid = templateId("module", "name")
 
@@ -202,16 +204,16 @@ class KeyHasherSpec extends WordSpec with Matchers {
         ValueMap(
           SortedLookupList(
             Map(
-              "A" -> ValueInt64(0),
-              "B" -> ValueInt64(0)
+              utf8("A") -> ValueInt64(0),
+              utf8("B") -> ValueInt64(0)
             ))))
       val value2 = VersionedValue(
         ValueVersion("4"),
         ValueMap(
           SortedLookupList(
             Map(
-              "A" -> ValueInt64(0),
-              "C" -> ValueInt64(0)
+              utf8("A") -> ValueInt64(0),
+              utf8("C") -> ValueInt64(0)
             ))))
 
       val tid = templateId("module", "name")
@@ -228,16 +230,16 @@ class KeyHasherSpec extends WordSpec with Matchers {
         ValueMap(
           SortedLookupList(
             Map(
-              "A" -> ValueInt64(0),
-              "B" -> ValueInt64(0)
+              utf8("A") -> ValueInt64(0),
+              utf8("B") -> ValueInt64(0)
             ))))
       val value2 = VersionedValue(
         ValueVersion("4"),
         ValueMap(
           SortedLookupList(
             Map(
-              "A" -> ValueInt64(0),
-              "B" -> ValueInt64(1)
+              utf8("A") -> ValueInt64(0),
+              utf8("B") -> ValueInt64(1)
             ))))
 
       val tid = templateId("module", "name")
@@ -273,8 +275,8 @@ class KeyHasherSpec extends WordSpec with Matchers {
     }
 
     "not produce collision in Decimal" in {
-      val value1 = VersionedValue(ValueVersion("4"), ValueDecimal(toDecimal(0)))
-      val value2 = VersionedValue(ValueVersion("4"), ValueDecimal(toDecimal(1)))
+      val value1 = VersionedValue(ValueVersion("4"), ValueDecimal(decimal(0)))
+      val value2 = VersionedValue(ValueVersion("4"), ValueDecimal(decimal(1)))
 
       val tid = templateId("module", "name")
 
@@ -351,5 +353,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
     }
   }
 
-  private def toDecimal(x: BigDecimal) = Decimal.assertFromBigDecimal(x)
+  private implicit def decimal(x: BigDecimal): Decimal = Decimal.assertFromBigDecimal(x)
+  private implicit def utf8(x: String): Utf8String = Utf8String(x)
+
 }

@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.EitherAssertions
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.{ValueOuterClass => proto}
@@ -57,14 +57,14 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
             case Right(ValueDecimal(d)) => d
             case _ => fail("should have got a decimal back")
           }
-          Decimal.toString(value.value) shouldEqual Decimal.toString(recoveredDecimal)
+          Decimal.toUtf8String(value.value) shouldEqual Decimal.toUtf8String(recoveredDecimal)
         }
       }
     }
 
     "do Text" in {
       forAll("Text (String) invariant") { t: String =>
-        val value = ValueText(t)
+        val value = ValueText(Utf8String(t))
         testRoundTrip(value)
       }
     }

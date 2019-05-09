@@ -8,7 +8,7 @@ import java.io.File
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Decode
 import com.digitalasset.daml.lf.lfpackage.Util._
@@ -71,7 +71,7 @@ class EngineTest extends WordSpec with Matchers with BazelRunfiles {
           ValueRecord(
             Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
             ImmArray((Some[Name]("p"), ValueParty("Party"))))),
-        ""
+        Utf8String("")
       ))
   }
 
@@ -88,7 +88,7 @@ class EngineTest extends WordSpec with Matchers with BazelRunfiles {
               (Some("giver"), ValueParty("Alice")),
               (Some("receiver"), ValueParty("Bob"))
             ))),
-        ""
+        Utf8String("")
       ))
   }
 
@@ -1065,6 +1065,9 @@ object EngineTest {
 
   private implicit def toParty(s: String): Party =
     Party.assertFromString(s)
+
+  private implicit def utf8(s: String): Utf8String =
+    Utf8String(s)
 
   private def ArrayList[X](as: X*): util.ArrayList[X] = {
     val a = new util.ArrayList[X](as.length)

@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
+import com.digitalasset.daml.lf.data.Utf8String
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -24,7 +25,7 @@ trait KeyHasher {
   * used to hash DAML-LF values.
   */
 sealed abstract class HashToken extends Product with Serializable
-final case class HashTokenText(value: String) extends HashToken
+final case class HashTokenText(value: Utf8String) extends HashToken
 final case class HashTokenByte(value: Byte) extends HashToken
 final case class HashTokenInt(value: Int) extends HashToken
 final case class HashTokenLong(value: Long) extends HashToken
@@ -47,12 +48,12 @@ object KeyHasher extends KeyHasher {
     import com.digitalasset.daml.lf.value.Value._
 
     value match {
-      case ValueContractId(v) => op(z, HashTokenText(v.coid))
+      case ValueContractId(v) => op(z, HashTokenText(Utf8String(v.coid)))
       case ValueInt64(v) => op(z, HashTokenLong(v))
       case ValueDecimal(v) => op(z, HashTokenBigDecimal(v))
       case ValueText(v) => op(z, HashTokenText(v))
       case ValueTimestamp(v) => op(z, HashTokenLong(v.micros))
-      case ValueParty(v) => op(z, HashTokenText(v))
+      case ValueParty(v) => op(z, HashTokenText(Utf8String(v)))
       case ValueBool(v) => op(z, HashTokenByte(if (v) 1.toByte else 0.toByte))
       case ValueDate(v) => op(z, HashTokenInt(v.days))
       case ValueUnit => op(z, HashTokenByte(0))
@@ -75,7 +76,7 @@ object KeyHasher extends KeyHasher {
       // Variant: [CollectionBegin(), Text(variant), Token(value), CollectionEnd()]
       case ValueVariant(_, variant, v) =>
         val z1 = op(z, HashTokenCollectionBegin(1))
-        val z2 = op(z1, HashTokenText(variant))
+        val z2 = op(z1, HashTokenText(Utf8String(variant)))
         val z3 = foldLeft(v, z2, op)
         op(z3, HashTokenCollectionEnd())
 
@@ -108,11 +109,12 @@ object KeyHasher extends KeyHasher {
   private[this] def putLong(digest: MessageDigest, value: Long): Unit =
     digest.update(ByteBuffer.allocate(8).putLong(value).array())
 
-  private[this] def putStringContent(digest: MessageDigest, value: String): Unit =
-    digest.update(value.getBytes("UTF8"))
+  private[this] def putStringContent(digest: MessageDigest, value: Utf8String): Unit =
+    digest.update(value.getBytes)
 
-  private[this] def putString(digest: MessageDigest, value: String): Unit = {
-    putInt(digest, value.length)
+  private[this] def putUtf8String(digest: MessageDigest, value: Utf8String): Unit = {
+    // (RH) FixMe we probably should not use UTF16 length.
+    putInt(digest, value.toString.length)
     putStringContent(digest, value)
   }
 
@@ -120,8 +122,8 @@ object KeyHasher extends KeyHasher {
     val digest = MessageDigest.getInstance("SHA-256")
 
     // First, write the template ID
-    putString(digest, key.templateId.packageId)
-    putString(digest, key.templateId.qualifiedName.toString())
+    putUtf8String(digest, Utf8String(key.templateId.packageId))
+    putUtf8String(digest, Utf8String(key.templateId.qualifiedName.toString()))
 
     // Note: We do not emit the value or language version, as both are
     // implied by the template ID.
@@ -139,9 +141,10 @@ object KeyHasher extends KeyHasher {
           case HashTokenByte(v) => d.update(v)
           case HashTokenInt(v) => putInt(d, v)
           case HashTokenLong(v) => putLong(d, v)
-          case HashTokenText(v) => putString(d, v)
+          case HashTokenText(v) => putUtf8String(d, v)
+          // FixMe (RH) we probably should use Decimal.toString
           // Java docs: "The toString() method provides a canonical representation of a BigDecimal."
-          case HashTokenBigDecimal(v) => putString(d, v.toString)
+          case HashTokenBigDecimal(v) => putUtf8String(d, Utf8String(v.toString))
           case HashTokenCollectionBegin(length) => putInt(d, length)
           case HashTokenCollectionEnd() => // no-op
         }

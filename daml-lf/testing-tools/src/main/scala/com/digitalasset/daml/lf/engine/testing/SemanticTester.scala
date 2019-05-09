@@ -7,7 +7,7 @@ import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.Event.Events
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.daml.lf.lfpackage.Ast._
@@ -41,7 +41,7 @@ class SemanticTester(
     createLedger: Set[Party] => SemanticTester.GenericLedger,
     packageToTest: PackageId,
     packages: Map[PackageId, Package],
-    partyNameMangler: (String => String) = identity,
+    partyNameMangler: (Utf8String => Utf8String) = identity,
     commandIdMangler: ((QualifiedName, Int, L.NodeId) => String) = (scenario, stepId, nodeId) =>
       s"semantic-testing-$scenario-$stepId-$nodeId"
 )(implicit ec: ExecutionContext) {

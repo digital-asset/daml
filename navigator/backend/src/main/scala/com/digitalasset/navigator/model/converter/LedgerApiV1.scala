@@ -7,7 +7,7 @@ import java.time.{Instant, LocalDate}
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-import com.digitalasset.daml.lf.data.{SortedLookupList, ImmArray}
+import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList, Utf8String}
 import com.digitalasset.ledger.api.{v1 => V1}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.{model => Model}
@@ -313,7 +313,7 @@ case object LedgerApiV1 {
             valueValue <- optValue.toRight(
               GenericConversionError(s"Field 'value' required in $entry"))
             value <- readArgument(valueValue, elementType, ctx)
-          } yield key -> value
+          } yield Utf8String(key) -> value
       })
       map <- SortedLookupList.fromSortedImmArray(ImmArray(values)).left.map(GenericConversionError)
     } yield Model.ApiMap(map)
@@ -467,7 +467,7 @@ case object LedgerApiV1 {
       )
     } yield {
       V1.value.Map(values.map {
-        case (k, v) => V1.value.Map.Entry(k, Some(v))
+        case (k, v) => V1.value.Map.Entry(k.toString, Some(v))
       })
     }
   }

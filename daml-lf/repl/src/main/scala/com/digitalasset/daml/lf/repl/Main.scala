@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.speedy
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Decimal}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Decode
@@ -561,7 +561,7 @@ object Repl {
       ValueInt64(s.toLong)
     }
     def pText: Parser[Value[Nothing]] = """\"(\w*)\"""".r ^^ { s =>
-      ValueText(s.stripPrefix("\"").stripSuffix("\""))
+      ValueText(Utf8String(s.stripPrefix("\"").stripSuffix("\"")))
     }
     def pTrue: Parser[Value[Nothing]] = "true" ^^ { _ =>
       ValueBool(true)

@@ -90,14 +90,15 @@ object LfEngineToApi {
       value0: LfValue[Lf.AbsoluteContractId]): Either[String, ApiValue] =
     value0 match {
       case Lf.ValueUnit => Right(ApiValue(ApiValue.Sum.Unit(Empty())))
-      case Lf.ValueDecimal(d) => Right(ApiValue(ApiValue.Sum.Decimal(Decimal.toString(d))))
+      case Lf.ValueDecimal(d) =>
+        Right(ApiValue(ApiValue.Sum.Decimal(Decimal.toUtf8String(d).toString)))
       case Lf.ValueContractId(c) => Right(ApiValue(ApiValue.Sum.ContractId(c.coid)))
       case Lf.ValueBool(b) => Right(ApiValue(ApiValue.Sum.Bool(b)))
       case Lf.ValueDate(d) => Right(ApiValue(ApiValue.Sum.Date(d.days)))
       case Lf.ValueTimestamp(t) => Right(ApiValue(ApiValue.Sum.Timestamp(t.micros)))
       case Lf.ValueInt64(i) => Right(ApiValue(ApiValue.Sum.Int64(i)))
       case Lf.ValueParty(p) => Right(ApiValue(ApiValue.Sum.Party(p)))
-      case Lf.ValueText(t) => Right(ApiValue(ApiValue.Sum.Text(t)))
+      case Lf.ValueText(t) => Right(ApiValue(ApiValue.Sum.Text(t.toString)))
       case Lf.ValueOptional(o) => // TODO DEL-7054 add test coverage
         o.fold[Either[String, ApiValue]](
           Right(ApiValue(ApiValue.Sum.Optional(Optional.defaultInstance))))(v =>
@@ -107,7 +108,7 @@ object LfEngineToApi {
         m.toImmArray.reverse
           .foldLeft[Either[String, List[ApiMap.Entry]]](Right(List.empty[ApiMap.Entry])) {
             case (Right(list), (k, v)) =>
-              lfValueToApiValue(verbose, v).map(w => ApiMap.Entry(k, Some(w)) :: list)
+              lfValueToApiValue(verbose, v).map(w => ApiMap.Entry(k.toString, Some(w)) :: list)
             case (left, _) => left
           }
           .map(list => ApiValue(ApiValue.Sum.Map(ApiMap(list))))

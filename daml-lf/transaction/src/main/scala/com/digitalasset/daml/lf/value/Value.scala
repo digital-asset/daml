@@ -182,7 +182,7 @@ object Value {
   final case class ValueList[+Cid](values: FrontStack[Value[Cid]]) extends Value[Cid]
   final case class ValueInt64(value: Long) extends Value[Nothing]
   final case class ValueDecimal(value: Decimal) extends Value[Nothing]
-  final case class ValueText(value: String) extends Value[Nothing]
+  final case class ValueText(value: Utf8String) extends Value[Nothing]
   final case class ValueTimestamp(value: Time.Timestamp) extends Value[Nothing]
   final case class ValueDate(value: Time.Date) extends Value[Nothing]
   final case class ValueParty(value: Ref.Party) extends Value[Nothing]
@@ -234,7 +234,7 @@ object Value {
     }
 
   /** A contract instance is a value plus the template that originated it. */
-  final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: String) {
+  final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: Utf8String) {
     def mapValue[Val2](f: Val => Val2): ContractInst[Val2] =
       this.copy(arg = f(arg))
   }

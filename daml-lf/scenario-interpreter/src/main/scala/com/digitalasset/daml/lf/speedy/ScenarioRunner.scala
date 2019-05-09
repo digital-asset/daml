@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.speedy
 import com.digitalasset.daml.lf.types.Ledger
 import com.digitalasset.daml.lf.types.Ledger._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.data.{Time, Utf8String}
 import com.digitalasset.daml.lf.transaction.Transaction._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml.lf.speedy.SError._
@@ -26,7 +26,7 @@ private case class SRunnerException(err: SError) extends RuntimeException(err.to
   */
 final case class ScenarioRunner(
     machine: Speedy.Machine,
-    partyNameMangler: (String => String) = identity) {
+    partyNameMangler: (Utf8String => Utf8String) = identity) {
   var ledger: Ledger = Ledger.initialLedger(Time.Timestamp.Epoch)
 
   import scala.util.{Try, Success, Failure}
@@ -91,9 +91,9 @@ final case class ScenarioRunner(
   private def crash(reason: String) =
     throw SRunnerException(SErrorCrash(reason))
 
-  private def getParty(partyText: String, callback: Party => Unit) = {
+  private def getParty(partyText: Utf8String, callback: Party => Unit) = {
     val mangledPartyText = partyNameMangler(partyText)
-    Party.fromString(mangledPartyText) match {
+    Party.fromUtf8String(mangledPartyText) match {
       case Right(s) => callback(s)
       case Left(msg) => throw SRunnerException(ScenarioErrorInvalidPartyName(partyText, msg))
     }
