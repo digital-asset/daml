@@ -1,7 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Sandbox ( -- Run a sandbox for testing on a dynamically selected port
+module DA.Ledger.Sandbox ( -- Run a sandbox for testing on a dynamically selected port
     SandboxSpec(..),
     Sandbox(port),
     startSandbox,

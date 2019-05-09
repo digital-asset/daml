@@ -10,7 +10,7 @@ import qualified DA.Ledger         as Ledger
 import           Data.List         (isPrefixOf)
 import qualified Data.Text.Lazy    as Text (unpack)
 import           Prelude           hiding (log)
-import           Sandbox           (SandboxSpec (..), port, shutdownSandbox, withSandbox)
+import           DA.Ledger.Sandbox as Sandbox(SandboxSpec (..), port, shutdownSandbox, withSandbox)
 import           Test.Tasty        as Tasty (TestTree, defaultMain, testGroup)
 import           Test.Tasty.HUnit  as Tasty (assertBool, assertFailure, testCase)
 
