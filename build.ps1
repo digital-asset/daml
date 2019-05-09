@@ -55,10 +55,7 @@ function build-full() {
         //3rdparty/... `
         //nix/third-party/gRPC-haskell:grpc-haskell `
         //daml-assistant:daml `
-        //daml-foundations/daml-tools/daml-extension/... `
-        //daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist `
-        //daml-foundations/daml-tools/docs/... `
-        //daml-foundations/daml-tools/language-server-tests:lib-js `
+        //daml-foundations/daml-tools/... `
         //daml-lf/archive:daml_lf_archive_scala `
         //daml-lf/archive:daml_lf_archive_protos_zip `
         //daml-lf/archive:daml_lf_archive_protos_tarball `
