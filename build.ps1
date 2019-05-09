@@ -85,9 +85,7 @@ function build-full() {
         //ledger/ledger-api-client/... `
         //ledger/ledger-api-common/... `
         //ledger/ledger-api-domain/... `
-        //ledger/ledger-api-server-example/... `
         //ledger/ledger-api-scala-logging/... `
-        //ledger/ledger-api-server-example/... `
         //ledger/participant-state/... `
         //ledger/participant-state-index/... `
         //ledger/sandbox/... `
