@@ -34,7 +34,7 @@ lowerCommand = \case
         LL.Command $ Just $ LL.CommandCommandCreate $ LL.CreateCommand {
         createCommandTemplateId = Just (lowerTemplateId tid),
         createCommandCreateArguments = Just (lowerRecord args)}
-        
+
     ExerciseCommand{tid,cid,choice,arg} ->
         LL.Command $ Just $ LL.CommandCommandExercise $ LL.ExerciseCommand {
         exerciseCommandTemplateId = Just (lowerTemplateId tid),

@@ -60,9 +60,9 @@ createIOU party currency quantity = CreateCommand {tid,args}
     where
         tid = TemplateId (Identifier quickstart mod ent)
         -- TODO: use package-service to find package-id
-        -- da run damlc inspect-dar target/quickstart.dar 
+        -- da run damlc inspect-dar target/quickstart.dar
         quickstart = PackageId "d2738d858a282364bc66e9c0843ab77e4970769905df03f00934c6716771c972"
-        mod = ModuleName "Iou" 
+        mod = ModuleName "Iou"
         ent = EntityName "Iou"
         args = Record Nothing [
             RecordField "issuer" (VParty party),
@@ -75,7 +75,7 @@ createIOU party currency quantity = CreateCommand {tid,args}
 alice,bob :: Party
 alice = Party "Alice"
 bob = Party "Bob"
-    
+
 myAid :: ApplicationId
 myAid = ApplicationId "<my-application>"
 
