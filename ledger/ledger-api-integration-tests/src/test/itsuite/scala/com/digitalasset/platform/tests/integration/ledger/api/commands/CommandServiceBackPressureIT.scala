@@ -11,7 +11,7 @@ import com.digitalasset.ledger.api.testing.utils.{
   MockMessages,
   SuiteResourceManagementAroundAll
 }
-import com.digitalasset.platform.apitesting.LedgerBackend.SandboxSql
+import com.digitalasset.platform.testing.LedgerBackend.SandboxSql
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.google.protobuf.empty.Empty

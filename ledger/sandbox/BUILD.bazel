@@ -133,6 +133,7 @@ daml_compile(
 
 testDependencies = [
     ":sandbox",
+    "//ledger/test-common:test-common",
     "//ledger-api/testing-utils",
     "//3rdparty/jvm/org/scalatest:scalatest",
     "//3rdparty/jvm/org/scalacheck:scalacheck",

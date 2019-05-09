@@ -1,0 +1,22 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+)
+
+dependencies = [
+    "//3rdparty/jvm/org/scalatest:scalatest",
+    "//ledger-api/rs-grpc-akka",
+    "//ledger-api/testing-utils",
+]
+
+da_scala_library(
+    name = "test-common",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = dependencies,
+)

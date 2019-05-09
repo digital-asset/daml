@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api.identity
 
-import com.digitalasset.platform.apitesting.LedgerBackend
+import com.digitalasset.platform.testing.LedgerBackend
 
 import scala.concurrent.Promise
 

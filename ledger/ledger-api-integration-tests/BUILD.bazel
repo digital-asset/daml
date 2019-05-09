@@ -43,6 +43,7 @@ dependencies = [
     "//ledger/ledger-api-domain:ledger-api-domain",
     "//ledger/ledger-api-scala-logging",
     "//ledger/sandbox:sandbox",
+    "//ledger/test-common:test-common",
     "//ledger/sandbox:sandbox-scala-tests-lib",
 ]
 

@@ -37,7 +37,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Value,
   Variant
 }
-import com.digitalasset.platform.apitesting.LedgerBackend.SandboxInMemory
+import com.digitalasset.platform.testing.LedgerBackend.SandboxInMemory
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
