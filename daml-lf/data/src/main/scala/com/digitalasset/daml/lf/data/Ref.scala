@@ -56,13 +56,13 @@ object Ref {
       if (s.isEmpty)
         Left(s"Expected a non-empty string")
       else
-        fromStrings(split(s, '.'))
+        fromSegments(split(s, '.').toSeq)
 
     @throws[IllegalArgumentException]
     def assertFromString(s: String): DottedName =
       assert(fromString(s))
 
-    def fromStrings(strings: ImmArray[String]): Either[String, DottedName] = {
+    def fromSegments(strings: Iterable[String]): Either[String, DottedName] = {
       val init: Either[String, BackStack[Name]] = Right(BackStack.empty)
       val validatedSegments = strings.foldLeft(init)((acc, string) =>
         for {
@@ -71,25 +71,25 @@ object Ref {
         } yield stack :+ segment)
       for {
         segments <- validatedSegments
-        name <- fromSegments(segments.toImmArray)
+        name <- fromNames(segments.toImmArray)
       } yield name
     }
 
     @throws[IllegalArgumentException]
-    def assertFromStrings(s: ImmArray[String]): DottedName =
-      assert(fromStrings(s))
+    def assertFromSegments(s: Iterable[String]): DottedName =
+      assert(fromSegments(s))
 
-    def fromSegments(segments: ImmArray[Name]): Either[String, DottedName] =
-      Either.cond(segments.nonEmpty, new DottedName(segments), "No segments provided")
+    def fromNames(names: ImmArray[Name]): Either[String, DottedName] =
+      Either.cond(names.nonEmpty, new DottedName(names), "No segments provided")
 
     @throws[IllegalArgumentException]
-    def assertFromSegment(segments: ImmArray[Name]): DottedName =
-      assert(fromStrings(segments))
+    def assertFromNames(names: ImmArray[Name]): DottedName =
+      assert(fromNames(names))
 
     /** You better know what you're doing if you use this one -- specifically you need to comply
       * to the lexical specification embodied by `fromStrings`.
       */
-    def unsafeFromSegments(segments: ImmArray[Name]): DottedName = {
+    def unsafeFromNames(segments: ImmArray[Name]): DottedName = {
       new DottedName(segments)
     }
   }

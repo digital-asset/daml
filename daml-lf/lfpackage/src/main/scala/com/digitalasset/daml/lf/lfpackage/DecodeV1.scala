@@ -32,7 +32,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
   }
 
   private[this] def decodeSegments(segments: ImmArray[String]): DottedName = {
-    DottedName.fromStrings(segments) match {
+    DottedName.fromSegments(segments.toSeq) match {
       case Left(err) => throw new ParseError(err)
       case Right(x) => x
     }
@@ -42,7 +42,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
     import LanguageMinorVersion.Implicits._
 
     val moduleName = eitherToParseError(
-      ModuleName.fromStrings(ImmArray(lfModule.getName.getSegmentsList.asScala)))
+      ModuleName.fromSegments(lfModule.getName.getSegmentsList.asScala))
 
     // FIXME(JM): rewrite.
     var currentDefinitionRef: Option[DefinitionRef] = None
@@ -54,7 +54,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
       // collect data types
       lfModule.getDataTypesList.asScala.foreach { defn =>
         val defName =
-          eitherToParseError(DottedName.fromStrings(ImmArray(defn.getName.getSegmentsList.asScala)))
+          eitherToParseError(DottedName.fromSegments(defn.getName.getSegmentsList.asScala))
         currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
         val d = decodeDefDataType(defn)
         defs += (defName -> d)
@@ -72,8 +72,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
       // collect templates
       lfModule.getTemplatesList.asScala.foreach { defn =>
         val defName =
-          eitherToParseError(
-            DottedName.fromStrings(ImmArray(defn.getTycon.getSegmentsList.asScala)))
+          eitherToParseError(DottedName.fromSegments(defn.getTycon.getSegmentsList.asScala))
         currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
         templates += ((defName, decodeTemplate(defn)))
       }
@@ -255,7 +254,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
     private[this] def decodeModuleRef(lfRef: PLF.ModuleRef): (PackageId, ModuleName) = {
       val modName = eitherToParseError(
-        ModuleName.fromStrings(ImmArray(lfRef.getModuleName.getSegmentsList.asScala)))
+        ModuleName.fromSegments(lfRef.getModuleName.getSegmentsList.asScala))
       lfRef.getPackageRef.getSumCase match {
         case PLF.PackageRef.SumCase.SELF =>
           (this.packageId, modName)
@@ -278,7 +277,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
     private[this] def decodeTypeConName(lfTyConName: PLF.TypeConName): TypeConName = {
       val (packageId, module) = decodeModuleRef(lfTyConName.getModule)
       val name = eitherToParseError(
-        DottedName.fromStrings(ImmArray(lfTyConName.getName.getSegmentsList.asScala)))
+        DottedName.fromSegments(lfTyConName.getName.getSegmentsList.asScala))
       Identifier(packageId, QualifiedName(module, name))
     }
 

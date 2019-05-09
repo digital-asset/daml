@@ -18,7 +18,7 @@ object Implicits {
     def p(args: Any*): Package = interpolate(ModParser.pkg)(args)
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    def id(args: Any*): Ref.Name =
+    def n(args: Any*): Ref.Name =
       Ref.Name.assertFromString(sc.standardInterpolator(identity, args.map(prettyPrint)))
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))

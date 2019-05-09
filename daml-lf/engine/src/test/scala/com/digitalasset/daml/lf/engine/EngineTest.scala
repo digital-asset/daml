@@ -678,7 +678,7 @@ class EngineTest extends WordSpec with Matchers {
     "fail with fields with labels, with repetitions" in {
       val rec = ValueRecord(
         Some(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")),
-        ImmArray((Some("p"), ValueParty("Alice")), (Some("p"), ValueParty("Bob")))
+        ImmArray((Some(toName("p")), ValueParty("Alice")), (Some(toName("p")), ValueParty("Bob")))
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
@@ -1060,7 +1060,7 @@ object EngineTest {
   private implicit def qualifiedNameStr(s: String): QualifiedName =
     QualifiedName.assertFromString(s)
 
-  private implicit def toIdentifier(s: String): Name =
+  private implicit def toName(s: String): Name =
     Name.assertFromString(s)
 
   private implicit def toParty(s: String): Party =

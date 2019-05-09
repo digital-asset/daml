@@ -187,7 +187,7 @@ object DamlLfCodec {
 
   def jsValueToDamlLfDefDataType(value: JsValue): Model.DamlLfDefDataType = {
     val vars =
-      arrayField(value, propVars, "DamlLfDefDataType").map(v => asString(v, "DamlLfDefDataType"))
+      arrayField(value, propVars, "DamlLfDefDataType").map(v => asName(v, "DamlLfDefDataType"))
     val dataType = jsValueToDamlLfDataType(anyField(value, propType, "DamlLfDefDataType"))
 
     Model.DamlLfDefDataType(Model.DamlLfImmArraySeq(vars: _*), dataType)

@@ -29,13 +29,15 @@ class ContractSortSpec extends FlatSpec with Matchers {
     DamlLfImmArraySeq(),
     DamlLfRecord(
       DamlLfImmArraySeq(
-        "foo" -> DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
+        DamlLfRef.Name.assertFromString("foo") ->
+          DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
       )))
   val damlLfRecord1 = DamlLfDefDataType(
     DamlLfImmArraySeq(),
     DamlLfRecord(
       DamlLfImmArraySeq(
-        "int" -> DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
+        DamlLfRef.Name.assertFromString("int") ->
+          DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
       )))
 
   val damlLfDefDataTypes: Map[DamlLfIdentifier, DamlLfDefDataType] = Map(

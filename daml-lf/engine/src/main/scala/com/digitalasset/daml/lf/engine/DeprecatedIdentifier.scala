@@ -30,12 +30,12 @@ object DeprecatedIdentifier {
               namePart: FrontStack[Name]
           ): Either[String, QualifiedName] = {
             val moduleId = modulePart.toImmArray
-            val name = DottedName.unsafeFromSegments(namePart.toImmArray)
-            pkg.modules.get(ModuleName.unsafeFromSegments(moduleId)) match {
+            val name = DottedName.unsafeFromNames(namePart.toImmArray)
+            pkg.modules.get(ModuleName.unsafeFromNames(moduleId)) match {
               case Some(module) =>
                 module.definitions.get(name) match {
                   case Some(_) =>
-                    Right(QualifiedName(ModuleName.unsafeFromSegments(moduleId), name))
+                    Right(QualifiedName(ModuleName.unsafeFromNames(moduleId), name))
                   case None =>
                     modulePart match {
                       case BackStack() =>

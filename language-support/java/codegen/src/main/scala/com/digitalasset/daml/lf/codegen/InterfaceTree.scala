@@ -109,10 +109,10 @@ private[codegen] final case class TypeWithContext(
 
   /* The name of this in the module */
   def fullName: Ref.DottedName =
-    Ref.DottedName.assertFromStrings(typesLineage.map(_._1).:+(name).toImmArray)
+    Ref.DottedName.assertFromSegments(typesLineage.map(_._1).:+(name).toImmArray.toSeq)
 
   def module: Ref.ModuleName =
-    Ref.ModuleName.assertFromStrings(modulesLineage.map(_._1).toImmArray)
+    Ref.ModuleName.assertFromSegments(modulesLineage.map(_._1).toImmArray.toSeq)
 
   def qualifiedName: Ref.QualifiedName = Ref.QualifiedName(module, fullName)
 

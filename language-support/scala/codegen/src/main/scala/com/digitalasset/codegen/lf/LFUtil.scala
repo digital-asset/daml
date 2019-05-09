@@ -4,7 +4,7 @@
 package com.digitalasset.codegen.lf
 
 import com.digitalasset.{codegen => parent}
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import parent.dependencygraph.DependencyGraph
 import parent.exception.UnsupportedDamlTypeException
@@ -58,12 +58,14 @@ final case class LFUtil(
 
   // XXX DamlScalaName doesn't depend on packageId at the moment, but
   // there are good reasons to make it do so
-  def mkDamlScalaName(codeGenDeclKind: CodeGenDeclKind, metadataAlias: Identifier): DamlScalaName =
+  def mkDamlScalaName(
+      codeGenDeclKind: CodeGenDeclKind,
+      metadataAlias: Ref.Identifier): DamlScalaName =
     mkDamlScalaName(codeGenDeclKind, metadataAlias.qualifiedName)
 
   def mkDamlScalaName(
       codeGenDeclKind: CodeGenDeclKind,
-      metadataAlias: QualifiedName): DamlScalaName = {
+      metadataAlias: Ref.QualifiedName): DamlScalaName = {
     val (damlNameSpace, name) = qualifiedNameToDirsAndName(metadataAlias)
     mkDamlScalaNameFromDirsAndName(damlNameSpace, name.capitalize)
   }
@@ -199,7 +201,7 @@ final case class LFUtil(
   }
 
   def genTemplateChoiceMethods(
-      choiceId: ChoiceName,
+      choiceId: Ref.ChoiceName,
       choiceInterface: TemplateChoice.FWT): Seq[Tree] = {
     val choiceMethod = TermName(s"exercise$choiceId")
     val choiceParam = choiceInterface.param
@@ -207,7 +209,7 @@ final case class LFUtil(
     def nonunitaryCase(
         ty: IType,
         apn: String,
-        dn: Option[(QualifiedName, ImmArraySeq[FieldWithType])]) =
+        dn: Option[(Ref.QualifiedName, ImmArraySeq[FieldWithType])]) =
       (
         Some(q"$choiceParamName: ${genTypeToScalaType(ty)}"),
         q"_root_.scala.Some(${paramRefAndGenTypeToArgumentValue(choiceParamName, ty)})",
@@ -227,7 +229,7 @@ final case class LFUtil(
             // and only if nominalized, by _-suffixing
             nonunitaryCase(
               choiceParam,
-              "actor".whileDo(na => s"${na}_", orecArgNames),
+              "actor".whileDo(na => s"${na}_", orecArgNames.toSet[String]),
               Some((tyCon.qualifiedName, fields)))
           } getOrElse {
             nonunitaryCase(choiceParam, "actor", None)
@@ -292,13 +294,13 @@ object LFUtil {
     * reserved, and will be escaped again by a second call.  See said
     * spec for details.
     */
-  def escapeReservedName(name: String): String \/ name.type =
+  def escapeReservedName(name: Ref.Name): Ref.Name \/ name.type =
     name match {
-      case reservedNamePrefixes(_*) => -\/(s"${name}_")
+      case reservedNamePrefixes(_*) => -\/(Ref.Name.assertFromString(s"${name}_"))
       case _ => \/-(name)
     }
 
-  def escapeIfReservedName(name: String): String =
+  def escapeIfReservedName(name: Ref.Name): Ref.Name =
     escapeReservedName(name).fold(identity, identity)
 
   private[lf] def generateIds(number: Int, prefix: String): List[Ident] =

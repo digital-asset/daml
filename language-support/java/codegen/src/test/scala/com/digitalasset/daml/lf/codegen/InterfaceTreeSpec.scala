@@ -23,17 +23,17 @@ class InterfaceTreeSpec extends FlatSpec with Matchers {
 
   it should "traverse a tree with n elements in bfs order" in {
     val qualifiedName1 = QualifiedName(
-      DottedName.assertFromStrings(ImmArray("foo")),
-      DottedName.assertFromStrings(ImmArray("bar")))
+      DottedName.assertFromSegments(ImmArray("foo").toSeq),
+      DottedName.assertFromSegments(ImmArray("bar").toSeq))
     val record1 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
     val qualifiedName2 =
       QualifiedName(
-        DottedName.assertFromStrings(ImmArray("foo")),
-        DottedName.assertFromStrings(ImmArray("bar", "baz")))
+        DottedName.assertFromSegments(ImmArray("foo").toSeq),
+        DottedName.assertFromSegments(ImmArray("bar", "baz").toSeq))
     val variant1 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Variant(ImmArraySeq())))
     val qualifiedName3 = QualifiedName(
-      DottedName.assertFromStrings(ImmArray("foo")),
-      DottedName.assertFromStrings(ImmArray("qux")))
+      DottedName.assertFromSegments(ImmArray("foo").toSeq),
+      DottedName.assertFromSegments(ImmArray("qux").toSeq))
     val record2 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
     val typeDecls =
       Map(qualifiedName1 -> record1, qualifiedName2 -> variant1, qualifiedName3 -> record2)
@@ -53,8 +53,8 @@ class InterfaceTreeSpec extends FlatSpec with Matchers {
   it should "permit standalone types with multi-component names" in {
     val bazQuux =
       QualifiedName(
-        DottedName.assertFromStrings(ImmArray("foo", "bar")),
-        DottedName.assertFromStrings(ImmArray("baz", "quux"))
+        DottedName.assertFromSegments(ImmArray("foo", "bar").toSeq),
+        DottedName.assertFromSegments(ImmArray("baz", "quux").toSeq)
       )
     val record = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
 

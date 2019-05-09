@@ -184,13 +184,13 @@ object Pretty {
       case r: model.DamlLfRecord =>
         PrettyObject(r.fields.toList.map(f => {
           val fieldType = damlLfType(f._2, typeDefs, doNotExpand)
-          val label = fieldType._1.fold(f._1)(n => s"${f._1} [$n]")
+          val label = fieldType._1.fold[String](f._1)(n => s"${f._1} [$n]")
           PrettyField(label, fieldType._2)
         }))
       case v: model.DamlLfVariant =>
         PrettyObject(v.fields.toList.map(f => {
           val fieldType = damlLfType(f._2, typeDefs, doNotExpand)
-          val label = fieldType._1.fold(f._1)(n => s"${f._1} [$n]")
+          val label = fieldType._1.fold[String](f._1)(n => s"${f._1} [$n]")
           PrettyField(label, fieldType._2)
         }))
     }

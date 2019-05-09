@@ -7,6 +7,9 @@ import com.digitalasset.daml.lf.data.SortedLookupList
 import com.digitalasset.navigator.model._
 import com.digitalasset.daml.lf.{iface => DamlLfIface}
 import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
+
+import scala.language.implicitConversions
+
 case class DamlConstants()
 
 /**
@@ -21,8 +24,8 @@ case object DamlConstants {
   def defRef(name: String): DamlLfIdentifier = DamlLfIdentifier(
     packageId0,
     DamlLfQualifiedName(
-      DamlLfDottedName.assertFromStrings(DamlLfImmArray("module")),
-      DamlLfDottedName.assertFromStrings(DamlLfImmArray(name))
+      DamlLfDottedName.assertFromString("module"),
+      DamlLfDottedName.assertFromString(name)
     )
   )
   val ref0: DamlLfIdentifier = defRef("T0")
@@ -73,8 +76,8 @@ case object DamlConstants {
   val simpleRecordId: DamlLfIdentifier = defRef("SimpleRecord")
   val simpleRecordGD = DamlLfRecord(
     DamlLfImmArraySeq(
-      "fA" -> DamlLfTypeVar("a"),
-      "fB" -> DamlLfTypeVar("b")
+      name("fA") -> DamlLfTypeVar("a"),
+      name("fB") -> DamlLfTypeVar("b")
     ))
   val simpleRecordGC = DamlLfDefDataType(DamlLfImmArraySeq("a", "b"), simpleRecordGD)
   val simpleRecordTC = DamlLfTypeCon(
@@ -96,8 +99,8 @@ case object DamlConstants {
   val simpleVariantId: DamlLfIdentifier = defRef("SimpleVariant")
   val simpleVariantGD = DamlLfVariant(
     DamlLfImmArraySeq(
-      "fA" -> DamlLfTypeVar("a"),
-      "fB" -> DamlLfTypeVar("b")
+      name("fA") -> DamlLfTypeVar("a"),
+      name("fB") -> DamlLfTypeVar("b")
     ))
   val simpleVariantGC = DamlLfDefDataType(DamlLfImmArraySeq("a", "b"), simpleVariantGD)
   val simpleVariantTC = DamlLfTypeCon(
@@ -115,8 +118,12 @@ case object DamlConstants {
 
   val treeNodeGD = DamlLfRecord(
     DamlLfImmArraySeq(
-      "left" -> DamlLfTypeCon(DamlLfTypeConName(treeId), DamlLfImmArraySeq(DamlLfTypeVar("a"))),
-      "right" -> DamlLfTypeCon(DamlLfTypeConName(treeId), DamlLfImmArraySeq(DamlLfTypeVar("a")))
+      name("left") -> DamlLfTypeCon(
+        DamlLfTypeConName(treeId),
+        DamlLfImmArraySeq(DamlLfTypeVar("a"))),
+      name("right") -> DamlLfTypeCon(
+        DamlLfTypeConName(treeId),
+        DamlLfImmArraySeq(DamlLfTypeVar("a")))
     ))
   val treeNodeGC = DamlLfDefDataType(DamlLfImmArraySeq("a"), treeNodeGD)
   val treeNodeTC = DamlLfTypeCon(
@@ -127,8 +134,10 @@ case object DamlConstants {
 
   val treeGD = DamlLfVariant(
     DamlLfImmArraySeq(
-      "Leaf" -> DamlLfTypeVar("a"),
-      "Node" -> DamlLfTypeCon(DamlLfTypeConName(treeNodeId), DamlLfImmArraySeq(DamlLfTypeVar("a")))
+      name("Leaf") -> DamlLfTypeVar("a"),
+      name("Node") -> DamlLfTypeCon(
+        DamlLfTypeConName(treeNodeId),
+        DamlLfImmArraySeq(DamlLfTypeVar("a")))
     ))
   val treeGC = DamlLfDefDataType(DamlLfImmArraySeq("a"), treeGD)
   val treeTC = DamlLfTypeCon(
@@ -180,23 +189,23 @@ case object DamlConstants {
   val complexRecordId: DamlLfIdentifier = defRef("ComplexRecord")
   val complexRecordGD = DamlLfRecord(
     DamlLfImmArraySeq(
-      "fText" -> simpleTextT,
-      "fBool" -> simpleBoolT,
-      "fDecimal" -> simpleDecimalT,
-      "fUnit" -> simpleUnitT,
-      "fInt64" -> simpleInt64T,
-      "fParty" -> simplePartyT,
-      "fContractId" -> simpleContractIdT,
-      "fListOfText" -> simpleListT(simpleTextT),
-      "fListOfUnit" -> simpleListT(simpleUnitT),
-      "fDate" -> simpleDateT,
-      "fTimestamp" -> simpleTimestampT,
-      "fOptionalText" -> simpleOptionalT(simpleTextT),
-      "fOptionalUnit" -> simpleOptionalT(simpleUnitT),
-      "fOptOptText" -> simpleOptionalT(simpleOptionalT(simpleTextT)),
-      "fMap" -> simpleMapT(simpleInt64T),
-      "fVariant" -> simpleVariantTC,
-      "fRecord" -> simpleRecordTC
+      name("fText") -> simpleTextT,
+      name("fBool") -> simpleBoolT,
+      name("fDecimal") -> simpleDecimalT,
+      name("fUnit") -> simpleUnitT,
+      name("fInt64") -> simpleInt64T,
+      name("fParty") -> simplePartyT,
+      name("fContractId") -> simpleContractIdT,
+      name("fListOfText") -> simpleListT(simpleTextT),
+      name("fListOfUnit") -> simpleListT(simpleUnitT),
+      name("fDate") -> simpleDateT,
+      name("fTimestamp") -> simpleTimestampT,
+      name("fOptionalText") -> simpleOptionalT(simpleTextT),
+      name("fOptionalUnit") -> simpleOptionalT(simpleUnitT),
+      name("fOptOptText") -> simpleOptionalT(simpleOptionalT(simpleTextT)),
+      name("fMap") -> simpleMapT(simpleInt64T),
+      name("fVariant") -> simpleVariantTC,
+      name("fRecord") -> simpleRecordTC
     ))
   val complexRecordGC = DamlLfDefDataType(DamlLfImmArraySeq(), complexRecordGD)
   val complexRecordTC = DamlLfTypeCon(DamlLfTypeConName(complexRecordId), DamlLfImmArraySeq())
@@ -289,4 +298,8 @@ case object DamlConstants {
       treeNodeId.qualifiedName -> treeNodeTemplate
     )
   )
+
+  private implicit def name(s: String): DamlLfRef.Name =
+    DamlLfRef.Name.assertFromString(s)
+
 }
