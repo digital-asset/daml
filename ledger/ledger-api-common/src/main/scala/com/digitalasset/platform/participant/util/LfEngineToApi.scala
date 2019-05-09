@@ -30,6 +30,10 @@ import com.digitalasset.ledger.api.v1.value.{
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 
+import scala.annotation.tailrec
+import scala.collection.IterableLike
+import scala.collection.generic.CanBuildFrom
+
 object LfEngineToApi {
   private[this] type LfValue[+Cid] = Lf[Cid]
 
@@ -109,7 +113,6 @@ object LfEngineToApi {
           .map(list => ApiValue(ApiValue.Sum.Map(ApiMap(list))))
       case Lf.ValueTuple(_) => Left("tuples not allowed")
       case Lf.ValueList(vs) =>
-        import com.digitalasset.daml.lf.transaction.traverseEitherStrictly
         traverseEitherStrictly(vs.toImmArray.toSeq)(lfValueToApiValue(verbose, _)) map { xs =>
           ApiValue(ApiValue.Sum.List(ApiList(xs)))
         }
@@ -128,7 +131,6 @@ object LfEngineToApi {
               )))
         }
       case Lf.ValueRecord(tycon, fields) =>
-        import com.digitalasset.daml.lf.transaction.traverseEitherStrictly
         traverseEitherStrictly(fields.toSeq) { field =>
           lfValueToApiValue(verbose, field._2) map { x =>
             RecordField(
@@ -194,5 +196,23 @@ object LfEngineToApi {
       ledgerEffectiveTime,
       maximumRecordTime,
       cmdss.toSeq)
+  }
+
+  /** This traversal fails the identity law so is unsuitable for [[scalaz.Traverse]].
+    * It is, nevertheless, what is meant sometimes.
+    */
+  private[this] def traverseEitherStrictly[A, B, C, This, That](seq: IterableLike[A, This])(
+      f: A => Either[B, C])(implicit cbf: CanBuildFrom[This, C, That]): Either[B, That] = {
+    val that = cbf()
+    that.sizeHint(seq)
+    val i = seq.iterator
+    @tailrec def lp(): Either[B, That] =
+      if (i.hasNext) f(i.next) match {
+        case Left(b) => Left(b)
+        case Right(c) =>
+          that += c
+          lp()
+      } else Right(that.result)
+    lp()
   }
 }
