@@ -104,6 +104,7 @@ tar xvf ghc-lib-parser-xxx.tar.gz
 tar xvf ghc-lib-xxx.tar.gz
 mv ghc-lib-parser-xxx ghc-lib-parser
 mv ghc-lib-xxx ghc-lib
+sed '$d' stack.yaml > stack.yaml.tmp&&cp stack.yaml.tmp stack.yaml
 cat << EOF >> stack.yaml
 - ghc-lib-parser
 - ghc-lib
