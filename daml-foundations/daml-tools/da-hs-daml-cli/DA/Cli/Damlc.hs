@@ -272,7 +272,6 @@ execPackageNew numProcessors mbOutFile =
                             { optMbPackageName = Just pName
                             , optThreads = numProcessors
                             , optWriteInterface = True
-                            , optIfaceDir = ".interfaces"
                             }
                 loggerH <- getLogger opts "package"
                 let confFile =
@@ -287,7 +286,6 @@ execPackageNew numProcessors mbOutFile =
                         Compiler.buildDar
                             compilerH
                             pMain
-                            ".interfaces"
                             pExposedModules
                             pName
                             pSdkVersion
@@ -427,7 +425,7 @@ execPackage filePath opts mbOutFile dumpPom dalfInput = withProjectRoot $ \relat
         -- We leave the sdk version blank and the list of exposed modules empty.
         -- This command is being removed anytime now and not present
         -- in the new daml assistant.
-        darOrErr <- runExceptT $ Compiler.buildDar compilerH path "./" [] name "" [] dalfInput
+        darOrErr <- runExceptT $ Compiler.buildDar compilerH path [] name "" [] dalfInput
         case darOrErr of
           Left errs
            -> ioError $ userError $ unlines
@@ -555,7 +553,6 @@ optionsParser numProcessors parsePkgName = Compiler.Options
     <*> optPackageDir
     <*> parsePkgName
     <*> optWriteIface
-    <*> optIfaceDir
     <*> optHideAllPackages
     <*> many optPackage
     <*> optShakeProfiling
@@ -582,13 +579,6 @@ optionsParser numProcessors parsePkgName = Compiler.Options
         switch $
           help "Whether to write interface files during type checking, required for building a package such as daml-prim" <>
           long "write-iface"
-
-    optIfaceDir :: Parser FilePath
-    optIfaceDir =
-        strOption $
-        metavar "LOC-OF-INTERFACE-FILES" <> help "where to write interface files to" <>
-        long "interface-dir" <>
-        value "."
 
     optPackage :: Parser (String, [(String, String)])
     optPackage =

@@ -17,6 +17,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSC
 import           System.FilePath
 import System.Directory
 import qualified Codec.Archive.Zip          as Zip
+import DA.Daml.GHC.Compiler.Options
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.
@@ -47,14 +48,13 @@ gernerated separately.
 buildDar ::
   BSL.ByteString
   -> FilePath
-  -> FilePath
   -> [(T.Text, BS.ByteString)]
   -> [FilePath]
   -> [(String, BS.ByteString)]
   -> String
   -> String
   -> IO BS.ByteString
-buildDar dalf modRoot ifaceDir dalfDependencies fileDependencies dataFiles name sdkVersion = do
+buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersion = do
     -- Take all source file dependencies and produced interface files. Only the new package command
     -- produces interface files per default, hence we filter for existent files.
     ifaces <-

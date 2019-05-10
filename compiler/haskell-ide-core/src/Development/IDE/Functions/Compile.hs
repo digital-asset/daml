@@ -149,7 +149,7 @@ typecheckModule opt mod packageState uniqSupply deps pkgs pm =
             setupEnv uniqSupply deps pkgs
             (warnings, tcm) <- withWarnings "Typechecker" $ \tweak ->
                 GHC.typecheckModule pm{pm_mod_summary = tweak $ pm_mod_summary pm}
-            tcm2 <- mkTcModuleResult (WriteInterface $ optWriteIface opt) (optIfaceDir opt) tcm
+            tcm2 <- mkTcModuleResult (WriteInterface $ optWriteIface opt) tcm
             return (warnings, tcm2)
 
 -- | Load a pkg and populate the name cache and external package state.
@@ -268,15 +268,14 @@ newtype WriteInterface = WriteInterface Bool
 mkTcModuleResult
     :: GhcMonad m
     => WriteInterface
-    -> FilePath
     -> TypecheckedModule
     -> m TcModuleResult
-mkTcModuleResult (WriteInterface writeIface) ifaceDir tcm = do
+mkTcModuleResult (WriteInterface writeIface) tcm = do
     session   <- getSession
     nc        <- liftIO $ readIORef (hsc_NC session)
     (iface,_) <- liftIO $ mkIfaceTc session Nothing Sf_None details tcGblEnv
     liftIO $ when writeIface $ do
-        let path = ifaceDir </> file tcm
+        let path = ".interfaces" </> file tcm
         createDirectoryIfMissing True (takeDirectory path)
         writeIfaceFile (hsc_dflags session) (replaceExtension path ".hi") iface
         -- For now, we write .hie files whenever we write .hi files which roughly corresponds to
