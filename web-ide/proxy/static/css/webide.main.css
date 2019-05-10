@@ -53,10 +53,10 @@ div.window-appicon {
   display: none !important;
 }
 
-/*hide the commands widget, this is useful for file navigation but entering '>' allows you to execute any command*/
+/*In case we want to hide the commands widget
 .monaco-quick-open-widget {
   display:none !important;
-}
+}*/
 
 /*hide the actual terminal and debug console*/
 .part.panel.bottom ul.actions-container li.action-item[title*="Debug Console"],
