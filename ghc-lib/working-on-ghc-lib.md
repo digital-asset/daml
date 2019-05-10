@@ -6,7 +6,7 @@ SPDX-License-Identifier: (Apache-2.0 OR BSD-3-Clause)
 If you need to build, test, deploy or develop [`ghc-lib`](https://github.com/digital-asset/ghc-lib) as used by DAML and utilizing the Digital Asset [GHC fork](https://github.com/digital-asset/ghc) these notes are for you.
 
 ## Table of contents
-* [Prequsites](#prequisites)
+* [Prerequisites](#prerequisites)
 * [How to build `ghc` from the DA GHC fork](#how-to-build-ghc-lib-from-the-da-ghc-fork)
 * [How to build `ghc-lib` from the DA GHC fork](#how-to-build-ghc-lib-from-the-da-ghc-fork)
 * [How to test `ghc-lib`](#how-to-test-ghc-lib)
@@ -14,7 +14,7 @@ If you need to build, test, deploy or develop [`ghc-lib`](https://github.com/dig
 * [How to rebase `ghc-lib` on upstream master](#how-to-rebase-ghc-lib-on-upstream-master)
 * [How to develop `ghc-lib`](#how-to-develop-ghc-lib)
 
-## Prequisites
+## Prerequisites
 
 - Download `stack` and other tools:
 ```bash
