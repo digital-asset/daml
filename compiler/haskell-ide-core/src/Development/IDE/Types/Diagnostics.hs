@@ -314,7 +314,7 @@ filterDiagnostics ::
     ProjectDiagnostics stage
 filterDiagnostics keep =
     ProjectDiagnostics .
-    Map.filterWithKey (\file _ -> maybe False keep $ uriToFilePath file) .
+    Map.filterWithKey (\file _ -> maybe True keep $ uriToFilePath file) .
     getStore .
     removeEmptyStages
 
