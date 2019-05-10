@@ -20,7 +20,7 @@ build --experimental_strict_action_env
 test --test_output=errors
 
 # print verbose failures
-build --verbose_failures
+build -s --verbose_failures
 
 # Enable persistent Scala workers to improve compilation times.
 # Refer to https://github.com/bazelbuild/rules_scala#readme for details.
