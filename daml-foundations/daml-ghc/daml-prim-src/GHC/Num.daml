@@ -33,23 +33,23 @@ infixr 8 ^
 infixl 7 /
 infixl 7 %
 
--- | Basic additive class.
--- Instances are expected to respect the following laws:
+-- | Use the `Additive` class for types that can be added.
+-- Instances have to obey the following laws:
 --
--- **Associativity of (+)**:`(x + y) + z` = `x + (y + z)`
---
--- **Commutativity of (+)**: `x + y` = `y + x`
---
--- `x + aunit` = `x`
---
--- `negate` **gives the additive inverse**: `x + negate x` = aunit
+-- - (+) must be associative, ie:`(x + y) + z` = `x + (y + z)`
+-- - (+) must be commutative, ie: `x + y` = `y + x`
+-- - `x + aunit` = `x`
+-- - `negate` gives the additive inverse, ie: `x + negate x` = aunit
 --
 class Additive a  where
     {-# MINIMAL (+), aunit, (negate | (-)) #-}
-    (+), (-)            : a -> a -> a
-    -- Unary negation.
+    -- | Add the first two arguments together
+    (+)                 : a -> a -> a
+    -- | Subtract the second argument from the first argument
+    (-)                 : a -> a -> a
+    -- | Negate the argument: `x + negate x` = the unit for the type
     negate              : a -> a
-
+    -- | The unit for the type. For example, for numbers, this is 0.
     aunit                : a
 
     {-# INLINE (-) #-}
