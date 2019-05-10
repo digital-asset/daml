@@ -34,12 +34,12 @@ infixl 7 /
 infixl 7 %
 
 -- | Use the `Additive` class for types that can be added.
--- Instances have to obey the following laws:
+-- Instances have to follow these rules:
 --
--- - (+) must be associative, ie:`(x + y) + z` = `x + (y + z)`
--- - (+) must be commutative, ie: `x + y` = `y + x`
--- - `x + aunit` = `x`
--- - `negate` gives the additive inverse, ie: `x + negate x` = aunit
+-- * (+) must be associative, ie:`(x + y) + z` = `x + (y + z)`
+-- * (+) must be commutative, ie: `x + y` = `y + x`
+-- * `x + aunit` = `x`
+-- * `negate` gives the additive inverse, ie: `x + negate x` = aunit
 --
 class Additive a  where
     {-# MINIMAL (+), aunit, (negate | (-)) #-}
@@ -47,9 +47,9 @@ class Additive a  where
     (+)                 : a -> a -> a
     -- | Subtract the second argument from the first argument
     (-)                 : a -> a -> a
-    -- | Negate the argument: `x + negate x` = the unit for the type
+    -- | Negate the argument: `x + negate x` = the additive identity for the type
     negate              : a -> a
-    -- | The unit for the type. For example, for numbers, this is 0.
+    -- | The additive identity for the type. For example, for numbers, this is 0.
     aunit                : a
 
     {-# INLINE (-) #-}
@@ -58,37 +58,38 @@ class Additive a  where
     {-# INLINE negate #-}
     negate x            = aunit - x
 
--- | Basic multiplicative class.
--- Instances are expected to respect the following laws:
+-- | Use the `Multiplicative` class for types that can be multiplied.
+-- Instances have to follow these rules:
 --
--- **Associativity of (*)**:`(x * y) * z` = `x * (y * z)`
---
--- **Commutativity of (*)**: `x * y` = `y * x`
---
--- `x * one` = `x`
+-- * (*) is associative, ie:`(x * y) * z` = `x * (y * z)`
+-- * (*) is commutative, ie: `x * y` = `y * x`
+-- * `x * one` = `x`
 --
 class Multiplicative a where
+    -- | Multipy the arguments together
     (*) : a -> a -> a
+    -- | The multiplicative identity for the type. For example, for numbers, this is 1.
     munit : a
     -- | `x ^ n` raises `x` to the power of `n`.
     (^): a -> Int -> a
 
--- | Basic numeric class.
--- Instances are usually expected to respect the following law
--- (in addition to laws from being additive and multiplicative)
+-- | `Number` is a class for basic numerical types.
+-- As well as the rules for `Additive` and `Multiplicative`, instances
+-- also have to follow these rules:
 --
--- **Distributivity of (*) with respect to (+)**:
+-- * (*) is distributive with respect to (+), ie:
 --     `a * (b + c)` = `(a * b) + (a * c)` and `(b + c) * a` = `(b * a) + (c * a)`
 class (Additive a, Multiplicative a) => Number a where
   -- no methods
 
+-- | The `Signed` is for the sign of a number.
 class Signed a where
-    -- Sign of a number.
+    -- | Sign of a number.
     -- For real numbers, the 'signum' is either `-1` (negative), `0` (zero)
     -- or `1` (positive).
     signum : a -> a
 
-    -- | Absolute value.
+    -- | The absolute value - that is, the value without the sign.
     abs : a -> a
 
 instance Additive Int where
@@ -132,11 +133,12 @@ instance Signed Decimal where
     signum x = if x == 0.0 then 0.0 else if x <= 0.0 then (-1.0) else 1.0
     abs x = if x <= 0.0 then negate x else x
 
+-- | The `Fractional` class.
 class (Multiplicative a) => Fractional a where
     -- | `x / y` divides `x` by `y`.
     (/)                 : a -> a -> a
 
-    -- | Calculate the reciprocal: `recip x` is `1/x`.
+    -- | Calculates the reciprocal: `recip x` is `1/x`.
     recip               : a -> a
     x / y               = x * recip y
 
