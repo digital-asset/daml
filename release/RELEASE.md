@@ -1,8 +1,8 @@
 # Making a Release
 
 1. Make a PR that bumps the version number in the `VERSION`
-   file and adds a new header for the new version in
-   `docs/source/support/release-notes.rst`.
+   file and adds a new header and label for the new version in
+   `docs/source/support/release-notes.rst` (see previous releases as examples).
    It is important that the PR only changes `VERSION` and `release-notes.rst`.
 1. "Squash and merge" the PR.
 1. Once CI has passed for the corresponding master build, the release should be
