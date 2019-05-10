@@ -7,7 +7,6 @@ import java.util
 
 import com.digitalasset.daml.lf.data.Decimal.Decimal
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref.Name.classTag
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, SortedLookupList, Time}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
@@ -209,7 +208,7 @@ object SValue {
       case V.ValueUnit => SUnit(())
 
       case V.ValueRecord(Some(id), fs) =>
-        val fields = Array.ofDim[Name](fs.length)
+        val fields = Name.Array.ofDim(fs.length)
         val values = new util.ArrayList[SValue](fields.length)
         fs.foreach {
           case (optk, v) =>
@@ -228,7 +227,7 @@ object SValue {
         throw SErrorCrash("SValue.fromValue: record missing identifier")
 
       case V.ValueTuple(fs) =>
-        val fields = Array.ofDim[Name](fs.length)
+        val fields = Name.Array.ofDim(fs.length)
         val values = new util.ArrayList[SValue](fields.length)
         fs.foreach {
           case (k, v) =>

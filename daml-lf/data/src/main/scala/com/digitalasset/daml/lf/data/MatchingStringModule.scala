@@ -17,14 +17,27 @@ sealed abstract class MatchingStringModule {
   final def assertFromString(s: String): T =
     fromString(s).fold(e => throw new IllegalArgumentException(e), identity)
 
-  implicit def equalInstance: Equal[T]
+  def equalInstance: Equal[T]
 
-  implicit def classTag: ClassTag[T]
+  // We provide the following array factory instead of a ClassTag
+  // because the latter lets people easily reinterpret any string as a T.
+  // See
+  //  * https://github.com/digital-asset/daml/pull/983#discussion_r282513324
+  //  * https://github.com/scala/bug/issues/9565
+  val Array: ArrayFactory[T]
+
+}
+
+sealed abstract class ArrayFactory[T](implicit classTag: ClassTag[T]) {
+
+  def apply(xs: T*): Array[T] = xs.toArray
+
+  def ofDim(n: Int): Array[T] = Array.ofDim(n)
+
+  val empty: Array[T] = ofDim(0)
 }
 
 object MatchingStringModule extends (Regex => MatchingStringModule) {
-
-  private val classTagString = scala.reflect.classTag[String]
 
   override def apply(regex: Regex): MatchingStringModule = new MatchingStringModule {
     type T = String
@@ -34,9 +47,9 @@ object MatchingStringModule extends (Regex => MatchingStringModule) {
     def fromString(s: String): Either[String, T] =
       Either.cond(pattern.matcher(s).matches(), s, s"""string "$s" does not match regex "$regex"""")
 
-    implicit def equalInstance: Equal[T] = scalaz.std.string.stringInstance
+    def equalInstance: Equal[T] = scalaz.std.string.stringInstance
 
-    implicit def classTag: ClassTag[T] = classTagString
+    val Array: ArrayFactory[T] = new ArrayFactory[T] {}
   }
 
 }

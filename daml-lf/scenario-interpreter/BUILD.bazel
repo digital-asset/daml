@@ -18,6 +18,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/lfpackage",

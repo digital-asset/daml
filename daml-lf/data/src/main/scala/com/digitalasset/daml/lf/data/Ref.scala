@@ -3,6 +3,8 @@
 
 package com.digitalasset.daml.lf.data
 
+import scalaz.Equal
+
 object Ref {
 
   /* Location annotation */
@@ -34,6 +36,7 @@ object Ref {
   // In a language like C# you'll need to use some other unicode char for `$`.
   val Name = MatchingStringModule("""[A-Za-z\$_][A-Za-z0-9\$_]*""".r)
   type Name = Name.T
+  implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
 
   final class DottedName private (val segments: ImmArray[Name]) extends Equals {
     def dottedName: String = segments.toSeq.mkString(".")

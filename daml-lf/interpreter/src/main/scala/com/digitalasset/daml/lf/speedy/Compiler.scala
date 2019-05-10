@@ -5,7 +5,6 @@ package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref.Name.classTag
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompileError, PackageNotFound}
@@ -273,10 +272,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         }
       case ERecCon(tApp, fields) =>
         if (fields.isEmpty)
-          SEBuiltin(SBRecCon(tApp.tycon, Array.empty))
+          SEBuiltin(SBRecCon(tApp.tycon, Name.Array.empty))
         else {
           SEApp(
-            SEBuiltin(SBRecCon(tApp.tycon, fields.iterator.map(_._1).toArray)),
+            SEBuiltin(SBRecCon(tApp.tycon, Name.Array(fields.map(_._1).toSeq: _*))),
             fields.iterator.map(f => translate(f._2)).toArray
           )
         }
@@ -293,7 +292,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         )
 
       case ETupleCon(fields) =>
-        SEApp(SEBuiltin(SBTupleCon(fields.iterator.map(_._1).toArray)), fields.iterator.map {
+        SEApp(SEBuiltin(SBTupleCon(Name.Array(fields.map(_._1).toSeq: _*))), fields.iterator.map {
           case (_, e) => translate(e)
         }.toArray)
 
@@ -507,7 +506,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                       observers,
                       SEVar(3) // token
                     )
-                  ) in SBTupleCon(Array(Ast.contractIdFieldName, Ast.contractFieldName))(
+                  ) in SBTupleCon(Name.Array(Ast.contractIdFieldName, Ast.contractFieldName))(
                     SEVar(3), // contract id
                     SEVar(2) // contract
                   )
@@ -1118,7 +1117,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case Some(tmplKey) =>
           SELet(translate(tmplKey.body)) in
             SBSome(
-              SBTupleCon(Array(Ast.keyFieldName, Ast.maintainersFieldName))(
+              SBTupleCon(Name.Array(Ast.keyFieldName, Ast.maintainersFieldName))(
                 SEVar(1), // key
                 SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ ))))
       }

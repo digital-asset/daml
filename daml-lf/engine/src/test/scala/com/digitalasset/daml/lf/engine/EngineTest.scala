@@ -7,7 +7,6 @@ import java.util
 import java.io.File
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref.Name.classTag
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Decode
@@ -328,12 +327,12 @@ class EngineTest extends WordSpec with Matchers {
       translator
         .translateValue(typ, someValue)
         .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldBe
-        Right(SRecord(id, Array[Name]("recField"), ArrayList(SOptional(Some(SText("foo"))))))
+        Right(SRecord(id, Name.Array("recField"), ArrayList(SOptional(Some(SText("foo"))))))
 
       translator
         .translateValue(typ, noneValue)
         .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldBe
-        Right(SRecord(id, Array[Name]("recField"), ArrayList(SOptional(None))))
+        Right(SRecord(id, Name.Array("recField"), ArrayList(SOptional(None))))
 
     }
 

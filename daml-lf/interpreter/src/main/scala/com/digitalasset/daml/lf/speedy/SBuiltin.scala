@@ -7,7 +7,6 @@ import java.security.MessageDigest
 import java.util
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref.Name.classTag
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.lfpackage.Ast._
@@ -310,7 +309,7 @@ object SBuiltin {
   final case object SBMapToList extends SBuiltin(1) {
 
     private val entryFields =
-      Array(Ast.keyFieldName, Ast.valueFieldName)
+      Name.Array(Ast.keyFieldName, Ast.valueFieldName)
 
     private def entry(key: String, value: SValue) = {
       val args = new util.ArrayList[SValue](2)

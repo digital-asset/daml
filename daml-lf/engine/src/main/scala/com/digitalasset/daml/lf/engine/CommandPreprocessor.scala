@@ -7,7 +7,6 @@ import java.util
 
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref.Name.classTag
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Util._
@@ -237,7 +236,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
                             flds =>
                               SRecord(
                                 tyCon,
-                                flds.iterator.map(_._1).toArray,
+                                Name.Array(flds.map(_._1).toSeq: _*),
                                 ArrayList(flds.map(_._2).toSeq: _*)
                             ))
                     }

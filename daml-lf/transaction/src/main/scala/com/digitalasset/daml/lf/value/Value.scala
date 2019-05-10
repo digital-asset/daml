@@ -4,9 +4,8 @@
 package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.archive.LanguageVersion
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Name}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, `Name equal instance`}
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.data.Ref.Name.equalInstance
 
 import scala.annotation.tailrec
 import scalaz.Equal

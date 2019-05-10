@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.lfpackage
 import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
+import com.digitalasset.daml.lf.data.Ref.Name.{assertFromString => id}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Decode.ParseError
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -205,7 +206,5 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
   private val eText = EPrimLit(PLText("some text"))
   private val eUnit = EPrimCon(PCUnit)
   private val eTrue = EPrimCon(PCTrue)
-
-  private def id(s: String) = Name.assertFromString(s)
 
 }
