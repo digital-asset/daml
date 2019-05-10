@@ -8,6 +8,8 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+- DAML Standard Library: Add ``String`` as a compatibility alias for ``Text``.
+
 - Making transaction lookups performant so we can handle such requests for large ledgers as well
 
 - Sandbox: Transactions with a record time that is after the maximum record time (as provided in the original command)

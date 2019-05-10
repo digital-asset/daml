@@ -74,6 +74,9 @@ forM = forA
 {-# DEPRECATED Monad "DAML 1.2 compatibility helper, use 'Action' instead of 'Monad'" #-}
 type Monad = Action
 
+{-# DEPRECATED String "DAML 1.2 compatibility helper, use 'Text' instead of 'String'" #-}
+type String = Text
+
 {-# DEPRECATED MonadFail "DAML 1.2 compatibility helper, use 'ActionFail' instead of 'MonadFail'" #-}
 type MonadFail = ActionFail
 
