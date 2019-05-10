@@ -17,6 +17,19 @@ write-output "DEBUG - PATH: `n`t ${env:PATH}"
 write-output "DEBUG - ENV: `n`n"
 gci env:* | sort-object name
 
+write-output "DEBUG - PS version:"
+$PSVersionTable
+
+write-output "DEBUG - scoop info bazel:"
+scoop info bazel
+
+write-output "BAZEL_SH 1: $env:BAZEL_SH"
+
+write-output "DEBUG - scoop reset bazel:"
+scoop reset bazel
+
+write-output "BAZEL_SH 2: $env:BAZEL_SH"
+
 write-output "DEBUG - END"
 
 
