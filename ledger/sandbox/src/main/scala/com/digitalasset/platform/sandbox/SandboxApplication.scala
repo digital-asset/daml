@@ -53,10 +53,8 @@ object SandboxApplication {
       () => ledgerId,
       () => server.getServer,
       () => materializer.executionContext,
-      () => { //TODO: can this be done in the callback below?
-        stopHeartbeats()
-      },
       () => {
+        stopHeartbeats()
         server.close() // fully tear down the old server.
         buildAndStartServer(SqlStartMode.AlwaysReset)
       },
