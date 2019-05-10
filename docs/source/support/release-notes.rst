@@ -53,6 +53,20 @@ HEAD — ongoing
   - If you are checking for the precense of exercised events when processing ``Transaction`` objects, you can remove that code now.
     It would never have triggered in the first place, as transactions do not contain exercised events.
 
+
+0.12.17 - 2019-05-10
+--------------------
+
+- Making transaction lookups performant so we can handle such requests for large ledgers as well
+
+- **Sandbox**: Transactions with a record time that is after the maximum record time (as provided in the original command) are now properly rejected instead of committed to the ledger.
+
+  See `issue #987 <https://github.com/digital-asset/daml/issues/987>`__ for details.
+
+- **SDK**: The Windows installer no longer requires elevated privileges.
+
+- **DAML Assistant**: The assistant handles network failures gracefully.
+
 .. _release-0-12-16:
 
 0.12.16 - 2019-05-07
