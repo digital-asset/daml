@@ -9,6 +9,8 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- **DAML Standard Library**: Add ``String`` as a compatibility alias for ``Text``.
+
 0.12.17 - 2019-05-10
 --------------------
 
