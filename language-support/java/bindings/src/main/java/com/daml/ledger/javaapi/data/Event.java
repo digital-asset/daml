@@ -4,45 +4,49 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.EventOuterClass;
-import com.digitalasset.ledger.api.v1.TransactionOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.List;
 
 /**
- * @see FlatEvent
- * @see TreeEvent
- * @see <a href="https://github.com/digital-asset/daml/issues/960">#960</a>
- * @deprecated This class is deprecated in favour of the interfaces {@link FlatEvent} used by {@link Transaction}
- * and {@link TreeEvent} used by {@link TransactionTree}.
+ * This interface represents events in {@link Transaction}s.
+ *
+ * @see CreatedEvent
+ * @see ArchivedEvent
+ * @see Transaction
+ *
  */
-@Deprecated
-public abstract class Event {
+public interface Event {
 
-    @NonNull
-    public abstract List<@NonNull String> getWitnessParties();
+    @NonNull List<@NonNull String> getWitnessParties();
 
-    @NonNull
-    public abstract String getEventId();
+    @NonNull String getEventId();
 
-    @NonNull
-    public abstract Identifier getTemplateId();
+    @NonNull Identifier getTemplateId();
 
-    @NonNull
-    public abstract String getContractId();
+    @NonNull String getContractId();
 
-
-    public static TreeEvent fromProtoTreeEvent(TransactionOuterClass.TreeEvent event) {
-        return TreeEvent.fromProtoTreeEvent(event);
+    default EventOuterClass.Event toProtoEvent() {
+        EventOuterClass.Event.Builder eventBuilder = EventOuterClass.Event.newBuilder();
+        if (this instanceof ArchivedEvent) {
+            ArchivedEvent event = (ArchivedEvent) this;
+            eventBuilder.setArchived(event.toProto());
+        } else if (this instanceof CreatedEvent) {
+            CreatedEvent event = (CreatedEvent) this;
+            eventBuilder.setCreated(event.toProto());
+        } else {
+            throw new RuntimeException("this should be ArchivedEvent or CreatedEvent or ExercisedEvent, found " + this.toString());
+        }
+        return eventBuilder.build();
     }
 
-    public static FlatEvent fromProtoEvent(EventOuterClass.Event event) {
-        return FlatEvent.fromProtoEvent(event);
-    }
-}
-
-class UnsupportedEventTypeException extends RuntimeException {
-    public UnsupportedEventTypeException(String eventStr) {
-        super("Unsupported event " + eventStr);
+    static Event fromProtoEvent(EventOuterClass.Event event) {
+        if (event.hasCreated()) {
+            return CreatedEvent.fromProto(event.getCreated());
+        } else if (event.hasArchived()) {
+            return ArchivedEvent.fromProto(event.getArchived());
+        } else {
+            throw new UnsupportedEventTypeException(event.toString());
+        }
     }
 }

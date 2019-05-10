@@ -81,7 +81,7 @@ public class IouMain {
 
         Disposable ignore = client.getTransactionsClient().getTransactions(acsOffset.get(), iouFilter, true)
                 .forEach(t -> {
-                    for (FlatEvent event : t.getEvents()) {
+                    for (Event event : t.getEvents()) {
                         if (event instanceof CreatedEvent) {
                             CreatedEvent createdEvent = (CreatedEvent) event;
                             long id = idCounter.getAndIncrement();

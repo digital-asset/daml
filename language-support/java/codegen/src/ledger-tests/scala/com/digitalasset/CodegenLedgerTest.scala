@@ -18,7 +18,6 @@ import com.daml.ledger.javaapi.data.{
   Event,
   Filter,
   FiltersByParty,
-  FlatEvent,
   GetTransactionsRequest,
   LedgerOffset,
   NoFilter,
@@ -112,8 +111,8 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
             .fromProto(r)
             .getTransactions
             .stream())
-      .flatMap[FlatEvent]((t: Transaction) => t.getEvents.stream)
-      .flatMap[CreatedEvent]((e: FlatEvent) =>
+      .flatMap[Event]((t: Transaction) => t.getEvents.stream)
+      .flatMap[CreatedEvent]((e: Event) =>
         e match {
           case e: CreatedEvent => singletonList(e).stream();
           case _ => Collections.emptyList[CreatedEvent]().stream()

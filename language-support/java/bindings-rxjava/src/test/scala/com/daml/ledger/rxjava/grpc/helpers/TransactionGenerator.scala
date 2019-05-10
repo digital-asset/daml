@@ -247,12 +247,12 @@ object TransactionGenerator {
       )
     )
 
-  val eventGen: Gen[(Event, data.FlatEvent)] =
+  val eventGen: Gen[(Event, data.Event)] =
     Gen.oneOf(createdEventGen, archivedEventGen).map {
       case (scalaEvent, javaEvent) => (Event(scalaEvent), javaEvent)
     }
 
-  def eventsGen: Gen[(List[Event], util.List[data.FlatEvent])] = eventGen.map {
+  def eventsGen: Gen[(List[Event], util.List[data.Event])] = eventGen.map {
     case (scalaEvent, javaEvent) => (List(scalaEvent), List(javaEvent).asJava)
   }
 

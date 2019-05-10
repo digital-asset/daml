@@ -217,7 +217,7 @@ public class LedgerViewFlowable {
                 Transaction transaction = (Transaction) workflowEvent;
                 LedgerView<R> newLedgerView = stateWithShouldEmit.ledgerView;
                 TransactionContext transactionContext = TransactionContext.forTransaction(transaction);
-                for (FlatEvent event : transaction.getEvents()) {
+                for (Event event : transaction.getEvents()) {
                     if (event instanceof CreatedEvent) {
                         CreatedEvent createdEvent = (CreatedEvent) event;
                         R r = transform.apply(new CreatedContract(createdEvent.getTemplateId(), createdEvent.getArguments(), transactionContext));

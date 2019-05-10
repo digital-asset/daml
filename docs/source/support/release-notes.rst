@@ -32,12 +32,10 @@ HEAD — ongoing
   If you check for the presence of ``ExercisedEvent`` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
 - **BREAKING** Java Bindings: Reflect breaking change of Ledger API in the event class hierarchy
 
-  - The ``data.Event`` class is now deprecated.
-  - Added interface ``data.FlatEvent``.
-  - Added interface ``data.TreeEvent``.
-  - ``data.CreatedEvent`` and ``data.ArchivedEvent`` now implement ``data.FlatEvent``.
+  - The ``data.Event`` is now an interface representing events in a flat transaction.
+  - Added interface ``data.TreeEvent``, representing events in a transaction tree.
+  - ``data.CreatedEvent`` and ``data.ArchivedEvent`` now implement ``data.Event``.
   - ``data.CreatedEvent`` and ``data.ExercisedEvent`` now implement ``data.TreeEvent``.
-  - ``data.Transaction#events`` is now ``List<FlatEvent>`` (was previously ``List<Event>``).
   - ``data.TransactionTree#eventsById`` is now ``Map<String, TreeEvent>`` (was previously ``Map<String, Event>``).
 
 .. _release-0-12-16:

@@ -100,7 +100,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       "commandId",
       "workflowId",
       zeroTimestamp,
-      List[FlatEvent](contract1).asJava,
+      List[Event](contract1).asJava,
       "1")
     val testSub = workflowEvents.test()
 
@@ -435,7 +435,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       event.getTemplateId,
       event.getContractId)
 
-  def transaction(events: List[FlatEvent]): Transaction =
+  def transaction(events: List[Event]): Transaction =
     new Transaction(
       "tid",
       s"cid_${random.nextInt()}",
@@ -444,10 +444,10 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       events.asJava,
       events.size.toString)
 
-  def transactionWithOffset(offset: String, events: List[FlatEvent]): Transaction =
+  def transactionWithOffset(offset: String, events: List[Event]): Transaction =
     new Transaction("tid", s"cid_${random.nextInt()}", "wid", zeroTimestamp, events.asJava, offset)
 
-  def transactionArray(events: FlatEvent*): Transaction = transaction(events.toList)
+  def transactionArray(events: Event*): Transaction = transaction(events.toList)
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
