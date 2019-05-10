@@ -45,6 +45,9 @@ type ModuleName = Tagged ModuleNameTag [T.Text]
 data ModuleNameTag
 deriving instance Data ModuleNameTag
 
+moduleNameString :: ModuleName -> T.Text
+moduleNameString = T.intercalate "." . unTagged
+
 -- | Name for a type constructor. Must match the regex
 --
 -- > ([A-Z][a-zA-Z0-9_]*)(\.[A-Z][a-zA-Z0-9_]*)*
