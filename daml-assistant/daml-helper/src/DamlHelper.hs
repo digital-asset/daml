@@ -31,9 +31,11 @@ import Data.Aeson
 import Data.Aeson.Text
 import Data.Maybe
 import Data.List.Extra
+import qualified Data.ByteString as BS
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as T (toStrict)
 import qualified Data.Yaml as Y
+import qualified Data.Yaml.Pretty as Y
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Types as HTTP
 import Network.Socket
@@ -160,6 +162,10 @@ runInit :: Maybe FilePath -> IO ()
 runInit targetFolderM = do
     currentDir <- getCurrentDirectory
     let targetFolder = fromMaybe currentDir targetFolderM
+        targetFolderRel = makeRelative currentDir targetFolder
+        projectConfigRel
+            | targetFolderRel == "." = projectConfigName
+            | otherwise = targetFolderRel </> projectConfigName
 
     -- case 1 or 2
     unlessM (doesDirectoryExist targetFolder) $ do
@@ -198,8 +204,8 @@ runInit targetFolderM = do
     -- cases 5 or 6
     daProjectRootM <- findDaProjectRoot targetFolderAbs
     whenJust daProjectRootM $ \projectRoot -> do -- cases 3 or 4 above
-        let projectRootRel = makeRelative currentDir projectRoot
         when (targetFolderAbs /= projectRoot) $ do
+            let projectRootRel = makeRelative currentDir projectRoot
             hPutStr stderr $ unlines
                 [ "ERROR: daml init target is not DA project root."
                 , "    daml init target  = " <> targetFolder
@@ -210,14 +216,20 @@ runInit targetFolderM = do
                 ]
             exitFailure
 
-        putStrLn $ unlines
-            [ "Detected DA project at " <> projectRootRel
-            , "Migrating da.yaml to daml.yaml"
-            ]
-
         let legacyConfigPath = projectRoot </> legacyConfigName
+            legacyConfigRel
+                | targetFolderRel == "." = legacyConfigName
+                | otherwise = targetFolderRel </> legacyConfigName
+
         daYaml <- requiredE ("Failed to parse " <> T.pack legacyConfigPath) =<<
             Y.decodeFileEither (projectRoot </> legacyConfigName)
+
+
+        putStr $ unlines
+            [ "Detected DA project."
+            , "Migrating " <> legacyConfigRel <> " to " <> projectConfigRel
+            ]
+
 
         let getField :: Y.FromJSON t => T.Text -> IO t
             getField name =
@@ -231,9 +243,11 @@ runInit targetFolderM = do
         let newProjSdkVersion = max projSdkVersion minimumSdkVersion
 
         when (projSdkVersion < minimumSdkVersion) $ do
-            putStrLn $ unlines
-                [ "WARNING: da.yaml SDK version " <> versionToString projSdkVersion <> " is too old for the new"
+            putStr $ unlines
+                [ ""
+                , "WARNING: da.yaml SDK version " <> versionToString projSdkVersion <> " is too old for the new"
                 , "assistant, so daml.yaml will use SDK version " <> versionToString newProjSdkVersion <> " instead."
+                , ""
                 ]
 
         projSource :: T.Text <- getField "source"
@@ -241,7 +255,7 @@ runInit targetFolderM = do
         projName :: T.Text <- getField "name"
         projScenario :: T.Text <- getField "scenario"
 
-        Y.encodeFile (projectRoot </> projectConfigName) $ Y.object
+        BS.writeFile (projectRoot </> projectConfigName) . Y.encodePretty yamlConfig $ Y.object
             [ ("sdk-version", Y.String (versionToText newProjSdkVersion))
             , ("name", Y.String projName)
             , ("source", Y.String projSource)
@@ -252,23 +266,13 @@ runInit targetFolderM = do
             , ("dependencies", Y.array [Y.String "daml-prim", Y.String "daml-stdlib"])
             ]
 
-        putStrLn $ concat
-            [ "Initialized "
-            , projectRoot </> projectConfigName
-            , " based on "
-            , projectRoot </> legacyConfigName
-            ]
 
+        putStrLn ("Done! Please verify " <> projectConfigRel)
         exitSuccess
 
 
-
     -- case 7
-    let targetFolderRel = makeRelative currentDir targetFolder
-        projectConfigRel = targetFolderRel </> projectConfigName
-
-    putStrLn ("No existing DA or DAML project detected, creating "
-        <> projectConfigRel <> " from scratch.")
+    putStrLn ("Generating " <> projectConfigRel)
 
     currentSdkVersion <- getSdkVersion
 
@@ -278,7 +282,7 @@ runInit targetFolderM = do
         source = fromMaybe "daml/Main.daml" sourceM
         name = takeFileName (dropTrailingPathSeparator targetFolderAbs)
 
-    Y.encodeFile (targetFolder </> projectConfigName) $ Y.object
+    BS.writeFile (targetFolder </> projectConfigName) . Y.encodePretty yamlConfig $ Y.object
         [ ("sdk-version", Y.String (T.pack currentSdkVersion))
         , ("name", Y.String (T.pack name))
         , ("source", Y.String (T.pack source))
@@ -289,9 +293,9 @@ runInit targetFolderM = do
         , ("dependencies", Y.array [Y.String "daml-prim", Y.String "daml-stdlib"])
         ]
 
-    putStrLn $ unlines
-        [ "Initialized project '" <> name <> "'."
-        , "Generated " <> projectConfigRel <> " to adjust the project config."
+    putStr $ unlines
+        [ "Initialized project " <> name
+        , "Done! Please verify " <> projectConfigRel
         ]
 
 
@@ -319,6 +323,24 @@ runInit targetFolderM = do
         getMinimumSdkVersion =
             requiredE "BUG: Expected 0.12.15 to be valid SDK version" $
               parseVersion "0.12.15"
+
+        fieldOrder :: [T.Text]
+        fieldOrder =
+            [ "sdk-version"
+            , "name"
+            , "version"
+            , "source"
+            , "scenario"
+            , "parties"
+            , "exposed-modules"
+            , "dependencies"
+            ]
+
+        fieldNameCompare :: T.Text -> T.Text -> Ordering
+        fieldNameCompare a b = compare (elemIndex a fieldOrder) (elemIndex b fieldOrder)
+
+        yamlConfig :: Y.Config
+        yamlConfig = Y.setConfCompare fieldNameCompare Y.defConfig
 
 
 runNew :: FilePath -> String -> IO ()
