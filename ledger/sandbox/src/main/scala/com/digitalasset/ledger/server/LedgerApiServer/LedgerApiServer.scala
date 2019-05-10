@@ -130,9 +130,6 @@ class LedgerApiServer(
     this
   }
 
-  def closeAllServices(): Unit =
-    apiServices.close()
-
   private def createEventLoopGroup(threadPoolName: String): NioEventLoopGroup = {
     val threadFactory =
       new DefaultThreadFactory(s"$threadPoolName-grpc-eventloop-${UUID.randomUUID}", true)
@@ -141,7 +138,7 @@ class LedgerApiServer(
   }
 
   override def close(): Unit = {
-    closeAllServices()
+    apiServices.close()
     ledgerBackend.close()
     Option(grpcServer).foreach { s =>
       s.shutdownNow()

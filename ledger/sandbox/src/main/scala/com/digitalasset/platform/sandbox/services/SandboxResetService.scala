@@ -54,7 +54,7 @@ class SandboxResetService(
     logger.info("Initiating server reset.")
     server.shutdown()
     logger.info("Closing all services...")
-    closeAllServices()
+    //closeAllServices()
 
     // We need to run this asynchronously since otherwise we have a deadlock: `buildAndStartServer` will block
     // until all the in flight requests have been served, so we need to schedule this in another thread so that
