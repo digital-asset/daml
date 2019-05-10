@@ -78,12 +78,11 @@ Java Bindings
 
 - **SDK**: The Windows installer no longer requires elevated privileges.
 
-- **DAML Assistant**: The assistant handles network failures gracefully.
-
-.. _release-0-12-16:
-- We've built a new and improved version of the SDK assistant, replacing ``da`` commands with ``daml`` commands.
+- **DAML Assistant**: We've built a new and improved version of the SDK assistant, replacing ``da`` commands with ``daml`` commands.
 
   For a full guide to what's changed and how to migrate, see :doc:`/support/new-assistant`. To read about how to use the new ``daml`` Assistant, see :doc:`/tools/assistant`.
+
+.. _release-0-12-16:
 
 0.12.16 - 2019-05-07
 --------------------
