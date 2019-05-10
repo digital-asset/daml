@@ -83,6 +83,10 @@ Ledger
 - Renamed ``--jdbcurl`` to ``--sql-backend-jdbcurl``. Left ``--jdbcurl`` in place for backwards compat.
 - Fixed issue when loading scenarios making use of ``pass`` into the sandbox, see
   `#1079 <https://github.com/digital-asset/daml/pull/1079>`_.
+- Fixed issue when loading scenarios that involve contract divulgence, see
+  `#1166 <https://github.com/digital-asset/daml/issues/1166>`_.
+- Contract visibility is now properly checked when looking up contracts in the SQL backend, see
+  `#784 <https://github.com/digital-asset/daml/issues/784>`_.
 
 .. _release-0-12-17:
 
