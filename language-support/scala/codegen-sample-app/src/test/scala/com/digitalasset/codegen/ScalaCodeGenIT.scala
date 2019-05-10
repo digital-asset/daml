@@ -30,10 +30,9 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.SandboxApplication
-import com.digitalasset.platform.sandbox.SandboxApplication.SandboxServer
-import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
+
+import com.digitalasset.platform.sandbox.SandboxServer
+import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, LedgerIdMode, SandboxConfig}
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.sample.EventDecoder
 import com.digitalasset.sample.MyMain.NameClashRecordVariant.NameClashRecordVariantA
@@ -105,8 +104,7 @@ class ScalaCodeGenIT
     ledgerIdMode = LedgerIdMode.Static(ledgerId),
   )
 
-  private val sandbox: SandboxServer = SandboxApplication(serverConfig)
-  sandbox.start()
+  private val sandbox: SandboxServer = SandboxServer(serverConfig)
 
   private val applicationId = ledgerId + "-client"
   private val decoder: DecoderType = EventDecoder.createdEventToContractRef

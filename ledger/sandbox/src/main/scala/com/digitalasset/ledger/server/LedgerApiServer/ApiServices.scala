@@ -14,8 +14,8 @@ import com.digitalasset.ledger.backend.api.v1.LedgerBackend
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.api.grpc.GrpcApiUtil
 import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
-import com.digitalasset.platform.sandbox.services.transaction.SandboxTransactionService
 import com.digitalasset.platform.sandbox.services._
+import com.digitalasset.platform.sandbox.services.transaction.SandboxTransactionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ReferenceCommandService
@@ -26,27 +26,32 @@ import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import org.slf4j.LoggerFactory
 
+import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 
 trait ApiServices extends AutoCloseable {
   val services: Iterable[BindableService]
+
+  def withServices(otherServices: immutable.Seq[BindableService]): ApiServices
 }
 
-private class ApiServicesBundle(val services: Iterable[BindableService]) extends ApiServices {
+private case class ApiServicesBundle(services: immutable.Seq[BindableService]) extends ApiServices {
 
   override def close(): Unit =
     services.foreach {
       case closeable: AutoCloseable => closeable.close()
       case _ => ()
     }
+
+  override def withServices(otherServices: immutable.Seq[BindableService]): ApiServices =
+    copy(services = services.++:(otherServices))
+
 }
 
 object ApiServices {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  //TODO: we can split this into two later
-  //TODO: we could create and easy combinator for merging them
   def create(
       config: SandboxConfig,
       ledgerBackend: LedgerBackend,
@@ -147,11 +152,6 @@ object ApiServices {
         commandService,
         activeContractsService,
         reflectionService
-      )) {
-      override def close(): Unit = {
-        super.close()
-        ledgerBackend.close()
-      }
-    }
+      ))
   }
 }

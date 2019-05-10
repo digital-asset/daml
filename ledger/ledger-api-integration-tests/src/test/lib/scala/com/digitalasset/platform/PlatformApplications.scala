@@ -94,22 +94,20 @@ object PlatformApplications {
     }
   }
 
-  def sandboxApplication(config: Config, jdbcUrl: Option[String]) = {
+  def sandboxConfig(config: Config, jdbcUrl: Option[String]) = {
     val selectedPort = 0
 
-    SandboxApplication(
-      SandboxConfig(
-        address = None,
-        port = selectedPort,
-        damlPackageContainer = DamlPackageContainer(config.darFiles.map(_.toFile)),
-        timeProviderType = config.timeProviderType,
-        timeModel = config.timeModel,
-        commandConfig = config.commandConfiguration,
-        scenario = None,
-        tlsConfig = None,
-        ledgerIdMode = config.ledgerId,
-        jdbcUrl = jdbcUrl
-      )
+    SandboxConfig(
+      address = None,
+      port = selectedPort,
+      damlPackageContainer = DamlPackageContainer(config.darFiles.map(_.toFile)),
+      timeProviderType = config.timeProviderType,
+      timeModel = config.timeModel,
+      commandConfig = config.commandConfiguration,
+      scenario = None,
+      tlsConfig = None,
+      ledgerIdMode = config.ledgerId,
+      jdbcUrl = jdbcUrl
     )
   }
 }

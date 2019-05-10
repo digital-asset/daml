@@ -118,8 +118,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
         )
     }
 
-  override def close(): Unit =
-    ledger.close()
+  override def close(): Unit = {} // nothing to close here as we do not own Ledger
 
   private def toAcceptedTransaction(offset: Long, t: LedgerEntry.Transaction) = t match {
     case LedgerEntry.Transaction(

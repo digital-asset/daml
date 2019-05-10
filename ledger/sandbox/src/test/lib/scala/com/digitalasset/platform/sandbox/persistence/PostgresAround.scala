@@ -9,10 +9,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 
 import com.digitalasset.ledger.api.testing.utils.Resource
-import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.{
-  HikariJdbcConnectionProvider,
-  JdbcConnectionProvider
-}
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 
@@ -55,11 +51,7 @@ trait PostgresAroundEach extends PostgresAround with BeforeAndAfterEach {
 
 }
 
-case class PostgresFixture(
-    jdbcUrl: String,
-    connectionProvider: JdbcConnectionProvider,
-    tempDir: Path,
-    dataDir: Path)
+case class PostgresFixture(jdbcUrl: String, tempDir: Path, dataDir: Path)
 
 private class PostgresResource extends Resource[PostgresFixture] with PostgresAround {
 
@@ -154,9 +146,8 @@ trait PostgresAround {
       createTestDatabase()
 
       val jdbcUrl = s"jdbc:postgresql://localhost:$postgresPort/test?user=$testUser"
-      val connectionProvider = HikariJdbcConnectionProvider(jdbcUrl, 4, 4)
 
-      PostgresFixture(jdbcUrl, connectionProvider, tempDir, dataDir)
+      PostgresFixture(jdbcUrl, tempDir, dataDir)
     } catch {
       case NonFatal(e) =>
         deleteTempFolder(tempDir)

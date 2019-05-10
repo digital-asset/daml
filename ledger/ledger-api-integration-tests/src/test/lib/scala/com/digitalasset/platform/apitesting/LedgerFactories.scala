@@ -12,7 +12,7 @@ import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.platform.PlatformApplications
 import com.digitalasset.platform.apitesting.LedgerFactories.SandboxStore.InMemory
 import com.digitalasset.platform.damllf.PackageParser
-import com.digitalasset.platform.sandbox.SandboxApplication.SandboxServer
+import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresResource}
 
 import scala.util.control.NonFatal
@@ -60,15 +60,15 @@ object LedgerFactories {
       implicit esf: ExecutionSequencerFactory): Resource[LedgerContext.SingleChannelContext] = {
     val packageIds = config.darFiles.map(getPackageIdOrThrow)
 
-    def createResource(server: SandboxServer) =
-      SandboxServerResource(server).map {
+    def createResource(sandboxConfig: SandboxConfig) =
+      SandboxServerResource(sandboxConfig).map {
         case PlatformChannels(channel) =>
           LedgerContext.SingleChannelContext(channel, config.ledgerId, packageIds)
       }
 
     store match {
       case SandboxStore.InMemory =>
-        createResource(PlatformApplications.sandboxApplication(config, None))
+        createResource(PlatformApplications.sandboxConfig(config, None))
       case SandboxStore.Postgres =>
         new Resource[LedgerContext.SingleChannelContext] {
           @volatile
@@ -83,7 +83,7 @@ object LedgerFactories {
             postgres = PostgresResource()
             postgres.setup()
             sandbox = createResource(
-              PlatformApplications.sandboxApplication(config, Some(postgres.value.jdbcUrl)))
+              PlatformApplications.sandboxConfig(config, Some(postgres.value.jdbcUrl)))
             sandbox.setup()
           }
 
