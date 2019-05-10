@@ -10,10 +10,10 @@
     }
   },
   "depends": [
-    "msys2-20180531",
+    "msys2",
     "vcredist-14.0.23026"
   ],
   "env_set": {
-    "BAZEL_SH": "$(appdir msys2-20180531)\\current\\usr\\bin\\bash.exe"
+    "BAZEL_SH": "$(appdir msys2)\\current\\usr\\bin\\bash.exe"
   }
 }
