@@ -169,8 +169,6 @@ runInit targetFolderM = do
 
     -- case 1 or 2
     unlessM (doesDirectoryExist targetFolder) $ do
-        let targetFolderRel = makeRelative currentDir targetFolder
-
         whenM (doesFileExist targetFolder) $ do
             hPutStrLn stderr $ unlines
                 [ "ERROR: daml init target should be a directory, but is a file."
