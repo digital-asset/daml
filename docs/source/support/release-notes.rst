@@ -64,10 +64,12 @@ Java Bindings
   In this case ``MyTemplate`` is a DAML template with a choice ``Accept`` and the resulting command will create a contract and exercise the ``Accept`` choice within the same transaction.
 
   See `issue #1092 <https://github.com/digital-asset/daml/issues/1092>`__ for details.
+
 Ledger
 ~~~~~~
 
-- Renamed ``--jdbcurl`` to ``--postgres-backend``. Left ``--jdbcurl`` in place for backwards compat.
+
+- Renamed ``--jdbcurl`` to ``--sql-backend-jdbcurl``. Left ``--jdbcurl`` in place for backwards compat.
 - Fixed issue when loading scenarios making use of ``pass`` into the sandbox, see
   `#1079 <https://github.com/digital-asset/daml/pull/1079>`_.
 
@@ -89,7 +91,6 @@ Ledger
   For a full guide to what's changed and how to migrate, see :doc:`/support/new-assistant`. To read about how to use the new ``daml`` Assistant, see :doc:`/tools/assistant`.
 
 .. _release-0-12-16:
-- Renamed ``--jdbcurl`` to ``--postgres-backend``. Left ``--jdbcurl`` in place for backwards compat.
 
 0.12.16 - 2019-05-07
 --------------------

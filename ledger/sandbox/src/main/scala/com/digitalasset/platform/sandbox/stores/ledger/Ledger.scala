@@ -9,6 +9,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -20,10 +21,10 @@ import com.digitalasset.ledger.backend.api.v1.{
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 
-import scala.collection.immutable
 import scala.concurrent.Future
 
 /** Defines all the functionalities a Ledger needs to provide */
@@ -66,7 +67,7 @@ object Ledger {
       ledgerId: String,
       timeProvider: TimeProvider,
       acs: ActiveContractsInMemory,
-      ledgerEntries: Seq[LedgerEntry]): Ledger =
+      ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Ledger =
     new InMemoryLedger(ledgerId, timeProvider, acs, ledgerEntries)
 
   /**
@@ -84,18 +85,11 @@ object Ledger {
       jdbcUrl: String,
       ledgerId: String,
       timeProvider: TimeProvider,
-      ledgerEntries: Seq[LedgerEntry],
+      ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int,
       startMode: SqlStartMode
   )(implicit mat: Materializer, mm: MetricsManager): Future[Ledger] =
-    //TODO (robert): casting from Seq to immutable.Seq, make ledgerEntries immutable throughout the Sandbox?
-    SqlLedger(
-      jdbcUrl,
-      Some(ledgerId),
-      timeProvider,
-      immutable.Seq(ledgerEntries: _*),
-      queueDepth,
-      startMode)
+    SqlLedger(jdbcUrl, Some(ledgerId), timeProvider, ledgerEntries, queueDepth, startMode)
 
   /** Wraps the given Ledger adding metrics around important calls */
   def metered(ledger: Ledger)(implicit mm: MetricsManager): Ledger = MeteredLedger(ledger)

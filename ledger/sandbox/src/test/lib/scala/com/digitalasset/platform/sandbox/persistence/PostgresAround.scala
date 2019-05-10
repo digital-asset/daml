@@ -22,13 +22,17 @@ trait PostgresAroundAll extends PostgresAround with BeforeAndAfterAll {
   self: org.scalatest.Suite =>
 
   override protected def beforeAll(): Unit = {
-    super.beforeAll()
+    // we start pg before running the rest because _generally_ the database
+    // needs to be up before everything else. this is relevant for
+    // ScenarioLoadingITPostgres at least. we could much with the mixin
+    // order but this was easier...
     postgresFixture = startEphemeralPg()
+    super.beforeAll()
   }
 
   override protected def afterAll(): Unit = {
-    stopAndCleanUp(postgresFixture.tempDir, postgresFixture.dataDir)
     super.afterAll()
+    stopAndCleanUp(postgresFixture.tempDir, postgresFixture.dataDir)
   }
 }
 
@@ -36,13 +40,17 @@ trait PostgresAroundEach extends PostgresAround with BeforeAndAfterEach {
   self: org.scalatest.Suite =>
 
   override protected def beforeEach(): Unit = {
-    super.beforeEach()
+    // we start pg before running the rest because _generally_ the database
+    // needs to be up before everything else. this is relevant for
+    // ScenarioLoadingITPostgres at least. we could much with the mixin
+    // order but this was easier...
     postgresFixture = startEphemeralPg()
+    super.beforeEach()
   }
 
   override protected def afterEach(): Unit = {
-    stopAndCleanUp(postgresFixture.tempDir, postgresFixture.dataDir)
     super.afterEach()
+    stopAndCleanUp(postgresFixture.tempDir, postgresFixture.dataDir)
   }
 
 }
