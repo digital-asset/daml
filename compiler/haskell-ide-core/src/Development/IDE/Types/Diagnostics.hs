@@ -29,11 +29,9 @@ module Development.IDE.Types.Diagnostics (
   showDiagnosticsColored,
   prettyDiagnosticStore,
   defDiagnostic,
-  addDiagnostics,
-  filterSeriousErrors,
   filePathToUri,
   getDiagnosticsFromStore,
-  Diagnostics,
+  ProjectDiagnostics,
   emptyDiagnostics,
   setStageDiagnostics,
   getStageDiagnostics,
@@ -48,7 +46,6 @@ import Data.Either.Combinators
 import Data.Maybe as Maybe
 import Data.Foldable
 import qualified Data.Map as Map
-import Data.String (IsString)
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
 import qualified Data.Text as T
@@ -109,28 +106,6 @@ defDiagnostic _range _message = LSP.Diagnostic {
   , _source = Nothing
   , _relatedInformation = Nothing
   }
-
-filterSeriousErrors ::
-    FilePath ->
-    [LSP.Diagnostic] ->
-    [LSP.Diagnostic]
-filterSeriousErrors fp =
-    filter (maybe False hasSeriousErrors . LSP._relatedInformation)
-    where
-        hasSeriousErrors :: List DiagnosticRelatedInformation -> Bool
-        hasSeriousErrors (List a) = any ((/=) uri . _uri . _location) a
-        uri = LSP.filePathToUri fp
-
-addDiagnostics ::
-  FilePath ->
-  [LSP.Diagnostic] ->
-  DiagnosticStore -> DiagnosticStore
-addDiagnostics fp diags ds =
-    updateDiagnostics
-    ds
-    (LSP.filePathToUri fp)
-    Nothing $
-    partitionBySource diags
 
 ideTryIOException :: FilePath -> IO a -> IO (Either FileDiagnostic a)
 ideTryIOException fp act =
@@ -200,25 +175,13 @@ getDiagnosticsFromStore :: StoreItem -> [Diagnostic]
 getDiagnosticsFromStore (StoreItem _ diags) =
     toList =<< Map.elems diags
 
--- | A wrapper around the lsp diagnostics store, the constraint describes how compilation steps
---   are represented
-newtype Diagnostics stage = Diagnostics {getStore :: DiagnosticStore}
+-- | This represents every diagnostic in a LSP project, the stage type variable is
+--   the type of the compiler stages, in this project that is always the Key data
+--   type found in Development.IDE.State.Shake
+newtype ProjectDiagnostics stage = ProjectDiagnostics {getStore :: DiagnosticStore}
     deriving Show
 
-instance Semigroup (Diagnostics stage) where
-    (Diagnostics a) <> (Diagnostics b) =
-        Diagnostics $
-        Map.unionWith (curry combineStores)
-        a b where
-        combineStores = \case
-            (StoreItem Nothing x, StoreItem Nothing y) ->
-                StoreItem Nothing $ Map.unionWith SL.union x y
-            _ -> noVersions
-
-instance Monoid (Diagnostics k) where
-    mempty = emptyDiagnostics
-
-prettyDiagnostics :: Diagnostics stage -> Doc SyntaxClass
+prettyDiagnostics :: ProjectDiagnostics stage -> Doc SyntaxClass
 prettyDiagnostics ds =
     slabel_ "Compiler errors in" $ vcat $ concatMap fileErrors storeContents where
 
@@ -237,19 +200,16 @@ prettyDiagnostics ds =
         -- ^ Source File, Stage Source, Diags
     storeContents =
         map (\(uri, StoreItem _ si) ->
-                 (fromMaybe dontKnow $ uriToFilePath uri, getDiags si))
+                 (fromMaybe noFilePath $ uriToFilePath uri, getDiags si))
             $ Map.assocs
             $ getStore
             $ removeEmptyStages ds
 
-    dontKnow :: IsString s => s
-    dontKnow = "<unknown>"
-
     getDiags :: DiagnosticsBySource -> [(T.Text, [LSP.Diagnostic])]
-    getDiags = map (\(ds, diag) -> (fromMaybe dontKnow ds, toList diag)) . Map.assocs
+    getDiags = map (\(ds, diag) -> (fromMaybe (T.pack noFilePath) ds, toList diag)) . Map.assocs
 
-emptyDiagnostics :: Diagnostics stage
-emptyDiagnostics = Diagnostics mempty
+emptyDiagnostics :: ProjectDiagnostics stage
+emptyDiagnostics = ProjectDiagnostics mempty
 
 -- | Sets the diagnostics for a file and compilation step
 --   if you want to clear the diagnostics call this with an empty list
@@ -260,14 +220,14 @@ setStageDiagnostics ::
   -- ^ the time that the file these diagnostics originate from was last edited
   stage ->
   [LSP.Diagnostic] ->
-  Diagnostics stage ->
-  IO (Diagnostics stage)
-setStageDiagnostics fp timeM stage diags (Diagnostics ds) = do
+  ProjectDiagnostics stage ->
+  IO (ProjectDiagnostics stage)
+setStageDiagnostics fp timeM stage diags (ProjectDiagnostics ds) = do
     uri <- toUri fp
     let thisFile = Map.lookup uri ds
         addedStage :: StoreItem
         addedStage = StoreItem (Just posixTime) $ storeItem thisFile
-    pure $ Diagnostics $ Map.insert uri addedStage ds where
+    pure $ ProjectDiagnostics $ Map.insert uri addedStage ds where
 
     storeItem :: Maybe StoreItem -> DiagnosticsBySource
     storeItem = \case
@@ -308,7 +268,7 @@ setStageDiagnostics fp timeM stage diags (Diagnostics ds) = do
 
 noVersions :: HasCallStack => a
 noVersions =
-    error "All store items must have versions"
+    error "Found a StoreItem without a version, all StoreItems must have versions"
 
 fromUri :: LSP.Uri -> FilePath
 fromUri = fromMaybe noFilePath . uriToFilePath
@@ -320,14 +280,14 @@ toUri :: FilePath -> IO LSP.Uri
 toUri = fmap filePathToUri . canonicalizePath
 
 getAllDiagnostics ::
-    Diagnostics stage ->
+    ProjectDiagnostics stage ->
     [FileDiagnostic]
 getAllDiagnostics =
     concatMap (\(k,v) -> map (fromUri k,) $ getDiagnosticsFromStore v) . Map.toList . getStore
 
 getFileDiagnostics ::
     FilePath ->
-    Diagnostics stage ->
+    ProjectDiagnostics stage ->
     IO [LSP.Diagnostic]
 getFileDiagnostics fp ds = do
     uri <- toUri fp
@@ -340,9 +300,9 @@ getStageDiagnostics ::
     Show stage =>
     FilePath ->
     stage ->
-    Diagnostics stage ->
+    ProjectDiagnostics stage ->
     IO [LSP.Diagnostic]
-getStageDiagnostics fp stage (Diagnostics ds) = do
+getStageDiagnostics fp stage (ProjectDiagnostics ds) = do
     uri <- toUri fp
     pure $ fromMaybe [] $ do
         (StoreItem _ f) <- Map.lookup uri ds
@@ -350,19 +310,19 @@ getStageDiagnostics fp stage (Diagnostics ds) = do
 
 filterDiagnostics ::
     (FilePath -> Bool) ->
-    Diagnostics stage ->
-    Diagnostics stage
+    ProjectDiagnostics stage ->
+    ProjectDiagnostics stage
 filterDiagnostics keep =
-    Diagnostics .
+    ProjectDiagnostics .
     Map.filterWithKey (\file _ -> maybe False keep $ uriToFilePath file) .
     getStore .
     removeEmptyStages
 
 removeEmptyStages ::
-    Diagnostics key ->
-    Diagnostics ke
+    ProjectDiagnostics key ->
+    ProjectDiagnostics ke
 removeEmptyStages =
-    Diagnostics .
+    ProjectDiagnostics .
     Map.filter (not . null . getDiagnosticsFromStore) .
     Map.map (\(StoreItem s stages) -> StoreItem s $ Map.filter (not . null) stages ) .
     getStore

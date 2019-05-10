@@ -76,7 +76,7 @@ data ShakeExtras = ShakeExtras
     ,logger :: Logger.Handle
     ,globals :: Var (Map.HashMap TypeRep Dynamic)
     ,state :: Var Values
-    ,diagnostics :: Var (Diagnostics Key)
+    ,diagnostics :: Var (ProjectDiagnostics Key)
     }
 
 getShakeExtras :: Action ShakeExtras
@@ -271,7 +271,7 @@ getAllDiagnostics IdeState{shakeExtras = ShakeExtras{diagnostics}} = do
 -- | FIXME: This function is temporary! Only required because the files of interest doesn't work
 unsafeClearAllDiagnostics :: IdeState -> IO ()
 unsafeClearAllDiagnostics IdeState{shakeExtras = ShakeExtras{diagnostics}} =
-    writeVar diagnostics mempty
+    writeVar diagnostics emptyDiagnostics
 
 -- | Clear the results for all files that do not match the given predicate.
 garbageCollect :: (FilePath -> Bool) -> Action ()
@@ -392,15 +392,15 @@ updateFileDiagnostics ::
   -> [Diagnostic] -- ^ current results
   -> Action ()
 updateFileDiagnostics fp k extras@ShakeExtras{diagnostics} current = do
-    (newFD, oldFD) <- liftIO $ do
+    (newDiags, oldDiags) <- liftIO $ do
         modTime <- useStale extras GetModificationTime fp
         modifyVar diagnostics $ \old -> do
-            oldFD <- getFileDiagnostics fp old
+            oldDiags <- getFileDiagnostics fp old
             new <- setStageDiagnostics fp modTime k current old
-            newFD <- getFileDiagnostics fp new
-            pure (new, (newFD, oldFD))
-    when (newFD /= oldFD) $
-        sendEvent $ EventFileDiagnostics $ (fp, newFD)
+            newDiags <- getFileDiagnostics fp new
+            pure (new, (newDiags, oldDiags))
+    when (newDiags /= oldDiags) $
+        sendEvent $ EventFileDiagnostics $ (fp, newDiags)
 
 
 setPriority :: (Enum a) => a -> Action ()
