@@ -18,12 +18,20 @@ steps:
       pathtoPublish: '$(Build.ArtifactStagingDirectory)'
       artifactName: 'Execution logs'
 
+  - task: PublishBuildArtifacts@1
+    condition: failed()
+    displayName: 'Publish the bazel test logs'
+    inputs:
+      pathtoPublish: 'bazel-testlogs/'
+      artifactName: 'Test logs'
+
   - bash: |
       set -euo pipefail
       echo "Simulating release step..."
       echo "##vso[task.setvariable variable=has_released;isOutput=true]true"
       echo "##vso[task.setvariable variable=release_tag]$(cat VERSION)"
     name: release
+
   - bash: |
       set -euo pipefail
       ARTIFACT=daml-sdk-$(release_tag)-windows.tar.gz
@@ -34,11 +42,13 @@ steps:
       echo "##vso[task.setvariable variable=artifact-windows-installer;isOutput=true]$WINDOWS_INSTALLER"
     name: publish
     condition: eq(variables['release.has_released'], 'true')
+
   - task: PublishPipelineArtifact@0
     condition: eq(variables['release.has_released'], 'true')
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.artifact)
       artifactName: $(publish.artifact)
+
   - task: PublishPipelineArtifact@0
     condition: eq(variables['release.has_released'], 'true')
     inputs:

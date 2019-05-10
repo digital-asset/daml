@@ -31,7 +31,7 @@ function bazel() {
 bazel shutdown
 
 # FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
-bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_full_execution_windows.log `
+bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log `
     //release:sdk-release-tarball `
     //release/windows-installer:windows-installer `
     //:git-revision `
@@ -60,7 +60,7 @@ bazel run `
 
 bazel shutdown
 
-bazel test `
+bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log `
     //daml-lf/... `
     //language-support/java/bindings/... `
     //language-support/java/bindings-rxjava/... `
