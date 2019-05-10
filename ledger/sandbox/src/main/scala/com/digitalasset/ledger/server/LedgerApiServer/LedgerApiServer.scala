@@ -48,7 +48,7 @@ object LedgerApiServer {
       resetService,
       config.address,
       config.tlsConfig.flatMap(_.server)
-    ).start()
+    )
   }
 }
 
@@ -89,12 +89,11 @@ class LedgerApiServer(
     : Int = -1 // we need this to remember ephemeral ports when using ResetService
   def port: Int = if (actualPort == -1) serverPort else actualPort
 
+  private val grpcServer: Server = startServer()
+
   def getServer = grpcServer
 
-  @volatile
-  private var grpcServer: Server = _
-
-  private def start(): LedgerApiServer = {
+  private def startServer() = {
     val builder = address.fold(NettyServerBuilder.forPort(port))(address =>
       NettyServerBuilder.forAddress(new InetSocketAddress(address, port)))
 
@@ -110,7 +109,7 @@ class LedgerApiServer(
     builder.workerEventLoopGroup(serverEventLoopGroup)
     builder.permitKeepAliveTime(10, TimeUnit.SECONDS)
     builder.permitKeepAliveWithoutCalls(true)
-    grpcServer = resetService.toList
+    val grpcServer = resetService.toList
       .foldLeft(apiServices.services.foldLeft(builder)(_ addService _))(_ addService _)
       .build
     try {
@@ -121,7 +120,7 @@ class LedgerApiServer(
         throw new UnableToBind(port, io.getCause)
     }
     logger.info(s"listening on ${address.getOrElse("localhost")}:${grpcServer.getPort}")
-    this
+    grpcServer
   }
 
   private def createEventLoopGroup(threadPoolName: String): NioEventLoopGroup = {
@@ -133,11 +132,8 @@ class LedgerApiServer(
 
   override def close(): Unit = {
     apiServices.close()
-    Option(grpcServer).foreach { s =>
-      s.shutdownNow()
-      s.awaitTermination(10, TimeUnit.SECONDS)
-      grpcServer = null
-    }
+    grpcServer.shutdownNow()
+    grpcServer.awaitTermination(10, TimeUnit.SECONDS)
     // `shutdownGracefully` has a "quiet period" which specifies a time window in which
     // _no requests_ must be witnessed before shutdown is _initiated_. Here we want to
     // start immediately, so no quiet period -- by default it's 2 seconds.
@@ -146,9 +142,10 @@ class LedgerApiServer(
     // no quiet period, this can also be 0.
     // See <https://netty.io/4.1/api/io/netty/util/concurrent/EventExecutorGroup.html#shutdownGracefully-long-long-java.util.concurrent.TimeUnit->.
     // The 10 seconds to wait is sort of arbitrary, it's long enough to be noticeable though.
-    Option(serverEventLoopGroup).foreach(
-      _.shutdownGracefully(0L, 0L, TimeUnit.MILLISECONDS).await(10L, TimeUnit.SECONDS))
-    Option(serverEsf).foreach(_.close())
+    serverEventLoopGroup
+      .shutdownGracefully(0L, 0L, TimeUnit.MILLISECONDS)
+      .await(10L, TimeUnit.SECONDS)
+    serverEsf.close()
   }
 
 }
