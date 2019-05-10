@@ -30,7 +30,6 @@ type ShowS = Text -> Text
 
 -- | Use the `Show` class for values that can be converted to a
 -- readable `Text` value.
-
 --
 -- Derived instances of `Show` have the following properties:
 --
@@ -57,19 +56,9 @@ type ShowS = Text -> Text
 class  Show a  where
     {-# MINIMAL showsPrec | show #-}
 
-    -- | Convert a value to a readable `Text` value.
-    --
-    -- `showsPrec` should satisfy the law
-    --
-    -- `showsPrec d x r ++ s  ==  showsPrec d x (r ++ s)`
-    --
-    -- Derived instances of `Show` satisfy the following:
-    --
-    -- * `(x,"")` is an element of
-    --   `(Text.Read.readsPrec d (showsPrec d x ""))`.
-    --
-    -- That is, `Text.Read.readsPrec` parses the string produced by
-    -- `showsPrec`, and delivers the value that `showsPrec` started with.
+    -- | Convert a value to a readable `Text` value. Unlike `show`,
+    -- showsPrec` should satisfy the rule `showsPrec d x r ++ s  ==
+    -- showsPrec d x (r ++ s)`
 
     showsPrec : Int    -- ^ the operator precedence of the enclosing
                         -- context (a number from `0` to `11`).
@@ -77,15 +66,12 @@ class  Show a  where
               -> a      -- ^ the value to be converted to a 'String'
               -> ShowS
 
-    -- | A specialised variant of 'showsPrec', using precedence context
-    -- zero, and returning an ordinary 'String'.
+    -- | Convert a value to a readable `Text` value.
     show      : a   -> Text
 
-    -- | The method 'showList' is provided to allow the programmer to
-    -- give a specialised way of showing lists of values.
-    -- For example, this is used by the predefined 'Show' instance of
-    -- the 'Char' type, where values of type 'String' should be shown
-    -- in double quotes, rather than between square brackets.
+    -- | Allows you to show lists of values.
+    -- For example, this is used by the `Char` type, where values of type
+    -- `Text` should be shown in double quotes, rather than between square brackets.
     showList  : [a] -> ShowS
 
     showsPrec _ x s = show x ++ s
