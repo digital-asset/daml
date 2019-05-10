@@ -5,4 +5,3 @@ daml 1.2
 module Bad where -- Used by test `Import.daml`
 
 data T = T {}
-     

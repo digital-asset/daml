@@ -11,6 +11,3 @@ module Warning_tab where
 
 a = x
 	where x = 10
-
-x : Text
-x = 10
