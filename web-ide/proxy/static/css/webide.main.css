@@ -59,10 +59,10 @@ div.window-appicon {
 }*/
 
 /*hide the actual terminal and debug console*/
-.part.panel.bottom ul.actions-container li.action-item[title*="Debug Console"],
-.part.panel.bottom ul.actions-container li.action-item[title*="Terminal"],
-.part.panel.bottom div.integrated-terminal,
-.part.panel.bottom div.repl {
+.part.panel ul.actions-container li.action-item[title*="Debug Console"],
+.part.panel ul.actions-container li.action-item[title*="Terminal"],
+.part.panel div.integrated-terminal,
+.part.panel div.repl {
   display:none !important;
 }
 

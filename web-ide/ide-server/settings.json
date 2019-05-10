@@ -1,3 +1,4 @@
 {
-    "daml.telemetry": "Enable"
+    "daml.telemetry": "Enable",
+    "terminal.integrated.shell.linux": "echo \"No terminal available\""
 }
