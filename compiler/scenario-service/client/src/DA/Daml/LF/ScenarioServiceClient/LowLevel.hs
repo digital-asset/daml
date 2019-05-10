@@ -153,7 +153,12 @@ start opts@Options{..} = do
   port <- managed $ \resume -> withCheckedProcessCleanup cp $ \(stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc ->
           flip finally (System.IO.hClose stdinHdl) $ do
     let splitOutput = C.T.decode C.T.utf8 .| C.T.lines
-    let printStderr line = liftIO (optLogError (T.unpack ("SCENARIO SERVICE STDERR: " <> line)))
+    let printStderr line
+            -- The last line should not be treated as an error.
+            | T.strip line == "ScenarioService: stdin closed, terminating server." =
+              liftIO (optLogInfo (T.unpack ("SCENARIO SERVICE STDERR: " <> line)))
+            | otherwise =
+              liftIO (optLogError (T.unpack ("SCENARIO SERVICE STDERR: " <> line)))
     let printStdout line = liftIO (optLogInfo (T.unpack ("SCENARIO SERVICE STDOUT: " <> line)))
     -- stick the error in the mvar so that we know we won't get an BlockedIndefinitedlyOnMvar exception
     portMVar <- newEmptyMVar

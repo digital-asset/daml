@@ -72,4 +72,5 @@ bazel test `
     //ledger/ledger-api-client/... `
     //ledger/ledger-api-common/... `
     //ledger-api/... `
-    //navigator/backend/...
+    //navigator/backend/... `
+    //daml-assistant/integration-tests/...

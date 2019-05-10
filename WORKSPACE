@@ -136,6 +136,22 @@ dev_env_tool(
     win_tool = "msys2",
 )
 
+dev_env_tool(
+    name = "mvn_dev_env",
+    nix_include = ["bin/mvn"],
+    nix_label = "@mvn_nix",
+    nix_path = "bin/mvn",
+    tool = "mvn",
+    win_include = [
+        "bin",
+        "boot",
+        "conf",
+        "lib",
+    ],
+    win_path = "bin/mvn",
+    win_tool = "maven-3.6.1",
+)
+
 nixpkgs_package(
     name = "awk_nix",
     attribute_path = "gawk",
@@ -267,6 +283,7 @@ nixpkgs_package(
 nixpkgs_package(
     name = "mvn_nix",
     attribute_path = "mvn",
+    fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
