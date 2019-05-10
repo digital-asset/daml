@@ -25,6 +25,7 @@ da_haskell_library(
         "process",
         "safe-exceptions",
         "text",
+        "yaml",
     ],
     visibility = ["//visibility:public"],
     deps = [

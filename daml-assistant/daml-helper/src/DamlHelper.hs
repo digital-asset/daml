@@ -48,7 +48,7 @@ import System.IO.Extra
 
 import DAML.Project.Config
 import DAML.Project.Consts
-import DAML.Project.Types (SdkVersion, ProjectPath(..), parseVersion)
+import DAML.Project.Types
 import DAML.Project.Util
 
 data DamlHelperError = DamlHelperError
@@ -151,10 +151,10 @@ getTemplatesFolder = fmap (</> "templates") getSdkPath
 -- the user know what the project root is and suggests the user run
 -- daml init on the project root.
 --
--- 7. If none of the above, it will cautiously attempt to populate the
--- folder with files from the skeleton template. In particular, it will
--- create an appropriate daml.yaml, and a minimalistic daml/Main.daml if
--- a Main.daml does not already exist.
+-- 7. If none of the above, it will create a daml.yaml from scratch.
+-- It will attempt to find a Main.daml source file in the project
+-- directory tree, but if it does not it will use daml/Main.daml
+-- as the default.
 --
 runInit :: Maybe FilePath -> IO ()
 runInit targetFolderM = do
@@ -219,45 +219,80 @@ runInit targetFolderM = do
         daYaml <- requiredE ("Failed to parse " <> T.pack legacyConfigPath) =<<
             Y.decodeFileEither (projectRoot </> legacyConfigName)
 
-        let getField :: Y.FromJSON t => String -> IO t
+        let getField :: Y.FromJSON t => T.Text -> IO t
             getField name =
-                required ("Failed to parse project." <> T.pack name <> " from " <> T.pack legacyConfigPath) $
+                required ("Failed to parse project." <> name <> " from " <> T.pack legacyConfigPath) $
                     flip Y.parseMaybe daYaml $ \y -> do
                         p <- y Y..: "project"
                         p Y..: name
 
+        minimumSdkVersion <- getMinimumSdkVersion
         projSdkVersion :: SdkVersion <- getField "sdk-version"
-        let minimumSdkVersion = fromRight (parseVersion "0.12.15")
-            newProjSdkVersion = max projSdkVersion minimumSdkVersion
+        let newProjSdkVersion = max projSdkVersion minimumSdkVersion
+
         when (projSdkVersion < minimumSdkVersion) $ do
             putStrLn $ unlines
                 [ "WARNING: da.yaml SDK version " <> versionToString projSdkVersion <> " is too old for the new"
                 , "assistant, so daml.yaml will use SDK version " <> versionToString newProjSdkVersion <> " instead."
-                , "This will not affect da.yaml or the old assistant in any way, but may cause your project to fail"
                 ]
 
+        projSource :: T.Text <- getField "source"
+        projParties :: [T.Text] <- getField "parties"
+        projName :: T.Text <- getField "name"
+        projScenario :: T.Text <- getField "scenario"
 
+        Y.encodeFile (projectRoot </> projectConfigName) $ Y.object
+            [ ("sdk-version", Y.String (versionToText newProjSdkVersion))
+            , ("name", Y.String projName)
+            , ("source", Y.String projSource)
+            , ("scenario", Y.String projScenario)
+            , ("parties", Y.array (map Y.String projParties))
+            , ("version", Y.String "1.0.0")
+            , ("exposed-modules", Y.array [Y.String "Main"])
+            , ("dependencies", Y.array [Y.String "daml-prim", Y.String "daml-stdlib"])
+            ]
 
-        hPutStr stderr $ unlines
-            [ "WARNING: "
+        putStrLn $ concat
+            [ "Initialized "
+            , projectRoot </> projectConfigName
+            , " based on "
+            , projectRoot </> legacyConfigName
+            ]
 
-
-        projSdkV :: SdkVersion <- getField "sdk-version"
-        projSour :: FilePath <- getField "source"
-        projPart :: [Text] <- getField "parties"
-        projName :: Text <- getField "name"
-        projScen :: Text <- getField "scenario"
-
-
-
-
-
-
+        exitSuccess
 
 
 
     -- case 7
-    error "NYI"
+    let targetFolderRel = makeRelative currentDir targetFolder
+        projectConfigRel = targetFolderRel </> projectConfigName
+
+    putStrLn ("No existing DA or DAML project detected, creating "
+        <> projectConfigRel <> " from scratch.")
+
+    currentSdkVersion <- getSdkVersion
+
+    projectFiles <- listFilesRecursive targetFolder
+    let isMainDotDaml = (== "Main.daml") . takeFileName
+        sourceM = listToMaybe (filter isMainDotDaml projectFiles)
+        source = fromMaybe "daml/Main.daml" sourceM
+        name = takeFileName (dropTrailingPathSeparator targetFolderAbs)
+
+    Y.encodeFile (targetFolder </> projectConfigName) $ Y.object
+        [ ("sdk-version", Y.String (T.pack currentSdkVersion))
+        , ("name", Y.String (T.pack name))
+        , ("source", Y.String (T.pack source))
+        , ("scenario", Y.String "Main:mainScenario")
+        , ("parties", Y.array [Y.String "Alice", Y.String "Bob"])
+        , ("version", Y.String "1.0.0")
+        , ("exposed-modules", Y.array [Y.String "Main"])
+        , ("dependencies", Y.array [Y.String "daml-prim", Y.String "daml-stdlib"])
+        ]
+
+    putStrLn $ unlines
+        [ "Initialized project '" <> name <> "'."
+        , "Generated " <> projectConfigRel <> " to adjust the project config."
+        ]
 
 
     where
@@ -279,6 +314,12 @@ runInit targetFolderM = do
             if c `elem` (" \\\"\'$" :: String)
                 then ['\\', c]
                 else [c]
+
+        getMinimumSdkVersion :: IO SdkVersion
+        getMinimumSdkVersion =
+            requiredE "BUG: Expected 0.12.15 to be valid SDK version" $
+              parseVersion "0.12.15"
+
 
 runNew :: FilePath -> String -> IO ()
 runNew targetFolder templateName = do
