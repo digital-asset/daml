@@ -10,32 +10,19 @@ import java.util.concurrent.TimeUnit
 
 import akka.stream.ActorMaterializer
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
-import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
+import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.backend.api.v1.LedgerBackend
-import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
-import com.digitalasset.platform.api.grpc.GrpcApiUtil
-import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
+import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services._
-import com.digitalasset.platform.sandbox.services.transaction.SandboxTransactionService
-import com.digitalasset.platform.sandbox.stores.ledger._
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
-import com.digitalasset.platform.server.services.command.ReferenceCommandService
-import com.digitalasset.platform.server.services.identity.LedgerIdentityServiceImpl
-import com.digitalasset.platform.server.services.testing.{ReferenceTimeService, TimeServiceBackend}
-import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.platform.server.services.testing.TimeServiceBackend
+import io.grpc.Server
 import io.grpc.netty.NettyServerBuilder
-import io.grpc.protobuf.services.ProtoReflectionService
-import io.grpc.{BindableService, Server}
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
 object LedgerApiServer {
@@ -51,6 +38,10 @@ object LedgerApiServer {
       implicit mat: ActorMaterializer): LedgerApiServer = {
 
     new LedgerApiServer(
+      (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
+        ApiServices.create(config, ledgerBackend, engine, timeProvider, optTimeServiceBackend)(
+          am,
+          esf),
       ledgerBackend,
       timeProvider,
       engine,
@@ -65,7 +56,8 @@ object LedgerApiServer {
 }
 
 class LedgerApiServer(
-    ledgerBackend: LedgerBackend,
+    createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => ApiServices,
+    ledgerBackend: LedgerBackend, //TODO what can we drop from here?
     timeProvider: TimeProvider,
     engine: Engine,
     config: SandboxConfig,
@@ -83,12 +75,6 @@ class LedgerApiServer(
         cause)
       with NoStackTrace
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
-  @volatile
-  private var actualPort
-    : Int = -1 // we need this to remember ephemeral ports when using ResetService
-  def port: Int = if (actualPort == -1) serverPort else actualPort
-
   private implicit val serverEsf = new AkkaExecutionSequencerPool(
     // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server
     // instances, and it's pretty difficult to wait for the name to become available
@@ -98,11 +84,16 @@ class LedgerApiServer(
     poolName = s"ledger-api-server-rs-grpc-bridge-${UUID.randomUUID}",
     actorCount = Runtime.getRuntime.availableProcessors() * 8
   )(mat.system)
+
   private val serverEventLoopGroup = createEventLoopGroup(mat.system.name)
 
+  private val apiServices = createApiServices(mat, serverEsf)
+
+  private val logger = LoggerFactory.getLogger(this.getClass)
   @volatile
-  private var runningServices: Iterable[BindableService] =
-    services(config, ledgerBackend, engine, timeProvider, optTimeServiceBackend)
+  private var actualPort
+    : Int = -1 // we need this to remember ephemeral ports when using ResetService
+  def port: Int = if (actualPort == -1) serverPort else actualPort
 
   def getServer = grpcServer
 
@@ -126,7 +117,7 @@ class LedgerApiServer(
     builder.permitKeepAliveTime(10, TimeUnit.SECONDS)
     builder.permitKeepAliveWithoutCalls(true)
     grpcServer = optResetService.toList
-      .foldLeft(runningServices.foldLeft(builder)(_ addService _))(_ addService _)
+      .foldLeft(apiServices.services.foldLeft(builder)(_ addService _))(_ addService _)
       .build
     try {
       grpcServer.start()
@@ -139,13 +130,8 @@ class LedgerApiServer(
     this
   }
 
-  def closeAllServices(): Unit = {
-    runningServices.foreach {
-      case closeable: AutoCloseable => closeable.close()
-      case _ => ()
-    }
-    runningServices = Nil
-  }
+  def closeAllServices(): Unit =
+    apiServices.close()
 
   private def createEventLoopGroup(threadPoolName: String): NioEventLoopGroup = {
     val threadFactory =
@@ -175,102 +161,4 @@ class LedgerApiServer(
     Option(serverEsf).foreach(_.close())
   }
 
-  private def services(
-      config: SandboxConfig,
-      ledgerBackend: LedgerBackend,
-      engine: Engine,
-      timeProvider: TimeProvider,
-      optTimeServiceBackend: Option[TimeServiceBackend]): List[BindableService] = {
-    implicit val ec: ExecutionContext = mat.system.dispatcher
-
-    val context = SandboxContext.fromConfig(config)
-
-    val packageResolver = (pkgId: Ref.PackageId) =>
-      Future.successful(context.packageContainer.getPackage(pkgId))
-
-    val identifierResolver: IdentifierResolver = new IdentifierResolver(packageResolver)
-
-    val submissionService =
-      SandboxSubmissionService.createApiService(
-        context.packageContainer,
-        identifierResolver,
-        ledgerBackend,
-        config.timeModel,
-        timeProvider,
-        new CommandExecutorImpl(engine, context.packageContainer)
-      )
-
-    logger.info(EngineInfo.show)
-
-    val transactionService =
-      SandboxTransactionService.createApiService(ledgerBackend, identifierResolver)
-
-    val identityService = LedgerIdentityServiceImpl(ledgerBackend.ledgerId)
-
-    val packageService = SandboxPackageService(context.sandboxTemplateStore, ledgerBackend.ledgerId)
-
-    val configurationService =
-      LedgerConfigurationServiceImpl(
-        LedgerConfiguration(
-          Some(GrpcApiUtil.durationToProto(config.timeModel.minTtl)),
-          Some(GrpcApiUtil.durationToProto(config.timeModel.maxTtl))),
-        ledgerBackend.ledgerId
-      )
-
-    val completionService =
-      SandboxCommandCompletionService(ledgerBackend)
-
-    val commandService = ReferenceCommandService(
-      ReferenceCommandService.Configuration(
-        ledgerBackend.ledgerId,
-        config.commandConfig.inputBufferSize,
-        config.commandConfig.maxParallelSubmissions,
-        config.commandConfig.maxCommandsInFlight,
-        config.commandConfig.limitMaxCommandsInFlight,
-        config.commandConfig.historySize,
-        config.commandConfig.retentionPeriod,
-        config.commandConfig.commandTtl
-      ),
-      // Using local services skips the gRPC layer, improving performance.
-      ReferenceCommandService.LowLevelCommandServiceAccess.LocalServices(
-        CommandSubmissionFlow(
-          submissionService.submit,
-          config.commandConfig.maxParallelSubmissions),
-        r =>
-          completionService.service
-            .asInstanceOf[SandboxCommandCompletionService]
-            .completionStreamSource(r),
-        () => completionService.completionEnd(CompletionEndRequest(ledgerBackend.ledgerId)),
-        transactionService.getTransactionById,
-        transactionService.getFlatTransactionById
-      )
-    )
-
-    val activeContractsService =
-      SandboxActiveContractsService(ledgerBackend, identifierResolver)
-
-    val reflectionService = ProtoReflectionService.newInstance()
-
-    val timeServiceOpt =
-      optTimeServiceBackend.map { tsb =>
-        ReferenceTimeService(
-          ledgerBackend.ledgerId,
-          tsb,
-          config.timeProviderType == TimeProviderType.StaticAllowBackwards
-        )
-      }
-
-    timeServiceOpt.toList :::
-      List(
-      identityService,
-      packageService,
-      configurationService,
-      submissionService,
-      transactionService,
-      completionService,
-      commandService,
-      activeContractsService,
-      reflectionService
-    )
-  }
 }
