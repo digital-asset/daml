@@ -33,22 +33,19 @@ object LedgerApiServer {
       config: SandboxConfig,
       //even though the port is in the config as well, in case of a reset we have to keep the port to what it was originally set for the first time
       serverPort: Int,
-      optTimeServiceBackend: Option[TimeServiceBackend],
-      optResetService: Option[SandboxResetService])(
+      timeServiceBackend: Option[TimeServiceBackend],
+      resetService: Option[SandboxResetService])(
       implicit mat: ActorMaterializer): LedgerApiServer = {
 
     new LedgerApiServer(
       (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
-        ApiServices.create(config, ledgerBackend, engine, timeProvider, optTimeServiceBackend)(
+        ApiServices.create(config, ledgerBackend, engine, timeProvider, timeServiceBackend)(
           am,
           esf),
-      ledgerBackend,
-      timeProvider,
-      engine,
       config,
       serverPort,
-      optTimeServiceBackend,
-      optResetService,
+      timeServiceBackend,
+      resetService,
       config.address,
       config.tlsConfig.flatMap(_.server)
     ).start()
@@ -57,15 +54,12 @@ object LedgerApiServer {
 
 class LedgerApiServer(
     createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => ApiServices,
-    ledgerBackend: LedgerBackend, //TODO what can we drop from here?
-    timeProvider: TimeProvider,
-    engine: Engine,
     config: SandboxConfig,
     serverPort: Int,
-    optTimeServiceBackend: Option[TimeServiceBackend],
-    optResetService: Option[SandboxResetService],
-    addressOption: Option[String],
-    maybeBundle: Option[SslContext] = None)(implicit mat: ActorMaterializer)
+    timeServiceBackend: Option[TimeServiceBackend],
+    resetService: Option[SandboxResetService],
+    address: Option[String],
+    sslContext: Option[SslContext] = None)(implicit mat: ActorMaterializer)
     extends AutoCloseable {
 
   class UnableToBind(port: Int, cause: Throwable)
@@ -101,10 +95,10 @@ class LedgerApiServer(
   private var grpcServer: Server = _
 
   private def start(): LedgerApiServer = {
-    val builder = addressOption.fold(NettyServerBuilder.forPort(port))(address =>
+    val builder = address.fold(NettyServerBuilder.forPort(port))(address =>
       NettyServerBuilder.forAddress(new InetSocketAddress(address, port)))
 
-    maybeBundle
+    sslContext
       .fold {
         logger.info("Starting plainText server")
       } { sslContext =>
@@ -116,7 +110,7 @@ class LedgerApiServer(
     builder.workerEventLoopGroup(serverEventLoopGroup)
     builder.permitKeepAliveTime(10, TimeUnit.SECONDS)
     builder.permitKeepAliveWithoutCalls(true)
-    grpcServer = optResetService.toList
+    grpcServer = resetService.toList
       .foldLeft(apiServices.services.foldLeft(builder)(_ addService _))(_ addService _)
       .build
     try {
@@ -126,7 +120,7 @@ class LedgerApiServer(
       case io: IOException if io.getCause != null && io.getCause.isInstanceOf[BindException] =>
         throw new UnableToBind(port, io.getCause)
     }
-    logger.info(s"listening on ${addressOption.getOrElse("localhost")}:${grpcServer.getPort}")
+    logger.info(s"listening on ${address.getOrElse("localhost")}:${grpcServer.getPort}")
     this
   }
 
@@ -139,7 +133,6 @@ class LedgerApiServer(
 
   override def close(): Unit = {
     apiServices.close()
-    ledgerBackend.close()
     Option(grpcServer).foreach { s =>
       s.shutdownNow()
       s.awaitTermination(10, TimeUnit.SECONDS)

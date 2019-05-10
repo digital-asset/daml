@@ -29,7 +29,7 @@ trait ApiServices extends AutoCloseable {
   val services: Iterable[BindableService]
 }
 
-private final class ApiServicesBundle(val services: Iterable[BindableService]) extends ApiServices {
+private class ApiServicesBundle(val services: Iterable[BindableService]) extends ApiServices {
 
   override def close(): Unit =
     services.foreach {
@@ -144,6 +144,11 @@ object ApiServices {
         commandService,
         activeContractsService,
         reflectionService
-      ))
+      )) {
+      override def close(): Unit = {
+        super.close()
+        ledgerBackend.close()
+      }
+    }
   }
 }
