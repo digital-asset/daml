@@ -14,6 +14,7 @@
     "vcredist-14.0.23026"
   ],
   "env_set": {
-    "BAZEL_SH": "$(appdir msys2)\\current\\usr\\bin\\bash.exe"
+    "BAZEL_SH": "$(appdir msys2)\\current\\usr\\bin\\bash.exe",
+    "BAZEL_SH_2": "$(appdir msys2)\\current\\usr\\bin\\bash.exe"
   }
 }
