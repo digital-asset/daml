@@ -17,6 +17,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSC
 import           System.FilePath
 import System.Directory
 import qualified Codec.Archive.Zip          as Zip
+import DA.Daml.GHC.Compiler.Options
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.
@@ -56,15 +57,21 @@ buildDar ::
 buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersion = do
     -- Take all source file dependencies and produced interface files. Only the new package command
     -- produces interface files per default, hence we filter for existent files.
-    fileDeps <-
+    ifaces <-
         filterM doesFileExist $
-        concat [[dep, dep -<.> "hi", dep -<.> "hie"] | dep <- fileDependencies]
+        concat [[ifaceDir </> dep -<.> "hi", ifaceDir </> dep -<.> "hie"] | dep <- fileDependencies]
+
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
     -- is modified to have prefix <name> instead of the original root path.
-    mbSrcFiles <- forM fileDeps $ \mPath -> do
+    mbSrcFiles <- forM fileDependencies $ \mPath -> do
       contents <- BSL.readFile mPath
       let mbNewPath = (name </>) <$> stripPrefix (addTrailingPathSeparator modRoot) mPath
+      return $ fmap (, contents) mbNewPath
+
+    mbIfaceFaceFiles <- forM ifaces $ \mPath -> do
+      contents <- BSL.readFile mPath
+      let mbNewPath = (name </>) <$> stripPrefix (addTrailingPathSeparator $ ifaceDir </> modRoot) mPath
       return $ fmap (, contents) mbNewPath
 
     let dalfName = name <> ".dalf"
@@ -76,6 +83,7 @@ buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersio
     let allFiles = ("META-INF/MANIFEST.MF", manifestHeader dalfName $ dalfName:map fst dependencies)
                     : (dalfName, dalf)
                     : catMaybes mbSrcFiles
+                    ++ catMaybes mbIfaceFaceFiles
                     ++ dependencies
                     ++ dataFiles'
 
