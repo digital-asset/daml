@@ -30,6 +30,11 @@ HEAD — ongoing
 - **BREAKING** Ledger API: Removed the unused field :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` from :ref:`com.digitalasset.ledger.api.v1.Event`.
   ``Event`` is only used in :ref:`com.digitalasset.ledger.api.v1.Transaction`, which in turn by definition never contains exercised events (only created and archived events): `#960 <https://github.com/digital-asset/daml/issues/960>`_
 
+  This change is *backwards compatible on the transport level*, meaning:
+
+  - new versions of ledger language bindings will work with previous versions of the sandbox, as the field was never populated,
+  - previous versions of the ledger language bindings will work with new versions of the sandbox, as the field was removed without any change in observable behaviour.
+
   Migration:
 
   - If you check for the presence of ``ExercisedEvent`` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
