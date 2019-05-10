@@ -11,6 +11,15 @@ if (!(Test-Path .\.bazelrc.local)) {
 
 $ARTIFACT_DIRS = if ("$env:BUILD_ARTIFACTSTAGINGDIRECTORY") { $env:BUILD_ARTIFACTSTAGINGDIRECTORY } else { Get-Location }
 
+
+write-output "DEBUG - PATH: `n`t ${env:PATH}"
+
+write-output "DEBUG - ENV: `n`n"
+gci env:* | sort-object name
+
+write-output "DEBUG - END"
+
+
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
