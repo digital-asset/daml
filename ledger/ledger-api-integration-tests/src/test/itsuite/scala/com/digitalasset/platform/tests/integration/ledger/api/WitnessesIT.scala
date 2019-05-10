@@ -68,7 +68,7 @@ class WitnessesIT
         .map { tx =>
           tx.eventsById(tx.rootEventIds(0)).kind match {
             case TreeEvent.Kind.Exercised(e) => e
-            case _ => sys.error("unexpected event")
+            case _ => fail("unexpected event")
           }
         }
     for {
