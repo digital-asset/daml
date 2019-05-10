@@ -28,6 +28,9 @@ HEAD — ongoing
 - Sandbox: Transactions with a record time that is after the maximum record time (as provided in the original command)
   are now properly rejected instead of committed to the ledger: `#987 <https://github.com/digital-asset/daml/issues/987>`_
 - **BREAKING** Ledger API: Removed the unused field :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` from :ref:`com.digitalasset.ledger.api.v1.Event`.
+Ledger API
+~~~~~~~~~~
+- **BREAKING** Removed the unused field :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` from :ref:`com.digitalasset.ledger.api.v1.Event`.
   ``Event`` is only used in :ref:`com.digitalasset.ledger.api.v1.Transaction`, which in turn by definition never contains exercised events (only created and archived events): `#960 <https://github.com/digital-asset/daml/issues/960>`_
 
   This change is *backwards compatible on the transport level*, meaning:
@@ -39,7 +42,9 @@ HEAD — ongoing
 
   - If you check for the presence of ``ExercisedEvent`` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
 
-- **BREAKING** Java Bindings: Reflect breaking change of Ledger API in the event class hierarchy: `#960 <https://github.com/digital-asset/daml/issues/960>`_
+Java Bindings
+~~~~~~~~~~~~~
+- **BREAKING** Reflect breaking change of Ledger API in the event class hierarchy: `#960 <https://github.com/digital-asset/daml/issues/960>`_
 
   - ``data.Event`` has been changed from an abstract class to an interface, representing events in a flat transaction.
   - Added interface ``data.TreeEvent``, representing events in a transaction tree.
