@@ -8,11 +8,19 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+
+0.12.17 - 2019-05-10
+--------------------
+
 - Making transaction lookups performant so we can handle such requests for large ledgers as well
 
 - **Sandbox**: Transactions with a record time that is after the maximum record time (as provided in the original command) are now properly rejected instead of committed to the ledger.
 
   See `issue #987 <https://github.com/digital-asset/daml/issues/987>`__ for details.
+
+- **SDK**: The Windows installer no longer requires elevated privileges.
+
+- **DAML Assistant**: The assistant handles network failures gracefully.
 
 .. _release-0-12-16:
 
