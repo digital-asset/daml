@@ -163,14 +163,13 @@ runInit targetFolderM = do
     currentDir <- getCurrentDirectory
     let targetFolder = fromMaybe currentDir targetFolderM
         targetFolderRel = makeRelative currentDir targetFolder
-        projectConfigRel
-            | targetFolderRel == "." = projectConfigName
-            | otherwise = targetFolderRel </> projectConfigName
+        projectConfigRel = normalise (targetFolderRel </> projectConfigName)
+          -- ^ for display purposes
 
-    -- case 1 or 2
+    -- cases 1 or 2
     unlessM (doesDirectoryExist targetFolder) $ do
         whenM (doesFileExist targetFolder) $ do
-            hPutStrLn stderr $ unlines
+            hPutStr stderr $ unlines
                 [ "ERROR: daml init target should be a directory, but is a file."
                 , "    target = " <> targetFolderRel
                 ]
@@ -188,7 +187,7 @@ runInit targetFolderM = do
 
     -- cases 3 or 4
     damlProjectRootM <- findDamlProjectRoot targetFolderAbs
-    whenJust damlProjectRootM $ \projectRoot -> do -- cases 1 or 2 above
+    whenJust damlProjectRootM $ \projectRoot -> do
         let projectRootRel = makeRelative currentDir projectRoot
         hPutStrLn stderr $ "DAML project already initialized at " <> projectRootRel
         when (targetFolderAbs /= projectRoot) $ do
@@ -201,7 +200,7 @@ runInit targetFolderM = do
 
     -- cases 5 or 6
     daProjectRootM <- findDaProjectRoot targetFolderAbs
-    whenJust daProjectRootM $ \projectRoot -> do -- cases 3 or 4 above
+    whenJust daProjectRootM $ \projectRoot -> do
         when (targetFolderAbs /= projectRoot) $ do
             let projectRootRel = makeRelative currentDir projectRoot
             hPutStr stderr $ unlines
@@ -215,9 +214,8 @@ runInit targetFolderM = do
             exitFailure
 
         let legacyConfigPath = projectRoot </> legacyConfigName
-            legacyConfigRel
-                | targetFolderRel == "." = legacyConfigName
-                | otherwise = targetFolderRel </> legacyConfigName
+            legacyConfigRel = normalise (targetFolderRel </> legacyConfigName)
+              -- ^ for display purposes
 
         daYaml <- requiredE ("Failed to parse " <> T.pack legacyConfigPath) =<<
             Y.decodeFileEither (projectRoot </> legacyConfigName)
@@ -346,13 +344,13 @@ runNew targetFolder templateName = do
     templatesFolder <- getTemplatesFolder
     let templateFolder = templatesFolder </> templateName
     unlessM (doesDirectoryExist templateFolder) $ do
-        hPutStrLn stderr $ unlines
+        hPutStr stderr $ unlines
             [ "Template " <> show templateName <> " does not exist."
             , "Use `daml new --list` to see a list of available templates"
             ]
         exitFailure
     whenM (doesDirectoryExist targetFolder) $ do
-        hPutStrLn stderr $ unlines
+        hPutStr stderr $ unlines
             [ "Directory " <> show targetFolder <> " already exists."
             , "Please specify a new directory for creating a project."
             ]
