@@ -11,6 +11,7 @@
         ],
         "usr\\bin\\bash.exe",
         "usr\\bin\\cat.exe",
+        "usr\\bin\\cygpath.exe",
         "usr\\bin\\expr.exe",
         "usr\\bin\\ln.exe",
         "usr\\bin\\ls.exe",
@@ -21,7 +22,7 @@
     "env_add_path": ".",
     "post_install": [
       "try { bash.exe -lc 'pacman --version' } catch { }",
-      "bash.exe -lc 'pacman -S --noconfirm patch unzip zip mingw-w64-x86_64-gcc'",
+      "bash.exe -lc 'pacman -S --noconfirm unzip zip mingw-w64-x86_64-gcc'",
       "try { bash.exe -lc 'pacman -S --noconfirm tar' } catch { }",
       "mkdir $dir\\bin",
       "cp $dir\\mingw64\\bin\\*.dll $dir\\bin"

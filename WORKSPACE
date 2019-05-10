@@ -113,7 +113,7 @@ dev_env_tool(
     tool = "tar",
     win_include = ["usr/bin/tar.exe"],
     win_path = "usr/bin/tar.exe",
-    win_tool = "msys2-20180531",
+    win_tool = "msys2",
 )
 
 nixpkgs_package(
@@ -133,7 +133,7 @@ dev_env_tool(
     tool = "gzip",
     win_include = ["usr/bin/gzip.exe"],
     win_path = "usr/bin/gzip.exe",
-    win_tool = "msys2-20180531",
+    win_tool = "msys2",
 )
 
 nixpkgs_package(
@@ -172,7 +172,7 @@ dev_env_tool(
     tool = "zip",
     win_include = ["usr/bin/zip.exe"],
     win_path = "usr/bin/zip.exe",
-    win_tool = "msys2-20180531",
+    win_tool = "msys2",
 )
 
 load(
