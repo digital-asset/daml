@@ -64,6 +64,7 @@ export default class WebIdeRoute {
                     s.push(this.daWebideCss)
                     s.push(null)
 
+                    res.setHeader('Content-Type', 'text/css')
                     res.setHeader('Content-Encoding', 'gzip')
                     res.setHeader('Cache-Control', 'max-age=86400,must-revalidate')
                     s.pipe(zlib.createGzip()).pipe(res)
