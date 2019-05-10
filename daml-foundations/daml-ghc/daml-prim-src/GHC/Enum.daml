@@ -78,54 +78,47 @@ class  Enum a   where
     -- If the type is also an instance of `Bounded`, `pred minBound`
     -- results in a runtime error.
     pred                : a -> a
-    -- | Convert a value from an `Int` to an `Enum` value: ie, returns 
+    -- | Convert a value from an `Int` to an `Enum` value: ie, returns
     -- the item at the `Int` position from the `Enum`.
 
     toEnum              : Int -> a
     -- | Convert a value from an `Enum` value to an `Int`: ie, returns
     -- the `Int` position of the element within the `Enum`.
-    -- 
+    --
     -- If `fromEnum` is applied to a value that's too large to
     -- fit in an `Int`, what is returned is up to your implementation.
     fromEnum            : a -> Int
 
-    -- | Return an array of the `Enum` values starting at the `Int`
+    -- | Return a list of the `Enum` values starting at the `Int`
     -- position. For example:
     --
     --     * `enumFrom 6 : [Int] = [6,7,8,9,...,maxBound : Int]`
     enumFrom            : a -> [a]
-    -- | Retruns an array of the `Enum` values where:
-    -- 
-    -- The first 
-    --   For example:
+    -- | Returns a list of the `Enum` values with the first value at
+    -- the first `Int` position, the second value at the second `Int`
+    -- position, and further values with the same distance between them.
     --
-    --     * `enumFromThen 4 6 :: [Integer] = [4,6,8,10...]`
+    -- For example:
+    --
+    --     * `enumFromThen 4 6 :: [Int] = [4,6,8,10...]`
     --     * `enumFromThen 6 2 :: [Int] = [6,2,-2,-6,...,minBound :: Int]`
     enumFromThen        : a -> a -> [a]
-    -- | Used in Haskell's translation of `[n..m]` with
-    --   `[n..m] = enumFromTo n m`, a possible implementation being
-    --   `enumFromTo n m
-    --      | n <= m = n : enumFromTo (succ n) m
-    --      | otherwise = []`.
-    --   For example:
+    -- | Returns a list of the `Enum` values with the first value at
+    -- the first `Int` position, and the last value at the last `Int`
+    -- position.
+    --
+    -- For example:
     --
     --     * `enumFromTo 6 10 :: [Int] = [6,7,8,9,10]`
-    --     * `enumFromTo 42 1 :: [Integer] = []`
     enumFromTo          : a -> a -> [a]
-    -- | Used in Haskell's translation of `[n,n'..m]` with
-    --   `[n,n'..m] = enumFromThenTo n n' m`, a possible implementation
-    --   being `enumFromThenTo n n' m = worker (f x) (c x) n m`,
-    --   `x = fromEnum n' - fromEnum n`, `c x = bool (>=) (<=) (x > 0)`
-    --   `f n y
-    --      | n > 0 = f (n - 1) (succ y)
-    --      | n < 0 = f (n + 1) (pred y)
-    --      | otherwise = y` and
-    --   `worker s c v m
-    --      | c v m = v : worker s c (s v) m
-    --      | otherwise = []`
-    --   For example:
+    -- | Returns a list of the `Enum` values with the first value at
+    -- the first `Int` position, the second value at the second `Int`
+    -- position, and further values with the same distance between them,
+    -- with the final value at the final `Int` position.
     --
-    --     * `enumFromThenTo 4 2 -6 :: [Integer] = [4,2,0,-2,-4,-6]`
+    -- For example:
+    --
+    --     * `enumFromThenTo 4 2 -6 :: [Int] = [4,2,0,-2,-4,-6]`
     --     * `enumFromThenTo 6 8 2 :: [Int] = []`
     enumFromThenTo      : a -> a -> a -> [a]
 
