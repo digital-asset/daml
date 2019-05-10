@@ -7,9 +7,11 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.ledger.api.domain.LedgerOffset
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction
-import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, LedgerSyncEvent}
+import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, LedgerSyncEvent, TransactionId}
+import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.server.services.transaction.{OffsetHelper, OffsetSection}
 
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 protected class TransactionPipeline(ledgerBackend: LedgerBackend) {
@@ -31,14 +33,20 @@ protected class TransactionPipeline(ledgerBackend: LedgerBackend) {
 
                 subscribeUntil
                   .fold(eventStream)(su => eventStream.untilRequired(su.toLong))
-                  .collect {
-                    // the offset we get from LedgerBackend is the actual offset of the entry. We need to return the next one
-                    // however on the API so clients can resubscribe with the received offset without getting duplicates
-                    case t: AcceptedTransaction => t.copy(offset = (t.offset.toLong + 1).toString)
-                  }
+                  .collect { case t: AcceptedTransaction => increaseOffset(t) }
             }
         }
       }
+
+  def getTransactionById(transactionId: TransactionId): Future[Option[AcceptedTransaction]] =
+    ledgerBackend
+      .getTransactionById(transactionId)
+      .map(_.map(increaseOffset))(DEC)
+
+  // the offset we get from LedgerBackend is the actual offset of the entry. We need to return the next one
+  // however on the API so clients can resubscribe with the received offset without getting duplicates
+  private def increaseOffset(t: AcceptedTransaction) =
+    t.copy(offset = (t.offset.toLong + 1).toString)
 
   private def getOffsetHelper(ledgerEnd: String) = {
     new OffsetHelper[String] {
@@ -52,7 +60,6 @@ protected class TransactionPipeline(ledgerBackend: LedgerBackend) {
         java.lang.Long.compare(o1.toLong, o2.toLong)
     }
   }
-
 }
 
 object TransactionPipeline {

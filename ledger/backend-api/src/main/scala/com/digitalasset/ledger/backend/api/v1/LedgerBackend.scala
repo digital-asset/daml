@@ -5,6 +5,7 @@ package com.digitalasset.ledger.backend.api.v1
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction
 
 import scala.concurrent.Future
 
@@ -72,9 +73,9 @@ trait LedgerBackend extends AutoCloseable {
     * on reconnects to the Ledger API that they are connected to the same
     * ledger and can therefore expect to receive the same data on calls that
     * return append-only data. It is expected to be:
-    *   (1) immutable over the lifetime of a [[LedgerBackend]] instance,
-    *   (2) globally unique with high-probability,
-    *   (3) matching the regexp [a-zA-Z0-9]+.
+    * (1) immutable over the lifetime of a [[LedgerBackend]] instance,
+    * (2) globally unique with high-probability,
+    * (3) matching the regexp [a-zA-Z0-9]+.
     *
     * Implementations where Participant nodes share a global view on all
     * transactions in the ledger (e.g, via a blockchain) are expected to use
@@ -101,17 +102,17 @@ trait LedgerBackend extends AutoCloseable {
 
   /** Return the stream of ledger events starting from and including the given offset.
     *
-    * @param offset: the ledger offset starting from which events should be streamed.
+    * @param offset : the ledger offset starting from which events should be streamed.
     *
-    * The stream only terminates if there was an error.
+    *               The stream only terminates if there was an error.
     *
-    * Two calls to this method with the same arguments are related such
-    * that
-    *  (1) all events are delivered in the same order, but
-    *  (2) [[LedgerSyncEvent.RejectedCommand]] and [[LedgerSyncEvent.Heartbeat]] events can be elided if their
-    *      recordTime is equal to the preceding event.
-    * This rule provides implementors with the freedom to not persist
-    * [[LedgerSyncEvent.RejectedCommand]] and [[LedgerSyncEvent.Heartbeat]] events.
+    *               Two calls to this method with the same arguments are related such
+    *               that
+    *               (1) all events are delivered in the same order, but
+    *               (2) [[LedgerSyncEvent.RejectedCommand]] and [[LedgerSyncEvent.Heartbeat]] events can be elided if their
+    *               recordTime is equal to the preceding event.
+    *               This rule provides implementors with the freedom to not persist
+    *               [[LedgerSyncEvent.RejectedCommand]] and [[LedgerSyncEvent.Heartbeat]] events.
     *
     */
   def ledgerSyncEvents(offset: Option[LedgerSyncOffset] = None): Source[LedgerSyncEvent, NotUsed]
@@ -153,4 +154,7 @@ trait LedgerBackend extends AutoCloseable {
     *
     */
   def getCurrentLedgerEnd: Future[LedgerSyncOffset]
+
+  /** Looks up a transaction by its id. */
+  def getTransactionById(transactionId: TransactionId): Future[Option[AcceptedTransaction]]
 }
