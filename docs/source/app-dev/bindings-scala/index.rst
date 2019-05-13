@@ -15,7 +15,7 @@ The Scala bindings is a client implementation of the *Ledger API*. The Scala bin
 There are two main components:
 
 - Scala codegen
-    DAML to Scala code generator. Use this to generate Scala classes from DAML models. The generated Scala code provides a type safe way of creating contracts (create command) and exercising contract choices (exercise command).
+    DAML to Scala code generator. Use this to generate Scala classes from DAML models. The generated Scala code provides a type safe way of creating contracts (:ref:`com.digitalasset.ledger.api.v1.createcommand`) and exercising contract choices (:ref:`com.digitalasset.ledger.api.v1.exercisecommand`).
 
 - Akka Streams-based API
     The API that you use to send commands to the ledger and receive transactions back.
@@ -26,6 +26,7 @@ In order to use the Scala bindings, you should be familiar with:
 - :doc:`Ledger API </app-dev/grpc/index>`
 - `Akka Streams API <https://doc.akka.io/docs/akka/current/stream/index.html>`_
 - `Scala programming language <https://www.scala-lang.org>`_
+- :ref:`assistant-manual-building-dars`
 
 Getting started with sbt
 ========================
@@ -59,7 +60,7 @@ Generating Scala Code from Command Line
 =======================================
 
 The above example demonstrates how to use Scala codegen from **sbt**. You can also call Scala codegen directly
-from a command line. This document assumes that the reader knows how to build a **DAR** file from a **DAML** model.
+from a command line. For information on how to build a **DAR** file from a **DAML** model see :ref:`assistant-manual-building-dars`.
 
 You can download the `latest version <https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/codegen-main/$latest/codegen-main-$latest.jar?bt_package=sdk-components>`_
 of the Scala codegen command line interface. Make sure that this versions is aligned with the version of the SDK you used to build the **DAR** file.
