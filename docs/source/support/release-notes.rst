@@ -11,6 +11,8 @@ HEAD — ongoing
 
 - **DAML Standard Library**: Add ``String`` as a compatibility alias for ``Text``.
 
+.. _release-0-12-17:
+
 0.12.17 - 2019-05-10
 --------------------
 
