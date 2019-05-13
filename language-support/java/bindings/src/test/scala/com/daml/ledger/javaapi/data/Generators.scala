@@ -184,7 +184,6 @@ object Generators {
     Gen.oneOf(
       createdEventGen.map(e => (b: EventOuterClass.Event.Builder) => b.setCreated(e).build()),
       archivedEventGen.map(e => (b: EventOuterClass.Event.Builder) => b.setArchived(e).build()),
-      exercisedEventGen.map(e => (b: EventOuterClass.Event.Builder) => b.setExercised(e).build())
     )
 
   val createdEventGen: Gen[EventOuterClass.CreatedEvent] =

@@ -6,7 +6,6 @@ package com.daml.ledger.javaapi.data;
 import com.digitalasset.ledger.api.v1.TransactionOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import javax.annotation.Nonnull;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -23,13 +22,13 @@ public class TransactionTree {
 
     private final Instant effectiveAt;
 
-    private final Map<String, Event> eventsById;
+    private final Map<String, TreeEvent> eventsById;
 
     private final List<String> rootEventIds;
 
     private final String offset;
 
-    public TransactionTree(@NonNull String transactionId, @NonNull String commandId, @NonNull String workflowId, @NonNull Instant effectiveAt, @NonNull Map<@NonNull String, @NonNull Event> eventsById, List<String> rootEventIds, @NonNull String offset) {
+    public TransactionTree(@NonNull String transactionId, @NonNull String commandId, @NonNull String workflowId, @NonNull Instant effectiveAt, @NonNull Map<@NonNull String, @NonNull TreeEvent> eventsById, List<String> rootEventIds, @NonNull String offset) {
         this.transactionId = transactionId;
         this.commandId = commandId;
         this.workflowId = workflowId;
@@ -44,11 +43,11 @@ public class TransactionTree {
         String commandId = tree.getCommandId();
         String workflowId = tree.getWorkflowId();
         Instant effectiveAt = Instant.ofEpochSecond(tree.getEffectiveAt().getSeconds(), tree.getEffectiveAt().getNanos());
-        Map<String, Event> eventsById = tree.getEventsByIdMap().values().stream().collect(Collectors.toMap(e -> {
+        Map<String, TreeEvent> eventsById = tree.getEventsByIdMap().values().stream().collect(Collectors.toMap(e -> {
             if (e.hasCreated()) return e.getCreated().getEventId();
             else if (e.hasExercised()) return e.getExercised().getEventId();
             else throw new IllegalArgumentException("Event is neither created not exercied: " + e);
-        }, Event::fromProtoTreeEvent));
+        }, TreeEvent::fromProtoTreeEvent));
         List<String> rootEventIds = tree.getRootEventIdsList();
         String offset = tree.getOffset();
         return new TransactionTree(transactionId, commandId, workflowId, effectiveAt, eventsById, rootEventIds, offset);
@@ -60,7 +59,7 @@ public class TransactionTree {
                 .setCommandId(this.commandId)
                 .setWorkflowId(this.workflowId)
                 .setEffectiveAt(com.google.protobuf.Timestamp.newBuilder().setSeconds(this.effectiveAt.getEpochSecond()).setNanos(this.effectiveAt.getNano()).build())
-                .putAllEventsById(this.eventsById.values().stream().collect(Collectors.toMap(Event::getEventId, Event::toProtoTreeEvent)))
+                .putAllEventsById(this.eventsById.values().stream().collect(Collectors.toMap(TreeEvent::getEventId, TreeEvent::toProtoTreeEvent)))
                 .addAllRootEventIds(this.rootEventIds)
                 .setOffset(this.offset)
                 .build();
@@ -87,7 +86,7 @@ public class TransactionTree {
     }
 
     @NonNull
-    public Map<String, Event> getEventsById() {
+    public Map<String, TreeEvent> getEventsById() {
         return eventsById;
     }
 

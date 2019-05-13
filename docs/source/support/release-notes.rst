@@ -9,11 +9,46 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
-- **DAML Standard Library**: Move the ``Tuple`` and ``Either`` types to ``daml-prim:DA.Types`` rather
+DAML
+~~~~
+
+- **BREAKING** Move the ``Tuple`` and ``Either`` types to ``daml-prim:DA.Types`` rather
   than exposing internal locations. People using the Scala/Java bindings will need to change from
   using ``GHC.Tuple`` or ``DA.Internal.Prelude`` to using ``DA.Types``.
 
 - **DAML Standard Library**: Add ``String`` as a compatibility alias for ``Text``.
+
+Ledger API
+~~~~~~~~~~
+
+- **BREAKING** Removed the unused field :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` from :ref:`com.digitalasset.ledger.api.v1.Event`,
+  because a :ref:`com.digitalasset.ledger.api.v1.Transaction` never contains exercised events (only created and archived events): `#960 <https://github.com/digital-asset/daml/issues/960>`_
+
+  This change is *backwards compatible on the transport level*, meaning:
+
+  - new versions of ledger language bindings will work with previous versions of the Sandbox, because the field was never populated
+  - previous versions of the ledger language bindings will work with new versions of the Sandbox, as the field was removed without any change in observable behavior
+
+How to migrate:
+
+  - If you check for the presence of :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- **BREAKING** Reflect the breaking change of Ledger API in the event class hierarchy:
+
+  - Changed ``data.Event`` from an abstract class to an interface, representing events in a flat transaction.
+  - Added interface ``data.TreeEvent``, representing events in a transaction tree.
+  - ``data.CreatedEvent`` and ``data.ArchivedEvent`` now implement ``data.Event``.
+  - ``data.CreatedEvent`` and ``data.ExercisedEvent`` now implement ``data.TreeEvent``.
+  - ``data.TransactionTree#eventsById`` is now ``Map<String, TreeEvent>`` (was previously ``Map<String, Event>``).
+
+How to migrate:
+
+  - If you are processing ``data.TransactionTree`` objects, you need to change the type of the processed events from ``data.Event`` to ``data.TreeEvent``.
+  - If you are checking for the presense of exercised events when processing ``data.Transaction`` objects, you can remove that code now.
+    It would never have triggered in the first place, as transactions do not contain exercised events.
 
 .. _release-0-12-17:
 

@@ -3,6 +3,7 @@
 
 package com.daml.ledger.rxjava.components.helpers;
 
+import com.daml.ledger.javaapi.data.Event;
 import com.daml.ledger.javaapi.data.Transaction;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -10,7 +11,7 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * A {@link Transaction} without the {@link com.daml.ledger.javaapi.data.Event}s.
+ * A {@link Transaction} without the {@link Event}s.
  */
 public class TransactionContext implements CreatedContractContext {
 
