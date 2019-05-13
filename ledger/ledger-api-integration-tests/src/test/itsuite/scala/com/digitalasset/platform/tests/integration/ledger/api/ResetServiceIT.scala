@@ -42,7 +42,7 @@ class ResetServiceIT
 
   override def timeLimit: Span = 30.seconds
 
-  override protected val config: Config = Config.defaultWithLedgerId(None)
+  override protected val config: Config = Config.default.withDynamicLedgerId()
 
   override protected def darFile: File = new File("ledger/sandbox/Test.dar")
 

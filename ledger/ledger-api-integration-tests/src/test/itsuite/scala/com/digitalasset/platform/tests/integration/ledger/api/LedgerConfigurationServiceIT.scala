@@ -32,10 +32,8 @@ class LedgerConfigurationServiceIT
 
   override def timeLimit: Span = 5.seconds
 
-  private def client(
-      ctx: LedgerContext,
-      ledgerId: String = config.getLedgerId): LedgerConfigurationClient =
-    new LedgerConfigurationClient(ledgerId, ctx.ledgerConfigurationService)
+  private def client(ctx: LedgerContext): LedgerConfigurationClient =
+    new LedgerConfigurationClient(getLedgerId(ctx), ctx.ledgerConfigurationService)
 
   "Ledger Configuration Service" when {
 
@@ -50,12 +48,13 @@ class LedgerConfigurationServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        client(context, "not " + config.getLedgerId).getLedgerConfiguration
+        new LedgerConfigurationClient(
+          "not " + getLedgerId(context),
+          context.ledgerConfigurationService).getLedgerConfiguration
           .runWith(Sink.head)(materializer)
           .failed map { ex =>
           IsStatusException(Status.NOT_FOUND.getCode)(ex)
         }
-
       }
 
     }

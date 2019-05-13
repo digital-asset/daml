@@ -53,20 +53,14 @@ class ActiveContractsServiceIT
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(scaled(Span(30000, Millis)), scaled(Span(500, Millis)))
 
-  private def client(
-      ctx: LedgerContext,
-      ledgerId: String = config.getLedgerId): ActiveContractSetClient =
-    new ActiveContractSetClient(ledgerId, ctx.acsService)
+  private def client(ctx: LedgerContext): ActiveContractSetClient =
+    new ActiveContractSetClient(getLedgerId(ctx), ctx.acsService)
 
-  private def commandClient(
-      ctx: LedgerContext,
-      ledgerId: String = config.getLedgerId): SynchronousCommandClient =
+  private def commandClient(ctx: LedgerContext): SynchronousCommandClient =
     new SynchronousCommandClient(ctx.commandService)
 
-  private def transactionClient(
-      ctx: LedgerContext,
-      ledgerId: String = config.getLedgerId): TransactionClient =
-    new TransactionClient(ledgerId, ctx.transactionService)
+  private def transactionClient(ctx: LedgerContext): TransactionClient =
+    new TransactionClient(getLedgerId(ctx), ctx.transactionService)
 
   private def submitRequest(ctx: LedgerContext, request: SubmitAndWaitRequest) =
     commandClient(ctx).submitAndWait(request)
@@ -109,7 +103,7 @@ class ActiveContractsServiceIT
   "Active Contract Set Service" when {
     "asked for active contracts" should {
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        client(context, UUID.randomUUID().toString)
+        new ActiveContractSetClient(UUID.randomUUID().toString, context.acsService)
           .getActiveContracts(filter)
           .runWith(Sink.head)(materializer)
           .failed map { ex =>

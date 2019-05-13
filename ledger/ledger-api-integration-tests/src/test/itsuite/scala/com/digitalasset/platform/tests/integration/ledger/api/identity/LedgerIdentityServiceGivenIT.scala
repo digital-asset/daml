@@ -6,7 +6,7 @@ package com.digitalasset.platform.tests.integration.ledger.api.identity
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LedgerIdentityServiceGivenIT extends LedgerIdentityServiceITBase {
 
-  override protected def config: Config = Config.defaultWithLedgerId(Some(givenId))
+  override protected def config: Config = Config.defaultWithLedgerId(givenId)
 
   "A platform" when {
     "started" should {

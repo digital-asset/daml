@@ -71,7 +71,6 @@ da_scala_library(
     ] + dependencies,
 )
 
-
 da_scala_test_suite(
     name = "ledger-api-integration-tests",
     size = "large",

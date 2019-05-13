@@ -38,11 +38,10 @@ class CommandSubmissionServiceIT
 
     "commands arrive with extreme TTLs" should {
 
-      "successfully submit commands" in allFixtures { implicit c =>
+      "successfully submit commands" in allFixtures { c =>
         c.commandSubmissionService.submit(
-          SubmitRequest(Some(submitRequest.getCommands.withLedgerId(config.getLedgerId)))) map {
-          _ =>
-            succeed
+          SubmitRequest(Some(submitRequest.getCommands.withLedgerId(getLedgerId(c))))) map { _ =>
+          succeed
         }
       }
     }

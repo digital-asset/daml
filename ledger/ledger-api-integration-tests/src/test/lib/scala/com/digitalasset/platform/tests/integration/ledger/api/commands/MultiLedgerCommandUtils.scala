@@ -49,5 +49,5 @@ trait MultiLedgerCommandUtils extends MultiLedgerFixture {
     commands = MockMessages.submitAndWaitRequest.commands
       .map(_.copy(commandId = "fails", ledgerId = "not ledger id")))
 
-  override protected def config: Config = Config.defaultWithLedgerId(Some(testLedgerId))
+  override protected def config: Config = Config.defaultWithLedgerId(testLedgerId)
 }

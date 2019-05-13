@@ -23,7 +23,6 @@ import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter, _}
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{Bool, ContractId}
 import com.digitalasset.ledger.api.v1.value.{
@@ -75,8 +74,8 @@ class TransactionServiceIT
 
   override val timeLimit: Span = 300.seconds
 
-  private def newClient(stub: TransactionService, ledgerId: String): TransactionClient =
-    new TransactionClient(ledgerId, stub)
+  private def newClient(ctx: LedgerContext, ledgerId: String): TransactionClient =
+    new TransactionClient(ledgerId, ctx.transactionService)
 
   private val getAllContracts = transactionFilter
 
@@ -156,10 +155,7 @@ class TransactionServiceIT
           .runWith(Sink.seq)
 
         for {
-          _ <- insertCommands(
-            "stream-completion-test",
-            14,
-            context)
+          _ <- insertCommands("stream-completion-test", 14, context)
           _ <- resultsF
         } yield {
           succeed // resultF would not complete unless the server terminates the connection
@@ -835,7 +831,7 @@ class TransactionServiceIT
     "ledger Ids don't match" should {
 
       "fail with the expected status" in allFixtures { context =>
-        newClient(context.transactionService, "notLedgerId")
+        newClient(context, "notLedgerId")
           .getTransactions(ledgerBegin, Some(ledgerEnd), getAllContracts)
           .runWith(Sink.head)
           .failed
@@ -851,7 +847,7 @@ class TransactionServiceIT
       }
 
       "return NOT_FOUND if ledger Ids don't match" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.getLedgerId).getLedgerEnd.failed
+        newClient(context, "not" + getLedgerId(context)).getLedgerEnd.failed
           .map(IsStatusException(Status.NOT_FOUND))
 
       }
@@ -864,17 +860,18 @@ class TransactionServiceIT
           val beginOffset =
             LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
           for {
-            _ <- insertCommands(
-              "tree-provenance-by-id",
-              1,
-              context)
+            _ <- insertCommands("tree-provenance-by-id", 1, context)
             firstTransaction <- context.transactionClient
               .getTransactions(beginOffset, None, transactionFilter)
               .runWith(Sink.head)
             transactionId = firstTransaction.transactionId
-            response <- context.forParty("party").transactionClient
+            response <- context
+              .forParty("party")
+              .transactionClient
               .getTransactionById(transactionId, List("party"))
-            notVisibleError <- context.forParty("Alice").transactionClient
+            notVisibleError <- context
+              .forParty("Alice")
+              .transactionClient
               .getTransactionById(transactionId, List("Alice"))
               .failed
           } yield {
@@ -897,7 +894,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.getLedgerId)
+        newClient(context, "not" + getLedgerId(context))
           .getTransactionById(transactionId, List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -962,10 +959,7 @@ class TransactionServiceIT
           val beginOffset =
             LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
           for {
-            _ <- insertCommands(
-              "flat-provenance-by-id",
-              1,
-              context)
+            _ <- insertCommands("flat-provenance-by-id", 1, context)
             firstTransaction <- context.transactionClient
               .getTransactions(beginOffset, None, transactionFilter)
               .runWith(Sink.head)
@@ -995,7 +989,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.getLedgerId)
+        newClient(context, "not" + getLedgerId(context))
           .getFlatTransactionById(transactionId, List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1031,10 +1025,7 @@ class TransactionServiceIT
         val beginOffset =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         for {
-          _ <- insertCommands(
-            "tree provenance-by-event-id",
-            1,
-            context)
+          _ <- insertCommands("tree provenance-by-event-id", 1, context)
           tx <- context.transactionClient
             .getTransactions(beginOffset, None, transactionFilter)
             .runWith(Sink.head)
@@ -1079,7 +1070,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.getLedgerId)
+        newClient(context, "not" + getLedgerId(context))
           .getTransactionByEventId("#42:0", List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1099,10 +1090,7 @@ class TransactionServiceIT
         val beginOffset =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         for {
-          _ <- insertCommands(
-            "flat-provenance-by-event-id",
-            1,
-            context)
+          _ <- insertCommands("flat-provenance-by-event-id", 1, context)
           tx <- context.transactionClient
             .getTransactions(beginOffset, None, transactionFilter)
             .runWith(Sink.head)
@@ -1147,7 +1135,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.getLedgerId)
+        newClient(context, "not" + getLedgerId(context))
           .getFlatTransactionByEventId("#42:0", List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1249,10 +1237,7 @@ class TransactionServiceIT
             .runWith(Sink.seq)
 
           for {
-            _ <- insertCommands(
-              "cancellation-test-tree",
-              commandsToSend,
-              context)
+            _ <- insertCommands("cancellation-test-tree", commandsToSend, context)
             elems <- resultsF
           } yield (elems should have length elemsToTake)
         }
@@ -1311,10 +1296,7 @@ class TransactionServiceIT
             r1 <- context.transactionClient
               .getTransactionTrees(ledgerBegin, Some(ledgerEnd), transactionFilter)
               .runWith(Sink.seq)
-            _ <- insertCommands(
-              "complete_test",
-              noOfCommands,
-              context)
+            _ <- insertCommands("complete_test", noOfCommands, context)
             r2 <- context.transactionClient
               .getTransactionTrees(ledgerBegin, Some(ledgerEnd), transactionFilter)
               .runWith(Sink.seq)
@@ -1450,7 +1432,11 @@ class TransactionServiceIT
       prefix: String,
       commandsPerSection: Int,
       context: LedgerContext): Future[Done] = {
-    helpers.insertCommands(getTrackerFlow(context), prefix, commandsPerSection, config.getLedgerId)
+    helpers.insertCommands(
+      getTrackerFlow(context),
+      prefix,
+      commandsPerSection,
+      getLedgerId(context))
   }
 
   private def lastOffsetIn(secondSection: immutable.Seq[Transaction]): Option[LedgerOffset] = {

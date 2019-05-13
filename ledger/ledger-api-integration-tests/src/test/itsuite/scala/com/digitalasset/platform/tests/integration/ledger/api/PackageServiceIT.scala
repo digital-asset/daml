@@ -13,7 +13,7 @@ import com.digitalasset.ledger.api.testing.utils.{
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.digitalasset.ledger.api.v1.package_service.PackageStatus
 import com.digitalasset.ledger.client.services.pkg.PackageClient
-import com.digitalasset.platform.apitesting.MultiLedgerFixture
+import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
 import io.grpc.Status
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
@@ -32,29 +32,30 @@ class PackageServiceIT
 
   override def timeLimit: Span = 5.seconds
 
-  private def client(stub: PackageService): PackageClient = {
-    client(stub, config.getLedgerId)
+  private def client(
+      ctx: LedgerContext,
+      stub: PackageService,
+      ledgerId: Option[String] = None): PackageClient = {
+    new PackageClient(ledgerId.getOrElse(getLedgerId(ctx)), stub)
   }
 
-  private def client(stub: PackageService, ledgerId: String): PackageClient = {
-    new PackageClient(ledgerId, stub)
-  }
-
-  private def getARegisteredPackageId(stub: PackageService) =
-    client(stub).listPackages().map(_.packageIds.headOption.value)
+  private def getARegisteredPackageId(ctx: LedgerContext, stub: PackageService) =
+    client(ctx, stub).listPackages().map(_.packageIds.headOption.value)
 
   "Package Service" when {
 
     "asked for the list of registered packages" should {
 
       "return it" in allFixtures { context =>
-        client(context.packageService).listPackages() map {
+        client(context, context.packageService).listPackages() map {
           _.packageIds.size shouldEqual 3 // package, stdlib, daml-prim
         }
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        client(context.packageService, "not " + config.getLedgerId).listPackages().failed map {
+        new PackageClient("not " + getLedgerId(context), context.packageService)
+          .listPackages()
+          .failed map {
           IsStatusException(Status.NOT_FOUND)(_)
         }
 
@@ -64,22 +65,25 @@ class PackageServiceIT
     "asked to get a package" should {
 
       "return it if it's registered" in allFixtures { context =>
-        getARegisteredPackageId(context.packageService)
-          .flatMap(client(context.packageService).getPackage(_)) map {
+        getARegisteredPackageId(context, context.packageService)
+          .flatMap(client(context, context.packageService).getPackage(_)) map {
           _.archivePayload.size() should be > 0
         }
 
       }
 
       "return a NOT_FOUND error if it's not registered" in allFixtures { context =>
-        client(context.packageService).getPackage(UUID.randomUUID().toString).failed map {
+        client(context, context.packageService).getPackage(UUID.randomUUID().toString).failed map {
           IsStatusException(Status.NOT_FOUND)(_)
         }
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        getARegisteredPackageId(context.packageService)
-          .flatMap(client(context.packageService, "not " + config.getLedgerId).getPackage(_).failed) map {
+        getARegisteredPackageId(context, context.packageService)
+          .flatMap(
+            client(context, context.packageService, Some("not " + getLedgerId(context)))
+              .getPackage(_)
+              .failed) map {
           IsStatusException(Status.NOT_FOUND)(_)
         }
       }
@@ -88,23 +92,23 @@ class PackageServiceIT
     "asked to check a package's status" should {
 
       "return true if it's registered" in allFixtures { context =>
-        getARegisteredPackageId(context.packageService)
-          .flatMap(client(context.packageService).getPackageStatus(_)) map {
+        getARegisteredPackageId(context, context.packageService)
+          .flatMap(client(context, context.packageService).getPackageStatus(_)) map {
           _.packageStatus shouldEqual PackageStatus.REGISTERED
         }
       }
 
       "return false if it's not registered" in allFixtures { context =>
-        client(context.packageService).getPackageStatus(UUID.randomUUID().toString) map {
+        client(context, context.packageService).getPackageStatus(UUID.randomUUID().toString) map {
           _.packageStatus shouldEqual PackageStatus.UNKNOWN
         }
 
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        getARegisteredPackageId(context.packageService)
+        getARegisteredPackageId(context, context.packageService)
           .flatMap(
-            client(context.packageService, "not " + config.getLedgerId)
+            client(context, context.packageService, Some("not " + getLedgerId(context)))
               .getPackageStatus(_)
               .failed) map {
           IsStatusException(Status.NOT_FOUND)(_)

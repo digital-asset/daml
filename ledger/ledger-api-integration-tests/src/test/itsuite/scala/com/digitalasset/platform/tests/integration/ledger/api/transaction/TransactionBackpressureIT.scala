@@ -38,7 +38,7 @@ class TransactionBackpressureIT
 
   val testLedgerId = "ledgerId"
 
-  override protected def config: Config = Config.defaultWithLedgerId(Some(testLedgerId))
+  override protected def config: Config = Config.default.withDynamicLedgerId()
 
   override protected def parallelExecution: Boolean = false
 

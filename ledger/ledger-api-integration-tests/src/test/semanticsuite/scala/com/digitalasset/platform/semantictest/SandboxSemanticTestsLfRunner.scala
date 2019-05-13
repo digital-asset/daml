@@ -3,12 +3,11 @@
 
 package com.digitalasset.platform.semantictest
 
-import java.io.{BufferedInputStream, File, FileInputStream}
+import java.io.File
 
 import com.digitalasset.daml.lf.UniversalArchiveReader
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.testing.SemanticTester
-import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
+import com.digitalasset.daml.lf.lfpackage.Decode
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundAll
@@ -57,14 +56,6 @@ class SandboxSemanticTestsLfRunner
             .testScenario(name)
         } yield succeed
       }
-    }
-  }
-  private def readPackage(f: File): (PackageId, Ast.Package) = {
-    val is = new BufferedInputStream(new FileInputStream(f))
-    try {
-      Decode.decodeArchiveFromInputStream(is)
-    } finally {
-      is.close()
     }
   }
 }

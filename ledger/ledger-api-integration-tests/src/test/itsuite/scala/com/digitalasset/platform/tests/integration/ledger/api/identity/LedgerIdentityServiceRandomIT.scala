@@ -10,7 +10,7 @@ import scala.concurrent.Promise
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LedgerIdentityServiceRandomIT extends LedgerIdentityServiceITBase {
 
-  override protected def config: Config = Config.defaultWithLedgerId(None)
+  override protected def config: Config = Config.default.withDynamicLedgerId()
 
   "A platform" when {
 
