@@ -114,12 +114,7 @@ getIdeGlobalState = getIdeGlobalExtras . shakeExtras
 
 
 -- | The state of the all values - nested so you can easily find all errors at a given file.
-type Values =
-    Map.HashMap FilePath
-        (Map.HashMap Key
-            (Maybe Dynamic)
-        )
-
+type Values = Map.HashMap (FilePath, Key) (Maybe Dynamic)
 
 -- | Key type
 data Key = forall k . (Typeable k, Hashable k, Eq k, Show k) => Key k
@@ -198,8 +193,8 @@ setValues :: IdeRule k v
           -> FilePath
           -> Maybe v
           -> IO ()
-setValues state key file val = modifyVar_ state $ \inVal ->
-    return $ Map.insertWith Map.union file (Map.singleton (Key key) $ fmap toDyn val) inVal
+setValues state key file val = modifyVar_ state $
+    pure . Map.insert (file, Key key) (fmap toDyn val)
 
 -- | The outer Maybe is Nothing if this function hasn't been computed before
 --   the inner Maybe is Nothing if the result of the previous computation failed to produce
@@ -208,8 +203,7 @@ getValues :: forall k v. IdeRule k v => Var Values -> k -> FilePath -> IO (Maybe
 getValues state key file = do
     vs <- readVar state
     return $ do
-        f <- Map.lookup file vs
-        v <- Map.lookup (Key key) f
+        v <- Map.lookup (file, Key key) vs
         pure $ fmap (fromJust . fromDynamic @v) v
 
 -- | Open a 'IdeState', should be shut using 'shakeShut'.
@@ -277,7 +271,7 @@ unsafeClearAllDiagnostics IdeState{shakeExtras = ShakeExtras{diagnostics}} =
 garbageCollect :: (FilePath -> Bool) -> Action ()
 garbageCollect keep = do
     ShakeExtras{state, diagnostics} <- getShakeExtras
-    liftIO $ modifyVar_ state $ return . Map.filterWithKey (\file _ -> keep file)
+    liftIO $ modifyVar_ state $ return . Map.filterWithKey (\(file,_) _ -> keep file)
     liftIO $ modifyVar_ diagnostics $ pure . filterDiagnostics keep
 
 define
