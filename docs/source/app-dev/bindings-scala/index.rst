@@ -4,21 +4,21 @@
 Scala bindings
 ##############
 
-The Scala bindings is a client implementation of the *Ledger API*
-based on `Akka Streams API <https://doc.akka.io/docs/akka/current/stream/index.html>`_.
+This tutorial provides a basic Scala programmer's introduction to working with Digital Asset distributed ledger,
+using the Scala programming language and the *Ledger API*.
 
 Introduction
 ============
 
-The Scala bindings library lets you write applications that connect to the Digital Asset distributed ledger using the Scala programming language.
+The Scala bindings is a client implementation of the *Ledger API*. The Scala bindings library lets you write applications that connect to the Digital Asset distributed ledger using the Scala programming language.
 
 There are two main components:
 
-- Akka Streams-based API
-    The API that you use to send commands to the ledger and receive transactions back.
-
 - Scala codegen
     DAML to Scala code generator. Use this to generate Scala classes from DAML models. The generated Scala code provides a type safe way of creating contracts (create command) and exercising contract choices (exercise command).
+
+- Akka Streams-based API
+    The API that you use to send commands to the ledger and receive transactions back.
 
 In order to use the Scala bindings, you should be familiar with:
 
