@@ -1045,7 +1045,6 @@ class TransactionServiceIT
             .map(_.event match {
               case Archived(v) => v.eventId
               case Created(v) => v.eventId
-              case Event.Event.Exercised(v) => v.eventId
               case Event.Event.Empty => fail(s"Received empty event in $tx")
             })
             .value
@@ -1115,7 +1114,6 @@ class TransactionServiceIT
             .map(_.event match {
               case Archived(v) => v.eventId
               case Created(v) => v.eventId
-              case Event.Event.Exercised(v) => v.eventId
               case Event.Event.Empty => fail(s"Received empty event in $tx")
             })
             .value
@@ -1384,29 +1382,14 @@ class TransactionServiceIT
               ledgerBegin,
               Some(ledgerEnd),
               TransactionFilter(Map("Bob" -> Filters())))
-            .runWith(Sink.seq)
-          val txsF = context.transactionClient
-            .getTransactions(
-              ledgerBegin,
-              Some(ledgerEnd),
-              TransactionFilter(Map("Bob" -> Filters())))
+            .map(_.eventsById.values)
+            .mapConcat(context.testingHelpers.exercisedEventsInNodes(_).toList)
+            .map(_.exerciseResult)
             .runWith(Sink.seq)
 
-          for {
-            txs <- txsF
-            trees <- treesF
-            _ = txs.map(_.transactionId) shouldEqual trees.map(_.transactionId)
-          } yield {
-            for {
-              tx <- txs
-              exEvents = context.testingHelpers.exercisedEventsIn(tx)
-              _ = exEvents should not be empty
-              exEvent <- exEvents
-            } yield {
-              exEvent.exerciseResult should not be empty
-            }
+          treesF.map { results =>
+            all(results) should not be empty
           }
-          succeed
         }
       }
 

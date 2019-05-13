@@ -4,7 +4,7 @@
 package com.digitalasset.platform.server.services.transaction
 
 import com.digitalasset.ledger.api.domain.ContractId
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty, Exercised}
+import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.platform.api.v1.event.EventOps._
 
@@ -88,9 +88,6 @@ object TransientContractRemover {
         }
 
       // Illegal cases
-      case Exercised(value) =>
-        throw new IllegalArgumentException(
-          s"Received unexpected Exercise event ${value.eventId} in transient contract removal. Only Create and Archive are allowed")
       case Empty =>
         throw new IllegalArgumentException(
           s"Received unexpected Empty event in transient contract removal. Only Create and Archive are allowed")
