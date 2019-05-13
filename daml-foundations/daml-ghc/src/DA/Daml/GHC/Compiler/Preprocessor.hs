@@ -23,7 +23,7 @@ isInternal :: GHC.ModuleName -> Bool
 isInternal (GHC.moduleNameString -> x)
   = "DA.Internal." `isPrefixOf` x ||
     "GHC." `isPrefixOf` x ||
-    x `elem` ["Control.Exception.Base", "Data.String", "LibraryModules"]
+    x `elem` ["Control.Exception.Base", "Data.String", "LibraryModules", "DA.Types"]
 
 mayImportInternal :: [GHC.ModuleName]
 mayImportInternal = map GHC.mkModuleName ["Prelude", "DA.Time", "DA.Date", "DA.Record", "DA.TextMap"]
