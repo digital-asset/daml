@@ -19,7 +19,7 @@ module Control.Exception.Base
 import GHC.Base
 import GHC.CString (fromString)
 import GHC.Err
-import GHC.Tuple
+import GHC.Tuple()
 import GHC.Types
 
 -- List of errors inserted by GHC, copied from
