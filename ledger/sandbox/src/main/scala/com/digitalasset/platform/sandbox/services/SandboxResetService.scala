@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.services
-
 import java.util.concurrent.TimeUnit
 
 import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
@@ -19,6 +18,7 @@ class SandboxResetService(
     getLedgerId: () => String,
     getServer: () => Server,
     getEc: () => ExecutionContext,
+    closeAllServices: () => Unit,
     resetAndStartServer: () => Unit)
     extends ResetServiceGrpc.ResetService
     with BindableService {
@@ -50,10 +50,12 @@ class SandboxResetService(
       )
 
   }
-
   private def actuallyReset(server: Server) = {
     logger.info("Initiating server reset.")
     server.shutdown()
+    logger.info("Closing all services...")
+    closeAllServices()
+
     // We need to run this asynchronously since otherwise we have a deadlock: `buildAndStartServer` will block
     // until all the in flight requests have been served, so we need to schedule this in another thread so that
     // the code that clears the in flight request is not in an in flight request itself.
