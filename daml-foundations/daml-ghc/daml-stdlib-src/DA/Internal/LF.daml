@@ -128,9 +128,9 @@ instance Action Update where
 instance ActionFail Update where
     fail = primitive @"UAbort"
 
--- | Places where the time is available - basically `Scenario` and `Update`.
+-- | The `HasTime` class is for where the time is available: `Scenario` and `Update`.
 class HasTime m where
-    -- | Obtain the current time.
+    -- | Get the current time.
     getTime : m Time
 
 instance HasTime Update where
@@ -138,6 +138,7 @@ instance HasTime Update where
 instance HasTime Scenario where
     getTime = primitive @"SGetTime"
 
+-- | The `CanAbort` class is for Updates that can be aborted.
 class (Action m) => CanAbort m where
     -- | Abort the current action with a message.
     abort : Text -> m a

@@ -23,8 +23,8 @@ import GHC.Types
 import GHC.Classes ()
 import DA.Types
 
--- | `shows` returns a function that prepends the
--- output 'Text' to an existing 'Text'.  This allows constant-time
+-- | `showS` is a function that prepends the
+-- output `Text` to an existing `Text`.  This allows constant-time
 -- concatenation of results using function composition.
 type ShowS = Text -> Text
 
