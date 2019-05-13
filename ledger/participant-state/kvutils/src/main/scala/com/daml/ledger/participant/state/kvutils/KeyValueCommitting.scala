@@ -79,9 +79,9 @@ object KeyValueCommitting {
     * @param submission: Submission to commit to the ledger.
     * @param inputLogEntries: Resolved input log entries specified in submission.
     * @param inputState:
-    *   Resolved input state specified in submission. Optional to mork that input state was resolved
+    *   Resolved input state specified in submission. Optional to mark that input state was resolved
     *   but not present. Specifically we require the command de-duplication input to be resolved, but don't
-    *   expect to be there.
+    *   expect to be present.
     * @return Log entry to be committed and the DAML state updates to be applied.
     */
   def processSubmission(
@@ -295,7 +295,10 @@ object KeyValueCommitting {
             val key = absoluteContractIdToStateKey(absCoid)
             val cs =
               inputState(key).getOrElse(throw Err.MissingInputState(key)).getContractState.toBuilder
-            cs.addAllDivulgedTo((parties: Iterable[String]).asJava)
+            val partiesCombined: Set[String] =
+              parties.toSet[String] union cs.getDivulgedToList.asScala.toSet
+            cs.clearDivulgedTo
+            cs.addAllDivulgedTo(partiesCombined.asJava)
             stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs.build).build
         }
 
