@@ -1,14 +1,14 @@
 The presence of files with `dll.a` extensions greatly confuses GHC, so we
 remove them for the libraries we link in.
-
 diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
-index 941bf18..f9f3276 100644
+index 3a58776..69852f0 100644
 --- a/haskell/ghc_bindist.bzl
 +++ b/haskell/ghc_bindist.bzl
-@@ -201,6 +201,10 @@ def _ghc_bindist_impl(ctx):
-         _execute_fail_loudly(ctx, ["./configure", "--prefix", bindist_dir.realpath])
-         _execute_fail_loudly(ctx, ["make", "install"])
- 
+@@ -258,6 +258,11 @@ haskell_toolchain(
+         haddock_flags = ctx.attr.haddock_flags,
+         repl_ghci_args = ctx.attr.repl_ghci_args,
+     )
++
 +    if os == "windows":
 +        _execute_fail_loudly(ctx, ["rm", "mingw/lib/gcc/x86_64-w64-mingw32/7.2.0/libstdc++.dll.a"])
 +        _execute_fail_loudly(ctx, ["rm", "mingw/x86_64-w64-mingw32/lib/libwinpthread.dll.a"])

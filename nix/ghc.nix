@@ -24,7 +24,6 @@ let
 
       # We need newer versions that build with GHC 8.6
       language-c = super.callPackage ./overrides/language-c-0.8.2.nix {};
-      c2hs = super.callPackage ./overrides/c2hs-0.28.6.nix {};
   });
 
   ghc863Binary = pkgs.callPackage ./overrides/ghc-8.6.3-binary.nix {

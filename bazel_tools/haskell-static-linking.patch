@@ -5,10 +5,10 @@ Moreover on Windows we add extra system dependencies. The solution is not ideal
 but works well; for a proper solution we need better system library support in
 rules_haskell: https://github.com/tweag/rules_haskell/issues/834
 diff --git a/haskell/haskell.bzl b/haskell/haskell.bzl
-index 7d26a6d..e2a289b 100644
+index bde7036..0928d09 100644
 --- a/haskell/haskell.bzl
 +++ b/haskell/haskell.bzl
-@@ -210,7 +210,7 @@ haskell_library = rule(
+@@ -241,7 +241,7 @@ haskell_library = rule(
              doc = "A dictionary mapping dependencies to module reexports that should be available for import by dependencies.",
          ),
          linkstatic = attr.bool(
@@ -16,12 +16,12 @@ index 7d26a6d..e2a289b 100644
 +            default = True,
              doc = "Create a static library, not both a static and a shared library.",
          ),
-         version = attr.string(
+         package_name = attr.string(
 diff --git a/haskell/private/actions/package.bzl b/haskell/private/actions/package.bzl
-index 2163c02..37a6d07 100644
+index 6671232..6969c05 100644
 --- a/haskell/private/actions/package.bzl
 +++ b/haskell/private/actions/package.bzl
-@@ -92,8 +92,6 @@ def package(
+@@ -99,8 +99,6 @@ def package(
          "import-dirs": " ".join([import_dir, import_dir_prof]),
          "library-dirs": " ".join(["${pkgroot}"] + extra_lib_dirs),
          "dynamic-library-dirs": " ".join(["${pkgroot}"] + extra_lib_dirs),
@@ -30,7 +30,7 @@ index 2163c02..37a6d07 100644
          "depends": ", ".join(
              # Prebuilt dependencies are added further down, since their
              # package-ids are not available as strings but in build outputs.
-@@ -101,6 +99,15 @@ def package(
+@@ -108,6 +106,15 @@ def package(
          ),
      }
  
