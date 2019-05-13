@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf.testing
 
 import com.digitalasset.daml.lf.archive.LanguageVersion
-import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.lfpackage.Ast.{Expr, Kind, Module, Type}
 
@@ -12,9 +11,9 @@ package object parser {
 
   val defaultLanguageVersion: LanguageVersion = LanguageVersion.default
   val defaultPkgId: PackageId = PackageId.assertFromString("-pkgId-")
-  val defaultModName: ModuleName = DottedName(ImmArray("Mod"))
+  val defaultModName: ModuleName = DottedName.assertFromString("Mod")
   val defaultTemplName: TypeConName =
-    Identifier(defaultPkgId, QualifiedName(defaultModName, DottedName(ImmArray("T"))))
+    Identifier(defaultPkgId, QualifiedName(defaultModName, DottedName.assertFromString("T")))
 
   private def safeParse[T](p: Parsers.Parser[T], s: String): Either[String, T] =
     try {

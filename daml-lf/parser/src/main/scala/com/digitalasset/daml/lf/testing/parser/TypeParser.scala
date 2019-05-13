@@ -36,7 +36,7 @@ object TypeParser {
   private lazy val tForall: Parser[Type] =
     `forall` ~>! rep1(typeBinder) ~ `.` ~ typ ^^ { case bs ~ _ ~ t => (bs :\ t)(TForall) }
 
-  private lazy val fieldType: Parser[(String, Type)] =
+  private lazy val fieldType: Parser[(FieldName, Type)] =
     id ~ `:` ~ typ ^^ { case name ~ _ ~ t => name -> t }
 
   private lazy val tTuple: Parser[Type] =

@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.value
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
+
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.value.Value._
 
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks}
@@ -14,11 +15,11 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
     val emptyTuple = ValueTuple(ImmArray.empty)
     val emptyTupleError = "contains tuple ValueTuple(ImmArray())"
     val exceedsNesting = (1 to MAXIMUM_NESTING + 1).foldRight[Value[Nothing]](ValueInt64(42)) {
-      case (_, v) => ValueVariant(None, "foo", v)
+      case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
     }
     val exceedsNestingError = s"exceeds maximum nesting value of $MAXIMUM_NESTING"
     val matchesNesting = (1 to MAXIMUM_NESTING).foldRight[Value[Nothing]](ValueInt64(42)) {
-      case (_, v) => ValueVariant(None, "foo", v)
+      case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
     }
 
     "rejects tuple" in {

@@ -3,6 +3,7 @@
 
 module DAML.Assistant.Util
     ( module DAML.Assistant.Util
+    , ascendants
     , fromRightM
     , fromMaybeM
     ) where
@@ -10,28 +11,9 @@ module DAML.Assistant.Util
 import DAML.Assistant.Types
 import DAML.Project.Util
 import System.Exit
-import System.FilePath
 import Control.Exception.Safe
 import Control.Applicative
 import Control.Monad.Extra hiding (fromMaybeM)
-
--- | Calculate the ascendants of a path, i.e. the successive parents of a path,
--- including the path itself, all the way to its root. For example:
---
---     ascendants "/foo/bar/baz" == ["/foo/bar/baz", "/foo/bar", "/foo", "/"]
---     ascendants "~/foo/bar/baz" == ["~/foo/bar/baz", "~/foo/bar", "~/foo", "~"]
---     ascendants "./foo/bar/baz" == ["./foo/bar/baz", "./foo/bar", "./foo", "."]
---     ascendants "../foo/bar/baz" == ["../foo/bar/baz", "../foo/bar", "../foo", ".."]
---     ascendants "foo/bar/baz"  == ["foo/bar/baz", "foo/bar", "foo", "."]
---
-ascendants :: FilePath -> [FilePath]
-ascendants "" = ["."]
-ascendants "~" = ["~"]
-ascendants ".." = [".."]
-ascendants p =
-    let p' = takeDirectory (dropTrailingPathSeparator p)
-        ps = if p == p' then [] else ascendants p'
-    in p : ps
 
 -- | Throw an assistant error.
 throwErr :: Text -> IO a

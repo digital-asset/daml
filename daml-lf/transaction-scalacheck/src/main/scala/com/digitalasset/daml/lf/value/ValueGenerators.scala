@@ -127,6 +127,17 @@ object ValueGenerators {
     name <- dottedNameGen
   } yield Identifier(packageId, QualifiedName(module, name))
 
+  val nameGen: Gen[Name] = {
+    val firstChars =
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_".toVector
+    val mainChars =
+      firstChars ++ "1234567890"
+    for {
+      h <- Gen.oneOf(firstChars)
+      t <- Gen.listOf(Gen.oneOf(mainChars))
+    } yield Name.assertFromString((h :: t).mkString)
+  }
+
   // generate a more or less acceptable date value
   private val minDate = Time.Date.assertFromString("1900-01-01")
   private val maxDate = Time.Date.assertFromString("2100-12-31")
@@ -143,7 +154,7 @@ object ValueGenerators {
   private def variantGen(nesting: Int): Gen[ValueVariant[ContractId]] =
     for {
       id <- idGen
-      variantName <- Gen.alphaStr
+      variantName <- nameGen
       toOption <- Gen
         .oneOf(true, false)
         .map(
@@ -163,7 +174,7 @@ object ValueGenerators {
           a =>
             if (a) (_: Identifier) => None
             else (x: Identifier) => Some(x))
-      labelledValues <- Gen.listOf(Gen.alphaStr.flatMap(label =>
+      labelledValues <- Gen.listOf(nameGen.flatMap(label =>
         Gen.lzy(valueGen(nesting)).map(x => if (label.isEmpty) (None, x) else (Some(label), x))))
     } yield ValueRecord[ContractId](toOption(id), ImmArray(labelledValues))
   def recordGen: Gen[ValueRecord[ContractId]] = recordGen(0)
@@ -304,7 +315,7 @@ object ValueGenerators {
     for {
       targetCoid <- coidGen
       templateId <- idGen
-      choiceId <- Gen.alphaStr
+      choiceId <- nameGen
       consume <- Gen.oneOf(true, false)
       actingParties <- genNonEmptyParties
       chosenValue <- versionedValueGen

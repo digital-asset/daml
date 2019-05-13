@@ -4,13 +4,7 @@
 package com.digitalasset.daml.lf.scenario
 
 import com.digitalasset.daml_lf.DamlLf1
-import com.digitalasset.daml.lf.data.Ref.{
-  DefinitionRef,
-  Identifier,
-  ModuleName,
-  PackageId,
-  QualifiedName,
-}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.lfpackage.{Decode, DecodeV1}
@@ -24,6 +18,7 @@ import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.types.Ledger.Ledger
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.lfpackage.Decode.ParseError
+import com.digitalasset.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
 import com.google.protobuf.ByteString
 
@@ -63,7 +58,7 @@ class Context(val contextId: Context.ContextId) {
 
   private var modules: Map[ModuleName, Ast.Module] = Map.empty
   private var extPackages: Map[PackageId, Ast.Package] = Map.empty
-  private var defns: Map[DefinitionRef, SExpr] = Map.empty
+  private var defns: Map[SDefinitionRef, SExpr] = Map.empty
 
   def loadedModules(): Iterable[ModuleName] = modules.keys
   def loadedPackages(): Iterable[PackageId] = extPackages.keys
@@ -99,8 +94,7 @@ class Context(val contextId: Context.ContextId) {
     unloadModules.foreach { moduleId =>
       val lfModuleId = assert(ModuleName.fromString(moduleId))
       modules -= lfModuleId
-      defns = defns.filterKeys(ref =>
-        ref.packageId != homePackageId || ref.qualifiedName.module != lfModuleId)
+      defns = defns.filterKeys(ref => ref.packageId != homePackageId || ref.modName != lfModuleId)
     }
     unloadPackages.foreach { pkgId =>
       val lfPkgId = assert(PackageId.fromString(pkgId))
@@ -142,12 +136,13 @@ class Context(val contextId: Context.ContextId) {
     val compiler = Compiler(allPackages)
     defns = lfModules.foldLeft(defns)(
       (newDefns, m) =>
-        newDefns.filterKeys(ref =>
-          ref.packageId != homePackageId || ref.qualifiedName.module != m.name)
+        newDefns.filterKeys(ref => ref.packageId != homePackageId || ref.modName != m.name)
           ++ m.definitions.flatMap {
             case (defName, defn) =>
               compiler.compileDefn(Identifier(homePackageId, QualifiedName(m.name, defName)), defn)
-        })
+
+        }
+    )
   }
 
   def allPackages: Map[PackageId, Ast.Package] =
@@ -155,7 +150,7 @@ class Context(val contextId: Context.ContextId) {
 
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     for {
-      defn <- defns.get(identifier)
+      defn <- defns.get(LfDefRef(identifier))
     } yield Speedy.Machine.build(defn, PureCompiledPackages(allPackages, defns).right.get)
   }
 

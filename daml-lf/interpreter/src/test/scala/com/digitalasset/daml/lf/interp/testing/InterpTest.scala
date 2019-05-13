@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.interp.testing
 
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.speedy.{SValue, Speedy}
 import com.digitalasset.daml.lf.speedy.SResult
 import com.digitalasset.daml.lf.speedy.SResult._
@@ -14,9 +14,15 @@ import com.digitalasset.daml.lf.lfpackage.Util._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.LanguageVersion
+import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
 import org.scalatest.{Matchers, WordSpec}
 
+import scala.language.implicitConversions
+
 class InterpTest extends WordSpec with Matchers {
+
+  private implicit def id(s: String): Ref.Name.T = Name.assertFromString(s)
+
   private def runExpr(e: Expr): SValue = {
     val machine = Speedy.Machine.fromExpr(e, PureCompiledPackages(Map.empty).right.get, false)
     while (!machine.isFinal) {
@@ -174,7 +180,7 @@ class InterpTest extends WordSpec with Matchers {
       run()
       result match {
         case SResultMissingDefinition(ref2, cb) =>
-          ref shouldBe ref2
+          LfDefRef(ref) shouldBe ref2
           cb(pkgs2)
           result = SResultContinue
           run()
@@ -198,7 +204,7 @@ class InterpTest extends WordSpec with Matchers {
       run()
       result match {
         case SResultMissingDefinition(ref2, cb) =>
-          ref shouldBe ref2
+          LfDefRef(ref) shouldBe ref2
           result = SResultContinue
           try {
             cb(pkgs1)

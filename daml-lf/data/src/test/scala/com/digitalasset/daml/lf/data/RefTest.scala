@@ -39,13 +39,19 @@ class RefTest extends FreeSpec with Matchers {
 
     "accepts good segments" - {
       "dollar" in {
-        DottedName.fromString("$.$blAH9.foo$bar.baz$") shouldBe
-          Right(DottedName.unsafeFromSegments(ImmArray("$", "$blAH9", "foo$bar", "baz$")))
+        DottedName
+          .fromString("$.$blAH9.foo$bar.baz$")
+          .getOrElse(sys.error("expect right found left"))
+          .segments shouldBe
+          ImmArray("$", "$blAH9", "foo$bar", "baz$")
       }
 
       "underscore" in {
-        DottedName.fromString("_._blAH9.foo_bar.baz_") shouldBe
-          Right(DottedName.unsafeFromSegments(ImmArray("_", "_blAH9", "foo_bar", "baz_")))
+        DottedName
+          .fromString("_._blAH9.foo_bar.baz_")
+          .getOrElse(sys.error("expect right found left"))
+          .segments shouldBe
+          ImmArray("_", "_blAH9", "foo_bar", "baz_")
       }
     }
   }

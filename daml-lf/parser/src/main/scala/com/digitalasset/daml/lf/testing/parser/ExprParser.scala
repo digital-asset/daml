@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.testing.parser
 
+import com.digitalasset.daml.lf.data.Ref.Name
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.testing.parser.Parsers._
@@ -76,11 +77,11 @@ private[parser] object ExprParser {
     }
   }
 
-  private lazy val fieldInit: Parser[(String, Expr)] = id ~ (`=` ~> expr) ^^ {
+  private lazy val fieldInit: Parser[(Name, Expr)] = id ~ (`=` ~> expr) ^^ {
     case fName ~ value => fName -> value
   }
 
-  private lazy val fieldInits: Parser[ImmArray[(String, Expr)]] =
+  private lazy val fieldInits: Parser[ImmArray[(Name, Expr)]] =
     repsep(fieldInit, `,`) ^^ ImmArray.apply
 
   private lazy val typeArgs = rep(argTyp) ^^ (ImmArray(_))
@@ -141,7 +142,7 @@ private[parser] object ExprParser {
       case tuple ~ ((fName, value)) => ETupleUpd(fName, tuple, value)
     }
 
-  private[parser] lazy val varBinder: Parser[(String, Type)] =
+  private[parser] lazy val varBinder: Parser[(Name, Type)] =
     `(` ~> id ~ (`:` ~> typ <~ `)`) ^^ { case name ~ t => name -> t }
 
   private lazy val eAbs: Parser[Expr] =

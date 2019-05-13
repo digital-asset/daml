@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.engine
 import java.io.File
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Time}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.daml.lf.transaction.{Node => N, Transaction => Tx}
@@ -19,6 +19,8 @@ import com.digitalasset.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalameter
 import org.scalameter.Quantity
 import org.scalatest.{Assertion, Matchers, WordSpec}
+
+import scala.language.implicitConversions
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LargeTransactionTest extends WordSpec with Matchers {
@@ -179,10 +181,10 @@ class LargeTransactionTest extends WordSpec with Matchers {
       step: Int,
       number: Int): CreateCommand = {
     val fields = ImmArray(
-      (Some("party"), ValueParty(party)),
-      (Some("start"), ValueInt64(start.toLong)),
-      (Some("step"), ValueInt64(step.toLong)),
-      (Some("size"), ValueInt64(number.toLong))
+      (Some[Name]("party"), ValueParty(party)),
+      (Some[Name]("start"), ValueInt64(start.toLong)),
+      (Some[Name]("step"), ValueInt64(step.toLong)),
+      (Some[Name]("size"), ValueInt64(number.toLong))
     )
     val argument = assertAsVersionedValue(ValueRecord(Some(templateId), fields))
     CreateCommand(templateId, argument)
@@ -217,7 +219,7 @@ class LargeTransactionTest extends WordSpec with Matchers {
   }
 
   private def listUtilCreateCmd(templateId: Identifier): CreateCommand = {
-    val fields = ImmArray((Some("party"), ValueParty(party)))
+    val fields = ImmArray((Some[Name]("party"), ValueParty(party)))
     val argument = assertAsVersionedValue(ValueRecord(Some(templateId), fields))
     CreateCommand(templateId, argument)
   }
@@ -225,9 +227,9 @@ class LargeTransactionTest extends WordSpec with Matchers {
   private def sizeExerciseCmd(templateId: Identifier, contractId: AbsoluteContractId)(
       size: Int): ExerciseCommand = {
     val choice = "Size"
-    val choiceId = Identifier(templateId.packageId, qn(s"LargeTransaction:$choice"))
+    val choiceDefRef = Identifier(templateId.packageId, qn(s"LargeTransaction:$choice"))
     val damlList = ValueList(FrontStack(elements = List.range(0L, size.toLong).map(ValueInt64)))
-    val choiceArgs = ValueRecord(Some(choiceId), ImmArray((None, damlList)))
+    val choiceArgs = ValueRecord(Some(choiceDefRef), ImmArray((None, damlList)))
     ExerciseCommand(
       templateId,
       contractId.coid,
@@ -297,7 +299,10 @@ class LargeTransactionTest extends WordSpec with Matchers {
 
   private def measureWithResult[R](body: => R): (R, Quantity[Double]) = {
     lazy val result: R = body
-    val quanity: Quantity[Double] = scalameter.measure(result)
-    (result, quanity)
+    val quantity: Quantity[Double] = scalameter.measure(result)
+    (result, quantity)
   }
+
+  private implicit def toChoiceName(s: String): Ref.Name = Name.assertFromString(s)
+
 }

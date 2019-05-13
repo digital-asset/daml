@@ -4,13 +4,12 @@
 package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.archive.LanguageVersion
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, `Name equal instance`}
 import com.digitalasset.daml.lf.data._
 
 import scala.annotation.tailrec
 import scalaz.Equal
 import scalaz.std.option._
-import scalaz.std.string._
 import scalaz.std.tuple._
 import scalaz.syntax.equal._
 
@@ -27,7 +26,7 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
           case (lbl, value) => (lbl, value.mapContractId(f))
         }))
       case ValueTuple(fs) =>
-        ValueTuple(fs.map[(String, Value[Cid2])] {
+        ValueTuple(fs.map[(Name, Value[Cid2])] {
           case (lbl, value) => (lbl, value.mapContractId(f))
         })
       case ValueVariant(id, variant, value) =>
@@ -170,9 +169,9 @@ object Value {
 
   final case class ValueRecord[+Cid](
       tycon: Option[Identifier],
-      fields: ImmArray[(Option[String], Value[Cid])])
+      fields: ImmArray[(Option[Name], Value[Cid])])
       extends Value[Cid]
-  final case class ValueVariant[+Cid](tycon: Option[Identifier], variant: String, value: Value[Cid])
+  final case class ValueVariant[+Cid](tycon: Option[Identifier], variant: Name, value: Value[Cid])
       extends Value[Cid]
   final case class ValueContractId[+Cid](value: Cid) extends Value[Cid]
 
@@ -194,7 +193,7 @@ object Value {
   // this is present here just because we need it in some internal code --
   // specifically the scenario interpreter converts committed values to values and
   // currently those can be tuples, although we should probably ban that.
-  final case class ValueTuple[+Cid](fields: ImmArray[(String, Value[Cid])]) extends Value[Cid]
+  final case class ValueTuple[+Cid](fields: ImmArray[(Name, Value[Cid])]) extends Value[Cid]
 
   implicit def `Value Equal instance`[Cid: Equal]: Equal[Value[Cid]] =
     ScalazEqual.withNatural(Equal[Cid].equalIsNatural) {

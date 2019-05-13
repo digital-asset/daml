@@ -286,6 +286,7 @@ execPackageNew numProcessors mbOutFile =
                         Compiler.buildDar
                             compilerH
                             pMain
+                            pExposedModules
                             pName
                             pSdkVersion
                             [confFile]
@@ -421,9 +422,10 @@ execPackage filePath opts mbOutFile dumpPom dalfInput = withProjectRoot $ \relat
     -- but I don’t think that is worth the complexity of carrying around a type parameter.
     name = fromMaybe (error "Internal error: Package name was not present") (Compiler.optMbPackageName opts)
     buildDar path compilerH = do
-        -- We leave the sdk version blank, this command is being removed anytime now and not present
+        -- We leave the sdk version blank and the list of exposed modules empty.
+        -- This command is being removed anytime now and not present
         -- in the new daml assistant.
-        darOrErr <- runExceptT $ Compiler.buildDar compilerH path name "" [] dalfInput
+        darOrErr <- runExceptT $ Compiler.buildDar compilerH path [] name "" [] dalfInput
         case darOrErr of
           Left errs
            -> ioError $ userError $ unlines

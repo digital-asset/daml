@@ -157,6 +157,27 @@ function da_install_all([String] $Directory) {
             da_error $msg
             throw $msg
         }
+
+        $resetted,$out = da_reset_app $app
+        If (-not($resetted)) {
+            $msg = "<< Resetting $app failed: `r`n$out"
+            da_error $msg
+            throw $msg
+        }
+    }
+}
+
+function da_reset_app([String] $app) {
+    $out = (scoop reset $app *>&1)
+    $out = $out -join "`r`n" | Out-String
+
+    $resettingFound = $out -like "*Resetting*"
+    $errorFound = $out -like "*ERROR*"
+
+    If (-not($resettingFound) -or $errorFound) {
+        return $False, $out
+    } Else {
+        return $True, $out
     }
 }
 

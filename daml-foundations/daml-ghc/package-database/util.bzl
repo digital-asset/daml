@@ -91,6 +91,7 @@ def _daml_package_rule_impl(ctx):
         {main}
 
       cp -a {pkg_root}/* {iface_dir}
+      cp -a .interfaces/{pkg_root}/* {iface_dir}
     """.format(
             main = modules[ctx.attr.main],
             name = name,

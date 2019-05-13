@@ -9,6 +9,7 @@ module DA.Daml.GHC.Compiler.Options
     , getBaseDir
     , toCompileOpts
     , projectPackageDatabase
+    , ifaceDir
     , basePackages
     ) where
 
@@ -43,9 +44,7 @@ data Options = Options
   , optMbPackageName :: Maybe String
     -- ^ compile in the context of the given package name and create interface files
   , optWriteInterface :: Bool
-  -- ^ Whether we should write interface files during typechecking.
-  -- Until the stdlib moves to a separate package, this should only be used
-  -- with the bootstrap compiler since the stdlib files are mounted read-only.
+    -- ^ Directory to write interface files to. Default is current working directory.
   , optHideAllPkgs :: Bool
     -- ^ hide all imported packages
   , optPackageImports :: [(String, [(String, String)])]
@@ -114,6 +113,9 @@ moduleImportPaths pm =
 -- | The project package database path relative to the project root.
 projectPackageDatabase :: FilePath
 projectPackageDatabase = ".package-database"
+
+ifaceDir :: FilePath
+ifaceDir = ".interfaces"
 
 -- | Packages that we ship with the compiler.
 basePackages :: [String]

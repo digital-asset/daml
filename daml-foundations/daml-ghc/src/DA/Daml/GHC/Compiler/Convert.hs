@@ -433,7 +433,7 @@ convertKeyExpr env keyBinder keyExpr
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
 convertTypeDef env (ATyCon t)
-  | moduleNameString (GHC.moduleName (nameModule (getName t))) == "DA.Internal.LF"
+  | GHC.moduleNameString (GHC.moduleName (nameModule (getName t))) == "DA.Internal.LF"
   , is t `elem` internalTypes
   = pure []
 convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $
@@ -654,7 +654,7 @@ convertExpr env0 e = do
         = fmap (, args) $ pure $ EBuiltin $ BEText $ unpackCStringUtf8 x
     go env x@(Var f) (LType t1 : LType t2 : LExpr (untick -> Lit (LitString s)) : args)
         | Just m <- nameModule_maybe (getName f)
-        , moduleNameString (GHC.moduleName m) == "Control.Exception.Base"
+        , GHC.moduleNameString (GHC.moduleName m) == "Control.Exception.Base"
         = fmap (, args) $ do
         x' <- convertExpr env x
         t1' <- convertType env t1
@@ -1058,7 +1058,7 @@ convertCast env expr0 co0 = evalStateT (go expr0 co0) 0
       = pure Nothing
 
 convertModuleName :: GHC.ModuleName -> LF.ModuleName
-convertModuleName (moduleNameString -> x)
+convertModuleName (GHC.moduleNameString -> x)
     = mkModName $ splitOn "." x
 
 qGHC_Tuple :: Env -> a -> ConvertM (Qualified a)
@@ -1219,7 +1219,7 @@ ctorLabels flv con =
     | flv `elem` [ClassFlavour, TupleFlavour Boxed] || isTupleDataCon con
       -- NOTE(MH): The line below is a workaround for ghc issue
       -- https://github.com/ghc/ghc/blob/ae4f1033cfe131fca9416e2993bda081e1f8c152/compiler/types/TyCon.hs#L2030
-      || (is con == "Unit" && moduleNameString (GHC.moduleName (nameModule (getName con))) == "GHC.Tuple")
+      || (is con == "Unit" && GHC.moduleNameString (GHC.moduleName (nameModule (getName con))) == "GHC.Tuple")
     = map (mkField . (:) '_' . show) [1..dataConSourceArity con]
     | flv == NewtypeFlavour && null lbls
     = [mkField "unpack"]

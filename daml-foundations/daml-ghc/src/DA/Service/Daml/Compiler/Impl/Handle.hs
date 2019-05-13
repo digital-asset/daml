@@ -34,7 +34,7 @@ module DA.Service.Daml.Compiler.Impl.Handle
 import DA.Daml.GHC.Compiler.Convert (sourceLocToRange)
 import DA.Daml.GHC.Compiler.Options
 import qualified DA.Service.Daml.Compiler.Impl.Scenario as Scenario
-import "ghc-lib-parser" Module                                     (unitIdString, UnitId(..), DefUnitId(..))
+import "ghc-lib-parser" Module (unitIdString, DefUnitId(..), UnitId(..))
 
 -- DAML compiler and infrastructure
 import qualified DA.Daml.LF.Ast                             as LF
@@ -269,12 +269,13 @@ newtype UseDalf = UseDalf{unUseDalf :: Bool}
 buildDar ::
      IdeState
   -> FilePath
+  -> [String]
   -> String
   -> String
   -> [(String, BS.ByteString)]
   -> UseDalf
   -> ExceptT [FileDiagnostic] IO BS.ByteString
-buildDar service file pkgName sdkVersion dataFiles dalfInput = do
+buildDar service file exposedModules pkgName sdkVersion dataFiles dalfInput = do
   liftIO $
     CompilerService.logDebug service $
     "Creating dar: " <> T.pack file
@@ -290,7 +291,15 @@ buildDar service file pkgName sdkVersion dataFiles dalfInput = do
         pkgName
         sdkVersion
     else do
-      dalf <- encodeArchiveLazy <$> compileFile service file
+      pkg <- compileFile service file
+      let pkgModuleNames = S.fromList (map (T.unpack . LF.moduleNameString . LF.moduleName) $ NM.elems $ LF.packageModules pkg)
+      let missingExposed = S.fromList exposedModules S.\\ pkgModuleNames
+      unless (S.null missingExposed) $ do
+          liftIO $ CompilerService.logSeriousError service $
+              "The following modules are declared in exposed-modules but are not part of the DALF: " <>
+              T.pack (show $ S.toList missingExposed)
+          throwE []
+      let dalf = encodeArchiveLazy pkg
       -- get all dalf dependencies.
       deps <- getDalfDependencies service file
       dalfDependencies<- forM deps $ \(DalfDependency depName fp) -> do

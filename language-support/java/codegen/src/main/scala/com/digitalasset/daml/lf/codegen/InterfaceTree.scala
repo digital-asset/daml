@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.codegen
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.iface.{Interface, InterfaceType}
 import com.typesafe.scalalogging.StrictLogging
@@ -58,7 +58,7 @@ private[codegen] sealed trait NodeWithContext {
   def childrenLineages: Iterable[NodeWithContext]
   def typesLineages: Iterable[TypeWithContext]
 
-  final def packageId: PackageId = interface.packageId
+  final def packageId: Ref.PackageId = interface.packageId
 }
 
 private[codegen] final case class ModuleWithContext(
@@ -108,13 +108,15 @@ private[codegen] final case class TypeWithContext(
     modulesLineage.toImmArray.slowAppend[(String, Node)](typesLineage.toImmArray)
 
   /* The name of this in the module */
-  def fullName: Ref.DottedName = Ref.DottedName(typesLineage.map(_._1).:+(name).toImmArray)
+  def fullName: Ref.DottedName =
+    Ref.DottedName.assertFromSegments(typesLineage.map(_._1).:+(name).toImmArray.toSeq)
 
-  def module: Ref.ModuleName = Ref.ModuleName(modulesLineage.map(_._1).toImmArray)
+  def module: Ref.ModuleName =
+    Ref.ModuleName.assertFromSegments(modulesLineage.map(_._1).toImmArray.toSeq)
 
-  def qualifiedName: QualifiedName = QualifiedName(module, fullName)
+  def qualifiedName: Ref.QualifiedName = Ref.QualifiedName(module, fullName)
 
-  def identifier: Identifier = Identifier(packageId, qualifiedName)
+  def identifier: Ref.Identifier = Ref.Identifier(packageId, qualifiedName)
 }
 
 private[codegen] object InterfaceTree extends StrictLogging {
@@ -198,13 +200,13 @@ private[codegen] object InterfaceTree extends StrictLogging {
   }
 
   private final class InterfaceTreeBuilder(
-      val name: PackageId,
+      val name: Ref.PackageId,
       children: mutable.HashMap[String, ModuleBuilder]) {
 
     def build(interface: Interface): InterfaceTree =
       InterfaceTree(children.mapValues(_.build()).toMap, interface)
 
-    def insert(qualifiedName: QualifiedName, `type`: InterfaceType): Unit = {
+    def insert(qualifiedName: Ref.QualifiedName, `type`: InterfaceType): Unit = {
       children
         .getOrElseUpdate(qualifiedName.module.segments.head, ModuleBuilder.empty)
         .insert(qualifiedName.module.segments.tail, qualifiedName.name.segments, `type`)
@@ -212,7 +214,7 @@ private[codegen] object InterfaceTree extends StrictLogging {
   }
 
   private object InterfaceTreeBuilder {
-    def fromPackageId(packageId: PackageId) =
+    def fromPackageId(packageId: Ref.PackageId) =
       new InterfaceTreeBuilder(packageId, new mutable.HashMap())
   }
 }

@@ -3,6 +3,8 @@
 
 package com.digitalasset.daml.lf.data
 
+import scalaz.Equal
+
 object Ref {
 
   /* Location annotation */
@@ -27,59 +29,70 @@ object Ref {
     segments.result()
   }
 
-  case class DottedName private (segments: ImmArray[String]) {
-    override def toString: String = segments.toSeq.mkString(".")
-    def dottedName: String = toString
+  // We are very restrictive with regards to identifiers, taking inspiration
+  // from the lexical structure of Java:
+  // <https://docs.oracle.com/javase/specs/jls/se10/html/jls-3.html#jls-3.8>.
+  //
+  // In a language like C# you'll need to use some other unicode char for `$`.
+  val Name = MatchingStringModule("""[A-Za-z\$_][A-Za-z0-9\$_]*""".r)
+  type Name = Name.T
+  implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
+
+  final class DottedName private (val segments: ImmArray[Name]) extends Equals {
+    def dottedName: String = segments.toSeq.mkString(".")
+
+    override def equals(obj: Any): Boolean =
+      obj match {
+        case that: DottedName => segments == that.segments
+        case _ => false
+      }
+
+    override def hashCode(): Int = segments.hashCode()
+
+    def canEqual(that: Any): Boolean = that.isInstanceOf[DottedName]
+
+    override def toString: String = dottedName
   }
 
   object DottedName {
-    // We are very restrictive with regards to names, taking inspiration
-    // from the lexical structure of Java:
-    // <https://docs.oracle.com/javase/specs/jls/se10/html/jls-3.html#jls-3.8>.
-    //
-    // In a language like C# you'll need to use some other unicode char for `$`.
-    private val asciiLetter: Set[Char] = Set('a' to 'z': _*) ++ Set('A' to 'Z': _*)
-    private val asciiDigit: Set[Char] = Set('0' to '9': _*)
-    private val allowedSymbols: Set[Char] = Set('_', '$')
-    private val segmentStart: Set[Char] = asciiLetter ++ allowedSymbols
-    private val segmentPart: Set[Char] = asciiLetter ++ asciiDigit ++ allowedSymbols
-
     def fromString(s: String): Either[String, DottedName] =
       if (s.isEmpty)
         Left(s"Expected a non-empty string")
-      else {
-        val segments = split(s, '.')
-        fromSegments(segments.toSeq)
-      }
+      else
+        fromSegments(split(s, '.').toSeq)
 
     @throws[IllegalArgumentException]
     def assertFromString(s: String): DottedName =
       assert(fromString(s))
 
-    def fromSegments(segments: Iterable[String]): Either[String, DottedName] =
-      if (segments.isEmpty)
-        Left(s"No segments provided")
-      else {
-        val firstError = segments collectFirst (Function unlift { segment =>
-          val segmentChars = segment.toArray
-          if (segmentChars.length() == 0)
-            Some(s"Empty dotted segment provided in segments ${segments.toList}")
-          else if (!segmentStart.contains(segmentChars(0)) || !segmentChars.tail.forall(
-              segmentPart.contains))
-            Some(s"Dotted segment $segment contains invalid characters")
-          else None
-        })
-        firstError toLeft DottedName(ImmArray(segments))
-      }
+    def fromSegments(strings: Iterable[String]): Either[String, DottedName] = {
+      val init: Either[String, BackStack[Name]] = Right(BackStack.empty)
+      val validatedSegments = strings.foldLeft(init)((acc, string) =>
+        for {
+          stack <- acc
+          segment <- Name.fromString(string)
+        } yield stack :+ segment)
+      for {
+        segments <- validatedSegments
+        name <- fromNames(segments.toImmArray)
+      } yield name
+    }
 
     @throws[IllegalArgumentException]
-    def assertFromSegments(segments: Iterable[String]): DottedName =
-      assert(fromSegments(segments))
+    def assertFromSegments(s: Iterable[String]): DottedName =
+      assert(fromSegments(s))
+
+    def fromNames(names: ImmArray[Name]): Either[String, DottedName] =
+      Either.cond(names.nonEmpty, new DottedName(names), "No segments provided")
+
+    @throws[IllegalArgumentException]
+    def assertFromNames(names: ImmArray[Name]): DottedName =
+      assert(fromNames(names))
 
     /** You better know what you're doing if you use this one -- specifically you need to comply
-      * to the lexical specification embodied by `fromSegments`.
+      * to the lexical specification embodied by `fromStrings`.
       */
-    def unsafeFromSegments(segments: ImmArray[String]): DottedName = {
+    def unsafeFromNames(segments: ImmArray[Name]): DottedName = {
       new DottedName(segments)
     }
   }
@@ -111,7 +124,7 @@ object Ref {
   case class Identifier(packageId: PackageId, qualifiedName: QualifiedName)
 
   /* Choice name in a template. */
-  type ChoiceName = String
+  type ChoiceName = Name
 
   type ModuleName = DottedName
   val ModuleName = DottedName

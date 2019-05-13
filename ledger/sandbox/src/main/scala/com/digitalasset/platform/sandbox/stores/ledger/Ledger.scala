@@ -12,7 +12,11 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.backend.api.v1.{SubmissionResult, TransactionSubmission}
+import com.digitalasset.ledger.backend.api.v1.{
+  SubmissionResult,
+  TransactionId,
+  TransactionSubmission
+}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
@@ -40,6 +44,9 @@ trait Ledger extends AutoCloseable {
   def publishHeartbeat(time: Instant): Future[Unit]
 
   def publishTransaction(transactionSubmission: TransactionSubmission): Future[SubmissionResult]
+
+  def lookupTransaction(
+      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]]
 }
 
 object Ledger {

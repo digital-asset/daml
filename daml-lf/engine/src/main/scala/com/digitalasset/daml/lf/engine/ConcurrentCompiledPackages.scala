@@ -6,10 +6,11 @@ package com.digitalasset.daml.lf.engine
 import java.util.concurrent.ConcurrentHashMap
 
 import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, PackageId}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.digitalasset.daml.lf.lfpackage.Ast.Package
 import com.digitalasset.daml.lf.speedy.Compiler.PackageNotFound
+import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
 import com.digitalasset.daml.lf.speedy.{Compiler, SExpr}
 
 /** Thread-safe class that can be used when you need to maintain a shared, mutable collection of
@@ -18,11 +19,11 @@ import com.digitalasset.daml.lf.speedy.{Compiler, SExpr}
 final class ConcurrentCompiledPackages extends CompiledPackages {
   private[this] val _packages: ConcurrentHashMap[PackageId, Package] =
     new ConcurrentHashMap()
-  private[this] val _defns: ConcurrentHashMap[DefinitionRef, SExpr] =
+  private[this] val _defns: ConcurrentHashMap[SDefinitionRef, SExpr] =
     new ConcurrentHashMap()
 
   def getPackage(pId: PackageId): Option[Package] = Option(_packages.get(pId))
-  def getDefinition(dref: DefinitionRef): Option[SExpr] = Option(_defns.get(dref))
+  def getDefinition(dref: SDefinitionRef): Option[SExpr] = Option(_defns.get(dref))
 
   /** Might ask for a package if the package you're trying to add references it.
     *

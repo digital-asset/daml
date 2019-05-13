@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompileError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.SBuiltin._
@@ -42,7 +43,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   private var currentPosition: Int = 0
 
   /** Environment mapping names into stack positions */
-  private var env = List[(String, Int)]()
+  private var env = List[(ExprVarName, Int)]()
 
   def compile(cmds: ImmArray[Command]): SExpr =
     validate(closureConvert(Map.empty, 0, translateCommands(cmds)))
@@ -56,17 +57,17 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   def compileDefn(
       identifier: Identifier,
       defn: Definition
-  ): List[(DefinitionRef, SExpr)] =
+  ): List[(SDefinitionRef, SExpr)] =
     defn match {
       case DValue(_, _, body, _) =>
-        List(identifier -> compile(body))
+        List(LfDefRef(identifier) -> compile(body))
 
       case DDataType(_, _, DataRecord(_, Some(tmpl))) =>
         // Compile choices into top-level definitions that exercise
         // the choice.
         tmpl.choices.toList.map {
           case (cname, choice) =>
-            makeChoiceRef(identifier, cname) ->
+            ChoiceDefRef(identifier, cname) ->
               compileChoice(identifier, tmpl, choice)
         }
 
@@ -83,7 +84,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     */
   @throws(classOf[PackageNotFound])
   @throws(classOf[ValidationError])
-  def compilePackage(pkgId: PackageId): Iterable[(DefinitionRef, SExpr)] = {
+  def compilePackage(pkgId: PackageId): Iterable[(SDefinitionRef, SExpr)] = {
 
     Validation.checkPackage(packages, pkgId).left.foreach {
       case EUnknownDefinition(_, LEPackage(pkgId_)) =>
@@ -108,8 +109,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     * they transitively reference are in the [[packages]] in the compiler.
     */
   @throws(classOf[PackageNotFound])
-  def compilePackages(toCompile0: Iterable[PackageId]): Map[DefinitionRef, SExpr] = {
-    var defns = Map.empty[DefinitionRef, SExpr]
+  def compilePackages(toCompile0: Iterable[PackageId]): Map[SDefinitionRef, SExpr] = {
+    var defns = Map.empty[SDefinitionRef, SExpr]
     val compiled = mutable.Set.empty[PackageId]
     var toCompile = toCompile0.toList
     val foundDependencies = mutable.Set.empty[PackageId]
@@ -137,7 +138,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   private def translate(expr: Expr): SExpr =
     expr match {
       case EVar(name) => SEVar(lookupIndex(name))
-      case EVal(ref) => SEVal(ref, None)
+      case EVal(ref) => SEVal(LfDefRef(ref), None)
       case EBuiltin(bf) =>
         bf match {
           case BFoldl => SEBuiltinRecursiveDefinition.FoldL
@@ -269,12 +270,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         withBinders(binders) { _ =>
           SEAbs(binders.length, translate(body))
         }
-      case ERecCon(tapp, fields) =>
+      case ERecCon(tApp, fields) =>
         if (fields.isEmpty)
-          SEBuiltin(SBRecCon(tapp.tycon, Array.empty))
+          SEBuiltin(SBRecCon(tApp.tycon, Name.Array.empty))
         else {
           SEApp(
-            SEBuiltin(SBRecCon(tapp.tycon, fields.iterator.map(_._1).toArray)),
+            SEBuiltin(SBRecCon(tApp.tycon, Name.Array(fields.map(_._1).toSeq: _*))),
             fields.iterator.map(f => translate(f._2)).toArray
           )
         }
@@ -291,7 +292,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         )
 
       case ETupleCon(fields) =>
-        SEApp(SEBuiltin(SBTupleCon(fields.iterator.map(_._1).toArray)), fields.iterator.map {
+        SEApp(SEBuiltin(SBTupleCon(Name.Array(fields.map(_._1).toSeq: _*))), fields.iterator.map {
           case (_, e) => translate(e)
         }.toArray)
 
@@ -505,7 +506,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                       observers,
                       SEVar(3) // token
                     )
-                  ) in SBTupleCon(Array("contractId", "contract"))(
+                  ) in SBTupleCon(Name.Array(Ast.contractIdFieldName, Ast.contractFieldName))(
                     SEVar(3), // contract id
                     SEVar(2) // contract
                   )
@@ -732,7 +733,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         }
       ))
 
-  private def lookupIndex(binder: String): Int = {
+  private def lookupIndex(binder: ExprVarName): Int = {
     val idx =
       env
         .find(_._1 == binder)
@@ -805,14 +806,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       .getOrElse(throw CompileError(s"record type $tapp not found"))
   }
 
-  private def makeChoiceRef(tmplId: TypeConName, ch: ChoiceName): DefinitionRef =
-    tmplId.copy(qualifiedName = tmplId.qualifiedName.copy(
-      name = DottedName.unsafeFromSegments(tmplId.qualifiedName.name.segments.slowSnoc("$" + ch))))
-
-  private def withBinder[A](binder: String)(f: Unit => A): A =
+  private def withBinder[A](binder: ExprVarName)(f: Unit => A): A =
     withBinders(Seq(binder))(f)
 
-  private def withBinders[A](binders: Seq[String])(f: Unit => A): A = {
+  private def withBinders[A](binders: Seq[ExprVarName])(f: Unit => A): A = {
     val oldEnv = env
     val oldPosition = currentPosition
     binders.foreach { binder =>
@@ -1120,7 +1117,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case Some(tmplKey) =>
           SELet(translate(tmplKey.body)) in
             SBSome(
-              SBTupleCon(Array("key", "maintainers"))(
+              SBTupleCon(Name.Array(Ast.keyFieldName, Ast.maintainersFieldName))(
                 SEVar(1), // key
                 SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ ))))
       }
@@ -1166,7 +1163,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     // into:
     // SomeTemplate$SomeChoice <actorsE> <cidE> <argE>
     withEnv { _ =>
-      SEApp(SEVal(makeChoiceRef(tmplId, choiceId), None), Array(actors, contractId, argument))
+      SEApp(SEVal(ChoiceDefRef(tmplId, choiceId), None), Array(actors, contractId, argument))
     }
 
   private def compileCreateAndExercise(

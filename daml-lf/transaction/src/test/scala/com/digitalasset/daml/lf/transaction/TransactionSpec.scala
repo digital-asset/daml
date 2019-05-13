@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf.transaction
 
 import scala.language.higherKinds
-
 import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction.{
@@ -17,10 +16,11 @@ import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExerc
 import com.digitalasset.daml.lf.value.{Value => V}
 import V.ContractInst
 import com.digitalasset.daml.lf.value.ValueGenerators.danglingRefGenNode
-
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
+
+import scala.language.implicitConversions
 
 class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropertyChecks {
   import TransactionSpec._
@@ -151,4 +151,7 @@ object TransactionSpec {
       Set.empty,
       None
     )
+
+  private implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)
+
 }

@@ -4,8 +4,8 @@
 package com.digitalasset.platform.api.v1.event
 
 import com.digitalasset.ledger.api.domain.{ContractId, EventId}
+import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent}
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty, Exercised}
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.{
   Created => TreeCreated,
@@ -41,20 +41,17 @@ object EventOps {
     def eventId: EventId = event match {
       case Archived(value) => EventId(value.eventId)
       case Created(value) => EventId(value.eventId)
-      case Exercised(value) => EventId(value.eventId)
       case Empty => throw new IllegalArgumentException("Cannot extract Event ID from Empty event.")
     }
 
     def witnesses: Seq[String] = event match {
       case c: Created => c.value.witnessParties
-      case e: Exercised => e.value.witnessParties
       case a: Archived => a.value.witnessParties
       case Empty => Seq.empty
     }
 
     def templateId: String = event match {
       case c: Created => c.templateId
-      case e: Exercised => e.templateId
       case a: Archived => a.templateId
       case Empty =>
         throw new IllegalArgumentException("Cannot extract Template ID from Empty event.")
@@ -63,14 +60,12 @@ object EventOps {
     def contractId: ContractId = event match {
       case Archived(value) => ContractId(value.contractId)
       case Created(value) => ContractId(value.contractId)
-      case Exercised(value) => ContractId(value.contractId)
       case Empty =>
         throw new IllegalArgumentException("Cannot extract contractId from Empty event.")
     }
 
     def withWitnesses(witnesses: Seq[String]): Event.Event = event match {
       case c: Created => Created(c.value.copy(witnessParties = witnesses))
-      case e: Exercised => Exercised(e.value.copy(witnessParties = witnesses))
       case a: Archived => Archived(a.value.copy(witnessParties = witnesses))
       case Empty => Empty
     }

@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module DamlHelper
     ( runDamlStudio
+    , runInit
     , runNew
     , runJar
     , runListTemplates
@@ -30,8 +31,11 @@ import Data.Aeson
 import Data.Aeson.Text
 import Data.Maybe
 import Data.List.Extra
+import qualified Data.ByteString as BS
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as T (toStrict)
+import qualified Data.Yaml as Y
+import qualified Data.Yaml.Pretty as Y
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Types as HTTP
 import Network.Socket
@@ -46,7 +50,7 @@ import System.IO.Extra
 
 import DAML.Project.Config
 import DAML.Project.Consts
-import DAML.Project.Types (ProjectPath(..), parseVersion)
+import DAML.Project.Types
 import DAML.Project.Util
 
 data DamlHelperError = DamlHelperError
@@ -126,18 +130,227 @@ withJar jarPath args a = do
 getTemplatesFolder :: IO FilePath
 getTemplatesFolder = fmap (</> "templates") getSdkPath
 
+-- | Initialize a daml project in the current or specified directory.
+-- It will do the following (first that applies):
+--
+-- 1. If the target folder is actually a file, it will error out.
+--
+-- 2. If the target folder does not exist, it will error out and ask
+-- the user if they meant to use daml new instead.
+--
+-- 3. If the target folder is a daml project root, it will do nothing
+-- and let the user know the target is already a daml project.
+--
+-- 4. If the target folder is inside a daml project (transitively) but
+-- is not the project root, it will do nothing and print out a warning.
+--
+-- 5. If the target folder is a da project root, it will create a
+-- daml.yaml config file from the da.yaml config file, and let the
+-- user know that it did that.
+--
+-- 6. If the target folder is inside a da project (transitively) but
+-- is not the project root, it will error out with a message that lets
+-- the user know what the project root is and suggests the user run
+-- daml init on the project root.
+--
+-- 7. If none of the above, it will create a daml.yaml from scratch.
+-- It will attempt to find a Main.daml source file in the project
+-- directory tree, but if it does not it will use daml/Main.daml
+-- as the default.
+--
+runInit :: Maybe FilePath -> IO ()
+runInit targetFolderM = do
+    currentDir <- getCurrentDirectory
+    let targetFolder = fromMaybe currentDir targetFolderM
+        targetFolderRel = makeRelative currentDir targetFolder
+        projectConfigRel = normalise (targetFolderRel </> projectConfigName)
+          -- ^ for display purposes
+
+    -- cases 1 or 2
+    unlessM (doesDirectoryExist targetFolder) $ do
+        whenM (doesFileExist targetFolder) $ do
+            hPutStr stderr $ unlines
+                [ "ERROR: daml init target should be a directory, but is a file."
+                , "    target = " <> targetFolderRel
+                ]
+            exitFailure
+
+        hPutStr stderr $ unlines
+            [ "ERROR: daml init target does not exist."
+            , "    target = " <> targetFolderRel
+            , ""
+            , "To create a project directory use daml new instead:"
+            , "    daml new " <> escapePath targetFolderRel
+            ]
+        exitFailure
+    targetFolderAbs <- makeAbsolute targetFolder -- necessary to find project roots
+
+    -- cases 3 or 4
+    damlProjectRootM <- findDamlProjectRoot targetFolderAbs
+    whenJust damlProjectRootM $ \projectRoot -> do
+        let projectRootRel = makeRelative currentDir projectRoot
+        hPutStrLn stderr $ "DAML project already initialized at " <> projectRootRel
+        when (targetFolderAbs /= projectRoot) $ do
+            hPutStr stderr $ unlines
+                [ "WARNING: daml init target is not the DAML project root."
+                , "    daml init target  = " <> targetFolder
+                , "    DAML project root = " <> projectRootRel
+                ]
+        exitSuccess
+
+    -- cases 5 or 6
+    daProjectRootM <- findDaProjectRoot targetFolderAbs
+    whenJust daProjectRootM $ \projectRoot -> do
+        when (targetFolderAbs /= projectRoot) $ do
+            let projectRootRel = makeRelative currentDir projectRoot
+            hPutStr stderr $ unlines
+                [ "ERROR: daml init target is not DA project root."
+                , "    daml init target  = " <> targetFolder
+                , "    DA project root   = " <> projectRootRel
+                , ""
+                , "To proceed with da.yaml migration, please use the project root:"
+                , "    daml init " <> escapePath projectRootRel
+                ]
+            exitFailure
+
+        let legacyConfigPath = projectRoot </> legacyConfigName
+            legacyConfigRel = normalise (targetFolderRel </> legacyConfigName)
+              -- ^ for display purposes
+
+        daYaml <- requiredE ("Failed to parse " <> T.pack legacyConfigPath) =<<
+            Y.decodeFileEither (projectRoot </> legacyConfigName)
+
+
+        putStr $ unlines
+            [ "Detected DA project."
+            , "Migrating " <> legacyConfigRel <> " to " <> projectConfigRel
+            ]
+
+
+        let getField :: Y.FromJSON t => T.Text -> IO t
+            getField name =
+                required ("Failed to parse project." <> name <> " from " <> T.pack legacyConfigPath) $
+                    flip Y.parseMaybe daYaml $ \y -> do
+                        p <- y Y..: "project"
+                        p Y..: name
+
+        minimumSdkVersion <- getMinimumSdkVersion
+        projSdkVersion :: SdkVersion <- getField "sdk-version"
+        let newProjSdkVersion = max projSdkVersion minimumSdkVersion
+
+        when (projSdkVersion < minimumSdkVersion) $ do
+            putStr $ unlines
+                [ ""
+                , "WARNING: da.yaml SDK version " <> versionToString projSdkVersion <> " is too old for the new"
+                , "assistant, so daml.yaml will use SDK version " <> versionToString newProjSdkVersion <> " instead."
+                , ""
+                ]
+
+        projSource :: T.Text <- getField "source"
+        projParties :: [T.Text] <- getField "parties"
+        projName :: T.Text <- getField "name"
+        projScenario :: T.Text <- getField "scenario"
+
+        BS.writeFile (projectRoot </> projectConfigName) . Y.encodePretty yamlConfig $ Y.object
+            [ ("sdk-version", Y.String (versionToText newProjSdkVersion))
+            , ("name", Y.String projName)
+            , ("source", Y.String projSource)
+            , ("scenario", Y.String projScenario)
+            , ("parties", Y.array (map Y.String projParties))
+            , ("version", Y.String "1.0.0")
+            , ("exposed-modules", Y.array [Y.String "Main"])
+            , ("dependencies", Y.array [Y.String "daml-prim", Y.String "daml-stdlib"])
+            ]
+
+
+        putStrLn ("Done! Please verify " <> projectConfigRel)
+        exitSuccess
+
+
+    -- case 7
+    putStrLn ("Generating " <> projectConfigRel)
+
+    currentSdkVersion <- getSdkVersion
+
+    projectFiles <- listFilesRecursive targetFolder
+    let isMainDotDaml = (== "Main.daml") . takeFileName
+        sourceM = listToMaybe (filter isMainDotDaml projectFiles)
+        source = fromMaybe "daml/Main.daml" sourceM
+        name = takeFileName (dropTrailingPathSeparator targetFolderAbs)
+
+    BS.writeFile (targetFolder </> projectConfigName) . Y.encodePretty yamlConfig $ Y.object
+        [ ("sdk-version", Y.String (T.pack currentSdkVersion))
+        , ("name", Y.String (T.pack name))
+        , ("source", Y.String (T.pack source))
+        , ("scenario", Y.String "Main:mainScenario")
+        , ("parties", Y.array [Y.String "Alice", Y.String "Bob"])
+        , ("version", Y.String "1.0.0")
+        , ("exposed-modules", Y.array [Y.String "Main"])
+        , ("dependencies", Y.array [Y.String "daml-prim", Y.String "daml-stdlib"])
+        ]
+
+    putStr $ unlines
+        [ "Initialized project " <> name
+        , "Done! Please verify " <> projectConfigRel
+        ]
+
+
+    where
+        legacyConfigName = "da.yaml"
+
+        findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
+        findDamlProjectRoot = findAscendantWithFile projectConfigName
+
+        findDaProjectRoot :: FilePath -> IO (Maybe FilePath)
+        findDaProjectRoot = findAscendantWithFile legacyConfigName
+
+        findAscendantWithFile :: FilePath -> FilePath -> IO (Maybe FilePath)
+        findAscendantWithFile filename path =
+            findM (\p -> doesFileExist (p </> filename)) (ascendants path)
+
+        -- why don't any good filepath libraries have something like this?
+        escapePath :: FilePath -> FilePath
+        escapePath = concatMap $ \c ->
+            if c `elem` (" \\\"\'$" :: String)
+                then ['\\', c]
+                else [c]
+
+        getMinimumSdkVersion :: IO SdkVersion
+        getMinimumSdkVersion =
+            requiredE "BUG: Expected 0.12.15 to be valid SDK version" $
+              parseVersion "0.12.15"
+
+        fieldOrder :: [T.Text]
+        fieldOrder =
+            [ "sdk-version"
+            , "name"
+            , "version"
+            , "source"
+            , "scenario"
+            , "parties"
+            , "exposed-modules"
+            , "dependencies"
+            ]
+
+        fieldNameCompare :: T.Text -> T.Text -> Ordering
+        fieldNameCompare a b = compare (elemIndex a fieldOrder) (elemIndex b fieldOrder)
+
+        yamlConfig :: Y.Config
+        yamlConfig = Y.setConfCompare fieldNameCompare Y.defConfig
+
+
 runNew :: FilePath -> String -> IO ()
 runNew targetFolder templateName = do
     templatesFolder <- getTemplatesFolder
     let templateFolder = templatesFolder </> templateName
     unlessM (doesDirectoryExist templateFolder) $ do
-        hPutStrLn stderr $ unlines
+        hPutStr stderr $ unlines
             [ "Template " <> show templateName <> " does not exist."
             , "Use `daml new --list` to see a list of available templates"
             ]
         exitFailure
     whenM (doesDirectoryExist targetFolder) $ do
-        hPutStrLn stderr $ unlines
+        hPutStr stderr $ unlines
             [ "Directory " <> show targetFolder <> " already exists."
             , "Please specify a new directory for creating a project."
             ]

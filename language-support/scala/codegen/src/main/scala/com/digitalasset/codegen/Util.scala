@@ -5,7 +5,7 @@ package com.digitalasset.codegen
 
 import com.digitalasset.codegen.dependencygraph.{OrderedDependencies, TypeDeclOrTemplateWrapper}
 import com.digitalasset.daml.lf.iface.{Type => IType, _}
-import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 
 import java.io.File
@@ -37,7 +37,7 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
   val packageNameElems: Array[String] = packageName.split('.')
 
   private[codegen] def orderedDependencies(library: Interface)
-    : OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[TemplateInterface]]
+    : OrderedDependencies[Ref.Identifier, TypeDeclOrTemplateWrapper[TemplateInterface]]
 
   def templateAndTypeFiles(wp: WriteParams[TemplateInterface]): TraversableOnce[FilePlan]
 
@@ -49,7 +49,9 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
     *   DamlScalaName("foo.bar", "TestContract")
     * }}}
     */
-  def mkDamlScalaName(codeGenDeclKind: CodeGenDeclKind, metadataAlias: QualifiedName): DamlScalaName
+  def mkDamlScalaName(
+      codeGenDeclKind: CodeGenDeclKind,
+      metadataAlias: Ref.QualifiedName): DamlScalaName
 
   /**
     * A Scala class/object package suffix and name.
@@ -133,7 +135,7 @@ object Util {
   type FilePlan = String \/ (Option[String], File, Iterable[Tree])
 
   final case class WriteParams[+TmplI](
-      supportedTemplateIds: Map[Identifier, TmplI],
+      supportedTemplateIds: Map[Ref.Identifier, TmplI],
       recordsAndVariants: Iterable[lf.ScopedDataType.FWT])
 
   val reservedNames: Set[String] =
@@ -160,7 +162,7 @@ object Util {
 
   def toTypeDef(s: String): TypeDef = q"type ${TypeName(s.capitalize)}"
 
-  def qualifiedNameToDirsAndName(qualifiedName: QualifiedName): (Array[String], String) = {
+  def qualifiedNameToDirsAndName(qualifiedName: Ref.QualifiedName): (Array[String], String) = {
     val s = qualifiedName.module.segments.toSeq ++ qualifiedName.name.segments.toSeq
     (s.init.toArray, s.last)
   }
@@ -180,7 +182,7 @@ object Util {
     }
   }
 
-  private[codegen] def genTypeTopLevelDeclNames(genType: IType): List[Identifier] =
+  private[codegen] def genTypeTopLevelDeclNames(genType: IType): List[Ref.Identifier] =
     genType foldMapConsPrims {
       case TypeConName(nm) => List(nm)
       case _: PrimType => Nil
@@ -195,7 +197,7 @@ object Util {
     * verbatim) to another type constructor?  If so, yield that type
     * constructor as a string.
     */
-  def simplyDelegates(typeVars: ImmArraySeq[String]): IType => Option[Identifier] = {
+  def simplyDelegates(typeVars: ImmArraySeq[Ref.Name]): IType => Option[Ref.Identifier] = {
     val ptv = typeVars.map(TypeVar(_): IType)
 
     {

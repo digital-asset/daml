@@ -108,7 +108,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
           templateId <- requirePresence(e.value.templateId, "template_id")
           validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
           contractId <- requireNonEmptyString(e.value.contractId, "contract_id")
-          choice <- requireNonEmptyString(e.value.choice, "choice")
+          choice <- requireIdentifier(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
         } yield
@@ -125,7 +125,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
           createArguments <- requirePresence(ce.value.createArguments, "create_arguments")
           recordId <- validateOptionalIdentifier(createArguments.recordId)
           validatedRecordField <- validateRecordFields(createArguments.fields)
-          choice <- requireNonEmptyString(ce.value.choice, "choice")
+          choice <- requireIdentifier(ce.value.choice, "choice")
           value <- requirePresence(ce.value.choiceArgument, "value")
           validatedChoiceArgument <- validateValue(value)
         } yield
@@ -141,15 +141,15 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
     }
 
   private def validateRecordFields(recordFields: Seq[RecordField])
-    : Either[StatusRuntimeException, ImmArray[(Option[String], domain.Value)]] =
+    : Either[StatusRuntimeException, ImmArray[(Option[Ref.Name], domain.Value)]] =
     recordFields
-      .foldLeft[Either[StatusRuntimeException, BackStack[(Option[String], domain.Value)]]](
+      .foldLeft[Either[StatusRuntimeException, BackStack[(Option[Ref.Name], domain.Value)]]](
         Right(BackStack.empty))((acc, rf) => {
         for {
           fields <- acc
           v <- requirePresence(rf.value, "value")
           value <- validateValue(v)
-          label = if (rf.label.isEmpty) None else Some(rf.label)
+          label <- if (rf.label.isEmpty) Right(None) else requireIdentifier(rf.label).map(Some(_))
         } yield fields :+ label -> value
       })
       .map(_.toImmArray)
@@ -175,7 +175,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
       } yield Lf.ValueRecord(recId, fields)
     case Sum.Variant(ApiVariant(variantId, constructor, value)) =>
       for {
-        validatedConstructor <- requireNonEmptyString(constructor, "constructor")
+        validatedConstructor <- requireIdentifier(constructor, "constructor")
         v <- requirePresence(value, "value")
         validatedValue <- validateValue(v)
         validatedVariantId <- validateOptionalIdentifier(variantId)

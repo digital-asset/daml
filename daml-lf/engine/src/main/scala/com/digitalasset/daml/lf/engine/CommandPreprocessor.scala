@@ -44,11 +44,11 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
   //
   // this is not tail recursive, but it doesn't really matter, since types are bounded
   // by what's in the source, which should be short enough...
-  private[this] def replaceParameters(params: ImmArray[(String, Type)], typ0: Type): Type =
+  private[this] def replaceParameters(params: ImmArray[(TypeVarName, Type)], typ0: Type): Type =
     if (params.isEmpty) { // optimization
       typ0
     } else {
-      val paramsMap: Map[String, Type] = Map(params.toSeq: _*)
+      val paramsMap: Map[TypeVarName, Type] = Map(params.toSeq: _*)
 
       def go(typ: Type): Type =
         typ match {
@@ -236,7 +236,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
                             flds =>
                               SRecord(
                                 tyCon,
-                                flds.iterator.map(_._1).toArray,
+                                Name.Array(flds.map(_._1).toSeq: _*),
                                 ArrayList(flds.map(_._2).toSeq: _*)
                             ))
                     }
@@ -340,7 +340,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
   private[engine] def preprocessCreateAndExercise(
       templateId: ValueRef,
       createArgument: VersionedValue[AbsoluteContractId],
-      choiceId: String,
+      choiceId: ChoiceName,
       choiceArgument: VersionedValue[AbsoluteContractId],
       actors: Set[Party]): Result[(Type, SpeedyCommand)] = {
     Result.needDataType(

@@ -60,13 +60,15 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
     }
 
     "parses properly type constructor" in {
-      val testCases = Table[VariantConName, TypeConName](
+      val testCases = Table[String, TypeConName](
         "string to parse" -> "expected type constructor",
         "Mod:T" -> T.tycon,
         "'-pkgId-':Mod:T" -> T.tycon,
         "A.B:C.D" -> Identifier(
           defaultPkgId,
-          QualifiedName(DottedName(ImmArray("A", "B")), DottedName(ImmArray("C", "D"))))
+          QualifiedName(
+            DottedName.assertFromSegments(ImmArray("A", "B").toSeq),
+            DottedName.assertFromSegments(ImmArray("C", "D").toSeq)))
       )
 
       forEvery(testCases)((stringToParse, expectedTypeConstructor) =>
@@ -83,7 +85,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "a -> b -> a" -> TApp(TApp(TBuiltin(BTArrow), α), TApp(TApp(TBuiltin(BTArrow), β), α)),
         "forall (a: *). Mod:T a" -> TForall((α.name, KStar), TApp(T, α)),
         "<f1: a, f2: Bool, f3:Mod:T>" -> TTuple(
-          ImmArray[(String, Type)]("f1" -> α, "f2" -> TBuiltin(BTBool), "f3" -> T))
+          ImmArray[(FieldName, Type)](n"f1" -> α, n"f2" -> TBuiltin(BTBool), n"f3" -> T))
       )
 
       forEvery(testCases)((stringToParse, expectedType) =>
@@ -233,17 +235,17 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "Mod:R {}" ->
           ERecCon(TypeConApp(R.tycon, ImmArray.empty), ImmArray.empty),
         "Mod:R @Int64 @Bool {f1 = 1, f2 = False}" ->
-          ERecCon(RIntBool, ImmArray("f1" -> e"1", "f2" -> e"False")),
+          ERecCon(RIntBool, ImmArray(n"f1" -> e"1", n"f2" -> e"False")),
         "Mod:R @Int64 @Bool {f1} x" ->
-          ERecProj(RIntBool, "f1", e"x"),
+          ERecProj(RIntBool, n"f1", e"x"),
         "Mod:R @Int64 @Bool {x with f1 = 1}" ->
-          ERecUpd(RIntBool, "f1", e"x", e"1"),
+          ERecUpd(RIntBool, n"f1", e"x", e"1"),
         "Mod:R:V @Int64 @Bool 1" ->
-          EVariantCon(RIntBool, "V", e"1"),
+          EVariantCon(RIntBool, n"V", e"1"),
         "< f1 =2, f2=False >" ->
-          ETupleCon(ImmArray("f1" -> e"2", "f2" -> e"False")),
+          ETupleCon(ImmArray(n"f1" -> e"2", n"f2" -> e"False")),
         "(x).f1" ->
-          ETupleProj("f1", e"x"),
+          ETupleProj(n"f1", e"x"),
         "x y" ->
           EApp(e"x", e"y"),
         "x y z" ->
@@ -261,15 +263,15 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           e"""\ (y:Bool) -> <f1=x, f2=y>""",
           None),
         """/\ (a:*). x @a""" ->
-          ETyAbs("a" -> KStar, e"x @a"),
+          ETyAbs(n"a" -> KStar, e"x @a"),
         "Nil @a" ->
-          ENil(TVar("a")),
+          ENil(TVar(n"a")),
         "Cons @a [e1, e2] tail" ->
-          ECons(TVar("a"), ImmArray(EVar("e1"), EVar("e2")), EVar("tail")),
+          ECons(TVar(n"a"), ImmArray(EVar(n"e1"), EVar(n"e2")), EVar(n"tail")),
         "None @a" ->
-          ENone(TVar("a")),
+          ENone(TVar(n"a")),
         "Some @a e" ->
-          ESome(TVar("a"), EVar("e")),
+          ESome(TVar(n"a"), EVar(n"e")),
         "let x:Int64 = 2 in x" ->
           ELet(Binding(Some(x.value), t"Int64", e"2"), e"x"),
         "#id @Mod:T" ->
@@ -283,13 +285,13 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "case e of Nil -> True" ->
           ECase(e"e", ImmArray(CaseAlt(CPNil, e"True"))),
         "case e of Cons h t -> Mod:f h t" ->
-          ECase(e"e", ImmArray(CaseAlt(CPCons("h", "t"), e"Mod:f h t"))),
+          ECase(e"e", ImmArray(CaseAlt(CPCons(n"h", n"t"), e"Mod:f h t"))),
         "case e of None -> ()" ->
           ECase(e"e", ImmArray(CaseAlt(CPNone, e"()"))),
         "case e of Some x -> x" ->
-          ECase(e"e", ImmArray(CaseAlt(CPSome("x"), e"x"))),
+          ECase(e"e", ImmArray(CaseAlt(CPSome(n"x"), e"x"))),
         "case e of Mod:T:V x -> x " ->
-          ECase(e"e", ImmArray(CaseAlt(CPVariant(T.tycon, "V", "x"), e"x"))),
+          ECase(e"e", ImmArray(CaseAlt(CPVariant(T.tycon, n"V", n"x"), e"x"))),
         "case e of True -> False | False -> True" ->
           ECase(
             e"e",
@@ -305,12 +307,12 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "string to parse" ->
           "expected scenario",
         "spure @tau e" ->
-          ScenarioPure(TVar("tau"), e"e"),
+          ScenarioPure(t"tau", e"e"),
         "sbind x: tau <- e in f x" ->
-          ScenarioBlock(ImmArray(Binding(Some("x"), t"tau", e"e")), e"f x"),
+          ScenarioBlock(ImmArray(Binding(Some(n"x"), t"tau", e"e")), e"f x"),
         "sbind x: tau <- e1 ; y: sigma <- e2 in f x y" ->
           ScenarioBlock(
-            ImmArray(Binding(Some("x"), t"tau", e"e1"), Binding(Some("y"), t"sigma", e"e2")),
+            ImmArray(Binding(Some(n"x"), t"tau", e"e1"), Binding(Some(n"y"), t"sigma", e"e2")),
             e"f x y"),
         "commit @tau party body" ->
           ScenarioCommit(e"party", e"body", t"tau"),
@@ -336,17 +338,17 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "upure @tau e" ->
           UpdatePure(t"tau", e"e"),
         "ubind x: tau <- e in f x" ->
-          UpdateBlock(ImmArray(Binding(Some("x"), t"tau", e"e")), e"f x"),
+          UpdateBlock(ImmArray(Binding(Some(n"x"), t"tau", e"e")), e"f x"),
         "ubind x: tau <- e1; y: sigma <- e2 in f x y" ->
           UpdateBlock(
-            ImmArray(Binding(Some("x"), t"tau", e"e1"), Binding(Some("y"), t"sigma", e"e2")),
+            ImmArray(Binding(Some(n"x"), t"tau", e"e1"), Binding(Some(n"y"), t"sigma", e"e2")),
             e"f x y"),
         "create @Mod:T e" ->
           UpdateCreate(T.tycon, e"e"),
         "fetch @Mod:T e" ->
           UpdateFetch(T.tycon, e"e"),
         "exercise @Mod:T Choice cid actor arg" ->
-          UpdateExercise(T.tycon, "Choice", e"cid", e"actor", e"arg"),
+          UpdateExercise(T.tycon, n"Choice", e"cid", e"actor", e"arg"),
         "fetch_by_key @Mod:T e" ->
           UpdateFetchByKey(RetrieveByKey(T.tycon, e"e")),
         "lookup_by_key @Mod:T e" ->
@@ -384,14 +386,14 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
 
       val varDef = DDataType(
         false,
-        ImmArray("a" -> KStar),
-        DataVariant(ImmArray("Leaf" -> t"Unit", "Node" -> t"Mod:Tree.Node a"))
+        ImmArray(n"a" -> KStar),
+        DataVariant(ImmArray(n"Leaf" -> t"Unit", n"Node" -> t"Mod:Tree.Node a"))
       )
       val recDef = DDataType(
         false,
-        ImmArray("a" -> KStar),
+        ImmArray(n"a" -> KStar),
         DataRecord(
-          ImmArray("value" -> t"a", "left" -> t"Mod:Tree a", "right" -> t"Mod:Tree a"),
+          ImmArray(n"value" -> t"a", n"left" -> t"Mod:Tree a", n"right" -> t"Mod:Tree a"),
           None)
       )
 
@@ -399,8 +401,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         List(Module(
           name = modName,
           definitions = List(
-            DottedName(ImmArray("Tree", "Node")) -> recDef,
-            DottedName(ImmArray("Tree")) -> varDef),
+            DottedName.assertFromSegments(ImmArray("Tree", "Node").toSeq) -> recDef,
+            DottedName.assertFromSegments(ImmArray("Tree").toSeq) -> varDef),
           templates = List.empty,
           languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
@@ -425,7 +427,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       parseModules(p) shouldBe Right(
         List(Module(
           name = modName,
-          definitions = List(DottedName(ImmArray("fact")) -> valDef),
+          definitions = List(DottedName.assertFromString("fact") -> valDef),
           templates = List.empty,
           languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
@@ -457,26 +459,26 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
 
       val template =
         Template(
-          param = "this",
+          param = n"this",
           precond = e"True",
           signatories = e"Cons @Party [person] (Nil @Party)",
           agreementText = e""" "Agreement" """,
           choices = Map(
-            "Sleep" -> TemplateChoice(
-              name = "Sleep",
+            n"Sleep" -> TemplateChoice(
+              name = n"Sleep",
               consuming = true,
               controllers = e"Cons @Party [person] (Nil @Party)",
-              selfBinder = "this",
+              selfBinder = n"this",
               argBinder = None -> TBuiltin(BTUnit),
               returnType = t"Unit",
               update = e"upure @Unit ()"
             ),
-            "Nap" -> TemplateChoice(
-              name = "Nap",
+            n"Nap" -> TemplateChoice(
+              name = n"Nap",
               consuming = false,
               controllers = e"Cons @Party [person] (Nil @Party)",
-              selfBinder = "this",
-              argBinder = Some("i") -> TBuiltin(BTInt64),
+              selfBinder = n"this",
+              argBinder = Some(n"i") -> TBuiltin(BTInt64),
               returnType = t"Int64",
               update = e"upure @Int64 i"
             )
@@ -488,12 +490,12 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       val recDef = DDataType(
         false,
         ImmArray.empty,
-        DataRecord(ImmArray("person" -> t"Party", "name" -> t"Text"), Some(template))
+        DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text"), Some(template))
       )
       parseModules(p) shouldBe Right(
         List(Module(
           name = modName,
-          definitions = List(DottedName(ImmArray("Person")) -> recDef),
+          definitions = List(DottedName.assertFromString("Person") -> recDef),
           templates = List.empty,
           languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
@@ -521,7 +523,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
 
       val template =
         Template(
-          param = "this",
+          param = n"this",
           precond = e"True",
           signatories = e"Nil @Unit",
           agreementText = e""" "Agreement" """,
@@ -538,7 +540,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       parseModules(p) shouldBe Right(
         List(Module(
           name = modName,
-          definitions = List(DottedName(ImmArray("R")) -> recDef),
+          definitions = List(DottedName.assertFromString("R") -> recDef),
           templates = List.empty,
           languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
@@ -563,17 +565,17 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
     "to",
   )
 
-  private val modName = DottedName(ImmArray("Mod"))
+  private val modName = DottedName.assertFromString("Mod")
 
   private def qualify(s: String) =
-    Identifier(defaultPkgId, QualifiedName(modName, DottedName(ImmArray(s))))
+    Identifier(defaultPkgId, QualifiedName(modName, DottedName.assertFromString(s)))
 
   private val T: TTyCon = TTyCon(qualify("T"))
   private val R: TTyCon = TTyCon(qualify("R"))
   private val RIntBool = TypeConApp(R.tycon, ImmArray(t"Int64", t"Bool"))
-  private val α: TVar = TVar("a")
-  private val β: TVar = TVar("b")
+  private val α: TVar = TVar(n"a")
+  private val β: TVar = TVar(n"b")
 
-  private val x = EVar("x")
+  private val x = EVar(n"x")
   private val v = EVal(qualify("v"))
 }

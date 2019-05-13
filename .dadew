@@ -4,8 +4,8 @@
     "tools": [
         "7zip",
         "java-openjdk-8u201",
-        "patch-2.6.1",
-        "msys2-20180531",
+        "msys2",
+        "msys2-patch",
         "curl-7.64.0",
         "cacert",
         "vcredist-14.0.23026",

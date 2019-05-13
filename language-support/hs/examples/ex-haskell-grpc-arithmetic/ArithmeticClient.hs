@@ -5,8 +5,8 @@
 {-# LANGUAGE OverloadedLists   #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-import           Arithmetic
-import           Network.GRPC.HighLevel.Generated
+import Arithmetic
+import Network.GRPC.HighLevel.Generated
 
 clientConfig :: ClientConfig
 clientConfig = ClientConfig { clientServerHost = "localhost"

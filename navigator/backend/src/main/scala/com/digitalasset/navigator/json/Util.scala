@@ -3,6 +3,7 @@
 
 package com.digitalasset.navigator.json
 
+import com.digitalasset.daml.lf.data.Ref
 import spray.json._
 
 /**
@@ -11,12 +12,21 @@ import spray.json._
 object Util {
   def strField(obj: JsValue, name: String, as: String): String =
     asObject(obj, as).fields.get(name) match {
-      case Some(JsString(v)) => v
+      case Some(JsString(v)) =>
+        v
       case Some(_) =>
         deserializationError(s"Can't read ${obj.prettyPrint} as $as, field '$name' is not a string")
       case None =>
         deserializationError(s"Can't read ${obj.prettyPrint} as $as, missing field '$name'")
     }
+
+  def nameField(obj: JsValue, name: String, as: String): Ref.Name =
+    Ref.Name
+      .fromString(strField(obj, name, as))
+      .fold(
+        err => deserializationError(s"Can't read ${obj.prettyPrint} as $as, $err"),
+        identity
+      )
 
   def intField(obj: JsValue, name: String, as: String): Long =
     asObject(obj, as).fields.get(name) match {
@@ -69,7 +79,18 @@ object Util {
   }
 
   def asString(value: JsValue, as: String): String = value match {
-    case v: JsString => v.value
+    case JsString(s) => s
+    case _ => deserializationError(s"Can't read ${value.prettyPrint} as $as, value is not a string")
+  }
+
+  def asName(value: JsValue, as: String): Ref.Name = value match {
+    case JsString(v) =>
+      Ref.Name
+        .fromString(v)
+        .fold(
+          err => deserializationError(s"Can't read ${value.prettyPrint} as $as, $err"),
+          identity
+        )
     case _ => deserializationError(s"Can't read ${value.prettyPrint} as $as, value is not a string")
   }
 }
