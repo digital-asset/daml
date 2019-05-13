@@ -78,6 +78,7 @@ DAML SDK documentation
    :caption: Experimental features
 
    experimental/warning
+   daml-integration-kit/index
 
 .. toctree::
    :titlesonly:
