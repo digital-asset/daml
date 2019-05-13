@@ -66,7 +66,7 @@ buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersio
     -- is modified to have prefix <name> instead of the original root path.
     mbSrcFiles <- forM fileDependencies $ \mPath -> do
       contents <- BSL.readFile mPath
-      let mbNewPath = (name </>) <$> stripPrefix (addTrailingPathSeparator modRoot) mPath
+      let mbNewPath = (name </>) <$> stripModRoot mPath
       return $ fmap (, contents) mbNewPath
 
     mbIfaceFaceFiles <- forM ifaces $ \mPath -> do
@@ -92,6 +92,15 @@ buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersio
 
     pure $ BSL.toStrict $ Zip.fromArchive zipArchive
       where
+        -- Removes the module root from the given path. Returns Nothing if
+        -- mPath is not under the module root. Normalises paths to handle
+        -- source items like @Foo.daml@ or @././Foo.daml@.
+        stripModRoot mPath =
+          let (dir, file) = splitFileName mPath
+              normalModRoot = addTrailingPathSeparator (normalise modRoot)
+              strippedDir = stripPrefix normalModRoot (normalise dir)
+          in (</> file) <$> strippedDir
+
         manifestHeader :: FilePath -> [String] -> BSL.ByteString
         manifestHeader location dalfs = BSC.pack $ unlines
           [ "Manifest-Version: 1.0"

@@ -4,10 +4,12 @@
 module Main (main) where
 
 import qualified Codec.Archive.Tar as Tar
+import qualified Codec.Archive.Zip as Zip
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad
+import qualified Data.ByteString.Lazy as BSL
 import Data.Typeable
 import Network.HTTP.Client
 import Network.HTTP.Types
@@ -107,6 +109,32 @@ packagingTests tmpDir = testGroup "packaging"
             ]
         withCurrentDirectory projectB $ callProcessQuiet "daml" ["build"]
         assertBool "b.dar was not created." =<< doesFileExist bDar
+    , testCase "Top-level source files" $ do
+        -- Test that a source file in the project root will be included in the
+        -- DAR file. Regression test for #1048.
+        let projDir = tmpDir </> "proj"
+        createDirectoryIfMissing True projDir
+        writeFileUTF8 (projDir </> "A.daml") $ unlines
+          [ "daml 1.2"
+          , "module A (a) where"
+          , "a : ()"
+          , "a = ()"
+          ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: \"1.0\""
+          , "source: A.daml"
+          , "exposed-modules: [A]"
+          , "dependencies:"
+          , "  - daml-prim"
+          , "  - daml-stdlib"
+          ]
+        withCurrentDirectory projDir $ callProcessQuiet "daml" ["build"]
+        let dar = projDir </> "dist" </> "proj.dar"
+        assertBool "proj.dar was not created." =<< doesFileExist dar
+        darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
+        assertBool "A.daml is missing" (("proj" </> "A.daml") `elem` darFiles)
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
