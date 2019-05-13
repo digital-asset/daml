@@ -16,10 +16,10 @@ is_windows() {
 
 ## Main
 
-# always run in the project root
+# always run in the project root
 cd "$(dirname "$0")/.."
 
-# detect the OS
+# detect the OS
 case $(uname) in
 Linux)
   os=linux

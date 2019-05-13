@@ -16,7 +16,7 @@ import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.{
   RejectedCommand
 }
 import com.digitalasset.ledger.backend.api.v1._
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -27,9 +27,8 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
   private class SandboxSubmissionHandle extends SubmissionHandle {
     override def abort: Future[Unit] = Future.successful(())
 
-    override def submit(submitted: TransactionSubmission): Future[SubmissionResult] = {
+    override def submit(submitted: TransactionSubmission): Future[SubmissionResult] =
       ledger.publishTransaction(submitted)
-    }
 
     private[this] def canSeeContract(
         submitter: Party,
@@ -45,12 +44,12 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
         .lookupContract(contractId)
         .map(_.collect {
           case ac if canSeeContract(submitter, ac) => ac.contract
-        })(DirectExecutionContext)
+        })(DEC)
 
     override def lookupContractKey(
         submitter: Party,
         key: Node.GlobalKey): Future[Option[Value.AbsoluteContractId]] = {
-      implicit val ec: ExecutionContext = DirectExecutionContext
+      implicit val ec: ExecutionContext = DEC
       ledger.lookupKey(key).flatMap {
         // note that we need to check visibility for keys, too, otherwise we leak the existence of a non-divulged
         // contract if we return `Some`.
@@ -96,7 +95,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
       ac.witnesses
     )
 
-  private def toLedgerSyncEvent(offset: Long, item: LedgerEntry): LedgerSyncEvent = {
+  private def toLedgerSyncEvent(offset: Long, item: LedgerEntry): LedgerSyncEvent =
     item match {
       case LedgerEntry.Rejection(
           recordTime,
@@ -111,37 +110,49 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
           rejectionReason,
           offset.toString,
           Some(applicationId))
-      case LedgerEntry.Transaction(
-          commandId,
-          transactionId,
-          applicationId,
-          submittingParty,
-          workflowId,
-          ledgerEffectiveTime,
-          recordedAt,
-          transaction,
-          explicitDisclosure) =>
-        AcceptedTransaction(
-          transaction,
-          transactionId,
-          Some(submittingParty),
-          ledgerEffectiveTime,
-          recordedAt,
-          offset.toString,
-          workflowId,
-          explicitDisclosure.mapValues(_.map(Ref.Party.assertFromString)),
-          Some(applicationId),
-          Some(commandId)
-        )
+      case t: LedgerEntry.Transaction => toAcceptedTransaction(offset, t)
       case LedgerEntry.Checkpoint(recordedAt) =>
         Heartbeat(
           recordedAt,
           offset.toString
         )
     }
+
+  override def close(): Unit =
+    ledger.close()
+
+  private def toAcceptedTransaction(offset: Long, t: LedgerEntry.Transaction) = t match {
+    case LedgerEntry.Transaction(
+        commandId,
+        transactionId,
+        applicationId,
+        submittingParty,
+        workflowId,
+        ledgerEffectiveTime,
+        recordedAt,
+        transaction,
+        explicitDisclosure) =>
+      AcceptedTransaction(
+        transaction,
+        transactionId,
+        Some(submittingParty),
+        ledgerEffectiveTime,
+        recordedAt,
+        offset.toString,
+        workflowId,
+        explicitDisclosure.mapValues(_.map(Ref.Party.assertFromString)),
+        Some(applicationId),
+        Some(commandId)
+      )
   }
 
-  override def close(): Unit = {
-    ledger.close()
-  }
+  override def getTransactionById(
+      transactionId: TransactionId): Future[Option[AcceptedTransaction]] =
+    ledger
+      .lookupTransaction(transactionId)
+      .map(_.map {
+        case (offset, t) =>
+          toAcceptedTransaction(offset, t)
+      })(DEC)
+
 }

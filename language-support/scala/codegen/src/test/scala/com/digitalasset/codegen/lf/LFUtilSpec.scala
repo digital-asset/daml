@@ -3,11 +3,11 @@
 
 package com.digitalasset.codegen.lf
 
-import org.scalatest.{WordSpec, Matchers, Inside}
+import com.digitalasset.daml.lf.data.Ref
+import org.scalatest.{Inside, Matchers, WordSpec}
 import org.scalatest.prop.PropertyChecks
 import org.scalacheck.Gen
 import org.scalacheck.Arbitrary.arbitrary
-
 import scalaz._
 import scalaz.std.anyVal._
 import scalaz.syntax.foldable1._
@@ -17,10 +17,12 @@ class LFUtilSpec extends WordSpec with Matchers with Inside with PropertyChecks 
   import LFUtilSpec._
 
   "escapeReservedName" should {
-    lazy val reservedNames: Gen[String] =
-      Gen.oneOf(
-        Gen.oneOf("_root_", "asInstanceOf", "notifyAll", "wait", "toString"),
-        Gen.lzy(reservedNames).map(n => s"${n}_"))
+    lazy val reservedNames: Gen[Ref.Name] =
+      Gen
+        .oneOf(
+          Gen.oneOf("_root_", "asInstanceOf", "notifyAll", "wait", "toString"),
+          Gen.lzy(reservedNames).map(n => s"${n}_"))
+        .map(Ref.Name.assertFromString)
 
     "reserve names injectively" in forAll(reservedNames, Gen.chooseNum(1, 100)) { (name, n) =>
       1.to(n).foldLeft((Set(name), name)) {

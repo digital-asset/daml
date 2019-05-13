@@ -52,12 +52,13 @@ xExtensionsSet =
   , DamlVersionRequired
   , WithRecordSyntax
   , DamlTemplate
+  , ImportQualifiedPost
   ]
 
 
 -- | Language settings _disabled_ ($-XNo...$) in the DAML-1.2 compilation
 xExtensionsUnset :: [Extension]
-xExtensionsUnset = [  ]
+xExtensionsUnset = [ ]
 
 -- | Flags set for DAML-1.2 compilation
 xFlagsSet :: [ GeneralFlag ]

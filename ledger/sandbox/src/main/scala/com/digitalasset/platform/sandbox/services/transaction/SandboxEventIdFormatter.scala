@@ -11,7 +11,7 @@ import scala.util.Try
 
 object SandboxEventIdFormatter {
 
-  case class TransactionIdWithIndex(transactionId: String, nodeId: Transaction.NodeId)
+  case class TransactionIdWithIndex(transactionId: Long, nodeId: Transaction.NodeId)
 
   def makeAbsCoid(transactionId: String)(coid: Lf.ContractId): Lf.AbsoluteContractId = coid match {
     case a @ Lf.AbsoluteContractId(_) => a
@@ -34,8 +34,10 @@ object SandboxEventIdFormatter {
       case Array(transactionId, index) =>
         transactionId.splitAt(1) match {
           case ("#", transId) =>
-            Try(index.toInt).toOption
-              .map(ix => TransactionIdWithIndex(transId, Transaction.NodeId.unsafeFromIndex(ix)))
+            (for {
+              ix <- Try(index.toInt)
+              tId <- Try(transId.toLong)
+            } yield TransactionIdWithIndex(tId, Transaction.NodeId.unsafeFromIndex(ix))).toOption
           case _ => None
         }
       case _ => None

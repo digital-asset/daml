@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine
-import com.digitalasset.daml.lf.data.{BackStack, BackStackSnoc, ImmArray}
-import com.digitalasset.daml.lf.data.Ref.{DottedName, ModuleName, QualifiedName}
+import com.digitalasset.daml.lf.data.{BackStack, BackStackSnoc, FrontStack}
+import com.digitalasset.daml.lf.data.Ref.{DottedName, Name, ModuleName, QualifiedName}
 import com.digitalasset.daml.lf.lfpackage.Ast.Package
 
 import scala.annotation.tailrec
@@ -14,7 +14,7 @@ object DeprecatedIdentifier {
     // in the function below we use unsafeFromSegments since we're looking up in
     // the package anyway.
 
-    val nameParts = deprecatedIdentifier.split("\\.")
+    val nameParts = deprecatedIdentifier.split("\\.").map(Name.assertFromString)
 
     if (nameParts.isEmpty) {
       Left(
@@ -26,32 +26,33 @@ object DeprecatedIdentifier {
         case Some(name) =>
           @tailrec
           def go(
-              modulePart: BackStack[String],
-              namePart: List[String]): Either[String, QualifiedName] = {
+              modulePart: BackStack[Name],
+              namePart: FrontStack[Name]
+          ): Either[String, QualifiedName] = {
             val moduleId = modulePart.toImmArray
-            val name = DottedName.unsafeFromSegments(ImmArray(namePart))
-            pkg.modules.get(ModuleName.unsafeFromSegments(moduleId)) match {
+            val name = DottedName.unsafeFromNames(namePart.toImmArray)
+            pkg.modules.get(ModuleName.unsafeFromNames(moduleId)) match {
               case Some(module) =>
                 module.definitions.get(name) match {
                   case Some(_) =>
-                    Right(QualifiedName(ModuleName.unsafeFromSegments(moduleId), name))
+                    Right(QualifiedName(ModuleName.unsafeFromNames(moduleId), name))
                   case None =>
                     modulePart match {
                       case BackStack() =>
                         Left(s"Could not find definition $name")
                       case BackStackSnoc(modulePart_, segment) =>
-                        go(modulePart_, segment :: namePart)
+                        go(modulePart_, segment +: namePart)
                     }
                 }
               case None =>
                 modulePart match {
                   case BackStack() => Left(s"Could not find definition $name")
                   case BackStackSnoc(modulePart_, segment) =>
-                    go(modulePart_, segment :: namePart)
+                    go(modulePart_, segment +: namePart)
                 }
             }
           }
-          go(BackStack(nameParts.toList.dropRight(1)), List(name))
+          go(BackStack(nameParts.toList.dropRight(1)), FrontStack(name))
       }
     }
   }

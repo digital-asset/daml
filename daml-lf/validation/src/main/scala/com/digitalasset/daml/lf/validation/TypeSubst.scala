@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.validation
 
+import com.digitalasset.daml.lf.data.Ref.Name
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.validation.Util._
 import com.digitalasset.daml.lf.validation.traversable.TypeTraversable
@@ -27,7 +28,10 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
   }
 
   private def freshTypeVarName: TypeVarName =
-    Stream.from(0).map("::" + _.toString + "::").filterNot(freeVars.contains)(0)
+    Stream
+      .from(0)
+      .map(i => Name.assertFromString("$freshVar" + i.toString))
+      .filterNot(freeVars.contains)(0)
 
   def apply(dataCons: DataCons): DataCons = dataCons match {
     case DataRecord(fields, optTemplate: Option[Template]) =>

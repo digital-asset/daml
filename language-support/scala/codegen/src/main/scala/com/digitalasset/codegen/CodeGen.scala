@@ -5,6 +5,7 @@ package com.digitalasset.codegen
 
 import com.digitalasset.codegen.types.Namespace
 import com.digitalasset.daml.lf.{Dar, UniversalArchiveReader, iface}
+import com.digitalasset.daml.lf.data.Ref
 import iface.{Type => _, _}
 import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
 import java.io._
@@ -212,7 +213,7 @@ object CodeGen {
     filePlans ++ specialPlans
   }
 
-  type LHSIndexedRecords[+RT] = Map[(Identifier, List[String]), Record[RT]]
+  type LHSIndexedRecords[+RT] = Map[(Identifier, List[Ref.Name]), Record[RT]]
 
   private[this] def splitNTDs[RT, VT](recordsAndVariants: Iterable[ScopedDataType.DT[RT, VT]])
     : (LHSIndexedRecords[RT], List[ScopedDataType[Variant[VT]]]) =
@@ -234,11 +235,11 @@ object CodeGen {
     */
   private[this] def splatVariants[RT <: iface.Type, VT <: iface.Type](
       recordsAndVariants: Iterable[ScopedDataType.DT[RT, VT]])
-    : (LHSIndexedRecords[RT], List[ScopedDataType[Variant[List[(String, RT)] \/ VT]]]) = {
+    : (LHSIndexedRecords[RT], List[ScopedDataType[Variant[List[(Ref.Name, RT)] \/ VT]]]) = {
 
     val (recordMap, variants) = splitNTDs(recordsAndVariants)
 
-    val noDeletion = Set.empty[(Identifier, List[String])]
+    val noDeletion = Set.empty[(Identifier, List[Ref.Name])]
     // both traverseU can change to traverse with -Ypartial-unification
     // or Scala 2.13
     val (deletedRecords, newVariants) =

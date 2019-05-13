@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.sandbox.services.transaction
 
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Exercised}
+import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
 import com.digitalasset.ledger.api.v1.event._
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
@@ -64,7 +64,6 @@ class EventFilterSpec extends WordSpec with Matchers with ScalaFutures with Opti
     "filtered by TemplateIds" should {
       runTemplateFilterAssertions("CreatedEvent")(createdEvent)
       runTemplateFilterAssertions("ArchivedEvent")(archivedEvent)
-      runTemplateFilterAssertions("ExercisedEvent")(exercisedEvent)
 
       "remove non-requesting witnesses from the disclosed event" in {
         val resultO = filter(createdEvent(party1, templateId1)).map(_.witnesses)
@@ -120,17 +119,6 @@ class EventFilterSpec extends WordSpec with Matchers with ScalaFutures with Opti
     Event(
       Archived(
         ArchivedEvent(
-          eventId = eventId,
-          contractId = contractId,
-          templateId = Some(templateId),
-          witnessParties = Seq(party, otherPartyWhoSeesEvents)
-        )
-      ))
-
-  private def exercisedEvent(party: String, templateId: Identifier) =
-    Event(
-      Exercised(
-        ExercisedEvent(
           eventId = eventId,
           contractId = contractId,
           templateId = Some(templateId),

@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.transaction
 
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray}
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref.{Name, Party}
 import com.digitalasset.daml.lf.transaction.Node._
 import VersionTimeline.Implicits._
 import com.digitalasset.daml.lf.value.Value.{ContractInst, VersionedValue}
@@ -315,13 +315,14 @@ object TransactionCoder {
           }
           signatories <- toPartySet(protoExe.getSignatoriesList)
           stakeholders <- toPartySet(protoExe.getStakeholdersList)
+          choiceName <- toIdentifier(protoExe.getChoice)
         } yield
           (
             ni,
             NodeExercises[Nid, Cid, Val](
               targetCoid = targetCoid,
               templateId = templateId,
-              choiceId = protoExe.getChoice,
+              choiceId = choiceName,
               optLocation = None,
               consuming = protoExe.getConsuming,
               actingParties = actingParties,
@@ -497,5 +498,8 @@ object TransactionCoder {
       case Right(ps) => Right(ps.toSet)
     }
   }
+
+  private def toIdentifier(s: String): Either[DecodeError, Name] =
+    Name.fromString(s).left.map(DecodeError)
 
 }

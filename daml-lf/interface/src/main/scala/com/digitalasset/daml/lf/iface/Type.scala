@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.iface
 import java.{util => j}
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import scalaz.Monoid
 import scalaz.syntax.foldable._
@@ -97,7 +98,7 @@ final case class TypePrim(typ: PrimType, typArgs: ImmArraySeq[Type])
     extends Type
     with Type.HasTypArgs
 
-final case class TypeVar(name: String) extends Type
+final case class TypeVar(name: Ref.Name) extends Type
 
 object Type {
 

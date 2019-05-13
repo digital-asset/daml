@@ -40,16 +40,30 @@ div.window-appicon {
 .part.titlebar .menubar div.menubar-menu-button[aria-label="File"] .action-item .menubar-menu-items-holder .actions-container[aria-label="File"] li.action-item:nth-child(8) { /*empty*/
   display: none !important;
 }  
+/**************************************************************************************************/
 
-/*remove from global actions menu*/
-.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(1), /*command pallete*/
-.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(2), /*empty*/
-.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(4), /*Extensions*/
-.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(5), /*Keyboard shortcuts*/
-.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(6), /*empty*/
-.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(7), /*User Snippets*/
-.monaco-menu-container .monaco-action-bar ul.actions-container li.action-item:nth-child(8) { /*empty*/
+
+/*It is not possible to disable all references to terminal, debugger, and other functionality we wish to hide.
+ For one, vscode uses a the same (or identical) high level div element for different contextual menus. This means we can't hide
+ via nth-child because the same html has different menu content based on context. Instead we remove as many references as we can
+ and hide the front end functionality.
+*/
+
+.global-activity { /*hide the entire global actions menu, this is mostly unwanted functionality*/
   display: none !important;
+}
+
+/*In case we want to hide the commands widget
+.monaco-quick-open-widget {
+  display:none !important;
+}*/
+
+/*hide the actual terminal and debug console*/
+.part.panel ul.actions-container li.action-item[title*="Debug Console"],
+.part.panel ul.actions-container li.action-item[title*="Terminal"],
+.part.panel div.integrated-terminal,
+.part.panel div.repl {
+  display:none !important;
 }
 
 /* watermark text when no page is displayed in editor...removing references to extension and key mapping*/
@@ -57,7 +71,7 @@ div.window-appicon {
   display:none !important;  
 }
 
-/*remove link to guidelines (having the link work requires changes in the actual DAML plugin*/
+/*remove link to guidelines (having the link work requires changes in the actual DAML plugin)*/
 .editor-actions ul.actions-container .action-label[title*="DAML User"] {
   display:none !important;
 }

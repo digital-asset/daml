@@ -8,9 +8,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
-public class ExercisedEvent extends Event {
+public class ExercisedEvent implements TreeEvent {
 
     private final List<String> witnessParties;
 

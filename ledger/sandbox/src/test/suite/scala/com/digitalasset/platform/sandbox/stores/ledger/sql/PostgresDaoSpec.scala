@@ -320,7 +320,7 @@ class PostgresDaoSpec
               s"event$id" -> NodeExercises(
                 targetCid,
                 templateId,
-                "choice",
+                Ref.Name.assertFromString("choice"),
                 None,
                 true,
                 Set(alice),

@@ -14,7 +14,7 @@ class TypeSubstSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
   "A TypeSubst" should {
     "should be idempotent on terms that do not contain variable from its domain." in {
 
-      val subst = TypeSubst("alpha" -> t"gamma")
+      val subst = TypeSubst(n"alpha" -> t"gamma")
 
       val testCases = Table(
         "type",
@@ -35,8 +35,8 @@ class TypeSubstSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
 
     "should substitutes variables from its domain in terms without quantifiers." in {
 
-      val subst1 = TypeSubst("alpha" -> t"gamma")
-      val subst2 = TypeSubst("alpha" -> t"gamma2")
+      val subst1 = TypeSubst(n"alpha" -> t"gamma")
+      val subst2 = TypeSubst(n"alpha" -> t"gamma2")
 
       val testCases = Table(
         "input type" ->
@@ -69,7 +69,7 @@ class TypeSubstSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
 
     "should handle properly binders" in {
 
-      val subst = TypeSubst("alpha" -> t"beta1")
+      val subst = TypeSubst(n"alpha" -> t"beta1")
 
       subst(t"forall beta1. alpha (beta1 gamma)") should ===(t"forall beta2. beta1 (beta2 gamma)")
 

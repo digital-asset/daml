@@ -161,11 +161,11 @@ object SValue {
     */
   final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue
 
-  final case class SRecord(id: Identifier, fields: Array[String], values: util.ArrayList[SValue])
+  final case class SRecord(id: Identifier, fields: Array[Name], values: util.ArrayList[SValue])
       extends SValue
       with SomeArrayEquals
 
-  final case class STuple(fields: Array[String], values: util.ArrayList[SValue])
+  final case class STuple(fields: Array[Name], values: util.ArrayList[SValue])
       extends SValue
       with SomeArrayEquals
 
@@ -193,8 +193,8 @@ object SValue {
   // The "effect" token for update or scenario builtin functions.
   final case object SToken extends SValue
 
-  def fromValue(value: V[V.ContractId]): SValue = {
-    value match {
+  def fromValue(value0: V[V.ContractId]): SValue = {
+    value0 match {
       case V.ValueList(vs) =>
         SList(vs.map[SValue](fromValue))
       case V.ValueContractId(coid) => SContractId(coid)
@@ -208,7 +208,7 @@ object SValue {
       case V.ValueUnit => SUnit(())
 
       case V.ValueRecord(Some(id), fs) =>
-        val fields = Array.ofDim[String](fs.length)
+        val fields = Name.Array.ofDim(fs.length)
         val values = new util.ArrayList[SValue](fields.length)
         fs.foreach {
           case (optk, v) =>
@@ -227,7 +227,7 @@ object SValue {
         throw SErrorCrash("SValue.fromValue: record missing identifier")
 
       case V.ValueTuple(fs) =>
-        val fields = Array.ofDim[String](fs.length)
+        val fields = Name.Array.ofDim(fs.length)
         val values = new util.ArrayList[SValue](fields.length)
         fs.foreach {
           case (k, v) =>

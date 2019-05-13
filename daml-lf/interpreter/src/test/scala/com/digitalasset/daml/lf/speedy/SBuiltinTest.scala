@@ -6,8 +6,7 @@ package com.digitalasset.daml.lf.speedy
 import java.util
 
 import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.{Decimal, FrontStack, Time}
+import com.digitalasset.daml.lf.data.{Decimal, FrontStack, Ref, Time}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
@@ -749,7 +748,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       "FROM_TEXT_PARTY" in {
         eval(e"""FROM_TEXT_PARTY "alice" """) shouldBe Right(
-          SOptional(Some(SParty(Party.assertFromString("alice")))))
+          SOptional(Some(SParty(Ref.Party.assertFromString("alice")))))
         eval(e"""FROM_TEXT_PARTY "bad%char" """) shouldBe Right(SOptional(None))
       }
     }
@@ -766,7 +765,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           "True" -> SBool(true),
           "()" -> SUnit(()),
           """ "text" """ -> SText("text"),
-          " 'party' " -> SParty(Party.assertFromString("party")),
+          " 'party' " -> SParty(Ref.Party.assertFromString("party")),
           intList(1, 2, 3) -> SList(FrontStack(SInt64(1), SInt64(2), SInt64(3))),
           " UNIX_DAYS_TO_DATE 1 " -> SDate(Time.Date.assertFromDaysSinceEpoch(1)),
           """ TRACE "another message" (ADD_INT64 1 1)""" -> SInt64(2)
@@ -809,14 +808,15 @@ object SBuiltinTest {
       case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
     }
 
-    Right(machine.toSValue())
+    Right(machine.toSValue)
   }
 
   def intList(xs: Long*): String =
     if (xs.isEmpty) "(Nil @Int64)"
     else xs.mkString(s"(Cons @Int64 [", ", ", s"] (Nil @Int64))")
 
-  private val entryFields = Array("key", "value")
+  private val entryFields: Array[Ref.Name] =
+    Ref.Name.Array(Ref.Name.assertFromString("key"), Ref.Name.assertFromString("value"))
 
   private def mapEntry(k: String, v: SValue) = {
     val args = new util.ArrayList[SValue](2)

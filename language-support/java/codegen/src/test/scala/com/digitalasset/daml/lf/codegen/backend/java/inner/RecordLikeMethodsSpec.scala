@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.iface.{PrimTypeBool, TypePrim}
 import com.squareup.javapoet._
 import javax.lang.model.element.Modifier
@@ -94,7 +95,9 @@ final class RecordLikeMethodsSpec extends FlatSpec with Matchers with OptionValu
 
   private val name = ClassName.bestGuess("Test")
   private val methods = RecordMethods(
-    getFieldsWithTypes(ImmArraySeq("bool" -> TypePrim(PrimTypeBool, ImmArraySeq.empty)), Map()),
+    getFieldsWithTypes(
+      ImmArraySeq(Ref.Name.assertFromString("bool") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)),
+      Map()),
     name,
     IndexedSeq.empty,
     Map())

@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref.{DottedName, ModuleName}
+import com.digitalasset.daml.lf.data.Ref.{DottedName, ModuleName, Name}
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.validation.Util._
 
@@ -79,7 +79,7 @@ object NamedEntity {
 
   final case class NVarCon(
       dfn: NVarDef,
-      name: String,
+      name: Name,
   ) extends NamedEntity {
 
     def module: NModDef = dfn.module
@@ -87,7 +87,7 @@ object NamedEntity {
     def modName: ModuleName = module.name
 
     val fullyResolvedName: DottedName =
-      dfn.fullyResolvedName + name.toUpperCase
+      dfn.fullyResolvedName + Name.assertFromString(name.toUpperCase)
 
     override def toString: String = s"NVarCon($modName:${dfn.name}:$name)"
 
@@ -96,7 +96,7 @@ object NamedEntity {
 
   final case class NField(
       dfn: NRecDef,
-      name: String
+      name: Name
   ) extends NamedEntity {
 
     def module: NModDef = dfn.module
@@ -104,7 +104,7 @@ object NamedEntity {
     def modName: ModuleName = module.name
 
     val fullyResolvedName: DottedName =
-      dfn.fullyResolvedName + name.toUpperCase
+      dfn.fullyResolvedName + Name.assertFromString(name.toUpperCase)
 
     override def toString: String = s"NField($modName:${dfn.name}:$name)"
 

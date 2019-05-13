@@ -78,6 +78,7 @@ genrule(
     srcs = [
         ":sdk-config.yaml.tmpl",
         ":install.sh",
+        ":install.bat",
         "//:VERSION",
         "//daml-assistant:daml-dist",
         "//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist",
@@ -96,6 +97,7 @@ genrule(
       mkdir -p $$OUT
 
       cp $(location :install.sh) $$OUT/install.sh
+      cp $(location :install.bat) $$OUT/install.bat
 
       cp $(location :sdk-config.yaml.tmpl) $$OUT/sdk-config.yaml
       sed -i "s/__VERSION__/$$VERSION/" $$OUT/sdk-config.yaml

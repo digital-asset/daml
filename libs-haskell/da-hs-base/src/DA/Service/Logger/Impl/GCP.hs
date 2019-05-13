@@ -72,7 +72,7 @@ data Env = Env
     }
 
 fallBackLogger :: IO (Lgr.Handle IO)
-fallBackLogger = Lgr.IO.newStderrLogger "Telemetry"
+fallBackLogger = Lgr.IO.newStderrLogger Lgr.Debug "Telemetry"
 
 -- | This is where I'm going to put all the user data
 initialiseEnv :: HasCallStack => IO Env

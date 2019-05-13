@@ -6,6 +6,7 @@ module DAML.Project.Util
     , fromMaybeM
     , copyDirectory
     , moveDirectory
+    , ascendants
     ) where
 
 import Control.Exception.Safe
@@ -43,3 +44,22 @@ moveDirectory src target =
         (const $ do
              copyDirectory src target
              removePathForcibly src)
+
+-- | Calculate the ascendants of a path, i.e. the successive parents of a path,
+-- including the path itself, all the way to its root. For example:
+--
+--     ascendants "/foo/bar/baz" == ["/foo/bar/baz", "/foo/bar", "/foo", "/"]
+--     ascendants "~/foo/bar/baz" == ["~/foo/bar/baz", "~/foo/bar", "~/foo", "~"]
+--     ascendants "./foo/bar/baz" == ["./foo/bar/baz", "./foo/bar", "./foo", "."]
+--     ascendants "../foo/bar/baz" == ["../foo/bar/baz", "../foo/bar", "../foo", ".."]
+--     ascendants "foo/bar/baz"  == ["foo/bar/baz", "foo/bar", "foo", "."]
+--
+ascendants :: FilePath -> [FilePath]
+ascendants "" = ["."]
+ascendants "~" = ["~"]
+ascendants ".." = [".."]
+ascendants p =
+    let p' = takeDirectory (dropTrailingPathSeparator p)
+        ps = if p == p' then [] else ascendants p'
+    in p : ps
+

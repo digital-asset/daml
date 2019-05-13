@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.iface
 package reader
 
-import com.digitalasset.daml.lf.data.Ref.DottedName
+import com.digitalasset.daml.lf.data.Ref.{DottedName, Name}
 
 import scala.language.{higherKinds, implicitConversions}
 import scala.collection.immutable.Map
@@ -75,6 +75,7 @@ object Errors {
 
   implicit def propertyErr(s: Symbol): ErrorLoc = Tag(-\/(s))
   implicit def keyedErr(s: String): ErrorLoc = Tag(\/-(s))
+  implicit def identifierKeyedErr(s: Name): ErrorLoc = Tag(\/-(s))
   implicit def definitionErr(s: DottedName): ErrorLoc = Tag(\/-(s.toString))
 
   def locate[K, Loc, E, A](loc: K, fa: Errors[Loc, E] \/ A)(

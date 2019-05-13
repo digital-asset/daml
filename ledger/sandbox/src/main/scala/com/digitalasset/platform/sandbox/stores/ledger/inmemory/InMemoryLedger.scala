@@ -14,6 +14,7 @@ import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId}
 import com.digitalasset.ledger.backend.api.v1.{
   RejectionReason,
   SubmissionResult,
+  TransactionId,
   TransactionSubmission
 }
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
@@ -159,4 +160,13 @@ class InMemoryLedger(
 
   override def close(): Unit = ()
 
+  override def lookupTransaction(
+      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] =
+    Future.successful(
+      entries
+        .getEntryAt(transactionId.toLong)
+        .collect[(Long, LedgerEntry.Transaction)] {
+          case t: LedgerEntry.Transaction =>
+            (transactionId.toLong, t) // the transaction id is also the offset
+        })
 }

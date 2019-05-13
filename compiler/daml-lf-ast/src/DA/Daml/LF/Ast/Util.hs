@@ -8,6 +8,7 @@ module DA.Daml.LF.Ast.Util(module DA.Daml.LF.Ast.Util) where
 
 import Data.Tagged
 import Data.Maybe
+import qualified Data.Text as T
 import           Control.Lens
 import           Control.Lens.Ast
 import qualified Data.Graph as G
@@ -245,3 +246,8 @@ partitionDefinitions = foldr f ([], [], [])
       DDataType d -> over _1 (d:)
       DValue v    -> over _2 (v:)
       DTemplate t -> over _3 (t:)
+
+-- | This is the analogue of GHC’s moduleNameString for the LF
+-- `ModuleName` type.
+moduleNameString :: ModuleName -> T.Text
+moduleNameString = T.intercalate "." . unTagged

@@ -3,7 +3,8 @@
     "http" : {
         "port" : 3000,
         "managementPort" : 3001,
-        "httpToHttpsPort" : 3002
+        "httpToHttpsPort" : 3002,
+        "secureHeaders" :true
     },
     "session" : {
         "name" : "webide.connect.sid",

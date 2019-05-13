@@ -985,11 +985,11 @@ object Ledger {
     def rewrite(v: Value[ContractId]): Value[AbsoluteContractId] =
       v match {
         case ValueRecord(tycon, fs) =>
-          ValueRecord(tycon, fs.map[(Option[String], Value[AbsoluteContractId])] {
+          ValueRecord(tycon, fs.map[(Option[Name], Value[AbsoluteContractId])] {
             case (k, v) => (k, rewrite(v))
           })
         case ValueTuple(fs) =>
-          ValueTuple(fs.map[(String, Value[AbsoluteContractId])] {
+          ValueTuple(fs.map[(Name, Value[AbsoluteContractId])] {
             case (k, v) => (k, rewrite(v))
           })
         case ValueVariant(tycon, variant, value) =>

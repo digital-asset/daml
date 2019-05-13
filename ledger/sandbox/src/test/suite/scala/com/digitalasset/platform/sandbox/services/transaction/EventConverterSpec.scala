@@ -52,6 +52,7 @@ class EventConverterSpec
     QualifiedName.assertFromString(s)
   private implicit def party(s: String): Ref.Party = Ref.Party.assertFromString(s)
   private implicit def pkgId(s: String): Ref.PackageId = Ref.PackageId.assertFromString(s)
+  private implicit def id(s: String): Ref.Name = Ref.Name.assertFromString(s)
 
   type LfTx = com.digitalasset.daml.lf.transaction.Transaction.Transaction
 
@@ -222,13 +223,15 @@ class EventConverterSpec
               Lf.ValueRecord(
                 Some(Ref.Identifier("unimportant", QualifiedName.assertFromString("in.this:test"))),
                 ImmArray(
-                  (Some("field"), Lf.ValueText("someText")),
-                  (
-                    Some("field2"),
+                  Some[Ref.Name]("field") ->
+                    Lf.ValueText("someText"),
+                  Some[Ref.Name]("field2") ->
                     Lf.ValueVariant(
                       None,
                       "variant",
-                      Lf.ValueRecord(None, ImmArray((Some("nested"), Lf.ValueInt64(100))))))
+                      Lf.ValueRecord(
+                        None,
+                        ImmArray(Some[Ref.Name]("nested") -> Lf.ValueInt64(100))))
                 )
               )),
             ""
@@ -303,7 +306,7 @@ class EventConverterSpec
               Ref.Identifier(
                 "0d25e199ed26977b3082864c62f8d154ca6042ed521712e2b3eb172dc79c87a2",
                 "Test:Agreement.AcceptTriProposal")),
-            ImmArray((Some("cid"), Lf.ValueContractId(Lf.AbsoluteContractId("#6:0"))))
+            ImmArray((Some[Ref.Name]("cid"), Lf.ValueContractId(Lf.AbsoluteContractId("#6:0"))))
           )),
         Set("giver"),
         true,

@@ -9,7 +9,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import java.util.List;
 import java.util.Objects;
 
-public final class ArchivedEvent extends Event {
+public final class ArchivedEvent implements Event {
 
     private final List<String> witnessParties;
 

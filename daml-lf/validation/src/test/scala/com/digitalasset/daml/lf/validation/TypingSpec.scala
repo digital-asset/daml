@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.archive.LanguageVersion
-import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
@@ -638,7 +637,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
            }
             """
 
-    val modName = DottedName(ImmArray("Mod"))
+    val modName = DottedName.assertFromString("Mod")
 
     forEvery(testCases) { (version: LanguageVersion, rejected: Boolean) =>
       val pkg = pkg0.updateVersion(version)
@@ -684,7 +683,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
            }
             """
 
-    val modName = DottedName(ImmArray("Mod"))
+    val modName = DottedName.assertFromString("Mod")
 
     forEvery(testCases) { (version: LanguageVersion, rejected: Boolean) =>
       val pkg = pkg0.updateVersion(version)

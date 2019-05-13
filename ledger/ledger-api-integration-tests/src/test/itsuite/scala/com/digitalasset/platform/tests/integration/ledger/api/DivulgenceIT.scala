@@ -49,6 +49,7 @@ class DivulgenceIT
 
   private implicit def party(s: String): Ref.Party = Ref.Party.assertFromString(s)
   private implicit def pkgId(s: String): Ref.PackageId = Ref.PackageId.assertFromString(s)
+  private implicit def id(s: String): Ref.Name = Ref.Name.assertFromString(s)
 
   private def commandClient(ctx: LedgerContext): SynchronousCommandClient =
     new SynchronousCommandClient(ctx.commandService)
@@ -146,7 +147,7 @@ class DivulgenceIT
       "create-Divulgence1",
       "alice",
       templateIds.divulgence1,
-      ValueRecord(None, ImmArray(Some("div1Party") -> ValueParty("alice")))
+      ValueRecord(None, ImmArray(Some[Ref.Name]("div1Party") -> ValueParty("alice")))
     )
 
   private def createDivulgence2(ctx: LedgerContext): Future[String] =
@@ -158,8 +159,8 @@ class DivulgenceIT
       ValueRecord(
         None,
         ImmArray(
-          Some("div2Signatory") -> ValueParty("bob"),
-          Some("div2Fetcher") -> ValueParty("alice")))
+          Some[Ref.Name]("div2Signatory") -> ValueParty("bob"),
+          Some[Ref.Name]("div2Fetcher") -> ValueParty("alice")))
     )
 
   private def divulgeViaFetch(ctx: LedgerContext, div1Cid: String, div2Cid: String): Future[Unit] =
@@ -172,7 +173,7 @@ class DivulgenceIT
       "Divulgence2Fetch",
       ValueRecord(
         None,
-        ImmArray(Some("div1ToFetch") -> ValueContractId(AbsoluteContractId(div1Cid))))
+        ImmArray(Some[Ref.Name]("div1ToFetch") -> ValueContractId(AbsoluteContractId(div1Cid))))
     )
 
   private def divulgeViaArchive(
@@ -188,7 +189,7 @@ class DivulgenceIT
       "Divulgence2Archive",
       ValueRecord(
         None,
-        ImmArray(Some("div1ToArchive") -> ValueContractId(AbsoluteContractId(div1Cid))))
+        ImmArray(Some[Ref.Name]("div1ToArchive") -> ValueContractId(AbsoluteContractId(div1Cid))))
     )
 
   private val ledgerGenesis = LedgerOffset(

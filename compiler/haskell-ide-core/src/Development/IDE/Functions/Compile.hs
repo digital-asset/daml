@@ -62,6 +62,7 @@ import           Data.Time
 import           Development.IDE.Types.SpanInfo
 import GHC.Generics (Generic)
 import           System.FilePath
+import           System.Directory
 
 -- | 'CoreModule' together with some additional information required for the
 -- conversion to DAML-LF.
@@ -274,12 +275,14 @@ mkTcModuleResult (WriteInterface writeIface) tcm = do
     nc        <- liftIO $ readIORef (hsc_NC session)
     (iface,_) <- liftIO $ mkIfaceTc session Nothing Sf_None details tcGblEnv
     liftIO $ when writeIface $ do
-        writeIfaceFile (hsc_dflags session) (replaceExtension (file tcm) ".hi") iface
+        let path = ".interfaces" </> file tcm
+        createDirectoryIfMissing True (takeDirectory path)
+        writeIfaceFile (hsc_dflags session) (replaceExtension path ".hi") iface
         -- For now, we write .hie files whenever we write .hi files which roughly corresponds to
         -- when we are building a package. It should be easily decoupable if that turns out to be
         -- useful.
         hieFile <- runHsc session $ mkHieFile (tcModSummary tcm) tcGblEnv (fromJust $ renamedSource tcm)
-        writeHieFile (replaceExtension (file tcm) ".hie") hieFile
+        writeHieFile (replaceExtension path ".hie") hieFile
     let mod_info = HomeModInfo iface details Nothing
         origNc = nsNames nc
     case lookupModuleEnv origNc (tcmModule tcm) of
@@ -448,6 +451,7 @@ parseFileContents preprocessor filename (time, contents) = do
       Ex.throwE $ mkErrorDoc dflags locErr msgErr
 #else
      PFailed s ->
+       -- A fatal parse error was encountered.
        Ex.throwE $ toDiagnostics dflags $ snd $ getMessages s dflags
 #endif
      POk pst rdr_module ->
@@ -455,9 +459,22 @@ parseFileContents preprocessor filename (time, contents) = do
                (Map.fromListWith (++) $ annotations pst,
                  Map.fromList ((noSrcSpan,comment_q pst)
                                   :annotations_comments pst))
-             (warns,_) = getMessages pst dflags
+             (warns, errs) = getMessages pst dflags
          in
            do
+               -- Just because we got a `POk`, it doesn't mean there
+               -- weren't errors! To clarify, the GHC parser
+               -- distinguishes between fatal and non-fatal
+               -- errors. Non-fatal errors are the sort that don't
+               -- prevent parsing from continuing (that is, a parse
+               -- tree can still be produced despite the error so that
+               -- further errors/warnings can be collected). Fatal
+               -- errors are those from which a parse tree just can't
+               -- be produced.
+               unless (null errs) $
+                 Ex.throwE $ toDiagnostics dflags $ snd $ getMessages pst dflags
+
+               -- Ok, we got here. It's safe to continue.
                let (errs, parsed) = preprocessor rdr_module
                unless (null errs) $ Ex.throwE $ mkErrors dflags errs
                ms <- getModSummaryFromBuffer filename (contents, time) dflags parsed

@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package testing.parser
 
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.testing.parser.ExprParser.{expr, expr0}
 import com.digitalasset.daml.lf.testing.parser.Parsers._
@@ -53,7 +53,7 @@ private[parser] object ModParser {
       tags.toSet
     }
 
-  private lazy val binder: Parser[(String, Type)] =
+  private lazy val binder: Parser[(Name, Type)] =
     id ~ `:` ~ typ ^^ { case id ~ _ ~ typ => id -> typ }
 
   private lazy val recDefinition: Parser[DataDef] =
@@ -108,14 +108,14 @@ private[parser] object ModParser {
           Template(x, precon, signatories, agreement, choices.map(_(x)), observers, key))
     }
 
-  private lazy val choiceParam: Parser[(Option[String], Type)] =
+  private lazy val choiceParam: Parser[(Option[Name], Type)] =
     `(` ~> id ~ `:` ~ typ <~ `)` ^^ { case name ~ _ ~ typ => Some(name) -> typ } |
       success(None -> TBuiltin(BTUnit))
 
   private lazy val templateChoice: Parser[ExprVarName => (ChoiceName, TemplateChoice)] =
     Id("choice") ~> tags(templateChoiceTags) ~ id ~ choiceParam ~ `:` ~ typ ~ `by` ~ expr ~ `to` ~ expr ^^ {
       case choiceTags ~ name ~ param ~ _ ~ retTyp ~ _ ~ controllers ~ _ ~ update =>
-        (self: ExprVarName) =>
+        self =>
           name -> TemplateChoice(
             name,
             !choiceTags(nonConsumingTag),

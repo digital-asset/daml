@@ -8,7 +8,7 @@ import org.scalatest.{Matchers, WordSpec}
 class ModelSpec extends WordSpec with Matchers {
   import com.digitalasset.navigator.{DamlConstants => C}
 
-  val templateId = C.id0
+  val templateId = C.ref0
 
   "Navigator data model" when {
 

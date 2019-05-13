@@ -41,8 +41,8 @@ newStdoutLogger :: T.Text -> IO (Handle IO)
 newStdoutLogger = newIOLogger System.IO.stdout Nothing Debug
 
 -- | Create a simple logger that outputs messages to 'stderr'.
-newStderrLogger :: T.Text -> IO (Handle IO)
-newStderrLogger = newIOLogger System.IO.stderr Nothing Debug
+newStderrLogger :: Priority -> T.Text -> IO (Handle IO)
+newStderrLogger = newIOLogger System.IO.stderr Nothing
 
 -- | Create a simple logger that outputs messages to given File handle.
 newIOLogger

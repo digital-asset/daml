@@ -8,6 +8,7 @@ import java.util
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -307,7 +308,8 @@ object SBuiltin {
 
   final case object SBMapToList extends SBuiltin(1) {
 
-    private val entryFields = Array("key", "value")
+    private val entryFields =
+      Name.Array(Ast.keyFieldName, Ast.valueFieldName)
 
     private def entry(key: String, value: SValue) = {
       val args = new util.ArrayList[SValue](2)
@@ -519,7 +521,7 @@ object SBuiltin {
   }
 
   /** $rcon[R, fields] :: a -> b -> ... -> R */
-  final case class SBRecCon(id: Identifier, fields: Array[String])
+  final case class SBRecCon(id: Identifier, fields: Array[Name])
       extends SBuiltin(fields.length)
       with SomeArrayEquals {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
@@ -556,7 +558,7 @@ object SBuiltin {
   }
 
   /** $tcon[fields] :: a -> b -> ... -> Tuple */
-  final case class SBTupleCon(fields: Array[String])
+  final case class SBTupleCon(fields: Array[Name])
       extends SBuiltin(fields.length)
       with SomeArrayEquals {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {

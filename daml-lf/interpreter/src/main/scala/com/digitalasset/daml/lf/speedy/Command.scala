@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier}
 import com.digitalasset.daml.lf.speedy.SValue._
 
 // ---------------------
@@ -22,7 +22,7 @@ object Command {
   final case class Exercise(
       templateId: Identifier,
       contractId: SContractId,
-      choiceId: String,
+      choiceId: ChoiceName,
       submitter: ImmArray[SParty],
       argument: SValue
   ) extends Command
@@ -35,7 +35,7 @@ object Command {
   final case class CreateAndExercise(
       templateId: Identifier,
       createArgument: SValue,
-      choiceId: String,
+      choiceId: ChoiceName,
       choiceArgument: SValue,
       submitter: ImmArray[SParty]
   ) extends Command

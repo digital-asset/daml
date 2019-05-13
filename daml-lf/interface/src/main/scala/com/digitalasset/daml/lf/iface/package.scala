@@ -5,14 +5,14 @@ package com.digitalasset.daml.lf
 
 import java.{util => j}
 
+import com.digitalasset.daml.lf.data.Ref
+
 import scala.collection.generic.CanBuildFrom
 import scala.collection.TraversableLike
 
 // Types to be used internally
 package object iface {
-  type FieldWithType = (String, Type)
-
-  type ChoiceName = String
+  type FieldWithType = (Ref.Name, Type)
 
   private[iface] def lfprintln(
       @deprecated("shut up unused arguments warning", "") s: => String): Unit = ()

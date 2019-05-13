@@ -6,23 +6,19 @@ package reader
 
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{
-  DottedName,
-  Identifier,
-  ModuleName,
-  PackageId,
-  QualifiedName
-}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf.DamlLf1
 import org.scalatest.{Inside, Matchers, WordSpec}
 import scalaz.\/-
+
 import scala.collection.JavaConverters._
+import scala.language.implicitConversions
 
 class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
 
-  private def dnfs(args: String*): DottedName = DottedName.assertFromSegments(args)
-  private val moduleName: ModuleName = dnfs("Main")
-  private val packageId: PackageId = PackageId.assertFromString("dummy-package-id")
+  private def dnfs(args: String*): Ref.DottedName = Ref.DottedName.assertFromSegments(args)
+  private val moduleName: Ref.ModuleName = dnfs("Main")
+  private val packageId: Ref.PackageId = Ref.PackageId.assertFromString("dummy-package-id")
   private val ctx: InterfaceReader.Context = InterfaceReader.Context(packageId)
 
   "variant should extract a variant with type params" in {
@@ -42,16 +38,18 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
     val actual = InterfaceReader.variant(moduleName, ctx)(variantDataType)
     val expectedVariant =
       (
-        QualifiedName(moduleName, dnfs("Option")),
+        Ref.QualifiedName(moduleName, dnfs("Option")),
         ImmArray("call", "put").toSeq,
-        Variant(ImmArray(("Call", TypeVar("call")), ("Put", TypeVar("put"))).toSeq))
+        Variant(ImmArray((name("Call"), TypeVar("call")), (name("Put"), TypeVar("put"))).toSeq))
 
     actual shouldBe \/-(expectedVariant)
   }
 
   private[this] def nameClashRecordVariantName(tail: String): TypeConName =
     TypeConName(
-      Identifier(packageId, QualifiedName(dnfs("Main"), dnfs("NameClashRecordVariant", tail))))
+      Ref.Identifier(
+        packageId,
+        Ref.QualifiedName(dnfs("Main"), dnfs("NameClashRecordVariant", tail))))
 
   "variant should extract a variant, nested records are not be resolved" in {
     val variantDataType = DamlLf1.DefDataType
@@ -70,12 +68,12 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
       .build()
 
     val actual = InterfaceReader.variant(moduleName, ctx)(variantDataType)
-    val expectedVariant: (QualifiedName, ImmArraySeq[String], Variant.FWT) =
+    val expectedVariant =
       (
-        QualifiedName(moduleName, dnfs("NameClashRecordVariant")),
+        Ref.QualifiedName(moduleName, dnfs("NameClashRecordVariant")),
         ImmArraySeq(),
         Variant(
-          ImmArraySeq(
+          ImmArraySeq[(Ref.Name, TypeCon)](
             (
               "NameClashRecordVariantA",
               TypeCon(nameClashRecordVariantName("NameClashRecordVariantA"), ImmArraySeq())),
@@ -104,10 +102,10 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
     val actual = InterfaceReader.record(moduleName, ctx)(recordDataType)
     val expectedRecord =
       (
-        QualifiedName(moduleName, dnfs("NameClashRecordVariant", "NameClashRecordVariantA")),
+        Ref.QualifiedName(moduleName, dnfs("NameClashRecordVariant", "NameClashRecordVariantA")),
         ImmArraySeq(),
         Record(
-          ImmArraySeq(
+          ImmArraySeq[(Ref.Name, TypePrim)](
             ("wait", TypePrim(PrimTypeInt64, ImmArraySeq())),
             ("wait_", TypePrim(PrimTypeInt64, ImmArraySeq())),
             ("wait__", TypePrim(PrimTypeInt64, ImmArraySeq())))
@@ -137,10 +135,10 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
     val actual = InterfaceReader.record(moduleName, ctx)(recordDataType)
     actual shouldBe \/-(
       (
-        QualifiedName(moduleName, dnfs("MapRecord")),
+        Ref.QualifiedName(moduleName, dnfs("MapRecord")),
         ImmArraySeq(),
         Record(
-          ImmArraySeq(
+          ImmArraySeq[(Ref.Name, TypePrim)](
             ("map", TypePrim(PrimTypeMap, ImmArraySeq(TypePrim(PrimTypeInt64, ImmArraySeq()))))
           ))))
   }
@@ -206,4 +204,6 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
     DamlLf1.PackageRef.newBuilder().setSelf(unit).build()
 
   private def unit: DamlLf1.Unit = DamlLf1.Unit.getDefaultInstance
+
+  private implicit def name(s: String): Ref.Name = Ref.Name.assertFromString(s)
 }

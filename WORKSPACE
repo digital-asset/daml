@@ -113,7 +113,7 @@ dev_env_tool(
     tool = "tar",
     win_include = ["usr/bin/tar.exe"],
     win_path = "usr/bin/tar.exe",
-    win_tool = "msys2-20180531",
+    win_tool = "msys2",
 )
 
 nixpkgs_package(
@@ -133,7 +133,7 @@ dev_env_tool(
     tool = "gzip",
     win_include = ["usr/bin/gzip.exe"],
     win_path = "usr/bin/gzip.exe",
-    win_tool = "msys2-20180531",
+    win_tool = "msys2",
 )
 
 nixpkgs_package(
@@ -172,7 +172,7 @@ dev_env_tool(
     tool = "zip",
     win_include = ["usr/bin/zip.exe"],
     win_path = "usr/bin/zip.exe",
-    win_tool = "msys2-20180531",
+    win_tool = "msys2",
 )
 
 load(
@@ -445,7 +445,7 @@ hazel_repositories(
         extra =
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-            hazel_ghclibs("0.20190508", "2302edc1fadc1a9edd59a9ee468f1b4067f032292e12bcd5dbfff96bbd50c705", "97b4e7bc4b506a6ae450fffb31872360141ba5b9349a5ca66545f7a9a4a0a3d9") +
+            hazel_ghclibs("0.20190509.1", "0d7d89a3762ee95744dbbfd920b18850203d24ce174e72e9fa4210e5e6981069", "c7ff466aa699cad692800a391bfc034f225b163c0552c32d733534650846e87b") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
             hazel_hackage("bytestring-nums", "0.3.6", "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd") +
