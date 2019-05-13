@@ -279,13 +279,12 @@ object Queries {
       valueSum match {
         case LedgerValue.Bool(value) =>
           Fragment.const(if (value) "TRUE" else "FALSE")
-        case LedgerValue.Empty => Fragment.const("")
-        case r @ LedgerValue.Record(_) =>
+        case r @ LedgerValue.Record(_, _) =>
           Fragment(
             "?::jsonb",
             toJsonString(r)
           )
-        case v @ LedgerValue.Variant(_, _) =>
+        case v @ LedgerValue.Variant(_, _, _) =>
           Fragment(
             "?::jsonb",
             toJsonString(v)
