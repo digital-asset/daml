@@ -25,11 +25,11 @@ On this page:
 Download the quickstart application
 ***********************************
 
-You can get the quickstart application as an :ref:`SDK template <cli-managing-templates>`:
+You can get the quickstart application using the DAML assistant (``daml``):
 
-#. Run ``da new quickstart``
+#. Run ``daml new quickstart quickstart-java``
 
-   This loads the entire application into a folder called ``quickstart``.
+   This creates the ``quickstart-java`` application into a new folder called ``quickstart``.
 #. Run ``cd quickstart`` to change into the new directory.
 
 Folder structure
@@ -40,7 +40,7 @@ The project contains the following files:
 .. code-block:: none
 
   .
-  ├── da.yaml
+  ├── daml.yaml
   ├── daml
   │   ├── Iou.daml
   │   ├── IouTrade.daml
@@ -57,11 +57,10 @@ The project contains the following files:
   │               └── digitalasset
   │                   └── quickstart
   │                       └── iou
-  │                           ├── Iou.java
   │                           └── IouMain.java
   └── ui-backend.conf
 
-- ``da.yaml`` is a DAML project definition file consumed by some CLI commands. It will not be used in this guide.
+- ``daml.yaml`` is a DAML project config file used by the SDK to find out how to build the DAML project and how to run it.
 - ``daml`` contains the :ref:`DAML code <quickstart-daml>` specifying the contract model for the ledger.
 - ``daml/Tests`` contains :ref:`test scenarios <quickstart-scenarios>` for the DAML model.
 - ``frontend-config.js`` and ``ui-backend.conf`` are configuration files for the :ref:`Navigator <quickstart-navigator>` frontend.
@@ -114,7 +113,7 @@ Run the application using prototyping tools
 
 In this section, you will run the quickstart application and get introduced to the main tools for prototyping DAML:
 
-#. To compile the DAML model, run ``da run damlc -- package daml/Main.daml target/daml/iou``
+#. To compile the DAML model, run ``daml build -o target/daml/iou.dar``
 
    This creates a DAR package called ``target/daml/iou.dar``. The output should look like this:
 
@@ -124,7 +123,7 @@ In this section, you will run the quickstart application and get introduced to t
 
    .. _quickstart-sandbox:
 
-#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``da run sandbox -- --scenario Main:setup target/daml/*``
+#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --scenario Main:setup target/daml/iou.dar``
 
    The output should look like this:
 
@@ -138,14 +137,10 @@ In this section, you will run the quickstart application and get introduced to t
       _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
       /___/\_,_/_//_/\_,_/_.__/\___/_\_\
 
-      Initialized sandbox version 100.12.1 with ledger-id = sandbox-5e12e502-817e-41f9-ad40-1c57b8845f9d, port = 6865, dar file = DamlPackageContainer(List(target/daml/iou.dar),false), time mode = Static, ledger = in-memory, daml-engine = {}
-      Initialized Static time provider, starting from 1970-01-01T00:00:00Z
-      DAML LF Engine supports LF versions: 1.0, 0; Transaction versions: 1; Value versions: 1
-      Starting plainText server
-      listening on localhost:6865
-   
+      Initialized sandbox version 100.12.10 with ledger-id = sandbox-5e12e502-817e-41f9-ad40-1c57b8845f9d, port = 6865, dar file = DamlPackageContainer(List(target/daml/iou.dar),false), time mode = Static, ledger = in-memory, daml-engine = {}
+
    The sandbox is now running, and you can access its :doc:`ledger API </app-dev/index>` on port ``6865``.
-   
+
    .. note::
 
       The parameter ``--scenario Main:setup`` loaded the sandbox ledger with some initial data. Only the sandbox has this prototyping feature - it's not available on the full ledger server. More on :ref:`scenarios <quickstart-scenarios>` later.
@@ -153,7 +148,7 @@ In this section, you will run the quickstart application and get introduced to t
    .. _quickstart-navigator:
 
 #. Open a new terminal window and navigate to your project directory.
-#. Start the :doc:`Navigator </tools/navigator/index>`, a browser-based leger front-end, by running ``da run navigator -- server``
+#. Start the :doc:`Navigator </tools/navigator/index>`, a browser-based leger front-end, by running ``daml navigator server``
 
    The Navigator automatically connects the sandbox. You can access it on port ``4000``.
 
@@ -268,7 +263,7 @@ Develop with DAML Studio
 
 Take a look at the DAML that specifies the contract model in the quickstart application. The core template is ``Iou``.
 
-#. Open :doc:`DAML Studio </daml/daml-studio>`, a DAML IDE based on VS Code, by running ``da studio`` from the root of your project.
+#. Open :doc:`DAML Studio </daml/daml-studio>`, a DAML IDE based on VS Code, by running ``daml studio`` from the root of your project.
 #. Using the explorer on the left, open ``daml/Iou.daml``.
 
 The first two lines specify language version and module name:
@@ -469,7 +464,7 @@ The ``submit`` function used in this scenario tries to perform a transaction and
 ..  Interact with the ledger through the command line
     *************************************************
 
-    All interaction with the DA ledger, be it sandbox or full ledger server, happens via the :doc:`Ledger API </app-dev/index>`. It is based on `gRPC <https://grpc.io/>`_.
+    All interaction with the DA ledger, be it sandbox or full ledger server, happens via the :doc:`Ledger API </app-dev/index>``. It is based on `gRPC <https://grpc.io/>`_.
 
     The Navigator uses this API, as will any :ref:`custom integration <quickstart-application>`.
 

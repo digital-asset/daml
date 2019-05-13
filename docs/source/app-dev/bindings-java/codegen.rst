@@ -18,7 +18,7 @@ You can download the `latest version <https://bintray.com/api/v1/content/digital
 
 * the downloaded Java codegen jar file, eg. 10x.y.z
 * the dependency to :ref:`bindings-java <daml-codegen-java-compiling>`, eg. 10x.y.z
-* the ``sdk-version`` attribute in the :ref:`da.yaml <da-yaml-configuration>` file, eg. x.y.z
+* the ``sdk-version`` attribute in the :ref:`daml.yaml <daml-yaml-configuration>` file, eg. x.y.z
 
 .. _daml-codegen-java-running:
 

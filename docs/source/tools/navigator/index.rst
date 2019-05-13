@@ -23,12 +23,12 @@ Installing and starting Navigator
 
 Navigator ships with the DAML SDK. To launch it:
 
-1. Start Navigator via a terminal window running :doc:`SDK Assistant </tools/assistant>` by typing ``da start``
+1. Start Navigator via a terminal window running :doc:`SDK Assistant </tools/assistant>` by typing ``daml start``
 
 2. The Navigator web-app is automatically started in your browser. If it fails to start,
    open a browser window and point it to the Navigator URL
 
-  When running ``da start`` you will see the Navigator URL. By default it will be `<http://localhost:7500/>`_. However, if port ``7500`` is taken, a different port will be picked.
+  When running ``daml start`` you will see the Navigator URL. By default it will be `<http://localhost:7500/>`_.
 
 .. note:: Navigator is compatible with these browsers: Safari, Chrome, or
    Firefox.
@@ -387,4 +387,4 @@ To run Navigator against a secured Digital Asset Ledger,
 configure TLS certificates using the ``--pem``, ``--crt``, and ``--cacrt`` command line parameters.
 Details of these parameters are explained in the command line help::
 
-  da run navigator -- --help
+  daml navigator --help
