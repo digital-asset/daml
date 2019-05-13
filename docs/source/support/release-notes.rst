@@ -12,9 +12,14 @@ HEAD — ongoing
 DAML
 ~~~~
 
-- **BREAKING CHANGE - DAML Standard Library**: Moved the ``Tuple`` and ``Either`` types to ``daml-prim:DA.Types`` rather than exposing internal locations.
+- **BREAKING CHANGE - DAML Standard Library**: Moved the ``Tuple`` and ``Either`` types to ``daml-prim:DA.Types``
+  rather than exposing internal locations.
 
-  You don't need to change DAML code as a result of this change. However if you're using the Java or Scala bindings, you need to migrate by replacing usages or imports of ``GHC.Tuple`` and ``DA.Internal.Prelude`` with ``DA.Tuple``.
+How to migrate:
+
+  - You don't need to change DAML code as a result of this change.
+  - People using the Java/Scala codegen need to replace ``import ghc.tuple.*`` or ``import da.internal.prelude.*`` with ``import da.types.*``.
+  - People using the Ledger API directly need to replace ``GHC.Tuple`` and ``DA.Internal.Prelude`` with ``DA.Types``.
 
 - **DAML Standard Library**: Add ``String`` as a compatibility alias for ``Text``.
 
