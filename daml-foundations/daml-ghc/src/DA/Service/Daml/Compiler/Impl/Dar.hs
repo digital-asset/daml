@@ -10,7 +10,6 @@ module DA.Service.Daml.Compiler.Impl.Dar
 import           Control.Monad.Extra
 import           Data.List.Extra
 import qualified Data.Text                  as T
-import           Data.Maybe
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
@@ -64,15 +63,13 @@ buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersio
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
     -- is modified to have prefix <name> instead of the original root path.
-    mbSrcFiles <- forM fileDependencies $ \mPath -> do
+    srcFiles <- forM fileDependencies $ \mPath -> do
       contents <- BSL.readFile mPath
-      let mbNewPath = (name </>) <$> stripModRoot mPath
-      return $ fmap (, contents) mbNewPath
+      return (name </> makeRelative' modRoot mPath, contents)
 
-    mbIfaceFaceFiles <- forM ifaces $ \mPath -> do
+    ifaceFaceFiles <- forM ifaces $ \mPath -> do
       contents <- BSL.readFile mPath
-      let mbNewPath = (name </>) <$> stripPrefix (addTrailingPathSeparator $ ifaceDir </> modRoot) mPath
-      return $ fmap (, contents) mbNewPath
+      return (name </> makeRelative' (ifaceDir </> modRoot) mPath, contents)
 
     let dalfName = name <> ".dalf"
     let dependencies = [(T.unpack pkgName <> ".dalf", BSC.fromStrict bs)
@@ -82,8 +79,8 @@ buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersio
     -- construct a zip file from all required files
     let allFiles = ("META-INF/MANIFEST.MF", manifestHeader dalfName $ dalfName:map fst dependencies)
                     : (dalfName, dalf)
-                    : catMaybes mbSrcFiles
-                    ++ catMaybes mbIfaceFaceFiles
+                    : srcFiles
+                    ++ ifaceFaceFiles
                     ++ dependencies
                     ++ dataFiles'
 
@@ -92,15 +89,6 @@ buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersio
 
     pure $ BSL.toStrict $ Zip.fromArchive zipArchive
       where
-        -- Removes the module root from the given path. Returns Nothing if
-        -- mPath is not under the module root. Normalises paths to handle
-        -- source items like @Foo.daml@ or @././Foo.daml@.
-        stripModRoot mPath =
-          let (dir, file) = splitFileName mPath
-              normalModRoot = addTrailingPathSeparator (normalise modRoot)
-              strippedDir = stripPrefix normalModRoot (normalise dir)
-          in (</> file) <$> strippedDir
-
         manifestHeader :: FilePath -> [String] -> BSL.ByteString
         manifestHeader location dalfs = BSC.pack $ unlines
           [ "Manifest-Version: 1.0"
@@ -116,3 +104,13 @@ buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersio
         breakAt72Chars s = case splitAt 72 s of
           (s0, []) -> s0
           (s0, rest) -> s0 ++ "\n" ++ breakAt72Chars (" " ++ rest)
+
+-- | Like `makeRelative` but also takes care of normalising filepaths so
+--
+-- > makeRelative' "./a" "a/b" == "b"
+--
+-- instead of
+--
+-- > makeRelative "./a" "a/b" == "a/b"
+makeRelative' :: FilePath -> FilePath -> FilePath
+makeRelative' a b = makeRelative (normalise a) (normalise b)
