@@ -18,7 +18,7 @@ You need to install:
 *******************
 
 Mac and Linux
-============
+=============
 
 To install the SDK on Mac or Linux:
 
