@@ -102,7 +102,12 @@ object Cli {
 
     opt[String]("jdbcurl")
       .optional()
-      .text("The JDBC connection URL to a Postgres database containing the username and password as well. If missing the Sandbox will use an in memory store.")
+      .text("This flag is deprecated -- please use --sql-backend-jdbcurl.")
+      .action((url, config) => config.copy(jdbcUrl = Some(url)))
+
+    opt[String]("sql-backend-jdbcurl")
+      .optional()
+      .text("The JDBC connection URL to a Postgres database containing the username and password as well. If present, the Sandbox will use the database to persist its data.")
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
     //TODO (robert): Think about all implications of allowing users to set the ledger ID.
