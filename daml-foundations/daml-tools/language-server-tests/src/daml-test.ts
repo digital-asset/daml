@@ -100,6 +100,7 @@ export function truncatePaths(obj: any): any {
  */
 export function tryWriteActualJSON(rootPath : string, actual : any)
 {
+  console.log(actual);
   tryWriteActual(rootPath + '/ACTUAL.json', JSON.stringify(actual, null, 2));
 }
 
