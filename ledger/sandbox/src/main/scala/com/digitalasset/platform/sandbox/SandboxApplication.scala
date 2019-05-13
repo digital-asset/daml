@@ -55,6 +55,9 @@ object SandboxApplication {
       () => materializer.executionContext,
       () => {
         stopHeartbeats()
+        server.closeAllServices()
+      },
+      () => {
         server.close() // fully tear down the old server.
         buildAndStartServer(SqlStartMode.AlwaysReset)
       },
