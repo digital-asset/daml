@@ -47,6 +47,7 @@ import System.Process hiding (runCommand)
 import System.IO
 import System.IO.Error
 import System.IO.Extra
+import Web.Browser
 
 import DAML.Project.Config
 import DAML.Project.Consts
@@ -398,6 +399,12 @@ runListTemplates = do
 newtype SandboxPort = SandboxPort Int
 newtype NavigatorPort = NavigatorPort Int
 
+navigatorPortNavigatorArgs :: NavigatorPort -> [String]
+navigatorPortNavigatorArgs (NavigatorPort p) = ["--port", show p]
+
+navigatorURL :: NavigatorPort -> String
+navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
+
 withSandbox :: SandboxPort -> [String] -> (ProcessHandle -> IO a) -> IO a
 withSandbox (SandboxPort port) args a = do
     withJar sandboxPath (["--port", show port] ++ args) $ \ph -> do
@@ -407,11 +414,16 @@ withSandbox (SandboxPort port) args a = do
         a ph
 
 withNavigator :: SandboxPort -> NavigatorPort -> FilePath -> [String] -> (ProcessHandle-> IO a) -> IO a
-withNavigator (SandboxPort sandboxPort) (NavigatorPort navigatorPort) config args a = do
-    withJar navigatorPath (["server", "-c", config, "localhost", show sandboxPort, "--port", show navigatorPort] <> args) $ \ph -> do
+withNavigator (SandboxPort sandboxPort) navigatorPort config args a = do
+    let navigatorArgs = concat
+            [ ["server", "-c", config, "localhost", show sandboxPort]
+            , navigatorPortNavigatorArgs navigatorPort
+            , args
+            ]
+    withJar navigatorPath navigatorArgs $ \ph -> do
         putStrLn "Waiting for navigator to start: "
         -- TODO We need to figure out a sane timeout for this step.
-        waitForHttpServer (putStr "." *> threadDelay 500000) ("http://localhost:" <> show navigatorPort)
+        waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort)
         a ph
 
 runStart :: IO ()
@@ -433,8 +445,10 @@ runStart = withProjectRoot $ \_ -> do
             -- Navigator determines the file format based on the extension so we need a .json file.
             let navigatorConfPath = confDir </> "navigator-config.json"
             writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig parties)
-            withNavigator sandboxPort navigatorPort navigatorConfPath [] $ \navigatorPh ->
+            withNavigator sandboxPort navigatorPort navigatorConfPath [] $ \navigatorPh -> do
+                void $ openBrowser (navigatorURL navigatorPort)
                 void $ race (waitForProcess navigatorPh) (waitForProcess sandboxPh)
+
     where sandboxPort = SandboxPort 6865
           navigatorPort = NavigatorPort 7500
 
