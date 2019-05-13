@@ -379,8 +379,8 @@ object ImmArray {
   implicit val immArrayInstance: Traverse[ImmArray] = new Traverse[ImmArray] {
     override def traverseImpl[F[_], A, B](immArr: ImmArray[A])(f: A => F[B])(
         implicit F: Applicative[F]): F[ImmArray[B]] = {
-      F.map(immArr.foldLeft[F[BackStack[B]]](F.point(BackStack.empty)) {
-        case (ys, x) => F.apply2(ys, f(x))(_ :+ _)
+      F.map(immArr.foldLeft[F[BackStack[B]]](F.point(BackStack.empty)) { (ys, x) =>
+        F.apply2(ys, f(x))(_ :+ _)
       })(_.toImmArray)
     }
   }
