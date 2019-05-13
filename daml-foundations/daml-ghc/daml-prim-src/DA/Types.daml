@@ -21,7 +21,7 @@ import GHC.Types()
 data Either a b = Left a | Right b
 
 
--- NOTE(MH): These types are not supposed to be by DAML users. The converter to
+-- NOTE(MH): These types are not supposed to be used in DAML. The converter to
 -- DAML-LF rewrites the types above to them, so they are visible to non-DAML users.
 data Tuple2 a b =
     Tuple2{_1 : a; _2 : b}
