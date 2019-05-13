@@ -109,9 +109,10 @@ import           Data.Tuple.Extra
 import           Data.Ratio
 import           "ghc-lib" GHC
 import           "ghc-lib" GhcPlugins as GHC hiding ((<>))
-import           "ghc-lib-parser" Pair
+import           "ghc-lib-parser" Pair hiding (swap)
 import           "ghc-lib-parser" PrelNames
 import           "ghc-lib-parser" TysPrim
+import           "ghc-lib-parser" TyCoRep
 import qualified "ghc-lib-parser" Name
 import           Safe.Exact (zipExact, zipExactMay)
 
@@ -515,7 +516,9 @@ convertBind2 env (NonRec name x)
     x' <- convertExpr env x
     let sanitize = case idDetails name of
           -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
-          DFunId{} ->
+          -- NOTE (drsk): We only want to do the sanitization for non-newtypes. The sanitization
+          -- step 3 for newtypes is done in the convertCoercion function.
+          DFunId False ->
             over (_ETyLams . _2 . _ETmLams . _2 . _ETmApps . _2 . each) (ETmLam (mkVar "_", TUnit))
           _ -> id
     name' <- convValWithType env name
@@ -974,7 +977,13 @@ mkProjBindings env recExpr recTyp vsFlds e =
     , not (isDeadOcc (occInfo (idInfo v)))
     ]
 
--- | Convert casts induced by newtype definitions. The definition
+-- | Convert casts induced by newtype definitions.
+convertCast :: Env -> LF.Expr -> Coercion -> ConvertM LF.Expr
+convertCast env expr co = do
+    (to, _from) <- evalStateT (convertCoercion env co) 0
+    pure (to `ETmApp` expr)
+
+-- Convert a coercion to a pair of lambdas. The definition
 --
 -- > newtype T = MkT S
 --
@@ -990,66 +999,128 @@ mkProjBindings env recExpr recTyp vsFlds e =
 -- Coercions induced by newtypes can also occur deeply nested in function
 -- types or forall quantifications. We handle those cases by recursion into
 -- all sub-coercions.
-convertCast :: Env -> LF.Expr -> Coercion -> ConvertM LF.Expr
-convertCast env expr0 co0 = evalStateT (go expr0 co0) 0
+convertCoercion :: Env -> Coercion -> StateT Int ConvertM (LF.Expr, LF.Expr)
+convertCoercion env co
+    | isReflCo co = do
+        s' <- lift $ convertType env s
+        t' <- lift $ convertType env t
+        x <- mkLamBinder
+        let lamTo = ETmLam (x, s') (EVar x)
+            lamFrom = ETmLam (x, t') (EVar x)
+        pure (lamTo, lamFrom)
+    | Just (xCo, yCo) <- splitFunCo_maybe co = do
+        let Pair a a' = coercionKind xCo
+        (aTo, aFrom) <- convertCoercion env xCo
+        (bTo, bFrom) <- convertCoercion env yCo
+        sLf <- lift $ convertType env s
+        tLf <- lift $ convertType env t
+        aLf <- lift $ convertType env a
+        a'Lf <- lift $ convertType env a'
+        f <- mkLamBinder
+        g <- mkLamBinder
+        x <- mkLamBinder
+        y <- mkLamBinder
+        let lamTo =
+                ETmLam
+                    (f, sLf)
+                    (ETmLam
+                         (x, a'Lf)
+                         (bTo `ETmApp` (EVar f `ETmApp` (aFrom `ETmApp` EVar x))))
+        let lamFrom =
+                ETmLam
+                    (g, tLf)
+                    (ETmLam
+                         (y, aLf)
+                         (bFrom `ETmApp` (EVar g `ETmApp` (aTo `ETmApp` EVar y))))
+        pure (lamTo, lamFrom)
+    | Just (aGhc, k_co, co') <- splitForAllCo_maybe co
+    , isReflCo k_co -- TODO (drsk) is this restriction needed?
+     = do
+        let Pair _aK a'K = coercionKind k_co
+        (aTo, aFrom) <- convertCoercion env k_co
+        (bTo, bFrom) <- convertCoercion env co'
+        a'KLf <- lift $ convertKind a'K
+        s' <- lift $ convertType env s
+        t' <- lift $ convertType env t
+        f <- mkLamBinder
+        g <- mkLamBinder
+        a' <- mkLamBinder
+        (a, aKLf) <- lift $ convTypeVar aGhc
+        let lamTo =
+                ETmLam
+                    (f, s')
+                    (ETyLam
+                         (a', a'KLf)
+                         (bTo `ETmApp`
+                          (EVar f `ETmApp` (aFrom `ETyApp` (TVar a')))))
+        let lamFrom =
+                ETmLam
+                    (g, t')
+                    (ETyLam
+                         (a, aKLf)
+                         (bFrom `ETmApp`
+                          (EVar g `ETmApp` (aTo `ETyApp` (TVar a)))))
+        pure (lamTo, lamFrom)
+    -- Case (1) & (2)
+    | Just (tCon, ts, field, flv) <- isSatNewTyCon s t = do
+        newtypeCoercion tCon ts field flv s t
+    | Just (tCon, ts, field, flv) <- isSatNewTyCon t s = do
+        (to, from) <- swap <$> newtypeCoercion tCon ts field flv t s
+        pure (to, from)
+    | SymCo co' <- co = do
+      swap <$> convertCoercion env co'
+    | SubCo co' <- co = convertCoercion env co'
+    | Just (coF, coA) <- splitAppCo_maybe co = do
+        (fTo, fFrom) <- convertCoercion env coF
+        (aTo, aFrom) <- convertCoercion env coA
+        pure (fTo `ETmApp` aTo, fFrom `ETmApp` aFrom)
+    | otherwise = lift $ unhandled "Coercion" co
   where
-    go :: LF.Expr -> Coercion -> StateT Int ConvertM LF.Expr
-    go expr co
-      | isReflCo co
-      = pure expr
-
-      | Just (xCo, yCo) <- splitFunCo_maybe  co
-      = do
-        let Pair _ t = coercionKind xCo
-        n <- state (\k -> let l = k+1 in (l, l))
-        let var = mkVar ("$cast" ++ show n)
-        -- NOTE(MH): We need @mkSymCo xCo@ here because the arrow type is
-        -- contravariant in its first argument but GHC's coercions
-        -- don't reflect this fact.
-        var' <- go (EVar var) (mkSymCo xCo)
-        t' <- lift (convertType env t)
-        ETmLam (var, t') <$> go (expr `ETmApp` var') yCo
-
-      | Just (x, k_co, co') <- splitForAllCo_maybe co
-      , isReflCo k_co
-      = do
-        (x', kind) <- lift $ convTypeVar x
-        ETyLam (x', kind) <$> go (expr `ETyApp` TVar x') co'
-
-      -- Case (1) & (2)
-      | Pair s t <- coercionKind co
-      = lift $ do
-        mCase1 <- isSatNewTyCon s t
-        mCase2 <- isSatNewTyCon t s
-        case (mCase1, mCase2) of
-          (Just (tcon, field, flv), _) ->
-            let sanitize x
+    newtypeCoercion tCon ts field flv s0 t0 = do
+        sLf <- lift $ convertType env s0
+        tLf <- lift $ convertType env t0
+        ts' <- lift $ mapM (convertType env) ts
+        t' <- lift $ convertQualified env tCon
+        exprS <- mkLamBinder
+        exprT <- mkLamBinder
+        let tcon = TypeConApp t' ts'
+        let sanitizeTo x
                   -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
-                  | flv == ClassFlavour = ETmLam (mkVar "_", TUnit) x
-                  | otherwise = x
-            in pure $ ERecCon tcon [(field, sanitize expr)]
-          (_, Just (tcon, field, flv)) ->
-            let sanitize x
+                | flv == ClassFlavour = ETmLam (mkVar "_", TUnit) x
+                | otherwise = x
+            sanitizeFrom x
                   -- NOTE(MH): This is DICTIONARY SANITIZATION step (2).
-                  | flv == ClassFlavour = x `ETmApp` EUnit
-                  | otherwise = x
-            in pure $ sanitize (ERecProj tcon field expr)
-          _ -> unhandled "Coercion" co
-    isSatNewTyCon :: GHC.Type -> GHC.Type -> ConvertM (Maybe (TypeConApp, FieldName, TyConFlavour))
+                | flv == ClassFlavour = x `ETmApp` EUnit
+                | otherwise = x
+
+        pure $
+            ( ETmLam
+                  (exprS, sLf)
+                  (ERecCon tcon [(field, sanitizeTo (EVar exprS))])
+            , ETmLam
+                  (exprT, tLf)
+                  (sanitizeFrom (ERecProj tcon field (EVar exprT))))
+
+    Pair s t = coercionKind co
+
+    mkLamBinder = do
+        n <-
+            state
+                (\k ->
+                     let l = k + 1
+                      in (l, l))
+        pure $ Tagged $ T.pack $ "$cast" ++ show n
+
+    isSatNewTyCon :: GHC.Type -> GHC.Type -> Maybe (TyCon, [TyCoRep.Type], FieldName, TyConFlavour)
     isSatNewTyCon s (TypeCon t ts)
-      | Just data_con <- newTyConDataCon_maybe t
-      , (tvs, rhs) <- newTyConRhs t
-      , length ts == length tvs
-      , applyTysX tvs rhs ts `eqType` s
-      , [field] <- ctorLabels flv data_con
-      = do
-      ts' <- mapM (convertType env) ts
-      t' <- convertQualified env t
-      pure $ Just (TypeConApp t' ts', field, flv)
+        | Just data_con <- newTyConDataCon_maybe t
+        , (tvs, rhs) <- newTyConRhs t
+        , length ts == length tvs
+        , applyTysX tvs rhs ts `eqType` s
+        , [field] <- ctorLabels flv data_con = Just (t, ts, field, flv)
       where
         flv = tyConFlavour t
-    isSatNewTyCon _ _
-      = pure Nothing
+    isSatNewTyCon _ _ = Nothing
 
 convertModuleName :: GHC.ModuleName -> LF.ModuleName
 convertModuleName (GHC.moduleNameString -> x)
