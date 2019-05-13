@@ -30,32 +30,34 @@ HEAD — ongoing
 - **BREAKING** Ledger API: Removed the unused field :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` from :ref:`com.digitalasset.ledger.api.v1.Event`.
 Ledger API
 ~~~~~~~~~~
+
 - **BREAKING** Removed the unused field :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` from :ref:`com.digitalasset.ledger.api.v1.Event`.
   ``Event`` is only used in :ref:`com.digitalasset.ledger.api.v1.Transaction`, which in turn by definition never contains exercised events (only created and archived events): `#960 <https://github.com/digital-asset/daml/issues/960>`_
 
   This change is *backwards compatible on the transport level*, meaning:
 
-  - new versions of ledger language bindings will work with previous versions of the sandbox, as the field was never populated,
-  - previous versions of the ledger language bindings will work with new versions of the sandbox, as the field was removed without any change in observable behaviour.
+  - new versions of ledger language bindings will work with previous versions of the Sandbox, because the field was never populated
+  - previous versions of the ledger language bindings will work with new versions of the Sandbox, as the field was removed without any change in observable behavior
 
-  Migration:
+How to migrate:
 
   - If you check for the presence of ``ExercisedEvent`` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
 
 Java Bindings
 ~~~~~~~~~~~~~
-- **BREAKING** Reflect breaking change of Ledger API in the event class hierarchy: `#960 <https://github.com/digital-asset/daml/issues/960>`_
 
-  - ``data.Event`` has been changed from an abstract class to an interface, representing events in a flat transaction.
+- **BREAKING** Reflect the breaking change of Ledger API in the event class hierarchy:
+
+  - Changed ``data.Event`` from an abstract class to an interface, representing events in a flat transaction.
   - Added interface ``data.TreeEvent``, representing events in a transaction tree.
   - ``data.CreatedEvent`` and ``data.ArchivedEvent`` now implement ``data.Event``.
   - ``data.CreatedEvent`` and ``data.ExercisedEvent`` now implement ``data.TreeEvent``.
   - ``data.TransactionTree#eventsById`` is now ``Map<String, TreeEvent>`` (was previously ``Map<String, Event>``).
 
-  Migration:
+How to migrate:
 
   - If you are processing ``TransactionTree`` objects, you need to change the type of the events from ``Event`` to ``TreeEvent``.
-  - If you are checking for the precense of exercised events when processing ``Transaction`` objects, you can remove that code now.
+  - If you are checking for the presense of exercised events when processing ``Transaction`` objects, you can remove that code now.
     It would never have triggered in the first place, as transactions do not contain exercised events.
 
 
