@@ -258,8 +258,8 @@ shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts = modifyVar shakeAbort $
 -- | Use the last stale value, if it's ever been computed.
 useStale
     :: IdeRule k v
-    => ShakeExtras -> k -> FilePath -> IO (Maybe v)
-useStale ShakeExtras{state} k fp =
+    => IdeState -> k -> FilePath -> IO (Maybe v)
+useStale IdeState{shakeExtras=ShakeExtras{state}} k fp =
     join <$> getValues state k fp
 
 
@@ -391,9 +391,9 @@ updateFileDiagnostics ::
   -> ShakeExtras
   -> [Diagnostic] -- ^ current results
   -> Action ()
-updateFileDiagnostics fp k extras@ShakeExtras{diagnostics} current = do
+updateFileDiagnostics fp k ShakeExtras{diagnostics, state} current = do
     (newDiags, oldDiags) <- liftIO $ do
-        modTime <- useStale extras GetModificationTime fp
+        modTime <- join <$> getValues state GetModificationTime fp
         modifyVar diagnostics $ \old -> do
             oldDiags <- getFileDiagnostics fp old
             new <- setStageDiagnostics fp modTime k current old
