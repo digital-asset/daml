@@ -52,6 +52,14 @@ steps:
     env:
       # to connect to bintray
       JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)
+      # For signing artifacts to be uploaded to Maven Central.
+      GPG_KEY: $(gpg-code-signing)
+      # Usename and password for the Sonatype Open Source Repository Hosting
+      # NOTE: This configuration is a security risk and should be moved to the Azure Pipeline
+      # configuration before this file is merged!
+      MAVEN_USER: "nicholas.smith-da"
+      MAVEN_PASSWORD: "b07Ww+jECmaEZS8ohOVNbAWYKopatwCywqgcsrqe+y7W" 
+      MAVEN_URL: "https://oss.sonatype.org"
     name: release
   - bash: |
       set -euo pipefail

@@ -109,7 +109,6 @@ You can wire a ``Bot`` to a ``LedgerClient`` implementation using ``Bot.wire``:
 
     Bot.wire(String applicationId,
              LedgerClient ledgerClient,
-             TransactionFilter transactionFilter,
              Function<LedgerViewFlowable.LedgerView<R>, Flowable<CommandsAndPendingSet>> bot,
              Function<CreatedContract, R> transform)
 
@@ -154,17 +153,10 @@ To use the Java bindings library, add the following dependencies to your project
     :end-before: <!-- end snippet: dependencies -->
     :dedent: 4
 
-Replace ``x.y.z`` for both dependencies with the version that you want to use. You can find the available versions at
-`https://digitalassetsdk.bintray.com/DigitalAssetSDK/com/daml/ledger/`.
+Replace ``x.y.z`` for both dependencies with the version that you want to use. You can find the available versions by checking
+`https://search.maven.org/search?q=g:com.daml.ledger`.
 
-You also have to add the DAML Bintray Repository to your ``pom.xml``:
-
-.. literalinclude:: ./code-snippets/pom.xml
-    :language: xml
-    :start-after: <!-- start snippet: repositories -->
-    :end-before: <!-- end snippet: repositories -->
-    :dedent: 4
-
+Note: As of DAML SDK release 0.12.25 the Java Bindings libraries are available via the public Maven Central repository. Earlier releases are available from the DAML Bintray repository at `https://digitalassetsdk.bintray.com`.
 
 You can also take a look at the ``pom.xml`` file from the :ref:`quickstart project <quickstart>`.
 

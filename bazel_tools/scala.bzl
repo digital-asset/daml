@@ -239,71 +239,107 @@ def _create_scala_source_jar(**kwargs):
             srcs = kwargs["srcs"],
         )
 
+def _build_nosrc_jar(ctx):
+    # this ensures the file is not empty
+    manifest_path = ctx.actions.declare_file("%s_MANIFEST.MF" % ctx.label.name)
+    ctx.actions.write(manifest_path, "Manifest-Version: 1.0")
+    resources = "META-INF/MANIFEST.MF=%s\n" % manifest_path.path
+
+    zipper_arg_path = ctx.actions.declare_file("%s_zipper_args" % ctx.label.name)
+    ctx.actions.write(zipper_arg_path, resources)
+    cmd = """
+rm -f {jar_output}
+{zipper} c {jar_output} @{path}
+"""
+
+    cmd = cmd.format(
+        path = zipper_arg_path.path,
+        jar_output = ctx.outputs.out.path,
+        zipper = ctx.executable._zipper.path,
+    )
+
+    outs = [ctx.outputs.out]
+    inputs = [manifest_path]
+
+    ctx.actions.run_shell(
+        inputs = inputs,
+        tools = [ctx.executable._zipper, zipper_arg_path],
+        outputs = outs,
+        command = cmd,
+        progress_message = "scala %s" % ctx.label,
+        arguments = [],
+    )
+
 def _scaladoc_jar_impl(ctx):
+    # Detect an actual scala source file rather than a srcjar or other label
     srcFiles = [
         src.path
         for src in ctx.files.srcs
+        if src.is_source
     ]
 
-    # The following plugin handling is lifted from a private library of 'rules_scala'.
-    # https://github.com/bazelbuild/rules_scala/blob/1cffc5fcae1f553a7619b98bf7d6456d65081665/scala/private/rule_impls.bzl#L130
-    pluginPaths = []
-    for p in ctx.attr.plugins:
-        if hasattr(p, "path"):
-            pluginPaths.append(p)
-        elif hasattr(p, "scala"):
-            pluginPaths.extend([j.class_jar for j in p.scala.outputs.jars])
-        elif hasattr(p, "java"):
-            pluginPaths.extend([j.class_jar for j in p.java.outputs.jars])
-            # support http_file pointed at a jar. http_jar uses ijar,
-            # which breaks scala macros
+    if srcFiles != []:
+        # The following plugin handling is lifted from a private library of 'rules_scala'.
+        # https://github.com/bazelbuild/rules_scala/blob/1cffc5fcae1f553a7619b98bf7d6456d65081665/scala/private/rule_impls.bzl#L130
+        pluginPaths = []
+        for p in ctx.attr.plugins:
+            if hasattr(p, "path"):
+                pluginPaths.append(p)
+            elif hasattr(p, "scala"):
+                pluginPaths.extend([j.class_jar for j in p.scala.outputs.jars])
+            elif hasattr(p, "java"):
+                pluginPaths.extend([j.class_jar for j in p.java.outputs.jars])
+                # support http_file pointed at a jar. http_jar uses ijar,
+                # which breaks scala macros
 
-        elif hasattr(p, "files"):
-            pluginPaths.extend([f for f in p.files if "-sources.jar" not in f.basename])
+            elif hasattr(p, "files"):
+                pluginPaths.extend([f for f in p.files if "-sources.jar" not in f.basename])
 
-    transitive_deps = [dep[JavaInfo].transitive_deps for dep in ctx.attr.deps]
-    classpath = depset([], transitive = transitive_deps).to_list()
+        transitive_deps = [dep[JavaInfo].transitive_deps for dep in ctx.attr.deps]
+        classpath = depset([], transitive = transitive_deps).to_list()
 
-    outdir = ctx.actions.declare_directory(ctx.label.name + "_tmpdir")
+        outdir = ctx.actions.declare_directory(ctx.label.name + "_tmpdir")
 
-    args = ctx.actions.args()
-    args.add_all(["-d", outdir.path])
-    args.add("-classpath")
-    args.add_joined(classpath, join_with = ":")
-    args.add_joined(pluginPaths, join_with = ",", format_joined = "-Xplugin:%s")
-    args.add_all(common_scalacopts)
-    args.add_all(srcFiles)
+        args = ctx.actions.args()
+        args.add_all(["-d", outdir.path])
+        args.add("-classpath")
+        args.add_joined(classpath, join_with = ":")
+        args.add_joined(pluginPaths, join_with = ",", format_joined = "-Xplugin:%s")
+        args.add_all(common_scalacopts)
+        args.add_all(srcFiles)
 
-    ctx.actions.run(
-        executable = ctx.executable._scaladoc,
-        inputs = ctx.files.srcs + classpath + pluginPaths,
-        outputs = [outdir],
-        arguments = [args],
-        mnemonic = "ScaladocGen",
-    )
+        ctx.actions.run(
+            executable = ctx.executable._scaladoc,
+            inputs = ctx.files.srcs + classpath + pluginPaths,
+            outputs = [outdir],
+            arguments = [args],
+            mnemonic = "ScaladocGen",
+        )
 
-    # since we only have the output directory of the scaladoc generation we need to find
-    # all the files below sources_out and add them to the zipper args file
-    zipper_args_file = ctx.actions.declare_file(ctx.label.name + ".zipper_args")
-    ctx.actions.run_shell(
-        mnemonic = "ScaladocFindOutputFiles",
-        outputs = [zipper_args_file],
-        inputs = [outdir],
-        command = "find -L {src_path} -type f | sed -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | sort > {args_file}".format(
-            src_path = outdir.path,
-            args_file = zipper_args_file.path,
-        ),
-        progress_message = "find_scaladoc_output_files %s" % zipper_args_file.path,
-        use_default_shell_env = True,
-    )
+        # since we only have the output directory of the scaladoc generation we need to find
+        # all the files below sources_out and add them to the zipper args file
+        zipper_args_file = ctx.actions.declare_file(ctx.label.name + ".zipper_args")
+        ctx.actions.run_shell(
+            mnemonic = "ScaladocFindOutputFiles",
+            outputs = [zipper_args_file],
+            inputs = [outdir],
+            command = "find -L {src_path} -type f | sed -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | sort > {args_file}".format(
+                src_path = outdir.path,
+                args_file = zipper_args_file.path,
+            ),
+            progress_message = "find_scaladoc_output_files %s" % zipper_args_file.path,
+            use_default_shell_env = True,
+        )
 
-    ctx.actions.run(
-        executable = ctx.executable._zipper,
-        inputs = ctx.files.srcs + classpath + [outdir, zipper_args_file],
-        outputs = [ctx.outputs.out],
-        arguments = ["c", ctx.outputs.out.path, "@" + zipper_args_file.path],
-        mnemonic = "ScaladocJar",
-    )
+        ctx.actions.run(
+            executable = ctx.executable._zipper,
+            inputs = ctx.files.srcs + classpath + [outdir, zipper_args_file],
+            outputs = [ctx.outputs.out],
+            arguments = ["c", ctx.outputs.out.path, "@" + zipper_args_file.path],
+            mnemonic = "ScaladocJar",
+        )
+    else:
+        _build_nosrc_jar(ctx)
 
 scaladoc_jar = rule(
     implementation = _scaladoc_jar_impl,
@@ -339,17 +375,8 @@ Arguments:
 """
 
 def _create_scaladoc_jar(**kwargs):
-    # Try to not create empty scaladoc jars and limit execution to Linux and MacOS
-    # Detect an actual scala source file rather than a srcjar or other label
-
-    create_scaladoc = False
-    if len(kwargs["srcs"]) > 0 and is_windows == False:
-        for src in kwargs["srcs"]:
-            if src.endswith(".scala"):
-                create_scaladoc = True
-                break
-
-    if create_scaladoc:
+    # Limit execution to Linux and MacOS
+    if is_windows == False:
         plugins = []
         if "plugins" in kwargs:
             plugins = kwargs["plugins"]
