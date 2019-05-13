@@ -31,8 +31,8 @@ HEAD — ongoing
 Ledger API
 ~~~~~~~~~~
 
-- **BREAKING** Removed the unused field :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` from :ref:`com.digitalasset.ledger.api.v1.Event`.
-  ``Event`` is only used in :ref:`com.digitalasset.ledger.api.v1.Transaction`, which in turn by definition never contains exercised events (only created and archived events): `#960 <https://github.com/digital-asset/daml/issues/960>`_
+- **BREAKING** Removed the unused field :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` from :ref:`com.digitalasset.ledger.api.v1.Event`,
+  because a :ref:`com.digitalasset.ledger.api.v1.Transaction` never contains exercised events (only created and archived events): `#960 <https://github.com/digital-asset/daml/issues/960>`_
 
   This change is *backwards compatible on the transport level*, meaning:
 
@@ -41,7 +41,7 @@ Ledger API
 
 How to migrate:
 
-  - If you check for the presence of ``ExercisedEvent`` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
+  - If you check for the presence of :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
 
 Java Bindings
 ~~~~~~~~~~~~~
@@ -56,8 +56,8 @@ Java Bindings
 
 How to migrate:
 
-  - If you are processing ``TransactionTree`` objects, you need to change the type of the events from ``Event`` to ``TreeEvent``.
-  - If you are checking for the presense of exercised events when processing ``Transaction`` objects, you can remove that code now.
+  - If you are processing ``data.TransactionTree`` objects, you need to change the type of the processed events from ``data.Event`` to ``data.TreeEvent``.
+  - If you are checking for the presense of exercised events when processing ``data.Transaction`` objects, you can remove that code now.
     It would never have triggered in the first place, as transactions do not contain exercised events.
 
 
