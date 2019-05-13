@@ -41,6 +41,7 @@ resource "google_storage_bucket" "default" {
 
   website {
     main_page_suffix = "index.html"
+    not_found_page   = "${var.default_file == "docs" ? "not-found.html" : ""}"
   }
 
   force_destroy = true
@@ -53,9 +54,19 @@ resource "google_storage_bucket_acl" "default" {
 }
 
 resource "google_storage_bucket_object" "default" {
+  count        = "${var.default_file == "cache" ? 1 : 0}"
   name         = "index.html"
   bucket       = "${google_storage_bucket.default.name}"
-  content      = "${file("${path.module}/files/index.html")}"
+  content      = "${file("${path.module}/files/${var.default_file}.html")}"
+  content_type = "text/html"
+  depends_on   = ["google_storage_bucket_acl.default"]
+}
+
+resource "google_storage_bucket_object" "not_found" {
+  count        = "${var.default_file == "docs" ? 1 : 0}"
+  name         = "not-found.html"
+  bucket       = "${google_storage_bucket.default.name}"
+  content      = "${file("${path.module}/files/${var.default_file}.html")}"
   content_type = "text/html"
   depends_on   = ["google_storage_bucket_acl.default"]
 }
