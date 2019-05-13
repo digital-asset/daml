@@ -258,6 +258,7 @@ autoInstall damlPath damlAsstSdkVersionM sdkVersionM = do
                 , iQuiet = QuietInstall False
                 , iActivate = ActivateInstall isLatest
                 , iForce = ForceInstall False
+                , iSetPath = SetPath True
                 }
             env = InstallEnv
                 { options = options

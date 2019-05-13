@@ -7,6 +7,7 @@ module DAML.Assistant.Install.Path
     ) where
 
 import Control.Monad
+import System.FilePath
 
 #ifdef mingw32_HOST_OS
 import Control.Exception.Safe
@@ -22,19 +23,24 @@ import Graphics.Win32.Message
 import Graphics.Win32.Window.PostMessage
 import System.Win32.Registry hiding (regQueryValueEx)
 import System.Win32.Types
-#else
-import System.FilePath
 #endif
 
-updatePath :: (String -> IO ()) -> FilePath -> IO ()
+import DAML.Assistant.Types
+
+updatePath :: InstallOptions -> (String -> IO ()) -> FilePath -> IO ()
 #ifdef mingw32_HOST_OS
-updatePath output targetPath = do
+updatePath installOpts output targetPath
+    | SetPath b <- iSetPath installOpts, not b = suggestAddToPath output targetPath
+    | otherwise = do
     -- Updating PATH on Windows is annoying so we do it automatically.
     bracket (regOpenKeyEx hKEY_CURRENT_USER "Environment" kEY_ALL_ACCESS) regCloseKey $ \envKey -> do
-        path <- regQueryStringValue envKey "Path"
-        let paths = split (== ';') path
-        when (targetPath `notElem` paths) $ do
-            let newPath = intercalate ";" $ targetPath : paths
+        -- We use getSearchPath for the check instead of reading from the registry
+        -- since that allows users to modify the environment variable to temporarily
+        -- add it to PATH.
+        searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
+        when (targetPath `notElem` searchPaths) $ do
+            oldPath <- regQueryStringValue envKey "Path"
+            let newPath = intercalate ";" $ targetPath : split (== ';') oldPath
             regSetStringValue envKey "Path" newPath
             -- Ask applications to pick up the change.
             _ <-
@@ -71,9 +77,12 @@ regQueryStringValue key valueName =
                 c_RegQueryValueEx p_key c_valueName nullPtr nullPtr c_value p_valueLen
             peekTString (castPtr c_value)
 #else
-updatePath output targetPath = do
+updatePath _ output targetPath = suggestAddToPath output targetPath
+#endif
+
+suggestAddToPath :: (String -> IO ()) -> FilePath -> IO ()
+suggestAddToPath output targetPath = do
     -- Ask user to add .daml/bin to PATH if it is absent.
     searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
     when (targetPath `notElem` searchPaths) $ do
         output ("Please add " <> targetPath <> " to your PATH.")
-#endif

@@ -71,6 +71,7 @@ data InstallOptions = InstallOptions
     , iActivate :: ActivateInstall
     , iForce :: ForceInstall
     , iQuiet :: QuietInstall
+    , iSetPath :: SetPath
     } deriving (Eq, Show)
 
 -- | An install URL is a fully qualified HTTP[S] URL to an SDK release tarball. For example:
@@ -83,3 +84,4 @@ newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
 newtype ForceInstall = ForceInstall Bool deriving (Eq, Show)
 newtype QuietInstall = QuietInstall Bool deriving (Eq, Show)
 newtype ActivateInstall = ActivateInstall Bool deriving (Eq, Show)
+newtype SetPath = SetPath Bool deriving (Eq, Show)
