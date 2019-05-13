@@ -74,19 +74,22 @@ trait LedgerContext {
   def reflectionService: ServerReflectionGrpc.ServerReflectionStub
   def resetService: ResetService
 
-  /** Reset the ledger server and wait for it to start again. */
-  final def reset()(implicit system: ActorSystem, mat: Materializer): Future[Unit] = {
+  /**
+    *  Reset the ledger server and wait for it to start again.
+    *  @return the new ledger id
+    * */
+  final def reset()(implicit system: ActorSystem, mat: Materializer): Future[String] = {
     implicit val ec: ExecutionContext = mat.executionContext
-    def waitForNewLedger(retries: Int): Future[Unit] =
+    def waitForNewLedger(retries: Int): Future[String] =
       if (retries <= 0)
         Future.failed(new RuntimeException("waitForNewLedger: out of retries"))
       else {
         ledgerIdentityService
           .getLedgerIdentity(GetLedgerIdentityRequest())
-          .flatMap { _ =>
+          .flatMap { resp =>
             // TODO(JM): Could check that ledger-id has changed. However,
             // the tests use a static ledger-id...
-            Future.successful(())
+            Future.successful(resp.ledgerId)
           }
           .recoverWith {
             case _: StatusRuntimeException =>
@@ -101,8 +104,8 @@ trait LedgerContext {
       }
     for {
       _ <- resetService.reset(ResetRequest(ledgerId))
-      _ <- waitForNewLedger(10)
-    } yield ()
+      newLedgerId <- waitForNewLedger(10)
+    } yield newLedgerId
   }
 
   /**
