@@ -1,8 +1,8 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML anti-patterns
-##################
+Anti-patterns
+#############
 
 This documents DLT anti-patterns, their drawbacks and more robust ways of achieving the same outcome.
 

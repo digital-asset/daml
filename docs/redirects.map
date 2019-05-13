@@ -29,7 +29,6 @@ packages/sdk-docs-platform-gsl/index.html -> /
 packages/daml-manual/create-project.html -> /daml/create-project.html
 packages/daml-manual/index.html -> /daml/index.html
 packages/daml-manual/testing-scenarios.html -> /daml/testing-scenarios.html
-packages/daml-manual/1-2-conversion.html -> /daml/1-2-conversion.html
 packages/daml-manual/troubleshooting.html -> /daml/troubleshooting.html
 packages/daml-manual/reference/choices.html -> /daml/reference/choices.html
 packages/daml-manual/reference/working-with.html -> /daml/reference/working-with.html
@@ -78,8 +77,8 @@ packages/daml-licenses/licensing/scenario-service-licenses.html -> /
 packages/daml-licenses/licensing/ledger-bindings-licenses.html -> /
 packages/daml-studio/index.html -> /daml/daml-studio.html
 packages/sandbox-doc/index.html -> /tools/sandbox.html
-packages/daml-stdlib-doc/index.html -> /daml/stdlib/index.html
-packages/daml-stdlib-doc/base.html -> /daml/stdlib/base.html
+packages/daml-stdlib-doc/index.html -> /daml/reference/base.html
+packages/daml-stdlib-doc/base.html -> /daml/reference/base.html
 packages/bindings-java-tutorial/index.html -> /app-dev/bindings-java/index.html
 packages/bindings-java-tutorial/static/constant-values.html -> /app-dev/bindings-java/javadocs/constant-values.html
 packages/bindings-java-tutorial/static/overview-tree.html -> /app-dev/bindings-java/javadocs/overview-tree.html

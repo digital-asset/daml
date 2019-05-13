@@ -4,6 +4,11 @@
 Navigator Console
 #################
 
+.. toctree::
+  :hidden:
+
+  Navigator Database </tools/navigator/database>
+
 The Navigator Console is a terminal-based front-end for inspecting and modifying a Digital Asset ledger. It's useful for DAML developers, app developers, or business analysts who want to debug or analyse a ledger by exploring it manually.
 
 You can use the Console to:

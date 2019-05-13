@@ -15,7 +15,7 @@ DAML SDK documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Getting Started
+   :caption: Getting started
 
    Installing the SDK <getting-started/installation>
    getting-started/introduction
@@ -25,21 +25,19 @@ DAML SDK documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Modeling Processes with DAML
+   :caption: Writing DAML
 
    daml/reference/index
-   daml/stdlib/index
    daml/daml-studio
    daml/testing-scenarios
    daml/troubleshooting
-   daml/1-2-conversion
    daml/good-daml
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Building Applications
+   :caption: Building applications
 
    app-dev/index
    app-dev/bindings-java/index
@@ -51,7 +49,7 @@ DAML SDK documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: SDK Tools
+   :caption: SDK tools
 
    tools/assistant
    tools/sandbox
@@ -61,7 +59,7 @@ DAML SDK documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Background Concepts
+   :caption: Background concepts
 
    concepts/ledger-model/index
 
@@ -77,15 +75,16 @@ DAML SDK documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Experimental Features
+   :caption: Experimental features
 
    experimental/warning
+   daml-integration-kit/index
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Support and Updates
+   :caption: Support and updates
 
    support/support
    support/release-notes

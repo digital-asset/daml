@@ -14,8 +14,8 @@ cleanup()
   echo "Caught Signal ... cleaning up."
   rm -rf $BUILD_DIR
   cd $SCRIPT_DIR
-  rm -f ../source/daml/stdlib/base.rst
-  rm -f ../source/app-dev/ledger-api-introduction/proto-docs.rst
+  rm -f ../source/daml/reference/base.rst
+  rm -f ../source/app-dev/grpc/proto-docs.rst
   rm -f ../source/LICENSE
   rm -f ../source/NOTICES
   echo "Done cleanup ... quitting."
@@ -60,7 +60,7 @@ do
 
         #StdLib
         bazel build //daml-foundations/daml-ghc:daml-base-rst-docs
-        cp -L ../../bazel-genfiles/daml-foundations/daml-ghc/daml-base.rst ../source/daml/stdlib/base.rst
+        cp -L ../../bazel-genfiles/daml-foundations/daml-ghc/daml-base.rst ../source/daml/reference/base.rst
     fi
 done
 
