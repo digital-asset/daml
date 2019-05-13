@@ -133,7 +133,6 @@ case object LedgerApiV1 {
       workflowId: ApiTypes.WorkflowId,
       parentId: Option[ApiTypes.EventId] = None
   ): Result[List[Model.Event]] = {
-    com.digitalasset.ledger.api.v1.event.Event.Event.Exercised
     event match {
       case V1.transaction.TreeEvent(V1.transaction.TreeEvent.Kind.Created(ev)) =>
         readEventCreated(ev, transactionId, workflowId, parentId, ctx).map(List(_))
