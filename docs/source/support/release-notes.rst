@@ -15,7 +15,7 @@ DAML
 - **BREAKING CHANGE - DAML Standard Library**: Moved the ``Tuple`` and ``Either`` types to ``daml-prim:DA.Types``
   rather than exposing internal locations.
 
-How to migrate:
+  How to migrate:
 
   - You don't need to change DAML code as a result of this change.
   - People using the Java/Scala codegen need to replace ``import ghc.tuple.*`` or ``import da.internal.prelude.*`` with ``import da.types.*``.
