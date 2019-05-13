@@ -51,12 +51,17 @@ object SandboxApplication {
     /** the reset service is special, since it triggers a server shutdown */
     private val resetService: SandboxResetService = new SandboxResetService(
       () => ledgerId,
-      () => server.getServer,
       () => materializer.executionContext,
       () => {
         stopHeartbeats()
-        server.close() // fully tear down the old server.
-        buildAndStartServer(SqlStartMode.AlwaysReset)
+
+        //need to run this async otherwise the callback kills the server under the in-flight reset service request!
+        Future {
+          server.close() // fully tear down the old server.
+          buildAndStartServer(SqlStartMode.AlwaysReset)
+        }(materializer.executionContext)
+
+        server.servicesClosed()
       },
     )
 

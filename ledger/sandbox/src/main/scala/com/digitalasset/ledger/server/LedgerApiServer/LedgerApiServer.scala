@@ -23,6 +23,7 @@ import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.{Future, Promise}
 import scala.util.control.NoStackTrace
 
 object LedgerApiServer {
@@ -130,10 +131,23 @@ class LedgerApiServer(
     new NioEventLoopGroup(parallelism, threadFactory)
   }
 
+  private val servicesClosedP = Promise[Unit]()
+
+  /** returns when all services have been closed during the shutdown */
+  def servicesClosed(): Future[Unit] = servicesClosedP.future
+
   override def close(): Unit = {
     apiServices.close()
-    grpcServer.shutdownNow()
-    grpcServer.awaitTermination(10, TimeUnit.SECONDS)
+    servicesClosedP.success(())
+    grpcServer.shutdown()
+
+    if (!grpcServer.awaitTermination(10L, TimeUnit.SECONDS)) {
+      logger.warn(
+        "Server did not terminate gracefully in one second. " +
+          "Clients probably did not disconnect. " +
+          "Proceeding with forced termination.")
+      grpcServer.shutdownNow()
+    }
     // `shutdownGracefully` has a "quiet period" which specifies a time window in which
     // _no requests_ must be witnessed before shutdown is _initiated_. Here we want to
     // start immediately, so no quiet period -- by default it's 2 seconds.
