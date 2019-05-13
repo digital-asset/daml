@@ -7,6 +7,13 @@ load(
     "da_scala_test_suite",
 )
 
+bindings_scala_deps = [
+    "//3rdparty/jvm/com/github/ghik:silencer_lib",
+    "//3rdparty/jvm/io/grpc:grpc_core",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//ledger-api/grpc-definitions:ledger-api-scalapb",
+]
+
 da_scala_library(
     name = "bindings",
     srcs = glob(["src/main/**/*.scala"]),
@@ -21,15 +28,8 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
-    exports = [
-        "//ledger-api/grpc-definitions:ledger-api-scalapb",
-    ],
-    deps = [
-        "//3rdparty/jvm/com/github/ghik:silencer_lib",
-        "//3rdparty/jvm/io/grpc:grpc_core",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//ledger-api/grpc-definitions:ledger-api-scalapb",
-    ],
+    exports = bindings_scala_deps,
+    deps = bindings_scala_deps,
 )
 
 da_scala_test_suite(

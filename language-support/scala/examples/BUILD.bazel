@@ -1,6 +1,12 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+)
+
 filegroup(
     name = "quickstart-scala-src",
     srcs = glob(
@@ -32,4 +38,45 @@ genrule(
         rm -rf $@/scala-codegen/target
     """,
     visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "examples-quickstart-scala-codegen",
+    srcs = ["//docs:quickstart-model.dar"],
+    outs = ["examples-quickstart-scala-codegen-out"],
+    cmd = "$(execpath //language-support/scala/codegen:codegen-main) $(location //docs:quickstart-model.dar)=com.digitalasset.quickstart.iou.model --output-directory=$@ --verbosity=2",
+    tools = [
+        "//language-support/scala/codegen:codegen-main",
+    ],
+)
+
+genrule(
+    name = "examples-quickstart-scala-codegen.srcjar",
+    srcs = [":examples-quickstart-scala-codegen"],
+    outs = ["examples-quickstart-scala-codegen-out.srcjar"],
+    cmd = "$(execpath @local_jdk//:bin/jar) -cf $@ -C $(location :examples-quickstart-scala-codegen) .",
+    tools = [
+        "@local_jdk//:bin/jar",
+    ],
+)
+
+da_scala_library(
+    name = "examples-quickstart-scala-codegen-lib",
+    srcs = ["examples-quickstart-scala-codegen-out.srcjar"],
+    deps = ["//language-support/scala/bindings"],
+)
+
+da_scala_binary(
+    name = "examples-quickstart-scala-bin",
+    srcs = glob(["quickstart-scala/application/src/main/scala/**/*.scala"]),
+    main_class = "com.digitalasset.quickstart.iou.IouMain",
+    resources = glob(["quickstart-scala/application/src/main/resources/**/*"]),
+    scalacopts = ["-Xsource:2.13"],
+    deps = [
+        ":examples-quickstart-scala-codegen-lib",
+        "//3rdparty/jvm/com/typesafe/akka:akka_slf4j",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+    ],
 )

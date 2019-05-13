@@ -13,7 +13,7 @@ object DecodeUtil {
     for {
       event <- transaction.events
       created <- event.event.created.toList
-      a <- decodeCreated(created)
+      a <- decodeCreated(created).toList
     } yield a
 
   def decodeCreated[A <: Template[A]: ValueDecoder](transaction: Transaction): Option[Contract[A]] =

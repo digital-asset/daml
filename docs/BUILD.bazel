@@ -296,6 +296,7 @@ daml_compile(
     srcs = glob(["source/getting-started/quickstart/template-root/**/*.daml"]),
     main_src = "source/getting-started/quickstart/template-root/daml/Main.daml",
     target = "1.1",
+    visibility = ["//language-support/scala/examples:__subpackages__"],
 )
 
 dar_to_java(
