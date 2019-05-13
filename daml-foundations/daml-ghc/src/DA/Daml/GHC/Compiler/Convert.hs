@@ -800,13 +800,9 @@ convertExpr env0 e = do
                     pure $ ERecCon tcon (zip fldNames tmArgs)
                 | otherwise
                 -> fmap (, args) $ pure $ EVal $ qualify $ mkVal ("$ctor:" ++ renameCons (is x))
-        | Just m <- nameModule_maybe $ varName x = fmap (, args) $ do
-            unitId <- convertUnitId (envModuleUnitId env) (envPkgMap env) $ GHC.moduleUnitId m
-            pure $ EVal $
-              Qualified
-                unitId
-                (convertModuleName $ GHC.moduleName m) $
-              convVal x
+                -> fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$ctor:" ++ x) $ is x
+        | Just m <- nameModule_maybe $ varName x = fmap (, args) $
+            fmap EVal $ qualify env m $ convVal x
         | isGlobalId x = fmap (, args) $ do
             pkgRef <- nameToPkgRef env $ varName x
             pure $ EVal $ Qualified pkgRef (envLFModuleName env) $ convVal x
@@ -1060,6 +1056,11 @@ convertCast env expr0 co0 = evalStateT (go expr0 co0) 0
 convertModuleName :: GHC.ModuleName -> LF.ModuleName
 convertModuleName (GHC.moduleNameString -> x)
     = mkModName $ splitOn "." x
+
+qualify :: Env -> GHC.Module -> a -> ConvertM (Qualified a)
+qualify env m x = do
+    unitId <- convertUnitId (envModuleUnitId env) (envPkgMap env) $ GHC.moduleUnitId m
+    pure $ Qualified unitId (convertModuleName $ GHC.moduleName m) x
 
 qGHC_Tuple :: Env -> a -> ConvertM (Qualified a)
 qGHC_Tuple env a = do
