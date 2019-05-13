@@ -9,16 +9,12 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
-- **DAML Standard Library**: Move the ``Tuple`` and ``Either`` types to ``daml-prim:DA.Types`` rather
-  than exposing internal locations. This change does not impact DAML code.
-  People using the Scala/Java bindings will need to replace
-  both ``GHC.Tuple`` and ``DA.Internal.Prelude`` with ``DA.Types``.
 DAML
 ~~~~
 
-- **BREAKING** Move the ``Tuple`` and ``Either`` types to ``daml-prim:DA.Types`` rather
-  than exposing internal locations. People using the Scala/Java bindings will need to change from
-  using ``GHC.Tuple`` or ``DA.Internal.Prelude`` to using ``DA.Types``.
+- **BREAKING CHANGE - DAML Standard Library**: Moved the ``Tuple`` and ``Either`` types to ``daml-prim:DA.Types`` rather than exposing internal locations.
+
+  You don't need to change DAML code as a result of this change. However if you're using the Java or Scala bindings, you need to migrate by replacing usages or imports of ``GHC.Tuple`` and ``DA.Internal.Prelude`` with ``DA.Tuple``.
 
 - **DAML Standard Library**: Add ``String`` as a compatibility alias for ``Text``.
 
