@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.data
 
 import scala.language.higherKinds
 import scala.collection.{IndexedSeqLike, IndexedSeqOptimized, mutable}
-import scalaz.{Applicative, Equal, Traverse}
+import scalaz.{Applicative, Equal, Foldable, Traverse}
 
 import scala.annotation.tailrec
 import scala.collection.generic.{
@@ -407,6 +407,7 @@ object ImmArray {
 
     // TODO make this faster by implementing as many methods as possible.
     override def iterator: Iterator[A] = array.iterator
+    override def reverseIterator: Iterator[A] = array.reverseIterator
     override def apply(idx: Int): A = array(idx)
     override def length: Int = array.len
     override def head: A = array.head
@@ -424,7 +425,13 @@ object ImmArray {
   }
 
   object ImmArraySeq extends IndexedSeqFactory[ImmArraySeq] {
-    implicit val immArraySeqInstance: Traverse[ImmArraySeq] = new Traverse[ImmArraySeq] {
+    implicit val immArraySeqInstance: Traverse[ImmArraySeq] = new Traverse[ImmArraySeq]
+    with Foldable.FromFoldr[ImmArraySeq] {
+      override def map[A, B](fa: ImmArraySeq[A])(f: A => B) = fa.toImmArray.map(f).toSeq
+      override def foldLeft[A, B](fa: ImmArraySeq[A], z: B)(f: (B, A) => B) =
+        fa.foldLeft(z)(f)
+      override def foldRight[A, B](fa: ImmArraySeq[A], z: => B)(f: (A, => B) => B) =
+        fa.foldRight(z)(f(_, _))
       override def traverseImpl[F[_], A, B](immArr: ImmArraySeq[A])(f: A => F[B])(
           implicit F: Applicative[F]): F[ImmArraySeq[B]] = {
         F.map(immArr.foldLeft[F[BackStack[B]]](F.point(BackStack.empty)) {
@@ -432,6 +439,9 @@ object ImmArray {
         })(_.toImmArray.toSeq)
       }
     }
+
+    implicit def `immArraySeq Equal instance`[A: Equal]: Equal[ImmArraySeq[A]] =
+      if (Equal[A].equalIsNatural) Equal.equalA else Equal[ImmArray[A]].contramap(_.toImmArray)
 
     implicit def canBuildFrom[A]: CanBuildFrom[Coll, A, ImmArraySeq[A]] =
       new GenericCanBuildFrom
