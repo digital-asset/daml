@@ -81,6 +81,7 @@ da_haskell_binary(
         "filepath",
         "process",
         "safe-exceptions",
+        "text",
     ],
     main_function = "DAML.Assistant.main",
     src_strip_prefix = "exe",
