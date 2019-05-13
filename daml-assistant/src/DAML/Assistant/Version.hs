@@ -22,7 +22,6 @@ import System.Directory
 import System.FilePath
 import System.Environment.Blank
 import Control.Monad.Extra
-import Control.Exception.Safe
 import Data.Maybe
 import Data.Either.Extra
 import Safe
@@ -33,9 +32,7 @@ import Safe
 getLatestSdkVersionCached :: DamlPath -> IO (Maybe SdkVersion)
 getLatestSdkVersionCached damlPath =
     cacheLatestSdkVersion damlPath $ do
-        versionE :: Either AssistantError SdkVersion
-            <- try getLatestVersion
-        pure (eitherToMaybe versionE)
+        tryAssistantM getLatestVersion
 
 -- | Determine SDK version of running daml assistant. Fails with an
 -- AssistantError exception if the version cannot be determined.

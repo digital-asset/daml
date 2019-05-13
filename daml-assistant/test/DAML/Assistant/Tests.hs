@@ -76,7 +76,7 @@ main = do
 
 assertError :: Text -> Text -> IO a -> IO ()
 assertError ctxPattern msgPattern action = do
-    result <- try action
+    result <- tryAssistant action
     case result of
         Left AssistantError{..} -> do
             Tasty.assertBool ("Error context pattern does not match error. Expected: " <> show ctxPattern <> ". Got: " <> show errContext <> ".") (ctxPattern `T.isInfixOf` fromMaybe "" errContext)

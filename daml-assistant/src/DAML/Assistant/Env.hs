@@ -133,19 +133,13 @@ getDamlAssistantPathDefault (DamlPath damlPath) damlVersion =
       path = damlPath </> "bin" </> commandName
   in DamlAssistantPath path
 
--- | Run IO action but if it throws any assistant error, return Nothing.
-safe :: IO t -> IO (Maybe t)
-safe action = do
-    valueE :: Either AssistantError t <- try action
-    pure (eitherToMaybe valueE)
-
 -- | Determine SDK version of running daml assistant. Can be overriden
 -- with DAML_ASSISTANT_VERSION env var.
 getDamlAssistantSdkVersion :: IO (Maybe DamlAssistantSdkVersion)
 getDamlAssistantSdkVersion =
     overrideWithEnvVarMaybe damlAssistantVersionEnvVar
         (fmap DamlAssistantSdkVersion . parseVersion . pack)
-        (fmap DamlAssistantSdkVersion <$> safe getAssistantSdkVersion)
+        (fmap DamlAssistantSdkVersion <$> tryAssistantM getAssistantSdkVersion)
 
 -- | Determine absolute path of daml home directory.
 --
@@ -203,12 +197,12 @@ getSdk damlPath damlAsstSdkVersionM projectPathM =
 
         sdkVersion <- overrideWithEnvVarMaybe sdkVersionEnvVar (parseVersion . pack) $ firstJustM id
             [ maybeM (pure Nothing)
-                (safe . getSdkVersionFromSdkPath . SdkPath)
+                (tryAssistantM . getSdkVersionFromSdkPath . SdkPath)
                 (getEnv sdkPathEnvVar)
             , maybe (pure Nothing)
-                (safe . getSdkVersionFromProjectPath)
+                (tryAssistantM . getSdkVersionFromProjectPath)
                 projectPathM
-            , safe $ getDefaultSdkVersion damlPath
+            , tryAssistantM $ getDefaultSdkVersion damlPath
             ]
 
         sdkPath <- overrideWithEnvVarMaybe @SomeException sdkPathEnvVar (Right . SdkPath) $ firstJustM id
@@ -251,7 +245,7 @@ autoInstall
     -> Maybe SdkVersion
     -> IO (Maybe SdkPath)
 autoInstall damlPath damlAsstSdkVersionM sdkVersionM = do
-    damlConfigE <- try $ readDamlConfig damlPath
+    damlConfigE <- tryConfig $ readDamlConfig damlPath
     let doAutoInstallE = queryDamlConfigRequired ["auto-install"] =<< damlConfigE
         doAutoInstall = fromRight True doAutoInstallE
     whenMaybe (doAutoInstall && isJust sdkVersionM) $ do
