@@ -613,7 +613,7 @@ convertExpr env0 e = do
             t1 <- convertType env t1
             t2 <- convertType env t2
             let fields = [(mkField f1, t1), (mkField f2, t2)]
-            tupleTyCon <- qGHC_Tuple env (mkTypeCon ["Tuple" ++ show (length fields)])
+            tupleTyCon <- qDA_Types env $ mkTypeCon ["Tuple" ++ show (length fields)]
             let tupleType = TypeConApp tupleTyCon (map snd fields)
             pure $ ETmLam (varV1, TTuple fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
         where
@@ -778,12 +778,10 @@ convertExpr env0 e = do
         | Just m <- nameModule_maybe $ varName x
         , Just con <- isDataConId_maybe x
         = do
-            unitId <- convertUnitId (envModuleUnitId env) (envPkgMap env) $ GHC.moduleUnitId m
-            let qualify = Qualified unitId (convertModuleName $ GHC.moduleName m)
+            let qual f ('(':',':xs) | dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" ++ show (length xs + 1)
+                qual f ('$':'W':t) = qualify env m $ f t
+                qual f t = qualify env m $ f t
             ctor@(Ctor _ fldNames _) <- toCtor env con
-            let renameCons ('(':',':xs) | dropWhile (== ',') xs == ")" = "Tuple" ++ show (length xs + 1)
-                renameCons ('$':'W':t) = t
-                renameCons t = t
             -- NOTE(MH): The first case are fully applied record constructors,
             -- the second case is everything else.
             if  | let tycon = dataConTyCon con
@@ -796,10 +794,10 @@ convertExpr env0 e = do
                 -> fmap (, []) $ do
                     tyArgs <- mapM (convertType env) tyArgs
                     tmArgs <- mapM (convertExpr env) tmArgs
-                    let tcon = TypeConApp (qualify (mkTypeCon [renameCons (is (dataConTyCon con))])) tyArgs
+                    qTCon <- qual (mkTypeCon . pure) $ is (dataConTyCon con)
+                    let tcon = TypeConApp qTCon tyArgs
                     pure $ ERecCon tcon (zip fldNames tmArgs)
                 | otherwise
-                -> fmap (, args) $ pure $ EVal $ qualify $ mkVal ("$ctor:" ++ renameCons (is x))
                 -> fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$ctor:" ++ x) $ is x
         | Just m <- nameModule_maybe $ varName x = fmap (, args) $
             fmap EVal $ qualify env m $ convVal x
@@ -1062,10 +1060,10 @@ qualify env m x = do
     unitId <- convertUnitId (envModuleUnitId env) (envPkgMap env) $ GHC.moduleUnitId m
     pure $ Qualified unitId (convertModuleName $ GHC.moduleName m) x
 
-qGHC_Tuple :: Env -> a -> ConvertM (Qualified a)
-qGHC_Tuple env a = do
+qDA_Types :: Env -> a -> ConvertM (Qualified a)
+qDA_Types env a = do
   pkgRef <- packageNameToPkgRef env "daml-prim"
-  pure $ Qualified pkgRef (mkModName ["GHC", "Tuple"]) a
+  pure $ Qualified pkgRef (mkModName ["DA", "Types"]) a
 
 convertQualified :: NamedThing a => Env -> a -> ConvertM (Qualified TypeConName)
 convertQualified env x = do
@@ -1090,7 +1088,7 @@ packageNameToPkgRef env =
 convertTyCon :: Env -> TyCon -> ConvertM LF.Type
 convertTyCon env t
     | t == unitTyCon = pure TUnit
-    | isTupleTyCon t, arity >= 2 = TCon <$> qGHC_Tuple env (mkTypeCon ["Tuple" ++ show arity])
+    | isTupleTyCon t, arity >= 2 = TCon <$> qDA_Types env (mkTypeCon ["Tuple" ++ show arity])
     | t == listTyCon = pure (TBuiltin BTList)
     | t == boolTyCon = pure TBool
     | t == intTyCon || t == intPrimTyCon = pure TInt64

@@ -9,6 +9,9 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- **DAML Standard Library**: Move the ``Tuple`` and ``Either`` types to ``daml-prim:DA.Types`` rather
+  than exposing internal locations
+
 - **DAML Standard Library**: Add ``String`` as a compatibility alias for ``Text``.
 
 .. _release-0-12-17:
