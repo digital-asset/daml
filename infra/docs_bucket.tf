@@ -16,6 +16,7 @@ module "daml_docs" {
   project         = "${local.project}"
   region          = "${local.region}"
   ssl_certificate = "${local.ssl_certificate}"
+  default_file    = "docs"
 
   // We do not want to delete anything here, but Terraform composition is hard
   // so instead keep objects for 100 years.
