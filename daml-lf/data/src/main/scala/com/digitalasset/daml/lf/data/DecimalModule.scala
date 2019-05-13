@@ -11,26 +11,19 @@ import scala.math.BigDecimal
   *
   *  These are numbers of precision 38 (38 decimal digits), and scale 10 (10 digits after the comma)
   */
-object Decimal {
+abstract class DecimalModule extends FromString {
 
-  sealed abstract class AbstractDecimalModule {
-    type T <: BigDecimal
-    private[Decimal] def cast(t: BigDecimal): T
-  }
+  type T <: BigDecimal
 
-  val DecimalModule: AbstractDecimalModule = new AbstractDecimalModule {
-    type T = BigDecimal
-    private[Decimal] def cast(t: BigDecimal): T = t
-  }
-
-  import DecimalModule._
+  def cast(x: BigDecimal): T
 
   val scale: Int = 10
   val context: MathContext = new MathContext(38, java.math.RoundingMode.HALF_EVEN)
 
-  private def unlimitedBigDecimal(s: String): Decimal =
+  private def unlimitedBigDecimal(s: String): T =
     cast(BigDecimal.decimal(new java.math.BigDecimal(s), MathContext.UNLIMITED))
-  private def unlimitedBigDecimal(x: Long): Decimal =
+
+  private def unlimitedBigDecimal(x: Long): T =
     cast(BigDecimal(new java.math.BigDecimal(x, MathContext.UNLIMITED)))
 
   // we use these to compare only, therefore set the precision to unlimited to make sure
@@ -39,7 +32,7 @@ object Decimal {
 
   val min: T = unlimitedBigDecimal("-9999999999999999999999999999.9999999999")
 
-  /** Checks that a `Decimal` falls between `min` and `max`, and
+  /** Checks that a `T` falls between `min` and `max`, and
     * round the number according to `scale`. Note that it does _not_
     * fail if the number contains data beyond `scale`.
     */
@@ -56,7 +49,7 @@ object Decimal {
   /** Like `checkWithinBoundsAndRound`, but _fails_ if the given number contains
     * any data beyond `scale`.
     */
-  def fromBigDecimal(x0: BigDecimal): Either[String, T] =
+  final def fromBigDecimal(x0: BigDecimal): Either[String, T] =
     for {
       x1 <- checkWithinBoundsAndRound(x0)
       // if we've lost any data at all, it means that we weren't within the
@@ -64,15 +57,18 @@ object Decimal {
       x2 <- Either.cond(x0 == x1, x1, s"out-of-bounds Decimal $x0")
     } yield x2
 
-  def assertFromBigDecimal(x: BigDecimal): T =
+  final def assertFromBigDecimal(x: BigDecimal): T =
     assert(fromBigDecimal(x))
 
-  def add(x: T, y: T): Either[String, T] = checkWithinBoundsAndRound(x + y)
-  def div(x: T, y: T): Either[String, T] = checkWithinBoundsAndRound(x / y)
-  def mult(x: T, y: T): Either[String, T] = checkWithinBoundsAndRound(x * y)
-  def sub(x: T, y: T): Either[String, T] = checkWithinBoundsAndRound(x - y)
+  final def add(x: T, y: T): Either[String, T] = checkWithinBoundsAndRound(x + y)
 
-  def round(newScale: Long, x0: T): Either[String, T] =
+  final def div(x: T, y: T): Either[String, T] = checkWithinBoundsAndRound(x / y)
+
+  final def mult(x: T, y: T): Either[String, T] = checkWithinBoundsAndRound(x * y)
+
+  final def sub(x: T, y: T): Either[String, T] = checkWithinBoundsAndRound(x - y)
+
+  final def round(newScale: Long, x0: T): Either[String, T] =
     // check to make sure the rounding mode is OK
     checkWithinBoundsAndRound(x0).flatMap(
       x =>
@@ -90,16 +86,13 @@ object Decimal {
   private val hasExpectedFormat =
     """[+-]?\d{1,28}(\.\d{1,10})?""".r.pattern
 
-  def fromString(s: String): Either[String, T] =
+  final def fromString(s: String): Either[String, T] =
     if (hasExpectedFormat.matcher(s).matches())
       fromBigDecimal(unlimitedBigDecimal(s))
     else
       Left(s"""Could not read Decimal string "$s"""")
 
-  def assertFromString(s: String): T =
-    assert(fromString(s))
-
-  def toString(d: T): String = {
+  final def toString(d: T): String = {
     // Strip the trailing zeros (which BigDecimal keeps if the string
     // it was created from had them), and use the plain notation rather
     // than scientific notation.
@@ -112,23 +105,19 @@ object Decimal {
     if (s.contains(".")) s else s + ".0"
   }
 
-  def toUtf8String(d: Decimal) =
+  final def toUtf8String(d: T) =
     Utf8String(toString(d))
 
-  def fromLong(x: Long): Decimal =
+  final def fromLong(x: Long): T =
     cast(BigDecimal(new java.math.BigDecimal(x, context)).setScale(scale))
 
   private val toLongLowerBound = unlimitedBigDecimal(Long.MinValue) - 1
   private val toLongUpperBound = unlimitedBigDecimal(Long.MaxValue) + 1
 
-  def toLong(x: T): Either[String, Long] = {
-    if (toLongLowerBound < x && x < toLongUpperBound)
-      Right(x.longValue)
-    else
-      Left(s"Decimal $x does not fit into an Int64")
-  }
-
-  private def assert[X](either: Either[String, X]): X =
-    either.fold(e => throw new IllegalArgumentException(e), identity)
+  final def toLong(x: T): Either[String, Long] =
+    Either.cond(
+      toLongLowerBound < x && x < toLongUpperBound,
+      x.longValue,
+      s"Decimal $x does not fit into an Int64")
 
 }

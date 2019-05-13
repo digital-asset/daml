@@ -54,16 +54,14 @@ object Ref {
     override def toString: String = dottedName
   }
 
-  object DottedName {
+  object DottedName extends FromString {
+    type T = DottedName
+
     def fromString(s: String): Either[String, DottedName] =
       if (s.isEmpty)
         Left(s"Expected a non-empty string")
       else
         fromSegments(split(s, '.').toSeq)
-
-    @throws[IllegalArgumentException]
-    def assertFromString(s: String): DottedName =
-      assert(fromString(s))
 
     def fromSegments(strings: Iterable[String]): Either[String, DottedName] = {
       val init: Either[String, BackStack[Name]] = Right(BackStack.empty)
@@ -101,7 +99,9 @@ object Ref {
     override def toString: String = module.toString + ":" + name.toString
     def qualifiedName: String = toString
   }
-  object QualifiedName {
+  object QualifiedName extends FromString {
+    type T = QualifiedName
+
     def fromString(s: String): Either[String, QualifiedName] = {
       val segments = split(s, ':')
       if (segments.length != 2)
@@ -113,10 +113,6 @@ object Ref {
           }
         }
     }
-
-    @throws[IllegalArgumentException]
-    def assertFromString(s: String): QualifiedName =
-      assert(fromString(s))
   }
 
   /* A fully-qualified identifier pointing to a definition in the
@@ -152,8 +148,5 @@ object Ref {
   /** Reference to a type constructor. */
   type TypeConName = Identifier
   val TypeConName = Identifier
-
-  private def assert[X](either: Either[String, X]): X =
-    either.fold(e => throw new IllegalArgumentException(e), identity)
 
 }

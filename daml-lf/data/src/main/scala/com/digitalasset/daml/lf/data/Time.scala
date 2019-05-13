@@ -24,7 +24,9 @@ object Time {
       days.compareTo(that.days)
   }
 
-  object Date {
+  object Date extends FromString {
+
+    type T = Date
 
     private def apply(days: Int): Date =
       new Date(days)
@@ -65,10 +67,6 @@ object Time {
     def assertFromDaysSinceEpoch(days: Int): Date =
       assert(fromDaysSinceEpoch(days))
 
-    @throws[IllegalArgumentException]
-    def assertFromString(str: String): Date =
-      assert(fromString(str))
-
   }
 
   case class Timestamp private (micros: Long) extends Ordered[Timestamp] {
@@ -93,7 +91,9 @@ object Time {
       Timestamp.assertFromLong(micros + x)
   }
 
-  object Timestamp {
+  object Timestamp extends FromString {
+
+    type T = Timestamp
 
     private def apply(micros: Long): Timestamp =
       new Timestamp(micros)
@@ -134,10 +134,6 @@ object Time {
         .map(_ => s"cannot interpret $str as Timestamp")
         .flatMap(fromLong)
 
-    @throws[IllegalArgumentException]
-    def assertFromString(str: String): Timestamp =
-      assertFromLong(assertMicrosFromString(str))
-
     def fromInstant(i: Instant): Either[String, Timestamp] =
       Try(assertMicrosFromInstant(i)).toEither.left
         .map(_ => s"cannot interpret $i as Timestamp")
@@ -147,11 +143,5 @@ object Time {
       assertFromLong(assertMicrosFromInstant(i))
 
   }
-
-  private def assert[X](e: Either[String, X]): X =
-    e match {
-      case Left(err) => throw new IllegalArgumentException(err)
-      case Right(date) => date
-    }
 
 }

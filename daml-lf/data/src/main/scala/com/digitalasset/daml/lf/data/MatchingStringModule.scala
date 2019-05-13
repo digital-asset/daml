@@ -1,26 +1,14 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-
 package com.digitalasset.daml.lf.data
 
 import scalaz.Equal
 
-import scala.reflect.ClassTag
 import scala.util.matching.Regex
 
-sealed abstract class MatchingStringModule {
+sealed abstract class MatchingStringModule extends FromString {
 
   type T <: String
-
-  def fromString(s: String): Either[String, T]
-
-  @throws[IllegalArgumentException]
-  final def assertFromString(s: String): T = MatchingStringModule.assert(fromString(s))
-
-  final def fromUtf8String(s: Utf8String): Either[String, T] = fromString(s.toString)
-
-  @throws[IllegalArgumentException]
-  final def assertFromUtf8String(s: Utf8String): T = assertFromString(s.toString)
 
   def equalInstance: Equal[T]
 
@@ -31,15 +19,6 @@ sealed abstract class MatchingStringModule {
   //  * https://github.com/scala/bug/issues/9565
   val Array: ArrayFactory[T]
 
-}
-
-sealed abstract class ArrayFactory[T](implicit classTag: ClassTag[T]) {
-
-  def apply(xs: T*): Array[T] = xs.toArray
-
-  def ofDim(n: Int): Array[T] = Array.ofDim(n)
-
-  val empty: Array[T] = ofDim(0)
 }
 
 object MatchingStringModule extends (Regex => MatchingStringModule) {
@@ -54,10 +33,7 @@ object MatchingStringModule extends (Regex => MatchingStringModule) {
 
     def equalInstance: Equal[T] = scalaz.std.string.stringInstance
 
-    val Array: ArrayFactory[T] = new ArrayFactory[T] {}
+    val Array: ArrayFactory[T] = new ArrayFactory[T]
   }
-
-  def assert[X](x: Either[String, X]): X =
-    x.fold(e => throw new IllegalArgumentException(e), identity)
 
 }

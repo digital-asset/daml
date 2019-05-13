@@ -15,7 +15,7 @@ import scala.collection.mutable
 // We box standard UTF16 java String to prevent non intentional usages of UTF16 operations
 // (for instance length, charAt, ordering ...) and provide UTF8 emulation methods.
 
-// Ise `toString` wisely. As a rule on the thumb, you should use `toString` only for logging,
+// Use `toString` wisely. As a rule on the thumb, you should use `toString` only for logging,
 // testing, or sending to external libraries (as for instance protobuf/json builders).
 case class Utf8String(override val toString: String) extends AnyVal with Ordered[Utf8String] {
 
@@ -40,7 +40,8 @@ case class Utf8String(override val toString: String) extends AnyVal with Ordered
   def getBytes: Array[Byte] =
     toString.getBytes(StandardCharsets.UTF_8)
 
-  def +(other: Utf8String): Utf8String = Utf8String(toString + other.toString)
+  def +(other: Utf8String): Utf8String =
+    Utf8String(toString + other.toString)
 
   // The DAML-LF should sort string according UTF-8 encoding.
   // Java standard string ordering uses UTF-16, which does not match
