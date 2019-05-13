@@ -56,7 +56,7 @@ jobs:
   - job: Windows
     timeoutInMinutes: 360
     pool:
-      vmImage: 'vs2017-win2016'
+      name: 'windows-pool'
     steps:
       - template: ci/build-windows.yml
       - bash: |
