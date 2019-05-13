@@ -13,3 +13,18 @@ template TestTemplate
     where
         signatory owner
 
+
+template SimpleTemplate
+    with
+        owner : Party
+    where
+        signatory owner
+
+        controller owner can
+          TestTemplate_Unit : ()
+            do return ()
+
+          TestTemplate_Int : ()
+            with x : Int
+            do return ()
+

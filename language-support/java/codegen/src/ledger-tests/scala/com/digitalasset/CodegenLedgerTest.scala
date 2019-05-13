@@ -6,13 +6,13 @@ package com.digitalasset
 import java.io.File
 import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, ZoneOffset}
-import java.util.Collections.singletonList
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
-import java.util.{Collections, UUID}
 
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.{
+  ArchivedEvent,
   Command,
   CreatedEvent,
   Event,
@@ -112,16 +112,18 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
             .getTransactions
             .stream())
       .flatMap[Event]((t: Transaction) => t.getEvents.stream)
-      .flatMap[CreatedEvent]((e: Event) =>
-        e match {
-          case e: CreatedEvent => singletonList(e).stream();
-          case _ => Collections.emptyList[CreatedEvent]().stream()
-      })
-      .map[Wolpertinger.Contract](e =>
-        Wolpertinger.Contract.fromIdAndRecord(e.getContractId, e.getArguments))
-      .collect(Collectors.toList[Wolpertinger.Contract])
+      .collect(Collectors.toList[Event])
       .asScala
+      .foldLeft(Map[String, Wolpertinger.Contract]())((acc, event) =>
+        event match {
+          case e: CreatedEvent =>
+            acc + (e.getContractId -> Wolpertinger.Contract
+              .fromIdAndRecord(e.getContractId, e.getArguments))
+          case a: ArchivedEvent => acc - a.getContractId
+      })
       .toList
+      .sortBy(_._1)
+      .map(_._2)
   }
 
   val glookofly = new Wolpertinger(
@@ -140,7 +142,7 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
     Alice,
     1L,
     BigDecimal(8.2).bigDecimal,
-    "Glookofly",
+    "Sruquito",
     true,
     LocalDate.of(1303, 3, 19),
     LocalDate.of(1303, 3, 19).atStartOfDay().toInstant(ZoneOffset.UTC),
@@ -173,13 +175,36 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
     sendCmd(client, reproduceCmd)
 
     val wolpertingers = readActiveContracts(client)
-    wolpertingers should have length 3
+    wolpertingers should have length 2
 
-    val glook :: sruq :: glookosruq :: Nil = wolpertingers
+    println(wolpertingers)
 
-    glook.data.name shouldEqual glookofly.name
+    val sruq :: glookosruq :: Nil = wolpertingers
+
     sruq.data.name shouldEqual sruquito.name
     glookosruq.data.name shouldEqual s"${glookofly.name}-${sruquito.name}"
+    glookosruq.data.timeOfBirth shouldEqual tob
+    ()
+  }
+
+  it should "create correct createAndExercise choice commands" in withClient { client =>
+    sendCmd(client, glookofly.create())
+
+    val glookoflyContract :: Nil = readActiveContracts(client)
+
+    glookoflyContract.data shouldEqual glookofly
+
+    val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
+    val reproduceCmd = sruquito.createAndExerciseReproduce(glookoflyContract.id, tob)
+    sendCmd(client, reproduceCmd)
+
+    val wolpertingers = readActiveContracts(client)
+    wolpertingers should have length 2
+
+    val glook :: glookosruq :: Nil = wolpertingers
+
+    glook.data.name shouldEqual glookofly.name
+    glookosruq.data.name shouldEqual s"${sruquito.name}-${glookofly.name}"
     glookosruq.data.timeOfBirth shouldEqual tob
     ()
   }
