@@ -4,6 +4,7 @@
 daml 1.2
 module Reference where
 type ExampleReturnType = ()
+type ExampleTuple = (Party, Text)
 
 -- start template intro snippet
 template NameOfTemplate
@@ -13,6 +14,7 @@ template NameOfTemplate
     exampleParty : Party
     exampleParty2 : Party
     exampleParty3 : Party
+    exampleParam : Text
     -- more parameters here
 -- end template params snippet
 -- start template sigs snippet
@@ -31,6 +33,10 @@ template NameOfTemplate
       -- text representing the contract
       ""
 -- end template agree snippet
+-- start contract key snippet
+    key (exampleParty, exampleParam) : ExampleTuple
+    maintainer exampleParty
+-- end contract key snippet
 -- start template choice snippet
     -- option 1 for specifying choices: choice name first
     choice NameOfChoice1

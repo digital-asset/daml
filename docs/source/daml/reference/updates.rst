@@ -55,7 +55,7 @@ create
 
    create NameOfTemplate with exampleParameters
 
-- ``create`` keyword.
+- ``create`` function.
 - Creates an instance of that contract on the ledger. When a contract is committed to the ledger, it is given a unique contract identifier of type ``ContractId <name of template>``.
 
   Creating the contract returns that ``ContractId``.
@@ -73,7 +73,21 @@ exercise
 
    exercise IdOfContract NameOfChoiceOnContract with choiceArgument1 = value1
 
-- ``exercise`` keyword.
+- ``exercise`` function.
+- Exercises the specified choice on the specified contract.
+- Use ``with`` to specify the choice parameters.
+- Requires authorization from the controller(s) of the choice. If the authorization is not given, the transaction fails.
+
+.. _daml-ref-exercise-by-key:
+
+exerciseByKey
+*************
+
+.. code-block:: daml
+
+   exercise exerciseByKey @ContractType contractKey NameofChoiceOnContract with choiceArgument1 = value1
+
+- ``exerciseByKey`` function.
 - Exercises the specified choice on the specified contract.
 - Use ``with`` to specify the choice parameters.
 - Requires authorization from the controller(s) of the choice. If the authorization is not given, the transaction fails.
@@ -87,10 +101,37 @@ fetch
 
    fetchedContract <- fetch IdOfContract
 
-- ``fetch`` keyword.
+- ``fetch`` function.
 - Fetches the contract instance with that ID. Usually used with a bound variable, as in the example above.
 - Often used to check the details of a contract before exercising a choice on that contract. Also used when referring to some reference data.
-- ``fetch cid`` fails if ``cid`` is not the contract id of an active contract, and thus causes the entire transaction to abort. 
+- ``fetch cid`` fails if ``cid`` is not the contract id of an active contract, and thus causes the entire transaction to abort.
+- The submitting party must be an observer or signatory on the contract, otherwise ``fetch`` fails, and similarly causes the entire transaction to abort.
+
+.. _daml-ref-fetch-by-key:
+
+fetchByKey
+**********
+
+.. code-block:: daml
+
+   fetchedContract <- fetchByKey @ContractType contractKey
+
+- ``fetchByKey`` function.
+- The same as ``fetch``, but fetches the contract instance with that :doc:`contract key </daml/reference/contract-keys>`, instead of the contract ID.
+
+.. _daml-ref-fetch-by-key:
+
+lookupByKey
+***********
+
+.. code-block:: daml
+
+   fetchedContractId <- lookupByKey @ContractType contractKey
+
+- ``lookupByKey`` function.
+- Use this to confirm that a contract with the given :doc:`contract key </daml/reference/contract-keys>` exists.
+- If it does exist, ``lookupByKey`` returns the ``ContractId`` of the contract; otherwise, it returns ``None``. If it returns ``None``, this guarantees that no contract has this key.
+- TODO required authorization
 
 .. _daml-ref-abort:
 

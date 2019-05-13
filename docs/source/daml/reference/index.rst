@@ -20,4 +20,5 @@ This section contains a reference to writing templates for DAML contracts. It in
    Scenarios <scenarios>
    base
    File structure <file-structure>
+   Contract keys <contract-keys>
 

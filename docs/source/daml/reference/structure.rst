@@ -33,22 +33,32 @@ template body
     :ref:`signatories <daml-ref-signatories>`
         ``signatory`` keyword
 
-        The parties (see the :ref:`Party <daml-ref-built-in-types>` type) who must consent to the creation of an instance of this contract. You won't be able to create an instance of this contract until all of these parties have authorized it.
+        Required. The parties (see the :ref:`Party <daml-ref-built-in-types>` type) who must consent to the creation of an instance of this contract. You won't be able to create an instance of this contract until all of these parties have authorized it.
 
     :ref:`observers <daml-ref-observers>`
     	``observer`` keyword
 
-    	Parties that aren't signatories but who you still want to be able to see this contract.
+    	Optional. Parties that aren't signatories but who you still want to be able to see this contract.
 
     :ref:`an agreement <daml-ref-agreements>`
         ``agreement`` keyword
 
-        Text that describes the agreement that this contract represents.
+        Optional. Text that describes the agreement that this contract represents.
 
     :ref:`a precondition <daml-ref-preconditions>`
         ``ensure`` keyword
 
         Only create the contract if the conditions after ``ensure`` evaluate to true.
+
+    :ref:`a contract key <daml-ref-contract-keys>`
+        ``key`` keyword
+
+        Optional. Lets you specify a combination of a party and other data that uniquely identifies an instance of this contract template.
+
+    :ref:`maintainers <daml-ref-maintainers>`
+        ``maintainer`` keyword
+
+        Required if you have specified a ``key``. TODO what it's for.
 
     :ref:`choices <daml-ref-choice-structure>`
         ``choice NameOfChoice : ReturnType controller nameOfParty do``
@@ -124,6 +134,16 @@ The update expressions are:
     Fetch a contract instance using its ID. Often used with assert to check conditions on the contract’s content.
 
     ``fetchedContract <- fetch IdOfContract``
+
+:ref:`fetch <daml-ref-fetch-by-key>`
+    Like ``fetch``, but uses a :doc:`contract key </daml/reference/contract-keys>` rather than an ID.
+
+    ``fetchedContract <- fetchByKey @ContractType contractKey ``
+
+:ref:`lookupByKey <daml-ref-lookup-by-key>`
+    Confirm that a contract with the given :doc:`contract key </daml/reference/contract-keys>` exists.
+
+    ``fetchedContractId <- lookupByKey @ContractType contractKey ``
 
 :ref:`abort <daml-ref-abort>`
     Stop execution of the choice, fail the update.
