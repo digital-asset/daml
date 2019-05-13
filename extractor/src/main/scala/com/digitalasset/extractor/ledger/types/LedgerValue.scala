@@ -9,40 +9,52 @@ import RecordField._
 import scalaz.{Optional => _, _}
 import Scalaz._
 import com.digitalasset.daml.lf.data.{SortedLookupList, ImmArray}
-
-sealed trait LedgerValue
+import com.digitalasset.daml.lf.value.{Value => V}
 
 object LedgerValue {
 
-  final case class Bool(value: Boolean) extends LedgerValue
+  type OfCid[F[+_]] = F[String]
 
-  final case class Record(fields: List[RecordField]) extends LedgerValue
+  type Bool = V.ValueBool
+  val Bool = V.ValueBool
 
-  final case class Variant(constructor: String, value: LedgerValue) extends LedgerValue
+  type Record = OfCid[V.ValueRecord]
+  val Record = V.ValueRecord
 
-  final case class ContractId(value: String) extends LedgerValue
+  type Variant = OfCid[V.ValueVariant]
+  val Variant = V.ValueVariant
 
-  final case class ValueList(elements: List[LedgerValue]) extends LedgerValue
+  type ContractId = OfCid[V.ContractId]
+  val ContractId = V.ContractId
 
-  final case class ValueMap(map: SortedLookupList[LedgerValue]) extends LedgerValue
+  type ValueList = OfCid[V.ValueList]
+  val ValueList = V.ValueList
 
-  final case class Int64(value: Long) extends LedgerValue
+  type ValueMap = OfCid[V.ValueMap]
+  val ValueMap = V.ValueMap
 
-  final case class Decimal(value: String) extends LedgerValue
+  type Int64 = V.ValueInt64
+  val Int64 = V.ValueInt64
 
-  final case class Text(value: String) extends LedgerValue
+  type Decimal = V.ValueDecimal
+  val Decimal = V.ValueDecimal
 
-  final case class Timestamp(value: Long) extends LedgerValue
+  type Text = V.ValueText
+  val Text = V.ValueText
 
-  final case class Party(value: String) extends LedgerValue
+  type Timestamp = V.ValueTimestamp
+  val Timestamp = V.ValueTimestamp
 
-  final case class Date(value: Int) extends LedgerValue
+  type Party = V.ValueParty
+  val Party = V.ValueParty
 
-  final case class Optional(value: Option[LedgerValue]) extends LedgerValue
+  type Date = V.ValueDate
+  val Date = V.ValueDate
 
-  case object Unit extends LedgerValue
+  type Optional = OfCid[V.ValueOptional]
+  val Optional = V.ValueOptional
 
-  case object Empty extends LedgerValue
+  val Unit = V.ValueUnit
 
   private val variantValueLens = ReqFieldLens.create[api.value.Variant, api.value.Value]('value)
 
