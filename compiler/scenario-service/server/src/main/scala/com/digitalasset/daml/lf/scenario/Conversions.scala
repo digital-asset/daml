@@ -120,7 +120,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         builder.setScenarioMustfailSucceeded(empty)
 
       case SError.ScenarioErrorInvalidPartyName(party, _) =>
-        builder.setScenarioInvalidPartyName(party.toString)
+        builder.setScenarioInvalidPartyName(party.javaString)
 
       case wtc: SError.DamlEWronglyTypedContract =>
         sys.error(
@@ -604,7 +604,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         )
       case V.ValueInt64(v) => builder.setInt64(v)
       case V.ValueDecimal(d) => builder.setDecimal(Decimal.toString(d))
-      case V.ValueText(t) => builder.setText(t.toString)
+      case V.ValueText(t) => builder.setText(t.javaString)
       case V.ValueTimestamp(ts) => builder.setTimestamp(ts.micros)
       case V.ValueDate(d) => builder.setDate(d.days)
       case V.ValueParty(p) => builder.setParty(p)
@@ -622,7 +622,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         map.toImmArray.foreach {
           case (k, v) =>
             mapBuilder.addEntries(
-              v1.Map.Entry.newBuilder().setKey(k.toString).setValue(convertValue(v)))
+              v1.Map.Entry.newBuilder().setKey(k.javaString).setValue(convertValue(v)))
             ()
         }
         builder.setMap(mapBuilder)

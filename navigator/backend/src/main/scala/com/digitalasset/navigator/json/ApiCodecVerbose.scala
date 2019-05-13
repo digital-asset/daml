@@ -82,7 +82,7 @@ object ApiCodecVerbose {
       propType -> JsString(tagMap),
       propValue -> JsArray(value.value.toImmArray.toSeq.toVector.map {
         case (k, v) =>
-          JsObject(fieldKey -> JsString(k.toString), fieldValue -> apiValueToJsValue(v))
+          JsObject(fieldKey -> JsString(k.javaString), fieldValue -> apiValueToJsValue(v))
       })
     )
 

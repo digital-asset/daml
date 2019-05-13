@@ -68,7 +68,7 @@ object JsonConverters {
     JsonObject(
       "Map" ->
         JsonObject
-          .fromIterable(m.toImmArray.map { case (k, v) => k.toString -> v.asJson }.toSeq)
+          .fromIterable(m.toImmArray.map { case (k, v) => k.javaString -> v.asJson }.toSeq)
           .asJson).asJson
 
   implicit val idKeyEncoder: KeyEncoder[Identifier] = id => s"${id.packageId}@${id.name}"

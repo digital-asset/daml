@@ -237,7 +237,7 @@ object Pretty {
     case model.ApiOptional(Some(v)) => PrettyObject(PrettyField("value", argument(v)))
     case model.ApiMap(map) =>
       PrettyObject(map.toImmArray.toList.map {
-        case (key, value) => PrettyField(key.toString, argument(arg))
+        case (key, value) => PrettyField(key.javaString, argument(arg))
       })
   }
 

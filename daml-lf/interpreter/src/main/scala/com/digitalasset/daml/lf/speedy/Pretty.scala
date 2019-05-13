@@ -369,7 +369,7 @@ object Pretty {
             case _ =>
               text(variant) + char('(') + prettyValue(true)(value) + char(')')
           })
-      case ValueText(t) => char('"') + text(t.toString) + char('"')
+      case ValueText(t) => char('"') + text(t.javaString) + char('"')
       case ValueContractId(AbsoluteContractId(acoid)) => char('#') + text(acoid)
       case ValueContractId(RelativeContractId(rcoid)) =>
         char('~') + text(rcoid.toString)
@@ -385,7 +385,7 @@ object Pretty {
       case ValueOptional(None) => text("None")
       case ValueMap(map) =>
         val list = map.toImmArray.map {
-          case (k, v) => text(k.toString) + text(" -> ") + prettyValue(verbose)(v)
+          case (k, v) => text(k.javaString) + text(" -> ") + prettyValue(verbose)(v)
         }
         text("Map(") + intercalate(text(", "), list.toSeq) + text(")")
     }
@@ -422,7 +422,7 @@ object Pretty {
         case SEValue(lit) =>
           lit match {
             case SParty(p) => char('\'') + text(p) + char('\'')
-            case SText(t) => char('"') + text(t.toString) + char('"')
+            case SText(t) => char('"') + text(t.javaString) + char('"')
             case other => str(other)
           }
 

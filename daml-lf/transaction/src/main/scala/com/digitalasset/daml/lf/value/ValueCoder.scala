@@ -415,7 +415,7 @@ object ValueCoder {
           case ValueDecimal(d) =>
             builder.setDecimal(Decimal.toString(d)).build()
           case ValueText(t) =>
-            builder.setText(t.toString).build()
+            builder.setText(t.javaString).build()
           case ValueParty(p) =>
             builder.setParty(p).build()
           case ValueDate(d) =>
@@ -476,7 +476,7 @@ object ValueCoder {
                 protoMap.addEntries(
                   proto.Map.Entry
                     .newBuilder()
-                    .setKey(key.toString)
+                    .setKey(key.javaString)
                     .setValue(go(newNesting, value))
                 )
                 ()

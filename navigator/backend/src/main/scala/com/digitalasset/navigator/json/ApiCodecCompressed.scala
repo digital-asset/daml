@@ -58,7 +58,10 @@ object ApiCodecCompressed {
 
   def apiMapToJsValue(value: Model.ApiMap): JsValue =
     JsObject(
-      value.value.toImmArray.map { case (k, v) => k.toString -> apiValueToJsValue(v) }.toSeq.toMap)
+      value.value.toImmArray
+        .map { case (k, v) => k.javaString -> apiValueToJsValue(v) }
+        .toSeq
+        .toMap)
 
   // ------------------------------------------------------------------------------------------------------------------
   // Decoding - this needs access to DAML-LF types

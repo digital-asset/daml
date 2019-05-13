@@ -52,14 +52,14 @@ class Utf8StringSpec extends WordSpec with Matchers {
 
     "explode properly counter example" in {
       val expectedOutput = ImmArray("a", "¶", "‱", "😂").map(Utf8String(_))
-      ImmArray(s.toString.toList).map(c => Utf8String(c.toString)) shouldNot be(expectedOutput)
+      ImmArray(s.javaString.toList).map(c => Utf8String(c.toString)) shouldNot be(expectedOutput)
       s.explode shouldBe expectedOutput
     }
 
     "explode in a same way a naive implementation" in {
       def naiveExplode(s: Utf8String) =
         ImmArray(
-          s.toString.codePoints().iterator().asScala.map(codepointToUtf8String(_)).toIterable)
+          s.javaString.codePoints().iterator().asScala.map(codepointToUtf8String(_)).toIterable)
 
       forAll(strings) { s =>
         naiveExplode(s) == s.explode
@@ -73,10 +73,10 @@ class Utf8StringSpec extends WordSpec with Matchers {
     "do not have basic UTF16 ordering issue" in {
       val s1 = Utf8String("｡")
       val s2 = Utf8String("😂")
-      val List(cp1) = s1.toString.codePoints().iterator().asScala.toList
-      val List(cp2) = s2.toString.codePoints().iterator().asScala.toList
+      val List(cp1) = s1.javaString.codePoints().iterator().asScala.toList
+      val List(cp2) = s2.javaString.codePoints().iterator().asScala.toList
 
-      s1.toString < s2.toString shouldNot be(cp1 < cp2)
+      s1.javaString < s2.javaString shouldNot be(cp1 < cp2)
       (s1 < s2) shouldBe (cp1 < cp2)
     }
 
@@ -104,7 +104,7 @@ class Utf8StringSpec extends WordSpec with Matchers {
       val shuffledCodepoints = new Random(0).shuffle(validCodepoints)
 
       // Sort according UTF16
-      val negativeCase = shuffledCodepoints.map(_.toString).sorted.map(Utf8String(_))
+      val negativeCase = shuffledCodepoints.map(_.javaString).sorted.map(Utf8String(_))
 
       // Sort according our ad hoc ordering
       val positiveCase = shuffledCodepoints.sorted
@@ -117,7 +117,7 @@ class Utf8StringSpec extends WordSpec with Matchers {
     "respect Unicode ordering on complex string" in {
 
       forAll(Gen.listOfN(20, strings)) { list =>
-        val utf16Sorted = list.map(_.toString).sorted.map(Utf8String(_))
+        val utf16Sorted = list.map(_.javaString).sorted.map(Utf8String(_))
         val utf8Sorted = list.sorted
         utf16Sorted == utf8Sorted
       }

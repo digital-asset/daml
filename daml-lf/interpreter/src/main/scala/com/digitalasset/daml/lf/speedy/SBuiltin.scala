@@ -1096,7 +1096,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       args.get(0) match {
         case SText(message) =>
-          machine.traceLog.add(message.toString, machine.lastLocation)
+          machine.traceLog.add(message.javaString, machine.lastLocation)
           machine.ctrl = CtrlValue(args.get(1))
         case v =>
           crash(s"invalid argument to trace: $v")
@@ -1107,7 +1107,7 @@ object SBuiltin {
   /** $error :: Text -> a */
   final case object SBError extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
-      throw DamlEUserError(args.get(0).asInstanceOf[SText].value.toString)
+      throw DamlEUserError(args.get(0).asInstanceOf[SText].value.javaString)
   }
 
   // Helpers

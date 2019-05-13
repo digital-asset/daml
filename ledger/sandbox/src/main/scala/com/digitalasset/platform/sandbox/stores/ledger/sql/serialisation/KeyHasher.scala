@@ -113,8 +113,8 @@ object KeyHasher extends KeyHasher {
     digest.update(value.getBytes)
 
   private[this] def putUtf8String(digest: MessageDigest, value: Utf8String): Unit = {
-    // (RH) FixMe we probably should not use UTF16 length.
-    putInt(digest, value.toString.length)
+    // FixMe we probably should not use UTF16 length.
+    putInt(digest, value.javaString.length)
     putStringContent(digest, value)
   }
 
@@ -142,7 +142,7 @@ object KeyHasher extends KeyHasher {
           case HashTokenInt(v) => putInt(d, v)
           case HashTokenLong(v) => putLong(d, v)
           case HashTokenText(v) => putUtf8String(d, v)
-          // FixMe (RH) we probably should use Decimal.toString
+          // FixMe we probably should use Decimal.toString
           // Java docs: "The toString() method provides a canonical representation of a BigDecimal."
           case HashTokenBigDecimal(v) => putUtf8String(d, Utf8String(v.toString))
           case HashTokenCollectionBegin(length) => putInt(d, length)

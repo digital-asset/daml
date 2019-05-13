@@ -487,7 +487,7 @@ class CommandSubmissionRequestValidatorTest
           Utf8String(x.toString).sha256 -> x.toLong
         }
         val apiEntries = entries.map {
-          case (k, v) => ApiMap.Entry(k.toString, Some(Value(Sum.Int64(v))))
+          case (k, v) => ApiMap.Entry(k.javaString, Some(Value(Sum.Int64(v))))
         }
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
         val lfEntries = entries.map { case (k, v) => k -> Lf.ValueInt64(v) }
@@ -502,7 +502,7 @@ class CommandSubmissionRequestValidatorTest
           Utf8String(x.toString).sha256 -> x.toLong
         }
         val apiEntries = entries.map {
-          case (k, v) => ApiMap.Entry(k.toString, Some(Value(Sum.Int64(v))))
+          case (k, v) => ApiMap.Entry(k.javaString, Some(Value(Sum.Int64(v))))
         }
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
         requestMustFailWith(

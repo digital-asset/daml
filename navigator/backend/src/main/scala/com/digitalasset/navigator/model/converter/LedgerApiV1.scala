@@ -467,7 +467,7 @@ case object LedgerApiV1 {
       )
     } yield {
       V1.value.Map(values.map {
-        case (k, v) => V1.value.Map.Entry(k.toString, Some(v))
+        case (k, v) => V1.value.Map.Entry(k.javaString, Some(v))
       })
     }
   }

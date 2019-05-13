@@ -45,7 +45,7 @@ object TransactionCoder {
             .newBuilder()
             .setTemplateId(id)
             .setValue(arg)
-            .setAgreement(coinst.agreementText.toString)
+            .setAgreement(coinst.agreementText.javaString)
             .build()
       }
   }

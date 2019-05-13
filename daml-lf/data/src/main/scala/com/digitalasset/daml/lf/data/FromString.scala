@@ -13,7 +13,7 @@ abstract class FromString {
     assert(fromString(s))
 
   final def fromUtf8String(s: Utf8String): Either[String, T] =
-    fromString(s.toString)
+    fromString(s.javaString)
 
   @throws[IllegalArgumentException]
   final def assertFromUtf8String(s: Utf8String): T =

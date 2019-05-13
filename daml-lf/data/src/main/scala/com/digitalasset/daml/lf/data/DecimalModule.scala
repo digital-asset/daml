@@ -15,7 +15,7 @@ abstract class DecimalModule extends FromString {
 
   type T <: BigDecimal
 
-  def cast(x: BigDecimal): T
+  protected def cast(x: BigDecimal): T
 
   val scale: Int = 10
   val context: MathContext = new MathContext(38, java.math.RoundingMode.HALF_EVEN)
