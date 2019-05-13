@@ -9,25 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+DAML
+~~~~
+
 - **DAML Standard Library**: Add ``String`` as a compatibility alias for ``Text``.
 
-.. _release-0-12-17:
-
-0.12.17 - 2019-05-10
---------------------
-
-- Making transaction lookups performant so we can handle such requests for large ledgers as well
-
-- **Sandbox**: Transactions with a record time that is after the maximum record time (as provided in the original command) are now properly rejected instead of committed to the ledger.
-
-  See `issue #987 <https://github.com/digital-asset/daml/issues/987>`__ for details.
-
-- **SDK**: The Windows installer no longer requires elevated privileges.
-
-- **DAML Assistant**: The assistant handles network failures gracefully.
-- Sandbox: Transactions with a record time that is after the maximum record time (as provided in the original command)
-  are now properly rejected instead of committed to the ledger: `#987 <https://github.com/digital-asset/daml/issues/987>`_
-- **BREAKING** Ledger API: Removed the unused field :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` from :ref:`com.digitalasset.ledger.api.v1.Event`.
 Ledger API
 ~~~~~~~~~~
 
@@ -60,6 +46,7 @@ How to migrate:
   - If you are checking for the presense of exercised events when processing ``data.Transaction`` objects, you can remove that code now.
     It would never have triggered in the first place, as transactions do not contain exercised events.
 
+.. _release-0-12-17:
 
 0.12.17 - 2019-05-10
 --------------------
