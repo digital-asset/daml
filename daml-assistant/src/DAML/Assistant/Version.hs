@@ -38,7 +38,7 @@ getLatestSdkVersionCached damlPath =
 -- AssistantError exception if the version cannot be determined.
 getAssistantSdkVersion :: IO SdkVersion
 getAssistantSdkVersion = do
-    exePath <- requiredIO "Failed to determine executable path of assistant." $
+    exePath <- requiredIO "Failed to determine executable path of assistant."
         getExecutablePath
     sdkPath <- required "Failed to determine SDK path of assistant." =<<
         findM hasSdkConfig (ascendants exePath)
