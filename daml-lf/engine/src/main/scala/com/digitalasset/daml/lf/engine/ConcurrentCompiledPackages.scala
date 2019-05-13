@@ -37,6 +37,8 @@ final class ConcurrentCompiledPackages extends CompiledPackages {
         seenDependencies = Set.empty,
         toCompile = List(pkgId)))
 
+  // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
+  @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private def addPackageInternal(state: AddPackageState): Result[Unit] =
     this.synchronized {
       var toCompile = state.toCompile

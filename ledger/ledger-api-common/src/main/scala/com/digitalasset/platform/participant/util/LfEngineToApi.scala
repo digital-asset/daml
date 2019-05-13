@@ -6,7 +6,7 @@ package com.digitalasset.platform.participant.util
 import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.data.{BackStack, Decimal}
+import com.digitalasset.daml.lf.data.Decimal
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
 import com.digitalasset.daml.lf.value.{Value => Lf}
@@ -29,6 +29,10 @@ import com.digitalasset.ledger.api.v1.value.{
 }
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
+
+import scala.annotation.tailrec
+import scala.collection.IterableLike
+import scala.collection.generic.CanBuildFrom
 
 object LfEngineToApi {
   private[this] type LfValue[+Cid] = Lf[Cid]
@@ -83,7 +87,7 @@ object LfEngineToApi {
 
   def lfValueToApiValue(
       verbose: Boolean,
-      value0: LfValue[Lf.AbsoluteContractId]): Either[String, ApiValue] = {
+      value0: LfValue[Lf.AbsoluteContractId]): Either[String, ApiValue] =
     value0 match {
       case Lf.ValueUnit => Right(ApiValue(ApiValue.Sum.Unit(Empty())))
       case Lf.ValueDecimal(d) => Right(ApiValue(ApiValue.Sum.Decimal(Decimal.toString(d))))
@@ -109,61 +113,46 @@ object LfEngineToApi {
           .map(list => ApiValue(ApiValue.Sum.Map(ApiMap(list))))
       case Lf.ValueTuple(_) => Left("tuples not allowed")
       case Lf.ValueList(vs) =>
-        var xs = BackStack.empty[ApiValue]
-        for (v <- vs) {
-          lfValueToApiValue(verbose, v) match {
-            case Left(err) => return Left(err)
-            case Right(x) => xs = xs :+ x
-          }
+        traverseEitherStrictly(vs.toImmArray.toSeq)(lfValueToApiValue(verbose, _)) map { xs =>
+          ApiValue(ApiValue.Sum.List(ApiList(xs)))
         }
-        Right(ApiValue(ApiValue.Sum.List(ApiList(xs.toImmArray.toSeq))))
       case Lf.ValueVariant(tycon, variant, v) =>
-        lfValueToApiValue(verbose, v) match {
-          case Left(err) => Left(err)
-          case Right(x) =>
-            Right(
-              ApiValue(
-                ApiValue.Sum.Variant(
-                  ApiVariant(
-                    if (verbose) {
-                      tycon.map(toApiIdentifier)
-                    } else {
-                      None
-                    },
-                    variant,
-                    Some(x)
-                  ))))
-        }
-      case Lf.ValueRecord(tycon, fields) =>
-        var apiFields = BackStack.empty[RecordField]
-        for (field <- fields) {
-          lfValueToApiValue(verbose, field._2) match {
-            case Left(err) => return Left(err)
-            case Right(x) =>
-              val rf = RecordField(
-                if (verbose) {
-                  field._1.getOrElse("")
-                } else {
-                  ""
-                },
-                Some(x)
-              )
-              apiFields = apiFields :+ rf
-          }
-        }
-        Right(
+        lfValueToApiValue(verbose, v) map { x =>
           ApiValue(
-            ApiValue.Sum.Record(
-              ApiRecord(
+            ApiValue.Sum.Variant(
+              ApiVariant(
                 if (verbose) {
                   tycon.map(toApiIdentifier)
                 } else {
                   None
                 },
-                apiFields.toImmArray.toSeq
-              ))))
+                variant,
+                Some(x)
+              )))
+        }
+      case Lf.ValueRecord(tycon, fields) =>
+        traverseEitherStrictly(fields.toSeq) { field =>
+          lfValueToApiValue(verbose, field._2) map { x =>
+            RecordField(
+              if (verbose)
+                field._1.getOrElse("")
+              else
+                "",
+              Some(x)
+            )
+          }
+        } map { apiFields =>
+          ApiValue(
+            ApiValue.Sum.Record(
+              ApiRecord(
+                if (verbose)
+                  tycon.map(toApiIdentifier)
+                else
+                  None,
+                apiFields
+              )))
+        }
     }
-  }
 
   def lfCommandToApiCommand(
       submitter: String,
@@ -207,5 +196,23 @@ object LfEngineToApi {
       ledgerEffectiveTime,
       maximumRecordTime,
       cmdss.toSeq)
+  }
+
+  /** This traversal fails the identity law so is unsuitable for [[scalaz.Traverse]].
+    * It is, nevertheless, what is meant sometimes.
+    */
+  private[this] def traverseEitherStrictly[A, B, C, This, That](seq: IterableLike[A, This])(
+      f: A => Either[B, C])(implicit cbf: CanBuildFrom[This, C, That]): Either[B, That] = {
+    val that = cbf()
+    that.sizeHint(seq)
+    val i = seq.iterator
+    @tailrec def lp(): Either[B, That] =
+      if (i.hasNext) f(i.next) match {
+        case Left(b) => Left(b)
+        case Right(c) =>
+          that += c
+          lp()
+      } else Right(that.result)
+    lp()
   }
 }

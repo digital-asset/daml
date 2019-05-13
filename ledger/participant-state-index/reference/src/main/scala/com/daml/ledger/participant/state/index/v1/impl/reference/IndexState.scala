@@ -39,9 +39,8 @@ final case class IndexState(
   import IndexState._
 
   /** Return True if the mandatory fields have been initialized. */
-  def initialized: Boolean = {
-    return this.updateId.isDefined && this.beginning.isDefined
-  }
+  def initialized: Boolean =
+    this.updateId.isDefined && this.beginning.isDefined
 
   private def getIfInitialized[T](x: Option[T]): T =
     x.getOrElse(sys.error("INTERNAL ERROR: State not yet initialized."))

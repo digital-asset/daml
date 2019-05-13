@@ -287,25 +287,19 @@ final class ImmArray[+A] private (
   }
 
   /** O(n) */
-  def find(f: A => Boolean): Option[A] = {
-    for (i <- indices) {
+  def find(f: A => Boolean): Option[A] =
+    indices collectFirst (Function unlift { i =>
       val el = uncheckedGet(i)
-      if (f(el)) {
-        return Some(el)
-      }
-    }
-    None
-  }
+      if (f(el))
+        Some(el)
+      else None
+    })
 
   /** O(n) */
-  def indexWhere(p: A => Boolean): Int = {
-    for (i <- indices) {
-      if (p(uncheckedGet(i))) {
-        return i
-      }
-    }
-    -1
-  }
+  def indexWhere(p: A => Boolean): Int =
+    indices collectFirst {
+      case i if p(uncheckedGet(i)) => i
+    } getOrElse -1
 
   /** O(1) */
   def indices(): Range = 0 until len
@@ -316,24 +310,18 @@ final class ImmArray[+A] private (
   /** O(n) */
   override def equals(that: Any): Boolean = that match {
     case thatArr: ImmArray[_] if len == thatArr.len =>
-      for (i <- 0 until len) {
-        if (uncheckedGet(i) != thatArr.uncheckedGet(i)) {
-          return false
-        }
+      indices forall { i =>
+        uncheckedGet(i) == thatArr.uncheckedGet(i)
       }
-      true
     case _ => false
   }
 
   /** O(n) */
   private def equalz[B >: A](thatArr: ImmArray[B])(implicit B: Equal[B]): Boolean =
     (len == thatArr.len) && {
-      for (i <- 0 until len) {
-        if (!B.equal(uncheckedGet(i), thatArr.uncheckedGet(i))) {
-          return false
-        }
+      indices forall { i =>
+        B.equal(uncheckedGet(i), thatArr.uncheckedGet(i))
       }
-      true
     }
 
   /** O(n) */
