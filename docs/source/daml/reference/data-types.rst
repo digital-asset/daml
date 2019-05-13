@@ -271,7 +271,7 @@ Sum types capture the notion of being of one kind or another.
 An example is the built-in data type ``Bool``. This is defined by ``data Bool = True | False``, where ``True`` and ``False`` are data constructors with zero arguments . This means that a ``Bool`` value is either ``True`` or ``False`` and cannot be instantiated with any other value.
 
 A very useful sum type is ``data Optional a = None | Some a``. It is part of
-the :doc:`DAML standard library </daml/stdlib/index>`.
+the :doc:`DAML standard library </daml/reference/base>`.
 
 ``Optional`` captures the concept of a box, which can be empty or contain a value of type ``a``.
 

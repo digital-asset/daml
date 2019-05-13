@@ -87,7 +87,7 @@ genrule(
         cp -rL docs/source source
 
         # Copy in Stdlib
-        cp -rL $(location //daml-foundations/daml-ghc:daml-base-rst-docs) source/daml/stdlib/base.rst
+        cp -rL $(location //daml-foundations/daml-ghc:daml-base-rst-docs) source/daml/reference/base.rst
 
         # Copy in Protobufs
         cp -rL $(location //ledger-api/grpc-definitions:docs) source/app-dev/grpc/proto-docs.rst
