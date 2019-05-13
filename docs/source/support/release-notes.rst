@@ -12,6 +12,15 @@ HEAD — ongoing
 DAML
 ~~~~
 
+- **BREAKING CHANGE - DAML Standard Library**: Moved the ``Tuple`` and ``Either`` types to ``daml-prim:DA.Types``
+  rather than exposing internal locations.
+
+  How to migrate:
+
+  - You don't need to change DAML code as a result of this change.
+  - People using the Java/Scala codegen need to replace ``import ghc.tuple.*`` or ``import da.internal.prelude.*`` with ``import da.types.*``.
+  - People using the Ledger API directly need to replace ``GHC.Tuple`` and ``DA.Internal.Prelude`` with ``DA.Types``.
+
 - **DAML Standard Library**: Add ``String`` as a compatibility alias for ``Text``.
 
 Ledger API
@@ -25,7 +34,7 @@ Ledger API
   - new versions of ledger language bindings will work with previous versions of the Sandbox, because the field was never populated
   - previous versions of the ledger language bindings will work with new versions of the Sandbox, as the field was removed without any change in observable behavior
 
-How to migrate:
+  How to migrate:
 
   - If you check for the presence of :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
 
@@ -40,11 +49,21 @@ Java Bindings
   - ``data.CreatedEvent`` and ``data.ExercisedEvent`` now implement ``data.TreeEvent``.
   - ``data.TransactionTree#eventsById`` is now ``Map<String, TreeEvent>`` (was previously ``Map<String, Event>``).
 
-How to migrate:
+  How to migrate:
 
   - If you are processing ``data.TransactionTree`` objects, you need to change the type of the processed events from ``data.Event`` to ``data.TreeEvent``.
   - If you are checking for the presense of exercised events when processing ``data.Transaction`` objects, you can remove that code now.
     It would never have triggered in the first place, as transactions do not contain exercised events.
+
+- **Java Codegen**: You can now call a method to get a ``CreateAndExerciseCommand`` for each choice, for example:
+
+  .. code-block:: java
+
+     CreateAndExerciseCommand cmd = new MyTemplate(owner, someText).createAndExerciseAccept(42L);
+
+  In this case ``MyTemplate`` is a DAML template with a choice ``Accept`` and the resulting command will create a contract and exercise the ``Accept`` choice within the same transaction.
+
+  See `issue #1092 <https://github.com/digital-asset/daml/issues/1092>`__ for details.
 
 .. _release-0-12-17:
 
@@ -59,7 +78,9 @@ How to migrate:
 
 - **SDK**: The Windows installer no longer requires elevated privileges.
 
-- **DAML Assistant**: The assistant handles network failures gracefully.
+- **DAML Assistant**: We've built a new and improved version of the SDK assistant, replacing ``da`` commands with ``daml`` commands.
+
+  For a full guide to what's changed and how to migrate, see :doc:`/support/new-assistant`. To read about how to use the new ``daml`` Assistant, see :doc:`/tools/assistant`.
 
 .. _release-0-12-16:
 

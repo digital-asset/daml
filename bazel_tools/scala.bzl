@@ -97,7 +97,7 @@ plugin_scalacopts = [
     "-P:wartremover:traverser:org.wartremover.warts.Product",
     # "-P:wartremover:traverser:org.wartremover.warts.PublicInference",
     # "-P:wartremover:traverser:org.wartremover.warts.Recursion",
-    # "-P:wartremover:traverser:org.wartremover.warts.Return",
+    "-P:wartremover:traverser:org.wartremover.warts.Return",
     "-P:wartremover:traverser:org.wartremover.warts.Serializable",
     "-P:wartremover:traverser:org.wartremover.warts.StringPlusAny",
     # "-P:wartremover:traverser:org.wartremover.warts.Throw",

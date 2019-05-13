@@ -51,14 +51,14 @@ Tuple types
 
 DAML tuple type constructors take types ``T1, T2, …, TN`` to the type ``(T1, T2, …, TN)``. These are exposed in the DAML surface language through the :ref:`Prelude <stdlib-reference-base>` module.
 
-The equivalent DAML-LF type constructors are ``ghc-prim:GHC.Tuple:TupleN``, for each particular N (where 2 <= N <= 20). This qualified name refers to the package name (``ghc-prim``) and the module name (``GHC.Tuple``). 
+The equivalent DAML-LF type constructors are ``daml-prim:DA.Types:TupleN``, for each particular N (where 2 <= N <= 20). This qualified name refers to the package name (``ghc-prim``) and the module name (``GHC.Tuple``).
 
-For example: the DAML pair type ``(Int, Text)`` is translated to ``ghc-prim:GHC.Tuple:Tuple2 Int64 Text``.
+For example: the DAML pair type ``(Int, Text)`` is translated to ``daml-prim:DA.Types:Tuple2 Int64 Text``.
 
 Data types
 **********
 
-DAML-LF has two kinds of data declarations: 
+DAML-LF has two kinds of data declarations:
 
 - **Record** types, which define a collection of data
 - **Variant** or **sum** types, which define a number of alternatives

@@ -18,7 +18,7 @@ You can download the `latest version <https://bintray.com/api/v1/content/digital
 
 * the downloaded Java codegen jar file, eg. 10x.y.z
 * the dependency to :ref:`bindings-java <daml-codegen-java-compiling>`, eg. 10x.y.z
-* the ``sdk-version`` attribute in the :ref:`da.yaml <da-yaml-configuration>` file, eg. x.y.z
+* the ``sdk-version`` attribute in the :ref:`daml.yaml <daml-yaml-configuration>` file, eg. x.y.z
 
 .. _daml-codegen-java-running:
 
@@ -271,7 +271,7 @@ A file is generated that defines three Java classes:
 
 .. code-block:: java
   :caption: com/acme/Bar.java
-  :emphasize-lines: 3,10,20
+  :emphasize-lines: 3,14,24
 
   package com.acme;
 
@@ -281,6 +281,10 @@ A file is generated that defines three Java classes:
 
     public final String owner;
     public final String name;
+
+    public CreateAndExerciseCommand createAndExerciseBar_SomeChoice(Bar_SomeChoice arg) { /* ... */ }
+
+    public CreateAndExerciseCommand createAndExerciseBar_SomeChoice(String aName) { /* ... */ }
 
     public static class ContractId {
       public final String contractId;

@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.data
 
 import java.nio.charset.StandardCharsets
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 
 // This object defines functions to emulates UTF8 string
@@ -48,19 +49,18 @@ object UTF8 {
   val ordering: Ordering[String] = new Ordering[String] {
     override def compare(xs: String, ys: String): Int = {
       val lim = xs.length min ys.length
-      var i = 0
-      while (i < lim) {
-        val x = xs(i)
-        val y = ys(i)
-        if (x != y) {
-          // If x is a low surrogate, then the current codepoint starts at the
-          // previous char, otherwise the codepoint starts at the current char.
-          val j = if (x.isLowSurrogate) i - 1 else i
-          return xs.codePointAt(j) - ys.codePointAt(j)
-        }
-        i += 1
-      }
-      xs.length - ys.length
+      @tailrec def lp(i: Int): Int =
+        if (i < lim) {
+          val x = xs(i)
+          val y = ys(i)
+          if (x != y) {
+            // If x is a low surrogate, then the current codepoint starts at the
+            // previous char, otherwise the codepoint starts at the current char.
+            val j = if (x.isLowSurrogate) i - 1 else i
+            xs.codePointAt(j) - ys.codePointAt(j)
+          } else lp(i + 1)
+        } else xs.length - ys.length
+      lp(0)
     }
   }
 

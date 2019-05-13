@@ -21,6 +21,7 @@ import GHC.Integer.Type as GHC (fromInteger)
 import GHC.Num as GHC
 import GHC.Real as GHC (fromRational)
 import GHC.Show as GHC
+import DA.Types as GHC (Either(..))
 import GHC.Tuple()
 import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, ifThenElse, primitive)
 
@@ -279,16 +280,6 @@ optional : b -> (a -> b) -> Optional a -> b
 optional n _ None  = n
 optional _ f (Some x) = f x
 
-
--- | The `Either` type represents values with two possibilities: a value of
--- type `Either a b` is either `Left a` or `Right b`.
---
--- The `Either` type is sometimes used to represent a value which is
--- either correct or an error; by convention, the `Left` constructor is
--- used to hold an error value and the `Right` constructor is used to
--- hold a correct value (mnemonic: "right" also means "correct").
-data Either a b = Left a | Right b
-    deriving (Eq, Ord, Show)
 
 instance Functor (Either e) where
   fmap f (Left e) = Left e

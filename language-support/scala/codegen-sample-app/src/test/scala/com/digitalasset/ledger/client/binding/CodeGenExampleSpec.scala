@@ -41,8 +41,8 @@ class CodeGenExampleSpec extends WordSpec with Matchers {
   }
 
   "create contract with tuple should compile" in {
-    import com.digitalasset.sample.{MyMain, GHC}
-    val ct = MyMain.Twoples(alice, GHC.Tuple.Tuple2(1, 2))
+    import com.digitalasset.sample.{MyMain, DA}
+    val ct = MyMain.Twoples(alice, DA.Types.Tuple2(1, 2))
     val createCommand = ct.create
     sendCommand(createCommand)
   }

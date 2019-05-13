@@ -20,6 +20,8 @@ import GHC.Base
 import GHC.CString (fromString)
 import GHC.Tuple ()  -- We're using tuples but they are builtin syntax.
 import GHC.Types
+import GHC.Classes ()
+import DA.Types
 
 -- | The `shows` functions return a function that prepends the
 -- output 'String' to an existing 'String'.  This allows constant-time
@@ -148,6 +150,7 @@ showCommaSpace = showString ", "
 
 deriving instance Show ()
 deriving instance Show Bool
+deriving instance (Show a, Show b) => Show (Either a b)
 
 instance Show Int where
   show = primitive @"BEToText"

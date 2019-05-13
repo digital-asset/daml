@@ -59,12 +59,14 @@ class DarReaderTest extends WordSpec with Matchers with Inside {
           "GHC.Enum",
           "GHC.Show",
           "GHC.Num",
+          "DA.Types",
           "GHC.Classes",
           "Control.Exception.Base",
           "GHC.Tuple",
           "GHC.Err",
           "GHC.Base",
-          "LibraryModules")
+          "LibraryModules"
+        )
     }
   }
 

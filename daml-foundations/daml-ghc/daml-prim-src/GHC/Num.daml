@@ -17,8 +17,8 @@ module GHC.Num
 
 import GHC.Base
 import GHC.Classes
-import GHC.CString
-import GHC.Err
+import GHC.CString()
+import GHC.Err()
 import GHC.Integer.Type
 import GHC.Real
 import GHC.Types

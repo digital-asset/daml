@@ -12,6 +12,7 @@ import           Control.Concurrent                        (threadDelay)
 import qualified Control.Concurrent.Async                  as Async
 import           Control.Concurrent.STM                    (TChan, atomically, newTChanIO,
                                                             readTChan, writeTChan)
+import Control.Exception.Safe
 import qualified Control.Monad.Managed                     as Managed
 
 import           DA.LanguageServer.Protocol
@@ -29,6 +30,7 @@ import           DA.Service.Daml.LanguageServer.Common
 import qualified DA.Service.Daml.LanguageServer.Definition as LS.Definition
 import qualified DA.Service.Daml.LanguageServer.Hover      as LS.Hover
 import qualified DA.Service.Logger                         as Logger
+import DAML.Project.Consts
 
 import qualified Data.Aeson                                as Aeson
 import           Data.Aeson.TH.Extended                    (deriveDAToJSON)
@@ -262,6 +264,8 @@ runLanguageServer  :: (  Maybe (Compiler.Event -> IO ())
                    -> Logger.Handle IO
                    -> IO ()
 runLanguageServer handleBuild loggerH = Managed.runManaged $ do
+    sdkVersion <- liftIO (getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)"))
+    liftIO $ Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
     notifChan <- liftIO newTChanIO
     eventChan <- liftIO newTChanIO
     state     <- liftIO $ newIORef $ State S.empty S.empty

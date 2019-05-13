@@ -23,7 +23,7 @@ Try out the Navigator Console on the Quickstart
 
 With the sandbox running the :doc:`quickstart application </getting-started/quickstart>`
 
-#. To start the shell, run ``da run navigator -- console localhost 6865``
+#. To start the shell, run ``daml navigator console localhost 6865``
 
    This connects Navigator Console to the sandbox, which is still running.
 
@@ -124,11 +124,11 @@ To run Navigator Console:
 
 1. Open a terminal window and navigate to your DAML SDK project folder.
 
-2. If the Sandbox isn't already running, run it with the command ``da start``.
+2. If the Sandbox isn't already running, run it with the command ``daml start``.
 
    The sandbox prints out the port on which it is running - by default, port ``6865``.
 
-3. Run ``da run navigator -- console localhost 6865``.
+3. Run ``daml navigator console localhost 6865``.
    Replace ``6865`` by the port reported by the sandbox, if necessary.
 
 When Navigator Console starts, it displays a welcome message::
@@ -491,4 +491,4 @@ To run Navigator against a secured Digital Asset Ledger, configure TLS certifica
 
 Details of these parameters are explained in the command line help::
 
-  da run navigator -- --help
+  daml navigator --help
