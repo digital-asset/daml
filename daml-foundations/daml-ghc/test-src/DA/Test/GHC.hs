@@ -110,9 +110,9 @@ getIntegrationTests registerTODO scenarioService version = do
 
     -- test files are declared as data in BUILD.bazel and are copied over relative to the current run file tree
     -- this is equivalent to PWD env variable
-    files1 <- filter (".daml" `isExtensionOf`) <$> listFiles "daml-foundations/daml-ghc/tests"
-    let files2 = ["daml-foundations/daml-ghc/bond-trading/Test.daml"] -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
-    let files = files1 ++ files2
+    -- files1 <- filter (".daml" `isExtensionOf`) <$> listFiles "daml-foundations/daml-ghc/tests"
+    -- let files2 = ["daml-foundations/daml-ghc/bond-trading/Test.daml"] -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
+    let files = pure "daml-foundations/daml-ghc/tests/Warnings.daml" --files1 ++ files2
 
     let outdir = "daml-foundations/daml-ghc/output"
     createDirectoryIfMissing True outdir
@@ -153,7 +153,7 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
       , resultTime = 0
       }
     else do
-      Compile.unsafeClearDiagnostics service
+      trace "Clear" $ Compile.unsafeClearDiagnostics service
       ex <- try $ mainProj args service outdir log file :: IO (Either SomeException Package)
       diags <- Compile.getDiagnostics service
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
@@ -207,7 +207,7 @@ checkDiagnostics log expected got = do
             (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
             expected
     pure $ if
-      | length expected /= length got -> Just $ "Wrong number of diagnostics, expected " ++ show (length expected)
+      | length expected /= length got -> Just $ "Wrong number of diagnostics, expected " ++ show (length expected) ++ ", but got " ++ show (length got)
       | null bad -> Nothing
       | otherwise -> Just $ unlines ("Could not find matching diagnostics:" : map show bad)
     where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool

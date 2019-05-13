@@ -51,7 +51,6 @@ import Data.Time.Clock.POSIX
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc.Syntax
 import qualified Data.SortedList as SL
-import System.Directory
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import           Language.Haskell.LSP.Types as LSP (
     DiagnosticSeverity(..)
@@ -215,6 +214,7 @@ emptyDiagnostics = ProjectDiagnostics mempty
 --   if you want to clear the diagnostics call this with an empty list
 setStageDiagnostics ::
   Show stage =>
+  (FilePath -> IO FilePath) ->
   FilePath ->
   Maybe UTCTime ->
   -- ^ the time that the file these diagnostics originate from was last edited
@@ -222,8 +222,8 @@ setStageDiagnostics ::
   [LSP.Diagnostic] ->
   ProjectDiagnostics stage ->
   IO (ProjectDiagnostics stage)
-setStageDiagnostics fp timeM stage diags (ProjectDiagnostics ds) = do
-    uri <- toUri fp
+setStageDiagnostics makeRel fp timeM stage diags (ProjectDiagnostics ds) = do
+    uri <- toUri makeRel fp
     let thisFile = Map.lookup uri ds
         addedStage :: StoreItem
         addedStage = StoreItem (Just posixTime) $ storeItem thisFile
@@ -273,11 +273,10 @@ noVersions =
 fromUri :: LSP.Uri -> FilePath
 fromUri = fromMaybe noFilePath . uriToFilePath
 
--- TODO (MK) We canonicalize to make sure that the two files agree on use of
--- / and \ and other shenanigans.
--- haskell-lsp also has serious problems with relative file paths
-toUri :: FilePath -> IO LSP.Uri
-toUri = fmap filePathToUri . canonicalizePath
+toUri :: (FilePath -> IO FilePath) -- ^ make path relative to project root
+      -> FilePath
+      -> IO LSP.Uri
+toUri makeRel = fmap filePathToUri . makeRel
 
 getAllDiagnostics ::
     ProjectDiagnostics stage ->
@@ -286,11 +285,12 @@ getAllDiagnostics =
     concatMap (\(k,v) -> map (fromUri k,) $ getDiagnosticsFromStore v) . Map.toList . getStore
 
 getFileDiagnostics ::
+    (FilePath -> IO FilePath) ->
     FilePath ->
     ProjectDiagnostics stage ->
     IO [LSP.Diagnostic]
-getFileDiagnostics fp ds = do
-    uri <- toUri fp
+getFileDiagnostics makeRel fp ds = do
+    uri <- toUri makeRel fp
     pure $
         maybe [] getDiagnosticsFromStore $
         Map.lookup uri $
@@ -298,12 +298,13 @@ getFileDiagnostics fp ds = do
 
 getStageDiagnostics ::
     Show stage =>
+    (FilePath -> IO FilePath) ->
     FilePath ->
     stage ->
     ProjectDiagnostics stage ->
     IO [LSP.Diagnostic]
-getStageDiagnostics fp stage (ProjectDiagnostics ds) = do
-    uri <- toUri fp
+getStageDiagnostics makeRel fp stage (ProjectDiagnostics ds) = do
+    uri <- toUri makeRel fp
     pure $ fromMaybe [] $ do
         (StoreItem _ f) <- Map.lookup uri ds
         toList <$> Map.lookup (Just $ T.pack $ show stage) f

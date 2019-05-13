@@ -6,6 +6,7 @@
 module DA.Daml.GHC.Damldoc.HaddockParse(mkDocs) where
 
 import           DA.Daml.GHC.Damldoc.Types                 as DDoc
+import DAML.Project.Consts
 import Development.IDE.Types.Options (IdeOptions(..))
 import qualified Development.IDE.State.Service     as Service
 import qualified Development.IDE.State.Rules     as Service
@@ -120,7 +121,8 @@ haddockParse :: IdeOptions ->
                 [FilePath] ->
                 Ex.ExceptT [FileDiagnostic] IO [ParsedModule]
 haddockParse opts f = ExceptT $ do
-  service <- Service.initialise Service.mainRule Nothing Logger.makeNopHandle opts
+  let relativize fp = withProjectRoot ($fp)
+  service <- Service.initialise Service.mainRule Nothing Logger.makeNopHandle relativize opts
   Service.setFilesOfInterest service (Set.fromList f)
   parsed  <- Service.runAction service $
              Ex.runExceptT $

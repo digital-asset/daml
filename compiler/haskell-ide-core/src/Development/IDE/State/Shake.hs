@@ -77,6 +77,7 @@ data ShakeExtras = ShakeExtras
     ,globals :: Var (Map.HashMap TypeRep Dynamic)
     ,state :: Var Values
     ,diagnostics :: Var (ProjectDiagnostics Key)
+    ,makeRelative :: FilePath -> IO FilePath
     }
 
 getShakeExtras :: Action ShakeExtras
@@ -210,9 +211,10 @@ getValues state key file = do
 shakeOpen :: (Event -> IO ()) -- ^ diagnostic handler
           -> Logger.Handle
           -> ShakeOptions
+          -> (FilePath -> IO FilePath) -- ^ make path relative to project root
           -> Rules ()
           -> IO IdeState
-shakeOpen diags shakeLogger opts rules = do
+shakeOpen diags shakeLogger opts makeRelative rules = do
     shakeExtras <- do
         let eventer = diags
             logger = shakeLogger
@@ -378,20 +380,19 @@ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) old m
         wrap = maybe BS.empty (BS.cons '_')
         unwrap x = if BS.null x then Nothing else Just $ BS.tail x
 
-
 updateFileDiagnostics ::
      FilePath
   -> Key
   -> ShakeExtras
   -> [Diagnostic] -- ^ current results
   -> Action ()
-updateFileDiagnostics fp k ShakeExtras{diagnostics, state} current = do
+updateFileDiagnostics fp k ShakeExtras{diagnostics, state, makeRelative} current = do
     (newDiags, oldDiags) <- liftIO $ do
         modTime <- join <$> getValues state GetModificationTime fp
         modifyVar diagnostics $ \old -> do
-            oldDiags <- getFileDiagnostics fp old
-            new <- setStageDiagnostics fp modTime k current old
-            newDiags <- getFileDiagnostics fp new
+            oldDiags <- getFileDiagnostics makeRelative fp old
+            new <- setStageDiagnostics makeRelative fp modTime k current old
+            newDiags <- getFileDiagnostics makeRelative fp new
             pure (new, (newDiags, oldDiags))
     when (newDiags /= oldDiags) $
         sendEvent $ EventFileDiagnostics $ (fp, newDiags)

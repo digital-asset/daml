@@ -72,16 +72,19 @@ unsafeClearDiagnostics = unsafeClearAllDiagnostics
 initialise :: Rules ()
            -> Maybe (Event -> IO ())
            -> Logger.Handle
+           -> (FilePath -> IO FilePath)
            -> IdeOptions
            -> IO IdeState
-initialise mainRule toDiags logger options =
+initialise mainRule toDiags logger makeRelative options =
     shakeOpen
         (fromMaybe (const $ pure ()) toDiags)
         logger
         (setProfiling options $
         shakeOptions { shakeThreads = optThreads options
                      , shakeFiles   = "/dev/null"
-                     }) $ do
+                     })
+        makeRelative $
+        do
             addIdeGlobal =<< liftIO (mkEnv options)
             fileStoreRules
             mainRule

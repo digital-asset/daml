@@ -15,6 +15,7 @@ module Development.IDE.State.Service.Daml(
 
 import Control.Concurrent.Extra
 import Control.Monad
+import DAML.Project.Consts
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
@@ -82,4 +83,6 @@ initialise mainRule toDiags logger options scenarioService =
             mainRule)
         toDiags
         logger
-        (toCompileOpts options)
+        relativize
+        (toCompileOpts options) where
+    relativize fp = withProjectRoot ($fp)
