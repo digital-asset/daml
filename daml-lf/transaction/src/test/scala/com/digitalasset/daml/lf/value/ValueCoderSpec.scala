@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.EitherAssertions
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time}
+import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.{ValueOuterClass => proto}
@@ -128,7 +128,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     }
 
     "don't tuple" in {
-      val tuple = ValueTuple(ImmArray(("foo", ValueInt64(42))))
+      val tuple = ValueTuple(ImmArray((Ref.Name.assertFromString("foo"), ValueInt64(42))))
       val res = ValueCoder.encodeValue[ContractId](defaultCidEncode, defaultValueVersion, tuple)
       res.left.get.errorMessage should include("serializable")
     }

@@ -134,7 +134,7 @@ object DamlLfCodec {
           Model.DamlLfImmArraySeq(
             arrayField(value, propArgs, "DamlLfTypeCon").map(jsValueToDamlLfType): _*)
         )
-      case `tagTypeVar` => Model.DamlLfTypeVar(strField(value, propName, "DamlLfTypeVar"))
+      case `tagTypeVar` => Model.DamlLfTypeVar(nameField(value, propName, "DamlLfTypeVar"))
       case `tagTypePrim` =>
         Model.DamlLfTypePrim(
           jsValueToDamlLfPrimType(strField(value, propName, "DamlLfTypePrim")),
@@ -167,7 +167,7 @@ object DamlLfCodec {
             fields.map(
               f =>
                 (
-                  strField(f, propName, "DamlLfRecord"),
+                  nameField(f, propName, "DamlLfRecord"),
                   jsValueToDamlLfType(anyField(f, propValue, "DamlLfRecord")))): _*)
         )
       case `tagTypeVariant` =>
@@ -177,7 +177,7 @@ object DamlLfCodec {
             constructors.map(
               f =>
                 (
-                  strField(f, propName, "DamlLfVariant"),
+                  nameField(f, propName, "DamlLfVariant"),
                   jsValueToDamlLfType(anyField(f, propValue, "DamlLfVariant")))): _*)
         )
       case t =>
@@ -187,7 +187,7 @@ object DamlLfCodec {
 
   def jsValueToDamlLfDefDataType(value: JsValue): Model.DamlLfDefDataType = {
     val vars =
-      arrayField(value, propVars, "DamlLfDefDataType").map(v => asString(v, "DamlLfDefDataType"))
+      arrayField(value, propVars, "DamlLfDefDataType").map(v => asName(v, "DamlLfDefDataType"))
     val dataType = jsValueToDamlLfDataType(anyField(value, propType, "DamlLfDefDataType"))
 
     Model.DamlLfDefDataType(Model.DamlLfImmArraySeq(vars: _*), dataType)

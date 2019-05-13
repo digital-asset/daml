@@ -25,11 +25,11 @@ object DomainMocks {
 
   val workflowId = WorkflowId("workflowId")
 
-  val label = "label"
+  val label = Ref.Name.assertFromString("label")
 
   object values {
     val int64 = Lf.ValueInt64(1)
-    val constructor = "constructor"
+    val constructor = Ref.Name.assertFromString("constructor")
 
     private val validPartyString = "party"
     val validApiParty = Value(Sum.Party(validPartyString))

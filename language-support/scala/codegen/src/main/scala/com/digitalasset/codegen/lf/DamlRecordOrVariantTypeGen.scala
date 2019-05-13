@@ -7,8 +7,8 @@ import java.io.File
 
 import com.digitalasset.codegen.Util
 import com.digitalasset.codegen.lf.LFUtil.{TupleNesting, escapeIfReservedName}
-import com.digitalasset.daml.lf.iface, iface.{Type => _, _}
-import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName}
+import com.digitalasset.daml.lf.iface
+import com.digitalasset.daml.lf.data.Ref
 import com.typesafe.scalalogging.Logger
 import scalaz.{-\/, \/, \/-}
 
@@ -31,6 +31,7 @@ object DamlRecordOrVariantTypeGen {
 
   private val logger: Logger = Logger(getClass)
 
+  type FieldWithType = (Ref.Name, iface.Type)
   type VariantField = List[FieldWithType] \/ iface.Type
   type RecordOrVariant = ScopedDataType.DT[iface.Type, VariantField]
 
@@ -71,7 +72,7 @@ object DamlRecordOrVariantTypeGen {
     val typeArgs: List[TypeName] = typeVars.map(TypeName(_))
     val covariantTypeParams: List[TypeDef] = typeVars map LFUtil.toCovariantTypeDef
 
-    val Identifier(_, QualifiedName(moduleName, baseName)) = name
+    val Ref.Identifier(_, Ref.QualifiedName(moduleName, baseName)) = name
 
     val appliedValueType: Tree =
       if (typeVars.isEmpty) damlScalaName.qualifiedTypeName
@@ -142,7 +143,7 @@ object DamlRecordOrVariantTypeGen {
       *  - A type class instance (i.e. implicit object) for serializing/deserializing
       *    to/from the ArgumentValue type (see typed-ledger-api project)
       */
-    def toScalaDamlVariantType(fields: List[(String, VariantField)]): (Tree, Tree) = {
+    def toScalaDamlVariantType(fields: List[(Ref.Name, VariantField)]): (Tree, Tree) = {
       lazy val damlVariant =
         if (fields.isEmpty) damlVariantZeroFields
         else damlVariantOneOrMoreFields
@@ -194,7 +195,7 @@ object DamlRecordOrVariantTypeGen {
           }"""
       }
 
-      def variantWriteCase(variant: (String, VariantField)): CaseDef = variant match {
+      def variantWriteCase(variant: (Ref.Name, VariantField)): CaseDef = variant match {
         case (label, \/-(genTyp)) =>
           cq"${TermName(label.capitalize)}(a) => ${typeObjectFromVariant(label, genTyp, Util.toIdent("a"))}"
         case (label, -\/(record)) =>
@@ -378,13 +379,13 @@ object DamlRecordOrVariantTypeGen {
       damlRecord
     }
 
-    def lfEncodableForVariant(fields: Seq[(String, VariantField)]): Tree = {
+    def lfEncodableForVariant(fields: Seq[(Ref.Name, VariantField)]): Tree = {
       val lfEncodableName = TermName(s"${damlScalaName.name} LfEncodable")
 
-      val variantsWithNestedRecords: Seq[(String, List[(String, iface.Type)])] =
+      val variantsWithNestedRecords: Seq[(Ref.Name, List[(Ref.Name, iface.Type)])] =
         fields.collect { case (n, -\/(fs)) => (n, fs) }
 
-      val recordFieldDefsByName: Seq[(String, Seq[(String, Tree)])] =
+      val recordFieldDefsByName: Seq[(Ref.Name, Seq[(Ref.Name, Tree)])] =
         variantsWithNestedRecords.map(a => a._1 -> generateViewFieldDefs(util)(a._2))
 
       val typeParamEvidences = typeVars
@@ -481,8 +482,8 @@ object DamlRecordOrVariantTypeGen {
     }
 
     val (klass, companion) = typeDecl.dataType match {
-      case Record(fields) => toScalaDamlRecordType(fields)
-      case Variant(fields) => toScalaDamlVariantType(fields.toList)
+      case iface.Record(fields) => toScalaDamlRecordType(fields)
+      case iface.Variant(fields) => toScalaDamlVariantType(fields.toList)
     }
 
     val filePath = damlScalaName.toFileName
@@ -545,13 +546,14 @@ object DamlRecordOrVariantTypeGen {
           fs)
     }
 
-  private def generateViewFieldDefs(util: LFUtil)(fields: Seq[FieldWithType]): Seq[(String, Tree)] =
+  private def generateViewFieldDefs(util: LFUtil)(
+      fields: Seq[FieldWithType]): Seq[(Ref.Name, Tree)] =
     fields.map {
       case (label, typ) =>
         (escapeIfReservedName(label), generateViewFieldDef(util)(label, typ))
     }
 
-  private def generateViewFieldDef(util: LFUtil)(name: String, typ: iface.Type): Tree =
+  private def generateViewFieldDef(util: LFUtil)(name: Ref.Name, typ: iface.Type): Tree =
     q"""lte.field($name, ${generateEncodingCall(util)(typ)})"""
 
   private def generateEncodingCall(util: LFUtil)(typ: iface.Type): Tree = {

@@ -18,6 +18,7 @@ da_scala_library(
         "//daml-lf:__subpackages__",
     ],
     deps = [
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/data",
         "//daml-lf/lfpackage",
@@ -31,6 +32,7 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":validation",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/data",
         "//daml-lf/lfpackage",

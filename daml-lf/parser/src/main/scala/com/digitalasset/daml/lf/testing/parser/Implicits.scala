@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data.Decimal
+import com.digitalasset.daml.lf.data.{Decimal, Ref}
 import com.digitalasset.daml.lf.lfpackage.Ast.{Expr, Kind, Package, Type}
 
 object Implicits {
@@ -16,6 +16,10 @@ object Implicits {
     def e(args: Any*): Expr = interpolate(ExprParser.expr)(args)
 
     def p(args: Any*): Package = interpolate(ModParser.pkg)(args)
+
+    @SuppressWarnings(Array("org.wartremover.warts.Any"))
+    def n(args: Any*): Ref.Name =
+      Ref.Name.assertFromString(sc.standardInterpolator(identity, args.map(prettyPrint)))
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     private def interpolate[T](p: Parsers.Parser[T])(args: Seq[Any]): T =

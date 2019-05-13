@@ -104,7 +104,6 @@ object Speedy {
             case Some(body) =>
               CtrlExpr(body)
             case None =>
-              println(s"missing definition: $ref")
               throw SpeedyHungry(
                 SResultMissingDefinition(
                   ref, { packages =>
@@ -145,10 +144,10 @@ object Speedy {
             false
         }
 
-    def toValue(): V[V.ContractId] =
+    def toValue: V[V.ContractId] =
       toSValue.toValue
 
-    def toSValue(): SValue =
+    def toSValue: SValue =
       if (!isFinal) {
         crash("toSValue: machine not final")
       } else {

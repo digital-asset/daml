@@ -24,13 +24,18 @@ final class RecordFieldsSpec extends FlatSpec with Matchers {
   it should "throw exception when the parameter name is empty" in {
     an[IllegalArgumentException] shouldBe thrownBy(
       RecordFields(
-        getFieldsWithTypes(ImmArraySeq("" -> TypePrim(PrimTypeBool, ImmArraySeq.empty)), Map())))
+        getFieldsWithTypes(
+          ImmArraySeq(Ref.Name.assertFromString("") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)),
+          Map())))
   }
 
   it should "return the proper builder for the passed record" in {
     val bool =
       RecordFields(
-        getFieldsWithTypes(ImmArraySeq("bool" -> TypePrim(PrimTypeBool, ImmArraySeq.empty)), Map()))
+        getFieldsWithTypes(
+          ImmArraySeq(
+            Ref.Name.assertFromString("bool") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)),
+          Map()))
 
     bool should have length 1
 
@@ -52,7 +57,8 @@ final class RecordFieldsSpec extends FlatSpec with Matchers {
     val fields =
       RecordFields(
         getFieldsWithTypes(
-          ImmArraySeq("field" -> TypeCon(TypeConName(ident), ImmArraySeq.empty)),
+          ImmArraySeq(
+            Ref.Name.assertFromString("field") -> TypeCon(TypeConName(ident), ImmArraySeq.empty)),
           Map()))
 
     fields should have length 1

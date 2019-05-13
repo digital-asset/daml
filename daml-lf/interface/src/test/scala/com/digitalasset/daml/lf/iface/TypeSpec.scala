@@ -84,11 +84,11 @@ class TypeSpec extends WordSpec with Matchers {
     )
     val inst = tyCon.instantiate(
       DefDataType(
-        ImmArraySeq("a", "b"),
-        Record(ImmArraySeq("fld1" -> t"List a", "fld2" -> t"Mod:V b"))
+        ImmArraySeq(n"a", n"b"),
+        Record(ImmArraySeq(n"fld1" -> t"List a", n"fld2" -> t"Mod:V b"))
       )
     )
-    inst shouldBe Record[Type](ImmArraySeq("fld1" -> t"List Int64", "fld2" -> t"Mod:V Text"))
+    inst shouldBe Record[Type](ImmArraySeq(n"fld1" -> t"List Int64", n"fld2" -> t"Mod:V Text"))
   }
 
   "mapTypeVars should replace all type variables in List(List a)" in {
@@ -104,14 +104,14 @@ class TypeSpec extends WordSpec with Matchers {
 
     val tc = TypeCon(id1, ImmArraySeq(t"Text"))
     val ddt = DefDataType(
-      ImmArraySeq("a"),
+      ImmArraySeq(n"a"),
       Record(
         ImmArraySeq(
-          "f" -> TypeCon(id2, ImmArraySeq(t"a"))
+          n"f" -> TypeCon(id2, ImmArraySeq(t"a"))
         ))
     )
     val result = tc.instantiate(ddt)
 
-    result shouldBe Record(ImmArraySeq("f" -> TypeCon(id2, ImmArraySeq(t"Text"))))
+    result shouldBe Record(ImmArraySeq(n"f" -> TypeCon(id2, ImmArraySeq(t"Text"))))
   }
 }

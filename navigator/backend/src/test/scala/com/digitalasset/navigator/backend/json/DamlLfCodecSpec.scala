@@ -28,7 +28,7 @@ class DamlLfCodecSpec extends WordSpec with Matchers {
     "serializing and parsing a DAML-LF object" should {
 
       "work for DamlLFIdentifier" in {
-        serializeAndParse(C.id0) shouldBe Success(C.id0)
+        serializeAndParse(C.ref0) shouldBe Success(C.ref0)
       }
       "work for DamlLfTypePrim(Text)" in {
         serializeAndParse[model.DamlLfType](C.simpleTextT) shouldBe Success(C.simpleTextT)

@@ -14,19 +14,21 @@ import scalaz.syntax.apply._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.monoid._
 import scalaz.syntax.traverse._
-
-import com.digitalasset.daml.lf.data.ImmArray
+import scalaz.std.list._
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{
+  ChoiceName,
   DottedName,
   Identifier,
   ModuleName,
+  Name,
   PackageId,
   QualifiedName
 }
+import com.digitalasset.daml.lf.iface.TemplateChoice.FWT
 
 import scala.collection.JavaConverters._
-import scala.collection.breakOut
 import scala.collection.immutable.Map
 
 object InterfaceReader {
@@ -52,7 +54,7 @@ object InterfaceReader {
       typeDecls: Map[QualifiedName, InterfaceType] = Map.empty,
       errors: InterfaceReaderError.Tree = mzero[InterfaceReaderError.Tree]) {
 
-    def addVariant(k: QualifiedName, tyVars: ImmArraySeq[String], a: Variant.FWT): State =
+    def addVariant(k: QualifiedName, tyVars: ImmArraySeq[Ref.Name], a: Variant.FWT): State =
       this.copy(typeDecls = this.typeDecls.updated(k, InterfaceType.Normal(DefDataType(tyVars, a))))
 
     def removeRecord(k: QualifiedName): Option[(Record.FWT, State)] =
@@ -149,21 +151,21 @@ object InterfaceReader {
     a._2.foldLeft(state addError a._1)(f)
 
   private[reader] def record(m: ModuleName, ctx: Context)(a: DamlLf1.DefDataType)
-    : InterfaceReaderError.Tree \/ (QualifiedName, ImmArraySeq[String], Record.FWT) =
+    : InterfaceReaderError.Tree \/ (QualifiedName, ImmArraySeq[Ref.Name], Record.FWT) =
     recordOrVariant(m, a, _.getRecord, ctx) { (k, tyVars, fields) =>
       (k, tyVars.toSeq, Record(fields.toSeq))
     }
 
   private def foldVariants(
       state: State,
-      a: (InterfaceReaderError.Tree, Iterable[(QualifiedName, ImmArraySeq[String], Variant.FWT)]))
+      a: (InterfaceReaderError.Tree, Iterable[(QualifiedName, ImmArraySeq[Ref.Name], Variant.FWT)]))
     : State =
     addPartitionToState(state, a) {
       case (st, (k, typVars, variant)) => st.addVariant(k, typVars, variant)
     }
 
   private[reader] def variant(m: ModuleName, ctx: Context)(a: DamlLf1.DefDataType)
-    : InterfaceReaderError.Tree \/ (QualifiedName, ImmArraySeq[String], Variant.FWT) =
+    : InterfaceReaderError.Tree \/ (QualifiedName, ImmArraySeq[Ref.Name], Variant.FWT) =
     recordOrVariant(m, a, _.getVariant, ctx) { (k, tyVars, fields) =>
       (k, tyVars.toSeq, Variant(fields.toSeq))
     }
@@ -172,7 +174,7 @@ object InterfaceReader {
       m: ModuleName,
       a: DamlLf1.DefDataType,
       getSum: DamlLf1.DefDataType => DamlLf1.DefDataType.Fields,
-      ctx: Context)(mk: (QualifiedName, ImmArray[String], ImmArray[FieldWithType]) => Z)
+      ctx: Context)(mk: (QualifiedName, ImmArray[Ref.Name], ImmArray[FieldWithType]) => Z)
     : InterfaceReaderError.Tree \/ Z =
     (locate('name, rootErrOf[ErrorLoc](fullName(m, a.getName))).validation |@|
       locate('typeParams, typeParams(a)).validation |@|
@@ -189,7 +191,10 @@ object InterfaceReader {
               point(InvalidDataTypeDefinition(
                 s"Cannot find a record associated with template: $templateName")))
           case Some((rec, newState)) =>
-            locate('choices, choices(a, ctx)).fold(
+            val y: Errors[ErrorLoc, InterfaceReaderError] \/ Map[ChoiceName, FWT] =
+              locate('choices, choices(a, ctx))
+
+            y.fold(
               newState.addError, { cs =>
                 newState.addTemplate(templateName, rec, DefTemplate(cs))
               }
@@ -198,12 +203,20 @@ object InterfaceReader {
       }
     )
 
+  private def name(s: String): InvalidDataTypeDefinition \/ Name =
+    Name.fromString(s).disjunction leftMap InvalidDataTypeDefinition
+
   private def choices(
       a: DamlLf1.DefTemplate,
-      ctx: Context): InterfaceReaderError.Tree \/ Map[ChoiceName, TemplateChoice.FWT] = {
-    val z: Map[ChoiceName, DamlLf1.TemplateChoice] =
-      a.getChoicesList.asScala.map(a => (a.getName, a))(breakOut)
-    traverseIndexedErrsMap(z)(c => rootErr(visitChoice(c, ctx)))
+      ctx: Context
+  ): InterfaceReaderError.Tree \/ Map[ChoiceName, TemplateChoice.FWT] = {
+
+    val z: Errors[ErrorLoc, InterfaceReaderError] \/ List[(Name, DamlLf1.TemplateChoice)] =
+      locate(
+        'choices,
+        rootErr(a.getChoicesList.asScala.toList.traverseU(a => name(a.getName).map(_ -> a))))
+
+    z flatMap (z => traverseIndexedErrsMap(z.toMap)(c => rootErr(visitChoice(c, ctx))))
   }
 
   private def visitChoice(
@@ -223,14 +236,14 @@ object InterfaceReader {
   private def showKind(a: DamlLf1.Kind): String =
     a.toString // or something nicer
 
-  private def typeVarRef(a: DamlLf1.Type.Var): InterfaceReaderError \/ String =
-    if (a.getArgsList.isEmpty) \/-(a.getVar)
+  private def typeVarRef(a: DamlLf1.Type.Var): InterfaceReaderError \/ Ref.Name =
+    if (a.getArgsList.isEmpty) name(a.getVar)
     else -\/(unserializableDataType(a, "arguments passed to a type parameter"))
 
-  private def typeVar(a: DamlLf1.TypeVarWithKind): InterfaceReaderError \/ String = {
+  private def typeVar(a: DamlLf1.TypeVarWithKind): InterfaceReaderError \/ Ref.Name = {
     import DamlLf1.Kind.{SumCase => TSC}
     a.getKind.getSumCase match {
-      case TSC.STAR => \/-(a.getVar)
+      case TSC.STAR => name(a.getVar)
       case TSC.ARROW =>
         -\/(UnserializableDataType(s"non-star-kinded type variable: ${showKind(a.getKind)}"))
       case TSC.SUM_NOT_SET =>
@@ -238,7 +251,7 @@ object InterfaceReader {
     }
   }
 
-  private def typeParams(a: DamlLf1.DefDataType): InterfaceReaderError.Tree \/ ImmArray[String] =
+  private def typeParams(a: DamlLf1.DefDataType): InterfaceReaderError.Tree \/ ImmArray[Ref.Name] =
     traverseIndexedErrs(ImmArray(a.getParamsList.asScala).map(tvwk => (tvwk.getVar, tvwk)))(tvwk =>
       rootErr(typeVar(tvwk)))
 
@@ -251,7 +264,7 @@ object InterfaceReader {
   private def fieldWithType(
       a: DamlLf1.FieldWithType,
       ctx: Context): InterfaceReaderError \/ FieldWithType =
-    type_(a.getType, ctx).map(t => (a.getField, t))
+    type_(a.getType, ctx).flatMap(t => name(a.getField).map(_ -> t))
 
   /**
     * `Fun`, `Forall` and `Tuple` should never appear in Records and Variants

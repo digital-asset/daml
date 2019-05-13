@@ -11,11 +11,12 @@ import scalaz.{Applicative, Bifunctor, Bitraverse, Functor, Traverse}
 import java.{util => j}
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref
 
 import scala.language.higherKinds
 import scala.collection.JavaConverters._
 
-case class DefDataType[+RF, +VF](typeVars: ImmArraySeq[String], dataType: DataType[RF, VF]) {
+case class DefDataType[+RF, +VF](typeVars: ImmArraySeq[Ref.Name], dataType: DataType[RF, VF]) {
   def bimap[C, D](f: RF => C, g: VF => D): DefDataType[C, D] =
     Bifunctor[DefDataType].bimap(this)(f, g)
 
@@ -74,13 +75,13 @@ object DataType {
     }
 
   sealed trait GetFields[+A] {
-    def fields: ImmArraySeq[(String, A)]
+    def fields: ImmArraySeq[(Ref.Name, A)]
     final def getFields: j.List[_ <: (String, A)] = fields.asJava
   }
 }
 
 // Record TypeDecl`s have an object generated for them in their own file
-final case class Record[+RT](fields: ImmArraySeq[(String, RT)])
+final case class Record[+RT](fields: ImmArraySeq[(Ref.Name, RT)])
     extends DataType[RT, Nothing]
     with DataType.GetFields[RT] {
 
@@ -98,7 +99,7 @@ object Record extends FWTLike[Record] {
 }
 
 // Variant TypeDecl`s have an object generated for them in their own file
-final case class Variant[+VT](fields: ImmArraySeq[(String, VT)])
+final case class Variant[+VT](fields: ImmArraySeq[(Ref.Name, VT)])
     extends DataType[Nothing, VT]
     with DataType.GetFields[VT] {
 
@@ -115,10 +116,10 @@ object Variant extends FWTLike[Variant] {
     }
 }
 
-final case class DefTemplate[+Ty](choices: Map[ChoiceName, TemplateChoice[Ty]]) {
+final case class DefTemplate[+Ty](choices: Map[Ref.Name, TemplateChoice[Ty]]) {
   def map[B](f: Ty => B): DefTemplate[B] = Functor[DefTemplate].map(this)(f)
 
-  def getChoices: j.Map[ChoiceName, _ <: TemplateChoice[Ty]] =
+  def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
     choices.asJava
 }
 
