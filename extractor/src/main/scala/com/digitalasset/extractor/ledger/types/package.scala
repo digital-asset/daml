@@ -1,4 +1,4 @@
-package extractor.src.main.scala.com.digitalasset.extractor.ledger
+package com.digitalasset.extractor.ledger
 
 import com.digitalasset.daml.lf.value.Value
 
