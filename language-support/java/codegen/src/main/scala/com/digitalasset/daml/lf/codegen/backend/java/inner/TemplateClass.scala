@@ -34,6 +34,13 @@ private[inner] object TemplateClass extends StrictLogging {
         .superclass(classOf[javaapi.data.Template])
         .addField(generateTemplateIdField(typeWithContext))
         .addMethod(generateCreateMethod(className))
+        .addMethods(
+          generateCreateAndExerciseMethods(
+            className,
+            template.choices,
+            typeWithContext.interface.typeDecls,
+            typeWithContext.packageId,
+            packagePrefixes))
         .addMethod(staticCreateMethod)
         .addType(
           generateIdClass(
@@ -186,6 +193,77 @@ private[inner] object TemplateClass extends StrictLogging {
         case _ => None
       }
     } else None
+  }
+
+  private def generateCreateAndExerciseMethods(
+      templateClassName: ClassName,
+      choices: Map[ChoiceName, TemplateChoice[com.digitalasset.daml.lf.iface.Type]],
+      typeDeclarations: Map[QualifiedName, InterfaceType],
+      packageId: PackageId,
+      packagePrefixes: Map[PackageId, String]) = {
+    val methods = for ((choiceName, choice) <- choices) yield {
+      val createAndExerciseChoiceMethod =
+        generateCreateAndExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)
+      val splatted = for (record <- choice.param
+          .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None)) yield {
+        generateFlattenedCreateAndExerciseMethod(
+          choiceName,
+          choice,
+          getFieldsWithTypes(record.fields, packagePrefixes),
+          packagePrefixes)
+      }
+      createAndExerciseChoiceMethod :: splatted.toList
+    }
+    methods.flatten.asJava
+
+  }
+
+  private def generateCreateAndExerciseMethod(
+      choiceName: ChoiceName,
+      choice: TemplateChoice[Type],
+      templateClassName: ClassName,
+      packagePrefixes: Map[PackageId, String]): MethodSpec = {
+    val methodName = s"createAndExercise${choiceName.capitalize}"
+    val createAndExerciseChoiceBuilder = MethodSpec
+      .methodBuilder(methodName)
+      .addModifiers(Modifier.PUBLIC)
+      .returns(classOf[javaapi.data.CreateAndExerciseCommand])
+    val javaType = toJavaTypeName(choice.param, packagePrefixes)
+    createAndExerciseChoiceBuilder.addParameter(javaType, "arg")
+    val choiceArgument = choice.param match {
+      case TypeCon(_, _) => "arg.toValue()"
+      case TypePrim(_, _) => "arg"
+      case TypeVar(_) => "arg"
+    }
+    createAndExerciseChoiceBuilder.addStatement(
+      "return new $T($T.TEMPLATE_ID, this.toValue(), $S, $L)",
+      classOf[javaapi.data.CreateAndExerciseCommand],
+      templateClassName,
+      choiceName,
+      choiceArgument)
+    createAndExerciseChoiceBuilder.build()
+  }
+
+  private def generateFlattenedCreateAndExerciseMethod(
+      choiceName: ChoiceName,
+      choice: TemplateChoice[Type],
+      fields: Fields,
+      packagePrefixes: Map[PackageId, String]): MethodSpec = {
+    val methodName = s"createAndExercise${choiceName.capitalize}"
+    val createAndExerciseChoiceBuilder = MethodSpec
+      .methodBuilder(methodName)
+      .addModifiers(Modifier.PUBLIC)
+      .returns(classOf[javaapi.data.CreateAndExerciseCommand])
+    val javaType = toJavaTypeName(choice.param, packagePrefixes)
+    for (FieldInfo(_, _, javaName, javaType) <- fields) {
+      createAndExerciseChoiceBuilder.addParameter(javaType, javaName)
+    }
+    createAndExerciseChoiceBuilder.addStatement(
+      "return $L(new $T($L))",
+      methodName,
+      javaType,
+      generateArgumentList(fields.map(_.javaName)))
+    createAndExerciseChoiceBuilder.build()
   }
 
   private def generateExerciseMethod(
