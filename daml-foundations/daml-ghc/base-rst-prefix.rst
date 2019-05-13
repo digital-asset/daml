@@ -4,7 +4,7 @@
 .. _stdlib-reference-base:
 
 The standard library
-======================
+====================
 
 The DAML standard library is a collection of DAML modules that can be used to implement concrete applications.
 
