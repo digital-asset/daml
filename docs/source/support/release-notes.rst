@@ -9,6 +9,13 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+SDK tools
+~~~~~~~~~
+
+- **DAML Assistant**: We've built a new and improved version of the SDK assistant, replacing ``da`` commands with ``daml`` commands. The documentation is updated to use the new assistant in this release.
+
+  For a full guide to what's changed and how to migrate, see :doc:`/support/new-assistant`. To read about how to use the new ``daml`` Assistant, see :doc:`/tools/assistant`.
+
 DAML
 ~~~~
 
@@ -85,10 +92,6 @@ Ledger
   See `issue #987 <https://github.com/digital-asset/daml/issues/987>`__ for details.
 
 - **SDK**: The Windows installer no longer requires elevated privileges.
-
-- **DAML Assistant**: We've built a new and improved version of the SDK assistant, replacing ``da`` commands with ``daml`` commands.
-
-  For a full guide to what's changed and how to migrate, see :doc:`/support/new-assistant`. To read about how to use the new ``daml`` Assistant, see :doc:`/tools/assistant`.
 
 .. _release-0-12-16:
 
