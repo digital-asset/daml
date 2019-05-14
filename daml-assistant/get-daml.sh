@@ -10,6 +10,7 @@
 # For more information please visit daml.com and docs.daml.com
 #
 
+set -eu
 readonly ORIGDIR="$(pwd)"
 cleanup() {
   echo "$(tput setaf 3)FAILED TO INSTALL!$(tput sgr 0)"
