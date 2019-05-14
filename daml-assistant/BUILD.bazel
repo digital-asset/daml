@@ -68,7 +68,10 @@ da_haskell_library(
     ] + (["Win32"] if is_windows else []),
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
-    deps = [":daml-project-config"],
+    deps = [
+        ":daml-project-config",
+        "//libs-haskell/da-hs-base",
+    ],
 )
 
 da_haskell_binary(

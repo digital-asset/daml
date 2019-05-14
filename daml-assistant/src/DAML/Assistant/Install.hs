@@ -21,12 +21,11 @@ import DAML.Project.Util
 import Safe
 import Conduit
 import qualified Data.Conduit.List as List
-import qualified Data.Conduit.Tar as Tar
+import qualified Data.Conduit.Tar.Extra as Tar
 import qualified Data.Conduit.Zlib as Zlib
 import Network.HTTP.Simple
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS.UTF8
-import Data.List.Extra
 import System.Exit
 import System.IO
 import System.IO.Temp
@@ -36,7 +35,6 @@ import Control.Monad.Extra
 import Control.Exception.Safe
 import System.ProgressBar
 import System.Info.Extra (isWindows)
-import Data.Maybe
 
 -- unix specific
 import System.PosixCompat.Types ( FileMode )
@@ -258,61 +256,9 @@ extractAndInstall env source =
             runConduitRes
                 $ source
                 .| Zlib.ungzip
-                .| Tar.untar (restoreFile extractPath)
+                .| Tar.untar (Tar.restoreFile throwError extractPath)
             installExtracted env (SdkPath extractPath)
-    where
-        restoreFile :: MonadResource m => FilePath -> Tar.FileInfo
-            -> ConduitT BS.ByteString Void m ()
-        restoreFile extractPath info = do
-            let oldPath = Tar.decodeFilePath (Tar.filePath info)
-                newPath = dropDirectory1 oldPath
-                targetPath = extractPath </> dropTrailingPathSeparator newPath
-                parentPath = takeDirectory targetPath
-
-            when (pathEscapes newPath) $ do
-                liftIO $ throwIO $ assistantErrorBecause
-                    "Invalid SDK release: file path escapes tarball."
-                    ("path = " <> pack oldPath)
-
-            when (notNull newPath) $ do
-                case Tar.fileType info of
-                    Tar.FTNormal -> do
-                        liftIO $ createDirectoryIfMissing True parentPath
-                        sinkFileBS targetPath
-                        liftIO $ setFileMode targetPath (Tar.fileMode info)
-                    Tar.FTDirectory -> do
-                        liftIO $ createDirectoryIfMissing True targetPath
-                    Tar.FTSymbolicLink bs | not isWindows -> do
-                        let path = Tar.decodeFilePath bs
-                        unless (isRelative path) $
-                            liftIO $ throwIO $ assistantErrorBecause
-                                "Invalid SDK release: symbolic link target is absolute."
-                                ("target = " <> pack path <>  ", path = " <> pack oldPath)
-
-                        when (pathEscapes (takeDirectory newPath </> path)) $
-                            liftIO $ throwIO $ assistantErrorBecause
-                                "Invalid SDK release: symbolic link target escapes tarball."
-                                ("target = " <> pack path <> ", path = " <> pack oldPath)
-
-                        liftIO $ createDirectoryIfMissing True parentPath
-                        liftIO $ createSymbolicLink path targetPath
-                    unsupported ->
-                        liftIO $ throwIO $ assistantErrorBecause
-                            "Invalid SDK release: unsupported file type."
-                            ("type = " <> pack (show unsupported) <>  ", path = " <> pack oldPath)
-
-        -- | Check whether a relative path escapes its root.
-        pathEscapes :: FilePath -> Bool
-        pathEscapes path = isNothing $ foldM step "" (splitDirectories path)
-            where
-                step acc "."  = Just acc
-                step ""  ".." = Nothing
-                step acc ".." = Just (takeDirectory acc)
-                step acc name = Just (acc </> name)
-
-        -- | Drop first component from path
-        dropDirectory1 :: FilePath -> FilePath
-        dropDirectory1 = joinPath . tail . splitPath
+    where throwError msg e = liftIO $ throwIO $ assistantErrorBecause ("Invalid SDK release: " <> msg) e
 
 -- | Download an sdk tarball and install it.
 httpInstall :: InstallEnv -> InstallURL -> IO ()

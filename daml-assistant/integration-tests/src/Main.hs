@@ -5,12 +5,16 @@ module Main (main) where
 
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Zip as Zip
+import Conduit hiding (connect)
+import qualified Data.Conduit.Zlib as Zlib
+import qualified Data.Conduit.Tar.Extra as Tar.Conduit
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad
 import qualified Data.ByteString.Lazy as BSL
-import Data.List
+import Data.List.Extra
+import qualified Data.Text as T
 import Data.Typeable
 import Network.HTTP.Client
 import Network.HTTP.Types
@@ -50,7 +54,10 @@ tests tmpDir = testGroup "Integration tests"
     [ testCase "install" $ do
           releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
           createDirectory tarballDir
-          callProcess "tar" ["xf", releaseTarball, "--force-local", "--strip-components=1", "-C", tarballDir]
+          runConduitRes
+              $ sourceFileBS releaseTarball
+              .| Zlib.ungzip
+              .| Tar.Conduit.untar (Tar.Conduit.restoreFile throwError tarballDir)
           callProcessQuiet (tarballDir </> "daml" </> "daml") ["install", "--activate", "--set-path=no", tarballDir]
     , testCase "daml version" $ callProcessQuiet damlName ["version"]
     , testCase "daml --help" $ callProcessQuiet damlName ["--help"]
@@ -61,7 +68,7 @@ tests tmpDir = testGroup "Integration tests"
     where quickstartDir = tmpDir </> "quickstart"
           mvnDir = tmpDir </> "m2"
           tarballDir = tmpDir </> "tarball"
-
+          throwError msg e = fail (T.unpack $ msg <> " " <> e)
 
 packagingTests :: FilePath -> TestTree
 packagingTests tmpDir = testGroup "packaging"
