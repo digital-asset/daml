@@ -67,6 +67,7 @@ def da_java_library(
         target = ":" + name,
         visibility = ["//visibility:public"],
     )
+
     # Disable the building of Javadoc on Windows as the rule fails to
     # find the sources under Windows.
     if root_packages and is_windows == False:
