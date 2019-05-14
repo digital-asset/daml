@@ -26,7 +26,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 object IouMain extends App with StrictLogging {
 
@@ -44,6 +44,12 @@ object IouMain extends App with StrictLogging {
   private val asys = ActorSystem()
   private val amat = ActorMaterializer()(asys)
   private val aesf = new AkkaExecutionSequencerPool("clientPool")(asys)
+
+  private def shutdown(): Unit = {
+    logger.info("Shutting down...")
+    Await.result(asys.terminate(), 10.seconds)
+    ()
+  }
 
   private implicit val ec: ExecutionContext = asys.dispatcher
 
@@ -128,15 +134,16 @@ object IouMain extends App with StrictLogging {
 
   } yield ()
 
-  val returnCode = Try(Await.result(issuerFlow, Duration.Inf)) match {
-    case Success(a) =>
-      logger.info(s"Terminating with result: $a")
-      0
+  val returnCodeF: Future[Int] = issuerFlow.transform {
+    case Success(_) =>
+      logger.info("IOU flow completed.")
+      Success(0)
     case Failure(e) =>
-      logger.error(s"Terminating with error", e)
-      1
+      logger.error("IOU flow completed with an error", e)
+      Success(1)
   }
 
-  asys.terminate()
+  val returnCode: Int = Await.result(returnCodeF, 10.seconds)
+  shutdown()
   System.exit(returnCode)
 }
