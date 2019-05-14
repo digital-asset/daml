@@ -12,33 +12,6 @@ coerceContractId : ContractId a -> ContractId b
 coerceContractId = primitive @"BECoerceContractId"
 ```
 
-## Surface syntax
-
-A generic template can be defined using the following syntax:
-```haskell
-template D a => T a with
-    f_1 : U_1; ...
-  where
-    signatory sign
-
-    choice C : R with g_1 : V_1; ...
-      controller ctrl
-      do act
-```
-This generic template has one type parameter `a`, which is subject to the constraint `D a`. This constraint can be empty, written as
-```haskell
-template T a with ...
-````
-All types `R`, `U_i` and `V_j` have the type variable `a` in scope.
-
-An instantiation of this generic template with an actual type `A` in place of type parameter `a` can be declared through
-```haskell
-template instance TA = T A
-```
-The `TA` is the name of the underlying DAML-LF type and template that will be created for this instantiation. This type will also exist in DAML but is not intended to be used there.
-
-Extending this syntax to more than one type parameter is trivial.
-
 ## Underlying type classes
 
 We split the current `Template` type class into three type classes serving the following purpose:
@@ -79,6 +52,93 @@ class (Creatable t, Choice t c r) => Exercisable t c r | t c -> r where
   exercise : ContractId t -> c -> Update r
 ```
 
+## Desugaring by example
+
+Before we dive into surface syntax and desugaring of generic templates and their instantiations, let's look at an example. The famous generic proposal workflow can be modelled as
+```haskell
+template Creatable t => Proposal t with
+    asset : t
+    receivers : [Party]
+  where
+    signatory (signatory t \\ receivers)
+    observer receivers
+
+    choice Accept : ContractId t
+      controller receivers
+      do
+        create asset
+```
+The desugaring of this generic template definition will yield the following data type definitions and type class instances:
+```haskell
+data Proposal t = Proposal with
+  asset : t
+  receivers : [Party]
+
+instance Creatable t => Template (Proposal t) where
+  signatory this@Proposal{..} = signatory asset \\ receivers
+
+
+data Accept = Accept
+
+instance Creatable t => Choice Accept (ContractId t) (Proposal t) where
+  controller this@Proposal{..} arg@Accept = receivers
+  action self this@Proposal{..} arg@Accept = do
+    create asset
+```
+
+Let's further assume we have already defined an `Iou` template somewhere else. In order to actually be able to create an instance of `Proposal Iou`, we need to instantiate the generic template `Proposal` with `Iou` for `t`. This is written as:
+```haskell
+template instance ProposalIou = Proposal Iou
+```
+`ProposalIou` is a name _we_ pick for this instantiation. This name is only relevant for creating a contract instance of `Proposal Iou` via the Ledger API. In DAML, such a contract instance will be created using the familiar `create Proposal with ...` syntax.
+
+The template instantiation above desugars to the following data type definitions and type class instances:
+```haskell
+newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou
+
+instance LfTemplate ProposalIou where
+  lfSignatories = signatories . unProposalIou
+
+instance Creatable (Proposal Iou) where
+  create t = fmap coerceContractId . lfCreate @PropsalIou . MkProposalIou
+  fetch = fmap unProposalIou . lfFetch @ProposalIou . coerceContractId
+
+
+instance LfChoice Accept (ContractId Iou) ProposalIou where
+  lfControllers = controllers . unProposalIou
+  lfAction cid = action (coerceContractId cid) . unProposalIou
+
+instance Exercisable Accept (ContractId Iou) (Proposal Iou) where
+  exercise = lfExercise @ProposalIou . coerceContractId
+```
+
+## Surface syntax
+
+A generic template can be defined using the following syntax:
+```haskell
+template D a => T a with
+    f_1 : U_1; ...
+  where
+    signatory sign
+
+    choice C : R with g_1 : V_1; ...
+      controller ctrl
+      do act
+```
+This generic template has one type parameter `a`, which is subject to the constraint `D a`. This constraint can be empty, written as
+```haskell
+template T a with ...
+````
+All types `R`, `U_i` and `V_j` have the type variable `a` in scope.
+
+An instantiation of this generic template with an actual type `A` in place of type parameter `a` can be declared through
+```haskell
+template instance TA = T A
+```
+`TA` is a name _we_ pick for this instantiation. This name is only relevant for creating a contract instance of `T A` via the Ledger API. In DAML, such a contract instance will be created using the familiar `create T with ...` syntax. Although the type `TA` also exists in DAML, it is not intended for use there.
+
+Extending this syntax to more than one type parameter is trivial.
+
 ## Desugaring generic template definitions
 
 Desugarting the generic template definition of `T` from above will generate the following data definitions type class instances:
@@ -108,7 +168,7 @@ instance LfTemplate TA where
 
 instance Creatable (T A) where
   create t = fmap coerceContractId . lfCreate @TA . MkTA
-  fetch = fmap unTA . genFetch @TA . coerceContractId
+  fetch = fmap unTA . lfFetch @TA . coerceContractId
 
 
 instance LfChoice TA (C A) R[A/a] where
