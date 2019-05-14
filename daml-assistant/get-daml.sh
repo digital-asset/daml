@@ -4,10 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 #
-# DAML is an open-source privace aware smart contract language.
+# DAML is an open-source privacy-aware smart contract language.
 # This script downloads and installs the DAML SDK on Linux and macOS.
 # This will overwrite any existing installation in ~/.daml
-# For more information please visit daml.com and docs.daml.com
+# For more information please visit https://daml.com/ and https://docs.daml.com/
 #
 
 set -eu
