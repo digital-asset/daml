@@ -85,9 +85,9 @@ da_haskell_library(
     ],
 )
 
-daml_ghc_integration_test("daml-ghc-test-newest", "DA.Test.GHC.mainVersionNewest")
-
 daml_ghc_integration_test("daml-ghc-test-default", "DA.Test.GHC.mainVersionDefault")
+
+daml_ghc_integration_test("daml-ghc-test-dev", "DA.Test.GHC.mainVersionDev")
 
 da_haskell_test(
     name = "tasty-test",
