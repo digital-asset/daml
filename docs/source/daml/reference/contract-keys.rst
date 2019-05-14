@@ -4,7 +4,7 @@
 Contract keys
 #############
 
-Contract keys are an optional addition to templates. They let you specify a way of uniquely identifying contract instances: that can be a single parameter to the template or a combination of parameters (eg, in a tuple).
+Contract keys are an optional addition to templates. They let you specify a way of uniquely identifying contract instances, using the parameters to the template - similar to a primary key for a database.
 
 You can use contract keys to stably refer to a contract, even through iterations of instances of it.
 
@@ -21,6 +21,8 @@ What can be a contract key
 The key should either be a tuple or a record, and it **must** include every party that you specify as a ``maintainer`` (see `Specifying maintainers`_ below).
 
 For example, with ``maintainer bank``, ``key (bank, number) : (Party, Text)`` is valid; but wouldn't be if you removed ``bank`` from the key.
+
+It's best to use simple types for your keys like ``Text`` or ``Integer``, rather than a list or more complex type.
 
 Specifying maintainers
 **********************
