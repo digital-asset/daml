@@ -302,11 +302,7 @@ object Queries {
         case V.ValueInt64(value) => Fragment("?", value)
         case V.ValueDecimal(value) => Fragment("?::numeric(38,10)", value: BigDecimal)
         case V.ValueText(value) => Fragment("?", value)
-        case V.ValueTimestamp(value) =>
-          Fragment(
-            "?",
-            V.ValueTimestamp(value)
-          )
+        case ts @ V.ValueTimestamp(_) => Fragment("?", ts)
         case V.ValueParty(value) => Fragment("?", value: String)
         case V.ValueUnit => Fragment.const("FALSE")
         case V.ValueDate(LfTime.Date(days)) => Fragment("?", LocalDate.ofEpochDay(days.toLong))
