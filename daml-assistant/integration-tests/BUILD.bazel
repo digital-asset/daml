@@ -1,11 +1,12 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
+load("@os_info//:os_info.bzl", "is_windows")
 
 genrule(
     name = "integration-tests-mvn",
     srcs = [
-        "@mvn_nix//:bin/mvn",
+        "@mvn_dev_env//:mvn",
         "//:component-version",
         "//daml-lf/archive:daml_lf_archive_java.jar",
         "//daml-lf/archive:daml_lf_archive_java_pom.xml",
@@ -26,7 +27,7 @@ genrule(
       MVN_DB="$$TMP_DIR/m2"
       VERSION=$$(cat $(location //:component-version))
       install_mvn() {
-          $(location @mvn_nix//:bin/mvn) -q install:install-file \
+          $(location @mvn_dev_env//:mvn) -q install:install-file \
           -Dmaven.repo.local=$$MVN_DB \
           "-DgroupId=$$1" \
           "-DartifactId=$$2" \
@@ -56,7 +57,7 @@ genrule(
         "com.digitalasset.ledger-api" "rs-grpc-bridge" \
         $(location //ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar) \
         $(location //ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml)
-      $(location @mvn_nix//:bin/mvn) -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
+      $(location @mvn_dev_env//:mvn) -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
       tar cf $(location integration-tests-mvn.tar) -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB)
     """,
 )
@@ -68,8 +69,9 @@ da_haskell_test(
     data = [
         ":integration-tests-mvn",
         "//release:sdk-release-tarball",
-        "@local_jdk//:bin/java",
-        "@mvn_nix//:bin/mvn",
+        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "@mvn_dev_env//:mvn",
+        "@tar_dev_env//:tar",
     ],
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
@@ -77,6 +79,8 @@ da_haskell_test(
         "async",
         "base",
         "bytestring",
+        "conduit",
+        "conduit-extra",
         "directory",
         "extra",
         "filepath",
@@ -84,8 +88,10 @@ da_haskell_test(
         "http-types",
         "main-tester",
         "network",
+        "unix-compat",
         "process",
         "tar",
+        "tar-conduit",
         "tasty",
         "tasty-hunit",
         "text",
@@ -95,5 +101,6 @@ da_haskell_test(
         "//:sdk-version-hs-lib",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
     ],
 )
