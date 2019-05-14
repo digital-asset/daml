@@ -67,7 +67,7 @@ object Ledger {
     txNodeIdToAbsoluteContractId(commitPrefix, i.txnid)
 
   @inline
-  def contractIdToAbsoluteContractId(commitPrefix: String, cid: ContractId): AbsoluteContractId =
+  def contractIdToAbsoluteContractId(commitPrefix: String, cid: VContractId): AbsoluteContractId =
     cid match {
       case acoid: AbsoluteContractId => acoid
       case rcoid: RelativeContractId =>
@@ -197,7 +197,7 @@ object Ledger {
     */
   def translateNode(commitPrefix: String, node: Transaction.Node): Node = {
     node match {
-      case nc: NodeCreate.WithTxValue[ContractId] =>
+      case nc: NodeCreate.WithTxValue[VContractId] =>
         NodeCreate[AbsoluteContractId, Transaction.Value[AbsoluteContractId]](
           coid = contractIdToAbsoluteContractId(commitPrefix, nc.coid),
           coinst = nc.coinst.copy(arg = makeAbsolute(commitPrefix, nc.coinst.arg)),
@@ -206,7 +206,7 @@ object Ledger {
           stakeholders = nc.stakeholders,
           key = nc.key.map(_.mapValue(makeAbsolute(commitPrefix, _)))
         )
-      case nf: NodeFetch[ContractId] =>
+      case nf: NodeFetch[VContractId] =>
         NodeFetch[AbsoluteContractId](
           coid = contractIdToAbsoluteContractId(commitPrefix, nf.coid),
           optLocation = nf.optLocation,
@@ -215,7 +215,7 @@ object Ledger {
           signatories = nf.signatories,
           stakeholders = nf.stakeholders
         )
-      case nex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
+      case nex: NodeExercises.WithTxValue[Transaction.NodeId, VContractId] =>
         NodeExercises[NodeId, AbsoluteContractId, Transaction.Value[AbsoluteContractId]](
           targetCoid = contractIdToAbsoluteContractId(commitPrefix, nex.targetCoid),
           templateId = nex.templateId,
@@ -230,7 +230,7 @@ object Ledger {
           children = nex.children.map(NodeId(commitPrefix, _)),
           exerciseResult = nex.exerciseResult.map(makeAbsolute(commitPrefix, _))
         )
-      case nlbk: NodeLookupByKey.WithTxValue[ContractId] =>
+      case nlbk: NodeLookupByKey.WithTxValue[VContractId] =>
         NodeLookupByKey(
           templateId = nlbk.templateId,
           optLocation = nlbk.optLocation,
@@ -574,12 +574,12 @@ object Ledger {
           .updated(i, witnesses union disclosures.getOrElse(i, Set.empty))
       )
 
-    def divulgeContracts(witnesses: Set[Party], coids: Set[ContractId]): EnrichState =
+    def divulgeContracts(witnesses: Set[Party], coids: Set[VContractId]): EnrichState =
       coids.foldLeft(this) {
         case (s, coid) => s.divulgeCoidTo(witnesses, coid)
       }
 
-    def divulgeCoidTo(witnesses: Set[Party], coid: ContractId): EnrichState = {
+    def divulgeCoidTo(witnesses: Set[Party], coid: VContractId): EnrichState = {
       def divulgeRelativeCoidTo(ws: Set[Party], rcoid: RelativeContractId): EnrichState = {
         val i = rcoid.txnid
         copy(
@@ -614,7 +614,7 @@ object Ledger {
 
     def authorizeCreate(
         nodeId: Transaction.NodeId,
-        create: NodeCreate.WithTxValue[ContractId],
+        create: NodeCreate.WithTxValue[VContractId],
         signatories: Set[Party],
         authorization: Authorization,
         /** If the create has a key, these are the maintainers */
@@ -651,7 +651,7 @@ object Ledger {
 
     def authorizeExercise(
         nodeId: Transaction.NodeId,
-        ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId],
+        ex: NodeExercises.WithTxValue[Transaction.NodeId, VContractId],
         actingParties: Set[Party],
         authorization: Authorization,
         controllers: Set[Party]): EnrichState = {
@@ -691,7 +691,7 @@ object Ledger {
 
     def authorizeFetch(
         nodeId: Transaction.NodeId,
-        fetch: NodeFetch[ContractId],
+        fetch: NodeFetch[VContractId],
         stakeholders: Set[Party],
         authorization: Authorization): EnrichState = {
       authorization.fold(this)(
@@ -780,7 +780,7 @@ object Ledger {
      */
     def authorizeLookupByKey(
         nodeId: Transaction.NodeId,
-        lbk: NodeLookupByKey.WithTxValue[ContractId],
+        lbk: NodeLookupByKey.WithTxValue[VContractId],
         authorization: Authorization): EnrichState = {
       authorization.fold(this) { authorizers =>
         this.authorize(
@@ -845,7 +845,7 @@ object Ledger {
         tr.nodes
           .getOrElse(nodeId, crash(s"enrichNode - precondition violated: node $nodeId not present"))
       node match {
-        case create: NodeCreate.WithTxValue[ContractId] =>
+        case create: NodeCreate.WithTxValue[VContractId] =>
           // ------------------------------------------------------------------
           // witnesses            : stakeholders union witnesses of parent exercise
           //                        node
@@ -864,7 +864,7 @@ object Ledger {
             .discloseTo(witnesses, nodeId)
           state1
 
-        case fetch: NodeFetch[ContractId] =>
+        case fetch: NodeFetch[VContractId] =>
           // ------------------------------------------------------------------
           // witnesses            : parent exercise witnesses
           // divulge              : referenced contract to witnesses of parent exercise node
@@ -879,7 +879,7 @@ object Ledger {
             stakeholders = fetch.stakeholders,
             authorization = authorization)
 
-        case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
+        case ex: NodeExercises.WithTxValue[Transaction.NodeId, VContractId] =>
           // ------------------------------------------------------------------
           // witnesses:
           //    | consuming  -> stakeholders(targetId) union witnesses of parent exercise node
@@ -921,7 +921,7 @@ object Ledger {
               childNodeId)
           }
 
-        case nlbk: NodeLookupByKey.WithTxValue[ContractId] =>
+        case nlbk: NodeLookupByKey.WithTxValue[VContractId] =>
           // ------------------------------------------------------------------
           // witnesses: parent exercise witnesses
           //
@@ -955,15 +955,15 @@ object Ledger {
   // Enriching transactions with disclosure information
   //----------------------------------------------------------------------------
 
-  def collectCoids(value: VersionedValue[ContractId]): Set[ContractId] =
+  def collectCoids(value: VersionedValue[VContractId]): Set[VContractId] =
     collectCoids(value.value)
 
   /** Collect all contract ids appearing in a value
     */
-  def collectCoids(value: Value[ContractId]): Set[ContractId] = {
+  def collectCoids(value: Value[VContractId]): Set[VContractId] = {
     val coids =
-      implicitly[CanBuildFrom[Nothing, ContractId, Set[ContractId]]].apply()
-    def collect(v: Value[ContractId]): Unit =
+      implicitly[CanBuildFrom[Nothing, VContractId, Set[VContractId]]].apply()
+    def collect(v: Value[VContractId]): Unit =
       v match {
         case ValueRecord(tycon @ _, fs) =>
           fs.foreach {
@@ -996,7 +996,7 @@ object Ledger {
 
   def makeAbsolute(
       commitPrefix: String,
-      value: VersionedValue[ContractId]): VersionedValue[AbsoluteContractId] = {
+      value: VersionedValue[VContractId]): VersionedValue[AbsoluteContractId] = {
     VersionedValue(value.version, makeAbsolute(commitPrefix, value.value))
   }
 
@@ -1004,8 +1004,8 @@ object Ledger {
     *
     * TODO(FM) make this tail recursive
     */
-  def makeAbsolute(commitPrefix: String, value: Value[ContractId]): Value[AbsoluteContractId] = {
-    def rewrite(v: Value[ContractId]): Value[AbsoluteContractId] =
+  def makeAbsolute(commitPrefix: String, value: Value[VContractId]): Value[AbsoluteContractId] = {
+    def rewrite(v: Value[VContractId]): Value[AbsoluteContractId] =
       v match {
         case ValueRecord(tycon, fs) =>
           ValueRecord(tycon, fs.map[(Option[Name], Value[AbsoluteContractId])] {

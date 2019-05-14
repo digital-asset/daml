@@ -78,11 +78,11 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
   "isReplayedBy" - {
     // the whole-transaction-relevant parts are handled by equalForest testing
     import Node.isReplayedBy
-    type CidVal[F[_, _]] = F[V.ContractId, V.VersionedValue[V.ContractId]]
+    type CidVal[F[_, _]] = F[V.VContractId, V.VersionedValue[V.VContractId]]
     val genEmptyNode
-      : Gen[Node.GenNode.WithTxValue[Nothing, V.ContractId]] = danglingRefGenNode map {
+      : Gen[Node.GenNode.WithTxValue[Nothing, V.VContractId]] = danglingRefGenNode map {
       case (_, n: CidVal[Node.LeafOnlyNode]) => n
-      case (_, ne: Node.NodeExercises.WithTxValue[_, V.ContractId]) =>
+      case (_, ne: Node.NodeExercises.WithTxValue[_, V.VContractId]) =>
         ne copy (children = ImmArray.empty)
     }
 
@@ -99,8 +99,8 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
     "ignores location" in forAll(genEmptyNode) { n =>
       val withoutLocation = n match {
         case nc: CidVal[Node.NodeCreate] => nc copy (optLocation = None)
-        case nf: Node.NodeFetch[V.ContractId] => nf copy (optLocation = None)
-        case ne: Node.NodeExercises.WithTxValue[Nothing, V.ContractId] =>
+        case nf: Node.NodeFetch[V.VContractId] => nf copy (optLocation = None)
+        case ne: Node.NodeExercises.WithTxValue[Nothing, V.VContractId] =>
           ne copy (optLocation = None)
         case nl: CidVal[Node.NodeLookupByKey] => nl copy (optLocation = None)
       }

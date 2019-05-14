@@ -14,7 +14,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VContractId}
 import com.digitalasset.ledger.backend.api.v1.{
   RejectionReason,
   TransactionId,
@@ -220,7 +220,7 @@ private class SqlLedger(
   override def publishTransaction(tx: TransactionSubmission): Future[SubmissionResult] =
     enqueue { offset =>
       val transactionId = offset.toString
-      val toAbsCoid: ContractId => AbsoluteContractId =
+      val toAbsCoid: VContractId => AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid(transactionId)
 
       val mappedTx = tx.transaction

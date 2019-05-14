@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
-  ContractId,
+  VContractId,
   NodeId,
   RelativeContractId
 }
@@ -34,7 +34,7 @@ import scala.util.Try
   */
 private[kvutils] object Conversions {
 
-  def toAbsCoid(txId: DamlLogEntryId, coid: ContractId): AbsoluteContractId = {
+  def toAbsCoid(txId: DamlLogEntryId, coid: VContractId): AbsoluteContractId = {
     val hexTxId =
       BaseEncoding.base16.encode(txId.getEntryId.toByteArray)
     coid match {
@@ -165,15 +165,15 @@ private[kvutils] object Conversions {
   }
 
   // FIXME(JM): Should we have a well-defined schema for this?
-  private val cidEncoder: ValueCoder.EncodeCid[ContractId] = {
-    val asStruct: ContractId => (String, Boolean) = {
+  private val cidEncoder: ValueCoder.EncodeCid[VContractId] = {
+    val asStruct: VContractId => (String, Boolean) = {
       case RelativeContractId(nid) => (s"~${nid.index}", true)
       case AbsoluteContractId(coid) => (s"$coid", false)
     }
     ValueCoder.EncodeCid(asStruct(_)._1, asStruct)
   }
-  private val cidDecoder: ValueCoder.DecodeCid[ContractId] = {
-    def fromString(x: String): Either[DecodeError, ContractId] = {
+  private val cidDecoder: ValueCoder.DecodeCid[VContractId] = {
+    def fromString(x: String): Either[DecodeError, VContractId] = {
       if (x.startsWith("~"))
         Try(x.tail.toInt).toOption match {
           case None =>
@@ -194,11 +194,11 @@ private[kvutils] object Conversions {
     nid => Right(NodeId.unsafeFromIndex(nid.toInt))
   private val nidEncoder: TransactionCoder.EncodeNid[NodeId] =
     nid => nid.index.toString
-  private val valEncoder: TransactionCoder.EncodeVal[Transaction.Value[ContractId]] =
+  private val valEncoder: TransactionCoder.EncodeVal[Transaction.Value[VContractId]] =
     a => ValueCoder.encodeVersionedValueWithCustomVersion(cidEncoder, a).map((a.version, _))
   private val valDecoder: ValueOuterClass.VersionedValue => Either[
     ValueCoder.DecodeError,
-    Transaction.Value[ContractId]] =
+    Transaction.Value[VContractId]] =
     a => ValueCoder.decodeVersionedValue(cidDecoder, a)
 
 }

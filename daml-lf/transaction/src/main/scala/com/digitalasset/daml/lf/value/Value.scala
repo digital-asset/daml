@@ -264,12 +264,12 @@ object Value {
     * to be able to use AbsoluteContractId elsewhere, so that we can
     * automatically upcast to ContractId by subtyping.
     */
-  sealed trait ContractId extends Product with Serializable
-  final case class AbsoluteContractId(coid: String) extends ContractId
-  final case class RelativeContractId(txnid: NodeId) extends ContractId
+  sealed trait VContractId extends Product with Serializable
+  final case class AbsoluteContractId(coid: String) extends VContractId
+  final case class RelativeContractId(txnid: NodeId) extends VContractId
 
-  object ContractId {
-    implicit val equalInstance: Equal[ContractId] = Equal.equalA
+  object VContractId {
+    implicit val equalInstance: Equal[VContractId] = Equal.equalA
   }
 
   /** The constructor is private so that we make sure that only this object constructs

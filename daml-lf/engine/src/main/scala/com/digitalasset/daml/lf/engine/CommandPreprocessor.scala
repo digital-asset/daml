@@ -311,7 +311,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
 
   private[engine] def preprocessExercise(
       templateId: Identifier,
-      contractId: ContractId,
+      contractId: VContractId,
       choiceId: ChoiceName,
       // actors are either the singleton set of submitter of an exercise command,
       // or the acting parties of an exercise node

@@ -27,7 +27,7 @@ sealed trait SValue {
 
   import SValue._
 
-  def toValue: V[V.ContractId] =
+  def toValue: V[V.VContractId] =
     this match {
       case SInt64(x) => V.ValueInt64(x)
       case SDecimal(x) => V.ValueDecimal(x)
@@ -85,7 +85,7 @@ sealed trait SValue {
     bs
   }
 
-  def mapContractId(f: V.ContractId => V.ContractId): SValue =
+  def mapContractId(f: V.VContractId => V.VContractId): SValue =
     this match {
       case SPAP(prim, args, arity) =>
         val prim2 = prim match {
@@ -187,12 +187,12 @@ object SValue {
   final case class SBool(value: Boolean) extends SPrimLit
   final case class SUnit(value: Unit) extends SPrimLit
   final case class SDate(value: Time.Date) extends SPrimLit
-  final case class SContractId(value: V.ContractId) extends SPrimLit
+  final case class SContractId(value: V.VContractId) extends SPrimLit
 
   // The "effect" token for update or scenario builtin functions.
   final case object SToken extends SValue
 
-  def fromValue(value0: V[V.ContractId]): SValue = {
+  def fromValue(value0: V[V.VContractId]): SValue = {
     value0 match {
       case V.ValueList(vs) =>
         SList(vs.map[SValue](fromValue))

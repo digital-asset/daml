@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.data.{ImmArray}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
-import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInst, ValueParty, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.{VContractId, ContractInst, ValueParty, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder.{DecodeCid, DecodeError, EncodeCid, EncodeError}
 import com.digitalasset.daml.lf.value.{ValueVersion, ValueVersions}
 import com.digitalasset.daml.lf.transaction.TransactionVersions._
@@ -64,23 +64,24 @@ class TransactionCoderSpec
     }
 
     "do NodeFetch" in {
-      forAll(fetchNodeGen, valueVersionGen) { (node: NodeFetch[ContractId], valVer: ValueVersion) =>
-        Right((Tx.NodeId.unsafeFromIndex(0), node)) shouldEqual TransactionCoder.decodeNode(
-          defaultNidDecode,
-          defaultCidDecode,
-          defaultValDecode,
-          defaultTransactionVersion,
-          TransactionCoder
-            .encodeNode(
-              defaultNidEncode,
-              defaultCidEncode,
-              defaultValEncode,
-              defaultTransactionVersion,
-              Tx.NodeId.unsafeFromIndex(0),
-              node)
-            .toOption
-            .get
-        )
+      forAll(fetchNodeGen, valueVersionGen) {
+        (node: NodeFetch[VContractId], valVer: ValueVersion) =>
+          Right((Tx.NodeId.unsafeFromIndex(0), node)) shouldEqual TransactionCoder.decodeNode(
+            defaultNidDecode,
+            defaultCidDecode,
+            defaultValDecode,
+            defaultTransactionVersion,
+            TransactionCoder
+              .encodeNode(
+                defaultNidEncode,
+                defaultCidEncode,
+                defaultValEncode,
+                defaultTransactionVersion,
+                Tx.NodeId.unsafeFromIndex(0),
+                node)
+              .toOption
+              .get
+          )
       }
     }
 

@@ -37,7 +37,7 @@ object Error {
 
 }
 
-final case class ContractNotFound(ci: ContractId) extends Error {
+final case class ContractNotFound(ci: VContractId) extends Error {
   override def msg = s"Contract could not be found with id $ci"
   override def detailMsg = msg
 }

@@ -123,7 +123,7 @@ class EventConverterSpec
                 .checkAuthorizationAndBlind(tx, Set(commands.party))
             } yield {
               val txId = "testTx"
-              val absCoid: Lf.ContractId => Lf.AbsoluteContractId =
+              val absCoid: Lf.VContractId => Lf.AbsoluteContractId =
                 SandboxEventIdFormatter.makeAbsCoid(txId)
               val recordTr = tx
                 .mapNodeId(SandboxEventIdFormatter.fromTransactionId(txId, _))
@@ -159,7 +159,7 @@ class EventConverterSpec
               .checkAuthorizationAndBlind(tx, Set(commands.party))
           } yield {
             val txId = "testTx"
-            val absCoid: Lf.ContractId => Lf.AbsoluteContractId =
+            val absCoid: Lf.VContractId => Lf.AbsoluteContractId =
               SandboxEventIdFormatter.makeAbsCoid(txId)
             val recordTr = tx
               .mapNodeId(SandboxEventIdFormatter.fromTransactionId(txId, _))
@@ -251,7 +251,7 @@ class EventConverterSpec
       val tx: LfTx =
         GenTransaction(nodes, ImmArray(Transaction.NodeId.unsafeFromIndex(0)), Set.empty)
       val blinding = Blinding.blind(tx)
-      val absCoid: Lf.ContractId => Lf.AbsoluteContractId =
+      val absCoid: Lf.VContractId => Lf.AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid("transactionId")
       val recordTx = tx
         .mapNodeId(SandboxEventIdFormatter.fromTransactionId("transactionId", _))

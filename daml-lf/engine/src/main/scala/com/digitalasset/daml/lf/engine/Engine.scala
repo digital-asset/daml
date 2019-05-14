@@ -91,7 +91,7 @@ final class Engine {
     * create or an exercise choice.
     */
   def reinterpret(
-      nodes: Seq[GenNode.WithTxValue[NodeId, ContractId]],
+      nodes: Seq[GenNode.WithTxValue[NodeId, VContractId]],
       ledgerEffectiveTime: Time.Timestamp
   ): Result[Transaction.Transaction] = {
     for {
@@ -144,8 +144,8 @@ final class Engine {
       submitter: Option[Party],
       ledgerEffectiveTime: Time.Timestamp,
       requestor: Party,
-      contractIdMaping: ContractId => AbsoluteContractId,
-      valMapping: Tx.Value[ContractId] => Tx.Value[AbsoluteContractId]): Result[Unit] = {
+      contractIdMaping: VContractId => AbsoluteContractId,
+      valMapping: Tx.Value[VContractId] => Tx.Value[AbsoluteContractId]): Result[Unit] = {
 
     // we run the interpreter incrementally on root expressions,
     // so that we get the node indexing matching
@@ -247,7 +247,7 @@ final class Engine {
       case err: ValidationError => ResultError(err)
     }
 
-  private[this] def asAbsoluteContractId(coid: ContractId): Result[AbsoluteContractId] =
+  private[this] def asAbsoluteContractId(coid: VContractId): Result[AbsoluteContractId] =
     coid match {
       case rcoid: RelativeContractId =>
         ResultError(ValidationError(s"not an absolute contract ID: $rcoid"))
@@ -256,7 +256,7 @@ final class Engine {
     }
 
   // Translate a GenNode into an expression re-interpretable by the interpreter
-  private[this] def translateNode[Cid <: ContractId](commandPreprocessor: CommandPreprocessor)(
+  private[this] def translateNode[Cid <: VContractId](commandPreprocessor: CommandPreprocessor)(
       node: GenNode.WithTxValue[Transaction.NodeId, Cid]): Result[(Type, SpeedyCommand)] = {
 
     node match {
@@ -294,7 +294,7 @@ final class Engine {
     }
   }
 
-  private[this] def translateTransactionRoots[Cid <: ContractId](
+  private[this] def translateTransactionRoots[Cid <: VContractId](
       commandPreprocessor: CommandPreprocessor,
       tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid]
   ): Result[ImmArray[(Transaction.NodeId, (Type, SpeedyCommand))]] = {

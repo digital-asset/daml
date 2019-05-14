@@ -13,9 +13,9 @@ import com.digitalasset.daml.lf.value.Value._
 import scala.annotation.tailrec
 
 trait PrivateLedgerData {
-  def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit
+  def update(tx: GenTransaction.WithTxValue[NodeId, VContractId]): Unit
   def get(id: AbsoluteContractId): Option[ContractInst[VersionedValue[AbsoluteContractId]]]
-  def toAbsoluteContractId(txCounter: Int)(cid: ContractId): AbsoluteContractId
+  def toAbsoluteContractId(txCounter: Int)(cid: VContractId): AbsoluteContractId
   def transactionCounter: Int
   def clear(): Unit
 }
@@ -26,10 +26,10 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
     new ConcurrentHashMap()
   private val txCounter: AtomicInteger = new AtomicInteger(0)
 
-  def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit =
+  def update(tx: GenTransaction.WithTxValue[NodeId, VContractId]): Unit =
     updateWithAbsoluteContractId(tx.mapContractId(toAbsoluteContractId(txCounter.get)))
 
-  def toAbsoluteContractId(txCounter: Int)(cid: ContractId): AbsoluteContractId =
+  def toAbsoluteContractId(txCounter: Int)(cid: VContractId): AbsoluteContractId =
     cid match {
       case r: RelativeContractId => AbsoluteContractId(s"$txCounter-${r.txnid.index}")
       case a: AbsoluteContractId => a

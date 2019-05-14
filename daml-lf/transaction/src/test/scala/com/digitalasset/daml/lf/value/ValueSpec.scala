@@ -47,7 +47,7 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
   "Equal" - {
     import com.digitalasset.daml.lf.value.ValueGenerators._
     import org.scalacheck.Arbitrary
-    type T = VersionedValue[Unnatural[ContractId]]
+    type T = VersionedValue[Unnatural[VContractId]]
     implicit val arbT: Arbitrary[T] =
       Arbitrary(versionedValueGen map (_ mapContractId (Unnatural(_))))
 

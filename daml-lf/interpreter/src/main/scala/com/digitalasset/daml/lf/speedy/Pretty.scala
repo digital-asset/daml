@@ -75,16 +75,16 @@ object Pretty {
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyTransactionNode(node: Transaction.Node): Doc =
     node match {
-      case create: NodeCreate.WithTxValue[ContractId] =>
+      case create: NodeCreate.WithTxValue[VContractId] =>
         "create" &: prettyContractInst(create.coinst)
-      case fetch: NodeFetch[ContractId] =>
+      case fetch: NodeFetch[VContractId] =>
         "fetch" &: prettyContractId(fetch.coid)
-      case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
+      case ex: NodeExercises.WithTxValue[Transaction.NodeId, VContractId] =>
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
           text("with") & prettyVersionedValue(false)(ex.chosenValue)
-      case lbk: NodeLookupByKey.WithTxValue[ContractId] =>
+      case lbk: NodeLookupByKey.WithTxValue[VContractId] =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
           text("key") & prettyKeyWithMaintainers(lbk.key) /
           (lbk.result match {
@@ -228,7 +228,7 @@ object Pretty {
         text("mustFailAt") & prettyParty(amf.actor) & prettyLoc(amf.optLocation)
     }
 
-  def prettyKeyWithMaintainers(key: KeyWithMaintainers[Transaction.Value[ContractId]]): Doc =
+  def prettyKeyWithMaintainers(key: KeyWithMaintainers[Transaction.Value[VContractId]]): Doc =
     // the maintainers are induced from the key -- so don't clutter
     prettyVersionedValue(false)(key.key)
 
@@ -307,14 +307,14 @@ object Pretty {
   def prettyLedgerNodeId(n: L.NodeId): Doc =
     char('#') + text(n.id)
 
-  def prettyContractInst(coinst: ContractInst[Transaction.Value[ContractId]]): Doc =
+  def prettyContractInst(coinst: ContractInst[Transaction.Value[VContractId]]): Doc =
     (prettyIdentifier(coinst.template) / text("with:") &
       prettyVersionedValue(false)(coinst.arg)).nested(4)
 
   def prettyTypeConName(tycon: TypeConName): Doc =
     text(tycon.qualifiedName.toString) + char('@') + prettyPackageId(tycon.packageId)
 
-  def prettyContractId(coid: ContractId): Doc =
+  def prettyContractId(coid: VContractId): Doc =
     coid match {
       case AbsoluteContractId(acoid) => char('#') + text(acoid)
       case RelativeContractId(rcoid) => char('#') + str(rcoid)
@@ -340,12 +340,12 @@ object Pretty {
   def prettyIdentifier(id: Identifier): Doc =
     text(id.qualifiedName.toString) + char('@') + prettyPackageId(id.packageId)
 
-  def prettyVersionedValue(verbose: Boolean)(v: Transaction.Value[ContractId]): Doc =
+  def prettyVersionedValue(verbose: Boolean)(v: Transaction.Value[VContractId]): Doc =
     prettyValue(verbose)(v.value) & text("value-version: ") + text(v.version.protoValue)
 
   // Pretty print a value. If verbose then the top-level value is printed with type constructor
   // if possible.
-  def prettyValue(verbose: Boolean)(v: Value[ContractId]): Doc =
+  def prettyValue(verbose: Boolean)(v: Value[VContractId]): Doc =
     v match {
       case ValueInt64(i) => str(i)
       case ValueDecimal(d) => str(d)

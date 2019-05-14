@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
-  ContractId,
+  VContractId,
   ContractInst,
   NodeId,
   VersionedValue
@@ -386,7 +386,7 @@ object KeyValueCommitting {
       }
       .flatMap { node: Transaction.Node =>
         node match {
-          case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
+          case create: NodeCreate[VContractId, VersionedValue[VContractId]] =>
             Some(
               create.coinst.mapValue(
                 _.mapContractId(toAbsCoid(entryId, _))

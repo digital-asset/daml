@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction => Tx}
 import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
-  ContractId,
+  VContractId,
   ContractInst,
   RelativeContractId
 }
@@ -424,7 +424,7 @@ object SemanticTester {
     }
 
     // TODO: this function defined twice: in SemanticTester and in EngineTest
-    private[this] def makeAbsoluteContractId(coid: ContractId): AbsoluteContractId =
+    private[this] def makeAbsoluteContractId(coid: VContractId): AbsoluteContractId =
       coid match {
         case rcoid: RelativeContractId =>
           AbsoluteContractId(submitCounter.toString + "-" + rcoid.txnid.index.toString)
@@ -433,7 +433,7 @@ object SemanticTester {
 
     // TODO: this function defined twice: in SemanticTester and in EngineTest
     private[this] def makeValueWithAbsoluteContractId(
-        v: Tx.Value[ContractId]): Tx.Value[AbsoluteContractId] =
+        v: Tx.Value[VContractId]): Tx.Value[AbsoluteContractId] =
       v.mapContractId(makeAbsoluteContractId)
 
     private[this] def updatePcs(

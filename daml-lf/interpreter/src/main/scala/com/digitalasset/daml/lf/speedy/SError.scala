@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.daml.lf.types.Ledger
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VContractId}
 
 object SError {
 
@@ -45,13 +45,13 @@ object SError {
   final case class DamlETemplatePreconditionViolated(
       templateId: TypeConName,
       optLocation: Option[Location],
-      arg: Transaction.Value[ContractId])
+      arg: Transaction.Value[VContractId])
       extends SErrorDamlException
 
   /** A fetch or an exercise on a transaction-local contract that has already
     * been consumed. */
   final case class DamlELocalContractNotActive(
-      coid: ContractId,
+      coid: VContractId,
       templateId: TypeConName,
       consumedBy: Transaction.NodeId)
       extends SErrorDamlException
@@ -80,7 +80,7 @@ object SError {
     * see <https://github.com/digital-asset/daml/issues/1005>.
     */
   final case class DamlEWronglyTypedContract(
-      coid: ContractId,
+      coid: VContractId,
       expected: TypeConName,
       actual: TypeConName)
       extends SErrorDamlException

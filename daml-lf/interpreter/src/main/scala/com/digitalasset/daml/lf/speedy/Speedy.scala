@@ -143,7 +143,7 @@ object Speedy {
             false
         }
 
-    def toValue: V[V.ContractId] =
+    def toValue: V[V.VContractId] =
       toSValue.toValue
 
     def toSValue: SValue =

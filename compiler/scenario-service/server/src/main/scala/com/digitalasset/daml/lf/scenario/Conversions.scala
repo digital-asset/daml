@@ -276,7 +276,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
     builder.build
   }
 
-  def mkContractRef(coid: V.ContractId, templateId: Ref.Identifier): ContractRef =
+  def mkContractRef(coid: V.VContractId, templateId: Ref.Identifier): ContractRef =
     coid match {
       case V.AbsoluteContractId(coid) =>
         ContractRef.newBuilder
@@ -292,7 +292,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
           .build
     }
 
-  def convertContractId(coid: V.ContractId): String =
+  def convertContractId(coid: V.VContractId): String =
     coid match {
       case V.AbsoluteContractId(coid) => coid
       case V.RelativeContractId(txnid) => txnid.index.toString
@@ -450,7 +450,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
   }
 
   def convertKeyWithMaintainers(
-      key: N.KeyWithMaintainers[V.VersionedValue[V.ContractId]]): KeyWithMaintainers = {
+      key: N.KeyWithMaintainers[V.VersionedValue[V.VContractId]]): KeyWithMaintainers = {
     KeyWithMaintainers
       .newBuilder()
       .setKey(convertValue(key.key.value))
@@ -464,7 +464,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       .setNodeId(NodeId.newBuilder.setId(nodeId.index.toString).build)
     // FIXME(JM): consumedBy, parent, ...
     node match {
-      case create: N.NodeCreate.WithTxValue[V.ContractId] =>
+      case create: N.NodeCreate.WithTxValue[V.VContractId] =>
         val createBuilder =
           Node.Create.newBuilder
             .setContractInstance(
@@ -479,7 +479,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
           createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(key)))
         create.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
-      case fetch: N.NodeFetch[V.ContractId] =>
+      case fetch: N.NodeFetch[V.VContractId] =>
         builder.setFetch(
           Node.Fetch.newBuilder
             .setContractId(convertContractId(fetch.coid))
@@ -488,7 +488,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
             .build
         )
-      case ex: N.NodeExercises.WithTxValue[Tx.NodeId, V.ContractId] =>
+      case ex: N.NodeExercises.WithTxValue[Tx.NodeId, V.VContractId] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           Node.Exercise.newBuilder
@@ -510,7 +510,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .build
         )
 
-      case lookup: N.NodeLookupByKey.WithTxValue[V.ContractId] =>
+      case lookup: N.NodeLookupByKey.WithTxValue[V.VContractId] =>
         lookup.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setLookupByKey({
           val builder = Node.LookupByKey.newBuilder

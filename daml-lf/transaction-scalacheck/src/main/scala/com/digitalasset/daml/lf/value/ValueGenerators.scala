@@ -151,7 +151,7 @@ object ValueGenerators {
       .map(Time.Timestamp.assertFromLong)
 
   // generate a variant with arbitrary value
-  private def variantGen(nesting: Int): Gen[ValueVariant[ContractId]] =
+  private def variantGen(nesting: Int): Gen[ValueVariant[VContractId]] =
     for {
       id <- idGen
       variantName <- nameGen
@@ -163,9 +163,9 @@ object ValueGenerators {
             else (variantId: Identifier) => Some(variantId))
       value <- Gen.lzy(valueGen(nesting))
     } yield ValueVariant(toOption(id), variantName, value)
-  def variantGen: Gen[ValueVariant[ContractId]] = variantGen(0)
+  def variantGen: Gen[ValueVariant[VContractId]] = variantGen(0)
 
-  private def recordGen(nesting: Int): Gen[ValueRecord[ContractId]] =
+  private def recordGen(nesting: Int): Gen[ValueRecord[VContractId]] =
     for {
       id <- idGen
       toOption <- Gen
@@ -176,40 +176,40 @@ object ValueGenerators {
             else (x: Identifier) => Some(x))
       labelledValues <- Gen.listOf(nameGen.flatMap(label =>
         Gen.lzy(valueGen(nesting)).map(x => if (label.isEmpty) (None, x) else (Some(label), x))))
-    } yield ValueRecord[ContractId](toOption(id), ImmArray(labelledValues))
-  def recordGen: Gen[ValueRecord[ContractId]] = recordGen(0)
+    } yield ValueRecord[VContractId](toOption(id), ImmArray(labelledValues))
+  def recordGen: Gen[ValueRecord[VContractId]] = recordGen(0)
 
-  private def valueOptionalGen(nesting: Int): Gen[ValueOptional[ContractId]] =
+  private def valueOptionalGen(nesting: Int): Gen[ValueOptional[VContractId]] =
     Gen.option(valueGen(nesting)).map(v => ValueOptional(v))
-  def valueOptionalGen: Gen[ValueOptional[ContractId]] = valueOptionalGen(0)
+  def valueOptionalGen: Gen[ValueOptional[VContractId]] = valueOptionalGen(0)
 
-  private def valueListGen(nesting: Int): Gen[ValueList[ContractId]] =
+  private def valueListGen(nesting: Int): Gen[ValueList[VContractId]] =
     for {
       values <- Gen.listOf(Gen.lzy(valueGen(nesting)))
-    } yield ValueList[ContractId](FrontStack(values))
-  def valueListGen: Gen[ValueList[ContractId]] = valueListGen(0)
+    } yield ValueList[VContractId](FrontStack(values))
+  def valueListGen: Gen[ValueList[VContractId]] = valueListGen(0)
 
   private def valueMapGen(nesting: Int) =
     for {
       list <- Gen.listOf(for {
         k <- Gen.asciiPrintableStr; v <- Gen.lzy(valueGen(nesting))
       } yield k -> v)
-    } yield ValueMap[ContractId](SortedLookupList(Map(list: _*)))
-  def valueMapGen: Gen[ValueMap[ContractId]] = valueMapGen(0)
+    } yield ValueMap[VContractId](SortedLookupList(Map(list: _*)))
+  def valueMapGen: Gen[ValueMap[VContractId]] = valueMapGen(0)
 
-  def coidGen: Gen[ContractId] = {
-    val genRel: Gen[ContractId] =
+  def coidGen: Gen[VContractId] = {
+    val genRel: Gen[VContractId] =
       Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Transaction.NodeId.unsafeFromIndex(i)))
-    val genAbs: Gen[ContractId] =
+    val genAbs: Gen[VContractId] =
       Gen.alphaStr.filter(_.nonEmpty).map(s => AbsoluteContractId(s))
     Gen.frequency((1, genRel), (3, genAbs))
   }
 
-  def coidValueGen: Gen[ValueContractId[ContractId]] = {
+  def coidValueGen: Gen[ValueContractId[VContractId]] = {
     coidGen.map(ValueContractId(_))
   }
 
-  private def valueGen(nesting: Int): Gen[Value[ContractId]] = {
+  private def valueGen(nesting: Int): Gen[Value[VContractId]] = {
     Gen.sized(sz => {
       val newNesting = nesting + 1
       val nested = List(
@@ -252,9 +252,9 @@ object ValueGenerators {
       .map(s => Party.assertFromString(s.mkString))
   }
 
-  def valueGen: Gen[Value[ContractId]] = valueGen(0)
+  def valueGen: Gen[Value[VContractId]] = valueGen(0)
 
-  def versionedValueGen: Gen[VersionedValue[ContractId]] =
+  def versionedValueGen: Gen[VersionedValue[VContractId]] =
     for {
       version <- valueVersionGen
       value <- valueGen
@@ -300,7 +300,7 @@ object ValueGenerators {
   @deprecated("use malformedCreateNodeGen instead", since = "100.11.17")
   private[lf] def createNodeGen = malformedCreateNodeGen
 
-  val fetchNodeGen: Gen[NodeFetch[ContractId]] = {
+  val fetchNodeGen: Gen[NodeFetch[VContractId]] = {
     for {
       coid <- coidGen
       templateId <- idGen

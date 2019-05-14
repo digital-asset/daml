@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.transaction.Node.{
   NodeFetch,
   NodeLookupByKey
 }
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, RelativeContractId}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VContractId, RelativeContractId}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
@@ -50,14 +50,14 @@ private[kvutils] object InputsAndEffects {
       DamlStateKey.newBuilder.setPackageId(pkgId).build
     }.toList
 
-    def addLogEntryInput(inputs: List[DamlLogEntryId], coid: ContractId): List[DamlLogEntryId] =
+    def addLogEntryInput(inputs: List[DamlLogEntryId], coid: VContractId): List[DamlLogEntryId] =
       coid match {
         case acoid: AbsoluteContractId =>
           absoluteContractIdToLogEntryId(acoid)._1 :: inputs
         case _ =>
           inputs
       }
-    def addStateInput(inputs: List[DamlStateKey], coid: ContractId): List[DamlStateKey] =
+    def addStateInput(inputs: List[DamlStateKey], coid: VContractId): List[DamlStateKey] =
       coid match {
         case acoid: AbsoluteContractId =>
           absoluteContractIdToStateKey(acoid) :: inputs
@@ -68,14 +68,14 @@ private[kvutils] object InputsAndEffects {
     tx.fold(GenTransaction.TopDown, (List.empty[DamlLogEntryId], packageInputs)) {
       case ((logEntryInputs, stateInputs), (nodeId, node)) =>
         node match {
-          case fetch: NodeFetch[ContractId] =>
+          case fetch: NodeFetch[VContractId] =>
             (
               addLogEntryInput(logEntryInputs, fetch.coid),
               addStateInput(stateInputs, fetch.coid)
             )
           case create: NodeCreate[_, _] =>
             (logEntryInputs, stateInputs)
-          case exe: NodeExercises[_, ContractId, _] =>
+          case exe: NodeExercises[_, VContractId, _] =>
             (
               addLogEntryInput(logEntryInputs, exe.targetCoid),
               addStateInput(stateInputs, exe.targetCoid)
@@ -91,7 +91,7 @@ private[kvutils] object InputsAndEffects {
     tx.fold(GenTransaction.TopDown, Effects(List.empty, List.empty)) {
       case (effects, (nodeId, node)) =>
         node match {
-          case fetch: NodeFetch[ContractId] =>
+          case fetch: NodeFetch[VContractId] =>
             effects
           case create: NodeCreate[_, _] =>
             // FIXME(JM): Track created keys
@@ -100,7 +100,7 @@ private[kvutils] object InputsAndEffects {
                 relativeContractIdToStateKey(entryId, create.coid.asInstanceOf[RelativeContractId])
                   :: effects.createdContracts
             )
-          case exe: NodeExercises[_, ContractId, _] =>
+          case exe: NodeExercises[_, VContractId, _] =>
             if (exe.consuming) {
               exe.targetCoid match {
                 case acoid: AbsoluteContractId =>

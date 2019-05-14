@@ -13,7 +13,7 @@ object SandboxEventIdFormatter {
 
   case class TransactionIdWithIndex(transactionId: Long, nodeId: Transaction.NodeId)
 
-  def makeAbsCoid(transactionId: String)(coid: Lf.ContractId): Lf.AbsoluteContractId = coid match {
+  def makeAbsCoid(transactionId: String)(coid: Lf.VContractId): Lf.AbsoluteContractId = coid match {
     case a @ Lf.AbsoluteContractId(_) => a
     case Lf.RelativeContractId(txnid) =>
       Lf.AbsoluteContractId(fromTransactionId(transactionId, txnid))

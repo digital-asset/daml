@@ -376,7 +376,7 @@ object Transaction {
   type NodeId = Value.NodeId
   val NodeId = Value.NodeId
 
-  type ContractId = Value.ContractId
+  type ContractId = Value.VContractId
 
   type Value[+Cid] = Value.VersionedValue[Cid]
 
