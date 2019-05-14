@@ -6,8 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.lfpackage.Ast.{DDataType, DValue, Definition}
@@ -25,14 +24,31 @@ import scala.collection.breakOut
 import scala.collection.mutable.ArrayBuffer
 import scalaz.syntax.std.map._
 
+import scala.annotation.tailrec
+
 object ScenarioLoader {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  def fromScenario(
-      packages: DamlPackageContainer,
-      scenario: String): (ActiveContractsInMemory, Seq[LedgerEntry], Instant) = {
+  /** When loading from the scenario, we also specify by how much to bump the
+    * ledger end after each entry. This is because in the scenario transaction
+    * ids there might be "gaps" due to passTime instructions (and possibly
+    * others in the future).
+    *
+    * Note that this matters because our ledger implementation typically derive
+    * the transaction ids form the ledger end. So, the ledger end must be
+    * greater than the latest transaction id produced by the scenario runner,
+    * otherwise we'll get duplicates. See
+    * <https://github.com/digital-asset/daml/issues/1079>.
+    */
+  case class LedgerEntryWithLedgerEndIncrement(entry: LedgerEntry, increment: Long)
+
+  def fromScenario(packages: DamlPackageContainer, scenario: String)
+    : (ActiveContractsInMemory, ImmArray[LedgerEntryWithLedgerEndIncrement], Instant) = {
     val (scenarioLedger, scenarioRef) = buildScenarioLedger(packages, scenario)
-    val ledgerEntries = new ArrayBuffer[LedgerEntry](scenarioLedger.scenarioSteps.size)
+    // we store the tx id since later we need to recover how much to bump the
+    // ledger end by, and here the transaction id _is_ the ledger end.
+    val ledgerEntries =
+      new ArrayBuffer[(TransactionId, LedgerEntry)](scenarioLedger.scenarioSteps.size)
     type Acc = (ActiveContractsInMemory, Time.Timestamp, Option[TransactionId])
     val (acs, time, txId) =
       scenarioLedger.scenarioSteps.iterator
@@ -40,8 +56,24 @@ object ScenarioLoader {
           case ((acs, time, mbOldTxId), (stepId @ _, step)) =>
             executeScenarioStep(ledgerEntries, scenarioRef, acs, time, mbOldTxId, stepId, step)
         }
-    // increment the last transaction id returned by the ledger, since we start from there
-    (acs, ledgerEntries, time.toInstant)
+    // now decorate the entries with what the next increment is
+    @tailrec
+    def decorateWithIncrement(
+        processed: BackStack[LedgerEntryWithLedgerEndIncrement],
+        toProcess: ImmArray[(TransactionId, LedgerEntry)])
+      : ImmArray[LedgerEntryWithLedgerEndIncrement] =
+      toProcess match {
+        case ImmArray() => processed.toImmArray
+        // the last one just bumps by 1 -- it does not matter as long as it's
+        // positive
+        case ImmArrayCons((_, entry), ImmArray()) =>
+          (processed :+ LedgerEntryWithLedgerEndIncrement(entry, 1)).toImmArray
+        case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, next), _)) =>
+          decorateWithIncrement(
+            processed :+ LedgerEntryWithLedgerEndIncrement(entry, (nextTxId - entryTxId).toLong),
+            entries)
+      }
+    (acs, decorateWithIncrement(BackStack.empty, ImmArray(ledgerEntries)), time.toInstant)
   }
 
   private def buildScenarioLedger(
@@ -146,7 +178,7 @@ object ScenarioLoader {
   }
 
   private def executeScenarioStep(
-      ledger: ArrayBuffer[LedgerEntry],
+      ledger: ArrayBuffer[(TransactionId, LedgerEntry)],
       scenarioRef: Ref.DefinitionRef,
       acs: ActiveContractsInMemory,
       time: Time.Timestamp,
@@ -190,17 +222,20 @@ object ScenarioLoader {
               case (nid, parties) => (nodeIdWithHash(nid), parties)
             }
             ledger +=
-              Transaction(
-                transactionId,
-                transactionId,
-                "scenario-loader",
-                richTransaction.committer,
-                workflowId,
-                time.toInstant,
-                time.toInstant,
-                recordTx,
-                recordDisclosure.transform((_, v) => v.toSet[String])
-              )
+              (
+                (
+                  txId,
+                  Transaction(
+                    transactionId,
+                    transactionId,
+                    "scenario-loader",
+                    richTransaction.committer,
+                    workflowId,
+                    time.toInstant,
+                    time.toInstant,
+                    recordTx,
+                    recordDisclosure.transform((_, v) => v.toSet[String])
+                  )))
             (newAcs, time, Some(txId))
           case Left(err) =>
             throw new RuntimeException(s"Error when augmenting acs at step $stepId: $err")

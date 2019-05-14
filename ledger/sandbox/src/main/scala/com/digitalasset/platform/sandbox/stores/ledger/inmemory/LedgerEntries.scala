@@ -22,9 +22,11 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
   // Tuple of (ledger end cursor, ledger map). There is never an entry for the initial cursor. End is inclusive.
   private val state = new AtomicReference(Entries(ledgerBeginning, TreeMap.empty))
 
-  private def store(item: T): Long = {
+  private def store(item: T, increment: Long): Long = {
+    require(increment >= 1, s"Non-positive ledger increment $increment")
     val Entries(newOffset, _) = state.updateAndGet({
-      case Entries(ledgerEnd, ledger) => Entries(ledgerEnd + 1, ledger + (ledgerEnd -> item))
+      case Entries(ledgerEnd, ledger) =>
+        Entries(ledgerEnd + increment, ledger + (ledgerEnd -> item))
     })
     if (logger.isTraceEnabled())
       logger.trace("Recording `{}` at offset `{}`", identify(item), newOffset)
@@ -43,8 +45,12 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
   def getSource(offset: Option[Long]): Source[(Long, T), NotUsed] =
     dispatcher.startingAt(offset.getOrElse(ledgerBeginning))
 
-  def publish(item: T): Long = {
-    val newHead = store(item)
+  def publish(item: T): Long =
+    publishWithLedgerEndIncrement(item, 1)
+
+  /** Use this if you want to bump the ledger end by some non-standard amount. */
+  def publishWithLedgerEndIncrement(item: T, increment: Long): Long = {
+    val newHead = store(item, increment)
     dispatcher.signalNewHead(newHead)
     newHead
   }

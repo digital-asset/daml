@@ -68,7 +68,8 @@ object Cli {
       .action((x, c) => c.copy(scenario = Some(x)))
       .text(
         "If set, the sandbox will execute the given scenario on startup and store all the contracts created by it. " +
-          "Two formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used).")
+          "Note that when using --postgres-backend the scenario will be ran only if starting from a fresh database, _not_ when resuming from an existing one. " +
+          "Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used).")
 
     arg[File]("<archive>...")
       .unbounded()
@@ -102,7 +103,12 @@ object Cli {
 
     opt[String]("jdbcurl")
       .optional()
-      .text("The JDBC connection URL to a Postgres database containing the username and password as well. If missing the Sandbox will use an in memory store.")
+      .text("This flag is deprecated -- please use --sql-backend-jdbcurl.")
+      .action((url, config) => config.copy(jdbcUrl = Some(url)))
+
+    opt[String]("sql-backend-jdbcurl")
+      .optional()
+      .text("The JDBC connection URL to a Postgres database containing the username and password as well. If present, the Sandbox will use the database to persist its data.")
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
     //TODO (robert): Think about all implications of allowing users to set the ledger ID.

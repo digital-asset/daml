@@ -8,6 +8,7 @@ import java.time.Instant
 
 import akka.stream.ActorMaterializer
 import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.services.SandboxSubmissionService
@@ -42,7 +43,7 @@ trait TestHelpers {
       "sandbox ledger",
       TimeProvider.Constant(Instant.EPOCH),
       ActiveContractsInMemory.empty,
-      Nil)
+      ImmArray.empty)
     SandboxSubmissionService.createApiService(
       damlPackageContainer,
       IdentifierResolver(pkgId => Future.successful(damlPackageContainer.getPackage(pkgId))),

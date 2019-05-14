@@ -8,6 +8,7 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId}
@@ -21,6 +22,7 @@ import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdForm
 import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContractsInMemory}
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
 import org.slf4j.LoggerFactory
 
@@ -33,14 +35,18 @@ class InMemoryLedger(
     val ledgerId: String,
     timeProvider: TimeProvider,
     acs0: ActiveContractsInMemory,
-    ledgerEntries: Seq[LedgerEntry])
+    ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement])
     extends Ledger {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val entries = {
     val l = new LedgerEntries[LedgerEntry](_.toString)
-    ledgerEntries.foreach(l.publish)
+    ledgerEntries.foreach {
+      case LedgerEntryWithLedgerEndIncrement(entry, increment) =>
+        l.publishWithLedgerEndIncrement(entry, increment)
+        ()
+    }
     l
   }
 

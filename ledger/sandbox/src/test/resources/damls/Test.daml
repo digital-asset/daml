@@ -5,6 +5,8 @@
 daml 1.2
 module Test where
 
+import DA.Time
+
 template Dummy
   with
     operator : Party
@@ -400,6 +402,7 @@ testScenario : Scenario ()
 testScenario = do
   party <- getParty "party"
   submit party (create Dummy with operator = party)
+  pass (days 10)
   submit party (create DummyWithParam with operator = party)
   submit party (create DummyFactory with operator = party)
   return ()

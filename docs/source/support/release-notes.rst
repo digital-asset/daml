@@ -65,6 +65,14 @@ Java Bindings
 
   See `issue #1092 <https://github.com/digital-asset/daml/issues/1092>`__ for details.
 
+Ledger
+~~~~~~
+
+
+- Renamed ``--jdbcurl`` to ``--sql-backend-jdbcurl``. Left ``--jdbcurl`` in place for backwards compat.
+- Fixed issue when loading scenarios making use of ``pass`` into the sandbox, see
+  `#1079 <https://github.com/digital-asset/daml/pull/1079>`_.
+
 .. _release-0-12-17:
 
 0.12.17 - 2019-05-10
