@@ -101,7 +101,7 @@ object IouMain extends App with StrictLogging {
           case Failure(e) =>
             logger.error(s"$newOwner failed to send exercise command: $exerciseCmd", e)
         }
-        // </doc-ref:submit-iou-transfer-accept-exercise-command>
+      // </doc-ref:submit-iou-transfer-accept-exercise-command>
       }
     }(amat)
   } yield ()
