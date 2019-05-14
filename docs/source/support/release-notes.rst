@@ -14,6 +14,11 @@ Java Bindings
 
 - **Bots**: A class called LedgerTestView was added to make bot unit testing possible
 
+Ledger
+~~~~~~
+
+- **BREAKING CHANGE - Contract Keys**: Before, maintainers were incorrectly not checked to be a subset of the signatories, now they are. See `issue #1123 <https://github.com/digital-asset/daml/issues/1123>`__
+
 .. _release-0-12-18:
 
 0.12.18 - 2019-05-20
@@ -54,8 +59,6 @@ DAML
   How to migrate: Always import ``DA.TextMap`` when you want to use the ``TextMap`` type.
 
 - **DAML Standard Library**: Add ``String`` as a compatibility alias for ``Text``.
-
-- **BREAKING CHANGE - Contract Keys**: Before, maintainers were incorrectly not checked to be a subset of the signatories, now they are. See `issue #1123 <https://github.com/digital-asset/daml/issues/1123>`__
 
 Ledger API
 ~~~~~~~~~~
