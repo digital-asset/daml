@@ -4,7 +4,6 @@
 daml 1.2
 module Structure where
 
-type AccountKey = (Party, Text)
 
 -- start of template outline snippet
 template NameOfTemplate
@@ -23,7 +22,7 @@ template NameOfTemplate
     ensure
       -- boolean condition
       True
-    key (exampleParty, exampleParameter) : AccountKey
+    key (exampleParty, exampleParameter) : (Party, Text)
     maintainer exampleParty
     -- a choice goes here; see next section
     -- end of template outline snippet

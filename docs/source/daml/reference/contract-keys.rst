@@ -4,7 +4,7 @@
 Contract keys
 #############
 
-Contract keys are an optional addition to templates. They let you specify a way of uniquely identifying instances of that contract: that can be a single parameter to the template or a combination of parameters (eg, in a tuple).
+Contract keys are an optional addition to templates. They let you specify a way of uniquely identifying contract instances: that can be a single parameter to the template or a combination of parameters (eg, in a tuple).
 
 You can use contract keys to stably refer to a contract, even through iterations of instances of it.
 
@@ -77,7 +77,7 @@ Use ``exerciseByKey`` to exercise a choice on a contract identified by its ``key
 Error messages
 **************
 
-If you don't include the ``maintainer``s in your ``key``, you'll see the following errror::
+If you don't include the ``maintainer``s in your ``key``, you'll see the following error::
 
    Failure to process DAML program, this feature is not currently supported.
    Unbound reference to this in maintainer with evar.
