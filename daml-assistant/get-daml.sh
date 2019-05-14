@@ -11,7 +11,6 @@
 #
 
 set -eu
-readonly ORIGDIR="$(pwd)"
 cleanup() {
   echo "$(tput setaf 3)FAILED TO INSTALL!$(tput sgr 0)"
 }
