@@ -38,9 +38,9 @@ updatePath installOpts output targetPath
         -- since that allows users to modify the environment variable to temporarily
         -- add it to PATH.
         searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
-        when (targetPath `notElem` searchPaths) $ do
-            oldPath <- regQueryStringValue envKey "Path"
-            let newPath = intercalate ";" $ targetPath : split (== ';') oldPath
+        oldPath <- splitSearchPath <$> regQueryStringValue envKey "Path"
+        when (targetPath `notElem` searchPaths && targetPath `notElem` oldPath) $ do
+            let newPath = intercalate [searchPathSeparator] $ targetPath : oldPath
             regSetStringValue envKey "Path" newPath
             -- Ask applications to pick up the change.
             _ <-
