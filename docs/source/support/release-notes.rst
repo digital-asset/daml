@@ -55,6 +55,8 @@ DAML
 
 - **DAML Standard Library**: Add ``String`` as a compatibility alias for ``Text``.
 
+- **BREAKING CHANGE - Contract Keys**: Before, maintainers were incorrectly not checked to be a subset of the signatories, now they are. See `issue #1123 <https://github.com/digital-asset/daml/issues/1123>`__
+
 Ledger API
 ~~~~~~~~~~
 

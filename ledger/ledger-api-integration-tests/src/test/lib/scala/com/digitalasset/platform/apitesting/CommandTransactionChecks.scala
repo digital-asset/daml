@@ -801,6 +801,14 @@ abstract class CommandTransactionChecks
                   RecordField(value = cid2.contractId.asContractId),
                   RecordField(value = textKeyKey(alice, "test-key-2"))))))
           )
+          // failing create when a maintainer is not a signatory
+          _ <- ctx.testingHelpers.failingCreate(
+            "CK-test-alice-create-maintainer-not-signatory",
+            alice,
+            templateIds.maintainerNotSignatory,
+            Record(fields = List(RecordField(value = alice.asParty), RecordField(value = bob.asParty))),
+            Code.INVALID_ARGUMENT,
+            "are not a subset of the signatories")
         } yield {
           succeed
         }

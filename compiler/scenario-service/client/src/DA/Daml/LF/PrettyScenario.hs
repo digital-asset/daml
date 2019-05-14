@@ -287,6 +287,22 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
              )
             )
 
+        Just (FailedAuthorizationSumMaintainersNotSubsetOfSignatories
+          (FailedAuthorization_MaintainersNotSubsetOfSignatories templateId mbLoc signatories maintainers)) ->
+          "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+          <-> "at" <-> prettyMayLocation world mbLoc
+          $$
+            ("failed due to that some parties are maintainers but not signatories: "
+             <->
+             ( fcommasep
+             $ map (prettyParty . Party)
+             $ S.toList
+             $ S.fromList (mapV partyParty maintainers)
+               `S.difference`
+               S.fromList (mapV partyParty signatories)
+             )
+            )
+
         Just (FailedAuthorizationSumFetchMissingAuthorization
           (FailedAuthorization_FetchMissingAuthorization templateId mbLoc authParties stakeholders)) ->
           "fetch of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
