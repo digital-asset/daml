@@ -3,7 +3,7 @@
 
 package com.digitalasset.navigator.json
 
-import com.digitalasset.daml.lf.data.{SortedLookupList, ImmArray}
+import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList}
 import com.digitalasset.navigator.{model => Model}
 import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
 import com.digitalasset.navigator.json.Util._
@@ -81,7 +81,8 @@ object ApiCodecVerbose {
     JsObject(
       propType -> JsString(tagMap),
       propValue -> JsArray(value.value.toImmArray.toSeq.toVector.map {
-        case (k, v) => JsObject(fieldKey -> JsString(k), fieldValue -> apiValueToJsValue(v))
+        case (k, v) =>
+          JsObject(fieldKey -> JsString(k), fieldValue -> apiValueToJsValue(v))
       })
     )
 

@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.data
 
-import org.scalatest.prop.PropertyChecks
+import org.scalatest.prop.{PropertyChecks}
 import org.scalatest.{Matchers, WordSpec}
 
 class SortedLookupListSpec extends WordSpec with Matchers with PropertyChecks {
@@ -15,7 +15,8 @@ class SortedLookupListSpec extends WordSpec with Matchers with PropertyChecks {
       ImmArray.empty[(String, Int)],
       ImmArray("1" -> 1),
       ImmArray("1" -> 1, "2" -> 2, "3" -> 3),
-      ImmArray("2" -> 2, "3" -> 3, "1" -> 1))
+      ImmArray("2" -> 2, "3" -> 3, "1" -> 1)
+    )
 
     val positiveTestCases =
       Table("list", ImmArray("1" -> 1, "1" -> 2), ImmArray("1" -> 1, "2" -> 2, "3" -> 3, "1" -> 2))
@@ -39,7 +40,8 @@ class SortedLookupListSpec extends WordSpec with Matchers with PropertyChecks {
       "list",
       ImmArray("1" -> 1, "1" -> 2),
       ImmArray("1" -> 1, "2" -> 2, "3" -> 3, "1" -> 2),
-      ImmArray("2" -> 2, "3" -> 3, "1" -> 1))
+      ImmArray("2" -> 2, "3" -> 3, "1" -> 1)
+    )
 
     forAll(negativeTestCases)(l => SortedLookupList.fromSortedImmArray(l) shouldBe 'right)
 

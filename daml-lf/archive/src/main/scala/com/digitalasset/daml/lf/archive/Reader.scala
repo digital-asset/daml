@@ -43,7 +43,7 @@ abstract class Reader[+Pkg] {
   final def readArchiveAndVersion(lf: DamlLf.Archive): (Pkg, LanguageMajorVersion) = {
     lf.getHashFunction match {
       case DamlLf.HashFunction.SHA256 =>
-        val payload = lf.getPayload.toByteArray()
+        val payload = lf.getPayload.toByteArray
         val theirHash = PackageId.fromString(lf.getHash) match {
           case Right(hash) => hash
           case Left(err) => throw ParseError(s"Invalid hash: $err")

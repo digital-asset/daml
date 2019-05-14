@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.speedy
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Decode
@@ -51,13 +51,12 @@ object Main extends App {
 
   }
 
-  def defaultCommand(possibleFile: String): Unit = {
+  def defaultCommand(possibleFile: String): Unit =
     if (!Paths.get(possibleFile).toFile.isFile) {
       usage()
       System.exit(1)
     } else
       Repl.repl(possibleFile)
-  }
 
   if (args.isEmpty) {
     usage()
@@ -556,7 +555,7 @@ object Repl {
         QualifiedName.assertFromString("Dummy:Dummy"))
 
     def pDecimal: Parser[Value[Nothing]] = """\d+\.\d+""".r ^^ { s =>
-      ValueDecimal(BigDecimal(s))
+      ValueDecimal(Decimal.assertFromString(s))
     }
     def pInt64: Parser[Value[Nothing]] = """\d+""".r ^^ { s =>
       ValueInt64(s.toLong)

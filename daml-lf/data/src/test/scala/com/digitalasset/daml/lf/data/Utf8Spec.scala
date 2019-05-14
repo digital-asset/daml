@@ -12,7 +12,7 @@ import scala.collection.JavaConverters._
 import scala.util.Random
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class UTF8Spec extends WordSpec with Matchers {
+class Utf8Spec extends WordSpec with Matchers {
 
   private def codepointToString(cp: Int): String =
     Character.toChars(cp).mkString
@@ -47,7 +47,7 @@ class UTF8Spec extends WordSpec with Matchers {
 
     "explode properly counter example" in {
       "a¶‱😂".toList shouldNot be(List("a", "¶", "‱", "😂"))
-      UTF8.explode("a¶‱😂") shouldBe ImmArray("a", "¶", "‱", "😂")
+      Utf8.explode("a¶‱😂") shouldBe ImmArray("a", "¶", "‱", "😂")
     }
 
     "explode in a same way a naive implementation" in {
@@ -55,7 +55,7 @@ class UTF8Spec extends WordSpec with Matchers {
         ImmArray(s.codePoints().iterator().asScala.map(codepointToString(_)).toIterable)
 
       forAll(strings) { s =>
-        naiveExplode(s) == UTF8.explode(s)
+        naiveExplode(s) == Utf8.explode(s)
       }
 
     }
@@ -63,33 +63,33 @@ class UTF8Spec extends WordSpec with Matchers {
 
   "Unicode.Ordering" should {
 
-    "do not have basic UTF16 ordering issue" in {
+    "do not have basic Utf16 ordering issue" in {
       val s1 = "｡"
       val s2 = "😂"
       val List(cp1) = s1.codePoints().iterator().asScala.toList
       val List(cp2) = s2.codePoints().iterator().asScala.toList
 
       Ordering.String.lt(s1, s2) shouldNot be(Ordering.Int.lt(cp1, cp2))
-      UTF8.ordering.lt(s1, s2) shouldBe Ordering.Int.lt(cp1, cp2)
+      Utf8.Ordering.lt(s1, s2) shouldBe Ordering.Int.lt(cp1, cp2)
     }
 
     "be reflexive" in {
       forAll(strings) { x =>
-        UTF8.ordering.compare(x, x) == 0
+        Utf8.Ordering.compare(x, x) == 0
       }
     }
 
     "consistent when flipping its arguments" in {
       forAll(strings, strings) { (x, y) =>
-        UTF8.ordering.compare(x, y).signum == -UTF8.ordering.compare(y, x).signum
+        Utf8.Ordering.compare(x, y).signum == -Utf8.Ordering.compare(y, x).signum
       }
     }
 
     "be transitive" in {
-      import UTF8.ordering.lteq
+      import Utf8.Ordering.lteq
 
       forAll(strings, strings, strings) { (x_, y_, z_) =>
-        val List(x, y, z) = List(x_, y_, z_).sorted(UTF8.ordering)
+        val List(x, y, z) = List(x_, y_, z_).sorted(Utf8.Ordering)
         lteq(x, y) && lteq(y, z) && lteq(x, z)
       }
     }
@@ -98,11 +98,11 @@ class UTF8Spec extends WordSpec with Matchers {
 
       val shuffledCodepoints = new Random(0).shuffle(validCodepoints)
 
-      // Sort according UTF16
+      // Sort according Utf16
       val negativeCase = shuffledCodepoints.sorted
 
       // Sort according our ad hoc ordering
-      val positiveCase = shuffledCodepoints.sorted(UTF8.ordering)
+      val positiveCase = shuffledCodepoints.sorted(Utf8.Ordering)
 
       negativeCase shouldNot be(validCodepoints)
       positiveCase shouldBe validCodepoints
@@ -116,14 +116,14 @@ class UTF8Spec extends WordSpec with Matchers {
         Ordering.by((s: String) => s.codePoints().toArray.toIterable)
 
       forAll(Gen.listOfN(20, strings)) { list =>
-        list.sorted(naiveOrdering) == list.sorted(UTF8.ordering)
+        list.sorted(naiveOrdering) == list.sorted(Utf8.Ordering)
       }
 
     }
 
     "be strict on individual codepoints" in {
       (validCodepoints zip validCodepoints.tail).foreach {
-        case (x, y) => UTF8.ordering.compare(x, y) should be < 0
+        case (x, y) => Utf8.Ordering.compare(x, y) should be < 0
       }
     }
 

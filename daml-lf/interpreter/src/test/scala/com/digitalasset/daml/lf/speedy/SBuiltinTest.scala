@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.speedy
 import java.util
 
 import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.data.{Decimal, FrontStack, Ref, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
@@ -16,6 +16,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
 
 import scala.collection.immutable.HashMap
+import scala.language.implicitConversions
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks {
@@ -209,9 +210,9 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "MUL_DECIMAL" - {
       "throws exception in case of overflow" in {
-        eval(e"MUL_DECIMAL 1.1 2.2") shouldBe Right(SDecimal(2.42))
+        eval(e"MUL_DECIMAL 1.1 2.2") shouldBe Right(SDecimal(decimal(2.42)))
         eval(e"MUL_DECIMAL $bigBigDecimal $bigBigDecimal") shouldBe 'left
-        eval(e"MUL_DECIMAL ${1E13} ${1E14}") shouldBe Right(SDecimal(1E27))
+        eval(e"MUL_DECIMAL ${1E13} ${1E14}") shouldBe Right(SDecimal(decimal(1E27)))
         eval(e"MUL_DECIMAL ${1E14} ${1E14}") shouldBe 'left
       }
     }
@@ -237,23 +238,22 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           (10, d, d)
         )
 
-        forEvery(testCases) { (rounding, decimal, result) =>
-          eval(e"ROUND_DECIMAL $rounding $decimal") shouldBe Right(SDecimal(BigDecimal(result)))
+        forEvery(testCases) { (rounding, input, result) =>
+          eval(e"ROUND_DECIMAL $rounding $input") shouldBe Right(SDecimal(BigDecimal(result)))
         }
       }
     }
 
-    "Decimal binary operations computes proper results" in {
+    "Decimal binary operations compute proper results" in {
 
-      val testCases = Table[String, (BigDecimal, BigDecimal) => Either[Any, SValue]](
+      def round(x: BigDecimal) = x.setScale(10, BigDecimal.RoundingMode.HALF_EVEN)
+
+      val testCases = Table[String, (Decimal, Decimal) => Either[Any, SValue]](
         ("builtin", "reference"),
-        ("ADD_DECIMAL", (a, b) => Decimal.checkWithinBoundsAndRound(a + b).map(SDecimal)),
-        ("SUB_DECIMAL", (a, b) => Decimal.checkWithinBoundsAndRound(a - b).map(SDecimal)),
-        ("MUL_DECIMAL", (a, b) => Decimal.checkWithinBoundsAndRound(a * b).map(SDecimal)),
-        (
-          "DIV_DECIMAL",
-          (a, b) =>
-            if (b == 0) Left(()) else Decimal.checkWithinBoundsAndRound(a / b).map(SDecimal)),
+        ("ADD_DECIMAL", (a, b) => Right(SDecimal(a + b))),
+        ("SUB_DECIMAL", (a, b) => Right(SDecimal(a - b))),
+        ("MUL_DECIMAL", (a, b) => Right(SDecimal(round(a * b)))),
+        ("DIV_DECIMAL", (a, b) => Either.cond(b != 0, SDecimal(round(a / b)), ())),
         ("LESS_EQ_DECIMAL", (a, b) => Right(SBool(a <= b))),
         ("GREATER_EQ_DECIMAL", (a, b) => Right(SBool(a >= b))),
         ("LESS_DECIMAL", (a, b) => Right(SBool(a < b))),
@@ -264,7 +264,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       forEvery(testCases) { (builtin, ref) =>
         forEvery(decimals) { a =>
           forEvery(decimals) { b =>
-            eval(e"$builtin $a $b").left.map(_ => ()) shouldBe ref(BigDecimal(a), BigDecimal(b))
+            eval(e"$builtin $a $b").left
+              .map(_ => ()) shouldBe ref(decimal(BigDecimal(a)), decimal(BigDecimal(b)))
           }
         }
       }
@@ -650,7 +651,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         val testCases = Table[Long]("Int64", 167, 11, 2, 1, 0, -1, -2, -13, -113)
 
         forEvery(testCases) { int64 =>
-          eval(e"INT64_TO_DECIMAL $int64") shouldBe Right(SDecimal(int64))
+          eval(e"INT64_TO_DECIMAL $int64") shouldBe Right(SDecimal(decimal(int64)))
         }
       }
     }
@@ -761,7 +762,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         val testCases = Table[String, SValue](
           "expression" -> "result",
           "1" -> SInt64(1),
-          "1.0" -> SDecimal(1),
+          "1.0" -> SDecimal(decimal(1)),
           "True" -> SBool(true),
           "()" -> SUnit(()),
           """ "text" """ -> SText("text"),
@@ -827,4 +828,7 @@ object SBuiltinTest {
     args.add(v)
     STuple(entryFields, args)
   }
+
+  private implicit def decimal(x: BigDecimal): Decimal = Decimal.assertFromBigDecimal(x)
+
 }

@@ -90,7 +90,8 @@ object LfEngineToApi {
       value0: LfValue[Lf.AbsoluteContractId]): Either[String, ApiValue] =
     value0 match {
       case Lf.ValueUnit => Right(ApiValue(ApiValue.Sum.Unit(Empty())))
-      case Lf.ValueDecimal(d) => Right(ApiValue(ApiValue.Sum.Decimal(Decimal.toString(d))))
+      case Lf.ValueDecimal(d) =>
+        Right(ApiValue(ApiValue.Sum.Decimal(Decimal.toString(d))))
       case Lf.ValueContractId(c) => Right(ApiValue(ApiValue.Sum.ContractId(c.coid)))
       case Lf.ValueBool(b) => Right(ApiValue(ApiValue.Sum.Bool(b)))
       case Lf.ValueDate(d) => Right(ApiValue(ApiValue.Sum.Date(d.days)))

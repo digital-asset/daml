@@ -69,6 +69,8 @@ class PostgresDaoSpec
 
   private val alice = Party.assertFromString("Alice")
   private val bob = Party.assertFromString("Bob")
+  private val someValueText = ValueText("some text")
+  private val agreement = "agreement"
 
   "Postgres Ledger DAO" should {
 
@@ -82,8 +84,8 @@ class PostgresDaoSpec
           Ref.QualifiedName(
             Ref.ModuleName.assertFromString("moduleName"),
             Ref.DottedName.assertFromString("name"))),
-        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some text")),
-        "agreement"
+        VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
+        agreement
       )
       val keyWithMaintainers = KeyWithMaintainers(
         VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key")),
@@ -144,7 +146,7 @@ class PostgresDaoSpec
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
-        entry shouldEqual (Some(checkpoint))
+        entry shouldEqual Some(checkpoint)
         endingOffset shouldEqual (startingOffset + 1)
       }
     }
@@ -198,8 +200,8 @@ class PostgresDaoSpec
           Ref.QualifiedName(
             Ref.ModuleName.assertFromString("moduleName"),
             Ref.DottedName.assertFromString("name"))),
-        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some text")),
-        "agreement"
+        VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
+        agreement
       )
 
       val keyWithMaintainers = KeyWithMaintainers(
@@ -265,8 +267,8 @@ class PostgresDaoSpec
         val let = Instant.now
         val contractInstance = ContractInst(
           templateId,
-          VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some text")),
-          "agreement"
+          VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
+          agreement
         )
         val contract = Contract(
           absCid,

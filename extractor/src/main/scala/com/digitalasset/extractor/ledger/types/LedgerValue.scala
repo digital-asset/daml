@@ -8,7 +8,7 @@ import api.value.Value.Sum
 import RecordField._
 import scalaz.{Optional => _, _}
 import Scalaz._
-import com.digitalasset.daml.lf.data.{SortedLookupList, ImmArray}
+import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList}
 
 sealed trait LedgerValue
 

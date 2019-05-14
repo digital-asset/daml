@@ -7,7 +7,7 @@ import java.time.{Instant, LocalDate}
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-import com.digitalasset.daml.lf.data.{SortedLookupList, ImmArray}
+import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList}
 import com.digitalasset.ledger.api.{v1 => V1}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.{model => Model}

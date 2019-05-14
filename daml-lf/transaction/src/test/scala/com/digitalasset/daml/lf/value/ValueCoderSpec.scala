@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.EitherAssertions
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.{ValueOuterClass => proto}
@@ -45,8 +45,8 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     "do Decimal" in {
       forAll("Decimal (BigDecimal) invariant") { d: BigDecimal =>
         // we are filtering on decimals invariant under string conversion
-        whenever(Decimal.fromString(Decimal.toString(d)).isRight) {
-          val Right(dec) = Decimal.fromString(Decimal.toString(d))
+        whenever(Decimal.fromBigDecimal(d).isRight) {
+          val Right(dec) = Decimal.fromBigDecimal(d)
           val value = ValueDecimal(dec)
           val recoveredDecimal = ValueCoder.decodeValue[ContractId](
             defaultCidDecode,
