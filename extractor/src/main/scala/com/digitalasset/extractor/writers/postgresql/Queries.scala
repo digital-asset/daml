@@ -300,7 +300,7 @@ object Queries {
             toJsonString(l)
           )
         case LedgerValue.Int64(value) => Fragment("?", value)
-        case LedgerValue.Decimal(value) => Fragment("?::numeric(38,10)", value)
+        case LedgerValue.Decimal(value) => Fragment("?::numeric(38,10)", value: BigDecimal)
         case LedgerValue.Text(value) => Fragment("?", value)
         case LedgerValue.Timestamp(value) =>
           Fragment(

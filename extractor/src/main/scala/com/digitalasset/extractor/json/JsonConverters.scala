@@ -42,7 +42,7 @@ object JsonConverters {
     case LedgerValue.Bool(value) => value.asJson
     case LedgerValue.ContractId(value) => value.asJson
     case LedgerValue.Int64(value) => value.asJson
-    case LedgerValue.Decimal(value) => value.asJson
+    case LedgerValue.Decimal(value) => (value: BigDecimal).asJson
     case LedgerValue.Text(value) => value.asJson
     case LedgerValue.Timestamp(value) => value.asJson
     case LedgerValue.Party(value) => value.asJson
