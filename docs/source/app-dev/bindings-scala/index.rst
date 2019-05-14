@@ -4,8 +4,8 @@
 Scala bindings
 ##############
 
-This tutorial provides a basic Scala programmer's introduction to working with Digital Asset distributed ledger,
-using the Scala programming language and the *Ledger API*.
+This page provides a basic Scala programmer's introduction to working with Digital Asset distributed ledger,
+using the Scala programming language and the **Ledger API**.
 
 Introduction
 ============
@@ -28,10 +28,13 @@ In order to use the Scala bindings, you should be familiar with:
 - `Scala programming language <https://www.scala-lang.org>`_
 - :ref:`assistant-manual-building-dars`
 
-Getting started with sbt
-========================
+Getting started
+===============
 
-Set up the following dependencies in your ``build.sbt``:
+If this is your first experience with the Scala bindings library, we recommend that you start by looking at the
+`quickstart-scala example <https://github.com/digital-asset/daml/tree/master/language-support/scala/examples/quickstart-scala>`_.
+
+To use the Scala bindings, set up the following dependencies in your project:
 
 .. literalinclude:: ./code-snippets/quickstart-scala/build.sbt
    :start-after: // <doc-ref:dependencies>
@@ -54,18 +57,22 @@ We recommend separating generated code and application code into different modul
    :start-after: // <doc-ref:generate-scala>
    :end-before: // </doc-ref:generate-scala>
 
-Here is the entire `build.sbt file <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/build.sbt>`_
+You can get the entire `build.sbt file <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/build.sbt>`__ from the ``daml`` repository on GitHub.
 
-Generating Scala Code from Command Line
-=======================================
+Generating Scala code from the command line
+===========================================
 
 The above example demonstrates how to use Scala codegen from **sbt**. You can also call Scala codegen directly
-from a command line. For information on how to build a **DAR** file from a **DAML** model see :ref:`assistant-manual-building-dars`.
+from a command line.
 
-You can download the `latest version <https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/codegen-main/$latest/codegen-main-$latest.jar?bt_package=sdk-components>`_
-of the Scala codegen command line interface. Make sure that this versions is aligned with the version of the SDK you used to build the **DAR** file.
 
-To run Scala codegen::
+1) Install :doc:`the latest version of the DAML SDK </getting-started/installation>`.
+
+2) Download `the latest version of the Scala codegen command line interface <https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/codegen-main/$latest/codegen-main-$latest.jar?bt_package=sdk-components>`_.
+
+3) Build a **DAR** file from a **DAML** model. Refer to :ref:`assistant-manual-building-dars` for more instructions.
+
+4) Run Scala codegen::
 
     $ java -jar <parth-to-codegen-main-jar> scala <path-to-DAR-file>=<package-name> \
         --output-directory=<path-to-output-directory> --verbosity=<0|1|2|3|4>
@@ -87,10 +94,12 @@ The output above tells that codegen produced Scala classes for 3 templates witho
 Example code
 ============
 
-This section refers to the IOU DAML example from the :doc:`Quickstart guide </getting-started/quickstart>` and
-`quickstart-scala sbt example <https://github.com/digital-asset/daml/tree/master/language-support/scala/examples/quickstart-scala>`_.
+In this section we will demonstrate how to use the Scala bindings library.
 
-Please keep in mind that all Scala examples compiled with ``-Xsource:2.13`` **scalac** option.
+This section refers to the IOU DAML example from the :doc:`Quickstart guide </getting-started/quickstart>` and
+`quickstart-scala example <https://github.com/digital-asset/daml/tree/master/language-support/scala/examples/quickstart-scala>`_ that we already mentioned above.
+
+Please keep in mind that **quickstart-scala example** compiles with ``-Xsource:2.13`` **scalac** option, this is to activate the fix for a Scala bug that forced users to add extra imports for implicits that should not be needed.
 
 Create a Contract and Send a Create Command
 -------------------------------------------
