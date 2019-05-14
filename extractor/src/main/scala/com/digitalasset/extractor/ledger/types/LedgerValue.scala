@@ -133,7 +133,7 @@ object LedgerValue {
 
   private def convertIdentifier(
       apiIdentifier: api.value.Identifier): String \/ Option[Ref.Identifier] = {
-    val api.value.Identifier(packageId, _name @ _, moduleName, entityName) = apiIdentifier
+    val api.value.Identifier(packageId, _, moduleName, entityName) = apiIdentifier
     some(packageId)
       .filter(_.nonEmpty)
       .traverseU { _ =>

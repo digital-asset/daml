@@ -3,7 +3,7 @@
 
 package com.digitalasset.extractor.json
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, SortedLookupList}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, SortedLookupList, Time}
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.extractor.ledger.types.{Identifier, LedgerValue}
 import com.digitalasset.extractor.ledger.types.LedgerValue._
@@ -73,10 +73,7 @@ object JsonConverters {
         JsonObject.fromIterable(m.mapValue(_.asJson).toImmArray.toSeq).asJson).asJson
 
   implicit val idKeyEncoder: KeyEncoder[Identifier] = id => s"${id.packageId}@${id.name}"
-  implicit val idKeyDecoder: KeyDecoder[Identifier] = {
-    case StringEncodedIdentifier(id) => Some(id)
-    case _ => None
-  }
+  implicit val idKeyDecoder: KeyDecoder[Identifier] = StringEncodedIdentifier.unapply
 
   implicit val idEncoder: Encoder[Identifier] = deriveEncoder[Identifier]
   implicit val idDecoder: Decoder[Identifier] = deriveDecoder[Identifier]
@@ -97,6 +94,15 @@ object JsonConverters {
 
   implicit val nameEncoder: Encoder[Ref.Name] =
     Encoder[String].contramap(identity)
+  implicit val partyEncoder: Encoder[Ref.Party] =
+    Encoder[String].contramap(identity)
+
+  // TODO SC this matches the prior behavior of JSON-ing the dates and timestamps
+  // as days-since and micros-since epoch, but maybe we'd like something else?
+  implicit val lfDateEncoder: Encoder[Time.Date] =
+    Encoder[Int].contramap(_.days)
+  implicit val lfTimestampEncoder: Encoder[Time.Timestamp] =
+    Encoder[Long].contramap(_.micros)
 
   implicit val multiTableStateEncoder: Encoder[MultiTableState] = deriveEncoder[MultiTableState]
   implicit val multiTableStateDecoder: Decoder[MultiTableState] = deriveDecoder[MultiTableState]

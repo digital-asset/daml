@@ -3,13 +3,14 @@
 
 package com.digitalasset.extractor.writers.postgresql
 
+import com.digitalasset.daml.lf.data.{Time => LfTime}
+import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.extractor.json.JsonConverters._
 import com.digitalasset.extractor.Types._
 import com.digitalasset.extractor.ledger.types._
 import doobie._
 import doobie.implicits._
 import java.time.{Instant, LocalDate}
-import java.util.concurrent.TimeUnit
 
 import scalaz._
 import Scalaz._
@@ -17,11 +18,7 @@ import Scalaz._
 object Queries {
 
   implicit val timeStampWrite: Write[LedgerValue.Timestamp] =
-    Write[Instant].contramap[LedgerValue.Timestamp] { micros =>
-      val seconds = TimeUnit.MICROSECONDS.toSeconds(micros.value)
-      val deltaMicros = micros.value - TimeUnit.SECONDS.toMicros(seconds)
-      Instant.ofEpochSecond(seconds, TimeUnit.MICROSECONDS.toNanos(deltaMicros))
-    }
+    Write[Instant].contramap[LedgerValue.Timestamp](_.value.toInstant)
 
   def createSchema(schema: String): Fragment =
     Fragment.const(s"CREATE SCHEMA IF NOT EXISTS ${schema}")
@@ -254,9 +251,11 @@ object Queries {
         Fragment("?::jsonb", toJsonString(event.witnessParties)) // _witness_parties
       )
 
-      val contractArgColumns = event.createArguments.fields.map(f => toFragmentNullable(f.value))
+      val contractArgColumns = event.createArguments.fields.map {
+        case (_, value) => toFragmentNullable(value)
+      }
 
-      val columns = baseColumns ++ contractArgColumns
+      val columns = baseColumns ++ contractArgColumns.toSeq
 
       val base = Fragment.const(
         s"INSERT INTO ${table} VALUES ("
@@ -308,14 +307,17 @@ object Queries {
             "?",
             LedgerValue.Timestamp(value)
           )
-        case LedgerValue.Party(value) => Fragment("?", value)
+        case LedgerValue.Party(value) => Fragment("?", value: String)
         case LedgerValue.Unit => Fragment.const("FALSE")
-        case LedgerValue.Date(value) => Fragment("?", LocalDate.ofEpochDay(value.toLong))
+        case LedgerValue.Date(LfTime.Date(days)) => Fragment("?", LocalDate.ofEpochDay(days.toLong))
         case LedgerValue.ValueMap(m) =>
           Fragment(
             "?::jsonb",
             toJsonString(m)
           )
+        case tuple @ V.ValueTuple(_) =>
+          throw new IllegalArgumentException(
+            s"tuple should not be present in contract, as raw tuples are not serializable: $tuple")
       }
     }
   }
