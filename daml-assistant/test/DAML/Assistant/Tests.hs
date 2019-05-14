@@ -377,6 +377,7 @@ testInstall = Tasty.testGroup "DAML.Assistant.Install"
                     , iActivate = ActivateInstall True
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
+                    , iSetPath = SetPath False
                     }
 
             setCurrentDirectory base
@@ -409,6 +410,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
+                    , iSetPath = SetPath False
                     }
 
             setCurrentDirectory base
@@ -435,6 +437,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
+                    , iSetPath = SetPath False
                     }
 
             setCurrentDirectory base
