@@ -292,7 +292,8 @@ ofInterestRule = do
         -- and for the files for which we have open VRs so that they get
         -- updated.
         let scenarioFiles = files `Set.union` vrFiles
-        gc scenarioFiles
+        makeRelative <- getMakeRelative
+        gc makeRelative scenarioFiles
         -- compile and notify any errors
         let runScenarios file = void $ runExceptT $ do
                 world <- lift $ worldForFile file
@@ -309,8 +310,8 @@ ofInterestRule = do
             [runScenarios file | shouldRunScenarios, file <- Set.toList scenarioFiles]
         return ()
   where
-      gc :: Set FilePath -> Action ()
-      gc roots = do
+      gc :: (FilePath -> IO FilePath) -> Set FilePath -> Action ()
+      gc relativize roots = do
         depInfoOrErr <- sequence <$> uses GetDependencyInformation (Set.toList roots)
         -- We only clear results if there are no errors in the
         -- dependency information (in particular, no parse errors).
@@ -326,7 +327,8 @@ ofInterestRule = do
                     -- the roots even though they should be included.
                     roots `Set.union`
                     (Set.insert "" $ foldMap (Map.keysSet . depModuleDeps) depInfo)
-            garbageCollect (`Set.member` reachableFiles)
+            relReachableFiles <- fmap Set.fromList $ liftIO $ mapM relativize $ Set.toList reachableFiles
+            garbageCollect (\fp -> Set.member <$> relativize fp <*> pure relReachableFiles)
           DamlEnv{..} <- getDamlServiceEnv
           liftIO $ whenJust envScenarioService $ \scenarioService -> do
               ctxRoots <- modifyVar envScenarioContexts $ \ctxs -> do

@@ -153,7 +153,7 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
       , resultTime = 0
       }
     else do
-      trace "Clear" $ Compile.unsafeClearDiagnostics service
+      Compile.unsafeClearDiagnostics service
       ex <- try $ mainProj args service outdir log file :: IO (Either SomeException Package)
       diags <- Compile.getDiagnostics service
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)

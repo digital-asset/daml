@@ -42,6 +42,7 @@ module Development.IDE.Types.Diagnostics (
   ) where
 
 import Control.Exception
+import Control.Monad
 import Data.Either.Combinators
 import Data.Maybe as Maybe
 import Data.Foldable
@@ -310,12 +311,13 @@ getStageDiagnostics makeRel fp stage (ProjectDiagnostics ds) = do
         toList <$> Map.lookup (Just $ T.pack $ show stage) f
 
 filterDiagnostics ::
-    (FilePath -> Bool) ->
+    (FilePath -> IO Bool) ->
     ProjectDiagnostics stage ->
-    ProjectDiagnostics stage
+    IO (ProjectDiagnostics stage)
 filterDiagnostics keep =
-    ProjectDiagnostics .
-    Map.filterWithKey (\file _ -> maybe True keep $ uriToFilePath file) .
+    fmap (ProjectDiagnostics . Map.fromList) .
+    filterM (\(file,_) -> maybe (pure True) keep $ uriToFilePath file) .
+    Map.toList .
     getStore .
     removeEmptyStages
 

@@ -40,6 +40,7 @@ module Development.IDE.State.Shake(
     sendEvent,
     Development.IDE.State.Shake.logDebug,
     Development.IDE.State.Shake.logSeriousError,
+    getMakeRelative,
     ) where
 
 import           Development.Shake
@@ -62,7 +63,7 @@ import           Control.Exception
 import           Control.DeepSeq
 import           System.Time.Extra
 import           Data.Typeable
-import           System.FilePath
+import           System.FilePath hiding (makeRelative)
 import qualified Development.Shake as Shake
 import           Control.Monad.Extra
 import           Data.Time
@@ -84,6 +85,9 @@ getShakeExtras :: Action ShakeExtras
 getShakeExtras = do
     Just x <- getShakeExtra @ShakeExtras
     return x
+
+getMakeRelative :: Action (FilePath -> IO FilePath)
+getMakeRelative = makeRelative <$> getShakeExtras
 
 getShakeExtrasRules :: Rules ShakeExtras
 getShakeExtrasRules = do
@@ -270,11 +274,13 @@ unsafeClearAllDiagnostics IdeState{shakeExtras = ShakeExtras{diagnostics}} =
     writeVar diagnostics emptyDiagnostics
 
 -- | Clear the results for all files that do not match the given predicate.
-garbageCollect :: (FilePath -> Bool) -> Action ()
+garbageCollect :: (FilePath -> IO Bool) -> Action ()
 garbageCollect keep = do
     ShakeExtras{state, diagnostics} <- getShakeExtras
-    liftIO $ modifyVar_ state $ return . Map.filterWithKey (\(file,_) _ -> keep file)
-    liftIO $ modifyVar_ diagnostics $ pure . filterDiagnostics keep
+    liftIO $
+        do modifyVar_ state $
+               fmap Map.fromList . filterM (\((file,_),_) -> keep file) . Map.toList
+           modifyVar_ diagnostics $ filterDiagnostics keep
 
 define
     :: IdeRule k v
