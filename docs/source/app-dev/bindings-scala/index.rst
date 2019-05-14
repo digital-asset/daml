@@ -101,11 +101,10 @@ This section refers to the IOU DAML example from the :doc:`Quickstart guide </ge
 
 Please keep in mind that **quickstart-scala example** compiles with ``-Xsource:2.13`` **scalac** option, this is to activate the fix for a Scala bug that forced users to add extra imports for implicits that should not be needed.
 
-Create a Contract and Send a Create Command
--------------------------------------------
+Create a contract and send a CreateCommand
+------------------------------------------
 
-To create a Scala class representing an ``Iou`` contract:
-::
+To create a Scala class representing an ``Iou`` contract::
 
     import com.digitalasset.ledger.client.binding.{Primitive => P}
     import com.digitalasset.quickstart.iou.model.{Iou => M}
@@ -120,19 +119,17 @@ To create a Scala class representing an ``Iou`` contract:
       amount = BigDecimal("1000.00"),
       observers = List())
 
-To send a corresponding create command:
-::
+To send a corresponding :ref:`com.digitalasset.ledger.api.v1.createcommand`::
 
     val createCmd = iou.create
     clientUtil.submitCommand(issuer, issuerWorkflowId, createCmd)
 
-For more details, please refer to the implementation of `com.digitalasset.quickstart.iou.ClientUtil#submitCommand <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/ClientUtil.scala>`_.
+For more details on how to submit a command, please refer to the implementation of `com.digitalasset.quickstart.iou.ClientUtil#submitCommand <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/ClientUtil.scala>`_.
 
-Receive a Transaction, Exercise a Choice and Send an Exercise Command
+Receive a transaction, exercise a choice and send an ExerciseCommand
 ---------------------------------------------------------------------
 
-To receive a transaction and decode a create event for ``IouTransfer`` contract:
-::
+To receive a transaction and decode a :ref:`com.digitalasset.ledger.api.v1.createdevent` for ``IouTransfer`` contract::
 
     private val newOwner = P.Party("Bob")
     ...
@@ -144,10 +141,9 @@ To receive a transaction and decode a create event for ``IouTransfer`` contract:
       }
     }
 
-To exercise ``IouTransfer_Accept`` choice on the received ``IourTransfer`` contract and send a corresponding exercise command:
-::
+To exercise ``IouTransfer_Accept`` choice on the received ``IourTransfer`` contract and send a corresponding :ref:`com.digitalasset.ledger.api.v1.exercisecommand`::
 
     val exerciseCmd = contract.contractId.exerciseIouTransfer_Accept(actor = newOwner)
     clientUtil.submitCommand(newOwner, newOwnerWorkflowId, exerciseCmd)
 
-Fore more details, please refer to the `com.digitalasset.quickstart.iou.IouMain#newOwnerAcceptsAllTransfers <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala>`_.
+Fore more details on how to subscribe to all events for a particular party, please refer to the implementation of `com.digitalasset.quickstart.iou.IouMain#newOwnerAcceptsAllTransfers <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala>`_.
