@@ -46,6 +46,8 @@ private class PostgresLedgerDao(
     keyHasher: KeyHasher)
     extends LedgerDao {
 
+  import Ref.Party.{assertFromString => toParty}
+
   private val logger = LoggerFactory.getLogger(getClass)
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
@@ -448,7 +450,7 @@ private class PostgresLedgerDao(
             Seq[NamedParameter](
               "transaction_id" -> tx.transactionId,
               "event_id" -> eventId,
-              "party" -> p
+              "party" -> (p: String)
           ))
     }
     if (disclosureParams.nonEmpty) {
@@ -651,13 +653,13 @@ private class PostgresLedgerDao(
         .on("transaction_id" -> transactionId)
         .as(DisclosureParser.*)
         .groupBy(_._1)
-        .mapValues(_.map(_._2).toSet)
+        .transform((_, v) => v.map(x => toParty(x._2)).toSet)
 
       offset -> LedgerEntry.Transaction(
         commandId,
         transactionId,
         applicationId,
-        submitter,
+        toParty(submitter),
         workflowId,
         effectiveAt.toInstant,
         recordedAt.toInstant,
@@ -681,7 +683,12 @@ private class PostgresLedgerDao(
         offset) =>
       val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
       offset -> LedgerEntry
-        .Rejection(recordedAt.toInstant, commandId, applicationId, submitter, rejectionReason)
+        .Rejection(
+          recordedAt.toInstant,
+          commandId,
+          applicationId,
+          Ref.Party.assertFromString(submitter),
+          rejectionReason)
     case ParsedEntry(
         "checkpoint",
         None,

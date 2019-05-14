@@ -104,10 +104,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       eventFilter: TemplateAwareFilter): Option[PTransaction] = {
     val events =
       TransactionConversion
-        .genToFlatTransaction(
-          trans.transaction,
-          trans.explicitDisclosure.mapValues(set => set.toSet[String]),
-          verbose)
+        .genToFlatTransaction(trans.transaction, trans.explicitDisclosure, verbose)
         .flatMap(eventFilter.filterEvent(_).toList)
 
     val submitterIsSubscriber =

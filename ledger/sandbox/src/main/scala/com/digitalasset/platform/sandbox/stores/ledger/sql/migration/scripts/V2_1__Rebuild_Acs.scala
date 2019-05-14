@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VContractId}
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.ledger.backend.api.v1.RejectionReason._
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
@@ -738,7 +738,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
             // Recover the original transaction that can be used as input to Blinding.blind.
             // Here we do not convert absolute contract IDs back to relative ones,
             // as this should not affect the blinding.
-            val toCoid: AbsoluteContractId => ContractId = identity
+            val toCoid: AbsoluteContractId => VContractId = identity
             val unmappedTx: Transaction.Transaction = tx.transaction
               .mapNodeId(SandboxEventIdFormatter.split(_).get.nodeId)
               .mapContractIdAndValue(toCoid, _.mapContractId(toCoid))

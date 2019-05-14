@@ -120,7 +120,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
           transactionWithEventIds,
           blindingInfo.explicitDisclosure.map {
             case (nodeId, parties) =>
-              nodeIdToEventId(trans.transactionId, nodeId) -> parties.toSet[String]
+              nodeIdToEventId(trans.transactionId, nodeId) -> parties
           },
           verbose
         )

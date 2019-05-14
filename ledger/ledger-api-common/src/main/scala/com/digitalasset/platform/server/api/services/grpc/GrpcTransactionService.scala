@@ -84,7 +84,7 @@ class GrpcTransactionService(
       offset: String,
       verbose: Boolean): TransactionTree = {
     val mappedDisclosure =
-      visibleTx.disclosureByNodeId.transform((_, v) => v.toSet[String])
+      visibleTx.disclosureByNodeId
 
     val events = TransactionConversion
       .genToApiTransaction(

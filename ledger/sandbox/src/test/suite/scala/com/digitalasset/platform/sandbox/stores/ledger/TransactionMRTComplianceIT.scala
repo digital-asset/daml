@@ -8,7 +8,7 @@ import java.time.Instant
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.Transaction.{ContractId, NodeId, Value}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.ledger.api.testing.utils.{
@@ -74,7 +74,7 @@ class TransactionMRTComplianceIT
       val submission = TransactionSubmission(
         "cmdId",
         "wfid",
-        "submitter",
+        Ref.Party.assertFromString("submitter"),
         LET,
         MRT,
         "appId",

@@ -240,7 +240,7 @@ object ScenarioLoader {
                     time.toInstant,
                     time.toInstant,
                     recordTx,
-                    recordDisclosure.transform((_, v) => v.toSet[String])
+                    recordDisclosure
                   )))
             (newAcs, time, Some(txId))
           case Left(err) =>

@@ -62,7 +62,7 @@ import com.digitalasset.daml.lf.transaction.BlindingInfo
 case class TransactionSubmission(
     commandId: String,
     workflowId: String,
-    submitter: String,
+    submitter: Party,
     ledgerEffectiveTime: Instant,
     maximumRecordTime: Instant,
     applicationId: String,

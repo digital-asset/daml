@@ -147,7 +147,7 @@ class InMemoryLedger(
               tx.ledgerEffectiveTime,
               recordTime,
               recordTx,
-              recordBlinding.transform((_, v) => v.toSet[String])
+              recordBlinding
             )
           entries.publish(entry)
           ()

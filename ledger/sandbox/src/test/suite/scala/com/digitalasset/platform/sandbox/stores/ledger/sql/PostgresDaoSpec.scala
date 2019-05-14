@@ -41,6 +41,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
+import scala.language.implicitConversions
 
 //TODO: use scalacheck when we have generators available for contracts and transactions
 class PostgresDaoSpec
@@ -427,5 +428,7 @@ class PostgresDaoSpec
     }
 
   }
+
+  private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
 
 }

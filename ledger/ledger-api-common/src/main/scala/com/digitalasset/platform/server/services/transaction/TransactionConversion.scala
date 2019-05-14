@@ -21,19 +21,17 @@ import scala.collection.breakOut
 
 trait TransactionConversion {
 
-  type Party = String
+  type Party = LfRef.Party
   type EventId = String
 
   def genToApiTransaction(
       transaction: P.GenTransaction[EventId, AbsoluteContractId],
       explicitDisclosure: Relation[EventId, Party],
       verbose: Boolean = false): TransactionTreeNodes = {
-    val disclosure: Map[EventId, Set[LfRef.Party]] =
-      explicitDisclosure.mapValues(parties => parties.map(LfRef.Party.assertFromString))
-    val events = engine.Event.collectEvents(transaction, disclosure)
+    val events = engine.Event.collectEvents(transaction, explicitDisclosure)
     eventsToTransaction(events, verbose)
   }
-  private def convert(ps: Set[LfRef.Party]): Seq[Party] = ps.toSeq
+  private def convert(ps: Set[LfRef.Party]): Seq[String] = ps.toSeq
 
   def eventsToTransaction(
       allEvents: P.Events[EventId, AbsoluteContractId],
@@ -64,7 +62,7 @@ trait TransactionConversion {
       rootEventIds: List[String]): TransactionTreeNodes = {
 
     val result =
-      rootEventIds.foldRight(InvisibleRootRemovalState(false, eventsById, Nil)) {
+      rootEventIds.foldRight(InvisibleRootRemovalState(rootsWereReplaced = false, eventsById, Nil)) {
         case (eventId, InvisibleRootRemovalState(hasInvisibleRoot, filteredEvents, newRoots)) =>
           val event = eventsById
             .getOrElse(
@@ -76,7 +74,7 @@ trait TransactionConversion {
             InvisibleRootRemovalState(hasInvisibleRoot, filteredEvents, eventId :: newRoots)
           else
             InvisibleRootRemovalState(
-              true,
+              rootsWereReplaced = true,
               filteredEvents - eventId,
               Tag.unsubst(event.children) ++: newRoots)
       }
@@ -150,7 +148,8 @@ trait TransactionConversion {
     val events = engine.Event
       .collectEvents(
         transaction,
-        explicitDisclosure.mapValues(parties => parties.map(LfRef.Party.assertFromString)))
+        explicitDisclosure
+      )
     val allEvents = events.roots.toSeq
       .sortBy(getEventIndex)
       .foldLeft(List.empty[Event])((l, evId) => l ::: flattenEvents(events.events, evId, verbose))

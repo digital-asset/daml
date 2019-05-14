@@ -3,6 +3,7 @@
 
 package com.digitalasset.ledger.backend.api
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 
@@ -34,8 +35,8 @@ package object v1 {
   /** Identifiers for [[LedgerSyncEvent]]'s, MUST match regexp [a-zA-Z0-9-]. */
   type LedgerSyncOffset = String
 
-  /** Identifiers for parties, MUST match regexp [a-zA-Z0-9-]. */
-  type Party = String
+  /** Identifiers for parties */
+  type Party = Ref.Party
 
   /** The type for an yet uncommitted transaction with relative contact
     *  identifiers, submitted via 'submitTransaction'.
