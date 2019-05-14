@@ -3,7 +3,14 @@
 
 package com.digitalasset.extractor.json
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, SortedLookupList, Time}
+import com.digitalasset.daml.lf.data.{
+  Decimal => LfDecimal,
+  FrontStack,
+  ImmArray,
+  Ref,
+  SortedLookupList,
+  Time
+}
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.extractor.ledger.types.{Identifier, LedgerValue}
 import com.digitalasset.extractor.ledger.types.LedgerValue._
@@ -42,7 +49,7 @@ object JsonConverters {
     case LedgerValue.Bool(value) => value.asJson
     case LedgerValue.ContractId(value) => value.asJson
     case LedgerValue.Int64(value) => value.asJson
-    case LedgerValue.Decimal(value) => (value: BigDecimal).asJson
+    case LedgerValue.Decimal(value) => LfDecimal.toString(value).asJson
     case LedgerValue.Text(value) => value.asJson
     case LedgerValue.Timestamp(value) => value.asJson
     case LedgerValue.Party(value) => value.asJson
