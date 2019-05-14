@@ -1,8 +1,8 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML reference docs
-###################
+Language reference docs
+#######################
 
 This section contains a reference to writing templates for DAML contracts. It includes:
 
@@ -18,5 +18,6 @@ This section contains a reference to writing templates for DAML contracts. It in
    Expressions <expressions>
    Functions <functions>
    Scenarios <scenarios>
+   base
    File structure <file-structure>
 

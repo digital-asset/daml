@@ -8,6 +8,7 @@ module DAML.Assistant.Cache
     ) where
 
 import DAML.Assistant.Types
+import DAML.Assistant.Util
 import DAML.Project.Config
 import Control.Exception.Safe
 import Control.Monad.Extra
@@ -40,7 +41,7 @@ cacheLatestSdkVersion
     -> IO (Maybe SdkVersion)
     -> IO (Maybe SdkVersion)
 cacheLatestSdkVersion damlPath getVersion = do
-    damlConfigE <- try $ readDamlConfig damlPath
+    damlConfigE <- tryConfig $ readDamlConfig damlPath
     let updateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
         defaultUpdateCheck = UpdateCheckEvery (CacheTimeout 86400)
     case fromMaybe defaultUpdateCheck updateCheckM of

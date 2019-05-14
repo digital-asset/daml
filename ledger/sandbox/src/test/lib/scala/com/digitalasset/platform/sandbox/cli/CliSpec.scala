@@ -101,9 +101,14 @@ class CliSpec extends WordSpec with Matchers {
       checkOption(Array(s"--ledgerid", ledgerId), _.copy(ledgerIdMode = Predefined(ledgerId)))
     }
 
-    "parse the jdbc url when given" in {
+    "parse the jdbcurl (deprecated) when given" in {
       val jdbcUrl = "jdbc:postgresql://localhost:5432/test?user=test"
       checkOption(Array(s"--jdbcurl", jdbcUrl), _.copy(jdbcUrl = Some(jdbcUrl)))
+    }
+
+    "parse the sql backend flag when given" in {
+      val jdbcUrl = "jdbc:postgresql://localhost:5432/test?user=test"
+      checkOption(Array(s"--sql-backend-jdbcurl", jdbcUrl), _.copy(jdbcUrl = Some(jdbcUrl)))
     }
 
   }

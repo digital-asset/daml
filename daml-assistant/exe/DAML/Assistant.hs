@@ -11,6 +11,7 @@ import DAML.Project.Config
 import DAML.Assistant.Types
 import DAML.Assistant.Env
 import DAML.Assistant.Command
+import DAML.Assistant.Version
 import DAML.Assistant.Install
 import DAML.Assistant.Util
 import System.FilePath
@@ -21,6 +22,9 @@ import System.Exit
 import System.IO
 import Control.Exception.Safe
 import Data.Maybe
+import Data.List.Extra
+import Data.Either.Extra
+import qualified Data.Text as T
 import Control.Monad.Extra
 
 -- | Run the assistant and exit.
@@ -42,25 +46,23 @@ main = displayErrors $ do
 
         -- Project SDK version is outdated.
         when (not isHead && projectSdkVersionIsOld) $ do
-            hPutStrLn stderr . unlines $
+            hPutStr stderr . unlines $
                 [ "WARNING: Using an outdated version of the DAML SDK in project."
-                , ""
                 , "Please set the sdk-version in the project config daml.yaml"
                 , "to the latest stable version " <> versionToString latestVersion
                     <> " like this:"
                 , ""
-                , "sdk-version: " <> versionToString latestVersion
+                , "   sdk-version: " <> versionToString latestVersion
                 , ""
                 ]
 
         -- DAML assistant is outdated.
         when (not isHead && not projectSdkVersionIsOld && assistantVersionIsOld) $ do
-            hPutStrLn stderr . unlines $
+            hPutStr stderr . unlines $
                 [ "WARNING: Using an outdated version of the DAML assistant."
-                , ""
                 , "Please upgrade to the latest stable version by running:"
                 , ""
-                , "daml install latest --activate --force"
+                , "    daml install latest --activate --force"
                 , ""
                 ]
 
@@ -69,15 +71,56 @@ main = displayErrors $ do
     case userCommand of
 
         Builtin Version -> do
-            putStr . unlines $
-              [ "SDK version: "
-              <> maybe "unknown" versionToString envSdkVersion
-              , "Latest stable release: "
-              <> maybe "unknown" versionToString envLatestStableSdkVersion
-              , "Assistant version: "
-              <> maybe "unknown" (versionToString . unwrapDamlAssistantSdkVersion)
-                 envDamlAssistantSdkVersion
-              ]
+            installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
+            defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
+
+            let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
+                envVersions = catMaybes
+                    [ envSdkVersion
+                    , envLatestStableSdkVersion
+                    , asstVersion
+                    ]
+
+                isInstalled =
+                    case installedVersionsE of
+                        Left _ -> const True
+                        Right vs -> (`elem` vs)
+
+                versionAttrs v = catMaybes
+                    [ "active"
+                        <$ guard (Just v == envSdkVersion)
+                    , "default"
+                        <$ guard (Just v == defaultVersionM)
+                    , "assistant"
+                        <$ guard (Just v == asstVersion)
+                    , "latest release"
+                        <$ guard (Just v == envLatestStableSdkVersion)
+                    , "not installed"
+                        <$ guard (not (isInstalled v))
+                    ]
+
+                -- | Workaround for Data.SemVer old unfixed bug (see https://github.com/brendanhay/semver/pull/6)
+                -- TODO: move away from Data.SemVer...
+                versionCompare v1 v2 =
+                    if v1 == v2
+                        then EQ
+                        else compare v1 v2
+
+                versions = nubSortBy versionCompare (envVersions ++ fromRight [] installedVersionsE)
+                versionTable = [ (versionToText v, versionAttrs v) | v <- versions ]
+                versionWidth = maximum (1 : map (T.length . fst) versionTable)
+                versionLines =
+                    [ T.concat
+                        [ "  "
+                        , v
+                        , T.replicate (versionWidth - T.length v) " "
+                        , if null attrs
+                            then ""
+                            else "  (" <> T.intercalate ", " attrs <> ")"
+                        ]
+                    | (v,attrs) <- versionTable ]
+
+            putStr . unpack $ T.unlines ("DAML SDK versions:" : versionLines)
 
         Builtin (Install options) -> wrapErr "Installing the SDK." $ do
             install options envDamlPath envProjectPath

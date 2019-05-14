@@ -43,6 +43,7 @@ da_scala_test(
     deps = [
         ":testing-tools",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",

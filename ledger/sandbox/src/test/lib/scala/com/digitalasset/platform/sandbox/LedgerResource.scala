@@ -10,7 +10,9 @@ import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresResource}
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.Ledger
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
@@ -31,7 +33,7 @@ object LedgerResource {
       ledgerId: String,
       timeProvider: TimeProvider,
       acs: ActiveContractsInMemory = ActiveContractsInMemory.empty,
-      entries: Seq[LedgerEntry] = Nil): Resource[Ledger] =
+      entries: ImmArray[LedgerEntryWithLedgerEndIncrement] = ImmArray.empty): Resource[Ledger] =
     LedgerResource.resource(
       () =>
         Future.successful(
@@ -61,7 +63,7 @@ object LedgerResource {
               postgres.value.jdbcUrl,
               ledgerId,
               timeProvider,
-              Nil,
+              ImmArray.empty,
               128,
               SqlStartMode.AlwaysReset))
         ledger.setup()

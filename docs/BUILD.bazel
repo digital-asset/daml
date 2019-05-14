@@ -87,7 +87,7 @@ genrule(
         cp -rL docs/source source
 
         # Copy in Stdlib
-        cp -rL $(location //daml-foundations/daml-ghc:daml-base-rst-docs) source/daml/stdlib/base.rst
+        cp -rL $(location //daml-foundations/daml-ghc:daml-base-rst-docs) source/daml/reference/base.rst
 
         # Copy in Protobufs
         cp -rL $(location //ledger-api/grpc-definitions:docs) source/app-dev/grpc/proto-docs.rst
@@ -157,7 +157,7 @@ genrule(
         ":theme",
         "//daml-foundations/daml-ghc:daml-base-rst-docs",
         "//daml-foundations/daml-ghc:daml-base-hoogle-docs",
-        "//language-support/java:javadocs",
+        "//language-support/java:javadoc",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -186,8 +186,8 @@ genrule(
             exit 1
         fi
 
-        # Copy Javadoc
-        tar -zxf ../$(locations //language-support/java:javadocs) -C html/app-dev/bindings-java
+        # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary.
+        unzip -f ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db

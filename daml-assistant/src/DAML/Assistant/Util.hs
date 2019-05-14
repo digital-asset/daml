@@ -5,7 +5,6 @@ module DAML.Assistant.Util
     ( module DAML.Assistant.Util
     , ascendants
     , fromRightM
-    , fromMaybeM
     ) where
 
 import DAML.Assistant.Types
@@ -13,7 +12,8 @@ import DAML.Project.Util
 import System.Exit
 import Control.Exception.Safe
 import Control.Applicative
-import Control.Monad.Extra hiding (fromMaybeM)
+import Control.Monad.Extra
+import Data.Either.Extra
 
 -- | Throw an assistant error.
 throwErr :: Text -> IO a
@@ -39,6 +39,18 @@ wrapErr ctx m = m `catches`
         addErrorContext :: AssistantError -> AssistantError
         addErrorContext err =
             err { errContext = errContext err <|> Just ctx }
+
+-- | Catch a config error.
+tryConfig :: IO t -> IO (Either ConfigError t)
+tryConfig = try
+
+-- | Catch an assistant error.
+tryAssistant :: IO t -> IO (Either AssistantError t)
+tryAssistant = try
+
+-- | Catch an assistant error and ignore the error case.
+tryAssistantM :: IO t -> IO (Maybe t)
+tryAssistantM m = eitherToMaybe <$> tryAssistant m
 
 
 -- | Throw an assistant error if the passed value is Nothing.

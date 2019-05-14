@@ -4,7 +4,7 @@
 DAML SDK Documentation
 ======================
 
-Getting Started
+Getting started
 ---------------
 
 .. toctree::
@@ -15,22 +15,20 @@ Getting Started
    getting-started/introduction
    getting-started/quickstart
 
-Modeling Processes with DAML
-----------------------------
+Writing DAML
+------------
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
 
    daml/reference/index
-   daml/stdlib/index
    daml/daml-studio
    daml/testing-scenarios
    daml/troubleshooting
-   daml/1-2-conversion
    daml/good-daml
 
-Building Applications
+Building applications
 ---------------------
 
 .. toctree::
@@ -43,7 +41,7 @@ Building Applications
    app-dev/grpc/index
    app-dev/app-arch
 
-SDK Tools
+SDK tools
 ---------
 
 .. toctree::
@@ -54,7 +52,7 @@ SDK Tools
    tools/sandbox
    tools/navigator/index
 
-Background Concepts
+Background concepts
 -------------------
 
 .. toctree::
@@ -72,7 +70,7 @@ Examples
 
    examples/examples
 
-Experimental Features
+Experimental features
 ---------------------
 
 .. toctree::
@@ -80,8 +78,9 @@ Experimental Features
    :maxdepth: 2
 
    experimental/warning
+   daml-integration-kit/index
 
-Support and Updates
+Support and updates
 -------------------
 
 .. toctree::

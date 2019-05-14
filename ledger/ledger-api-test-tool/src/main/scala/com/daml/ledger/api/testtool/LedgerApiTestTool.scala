@@ -63,8 +63,8 @@ object LedgerApiTestTool {
     }
     var failed = false
 
-    val runSuffix = Random.alphanumeric.take(10).mkString
-    val partyNameMangler = (partyText: String) => s"$partyText-$runSuffix"
+    val runSuffix = "-" + Random.alphanumeric.take(10).mkString
+    val partyNameMangler = (partyText: String) => partyText + runSuffix
     val commandIdMangler: ((QualifiedName, Int, L.NodeId) => String) = (scenario, stepId, nodeId) =>
       s"ledger-api-test-tool-$scenario-$stepId-$nodeId-$runSuffix"
 

@@ -95,7 +95,7 @@ object ValueGenerators {
         (1, Gen.const(Decimal.min)),
         (5, bd)
       )
-      .map(d => ValueDecimal(d))
+      .map(d => ValueDecimal(Decimal.assertFromBigDecimal(d)))
   }
 
   val moduleSegmentGen: Gen[String] = for {
@@ -191,8 +191,9 @@ object ValueGenerators {
 
   private def valueMapGen(nesting: Int) =
     for {
-      list <- Gen.listOf(
-        for { k <- Gen.asciiPrintableStr; v <- Gen.lzy(valueGen(nesting)) } yield k -> v)
+      list <- Gen.listOf(for {
+        k <- Gen.asciiPrintableStr; v <- Gen.lzy(valueGen(nesting))
+      } yield k -> v)
     } yield ValueMap[ContractId](SortedLookupList(Map(list: _*)))
   def valueMapGen: Gen[ValueMap[ContractId]] = valueMapGen(0)
 
@@ -220,10 +221,10 @@ object ValueGenerators {
       )
       val flat = List(
         (sz + 1, dateGen.map(ValueDate)),
-        (sz + 1, Gen.alphaStr.map(ValueText)),
+        (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
         (sz + 1, decimalGen),
         (sz + 1, Arbitrary.arbLong.arbitrary.map(ValueInt64)),
-        (sz + 1, Gen.alphaStr.map(ValueText)),
+        (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
         (sz + 1, timestampGen.map(ValueTimestamp)),
         (sz + 1, coidValueGen),
         (sz + 1, party.map(ValueParty)),

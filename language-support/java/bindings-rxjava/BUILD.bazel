@@ -7,11 +7,15 @@ load(
     "da_scala_test_suite",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
+load("//bazel_tools:java.bzl", "da_java_library")
 
-java_library(
+da_java_library(
     name = "bindings-rxjava",
     srcs = glob(["src/main/java/**/*.java"]),
-    tags = ["maven_coordinates=com.daml.ledger:bindings-rxjava:__VERSION__"],
+    tags = [
+        "javadoc_root_packages=com.daml.ledger.rxjava",
+        "maven_coordinates=com.daml.ledger:bindings-rxjava:__VERSION__",
+    ],
     visibility = [
         "//visibility:public",
     ],
@@ -29,12 +33,6 @@ java_library(
         "//language-support/java/bindings:bindings-java",
         "//ledger-api/rs-grpc-bridge",
     ],
-)
-
-pom_file(
-    name = "bindings-rxjava_pom",
-    target = ":bindings-rxjava",
-    visibility = ["//visibility:public"],
 )
 
 testDependencies = [

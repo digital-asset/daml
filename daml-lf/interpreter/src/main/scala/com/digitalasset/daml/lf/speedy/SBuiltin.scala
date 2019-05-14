@@ -3,7 +3,6 @@
 
 package com.digitalasset.daml.lf.speedy
 
-import java.security.MessageDigest
 import java.util
 
 import com.digitalasset.daml.lf.data.Ref._
@@ -156,7 +155,7 @@ object SBuiltin {
       machine.ctrl = CtrlValue(
         args.get(0) match {
           case SText(t) =>
-            SList(FrontStack(UTF8.explode(t).map(SText)))
+            SList(FrontStack(Utf8.explode(t).map(SText)))
           case _ =>
             throw SErrorCrash(s"type mismatch explodeText: $args")
         }
@@ -174,7 +173,7 @@ object SBuiltin {
               case v =>
                 throw SErrorCrash(s"type mismatch implodeText: expected SText, got $v")
             }
-            SText(ts.iterator.mkString)
+            SText(Utf8.implode(ts.toImmArray))
           case _ =>
             throw SErrorCrash(s"type mismatch implodeText: $args")
         }
@@ -187,7 +186,7 @@ object SBuiltin {
       machine.ctrl = CtrlValue(
         (args.get(0), args.get(1)) match {
           case (SText(head), SText(tail)) =>
-            SText(head ++ tail)
+            SText(head + tail)
           case _ =>
             throw SErrorCrash(s"type mismatch appendText: $args")
         }
@@ -237,16 +236,10 @@ object SBuiltin {
   final case object SBSHA256Text extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
-        case SText(t) => SText(hash(t))
+        case SText(t) => SText(Utf8.sha256(t))
         case _ =>
           throw SErrorCrash(s"type mismatch textSHA256: $args")
       })
-    }
-
-    private def hash(t: String): String = {
-      val digest = MessageDigest.getInstance("SHA-256")
-      val array = digest.digest(UTF8.getBytes(t))
-      array.map("%02x" format _).mkString
     }
   }
 
@@ -307,6 +300,8 @@ object SBuiltin {
   }
 
   final case object SBMapToList extends SBuiltin(1) {
+
+    //  implicit val classTag: ClassTag[Ref.Name.T] = Ref.Name.classTag
 
     private val entryFields =
       Name.Array(Ast.keyFieldName, Ast.valueFieldName)
@@ -437,7 +432,7 @@ object SBuiltin {
         case (SInt64(a), SInt64(b)) => a < b
         case (SDecimal(a), SDecimal(b)) => a < b
         case (STimestamp(a), STimestamp(b)) => a < b
-        case (SText(a), SText(b)) => UTF8.ordering.lt(a, b)
+        case (SText(a), SText(b)) => Utf8.Ordering.lt(a, b)
         case (SDate(a), SDate(b)) => a < b
         case (SParty(a), SParty(b)) => a < b
         case _ =>
@@ -452,7 +447,7 @@ object SBuiltin {
         case (SInt64(a), SInt64(b)) => a <= b
         case (SDecimal(a), SDecimal(b)) => a <= b
         case (STimestamp(a), STimestamp(b)) => a <= b
-        case (SText(a), SText(b)) => UTF8.ordering.lteq(a, b)
+        case (SText(a), SText(b)) => Utf8.Ordering.lteq(a, b)
         case (SDate(a), SDate(b)) => a <= b
         case (SParty(a), SParty(b)) => a <= b
         case _ =>
@@ -467,7 +462,7 @@ object SBuiltin {
         case (SInt64(a), SInt64(b)) => a > b
         case (SDecimal(a), SDecimal(b)) => a > b
         case (STimestamp(a), STimestamp(b)) => a > b
-        case (SText(a), SText(b)) => UTF8.ordering.gt(a, b)
+        case (SText(a), SText(b)) => Utf8.Ordering.gt(a, b)
         case (SDate(a), SDate(b)) => a > b
         case (SParty(a), SParty(b)) => a > b
         case _ =>
@@ -482,7 +477,7 @@ object SBuiltin {
         case (SInt64(a), SInt64(b)) => a >= b
         case (SDecimal(a), SDecimal(b)) => a >= b
         case (STimestamp(a), STimestamp(b)) => a >= b
-        case (SText(a), SText(b)) => UTF8.ordering.gteq(a, b)
+        case (SText(a), SText(b)) => Utf8.Ordering.gteq(a, b)
         case (SDate(a), SDate(b)) => a >= b
         case (SParty(a), SParty(b)) => a >= b
         case _ =>
@@ -1111,9 +1106,8 @@ object SBuiltin {
 
   /** $error :: Text -> a */
   final case object SBError extends SBuiltin(1) {
-    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       throw DamlEUserError(args.get(0).asInstanceOf[SText].value)
-    }
   }
 
   // Helpers

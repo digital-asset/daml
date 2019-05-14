@@ -1,8 +1,8 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Introduction to the product
-###########################
+Introduction to DAML
+####################
 
 DAML -- Digital Asset's language for smart contracts -- is a new paradigm for thinking about, designing, and writing software for multi-party business processes.
 

@@ -1,0 +1,69 @@
+# Azure Pipelines file, see https://aka.ms/yaml
+
+# scheduled triggers are not supported in pipeline syntax yet, so it had to be
+# set up from Azure UI
+trigger: none
+pr: none
+
+jobs:
+  - job: docs
+    timeoutInMinutes: 360
+    pool:
+      name: 'linux-pool'
+    steps:
+      - checkout: self
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - bash: ci/configure-bazel.sh
+        displayName: 'Configure Bazel'
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - bash: |
+          set -euo pipefail
+          echo "Loading dev-env..."
+          eval "$(dev-env/bin/dade-assist)"
+          echo "Building docs listing"
+          DOCDIR=$(Build.StagingDirectory)/docs
+          mkdir -p $DOCDIR
+          LOG=$(Build.StagingDirectory)/log.txt
+          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
+          LATEST=$(echo $RELEASES | awk '{print $1}')
+          JSON_BODY=$(echo $RELEASES | sed -e 's/ /\n/g' | sed -e 's/v\(.*\)/"\1": "v\1",'/g)
+          echo "Building latest docs: $LATEST"
+          git checkout $LATEST >$LOG 2>&1
+          bazel build //docs:docs >$LOG 2>&1
+          tar xzf bazel-genfiles/docs/html.tar.gz --strip-components=1 -C $DOCDIR >$LOG 2>&1
+          # We need to overwrite the versions.json compiled by the build
+          echo "{${JSON_BODY%,}}" | jq '.' > $DOCDIR/versions.json
+          mkdir -p $DOCDIR/${LATEST#v}
+          tar xzf bazel-genfiles/docs/html.tar.gz --strip-components=1 -C $DOCDIR/${LATEST#v} >$LOG 2>&1
+          for version in $(echo $RELEASES | sed -e 's/ /\n/g' | sed '1d'); do
+            echo "Building older docs: $version"
+            git checkout $version >$LOG 2>&1
+            bazel build //docs:docs >$LOG 2>&1
+            mkdir -p $DOCDIR/${version#v}
+            tar xzf bazel-genfiles/docs/html.tar.gz --strip-components=1 -C $DOCDIR/${version#v} >$LOG 2>&1
+          done
+          echo "Pushing to GCS bucket..."
+          GCS_KEY=$(mktemp)
+          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+          gcloud auth activate-service-account --key-file=$GCS_KEY >$LOG 2>&1
+          BOTO_CONFIG=/dev/null gsutil rsync -d -r html gs://daml-docs >$LOG 2>&1
+          echo "Done."
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - task: PublishPipelineArtifact@0
+        condition: always()
+        inputs:
+          targetPath: $(Build.StagingDirectory)/log.txt
+          artifactName: "Logs"
+      - bash: |
+          set -euo pipefail
+          MESSAGE=$(git log --pretty=format:%s -n1)
+          curl -XPOST \
+               -i \
+               -H 'Content-type: application/json' \
+               --data "{\"text\":\"<!here> *FAILED* Daily Docs: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
+               $(Slack.URL)
+        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))

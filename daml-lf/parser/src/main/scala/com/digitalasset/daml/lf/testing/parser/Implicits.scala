@@ -26,11 +26,14 @@ object Implicits {
       Parsers.parseAll(Parsers.phrase(p), sc.standardInterpolator(identity, args.map(prettyPrint)))
   }
 
+  private def toString(x: BigDecimal) =
+    Decimal.toString(Decimal.assertFromBigDecimal(x))
+
   private def prettyPrint(x: Any): String =
     x match {
-      case d: BigDecimal => Decimal.toString(d.bigDecimal)
-      case d: Float => Decimal.toString(d.toDouble)
-      case d: Double => Decimal.toString(d)
+      case d: BigDecimal => toString(d)
+      case d: Float => toString(d.toDouble)
+      case d: Double => toString(d)
       case other: Any => other.toString
     }
 }

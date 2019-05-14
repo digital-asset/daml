@@ -175,7 +175,7 @@ activateDaml env@InstallEnv{..} targetPath = do
                      ]
             else createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
 
-    updatePath (\s -> unlessQuiet env (output s)) damlBinaryTargetDir
+    updatePath options (\s -> unlessQuiet env (output s)) damlBinaryTargetDir
 
 data WalkCallbacks = WalkCallbacks
     { walkOnFile :: FilePath -> IO ()

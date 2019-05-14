@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
+import com.digitalasset.daml.lf.data.Utf8
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -109,9 +110,10 @@ object KeyHasher extends KeyHasher {
     digest.update(ByteBuffer.allocate(8).putLong(value).array())
 
   private[this] def putStringContent(digest: MessageDigest, value: String): Unit =
-    digest.update(value.getBytes("UTF8"))
+    digest.update(Utf8.getBytes(value))
 
   private[this] def putString(digest: MessageDigest, value: String): Unit = {
+    // FixMe we probably should not use UTF16 length.
     putInt(digest, value.length)
     putStringContent(digest, value)
   }
@@ -140,6 +142,7 @@ object KeyHasher extends KeyHasher {
           case HashTokenInt(v) => putInt(d, v)
           case HashTokenLong(v) => putLong(d, v)
           case HashTokenText(v) => putString(d, v)
+          // FixMe we probably should use Decimal.toString
           // Java docs: "The toString() method provides a canonical representation of a BigDecimal."
           case HashTokenBigDecimal(v) => putString(d, v.toString)
           case HashTokenCollectionBegin(length) => putInt(d, length)

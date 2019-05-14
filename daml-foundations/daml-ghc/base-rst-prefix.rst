@@ -3,8 +3,18 @@
 
 .. _stdlib-reference-base:
 
-Base for DAML 1.2
-=================
+The standard library
+====================
 
-The base domain of the DAML standard library contains various modules with
-common definitions and helper functions.
+The DAML standard library is a collection of DAML modules that can be used to implement concrete applications.
+
+Usage
+*****
+
+The standard library is included in the DAML compiler so it can
+be used straight out of the box. You can import modules from the standard library just like your own, for example:
+
+.. code-block:: daml
+
+   import DA.Optional
+   import DA.Time

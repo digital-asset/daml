@@ -70,7 +70,9 @@ object JsonConverters {
   implicit val mapEncoder: Encoder[SortedLookupList[LedgerValue]] = m =>
     JsonObject(
       "Map" ->
-        JsonObject.fromIterable(m.mapValue(_.asJson).toImmArray.toSeq).asJson).asJson
+        JsonObject
+          .fromIterable(m.toImmArray.map { case (k, v) => k -> v.asJson }.toSeq)
+          .asJson).asJson
 
   implicit val idKeyEncoder: KeyEncoder[Identifier] = id => s"${id.packageId}@${id.name}"
   implicit val idKeyDecoder: KeyDecoder[Identifier] = StringEncodedIdentifier.unapply

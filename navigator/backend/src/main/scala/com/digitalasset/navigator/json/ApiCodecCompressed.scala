@@ -57,7 +57,11 @@ object ApiCodecCompressed {
     JsObject(value.fields.map(f => f.label -> apiValueToJsValue(f.value)).toMap)
 
   def apiMapToJsValue(value: Model.ApiMap): JsValue =
-    JsObject(value.value.mapValue(apiValueToJsValue).toHashMap)
+    JsObject(
+      value.value.toImmArray
+        .map { case (k, v) => k -> apiValueToJsValue(v) }
+        .toSeq
+        .toMap)
 
   // ------------------------------------------------------------------------------------------------------------------
   // Decoding - this needs access to DAML-LF types
@@ -88,7 +92,9 @@ object ApiCodecCompressed {
           case None => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
         }
       case (JsObject(a), Model.DamlLfPrimType.Map) =>
-        Model.ApiMap(SortedLookupList(a).mapValue(jsValueToApiType(_, prim.typArgs.head, defs)))
+        Model.ApiMap(SortedLookupList(a.map {
+          case (k, v) => k -> jsValueToApiType(v, prim.typArgs.head, defs)
+        }))
       case _ => deserializationError(s"Can't read ${value.prettyPrint} as $prim")
     }
   }

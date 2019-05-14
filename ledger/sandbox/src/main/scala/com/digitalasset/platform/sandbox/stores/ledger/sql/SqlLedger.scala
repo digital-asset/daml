@@ -10,6 +10,7 @@ import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, Sourc
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
 import akka.{Done, NotUsed}
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.{ImmArray, ImmArrayCons}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
@@ -26,6 +27,7 @@ import com.digitalasset.platform.sandbox.config.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   AlwaysReset,
   ContinueIfExists
@@ -41,7 +43,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
 import org.slf4j.LoggerFactory
 
-import scala.collection.immutable
+import scala.annotation.tailrec
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -68,7 +70,7 @@ object SqlLedger {
       jdbcUrl: String,
       ledgerId: Option[String],
       timeProvider: TimeProvider,
-      ledgerEntries: immutable.Seq[LedgerEntry],
+      initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists)(
       implicit mat: Materializer,
@@ -86,10 +88,12 @@ object SqlLedger {
 
     val sqlLedgerFactory = SqlLedgerFactory(ledgerDao)
 
-    for {
-      sqlLedger <- sqlLedgerFactory.createSqlLedger(ledgerId, timeProvider, startMode, queueDepth)
-      _ <- sqlLedger.loadStartingState(ledgerEntries)
-    } yield sqlLedger
+    sqlLedgerFactory.createSqlLedger(
+      ledgerId,
+      timeProvider,
+      startMode,
+      initialLedgerEntries,
+      queueDepth)
   }
 }
 
@@ -113,6 +117,7 @@ private class SqlLedger(
 
   @volatile
   private var headRef: Long = headAtInitialization
+
   // the reason for modelling persistence as a reactive pipeline is to avoid having race-conditions between the
   // moving ledger-end, the async persistence operation and the dispatcher head notification
   private val (checkpointQueue, persistenceQueue): (
@@ -177,24 +182,6 @@ private class SqlLedger(
     persistenceQueue.complete()
     ledgerDao.close()
   }
-
-  private def loadStartingState(ledgerEntries: immutable.Seq[LedgerEntry]): Future[Unit] =
-    if (ledgerEntries.nonEmpty) {
-      logger.info("initializing ledger with scenario output")
-      implicit val ec: ExecutionContext = DEC
-      //ledger entries must be persisted via the transactionQueue!
-      val fDone = Source(ledgerEntries)
-        .mapAsync(1) { ledgerEntry =>
-          enqueue(_ => ledgerEntry)
-        }
-        .runWith(Sink.ignore)
-
-      // Note: the active contract set stored in the SQL database is updated through the insertion of ledger entries.
-      // The given active contract set is ignored.
-      for {
-        _ <- fDone
-      } yield ()
-    } else Future.successful(())
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] = {
     dispatcher.startingAt(offset.getOrElse(0))
@@ -304,6 +291,8 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     *                        be equal to the one in the database.
     * @param timeProvider    to get the current time when sequencing transactions
     * @param startMode       whether we should start with a clean state or continue where we left off
+    * @param initialLedgerEntries The initial ledger entries -- usually provided by the scenario runner. Will only be
+    *                             used if starting from a fresh database.
     * @param queueDepth      the depth of the buffer for persisting entries. When gets full, the system will signal back-pressure
     *                        upstream
     * @return a compliant Ledger implementation
@@ -312,6 +301,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       initialLedgerId: Option[String],
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
+      initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int)(implicit mat: Materializer): Future[SqlLedger] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val ec = DEC
@@ -320,9 +310,9 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       case AlwaysReset =>
         for {
           _ <- reset()
-          ledgerId <- initialize(initialLedgerId)
+          ledgerId <- initialize(initialLedgerId, initialLedgerEntries)
         } yield ledgerId
-      case ContinueIfExists => initialize(initialLedgerId)
+      case ContinueIfExists => initialize(initialLedgerId, initialLedgerEntries)
     }
 
     for {
@@ -334,32 +324,71 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
   private def reset(): Future[Unit] =
     ledgerDao.reset()
 
-  private def initialize(initialLedgerId: Option[String]): Future[String] = initialLedgerId match {
-    case Some(initialId) =>
-      ledgerDao
-        .lookupLedgerId()
-        .flatMap {
-          case Some(foundLedgerId) if (foundLedgerId == initialId) =>
-            ledgerFound(foundLedgerId)
-          case Some(foundLedgerId) =>
-            val errorMsg =
-              s"Ledger id mismatch. Ledger id given ('$initialId') is not equal to the existing one ('$foundLedgerId')!"
-            logger.error(errorMsg)
-            sys.error(errorMsg)
-          case None =>
-            doInit(initialId).map(_ => initialId)(DEC)
-        }(DEC)
+  private def initialize(
+      initialLedgerId: Option[String],
+      initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Future[String] = {
+    // Note that here we only store the ledger entry and we do not update anything else, such as the
+    // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
+    // step happens before we start up the sql ledger at all, so it's running in isolation.
+    @tailrec
+    def processInitialLedgerEntries(
+        prevResult: Future[Unit],
+        ledgerEnd: Long,
+        entries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Future[Unit] =
+      entries match {
+        case ImmArray() =>
+          prevResult
+        case ImmArrayCons(LedgerEntryWithLedgerEndIncrement(entry, increment), entries) =>
+          processInitialLedgerEntries(
+            prevResult.flatMap { _ =>
+              ledgerDao
+                .storeLedgerEntry(ledgerEnd, ledgerEnd + increment, entry)
+                .map { _ =>
+                  ()
+                }(DEC)
+            }(DEC),
+            ledgerEnd + increment,
+            entries
+          )
+      }
 
-    case None =>
-      logger.info("No ledger id given. Looking for existing ledger in database.")
-      ledgerDao
-        .lookupLedgerId()
-        .flatMap {
-          case Some(foundLedgerId) => ledgerFound(foundLedgerId)
-          case None =>
-            val randomLedgerId = LedgerIdGenerator.generateRandomId()
-            doInit(randomLedgerId).map(_ => randomLedgerId)(DEC)
-        }(DEC)
+    initialLedgerId match {
+      case Some(initialId) =>
+        ledgerDao
+          .lookupLedgerId()
+          .flatMap {
+            case Some(foundLedgerId) if (foundLedgerId == initialId) =>
+              if (initialLedgerEntries.nonEmpty) {
+                logger.warn(
+                  s"Initial ledger entries provided, presumably from scenario, but I'm picking up from an existing database, and thus they will not be used")
+              }
+              ledgerFound(foundLedgerId)
+            case Some(foundLedgerId) =>
+              val errorMsg =
+                s"Ledger id mismatch. Ledger id given ('$initialId') is not equal to the existing one ('$foundLedgerId')!"
+              logger.error(errorMsg)
+              sys.error(errorMsg)
+            case None =>
+              if (initialLedgerEntries.nonEmpty) {
+                logger.info(
+                  s"Initializing ledger with ${initialLedgerEntries.length} ledger entries")
+              }
+              processInitialLedgerEntries(doInit(initialId), 0, initialLedgerEntries).map { _ =>
+                initialId
+              }(DEC)
+          }(DEC)
+
+      case None =>
+        logger.info("No ledger id given. Looking for existing ledger in database.")
+        ledgerDao
+          .lookupLedgerId()
+          .flatMap {
+            case Some(foundLedgerId) => ledgerFound(foundLedgerId)
+            case None =>
+              val randomLedgerId = LedgerIdGenerator.generateRandomId()
+              doInit(randomLedgerId).map(_ => randomLedgerId)(DEC)
+          }(DEC)
+    }
   }
 
   private def ledgerFound(foundLedgerId: String) = {

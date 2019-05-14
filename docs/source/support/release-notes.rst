@@ -9,6 +9,13 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+SDK tools
+~~~~~~~~~
+
+- **DAML Assistant**: We've built a new and improved version of the SDK assistant, replacing ``da`` commands with ``daml`` commands. The documentation is updated to use the new assistant in this release.
+
+  For a full guide to what's changed and how to migrate, see :doc:`/support/new-assistant`. To read about how to use the new ``daml`` Assistant, see :doc:`/tools/assistant`.
+
 DAML
 ~~~~
 
@@ -65,6 +72,14 @@ Java Bindings
 
   See `issue #1092 <https://github.com/digital-asset/daml/issues/1092>`__ for details.
 
+Ledger
+~~~~~~
+
+
+- Renamed ``--jdbcurl`` to ``--sql-backend-jdbcurl``. Left ``--jdbcurl`` in place for backwards compat.
+- Fixed issue when loading scenarios making use of ``pass`` into the sandbox, see
+  `#1079 <https://github.com/digital-asset/daml/pull/1079>`_.
+
 .. _release-0-12-17:
 
 0.12.17 - 2019-05-10
@@ -77,10 +92,6 @@ Java Bindings
   See `issue #987 <https://github.com/digital-asset/daml/issues/987>`__ for details.
 
 - **SDK**: The Windows installer no longer requires elevated privileges.
-
-- **DAML Assistant**: We've built a new and improved version of the SDK assistant, replacing ``da`` commands with ``daml`` commands.
-
-  For a full guide to what's changed and how to migrate, see :doc:`/support/new-assistant`. To read about how to use the new ``daml`` Assistant, see :doc:`/tools/assistant`.
 
 .. _release-0-12-16:
 
@@ -118,6 +129,19 @@ Java Bindings
 - **Ledger API**: Added three new methods to the :ref:`CommandService <com.digitalasset.ledger.api.v1.commandservice>`:
 
   - ``SubmitAndWaitForTransactionId`` returns the transaction ID.
+- Beta release of the Windows SDK:
+  You can download the installer from
+  `GitHub releases <https://github.com/digital-asset/daml/releases>`_.
+  The Windows SDK ships with the new `daml` installer which will soon also
+  become the default on Linux and MacOS. Documentation is still in progress,
+  take a look at the `Migration guide <https://github.com/digital-asset/daml/pull/768>`_
+  and the `updated documentation <https://github.com/digital-asset/daml/pull/740>`_.
+- Add ``fromListWith`` and ``merge`` to ``DA.TextMap``.
+- Release Javadoc artifacts as part of the SDK. See more `here https://github.com/digital-asset/daml/pull/896`
+- Add ``DA.Next.Map`` and ``DA.Next.Set`` and deprecate ``DA.Map`` and ``DA.Set`` in favor of those.
+- Ledger API: Added three new methods to :ref:`CommandService <com.digitalasset.ledger.api.v1.commandservice>`:
+
+  - ``SubmitAndWaitForTransactionId`` returns the transaction id.
   - ``SubmitAndWaitForTransaction`` returns the transaction.
   - ``SubmitAndWaitForTransactionTree`` returns the transaction tree.
 
@@ -337,8 +361,6 @@ No user-facing changes.
 -------------------
 
 - **Documentation**: :doc:`DAML documentation </daml/reference/index>` and :doc:`examples </examples/examples>` now use DAML 1.2.
-
-  To convert your code to DAML 1.2, see the :doc:`conversion guide </daml//1-2-conversion>`.
 - **Documentation**: Added a comprehensive :doc:`quickstart guide </getting-started/quickstart>` that replaces the old "My first project" example.
 
 	As part of this, removed the My first project, IOU and PvP examples.

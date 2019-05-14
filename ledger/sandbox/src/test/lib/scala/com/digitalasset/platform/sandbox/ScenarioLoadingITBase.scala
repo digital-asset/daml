@@ -3,6 +3,9 @@
 
 package com.digitalasset.platform.sandbox
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
 import akka.stream.scaladsl.Sink
 import com.digitalasset.ledger.api.testing.utils.MockMessages.transactionFilter
 import com.digitalasset.ledger.api.testing.utils.{
@@ -24,6 +27,7 @@ import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{Matchers, Suite, WordSpec}
@@ -93,6 +97,18 @@ abstract class ScenarioLoadingITBase
   private def extractEvents(event: Event) =
     event.event.created.toSet
 
+  lazy val dummyRequest = {
+    // we need to adjust the time of the request because we pass 10
+    // days in the test scenario.
+    val letInstant = Instant.EPOCH.plus(10, ChronoUnit.DAYS)
+    val let = Timestamp(letInstant.getEpochSecond, letInstant.getNano)
+    val mrt = Timestamp(let.seconds + 30L, let.nanos)
+    dummyCommands(ledgerId, "commandId1").update(
+      _.commands.ledgerEffectiveTime := let,
+      _.commands.maximumRecordTime := mrt
+    )
+  }
+
   "ScenarioLoading" when {
 
     "contracts have been created" should {
@@ -110,7 +126,7 @@ abstract class ScenarioLoadingITBase
           lookForContract(events, templateIds.dummyWithParam)
           lookForContract(events, templateIds.dummyFactory)
 
-          resp.last should equal(GetActiveContractsResponse("3", "", Seq.empty, None))
+          resp.last should equal(GetActiveContractsResponse("4", "", Seq.empty, None))
         }
       }
 
@@ -135,20 +151,19 @@ abstract class ScenarioLoadingITBase
       }
 
       "does not recycle contract ids" in {
-        val req = dummyCommands(ledgerId, "commandId1")
-        whenReady(submitRequest(SubmitAndWaitRequest(commands = req.commands))) { _ =>
+        whenReady(submitRequest(SubmitAndWaitRequest(commands = dummyRequest.commands))) { _ =>
           whenReady(getSnapshot()) { resp =>
             val responses = resp.init // last response is just ledger offset
             val events = responses.flatMap(extractEvents)
             val contractIds = events.map(_.contractId).toSet
-            contractIds shouldBe Set("#2:0", "#3:1", "#3:0", "#1:0", "#0:0", "#3:2")
+            // note how we skip #1 because of the `pass` that is in the scenario.
+            contractIds shouldBe Set("#2:0", "#4:2", "#3:0", "#4:1", "#0:0", "#4:0")
           }
         }
       }
 
       "event ids are the same as contract ids (ACS)" in {
-        val req = dummyCommands(ledgerId, "commandId1")
-        whenReady(submitRequest(SubmitAndWaitRequest(commands = req.commands))) { _ =>
+        whenReady(submitRequest(SubmitAndWaitRequest(commands = dummyRequest.commands))) { _ =>
           whenReady(getSnapshot()) { resp =>
             val responses = resp.init // last response is just ledger offset
             val events = responses.flatMap(extractEvents)

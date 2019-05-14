@@ -3,7 +3,6 @@
 
 package com.digitalasset.ledger.api.validation
 
-import java.security.MessageDigest
 import java.time.Instant
 
 import com.digitalasset.api.util.TimestampConversion
@@ -485,9 +484,11 @@ class CommandSubmissionRequestValidatorTest
 
       "convert valid maps" in {
         val entries = ImmArray(1 until 5).map { x =>
-          hash(x.toString) -> x.toLong
+          Utf8.sha256(x.toString) -> x.toLong
         }
-        val apiEntries = entries.map { case (k, v) => ApiMap.Entry(k, Some(Value(Sum.Int64(v)))) }
+        val apiEntries = entries.map {
+          case (k, v) => ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
+        }
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
         val lfEntries = entries.map { case (k, v) => k -> Lf.ValueInt64(v) }
         val expected =
@@ -498,14 +499,16 @@ class CommandSubmissionRequestValidatorTest
 
       "reject maps with repeated keys" in {
         val entries = ImmArray(1 +: (1 until 5)).map { x =>
-          hash(x.toString) -> x.toLong
+          Utf8.sha256(x.toString) -> x.toLong
         }
-        val apiEntries = entries.map { case (k, v) => ApiMap.Entry(k, Some(Value(Sum.Int64(v)))) }
+        val apiEntries = entries.map {
+          case (k, v) => ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
+        }
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
         requestMustFailWith(
           sut.validateValue(input),
           INVALID_ARGUMENT,
-          s"Invalid argument: key ${hash(1.toString)} duplicated when trying to build map")
+          s"Invalid argument: key ${Utf8.sha256("1")} duplicated when trying to build map")
       }
 
       "reject maps containing invalid value" in {
@@ -523,9 +526,4 @@ class CommandSubmissionRequestValidatorTest
 
   }
 
-  private def hash(t: String): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val array = digest.digest(UTF8.getBytes(t))
-    array.map("%02x" format _).mkString
-  }
 }

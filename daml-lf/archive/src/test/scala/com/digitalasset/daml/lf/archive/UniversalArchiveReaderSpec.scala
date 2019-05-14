@@ -3,17 +3,19 @@
 
 package com.digitalasset.daml.lf
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles
+
 import java.io.File
 
 import org.scalatest.{FlatSpec, Inside, Matchers}
 
 import scala.util.{Success, Try}
 
-class UniversalArchiveReaderSpec extends FlatSpec with Matchers with Inside {
+class UniversalArchiveReaderSpec extends FlatSpec with Matchers with Inside with BazelRunfiles {
 
-  private val darFile = new File("daml-lf/archive/DarReaderTest.dar")
+  private val darFile = new File(rlocation("daml-lf/archive/DarReaderTest.dar"))
 
-  private val dalfFile = new File("daml-lf/archive/DarReaderTest.dalf")
+  private val dalfFile = new File(rlocation("daml-lf/archive/DarReaderTest.dalf"))
 
   behavior of classOf[UniversalArchiveReader[_]].getSimpleName
 
