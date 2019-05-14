@@ -104,46 +104,51 @@ Please keep in mind that **quickstart-scala example** compiles with ``-Xsource:2
 Create a contract and send a CreateCommand
 ------------------------------------------
 
-To create a Scala class representing an ``Iou`` contract::
+To create a Scala class representing an **IOU** contract, you need the following **imports**:
 
-    import com.digitalasset.ledger.client.binding.{Primitive => P}
-    import com.digitalasset.quickstart.iou.model.{Iou => M}
-    ...
-    private val issuer = P.Party("Alice")
-    ...
+.. literalinclude:: ./code-snippets/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala
+   :start-after: // <doc-ref:imports>
+   :end-before: // </doc-ref:imports>
 
-    val iou = M.Iou(
-      issuer = issuer,
-      owner = issuer,
-      currency = "USD",
-      amount = BigDecimal("1000.00"),
-      observers = List())
+the definition of the **issuer** ``Party``:
 
-To send a corresponding :ref:`com.digitalasset.ledger.api.v1.createcommand`::
+.. literalinclude:: ./code-snippets/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala
+   :start-after: // <doc-ref:issuer-definition>
+   :end-before: // </doc-ref:issuer-definition>
 
-    val createCmd = iou.create
-    clientUtil.submitCommand(issuer, issuerWorkflowId, createCmd)
+and the following code to create an instance of the ``M.Iou`` class:
+
+.. literalinclude:: ./code-snippets/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala
+   :start-after: // <doc-ref:iou-contract-instance>
+   :end-before: // </doc-ref:iou-contract-instance>
+
+To send a :ref:`com.digitalasset.ledger.api.v1.createcommand` (keep in mind the following code snippet is part of the Scala *for comprehension expression*):
+
+.. literalinclude:: ./code-snippets/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala
+   :start-after: // <doc-ref:submit-iou-create-command>
+   :end-before: // </doc-ref:submit-iou-create-command>
 
 For more details on how to submit a command, please refer to the implementation of `com.digitalasset.quickstart.iou.ClientUtil#submitCommand <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/ClientUtil.scala>`_.
 
 Receive a transaction, exercise a choice and send an ExerciseCommand
 ---------------------------------------------------------------------
 
-To receive a transaction and decode a :ref:`com.digitalasset.ledger.api.v1.createdevent` for ``IouTransfer`` contract::
+To receive a transaction as a **newOwner** and decode a :ref:`com.digitalasset.ledger.api.v1.createdevent` for ``IouTransfer`` contract, you need the definition of the **newOwner** ``Party``:
 
-    private val newOwner = P.Party("Bob")
-    ...
-    clientUtil.subscribe(newOwner, offset0, None) { tx =>
-      logger.info(s"$newOwner received transaction: $tx")
-      decodeCreated[M.IouTransfer](tx).foreach { contract: Contract[M.IouTransfer] =>
-        logger.info(s"$newOwner received contract: $contract")
-        ...
-      }
-    }
+.. literalinclude:: ./code-snippets/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala
+   :start-after: // <doc-ref:new-owner-definition>
+   :end-before: // </doc-ref:new-owner-definition>
 
-To exercise ``IouTransfer_Accept`` choice on the received ``IourTransfer`` contract and send a corresponding :ref:`com.digitalasset.ledger.api.v1.exercisecommand`::
+and the following code that handles subscription and decoding:
 
-    val exerciseCmd = contract.contractId.exerciseIouTransfer_Accept(actor = newOwner)
-    clientUtil.submitCommand(newOwner, newOwnerWorkflowId, exerciseCmd)
+.. literalinclude:: ./code-snippets/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala
+   :start-after: // <doc-ref:subscribe-and-decode-iou-transfer>
+   :end-before: // </doc-ref:subscribe-and-decode-iou-transfer>
 
-Fore more details on how to subscribe to all events for a particular party, please refer to the implementation of `com.digitalasset.quickstart.iou.IouMain#newOwnerAcceptsAllTransfers <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala>`_.
+To exercise ``IouTransfer_Accept`` choice on the ``IourTransfer`` contract that you received and send a corresponding :ref:`com.digitalasset.ledger.api.v1.exercisecommand`:
+
+.. literalinclude:: ./code-snippets/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala
+   :start-after: // <doc-ref:submit-iou-transfer-accept-exercise-command>
+   :end-before: // </doc-ref:submit-iou-transfer-accept-exercise-command>
+
+Fore more details on how to subscribe to receive events for a particular party, please refer to the implementation of `com.digitalasset.quickstart.iou.IouMain#newOwnerAcceptsAllTransfers <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala>`_.
