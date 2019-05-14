@@ -65,7 +65,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
     "be stable" in {
       // Hashing function must not change
       val value = VersionedValue(ValueVersion("4"), complexValue)
-      val hash = "ecbc3f9c121e23ef2851c06d77de82d0f58f27acdf9c5fecff9b904ad236621b"
+      val hash = "2b1019f99147ca726baa3a12509399327746f1f9c4636a6ec5f5d7af1e7c2942"
 
       KeyHasher.hashKeyString(GlobalKey(templateId("module", "name"), value)) shouldBe hash
     }
