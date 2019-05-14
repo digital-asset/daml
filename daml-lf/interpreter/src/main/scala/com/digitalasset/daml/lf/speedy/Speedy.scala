@@ -107,7 +107,6 @@ object Speedy {
               throw SpeedyHungry(
                 SResultMissingDefinition(
                   ref, { packages =>
-                    println(s"reloaded packages")
                     this.compiledPackages = packages
                     compiledPackages.getDefinition(ref) match {
                       case Some(body) =>
