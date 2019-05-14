@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.engine
 import java.util
 import java.io.File
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.lfpackage.Ast._
@@ -32,13 +33,13 @@ import scala.language.implicitConversions
     "org.wartremover.warts.Serializable",
     "org.wartremover.warts.Product"
   ))
-class EngineTest extends WordSpec with Matchers {
+class EngineTest extends WordSpec with Matchers with BazelRunfiles {
 
   import EngineTest._
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages =
-      UniversalArchiveReader().readFile(new File(resource)).get
+      UniversalArchiveReader().readFile(new File(rlocation(resource))).get
     val packagesMap = Map(packages.all.map {
       case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
     }: _*)

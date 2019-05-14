@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.archive
 import java.io.File
 import java.util.zip.ZipFile
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.Dar
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf.{DamlLf, DamlLf1}
@@ -15,9 +16,9 @@ import scala.collection.JavaConverters._
 import scala.util.{Success, Try}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class DarReaderTest extends WordSpec with Matchers with Inside {
+class DarReaderTest extends WordSpec with Matchers with Inside with BazelRunfiles {
 
-  private val darFile = resource("daml-lf/archive/DarReaderTest.dar")
+  private val darFile = resource(rlocation("daml-lf/archive/DarReaderTest.dar"))
 
   private def resource(path: String): File = {
     val f = new File(path).getAbsoluteFile

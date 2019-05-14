@@ -10,9 +10,31 @@ set -eu
 
 export LC_ALL="en_US.UTF-8"
 
-REPL=$1
-DAMLC=$2
-TESTMAIN=$3
+# --- begin runfiles.bash initialization ---
+# Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+REPL=$(rlocation "$TEST_WORKSPACE/$1")
+DAMLC=$(rlocation "$TEST_WORKSPACE/$2")
+TESTMAIN=$(rlocation "$TEST_WORKSPACE/$3")
 TESTDIR="$(dirname $TESTMAIN)"
 TESTDAR="$TESTDIR/Main.dar"
 
@@ -24,4 +46,4 @@ $DAMLC package --debug --target $TARGET $TESTMAIN 'main' -o $TESTDAR
 
 $REPL test Test:run $TESTDAR | sed '1d' | sed -E "$REGEX_HIDE_HASHES" > ${TESTDIR}/ACTUAL.ledger
 
-diff ${PWD}/${TESTDIR}/ACTUAL.ledger ${PWD}/${TESTDIR}/EXPECTED.ledger
+diff --strip-trailing-cr ${TESTDIR}/ACTUAL.ledger ${TESTDIR}/EXPECTED.ledger
