@@ -27,7 +27,7 @@ object Implicits {
   }
 
   private def toString(x: BigDecimal) =
-    Decimal.toUtf8String(Decimal.assertFromBigDecimal(x)).javaString
+    Decimal.toString(Decimal.assertFromBigDecimal(x))
 
   private def prettyPrint(x: Any): String =
     x match {

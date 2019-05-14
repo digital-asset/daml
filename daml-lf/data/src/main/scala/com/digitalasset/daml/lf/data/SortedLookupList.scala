@@ -3,26 +3,26 @@
 
 package com.digitalasset.daml.lf.data
 
-import com.digitalasset.daml.lf.data.Utf8String._
 import scalaz.Equal
-import scala.math.Ordering.Implicits._
 import scalaz.std.tuple._
+import scalaz.std.string._
 import scalaz.syntax.equal._
 
 import scala.collection.immutable.HashMap
 
 /** We use this container to pass around DAML-LF maps as flat lists in various parts of the codebase. */
-final class SortedLookupList[+X] private (entries: ImmArray[(Utf8String, X)]) extends Equals {
+// Note that keys are ordered using Utf8 ordering
+final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extends Equals {
 
   def mapValue[Y](f: X => Y) = new SortedLookupList(entries.map { case (k, v) => k -> f(v) })
 
-  def toImmArray: ImmArray[(Utf8String, X)] = entries
+  def toImmArray: ImmArray[(String, X)] = entries
 
-  def keys: ImmArray[Utf8String] = entries.map(_._1)
+  def keys: ImmArray[String] = entries.map(_._1)
 
   def values: ImmArray[X] = entries.map(_._2)
 
-  def toHashMap: HashMap[Utf8String, X] = HashMap(entries.toSeq: _*)
+  def toHashMap: HashMap[String, X] = HashMap(entries.toSeq: _*)
 
   override def canEqual(that: Any): Boolean = that.isInstanceOf[SortedLookupList[_]]
 
@@ -41,28 +41,27 @@ final class SortedLookupList[+X] private (entries: ImmArray[(Utf8String, X)]) ex
 
 object SortedLookupList {
 
-  def fromImmArray[X](entries: ImmArray[(Utf8String, X)]): Either[String, SortedLookupList[X]] = {
+  def fromImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] = {
     entries.toSeq
       .groupBy(_._1)
       .collectFirst {
         case (k, l) if l.size > 1 => s"key $k duplicated when trying to build map"
       }
-      .toLeft(new SortedLookupList(entries.toSeq.sortBy(_._1).toImmArray))
+      .toLeft(new SortedLookupList(entries.toSeq.sortBy(_._1)(Utf8.Ordering).toImmArray))
   }
 
-  def fromSortedImmArray[X](
-      entries: ImmArray[(Utf8String, X)]): Either[String, SortedLookupList[X]] = {
+  def fromSortedImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] = {
     entries
       .map(_._1)
       .toSeq
       .sliding(2)
       .collectFirst {
-        case Seq(k1, k2) if k1 >= k2 => s"the list $entries is not sorted by key"
+        case Seq(k1, k2) if Utf8.Ordering.gteq(k1, k2) => s"the list $entries is not sorted by key"
       }
       .toLeft(new SortedLookupList(entries))
   }
 
-  def apply[X](entries: Map[Utf8String, X]): SortedLookupList[X] =
+  def apply[X](entries: Map[String, X]): SortedLookupList[X] =
     new SortedLookupList(ImmArray(entries.toSeq.sortBy(_._1)))
 
   def empty[X]: SortedLookupList[X] = new SortedLookupList(ImmArray.empty)

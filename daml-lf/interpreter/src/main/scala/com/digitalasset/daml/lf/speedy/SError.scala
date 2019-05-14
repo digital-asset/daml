@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Time, Utf8String}
+import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.daml.lf.types.Ledger
@@ -101,7 +101,6 @@ object SError {
   final case class ScenarioErrorMustFailSucceeded(tx: Transaction) extends SErrorScenario
 
   /** Invalid party name supplied to 'getParty'. */
-  final case class ScenarioErrorInvalidPartyName(name: Utf8String, msg: String)
-      extends SErrorScenario
+  final case class ScenarioErrorInvalidPartyName(name: String, msg: String) extends SErrorScenario
 
 }

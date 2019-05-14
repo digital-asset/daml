@@ -11,7 +11,7 @@ import scala.math.BigDecimal
   *
   *  These are numbers of precision 38 (38 decimal digits), and scale 10 (10 digits after the comma)
   */
-abstract class DecimalModule extends FromString {
+abstract class DecimalModule {
 
   type T <: BigDecimal
 
@@ -92,6 +92,10 @@ abstract class DecimalModule extends FromString {
     else
       Left(s"""Could not read Decimal string "$s"""")
 
+  @throws[IllegalArgumentException]
+  final def assertFromString(s: String): T =
+    assert(fromString(s))
+
   final def toString(d: T): String = {
     // Strip the trailing zeros (which BigDecimal keeps if the string
     // it was created from had them), and use the plain notation rather
@@ -104,9 +108,6 @@ abstract class DecimalModule extends FromString {
     val s = d.bigDecimal.stripTrailingZeros.toPlainString
     if (s.contains(".")) s else s + ".0"
   }
-
-  final def toUtf8String(d: T) =
-    Utf8String(toString(d))
 
   final def fromLong(x: Long): T =
     cast(BigDecimal(new java.math.BigDecimal(x, context)).setScale(scale))

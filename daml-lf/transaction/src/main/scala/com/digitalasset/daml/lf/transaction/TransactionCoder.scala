@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.transaction
 
-import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Utf8String}
+import com.digitalasset.daml.lf.data.{BackStack, ImmArray}
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.digitalasset.daml.lf.data.Ref.{Name, Party}
 import com.digitalasset.daml.lf.transaction.Node._
@@ -45,7 +45,7 @@ object TransactionCoder {
             .newBuilder()
             .setTemplateId(id)
             .setValue(arg)
-            .setAgreement(coinst.agreementText.javaString)
+            .setAgreement(coinst.agreementText)
             .build()
       }
   }
@@ -63,7 +63,7 @@ object TransactionCoder {
     : Either[DecodeError, ContractInst[Val]] = {
     ValueCoder.decodeIdentifier(protoCoinst.getTemplateId).flatMap { id =>
       decodeVal(protoCoinst.getValue)
-        .map(a => ContractInst(id, a, Utf8String(protoCoinst.getAgreement)))
+        .map(a => ContractInst(id, a, (protoCoinst.getAgreement)))
     }
   }
 

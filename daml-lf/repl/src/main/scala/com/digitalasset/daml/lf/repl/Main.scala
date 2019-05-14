@@ -561,7 +561,7 @@ object Repl {
       ValueInt64(s.toLong)
     }
     def pText: Parser[Value[Nothing]] = """\"(\w*)\"""".r ^^ { s =>
-      ValueText(Utf8String(s.stripPrefix("\"").stripSuffix("\"")))
+      ValueText(s.stripPrefix("\"").stripSuffix("\""))
     }
     def pTrue: Parser[Value[Nothing]] = "true" ^^ { _ =>
       ValueBool(true)

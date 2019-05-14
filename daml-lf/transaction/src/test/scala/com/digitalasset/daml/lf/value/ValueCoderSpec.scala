@@ -57,14 +57,14 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
             case Right(ValueDecimal(d)) => d
             case _ => fail("should have got a decimal back")
           }
-          Decimal.toUtf8String(value.value) shouldEqual Decimal.toUtf8String(recoveredDecimal)
+          Decimal.toString(value.value) shouldEqual Decimal.toString(recoveredDecimal)
         }
       }
     }
 
     "do Text" in {
       forAll("Text (String) invariant") { t: String =>
-        val value = ValueText(Utf8String(t))
+        val value = ValueText(t)
         testRoundTrip(value)
       }
     }

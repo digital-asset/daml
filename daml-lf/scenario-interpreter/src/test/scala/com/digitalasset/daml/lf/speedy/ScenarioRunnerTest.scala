@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.data.{Ref, Utf8String}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.lfpackage.Ast.ScenarioGetParty
 import org.scalatest._
@@ -14,9 +14,9 @@ class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
 
   "ScenarioRunner" can {
     "mangle party names correctly" in {
-      val e = Ast.EScenario(ScenarioGetParty(Ast.EPrimLit(Ast.PLText(Utf8String("foo-bar")))))
+      val e = Ast.EScenario(ScenarioGetParty(Ast.EPrimLit(Ast.PLText(("foo-bar")))))
       val m = Speedy.Machine.fromExpr(e, PureCompiledPackages(Map.empty).right.get, true)
-      val sr = ScenarioRunner(m, _ + Utf8String("-XXX"))
+      val sr = ScenarioRunner(m, _ + "-XXX")
       sr.run()
       m.ctrl shouldBe Speedy.CtrlValue(SValue.SParty(Ref.Party.assertFromString("foo-bar-XXX")))
     }

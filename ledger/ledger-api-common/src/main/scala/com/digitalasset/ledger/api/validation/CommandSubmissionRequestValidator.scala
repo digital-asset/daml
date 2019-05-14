@@ -166,7 +166,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
       Time.Timestamp.fromLong(micros).left.map(invalidArgument).map(Lf.ValueTimestamp)
     case Sum.Date(days) =>
       Time.Date.fromDaysSinceEpoch(days).left.map(invalidArgument).map(Lf.ValueDate)
-    case Sum.Text(text) => Right(Lf.ValueText(Utf8String(text)))
+    case Sum.Text(text) => Right(Lf.ValueText(text))
     case Sum.Int64(value) => Right(Lf.ValueInt64(value))
     case Sum.Record(rec) =>
       for {
@@ -195,14 +195,14 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
         validateValue(_).map(v => Lf.ValueOptional(Some(v))))
     case Sum.Map(m) =>
       val entries = m.entries
-        .foldLeft[Either[StatusRuntimeException, FrontStack[(Utf8String, domain.Value)]]](
+        .foldLeft[Either[StatusRuntimeException, FrontStack[(String, domain.Value)]]](
           Right(FrontStack.empty)) {
           case (acc, ApiMap.Entry(key, value0)) =>
             for {
               tail <- acc
               v <- requirePresence(value0, "value")
               validatedValue <- validateValue(v)
-            } yield (Utf8String(key) -> validatedValue) +: tail
+            } yield (key -> validatedValue) +: tail
         }
 
       for {

@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Utf8String}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value.{
@@ -69,8 +69,8 @@ class PostgresDaoSpec
 
   private val alice = Party.assertFromString("Alice")
   private val bob = Party.assertFromString("Bob")
-  private val someValueText = ValueText(Utf8String("some text"))
-  private val agreement = Utf8String("agreement")
+  private val someValueText = ValueText("some text")
+  private val agreement = "agreement"
 
   "Postgres Ledger DAO" should {
 
@@ -88,7 +88,7 @@ class PostgresDaoSpec
         agreement
       )
       val keyWithMaintainers = KeyWithMaintainers(
-        VersionedValue(ValueVersions.acceptedVersions.head, ValueText(Utf8String("key"))),
+        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key")),
         Set(alice)
       )
 
@@ -146,7 +146,7 @@ class PostgresDaoSpec
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
-        entry shouldEqual (Some(checkpoint))
+        entry shouldEqual Some(checkpoint)
         endingOffset shouldEqual (startingOffset + 1)
       }
     }
@@ -205,7 +205,7 @@ class PostgresDaoSpec
       )
 
       val keyWithMaintainers = KeyWithMaintainers(
-        VersionedValue(ValueVersions.acceptedVersions.head, ValueText(Utf8String("key2"))),
+        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key2")),
         Set(Ref.Party.assertFromString("Alice"))
       )
 
@@ -326,16 +326,14 @@ class PostgresDaoSpec
                 None,
                 true,
                 Set(alice),
-                VersionedValue(
-                  ValueVersions.acceptedVersions.head,
-                  ValueText(Utf8String("some choice value"))),
+                VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some choice value")),
                 Set(alice, bob),
                 Set(alice, bob),
                 ImmArray.empty,
                 Some(
                   VersionedValue(
                     ValueVersions.acceptedVersions.head,
-                    ValueText(Utf8String("some exercise result")))),
+                    ValueText("some exercise result"))),
               )),
             ImmArray(s"event$id"),
             Set.empty

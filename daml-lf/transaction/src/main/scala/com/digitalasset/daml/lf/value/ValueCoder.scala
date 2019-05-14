@@ -295,7 +295,7 @@ object ValueCoder {
           case proto.Value.SumCase.INT64 =>
             ValueInt64(protoValue.getInt64)
           case proto.Value.SumCase.TEXT =>
-            ValueText(Utf8String(protoValue.getText))
+            ValueText(protoValue.getText)
           case proto.Value.SumCase.DATE =>
             val d = Time.Date.fromDaysSinceEpoch(protoValue.getDate)
             d.fold(e => throw Err("error decoding date: " + e), ValueDate)
@@ -358,7 +358,7 @@ object ValueCoder {
 
           case proto.Value.SumCase.MAP =>
             val entries = ImmArray(protoValue.getMap.getEntriesList.asScala.map(entry =>
-              Utf8String(entry.getKey) -> go(newNesting, entry.getValue)))
+              (entry.getKey) -> go(newNesting, entry.getValue)))
 
             val map = SortedLookupList
               .fromImmArray(entries)
@@ -415,7 +415,7 @@ object ValueCoder {
           case ValueDecimal(d) =>
             builder.setDecimal(Decimal.toString(d)).build()
           case ValueText(t) =>
-            builder.setText(t.javaString).build()
+            builder.setText(t).build()
           case ValueParty(p) =>
             builder.setParty(p).build()
           case ValueDate(d) =>
@@ -476,7 +476,7 @@ object ValueCoder {
                 protoMap.addEntries(
                   proto.Map.Entry
                     .newBuilder()
-                    .setKey(key.javaString)
+                    .setKey(key)
                     .setValue(go(newNesting, value))
                 )
                 ()

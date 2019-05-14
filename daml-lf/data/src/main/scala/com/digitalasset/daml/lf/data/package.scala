@@ -9,7 +9,7 @@ package object data {
 
   val Decimal: DecimalModule = new DecimalModule {
     type T = BigDecimal
-    def cast(x: BigDecimal): T = x
+    protected def cast(x: BigDecimal): T = x
   }
   type Decimal = Decimal.T
 

@@ -262,7 +262,7 @@ class CommandSubmissionRequestValidatorTest
 
         forEvery(strings) { s =>
           val input = Value(Sum.Text(s))
-          val expected = Lf.ValueText(Utf8String(s))
+          val expected = Lf.ValueText(s)
           sut.validateValue(input) shouldEqual Right(expected)
         }
       }
@@ -484,10 +484,10 @@ class CommandSubmissionRequestValidatorTest
 
       "convert valid maps" in {
         val entries = ImmArray(1 until 5).map { x =>
-          Utf8String(x.toString).sha256 -> x.toLong
+          Utf8.sha256(x.toString) -> x.toLong
         }
         val apiEntries = entries.map {
-          case (k, v) => ApiMap.Entry(k.javaString, Some(Value(Sum.Int64(v))))
+          case (k, v) => ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
         }
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
         val lfEntries = entries.map { case (k, v) => k -> Lf.ValueInt64(v) }
@@ -499,16 +499,16 @@ class CommandSubmissionRequestValidatorTest
 
       "reject maps with repeated keys" in {
         val entries = ImmArray(1 +: (1 until 5)).map { x =>
-          Utf8String(x.toString).sha256 -> x.toLong
+          Utf8.sha256(x.toString) -> x.toLong
         }
         val apiEntries = entries.map {
-          case (k, v) => ApiMap.Entry(k.javaString, Some(Value(Sum.Int64(v))))
+          case (k, v) => ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
         }
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
         requestMustFailWith(
           sut.validateValue(input),
           INVALID_ARGUMENT,
-          s"Invalid argument: key ${Utf8String("1").sha256} duplicated when trying to build map")
+          s"Invalid argument: key ${Utf8.sha256("1")} duplicated when trying to build map")
       }
 
       "reject maps containing invalid value" in {

@@ -523,18 +523,16 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       "inserts as expected" in {
         eval(e"${buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)}") shouldBe
-          Right(
-            SMap(HashMap(utf8("a") -> SInt64(1), utf8("b") -> SInt64(2), utf8("c") -> SInt64(3))))
+          Right(SMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
       }
 
       "replaces already present key" in {
         val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
 
         eval(e"$map") shouldBe
-          Right(
-            SMap(HashMap(utf8("a") -> SInt64(1), utf8("b") -> SInt64(2), utf8("c") -> SInt64(3))))
+          Right(SMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
         eval(e"""MAP_INSERT @Int64 "b" 4 $map""") shouldBe Right(
-          SMap(HashMap(utf8("a") -> SInt64(1), utf8("b") -> SInt64(4), utf8("c") -> SInt64(3))))
+          SMap(HashMap("a" -> SInt64(1), "b" -> SInt64(4), "c" -> SInt64(3))))
       }
     }
 
@@ -557,13 +555,13 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       "deletes existing key" in {
         eval(e"""MAP_DELETE @Int64 "a" $map""") shouldBe Right(
-          SMap(HashMap(utf8("b") -> SInt64(2), utf8("c") -> SInt64(3))))
+          SMap(HashMap("b" -> SInt64(2), "c" -> SInt64(3))))
         eval(e"""MAP_DELETE @Int64 "b" $map""") shouldBe Right(
-          SMap(HashMap(utf8("a") -> SInt64(1), utf8("c") -> SInt64(3))))
+          SMap(HashMap("a" -> SInt64(1), "c" -> SInt64(3))))
       }
       "does nothing with non-existing key" in {
         eval(e"""MAP_DELETE @Int64 "d" $map""") shouldBe Right(
-          SMap(HashMap(utf8("a") -> SInt64(1), utf8("b") -> SInt64(2), utf8("c") -> SInt64(3))))
+          SMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
       }
     }
 
@@ -824,7 +822,7 @@ object SBuiltinTest {
   private val entryFields: Array[Ref.Name] =
     Ref.Name.Array(Ref.Name.assertFromString("key"), Ref.Name.assertFromString("value"))
 
-  private def mapEntry(k: Utf8String, v: SValue) = {
+  private def mapEntry(k: String, v: SValue) = {
     val args = new util.ArrayList[SValue](2)
     args.add(SText(k))
     args.add(v)
@@ -832,5 +830,5 @@ object SBuiltinTest {
   }
 
   private implicit def decimal(x: BigDecimal): Decimal = Decimal.assertFromBigDecimal(x)
-  private implicit def utf8(s: String): Utf8String = Utf8String(s)
+
 }

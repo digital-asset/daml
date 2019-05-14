@@ -12,21 +12,14 @@ class SortedLookupListSpec extends WordSpec with Matchers with PropertyChecks {
 
     val negativeTestCases = Table(
       "list",
-      ImmArray.empty[(Utf8String, Int)],
-      ImmArray(Utf8String("1") -> 1),
-      ImmArray(Utf8String("1") -> 1, Utf8String("2") -> 2, Utf8String("3") -> 3),
-      ImmArray(Utf8String("2") -> 2, Utf8String("3") -> 3, Utf8String("1") -> 1)
+      ImmArray.empty[(String, Int)],
+      ImmArray("1" -> 1),
+      ImmArray("1" -> 1, "2" -> 2, "3" -> 3),
+      ImmArray("2" -> 2, "3" -> 3, "1" -> 1)
     )
 
     val positiveTestCases =
-      Table(
-        "list",
-        ImmArray(Utf8String("1") -> 1, Utf8String("1") -> 2),
-        ImmArray(
-          Utf8String("1") -> 1,
-          Utf8String("2") -> 2,
-          Utf8String("3") -> 3,
-          Utf8String("1") -> 2))
+      Table("list", ImmArray("1" -> 1, "1" -> 2), ImmArray("1" -> 1, "2" -> 2, "3" -> 3, "1" -> 2))
 
     forAll(negativeTestCases)(l => SortedLookupList.fromImmArray(l) shouldBe 'right)
 
@@ -39,19 +32,15 @@ class SortedLookupListSpec extends WordSpec with Matchers with PropertyChecks {
     val negativeTestCases =
       Table(
         "list",
-        ImmArray.empty[(Utf8String, Int)],
-        ImmArray(Utf8String("1") -> 1),
-        ImmArray(Utf8String("1") -> 1, Utf8String("2") -> 2, Utf8String("3") -> 3))
+        ImmArray.empty[(String, Int)],
+        ImmArray("1" -> 1),
+        ImmArray("1" -> 1, "2" -> 2, "3" -> 3))
 
     val positiveTestCases = Table(
       "list",
-      ImmArray(Utf8String("1") -> 1, Utf8String("1") -> 2),
-      ImmArray(
-        Utf8String("1") -> 1,
-        Utf8String("2") -> 2,
-        Utf8String("3") -> 3,
-        Utf8String("1") -> 2),
-      ImmArray(Utf8String("2") -> 2, Utf8String("3") -> 3, Utf8String("1") -> 1)
+      ImmArray("1" -> 1, "1" -> 2),
+      ImmArray("1" -> 1, "2" -> 2, "3" -> 3, "1" -> 2),
+      ImmArray("2" -> 2, "3" -> 3, "1" -> 1)
     )
 
     forAll(negativeTestCases)(l => SortedLookupList.fromSortedImmArray(l) shouldBe 'right)

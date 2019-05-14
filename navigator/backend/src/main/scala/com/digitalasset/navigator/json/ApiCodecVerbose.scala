@@ -3,7 +3,7 @@
 
 package com.digitalasset.navigator.json
 
-import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList, Utf8String}
+import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList}
 import com.digitalasset.navigator.{model => Model}
 import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
 import com.digitalasset.navigator.json.Util._
@@ -82,7 +82,7 @@ object ApiCodecVerbose {
       propType -> JsString(tagMap),
       propValue -> JsArray(value.value.toImmArray.toSeq.toVector.map {
         case (k, v) =>
-          JsObject(fieldKey -> JsString(k.javaString), fieldValue -> apiValueToJsValue(v))
+          JsObject(fieldKey -> JsString(k), fieldValue -> apiValueToJsValue(v))
       })
     )
 
@@ -166,11 +166,11 @@ object ApiCodecVerbose {
           s"Can't read ${value.prettyPrint} as ApiRecord, type '$t' is not a record")
     }
 
-  def jsValueToMapEntry(value: JsValue): (Utf8String, Model.ApiValue) = {
+  def jsValueToMapEntry(value: JsValue): (String, Model.ApiValue) = {
     val translation = value match {
       case JsObject(map) =>
         for {
-          key <- map.get(fieldKey).collect { case JsString(s) => Utf8String(s) }
+          key <- map.get(fieldKey).collect { case JsString(s) => s }
           value <- map.get(fieldValue).map(jsValueToApiValue)
         } yield key -> value
       case _ => None

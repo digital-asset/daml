@@ -155,7 +155,7 @@ object SBuiltin {
       machine.ctrl = CtrlValue(
         args.get(0) match {
           case SText(t) =>
-            SList(FrontStack(t.explode.map(SText)))
+            SList(FrontStack(Utf8.explode(t).map(SText)))
           case _ =>
             throw SErrorCrash(s"type mismatch explodeText: $args")
         }
@@ -173,7 +173,7 @@ object SBuiltin {
               case v =>
                 throw SErrorCrash(s"type mismatch implodeText: expected SText, got $v")
             }
-            SText(Utf8String.implode(ts.toImmArray))
+            SText(Utf8.implode(ts.toImmArray))
           case _ =>
             throw SErrorCrash(s"type mismatch implodeText: $args")
         }
@@ -202,14 +202,14 @@ object SBuiltin {
     def litToText(vs: util.ArrayList[SValue]): SValue = {
       val v = vs.get(0).asInstanceOf[SPrimLit]
       SText(v match {
-        case SBool(b) => Utf8String(b.toString)
-        case SInt64(i) => Utf8String(i.toString)
-        case SDecimal(d) => Decimal.toUtf8String(d)
-        case STimestamp(t) => t.toUtf8String
+        case SBool(b) => b.toString
+        case SInt64(i) => i.toString
+        case SDecimal(d) => Decimal.toString(d)
+        case STimestamp(t) => t.toString
         case SText(t) => t
-        case SParty(p) => Utf8String(p)
-        case SUnit(_) => Utf8String(s"<unit>")
-        case SDate(date) => date.toUtf8String
+        case SParty(p) => p
+        case SUnit(_) => s"<unit>"
+        case SDate(date) => date.toString
         case SContractId(_) => crash("litToText: ContractId not supported")
       })
     }
@@ -218,14 +218,14 @@ object SBuiltin {
   final case object SBToQuotedTextParty extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val v = args.get(0).asInstanceOf[SParty]
-      machine.ctrl = CtrlValue(SText(Utf8String(s"'${v.value: String}'")))
+      machine.ctrl = CtrlValue(SText(s"'${v.value: String}'"))
     }
   }
 
   final case object SBFromTextParty extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val v = args.get(0).asInstanceOf[SText]
-      val mbParty = Party.fromUtf8String(v.value) match {
+      val mbParty = Party.fromString(v.value) match {
         case Left(_) => None
         case Right(p) => Some(SParty(p))
       }
@@ -236,7 +236,7 @@ object SBuiltin {
   final case object SBSHA256Text extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
-        case SText(t) => SText(t.sha256)
+        case SText(t) => SText(Utf8.sha256(t))
         case _ =>
           throw SErrorCrash(s"type mismatch textSHA256: $args")
       })
@@ -306,7 +306,7 @@ object SBuiltin {
     private val entryFields =
       Name.Array(Ast.keyFieldName, Ast.valueFieldName)
 
-    private def entry(key: Utf8String, value: SValue) = {
+    private def entry(key: String, value: SValue) = {
       val args = new util.ArrayList[SValue](2)
       args.add(SText(key))
       args.add(value)
@@ -432,7 +432,7 @@ object SBuiltin {
         case (SInt64(a), SInt64(b)) => a < b
         case (SDecimal(a), SDecimal(b)) => a < b
         case (STimestamp(a), STimestamp(b)) => a < b
-        case (SText(a), SText(b)) => a < b
+        case (SText(a), SText(b)) => Utf8.Ordering.lt(a, b)
         case (SDate(a), SDate(b)) => a < b
         case (SParty(a), SParty(b)) => a < b
         case _ =>
@@ -447,7 +447,7 @@ object SBuiltin {
         case (SInt64(a), SInt64(b)) => a <= b
         case (SDecimal(a), SDecimal(b)) => a <= b
         case (STimestamp(a), STimestamp(b)) => a <= b
-        case (SText(a), SText(b)) => a <= b
+        case (SText(a), SText(b)) => Utf8.Ordering.lteq(a, b)
         case (SDate(a), SDate(b)) => a <= b
         case (SParty(a), SParty(b)) => a <= b
         case _ =>
@@ -462,7 +462,7 @@ object SBuiltin {
         case (SInt64(a), SInt64(b)) => a > b
         case (SDecimal(a), SDecimal(b)) => a > b
         case (STimestamp(a), STimestamp(b)) => a > b
-        case (SText(a), SText(b)) => a > b
+        case (SText(a), SText(b)) => Utf8.Ordering.gt(a, b)
         case (SDate(a), SDate(b)) => a > b
         case (SParty(a), SParty(b)) => a > b
         case _ =>
@@ -477,7 +477,7 @@ object SBuiltin {
         case (SInt64(a), SInt64(b)) => a >= b
         case (SDecimal(a), SDecimal(b)) => a >= b
         case (STimestamp(a), STimestamp(b)) => a >= b
-        case (SText(a), SText(b)) => a >= b
+        case (SText(a), SText(b)) => Utf8.Ordering.gteq(a, b)
         case (SDate(a), SDate(b)) => a >= b
         case (SParty(a), SParty(b)) => a >= b
         case _ =>
@@ -1096,7 +1096,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       args.get(0) match {
         case SText(message) =>
-          machine.traceLog.add(message.javaString, machine.lastLocation)
+          machine.traceLog.add(message, machine.lastLocation)
           machine.ctrl = CtrlValue(args.get(1))
         case v =>
           crash(s"invalid argument to trace: $v")
@@ -1107,7 +1107,7 @@ object SBuiltin {
   /** $error :: Text -> a */
   final case object SBError extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
-      throw DamlEUserError(args.get(0).asInstanceOf[SText].value.javaString)
+      throw DamlEUserError(args.get(0).asInstanceOf[SText].value)
   }
 
   // Helpers

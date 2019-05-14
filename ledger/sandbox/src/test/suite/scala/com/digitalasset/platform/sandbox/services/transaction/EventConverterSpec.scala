@@ -8,7 +8,7 @@ import java.time.Instant
 
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.daml.lf.data.Ref.{QualifiedName, TypeConName}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Utf8String}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Event.Events
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.daml.lf.transaction.Node._
@@ -54,7 +54,6 @@ class EventConverterSpec
   private implicit def party(s: String): Ref.Party = Ref.Party.assertFromString(s)
   private implicit def pkgId(s: String): Ref.PackageId = Ref.PackageId.assertFromString(s)
   private implicit def name(s: String): Ref.Name = Ref.Name.assertFromString(s)
-  private implicit def utf8(s: String): Utf8String = Utf8String(s)
 
   type LfTx = com.digitalasset.daml.lf.transaction.Transaction.Transaction
 

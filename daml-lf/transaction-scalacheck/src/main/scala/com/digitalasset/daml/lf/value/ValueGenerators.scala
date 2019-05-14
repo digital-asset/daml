@@ -192,7 +192,7 @@ object ValueGenerators {
   private def valueMapGen(nesting: Int) =
     for {
       list <- Gen.listOf(for {
-        k <- Gen.asciiPrintableStr.map(Utf8String(_)); v <- Gen.lzy(valueGen(nesting))
+        k <- Gen.asciiPrintableStr; v <- Gen.lzy(valueGen(nesting))
       } yield k -> v)
     } yield ValueMap[ContractId](SortedLookupList(Map(list: _*)))
   def valueMapGen: Gen[ValueMap[ContractId]] = valueMapGen(0)
@@ -221,10 +221,10 @@ object ValueGenerators {
       )
       val flat = List(
         (sz + 1, dateGen.map(ValueDate)),
-        (sz + 1, Gen.alphaStr.map(x => ValueText(Utf8String(x)))),
+        (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
         (sz + 1, decimalGen),
         (sz + 1, Arbitrary.arbLong.arbitrary.map(ValueInt64)),
-        (sz + 1, Gen.alphaStr.map(x => ValueText(Utf8String(x)))),
+        (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
         (sz + 1, timestampGen.map(ValueTimestamp)),
         (sz + 1, coidValueGen),
         (sz + 1, party.map(ValueParty)),
@@ -271,7 +271,7 @@ object ValueGenerators {
     for {
       template <- idGen
       arg <- versionedValueGen
-      agreement <- Arbitrary.arbitrary[String].map(Utf8String(_))
+      agreement <- Arbitrary.arbitrary[String]
     } yield ContractInst(template, arg, agreement)
   }
 

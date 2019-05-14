@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.archive.{LanguageMinorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Util._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time, Utf8String}
+import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time}
 import com.digitalasset.daml.lf.lfpackage.Decode.ParseError
 import com.digitalasset.daml_lf.{DamlLf1 => PLF}
 
@@ -603,7 +603,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           val d = Decimal.fromString(lfPrimLit.getDecimal)
           d.fold(e => throw ParseError("error parsing decimal: " + e), PLDecimal)
         case PLF.PrimLit.SumCase.TEXT =>
-          PLText(Utf8String(lfPrimLit.getText))
+          PLText(lfPrimLit.getText)
         case PLF.PrimLit.SumCase.PARTY =>
           val p = Party
             .fromString(lfPrimLit.getParty)

@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.transaction
 
 import com.digitalasset.daml.lf.EitherAssertions
-import com.digitalasset.daml.lf.data.{ImmArray, Utf8String}
+import com.digitalasset.daml.lf.data.{ImmArray}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
@@ -244,7 +244,7 @@ class TransactionCoderSpec
           VersionedValue(
             ValueVersions.acceptedVersions.last,
             ValueParty(Party.assertFromString("francesco"))),
-          Utf8String("agreement")
+          ("agreement")
         ),
         None,
         Set(Party.assertFromString("alice")),

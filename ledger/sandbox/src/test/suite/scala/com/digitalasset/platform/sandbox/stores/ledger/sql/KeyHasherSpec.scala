@@ -52,8 +52,8 @@ class KeyHasherSpec extends WordSpec with Matchers {
     builder += None -> ValueMap(
       SortedLookupList(
         Map(
-          utf8("keyA") -> ValueText("valueA"),
-          utf8("keyB") -> ValueText("valueB")
+          "keyA" -> ValueText("valueA"),
+          "keyB" -> ValueText("valueB")
         )))
     val fields = builder.result()
 
@@ -204,16 +204,16 @@ class KeyHasherSpec extends WordSpec with Matchers {
         ValueMap(
           SortedLookupList(
             Map(
-              utf8("A") -> ValueInt64(0),
-              utf8("B") -> ValueInt64(0)
+              "A" -> ValueInt64(0),
+              "B" -> ValueInt64(0)
             ))))
       val value2 = VersionedValue(
         ValueVersion("4"),
         ValueMap(
           SortedLookupList(
             Map(
-              utf8("A") -> ValueInt64(0),
-              utf8("C") -> ValueInt64(0)
+              "A" -> ValueInt64(0),
+              "C" -> ValueInt64(0)
             ))))
 
       val tid = templateId("module", "name")
@@ -230,16 +230,16 @@ class KeyHasherSpec extends WordSpec with Matchers {
         ValueMap(
           SortedLookupList(
             Map(
-              utf8("A") -> ValueInt64(0),
-              utf8("B") -> ValueInt64(0)
+              "A" -> ValueInt64(0),
+              "B" -> ValueInt64(0)
             ))))
       val value2 = VersionedValue(
         ValueVersion("4"),
         ValueMap(
           SortedLookupList(
             Map(
-              utf8("A") -> ValueInt64(0),
-              utf8("B") -> ValueInt64(1)
+              "A" -> ValueInt64(0),
+              "B" -> ValueInt64(1)
             ))))
 
       val tid = templateId("module", "name")
@@ -354,6 +354,5 @@ class KeyHasherSpec extends WordSpec with Matchers {
   }
 
   private implicit def decimal(x: BigDecimal): Decimal = Decimal.assertFromBigDecimal(x)
-  private implicit def utf8(x: String): Utf8String = Utf8String(x)
 
 }

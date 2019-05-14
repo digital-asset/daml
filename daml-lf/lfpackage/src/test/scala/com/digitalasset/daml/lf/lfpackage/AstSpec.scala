@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.lfpackage
 
 import com.digitalasset.daml.lf.archive.LanguageVersion
-import com.digitalasset.daml.lf.data.{ImmArray, Utf8String}
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Decode.ParseError
@@ -202,7 +202,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
   private val tBool = TBuiltin(BTUnit)
   private val tText = TBuiltin(BTUnit)
   private val eParties = ENil(TBuiltin(BTParty))
-  private val eText = EPrimLit(PLText(Utf8String("some text")))
+  private val eText = EPrimLit(PLText("some text"))
   private val eUnit = EPrimCon(PCUnit)
   private val eTrue = EPrimCon(PCTrue)
 

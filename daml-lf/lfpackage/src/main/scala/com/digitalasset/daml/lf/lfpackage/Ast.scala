@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.lfpackage
 import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time, Utf8String}
+import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time}
 
 object Ast {
   //
@@ -268,7 +268,8 @@ object Ast {
 
   final case class PLInt64(override val value: Long) extends PrimLit
   final case class PLDecimal(override val value: Decimal) extends PrimLit
-  final case class PLText(override val value: Utf8String) extends PrimLit
+  // Text should be treated as Utf8, data.Utf8 provide emulation functions for that
+  final case class PLText(override val value: String) extends PrimLit
   final case class PLTimestamp(override val value: Time.Timestamp) extends PrimLit
   final case class PLParty(override val value: Party) extends PrimLit
   final case class PLDate(override val value: Time.Date) extends PrimLit

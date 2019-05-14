@@ -17,14 +17,11 @@ object Time {
     override def toString: String =
       Date.formatter.format(LocalDate.ofEpochDay(days.toLong))
 
-    def toUtf8String: Utf8String =
-      Utf8String(toString)
-
     override def compare(that: Date): Int =
       days.compareTo(that.days)
   }
 
-  object Date extends FromString {
+  object Date {
 
     type T = Date
 
@@ -64,6 +61,10 @@ object Time {
         .map(_ => s"cannot interpret $str as Date")
         .flatMap(fromDaysSinceEpoch)
 
+    @throws[IllegalArgumentException]
+    final def assertFromString(s: String): T =
+      assert(fromString(s))
+
     def assertFromDaysSinceEpoch(days: Int): Date =
       assert(fromDaysSinceEpoch(days))
 
@@ -73,9 +74,6 @@ object Time {
 
     override def toString: String =
       Timestamp.formatter.format(toInstant)
-
-    def toUtf8String: Utf8String =
-      Utf8String(toString)
 
     def compare(that: Timestamp): Int =
       micros.compareTo(that.micros)
@@ -91,7 +89,7 @@ object Time {
       Timestamp.assertFromLong(micros + x)
   }
 
-  object Timestamp extends FromString {
+  object Timestamp {
 
     type T = Timestamp
 
@@ -133,6 +131,10 @@ object Time {
       Try(assertMicrosFromString(str)).toEither.left
         .map(_ => s"cannot interpret $str as Timestamp")
         .flatMap(fromLong)
+
+    @throws[IllegalArgumentException]
+    final def assertFromString(s: String): T =
+      assert(fromString(s))
 
     def fromInstant(i: Instant): Either[String, Timestamp] =
       Try(assertMicrosFromInstant(i)).toEither.left

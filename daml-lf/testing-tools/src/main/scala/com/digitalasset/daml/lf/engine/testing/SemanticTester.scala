@@ -41,7 +41,7 @@ class SemanticTester(
     createLedger: Set[Party] => SemanticTester.GenericLedger,
     packageToTest: PackageId,
     packages: Map[PackageId, Package],
-    partyNameMangler: (Utf8String => Utf8String) = identity,
+    partyNameMangler: (String => String) = identity,
     commandIdMangler: ((QualifiedName, Int, L.NodeId) => String) = (scenario, stepId, nodeId) =>
       s"semantic-testing-$scenario-$stepId-$nodeId"
 )(implicit ec: ExecutionContext) {

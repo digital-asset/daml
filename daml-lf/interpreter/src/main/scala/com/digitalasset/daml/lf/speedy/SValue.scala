@@ -174,14 +174,14 @@ object SValue {
 
   final case class SList(list: FrontStack[SValue]) extends SValue
 
-  final case class SMap(value: HashMap[Utf8String, SValue]) extends SValue
+  final case class SMap(value: HashMap[String, SValue]) extends SValue
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified
   // with SValue and we can remove one layer of indirection.
   sealed trait SPrimLit extends SValue with Equals
   final case class SInt64(value: Long) extends SPrimLit
   final case class SDecimal(value: Decimal) extends SPrimLit
-  final case class SText(value: Utf8String) extends SPrimLit
+  final case class SText(value: String) extends SPrimLit
   final case class STimestamp(value: Time.Timestamp) extends SPrimLit
   final case class SParty(value: Party) extends SPrimLit
   final case class SBool(value: Boolean) extends SPrimLit
