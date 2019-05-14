@@ -41,7 +41,7 @@ class TransactionServiceLargeCommandIT
 
   override protected val config: Config =
     Config
-      .defaultWithTimeProvider(TimeProviderType.Static)
+      .default.withTimeProvider(TimeProviderType.Static)
 
   override val timeLimit: Span = 300.seconds
 

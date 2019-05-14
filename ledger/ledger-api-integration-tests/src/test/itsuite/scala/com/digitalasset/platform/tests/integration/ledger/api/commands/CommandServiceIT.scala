@@ -27,7 +27,7 @@ class CommandServiceIT
   private def request(
       ctx: LedgerContext,
       id: String = UUID.randomUUID().toString,
-      ledgerId: String = config.ledgerId.getOrElse("")) =
+      ledgerId: String = config.assertStaticLedgerId) =
     MockMessages.submitAndWaitRequest
       .update(_.commands.ledgerId := ledgerId, _.commands.commandId := id)
       .copy(traceContext = None)

@@ -30,7 +30,7 @@ object PlatformApplications {
     * existing smart constructors
     */
   final case class Config private (
-      ledgerId: Option[String],
+      ledgerId: RequestedLedgerAPIMode,
       darFiles: List[Path],
       parties: NonEmptyList[String],
       committerParty: String,
@@ -46,9 +46,22 @@ object PlatformApplications {
       "Max TTL's granularity is subsecond. Ledger Server does not support subsecond granularity for this configuration - please use whole seconds."
     )
 
-    def getLedgerId: String =
-      ledgerId.getOrElse(
-        throw new IllegalStateException("Attempted to access ledger ID, but none is configured."))
+    @SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
+    def assertStaticLedgerId: String =
+      ledgerId match {
+        case RequestedLedgerAPIMode.Static(ledgerId) => ledgerId
+        case _ =>
+          throw new IllegalArgumentException("Unsupported ledger id config: " + ledgerId)
+      }
+
+    def getConfiguredLedgerId: Option[String] = {
+      ledgerId match {
+        case RequestedLedgerAPIMode.Static(id) =>
+          Some(id)
+        case RequestedLedgerAPIMode.Dynamic() =>
+          None
+      }
+    }
 
     def withDarFile(path: Path) = copy(darFiles = List(path))
 
@@ -56,7 +69,7 @@ object PlatformApplications {
 
     def withTimeProvider(tpt: TimeProviderType) = copy(timeProviderType = tpt)
 
-    def withLedgerId(id: Option[String]) = copy(ledgerId = id)
+    def withLedgerIdMode(mode: RequestedLedgerAPIMode): Config = copy(ledgerId = mode)
 
     def withParties(p1: String, rest: String*) = copy(parties = NonEmptyList(p1, rest: _*))
 
@@ -73,16 +86,14 @@ object PlatformApplications {
 
   object Config {
     val defaultLedgerId = "ledger server"
-
     val defaultDarFile = new File("ledger/sandbox/Test.dar")
-
     val defaultParties = NonEmptyList("party", "Alice", "Bob")
     val defaultTimeProviderType = TimeProviderType.Static
 
-    def defaultWithLedgerId(ledgerId: Option[String]): Config = {
+    def default: Config = {
       val darFiles = List(defaultDarFile)
       new Config(
-        ledgerId,
+        RequestedLedgerAPIMode.Static(defaultLedgerId),
         darFiles.map(_.toPath),
         defaultParties,
         "committer",
@@ -90,11 +101,6 @@ object PlatformApplications {
         TimeModel.reasonableDefault
       )
     }
-
-    def defaultWithTimeProvider(timeProviderType: TimeProviderType) =
-      defaultWithLedgerId(Some(defaultLedgerId)).withTimeProvider(timeProviderType)
-
-    def default: Config = defaultWithLedgerId(Some(defaultLedgerId))
   }
 
   def sandboxApplication(config: Config, jdbcUrl: Option[String]) = {
@@ -110,10 +116,27 @@ object PlatformApplications {
         commandConfig = config.commandConfiguration,
         scenario = None,
         tlsConfig = None,
-        ledgerIdMode =
-          config.ledgerId.fold[LedgerIdMode](LedgerIdMode.Random)(LedgerIdMode.Predefined),
+        ledgerIdMode = config.ledgerId match {
+          case RequestedLedgerAPIMode.Static(id) =>
+            LedgerIdMode.Predefined(id)
+          case RequestedLedgerAPIMode.Dynamic() =>
+            LedgerIdMode.Random
+        },
         jdbcUrl = jdbcUrl
       )
     )
   }
+}
+
+sealed abstract class RequestedLedgerAPIMode extends Product with Serializable
+
+object RequestedLedgerAPIMode {
+  /**
+    * Ledger ID is provided by the test fixture and the Ledger API endpoint behind it is expected to use it.
+    */
+  final case class Static(ledgerId: String) extends RequestedLedgerAPIMode
+  /**
+    * Ledger ID is selected by the Ledger API endpoint behind the fixture. E.g. it can be random in case of Sandbox, or pre-existing in case of remote Ledger API servers.
+    */
+  final case class Dynamic() extends RequestedLedgerAPIMode
 }

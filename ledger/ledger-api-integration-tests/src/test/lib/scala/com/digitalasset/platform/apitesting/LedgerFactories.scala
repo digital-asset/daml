@@ -63,7 +63,7 @@ object LedgerFactories {
     def createResource(server: SandboxServer) =
       SandboxServerResource(server).map {
         case PlatformChannels(channel) =>
-          LedgerContext.SingleChannelContext(channel, config.ledgerId, packageIds)
+          LedgerContext.SingleChannelContext(channel, config.getConfiguredLedgerId, packageIds)
       }
 
     store match {

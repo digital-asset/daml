@@ -854,7 +854,7 @@ abstract class CommandTransactionChecks
 
       def newRequest(cmd: CreateAndExerciseCommand) = submitRequest
         .update(_.commands.commands := Seq[Command](Command(Command.Command.CreateAndExercise(cmd))))
-        .update(_.commands.ledgerId := config.getLedgerId)
+        .update(_.commands.ledgerId := config.assertStaticLedgerId)
 
       "process valid commands successfully" in allFixtures{ c =>
         val request = newRequest(validCreateAndExercise)
