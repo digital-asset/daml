@@ -64,11 +64,6 @@ data InstallEnv = InstallEnv
     , output :: String -> IO ()
     }
 
--- | Perform action unless user has passed --force flag.
-unlessForce :: InstallEnv -> IO () -> IO ()
-unlessForce InstallEnv{..} | ForceInstall b <- iForce options =
-    unless b
-
 -- | Perform action unless user has passed --quiet flag.
 unlessQuiet :: InstallEnv -> IO () -> IO ()
 unlessQuiet InstallEnv{..} | QuietInstall b <- iQuiet options =
@@ -118,18 +113,12 @@ installExtracted env@InstallEnv{..} sourcePath =
         let targetPath = defaultSdkPath damlPath sourceVersion
 
         whenM (doesDirectoryExist (unwrapSdkPath targetPath)) $ do
-            unlessForce env $ do
-                throwIO $ assistantErrorBecause
-                    ("SDK version " <> versionToText sourceVersion <> " already installed. Use --force to overwrite.")
-                    ("Directory " <> pack (unwrapSdkPath targetPath) <> " already exists.")
-
             requiredIO "Failed to set file modes for SDK to remove." $ do
                 walkRecursive (unwrapSdkPath targetPath) WalkCallbacks
                     { walkOnFile = setRemoveFileMode
                     , walkOnDirectoryPre = setRemoveFileMode
                     , walkOnDirectoryPost = const (pure ())
                     }
-
 
         when (sourcePath /= targetPath) $ do -- should be true 99.9% of the time,
                                             -- but in that 0.1% this check prevents us
@@ -246,7 +235,6 @@ copyAndInstall env sourcePath =
 
             installExtracted env (SdkPath copyPath)
 
-
 -- | Extract a tarGz bytestring and install it.
 extractAndInstall :: InstallEnv
     -> ConduitT () BS.ByteString (ResourceT IO) () -> IO ()
@@ -352,22 +340,37 @@ pathInstall env@InstallEnv{..} sourcePath = do
 -- | Install a specific SDK version.
 versionInstall :: InstallEnv -> SdkVersion -> IO ()
 versionInstall env@InstallEnv{..} version = do
-    unlessQuiet env $ do
-        output ("Installing DAML SDK version " <> versionToString version)
 
     let SdkPath path = defaultSdkPath damlPath version
-    whenM (doesDirectoryExist path) $ do
-        unlessForce env $ do
-            throwIO $ assistantErrorBecause
-                ("SDK version " <> versionToText version <>
-                    " is already installed. Use --force to reinstall.")
-                ("path to existing installation = " <> pack path)
-        unlessQuiet env $ do
-            output ("SDK version " <> versionToString version <>
-                " is already installed. Reinstalling.")
+    alreadyInstalled <- doesDirectoryExist path
 
-    httpInstall env { targetVersionM = Just version }
-        (Github.versionURL version)
+    let forceFlag = unForceInstall (iForce options)
+        activateFlag = unActivateInstall (iActivate options)
+        performInstall = not alreadyInstalled || forceFlag
+
+    unlessQuiet env . output . concat $
+        if alreadyInstalled then
+            [ "SDK version "
+            , versionToString version
+            , " is already installed."
+            , if performInstall
+                then " Reinstalling."
+                else ""
+            ]
+        else
+            [ "Installing SDK version "
+            , versionToString version
+            ]
+
+    when performInstall $
+        httpInstall env { targetVersionM = Just version }
+            (Github.versionURL version)
+
+    -- Need to activate here if we aren't performing the full install.
+    when (not performInstall && activateFlag) $ do
+        unlessQuiet env . output $
+            "Activating assistant version " <> versionToString version
+        activateDaml env (SdkPath path)
 
 -- | Install the latest stable version of the SDK.
 latestInstall :: InstallEnv -> IO ()
