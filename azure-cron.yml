@@ -7,7 +7,7 @@ pr: none
 
 jobs:
   - job: docs
-    timeoutInMinutes: 360
+    timeoutInMinutes: 50
     pool:
       name: 'linux-pool'
     steps:
@@ -21,6 +21,25 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - bash: |
           set -euo pipefail
+
+          robustly_download_nix_pkgs() {
+            # In recent commits, this is part of the dev-env-install script.
+            # However, we have to copy it here to apply it to older versions.
+            NIX_FAILED=0
+            for i in `seq 10`; do
+              NIX_FAILED=0
+              nix-build nix -A tools -A cached >$LOG 2>&1 || NIX_FAILED=1
+              if [[ $NIX_FAILED -ne 0 ]] && [[ $(tail -n 3 $LOG) == *"unexpected end-of-file"* ]]; then
+                echo "  Restarting nix-build due to failed cache download"
+                continue
+              fi
+              break
+            done
+            if [[ $NIX_FAILED -ne 0 ]]; then
+              exit 1
+            fi
+          }
+
           echo "Loading dev-env..."
           eval "$(dev-env/bin/dade-assist)"
           echo "Building docs listing"
@@ -32,6 +51,7 @@ jobs:
           JSON_BODY=$(echo $RELEASES | sed -e 's/ /\n/g' | sed -e 's/v\(.*\)/"\1": "v\1",'/g)
           echo "Building latest docs: $LATEST"
           git checkout $LATEST >$LOG 2>&1
+          robustly_download_nix_pkgs
           bazel build //docs:docs >$LOG 2>&1
           tar xzf bazel-genfiles/docs/html.tar.gz --strip-components=1 -C $DOCDIR >$LOG 2>&1
           # We need to overwrite the versions.json compiled by the build
@@ -41,15 +61,18 @@ jobs:
           for version in $(echo $RELEASES | sed -e 's/ /\n/g' | sed '1d'); do
             echo "Building older docs: $version"
             git checkout $version >$LOG 2>&1
+            robustly_download_nix_pkgs
             bazel build //docs:docs >$LOG 2>&1
             mkdir -p $DOCDIR/${version#v}
             tar xzf bazel-genfiles/docs/html.tar.gz --strip-components=1 -C $DOCDIR/${version#v} >$LOG 2>&1
           done
+          echo "Maintain proper 404 page"
+          curl -s https://docs.daml.com/not-found.html > $DOCDIR/not-found.html
           echo "Pushing to GCS bucket..."
           GCS_KEY=$(mktemp)
           echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
           gcloud auth activate-service-account --key-file=$GCS_KEY >$LOG 2>&1
-          BOTO_CONFIG=/dev/null gsutil rsync -d -r html gs://daml-docs >$LOG 2>&1
+          BOTO_CONFIG=/dev/null gsutil rsync -d -r $DOCDIR gs://daml-docs >$LOG 2>&1
           echo "Done."
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
