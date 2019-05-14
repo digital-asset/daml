@@ -18,16 +18,16 @@ Here's an example of setting up a contract key for a bank account, to act as a b
 What can be a contract key
 **************************
 
-What you can specify is pretty flexible - you will probably want to set up a data type for your key, which is either a tuple or a record.
+The key should either be a tuple or a record, and it **must** include every party that you specify as a ``maintainer`` (see `Specifying maintainers`_ below).
 
-However, the contract key *must* include every party that you specify as a ``maintainer``. For example, with ``maintainer bank``, ``key (bank, number) : AccountKey`` is valid; but wouldn't be if you removed ``bank`` from the key.
+For example, with ``maintainer bank``, ``key (bank, number) : (Party, Text)`` is valid; but wouldn't be if you removed ``bank`` from the key.
 
 Specifying maintainers
 **********************
 
-If you specify a contract key for a template, you must also specify ``maintainer`` (s), in a similar way to specifying signatories or observers.
+If you specify a contract key for a template, you must also specify a ``maintainer`` or maintainers, in a similar way to specifying signatories or observers. Maintainers are the parties that know about all of the keys that they are party to, and are used by the engine to guarantee uniqueness of contract keys.  The maintainers **must** be signatories or observers of the contract.
 
-Maintainers are the parties that know about all of the keys that they are party to, and so it's their responsibility to guarantee uniqueness of contract keys. The maintainers **must** be signatories or observers of the contract.
+Keys are unique only to their maintainers. For example, say you have a key that you're using as the identifer for a ``BankAccount`` contract. You might have ``key (bank, accountId) : (Party, Text)``. When you create a new bank account, the contract key ensures that no-one else can have an account with the same ``accountID`` at that bank. But that doesn't apply to other banks: for a contract with a different bank as maintainer, you could happily re-use that ``accountID``.
 
 When you're writing DAML models, the maintainers only matter since they affect authorization -- much like signatories and observers. You don't need to do anything to "maintain" the keys.
 
@@ -40,6 +40,8 @@ Contract keys introduce several new functions.
 
 ``fetchByKey``
 ==============
+
+``fetchedContract <- fetchByKey @ContractType contractKey``
 
 Use ``fetchByKey`` to fetch the ID and data of the contract with the specified key. It is an alternative to the currently-used ``fetch``.
 
@@ -54,30 +56,38 @@ You need authorization from **at least one** of the maintainers to run ``fetchBy
 
 This means that if it fails, it doesn't guarantee that a contract with that key doesn't exist, just that you can't see one.
 
-TODO code example.
+Because the type is ambiguous, when calling you need to specify what you expect with ``@`` and the type, for example ``@MyTemplateType``.
 
 ``lookupByKey``
 ===============
 
+``contractId <- lookupByKey @ContractType contractKey``
+
 Use ``lookupByKey`` to check whether a contract with the specified key exists. If it does exist, ``lookupByKey`` returns the ``ContractId`` of the contract; otherwise, it returns ``None``.
 
-You need authorization from **all** of the maintainers to run ``lookupByKey``, and it can only be submitted by one of the maintainers. TODO what the failure will look like.
+You need authorization from **all** of the maintainers to run ``lookupByKey``, and it can only be submitted by one of the maintainers.
 
 If the lookup fails (ie returns ``None``), this guarantees that no contract has this key.
 
+Unlike ``fetchByKey``, the transaction **does not fail** if a contract with the key doesn't exist: instead, ``lookupByKey`` just returns ``None``.
+
 To get the data from the contract once you've confirmed it exists, you'll still need to use ``fetch``.
 
-TODO code example.
+Because the type is ambiguous, when calling you need to specify what you expect with ``@`` and the type, for example ``@MyTemplateType``.
 
 ``exerciseByKey``
 =================
 
+``exerciseByKey @ContractType contractKey``
+
 Use ``exerciseByKey`` to exercise a choice on a contract identified by its ``key`` (compared to ``exercise``, which lets you exercise a contract identified by its ``ContractId``).
+
+Because the type is ambiguous, when calling you need to specify what you expect with ``@`` and the type, for example ``@MyTemplateType``.
 
 Error messages
 **************
 
-If you don't include the ``maintainer``s in your ``key``, you'll see the following error::
+If you don't include the ``maintainer`` in your ``key``, you'll see the following error::
 
    Failure to process DAML program, this feature is not currently supported.
    Unbound reference to this in maintainer with evar.

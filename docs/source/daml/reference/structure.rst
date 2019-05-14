@@ -53,12 +53,12 @@ template body
     :ref:`a contract key <daml-ref-contract-keys>`
         ``key`` keyword
 
-        Optional. Lets you specify a combination of a party and other data that uniquely identifies an instance of this contract template.
+        Optional. Lets you specify a combination of a party and other data that uniquely identifies an instance of this contract template. See :doc:`/daml/reference/contract-keys`.
 
     :ref:`maintainers <daml-ref-maintainers>`
         ``maintainer`` keyword
 
-        Required if you have specified a ``key``. TODO what it's for.
+        Required if you have specified a ``key``. Keys are only unique to a ``maintainer``. See :doc:`/daml/reference/contract-keys`.
 
     :ref:`choices <daml-ref-choice-structure>`
         ``choice NameOfChoice : ReturnType controller nameOfParty do``

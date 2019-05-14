@@ -130,8 +130,8 @@ lookupByKey
 
 - ``lookupByKey`` function.
 - Use this to confirm that a contract with the given :doc:`contract key </daml/reference/contract-keys>` exists.
-- If it does exist, ``lookupByKey`` returns the ``ContractId`` of the contract; otherwise, it returns ``None``. If it returns ``None``, this guarantees that no contract has this key.
-- TODO required authorization
+- If it does exist, ``lookupByKey`` returns the ``ContractId`` of the contract; otherwise, it returns ``None``. If it returns ``None``, this guarantees that no contract has this key. This does **not** cause the transaction to abort.
+- **All** of the maintainers of the key must authorize the lookup (by either being signatories or by submitting the command to lookup), otherwise this will fail.
 
 .. _daml-ref-abort:
 
