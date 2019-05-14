@@ -17,8 +17,8 @@ import Scalaz._
 
 object Queries {
 
-  implicit val timeStampWrite: Write[LedgerValue.Timestamp] =
-    Write[Instant].contramap[LedgerValue.Timestamp](_.value.toInstant)
+  implicit val timeStampWrite: Write[V.ValueTimestamp] =
+    Write[Instant].contramap[V.ValueTimestamp](_.value.toInstant)
 
   def createSchema(schema: String): Fragment =
     Fragment.const(s"CREATE SCHEMA IF NOT EXISTS ${schema}")
@@ -276,7 +276,7 @@ object Queries {
 
     private def toFragment(valueSum: LedgerValue): Fragment = {
       valueSum match {
-        case LedgerValue.Bool(value) =>
+        case V.ValueBool(value) =>
           Fragment.const(if (value) "TRUE" else "FALSE")
         case r @ LedgerValue.Record(_, _) =>
           Fragment(
@@ -299,17 +299,17 @@ object Queries {
             "?::jsonb",
             toJsonString(l)
           )
-        case LedgerValue.Int64(value) => Fragment("?", value)
-        case LedgerValue.Decimal(value) => Fragment("?::numeric(38,10)", value: BigDecimal)
-        case LedgerValue.Text(value) => Fragment("?", value)
-        case LedgerValue.Timestamp(value) =>
+        case V.ValueInt64(value) => Fragment("?", value)
+        case V.ValueDecimal(value) => Fragment("?::numeric(38,10)", value: BigDecimal)
+        case V.ValueText(value) => Fragment("?", value)
+        case V.ValueTimestamp(value) =>
           Fragment(
             "?",
-            LedgerValue.Timestamp(value)
+            V.ValueTimestamp(value)
           )
-        case LedgerValue.Party(value) => Fragment("?", value: String)
-        case LedgerValue.Unit => Fragment.const("FALSE")
-        case LedgerValue.Date(LfTime.Date(days)) => Fragment("?", LocalDate.ofEpochDay(days.toLong))
+        case V.ValueParty(value) => Fragment("?", value: String)
+        case V.ValueUnit => Fragment.const("FALSE")
+        case V.ValueDate(LfTime.Date(days)) => Fragment("?", LocalDate.ofEpochDay(days.toLong))
         case LedgerValue.ValueMap(m) =>
           Fragment(
             "?::jsonb",

@@ -18,9 +18,6 @@ object LedgerValue {
   import scala.language.higherKinds
   type OfCid[F[+ _]] = F[String]
 
-  type Bool = V.ValueBool
-  val Bool = V.ValueBool
-
   type Record = OfCid[V.ValueRecord]
   val Record = V.ValueRecord
 
@@ -36,28 +33,8 @@ object LedgerValue {
   type ValueMap = OfCid[V.ValueMap]
   val ValueMap = V.ValueMap
 
-  type Int64 = V.ValueInt64
-  val Int64 = V.ValueInt64
-
-  type Decimal = V.ValueDecimal
-  val Decimal = V.ValueDecimal
-
-  type Text = V.ValueText
-  val Text = V.ValueText
-
-  type Timestamp = V.ValueTimestamp
-  val Timestamp = V.ValueTimestamp
-
-  type Party = V.ValueParty
-  val Party = V.ValueParty
-
-  type Date = V.ValueDate
-  val Date = V.ValueDate
-
   type Optional = OfCid[V.ValueOptional]
   val Optional = V.ValueOptional
-
-  val Unit: V.ValueUnit.type = V.ValueUnit
 
   private val variantValueLens = ReqFieldLens.create[api.value.Variant, api.value.Value]('value)
 
@@ -76,15 +53,16 @@ object LedgerValue {
       case Sum.Record(apiRecord) => convertRecord(apiRecord)
       case Sum.Optional(apiOptional) => convertOptional(apiOptional)
       case Sum.Map(map) => convertMap(map)
-      case Sum.Bool(value) => Bool(value).right
+      case Sum.Bool(value) => V.ValueBool(value).right
       case Sum.ContractId(value) => ContractId(value).right
-      case Sum.Int64(value) => Int64(value).right
-      case Sum.Decimal(value) => lfdata.Decimal.fromString(value).disjunction map Decimal
-      case Sum.Text(value) => Text(value).right
-      case Sum.Timestamp(value) => lfdata.Time.Timestamp.fromLong(value).disjunction map Timestamp
-      case Sum.Party(value) => Ref.Party.fromString(value).disjunction map Party
-      case Sum.Date(value) => lfdata.Time.Date.fromDaysSinceEpoch(value).disjunction map Date
-      case Sum.Unit(_) => Unit.right
+      case Sum.Int64(value) => V.ValueInt64(value).right
+      case Sum.Decimal(value) => lfdata.Decimal.fromString(value).disjunction map V.ValueDecimal
+      case Sum.Text(value) => V.ValueText(value).right
+      case Sum.Timestamp(value) =>
+        lfdata.Time.Timestamp.fromLong(value).disjunction map V.ValueTimestamp
+      case Sum.Party(value) => Ref.Party.fromString(value).disjunction map V.ValueParty
+      case Sum.Date(value) => lfdata.Time.Date.fromDaysSinceEpoch(value).disjunction map V.ValueDate
+      case Sum.Unit(_) => V.ValueUnit.right
       case Sum.Empty => -\/("uninitialized Value")
     }
   }

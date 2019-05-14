@@ -46,15 +46,15 @@ object JsonConverters {
     case LedgerValue.ValueList(value) => value.asJson
     case LedgerValue.Optional(value) => value.asJson
     case LedgerValue.ValueMap(value) => value.asJson
-    case LedgerValue.Bool(value) => value.asJson
+    case V.ValueBool(value) => value.asJson
     case LedgerValue.ContractId(value) => value.asJson
-    case LedgerValue.Int64(value) => value.asJson
-    case LedgerValue.Decimal(value) => LfDecimal.toString(value).asJson
-    case LedgerValue.Text(value) => value.asJson
-    case LedgerValue.Timestamp(value) => value.asJson
-    case LedgerValue.Party(value) => value.asJson
-    case LedgerValue.Date(value) => value.asJson
-    case LedgerValue.Unit => emptyRecord
+    case V.ValueInt64(value) => value.asJson
+    case V.ValueDecimal(value) => LfDecimal.toString(value).asJson
+    case V.ValueText(value) => value.asJson
+    case V.ValueTimestamp(value) => value.asJson
+    case V.ValueParty(value) => value.asJson
+    case V.ValueDate(value) => value.asJson
+    case V.ValueUnit => emptyRecord
   }
 
   implicit def frontStackEncoder[A: Encoder]: Encoder[FrontStack[A]] =
