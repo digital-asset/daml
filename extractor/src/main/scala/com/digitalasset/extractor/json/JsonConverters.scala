@@ -26,7 +26,7 @@ object JsonConverters {
     a.asJson.noSpaces
   }
 
-  implicit val recordEncoder: Encoder[Record] = record =>
+  implicit val recordEncoder: Encoder[OfCid[V.ValueRecord]] = record =>
     if (record.fields.toSeq.forall(_._1.isDefined))
       JsonObject(
         record.fields.toSeq
@@ -37,17 +37,17 @@ object JsonConverters {
       ).asJson
     else record.fields.toSeq.map(_.asJson).asJson
 
-  private val emptyRecord = Record(None, ImmArray.empty).asJson
+  private val emptyRecord = V.ValueRecord(None, ImmArray.empty).asJson
 
   // TODO it might be much more performant if exploded into separate vals
   implicit def valueEncoder[T <: LedgerValue]: Encoder[T] = {
     case r @ V.ValueRecord(_, _) => r.asJson
     case v @ V.ValueVariant(_, _, _) => v.asJson
-    case LedgerValue.ValueList(value) => value.asJson
-    case LedgerValue.Optional(value) => value.asJson
-    case LedgerValue.ValueMap(value) => value.asJson
+    case V.ValueList(value) => value.asJson
+    case V.ValueOptional(value) => value.asJson
+    case V.ValueMap(value) => value.asJson
     case V.ValueBool(value) => value.asJson
-    case LedgerValue.ContractId(value) => value.asJson
+    case V.ValueContractId(value) => value.asJson
     case V.ValueInt64(value) => value.asJson
     case V.ValueDecimal(value) => LfDecimal.toString(value).asJson
     case V.ValueText(value) => value.asJson
@@ -60,7 +60,7 @@ object JsonConverters {
   implicit def frontStackEncoder[A: Encoder]: Encoder[FrontStack[A]] =
     _.toImmArray.map(_.asJson).toSeq.asJson
 
-  implicit val variantEncoder: Encoder[Variant] = {
+  implicit val variantEncoder: Encoder[OfCid[V.ValueVariant]] = {
     case V.ValueVariant(tycon @ _, ctor, value) =>
       JsonObject(
         ctor -> value.asJson

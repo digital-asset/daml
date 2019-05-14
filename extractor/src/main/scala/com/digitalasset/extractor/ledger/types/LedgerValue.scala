@@ -18,24 +18,6 @@ object LedgerValue {
   import scala.language.higherKinds
   type OfCid[F[+ _]] = F[String]
 
-  type Record = OfCid[V.ValueRecord]
-  val Record = V.ValueRecord
-
-  type Variant = OfCid[V.ValueVariant]
-  val Variant = V.ValueVariant
-
-  type ContractId = OfCid[V.ValueContractId]
-  val ContractId = V.ValueContractId
-
-  type ValueList = OfCid[V.ValueList]
-  val ValueList = V.ValueList
-
-  type ValueMap = OfCid[V.ValueMap]
-  val ValueMap = V.ValueMap
-
-  type Optional = OfCid[V.ValueOptional]
-  val Optional = V.ValueOptional
-
   private val variantValueLens = ReqFieldLens.create[api.value.Variant, api.value.Value]('value)
 
   final implicit class ApiValueOps(val apiValue: api.value.Value) extends AnyVal {
@@ -43,7 +25,7 @@ object LedgerValue {
   }
 
   final implicit class ApiRecordOps(val apiRecord: api.value.Record) extends AnyVal {
-    def convert: String \/ Record = convertRecord(apiRecord)
+    def convert: String \/ OfCid[V.ValueRecord] = convertRecord(apiRecord)
   }
 
   final implicit class ApiValueSumOps(val apiValueSum: api.value.Value.Sum) extends AnyVal {
@@ -54,7 +36,7 @@ object LedgerValue {
       case Sum.Optional(apiOptional) => convertOptional(apiOptional)
       case Sum.Map(map) => convertMap(map)
       case Sum.Bool(value) => V.ValueBool(value).right
-      case Sum.ContractId(value) => ContractId(value).right
+      case Sum.ContractId(value) => V.ValueContractId(value).right
       case Sum.Int64(value) => V.ValueInt64(value).right
       case Sum.Decimal(value) => lfdata.Decimal.fromString(value).disjunction map V.ValueDecimal
       case Sum.Text(value) => V.ValueText(value).right
@@ -70,7 +52,7 @@ object LedgerValue {
   private def convertList(apiList: api.value.List) = {
     for {
       values <- apiList.elements.toList.traverseU(_.convert)
-    } yield ValueList(FrontStack(values))
+    } yield V.ValueList(FrontStack(values))
   }
 
   private def convertVariant(apiVariant: api.value.Variant) = {
@@ -79,7 +61,7 @@ object LedgerValue {
       ctor <- Ref.Name.fromString(apiVariant.constructor).disjunction
       apiValue <- variantValueLens(apiVariant)
       value <- apiValue.convert
-    } yield Variant(tycon, ctor, value)
+    } yield V.ValueVariant(tycon, ctor, value)
   }
 
   private def convertRecord(apiRecord: api.value.Record) = {
@@ -94,20 +76,20 @@ object LedgerValue {
               _,
               vl))
       })
-    } yield Record(tycon, fields)
+    } yield V.ValueRecord(tycon, fields)
   }
 
   private def convertOptional(apiOptional: api.value.Optional) =
-    apiOptional.value traverseU (_.convert) map (Optional(_))
+    apiOptional.value traverseU (_.convert) map (V.ValueOptional(_))
 
-  private def convertMap(apiMap: api.value.Map): String \/ LedgerValue.ValueMap =
+  private def convertMap(apiMap: api.value.Map): String \/ OfCid[V.ValueMap] =
     for {
       entries <- apiMap.entries.toList.traverseU {
         case api.value.Map.Entry(_, None) => -\/("value must be defined")
         case api.value.Map.Entry(k, Some(v)) => v.sum.convert.map(k -> _)
       }
       map <- SortedLookupList.fromImmArray(ImmArray(entries)).disjunction
-    } yield LedgerValue.ValueMap(map)
+    } yield V.ValueMap(map)
 
   private def convertIdentifier(
       apiIdentifier: api.value.Identifier): String \/ Option[Ref.Identifier] = {

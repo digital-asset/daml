@@ -268,8 +268,8 @@ object Queries {
 
     private def toFragmentNullable(valueSum: LedgerValue): Fragment = {
       valueSum match {
-        case LedgerValue.Optional(None) => Fragment.const("NULL")
-        case LedgerValue.Optional(Some(innerVal)) => toFragment(innerVal)
+        case V.ValueOptional(None) => Fragment.const("NULL")
+        case V.ValueOptional(Some(innerVal)) => toFragment(innerVal)
         case _ => toFragment(valueSum)
       }
     }
@@ -278,23 +278,23 @@ object Queries {
       valueSum match {
         case V.ValueBool(value) =>
           Fragment.const(if (value) "TRUE" else "FALSE")
-        case r @ LedgerValue.Record(_, _) =>
+        case r @ V.ValueRecord(_, _) =>
           Fragment(
             "?::jsonb",
             toJsonString(r)
           )
-        case v @ LedgerValue.Variant(_, _, _) =>
+        case v @ V.ValueVariant(_, _, _) =>
           Fragment(
             "?::jsonb",
             toJsonString(v)
           )
-        case o @ LedgerValue.Optional(_) =>
+        case o @ V.ValueOptional(_) =>
           Fragment(
             "?::jsonb",
             toJsonString(o)
           )
-        case LedgerValue.ContractId(value) => Fragment("?", value)
-        case l @ LedgerValue.ValueList(_) =>
+        case V.ValueContractId(value) => Fragment("?", value)
+        case l @ V.ValueList(_) =>
           Fragment(
             "?::jsonb",
             toJsonString(l)
@@ -310,7 +310,7 @@ object Queries {
         case V.ValueParty(value) => Fragment("?", value: String)
         case V.ValueUnit => Fragment.const("FALSE")
         case V.ValueDate(LfTime.Date(days)) => Fragment("?", LocalDate.ofEpochDay(days.toLong))
-        case LedgerValue.ValueMap(m) =>
+        case V.ValueMap(m) =>
           Fragment(
             "?::jsonb",
             toJsonString(m)
