@@ -119,7 +119,7 @@ fetchByKey
 - ``fetchByKey`` function.
 - The same as ``fetch``, but fetches the contract instance with that :doc:`contract key </daml/reference/contract-keys>`, instead of the contract ID.
 
-.. _daml-ref-fetch-by-key:
+.. _daml-ref-lookup-by-key:
 
 lookupByKey
 ***********

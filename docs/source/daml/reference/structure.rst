@@ -138,12 +138,12 @@ The update expressions are:
 :ref:`fetch <daml-ref-fetch-by-key>`
     Like ``fetch``, but uses a :doc:`contract key </daml/reference/contract-keys>` rather than an ID.
 
-    ``fetchedContract <- fetchByKey @ContractType contractKey ``
+    ``fetchedContract <- fetchByKey @ContractType contractKey``
 
 :ref:`lookupByKey <daml-ref-lookup-by-key>`
     Confirm that a contract with the given :doc:`contract key </daml/reference/contract-keys>` exists.
 
-    ``fetchedContractId <- lookupByKey @ContractType contractKey ``
+    ``fetchedContractId <- lookupByKey @ContractType contractKey``
 
 :ref:`abort <daml-ref-abort>`
     Stop execution of the choice, fail the update.

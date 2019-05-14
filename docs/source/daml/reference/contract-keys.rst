@@ -25,7 +25,7 @@ However, the contract key *must* include every party that you specify as a ``mai
 Specifying maintainers
 **********************
 
-If you specify a contract key for a template, you must also specify ``maintainer``(s), in a similar way to specifying signatories or observers.
+If you specify a contract key for a template, you must also specify ``maintainer`` (s), in a similar way to specifying signatories or observers.
 
 Maintainers are the parties that know about all of the keys that they are party to, and so it's their responsibility to guarantee uniqueness of contract keys. The maintainers **must** be signatories or observers of the contract.
 
