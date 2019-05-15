@@ -7,6 +7,7 @@ DAML Assistant (``daml``)
 ``daml`` is a command-line tool that does a lot of useful things related to the SDK. Using ``daml``, you can:
 
 - Create new DAML projects: ``daml new <path to create project in>``
+- Initialize a DAML project: ``daml init``
 - Compile a DAML project: ``daml build``
 
   This builds the DAML project according to the project config file ``daml.yaml`` (see `Configuration files`_ below).
@@ -56,7 +57,7 @@ By default it's blank, and you usually won't need to edit it. It recognizes the 
 - ``update-check``: how often ``daml`` will check for new versions of the SDK, in seconds (default to ``86400``, i.e. once a day)
 
    This setting is only used to inform you when an update is available.
-    
+
    Set ``update-check: <number>`` to check for new versions every N seconds. Set ``update-check: never`` to never check for new versions.
 
 Here is an example ``daml-config.yaml``:
@@ -72,6 +73,8 @@ Project config file (``daml.yaml``)
 The project config file ``daml.yaml`` must be in the root of your DAML project directory. It controls how the DAML project is built and how tools like Sandbox and Navigator interact with it.
 
 The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory contains a DAML project, and lets you use project-aware commands like ``daml build`` and ``daml start``.
+
+``daml init`` creates a ``daml.yaml`` in an existing folder, so ``daml`` knows it's a project folder. It incorporates info from ``da.yaml`` in the generated ``daml.yaml``, if ``da.yaml`` is available (see :doc:`/support/new-assistant`).
 
 ``daml new`` creates a skeleton application in a new project folder, which includes a config file. For example, ``daml new my_project`` creates a new folder ``my_project`` with a project config file ``daml.yaml`` like this:
 
@@ -90,6 +93,7 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
     dependencies:
       - daml-prim
       - daml-stdlib
+
 
 Here is what each field means:
 
