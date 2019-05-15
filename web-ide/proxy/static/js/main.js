@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-window.addEventListener('load', (event) => {
+window.addEventListener('load', function(event) {
     var acceptButton = document.querySelector('#accept-btn');
     acceptButton.addEventListener('click', acceptClick);
 });
@@ -16,7 +16,7 @@ function acceptClick(event) {
 function setCookie(sKey, sValue, sPath, sDomain, protocol) {
     if (!sKey || /^(?:expires|max\-age|path|domain|secure)$/i.test(sKey)) { return false; }
     var sExpires = "; expires=Fri, 31 Dec 9999 23:59:59 GMT";
-    var bSecure = protocol.startsWith("https:") ? true : false
+    var bSecure = protocol === "https:";
     document.cookie = encodeURIComponent(sKey) + "=" + encodeURIComponent(sValue) + sExpires + (sDomain ? "; domain=" + sDomain : "") + (sPath ? "; path=" + sPath : "") + (bSecure ? "; secure" : "");
     return true;
-  }
+}
