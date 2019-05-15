@@ -362,7 +362,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
           this
         }
 
-        override def divulgeAlreadyCommitedContract(
+        override def divulgeAlreadyCommittedContract(
             transactionId: String,
             global: Relation[AbsoluteContractId, Ref.Party]) = {
           val divulgenceParams = global

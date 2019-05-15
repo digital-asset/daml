@@ -376,7 +376,7 @@ private class PostgresLedgerDao(
           this
         }
 
-        override def divulgeAlreadyCommitedContract(
+        override def divulgeAlreadyCommittedContract(
             transactionId: String,
             global: Relation[AbsoluteContractId, Ref.Party]) = {
           val divulgenceParams = global

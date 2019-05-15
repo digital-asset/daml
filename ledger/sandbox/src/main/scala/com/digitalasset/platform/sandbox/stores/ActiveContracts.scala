@@ -46,7 +46,7 @@ case class ActiveContractsInMemory(
     case Some(key) => copy(contracts = contracts - cid, keys = keys - key)
   }
 
-  override def divulgeAlreadyCommitedContract(
+  override def divulgeAlreadyCommittedContract(
       transactionId: String,
       global: Relation[AbsoluteContractId, Ref.Party]): ActiveContractsInMemory =
     if (global.nonEmpty)
@@ -202,7 +202,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
             }
         }
 
-    st.mapAcs(_ divulgeAlreadyCommitedContract (transactionId, globalImplicitDisclosure)).result
+    st.mapAcs(_ divulgeAlreadyCommittedContract (transactionId, globalImplicitDisclosure)).result
   }
 
 }
@@ -218,7 +218,7 @@ trait ActiveContracts[+Self] { this: ActiveContracts[Self] =>
     * divulgence information already present in `ActiveContract#divulgences` in the `addContract`
     * method.
     */
-  def divulgeAlreadyCommitedContract(
+  def divulgeAlreadyCommittedContract(
       transactionId: String,
       global: Relation[AbsoluteContractId, Ref.Party]): Self
 }
