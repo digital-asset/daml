@@ -28,10 +28,8 @@ import qualified Development.IDE.Functions.FindImports as FindImports
 import           Development.IDE.Functions.GHCError
 import           Development.IDE.Functions.SpanInfo
 import Development.IDE.UtilGHC
+import Development.IDE.Compat
 import Development.IDE.Types.Options
-
-import HieBin
-import HieAst
 
 import           GHC hiding (parseModule, typecheckModule)
 import qualified Parser
