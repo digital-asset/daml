@@ -33,7 +33,7 @@ lazy val `scala-codegen` = project
         packageName = "com.digitalasset.quickstart.iou.model",
         outputDir = (sourceManaged in Compile).value,
         cacheDir = streams.value.cacheDirectory / name.value
-      ).toSeq
+      )
     }
   )
 
@@ -80,7 +80,7 @@ def generateScalaFrom(
     darFile: File,
     packageName: String,
     outputDir: File,
-    cacheDir: File): Set[File] = {
+    cacheDir: File): Seq[File] = {
 
   require(
     darFile.getPath.endsWith(".dar") && darFile.exists(),
@@ -91,6 +91,6 @@ def generateScalaFrom(
     CodeGen.generateCode(List(darFile), packageName, outputDir, Novel)
     (outputDir ** "*.scala").get.toSet
   }
-  cache(Set(darFile))
+  cache(Set(darFile)).toSeq
 }
 // </doc-ref:generate-scala>
