@@ -8,6 +8,7 @@ import java.nio.file.Path
 import java.time.Duration
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.{
   CommandConfiguration,
@@ -41,7 +42,8 @@ object PlatformApplications {
       heartBeatInterval: FiniteDuration = 5.seconds,
       persistenceEnabled: Boolean = false,
       maxNumberOfAcsContracts: Option[Int] = None,
-      commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig) {
+      commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig,
+      remoteApiEndpoint: Option[RemoteApiEndpoint] = None) {
     require(
       Duration.ofSeconds(timeModel.minTtl.getSeconds) == timeModel.minTtl &&
         Duration.ofSeconds(timeModel.maxTtl.getSeconds) == timeModel.maxTtl,
@@ -77,6 +79,23 @@ object PlatformApplications {
     def withMaxNumberOfAcsContracts(cap: Int) = copy(maxNumberOfAcsContracts = Some(cap))
 
     def withCommandConfiguration(cc: CommandConfiguration) = copy(commandConfiguration = cc)
+
+    def withRemoteApiEndpoint(endpoint: RemoteApiEndpoint) =
+      copy(remoteApiEndpoint = Some(endpoint))
+  }
+
+  final case class RemoteApiEndpoint(
+      host: String,
+      port: Integer,
+      tlsConfig: Option[TlsConfiguration]) {
+    def withHost(host: String) = copy(host = host)
+    def withPort(port: Int) = copy(port = port)
+    def withTlsConfig(tlsConfig: TlsConfiguration) = copy(tlsConfig = Some(tlsConfig))
+    def withTlsConfigOption(tlsConfig: Option[TlsConfiguration]) = copy(tlsConfig = tlsConfig)
+  }
+
+  object RemoteApiEndpoint {
+    def default: RemoteApiEndpoint = RemoteApiEndpoint("localhost", 6865, None)
   }
 
   object Config {
