@@ -89,4 +89,10 @@ build:darwin --protocopt=--include_source_info
 # https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/compiler/command_line_interface.cc#L1363
 #build:windows --protocopt=--include_source_info
 
+# To fix the following error on Windows
+# LAUNCHER ERROR: Cannot find key "escape_jvmflags" from launch data.
+# See https://github.com/bazelbuild/bazel/pull/7490
+# The flag does not seem to be supported in rules_scala, yet.
+build:windows --noincompatible_windows_escape_jvm_flags
+
 try-import %workspace%/.bazelrc.local
