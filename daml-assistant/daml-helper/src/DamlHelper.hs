@@ -102,7 +102,7 @@ runDamlStudio replaceExt remainingArguments = do
     when (exitCode /= ExitSuccess) $
         hPutStrLn stderr $
           "Failed to launch Visual Studio Code." <>
-          " Take a look at https://code.visualstudio.com/Download for installation instructions."
+          " See https://code.visualstudio.com/Download for installation instructions."
     exitWith exitCode
 
 shouldReplaceExtension :: ReplaceExtension -> FilePath -> IO Bool
@@ -131,7 +131,7 @@ withJar jarPath args a = do
     sdkPath <- getSdkPath
     let absJarPath = sdkPath </> jarPath
     (withCreateProcess (proc "java" ("-jar" : absJarPath : args)) $ \_ _ _ -> a) `catchIO`
-        (\e -> hPutStrLn stderr "Failed to start java. Make sure it is installed and in PATH." *> throwIO e)
+        (\e -> hPutStrLn stderr "Failed to start java. Make sure it is installed and in the PATH." *> throwIO e)
 
 
 getTemplatesFolder :: IO FilePath
