@@ -27,6 +27,7 @@ where
 
 import Prelude hiding (filter, null, empty)
 import DA.Next.Map (MapKey (..))
+import DA.TextMap (TextMap)
 import DA.TextMap qualified as TextMap
 
 -- | The type of a set.
