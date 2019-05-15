@@ -31,6 +31,7 @@ module DA.Text
   , DA.Text.dropWhile
   , DA.Text.dropWhileEnd
   , DA.Text.splitOn
+  , DA.Text.splitAt
   , DA.Text.take
   , DA.Text.drop
   , DA.Text.substring
