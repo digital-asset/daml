@@ -289,7 +289,7 @@ this section is best read jointly with the code in
   ``participant-state.jar`` on top of a key-value state storage.
 
   See documentation in `package.scala
-  <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils/package.scala>__`
+  <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils/package.scala>`__
 
 ``api-server-damlonx.jar`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/api-server-damlonx/src/main/scala/com/daml/ledger/api/server/damlonx/Server.scala>`__)
   Contains code that implements a DAML Ledger API
