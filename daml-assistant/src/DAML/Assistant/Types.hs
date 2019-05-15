@@ -81,7 +81,7 @@ newtype InstallURL = InstallURL
     } deriving (Eq, Show, FromJSON)
 
 newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
-newtype ForceInstall = ForceInstall Bool deriving (Eq, Show)
-newtype QuietInstall = QuietInstall Bool deriving (Eq, Show)
-newtype ActivateInstall = ActivateInstall Bool deriving (Eq, Show)
+newtype ForceInstall = ForceInstall { unForceInstall :: Bool } deriving (Eq, Show)
+newtype QuietInstall = QuietInstall { unQuietInstall :: Bool } deriving (Eq, Show)
+newtype ActivateInstall = ActivateInstall { unActivateInstall :: Bool } deriving (Eq, Show)
 newtype SetPath = SetPath Bool deriving (Eq, Show)

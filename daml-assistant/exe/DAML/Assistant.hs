@@ -62,11 +62,9 @@ main = displayErrors $ do
                 [ "WARNING: Using an outdated version of the DAML assistant."
                 , "Please upgrade to the latest stable version by running:"
                 , ""
-                , "    daml install latest --activate --force"
+                , "    daml install latest --activate"
                 , ""
                 ]
-
-
 
     case userCommand of
 
