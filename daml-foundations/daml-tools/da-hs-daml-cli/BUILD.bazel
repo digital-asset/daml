@@ -56,7 +56,11 @@ da_haskell_library(
         "//compiler/scenario-service/client",
         "//compiler/scenario-service/protos:scenario_service_haskell_proto",
         "//daml-assistant:daml-project-config",
-        "//daml-foundations/daml-ghc:daml-ghc-lib",
+        "//daml-foundations/daml-ghc:daml-development",
+        "//daml-foundations/daml-ghc:daml-ghc-compiler",
+        "//daml-foundations/daml-ghc:daml-ghc-damldoc",
+        "//daml-foundations/daml-ghc:daml-service-daml-compiler",
+        "//daml-foundations/daml-ghc:daml-service-daml-language-server",
         "//daml-lf/archive:daml_lf_haskell_proto",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/prettyprinter-syntax",
@@ -102,7 +106,7 @@ da_haskell_test(
     visibility = ["//visibility:private"],
     deps = [
         ":da-hs-daml-cli",
-        "//daml-foundations/daml-ghc:daml-ghc-lib",
+        "//daml-foundations/daml-ghc:daml-ghc-compiler",
         "//libs-haskell/da-hs-base",
     ],
 )

@@ -61,7 +61,9 @@ def daml_ghc_integration_test(name, main_function):
             ":bond-trading",
         ],
         deps = [
-            ":daml-ghc-lib",
+            ":daml-development",
+            ":daml-ghc-compiler",
+            ":daml-service-daml-compiler",
             "//compiler/daml-lf-ast",
             "//compiler/daml-lf-proto",
             "//daml-lf/archive:daml_lf_haskell_proto",
