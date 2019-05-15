@@ -32,7 +32,7 @@ mayImportInternal = map GHC.mkModuleName ["Prelude", "DA.Time", "DA.Date", "DA.R
 damlPreprocessor :: GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
 damlPreprocessor x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = ([], x)
-    | otherwise = (checkImports x ++ checkDataTypes x, recordDotPreprocessor $ importDamlPreprocessor x)
+    | otherwise = (checkImports x ++ checkDataTypes x ++ checkModuleDefinition x, recordDotPreprocessor $ importDamlPreprocessor x)
     where name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
 
@@ -116,6 +116,15 @@ checkThetas m =
     isBad (GHC.PrefixCon _) = True
     isBad GHC.InfixCon {} = True
     isBad GHC.RecCon {} = False
+
+-- | Check for the presence of the 'module ... where' clause.
+checkModuleDefinition :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkModuleDefinition x
+    | Nothing <- GHC.hsmodName $ GHC.unLoc x =
+        [ ( GHC.noSrcSpan
+          , "Missing module name, e.g. 'module ... where'.")
+        ]
+    | otherwise = []
 
 -- Extract all data constructors with their locations
 universeConDecl :: GHC.ParsedSource -> [GHC.LConDecl GHC.GhcPs]

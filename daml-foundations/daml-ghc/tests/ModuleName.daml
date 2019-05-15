@@ -1,0 +1,8 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR Missing module name
+
+daml 1.2
+
+data Foo a = Foo a
