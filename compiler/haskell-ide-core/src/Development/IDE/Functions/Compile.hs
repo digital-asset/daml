@@ -410,7 +410,7 @@ getModSummaryFromBuffer fp (contents, fileDate) dflags parsed = do
           { ml_hs_file  = Just fp
           , ml_hi_file  = replaceExtension fp "hi"
           , ml_obj_file = replaceExtension fp "o"
-#ifndef USE_GHC
+#ifndef GHC_STABLE
           , ml_hie_file = replaceExtension fp "hie"
 #endif
           -- This does not consider the dflags configuration
@@ -431,7 +431,7 @@ getModSummaryFromBuffer fp (contents, fileDate) dflags parsed = do
     , ms_hsc_src      = HsSrcFile
     , ms_obj_date     = Nothing
     , ms_iface_date   = Nothing
-#ifndef USE_GHC
+#ifndef GHC_STABLE
     , ms_hie_date     = Nothing
 #endif
     , ms_srcimps      = []        -- source imports are not allowed
@@ -465,8 +465,8 @@ parseFileContents preprocessor filename (time, contents) = do
           return (contents, dflags)
 
    case unP Parser.parseModule (mkPState dflags contents loc) of
-#ifdef USE_GHC
-     PFailed _ logMsg msgErr ->
+#ifdef GHC_STABLE
+     PFailed _ locErr msgErr ->
       Ex.throwE $ mkErrorDoc dflags locErr msgErr
 #else
      PFailed s ->
