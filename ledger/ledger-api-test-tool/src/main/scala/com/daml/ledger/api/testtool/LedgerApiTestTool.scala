@@ -9,7 +9,7 @@ import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.digitalasset.daml.lf.UniversalArchiveReader
-import com.digitalasset.daml.lf.types.{Ledger => L}
+import com.digitalasset.daml.lf.types.{LedgerForScenarios => L}
 import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
@@ -66,8 +66,8 @@ object LedgerApiTestTool {
 
     val runSuffix = "-" + Random.alphanumeric.take(10).mkString
     val partyNameMangler = (partyText: String) => partyText + runSuffix
-    val commandIdMangler: ((QualifiedName, Int, L.NodeId) => String) = (scenario, stepId, nodeId) =>
-      s"ledger-api-test-tool-$scenario-$stepId-$nodeId-$runSuffix"
+    val commandIdMangler: ((QualifiedName, Int, L.ScenarioNodeId) => String) =
+      (scenario, stepId, nodeId) => s"ledger-api-test-tool-$scenario-$stepId-$nodeId-$runSuffix"
 
     try {
       scenarios.foreach {

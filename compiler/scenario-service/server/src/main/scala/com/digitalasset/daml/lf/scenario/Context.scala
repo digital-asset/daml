@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.speedy.SExpr
 import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.types.Ledger.Ledger
+import com.digitalasset.daml.lf.types.LedgerForScenarios.Ledger
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.lfpackage.Decode.ParseError
 import com.digitalasset.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}

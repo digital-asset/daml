@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.lfpackage.Util._
 import com.digitalasset.daml.lf.speedy.Pretty._
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.types.Ledger
+import com.digitalasset.daml.lf.types.LedgerForScenarios
 import com.digitalasset.daml.lf.value.Value
 import Value._
 import java.io.{File, PrintWriter, StringWriter}
@@ -155,8 +155,9 @@ object Repl {
     private val build = Speedy.Machine
       .newBuilder(PureCompiledPackages(packages).right.get)
       .fold(err => sys.error(err.toString), identity)
-    def run(expr: Expr)
-      : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger)]) = {
+    def run(expr: Expr): (
+        Speedy.Machine,
+        Either[(SError, LedgerForScenarios.Ledger), (Double, Int, LedgerForScenarios.Ledger)]) = {
       val mach = build(expr)
       (mach, ScenarioRunner(mach).run())
     }

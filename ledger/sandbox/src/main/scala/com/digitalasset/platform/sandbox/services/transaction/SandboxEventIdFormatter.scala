@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.services.transaction
 
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.types.Ledger
+import com.digitalasset.daml.lf.types.LedgerForScenarios
 
 import scala.util.Try
 
@@ -26,7 +26,7 @@ object SandboxEventIdFormatter {
   /** When loading a scenario we get already absolute nids from the ledger -- still prefix them with the transaction
     * id, just to be safe.
     */
-  def fromTransactionId(transactionId: String, nid: Ledger.NodeId): String =
+  def fromTransactionId(transactionId: String, nid: LedgerForScenarios.ScenarioNodeId): String =
     s"#$transactionId:${nid.id}"
 
   def split(eventId: String): Option[TransactionIdWithIndex] =

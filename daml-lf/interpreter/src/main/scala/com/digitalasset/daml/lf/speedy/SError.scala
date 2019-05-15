@@ -7,7 +7,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
-import com.digitalasset.daml.lf.types.Ledger
+import com.digitalasset.daml.lf.types.LedgerForScenarios
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VContractId}
 
 object SError {
@@ -73,7 +73,7 @@ object SError {
   final case class ScenarioErrorContractNotActive(
       coid: AbsoluteContractId,
       templateId: Identifier,
-      consumedBy: Ledger.NodeId)
+      consumedBy: LedgerForScenarios.ScenarioNodeId)
       extends SErrorScenario
 
   /** We tried to fetch / exercise a contract of the wrong type --
@@ -95,7 +95,8 @@ object SError {
       extends SErrorScenario
 
   /** The commit of the transaction failed due to authorization errors. */
-  final case class ScenarioErrorCommitError(commitError: Ledger.CommitError) extends SErrorScenario
+  final case class ScenarioErrorCommitError(commitError: LedgerForScenarios.CommitError)
+      extends SErrorScenario
 
   /** The transaction produced by the update expression in a 'mustFailAt' succeeded. */
   final case class ScenarioErrorMustFailSucceeded(tx: Transaction) extends SErrorScenario

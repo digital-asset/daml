@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.transaction.Node.{
   NodeLookupByKey
 }
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction, Transaction}
-import com.digitalasset.daml.lf.types.Ledger._
+import com.digitalasset.daml.lf.types.LedgerForScenarios._
 import com.digitalasset.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec

@@ -12,12 +12,12 @@ import com.digitalasset.daml.lf.speedy.SError
 import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx, Node => N}
-import com.digitalasset.daml.lf.types.Ledger
+import com.digitalasset.daml.lf.types.LedgerForScenarios
 import com.digitalasset.daml.lf.value.{Value => V}
 
 case class Conversions(homePackageId: Ref.PackageId) {
   def convertScenarioResult(
-      ledger: Ledger.Ledger,
+      ledger: LedgerForScenarios.Ledger,
       machine: Speedy.Machine,
       svalue: SValue): ScenarioResult = {
 
@@ -34,7 +34,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
   }
 
   def convertScenarioError(
-      ledger: Ledger.Ledger,
+      ledger: LedgerForScenarios.Ledger,
       machine: Speedy.Machine,
       err: SError.SError): ScenarioError = {
     val (nodes, steps) = convertLedger(ledger)
@@ -129,12 +129,12 @@ case class Conversions(homePackageId: Ref.PackageId) {
     builder.build
   }
 
-  def convertCommitError(commitError: Ledger.CommitError): CommitError = {
+  def convertCommitError(commitError: LedgerForScenarios.CommitError): CommitError = {
     val builder = CommitError.newBuilder
     commitError match {
-      case Ledger.CommitError.UniqueKeyViolation(gk) =>
+      case LedgerForScenarios.CommitError.UniqueKeyViolation(gk) =>
         builder.setUniqueKeyViolation(convertGlobalKey(gk.gk))
-      case Ledger.CommitError.FailedAuthorizations(fas) =>
+      case LedgerForScenarios.CommitError.FailedAuthorizations(fas) =>
         builder.setFailedAuthorizations(convertFailedAuthorizations(fas))
     }
     builder.build
@@ -169,14 +169,15 @@ case class Conversions(homePackageId: Ref.PackageId) {
     builder.setMessage(msgAndLoc._1).build
   }
 
-  def convertLedger(ledger: Ledger.Ledger): (Iterable[Node], Iterable[ScenarioStep]) =
+  def convertLedger(ledger: LedgerForScenarios.Ledger): (Iterable[Node], Iterable[ScenarioStep]) =
     (
       ledger.ledgerData.nodeInfos.map(Function.tupled(convertNode))
       // NOTE(JM): Iteration over IntMap is in key-order. The IntMap's Int is IntMapUtils.Int for some reason.
       ,
       ledger.scenarioSteps.map { case (idx, step) => convertScenarioStep(idx.toInt, step) })
 
-  def convertFailedAuthorizations(fas: Ledger.FailedAuthorizations): FailedAuthorizations = {
+  def convertFailedAuthorizations(
+      fas: LedgerForScenarios.FailedAuthorizations): FailedAuthorizations = {
     val builder = FailedAuthorizations.newBuilder
     fas.map {
       case (nodeId, fa) =>
@@ -184,7 +185,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
           val faBuilder = FailedAuthorization.newBuilder
           faBuilder.setNodeId(convertTxNodeId(nodeId))
           fa match {
-            case Ledger.FACreateMissingAuthorization(
+            case LedgerForScenarios.FACreateMissingAuthorization(
                 templateId,
                 optLocation,
                 authParties,
@@ -197,7 +198,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
               optLocation.map(loc => cmaBuilder.setLocation(convertLocation(loc)))
               faBuilder.setCreateMissingAuthorization(cmaBuilder.build)
 
-            case Ledger.FAMaintainersNotSubsetOfSignatories(
+            case LedgerForScenarios.FAMaintainersNotSubsetOfSignatories(
                 templateId,
                 optLocation,
                 signatories,
@@ -210,7 +211,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
               optLocation.map(loc => maintNotSignBuilder.setLocation(convertLocation(loc)))
               faBuilder.setMaintainersNotSubsetOfSignatories(maintNotSignBuilder.build)
 
-            case fma: Ledger.FAFetchMissingAuthorization =>
+            case fma: LedgerForScenarios.FAFetchMissingAuthorization =>
               val fmaBuilder =
                 FailedAuthorization.FetchMissingAuthorization.newBuilder
                   .setTemplateId(convertIdentifier(fma.templateId))
@@ -219,7 +220,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
               fma.optLocation.map(loc => fmaBuilder.setLocation(convertLocation(loc)))
               faBuilder.setFetchMissingAuthorization(fmaBuilder.build)
 
-            case Ledger.FAExerciseMissingAuthorization(
+            case LedgerForScenarios.FAExerciseMissingAuthorization(
                 templateId,
                 choiceId,
                 optLocation,
@@ -233,7 +234,12 @@ case class Conversions(homePackageId: Ref.PackageId) {
                   .addAllRequiredAuthorizers(reqParties.map(convertParty).asJava)
               optLocation.map(loc => emaBuilder.setLocation(convertLocation(loc)))
               faBuilder.setExerciseMissingAuthorization(emaBuilder.build)
-            case Ledger.FAActorMismatch(templateId, choiceId, optLocation, ctrls, givenActors) =>
+            case LedgerForScenarios.FAActorMismatch(
+                templateId,
+                choiceId,
+                optLocation,
+                ctrls,
+                givenActors) =>
               val amBuilder =
                 FailedAuthorization.ActorMismatch.newBuilder
                   .setTemplateId(convertIdentifier(templateId))
@@ -242,14 +248,14 @@ case class Conversions(homePackageId: Ref.PackageId) {
                   .addAllGivenActors(givenActors.map(convertParty).asJava)
               optLocation.map(loc => amBuilder.setLocation(convertLocation(loc)))
               faBuilder.setActorMismatch(amBuilder.build)
-            case Ledger.FANoSignatories(templateId, optLocation) =>
+            case LedgerForScenarios.FANoSignatories(templateId, optLocation) =>
               val nsBuilder =
                 FailedAuthorization.NoSignatories.newBuilder
                   .setTemplateId(convertIdentifier(templateId))
               optLocation.map(loc => nsBuilder.setLocation(convertLocation(loc)))
               faBuilder.setNoSignatories(nsBuilder.build)
 
-            case Ledger.FANoControllers(templateId, choiceId, optLocation) =>
+            case LedgerForScenarios.FANoControllers(templateId, choiceId, optLocation) =>
               val ncBuilder =
                 FailedAuthorization.NoControllers.newBuilder
                   .setTemplateId(convertIdentifier(templateId))
@@ -257,7 +263,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
               optLocation.map(loc => ncBuilder.setLocation(convertLocation(loc)))
               faBuilder.setNoControllers(ncBuilder.build)
 
-            case Ledger.FALookupByKeyMissingAuthorization(
+            case LedgerForScenarios.FALookupByKeyMissingAuthorization(
                 templateId,
                 optLocation,
                 maintainers,
@@ -298,23 +304,23 @@ case class Conversions(homePackageId: Ref.PackageId) {
       case V.RelativeContractId(txnid) => txnid.index.toString
     }
 
-  def convertScenarioStep(stepId: Int, step: Ledger.ScenarioStep): ScenarioStep = {
+  def convertScenarioStep(stepId: Int, step: LedgerForScenarios.ScenarioStep): ScenarioStep = {
     val builder = ScenarioStep.newBuilder
     builder.setStepId(stepId)
     step match {
-      case Ledger.Commit(txId, rtx, optLocation) =>
+      case LedgerForScenarios.Commit(txId, rtx, optLocation) =>
         val commitBuilder = ScenarioStep.Commit.newBuilder
         optLocation.map { loc =>
           commitBuilder.setLocation(convertLocation(loc))
         }
         builder.setCommit(
           commitBuilder
-            .setTxId(txId)
+            .setTxId(txId.index)
             .setTx(convertTransaction(rtx))
             .build)
-      case Ledger.PassTime(dt) =>
+      case LedgerForScenarios.PassTime(dt) =>
         builder.setPassTime(dt)
-      case Ledger.AssertMustFail(actor, optLocation, time, txId) =>
+      case LedgerForScenarios.AssertMustFail(actor, optLocation, time, txId) =>
         val assertBuilder = ScenarioStep.AssertMustFail.newBuilder
         optLocation.map { loc =>
           assertBuilder.setLocation(convertLocation(loc))
@@ -324,13 +330,13 @@ case class Conversions(homePackageId: Ref.PackageId) {
             assertBuilder
               .setActor(convertParty(actor))
               .setTime(time.micros)
-              .setTxId(txId)
+              .setTxId(txId.index)
               .build)
     }
     builder.build
   }
 
-  def convertTransaction(rtx: Ledger.RichTransaction): Transaction =
+  def convertTransaction(rtx: LedgerForScenarios.RichTransaction): Transaction =
     Transaction.newBuilder
       .setCommitter(convertParty(rtx.committer))
       .setEffectiveAt(rtx.effectiveAt.micros)
@@ -365,13 +371,15 @@ case class Conversions(homePackageId: Ref.PackageId) {
     builder.build
   }
 
-  def convertNodeId(nodeId: Ledger.NodeId): NodeId =
+  def convertNodeId(nodeId: LedgerForScenarios.ScenarioNodeId): NodeId =
     NodeId.newBuilder.setId(nodeId.id).build
 
   def convertTxNodeId(nodeId: Tx.NodeId): NodeId =
     NodeId.newBuilder.setId(nodeId.index.toString).build
 
-  def convertNode(nodeId: Ledger.NodeId, nodeInfo: Ledger.NodeInfo): Node = {
+  def convertNode(
+      nodeId: LedgerForScenarios.ScenarioNodeId,
+      nodeInfo: LedgerForScenarios.NodeInfo): Node = {
     val builder = Node.newBuilder
     builder
       .setNodeId(convertNodeId(nodeId))
@@ -381,7 +389,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         case (party, txId) =>
           PartyAndTransactionId.newBuilder
             .setParty(convertParty(party))
-            .setTxId(txId)
+            .setTxId(txId.index)
             .build
       }.asJava)
 
@@ -415,7 +423,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .build
         )
       case ex: N.NodeExercises[
-            Ledger.NodeId,
+            LedgerForScenarios.ScenarioNodeId,
             V.AbsoluteContractId,
             Tx.Value[V.AbsoluteContractId]] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
@@ -431,7 +439,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .addAllStakeholders(ex.stakeholders.map(convertParty).asJava)
             .addAllControllers(ex.controllers.map(convertParty).asJava)
             .addAllChildren(ex.children
-              .map((nid: Ledger.NodeId) => NodeId.newBuilder.setId(nid.id).build)
+              .map((nid: LedgerForScenarios.ScenarioNodeId) =>
+                NodeId.newBuilder.setId(nid.id).build)
               .toSeq
               .asJava)
             .build

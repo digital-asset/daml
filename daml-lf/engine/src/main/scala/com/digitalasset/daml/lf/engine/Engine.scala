@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx}
-import com.digitalasset.daml.lf.types.Ledger
+import com.digitalasset.daml.lf.types.LedgerForScenarios
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
 
@@ -183,12 +183,13 @@ final class Engine {
       restRootExpressions.flatMap(nodeExpressions => go(init, FrontStack(nodeExpressions)))
     }
 
-    val checkedFailures: ((Transaction.NodeId, Ledger.FailedAuthorization)) => Boolean = {
+    val checkedFailures
+      : ((Transaction.NodeId, LedgerForScenarios.FailedAuthorization)) => Boolean = {
       case (nid, failure) =>
         failure match {
-          case Ledger.FACreateMissingAuthorization(_, _, _, requiredParties) =>
+          case LedgerForScenarios.FACreateMissingAuthorization(_, _, _, requiredParties) =>
             tx.roots.toSeq.contains(nid) && requiredParties.contains(requestor)
-          case Ledger.FAExerciseMissingAuthorization(_, _, _, _, requiredParties) =>
+          case LedgerForScenarios.FAExerciseMissingAuthorization(_, _, _, _, requiredParties) =>
             tx.roots.toSeq.contains(nid) && requiredParties.contains(requestor)
           case _ => true
         }
@@ -219,7 +220,9 @@ final class Engine {
     for {
       recreatedTx <- incrementalRunInterpreter()
       authorizerSet = submitter.map(s => Set(s)).getOrElse(Set.empty[Party])
-      enrichment = Ledger.enrichTransaction(Ledger.Authorize(authorizerSet), recreatedTx)
+      enrichment = LedgerForScenarios.enrichTransaction(
+        LedgerForScenarios.Authorize(authorizerSet),
+        recreatedTx)
       comparableTx = recreatedTx.mapContractIdAndValue(contractIdMaping, valMapping)
       _ <- Result.assert(!enrichment.failedAuthorizations.exists(checkedFailures))(
         Error("Post-commit validation failure: unauthorized transaction"))

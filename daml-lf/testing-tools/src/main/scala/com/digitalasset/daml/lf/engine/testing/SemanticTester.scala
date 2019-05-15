@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction => Tx}
-import com.digitalasset.daml.lf.types.{Ledger => L}
+import com.digitalasset.daml.lf.types.{LedgerForScenarios => L}
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   VContractId,
@@ -42,8 +42,8 @@ class SemanticTester(
     packageToTest: PackageId,
     packages: Map[PackageId, Package],
     partyNameMangler: (String => String) = identity,
-    commandIdMangler: ((QualifiedName, Int, L.NodeId) => String) = (scenario, stepId, nodeId) =>
-      s"semantic-testing-$scenario-$stepId-$nodeId"
+    commandIdMangler: ((QualifiedName, Int, L.ScenarioNodeId) => String) =
+      (scenario, stepId, nodeId) => s"semantic-testing-$scenario-$stepId-$nodeId"
 )(implicit ec: ExecutionContext) {
   import SemanticTester._
 
@@ -97,7 +97,7 @@ class SemanticTester(
     //
     case class StackNode(
         /** Identifier for the Node */
-        nid: L.NodeId,
+        nid: L.ScenarioNodeId,
         /** True if the children of the exercise node has been added to the stack */
         exerciseAddedChildren: Boolean
     )
@@ -113,9 +113,9 @@ class SemanticTester(
     // check ledger events and pairs up contract ids
     def checkEvents(
         reference: String,
-        scenarioWitnesses: Relation[L.NodeId, Party],
+        scenarioWitnesses: Relation[L.ScenarioNodeId, Party],
         scenarioTransaction: GenTransaction[
-          L.NodeId,
+          L.ScenarioNodeId,
           AbsoluteContractId,
           Tx.Value[AbsoluteContractId]],
         ledgerEvents: Events[ledger.EventNodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]],
@@ -126,7 +126,7 @@ class SemanticTester(
       // returns the matched event and the tail of the eventIds
       def popEvent[EvTyp: ClassTag](
           what: String,
-          scenarioNode: GenNode.WithTxValue[L.NodeId, AbsoluteContractId],
+          scenarioNode: GenNode.WithTxValue[L.ScenarioNodeId, AbsoluteContractId],
           remainingLedgerEventIds: FrontStack[ledger.EventNodeId])
         : (EvTyp, FrontStack[ledger.EventNodeId]) =
         remainingLedgerEventIds match {
@@ -214,7 +214,7 @@ class SemanticTester(
                   )
 
                 case scenarioExercisesNode: NodeExercises[
-                      L.NodeId,
+                      L.ScenarioNodeId,
                       AbsoluteContractId,
                       Tx.Value[AbsoluteContractId]] if exerciseAddedChildren =>
                   val (ledgerExerciseEvent, remainingLedgerEventIds) =
@@ -257,7 +257,7 @@ class SemanticTester(
                   )
 
                 case scenarioExercisesNode: NodeExercises[
-                      L.NodeId,
+                      L.ScenarioNodeId,
                       AbsoluteContractId,
                       Tx.Value[AbsoluteContractId]] if !exerciseAddedChildren =>
                   val exerciseChildren =
@@ -329,7 +329,7 @@ class SemanticTester(
                     submitCommandCheckAndUpdateMap(richTransaction.committer, cmd, m)
                   })
 
-                case ne: NodeExercises.WithTxValue[L.NodeId, AbsoluteContractId] =>
+                case ne: NodeExercises.WithTxValue[L.ScenarioNodeId, AbsoluteContractId] =>
                   previousMap.flatMap(m => {
 
                     val engineTargetCoid = m(ne.targetCoid)
