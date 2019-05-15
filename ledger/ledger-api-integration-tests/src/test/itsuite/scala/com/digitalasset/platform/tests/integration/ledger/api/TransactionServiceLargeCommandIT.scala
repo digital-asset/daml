@@ -63,8 +63,6 @@ class TransactionServiceLargeCommandIT
         c.testingHelpers
           .submitAndListenForSingleResultOfCommand(superSizedCommand, getAllContracts)
           .map { tx =>
-            tx.events.foreach(println)
-
             tx.events.size shouldEqual targetNumberOfSubCommands
           }
       }
