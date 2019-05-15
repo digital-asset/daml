@@ -8,8 +8,8 @@
         </encoder>
     </appender>
 
-    <logger name="com.digitalasset" level="DEBUG" />
-    <logger name="com.daml" level="DEBUG" />
+    <logger name="com.digitalasset" level="INFO" />
+    <logger name="com.daml" level="INFO" />
 
     <root level="WARN">
         <appender-ref ref="STDOUT" />
