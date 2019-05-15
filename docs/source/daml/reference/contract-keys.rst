@@ -58,12 +58,12 @@ You need authorization from **at least one** of the maintainers to run ``fetchBy
 
 This means that if it fails, it doesn't guarantee that a contract with that key doesn't exist, just that you can't see one.
 
-Because the type is ambiguous, when calling you need to specify what you expect with ``@`` and the type, for example ``@MyTemplateType``.
+Because different templates can use the same key type, you need to specify the type of the contract you are trying to fetch using the ``@ContractType`` syntax.
 
 ``lookupByKey``
 ===============
 
-``contractId <- lookupByKey @ContractType contractKey``
+``optionalContractId <- lookupByKey @ContractType contractKey``
 
 Use ``lookupByKey`` to check whether a contract with the specified key exists. If it does exist, ``lookupByKey`` returns the ``Some contractId``, where ``contractId`` is the ID of the contract; otherwise, it returns ``None``.
 
@@ -75,7 +75,7 @@ Unlike ``fetchByKey``, the transaction **does not fail** if a contract with the 
 
 To get the data from the contract once you've confirmed it exists, you'll still need to use ``fetch``.
 
-Because the type is ambiguous, when calling you need to specify what you expect with ``@`` and the type, for example ``@MyTemplateType``.
+Because different templates can use the same key type, you need to specify the type of the contract you are trying to fetch using the ``@ContractType`` syntax.
 
 ``exerciseByKey``
 =================
@@ -84,7 +84,7 @@ Because the type is ambiguous, when calling you need to specify what you expect 
 
 Use ``exerciseByKey`` to exercise a choice on a contract identified by its ``key`` (compared to ``exercise``, which lets you exercise a contract identified by its ``ContractId``). To run ``exerciseByKey`` you need authorization from the controllers of the choice and at least one of the key maintainers.
 
-Because the type is ambiguous, when calling you need to specify what you expect with ``@`` and the type, for example ``@MyTemplateType``.
+Because different templates can use the same key type, you need to specify the type of the contract you are trying to fetch using the ``@ContractType`` syntax.
 
 Error messages
 **************

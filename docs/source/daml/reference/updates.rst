@@ -90,7 +90,7 @@ exerciseByKey
 - ``exerciseByKey`` function.
 - Exercises the specified choice on the specified contract.
 - Use ``with`` to specify the choice parameters.
-- Requires authorization from the controller(s) of the choice. If the authorization is not given, the transaction fails.
+- Requires authorization from the controller(s) of the choice **and** from at least one of the maintainers of the key. If the authorization is not given, the transaction fails.
 
 .. _daml-ref-fetch:
 
@@ -118,6 +118,7 @@ fetchByKey
 
 - ``fetchByKey`` function.
 - The same as ``fetch``, but fetches the contract instance with that :doc:`contract key </daml/reference/contract-keys>`, instead of the contract ID.
+- As well as the authorization that ``fetch`` requires, you also need authorization from one of the ``maintainers`` of the key.
 
 .. _daml-ref-lookup-by-key:
 
