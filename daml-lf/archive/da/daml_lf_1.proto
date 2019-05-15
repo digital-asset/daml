@@ -24,6 +24,7 @@
 //     -- 2019-03-18: Add flexible controllers (change scoping of controller expressions)
 // * 3 -- 2019-03-25: Add contract key
 //     -- 2019-03-27: Add Map type
+// dev -- 2019-05-15: Add complex contract keys
 
 
 syntax = "proto3";
@@ -957,7 +958,13 @@ message DefTemplate {
 
   message DefKey {
       Type type = 1;
-      KeyExpr key = 2;
+      // NOTE(MH): The first version of contract keys had syntactic
+      // restrictions that key expression had to be "simple". We lifted these
+      // restrictions later and allowed arbitrarily complext key expressions.
+      oneof key_expr {
+          KeyExpr key = 2;
+          Expr complex_key = 4;
+      }
       Expr maintainers = 3; // a function from the key type to [Party]
   }
 
