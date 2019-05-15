@@ -33,7 +33,7 @@ class PackageServiceIT
   override def timeLimit: Span = 5.seconds
 
   private def client(stub: PackageService): PackageClient = {
-    client(stub, config.getLedgerId)
+    client(stub, config.assertStaticLedgerId)
   }
 
   private def client(stub: PackageService, ledgerId: String): PackageClient = {
@@ -54,7 +54,9 @@ class PackageServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        client(context.packageService, "not " + config.getLedgerId).listPackages().failed map {
+        client(context.packageService, "not " + config.assertStaticLedgerId)
+          .listPackages()
+          .failed map {
           IsStatusException(Status.NOT_FOUND)(_)
         }
 
@@ -79,7 +81,10 @@ class PackageServiceIT
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
         getARegisteredPackageId(context.packageService)
-          .flatMap(client(context.packageService, "not " + config.getLedgerId).getPackage(_).failed) map {
+          .flatMap(
+            client(context.packageService, "not " + config.assertStaticLedgerId)
+              .getPackage(_)
+              .failed) map {
           IsStatusException(Status.NOT_FOUND)(_)
         }
       }
@@ -104,7 +109,7 @@ class PackageServiceIT
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
         getARegisteredPackageId(context.packageService)
           .flatMap(
-            client(context.packageService, "not " + config.getLedgerId)
+            client(context.packageService, "not " + config.assertStaticLedgerId)
               .getPackageStatus(_)
               .failed) map {
           IsStatusException(Status.NOT_FOUND)(_)

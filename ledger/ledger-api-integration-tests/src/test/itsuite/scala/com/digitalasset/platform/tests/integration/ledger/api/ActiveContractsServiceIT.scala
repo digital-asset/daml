@@ -55,17 +55,17 @@ class ActiveContractsServiceIT
 
   private def client(
       ctx: LedgerContext,
-      ledgerId: String = config.getLedgerId): ActiveContractSetClient =
+      ledgerId: String = config.assertStaticLedgerId): ActiveContractSetClient =
     new ActiveContractSetClient(ledgerId, ctx.acsService)
 
   private def commandClient(
       ctx: LedgerContext,
-      ledgerId: String = config.getLedgerId): SynchronousCommandClient =
+      ledgerId: String = config.assertStaticLedgerId): SynchronousCommandClient =
     new SynchronousCommandClient(ctx.commandService)
 
   private def transactionClient(
       ctx: LedgerContext,
-      ledgerId: String = config.getLedgerId): TransactionClient =
+      ledgerId: String = config.assertStaticLedgerId): TransactionClient =
     new TransactionClient(ledgerId, ctx.transactionService)
 
   private def submitRequest(ctx: LedgerContext, request: SubmitAndWaitRequest) =

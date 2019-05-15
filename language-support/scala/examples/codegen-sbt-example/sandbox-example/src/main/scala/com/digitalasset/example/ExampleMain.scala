@@ -30,9 +30,10 @@ import com.digitalasset.ledger.client.configuration.{
 }
 import com.digitalasset.ledger.client.services.commands.CommandClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxApplication
 import com.digitalasset.platform.sandbox.SandboxApplication.SandboxServer
-import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, LedgerIdMode, SandboxConfig}
+import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.google.protobuf.empty.Empty
 
@@ -51,7 +52,7 @@ object ExampleMain extends App {
     port = port,
     damlPackageContainer = DamlPackageContainer(List(dar)),
     timeProviderType = TimeProviderType.WallClock,
-    ledgerIdMode = LedgerIdMode.Predefined(ledgerId),
+    ledgerIdMode = LedgerIdMode.Static(ledgerId),
   )
 
   private val server: SandboxServer = SandboxApplication(serverConfig)

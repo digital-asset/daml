@@ -40,8 +40,7 @@ class TransactionServiceLargeCommandIT
     with TestTemplateIds {
 
   override protected val config: Config =
-    Config
-      .defaultWithTimeProvider(TimeProviderType.Static)
+    Config.default.withTimeProvider(TimeProviderType.Static)
 
   override val timeLimit: Span = 300.seconds
 
