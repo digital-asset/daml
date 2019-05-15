@@ -246,7 +246,6 @@ da_haskell_library(
     deps = [
         ":daml-ghc-compiler",
         ":daml-ghc-damldoc-types",
-        ":daml-service-daml-compiler",
         "//compiler/haskell-ide-core",
     ],
 )

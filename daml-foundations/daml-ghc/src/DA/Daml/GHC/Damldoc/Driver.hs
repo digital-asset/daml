@@ -13,7 +13,6 @@ import           DA.Daml.GHC.Damldoc.Types
 import           DA.Daml.GHC.Damldoc.Render
 import           DA.Daml.GHC.Damldoc.HaddockParse
 import           DA.Daml.GHC.Damldoc.Transform
-import qualified DA.Service.Daml.Compiler.Impl.Handle as DGHC
 import DA.Daml.GHC.Compiler.Options
 
 import Development.IDE.Types.Diagnostics
@@ -57,7 +56,7 @@ damlDocDriver cInputFormat output cFormat prefixFile options files = do
                 concatMapM (either printAndExit pure) mbData
 
             InputDaml -> do
-                ghcOpts <- DGHC.defaultOptionsIO Nothing
+                ghcOpts <- defaultOptionsIO Nothing
                 onErrorExit $ runExceptT
                             $ fmap (applyTransform options)
                             $ mkDocs (toCompileOpts ghcOpts) files
