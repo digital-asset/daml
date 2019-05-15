@@ -109,12 +109,19 @@ decodeDefTemplate LF1.DefTemplate{..} =
 decodeDefTemplateKey :: ExprVarName -> LF1.DefTemplate_DefKey -> Decode TemplateKey
 decodeDefTemplateKey templateParam LF1.DefTemplate_DefKey{..} = do
   typ <- mayDecode "defTemplate_DefKeyType" defTemplate_DefKeyType decodeType
-  key <- mayDecode "defTemplate_DefKeyKey" defTemplate_DefKeyKey (decodeKeyExpr templateParam)
+  key <- mayDecode "defTemplate_DefKeyKeyExpr" defTemplate_DefKeyKeyExpr (decodeKeyExpr templateParam)
   maintainers <- mayDecode "defTemplate_DefKeyMaintainers" defTemplate_DefKeyMaintainers decodeExpr
   return (TemplateKey typ key maintainers)
 
-decodeKeyExpr :: ExprVarName -> LF1.KeyExpr -> Decode Expr
-decodeKeyExpr templateParam LF1.KeyExpr{..} = mayDecode "keyExprSum" keyExprSum $ \case
+decodeKeyExpr :: ExprVarName -> LF1.DefTemplate_DefKeyKeyExpr -> Decode Expr
+decodeKeyExpr templateParam = \case
+    LF1.DefTemplate_DefKeyKeyExprKey simpleKeyExpr ->
+        decodeSimpleKeyExpr templateParam simpleKeyExpr
+    LF1.DefTemplate_DefKeyKeyExprComplexKey _ ->
+        error "Complex contract key expressions are not supported by damlc yet"
+
+decodeSimpleKeyExpr :: ExprVarName -> LF1.KeyExpr -> Decode Expr
+decodeSimpleKeyExpr templateParam LF1.KeyExpr{..} = mayDecode "keyExprSum" keyExprSum $ \case
   LF1.KeyExprSumProjections LF1.KeyExpr_Projections{..} ->
     foldM
       (\rec_ LF1.KeyExpr_Projection{..} ->
@@ -126,12 +133,12 @@ decodeKeyExpr templateParam LF1.KeyExpr{..} = mayDecode "keyExprSum" keyExprSum 
   LF1.KeyExprSumRecord LF1.KeyExpr_Record{..} ->
     ERecCon
       <$> mayDecode "keyExpr_RecordTycon" keyExpr_RecordTycon decodeTypeConApp
-      <*> mapM (decodeFieldWithKeyExpr templateParam) (V.toList keyExpr_RecordFields)
+      <*> mapM (decodeFieldWithSimpleKeyExpr templateParam) (V.toList keyExpr_RecordFields)
 
-decodeFieldWithKeyExpr :: ExprVarName -> LF1.KeyExpr_RecordField -> Decode (Tagged a T.Text, Expr)
-decodeFieldWithKeyExpr templateParam LF1.KeyExpr_RecordField{..} =
+decodeFieldWithSimpleKeyExpr :: ExprVarName -> LF1.KeyExpr_RecordField -> Decode (Tagged a T.Text, Expr)
+decodeFieldWithSimpleKeyExpr templateParam LF1.KeyExpr_RecordField{..} =
   (taggedT keyExpr_RecordFieldField, ) <$>
-  mayDecode "keyExpr_RecordFieldExpr" keyExpr_RecordFieldExpr (decodeKeyExpr templateParam)
+  mayDecode "keyExpr_RecordFieldExpr" keyExpr_RecordFieldExpr (decodeSimpleKeyExpr templateParam)
 
 decodeChoice :: LF1.TemplateChoice -> Decode TemplateChoice
 decodeChoice LF1.TemplateChoice{..} =
