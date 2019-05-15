@@ -99,6 +99,10 @@ runDamlStudio replaceExt remainingArguments = do
         path = fromMaybe "." projectPathM
         command = unwords $ codeCommand : path : remainingArguments
     exitCode <- withCreateProcess (shell command) $ \_ _ _ -> waitForProcess
+    when (exitCode /= ExitSuccess) $
+        hPutStrLn stderr $
+          "Failed to launch Visual Studio Code." <>
+          " See https://code.visualstudio.com/Download for installation instructions."
     exitWith exitCode
 
 shouldReplaceExtension :: ReplaceExtension -> FilePath -> IO Bool
@@ -126,7 +130,9 @@ withJar :: FilePath -> [String] -> (ProcessHandle -> IO a) -> IO a
 withJar jarPath args a = do
     sdkPath <- getSdkPath
     let absJarPath = sdkPath </> jarPath
-    withCreateProcess (proc "java" ("-jar" : absJarPath : args)) $ \_ _ _ -> a
+    (withCreateProcess (proc "java" ("-jar" : absJarPath : args)) $ \_ _ _ -> a) `catchIO`
+        (\e -> hPutStrLn stderr "Failed to start java. Make sure it is installed and in the PATH." *> throwIO e)
+
 
 getTemplatesFolder :: IO FilePath
 getTemplatesFolder = fmap (</> "templates") getSdkPath

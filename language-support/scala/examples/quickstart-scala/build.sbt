@@ -19,6 +19,7 @@ lazy val parent = project
   )
   .aggregate(`scala-codegen`, `application`)
 
+// <doc-ref:modules>
 lazy val `scala-codegen` = project
   .in(file("scala-codegen"))
   .settings(
@@ -44,6 +45,7 @@ lazy val `application` = project
     libraryDependencies ++= codeGenDependencies ++ applicationDependencies,
   )
   .dependsOn(`scala-codegen`)
+// </doc-ref:modules>
 
 lazy val commonSettings = Seq(
   scalacOptions ++= Seq(
@@ -60,17 +62,20 @@ lazy val commonSettings = Seq(
   classpathTypes += "maven-plugin",
 )
 
-lazy val applicationDependencies = Seq(
-  "com.daml.scala" %% "bindings-akka" % daSdkVersion,
-)
-
+// <doc-ref:dependencies>
 lazy val codeGenDependencies = Seq(
   "com.daml.scala" %% "bindings" % daSdkVersion,
 )
 
+lazy val applicationDependencies = Seq(
+  "com.daml.scala" %% "bindings-akka" % daSdkVersion,
+)
+// </doc-ref:dependencies>
+
 lazy val damlScala = taskKey[Seq[File]]("Generate Scala code.")
 damlScala := Seq() // by default, do nothing
 
+// <doc-ref:generate-scala>
 def generateScalaFrom(
     darFile: File,
     packageName: String,
@@ -88,3 +93,4 @@ def generateScalaFrom(
   }
   cache(Set(darFile))
 }
+// </doc-ref:generate-scala>

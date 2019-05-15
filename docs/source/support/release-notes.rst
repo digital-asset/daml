@@ -28,6 +28,10 @@ DAML
   - People using the Java/Scala codegen need to replace ``import ghc.tuple.*`` or ``import da.internal.prelude.*`` with ``import da.types.*``.
   - People using the Ledger API directly need to replace ``GHC.Tuple`` and ``DA.Internal.Prelude`` with ``DA.Types``.
 
+- **BREAKING CHANGE - DAML Standard Library**: Don't expose the ``TextMap`` type via the ``Prelude`` anymore.
+
+  How to migrate: Always import ``DA.TextMap`` when you want to use the ``TextMap`` type.
+
 - **DAML Standard Library**: Add ``String`` as a compatibility alias for ``Text``.
 
 Ledger API

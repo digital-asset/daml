@@ -12,6 +12,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.server.LedgerApiServer.LedgerApiServer
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
@@ -74,7 +75,10 @@ object SandboxApplication {
       implicit val ec: ExecutionContext = mat.system.dispatcher
       implicit val mm: MetricsManager = metricsManager
 
-      ledgerId = config.ledgerIdMode.ledgerId()
+      ledgerId = config.ledgerIdMode match {
+        case LedgerIdMode.Static(id) => id
+        case LedgerIdMode.Dynamic() => LedgerIdGenerator.generateRandomId()
+      }
 
       val context = SandboxContext.fromConfig(config)
 

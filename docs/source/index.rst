@@ -41,6 +41,7 @@ DAML SDK documentation
 
    app-dev/index
    app-dev/bindings-java/index
+   app-dev/bindings-scala/index
    app-dev/bindings-js
    app-dev/grpc/index
    app-dev/app-arch

@@ -10,6 +10,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Commands
 import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.tests.integration.ledger.api.TransactionServiceHelpers
 import org.scalatest.AsyncTestSuite
 
@@ -47,5 +48,6 @@ trait MultiLedgerCommandUtils extends TransactionServiceHelpers with MultiLedger
     commands = MockMessages.submitAndWaitRequest.commands
       .map(_.copy(commandId = "fails", ledgerId = "not ledger id")))
 
-  override protected def config: Config = Config.defaultWithLedgerId(Some(testLedgerId))
+  override protected def config: Config =
+    Config.default.withLedgerIdMode(LedgerIdMode.Static(testLedgerId))
 }

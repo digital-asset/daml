@@ -8,6 +8,9 @@ steps:
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
+  - powershell: '.\ci\windows-diagnostics.ps1'
+    displayName: 'Agent diagnostics'
+
   - powershell: '.\build.ps1'
     displayName: 'Build'
 

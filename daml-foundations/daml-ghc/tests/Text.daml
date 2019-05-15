@@ -137,6 +137,12 @@ testSplitOn = scenario do
   ["", "", ""] === T.splitOn "." ".."
   ["1", "2", ",3"] === T.splitOn ",," "1,,2,,,3"
 
+testSplitAt = scenario do
+  ("", "test") === T.splitAt 0 "test"
+  ("t", "est") === T.splitAt 1 "test"
+  ("test", "") === T.splitAt 4 "test"
+  ("test", "") === T.splitAt 100 "test"
+
 testTake = scenario do
   "abc" === T.take 3 "abcdef"
   "abcdef" === T.take 100 "abcdef"

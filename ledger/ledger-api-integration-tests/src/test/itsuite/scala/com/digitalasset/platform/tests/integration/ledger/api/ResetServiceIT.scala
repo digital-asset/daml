@@ -18,6 +18,7 @@ import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.ledger.api.v1.testing.reset_service.ResetRequest
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.services.TestCommands
 import com.digitalasset.platform.sandbox.utils.InfiniteRetries
 import io.grpc.Status
@@ -42,7 +43,8 @@ class ResetServiceIT
 
   override def timeLimit: Span = 30.seconds
 
-  override protected val config: Config = Config.defaultWithLedgerId(None)
+  override protected val config: Config =
+    Config.default.withLedgerIdMode(LedgerIdMode.Dynamic())
 
   override protected def darFile: File = new File("ledger/sandbox/Test.dar")
 

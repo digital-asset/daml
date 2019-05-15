@@ -22,15 +22,14 @@ module Development.IDE.Functions.Compile
   ) where
 
 import           Development.IDE.Functions.Warnings
+import           Development.IDE.Functions.CPP
 import           Development.IDE.Types.Diagnostics
 import qualified Development.IDE.Functions.FindImports as FindImports
 import           Development.IDE.Functions.GHCError
 import           Development.IDE.Functions.SpanInfo
 import Development.IDE.UtilGHC
+import Development.IDE.Compat
 import Development.IDE.Types.Options
-
-import HieBin
-import HieAst
 
 import           GHC hiding (parseModule, typecheckModule)
 import qualified Parser
@@ -48,6 +47,7 @@ import           StringBuffer                   as SB
 import           TidyPgm
 import           InstEnv
 import           FamInstEnv
+import qualified GHC.LanguageExtensions as LangExt
 
 import Control.DeepSeq
 import           Control.Exception                        as E
@@ -63,6 +63,8 @@ import           Development.IDE.Types.SpanInfo
 import GHC.Generics (Generic)
 import           System.FilePath
 import           System.Directory
+import System.IO.Extra
+
 
 -- | 'CoreModule' together with some additional information required for the
 -- conversion to DAML-LF.
@@ -406,7 +408,7 @@ getModSummaryFromBuffer fp (contents, fileDate) dflags parsed = do
           { ml_hs_file  = Just fp
           , ml_hi_file  = replaceExtension fp "hi"
           , ml_obj_file = replaceExtension fp "o"
-#ifndef USE_GHC
+#ifndef GHC_STABLE
           , ml_hie_file = replaceExtension fp "hie"
 #endif
           -- This does not consider the dflags configuration
@@ -427,7 +429,7 @@ getModSummaryFromBuffer fp (contents, fileDate) dflags parsed = do
     , ms_hsc_src      = HsSrcFile
     , ms_obj_date     = Nothing
     , ms_iface_date   = Nothing
-#ifndef USE_GHC
+#ifndef GHC_STABLE
     , ms_hie_date     = Nothing
 #endif
     , ms_srcimps      = []        -- source imports are not allowed
@@ -445,9 +447,24 @@ parseFileContents
 parseFileContents preprocessor filename (time, contents) = do
    let loc  = mkRealSrcLoc (mkFastString filename) 1 1
    dflags  <- parsePragmasIntoDynFlags filename contents
+
+   (contents, dflags) <-
+      if not $ xopt LangExt.Cpp dflags then
+          return (contents, dflags)
+      else do
+          contents <- liftIO $ withTempDir $ \dir -> do
+              let inp = dir </> takeFileName filename
+              let out = dir </> takeFileName filename <.> "out"
+              let f x = if SB.atEnd x then Nothing else Just $ SB.nextChar x
+              liftIO $ writeFileUTF8 inp (unfoldr f contents)
+              doCpp dflags True inp out
+              liftIO $ SB.hGetStringBuffer out
+          dflags <- parsePragmasIntoDynFlags filename contents
+          return (contents, dflags)
+
    case unP Parser.parseModule (mkPState dflags contents loc) of
-#ifdef USE_GHC
-     PFailed _ logMsg msgErr ->
+#ifdef GHC_STABLE
+     PFailed _ locErr msgErr ->
       Ex.throwE $ mkErrorDoc dflags locErr msgErr
 #else
      PFailed s ->

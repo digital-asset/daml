@@ -136,6 +136,22 @@ dev_env_tool(
     win_tool = "msys2",
 )
 
+dev_env_tool(
+    name = "mvn_dev_env",
+    nix_include = ["bin/mvn"],
+    nix_label = "@mvn_nix",
+    nix_path = "bin/mvn",
+    tool = "mvn",
+    win_include = [
+        "bin",
+        "boot",
+        "conf",
+        "lib",
+    ],
+    win_path = "bin/mvn",
+    win_tool = "maven-3.6.1",
+)
+
 nixpkgs_package(
     name = "awk_nix",
     attribute_path = "gawk",
@@ -238,6 +254,7 @@ haskell_register_ghc_nixpkgs(
         "-O1",
         "-fexternal-dynamic-refs",
         "-hide-package=ghc-boot-th",
+        "-hide-package=ghc-boot",
     ],
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
@@ -267,6 +284,7 @@ nixpkgs_package(
 nixpkgs_package(
     name = "mvn_nix",
     attribute_path = "mvn",
+    fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
@@ -445,7 +463,7 @@ hazel_repositories(
         extra =
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-            hazel_ghclibs("0.20190509.1", "0d7d89a3762ee95744dbbfd920b18850203d24ce174e72e9fa4210e5e6981069", "c7ff466aa699cad692800a391bfc034f225b163c0552c32d733534650846e87b") +
+            hazel_ghclibs("0.20190514.1", "e6c48de58c7dcdd96ea3a9481108ce0cd0a3e825621eac9b52d28ac38b05bc43", "e757de1bc7aafe782230e24964a841ac7cd793b97cfb5cdee90df183bda4ba0a") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
             hazel_hackage("bytestring-nums", "0.3.6", "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd") +

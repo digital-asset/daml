@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.config
 import java.io.File
 
 import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 
 import scala.concurrent.duration._
@@ -55,7 +56,7 @@ object SandboxConfig {
       defaultCommandConfig,
       tlsConfig = None,
       scenario = None,
-      ledgerIdMode = LedgerIdMode.Random,
+      ledgerIdMode = LedgerIdMode.Dynamic(),
       jdbcUrl = None
     )
   }

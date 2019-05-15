@@ -41,7 +41,7 @@ class TimeServiceDisabledIT
 
   override def timeLimit: Span = 15.seconds
 
-  override protected def config: Config = Config.defaultWithTimeProvider(WallClock)
+  override protected def config: Config = Config.default.withTimeProvider(WallClock)
 
   "Time Service" when {
     "server is not in static mode" should {

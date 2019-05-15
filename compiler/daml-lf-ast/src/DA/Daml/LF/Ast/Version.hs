@@ -37,12 +37,9 @@ version1_3 = V1 $ PointStable 3
 versionDefault :: Version
 versionDefault = version1_3
 
--- | The newest non-development DAML-LF version.
-versionNewest :: Version
-versionNewest = version1_3
-
-maxV1minor :: Int
-maxV1minor = 3
+-- | The DAML-LF development version.
+versionDev :: Version
+versionDev = V1 PointDev
 
 minorInProtobuf :: MinorVersion -> TL.Text
 minorInProtobuf = TL.pack . \case
@@ -59,7 +56,7 @@ minorFromCliOption = \case
   _ -> Nothing
 
 supportedInputVersions :: [Version]
-supportedInputVersions = [version1_1, version1_2, version1_3, V1 PointDev]
+supportedInputVersions = [version1_1, version1_2, version1_3, versionDev]
 
 supportedOutputVersions :: [Version]
 supportedOutputVersions = supportedInputVersions

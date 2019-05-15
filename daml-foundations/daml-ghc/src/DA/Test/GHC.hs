@@ -8,8 +8,8 @@
 -- typecheck with LF, test it.  Test annotations are documented as 'Ann'.
 module DA.Test.GHC
   ( main
-  , mainVersionNewest
   , mainVersionDefault
+  , mainVersionDev
   ) where
 
 import DA.Daml.GHC.Compiler.Options
@@ -72,13 +72,13 @@ import Test.Tasty.Runners
 newtype TODO = TODO String
 
 main :: IO ()
-main = mainVersionNewest
-
-mainVersionNewest :: IO ()
-mainVersionNewest = mainWithVersion versionNewest
+main = mainVersionDev
 
 mainVersionDefault :: IO ()
 mainVersionDefault = mainWithVersion versionDefault
+
+mainVersionDev :: IO ()
+mainVersionDev = mainWithVersion versionDev
 
 mainWithVersion :: Version -> IO ()
 mainWithVersion version =

@@ -7,11 +7,11 @@ import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxApplication
 import com.digitalasset.platform.sandbox.config.{
   CommandConfiguration,
   DamlPackageContainer,
-  LedgerIdMode,
   SandboxConfig
 }
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
@@ -30,7 +30,7 @@ object PlatformApplications {
     * existing smart constructors
     */
   final case class Config private (
-      ledgerId: Option[String],
+      ledgerId: LedgerIdMode,
       darFiles: List[Path],
       parties: NonEmptyList[String],
       committerParty: String,
@@ -46,9 +46,13 @@ object PlatformApplications {
       "Max TTL's granularity is subsecond. Ledger Server does not support subsecond granularity for this configuration - please use whole seconds."
     )
 
-    def getLedgerId: String =
-      ledgerId.getOrElse(
-        throw new IllegalStateException("Attempted to access ledger ID, but none is configured."))
+    @SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
+    def assertStaticLedgerId: String =
+      ledgerId match {
+        case LedgerIdMode.Static(ledgerId) => ledgerId
+        case _ =>
+          throw new IllegalArgumentException("Unsupported ledger id config: " + ledgerId)
+      }
 
     def withDarFile(path: Path) = copy(darFiles = List(path))
 
@@ -56,7 +60,7 @@ object PlatformApplications {
 
     def withTimeProvider(tpt: TimeProviderType) = copy(timeProviderType = tpt)
 
-    def withLedgerId(id: Option[String]) = copy(ledgerId = id)
+    def withLedgerIdMode(mode: LedgerIdMode): Config = copy(ledgerId = mode)
 
     def withParties(p1: String, rest: String*) = copy(parties = NonEmptyList(p1, rest: _*))
 
@@ -73,16 +77,14 @@ object PlatformApplications {
 
   object Config {
     val defaultLedgerId = "ledger server"
-
     val defaultDarFile = new File("ledger/sandbox/Test.dar")
-
     val defaultParties = NonEmptyList("party", "Alice", "Bob")
     val defaultTimeProviderType = TimeProviderType.Static
 
-    def defaultWithLedgerId(ledgerId: Option[String]): Config = {
+    def default: Config = {
       val darFiles = List(defaultDarFile)
       new Config(
-        ledgerId,
+        LedgerIdMode.Static(defaultLedgerId),
         darFiles.map(_.toPath),
         defaultParties,
         "committer",
@@ -90,11 +92,6 @@ object PlatformApplications {
         TimeModel.reasonableDefault
       )
     }
-
-    def defaultWithTimeProvider(timeProviderType: TimeProviderType) =
-      defaultWithLedgerId(Some(defaultLedgerId)).withTimeProvider(timeProviderType)
-
-    def default: Config = defaultWithLedgerId(Some(defaultLedgerId))
   }
 
   def sandboxApplication(config: Config, jdbcUrl: Option[String]) = {
@@ -110,8 +107,7 @@ object PlatformApplications {
         commandConfig = config.commandConfiguration,
         scenario = None,
         tlsConfig = None,
-        ledgerIdMode =
-          config.ledgerId.fold[LedgerIdMode](LedgerIdMode.Random)(LedgerIdMode.Predefined),
+        ledgerIdMode = config.ledgerId,
         jdbcUrl = jdbcUrl
       )
     )

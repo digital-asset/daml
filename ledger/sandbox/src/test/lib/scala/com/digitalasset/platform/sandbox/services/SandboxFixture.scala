@@ -15,8 +15,9 @@ import com.digitalasset.ledger.api.v1.ledger_identity_service.{
 }
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxApplication
-import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, LedgerIdMode, SandboxConfig}
+import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import io.grpc.Channel
 import org.scalatest.Suite
@@ -54,7 +55,7 @@ trait SandboxFixture extends SuiteResource[Channel] {
         timeProviderType = TimeProviderType.Static,
         timeModel = TimeModel.reasonableDefault,
         scenario = scenario,
-        ledgerIdMode = LedgerIdMode.Predefined("sandbox server")
+        ledgerIdMode = LedgerIdMode.Static("sandbox server")
       )
 
   protected def packageFiles: List[File] = List(darFile)

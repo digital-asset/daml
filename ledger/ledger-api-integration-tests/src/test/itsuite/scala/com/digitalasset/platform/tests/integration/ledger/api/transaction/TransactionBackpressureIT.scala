@@ -14,6 +14,7 @@ import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestCommands}
+import com.digitalasset.platform.common.LedgerIdMode
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.Span
@@ -38,7 +39,8 @@ class TransactionBackpressureIT
 
   val testLedgerId = "ledgerId"
 
-  override protected def config: Config = Config.defaultWithLedgerId(Some(testLedgerId))
+  override protected def config: Config =
+    Config.default.withLedgerIdMode(LedgerIdMode.Static(testLedgerId))
 
   override protected def parallelExecution: Boolean = false
 

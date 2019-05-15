@@ -13,7 +13,6 @@ object Versions {
   val darFile = sys.props
     .get(darFileKey)
     .map(s => new sbt.File(s))
-    .filter(_.exists)
     .getOrElse(new sbt.File(s"./dist/${projectNameFromConfig(): String}.dar"))
   println(s"$darFileKey = ${darFile.getAbsolutePath: String}")
 
