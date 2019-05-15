@@ -4,8 +4,6 @@ package com.digitalasset.daml.lf.data
 
 import scalaz.Equal
 
-import scala.util.matching.Regex
-
 sealed abstract class MatchingStringModule {
 
   type T <: String
@@ -26,11 +24,12 @@ sealed abstract class MatchingStringModule {
   val Array: ArrayFactory[T]
 }
 
-object MatchingStringModule extends (Regex => MatchingStringModule) {
+object MatchingStringModule extends (String => MatchingStringModule) {
 
-  override def apply(regex: Regex): MatchingStringModule = new MatchingStringModule {
+  def apply(string_regex: String): MatchingStringModule = new MatchingStringModule {
     type T = String
 
+    private val regex = string_regex.r
     private val pattern = regex.pattern
 
     def fromString(s: String): Either[String, T] =
@@ -40,5 +39,35 @@ object MatchingStringModule extends (Regex => MatchingStringModule) {
 
     val Array: ArrayFactory[T] = new ArrayFactory[T]
   }
+
+}
+
+sealed abstract class ConcatenableMatchingStringModule extends MatchingStringModule {
+
+  def concat(s: T, t: T): T
+
+}
+
+object ConcatenableMatchingStringModule extends (String => MatchingStringModule) {
+
+  def apply(string_regex: String): ConcatenableMatchingStringModule =
+    new ConcatenableMatchingStringModule {
+      type T = String
+
+      private val regex = s"""($string_regex)+""".r
+      private val pattern = regex.pattern
+
+      def fromString(s: String): Either[String, T] =
+        Either.cond(
+          pattern.matcher(s).matches(),
+          s,
+          s"""string "$s" does not match regex "$regex"""")
+
+      def equalInstance: Equal[T] = scalaz.std.string.stringInstance
+
+      val Array: ArrayFactory[T] = new ArrayFactory[T]
+
+      def concat(s: T, t: T): T = s + t
+    }
 
 }

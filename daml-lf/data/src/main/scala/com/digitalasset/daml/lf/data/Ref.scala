@@ -34,7 +34,7 @@ object Ref {
   // <https://docs.oracle.com/javase/specs/jls/se10/html/jls-3.html#jls-3.8>.
   //
   // In a language like C# you'll need to use some other unicode char for `$`.
-  val Name = MatchingStringModule("""[A-Za-z\$_][A-Za-z0-9\$_]*""".r)
+  val Name = MatchingStringModule("""[A-Za-z\$_][A-Za-z0-9\$_]*""")
   type Name = Name.T
   implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
 
@@ -137,12 +137,12 @@ object Ref {
       underscore. We use them to represent [PackageId]s and [Party] literals. In this way, we avoid
       empty identifiers, escaping problems, and other similar pitfalls.
     */
-  val Party = MatchingStringModule("""[a-zA-Z0-9\-_ ]+""".r)
+  val Party = ConcatenableMatchingStringModule("""[a-zA-Z0-9\-_ ]""")
   type Party = Party.T
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
     * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
-  val PackageId = MatchingStringModule("""[a-zA-Z0-9\-_ ]+""".r)
+  val PackageId = ConcatenableMatchingStringModule("""[a-zA-Z0-9\-_ ]""")
   type PackageId = PackageId.T
 
   /** Reference to a value defined in the specified module. */
