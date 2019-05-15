@@ -4,6 +4,8 @@
 Contract keys
 #############
 
+.. note:: Note that this is an initial version of contract keys, and that some details of how you specify keys and maintainers will be changing soon. Specifically, you'll no longer have to include the maintainer in the key: this will be done automatically for you.
+
 Contract keys are an optional addition to templates. They let you specify a way of uniquely identifying contract instances, using the parameters to the template - similar to a primary key for a database.
 
 You can use contract keys to stably refer to a contract, even through iterations of instances of it.
