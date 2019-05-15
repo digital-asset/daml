@@ -12,6 +12,7 @@ import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.platform.apitesting.{LedgerContext, PlatformChannels, RemoteServerResource}
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
 
 import scala.concurrent.{Await, ExecutionContext}
@@ -38,7 +39,7 @@ object StandaloneSemanticTestRunner {
     val ledgerResource = RemoteServerResource(config.host, config.port, None)
       .map {
         case PlatformChannels(channel) =>
-          LedgerContext.SingleChannelContext(channel, None, packages.keys)
+          LedgerContext.SingleChannelContext(channel, LedgerIdMode.Dynamic(), packages.keys)
       }
     ledgerResource.setup()
     val ledger = ledgerResource.value

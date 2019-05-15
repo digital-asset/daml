@@ -10,6 +10,7 @@ import akka.pattern
 import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.testing.utils.{MockMessages, Resource}
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
@@ -41,6 +42,7 @@ import com.digitalasset.ledger.client.services.commands.CommandClient
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.testing.ResourceExtensions
 import io.grpc.{Channel, StatusRuntimeException}
 import io.grpc.reflection.v1alpha.ServerReflectionGrpc
@@ -156,19 +158,23 @@ object LedgerContext {
 
   final case class SingleChannelContext(
       channel: Channel,
-      configuredLedgerId: Option[String],
-      packageIds: Iterable[Ref.PackageId]
-  )(implicit override protected val esf: ExecutionSequencerFactory)
+      configuredLedgerId: LedgerIdMode,
+      packageIds: Iterable[PackageId])(
+      implicit override protected val esf: ExecutionSequencerFactory)
       extends LedgerContext {
 
     require(esf != null, "ExecutionSequencerFactory must not be null.")
 
     def ledgerId: String =
-      configuredLedgerId.getOrElse(
-        LedgerIdentityServiceGrpc
-          .blockingStub(channel)
-          .getLedgerIdentity(GetLedgerIdentityRequest())
-          .ledgerId)
+      configuredLedgerId match {
+        case LedgerIdMode.Static(id) =>
+          id
+        case LedgerIdMode.Dynamic() =>
+          LedgerIdentityServiceGrpc
+            .blockingStub(channel)
+            .getLedgerIdentity(GetLedgerIdentityRequest())
+            .ledgerId
+      }
 
     override def ledgerIdentityService: LedgerIdentityService =
       LedgerIdentityServiceGrpc.stub(channel)

@@ -5,12 +5,16 @@ package com.digitalasset.platform.tests.integration.ledger.api.transaction
 
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, MockMessages, SuiteResourceManagementAroundAll}
+import com.digitalasset.ledger.api.testing.utils.{
+  AkkaBeforeAndAfterAll,
+  MockMessages,
+  SuiteResourceManagementAroundAll
+}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
-import com.digitalasset.platform.RequestedLedgerAPIMode
 import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestCommands}
+import com.digitalasset.platform.common.LedgerIdMode
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.Span
@@ -35,7 +39,8 @@ class TransactionBackpressureIT
 
   val testLedgerId = "ledgerId"
 
-  override protected def config: Config = Config.default.withLedgerIdMode(RequestedLedgerAPIMode.Static(testLedgerId))
+  override protected def config: Config =
+    Config.default.withLedgerIdMode(LedgerIdMode.Static(testLedgerId))
 
   override protected def parallelExecution: Boolean = false
 

@@ -54,7 +54,9 @@ class PackageServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        client(context.packageService, "not " + config.assertStaticLedgerId).listPackages().failed map {
+        client(context.packageService, "not " + config.assertStaticLedgerId)
+          .listPackages()
+          .failed map {
           IsStatusException(Status.NOT_FOUND)(_)
         }
 
@@ -79,7 +81,10 @@ class PackageServiceIT
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
         getARegisteredPackageId(context.packageService)
-          .flatMap(client(context.packageService, "not " + config.assertStaticLedgerId).getPackage(_).failed) map {
+          .flatMap(
+            client(context.packageService, "not " + config.assertStaticLedgerId)
+              .getPackage(_)
+              .failed) map {
           IsStatusException(Status.NOT_FOUND)(_)
         }
       }

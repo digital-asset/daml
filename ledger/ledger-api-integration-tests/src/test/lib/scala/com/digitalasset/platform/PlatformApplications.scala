@@ -7,11 +7,11 @@ import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxApplication
 import com.digitalasset.platform.sandbox.config.{
   CommandConfiguration,
   DamlPackageContainer,
-  LedgerIdMode,
   SandboxConfig
 }
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
@@ -30,7 +30,7 @@ object PlatformApplications {
     * existing smart constructors
     */
   final case class Config private (
-      ledgerId: RequestedLedgerAPIMode,
+      ledgerId: LedgerIdMode,
       darFiles: List[Path],
       parties: NonEmptyList[String],
       committerParty: String,
@@ -49,19 +49,10 @@ object PlatformApplications {
     @SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
     def assertStaticLedgerId: String =
       ledgerId match {
-        case RequestedLedgerAPIMode.Static(ledgerId) => ledgerId
+        case LedgerIdMode.Static(ledgerId) => ledgerId
         case _ =>
           throw new IllegalArgumentException("Unsupported ledger id config: " + ledgerId)
       }
-
-    def getConfiguredLedgerId: Option[String] = {
-      ledgerId match {
-        case RequestedLedgerAPIMode.Static(id) =>
-          Some(id)
-        case RequestedLedgerAPIMode.Dynamic() =>
-          None
-      }
-    }
 
     def withDarFile(path: Path) = copy(darFiles = List(path))
 
@@ -69,7 +60,7 @@ object PlatformApplications {
 
     def withTimeProvider(tpt: TimeProviderType) = copy(timeProviderType = tpt)
 
-    def withLedgerIdMode(mode: RequestedLedgerAPIMode): Config = copy(ledgerId = mode)
+    def withLedgerIdMode(mode: LedgerIdMode): Config = copy(ledgerId = mode)
 
     def withParties(p1: String, rest: String*) = copy(parties = NonEmptyList(p1, rest: _*))
 
@@ -93,7 +84,7 @@ object PlatformApplications {
     def default: Config = {
       val darFiles = List(defaultDarFile)
       new Config(
-        RequestedLedgerAPIMode.Static(defaultLedgerId),
+        LedgerIdMode.Static(defaultLedgerId),
         darFiles.map(_.toPath),
         defaultParties,
         "committer",
@@ -116,27 +107,9 @@ object PlatformApplications {
         commandConfig = config.commandConfiguration,
         scenario = None,
         tlsConfig = None,
-        ledgerIdMode = config.ledgerId match {
-          case RequestedLedgerAPIMode.Static(id) =>
-            LedgerIdMode.Predefined(id)
-          case RequestedLedgerAPIMode.Dynamic() =>
-            LedgerIdMode.Random
-        },
+        ledgerIdMode = config.ledgerId,
         jdbcUrl = jdbcUrl
       )
     )
   }
-}
-
-sealed abstract class RequestedLedgerAPIMode extends Product with Serializable
-
-object RequestedLedgerAPIMode {
-  /**
-    * Ledger ID is provided by the test fixture and the Ledger API endpoint behind it is expected to use it.
-    */
-  final case class Static(ledgerId: String) extends RequestedLedgerAPIMode
-  /**
-    * Ledger ID is selected by the Ledger API endpoint behind the fixture. E.g. it can be random in case of Sandbox, or pre-existing in case of remote Ledger API servers.
-    */
-  final case class Dynamic() extends RequestedLedgerAPIMode
 }

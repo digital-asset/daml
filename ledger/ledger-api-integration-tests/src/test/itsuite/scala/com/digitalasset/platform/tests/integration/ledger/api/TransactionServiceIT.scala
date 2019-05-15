@@ -69,8 +69,7 @@ class TransactionServiceIT
     with TestTemplateIds {
 
   override protected val config: Config =
-    Config
-      .default.withTimeProvider(TimeProviderType.WallClock)
+    Config.default.withTimeProvider(TimeProviderType.WallClock)
 
   override val timeLimit: Span = 300.seconds
 
@@ -116,7 +115,11 @@ class TransactionServiceIT
         val elemsToTake = 10L
 
         for {
-          _ <- insertCommands(getTrackerFlow(context), "cancellation-test", 14, config.assertStaticLedgerId)
+          _ <- insertCommands(
+            getTrackerFlow(context),
+            "cancellation-test",
+            14,
+            config.assertStaticLedgerId)
           transactions <- context.transactionClient
             .getTransactions(ledgerBegin, None, getAllContracts)
             .take(elemsToTake)

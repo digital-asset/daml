@@ -7,8 +7,8 @@ import java.io.File
 import java.time.Duration
 
 import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.BuildInfo
-import com.digitalasset.platform.sandbox.config.LedgerIdMode.Predefined
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import scopt.Read
@@ -114,7 +114,7 @@ object Cli {
     //TODO (robert): Think about all implications of allowing users to set the ledger ID.
     opt[String]("ledgerid")
       .optional()
-      .action((id, c) => c.copy(ledgerIdMode = Predefined(id)))
+      .action((id, c) => c.copy(ledgerIdMode = LedgerIdMode.Static(id)))
       .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.")
 
     help("help").text("Print the usage text")

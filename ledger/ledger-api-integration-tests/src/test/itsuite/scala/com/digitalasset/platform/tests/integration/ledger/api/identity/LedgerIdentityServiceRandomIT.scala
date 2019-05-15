@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api.identity
 
-import com.digitalasset.platform.RequestedLedgerAPIMode
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.testing.LedgerBackend
 
 import scala.concurrent.Promise
@@ -11,7 +11,8 @@ import scala.concurrent.Promise
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LedgerIdentityServiceRandomIT extends LedgerIdentityServiceITBase {
 
-  override protected val config: Config = Config.default.withLedgerIdMode(RequestedLedgerAPIMode.Dynamic())
+  override protected val config: Config =
+    Config.default.withLedgerIdMode(LedgerIdMode.Dynamic())
 
   "A platform" when {
 
