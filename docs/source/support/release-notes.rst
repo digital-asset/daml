@@ -54,6 +54,13 @@ Ledger API
 
   - If you check for the presence of :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
 
+- Added the field ``agreement_text`` to the ``CreatedEvent`` message. This means you now have access to the agreement text of contracts via the Ledger API.
+  The type of this field is ``google.protobuf.StringValue`` to properly reflect the optionality on the wire for full backwards compatibility.
+  See Google's `wrappers.proto <https://github.com/protocolbuffers/protobuf/blob/b4f193788c9f0f05d7e0879ea96cd738630e5d51/src/google/protobuf/wrappers.proto#L31-L34>`__ for more information about ``StringValue``.
+
+  See `#1110 <https://github.com/digital-asset/daml/issues/1110>`__ for details.
+
+
 Java Bindings
 ~~~~~~~~~~~~~
 
@@ -81,9 +88,56 @@ Java Bindings
 
   See `issue #1092 <https://github.com/digital-asset/daml/issues/1092>`__ for details.
 
+- Added agreement text of contracts: `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
+
+  - **Java Bindings**
+
+    - Added field ``Optional<String> agreementText`` to ``data.CreatedEvent``, to reflect the change in Ledger API.
+
+  - **Java Codegen**
+
+    - Added generated field ``Optional<String> TemplateName.Contract#agreementText``.
+    - Added generated static method ``TemplateName.Contract.fromCreatedEvent(CreatedEvent)``.
+    - Added generated static method ``TemplateName.Contract.fromIdAndRecord(String, Record, Optional<String>)``.
+    - Deprecated generated static method ``TemplateName.Contract.fromIdAndRecord(String, Record)`` in favor of the new static methods in the generated ``Contract`` classes.
+    - Changed the generated `decoder utility class <https://docs.daml.com/app-dev/bindings-java/codegen.html#generate-the-decoder-utility-class>`__ to use the new ``fromCreatedEvent`` method.
+    - Changed the return type of the ``getDecoder`` method in the generated decoder utility class from ``Optional<BiFunction<String, Record, Contract>>`` to ``Optional<Function<CreatedEvent, Contract>>``.
+
+  How to migrate:
+
+  - If you are manually constructing instances of ``data.CreatedEvent`` (e.g.: for testing), you need to add an ``Optional<String>`` value as constructor parameter for the ``agreementText`` field.
+  - All calls to ``Contract.fromIdAndRecord`` should be changed to ``Contract.fromCreatedEvent``.
+
+    .. code-block:: java
+
+        // BEFORE
+        CreatedEvent event = ...;
+        Iou.Contract contract = Iou.Contract.fromIdAndRecord(event.getContractId(), event.getArguments()));
+
+        // AFTER
+        CreatedEvent event = ...;
+        Iou.Contract contract = Iou.Contract.fromCreatedEvent(event);
+
+  - Pass the ``data.CreatedEvent`` directly to the function returned by the decoder's ``getDecoder`` method.
+    If you are using the decoder utility class' method ``fromCreatedEvent``, you don't need to change anything.
+
+    .. code-block:: java
+
+        CreatedEvent event = ...;
+        // BEFORE
+        Optional<BiFunction<String, Record, Contract>> decoder = MyDecoderUtility.getDecoder(MyTemplate.TEMPLATE_ID);
+        if (decoder.isPresent()) {
+            return decoder.get().apply(event.getContractId(), event.getArguments();
+        }
+
+        // AFTER
+        Optional<Function<CreatedEvent, Contract>> decoder = MyDecoderUtility.getDecoder(MyTemplate.TEMPLATE_ID);
+        if (decoder.isPresent()) {
+            return decoder.get().apply(event);
+        }
+
 Ledger
 ~~~~~~
-
 
 - Renamed ``--jdbcurl`` to ``--sql-backend-jdbcurl``. Left ``--jdbcurl`` in place for backwards compat.
 - Fixed issue when loading scenarios making use of ``pass`` into the sandbox, see
@@ -92,6 +146,11 @@ Ledger
   `#1166 <https://github.com/digital-asset/daml/issues/1166>`_.
 - Contract visibility is now properly checked when looking up contracts in the SQL backend, see
   `#784 <https://github.com/digital-asset/daml/issues/784>`_.
+
+Navigator
+~~~~~~~~~
+
+- Non-empty agreement texts are now shown on the contract page above the section ``Contract details``. See `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
 
 .. _release-0-12-17:
 
