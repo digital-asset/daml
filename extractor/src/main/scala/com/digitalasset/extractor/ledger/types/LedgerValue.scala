@@ -67,15 +67,7 @@ object LedgerValue {
   private def convertRecord(apiRecord: api.value.Record) = {
     for {
       tycon <- apiRecord.recordId traverseU convertIdentifier map (_.flatten)
-      // TODO SC: local RecordField may be elided, in which case convert
-      // should just produce the tuple made here
-      fields <- ImmArray(apiRecord.fields).traverseU(_.convert flatMap {
-        case RecordField(lbl, vl) =>
-          some(lbl) filter (_.nonEmpty) traverseU (lbl => Ref.Name.fromString(lbl).disjunction) map (
-            (
-              _,
-              vl))
-      })
+      fields <- ImmArray(apiRecord.fields).traverseU(_.convert)
     } yield V.ValueRecord(tycon, fields)
   }
 
