@@ -184,7 +184,8 @@ case object LedgerApiV1 {
         workflowId = workflowId,
         contractId = ApiTypes.ContractId(event.contractId),
         templateId = templateIdentifier,
-        argument = arg
+        argument = arg,
+        agreementText = event.agreementText
       )
   }
 

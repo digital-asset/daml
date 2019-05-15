@@ -3,11 +3,13 @@
 
 package com.digitalasset.daml.lf.codegen.backend.java.inner
 
+import java.util.Optional
+
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.ContractId
+import com.daml.ledger.javaapi.data.{ContractId, CreatedEvent}
 import com.digitalasset.daml.lf.codegen.TypeWithContext
 import com.digitalasset.daml.lf.codegen.backend.java.ObjectMethods
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, QualifiedName, PackageId}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.iface._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
@@ -57,31 +59,46 @@ private[inner] object TemplateClass extends StrictLogging {
       templateType
     }
 
+  private val idFieldName = "id"
+  private val dataFieldName = "data"
+  private val agreementFieldName = "agreementText"
+
+  private val optionalString = ParameterizedTypeName.get(classOf[Optional[_]], classOf[String])
+
   private def generateContractClass(templateClassName: ClassName): TypeSpec = {
     val contractIdClassName = ClassName.bestGuess("ContractId")
-    val idFieldName = "id"
-    val dataFieldName = "data"
     val classBuilder =
       TypeSpec.classBuilder("Contract").addModifiers(Modifier.STATIC, Modifier.PUBLIC)
     classBuilder.addField(contractIdClassName, idFieldName, Modifier.PUBLIC, Modifier.FINAL)
     classBuilder.addField(templateClassName, dataFieldName, Modifier.PUBLIC, Modifier.FINAL)
+    classBuilder.addField(optionalString, agreementFieldName, Modifier.PUBLIC, Modifier.FINAL)
     classBuilder.addSuperinterface(ClassName.get(classOf[javaapi.data.Contract]))
     val constructorBuilder = MethodSpec
       .constructorBuilder()
       .addModifiers(Modifier.PUBLIC)
       .addParameter(contractIdClassName, idFieldName)
       .addParameter(templateClassName, dataFieldName)
+      .addParameter(optionalString, agreementFieldName)
     constructorBuilder.addStatement("this.$L = $L", idFieldName, idFieldName)
     constructorBuilder.addStatement("this.$L = $L", dataFieldName, dataFieldName)
+    constructorBuilder.addStatement("this.$L = $L", agreementFieldName, agreementFieldName)
     val constructor = constructorBuilder.build()
+
     classBuilder.addMethod(constructor)
+
     val contractClassName = ClassName.bestGuess("Contract")
-    val fields = Array(idFieldName -> contractIdClassName, dataFieldName -> templateClassName)
-    classBuilder.addMethod(
-      generateFromIdAndRecord(contractClassName, templateClassName, contractIdClassName))
-    classBuilder.addMethods(
-      ObjectMethods(contractClassName, fields.map(_._1), templateClassName).asJava)
-    classBuilder.build()
+    val fields = Array(idFieldName, dataFieldName, agreementFieldName)
+    classBuilder
+      .addMethod(generateFromIdAndRecord(contractClassName, templateClassName, contractIdClassName))
+      .addMethod(
+        generateFromIdAndRecordDeprecated(
+          contractClassName,
+          templateClassName,
+          contractIdClassName))
+      .addMethod(
+        generateFromCreatedEvent(contractClassName, templateClassName, contractIdClassName))
+      .addMethods(ObjectMethods(contractClassName, fields, templateClassName).asJava)
+      .build()
   }
 
   private[inner] def generateFromIdAndRecord(
@@ -94,10 +111,61 @@ private[inner] object TemplateClass extends StrictLogging {
       .returns(className)
       .addParameter(classOf[String], "contractId")
       .addParameter(classOf[javaapi.data.Record], "record$")
-      .addStatement("$T id = new $T(contractId)", idClassName, idClassName)
-      .addStatement("$T data = $T.fromValue(record$$)", templateClassName, templateClassName)
-      .addStatement("return new $T(id, data)", className)
+      .addParameter(
+        ParameterizedTypeName.get(classOf[Optional[_]], classOf[String]),
+        agreementFieldName)
+      .addStatement("$T $L = new $T(contractId)", idClassName, idFieldName, idClassName)
+      .addStatement(
+        "$T $L = $T.fromValue(record$$)",
+        templateClassName,
+        dataFieldName,
+        templateClassName)
+      .addStatement(
+        "return new $T($L, $L, $L)",
+        className,
+        idFieldName,
+        dataFieldName,
+        agreementFieldName)
       .build()
+
+  private[inner] def generateFromIdAndRecordDeprecated(
+      className: ClassName,
+      templateClassName: ClassName,
+      idClassName: ClassName): MethodSpec =
+    MethodSpec
+      .methodBuilder("fromIdAndRecord")
+      .addAnnotation(classOf[Deprecated])
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(className)
+      .addParameter(classOf[String], "contractId")
+      .addParameter(classOf[javaapi.data.Record], "record$")
+      .addStatement("$T $L = new $T(contractId)", idClassName, idFieldName, idClassName)
+      .addStatement(
+        "$T $L = $T.fromValue(record$$)",
+        templateClassName,
+        dataFieldName,
+        templateClassName)
+      .addStatement(
+        "return new $T($L, $L, $T.empty())",
+        className,
+        idFieldName,
+        dataFieldName,
+        classOf[Optional[_]])
+      .build()
+
+  private[inner] def generateFromCreatedEvent(
+      className: ClassName,
+      templateClassName: ClassName,
+      idClassName: ClassName) = {
+    MethodSpec
+      .methodBuilder("fromCreatedEvent")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(className)
+      .addParameter(classOf[CreatedEvent], "event")
+      .addStatement(
+        "return fromIdAndRecord(event.getContractId(), event.getArguments(), event.getAgreementText())")
+      .build()
+  }
 
   private def generateCreateMethod(name: ClassName): MethodSpec =
     MethodSpec

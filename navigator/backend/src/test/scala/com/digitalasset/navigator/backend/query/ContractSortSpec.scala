@@ -51,19 +51,23 @@ class ContractSortSpec extends FlatSpec with Matchers {
   val contract1 = Contract(
     ApiTypes.ContractId("id1"),
     template1,
-    ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))))
+    ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
+    None)
   val contract2 = Contract(
     ApiTypes.ContractId("id2"),
     template2,
-    ApiRecord(None, List(ApiRecordField("int", ApiInt64(1)))))
+    ApiRecord(None, List(ApiRecordField("int", ApiInt64(1)))),
+    Some(""))
   val contract3 = Contract(
     ApiTypes.ContractId("id3"),
     template1,
-    ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))))
+    ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
+    Some("agreement"))
   val contract4 = Contract(
     ApiTypes.ContractId("id4"),
     template2,
-    ApiRecord(None, List(ApiRecordField("int", ApiInt64(2)))))
+    ApiRecord(None, List(ApiRecordField("int", ApiInt64(2)))),
+    None)
 
   val contracts = List(contract1, contract2, contract3, contract4)
 
@@ -80,6 +84,10 @@ class ContractSortSpec extends FlatSpec with Matchers {
   test(List(), contracts)
   test(List("id" -> ASCENDING), contracts.sortBy(_.id.unwrap))
   test(List("id" -> DESCENDING), contracts.sortBy(_.id.unwrap)(Ordering[String].reverse))
+  test(
+    List("agreementText" -> ASCENDING),
+    contracts.sortBy(_.agreementText)
+  )
   test(List("argument.foo" -> ASCENDING), List(contract1, contract3, contract2, contract4))
   test(
     List("argument.foo" -> ASCENDING, "id" -> DESCENDING),

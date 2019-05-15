@@ -119,8 +119,7 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
       .foldLeft(Map[String, Wolpertinger.Contract]())((acc, event) =>
         event match {
           case e: CreatedEvent =>
-            acc + (e.getContractId -> Wolpertinger.Contract
-              .fromIdAndRecord(e.getContractId, e.getArguments))
+            acc + (e.getContractId -> Wolpertinger.Contract.fromCreatedEvent(e))
           case a: ArchivedEvent => acc - a.getContractId
       })
       .toList

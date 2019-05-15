@@ -70,7 +70,7 @@ public class IouMain {
                 .blockingForEach(response -> {
                     response.getOffset().ifPresent(offset -> acsOffset.set(new LedgerOffset.Absolute(offset)));
                     response.getCreatedEvents().stream()
-                            .map(e -> Iou.Contract.fromIdAndRecord(e.getContractId(), e.getArguments()))
+                            .map(Iou.Contract::fromCreatedEvent)
                             .forEach(contract -> {
                                 long id = idCounter.getAndIncrement();
                                 contracts.put(id, contract.data);
@@ -85,7 +85,7 @@ public class IouMain {
                         if (event instanceof CreatedEvent) {
                             CreatedEvent createdEvent = (CreatedEvent) event;
                             long id = idCounter.getAndIncrement();
-                            Iou.Contract contract = Iou.Contract.fromIdAndRecord(createdEvent.getContractId(), createdEvent.getArguments());
+                            Iou.Contract contract = Iou.Contract.fromCreatedEvent(createdEvent);
                             contracts.put(id, contract.data);
                             idMap.put(id, contract.id);
                         } else if (event instanceof ArchivedEvent) {

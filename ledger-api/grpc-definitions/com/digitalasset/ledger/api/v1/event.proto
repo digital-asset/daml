@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.digitalasset.ledger.api.v1;
 
 import "com/digitalasset/ledger/api/v1/value.proto";
+import "google/protobuf/wrappers.proto";
 
 
 option java_outer_classname = "EventOuterClass";
@@ -56,6 +57,10 @@ message CreatedEvent {
   // the contract.
   // Required
   repeated string witness_parties = 5;
+
+  // The agreement text of the contract.
+  // Optional
+  google.protobuf.StringValue agreement_text = 6;
 }
 
 // Records that a contract has been archived, and choices may no longer be exercised on it.

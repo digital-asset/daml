@@ -181,6 +181,13 @@ package object filter {
       .perform[String]((contract, id) => checkContained(contract.id.unwrap, id.toLowerCase))
       .onBranch("template", _.template, templateFilter)
       .onBranch("argument", _.argument, argumentFilter)
+      .onLeaf("agreementText")
+      .onValue("*")
+      .const(true)
+      .onAnyValue
+      .perform[String]((contract, agree) =>
+        checkContained(contract.agreementText.getOrElse(""), agree.toLowerCase))
+      .onTree
   //  .onStar(check all fields)
 
   lazy val choicesFilter =

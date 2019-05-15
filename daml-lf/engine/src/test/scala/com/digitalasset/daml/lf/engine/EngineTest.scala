@@ -953,6 +953,7 @@ class EngineTest extends WordSpec with Matchers with BazelRunfiles {
                 (Some[Name]("giver"), ValueParty("Alice")),
                 (Some[Name]("receiver"), ValueParty("Clara")))
             )),
+          "",
           Set("Clara", "Alice"),
           Set("Bob", "Clara", "Alice"),
         )

@@ -99,7 +99,8 @@ object ModelCodec {
       def write(value: Contract): JsValue = JsObject(
         "id" -> value.id.toJson,
         "template" -> value.template.toJson,
-        "argument" -> value.argument.toJson
+        "argument" -> value.argument.toJson,
+        "agreementText" -> value.agreementText.toJson
       )
       def read(value: JsValue, types: DamlLfTypeLookup): Contract = {
         val id = anyField(value, "id", "Contract").convertTo[ApiTypes.ContractId]
@@ -107,7 +108,8 @@ object ModelCodec {
         val argument = ApiCodecCompressed
           .jsValueToApiType(anyField(value, "record", "Contract"), template.id, types)
           .asInstanceOf[ApiRecord]
-        Contract(id, template, argument)
+        val agreementText = anyField(value, "agreementText", "Contract").convertTo[Option[String]]
+        Contract(id, template, argument, agreementText)
       }
     }
 

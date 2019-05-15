@@ -144,6 +144,11 @@ export default (props: Props) => {
         <p>{isArchived ? 'ARCHIVED' : null}</p>
         <ColumnContainer>
           <Column>
+              {contract.agreementText && contract.agreementText !== '' &&
+                (<span><SubHeader><Strong>Agreement Text</Strong></SubHeader>
+                   <span>{contract.agreementText}</span>
+                 </span>)
+              }
             <SubHeader><Strong>Contract details</Strong></SubHeader>
             <ArgumentDisplay
               argument={contract.argument}

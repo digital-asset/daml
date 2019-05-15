@@ -35,6 +35,7 @@ export interface ContractDetailsById_node_Contract {
   argument: OpaqueTypes.DamlLfValueRecord;
   archiveEvent: ContractDetailsById_node_Contract_archiveEvent | null;
   template: ContractDetailsById_node_Contract_template;
+  agreementText: string | undefined;
 }
 
 export type ContractDetailsById_node = ContractDetailsById_node_Transaction | ContractDetailsById_node_Contract;

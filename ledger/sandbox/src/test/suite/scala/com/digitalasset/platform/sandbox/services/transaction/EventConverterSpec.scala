@@ -354,8 +354,9 @@ class EventConverterSpec
                   (Some("receiver"), Lf.ValueParty("receiver")),
                   (Some("giver"), Lf.ValueParty("giver")))
               )),
+              "I agree",
               Set("operator", "receiver", "giver"),
-              Set("operator", "receiver", "giver")
+              Set("operator", "receiver", "giver"),
             ),
             "#txId:0" -> rootEx
           )
@@ -387,7 +388,8 @@ class EventConverterSpec
               RecordField("giver", Some(Value(Value.Sum.Party("giver"))))
             )
           )),
-        Vector("operator", "receiver", "giver")
+        Vector("operator", "receiver", "giver"),
+        Some("I agree")
       )
       val nestedExercise = ExercisedEvent(
         "#txId:2",

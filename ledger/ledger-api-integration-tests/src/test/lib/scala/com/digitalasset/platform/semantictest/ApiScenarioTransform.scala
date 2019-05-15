@@ -5,7 +5,6 @@ package com.digitalasset.platform.semantictest
 
 import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
-import com.digitalasset.daml.lf.engine.CreateEvent
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.{Value, ValueVersions}
@@ -96,6 +95,7 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
               P.dn(createdEvent.getTemplateId.entityName))
           ),
           value,
+          createdEvent.agreementText.getOrElse(""),
           // conversion is imperfect as stakeholders are not determinable from events yet
           witnesses,
           witnesses
@@ -156,29 +156,6 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
     val roots = ImmArray(transactionTree.rootEventIds)
 
     converted.map(P.Events(roots, _))
-  }
-
-  def lfCreatedFromApiEvent(createdEvent: ApiCreatedEvent): Either[
-    StatusRuntimeException,
-    CreateEvent[AbsoluteContractId, VersionedValue[AbsoluteContractId]]] = {
-    val witnesses = P.parties(createdEvent.witnessParties)
-    validator
-      .validateValue(ApiValue(ApiValue.Sum.Record(createdEvent.getCreateArguments)))
-      .map { value =>
-        P.CreateEvent(
-          AbsoluteContractId(createdEvent.contractId),
-          Ref.Identifier(
-            P.packageId(createdEvent.getTemplateId.packageId),
-            Ref.QualifiedName(
-              P.mn(createdEvent.getTemplateId.moduleName),
-              P.dn(createdEvent.getTemplateId.entityName))
-          ),
-          P.asVersionedValue(value)
-            .getOrElse(sys.error("can't convert create event")),
-          witnesses,
-          witnesses
-        )
-      }
   }
 }
 

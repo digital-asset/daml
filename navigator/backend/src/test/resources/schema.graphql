@@ -79,6 +79,7 @@ type CreatedEvent implements Node & Event {
   workflowId: String!
   contract: Contract!
   argument: DamlLfValueRecord!
+  agreementText: String!
 }
 
 scalar DamlLfDataType

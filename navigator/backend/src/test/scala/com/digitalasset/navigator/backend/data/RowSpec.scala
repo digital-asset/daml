@@ -124,7 +124,8 @@ class RowSpec extends WordSpec with Matchers {
         ApiTypes.WorkflowId("w01"),
         ApiTypes.ContractId("c01"),
         C.complexRecordId,
-        C.complexRecordV
+        C.complexRecordV,
+        Some("agreement")
       )
 
       "not change the value" in {
