@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.data
 import scala.language.higherKinds
 import scala.collection.{IndexedSeqLike, IndexedSeqOptimized, mutable}
 import scalaz.{Applicative, Equal, Foldable, Traverse}
+import scalaz.syntax.applicative._
 
 import scala.annotation.tailrec
 import scala.collection.generic.{
@@ -365,11 +366,13 @@ object ImmArray {
     new ImmArray(0, arr.length, arr)
 
   implicit val immArrayInstance: Traverse[ImmArray] = new Traverse[ImmArray] {
-    override def traverseImpl[F[_], A, B](immArr: ImmArray[A])(f: A => F[B])(
-        implicit F: Applicative[F]): F[ImmArray[B]] = {
-      F.map(immArr.foldLeft[F[BackStack[B]]](F.point(BackStack.empty)) { (ys, x) =>
-        F.apply2(ys, f(x))(_ :+ _)
-      })(_.toImmArray)
+    override def traverseImpl[F[_]: Applicative, A, B](immArr: ImmArray[A])(
+        f: A => F[B]): F[ImmArray[B]] = {
+      immArr
+        .foldLeft(BackStack.empty[B].point[F]) { (ys, x) =>
+          ^(ys, f(x))(_ :+ _)
+        }
+        .map(_.toImmArray)
     }
   }
 
