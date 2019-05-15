@@ -28,6 +28,7 @@ import Prelude hiding (lookup, null, empty)
 import DA.Foldable qualified as Foldable
 import DA.Optional
 import DA.Text
+import DA.TextMap (TextMap)
 import DA.TextMap qualified as TextMap
 import DA.Traversable qualified as Traversable
 import DA.Tuple
