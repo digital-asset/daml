@@ -659,6 +659,28 @@ class TransactionServiceIT
           .map(_.getCreateArguments.fields shouldEqual expectedArgs)
       }
 
+      "expose the agreement text in CreatedEvents for templates with an explicit agreement text" in allFixtures {
+        c =>
+          for {
+            agreement <- createAgreement(c, "AgreementTextTest", party1, party2)
+          } yield {
+            agreement.agreementText should matchPattern {
+              case Some(text: String) if text.nonEmpty =>
+            }
+          }
+      }
+
+      "expose the defualt agreement text in CreatedEvents for templates with no explicit agreement text" in allFixtures {
+        c =>
+          val resultF = c.submitCreate(
+            "Creating dummy contract for default agreement text test",
+            templateIds.dummy,
+            List(RecordField("operator", party1.asParty)),
+            party1)
+
+          resultF.map(_.agreementText should matchPattern { case Some("") => })
+      }
+
       "accept exercising a well-authorized multi-actor choice" in allFixtures { c =>
         val List(operator, receiver, giver) = List(party1, party2, party3)
         val triProposalArg = mkTriProposalArg(operator, receiver, giver)
