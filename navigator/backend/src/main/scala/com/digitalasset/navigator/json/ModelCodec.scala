@@ -108,7 +108,7 @@ object ModelCodec {
         val argument = ApiCodecCompressed
           .jsValueToApiType(anyField(value, "record", "Contract"), template.id, types)
           .asInstanceOf[ApiRecord]
-        val agreementText = anyField(value, "agreementText", "Contract").convertTo[Option[String]]
+        val agreementText = optionStrField(value, "agreementText", "Contract")
         Contract(id, template, argument, agreementText)
       }
     }

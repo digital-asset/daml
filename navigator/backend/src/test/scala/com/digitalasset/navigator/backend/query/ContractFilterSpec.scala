@@ -102,7 +102,7 @@ class ContractFilterSpec extends FlatSpec with Matchers {
 
   testOr(List("argument.foo" -> "bar", "argument.int" -> "1"), contracts)
 
-//  testAnd(List("agreementText" -> ""), List(contract2, contract3))
+  testAnd(List("agreementText" -> ""), List(contract2, contract3))
   testAnd(List("agreementText" -> "gree"), List(contract3))
   testAnd(List("agreementText" -> "not-matching"), List())
 

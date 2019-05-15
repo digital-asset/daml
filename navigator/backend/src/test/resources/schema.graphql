@@ -51,6 +51,7 @@ type Contract implements Node {
   archiveEvent: ExercisedEvent
   exerciseEvents: [ExercisedEvent!]!
   argument: DamlLfValueRecord!
+  agreementText: String
 }
 
 type ContractEdge {
@@ -79,7 +80,6 @@ type CreatedEvent implements Node & Event {
   workflowId: String!
   contract: Contract!
   argument: DamlLfValueRecord!
-  agreementText: String!
 }
 
 scalar DamlLfDataType

@@ -20,6 +20,14 @@ object Util {
         deserializationError(s"Can't read ${obj.prettyPrint} as $as, missing field '$name'")
     }
 
+  def optionStrField(obj: JsValue, name: String, as: String): Option[String] =
+    asObject(obj, as).fields.get(name) match {
+      case Some(JsString(v)) => Some(v)
+      case None => None
+      case Some(_) =>
+        deserializationError(s"Can't read ${obj.prettyPrint} as $as, field '$name' is not a string")
+    }
+
   def nameField(obj: JsValue, name: String, as: String): Ref.Name =
     Ref.Name
       .fromString(strField(obj, name, as))

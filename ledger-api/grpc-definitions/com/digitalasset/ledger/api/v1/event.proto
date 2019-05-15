@@ -59,6 +59,8 @@ message CreatedEvent {
   repeated string witness_parties = 5;
 
   // The agreement text of the contract.
+  // We use StringValue to properly reflect optionality on the wire for backwards compatibility.
+  // This means a newer client works with an older sandbox seamlessly.
   // Optional
   google.protobuf.StringValue agreement_text = 6;
 }

@@ -78,6 +78,12 @@ const ChoiceLink = styled(ActiveLink)`
   }
 `
 
+const AgreementText = ({text}: {text: string}) => (
+    <span><SubHeader><Strong>Agreement Text</Strong></SubHeader>
+        <span>{text}</span>
+    </span>
+);
+
 interface Props {
   contract: Contract;
   choice?: string;
@@ -144,11 +150,7 @@ export default (props: Props) => {
         <p>{isArchived ? 'ARCHIVED' : null}</p>
         <ColumnContainer>
           <Column>
-              {contract.agreementText && contract.agreementText !== '' &&
-                (<span><SubHeader><Strong>Agreement Text</Strong></SubHeader>
-                   <span>{contract.agreementText}</span>
-                 </span>)
-              }
+              {contract.agreementText && <AgreementText text={contract.agreementText} />}
             <SubHeader><Strong>Contract details</Strong></SubHeader>
             <ArgumentDisplay
               argument={contract.argument}

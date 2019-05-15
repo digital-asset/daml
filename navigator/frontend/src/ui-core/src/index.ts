@@ -10,7 +10,6 @@ export { default as Link } from './Link';
 export { makeSidebarLink } from './SidebarLink';
 export { default as ParameterForm } from './ParameterForm';
 export { default as Popover } from './Popover';
-export { default as AgreementText } from './AgreementText';
 export { default as ArgumentDisplay } from './ArgumentDisplay';
 export { default as Autosuggest } from './Autosuggest';
 export { default as AdvanceTime } from './AdvanceTime';

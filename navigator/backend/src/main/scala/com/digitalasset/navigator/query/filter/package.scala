@@ -21,6 +21,15 @@ package object filter {
       "target.contains(value)"
   }
 
+  object checkOptionalContained extends ((Option[String], String) => Boolean) {
+
+    override def apply(v1: Option[String], v2: String): Boolean =
+      v1.exists(_.toLowerCase contains v2.toLowerCase)
+
+    override def toString(): String =
+      "target.exists(_.contains(value))"
+  }
+
   def checkParameter(
       rootParam: DamlLfType,
       cursor: PropertyCursor,
@@ -185,8 +194,7 @@ package object filter {
       .onValue("*")
       .const(true)
       .onAnyValue
-      .perform[String]((contract, agree) =>
-        checkContained(contract.agreementText.getOrElse(""), agree.toLowerCase))
+      .perform[String]((contract, agree) => checkOptionalContained(contract.agreementText, agree))
       .onTree
   //  .onStar(check all fields)
 
