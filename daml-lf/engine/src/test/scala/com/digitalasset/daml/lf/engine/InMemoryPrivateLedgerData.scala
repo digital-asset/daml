@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.engine
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons}
+import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, Ref}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction => Tx}
 import com.digitalasset.daml.lf.value.Value._
@@ -31,7 +31,9 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
 
   def toAbsoluteContractId(txCounter: Int)(cid: VContractId): AbsoluteContractId =
     cid match {
-      case r: RelativeContractId => AbsoluteContractId(s"$txCounter-${r.txnid.index}")
+      case r: RelativeContractId =>
+        // It is safe to concatenate numbers and "-" to form a valid ContractId
+        AbsoluteContractId(Ref.LedgerName.assertFromString(s"$txCounter-${r.txnid.index}"))
       case a: AbsoluteContractId => a
     }
 

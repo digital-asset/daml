@@ -220,7 +220,7 @@ object Pretty {
       case L.Commit(txid, rtx, optLoc) =>
         val children =
           intercalate(line + line, rtx.roots.toList.map(prettyNodeInfo(l)))
-        text("TX") & char('#') + str(txid) & str(rtx.effectiveAt) & prettyLoc(optLoc) /
+        text("TX") & char('#') + str(txid.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) /
           children
       case L.PassTime(dt) =>
         "pass" &: str(dt)
@@ -282,7 +282,7 @@ object Pretty {
                 }
                 .map {
                   case (p, txid) =>
-                    text(p) & text("(#") + str(txid) + char(')')
+                    text(p) & text("(#") + str(txid.id) + char(')')
                 }
             )
         )
@@ -308,7 +308,7 @@ object Pretty {
   }
 
   def prettyLedgerNodeId(n: L.ScenarioNodeId): Doc =
-    char('#') + text(n.id)
+    char('#') + text(n)
 
   def prettyContractInst(coinst: ContractInst[Transaction.Value[VContractId]]): Doc =
     (prettyIdentifier(coinst.template) / text("with:") &

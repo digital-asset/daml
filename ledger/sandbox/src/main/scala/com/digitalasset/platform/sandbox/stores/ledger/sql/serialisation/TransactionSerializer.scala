@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
@@ -22,7 +23,13 @@ trait TransactionSerializer {
 object TransactionSerializer extends TransactionSerializer {
 
   private val defaultNidEncode: TransactionCoder.EncodeNid[EventId] = identity
-  private val defaultDecodeNid: String => Either[DecodeError, EventId] = s => Right(s)
+  private def defaultDecodeNid(s: String) =
+    Ref.LedgerName
+      .fromString(s)
+      .left
+      .map(
+        e => DecodeError(s"cannot decode noid: $e")
+      )
 
   override def serialiseTransaction(
       transaction: GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]])

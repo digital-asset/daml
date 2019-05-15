@@ -12,6 +12,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.codegen.util.TestUtil.{TestContext, findOpenPort, requiredResource}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
@@ -39,16 +40,14 @@ import com.digitalasset.sample.EventDecoder
 import com.digitalasset.sample.MyMain.NameClashRecordVariant.NameClashRecordVariantA
 import com.digitalasset.sample.MyMain.{
   CallablePayout,
-  Maybes,
-  TextMapInt,
-  OptTextMapInt,
-  TextMapTextMapInt,
   ListTextMapInt,
+  Maybes,
   MkListExample,
   MyRecord,
   MyVariant,
   NameClashRecord,
   NameClashVariant,
+  OptTextMapInt,
   PayOut,
   RecordWithNestedMyVariant,
   SimpleListExample,
@@ -57,6 +56,8 @@ import com.digitalasset.sample.MyMain.{
   TemplateWithNestedRecordsAndVariants,
   TemplateWithSelfReference,
   TemplateWithUnitParam,
+  TextMapInt,
+  TextMapTextMapInt,
   VariantWithRecordWithVariant
 }
 import com.digitalasset.sample.MySecondMain
@@ -86,7 +87,7 @@ class ScalaCodeGenIT
   implicit override lazy val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = Span(20, Seconds), interval = Span(250, Millis))
 
-  private val ledgerId = this.getClass.getSimpleName
+  private val ledgerId = Ref.LedgerName.assertFromString(this.getClass.getSimpleName)
 
   private val archives = List(
     requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),

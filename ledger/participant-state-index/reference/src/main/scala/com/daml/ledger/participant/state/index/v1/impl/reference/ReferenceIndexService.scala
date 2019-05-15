@@ -12,7 +12,7 @@ import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.participant
 import com.daml.ledger.participant.state.index.v1._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.{LedgerId, PackageId, TransactionId}
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value

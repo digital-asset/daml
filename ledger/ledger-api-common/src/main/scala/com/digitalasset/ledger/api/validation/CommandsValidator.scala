@@ -5,6 +5,7 @@ package com.digitalasset.ledger.api.validation
 
 import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.daml.lf.command._
+import com.digitalasset.daml.lf.data.Ref.LedgerId
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.value.Value.ValueUnit
 import com.digitalasset.ledger.api.domain
@@ -34,11 +35,12 @@ import scalaz.syntax.tag._
 
 import scala.collection.immutable
 
-final class CommandsValidator(ledgerId: String, identifierResolver: IdentifierResolver) {
+final class CommandsValidator(ledgerId: LedgerId, identifierResolver: IdentifierResolver) {
 
   def validateCommands(commands: ProtoCommands): Either[StatusRuntimeException, domain.Commands] =
     for {
-      ledgerId <- matchLedgerId(ledgerId)(commands.ledgerId)
+      cmdLegerId <- requireLedgerName(commands.ledgerId, "leger_id")
+      _ <- matchLedgerId(ledgerId)(cmdLegerId)
       workflowId = Option(commands.workflowId).filterNot(_.isEmpty).map(domain.WorkflowId(_))
       commandId <- requireNonEmptyString(commands.commandId, "command_id")
       appId <- requireNonEmptyString(commands.applicationId, "application_id")
@@ -53,7 +55,7 @@ final class CommandsValidator(ledgerId: String, identifierResolver: IdentifierRe
         .map(invalidField(_, "ledger_effective_time"))
     } yield
       domain.Commands(
-        domain.LedgerId(ledgerId),
+        ledgerId,
         workflowId,
         domain.ApplicationId(appId),
         domain.CommandId(commandId),
@@ -98,7 +100,7 @@ final class CommandsValidator(ledgerId: String, identifierResolver: IdentifierRe
         for {
           templateId <- requirePresence(e.value.templateId, "template_id")
           validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
-          contractId <- requireNonEmptyString(e.value.contractId, "contract_id")
+          contractId <- requireLedgerName(e.value.contractId, "contract_id")
           choice <- requireIdentifier(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
@@ -146,7 +148,12 @@ final class CommandsValidator(ledgerId: String, identifierResolver: IdentifierRe
       .map(_.toImmArray)
 
   def validateValue(value: Value): Either[StatusRuntimeException, domain.Value] = value.sum match {
-    case Sum.ContractId(cId) => Right(Lf.ValueContractId(Lf.AbsoluteContractId(cId)))
+    case Sum.ContractId(cId) =>
+      Ref.LedgerName
+        .fromString(cId)
+        .left
+        .map(invalidArgument)
+        .map(coid => Lf.ValueContractId(Lf.AbsoluteContractId(coid)))
     case Sum.Decimal(value) =>
       Decimal.fromString(value).left.map(invalidArgument).map(Lf.ValueDecimal)
 

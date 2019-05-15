@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.stores
 import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.TransactionId
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node => N}
@@ -66,7 +67,7 @@ case class ActiveContractsInMemory(
     */
   def addTransaction[Nid](
       let: Instant,
-      transactionId: String,
+      transactionId: TransactionId,
       workflowId: String,
       transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
       explicitDisclosure: Relation[Nid, Ref.Party],
@@ -122,7 +123,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
     */
   def addTransaction[Nid](
       let: Instant,
-      transactionId: String,
+      transactionId: TransactionId,
       workflowId: String,
       transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
       explicitDisclosure: Relation[Nid, Ref.Party],

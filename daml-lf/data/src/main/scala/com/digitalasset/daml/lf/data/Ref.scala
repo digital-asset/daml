@@ -133,16 +133,19 @@ object Ref {
   type ModuleName = DottedName
   val ModuleName = DottedName
 
+  private def isAsciiAlphaNum(c: Char) =
+    'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' || '0' <= c && c <= '9'
+
   /** Party are non empty US-ASCII strings built with letters, digits, space, minus and,
       underscore. We use them to represent [PackageId]s and [Party] literals. In this way, we avoid
       empty identifiers, escaping problems, and other similar pitfalls.
     */
-  val Party = ConcatenableMatchingStringModule("""[a-zA-Z0-9\-_ ]""")
+  val Party = ConcatenableMatchingStringModule(c => isAsciiAlphaNum(c) || "-_ ".contains(c))
   type Party = Party.T
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
     * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
-  val PackageId = ConcatenableMatchingStringModule("""[a-zA-Z0-9\-_ ]""")
+  val PackageId = ConcatenableMatchingStringModule(c => isAsciiAlphaNum(c) || "-_ ".contains(c))
   type PackageId = PackageId.T
 
   /** Reference to a value defined in the specified module. */
@@ -156,5 +159,22 @@ object Ref {
   /** Reference to a type constructor. */
   type TypeConName = Identifier
   val TypeConName = Identifier
+
+  /**
+    * Used to reference to leger objects like contractIds, ledgerIds,
+    * transactionId, ... We use the same type for those ids, because we
+    * construct some by concatenating the others.
+    */
+  val LedgerName = ConcatenableMatchingStringModule(c => isAsciiAlphaNum(c) || "._:-#".contains(c))
+  type LedgerName = LedgerName.T
+
+  /** Identifier for a contractId */
+  type ContractId = LedgerName
+
+  /** Identifier for the ledger */
+  type LedgerId = LedgerName
+
+  /** Identifiers for transactions. */
+  type TransactionId = LedgerName
 
 }

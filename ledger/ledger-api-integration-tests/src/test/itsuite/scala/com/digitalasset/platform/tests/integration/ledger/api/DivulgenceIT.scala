@@ -6,6 +6,7 @@ package com.digitalasset.platform.tests.integration.ledger.api
 import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{ContractId, LedgerName}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
@@ -87,7 +88,7 @@ class DivulgenceIT
       commandId: String,
       party: String,
       tpl: v1.value.Identifier,
-      arg: ValueRecord[AbsoluteContractId]): Future[String] =
+      arg: ValueRecord[AbsoluteContractId]): Future[ContractId] =
     for {
       ledgerEndBeforeSubmission <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
       _ <- commandClient(ctx).submitAndWait(
@@ -106,9 +107,10 @@ class DivulgenceIT
           TransactionFilter(Map(party -> Filters.defaultInstance)))
         .filter(_.commandId == commandId)
         .runWith(Sink.head)
-    } yield {
-      transaction.events.map(_.event).head.created.toList.head.contractId
-    }
+    } yield
+      LedgerName.assertFromString(
+        transaction.events.map(_.event).head.created.toList.head.contractId
+      )
 
   private def exercise(
       ctx: LedgerContext,
@@ -141,7 +143,7 @@ class DivulgenceIT
   // but that it is visible in the transaction trees.
   case class Setup(div1Cid: String, div2Cid: String)
 
-  private def createDivulgence1(ctx: LedgerContext): Future[String] =
+  private def createDivulgence1(ctx: LedgerContext): Future[ContractId] =
     create(
       ctx,
       "create-Divulgence1",
@@ -150,7 +152,7 @@ class DivulgenceIT
       ValueRecord(None, ImmArray(Some[Ref.Name]("div1Party") -> ValueParty("alice")))
     )
 
-  private def createDivulgence2(ctx: LedgerContext): Future[String] =
+  private def createDivulgence2(ctx: LedgerContext): Future[ContractId] =
     create(
       ctx,
       "create-Divulgence2",
@@ -163,7 +165,10 @@ class DivulgenceIT
           Some[Ref.Name]("div2Fetcher") -> ValueParty("alice")))
     )
 
-  private def divulgeViaFetch(ctx: LedgerContext, div1Cid: String, div2Cid: String): Future[Unit] =
+  private def divulgeViaFetch(
+      ctx: LedgerContext,
+      div1Cid: ContractId,
+      div2Cid: ContractId): Future[Unit] =
     exercise(
       ctx,
       "exercise-Divulgence2Fetch",
@@ -178,8 +183,8 @@ class DivulgenceIT
 
   private def divulgeViaArchive(
       ctx: LedgerContext,
-      div1Cid: String,
-      div2Cid: String): Future[Unit] =
+      div1Cid: ContractId,
+      div2Cid: ContractId): Future[Unit] =
     exercise(
       ctx,
       "exercise-Divulgence2Fetch",
@@ -320,7 +325,7 @@ class DivulgenceIT
       // alice sees both
       {
         bothEvents.length shouldBe 2
-        bothEvents.map(_.contractId).toList.sorted shouldBe List(div1Cid, div2Cid).sorted
+        bothEvents.map(_.contractId: String).sorted shouldBe List[String](div1Cid, div2Cid).sorted
         bothEvents.find(_.contractId == div1Cid).map(_.witnessParties.toList) shouldBe Some(
           List("alice"))
         bothEvents.find(_.contractId == div2Cid).map(_.witnessParties.toList.sorted) shouldBe Some(

@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerName, Party}
 import com.digitalasset.daml.lf.transaction.Node.GenNode
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node}
 import com.digitalasset.ledger.api.domain.TransactionFilter
@@ -41,7 +41,8 @@ object TransactionFiltration {
       */
     def filter[Nid, Cid, Val](
         transaction: GenTransaction[Nid, Cid, Val],
-        nidToString: Nid => String): Option[immutable.Map[String, immutable.Set[Party]]] = {
+        nidToLedgerName: Nid => LedgerName
+    ): Option[immutable.Map[LedgerName, immutable.Set[Party]]] = {
 
       val partiesByTemplate =
         collapse(
@@ -72,8 +73,8 @@ object TransactionFiltration {
       // we check for filteredPartiesByNode.isEmpty so that we also emit empty
       // transaction trees.
       if (filteredPartiesByNode.exists(_._2.nonEmpty) || filteredPartiesByNode.isEmpty) {
-        val nodeIdToParty: Map[String, immutable.Set[Party]] = filteredPartiesByNode.map {
-          case (k, v) => (nidToString(k), v)
+        val nodeIdToParty: Map[LedgerName, immutable.Set[Party]] = filteredPartiesByNode.map {
+          case (k, v) => (nidToLedgerName(k), v)
         }(breakOut)
         Some(nodeIdToParty)
       } else None

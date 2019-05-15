@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.index.v1.impl.reference
 
 import com.daml.ledger.participant.state.v1.{Offset, _}
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{LedgerId, PackageId}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Blinding
@@ -75,7 +75,7 @@ final case class IndexState(
 
         case Update.PublicPackageUploaded(archive) =>
           val newPackages =
-            state.packages + (Ref.PackageId.assertFromString(archive.getHash) -> archive)
+            state.packages + (PackageId.assertFromString(archive.getHash) -> archive)
 
           val decodedPackages = newPackages.mapValues(archive => Decode.decodeArchive(archive)._2)
           Right(

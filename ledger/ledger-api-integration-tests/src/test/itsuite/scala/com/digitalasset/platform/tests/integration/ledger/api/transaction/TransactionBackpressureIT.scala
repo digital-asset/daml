@@ -5,6 +5,7 @@ package com.digitalasset.platform.tests.integration.ledger.api.transaction
 
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.{Sink, Source}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   MockMessages,
@@ -37,7 +38,7 @@ class TransactionBackpressureIT
 
   override def timeLimit: Span = 300.seconds
 
-  val testLedgerId = "ledgerId"
+  val testLedgerId = Ref.LedgerName.assertFromString("ledgerId")
 
   override protected def config: Config =
     Config.default.withLedgerIdMode(LedgerIdMode.Static(testLedgerId))

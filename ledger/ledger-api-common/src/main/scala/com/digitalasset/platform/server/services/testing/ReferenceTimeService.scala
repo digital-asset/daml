@@ -9,6 +9,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimestampConversion._
+import com.digitalasset.daml.lf.data.Ref.LedgerId
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.digitalasset.ledger.api.v1.testing.time_service._
@@ -24,9 +25,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
 class ReferenceTimeService private (
-    val ledgerId: String,
+    val ledgerId: LedgerId,
     backend: TimeServiceBackend,
-    allowSettingTimeBackwards: Boolean)(
+    allowSettingTimeBackwards: Boolean
+)(
     implicit grpcExecutionContext: ExecutionContext,
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory)
@@ -127,7 +129,7 @@ class ReferenceTimeService private (
 
 object ReferenceTimeService {
   def apply(
-      ledgerId: String,
+      ledgerId: LedgerId,
       backend: TimeServiceBackend,
       allowSettingTimeBackwards: Boolean = false)(
       implicit grpcExecutionContext: ExecutionContext,

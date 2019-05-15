@@ -9,10 +9,10 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.index.v1.{IndexService, TransactionAccepted}
-import com.daml.ledger.participant.state.v1.{LedgerId, Offset}
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref.{LedgerId, LedgerName}
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.transaction.Transaction.NodeId
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -45,7 +45,7 @@ import scala.util.{Failure, Success, Try}
 object DamlOnXTransactionService {
 
   def create(
-      ledgerId: LedgerId,
+      ledgerId: Ref.LedgerId,
       indexService: IndexService,
       identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
@@ -82,8 +82,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
       request)
 
     val eventFilter = EventFilter.byTemplates(request.filter)
-    val ledgerId = Ref.PackageId.assertFromString(request.ledgerId.unwrap)
-    runTransactionPipeline(ledgerId, request.begin, request.end, request.filter)
+    runTransactionPipeline(request.ledgerId, request.begin, request.end, request.filter)
       .mapConcat {
         case (offset, (trans, blindingInfo)) =>
           acceptedToFlat(offset, trans, blindingInfo, request.verbose, eventFilter) match {
@@ -153,7 +152,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     val filter = TransactionFilter(request.parties.map(_ -> Filters.noFilter)(breakOut))
 
     runTransactionPipeline(
-      Ref.PackageId.assertFromString(request.ledgerId.unwrap),
+      request.ledgerId,
       request.begin,
       request.end,
       filter,
@@ -167,7 +166,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
 
   private def toResponseIfVisible(
       request: GetTransactionTreesRequest,
-      subscribingParties: Set[Party],
+      subscribingParties: Set[Ref.Party],
       trans: TransactionAccepted) = {
     val eventFilter = TransactionFilter(request.parties.map(_ -> Filters.noFilter)(breakOut))
     val withMeta = toTransactionWithMeta(trans)
@@ -184,7 +183,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     eventIdToTransactionId(request.eventId) match {
       case None => Future.successful(None)
       case Some(txId) =>
-        lookupTransactionTreeById(request.ledgerId.unwrap, txId, request.requestingParties)
+        lookupTransactionTreeById(request.ledgerId, txId, request.requestingParties)
     }
   }
 
@@ -192,7 +191,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     logger.debug("Received {}", request)
 
     lookupTransactionTreeById(
-      request.ledgerId.unwrap,
+      request.ledgerId,
       request.transactionId.unwrap,
       request.requestingParties)
   }
@@ -202,28 +201,24 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     eventIdToTransactionId(request.eventId) match {
       case None => Future.successful(None)
       case Some(txId) =>
-        lookupFlatTransactionById(request.ledgerId.unwrap, txId, request.requestingParties)
+        lookupFlatTransactionById(request.ledgerId, txId, request.requestingParties)
     }
   }
 
   override def getFlatTransactionById(
       req: GetTransactionByIdRequest): Future[Option[PTransaction]] = {
-    lookupFlatTransactionById(req.ledgerId.unwrap, req.transactionId.unwrap, req.requestingParties)
+    lookupFlatTransactionById(req.ledgerId, req.transactionId.unwrap, req.requestingParties)
   }
 
   private def lookupTransactionTreeById[A](
-      ledgerId: String,
+      ledgerId: LedgerId,
       txId: String,
-      requestingParties: Set[Party]): Future[Option[VisibleTransaction]] = {
+      requestingParties: Set[Ref.Party]): Future[Option[VisibleTransaction]] = {
     val filter = TransactionFilter.allForParties(requestingParties)
 
     // FIXME(JM): Move to IndexService
 
-    runTransactionPipeline(
-      Ref.PackageId.assertFromString(ledgerId),
-      LedgerOffset.LedgerBegin,
-      Some(LedgerOffset.LedgerEnd),
-      filter)
+    runTransactionPipeline(ledgerId, LedgerOffset.LedgerBegin, Some(LedgerOffset.LedgerEnd), filter)
       .collect {
         case (o, (t: TransactionAccepted, bi)) if t.transactionId == txId => (o, t, bi)
       }
@@ -245,18 +240,14 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
   }
 
   private def lookupFlatTransactionById[A](
-      ledgerId: String,
+      ledgerId: LedgerId,
       txId: String,
-      requestingParties: Set[Party]): Future[Option[PTransaction]] = {
+      requestingParties: Set[Ref.Party]): Future[Option[PTransaction]] = {
     val filter = TransactionFilter.allForParties(requestingParties)
 
     // FIXME(JM): Move to IndexService
 
-    runTransactionPipeline(
-      Ref.PackageId.assertFromString(ledgerId),
-      LedgerOffset.LedgerBegin,
-      Some(LedgerOffset.LedgerEnd),
-      filter)
+    runTransactionPipeline(ledgerId, LedgerOffset.LedgerBegin, Some(LedgerOffset.LedgerEnd), filter)
       .collect {
         case (o, (t: TransactionAccepted, bi)) if t.transactionId == txId => (o, t, bi)
       }
@@ -284,7 +275,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     Ordering.by(abs => Offset.assertFromString(abs.value))
 
   private def runTransactionPipeline(
-      ledgerId: LedgerId,
+      ledgerId: Ref.LedgerId,
       begin: LedgerOffset,
       end: Option[LedgerOffset],
       filter: TransactionFilter): Source[(Offset, (TransactionAccepted, BlindingInfo)), NotUsed] = {
@@ -330,9 +321,11 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     }
   }
 
+  private val `:` = Ref.LedgerName.assertFromString(":")
+
   // FIXME(JM): use proper types, not string.
-  private def nodeIdToEventId(txId: String, nodeId: NodeId): String =
-    s"${txId}:${nodeId.index}"
+  private def nodeIdToEventId(txId: Ref.TransactionId, nodeId: NodeId): LedgerName =
+    LedgerName.concat(txId, `:`, nodeId.name)
 
   private def eventIdToTransactionId(eventId: EventId): Option[String] =
     eventId.unwrap.split(':').headOption

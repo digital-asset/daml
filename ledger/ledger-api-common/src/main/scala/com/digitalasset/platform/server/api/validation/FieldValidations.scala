@@ -4,6 +4,7 @@
 package com.digitalasset.platform.server.api.validation
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerId
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import io.grpc.StatusRuntimeException
 
@@ -12,13 +13,12 @@ import scala.util.Try
 
 trait FieldValidations {
 
-  def matchLedgerId(ledgerId: String)(received: String): Either[StatusRuntimeException, String] =
-    if (ledgerId == received) Right(received)
-    else Left(ledgerIdMismatch(ledgerId, received))
+  def matchLedgerId(ledgerId: LedgerId)(
+      received: String): Either[StatusRuntimeException, LedgerId] =
+    Either.cond(ledgerId == received, ledgerId, ledgerIdMismatch(ledgerId, received))
 
   def requireNonEmptyString(s: String, fieldName: String): Either[StatusRuntimeException, String] =
-    if (s.nonEmpty) Right(s)
-    else Left(missingField(fieldName))
+    Either.cond(s.nonEmpty, s, missingField(fieldName))
 
   def requireIdentifier(s: String): Either[StatusRuntimeException, Ref.Name] =
     Ref.Name.fromString(s).left.map(invalidArgument)
@@ -51,6 +51,14 @@ trait FieldValidations {
 
   def requireParty(s: String): Either[StatusRuntimeException, Ref.Party] =
     Ref.Party.fromString(s).left.map(invalidArgument)
+
+  def requireLedgerName(
+      s: String,
+      fieldName: String): Either[StatusRuntimeException, Ref.LedgerName] =
+    Ref.LedgerName.fromString(s).left.map(invalidField(fieldName, _))
+
+  def requireLedgerName(s: String): Either[StatusRuntimeException, Ref.LedgerName] =
+    Ref.LedgerName.fromString(s).left.map(invalidArgument)
 
   def requireDottedName(
       s: String,

@@ -5,9 +5,10 @@ package com.digitalasset.platform.sandbox.services.transaction
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.digitalasset.daml.lf.data.Ref.TransactionId
 import com.digitalasset.ledger.api.domain.LedgerOffset
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction
-import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, LedgerSyncEvent, TransactionId}
+import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, LedgerSyncEvent}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.server.services.transaction.{OffsetHelper, OffsetSection}
 

@@ -129,11 +129,9 @@ final case class ScenarioRunner(
         ledger = result.newLedger
         callback(
           value
-            .mapContractId(
-              coid =>
-                LedgerForScenarios.contractIdToAbsoluteContractId(
-                  LedgerForScenarios.makeCommitPrefix(result.transactionId),
-                  coid)))
+            .mapContractId(coid =>
+              LedgerForScenarios
+                .contractIdToAbsoluteContractId(result.transactionId.makeCommitPrefix, coid)))
     }
   }
 

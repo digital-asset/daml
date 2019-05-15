@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.TransactionId
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -19,7 +20,7 @@ sealed abstract class LedgerEntry extends Product with Serializable {
 
 //TODO: use domain types here, see: com.digitalasset.ledger.api.domain.*
 object LedgerEntry {
-  type EventId = String
+  type EventId = Ref.LedgerName
   type Party = Ref.Party
 
   final case class Rejection(
@@ -36,7 +37,7 @@ object LedgerEntry {
 
   final case class Transaction(
       commandId: String,
-      transactionId: String,
+      transactionId: TransactionId,
       applicationId: String,
       submittingParty: Party,
       workflowId: String,

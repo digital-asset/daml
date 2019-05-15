@@ -34,7 +34,7 @@ class TransactionCoderSpec
 
   "encode-decode" should {
     "do contractInstance" in {
-      forAll(contractInstanceGen) { coinst: ContractInst[Tx.Value[Tx.ContractId]] =>
+      forAll(contractInstanceGen) { coinst: ContractInst[Tx.Value[Tx.TContractId]] =>
         Right(coinst) shouldEqual TransactionCoder.decodeContractInstance(
           defaultValDecode,
           TransactionCoder.encodeContractInstance(defaultValEncode, coinst).toOption.get)
@@ -43,7 +43,7 @@ class TransactionCoderSpec
 
     "do NodeCreate" in {
       forAll(malformedCreateNodeGen, valueVersionGen) {
-        (node: NodeCreate[Tx.ContractId, Tx.Value[Tx.ContractId]], valVer: ValueVersion) =>
+        (node: NodeCreate[Tx.TContractId, Tx.Value[Tx.TContractId]], valVer: ValueVersion) =>
           Right((Tx.NodeId.unsafeFromIndex(0), node)) shouldEqual TransactionCoder.decodeNode(
             defaultNidDecode,
             defaultCidDecode,
@@ -87,7 +87,7 @@ class TransactionCoderSpec
 
     "do NodeExercises" in {
       forAll(danglingRefExerciseNodeGen) {
-        node: NodeExercises[Tx.NodeId, Tx.ContractId, Tx.Value[Tx.ContractId]] =>
+        node: NodeExercises[Tx.NodeId, Tx.TContractId, Tx.Value[Tx.TContractId]] =>
           Right((Tx.NodeId.unsafeFromIndex(0), node)) shouldEqual TransactionCoder.decodeNode(
             defaultNidDecode,
             defaultCidDecode,
@@ -114,7 +114,7 @@ class TransactionCoderSpec
             TransactionCoder
               .encodeTransaction(defaultNidEncode, defaultCidEncode, t))
 
-        val decodedVersionedTx: VersionedTransaction[Tx.NodeId, Tx.ContractId] =
+        val decodedVersionedTx: VersionedTransaction[Tx.NodeId, Tx.TContractId] =
           assertRight(
             TransactionCoder
               .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, encodedTx))

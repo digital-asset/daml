@@ -12,6 +12,7 @@ import akka.{Done, NotUsed}
 import anorm.SqlParser.{str, _}
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{LedgerId, LedgerName}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
@@ -22,7 +23,7 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Rejection, Transaction}
+import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   KeyHasher,
@@ -47,15 +48,16 @@ private class PostgresLedgerDao(
     extends LedgerDao {
 
   import Ref.Party.{assertFromString => toParty}
+  import Ref.LedgerName.{assertFromString => toEventId}
 
   private val logger = LoggerFactory.getLogger(getClass)
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
 
-  override def lookupLedgerId(): Future[Option[String]] =
+  override def lookupLedgerId(): Future[Option[LedgerId]] =
     dbDispatcher.executeSql { implicit conn =>
       SQL_SELECT_LEDGER_ID
-        .as(SqlParser.str("ledger_id").singleOpt)
+        .as(SqlParser.str("ledger_id").singleOpt.map(_.map(LedgerName.assertFromString)))
 
     }
 
@@ -111,7 +113,7 @@ private class PostgresLedgerDao(
         "package_id" -> (key.templateId.packageId: String),
         "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHasher.hashKeyString(key),
-        "contract_id" -> cid.coid
+        "contract_id" -> (cid.coid: String)
       )
       .execute()
 
@@ -133,7 +135,8 @@ private class PostgresLedgerDao(
         "value_hash" -> keyHasher.hashKeyString(key)
       )
       .as(SqlParser.str("contract_id").singleOpt)
-      .map(s => AbsoluteContractId(s))
+      // FixMe (RH): check it is safe to use assertFromString
+      .map(s => AbsoluteContractId(Ref.LedgerName.assertFromString(s)))
 
   override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
     dbDispatcher.executeSql(implicit conn => selectContractKey(key))
@@ -145,7 +148,7 @@ private class PostgresLedgerDao(
       implicit connection: Connection): Boolean =
     SQL_ARCHIVE_CONTRACT
       .on(
-        "id" -> cid.coid,
+        "id" -> (cid.coid: String),
         "archive_offset" -> offset
       )
       .execute()
@@ -172,7 +175,7 @@ private class PostgresLedgerDao(
         .map(
           c =>
             Seq[NamedParameter](
-              "id" -> c.contractId.coid,
+              "id" -> (c.contractId.coid: String),
               "transaction_id" -> c.transactionId,
               "workflow_id" -> c.workflowId,
               "package_id" -> (c.coinst.template.packageId: String),
@@ -203,7 +206,7 @@ private class PostgresLedgerDao(
             c.witnesses.map(
               w =>
                 Seq[NamedParameter](
-                  "contract_id" -> c.contractId.coid,
+                  "contract_id" -> (c.contractId.coid: String),
                   "witness" -> (w: String)
               ))
         )
@@ -276,7 +279,7 @@ private class PostgresLedgerDao(
                   k.maintainers.map(
                     p =>
                       Seq[NamedParameter](
-                        "contract_id" -> c.contractId.coid,
+                        "contract_id" -> (c.contractId.coid: String),
                         "maintainer" -> (p: String)
                     )))
               .getOrElse(Set.empty)
@@ -649,15 +652,15 @@ private class PostgresLedgerDao(
         None,
         None,
         offset) =>
-      val disclosure = SQL_SELECT_DISCLOSURE
-        .on("transaction_id" -> transactionId)
+      val disclosure: Relation[EventId, Party] = SQL_SELECT_DISCLOSURE
+        .on("transaction_id" -> (transactionId: String))
         .as(DisclosureParser.*)
         .groupBy(_._1)
-        .transform((_, v) => v.map(x => toParty(x._2)).toSet)
+        .map { case (k, v) => toEventId(k) -> v.map(x => toParty(x._2)).toSet }
 
       offset -> LedgerEntry.Transaction(
         commandId,
-        transactionId,
+        Ref.LedgerName.assertFromString(transactionId),
         applicationId,
         toParty(submitter),
         workflowId,
@@ -665,7 +668,7 @@ private class PostgresLedgerDao(
         recordedAt.toInstant,
         transactionSerializer
           .deserializeTransaction(transactionStream)
-          .getOrElse(sys.error(s"failed to deserialise transaction! trId: ${transactionId}")),
+          .getOrElse(sys.error(s"failed to deserialise transaction! trId: $transactionId")),
         disclosure
       )
     case ParsedEntry(
@@ -746,7 +749,7 @@ private class PostgresLedgerDao(
   private def lookupActiveContractSync(contractId: AbsoluteContractId)(
       implicit conn: Connection): Option[Contract] =
     SQL_SELECT_CONTRACT
-      .on("contract_id" -> contractId.coid)
+      .on("contract_id" -> (contractId.coid: String))
       .as(ContractDataParser.singleOpt)
       .map(mapContractDetails)
 
@@ -764,7 +767,7 @@ private class PostgresLedgerDao(
         val divulgences = lookupDivulgences(coid)
 
         Contract(
-          AbsoluteContractId(coid),
+          AbsoluteContractId(Ref.LedgerName.assertFromString(coid)),
           createdAt.toInstant,
           transactionId,
           workflowId,

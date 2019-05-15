@@ -377,7 +377,8 @@ object KeyValueCommitting {
   private def lookupContractInstanceFromLogEntry(
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,
-      nodeId: Int): Option[ContractInst[Transaction.Value[AbsoluteContractId]]] = {
+      nodeId: Int
+  ): Option[ContractInst[Transaction.Value[AbsoluteContractId]]] = {
     val relTx = Conversions.decodeTransaction(entry.getTransactionEntry.getTransaction)
     relTx.nodes
       .get(NodeId.unsafeFromIndex(nodeId))
@@ -387,6 +388,7 @@ object KeyValueCommitting {
       .flatMap { node: Transaction.Node =>
         node match {
           case create: NodeCreate[VContractId, VersionedValue[VContractId]] =>
+            // FixMe (RH) toAbsCoid can throw an IllegalArgumentException
             Some(
               create.coinst.mapValue(
                 _.mapContractId(toAbsCoid(entryId, _))

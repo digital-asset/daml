@@ -18,6 +18,7 @@ da_scala_library(
     exports = [":daml_kvutils_java_proto"],
     runtime_deps = [],
     deps = [
+            "//3rdparty/jvm/org/scalaz:scalaz_core",
         ":daml_kvutils_java_proto",
         "//3rdparty/jvm/com/google/guava",
         "//3rdparty/jvm/com/typesafe/akka:akka_stream",

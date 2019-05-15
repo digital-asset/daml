@@ -427,7 +427,9 @@ object SemanticTester {
     private[this] def makeAbsoluteContractId(coid: VContractId): AbsoluteContractId =
       coid match {
         case rcoid: RelativeContractId =>
-          AbsoluteContractId(submitCounter.toString + "-" + rcoid.txnid.index.toString)
+          AbsoluteContractId(
+            Ref.LedgerName.assertFromString(
+              submitCounter.toString + "-" + rcoid.txnid.index.toString))
         case acoid: AbsoluteContractId => acoid
       }
 

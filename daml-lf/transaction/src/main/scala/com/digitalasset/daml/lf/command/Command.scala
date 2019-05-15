@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.command
 
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
+import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
 
@@ -30,7 +30,7 @@ final case class CreateCommand(templateId: Identifier, argument: VersionedValue[
   */
 final case class ExerciseCommand(
     templateId: Identifier,
-    contractId: String,
+    contractId: ContractId,
     choiceId: ChoiceName,
     submitter: Party,
     argument: VersionedValue[AbsoluteContractId])

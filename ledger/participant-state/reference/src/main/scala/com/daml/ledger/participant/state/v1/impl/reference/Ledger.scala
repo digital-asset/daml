@@ -18,6 +18,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.participant.state.v1.impl.reference.Transaction.{TxDelta, _}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.daml.lf.value.Value
@@ -74,7 +75,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   private val ledgerConfig: Configuration = Configuration(
     timeModel = timeModel
   )
-  private val ledgerId: LedgerId = Ref.PackageId.assertFromString(UUID.randomUUID().toString)
+  private val ledgerId: LedgerId = Ref.LedgerName.assertFromString(UUID.randomUUID().toString)
 
   /**
     * Task to send out transient heartbeat events to subscribers.
@@ -351,7 +352,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       transaction: SubmittedTransaction,
       txDelta: TxDelta,
       offset: Offset): Map[AbsoluteContractId, AbsoluteContractInst] = {
-    val txId = offset.toString
+    val txId = offset.toTransactionId
 
     txDelta.outputs.toList.map {
       case (contractId, contract) =>
@@ -368,7 +369,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       offset: Offset,
       recordTime: Instant,
       inputContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
-    val txId = offset.toString // for this ledger, offset is also the transaction id
+    val txId = offset.toTransactionId // for this ledger, offset is also the transaction id
     TransactionAccepted(
       Some(submitterInfo),
       transactionMeta,

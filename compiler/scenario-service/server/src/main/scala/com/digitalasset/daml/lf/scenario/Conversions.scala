@@ -372,7 +372,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
   }
 
   def convertNodeId(nodeId: LedgerForScenarios.ScenarioNodeId): NodeId =
-    NodeId.newBuilder.setId(nodeId.id).build
+    NodeId.newBuilder.setId(nodeId).build
 
   def convertTxNodeId(nodeId: Tx.NodeId): NodeId =
     NodeId.newBuilder.setId(nodeId.index.toString).build
@@ -439,8 +439,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .addAllStakeholders(ex.stakeholders.map(convertParty).asJava)
             .addAllControllers(ex.controllers.map(convertParty).asJava)
             .addAllChildren(ex.children
-              .map((nid: LedgerForScenarios.ScenarioNodeId) =>
-                NodeId.newBuilder.setId(nid.id).build)
+              .map(nid => NodeId.newBuilder.setId(nid).build)
               .toSeq
               .asJava)
             .build

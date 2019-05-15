@@ -151,7 +151,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
     // The contract is therefore stored in several SQL tables.
 
     // Part 1: insert the contract data into the 'contracts' table
-    if (!contracts.isEmpty) {
+    if (contracts.nonEmpty) {
       val namedContractParams = contracts
         .map(
           c =>

@@ -5,8 +5,9 @@ package com.daml.ledger.api.server.damlonx.services
 
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v1.IndexService
-import com.daml.ledger.participant.state.v1.{LedgerId, SubmitterInfo, TransactionMeta, WriteService}
+import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta, WriteService}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{
   Engine,
@@ -81,7 +82,8 @@ class DamlOnXSubmissionService private (
   }
 
   private def recordOnLedger(commands: ApiCommands): Future[Unit] = {
-    val ledgerId = Ref.PackageId.assertFromString(commands.ledgerId.unwrap)
+    // FixMe (RH) we are mixing ledgerId and PackageId !
+    val ledgerId = Ref.PackageId.assertFromString(commands.ledgerId)
     val getPackage =
       (packageId: Ref.PackageId) =>
         indexService

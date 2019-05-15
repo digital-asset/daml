@@ -7,6 +7,8 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimestampConversion
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerId
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
@@ -36,7 +38,7 @@ import scala.concurrent.Future
 
 class GrpcTransactionService(
     protected val service: TransactionService with AutoCloseable,
-    val ledgerId: String,
+    val ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
     identifierResolver: IdentifierResolver)(
     implicit protected val esf: ExecutionSequencerFactory,
@@ -98,7 +100,7 @@ class GrpcTransactionService(
       visibleTx.meta.workflowId.unwrap,
       Some(TimestampConversion.fromInstant(visibleTx.meta.effectiveAt)),
       offset,
-      events.eventsById,
+      Ref.LedgerName.toStringMap(events.eventsById),
       events.rootEventIds,
       visibleTx.meta.traceContext
     )

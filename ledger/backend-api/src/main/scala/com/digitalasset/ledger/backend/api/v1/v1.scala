@@ -3,7 +3,7 @@
 
 package com.digitalasset.ledger.backend.api
 
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerName
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 
@@ -23,20 +23,14 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
   */
 package object v1 {
 
-  /** Identifiers for transactions, MUST match regexp [a-zA-Z0-9-]. */
-  type TransactionId = String
-
   /** Identifiers used to correlate submission with results, MUST match regexp [a-zA-Z0-9-]. */
   type CommandId = String
 
   /** Identifiers for nodes in a transaction, MUST match regexp [a-zA-Z0-9-]. */
-  type NodeId = String
+  type NodeId = LedgerName
 
   /** Identifiers for [[LedgerSyncEvent]]'s, MUST match regexp [a-zA-Z0-9-]. */
   type LedgerSyncOffset = String
-
-  /** Identifiers for parties */
-  type Party = Ref.Party
 
   /** The type for an yet uncommitted transaction with relative contact
     *  identifiers, submitted via 'submitTransaction'.

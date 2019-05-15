@@ -23,6 +23,7 @@ import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
+import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.EventId
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   Contract,
   PersistenceEntry,
@@ -79,6 +80,9 @@ class PostgresDaoSpec
 
   "Postgres Ledger DAO" should {
 
+    val event1: EventId = "event1"
+    val event2: EventId = "event2"
+
     "be able to persist and load contracts" in {
       val offset = nextOffset()
       val absCid = AbsoluteContractId("cId1")
@@ -118,7 +122,7 @@ class PostgresDaoSpec
         let,
         GenTransaction(
           Map(
-            "event1" -> NodeCreate(
+            event1 -> NodeCreate(
               absCid,
               contractInstance,
               None,
@@ -126,10 +130,10 @@ class PostgresDaoSpec
               Set(alice, bob),
               Some(keyWithMaintainers)
             )),
-          ImmArray("event1"),
+          ImmArray(event1),
           Set.empty
         ),
-        Map("event1" -> Set("Alice", "Bob"), "event2" -> Set("Alice", "In", "Chains"))
+        Map(event1 -> Set[Party]("Alice", "Bob"), event2 -> Set[Party]("Alice", "In", "Chains"))
       )
 
       for {
@@ -245,7 +249,7 @@ class PostgresDaoSpec
         let,
         GenTransaction(
           Map(
-            "event1" -> NodeCreate(
+            event1 -> NodeCreate(
               absCid,
               contractInstance,
               None,
@@ -253,10 +257,10 @@ class PostgresDaoSpec
               Set(alice, bob),
               Some(keyWithMaintainers)
             )),
-          ImmArray("event1"),
+          ImmArray(event1),
           Set.empty
         ),
-        Map("event1" -> Set("Alice", "Bob"), "event2" -> Set("Alice", "In", "Chains"))
+        Map(event1 -> Set("Alice", "Bob"), event2 -> Set("Alice", "In", "Chains"))
       )
 
       for {
@@ -310,7 +314,7 @@ class PostgresDaoSpec
           let,
           GenTransaction(
             Map(
-              s"event$id" -> NodeCreate(
+              (s"event$id": EventId) -> NodeCreate(
                 absCid,
                 contractInstance,
                 None,
@@ -318,10 +322,10 @@ class PostgresDaoSpec
                 Set(alice, bob),
                 None
               )),
-            ImmArray(s"event$id"),
+            ImmArray[EventId](s"event$id"),
             Set.empty
           ),
-          Map(s"event$id" -> Set("Alice", "Bob"))
+          Map((s"event$id": EventId) -> Set("Alice", "Bob"))
         )
       }
 
@@ -339,7 +343,7 @@ class PostgresDaoSpec
           let,
           GenTransaction(
             Map(
-              s"event$id" -> NodeExercises(
+              (s"event$id": EventId) -> NodeExercises(
                 targetCid,
                 templateId,
                 Ref.Name.assertFromString("choice"),
@@ -355,10 +359,10 @@ class PostgresDaoSpec
                     ValueVersions.acceptedVersions.head,
                     ValueText("some exercise result"))),
               )),
-            ImmArray(s"event$id"),
+            ImmArray[EventId](s"event$id"),
             Set.empty
           ),
-          Map(s"event$id" -> Set("Alice", "Bob"))
+          Map((s"event$id": EventId) -> Set("Alice", "Bob"))
         )
       }
 
@@ -430,5 +434,7 @@ class PostgresDaoSpec
   }
 
   private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
+
+  private implicit def toLedgerName(s: String): Ref.LedgerName = Ref.LedgerName.assertFromString(s)
 
 }

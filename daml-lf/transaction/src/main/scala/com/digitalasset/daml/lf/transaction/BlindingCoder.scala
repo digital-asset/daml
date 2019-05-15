@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.transaction
 
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.{blinding => proto}
@@ -32,8 +32,12 @@ object BlindingCoder {
           parties <- toPartySet(n.getPartiesList)
         } yield ni -> parties)
 
-    val globalDisclosure = p.getGlobalImplicitDisclosureList.asScala.map(n =>
-      toPartySet(n.getPartiesList).map(AbsoluteContractId(n.getContractId) -> _))
+    val globalDisclosure =
+      p.getGlobalImplicitDisclosureList.asScala.map(n =>
+        for {
+          parties <- toPartySet(n.getPartiesList)
+          coid <- toContractId(n.getContractId)
+        } yield AbsoluteContractId(coid) -> parties)
 
     for {
       explicit <- sequence(explicitDisclosure)
@@ -86,5 +90,8 @@ object BlindingCoder {
       case Right(l) => Right(l.toSet)
     }
   }
+
+  private def toContractId(s: String): Either[DecodeError, ContractId] =
+    LedgerName.fromString(s).left.map(err => DecodeError(s"Cannot decode contractId: $err"))
 
 }

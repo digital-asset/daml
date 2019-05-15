@@ -7,6 +7,7 @@ import java.time.{Duration, Instant}
 
 import akka.Done
 import akka.stream.scaladsl.{Flow, Sink}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.EventId
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{party, _}
@@ -1379,7 +1380,8 @@ class TransactionServiceIT
             for {
               (tx, tree) <- txs.iterator.zip(trees.iterator)
 
-              treeEventIds: Set[EventId] = Tag.subst(tree.eventsById.keySet)
+              treeEventIds: Set[EventId] = Tag.subst(
+                tree.eventsById.keySet.map(Ref.LedgerName.assertFromString))
 
               txEvent <- tx.events
             } {

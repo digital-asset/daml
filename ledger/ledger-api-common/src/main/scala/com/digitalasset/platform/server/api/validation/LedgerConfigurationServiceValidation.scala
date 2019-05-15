@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.server.api.validation
 
+import com.digitalasset.daml.lf.data.Ref.LedgerId
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
@@ -18,8 +19,8 @@ import org.slf4j.{Logger, LoggerFactory}
 
 class LedgerConfigurationServiceValidation(
     protected val service: LedgerConfigurationService with GrpcApiService,
-    protected val ledgerId: String)
-    extends LedgerConfigurationService
+    protected val ledgerId: LedgerId
+) extends LedgerConfigurationService
     with ProxyCloseable
     with GrpcApiService
     with FieldValidations {

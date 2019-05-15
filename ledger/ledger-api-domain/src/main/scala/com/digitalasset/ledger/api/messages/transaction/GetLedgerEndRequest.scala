@@ -4,6 +4,6 @@
 package com.digitalasset.ledger.api.messages.transaction
 
 import brave.propagation.TraceContext
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.daml.lf.data.Ref.LedgerId
 
 final case class GetLedgerEndRequest(ledgerId: LedgerId, traceContext: Option[TraceContext])

@@ -135,7 +135,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
 
     val listValue = extractResultFieldFromExerciseTransaction(exerciseCmdTx, "list")
 
-    val list: FrontStack[Value[Tx.ContractId]] = listValue match {
+    val list: FrontStack[Value[Tx.TContractId]] = listValue match {
       case ValueList(x) => x
       case f @ _ => fail(s"Unexpected match: $f")
     }
@@ -148,7 +148,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       exerciseCmdTx: Transaction,
       expectedNumberOfContracts: Int): Assertion = {
 
-    val newContracts: List[N.GenNode.WithTxValue[Tx.NodeId, Tx.ContractId]] =
+    val newContracts: List[N.GenNode.WithTxValue[Tx.NodeId, Tx.TContractId]] =
       firstRootNode(exerciseCmdTx) match {
         case ne: N.NodeExercises[_, _, _] => ne.children.toList.map(nid => exerciseCmdTx.nodes(nid))
         case n @ _ => fail(s"Unexpected match: $n")
@@ -244,7 +244,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       exerciseCmdTx: Transaction,
       expected: Long): Assertion = {
 
-    val value: Value[Tx.ContractId] =
+    val value: Value[Tx.TContractId] =
       extractResultFieldFromExerciseTransaction(exerciseCmdTx, "value")
 
     val actual: Long = value match {
@@ -257,18 +257,18 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
 
   private def extractResultFieldFromExerciseTransaction(
       exerciseCmdTx: Transaction,
-      fieldName: String): Value[Tx.ContractId] = {
+      fieldName: String): Value[Tx.TContractId] = {
 
-    val contractInst: ContractInst[Tx.Value[Tx.ContractId]] = extractResultFromExerciseTransaction(
+    val contractInst: ContractInst[Tx.Value[Tx.TContractId]] = extractResultFromExerciseTransaction(
       exerciseCmdTx)
 
-    val fields: ImmArray[(Option[String], Value[Tx.ContractId])] =
+    val fields: ImmArray[(Option[String], Value[Tx.TContractId])] =
       contractInst.arg.value match {
         case ValueRecord(_, x: ImmArray[_]) => x
         case v @ _ => fail(s"Unexpected match: $v")
       }
 
-    val valueField: Option[(Option[String], Value[Tx.ContractId])] = fields.find {
+    val valueField: Option[(Option[String], Value[Tx.TContractId])] = fields.find {
       case (n, _) => n.contains(fieldName)
     }
 
@@ -279,13 +279,13 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
   }
 
   private def extractResultFromExerciseTransaction(
-      exerciseCmdTx: Transaction): ContractInst[Tx.Value[Tx.ContractId]] = {
+      exerciseCmdTx: Transaction): ContractInst[Tx.Value[Tx.TContractId]] = {
 
     exerciseCmdTx.roots.length shouldBe 1
     exerciseCmdTx.nodes.size shouldBe 2
 
     val createNode
-      : N.GenNode.WithTxValue[Tx.NodeId, Tx.ContractId] = firstRootNode(exerciseCmdTx) match {
+      : N.GenNode.WithTxValue[Tx.NodeId, Tx.TContractId] = firstRootNode(exerciseCmdTx) match {
       case ne: N.NodeExercises[_, _, _] => exerciseCmdTx.nodes(ne.children.head)
       case n @ _ => fail(s"Unexpected match: $n")
     }

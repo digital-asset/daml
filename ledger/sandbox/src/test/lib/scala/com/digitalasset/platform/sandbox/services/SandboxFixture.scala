@@ -7,6 +7,7 @@ import java.io.File
 
 import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.Ref.LedgerName
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.testing.utils.{Resource, SuiteResource}
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
@@ -54,7 +55,7 @@ trait SandboxFixture extends SuiteResource[Channel] {
         timeProviderType = TimeProviderType.Static,
         timeModel = TimeModel.reasonableDefault,
         scenario = scenario,
-        ledgerIdMode = LedgerIdMode.Static("sandbox server")
+        ledgerIdMode = LedgerIdMode.Static(LedgerName.assertFromString("sandbox server"))
       )
 
   protected def packageFiles: List[File] = List(darFile)

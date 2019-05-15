@@ -4,7 +4,9 @@ package com.digitalasset.daml.lf.data
 
 import scalaz.Equal
 
-sealed abstract class MatchingStringModule {
+import scala.collection.mutable
+
+sealed abstract class StringModule {
 
   type T <: String
 
@@ -22,11 +24,13 @@ sealed abstract class MatchingStringModule {
   //  * https://github.com/digital-asset/daml/pull/983#discussion_r282513324
   //  * https://github.com/scala/bug/issues/9565
   val Array: ArrayFactory[T]
+
+  def toStringMap[V](map: Map[T, V]): Map[String, V]
 }
 
-object MatchingStringModule extends (String => MatchingStringModule) {
+object MatchingStringModule extends (String => StringModule) {
 
-  def apply(string_regex: String): MatchingStringModule = new MatchingStringModule {
+  def apply(string_regex: String): StringModule = new StringModule {
     type T = String
 
     private val regex = string_regex.r
@@ -38,36 +42,55 @@ object MatchingStringModule extends (String => MatchingStringModule) {
     def equalInstance: Equal[T] = scalaz.std.string.stringInstance
 
     val Array: ArrayFactory[T] = new ArrayFactory[T]
+
+    def toStringMap[V](map: Map[T, V]): Map[String, V] = map
   }
 
 }
 
-sealed abstract class ConcatenableMatchingStringModule extends MatchingStringModule {
+sealed abstract class ConcatenableMatchingStringModule extends StringModule {
 
-  def concat(s: T, t: T): T
+  final def concat(s: T, ss: T*): T = {
+    val b = newBuilder
+    b += s
+    ss.foreach(b += _)
+    b.result()
+  }
 
+  def newBuilder: mutable.Builder[T, T]
 }
 
-object ConcatenableMatchingStringModule extends (String => MatchingStringModule) {
+object ConcatenableMatchingStringModule extends ((Char => Boolean) => StringModule) {
 
-  def apply(string_regex: String): ConcatenableMatchingStringModule =
+  def apply(pred: Char => Boolean): ConcatenableMatchingStringModule =
     new ConcatenableMatchingStringModule {
       type T = String
 
-      private val regex = s"""($string_regex)+""".r
-      private val pattern = regex.pattern
-
       def fromString(s: String): Either[String, T] =
-        Either.cond(
-          pattern.matcher(s).matches(),
-          s,
-          s"""string "$s" does not match regex "$regex"""")
+        if (s.isEmpty)
+          Left(s"""empty string""")
+        else
+          s.find(s => !pred(s))
+            .fold[Either[String, T]](Right(s))(c =>
+              Left(s"""non expected character 0x${c.toInt.toHexString} in "$s""""))
 
       def equalInstance: Equal[T] = scalaz.std.string.stringInstance
 
       val Array: ArrayFactory[T] = new ArrayFactory[T]
 
-      def concat(s: T, t: T): T = s + t
+      def toStringMap[V](map: Map[T, V]): Map[String, V] = map
+
+      def newBuilder: mutable.ReusableBuilder[T, T] = new mutable.ReusableBuilder[T, T] {
+        private val stringBuilder = StringBuilder.newBuilder
+        def +=(elem: T): this.type = {
+          stringBuilder.appendAll(elem)
+          this
+        }
+
+        def clear(): Unit = stringBuilder.clear()
+
+        def result(): T = stringBuilder.result()
+      }
     }
 
 }

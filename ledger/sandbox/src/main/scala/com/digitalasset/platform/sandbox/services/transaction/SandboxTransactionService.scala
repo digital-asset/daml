@@ -157,9 +157,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
             .withDescription(s"invalid eventId: ${request.eventId}")
             .asRuntimeException())) {
         case TransactionIdWithIndex(transactionId, index) =>
-          lookUpTreeByTransactionId(
-            TransactionId(transactionId.toString),
-            request.requestingParties)
+          lookUpTreeByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
   }
 
@@ -179,9 +177,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
             .withDescription(s"invalid eventId: ${request.eventId}")
             .asRuntimeException())) {
         case TransactionIdWithIndex(transactionId, index) =>
-          lookUpFlatByTransactionId(
-            TransactionId(transactionId.toString),
-            request.requestingParties)
+          lookUpFlatByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
   }
 

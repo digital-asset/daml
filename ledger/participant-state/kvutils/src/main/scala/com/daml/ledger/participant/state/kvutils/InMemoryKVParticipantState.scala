@@ -13,7 +13,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.LedgerName
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml_lf.DamlLf.Archive
@@ -82,7 +82,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
 
   private implicit val ec: ExecutionContext = mat.executionContext
 
-  val ledgerId = PackageId.assertFromString(UUID.randomUUID.toString)
+  val ledgerId = LedgerName.assertFromString(UUID.randomUUID.toString)
 
   // The ledger configuration
   private val ledgerConfig = Configuration(timeModel = TimeModel.reasonableDefault)

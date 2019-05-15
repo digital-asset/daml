@@ -57,13 +57,6 @@ import com.digitalasset.daml.lf.value.Value
   */
 package object v1 {
 
-  /** Identifier for the ledger, MUST match regexp [a-zA-Z0-9-]. */
-  type LedgerId = String
-
-  /** Identifiers for transactions.
-    * Currently unrestricted unicode (See issue #398). */
-  type TransactionId = String
-
   /** Identifiers used to correlate submission with results.
     * Currently unrestricted unicode (See issue #398). */
   type CommandId = String

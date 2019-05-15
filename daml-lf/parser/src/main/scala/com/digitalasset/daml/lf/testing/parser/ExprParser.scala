@@ -56,7 +56,7 @@ private[parser] object ExprParser {
 
   private lazy val contractId =
     accept("ContractId", { case ContractId(cid) => cid }) ~ (`@` ~> fullIdentifier) ^^ {
-      case cid ~ t => EContractId(cid, t)
+      case cid ~ t => EContractId(Ref.LedgerName.assertFromString(cid), t)
     }
 
   private sealed trait EAppAgr extends Product with Serializable

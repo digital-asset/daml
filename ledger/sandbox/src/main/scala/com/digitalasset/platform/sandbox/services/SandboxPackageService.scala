@@ -83,7 +83,7 @@ class SandboxPackageService private (backend: PackagesService)
 }
 
 object SandboxPackageService {
-  def apply(backend: PackagesService, ledgerId: String)(implicit ec: ExecutionContext)
+  def apply(backend: PackagesService, ledgerId: Ref.LedgerId)(implicit ec: ExecutionContext)
     : PackageService with BindableService with PackageServiceLogging =
     new PackageServiceValidation(new SandboxPackageService(backend), ledgerId) with BindableService
     with PackageServiceLogging {

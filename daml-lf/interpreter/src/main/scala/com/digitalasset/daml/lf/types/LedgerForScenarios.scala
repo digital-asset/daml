@@ -18,35 +18,11 @@ import scala.collection.immutable
 /** An in-memory representation of a ledger for scenarios */
 object LedgerForScenarios {
 
-  /** As usual, private since we do not want other code to construct possibly ill-formed NodeIds
-    *
-    * Note that we intentionally expose this only to the NodeId object,
-    * since we want the rest of the Ledger code to only create NodeIds
-    * using the two appy methods below.
-    */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  class ScenarioNodeId private[ScenarioNodeId] (val id: String) {
-    def canEqual(that: Any) = that.isInstanceOf[ScenarioNodeId]
-
-    override def equals(that: Any) = that match {
-      case n: ScenarioNodeId => id == n.id
-      case _ => false
-    }
-
-    override def hashCode() = id.hashCode()
-
-    override def toString = "NodeId(" + id.toString + ")"
-  }
-
+  type ScenarioNodeId = LedgerName
   object ScenarioNodeId {
+    def apply(acoid: AbsoluteContractId): ScenarioNodeId = acoid.coid
 
-    /** This is safe since, as stated in the comment for `type Node`,
-      * every absolute contract id is also a node id (it refers to the
-      * create node that generated the contract).
-      */
-    def apply(acoid: AbsoluteContractId): ScenarioNodeId = new ScenarioNodeId(acoid.coid)
-
-    def apply(commitPrefix: String, txnid: Transaction.NodeId): ScenarioNodeId =
+    def apply(commitPrefix: LedgerName, txnid: Transaction.NodeId): ScenarioNodeId =
       apply(txNodeIdToAbsoluteContractId(commitPrefix, txnid))
   }
 
@@ -56,31 +32,37 @@ object LedgerForScenarios {
     */
   @inline
   def txNodeIdToAbsoluteContractId(
-      commitPrefix: String,
-      txnid: Transaction.NodeId): AbsoluteContractId =
-    AbsoluteContractId(commitPrefix ++ txnid.index.toString)
+      commitPrefix: LedgerName,
+      txnid: Transaction.NodeId
+  ): AbsoluteContractId =
+    AbsoluteContractId(LedgerName.concat(commitPrefix, txnid.name))
 
   @inline
   def relativeToAbsoluteContractId(
-      commitPrefix: String,
-      i: RelativeContractId): AbsoluteContractId =
+      commitPrefix: LedgerName,
+      i: RelativeContractId
+  ): AbsoluteContractId =
     txNodeIdToAbsoluteContractId(commitPrefix, i.txnid)
 
   @inline
-  def contractIdToAbsoluteContractId(commitPrefix: String, cid: VContractId): AbsoluteContractId =
+  def contractIdToAbsoluteContractId(
+      commitPrefix: LedgerName,
+      cid: VContractId
+  ): AbsoluteContractId =
     cid match {
       case acoid: AbsoluteContractId => acoid
       case rcoid: RelativeContractId =>
         relativeToAbsoluteContractId(commitPrefix, rcoid)
     }
 
+  private val `:` = LedgerName.assertFromString(":")
+
   case class ScenarioTransactionId(index: Int) extends Ordered[ScenarioTransactionId] {
     def next: ScenarioTransactionId = ScenarioTransactionId(index + 1)
-    def id: TransactionId = index.toString
+    val id: TransactionId = LedgerName.assertFromString(index.toString)
     def compare(that: ScenarioTransactionId): Int = index compare that.index
+    def makeCommitPrefix: LedgerName = LedgerName.concat(id, `:`)
   }
-
-  type TransactionId = String
 
   /** Errors */
   case class LedgerException(err: Error) extends RuntimeException(err.toString, null, true, false)
@@ -163,7 +145,7 @@ object LedgerForScenarios {
     * the package format.
     */
   def enrichedTransactionToRichTransaction(
-      commitPrefix: String,
+      commitPrefix: LedgerName,
       committer: Party,
       effectiveAt: Time.Timestamp,
       enrichedTx: EnrichedTransaction): RichTransaction = {
@@ -201,7 +183,7 @@ object LedgerForScenarios {
     * id's. Both are translated to sandbox ledger node id's (tagged strings) with help of the commit
     * prefix.
     */
-  def translateNode(commitPrefix: String, node: Transaction.Node): Node = {
+  def translateNode(commitPrefix: LedgerName, node: Transaction.Node): Node = {
     node match {
       case nc: NodeCreate.WithTxValue[VContractId] =>
         NodeCreate[AbsoluteContractId, Transaction.Value[AbsoluteContractId]](
@@ -361,7 +343,7 @@ object LedgerForScenarios {
     *                           checking whether a contract instance is
     *                           active always nexplicitly checks that the
     *                           ledger-effective time ordering is maintained.
-    * @param scenarioStepIdx The identitity for the next
+    * @param scenarioStepId The identitity for the next
     *                           transaction to be inserted. These
     *                           identities are allocated consecutively
     *                           from 1 to 'maxBound :: Int'.
@@ -370,7 +352,7 @@ object LedgerForScenarios {
     */
   case class Ledger(
       currentTime: Time.Timestamp,
-      scenarioStepIdx: ScenarioTransactionId,
+      scenarioStepId: ScenarioTransactionId,
       scenarioSteps: immutable.IntMap[ScenarioStep],
       ledgerData: LedgerData
   ) {
@@ -378,17 +360,17 @@ object LedgerForScenarios {
     /** moves the current time of the ledger by the relative time `dt`. */
     def passTime(dtMicros: Long): Ledger = copy(
       currentTime = currentTime.addMicros(dtMicros),
-      scenarioSteps = scenarioSteps + (scenarioStepIdx.index -> PassTime(dtMicros)),
-      scenarioStepIdx = scenarioStepIdx.next
+      scenarioSteps = scenarioSteps + (scenarioStepId.index -> PassTime(dtMicros)),
+      scenarioStepId = scenarioStepId.next
     )
 
     def insertAssertMustFail(p: Party, optLocation: Option[Location]): Ledger = {
-      val id = scenarioStepIdx
+      val id = scenarioStepId
       val effAt = currentTime
       val newIMS = scenarioSteps + (id.index -> AssertMustFail(p, optLocation, effAt, id))
       copy(
         scenarioSteps = newIMS,
-        scenarioStepIdx = scenarioStepIdx.next
+        scenarioStepId = scenarioStepId.next
       )
     }
 
@@ -449,8 +431,8 @@ object LedgerForScenarios {
       tr: Transaction.Transaction,
       l: Ledger
   ): Either[CommitError, CommitResult] = {
-    val i = l.scenarioStepIdx
-    val commitPrefix = makeCommitPrefix(i)
+    val i = l.scenarioStepId
+    val commitPrefix = i.makeCommitPrefix
     val richTr =
       enrichedTransactionToRichTransaction(
         commitPrefix,
@@ -467,7 +449,7 @@ object LedgerForScenarios {
             CommitResult(
               l.copy(
                 scenarioSteps = l.scenarioSteps + (i.index -> Commit(i, richTr, optLocation)),
-                scenarioStepIdx = l.scenarioStepIdx.next,
+                scenarioStepId = l.scenarioStepId.next,
                 ledgerData = updatedCache
               ),
               i,
@@ -482,7 +464,7 @@ object LedgerForScenarios {
   def initialLedger(t0: Time.Timestamp): Ledger =
     Ledger(
       currentTime = t0,
-      scenarioStepIdx = ScenarioTransactionId(0),
+      scenarioStepId = ScenarioTransactionId(0),
       scenarioSteps = immutable.IntMap.empty,
       ledgerData = LedgerData.empty
     )
@@ -1001,7 +983,7 @@ object LedgerForScenarios {
   }
 
   def makeAbsolute(
-      commitPrefix: String,
+      commitPrefix: LedgerName,
       value: VersionedValue[VContractId]): VersionedValue[AbsoluteContractId] = {
     VersionedValue(value.version, makeAbsolute(commitPrefix, value.value))
   }
@@ -1010,7 +992,9 @@ object LedgerForScenarios {
     *
     * TODO(FM) make this tail recursive
     */
-  def makeAbsolute(commitPrefix: String, value: Value[VContractId]): Value[AbsoluteContractId] = {
+  def makeAbsolute(
+      commitPrefix: LedgerName,
+      value: Value[VContractId]): Value[AbsoluteContractId] = {
     def rewrite(v: Value[VContractId]): Value[AbsoluteContractId] =
       v match {
         case ValueRecord(tycon, fs) =>
@@ -1217,5 +1201,4 @@ object LedgerForScenarios {
         })
   }
 
-  def makeCommitPrefix(txid: ScenarioTransactionId): String = s"${txid}:"
 }

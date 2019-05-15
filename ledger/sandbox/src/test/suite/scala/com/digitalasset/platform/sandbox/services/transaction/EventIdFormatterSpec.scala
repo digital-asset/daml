@@ -5,13 +5,14 @@ package com.digitalasset.platform.sandbox.services.transaction
 
 import com.digitalasset.daml.lf.transaction.Transaction
 import SandboxEventIdFormatter.TransactionIdWithIndex
+import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpec}
 
 class EventIdFormatterSpec extends WordSpec with Matchers with ScalaFutures {
 
   "EventIdFormatter" should {
-    val transactionId = "42"
+    val transactionId: Ref.TransactionId = Ref.LedgerName.assertFromString("42")
     val index: Transaction.NodeId = Transaction.NodeId.unsafeFromIndex(42)
     val referenceEventID = s"#$transactionId:${index.index}"
 
@@ -21,7 +22,7 @@ class EventIdFormatterSpec extends WordSpec with Matchers with ScalaFutures {
 
     "split an eventId into a transactionId and an index" in {
       SandboxEventIdFormatter.split(referenceEventID) should equal(
-        Some(TransactionIdWithIndex(transactionId.toLong, index)))
+        Some(TransactionIdWithIndex(transactionId, index)))
     }
 
     "return None when parsing an invalid argument" in {

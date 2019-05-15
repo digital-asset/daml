@@ -7,7 +7,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
@@ -44,7 +44,7 @@ class SqlLedgerSpec
     }
 
     "be able to be created from scratch with a given ledger id" in {
-      val ledgerId = "TheLedger"
+      val ledgerId = Ref.LedgerName.assertFromString("TheLedger")
 
       val ledgerF = SqlLedger(
         jdbcUrl = postgresFixture.jdbcUrl,
@@ -61,7 +61,7 @@ class SqlLedgerSpec
     }
 
     "be able to be reused keeping the old ledger id" in {
-      val ledgerId = "TheLedger"
+      val ledgerId = Ref.LedgerName.assertFromString("TheLedger")
 
       for {
         ledger1 <- SqlLedger(
@@ -103,7 +103,7 @@ class SqlLedgerSpec
       val ledgerF = for {
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = Some("TheLedger"),
+          ledgerId = Some(Ref.LedgerName.assertFromString("TheLedger")),
           timeProvider = TimeProvider.UTC,
           acs = ActiveContractsInMemory.empty,
           initialLedgerEntries = ImmArray.empty,
@@ -111,7 +111,7 @@ class SqlLedgerSpec
         )
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = Some("AnotherLedger"),
+          ledgerId = Some(Ref.LedgerName.assertFromString("AnotherLedger")),
           timeProvider = TimeProvider.UTC,
           acs = ActiveContractsInMemory.empty,
           initialLedgerEntries = ImmArray.empty,

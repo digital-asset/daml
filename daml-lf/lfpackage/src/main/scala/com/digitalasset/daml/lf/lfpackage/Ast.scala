@@ -132,7 +132,7 @@ object Ast {
     * in T, and thus it's not the case that `ImmArray[Expr[Nothing]] <: ImmArray[Expr[String]]`. We
     * Might want to revisit this in the future.
     */
-  final case class EContractId(coId: String, tmplId: TypeConName) extends Expr
+  final case class EContractId(coId: ContractId, tmplId: TypeConName) extends Expr
 
   /** Location annotations */
   final case class ELocation(loc: Location, expr: Expr) extends Expr

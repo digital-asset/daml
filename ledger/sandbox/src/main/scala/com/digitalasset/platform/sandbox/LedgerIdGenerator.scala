@@ -5,6 +5,9 @@ package com.digitalasset.platform.sandbox
 
 import java.util.UUID
 
+import com.digitalasset.daml.lf.data.Ref
+
 object LedgerIdGenerator {
-  def generateRandomId(): String = s"sandbox-${UUID.randomUUID().toString}"
+  def generateRandomId(): Ref.LedgerName =
+    Ref.LedgerName.assertFromString(s"sandbox-${UUID.randomUUID().toString}")
 }

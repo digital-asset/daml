@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.server.api.validation
 
+import com.digitalasset.daml.lf.data.Ref.LedgerId
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.digitalasset.ledger.api.v1.package_service._
@@ -16,8 +17,8 @@ import scala.concurrent.Future
 
 class PackageServiceValidation(
     protected val service: PackageService with AutoCloseable,
-    val ledgerId: String)
-    extends PackageService
+    val ledgerId: LedgerId
+) extends PackageService
     with ProxyCloseable
     with GrpcApiService
     with FieldValidations {

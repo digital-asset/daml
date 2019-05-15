@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.{ValueCoder, ValueOuterClass}
@@ -35,13 +36,18 @@ object ValueSerializer extends ValueSerializer {
     acid => (acid.coid, false)
   )
 
+  private def toContractId(s: String) =
+    Ref.LedgerName
+      .fromString(s)
+      .left
+      .map(e => DecodeError(s"cannot decode contractId: $e"))
+      .map(AbsoluteContractId)
+
   val defaultCidDecode: ValueCoder.DecodeCid[AbsoluteContractId] = ValueCoder.DecodeCid(
-    { i: String =>
-      Right(AbsoluteContractId(i))
-    }, { (i, r) =>
+    toContractId, { (i, r) =>
       if (r)
         sys.error("found relative contract id in stored contract instance")
-      else Right(AbsoluteContractId(i))
+      else toContractId(i)
     }
   )
 

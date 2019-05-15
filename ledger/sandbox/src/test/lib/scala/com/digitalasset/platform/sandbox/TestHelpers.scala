@@ -9,6 +9,7 @@ import java.time.Instant
 import akka.stream.ActorMaterializer
 import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref.LedgerName
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.services.SandboxSubmissionService
@@ -40,7 +41,7 @@ trait TestHelpers {
       implicit ec: ExecutionContext,
       mat: ActorMaterializer) = {
     val ledger = Ledger.inMemory(
-      "sandbox ledger",
+      LedgerName.assertFromString("sandbox ledger"),
       TimeProvider.Constant(Instant.EPOCH),
       ActiveContractsInMemory.empty,
       ImmArray.empty)

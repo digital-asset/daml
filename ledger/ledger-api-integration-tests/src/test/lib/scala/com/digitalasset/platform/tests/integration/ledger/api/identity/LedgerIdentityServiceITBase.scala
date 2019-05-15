@@ -5,6 +5,7 @@ package com.digitalasset.platform.tests.integration.ledger.api.identity
 
 import java.util.UUID
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundEach
@@ -30,7 +31,8 @@ trait LedgerIdentityServiceITBase
 
   override def timeLimit: Span = 5.seconds
 
-  protected lazy val givenId = s"ledger-${UUID.randomUUID().toString}"
+  protected lazy val givenId =
+    Ref.LedgerName.assertFromString(s"ledger-${UUID.randomUUID().toString}")
 
   protected def getLedgerId(ledgerIdentityService: LedgerIdentityService): Future[String] = {
     val client = new LedgerIdentityClient(ledgerIdentityService)

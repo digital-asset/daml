@@ -18,6 +18,7 @@ import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import org.slf4j.LoggerFactory
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.types.LedgerForScenarios.ScenarioTransactionId
+import com.digitalasset.ledger.backend.api.v1.NodeId
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.breakOut
@@ -204,7 +205,7 @@ object ScenarioLoader {
                 s"Non-monotonic transaction ids in ledger results: got $oldTxId first and then $txId")
             }
         }
-        val transactionId = s"scenario-transaction-$txId"
+        val transactionId = Ref.LedgerName.assertFromString(s"scenario-transaction-$txId")
         val workflowId = s"scenario-workflow-$stepId"
         // note that it's important that we keep the event ids in line with the contract ids, since
         // the sandbox code assumes that in TransactionConversion.
@@ -214,7 +215,7 @@ object ScenarioLoader {
         // copies non-absolute-able node IDs, but IDs that don't match
         // get intersected away later
         val globalizedImplicitDisclosure = richTransaction.implicitDisclosure mapKeys { nid =>
-          absCidWithHash(AbsoluteContractId(nid.id))
+          absCidWithHash(AbsoluteContractId(nid))
         }
         acs.addTransaction[L.ScenarioNodeId](
           time.toInstant,
@@ -256,11 +257,12 @@ object ScenarioLoader {
     }
   }
 
+  private val `#` = Ref.LedgerName.assertFromString("#")
   // currently the scenario interpreter produces the contract ids with no hash prefix,
   // but the sandbox does. add them here too for consistency
   private def absCidWithHash(a: AbsoluteContractId): AbsoluteContractId =
-    AbsoluteContractId("#" + a.coid)
+    AbsoluteContractId(Ref.LedgerName.concat(`#`, a.coid))
 
-  private def nodeIdWithHash(nid: L.ScenarioNodeId): String = "#" + nid.id
+  private def nodeIdWithHash(nid: L.ScenarioNodeId): NodeId = Ref.LedgerName.concat(`#`, nid)
 
 }

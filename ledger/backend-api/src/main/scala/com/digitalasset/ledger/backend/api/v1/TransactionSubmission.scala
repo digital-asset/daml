@@ -5,6 +5,7 @@ package com.digitalasset.ledger.backend.api.v1
 
 import java.time.Instant
 
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 
 /** A transaction and the meta-data necessary for submitting it to a ledger.

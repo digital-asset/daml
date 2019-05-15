@@ -5,6 +5,7 @@ package com.digitalasset.platform.sandbox.cli
 
 import java.io.File
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -100,7 +101,7 @@ class CliSpec extends WordSpec with Matchers {
       val ledgerId = "myledger"
       checkOption(
         Array(s"--ledgerid", ledgerId),
-        _.copy(ledgerIdMode = LedgerIdMode.Static(ledgerId)))
+        _.copy(ledgerIdMode = LedgerIdMode.Static(Ref.LedgerName.assertFromString(ledgerId))))
     }
 
     "parse the jdbcurl (deprecated) when given" in {

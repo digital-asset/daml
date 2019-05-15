@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api.commands
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.testing.utils.MockMessages
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{applicationId, workflowId}
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -24,8 +25,8 @@ trait MultiLedgerCommandUtils extends TransactionServiceHelpers with MultiLedger
   protected final def newSynchronousCommandClient(ctx: LedgerContext): SynchronousCommandClient =
     new SynchronousCommandClient(ctx.commandService)
 
-  protected val testLedgerId = "ledgerId"
-  protected val testNotLedgerId = "hotdog"
+  protected val testLedgerId = Ref.LedgerName.assertFromString("ledgerId")
+  protected val testNotLedgerId = Ref.LedgerName.assertFromString("hotdog")
   protected val submitRequest: SubmitRequest =
     MockMessages.submitRequest.update(_.commands.ledgerId := testLedgerId)
 

@@ -23,13 +23,15 @@ import scalaz.std.string.parseInt
 
 object ValueGenerators {
 
+  import Ref.LedgerName.{assertFromString => toContractId}
+
   /** In string encoding, assume prefix of RCOID::: or ACOID:::. */
-  val defaultCidDecode: ValueCoder.DecodeCid[Tx.ContractId] = ValueCoder.DecodeCid(
+  val defaultCidDecode: ValueCoder.DecodeCid[Tx.TContractId] = ValueCoder.DecodeCid(
     { i: String =>
       if (i.startsWith("RCOID")) {
         Right(RelativeContractId(Tx.NodeId.unsafeFromIndex(i.split(":::")(1).toInt)))
       } else if (i.startsWith("ACOID")) {
-        Right(AbsoluteContractId(i.split(":::")(1)))
+        Right(AbsoluteContractId(toContractId(i.split(":::")(1))))
       } else {
         Left(ValueCoder.DecodeError(s"Invalid contractId string $i"))
       }
@@ -40,16 +42,16 @@ object ValueGenerators {
             e => ValueCoder.DecodeError(e.getMessage),
             n => RelativeContractId(NodeId unsafeFromIndex n))
           .toEither
-      else Right(AbsoluteContractId(i))
+      else Right(AbsoluteContractId(toContractId(i)))
     }
   )
 
   val defaultValDecode
-    : ValueOuterClass.VersionedValue => Either[ValueCoder.DecodeError, Tx.Value[Tx.ContractId]] =
+    : ValueOuterClass.VersionedValue => Either[ValueCoder.DecodeError, Tx.Value[Tx.TContractId]] =
     a => ValueCoder.decodeVersionedValue(defaultCidDecode, a)
 
   /** In string encoding, prefix with RCOID::: or ACOID:::. */
-  val defaultCidEncode: ValueCoder.EncodeCid[Tx.ContractId] = ValueCoder.EncodeCid(
+  val defaultCidEncode: ValueCoder.EncodeCid[Tx.TContractId] = ValueCoder.EncodeCid(
     {
       case AbsoluteContractId(coid) => s"ACOID:::${coid: String}"
       case RelativeContractId(i) => s"RCOID:::${i.index: Int}"
@@ -59,7 +61,7 @@ object ValueGenerators {
     }
   )
 
-  val defaultValEncode: TransactionCoder.EncodeVal[Tx.Value[Tx.ContractId]] =
+  val defaultValEncode: TransactionCoder.EncodeVal[Tx.Value[Tx.TContractId]] =
     a => ValueCoder.encodeVersionedValueWithCustomVersion(defaultCidEncode, a).map((a.version, _))
 
   val defaultNidDecode: String => Either[ValueCoder.DecodeError, NodeId] = s => {
@@ -201,7 +203,7 @@ object ValueGenerators {
     val genRel: Gen[VContractId] =
       Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Transaction.NodeId.unsafeFromIndex(i)))
     val genAbs: Gen[VContractId] =
-      Gen.alphaStr.filter(_.nonEmpty).map(s => AbsoluteContractId(s))
+      Gen.alphaStr.filter(_.nonEmpty).map(s => AbsoluteContractId(toContractId(s)))
     Gen.frequency((1, genRel), (3, genAbs))
   }
 
@@ -267,7 +269,7 @@ object ValueGenerators {
   @deprecated("use genNonEmptyParties instead", since = "100.11.17")
   private[lf] def genParties = genNonEmptyParties
 
-  val contractInstanceGen: Gen[ContractInst[Tx.Value[Tx.ContractId]]] = {
+  val contractInstanceGen: Gen[ContractInst[Tx.Value[Tx.TContractId]]] = {
     for {
       template <- idGen
       arg <- versionedValueGen
@@ -275,7 +277,7 @@ object ValueGenerators {
     } yield ContractInst(template, arg, agreement)
   }
 
-  val keyWithMaintainersGen: Gen[KeyWithMaintainers[Tx.Value[Tx.ContractId]]] = {
+  val keyWithMaintainersGen: Gen[KeyWithMaintainers[Tx.Value[Tx.TContractId]]] = {
     for {
       key <- versionedValueGen
       maintainers <- genNonEmptyParties
@@ -287,7 +289,7 @@ object ValueGenerators {
     * 1. stakeholders may not be a superset of signatories
     * 2. key's maintainers may not be a subset of signatories
     */
-  val malformedCreateNodeGen: Gen[NodeCreate.WithTxValue[Tx.ContractId]] = {
+  val malformedCreateNodeGen: Gen[NodeCreate.WithTxValue[Tx.TContractId]] = {
     for {
       coid <- coidGen
       coinst <- contractInstanceGen
@@ -312,7 +314,7 @@ object ValueGenerators {
 
   /** Makes exercise nodes with some random child IDs. */
   val danglingRefExerciseNodeGen
-    : Gen[NodeExercises[Tx.NodeId, Tx.ContractId, Tx.Value[Tx.ContractId]]] = {
+    : Gen[NodeExercises[Tx.NodeId, Tx.TContractId, Tx.Value[Tx.TContractId]]] = {
     for {
       targetCoid <- coidGen
       templateId <- idGen
@@ -387,14 +389,15 @@ object ValueGenerators {
   val genBlindingInfo: Gen[BlindingInfo] = {
     val nodePartiesGen = Gen.mapOf(
       arbitrary[Int]
-        .map(NodeId.unsafeFromIndex(_))
+        .map(NodeId.unsafeFromIndex)
         .flatMap(n => genMaybeEmptyParties.map(ps => (n, ps))))
     for {
       disclosed1 <- nodePartiesGen
       disclosed2 <- nodePartiesGen
       divulged <- Gen.mapOf(
-        Gen.alphaStr
-          .map(AbsoluteContractId(_))
+        Gen
+          .nonEmptyListOf(Gen.alphaChar)
+          .map(s => AbsoluteContractId(toContractId(s.mkString)))
           .flatMap(c => genMaybeEmptyParties.map(ps => (c, ps))))
     } yield BlindingInfo(disclosed1, disclosed2, divulged)
   }

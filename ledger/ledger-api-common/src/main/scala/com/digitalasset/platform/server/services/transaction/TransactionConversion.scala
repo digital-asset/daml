@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.server.services.transaction
 
+import com.digitalasset.daml.lf.data.Ref.LedgerName
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
@@ -22,7 +23,7 @@ import scala.collection.breakOut
 trait TransactionConversion {
 
   type Party = LfRef.Party
-  type EventId = String
+  type EventId = LfRef.LedgerName
 
   def genToApiTransaction(
       transaction: P.GenTransaction[EventId, AbsoluteContractId],
@@ -51,15 +52,15 @@ trait TransactionConversion {
 
   private case class InvisibleRootRemovalState(
       rootsWereReplaced: Boolean,
-      eventsById: Map[String, TreeEvent],
-      rootEventIds: List[String])
+      eventsById: Map[LedgerName, TreeEvent],
+      rootEventIds: List[LedgerName])
 
   // Remove root nodes that have empty witnesses and put their children in their place as roots.
   // Do this while there are roots with no witnesses.
   @tailrec
   private def removeInvisibleRoots(
-      eventsById: Map[String, TreeEvent],
-      rootEventIds: List[String]): TransactionTreeNodes = {
+      eventsById: Map[LedgerName, TreeEvent],
+      rootEventIds: List[LedgerName]): TransactionTreeNodes = {
 
     val result =
       rootEventIds.foldRight(InvisibleRootRemovalState(rootsWereReplaced = false, eventsById, Nil)) {
@@ -158,9 +159,9 @@ trait TransactionConversion {
   }
   private def flattenEvents(
       events: Map[
-        String,
+        LfRef.LedgerName,
         engine.Event[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]],
-      root: String,
+      root: LfRef.LedgerName,
       verbose: Boolean): List[Event] = {
     val event = events(root)
     event match {

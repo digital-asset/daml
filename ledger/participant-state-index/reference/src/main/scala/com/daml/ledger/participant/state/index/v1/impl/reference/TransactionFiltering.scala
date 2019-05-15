@@ -17,7 +17,7 @@ case class TransactionFiltering(filter: TransactionFilter) {
     richTxFilter
       .filter[NodeId, Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]](
         tx,
-        n => n.index.toString)
+        _.name)
       .getOrElse(Map.empty)
       .mapKeys(k =>
         // FIXME(JM): Refactor transaction filtering to not go via strings

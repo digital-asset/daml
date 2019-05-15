@@ -20,7 +20,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Optional => ApiOptional,
   _
 }
-import com.digitalasset.ledger.api.{DomainMocks, domain}
+import com.digitalasset.ledger.api.DomainMocks
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND}
@@ -36,7 +36,7 @@ class SubmitRequestValidatorTest
     with ValidatorTestUtils
     with TableDrivenPropertyChecks {
 
-  val ledgerId = "ledger-id"
+  val ledgerId: Ref.LedgerId = Ref.LedgerName.assertFromString("ledger-id")
 
   object api {
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")
@@ -68,7 +68,7 @@ class SubmitRequestValidatorTest
     val mrt = TimestampConversion.toInstant(api.mrt)
 
     val emptyCommands = ApiCommands(
-      domain.LedgerId(ledgerId),
+      ledgerId,
       Some(workflowId),
       applicationId,
       commandId,
@@ -151,7 +151,7 @@ class SubmitRequestValidatorTest
     "validating contractId values" should {
       "succeed" in {
 
-        val coid = "coid"
+        val coid = Ref.LedgerName.assertFromString("coid")
 
         val input = Value(Sum.ContractId(coid))
         val expected = Lf.ValueContractId(Lf.AbsoluteContractId(coid))
