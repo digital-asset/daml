@@ -187,6 +187,13 @@ splitOn (explode -> s) (explode -> t) =
   let fixit = if L.isSuffixOf s t then (++ [""]) else identity
   in fixit $ implode <$> L.repeatedly (fmap (L.dropPrefix s) . L.breakOn s) t
 
+-- | Split a text before a given position so that
+-- | `length (fst (splitAt n t)) == n`
+splitAt : Int -> Text -> (Text, Text)
+splitAt n t = (implode f, implode s)
+  where
+    (f, s) = P.splitAt n (explode t)
+
 -- | `take n`, applied to a text `t`, returns the prefix of `t` of
 -- length `n`, or `t` itself if `n` is greater than the length of `t`.
 take : Int -> Text -> Text
