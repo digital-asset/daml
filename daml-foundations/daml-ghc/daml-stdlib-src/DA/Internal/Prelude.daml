@@ -40,7 +40,6 @@ uncurry f (x, y) = f x y
 infixl 4 <*>
 infixl 4 *>
 infixl 4 <*
--- | TODO explain Applicatives
 class Functor f => Applicative f where
     {-# MINIMAL pure, ((<*>) | liftA2) #-}
     -- | Lift a value.
@@ -85,7 +84,6 @@ return      : Applicative m => a -> m a
 return      = pure
 
 infixl 1 >>=
--- | TODO explain actions
 class Applicative m => Action m where
     -- | Sequentially compose two actions, passing any value produced
     -- by the first as an argument to the second.
