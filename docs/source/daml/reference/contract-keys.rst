@@ -22,7 +22,7 @@ The key should either be a tuple or a record, and it **must** include every part
 
 For example, with ``maintainer bank``, ``key (bank, number) : (Party, Text)`` is valid; but wouldn't be if you removed ``bank`` from the key.
 
-It's best to use simple types for your keys like ``Text`` or ``Integer``, rather than a list or more complex type.
+It's best to use simple types for your keys like ``Text`` or ``Int``, rather than a list or more complex type.
 
 Specifying maintainers
 **********************
@@ -43,7 +43,7 @@ Contract keys introduce several new functions.
 ``fetchByKey``
 ==============
 
-``fetchedContract <- fetchByKey @ContractType contractKey``
+``(fetchedContractId, fetchedContract) <- fetchByKey @ContractType contractKey``
 
 Use ``fetchByKey`` to fetch the ID and data of the contract with the specified key. It is an alternative to the currently-used ``fetch``.
 
@@ -65,7 +65,7 @@ Because the type is ambiguous, when calling you need to specify what you expect 
 
 ``contractId <- lookupByKey @ContractType contractKey``
 
-Use ``lookupByKey`` to check whether a contract with the specified key exists. If it does exist, ``lookupByKey`` returns the ``ContractId`` of the contract; otherwise, it returns ``None``.
+Use ``lookupByKey`` to check whether a contract with the specified key exists. If it does exist, ``lookupByKey`` returns the ``Some contractId``, where ``contractId`` is the ID of the contract; otherwise, it returns ``None``.
 
 You need authorization from **all** of the maintainers to run ``lookupByKey``, and it can only be submitted by one of the maintainers.
 
@@ -82,7 +82,7 @@ Because the type is ambiguous, when calling you need to specify what you expect 
 
 ``exerciseByKey @ContractType contractKey``
 
-Use ``exerciseByKey`` to exercise a choice on a contract identified by its ``key`` (compared to ``exercise``, which lets you exercise a contract identified by its ``ContractId``).
+Use ``exerciseByKey`` to exercise a choice on a contract identified by its ``key`` (compared to ``exercise``, which lets you exercise a contract identified by its ``ContractId``). To run ``exerciseByKey`` you need authorization from the controllers of the choice and at least one of the key maintainers.
 
 Because the type is ambiguous, when calling you need to specify what you expect with ``@`` and the type, for example ``@MyTemplateType``.
 
