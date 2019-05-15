@@ -206,7 +206,7 @@ object ScenarioLoader {
         // copies non-absolute-able node IDs, but IDs that don't match
         // get intersected away later
         val globalizedImplicitDisclosure = richTransaction.implicitDisclosure mapKeys { nid =>
-          AbsoluteContractId(nid.id)
+          absCidWithHash(AbsoluteContractId(nid.id))
         }
         acs.addTransaction[L.NodeId](
           time.toInstant,
