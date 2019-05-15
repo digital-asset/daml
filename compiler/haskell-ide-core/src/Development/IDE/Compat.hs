@@ -25,10 +25,10 @@ import TcRnTypes
 
 
 mkHieFile :: ModSummary -> TcGblEnv -> RenamedSource -> Hsc HieFile
-mkHieFile = undefined
+mkHieFile _ _ _ = return (HieFile () [])
 
 writeHieFile :: FilePath -> HieFile -> IO ()
-writeHieFile = undefined
+writeHieFile _ _ = return ()
 
 readHieFile :: NameCache -> FilePath -> IO (HieFile, ())
 readHieFile _ _ = return (HieFile () [], ())
