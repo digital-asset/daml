@@ -33,8 +33,10 @@ installer sdkDir logo = do
         -- that nsis will cleanup automatically.
         unsafeInject "InitPluginsDir"
         iff_ (fileExists "$APPDATA/daml") $ do
-            _ <- messageBox [MB_OK] "DAML SDK is already installed. Use `daml install latest` to upgrade."
-            abort "Existing installation detected"
+            answer <- messageBox [MB_YESNO] "DAML SDK is already installed. Do you want to remove it?"
+            iff (answer %== "YES")
+                (rmdir [Recursive] "$APPDATA/daml")
+                (abort "Existing installation detected.")
         let dir = "$PLUGINSDIR" </> "daml-sdk-" <> sdkVersion
         setOutPath (fromString dir)
         file [Recursive] (fromString (sdkDir <> "\\*.*"))
