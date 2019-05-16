@@ -33,12 +33,24 @@ We've released a new command-line tool for working with the DAML SDK: DAML Assis
 Migrating a ``da`` project to ``daml``
 ======================================
 
-To migrate an existing project to use ``daml``:
+Migrating with daml init
+************************
+
+You can migrate an existing project using the ``daml init`` command. To use it, go to the project root on the command line and run ``daml init``. This will create a ``daml.yaml`` file based on ``da.yaml``.
+
+Some things to keep in mind when using ``daml init`` to migrate projects:
+
+- If your project uses an SDK version prior to 0.12.15, the generated ``daml.yaml`` will use SDK version 0.12.15 instead. Support for previous SDK versions in the new assistant is limited.
+
+- ``daml.yaml`` adds ``exposed-modules`` and ``dependencies`` fields, which are needed for ``daml build``. Depending on your DAML project, may have to adjust these fields in the generated ``daml.yaml``.
+
+Migrating manually
+******************
+
+To migrate the project manually:
 
 1. Upgrade your project to SDK version 0.12.15 or later.
-2. Convert your project's ``da.yaml`` file into a ``daml.yaml`` file. 
-
-   .. To do this, run ``da migrate`` on your existing ``da.yaml``. This command isn't done yet so commenting this out.
+2. Convert your project's ``da.yaml`` file into a ``daml.yaml`` file.
 
    The two files are very similar: ``daml.yaml`` is the ``project`` section of ``da.yaml``, plus some additional packaging information. Here is an example of a ``daml.yaml`` file, from the quickstart-java template:
 
@@ -106,7 +118,7 @@ Managing versions and config
      - ``daml install <version>``
    * - ``da list``
      - List installed SDK versions
-     - ``daml version`` prints the current SDK version in use
+     - ``daml version``
    * - ``da use``
      - Set the default SDK version
      - No direct equivalent; you now set the new SDK version (``sdk-version: X.Y.Z``) in your project config file (``daml.yaml``) manually
