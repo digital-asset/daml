@@ -16,7 +16,7 @@ def main():
             "--data",
             action="store",
             dest="data",
-            choices=["yes","no"],
+            choices=["yes","no", "auto"],
             help="Whether to load data dependencies into the REPL.")
 
     args, remainingArgs = parser.parse_known_args()
