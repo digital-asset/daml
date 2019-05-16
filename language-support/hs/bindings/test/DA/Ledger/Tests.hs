@@ -96,7 +96,7 @@ t4_1 = testCase "submit good package id" $ do
                   -- pid is one of the 3 listed packages
                   -- but until we get Ledger.getPackage working, we cannot
                   -- know which to choose, so just harc code it here.
-                  pid = PackageId "d4f0255e29bb747f1f8dcde9ed91961e2bc6e2d93ef707a61f19b02ef7c57124"
+                  pid = PackageId "48d2cd25c12eb0fa16d384b0bf3b4de56572689168ffc688d34291a82cb589e0"
 
 
 t5 :: Tasty.TestTree
