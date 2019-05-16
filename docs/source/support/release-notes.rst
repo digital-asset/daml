@@ -107,8 +107,8 @@ Java Bindings
 
   How to migrate:
 
-  - If you are manually constructing instances of ``data.CreatedEvent`` (e.g.: for testing), you need to add an ``Optional<String>`` value as constructor parameter for the ``agreementText`` field.
-  - All calls to ``Contract.fromIdAndRecord`` should be changed to ``Contract.fromCreatedEvent``.
+  - If you are manually constructing instances of ``data.CreatedEvent`` (for example, for testing), you need to add an ``Optional<String>`` value as constructor parameter for the ``agreementText`` field.
+  - You should change all calls to ``Contract.fromIdAndRecord`` to ``Contract.fromCreatedEvent``.
 
     .. code-block:: java
 
@@ -121,7 +121,7 @@ Java Bindings
         Iou.Contract contract = Iou.Contract.fromCreatedEvent(event);
 
   - Pass the ``data.CreatedEvent`` directly to the function returned by the decoder's ``getDecoder`` method.
-    If you are using the decoder utility class' method ``fromCreatedEvent``, you don't need to change anything.
+    If you are using the decoder utility class method ``fromCreatedEvent``, you don't need to change anything.
 
     .. code-block:: java
 
