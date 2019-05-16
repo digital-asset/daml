@@ -8,7 +8,6 @@ import java.nio.file.Path
 import java.time.Duration
 
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.SandboxApplication
 import com.digitalasset.platform.sandbox.config.{
   CommandConfiguration,
   DamlPackageContainer,

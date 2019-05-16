@@ -31,8 +31,9 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerIdRequirement
 }
 
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
-import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, LedgerIdMode, SandboxConfig}
+import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.sample.EventDecoder
 import com.digitalasset.sample.MyMain.NameClashRecordVariant.NameClashRecordVariantA
