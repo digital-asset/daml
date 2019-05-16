@@ -94,10 +94,9 @@ wOptsUnset =
   ]
 
 
-adjustDynFlags :: [FilePath] -> PackageDynFlags -> Maybe String -> DynFlags -> DynFlags
-adjustDynFlags paths packageState mbPackageName dflags
+adjustDynFlags :: [FilePath] -> Maybe String -> DynFlags -> DynFlags
+adjustDynFlags paths mbPackageName dflags
   = setImports paths
-  $ setPackageDynFlags packageState
   $ setThisInstalledUnitId (maybe mainUnitId stringToUnitId mbPackageName)
   -- once we have package imports working, we want to import the base package and set this to
   -- the default instead of always compiling in the context of ghc-prim.
@@ -132,12 +131,12 @@ setImports paths dflags = dflags { importPaths = paths }
 --     * Sets the import paths to the given list of 'FilePath'.
 --     * if present, parses and applies custom options for GHC
 --       (may fail if the custom options are inconsistent with std DAML ones)
-setupDamlGHC :: GhcMonad m => [FilePath] -> Maybe String -> PackageDynFlags -> [String] -> m ()
-setupDamlGHC importPaths mbPackageName packageState [] =
-  modifyDynFlags $ adjustDynFlags importPaths packageState mbPackageName
+setupDamlGHC :: GhcMonad m => [FilePath] -> Maybe String -> [String] -> m ()
+setupDamlGHC importPaths mbPackageName [] =
+  modifyDynFlags $ adjustDynFlags importPaths mbPackageName
 -- if custom options are given, add them after the standard DAML flag setup
-setupDamlGHC importPaths mbPackageName packageState customOpts = do
-  setupDamlGHC importPaths mbPackageName packageState []
+setupDamlGHC importPaths mbPackageName customOpts = do
+  setupDamlGHC importPaths mbPackageName []
   damlDFlags <- getSessionDynFlags
   (dflags', leftover, warns) <- parseDynamicFilePragma damlDFlags $ map noLoc customOpts
 
