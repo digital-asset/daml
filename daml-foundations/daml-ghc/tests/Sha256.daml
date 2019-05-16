@@ -1,5 +1,4 @@
--- @IGNORE-LF 1.0
--- @IGNORE-LF 1.1
+-- @SINCE-LF 1.2
 daml 1.2
 module Sha256 where
 
