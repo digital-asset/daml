@@ -143,9 +143,19 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
         key: PLF.DefTemplate.DefKey,
         tplVar: ExprVarName): TemplateKey = {
       assertSince("3", "DefTemplate.DefKey")
+      val keyExpr = key.getKeyExprCase match {
+        case PLF.DefTemplate.DefKey.KeyExprCase.KEY =>
+          decodeKeyExpr(key.getKey, tplVar)
+        case PLF.DefTemplate.DefKey.KeyExprCase.COMPLEX_KEY => {
+          assertSince("dev", "DefTemplate.DefKey.complex_key")
+          decodeExpr(key.getComplexKey)
+        }
+        case PLF.DefTemplate.DefKey.KeyExprCase.KEYEXPR_NOT_SET =>
+          throw ParseError("DefKey.KEYEXPR_NOT_SET")
+      }
       TemplateKey(
         decodeType(key.getType),
-        decodeKeyExpr(key.getKey, tplVar),
+        keyExpr,
         decodeExpr(key.getMaintainers)
       )
     }
