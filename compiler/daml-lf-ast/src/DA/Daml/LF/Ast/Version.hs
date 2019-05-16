@@ -10,7 +10,6 @@ import GHC.Generics
 import           DA.Pretty
 import           Control.DeepSeq
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
 import qualified Text.Read as Read
 
 -- | DAML-LF version of an archive payload.
@@ -40,20 +39,6 @@ versionDefault = version1_3
 -- | The DAML-LF development version.
 versionDev :: Version
 versionDev = V1 PointDev
-
-minorInProtobuf :: MinorVersion -> TL.Text
-minorInProtobuf = TL.pack . \case
-  PointStable minor -> show minor
-  PointDev -> "dev"
-
-minorFromProtobuf :: TL.Text -> Maybe MinorVersion
-minorFromProtobuf = minorFromCliOption . TL.unpack
-
-minorFromCliOption :: String -> Maybe MinorVersion
-minorFromCliOption = \case
-  (Read.readMaybe -> Just i) -> Just $ PointStable i
-  "dev" -> Just PointDev
-  _ -> Nothing
 
 supportedInputVersions :: [Version]
 supportedInputVersions = [version1_1, version1_2, version1_3, versionDev]
@@ -85,11 +70,19 @@ featurePartyFromText = Feature "partyFromText function" version1_2
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature
 
+renderMinorVersion :: MinorVersion -> String
+renderMinorVersion = \case
+  PointStable minor -> show minor
+  PointDev -> "dev"
+
+parseMinorVersion :: String -> Maybe MinorVersion
+parseMinorVersion = \case
+  (Read.readMaybe -> Just i) -> Just $ PointStable i
+  "dev" -> Just PointDev
+  _ -> Nothing
+
 instance Pretty Version where
-  pPrint = \case
-    V1 minor -> "1." <> pretty minor
+  pPrint (V1 minor) = "1." <> pretty minor
 
 instance Pretty MinorVersion where
-  pPrint = \case
-    PointStable minor -> pretty minor
-    PointDev -> "dev"
+  pPrint = string . renderMinorVersion

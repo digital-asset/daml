@@ -255,7 +255,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
     -- FixMe(#415): the proper minor version should be passed instead of "0"
     convModule (_, bytes) =
         case updDamlLfVersion of
-            LF.V1 minor -> SS.Module (Just (SS.ModuleModuleDamlLf1 bytes)) (LF.minorInProtobuf minor)
+            LF.V1 minor -> SS.Module (Just (SS.ModuleModuleDamlLf1 bytes)) (TL.pack $ LF.renderMinorVersion minor)
 
 runScenario :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
 runScenario Handle{..} (ContextId ctxId) name = do
