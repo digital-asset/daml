@@ -76,13 +76,13 @@ wOptsSet =
   , Opt_WarnPrepositiveQualifiedModule
   , Opt_WarnOverlappingPatterns
   , Opt_WarnIncompletePatterns
-  , Opt_WarnMissingMethods
   ]
 
 -- | Warning options set for DAML compilation, which become errors.
 wOptsSetFatal :: [ WarningFlag ]
 wOptsSetFatal =
   [ Opt_WarnMissingFields
+  , Opt_WarnMissingMethods
   ]
 
 -- | Warning options unset for DAML compilation. Note that these can be modified
