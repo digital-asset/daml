@@ -3,6 +3,7 @@
 
 package com.digitalasset.extractor.ledger.types
 
+import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.ledger.api.{v1 => api}
 import Identifier._
 import LedgerValue._
@@ -17,7 +18,7 @@ final case class CreatedEvent(
     eventId: String,
     contractId: String,
     templateId: Identifier,
-    createArguments: Record,
+    createArguments: OfCid[V.ValueRecord],
     witnessParties: Set[String]
 ) extends Event
 

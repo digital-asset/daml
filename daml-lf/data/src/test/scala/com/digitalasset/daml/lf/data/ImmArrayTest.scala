@@ -9,6 +9,7 @@ import org.scalacheck.{Arbitrary, Gen, Properties}
 import scalaz.Equal
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
+import ImmArray.ImmArraySeq
 
 class ImmArrayTest extends FlatSpec with Matchers with Checkers {
   import ImmArrayTest._
@@ -152,6 +153,10 @@ class ImmArrayTest extends FlatSpec with Matchers with Checkers {
 
   checkLaws(ScalazProperties.equal.laws[ImmArray[IntInt]])
 
+  behavior of "Traverse instance"
+
+  checkLaws(ScalazProperties.traverse.laws[ImmArraySeq])
+
   private def checkLaws(props: Properties) =
     props.properties foreach { case (s, p) => it should s in check(p) }
 }
@@ -169,4 +174,7 @@ object ImmArrayTest {
         max <- Gen.choose(min, raw.size)
       } yield if (min >= max) ImmArray(Seq()) else ImmArray(raw).strictSlice(min, max)
     }
+
+  implicit def arbImmArraySeq[A: Arbitrary]: Arbitrary[ImmArraySeq[A]] =
+    Arbitrary(arbImmArray[A].arbitrary map (_.toSeq))
 }
