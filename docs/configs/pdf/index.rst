@@ -60,6 +60,7 @@ Background concepts
    :titlesonly:
    :maxdepth: 2
 
+   concepts/glossary
    concepts/ledger-model/index
 
 Examples
