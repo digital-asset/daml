@@ -28,10 +28,11 @@ import GHC.CString (fromString)
 -- | Use the `Bounded` class to name the upper and lower limits of a
 -- type.
 --
--- You can derive an instance of the `Bounded` class for any enumeration type. `minBound`
--- is the first constructor listed in the `data` declaration
--- and `maxBound` is the last.
--- You can also derive `Bounded` for single-constructor datatypes whose
+-- You can derive an instance of the `Bounded` class for any enumeration
+-- type. `minBound`  is the first constructor listed in the `data`
+-- declaration  and `maxBound` is the last.
+--
+-- You can also derive an instance of `Bounded` for single-constructor data types whose
 -- constituent types are in `Bounded`.
 --
 -- `Ord` is not a superclass of `Bounded` because types that are not
@@ -78,9 +79,9 @@ class  Enum a   where
     -- If the type is also an instance of `Bounded`, `pred minBound`
     -- results in a runtime error.
     pred                : a -> a
-    -- | Convert a value from an `Int` to an `Enum` value: ie, returns
-    -- the item at the `Int` position from the `Enum`.
-
+    -- | Convert a value from an `Int` to an `Enum` value: ie,
+    -- `toEnum i` returns the item at the `i` th position of
+    -- (the instance of) `Enum`
     toEnum              : Int -> a
     -- | Convert a value from an `Enum` value to an `Int`: ie, returns
     -- the `Int` position of the element within the `Enum`.
@@ -100,26 +101,32 @@ class  Enum a   where
     --
     -- For example:
     --
-    --     * `enumFromThen 4 6 :: [Int] = [4,6,8,10...]`
-    --     * `enumFromThen 6 2 :: [Int] = [6,2,-2,-6,...,minBound :: Int]`
+    --     * `enumFromThen 4 6 : [Int] = [4,6,8,10...]`
+    --     * `enumFromThen 6 2 : [Int] = [6,2,-2,-6,...,minBound :: Int]`
     enumFromThen        : a -> a -> [a]
     -- | Returns a list of the `Enum` values with the first value at
     -- the first `Int` position, and the last value at the last `Int`
     -- position.
     --
+    -- This is what's behind the language feature that lets you write
+    -- `[n,m..]`.
+    --
     -- For example:
     --
-    --     * `enumFromTo 6 10 :: [Int] = [6,7,8,9,10]`
+    --     * `enumFromTo 6 10 : [Int] = [6,7,8,9,10]`
     enumFromTo          : a -> a -> [a]
     -- | Returns a list of the `Enum` values with the first value at
     -- the first `Int` position, the second value at the second `Int`
     -- position, and further values with the same distance between them,
     -- with the final value at the final `Int` position.
     --
+    -- This is what's behind the language feature that lets you write
+    -- `[n,n'..m]`.
+    --
     -- For example:
     --
-    --     * `enumFromThenTo 4 2 -6 :: [Int] = [4,2,0,-2,-4,-6]`
-    --     * `enumFromThenTo 6 8 2 :: [Int] = []`
+    --     * `enumFromThenTo 4 2 -6 : [Int] = [4,2,0,-2,-4,-6]`
+    --     * `enumFromThenTo 6 8 2 : [Int] = []`
     enumFromThenTo      : a -> a -> a -> [a]
 
     succ x                 = toEnum (succ (fromEnum x))

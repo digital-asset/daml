@@ -34,7 +34,7 @@ infixl 7 /
 infixl 7 %
 
 -- | Use the `Additive` class for types that can be added.
--- Instances have to follow these rules:
+-- Instances have to respect the following laws:
 --
 -- * (+) must be associative, ie:`(x + y) + z` = `x + (y + z)`
 -- * (+) must be commutative, ie: `x + y` = `y + x`
@@ -59,7 +59,7 @@ class Additive a  where
     negate x            = aunit - x
 
 -- | Use the `Multiplicative` class for types that can be multiplied.
--- Instances have to follow these rules:
+-- Instances have to respect the following laws:
 --
 -- * (*) is associative, ie:`(x * y) * z` = `x * (y * z)`
 -- * (*) is commutative, ie: `x * y` = `y * x`
@@ -75,7 +75,7 @@ class Multiplicative a where
 
 -- | `Number` is a class for numerical types.
 -- As well as the rules for `Additive` and `Multiplicative`, instances
--- also have to follow these rules:
+-- also have to respect the following laws:
 --
 -- * (*) is distributive with respect to (+), ie:
 --     `a * (b + c)` = `(a * b) + (a * c)` and `(b + c) * a` = `(b * a) + (c * a)`
@@ -133,7 +133,12 @@ instance Signed Decimal where
     signum x = if x == 0.0 then 0.0 else if x <= 0.0 then (-1.0) else 1.0
     abs x = if x <= 0.0 then negate x else x
 
--- | The `Fractional` class.
+-- | Use the `Fractional` class for types that can be divided.
+-- Instances have to respect the following laws:
+--
+-- * When `recip x` is defined, it must be the inverse of
+-- `x` wrt `*`, that is, `x * recip = munit`
+-- * When `recip y` is defined, then `x / y = x * recip y`
 class (Multiplicative a) => Fractional a where
     -- | `x / y` divides `x` by `y`.
     (/)                 : a -> a -> a

@@ -23,9 +23,8 @@ import GHC.Types
 import GHC.Classes ()
 import DA.Types
 
--- | `showS` is a function that prepends the
--- output `Text` to an existing `Text`.  This allows constant-time
--- concatenation of results using function composition.
+-- | `showS` should represent some text, and applying it to some argument
+-- should prepend the argument to the represented text.
 type ShowS = Text -> Text
 
 -- | Use the `Show` class for values that can be converted to a
@@ -70,8 +69,6 @@ class  Show a  where
     show      : a   -> Text
 
     -- | Allows you to show lists of values.
-    -- For example, this is used by the `Char` type, where values of type
-    -- `Text` should be shown in double quotes, rather than between square brackets.
     showList  : [a] -> ShowS
 
     showsPrec _ x s = show x ++ s
