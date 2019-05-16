@@ -224,7 +224,7 @@ setStageDiagnostics ::
   ProjectDiagnostics stage ->
   IO (ProjectDiagnostics stage)
 setStageDiagnostics makeRel fp timeM stage diags (ProjectDiagnostics ds) = do
-    uri <- toUri makeRel fp
+    uri <- toUriHack makeRel fp
     let thisFile = Map.lookup uri ds
         addedStage :: StoreItem
         addedStage = StoreItem (Just posixTime) $ storeItem thisFile
@@ -274,10 +274,11 @@ noVersions =
 fromUri :: LSP.Uri -> FilePath
 fromUri = fromMaybe noFilePath . uriToFilePath
 
-toUri :: (FilePath -> IO FilePath) -- ^ make path relative to project root
-      -> FilePath
-      -> IO LSP.Uri
-toUri makeRel = fmap filePathToUri . makeRel
+toUriHack ::
+    (FilePath -> IO FilePath) -> -- ^ make path relative to project root
+    FilePath ->
+    IO LSP.Uri
+toUriHack makeRel = fmap filePathToUri . makeRel
 
 getAllDiagnostics ::
     ProjectDiagnostics stage ->
@@ -291,7 +292,7 @@ getFileDiagnostics ::
     ProjectDiagnostics stage ->
     IO [LSP.Diagnostic]
 getFileDiagnostics makeRel fp ds = do
-    uri <- toUri makeRel fp
+    uri <- toUriHack makeRel fp
     pure $
         maybe [] getDiagnosticsFromStore $
         Map.lookup uri $
@@ -305,7 +306,7 @@ getStageDiagnostics ::
     ProjectDiagnostics stage ->
     IO [LSP.Diagnostic]
 getStageDiagnostics makeRel fp stage (ProjectDiagnostics ds) = do
-    uri <- toUri makeRel fp
+    uri <- toUriHack makeRel fp
     pure $ fromMaybe [] $ do
         (StoreItem _ f) <- Map.lookup uri ds
         toList <$> Map.lookup (Just $ T.pack $ show stage) f
@@ -323,7 +324,7 @@ filterDiagnostics keep =
 
 removeEmptyStages ::
     ProjectDiagnostics key ->
-    ProjectDiagnostics ke
+    ProjectDiagnostics key
 removeEmptyStages =
     ProjectDiagnostics .
     Map.filter (not . null . getDiagnosticsFromStore) .
