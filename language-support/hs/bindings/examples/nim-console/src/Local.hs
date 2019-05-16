@@ -1,7 +1,3 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE RankNTypes      #-}
 
 module Local(State(..), Onum(..), Gnum(..), initState, applyTransPureSimple, applyTrans,
              LCommand(..), externCommand,lookForAnAction,
@@ -177,9 +173,9 @@ instance Show OpenState where
     show OpenState{me,oOffers,oGames} = unlines (
         [show me] ++
         ["- offers:"] ++
-        (map (\(id,offer) -> "- " <> show id <> " = " <> show offer) oOffers) ++
+        map (\(id,offer) -> "- " <> show id <> " = " <> show offer) oOffers ++
         ["- games:"] ++
-        (map (\(id,game) -> "- " <> show id <> " = " <> show game) oGames)
+        map (\(id,game) -> "- " <> show id <> " = " <> show game) oGames
         )
 
 getOpenState :: State -> OpenState
@@ -188,5 +184,5 @@ getOpenState State{whoami=me,offers,games} = OpenState{me,oOffers,oGames}
     -- geerally just make this prettier
     -- also, maybe have a summary version, which can show when switch whoami
     where
-        oOffers = (map (\(id,offer,_) -> (id,offer)) . filter ((\(_,_,status) -> isOpen status)) . Map.elems) offers
-        oGames = (map (\(id,game,_) -> (id,game)) . filter ((\(_,_,status) -> isOpen status)) . Map.elems) games
+        oOffers = (map (\(id,offer,_) -> (id,offer)) . filter (\(_,_,status) -> isOpen status) . Map.elems) offers
+        oGames = (map (\(id,game,_) -> (id,game)) . filter (\(_,_,status) -> isOpen status) . Map.elems) games

@@ -1,7 +1,3 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE RankNTypes      #-}
 
 -- TODO: better name than "clients" for the onClose callbacks?
 

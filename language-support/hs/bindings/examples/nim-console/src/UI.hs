@@ -1,12 +1,9 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE RankNTypes      #-}
 
 module UI(main) where
 
 import Control.Concurrent
 import Control.Monad.Trans.Class (lift)
+import Data.Foldable(forM_)
 import Prelude hiding (id)
 import System.Console.ANSI(Color(..))
 import qualified System.Console.Haskeline as HL (InputT,runInputT,getInputLine,defaultSettings,getExternalPrint)
@@ -68,7 +65,7 @@ playerMes player mes =
 
 main :: IO ()
 main = HL.runInputT HL.defaultSettings $ do
-    h <- lift $ Ledger.connect
+    h <- lift Ledger.connect
     xmes <- HL.getExternalPrint
     let player = alice -- initial interactive player
     lift $ runBotFor h bob
@@ -125,7 +122,7 @@ parseWords = \case
     ["show","full"] ->
         return $ Query ShowFullState
     ["offer"] ->
-        return $ Submit $ Local.OfferNewGameToAnyone
+        return $ Submit Local.OfferNewGameToAnyone
     ["offer",p] -> do
         return $ Submit $ Local.OfferGameL (Player p)
     ["accept",o] -> do
@@ -162,8 +159,7 @@ runParsed h xmes ps = \case
         message $ "becoming: " <> show player'
         let PlayerState{stream} = ps
         closeStream stream (Closed "changing player")
-        ps' <- makePlayerState h xmes player'
-        return ps'
+        makePlayerState h xmes player'
 
 runLocalQuery :: State -> LQuery -> IO ()
 runLocalQuery s = \case
@@ -237,7 +233,5 @@ robot h mes ps = loop
         mes "thinking..."
         let PlayerState{sv} = ps
         s <- readMVar sv
-        case Local.lookForAnAction s of
-            Nothing -> return ()
-            Just lc -> runSubmit h noMes ps lc -- quiet!
+        forM_ (Local.lookForAnAction s) (runSubmit h noMes ps) -- quiet!
         loop

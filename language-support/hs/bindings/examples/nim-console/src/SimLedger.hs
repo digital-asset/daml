@@ -1,7 +1,3 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE RankNTypes      #-}
 
 -- Simulate a ledger
 -- Accepting commands, and feeding back the resultant transitions
@@ -9,7 +5,7 @@
 module SimLedger(Handle, connect, sendCommand, getTrans) where
 
 import Control.Concurrent
-import Control.Monad(filterM)
+import Control.Monad(when,filterM)
 import Data.List as List(filter)
 import qualified Data.Map.Strict as Map(lookup,empty,adjust,insert)
 import Data.Map.Strict (Map)
@@ -29,7 +25,7 @@ newClient player = do
 
 sendToClient :: XTrans -> Client -> IO ()
 sendToClient xt Client{player,stream} = do
-    if canSeeTrans player xt then writeStream stream (Right xt) else return ()
+    when (canSeeTrans player xt) $ writeStream stream (Right xt)
 
 isClientClosed :: Client -> IO Bool
 isClientClosed Client{stream} = do
@@ -124,7 +120,7 @@ recordOnLedger ledger@(Ledger os gs) = \case
             Nothing -> reject "no such gid"
             Just (_,False) -> reject "double play"
             Just (game,True) -> do
-                if (player /= p1 game) then reject "not player1" else do
+                if player /= p1 game then reject "not player1" else do
                     gid' <- genXgid
                     case playMove move game of
                         Left reason -> reject reason

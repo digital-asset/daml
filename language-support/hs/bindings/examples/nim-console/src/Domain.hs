@@ -1,7 +1,3 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE RankNTypes      #-}
 
 -- Domain types (will originate in Daml model)
 
@@ -55,8 +51,9 @@ type Rejection = String
 playMove :: Move -> Game -> Either Rejection Game
 playMove Move{pileNum,howMany} Game{p1,p2,piles} =
     case List.splitAt (pileNum - 1) piles of
-        (xs,selected:ys) ->
-            if howMany > 3 then Left "may only take 1,2 or 3"
-            else if selected < howMany then Left "not that many in pile"
-            else Right $ Game { p1 = p2, p2 = p1, piles = xs ++ [selected - howMany] ++ ys }
+        (xs,selected:ys)
+            | howMany > 3 -> Left "may only take 1,2 or 3"
+            | selected < howMany -> Left "not that many in pile"
+            | otherwise -> Right $ Game { p1 = p2, p2 = p1, piles = xs ++ [selected - howMany] ++ ys }
+
         _ -> Left"no such pile"
