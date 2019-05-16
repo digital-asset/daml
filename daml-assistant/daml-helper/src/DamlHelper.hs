@@ -19,6 +19,7 @@ module DamlHelper
     , NavigatorPort(..)
     , SandboxPort(..)
     , ReplaceExtension(..)
+    , OpenBrowser(..)
     ) where
 
 import Control.Concurrent
@@ -432,8 +433,11 @@ withNavigator (SandboxPort sandboxPort) navigatorPort config args a = do
         waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort)
         a ph
 
-runStart :: IO ()
-runStart = withProjectRoot $ \_ -> do
+-- | Whether `daml start` should open a browser automatically.
+newtype OpenBrowser = OpenBrowser Bool
+
+runStart :: OpenBrowser -> IO ()
+runStart (OpenBrowser shouldOpenBrowser) = withProjectRoot $ \_ -> do
     projectConfig <- getProjectConfig
     projectName :: String <-
         requiredE "Project must have a name" $
@@ -452,7 +456,7 @@ runStart = withProjectRoot $ \_ -> do
             let navigatorConfPath = confDir </> "navigator-config.json"
             writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig parties)
             withNavigator sandboxPort navigatorPort navigatorConfPath [] $ \navigatorPh -> do
-                void $ openBrowser (navigatorURL navigatorPort)
+                when shouldOpenBrowser $ void $ openBrowser (navigatorURL navigatorPort)
                 void $ race (waitForProcess navigatorPh) (waitForProcess sandboxPh)
 
     where sandboxPort = SandboxPort 6865
