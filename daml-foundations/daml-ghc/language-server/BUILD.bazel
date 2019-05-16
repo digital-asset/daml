@@ -1,0 +1,36 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "language-server",
+    srcs = glob(["src/**/*.hs"]),
+    hazel_deps = [
+        "aeson",
+        "async",
+        "base",
+        "containers",
+        "extra",
+        "managed",
+        "network-uri",
+        "safe",
+        "safe-exceptions",
+        "stm",
+        "tagged",
+        "uri-encode",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/haskell-ide-core",
+        "//daml-assistant:daml-project-config",
+        "//daml-foundations/daml-ghc/daml-compiler",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/da-hs-language-server",
+    ],
+)
