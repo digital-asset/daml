@@ -23,6 +23,9 @@ SDK tools
 DAML
 ~~~~
 
+- **BREAKING CHANGE - DAML Compiler**: It is now an error to omit method bodies in class ``instance``s if the method
+  has no default. Almost all instances of such behaviour were an error - add in a suitable definition.
+
 - **BREAKING CHANGE - DAML Standard Library**: Moved the ``Tuple`` and ``Either`` types to ``daml-prim:DA.Types``
   rather than exposing internal locations.
 
