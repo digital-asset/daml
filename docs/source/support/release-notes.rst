@@ -138,6 +138,16 @@ Java Bindings
             return decoder.get().apply(event);
         }
 
+Scala Bindings
+~~~~~~~~~~~~~~
+
+- **BREAKING** You can now access the :ref:`agreement text <daml-ref-agreements>` of a contract with the new field ``Contract#agreementText: Option[String]``.
+
+  How to migrate:
+
+  - If you are pattern matching on ``com.digitalasset.ledger.client.binding.Contract``, you need to add a match clause for the added field.
+  - If you are constructing ``com.digitalasset.ledger.client.binding.Contract`` values, for example for tests, you need to add a constructor parameter for the agreement text.
+
 Ledger
 ~~~~~~
 
