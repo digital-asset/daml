@@ -50,7 +50,7 @@ deps.bzl            @digital-asset/empty
 
 # Ecosystems
 /language-support/          @digital-asset/empty
-/language-support/java/     @digital-asset/empty
+/language-support/java/     @digital-asset/empty @gerolf-da @nicholassmith-da
 /language-support/js/       @digital-asset/empty
 /language-support/scala/    @digital-asset/empty
 /scala-protoc-plugins/      @digital-asset/empty
