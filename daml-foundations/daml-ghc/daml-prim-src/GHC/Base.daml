@@ -58,7 +58,7 @@ const                   : a -> b -> a
 const x _               =  x
 
 -- | A `Functor` is a typeclass for things that can be mapped over (using
--- its `fmap` function. Examples include `Maybe` and `[]`.
+-- its `fmap` function. Examples include `Optional`, `[]` and `Update`).
 
 -- For a detailed explanation, see 
 -- http://learnyouahaskell.com/making-our-own-types-and-typeclasses#the-functor-typeclass

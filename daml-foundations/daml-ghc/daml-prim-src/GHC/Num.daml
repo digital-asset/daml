@@ -39,15 +39,15 @@ infixl 7 %
 -- * (+) must be associative, ie:`(x + y) + z` = `x + (y + z)`
 -- * (+) must be commutative, ie: `x + y` = `y + x`
 -- * `x + aunit` = `x`
--- * `negate` gives the additive inverse, ie: `x + negate x` = aunit
+-- * `negate` gives the additive inverse, ie: `x + negate x` = `aunit`
 --
 class Additive a  where
     {-# MINIMAL (+), aunit, (negate | (-)) #-}
-    -- | Add the first two arguments together
+    -- | Add the two arguments together
     (+)                 : a -> a -> a
-    -- | Subtract the second argument from the first argument
+    -- | Subtract the second argument from the first argument, ie. `x - y` = `x + negate y`
     (-)                 : a -> a -> a
-    -- | Negate the argument: `x + negate x` = the additive identity for the type
+    -- | Negate the argument: `x + negate x` = `aunit`
     negate              : a -> a
     -- | The additive identity for the type. For example, for numbers, this is 0.
     aunit                : a
@@ -63,7 +63,7 @@ class Additive a  where
 --
 -- * (*) is associative, ie:`(x * y) * z` = `x * (y * z)`
 -- * (*) is commutative, ie: `x * y` = `y * x`
--- * `x * one` = `x`
+-- * `x * munit` = `x`
 --
 class Multiplicative a where
     -- | Multipy the arguments together
@@ -73,7 +73,7 @@ class Multiplicative a where
     -- | `x ^ n` raises `x` to the power of `n`.
     (^): a -> Int -> a
 
--- | `Number` is a class for basic numerical types.
+-- | `Number` is a class for numerical types.
 -- As well as the rules for `Additive` and `Multiplicative`, instances
 -- also have to follow these rules:
 --

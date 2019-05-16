@@ -63,7 +63,7 @@ class  Show a  where
     showsPrec : Int    -- ^ the operator precedence of the enclosing
                         -- context (a number from `0` to `11`).
                         -- Function application has precedence `10`.
-              -> a      -- ^ the value to be converted to a 'String'
+              -> a      -- ^ the value to be converted to a `Text`
               -> ShowS
 
     -- | Convert a value to a readable `Text` value.

@@ -28,7 +28,7 @@ import GHC.CString (fromString)
 -- | Use the `Bounded` class to name the upper and lower limits of a
 -- type.
 --
--- You can derive `Bounded` class for any enumeration type. `minBound`
+-- You can derive an instance of the `Bounded` class for any enumeration type. `minBound`
 -- is the first constructor listed in the `data` declaration
 -- and `maxBound` is the last.
 -- You can also derive `Bounded` for single-constructor datatypes whose
@@ -47,7 +47,7 @@ class Bounded a where
 -- For any type that is an instance of class `Bounded` as well as `Enum`,
 -- the following should hold:
 --
--- * Both `succ` `maxBound` and `pred` `minBound` should result in
+-- * Both `succ maxBound` and `pred minBound` should result in
 --   a runtime error.
 --
 -- * `fromEnum` and `toEnum` should give a runtime error if the

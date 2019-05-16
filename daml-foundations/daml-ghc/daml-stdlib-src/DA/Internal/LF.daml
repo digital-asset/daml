@@ -138,7 +138,7 @@ instance HasTime Update where
 instance HasTime Scenario where
     getTime = primitive @"SGetTime"
 
--- | The `CanAbort` class is for Updates that can be aborted.
+-- | The `CanAbort` class is for `Action`s that can be aborted.
 class (Action m) => CanAbort m where
     -- | Abort the current action with a message.
     abort : Text -> m a
