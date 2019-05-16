@@ -54,7 +54,7 @@ Ledger API
 
   - If you check for the presence of :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
 
-- Added the field ``agreement_text`` to the ``CreatedEvent`` message. This means you now have access to the agreement text of contracts via the Ledger API.
+- Added the :ref:`agreement text <daml-ref-agreements>` as a new field ``agreement_text`` to the ``CreatedEvent`` message. This means you now have access to the agreement text of contracts via the Ledger API.
   The type of this field is ``google.protobuf.StringValue`` to properly reflect the optionality on the wire for full backwards compatibility.
   See Google's `wrappers.proto <https://github.com/protocolbuffers/protobuf/blob/b4f193788c9f0f05d7e0879ea96cd738630e5d51/src/google/protobuf/wrappers.proto#L31-L34>`__ for more information about ``StringValue``.
 
@@ -88,7 +88,7 @@ Java Bindings
 
   See `issue #1092 <https://github.com/digital-asset/daml/issues/1092>`__ for details.
 
-- Added agreement text of contracts: `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
+- Added :ref:`agreement text <daml-ref-agreements>` of contracts: `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
 
   - **Java Bindings**
 
