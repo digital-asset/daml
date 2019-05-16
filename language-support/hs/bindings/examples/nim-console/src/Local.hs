@@ -43,10 +43,10 @@ externCommand who state@State{knownPlayers} = \case
         return $ MakeMove who xid move
 
 externOid :: State -> Onum -> Maybe Xoid
-externOid State{offers} low = (fmap fst . List.find (\(_,(l,_,status)) -> l==low && isOpen status) . Map.toList) offers
+externOid State{offers} low = (fmap fst . List.find (\(_,(l,_,status)) -> l==low && status == Open) . Map.toList) offers
 
 externGid :: State -> Gnum -> Maybe Xgid
-externGid State{games} low = (fmap fst . List.find (\(_,(l,_,status)) -> l==low && isOpen status) . Map.toList) games
+externGid State{games} low = (fmap fst . List.find (\(_,(l,_,status)) -> l==low && status == Open) . Map.toList) games
 
 ----------------------------------------------------------------------
 -- local trans, for reporting what happing in terms of local oid/gid
@@ -64,7 +64,7 @@ lookForAnAction State{whoami,offers,games} =
         -- prefer to play a game move..
         mapMaybe
         (\(onum,offer,status) ->
-                if whoami `elem` to offer && isOpen status
+                if whoami `elem` to offer && status == Open
                 then Just $ AcceptOfferL onum
                 else Nothing
         ) (Map.elems offers)
@@ -73,7 +73,7 @@ lookForAnAction State{whoami,offers,games} =
         List.concatMap
         -- randomize move order here !
         (\(gnum,game,status) ->
-                if whoami == p1 game && isOpen status
+                if whoami == p1 game && status == Open
                 then map (MakeMoveL gnum) (legalMovesOfGame game)
                 else []
         ) (Map.elems games)
@@ -96,10 +96,7 @@ data State = State {
     deriving (Show)
 
 data Status = Open | Closed
-    deriving (Show)
-
-isOpen :: Status -> Bool
-isOpen = \case Open -> True; Closed -> False
+    deriving (Eq,Show)
 
 initState :: Player -> [Player] -> State
 initState whoami knownPlayers = State {
@@ -187,5 +184,5 @@ getOpenState State{whoami=me,offers,games} = OpenState{me,oOffers,oGames}
     -- geerally just make this prettier
     -- also, maybe have a summary version, which can show when switch whoami
     where
-        oOffers = (map (\(id,offer,_) -> (id,offer)) . filter (\(_,_,status) -> isOpen status) . Map.elems) offers
-        oGames = (map (\(id,game,_) -> (id,game)) . filter (\(_,_,status) -> isOpen status) . Map.elems) games
+        oOffers = (map (\(id,offer,_) -> (id,offer)) . filter (\(_,_,status) -> status == Open) . Map.elems) offers
+        oGames = (map (\(id,game,_) -> (id,game)) . filter (\(_,_,status) -> status == Open) . Map.elems) games
