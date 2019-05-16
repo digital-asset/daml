@@ -23,7 +23,6 @@ import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.GHC.Compiler.Preprocessor
 
 import           Control.Monad.Reader
-import qualified Data.List.Extra as List
 import Data.Foldable (toList)
 import Data.Maybe
 import Data.Tuple.Extra
@@ -67,10 +66,9 @@ toCompileOpts :: Options -> Compile.IdeOptions
 toCompileOpts Options{..} =
     Compile.IdeOptions
       { optPreprocessor = damlPreprocessor
-      , optRunGhcSession = \mbMod packageState m -> runGhcFast $ do
-            let importPaths = maybe [] moduleImportPaths mbMod <> optImportPath
-            setupDamlGHC importPaths optMbPackageName packageState optGhcCustomOpts
-            m
+      , optGhcSession = liftIO $ runGhcFast $ do
+            setupDamlGHC optImportPath optMbPackageName optGhcCustomOpts
+            GHC.getSession
       , optPkgLocationOpts = Compile.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
@@ -96,19 +94,6 @@ toCompileOpts Options{..} =
                 then Just path
                 else Nothing
       | otherwise = pure Nothing
-
-moduleImportPaths :: GHC.ParsedModule -> [FilePath]
-moduleImportPaths pm =
-    maybe [] (\modRoot -> [modRoot]) mbModuleRoot
-  where
-    ms   = GHC.pm_mod_summary pm
-    file = GHC.ms_hspp_file ms
-    mod'  = GHC.ms_mod ms
-    rootPathDir  = takeDirectory file
-    rootModDir   = takeDirectory . moduleNameSlashes . GHC.moduleName $ mod'
-    mbModuleRoot
-        | rootModDir == "." = Just rootPathDir
-        | otherwise = dropTrailingPathSeparator <$> List.stripSuffix rootModDir rootPathDir
 
 -- | The project package database path relative to the project root.
 projectPackageDatabase :: FilePath
