@@ -81,8 +81,14 @@ parseMinorVersion = \case
   "dev" -> Just PointDev
   _ -> Nothing
 
-instance Pretty Version where
-  pPrint (V1 minor) = "1." <> pretty minor
+renderVersion :: Version -> String
+renderVersion = \case
+    V1 minor -> "1." ++ renderMinorVersion minor
 
-instance Pretty MinorVersion where
-  pPrint = string . renderMinorVersion
+parseVersion :: String -> Maybe Version
+parseVersion = \case
+    '1':'.':minor -> V1 <$> parseMinorVersion minor
+    _ -> Nothing
+
+instance Pretty Version where
+  pPrint = string . renderVersion
