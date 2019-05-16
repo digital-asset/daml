@@ -1,0 +1,41 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "daml-compiler",
+    srcs = glob(["src/**/*.hs"]),
+    hazel_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "ghc-lib-parser",
+        "http-types",
+        "mtl",
+        "network-uri",
+        "safe",
+        "tagged",
+        "text",
+        "time",
+        "transformers",
+        "zip-archive",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/haskell-ide-core",
+        "//compiler/scenario-service/client",
+        "//daml-foundations/daml-ghc/ghc-compiler",
+        "//daml-foundations/daml-ghc/ide",
+        "//libs-haskell/da-hs-base",
+    ],
+)

@@ -533,33 +533,31 @@ this below) for convenience.
 ### Library : `da_haskell_library`
 
 One specific library in the `daml-foundations` stack is
-`daml-ghc-lib`. Here's a synopsis of its definition.
+`daml-ghc-compiler`. Here's a synopsis of its definition.
 ```
 da_haskell_library(
-    name = "daml-ghc-lib",
+    name = "daml-ghc-compiler",
     srcs = glob([
-      "src/DA/Daml/GHC/**/*.hs"
-    , ...
+        "src/DA/Daml/GHC/Compiler/**/*.hs",
     ]),
     src_strip_prefix = "src",
     deps = [
-      "//:ghc-lib"
-    , "//compiler/daml-lf-ast"
-    , ...
-    , "//nix/third-party/proto3-suite"
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        ...
     ],
     hazel_deps = [
-      "base",
-      "containers",
-      ...
+        "base",
+        "bytestring",
+        ...
     ],
-    visibility = ["//visibility:public"]
+    visibility = ["//visibility:public"],
 )
 ```
 To build this single target from the root of the DAML repository, the
 command would be:
 ```
-bazel build //daml-foundations/daml-ghc:daml-ghc-lib
+bazel build //daml-foundations/daml-ghc:daml-ghc-compiler
 ```
 since the `BUILD.bazel` that defines the target is in the
 `daml-foundations/daml-ghc` sub-folder of the root of the DA
@@ -605,10 +603,10 @@ for
 `nix/third-party/proto3-suite/BUILD.bazel`.
 
 The `hazel_deps` argument details those Haskell packages (from
-Hackage) that the `daml-ghc-lib` target depends upon. In this case
-that is `base`, `container` and some other packages not
+Hackage) that the `daml-ghc-compiler` target depends upon. In this case
+that is `base`, `bytestring` and some other packages not
 shown. Finally, `visibility` is set to public so no errors will result
-should another target attempt to link `daml-ghc-lib`. *[Note : Public
+should another target attempt to link `daml-ghc-compiler`. *[Note : Public
 visibility means that any other target from anywhere can depend on the
 target. To keep the dependency graph sane, its a good idea to keep
 visibility restrictive. See
@@ -630,7 +628,7 @@ da_haskell_binary (
     , ...
   ],
   deps = [
-      ":daml-ghc-lib"
+      ":daml-ghc-compiler"
     , "//:ghc-lib"
     , "//compiler/daml-lf-ast"
     , ...
@@ -657,8 +655,8 @@ filegroup(
 ```
 
 Having looked at `deps` in the context of `haskell_library` there's
-not much more to say except note the `:daml-ghc-lib` syntax for the
-depedency on `daml-ghc-lib`. That is, targets defined in the same
+not much more to say except note the `:daml-ghc-compiler` syntax for the
+depedency on `daml-ghc-compiler`. That is, targets defined in the same
 `BUILD.bazel` as the target being defined can be referred to by
 preceding their names with `:`.
 

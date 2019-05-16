@@ -13,85 +13,13 @@ load(
     "daml_ghc_integration_test",
 )
 
-da_haskell_library(
-    name = "daml-ghc-lib",
-    srcs = glob([
-        "src/DA/Daml/GHC/**/*.hs",
-        "src/DA/Service/**/*.hs",
-        "src/Development/IDE/**/*.hs",
-    ]),
-    hazel_deps = [
-        "aeson-pretty",
-        "aeson",
-        "async",
-        "base",
-        "binary",
-        "blaze-html",
-        "bytestring",
-        "cmark-gfm",
-        "containers",
-        "deepseq",
-        "Diff",
-        "directory",
-        "either",
-        "extra",
-        "filepath",
-        "filepattern",
-        "ghc-lib-parser",
-        "ghc-lib",
-        "hashable",
-        "haskell-lsp-types",
-        "http-types",
-        "lens",
-        "managed",
-        "mtl",
-        "network-uri",
-        "prettyprinter",
-        "process",
-        "proto3-suite",
-        "recursion-schemes",
-        "safe-exceptions",
-        "safe",
-        "shake",
-        "stm",
-        "syb",
-        "tagged",
-        "tasty-hunit",
-        "temporary",
-        "text",
-        "time",
-        "transformers-base",
-        "transformers",
-        "uniplate",
-        "unordered-containers",
-        "uri-encode",
-        "vector",
-        "zip-archive",
-    ],
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto",
-        "//compiler/daml-lf-tools",
-        "//compiler/haskell-ide-core",
-        "//compiler/scenario-service/client",
-        "//daml-assistant:daml-project-config",
-        "//daml-lf/archive:daml_lf_haskell_proto",
-        "//libs-haskell/bazel-runfiles",
-        "//libs-haskell/da-hs-base",
-        "//libs-haskell/da-hs-language-server",
-        "//libs-haskell/prettyprinter-syntax",
-    ],
-)
-
 daml_ghc_integration_test("daml-ghc-test-default", "DA.Test.GHC.mainVersionDefault")
 
 daml_ghc_integration_test("daml-ghc-test-dev", "DA.Test.GHC.mainVersionDev")
 
 da_haskell_test(
     name = "tasty-test",
-    srcs = ["src/DA/Test/TastyMain.hs"],
+    srcs = ["test-src/DA/Test/TastyMain.hs"],
     data = [
         ":tests",
         "//daml-foundations/daml-ghc/package-database:package-db",
@@ -102,10 +30,10 @@ da_haskell_test(
         "text",
     ],
     main_function = "DA.Test.TastyMain.main",
-    src_strip_prefix = "src",
+    src_strip_prefix = "test-src",
     visibility = ["//visibility:public"],
     deps = [
-        ":daml-ghc-lib",
+        "//daml-foundations/daml-ghc/damldoc:damldoc-testing",
         "//daml-foundations/daml-tools/da-hs-daml-cli",
         "//libs-haskell/da-hs-base",
     ],
@@ -116,7 +44,7 @@ da_haskell_test(
     size = "large",
     # this test takes a while and often time out -- tell that to bazel
     timeout = "long",
-    srcs = ["src/DA/Test/ShakeIdeClient.hs"],
+    srcs = ["test-src/DA/Test/ShakeIdeClient.hs"],
     data = [
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-foundations/daml-ghc/package-database:package-db",
@@ -129,24 +57,25 @@ da_haskell_test(
         "text",
     ],
     main_function = "DA.Test.ShakeIdeClient.main",
-    src_strip_prefix = "src",
+    src_strip_prefix = "test-src",
     visibility = ["//visibility:public"],
     deps = [
-        ":daml-ghc-lib",
         "//compiler/haskell-ide-core",
+        "//daml-foundations/daml-ghc/daml-compiler",
+        "//daml-foundations/daml-ghc/ide:ide-testing",
         "//libs-haskell/da-hs-base",
     ],
 )
 
 da_haskell_binary(
     name = "generate-module-tree",
-    srcs = ["src/DA/Test/GenerateModuleTree.hs"],
+    srcs = ["test-src/DA/Test/GenerateModuleTree.hs"],
     hazel_deps = [
         "base",
         "filepath",
     ],
     main_function = "DA.Test.GenerateModuleTree.main",
-    src_strip_prefix = "src",
+    src_strip_prefix = "test-src",
     deps = ["//libs-haskell/da-hs-base"],
 )
 
