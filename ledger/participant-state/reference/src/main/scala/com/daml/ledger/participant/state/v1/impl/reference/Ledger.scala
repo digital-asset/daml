@@ -24,6 +24,7 @@ import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.ledger.{ApplicationId, CommandId}
 import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher
 import com.digitalasset.platform.server.services.command.time.TimeModelValidator
 import com.digitalasset.platform.services.time.TimeModel
@@ -352,7 +353,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       transaction: SubmittedTransaction,
       txDelta: TxDelta,
       offset: Offset): Map[AbsoluteContractId, AbsoluteContractInst] = {
-    val txId = offset.toTransactionId
+    val txId = offset.toLedgerString
 
     txDelta.outputs.toList.map {
       case (contractId, contract) =>
@@ -369,7 +370,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       offset: Offset,
       recordTime: Instant,
       inputContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
-    val txId = offset.toTransactionId // for this ledger, offset is also the transaction id
+    val txId = offset.toLedgerString // for this ledger, offset is also the transaction id
     TransactionAccepted(
       Some(submitterInfo),
       transactionMeta,

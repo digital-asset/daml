@@ -109,8 +109,8 @@ private[kvutils] object Conversions {
   def parseSubmitterInfo(subInfo: DamlSubmitterInfo): SubmitterInfo =
     SubmitterInfo(
       submitter = Party.assertFromString(subInfo.getSubmitter),
-      applicationId = subInfo.getApplicationId,
-      commandId = subInfo.getCommandId,
+      applicationId = LedgerString.assertFromString(subInfo.getApplicationId),
+      commandId = LedgerString.assertFromString(subInfo.getCommandId),
       maxRecordTime = parseTimestamp(subInfo.getMaximumRecordTime)
     )
 

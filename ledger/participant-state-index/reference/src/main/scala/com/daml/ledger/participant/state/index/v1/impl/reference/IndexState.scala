@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.index.v1.impl.reference
 
 import com.daml.ledger.participant.state.v1.{Offset, _}
-import com.digitalasset.daml.lf.data.Ref.{LedgerId, PackageId}
+import com.digitalasset.daml.lf.data.Ref.{LedgerId, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Blinding

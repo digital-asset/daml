@@ -24,18 +24,22 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 package object v1 {
 
   /** Identifiers used to correlate submission with results, MUST match regexp [a-zA-Z0-9-]. */
-  type CommandId = String
+  type CommandId = LedgerString
 
   /** Identifiers for nodes in a transaction, MUST match regexp [a-zA-Z0-9-]. */
-  type NodeId = LedgerName
+  type NodeId = LedgerString
 
   /** Identifiers for [[LedgerSyncEvent]]'s, MUST match regexp [a-zA-Z0-9-]. */
-  type LedgerSyncOffset = String
+  type LedgerSyncOffset = LedgerString
 
   /** The type for an yet uncommitted transaction with relative contact
     *  identifiers, submitted via 'submitTransaction'.
     */
   type SubmittedTransaction = Transaction.Transaction
+
+  type ApplicationId = LedgerString
+
+  type WorkflowId = LedgerString
 
   /** The type for a committed transaction, streamed as part of a
     *  [[com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction]] event on the [[LedgerBackend.ledgerSyncEvents]]

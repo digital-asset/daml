@@ -82,8 +82,6 @@ class DamlOnXSubmissionService private (
   }
 
   private def recordOnLedger(commands: ApiCommands): Future[Unit] = {
-    // FixMe (RH) we are mixing ledgerId and PackageId !
-    val ledgerId = Ref.PackageId.assertFromString(commands.ledgerId)
     val getPackage =
       (packageId: Ref.PackageId) =>
         indexService
@@ -114,7 +112,7 @@ class DamlOnXSubmissionService private (
                   ),
                   transactionMeta = TransactionMeta(
                     ledgerEffectiveTime = Timestamp.assertFromInstant(commands.ledgerEffectiveTime),
-                    workflowId = commands.workflowId.fold("")(_.unwrap) // FIXME(JM): sensible defaulting?
+                    workflowId = commands.workflowId.map(_.unwrap)
                   ),
                   transaction = updateTx
                 )

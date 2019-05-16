@@ -186,6 +186,10 @@ object ScenarioLoader {
     }
   }
 
+  private val transactionIdPrefix = Ref.LedgerString.assertFromString(s"scenario-transaction-")
+  private val workflowIdPrefix = Ref.LedgerString.assertFromString(s"scenario-workflow-")
+  private val scenarioLoader = Ref.LedgerString.assertFromString("scenario-loader")
+
   private def executeScenarioStep(
       ledger: ArrayBuffer[(ScenarioTransactionId, LedgerEntry)],
       scenarioRef: Ref.DefinitionRef,
@@ -205,8 +209,10 @@ object ScenarioLoader {
                 s"Non-monotonic transaction ids in ledger results: got $oldTxId first and then $txId")
             }
         }
-        val transactionId = Ref.LedgerString.assertFromString(s"scenario-transaction-$txId")
-        val workflowId = s"scenario-workflow-$stepId"
+
+        val transactionId = Ref.LedgerString.concat(transactionIdPrefix, txId.id)
+        val workflowId =
+          Some(Ref.LedgerString.concat(workflowIdPrefix, Ref.LedgerString.fromInt(stepId)))
         // note that it's important that we keep the event ids in line with the contract ids, since
         // the sandbox code assumes that in TransactionConversion.
         val txNoHash = GenTransaction(richTransaction.nodes, richTransaction.roots, Set.empty)
@@ -230,6 +236,7 @@ object ScenarioLoader {
             val recordDisclosure = explicitDisclosure.map {
               case (nid, parties) => (nodeIdWithHash(nid), parties)
             }
+
             ledger +=
               (
                 (
@@ -237,7 +244,7 @@ object ScenarioLoader {
                   Transaction(
                     transactionId,
                     transactionId,
-                    "scenario-loader",
+                    scenarioLoader,
                     richTransaction.committer,
                     workflowId,
                     time.toInstant,

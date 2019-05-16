@@ -136,10 +136,10 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
             if (submitterIsSubscriber)
               trans.optSubmitterInfo.map(_.commandId).getOrElse("")
             else "",
-          workflowId = trans.transactionMeta.workflowId,
+          workflowId = trans.transactionMeta.workflowId.getOrElse(""),
           effectiveAt = Some(fromInstant(trans.transactionMeta.ledgerEffectiveTime.toInstant)), // FIXME(JM): conversion
           events = events,
-          offset = offset.toString,
+          offset = offset.toLedgerString,
         ))
     } else {
       None
@@ -160,7 +160,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
       case (offset, (trans, _blindingInfo)) =>
         toResponseIfVisible(request, request.parties, trans)
           .fold(List.empty[WithOffset[String, VisibleTransaction]])(e =>
-            List(WithOffset(offset.toString, e)))
+            List(WithOffset(offset.toLedgerString, e)))
     }
   }
 
@@ -269,7 +269,8 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     indexService.getLedgerEnd
-      .map(offset => LedgerOffset.Absolute(offset.toString))
+      .map(offset =>
+        LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toLedgerString)))
 
   override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
     Ordering.by(abs => Offset.assertFromString(abs.value))
@@ -309,7 +310,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
 
   private def getOffsetHelper(ledgerBeginning: Offset, ledgerEnd: Offset) = {
     new OffsetHelper[Offset] {
-      override def fromOpaque(opaque: String): Try[Offset] =
+      override def fromOpaque(opaque: Ref.LedgerString): Try[Offset] =
         Try(Offset.assertFromString(opaque))
 
       override def getLedgerBeginning(): Offset = ledgerBeginning
@@ -323,8 +324,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
 
   private val `:` = Ref.LedgerString.assertFromString(":")
 
-  // FIXME(JM): use proper types, not string.
-  private def nodeIdToEventId(txId: Ref.TransactionId, nodeId: NodeId): LedgerName =
+  private def nodeIdToEventId(txId: Ref.TransactionId, nodeId: NodeId): Ref.LedgerString =
     LedgerString.concat(txId, `:`, nodeId.name)
 
   private def eventIdToTransactionId(eventId: EventId): Option[String] =
@@ -342,7 +342,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
       Tag.subst(trans.optSubmitterInfo.map(_.commandId)),
       Tag.subst(trans.optSubmitterInfo.map(_.applicationId)),
       trans.optSubmitterInfo.map(_.submitter),
-      WorkflowId(trans.transactionMeta.workflowId),
+      trans.transactionMeta.workflowId.map(WorkflowId(_)),
       trans.recordTime.toInstant,
       None
     )

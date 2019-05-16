@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.v1
 
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
 
 /** Information provided by the submitter of changes submitted to the ledger.

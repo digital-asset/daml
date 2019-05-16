@@ -11,9 +11,9 @@ import com.digitalasset.platform.common.{PlatformTypes => P}
 
 /** Contains all data that's necessary to assemble a transaction for the API */
 final case class VisibleTransaction(
-    transaction: P.GenTransaction[LedgerName, AbsoluteContractId],
+    transaction: P.GenTransaction[LedgerString, AbsoluteContractId],
     meta: TransactionMeta,
-    disclosureByNodeId: Map[LedgerName, Set[Party]]) {
+    disclosureByNodeId: Map[LedgerString, Set[Party]]) {
 
   private type MapStringSet[T] = Map[String, Set[T]]
 
@@ -29,7 +29,7 @@ object VisibleTransaction {
       transactionFilter: TransactionFilter,
       transactionWitMeta: TransactionWithMeta): Option[VisibleTransaction] =
     transactionFilter
-      .filter(transactionWitMeta.transaction, identity[LedgerName])
+      .filter(transactionWitMeta.transaction, identity[LedgerString])
       .map(
         VisibleTransaction(
           transactionWitMeta.transaction,

@@ -28,7 +28,7 @@ sealed abstract class StringModule {
   def toStringMap[V](map: Map[T, V]): Map[String, V]
 }
 
-object MatchingStringModule extends (String => StringModule) {
+object MatchingStringModule {
 
   def apply(string_regex: String): StringModule = new StringModule {
     type T = String
@@ -48,7 +48,15 @@ object MatchingStringModule extends (String => StringModule) {
 
 }
 
+/** ConcatenableMatchingString are non empty US-ASCII strings built with letters, digits, and some extra characters.
+    We use them to represent some identifiers. In this way, we avoid
+    empty identifiers, escaping problems, and other similar pitfalls.
+  */
 sealed abstract class ConcatenableMatchingStringModule extends StringModule {
+
+  def fromLong(i: Long): T
+
+  final def fromInt(i: Int): T = fromLong(i.toLong)
 
   final def concat(s: T, ss: T*): T = {
     val b = newBuilder
@@ -58,21 +66,28 @@ sealed abstract class ConcatenableMatchingStringModule extends StringModule {
   }
 
   def newBuilder: mutable.Builder[T, T]
+
 }
 
-object ConcatenableMatchingStringModule extends ((Char => Boolean) => StringModule) {
+object ConcatenableMatchingStringModule {
 
-  def apply(pred: Char => Boolean): ConcatenableMatchingStringModule =
+  def apply(
+      extraChars: Char => Boolean,
+      maxLength: Int = Int.MaxValue): ConcatenableMatchingStringModule =
     new ConcatenableMatchingStringModule {
       type T = String
 
       def fromString(s: String): Either[String, T] =
         if (s.isEmpty)
           Left(s"""empty string""")
+        else if (s.length > maxLength)
+          Left(s"""string too long""")
         else
-          s.find(s => !pred(s))
+          s.find(c => c > '\u007f' || !(c.isLetterOrDigit || extraChars(c)))
             .fold[Either[String, T]](Right(s))(c =>
               Left(s"""non expected character 0x${c.toInt.toHexString} in "$s""""))
+
+      def fromLong(i: Long): T = i.toString
 
       def equalInstance: Equal[T] = scalaz.std.string.stringInstance
 

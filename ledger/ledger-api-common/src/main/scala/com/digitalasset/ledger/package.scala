@@ -1,22 +1,22 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.digitalasset
 
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 
 package object ledger {
 
-  /** Identifiers used to correlate submission with results.
-    * Currently unrestricted unicode (See issue #398). */
-  val CommandId: Ref.LedgerString.type = Ref.LedgerString
-  type CommandId = CommandId.T
+  /** Identifiers used to correlate submission with results. */
+  type CommandId = LedgerString
 
-  /** Identifiers used for correlating submission with a workflow.
-    * Currently unrestricted unicode (See issue #398).  */
-  val WorkflowId: Ref.LedgerString.type = Ref.LedgerString
-  type WorkflowId = WorkflowId.T
+  /** Identifiers used for correlating submission with a workflow.  */
+  type WorkflowId = LedgerString
 
-  /** Identifiers for submitting client applications.
-    * Currently unrestricted unicode (See issue #398). */
-  val ApplicationId: Ref.LedgerString.type = Ref.LedgerString
-  type ApplicationId = ApplicationId.T
+  /** Identifiers for submitting client applications. */
+  type ApplicationId = LedgerString
+
+  type EventId = LedgerString
 
 }
+

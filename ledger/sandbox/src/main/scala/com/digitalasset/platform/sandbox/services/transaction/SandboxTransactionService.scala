@@ -116,7 +116,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
         PTransaction(
           transactionId = trans.transactionId,
           commandId = if (submitterIsSubscriber) trans.commandId.getOrElse("") else "",
-          workflowId = trans.workflowId,
+          workflowId = trans.workflowId.getOrElse(""),
           effectiveAt = Some(fromInstant(trans.recordTime)),
           events = events,
           offset = trans.offset
@@ -239,7 +239,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       Tag.subst(trans.commandId),
       Tag.subst(trans.applicationId),
       trans.submitter.map(Party.assertFromString),
-      WorkflowId(trans.workflowId),
+      trans.workflowId.map(WorkflowId(_)),
       trans.recordTime,
       None
     )

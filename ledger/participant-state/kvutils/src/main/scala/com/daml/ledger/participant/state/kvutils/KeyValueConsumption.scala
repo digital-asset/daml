@@ -97,7 +97,8 @@ object KeyValueConsumption {
       optSubmitterInfo = Some(parseSubmitterInfo(txEntry.getSubmitterInfo)),
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = parseTimestamp(txEntry.getLedgerEffectiveTime),
-        workflowId = txEntry.getWorkflowId,
+        workflowId =
+          Some(txEntry.getWorkflowId).filter(_.nonEmpty).map(LedgerString.assertFromString),
       ),
       transaction = makeCommittedTransaction(entryId, relTx),
       transactionId = hexTxId,

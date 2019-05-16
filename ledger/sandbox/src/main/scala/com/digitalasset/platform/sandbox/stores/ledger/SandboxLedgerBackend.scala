@@ -98,7 +98,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       .map {
         case LedgerSnapshot(offset, acsStream) =>
           ActiveContractSetSnapshot(
-            LedgerOffset.Absolute(offset.toString),
+            LedgerOffset.Absolute(Ref.LedgerString.fromLong(offset)),
             acsStream
               .mapConcat {
                 case (cId, ac) =>
@@ -113,7 +113,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       }(mat.executionContext)
 
   override def getCurrentLedgerEnd: Future[LedgerSyncOffset] =
-    Future.successful(ledger.ledgerEnd.toString)
+    Future.successful(Ref.LedgerString.fromLong(ledger.ledgerEnd))
 
   private def toUpdateEvent(
       id: Value.AbsoluteContractId,
@@ -140,13 +140,13 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
           commandId,
           submitter,
           rejectionReason,
-          offset.toString,
+          Ref.LedgerString.fromLong(offset),
           Some(applicationId))
       case t: LedgerEntry.Transaction => toAcceptedTransaction(offset, t)
       case LedgerEntry.Checkpoint(recordedAt) =>
         Heartbeat(
           recordedAt,
-          offset.toString
+          Ref.LedgerString.fromLong(offset)
         )
     }
 
@@ -169,9 +169,9 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
         Some(submittingParty),
         ledgerEffectiveTime,
         recordedAt,
-        offset.toString,
+        Ref.LedgerString.fromLong(offset),
         workflowId,
-        explicitDisclosure.mapValues(_.map(Ref.Party.assertFromString)),
+        explicitDisclosure,
         Some(applicationId),
         Some(commandId)
       )

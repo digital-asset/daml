@@ -6,7 +6,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.EventId
+import com.digitalasset.ledger.EventId
 
 trait TransactionSerializer {
 

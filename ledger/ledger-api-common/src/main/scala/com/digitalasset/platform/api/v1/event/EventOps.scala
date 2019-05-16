@@ -58,11 +58,14 @@ object EventOps {
         throw new IllegalArgumentException("Cannot extract Template ID from Empty event.")
     }
 
-    def contractId: ContractId = event match {
-      case Archived(value) => ContractId(value.contractId)
-      case Created(value) => ContractId(value.contractId)
-      case Empty =>
-        throw new IllegalArgumentException("Cannot extract contractId from Empty event.")
+    def contractId: ContractId = {
+      val rawId = event match {
+        case Archived(value) => value.contractId
+        case Created(value) => value.contractId
+        case Empty =>
+          throw new IllegalArgumentException("Cannot extract contractId from Empty event.")
+      }
+      ContractId(Ref.LedgerString.assertFromString(rawId))
     }
 
     def withWitnesses(witnesses: Seq[String]): Event.Event = event match {

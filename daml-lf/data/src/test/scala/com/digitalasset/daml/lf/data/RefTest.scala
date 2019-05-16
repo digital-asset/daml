@@ -96,8 +96,8 @@ class RefTest extends FreeSpec with Matchers {
 
     "rejects no US-ASCII characters" in {
       for (c <- '\u0080' to '\u00ff') {
-        Party.fromString(s"the character $c is not US-ASCII") shouldBe 'left
-        PackageId.fromString(s"the character $c is not US-ASCII") shouldBe 'left
+        Party.fromString(s"the character '$c' is not US-ASCII") shouldBe 'left
+        PackageId.fromString(s"the character '$c' is not US-ASCII") shouldBe 'left
       }
       for (s <- List(
           "español",

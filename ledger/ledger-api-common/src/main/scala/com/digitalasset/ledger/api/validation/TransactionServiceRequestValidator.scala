@@ -102,7 +102,7 @@ class TransactionServiceRequestValidator(
 
     for {
       partial <- commonValidations(req)
-      legerId <- requireLedgerName(partial.ledgerId, "ledger_id")
+      legerId <- requireLedgerString(partial.ledgerId, "ledger_id")
       _ <- offsetIsBeforeEndIfAbsolute("Begin", partial.begin, ledgerEnd, offsetOrdering)
       _ <- partial.end.fold[Result[Unit]](Right(()))(
         offsetIsBeforeEndIfAbsolute("End", _, ledgerEnd, offsetOrdering))
@@ -128,7 +128,7 @@ class TransactionServiceRequestValidator(
 
     for {
       partial <- commonValidations(req)
-      ledgerId <- requireLedgerName(partial.ledgerId, "ledeger_id")
+      ledgerId <- requireLedgerString(partial.ledgerId, "ledeger_id")
       _ <- offsetIsBeforeEndIfAbsolute("Begin", partial.begin, ledgerEnd, offsetOrdering)
       _ <- partial.end.fold[Result[Unit]](Right(()))(
         offsetIsBeforeEndIfAbsolute("End", _, ledgerEnd, offsetOrdering))
@@ -159,7 +159,7 @@ class TransactionServiceRequestValidator(
     for {
       ledgerId <- matchId(req.ledgerId)
       _ <- requireNumber(req.transactionId, "transaction_id")
-      trId <- requireLedgerName(req.transactionId)
+      trId <- requireLedgerString(req.transactionId)
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       parties <- requireParties(req.requestingParties)
       _ <- requireKnownParties(parties)
@@ -176,7 +176,7 @@ class TransactionServiceRequestValidator(
       req: GetTransactionByEventIdRequest): Result[transaction.GetTransactionByEventIdRequest] = {
     for {
       ledgerId <- matchId(req.ledgerId)
-      eventId <- requireLedgerName(req.eventId, "event_id")
+      eventId <- requireLedgerString(req.eventId, "event_id")
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       parties <- requireParties(req.requestingParties)
       _ <- requireKnownParties(parties)

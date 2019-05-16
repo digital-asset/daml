@@ -21,7 +21,7 @@ object SandboxEventIdFormatter {
         Lf.AbsoluteContractId(fromTransactionId(transactionId, txnid))
     }
   // this method defines the EventId format used by the sandbox
-  def fromTransactionId(transactionId: TransactionId, nid: Transaction.NodeId): LedgerName =
+  def fromTransactionId(transactionId: TransactionId, nid: Transaction.NodeId): LedgerString =
     fromTransactionId(transactionId, nid.name)
 
   private val `#` = LedgerString.assertFromString("#")
@@ -32,7 +32,7 @@ object SandboxEventIdFormatter {
     */
   def fromTransactionId(
       transactionId: TransactionId,
-      nid: LedgerForScenarios.ScenarioNodeId): LedgerName =
+      nid: LedgerForScenarios.ScenarioNodeId): LedgerString =
     LedgerString.concat(`#`, transactionId, `:`, nid)
 
   def split(eventId: String): Option[TransactionIdWithIndex] =

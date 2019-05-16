@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state
 
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value
 
@@ -57,26 +57,17 @@ import com.digitalasset.daml.lf.value.Value
   */
 package object v1 {
 
-  /** Identifiers used to correlate submission with results.
-    * Currently unrestricted unicode (See issue #398). */
-  type CommandId = String
-
-  /** Identifiers used for correlating submission with a workflow.
-    * Currently unrestricted unicode (See issue #398).  */
-  type WorkflowId = String
-
-  /** Identifiers for submitting client applications.
-    * Currently unrestricted unicode (See issue #398). */
-  type ApplicationId = String
-
   /** Identifiers for nodes in a transaction. */
   type NodeId = Transaction.NodeId
 
-  /** Identifiers for packages. */
-  type PackageId = Ref.PackageId
+  /** Identifiers used to correlate submission with results. */
+  type CommandId = LedgerString
 
-  /** Identifiers for parties. */
-  type Party = Ref.Party
+  /** Identifiers used for correlating submission with a workflow.  */
+  type WorkflowId = LedgerString
+
+  /** Identifiers for submitting client applications. */
+  type ApplicationId = LedgerString
 
   /** A transaction with relative and absolute contract identifiers.
     *

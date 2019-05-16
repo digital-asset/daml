@@ -216,7 +216,7 @@ private class SqlLedger(
 
   override def publishTransaction(tx: TransactionSubmission): Future[SubmissionResult] =
     enqueue { offset =>
-      val transactionId = Ref.LedgerString.assertFromString(offset.toString)
+      val transactionId = Ref.LedgerString.fromLong(offset)
       val toAbsCoid: VContractId => AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid(transactionId)
 

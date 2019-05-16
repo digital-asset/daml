@@ -15,7 +15,7 @@ final case class TransactionMeta(
     commandId: Option[CommandId],
     applicationId: Option[ApplicationId],
     submitter: Option[Party],
-    workflowId: WorkflowId,
+    workflowId: Option[WorkflowId],
     effectiveAt: Instant,
     traceContext: Option[TraceContext]
 )

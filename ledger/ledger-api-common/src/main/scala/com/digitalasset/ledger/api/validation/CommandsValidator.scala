@@ -39,11 +39,13 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
 
   def validateCommands(commands: ProtoCommands): Either[StatusRuntimeException, domain.Commands] =
     for {
-      cmdLegerId <- requireLedgerName(commands.ledgerId, "leger_id")
+      cmdLegerId <- requireLedgerString(commands.ledgerId, "leger_id")
       _ <- matchLedgerId(ledgerId)(cmdLegerId)
-      workflowId = Option(commands.workflowId).filterNot(_.isEmpty).map(domain.WorkflowId(_))
-      commandId <- requireNonEmptyString(commands.commandId, "command_id")
-      appId <- requireNonEmptyString(commands.applicationId, "application_id")
+      workflowId <- if (commands.workflowId.isEmpty) Right(None)
+      else requireLedgerString(commands.workflowId).map(x => Some(domain.WorkflowId(x)))
+      appId <- requireLedgerString(commands.applicationId, "application_id")
+        .map(domain.ApplicationId(_))
+      commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
       submitter <- requireParty(commands.party, "party")
       let <- requirePresence(commands.ledgerEffectiveTime, "ledger_effective_time")
       ledgerEffectiveTime = TimestampConversion.toInstant(let)
@@ -57,8 +59,8 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
       domain.Commands(
         ledgerId,
         workflowId,
-        domain.ApplicationId(appId),
-        domain.CommandId(commandId),
+        appId,
+        commandId,
         submitter,
         ledgerEffectiveTime,
         TimestampConversion.toInstant(mrt),
@@ -100,7 +102,7 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
         for {
           templateId <- requirePresence(e.value.templateId, "template_id")
           validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
-          contractId <- requireLedgerName(e.value.contractId, "contract_id")
+          contractId <- requireLedgerString(e.value.contractId, "contract_id")
           choice <- requireIdentifier(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)

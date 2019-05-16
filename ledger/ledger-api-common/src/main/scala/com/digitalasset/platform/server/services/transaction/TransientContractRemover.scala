@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.server.services.transaction
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.ContractId
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
@@ -64,14 +65,14 @@ object TransientContractRemover {
         if (createdEvent.witnessParties.nonEmpty) {
           resultBuilder.update(indexInList, Some(event))
           val _ = creationByContractId.put(
-            ContractId(createdEvent.contractId),
+            ContractId(Ref.LedgerString.assertFromString(createdEvent.contractId)),
             indexInList -> createdEvent)
         }
 
       case Archived(archivedEvent) =>
         if (archivedEvent.witnessParties.nonEmpty) {
           creationByContractId
-            .get(ContractId(archivedEvent.contractId))
+            .get(ContractId(Ref.LedgerString.assertFromString(archivedEvent.contractId)))
             .fold[Unit] {
               // No matching create for this archive. Insert as is.
               resultBuilder.update(indexInList, Some(event))

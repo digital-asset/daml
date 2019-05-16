@@ -15,6 +15,7 @@ import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.ledger.EventId
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
@@ -27,7 +28,6 @@ import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.damle.SandboxDamle
 import com.digitalasset.platform.sandbox.services.TestCommands
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.EventId
 import com.digitalasset.platform.sandbox.{TestDar, TestHelpers}
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.transaction.{

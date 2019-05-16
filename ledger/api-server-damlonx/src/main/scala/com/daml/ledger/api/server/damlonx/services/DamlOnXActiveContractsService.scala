@@ -12,6 +12,7 @@ import com.daml.ledger.participant.state.index.v1.{
   IndexService
 }
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.WorkflowId
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service._
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
@@ -23,7 +24,7 @@ import com.digitalasset.platform.server.api.validation.{
   ErrorFactories,
   IdentifierResolver
 }
-import io.grpc.{BindableService}
+import io.grpc.BindableService
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
@@ -74,14 +75,17 @@ class DamlOnXActiveContractsService private (
 
   private def filteredApiContract(
       eventFilter: EventFilter.TemplateAwareFilter,
-      workflowId: String,
+      workflowId: Option[WorkflowId],
       a: AcsUpdateEvent.Create,
       verbose: Boolean): Option[GetActiveContractsResponse] = {
     val create = toApiCreated(a, verbose)
     eventFilter
       .filterEvent(Event(create))
-      .map(evt =>
-        GetActiveContractsResponse(workflowId = workflowId, activeContracts = List(evt.getCreated)))
+      .map(
+        evt =>
+          GetActiveContractsResponse(
+            workflowId = workflowId.getOrElse(""),
+            activeContracts = List(evt.getCreated)))
   }
 
   private def toApiCreated(a: AcsUpdateEvent.Create, verbose: Boolean): Created = {

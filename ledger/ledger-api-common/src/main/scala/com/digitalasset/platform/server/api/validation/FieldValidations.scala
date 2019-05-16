@@ -27,10 +27,10 @@ trait FieldValidations {
       s: String,
       fieldName: String
   ): Either[StatusRuntimeException, Ref.Name] =
-    if (s.nonEmpty)
-      Ref.Name.fromString(s).left.map(invalidField(fieldName, _))
-    else
+    if (s.isEmpty)
       Left(missingField(fieldName))
+    else
+      Ref.Name.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireNumber(s: String, fieldName: String): Either[StatusRuntimeException, Long] =
     for {
@@ -41,23 +41,27 @@ trait FieldValidations {
   def requirePackageId(
       s: String,
       fieldName: String): Either[StatusRuntimeException, Ref.PackageId] =
-    Ref.PackageId.fromString(s).left.map(invalidField(fieldName, _))
+    if (s.isEmpty) Left(missingField(fieldName))
+    else Ref.PackageId.fromString(s).left.map(invalidField(fieldName, _))
 
   def requirePackageId(s: String): Either[StatusRuntimeException, Ref.PackageId] =
     Ref.PackageId.fromString(s).left.map(invalidArgument)
 
   def requireParty(s: String, fieldName: String): Either[StatusRuntimeException, Ref.Party] =
-    Ref.Party.fromString(s).left.map(invalidField(fieldName, _))
+    if (s.isEmpty) Left(missingField(fieldName))
+    else Ref.Party.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireParty(s: String): Either[StatusRuntimeException, Ref.Party] =
     Ref.Party.fromString(s).left.map(invalidArgument)
 
-  def requireLedgerName(
+  def requireLedgerString(
       s: String,
-      fieldName: String): Either[StatusRuntimeException, Ref.LedgerString] =
-    Ref.LedgerString.fromString(s).left.map(invalidField(fieldName, _))
+      fieldName: String
+  ): Either[StatusRuntimeException, Ref.LedgerString] =
+    if (s.isEmpty) Left(missingField(fieldName))
+    else Ref.LedgerString.fromString(s).left.map(invalidField(fieldName, _))
 
-  def requireLedgerName(s: String): Either[StatusRuntimeException, Ref.LedgerString] =
+  def requireLedgerString(s: String): Either[StatusRuntimeException, Ref.LedgerString] =
     Ref.LedgerString.fromString(s).left.map(invalidArgument)
 
   def requireDottedName(

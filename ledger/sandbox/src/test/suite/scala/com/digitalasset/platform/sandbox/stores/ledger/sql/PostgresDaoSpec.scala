@@ -19,11 +19,11 @@ import com.digitalasset.daml.lf.value.Value.{
 }
 import com.digitalasset.daml.lf.value.ValueVersions
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.ledger.EventId
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.EventId
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   Contract,
   PersistenceEntry,
@@ -105,7 +105,7 @@ class PostgresDaoSpec
         absCid,
         let,
         "trId1",
-        "workflowId",
+        Some("workflowId"),
         Set(alice, bob),
         Map(alice -> "trId1", bob -> "trId1"),
         contractInstance,
@@ -117,7 +117,7 @@ class PostgresDaoSpec
         "trId1",
         "appID1",
         "Alice",
-        "workflowId",
+        Some("workflowId"),
         let,
         let,
         GenTransaction(
@@ -232,7 +232,7 @@ class PostgresDaoSpec
         absCid,
         let,
         "trId2",
-        "workflowId",
+        Some("workflowId"),
         Set(alice, bob),
         Map(alice -> "trId2", bob -> "trId2"),
         contractInstance,
@@ -244,7 +244,7 @@ class PostgresDaoSpec
         "trId2",
         "appID2",
         "Alice",
-        "workflowId",
+        Some("workflowId"),
         let,
         let,
         GenTransaction(
@@ -297,7 +297,7 @@ class PostgresDaoSpec
           absCid,
           let,
           txId,
-          "workflowId",
+          Some("workflowId"),
           Set(alice, bob),
           Map(alice -> txId, bob -> txId),
           contractInstance,
@@ -309,7 +309,7 @@ class PostgresDaoSpec
           txId,
           "appID1",
           "Alice",
-          "workflowId",
+          Some("workflowId"),
           let,
           let,
           GenTransaction(
@@ -338,7 +338,7 @@ class PostgresDaoSpec
           txId,
           "appID1",
           "Alice",
-          "workflowId",
+          Some("workflowId"),
           let,
           let,
           GenTransaction(
@@ -435,7 +435,7 @@ class PostgresDaoSpec
 
   private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
 
-  private implicit def toLedgerName(s: String): Ref.LedgerString =
+  private implicit def toLedgerString(s: String): Ref.LedgerString =
     Ref.LedgerString.assertFromString(s)
 
 }

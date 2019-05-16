@@ -97,7 +97,7 @@ class GrpcTransactionService(
     TransactionTree(
       visibleTx.meta.transactionId.unwrap,
       visibleTx.meta.commandId.fold("")(_.unwrap),
-      visibleTx.meta.workflowId.unwrap,
+      visibleTx.meta.workflowId.fold("")(_.unwrap),
       Some(TimestampConversion.fromInstant(visibleTx.meta.effectiveAt)),
       offset,
       Ref.LedgerString.toStringMap(events.eventsById),

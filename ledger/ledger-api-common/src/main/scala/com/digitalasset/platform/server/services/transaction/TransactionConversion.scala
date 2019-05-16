@@ -52,15 +52,15 @@ trait TransactionConversion {
 
   private case class InvisibleRootRemovalState(
       rootsWereReplaced: Boolean,
-      eventsById: Map[LedgerName, TreeEvent],
-      rootEventIds: List[LedgerName])
+      eventsById: Map[LedgerString, TreeEvent],
+      rootEventIds: List[LedgerString])
 
   // Remove root nodes that have empty witnesses and put their children in their place as roots.
   // Do this while there are roots with no witnesses.
   @tailrec
   private def removeInvisibleRoots(
-      eventsById: Map[LedgerName, TreeEvent],
-      rootEventIds: List[LedgerName]): TransactionTreeNodes = {
+      eventsById: Map[LedgerString, TreeEvent],
+      rootEventIds: List[LedgerString]): TransactionTreeNodes = {
 
     val result =
       rootEventIds.foldRight(InvisibleRootRemovalState(rootsWereReplaced = false, eventsById, Nil)) {

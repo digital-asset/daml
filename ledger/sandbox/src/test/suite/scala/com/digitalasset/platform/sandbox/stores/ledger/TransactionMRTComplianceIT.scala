@@ -24,6 +24,7 @@ import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration._
+import scala.language.implicitConversions
 
 sealed abstract class BackendType
 
@@ -76,8 +77,8 @@ class TransactionMRTComplianceIT
           Set.empty)
       val submission = TransactionSubmission(
         "cmdId",
-        "wfid",
-        Ref.Party.assertFromString("submitter"),
+        Some("wfid"),
+        "submitter",
         LET,
         MRT,
         "appId",
@@ -101,4 +102,10 @@ class TransactionMRTComplianceIT
         }
     }
   }
+
+  private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
+
+  private implicit def toLedgerString(s: String): Ref.LedgerString =
+    Ref.LedgerString.assertFromString(s)
+
 }

@@ -12,12 +12,13 @@ import akka.stream.scaladsl.Source
 import akka.NotUsed
 import anorm.SqlParser.{str, _}
 import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{Party, TransactionId}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VContractId}
+import com.digitalasset.ledger.EventId
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.ledger.backend.api.v1.RejectionReason._
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
@@ -159,7 +160,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
             Seq[NamedParameter](
               "id" -> c.contractId.coid,
               "transaction_id" -> c.transactionId,
-              "workflow_id" -> c.workflowId,
+              "workflow_id" -> c.workflowId.getOrElse(""),
               "package_id" -> (c.coinst.template.packageId: String),
               "name" -> c.coinst.template.qualifiedName.toString,
               "create_offset" -> offset,
@@ -325,8 +326,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private def updateActiveContractSet(
       offset: Long,
       tx: LedgerEntry.Transaction,
-      localImplicitDisclosure: Relation[LedgerEntry.EventId, Ref.Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party])(
+      localImplicitDisclosure: Relation[EventId, Party],
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Party])(
       implicit connection: Connection): Unit = tx match {
     case LedgerEntry.Transaction(
         _,
@@ -339,7 +340,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         transaction,
         explicitDisclosure) =>
       val mappedDisclosure = explicitDisclosure
-        .mapValues(parties => parties.map(Ref.Party.assertFromString))
+        .mapValues(parties => parties.map(Party.assertFromString))
 
       final class AcsStoreAcc extends ActiveContracts[AcsStoreAcc] {
 
@@ -364,8 +365,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         }
 
         override def divulgeAlreadyCommittedContract(
-            transactionId: String,
-            global: Relation[AbsoluteContractId, Ref.Party]) = {
+            transactionId: TransactionId,
+            global: Relation[AbsoluteContractId, Party]) = {
           val divulgenceParams = global
             .flatMap {
               case (cid, parties) =>
@@ -373,7 +374,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
                   p =>
                     Seq[NamedParameter](
                       "contract_id" -> cid.coid,
-                      "party" -> (p: String),
+                      "party" -> p,
                       "ledger_offset" -> offset,
                       "transaction_id" -> transactionId
                   ))
@@ -393,7 +394,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
       // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
       // within the current SQL transaction. All of the given functions perform side effects to update the database.
-      val atr = acsManager.addTransaction[LedgerEntry.EventId](
+      val atr = acsManager.addTransaction[EventId](
         ledgerEffectiveTime,
         transactionId,
         workflowId,
@@ -427,7 +428,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         "command_id" -> tx.commandId,
         "application_id" -> tx.applicationId,
         "submitter" -> tx.submittingParty,
-        "workflow_id" -> tx.workflowId,
+        "workflow_id" -> tx.workflowId.getOrElse(""),
         "effective_at" -> tx.ledgerEffectiveTime,
         "recorded_at" -> tx.recordedAt,
         "transaction" -> transactionSerializer
@@ -535,16 +536,16 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         .map { case (k, v) => toEventId(k) -> v.map(x => toParty(x._2)).toSet }
 
       offset -> LedgerEntry.Transaction(
-        commandId,
+        toCommandId(commandId),
         toTransactionId(transactionId),
-        applicationId,
+        toApplicationId(applicationId),
         toParty(submitter),
-        workflowId,
+        toWorkflowId(workflowId),
         effectiveAt.toInstant,
         recordedAt.toInstant,
         transactionSerializer
           .deserializeTransaction(transactionStream)
-          .getOrElse(sys.error(s"failed to deserialise transaction! trId: ${transactionId}")),
+          .getOrElse(sys.error(s"failed to deserialise transaction! trId: $transactionId")),
         disclosure
       )
     case ParsedEntry(
@@ -564,8 +565,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       offset -> LedgerEntry
         .Rejection(
           recordedAt.toInstant,
-          commandId,
-          applicationId,
+          toCommandId(commandId),
+          toApplicationId(applicationId),
           toParty(submitter),
           rejectionReason)
     case ParsedEntry(
@@ -636,8 +637,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         Contract(
           AbsoluteContractId(toContractId(coid)),
           createdAt.toInstant,
-          transactionId,
-          workflowId,
+          toTransactionId(transactionId),
+          toWorkflowId(workflowId),
           witnesses,
           divulgences,
           contractSerializer
@@ -653,14 +654,14 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         )
     }
 
-  private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Ref.Party] =
+  private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Party] =
     SQL_SELECT_WITNESS
       .on("contract_id" -> coid)
       .as(SqlParser.str("witness").*)
       .toSet
       .map(toParty)
 
-  private def lookupDivulgences(coid: String)(implicit conn: Connection): Map[Ref.Party, String] =
+  private def lookupDivulgences(coid: String)(implicit conn: Connection): Map[Party, String] =
     SQL_SELECT_DIVULGENCE
       .on("contract_id" -> coid)
       .as(DivulgenceParser.*)

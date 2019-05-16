@@ -41,8 +41,8 @@ object TransactionFiltration {
       */
     def filter[Nid, Cid, Val](
         transaction: GenTransaction[Nid, Cid, Val],
-        nidToLedgerName: Nid => LedgerName
-    ): Option[immutable.Map[LedgerName, immutable.Set[Party]]] = {
+        nidToLedgerString: Nid => LedgerString
+    ): Option[immutable.Map[LedgerString, immutable.Set[Party]]] = {
 
       val partiesByTemplate =
         collapse(
@@ -73,8 +73,8 @@ object TransactionFiltration {
       // we check for filteredPartiesByNode.isEmpty so that we also emit empty
       // transaction trees.
       if (filteredPartiesByNode.exists(_._2.nonEmpty) || filteredPartiesByNode.isEmpty) {
-        val nodeIdToParty: Map[LedgerName, immutable.Set[Party]] = filteredPartiesByNode.map {
-          case (k, v) => (nidToLedgerName(k), v)
+        val nodeIdToParty: Map[LedgerString, immutable.Set[Party]] = filteredPartiesByNode.map {
+          case (k, v) => (nidToLedgerString(k), v)
         }(breakOut)
         Some(nodeIdToParty)
       } else None

@@ -4,7 +4,7 @@
 package com.daml.ledger
 package participant.state.v1
 
-import com.digitalasset.daml.lf.data.Ref.TransactionId
+import com.digitalasset.daml.lf.data.Ref.{Party, TransactionId}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf

@@ -7,5 +7,5 @@ import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent
 
 final case class TransactionTreeNodes(
-    eventsById: Map[LedgerName, TreeEvent],
-    rootEventIds: List[LedgerName])
+    eventsById: Map[LedgerString, TreeEvent],
+    rootEventIds: List[LedgerString])

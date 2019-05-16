@@ -230,7 +230,7 @@ abstract class CommandTransactionChecks
        * does not. find out why. this seems to be quadratic
        */
       "accept huge submissions with a large number of commands" ignore allFixtures { ctx =>
-        val commandId = cid("Huge composite command")
+        val commandId = cid("Huge-composite-command")
         val originalCommand = createCommandWithId(ctx, commandId)
         val targetNumberOfSubCommands = 15000 // That's around the maximum gRPC input size
         val superSizedCommand =

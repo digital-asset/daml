@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.index
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.TransactionId
+import com.digitalasset.daml.lf.data.Ref.{Party, TransactionId}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.value.Value
@@ -78,6 +78,6 @@ package object v1 {
 
   final case class ActiveContractSetSnapshot(
       takenAt: LedgerOffset.Absolute,
-      activeContracts: Source[(WorkflowId, AcsUpdateEvent.Create), NotUsed])
+      activeContracts: Source[(Option[WorkflowId], AcsUpdateEvent.Create), NotUsed])
 
 }

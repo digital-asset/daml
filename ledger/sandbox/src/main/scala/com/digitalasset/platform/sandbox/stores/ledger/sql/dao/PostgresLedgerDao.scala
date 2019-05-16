@@ -11,14 +11,14 @@ import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import anorm.SqlParser.{str, _}
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{LedgerId, Party, TransactionId}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.ledger.EventId
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.ledger.backend.api.v1.RejectionReason._
-import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
@@ -51,7 +51,7 @@ private class PostgresLedgerDao(
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
 
-  override def lookupLedgerId(): Future[Option[Ref.LedgerId]] =
+  override def lookupLedgerId(): Future[Option[LedgerId]] =
     dbDispatcher.executeSql { implicit conn =>
       SQL_SELECT_LEDGER_ID
         .as(SqlParser.str("ledger_id").singleOpt.map(_.map(toLedgerId)))
@@ -126,7 +126,7 @@ private class PostgresLedgerDao(
       implicit connection: Connection): Option[AbsoluteContractId] =
     SQL_SELECT_CONTRACT_KEY
       .on(
-        "package_id" -> key.templateId.packageId),
+        "package_id" -> key.templateId.packageId,
         "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHasher.hashKeyString(key)
       )
@@ -173,7 +173,7 @@ private class PostgresLedgerDao(
             Seq[NamedParameter](
               "id" -> c.contractId.coid,
               "transaction_id" -> c.transactionId,
-              "workflow_id" -> c.workflowId,
+              "workflow_id" -> c.workflowId.getOrElse(""),
               "package_id" -> c.coinst.template.packageId,
               "name" -> c.coinst.template.qualifiedName.toString,
               "create_offset" -> offset,
@@ -339,8 +339,8 @@ private class PostgresLedgerDao(
   private def updateActiveContractSet(
       offset: Long,
       tx: Transaction,
-      localImplicitDisclosure: Relation[LedgerEntry.EventId, Ref.Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party])(
+      localImplicitDisclosure: Relation[EventId, Party],
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Party])(
       implicit connection: Connection): Option[RejectionReason] = tx match {
     case Transaction(
         _,
@@ -378,8 +378,8 @@ private class PostgresLedgerDao(
         }
 
         override def divulgeAlreadyCommittedContract(
-            transactionId: String,
-            global: Relation[AbsoluteContractId, Ref.Party]) = {
+            transactionId: TransactionId,
+            global: Relation[AbsoluteContractId, Party]) = {
           val divulgenceParams = global
             .flatMap {
               case (cid, parties) =>
@@ -407,7 +407,7 @@ private class PostgresLedgerDao(
 
       // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
       // within the current SQL transaction. All of the given functions perform side effects to update the database.
-      val atr = acsManager.addTransaction[LedgerEntry.EventId](
+      val atr = acsManager.addTransaction[EventId](
         ledgerEffectiveTime,
         transactionId,
         workflowId,
@@ -433,7 +433,7 @@ private class PostgresLedgerDao(
         "command_id" -> tx.commandId,
         "application_id" -> tx.applicationId,
         "submitter" -> tx.submittingParty,
-        "workflow_id" -> tx.workflowId,
+        "workflow_id" -> tx.workflowId.getOrElse(""),
         "effective_at" -> tx.ledgerEffectiveTime,
         "recorded_at" -> tx.recordedAt,
         "transaction" -> transactionSerializer
@@ -656,11 +656,11 @@ private class PostgresLedgerDao(
         .map { case (k, v) => toEventId(k) -> v.map(x => toParty(x._2)).toSet }
 
       offset -> LedgerEntry.Transaction(
-        commandId,
+        toCommandId(commandId),
         toTransactionId(transactionId),
-        applicationId,
+        toApplicationId(applicationId),
         toParty(submitter),
-        workflowId,
+        toWorkflowId(workflowId),
         effectiveAt.toInstant,
         recordedAt.toInstant,
         transactionSerializer
@@ -685,8 +685,8 @@ private class PostgresLedgerDao(
       offset -> LedgerEntry
         .Rejection(
           recordedAt.toInstant,
-          commandId,
-          applicationId,
+          toCommandId(commandId),
+          toApplicationId(applicationId),
           toParty(submitter),
           rejectionReason)
     case ParsedEntry(
@@ -766,8 +766,8 @@ private class PostgresLedgerDao(
         Contract(
           AbsoluteContractId(toContractId(coid)),
           createdAt.toInstant,
-          transactionId,
-          workflowId,
+          toTransactionId(transactionId),
+          toWorkflowId(workflowId),
           witnesses,
           divulgences,
           contractSerializer
@@ -783,14 +783,14 @@ private class PostgresLedgerDao(
         )
     }
 
-  private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Ref.Party] =
+  private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Party] =
     SQL_SELECT_WITNESS
       .on("contract_id" -> coid)
       .as(SqlParser.str("witness").*)
       .toSet
       .map(toParty)
 
-  private def lookupDivulgences(coid: String)(implicit conn: Connection): Map[Ref.Party, String] =
+  private def lookupDivulgences(coid: String)(implicit conn: Connection): Map[Party, String] =
     SQL_SELECT_DIVULGENCE
       .on("contract_id" -> coid)
       .as(DivulgenceParser.*)

@@ -5,7 +5,8 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.{Configuration, PackageId, RejectionReason}
+import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
 import com.digitalasset.daml.lf.lfpackage.Decode
@@ -13,9 +14,9 @@ import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
-  VContractId,
   ContractInst,
   NodeId,
+  VContractId,
   VersionedValue
 }
 import com.digitalasset.platform.services.time.TimeModelChecker

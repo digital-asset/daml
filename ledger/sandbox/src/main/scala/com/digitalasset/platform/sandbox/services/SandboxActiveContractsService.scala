@@ -57,7 +57,7 @@ class SandboxActiveContractsService private (
                   .map {
                     case (wfId, create) =>
                       GetActiveContractsResponse(
-                        workflowId = wfId,
+                        workflowId = wfId.orElse(""),
                         activeContracts = List(
                           CreatedEvent(
                             create.eventId,
