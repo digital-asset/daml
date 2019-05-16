@@ -85,4 +85,4 @@ initialise mainRule toDiags logger options scenarioService =
         logger
         relativize
         (toCompileOpts options) where
-    relativize fp = withProjectRoot ($fp)
+    relativize fp = withProjectRoot ($ fp)

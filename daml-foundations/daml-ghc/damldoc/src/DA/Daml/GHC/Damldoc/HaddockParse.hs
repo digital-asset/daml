@@ -121,7 +121,7 @@ haddockParse :: IdeOptions ->
                 [FilePath] ->
                 Ex.ExceptT [FileDiagnostic] IO [ParsedModule]
 haddockParse opts f = ExceptT $ do
-  let relativize fp = withProjectRoot ($fp)
+  let relativize fp = withProjectRoot ($ fp)
   service <- Service.initialise Service.mainRule Nothing Logger.makeNopHandle relativize opts
   Service.setFilesOfInterest service (Set.fromList f)
   parsed  <- Service.runAction service $
