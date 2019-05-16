@@ -98,9 +98,11 @@ Java Bindings
 
     - Added generated field ``Optional<String> TemplateName.Contract#agreementText``.
     - Added generated static method ``TemplateName.Contract.fromCreatedEvent(CreatedEvent)``.
+      This is the preferred method to use for converting a ``CreatedEvent`` into a ``Contract``.
     - Added generated static method ``TemplateName.Contract.fromIdAndRecord(String, Record, Optional<String>)``.
+      This method is useful for setting up tests, when you want to convert a ``Record`` into a contract without having to create a ``CreatedEvent`` first.
     - Deprecated generated static method ``TemplateName.Contract.fromIdAndRecord(String, Record)`` in favor of the new static methods in the generated ``Contract`` classes.
-    - Changed the generated `decoder utility class <https://docs.daml.com/app-dev/bindings-java/codegen.html#generate-the-decoder-utility-class>`__ to use the new ``fromCreatedEvent`` method.
+    - Changed the generated :ref:`decoder utility class <daml-codegen-java-decoder-class>` to use the new ``fromCreatedEvent`` method.
     - Changed the return type of the ``getDecoder`` method in the generated decoder utility class from ``Optional<BiFunction<String, Record, Contract>>`` to ``Optional<Function<CreatedEvent, Contract>>``.
 
   How to migrate:

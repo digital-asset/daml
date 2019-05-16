@@ -56,6 +56,7 @@ To avoid possible name clashes in the generated Java sources, you should specify
                        ^^^^^^^^^^^^^^^^^^^^^^^^^^        
       daml/project2.dar=com.example.daml.project2
                        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. _daml-codegen-java-decoder-class:
 
 Generate the decoder utility class
 ----------------------------------
