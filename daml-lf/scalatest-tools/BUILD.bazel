@@ -1,0 +1,32 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts",
+)
+
+da_scala_library(
+    name = "scalatest-tools",
+    srcs = glob(["src/main/**/*.scala"]),
+    scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-scalatest-tools:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/scalatest:scalatest",
+    ],
+)
+
+da_scala_test(
+    name = "scalatest-tools-test",
+    size = "small",
+    srcs = glob(["src/test/**/*.scala"]),
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":scalatest-tools",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+    ],
+)

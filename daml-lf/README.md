@@ -52,6 +52,9 @@ Components
   Both have associated Protobuf definitions, also contained in this
   package, and are used in `interpreter` and `engine` respectively.
 
+- `transaction-scalacheck` supplies Scalacheck `Gen`s for the value and
+  transaction ADTs provided by the `transaction` library.
+
 - `data` contains utility datatypes used in the engine, and functions
   designed around specified LF semantics.  For example, if you want
   LF-compatible decimal handling, the `Decimal` API is a good source of
@@ -74,6 +77,9 @@ Components
 
 - `repl` is the below-described REPL, manipulating an internal engine
   state and running scenarios at your command.
+  
+- `scalatest-tools` includes Scalatest addons used by the test suites of
+  the various packages above.
 
 - `testing-tools` helps you run scenarios from Scalatest.
 
