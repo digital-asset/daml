@@ -6,7 +6,6 @@ load(
     "da_scala_binary",
     "da_scala_library",
 )
-
 load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 
 filegroup(
