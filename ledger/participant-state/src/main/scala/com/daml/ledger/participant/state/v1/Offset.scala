@@ -22,7 +22,7 @@ import com.digitalasset.daml.lf.data.Ref
 final case class Offset(private val xs: Array[Long]) extends Ordered[Offset] {
   def toTransactionId: Ref.TransactionId =
     // It is safe to concatenate number and "-" to obtain a valid transactionId
-    Ref.LedgerName.assertFromString(components.mkString("-"))
+    Ref.LedgerString.assertFromString(components.mkString("-"))
 
   def components: Iterable[Long] = xs
 

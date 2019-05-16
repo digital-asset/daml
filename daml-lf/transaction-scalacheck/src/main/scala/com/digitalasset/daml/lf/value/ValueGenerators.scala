@@ -23,7 +23,7 @@ import scalaz.std.string.parseInt
 
 object ValueGenerators {
 
-  import Ref.LedgerName.{assertFromString => toContractId}
+  import Ref.LedgerString.{assertFromString => toContractId}
 
   /** In string encoding, assume prefix of RCOID::: or ACOID:::. */
   val defaultCidDecode: ValueCoder.DecodeCid[Tx.TContractId] = ValueCoder.DecodeCid(

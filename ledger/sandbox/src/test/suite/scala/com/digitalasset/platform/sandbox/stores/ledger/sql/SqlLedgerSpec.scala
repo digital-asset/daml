@@ -44,7 +44,7 @@ class SqlLedgerSpec
     }
 
     "be able to be created from scratch with a given ledger id" in {
-      val ledgerId = Ref.LedgerName.assertFromString("TheLedger")
+      val ledgerId = Ref.LedgerString.assertFromString("TheLedger")
 
       val ledgerF = SqlLedger(
         jdbcUrl = postgresFixture.jdbcUrl,
@@ -61,7 +61,7 @@ class SqlLedgerSpec
     }
 
     "be able to be reused keeping the old ledger id" in {
-      val ledgerId = Ref.LedgerName.assertFromString("TheLedger")
+      val ledgerId = Ref.LedgerString.assertFromString("TheLedger")
 
       for {
         ledger1 <- SqlLedger(
@@ -103,7 +103,7 @@ class SqlLedgerSpec
       val ledgerF = for {
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = Some(Ref.LedgerName.assertFromString("TheLedger")),
+          ledgerId = Some(Ref.LedgerString.assertFromString("TheLedger")),
           timeProvider = TimeProvider.UTC,
           acs = ActiveContractsInMemory.empty,
           initialLedgerEntries = ImmArray.empty,
@@ -111,7 +111,7 @@ class SqlLedgerSpec
         )
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = Some(Ref.LedgerName.assertFromString("AnotherLedger")),
+          ledgerId = Some(Ref.LedgerString.assertFromString("AnotherLedger")),
           timeProvider = TimeProvider.UTC,
           acs = ActiveContractsInMemory.empty,
           initialLedgerEntries = ImmArray.empty,

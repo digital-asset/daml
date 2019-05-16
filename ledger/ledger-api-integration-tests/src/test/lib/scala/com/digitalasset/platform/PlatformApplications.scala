@@ -76,7 +76,7 @@ object PlatformApplications {
   }
 
   object Config {
-    val defaultLedgerId = Ref.LedgerName.assertFromString("ledger server")
+    val defaultLedgerId = Ref.LedgerString.assertFromString("ledger server")
     val defaultDarFile = new File("ledger/sandbox/Test.dar")
     val defaultParties = NonEmptyList("party", "Alice", "Bob")
     val defaultTimeProviderType = TimeProviderType.Static

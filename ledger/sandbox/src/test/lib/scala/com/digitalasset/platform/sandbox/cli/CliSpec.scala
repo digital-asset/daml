@@ -101,7 +101,7 @@ class CliSpec extends WordSpec with Matchers {
       val ledgerId = "myledger"
       checkOption(
         Array(s"--ledgerid", ledgerId),
-        _.copy(ledgerIdMode = LedgerIdMode.Static(Ref.LedgerName.assertFromString(ledgerId))))
+        _.copy(ledgerIdMode = LedgerIdMode.Static(Ref.LedgerString.assertFromString(ledgerId))))
     }
 
     "parse the jdbcurl (deprecated) when given" in {

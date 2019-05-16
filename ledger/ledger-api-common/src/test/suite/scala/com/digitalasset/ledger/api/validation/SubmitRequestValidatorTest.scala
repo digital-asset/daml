@@ -36,7 +36,7 @@ class SubmitRequestValidatorTest
     with ValidatorTestUtils
     with TableDrivenPropertyChecks {
 
-  val ledgerId: Ref.LedgerId = Ref.LedgerName.assertFromString("ledger-id")
+  val ledgerId: Ref.LedgerId = Ref.LedgerString.assertFromString("ledger-id")
 
   object api {
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")
@@ -151,7 +151,7 @@ class SubmitRequestValidatorTest
     "validating contractId values" should {
       "succeed" in {
 
-        val coid = Ref.LedgerName.assertFromString("coid")
+        val coid = Ref.LedgerString.assertFromString("coid")
 
         val input = Value(Sum.ContractId(coid))
         val expected = Lf.ValueContractId(Lf.AbsoluteContractId(coid))

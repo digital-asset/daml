@@ -205,7 +205,7 @@ object ScenarioLoader {
                 s"Non-monotonic transaction ids in ledger results: got $oldTxId first and then $txId")
             }
         }
-        val transactionId = Ref.LedgerName.assertFromString(s"scenario-transaction-$txId")
+        val transactionId = Ref.LedgerString.assertFromString(s"scenario-transaction-$txId")
         val workflowId = s"scenario-workflow-$stepId"
         // note that it's important that we keep the event ids in line with the contract ids, since
         // the sandbox code assumes that in TransactionConversion.
@@ -257,12 +257,12 @@ object ScenarioLoader {
     }
   }
 
-  private val `#` = Ref.LedgerName.assertFromString("#")
+  private val `#` = Ref.LedgerString.assertFromString("#")
   // currently the scenario interpreter produces the contract ids with no hash prefix,
   // but the sandbox does. add them here too for consistency
   private def absCidWithHash(a: AbsoluteContractId): AbsoluteContractId =
-    AbsoluteContractId(Ref.LedgerName.concat(`#`, a.coid))
+    AbsoluteContractId(Ref.LedgerString.concat(`#`, a.coid))
 
-  private def nodeIdWithHash(nid: L.ScenarioNodeId): NodeId = Ref.LedgerName.concat(`#`, nid)
+  private def nodeIdWithHash(nid: L.ScenarioNodeId): NodeId = Ref.LedgerString.concat(`#`, nid)
 
 }

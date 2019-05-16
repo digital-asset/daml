@@ -100,7 +100,7 @@ class GrpcTransactionService(
       visibleTx.meta.workflowId.unwrap,
       Some(TimestampConversion.fromInstant(visibleTx.meta.effectiveAt)),
       offset,
-      Ref.LedgerName.toStringMap(events.eventsById),
+      Ref.LedgerString.toStringMap(events.eventsById),
       events.rootEventIds,
       visibleTx.meta.traceContext
     )

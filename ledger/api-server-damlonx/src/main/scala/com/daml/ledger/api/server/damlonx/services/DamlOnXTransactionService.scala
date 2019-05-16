@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.index.v1.{IndexService, TransactionAcce
 import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{LedgerId, LedgerName}
+import com.digitalasset.daml.lf.data.Ref.{LedgerId, LedgerString}
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.transaction.Transaction.NodeId
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -321,11 +321,11 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     }
   }
 
-  private val `:` = Ref.LedgerName.assertFromString(":")
+  private val `:` = Ref.LedgerString.assertFromString(":")
 
   // FIXME(JM): use proper types, not string.
   private def nodeIdToEventId(txId: Ref.TransactionId, nodeId: NodeId): LedgerName =
-    LedgerName.concat(txId, `:`, nodeId.name)
+    LedgerString.concat(txId, `:`, nodeId.name)
 
   private def eventIdToTransactionId(eventId: EventId): Option[String] =
     eventId.unwrap.split(':').headOption

@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.sandbox.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref.{LedgerName, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, TransactionId}
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.types.LedgerForScenarios
@@ -24,8 +24,8 @@ object SandboxEventIdFormatter {
   def fromTransactionId(transactionId: TransactionId, nid: Transaction.NodeId): LedgerName =
     fromTransactionId(transactionId, nid.name)
 
-  private val `#` = LedgerName.assertFromString("#")
-  private val `:` = LedgerName.assertFromString(":")
+  private val `#` = LedgerString.assertFromString("#")
+  private val `:` = LedgerString.assertFromString(":")
 
   /** When loading a scenario we get already absolute nids from the ledger -- still prefix them with the transaction
     * id, just to be safe.
@@ -33,7 +33,7 @@ object SandboxEventIdFormatter {
   def fromTransactionId(
       transactionId: TransactionId,
       nid: LedgerForScenarios.ScenarioNodeId): LedgerName =
-    LedgerName.concat(`#`, transactionId, `:`, nid)
+    LedgerString.concat(`#`, transactionId, `:`, nid)
 
   def split(eventId: String): Option[TransactionIdWithIndex] =
     eventId.split(":") match {
@@ -45,7 +45,7 @@ object SandboxEventIdFormatter {
               _ <- Try(transId.toLong)
             } yield
               TransactionIdWithIndex(
-                LedgerName.assertFromString(transId),
+                LedgerString.assertFromString(transId),
                 Transaction.NodeId.unsafeFromIndex(ix))).toOption
           case _ => None
         }

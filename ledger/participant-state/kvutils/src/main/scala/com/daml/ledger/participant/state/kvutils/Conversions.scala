@@ -7,7 +7,7 @@ import java.time.{Duration, Instant}
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, SubmittedTransaction, SubmitterInfo}
-import com.digitalasset.daml.lf.data.Ref.{Party, LedgerName}
+import com.digitalasset.daml.lf.data.Ref.{Party, LedgerString}
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.{
   Transaction,
@@ -44,7 +44,7 @@ private[kvutils] object Conversions {
       case RelativeContractId(txnid) =>
         // NOTE(JM): Must be in sync with [[absoluteContractIdToLogEntryId]] and
         // [[absoluteContractIdToStateKey]].
-        AbsoluteContractId(LedgerName.assertFromString(s"$hexTxId:${txnid.index}"))
+        AbsoluteContractId(LedgerString.assertFromString(s"$hexTxId:${txnid.index}"))
     }
   }
 
@@ -183,7 +183,7 @@ private[kvutils] object Conversions {
           case Some(i) =>
             Right(RelativeContractId(NodeId.unsafeFromIndex(i)))
         } else
-        LedgerName
+        LedgerString
           .fromString(x)
           .left
           .map(e => DecodeError(s"Invalid absolute contract id: $e"))

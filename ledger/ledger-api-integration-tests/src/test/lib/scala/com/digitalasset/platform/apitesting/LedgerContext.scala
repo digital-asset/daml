@@ -170,7 +170,7 @@ object LedgerContext {
         case LedgerIdMode.Static(id) =>
           id
         case LedgerIdMode.Dynamic() =>
-          Ref.LedgerName.assertFromString(
+          Ref.LedgerString.assertFromString(
             LedgerIdentityServiceGrpc
               .blockingStub(channel)
               .getLedgerIdentity(GetLedgerIdentityRequest())

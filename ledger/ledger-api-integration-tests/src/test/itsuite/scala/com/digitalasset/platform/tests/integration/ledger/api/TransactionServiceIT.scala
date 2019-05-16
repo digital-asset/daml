@@ -1381,7 +1381,7 @@ class TransactionServiceIT
               (tx, tree) <- txs.iterator.zip(trees.iterator)
 
               treeEventIds: Set[EventId] = Tag.subst(
-                tree.eventsById.keySet.map(Ref.LedgerName.assertFromString))
+                tree.eventsById.keySet.map(Ref.LedgerString.assertFromString))
 
               txEvent <- tx.events
             } {

@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref.LedgerName
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 

@@ -7,7 +7,7 @@ import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.data.Ref.{
   ContractId,
   Identifier,
-  LedgerName,
+  LedgerString,
   Name,
   `Name equal instance`
 }
@@ -295,7 +295,7 @@ object Value {
 
     override def toString = "NodeId(" + index.toString + ")"
 
-    val name: LedgerName = LedgerName.assertFromString(index.toString)
+    val name: LedgerName = LedgerString.assertFromString(index.toString)
   }
 
   object NodeId {

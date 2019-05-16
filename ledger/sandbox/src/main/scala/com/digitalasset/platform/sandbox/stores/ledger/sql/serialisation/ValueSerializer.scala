@@ -37,7 +37,7 @@ object ValueSerializer extends ValueSerializer {
   )
 
   private def toContractId(s: String) =
-    Ref.LedgerName
+    Ref.LedgerString
       .fromString(s)
       .left
       .map(e => DecodeError(s"cannot decode contractId: $e"))

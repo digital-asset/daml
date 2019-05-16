@@ -12,7 +12,7 @@ import org.scalatest.{Matchers, WordSpec}
 class EventIdFormatterSpec extends WordSpec with Matchers with ScalaFutures {
 
   "EventIdFormatter" should {
-    val transactionId: Ref.TransactionId = Ref.LedgerName.assertFromString("42")
+    val transactionId: Ref.TransactionId = Ref.LedgerString.assertFromString("42")
     val index: Transaction.NodeId = Transaction.NodeId.unsafeFromIndex(42)
     val referenceEventID = s"#$transactionId:${index.index}"
 

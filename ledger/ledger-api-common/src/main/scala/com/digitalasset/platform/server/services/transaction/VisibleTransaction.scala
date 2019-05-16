@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref.{LedgerName, Party}
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.api.domain.TransactionFilter
 import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter

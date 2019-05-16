@@ -20,7 +20,7 @@ sealed abstract class LedgerEntry extends Product with Serializable {
 
 //TODO: use domain types here, see: com.digitalasset.ledger.api.domain.*
 object LedgerEntry {
-  type EventId = Ref.LedgerName
+  type EventId = Ref.LedgerString
   type Party = Ref.Party
 
   final case class Rejection(

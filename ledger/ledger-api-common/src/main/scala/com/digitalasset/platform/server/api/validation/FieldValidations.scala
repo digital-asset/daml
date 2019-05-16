@@ -54,11 +54,11 @@ trait FieldValidations {
 
   def requireLedgerName(
       s: String,
-      fieldName: String): Either[StatusRuntimeException, Ref.LedgerName] =
-    Ref.LedgerName.fromString(s).left.map(invalidField(fieldName, _))
+      fieldName: String): Either[StatusRuntimeException, Ref.LedgerString] =
+    Ref.LedgerString.fromString(s).left.map(invalidField(fieldName, _))
 
-  def requireLedgerName(s: String): Either[StatusRuntimeException, Ref.LedgerName] =
-    Ref.LedgerName.fromString(s).left.map(invalidArgument)
+  def requireLedgerName(s: String): Either[StatusRuntimeException, Ref.LedgerString] =
+    Ref.LedgerString.fromString(s).left.map(invalidArgument)
 
   def requireDottedName(
       s: String,

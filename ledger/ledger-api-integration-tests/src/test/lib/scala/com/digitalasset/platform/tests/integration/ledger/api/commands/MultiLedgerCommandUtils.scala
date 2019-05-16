@@ -25,8 +25,8 @@ trait MultiLedgerCommandUtils extends TransactionServiceHelpers with MultiLedger
   protected final def newSynchronousCommandClient(ctx: LedgerContext): SynchronousCommandClient =
     new SynchronousCommandClient(ctx.commandService)
 
-  protected val testLedgerId = Ref.LedgerName.assertFromString("ledgerId")
-  protected val testNotLedgerId = Ref.LedgerName.assertFromString("hotdog")
+  protected val testLedgerId = Ref.LedgerString.assertFromString("ledgerId")
+  protected val testNotLedgerId = Ref.LedgerString.assertFromString("hotdog")
   protected val submitRequest: SubmitRequest =
     MockMessages.submitRequest.update(_.commands.ledgerId := testLedgerId)
 

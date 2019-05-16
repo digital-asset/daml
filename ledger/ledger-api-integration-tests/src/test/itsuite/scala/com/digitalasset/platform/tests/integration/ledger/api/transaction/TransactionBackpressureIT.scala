@@ -38,7 +38,7 @@ class TransactionBackpressureIT
 
   override def timeLimit: Span = 300.seconds
 
-  val testLedgerId = Ref.LedgerName.assertFromString("ledgerId")
+  val testLedgerId = Ref.LedgerString.assertFromString("ledgerId")
 
   override protected def config: Config =
     Config.default.withLedgerIdMode(LedgerIdMode.Static(testLedgerId))

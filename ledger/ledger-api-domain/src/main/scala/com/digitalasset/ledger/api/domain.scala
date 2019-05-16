@@ -212,7 +212,7 @@ object domain {
 
   sealed trait EventIdTag
 
-  type EventId = Ref.LedgerName @@ EventIdTag
+  type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
 
   sealed trait ApplicationIdTag

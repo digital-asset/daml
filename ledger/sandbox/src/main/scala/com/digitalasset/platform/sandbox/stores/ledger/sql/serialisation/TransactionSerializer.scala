@@ -24,7 +24,7 @@ object TransactionSerializer extends TransactionSerializer {
 
   private val defaultNidEncode: TransactionCoder.EncodeNid[EventId] = identity
   private def defaultDecodeNid(s: String) =
-    Ref.LedgerName
+    Ref.LedgerString
       .fromString(s)
       .left
       .map(

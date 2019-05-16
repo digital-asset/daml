@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.v1.{
   TransactionMeta,
   Update
 }
-import com.digitalasset.daml.lf.data.Ref.LedgerName
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
@@ -91,7 +91,7 @@ object KeyValueConsumption {
       txEntry: DamlTransactionEntry,
       recordTime: Timestamp): Update.TransactionAccepted = {
     val relTx = Conversions.decodeTransaction(txEntry.getTransaction)
-    val hexTxId = LedgerName.assertFromString(BaseEncoding.base16.encode(entryId.toByteArray))
+    val hexTxId = LedgerString.assertFromString(BaseEncoding.base16.encode(entryId.toByteArray))
 
     Update.TransactionAccepted(
       optSubmitterInfo = Some(parseSubmitterInfo(txEntry.getSubmitterInfo)),

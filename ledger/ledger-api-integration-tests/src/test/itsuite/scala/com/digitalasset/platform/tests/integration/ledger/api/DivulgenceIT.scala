@@ -6,7 +6,7 @@ package com.digitalasset.platform.tests.integration.ledger.api
 import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{ContractId, LedgerName}
+import com.digitalasset.daml.lf.data.Ref.{ContractId, LedgerString}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
@@ -108,7 +108,7 @@ class DivulgenceIT
         .filter(_.commandId == commandId)
         .runWith(Sink.head)
     } yield
-      LedgerName.assertFromString(
+      LedgerString.assertFromString(
         transaction.events.map(_.event).head.created.toList.head.contractId
       )
 

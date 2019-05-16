@@ -18,11 +18,11 @@ import scala.collection.immutable
 /** An in-memory representation of a ledger for scenarios */
 object LedgerForScenarios {
 
-  type ScenarioNodeId = LedgerName
+  type ScenarioNodeId = LedgerString
   object ScenarioNodeId {
     def apply(acoid: AbsoluteContractId): ScenarioNodeId = acoid.coid
 
-    def apply(commitPrefix: LedgerName, txnid: Transaction.NodeId): ScenarioNodeId =
+    def apply(commitPrefix: LedgerString, txnid: Transaction.NodeId): ScenarioNodeId =
       apply(txNodeIdToAbsoluteContractId(commitPrefix, txnid))
   }
 
@@ -32,21 +32,21 @@ object LedgerForScenarios {
     */
   @inline
   def txNodeIdToAbsoluteContractId(
-      commitPrefix: LedgerName,
+      commitPrefix: LedgerString,
       txnid: Transaction.NodeId
   ): AbsoluteContractId =
-    AbsoluteContractId(LedgerName.concat(commitPrefix, txnid.name))
+    AbsoluteContractId(LedgerString.concat(commitPrefix, txnid.name))
 
   @inline
   def relativeToAbsoluteContractId(
-      commitPrefix: LedgerName,
+      commitPrefix: LedgerString,
       i: RelativeContractId
   ): AbsoluteContractId =
     txNodeIdToAbsoluteContractId(commitPrefix, i.txnid)
 
   @inline
   def contractIdToAbsoluteContractId(
-      commitPrefix: LedgerName,
+      commitPrefix: LedgerString,
       cid: VContractId
   ): AbsoluteContractId =
     cid match {
@@ -55,13 +55,13 @@ object LedgerForScenarios {
         relativeToAbsoluteContractId(commitPrefix, rcoid)
     }
 
-  private val `:` = LedgerName.assertFromString(":")
+  private val `:` = LedgerString.assertFromString(":")
 
   case class ScenarioTransactionId(index: Int) extends Ordered[ScenarioTransactionId] {
     def next: ScenarioTransactionId = ScenarioTransactionId(index + 1)
-    val id: TransactionId = LedgerName.assertFromString(index.toString)
+    val id: TransactionId = LedgerString.assertFromString(index.toString)
     def compare(that: ScenarioTransactionId): Int = index compare that.index
-    def makeCommitPrefix: LedgerName = LedgerName.concat(id, `:`)
+    def makeCommitPrefix: LedgerString = LedgerString.concat(id, `:`)
   }
 
   /** Errors */
@@ -145,7 +145,7 @@ object LedgerForScenarios {
     * the package format.
     */
   def enrichedTransactionToRichTransaction(
-      commitPrefix: LedgerName,
+      commitPrefix: LedgerString,
       committer: Party,
       effectiveAt: Time.Timestamp,
       enrichedTx: EnrichedTransaction): RichTransaction = {
@@ -183,7 +183,7 @@ object LedgerForScenarios {
     * id's. Both are translated to sandbox ledger node id's (tagged strings) with help of the commit
     * prefix.
     */
-  def translateNode(commitPrefix: LedgerName, node: Transaction.Node): Node = {
+  def translateNode(commitPrefix: LedgerString, node: Transaction.Node): Node = {
     node match {
       case nc: NodeCreate.WithTxValue[VContractId] =>
         NodeCreate[AbsoluteContractId, Transaction.Value[AbsoluteContractId]](
@@ -983,7 +983,7 @@ object LedgerForScenarios {
   }
 
   def makeAbsolute(
-      commitPrefix: LedgerName,
+      commitPrefix: LedgerString,
       value: VersionedValue[VContractId]): VersionedValue[AbsoluteContractId] = {
     VersionedValue(value.version, makeAbsolute(commitPrefix, value.value))
   }
@@ -993,7 +993,7 @@ object LedgerForScenarios {
     * TODO(FM) make this tail recursive
     */
   def makeAbsolute(
-      commitPrefix: LedgerName,
+      commitPrefix: LedgerString,
       value: Value[VContractId]): Value[AbsoluteContractId] = {
     def rewrite(v: Value[VContractId]): Value[AbsoluteContractId] =
       v match {

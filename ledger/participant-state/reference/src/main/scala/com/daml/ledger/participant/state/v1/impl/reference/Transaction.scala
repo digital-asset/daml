@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.v1.impl.reference
 
 import com.daml.ledger.participant.state.v1.{CommittedTransaction, SubmittedTransaction}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{ContractId, LedgerName, Party, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.{ContractId, LedgerString, Party, TransactionId}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.transaction.Transaction.TContractId
 import com.digitalasset.daml.lf.transaction._
@@ -71,11 +71,11 @@ object Transaction {
     case c @ AbsoluteContractId(_) => c
   }
 
-  private val `#` = LedgerName.assertFromString("#")
-  private val `:` = LedgerName.assertFromString(":")
+  private val `#` = LedgerString.assertFromString("#")
+  private val `:` = LedgerString.assertFromString(":")
 
   def toAbsNodeId(txId: TransactionId, nid: Value.NodeId): ContractId =
-    LedgerName.concat(`#`, txId, `:`, nid.name)
+    LedgerString.concat(`#`, txId, `:`, nid.name)
 
   def encodeTransaction(tx: SubmittedTransaction): ByteString =
     TransactionCoder
@@ -112,7 +112,7 @@ object Transaction {
     )
 
   private def toAbsoluteContractId(s: String) =
-    Ref.LedgerName
+    Ref.LedgerString
       .fromString(s)
       .left
       .map(e => DecodeError("cannot parse contractId $e"))

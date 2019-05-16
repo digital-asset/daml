@@ -32,7 +32,7 @@ trait LedgerIdentityServiceITBase
   override def timeLimit: Span = 5.seconds
 
   protected lazy val givenId =
-    Ref.LedgerName.assertFromString(s"ledger-${UUID.randomUUID().toString}")
+    Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID().toString}")
 
   protected def getLedgerId(ledgerIdentityService: LedgerIdentityService): Future[String] = {
     val client = new LedgerIdentityClient(ledgerIdentityService)

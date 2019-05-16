@@ -40,8 +40,8 @@ object EventOps {
     def eventIndex: Int = getEventIndex(event.event.eventId.unwrap)
 
     def eventId: EventId = event match {
-      case Archived(value) => EventId(Ref.LedgerName.assertFromString(value.eventId))
-      case Created(value) => EventId(Ref.LedgerName.assertFromString(value.eventId))
+      case Archived(value) => EventId(Ref.LedgerString.assertFromString(value.eventId))
+      case Created(value) => EventId(Ref.LedgerString.assertFromString(value.eventId))
       case Empty => throw new IllegalArgumentException("Cannot extract Event ID from Empty event.")
     }
 
@@ -96,11 +96,11 @@ object EventOps {
   implicit class TreeEventOps(val event: TreeEvent) {
     def eventId: EventId =
       event.kind.fold(
-        e => EventId(Ref.LedgerName.assertFromString(e.eventId)),
-        c => EventId(Ref.LedgerName.assertFromString(c.eventId)))
+        e => EventId(Ref.LedgerString.assertFromString(e.eventId)),
+        c => EventId(Ref.LedgerString.assertFromString(c.eventId)))
     def children: Seq[EventId] =
       event.kind
-        .fold(e => Tag.subst(e.childEventIds.map(Ref.LedgerName.assertFromString)), _ => Nil)
+        .fold(e => Tag.subst(e.childEventIds.map(Ref.LedgerString.assertFromString)), _ => Nil)
     def witnessParties: Seq[String] = event.kind.fold(_.witnessParties, _.witnessParties)
   }
 

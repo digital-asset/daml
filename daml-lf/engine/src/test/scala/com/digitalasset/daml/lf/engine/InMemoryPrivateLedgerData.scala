@@ -33,7 +33,7 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
     cid match {
       case r: RelativeContractId =>
         // It is safe to concatenate numbers and "-" to form a valid ContractId
-        AbsoluteContractId(Ref.LedgerName.assertFromString(s"$txCounter-${r.txnid.index}"))
+        AbsoluteContractId(Ref.LedgerString.assertFromString(s"$txCounter-${r.txnid.index}"))
       case a: AbsoluteContractId => a
     }
 

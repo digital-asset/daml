@@ -51,7 +51,7 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
 
   def testDalf = new File("language-support/java/codegen/ledger-tests-model.dar")
 
-  val LedgerID: Ref.LedgerId = Ref.LedgerName.assertFromString("ledger-test")
+  val LedgerID: Ref.LedgerId = Ref.LedgerString.assertFromString("ledger-test")
   def withClient(testCode: Channel => Assertion): Assertion = {
     val cfg = SandboxConfig.default.copy(
       port = 0,

@@ -6,17 +6,17 @@ package object ledger {
 
   /** Identifiers used to correlate submission with results.
     * Currently unrestricted unicode (See issue #398). */
-  val CommandId: Ref.LedgerName.type = Ref.LedgerName
+  val CommandId: Ref.LedgerString.type = Ref.LedgerString
   type CommandId = CommandId.T
 
   /** Identifiers used for correlating submission with a workflow.
     * Currently unrestricted unicode (See issue #398).  */
-  val WorkflowId: Ref.LedgerName.type = Ref.LedgerName
+  val WorkflowId: Ref.LedgerString.type = Ref.LedgerString
   type WorkflowId = WorkflowId.T
 
   /** Identifiers for submitting client applications.
     * Currently unrestricted unicode (See issue #398). */
-  val ApplicationId: Ref.LedgerName.type = Ref.LedgerName
+  val ApplicationId: Ref.LedgerString.type = Ref.LedgerString
   type ApplicationId = ApplicationId.T
 
 }

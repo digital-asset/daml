@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref.LedgerName
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent
 
 final case class TransactionTreeNodes(

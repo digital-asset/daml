@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref.LedgerName
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
@@ -23,7 +23,7 @@ import scala.collection.breakOut
 trait TransactionConversion {
 
   type Party = LfRef.Party
-  type EventId = LfRef.LedgerName
+  type EventId = LfRef.LedgerString
 
   def genToApiTransaction(
       transaction: P.GenTransaction[EventId, AbsoluteContractId],
@@ -159,9 +159,9 @@ trait TransactionConversion {
   }
   private def flattenEvents(
       events: Map[
-        LfRef.LedgerName,
+        LfRef.LedgerString,
         engine.Event[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]],
-      root: LfRef.LedgerName,
+      root: LfRef.LedgerString,
       verbose: Boolean): List[Event] = {
     val event = events(root)
     event match {

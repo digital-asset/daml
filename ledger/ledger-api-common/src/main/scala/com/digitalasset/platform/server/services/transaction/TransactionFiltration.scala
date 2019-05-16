@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerName, Party}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.digitalasset.daml.lf.transaction.Node.GenNode
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node}
 import com.digitalasset.ledger.api.domain.TransactionFilter
