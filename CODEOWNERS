@@ -61,7 +61,7 @@ deps.bzl            @digital-asset/daml
 /web-ide/           @digital-asset/daml
 
 # Misc
-/docs/              @digital-asset/daml
+/docs/              @bethaitman
 /notices-gen/       @digital-asset/daml
 /oss-compliance/    @digital-asset/daml
 
