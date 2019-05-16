@@ -38,19 +38,20 @@ import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxCo
 import com.digitalasset.platform.sandbox.services.SandboxServerResource
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import io.grpc.Channel
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{Assertion, FlatSpec, Matchers}
 import tests.wolpertinger.color.Grey
 import tests.wolpertinger.{Color, Wolpertinger}
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CodegenLedgerTest extends FlatSpec with Matchers {
 
   def testDalf = new File("language-support/java/codegen/ledger-tests-model.dar")
 
   val LedgerID = "ledger-test"
-  def withClient(testCode: Channel => Unit): Unit = {
+  def withClient(testCode: Channel => Assertion): Assertion = {
     val cfg = SandboxConfig.default.copy(
       port = 0,
       damlPackageContainer = DamlPackageContainer(List(testDalf)),
@@ -159,7 +160,6 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
     val glookoflyContract :: Nil = readActiveContracts(client)
 
     glookoflyContract.data shouldEqual glookofly
-    ()
   }
 
   it should "create correct exercise choice commands" in withClient { client =>
@@ -185,7 +185,6 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
     sruq.data.name shouldEqual sruquito.name
     glookosruq.data.name shouldEqual s"${glookofly.name}-${sruquito.name}"
     glookosruq.data.timeOfBirth shouldEqual tob
-    ()
   }
 
   it should "create correct createAndExercise choice commands" in withClient { client =>
@@ -207,6 +206,14 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
     glook.data.name shouldEqual glookofly.name
     glookosruq.data.name shouldEqual s"${sruquito.name}-${glookofly.name}"
     glookosruq.data.timeOfBirth shouldEqual tob
-    ()
+  }
+
+  it should "provide the agreement text" in withClient { client =>
+    sendCmd(client, glookofly.create())
+
+    val wolpertinger :: _ = readActiveContracts(client)
+
+    wolpertinger.agreementText.isPresent shouldBe true
+    wolpertinger.agreementText.get should not be empty
   }
 }

@@ -28,6 +28,8 @@ template Wolpertinger
     where
         signatory owner
 
+        agreement show owner <> "has " <> show wings <> " wings and is " <> show age <> " years old."
+
         controller owner can
             Reproduce : ContractId Wolpertinger
                 with mateId : ContractId Wolpertinger
