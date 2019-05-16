@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger
 
+import java.util.concurrent.CompletionStage
+
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -26,6 +28,7 @@ import com.digitalasset.ledger.backend.api.v1._
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
 
+import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
 
 class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
@@ -167,7 +170,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): Future[SubmissionResult] = {
+      transaction: SubmittedTransaction): CompletionStage[SubmissionResult] = {
 
     implicit val ec: ExecutionContext = mat.executionContext
 
@@ -188,11 +191,12 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
         transaction
       )
 
-    for {
+    val resultF = for {
       handle <- beginSubmission()
       result <- handle.submit(transactionSubmission)
     } yield result
 
+    FutureConverters.toJava(resultF)
   }
 
 }

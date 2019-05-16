@@ -5,8 +5,8 @@ package com.daml.ledger.participant.state.v1.impl.reference
 
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.{CompletableFuture, CompletionStage, TimeUnit}
 
 import akka.NotUsed
 import akka.stream.ActorMaterializer
@@ -28,7 +28,6 @@ import com.digitalasset.platform.server.services.command.time.TimeModelValidator
 import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 /** TODO (SM): update/complete comments on this example as part of
@@ -100,13 +99,14 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   override def submitTransaction(
       submitterInfo: v1.SubmitterInfo,
       transactionMeta: v1.TransactionMeta,
-      transaction: SubmittedTransaction): Future[SubmissionResult] = Future {
-    // allow to do some potentially heavy computation incl. pushing the data
-    // out over the wire. Might be easier to implement than requiring to do a
-    // hand-over between multiple threads.
-    submit(submitterInfo, transactionMeta, transaction)
-    SubmissionResult.Acknowledged
-  }
+      transaction: SubmittedTransaction): CompletionStage[SubmissionResult] =
+    CompletableFuture.completedFuture({
+      // allow to do some potentially heavy computation incl. pushing the data
+      // out over the wire. Might be easier to implement than requiring to do a
+      // hand-over between multiple threads.
+      submit(submitterInfo, transactionMeta, transaction)
+      SubmissionResult.Acknowledged
+    })
 
   /**
     * Submit the supplied transaction to the ledger.
@@ -115,11 +115,11 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     * an AcceptedTransaction event is written and the transaction is assumed "committed".
     * Note that this happens in two phases:
     * 1) We read the current state of the ledger then perform consistency checks
-    *    and full validation on the transaction. The full validation is relatively
-    *    expensive and we don't want to perform it in phase 2 below.
+    * and full validation on the transaction. The full validation is relatively
+    * expensive and we don't want to perform it in phase 2 below.
     * 2) We then re-read the ledger state using an optimistic lock, perform the
-    *    consistency checks again and then update the ledger state. This phase must
-    *    be side-effect free, as it may get repeated if the optimistic locking fails.
+    * consistency checks again and then update the ledger state. This phase must
+    * be side-effect free, as it may get repeated if the optimistic locking fails.
     */
   private def submit(
       submitterInfo: v1.SubmitterInfo,
@@ -412,4 +412,5 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       packages: Map[Ref.PackageId, (Ast.Package, Archive)],
       activeContracts: Map[AbsoluteContractId, AbsoluteContractInst],
       duplicationCheck: Set[(ApplicationId, CommandId)])
+
 }

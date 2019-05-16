@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.v1
 
-import scala.concurrent.Future
+import java.util.concurrent.CompletionStage
 
 /** An interface to change a ledger via a participant.
   *
@@ -74,27 +74,25 @@ trait WriteService {
     * time for submitting and validating large transactions before they are
     * timestamped with their record time.
     *
-    * @param submitterInfo: the information provided by the submitter for
-    *   correlating this submission with its acceptance or rejection on the
-    *   associated [[ReadService]].
-    *
-    * @param transactionMeta: the meta-data accessible to all consumers of the
+    * @param submitterInfo   : the information provided by the submitter for
+    *                        correlating this submission with its acceptance or rejection on the
+    *                        associated [[ReadService]].
+    * @param transactionMeta : the meta-data accessible to all consumers of the
     *   transaction. See [[TransactionMeta]] for more information.
-    *
-    * @param transaction: the submitted transaction. This transaction can
-    *   contain contract-ids that are relative to this transaction itself.
-    *   These are used to refer to contracts created in the transaction
+    * @param transaction     : the submitted transaction. This transaction can
+    *                        contain contract-ids that are relative to this transaction itself.
+    *                        These are used to refer to contracts created in the transaction
     *   itself. The participant state implementation is expected to convert
-    *   these into absolute contract-ids that are guaranteed to be unique.
-    *   This typically happens after a transaction has been assigned a
-    *   globally unique id, as then the contract-ids can be derived from that
-    *   transaction id.
+    *                        these into absolute contract-ids that are guaranteed to be unique.
+    *                        This typically happens after a transaction has been assigned a
+    *                        globally unique id, as then the contract-ids can be derived from that
+    *                        transaction id.
     *
     */
   //TODO: update docs
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): Future[SubmissionResult]
+      transaction: SubmittedTransaction): CompletionStage[SubmissionResult]
 
 }

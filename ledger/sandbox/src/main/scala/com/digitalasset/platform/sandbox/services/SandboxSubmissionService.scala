@@ -3,7 +3,6 @@
 
 package com.digitalasset.platform.sandbox.services
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
-
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.v1.SubmissionResult.{Acknowledged, Overloaded}
 import com.daml.ledger.participant.state.v1.{
@@ -33,6 +32,7 @@ import io.grpc.{BindableService, Status}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
+import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -138,16 +138,17 @@ class SandboxSubmissionService private (
   private def handleResult(res: scala.Either[ErrorCause, TransactionSubmission]) =
     res match {
       case Right(ts) =>
-        writeService.submitTransaction(
-          SubmitterInfo(
-            Ref.Party.assertFromString(ts.submitter),
-            ts.applicationId,
-            ts.commandId,
-            Timestamp.assertFromInstant(ts.maximumRecordTime)
-          ),
-          TransactionMeta(Timestamp.assertFromInstant(ts.ledgerEffectiveTime), ts.workflowId),
-          ts.transaction
-        )
+        FutureConverters.toScala(
+          writeService.submitTransaction(
+            SubmitterInfo(
+              Ref.Party.assertFromString(ts.submitter),
+              ts.applicationId,
+              ts.commandId,
+              Timestamp.assertFromInstant(ts.maximumRecordTime)
+            ),
+            TransactionMeta(Timestamp.assertFromInstant(ts.ledgerEffectiveTime), ts.workflowId),
+            ts.transaction
+          ))
       case Left(err) => Future.failed(grpcError(toStatus(err)))
     }
 
