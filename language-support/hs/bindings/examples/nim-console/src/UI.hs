@@ -36,7 +36,7 @@ charles = Player "charles"
 
 
 message :: String -> IO ()
-message = colourMes Cyan plainMes
+message = colourLog Cyan plainLog
 
 ----------------------------------------------------------------------
 -- PlayerState
@@ -47,21 +47,21 @@ data PlayerState = PlayerState {
     stream :: Stream XTrans
     }
 
-makePlayerState :: Handle -> Mes -> Player -> IO PlayerState
-makePlayerState h xmes player = do
+makePlayerState :: Handle -> Logger -> Player -> IO PlayerState
+makePlayerState h xlog player = do
     -- TODO: handle knownPlayers by "Hello" contracts
     let knownPlayers = [alice,bob,charles] -- john *not* a known player
     let s = Local.initState player knownPlayers
     sv <- newMVar s
-    stream <- manageUpdates h player (playerMes player xmes) sv
+    stream <- manageUpdates h player (playerLog player xlog) sv
     return PlayerState{player,sv,stream}
 
 
-playerMes :: Player -> Mes -> Mes
-playerMes player mes =
-    tagMes ("(" <> show player <> ") ") $
-    --colourMes (colourForPlayer player) mes
-    colourMes Blue  mes
+playerLog :: Player -> Logger -> Logger
+playerLog player log =
+    tagLog ("(" <> show player <> ") ") $
+    --colourLog (colourForPlayer player) log
+    colourLog Blue  log
 
 ----------------------------------------------------------------------
 -- main
@@ -69,12 +69,12 @@ playerMes player mes =
 main :: IO ()
 main = HL.runInputT HL.defaultSettings $ do
     h <- lift Ledger.connect
-    xmes <- HL.getExternalPrint
+    xlog <- HL.getExternalPrint
     let player = alice -- initial interactive player
     lift $ runBotFor h bob
     lift $ runBotFor h charles -- 2nd bot
-    ps <- lift $ makePlayerState h xmes player
-    readLoop h xmes ps
+    ps <- lift $ makePlayerState h xlog player
+    readLoop h xlog ps
 
 ----------------------------------------------------------------------
 -- readLoop
@@ -84,23 +84,23 @@ promptPlayer player =
     --colourWrap (colourForPlayer player) (show player <> "> ")
     colourWrap Green (show player <> "> ")
 
-readLoop :: Handle -> Mes -> PlayerState -> HL.InputT IO ()
-readLoop h xmes ps = do
+readLoop :: Handle -> Logger -> PlayerState -> HL.InputT IO ()
+readLoop h xlog ps = do
     let PlayerState{player} = ps
     lineOpt <- HL.getInputLine (promptPlayer player)
     case lineOpt of
       Nothing -> return ()
       Just line -> do
-          ps' <- lift $ processLine h xmes ps line
-          readLoop h xmes ps'
+          ps' <- lift $ processLine h xlog ps line
+          readLoop h xlog ps'
 
-processLine :: Handle -> Mes -> PlayerState -> String -> IO PlayerState
-processLine h xmes ps line = do
+processLine :: Handle -> Logger -> PlayerState -> String -> IO PlayerState
+processLine h xlog ps line = do
     case parseWords (words line) of
         Nothing -> do
             message $ "failed to parse: " <> line
             return ps
-        Just res -> runParsed h xmes ps res
+        Just res -> runParsed h xlog ps res
 
 
 ----------------------------------------------------------------------
@@ -148,8 +148,8 @@ parseGnum s = fmap Gnum (readMaybe s)
 ----------------------------------------------------------------------
 -- run thhe parsed command
 
-runParsed :: Handle -> Mes -> PlayerState -> Parsed -> IO PlayerState
-runParsed h xmes ps = \case
+runParsed :: Handle -> Logger -> PlayerState -> Parsed -> IO PlayerState
+runParsed h xlog ps = \case
     Submit lc -> do
         runSubmit h message ps lc
         return ps
@@ -162,7 +162,7 @@ runParsed h xmes ps = \case
         message $ "becoming: " <> show player'
         let PlayerState{stream} = ps
         closeStream stream (Closed "changing player")
-        makePlayerState h xmes player'
+        makePlayerState h xlog player'
 
 runLocalQuery :: State -> LQuery -> IO ()
 runLocalQuery s = \case
@@ -173,48 +173,48 @@ runLocalQuery s = \case
 ----------------------------------------------------------------------
 -- runSubmit (used by runParsed and robot)
 
-runSubmit :: Handle -> Mes -> PlayerState -> LCommand -> IO ()
-runSubmit h mes ps lc = do
-    --mes $ "lc: " <> show lc
+runSubmit :: Handle -> Logger -> PlayerState -> LCommand -> IO ()
+runSubmit h log ps lc = do
+    --log $ "lc: " <> show lc
     let PlayerState{player,sv} = ps
     s <- readMVar sv
     case Local.externCommand player s lc of
         Nothing -> do
-            mes $ "bad local command: " <> show lc
+            log $ "bad local command: " <> show lc
             return ()
         Just xc -> do
             Ledger.sendCommand h xc >>= \case
                 Nothing -> return ()
                 Just rej -> do
-                    mes $ "command rejected by ledger: " <> rej
+                    log $ "command rejected by ledger: " <> rej
 
 
 ----------------------------------------------------------------------
 -- Manage updates in response to XTrans from the ledger
 
-manageUpdates :: Handle -> Player -> Mes -> MVar State -> IO (Stream XTrans)
-manageUpdates h player mes sv = do
+manageUpdates :: Handle -> Player -> Logger -> MVar State -> IO (Stream XTrans)
+manageUpdates h player log sv = do
     PF{past,future} <- Ledger.getTrans player h
     modifyMVar_ sv (\s -> return $ foldl Local.applyTransPureSimple s past)
-    _ <- forkIO (updateX mes sv future)
+    _ <- forkIO (updateX log sv future)
     return future
 
-updateX :: Mes -> MVar State -> Stream XTrans -> IO ()
-updateX mes sv stream = loop
+updateX :: Logger -> MVar State -> Stream XTrans -> IO ()
+updateX log sv stream = loop
   where
     loop = takeStream stream >>= \case
         Left Closed{} -> do
-            mes "transaction stream is closed"
+            log "transaction stream is closed"
             return () -- forked thread will terminate
         Right xt ->
-            do applyX mes sv xt; loop
+            do applyX log sv xt; loop
 
-applyX :: Mes -> MVar State -> XTrans -> IO ()
-applyX mes sv xt = do
+applyX :: Logger -> MVar State -> XTrans -> IO ()
+applyX log sv xt = do
     s <- takeMVar sv
-    --mes $ "xt: " <> show xt
+    --log $ "xt: " <> show xt
     (lts,s') <- either fail return (Local.applyTrans s xt)
-    mapM_ (\lt -> mes $ "lt: " <> show lt) lts -- TODO: improve message for "local trans"
+    mapM_ (\lt -> log $ "lt: " <> show lt) lts -- TODO: improve message for "local trans"
     putMVar sv s'
 
 
@@ -223,18 +223,18 @@ applyX mes sv xt = do
 
 runBotFor :: Handle -> Player -> IO ()
 runBotFor h player = do
-    ps <- makePlayerState h noMes player
-    _tid <- forkIO (robot h noMes ps)
+    ps <- makePlayerState h noLog player
+    _tid <- forkIO (robot h noLog ps)
     return ()
 
 
-robot :: Handle -> Mes -> PlayerState -> IO ()
-robot h mes ps = loop
+robot :: Handle -> Logger -> PlayerState -> IO ()
+robot h log ps = loop
   where
     loop = do
         sleep 2
-        mes "thinking..."
+        log "thinking..."
         let PlayerState{sv} = ps
         s <- readMVar sv
-        forM_ (Local.lookForAnAction s) (runSubmit h noMes ps) -- quiet!
+        forM_ (Local.lookForAnAction s) (runSubmit h noLog ps) -- quiet!
         loop
