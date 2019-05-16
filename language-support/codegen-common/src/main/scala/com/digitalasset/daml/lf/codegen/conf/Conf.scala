@@ -22,7 +22,8 @@ final case class Conf(
     darFiles: Map[Path, Option[String]] = Map(),
     outputDirectory: Path,
     decoderPkgAndClass: Option[(String, String)] = None,
-    verbosity: Level = Level.ERROR
+    verbosity: Level = Level.ERROR,
+    roots: List[String] = Nil
 )
 
 object Conf {
@@ -56,6 +57,11 @@ object Conf {
     opt[Level]('V', "verbosity")(readVerbosity)
       .action((l, c) => c.copy(verbosity = l))
       .text("Verbosity between 0 (only show errors) and 4 (show all messages) -- defaults to 0")
+
+    opt[String]('r', "root")(Read.stringRead)
+      .unbounded()
+      .action((rexp, c) => c.copy(roots = rexp :: c.roots))
+      .text("Regular expression for interesting templates")
 
     help("help").text("This help text")
 

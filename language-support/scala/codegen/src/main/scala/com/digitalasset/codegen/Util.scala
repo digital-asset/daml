@@ -7,12 +7,12 @@ import com.digitalasset.codegen.dependencygraph.{OrderedDependencies, TypeDeclOr
 import com.digitalasset.daml.lf.iface.{Type => IType, _}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-
 import java.io.File
 
 import scala.reflect.runtime.universe._
 import scala.collection.generic.CanBuildFrom
 import scala.collection.TraversableLike
+import scala.util.matching.Regex
 import scalaz.{Tree => _, _}
 import scalaz.std.list._
 
@@ -31,6 +31,8 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
   type TemplateInterface
 
   type RefType = TypeConNameOrPrimType
+
+  val roots: Seq[Regex] = Nil
 
   val iface: Interface
 

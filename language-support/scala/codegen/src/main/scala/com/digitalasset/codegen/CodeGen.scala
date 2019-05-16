@@ -59,12 +59,17 @@ object CodeGen {
   @throws[PackageInterfaceException](
     cause = "either decoding a package from a file or extracting" +
       " the package interface failed")
-  def generateCode(files: List[File], packageName: String, outputDir: File, mode: Mode): Unit =
+  def generateCode(
+      files: List[File],
+      packageName: String,
+      outputDir: File,
+      mode: Mode,
+      roots: Seq[String] = Seq()): Unit =
     files match {
       case Nil =>
         throw PackageInterfaceException("Expected at least one DAR or DALF input file.")
       case f :: fs =>
-        generateCodeSafe(NonEmptyList(f, fs: _*), packageName, outputDir, mode)
+        generateCodeSafe(NonEmptyList(f, fs: _*), packageName, outputDir, mode, roots)
           .fold(es => throw PackageInterfaceException(formatErrors(es)), identity)
     }
 
@@ -75,18 +80,20 @@ object CodeGen {
       files: NonEmptyList[File],
       packageName: String,
       outputDir: File,
-      mode: Mode): ValidationNel[String, Unit] =
+      mode: Mode,
+      roots: Seq[String]): ValidationNel[String, Unit] =
     decodeInterfaces(files).map { ifaces: NonEmptyList[EnvironmentInterface] =>
       val combinedIface: EnvironmentInterface = combineEnvInterfaces(ifaces)
-      packageInterfaceToScalaCode(util(mode, packageName, combinedIface, outputDir))
+      packageInterfaceToScalaCode(util(mode, packageName, combinedIface, outputDir, roots))
     }
 
   private def util(
       mode: Mode,
       packageName: String,
       iface: EnvironmentInterface,
-      outputDir: File): Util = mode match {
-    case Novel => LFUtil(packageName, iface, outputDir)
+      outputDir: File,
+      roots: Seq[String] = Seq()): Util = mode match {
+    case Novel => LFUtil(packageName, iface, outputDir, roots.map(_.r))
   }
 
   private def decodeInterfaces(

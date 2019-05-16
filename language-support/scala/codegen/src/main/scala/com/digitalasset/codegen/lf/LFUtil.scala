@@ -19,6 +19,7 @@ import iface.{
 import com.digitalasset.daml.lf.iface.reader.InterfaceType
 import java.io.File
 
+import scala.util.matching.Regex
 import scalaz._
 import scalaz.std.set._
 import scalaz.syntax.id._
@@ -39,7 +40,8 @@ object DefTemplateWithRecord {
 final case class LFUtil(
     override val packageName: String,
     override val iface: EnvironmentInterface,
-    override val outputDir: File)
+    override val outputDir: File,
+    override val roots: Seq[Regex])
     extends parent.Util(packageName, outputDir) {
 
   import scala.reflect.runtime.universe._
