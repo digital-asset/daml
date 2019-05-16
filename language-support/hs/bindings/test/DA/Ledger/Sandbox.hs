@@ -9,13 +9,12 @@ module DA.Ledger.Sandbox ( -- Run a sandbox for testing on a dynamically selecte
     withSandbox
     ) where
 
-import Control.Monad (when)
-import Control.Exception (Exception, bracket, evaluate, onException, throw)
+import Control.Monad(when)
+import Control.Exception (bracket, evaluate, onException)
 import DA.Ledger (Port (..), unPort)
 import Data.List (isInfixOf)
-import Data.List.Split (splitOn)
+import Data.List.Extra(splitOn)
 import GHC.IO.Handle (Handle, hGetLine)
-import Prelude hiding (log)
 import System.IO (hFlush, stdout)
 import System.Process (CreateProcess (..), ProcessHandle, StdStream (CreatePipe), createProcess, getPid, interruptProcessGroupOf, proc, waitForProcess)
 import System.Time.Extra (Seconds, timeout)
@@ -42,16 +41,16 @@ startSandboxProcess spec = do
         create_group = True  -- To avoid sending INT to ourself
         }
     pid <- getPid proh
-    log $ "Sandbox process started, pid = " <> show pid
+    trace $ "Sandbox process started, pid = " <> show pid
     return (proh,hOutOpt)
 
 shutdownSandboxProcess :: ProcessHandle -> IO ()
 shutdownSandboxProcess proh = do
     pidOpt <- getPid proh
-    log $ "Sending INT to sandbox process: " <> show pidOpt
+    trace $ "Sending INT to sandbox process: " <> show pidOpt
     interruptProcessGroupOf proh
-    x <- timeoutError 10 "Sandbox process didn't exit" (waitForProcess proh)
-    log $ "Sandbox process exited with: " <> show x
+    x <- timeoutError 30 "Sandbox process didn't exit" (waitForProcess proh)
+    trace $ "Sandbox process exited with: " <> show x
     return ()
 
 parsePortFromListeningLine :: String -> IO Port
@@ -70,7 +69,7 @@ getListeningLine :: Handle -> IO String
 getListeningLine h = loop where
     loop = do
         line <- hGetLine h
-        when (interestingLineFromSandbox line) $ log $ "SANDBOX: " <> line
+        when (interestingLineFromSandbox line) $ trace $ "SANDBOX: " <> line
         if "listening" `isInfixOf` line
             then return line
             else if "initialization error" `isInfixOf` line
@@ -80,18 +79,18 @@ getListeningLine h = loop where
 discoverListeningPort :: Maybe Handle -> IO Port
 discoverListeningPort hOpt = do
     Just h <- return hOpt
-    log "Looking for sandbox listening port..."
+    trace "Looking for sandbox listening port..."
     line <- getListeningLine h
     port <- parsePortFromListeningLine line
-        `onException` log ("Failed to parse listening port from: " <> show line)
-    log $ "Sandbox listening on port: " <> show (unPort port)
+        `onException` trace ("Failed to parse listening port from: " <> show line)
+    trace $ "Sandbox listening on port: " <> show (unPort port)
     return port
 
 startSandbox :: SandboxSpec-> IO Sandbox
 startSandbox spec = do
     (proh,hOpt) <-startSandboxProcess spec
     port <-
-        timeoutError 10 "Didn't discover sandbox port" (discoverListeningPort hOpt)
+        timeoutError 30 "Didn't discover sandbox port" (discoverListeningPort hOpt)
         `onException` shutdownSandboxProcess proh
     return Sandbox { port, proh }
 
@@ -100,21 +99,17 @@ shutdownSandbox Sandbox{proh} = do shutdownSandboxProcess proh
 
 withSandbox :: SandboxSpec -> (Sandbox -> IO a) -> IO a
 withSandbox spec f =
-    bracket (startSandbox spec)
+    bracket (startSandbox spec) -- TODO: too long to backet over? (masks C-c ?)
     shutdownSandbox
     f
-
-data Timeout = Timeout String deriving Show
-instance Exception Timeout
 
 timeoutError :: Seconds -> String -> IO a -> IO a
 timeoutError n tag io =
     timeout n io >>= \case
         Just x -> return x
         Nothing -> do
-            log $ "Timeout: " <> tag <> ", after " <> show n <> " seconds."
-            throw (Timeout tag)
+            fail $ "Timeout: " <> tag <> ", after " <> show n <> " seconds."
 
-_log,log :: String -> IO ()
-_log s = do putStr ("\n["<>s<>"]"); hFlush stdout -- debugging
-log _ = return ()
+_trace,trace :: String -> IO ()
+_trace s = do putStr ("\n["<>s<>"]"); hFlush stdout -- debugging
+trace _ = return ()

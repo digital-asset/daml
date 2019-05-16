@@ -29,11 +29,13 @@ java_test_suite(
     strip = "src/test/java/",
     deps = [
         ":sandbox-control",
-        "//3rdparty/jvm/com/github/stefanbirkner:system_rules",
+        # junit needs to be listed before system_rules to avoid failure due to
+        # classpath pollution.
         "//3rdparty/jvm/junit",
-        "//3rdparty/jvm/org/hamcrest:hamcrest_all",
         "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_api",
         "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_engine",
         "//3rdparty/jvm/org/junit/platform:junit_platform_runner",
+        "//3rdparty/jvm/com/github/stefanbirkner:system_rules",
+        "//3rdparty/jvm/org/hamcrest:hamcrest_all",
     ],
 )

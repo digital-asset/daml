@@ -73,6 +73,7 @@ data Command
         createArgs :: Record,
         choice     :: Choice,
         choiceArg  :: Value }
+    deriving Show
 
 -- completion.proto
 
@@ -80,6 +81,7 @@ data Completion
     = Completion {
         cid    :: CommandId,
         status :: Status }
+    deriving Show
 
 -- transaction.proto
 
@@ -90,7 +92,7 @@ data WIP_Transaction
         wid    :: Maybe WorkflowId,
         leTime :: Timestamp,
         events :: [Event],
-        ofset  :: AbsOffset }
+        ofset  :: AbsOffset } deriving Show
 
 -- event.proto
 
@@ -118,7 +120,7 @@ data Event
         acting    :: [Party],
         consuming :: Bool,
         witness   :: [Party],
-        childEids :: [EventId] }
+        childEids :: [EventId] } deriving Show
 
 -- value.proto
 
@@ -128,7 +130,7 @@ data Value
     | VContract ContractId
     | VList [Value]
     | VInt Int
-    | VDecimal Text -- TODO: why not Int?
+    | VDecimal Text -- TODO: Maybe use Haskell Decimal type
     | VString Text
     | VTimestamp MicroSecondsSinceEpoch
     | VParty Party
@@ -137,63 +139,66 @@ data Value
     | VDate DaysSinceEpoch
     | VOpt (Maybe Value)
     | VMap (Map Text Value)
+    deriving Show
 
 data Record
     = Record {
         rid    :: Maybe Identifier,
-        fields :: [RecordField] }
+        fields :: [RecordField] } deriving Show
 
 data RecordField
     = RecordField {
         label :: Text,
-        value :: Value }
+        value :: Value } deriving Show
 
 data Variant
     = Variant {
         vid         :: VariantId,
         constructor :: ConstructorId,
-        value       :: Value }
+        value       :: Value } deriving Show
 
 data Identifier
     = Identifier {
         pid :: PackageId,
         mod :: ModuleName,
-        ent :: EntityName }
+        ent :: EntityName } deriving Show
 
-newtype MicroSecondsSinceEpoch = MicroSecondsSinceEpoch Int
-newtype DaysSinceEpoch = DaysSinceEpoch Int
+newtype MicroSecondsSinceEpoch = MicroSecondsSinceEpoch Int deriving Show-- TODO: Int64?
+newtype DaysSinceEpoch = DaysSinceEpoch Int  deriving Show
 
 data Timestamp
     = Timestamp {
-        seconds :: Integer,
-        nanos   :: Integer }
+        seconds :: Integer, -- TODO: Int64?
+        nanos   :: Integer }  deriving Show
 
-data Status -- TODO: from standard google proto, determining success/failure
+data Status = Status-- TODO: from standard google proto, determining success/failure
+ deriving Show
 
 newtype TemplateId = TemplateId Identifier
+    deriving Show
 
 newtype LedgerId = LedgerId { unLedgerId :: Text } deriving Show
 
 -- Text wrappers
-newtype TransactionId = TransactionId { unTransactionId :: Text }
-newtype EventId = EventId { unEventId :: Text }
-newtype ContractId = ContractId { unContractId :: Text }
-newtype WorkflowId = WorkflowId { unWorkflowId :: Text }
+newtype TransactionId = TransactionId { unTransactionId :: Text } deriving Show
+newtype EventId = EventId { unEventId :: Text } deriving Show
+newtype ContractId = ContractId { unContractId :: Text } deriving Show
+newtype WorkflowId = WorkflowId { unWorkflowId :: Text } deriving Show
 newtype ApplicationId = ApplicationId { unApplicationId :: Text } deriving Show
-newtype CommandId = CommandId { unCommandId :: Text }
-newtype PackageId = PackageId { unPackageId :: Text }
-newtype ConstructorId = ConstructorId { unConstructorId :: Text }
-newtype VariantId = VariantId { unVariantId :: Text }
+newtype CommandId = CommandId { unCommandId :: Text } deriving (Show,Eq)
+newtype PackageId = PackageId { unPackageId :: Text } deriving Show
+newtype ConstructorId = ConstructorId { unConstructorId :: Text } deriving Show
+newtype VariantId = VariantId { unVariantId :: Text } deriving Show
 
-newtype Choice = Choice { unChoice :: Text }
+newtype Choice = Choice { unChoice :: Text } deriving Show
 
 newtype Party = Party { unParty :: Text }
 instance Show Party where show = Text.unpack . unParty
 
-newtype ModuleName = ModuleName { unModuleName :: Text }
-newtype EntityName = EntityName { unEntityName :: Text }
+newtype ModuleName = ModuleName { unModuleName :: Text } deriving Show
+newtype EntityName = EntityName { unEntityName :: Text } deriving Show
 
-newtype AbsOffset = AbsOffset { unAbsOffset :: Text } -- TODO: why not an int?
+newtype AbsOffset = AbsOffset { unAbsOffset :: Text }  deriving Show -- TODO: why not an int?
 
 -- TODO: .proto message types now yet handled
 {-

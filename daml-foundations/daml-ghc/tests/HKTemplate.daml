@@ -1,7 +1,6 @@
 -- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
--- @IGNORE-LF 1.0
--- @IGNORE-LF 1.1
+-- @SINCE-LF 1.2
 
 {-# LANGUAGE FlexibleContexts #-}
 
