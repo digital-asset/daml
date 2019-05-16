@@ -1,3 +1,6 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 
 -- Simulate a ledger
 -- Accepting commands, and feeding back the resultant transitions
