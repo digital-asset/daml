@@ -148,11 +148,12 @@ Ledger
   `#1166 <https://github.com/digital-asset/daml/issues/1166>`_.
 - Contract visibility is now properly checked when looking up contracts in the SQL backend, see
   `#784 <https://github.com/digital-asset/daml/issues/784>`_.
+- The sandbox now exposes the :ref:`agreement text <daml-ref-agreements>` of contracts in :ref:`CreatedEvents <com.digitalasset.ledger.api.v1.CreatedEvent>`. See `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
 
 Navigator
 ~~~~~~~~~
 
-- Non-empty agreement texts are now shown on the contract page above the section ``Contract details``. See `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
+- Non-empty :ref:`agreement texts <daml-ref-agreements>` are now shown on the contract page above the section ``Contract details``, see `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
 
 .. _release-0-12-17:
 
