@@ -30,6 +30,7 @@ da_haskell_library(
         "managed",
         "monad-control",
         "mtl",
+        "optparse-applicative",
         "pretty-show",
         "pretty",
         "random",

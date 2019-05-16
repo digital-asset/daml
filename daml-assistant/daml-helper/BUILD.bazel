@@ -40,10 +40,12 @@ da_haskell_binary(
     srcs = ["src/Main.hs"],
     hazel_deps = [
         "base",
-        "optparse-applicative",
     ],
     visibility = ["//visibility:public"],
-    deps = [":daml-helper-lib"],
+    deps = [
+        ":daml-helper-lib",
+        "//libs-haskell/da-hs-base",
+    ],
 )
 
 package_app(

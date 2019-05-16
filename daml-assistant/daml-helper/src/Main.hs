@@ -3,7 +3,7 @@
 module Main (main) where
 
 import Data.Foldable
-import Options.Applicative
+import Options.Applicative.Extended
 
 import DamlHelper
 
@@ -17,7 +17,7 @@ data Command
     | New { targetFolder :: FilePath, templateName :: String }
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
-    | Start
+    | Start { openBrowser :: OpenBrowser }
 
 commandParser :: Parser Command
 commandParser =
@@ -45,7 +45,7 @@ commandParser =
                   <*> argument str (metavar "TEMPLATE" <> help "Name of the template used to create the project (default: skeleton)" <> value "skeleton")
               ]
           initCmd = Init <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
-          startCmd = pure Start
+          startCmd = Start . OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser automatically and point it to navigator."
           readReplacement :: ReadM ReplaceExtension
           readReplacement = maybeReader $ \case
               "never" -> Just ReplaceExtNever
@@ -60,5 +60,4 @@ runCommand RunJar {..} = runJar jarPath remainingArguments
 runCommand New {..} = runNew targetFolder templateName
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
-runCommand Start = runStart
-
+runCommand Start {..} = runStart openBrowser
