@@ -143,7 +143,7 @@ Utility services
 Package service
 ===============
 
-Use the **package service** to obtain information about DAML packages available on the server.
+Use the **package service** to obtain information about DAML packages available on the ledger.
 
 This is useful for obtaining type and metadata information that allow you to interpret event data in a more useful way.
 
@@ -154,7 +154,7 @@ For full details, see :ref:`the proto documentation for the service <com.digital
 Ledger identity service
 =======================
 
-Use the **ledger identity service** to get the identity string of the ledger that it is connected to.
+Use the **ledger identity service** to get the identity string of the ledger that your application is connected to.
 
 You need to include this identity string when submitting commands. Commands with an incorrect identity string are rejected.
 
