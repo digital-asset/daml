@@ -49,7 +49,7 @@ shutdownSandboxProcess proh = do
     pidOpt <- getPid proh
     trace $ "Sending INT to sandbox process: " <> show pidOpt
     interruptProcessGroupOf proh
-    x <- timeoutError 10 "Sandbox process didn't exit" (waitForProcess proh)
+    x <- timeoutError 30 "Sandbox process didn't exit" (waitForProcess proh)
     trace $ "Sandbox process exited with: " <> show x
     return ()
 
@@ -90,7 +90,7 @@ startSandbox :: SandboxSpec-> IO Sandbox
 startSandbox spec = do
     (proh,hOpt) <-startSandboxProcess spec
     port <-
-        timeoutError 10 "Didn't discover sandbox port" (discoverListeningPort hOpt)
+        timeoutError 30 "Didn't discover sandbox port" (discoverListeningPort hOpt)
         `onException` shutdownSandboxProcess proh
     return Sandbox { port, proh }
 

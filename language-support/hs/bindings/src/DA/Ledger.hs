@@ -29,6 +29,7 @@ module DA.Ledger( -- WIP: High level interface to the Ledger API services
 import DA.Ledger.Types
 
 import Control.Concurrent
+import Control.Exception (Exception,SomeException,catch,throwIO)
 import Control.Monad.Fix (fix)
 import qualified Data.Map as Map(empty,singleton)
 import qualified Data.Text.Lazy as Text(unpack)
@@ -46,12 +47,12 @@ identity :: LedgerHandle -> LedgerId
 identity LedgerHandle{lid} = lid
 
 connect :: Port -> IO LedgerHandle
-connect port = do
+connect port = wrapE "connect" $ do
     lid <- getLedgerIdentity port
     return $ LedgerHandle {port, lid}
 
 getLedgerIdentity :: Port -> IO LedgerId
-getLedgerIdentity port = do
+getLedgerIdentity port = wrapE "getLedgerIdentity" $ do
     let request = GetLedgerIdentityRequest noTrace
     LL.withGRPCClient (config port) $ \client -> do
         service <- LL.ledgerIdentityServiceClient client
@@ -61,7 +62,7 @@ getLedgerIdentity port = do
         return $ LedgerId text
 
 listPackages :: LedgerHandle -> IO [PackageId]
-listPackages LedgerHandle{port,lid}  = do
+listPackages LedgerHandle{port,lid} = wrapE "listPackages" $ do
     LL.withGRPCClient (config port) $ \client -> do
         service <- LL.packageServiceClient client
         let PackageService rpc1 _ _ = service
@@ -73,7 +74,7 @@ listPackages LedgerHandle{port,lid}  = do
 data Package = Package LF.Package deriving Show
 
 getPackage :: LedgerHandle -> PackageId -> IO Package
-getPackage LedgerHandle{port,lid} pid = do
+getPackage LedgerHandle{port,lid} pid = wrapE "getPackage" $ do
     let request = GetPackageRequest (unLedgerId lid) (unPackageId pid) noTrace
     LL.withGRPCClient (config port) $ \client -> do
         service <- LL.packageServiceClient client
@@ -86,7 +87,7 @@ getPackage LedgerHandle{port,lid} pid = do
             Right package -> return (Package package)
 
 submitCommands :: LedgerHandle -> Commands -> IO ()
-submitCommands LedgerHandle{port} commands = do
+submitCommands LedgerHandle{port} commands = wrapE "submitCommands" $ do
     let request = SubmitRequest (Just (lowerCommands commands)) noTrace
     LL.withGRPCClient (config port) $ \client -> do
         service <- LL.commandSubmissionServiceClient client
@@ -95,8 +96,8 @@ submitCommands LedgerHandle{port} commands = do
         Empty{} <- unwrap response
         return ()
 
-timeout :: Int --Seconds
-timeout = 3 -- TODO: sensible default? user configuarable?
+timeout :: Int -- Seconds
+timeout = 30 -- TODO: sensible default? user configuarable?
 
 unwrap :: ClientResult 'Normal a -> IO a
 unwrap = \case
@@ -158,7 +159,7 @@ instance Show LL_Transaction where
 
 -- TODO: return (HL) [Transaction]
 transactions :: LedgerHandle -> Party -> IO (Stream LL_Transaction)
-transactions LedgerHandle{port,lid} party = do
+transactions LedgerHandle{port,lid} party = wrapE "transactions" $ do
     stream <- newStream
     let request = mkGetTransactionsRequest lid offsetBegin Nothing (filterEverthingForParty party)
     _ <- forkIO $ --TODO: dont use forkIO
@@ -172,7 +173,7 @@ transactions LedgerHandle{port,lid} party = do
 
 -- TODO: return (HL) [Completion]
 completions :: LedgerHandle -> ApplicationId -> [Party] -> IO (Stream LL.Completion)
-completions LedgerHandle{port,lid} aid partys = do
+completions LedgerHandle{port,lid} aid partys = wrapE "completions" $ do
     stream <- newStream
     let request = mkCompletionStreamRequest lid aid partys
     _ <- forkIO $ --TODO: dont use forkIO
@@ -248,3 +249,10 @@ noFilters = Filters Nothing
 
 noTrace :: Maybe TraceContext
 noTrace = Nothing
+
+
+data LedgerApiException = LedgerApiException { tag :: String, underlying :: SomeException } deriving Show
+instance Exception LedgerApiException
+
+wrapE :: String -> IO a -> IO a
+wrapE tag io = io `catch` \e -> throwIO (LedgerApiException {tag,underlying=e})
