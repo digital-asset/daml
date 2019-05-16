@@ -25,6 +25,8 @@ final case class Offset(private val xs: Array[Long]) extends Ordered[Offset] {
     // It is safe to concatenate number and "-" to obtain a valid transactionId
     Ref.LedgerString.assertFromString(components.mkString("-"))
 
+  override def toString: String = toLedgerString
+
   def components: Iterable[Long] = xs
 
   override def equals(that: Any): Boolean = that match {

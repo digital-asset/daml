@@ -13,6 +13,14 @@ import com.daml.ledger.participant.state.index.v1.{
   ActiveContractSetSnapshot,
   ActiveContractsService
 }
+import com.daml.ledger.participant.state.v1.{SubmittedTransaction => _, _}
+import com.digitalasset.daml.lf.data.Ref.{LedgerId, LedgerString, Party, TransactionId}
+import com.digitalasset.daml.lf.engine.Blinding
+import com.daml.ledger.participant.state.index.v1.{
+  AcsUpdateEvent,
+  ActiveContractSetSnapshot,
+  ActiveContractsService
+}
 import com.daml.ledger.participant.state.v1.{
   Party => _,
   SubmittedTransaction => _,
@@ -55,7 +63,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
         ac: ActiveContracts.ActiveContract): Boolean = {
       // ^ only parties disclosed or divulged to can lookup; see https://github.com/digital-asset/daml/issues/10
       // and https://github.com/digital-asset/daml/issues/751 .
-      Ref.Party fromString submitter exists (p => ac.witnesses(p) || ac.divulgences.contains(p))
+      Party fromString submitter exists (p => ac.witnesses(p) || ac.divulgences.contains(p))
     }
 
     override def lookupActiveContract(submitter: Party, contractId: Value.AbsoluteContractId)
@@ -110,10 +118,13 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
                     .toList
               }
           )
+          (LedgerString.fromLong(offset), acsStream.map {
+            case (cid, ac) => toSyncActiveContract(cid, ac)
+          })
       }(mat.executionContext)
 
   override def getCurrentLedgerEnd: Future[LedgerSyncOffset] =
-    Future.successful(Ref.LedgerString.fromLong(ledger.ledgerEnd))
+    Future.successful(LedgerString.fromLong(ledger.ledgerEnd))
 
   private def toUpdateEvent(
       id: Value.AbsoluteContractId,
@@ -140,13 +151,13 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
           commandId,
           submitter,
           rejectionReason,
-          Ref.LedgerString.fromLong(offset),
+          LedgerString.fromLong(offset),
           Some(applicationId))
       case t: LedgerEntry.Transaction => toAcceptedTransaction(offset, t)
       case LedgerEntry.Checkpoint(recordedAt) =>
         Heartbeat(
           recordedAt,
-          Ref.LedgerString.fromLong(offset)
+          LedgerString.fromLong(offset)
         )
     }
 
@@ -169,7 +180,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
         Some(submittingParty),
         ledgerEffectiveTime,
         recordedAt,
-        Ref.LedgerString.fromLong(offset),
+        LedgerString.fromLong(offset),
         workflowId,
         explicitDisclosure,
         Some(applicationId),

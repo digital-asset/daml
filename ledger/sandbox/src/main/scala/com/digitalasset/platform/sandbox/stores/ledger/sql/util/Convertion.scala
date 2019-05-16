@@ -39,4 +39,3 @@ object Convertion {
     else Some(Ref.LedgerString.assertFromString(s))
 
 }
-

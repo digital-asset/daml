@@ -99,8 +99,8 @@ class SubmitRequestValidatorTest
       "not allow missing ledgerId" in {
         requestMustFailWith(
           commandsValidator.validateCommands(api.commands.withLedgerId("")),
-          NOT_FOUND,
-          "Ledger ID '' not found. Actual Ledger ID is 'ledger-id'.")
+          INVALID_ARGUMENT,
+          "Missing field: leger_id")
       }
 
       "tolerate a missing workflowId" in {
@@ -128,7 +128,7 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(api.commands.withParty("")),
           INVALID_ARGUMENT,
-          """Invalid field party: string "" does not match regex "[a-zA-Z0-9\-_ ]+""""
+          """Missing field: party"""
         )
       }
 

@@ -65,8 +65,8 @@ class DamlOnXActiveContractsService private (
                       createEvent,
                       request.verbose).toList
                 }
-                .concat(
-                  Source.single(GetActiveContractsResponse(offset = snapshot.takenAt.toString)))
+                .concat(Source.single(
+                  GetActiveContractsResponse(offset = snapshot.takenAt.toLedgerString)))
             }
 
         }

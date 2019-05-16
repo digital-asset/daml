@@ -134,7 +134,7 @@ da_scala_test(
     ],
     scalacopts = ["-Xsource:2.13"],
     deps = test_dependencies + [
-         "//daml-lf/data",
+        "//daml-lf/data",
         "//3rdparty/jvm/com/typesafe/akka:akka_stream_testkit",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge:rs-grpc-bridge",

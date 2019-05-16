@@ -19,4 +19,3 @@ package object ledger {
   type EventId = LedgerString
 
 }
-

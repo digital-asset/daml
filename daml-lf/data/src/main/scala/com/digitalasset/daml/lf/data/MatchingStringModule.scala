@@ -48,9 +48,10 @@ object MatchingStringModule {
 
 }
 
-/** ConcatenableMatchingString are non empty US-ASCII strings built with letters, digits, and some extra characters.
-    We use them to represent some identifiers. In this way, we avoid
-    empty identifiers, escaping problems, and other similar pitfalls.
+/** ConcatenableMatchingString are non empty US-ASCII strings built with letters, digits,
+  * and some other (parameterizable) extra characters.
+  * We use them to represent identifiers. In this way, we avoid
+  * empty identifiers, escaping problems, and other similar pitfalls.
   */
 sealed abstract class ConcatenableMatchingStringModule extends StringModule {
 
@@ -73,7 +74,8 @@ object ConcatenableMatchingStringModule {
 
   def apply(
       extraChars: Char => Boolean,
-      maxLength: Int = Int.MaxValue): ConcatenableMatchingStringModule =
+      maxLength: Int = Int.MaxValue
+  ): ConcatenableMatchingStringModule =
     new ConcatenableMatchingStringModule {
       type T = String
 

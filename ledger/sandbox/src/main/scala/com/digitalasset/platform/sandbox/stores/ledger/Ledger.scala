@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.data.Ref.{LedgerId, TransactionId}
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.backend.api.v1.{TransactionId, TransactionSubmission}
+import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory

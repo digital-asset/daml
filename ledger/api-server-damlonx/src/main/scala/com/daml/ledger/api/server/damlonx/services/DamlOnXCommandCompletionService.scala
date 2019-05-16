@@ -92,7 +92,7 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
                 Some(
                   Checkpoint(
                     Some(fromInstant(recordTime.toInstant)), // FIXME(JM): conversion
-                    Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
+                    Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toLedgerString)))))
               )
           }
       }
@@ -100,8 +100,10 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
 
   override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =
     indexService.getLedgerEnd
-      .map(offset =>
-        CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
+      .map(
+        offset =>
+          CompletionEndResponse(
+            Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toLedgerString)))))
 
   private def toCompletion(commandId: String, error: RejectionReason): Completion = {
     val code = error match {

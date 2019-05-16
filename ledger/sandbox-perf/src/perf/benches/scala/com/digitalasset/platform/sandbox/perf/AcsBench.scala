@@ -26,7 +26,7 @@ class AcsBench extends TestCommands with InfAwait {
       template: Identifier): SubmitAndWaitRequest = {
     buildRequest(
       ledgerId = ledgerId,
-      commandId = s"command-id-exercise-$sequenceNumber'",
+      commandId = s"command-id-exercise-$sequenceNumber",
       commands = Seq(exerciseWithUnit(template, contractId, "DummyChoice1")),
       appId = "app1"
     ).toSync

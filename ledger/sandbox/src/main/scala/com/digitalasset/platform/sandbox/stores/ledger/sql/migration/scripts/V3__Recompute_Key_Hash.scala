@@ -14,6 +14,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   KeyHasher,
   ValueSerializer
 }
+import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Convertion._
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 class V3__Recompute_Key_Hash extends BaseJavaMigration {
@@ -50,7 +51,8 @@ class V3__Recompute_Key_Hash extends BaseJavaMigration {
       var hasNext: Boolean = rows.next()
 
       def next(): (AbsoluteContractId, GlobalKey) = {
-        val contractId = AbsoluteContractId(rows.getString("contract_id"))
+        val contractId = AbsoluteContractId(
+          Ref.LedgerString.assertFromString(rows.getString("contract_id")))
         val packageId = Ref.PackageId.assertFromString(rows.getString("package_id"))
         val templateName = rows.getString("template_name")
         val templateId = Ref.Identifier(packageId, Ref.QualifiedName.assertFromString(templateName))

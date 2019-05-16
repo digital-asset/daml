@@ -82,7 +82,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
 
   private implicit val ec: ExecutionContext = mat.executionContext
 
-  val ledgerId = LedgerName.assertFromString(UUID.randomUUID.toString)
+  val ledgerId = LedgerString.assertFromString(UUID.randomUUID.toString)
 
   // The ledger configuration
   private val ledgerConfig = Configuration(timeModel = TimeModel.reasonableDefault)

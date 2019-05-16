@@ -97,7 +97,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       implicit connection: Connection): Boolean =
     SQL_INSERT_CONTRACT_KEY
       .on(
-        "package_id" -> (key.templateId.packageId: String),
+        "package_id" -> key.templateId.packageId,
         "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHasher.hashKeyString(key),
         "contract_id" -> cid.coid
@@ -107,7 +107,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private[this] def removeContractKey(key: GlobalKey)(implicit connection: Connection): Boolean =
     SQL_REMOVE_CONTRACT_KEY
       .on(
-        "package_id" -> (key.templateId.packageId: String),
+        "package_id" -> key.templateId.packageId,
         "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHasher.hashKeyString(key)
       )
@@ -161,7 +161,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
               "id" -> c.contractId.coid,
               "transaction_id" -> c.transactionId,
               "workflow_id" -> c.workflowId.getOrElse(""),
-              "package_id" -> (c.coinst.template.packageId: String),
+              "package_id" -> c.coinst.template.packageId,
               "name" -> c.coinst.template.qualifiedName.toString,
               "create_offset" -> offset,
               "contract" -> contractSerializer
@@ -190,7 +190,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
               w =>
                 Seq[NamedParameter](
                   "contract_id" -> c.contractId.coid,
-                  "witness" -> (w: String)
+                  "witness" -> w
               ))
         )
         .toArray
@@ -263,7 +263,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
                     p =>
                       Seq[NamedParameter](
                         "contract_id" -> c.contractId.coid,
-                        "maintainer" -> (p: String)
+                        "maintainer" -> p
                     )))
               .getOrElse(Set.empty)
         )
