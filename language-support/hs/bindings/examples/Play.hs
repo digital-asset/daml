@@ -25,12 +25,12 @@ main = do
     let lid = Ledger.identity h
     putStrLn $ "LedgerIdentity = " <> show lid
 
-    aliceTs <- Ledger.getTransactionStream h alice
-    bobTs <- Ledger.getTransactionStream h bob
+    aliceTs <- Ledger.transactions h alice
+    bobTs <- Ledger.transactions h bob
     watch (show alice) aliceTs
     watch (show bob) bobTs
 
-    cs <- Ledger.getCompletionStream h myAid [alice,bob]
+    cs <- Ledger.completions h myAid [alice,bob]
     watch "completions" cs
 
     sleep 1
@@ -82,9 +82,9 @@ myAid = ApplicationId "<my-application>"
 randomCid :: IO CommandId
 randomCid = do fmap (CommandId . Text.pack . UUID.toString) randomIO
 
-watch :: Show a => String -> ResponseStream a -> IO ()
+watch :: Show a => String -> Stream a -> IO ()
 watch tag rs = void $ forkIO $ loop (1::Int)
     where loop n = do
-              x <- nextResponse rs
+              x <- takeStream rs
               putStrLn $ tag <> "(" <> show n <> ") = " <> show x
               loop (n+1)
