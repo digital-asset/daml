@@ -3,73 +3,73 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-*           @digital-asset/daml
+*           @digital-asset/empty
 CODEOWNERS  @bitonic @neil-da @hurryabit @cbaatz-da
-VERSION     @digital-asset/daml
+VERSION     @digital-asset/empty
 
 # Build / CI / environment
-/3rdparty/          @digital-asset/daml
-/bazel_tools/       @digital-asset/daml
-/build-scripts/     @digital-asset/daml
-/ci/                @digital-asset/daml
-/dev-env/           @digital-asset/daml
-/dotfiles/          @digital-asset/daml
-/hazel/             @digital-asset/daml
-/nix/               @digital-asset/daml
-/infra/             @digital-asset/daml
-/rattle/            @digital-asset/daml
-/replacements/      @digital-asset/daml
-/rules_daml/        @digital-asset/daml
-BAZEL-JVM.md        @digital-asset/daml
-BAZEL-haskell.md    @digital-asset/daml
-BAZEL.md            @digital-asset/daml
-BUILD               @digital-asset/daml
-WORKSPACE           @digital-asset/daml
-azure-pipelines.yml @digital-asset/daml
-build.ps1           @digital-asset/daml
-build.sh            @digital-asset/daml
-deps.bzl            @digital-asset/daml
+/3rdparty/          @digital-asset/empty
+/bazel_tools/       @digital-asset/empty
+/build-scripts/     @digital-asset/empty
+/ci/                @digital-asset/empty
+/dev-env/           @digital-asset/empty
+/dotfiles/          @digital-asset/empty
+/hazel/             @digital-asset/empty
+/nix/               @digital-asset/empty
+/infra/             @digital-asset/empty
+/rattle/            @digital-asset/empty
+/replacements/      @digital-asset/empty
+/rules_daml/        @digital-asset/empty
+BAZEL-JVM.md        @digital-asset/empty
+BAZEL-haskell.md    @digital-asset/empty
+BAZEL.md            @digital-asset/empty
+BUILD               @digital-asset/empty
+WORKSPACE           @digital-asset/empty
+azure-pipelines.yml @digital-asset/empty
+build.ps1           @digital-asset/empty
+build.sh            @digital-asset/empty
+deps.bzl            @digital-asset/empty
 
 # Language
-/compiler/          @digital-asset/daml
-/daml-foundations/  @digital-asset/daml
-/libs-haskell/      @digital-asset/daml
-/ghc-lib/           @digital-asset/daml
+/compiler/          @digital-asset/empty
+/daml-foundations/  @digital-asset/empty
+/libs-haskell/      @digital-asset/empty
+/ghc-lib/           @digital-asset/empty
 
 # SDK
-/release/           @digital-asset/daml
-/sdk/               @digital-asset/daml
-/da-assistant/      @digital-asset/daml
-/daml-assistant/    @digital-asset/daml
-/templates/         @digital-asset/daml
+/release/           @digital-asset/empty
+/sdk/               @digital-asset/empty
+/da-assistant/      @digital-asset/empty
+/daml-assistant/    @digital-asset/empty
+/templates/         @digital-asset/empty
 
 # Runtime
-/daml-lf/           @digital-asset/daml
-/ledger/            @digital-asset/daml
-/ledger-api/        @digital-asset/daml
+/daml-lf/           @digital-asset/empty
+/ledger/            @digital-asset/empty
+/ledger-api/        @digital-asset/empty
 
 # Ecosystems
-/language-support/          @digital-asset/daml
-/language-support/java/     @digital-asset/daml
-/language-support/js/       @digital-asset/daml
-/language-support/scala/    @digital-asset/daml
-/scala-protoc-plugins/      @digital-asset/daml
+/language-support/          @digital-asset/empty
+/language-support/java/     @digital-asset/empty
+/language-support/js/       @digital-asset/empty
+/language-support/scala/    @digital-asset/empty
+/scala-protoc-plugins/      @digital-asset/empty
 
 # Tools
-/extractor/         @digital-asset/daml
-/navigator/         @digital-asset/daml
-/web-ide/           @digital-asset/daml
+/extractor/         @digital-asset/empty
+/navigator/         @digital-asset/empty
+/web-ide/           @digital-asset/empty
 
 # Misc
-/docs/              @digital-asset/daml
-/notices-gen/       @digital-asset/daml
-/oss-compliance/    @digital-asset/daml
+/docs/              @digital-asset/empty
+/notices-gen/       @digital-asset/empty
+/oss-compliance/    @digital-asset/empty
 
-CHANGELOG           @digital-asset/daml
-CODE_OF_CONDUCT.md  @digital-asset/daml
-CONTRIBUTING.md     @digital-asset/daml
-COPY                @digital-asset/daml
-LICENSE             @digital-asset/daml
-NOTICES             @digital-asset/daml
-README.md           @digital-asset/daml
-daml-logo.png       @digital-asset/daml
+CHANGELOG           @digital-asset/empty
+CODE_OF_CONDUCT.md  @digital-asset/empty
+CONTRIBUTING.md     @digital-asset/empty
+COPY                @digital-asset/empty
+LICENSE             @digital-asset/empty
+NOTICES             @digital-asset/empty
+README.md           @digital-asset/empty
+daml-logo.png       @digital-asset/empty
