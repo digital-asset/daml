@@ -212,6 +212,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         ApiServices
           .create(
             config,
+            ledgerBackend, //for now these are doubled, but we will end up with write and index service in the end
             ledgerBackend,
             SandboxServer.engine,
             timeProvider,
@@ -220,7 +221,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
                 TimeServiceBackend.withObserver(
                   _,
                   ledger.publishHeartbeat
-                )))(am, esf)
+                ))
+          )(am, esf)
           .withServices(List(resetService)),
       // NOTE(JM): Re-use the same port after reset.
       Option(sandboxState).fold(config.port)(_.apiServerState.port),

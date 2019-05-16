@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.v1
 
+import scala.concurrent.Future
+
 /** An interface to change a ledger via a participant.
   *
   * The methods in this interface are all methods that are supported
@@ -89,9 +91,10 @@ trait WriteService {
     *   transaction id.
     *
     */
+  //TODO: update docs
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): Unit
+      transaction: SubmittedTransaction): Future[SubmissionResult]
 
 }

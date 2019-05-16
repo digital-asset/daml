@@ -6,7 +6,14 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.v1.{
+  Party => _,
+  SubmittedTransaction => _,
+  TransactionId => _,
+  _
+}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
@@ -21,7 +28,10 @@ import com.digitalasset.platform.sandbox.stores.ActiveContracts
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends LedgerBackend {
+class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
+    extends LedgerBackend //TODO: remove this interface later
+    with WriteService {
+
   override def ledgerId: String = ledger.ledgerId
 
   private class SandboxSubmissionHandle extends SubmissionHandle {
@@ -153,5 +163,36 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
         case (offset, t) =>
           toAcceptedTransaction(offset, t)
       })(DEC)
+
+  override def submitTransaction(
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction): Future[SubmissionResult] = {
+
+    implicit val ec: ExecutionContext = mat.executionContext
+
+    //note, that this cannot fail as it's already validated
+    val blindingInfo = Blinding
+      .checkAuthorizationAndBlind(transaction, Set(submitterInfo.submitter))
+      .fold(authorisationError => sys.error(authorisationError.detailMsg), identity)
+
+    val transactionSubmission =
+      TransactionSubmission(
+        submitterInfo.commandId,
+        transactionMeta.workflowId,
+        submitterInfo.submitter,
+        transactionMeta.ledgerEffectiveTime.toInstant,
+        submitterInfo.maxRecordTime.toInstant,
+        submitterInfo.applicationId,
+        blindingInfo,
+        transaction
+      )
+
+    for {
+      handle <- beginSubmission()
+      result <- handle.submit(transactionSubmission)
+    } yield result
+
+  }
 
 }

@@ -4,6 +4,7 @@
 package com.digitalasset.ledger.server.LedgerApiServer
 
 import akka.stream.ActorMaterializer
+import com.daml.ledger.participant.state.v1.WriteService
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
@@ -54,6 +55,7 @@ object ApiServices {
 
   def create(
       config: SandboxConfig,
+      writeService: WriteService,
       ledgerBackend: LedgerBackend,
       engine: Engine,
       timeProvider: TimeProvider,
@@ -75,6 +77,7 @@ object ApiServices {
         context.packageContainer,
         identifierResolver,
         ledgerBackend,
+        writeService,
         config.timeModel,
         timeProvider,
         new CommandExecutorImpl(engine, context.packageContainer)

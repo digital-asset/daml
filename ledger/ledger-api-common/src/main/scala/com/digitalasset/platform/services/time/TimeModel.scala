@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.services.time
 
+import com.daml.ledger.participant.state.v1.{TimeModel => ITimeModel}
+
 import java.time.{Duration, Instant}
 
 import scala.util.Try
@@ -19,7 +21,8 @@ import scala.util.Try
 class TimeModel private (
     val minTransactionLatency: Duration,
     val maxClockSkew: Duration,
-    val maxTtl: Duration) {
+    val maxTtl: Duration)
+    extends ITimeModel {
 
   /**
     * The minimum time to live for a transaction. Equal to the minimum transaction latency plus the maximum clock skew.

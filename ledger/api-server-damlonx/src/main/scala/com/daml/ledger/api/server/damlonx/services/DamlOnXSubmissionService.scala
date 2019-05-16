@@ -97,10 +97,10 @@ class DamlOnXSubmissionService private (
           Future.failed(invalidArgument(err.detailMsg))
 
         case Right(updateTx) =>
-          Future {
-            logger.debug(
-              s"Submitting transaction from ${commands.submitter} with ${commands.commandId.unwrap}")
-            writeService.submitTransaction(
+          logger.debug(
+            s"Submitting transaction from ${commands.submitter} with ${commands.commandId.unwrap}")
+          writeService
+            .submitTransaction(
               submitterInfo = SubmitterInfo(
                 submitter = commands.submitter,
                 applicationId = commands.applicationId.unwrap,
@@ -113,7 +113,7 @@ class DamlOnXSubmissionService private (
               ),
               transaction = updateTx
             )
-          }
+            .map(_ => ())
       }
   }
 

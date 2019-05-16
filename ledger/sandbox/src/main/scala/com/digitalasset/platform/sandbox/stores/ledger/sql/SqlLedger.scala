@@ -9,6 +9,7 @@ import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
 import akka.{Done, NotUsed}
+import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.Node
@@ -16,7 +17,6 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger.backend.api.v1.{
   RejectionReason,
-  SubmissionResult,
   TransactionId,
   TransactionSubmission
 }

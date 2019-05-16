@@ -3,22 +3,11 @@
 
 package com.digitalasset.ledger.backend.api.v1
 
+import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 
 import scala.concurrent.Future
-
-sealed abstract class SubmissionResult extends Product with Serializable
-
-object SubmissionResult {
-
-  /** The request has been received. */
-  final case object Acknowledged extends SubmissionResult
-
-  /** The system is overloaded, clients should back off exponentially */
-  final case object Overloaded extends SubmissionResult
-
-}
 
 /**
   * A means to construct and submit a single transaction.

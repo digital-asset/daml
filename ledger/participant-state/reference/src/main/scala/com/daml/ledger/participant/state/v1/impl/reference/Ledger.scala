@@ -28,6 +28,7 @@ import com.digitalasset.platform.server.services.command.time.TimeModelValidator
 import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 /** TODO (SM): update/complete comments on this example as part of
@@ -38,7 +39,6 @@ import scala.concurrent.duration.FiniteDuration
   * We also maintain an ephemeral cache of active contracts, to efficiently support queries
   * from the backend relating to activeness.
   *
-  * @param packages
   * @param timeModel
   * @param timeProvider
   * @param mat
@@ -67,7 +67,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       stateChangeDispatcher.close()
   }
 
-  private val ec = mat.system.dispatcher
+  private implicit val ec = mat.system.dispatcher
   private val validator = TimeModelValidator(timeModel)
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val initialRecordTime: Timestamp =
@@ -100,12 +100,12 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   override def submitTransaction(
       submitterInfo: v1.SubmitterInfo,
       transactionMeta: v1.TransactionMeta,
-      transaction: SubmittedTransaction): Unit = {
-    // FIXME (SM): using a Future for the `submitTransaction` method would
+      transaction: SubmittedTransaction): Future[SubmissionResult] = Future {
     // allow to do some potentially heavy computation incl. pushing the data
     // out over the wire. Might be easier to implement than requiring to do a
     // hand-over between multiple threads.
     submit(submitterInfo, transactionMeta, transaction)
+    SubmissionResult.Acknowledged
   }
 
   /**

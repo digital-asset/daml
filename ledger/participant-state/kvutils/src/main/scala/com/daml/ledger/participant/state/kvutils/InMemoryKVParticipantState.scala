@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.collection.breakOut
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 object InMemoryKVParticipantState {
@@ -75,6 +75,8 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     with AutoCloseable {
   import InMemoryKVParticipantState._
   private val logger = LoggerFactory.getLogger(this.getClass)
+
+  private implicit val ec: ExecutionContext = mat.executionContext
 
   val ledgerId = PackageId.assertFromString(UUID.randomUUID.toString)
 
@@ -290,7 +292,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): Unit = {
+      transaction: SubmittedTransaction): Future[SubmissionResult] = Future {
 
     // Construct a [[DamlSubmission]] message using the key-value utilities.
     // [[DamlSubmission]] contains the serialized transaction and metadata such as
@@ -305,6 +307,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
       allocateEntryId,
       submission
     )
+    SubmissionResult.Acknowledged
   }
 
   /** Back-channel for uploading DAML-LF archives.

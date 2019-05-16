@@ -2,18 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.services
+import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
 
 import akka.stream.ActorMaterializer
+import com.daml.ledger.participant.state.v1.SubmissionResult.{Acknowledged, Overloaded}
+import com.daml.ledger.participant.state.v1.{
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta,
+  WriteService
+}
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
-import com.digitalasset.ledger.backend.api.v1.SubmissionResult.{Acknowledged, Overloaded}
-import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, SubmissionResult}
+import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, TransactionSubmission}
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.stores.ledger.{CommandExecutor, ErrorCause}
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
@@ -36,6 +44,7 @@ object SandboxSubmissionService {
       packageContainer: DamlPackageContainer,
       identifierResolver: IdentifierResolver,
       ledgerBackend: LedgerBackend,
+      writeService: WriteService,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
       commandExecutor: CommandExecutor)(implicit ec: ExecutionContext, mat: ActorMaterializer)
@@ -44,6 +53,7 @@ object SandboxSubmissionService {
       new SandboxSubmissionService(
         packageContainer,
         ledgerBackend,
+        writeService,
         timeModel,
         timeProvider,
         commandExecutor),
@@ -60,6 +70,7 @@ object SandboxSubmissionService {
 class SandboxSubmissionService private (
     packageContainer: DamlPackageContainer,
     ledgerBackend: LedgerBackend,
+    writeService: WriteService,
     timeModel: TimeModel,
     timeProvider: TimeProvider,
     commandExecutor: CommandExecutor)(implicit ec: ExecutionContext, mat: ActorMaterializer)
@@ -111,24 +122,34 @@ class SandboxSubmissionService private (
   }
 
   private def recordOnLedger(commands: ApiCommands): Future[SubmissionResult] =
-    // translate the commands to LF engine commands
-    ledgerBackend.beginSubmission
-      .flatMap { handle =>
-        commandExecutor
-          .execute(
-            commands.submitter,
-            commands,
-            handle.lookupActiveContract(commands.submitter, _),
-            handle.lookupContractKey(commands.submitter, _),
-            commands.commands
-          )
-          .flatMap {
-            _.left
-              .map(ec => grpcError(toStatus(ec)))
-              .toTry
-              .fold(Future.failed, handle.submit)
-          }
-      }
+    for {
+      handle <- ledgerBackend.beginSubmission
+      res <- commandExecutor
+        .execute(
+          commands.submitter,
+          commands,
+          handle.lookupActiveContract(commands.submitter, _),
+          handle.lookupContractKey(commands.submitter, _),
+          commands.commands
+        )
+      submissionResult <- handleResult(res)
+    } yield submissionResult
+
+  private def handleResult(res: scala.Either[ErrorCause, TransactionSubmission]) =
+    res match {
+      case Right(ts) =>
+        writeService.submitTransaction(
+          SubmitterInfo(
+            Ref.Party.assertFromString(ts.submitter),
+            ts.applicationId,
+            ts.commandId,
+            Timestamp.assertFromInstant(ts.maximumRecordTime)
+          ),
+          TransactionMeta(Timestamp.assertFromInstant(ts.ledgerEffectiveTime), ts.workflowId),
+          ts.transaction
+        )
+      case Left(err) => Future.failed(grpcError(toStatus(err)))
+    }
 
   private def toStatus(errorCause: ErrorCause) = {
     errorCause match {

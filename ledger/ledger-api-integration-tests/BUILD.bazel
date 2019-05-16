@@ -45,6 +45,7 @@ dependencies = [
     "//ledger/sandbox:sandbox",
     "//ledger/test-common:test-common",
     "//ledger/sandbox:sandbox-scala-tests-lib",
+    "//ledger/participant-state",
 ]
 
 da_scala_library(
