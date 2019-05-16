@@ -45,8 +45,8 @@ class Bounded a where
 -- defined successors and predecessors, which you can get with the `succ`
 -- and `pred` functions.
 --
--- For any type that is an instance of class `Bounded` as well as `Enum`,
--- the following should hold:
+-- Types that are an instance of class `Bounded` as well as `Enum`
+-- should respect the following laws:
 --
 -- * Both `succ maxBound` and `pred minBound` should result in
 --   a runtime error.
@@ -93,7 +93,7 @@ class  Enum a   where
     -- | Return a list of the `Enum` values starting at the `Int`
     -- position. For example:
     --
-    --     * `enumFrom 6 : [Int] = [6,7,8,9,...,maxBound : Int]`
+    -- * `enumFrom 6 : [Int] = [6,7,8,9,...,maxBound : Int]`
     enumFrom            : a -> [a]
     -- | Returns a list of the `Enum` values with the first value at
     -- the first `Int` position, the second value at the second `Int`
@@ -101,8 +101,8 @@ class  Enum a   where
     --
     -- For example:
     --
-    --     * `enumFromThen 4 6 : [Int] = [4,6,8,10...]`
-    --     * `enumFromThen 6 2 : [Int] = [6,2,-2,-6,...,minBound :: Int]`
+    -- * `enumFromThen 4 6 : [Int] = [4,6,8,10...]`
+    -- * `enumFromThen 6 2 : [Int] = [6,2,-2,-6,...,minBound :: Int]`
     enumFromThen        : a -> a -> [a]
     -- | Returns a list of the `Enum` values with the first value at
     -- the first `Int` position, and the last value at the last `Int`
@@ -113,7 +113,7 @@ class  Enum a   where
     --
     -- For example:
     --
-    --     * `enumFromTo 6 10 : [Int] = [6,7,8,9,10]`
+    -- * `enumFromTo 6 10 : [Int] = [6,7,8,9,10]`
     enumFromTo          : a -> a -> [a]
     -- | Returns a list of the `Enum` values with the first value at
     -- the first `Int` position, the second value at the second `Int`
@@ -125,8 +125,8 @@ class  Enum a   where
     --
     -- For example:
     --
-    --     * `enumFromThenTo 4 2 -6 : [Int] = [4,2,0,-2,-4,-6]`
-    --     * `enumFromThenTo 6 8 2 : [Int] = []`
+    -- * `enumFromThenTo 4 2 -6 : [Int] = [4,2,0,-2,-4,-6]`
+    -- * `enumFromThenTo 6 8 2 : [Int] = []`
     enumFromThenTo      : a -> a -> a -> [a]
 
     succ x                 = toEnum (succ (fromEnum x))

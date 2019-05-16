@@ -34,7 +34,7 @@ type ShowS = Text -> Text
 --
 -- * The result of `show` is a syntactically correct expression
 --   that only contains constants (given the fixity declarations in
---   force at the point where the type is declared.)
+--   force at the point where the type is declared).
 --   It only contains the constructor names defined in the data type,
 --   parentheses, and spaces. When labelled constructor fields are
 --   used, braces, commas, field names, and equal signs are also used.
@@ -56,8 +56,8 @@ class  Show a  where
     {-# MINIMAL showsPrec | show #-}
 
     -- | Convert a value to a readable `Text` value. Unlike `show`,
-    -- showsPrec` should satisfy the rule `showsPrec d x r ++ s  ==
-    -- showsPrec d x (r ++ s)`
+    -- `showsPrec` should satisfy the rule
+    -- `showsPrec d x r ++ s == showsPrec d x (r ++ s)`
 
     showsPrec : Int    -- ^ the operator precedence of the enclosing
                         -- context (a number from `0` to `11`).

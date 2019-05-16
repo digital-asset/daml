@@ -36,33 +36,32 @@ infixl 7 %
 -- | Use the `Additive` class for types that can be added.
 -- Instances have to respect the following laws:
 --
--- * (+) must be associative, ie:`(x + y) + z` = `x + (y + z)`
--- * (+) must be commutative, ie: `x + y` = `y + x`
+-- * `(+)` must be associative, ie: `(x + y) + z` = `x + (y + z)`
+-- * `(+)` must be commutative, ie: `x + y` = `y + x`
 -- * `x + aunit` = `x`
 -- * `negate` gives the additive inverse, ie: `x + negate x` = `aunit`
 --
 class Additive a  where
-    {-# MINIMAL (+), aunit, (negate | (-)) #-}
     -- | Add the two arguments together
     (+)                 : a -> a -> a
-    -- | Subtract the second argument from the first argument, ie. `x - y` = `x + negate y`
-    (-)                 : a -> a -> a
-    -- | Negate the argument: `x + negate x` = `aunit`
-    negate              : a -> a
     -- | The additive identity for the type. For example, for numbers, this is 0.
     aunit                : a
 
     {-# INLINE (-) #-}
+    -- | Subtract the second argument from the first argument, ie. `x - y` = `x + negate y`
+    (-)                 : a -> a -> a
     x - y               = x + negate y
 
     {-# INLINE negate #-}
+    -- | Negate the argument: `x + negate x` = `aunit`
+    negate              : a -> a
     negate x            = aunit - x
 
 -- | Use the `Multiplicative` class for types that can be multiplied.
 -- Instances have to respect the following laws:
 --
--- * (*) is associative, ie:`(x * y) * z` = `x * (y * z)`
--- * (*) is commutative, ie: `x * y` = `y * x`
+-- * `(*)` is associative, ie:`(x * y) * z` = `x * (y * z)`
+-- * `(*)` is commutative, ie: `x * y` = `y * x`
 -- * `x * munit` = `x`
 --
 class Multiplicative a where
@@ -77,7 +76,7 @@ class Multiplicative a where
 -- As well as the rules for `Additive` and `Multiplicative`, instances
 -- also have to respect the following laws:
 --
--- * (*) is distributive with respect to (+), ie:
+-- * `(*)` is distributive with respect to `(+)`, ie:
 --     `a * (b + c)` = `(a * b) + (a * c)` and `(b + c) * a` = `(b * a) + (c * a)`
 class (Additive a, Multiplicative a) => Number a where
   -- no methods
@@ -89,7 +88,7 @@ class Signed a where
     -- or `1` (positive).
     signum : a -> a
 
-    -- | The absolute value - that is, the value without the sign.
+    -- | The absolute value: that is, the value without the sign.
     abs : a -> a
 
 instance Additive Int where
