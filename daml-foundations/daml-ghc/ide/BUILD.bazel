@@ -40,6 +40,7 @@ da_haskell_library(
         "//compiler/daml-lf-tools",
         "//compiler/haskell-ide-core",
         "//compiler/scenario-service/client",
+        "//daml-assistant:daml-project-config",
         "//daml-foundations/daml-ghc/ghc-compiler",
         "//libs-haskell/da-hs-base",
     ],
