@@ -38,6 +38,7 @@ genrule(
         rm -rf $@/application/target
         rm -rf $@/scala-codegen/target
     """,
+    tools = [":examples-quickstart-scala-bin"],  # this is to make sure that quickstart-scala compiles
     visibility = ["//visibility:public"],
 )
 
