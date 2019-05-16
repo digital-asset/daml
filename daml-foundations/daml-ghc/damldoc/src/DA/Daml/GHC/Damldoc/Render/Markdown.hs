@@ -34,8 +34,6 @@ renderSimpleMD ModuleDoc{..} = T.unlines $
     then []
     else [ "## Typeclasses"
          , ""
-         , "Typeclasses in DAML are interfaces that define some behavior."
-         , ""
          , T.unlines $ map cls2md md_classes
          , ""
          ]
