@@ -7,7 +7,6 @@ import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.model._
 import com.digitalasset.navigator.json.Util._
 import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
-import com.digitalasset.navigator.json.ApiCodecCompressed.JsonImplicits._
 import spray.json._
 
 /**
@@ -93,24 +92,6 @@ object ModelCodec {
     implicit object PartyJsonFormat extends RootJsonFormat[ApiTypes.Party] {
       def write(value: ApiTypes.Party): JsValue = JsString(ApiTypes.Party.unwrap(value))
       def read(value: JsValue): ApiTypes.Party = ApiTypes.Party(asString(value, "Party"))
-    }
-
-    implicit object ContractFormat extends RootJsonWriter[Contract] {
-      def write(value: Contract): JsValue = JsObject(
-        "id" -> value.id.toJson,
-        "template" -> value.template.toJson,
-        "argument" -> value.argument.toJson,
-        "agreementText" -> value.agreementText.toJson
-      )
-      def read(value: JsValue, types: DamlLfTypeLookup): Contract = {
-        val id = anyField(value, "id", "Contract").convertTo[ApiTypes.ContractId]
-        val template = anyField(value, "template", "Contract").convertTo[Template]
-        val argument = ApiCodecCompressed
-          .jsValueToApiType(anyField(value, "record", "Contract"), template.id, types)
-          .asInstanceOf[ApiRecord]
-        val agreementText = optionStrField(value, "agreementText", "Contract")
-        Contract(id, template, argument, agreementText)
-      }
     }
 
     implicit val PartyListJsonFormat: RootJsonFormat[List[ApiTypes.Party]] =
