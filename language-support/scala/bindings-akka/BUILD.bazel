@@ -37,36 +37,14 @@ da_scala_library(
     deps = bindings_akka_deps,
 )
 
-# Sources that do not define test-cases but utilities
-# that are used by one or more test-cases.
-#
-# Consider moving these files into a separate sub-directory
-# to enable source globbing for them.
-testing_utils = [
-    "src/test/scala/com/digitalasset/ledger/client/binding/SandboxBinding.scala",
-]
-
 bindings_akka_test_deps = [
     ":bindings-akka",
     "//3rdparty/jvm/com/typesafe/akka:akka_stream_testkit",
     "//3rdparty/jvm/org/scalacheck",
     "//3rdparty/jvm/org/scalatest",
-    "//language-support/scala/sandbox-control",
     "//ledger-api/rs-grpc-bridge",
     "//language-support/scala/bindings-akka-testing",
 ] + bindings_akka_deps
-
-da_scala_library(
-    name = "bindings-akka-testing",
-    srcs = testing_utils,
-    plugins = [
-        "//external:jar/org/spire_math/kind_projector_2_12",
-    ],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = bindings_akka_test_deps,
-)
 
 da_scala_test_suite(
     name = "tests",
@@ -74,7 +52,6 @@ da_scala_test_suite(
         [
             "src/test/**/*.scala",
         ],
-        exclude = testing_utils,
     ),
     visibility = [
         "//visibility:public",
