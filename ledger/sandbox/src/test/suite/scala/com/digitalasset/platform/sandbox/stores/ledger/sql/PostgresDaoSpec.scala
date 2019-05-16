@@ -435,6 +435,7 @@ class PostgresDaoSpec
 
   private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
 
-  private implicit def toLedgerName(s: String): Ref.LedgerName = Ref.LedgerName.assertFromString(s)
+  private implicit def toLedgerName(s: String): Ref.LedgerName =
+    Ref.LedgerName.assertFromString(s)
 
 }

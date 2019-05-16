@@ -30,6 +30,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   TransactionSerializer,
   ValueSerializer
 }
+import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Convertion._
 import com.google.common.io.ByteStreams
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
@@ -120,7 +121,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         "value_hash" -> keyHasher.hashKeyString(key)
       )
       .as(SqlParser.str("contract_id").singleOpt)
-      .map(s => AbsoluteContractId(s))
+      .map(s => AbsoluteContractId(toContractId(s)))
 
   private def storeContract(offset: Long, contract: Contract)(
       implicit connection: Connection): Unit = storeContracts(offset, List(contract))
@@ -531,13 +532,13 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         .on("transaction_id" -> transactionId)
         .as(DisclosureParser.*)
         .groupBy(_._1)
-        .mapValues(_.map(_._2).toSet)
+        .map { case (k, v) => toEventId(k) -> v.map(x => toParty(x._2)).toSet }
 
       offset -> LedgerEntry.Transaction(
         commandId,
-        transactionId,
+        toTransactionId(transactionId),
         applicationId,
-        submitter,
+        toParty(submitter),
         workflowId,
         effectiveAt.toInstant,
         recordedAt.toInstant,
@@ -561,7 +562,12 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         offset) =>
       val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
       offset -> LedgerEntry
-        .Rejection(recordedAt.toInstant, commandId, applicationId, submitter, rejectionReason)
+        .Rejection(
+          recordedAt.toInstant,
+          commandId,
+          applicationId,
+          toParty(submitter),
+          rejectionReason)
     case ParsedEntry(
         "checkpoint",
         None,
@@ -628,7 +634,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         val divulgences = lookupDivulgences(coid)
 
         Contract(
-          AbsoluteContractId(coid),
+          AbsoluteContractId(toContractId(coid)),
           createdAt.toInstant,
           transactionId,
           workflowId,
@@ -652,14 +658,14 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       .on("contract_id" -> coid)
       .as(SqlParser.str("witness").*)
       .toSet
-      .map(Ref.Party.assertFromString)
+      .map(toParty)
 
   private def lookupDivulgences(coid: String)(implicit conn: Connection): Map[Ref.Party, String] =
     SQL_SELECT_DIVULGENCE
       .on("contract_id" -> coid)
       .as(DivulgenceParser.*)
       .map {
-        case (party, _, transaction_id) => Ref.Party.assertFromString(party) -> transaction_id
+        case (party, _, transaction_id) => toParty(party) -> transaction_id
       }
       .toMap
 
@@ -668,7 +674,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       .on("contract_id" -> coid)
       .as(SqlParser.str("maintainer").*)
       .toSet
-      .map(Ref.Party.assertFromString)
+      .map(toParty)
 
   private val SQL_GET_LEDGER_ENTRIES = SQL(
     "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
