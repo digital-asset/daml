@@ -35,7 +35,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
         ac: ActiveContracts.ActiveContract): Boolean = {
       // ^ only parties disclosed or divulged to can lookup; see https://github.com/digital-asset/daml/issues/10
       // and https://github.com/digital-asset/daml/issues/751 .
-      Ref.Party fromString submitter exists (p => ac.witnesses(p) || ac.divulgences(p))
+      Ref.Party fromString submitter exists (p => ac.witnesses(p) || ac.divulgences.contains(p))
     }
 
     override def lookupActiveContract(submitter: Party, contractId: Value.AbsoluteContractId)

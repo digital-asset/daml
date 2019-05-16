@@ -9,6 +9,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
@@ -17,6 +18,7 @@ import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 
+import scala.collection.immutable
 import scala.concurrent.Future
 
 final case class Contract(
@@ -25,16 +27,41 @@ final case class Contract(
     transactionId: String,
     workflowId: String,
     witnesses: Set[Ref.Party],
+    divulgences: Map[Ref.Party, String],
     coinst: ContractInst[VersionedValue[AbsoluteContractId]],
     key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]]) {
   def toActiveContract: ActiveContract =
-    // TODO SC store divulgences
-    ActiveContract(let, transactionId, workflowId, coinst, witnesses, Set.empty, key)
+    ActiveContract(let, transactionId, workflowId, coinst, witnesses, divulgences, key)
 }
 
 object Contract {
   def fromActiveContract(cid: AbsoluteContractId, ac: ActiveContract): Contract =
-    Contract(cid, ac.let, ac.transactionId, ac.workflowId, ac.witnesses, ac.contract, ac.key)
+    Contract(
+      cid,
+      ac.let,
+      ac.transactionId,
+      ac.workflowId,
+      ac.witnesses,
+      ac.divulgences,
+      ac.contract,
+      ac.key)
+}
+
+/**
+  * Every time the ledger persists a transactions, the active contract set (ACS) is updated.
+  * Updating the ACS requires knowledge of blinding info, which is not included in LedgerEntry.Transaction.
+  * The SqlLedger persistence queue Transaction elements are therefore enriched with blinding info.
+  */
+sealed abstract class PersistenceEntry extends Product with Serializable
+
+object PersistenceEntry {
+  final case class Rejection(entry: LedgerEntry.Rejection) extends PersistenceEntry
+  final case class Transaction(
+      entry: LedgerEntry.Transaction,
+      localImplicitDisclosure: Relation[LedgerEntry.EventId, Ref.Party],
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party]
+  ) extends PersistenceEntry
+  final case class Checkpoint(entry: LedgerEntry.Checkpoint) extends PersistenceEntry
 }
 
 sealed abstract class PersistenceResponse extends Product with Serializable
@@ -128,7 +155,21 @@ trait LedgerDao extends AutoCloseable {
   def storeLedgerEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
-      ledgerEntry: LedgerEntry): Future[PersistenceResponse]
+      ledgerEntry: PersistenceEntry): Future[PersistenceResponse]
+
+  /**
+    * Stores the initial ledger state, e.g., computed by the scenario loader.
+    * Must be called at most once, before any call to storeLedgerEntry.
+    *
+    * @param activeContracts the active contract set
+    * @param ledgerEntries the list of LedgerEntries to save
+    * @return Ok when the operation was successful
+    */
+  def storeInitialState(
+      activeContracts: immutable.Seq[Contract],
+      ledgerEntries: immutable.Seq[(LedgerOffset, LedgerEntry)],
+      newLedgerEnd: LedgerOffset
+  ): Future[Unit]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]

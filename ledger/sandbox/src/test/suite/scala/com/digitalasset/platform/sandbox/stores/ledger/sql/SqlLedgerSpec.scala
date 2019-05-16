@@ -8,6 +8,7 @@ import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
 import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
@@ -32,8 +33,10 @@ class SqlLedgerSpec
         jdbcUrl = postgresFixture.jdbcUrl,
         ledgerId = None,
         timeProvider = TimeProvider.UTC,
+        acs = ActiveContractsInMemory.empty,
         initialLedgerEntries = ImmArray.empty,
-        queueDepth)
+        queueDepth
+      )
 
       ledgerF.map { ledger =>
         ledger.ledgerId should not be equal("")
@@ -47,8 +50,10 @@ class SqlLedgerSpec
         jdbcUrl = postgresFixture.jdbcUrl,
         ledgerId = Some(ledgerId),
         timeProvider = TimeProvider.UTC,
+        acs = ActiveContractsInMemory.empty,
         initialLedgerEntries = ImmArray.empty,
-        queueDepth)
+        queueDepth
+      )
 
       ledgerF.map { ledger =>
         ledger.ledgerId should not be equal(ledgerId)
@@ -63,20 +68,29 @@ class SqlLedgerSpec
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(ledgerId),
           timeProvider = TimeProvider.UTC,
+          acs = ActiveContractsInMemory.empty,
           initialLedgerEntries = ImmArray.empty,
-          queueDepth)
+          queueDepth
+        )
+
         ledger2 <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(ledgerId),
           timeProvider = TimeProvider.UTC,
+          acs = ActiveContractsInMemory.empty,
           initialLedgerEntries = ImmArray.empty,
-          queueDepth)
+          queueDepth
+        )
+
         ledger3 <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = None,
           timeProvider = TimeProvider.UTC,
+          acs = ActiveContractsInMemory.empty,
           initialLedgerEntries = ImmArray.empty,
-          queueDepth)
+          queueDepth
+        )
+
       } yield {
         ledger1.ledgerId should not be equal(ledgerId)
         ledger1.ledgerId shouldEqual ledger2.ledgerId
@@ -91,6 +105,7 @@ class SqlLedgerSpec
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some("TheLedger"),
           timeProvider = TimeProvider.UTC,
+          acs = ActiveContractsInMemory.empty,
           initialLedgerEntries = ImmArray.empty,
           queueDepth
         )
@@ -98,6 +113,7 @@ class SqlLedgerSpec
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some("AnotherLedger"),
           timeProvider = TimeProvider.UTC,
+          acs = ActiveContractsInMemory.empty,
           initialLedgerEntries = ImmArray.empty,
           queueDepth
         )

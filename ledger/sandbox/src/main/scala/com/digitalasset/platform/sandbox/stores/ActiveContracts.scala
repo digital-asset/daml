@@ -46,13 +46,15 @@ case class ActiveContractsInMemory(
     case Some(key) => copy(contracts = contracts - cid, keys = keys - key)
   }
 
-  override def implicitlyDisclose(
+  override def divulgeAlreadyCommittedContract(
+      transactionId: String,
       global: Relation[AbsoluteContractId, Ref.Party]): ActiveContractsInMemory =
     if (global.nonEmpty)
       copy(
         contracts = contracts ++
           contracts.intersectWith(global) { (ac, parties) =>
-            ac copy (divulgences = ac.divulgences union parties)
+            ac copy (divulgences = parties.foldLeft(ac.divulgences)((m, e) =>
+              if (m.contains(e)) m else m + (e -> transactionId)))
           })
     else this
 
@@ -162,8 +164,10 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                   witnesses = explicitDisclosure(nodeId),
                   // we need to `getOrElse` here because the `Nid` might include absolute
                   // contract ids, and those are never present in the local disclosure.
-                  divulgences = localImplicitDisclosure
-                    .getOrElse(nodeId, Set.empty) diff nc.stakeholders,
+                  divulgences = (localImplicitDisclosure
+                    .getOrElse(nodeId, Set.empty) diff nc.stakeholders).toList
+                    .map(p => p -> transactionId)
+                    .toMap,
                   key = nc.key
                 )
                 activeContract.key match {
@@ -198,7 +202,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
             }
         }
 
-    st.mapAcs(_ implicitlyDisclose globalImplicitDisclosure).result
+    st.mapAcs(_ divulgeAlreadyCommittedContract (transactionId, globalImplicitDisclosure)).result
   }
 
 }
@@ -208,7 +212,15 @@ trait ActiveContracts[+Self] { this: ActiveContracts[Self] =>
   def keyExists(key: GlobalKey): Boolean
   def addContract(cid: AbsoluteContractId, c: ActiveContract, keyO: Option[GlobalKey]): Self
   def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]): Self
-  def implicitlyDisclose(global: Relation[AbsoluteContractId, Ref.Party]): Self
+
+  /** Note that this method is about disclosing contracts _that have already been
+    * committed_. Implementors of `ActiveContracts` must take care to also store
+    * divulgence information already present in `ActiveContract#divulgences` in the `addContract`
+    * method.
+    */
+  def divulgeAlreadyCommittedContract(
+      transactionId: String,
+      global: Relation[AbsoluteContractId, Ref.Party]): Self
 }
 
 object ActiveContracts {
@@ -219,7 +231,7 @@ object ActiveContracts {
       workflowId: String, // workflow id from where the contract originates
       contract: ContractInst[VersionedValue[AbsoluteContractId]],
       witnesses: Set[Ref.Party],
-      divulgences: Set[Ref.Party],
+      divulgences: Map[Ref.Party, String], // for each party, the transaction id at which the contract was divulged
       key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])
 
 }

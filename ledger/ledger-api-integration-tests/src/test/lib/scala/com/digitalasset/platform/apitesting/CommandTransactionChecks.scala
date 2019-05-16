@@ -37,7 +37,6 @@ import com.digitalasset.ledger.api.v1.value.{
   Value,
   Variant
 }
-import com.digitalasset.platform.testing.LedgerBackend.SandboxInMemory
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
@@ -409,9 +408,7 @@ abstract class CommandTransactionChecks
         }
       }
 
-      // TODO test for all fixtures once <https://github.com/digital-asset/daml/issues/784> is fixed
-      "permit fetching a divulged contract" in forAllMatchingFixtures {
-        case TestFixture(SandboxInMemory, ctx) =>
+      "permit fetching a divulged contract" in allFixtures { ctx =>
         def pf(label: String, party: String) =
           RecordField(label, Some(Value(Value.Sum.Party(party))))
         // TODO currently we run multiple suites with the same sandbox, therefore we must generate
