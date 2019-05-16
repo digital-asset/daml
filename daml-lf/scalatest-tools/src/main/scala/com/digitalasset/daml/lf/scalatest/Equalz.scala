@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import org.scalatest.matchers.Matcher
+import org.scalatest.matchers.{Matcher, MatchResult}
 import scalaz.Equal
 
 /** Provides the `equalz` [[Matcher]].
@@ -9,6 +9,7 @@ import scalaz.Equal
   * {{{
   *   Some(42) should equalz (some(42))
   *   some(42) should equalz (Some(42))
+  *   none[Int] shouldNot equalz (Some(1))
   * }}}
   *
   * Why not simply provide [[org.scalactic.Equality]] instances and use
@@ -23,12 +24,12 @@ import scalaz.Equal
   * typeclasses this way in Scala.)
   */
 trait Equalz {
-  def equalz[A, B >: A](expected: A)(implicit B: Equal[B]): Matcher[B] =
+  final def equalz[A, B >: A](expected: A)(implicit B: Equal[B]): Matcher[B] =
     actual =>
       MatchResult(
         B.equal(expected, actual),
-        s"$expected does not equal $actual",
-        s"$expected equals $actual"
+        s"$actual did not equal $expected",
+        s"$actual equalled $expected"
     )
 }
 
