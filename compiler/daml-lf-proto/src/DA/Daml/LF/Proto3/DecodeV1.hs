@@ -33,7 +33,7 @@ decodeVersion minorText = do
   -- were a thing. DO NOT replicate this code bejond major version 1!
   minor <- if
     | TL.null minorText -> pure $ LF.PointStable 0
-    | Just minor <- LF.minorFromProtobuf minorText -> pure minor
+    | Just minor <- LF.parseMinorVersion (TL.unpack minorText) -> pure minor
     | otherwise -> unsupported
   let version = V1 minor
   if version `elem` LF.supportedInputVersions then pure version else unsupported

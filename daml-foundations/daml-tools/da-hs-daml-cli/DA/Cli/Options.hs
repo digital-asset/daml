@@ -124,7 +124,7 @@ lfVersionOpt = option (str >>= select) $
     versionsStr = intercalate ", " (map renderVersion LF.supportedOutputVersions)
     select = \case
       versionStr
-        | Just minor <- LF.minorFromCliOption =<< stripPrefix "1." versionStr
+        | Just minor <- LF.parseMinorVersion =<< stripPrefix "1." versionStr
         , let version = LF.V1 minor
         , version `elem` LF.supportedOutputVersions
         -> return version
