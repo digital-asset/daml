@@ -187,5 +187,15 @@ message DamlContractState {
 
   // Optional. The log entry that caused the contract to be archived.
   DamlLogEntryId archived_by_entry = 3;
+
+  // The parties to which this contract has been explicitly disclosed, that is,
+  // the parties which witnessed the creation of the contract.
+  repeated string locally_disclosed_to = 4;
+
+  // The parties to which this contract has been disclosed to after the creation
+  // of the contract (i.e. divulged to).
+  // https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#divulgence-when-non-stakeholders-see-contracts
+  repeated string divulged_to = 5;
+
 }
 
