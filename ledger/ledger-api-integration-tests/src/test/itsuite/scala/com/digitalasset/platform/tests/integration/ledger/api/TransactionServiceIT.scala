@@ -661,13 +661,10 @@ class TransactionServiceIT
 
       "expose the agreement text in CreatedEvents for templates with an explicit agreement text" in allFixtures {
         c =>
-          for {
-            agreement <- createAgreement(c, "AgreementTextTest", party1, party2)
-          } yield {
-            agreement.agreementText should matchPattern {
-              case Some(text: String) if text.nonEmpty =>
-            }
-          }
+          createAgreement(c, "AgreementTextTest", party1, party2).map(
+            _.agreementText shouldBe Some(
+              s"'$party2' promise to pay the '$party1' on demand the sum of five pounds.")
+          )
       }
 
       "expose the default agreement text in CreatedEvents for templates with no explicit agreement text" in allFixtures {
@@ -678,7 +675,7 @@ class TransactionServiceIT
             List(RecordField("operator", party1.asParty)),
             party1)
 
-          resultF.map(_.agreementText should matchPattern { case Some("") => })
+          resultF.map(_.agreementText shouldBe Some(""))
       }
 
       "accept exercising a well-authorized multi-actor choice" in allFixtures { c =>

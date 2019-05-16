@@ -214,6 +214,6 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
     val wolpertinger :: _ = readActiveContracts(client)
 
     wolpertinger.agreementText.isPresent shouldBe true
-    wolpertinger.agreementText.get should not be empty
+    wolpertinger.agreementText.get shouldBe s"${wolpertinger.data.name} has ${wolpertinger.data.wings} wings and is ${wolpertinger.data.age} years old."
   }
 }
