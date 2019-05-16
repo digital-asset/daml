@@ -47,31 +47,23 @@ class Functor f => Applicative f where
 
     -- | Sequential application.
     --
-    -- A few functors support an implementation of '<*>' that is more
+    -- A few functors support an implementation of `<*>` that is more
     -- efficient than the default one.
     (<*>) : f (a -> b) -> f a -> f b
     (<*>) = liftA2 identity
 
     -- | Lift a binary function to actions.
     --
-    -- Some functors support an implementation of 'liftA2' that is more
-    -- efficient than the default one. In particular, if 'fmap' is an
-    -- expensive operation, it is likely better to use 'liftA2' than to
-    -- 'fmap' over the structure and then use '<*>'.
+    -- Some functors support an implementation of `liftA2` that is more
+    -- efficient than the default one. In particular, if `fmap` is an
+    -- expensive operation, it is likely better to use `liftA2` than to
+    -- `fmap` over the structure and then use `<*>`.
     liftA2 : (a -> b -> c) -> f a -> f b -> f c
     liftA2 f x = (<*>) (fmap f x)
 
     -- | Sequence actions, discarding the value of the first argument.
     (*>) : f a -> f b -> f b
     a1 *> a2 = (identity <$ a1) <*> a2
-    -- This is essentially the same as liftA2 (flip const), but if the
-    -- Functor instance has an optimized (<$), it may be better to use
-    -- that instead. Before liftA2 became a method, this definition
-    -- was strictly better, but now it depends on the functor. For a
-    -- functor supporting a sharing-enhancing (<$), this definition
-    -- may reduce allocation by preventing a1 `from` ever being fully
-    -- realized. In an implementation with a boring (<$) but an optimizing
-    -- liftA2, it would likely be better to define (*>) using liftA2.
 
     -- | Sequence actions, discarding the value of the second argument.
     (<*) : f a -> f b -> f a
