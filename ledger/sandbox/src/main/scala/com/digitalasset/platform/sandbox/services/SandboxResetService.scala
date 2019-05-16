@@ -16,8 +16,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 class SandboxResetService(
     getLedgerId: () => String,
     getEc: () => ExecutionContext,
-    // returns with a Future firing when all services have been closed!
-    resetAndStartServer: () => Future[Unit])
+    resetAndRestartServer: () => Future[Unit])
     extends ResetServiceGrpc.ResetService
     with BindableService {
 
@@ -49,7 +48,7 @@ class SandboxResetService(
     // the code that clears the in flight request is not in an in flight request itself.
     getEc().execute({ () =>
       logger.info(s"Stopping and starting the server.")
-      servicesAreDown.completeWith(resetAndStartServer())
+      servicesAreDown.completeWith(resetAndRestartServer())
     })
     servicesAreDown.future
   }

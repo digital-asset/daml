@@ -6,28 +6,31 @@ package com.digitalasset.platform.sandbox.services
 import java.util.concurrent.TimeUnit
 
 import com.digitalasset.ledger.api.testing.utils.Resource
-import com.digitalasset.platform.sandbox.SandboxApplication.SandboxServer
+import com.digitalasset.platform.sandbox.SandboxServer
+import com.digitalasset.platform.sandbox.config.SandboxConfig
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.{Channel, ManagedChannel}
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.util.concurrent.DefaultThreadFactory
 
-class SandboxServerResource(server: SandboxServer) extends Resource[Channel] {
+class SandboxServerResource(config: => SandboxConfig) extends Resource[Channel] {
   @volatile
   private var eventLoopGroup: EventLoopGroup = _
   @volatile
   private var channel: ManagedChannel = _
+  @volatile
+  private var sandboxServer: SandboxServer = _
 
   override def value: Channel = channel
 
   override def setup(): Unit = {
-    server.start()
-    eventLoopGroup = createEventLoopGroup(server.getMaterializer.system.name + "-client")
+    sandboxServer = SandboxServer(config)
+    eventLoopGroup = createEventLoopGroup("api-client")
 
     channel = {
       val channelBuilder: NettyChannelBuilder = NettyChannelBuilder
-        .forAddress("127.0.0.1", server.port)
+        .forAddress("127.0.0.1", sandboxServer.port)
       channelBuilder.eventLoopGroup(eventLoopGroup)
       channelBuilder.usePlaintext()
       channelBuilder.directExecutor()
@@ -44,10 +47,11 @@ class SandboxServerResource(server: SandboxServer) extends Resource[Channel] {
   override def close(): Unit = {
     channel.shutdownNow()
     eventLoopGroup.shutdownGracefully().await(10L, TimeUnit.SECONDS)
-    server.close()
+    sandboxServer.close()
     channel = null
     eventLoopGroup = null
+    sandboxServer = null
   }
 
-  def getPort: Int = server.port
+  def getPort: Int = sandboxServer.port
 }

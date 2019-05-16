@@ -18,7 +18,7 @@ import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsResponse
 }
 import com.digitalasset.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
-import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
+import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction_filter._
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
@@ -93,9 +93,6 @@ abstract class ScenarioLoadingITBase
 
   private def extractEvents(response: GetActiveContractsResponse) =
     response.activeContracts.toSet
-
-  private def extractEvents(event: Event) =
-    event.event.created.toSet
 
   lazy val dummyRequest = {
     // we need to adjust the time of the request because we pass 10

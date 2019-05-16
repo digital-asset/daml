@@ -9,7 +9,7 @@ import java.util.concurrent.Executors
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.HikariJdbcConnectionProvider
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.slf4j.LoggerFactory
 
