@@ -212,9 +212,10 @@ execIde telemetry (Debug debug) = NS.withSocketsDo $ Managed.runManaged $ do
 
     opts <- liftIO $ defaultOptionsIO Nothing
 
-    Managed.liftIO $
+    Managed.liftIO $ do
+      execInit
       Daml.LanguageServer.runLanguageServer
-      (Compiler.newIdeState opts) loggerH
+        (Compiler.newIdeState opts) loggerH
 
 
 execCompile :: FilePath -> FilePath -> Compiler.Options -> Command
