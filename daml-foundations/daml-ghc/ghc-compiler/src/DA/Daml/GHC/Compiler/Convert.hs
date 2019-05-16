@@ -983,7 +983,10 @@ convertCast env expr co = do
     (to, _from) <- evalStateT (convertCoercion env co) 0
     pure (to `ETmApp` expr)
 
--- Convert a coercion to a pair of lambdas. The definition
+-- Convert a coercion to a pair of lambdas (lam1, lam2). A coercion S ~ T gets converted to
+-- lam1 :: S -> T and lam2 :: T -> S.
+
+-- The definition
 --
 -- > newtype T = MkT S
 --
@@ -1034,7 +1037,7 @@ convertCoercion env co
                          (bFrom `ETmApp` (EVar g `ETmApp` (aTo `ETmApp` EVar y))))
         pure (lamTo, lamFrom)
     | Just (aGhc, k_co, co') <- splitForAllCo_maybe co
-    , isReflCo k_co -- TODO (drsk) is this restriction needed?
+    , isReflCo k_co
      = do
         let Pair _aK a'K = coercionKind k_co
         (aTo, aFrom) <- convertCoercion env k_co
