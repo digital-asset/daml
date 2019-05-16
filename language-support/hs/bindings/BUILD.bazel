@@ -42,6 +42,27 @@ da_haskell_binary(
     ],
 )
 
+da_haskell_binary(
+    name = "nim",
+    srcs = glob(["examples/nim-console/src/*.hs"]),
+    compiler_flags = [],
+    hazel_deps = [
+        "ansi-terminal",
+        "base",
+        "containers",
+        "extra",
+        "haskeline",
+        "random",
+        "text",
+        "transformers",
+        "uuid",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/hs/bindings:hs-ledger",
+    ],
+)
+
 daml_compile(
     name = "quickstart",
     srcs = glob(["test/daml/quickstart/*.daml"]),
