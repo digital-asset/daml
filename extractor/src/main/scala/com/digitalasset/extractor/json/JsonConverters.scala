@@ -106,12 +106,10 @@ object JsonConverters {
   implicit val partyEncoder: Encoder[Ref.Party] =
     Encoder[String].contramap(identity)
 
-  // TODO SC this matches the prior behavior of JSON-ing the dates and timestamps
-  // as days-since and micros-since epoch, but maybe we'd like something else?
   implicit val lfDateEncoder: Encoder[Time.Date] =
-    Encoder[Int].contramap(_.days)
+    Encoder[String].contramap(_.toString)
   implicit val lfTimestampEncoder: Encoder[Time.Timestamp] =
-    Encoder[Long].contramap(_.micros)
+    Encoder[String].contramap(_.toString)
 
   implicit val multiTableStateEncoder: Encoder[MultiTableState] = deriveEncoder[MultiTableState]
   implicit val multiTableStateDecoder: Decoder[MultiTableState] = deriveDecoder[MultiTableState]
