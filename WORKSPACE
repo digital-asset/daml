@@ -456,7 +456,7 @@ hazel_repositories(
         hazel_default_extra_libs,
         {
             "z": "@com_github_madler_zlib//:z",
-            "ffi": "@com_github_digital_asset_daml//3rdparty/haskell/ffi_windows:ffi" if is_windows else "@libffi_nix//:ffi",
+            "ffi": "" if is_windows else "@libffi_nix//:ffi",
         },
     ),
     ghc_workspaces = {
