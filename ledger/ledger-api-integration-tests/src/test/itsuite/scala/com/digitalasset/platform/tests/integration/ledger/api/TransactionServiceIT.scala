@@ -670,7 +670,7 @@ class TransactionServiceIT
           }
       }
 
-      "expose the defualt agreement text in CreatedEvents for templates with no explicit agreement text" in allFixtures {
+      "expose the default agreement text in CreatedEvents for templates with no explicit agreement text" in allFixtures {
         c =>
           val resultF = c.submitCreate(
             "Creating dummy contract for default agreement text test",

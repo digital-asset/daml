@@ -60,6 +60,8 @@ message CreatedEvent {
 
   // The agreement text of the contract.
   // We use StringValue to properly reflect optionality on the wire for backwards compatibility.
+  // This is necessary since the empty string is an acceptable (and in fact the default) agreement
+  // text, but also the default string in protobuf.
   // This means a newer client works with an older sandbox seamlessly.
   // Optional
   google.protobuf.StringValue agreement_text = 6;
