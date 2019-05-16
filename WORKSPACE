@@ -417,6 +417,7 @@ bind(
 load("@ai_formation_hazel//:hazel.bzl", "hazel_custom_package_github", "hazel_custom_package_hackage", "hazel_default_extra_libs", "hazel_repositories")
 load("//hazel:packages.bzl", "core_packages", "packages")
 load("//bazel_tools:haskell.bzl", "add_extra_packages")
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
 
 # XXX: We do not have access to an integer-simple version of GHC on Windows.
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
@@ -427,13 +428,16 @@ HASKELL_LSP_COMMIT = "15096280b3542d56d8df728d3bce9ea34141debd"
 HASKELL_LSP_HASH = "170de7aeb1da63198139a667c074a05f7ecd30017d54c78569a6aa1cc565be89"
 
 hazel_repositories(
-    core_packages = core_packages + {
-        "integer-simple": "0.1.1.1",
+    core_packages = dicts.add(
+        core_packages,
+        {
+            "integer-simple": "0.1.1.1",
 
-        # this is a core package, but not reflected in hazel/packages.bzl.
-        "haskeline": "0.7.4.2",
-        "Win32": "2.6.1.0",
-    },
+            # this is a core package, but not reflected in hazel/packages.bzl.
+            "haskeline": "0.7.4.2",
+            "Win32": "2.6.1.0",
+        },
+    ),
     exclude_packages = [
         "arx",
         "clock",
@@ -449,10 +453,13 @@ hazel_repositories(
         "text": {"integer-simple": use_integer_simple},
         "scientific": {"integer-simple": use_integer_simple},
     },
-    extra_libs = hazel_default_extra_libs + {
-        "z": "@com_github_madler_zlib//:z",
-        "ffi": "@com_github_digital_asset_daml//3rdparty/haskell/ffi_windows:ffi" if is_windows else "@libffi_nix//:ffi",
-    },
+    extra_libs = dicts.add(
+        hazel_default_extra_libs,
+        {
+            "z": "@com_github_madler_zlib//:z",
+            "ffi": "@com_github_digital_asset_daml//3rdparty/haskell/ffi_windows:ffi" if is_windows else "@libffi_nix//:ffi",
+        },
+    ),
     ghc_workspaces = {
         "k8": "@io_tweag_rules_haskell_ghc-nixpkgs",
         "darwin": "@io_tweag_rules_haskell_ghc-nixpkgs",
