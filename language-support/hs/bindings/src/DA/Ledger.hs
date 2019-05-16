@@ -6,123 +6,147 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module DA.Ledger( -- WIP: High level interface to the Ledger API services
-    module DA.Ledger.Types,
-    Port(..),
-    LedgerHandle,
-    Party(..),
-    LL_Transaction, -- TODO: remove
-    ResponseStream,
-    connect,
-    identity,
-    getTransactionStream,
-    nextResponse,
+
+    -- services
+    listPackages,
+    getPackage, Package,
+    transactions,
+    completions,
     submitCommands,
-    getCompletionStream,
+
+    module DA.Ledger.Types,
+    LL_Transaction, -- TODO: remove when coded `raise' (LL->HL) operation on Transaction types
+
+    Port(..),
+
+    Stream, takeStream, getStreamContents,
+
+    LedgerHandle, connect, identity,
+
     ) where
+
+
+import DA.Ledger.Types
 
 import Control.Concurrent
 import Control.Monad.Fix (fix)
-import qualified Data.Map as Map
-import qualified Data.Text.Lazy as Text
-import Data.Vector as Vector (fromList, toList)
-import Prelude hiding (log)
-
-import DA.Ledger.Types
+import qualified Data.Map as Map(empty,singleton)
+import qualified Data.Text.Lazy as Text(unpack)
+import qualified Data.Vector as Vector(toList,fromList)
 import DA.Ledger.Convert(lowerCommands)
+import DA.Ledger.LowLevel as LL hiding(Commands)
 
-import qualified DA.Ledger.LowLevel as LL
-
-import DA.Ledger.LowLevel(
-
-    ClientRequest(
-            ClientReaderRequest,
-            ClientNormalRequest
-            ),
-    ClientResult(
-            ClientErrorResponse,
-            ClientReaderResponse,
-            ClientNormalResponse
-            ),
-    MetadataMap(..),
-    GRPCMethodType(Normal,ServerStreaming),
-    ClientConfig(..),
-    Port(..),
-    Host(..),
-
-    LedgerIdentityService(..),
-    GetLedgerIdentityRequest(..),
-    GetLedgerIdentityResponse(..),
-
-    TransactionService(..),
-    GetTransactionsRequest(..),
-    GetTransactionsResponse(..),
-
-    CommandSubmissionService(..),
-    SubmitRequest(..),
-    Empty(..),
-
-    CommandCompletionService(..),
-    CompletionStreamRequest(..),
-    CompletionStreamResponse(completionStreamResponseCompletions),
-
-    TransactionFilter(..),
-    Filters(..),
-    LedgerOffset(..),
-    LedgerOffsetValue(..),
-    LedgerOffset_LedgerBoundary(..),
-    TraceContext,
-    )
+import qualified Proto3.Suite(fromByteString)
+import qualified DA.Daml.LF.Ast           as LF(Package)
+import qualified DA.Daml.LF.Proto3.Decode as Decode(decodePayload)
 
 data LedgerHandle = LedgerHandle { port :: Port, lid :: LedgerId }
 
 identity :: LedgerHandle -> LedgerId
 identity LedgerHandle{lid} = lid
 
-
-newtype ResponseStream a = ResponseStream { chan :: Chan a }
-
-nextResponse :: ResponseStream a -> IO a
-nextResponse ResponseStream{chan} = readChan chan
-
 connect :: Port -> IO LedgerHandle
 connect port = do
     lid <- getLedgerIdentity port
     return $ LedgerHandle {port, lid}
 
-
 getLedgerIdentity :: Port -> IO LedgerId
 getLedgerIdentity port = do
+    let request = GetLedgerIdentityRequest noTrace
     LL.withGRPCClient (config port) $ \client -> do
         service <- LL.ledgerIdentityServiceClient client
         let LedgerIdentityService rpc = service
-        response <- rpc (wrap (GetLedgerIdentityRequest noTrace))
+        response <- rpc (ClientNormalRequest request timeout mdm)
         GetLedgerIdentityResponse text <- unwrap response
         return $ LedgerId text
 
+listPackages :: LedgerHandle -> IO [PackageId]
+listPackages LedgerHandle{port,lid}  = do
+    LL.withGRPCClient (config port) $ \client -> do
+        service <- LL.packageServiceClient client
+        let PackageService rpc1 _ _ = service
+        let request = ListPackagesRequest (unLedgerId lid) noTrace
+        response <- rpc1 (ClientNormalRequest request timeout mdm)
+        ListPackagesResponse xs <- unwrap response
+        return $ map PackageId $ Vector.toList xs
+
+data Package = Package LF.Package deriving Show
+
+getPackage :: LedgerHandle -> PackageId -> IO Package
+getPackage LedgerHandle{port,lid} pid = do
+    let request = GetPackageRequest (unLedgerId lid) (unPackageId pid) noTrace
+    LL.withGRPCClient (config port) $ \client -> do
+        service <- LL.packageServiceClient client
+        let PackageService _ rpc2 _ = service
+        response <- rpc2 (ClientNormalRequest request timeout mdm)
+        GetPackageResponse _ bs _ <- unwrap response
+        let ap = either (error . show) id (Proto3.Suite.fromByteString bs)
+        case Decode.decodePayload ap of
+            Left e -> fail (show e)
+            Right package -> return (Package package)
 
 submitCommands :: LedgerHandle -> Commands -> IO ()
-submitCommands h commands = do
-    let request = wrap (SubmitRequest (Just (lowerCommands commands)) noTrace)
-    let LedgerHandle{port} = h
+submitCommands LedgerHandle{port} commands = do
+    let request = SubmitRequest (Just (lowerCommands commands)) noTrace
     LL.withGRPCClient (config port) $ \client -> do
         service <- LL.commandSubmissionServiceClient client
         let CommandSubmissionService rpc = service
-        response <- rpc request
+        response <- rpc (ClientNormalRequest request timeout mdm)
         Empty{} <- unwrap response
         return ()
 
-
-wrap :: r -> ClientRequest 'Normal r a
-wrap r = ClientNormalRequest r timeout mdm
-    where timeout = 3
+timeout :: Int --Seconds
+timeout = 3 -- TODO: sensible default? user configuarable?
 
 unwrap :: ClientResult 'Normal a -> IO a
 unwrap = \case
     ClientNormalResponse x _m1 _m2 _status _details -> return x
     ClientErrorResponse e -> fail (show e)
 
+mdm :: MetadataMap
+mdm = MetadataMap Map.empty
+
+
+
+----------------------------------------------------------------------
+-- Services with streaming responses
+
+data Elem a = Elem a | Eend | Eerr String
+
+deElem :: Elem a -> IO a
+deElem = \case
+    Elem a -> return a
+    Eend -> fail "readStream, end"
+    Eerr s -> fail $ "readStream, err: " <> s
+
+newtype Stream a = Stream { mv :: MVar (Elem a) }
+
+newStream :: IO (Stream a)
+newStream = do
+    mv <- newEmptyMVar
+    return Stream{mv}
+
+writeStream :: Stream a -> Elem a -> IO () -- internal use only
+writeStream Stream{mv} elem = putMVar mv elem
+
+takeStream :: Stream a -> IO a
+takeStream Stream{mv} = takeMVar mv >>= deElem
+
+data StreamState = SS -- TODO
+getStreamContents :: Stream a -> IO ([a],StreamState)
+getStreamContents Stream{mv} = do xs <- loop ; return (xs,SS)
+    where
+        loop = do
+            tryTakeMVar mv >>= \case
+                Nothing -> return []
+                Just e -> do
+                    x <- deElem e
+                    xs <- loop
+                    return (x:xs)
+
 -- wrap LL.Transaction to show summary
 newtype LL_Transaction = LL_Transaction { low :: LL.Transaction } --TODO: remove
+    deriving Eq
 
 instance Show LL_Transaction where
     show LL_Transaction{low} = _summary
@@ -131,45 +155,50 @@ instance Show LL_Transaction where
             _full = show low
             LL.Transaction{transactionTransactionId} = low
 
+
 -- TODO: return (HL) [Transaction]
-getTransactionStream :: LedgerHandle -> Party -> IO (ResponseStream LL_Transaction)
-getTransactionStream h party = do
-    let tag = "getTransactionStream for " <> show party
-    let LedgerHandle{port,lid} = h
-    chan <- newChan
+transactions :: LedgerHandle -> Party -> IO (Stream LL_Transaction)
+transactions LedgerHandle{port,lid} party = do
+    stream <- newStream
     let request = mkGetTransactionsRequest lid offsetBegin Nothing (filterEverthingForParty party)
-    forkIO_ tag $
+    _ <- forkIO $ --TODO: dont use forkIO
         LL.withGRPCClient (config port) $ \client -> do
             rpcs <- LL.transactionServiceClient client
             let (TransactionService rpc1 _ _ _ _ _ _) = rpcs
-            sendToChan request f chan rpc1
-    return $ ResponseStream{chan}
+            sendToStream request f stream rpc1
+    return stream
     where f = map LL_Transaction . Vector.toList . getTransactionsResponseTransactions
 
+
 -- TODO: return (HL) [Completion]
-getCompletionStream :: LedgerHandle -> ApplicationId -> [Party] -> IO (ResponseStream LL.Completion)
-getCompletionStream h aid partys = do
-    let tag = "getCompletionStream for " <> show (aid,partys)
-    let LedgerHandle{port,lid} = h
-    chan <- newChan
+completions :: LedgerHandle -> ApplicationId -> [Party] -> IO (Stream LL.Completion)
+completions LedgerHandle{port,lid} aid partys = do
+    stream <- newStream
     let request = mkCompletionStreamRequest lid aid partys
-    forkIO_ tag $
+    _ <- forkIO $ --TODO: dont use forkIO
         LL.withGRPCClient (config port) $ \client -> do
             rpcs <- LL.commandCompletionServiceClient client
             let (CommandCompletionService rpc1 _) = rpcs
-            sendToChan request (Vector.toList . completionStreamResponseCompletions) chan  rpc1
-    return $ ResponseStream{chan}
+            sendToStream request (Vector.toList . completionStreamResponseCompletions) stream rpc1
+    return stream
 
-sendToChan :: a -> (b -> [c]) -> Chan c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
-sendToChan request f chan rpc1 = do
+sendToStream :: a -> (b -> [c]) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
+sendToStream request f stream rpc1 = do
     ClientReaderResponse _meta _code _details <- rpc1 $
-        ClientReaderRequest request timeout mdm $ \ _mdm recv -> fix $
+        ClientReaderRequest request timeout mdm $ \ _mdm recv -> fix $ -- TODO: whileM better?
         \again -> do
             either <- recv
             case either of
-                Left e -> fail (show e)
-                Right Nothing -> return ()
-                Right (Just x) -> do writeList2Chan chan (f x); again
+                Left e -> do
+                    writeStream stream (Eerr (show e)) -- notify reader of error
+                    return ()
+                Right Nothing -> do
+                    writeStream stream Eend -- notify reader of end-of-stream
+                    return ()
+                Right (Just x) ->
+                    do
+                        mapM_ (writeStream stream . Elem) (f x)
+                        again
     return ()
         -- After a minute, we stop collecting the events.
         -- But we ought to wait indefinitely.
@@ -182,9 +211,6 @@ config port =
                  , clientArgs = []
                  , clientSSLConfig = Nothing
                  }
-
-mdm :: MetadataMap
-mdm = MetadataMap Map.empty
 
 
 -- Low level data mapping for Request
@@ -222,17 +248,3 @@ noFilters = Filters Nothing
 
 noTrace :: Maybe TraceContext
 noTrace = Nothing
-
-
--- Misc / logging
-
-forkIO_ :: String -> IO () -> IO ()
-forkIO_ tag m = do
-    tid <- forkIO $ do m; log $ tag <> " is done"
-    log $ "forking " <> tag <> " on " <> show tid
-    return ()
-
-log :: String -> IO ()
-log s = do
-    tid <- myThreadId
-    putStrLn $ "[" <> show tid <> "]: " ++ s

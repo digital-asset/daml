@@ -9,6 +9,7 @@ da_haskell_library(
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
         "base",
+        "bytestring",
         "text",
         "vector",
         "containers",
@@ -18,6 +19,9 @@ da_haskell_library(
     deps = [
         "//ledger-api/grpc-definitions:ledger-api-haskellpb",
         "//nix/third-party/gRPC-haskell:grpc-haskell",
+        "//daml-lf/archive:daml_lf_haskell_proto",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
     ],
 )
 
@@ -57,10 +61,11 @@ da_haskell_test(
         "directory",
         "extra",
         "process",
-        "split",
         "tasty",
         "tasty-hunit",
         "text",
+        "random",
+        "uuid",
     ],
     main_function = "DA.Ledger.Tests.main",
     src_strip_prefix = "test",
