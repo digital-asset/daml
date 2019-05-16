@@ -84,6 +84,9 @@ t4_1 :: Tasty.TestTree
 t4_1 = testCase "submit good package id" $ do
     withSandbox spec1 $ \sandbox -> do
         h <- Ledger.connect (Sandbox.port sandbox)
+        -- TODO: Use Ledger.getPackage to find the correct package with the "Iou" contract.
+        [pid,_,_] <- Ledger.listPackages h -- for now assume it's in the 1st of the 3 listed packages.
+        let command =  createIOU pid alice "A-coin" 100
         completions <- Ledger.completions h myAid [alice]
         (cs1,_) <- Ledger.getStreamContents completions
         assertEqual "before submit 1" [] cs1
@@ -92,12 +95,6 @@ t4_1 = testCase "submit good package id" $ do
         let LL.Completion{completionCommandId} = comp1
         let cid1' = CommandId completionCommandId
         assertEqual "submit1" cid1' cid1
-            where command =  createIOU pid alice "A-coin" 100
-                  -- pid is one of the 3 listed packages
-                  -- but until we get Ledger.getPackage working, we cannot
-                  -- know which to choose, so just harc code it here.
-                  pid = PackageId "48d2cd25c12eb0fa16d384b0bf3b4de56572689168ffc688d34291a82cb589e0"
-
 
 t5 :: Tasty.TestTree
 t5 = testCase "package service, listPackages" $ do
