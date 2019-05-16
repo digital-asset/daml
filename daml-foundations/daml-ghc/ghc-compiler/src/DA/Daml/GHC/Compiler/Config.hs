@@ -76,6 +76,7 @@ wOptsSet =
   , Opt_WarnPrepositiveQualifiedModule
   , Opt_WarnOverlappingPatterns
   , Opt_WarnIncompletePatterns
+  , Opt_WarnMissingMethods
   ]
 
 -- | Warning options set for DAML compilation, which become errors.
