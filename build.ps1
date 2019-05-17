@@ -69,4 +69,5 @@ bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_w
     //ledger-api/... `
     //navigator/backend/... `
     //daml-assistant/integration-tests/... `
+    //daml-foundations/daml-ghc:daml-ghc-deterministic `
     //daml-foundations/daml-tools/da-hs-damlc-app/...

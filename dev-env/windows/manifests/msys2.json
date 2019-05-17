@@ -25,6 +25,6 @@
       "bash.exe -lc 'pacman -S --noconfirm unzip zip mingw-w64-x86_64-gcc'",
       "try { bash.exe -lc 'pacman -S --noconfirm tar diffutils' } catch { }",
       "mkdir $dir\\bin",
-      "cp $dir\\mingw64\\bin\\*.dll $dir\\bin"
+      "cp $dir\\mingw64\\bin\\*.dll $dir\\usr\\bin"
     ]
 }
