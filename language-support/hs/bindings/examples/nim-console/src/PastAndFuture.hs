@@ -3,6 +3,6 @@
 
 module PastAndFuture(PastAndFuture(..)) where
 
-import Stream
+import DA.Ledger.Stream as Stream
 
 data PastAndFuture a = PF { past :: [a], future :: Stream a }

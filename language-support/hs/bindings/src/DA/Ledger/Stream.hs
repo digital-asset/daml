@@ -8,18 +8,19 @@
 -- When closed (at the read-end), elements in flight are dropped, clients are notified
 -- When closure is requested at the write-end, elements in flight are processed. The stream becomes properly closed when the closure request reaches the read-end of the stream. Subsequent writes are dropped.
 
-module Stream(Stream, newStream,
-              Closed(..), onClose, closeStream,
-              takeStream,
-              writeStream,
-              whenClosed, isClosed,
-             ) where
+module DA.Ledger.Stream(
+    Stream, newStream,
+    Closed(..), onClose, closeStream,
+    takeStream,
+    writeStream,
+    whenClosed, isClosed,
+    ) where
 
 import Control.Concurrent
 
 newtype Stream a = Stream {status :: MVar (Either Closed (Open a))}
 
-newtype Closed = Closed { reason :: String }
+newtype Closed = Closed { reason :: String } deriving Show
 
 data Open a = Open {
     chan :: Chan (Either Closed a),

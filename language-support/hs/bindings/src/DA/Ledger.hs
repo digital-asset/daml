@@ -19,12 +19,14 @@ module DA.Ledger( -- WIP: High level interface to the Ledger API services
 
     Port(..),
 
-    Stream, takeStream, getStreamContents,
+    Stream, takeStream, --getStreamContents,
 
     LedgerHandle, connect, identity,
 
     ) where
 
+--import DA.OldStream
+import DA.Ledger.Stream
 
 import DA.Ledger.Types
 
@@ -108,42 +110,8 @@ mdm :: MetadataMap
 mdm = MetadataMap Map.empty
 
 
-
 ----------------------------------------------------------------------
 -- Services with streaming responses
-
-data Elem a = Elem a | Eend | Eerr String
-
-deElem :: Elem a -> IO a
-deElem = \case
-    Elem a -> return a
-    Eend -> fail "readStream, end"
-    Eerr s -> fail $ "readStream, err: " <> s
-
-newtype Stream a = Stream { mv :: MVar (Elem a) }
-
-newStream :: IO (Stream a)
-newStream = do
-    mv <- newEmptyMVar
-    return Stream{mv}
-
-writeStream :: Stream a -> Elem a -> IO () -- internal use only
-writeStream Stream{mv} elem = putMVar mv elem
-
-takeStream :: Stream a -> IO a
-takeStream Stream{mv} = takeMVar mv >>= deElem
-
-data StreamState = SS -- TODO
-getStreamContents :: Stream a -> IO ([a],StreamState)
-getStreamContents Stream{mv} = do xs <- loop ; return (xs,SS)
-    where
-        loop = do
-            tryTakeMVar mv >>= \case
-                Nothing -> return []
-                Just e -> do
-                    x <- deElem e
-                    xs <- loop
-                    return (x:xs)
 
 -- wrap LL.Transaction to show summary
 newtype LL_Transaction = LL_Transaction { low :: LL.Transaction } --TODO: remove
@@ -191,14 +159,14 @@ sendToStream request f stream rpc1 = do
             either <- recv
             case either of
                 Left e -> do
-                    writeStream stream (Eerr (show e)) -- notify reader of error
+                    writeStream stream (Left (Closed (show e))) -- notify reader of error
                     return ()
                 Right Nothing -> do
-                    writeStream stream Eend -- notify reader of end-of-stream
+                    writeStream stream (Left (Closed "end-of-stream")) -- notify reader of end-of-stream
                     return ()
                 Right (Just x) ->
                     do
-                        mapM_ (writeStream stream . Elem) (f x)
+                        mapM_ (writeStream stream . Right) (f x)
                         again
     return ()
         -- After a minute, we stop collecting the events.
