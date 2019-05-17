@@ -102,7 +102,7 @@ autoInstall env@Env{..} = do
     let doAutoInstallE = queryDamlConfigRequired ["auto-install"] =<< damlConfigE
         doAutoInstall = fromRight True doAutoInstallE
 
-    if (doAutoInstall && isJust envSdkVersion && isNothing envSdkPath) then do
+    if doAutoInstall && isJust envSdkVersion && isNothing envSdkPath then do
         -- sdk is missing, so let's install it!
         let sdkVersion = fromJust envSdkVersion
             isLatest
