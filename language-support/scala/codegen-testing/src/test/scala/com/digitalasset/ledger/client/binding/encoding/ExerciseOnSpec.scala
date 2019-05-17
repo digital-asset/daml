@@ -15,11 +15,53 @@ class ExerciseOnSpec extends WordSpec with Matchers {
 
   "ids" should {
     "select an instance" in {
-      (id: Sth.ContractId) => id.exerciseFoo(owner)
+      def exer(id: P.ContractId[Sth]) = id.exerciseFoo(owner)
     }
 
     "select an instance, even if subtype" in {
-      def exer[T <: Sth.ContractId] = (id: T) => id.exerciseFoo(owner)
+      def exer[T <: Sth.ContractId](id: T) = id.exerciseFoo(owner)
+    }
+
+    "select an instance, even if singleton type" in {
+      def exer(id: Sth.ContractId) =
+        Sth.`Sth syntax`[id.type](id).exerciseFoo(owner)
+    }
+
+    "still select an instance if imported" in {
+      import Sth._
+      def exer(id: Sth.ContractId) = id.exerciseFoo(owner)
+    }
+
+    "discriminate among template types" in {
+      import LfTypeEncodingSpec.CallablePayout, Sth._
+      def exer(id: CallablePayout.ContractId) =
+        id: `Sth syntax`[CallablePayout.ContractId]
+      // ^ works, but...
+      "(id: CallablePayout.ContractId) => id.exerciseFoo(owner)" shouldNot typeCheck
+    }
+  }
+
+  "untyped ids" should {
+    "not find an instance, even if syntax imported" in {
+      import Sth._
+      (): `Sth syntax`[Unit] // suppress unused import warning
+      "(id: P.ContractId[Any]) => id.exerciseFoo(owner)" shouldNot typeCheck
+    }
+  }
+
+  "templates" should {
+    "not have an instance (createAnd call required)" in {
+      "(sth: Sth) => sth.exerciseFoo(owner)" shouldNot typeCheck
+    }
+  }
+
+  "createAnds" should {
+    "select an instance" in {
+      Sth().createAnd.exerciseFoo(owner) shouldBe (())
+    }
+
+    "select an instance, even if subtype" in {
+      def exer[T <: Sth](id: Template[T]) = id.createAnd.exerciseFoo(owner)
     }
   }
 }
