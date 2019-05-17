@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.stream.ActorMaterializer
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.ledger.server.LedgerApiServer.authentication.AuthenticationInterceptor
 import io.grpc.netty.NettyServerBuilder
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.handler.ssl.SslContext
@@ -85,6 +86,9 @@ class LedgerApiServer(
     builder.workerEventLoopGroup(serverEventLoopGroup)
     builder.permitKeepAliveTime(10, TimeUnit.SECONDS)
     builder.permitKeepAliveWithoutCalls(true)
+
+    builder.intercept(AuthenticationInterceptor.initialize())
+
     val grpcServer = apiServices.services.foldLeft(builder)(_ addService _).build
     try {
       grpcServer.start()

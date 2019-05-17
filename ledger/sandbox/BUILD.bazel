@@ -32,6 +32,7 @@ compileDependencies = [
     "//ledger/ledger-api-akka",
     "//ledger/ledger-api-scala-logging",
     "//language-support/scala/bindings",
+    "//ledger/ledger-api-authentication-api:ledger-api-authentication-api",
     "//ledger/ledger-api-domain:ledger-api-domain",
     "//ledger/ledger-api-common:ledger-api-common",
     "//ledger/ledger-api-client:ledger-api-client",
