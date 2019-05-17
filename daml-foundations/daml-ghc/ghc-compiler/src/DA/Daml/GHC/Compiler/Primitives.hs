@@ -124,24 +124,12 @@ convertPrim _ "BEAppendText" (TText :-> TText :-> TText) =
     EBuiltin BEAppendText
 convertPrim _ "BETrace" (TText :-> a1 :-> a2) | a1 == a2 =
     EBuiltin BETrace `ETyApp` a1
-convertPrim version "BESha256Text" (TText :-> TText) =
-    if version `supports` featureSha256Text
-      then EBuiltin BESha256Text
-      -- compile also if we do not support it, so that we can have DA.Text.sha256
-      -- compiled without generating invalid packages regardless.
-      else mkETmLams
-        [(varV1, TText)]
-        (ETmApp
-          (ETyApp (EBuiltin BEError) TText)
-          (EBuiltin (BEText "SHA256_TEXT only supported when compiling to DAML-LF >= 1.2")))
+convertPrim _ "BESha256Text" (TText :-> TText) =
+    EBuiltin BESha256Text
 convertPrim _ "BEPartyToQuotedText" (TParty :-> TText) =
     EBuiltin BEPartyToQuotedText
-convertPrim version "BEPartyFromText" (TText :-> TOptional TParty) =
-    if version `supports` featurePartyFromText
-      then EBuiltin BEPartyFromText
-      -- compile also if we do not support it, so that we can have DA.Internal.LF.partyFromText
-      -- compiled without generating invalid packages regardless.
-      else runtimeUnsupportedPartyFromText (TOptional TParty)
+convertPrim _ "BEPartyFromText" (TText :-> TOptional TParty) =
+    EBuiltin BEPartyFromText
 
 -- Map operations
 
@@ -196,11 +184,3 @@ runtimeUnsupported msg v t =
   ETmApp
   (ETyApp (EBuiltin BEError) t)
   (EBuiltin (BEText (msg <> " only supported when compiling to DAML-LF >= " <> v)))
-
-runtimeUnsupportedPartyFromText :: Type -> Expr
-runtimeUnsupportedPartyFromText retType =
-  mkETmLams
-    [(varV1, TText)]
-    (ETmApp
-      (ETyApp (EBuiltin BEError) retType)
-      (EBuiltin (BEText "PARTY_FROM_TEXT only supported when compiling to DAML-LF >= 1.2")))

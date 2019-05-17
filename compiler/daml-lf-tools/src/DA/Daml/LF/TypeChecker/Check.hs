@@ -178,9 +178,7 @@ typeOfBuiltin = \case
   BEExplodeText      -> pure $ TText :-> TList TText
   BEAppendText       -> pure $ tBinop TText
   BEImplodeText      -> pure $ TList TText :-> TText
-  BESha256Text       -> do
-      checkFeature featureSha256Text
-      pure $ TText :-> TText
+  BESha256Text       -> pure $ TText :-> TText
   BEFoldl -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
@@ -502,11 +500,7 @@ checkTemplateChoice :: MonadGamma m => Qualified TypeConName -> TemplateChoice -
 checkTemplateChoice tpl (TemplateChoice _loc _ _ actors selfBinder (param, paramType) retType upd) = do
   checkType paramType KStar
   checkType retType KStar
-  v <- getLfVersion
-  let checkActors = checkExpr actors (TList TParty)
-  if v `supports` featureFlexibleControllers
-    then introExprVar param paramType checkActors
-    else checkActors
+  introExprVar param paramType $ checkExpr actors (TList TParty)
   introExprVar selfBinder (TContractId (TCon tpl)) $ introExprVar param paramType $
     checkExpr upd (TUpdate retType)
 

@@ -20,9 +20,9 @@
 // * 1 -- 2019-01-10: Add Optional type
 //     -- 2019-01-27: Add <, <=, =>, > for Party
 //     -- 2019-01-29: Add PrimType.ARROW
-// * 2 -- 2019-03-18: Add BuiltinFunction.SHA256_TEXT
+// * 2 -- 2019-03-18: Add BuiltinFunction.{SHA256_TEXT, TO_TEXT_PARTY, FROM_TEXT_PARTY}
 //     -- 2019-03-18: Add flexible controllers (change scoping of controller expressions)
-// * 3 -- 2019-03-25: Add contract key
+// * 3 -- 2019-03-25: Add contract keys
 //     -- 2019-03-27: Add Map type
 // dev -- 2019-05-15: Add complex contract keys
 
