@@ -7,8 +7,6 @@ import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.LedgerClient;
 import com.daml.ledger.rxjava.PackageClient;
 import com.daml.ledger.javaapi.data.*;
-import com.digitalasset.daml_lf.DamlLf;
-import com.digitalasset.daml_lf.DamlLf1;
 import com.digitalasset.quickstart.model.iou.Iou;
 import com.digitalasset.quickstart.model.iou.Iou_Transfer;
 import com.google.common.collect.BiMap;

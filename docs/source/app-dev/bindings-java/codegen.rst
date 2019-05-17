@@ -93,7 +93,7 @@ The following snippet is an excerpt from the ``pom.xml`` that is part of the :re
 
   .. literalinclude:: ../../getting-started/quickstart/template-root/pom.xml
     :language: xml
-    :lines: 73-105,121-122
+    :lines: 68-100,116-117
     :dedent: 12
 
 

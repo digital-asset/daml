@@ -9,6 +9,7 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- **Documentation**: Removed unnecessary dependency in the quickstart-java example project.
 - **SQL Extractor**: in JSON content, dates and timestamps are formatted like
   ``"2020-02-22"`` and ``"2020-02-22T12:13:14Z"`` rather than UNIX epoch offsets like
   ``18314`` or ``1582373594000000``.
