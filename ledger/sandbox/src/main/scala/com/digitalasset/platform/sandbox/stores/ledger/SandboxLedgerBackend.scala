@@ -32,7 +32,7 @@ import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
 
 class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
-    extends LedgerBackend //TODO: remove this interface later
+    extends LedgerBackend //TODO: remove this later so we can rely on sole participant state interfaces
     with WriteService {
 
   override def ledgerId: String = ledger.ledgerId

@@ -88,8 +88,8 @@ trait WriteService {
     *                        globally unique id, as then the contract-ids can be derived from that
     *                        transaction id.
     *
+    * @return an async result of a SubmissionResult
     */
-  //TODO: update docs
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
