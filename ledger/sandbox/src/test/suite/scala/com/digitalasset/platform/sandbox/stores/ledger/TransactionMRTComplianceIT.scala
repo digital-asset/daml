@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
+import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.Transaction.{ContractId, NodeId, Value}
@@ -15,11 +16,7 @@ import com.digitalasset.ledger.api.testing.utils.{
   Resource,
   SuiteResourceManagementAroundEach
 }
-import com.digitalasset.ledger.backend.api.v1.{
-  RejectionReason,
-  SubmissionResult,
-  TransactionSubmission
-}
+import com.digitalasset.ledger.backend.api.v1.{RejectionReason, TransactionSubmission}
 import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
 import com.digitalasset.platform.testing.MultiResourceBase
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}

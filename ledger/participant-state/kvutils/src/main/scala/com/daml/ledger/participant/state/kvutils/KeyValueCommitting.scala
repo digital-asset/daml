@@ -18,6 +18,7 @@ import com.digitalasset.daml.lf.value.Value.{
   NodeId,
   VersionedValue
 }
+import com.digitalasset.platform.services.time.TimeModelChecker
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
@@ -161,8 +162,10 @@ object KeyValueCommitting {
     val dedupEntry = inputState(dedupKey)
     val dedupCheckResult = dedupEntry.isEmpty
 
+    val timeModelChecker = TimeModelChecker(config.timeModel)
+
     // 2. Verify that the ledger effective time falls within time bounds
-    val letCheckResult = config.timeModel.checkLet(
+    val letCheckResult = timeModelChecker.checkLet(
       currentTime = recordTime.toInstant,
       givenLedgerEffectiveTime = txLet.toInstant,
       givenMaximumRecordTime =

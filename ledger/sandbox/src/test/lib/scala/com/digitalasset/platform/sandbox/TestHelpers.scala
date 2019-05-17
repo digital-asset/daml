@@ -44,10 +44,13 @@ trait TestHelpers {
       TimeProvider.Constant(Instant.EPOCH),
       ActiveContractsInMemory.empty,
       ImmArray.empty)
+
+    val backend = new SandboxLedgerBackend(ledger)
     SandboxSubmissionService.createApiService(
       damlPackageContainer,
       IdentifierResolver(pkgId => Future.successful(damlPackageContainer.getPackage(pkgId))),
-      new SandboxLedgerBackend(ledger),
+      backend,
+      backend,
       TimeModel.reasonableDefault,
       timeProvider,
       new CommandExecutorImpl(Engine(), damlPackageContainer)

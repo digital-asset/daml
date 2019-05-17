@@ -25,5 +25,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/lfpackage",
         "//daml-lf/transaction",
+        "//ledger/participant-state",
     ],
 )

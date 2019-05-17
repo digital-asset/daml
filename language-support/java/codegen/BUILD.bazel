@@ -69,6 +69,7 @@ test_deps = [
     "//daml-lf/interface",
     "//language-support/java/bindings:bindings-java",
     "//language-support/codegen-common",
+    "//ledger/participant-state",
 ]
 
 ########################################################

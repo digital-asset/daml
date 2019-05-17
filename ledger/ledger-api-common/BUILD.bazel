@@ -43,6 +43,7 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-scala-logging",
+        "//ledger/participant-state",
     ],
 )
 
@@ -58,6 +59,7 @@ testDependencies = [
     "//ledger-api/rs-grpc-bridge",
     "//ledger-api/rs-grpc-akka",
     "//ledger/ledger-api-domain:ledger-api-domain",
+    "//ledger/participant-state",
     "//daml-lf/archive:daml_lf_archive_scala",
     "//ledger/ledger-api-client:ledger-api-client",
     "//3rdparty/jvm/org/scalatest:scalatest",

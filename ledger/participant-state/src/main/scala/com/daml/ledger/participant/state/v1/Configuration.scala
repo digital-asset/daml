@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.v1
 
-import com.digitalasset.platform.services.time.TimeModel
-
 /** Ledger configuration describing the ledger's time model.
   * Emitted in [[com.daml.ledger.participant.state.v1.Update.ConfigurationChanged]].
   */
