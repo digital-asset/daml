@@ -14,8 +14,8 @@ import Text.Read (readMaybe)
 import System.Time.Extra(sleep)
 
 import Domain
-import DA.Ledger.Stream as Stream
-import PastAndFuture
+import DA.Ledger.Stream --as Stream
+import DA.Ledger.PastAndFuture
 import External
 
 import Local(State,LCommand,Onum(..),Gnum(..))

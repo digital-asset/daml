@@ -17,7 +17,7 @@ import System.Time.Extra(sleep)
 import Domain
 import External
 import DA.Ledger.Stream as Stream
-import PastAndFuture
+import DA.Ledger.PastAndFuture
 
 data Client = Client { player :: Player, stream :: Stream XTrans }
 
