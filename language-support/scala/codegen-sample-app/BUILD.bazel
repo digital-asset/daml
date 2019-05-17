@@ -100,7 +100,7 @@ da_scala_library(
         "//3rdparty/jvm/org/scalatest",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//language-support/scala/bindings",
-        "//language-support/scala/bindings-akka",
+        "//language-support/scala/bindings-akka",        
     ],
 )
 
@@ -110,6 +110,7 @@ test_dependencies = [
     "//3rdparty/jvm/org/scalaz:scalaz_core",
     "//language-support/scala/codegen-testing",
     "//language-support/scala/bindings",
+    "//ledger/participant-state",
     ":daml-lf-codegen-sample-app",
     ":daml-lf-codegen-sample-app-testing",
 ]

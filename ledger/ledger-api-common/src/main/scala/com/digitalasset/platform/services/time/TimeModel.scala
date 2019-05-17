@@ -4,6 +4,7 @@
 package com.digitalasset.platform.services.time
 
 import com.daml.ledger.participant.state.v1.{TimeModel => ITimeModel}
+import com.daml.ledger.participant.state.v1.{TimeModelChecker => ITimeModelChecker}
 
 import java.time.{Duration, Instant}
 
@@ -37,38 +38,6 @@ class TimeModel private (
     */
   val futureAcceptanceWindow: Duration = maxClockSkew
 
-  /**
-    * Validates that the ttl of the given times is within bounds.
-    * The ttl of a command is defined as the duration between
-    * the ledger effective time and maximum record time.
-    *
-    * @param givenLedgerEffectiveTime The given ledger effective time.
-    * @param givenMaximumRecordTime   The given maximum record time.
-    * @return true if successful
-    */
-  def checkTtl(givenLedgerEffectiveTime: Instant, givenMaximumRecordTime: Instant): Boolean = {
-    val givenTtl = Duration.between(givenLedgerEffectiveTime, givenMaximumRecordTime)
-    !givenTtl.minus(minTtl).isNegative && !maxTtl.minus(givenTtl).isNegative
-  }
-
-  /**
-    * Validates that the given ledger effective time is within an acceptable time window of the current system time.
-    *
-    * @param currentTime the current time
-    * @param givenLedgerEffectiveTime The ledger effective time to validate.
-    * @param givenMaximumRecordTime The maximum record time to validate.
-    * @return true if successful
-    */
-  def checkLet(
-      currentTime: Instant,
-      givenLedgerEffectiveTime: Instant,
-      givenMaximumRecordTime: Instant): Boolean = {
-    // Note that, contrary to the documented spec, the record time of a transaction is when it's sequenced.
-    // It turns out this isn't a problem for the participant or the sandbox,
-    // and MRT seems to be going away in Sirius anyway, so I've left it as is.
-    val lowerBound = givenLedgerEffectiveTime.minus(futureAcceptanceWindow)
-    !currentTime.isBefore(lowerBound) && !currentTime.isAfter(givenMaximumRecordTime)
-  }
 }
 
 object TimeModel {
@@ -89,5 +58,28 @@ object TimeModel {
     require(!maxClockSkew.isNegative, "Negative max clock skew")
     require(!maxTtl.minus(maxClockSkew).isNegative, "Max TTL must be greater than max clock skew")
     new TimeModel(minTransactionLatency, maxClockSkew, maxTtl)
+  }
+}
+
+case class TimeModelChecker(timeModel: ITimeModel) extends ITimeModelChecker {
+
+  import timeModel._
+
+  override def checkTtl(
+      givenLedgerEffectiveTime: Instant,
+      givenMaximumRecordTime: Instant): Boolean = {
+    val givenTtl = Duration.between(givenLedgerEffectiveTime, givenMaximumRecordTime)
+    !givenTtl.minus(minTtl).isNegative && !maxTtl.minus(givenTtl).isNegative
+  }
+
+  override def checkLet(
+      currentTime: Instant,
+      givenLedgerEffectiveTime: Instant,
+      givenMaximumRecordTime: Instant): Boolean = {
+    // Note that, contrary to the documented spec, the record time of a transaction is when it's sequenced.
+    // It turns out this isn't a problem for the participant or the sandbox,
+    // and MRT seems to be going away in Sirius anyway, so I've left it as is.
+    val lowerBound = givenLedgerEffectiveTime.minus(futureAcceptanceWindow)
+    !currentTime.isBefore(lowerBound) && !currentTime.isAfter(givenMaximumRecordTime)
   }
 }

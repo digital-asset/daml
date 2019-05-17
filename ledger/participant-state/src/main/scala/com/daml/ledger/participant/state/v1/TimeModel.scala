@@ -7,14 +7,19 @@ import java.time.{Duration, Instant}
 
 trait TimeModel {
 
-  //TODO docs
   def minTransactionLatency: Duration
+
+  def futureAcceptanceWindow: Duration
 
   def maxClockSkew: Duration
 
   def minTtl: Duration
 
   def maxTtl: Duration
+
+}
+
+trait TimeModelChecker {
 
   /**
     * Validates that the given ledger effective time is within an acceptable time window of the current system time.
@@ -39,5 +44,4 @@ trait TimeModel {
     * @return true if successful
     */
   def checkTtl(givenLedgerEffectiveTime: Instant, givenMaximumRecordTime: Instant): Boolean
-
 }
