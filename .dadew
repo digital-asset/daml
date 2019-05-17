@@ -4,6 +4,7 @@
     "tools": [
         "7zip",
         "java-openjdk-8u201",
+        "jq-1.5",
         "msys2",
         "msys2-patch",
         "curl-7.64.0",
