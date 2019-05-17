@@ -101,13 +101,7 @@ def _fat_cc_library_impl(ctx):
         linking_context = new_linking_context,
         compilation_context = cc_info.compilation_context,
     )
-    return struct(
-        # cc is a legacy provider so it needs to be handled differently.
-        # Hopefully, rules_haskell will stop depending onit at somepoint and
-        # we can stop providing both cc and CcInfo.
-        cc = input_lib.cc,
-        providers = [new_cc_info],
-    )
+    return [new_cc_info]
 
 # Shared libraries built with Bazel do not declare their dependencies on other libraries properly.
 # Instead that dependency is tracked in Bazel internally. This breaks the GHCi linker if
