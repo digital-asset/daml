@@ -20,7 +20,7 @@ import scala.reflect.runtime.universe._
   *  See the comments below for more details on what classes/methods/types are generated.
   */
 object DamlContractTemplateGen {
-  import LFUtil.{domainApiAlias, rpcValueAlias}
+  import LFUtil.rpcValueAlias
 
   private val logger: Logger = Logger(getClass)
 
@@ -32,11 +32,18 @@ object DamlContractTemplateGen {
 
     val templateName = util.mkDamlScalaName(Util.Template, templateId)
     val contractName = util.mkDamlScalaName(Util.Contract, templateId)
+    val syntaxIdDecl = LFUtil.toCovariantTypeDef(" ExOn")
+    val syntaxIdType = TypeName(" ExOn")
 
     logger.debug(s"generate templateDecl: $templateName, $templateInterface")
 
     val templateChoiceMethods = templateInterface.template.choices.flatMap {
-      case (id, interface) => util.genTemplateChoiceMethods(id, interface)
+      case (id, interface) =>
+        util.genTemplateChoiceMethods(
+          templateType = tq"${TypeName(contractName.name)}",
+          idType = syntaxIdType,
+          id,
+          interface)
     }
 
     def toNamedArgumentsMethod =
@@ -66,8 +73,7 @@ object DamlContractTemplateGen {
 
     def templateObjectMembers = Seq(
       q"override val id = ` templateId`(packageId=$packageIdRef, moduleName=${moduleName.dottedName}, entityName=${baseName.dottedName})",
-      q"""implicit final class ${TypeName(s"${contractName.name} syntax")}(private val id: $domainApiAlias.Primitive.ContractId[${TypeName(
-        contractName.name)}]) extends _root_.scala.AnyVal {
+      q"""implicit final class ${TypeName(s"${contractName.name} syntax")}[$syntaxIdDecl](private val id: $syntaxIdType) extends _root_.scala.AnyVal {
             ..$templateChoiceMethods
           }""",
       consumingChoicesMethod,
