@@ -11,12 +11,14 @@ import Data.Maybe
 import qualified Data.Text as T
 import           Control.Lens
 import           Control.Lens.Ast
+import           Data.Functor.Foldable
 import qualified Data.Graph as G
 import           Data.List.Extra (nubSort)
 import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Optics
+import DA.Daml.LF.Ast.Recursive
 
 dvalName :: DefValue -> ExprValName
 dvalName = fst . dvalBinder
@@ -251,3 +253,9 @@ partitionDefinitions = foldr f ([], [], [])
 -- `ModuleName` type.
 moduleNameString :: ModuleName -> T.Text
 moduleNameString = T.intercalate "." . unTagged
+
+-- | Remove all location information from an expression.
+removeLocations :: Expr -> Expr
+removeLocations = cata $ \case
+    ELocationF _loc e -> e
+    b -> embed b

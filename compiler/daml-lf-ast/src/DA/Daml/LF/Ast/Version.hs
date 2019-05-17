@@ -67,6 +67,9 @@ featureContractKeys = Feature "Contract keys" version1_3
 featurePartyFromText :: Feature
 featurePartyFromText = Feature "partyFromText function" version1_2
 
+featureComplexContractKeys :: Feature
+featureComplexContractKeys = Feature "Complex contract keys" versionDev
+
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature
 

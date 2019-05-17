@@ -557,7 +557,9 @@ checkTemplateKey param tcon TemplateKey{..} = do
     checkFeature featureContractKeys
     introExprVar param (TCon tcon) $ do
       checkType tplKeyType KStar
-      checkValidKeyExpr tplKeyBody
+      version <- getLfVersion
+      unless (version `supports` featureComplexContractKeys) $
+          checkValidKeyExpr tplKeyBody
       checkExpr tplKeyBody tplKeyType
     checkExpr tplKeyMaintainers (tplKeyType :-> TList TParty)
 
