@@ -154,6 +154,9 @@ sh_test(
         "//daml-foundations/daml-tools/da-hs-damlc-app",
         "@com_google_protobuf//:protoc",
     ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 # Generating DAML stdlib docs.
