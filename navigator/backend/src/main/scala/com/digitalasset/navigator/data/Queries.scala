@@ -18,7 +18,8 @@ object Queries {
             id TEXT PRIMARY KEY NOT NULL,
             template_id TEXT NOT NULL,
             archive_transaction_id TEXT DEFAULT NULL,
-            argument JSON NOT NULL
+            argument JSON NOT NULL,
+            agreement_text TEXT DEFAULT NULL
           )
       """
 
@@ -216,13 +217,13 @@ object Queries {
       SELECT * FROM command
     """
 
-  def insertContract(id: String, templateId: String, argument: String): Fragment =
+  def insertContract(row: ContractRow): Fragment =
     sql"""
       INSERT INTO 
         contract 
-        (id, template_id, archive_transaction_id, argument)
-      VALUES 
-        ($id, $templateId, NULL, $argument)
+        (id, template_id, archive_transaction_id, argument, agreement_text)
+      VALUES
+        (${row.id}, ${row.templateId}, ${row.archiveTransactionId}, ${row.argument}, ${row.agreementText})
     """
 
   def archiveContract(contractId: String, archiveTransactionId: String): Fragment =

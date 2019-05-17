@@ -5,7 +5,10 @@ package com.digitalasset.ledger.client.binding
 
 import com.digitalasset.ledger.api.v1.{value => rpcvalue}
 
-final case class Contract[+T](contractId: Primitive.ContractId[T], value: T with Template[T]) {
+final case class Contract[+T](
+    contractId: Primitive.ContractId[T],
+    value: T with Template[T],
+    agreementText: Option[String]) {
   def arguments: rpcvalue.Record = value.arguments
 }
 

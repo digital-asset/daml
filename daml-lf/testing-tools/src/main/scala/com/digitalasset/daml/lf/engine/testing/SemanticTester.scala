@@ -194,6 +194,7 @@ class SemanticTester(
                     nextScenarioCoidToLedgerCoid(scenarioCreateNode.coid),
                     scenarioCreateNode.coinst.template,
                     scenarioCreateNode.coinst.arg.mapContractId(nextScenarioCoidToLedgerCoid),
+                    scenarioCreateNode.coinst.agreementText,
                     scenarioCreateNode.stakeholders intersect scenarioWitnesses(scenarioNodeId),
                     scenarioWitnesses(scenarioNodeId),
                   )

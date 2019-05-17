@@ -37,6 +37,7 @@ final case class CreateEvent[Cid, Val](
     contractId: Cid,
     templateId: Identifier,
     argument: Val,
+    agreementText: String,
     stakeholders: Set[Party],
     witnesses: Set[Party])
     extends Event[Nothing, Cid, Val] {
@@ -153,6 +154,7 @@ object Event {
                   nc.coid,
                   templateId,
                   nc.coinst.arg,
+                  nc.coinst.agreementText,
                   stakeholders intersect disclosure(nodeId),
                   disclosure(nodeId))
               evts += (nodeId -> evt)

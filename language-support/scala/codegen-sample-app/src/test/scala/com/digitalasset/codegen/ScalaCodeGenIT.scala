@@ -488,7 +488,10 @@ class ScalaCodeGenIT
     event.event.isCreated shouldBe true
     decoder(event.getCreated) match {
       case Left(e) => fail(e.toString)
-      case Right(Contract(_, contract)) => contract shouldBe expectedContract
+      case Right(Contract(_, contract, agreementText)) =>
+        contract shouldBe expectedContract
+        agreementText shouldBe event.getCreated.agreementText
+
     }
   }
 
