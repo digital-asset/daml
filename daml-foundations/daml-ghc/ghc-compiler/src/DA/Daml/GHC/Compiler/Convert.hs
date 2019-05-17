@@ -409,7 +409,7 @@ convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App`
         keyType <- convertType env keyType
         keyExpr <- convertKeyExpr env keyBinder keyExpr
         maintainerExpr <- convertKeyExpr env maintainerBinder maintainerExpr
-        maintainerExpr <- rewriteMaintainer keyExpr maintainerExpr
+        maintainerExpr <- rewriteMaintainer env keyExpr maintainerExpr
         pure $ TemplateKey keyType keyExpr (ETmLam ("$key", keyType) maintainerExpr)
       _ -> unhandled "Template key definition" o
 convertKey _ o = unhandled "Template key definition" o
@@ -1329,38 +1329,25 @@ isRecordCtor (Ctor _ fldNames fldTys) = not (null fldNames) || null fldTys
 -- then 'maintainer' gets rewritten into
 --
 -- > maintainer = $key._2 ++ $key._1
-rewriteMaintainer :: LF.Expr -> LF.Expr -> ConvertM LF.Expr
-rewriteMaintainer key maintainer = do
-    keyMap <- buildKeyMap key
-    rewriteThisProjections keyMap maintainer
+rewriteMaintainer :: Env -> LF.Expr -> LF.Expr -> ConvertM LF.Expr
+rewriteMaintainer env key maintainer = do
+    let keyMap = buildKeyMap (removeLocations key)
+    rewriteThisProjections keyMap (removeLocations maintainer)
   where
-    unwindProjections :: LF.Expr -> (LF.Expr, [FieldName])
-    unwindProjections = go []
-      where
-        go fields = \case
-            ELocation _ expr -> go fields expr
-            ERecProj _typ field expr -> go (field : fields) expr
-            expr -> (expr, fields)
-
-    -- TODO(#299): The error messages are pretty bad.
-    buildKeyMap :: LF.Expr -> ConvertM (MS.Map [FieldName] LF.Expr)
+    buildKeyMap :: LF.Expr -> MS.Map LF.Expr LF.Expr
     buildKeyMap = \case
-        ELocation _ expr -> buildKeyMap expr
-        ERecCon typ fields -> do
-            keyMaps <- forM fields $ \(fieldName, fieldExpr) ->
-                MS.map (ERecProj typ fieldName) <$> buildKeyMap fieldExpr
-            pure $ MS.unions keyMaps
-        expr
-            | (EVar "this", fields) <- unwindProjections expr -> pure $ MS.singleton fields (EVar "$key")
-        o -> unhandled "Template key expression" o
+        ERecCon typ fields -> MS.unions
+            [ MS.map (ERecProj typ fieldName) (buildKeyMap fieldExpr)
+            | (fieldName, fieldExpr) <- fields
+            ]
+        expr -> MS.singleton expr (EVar "$key")
 
     -- TODO(#299): The error messages are pretty bad.
-    rewriteThisProjections :: MS.Map [FieldName] LF.Expr -> LF.Expr -> ConvertM LF.Expr
-    rewriteThisProjections keyMap expr = case unwindProjections expr of
-        (EVar "this", fields)
-          | Just expr' <- MS.lookup fields keyMap -> pure expr'
-          | null fields -> unhandled "Unbound reference to this in maintainer" expr
-        _ -> embed <$> mapM (rewriteThisProjections keyMap) (project expr)
+    rewriteThisProjections :: MS.Map LF.Expr LF.Expr -> LF.Expr -> ConvertM LF.Expr
+    rewriteThisProjections keyMap expr
+        | Just expr' <- expr `MS.lookup` keyMap = pure expr'
+        | EVar "this" <- expr = unhandled "Unbound reference to this in maintainer" expr
+        | otherwise = embed <$> mapM (rewriteThisProjections keyMap) (project expr)
 
 
 ---------------------------------------------------------------------

@@ -430,9 +430,14 @@ encodeTemplate version Template{..} =
 encodeTemplateKey :: Version -> ExprVarName -> TemplateKey -> P.DefTemplate_DefKey
 encodeTemplateKey version templateVar TemplateKey{..} = checkFeature featureContractKeys version $ P.DefTemplate_DefKey
   { P.defTemplate_DefKeyType = encodeType version tplKeyType
-  , P.defTemplate_DefKeyKeyExpr = case exprToKeyExpr templateVar tplKeyBody of
-      Left err -> error err
-      Right x -> Just $ P.DefTemplate_DefKeyKeyExprKey $ encodeKeyExpr version x
+  , P.defTemplate_DefKeyKeyExpr =
+      if version `supports` featureComplexContractKeys
+      then
+          Just $ P.DefTemplate_DefKeyKeyExprComplexKey $ encodeExpr' version tplKeyBody
+      else
+          case exprToKeyExpr templateVar tplKeyBody of
+              Left err -> error err
+              Right x -> Just $ P.DefTemplate_DefKeyKeyExprKey $ encodeKeyExpr version x
   , P.defTemplate_DefKeyMaintainers = encodeExpr version tplKeyMaintainers
   }
 
