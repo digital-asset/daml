@@ -8,42 +8,21 @@ import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.value.Value.ValueUnit
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.messages.command.submission
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.Command.Command.{
-  Create => ProtoCreate,
-  CreateAndExercise => ProtoCreateAndExercise,
-  Empty => ProtoEmpty,
-  Exercise => ProtoExercise
-}
+import com.digitalasset.ledger.api.v1.commands.Command.Command.{Create => ProtoCreate, CreateAndExercise => ProtoCreateAndExercise, Empty => ProtoEmpty, Exercise => ProtoExercise}
 import com.digitalasset.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
 import com.digitalasset.ledger.api.v1.value.Value.Sum
-import com.digitalasset.ledger.api.v1.value.{
-  Identifier,
-  RecordField,
-  Value,
-  List => ApiList,
-  Map => ApiMap,
-  Variant => ApiVariant
-}
+import com.digitalasset.ledger.api.v1.value.{Identifier, RecordField, Value, List => ApiList, Map => ApiMap, Variant => ApiVariant}
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.platform.common.PlatformTypes.asVersionedValueOrThrow
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
-import com.digitalasset.platform.server.util.context.TraceContextConversions._
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
 
-class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: IdentifierResolver) {
-
-  def validate(req: SubmitRequest): Either[StatusRuntimeException, submission.SubmitRequest] =
-    for {
-      commands <- requirePresence(req.commands, "commands")
-      validatedCommands <- validateCommands(commands)
-    } yield submission.SubmitRequest(validatedCommands, req.traceContext.map(toBrave))
+final class CommandsValidator(ledgerId: String, identifierResolver: IdentifierResolver) {
 
   def validateCommands(commands: ProtoCommands): Either[StatusRuntimeException, domain.Commands] =
     for {
@@ -76,9 +55,9 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
       )
 
   private def validateInnerCommands(
-      commands: Seq[ProtoCommand],
-      submitter: Ref.Party
-  ): Either[StatusRuntimeException, immutable.Seq[Command]] =
+                                     commands: Seq[ProtoCommand],
+                                     submitter: Ref.Party
+                                   ): Either[StatusRuntimeException, immutable.Seq[Command]] =
     commands.foldLeft[Either[StatusRuntimeException, Vector[Command]]](
       Right(Vector.empty[Command]))((commandz, command) => {
       for {
@@ -88,8 +67,8 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
     })
 
   private def validateInnerCommand(
-      command: ProtoCommand.Command,
-      submitter: Ref.Party): Either[StatusRuntimeException, Command] =
+                                    command: ProtoCommand.Command,
+                                    submitter: Ref.Party): Either[StatusRuntimeException, Command] =
     command match {
       case c: ProtoCreate =>
         for {
@@ -141,17 +120,17 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
     }
 
   private def validateRecordFields(recordFields: Seq[RecordField])
-    : Either[StatusRuntimeException, ImmArray[(Option[Ref.Name], domain.Value)]] =
+  : Either[StatusRuntimeException, ImmArray[(Option[Ref.Name], domain.Value)]] =
     recordFields
       .foldLeft[Either[StatusRuntimeException, BackStack[(Option[Ref.Name], domain.Value)]]](
-        Right(BackStack.empty))((acc, rf) => {
-        for {
-          fields <- acc
-          v <- requirePresence(rf.value, "value")
-          value <- validateValue(v)
-          label <- if (rf.label.isEmpty) Right(None) else requireIdentifier(rf.label).map(Some(_))
-        } yield fields :+ label -> value
-      })
+      Right(BackStack.empty))((acc, rf) => {
+      for {
+        fields <- acc
+        v <- requirePresence(rf.value, "value")
+        value <- validateValue(v)
+        label <- if (rf.label.isEmpty) Right(None) else requireIdentifier(rf.label).map(Some(_))
+      } yield fields :+ label -> value
+    })
       .map(_.toImmArray)
 
   def validateValue(value: Value): Either[StatusRuntimeException, domain.Value] = value.sum match {
@@ -183,11 +162,11 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
     case Sum.List(ApiList(elems)) =>
       elems
         .foldLeft[Either[StatusRuntimeException, BackStack[domain.Value]]](Right(BackStack.empty))(
-          (valuesE, v) =>
-            for {
-              values <- valuesE
-              validatedValue <- validateValue(v)
-            } yield values :+ validatedValue)
+        (valuesE, v) =>
+          for {
+            values <- valuesE
+            validatedValue <- validateValue(v)
+          } yield values :+ validatedValue)
         .map(elements => Lf.ValueList(FrontStack(elements.toImmArray)))
     case _: Sum.Unit => Right(ValueUnit)
     case Sum.Optional(o) =>
@@ -196,14 +175,14 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
     case Sum.Map(m) =>
       val entries = m.entries
         .foldLeft[Either[StatusRuntimeException, FrontStack[(String, domain.Value)]]](
-          Right(FrontStack.empty)) {
-          case (acc, ApiMap.Entry(key, value0)) =>
-            for {
-              tail <- acc
-              v <- requirePresence(value0, "value")
-              validatedValue <- validateValue(v)
-            } yield (key -> validatedValue) +: tail
-        }
+        Right(FrontStack.empty)) {
+        case (acc, ApiMap.Entry(key, value0)) =>
+          for {
+            tail <- acc
+            v <- requirePresence(value0, "value")
+            validatedValue <- validateValue(v)
+          } yield (key -> validatedValue) +: tail
+      }
 
       for {
         list <- entries
@@ -214,7 +193,7 @@ class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: Id
   }
 
   private def validateOptionalIdentifier(
-      variantIdO: Option[Identifier]): Either[StatusRuntimeException, Option[Ref.Identifier]] = {
+                                          variantIdO: Option[Identifier]): Either[StatusRuntimeException, Option[Ref.Identifier]] = {
     variantIdO
       .map { variantId =>
         identifierResolver.resolveIdentifier(variantId).map(Some.apply)

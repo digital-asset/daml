@@ -21,7 +21,7 @@ import com.digitalasset.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent
 import com.digitalasset.ledger.api.v1.value.Value.Sum.ContractId
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
-import com.digitalasset.ledger.api.validation.CommandSubmissionRequestValidator
+import com.digitalasset.ledger.api.validation.CommandsValidator
 import com.digitalasset.platform.common.PlatformTypes.asVersionedValueOrThrow
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.damle.SandboxDamle
@@ -78,9 +78,7 @@ class EventConverterSpec
   private val ledgerId = "ledgerId"
 
   private val validator =
-    new CommandSubmissionRequestValidator(
-      ledgerId,
-      IdentifierResolver(_ => Future.successful(None)))
+    new CommandsValidator(ledgerId, IdentifierResolver(_ => Future.successful(None)))
 
   private val commands = Commands()
     .withParty("Alice")

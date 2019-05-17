@@ -62,6 +62,9 @@ Ledger API
 
   See `#1110 <https://github.com/digital-asset/daml/issues/1110>`__ for details.
 
+- Fixed: the `CommandService.SubmitAndWait` endpoint no longer rejects commands without a workflow identifier.
+
+  See `#572 <https://github.com/digital-asset/daml/issues/572>`__ for details.
 
 Java Bindings
 ~~~~~~~~~~~~~

@@ -12,10 +12,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Optional => ApiOptional,
   _
 }
-import com.digitalasset.ledger.api.validation.{
-  CommandSubmissionRequestValidator,
-  ValidatorTestUtils
-}
+import com.digitalasset.ledger.api.validation.{CommandsValidator, ValidatorTestUtils}
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.google.protobuf.empty.Empty
@@ -56,13 +53,14 @@ class ValueConversionRoundTripTest
          }
          """
 
-  private val sut = new CommandSubmissionRequestValidator(
+  private val commandValidator = new CommandsValidator(
     "ledger-id",
-    new IdentifierResolver(_ => Future.successful(Some(pckg))))
+    new IdentifierResolver(_ => Future.successful(Some(pckg)))
+  )
 
   private def roundTrip(v: Value): Either[String, Value] =
     for {
-      lfValue <- sut.validateValue(v).left.map(_.getMessage)
+      lfValue <- commandValidator.validateValue(v).left.map(_.getMessage)
       apiValue <- LfEngineToApi.lfValueToApiValue(true, lfValue)
     } yield apiValue
 
