@@ -77,8 +77,8 @@ lookupDefLocation mod0 defName =
     <|>
     LF.tplLocation <$> NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
 
-teplateConName :: LF.World -> Maybe PackageIdentifier -> Identifier -> Maybe (LF.Qualified LF.TypeConName)
-teplateConName world mbPkgId (Identifier _ (TL.toStrict -> qualName)) = do
+teplateConName :: LF.World -> Identifier -> Maybe (LF.Qualified LF.TypeConName)
+teplateConName world (Identifier mbPkgId (TL.toStrict -> qualName)) = do
   (modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
   tpl <- NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
   let pkgRef = case mbPkgId of
