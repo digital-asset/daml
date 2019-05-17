@@ -6,9 +6,9 @@ package com.digitalasset.platform.sandbox.services
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.ConfigurationService
+import com.daml.ledger.participant.state.index.v1.ConfigurationService
+import com.digitalasset.api.util.DurationConversion._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   GetLedgerConfigurationResponse,
@@ -39,8 +39,8 @@ class LedgerConfigurationService private (configurationService: ConfigurationSer
           GetLedgerConfigurationResponse(
             Some(
               LedgerConfiguration(
-                Some(configuration.timeModel.minTtl),
-                Some(configuration.timeModel.maxTtl)
+                Some(toProto(configuration.timeModel.minTtl)),
+                Some(toProto(configuration.timeModel.maxTtl))
               ))))
       .concat(Source.fromFuture(Promise[GetLedgerConfigurationResponse]().future)) // we should keep the stream open!
 
@@ -55,7 +55,7 @@ object LedgerConfigurationService {
       mat: Materializer)
     : GrpcApiService with BindableService with LedgerConfigurationServiceLogging =
     new LedgerConfigurationServiceValidation(
-      new LedgerConfigurationService(ledgerConfiguration),
+      new LedgerConfigurationService(configurationService),
       ledgerId) with BindableService with LedgerConfigurationServiceLogging {
       override def bindService(): ServerServiceDefinition =
         LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)

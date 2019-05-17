@@ -4,17 +4,15 @@
 package com.digitalasset.ledger.server.apiserver
 
 import akka.stream.ActorMaterializer
-import com.daml.ledger.participant.state.index.ConfigurationService
-import com.daml.ledger.participant.state.v1.{Configuration, TimeModel, WriteService}
+import com.daml.ledger.participant.state.index.v1.ConfigurationService
+import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
 import com.digitalasset.ledger.backend.api.v1.LedgerBackend
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
-import com.digitalasset.platform.api.grpc.GrpcApiUtil
 import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
 import com.digitalasset.platform.sandbox.services._
 import com.digitalasset.platform.sandbox.services.transaction.SandboxTransactionService
@@ -54,7 +52,8 @@ object ApiServices {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private def configurationService(config: SandboxConfig) = new ConfigurationService {
+  //TODO: they are here just temporarily
+  def configurationService(config: SandboxConfig) = new ConfigurationService {
     override def getLedgerConfiguration(): Future[Configuration] =
       Future.successful(Configuration(config.timeModel))
   }
@@ -62,26 +61,8 @@ object ApiServices {
   def create(
       config: SandboxConfig,
       ledgerBackend: LedgerBackend,
-      engine: Engine,
-      timeProvider: TimeProvider,
-      optTimeServiceBackend: Option[TimeServiceBackend])(
-      implicit mat: ActorMaterializer,
-      esf: ExecutionSequencerFactory): ApiServices =
-    create(
-      config,
-      ledgerBackend,
-      ledgerBackend,
-      configurationService(config),
-      engine,
-      timeProvider,
-      optTimeServiceBackend
-    )
-
-  def create(
-      config: SandboxConfig,
-      ledgerBackend: LedgerBackend,
       writeService: WriteService,
-      configurationService: ConfigurationService = configurationService(config),
+      configService: ConfigurationService,
       engine: Engine,
       timeProvider: TimeProvider,
       optTimeServiceBackend: Option[TimeServiceBackend])(
@@ -118,7 +99,7 @@ object ApiServices {
     val packageService = SandboxPackageService(context.sandboxTemplateStore, ledgerBackend.ledgerId)
 
     val configurationService =
-      LedgerConfigurationService.createApiService(configurationService, ledgerBackend.ledgerId)
+      LedgerConfigurationService.createApiService(configService, ledgerBackend.ledgerId)
 
     val completionService =
       SandboxCommandCompletionService(ledgerBackend)

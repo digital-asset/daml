@@ -213,6 +213,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           .create(
             config,
             ledgerBackend,
+            ledgerBackend,
+            ApiServices.configurationService(config),
             SandboxServer.engine,
             timeProvider,
             timeServiceBackendO
