@@ -212,9 +212,10 @@ execIde telemetry (Debug debug) = NS.withSocketsDo $ Managed.runManaged $ do
 
     opts <- liftIO $ defaultOptionsIO Nothing
 
-    Managed.liftIO $
+    Managed.liftIO $ do
+      execInit
       Daml.LanguageServer.runLanguageServer
-      (Compiler.newIdeState opts) loggerH
+        (Compiler.newIdeState opts) loggerH
 
 
 execCompile :: FilePath -> FilePath -> Compiler.Options -> Command
@@ -341,15 +342,18 @@ execPackageNew numProcessors mbOutFile =
 
     defaultOutDir = "dist"
 
--- | Read the daml.yaml field and create the project local package database.
+-- | If we're in a daml project, read the daml.yaml field and create the project local package
+-- database. Otherwise do nothing.
 execInit :: IO ()
 execInit =
     withProjectRoot $ \_relativize -> do
-        project <- readProjectConfig $ ProjectPath "."
-        case parseProjectConfig project of
-            Left err -> throwIO err
-            Right PackageConfigFields {..} -> do
-                createProjectPackageDb LF.versionDefault pDependencies
+        isProject <- doesFileExist projectConfigName
+        when isProject $ do
+          project <- readProjectConfig $ ProjectPath "."
+          case parseProjectConfig project of
+              Left err -> throwIO err
+              Right PackageConfigFields {..} -> do
+                  createProjectPackageDb LF.versionDefault pDependencies
 
 -- | Create the project package database containing the given dar packages.
 createProjectPackageDb :: LF.Version -> [FilePath] -> IO ()
