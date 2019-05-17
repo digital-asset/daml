@@ -11,7 +11,8 @@ import io.grpc.StatusRuntimeException
 
 class SubmitAndWaitRequestValidator(commandsValidator: CommandsValidator) {
 
-  def validate(req: SubmitAndWaitRequest): Either[StatusRuntimeException, submission.SubmitRequest] =
+  def validate(
+      req: SubmitAndWaitRequest): Either[StatusRuntimeException, submission.SubmitRequest] =
     for {
       commands <- requirePresence(req.commands, "commands")
       validatedCommands <- commandsValidator.validateCommands(commands)
