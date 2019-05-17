@@ -327,13 +327,12 @@ runInit targetFolderM = do
 -- | Create a DAML project in a new directory, based on a project template packaged
 -- with the SDK. Special care has been taken to avoid:
 --
---   - project name / template name confusion: i.e. when a user passes a
---   single argument, it should be the new project folder. But if the user
---   passes an existing template name instead, we ask the user to be more
---   explicit.
---
---   - creation of a project inside another project
---   - creation of a project inside ano
+-- * Project name/template name confusion: i.e. when a user passes a
+-- single argument, it should be the new project folder. But if the user
+-- passes an existing template name instead, we ask the user to be more
+-- explicit.
+-- * Creation of a project in existing folder (suggest daml init instead).
+-- * Creation of a project inside another project.
 --
 runNew :: FilePath -> Maybe String -> IO ()
 runNew targetFolder templateNameM = do
