@@ -35,127 +35,127 @@ jobs:
                $(Slack.URL)
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
 
-  - job: macOS
-    timeoutInMinutes: 360
-    pool:
-      vmImage: 'macOS-10.14'
-    steps:
-      - template: ci/build-unix.yml
-        parameters:
-          name: macos
-      - bash: |
-          set -euo pipefail
-          MESSAGE=$(git log --pretty=format:%s -n1)
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!here> *FAILED* macOS: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-               $(Slack.URL)
-        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
-
-  - job: Windows
-    timeoutInMinutes: 360
-    pool:
-      name: 'windows-pool'
-    steps:
-      - template: ci/build-windows.yml
-      - bash: |
-          set -euo pipefail
-          MESSAGE=$(git log --pretty=format:%s -n1)
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!here> *FAILED* Windows: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-               $(Slack.URL)
-        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
-
-  - job: perf
-    timeoutInMinutes: 60
-    pool:
-      name: 'linux-pool'
-    steps:
-      - checkout: self
-      - bash: ci/dev-env-install.sh
-        displayName: 'Build/Install the Developer Environment'
-      - bash: ci/configure-bazel.sh
-        displayName: 'Configure Bazel'
-        env:
-          IS_FORK: $(System.PullRequest.IsFork)
-          # to upload to the bazel cache
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - bash: |
-          set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
-          bazel run -- //ledger/sandbox-perf -foe true -i1 -f1 -wi 1 -bm avgt -rf csv -rff "$(Build.StagingDirectory)/sandbox-perf.csv"
-      - task: PublishBuildArtifacts@1
-        condition: succeededOrFailed()
-        inputs:
-          pathtoPublish: '$(Build.StagingDirectory)'
-          artifactName: 'Perf test logs'
-      - bash: |
-          set -euo pipefail
-          MESSAGE=$(git log --pretty=format:%s -n1)
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!here> *FAILED* perf: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-               $(Slack.URL)
-        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
-
-  - job: release
-    dependsOn: [ "Linux", "macOS", "Windows", "perf"]
-    pool:
-      vmImage: "Ubuntu-16.04"
-    condition: and(succeeded(),
-                   eq( dependencies.Linux.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.macOS.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.Windows.outputs['release.has_released'], 'true' ))
-    variables:
-      artifact-linux: $[ dependencies.Linux.outputs['publish.artifact'] ]
-      artifact-macos: $[ dependencies.macOS.outputs['publish.artifact'] ]
-      artifact-windows: $[ dependencies.Windows.outputs['publish.artifact'] ]
-      artifact-windows-installer: $[ dependencies.Windows.outputs['publish.artifact-windows-installer'] ]
-    steps:
-      - checkout: self
-        persistCredentials: true
-      - bash: |
-          set -euxo pipefail
-          git tag v$(cat VERSION)
-          git push origin v$(cat VERSION)
-          mkdir $(Build.StagingDirectory)/release
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(artifact-linux)
-          targetPath: $(Build.StagingDirectory)/release
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(artifact-macos)
-          targetPath: $(Build.StagingDirectory)/release
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(artifact-windows)
-          targetPath: $(Build.StagingDirectory)/release
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(artifact-windows-installer)
-          targetPath: $(Build.StagingDirectory)/release
-      - task: GitHubRelease@0
-        inputs:
-          gitHubConnection: 'garyverhaegen-da'
-          repositoryName: '$(Build.Repository.Name)'
-          action: 'create'
-          target: '$(Build.SourceVersion)'
-          tagSource: 'auto'
-          assets: $(Build.StagingDirectory)/release/*
-          assetUploadMode: 'replace'
-          addChangeLog: false
-          isPrerelease: true
-      - bash: |
-          set -euo pipefail
-          MESSAGE=$(git log --pretty=format:%s -n1)
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!here> *FAILED* Release: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-               $(Slack.URL)
-        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+# - job: macOS
+#   timeoutInMinutes: 360
+#   pool:
+#     vmImage: 'macOS-10.14'
+#   steps:
+#     - template: ci/build-unix.yml
+#       parameters:
+#         name: macos
+#     - bash: |
+#         set -euo pipefail
+#         MESSAGE=$(git log --pretty=format:%s -n1)
+#         curl -XPOST \
+#              -i \
+#              -H 'Content-type: application/json' \
+#              --data "{\"text\":\"<!here> *FAILED* macOS: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
+#              $(Slack.URL)
+#       condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+#
+# - job: Windows
+#   timeoutInMinutes: 360
+#   pool:
+#     name: 'windows-pool'
+#   steps:
+#     - template: ci/build-windows.yml
+#     - bash: |
+#         set -euo pipefail
+#         MESSAGE=$(git log --pretty=format:%s -n1)
+#         curl -XPOST \
+#              -i \
+#              -H 'Content-type: application/json' \
+#              --data "{\"text\":\"<!here> *FAILED* Windows: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
+#              $(Slack.URL)
+#       condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+#
+# - job: perf
+#   timeoutInMinutes: 60
+#   pool:
+#     name: 'linux-pool'
+#   steps:
+#     - checkout: self
+#     - bash: ci/dev-env-install.sh
+#       displayName: 'Build/Install the Developer Environment'
+#     - bash: ci/configure-bazel.sh
+#       displayName: 'Configure Bazel'
+#       env:
+#         IS_FORK: $(System.PullRequest.IsFork)
+#         # to upload to the bazel cache
+#         GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+#     - bash: |
+#         set -euo pipefail
+#         eval "$(./dev-env/bin/dade-assist)"
+#         bazel run -- //ledger/sandbox-perf -foe true -i1 -f1 -wi 1 -bm avgt -rf csv -rff "$(Build.StagingDirectory)/sandbox-perf.csv"
+#     - task: PublishBuildArtifacts@1
+#       condition: succeededOrFailed()
+#       inputs:
+#         pathtoPublish: '$(Build.StagingDirectory)'
+#         artifactName: 'Perf test logs'
+#     - bash: |
+#         set -euo pipefail
+#         MESSAGE=$(git log --pretty=format:%s -n1)
+#         curl -XPOST \
+#              -i \
+#              -H 'Content-type: application/json' \
+#              --data "{\"text\":\"<!here> *FAILED* perf: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
+#              $(Slack.URL)
+#       condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+#
+# - job: release
+#   dependsOn: [ "Linux", "macOS", "Windows", "perf"]
+#   pool:
+#     vmImage: "Ubuntu-16.04"
+#   condition: and(succeeded(),
+#                  eq( dependencies.Linux.outputs['release.has_released'], 'true' ),
+#                  eq( dependencies.macOS.outputs['release.has_released'], 'true' ),
+#                  eq( dependencies.Windows.outputs['release.has_released'], 'true' ))
+#   variables:
+#     artifact-linux: $[ dependencies.Linux.outputs['publish.artifact'] ]
+#     artifact-macos: $[ dependencies.macOS.outputs['publish.artifact'] ]
+#     artifact-windows: $[ dependencies.Windows.outputs['publish.artifact'] ]
+#     artifact-windows-installer: $[ dependencies.Windows.outputs['publish.artifact-windows-installer'] ]
+#   steps:
+#     - checkout: self
+#       persistCredentials: true
+#     - bash: |
+#         set -euxo pipefail
+#         git tag v$(cat VERSION)
+#         git push origin v$(cat VERSION)
+#         mkdir $(Build.StagingDirectory)/release
+#     - task: DownloadPipelineArtifact@0
+#       inputs:
+#         artifactName: $(artifact-linux)
+#         targetPath: $(Build.StagingDirectory)/release
+#     - task: DownloadPipelineArtifact@0
+#       inputs:
+#         artifactName: $(artifact-macos)
+#         targetPath: $(Build.StagingDirectory)/release
+#     - task: DownloadPipelineArtifact@0
+#       inputs:
+#         artifactName: $(artifact-windows)
+#         targetPath: $(Build.StagingDirectory)/release
+#     - task: DownloadPipelineArtifact@0
+#       inputs:
+#         artifactName: $(artifact-windows-installer)
+#         targetPath: $(Build.StagingDirectory)/release
+#     - task: GitHubRelease@0
+#       inputs:
+#         gitHubConnection: 'garyverhaegen-da'
+#         repositoryName: '$(Build.Repository.Name)'
+#         action: 'create'
+#         target: '$(Build.SourceVersion)'
+#         tagSource: 'auto'
+#         assets: $(Build.StagingDirectory)/release/*
+#         assetUploadMode: 'replace'
+#         addChangeLog: false
+#         isPrerelease: true
+#     - bash: |
+#         set -euo pipefail
+#         MESSAGE=$(git log --pretty=format:%s -n1)
+#         curl -XPOST \
+#              -i \
+#              -H 'Content-type: application/json' \
+#              --data "{\"text\":\"<!here> *FAILED* Release: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
+#              $(Slack.URL)
+#       condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
