@@ -362,6 +362,11 @@ runNew targetFolder templateNameM = do
         exitFailure
 
     -- Ensure user is not confusing template name with project name.
+    --
+    -- We check projectName == targetFolder because if the user
+    -- gave a targetFolder that isn't a straight up file name (it
+    -- contains path separators), then it's likely that they did
+    -- intend to pass a target folder and not a template name.
     when (isNothing templateNameM && projectName == targetFolder) $ do
         whenM (doesDirectoryExist (templatesFolder </> projectName)) $ do
             hPutStr stderr $ unlines
