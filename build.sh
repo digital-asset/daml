@@ -13,6 +13,8 @@ export LC_ALL=en_US.UTF-8
 
 ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 
+bazel shutdown
+
 # Bazel test only builds targets that are dependencies of a test suite
 # so do a full build first.
 (
