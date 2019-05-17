@@ -9,7 +9,6 @@ module DAML.Assistant.Env
     , ProjectPath (..)
     , SdkPath (..)
     , SdkVersion (..)
-    , getMinimalDamlEnv
     , getDamlEnv
     , testDamlEnv
     , getDamlPath
@@ -30,18 +29,6 @@ import System.Info.Extra
 import Control.Monad.Extra
 import Control.Exception.Safe
 import Data.Maybe
-
--- | Get a minimal environment in which to run daml install.
-getMinimalDamlEnv :: IO Env
-getMinimalDamlEnv = do
-    envDamlPath <- getDamlPath
-    envDamlAssistantPath <- getDamlAssistantPath envDamlPath Nothing
-    let envDamlAssistantSdkVersion = Nothing
-        envProjectPath = Nothing
-        envSdkVersion = Nothing
-        envSdkPath = Nothing
-        envLatestStableSdkVersion = Nothing
-    pure Env {..}
 
 -- | Calculate the environment variables in which to run daml commands.
 getDamlEnv :: IO Env
