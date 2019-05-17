@@ -17,7 +17,7 @@ def dar_to_scala(**kwargs):
 
     cmd = """
         $(execpath //language-support/scala/codegen:codegen-main) --output-directory={gen_out} --verbosity={verbosity} {gen_in}
-        $(execpath @local_jdk//:bin/jar) -cf $@ -C {gen_out} .
+        $(execpath @bazel_tools//tools/jdk:jar) -cf $@ -C {gen_out} .
     """.format(
         verbosity = verbosity,
         gen_in = dars_with_package_prefix(dars, package_prefix),
@@ -31,7 +31,7 @@ def dar_to_scala(**kwargs):
         cmd = cmd,
         tools = [
             "//language-support/scala/codegen:codegen-main",
-            "@local_jdk//:bin/jar",
+            "@bazel_tools//tools/jdk:jar",
         ],
     )
 
