@@ -9,5 +9,4 @@ import scala.concurrent.Future
 
 trait ConfigurationService {
   def getLedgerConfiguration(): Future[Configuration]
-
 }

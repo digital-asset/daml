@@ -212,7 +212,6 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         ApiServices
           .create(
             config,
-            ledgerBackend, //for now these are doubled, but we will end up with write and index service in the end
             ledgerBackend,
             SandboxServer.engine,
             timeProvider,
