@@ -32,17 +32,6 @@ Windows
 
 To install the SDK on Windows, download and run the installer from `github.com/digital-asset/daml/releases/latest <https://github.com/digital-asset/daml/releases/latest>`__.
 
-.. _setup-maven-project:
-
-3. Configure Maven
-******************
-
-To use the Java bindings (and to follow the quickstart guide), you need to install Maven and configure it to use the Digital Asset repository:
-
-#. Install `Maven <https://maven.apache.org/>`_.
-#. Download `settings.xml <https://bintray.com/repo/downloadMavenRepoSettingsFile/downloadSettings?repoPath=%2Fdigitalassetsdk%2FDigitalAssetSDK>`_.
-#. Copy the downloaded file to ``~/.m2/settings.xml``. If you already have ``~/.m2/settings.xml``, integrate the downloaded file with it instead.
-
 Next steps
 **********
 
