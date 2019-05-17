@@ -24,7 +24,6 @@ data Fields a = Field1 {foo : Foo, color : Optional Color} | Field2 [a]
 main = scenario do
   p <- getParty "alice"
   show p === "'alice'"
-  partyToText p === "alice"
   show Bar === "bar"
   show Green === "Green"
   show (Field2 ["test"]) === "Field2 [\"test\"]"

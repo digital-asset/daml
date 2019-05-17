@@ -1,12 +1,11 @@
 -- @SINCE-LF 1.2
 daml 1.2
-module PartyFromText where
+module PartyVsText where
 
 import DA.Assert
 
 test = scenario do
   p <- getParty "alice"
-  show p === "'alice'"
   partyToText p === "alice"
   partyFromText "alice" === Some p
   partyFromText "bad$character" === None

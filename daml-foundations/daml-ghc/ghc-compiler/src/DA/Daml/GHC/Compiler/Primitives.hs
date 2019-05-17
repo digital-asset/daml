@@ -123,12 +123,12 @@ convertPrim _ "BEAppendText" (TText :-> TText :-> TText) =
     EBuiltin BEAppendText
 convertPrim _ "BETrace" (TText :-> a1 :-> a2) | a1 == a2 =
     EBuiltin BETrace `ETyApp` a1
-convertPrim version "BESha256Text" t@(TText :-> TText) =
-    whenRuntimeSupports version featureSha256Text t $ EBuiltin BESha256Text
+convertPrim _ "BESha256Text" (TText :-> TText) =
+    EBuiltin BESha256Text
 convertPrim _ "BEPartyToQuotedText" (TParty :-> TText) =
     EBuiltin BEPartyToQuotedText
-convertPrim version "BEPartyFromText" t@(TText :-> TOptional TParty) =
-    whenRuntimeSupports version featurePartyFromText t $ EBuiltin BEPartyFromText
+convertPrim _ "BEPartyFromText" (TText :-> TOptional TParty) =
+    EBuiltin BEPartyFromText
 
 -- Map operations
 
