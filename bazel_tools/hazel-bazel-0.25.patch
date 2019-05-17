@@ -20,3 +20,32 @@ index e7e5f73..222d4be 100644
  
  def _cabal_haskell_repository_impl(ctx):
      ghc_workspace = get_ghc_workspace(ctx.attr.ghc_workspaces, ctx)
+diff --git a/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl b/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl
+index 48e07cc..e05bb0d 100644
+--- a/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl
++++ b/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl
+@@ -22,6 +22,7 @@ and {hash} is the Bazel hash of the original package name.
+ 
+ load("@bazel_skylib//:lib.bzl", "paths")
+ load("@bazel_skylib//:lib.bzl", sets = "new_sets")
++load("@bazel_tools//tools/cpp:cc_flags_supplier.bzl", "cc_flags_supplier")
+ load(
+     "@io_tweag_rules_haskell//haskell:haskell.bzl",
+     "haskell_binary",
+@@ -88,6 +89,7 @@ def _configure(desc):
+         for f in desc.extraTmpFiles
+         if f.split("/")[-1] not in _header_blacklist
+     ]
++    cc_flags_supplier(name = "cc_flags")
+     native.genrule(
+         name = "run-configure",
+         cmd = "\n".join([
+@@ -104,7 +106,7 @@ def _configure(desc):
+             for out in outputs
+         ]),
+         tools = ["configure"],
+-        toolchains = ["@bazel_tools//tools/cpp:current_cc_toolchain"],
++        toolchains = [":cc_flags", "@bazel_tools//tools/cpp:current_cc_toolchain"],
+         srcs = native.glob(["**"], exclude = outputs),
+         outs = outputs,
+     )
