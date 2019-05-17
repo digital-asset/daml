@@ -34,7 +34,7 @@ dar_to_scala(
     ],
     package_prefix = "com.digitalasset.sample",
     srcjar_out = "MyMain.srcjar",
-    verbosity = "2",
+    verbosity = 2,
 )
 
 da_scala_library(
