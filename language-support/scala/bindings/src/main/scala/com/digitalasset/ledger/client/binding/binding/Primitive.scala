@@ -3,6 +3,7 @@
 
 package com.digitalasset.ledger.client.binding
 
+import encoding.ExerciseOn
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
 import scalaz.syntax.std.boolean._
@@ -229,6 +230,37 @@ private[client] object OnlyPrimitive extends Primitive {
             choice = choiceId,
             choiceArgument = Some(argument)
           ))),
+      templateCompanion
+    )
+
+  // TODO SC replace exercise&sig above with this
+  private[binding] /*override*/ def newExercise[ExOn, Tpl, Out](
+      templateCompanion: TemplateCompanion[Tpl],
+      receiver: ExOn,
+      choiceId: String,
+      argument: rpcvalue.Value)(implicit ev: ExerciseOn[ExOn, Tpl]): Update[Out] =
+    DomainCommand(
+      rpccmd.Command {
+        ev match {
+          case _: ExerciseOn.OnId[Tpl] =>
+            rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                templateId = Some(templateCompanion.id.unwrap),
+                contractId = (receiver: ContractId[Tpl]).unwrap,
+                choice = choiceId,
+                choiceArgument = Some(argument)
+              ))
+          case _: ExerciseOn.CreateAndOnTemplate[Tpl] =>
+            rpccmd.Command.Command.CreateAndExercise(
+              rpccmd.CreateAndExerciseCommand(
+                templateId = Some(templateCompanion.id.unwrap),
+                createArguments = Some((receiver: Template.CreateForExercise[Tpl]).value.arguments),
+                choice = choiceId,
+                choiceArgument = Some(argument)
+              )
+            )
+        }
+      },
       templateCompanion
     )
 
