@@ -1,8 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Encoding of the LF package into LF version 1 format.
@@ -14,150 +12,105 @@ module DA.Daml.LF.Proto3.EncodeV1
 import           Control.Lens ((^.), matching)
 import           Control.Lens.Ast (rightSpine)
 
+import           Data.Coerce
 import qualified Data.NameMap as NM
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
 import qualified Data.Vector         as V
-import qualified Data.Scientific     as Scientific
-import           GHC.Stack (HasCallStack)
 
 import           DA.Pretty
 import Data.Tagged
-import Control.Monad
-import qualified DA.Daml.LF.Decimal  as Decimal
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
 import qualified Da.DamlLf1 as P
 
 import qualified Proto3.Suite as P (Enumerated (..))
 
--- | Encoding 'from' to type 'to'
-class Encode from to | from -> to where
-  encode :: Version -> from -> to
+-- NOTE(MH): Type synonym for a `Maybe` that is always known to be a `Just`.
+-- Some functions always return `Just x` instead of `x` since they would
+-- otherwise always be wrapped in `Just` at their call sites.
+type Just a = Maybe a
 
 ------------------------------------------------------------------------
 -- Simple encodings
 ------------------------------------------------------------------------
 
-encodeV :: Encode a b => Version -> [a] -> V.Vector b
-encodeV version = V.fromList . map (encode version)
+encodeList :: (a -> b) -> [a] -> V.Vector b
+encodeList encodeElem = V.fromList . map encodeElem
 
-encodeNM :: (NM.Named a, Encode a b) => Version -> NM.NameMap a -> V.Vector b
-encodeNM version = V.fromList . map (encode version) . NM.toList
+encodeNameMap :: NM.Named a => (Version -> a -> b) -> Version -> NM.NameMap a -> V.Vector b
+encodeNameMap encodeElem version = V.fromList . map (encodeElem version) . NM.toList
 
-encodeE :: Encode a b => Version -> a -> P.Enumerated b
-encodeE version = P.Enumerated . Right . encode version
+encodePackageId :: PackageId -> TL.Text
+encodePackageId = TL.fromStrict . unTagged
 
-encode' :: Encode a b => Version -> a -> Maybe b
-encode' version = Just . encode version
-
-instance Encode PackageId TL.Text where
-   encode _version = TL.fromStrict . unTagged
-
-instance Encode PartyLiteral TL.Text where
-   encode _version = TL.fromStrict . unTagged
-
-instance Encode FieldName TL.Text where
-   encode version = encodeIdentifier version . unTagged
-
-instance Encode VariantConName TL.Text where
-   encode version = encodeIdentifier version . unTagged
-
-instance Encode TypeVarName TL.Text where
-   encode version = encodeIdentifier version . unTagged
-
-instance Encode ExprVarName TL.Text where
-   encode version = encodeIdentifier version . unTagged
-
-instance Encode ChoiceName TL.Text where
-   encode version = encodeIdentifier version . unTagged
-
-encodeIdentifier :: Version -> T.Text -> TL.Text
-encodeIdentifier _version unmangled = case mangleIdentifier unmangled of
-   Left err -> error ("IMPOSSIBLE: could not mangle name " ++ show unmangled ++ ": " ++ err)
+encodeName :: Tagged tag T.Text -> TL.Text
+encodeName (Tagged unmangled) = case mangleIdentifier unmangled of
+   Left err -> error $ "IMPOSSIBLE: could not mangle name " ++ show unmangled ++ ": " ++ err
    Right x -> TL.fromStrict x
 
-instance Encode T.Text TL.Text where
-  encode _version = TL.fromStrict
+-- | For now, value names are always encoded version using a single segment.
+--
+-- This is to keep backwards compat with older .dalf files, but also
+-- because currently GenDALF generates weird names like `.` that we'd
+-- have to handle separatedly. So for now, considering that we do not
+-- use values in codegen, just mangle the entire thing.
+encodeValueName :: ExprValName -> V.Vector TL.Text
+encodeValueName = V.singleton . encodeName
 
-instance Encode Decimal.Decimal TL.Text where
-  encode _version d = enc (Decimal.normalize d)
-    where
-      enc (Decimal.Decimal n k0) =
-        TL.pack
-          $ Scientific.formatScientific Scientific.Fixed Nothing
-          $ Scientific.scientific n (fromIntegral (negate k0))
+encodeDottedName :: Tagged tag [T.Text] -> Just P.DottedName
+encodeDottedName = Just . P.DottedName . encodeList encodeName . coerce
 
-instance Encode (Qualified TypeConName) P.TypeConName where
-  encode version (Qualified pref mname con) = P.TypeConName (Just $ P.ModuleRef (encode' version pref) (encode' version mname)) (encode' version con)
+encodeQualTypeConName :: Qualified TypeConName -> Just P.TypeConName
+encodeQualTypeConName (Qualified pref mname con) = Just $ P.TypeConName (encodeModuleRef pref mname) (encodeDottedName con)
 
-instance Encode (Qualified ExprValName) P.ValName where
-  encode version (Qualified pref mname con) = P.ValName (Just $ P.ModuleRef (encode' version pref) (encode' version mname)) (encodeDefName version (unTagged con))
-
-instance Encode SourceLoc P.Location where
-  encode version SourceLoc{..} =
+encodeSourceLoc :: SourceLoc -> P.Location
+encodeSourceLoc SourceLoc{..} =
     P.Location
-      (fmap
-        (\(p, m) -> P.ModuleRef (encode' version p) (encode' version m))
-        slocModuleRef)
+      (uncurry encodeModuleRef =<< slocModuleRef)
       (Just (P.Location_Range
         (fromIntegral slocStartLine)
         (fromIntegral slocStartCol)
         (fromIntegral slocEndLine)
         (fromIntegral slocEndCol)))
 
-instance Encode PackageRef P.PackageRef where
-  encode version = \case
-      PRSelf -> P.PackageRef (Just (P.PackageRefSumSelf P.Unit))
-      PRImport pkgid -> P.PackageRef (Just (P.PackageRefSumPackageId $ encode version pkgid))
+encodePackageRef :: PackageRef -> Just P.PackageRef
+encodePackageRef = Just . \case
+    PRSelf -> P.PackageRef $ Just $ P.PackageRefSumSelf P.Unit
+    PRImport pkgid -> P.PackageRef $ Just $ P.PackageRefSumPackageId $ encodePackageId pkgid
 
-encodeDottedName :: Version -> [T.Text] -> P.DottedName
-encodeDottedName _version unmangled = case mangled of
-  Left (which, err) -> error ("IMPOSSIBLE: could not mangle name " ++ show which ++ ": " ++ err)
-  Right xs -> P.DottedName (V.fromList xs)
-  where
-    mangled = forM unmangled $ \part -> case mangleIdentifier part of
-      Left err -> Left (part, err)
-      Right x -> Right (TL.fromStrict x)
+encodeModuleRef :: PackageRef -> ModuleName -> Just P.ModuleRef
+encodeModuleRef pkgRef modName = Just $ P.ModuleRef (encodePackageRef pkgRef) (encodeDottedName modName)
 
-instance Encode ModuleName P.DottedName where
-  encode version = encodeDottedName version . unTagged
+encodeFieldsWithTypes :: Version -> [(Tagged tag T.Text, Type)] -> V.Vector P.FieldWithType
+encodeFieldsWithTypes version = encodeList $ \(name, typ) -> P.FieldWithType (encodeName name) (encodeType version typ)
 
-instance Encode TypeConName P.DottedName where
-  encode version = encodeDottedName version . unTagged
+encodeFieldsWithExprs :: Version -> [(Tagged tag T.Text, Expr)] -> V.Vector P.FieldWithExpr
+encodeFieldsWithExprs version = encodeList $ \(name, expr) -> P.FieldWithExpr (encodeName name) (encodeExpr version expr)
 
-instance Encode (FieldName, Type) P.FieldWithType where
-  encode version (name, typ) = P.FieldWithType (encode version name) (encode' version typ)
+encodeTypeVarsWithKinds :: Version -> [(TypeVarName, Kind)] -> V.Vector P.TypeVarWithKind
+encodeTypeVarsWithKinds version = encodeList $ \(name, kind)  -> P.TypeVarWithKind (encodeName name) (Just $ encodeKind version kind)
 
-instance Encode (FieldName, Expr) P.FieldWithExpr where
-  encode version (name, expr) = P.FieldWithExpr (encode version name) (encode' version expr)
-
-instance Encode (VariantConName, Type) P.FieldWithType where
-  encode version (name, typ) = P.FieldWithType (encode version name) (encode' version typ)
-
-instance Encode (TypeVarName, Kind) P.TypeVarWithKind where
-  encode version (name, kind)  = P.TypeVarWithKind (encode version name) (encode' version kind)
-
-instance Encode (ExprVarName, Type) P.VarWithType where
-  encode version (name, typ) = P.VarWithType (encode version name) (encode' version typ)
+encodeExprVarWithType :: Version -> (ExprVarName, Type) -> P.VarWithType
+encodeExprVarWithType version (name, typ) = P.VarWithType (encodeName name) (encodeType version typ)
 
 ------------------------------------------------------------------------
 -- Encoding of kinds
 ------------------------------------------------------------------------
 
-instance Encode Kind P.Kind where
-  encode version = P.Kind . Just . \case
+encodeKind :: Version -> Kind -> P.Kind
+encodeKind version = P.Kind . Just . \case
     KStar -> P.KindSumStar P.Unit
     k@KArrow{} ->
       let (params, result) = k ^. rightSpine _KArrow
-      in P.KindSumArrow (P.Kind_Arrow (encodeV version params) (encode' version result))
+      in P.KindSumArrow (P.Kind_Arrow (encodeList (encodeKind version) params) (Just $ encodeKind version result))
 
 ------------------------------------------------------------------------
 -- Encoding of types
 ------------------------------------------------------------------------
 
-instance Encode BuiltinType P.PrimType where
-  encode version = \case
+encodeBuiltinType :: Version -> BuiltinType -> P.Enumerated P.PrimType
+encodeBuiltinType version = P.Enumerated . Right . \case
     BTInt64 -> P.PrimTypeINT64
     BTDecimal -> P.PrimTypeDECIMAL
     BTText -> P.PrimTypeTEXT
@@ -175,19 +128,19 @@ instance Encode BuiltinType P.PrimType where
     BTMap -> checkFeature featureTextMap version P.PrimTypeMAP
     BTArrow -> P.PrimTypeARROW
 
-instance Encode Type P.Type where
-  encode version typ = P.Type . Just $
+encodeType' :: Version -> Type -> P.Type
+encodeType' version typ = P.Type . Just $
     case typ ^. _TApps of
       (TVar var, args) ->
-        P.TypeSumVar (P.Type_Var (encode version var) (encodeV version args))
+        P.TypeSumVar $ P.Type_Var (encodeName var) (encodeTypes version args)
       (TCon con, args) ->
-        P.TypeSumCon (P.Type_Con (encode' version con) (encodeV version args))
+        P.TypeSumCon $ P.Type_Con (encodeQualTypeConName con) (encodeTypes version args)
       (TBuiltin bltn, args) ->
-        P.TypeSumPrim (P.Type_Prim (encodeE version bltn) (encodeV version args))
+        P.TypeSumPrim $ P.Type_Prim (encodeBuiltinType version bltn) (encodeTypes version args)
       (t@TForall{}, []) ->
           let (binders, body) = t ^. _TForalls
-          in P.TypeSumForall (P.Type_Forall (encodeV version binders) (encode' version body))
-      (TTuple flds, []) -> P.TypeSumTuple (P.Type_Tuple (encodeV version flds))
+          in P.TypeSumForall (P.Type_Forall (encodeTypeVarsWithKinds version binders) (encodeType version body))
+      (TTuple flds, []) -> P.TypeSumTuple (P.Type_Tuple (encodeFieldsWithTypes version flds))
 
       (TApp{}, _) -> error "TApp after unwinding TApp"
       -- NOTE(MH): The following case is ill-kinded.
@@ -196,29 +149,35 @@ instance Encode Type P.Type where
       -- which we don't support.
       (TForall{}, _:_) -> error "Application of TForall"
 
+encodeType :: Version -> Type -> Just P.Type
+encodeType version = Just . encodeType' version
+
+encodeTypes :: Version -> [Type] -> V.Vector P.Type
+encodeTypes = encodeList . encodeType'
+
 ------------------------------------------------------------------------
 -- Encoding of expressions
 ------------------------------------------------------------------------
 
-instance Encode EnumCon P.PrimCon where
-  encode _version = \case
+encodeEnumCon :: EnumCon -> P.Enumerated P.PrimCon
+encodeEnumCon = P.Enumerated . Right . \case
     ECUnit -> P.PrimConCON_UNIT
     ECFalse -> P.PrimConCON_FALSE
     ECTrue -> P.PrimConCON_TRUE
 
-instance Encode TypeConApp P.Type_Con where
-  encode version (TypeConApp tycon args) = P.Type_Con (encode' version tycon) (encodeV version args)
+encodeTypeConApp :: Version -> TypeConApp -> Just P.Type_Con
+encodeTypeConApp version (TypeConApp tycon args) = Just $ P.Type_Con (encodeQualTypeConName tycon) (encodeTypes version args)
 
-instance Encode BuiltinExpr P.ExprSum where
-  encode version = \case
+encodeBuiltinExpr :: BuiltinExpr -> P.ExprSum
+encodeBuiltinExpr = \case
     BEInt64 x -> lit $ P.PrimLitSumInt64 x
     BEDecimal dec -> lit $ P.PrimLitSumDecimal (TL.pack (show dec))
     BEText x -> lit $ P.PrimLitSumText (TL.fromStrict x)
     BETimestamp x -> lit $ P.PrimLitSumTimestamp x
-    BEParty x -> lit $ P.PrimLitSumParty (encode version x)
+    BEParty x -> lit $ P.PrimLitSumParty $ TL.fromStrict $ unTagged x
     BEDate x -> lit $ P.PrimLitSumDate x
 
-    BEEnumCon con -> P.ExprSumPrimCon (encodeE version con)
+    BEEnumCon con -> P.ExprSumPrimCon (encodeEnumCon con)
 
     BEEqual typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionEQUAL_INT64
@@ -322,38 +281,35 @@ instance Encode BuiltinExpr P.ExprSum where
       builtin = P.ExprSumBuiltin . P.Enumerated . Right
       lit = P.ExprSumPrimLit . P.PrimLit . Just
 
-instance Encode Expr P.Expr where
-  encode = encodeExpr
-
-encodeExpr :: Version -> Expr -> P.Expr
-encodeExpr version = \case
-  EVar v -> expr $ P.ExprSumVar (encode version v)
-  EVal v -> expr $ P.ExprSumVal (encode version v)
-  EBuiltin bi -> expr $ encode version bi
-  ERecCon{..} -> expr $ P.ExprSumRecCon $ P.Expr_RecCon (encode' version recTypeCon) (encodeV version recFields)
-  ERecProj{..} -> expr $ P.ExprSumRecProj $ P.Expr_RecProj (encode' version recTypeCon) (encode version recField) (encode' version recExpr)
-  ERecUpd{..} -> expr $ P.ExprSumRecUpd $ P.Expr_RecUpd (encode' version recTypeCon) (encode version recField) (encode' version recExpr) (encode' version recUpdate)
-  EVariantCon{..} -> expr $ P.ExprSumVariantCon $ P.Expr_VariantCon (encode' version varTypeCon) (encode version varVariant) (encode' version varArg)
-  ETupleCon{..} -> expr $ P.ExprSumTupleCon $ P.Expr_TupleCon (encodeV version tupFields)
-  ETupleProj{..} -> expr $ P.ExprSumTupleProj $ P.Expr_TupleProj (encode version tupField) (encode' version tupExpr)
-  ETupleUpd{..} -> expr $ P.ExprSumTupleUpd $ P.Expr_TupleUpd (encode version tupField) (encode' version tupExpr) (encode' version tupUpdate)
+encodeExpr' :: Version -> Expr -> P.Expr
+encodeExpr' version = \case
+  EVar v -> expr $ P.ExprSumVar (encodeName v)
+  EVal (Qualified pkgRef modName val) -> expr $ P.ExprSumVal $ P.ValName (encodeModuleRef pkgRef modName) (encodeValueName val)
+  EBuiltin bi -> expr $ encodeBuiltinExpr bi
+  ERecCon{..} -> expr $ P.ExprSumRecCon $ P.Expr_RecCon (encodeTypeConApp version recTypeCon) (encodeFieldsWithExprs version recFields)
+  ERecProj{..} -> expr $ P.ExprSumRecProj $ P.Expr_RecProj (encodeTypeConApp version recTypeCon) (encodeName recField) (encodeExpr version recExpr)
+  ERecUpd{..} -> expr $ P.ExprSumRecUpd $ P.Expr_RecUpd (encodeTypeConApp version recTypeCon) (encodeName recField) (encodeExpr version recExpr) (encodeExpr version recUpdate)
+  EVariantCon{..} -> expr $ P.ExprSumVariantCon $ P.Expr_VariantCon (encodeTypeConApp version varTypeCon) (encodeName varVariant) (encodeExpr version varArg)
+  ETupleCon{..} -> expr $ P.ExprSumTupleCon $ P.Expr_TupleCon (encodeFieldsWithExprs version tupFields)
+  ETupleProj{..} -> expr $ P.ExprSumTupleProj $ P.Expr_TupleProj (encodeName tupField) (encodeExpr version tupExpr)
+  ETupleUpd{..} -> expr $ P.ExprSumTupleUpd $ P.Expr_TupleUpd (encodeName tupField) (encodeExpr version tupExpr) (encodeExpr version tupUpdate)
   e@ETmApp{} ->
       let (fun, args) = e ^. _ETmApps
-      in expr $ P.ExprSumApp $ P.Expr_App (encode' version fun) (encodeV version args)
+      in expr $ P.ExprSumApp $ P.Expr_App (encodeExpr version fun) (encodeList (encodeExpr' version) args)
   e@ETyApp{} ->
       let (fun, args) = e ^. _ETyApps
-      in expr $ P.ExprSumTyApp $ P.Expr_TyApp (encode' version fun) (encodeV version args)
+      in expr $ P.ExprSumTyApp $ P.Expr_TyApp (encodeExpr version fun) (encodeTypes version args)
   e@ETmLam{} ->
       let (params, body) = e ^. _ETmLams
-      in expr $ P.ExprSumAbs $ P.Expr_Abs (encodeV version params) (encode' version body)
+      in expr $ P.ExprSumAbs $ P.Expr_Abs (encodeList (encodeExprVarWithType version) params) (encodeExpr version body)
   e@ETyLam{} ->
       let (params, body) = e ^. _ETyLams
-      in expr $ P.ExprSumTyAbs $ P.Expr_TyAbs (encodeV version params) (encode' version body)
-  ECase{..} -> expr $ P.ExprSumCase $ P.Case (encode' version casScrutinee) (encodeV version casAlternatives)
+      in expr $ P.ExprSumTyAbs $ P.Expr_TyAbs (encodeTypeVarsWithKinds version params) (encodeExpr version body)
+  ECase{..} -> expr $ P.ExprSumCase $ P.Case (encodeExpr version casScrutinee) (encodeList (encodeCaseAlternative version) casAlternatives)
   e@ELet{} ->
       let (lets, body) = e ^. _ELets
-      in expr $ P.ExprSumLet $ P.Block (encodeV version lets) (encode' version body)
-  ENil{..} -> expr $ P.ExprSumNil $ P.Expr_Nil (encode' version nilType)
+      in expr $ P.ExprSumLet $ encodeBlock version lets body
+  ENil{..} -> expr $ P.ExprSumNil $ P.Expr_Nil (encodeType version nilType)
   ECons{..} ->
       let unwind e0 as = case matching _ECons e0 of
             Left e1 -> (e1, as)
@@ -361,115 +317,123 @@ encodeExpr version = \case
               | typ /= consType -> error "internal error: unexpected mismatch in cons cell type"
               | otherwise -> unwind tl (hd:as)
           (ctail, cfront) = unwind consTail [consHead]
-      in expr $ P.ExprSumCons $ P.Expr_Cons (encode' version consType) (encodeV version $ reverse cfront) (encode' version ctail)
-  EUpdate u -> expr $ P.ExprSumUpdate $ encode version u
-  EScenario s -> expr $ P.ExprSumScenario $ encode version s
+      in expr $ P.ExprSumCons $ P.Expr_Cons (encodeType version consType) (encodeList (encodeExpr' version) $ reverse cfront) (encodeExpr version ctail)
+  EUpdate u -> expr $ P.ExprSumUpdate $ encodeUpdate version u
+  EScenario s -> expr $ P.ExprSumScenario $ encodeScenario version s
   ELocation loc e ->
-    let (P.Expr _ esum) = encodeExpr version e
-    in P.Expr (Just (encode version loc)) esum
-  ENone typ -> expr (P.ExprSumNone (P.Expr_None (encode' version typ)))
-  ESome typ body -> expr (P.ExprSumSome (P.Expr_Some (encode' version typ) (encode' version body)))
+    let (P.Expr _ esum) = encodeExpr' version e
+    in P.Expr (Just $ encodeSourceLoc loc) esum
+  ENone typ -> expr (P.ExprSumNone (P.Expr_None (encodeType version typ)))
+  ESome typ body -> expr (P.ExprSumSome (P.Expr_Some (encodeType version typ) (encodeExpr version body)))
   where
     expr = P.Expr Nothing . Just
 
-instance Encode Update P.Update where
-  encode version = P.Update . Just . \case
-    UPure{..} -> P.UpdateSumPure $ P.Pure (encode' version pureType) (encode' version pureExpr)
+encodeExpr :: Version -> Expr -> Just P.Expr
+encodeExpr version = Just . encodeExpr' version
+
+encodeUpdate :: Version -> Update -> P.Update
+encodeUpdate version = P.Update . Just . \case
+    UPure{..} -> P.UpdateSumPure $ P.Pure (encodeType version pureType) (encodeExpr version pureExpr)
     e@UBind{} ->
       let (bindings, body) = EUpdate e ^. rightSpine (_EUpdate . _UBind)
-      in P.UpdateSumBlock $ P.Block (encodeV version bindings) (encode' version body)
-    UCreate{..} -> P.UpdateSumCreate $ P.Update_Create (encode' version creTemplate) (encode' version creArg)
-    UExercise{..} -> P.UpdateSumExercise $ P.Update_Exercise (encode' version exeTemplate) (encode version exeChoice) (encode' version exeContractId) (encode' version exeActors) (encode' version exeArg)
-    UFetch{..} -> P.UpdateSumFetch $ P.Update_Fetch (encode' version fetTemplate) (encode' version fetContractId)
+      in P.UpdateSumBlock $ encodeBlock version bindings body
+    UCreate{..} -> P.UpdateSumCreate $ P.Update_Create (encodeQualTypeConName creTemplate) (encodeExpr version creArg)
+    UExercise{..} -> P.UpdateSumExercise $ P.Update_Exercise (encodeQualTypeConName exeTemplate) (encodeName exeChoice) (encodeExpr version exeContractId) (encodeExpr version exeActors) (encodeExpr version exeArg)
+    UFetch{..} -> P.UpdateSumFetch $ P.Update_Fetch (encodeQualTypeConName fetTemplate) (encodeExpr version fetContractId)
     UGetTime -> P.UpdateSumGetTime P.Unit
-    UEmbedExpr typ e -> P.UpdateSumEmbedExpr $ P.Update_EmbedExpr (encode' version typ) (encode' version e)
+    UEmbedExpr typ e -> P.UpdateSumEmbedExpr $ P.Update_EmbedExpr (encodeType version typ) (encodeExpr version e)
     UFetchByKey rbk -> checkFeature featureContractKeys version $
-       P.UpdateSumFetchByKey (encode version rbk)
+       P.UpdateSumFetchByKey (encodeRetrieveByKey version rbk)
     ULookupByKey rbk -> checkFeature featureContractKeys version $
-       P.UpdateSumLookupByKey (encode version rbk)
+       P.UpdateSumLookupByKey (encodeRetrieveByKey version rbk)
 
-instance Encode RetrieveByKey P.Update_RetrieveByKey where
-  encode version RetrieveByKey{..} = P.Update_RetrieveByKey
-    (encode' version retrieveByKeyTemplate)
-    (encode' version retrieveByKeyKey)
+encodeRetrieveByKey :: Version -> RetrieveByKey -> P.Update_RetrieveByKey
+encodeRetrieveByKey version RetrieveByKey{..} = P.Update_RetrieveByKey
+    (encodeQualTypeConName retrieveByKeyTemplate)
+    (encodeExpr version retrieveByKeyKey)
 
-instance Encode Scenario P.Scenario where
-  encode version = P.Scenario . Just . \case
-    SPure{..} -> P.ScenarioSumPure $ P.Pure (encode' version spureType) (encode' version spureExpr)
+encodeScenario :: Version -> Scenario -> P.Scenario
+encodeScenario version = P.Scenario . Just . \case
+    SPure{..} -> P.ScenarioSumPure $ P.Pure (encodeType version spureType) (encodeExpr version spureExpr)
     e@SBind{} ->
       let (bindings, body) = EScenario e ^. rightSpine (_EScenario . _SBind)
-      in P.ScenarioSumBlock $ P.Block (encodeV version bindings) (encode' version body)
+      in P.ScenarioSumBlock $ encodeBlock version bindings body
     SCommit{..} ->
       P.ScenarioSumCommit $ P.Scenario_Commit
-        (encode' version scommitParty)
-        (encode' version scommitExpr)
-        (encode' version scommitType)
+        (encodeExpr version scommitParty)
+        (encodeExpr version scommitExpr)
+        (encodeType version scommitType)
     SMustFailAt{..} ->
       P.ScenarioSumMustFailAt $ P.Scenario_Commit
-        (encode' version smustFailAtParty)
-        (encode' version smustFailAtExpr)
-        (encode' version smustFailAtType)
+        (encodeExpr version smustFailAtParty)
+        (encodeExpr version smustFailAtExpr)
+        (encodeType version smustFailAtType)
     SPass{..} ->
-      P.ScenarioSumPass (encode version spassDelta)
+      P.ScenarioSumPass (encodeExpr' version spassDelta)
     SGetTime -> P.ScenarioSumGetTime P.Unit
     SGetParty{..} ->
-      P.ScenarioSumGetParty (encode version sgetPartyName)
-    SEmbedExpr typ e -> P.ScenarioSumEmbedExpr $ P.Scenario_EmbedExpr (encode' version typ) (encode' version e)
+      P.ScenarioSumGetParty (encodeExpr' version sgetPartyName)
+    SEmbedExpr typ e -> P.ScenarioSumEmbedExpr $ P.Scenario_EmbedExpr (encodeType version typ) (encodeExpr version e)
 
-instance Encode Binding P.Binding where
-  encode version (Binding binder bound) = P.Binding (encode' version binder) (encode' version bound)
+encodeBinding :: Version -> Binding -> P.Binding
+encodeBinding version (Binding binder bound) =
+    P.Binding (Just $ encodeExprVarWithType version binder) (encodeExpr version bound)
 
-instance Encode CaseAlternative P.CaseAlt where
-  encode version CaseAlternative{..} =
+encodeBlock :: Version -> [Binding] -> Expr -> P.Block
+encodeBlock version bindings body =
+    P.Block (encodeList (encodeBinding version) bindings) (encodeExpr version body)
+
+encodeCaseAlternative :: Version -> CaseAlternative -> P.CaseAlt
+encodeCaseAlternative version CaseAlternative{..} =
     let pat = case altPattern of
           CPDefault     -> P.CaseAltSumDefault P.Unit
-          CPVariant{..} -> P.CaseAltSumVariant $ P.CaseAlt_Variant (encode' version patTypeCon) (encode version patVariant) (encode version patBinder)
-          CPEnumCon con -> P.CaseAltSumPrimCon (encodeE version con)
+          CPVariant{..} -> P.CaseAltSumVariant $ P.CaseAlt_Variant (encodeQualTypeConName patTypeCon) (encodeName patVariant) (encodeName patBinder)
+          CPEnumCon con -> P.CaseAltSumPrimCon (encodeEnumCon con)
           CPNil         -> P.CaseAltSumNil P.Unit
-          CPCons{..}    -> P.CaseAltSumCons $ P.CaseAlt_Cons (encode version patHeadBinder) (encode version patTailBinder)
+          CPCons{..}    -> P.CaseAltSumCons $ P.CaseAlt_Cons (encodeName patHeadBinder) (encodeName patTailBinder)
           CPNone        -> P.CaseAltSumNone P.Unit
-          CPSome{..}    -> P.CaseAltSumSome $ P.CaseAlt_Some (encode version patBodyBinder)
-    in P.CaseAlt (Just pat) (encode' version altExpr)
+          CPSome{..}    -> P.CaseAltSumSome $ P.CaseAlt_Some (encodeName patBodyBinder)
+    in P.CaseAlt (Just pat) (encodeExpr version altExpr)
 
-instance Encode DefDataType P.DefDataType where
-  encode version DefDataType{..} =
-      P.DefDataType (encode' version dataTypeCon) (encodeV version dataParams)
+encodeDefDataType :: Version -> DefDataType -> P.DefDataType
+encodeDefDataType version DefDataType{..} =
+      P.DefDataType (encodeDottedName dataTypeCon) (encodeTypeVarsWithKinds version dataParams)
       (Just $ case dataCons of
-        DataRecord fs -> P.DefDataTypeDataConsRecord $ P.DefDataType_Fields (encodeV version fs)
-        DataVariant fs -> P.DefDataTypeDataConsVariant $ P.DefDataType_Fields (encodeV version fs))
+        DataRecord fs -> P.DefDataTypeDataConsRecord $ P.DefDataType_Fields (encodeFieldsWithTypes version fs)
+        DataVariant fs -> P.DefDataTypeDataConsVariant $ P.DefDataType_Fields (encodeFieldsWithTypes version fs))
       (getIsSerializable dataSerializable)
-      (encode version <$> dataLocation)
+      (encodeSourceLoc <$> dataLocation)
 
-instance Encode DefValue P.DefValue where
-  encode version DefValue{..} =
+encodeDefValue :: Version -> DefValue -> P.DefValue
+encodeDefValue version DefValue{..} =
     P.DefValue
-      (Just (P.DefValue_NameWithType (encodeDefName version (unTagged (fst dvalBinder))) (encode' version (snd dvalBinder))))
-      (encode' version dvalBody)
+      (Just (P.DefValue_NameWithType (encodeValueName (fst dvalBinder)) (encodeType version (snd dvalBinder))))
+      (encodeExpr version dvalBody)
       (getHasNoPartyLiterals dvalNoPartyLiterals)
       (getIsTest dvalIsTest)
-      (encode version <$> dvalLocation)
+      (encodeSourceLoc <$> dvalLocation)
 
-instance Encode Template P.DefTemplate where
-  encode version Template{..} =
+encodeTemplate :: Version -> Template -> P.DefTemplate
+encodeTemplate version Template{..} =
     P.DefTemplate
-    { P.defTemplateTycon = encode' version tplTypeCon
-    , P.defTemplateParam = encode version tplParam
-    , P.defTemplatePrecond = encode' version tplPrecondition
-    , P.defTemplateSignatories = encode' version tplSignatories
-    , P.defTemplateObservers = encode' version tplObservers
-    , P.defTemplateAgreement = encode' version tplAgreement
-    , P.defTemplateChoices = encodeNM version tplChoices
-    , P.defTemplateLocation = encode version <$> tplLocation
+    { P.defTemplateTycon = encodeDottedName tplTypeCon
+    , P.defTemplateParam = encodeName tplParam
+    , P.defTemplatePrecond = encodeExpr version tplPrecondition
+    , P.defTemplateSignatories = encodeExpr version tplSignatories
+    , P.defTemplateObservers = encodeExpr version tplObservers
+    , P.defTemplateAgreement = encodeExpr version tplAgreement
+    , P.defTemplateChoices = encodeNameMap encodeTemplateChoice version tplChoices
+    , P.defTemplateLocation = encodeSourceLoc <$> tplLocation
     , P.defTemplateKey = fmap (encodeTemplateKey version tplParam) tplKey
     }
 
 encodeTemplateKey :: Version -> ExprVarName -> TemplateKey -> P.DefTemplate_DefKey
 encodeTemplateKey version templateVar TemplateKey{..} = checkFeature featureContractKeys version $ P.DefTemplate_DefKey
-  { P.defTemplate_DefKeyType = encode' version tplKeyType
-  , P.defTemplate_DefKeyKeyExpr = case encodeKeyExpr version templateVar tplKeyBody of
+  { P.defTemplate_DefKeyType = encodeType version tplKeyType
+  , P.defTemplate_DefKeyKeyExpr = case exprToKeyExpr templateVar tplKeyBody of
       Left err -> error err
-      Right x -> Just $ P.DefTemplate_DefKeyKeyExprKey $ P.KeyExpr $ encode' version x
-  , P.defTemplate_DefKeyMaintainers = encode' version tplKeyMaintainers
+      Right x -> Just $ P.DefTemplate_DefKeyKeyExprKey $ encodeKeyExpr version x
+  , P.defTemplate_DefKeyMaintainers = encodeExpr version tplKeyMaintainers
   }
 
 
@@ -477,47 +441,47 @@ data KeyExpr =
     KeyExprProjections ![(TypeConApp, FieldName)]
   | KeyExprRecord !TypeConApp ![(FieldName, KeyExpr)]
 
-instance Encode KeyExpr P.KeyExprSum where
-  encode version = \case
+encodeKeyExpr :: Version -> KeyExpr -> P.KeyExpr
+encodeKeyExpr version = P.KeyExpr . Just . \case
     KeyExprProjections projs -> P.KeyExprSumProjections $ P.KeyExpr_Projections $ V.fromList $ do
       (tyCon, fld) <- projs
-      return (P.KeyExpr_Projection (encode' version tyCon) (encode version fld))
-    KeyExprRecord tyCon flds -> P.KeyExprSumRecord $ P.KeyExpr_Record (encode' version tyCon) $ V.fromList $ do
+      return (P.KeyExpr_Projection (encodeTypeConApp version tyCon) (encodeName fld))
+    KeyExprRecord tyCon flds -> P.KeyExprSumRecord $ P.KeyExpr_Record (encodeTypeConApp version tyCon) $ V.fromList $ do
       (fldName, ke) <- flds
-      return (P.KeyExpr_RecordField (encode version fldName) (Just (P.KeyExpr (encode' version ke))))
+      return $ P.KeyExpr_RecordField (encodeName fldName) $ Just $ encodeKeyExpr version ke
 
-encodeKeyExpr ::  Version -> ExprVarName -> Expr -> Either String KeyExpr
-encodeKeyExpr version tplParameter = \case
+exprToKeyExpr ::  ExprVarName -> Expr -> Either String KeyExpr
+exprToKeyExpr tplParameter = \case
   ELocation _loc expr ->
-    encodeKeyExpr version tplParameter expr
+    exprToKeyExpr tplParameter expr
   EVar var -> if var == tplParameter
     then Right (KeyExprProjections [])
     else Left ("Expecting variable " ++ show tplParameter ++ " in key expression, got " ++ show var)
   ERecProj tyCon fld e -> do
-    keyExpr <- encodeKeyExpr version tplParameter e
+    keyExpr <- exprToKeyExpr tplParameter e
     case keyExpr of
       KeyExprProjections projs -> return (KeyExprProjections (projs ++ [(tyCon, fld)]))
       KeyExprRecord{} -> Left "Trying to project out of a record in key expression"
   ERecCon tyCon flds -> do
-    keyFlds <- mapM (\(lbl, e) -> (lbl, ) <$> encodeKeyExpr version tplParameter e) flds
+    keyFlds <- mapM (\(lbl, e) -> (lbl, ) <$> exprToKeyExpr tplParameter e) flds
     return (KeyExprRecord tyCon keyFlds)
   e -> Left ("Bad key expression " ++ show e)
 
-instance Encode TemplateChoice P.TemplateChoice where
-  encode version TemplateChoice{..} =
+encodeTemplateChoice :: Version -> TemplateChoice -> P.TemplateChoice
+encodeTemplateChoice version TemplateChoice{..} =
     P.TemplateChoice
-    { P.templateChoiceName = encode version chcName
+    { P.templateChoiceName = encodeName chcName
     , P.templateChoiceConsuming = chcConsuming
-    , P.templateChoiceControllers = encode' version chcControllers
-    , P.templateChoiceSelfBinder = encode version chcSelfBinder
-    , P.templateChoiceArgBinder = encode' version chcArgBinder
-    , P.templateChoiceRetType = encode' version chcReturnType
-    , P.templateChoiceUpdate = encode' version chcUpdate
-    , P.templateChoiceLocation = encode version <$> chcLocation
+    , P.templateChoiceControllers = encodeExpr version chcControllers
+    , P.templateChoiceSelfBinder = encodeName chcSelfBinder
+    , P.templateChoiceArgBinder = Just $ encodeExprVarWithType version chcArgBinder
+    , P.templateChoiceRetType = encodeType version chcReturnType
+    , P.templateChoiceUpdate = encodeExpr version chcUpdate
+    , P.templateChoiceLocation = encodeSourceLoc <$> chcLocation
     }
 
-instance Encode FeatureFlags P.FeatureFlags where
-  encode _version FeatureFlags{..} =  P.FeatureFlags
+encodeFeatureFlags :: Version -> FeatureFlags -> Just P.FeatureFlags
+encodeFeatureFlags _version FeatureFlags{..} = Just P.FeatureFlags
     { P.featureFlagsForbidPartyLiterals = forbidPartyLiterals
     -- We only support packages with these enabled -- see #157
     , P.featureFlagsDontDivulgeContractIdsInCreateArguments = True
@@ -525,32 +489,19 @@ instance Encode FeatureFlags P.FeatureFlags where
     }
 
 
-instance Encode Module P.Module where
-  encode version Module{..} =
-    P.Module (encode' version moduleName)
-      (encode' version moduleFeatureFlags)
-      (encodeNM version moduleDataTypes)
-      (encodeNM version moduleValues)
-      (encodeNM version moduleTemplates)
-
 encodeModule :: Version -> Module -> P.Module
-encodeModule = encode
+encodeModule version Module{..} =
+    P.Module
+        (encodeDottedName moduleName)
+        (encodeFeatureFlags version moduleFeatureFlags)
+        (encodeNameMap encodeDefDataType version moduleDataTypes)
+        (encodeNameMap encodeDefValue version moduleValues)
+        (encodeNameMap encodeTemplate version moduleTemplates)
 
 -- | NOTE(MH): Assumes the DAML-LF version of the 'Package' is 'V1'.
 encodePackage :: Package -> P.Package
-encodePackage (Package version mods) = P.Package (encodeNM version mods)
+encodePackage (Package version mods) = P.Package (encodeNameMap encodeModule version mods)
 
-
--- | For now, value names are always encoded version using a single segment.
---
--- This is to keep backwards compat with older .dalf files, but also
--- because currently GenDALF generates weird names like `.` that we'd
--- have to handle separatedly. So for now, considering that we do not
--- use values in codegen, just mangle the entire thing.
-encodeDefName :: (HasCallStack, Encode T.Text b) => Version -> T.Text -> V.Vector b
-encodeDefName version txt = case mangleIdentifier txt of
-  Left err -> error ("IMPOSSIBLE: could not mangle def name " ++ show txt ++ ": " ++ err)
-  Right mangled -> encodeV version [mangled]
 
 -- | NOTE(MH): This functions is used for sanity checking. The actual checks
 -- are done in the conversion to DAML-LF.
