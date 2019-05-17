@@ -1,11 +1,10 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.index
+package com.daml.ledger.participant.state.index.v1
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v1.TransactionAccepted
 import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.ledger.api.domain.TransactionFilter

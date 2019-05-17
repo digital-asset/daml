@@ -5,12 +5,6 @@ package com.daml.ledger.participant.state.index.v1
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.{
-  ConfigurationService,
-  IdentityService,
-  PackagesService,
-  TransactionsService
-}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.value.Value
