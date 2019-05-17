@@ -132,7 +132,9 @@ cmdBuild numProcessors =
     info (helper <*> cmd) $
     progDesc "Initialize, build and package the DAML project" <> fullDesc
   where
-    cmd = execBuild numProcessors <$> optionalOutputFileOpt
+    cmd =
+        execBuild <$> optionsParser numProcessors (pure Nothing) <*>
+        optionalOutputFileOpt
 
 cmdPackageNew :: Int -> Mod CommandFields Command
 cmdPackageNew numProcessors =
@@ -140,7 +142,9 @@ cmdPackageNew numProcessors =
     info (helper <*> cmd) $
     progDesc "Compile the DAML project into a DAML Archive (DAR)" <> fullDesc
   where
-    cmd = execPackageNew numProcessors <$> optionalOutputFileOpt
+    cmd =
+        execPackageNew <$> optionsParser numProcessors (pure Nothing) <*>
+        optionalOutputFileOpt
 
 cmdInit :: Mod CommandFields Command
 cmdInit =
@@ -259,19 +263,17 @@ parseProjectConfig project = do
     Right $ PackageConfigFields name main exposedModules version dependencies sdkVersion
 
 -- | Package command that takes all arguments of daml.yaml.
-execPackageNew :: Int -> Maybe FilePath -> IO ()
-execPackageNew numProcessors mbOutFile =
+execPackageNew :: Compiler.Options -> Maybe FilePath -> IO ()
+execPackageNew options mbOutFile =
     withProjectRoot $ \_relativize -> do
         project <- readProjectConfig $ ProjectPath "."
         case parseProjectConfig project of
             Left err -> throwIO err
             Right PackageConfigFields {..} -> do
                 putStrLn $ "Compiling " <> pMain <> " to a DAR."
-                defaultOpts <- Compiler.defaultOptionsIO Nothing
-                let opts =
-                        defaultOpts
+                options' <- mkOptions options
+                let opts = options'
                             { optMbPackageName = Just pName
-                            , optThreads = numProcessors
                             , optWriteInterface = True
                             }
                 loggerH <- getLogger opts "package"
@@ -400,10 +402,10 @@ createProjectPackageDb lfVersion fps = do
             , "--expand-pkgroot"
             ]
 
-execBuild :: Int -> Maybe FilePath -> IO ()
-execBuild numProcessors mbOutFile = do
+execBuild :: Compiler.Options -> Maybe FilePath -> IO ()
+execBuild options mbOutFile = do
   execInit
-  execPackageNew numProcessors mbOutFile
+  execPackageNew options mbOutFile
 
 lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty
