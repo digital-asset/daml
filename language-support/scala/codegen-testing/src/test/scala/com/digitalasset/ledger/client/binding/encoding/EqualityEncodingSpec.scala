@@ -46,23 +46,22 @@ class EqualityEncodingSpec extends WordSpec with Matchers {
       contract1 assert_=== contract1
       contract1 assert_=== contract1.copy()
 
-      equality.apply(contract1, contract1.copy()) should equal(true)
-      equality.apply(contract1, contract1.copy(subr = t.TrialSubRec(11, 101))) should equal(false)
-      equality.apply(contract1, contract1.copy(lst = List())) should equal(false)
-      equality.apply(contract1, contract1.copy(lst = List(3, 2, 1))) should equal(false)
-      equality.apply(contract1, contract1.copy(lst = List(1, 2, 3, 4))) should equal(false)
+      equality.apply(contract1, contract1.copy()) should ===(true)
+      equality.apply(contract1, contract1.copy(subr = t.TrialSubRec(11, 101))) should ===(false)
+      equality.apply(contract1, contract1.copy(lst = List())) should ===(false)
+      equality.apply(contract1, contract1.copy(lst = List(3, 2, 1))) should ===(false)
+      equality.apply(contract1, contract1.copy(lst = List(1, 2, 3, 4))) should ===(false)
 
-      equality.apply(contract2, contract2) should equal(true)
-      equality.apply(contract2, contract2.copy()) should equal(true)
-      equality.apply(contract2, contract2.copy(variant = t.TrialVariant.TLeft("schön"))) should equal(
+      equality.apply(contract2, contract2) should ===(true)
+      equality.apply(contract2, contract2.copy()) should ===(true)
+      equality.apply(contract2, contract2.copy(variant = t.TrialVariant.TLeft("schön"))) should ===(
         false)
       equality.apply(
         contract2,
         contract2.copy(variant =
-          t.TrialVariant.TRight(P.ContractId("ABC123"), P.ContractId("DEF456")))) should equal(
-        false)
+          t.TrialVariant.TRight(P.ContractId("ABC123"), P.ContractId("DEF456")))) should ===(false)
 
-      equality.apply(contract1, contract2) should equal(false)
+      equality.apply(contract1, contract2) should ===(false)
     }
   }
 }
