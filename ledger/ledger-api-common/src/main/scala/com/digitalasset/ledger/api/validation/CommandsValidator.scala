@@ -8,8 +8,6 @@ import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.value.Value.ValueUnit
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.messages.command.submission
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Command.Command.{
   Create => ProtoCreate,
   CreateAndExercise => ProtoCreateAndExercise,
@@ -31,19 +29,12 @@ import com.digitalasset.platform.common.PlatformTypes.asVersionedValueOrThrow
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
-import com.digitalasset.platform.server.util.context.TraceContextConversions._
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
 
-class CommandSubmissionRequestValidator(ledgerId: String, identifierResolver: IdentifierResolver) {
-
-  def validate(req: SubmitRequest): Either[StatusRuntimeException, submission.SubmitRequest] =
-    for {
-      commands <- requirePresence(req.commands, "commands")
-      validatedCommands <- validateCommands(commands)
-    } yield submission.SubmitRequest(validatedCommands, req.traceContext.map(toBrave))
+final class CommandsValidator(ledgerId: String, identifierResolver: IdentifierResolver) {
 
   def validateCommands(commands: ProtoCommands): Either[StatusRuntimeException, domain.Commands] =
     for {

@@ -126,7 +126,8 @@ object ApiServices {
         () => completionService.completionEnd(CompletionEndRequest(ledgerBackend.ledgerId)),
         transactionService.getTransactionById,
         transactionService.getFlatTransactionById
-      )
+      ),
+      identifierResolver
     )
 
     val activeContractsService =

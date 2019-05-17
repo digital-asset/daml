@@ -14,7 +14,7 @@ import com.digitalasset.ledger.api.v1.event.{
 }
 import com.digitalasset.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.value.{Record, Value => ApiValue}
-import com.digitalasset.ledger.api.validation.CommandSubmissionRequestValidator
+import com.digitalasset.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
 import com.digitalasset.platform.common.{PlatformTypes => P}
 import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
 import io.grpc.StatusRuntimeException
@@ -48,17 +48,21 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
         s => Left(invalidArgument(s"Cannot parse '$value' as versioned value: $s")),
         Right.apply)
 
-  private val validator =
-    new CommandSubmissionRequestValidator(
+  private val commandsValidator =
+    new CommandsValidator(
       ledgerId,
-      IdentifierResolver(_ => Future.successful(None)))
+      IdentifierResolver(_ => Future.successful(None))
+    )
+
+  private val validator =
+    new SubmitRequestValidator(commandsValidator)
 
   private def recordToLfValue[Cid](record: Record) =
     toLfValue(ApiValue(ApiValue.Sum.Record(record)))
 
   private def toLfValue[Cid](
       apiV: ApiValue): Either[StatusRuntimeException, Value[AbsoluteContractId]] =
-    validator.validateValue(apiV)
+    commandsValidator.validateValue(apiV)
 
   // this is roughly the inverse operation of EventConverter in sandbox
   def eventsFromApiTransaction(transactionTree: TransactionTree)

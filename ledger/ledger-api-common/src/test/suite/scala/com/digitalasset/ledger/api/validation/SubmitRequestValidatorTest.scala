@@ -31,7 +31,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class CommandSubmissionRequestValidatorTest
+class SubmitRequestValidatorTest
     extends WordSpec
     with ValidatorTestUtils
     with TableDrivenPropertyChecks {
@@ -83,9 +83,8 @@ class CommandSubmissionRequestValidatorTest
     )
   }
 
-  val sut = new CommandSubmissionRequestValidator(
-    ledgerId,
-    new IdentifierResolver(_ => Future.successful(None)))
+  val commandsValidator =
+    new CommandsValidator(ledgerId, new IdentifierResolver(_ => Future.successful(None)))
 
   def recordFieldWithValue(value: Value) = RecordField("label", Some(value))
 
@@ -94,18 +93,18 @@ class CommandSubmissionRequestValidatorTest
   "CommandSubmissionRequestValidator" when {
     "validating command submission requests" should {
       "convert valid requests with empty commands" in {
-        sut.validateCommands(api.commands) shouldEqual Right(internal.emptyCommands)
+        commandsValidator.validateCommands(api.commands) shouldEqual Right(internal.emptyCommands)
       }
 
       "not allow missing ledgerId" in {
         requestMustFailWith(
-          sut.validateCommands(api.commands.withLedgerId("")),
+          commandsValidator.validateCommands(api.commands.withLedgerId("")),
           NOT_FOUND,
           "Ledger ID '' not found. Actual Ledger ID is 'ledger-id'.")
       }
 
       "tolerate a missing workflowId" in {
-        sut.validateCommands(api.commands.withWorkflowId("")) shouldEqual Right(
+        commandsValidator.validateCommands(api.commands.withWorkflowId("")) shouldEqual Right(
           internal.emptyCommands.copy(
             workflowId = None,
             commands = internal.emptyCommands.commands.copy(commandsReference = "")))
@@ -113,28 +112,29 @@ class CommandSubmissionRequestValidatorTest
 
       "not allow missing applicationId" in {
         requestMustFailWith(
-          sut.validateCommands(api.commands.withApplicationId("")),
+          commandsValidator.validateCommands(api.commands.withApplicationId("")),
           INVALID_ARGUMENT,
           "Missing field: application_id")
       }
 
       "not allow missing commandId" in {
         requestMustFailWith(
-          sut.validateCommands(api.commands.withCommandId("")),
+          commandsValidator.validateCommands(api.commands.withCommandId("")),
           INVALID_ARGUMENT,
           "Missing field: command_id")
       }
 
       "not allow missing submitter" in {
         requestMustFailWith(
-          sut.validateCommands(api.commands.withParty("")),
+          commandsValidator.validateCommands(api.commands.withParty("")),
           INVALID_ARGUMENT,
-          """Invalid field party: string "" does not match regex "[a-zA-Z0-9\-_ ]+"""")
+          """Invalid field party: string "" does not match regex "[a-zA-Z0-9\-_ ]+""""
+        )
       }
 
       "not allow missing let" in {
         requestMustFailWith(
-          sut.validateCommands(api.commands.copy(ledgerEffectiveTime = None)),
+          commandsValidator.validateCommands(api.commands.copy(ledgerEffectiveTime = None)),
           INVALID_ARGUMENT,
           "Missing field: ledger_effective_time")
 
@@ -142,7 +142,7 @@ class CommandSubmissionRequestValidatorTest
 
       "not allow missing mrt" in {
         requestMustFailWith(
-          sut.validateCommands(api.commands.copy(maximumRecordTime = None)),
+          commandsValidator.validateCommands(api.commands.copy(maximumRecordTime = None)),
           INVALID_ARGUMENT,
           "Missing field: maximum_record_time")
       }
@@ -156,19 +156,19 @@ class CommandSubmissionRequestValidatorTest
         val input = Value(Sum.ContractId(coid))
         val expected = Lf.ValueContractId(Lf.AbsoluteContractId(coid))
 
-        sut.validateValue(input) shouldEqual Right(expected)
+        commandsValidator.validateValue(input) shouldEqual Right(expected)
       }
     }
 
     "validating party values" should {
       "convert valid party" in {
-        sut.validateValue(DomainMocks.values.validApiParty) shouldEqual Right(
+        commandsValidator.validateValue(DomainMocks.values.validApiParty) shouldEqual Right(
           DomainMocks.values.validLfParty)
       }
 
       "reject non valid party" in {
         requestMustFailWith(
-          sut.validateValue(DomainMocks.values.invalidApiParty),
+          commandsValidator.validateValue(DomainMocks.values.invalidApiParty),
           INVALID_ARGUMENT,
           DomainMocks.values.invalidPartyMsg
         )
@@ -194,7 +194,7 @@ class CommandSubmissionRequestValidatorTest
             val s = sign + absoluteValue
             val input = Value(Sum.Decimal(s))
             val expected = Lf.ValueDecimal(Decimal.fromString(s).getOrElse(unexpectedError))
-            sut.validateValue(input) shouldEqual Right(expected)
+            commandsValidator.validateValue(input) shouldEqual Right(expected)
           }
         }
       }
@@ -216,7 +216,7 @@ class CommandSubmissionRequestValidatorTest
             val s = sign + absoluteValue
             val input = Value(Sum.Decimal(s))
             requestMustFailWith(
-              sut.validateValue(input),
+              commandsValidator.validateValue(input),
               INVALID_ARGUMENT,
               s"""Invalid argument: Could not read Decimal string "$s""""
             )
@@ -245,7 +245,7 @@ class CommandSubmissionRequestValidatorTest
             val s = sign + absoluteValue
             val input = Value(Sum.Decimal(s))
             requestMustFailWith(
-              sut.validateValue(input),
+              commandsValidator.validateValue(input),
               INVALID_ARGUMENT,
               s"""Invalid argument: Could not read Decimal string "$s""""
             )
@@ -263,7 +263,7 @@ class CommandSubmissionRequestValidatorTest
         forEvery(strings) { s =>
           val input = Value(Sum.Text(s))
           val expected = Lf.ValueText(s)
-          sut.validateValue(input) shouldEqual Right(expected)
+          commandsValidator.validateValue(input) shouldEqual Right(expected)
         }
       }
     }
@@ -281,7 +281,7 @@ class CommandSubmissionRequestValidatorTest
           case (long, timestamp) =>
             val input = Value(Sum.Timestamp(long))
             val expected = Lf.ValueTimestamp(timestamp)
-            sut.validateValue(input) shouldEqual Right(expected)
+            commandsValidator.validateValue(input) shouldEqual Right(expected)
         }
       }
 
@@ -296,7 +296,7 @@ class CommandSubmissionRequestValidatorTest
         forEvery(testCases) { long =>
           val input = Value(Sum.Timestamp(long))
           requestMustFailWith(
-            sut.validateValue(input),
+            commandsValidator.validateValue(input),
             INVALID_ARGUMENT,
             s"Invalid argument: out of bound Timestamp $long"
           )
@@ -317,7 +317,7 @@ class CommandSubmissionRequestValidatorTest
           case (int, date) =>
             val input = Value(Sum.Date(int))
             val expected = Lf.ValueDate(date)
-            sut.validateValue(input) shouldEqual Right(expected)
+            commandsValidator.validateValue(input) shouldEqual Right(expected)
         }
       }
 
@@ -332,7 +332,7 @@ class CommandSubmissionRequestValidatorTest
         forEvery(testCases) { int =>
           val input = Value(Sum.Date(int))
           requestMustFailWith(
-            sut.validateValue(input),
+            commandsValidator.validateValue(input),
             INVALID_ARGUMENT,
             s"Invalid argument: out of bound Date $int"
           )
@@ -342,14 +342,15 @@ class CommandSubmissionRequestValidatorTest
 
     "validating boolean values" should {
       "accept any of them" in {
-        sut.validateValue(Value(Sum.Bool(true))) shouldEqual Right(Lf.ValueBool(true))
-        sut.validateValue(Value(Sum.Bool(false))) shouldEqual Right(Lf.ValueBool(false))
+        commandsValidator.validateValue(Value(Sum.Bool(true))) shouldEqual Right(Lf.ValueBool(true))
+        commandsValidator.validateValue(Value(Sum.Bool(false))) shouldEqual Right(
+          Lf.ValueBool(false))
       }
     }
 
     "validating unit values" should {
       "succeed" in {
-        sut.validateValue(Value(Sum.Unit(Empty()))) shouldEqual Right(Lf.ValueUnit)
+        commandsValidator.validateValue(Value(Sum.Unit(Empty()))) shouldEqual Right(Lf.ValueUnit)
       }
     }
 
@@ -363,7 +364,7 @@ class CommandSubmissionRequestValidatorTest
           Lf.ValueRecord(
             Some(DomainMocks.identifier),
             ImmArray(Some(DomainMocks.label) -> DomainMocks.values.int64))
-        sut.validateValue(record) shouldEqual Right(expected)
+        commandsValidator.validateValue(record) shouldEqual Right(expected)
       }
 
       "tolerate missing identifiers in records" in {
@@ -371,7 +372,7 @@ class CommandSubmissionRequestValidatorTest
           Value(Sum.Record(Record(None, Seq(RecordField(api.label, Some(Value(api.int64)))))))
         val expected =
           Lf.ValueRecord(None, ImmArray(Some(DomainMocks.label) -> DomainMocks.values.int64))
-        sut.validateValue(record) shouldEqual Right(expected)
+        commandsValidator.validateValue(record) shouldEqual Right(expected)
       }
 
       "tolerate missing labels in record fields" in {
@@ -379,13 +380,16 @@ class CommandSubmissionRequestValidatorTest
           Value(Sum.Record(Record(None, Seq(RecordField("", Some(Value(api.int64)))))))
         val expected =
           ValueRecord(None, ImmArray(None -> DomainMocks.values.int64))
-        sut.validateValue(record) shouldEqual Right(expected)
+        commandsValidator.validateValue(record) shouldEqual Right(expected)
       }
 
       "not allow missing record values" in {
         val record =
           Value(Sum.Record(Record(Some(api.identifier), Seq(RecordField(api.label, None)))))
-        requestMustFailWith(sut.validateValue(record), INVALID_ARGUMENT, "Missing field: value")
+        requestMustFailWith(
+          commandsValidator.validateValue(record),
+          INVALID_ARGUMENT,
+          "Missing field: value")
       }
 
     }
@@ -399,7 +403,7 @@ class CommandSubmissionRequestValidatorTest
           Some(DomainMocks.identifier),
           DomainMocks.values.constructor,
           DomainMocks.values.int64)
-        sut.validateValue(variant) shouldEqual Right(expected)
+        commandsValidator.validateValue(variant) shouldEqual Right(expected)
       }
 
       "tolerate missing identifiers" in {
@@ -407,20 +411,23 @@ class CommandSubmissionRequestValidatorTest
         val expected =
           Lf.ValueVariant(None, DomainMocks.values.constructor, DomainMocks.values.int64)
 
-        sut.validateValue(variant) shouldEqual Right(expected)
+        commandsValidator.validateValue(variant) shouldEqual Right(expected)
       }
 
       "not allow missing constructor" in {
         val variant = Value(Sum.Variant(Variant(None, "", Some(Value(api.int64)))))
         requestMustFailWith(
-          sut.validateValue(variant),
+          commandsValidator.validateValue(variant),
           INVALID_ARGUMENT,
           "Missing field: constructor")
       }
 
       "not allow missing values" in {
         val variant = Value(Sum.Variant(Variant(None, api.constructor, None)))
-        requestMustFailWith(sut.validateValue(variant), INVALID_ARGUMENT, "Missing field: value")
+        requestMustFailWith(
+          commandsValidator.validateValue(variant),
+          INVALID_ARGUMENT,
+          "Missing field: value")
       }
 
     }
@@ -431,14 +438,14 @@ class CommandSubmissionRequestValidatorTest
         val expected =
           Lf.ValueList(FrontStack.empty)
 
-        sut.validateValue(input) shouldEqual Right(expected)
+        commandsValidator.validateValue(input) shouldEqual Right(expected)
       }
 
       "convert valid lists" in {
         val list = Value(Sum.List(ApiList(Seq(Value(api.int64), Value(api.int64)))))
         val expected =
           Lf.ValueList(FrontStack(ImmArray(DomainMocks.values.int64, DomainMocks.values.int64)))
-        sut.validateValue(list) shouldEqual Right(expected)
+        commandsValidator.validateValue(list) shouldEqual Right(expected)
       }
 
       "reject lists containing invalid values" in {
@@ -446,7 +453,7 @@ class CommandSubmissionRequestValidatorTest
           Sum.List(
             ApiList(Seq(DomainMocks.values.validApiParty, DomainMocks.values.invalidApiParty))))
         requestMustFailWith(
-          sut.validateValue(input),
+          commandsValidator.validateValue(input),
           INVALID_ARGUMENT,
           DomainMocks.values.invalidPartyMsg)
       }
@@ -457,19 +464,19 @@ class CommandSubmissionRequestValidatorTest
         val input = Value(Sum.Optional(ApiOptional(None)))
         val expected = Lf.ValueOptional(None)
 
-        sut.validateValue(input) shouldEqual Right(expected)
+        commandsValidator.validateValue(input) shouldEqual Right(expected)
       }
 
       "convert valid non-empty optionals" in {
         val list = Value(Sum.Optional(ApiOptional(Some(DomainMocks.values.validApiParty))))
         val expected = Lf.ValueOptional(Some(DomainMocks.values.validLfParty))
-        sut.validateValue(list) shouldEqual Right(expected)
+        commandsValidator.validateValue(list) shouldEqual Right(expected)
       }
 
       "reject optional containing invalid values" in {
         val input = Value(Sum.Optional(ApiOptional(Some(DomainMocks.values.invalidApiParty))))
         requestMustFailWith(
-          sut.validateValue(input),
+          commandsValidator.validateValue(input),
           INVALID_ARGUMENT,
           DomainMocks.values.invalidPartyMsg)
       }
@@ -479,7 +486,7 @@ class CommandSubmissionRequestValidatorTest
       "convert empty maps" in {
         val input = Value(Sum.Map(ApiMap(List.empty)))
         val expected = Lf.ValueMap(SortedLookupList.empty)
-        sut.validateValue(input) shouldEqual Right(expected)
+        commandsValidator.validateValue(input) shouldEqual Right(expected)
       }
 
       "convert valid maps" in {
@@ -494,7 +501,7 @@ class CommandSubmissionRequestValidatorTest
         val expected =
           Lf.ValueMap(SortedLookupList.fromImmArray(lfEntries).getOrElse(unexpectedError))
 
-        sut.validateValue(input) shouldEqual Right(expected)
+        commandsValidator.validateValue(input) shouldEqual Right(expected)
       }
 
       "reject maps with repeated keys" in {
@@ -506,7 +513,7 @@ class CommandSubmissionRequestValidatorTest
         }
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
         requestMustFailWith(
-          sut.validateValue(input),
+          commandsValidator.validateValue(input),
           INVALID_ARGUMENT,
           s"Invalid argument: key ${Utf8.sha256("1")} duplicated when trying to build map")
       }
@@ -518,7 +525,7 @@ class CommandSubmissionRequestValidatorTest
             ApiMap.Entry("2", Some(DomainMocks.values.invalidApiParty)))
         val input = Value(Sum.Map(ApiMap(apiEntries)))
         requestMustFailWith(
-          sut.validateValue(input),
+          commandsValidator.validateValue(input),
           INVALID_ARGUMENT,
           DomainMocks.values.invalidPartyMsg)
       }

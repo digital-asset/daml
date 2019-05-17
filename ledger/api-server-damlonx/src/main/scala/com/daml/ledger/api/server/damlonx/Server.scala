@@ -123,7 +123,8 @@ object Server {
         () => commandCompletionService.completionEnd(CompletionEndRequest(ledgerId)),
         transactionService.getTransactionById,
         transactionService.getFlatTransactionById
-      )
+      ),
+      identifierResolver
     )
 
     val packageService = DamlOnXPackageService(indexService, ledgerId)
