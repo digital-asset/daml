@@ -128,11 +128,11 @@ sealed abstract class Primitive {
       companion: TemplateCompanion[_ <: Tpl],
       na: rpcvalue.Record): Update[ContractId[Tpl]]
 
-  private[binding] def exercise[Tpl, Out](
+  private[binding] def exercise[ExOn, Tpl, Out](
       templateCompanion: TemplateCompanion[Tpl],
-      contractId: ContractId[Tpl],
+      receiver: ExOn,
       choiceId: String,
-      argument: rpcvalue.Value): Update[Out]
+      argument: rpcvalue.Value)(implicit ev: ExerciseOn[ExOn, Tpl]): Update[Out]
 
   private[binding] def arguments(
       recordId: rpcvalue.Identifier,
@@ -216,25 +216,7 @@ private[client] object OnlyPrimitive extends Primitive {
           .Create(rpccmd.CreateCommand(templateId = Some(companion.id.unwrap), Some(na)))),
       companion)
 
-  private[binding] override def exercise[Tpl, Out](
-      templateCompanion: TemplateCompanion[Tpl],
-      contractId: ContractId[Tpl],
-      choiceId: String,
-      argument: rpcvalue.Value): Update[Out] =
-    DomainCommand(
-      rpccmd.Command(
-        rpccmd.Command.Command.Exercise(
-          rpccmd.ExerciseCommand(
-            templateId = Some(templateCompanion.id.unwrap),
-            contractId = contractId.unwrap,
-            choice = choiceId,
-            choiceArgument = Some(argument)
-          ))),
-      templateCompanion
-    )
-
-  // TODO SC replace exercise&sig above with this
-  private[binding] /*override*/ def newExercise[ExOn, Tpl, Out](
+  private[binding] override def exercise[ExOn, Tpl, Out](
       templateCompanion: TemplateCompanion[Tpl],
       receiver: ExOn,
       choiceId: String,
