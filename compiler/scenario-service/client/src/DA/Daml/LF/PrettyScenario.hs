@@ -77,6 +77,16 @@ lookupDefLocation mod0 defName =
     <|>
     LF.tplLocation <$> NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
 
+teplateConName :: LF.World -> Maybe PackageIdentifier -> Identifier -> Maybe (LF.Qualified LF.TypeConName)
+teplateConName world mbPkgId (Identifier _ (TL.toStrict -> qualName)) = do
+  (modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
+  tpl <- NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
+  let pkgRef = case mbPkgId of
+                Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) -> LF.PRImport $ Tagged $ TL.toStrict pkgId
+                _ -> LF.PRSelf
+  return (LF.Qualified pkgRef modName (LF.tplTypeCon tpl))
+
+
 lookupModule :: LF.World -> Maybe PackageIdentifier -> LF.ModuleName -> Maybe LF.Module
 lookupModule world mbPkgId modName = do
   let pkgRef = case mbPkgId of
@@ -86,8 +96,7 @@ lookupModule world mbPkgId modName = do
   eitherToMaybe (LF.lookupModule (LF.Qualified pkgRef modName ()) world)
 
 lookupModuleFromQualifiedName ::
-     LF.World -> Maybe PackageIdentifier -> T.Text
-  -> Maybe (LF.ModuleName, T.Text, LF.Module)
+     LF.World -> Maybe PackageIdentifier -> T.Text -> Maybe (LF.ModuleName, T.Text, LF.Module)
 lookupModuleFromQualifiedName world mbPkgId qualName = do
   let (modName, defName) = case T.splitOn ":" qualName of
         [modNm, defNm] -> (Tagged (T.splitOn "." modNm), defNm)
@@ -727,14 +736,13 @@ prettyDefName world (Identifier mbPkgId (TL.toStrict -> qualName))
     ppName = text name <> ppPkgId
     ppPkgId = maybe mempty prettyPackageIdentifier mbPkgId
 
-prettyChoiceId
-  :: LF.World -> Maybe Identifier -> TL.Text
-  -> Doc SyntaxClass
+prettyChoiceId :: LF.World -> Maybe Identifier -> TL.Text -> Doc SyntaxClass
 prettyChoiceId _ Nothing choiceId = ltext choiceId
 prettyChoiceId world (Just (Identifier mbPkgId (TL.toStrict -> qualName))) (TL.toStrict -> choiceId)
   | Just (_modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
   , Just fp <- LF.moduleSource mod0
   , Just tpl <- NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
+
   , Just chc <- NM.lookup (Tagged choiceId) (LF.tplChoices tpl)
   , Just (LF.SourceLoc _mref sline _scol eline _ecol) <- LF.chcLocation chc =
       linkSC (revealLocationUri fp sline eline) choiceId $ text choiceId
