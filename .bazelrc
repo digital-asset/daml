@@ -98,4 +98,9 @@ build:darwin --protocopt=--include_source_info
 # See https://github.com/bazelbuild/bazel/pull/7490
 build:windows --noincompatible_windows_escape_jvm_flags
 
+# Bazel build wihout the bytes
+build --experimental_inmemory_jdeps_files
+build --experimental_inmemory_dotd_files
+build --experimental_remote_download_outputs=minimal
+
 try-import %workspace%/.bazelrc.local
