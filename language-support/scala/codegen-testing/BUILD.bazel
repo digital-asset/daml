@@ -65,6 +65,7 @@ da_scala_library(
 da_scala_test_suite(
     name = "tests",
     size = "small",
+    scalacopts = ["-Xsource:2.13"],
     srcs = glob(
         [
             "src/test/**/*.scala",
