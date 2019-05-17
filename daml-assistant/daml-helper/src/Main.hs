@@ -14,7 +14,7 @@ main = runCommand =<< customExecParser parserPrefs (info (commandParser <**> hel
 data Command
     = DamlStudio { replaceExtension :: ReplaceExtension, remainingArguments :: [String] }
     | RunJar { jarPath :: FilePath, remainingArguments :: [String] }
-    | New { targetFolder :: FilePath, templateName :: String }
+    | New { targetFolder :: FilePath, templateNameM :: Maybe String }
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
     | Start { openBrowser :: OpenBrowser }
@@ -42,7 +42,7 @@ commandParser =
               [ ListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
               , New
                   <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-                  <*> argument str (metavar "TEMPLATE" <> help "Name of the template used to create the project (default: skeleton)" <> value "skeleton")
+                  <*> optional (argument str (metavar "TEMPLATE" <> help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")))
               ]
           initCmd = Init <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
           startCmd = Start . OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser automatically and point it to navigator."
@@ -53,11 +53,10 @@ commandParser =
               "always" -> Just ReplaceExtAlways
               _ -> Nothing
 
-
 runCommand :: Command -> IO ()
 runCommand DamlStudio {..} = runDamlStudio replaceExtension remainingArguments
 runCommand RunJar {..} = runJar jarPath remainingArguments
-runCommand New {..} = runNew targetFolder templateName
+runCommand New {..} = runNew targetFolder templateNameM
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
 runCommand Start {..} = runStart openBrowser

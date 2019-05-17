@@ -16,6 +16,8 @@ module DamlHelper
     , waitForConnectionOnPort
     , waitForHttpServer
 
+    , defaultProjectTemplate
+
     , NavigatorPort(..)
     , SandboxPort(..)
     , ReplaceExtension(..)
@@ -134,7 +136,6 @@ withJar jarPath args a = do
     (withCreateProcess (proc "java" ("-jar" : absJarPath : args)) $ \_ _ _ -> a) `catchIO`
         (\e -> hPutStrLn stderr "Failed to start java. Make sure it is installed and in the PATH." *> throwIO e)
 
-
 getTemplatesFolder :: IO FilePath
 getTemplatesFolder = fmap (</> "templates") getSdkPath
 
@@ -228,12 +229,10 @@ runInit targetFolderM = do
         daYaml <- requiredE ("Failed to parse " <> T.pack legacyConfigPath) =<<
             Y.decodeFileEither (projectRoot </> legacyConfigName)
 
-
         putStr $ unlines
             [ "Detected DA project."
             , "Migrating " <> legacyConfigRel <> " to " <> projectConfigRel
             ]
-
 
         let getField :: Y.FromJSON t => T.Text -> IO t
             getField name =
@@ -270,10 +269,8 @@ runInit targetFolderM = do
             , ("dependencies", Y.array [Y.String "daml-prim", Y.String "daml-stdlib"])
             ]
 
-
         putStrLn ("Done! Please verify " <> projectConfigRel)
         exitSuccess
-
 
     -- case 7
     putStrLn ("Generating " <> projectConfigRel)
@@ -302,26 +299,7 @@ runInit targetFolderM = do
         , "Done! Please verify " <> projectConfigRel
         ]
 
-
     where
-        legacyConfigName = "da.yaml"
-
-        findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
-        findDamlProjectRoot = findAscendantWithFile projectConfigName
-
-        findDaProjectRoot :: FilePath -> IO (Maybe FilePath)
-        findDaProjectRoot = findAscendantWithFile legacyConfigName
-
-        findAscendantWithFile :: FilePath -> FilePath -> IO (Maybe FilePath)
-        findAscendantWithFile filename path =
-            findM (\p -> doesFileExist (p </> filename)) (ascendants path)
-
-        -- why don't any good filepath libraries have something like this?
-        escapePath :: FilePath -> FilePath
-        escapePath = concatMap $ \c ->
-            if c `elem` (" \\\"\'$" :: String)
-                then ['\\', c]
-                else [c]
 
         getMinimumSdkVersion :: IO SdkVersion
         getMinimumSdkVersion =
@@ -346,44 +324,130 @@ runInit targetFolderM = do
         yamlConfig :: Y.Config
         yamlConfig = Y.setConfCompare fieldNameCompare Y.defConfig
 
-
-runNew :: FilePath -> String -> IO ()
-runNew targetFolder templateName = do
+-- | Create a DAML project in a new directory, based on a project template packaged
+-- with the SDK. Special care has been taken to avoid:
+--
+-- * Project name/template name confusion: i.e. when a user passes a
+-- single argument, it should be the new project folder. But if the user
+-- passes an existing template name instead, we ask the user to be more
+-- explicit.
+-- * Creation of a project in existing folder (suggest daml init instead).
+-- * Creation of a project inside another project.
+--
+runNew :: FilePath -> Maybe String -> IO ()
+runNew targetFolder templateNameM = do
     templatesFolder <- getTemplatesFolder
-    let templateFolder = templatesFolder </> templateName
+    let templateName = fromMaybe defaultProjectTemplate templateNameM
+        templateFolder = templatesFolder </> templateName
+        projectName = takeFileName (dropTrailingPathSeparator targetFolder)
+
+    -- Ensure template exists.
     unlessM (doesDirectoryExist templateFolder) $ do
         hPutStr stderr $ unlines
             [ "Template " <> show templateName <> " does not exist."
             , "Use `daml new --list` to see a list of available templates"
             ]
         exitFailure
+
+    -- Ensure project directory does not already exist.
     whenM (doesDirectoryExist targetFolder) $ do
         hPutStr stderr $ unlines
             [ "Directory " <> show targetFolder <> " already exists."
-            , "Please specify a new directory for creating a project."
+            , "Please specify a new directory, or use 'daml init' instead:"
+            , ""
+            , "    daml init " <> escapePath targetFolder
+            , ""
             ]
         exitFailure
+
+    -- Ensure user is not confusing template name with project name.
+    --
+    -- We check projectName == targetFolder because if the user
+    -- gave a targetFolder that isn't a straight up file name (it
+    -- contains path separators), then it's likely that they did
+    -- intend to pass a target folder and not a template name.
+    when (isNothing templateNameM && projectName == targetFolder) $ do
+        whenM (doesDirectoryExist (templatesFolder </> projectName)) $ do
+            hPutStr stderr $ unlines
+                [ "Template name " <> projectName <> " was given as project name."
+                , "Please specify a project name separately, for example:"
+                , ""
+                , "    daml new myproject " <> projectName
+                , ""
+                ]
+            exitFailure
+
+    -- Ensure we are not creating a project inside another project.
+    targetFolderAbs <- makeAbsolute targetFolder
+
+    damlRootM <- findDamlProjectRoot targetFolderAbs
+    whenJust damlRootM $ \damlRoot -> do
+        hPutStr stderr $ unlines
+            [ "Target directory is inside existing DAML project " <> show damlRoot
+            , "Please specify a new directory outside an existing project."
+            ]
+        exitFailure
+
+    daRootM <- findDaProjectRoot targetFolderAbs
+    whenJust daRootM $ \daRoot -> do
+        hPutStr stderr $ unlines
+            [ "Target directory is inside existing DA project " <> show daRoot
+            , "Please convert DA project to DAML using 'daml init':"
+            , ""
+            , "    daml init " <> escapePath daRoot
+            , ""
+            , "Or specify a new directory outside an existing project."
+            ]
+        exitFailure
+
+    -- Copy the template over.
     copyDirectory templateFolder targetFolder
     files <- listFilesRecursive targetFolder
     mapM_ setWritable files
 
-    -- update daml.yaml
+    -- Update daml.yaml
     let configPath = targetFolder </> projectConfigName
         configTemplatePath = configPath <.> "template"
 
     whenM (doesFileExist configTemplatePath) $ do
         configTemplate <- readFileUTF8 configTemplatePath
         sdkVersion <- getSdkVersion
-        let projectName = takeFileName (dropTrailingPathSeparator targetFolder)
-            config = replace "__VERSION__"  sdkVersion
+        let config = replace "__VERSION__"  sdkVersion
                    . replace "__PROJECT_NAME__" projectName
                    $ configTemplate
         writeFileUTF8 configPath config
         removeFile configTemplatePath
 
+    -- Done.
     putStrLn $
         "Created a new project in \"" <> targetFolder <>
         "\" based on the template \"" <> templateName <> "\"."
+
+defaultProjectTemplate :: String
+defaultProjectTemplate = "skeleton"
+
+legacyConfigName :: FilePath
+legacyConfigName = "da.yaml"
+
+findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
+findDamlProjectRoot = findAscendantWithFile projectConfigName
+
+findDaProjectRoot :: FilePath -> IO (Maybe FilePath)
+findDaProjectRoot = findAscendantWithFile legacyConfigName
+
+findAscendantWithFile :: FilePath -> FilePath -> IO (Maybe FilePath)
+findAscendantWithFile filename path =
+    findM (\p -> doesFileExist (p </> filename)) (ascendants path)
+
+-- | Escape special characters in a filepath so they can be used as a shell
+-- argument when displaying a suggested command to user. Do not use this to
+-- invoke shell commands directly (there are libraries designed for that).
+escapePath :: FilePath -> FilePath
+escapePath p | isWindows = concat ["\"", p, "\""] -- Windows is a mess
+escapePath p = p >>= \c ->
+    if c `elem` (" \\\"\'$*{}#" :: String)
+        then ['\\', c]
+        else [c]
 
 -- | Our SDK installation is read-only to prevent users from accidentally modifying it.
 -- But when we copy from it in "daml new" we want the result to be writable.
@@ -401,7 +465,6 @@ runListTemplates = do
        else putStrLn $ unlines $
           "The following templates are available:" :
           map (\dir -> "  " <> takeFileName dir) templates
-
 
 newtype SandboxPort = SandboxPort Int
 newtype NavigatorPort = NavigatorPort Int
@@ -461,7 +524,6 @@ runStart (OpenBrowser shouldOpenBrowser) = withProjectRoot $ \_ -> do
 
     where sandboxPort = SandboxPort 6865
           navigatorPort = NavigatorPort 7500
-
 
 getProjectConfig :: IO ProjectConfig
 getProjectConfig = do
