@@ -499,7 +499,7 @@ hazel_repositories(
             hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
             hazel_hackage("rope-utf16-splay", "0.3.1.0", "cbf878098355441ed7be445466fcb72d45390073a298b37649d762de2a7f8cc6") +
             hazel_hackage("unix-compat", "0.5.1", "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52") +
-            # This is a special version of Haskell LSP without GPL dependencies
+            # This is a version of haskell-lsp that has not yet been released
             hazel_github(
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
