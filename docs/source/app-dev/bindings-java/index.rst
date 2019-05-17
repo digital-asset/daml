@@ -139,7 +139,7 @@ Reference documentation
 Getting started
 ***************
 
-The Java bindings library can be added to a `Maven <https://maven.apache.org/>`_ project. Read :ref:`setup-maven-project` to configure your machine.
+The Java bindings library can be added to a `Maven <https://maven.apache.org/>`_ project.
 
 .. _bindings-java-setup-maven:
 
@@ -148,22 +148,26 @@ Set up a Maven project
 
 To use the Java bindings library, add the following dependencies to your project's ``pom.xml``:
 
-.. code-block:: xml
-
-    <dependency>
-        <groupId>com.daml.ledger</groupId>
-        <artifactId>bindings-java</artifactId>
-        <version>x.y.z</version>
-    </dependency>
-
-    <dependency>
-        <groupId>com.daml.ledger</groupId>
-        <artifactId>bindings-rxjava</artifactId>
-        <version>x.y.z</version>
-    </dependency>
+.. literalinclude:: ./code-snippets/pom.xml
+    :language: XML
+    :start-after: <!-- start snippet: dependencies -->
+    :end-before: <!-- end snippet: dependencies -->
+    :dedent: 4
 
 Replace ``x.y.z`` for both dependencies with the version that you want to use. You can find the available versions at
 `https://digitalassetsdk.bintray.com/DigitalAssetSDK/com/daml/ledger/`.
+
+You also have to add the DAML Bintray Repository to your ``pom.xml``:
+
+.. literalinclude:: ./code-snippets/pom.xml
+    :language: xml
+    :start-after: <!-- start snippet: repositories -->
+    :end-before: <!-- end snippet: repositories -->
+    :dedent: 4
+
+
+You can also take a look at the ``pom.xml`` file from the :ref:`quickstart project <quickstart>`.
+
 
 .. _ledger-api-java-binding-connecting:
 
