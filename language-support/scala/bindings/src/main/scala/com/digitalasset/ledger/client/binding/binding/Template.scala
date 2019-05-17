@@ -17,7 +17,7 @@ abstract class Template[+T] extends ValueRef { self: T =>
     * }}}
     */
   final def createAnd(implicit d: DummyImplicit): Template.CreateForExercise[T] =
-    Template.CreateForExercise(this)
+    Template.CreateForExercise(self)
 
   final def arguments(implicit d: DummyImplicit): rpcvalue.Record =
     templateCompanion.toNamedArguments(self)
