@@ -10,7 +10,7 @@ HEAD — ongoing
 --------------
 
 - **Documentation**: Removed unnecessary dependency in the quickstart-java example project.
-- **Documentation**: Remove the *Configure Maven* section from the installation instructions. This step is not needed anymore.
+- **Documentation**: Removed the *Configure Maven* section from the installation instructions. This step is not needed anymore.
 - **SQL Extractor**: in JSON content, dates and timestamps are formatted like
   ``"2020-02-22"`` and ``"2020-02-22T12:13:14Z"`` rather than UNIX epoch offsets like
   ``18314`` or ``1582373594000000``.
