@@ -71,7 +71,7 @@ class LedgerApiServer(
 
   private def startServer() = {
     val builder = address.fold(NettyServerBuilder.forPort(desiredPort))(address =>
-      NettyServerBuilder.forAddress(new InetSocketAddress(address, port)))
+      NettyServerBuilder.forAddress(new InetSocketAddress(address, desiredPort)))
 
     sslContext
       .fold {
@@ -92,7 +92,7 @@ class LedgerApiServer(
       (grpcServer, grpcServer.getPort)
     } catch {
       case io: IOException if io.getCause != null && io.getCause.isInstanceOf[BindException] =>
-        throw new UnableToBind(port, io.getCause)
+        throw new UnableToBind(desiredPort, io.getCause)
     }
   }
 
