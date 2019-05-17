@@ -26,13 +26,13 @@
 # prefix: @com_github_digital_asset_daml//..., as these won't
 # be resolvable from external workspaces otherwise.
 
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
 rules_scala_version = "78104d8014d4e4fc8f905cd34b91dfabd9a268c8"
 rules_haskell_version = "1d85570f2383e376e4b9406a0aa33961a2c0aece"
 rules_haskell_sha256 = "32accba7d598453c1f3be8af2c7532d325323ad20bda54166b0e8a69c51b92e8"
 rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
-
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 def daml_deps():
     if "io_tweag_rules_haskell" not in native.existing_rules():
@@ -44,6 +44,7 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell-static-linking.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-package-env.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-drop-fake-static.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-bazel-0.25.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -63,6 +64,10 @@ def daml_deps():
             strip_prefix = "rules_haskell-{}/hazel".format(rules_haskell_version),
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             sha256 = rules_haskell_sha256,
+            patches = [
+                "@com_github_digital_asset_daml//bazel_tools:hazel-bazel-0.25.patch",
+            ],
+            patch_args = ["-p2"],
         )
 
     if "com_github_madler_zlib" not in native.existing_rules():

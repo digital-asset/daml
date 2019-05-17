@@ -1,0 +1,22 @@
+diff --git a/hazel/hazel.bzl b/hazel/hazel.bzl
+index e7e5f73..222d4be 100644
+--- a/hazel/hazel.bzl
++++ b/hazel/hazel.bzl
+@@ -17,7 +17,16 @@ load(
+ )
+ load("@os_info//:os_info.bzl", "is_windows")
+ load("//tools:ghc.bzl", "default_ghc_workspaces", "get_ghc_workspace")
+-load("//tools:mangling.bzl", "hazel_binary", "hazel_library", "hazel_workspace")
++load(
++    "//tools:mangling.bzl",
++    _hazel_binary = "hazel_binary",
++    _hazel_library = "hazel_library",
++    _hazel_workspace = "hazel_workspace",
++)
++
++hazel_binary = _hazel_binary
++hazel_library = _hazel_library
++hazel_workspace = _hazel_workspace
+ 
+ def _cabal_haskell_repository_impl(ctx):
+     ghc_workspace = get_ghc_workspace(ctx.attr.ghc_workspaces, ctx)

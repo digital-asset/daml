@@ -1,0 +1,21 @@
+diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
+index af55a1f..673a2b7 100644
+--- a/haskell/ghc_bindist.bzl
++++ b/haskell/ghc_bindist.bzl
+@@ -1,5 +1,7 @@
+ """Workspace rules (GHC binary distributions)"""
+ 
++load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
++
+ _GHC_DEFAULT_VERSION = "8.4.4"
+ 
+ # Generated with `bazel run @io_tweag_rules_haskell//haskell:gen-ghc-bindist`
+@@ -176,8 +178,6 @@ def _execute_fail_loudly(ctx, args):
+     if eresult.return_code != 0:
+         fail("{0} failed, aborting creation of GHC bindist".format(" ".join(args)))
+ 
+-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
+-
+ def _ghc_bindist_impl(ctx):
+     # Avoid rule restart by resolving these labels early. See
+     # https://github.com/bazelbuild/bazel/blob/master/tools/cpp/lib_cc_configure.bzl#L17.

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
-load("//bazel_tools:packaging/packaging.bzl", "package_app")
+load("//bazel_tools/packaging:packaging.bzl", "package_app")
 
 da_haskell_library(
     name = "daml-helper-lib",
