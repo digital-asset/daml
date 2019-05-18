@@ -51,6 +51,7 @@ import com.digitalasset.sample.MyMain.{
   NameClashVariant,
   PayOut,
   RecordWithNestedMyVariant,
+  SimpleListExample,
   TemplateWith23Arguments,
   TemplateWithCustomTypes,
   TemplateWithNestedRecordsAndVariants,
@@ -363,6 +364,15 @@ class ScalaCodeGenIT
     val contract = arbitrary[MySecondMain.DummyTemplateFromAnotherDar].sample getOrElse sys.error(
       "random DummyTemplateFromAnotherDar failed")
     testCreateContractAndReceiveEvent(contract copy (owner = alice), alice)
+  }
+
+  "alice creates-and-exercises SimpleListExample with Go and receives corresponding event" in {
+    val contract = SimpleListExample(alice, P.List(42))
+    val exerciseConsequence = MkListExample(alice, P.List(42))
+    testCommandAndReceiveEvent(
+      contract.createAnd.exerciseGo(alice),
+      alice,
+      assertCreateEvent(_)(exerciseConsequence))
   }
 
   private def testCreateContractAndReceiveEvent(
