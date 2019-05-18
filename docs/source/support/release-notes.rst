@@ -14,6 +14,8 @@ HEAD — ongoing
 - **SQL Extractor**: in JSON content, dates and timestamps are formatted like
   ``"2020-02-22"`` and ``"2020-02-22T12:13:14Z"`` rather than UNIX epoch offsets like
   ``18314`` or ``1582373594000000``.
+- **Scala codegen**: ``CreateAndExercise`` support via ``createAnd`` method,
+  e.g. ``MyTemplate(owner, someText).createAnd.exerciseAccept(controller, 42)``.
 
 SDK tools
 ~~~~~~~~~
