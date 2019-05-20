@@ -42,7 +42,6 @@ import           ScenarioService
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 import qualified Text.Blaze.Html.Renderer.Text as Blaze
-import Debug.Trace
 
 data Error = ErrorMissingNode NodeId
 type M = ExceptT Error (Reader (MS.Map NodeId Node, LF.World))
@@ -819,12 +818,11 @@ templateConName world (Identifier mbPkgId (TL.toStrict -> qualName)) = do
   return (LF.Qualified pkgRef modName (LF.tplTypeCon tpl))
 
 
-renderHeader :: LF.World -> Identifier -> [LF.TypeVarName]
+renderHeader :: LF.World -> Identifier -> [T.Text]
 renderHeader world identifier = case templateConName world identifier of 
   Just typeConName -> 
-    case (LF.lookupDataType typeConName world) of -- Either LookupError DefDataType
-      Right (LF.DefDataType {..} ) ->  trace("testing this again")
-        map fst dataParams
+    case (LF.lookupDataType typeConName world) of
+      Right (LF.DefDataType {..} ) -> map unTagged (map fst dataParams)
       Left  _ -> []
   Nothing -> []
 
@@ -832,10 +830,12 @@ renderHeader world identifier = case templateConName world identifier of
 renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
 renderRow world parties NodeInfo{..} =
     let (_, tds) = renderValue world [] niValue
+        ths = renderHeader world niTemplateId
         header = H.tr $ mconcat
             [ foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
             , H.th "id"
             , H.th "status"
+            , foldMap (H.th . H.text) ths
             ]
         _test = renderHeader world niTemplateId
         observed party = if party `S.member` niObservers then "X" else "-"
