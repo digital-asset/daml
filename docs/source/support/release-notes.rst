@@ -8,6 +8,8 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+- We now color stale IDE diagnostics green to indicate that they are not current
+- Fixed a bug where type check errors would persist if there was a subsequent parse error
 
 DAML Assistant
 ~~~~~~~~~~~~~~
@@ -263,8 +265,6 @@ SQL Extractor
 --------------------
 
 - Making transaction lookups performant so we can handle such requests for large ledgers as well
-- We now color stale IDE diagnostics green to indicate that they are not current
-- Fixed a bug where type check errors would persist if there was a subsequent parse error
 
 - **Sandbox**: Transactions with a record time that is after the maximum record time (as provided in the original command) are now properly rejected instead of committed to the ledger.
 
