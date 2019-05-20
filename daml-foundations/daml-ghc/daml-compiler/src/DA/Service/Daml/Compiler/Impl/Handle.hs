@@ -160,7 +160,7 @@ newIdeState compilerOpts mbEventHandler loggerH = do
   -- but shake will report them when typechecking anything.
   (_diags, pkgMap) <- liftIO $ CompilerService.generatePackageMap (optPackageDbs compilerOpts)
   let rule = do
-        CompilerService.mainRule
+        CompilerService.mainRule compilerOpts
         Shake.addIdeGlobal $ GlobalPkgMap pkgMap
   liftIO $ CompilerService.initialise rule mbEventHandler (toIdeLogger loggerH) compilerOpts mbScenarioService
 

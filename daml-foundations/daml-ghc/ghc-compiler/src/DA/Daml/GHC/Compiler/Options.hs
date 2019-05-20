@@ -14,21 +14,27 @@ module DA.Daml.GHC.Compiler.Options
     ) where
 
 
-import Development.IDE.UtilGHC (runGhcFast)
 import DA.Daml.GHC.Compiler.Config (setupDamlGHC)
 import qualified Development.IDE.Types.Options as Compile
 
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.GHC.Compiler.Preprocessor
+import GhcMonad
+import HscMain
 
 import           Control.Monad.Reader
 import Data.Foldable (toList)
+import Data.IORef
 import Data.Maybe
 import Data.Tuple.Extra
 import "ghc-lib-parser" DynFlags
 import qualified "ghc-lib" GHC
-import "ghc-lib-parser" Module (moduleNameSlashes)
+import Development.IDE.UtilGHC
+import qualified "ghc-lib-parser" EnumSet
+import qualified "ghc-lib-parser" Packages
+import "ghc-lib-parser" HscTypes
+import "ghc-lib-parser" Module (moduleNameSlashes, stringToUnitId)
 import "ghc-lib-parser" PackageConfig
 import qualified System.Directory as Dir
 import           System.FilePath
@@ -66,19 +72,18 @@ toCompileOpts :: Options -> Compile.IdeOptions
 toCompileOpts Options{..} =
     Compile.IdeOptions
       { optPreprocessor = damlPreprocessor
-      , optGhcSession = liftIO $ runGhcFast $ do
-            setupDamlGHC optImportPath optMbPackageName optGhcCustomOpts
-            GHC.getSession
+      , optGhcSession = do
+            env <- liftIO $ runGhcFast $ do
+                setupDamlGHC optImportPath optMbPackageName optGhcCustomOpts
+                GHC.getSession
+            pkg <- liftIO $ generatePackageState optPackageDbs optHideAllPkgs $ map (second toRenaming) optPackageImports
+            return env{hsc_dflags = setPackageDynFlags pkg $ hsc_dflags env}
       , optPkgLocationOpts = Compile.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
           }
       , optWriteIface = optWriteInterface
       , optExtensions = ["daml"]
-      , optMbPackageName = optMbPackageName
-      , optPackageDbs = optPackageDbs
-      , optHideAllPkgs = optHideAllPkgs
-      , optPackageImports = map (second toRenaming) optPackageImports
       , optThreads = optThreads
       , optShakeProfiling = optShakeProfiling
       }
@@ -105,6 +110,75 @@ ifaceDir = ".interfaces"
 -- | Packages that we ship with the compiler.
 basePackages :: [String]
 basePackages = ["daml-prim", "daml-stdlib"]
+
+
+
+-- | Like 'runGhc' but much faster (400x), with less IO and no file dependency
+runGhcFast :: GHC.Ghc a -> IO a
+-- copied from GHC with the nasty bits dropped
+runGhcFast act = do
+  ref <- newIORef (error "empty session")
+  let session = Session ref
+  flip unGhc session $ do
+    dflags <- liftIO $ initDynFlags fakeDynFlags
+    liftIO $ setUnsafeGlobalDynFlags dflags
+    env <- liftIO $ newHscEnv dflags
+    setSession env
+    GHC.withCleanupSession act
+
+
+-- | The subset of @DynFlags@ computed by package initialization.
+data PackageDynFlags = PackageDynFlags
+    { pdfPkgDatabase :: !(Maybe [(FilePath, [Packages.PackageConfig])])
+    , pdfPkgState :: !Packages.PackageState
+    , pdfThisUnitIdInsts :: !(Maybe [(GHC.ModuleName, GHC.Module)])
+    }
+
+setPackageDynFlags :: PackageDynFlags -> DynFlags -> DynFlags
+setPackageDynFlags PackageDynFlags{..} dflags = dflags
+    { pkgDatabase = pdfPkgDatabase
+    , pkgState = pdfPkgState
+    , thisUnitIdInsts_ = pdfThisUnitIdInsts
+    }
+
+getPackageDynFlags :: DynFlags -> PackageDynFlags
+getPackageDynFlags DynFlags{..} = PackageDynFlags
+    { pdfPkgDatabase = pkgDatabase
+    , pdfPkgState = pkgState
+    , pdfThisUnitIdInsts = thisUnitIdInsts_
+    }
+
+generatePackageState :: [FilePath] -> Bool -> [(String, ModRenaming)] -> IO PackageDynFlags
+generatePackageState paths hideAllPkgs pkgImports = do
+  let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs paths fakeDynFlags
+  (newDynFlags, _) <- Packages.initPackages dflags
+  pure $ getPackageDynFlags newDynFlags
+
+
+setPackageDbs :: [FilePath] -> DynFlags -> DynFlags
+setPackageDbs paths dflags =
+  dflags
+    { packageDBFlags =
+        [PackageDB $ PkgConfFile $ path </> "package.conf.d" | path <- paths] ++ [NoGlobalPackageDB, ClearPackageDBs]
+    , pkgDatabase = if null paths then Just [] else Nothing
+      -- if we don't load any packages set the package database to empty and loaded.
+    , settings = (settings dflags)
+        {sTopDir = case paths of p:_ -> p; _ -> error "No package db path available but used $topdir"
+        , sSystemPackageConfig = case paths of p:_ -> p; _ -> error "No package db path available but used system package config"
+        }
+    }
+
+setPackageImports :: Bool -> [(String, ModRenaming)] -> DynFlags -> DynFlags
+setPackageImports hideAllPkgs pkgImports dflags = dflags {
+    packageFlags = packageFlags dflags ++
+        [ExposePackage pkgName (UnitIdArg $ stringToUnitId pkgName) renaming
+        | (pkgName, renaming) <- pkgImports
+        ]
+    , generalFlags = if hideAllPkgs
+                      then Opt_HideAllPackages `EnumSet.insert` generalFlags dflags
+                      else generalFlags dflags
+    }
+
 
 -- | Check that import paths and package db directories exist
 -- and add the default package db if it exists
