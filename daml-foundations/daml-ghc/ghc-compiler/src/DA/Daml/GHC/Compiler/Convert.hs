@@ -1167,7 +1167,7 @@ convertTyCon env t
     | t == intTyCon || t == intPrimTyCon = pure TInt64
     | t == charTyCon = unsupported "Type GHC.Types.Char" t
     | t == liftedRepDataConTyCon = pure TUnit
-    | t == typeSymbolKindCon = unsupported "Type GHC.Types.Symbol" t
+    | t == typeSymbolKindCon = pure TUnit
     | Just m <- nameModule_maybe (getName t), m == gHC_TYPES =
         case getOccString t of
             "Text" -> pure TText
@@ -1222,8 +1222,10 @@ convertKind x@(TypeCon t ts)
     | t == typeSymbolKindCon, null ts = pure KStar
     | t == tYPETyCon, [_] <- ts = pure KStar
     | t == runtimeRepTyCon, null ts = pure KStar
+    | is t == "Meta", null ts = pure KStar
     | t == funTyCon, [_,_,t1,t2] <- ts = KArrow <$> convertKind t1 <*> convertKind t2
-    | otherwise = unhandled "Kind" x
+convertKind (TyVarTy x) = convertKind $ varType x
+convertKind x = unhandled "Kind" x
 
 convNameLoc :: NamedThing a => a -> Maybe LF.SourceLoc
 convNameLoc n = case nameSrcSpan (getName n) of
