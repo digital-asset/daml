@@ -198,7 +198,9 @@ final class Server private (
     logger.info("Shutting down server...")
     server.shutdownNow()
     assume(server.awaitTermination(10, TimeUnit.SECONDS))
-    serverEventLoopGroup.shutdownGracefully().await(10L, TimeUnit.SECONDS)
+    serverEventLoopGroup
+      .shutdownGracefully(0, 0, TimeUnit.SECONDS)
+      .await(10, TimeUnit.SECONDS)
     serverEsf.close()
   }
 }

@@ -46,7 +46,9 @@ class SandboxServerResource(config: => SandboxConfig) extends Resource[Channel] 
 
   override def close(): Unit = {
     channel.shutdownNow()
-    eventLoopGroup.shutdownGracefully().await(10L, TimeUnit.SECONDS)
+    eventLoopGroup
+      .shutdownGracefully(0, 0, TimeUnit.SECONDS)
+      .await(10L, TimeUnit.SECONDS)
     sandboxServer.close()
     channel = null
     eventLoopGroup = null

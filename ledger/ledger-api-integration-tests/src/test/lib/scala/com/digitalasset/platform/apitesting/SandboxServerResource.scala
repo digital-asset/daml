@@ -52,7 +52,9 @@ class SandboxServerResource(sandboxConfig: SandboxConfig) extends Resource[Platf
   override def close(): Unit = {
     channel.shutdownNow()
     channel.awaitTermination(5L, TimeUnit.SECONDS)
-    eventLoopGroup.shutdownGracefully().await(10L, TimeUnit.SECONDS)
+    eventLoopGroup
+      .shutdownGracefully(0, 0, TimeUnit.SECONDS)
+      .await(10L, TimeUnit.SECONDS)
     sandboxServer.close()
     channel = null
     eventLoopGroup = null
