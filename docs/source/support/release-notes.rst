@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+.. _release-0-12-18:
+
+0.12.18 - 2019-05-20
+--------------------
+
 - **Documentation**: Removed unnecessary dependency in the quickstart-java example project.
 - **Documentation**: Removed the *Configure Maven* section from the installation instructions. This step is not needed anymore.
 - **SQL Extractor**: in JSON content, dates and timestamps are formatted like
