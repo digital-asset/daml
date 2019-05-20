@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as assert from 'assert';
 import * as path from 'path';
 import * as Rx from 'rxjs'
+import { gatherDiagnostics } from './diagnostics';
 
 describe("issue reports", function() {
 
@@ -47,53 +48,14 @@ testScenario = scenario do
   pure x
 `;
 
-        enum steps {
-          step1_DiagnosticsForB,
-          step2_ClosedB
-        };
-        var currentStep = steps.step1_DiagnosticsForB;
-        var step2timeout = null;
-
-        var step2_seenA = false;
-        const step = (diagnostic) => {
-          switch(currentStep) {
-            case steps.step1_DiagnosticsForB: {
-              // step 1: We wait for diagnostics for B before we close it.
-              if (diagnostic.uri.indexOf("B.daml") >= 0) {
-                step2timeout = setTimeout(done, 10000);
-                currentStep = steps.step2_ClosedB;
-                connection.closeDocument(uriB);
-                connection.changeDocument(
-                  uriA, 1, aContents1);
-              }
-              break;
-            }
-
-            case steps.step2_ClosedB: {
-              // step 2: We check that no errors arrive for A
-              // before 'step2timeout' fires.
-              if (diagnostic.uri.indexOf("A.daml") >= 0) {
-                const eq = DT.utils.deepEqual(
-                  diagnostic.diagnostics.map(d => d.message),
-                  []);
-                if(!eq.equal) {
-                  clearTimeout(step2timeout);
-                  done(eq.message);
-                }
-              }
-              break;
-            }
-          }
-        };
-        connection
-          .diagnostics
-          .subscribe(
-            { next: step,
-              error: (err) => done(err)
-            });
+        let test_srcdir = path.resolve(process.argv[4]);
 
         connection.openDocument(uriA, aContents0);
         connection.openDocument(uriB, bContents);
+
+        connection.closeDocument(uriB);
+        connection.changeDocument(uriA, 1, aContents1);
+        setTimeout(() => gatherDiagnostics(connection.diagnostics, test_srcdir, {}, done), 3000);
     })
 
     // NOTE(JM): Disabled due to DEL-5741. Re-enable once fixed.

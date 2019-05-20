@@ -9,7 +9,7 @@ import * as rxjs from 'rxjs';
 /**
  * Helper function to gather diagnostics for the tests.
  */
-function gatherDiagnostics(diagnostics : rxjs.Observable<DT.protocol.PublishDiagnosticsParams>, rootPath: string, expected: any, done) {
+export function gatherDiagnostics(diagnostics : rxjs.Observable<DT.protocol.PublishDiagnosticsParams>, rootPath: string, expected: any, done) {
     var actual: any = {}; // Gathered diagnostics, keyed by URI
     var markedDone = false;
 
@@ -42,7 +42,7 @@ function gatherDiagnostics(diagnostics : rxjs.Observable<DT.protocol.PublishDiag
             DT.tryWriteActualJSON(rootPath, actual);
             done(e, [subscription]);
         }
-    }, 50000);
+    }, 7000);
 }
 
 /// File-based tests
