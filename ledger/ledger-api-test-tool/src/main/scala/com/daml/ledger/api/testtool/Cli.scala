@@ -71,11 +71,6 @@ object Cli {
           |least one test fails, and it will fail when all tests succeed. Defaults to
           |false.""".stripMargin)
 
-    opt[Unit]('r', "reset")
-      .action((_, c) => c.copy(performReset = true))
-      .text("""Perform a ledger reset before running the tests. If enabled, the tool will wipe
-          |all of the contents of the target ledger. Defaults to false.""".stripMargin)
-
     opt[Unit]('x', "extract")
       .action((_, c) => c.copy(extract = true))
       .text("""Extract a DAR necessary to test a DAML ledger and exit without running tests.

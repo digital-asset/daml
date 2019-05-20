@@ -59,9 +59,6 @@ object LedgerApiTestTool {
     ledgerResource.setup()
     val ledger = ledgerResource.value
 
-    if (config.performReset) {
-      Await.result(ledger.reset(), 10.seconds)
-    }
     var failed = false
 
     val runSuffix = "-" + Random.alphanumeric.take(10).mkString
