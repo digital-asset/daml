@@ -42,6 +42,7 @@ import           ScenarioService
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 import qualified Text.Blaze.Html.Renderer.Text as Blaze
+import Debug.Trace
 
 data Error = ErrorMissingNode NodeId
 type M = ExceptT Error (Reader (MS.Map NodeId Node, LF.World))
@@ -76,16 +77,6 @@ lookupDefLocation mod0 defName =
     LF.dvalLocation <$> NM.lookup (Tagged defName) (LF.moduleValues mod0)
     <|>
     LF.tplLocation <$> NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
-
-templateConName :: LF.World -> Identifier -> Maybe (LF.Qualified LF.TypeConName)
-templateConName world (Identifier mbPkgId (TL.toStrict -> qualName)) = do
-  (modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
-  tpl <- NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
-  let pkgRef = case mbPkgId of
-                Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) -> LF.PRImport $ Tagged $ TL.toStrict pkgId
-                _ -> LF.PRSelf
-  return (LF.Qualified pkgRef modName (LF.tplTypeCon tpl))
-
 
 lookupModule :: LF.World -> Maybe PackageIdentifier -> LF.ModuleName -> Maybe LF.Module
 lookupModule world mbPkgId modName = do
@@ -818,15 +809,35 @@ renderValue world name = \case
         renderField (Field label mbValue) =
             renderValue world (name ++ [TL.toStrict label]) (fromJust mbValue)
 
+templateConName :: LF.World -> Identifier -> Maybe (LF.Qualified LF.TypeConName)
+templateConName world (Identifier mbPkgId (TL.toStrict -> qualName)) = do
+  (modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
+  tpl <- NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
+  let pkgRef = case mbPkgId of
+                Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) -> LF.PRImport $ Tagged $ TL.toStrict pkgId
+                _ -> LF.PRSelf
+  return (LF.Qualified pkgRef modName (LF.tplTypeCon tpl))
+
+
+renderHeader :: LF.World -> Identifier -> [LF.TypeVarName]
+renderHeader world identifier = case templateConName world identifier of 
+  Just typeConName -> 
+    case (LF.lookupDataType typeConName world) of -- Either LookupError DefDataType
+      Right (LF.DefDataType {..} ) ->  trace("testing this again")
+        map fst dataParams
+      Left  _ -> []
+  Nothing -> []
+
+
 renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
 renderRow world parties NodeInfo{..} =
-    let (ths, tds) = renderValue world [] niValue
+    let (_, tds) = renderValue world [] niValue
         header = H.tr $ mconcat
             [ foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
             , H.th "id"
             , H.th "status"
-            , ths
             ]
+        _test = renderHeader world niTemplateId
         observed party = if party `S.member` niObservers then "X" else "-"
         active = if niActive then "active" else "archived"
         row = H.tr H.! A.class_ (H.textValue active) $ mconcat
