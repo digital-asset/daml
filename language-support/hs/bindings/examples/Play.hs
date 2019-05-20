@@ -25,8 +25,8 @@ main = do
     let lid = Ledger.identity h
     putStrLn $ "LedgerIdentity = " <> show lid
 
-    aliceTs <- Ledger.transactions h alice
-    bobTs <- Ledger.transactions h bob
+    PastAndFuture{future=aliceTs} <- Ledger.getTransactionsPF h alice
+    PastAndFuture{future=bobTs} <- Ledger.getTransactionsPF h bob
     watch (show alice) aliceTs
     watch (show bob) bobTs
 

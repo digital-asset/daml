@@ -10,7 +10,7 @@ module DA.Ledger( -- WIP: High level interface to the Ledger API services
     -- services
     listPackages,
     getPackage, Package,
-    transactions,
+    getTransactionsPF,
     completions,
     submitCommands,
 
@@ -19,14 +19,15 @@ module DA.Ledger( -- WIP: High level interface to the Ledger API services
 
     Port(..),
 
-    Stream, takeStream, --getStreamContents,
+    module DA.Ledger.PastAndFuture,
+    module DA.Ledger.Stream,
 
     LedgerHandle, connect, identity,
 
     ) where
 
---import DA.OldStream
 import DA.Ledger.Stream
+import DA.Ledger.PastAndFuture
 
 import DA.Ledger.Types
 
@@ -111,7 +112,18 @@ mdm = MetadataMap Map.empty
 
 
 ----------------------------------------------------------------------
--- Services with streaming responses
+-- transaction_service
+
+getLedgerEnd :: LedgerHandle -> IO LedgerOffset
+getLedgerEnd LedgerHandle{port,lid} = wrapE "getLedgerEnd" $ do
+    LL.withGRPCClient (config port) $ \client -> do
+        service <- LL.transactionServiceClient client
+        let TransactionService _ _ _ _ _ _ rpc = service
+        let request = GetLedgerEndRequest (unLedgerId lid) noTrace
+        response <- rpc (ClientNormalRequest request timeout mdm)
+        GetLedgerEndResponse (Just offset) <- unwrap response --TODO: always be a Just?
+        return offset
+
 
 -- wrap LL.Transaction to show summary
 newtype LL_Transaction = LL_Transaction { low :: LL.Transaction } --TODO: remove
@@ -126,10 +138,9 @@ instance Show LL_Transaction where
 
 
 -- TODO: return (HL) [Transaction]
-transactions :: LedgerHandle -> Party -> IO (Stream LL_Transaction)
-transactions LedgerHandle{port,lid} party = wrapE "transactions" $ do
+runTransRequest :: LedgerHandle -> GetTransactionsRequest -> IO (Stream LL_Transaction)
+runTransRequest LedgerHandle{port} request = wrapE "transactions" $ do
     stream <- newStream
-    let request = mkGetTransactionsRequest lid offsetBegin Nothing (filterEverthingForParty party)
     _ <- forkIO $ --TODO: dont use forkIO
         LL.withGRPCClient (config port) $ \client -> do
             rpcs <- LL.transactionServiceClient client
@@ -137,6 +148,24 @@ transactions LedgerHandle{port,lid} party = wrapE "transactions" $ do
             sendToStream request f stream rpc1
     return stream
     where f = map LL_Transaction . Vector.toList . getTransactionsResponseTransactions
+
+
+getTransactionsPF :: LedgerHandle -> Party -> IO (PastAndFuture LL_Transaction)
+getTransactionsPF h@LedgerHandle{lid} party = do
+    now <- getLedgerEnd h
+    let req1 = transRequestUntil lid now party
+    let req2 = transRequestFrom lid now party
+    s1 <- runTransRequest h req1
+    s2 <- runTransRequest h req2
+    past <- streamToList s1
+    return PastAndFuture{past, future = s2}
+
+
+streamToList :: Stream a -> IO [a]
+streamToList stream = do
+    takeStream stream >>= \case
+        Left Closed{} -> return []
+        Right x -> fmap (x:) $ streamToList stream
 
 
 -- TODO: return (HL) [Completion]
@@ -184,6 +213,15 @@ config port =
 
 -- Low level data mapping for Request
 
+transRequestUntil :: LedgerId -> LedgerOffset -> Party -> GetTransactionsRequest
+transRequestUntil lid offset party =
+    mkGetTransactionsRequest lid offsetBegin (Just offset) (filterEverthingForParty party)
+
+transRequestFrom :: LedgerId -> LedgerOffset -> Party -> GetTransactionsRequest
+transRequestFrom lid offset party =
+    mkGetTransactionsRequest lid offset Nothing (filterEverthingForParty party)
+
+
 mkGetTransactionsRequest :: LedgerId -> LedgerOffset -> Maybe LedgerOffset -> TransactionFilter -> GetTransactionsRequest
 mkGetTransactionsRequest (LedgerId id) begin end filter = GetTransactionsRequest {
     getTransactionsRequestLedgerId = id,
@@ -193,6 +231,7 @@ mkGetTransactionsRequest (LedgerId id) begin end filter = GetTransactionsRequest
     getTransactionsRequestVerbose = False,
     getTransactionsRequestTraceContext = noTrace
     }
+
 
 mkCompletionStreamRequest :: LedgerId -> ApplicationId -> [Party] -> CompletionStreamRequest
 mkCompletionStreamRequest (LedgerId id) aid parties = CompletionStreamRequest {

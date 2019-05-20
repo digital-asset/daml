@@ -16,6 +16,8 @@ import Test.Tasty.HUnit as Tasty (assertEqual, assertBool, assertFailure, testCa
 import Data.Text.Lazy(Text)
 import qualified Data.UUID as UUID
 import System.Random(randomIO)
+import System.Time.Extra
+--import Trace
 
 import qualified DA.Ledger.LowLevel as LL(Completion(..))
 
@@ -63,16 +65,6 @@ t2 = testCase "connect, sandbox dead -> exception" $ do
         e <- expectException (Ledger.connect (Sandbox.port sandbox))
         assertExceptionTextContains e "ClientIOError"
 
-t3 :: Tasty.TestTree
-t3 = testCase "no transcations to start with" $ do
-    withSandbox spec1 $ \sandbox -> do
-        h <- Ledger.connect (Sandbox.port sandbox)
-        --TODO: reinstate test when PastAndFuture introduced into interface
-        _stream <- Ledger.transactions h alice
-        --(ts,_) <- Ledger.getStreamContents stream
-        --assertEqual "#transactions" 0 (length ts)
-        return ()
-
 t4 :: Tasty.TestTree
 t4 = testCase "submit bad package id" $ do
     withSandbox spec1 $ \sandbox -> do
@@ -97,6 +89,25 @@ t4_1 = testCase "submit good package id" $ do
         let LL.Completion{completionCommandId} = comp1
         let cid1' = CommandId completionCommandId
         assertEqual "submit1" cid1' cid1
+
+
+t3 :: Tasty.TestTree
+t3 = testCase "past/future" $ do
+    withSandbox spec1 $ \sandbox -> do
+        h <- Ledger.connect (Sandbox.port sandbox)
+        [pid,_,_] <- Ledger.listPackages h
+        let command =  createIOU pid alice "A-coin" 100
+        PastAndFuture{past=past1,future=future1} <- Ledger.getTransactionsPF h alice
+        _ <- submitCommand h alice command
+        PastAndFuture{past=past2,future=future2} <- Ledger.getTransactionsPF h alice
+        _ <- submitCommand h alice command
+        Just (Right x1) <- timeout 1 (takeStream future1)
+        Just (Right y1) <- timeout 1 (takeStream future1)
+        Just (Right y2) <- timeout 1 (takeStream future2)
+        assertEqual "past is initially empty" [] past1
+        assertEqual "future becomes the past" [x1] past2
+        assertEqual "continuing future matches" y1 y2
+
 
 t5 :: Tasty.TestTree
 t5 = testCase "package service, listPackages" $ do

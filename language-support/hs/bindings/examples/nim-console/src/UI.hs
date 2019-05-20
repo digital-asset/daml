@@ -14,7 +14,7 @@ import Text.Read (readMaybe)
 import System.Time.Extra(sleep)
 
 import Domain
-import DA.Ledger.Stream --as Stream
+import DA.Ledger.Stream
 import DA.Ledger.PastAndFuture
 import External
 
@@ -194,7 +194,7 @@ runSubmit h log ps lc = do
 
 manageUpdates :: Handle -> Player -> Logger -> MVar State -> IO (Stream XTrans)
 manageUpdates h player log sv = do
-    PF{past,future} <- Ledger.getTrans player h
+    PastAndFuture{past,future} <- Ledger.getTrans player h
     modifyMVar_ sv (\s -> return $ foldl Local.applyTransPureSimple s past)
     _ <- forkIO (updateX log sv future)
     return future

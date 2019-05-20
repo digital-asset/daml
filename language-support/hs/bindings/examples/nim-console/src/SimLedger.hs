@@ -77,7 +77,7 @@ getTrans player LH{watching,history} = do
     client@Client{stream=future} <- newClient player
     modifyMVar_ watching (return . (client:))
     past <- fmap (reverse . List.filter (canSeeTrans player)) $ readMVar history
-    return PF{past, future}
+    return PastAndFuture{past, future}
 
 canSeeTrans :: Player -> XTrans -> Bool
 canSeeTrans player xt = player `elem` playersOfTrans xt
