@@ -439,6 +439,7 @@ hazel_repositories(
     exclude_packages = [
         "arx",
         "clock",
+        "ghc-paths",
         "streaming-commons",
         "wai-app-static",
         "zlib",
@@ -498,6 +499,12 @@ hazel_repositories(
             ),
         pkgs = packages,
     ),
+)
+
+hazel_custom_package_hackage(
+    package_name = "ghc-paths",
+    version = "0.1.0.9",
+    build_file = "@ai_formation_hazel//third_party/haskell:BUILD.ghc-paths",
 )
 
 hazel_custom_package_hackage(

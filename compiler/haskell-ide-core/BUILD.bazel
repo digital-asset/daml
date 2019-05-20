@@ -1,7 +1,7 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_binary")
 
 depends = [
     "aeson",
@@ -58,5 +58,26 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/prettyprinter-syntax",
+    ],
+)
+
+da_haskell_binary(
+    name = "haskell-ide-core-demo",
+    srcs = glob(["test/**/*.hs"]),
+    hazel_deps = [
+        "ghc",
+        "ghc-paths",
+        "filepath",
+        "containers",
+        "base",
+        "text",
+        "shake",
+        "extra",
+    ],
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/prettyprinter-syntax",
+        "haskell-ide-core-public",
     ],
 )
