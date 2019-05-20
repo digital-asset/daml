@@ -210,31 +210,6 @@ final case class ReferenceIndexService(
       Future.successful(ActiveContractSetSnapshot(state.getUpdateId, events))
     }
 
-  override def getActiveContractSetUpdates(
-      beginAfter: Option[Offset],
-      endAt: Option[Offset],
-      filter: TransactionFilter): Source[AcsUpdate, NotUsed] = {
-    logger.trace(
-      s"getActiveContractSetUpdates: beginAfter=$beginAfter, endAt=$endAt, filter=$filter")
-    val filtering = TransactionFiltering(filter)
-
-    getTransactionStream(beginAfter, endAt)
-      .map {
-        case (offset, (acceptedTx, blindingInfo)) =>
-          val events =
-            transactionToAcsUpdateEvents(filtering, acceptedTx)
-              .map(_._2) /* ignore workflow id */
-          // FIXME(JM): skip if events empty?
-          AcsUpdate(
-            optSubmitterInfo = acceptedTx.optSubmitterInfo,
-            offset = offset,
-            transactionMeta = acceptedTx.transactionMeta,
-            transactionId = acceptedTx.transactionId,
-            events = events
-          )
-      }
-  }
-
   override def getAcceptedTransactions(
       beginAfter: Option[Offset],
       endAt: Option[Offset],
