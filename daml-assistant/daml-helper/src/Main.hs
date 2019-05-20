@@ -4,11 +4,12 @@ module Main (main) where
 
 import Data.Foldable
 import Options.Applicative.Extended
+import System.Environment
 
 import DamlHelper
 
 main :: IO ()
-main = runCommand =<< customExecParser parserPrefs (info (commandParser <**> helper) idm)
+main = withProgName "daml" $ runCommand =<< customExecParser parserPrefs (info (commandParser <**> helper) idm)
   where parserPrefs = prefs showHelpOnError
 
 data Command
