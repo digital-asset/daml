@@ -26,6 +26,8 @@ import           GhcPlugins                  as GHC hiding (fst3, (<>))
 import           HscMain
 import           Platform
 import           Data.IORef
+import Control.Exception
+import FileCleanup
 
 ----------------------------------------------------------------------
 -- GHC setup
@@ -54,8 +56,13 @@ prettyPrint = showSDoc fakeDynFlags . ppr
 
 runGhcEnv :: HscEnv -> Ghc a -> IO a
 runGhcEnv env act = do
-    ref <- newIORef env
-    unGhc act $ Session ref
+    filesToClean <- newIORef emptyFilesToClean
+    dirsToClean <- newIORef mempty
+    let dflags = (hsc_dflags env){filesToClean=filesToClean, dirsToClean=dirsToClean}
+    ref <- newIORef env{hsc_dflags=dflags}
+    unGhc act (Session ref) `finally` do
+        cleanTempFiles dflags
+        cleanTempDirs dflags
 
 
 -- | Like 'runGhc' but much faster (400x), with less IO and no file dependency
