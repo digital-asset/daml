@@ -675,7 +675,7 @@ class TransactionServiceIT
       "expose the default agreement text in CreatedEvents for templates with no explicit agreement text" in allFixtures {
         c =>
           val resultF = c.submitCreate(
-            "Creating dummy contract for default agreement text test",
+            "Creating_dummy_contract_for_default_agreement_text_test",
             templateIds.dummy,
             List(RecordField("operator", party1.asParty)),
             party1)
