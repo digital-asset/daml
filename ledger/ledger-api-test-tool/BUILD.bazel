@@ -72,6 +72,8 @@ da_scala_binary(
     ],
     deps = dependencies + [
         "//ledger/ledger-api-integration-tests:ledger-api-integration-tests-lib",
+        "//ledger/ledger-api-integration-tests:ledger-api-integration-tests-as-library",
+        "//ledger/test-common:test-common",
         "//daml-lf/testing-tools",
     ],
 )

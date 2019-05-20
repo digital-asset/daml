@@ -67,6 +67,22 @@ java_library(
     ],
 )
 
+# TODO(gleber): clean this up!
+da_scala_library(
+    name = "ledger-api-integration-tests-as-library",
+    srcs = glob([
+        "src/test/itsuite/**/*.scala",
+        "src/test/semanticsuite/**/*.scala",
+    ]),
+    visibility = [
+        "//ledger/ledger-api-test-tool:__subpackages__",
+    ],
+    deps = [
+        ":ledger-api-integration-tests-lib",
+        "//daml-lf/testing-tools",
+    ] + dependencies,
+)
+
 da_scala_test_suite(
     name = "ledger-api-integration-tests",
     size = "large",

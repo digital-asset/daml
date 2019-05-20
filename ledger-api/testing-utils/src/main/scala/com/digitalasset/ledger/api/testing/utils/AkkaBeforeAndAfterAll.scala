@@ -11,8 +11,9 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 
 trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll { self: Suite =>
+  protected def actorSystemName = this.getClass.getSimpleName
 
-  protected implicit val system: ActorSystem = ActorSystem(this.getClass.getSimpleName)
+  protected implicit val system: ActorSystem = ActorSystem(actorSystemName)
 
   protected implicit val materializer: ActorMaterializer = ActorMaterializer()
 

@@ -49,7 +49,7 @@ class SandboxSemanticTestsLfRunner
     val runSuffix = "-" + Random.alphanumeric.take(10).mkString
     val partyNameMangler =
       (partyText: String) => partyText + runSuffix + Random.alphanumeric.take(10).mkString
-    val commandIdMangler: ((QualifiedName, Int, L.NodeId) => String) =
+    val commandIdMangler: ((QualifiedName, Int, L.ScenarioNodeId) => String) =
       (scenario, stepId, nodeId) => {
         s"ledger-api-test-tool-$scenario-$stepId-$nodeId-$runSuffix"
       }
