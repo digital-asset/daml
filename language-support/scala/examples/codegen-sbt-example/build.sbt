@@ -42,7 +42,7 @@ lazy val `scala-codegen` = project
           darFile,
           "com.digitalasset.example.daml",
           (sourceManaged in Compile).value,
-          streams.value.cacheDirectory / name.value).toSeq
+          streams.value.cacheDirectory / name.value)
     })
   )
 
@@ -136,17 +136,18 @@ def generateScalaFrom(
     darFile: File,
     packageName: String,
     outputDir: File,
-    cacheDir: File): Set[File] = {
+    cacheDir: File): Seq[File] = {
 
-  require(darFile.getPath.endsWith(".dar"))
-  require(darFile.exists(), s"DAR file doest not exist: ${darFile.getPath: String}")
+  require(
+    darFile.getPath.endsWith(".dar") && darFile.exists(),
+    s"DAR file doest not exist: ${darFile.getPath: String}")
 
   val cache = FileFunction.cached(cacheDir, FileInfo.hash) { _ =>
     if (outputDir.exists) IO.delete(outputDir.listFiles)
     CodeGen.generateCode(List(darFile), packageName, outputDir, Novel)
     (outputDir ** "*.scala").get.toSet
   }
-  cache(Set(darFile))
+  cache(Set(darFile)).toSeq
 }
 
 // #####################################   end sbt-daml   ##############################
