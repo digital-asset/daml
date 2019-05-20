@@ -19,7 +19,7 @@ import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 class V3__Recompute_Key_Hash extends BaseJavaMigration {
 
   // the number of contracts proceeded in a batch.
-  private val batchSize = 100 * 1000
+  private val batchSize = 10 * 1000
 
   def migrate(context: Context): Unit = {
     implicit val conn: Connection = context.getConnection
