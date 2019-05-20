@@ -23,6 +23,7 @@ import System.IO.Extra
 import Development.IDE.Types.LSP
 import Development.Shake hiding (Env)
 import qualified Data.Set as Set
+import DAML.Project.Consts
 
 import CmdLineParser
 import DynFlags
@@ -42,6 +43,7 @@ main = do
         mainRule
         (Just $ showEvent lock)
         (makeOneHandle $ withLock lock . T.putStrLn)
+        makeRelativeToRoot
         IdeOptions
             {optPreprocessor = (,) []
             ,optWriteIface = False

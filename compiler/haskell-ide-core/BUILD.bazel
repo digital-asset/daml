@@ -65,7 +65,7 @@ da_haskell_library(
 
 da_haskell_binary(
     name = "haskell-ide-core-demo",
-    srcs = glob(["test/**/*.hs"]),
+    srcs = glob(["test/Demo.hs"]),
     hazel_deps = [
         "base",
         "containers",
@@ -82,12 +82,13 @@ da_haskell_binary(
     deps = [
         "haskell-ide-core-public",
         "//libs-haskell/prettyprinter-syntax",
+        "//daml-assistant:daml-project-config",
     ],
 ) if not is_windows else None  # Disable on Windows until ghc-paths is fixed upstream
 
 da_haskell_test(
     name = "test",
-    srcs = glob(["test/**/*.hs"]),
+    srcs = glob(["test/Development/Ide/Tests.hs"]),
     hazel_deps = [
         "base",
         "directory",
