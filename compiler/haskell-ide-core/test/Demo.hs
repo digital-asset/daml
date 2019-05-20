@@ -45,7 +45,7 @@ main = do
             ,optWriteIface = False
             ,optGhcSession = liftIO $ newSession ghcOptions
             ,optExtensions = ["hs"]
-            ,optPkgLocationOpts = undefined
+            ,optPkgLocationOpts = error "optPkgLocationOpts not implemented yet"
             ,optThreads = 0
             ,optShakeProfiling = Nothing -- Just "output.html"
             }
