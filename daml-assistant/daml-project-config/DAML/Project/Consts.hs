@@ -19,11 +19,13 @@ module DAML.Project.Consts
     , getSdkVersion
     , getDamlAssistant
     , withProjectRoot
+    , makeRelativeToRoot
     ) where
 
 import System.Directory
 import System.Environment
 import System.FilePath
+import Data.Maybe
 
 -- | The DAML_HOME environment variable determines the path of the daml
 -- assistant data directory. This defaults to:
@@ -137,15 +139,17 @@ getDamlAssistant = getEnv damlAssistantEnvVar
 -- directory into filepaths relative to the project root (absolute file paths will not be modified).
 --
 -- When called outside of a project or outside of the environment setup by the assistant,
--- this function will not modify the current directory.
+-- this function will make the filepath relative to the current working directory
 withProjectRoot :: ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot act = do
     previousCwd <- getCurrentDirectory
     mbProjectPath <- getProjectPath
-    case mbProjectPath of
-        Nothing -> act pure
-        Just projectPath -> do
-            projectPath <- canonicalizePath projectPath
-            withCurrentDirectory projectPath $ act $ \f -> do
-                absF <- canonicalizePath (previousCwd </> f)
-                pure (projectPath `makeRelative` absF)
+    let projectPath = fromMaybe previousCwd mbProjectPath
+    projectPath <- canonicalizePath projectPath
+    withCurrentDirectory projectPath $ act $ \f -> do
+        absF <- canonicalizePath (previousCwd </> f)
+        pure $ projectPath `makeRelative` absF
+
+makeRelativeToRoot :: FilePath -> IO FilePath
+makeRelativeToRoot fp =
+    withProjectRoot ($ fp)

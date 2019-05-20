@@ -90,6 +90,10 @@ da_haskell_test(
     srcs = glob(["test/**/*.hs"]),
     hazel_deps = [
         "base",
+        "directory",
+        "filepath",
+        "extra",
+        "main-tester",
         "tasty",
         "tasty-hunit",
         "tasty-quickcheck",
