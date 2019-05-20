@@ -6,7 +6,7 @@ package com.digitalasset.ledger.server.apiserver
 import akka.NotUsed
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v1.ConfigurationService
+import com.daml.ledger.participant.state.index.v1.{ConfigurationService, IdentityService}
 import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
@@ -60,14 +60,16 @@ object ApiServices {
       Source
         .single(Configuration(config.timeModel))
         .concat(Source.fromFuture(Promise[Configuration]().future)) // we should keep the stream open!
-
   }
+
+  def identityService(ledgerId: String): IdentityService = () => Future.successful(ledgerId)
 
   def create(
       config: SandboxConfig,
       ledgerBackend: LedgerBackend,
       writeService: WriteService,
       configService: ConfigurationService,
+      identityService: IdentityService,
       engine: Engine,
       timeProvider: TimeProvider,
       optTimeServiceBackend: Option[TimeServiceBackend])(
@@ -99,7 +101,7 @@ object ApiServices {
     val transactionService =
       SandboxTransactionService.createApiService(ledgerBackend, identifierResolver)
 
-    val identityService = LedgerIdentityServiceImpl(ledgerBackend.ledgerId)
+    val ledgerIdentityService = LedgerIdentityServiceImpl(identityService)
 
     val packageService = SandboxPackageService(context.sandboxTemplateStore, ledgerBackend.ledgerId)
 
@@ -153,7 +155,7 @@ object ApiServices {
     new ApiServicesBundle(
       timeServiceOpt.toList :::
         List(
-        identityService,
+        ledgerIdentityService,
         packageService,
         configurationService,
         submissionService,
