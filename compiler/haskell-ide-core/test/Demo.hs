@@ -41,7 +41,7 @@ main = do
         (Just $ showEvent lock)
         (makeOneHandle $ withLock lock . T.putStrLn)
         IdeOptions
-            {optPreprocessor = \x -> ([], x)
+            {optPreprocessor = (,) []
             ,optWriteIface = False
             ,optGhcSession = liftIO $ newSession ghcOptions
             ,optExtensions = ["hs"]
