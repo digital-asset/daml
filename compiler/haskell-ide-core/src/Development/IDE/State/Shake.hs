@@ -401,7 +401,7 @@ updateFileDiagnostics fp k ShakeExtras{diagnostics, state, makeRelative} current
             newDiags <- getFileDiagnostics makeRelative fp new
             pure (new, (newDiags, oldDiags))
     when (newDiags /= oldDiags) $
-        sendEvent $ EventFileDiagnostics $ (fp, newDiags)
+        sendEvent $ EventFileDiagnostics (fp, newDiags)
 
 
 setPriority :: (Enum a) => a -> Action ()
