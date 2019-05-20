@@ -3,17 +3,18 @@
 
 package com.digitalasset.ledger.server.apiserver
 
+import akka.NotUsed
 import akka.stream.ActorMaterializer
-import com.daml.ledger.participant.state.v1.WriteService
+import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.index.v1.ConfigurationService
+import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
 import com.digitalasset.ledger.backend.api.v1.LedgerBackend
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
-import com.digitalasset.platform.api.grpc.GrpcApiUtil
 import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
 import com.digitalasset.platform.sandbox.services._
 import com.digitalasset.platform.sandbox.services.transaction.SandboxTransactionService
@@ -28,7 +29,7 @@ import io.grpc.protobuf.services.ProtoReflectionService
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 trait ApiServices extends AutoCloseable {
   val services: Iterable[BindableService]
@@ -53,10 +54,20 @@ object ApiServices {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
+  //TODO: this is here only temporarily
+  def configurationService(config: SandboxConfig) = new ConfigurationService {
+    override def getLedgerConfiguration(): Source[Configuration, NotUsed] =
+      Source
+        .single(Configuration(config.timeModel))
+        .concat(Source.fromFuture(Promise[Configuration]().future)) // we should keep the stream open!
+
+  }
+
   def create(
       config: SandboxConfig,
-      writeService: WriteService,
       ledgerBackend: LedgerBackend,
+      writeService: WriteService,
+      configService: ConfigurationService,
       engine: Engine,
       timeProvider: TimeProvider,
       optTimeServiceBackend: Option[TimeServiceBackend])(
@@ -93,12 +104,7 @@ object ApiServices {
     val packageService = SandboxPackageService(context.sandboxTemplateStore, ledgerBackend.ledgerId)
 
     val configurationService =
-      LedgerConfigurationServiceImpl(
-        LedgerConfiguration(
-          Some(GrpcApiUtil.durationToProto(config.timeModel.minTtl)),
-          Some(GrpcApiUtil.durationToProto(config.timeModel.maxTtl))),
-        ledgerBackend.ledgerId
-      )
+      LedgerConfigurationService.createApiService(configService, ledgerBackend.ledgerId)
 
     val completionService =
       SandboxCommandCompletionService(ledgerBackend)
