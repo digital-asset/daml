@@ -9,6 +9,7 @@
 module DA.Cli.Damlc (main) where
 
 import Control.Monad.Except
+import Control.Monad.Extra (whenM)
 import qualified Control.Monad.Managed             as Managed
 import DA.Cli.Damlc.Base
 import Data.Tagged
@@ -418,12 +419,20 @@ execBuild options mbOutFile = do
 -- | Remove any build artifacts if they exist.
 execClean :: IO ()
 execClean = do
-    withProjectRoot $ \_relativize -> do
+    withProjectRoot $ \relativize -> do
         isProject <- doesFileExist projectConfigName
         if isProject then do
-            removePathForcibly projectPackageDatabase
-            removePathForcibly ".interfaces"
-            removePathForcibly "dist"
+            let removeAndWarn path = do
+                    rpath <- relativize path
+                    whenM (doesDirectoryExist path) $ do
+                        putStrLn ("Removing directory " <> rpath)
+                        removePathForcibly path
+                    whenM (doesFileExist path) $ do
+                        putStrLn ("Removing file " <> rpath)
+                        removePathForcibly path
+            removeAndWarn projectPackageDatabase
+            removeAndWarn ".interfaces"
+            removeAndWarn "dist"
             putStrLn "Removed build artifacts."
         else do
             hPutStrLn stderr "daml clean: Not in a project."
