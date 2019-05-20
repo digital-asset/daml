@@ -81,21 +81,15 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
           "Missing field: filter")
       }
 
-      "tolerate empty filter" in {
-        inside(
+      "return the correct error on empty filter" in {
+        requestMustFailWith(
           sut.validate(
             txReq.update(_.filter.filtersByParty := Map.empty),
             ledgerEnd,
-            offsetOrdering)) {
-          case Right(req) =>
-            req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
-            val filtersByParty = req.filter.filtersByParty
-            filtersByParty should have size 0
-            req.verbose shouldEqual verbose
-            hasExpectedTraceContext(req)
-        }
+            offsetOrdering),
+          INVALID_ARGUMENT,
+          "Invalid argument: filtersByParty cannot be empty"
+        )
       }
 
       "return the correct error on missing begin" in {

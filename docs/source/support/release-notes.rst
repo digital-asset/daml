@@ -9,6 +9,13 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+Ledger
+~~~~~~
+
+- Transaction filters in `GetTransactionsRequest` without any party are now rejected with `INVALID_ARGUMENT` instead of yielding an empty stream
+
+  See `#1250 <https://github.com/digital-asset/daml/issues/1250>`__ for details.
+
 .. _release-0-12-18:
 
 0.12.18 - 2019-05-20
