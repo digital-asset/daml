@@ -136,6 +136,14 @@ cmdBuild numProcessors =
         execBuild <$> optionsParser numProcessors (pure Nothing) <*>
         optionalOutputFileOpt
 
+cmdClean :: Mod CommandFields Command
+cmdClean =
+    command "clean" $
+    info (helper <*> cmd) $
+    progDesc "Remove DAML project build artifacts" <> fullDesc
+  where
+    cmd = pure execClean
+
 cmdPackageNew :: Int -> Mod CommandFields Command
 cmdPackageNew numProcessors =
     command "package-new" $
@@ -404,8 +412,22 @@ createProjectPackageDb lfVersion fps = do
 
 execBuild :: Compiler.Options -> Maybe FilePath -> IO ()
 execBuild options mbOutFile = do
-  execInit
-  execPackageNew options mbOutFile
+    execInit
+    execPackageNew options mbOutFile
+
+-- | Remove any build artifacts if they exist.
+execClean :: IO ()
+execClean = do
+    withProjectRoot $ \_relativize -> do
+        isProject <- doesFileExist projectConfigName
+        if isProject then do
+            removePathForcibly projectPackageDatabase
+            removePathForcibly ".interfaces"
+            removePathForcibly "dist"
+            putStrLn "Removed build artifacts."
+        else do
+            hPutStrLn stderr "daml clean: Not in a project."
+            exitFailure
 
 lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty
@@ -653,6 +675,7 @@ options numProcessors =
         <> cmdPackageNew numProcessors
         <> cmdInit
         <> cmdBuild numProcessors
+        <> cmdClean
       )
 
 parserInfo :: Int -> ParserInfo Command
