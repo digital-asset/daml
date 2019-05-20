@@ -16,10 +16,18 @@ commands:
   path: damlc/da-hs-damlc-app
   args: ["build"]
   desc: "Build the current DAML project into a DAR file"
+- name: test
+  path: damlc/da-hs-damlc-app
+  args: ["test"]
+  desc: "Run the scenarios in the given DAML file and all dependencies"
 - name: start
   path: daml-helper/daml-helper
   args: ["start"]
   desc: "Launch Sandbox and Navigator for current DAML project"
+- name: clean
+  path: damlc/da-hs-damlc-app
+  args: ["clean"]
+  desc: "Delete build artifacts from project folder"
 - name: damlc
   path: damlc/da-hs-damlc-app
   desc: "Run the DAML compiler"
@@ -38,7 +46,3 @@ commands:
 - name: ide
   path: damlc/da-hs-damlc-app
   args: ["lax", "ide"]
-- name: test
-  path: damlc/da-hs-damlc-app
-  args: ["test"]
-  desc: "Run the scenarios in the given DAML file and all dependencies"

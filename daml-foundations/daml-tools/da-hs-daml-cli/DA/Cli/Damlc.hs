@@ -9,6 +9,7 @@
 module DA.Cli.Damlc (main) where
 
 import Control.Monad.Except
+import Control.Monad.Extra (whenM)
 import qualified Control.Monad.Managed             as Managed
 import DA.Cli.Damlc.Base
 import Data.Tagged
@@ -135,6 +136,14 @@ cmdBuild numProcessors =
     cmd =
         execBuild <$> optionsParser numProcessors (pure Nothing) <*>
         optionalOutputFileOpt
+
+cmdClean :: Mod CommandFields Command
+cmdClean =
+    command "clean" $
+    info (helper <*> cmd) $
+    progDesc "Remove DAML project build artifacts" <> fullDesc
+  where
+    cmd = pure execClean
 
 cmdPackageNew :: Int -> Mod CommandFields Command
 cmdPackageNew numProcessors =
@@ -404,8 +413,29 @@ createProjectPackageDb lfVersion fps = do
 
 execBuild :: Compiler.Options -> Maybe FilePath -> IO ()
 execBuild options mbOutFile = do
-  execInit
-  execPackageNew options mbOutFile
+    execInit
+    execPackageNew options mbOutFile
+
+-- | Remove any build artifacts if they exist.
+execClean :: IO ()
+execClean = do
+    withProjectRoot $ \_relativize -> do
+        isProject <- doesFileExist projectConfigName
+        if isProject then do
+            let removeAndWarn path = do
+                    whenM (doesDirectoryExist path) $ do
+                        putStrLn ("Removing directory " <> path)
+                        removePathForcibly path
+                    whenM (doesFileExist path) $ do
+                        putStrLn ("Removing file " <> path)
+                        removePathForcibly path
+            removeAndWarn projectPackageDatabase
+            removeAndWarn ".interfaces"
+            removeAndWarn "dist"
+            putStrLn "Removed build artifacts."
+        else do
+            hPutStrLn stderr "daml clean: Not in a project."
+            exitFailure
 
 lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty
@@ -653,6 +683,7 @@ options numProcessors =
         <> cmdPackageNew numProcessors
         <> cmdInit
         <> cmdBuild numProcessors
+        <> cmdClean
       )
 
 parserInfo :: Int -> ParserInfo Command

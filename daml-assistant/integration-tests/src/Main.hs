@@ -64,8 +64,10 @@ tests tmpDir = testGroup "Integration tests"
     , testCase "daml new --list" $ callProcessQuiet damlName ["new", "--list"]
     , packagingTests tmpDir
     , quickstartTests quickstartDir mvnDir
+    , cleanTests cleanDir
     ]
     where quickstartDir = tmpDir </> "quickstart"
+          cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
           tarballDir = tmpDir </> "tarball"
           throwError msg e = fail (T.unpack $ msg <> " " <> e)
@@ -212,6 +214,36 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
     ]
     where
         mvnRepoFlag = "-Dmaven.repo.local=" <> mvnDir
+
+-- | Ensure that daml clean removes precisely the files created by daml build.
+cleanTests :: FilePath -> TestTree
+cleanTests baseDir = testGroup "daml clean"
+    [ cleanTestFor "skeleton"
+    , cleanTestFor "quickstart-java"
+    , cleanTestFor "quickstart-scala"
+    ]
+    where
+        cleanTestFor :: String -> TestTree
+        cleanTestFor templateName =
+            testCase ("daml clean test for " <> templateName <> " template") $ do
+                createDirectoryIfMissing True baseDir
+                withCurrentDirectory baseDir $ do
+                    let projectDir = baseDir </> ("proj-" <> templateName)
+                    callProcessQuiet damlName ["new", projectDir, templateName]
+                    withCurrentDirectory projectDir $ do
+                        filesAtStart <- sort <$> listFilesRecursive "."
+                        callProcessQuiet damlName ["build"]
+                        callProcessQuiet damlName ["clean"]
+                        filesAtEnd <- sort <$> listFilesRecursive "."
+                        when (filesAtStart /= filesAtEnd) $
+                            fail $ unlines
+                                [ "daml clean did not remove all files produced by daml build."
+                                , ""
+                                , "    files at start:"
+                                , unlines (map ("       "++) filesAtStart)
+                                , "    files at end:"
+                                , unlines (map ("       "++) filesAtEnd)
+                                ]
 
 -- | Bazel tests are run in a bash environment with cmd.exe not in PATH. This results in ShellCommand
 -- failing so instead we patch ShellCommand and RawCommand to call bash directly.
