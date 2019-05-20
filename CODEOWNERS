@@ -61,7 +61,7 @@ deps.bzl            @digital-asset/empty
 /web-ide/           @digital-asset/empty
 
 # Misc
-/docs/              @digital-asset/empty
+/docs/              @bethaitman
 /notices-gen/       @digital-asset/empty
 /oss-compliance/    @digital-asset/empty
 
