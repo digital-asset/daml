@@ -23,7 +23,7 @@ import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 final case class ReferenceIndexService(
     participantReadService: participant.state.v1.ReadService,
@@ -127,10 +127,10 @@ final case class ReferenceIndexService(
       )
     }
 
-  override def getLedgerConfiguration(): Future[Configuration] =
-    futureWithState { state =>
-      Future.successful(state.configuration)
-    }
+  override def getLedgerConfiguration(): Source[Configuration, NotUsed] =
+    Source
+      .fromFuture(futureWithState(state => Future.successful(state.configuration)))
+      .concat(Source.fromFuture(Promise[Configuration]().future)) // we should keep the stream open!
 
   override def getLedgerId(): Future[LedgerId] =
     Future.successful(StateController.getState.ledgerId)

@@ -9,20 +9,13 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v1.ConfigurationService
 import com.digitalasset.api.util.DurationConversion._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
-  GetLedgerConfigurationRequest,
-  GetLedgerConfigurationResponse,
-  LedgerConfiguration,
-  LedgerConfigurationServiceAkkaGrpc,
-  LedgerConfigurationServiceGrpc,
-  LedgerConfigurationServiceLogging
-}
+import com.digitalasset.ledger.api.v1.ledger_configuration_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.validation.LedgerConfigurationServiceValidation
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.server.api.validation.LedgerConfigurationServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
 
-import scala.concurrent.{ExecutionContext, Promise}
+import scala.concurrent.ExecutionContext
 
 class LedgerConfigurationService private (configurationService: ConfigurationService)(
     implicit protected val esf: ExecutionSequencerFactory,
@@ -32,8 +25,8 @@ class LedgerConfigurationService private (configurationService: ConfigurationSer
 
   override protected def getLedgerConfigurationSource(
       request: GetLedgerConfigurationRequest): Source[GetLedgerConfigurationResponse, NotUsed] =
-    Source
-      .fromFuture(configurationService.getLedgerConfiguration())
+    configurationService
+      .getLedgerConfiguration()
       .map(
         configuration =>
           GetLedgerConfigurationResponse(
@@ -42,7 +35,6 @@ class LedgerConfigurationService private (configurationService: ConfigurationSer
                 Some(toProto(configuration.timeModel.minTtl)),
                 Some(toProto(configuration.timeModel.maxTtl))
               ))))
-      .concat(Source.fromFuture(Promise[GetLedgerConfigurationResponse]().future)) // we should keep the stream open!
 
   override def bindService(): ServerServiceDefinition =
     LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)

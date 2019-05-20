@@ -3,7 +3,9 @@
 
 package com.digitalasset.ledger.server.apiserver
 
+import akka.NotUsed
 import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v1.ConfigurationService
 import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
 import com.digitalasset.api.util.TimeProvider
@@ -27,7 +29,7 @@ import io.grpc.protobuf.services.ProtoReflectionService
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 trait ApiServices extends AutoCloseable {
   val services: Iterable[BindableService]
@@ -54,8 +56,11 @@ object ApiServices {
 
   //TODO: this is here only temporarily
   def configurationService(config: SandboxConfig) = new ConfigurationService {
-    override def getLedgerConfiguration(): Future[Configuration] =
-      Future.successful(Configuration(config.timeModel))
+    override def getLedgerConfiguration(): Source[Configuration, NotUsed] =
+      Source
+        .single(Configuration(config.timeModel))
+        .concat(Source.fromFuture(Promise[Configuration]().future)) // we should keep the stream open!
+
   }
 
   def create(

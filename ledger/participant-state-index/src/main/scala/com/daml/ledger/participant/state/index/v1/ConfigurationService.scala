@@ -3,10 +3,10 @@
 
 package com.daml.ledger.participant.state.index.v1
 
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.Configuration
 
-import scala.concurrent.Future
-
 trait ConfigurationService {
-  def getLedgerConfiguration(): Future[Configuration]
+  def getLedgerConfiguration(): Source[Configuration, NotUsed]
 }
