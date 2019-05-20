@@ -48,7 +48,8 @@ http.createServer(httpToHttpsApp).listen(conf.http.httpToHttpsPort, () => {
 
 if (!conf.http.port) throw new Error("MUST configure port for webide: 'conf.http.port'")
 const webideServer = createWebIdeServer()
-if (conf.secureHeaders || conf.secureHeaders === undefined) {
+if (conf.http.secureHeaders || conf.http.secureHeaders === undefined) {
+    console.log("INFO adding security headers")
     webIdeApp.use((req, res, next) => {
         addSecureHeaders(res, conf)
         next()
@@ -143,5 +144,5 @@ function addSecureHeaders(res :Response, config :any) {
     res.setHeader("X-Frame-Options", "sameorigin")
     res.setHeader("X-XSS-Protection", "1; mode=block")
     res.setHeader("Referrer-Policy", "no-referrer-when-downgrade")
-    res.setHeader("Content-Security-Policy", `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;`)
+    res.setHeader("Content-Security-Policy", `default-src 'self'; connect-src 'self' ws://${config.http.hostname}:${config.http.port}/; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;`)
 }
