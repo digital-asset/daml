@@ -11,6 +11,10 @@ import com.digitalasset.ledger.api.domain.TransactionFilter
 
 import scala.concurrent.Future
 
+/**
+  * Serves as a backend to implement
+  * [[com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService]]
+  **/
 trait TransactionsService {
   // FIXME(JM): Cleaner name/types for this
   // FIXME(JM): Fold BlindingInfo into TransactionAccepted, or introduce

@@ -9,6 +9,9 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 
 import scala.concurrent.Future
 
+/**
+  * Meant be used for optimistic contract lookups before command submission.
+  */
 trait ContractStore {
   def lookupActiveContract(
       submitter: Party,
