@@ -80,7 +80,7 @@ instance Creatable t => Template (Proposal t) where
 
 data Accept = Accept
 
-instance Creatable t => Choice Accept (ContractId t) (Proposal t) where
+instance Creatable t => Choice (Proposal t) Accept (ContractId t) where
   controller this@Proposal{..} arg@Accept = receivers
   action self this@Proposal{..} arg@Accept = do
     create asset
@@ -104,11 +104,11 @@ instance Creatable (Proposal Iou) where
   fetch = fmap unProposalIou . lfFetch @ProposalIou . coerceContractId
 
 
-instance LfChoice Accept (ContractId Iou) ProposalIou where
+instance LfChoice ProposalIou Accept (ContractId Iou) where
   lfControllers = controllers . unProposalIou
   lfAction cid = action (coerceContractId cid) . unProposalIou
 
-instance Exercisable Accept (ContractId Iou) (Proposal Iou) where
+instance Exercisable (Proposal Iou) Accept (ContractId Iou) where
   exercise = lfExercise @ProposalIou . coerceContractId
 ```
 
