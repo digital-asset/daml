@@ -3,7 +3,7 @@
 
 def _dar_to_scala_impl(ctx):
     codegen_out_dir = ctx.outputs.codegen_out
-    srcjar_out_dir = ctx.outputs.srcjar_out
+    srcjar_out_file = ctx.outputs.srcjar_out
 
     # Call Scala codegen
     gen_args = ctx.actions.args()
@@ -38,15 +38,15 @@ def _dar_to_scala_impl(ctx):
     # Call zipper to create srcjar
     zipper_args = ctx.actions.args()
     zipper_args.add("c")
-    zipper_args.add(srcjar_out_dir.path)
+    zipper_args.add(srcjar_out_file.path)
     zipper_args.add("@%s" % zipper_args_file.path)
     ctx.actions.run(
         mnemonic = "CreateSrcJar",
         executable = ctx.executable._zipper,
         inputs = [codegen_out_dir, zipper_args_file],
-        outputs = [srcjar_out_dir],
+        outputs = [srcjar_out_file],
         arguments = [zipper_args],
-        progress_message = "srcjar: %s" % srcjar_out_dir.path,
+        progress_message = "srcjar: %s" % srcjar_out_file.path,
     )
 
 dar_to_scala = rule(
