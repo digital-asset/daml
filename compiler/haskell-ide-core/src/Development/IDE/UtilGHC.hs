@@ -18,14 +18,14 @@ module Development.IDE.UtilGHC(
     runGhcEnv
     ) where
 
-import           Config
-import           Fingerprint
-import           GHC                         hiding (convertLit)
-import           GhcMonad
-import           GhcPlugins                  as GHC hiding (fst3, (<>))
-import           HscMain
-import           Platform
-import           Data.IORef
+import Config
+import Fingerprint
+import GHC
+import GhcMonad
+import GhcPlugins
+import HscMain
+import Platform
+import Data.IORef
 import Control.Exception
 import FileCleanup
 
