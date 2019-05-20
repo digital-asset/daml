@@ -167,14 +167,7 @@ handleCommand env@Env{..} = \case
                     <$ guard (not (isInstalled v))
                 ]
 
-            -- | Workaround for Data.SemVer old unfixed bug (see https://github.com/brendanhay/semver/pull/6)
-            -- TODO: move away from Data.SemVer...
-            versionCompare v1 v2 =
-                if v1 == v2
-                    then EQ
-                    else compare v1 v2
-
-            versions = nubSortBy versionCompare (envVersions ++ fromRight [] installedVersionsE)
+            versions = nubSort (envVersions ++ fromRight [] installedVersionsE)
             versionTable = [ (versionToText v, versionAttrs v) | v <- versions ]
             versionWidth = maximum (1 : map (T.length . fst) versionTable)
             versionLines =
