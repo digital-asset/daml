@@ -75,6 +75,7 @@ da_haskell_binary(
         "shake",
         "text",
     ],
+    main_function = "Demo.main",
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
