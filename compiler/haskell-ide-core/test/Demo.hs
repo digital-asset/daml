@@ -53,7 +53,9 @@ main = do
             }
     setFilesOfInterest ide $ Set.fromList files
     _ <- runAction ide $ uses_ TypeCheck files
-    sleep 0.01 -- since Shake puts its completely message to stdout async
+    -- shake now writes an async message that it is completed with timing info,
+    -- so we sleep briefly to wait for it to have been written
+    sleep 0.01
     putStrLn "Done"
 
 
