@@ -35,8 +35,8 @@ in rec {
   inherit pkgs;
   ghc = bazel_dependencies.ghc;
 
-  # GHC with the "c2hs" package included.
-  ghcWithC2hs = bazel_dependencies.ghcWithC2hs;
+  # GHC with static linking patches.
+  ghcStatic = bazel_dependencies.ghcStatic;
 
   # Tools used in the dev-env. These are invoked through wrappers
   # in dev-env/bin. See the development guide for more information:
@@ -51,7 +51,7 @@ in rec {
     protoc          = bazel_dependencies.protobuf3_5;
 
     # Haskell development
-    ghcWithC2hs     = bazel_dependencies.ghcWithC2hs;
+    ghcStatic       = bazel_dependencies.ghcStatic;
     ghcid           = pkgs.haskellPackages.ghcid;
     hlint           = bazel_dependencies.hlint;
     ghci            = bazel_dependencies.ghc.ghc;

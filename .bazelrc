@@ -67,7 +67,7 @@ build:windows --workspace_status_command=bazel_tools/workspace_status.cmd
 build:linux --host_platform=@io_tweag_rules_haskell//haskell/platforms:linux_x86_64_nixpkgs
 build:darwin --host_platform=@io_tweag_rules_haskell//haskell/platforms:darwin_x86_64_nixpkgs
 # and GHC's gcc on Windows
-build:windows --crosstool_top=@io_tweag_rules_haskell_ghc_windows_amd64//:toolchain
+build:windows --crosstool_top=@io_tweag_rules_haskell_ghc_windows_amd64//:cc_toolchain
 
 # Caching is currently disabled on Windows.
 # See: https://github.com/tweag/rules_haskell/issues/744 for details.

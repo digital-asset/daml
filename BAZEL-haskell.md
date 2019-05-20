@@ -97,7 +97,7 @@ dev_env_nix_repos = {
 ```
 nixpkgs_package(
   name = "ghc",
-  attribute_path = "ghcWithC2hs",
+  attribute_path = "ghcStatic",
   nix_file = "//nix:default.nix",
   repositories = dev_env_nix_repos,
   build_file = "@ai_formation_hazel//:BUILD.ghc",

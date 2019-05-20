@@ -18,11 +18,10 @@ hazel_symlink(
 )
 
 
-ghc_workspace = "@io_tweag_rules_haskell_ghc_windows_amd64" if is_windows else "@io_tweag_rules_haskell_ghc-nixpkgs"
+ghc_workspace = "@io_tweag_rules_haskell_ghc_windows_amd64" if is_windows else "@io_tweag_rules_haskell_ghc_nixpkgs"
 
 cabal_haskell_package(
   package,
   "8.6.5",
-  ghc_workspace,
   extra_libs,
 )
