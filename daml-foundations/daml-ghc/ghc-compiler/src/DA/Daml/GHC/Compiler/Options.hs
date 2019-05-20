@@ -14,16 +14,18 @@ module DA.Daml.GHC.Compiler.Options
     ) where
 
 
-import Development.IDE.UtilGHC (runGhcFast)
 import DA.Daml.GHC.Compiler.Config (setupDamlGHC)
 import qualified Development.IDE.Types.Options as Compile
 
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.GHC.Compiler.Preprocessor
+import GhcMonad
+import HscMain
 
 import           Control.Monad.Reader
 import Data.Foldable (toList)
+import Data.IORef
 import Data.Maybe
 import Data.Tuple.Extra
 import "ghc-lib-parser" DynFlags
@@ -109,6 +111,20 @@ ifaceDir = ".interfaces"
 basePackages :: [String]
 basePackages = ["daml-prim", "daml-stdlib"]
 
+
+
+-- | Like 'runGhc' but much faster (400x), with less IO and no file dependency
+runGhcFast :: GHC.Ghc a -> IO a
+-- copied from GHC with the nasty bits dropped
+runGhcFast act = do
+  ref <- newIORef (error "empty session")
+  let session = Session ref
+  flip unGhc session $ do
+    dflags <- liftIO $ initDynFlags fakeDynFlags
+    liftIO $ setUnsafeGlobalDynFlags dflags
+    env <- liftIO $ newHscEnv dflags
+    setSession env
+    GHC.withCleanupSession act
 
 
 -- | The subset of @DynFlags@ computed by package initialization.

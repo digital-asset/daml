@@ -14,7 +14,6 @@ module Development.IDE.UtilGHC(
     modifyDynFlags,
     fakeDynFlags,
     prettyPrint,
-    runGhcFast,
     runGhcEnv
     ) where
 
@@ -23,7 +22,6 @@ import Fingerprint
 import GHC
 import GhcMonad
 import GhcPlugins
-import HscMain
 import Platform
 import Data.IORef
 import Control.Exception
@@ -64,19 +62,6 @@ runGhcEnv env act = do
         cleanTempFiles dflags
         cleanTempDirs dflags
 
-
--- | Like 'runGhc' but much faster (400x), with less IO and no file dependency
-runGhcFast :: Ghc a -> IO a
--- copied from GHC with the nasty bits dropped
-runGhcFast act = do
-  ref <- newIORef (error "empty session")
-  let session = Session ref
-  flip unGhc session $ do
-    dflags <- liftIO $ initDynFlags fakeDynFlags
-    liftIO $ setUnsafeGlobalDynFlags dflags
-    env <- liftIO $ newHscEnv dflags
-    setSession env
-    withCleanupSession act
 
 -- Fake DynFlags which are mostly undefined, but define enough to do a little bit
 fakeDynFlags :: DynFlags
