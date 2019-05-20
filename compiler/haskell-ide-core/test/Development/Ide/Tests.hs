@@ -1,3 +1,6 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module Development.IDE.Tests (main) where
 
 import DAML.Project.Consts
@@ -18,3 +21,4 @@ fileTests = Tasty.testGroup "File tests"
     [ Test.case "Paths are always equal when they are URIs" $
 
     ]
+
