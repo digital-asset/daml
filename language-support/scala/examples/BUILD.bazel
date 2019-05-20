@@ -6,6 +6,7 @@ load(
     "da_scala_binary",
     "da_scala_library",
 )
+load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 
 filegroup(
     name = "quickstart-scala-src",
@@ -37,32 +38,21 @@ genrule(
         rm -rf $@/application/target
         rm -rf $@/scala-codegen/target
     """,
+    tools = [":examples-quickstart-scala-bin"],  # this is to make sure that quickstart-scala compiles
     visibility = ["//visibility:public"],
 )
 
-genrule(
+dar_to_scala(
     name = "examples-quickstart-scala-codegen",
     srcs = ["//docs:quickstart-model.dar"],
-    outs = ["examples-quickstart-scala-codegen-out"],
-    cmd = "$(execpath //language-support/scala/codegen:codegen-main) $(location //docs:quickstart-model.dar)=com.digitalasset.quickstart.iou.model --output-directory=$@ --verbosity=2",
-    tools = [
-        "//language-support/scala/codegen:codegen-main",
-    ],
-)
-
-genrule(
-    name = "examples-quickstart-scala-codegen.srcjar",
-    srcs = [":examples-quickstart-scala-codegen"],
-    outs = ["examples-quickstart-scala-codegen-out.srcjar"],
-    cmd = "$(execpath @local_jdk//:bin/jar) -cf $@ -C $(location :examples-quickstart-scala-codegen) .",
-    tools = [
-        "@local_jdk//:bin/jar",
-    ],
+    package_prefix = "com.digitalasset.quickstart.iou.model",
+    srcjar_out = "examples-quickstart-scala-codegen.srcjar",
+    verbosity = 2,
 )
 
 da_scala_library(
     name = "examples-quickstart-scala-codegen-lib",
-    srcs = ["examples-quickstart-scala-codegen-out.srcjar"],
+    srcs = [":examples-quickstart-scala-codegen.srcjar"],
     deps = ["//language-support/scala/bindings"],
 )
 
