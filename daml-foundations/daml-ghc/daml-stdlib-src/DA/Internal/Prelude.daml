@@ -74,6 +74,7 @@ class Functor f => Applicative f where
 -- in imperative languages.
 (>>) : Applicative m => m a -> m b -> m b
 (>>) = (*>)
+infixl 1 >>
 
 -- | Synonym for `<*>`.
 ap : Applicative f => f (a -> b) -> f a -> f b
