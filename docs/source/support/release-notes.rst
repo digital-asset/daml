@@ -185,7 +185,7 @@ Navigator
 SQL Extractor
 ~~~~~~~~~~~~~
 
-- In JSON content, dates and timestamps are formatted like
+- **BREAKING** In JSON content, dates and timestamps are formatted like
   ``"2020-02-22"`` and ``"2020-02-22T12:13:14Z"`` rather than UNIX epoch offsets like
   ``18314`` or ``1582373594000000``. See `#1174 <https://github.com/digital-asset/daml/issues/1174>`__
   for more details.
