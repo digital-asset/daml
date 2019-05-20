@@ -51,6 +51,7 @@ import com.digitalasset.sample.MyMain.{
   NameClashVariant,
   PayOut,
   RecordWithNestedMyVariant,
+  SimpleListExample,
   TemplateWith23Arguments,
   TemplateWithCustomTypes,
   TemplateWithNestedRecordsAndVariants,
@@ -365,15 +366,29 @@ class ScalaCodeGenIT
     testCreateContractAndReceiveEvent(contract copy (owner = alice), alice)
   }
 
+  "alice creates-and-exercises SimpleListExample with Go and receives corresponding event" in {
+    val contract = SimpleListExample(alice, P.List(42))
+    val exerciseConsequence = MkListExample(alice, P.List(42))
+    testCommandAndReceiveEvent(
+      contract.createAnd.exerciseGo(alice),
+      alice,
+      assertCreateEvent(_)(exerciseConsequence))
+  }
+
   private def testCreateContractAndReceiveEvent(
       contract: Template[AnyRef],
-      party: P.Party): Assertion = {
+      party: P.Party): Assertion =
+    testCommandAndReceiveEvent(contract.create, party, assertCreateEvent(_)(contract))
+
+  private def testCommandAndReceiveEvent(
+      command: P.Update[_],
+      party: P.Party,
+      checkResult: Event => Assertion): Assertion = {
     val contextId = TestContext(uniqueId)
     val commandId = CommandId(uniqueId)
     val workflowId = WorkflowId(uniqueId)
 
-    val createCommand: P.Update[P.ContractId[AnyRef]] = contract.create
-    val request: SubmitRequest = submitRequest(workflowId, commandId, party, createCommand)
+    val request: SubmitRequest = submitRequest(workflowId, commandId, party, command)
 
     val future = for {
       offset <- ledgerEnd()
@@ -389,8 +404,8 @@ class ScalaCodeGenIT
         }
         assertTransaction(transaction)(commandId, workflowId)
         inside(transaction.events) {
-          case Seq(createEvent) =>
-            assertCreateEvent(createEvent)(contract)
+          case Seq(event) =>
+            checkResult(event)
         }
     }
   }
@@ -407,7 +422,7 @@ class ScalaCodeGenIT
       workflowId: WorkflowId,
       commandId: CommandId,
       party: P.Party,
-      seq: P.Update[P.ContractId[AnyRef]]*): SubmitRequest = {
+      seq: P.Update[_]*): SubmitRequest = {
 
     val now = timeProvider.getCurrentTime
     val commands = Commands(

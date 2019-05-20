@@ -10,6 +10,15 @@ abstract class Template[+T] extends ValueRef { self: T =>
   final def create(implicit d: DummyImplicit): Primitive.Update[Primitive.ContractId[T]] =
     Primitive.createFromArgs(templateCompanion, templateCompanion.toNamedArguments(self))
 
+  /** Part of a `CreateAndExercise` command.
+    *
+    * {{{
+    *   Iou(foo, bar).createAnd.exerciseTransfer(controller, ...)
+    * }}}
+    */
+  final def createAnd(implicit d: DummyImplicit): Template.CreateForExercise[T] =
+    Template.CreateForExercise(self)
+
   final def arguments(implicit d: DummyImplicit): rpcvalue.Record =
     templateCompanion.toNamedArguments(self)
 
@@ -23,4 +32,15 @@ abstract class Template[+T] extends ValueRef { self: T =>
   // public, though the latter might be more "powerful"
   protected[this] def templateCompanion(
       implicit d: DummyImplicit): TemplateCompanion[_ >: self.type <: T]
+}
+
+object Template {
+
+  /** Part of a `CreateAndExercise` command.
+    *
+    * {{{
+    *   Iou(foo, bar).createAnd.exerciseTransfer(controller, ...)
+    * }}}
+    */
+  final case class CreateForExercise[+T](value: T with Template[T])
 }
