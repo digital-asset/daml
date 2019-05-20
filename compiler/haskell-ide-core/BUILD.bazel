@@ -81,4 +81,4 @@ da_haskell_binary(
         "haskell-ide-core-public",
         "//libs-haskell/prettyprinter-syntax",
     ],
-) if not is_windows else None # Disable on Windows until ghc-paths is fixed upstream
+) if not is_windows else None  # Disable on Windows until ghc-paths is fixed upstream
