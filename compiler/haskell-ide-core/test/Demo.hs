@@ -50,14 +50,14 @@ main = do
             ,optShakeProfiling = Nothing -- Just "output.html"
             }
     setFilesOfInterest ide $ Set.fromList files
-    runAction ide $ uses_ TypeCheck files
+    _ <- runAction ide $ uses_ TypeCheck files
     sleep 0.01 -- since Shake puts its completely message to stdout async
     putStrLn "Done"
 
 
 -- | Print an LSP event.
 showEvent :: Lock -> Event -> IO ()
-showEvent lock (EventFileDiagnostics (file, [])) = return ()
+showEvent _ (EventFileDiagnostics (_, [])) = return ()
 showEvent lock (EventFileDiagnostics (file, diags)) =
     withLock lock $ T.putStrLn $ showDiagnosticsColored $ map (file,) diags
 showEvent lock e = withLock lock $ print e
@@ -76,7 +76,7 @@ newSession flags = runGhc (Just libdir) $ do
     unless (null warns) $
         liftIO $ putStrLn $ unlines $ "Warnings:" : map (unLoc . warnMsg) warns
 
-    setSessionDynFlags dflags'
+    _ <- setSessionDynFlags dflags'
     getSession
 
 
