@@ -62,7 +62,6 @@ data Bool = False | True
 
 -- | HIDE
 isTrue# : Int# -> Bool
-{-# INLINE isTrue# #-}
 isTrue# x = tagToEnum# x
 
 -- | HIDE
