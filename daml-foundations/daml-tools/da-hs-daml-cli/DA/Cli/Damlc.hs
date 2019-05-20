@@ -419,16 +419,15 @@ execBuild options mbOutFile = do
 -- | Remove any build artifacts if they exist.
 execClean :: IO ()
 execClean = do
-    withProjectRoot $ \relativize -> do
+    withProjectRoot $ \_relativize -> do
         isProject <- doesFileExist projectConfigName
         if isProject then do
             let removeAndWarn path = do
-                    rpath <- relativize path
                     whenM (doesDirectoryExist path) $ do
-                        putStrLn ("Removing directory " <> rpath)
+                        putStrLn ("Removing directory " <> path)
                         removePathForcibly path
                     whenM (doesFileExist path) $ do
-                        putStrLn ("Removing file " <> rpath)
+                        putStrLn ("Removing file " <> path)
                         removePathForcibly path
             removeAndWarn projectPackageDatabase
             removeAndWarn ".interfaces"
