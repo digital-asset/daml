@@ -25,10 +25,6 @@ data IdeOptions = IdeOptions
 
   , optMbPackageName :: Maybe String
 
-  , optPackageDbs :: [FilePath]
-  , optHideAllPkgs :: Bool
-  , optPackageImports :: [(String, ModRenaming)]
-
   , optThreads :: Int
   , optShakeProfiling :: Maybe FilePath
   }

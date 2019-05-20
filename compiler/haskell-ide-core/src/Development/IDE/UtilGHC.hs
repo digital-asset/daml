@@ -10,11 +10,8 @@
 --
 -- * Call setSessionDynFlags, use modifyDynFlags instead. It's faster and avoids loading packages.
 module Development.IDE.UtilGHC(
-    PackageDynFlags(..), setPackageDynFlags, getPackageDynFlags,
     lookupPackageConfig,
     modifyDynFlags,
-    setPackageImports,
-    setPackageDbs,
     fakeDynFlags,
     prettyPrint,
     runGhcFast,
@@ -27,39 +24,11 @@ import           GHC                         hiding (convertLit)
 import           GhcMonad
 import           GhcPlugins                  as GHC hiding (fst3, (<>))
 import           HscMain
-import qualified Packages
 import           Platform
-import qualified EnumSet
 import           Data.IORef
-import           System.FilePath
-import GHC.Generics (Generic)
 
 ----------------------------------------------------------------------
 -- GHC setup
-
-setPackageDbs :: [FilePath] -> DynFlags -> DynFlags
-setPackageDbs paths dflags =
-  dflags
-    { packageDBFlags =
-        [PackageDB $ PkgConfFile $ path </> "package.conf.d" | path <- paths] ++ [NoGlobalPackageDB, ClearPackageDBs]
-    , pkgDatabase = if null paths then Just [] else Nothing
-      -- if we don't load any packages set the package database to empty and loaded.
-    , settings = (settings dflags)
-        {sTopDir = case paths of p:_ -> p; _ -> error "No package db path available but used $topdir"
-        , sSystemPackageConfig = case paths of p:_ -> p; _ -> error "No package db path available but used system package config"
-        }
-    }
-
-setPackageImports :: Bool -> [(String, ModRenaming)] -> DynFlags -> DynFlags
-setPackageImports hideAllPkgs pkgImports dflags = dflags {
-    packageFlags = packageFlags dflags ++
-        [ExposePackage pkgName (UnitIdArg $ stringToUnitId pkgName) renaming
-        | (pkgName, renaming) <- pkgImports
-        ]
-    , generalFlags = if hideAllPkgs
-                      then Opt_HideAllPackages `EnumSet.insert` generalFlags dflags
-                      else generalFlags dflags
-    }
 
 modifyDynFlags :: GhcMonad m => (DynFlags -> DynFlags) -> m ()
 modifyDynFlags f = do
@@ -68,27 +37,6 @@ modifyDynFlags f = do
   -- initialization separately.
   modifySession $ \h ->
     h { hsc_dflags = newFlags, hsc_IC = (hsc_IC h) {ic_dflags = newFlags} }
-
--- | The subset of @DynFlags@ computed by package initialization.
-data PackageDynFlags = PackageDynFlags
-    { pdfPkgDatabase :: !(Maybe [(FilePath, [Packages.PackageConfig])])
-    , pdfPkgState :: !Packages.PackageState
-    , pdfThisUnitIdInsts :: !(Maybe [(ModuleName, Module)])
-    } deriving (Generic)
-
-setPackageDynFlags :: PackageDynFlags -> DynFlags -> DynFlags
-setPackageDynFlags PackageDynFlags{..} dflags = dflags
-    { pkgDatabase = pdfPkgDatabase
-    , pkgState = pdfPkgState
-    , thisUnitIdInsts_ = pdfThisUnitIdInsts
-    }
-
-getPackageDynFlags :: DynFlags -> PackageDynFlags
-getPackageDynFlags DynFlags{..} = PackageDynFlags
-    { pdfPkgDatabase = pkgDatabase
-    , pdfPkgState = pkgState
-    , pdfThisUnitIdInsts = thisUnitIdInsts_
-    }
 
 lookupPackageConfig :: UnitId -> HscEnv -> Maybe PackageConfig
 lookupPackageConfig unitId env =

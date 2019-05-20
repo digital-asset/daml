@@ -10,6 +10,7 @@ import Control.Concurrent.Extra
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
+import DA.Daml.GHC.Compiler.Options(Options, optPackageDbs)
 import qualified Data.ByteString as BS
 import Data.Either.Extra
 import qualified Data.Map.Strict as Map
@@ -126,12 +127,11 @@ generatePackageMap fps = do
           Right (unitId, (pkgId, package, dalfBS, dalf))
   return (diags, Map.fromList pkgs)
 
-generatePackageMapRule :: Rules ()
-generatePackageMapRule =
+generatePackageMapRule :: Options -> Rules ()
+generatePackageMapRule opts =
     defineNoFile $ \GeneratePackageMap -> do
-        env <- getServiceEnv
         (errs, res) <-
-            liftIO $ generatePackageMap (optPackageDbs $ envOptions env)
+            liftIO $ generatePackageMap (optPackageDbs opts)
         when (errs /= []) $
             reportSeriousError $
             "Rule GeneratePackageMap generated errors " ++ show errs
@@ -399,11 +399,11 @@ modIsInternal m = moduleNameString (moduleName m) `elem` internalModules
   -- modules is that these do not disappear in the LF conversion.
 
 
-damlRule :: Rules ()
-damlRule = do
+damlRule :: Options -> Rules ()
+damlRule opts = do
     generateRawDalfRule
     generateDalfRule
-    generatePackageMapRule
+    generatePackageMapRule opts
     generatePackageRule
     generateRawPackageRule
     generatePackageDepsRule
@@ -412,7 +412,7 @@ damlRule = do
     encodeModuleRule
     createScenarioContextRule
 
-mainRule :: Rules ()
-mainRule = do
+mainRule :: Options -> Rules ()
+mainRule options = do
     IDE.mainRule
-    damlRule
+    damlRule options
