@@ -9,13 +9,16 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
-- **Documentation**: Removed unnecessary dependency in the quickstart-java example project.
-- **Documentation**: Removed the *Configure Maven* section from the installation instructions. This step is not needed anymore.
-- **SQL Extractor**: in JSON content, dates and timestamps are formatted like
-  ``"2020-02-22"`` and ``"2020-02-22T12:13:14Z"`` rather than UNIX epoch offsets like
-  ``18314`` or ``1582373594000000``.
-- **Scala codegen**: ``CreateAndExercise`` support via ``createAnd`` method,
-  e.g. ``MyTemplate(owner, someText).createAnd.exerciseAccept(controller, 42)``.
+.. _release-0-12-18:
+
+0.12.18 - 2019-05-20
+--------------------
+
+Documentation
+~~~~~~~~~~~~~
+
+- Removed unnecessary dependency in the quickstart-java example project.
+- Removed the *Configure Maven* section from the installation instructions. This step is not needed anymore.
 
 SDK tools
 ~~~~~~~~~
@@ -159,6 +162,9 @@ Scala Bindings
   - If you are pattern matching on ``com.digitalasset.ledger.client.binding.Contract``, you need to add a match clause for the added field.
   - If you are constructing ``com.digitalasset.ledger.client.binding.Contract`` values, for example for tests, you need to add a constructor parameter for the agreement text.
 
+- ``CreateAndExercise`` support via ``createAnd`` method, e.g. ``MyTemplate(owner, someText).createAnd.exerciseAccept(controller, 42)``.
+  See `issue #1092 <https://github.com/digital-asset/daml/issues/1092>`__ for more information.
+
 Ledger
 ~~~~~~
 
@@ -175,6 +181,14 @@ Navigator
 ~~~~~~~~~
 
 - Non-empty :ref:`agreement texts <daml-ref-agreements>` are now shown on the contract page above the section ``Contract details``, see `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
+
+SQL Extractor
+~~~~~~~~~~~~~
+
+- **BREAKING** In JSON content, dates and timestamps are formatted like
+  ``"2020-02-22"`` and ``"2020-02-22T12:13:14Z"`` rather than UNIX epoch offsets like
+  ``18314`` or ``1582373594000000``. See `#1174 <https://github.com/digital-asset/daml/issues/1174>`__
+  for more details.
 
 .. _release-0-12-17:
 
