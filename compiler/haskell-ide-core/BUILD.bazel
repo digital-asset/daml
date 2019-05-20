@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
+load("@os_info//:os_info.bzl", "is_windows")
 
 depends = [
     "aeson",
@@ -80,4 +81,4 @@ da_haskell_binary(
         "haskell-ide-core-public",
         "//libs-haskell/prettyprinter-syntax",
     ],
-)
+) if not is_windows else None # Disable on Windows until ghc-paths is fixed upstream
