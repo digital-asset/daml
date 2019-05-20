@@ -82,7 +82,6 @@ toCompileOpts Options{..} =
           }
       , optWriteIface = optWriteInterface
       , optExtensions = ["daml"]
-      , optMbPackageName = optMbPackageName
       , optThreads = optThreads
       , optShakeProfiling = optShakeProfiling
       }

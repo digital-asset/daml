@@ -10,7 +10,7 @@ import Control.Concurrent.Extra
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
-import DA.Daml.GHC.Compiler.Options(Options, optPackageDbs)
+import DA.Daml.GHC.Compiler.Options(Options(..))
 import qualified Data.ByteString as BS
 import Data.Either.Extra
 import qualified Data.Map.Strict as Map
@@ -26,7 +26,6 @@ import "ghc-lib-parser" Module (UnitId, stringToUnitId)
 import System.Directory.Extra (listFilesRecursive)
 import System.FilePath
 
-import Development.IDE.Types.Options (IdeOptions(..))
 import Development.IDE.Functions.DependencyInformation
 import Development.IDE.State.Rules hiding (mainRule)
 import qualified Development.IDE.State.Rules as IDE
@@ -146,8 +145,8 @@ generatePackageRule =
 
 -- Generates a DAML-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
-generateRawPackageRule :: Rules ()
-generateRawPackageRule =
+generateRawPackageRule :: Options -> Rules ()
+generateRawPackageRule options =
     define $ \GenerateRawPackage file -> do
         lfVersion <- getDamlLfVersion
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
@@ -155,12 +154,11 @@ generateRawPackageRule =
         dalfs <- uses_ GenerateRawDalf files
 
         -- build package
-        env <- getServiceEnv
-        let pkg = buildPackage (optMbPackageName (envOptions env)) lfVersion dalfs
+        let pkg = buildPackage (optMbPackageName options) lfVersion dalfs
         return ([], Just pkg)
 
-generatePackageDepsRule :: Rules ()
-generatePackageDepsRule =
+generatePackageDepsRule :: Options -> Rules ()
+generatePackageDepsRule options =
     define $ \GeneratePackageDeps file -> do
         lfVersion <- getDamlLfVersion
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
@@ -168,8 +166,7 @@ generatePackageDepsRule =
         dalfs <- uses_ GenerateDalf files
 
         -- build package
-        env <- getServiceEnv
-        return ([], Just $ buildPackage (optMbPackageName (envOptions env)) lfVersion dalfs)
+        return ([], Just $ buildPackage (optMbPackageName options) lfVersion dalfs)
 
 contextForFile :: FilePath -> Action SS.Context
 contextForFile file = do
@@ -405,8 +402,8 @@ damlRule opts = do
     generateDalfRule
     generatePackageMapRule opts
     generatePackageRule
-    generateRawPackageRule
-    generatePackageDepsRule
+    generateRawPackageRule opts
+    generatePackageDepsRule opts
     runScenariosRule
     ofInterestRule
     encodeModuleRule

@@ -23,8 +23,6 @@ data IdeOptions = IdeOptions
   , optWriteIface :: Bool
   , optExtensions :: [String]
 
-  , optMbPackageName :: Maybe String
-
   , optThreads :: Int
   , optShakeProfiling :: Maybe FilePath
   }
