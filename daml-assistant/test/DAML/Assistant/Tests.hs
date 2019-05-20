@@ -61,7 +61,6 @@ withEnv vs m = bracket pushEnv popEnv (const m)
                     Just val -> setEnv key val True
                 pure (key, oldVal)
 
-
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True -- we need this because we use withEnv in our tests
@@ -179,7 +178,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Just expected2)
-                        ] (getSdk damlPath Nothing projectPath)
+                        ] (getSdk damlPath projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -195,7 +194,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Nothing)
-                        ] (getSdk damlPath Nothing projectPath)
+                        ] (getSdk damlPath projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -211,7 +210,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Just expected2)
-                        ] (getSdk damlPath Nothing projectPath)
+                        ] (getSdk damlPath projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -222,7 +221,6 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
                 expected1 = "10.10.2-version.af29bef"
                 expected2 = base </> "daml" </> "sdk" </> expected1
 
-
             createDirectoryIfMissing True (base </> "daml" </> "sdk")
             createDirectory (base </> "project")
             writeFileUTF8 (base </> "project" </> projectConfigName)
@@ -231,10 +229,9 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Nothing)
-                        ] (getSdk damlPath Nothing projectPath)
+                        ] (getSdk damlPath projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
-
 
     , Tasty.testCase "getSdk: DAML_SDK overrides project config version" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
@@ -253,7 +250,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Just expected2)
-                        ] (getSdk damlPath Nothing projectPath)
+                        ] (getSdk damlPath projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -273,7 +270,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Nothing)
-                        ] (getSdk damlPath Nothing projectPath)
+                        ] (getSdk damlPath projectPath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -285,7 +282,7 @@ testGetSdk = Tasty.testGroup "DAML.Assistant.Env.getSdk"
             (Nothing, Nothing) <- withEnv
                 [ (sdkVersionEnvVar, Nothing)
                 , (sdkPathEnvVar, Nothing)
-                ] (getSdk damlPath Nothing projPath)
+                ] (getSdk damlPath projPath)
             pure ()
     ]
 
@@ -338,7 +335,6 @@ testGetDispatchEnv = Tasty.testGroup "DAML.Assistant.Env.getDispatchEnv"
             denv2 <- withEnv (fmap (fmap Just) env) getDamlEnv
             Tasty.assertEqual "daml envs" denv1 denv2
     ]
-
 
 testAscendants :: Tasty.TestTree
 testAscendants = Tasty.testGroup "DAML.Assistant.ascendants"
