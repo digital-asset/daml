@@ -52,7 +52,7 @@ object ApiServices {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  //TODO: they are here just temporarily
+  //TODO: this is here only temporarily
   def configurationService(config: SandboxConfig) = new ConfigurationService {
     override def getLedgerConfiguration(): Future[Configuration] =
       Future.successful(Configuration(config.timeModel))
