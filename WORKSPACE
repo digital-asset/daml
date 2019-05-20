@@ -475,6 +475,7 @@ hazel_repositories(
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
             hazel_hackage("happy", "1.19.10", "22eb606c97105b396e1c7dc27e120ca02025a87f3e44d2ea52be6a653a52caed") +
             hazel_hackage("bytestring-nums", "0.3.6", "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd") +
+            hazel_hackage("semver", "0.3.4", "42dbdacb08f30ac8bf2f014981cb080737f793b89d57626cb7e2ab8c3d768e6b") +
             hazel_hackage(
                 "network",
                 "2.8.0.0",
