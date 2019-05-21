@@ -10,7 +10,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.api.util.TimestampConversion.fromInstant
-import com.digitalasset.example.Util.{findOpenPort, toFiles, toFuture}
+import com.digitalasset.example.Util.{findOpenPort, toFuture}
 import com.digitalasset.example.daml.{Main => M}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
@@ -31,8 +31,7 @@ import com.digitalasset.ledger.client.configuration.{
 import com.digitalasset.ledger.client.services.commands.CommandClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.SandboxApplication
-import com.digitalasset.platform.sandbox.SandboxApplication.SandboxServer
+import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.google.protobuf.empty.Empty
@@ -55,8 +54,7 @@ object ExampleMain extends App {
     ledgerIdMode = LedgerIdMode.Static(ledgerId),
   )
 
-  private val server: SandboxServer = SandboxApplication(serverConfig)
-  server.start()
+  private val server = SandboxServer(serverConfig)
   sys.addShutdownHook(server.close())
 
   private val asys = ActorSystem()
@@ -160,7 +158,7 @@ object ExampleMain extends App {
     _ = println(s"$charlie received transaction: $tx1")
   } yield ()
 
-  Await.result(doneF, 5.seconds)
-  asys.terminate()
+  Await.result(doneF, Duration.Inf)
+  Await.result(asys.terminate(), Duration.Inf)
   server.close()
 }

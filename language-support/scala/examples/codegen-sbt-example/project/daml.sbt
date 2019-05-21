@@ -4,6 +4,6 @@ import Artifactory._
 resolvers ++= daResolvers
 
 libraryDependencies ++= Seq(
-  "com.digitalasset" % "damlc" % sdkVersion classifier detectedOs,
-  "com.daml.scala" %% "codegen-main" % sdkVersion,
+  "com.digitalasset" % "damlc" % daSdkVersion classifier detectedOs,
+  "com.daml.scala" %% "codegen-main" % daSdkVersion,
 )

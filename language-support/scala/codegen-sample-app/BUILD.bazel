@@ -11,7 +11,6 @@ load(
     "//rules_daml:daml.bzl",
     "daml_compile",
 )
-load("@os_info//:os_info.bzl", "is_linux")
 load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 
 daml_compile(

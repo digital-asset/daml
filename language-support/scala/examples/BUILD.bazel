@@ -6,6 +6,7 @@ load(
     "da_scala_binary",
     "da_scala_library",
 )
+load("//rules_daml:daml.bzl", "daml_compile")
 load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 
 filegroup(
@@ -38,35 +39,84 @@ genrule(
         rm -rf $@/application/target
         rm -rf $@/scala-codegen/target
     """,
-    tools = [":examples-quickstart-scala-bin"],  # this is to make sure that quickstart-scala compiles
+    tools = [":quickstart-scala-bin"],  # this is to make sure that quickstart-scala compiles
     visibility = ["//visibility:public"],
 )
 
 dar_to_scala(
-    name = "examples-quickstart-scala-codegen",
+    name = "quickstart-scala-codegen",
     srcs = ["//docs:quickstart-model.dar"],
     package_prefix = "com.digitalasset.quickstart.iou.model",
-    srcjar_out = "examples-quickstart-scala-codegen.srcjar",
+    srcjar_out = "quickstart-scala-codegen.srcjar",
     verbosity = 2,
 )
 
 da_scala_library(
-    name = "examples-quickstart-scala-codegen-lib",
-    srcs = [":examples-quickstart-scala-codegen.srcjar"],
+    name = "quickstart-scala-codegen-lib",
+    srcs = [":quickstart-scala-codegen.srcjar"],
     deps = ["//language-support/scala/bindings"],
 )
 
 da_scala_binary(
-    name = "examples-quickstart-scala-bin",
+    name = "quickstart-scala-bin",
     srcs = glob(["quickstart-scala/application/src/main/scala/**/*.scala"]),
     main_class = "com.digitalasset.quickstart.iou.IouMain",
     resources = glob(["quickstart-scala/application/src/main/resources/**/*"]),
     scalacopts = ["-Xsource:2.13"],
     deps = [
-        ":examples-quickstart-scala-codegen-lib",
+        ":quickstart-scala-codegen-lib",
         "//3rdparty/jvm/com/typesafe/akka:akka_slf4j",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+    ],
+)
+
+daml_compile(
+    name = "codegen-sbt-example-Main",
+    main_src = "codegen-sbt-example/daml-model/src/Main.daml",
+    target = "1.3",
+)
+
+dar_to_scala(
+    name = "codegen-sbt-example-Main-codegen",
+    srcs = [":codegen-sbt-example-Main.dar"],
+    package_prefix = "com.digitalasset.example.daml",
+    srcjar_out = "codegen-sbt-example-Main.srcjar",
+    verbosity = 2,
+)
+
+da_scala_library(
+    name = "codegen-sbt-example-scala-codegen-lib",
+    srcs = [":codegen-sbt-example-Main-codegen"],
+    deps = ["//language-support/scala/bindings"],
+)
+
+da_scala_binary(
+    name = "codegen-sbt-example-mock-bin",
+    srcs = glob(["codegen-sbt-example/mock-example/src/main/scala/**/*.scala"]),
+    main_class = "com.digitalasset.example.ExampleMain",
+    resources = glob(["codegen-sbt-example/mock-example/src/main/resources/**/*"]),
+    scalacopts = ["-Xsource:2.13"],
+    deps = [
+        ":codegen-sbt-example-scala-codegen-lib",
+        "//language-support/scala/bindings",
+    ],
+)
+
+da_scala_binary(
+    name = "codegen-sbt-example-sandbox-bin",
+    srcs = glob(["codegen-sbt-example/sandbox-example/src/main/scala/**/*.scala"]),
+    main_class = "com.digitalasset.example.ExampleMain",
+    resources = glob(["codegen-sbt-example/sandbox-example/src/main/resources/**/*"]),
+    scalacopts = ["-Xsource:2.13"],
+    deps = [
+        ":codegen-sbt-example-scala-codegen-lib",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-state",
+        "//ledger/sandbox",
     ],
 )
