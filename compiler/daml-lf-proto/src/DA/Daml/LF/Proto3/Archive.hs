@@ -14,7 +14,6 @@ module DA.Daml.LF.Proto3.Archive
 import           Control.Lens             (over, _Left)
 import qualified "cryptonite" Crypto.Hash as Crypto
 import qualified Da.DamlLf                as ProtoLF
-import Data.Tagged
 import Control.Monad
 import Data.List
 import           DA.Pretty
@@ -53,7 +52,7 @@ decodeArchive bytes = do
 
     payload <- over _Left (ProtobufError . show) $ Proto.fromByteString payloadBytes
     package <- over _Left (ProtobufError. show) $ Decode.decodePayload payload
-    return (Tagged archiveHash, package)
+    return (LF.PackageId archiveHash, package)
 
 
 -- | Encode a LFv1 package payload into a DAML-LF archive using the default

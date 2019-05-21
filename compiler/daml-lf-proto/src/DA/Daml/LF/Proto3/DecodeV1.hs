@@ -9,9 +9,9 @@ module DA.Daml.LF.Proto3.DecodeV1
     , Error(..)
     ) where
 
+import           Data.Coerce
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Proto3.Error
-import Data.Tagged
 import Control.Monad
 import Text.Read
 import           Data.List
@@ -80,7 +80,7 @@ decodeDataCons = \case
 
 decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> Decode (ExprValName, Type)
 decodeDefValueNameWithType LF1.DefValue_NameWithType{..} = (,)
-  <$> fmap Tagged (decodeDefName "defValueName" defValue_NameWithTypeName)
+  <$> fmap coerce (decodeDefName "defValueName" defValue_NameWithTypeName)
   <*> mayDecode "defValueType" defValue_NameWithTypeType decodeType
 
 decodeDefValue :: LF1.DefValue -> Decode DefValue
@@ -135,7 +135,7 @@ decodeSimpleKeyExpr templateParam LF1.KeyExpr{..} = mayDecode "keyExprSum" keyEx
       <$> mayDecode "keyExpr_RecordTycon" keyExpr_RecordTycon decodeTypeConApp
       <*> mapM (decodeFieldWithSimpleKeyExpr templateParam) (V.toList keyExpr_RecordFields)
 
-decodeFieldWithSimpleKeyExpr :: ExprVarName -> LF1.KeyExpr_RecordField -> Decode (Tagged a T.Text, Expr)
+decodeFieldWithSimpleKeyExpr :: Coercible a T.Text => ExprVarName -> LF1.KeyExpr_RecordField -> Decode (a, Expr)
 decodeFieldWithSimpleKeyExpr templateParam LF1.KeyExpr_RecordField{..} =
   (taggedT keyExpr_RecordFieldField, ) <$>
   mayDecode "keyExpr_RecordFieldExpr" keyExpr_RecordFieldExpr (decodeSimpleKeyExpr templateParam)
@@ -510,13 +510,13 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
     decodeWithArgs args fun = foldl TApp <$> fun <*> traverse decodeType args
 
 
-decodeFieldWithType :: LF1.FieldWithType -> Decode (Tagged a T.Text, Type)
+decodeFieldWithType :: Coercible a T.Text => LF1.FieldWithType -> Decode (a, Type)
 decodeFieldWithType (LF1.FieldWithType name mbType) =
   (,)
     <$> decodeIdentifier name
     <*> mayDecode "fieldWithTypeType" mbType decodeType
 
-decodeFieldWithExpr :: LF1.FieldWithExpr -> Decode (Tagged a T.Text, Expr)
+decodeFieldWithExpr :: Coercible a T.Text => LF1.FieldWithExpr -> Decode (a, Expr)
 decodeFieldWithExpr (LF1.FieldWithExpr name mbExpr) =
   (,)
     <$> decodeIdentifier name
@@ -552,29 +552,29 @@ decodeValName :: LF1.ValName -> Decode (Qualified ExprValName)
 decodeValName LF1.ValName{..} = do
   (pref, mname) <- mayDecode "valNameModule" valNameModule decodeModuleRef
   name <- decodeDefName "valNameName" valNameName
-  pure $ Qualified pref mname (Tagged name)
+  pure $ Qualified pref mname (ExprValName name)
 
-decodeDottedName :: LF1.DottedName -> Decode (Tagged a [T.Text])
+decodeDottedName :: Coercible a [T.Text] => LF1.DottedName -> Decode a
 decodeDottedName (LF1.DottedName parts) = do
   unmangledParts <- forM (V.toList parts) $ \part ->
     case unmangleIdentifier (TL.toStrict part) of
       Left err -> Left (ParseError ("Could not unmangle part " ++ show part ++ ": " ++ err))
       Right unmangled -> pure unmangled
-  pure (Tagged unmangledParts)
+  pure (coerce unmangledParts)
 
-decodeIdentifier :: TL.Text -> Decode (Tagged a T.Text)
+decodeIdentifier :: Coercible a T.Text => TL.Text -> Decode a
 decodeIdentifier segment =
   case unmangleIdentifier (TL.toStrict segment) of
     Left err -> Left (ParseError ("Could not unmangle part " ++ show segment ++ ": " ++ err))
-    Right unmangled -> pure (Tagged unmangled)
+    Right unmangled -> pure (coerce unmangled)
 
 ------------------------------------------------------------------------
 -- Helpers
 ------------------------------------------------------------------------
 
 -- FIXME(MH for JM): We should fail if the string is empty.
-taggedT :: TL.Text -> Tagged a T.Text
-taggedT = Tagged . TL.toStrict
+taggedT :: Coercible a T.Text => TL.Text -> a
+taggedT = coerce . TL.toStrict
 
 mayDecode :: String -> Maybe a -> (a -> Decode b) -> Decode b
 mayDecode fieldName mb f =

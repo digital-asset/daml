@@ -13,7 +13,6 @@ import           Data.Functor.Foldable (cata)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
-import Data.Tagged
 import Data.List
 import           Safe (findJust)
 import           Safe.Exact (zipWithExactMay)
@@ -112,6 +111,6 @@ substitute subst = go (foldMap freeVars subst) subst
 -- Uses another type variable as a starting point for the search for a fresh
 -- name.
 freshTypeVar :: Set.Set TypeVarName -> TypeVarName -> TypeVarName
-freshTypeVar s (Tagged v) =
-  let candidates = map (\n -> Tagged (v <> T.pack (show n))) [1 :: Int ..]
+freshTypeVar s (TypeVarName v) =
+  let candidates = map (\n -> TypeVarName (v <> T.pack (show n))) [1 :: Int ..]
   in  findJust (`Set.notMember` s) candidates

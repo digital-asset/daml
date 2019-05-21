@@ -103,7 +103,6 @@ import qualified Data.Map.Strict as MS
 import           Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
-import           Data.Tagged
 import qualified Data.Text as T
 import           Data.Tuple.Extra
 import           Data.Ratio
@@ -410,7 +409,7 @@ convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App`
         keyExpr <- convertKeyExpr env keyBinder keyExpr
         maintainerExpr <- convertKeyExpr env maintainerBinder maintainerExpr
         maintainerExpr <- rewriteMaintainer env keyExpr maintainerExpr
-        pure $ TemplateKey keyType keyExpr (ETmLam ("$key", keyType) maintainerExpr)
+        pure $ TemplateKey keyType keyExpr (ETmLam (mkVar "$key", keyType) maintainerExpr)
       _ -> unhandled "Template key definition" o
 convertKey _ o = unhandled "Template key definition" o
 
@@ -429,7 +428,7 @@ convertKeyExpr env keyBinder keyExpr
             | otherwise -> defaultConv
     | otherwise = defaultConv
   where
-    thisRef = EVar "this"
+    thisRef = EVar (mkVar "this")
     defaultConv = convertExpr (envInsertAlias keyBinder thisRef env) keyExpr
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
@@ -452,13 +451,13 @@ convertCtors :: Env -> Ctors -> ConvertM [Definition]
 convertCtors env (Ctors name tys [o@(Ctor ctor fldNames fldTys)])
   | isRecordCtor o
   = pure [defDataType tconName tys $ DataRecord flds
-    ,defValue name (Tagged $ T.pack $ "$ctor:" ++ getOccString ctor, mkTForalls tys $ mkTFuns fldTys (typeConAppToType tcon)) expr
+    ,defValue name (mkVal $ "$ctor:" ++ getOccString ctor, mkTForalls tys $ mkTFuns fldTys (typeConAppToType tcon)) expr
     ]
     where
         flds = zipExact fldNames fldTys
         tconName = mkTypeCon [getOccString name]
         tcon = TypeConApp (Qualified PRSelf (envLFModuleName env) tconName) $ map (TVar . fst) tys
-        expr = mkETyLams tys $ mkETmLams (map (first retag) flds) $ ERecCon tcon [(l, EVar $ retag l) | l <- fldNames]
+        expr = mkETyLams tys $ mkETmLams (map (first fieldToVar ) flds) $ ERecCon tcon [(l, EVar $ fieldToVar l) | l <- fldNames]
 convertCtors env (Ctors name tys cs) = do
     (constrs, funs) <- mapAndUnzipM convertCtor cs
     pure $ [defDataType tconName tys $ DataVariant constrs] ++ concat funs
@@ -474,15 +473,15 @@ convertCtors env (Ctors name tys cs) = do
             let recName = synthesizeVariantRecord ctorName tconName
                 recData = defDataType recName tys $ DataRecord (zipExact fldNames fldTys)
                 recTCon = TypeConApp (Qualified PRSelf (envLFModuleName env) recName) $ map (TVar . fst) tys
-                recExpr = ERecCon recTCon [(f, EVar (retag f)) | f <- fldNames]
+                recExpr = ERecCon recTCon [(f, EVar (fieldToVar f)) | f <- fldNames]
             in  pure ((ctorName, typeConAppToType recTCon), [recData, ctorFun fldNames recExpr])
           where
             ctorName = mkVariantCon (getOccString ctor)
             tcon = TypeConApp (Qualified PRSelf (envLFModuleName env) tconName) $ map (TVar . fst) tys
             tres = mkTForalls tys $ mkTFuns fldTys (typeConAppToType tcon)
             ctorFun fldNames' ctorArg =
-              defValue ctor (Tagged $ T.pack $ "$ctor:" ++ getOccString ctor, tres) $
-              mkETyLams tys $ mkETmLams (zipExact (map retag fldNames') fldTys) $ EVariantCon tcon ctorName ctorArg
+              defValue ctor (mkVal $ "$ctor:" ++ getOccString ctor, tres) $
+              mkETyLams tys $ mkETmLams (zipExact (map fieldToVar fldNames') fldTys) $ EVariantCon tcon ctorName ctorArg
 
 
 convertBind :: Env -> CoreBind -> ConvertM [Definition]
@@ -923,7 +922,7 @@ convertUnitId thisUnitId _pkgMap unitId | unitId == thisUnitId = pure LF.PRSelf
 convertUnitId _thisUnitId pkgMap unitId = case unitId of
   IndefiniteUnitId x -> unsupported "Indefinite unit id's" x
   DefiniteUnitId _ -> case MS.lookup unitId pkgMap of
-    Just hash -> pure $ LF.PRImport $ Tagged hash
+    Just hash -> pure $ LF.PRImport $ PackageId hash
     Nothing -> unknown unitId pkgMap
 
 convertAlt :: Env -> LF.Type -> Alt Var -> ConvertM CaseAlternative
@@ -1007,7 +1006,7 @@ convertCoercion env co
     | isReflCo co = do
         s' <- lift $ convertType env s
         t' <- lift $ convertType env t
-        x <- mkLamBinder
+        x <- mkVar <$> mkLamBinder
         let lamTo = ETmLam (x, s') (EVar x)
             lamFrom = ETmLam (x, t') (EVar x)
         pure (lamTo, lamFrom)
@@ -1019,10 +1018,10 @@ convertCoercion env co
         tLf <- lift $ convertType env t
         aLf <- lift $ convertType env a
         a'Lf <- lift $ convertType env a'
-        f <- mkLamBinder
-        g <- mkLamBinder
-        x <- mkLamBinder
-        y <- mkLamBinder
+        f <- mkVar <$> mkLamBinder
+        g <- mkVar <$> mkLamBinder
+        x <- mkVar <$> mkLamBinder
+        y <- mkVar <$> mkLamBinder
         let lamTo =
                 ETmLam
                     (f, sLf)
@@ -1045,9 +1044,9 @@ convertCoercion env co
         a'KLf <- lift $ convertKind a'K
         s' <- lift $ convertType env s
         t' <- lift $ convertType env t
-        f <- mkLamBinder
-        g <- mkLamBinder
-        a' <- mkLamBinder
+        f <- mkVar <$> mkLamBinder
+        g <- mkVar <$> mkLamBinder
+        a' <- mkTypeVar <$> mkLamBinder
         (a, aKLf) <- lift $ convTypeVar aGhc
         let lamTo =
                 ETmLam
@@ -1084,8 +1083,8 @@ convertCoercion env co
         tLf <- lift $ convertType env t0
         ts' <- lift $ mapM (convertType env) ts
         t' <- lift $ convertQualified env tCon
-        exprS <- mkLamBinder
-        exprT <- mkLamBinder
+        exprS <- mkVar <$> mkLamBinder
+        exprT <- mkVar <$> mkLamBinder
         let tcon = TypeConApp t' ts'
         let sanitizeTo x
                   -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
@@ -1112,7 +1111,7 @@ convertCoercion env co
                 (\k ->
                      let l = k + 1
                       in (l, l))
-        pure $ Tagged $ T.pack $ "$cast" ++ show n
+        pure $ "$cast" ++ show n
 
     isSatNewTyCon :: GHC.Type -> GHC.Type -> Maybe (TyCon, [TyCoRep.Type], FieldName, TyConFlavour)
     isSatNewTyCon s (TypeCon t ts)
@@ -1340,13 +1339,13 @@ rewriteMaintainer env key maintainer = do
             [ MS.map (ERecProj typ fieldName) (buildKeyMap fieldExpr)
             | (fieldName, fieldExpr) <- fields
             ]
-        expr -> MS.singleton expr (EVar "$key")
+        expr -> MS.singleton expr (EVar $ mkVar "$key")
 
     -- TODO(#299): The error messages are pretty bad.
     rewriteThisProjections :: MS.Map LF.Expr LF.Expr -> LF.Expr -> ConvertM LF.Expr
     rewriteThisProjections keyMap expr
         | Just expr' <- expr `MS.lookup` keyMap = pure expr'
-        | EVar "this" <- expr = unhandled "Unbound reference to this in maintainer" expr
+        | EVar (ExprVarName "this") <- expr = unhandled "Unbound reference to this in maintainer" expr
         | otherwise = embed <$> mapM (rewriteThisProjections keyMap) (project expr)
 
 

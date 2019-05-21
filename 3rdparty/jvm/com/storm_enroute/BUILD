@@ -13,7 +13,7 @@ scala_import(
         "//3rdparty/jvm/org/scala_lang/modules:scala_parser_combinators",
         "//3rdparty/jvm/org/scala_lang/modules:scala_xml",
         "//3rdparty/jvm/org/scala_lang:scala_library",
-        "//3rdparty/jvm/org/scala_tools/testing:test_interface",
+        "//3rdparty/jvm/org/scala_sbt:test_interface",
         ":scalameter_core"
     ],
     jars = [

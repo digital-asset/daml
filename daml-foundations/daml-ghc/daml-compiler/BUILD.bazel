@@ -21,7 +21,6 @@ da_haskell_library(
         "mtl",
         "network-uri",
         "safe",
-        "tagged",
         "text",
         "time",
         "transformers",
