@@ -85,10 +85,11 @@ iex (New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/ins
 
 # Install git, bash
 & choco install git --no-progress --yes 2>&1 | %{ "$_" }
+& choco install windows-sdk-10.1 --no-progress --yes 2>&1 | %{ "$_" }
 
 # Add tools to the PATH
 $OldPath = (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).path
-$NewPath = "$OldPath;C:\Program Files\Git\bin"
+$NewPath = "$OldPath;C:\Program Files\Git\bin;C:\Program Files (x86)\Windows Kits\10\App Certification Kit"
 Set-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH -Value $NewPath
 
 echo "== Prepare the D:\ drive"
