@@ -17,7 +17,6 @@ da_haskell_library(
         "recursion-schemes",
         "safe",
         "scientific",
-        "tagged",
         "template-haskell",
         "text",
         "time",

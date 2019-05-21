@@ -26,7 +26,6 @@ da_haskell_library(
         "mtl",
         "shake",
         "stm",
-        "tagged",
         "temporary",
         "text",
         "time",

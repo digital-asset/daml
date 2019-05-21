@@ -16,7 +16,6 @@ da_haskell_library(
         "memory",
         "proto3-suite",
         "scientific",
-        "tagged",
         "template-haskell",
         "text",
         "vector",
