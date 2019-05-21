@@ -209,23 +209,27 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
     val apiServer = LedgerApiServer(
       (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
-        ApiServices
-          .create(
-            config,
-            ledgerBackend,
-            ledgerBackend,
-            ApiServices.configurationService(config),
-            ApiServices.identityService(ledgerId),
-            context.packageService,
-            SandboxServer.engine,
-            timeProvider,
-            timeServiceBackendO
-              .map(
-                TimeServiceBackend.withObserver(
-                  _,
-                  ledger.publishHeartbeat
-                ))
-          )(am, esf)
+        Await
+          .result(
+            ApiServices
+              .create(
+                config,
+                ledgerBackend,
+                ledgerBackend,
+                ApiServices.configurationService(config),
+                ApiServices.identityService(ledgerId),
+                context.packageService,
+                SandboxServer.engine,
+                timeProvider,
+                timeServiceBackendO
+                  .map(
+                    TimeServiceBackend.withObserver(
+                      _,
+                      ledger.publishHeartbeat
+                    ))
+              )(am, esf),
+            Duration.Inf
+          ) //TODO: make the dependency async inside
           .withServices(List(resetService)),
       // NOTE(JM): Re-use the same port after reset.
       Option(sandboxState).fold(config.port)(_.apiServerState.port),

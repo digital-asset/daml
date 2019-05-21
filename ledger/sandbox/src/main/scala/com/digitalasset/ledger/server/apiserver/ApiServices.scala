@@ -70,7 +70,7 @@ object ApiServices {
 
   def create(
       config: SandboxConfig,
-      ledgerBackend: LedgerBackend,
+      ledgerBackend: LedgerBackend, //eventually this should not be needed!
       writeService: WriteService,
       configService: ConfigurationService,
       identityService: IdentityService,
@@ -79,98 +79,99 @@ object ApiServices {
       timeProvider: TimeProvider,
       optTimeServiceBackend: Option[TimeServiceBackend])(
       implicit mat: ActorMaterializer,
-      esf: ExecutionSequencerFactory): ApiServices = {
-
-    //TODO: get ledger id everywhere from IdentityService
+      esf: ExecutionSequencerFactory): Future[ApiServices] = {
 
     implicit val ec: ExecutionContext = mat.system.dispatcher
 
-    val context = SandboxContext.fromConfig(config)
+    identityService.getLedgerId().map { ledgerId =>
+      val context = SandboxContext.fromConfig(config)
 
-    val packageResolver = (pkgId: Ref.PackageId) =>
-      Future.successful(context.packageContainer.getPackage(pkgId))
+      val packageResolver =
+        (pkgId: Ref.PackageId) => Future.successful(context.packageContainer.getPackage(pkgId))
 
-    val identifierResolver: IdentifierResolver = new IdentifierResolver(packageResolver)
+      val identifierResolver: IdentifierResolver = new IdentifierResolver(packageResolver)
 
-    val submissionService =
-      SandboxSubmissionService.createApiService(
-        context.packageContainer,
-        identifierResolver,
-        ledgerBackend,
-        writeService,
-        config.timeModel,
-        timeProvider,
-        new CommandExecutorImpl(engine, context.packageContainer)
+      val submissionService =
+        SandboxSubmissionService.createApiService(
+          context.packageContainer,
+          identifierResolver,
+          ledgerBackend,
+          writeService,
+          config.timeModel,
+          timeProvider,
+          new CommandExecutorImpl(engine, context.packageContainer)
+        )
+
+      logger.info(EngineInfo.show)
+
+      val transactionService =
+        SandboxTransactionService.createApiService(ledgerBackend, identifierResolver)
+
+      val ledgerIdentityService = LedgerIdentityServiceImpl(identityService)
+
+      val packageService = SandboxPackageService(packagesService, ledgerId)
+
+      val configurationService =
+        LedgerConfigurationService.createApiService(configService, ledgerId)
+
+      val completionService =
+        SandboxCommandCompletionService(ledgerBackend)
+
+      val commandService = ReferenceCommandService(
+        ReferenceCommandService.Configuration(
+          ledgerId,
+          config.commandConfig.inputBufferSize,
+          config.commandConfig.maxParallelSubmissions,
+          config.commandConfig.maxCommandsInFlight,
+          config.commandConfig.limitMaxCommandsInFlight,
+          config.commandConfig.historySize,
+          config.commandConfig.retentionPeriod,
+          config.commandConfig.commandTtl
+        ),
+        // Using local services skips the gRPC layer, improving performance.
+        ReferenceCommandService.LowLevelCommandServiceAccess.LocalServices(
+          CommandSubmissionFlow(
+            submissionService.submit,
+            config.commandConfig.maxParallelSubmissions),
+          r =>
+            completionService.service
+              .asInstanceOf[SandboxCommandCompletionService]
+              .completionStreamSource(r),
+          () => completionService.completionEnd(CompletionEndRequest(ledgerId)),
+          transactionService.getTransactionById,
+          transactionService.getFlatTransactionById
+        ),
+        identifierResolver
       )
 
-    logger.info(EngineInfo.show)
+      val activeContractsService =
+        SandboxActiveContractsService(ledgerBackend, identifierResolver)
 
-    val transactionService =
-      SandboxTransactionService.createApiService(ledgerBackend, identifierResolver)
+      val reflectionService = ProtoReflectionService.newInstance()
 
-    val ledgerIdentityService = LedgerIdentityServiceImpl(identityService)
+      val timeServiceOpt =
+        optTimeServiceBackend.map { tsb =>
+          ReferenceTimeService(
+            ledgerId,
+            tsb,
+            config.timeProviderType == TimeProviderType.StaticAllowBackwards
+          )
+        }
 
-    val packageService = SandboxPackageService(packagesService, ledgerBackend.ledgerId)
-
-    val configurationService =
-      LedgerConfigurationService.createApiService(configService, ledgerBackend.ledgerId)
-
-    val completionService =
-      SandboxCommandCompletionService(ledgerBackend)
-
-    val commandService = ReferenceCommandService(
-      ReferenceCommandService.Configuration(
-        ledgerBackend.ledgerId,
-        config.commandConfig.inputBufferSize,
-        config.commandConfig.maxParallelSubmissions,
-        config.commandConfig.maxCommandsInFlight,
-        config.commandConfig.limitMaxCommandsInFlight,
-        config.commandConfig.historySize,
-        config.commandConfig.retentionPeriod,
-        config.commandConfig.commandTtl
-      ),
-      // Using local services skips the gRPC layer, improving performance.
-      ReferenceCommandService.LowLevelCommandServiceAccess.LocalServices(
-        CommandSubmissionFlow(
-          submissionService.submit,
-          config.commandConfig.maxParallelSubmissions),
-        r =>
-          completionService.service
-            .asInstanceOf[SandboxCommandCompletionService]
-            .completionStreamSource(r),
-        () => completionService.completionEnd(CompletionEndRequest(ledgerBackend.ledgerId)),
-        transactionService.getTransactionById,
-        transactionService.getFlatTransactionById
-      ),
-      identifierResolver
-    )
-
-    val activeContractsService =
-      SandboxActiveContractsService(ledgerBackend, identifierResolver)
-
-    val reflectionService = ProtoReflectionService.newInstance()
-
-    val timeServiceOpt =
-      optTimeServiceBackend.map { tsb =>
-        ReferenceTimeService(
-          ledgerBackend.ledgerId,
-          tsb,
-          config.timeProviderType == TimeProviderType.StaticAllowBackwards
-        )
-      }
-
-    new ApiServicesBundle(
-      timeServiceOpt.toList :::
-        List(
-        ledgerIdentityService,
-        packageService,
-        configurationService,
-        submissionService,
-        transactionService,
-        completionService,
-        commandService,
-        activeContractsService,
-        reflectionService
-      ))
+      new ApiServicesBundle(
+        timeServiceOpt.toList :::
+          List(
+          ledgerIdentityService,
+          packageService,
+          configurationService,
+          submissionService,
+          transactionService,
+          completionService,
+          commandService,
+          activeContractsService,
+          reflectionService
+        ))
+    }
   }
+
 }
