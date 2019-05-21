@@ -1,3 +1,6 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 -- Copied from https://github.com/ghc/ghc/blob/master/libraries/base/GHC/Generics.hs
 -- commit 36546a43e490ea6f989e6cad369d1a251c94a42b
 
