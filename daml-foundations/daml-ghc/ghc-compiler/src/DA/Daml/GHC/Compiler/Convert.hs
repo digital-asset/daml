@@ -1224,7 +1224,7 @@ convertKind x@(TypeCon t ts)
     | t == runtimeRepTyCon, null ts = pure KStar
     | is t == "Meta", null ts = pure KStar
     | t == funTyCon, [_,_,t1,t2] <- ts = KArrow <$> convertKind t1 <*> convertKind t2
-convertKind (TyVarTy x) = convertKind $ varType x
+convertKind (TyVarTy x) = convertKind $ tyVarKind x
 convertKind x = unhandled "Kind" x
 
 convNameLoc :: NamedThing a => a -> Maybe LF.SourceLoc
