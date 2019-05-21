@@ -72,7 +72,6 @@ cmdIde =
   where
     cmd = execIde <$> telemetryOpt <*> debugOpt
 
-
 cmdLicense :: Mod CommandFields Command
 cmdLicense =
     command "license" $ info (helper <*> pure execLicense) $
@@ -102,11 +101,13 @@ cmdTest numProcessors =
       <*> fmap UseColor colorOutput
       <*> junitOutput
       <*> optionsParser numProcessors optPackageName
+      <*> projectCheckOpt
     junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
 
-runTestsInProjectOrFiles :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
-runTestsInProjectOrFiles [] color mbJUnitOutput cliOptions = do
+runTestsInProjectOrFiles :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> ProjectCheck -> IO ()
+runTestsInProjectOrFiles [] color mbJUnitOutput cliOptions projectCheck = do
+    runProjectCheck "daml test" projectCheck
     projectPath <- getProjectPath
     case projectPath of
       Nothing -> execTest [] color mbJUnitOutput cliOptions
@@ -115,7 +116,9 @@ runTestsInProjectOrFiles [] color mbJUnitOutput cliOptions = do
         case parseProjectConfig project of
           Left err -> throwIO err
           Right PackageConfigFields {..} -> execTest [pMain] color mbJUnitOutput cliOptions
-runTestsInProjectOrFiles inFiles color mbJUnitOutput cliOptions = execTest inFiles color mbJUnitOutput cliOptions
+runTestsInProjectOrFiles inFiles color mbJUnitOutput cliOptions projectCheck = do
+    runProjectCheck "daml test" projectCheck
+    execTest inFiles color mbJUnitOutput cliOptions
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
@@ -126,7 +129,6 @@ cmdInspect =
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
     cmd = execInspect <$> inputFileOpt <*> outputFileOpt <*> jsonOpt
 
-
 cmdBuild :: Int -> Mod CommandFields Command
 cmdBuild numProcessors =
     command "build" $
@@ -134,8 +136,10 @@ cmdBuild numProcessors =
     progDesc "Initialize, build and package the DAML project" <> fullDesc
   where
     cmd =
-        execBuild <$> optionsParser numProcessors (pure Nothing) <*>
-        optionalOutputFileOpt
+        execBuild
+            <$> optionsParser numProcessors (pure Nothing)
+            <*> optionalOutputFileOpt
+            <*> projectCheckOpt
 
 cmdClean :: Mod CommandFields Command
 cmdClean =
@@ -143,7 +147,7 @@ cmdClean =
     info (helper <*> cmd) $
     progDesc "Remove DAML project build artifacts" <> fullDesc
   where
-    cmd = pure execClean
+    cmd = execClean <$> projectCheckOpt
 
 cmdPackageNew :: Int -> Mod CommandFields Command
 cmdPackageNew numProcessors =
@@ -229,7 +233,6 @@ execIde telemetry (Debug debug) = NS.withSocketsDo $ Managed.runManaged $ do
       execInit
       Daml.LanguageServer.runLanguageServer
         (Compiler.newIdeState opts) loggerH
-
 
 execCompile :: FilePath -> FilePath -> Compiler.Options -> Command
 execCompile inputFile outputFile opts = withProjectRoot $ \relativize -> do
@@ -411,17 +414,19 @@ createProjectPackageDb lfVersion fps = do
             , "--expand-pkgroot"
             ]
 
-execBuild :: Compiler.Options -> Maybe FilePath -> IO ()
-execBuild options mbOutFile = do
+execBuild :: Compiler.Options -> Maybe FilePath -> ProjectCheck -> IO ()
+execBuild options mbOutFile projectCheck = do
+    runProjectCheck "daml build" projectCheck
     execInit
     execPackageNew options mbOutFile
 
 -- | Remove any build artifacts if they exist.
-execClean :: IO ()
-execClean = do
+execClean :: ProjectCheck -> IO ()
+execClean projectCheck = do
+    runProjectCheck "daml clean" projectCheck
     withProjectRoot $ \_relativize -> do
         isProject <- doesFileExist projectConfigName
-        if isProject then do
+        when isProject $ do
             let removeAndWarn path = do
                     whenM (doesDirectoryExist path) $ do
                         putStrLn ("Removing directory " <> path)
@@ -433,8 +438,15 @@ execClean = do
             removeAndWarn ".interfaces"
             removeAndWarn "dist"
             putStrLn "Removed build artifacts."
-        else do
-            hPutStrLn stderr "daml clean: Not in a project."
+
+-- | If ProjectCheck is true and we are outside a project,
+-- print an error message and exit.
+runProjectCheck :: String -> ProjectCheck -> IO ()
+runProjectCheck command (ProjectCheck projectCheck) = do
+    when projectCheck $ do
+        projectPathM <- getProjectPath
+        when (isNothing projectPathM) $ do
+            hPutStrLn stderr (command <> ": Not in project.")
             exitFailure
 
 lfVersionString :: LF.Version -> String
@@ -489,7 +501,6 @@ execPackage filePath opts mbOutFile dumpPom dalfInput = withProjectRoot $ \relat
           \  <type>dar</type>\n\
           \  <description>A Digital Asset DAML package</description>\n\
           \</project>"
-
 
     -- The default output filename is based on Maven coordinates if
     -- the package name is specified via them, otherwise we use the
