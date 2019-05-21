@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+DAML
+~~~~
+
+- **Contract keys**: The syntactic restriction on contract keys has been removed. They can be arbitray expressions now.
+
 Java Bindings
 ~~~~~~~~~~~~~
 
