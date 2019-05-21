@@ -18,7 +18,6 @@ import Data.Maybe
 import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Tagged
 import qualified Data.Text as T
 import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
@@ -63,7 +62,7 @@ runScenarios file = use RunScenarios file
 -- | Get a list of the scenarios in a given file
 getScenarioNames :: FilePath -> Action (Maybe [VirtualResource])
 getScenarioNames file = fmap f <$> use GenerateRawDalf file
-    where f = map (VRScenario file . unTagged . LF.qualObject) . scenariosInModule
+    where f = map (VRScenario file . LF.unExprValName . LF.qualObject) . scenariosInModule
 
 -- Generates the DALF for a module without adding serializability information
 -- or type checking it.
@@ -75,7 +74,7 @@ generateRawDalfRule =
         setPriority PriorityGenerateDalf
         -- Generate the map from package names to package hashes
         pkgMap <- use_ GeneratePackageMap ""
-        let pkgMap0 = Map.map (\(pId, _pkg, _bs, _fp) -> unTagged pId) pkgMap
+        let pkgMap0 = Map.map (\(pId, _pkg, _bs, _fp) -> LF.unPackageId pId) pkgMap
         -- GHC Core to DAML LF
         case convertModule lfVersion pkgMap0 core of
             Left e -> return ([e], Nothing)
@@ -350,7 +349,7 @@ runScenario :: SS.Handle -> FilePath -> SS.ContextId -> LF.ValueRef -> IO (Virtu
 runScenario scenarioService file ctxId scenario = do
     res <- SS.runScenario scenarioService ctxId scenario
     let scenarioName = LF.qualObject scenario
-    let vr = VRScenario file (unTagged scenarioName)
+    let vr = VRScenario file (LF.unExprValName scenarioName)
     pure (vr, res)
 
 encodeModuleRule :: Rules ()

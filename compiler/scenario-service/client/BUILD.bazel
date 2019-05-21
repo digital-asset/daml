@@ -30,7 +30,6 @@ da_haskell_library(
         "split",
         "stm",
         "system-filepath",
-        "tagged",
         "text",
         "time",
         "transformers",

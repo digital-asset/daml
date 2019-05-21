@@ -13,7 +13,6 @@ module DA.Daml.GHC.Compiler.Primitives(convertPrim) where
 import           DA.Daml.GHC.Compiler.UtilLF
 import           DA.Daml.LF.Ast
 import           DA.Pretty (renderPretty)
-import           Data.Tagged
 import qualified Data.Text as T
 
 convertPrim :: Version -> String -> Type -> Expr
@@ -177,13 +176,13 @@ convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ re
 pattern TextMap_ :: PackageRef -> Type -> Type
 pattern TextMap_ pkg a =
   TApp
-  (TCon (Qualified pkg (Tagged ["DA", "Internal", "Prelude"]) (Tagged ["TextMap"])))
+  (TCon (Qualified pkg (ModuleName ["DA", "Internal", "Prelude"]) (TypeConName ["TextMap"])))
   a
 
 pattern TOptional_ :: PackageRef -> Type -> Type
 pattern TOptional_ pkg a =
   TApp
-  (TCon (Qualified pkg (Tagged ["DA", "Internal", "Prelude"]) (Tagged ["Optional"])))
+  (TCon (Qualified pkg (ModuleName ["DA", "Internal", "Prelude"]) (TypeConName ["Optional"])))
   a
 
 

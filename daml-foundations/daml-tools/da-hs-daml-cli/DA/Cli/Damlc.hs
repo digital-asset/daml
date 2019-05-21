@@ -12,7 +12,6 @@ import Control.Monad.Except
 import Control.Monad.Extra (whenM)
 import qualified Control.Monad.Managed             as Managed
 import DA.Cli.Damlc.Base
-import Data.Tagged
 import Data.Maybe
 import Control.Exception
 import qualified "cryptonite" Crypto.Hash as Crypto
@@ -548,7 +547,7 @@ execInspect inFile outFile jsonOutput = do
                  Archive.decodeArchive bytes
       writeOutput outFile $ render Plain $
         DA.Pretty.vsep
-          [ DA.Pretty.keyword_ "package" DA.Pretty.<-> DA.Pretty.text (unTagged pkgId) DA.Pretty.<-> DA.Pretty.keyword_ "where"
+          [ DA.Pretty.keyword_ "package" DA.Pretty.<-> DA.Pretty.text (LF.unPackageId pkgId) DA.Pretty.<-> DA.Pretty.keyword_ "where"
           , DA.Pretty.nest 2 (DA.Pretty.pretty lfPkg)
           ]
 
@@ -577,7 +576,7 @@ execInspectDar inFile = do
                 (Archive.decodeArchive dalf)
         putStrLn $
             (dropExtension $ takeFileName $ eRelativePath dalfEntry) <> " " <>
-            show (untag pkgId)
+            show (LF.unPackageId pkgId)
 
 --------------------------------------------------------------------------------
 -- main

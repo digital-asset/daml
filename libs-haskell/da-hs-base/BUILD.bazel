@@ -36,7 +36,6 @@ da_haskell_library(
         "random",
         "safe",
         "stm",
-        "tagged",
         "tar-conduit",
         "tasty-hunit",
         "tasty-quickcheck",
