@@ -33,49 +33,49 @@ infixr 1 `KArrow`
 --
 -- > [a-zA-Z0-9]+
 newtype PackageId = PackageId{unPackageId :: T.Text}
-    deriving (Eq, Data, Generic, Ord, Show)
+    deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
 -- | Name for a module. Must match the regex
 --
 -- > ([A-Z][a-zA-Z0-9_]*)(\.[A-Z][a-zA-Z0-9_]*)*
 newtype ModuleName = ModuleName{unModuleName :: [T.Text]}
-    deriving (Eq, Data, Generic, Ord, Show)
+    deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
 -- | Name for a type constructor. Must match the regex
 --
 -- > ([A-Z][a-zA-Z0-9_]*)(\.[A-Z][a-zA-Z0-9_]*)*
 newtype TypeConName = TypeConName{unTypeConName :: [T.Text]}
-    deriving (Eq, Data, Generic, Ord, Show)
+    deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
 -- | Name for a record field. Must match the regex
 --
 -- > [a-z][a-zA-Z0-9_]*
 newtype FieldName = FieldName{unFieldName :: T.Text}
-    deriving (Eq, Data, Generic, Ord, Show)
+    deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
 -- | Name for a variant constructor. Must match the regex
 --
 -- > [A-Z][a-zA-Z0-9_]*
 newtype VariantConName = VariantConName{unVariantConName :: T.Text}
-    deriving (Eq, Data, Generic, Ord, Show)
+    deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
 -- | Name for the choice of a contract. Must match the regex
 --
 -- > [A-Z][a-zA-Z0-9_]*
 newtype ChoiceName = ChoiceName{unChoiceName :: T.Text}
-    deriving (Eq, Data, Generic, Ord, Show)
+    deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
 -- | Name for a type variable. Must match the regex
 --
 -- > [a-z_][a-zA-Z0-9_]*
 newtype TypeVarName = TypeVarName{unTypeVarName :: T.Text}
-    deriving (Eq, Data, Generic, Ord, Show)
+    deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
 -- | Name for a local expression variable, bound in an expression,
@@ -83,7 +83,7 @@ newtype TypeVarName = TypeVarName{unTypeVarName :: T.Text}
 --
 -- > [a-z_][a-zA-Z0-9_]*
 newtype ExprVarName = ExprVarName{unExprVarName :: T.Text}
-    deriving (Eq, Data, Generic, Ord, Show)
+    deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
 -- | Name for an global expression variable, bound at the declaration level,
@@ -91,12 +91,12 @@ newtype ExprVarName = ExprVarName{unExprVarName :: T.Text}
 --
 -- > [a-z_][a-zA-Z0-9_]*
 newtype ExprValName = ExprValName{unExprValName :: T.Text}
-    deriving (Eq, Data, Generic, Ord, Show)
+    deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
 -- | Literal representing a party.
 newtype PartyLiteral = PartyLiteral{unPartyLiteral :: T.Text}
-    deriving (Eq, Data, Generic, Ord, Show)
+    deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
 -- | Reference to a package.
