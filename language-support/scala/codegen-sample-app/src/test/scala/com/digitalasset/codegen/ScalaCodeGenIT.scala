@@ -119,6 +119,8 @@ class ScalaCodeGenIT
 
   private val emptyCommandId = CommandId("")
 
+  private val emptyAgreementText = Some("") // this is by design, starting from release: 0.12.18 it is a requried field
+
   override protected def afterAll(): Unit = {
     sandbox.close()
     aesf.close()
@@ -157,7 +159,15 @@ class ScalaCodeGenIT
 
   "alice creates MkListExample contract and receives corresponding event" in {
     val contract = MkListExample(alice, P.List(1, 2, 3))
-    testCreateContractAndReceiveEvent(contract, alice)
+    testCreateContractAndReceiveEvent(
+      contract,
+      alice,
+      expectedAgreementText = Some(expectedAgreementAsDefinedInDaml(contract)))
+  }
+
+  private def expectedAgreementAsDefinedInDaml(contract: MkListExample): String = {
+    val sum: P.Int64 = contract.xs.sum
+    s"I am worth $sum"
   }
 
   "alice creates TemplateWithSelfReference contract and receives corresponding event" in {
@@ -252,10 +262,14 @@ class ScalaCodeGenIT
       inside(tx.events) {
         case Seq(archiveEvent, createEvent) =>
           archiveEvent.event.isArchived shouldBe true
-          assertCreateEvent(createEvent)(PayOut(bob, alice))
+          val payOut = PayOut(receiver = bob, giver = alice)
+          assertCreateEvent(createEvent)(payOut, Some(expectedAgreementAsDefinedInDaml(payOut)))
       }
     }
   }
+
+  private def expectedAgreementAsDefinedInDaml(contract: PayOut): String =
+    s"'${P.Party.unwrap(contract.giver): String}' must pay to '${P.Party.unwrap(contract.receiver): String}' the sum of five pounds."
 
   "alice creates CallablePayout contract, bob exercises Transfer to charlie" in {
 
@@ -293,7 +307,7 @@ class ScalaCodeGenIT
         inside(charlieTx.events) {
           case Seq(createEvent) =>
             createEvent.event.isCreated shouldBe true
-            assertCreateEvent(createEvent)(CallablePayout(alice, charlie))
+            assertCreateEvent(createEvent)(CallablePayout(alice, charlie), emptyAgreementText)
         }
     }
   }
@@ -372,13 +386,19 @@ class ScalaCodeGenIT
     testCommandAndReceiveEvent(
       contract.createAnd.exerciseGo(alice),
       alice,
-      assertCreateEvent(_)(exerciseConsequence))
+      assertCreateEvent(_)(
+        exerciseConsequence,
+        Some(expectedAgreementAsDefinedInDaml(exerciseConsequence))))
   }
 
   private def testCreateContractAndReceiveEvent(
       contract: Template[AnyRef],
-      party: P.Party): Assertion =
-    testCommandAndReceiveEvent(contract.create, party, assertCreateEvent(_)(contract))
+      party: P.Party,
+      expectedAgreementText: Option[String] = emptyAgreementText): Assertion =
+    testCommandAndReceiveEvent(
+      contract.create,
+      party,
+      assertCreateEvent(_)(contract, expectedAgreementText))
 
   private def testCommandAndReceiveEvent(
       command: P.Update[_],
@@ -499,12 +519,15 @@ class ScalaCodeGenIT
     tx.workflowId shouldBe expectedWorkflowId
   }
 
-  private def assertCreateEvent(event: Event)(expectedContract: Template[AnyRef]): Assertion = {
+  private def assertCreateEvent(event: Event)(
+      expectedContract: Template[AnyRef],
+      expectedAgreement: Option[String]): Assertion = {
     event.event.isCreated shouldBe true
     decoder(event.getCreated) match {
       case Left(e) => fail(e.toString)
       case Right(Contract(_, contract, agreementText)) =>
         contract shouldBe expectedContract
+        agreementText shouldBe expectedAgreement
         agreementText shouldBe event.getCreated.agreementText
 
     }
