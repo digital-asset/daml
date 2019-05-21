@@ -245,6 +245,7 @@ in rec {
     jfrog = pkgs.callPackage ./tools/jfrog-cli {};
 
     # Cloud tools
+    aws = pkgs.awscli;
     gcloud = pkgs.google-cloud-sdk;
     bq     = gcloud;
     gsutil = gcloud;
