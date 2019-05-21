@@ -1,5 +1,5 @@
 transactions:
-TX #0 1970-01-01T00:00:00Z [Test:64]
+TX #0 1970-01-01T00:00:00Z [Test:74]
 #0:0
 │   archived by #8:1
 │   referenced by #4:0, #5:0, #8:0, #8:1
@@ -8,35 +8,35 @@ TX #0 1970-01-01T00:00:00Z [Test:64]
     with: { p = 'Alice', k = "some-key", disclosedTo = ['Bob'] } value-version: 1
 key { _1 = 'Alice', _2 = "some-key" } value-version: 1
 
-mustFailAt 'Alice' [Test:71]
+mustFailAt 'Alice' [Test:81]
 
-mustFailAt 'Bob' [Test:78]
+mustFailAt 'Bob' [Test:88]
 
-mustFailAt 'Bob' [Test:80]
+mustFailAt 'Bob' [Test:90]
 
-TX #4 1970-01-01T00:00:00Z [Test:83]
+TX #4 1970-01-01T00:00:00Z [Test:93]
 #4:0
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "some-key" } value-version: 1
 found #0:0
 
-TX #5 1970-01-01T00:00:00Z [Test:87]
+TX #5 1970-01-01T00:00:00Z [Test:97]
 #5:0
 └─> ensure active #0:0
 
-TX #6 1970-01-01T00:00:00Z [Test:91]
+TX #6 1970-01-01T00:00:00Z [Test:101]
 #6:0
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "blah" } value-version: 1
 not found
 
-TX #7 1970-01-01T00:00:00Z [Test:95]
+TX #7 1970-01-01T00:00:00Z [Test:105]
 #7:0
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Bob', _2 = "some-key" } value-version: 1
 not found
 
-TX #8 1970-01-01T00:00:00Z [Test:99]
+TX #8 1970-01-01T00:00:00Z [Test:109]
 #8:0
 └─> ensure active #0:0
 
@@ -46,13 +46,13 @@ TX #8 1970-01-01T00:00:00Z [Test:99]
     with {  } value-version: 1
     
 
-TX #9 1970-01-01T00:00:00Z [Test:102]
+TX #9 1970-01-01T00:00:00Z [Test:112]
 #9:0
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "some-key" } value-version: 1
 not found
 
-TX #10 1970-01-01T00:00:00Z [Test:108]
+TX #10 1970-01-01T00:00:00Z [Test:118]
 #10:0
 │   archived by #11:1
 │   referenced by #11:0, #11:1
@@ -61,7 +61,7 @@ TX #10 1970-01-01T00:00:00Z [Test:108]
     with: { p = 'Alice', k = "some-key-2", disclosedTo = ['Bob'] } value-version: 1
 key { _1 = 'Alice', _2 = "some-key-2" } value-version: 1
 
-TX #11 1970-01-01T00:00:00Z [Test:113]
+TX #11 1970-01-01T00:00:00Z [Test:123]
 #11:0
 └─> ensure active #10:0
 
@@ -76,7 +76,7 @@ TX #11 1970-01-01T00:00:00Z [Test:113]
 key { _1 = 'Alice', _2 = "some-key-2" } value-version: 1
 not found
 
-TX #12 1970-01-01T00:00:00Z [Test:119]
+TX #12 1970-01-01T00:00:00Z [Test:129]
 #12:0
 │   referenced by #12:1
 │   known to (since): Alice (#12)
@@ -89,14 +89,14 @@ key { _1 = 'Alice', _2 = "same-submit-key" } value-version: 1
 key { _1 = 'Alice', _2 = "same-submit-key" } value-version: 1
 found #12:0
 
-TX #13 1970-01-01T00:00:00Z [Test:127]
+TX #13 1970-01-01T00:00:00Z [Test:137]
 #13:0
 │   referenced by #14:0, #14:1
 │   known to (since): Alice (#13)
 └─> create Test:CreateAndLookup@XXXXXXXX
     with: { p = 'Alice', k = "same-choice-key" } value-version: 1
 
-TX #14 1970-01-01T00:00:00Z [Test:131]
+TX #14 1970-01-01T00:00:00Z [Test:141]
 #14:0
 └─> ensure active #13:0
 
@@ -117,9 +117,9 @@ TX #14 1970-01-01T00:00:00Z [Test:131]
     key { _1 = 'Alice', _2 = "same-choice-key" } value-version: 1
     found #14:2
 
-mustFailAt 'Alice' [Test:134]
+mustFailAt 'Alice' [Test:144]
 
-TX #16 1970-01-01T00:00:00Z [Test:138]
+TX #16 1970-01-01T00:00:00Z [Test:148]
 #16:0
 │   referenced by #16:1, #16:2, #16:3
 │   known to (since): Alice (#16)
@@ -140,6 +140,8 @@ key { _1 = 'Alice', _2 = "non-consuming-choice" } value-version: 1
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "non-consuming-choice" } value-version: 1
 found #16:0
+
+mustFailAt 'Alice' [Test:158]
 
 active contracts:
    #12:0, #13:0, #14:2, #16:0

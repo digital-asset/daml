@@ -139,6 +139,18 @@ object Pretty {
 
         case (
             nodeId,
+            L.FAMaintainersNotSubsetOfSignatories(
+              templateId @ _,
+              optLoc @ _,
+              signatories,
+              maintainers)) =>
+          str(nodeId) & text(": all the maintainers:") &
+            intercalate(comma + space, maintainers.map(prettyParty)) +
+              text(", need to be signatories:") &
+            intercalate(comma + space, signatories.map(prettyParty))
+
+        case (
+            nodeId,
             L.FAFetchMissingAuthorization(templateId @ _, optLoc @ _, authorizing, stakeholders)) =>
           str(nodeId) & text(": missing authorization for fetch, authorizing parties:") &
             intercalate(comma + space, authorizing.map(prettyParty)) +
