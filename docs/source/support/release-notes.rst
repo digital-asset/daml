@@ -9,10 +9,43 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+Ledger
+~~~~~~
+
+- Transaction filters in `GetTransactionsRequest` without any party are now rejected with `INVALID_ARGUMENT` instead of yielding an empty stream
+
+  See `#1250 <https://github.com/digital-asset/daml/issues/1250>`__ for details.
+
+DAML
+~~~~
+
+- **Contract keys**: The syntactic restriction on contract keys has been removed. They can be arbitray expressions now.
+
+DAML-LF
+~~~~~~~
+
+- Add new version 1.4 and make it the default version produced by ``damlc``. It removes the syntactic restriction on contract keys.
+
 Java Bindings
 ~~~~~~~~~~~~~
 
 - **Bots**: A class called LedgerTestView was added to make bot unit testing possible
+
+DAML
+~~~~
+
+- **BREAKING CHANGE - Contract Keys**: Before, maintainers were incorrectly not checked to be a subset of the signatories, now they are. See `issue #1123 <https://github.com/digital-asset/daml/issues/1123>`__
+
+Sandbox
+~~~~~~~
+
+- When loading a scenario with ``--scenario``, the sandbox no longer compiles packages twice, see
+  `issue #1238 <https://github.com/digital-asset/daml/issues/1238>`__.
+- When starting the sandbox, you can now choose to have it load all the ``.dar`` packages immediately
+  with the ``--eager-package-loading`` flag. The default behavior is to load the packages only when
+  a command requires them, which causes a delay for the first command that requires a yet-to-be-compiled
+  package.
+  See `issue #1230 <https://github.com/digital-asset/daml/issues/1230>`__.
 
 .. _release-0-12-18:
 

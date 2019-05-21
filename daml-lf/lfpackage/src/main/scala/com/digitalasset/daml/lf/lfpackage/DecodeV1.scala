@@ -147,7 +147,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
         case PLF.DefTemplate.DefKey.KeyExprCase.KEY =>
           decodeKeyExpr(key.getKey, tplVar)
         case PLF.DefTemplate.DefKey.KeyExprCase.COMPLEX_KEY => {
-          assertSince("dev", "DefTemplate.DefKey.complex_key")
+          assertSince("4", "DefTemplate.DefKey.complex_key")
           decodeExpr(key.getComplexKey)
         }
         case PLF.DefTemplate.DefKey.KeyExprCase.KEYEXPR_NOT_SET =>

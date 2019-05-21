@@ -176,6 +176,19 @@ Version: 1.3
 
   * **Add** support for built-in Map.
 
+Version: 1.4
+............
+
+  * Introduction date:
+
+      2019-05-21
+
+  * Last amendment date:
+
+      2019-05-21
+
+  * **Add** support for complex contract keys.
+
 Version: 1.dev
 ..............
 
@@ -1095,7 +1108,8 @@ for the ``DefTemplate`` rule). ::
   ——————————————————————————————————————————————————————————————— KeyDefNone
    Γ  ⊢  'no_key'
 
-    ⊢ₛ τ      Γ  ⊢  eₖ  :  τ      ⊢ₖ eₖ
+    ⊢ₛ τ      Γ  ⊢  eₖ  :  τ
+    ⊢ₖ eₖ                                                               [DAML-LF 1.3]
     ε  ⊢  eₘ  :  τ → 'List' 'Party'
   ——————————————————————————————————————————————————————————————— KeyDefSome
     Γ  ⊢  'key' τ eₖ eₘ

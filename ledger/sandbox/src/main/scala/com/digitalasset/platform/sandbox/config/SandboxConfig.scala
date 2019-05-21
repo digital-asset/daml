@@ -30,7 +30,8 @@ final case class SandboxConfig(
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     ledgerIdMode: LedgerIdMode,
-    jdbcUrl: Option[String]
+    jdbcUrl: Option[String],
+    eagerPackageLoading: Boolean
 )
 
 final case class CommandConfiguration(
@@ -57,7 +58,8 @@ object SandboxConfig {
       tlsConfig = None,
       scenario = None,
       ledgerIdMode = LedgerIdMode.Dynamic(),
-      jdbcUrl = None
+      jdbcUrl = None,
+      eagerPackageLoading = false
     )
 
   lazy val defaultCommandConfig =

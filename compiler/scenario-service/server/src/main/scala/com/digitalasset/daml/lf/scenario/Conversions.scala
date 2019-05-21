@@ -197,6 +197,19 @@ case class Conversions(homePackageId: Ref.PackageId) {
               optLocation.map(loc => cmaBuilder.setLocation(convertLocation(loc)))
               faBuilder.setCreateMissingAuthorization(cmaBuilder.build)
 
+            case Ledger.FAMaintainersNotSubsetOfSignatories(
+                templateId,
+                optLocation,
+                signatories,
+                maintainers) =>
+              val maintNotSignBuilder =
+                FailedAuthorization.MaintainersNotSubsetOfSignatories.newBuilder
+                  .setTemplateId(convertIdentifier(templateId))
+                  .addAllSignatories(signatories.map(convertParty).asJava)
+                  .addAllMaintainers(maintainers.map(convertParty).asJava)
+              optLocation.map(loc => maintNotSignBuilder.setLocation(convertLocation(loc)))
+              faBuilder.setMaintainersNotSubsetOfSignatories(maintNotSignBuilder.build)
+
             case fma: Ledger.FAFetchMissingAuthorization =>
               val fmaBuilder =
                 FailedAuthorization.FetchMissingAuthorization.newBuilder

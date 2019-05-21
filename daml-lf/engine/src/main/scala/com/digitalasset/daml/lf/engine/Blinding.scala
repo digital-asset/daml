@@ -46,6 +46,8 @@ object Blinding {
                 s"node $id (${ns.templateId}) has no signatories"
               case nlbk: FALookupByKeyMissingAuthorization =>
                 s"node $id (${nlbk.templateId}) requires authorizers ${nlbk.maintainers} for lookup by key, but it only has ${nlbk.authorizingParties}"
+              case mns: FAMaintainersNotSubsetOfSignatories =>
+                s"node $id (${mns.templateId}) has maintainers ${mns.maintainers} which are not a subset of the signatories ${mns.signatories}"
 
             }
         }

@@ -439,6 +439,13 @@ message FailedAuthorization {
     repeated Party maintainers = 4;
   }
 
+  message MaintainersNotSubsetOfSignatories {
+    Identifier template_id = 1;
+    Location location = 2; // optional
+    repeated Party signatories = 3;
+    repeated Party maintainers = 4;
+  }
+
   NodeId node_id = 1; // points to a node in the partial transaction.
   oneof sum {
     CreateMissingAuthorization create_missing_authorization = 2;
@@ -448,6 +455,7 @@ message FailedAuthorization {
     NoControllers no_controllers = 6;
     FetchMissingAuthorization fetch_missing_authorization = 7;
     LookupByKeyMissingAuthorization lookup_by_key_missing_authorization = 8;
+    MaintainersNotSubsetOfSignatories maintainers_not_subset_of_signatories = 9;
   }
 }
 
