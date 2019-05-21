@@ -233,7 +233,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         config.address,
         config.tlsConfig.flatMap(_.server)
       ),
-      Duration.Inf
+      asyncTolerance
     )
 
     val newState = ApiServerState(
