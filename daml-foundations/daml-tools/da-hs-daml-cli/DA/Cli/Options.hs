@@ -20,7 +20,6 @@ type Document = Pretty.Doc Pretty.SyntaxClass
 newtype DontDivulgeContractIdsInCreateArguments = DontDivulgeContractIdsInCreateArguments Bool
 newtype DontDiscloseNonConsumingChoicesToObservers = DontDiscloseNonConsumingChoicesToObservers Bool
 
-
 -- | Document rendering styles for console output.
 data Style
   = Plain
@@ -109,7 +108,6 @@ versionOpt :: Parser String
 versionOpt = argument str $
         metavar "VERSION"
     <> help "Artifact's version"
-
 
 lfVersionOpt :: Parser LF.Version
 lfVersionOpt = option (str >>= select) $
@@ -233,7 +231,6 @@ ekgPortOpt = option (str >>= parse) $
       Nothing -> readerError $ "Invalid port '" <> cs <> "'."
       p       -> pure p
 
-
 verboseOpt :: Parser Bool
 verboseOpt = switch $
        long "verbose"
@@ -254,6 +251,12 @@ experimentalOpt =
     fmap Experimental $
     switch $
     help "Enable experimental IDE features" <> long "experimental"
+
+newtype ProjectCheck = ProjectCheck Bool
+projectCheckOpt :: Parser ProjectCheck
+projectCheckOpt = fmap ProjectCheck . switch $
+       help "Check if running in DAML project."
+    <> long "project-check"
 
 data Telemetry = OptedIn | OptedOut | Undecided
 telemetryOpt :: Parser Telemetry
