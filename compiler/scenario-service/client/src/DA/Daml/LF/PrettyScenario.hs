@@ -85,8 +85,8 @@ lookupModule world mbPkgId modName = do
   eitherToMaybe (LF.lookupModule (LF.Qualified pkgRef modName ()) world)
 
 lookupModuleFromQualifiedName ::
-     LF.World -> Maybe PackageIdentifier -> T.Text 
-     -> Maybe (LF.ModuleName, T.Text, LF.Module)
+     LF.World -> Maybe PackageIdentifier -> T.Text
+  -> Maybe (LF.ModuleName, T.Text, LF.Module)
 lookupModuleFromQualifiedName world mbPkgId qualName = do
   let (modName, defName) = case T.splitOn ":" qualName of
         [modNm, defNm] -> (LF.ModuleName (T.splitOn "." modNm), defNm)
@@ -742,8 +742,8 @@ prettyDefName world (Identifier mbPkgId (TL.toStrict -> qualName))
     ppName = text name <> ppPkgId
     ppPkgId = maybe mempty prettyPackageIdentifier mbPkgId
 
-prettyChoiceId 
-  :: LF.World -> Maybe Identifier -> TL.Text 
+prettyChoiceId
+  :: LF.World -> Maybe Identifier -> TL.Text
   -> Doc SyntaxClass
 prettyChoiceId _ Nothing choiceId = ltext choiceId
 prettyChoiceId world (Just (Identifier mbPkgId (TL.toStrict -> qualName))) (TL.toStrict -> choiceId)
