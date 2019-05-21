@@ -13,9 +13,7 @@ import scala.concurrent.Future
   * [[com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService]]
   */
 trait PackagesService {
-  def listPackages(): Future[List[PackageId]]
-
-  def isPackageRegistered(packageId: PackageId): Future[Boolean]
+  def listPackages(): Future[Set[PackageId]]
 
   def getPackage(packageId: PackageId): Future[Option[Archive]]
 }

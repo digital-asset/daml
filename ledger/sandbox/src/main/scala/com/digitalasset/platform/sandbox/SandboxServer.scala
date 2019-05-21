@@ -12,7 +12,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.server.apiserver.{ApiServices, LedgerApiServer}
+import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer.{
   asyncTolerance,
@@ -104,7 +104,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
   case class ApiServerState(
       ledgerId: String,
-      apiServer: LedgerApiServer,
+      apiServer: ApiServer,
       ledger: Ledger,
       stopHeartbeats: () => Unit
   ) extends AutoCloseable {
@@ -224,28 +224,33 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
     val stopHeartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
 
-    val apiServer = LedgerApiServer(
-      (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
-        ApiServices
-          .create(
-            config,
-            ledgerBackend,
-            ledgerBackend,
-            ApiServices.configurationService(config),
-            SandboxServer.engine,
-            timeProvider,
-            timeServiceBackendO
-              .map(
-                TimeServiceBackend.withObserver(
-                  _,
-                  ledger.publishHeartbeat
-                ))
-          )(am, esf)
-          .withServices(List(resetService)),
-      // NOTE(JM): Re-use the same port after reset.
-      Option(sandboxState).fold(config.port)(_.apiServerState.port),
-      config.address,
-      config.tlsConfig.flatMap(_.server)
+    val apiServer = Await.result(
+      LedgerApiServer.create(
+        (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
+          ApiServices
+            .create(
+              config,
+              ledgerBackend,
+              ledgerBackend,
+              ApiServices.configurationService(config),
+              ApiServices.identityService(ledgerId),
+              context.packageService,
+              SandboxServer.engine,
+              timeProvider,
+              timeServiceBackendO
+                .map(
+                  TimeServiceBackend.withObserver(
+                    _,
+                    ledger.publishHeartbeat
+                  ))
+            )(am, esf)
+            .map(_.withServices(List(resetService))),
+        // NOTE(JM): Re-use the same port after reset.
+        Option(sandboxState).fold(config.port)(_.apiServerState.port),
+        config.address,
+        config.tlsConfig.flatMap(_.server)
+      ),
+      asyncTolerance
     )
 
     val newState = ApiServerState(
