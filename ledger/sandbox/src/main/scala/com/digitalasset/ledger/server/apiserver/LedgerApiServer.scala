@@ -16,15 +16,26 @@ import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future, Promise}
 import scala.util.control.NoStackTrace
+
+trait ApiServer extends AutoCloseable {
+
+  /** returns the api port the server is listening on */
+  def port: Int
+
+  /** returns when all services have been closed during the shutdown */
+  def servicesClosed(): Future[Unit]
+
+}
 
 object LedgerApiServer {
   def apply(
-      createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => ApiServices,
+      createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => Future[ApiServices],
       desiredPort: Int,
       address: Option[String],
-      sslContext: Option[SslContext] = None)(implicit mat: ActorMaterializer): LedgerApiServer =
+      sslContext: Option[SslContext] = None)(implicit mat: ActorMaterializer): ApiServer =
     new LedgerApiServer(
       createApiServices,
       desiredPort,
@@ -33,12 +44,12 @@ object LedgerApiServer {
     )
 }
 
-class LedgerApiServer(
-    createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => ApiServices,
+private class LedgerApiServer(
+    createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => Future[ApiServices],
     desiredPort: Int,
     address: Option[String],
     sslContext: Option[SslContext] = None)(implicit mat: ActorMaterializer)
-    extends AutoCloseable {
+    extends ApiServer {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -61,13 +72,12 @@ class LedgerApiServer(
 
   private val serverEventLoopGroup = createEventLoopGroup(mat.system.name)
 
-  private val apiServices = createApiServices(mat, serverEsf)
+  //TODO: make this async!
+  private val apiServices = Await.result(createApiServices(mat, serverEsf), Duration.Inf)
 
   private val (grpcServer, actualPort) = startServer()
 
-  def port: Int = actualPort
-
-  def getServer = grpcServer
+  override def port: Int = actualPort
 
   private def startServer() = {
     val builder = address.fold(NettyServerBuilder.forPort(desiredPort))(address =>
@@ -106,7 +116,7 @@ class LedgerApiServer(
   private val servicesClosedP = Promise[Unit]()
 
   /** returns when all services have been closed during the shutdown */
-  def servicesClosed(): Future[Unit] = servicesClosedP.future
+  override def servicesClosed(): Future[Unit] = servicesClosedP.future
 
   override def close(): Unit = {
     apiServices.close()
