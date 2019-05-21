@@ -15,10 +15,16 @@ Ledger
 - Transaction filters in `GetTransactionsRequest` without any party are now rejected with `INVALID_ARGUMENT` instead of yielding an empty stream
 
   See `#1250 <https://github.com/digital-asset/daml/issues/1250>`__ for details.
+
 DAML
 ~~~~
 
 - **Contract keys**: The syntactic restriction on contract keys has been removed. They can be arbitray expressions now.
+
+DAML-LF
+~~~~~~~
+
+- Add new version 1.4 and make it the default version produced by ``damlc``. It removes the syntactic restriction on contract keys.
 
 Java Bindings
 ~~~~~~~~~~~~~
