@@ -32,21 +32,20 @@ version1_2 = V1 $ PointStable 2
 version1_3 :: Version
 version1_3 = V1 $ PointStable 3
 
--- TODO(MH): Change this when freezing 1.dev into 1.4.
+-- | DAML-LF version 1.4.
 version1_4 :: Version
-version1_4 = versionDev
--- version1_4 = V1 $ PointStable 4
+version1_4 = V1 $ PointStable 4
 
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_3
+versionDefault = version1_4
 
 -- | The DAML-LF development version.
 versionDev :: Version
 versionDev = V1 PointDev
 
 supportedInputVersions :: [Version]
-supportedInputVersions = [version1_1, version1_2, version1_3, versionDev]
+supportedInputVersions = [version1_1, version1_2, version1_3, version1_4, versionDev]
 
 supportedOutputVersions :: [Version]
 supportedOutputVersions = supportedInputVersions
