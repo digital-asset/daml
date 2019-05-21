@@ -113,6 +113,9 @@ class CliSpec extends WordSpec with Matchers {
       checkOption(Array(s"--sql-backend-jdbcurl", jdbcUrl), _.copy(jdbcUrl = Some(jdbcUrl)))
     }
 
+    "parse the eager package loading flag when given" in {
+      checkOption(Array("--eager-package-loading"), _.copy(eagerPackageLoading = true))
+    }
   }
 
 }

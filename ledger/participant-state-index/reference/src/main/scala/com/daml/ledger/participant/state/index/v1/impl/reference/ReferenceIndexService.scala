@@ -23,7 +23,7 @@ import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 final case class ReferenceIndexService(
     participantReadService: participant.state.v1.ReadService,
@@ -110,14 +110,9 @@ final case class ReferenceIndexService(
     stateUpdateKillSwitch.shutdown()
   }
 
-  override def listPackages(): Future[List[PackageId]] =
+  override def listPackages(): Future[Set[PackageId]] =
     futureWithState { state =>
-      Future.successful(state.packages.keys.toList)
-    }
-
-  override def isPackageRegistered(packageId: PackageId): Future[Boolean] =
-    futureWithState { state =>
-      Future.successful(state.packages.contains(packageId))
+      Future.successful(state.packages.keySet)
     }
 
   override def getPackage(packageId: PackageId): Future[Option[DamlLf.Archive]] =
@@ -127,10 +122,10 @@ final case class ReferenceIndexService(
       )
     }
 
-  override def getLedgerConfiguration(): Future[Configuration] =
-    futureWithState { state =>
-      Future.successful(state.configuration)
-    }
+  override def getLedgerConfiguration(): Source[Configuration, NotUsed] =
+    Source
+      .fromFuture(futureWithState(state => Future.successful(state.configuration)))
+      .concat(Source.fromFuture(Promise[Configuration]().future)) // we should keep the stream open!
 
   override def getLedgerId(): Future[LedgerId] =
     Future.successful(StateController.getState.ledgerId)
@@ -209,31 +204,6 @@ final case class ReferenceIndexService(
               .toIterator)
       Future.successful(ActiveContractSetSnapshot(state.getUpdateId, events))
     }
-
-  override def getActiveContractSetUpdates(
-      beginAfter: Option[Offset],
-      endAt: Option[Offset],
-      filter: TransactionFilter): Source[AcsUpdate, NotUsed] = {
-    logger.trace(
-      s"getActiveContractSetUpdates: beginAfter=$beginAfter, endAt=$endAt, filter=$filter")
-    val filtering = TransactionFiltering(filter)
-
-    getTransactionStream(beginAfter, endAt)
-      .map {
-        case (offset, (acceptedTx, blindingInfo)) =>
-          val events =
-            transactionToAcsUpdateEvents(filtering, acceptedTx)
-              .map(_._2) /* ignore workflow id */
-          // FIXME(JM): skip if events empty?
-          AcsUpdate(
-            optSubmitterInfo = acceptedTx.optSubmitterInfo,
-            offset = offset,
-            transactionMeta = acceptedTx.transactionMeta,
-            transactionId = acceptedTx.transactionId,
-            events = events
-          )
-      }
-  }
 
   override def getAcceptedTransactions(
       beginAfter: Option[Offset],

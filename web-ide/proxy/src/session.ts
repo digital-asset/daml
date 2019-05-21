@@ -28,8 +28,12 @@ export function onTimeout(callback: Callback<any>) {
   });
 }
 
-function remove(sessionId :string) {
-  store.del(sessionId)
+/**
+ * explicit synchronous getter in case we need state current state
+ * @param sessionId 
+ */
+export function getStateSync(sessionId :string) :any {
+  return store.get(sessionId)
 }
 
 /**
@@ -122,7 +126,7 @@ function save(sessionId :string, state :any) :boolean {
         store.del(sessionId)
       }, delay)
     }
-    return store.set(sessionId, state)
+    return store.set(sessionId, state, 0)
 }
 
 function generateSessionId() {

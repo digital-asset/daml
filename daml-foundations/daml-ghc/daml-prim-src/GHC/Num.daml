@@ -47,12 +47,10 @@ class Additive a  where
     -- | The additive identity for the type. For example, for numbers, this is 0.
     aunit                : a
 
-    {-# INLINE (-) #-}
     -- | Subtract the second argument from the first argument, ie. `x - y` = `x + negate y`
     (-)                 : a -> a -> a
     x - y               = x + negate y
 
-    {-# INLINE negate #-}
     -- | Negate the argument: `x + negate x` = `aunit`
     negate              : a -> a
     negate x            = aunit - x

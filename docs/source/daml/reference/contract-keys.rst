@@ -20,7 +20,7 @@ Here's an example of setting up a contract key for a bank account, to act as a b
 What can be a contract key
 **************************
 
-The key should either be a tuple or a record, and it **must** include every party that you specify as a ``maintainer`` (see `Specifying maintainers`_ below).
+The key can be an arbitrary expression but it **must** include every party that you specify as a ``maintainer`` (see `Specifying maintainers`_ below).
 
 For example, with ``maintainer bank``, ``key (bank, number) : (Party, Text)`` is valid; but wouldn't be if you removed ``bank`` from the key.
 
@@ -29,11 +29,11 @@ It's best to use simple types for your keys like ``Text`` or ``Int``, rather tha
 Specifying maintainers
 **********************
 
-If you specify a contract key for a template, you must also specify a ``maintainer`` or maintainers, in a similar way to specifying signatories or observers. Maintainers are the parties that know about all of the keys that they are party to, and are used by the engine to guarantee uniqueness of contract keys.  The maintainers **must** be signatories or observers of the contract.
+If you specify a contract key for a template, you must also specify a ``maintainer`` or maintainers, in a similar way to specifying signatories or observers. Maintainers are the parties that know about all of the keys that they are party to, and are used by the engine to guarantee uniqueness of contract keys.  The maintainers **must** be signatories of the contract.
 
-Keys are unique only to their maintainers. For example, say you have a key that you're using as the identifer for a ``BankAccount`` contract. You might have ``key (bank, accountId) : (Party, Text)``. When you create a new bank account, the contract key ensures that no-one else can have an account with the same ``accountID`` at that bank. But that doesn't apply to other banks: for a contract with a different bank as maintainer, you could happily re-use that ``accountID``.
+Keys are unique to their maintainers. For example, say you have a key that you're using as the identifer for a ``BankAccount`` contract. You might have ``key (bank, accountId) : (Party, Text)``. When you create a new bank account, the contract key ensures that no-one else can have an account with the same ``accountID`` at that bank. But that doesn't apply to other banks: for a contract with a different bank as maintainer, you could happily re-use that ``accountID``.
 
-When you're writing DAML models, the maintainers only matter since they affect authorization -- much like signatories and observers. You don't need to do anything to "maintain" the keys.
+When you're writing DAML models, the maintainers matter since they affect authorization -- much like signatories and observers. You don't need to do anything to "maintain" the keys.
 
 Checking of the keys is done automatically at execution time, by the DAML exeuction engine: if someone tries to create a new contract that duplicates an existing contract key, the execution engine will cause that creation to fail. 
 

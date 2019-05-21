@@ -58,7 +58,9 @@ class RemoteServerResource(host: String, port: Int, tlsConfig: Option[TlsConfigu
   override def close(): Unit = {
     channel.shutdownNow()
     channel.awaitTermination(1L, TimeUnit.SECONDS)
-    eventLoopGroup.shutdownGracefully().await(1L, TimeUnit.SECONDS)
+    eventLoopGroup
+      .shutdownGracefully(0, 0, TimeUnit.SECONDS)
+      .await(10L, TimeUnit.SECONDS)
     channel = null
     eventLoopGroup = null
   }

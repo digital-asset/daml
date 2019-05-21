@@ -512,6 +512,13 @@ object Ledger {
       requiredParties: Set[Party]
   ) extends FailedAuthorization
 
+  final case class FAMaintainersNotSubsetOfSignatories(
+      templateId: Identifier,
+      optLocation: Option[Location],
+      signatories: Set[Party],
+      maintainers: Set[Party]
+  ) extends FailedAuthorization
+
   final case class FAFetchMissingAuthorization(
       templateId: Identifier,
       optLocation: Option[Location],
@@ -609,23 +616,38 @@ object Ledger {
         nodeId: Transaction.NodeId,
         create: NodeCreate.WithTxValue[ContractId],
         signatories: Set[Party],
-        authorization: Authorization): EnrichState =
-      authorization.fold(this)(
-        authParties =>
-          this
-            .authorize(
+        authorization: Authorization,
+        /** If the create has a key, these are the maintainers */
+        mbMaintainers: Option[Set[Party]]): EnrichState =
+      authorization.fold(this)(authParties => {
+        val auth = this
+          .authorize(
+            nodeId = nodeId,
+            passIf = signatories subsetOf authParties,
+            failWith = FACreateMissingAuthorization(
+              templateId = create.coinst.template,
+              optLocation = create.optLocation,
+              authorizingParties = authParties,
+              requiredParties = signatories)
+          )
+          .authorize(
+            nodeId = nodeId,
+            passIf = signatories.nonEmpty,
+            failWith = FANoSignatories(create.coinst.template, create.optLocation))
+        mbMaintainers match {
+          case None => auth
+          case Some(maintainers) =>
+            auth.authorize(
               nodeId = nodeId,
-              passIf = signatories subsetOf authParties,
-              failWith = FACreateMissingAuthorization(
+              passIf = maintainers subsetOf signatories,
+              failWith = FAMaintainersNotSubsetOfSignatories(
                 templateId = create.coinst.template,
                 optLocation = create.optLocation,
-                authorizingParties = authParties,
-                requiredParties = signatories)
+                signatories = signatories,
+                maintainers = maintainers)
             )
-            .authorize(
-              nodeId = nodeId,
-              passIf = signatories.nonEmpty,
-              failWith = FANoSignatories(create.coinst.template, create.optLocation)))
+        }
+      })
 
     def authorizeExercise(
         nodeId: Transaction.NodeId,
@@ -837,7 +859,8 @@ object Ledger {
               nodeId,
               create,
               signatories = create.signatories,
-              authorization = authorization)
+              authorization = authorization,
+              mbMaintainers = create.key.map(_.maintainers))
             .discloseTo(witnesses, nodeId)
           state1
 

@@ -139,8 +139,6 @@ for the types in "GHC.Word" and "GHC.Int".
 class Eq a  where
     (==), (/=)           :: a -> a -> Bool
 
-    {-# INLINE (/=) #-}
-    {-# INLINE (==) #-}
     x /= y               = not (x == y)
     x == y               = not (x /= y)
     {-# MINIMAL (==) | (/=) #-}

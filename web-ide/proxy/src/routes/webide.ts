@@ -13,6 +13,7 @@ import { ImageInspectInfo } from "dockerode";
 import request, { HttpArchiveRequest } from "request"
 import zlib from "zlib"
 import { Readable } from "stream"
+import NodeCache from "node-cache"
 
 const conf = require('../config').read()
 const debug = require('debug')('webide:route')
@@ -80,7 +81,7 @@ export default class WebIdeRoute {
             const route = this
             debug("requesting %s", req.url)
             Session.session(req, res, (err :any, state :any, sessionId :string, saveSession :any) => {
-                route.getImage()
+                route.getDockerImage()
                     .then(image => route.ensureDockerContainer(req, state, saveSession, sessionId, image))
                     .then(containerInfo => {
                         const url = route.docker.getContainerUrl(containerInfo, 'http')
@@ -88,15 +89,11 @@ export default class WebIdeRoute {
                     })
                     .catch(err => {
                         console.error(`could not initiate connection to web-ide: ${err}`)
-                        if (err instanceof ProxyError) res.statusCode = err.status
-                        else res.statusCode = 500
-                        res.end()
+                        route.sendErrorResponse(err, req, res)
                     })
             })
         } catch (error) {
-            console.error(error)
-            res.statusCode = 500
-            res.end()
+            this.sendErrorResponse(error, req, res)
         }
     }
 
@@ -125,7 +122,7 @@ export default class WebIdeRoute {
         //doing nothing we let the proxy handle the response
     }
 
-    private getImage() :Promise<ImageInspectInfo> {
+    private getDockerImage() :Promise<ImageInspectInfo> {
         return this.docker.getImage(conf.docker.webIdeReference)
     }
 
@@ -169,7 +166,9 @@ export default class WebIdeRoute {
 
     private ensureDockerContainer(req :Request, state :any, saveSession :Session.SaveSession, sessionId :string, image :ImageInspectInfo) {
         if (!state.docker) {
-            if (!state.initializing) {
+            //double check current state whether it is initializing or not
+            const currentState :any = Session.getStateSync(sessionId) || {}
+            if (!currentState.initializing) {
                 state.initializing = true;
                 saveSession(state);
                 return this.docker.api.listContainers({all: false, filters: { ancestor: [`${conf.docker.webIdeReference}`] }})
@@ -177,7 +176,7 @@ export default class WebIdeRoute {
                         if (containers.length >= conf.docker.maxInstances) {
                             state.initializing = false;
                             saveSession(state);
-                            return Promise.reject(new ProxyError(`Breach max instances ${conf.docker.maxInstances}`, 503)) 
+                            return Promise.reject(new ProxyError(`Breach max instances ${conf.docker.maxInstances}`, 503, "There is unusually high server load. Please try again in a couple of minutes.")) 
                         }
                         return this.docker.startContainer(image.Id).then(c => {
                             console.log("INFO attaching container %s to session %s", c.Id, sessionId)
@@ -188,16 +187,16 @@ export default class WebIdeRoute {
                         });
                     });
             } else {
-                //this occurs sporadically (perhaps when developer tools is open) sending another request 
-                //TODO create better promise handling without timeout
                 console.log("INFO request sent during initialization...waiting for docker to come up")
                 return new Promise((resolve, reject) => {
-                    Session.readSession(req, (err, state, sessionId) => {
-                        const wait = setTimeout(() => {
-                            clearTimeout(wait);
-                            resolve(state.docker)
-                        }, 10000)
-                    })
+                    const interval = setInterval(() => {
+                        Session.readSession(req, (err, state, sessionId) => {
+                            if (state.docker && !state.initializing) {
+                                clearInterval(interval);
+                                resolve(state.docker);
+                            }
+                        })
+                    }, 1000)
                 })
             }
         }

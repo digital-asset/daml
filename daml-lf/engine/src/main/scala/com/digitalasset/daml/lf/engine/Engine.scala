@@ -3,9 +3,10 @@
 
 package com.digitalasset.daml.lf.engine
 
+import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.speedy.Pretty
@@ -47,8 +48,8 @@ import scala.annotation.tailrec
   * This class is thread safe.
   */
 final class Engine {
-  private[this] val compiledPackages = ConcurrentCompiledPackages()
-  private[this] val commandTranslation = CommandPreprocessor(compiledPackages)
+  private[this] val _compiledPackages = ConcurrentCompiledPackages()
+  private[this] val _commandTranslation = CommandPreprocessor(_compiledPackages)
 
   /**
     * Executes commands `cmds` and returns one of the following:
@@ -70,7 +71,7 @@ final class Engine {
     * </ul>
     */
   def submit(cmds: Commands): Result[Transaction.Transaction] = {
-    commandTranslation
+    _commandTranslation
       .preprocessCommands(cmds)
       .flatMap(interpret(_, cmds.ledgerEffectiveTime))
   }
@@ -94,7 +95,7 @@ final class Engine {
       ledgerEffectiveTime: Time.Timestamp
   ): Result[Transaction.Transaction] = {
     for {
-      commands <- Result.sequence(ImmArray(nodes).map(translateNode(commandTranslation)))
+      commands <- Result.sequence(ImmArray(nodes).map(translateNode(_commandTranslation)))
       result <- interpret(commands, ledgerEffectiveTime)
     } yield result
   }
@@ -116,7 +117,7 @@ final class Engine {
   ): Result[Unit] = {
     //reinterpret
     for {
-      commands <- translateTransactionRoots(commandTranslation, tx)
+      commands <- translateTransactionRoots(_commandTranslation, tx)
       rtx <- interpret(commands.map(_._2), ledgerEffectiveTime)
       validationResult <- if (tx isReplayedBy rtx) {
         ResultDone(())
@@ -167,7 +168,7 @@ final class Engine {
       }
 
       val comps =
-        translateTransactionRoots(commandTranslation, tx)
+        translateTransactionRoots(_commandTranslation, tx)
           .flatMap(
             s =>
               if (s.isEmpty)
@@ -317,7 +318,7 @@ final class Engine {
   ): Result[Transaction.Transaction] = {
 
     val machine =
-      Machine.build(Compiler(compiledPackages.packages).compile(command), compiledPackages)
+      Machine.build(Compiler(_compiledPackages.packages).compile(command), _compiledPackages)
     machine.ptx = machine.ptx.copy(nextNodeId = nodeId)
     interpretLoop(machine, time)
   }
@@ -326,7 +327,7 @@ final class Engine {
       expr: Expr,
       time: Time.Timestamp): Result[Transaction.Transaction] = {
     val machine =
-      Machine.build(Compiler(compiledPackages.packages).compile(expr), compiledPackages)
+      Machine.build(Compiler(_compiledPackages.packages).compile(expr), _compiledPackages)
 
     interpretLoop(machine, time)
   }
@@ -335,8 +336,8 @@ final class Engine {
       commands: ImmArray[(Type, SpeedyCommand)],
       time: Time.Timestamp): Result[Transaction.Transaction] = {
     val machine = Machine.build(
-      Compiler(compiledPackages.packages).compile(commands.map(_._2)),
-      compiledPackages)
+      Compiler(_compiledPackages.packages).compile(commands.map(_._2)),
+      _compiledPackages)
 
     interpretLoop(machine, time)
   }
@@ -363,9 +364,9 @@ final class Engine {
           return Result.needPackage(
             ref.packageId,
             pkg => {
-              compiledPackages.addPackage(ref.packageId, pkg).flatMap {
+              _compiledPackages.addPackage(ref.packageId, pkg).flatMap {
                 case _ =>
-                  callback(compiledPackages)
+                  callback(_compiledPackages)
                   interpretLoop(machine, time)
               }
             }
@@ -418,7 +419,23 @@ final class Engine {
     }
   }
 
-  def clearPackages(): Unit = compiledPackages.clear()
+  def clearPackages(): Unit = _compiledPackages.clear()
+
+  /** Note: it's important we return a [[com.digitalasset.daml.lf.CompiledPackages]],
+    * and not a [[ConcurrentCompiledPackages]], otherwise people would be able
+    * to modify them.
+    */
+  def compiledPackages(): CompiledPackages = _compiledPackages
+
+  /** This function can be used to give a package to the engine pre-emptively,
+    * rather than having the engine to ask about it through
+    * [[ResultNeedPackage]].
+    *
+    * Returns a [[Result]] because the package might need another package to
+    * be loaded.
+    */
+  def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
+    _compiledPackages.addPackage(pkgId, pkg)
 }
 
 object Engine {

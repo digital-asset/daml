@@ -9,11 +9,54 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
-- **Documentation**: Removed unnecessary dependency in the quickstart-java example project.
-- **Documentation**: Remove the *Configure Maven* section from the installation instructions. This step is not needed anymore.
-- **SQL Extractor**: in JSON content, dates and timestamps are formatted like
-  ``"2020-02-22"`` and ``"2020-02-22T12:13:14Z"`` rather than UNIX epoch offsets like
-  ``18314`` or ``1582373594000000``.
+Ledger
+~~~~~~
+
+- Transaction filters in `GetTransactionsRequest` without any party are now rejected with `INVALID_ARGUMENT` instead of yielding an empty stream
+
+  See `#1250 <https://github.com/digital-asset/daml/issues/1250>`__ for details.
+
+DAML
+~~~~
+
+- **Contract keys**: The syntactic restriction on contract keys has been removed. They can be arbitray expressions now.
+
+DAML-LF
+~~~~~~~
+
+- Add new version 1.4 and make it the default version produced by ``damlc``. It removes the syntactic restriction on contract keys.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- **Bots**: A class called LedgerTestView was added to make bot unit testing possible
+
+DAML
+~~~~
+
+- **BREAKING CHANGE - Contract Keys**: Before, maintainers were incorrectly not checked to be a subset of the signatories, now they are. See `issue #1123 <https://github.com/digital-asset/daml/issues/1123>`__
+
+Sandbox
+~~~~~~~
+
+- When loading a scenario with ``--scenario``, the sandbox no longer compiles packages twice, see
+  `issue #1238 <https://github.com/digital-asset/daml/issues/1238>`__.
+- When starting the sandbox, you can now choose to have it load all the ``.dar`` packages immediately
+  with the ``--eager-package-loading`` flag. The default behavior is to load the packages only when
+  a command requires them, which causes a delay for the first command that requires a yet-to-be-compiled
+  package.
+  See `issue #1230 <https://github.com/digital-asset/daml/issues/1230>`__.
+
+.. _release-0-12-18:
+
+0.12.18 - 2019-05-20
+--------------------
+
+Documentation
+~~~~~~~~~~~~~
+
+- Removed unnecessary dependency in the quickstart-java example project.
+- Removed the *Configure Maven* section from the installation instructions. This step is not needed anymore.
 
 SDK tools
 ~~~~~~~~~
@@ -25,7 +68,11 @@ SDK tools
 DAML
 ~~~~
 
+- **BREAKING CHANGE - DAML Compiler**: It is now an error to omit method bodies in class ``instance`` s if the method
+  has no default. Almost all instances of such behaviour were an error - add in a suitable definition.
+
 - **Contract keys**: We've added documentation for contract keys, a way of specifying a primary key for contract instances. For information about how to use them, see :doc:`/daml/reference/contract-keys`.
+
 - **BREAKING CHANGE - DAML Standard Library**: Moved the ``Tuple`` and ``Either`` types to ``daml-prim:DA.Types``
   rather than exposing internal locations.
 
@@ -153,6 +200,9 @@ Scala Bindings
   - If you are pattern matching on ``com.digitalasset.ledger.client.binding.Contract``, you need to add a match clause for the added field.
   - If you are constructing ``com.digitalasset.ledger.client.binding.Contract`` values, for example for tests, you need to add a constructor parameter for the agreement text.
 
+- ``CreateAndExercise`` support via ``createAnd`` method, e.g. ``MyTemplate(owner, someText).createAnd.exerciseAccept(controller, 42)``.
+  See `issue #1092 <https://github.com/digital-asset/daml/issues/1092>`__ for more information.
+
 Ledger
 ~~~~~~
 
@@ -169,6 +219,14 @@ Navigator
 ~~~~~~~~~
 
 - Non-empty :ref:`agreement texts <daml-ref-agreements>` are now shown on the contract page above the section ``Contract details``, see `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
+
+SQL Extractor
+~~~~~~~~~~~~~
+
+- **BREAKING** In JSON content, dates and timestamps are formatted like
+  ``"2020-02-22"`` and ``"2020-02-22T12:13:14Z"`` rather than UNIX epoch offsets like
+  ``18314`` or ``1582373594000000``. See `#1174 <https://github.com/digital-asset/daml/issues/1174>`__
+  for more details.
 
 .. _release-0-12-17:
 

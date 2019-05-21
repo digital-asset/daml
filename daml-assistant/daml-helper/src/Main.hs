@@ -2,14 +2,22 @@
 -- SPDX-License-Identifier: Apache-2.0
 module Main (main) where
 
+import Control.Exception
 import Data.Foldable
 import Options.Applicative.Extended
+import System.Environment
+import System.Exit
+import System.IO
 
 import DamlHelper
 
 main :: IO ()
-main = runCommand =<< customExecParser parserPrefs (info (commandParser <**> helper) idm)
-  where parserPrefs = prefs showHelpOnError
+main = withProgName "daml" $ go `catch` \(e :: DamlHelperError) -> do
+    hPutStrLn stderr (displayException e)
+    exitFailure
+  where
+      parserPrefs = prefs showHelpOnError
+      go = runCommand =<< customExecParser parserPrefs (info (commandParser <**> helper) idm)
 
 data Command
     = DamlStudio { replaceExtension :: ReplaceExtension, remainingArguments :: [String] }

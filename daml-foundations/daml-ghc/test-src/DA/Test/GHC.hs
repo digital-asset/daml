@@ -126,7 +126,7 @@ getIntegrationTests registerTODO scenarioService version = do
     -- initialise the compiler service
     pure $
       withResource
-      (Compile.initialise Compile.mainRule (Just (\_ -> pure ())) IdeLogger.makeNopHandle opts (Just scenarioService))
+      (Compile.initialise (Compile.mainRule opts) (Just (\_ -> pure ())) IdeLogger.makeNopHandle opts (Just scenarioService))
       Compile.shutdown $ \service ->
       withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
         map (testCase args version service outdir registerTODO) files

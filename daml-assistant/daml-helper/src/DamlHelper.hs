@@ -22,6 +22,7 @@ module DamlHelper
     , SandboxPort(..)
     , ReplaceExtension(..)
     , OpenBrowser(..)
+    , DamlHelperError(..)
     ) where
 
 import Control.Concurrent
@@ -65,8 +66,8 @@ data DamlHelperError = DamlHelperError
 instance Exception DamlHelperError where
     displayException DamlHelperError{..} =
         T.unpack . T.unlines . catMaybes $
-            [ Just ("ERROR: " <> errMessage)
-            , fmap ("  internal: " <>) errInternal
+            [ Just ("daml: " <> errMessage)
+            , fmap ("  details: " <>) errInternal
             ]
 
 required :: T.Text -> Maybe t -> IO t

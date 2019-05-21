@@ -106,7 +106,8 @@ object PlatformApplications {
       scenario = None,
       tlsConfig = None,
       ledgerIdMode = config.ledgerId,
-      jdbcUrl = jdbcUrl
+      jdbcUrl = jdbcUrl,
+      eagerPackageLoading = false,
     )
   }
 }

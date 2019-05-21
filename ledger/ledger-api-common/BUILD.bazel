@@ -44,6 +44,7 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-scala-logging",
         "//ledger/participant-state",
+        "//ledger/participant-state-index",
     ],
 )
 

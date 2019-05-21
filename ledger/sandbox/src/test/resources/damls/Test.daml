@@ -508,3 +508,13 @@ template DivulgeWitnesses
         do
           _ <- fetch toFetch
           return ()
+
+template MaintainerNotSignatory
+  with
+    p: Party
+    q: Party
+  where
+    signatory p
+
+    key q: Party
+    maintainer q

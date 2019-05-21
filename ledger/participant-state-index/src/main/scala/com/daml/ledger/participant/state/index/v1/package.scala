@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.value.Value
 
 package object v1 {
+
   import com.daml.ledger.participant.state.v1._
 
   type TransactionAccepted = Update.TransactionAccepted
@@ -28,7 +29,9 @@ package object v1 {
   )
 
   sealed trait AcsUpdateEvent extends Product with Serializable
+
   object AcsUpdateEvent {
+
     final case class Create(
         eventId: EventId,
         contractId: Value.AbsoluteContractId,
@@ -45,23 +48,30 @@ package object v1 {
         // TODO(JM,SM): understand witnessing parties
         stakeholders: List[Party],
     ) extends AcsUpdateEvent
+
   }
 
   sealed trait CompletionEvent extends Product with Serializable {
     def offset: Offset
   }
+
   object CompletionEvent {
+
     final case class Checkpoint(offset: Offset, recordTime: Timestamp) extends CompletionEvent
+
     final case class CommandAccepted(
         offset: Offset,
         commandId: CommandId,
         transactionId: TransactionId)
         extends CompletionEvent
+
     final case class CommandRejected(offset: Offset, commandId: CommandId, reason: RejectionReason)
         extends CompletionEvent
+
   }
 
   final case class ActiveContractSetSnapshot(
       takenAt: Offset,
       activeContracts: Source[(WorkflowId, AcsUpdateEvent.Create), NotUsed])
+
 }
