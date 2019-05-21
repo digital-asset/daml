@@ -825,13 +825,13 @@ renderValue world name = \case
 templateConName :: LF.World -> Identifier -> Maybe (LF.TypeConName)
 templateConName world (Identifier mbPkgId (TL.toStrict -> qualName)) = do
   (_, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
-  tpl <- NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
+  tpl <- NM.lookup (LF.TypeConName [defName]) (LF.moduleTemplates mod0)
   return (LF.tplTypeCon tpl)
 
 
 renderHeader :: LF.World -> Identifier -> [T.Text]
 renderHeader world identifier = case templateConName world identifier of 
-  Just typeConName -> unTagged typeConName 
+  Just typeConName -> LF.unTypeConName typeConName 
   Nothing -> []
 
 
