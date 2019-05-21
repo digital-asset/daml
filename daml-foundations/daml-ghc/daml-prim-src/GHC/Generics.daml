@@ -15,7 +15,6 @@
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE MagicHash                  #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE Trustworthy                #-}
@@ -769,7 +768,7 @@ type Type = *
 --------------------------------------------------------------------------------
 
 -- | Void: used for datatypes without constructors
-data V1 (p :: k)
+data V1 (p :: *)
   deriving ( Eq       -- ^ @since 4.9.0.0
            , Ord      -- ^ @since 4.9.0.0
 --           , Read     -- ^ @since 4.9.0.0
@@ -784,7 +783,7 @@ data V1 (p :: k)
 --   v <> _ = v
 
 -- | Unit: used for constructors without arguments
-data U1 (p :: k) = U1
+data U1 (p :: *) = U1
 --  deriving ( Generic  -- ^ @since 4.7.0.0
 --           , Generic1 -- ^ @since 4.9.0.0
 --           )
@@ -863,7 +862,7 @@ newtype Par1 p = Par1 { unPar1 :: p }
 
 -- | Recursive calls of kind `* -> *` (or kind `k -> *`, when @PolyKinds@
 -- is enabled)
-newtype Rec1 (f :: k -> Type) (p :: k) = Rec1 { unRec1 :: f p }
+newtype Rec1 (f :: * -> Type) (p :: *) = Rec1 { unRec1 :: f p }
   deriving ( Eq       -- ^ @since 4.7.0.0
            , Ord      -- ^ @since 4.7.0.0
 --           , Read     -- ^ @since 4.7.0.0
@@ -893,7 +892,7 @@ newtype Rec1 (f :: k -> Type) (p :: k) = Rec1 { unRec1 :: f p }
 -- deriving instance Monoid (f p) => Monoid (Rec1 f p)
 
 -- | Constants, additional parameters and recursion of kind @*@
-newtype K1 (i :: Type) c (p :: k) = K1 { unK1 :: c }
+newtype K1 (i :: Type) c (p :: *) = K1 { unK1 :: c }
   deriving ( Eq       -- ^ @since 4.7.0.0
            , Ord      -- ^ @since 4.7.0.0
 --           , Read     -- ^ @since 4.7.0.0
@@ -934,7 +933,7 @@ newtype K1 (i :: Type) c (p :: k) = K1 { unK1 :: c }
 -- deriving instance Monoid (f p) => Monoid (M1 i c f p)
 
 -- | Meta-information (constructor names, etc.)
-newtype M1 (i :: Type) (c :: Meta) (f :: k -> Type) (p :: k) =
+newtype M1 (i :: Type) (c :: Meta) (f :: * -> Type) (p :: *) =
     M1 { unM1 :: f p }
   deriving ( Eq       -- ^ @since 4.7.0.0
            , Ord      -- ^ @since 4.7.0.0
@@ -947,7 +946,7 @@ newtype M1 (i :: Type) (c :: Meta) (f :: k -> Type) (p :: k) =
 
 -- | Sums: encode choice between constructors
 infixr 5 :+:
-data (:+:) (f :: k -> Type) (g :: k -> Type) (p :: k) = L1 (f p) | R1 (g p)
+data (:+:) (f :: * -> Type) (g :: * -> Type) (p :: *) = L1 (f p) | R1 (g p)
   deriving ( Eq       -- ^ @since 4.7.0.0
            , Ord      -- ^ @since 4.7.0.0
 --           , Read     -- ^ @since 4.7.0.0
@@ -959,7 +958,7 @@ data (:+:) (f :: k -> Type) (g :: k -> Type) (p :: k) = L1 (f p) | R1 (g p)
 
 -- | Products: encode multiple arguments to constructors
 infixr 6 :*:
-data (:*:) (f :: k -> Type) (g :: k -> Type) (p :: k) = P1 {prodL1 :: f p, prodR1 :: g p}
+data (:*:) (f :: * -> Type) (g :: * -> Type) (p :: *) = P1 {prodL1 :: f p, prodR1 :: g p}
   deriving ( Eq       -- ^ @since 4.7.0.0
            , Ord      -- ^ @since 4.7.0.0
 --           , Read     -- ^ @since 4.7.0.0
@@ -1000,7 +999,7 @@ data (:*:) (f :: k -> Type) (g :: k -> Type) (p :: k) = P1 {prodL1 :: f p, prodR
 
 -- | Composition of functors
 infixr 7 :.:
-newtype (:.:) (f :: k2 -> Type) (g :: k1 -> k2) (p :: k1) =
+newtype (:.:) (f :: * -> Type) (g :: * -> *) (p :: *) =
     Comp1 { unComp1 :: f (g p) }
   deriving ( Eq       -- ^ @since 4.7.0.0
            , Ord      -- ^ @since 4.7.0.0
@@ -1382,7 +1381,7 @@ class Generic a rep where
 -- 'to1' . 'from1' ≡ 'Prelude.id'
 -- @
 -- [DA] we replaced the type family @Rep1 f@ with a second type paremeter of the class @rep@.
-class Generic1 (f :: k -> Type) rep where
+class Generic1 (f :: * -> Type) rep where
   -- | Generic representation type
 -- type Rep1 f :: k -> Type
 -- -- | Convert from the datatype to its representation
