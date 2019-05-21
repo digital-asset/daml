@@ -73,14 +73,31 @@ object SandboxServer {
 
   // if requested, initialize the ledger state with the given scenario
   private def createInitialState(config: SandboxConfig, context: SandboxContext)
-    : (ActiveContractsInMemory, ImmArray[LedgerEntryWithLedgerEndIncrement], Option[Instant]) =
+    : (ActiveContractsInMemory, ImmArray[LedgerEntryWithLedgerEndIncrement], Option[Instant]) = {
+    // [[ScenarioLoader]] needs all the packages to be already compiled --
+    // make sure that that's the case
+    if (config.eagerPackageLoading || config.scenario.nonEmpty) {
+      for ((pkgId, pkg) <- context.packageContainer.packages) {
+        engine
+          .preloadPackage(pkgId, pkg)
+          .consume(
+            { _ =>
+              sys.error("Unexpected request of contract")
+            },
+            context.packageContainer.packages.get, { _ =>
+              sys.error("Unexpected request of contract key")
+            }
+          )
+      }
+    }
     config.scenario match {
       case None => (ActiveContractsInMemory.empty, ImmArray.empty, None)
       case Some(scenario) =>
         val (acs, records, ledgerTime) =
-          ScenarioLoader.fromScenario(context.packageContainer, scenario)
+          ScenarioLoader.fromScenario(context.packageContainer, engine.compiledPackages(), scenario)
         (acs, records, Some(ledgerTime))
     }
+  }
 }
 
 class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends AutoCloseable {
