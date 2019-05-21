@@ -741,7 +741,8 @@ prettyDefName world (Identifier mbPkgId (TL.toStrict -> qualName))
     ppName = text name <> ppPkgId
     ppPkgId = maybe mempty prettyPackageIdentifier mbPkgId
 
-prettyChoiceId :: LF.World -> Maybe Identifier -> TL.Text -> Doc SyntaxClass
+prettyChoiceId 
+  :: LF.World -> Maybe Identifier -> TL.Text -> Doc SyntaxClass
 prettyChoiceId _ Nothing choiceId = ltext choiceId
 prettyChoiceId world (Just (Identifier mbPkgId (TL.toStrict -> qualName))) (TL.toStrict -> choiceId)
   | Just (_modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
@@ -822,16 +823,18 @@ renderValue world name = \case
         renderField (Field label mbValue) =
             renderValue world (name ++ [TL.toStrict label]) (fromJust mbValue)
 
-templateConName :: LF.World -> Identifier -> Maybe (LF.TypeConName)
+templateConName :: LF.World -> Identifier -> Maybe (LF.Qualified LF.TypeConName)
 templateConName world (Identifier mbPkgId (TL.toStrict -> qualName)) = do
-  (_, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
+  (mName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
   tpl <- NM.lookup (LF.TypeConName [defName]) (LF.moduleTemplates mod0)
-  return (LF.tplTypeCon tpl)
+  return (LF.Qualified LF.PRSelf  mName (LF.tplTypeCon tpl))
 
 
 renderHeader :: LF.World -> Identifier -> [T.Text]
 renderHeader world identifier = case templateConName world identifier of 
-  Just typeConName -> LF.unTypeConName typeConName 
+  Just qTypeConName -> case LF.lookupDataType qTypeConName world of 
+    Right ddt -> map LF.unTypeVarName $(map fst (LF.dataParams ddt))
+    Left _ -> []
   Nothing -> []
 
 
