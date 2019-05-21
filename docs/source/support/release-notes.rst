@@ -16,6 +16,11 @@ Ledger
 
   See `#1250 <https://github.com/digital-asset/daml/issues/1250>`__ for details.
 
+Java Bindings
+~~~~~~~~~~~~~
+
+- **Bots**: A class called LedgerTestView was added to make bot unit testing possible
+
 .. _release-0-12-18:
 
 0.12.18 - 2019-05-20
