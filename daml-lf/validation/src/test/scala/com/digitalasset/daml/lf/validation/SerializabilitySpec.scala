@@ -220,6 +220,59 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
       }
 
     }
+
+    "reject unserializable contract id" in {
+
+      val pkg =
+        p"""
+          // well-formed module
+          module NegativeTestCase1 {
+            record @serializable SerializableRecord = {};
+
+            template (this : SerializableRecord) =  {
+              precondition True,
+              signatories Nil @Party,
+              observers Nil @Party,
+              agreement "Agreement",
+              choices {
+              }
+            } ;
+
+            record @serializable SerializableContractId = { cid : ContractId NegativeTestCase1:SerializableRecord };
+          }
+
+          module NegativeTestCase2 {
+            record @serializable SerializableContractId = { cid : ContractId NegativeTestCase1:SerializableRecord };
+          }
+
+          module PositiveTestCase1 {
+            record @serializable SerializableRecord = {};
+
+            record @serializable UnserializableContractId = { cid : ContractId PositiveTestCase1:SerializableRecord };
+          }
+
+          module PositiveTestCase2 {
+            record @serializable UnserializableContractId = { cid : ContractId Int };
+          }
+
+          module PositiveTestCase3 {
+            record @serializable UnserializableContractId (a : *) = { cid : ContractId a };
+          }
+         """
+
+      val positiveTestCases = Table(
+        "module",
+        "PositiveTestCase1",
+        "PositiveTestCase2",
+        "PositiveTestCase3",
+      )
+
+      check(pkg, "NegativeTestCase1")
+      check(pkg, "NegativeTestCase2")
+      forEvery(positiveTestCases) { modName =>
+        an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, modName))
+      }
+    }
   }
 
   private val defaultPkg =
