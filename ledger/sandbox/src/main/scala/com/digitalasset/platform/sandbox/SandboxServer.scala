@@ -207,30 +207,33 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
     val stopHeartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
 
-    val apiServer = LedgerApiServer(
-      (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
-        ApiServices
-          .create(
-            config,
-            ledgerBackend,
-            ledgerBackend,
-            ApiServices.configurationService(config),
-            ApiServices.identityService(ledgerId),
-            context.packageService,
-            SandboxServer.engine,
-            timeProvider,
-            timeServiceBackendO
-              .map(
-                TimeServiceBackend.withObserver(
-                  _,
-                  ledger.publishHeartbeat
-                ))
-          )(am, esf)
-          .map(_.withServices(List(resetService))),
-      // NOTE(JM): Re-use the same port after reset.
-      Option(sandboxState).fold(config.port)(_.apiServerState.port),
-      config.address,
-      config.tlsConfig.flatMap(_.server)
+    val apiServer = Await.result(
+      LedgerApiServer.create(
+        (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
+          ApiServices
+            .create(
+              config,
+              ledgerBackend,
+              ledgerBackend,
+              ApiServices.configurationService(config),
+              ApiServices.identityService(ledgerId),
+              context.packageService,
+              SandboxServer.engine,
+              timeProvider,
+              timeServiceBackendO
+                .map(
+                  TimeServiceBackend.withObserver(
+                    _,
+                    ledger.publishHeartbeat
+                  ))
+            )(am, esf)
+            .map(_.withServices(List(resetService))),
+        // NOTE(JM): Re-use the same port after reset.
+        Option(sandboxState).fold(config.port)(_.apiServerState.port),
+        config.address,
+        config.tlsConfig.flatMap(_.server)
+      ),
+      Duration.Inf
     )
 
     val newState = ApiServerState(

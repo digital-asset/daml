@@ -16,8 +16,7 @@ import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.{Future, Promise}
 import scala.util.control.NoStackTrace
 
 trait ApiServer extends AutoCloseable {
@@ -31,21 +30,49 @@ trait ApiServer extends AutoCloseable {
 }
 
 object LedgerApiServer {
-  def apply(
+  def create(
       createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => Future[ApiServices],
       desiredPort: Int,
       address: Option[String],
-      sslContext: Option[SslContext] = None)(implicit mat: ActorMaterializer): ApiServer =
-    new LedgerApiServer(
-      createApiServices,
-      desiredPort,
-      address,
-      sslContext
-    )
+      sslContext: Option[SslContext] = None)(implicit mat: ActorMaterializer): Future[ApiServer] = {
+
+    val serverEsf = new AkkaExecutionSequencerPool(
+      // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server
+      // instances, and it's pretty difficult to wait for the name to become available
+      // again (the name deregistration is asynchronous and the close method is not waiting for
+      // it, and it isn't trivial to implement).
+      // https://doc.akka.io/docs/akka/2.5/actors.html#graceful-stop
+      poolName = s"ledger-api-server-rs-grpc-bridge-${UUID.randomUUID}",
+      actorCount = Runtime.getRuntime.availableProcessors() * 8
+    )(mat.system)
+
+    createApiServices(mat, serverEsf).map { apiServices =>
+      new ApiServer {
+        private val impl = new LedgerApiServer(
+          apiServices,
+          desiredPort,
+          address,
+          sslContext
+        )
+
+        /** returns the api port the server is listening on */
+        override def port: Int = impl.port
+
+        /** returns when all services have been closed during the shutdown */
+        override def servicesClosed(): Future[Unit] = impl.servicesClosed()
+
+        override def close(): Unit = {
+          impl.close()
+          serverEsf.close()
+        }
+      }
+    }(mat.executionContext)
+  }
+
 }
 
 private class LedgerApiServer(
-    createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => Future[ApiServices],
+    apiServices: ApiServices,
     desiredPort: Int,
     address: Option[String],
     sslContext: Option[SslContext] = None)(implicit mat: ActorMaterializer)
@@ -60,20 +87,7 @@ private class LedgerApiServer(
         cause)
       with NoStackTrace
 
-  private implicit val serverEsf = new AkkaExecutionSequencerPool(
-    // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server
-    // instances, and it's pretty difficult to wait for the name to become available
-    // again (the name deregistration is asynchronous and the close method is not waiting for
-    // it, and it isn't trivial to implement).
-    // https://doc.akka.io/docs/akka/2.5/actors.html#graceful-stop
-    poolName = s"ledger-api-server-rs-grpc-bridge-${UUID.randomUUID}",
-    actorCount = Runtime.getRuntime.availableProcessors() * 8
-  )(mat.system)
-
   private val serverEventLoopGroup = createEventLoopGroup(mat.system.name)
-
-  //TODO: make this async!
-  private val apiServices = Await.result(createApiServices(mat, serverEsf), Duration.Inf)
 
   private val (grpcServer, actualPort) = startServer()
 
@@ -138,10 +152,9 @@ private class LedgerApiServer(
     // no quiet period, this can also be 0.
     // See <https://netty.io/4.1/api/io/netty/util/concurrent/EventExecutorGroup.html#shutdownGracefully-long-long-java.util.concurrent.TimeUnit->.
     // The 10 seconds to wait is sort of arbitrary, it's long enough to be noticeable though.
-    serverEventLoopGroup
+    val _ = serverEventLoopGroup
       .shutdownGracefully(0L, 0L, TimeUnit.MILLISECONDS)
       .await(10L, TimeUnit.SECONDS)
-    serverEsf.close()
   }
 
 }
