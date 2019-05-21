@@ -746,14 +746,8 @@ prettyChoiceId _ Nothing choiceId = ltext choiceId
 prettyChoiceId world (Just (Identifier mbPkgId (TL.toStrict -> qualName))) (TL.toStrict -> choiceId)
   | Just (_modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
   , Just fp <- LF.moduleSource mod0
-<<<<<<< HEAD
-  , Just tpl <- NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
-
-  , Just chc <- NM.lookup (Tagged choiceId) (LF.tplChoices tpl)
-=======
   , Just tpl <- NM.lookup (LF.TypeConName [defName]) (LF.moduleTemplates mod0)
   , Just chc <- NM.lookup (LF.ChoiceName choiceId) (LF.tplChoices tpl)
->>>>>>> master
   , Just (LF.SourceLoc _mref sline _scol eline _ecol) <- LF.chcLocation chc =
       linkSC (revealLocationUri fp sline eline) choiceId $ text choiceId
   | otherwise =
