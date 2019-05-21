@@ -14,7 +14,6 @@ module DA.Daml.LF.Ast.Base(
 
 import Data.Hashable
 import Data.Data
-import Data.Tagged
 import GHC.Generics(Generic)
 import Data.Int
 import           Control.DeepSeq
@@ -34,80 +33,72 @@ infixr 1 `KArrow`
 -- package. Must match the regex
 --
 -- > [a-zA-Z0-9]+
-type PackageId = Tagged PackageIdTag T.Text
-data PackageIdTag
-deriving instance Data PackageIdTag
+newtype PackageId = PackageId{unPackageId :: T.Text}
+    deriving (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
 
 -- | Name for a module. Must match the regex
 --
 -- > ([A-Z][a-zA-Z0-9_]*)(\.[A-Z][a-zA-Z0-9_]*)*
-type ModuleName = Tagged ModuleNameTag [T.Text]
-data ModuleNameTag
-deriving instance Data ModuleNameTag
+newtype ModuleName = ModuleName{unModuleName :: [T.Text]}
+    deriving (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
 
 -- | Name for a type constructor. Must match the regex
 --
 -- > ([A-Z][a-zA-Z0-9_]*)(\.[A-Z][a-zA-Z0-9_]*)*
-type TypeConName = Tagged TypeConNameTag [T.Text]
-data TypeConNameTag
-deriving instance Data TypeConNameTag
+newtype TypeConName = TypeConName{unTypeConName :: [T.Text]}
+    deriving (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
 
 -- | Name for a record field. Must match the regex
 --
 -- > [a-z][a-zA-Z0-9_]*
-type FieldName = Tagged FieldNameTag T.Text
-data FieldNameTag
-deriving instance Data FieldNameTag
+newtype FieldName = FieldName{unFieldName :: T.Text}
+    deriving (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
 
 -- | Name for a variant constructor. Must match the regex
 --
 -- > [A-Z][a-zA-Z0-9_]*
-type VariantConName = Tagged VariantConNameTag T.Text
-data VariantConNameTag
-deriving instance Data VariantConNameTag
+newtype VariantConName = VariantConName{unVariantConName :: T.Text}
+    deriving (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
 
 -- | Name for the choice of a contract. Must match the regex
 --
 -- > [A-Z][a-zA-Z0-9_]*
-type ChoiceName = Tagged ChoiceNameTag T.Text
-data ChoiceNameTag
-deriving instance Data ChoiceNameTag
+newtype ChoiceName = ChoiceName{unChoiceName :: T.Text}
+    deriving (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
 
 -- | Name for a type variable. Must match the regex
 --
 -- > [a-z_][a-zA-Z0-9_]*
-type TypeVarName = Tagged TypeVarNameTag T.Text
-data TypeVarNameTag
-deriving instance Data TypeVarNameTag
+newtype TypeVarName = TypeVarName{unTypeVarName :: T.Text}
+    deriving (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
 
 -- | Name for a local expression variable, bound in an expression,
 --   and used locally. Must match the regex
 --
 -- > [a-z_][a-zA-Z0-9_]*
-type ExprVarName = Tagged ExprVarNameTag T.Text
-data ExprVarNameTag
-deriving instance Data ExprVarNameTag
+newtype ExprVarName = ExprVarName{unExprVarName :: T.Text}
+    deriving (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
 
 -- | Name for an global expression variable, bound at the declaration level,
 --   and used in this and other modules. Must match the regex
 --
 -- > [a-z_][a-zA-Z0-9_]*
-type ExprValName = Tagged ExprValNameTag T.Text
-data ExprValNameTag
-deriving instance Data ExprValNameTag
-
--- | Identifier referring to a contract. Will be obtained by some mechanism for
--- generating unique identifiers, like content hashing. Must match the regex
---
--- > #[a-zA-Z0-9]+
-type ContractIdLiteral = Tagged ContractIdLiteralTag T.Text
-data ContractIdLiteralTag
-deriving instance Data ContractIdLiteralTag
+newtype ExprValName = ExprValName{unExprValName :: T.Text}
+    deriving (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
 
 -- | Literal representing a party.
-type PartyLiteral = Tagged PartyLiteralTag T.Text
-data PartyLiteralTag
-deriving instance Data PartyLiteralTag
+newtype PartyLiteral = PartyLiteral{unPartyLiteral :: T.Text}
+    deriving (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
 
 -- | Reference to a package.
 data PackageRef

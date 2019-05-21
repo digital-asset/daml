@@ -55,7 +55,6 @@ import qualified Data.Set                                   as S
 import qualified Data.Text                                  as T
 import Data.List
 import Data.Maybe
-import Data.Tagged
 import Safe
 
 import           Data.Time.Clock
@@ -209,7 +208,7 @@ getAssociatedVirtualResources service filePath = do
             [ (sourceLocToRange loc, "Scenario: " <> name, vr)
             | value@LF.DefValue{dvalLocation = Just loc} <- NM.toList (LF.moduleValues mod0)
             , LF.getIsTest (LF.dvalIsTest value)
-            , let name = unTagged (LF.dvalName value)
+            , let name = LF.unExprValName (LF.dvalName value)
             , let vr = VRScenario filePath name
             ]
 

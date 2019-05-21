@@ -15,37 +15,39 @@ import           DA.Pretty (renderPretty)
 
 import qualified Data.ByteString.Char8      as BS
 import qualified Data.NameMap               as NM
-import           Data.Tagged
 import qualified Data.Text                  as T
 import           GHC.Stack                  (HasCallStack)
 import           Outputable
 
 mkVar :: String -> ExprVarName
-mkVar = Tagged . T.pack
+mkVar = ExprVarName . T.pack
 
 mkVal :: String -> ExprValName
-mkVal = Tagged . T.pack
+mkVal = ExprValName . T.pack
 
 mkTypeVar :: String -> TypeVarName
-mkTypeVar = Tagged . T.pack
+mkTypeVar = TypeVarName . T.pack
 
 mkModName :: [String] -> ModuleName
-mkModName = Tagged . map T.pack
+mkModName = ModuleName . map T.pack
 
 mkField :: String -> FieldName
-mkField = Tagged . T.pack
+mkField = FieldName . T.pack
 
 mkVariantCon :: String -> VariantConName
-mkVariantCon = Tagged . T.pack
+mkVariantCon = VariantConName . T.pack
 
 mkChoiceName :: String -> ChoiceName
-mkChoiceName = Tagged . T.pack
+mkChoiceName = ChoiceName . T.pack
 
 mkTypeCon :: [String] -> TypeConName
-mkTypeCon = Tagged . map T.pack
+mkTypeCon = TypeConName . map T.pack
 
 mkIdentity :: Type -> Expr
 mkIdentity t = ETmLam (varV1, t) $ EVar varV1
+
+fieldToVar :: FieldName -> ExprVarName
+fieldToVar = ExprVarName . unFieldName
 
 varV1, varV2, varV3 :: ExprVarName
 varV1 = mkVar "v1"
@@ -53,7 +55,7 @@ varV2 = mkVar "v2"
 varV3 = mkVar "v3"
 
 varT1 :: (TypeVarName, Kind)
-varT1 = (Tagged $ T.pack "t1", KStar)
+varT1 = (mkTypeVar "t1", KStar)
 
 fromTCon :: HasCallStack => Type -> TypeConApp
 fromTCon (TConApp con args) = TypeConApp con args
@@ -62,7 +64,7 @@ fromTCon t = error $ "fromTCon failed, " ++ show t
 -- 'synthesizeVariantRecord' is used to synthesize, e.g., @T.C@ from the type
 -- constructor @T@ and the variant constructor @C@.
 synthesizeVariantRecord :: VariantConName -> TypeConName -> TypeConName
-synthesizeVariantRecord dcon = fmap (++ [untag dcon])
+synthesizeVariantRecord (VariantConName dcon) (TypeConName tcon) = TypeConName (tcon ++ [dcon])
 
 writeFileLf :: FilePath -> Package -> IO ()
 writeFileLf outFile lfPackage = do
@@ -149,20 +151,20 @@ ghcTypes = Module
       { dataLocation= Nothing
       , dataTypeCon = mkTypeCon ["Proxy"]
       , dataSerializable = IsSerializable True
-      , dataParams = [(Tagged "a", KStar)]
+      , dataParams = [(mkTypeVar "a", KStar)]
       , dataCons = DataRecord []
       }
     proxyCtor = DefValue
       { dvalLocation = Nothing
       , dvalBinder =
           ( mkVal "$ctor:Proxy"
-          , TForall (Tagged "a", KStar) (TConApp (qual (dataTypeCon dataProxy)) [TVar (Tagged "a")])
+          , TForall (mkTypeVar "a", KStar) (TConApp (qual (dataTypeCon dataProxy)) [TVar (mkTypeVar "a")])
           )
       , dvalNoPartyLiterals = HasNoPartyLiterals True
       , dvalIsTest = IsTest False
       , dvalBody = ETyLam
-          (Tagged "a", KStar)
-          (ERecCon (TypeConApp (qual (dataTypeCon dataProxy)) [TVar (Tagged "a")]) [])
+          (mkTypeVar "a", KStar)
+          (ERecCon (TypeConApp (qual (dataTypeCon dataProxy)) [TVar (mkTypeVar "a")]) [])
       }
 
 instance Outputable Expr where

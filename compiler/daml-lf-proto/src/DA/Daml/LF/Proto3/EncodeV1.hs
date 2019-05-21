@@ -19,7 +19,6 @@ import qualified Data.Text.Lazy      as TL
 import qualified Data.Vector         as V
 
 import           DA.Pretty
-import Data.Tagged
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
 import qualified Da.DamlLf1 as P
@@ -42,10 +41,10 @@ encodeNameMap :: NM.Named a => (Version -> a -> b) -> Version -> NM.NameMap a ->
 encodeNameMap encodeElem version = V.fromList . map (encodeElem version) . NM.toList
 
 encodePackageId :: PackageId -> TL.Text
-encodePackageId = TL.fromStrict . unTagged
+encodePackageId = TL.fromStrict . unPackageId
 
-encodeName :: Tagged tag T.Text -> TL.Text
-encodeName (Tagged unmangled) = case mangleIdentifier unmangled of
+encodeName :: Coercible a T.Text => a -> TL.Text
+encodeName (coerce -> unmangled) = case mangleIdentifier unmangled of
    Left err -> error $ "IMPOSSIBLE: could not mangle name " ++ show unmangled ++ ": " ++ err
    Right x -> TL.fromStrict x
 
@@ -58,8 +57,8 @@ encodeName (Tagged unmangled) = case mangleIdentifier unmangled of
 encodeValueName :: ExprValName -> V.Vector TL.Text
 encodeValueName = V.singleton . encodeName
 
-encodeDottedName :: Tagged tag [T.Text] -> Just P.DottedName
-encodeDottedName = Just . P.DottedName . encodeList encodeName . coerce
+encodeDottedName :: Coercible a [T.Text] => a -> Just P.DottedName
+encodeDottedName = Just . P.DottedName . encodeList (encodeName @T.Text) . coerce
 
 encodeQualTypeConName :: Qualified TypeConName -> Just P.TypeConName
 encodeQualTypeConName (Qualified pref mname con) = Just $ P.TypeConName (encodeModuleRef pref mname) (encodeDottedName con)
@@ -82,10 +81,10 @@ encodePackageRef = Just . \case
 encodeModuleRef :: PackageRef -> ModuleName -> Just P.ModuleRef
 encodeModuleRef pkgRef modName = Just $ P.ModuleRef (encodePackageRef pkgRef) (encodeDottedName modName)
 
-encodeFieldsWithTypes :: Version -> [(Tagged tag T.Text, Type)] -> V.Vector P.FieldWithType
+encodeFieldsWithTypes :: Coercible a T.Text => Version -> [(a, Type)] -> V.Vector P.FieldWithType
 encodeFieldsWithTypes version = encodeList $ \(name, typ) -> P.FieldWithType (encodeName name) (encodeType version typ)
 
-encodeFieldsWithExprs :: Version -> [(Tagged tag T.Text, Expr)] -> V.Vector P.FieldWithExpr
+encodeFieldsWithExprs :: Coercible a T.Text => Version -> [(a, Expr)] -> V.Vector P.FieldWithExpr
 encodeFieldsWithExprs version = encodeList $ \(name, expr) -> P.FieldWithExpr (encodeName name) (encodeExpr version expr)
 
 encodeTypeVarsWithKinds :: Version -> [(TypeVarName, Kind)] -> V.Vector P.TypeVarWithKind
@@ -174,7 +173,7 @@ encodeBuiltinExpr = \case
     BEDecimal dec -> lit $ P.PrimLitSumDecimal (TL.pack (show dec))
     BEText x -> lit $ P.PrimLitSumText (TL.fromStrict x)
     BETimestamp x -> lit $ P.PrimLitSumTimestamp x
-    BEParty x -> lit $ P.PrimLitSumParty $ TL.fromStrict $ unTagged x
+    BEParty x -> lit $ P.PrimLitSumParty $ TL.fromStrict $ unPartyLiteral x
     BEDate x -> lit $ P.PrimLitSumDate x
 
     BEEnumCon con -> P.ExprSumPrimCon (encodeEnumCon con)

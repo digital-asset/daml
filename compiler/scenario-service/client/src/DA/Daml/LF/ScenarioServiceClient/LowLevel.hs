@@ -29,7 +29,6 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
 import Conduit (runConduit, (.|))
 import GHC.Generics
 import Text.Read
-import Data.Tagged
 import Control.Concurrent.Async
 import Control.Concurrent.MVar
 import Control.DeepSeq
@@ -249,8 +248,8 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
     updPackages =
       SS.UpdateContextRequest_UpdatePackages
         (V.fromList (map snd updLoadPackages))
-        (V.fromList (map (TL.fromStrict . unTagged) updUnloadPackages))
-    encodeName = TL.fromStrict . T.intercalate "." . unTagged
+        (V.fromList (map (TL.fromStrict . LF.unPackageId) updUnloadPackages))
+    encodeName = TL.fromStrict . T.intercalate "." . LF.unModuleName
     convModule :: (LF.ModuleName, BS.ByteString) -> SS.Module
     -- FixMe(#415): the proper minor version should be passed instead of "0"
     convModule (_, bytes) =
@@ -275,11 +274,11 @@ runScenario Handle{..} (ContextId ctxId) name = do
     toIdentifier (LF.Qualified pkgId modName defn) =
       let ssPkgId = SS.PackageIdentifier $ Just $ case pkgId of
             LF.PRSelf     -> SS.PackageIdentifierSumSelf SS.Empty
-            LF.PRImport x -> SS.PackageIdentifierSumPackageId (TL.fromStrict $ unTagged x)
+            LF.PRImport x -> SS.PackageIdentifierSumPackageId (TL.fromStrict $ LF.unPackageId x)
       in
         SS.Identifier
           (Just ssPkgId)
-          (TL.fromStrict $ T.intercalate "." (unTagged modName) <> ":" <> unTagged defn)
+          (TL.fromStrict $ T.intercalate "." (LF.unModuleName modName) <> ":" <> LF.unExprValName defn)
 
 performRequest
   :: (ClientRequest 'Normal payload response -> IO (ClientResult 'Normal response))
