@@ -48,7 +48,7 @@ jobs:
           LOG=$(Build.StagingDirectory)/log.txt
           RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
           LATEST=$(echo $RELEASES | awk '{print $1}')
-          JSON_BODY=$(echo $RELEASES | sed -e 's/ /\n/g' | sed -e 's/v\(.*\)/"\1": "v\1",'/g)
+          JSON_BODY=$(echo $RELEASES | sed -e 's/ /\n/g' | sed -e 's/v\(.*\)/"\1": "\1",'/g)
           echo "Building latest docs: $LATEST"
           git checkout $LATEST >$LOG 2>&1
           robustly_download_nix_pkgs
