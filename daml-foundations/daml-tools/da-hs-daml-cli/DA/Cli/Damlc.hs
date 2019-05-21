@@ -139,6 +139,7 @@ cmdBuild numProcessors =
         execBuild
             <$> optionsParser numProcessors (pure Nothing)
             <*> optionalOutputFileOpt
+            <*> initPkgDbOpt
             <*> projectCheckOpt
 
 cmdClean :: Mod CommandFields Command
@@ -149,22 +150,12 @@ cmdClean =
   where
     cmd = execClean <$> projectCheckOpt
 
-cmdPackageNew :: Int -> Mod CommandFields Command
-cmdPackageNew numProcessors =
-    command "package-new" $
-    info (helper <*> cmd) $
-    progDesc "Compile the DAML project into a DAML Archive (DAR)" <> fullDesc
-  where
-    cmd =
-        execPackageNew <$> optionsParser numProcessors (pure Nothing) <*>
-        optionalOutputFileOpt
-
 cmdInit :: Mod CommandFields Command
 cmdInit =
     command "init" $
     info (helper <*> cmd) $ progDesc "Initialize a DAML project" <> fullDesc
   where
-    cmd = pure execInit
+    cmd = pure $ execInit (InitPkgDb True)
 
 cmdPackage :: Int -> Mod CommandFields Command
 cmdPackage numProcessors =
@@ -230,7 +221,7 @@ execIde telemetry (Debug debug) = NS.withSocketsDo $ Managed.runManaged $ do
     opts <- liftIO $ defaultOptionsIO Nothing
 
     Managed.liftIO $ do
-      execInit
+      execInit (InitPkgDb True)
       Daml.LanguageServer.runLanguageServer
         (Compiler.newIdeState opts) loggerH
 
@@ -274,92 +265,19 @@ parseProjectConfig project = do
     sdkVersion <- queryProjectConfigRequired ["sdk-version"] project
     Right $ PackageConfigFields name main exposedModules version dependencies sdkVersion
 
--- | Package command that takes all arguments of daml.yaml.
-execPackageNew :: Compiler.Options -> Maybe FilePath -> IO ()
-execPackageNew options mbOutFile =
-    withProjectRoot $ \_relativize -> do
+withPackageConfig :: (PackageConfigFields -> IO a) -> IO a
+withPackageConfig f = do
+    withProjectRoot $ \_ -> do
         project <- readProjectConfig $ ProjectPath "."
         case parseProjectConfig project of
             Left err -> throwIO err
-            Right PackageConfigFields {..} -> do
-                putStrLn $ "Compiling " <> pMain <> " to a DAR."
-                options' <- mkOptions options
-                let opts = options'
-                            { optMbPackageName = Just pName
-                            , optWriteInterface = True
-                            }
-                loggerH <- getLogger opts "package"
-                let confFile =
-                        mkConfFile
-                            pName
-                            pVersion
-                            pExposedModules
-                            pDependencies
-                Managed.with (Compiler.newIdeState opts Nothing loggerH) $ \compilerH -> do
-                    darOrErr <-
-                        runExceptT $
-                        Compiler.buildDar
-                            compilerH
-                            pMain
-                            pExposedModules
-                            pName
-                            pSdkVersion
-                            [confFile]
-                            (UseDalf False)
-                    case darOrErr of
-                        Left errs ->
-                            ioError $
-                            userError $
-                            unlines
-                                [ "Creation of DAR file failed:"
-                                , T.unpack $
-                                  showDiagnosticsColored errs
-                                ]
-                        Right dar -> do
-                            let fp = targetFilePath pName
-                            createDirectoryIfMissing True $ takeDirectory fp
-                            B.writeFile fp dar
-                            putStrLn $ "Created " <> fp <> "."
-  where
-    mkConfFile ::
-           String
-        -> String
-        -> [String]
-        -> [FilePath]
-        -> (String, B.ByteString)
-    mkConfFile name version exposedMods deps = (confName, bs)
-      where
-        confName = name ++ ".conf"
-        bs =
-            BSC.pack $
-            unlines
-                [ "name: " ++ name
-                , "id: " ++ name
-                , "key: " ++ name
-                , "version: " ++ version
-                , "exposed: True"
-                , "exposed-modules: " ++ unwords exposedMods
-                , "import-dirs: ${pkgroot}" </> name
-                , "library-dirs: ${pkgroot}" </> name
-                , "data-dir: ${pkgroot}" </> name
-                , "depends: " ++
-                  unwords [dropExtension $ takeFileName dep | dep <- deps]
-                ]
-    -- The default output filename is based on Maven coordinates if
-    -- the package name is specified via them, otherwise we use the
-    -- name.
-    defaultDarFile name =
-        case Split.splitOn ":" name of
-            [_g, a, v] -> a <> "-" <> v <> ".dar"
-            _otherwise -> name <> ".dar"
-    targetFilePath name = fromMaybe (defaultOutDir </> defaultDarFile name) mbOutFile
-
-    defaultOutDir = "dist"
+            Right pkgConfig -> f pkgConfig
 
 -- | If we're in a daml project, read the daml.yaml field and create the project local package
 -- database. Otherwise do nothing.
-execInit :: IO ()
-execInit =
+execInit :: InitPkgDb -> IO ()
+execInit (InitPkgDb shouldInit) =
+    when shouldInit $
     withProjectRoot $ \_relativize -> do
         isProject <- doesFileExist projectConfigName
         when isProject $ do
@@ -414,11 +332,83 @@ createProjectPackageDb lfVersion fps = do
             , "--expand-pkgroot"
             ]
 
-execBuild :: Compiler.Options -> Maybe FilePath -> ProjectCheck -> IO ()
-execBuild options mbOutFile projectCheck = do
+execBuild :: Compiler.Options -> Maybe FilePath -> InitPkgDb -> ProjectCheck -> IO ()
+execBuild options mbOutFile initPkgDb projectCheck = do
     runProjectCheck "daml build" projectCheck
-    execInit
-    execPackageNew options mbOutFile
+    execInit initPkgDb
+    withPackageConfig $ \PackageConfigFields {..} -> do
+        putStrLn $ "Compiling " <> pMain <> " to a DAR."
+        options' <- mkOptions options
+        let opts = options'
+                    { optMbPackageName = Just pName
+                    , optWriteInterface = True
+                    }
+        loggerH <- getLogger opts "package"
+        let confFile =
+                mkConfFile
+                    pName
+                    pVersion
+                    pExposedModules
+                    pDependencies
+        Managed.with (Compiler.newIdeState opts Nothing loggerH) $ \compilerH -> do
+            darOrErr <-
+                runExceptT $
+                Compiler.buildDar
+                    compilerH
+                    pMain
+                    pExposedModules
+                    pName
+                    pSdkVersion
+                    [confFile]
+                    (UseDalf False)
+            case darOrErr of
+                Left errs ->
+                    ioError $
+                    userError $
+                    unlines
+                        [ "Creation of DAR file failed:"
+                        , T.unpack $
+                          showDiagnosticsColored errs
+                        ]
+                Right dar -> do
+                    let fp = targetFilePath pName
+                    createDirectoryIfMissing True $ takeDirectory fp
+                    B.writeFile fp dar
+                    putStrLn $ "Created " <> fp <> "."
+    where
+        -- The default output filename is based on Maven coordinates if
+        -- the package name is specified via them, otherwise we use the
+        -- name.
+        defaultDarFile name =
+            case Split.splitOn ":" name of
+                [_g, a, v] -> a <> "-" <> v <> ".dar"
+                _otherwise -> name <> ".dar"
+        defaultOutDir = "dist"
+        targetFilePath name = fromMaybe (defaultOutDir </> defaultDarFile name) mbOutFile
+        mkConfFile ::
+               String
+            -> String
+            -> [String]
+            -> [FilePath]
+            -> (String, B.ByteString)
+        mkConfFile name version exposedMods deps = (confName, bs)
+          where
+            confName = name ++ ".conf"
+            bs =
+                BSC.pack $
+                unlines
+                    [ "name: " ++ name
+                    , "id: " ++ name
+                    , "key: " ++ name
+                    , "version: " ++ version
+                    , "exposed: True"
+                    , "exposed-modules: " ++ unwords exposedMods
+                    , "import-dirs: ${pkgroot}" </> name
+                    , "library-dirs: ${pkgroot}" </> name
+                    , "data-dir: ${pkgroot}" </> name
+                    , "depends: " ++
+                      unwords [dropExtension $ takeFileName dep | dep <- deps]
+                    ]
 
 -- | Remove any build artifacts if they exist.
 execClean :: ProjectCheck -> IO ()
@@ -682,8 +672,9 @@ options numProcessors =
     subparser
       (  cmdIde
       <> cmdLicense
-      <> cmdCompile numProcessors
+      -- cmdPackage can go away once we kill the old assistant.
       <> cmdPackage numProcessors
+      <> cmdBuild numProcessors
       <> cmdTest numProcessors
       <> cmdDamlDoc
       <> cmdInspectDar
@@ -691,9 +682,8 @@ options numProcessors =
     <|> subparser
       (internal -- internal commands
         <> cmdInspect
-        <> cmdPackageNew numProcessors
         <> cmdInit
-        <> cmdBuild numProcessors
+        <> cmdCompile numProcessors
         <> cmdClean
       )
 
