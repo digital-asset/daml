@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+Java Bindings
+~~~~~~~~~~~~~
+
+- **Bots**: A class called LedgerTestView was added to make bot unit testing possible
+
 .. _release-0-12-18:
 
 0.12.18 - 2019-05-20
