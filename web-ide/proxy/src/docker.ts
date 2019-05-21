@@ -77,6 +77,7 @@ export default class Docker {
             const createOptions = { HostConfig: config.docker.hostConfig }
             if (!this.onInternalNetwork && config.devMode) createOptions.HostConfig.PublishAllPorts=true
 
+            debug("sending run api command")
             const runner = this.api.run(imageId, ["code-server", "--no-auth", "--allow-http", "--disable-telemetry"], [], createOptions, (err :any, result :any) => {
                 if (err) reject(err) 
             })
@@ -86,7 +87,7 @@ export default class Docker {
                     cResolve(container)
                 })
             })
-            runner.on('container', (container :Container) => debug(`created container ${container.id}`))
+            runner.on('container', (container :Container) => { debug(`created container ${container.id}`) })
             runner.on('stream', (stream :Stream) => {
                 let started = false
                 stream.pipe(process.stdout) //TODO should we create context aware log messages per container (including the user session info)??
