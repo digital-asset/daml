@@ -824,22 +824,16 @@ renderValue world name = \case
         renderField (Field label mbValue) =
             renderValue world (name ++ [TL.toStrict label]) (fromJust mbValue)
 
-templateConName :: LF.World -> Identifier -> Maybe (LF.Qualified LF.TypeConName)
+templateConName :: LF.World -> Identifier -> Maybe (LF.TypeConName)
 templateConName world (Identifier mbPkgId (TL.toStrict -> qualName)) = do
-  (modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
+  (_, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
   tpl <- NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
-  let pkgRef = case mbPkgId of
-                Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) -> LF.PRImport $ Tagged $ TL.toStrict pkgId
-                _ -> LF.PRSelf
-  return (LF.Qualified pkgRef modName (LF.tplTypeCon tpl))
+  return (LF.tplTypeCon tpl)
 
 
 renderHeader :: LF.World -> Identifier -> [T.Text]
 renderHeader world identifier = case templateConName world identifier of 
-  Just typeConName -> 
-    case (LF.lookupDataType typeConName world) of
-      Right (LF.DefDataType {..} ) -> map unTagged (map fst dataParams)
-      Left  _ -> []
+  Just typeConName -> unTagged typeConName 
   Nothing -> []
 
 
@@ -853,7 +847,6 @@ renderRow world parties NodeInfo{..} =
             , H.th "status"
             , foldMap (H.th . H.text) ths
             ]
-        _test = renderHeader world niTemplateId
         observed party = if party `S.member` niObservers then "X" else "-"
         active = if niActive then "active" else "archived"
         row = H.tr H.! A.class_ (H.textValue active) $ mconcat
