@@ -451,7 +451,7 @@ convertCtors :: Env -> Ctors -> ConvertM [Definition]
 convertCtors env (Ctors name tys [o@(Ctor ctor fldNames fldTys)])
   | isRecordCtor o
   = pure [defDataType tconName tys $ DataRecord flds
-    ,defValue name (ExprValName $ T.pack $ "$ctor:" ++ getOccString ctor, mkTForalls tys $ mkTFuns fldTys (typeConAppToType tcon)) expr
+    ,defValue name (mkVal $ "$ctor:" ++ getOccString ctor, mkTForalls tys $ mkTFuns fldTys (typeConAppToType tcon)) expr
     ]
     where
         flds = zipExact fldNames fldTys
@@ -480,7 +480,7 @@ convertCtors env (Ctors name tys cs) = do
             tcon = TypeConApp (Qualified PRSelf (envLFModuleName env) tconName) $ map (TVar . fst) tys
             tres = mkTForalls tys $ mkTFuns fldTys (typeConAppToType tcon)
             ctorFun fldNames' ctorArg =
-              defValue ctor (ExprValName $ T.pack $ "$ctor:" ++ getOccString ctor, tres) $
+              defValue ctor (mkVal $ "$ctor:" ++ getOccString ctor, tres) $
               mkETyLams tys $ mkETmLams (zipExact (map fieldToVar fldNames') fldTys) $ EVariantCon tcon ctorName ctorArg
 
 
