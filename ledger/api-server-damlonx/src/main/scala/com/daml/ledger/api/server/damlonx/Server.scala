@@ -146,6 +146,7 @@ object Server {
       identityService,
       packageService,
       timeService,
+      configurationService,
       reflectionService
     )
   }

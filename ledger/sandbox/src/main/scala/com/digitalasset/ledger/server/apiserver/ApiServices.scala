@@ -6,7 +6,11 @@ package com.digitalasset.ledger.server.apiserver
 import akka.NotUsed
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v1.{ConfigurationService, IdentityService}
+import com.daml.ledger.participant.state.index.v1.{
+  ConfigurationService,
+  IdentityService,
+  PackagesService
+}
 import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
@@ -70,11 +74,14 @@ object ApiServices {
       writeService: WriteService,
       configService: ConfigurationService,
       identityService: IdentityService,
+      packagesService: PackagesService,
       engine: Engine,
       timeProvider: TimeProvider,
       optTimeServiceBackend: Option[TimeServiceBackend])(
       implicit mat: ActorMaterializer,
       esf: ExecutionSequencerFactory): ApiServices = {
+
+    //TODO: get ledger id everywhere from IdentityService
 
     implicit val ec: ExecutionContext = mat.system.dispatcher
 
@@ -103,7 +110,7 @@ object ApiServices {
 
     val ledgerIdentityService = LedgerIdentityServiceImpl(identityService)
 
-    val packageService = SandboxPackageService(context.sandboxTemplateStore, ledgerBackend.ledgerId)
+    val packageService = SandboxPackageService(packagesService, ledgerBackend.ledgerId)
 
     val configurationService =
       LedgerConfigurationService.createApiService(configService, ledgerBackend.ledgerId)

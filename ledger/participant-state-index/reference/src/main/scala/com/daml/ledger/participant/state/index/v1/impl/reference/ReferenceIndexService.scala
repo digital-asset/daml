@@ -110,14 +110,9 @@ final case class ReferenceIndexService(
     stateUpdateKillSwitch.shutdown()
   }
 
-  override def listPackages(): Future[List[PackageId]] =
+  override def listPackages(): Future[Set[PackageId]] =
     futureWithState { state =>
-      Future.successful(state.packages.keys.toList)
-    }
-
-  override def isPackageRegistered(packageId: PackageId): Future[Boolean] =
-    futureWithState { state =>
-      Future.successful(state.packages.contains(packageId))
+      Future.successful(state.packages.keySet)
     }
 
   override def getPackage(packageId: PackageId): Future[Option[DamlLf.Archive]] =
