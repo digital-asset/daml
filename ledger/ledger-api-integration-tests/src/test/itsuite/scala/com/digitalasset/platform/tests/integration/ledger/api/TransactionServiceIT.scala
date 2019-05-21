@@ -145,11 +145,15 @@ class TransactionServiceIT
           }
       }
 
-      "respond with empty stream if TransactionFilter is empty" in allFixtures { context =>
-        context.transactionClient
-          .getTransactions(ledgerBegin, None, TransactionFilter())
-          .runWith(Sink.seq)
-          .map(_ shouldBe empty)
+      "return INVALID_ARGUMENT if TransactionFilter is empty" in allFixtures { context =>
+        for {
+          error <- context.transactionClient
+            .getTransactions(ledgerBegin, None, TransactionFilter())
+            .runWith(Sink.seq)
+            .failed
+        } yield {
+          IsStatusException(Status.INVALID_ARGUMENT)(error)
+        }
       }
 
       "complete the stream by itself as soon as LedgerEnd is hit" in allFixtures { context =>
