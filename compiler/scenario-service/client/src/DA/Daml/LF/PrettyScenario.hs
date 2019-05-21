@@ -829,11 +829,14 @@ templateConName world (Identifier mbPkgId (TL.toStrict -> qualName)) = do
   tpl <- NM.lookup (LF.TypeConName [defName]) (LF.moduleTemplates mod0)
   return (LF.Qualified LF.PRSelf  mName (LF.tplTypeCon tpl))
 
+dataex :: LF.DataCons -> [T.Text]
+dataex (LF.DataRecord re) = map LF.unFieldName $ (map fst re)
+dataex (LF.DataVariant re)  = map LF.unVariantConName $ (map fst re)
 
 renderHeader :: LF.World -> Identifier -> [T.Text]
 renderHeader world identifier = case templateConName world identifier of 
   Just qTypeConName -> case LF.lookupDataType qTypeConName world of 
-    Right ddt -> map LF.unTypeVarName $(map fst (LF.dataParams ddt))
+    Right ddt -> dataex (LF.dataCons ddt)
     Left _ -> []
   Nothing -> []
 
