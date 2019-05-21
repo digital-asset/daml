@@ -126,9 +126,9 @@ export default class WebIdeRoute {
         return this.docker.getImage(conf.docker.webIdeReference)
     }
 
-    private proxyError(err :any, req :Request, res :Response) {
+    private proxyError(proxyErr :any, req :Request, res :Response) {
         Session.session(req, res, (err :any, state :any, sessionId :string, saveSession :any) => {
-            console.error("proxy error occurred for session[%s], restarting.", sessionId)
+            console.error("proxy error occurred for session[%s], restarting. Error: %o", sessionId, proxyErr)
             this.proxy.removeAllListeners()
             this.resetState(state, saveSession)
             this.initProxy()

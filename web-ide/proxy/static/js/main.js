@@ -4,7 +4,24 @@
 window.addEventListener('load', function(event) {
     var acceptButton = document.querySelector('#accept-btn');
     acceptButton.addEventListener('click', acceptClick);
+
+    if (!supportsArrowFunction()) {
+        var alert = document.querySelector('#alert');
+        alert.className = 'alert'
+    }
+
 });
+
+function supportsArrowFunction() {
+    var supported = false
+    try {
+        eval('var f = x => 1')
+        if (f && f(1) === 1) {
+            supported = true 
+        }
+    } catch (err) {}
+    return supported
+}
 
 function acceptClick(event) {
     event.preventDefault();
