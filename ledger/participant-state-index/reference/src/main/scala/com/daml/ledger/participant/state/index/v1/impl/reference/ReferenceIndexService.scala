@@ -158,6 +158,7 @@ final case class ReferenceIndexService(
               List(
                 acceptedTx.transactionMeta.workflowId ->
                   AcsUpdateEvent.Create(
+                    nodeIdToEventId(acceptedTx.transactionId, nodeId),
                     create.coid,
                     create.coinst.template,
                     create.coinst.arg,
@@ -171,6 +172,7 @@ final case class ReferenceIndexService(
               List(
                 acceptedTx.transactionMeta.workflowId ->
                   AcsUpdateEvent.Archive(
+                    nodeIdToEventId(acceptedTx.transactionId, nodeId),
                     exe.targetCoid,
                     exe.templateId,
                     witnesses

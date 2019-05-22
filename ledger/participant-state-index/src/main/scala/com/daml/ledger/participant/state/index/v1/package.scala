@@ -19,7 +19,7 @@ package object v1 {
   type TransactionUpdate = (Offset, (Update.TransactionAccepted, BlindingInfo))
 
   /** ACS event identifier */
-  type EventId = Ref.PackageId
+  type EventId = String
 
   final case class AcsUpdate(
       optSubmitterInfo: Option[SubmitterInfo],
@@ -29,12 +29,16 @@ package object v1 {
       events: List[AcsUpdateEvent]
   )
 
-  sealed trait AcsUpdateEvent extends Product with Serializable
+  sealed trait AcsUpdateEvent extends Product with Serializable {
+    def stakeholders: Set[Party]
+
+    def templateId: Ref.Identifier
+  }
 
   object AcsUpdateEvent {
 
     final case class Create(
-        //eventId: EventId, TODO: can I remove it?
+        eventId: EventId,
         contractId: Value.AbsoluteContractId,
         templateId: Ref.Identifier,
         argument: Value.VersionedValue[Value.AbsoluteContractId],
@@ -43,7 +47,7 @@ package object v1 {
     ) extends AcsUpdateEvent
 
     final case class Archive(
-        //eventId: EventId, TOOD: can I remove it?
+        eventId: EventId,
         contractId: Value.AbsoluteContractId,
         templateId: Ref.Identifier,
         // TODO(JM,SM): understand witnessing parties

@@ -60,8 +60,7 @@ class SandboxActiveContractsService private (
                         workflowId = wfId,
                         activeContracts = List(
                           CreatedEvent(
-                            // we use absolute contract ids as event ids throughout the sandbox
-                            create.contractId.coid,
+                            create.eventId,
                             create.contractId.coid,
                             Some(LfEngineToApi.toApiIdentifier(create.templateId)),
                             Some(

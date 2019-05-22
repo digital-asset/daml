@@ -93,21 +93,25 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       .map { case (o, item) => toLedgerSyncEvent(o, item) }
 
   override def getActiveContractSetSnapshot(
-      filter: TransactionFilter): Future[ActiveContractSetSnapshot] = {
-    //TODO: use the filter..
-    val f = EventFilter.byTemplates(filter)
-
+      filter: TransactionFilter): Future[ActiveContractSetSnapshot] =
     ledger
       .snapshot()
       .map {
         case LedgerSnapshot(offset, acsStream) =>
-          ActiveContractSetSnapshot(LedgerOffset.Absolute(offset.toString), acsStream.map {
-            case (cId, ac) =>
-              (ac.workflowId, toUpdateEvent(cId, ac))
-          })
+          ActiveContractSetSnapshot(
+            LedgerOffset.Absolute(offset.toString),
+            acsStream
+              .mapConcat {
+                case (cId, ac) =>
+                  val create = toUpdateEvent(cId, ac)
+                  EventFilter
+                    .byTemplates(filter)
+                    .filter(create, parties => create.copy(stakeholders = parties))
+                    .map(ac.workflowId -> _)
+                    .toList
+              }
+          )
       }(mat.executionContext)
-
-  }
 
   override def getCurrentLedgerEnd: Future[LedgerSyncOffset] =
     Future.successful(ledger.ledgerEnd.toString)
@@ -116,6 +120,8 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       id: Value.AbsoluteContractId,
       ac: ActiveContracts.ActiveContract): AcsUpdateEvent.Create =
     AcsUpdateEvent.Create(
+      // we use absolute contract ids as event ids throughout the sandbox
+      id.coid,
       id,
       ac.contract.template,
       ac.contract.arg,
