@@ -394,6 +394,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     }
 
     "reject ill formed template definition" in {
+      import com.digitalasset.daml.lf.archive.{LanguageMajorVersion => LVM, LanguageVersion => LV}
 
       /*
       (Mod:T8Bis { person = (Mod:T {name} this), party = (Mod:T {person} this) })
@@ -594,17 +595,19 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         "PositiveTestCase5",
       )
 
-      def checkModule(modName: String) = Typing.checkModule(
+      def checkModule(pkg: Package, modName: String) = Typing.checkModule(
         world,
         defaultPkgId,
         pkg.modules(DottedName.assertFromString(modName))
       )
 
-      checkModule("NegativeTestCase")
-      forAll(typeMismatchCases)(module => an[ETypeMismatch] shouldBe thrownBy(checkModule(module))) // and
-      forAll(kindMismatchCases)(module => an[EKindMismatch] shouldBe thrownBy(checkModule(module)))
-      an[EIllegalKeyExpression] shouldBe thrownBy(checkModule("PositiveTestCase6"))
-      an[EUnknownExprVar] shouldBe thrownBy(checkModule("PositiveTestCase9"))
+      val version1_3 = LV(LVM.V1, "3")
+      checkModule(pkg, "NegativeTestCase")
+      forAll(typeMismatchCases)(module => an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))) // and
+      forAll(kindMismatchCases)(module => an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module)))
+      an[EIllegalKeyExpression] shouldBe thrownBy(checkModule(pkg.updateVersion(version1_3), "PositiveTestCase6"))
+      checkModule(pkg, "PositiveTestCase6")
+      an[EUnknownExprVar] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase9"))
     }
 
   }
