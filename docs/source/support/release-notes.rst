@@ -9,6 +9,9 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.19 - 2019-05-22
+--------------------
+
 Ledger
 ~~~~~~
 
