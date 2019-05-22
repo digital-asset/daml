@@ -52,10 +52,4 @@ fileTests = Tasty.testGroup "File Tests"
                 assertEqual "Different cwd" relative differentCwd
                 assertEqual "Absolute path" relative absolutePath
 
-    , Tasty.testCase "All equivalent paths are equal if there is a project root different to the cwd" $ do
-            root <- canonicalizePath relative
-            withRootAt (Just root) $ do
-                absolutePath <- makeRelativeToRoot =<< makeAbsolute path
-                relative <- makeRelativeToRoot path
-                assertEqual "Absolute path" relative absolutePath
     ]
