@@ -36,6 +36,11 @@ version1_3 = V1 $ PointStable 3
 version1_4 :: Version
 version1_4 = V1 $ PointStable 4
 
+-- TODO(MH): Roll this over when releasing DAML-LF 1.5.
+version1_5 :: Version
+version1_5 = versionDev
+-- version1_5 = V1 $ PointStable 5
+
 -- | The DAML-LF version used by default.
 versionDefault :: Version
 versionDefault = version1_4
@@ -73,6 +78,9 @@ featurePartyFromText = Feature "partyFromText function" version1_2
 
 featureComplexContractKeys :: Feature
 featureComplexContractKeys = Feature "Complex contract keys" version1_4
+
+featureSerializablePolymorphicContractIds :: Feature
+featureSerializablePolymorphicContractIds = Feature "Serializable polymorphic contract ids" version1_5
 
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature

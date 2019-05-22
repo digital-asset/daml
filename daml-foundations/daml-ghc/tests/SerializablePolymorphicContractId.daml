@@ -1,0 +1,20 @@
+daml 1.2
+module SerializablePolymorphicContractId where
+
+data ContractIdPair a = ContractIdPair with
+    cid1 : ContractId a
+    cid2 : ContractId a
+  deriving (Eq, Show)
+
+data Bar = Bar{}
+
+template Foo with
+    party  : Party
+    singFoo : ContractId Foo
+    pairFoo : ContractIdPair Foo
+    singBar : ContractId Bar
+    pairBar : ContractIdPair Bar
+    singInt : ContractId Int
+    pairInt : ContractIdPair Int
+  where
+    signatory party

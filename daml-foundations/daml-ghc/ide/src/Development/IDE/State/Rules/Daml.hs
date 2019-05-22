@@ -96,7 +96,7 @@ generateDalfRule =
 
         dalf <- withExceptT (pure . ideErrorPretty file)
           $ liftEither
-          $ Serializability.inferModule world rawDalf
+          $ Serializability.inferModule world lfVersion rawDalf
 
         withExceptT (pure . ideErrorPretty file)
           $ liftEither
