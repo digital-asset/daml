@@ -839,7 +839,7 @@ typeConRec _ (LF.FieldName fName, _ ) = [fName]
 
 templateConNameRec :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
 templateConNameRec qName world = case LF.lookupDataType qName world of
-    Right (LF.DefDataType _ _ _ _ (LF.DataRecord re) ) -> concat (map (typeConRec world ) re)
+    Right (LF.DefDataType _ _ _ _ (LF.DataRecord re) ) -> concatMap (typeConRec world) re
     Right (LF.DefDataType _ _ _ _ (LF.DataVariant re) ) -> map (LF.unVariantConName . fst) re
     Left _ -> []
 
