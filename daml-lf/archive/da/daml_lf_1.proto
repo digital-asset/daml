@@ -25,6 +25,7 @@
 // * 3 -- 2019-03-25: Add contract key
 //     -- 2019-03-27: Add Map type
 // * 4 -- 2019-05-15: Add complex contract keys
+// dev -- 2019-05-22: Relax serializability constraints for contract ids
 
 
 syntax = "proto3";
