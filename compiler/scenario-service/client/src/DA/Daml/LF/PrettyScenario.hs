@@ -833,19 +833,19 @@ templateConName (Identifier _ (TL.toStrict -> qualName)) = do
   return (LF.Qualified LF.PRSelf  modName tpl)
 
 
-typeConRec :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
-typeConRec world (LF.FieldName fName, LF.TCon tcn ) = map  (TE.append (TE.append fName ".")) (templateConNameRec tcn world)
-typeConRec _ (LF.FieldName fName, _ ) = [fName]
+typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
+typeConFieldsNames world (LF.FieldName fName, LF.TCon tcn ) = map  (TE.append (TE.append fName ".")) (templateConFields tcn world)
+typeConFieldsNames _ (LF.FieldName fName, _ ) = [fName]
 
-templateConNameRec :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
-templateConNameRec qName world = case LF.lookupDataType qName world of
-    Right (LF.DefDataType _ _ _ _ (LF.DataRecord re) ) -> concatMap (typeConRec world) re
+templateConFields :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
+templateConFields qName world = case LF.lookupDataType qName world of
+    Right (LF.DefDataType _ _ _ _ (LF.DataRecord re) ) -> concatMap (typeConFieldsNames world) re
     Right (LF.DefDataType _ _ _ _ (LF.DataVariant re) ) -> map (LF.unVariantConName . fst) re
     Left _ -> []
 
 renderHeader :: LF.World -> Identifier -> [T.Text]
 renderHeader world identifier = case templateConName identifier of 
-  Just qt -> templateConNameRec qt world
+  Just qt -> templateConFields qt world
   Nothing -> []
 
 
