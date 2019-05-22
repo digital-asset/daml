@@ -603,9 +603,12 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
       val version1_3 = LV(LVM.V1, "3")
       checkModule(pkg, "NegativeTestCase")
-      forAll(typeMismatchCases)(module => an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))) // and
-      forAll(kindMismatchCases)(module => an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module)))
-      an[EIllegalKeyExpression] shouldBe thrownBy(checkModule(pkg.updateVersion(version1_3), "PositiveTestCase6"))
+      forAll(typeMismatchCases)(module =>
+        an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))) // and
+      forAll(kindMismatchCases)(module =>
+        an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module)))
+      an[EIllegalKeyExpression] shouldBe thrownBy(
+        checkModule(pkg.updateVersion(version1_3), "PositiveTestCase6"))
       checkModule(pkg, "PositiveTestCase6")
       an[EUnknownExprVar] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase9"))
     }
