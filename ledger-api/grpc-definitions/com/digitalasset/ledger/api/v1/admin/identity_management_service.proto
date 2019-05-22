@@ -1,0 +1,138 @@
+
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.ledger.api.v1.admin;
+
+option java_outer_classname = "PartyManagementServiceOuterClass";
+option java_package = "com.digitalasset.ledger.api.v1.admin";
+
+// Status: experimental interface, will change before it is deemed production
+// ready
+
+// Inspect the identity management state of a ledger participant and modify the
+// parts that are modifiable. We use 'backing participant' to refer to this
+// specific participant in the methods of this API.
+// It is not mandatory to implement this interface on a specific daml-on-x
+// implementation or to implement it in its entirety
+service IdentityManagementService {
+
+  // Return the identifier of the backing participant.
+  // All horizontally scaled replicas should return the same id.
+  // daml-on-sql: returns an identifier supplied on command line at launch time
+  // daml-on-sawtooth: as above
+  // canton: returns globally unique identifier
+  rpc GetParticipantId (GetParticipantIdRequest) returns
+    (GetParticipantIdResponse);
+
+  // List the participants known by the backing participant.
+  // TODO: Check what the use case is for listing all participants
+  // Admin tooling in daml-on-sawtooth knows the topology from other sources
+  // daml-on-sql knows only one participant. Suggest to remove it
+  rpc ListKnownParticipants (ListKnownParticipantsRequest) returns
+    (ListKnownParticipantsResponse);
+
+  // List the parties known by the backing participant.
+  // The list returned contains parties whose ledger access is facilitated by
+  // backing participant and teh ones maintained elsewhere
+  // TODO: Check what the use case is for listing non-local parties
+  rpc ListKnownParties (ListKnownPartiesRequest) returns
+    (ListKnownPartiesResponse);
+
+  // Adds a new party to the set managed by the backing participant.
+  // Caller specifies a party identifier suggestion, the actual identifier
+  // allocated might be different and is implementation specific.
+  // daml-on-sql: suggestion's uniqueness is checked and call rejected if the
+  // identifier is already present
+  // daml-on-sawtooth: suggestion is prefixed with backing participant
+  // identifier and the composite is tested for uniqueness
+  // canton: completely different globally unique identifier is allocated.
+  // Behind the scenes calls to an internal protocol are made. As that protocol
+  // is richer than the the surface protocol, the arguments take implicit values
+  // Future extension: augment the request with additional meta-data containing
+  // human readable party name, privileges, organization etc.
+  rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
+}
+
+message GetParticipantIdRequest {
+
+  // Must correspond to the ledger ID reported by the Ledger Identification
+  // Service.
+  // Required
+  string ledger_id = 1;
+}
+
+message GetParticipantIdResponse {
+  ParticipantDetails participant_details = 1;
+}
+
+message ParticipantDetails {
+
+  string participant_id = 1;
+}
+
+message ListKnownParticipantsRequest {
+
+  // Must correspond to the ledger ID reported by the Ledger Identification
+  // Service.
+  // Required
+  string ledger_id = 1;
+}
+
+message ListKnownParticipantsResponse {
+  repeated ParticipantDetails participant_details = 1;
+}
+
+message ListKnownPartiesRequest {
+
+  // Must correspond to the ledger ID reported by the Ledger Identification
+  // Service.
+  // Required
+  string ledger_id = 1;
+}
+
+message ListKnownPartiesResponse {
+
+  // The details of all DAML parties hosted by the participant.
+  // Required
+  repeated PartyDetails party_details = 1;
+}
+
+message PartyDetails {
+
+  // The ID of a DAML party hosted by the participant.
+  // Required
+  string party_id = 1;
+
+  // Future extension: include metadata fields. There will be two categories
+  // of such fields: common and implementation specific.
+  // CommonMetadata common_metadata = 2;
+  // bytes implementation_metadata = 3;
+  
+  // Canton-specific meta-data would contain the following:
+  // string domain = 2;
+  // string participant = 3;
+  // com.digitalasset.canton.identity.v0.ParticipantPrivilege privilege = 4;
+  // com.digitalasset.canton.identity.v0.TrustLevel trustLevel = 5;
+}
+
+message AllocatePartyRequest {
+
+  // Must correspond to the ledger ID reported by the Ledger Identification
+  // Service.
+  // Required
+  string ledger_id = 1;
+
+  // Party to be added to the participant.
+  // Required
+  string party_id_suggestion = 2;
+}
+
+message AllocatePartyResponse {
+
+  // Actual participant id assigned by the backing participant
+  // Required
+  string party_id = 2;
+}

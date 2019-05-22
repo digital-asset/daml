@@ -1,0 +1,115 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.ledger.api.v1.admin;
+
+import "google/protobuf/timestamp.proto";
+
+option java_outer_classname = "PackageManagementServiceOuterClass";
+option java_package = "com.digitalasset.ledger.api.v1.admin";
+
+// Status: experimental interface, will change before it is deemed production
+// ready
+
+// Query the DAML-LF packages supported by the ledger participant and upload
+// DAR files. We use 'backing participant' to refer to this specific participant
+// in the methods of this API.
+// It is not mandatory to support this interface on a specific daml-on-x
+// implementation or to implement it in its entirety
+service PackageManagementService {
+
+  // Returns the details of all DAML-LF packages known to the backing
+  // participant.
+  rpc ListKnownPackages (ListKnownPackagesRequest) returns
+    (ListKnownPackagesResponse);
+
+  // Upload a DAR file to the backing participant. Depending on the ledger
+  // implementation this might also make the package available on the whole 
+  // ledger. This call might not be supported by some ledger implementations. 
+  // Canton could be an example, where uploading a DAR is not sufficient to
+  // render it usable, it must be activated first.
+  rpc UploadDarFile (UploadDarFileRequest) returns (UploadDarFileResponse);
+}
+
+message ListKnownPackagesRequest {
+
+  // Must correspond to the ledger ID reported by the Ledger Identification 
+  // Service.
+  // Required
+  string ledger_id = 1;
+}
+
+message ListKnownPackagesResponse {
+
+  // The IDs of all DAML-LF packages supported by the ledger.
+  // Required
+  repeated PackageDetails package_details= 1;
+}
+
+message PackageDetails {
+ 
+  // The IDs of all DAML-LF packages supported by the ledger.
+  // Required
+  string package_id = 1;
+
+  // Human readable name of a DAML-LF package.
+  // Future extension: We need this field in order to facilitate user interfaces
+  // that list packages in a user understandable manner. Hashes are useless for
+  // that. Commenting out until corresponding changes are introduced in daml-lf
+  // archive format and this functionality becomes supportable by the
+  // implementations.
+  // Required
+  // string package_name = 2;
+
+  // Details of the original upload action
+  PackageUploadDetails upload_details = 2;
+}
+
+message PackageUploadDetails {
+
+  // Identifier of the participant that uploaded the package.
+  // Required
+  string uploaded_by = 1;
+
+  // Microseconds since the UNIX epoch. Can go backwards. Fixed
+  // since the vast majority of values will be greater than
+  // 2^28, since currently the number of microseconds since the
+  // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
+  // 9999-12-31T23:59:59.999999Z, so that we can convert to/from
+  // https://www.ietf.org/rfc/rfc3339.txt.
+  // Required
+  google.protobuf.Timestamp upload_timestamp = 2;
+
+  // Size of the package in bytes.
+  // Required
+  uint64 package_size = 3;
+
+  // Descrioption provided by the original uploader
+  string description = 4;
+
+}
+
+message UploadDarFileRequest {
+
+  // Must correspond to the ledger ID reported by the Ledger Identification
+  // Service.
+  // Required
+  string ledger_id = 1;
+
+  // Contains a DAML archive DAR file, which in turn is a jar like zipped
+  // container for ``daml_lf`` archives. See further details in
+  // ``daml_lf.proto``.
+  // Required
+  bytes dar_file = 2;
+
+  // Descrioption provided by the uploader, it helps the users of the
+  // ListKnownPackages interface call to make sense of the returned results.
+  // Optional
+  string description = 3;
+}
+
+// An empty message that is received when the upload operation succeeded.
+message UploadDarFileResponse {
+}
