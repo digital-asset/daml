@@ -10,6 +10,8 @@ import com.digitalasset.daml.lf.testing.parser._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
+import scala.util.Try
+
 class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
   "Serializability checking" should {
@@ -152,7 +154,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
               observers Nil @Party,
               agreement "Agreement",
               choices {
-                choice Ch (i : Mod:SerializableType) : Mod:SerializableType by 'Alice' to upure @Unit ()
+                choice Ch (i : Mod:SerializableType) : Mod:SerializableType by $partiesAlice to upure @Mod:SerializableType (Mod:SerializableType {})
               }
             } ;
           }
@@ -167,8 +169,8 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 agreement "Agreement",
                 choices {
                   choice Ch (i : Mod:SerializableType) :
-                    Mod:SerializableType by 'Alice'
-                      to upure @Unit ()
+                    Mod:SerializableType by $partiesAlice
+                      to upure @Mod:SerializableType (Mod:SerializableType {})
                 }
               } ;
             }
@@ -184,7 +186,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 agreement "Agreement",
                 choices {
                   choice Ch (i : Mod:UnserializableType) :     // disallowed unserializable type
-                    Mod:SerializableType by 'Alice' to
+                   Unit by $partiesAlice to
                        upure @Unit ()
                 }
               } ;
@@ -200,8 +202,8 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 agreement "Agreement",
                 choices {
                   choice Ch (i : Mod:SerializableType) :
-                    Mod:UnserializableType by 'Alice' to       // disallowed unserializable type
-                       upure @Unit ()
+                    Mod:UnserializableType by $partiesAlice to       // disallowed unserializable type
+                       upure @Mod:UnserializableType (Mod:UnserializableType {})
                 }
               } ;
             }
@@ -252,7 +254,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
           }
 
           module PositiveTestCase2 {
-            record @serializable UnserializableContractId = { cid : ContractId Int };
+            record @serializable UnserializableContractId = { cid : ContractId Int64 };
           }
 
           module PositiveTestCase3 {
@@ -302,11 +304,14 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
   private def world(pkg: Package) =
     new World(Map(defaultPkgId -> pkg))
 
-  private def check(pkg: Package, modName: String) = {
+  private def check(pkg: Package, modName: String): Unit = {
     val w = world(pkg)
     val longModName = DottedName.assertFromString(modName)
     val mod = w.lookupModule(NoContext, defaultPkgId, longModName)
+    require(Try(Typing.checkModule(w, defaultPkgId, mod)).isSuccess)
     Serializability.checkModule(w, defaultPkgId, mod)
   }
+
+  private val partiesAlice = "(Cons @Party ['Alice'] (Nil @Party))"
 
 }
