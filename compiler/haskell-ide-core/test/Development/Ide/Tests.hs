@@ -59,4 +59,3 @@ fileTests = Tasty.testGroup "File Tests"
                 relative <- makeRelativeToRoot relPath
                 assertEqual "Absolute path" relative absolutePath
     ]
-Development/Ide/Tests.hs
