@@ -203,7 +203,7 @@ private[validation] object Typing {
       LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "2"))
 
     private val supportsComplexContractKeys =
-      LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "dev"))
+      LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "4"))
 
     private def introTypeVar(v: TypeVarName, k: Kind): Env = {
       if (tVars.isDefinedAt(v))
