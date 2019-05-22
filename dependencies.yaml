@@ -582,4 +582,4 @@ replacements:
   org.scala-tools.testing:
     test-interface:
       lang: java
-      target: "//external:jar/org/scala_sbt/test_interface"
+      target: "//3rdparty/jvm/org/scala_sbt:test_interface"
