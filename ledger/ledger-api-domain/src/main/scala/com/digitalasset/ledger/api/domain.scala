@@ -230,6 +230,11 @@ object domain {
   type ApplicationId = String @@ ApplicationIdTag
   val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
 
+  sealed trait AbsoluteNodeIdTag
+
+  type AbsoluteNodeId = String @@ AbsoluteNodeIdTag
+  val AbsoluteNodeId: Tag.TagOf[AbsoluteNodeIdTag] = Tag.of[AbsoluteNodeIdTag]
+
   case class Commands(
       ledgerId: LedgerId,
       workflowId: Option[WorkflowId],
