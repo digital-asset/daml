@@ -1,5 +1,5 @@
 ---
-name: Bug report
+name: DAML Bug report
 about: Create a report to help us improve DAML
 title: ''
 labels: ''
