@@ -5,7 +5,7 @@ package com.digitalasset.ledger.backend.api.v1
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.daml.lf.data.Ref.{LedgerId, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, TransactionIdString}
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction
 
 import scala.concurrent.Future
@@ -86,7 +86,7 @@ trait LedgerBackend extends AutoCloseable {
     *
     * TODO(SM): find a better name than 'ledger-id'.
     */
-  def ledgerId: LedgerId
+  def ledgerId: LedgerIdString
 
   /** Begin the submission of a transaction to the ledger.
     *
@@ -133,5 +133,5 @@ trait LedgerBackend extends AutoCloseable {
   def getCurrentLedgerEnd: Future[LedgerSyncOffset]
 
   /** Looks up a transaction by its id. */
-  def getTransactionById(transactionId: TransactionId): Future[Option[AcceptedTransaction]]
+  def getTransactionById(transactionId: TransactionIdString): Future[Option[AcceptedTransaction]]
 }

@@ -5,7 +5,7 @@ package com.digitalasset.ledger.backend.api.v1
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Relation.Relation
 
 sealed trait LedgerSyncEvent extends Product with Serializable {
@@ -68,7 +68,7 @@ object LedgerSyncEvent {
     */
   final case class AcceptedTransaction(
       transaction: CommittedTransaction,
-      transactionId: TransactionId,
+      transactionId: TransactionIdString,
       submitter: Option[Party],
       ledgerEffectiveTime: Instant,
       recordTime: Instant,

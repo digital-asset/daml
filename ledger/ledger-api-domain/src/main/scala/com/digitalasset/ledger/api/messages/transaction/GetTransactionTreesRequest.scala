@@ -4,13 +4,13 @@
 package com.digitalasset.ledger.api.messages.transaction
 
 import brave.propagation.TraceContext
-import com.digitalasset.daml.lf.data.Ref.{LedgerId, Party}
+import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, Party}
 import com.digitalasset.ledger.api.domain.LedgerOffset
 
 import scala.collection.immutable
 
 final case class GetTransactionTreesRequest(
-    ledgerId: LedgerId,
+    ledgerId: LedgerIdString,
     begin: LedgerOffset,
     end: Option[LedgerOffset],
     parties: immutable.Set[Party],

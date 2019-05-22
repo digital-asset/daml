@@ -197,12 +197,12 @@ object domain {
 
   sealed trait TransactionIdTag
 
-  type TransactionId = Ref.TransactionId @@ TransactionIdTag
+  type TransactionId = Ref.TransactionIdString @@ TransactionIdTag
   val TransactionId: Tag.TagOf[TransactionIdTag] = Tag.of[TransactionIdTag]
 
   sealed trait ContractIdTag
 
-  type ContractId = Ref.ContractId @@ ContractIdTag
+  type ContractId = Ref.ContractIdString @@ ContractIdTag
   val ContractId: Tag.TagOf[ContractIdTag] = Tag.of[ContractIdTag]
 
   sealed trait EventIdTag
@@ -221,7 +221,7 @@ object domain {
   val AbsoluteNodeId: Tag.TagOf[AbsoluteNodeIdTag] = Tag.of[AbsoluteNodeIdTag]
 
   case class Commands(
-      ledgerId: Ref.LedgerId,
+      ledgerId: Ref.LedgerIdString,
       workflowId: Option[WorkflowId],
       applicationId: ApplicationId,
       commandId: CommandId,

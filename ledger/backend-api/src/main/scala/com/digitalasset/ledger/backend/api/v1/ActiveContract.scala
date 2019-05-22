@@ -5,7 +5,7 @@ package com.digitalasset.ledger.backend.api.v1
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref.{Party, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 
 /**
@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, V
 case class ActiveContract(
     contractId: AbsoluteContractId,
     let: Instant,
-    transactionId: TransactionId,
+    transactionId: TransactionIdString,
     workflowId: Option[WorkflowId],
     contract: ContractInst[VersionedValue[AbsoluteContractId]],
     witnesses: Set[Party])

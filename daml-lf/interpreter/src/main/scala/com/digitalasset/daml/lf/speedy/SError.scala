@@ -7,8 +7,8 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
-import com.digitalasset.daml.lf.types.LedgerForScenarios
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VContractId}
+import com.digitalasset.daml.lf.types.Ledger
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 
 object SError {
 
@@ -45,13 +45,13 @@ object SError {
   final case class DamlETemplatePreconditionViolated(
       templateId: TypeConName,
       optLocation: Option[Location],
-      arg: Transaction.Value[VContractId])
+      arg: Transaction.Value[ContractId])
       extends SErrorDamlException
 
   /** A fetch or an exercise on a transaction-local contract that has already
     * been consumed. */
   final case class DamlELocalContractNotActive(
-      coid: VContractId,
+      coid: ContractId,
       templateId: TypeConName,
       consumedBy: Transaction.NodeId)
       extends SErrorDamlException
@@ -73,14 +73,14 @@ object SError {
   final case class ScenarioErrorContractNotActive(
       coid: AbsoluteContractId,
       templateId: Identifier,
-      consumedBy: LedgerForScenarios.ScenarioNodeId)
+      consumedBy: Ledger.ScenarioNodeId)
       extends SErrorScenario
 
   /** We tried to fetch / exercise a contract of the wrong type --
     * see <https://github.com/digital-asset/daml/issues/1005>.
     */
   final case class DamlEWronglyTypedContract(
-      coid: VContractId,
+      coid: ContractId,
       expected: TypeConName,
       actual: TypeConName)
       extends SErrorDamlException
@@ -95,8 +95,7 @@ object SError {
       extends SErrorScenario
 
   /** The commit of the transaction failed due to authorization errors. */
-  final case class ScenarioErrorCommitError(commitError: LedgerForScenarios.CommitError)
-      extends SErrorScenario
+  final case class ScenarioErrorCommitError(commitError: Ledger.CommitError) extends SErrorScenario
 
   /** The transaction produced by the update expression in a 'mustFailAt' succeeded. */
   final case class ScenarioErrorMustFailSucceeded(tx: Transaction) extends SErrorScenario

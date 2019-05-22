@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
   NodeId,
-  VContractId,
+  ContractId,
   VersionedValue
 }
 import com.digitalasset.platform.services.time.TimeModelChecker
@@ -388,7 +388,7 @@ object KeyValueCommitting {
       }
       .flatMap { node: Transaction.Node =>
         node match {
-          case create: NodeCreate[VContractId, VersionedValue[VContractId]] =>
+          case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
             // FixMe (RH) toAbsCoid can throw an IllegalArgumentException
             Some(
               create.coinst.mapValue(

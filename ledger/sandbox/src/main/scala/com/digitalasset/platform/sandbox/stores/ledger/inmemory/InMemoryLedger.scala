@@ -10,9 +10,9 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{LedgerId, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, TransactionIdString}
 import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VContractId}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId}
 import com.digitalasset.ledger.backend.api.v1.{RejectionReason, TransactionSubmission}
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
@@ -29,7 +29,7 @@ import scala.concurrent.Future
   *
   */
 class InMemoryLedger(
-    val ledgerId: LedgerId,
+    val ledgerId: LedgerIdString,
     timeProvider: TimeProvider,
     acs0: ActiveContractsInMemory,
     ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement])
@@ -97,7 +97,9 @@ class InMemoryLedger(
       }
     )
 
-  private def handleSuccessfulTx(transactionId: TransactionId, tx: TransactionSubmission): Unit = {
+  private def handleSuccessfulTx(
+      transactionId: TransactionIdString,
+      tx: TransactionSubmission): Unit = {
     val recordTime = timeProvider.getCurrentTime
     if (recordTime.isAfter(tx.maximumRecordTime)) {
       // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
@@ -108,7 +110,7 @@ class InMemoryLedger(
         RejectionReason.TimedOut(
           s"RecordTime $recordTime is after MaxiumRecordTime ${tx.maximumRecordTime}"))
     } else {
-      val toAbsCoid: VContractId => AbsoluteContractId =
+      val toAbsCoid: ContractId => AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid(transactionId)
       val mappedTx = tx.transaction.mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
       // 5b. modify the ActiveContracts, while checking that we do not have double
@@ -164,7 +166,7 @@ class InMemoryLedger(
   override def close(): Unit = ()
 
   override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] =
+      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
     Future.successful(
       entries
         .getEntryAt(transactionId.toLong)

@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.stores
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref.{Party, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node => N}
@@ -48,7 +48,7 @@ case class ActiveContractsInMemory(
   }
 
   override def divulgeAlreadyCommittedContract(
-      transactionId: TransactionId,
+      transactionId: TransactionIdString,
       global: Relation[AbsoluteContractId, Party]): ActiveContractsInMemory =
     if (global.nonEmpty)
       copy(
@@ -67,7 +67,7 @@ case class ActiveContractsInMemory(
     */
   def addTransaction[Nid](
       let: Instant,
-      transactionId: TransactionId,
+      transactionId: TransactionIdString,
       workflowId: Option[WorkflowId],
       transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
       explicitDisclosure: Relation[Nid, Party],
@@ -123,7 +123,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
     */
   def addTransaction[Nid](
       let: Instant,
-      transactionId: TransactionId,
+      transactionId: TransactionIdString,
       workflowId: Option[WorkflowId],
       transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
       explicitDisclosure: Relation[Nid, Party],
@@ -220,7 +220,7 @@ trait ActiveContracts[+Self] { this: ActiveContracts[Self] =>
     * method.
     */
   def divulgeAlreadyCommittedContract(
-      transactionId: TransactionId,
+      transactionId: TransactionIdString,
       global: Relation[AbsoluteContractId, Party]): Self
 }
 
@@ -228,11 +228,11 @@ object ActiveContracts {
 
   case class ActiveContract(
       let: Instant, // time when the contract was committed
-      transactionId: TransactionId, // transaction id where the contract originates
+      transactionId: TransactionIdString, // transaction id where the contract originates
       workflowId: Option[WorkflowId], // workflow id from where the contract originates
       contract: ContractInst[VersionedValue[AbsoluteContractId]],
       witnesses: Set[Party],
-      divulgences: Map[Party, String], // for each party, the transaction id at which the contract was divulged
+      divulgences: Map[Party, TransactionIdString], // for each party, the transaction id at which the contract was divulged
       key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])
 
 }

@@ -30,7 +30,7 @@ final case class CreateCommand(templateId: Identifier, argument: VersionedValue[
   */
 final case class ExerciseCommand(
     templateId: Identifier,
-    contractId: ContractId,
+    contractId: ContractIdString,
     choiceId: ChoiceName,
     submitter: Party,
     argument: VersionedValue[AbsoluteContractId])

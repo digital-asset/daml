@@ -5,7 +5,12 @@ package com.daml.ledger.participant.state.v1.impl.reference
 
 import com.daml.ledger.participant.state.v1.{CommittedTransaction, SubmittedTransaction}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{ContractId, LedgerString, Party, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.{
+  ContractIdString,
+  LedgerString,
+  Party,
+  TransactionIdString
+}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.transaction.Transaction.TContractId
 import com.digitalasset.daml.lf.transaction._
@@ -63,10 +68,10 @@ object Transaction {
     }
   }
 
-  def toAbsTx(txId: TransactionId, tx: SubmittedTransaction): CommittedTransaction =
+  def toAbsTx(txId: TransactionIdString, tx: SubmittedTransaction): CommittedTransaction =
     tx.mapContractIdAndValue(mkAbsContractId(txId), _.mapContractId(mkAbsContractId(txId)))
 
-  def mkAbsContractId(txId: TransactionId): TContractId => AbsoluteContractId = {
+  def mkAbsContractId(txId: TransactionIdString): TContractId => AbsoluteContractId = {
     case RelativeContractId(nid) => AbsoluteContractId(toAbsNodeId(txId, nid))
     case c @ AbsoluteContractId(_) => c
   }
@@ -74,7 +79,7 @@ object Transaction {
   private val `#` = LedgerString.assertFromString("#")
   private val `:` = LedgerString.assertFromString(":")
 
-  def toAbsNodeId(txId: TransactionId, nid: Value.NodeId): ContractId =
+  def toAbsNodeId(txId: TransactionIdString, nid: Value.NodeId): ContractIdString =
     LedgerString.concat(`#`, txId, `:`, nid.name)
 
   def encodeTransaction(tx: SubmittedTransaction): ByteString =

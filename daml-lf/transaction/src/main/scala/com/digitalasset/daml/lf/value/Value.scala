@@ -5,9 +5,9 @@ package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.data.Ref.{
-  ContractId,
+  ContractIdString,
   Identifier,
-  LedgerId,
+  LedgerIdString,
   LedgerString,
   Name,
   `Name equal instance`
@@ -271,12 +271,12 @@ object Value {
     * to be able to use AbsoluteContractId elsewhere, so that we can
     * automatically upcast to ContractId by subtyping.
     */
-  sealed trait VContractId extends Product with Serializable
-  final case class AbsoluteContractId(coid: ContractId) extends VContractId
-  final case class RelativeContractId(txnid: NodeId) extends VContractId
+  sealed trait ContractId extends Product with Serializable
+  final case class AbsoluteContractId(coid: ContractIdString) extends ContractId
+  final case class RelativeContractId(txnid: NodeId) extends ContractId
 
-  object VContractId {
-    implicit val equalInstance: Equal[VContractId] = Equal.equalA
+  object ContractId {
+    implicit val equalInstance: Equal[ContractId] = Equal.equalA
   }
 
   /** The constructor is private so that we make sure that only this object constructs
@@ -296,7 +296,7 @@ object Value {
 
     override def toString = "NodeId(" + index.toString + ")"
 
-    val name: LedgerId = LedgerString.assertFromString(index.toString)
+    val name: LedgerIdString = LedgerString.assertFromString(index.toString)
   }
 
   object NodeId {

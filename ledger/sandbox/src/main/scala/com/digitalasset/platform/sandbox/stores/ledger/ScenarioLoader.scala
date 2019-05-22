@@ -11,13 +11,13 @@ import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.lfpackage.Ast.{DDataType, DValue, Definition}
 import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
-import com.digitalasset.daml.lf.types.{LedgerForScenarios => L}
+import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import org.slf4j.LoggerFactory
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.types.LedgerForScenarios.ScenarioTransactionId
+import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
 import com.digitalasset.ledger.backend.api.v1.NodeId
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 

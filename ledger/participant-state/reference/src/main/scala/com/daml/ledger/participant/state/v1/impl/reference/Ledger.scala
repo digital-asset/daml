@@ -18,7 +18,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.participant.state.v1.impl.reference.Transaction.{TxDelta, _}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerId
+import com.digitalasset.daml.lf.data.Ref.LedgerIdString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.daml.lf.value.Value
@@ -76,7 +76,8 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   private val ledgerConfig: Configuration = Configuration(
     timeModel = timeModel
   )
-  private val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
+  private val ledgerId: LedgerIdString =
+    Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
 
   /**
     * Task to send out transient heartbeat events to subscribers.

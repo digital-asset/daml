@@ -4,8 +4,8 @@
 package com.digitalasset.platform.semantictest
 
 import com.digitalasset.daml.lf.data.Ref.{
-  ContractId,
-  LedgerId,
+  ContractIdString,
+  LedgerIdString,
   LedgerString,
   PackageId,
   QualifiedName
@@ -33,10 +33,10 @@ import scala.concurrent.Future
   Array(
     "org.wartremover.warts.Any"
   ))
-class ApiScenarioTransform(ledgerId: LedgerId, packages: Map[Ref.PackageId, Ast.Package])
+class ApiScenarioTransform(ledgerId: LedgerIdString, packages: Map[Ref.PackageId, Ast.Package])
     extends ErrorFactories {
 
-  private def toContractId(s: String): Either[StatusRuntimeException, ContractId] =
+  private def toContractId(s: String): Either[StatusRuntimeException, ContractIdString] =
     LedgerString.fromString(s).left.map(e => invalidArgument(s"Cannot parse contractId: $e"))
 
   private def toLfVersionedValue[Cid](
@@ -176,6 +176,6 @@ class ApiScenarioTransform(ledgerId: LedgerId, packages: Map[Ref.PackageId, Ast.
 }
 
 object ApiScenarioTransform {
-  def apply(ledgerId: LedgerId, packages: Map[PackageId, Ast.Package]): ApiScenarioTransform =
+  def apply(ledgerId: LedgerIdString, packages: Map[PackageId, Ast.Package]): ApiScenarioTransform =
     new ApiScenarioTransform(ledgerId, packages)
 }

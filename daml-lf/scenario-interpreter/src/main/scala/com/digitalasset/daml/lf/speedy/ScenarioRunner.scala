@@ -3,8 +3,8 @@
 
 package com.digitalasset.daml.lf.speedy
 
-import com.digitalasset.daml.lf.types.LedgerForScenarios
-import com.digitalasset.daml.lf.types.LedgerForScenarios._
+import com.digitalasset.daml.lf.types.Ledger
+import com.digitalasset.daml.lf.types.Ledger._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.Transaction._
@@ -27,7 +27,7 @@ private case class SRunnerException(err: SError) extends RuntimeException(err.to
 final case class ScenarioRunner(
     machine: Speedy.Machine,
     partyNameMangler: (String => String) = identity) {
-  var ledger: Ledger = LedgerForScenarios.initialLedger(Time.Timestamp.Epoch)
+  var ledger: Ledger = Ledger.initialLedger(Time.Timestamp.Epoch)
 
   import scala.util.{Try, Success, Failure}
 
@@ -102,7 +102,7 @@ final case class ScenarioRunner(
   private def mustFail(tx: Transaction, committer: Party) = {
     // Update expression evaluated successfully,
     // however we might still have an authorization failure.
-    if (LedgerForScenarios
+    if (Ledger
         .commitTransaction(
           committer = committer,
           effectiveAt = ledger.currentTime,
@@ -116,7 +116,7 @@ final case class ScenarioRunner(
   }
 
   private def commit(value: SValue, tx: Transaction, committer: Party, callback: SValue => Unit) = {
-    LedgerForScenarios.commitTransaction(
+    Ledger.commitTransaction(
       committer = committer,
       effectiveAt = ledger.currentTime,
       optLocation = machine.commitLocation,
@@ -130,7 +130,7 @@ final case class ScenarioRunner(
         callback(
           value
             .mapContractId(coid =>
-              LedgerForScenarios
+              Ledger
                 .contractIdToAbsoluteContractId(result.transactionId.makeCommitPrefix, coid)))
     }
   }

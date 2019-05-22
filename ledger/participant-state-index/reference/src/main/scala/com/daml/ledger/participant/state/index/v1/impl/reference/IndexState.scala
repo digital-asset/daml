@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.index.v1.impl.reference
 
 import com.daml.ledger.participant.state.v1.{Offset, _}
-import com.digitalasset.daml.lf.data.Ref.{LedgerId, PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Blinding
@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory
 import scala.collection.immutable.TreeMap
 
 final case class IndexState(
-    ledgerId: LedgerId,
+    ledgerId: LedgerIdString,
     recordTime: Timestamp,
     configuration: Configuration,
     private val updateId: Option[Offset],

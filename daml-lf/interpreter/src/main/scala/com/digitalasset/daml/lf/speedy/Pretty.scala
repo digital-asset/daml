@@ -9,14 +9,14 @@ import org.typelevel.paiges.Doc._
 import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.types.{LedgerForScenarios => L}
+import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.SBuiltin._
-import com.digitalasset.daml.lf.types.LedgerForScenarios.CommitError
+import com.digitalasset.daml.lf.types.Ledger.CommitError
 
 //
 // Pretty-printer for the interpreter errors and the scenario ledger
@@ -75,16 +75,16 @@ object Pretty {
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyTransactionNode(node: Transaction.Node): Doc =
     node match {
-      case create: NodeCreate.WithTxValue[VContractId] =>
+      case create: NodeCreate.WithTxValue[ContractId] =>
         "create" &: prettyContractInst(create.coinst)
-      case fetch: NodeFetch[VContractId] =>
+      case fetch: NodeFetch[ContractId] =>
         "fetch" &: prettyContractId(fetch.coid)
-      case ex: NodeExercises.WithTxValue[Transaction.NodeId, VContractId] =>
+      case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
           text("with") & prettyVersionedValue(false)(ex.chosenValue)
-      case lbk: NodeLookupByKey.WithTxValue[VContractId] =>
+      case lbk: NodeLookupByKey.WithTxValue[ContractId] =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
           text("key") & prettyKeyWithMaintainers(lbk.key) /
           (lbk.result match {
@@ -228,7 +228,7 @@ object Pretty {
         text("mustFailAt") & prettyParty(amf.actor) & prettyLoc(amf.optLocation)
     }
 
-  def prettyKeyWithMaintainers(key: KeyWithMaintainers[Transaction.Value[VContractId]]): Doc =
+  def prettyKeyWithMaintainers(key: KeyWithMaintainers[Transaction.Value[ContractId]]): Doc =
     // the maintainers are induced from the key -- so don't clutter
     prettyVersionedValue(false)(key.key)
 
@@ -310,14 +310,14 @@ object Pretty {
   def prettyLedgerNodeId(n: L.ScenarioNodeId): Doc =
     char('#') + text(n)
 
-  def prettyContractInst(coinst: ContractInst[Transaction.Value[VContractId]]): Doc =
+  def prettyContractInst(coinst: ContractInst[Transaction.Value[ContractId]]): Doc =
     (prettyIdentifier(coinst.template) / text("with:") &
       prettyVersionedValue(false)(coinst.arg)).nested(4)
 
   def prettyTypeConName(tycon: TypeConName): Doc =
     text(tycon.qualifiedName.toString) + char('@') + prettyPackageId(tycon.packageId)
 
-  def prettyContractId(coid: VContractId): Doc =
+  def prettyContractId(coid: ContractId): Doc =
     coid match {
       case AbsoluteContractId(acoid) => char('#') + text(acoid)
       case RelativeContractId(rcoid) => char('#') + str(rcoid)
@@ -343,12 +343,12 @@ object Pretty {
   def prettyIdentifier(id: Identifier): Doc =
     text(id.qualifiedName.toString) + char('@') + prettyPackageId(id.packageId)
 
-  def prettyVersionedValue(verbose: Boolean)(v: Transaction.Value[VContractId]): Doc =
+  def prettyVersionedValue(verbose: Boolean)(v: Transaction.Value[ContractId]): Doc =
     prettyValue(verbose)(v.value) & text("value-version: ") + text(v.version.protoValue)
 
   // Pretty print a value. If verbose then the top-level value is printed with type constructor
   // if possible.
-  def prettyValue(verbose: Boolean)(v: Value[VContractId]): Doc =
+  def prettyValue(verbose: Boolean)(v: Value[ContractId]): Doc =
     v match {
       case ValueInt64(i) => str(i)
       case ValueDecimal(d) => str(d)

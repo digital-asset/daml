@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.services.transaction
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.TransactionId
+import com.digitalasset.daml.lf.data.Ref.TransactionIdString
 import com.digitalasset.ledger.api.domain.LedgerOffset
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction
 import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, LedgerSyncEvent}
@@ -40,7 +40,7 @@ protected class TransactionPipeline(ledgerBackend: LedgerBackend) {
         }
       }
 
-  def getTransactionById(transactionId: TransactionId): Future[Option[AcceptedTransaction]] =
+  def getTransactionById(transactionId: TransactionIdString): Future[Option[AcceptedTransaction]] =
     ledgerBackend
       .getTransactionById(transactionId)
       .map(_.map(increaseOffset))(DEC)

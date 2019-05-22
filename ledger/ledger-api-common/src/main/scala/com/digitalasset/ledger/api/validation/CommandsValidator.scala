@@ -5,7 +5,7 @@ package com.digitalasset.ledger.api.validation
 
 import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.data.Ref.LedgerId
+import com.digitalasset.daml.lf.data.Ref.LedgerIdString
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.value.Value.ValueUnit
 import com.digitalasset.ledger.api.domain
@@ -35,7 +35,7 @@ import scalaz.syntax.tag._
 
 import scala.collection.immutable
 
-final class CommandsValidator(ledgerId: LedgerId, identifierResolver: IdentifierResolver) {
+final class CommandsValidator(ledgerId: LedgerIdString, identifierResolver: IdentifierResolver) {
 
   def validateCommands(commands: ProtoCommands): Either[StatusRuntimeException, domain.Commands] =
     for {

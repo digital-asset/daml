@@ -166,12 +166,12 @@ object Ref {
   type LedgerString = LedgerString.T
 
   /** Identifier for a contractId */
-  type ContractId = LedgerString
+  type ContractIdString = LedgerString
 
   /** Identifier for the ledger */
-  type LedgerId = LedgerString
+  type LedgerIdString = LedgerString
 
   /** Identifiers for transactions. */
-  type TransactionId = LedgerString
+  type TransactionIdString = LedgerString
 
 }

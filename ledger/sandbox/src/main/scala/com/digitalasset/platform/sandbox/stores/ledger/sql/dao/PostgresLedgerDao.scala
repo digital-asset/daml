@@ -9,14 +9,15 @@ import java.util.Date
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
-import anorm.SqlParser.{str, _}
+import anorm.SqlParser._
+import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
-import com.digitalasset.daml.lf.data.Ref.{LedgerId, Party, TransactionId}
+import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.EventId
+import com.digitalasset.ledger._
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.ledger.backend.api.v1.RejectionReason._
 import com.digitalasset.platform.common.util.DirectExecutionContext
@@ -29,7 +30,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   TransactionSerializer,
   ValueSerializer
 }
-import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Convertion._
+import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.google.common.io.ByteStreams
 import org.slf4j.LoggerFactory
@@ -51,10 +52,10 @@ private class PostgresLedgerDao(
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
 
-  override def lookupLedgerId(): Future[Option[LedgerId]] =
+  override def lookupLedgerId(): Future[Option[LedgerIdString]] =
     dbDispatcher.executeSql { implicit conn =>
       SQL_SELECT_LEDGER_ID
-        .as(SqlParser.str("ledger_id").singleOpt.map(_.map(toLedgerId)))
+        .as(ledgerString("ledger_id").singleOpt)
     }
 
   private val SQL_SELECT_LEDGER_END = SQL("select ledger_end from parameters")
@@ -68,7 +69,7 @@ private class PostgresLedgerDao(
   private val SQL_INITIALIZE = SQL(
     "insert into parameters(ledger_id, ledger_end) VALUES({LedgerId}, {LedgerEnd})")
 
-  override def initializeLedger(ledgerId: String, ledgerEnd: LedgerOffset): Future[Unit] =
+  override def initializeLedger(ledgerId: LedgerIdString, ledgerEnd: LedgerOffset): Future[Unit] =
     dbDispatcher.executeSql { implicit conn =>
       val _ = SQL_INITIALIZE
         .on("LedgerId" -> ledgerId)
@@ -130,9 +131,8 @@ private class PostgresLedgerDao(
         "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHasher.hashKeyString(key)
       )
-      .as(SqlParser.str("contract_id").singleOpt)
-      // FixMe (RH): check it is safe to use assertFromString
-      .map(s => AbsoluteContractId(toContractId(s)))
+      .as(ledgerString("contract_id").singleOpt)
+      .map(AbsoluteContractId)
 
   override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
     dbDispatcher.executeSql(implicit conn => selectContractKey(key))
@@ -173,7 +173,7 @@ private class PostgresLedgerDao(
             Seq[NamedParameter](
               "id" -> c.contractId.coid,
               "transaction_id" -> c.transactionId,
-              "workflow_id" -> c.workflowId.getOrElse(""),
+              "workflow_id" -> c.workflowId,
               "package_id" -> c.coinst.template.packageId,
               "name" -> c.coinst.template.qualifiedName.toString,
               "create_offset" -> offset,
@@ -351,10 +351,7 @@ private class PostgresLedgerDao(
         ledgerEffectiveTime,
         _,
         transaction,
-        explicitDisclosure) =>
-      val mappedDisclosure = explicitDisclosure
-        .mapValues(parties => parties.map(toParty))
-
+        disclosure) =>
       final class AcsStoreAcc extends ActiveContracts[AcsStoreAcc] {
 
         override def lookupContract(cid: AbsoluteContractId) =
@@ -378,7 +375,7 @@ private class PostgresLedgerDao(
         }
 
         override def divulgeAlreadyCommittedContract(
-            transactionId: TransactionId,
+            transactionId: TransactionIdString,
             global: Relation[AbsoluteContractId, Party]) = {
           val divulgenceParams = global
             .flatMap {
@@ -412,7 +409,7 @@ private class PostgresLedgerDao(
         transactionId,
         workflowId,
         transaction,
-        mappedDisclosure,
+        disclosure,
         localImplicitDisclosure,
         globalImplicitDisclosure
       )
@@ -570,8 +567,7 @@ private class PostgresLedgerDao(
 
         // Then, write the given ACS. We trust the caller to supply an ACS that is
         // consistent with the given list of ledger entries.
-        activeContracts.foreach(c =>
-          storeContract(transactionIdMap(toTransactionId(c.transactionId)), c))
+        activeContracts.foreach(c => storeContract(transactionIdMap(c.transactionId), c))
 
         updateLedgerEnd(newLedgerEnd)
       }
@@ -604,11 +600,11 @@ private class PostgresLedgerDao(
 
   case class ParsedEntry(
       typ: String,
-      transactionId: Option[String],
-      commandId: Option[String],
-      applicationId: Option[String],
-      submitter: Option[String],
-      workflowId: Option[String],
+      transactionId: Option[TransactionIdString],
+      commandId: Option[CommandId],
+      applicationId: Option[ApplicationId],
+      submitter: Option[Party],
+      workflowId: Option[WorkflowId],
       effectiveAt: Option[Date],
       recordedAt: Option[Date],
       transaction: Option[Array[Byte]],
@@ -632,7 +628,7 @@ private class PostgresLedgerDao(
       "ledger_offset"
     )
 
-  private val DisclosureParser = (str("event_id") ~ str("party") map (flatten))
+  private val DisclosureParser = (ledgerString("event_id") ~ party("party") map (flatten))
 
   private def toLedgerEntry(parsedEntry: ParsedEntry)(
       implicit conn: Connection): (Long, LedgerEntry) = parsedEntry match {
@@ -653,14 +649,14 @@ private class PostgresLedgerDao(
         .on("transaction_id" -> transactionId)
         .as(DisclosureParser.*)
         .groupBy(_._1)
-        .map { case (k, v) => toEventId(k) -> v.map(x => toParty(x._2)).toSet }
+        .transform((_, v) => v.map(_._2).toSet)
 
       offset -> LedgerEntry.Transaction(
-        toCommandId(commandId),
-        toTransactionId(transactionId),
-        toApplicationId(applicationId),
-        toParty(submitter),
-        toWorkflowId(workflowId),
+        commandId,
+        transactionId,
+        applicationId,
+        submitter,
+        Some(workflowId),
         effectiveAt.toInstant,
         recordedAt.toInstant,
         transactionSerializer
@@ -683,12 +679,7 @@ private class PostgresLedgerDao(
         offset) =>
       val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
       offset -> LedgerEntry
-        .Rejection(
-          recordedAt.toInstant,
-          toCommandId(commandId),
-          toApplicationId(applicationId),
-          toParty(submitter),
-          rejectionReason)
+        .Rejection(recordedAt.toInstant, commandId, applicationId, submitter, rejectionReason)
     case ParsedEntry(
         "checkpoint",
         None,
@@ -718,9 +709,9 @@ private class PostgresLedgerDao(
       }
   }
 
-  private val ContractDataParser = (str("id")
-    ~ str("transaction_id")
-    ~ str("workflow_id")
+  private val ContractDataParser = (ledgerString("id")
+    ~ ledgerString("transaction_id")
+    ~ ledgerString("workflow_id").?
     ~ date("recorded_at")
     ~ binaryStream("contract")
     ~ binaryStream("key").? map (flatten))
@@ -732,9 +723,9 @@ private class PostgresLedgerDao(
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
 
-  private val DivulgenceParser = (str("party")
+  private val DivulgenceParser = (party("party")
     ~ long("ledger_offset")
-    ~ str("transaction_id") map (flatten))
+    ~ ledgerString("transaction_id") map (flatten))
 
   private val SQL_SELECT_DIVULGENCE =
     SQL(
@@ -756,18 +747,23 @@ private class PostgresLedgerDao(
     }
 
   private def mapContractDetails(
-      contractResult: (String, String, String, Date, InputStream, Option[InputStream]))(
-      implicit conn: Connection) =
+      contractResult: (
+          ContractIdString,
+          TransactionIdString,
+          Option[WorkflowId],
+          Date,
+          InputStream,
+          Option[InputStream]))(implicit conn: Connection) =
     contractResult match {
       case (coid, transactionId, workflowId, createdAt, contractStream, keyStreamO) =>
         val witnesses = lookupWitnesses(coid)
         val divulgences = lookupDivulgences(coid)
 
         Contract(
-          AbsoluteContractId(toContractId(coid)),
+          AbsoluteContractId(coid),
           createdAt.toInstant,
-          toTransactionId(transactionId),
-          toWorkflowId(workflowId),
+          transactionId,
+          workflowId,
           witnesses,
           divulgences,
           contractSerializer
@@ -786,25 +782,24 @@ private class PostgresLedgerDao(
   private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Party] =
     SQL_SELECT_WITNESS
       .on("contract_id" -> coid)
-      .as(SqlParser.str("witness").*)
+      .as(party("witness").*)
       .toSet
-      .map(toParty)
 
-  private def lookupDivulgences(coid: String)(implicit conn: Connection): Map[Party, String] =
+  private def lookupDivulgences(coid: String)(
+      implicit conn: Connection): Map[Party, TransactionIdString] =
     SQL_SELECT_DIVULGENCE
       .on("contract_id" -> coid)
       .as(DivulgenceParser.*)
       .map {
-        case (party, _, transaction_id) => toParty(party) -> transaction_id
+        case (party, _, transaction_id) => party -> transaction_id
       }
       .toMap
 
   private def lookupKeyMaintainers(coid: String)(implicit conn: Connection) =
     SQL_SELECT_KEY_MAINTAINERS
       .on("contract_id" -> coid)
-      .as(SqlParser.str("maintainer").*)
+      .as(party("maintainer").*)
       .toSet
-      .map(toParty)
 
   private val SQL_GET_LEDGER_ENTRIES = SQL(
     "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")

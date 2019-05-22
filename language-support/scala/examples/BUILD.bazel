@@ -118,5 +118,6 @@ da_scala_binary(
         "//ledger/ledger-api-common",
         "//ledger/participant-state",
         "//ledger/sandbox",
+        "//daml-lf/data",
     ],
 )

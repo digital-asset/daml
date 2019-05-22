@@ -14,10 +14,10 @@ import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction => Tx}
-import com.digitalasset.daml.lf.types.{LedgerForScenarios => L}
+import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
-  VContractId,
+  ContractId,
   ContractInst,
   RelativeContractId
 }
@@ -424,7 +424,7 @@ object SemanticTester {
     }
 
     // TODO: this function defined twice: in SemanticTester and in EngineTest
-    private[this] def makeAbsoluteContractId(coid: VContractId): AbsoluteContractId =
+    private[this] def makeAbsoluteContractId(coid: ContractId): AbsoluteContractId =
       coid match {
         case rcoid: RelativeContractId =>
           AbsoluteContractId(
@@ -435,7 +435,7 @@ object SemanticTester {
 
     // TODO: this function defined twice: in SemanticTester and in EngineTest
     private[this] def makeValueWithAbsoluteContractId(
-        v: Tx.Value[VContractId]): Tx.Value[AbsoluteContractId] =
+        v: Tx.Value[ContractId]): Tx.Value[AbsoluteContractId] =
       v.mapContractId(makeAbsoluteContractId)
 
     private[this] def updatePcs(

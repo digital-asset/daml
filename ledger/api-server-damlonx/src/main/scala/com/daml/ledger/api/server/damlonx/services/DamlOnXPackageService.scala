@@ -4,7 +4,7 @@
 package com.daml.ledger.api.server.damlonx.services
 
 import com.daml.ledger.participant.state.index.v1.IndexService
-import com.digitalasset.daml.lf.data.Ref.{LedgerId, PackageId}
+import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, PackageId}
 import com.digitalasset.daml_lf.DamlLf.{Archive, HashFunction}
 import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
   SHA256 => APISHA256,
@@ -69,7 +69,7 @@ class DamlOnXPackageService private (indexService: IndexService)
 }
 
 object DamlOnXPackageService {
-  def apply(indexService: IndexService, ledgerId: LedgerId)(implicit ec: ExecutionContext)
+  def apply(indexService: IndexService, ledgerId: LedgerIdString)(implicit ec: ExecutionContext)
     : PackageService with BindableService with PackageServiceLogging =
     new PackageServiceValidation(new DamlOnXPackageService(indexService), ledgerId)
     with PackageServiceLogging

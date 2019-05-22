@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.index.v1.{IndexService, TransactionAcce
 import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{LedgerId, LedgerString}
+import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, LedgerString}
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.transaction.Transaction.NodeId
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -45,7 +45,7 @@ import scala.util.{Failure, Success, Try}
 object DamlOnXTransactionService {
 
   def create(
-      ledgerId: Ref.LedgerId,
+      ledgerId: Ref.LedgerIdString,
       indexService: IndexService,
       identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
@@ -211,7 +211,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
   }
 
   private def lookupTransactionTreeById[A](
-      ledgerId: LedgerId,
+      ledgerId: LedgerIdString,
       txId: String,
       requestingParties: Set[Ref.Party]): Future[Option[VisibleTransaction]] = {
     val filter = TransactionFilter.allForParties(requestingParties)
@@ -240,7 +240,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
   }
 
   private def lookupFlatTransactionById[A](
-      ledgerId: LedgerId,
+      ledgerId: LedgerIdString,
       txId: String,
       requestingParties: Set[Ref.Party]): Future[Option[PTransaction]] = {
     val filter = TransactionFilter.allForParties(requestingParties)
@@ -276,7 +276,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
     Ordering.by(abs => Offset.assertFromString(abs.value))
 
   private def runTransactionPipeline(
-      ledgerId: Ref.LedgerId,
+      ledgerId: Ref.LedgerIdString,
       begin: LedgerOffset,
       end: Option[LedgerOffset],
       filter: TransactionFilter): Source[(Offset, (TransactionAccepted, BlindingInfo)), NotUsed] = {
@@ -324,7 +324,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
 
   private val `:` = Ref.LedgerString.assertFromString(":")
 
-  private def nodeIdToEventId(txId: Ref.TransactionId, nodeId: NodeId): Ref.LedgerString =
+  private def nodeIdToEventId(txId: Ref.TransactionIdString, nodeId: NodeId): Ref.LedgerString =
     LedgerString.concat(txId, `:`, nodeId.name)
 
   private def eventIdToTransactionId(eventId: EventId): Option[String] =

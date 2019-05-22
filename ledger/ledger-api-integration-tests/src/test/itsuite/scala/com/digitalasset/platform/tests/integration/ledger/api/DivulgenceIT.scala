@@ -6,7 +6,7 @@ package com.digitalasset.platform.tests.integration.ledger.api
 import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{ContractId, LedgerString}
+import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
@@ -88,7 +88,7 @@ class DivulgenceIT
       commandId: String,
       party: String,
       tpl: v1.value.Identifier,
-      arg: ValueRecord[AbsoluteContractId]): Future[ContractId] =
+      arg: ValueRecord[AbsoluteContractId]): Future[ContractIdString] =
     for {
       ledgerEndBeforeSubmission <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
       _ <- commandClient(ctx).submitAndWait(
@@ -143,7 +143,7 @@ class DivulgenceIT
   // but that it is visible in the transaction trees.
   case class Setup(div1Cid: String, div2Cid: String)
 
-  private def createDivulgence1(ctx: LedgerContext): Future[ContractId] =
+  private def createDivulgence1(ctx: LedgerContext): Future[ContractIdString] =
     create(
       ctx,
       "create-Divulgence1",
@@ -152,7 +152,7 @@ class DivulgenceIT
       ValueRecord(None, ImmArray(Some[Ref.Name]("div1Party") -> ValueParty("alice")))
     )
 
-  private def createDivulgence2(ctx: LedgerContext): Future[ContractId] =
+  private def createDivulgence2(ctx: LedgerContext): Future[ContractIdString] =
     create(
       ctx,
       "create-Divulgence2",
@@ -167,8 +167,8 @@ class DivulgenceIT
 
   private def divulgeViaFetch(
       ctx: LedgerContext,
-      div1Cid: ContractId,
-      div2Cid: ContractId): Future[Unit] =
+      div1Cid: ContractIdString,
+      div2Cid: ContractIdString): Future[Unit] =
     exercise(
       ctx,
       "exercise-Divulgence2Fetch",
@@ -183,8 +183,8 @@ class DivulgenceIT
 
   private def divulgeViaArchive(
       ctx: LedgerContext,
-      div1Cid: ContractId,
-      div2Cid: ContractId): Future[Unit] =
+      div1Cid: ContractIdString,
+      div2Cid: ContractIdString): Future[Unit] =
     exercise(
       ctx,
       "exercise-Divulgence2Fetch",

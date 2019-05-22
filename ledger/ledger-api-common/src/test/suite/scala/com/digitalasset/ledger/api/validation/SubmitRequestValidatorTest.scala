@@ -36,7 +36,7 @@ class SubmitRequestValidatorTest
     with ValidatorTestUtils
     with TableDrivenPropertyChecks {
 
-  val ledgerId: Ref.LedgerId = Ref.LedgerString.assertFromString("ledger-id")
+  val ledgerId: Ref.LedgerIdString = Ref.LedgerString.assertFromString("ledger-id")
 
   object api {
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")

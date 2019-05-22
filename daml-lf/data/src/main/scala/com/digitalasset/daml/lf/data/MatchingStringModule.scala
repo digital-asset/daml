@@ -52,6 +52,11 @@ object MatchingStringModule {
   * and some other (parameterizable) extra characters.
   * We use them to represent identifiers. In this way, we avoid
   * empty identifiers, escaping problems, and other similar pitfalls.
+  *
+  * ConcatenableMatchingString has the advantage over MatchingStringModule of being
+  * concatenable (and can be generate from number) without extra check.
+  * Those properties are heavily use to generate some ids by combining other existing
+  * ids.
   */
 sealed abstract class ConcatenableMatchingStringModule extends StringModule {
 
@@ -73,7 +78,7 @@ sealed abstract class ConcatenableMatchingStringModule extends StringModule {
 object ConcatenableMatchingStringModule {
 
   def apply(
-      extraChars: Char => Boolean,
+      extraAllowedChars: Char => Boolean,
       maxLength: Int = Int.MaxValue
   ): ConcatenableMatchingStringModule =
     new ConcatenableMatchingStringModule {
@@ -85,7 +90,7 @@ object ConcatenableMatchingStringModule {
         else if (s.length > maxLength)
           Left(s"""string too long""")
         else
-          s.find(c => c > '\u007f' || !(c.isLetterOrDigit || extraChars(c)))
+          s.find(c => c > '\u007f' || !(c.isLetterOrDigit || extraAllowedChars(c)))
             .fold[Either[String, T]](Right(s))(c =>
               Left(s"""non expected character 0x${c.toInt.toHexString} in "$s""""))
 

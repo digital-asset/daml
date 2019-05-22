@@ -4,7 +4,7 @@
 package com.digitalasset.ledger.api.validation
 
 import brave.propagation.TraceContext
-import com.digitalasset.daml.lf.data.Ref.{LedgerId, Party}
+import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, Party}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerOffset
 import com.digitalasset.ledger.api.messages.transaction
@@ -23,7 +23,7 @@ import com.digitalasset.platform.server.util.context.TraceContextConversions._
 import io.grpc.StatusRuntimeException
 
 class TransactionServiceRequestValidator(
-    ledgerId: LedgerId,
+    ledgerId: LedgerIdString,
     partyNameChecker: PartyNameChecker,
     identifierResolver: IdentifierResolver) {
 
@@ -31,12 +31,12 @@ class TransactionServiceRequestValidator(
 
   private val filterValidator = new TransactionFilterValidator(identifierResolver)
 
-  private def matchId(input: String): Result[LedgerId] = matchLedgerId(ledgerId)(input)
+  private def matchId(input: String): Result[LedgerIdString] = matchLedgerId(ledgerId)(input)
 
   private val rightNone = Right(None)
 
   case class PartialValidation(
-      ledgerId: LedgerId,
+      ledgerId: LedgerIdString,
       transactionFilter: TransactionFilter,
       begin: domain.LedgerOffset,
       end: Option[domain.LedgerOffset],

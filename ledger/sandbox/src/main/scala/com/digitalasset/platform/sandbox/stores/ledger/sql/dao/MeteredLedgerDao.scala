@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.digitalasset.daml.lf.data.Ref.LedgerId
+import com.digitalasset.daml.lf.data.Ref.LedgerIdString
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
@@ -17,7 +17,7 @@ import scala.concurrent.Future
 
 private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends LedgerDao {
 
-  override def lookupLedgerId(): Future[Option[LedgerId]] =
+  override def lookupLedgerId(): Future[Option[LedgerIdString]] =
     mm.timedFuture("LedgerDao:lookupLedgerId", ledgerDao.lookupLedgerId())
 
   override def lookupLedgerEnd(): Future[Long] =
@@ -58,7 +58,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends
       "storeInitialState",
       ledgerDao.storeInitialState(activeContracts, ledgerEntries, newLedgerEnd))
 
-  override def initializeLedger(ledgerId: String, ledgerEnd: LedgerOffset): Future[Unit] =
+  override def initializeLedger(ledgerId: LedgerIdString, ledgerEnd: LedgerOffset): Future[Unit] =
     ledgerDao.initializeLedger(ledgerId, ledgerEnd)
 
   override def reset(): Future[Unit] =

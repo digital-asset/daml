@@ -48,12 +48,12 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
         whenever(Decimal.fromBigDecimal(d).isRight) {
           val Right(dec) = Decimal.fromBigDecimal(d)
           val value = ValueDecimal(dec)
-          val recoveredDecimal = ValueCoder.decodeValue[VContractId](
+          val recoveredDecimal = ValueCoder.decodeValue[ContractId](
             defaultCidDecode,
             defaultValueVersion,
             assertRight(
               ValueCoder
-                .encodeValue[VContractId](defaultCidEncode, defaultValueVersion, value))) match {
+                .encodeValue[ContractId](defaultCidEncode, defaultValueVersion, value))) match {
             case Right(ValueDecimal(d)) => d
             case _ => fail("should have got a decimal back")
           }
@@ -89,7 +89,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     }
 
     "do ContractId" in {
-      forAll(coidValueGen) { v: Value[VContractId] =>
+      forAll(coidValueGen) { v: Value[ContractId] =>
         testRoundTrip(v)
       }
     }
@@ -98,38 +98,38 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       testRoundTripWithVersion)
 
     "do lists" in {
-      forAll(valueListGen) { v: ValueList[VContractId] =>
+      forAll(valueListGen) { v: ValueList[ContractId] =>
         testRoundTrip(v)
       }
     }
 
     "do optionals" in {
-      forAll(valueOptionalGen) { v: ValueOptional[VContractId] =>
+      forAll(valueOptionalGen) { v: ValueOptional[ContractId] =>
         testRoundTrip(v)
       }
     }
 
     "do maps" in {
-      forAll(valueMapGen) { v: ValueMap[VContractId] =>
+      forAll(valueMapGen) { v: ValueMap[ContractId] =>
         testRoundTrip(v)
       }
     }
 
     "do variant" in {
-      forAll(variantGen) { v: ValueVariant[VContractId] =>
+      forAll(variantGen) { v: ValueVariant[ContractId] =>
         testRoundTrip(v)
       }
     }
 
     "do record" in {
-      forAll(recordGen) { v: ValueRecord[VContractId] =>
+      forAll(recordGen) { v: ValueRecord[ContractId] =>
         testRoundTrip(v)
       }
     }
 
     "don't tuple" in {
       val tuple = ValueTuple(ImmArray((Ref.Name.assertFromString("foo"), ValueInt64(42))))
-      val res = ValueCoder.encodeValue[VContractId](defaultCidEncode, defaultValueVersion, tuple)
+      val res = ValueCoder.encodeValue[ContractId](defaultCidEncode, defaultValueVersion, tuple)
       res.left.get.errorMessage should include("serializable")
     }
 
@@ -138,10 +138,10 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
         defaultCidDecode,
         defaultValueVersion,
         assertRight(
-          ValueCoder.encodeValue[VContractId](defaultCidEncode, defaultValueVersion, ValueUnit)))
+          ValueCoder.encodeValue[ContractId](defaultCidEncode, defaultValueVersion, ValueUnit)))
       val fromToBytes = ValueCoder.valueFromBytes(
         defaultCidDecode,
-        ValueCoder.valueToBytes[VContractId](defaultCidEncode, ValueUnit).toOption.get)
+        ValueCoder.valueToBytes[ContractId](defaultCidEncode, ValueUnit).toOption.get)
       Right(ValueUnit) shouldEqual fromToBytes
       recovered shouldEqual Right(ValueUnit)
     }
@@ -160,17 +160,17 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     }
 
     "do versioned value with supported override version" in forAll(valueGen, valueVersionGen) {
-      (value: Value[VContractId], version: ValueVersion) =>
+      (value: Value[ContractId], version: ValueVersion) =>
         testRoundTripWithVersion(value, version)
     }
 
-    "do versioned value with assigned version" in forAll(valueGen) { v: Value[VContractId] =>
+    "do versioned value with assigned version" in forAll(valueGen) { v: Value[ContractId] =>
       testRoundTripWithVersion(v, ValueVersions.assertAssignVersion(v))
     }
 
     "versioned value should pass serialization if unsupported override version provided" in
       forAll(valueGen, unsupportedValueVersionGen) {
-        (value: Value[VContractId], badVer: ValueVersion) =>
+        (value: Value[ContractId], badVer: ValueVersion) =>
           ValueVersions.acceptedVersions.contains(badVer) shouldBe false
 
           val actual: proto.VersionedValue = assertRight(ValueCoder
@@ -181,7 +181,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
 
     "versioned value should fail deserialization if version is not supported" in
       forAll(valueGen, unsupportedValueVersionGen) {
-        (value: Value[VContractId], badVer: ValueVersion) =>
+        (value: Value[ContractId], badVer: ValueVersion) =>
           ValueVersions.acceptedVersions.contains(badVer) shouldBe false
 
           val protoWithUnsupportedVersion: proto.VersionedValue =
@@ -191,33 +191,32 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
                 VersionedValue(badVer, value)))
           protoWithUnsupportedVersion.getVersion shouldEqual badVer.protoValue
 
-          val actual: Either[DecodeError, VersionedValue[VContractId]] =
+          val actual: Either[DecodeError, VersionedValue[ContractId]] =
             ValueCoder.decodeVersionedValue(defaultCidDecode, protoWithUnsupportedVersion)
 
           actual shouldEqual Left(DecodeError(s"Unsupported value version ${badVer.protoValue}"))
       }
   }
 
-  def testRoundTrip(value: Value[VContractId]): Assertion = {
+  def testRoundTrip(value: Value[ContractId]): Assertion = {
     val recovered = ValueCoder.decodeValue(
       defaultCidDecode,
       defaultValueVersion,
-      assertRight(
-        ValueCoder.encodeValue[VContractId](defaultCidEncode, defaultValueVersion, value)))
+      assertRight(ValueCoder.encodeValue[ContractId](defaultCidEncode, defaultValueVersion, value)))
     val fromToBytes = ValueCoder.valueFromBytes(
       defaultCidDecode,
-      assertRight(ValueCoder.valueToBytes[VContractId](defaultCidEncode, value)))
+      assertRight(ValueCoder.valueToBytes[ContractId](defaultCidEncode, value)))
     Right(value) shouldEqual recovered
     Right(value) shouldEqual fromToBytes
   }
 
-  def testRoundTripWithVersion(value0: Value[VContractId], version: ValueVersion): Assertion = {
+  def testRoundTripWithVersion(value0: Value[ContractId], version: ValueVersion): Assertion = {
     ValueVersions.acceptedVersions.contains(version) shouldBe true
 
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder
         .encodeVersionedValueWithCustomVersion(defaultCidEncode, VersionedValue(version, value0)))
-    val decoded: VersionedValue[VContractId] = assertRight(
+    val decoded: VersionedValue[ContractId] = assertRight(
       ValueCoder.decodeVersionedValue(defaultCidDecode, encoded))
 
     decoded.value shouldEqual value0
@@ -227,7 +226,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
 
     val encodedSentOverWire: proto.VersionedValue =
       proto.VersionedValue.parseFrom(encoded.toByteArray)
-    val decodedSentOverWire: VersionedValue[VContractId] = assertRight(
+    val decodedSentOverWire: VersionedValue[ContractId] = assertRight(
       ValueCoder.decodeVersionedValue(defaultCidDecode, encodedSentOverWire))
 
     decodedSentOverWire.value shouldEqual value0

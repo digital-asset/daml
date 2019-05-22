@@ -51,7 +51,7 @@ class EngineTest extends WordSpec with Matchers with BazelRunfiles {
   private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
     "daml-lf/tests/BasicTests.dar")
 
-  private[this] def makeAbsoluteContractId(coid: VContractId): AbsoluteContractId =
+  private[this] def makeAbsoluteContractId(coid: ContractId): AbsoluteContractId =
     coid match {
       case rcoid: RelativeContractId =>
         AbsoluteContractId(toContractId("0:" + rcoid.txnid.index.toString))
@@ -59,7 +59,7 @@ class EngineTest extends WordSpec with Matchers with BazelRunfiles {
     }
 
   private[this] def makeValueWithAbsoluteContractId(
-      v: Tx.Value[VContractId]): Tx.Value[AbsoluteContractId] =
+      v: Tx.Value[ContractId]): Tx.Value[AbsoluteContractId] =
     v.mapContractId(makeAbsoluteContractId)
 
   def lookupContract(@deprecated("shut up unused arguments warning", "blah") id: AbsoluteContractId)
@@ -511,7 +511,7 @@ class EngineTest extends WordSpec with Matchers with BazelRunfiles {
       val partyEvents = events.events.values.toList.filter(_.witnesses contains "Party")
       partyEvents.size shouldBe 1
       partyEvents(0) match {
-        case _: ExerciseEvent[Tx.NodeId, VContractId, Tx.Value[VContractId]] => succeed
+        case _: ExerciseEvent[Tx.NodeId, ContractId, Tx.Value[ContractId]] => succeed
         case _ => fail("expected exercise")
       }
     }
@@ -1067,7 +1067,7 @@ object EngineTest {
   private implicit def toParty(s: String): Party =
     Party.assertFromString(s)
 
-  private implicit def toContractId(s: String): ContractId =
+  private implicit def toContractId(s: String): ContractIdString =
     LedgerString.assertFromString(s)
 
   private def ArrayList[X](as: X*): util.ArrayList[X] = {

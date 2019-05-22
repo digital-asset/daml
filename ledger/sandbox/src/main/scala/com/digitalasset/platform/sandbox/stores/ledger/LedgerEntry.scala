@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref.{Party, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -35,7 +35,7 @@ object LedgerEntry {
 
   final case class Transaction(
       commandId: CommandId,
-      transactionId: TransactionId,
+      transactionId: TransactionIdString,
       applicationId: ApplicationId,
       submittingParty: Party,
       workflowId: Option[WorkflowId],

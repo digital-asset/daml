@@ -3,25 +3,25 @@
 
 package com.digitalasset.platform.sandbox.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, TransactionIdString}
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.types.LedgerForScenarios
+import com.digitalasset.daml.lf.types.Ledger
 
 import scala.util.Try
 
 object SandboxEventIdFormatter {
 
-  case class TransactionIdWithIndex(transactionId: TransactionId, nodeId: Transaction.NodeId)
+  case class TransactionIdWithIndex(transactionId: TransactionIdString, nodeId: Transaction.NodeId)
 
-  def makeAbsCoid(transactionId: TransactionId)(coid: Lf.VContractId): Lf.AbsoluteContractId =
+  def makeAbsCoid(transactionId: TransactionIdString)(coid: Lf.ContractId): Lf.AbsoluteContractId =
     coid match {
       case a @ Lf.AbsoluteContractId(_) => a
       case Lf.RelativeContractId(txnid) =>
         Lf.AbsoluteContractId(fromTransactionId(transactionId, txnid))
     }
   // this method defines the EventId format used by the sandbox
-  def fromTransactionId(transactionId: TransactionId, nid: Transaction.NodeId): LedgerString =
+  def fromTransactionId(transactionId: TransactionIdString, nid: Transaction.NodeId): LedgerString =
     fromTransactionId(transactionId, nid.name)
 
   private val `#` = LedgerString.assertFromString("#")
@@ -31,8 +31,8 @@ object SandboxEventIdFormatter {
     * id, just to be safe.
     */
   def fromTransactionId(
-      transactionId: TransactionId,
-      nid: LedgerForScenarios.ScenarioNodeId): LedgerString =
+      transactionId: TransactionIdString,
+      nid: Ledger.ScenarioNodeId): LedgerString =
     LedgerString.concat(`#`, transactionId, `:`, nid)
 
   def split(eventId: String): Option[TransactionIdWithIndex] =

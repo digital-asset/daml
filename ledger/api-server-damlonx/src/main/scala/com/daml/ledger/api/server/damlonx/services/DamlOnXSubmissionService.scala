@@ -7,7 +7,7 @@ import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v1.IndexService
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta, WriteService}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerId
+import com.digitalasset.daml.lf.data.Ref.LedgerIdString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{
   Engine,
@@ -44,7 +44,7 @@ object DamlOnXSubmissionService {
 
   def create(
       identifierResolver: IdentifierResolver,
-      ledgerId: LedgerId,
+      ledgerId: LedgerIdString,
       indexService: IndexService,
       writeService: WriteService,
       engine: Engine)(

@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx}
-import com.digitalasset.daml.lf.types.LedgerForScenarios
+import com.digitalasset.daml.lf.types.Ledger
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
 
@@ -91,7 +91,7 @@ final class Engine {
     * create or an exercise choice.
     */
   def reinterpret(
-      nodes: Seq[GenNode.WithTxValue[NodeId, VContractId]],
+      nodes: Seq[GenNode.WithTxValue[NodeId, ContractId]],
       ledgerEffectiveTime: Time.Timestamp
   ): Result[Transaction.Transaction] = {
     for {
@@ -144,8 +144,8 @@ final class Engine {
       submitter: Option[Party],
       ledgerEffectiveTime: Time.Timestamp,
       requestor: Party,
-      contractIdMaping: VContractId => AbsoluteContractId,
-      valMapping: Tx.Value[VContractId] => Tx.Value[AbsoluteContractId]): Result[Unit] = {
+      contractIdMaping: ContractId => AbsoluteContractId,
+      valMapping: Tx.Value[ContractId] => Tx.Value[AbsoluteContractId]): Result[Unit] = {
 
     // we run the interpreter incrementally on root expressions,
     // so that we get the node indexing matching
@@ -183,13 +183,12 @@ final class Engine {
       restRootExpressions.flatMap(nodeExpressions => go(init, FrontStack(nodeExpressions)))
     }
 
-    val checkedFailures
-      : ((Transaction.NodeId, LedgerForScenarios.FailedAuthorization)) => Boolean = {
+    val checkedFailures: ((Transaction.NodeId, Ledger.FailedAuthorization)) => Boolean = {
       case (nid, failure) =>
         failure match {
-          case LedgerForScenarios.FACreateMissingAuthorization(_, _, _, requiredParties) =>
+          case Ledger.FACreateMissingAuthorization(_, _, _, requiredParties) =>
             tx.roots.toSeq.contains(nid) && requiredParties.contains(requestor)
-          case LedgerForScenarios.FAExerciseMissingAuthorization(_, _, _, _, requiredParties) =>
+          case Ledger.FAExerciseMissingAuthorization(_, _, _, _, requiredParties) =>
             tx.roots.toSeq.contains(nid) && requiredParties.contains(requestor)
           case _ => true
         }
@@ -220,9 +219,7 @@ final class Engine {
     for {
       recreatedTx <- incrementalRunInterpreter()
       authorizerSet = submitter.map(s => Set(s)).getOrElse(Set.empty[Party])
-      enrichment = LedgerForScenarios.enrichTransaction(
-        LedgerForScenarios.Authorize(authorizerSet),
-        recreatedTx)
+      enrichment = Ledger.enrichTransaction(Ledger.Authorize(authorizerSet), recreatedTx)
       comparableTx = recreatedTx.mapContractIdAndValue(contractIdMaping, valMapping)
       _ <- Result.assert(!enrichment.failedAuthorizations.exists(checkedFailures))(
         Error("Post-commit validation failure: unauthorized transaction"))
@@ -250,7 +247,7 @@ final class Engine {
       case err: ValidationError => ResultError(err)
     }
 
-  private[this] def asAbsoluteContractId(coid: VContractId): Result[AbsoluteContractId] =
+  private[this] def asAbsoluteContractId(coid: ContractId): Result[AbsoluteContractId] =
     coid match {
       case rcoid: RelativeContractId =>
         ResultError(ValidationError(s"not an absolute contract ID: $rcoid"))
@@ -259,7 +256,7 @@ final class Engine {
     }
 
   // Translate a GenNode into an expression re-interpretable by the interpreter
-  private[this] def translateNode[Cid <: VContractId](commandPreprocessor: CommandPreprocessor)(
+  private[this] def translateNode[Cid <: ContractId](commandPreprocessor: CommandPreprocessor)(
       node: GenNode.WithTxValue[Transaction.NodeId, Cid]): Result[(Type, SpeedyCommand)] = {
 
     node match {
@@ -297,7 +294,7 @@ final class Engine {
     }
   }
 
-  private[this] def translateTransactionRoots[Cid <: VContractId](
+  private[this] def translateTransactionRoots[Cid <: ContractId](
       commandPreprocessor: CommandPreprocessor,
       tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid]
   ): Result[ImmArray[(Transaction.NodeId, (Type, SpeedyCommand))]] = {
