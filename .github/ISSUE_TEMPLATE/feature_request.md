@@ -1,6 +1,6 @@
 ---
-name: Feature request
-about: Suggest an idea for this project
+name: DAML Feature request
+about: Suggest an idea to improve DAML
 title: ''
 labels: ''
 assignees: ''
