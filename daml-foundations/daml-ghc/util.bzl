@@ -98,4 +98,6 @@ def daml_ghc_integration_test(name, main_function):
             "time",
         ],
         visibility = ["//visibility:public"],
+        # TODO fix flakiness, see #1306
+        flaky = True,
     )
