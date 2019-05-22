@@ -1,0 +1,106 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.participant.admin.api.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_outer_classname = "PackageManagementServiceOuterClass";
+option java_package = "com.digitalasset.admin.api.v1";
+
+// Allows clients to query the DAML-LF packages that are supported by the ledger.
+service PackageManagementService {
+
+  // list all DAML-LF package the participant supports
+  // upload a DAR file
+  // upload a DAML-LF archive
+
+  // Returns the details of all supported packages.
+  rpc ListPackageDetails (ListPackageDetailsRequest) returns (ListPackageDetailsResponse);
+
+  // Uploads a DAR archive.
+  rpc UploadDar (UploadDarRequest) returns (UploadDarResponse);
+
+}
+
+message ListPackageDetailsRequest {
+
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Required
+  string ledger_id = 1;
+}
+
+message ListPackageDetailsResponse {
+
+  // The IDs of all DAML-LF packages supported by the ledger.
+  // Required
+  repeated string PackageDetails = 1;
+}
+
+message PackageDetails {
+ 
+  // The IDs of all DAML-LF packages supported by the ledger.
+  // Required
+  string package_id = 1;
+
+  // Human readable name of the package.
+  // Optional
+  string package_name = 2;
+
+  // Identifier of the agent that uploaded the package. Depending on the ledger 
+  // implementation, the interpretation of this field may differ. It could be
+  // the identifier of the uploading application or its user. It could also
+  // be the unique identifier of the participant node within the cluster.
+  // Optional
+  string uploaded_by = 3;
+
+  // Microseconds since the UNIX epoch. Can go backwards. Fixed
+  // since the vast majority of values will be greater than
+  // 2^28, since currently the number of microseconds since the
+  // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
+  // 9999-12-31T23:59:59.999999Z, so that we can convert to/from
+  // https://www.ietf.org/rfc/rfc3339.txt.
+  // Required
+  google.protobuf.Timestamp upload_timestamp = 4;
+
+  // Size of the package in bytes.
+  // Required
+  uint64 package_size = 5 [jstype = JS_STRING];
+
+  // names of the modules contained in the package
+  // Optional
+  repeated string module_names = 6;
+}
+
+message UploadDarRequest {
+
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Required
+  string ledger_id = 1;
+
+  // Contains a DAML archive DAR file, which in turn is a jar like zipped container
+  // for ``daml_lf`` archives. See further details in ``daml_lf.proto``.
+  // Required
+  bytes dar = 2;
+
+  // Name of the DAR file. Implementation is ikely to store it in a local repository.
+  // This name will be likely used as part of the name in the local file system.
+  // Please note that on the query side, we no longer deal with DARs, but we deal with
+  // packages instead. There is a 1 to N relationship between DARs and packages.
+  // Required
+  string filename = 3;
+
+  // Identifier of the agent that uploaded the package. Depending on the ledger 
+  // implementation, the interpretation of this field may differ. It could be
+  // the identifier of the uploading application or its user. It could also
+  // be the unique identifier of the participant node within the cluster.
+  // Optional
+  string uploaded_by = 4;
+}
+
+// An empty message that is received when the upload operation succeeded.
+message UploadDarResponse {
+
+}
