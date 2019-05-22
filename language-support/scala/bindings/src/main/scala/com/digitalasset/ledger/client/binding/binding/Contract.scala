@@ -5,6 +5,17 @@ package com.digitalasset.ledger.client.binding
 
 import com.digitalasset.ledger.api.v1.{value => rpcvalue}
 
+/**
+  * A class representing a DAML contract of specific type (DAML template) with assigned contract ID and agreement text.
+  *
+  * @param contractId     Contract ID.
+  * @param value          Contract instance as defined in DAML template (without `contractId` and `agreementText`).
+  * @param agreementText  Agreement text. `None` means we do not know if the `agreementText` was specified on the contract.
+  *                       `Some("")` is a valid case, this means that the contract has `agreementText` set to an empty string
+  *                       or agreement was not defined in DAML, which defaults to an empty string.
+  *
+  * @tparam T             Contract template type parameter.
+  */
 final case class Contract[+T](
     contractId: Primitive.ContractId[T],
     value: T with Template[T],
