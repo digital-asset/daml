@@ -32,10 +32,10 @@ Open a command prompt in your `C:\Users\<your-name>` directory and run:
   stack setup
   stack install happy alex
   stack exec -- pacman -S gcc binutils git automake-wrapper tar make patch autoconf python3 --noconfirm
-  stack exec -- git clone --recursive git://git.haskell.org/ghc.git
+  stack exec -- git clone --recursive https://gitlab.haskell.org/ghc/ghc.git
   cd ghc
   stack build --stack-yaml=hadrian/stack.yaml --only-dependencies
-  stack exec --stack-yaml=hadrian/stack.yaml -- hadrian/build.bat -j --configure --flavour=quickest
+  hadrian/build.stack.bat -j --configure --flavour=quickest
 ```
 
 *[Info : The MSYS2 home directory that `slack` ends up creating for you is in

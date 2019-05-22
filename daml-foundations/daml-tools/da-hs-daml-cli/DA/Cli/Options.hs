@@ -7,7 +7,7 @@ module DA.Cli.Options
 
 import qualified Data.Text           as T
 import           Data.List.Extra     (trim, splitOn)
-import           Options.Applicative
+import Options.Applicative.Extended
 import Data.List
 import Text.Read
 import qualified DA.Pretty           as Pretty
@@ -257,6 +257,10 @@ projectCheckOpt :: Parser ProjectCheck
 projectCheckOpt = fmap ProjectCheck . switch $
        help "Check if running in DAML project."
     <> long "project-check"
+
+newtype InitPkgDb = InitPkgDb Bool
+initPkgDbOpt :: Parser InitPkgDb
+initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database"
 
 data Telemetry = OptedIn | OptedOut | Undecided
 telemetryOpt :: Parser Telemetry

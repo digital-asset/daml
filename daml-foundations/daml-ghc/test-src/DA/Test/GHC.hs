@@ -292,7 +292,7 @@ parseRange s =
         Range
             (Position (rowStart - 1) (colStart - 1))
             (Position (rowEnd - 1) (colEnd - 1))
-    _ -> noRange
+    _ -> error $ "Failed to parse range, got " ++ s
 
 mainProj :: TestArguments -> Compile.IdeState -> FilePath -> (String -> IO ()) -> FilePath -> IO LF.Package
 mainProj TestArguments{..} service outdir log file = do

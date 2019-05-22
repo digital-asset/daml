@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.validation
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.lfpackage.Util.{TContractId, TList, TOptional, TMap}
+import com.digitalasset.daml.lf.lfpackage.Util.{TContractId, TList, TMap, TOptional}
 
 private[validation] object Serializability {
 
@@ -33,8 +33,12 @@ private[validation] object Serializability {
 
     def checkType(typ0: Type): Unit = typ0 match {
       case TContractId(TTyCon(tCon)) =>
-        lookupTemplate(ctx, tCon)
-        ()
+        lookupDataType(ctx, tCon) match {
+          case DDataType(_, _, DataRecord(_, Some(_))) =>
+            ()
+          case _ =>
+            unserializable(URContractId)
+        }
       case TVar(name) =>
         if (!vars(name)) unserializable(URFreeVar(name))
       case TTyCon(tycon) =>

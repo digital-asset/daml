@@ -1,0 +1,18 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR range=18:12-19:1; Empty record update
+daml 1.2
+module EmptyWith where
+
+data Foo = Foo with -- this should be fine
+
+data Bar = Bar with
+  bar : Int
+
+create = Foo with -- this should be fine
+
+match (Bar with) = 1 -- this should be fine
+
+update : Bar -> Bar
+update x = x with -- this should be an error (according to Haskell)

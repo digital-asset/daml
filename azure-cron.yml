@@ -22,6 +22,8 @@ jobs:
       - bash: |
           set -euo pipefail
 
+          CUR_SHA=$(git rev-parse HEAD)
+
           robustly_download_nix_pkgs() {
             # In recent commits, this is part of the dev-env-install script.
             # However, we have to copy it here to apply it to older versions.
@@ -66,16 +68,23 @@ jobs:
             mkdir -p $DOCDIR/${version#v}
             tar xzf bazel-genfiles/docs/html.tar.gz --strip-components=1 -C $DOCDIR/${version#v} >$LOG 2>&1
           done
-          echo "Maintain proper 404 page"
-          curl -s https://docs.daml.com/not-found.html > $DOCDIR/not-found.html
-          echo "Pushing to GCS bucket..."
-          GCS_KEY=$(mktemp)
-          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
-          gcloud auth activate-service-account --key-file=$GCS_KEY >$LOG 2>&1
-          BOTO_CONFIG=/dev/null gsutil rsync -d -r $DOCDIR gs://daml-docs >$LOG 2>&1
+
+          git checkout $CUR_SHA
+          echo "Pushing to S3 bucket..."
+          aws s3 sync $DOCDIR \
+                      s3://docs-daml-com/ \
+                      --delete \
+                      --acl public-read \
+                      --exclude '*.doctrees/*' \
+                      --exclude '*.buildinfo'
+          echo "Refreshing CloudFront cache..."
+          aws cloudfront create-invalidation \
+                         --distribution-id E1U753I56ERH55 \
+                         --paths '/*'
           echo "Done."
         env:
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+          AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+          AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
       - task: PublishPipelineArtifact@0
         condition: always()
         inputs:

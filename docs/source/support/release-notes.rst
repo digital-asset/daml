@@ -9,6 +9,9 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.19 - 2019-05-22
+--------------------
+
 Ledger
 ~~~~~~
 
@@ -34,6 +37,8 @@ Java Bindings
 DAML
 ~~~~
 
+- **BREAKING CHANGE - Syntax**: Records with empty update blocks, e.g. ``foo with``, is now an error (the fact it was ever accepted was a bug).
+
 - **BREAKING CHANGE - Contract Keys**: Before, maintainers were incorrectly not checked to be a subset of the signatories, now they are. See `issue #1123 <https://github.com/digital-asset/daml/issues/1123>`__
 
 Sandbox
@@ -46,6 +51,13 @@ Sandbox
   a command requires them, which causes a delay for the first command that requires a yet-to-be-compiled
   package.
   See `issue #1230 <https://github.com/digital-asset/daml/issues/1230>`__.
+
+SDK tools
+~~~~~~~~~
+
+- The Windows installer is now signed. You might still see Windows
+  defender warnings for some time but the publisher should now show
+  "Digital Asset Holdings, LLC".
 
 .. _release-0-12-18:
 
