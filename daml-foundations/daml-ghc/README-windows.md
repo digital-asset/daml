@@ -35,7 +35,7 @@ Open a command prompt in your `C:\Users\<your-name>` directory and run:
   stack exec -- git clone --recursive https://gitlab.haskell.org/ghc/ghc.git
   cd ghc
   stack build --stack-yaml=hadrian/stack.yaml --only-dependencies
-  stack exec --stack-yaml=hadrian/stack.yaml -- hadrian/build.bat -j --configure --flavour=quickest
+  hadrian/build.stack.bat -j --configure --flavour=quickest
 ```
 
 *[Info : The MSYS2 home directory that `slack` ends up creating for you is in
