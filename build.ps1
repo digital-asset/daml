@@ -40,7 +40,7 @@ bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution
     //3rdparty/... `
     //nix/third-party/gRPC-haskell:grpc-haskell `
     //daml-assistant:daml `
-    //daml-foundations/daml-tools/... `
+    //daml-foundations/... `
     //compiler/... `
     //daml-lf/... `
     //extractor/... `
@@ -70,4 +70,6 @@ bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_w
     //navigator/backend/... `
     //daml-assistant/integration-tests/... `
     //daml-foundations/daml-ghc:daml-ghc-deterministic `
+    //daml-foundations/daml-ghc:daml-ghc-shake-test-ci `
+    //daml-foundations/daml-tools/da-hs-daml-cli `
     //daml-foundations/daml-tools/da-hs-damlc-app/...

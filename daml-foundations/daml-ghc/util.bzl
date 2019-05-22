@@ -56,7 +56,7 @@ def daml_ghc_integration_test(name, main_function):
         data = [
             "//daml-foundations/daml-ghc/package-database:package-db",
             "//compiler/scenario-service/server:scenario_service_jar",
-            "@jq//:bin",
+            "@jq_dev_env//:jq",
             ":tests",
             ":bond-trading",
         ],

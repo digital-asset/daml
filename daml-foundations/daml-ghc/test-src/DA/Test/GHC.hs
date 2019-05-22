@@ -179,7 +179,7 @@ runJqQuery log qs = do
   forM qs $ \(pkg, q) -> do
     log $ "running jq query: " ++ q
 
-    let jq = "external" </> "jq" </> "bin" </> "jq"
+    let jq = "external" </> "jq_dev_env" </> "bin" </> "jq"
     let json = unpack $ A.encode $ transformOn A._Value numToString $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
     out <- readProcess jq [q] json
     case trim out of

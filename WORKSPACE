@@ -274,9 +274,23 @@ haskell_register_ghc_bindists(
 nixpkgs_package(
     name = "jq",
     attribute_path = "jq",
+    fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "jq_dev_env",
+    nix_include = ["bin/jq"],
+    nix_label = "@jq",
+    nix_path = "bin/jq",
+    tool = "jq",
+    win_include = [
+        "jq.exe",
+    ],
+    win_path = "jq.exe",
+    win_tool = "jq-1.5",
 )
 
 nixpkgs_package(
@@ -421,9 +435,9 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "15096280b3542d56d8df728d3bce9ea34141debd"
+HASKELL_LSP_COMMIT = "6e34a2193464dd49b09e223111c57a39c44fb1c7"
 
-HASKELL_LSP_HASH = "170de7aeb1da63198139a667c074a05f7ecd30017d54c78569a6aa1cc565be89"
+HASKELL_LSP_HASH = "5804143e94ede0f99962007f94e7f84268f220c05ac3aeae3dda3cdc186d077f"
 
 hazel_repositories(
     core_packages = dicts.add(
@@ -483,7 +497,8 @@ hazel_repositories(
             ) +
             hazel_hackage("zip-archive", "0.3.3", "988adee77c806e0b497929b24d5526ea68bd3297427da0d0b30b99c094efc84d") +
             hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
-            hazel_hackage("rope-utf16-splay", "0.2.0.0", "83d1961bf55355da49a6b55d6f58d02483eff1f8e6df53f4dccdab1ac49e101d") +
+            hazel_hackage("rope-utf16-splay", "0.3.1.0", "cbf878098355441ed7be445466fcb72d45390073a298b37649d762de2a7f8cc6") +
+            hazel_hackage("unix-compat", "0.5.1", "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52") +
             # This is a special version of Haskell LSP without GPL dependencies
             hazel_github(
                 "haskell-lsp",
