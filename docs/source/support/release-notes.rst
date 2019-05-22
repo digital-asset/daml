@@ -47,6 +47,13 @@ Sandbox
   package.
   See `issue #1230 <https://github.com/digital-asset/daml/issues/1230>`__.
 
+SDK tools
+~~~~~~~~~
+
+- The Windows installer is now signed. You might still see Windows
+  defender warnings for some time but the publisher should now show
+  "Digital Asset Holdings, LLC".
+
 .. _release-0-12-18:
 
 0.12.18 - 2019-05-20
