@@ -3,10 +3,12 @@
 
 package com.digitalasset.daml.lf.validation
 
+import com.digitalasset.daml.lf.archive.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.lfpackage.Ast.Package
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser._
+import com.digitalasset.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -36,7 +38,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
 
       forEvery(testCases) { typ =>
         Serializability
-          .Env(defaultWorld, NoContext, SRDataType, typ)
+          .Env(LanguageVersion.default, defaultWorld, NoContext, SRDataType, typ)
           .introVar(n"serializableType" -> k"*")
           .checkType()
       }
@@ -63,7 +65,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
       forEvery(testCases) { typ =>
         an[EExpectedSerializableType] should be thrownBy
           Serializability
-            .Env(defaultWorld, NoContext, SRDataType, typ)
+            .Env(LanguageVersion.default, defaultWorld, NoContext, SRDataType, typ)
             .introVar(n"serializableType" -> k"*")
             .checkType()
       }
@@ -225,7 +227,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
 
     "reject unserializable contract id" in {
 
-      val pkg =
+      val pkg0 =
         p"""
           // well-formed module
           module NegativeTestCase1 {
@@ -247,32 +249,61 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
             record @serializable SerializableContractId = { cid : ContractId NegativeTestCase1:SerializableRecord };
           }
 
-          module PositiveTestCase1 {
+          module OncePositiveTestCase1 {
             record @serializable SerializableRecord = {};
+
+            record @serializable OnceUnserializableContractId = { cid : ContractId OncePositiveTestCase1:SerializableRecord };
+          }
+
+          module OncePositiveTestCase2 {
+            record @serializable OnceUnserializableContractId = { cid : ContractId Int64 };
+          }
+
+          module OncePositiveTestCase3 {
+            record @serializable OnceUnserializableContractId (a : *) = { cid : ContractId a };
+          }
+
+          module PositiveTestCase1 {
+            record SerializableRecord = {};
 
             record @serializable UnserializableContractId = { cid : ContractId PositiveTestCase1:SerializableRecord };
           }
 
           module PositiveTestCase2 {
-            record @serializable UnserializableContractId = { cid : ContractId Int64 };
-          }
-
-          module PositiveTestCase3 {
-            record @serializable UnserializableContractId (a : *) = { cid : ContractId a };
+            record @serializable UnserializableContractId = { cid : ContractId (Int64 -> Int64) };
           }
          """
 
-      val positiveTestCases = Table(
-        "module",
-        "PositiveTestCase1",
-        "PositiveTestCase2",
-        "PositiveTestCase3",
+      val version1_4 = LanguageVersion(LanguageMajorVersion.V1, "4")
+      // TODO(MH): We need to roll this over when we freeze DAML-LF 1.5.
+      val version1_5 = LanguageVersion(LanguageMajorVersion.V1, "dev")
+      val versions = Table("version", version1_4, version1_5)
+
+      val neverFail = (_: LanguageVersion) => false
+      val failBefore1_5 =
+        (version: LanguageVersion) => LanguageVersion.ordering.lteq(version, version1_4)
+      val alwaysFail = (_: LanguageVersion) => true
+      val testCases = Table[String, LanguageVersion => Boolean](
+        "module" -> "should fail",
+        "NegativeTestCase1" -> neverFail,
+        "NegativeTestCase2" -> neverFail,
+        "OncePositiveTestCase1" -> failBefore1_5,
+        "OncePositiveTestCase2" -> failBefore1_5,
+        "OncePositiveTestCase3" -> failBefore1_5,
+        "PositiveTestCase1" -> alwaysFail,
+        "PositiveTestCase2" -> alwaysFail,
       )
 
-      check(pkg, "NegativeTestCase1")
-      check(pkg, "NegativeTestCase2")
-      forEvery(positiveTestCases) { modName =>
-        an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, modName))
+      forEvery(versions) { version =>
+        val pkg = pkg0.updateVersion(version)
+        forEvery(testCases) { (modName: String, shouldFail: LanguageVersion => Boolean) =>
+          if (shouldFail(version)) {
+            an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, modName))
+            ()
+          } else {
+            check(pkg, modName)
+          }
+        }
       }
     }
   }
