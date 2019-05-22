@@ -32,7 +32,7 @@ Windows
 
 .. note::
 
-  There's currently a known issue where the installer gets flagged as "unrecognized", but this will be fixed soon.
+  There's currently a known issue where the installer gets flagged as "unrecognized" by Windows Defender, but this will be fixed soon.
 
 We support running the SDK on Windows 10. To install the SDK on Windows, download and run the installer from `github.com/digital-asset/daml/releases/latest <https://github.com/digital-asset/daml/releases/latest>`__.
 
