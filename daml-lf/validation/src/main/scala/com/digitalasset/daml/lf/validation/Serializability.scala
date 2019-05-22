@@ -23,7 +23,8 @@ private[validation] object Serializability {
     import world._
 
     private val supportsSerializablePolymorphicContractIds =
-      LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LanguageMajorVersion.V1, "dev"))
+      LanguageVersion.ordering
+        .gteq(languageVersion, LanguageVersion(LanguageMajorVersion.V1, "dev"))
 
     def unserializable(reason: UnserializabilityReason): Nothing =
       throw EExpectedSerializableType(ctx, requirement, typeToSerialize, reason)
@@ -40,8 +41,7 @@ private[validation] object Serializability {
       case TContractId(tArg) => {
         if (supportsSerializablePolymorphicContractIds) {
           checkType(tArg)
-        }
-        else {
+        } else {
           tArg match {
             case TTyCon(tCon) => {
               lookupDataType(ctx, tCon) match {
@@ -120,7 +120,11 @@ private[validation] object Serializability {
 
   // Assumes template are well typed,
   // in particular choice argument types and choice return types are of kind KStar
-  def checkTemplate(version: LanguageVersion, world: World, tyCon: TTyCon, template: Template): Unit = {
+  def checkTemplate(
+      version: LanguageVersion,
+      world: World,
+      tyCon: TTyCon,
+      template: Template): Unit = {
     val context = ContextTemplate(tyCon.tycon)
     Env(version, world, context, SRTemplateArg, tyCon).checkType()
     template.choices.values.foreach { choice =>

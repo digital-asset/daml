@@ -280,7 +280,8 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
       val versions = Table("version", version1_4, version1_5)
 
       val neverFail = (_: LanguageVersion) => false
-      val failBefore1_5 = (version: LanguageVersion) => LanguageVersion.ordering.lteq(version, version1_4)
+      val failBefore1_5 =
+        (version: LanguageVersion) => LanguageVersion.ordering.lteq(version, version1_4)
       val alwaysFail = (_: LanguageVersion) => true
       val testCases = Table[String, LanguageVersion => Boolean](
         "module" -> "should fail",
@@ -299,8 +300,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
           if (shouldFail(version)) {
             an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, modName))
             ()
-          }
-          else {
+          } else {
             check(pkg, modName)
           }
         }
