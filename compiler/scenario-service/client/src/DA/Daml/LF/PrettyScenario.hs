@@ -825,18 +825,19 @@ renderValue world name = \case
         renderField (Field label mbValue) =
             renderValue world (name ++ [TL.toStrict label]) (fromJust mbValue)
 
-templateConName :: LF.World -> Identifier -> Maybe (LF.Qualified LF.TypeConName)
-templateConName world (Identifier mbPkgId (TL.toStrict -> qualName)) = do
-  (mName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
-  tpl <- NM.lookup (LF.TypeConName [defName]) (LF.moduleTemplates mod0)
-  return (LF.Qualified LF.PRSelf  mName (LF.tplTypeCon tpl))
+templateConName :: Identifier -> Maybe (LF.Qualified LF.TypeConName)
+templateConName (Identifier _ (TL.toStrict -> qualName)) = do
+  (modName, tpl) <- case T.splitOn ":" qualName of 
+    [mdN, defN] -> Just (LF.ModuleName (T.splitOn "." mdN), LF.TypeConName [defN])
+    _ -> error "Bad definition"
+  return (LF.Qualified LF.PRSelf  modName tpl)
 
 dataex :: LF.DataCons -> [T.Text]
-dataex (LF.DataRecord re) = map LF.unFieldName $ (map fst re)
-dataex (LF.DataVariant re)  = map LF.unVariantConName $ (map fst re)
+dataex (LF.DataRecord re) = map (LF.unFieldName . fst) re
+dataex (LF.DataVariant re)  = map (LF.unVariantConName . fst) re
 
 renderHeader :: LF.World -> Identifier -> [T.Text]
-renderHeader world identifier = case templateConName world identifier of 
+renderHeader world identifier = case templateConName identifier of 
   Just qTypeConName -> case LF.lookupDataType qTypeConName world of 
     Right ddt -> dataex (LF.dataCons ddt)
     Left _ -> []
