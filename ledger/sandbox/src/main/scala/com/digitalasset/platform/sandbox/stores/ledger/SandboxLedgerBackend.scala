@@ -8,6 +8,11 @@ import java.util.concurrent.CompletionStage
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.index.v1.{
+  AcsUpdateEvent,
+  ActiveContractSetSnapshot,
+  ActiveContractsService
+}
 import com.daml.ledger.participant.state.v1.{
   Party => _,
   SubmittedTransaction => _,
@@ -19,6 +24,7 @@ import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.ledger.api.domain.{LedgerOffset, TransactionFilter}
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.{
   AcceptedTransaction,
   Heartbeat,
@@ -26,6 +32,7 @@ import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.{
 }
 import com.digitalasset.ledger.backend.api.v1._
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
 
 import scala.compat.java8.FutureConverters
@@ -33,7 +40,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     extends LedgerBackend //TODO: remove this later so we can rely on sole participant state interfaces
-    with WriteService {
+    with WriteService
+    with ActiveContractsService {
 
   override def ledgerId: String = ledger.ledgerId
 
@@ -84,27 +92,33 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       .ledgerEntries(offset.map(_.toLong))
       .map { case (o, item) => toLedgerSyncEvent(o, item) }
 
-  override def activeContractSetSnapshot()
-    : Future[(LedgerSyncOffset, Source[ActiveContract, NotUsed])] =
+  override def getActiveContractSetSnapshot(
+      filter: TransactionFilter): Future[ActiveContractSetSnapshot] = {
+    //TODO: use the filter..
+    val f = EventFilter.byTemplates(filter)
+
     ledger
       .snapshot()
       .map {
         case LedgerSnapshot(offset, acsStream) =>
-          (offset.toString, acsStream.map { case (cid, ac) => toSyncActiveContract(cid, ac) })
+          ActiveContractSetSnapshot(LedgerOffset.Absolute(offset.toString), acsStream.map {
+            case (cId, ac) =>
+              (ac.workflowId, toUpdateEvent(cId, ac))
+          })
       }(mat.executionContext)
+
+  }
 
   override def getCurrentLedgerEnd: Future[LedgerSyncOffset] =
     Future.successful(ledger.ledgerEnd.toString)
 
-  private def toSyncActiveContract(
+  private def toUpdateEvent(
       id: Value.AbsoluteContractId,
-      ac: ActiveContracts.ActiveContract): ActiveContract =
-    ActiveContract(
+      ac: ActiveContracts.ActiveContract): AcsUpdateEvent.Create =
+    AcsUpdateEvent.Create(
       id,
-      ac.let,
-      ac.transactionId,
-      ac.workflowId,
-      ac.contract,
+      ac.contract.template,
+      ac.contract.arg,
       ac.witnesses
     )
 

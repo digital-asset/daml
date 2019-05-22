@@ -6,27 +6,29 @@ package com.digitalasset.platform.sandbox.services
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.index.v1.{
+  ActiveContractSetSnapshot,
+  ActiveContractsService => ACSBackend
+}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service._
-import com.digitalasset.ledger.api.v1.event.Event.Event.Created
-import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
+import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.validation.TransactionFilterValidator
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.participant.util.{EventFilter, LfEngineToApi}
+import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.validation.{
   ActiveContractsServiceValidation,
   IdentifierResolver
 }
-import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.ledger.backend.api.v1.{ActiveContract, LedgerBackend, LedgerSyncOffset}
 import io.grpc.{BindableService, ServerServiceDefinition}
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class SandboxActiveContractsService private (
-    getSnapshot: () => Future[(LedgerSyncOffset, Source[ActiveContract, NotUsed])],
+    backend: ACSBackend,
     identifierResolver: IdentifierResolver,
     parallelism: Int = Runtime.getRuntime.availableProcessors)(
     implicit executionContext: ExecutionContext,
@@ -48,50 +50,40 @@ class SandboxActiveContractsService private (
       .fold(
         Source.failed, { filter =>
           Source
-            .fromFuture(getSnapshot())
+            .fromFuture(backend.getActiveContractSetSnapshot(filter))
             .flatMapConcat {
-              case (offset, acsStream) =>
+              case ActiveContractSetSnapshot(offset, acsStream) =>
                 acsStream
-                  .mapConcat { a =>
-                    filteredApiContract(EventFilter.byTemplates(filter), a, request.verbose).toList
+                  .map {
+                    case (wfId, create) =>
+                      GetActiveContractsResponse(
+                        workflowId = wfId,
+                        activeContracts = List(
+                          CreatedEvent(
+                            // we use absolute contract ids as event ids throughout the sandbox
+                            create.contractId.coid,
+                            create.contractId.coid,
+                            Some(LfEngineToApi.toApiIdentifier(create.templateId)),
+                            Some(
+                              LfEngineToApi
+                                .lfValueToApiRecord(
+                                  verbose = request.verbose,
+                                  create.argument.value)
+                                .fold(
+                                  err =>
+                                    sys.error(
+                                      s"Unexpected error when converting stored contract: $err"),
+                                  identity)
+                            ),
+                            create.stakeholders.toSeq
+                          )
+                        )
+                      )
                   }
                   .concat(Source.single(GetActiveContractsResponse(offset = offset.toString)))
             }
         }
       )
-  }
-
-  private def filteredApiContract(
-      eventFilter: EventFilter.TemplateAwareFilter,
-      a: ActiveContract,
-      verbose: Boolean) = {
-    val create = toApiCreated(a, verbose)
-    eventFilter
-      .filterEvent(Event(create))
-      .map(
-        evt =>
-          GetActiveContractsResponse(
-            workflowId = a.workflowId,
-            activeContracts = List(evt.getCreated)))
-  }
-
-  private def toApiCreated(a: ActiveContract, verbose: Boolean): Created = {
-    Created(
-      CreatedEvent(
-        // we use absolute contract ids as event ids throughout the sandbox
-        a.contractId.coid,
-        a.contractId.coid,
-        Some(LfEngineToApi.toApiIdentifier(a.contract.template)),
-        Some(
-          LfEngineToApi
-            .lfValueToApiRecord(verbose = verbose, a.contract.arg.value)
-            .fold(
-              err =>
-                throw new RuntimeException(
-                  s"Unexpected error when converting stored contract: $err"),
-              identity)),
-        a.witnesses.toSet[String].toSeq
-      ))
   }
 
   override def bindService(): ServerServiceDefinition =
@@ -102,16 +94,14 @@ object SandboxActiveContractsService {
   type TransactionId = String
   type WorkflowId = String
 
-  def apply(ledgerBackend: LedgerBackend, identifierResolver: IdentifierResolver)(
+  def apply(ledgerId: String, backend: ACSBackend, identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
     : ActiveContractsService with BindableService with ActiveContractsServiceLogging =
     new ActiveContractsServiceValidation(
-      new SandboxActiveContractsService(
-        () => ledgerBackend.activeContractSetSnapshot(),
-        identifierResolver)(ec, mat, esf),
-      ledgerBackend.ledgerId
+      new SandboxActiveContractsService(backend, identifierResolver)(ec, mat, esf),
+      ledgerId
     ) with BindableService with ActiveContractsServiceLogging {
       override def bindService(): ServerServiceDefinition =
         ActiveContractsServiceGrpc.bindService(this, DirectExecutionContext)

@@ -117,30 +117,6 @@ trait LedgerBackend extends AutoCloseable {
     */
   def ledgerSyncEvents(offset: Option[LedgerSyncOffset] = None): Source[LedgerSyncEvent, NotUsed]
 
-  /** Return a recent snapshot of the active contracts.
-    *
-    * It is up to the implementation to decide on what 'recent' means.
-    * Consumers typically follow up on a call to this method with a call to
-    * [[ledgerSyncEvents]] starting from the snapshot's offset to track
-    * changes to that snapshot.
-    *
-    * TODO (SM): as part of the V2 API fix the problem that this will result in the create events
-    * at an accepted-transaction at the latest offset being returned twice: once as part of the active-contract
-    * snapshot and once as part of the first ledger-event returned by [[ledgerSyncEvents]].
-    *
-    * Semantically the method MUST return exactly the contracts for which
-    * there was a 'Create' event and no
-    * consuming 'Exercise' event in an [[AcceptedTransaction]] in the
-    * [[ledgerSyncEvents]] for the 'requestingParties' starting from the
-    * beginning until and including the offset at which the snapshot is
-    * computed.
-    *
-    * Implementations are expected to serve this stream in time proportional
-    * to its size.
-    *
-    */
-  def activeContractSetSnapshot(): Future[(LedgerSyncOffset, Source[ActiveContract, NotUsed])]
-
   /** Return the current [[LedgerSyncOffset]].
     *
     * Implementations are expected to return an offset whose associated
