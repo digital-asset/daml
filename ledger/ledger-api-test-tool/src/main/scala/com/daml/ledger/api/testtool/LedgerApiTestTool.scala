@@ -13,7 +13,6 @@ import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.platform.testing.LedgerBackend
 import org.scalatest.time.{Seconds, Span}
 
-
 object LedgerApiTestTool {
 
   def main(args: Array[String]): Unit = {
@@ -32,10 +31,16 @@ object LedgerApiTestTool {
 
     try {
 
-      val integrationTestResourceStream = testResources.headOption.map(getClass.getResourceAsStream(_)).flatMap(Option(_))
-      require(integrationTestResourceStream.isDefined, "Unable to load the required test DAR from resources.")
+      val integrationTestResourceStream =
+        testResources.headOption.map(getClass.getResourceAsStream(_)).flatMap(Option(_))
+      require(
+        integrationTestResourceStream.isDefined,
+        "Unable to load the required test DAR from resources.")
       val targetPath: Path = Files.createTempFile("ledger-api-test-tool-", "-test.dar")
-      Files.copy(integrationTestResourceStream.get, targetPath, StandardCopyOption.REPLACE_EXISTING);
+      Files.copy(
+        integrationTestResourceStream.get,
+        targetPath,
+        StandardCopyOption.REPLACE_EXISTING);
 
       val semanticTestsRunner = new SandboxSemanticTestsLfRunner {
         override def actorSystemName = "SandboxSemanticTestsLfRunnerTestToolActorSystem"
@@ -54,7 +59,7 @@ object LedgerApiTestTool {
               RemoteApiEndpoint.default
                 .withHost(toolConfig.host)
                 .withPort(toolConfig.port)
-                .withTlsConfigOption(toolConfig.tlsConfig))
+                .withTlsConfig(toolConfig.tlsConfig))
             .withDarFile(targetPath)
       }
       semanticTestsRunner.execute()

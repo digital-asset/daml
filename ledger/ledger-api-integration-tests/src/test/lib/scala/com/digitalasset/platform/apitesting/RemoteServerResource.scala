@@ -57,10 +57,13 @@ class RemoteServerResource(host: String, port: Int, tlsConfig: Option[TlsConfigu
 
   override def close(): Unit = {
     channel.shutdownNow()
-    channel.awaitTermination(1L, TimeUnit.SECONDS)
-    eventLoopGroup
-      .shutdownGracefully(0, 0, TimeUnit.SECONDS)
-      .await(10L, TimeUnit.SECONDS)
+    if (!channel.awaitTermination(1L, TimeUnit.SECONDS)) {
+      sys.error(
+        "Unable to shutdown channel to a remote API under tests. Unable to recover. Terminating.")
+    }
+    if (!eventLoopGroup.shutdownGracefully(0, 0, TimeUnit.SECONDS).await(10L, TimeUnit.SECONDS)) {
+      sys.error("Unable to shutdown event loop. Unable to recover. Terminating.")
+    }
     channel = null
     eventLoopGroup = null
   }

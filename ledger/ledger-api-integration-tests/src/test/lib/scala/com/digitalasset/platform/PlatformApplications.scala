@@ -90,8 +90,7 @@ object PlatformApplications {
       tlsConfig: Option[TlsConfiguration]) {
     def withHost(host: String) = copy(host = host)
     def withPort(port: Int) = copy(port = port)
-    def withTlsConfig(tlsConfig: TlsConfiguration) = copy(tlsConfig = Some(tlsConfig))
-    def withTlsConfigOption(tlsConfig: Option[TlsConfiguration]) = copy(tlsConfig = tlsConfig)
+    def withTlsConfig(tlsConfig: Option[TlsConfiguration]) = copy(tlsConfig = tlsConfig)
   }
 
   object RemoteApiEndpoint {
