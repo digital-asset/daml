@@ -46,6 +46,17 @@ type instance RuleResult EncodeModule = (SS.Hash, BS.ByteString)
 -- itself but also for all of its transitive dependencies.
 type instance RuleResult CreateScenarioContext = SS.ContextId
 
+-- ^ A map from a file A to a file B whose scenario context should be
+-- used for executing scenarios in A. We use this when running the scenarios
+-- in transitive dependencies of the files of interest so that we only need
+-- one scenario context per file of interest.
+type instance RuleResult GetScenarioRoots = Map FilePath FilePath
+
+-- ^ The root for the given file based on GetScenarioRoots.
+-- This is a separate rule so we can avoid rerunning scenarios if
+-- only the roots of other files have changed.
+type instance RuleResult GetScenarioRoot = FilePath
+
 data GenerateDalf = GenerateDalf
     deriving (Eq, Show, Typeable, Generic)
 instance Binary   GenerateDalf
@@ -99,3 +110,13 @@ data CreateScenarioContext = CreateScenarioContext
 instance Binary   CreateScenarioContext
 instance Hashable CreateScenarioContext
 instance NFData   CreateScenarioContext
+
+data GetScenarioRoots = GetScenarioRoots
+    deriving (Eq, Show, Typeable, Generic)
+instance Hashable GetScenarioRoots
+instance NFData   GetScenarioRoots
+
+data GetScenarioRoot = GetScenarioRoot
+    deriving (Eq, Show, Typeable, Generic)
+instance Hashable GetScenarioRoot
+instance NFData   GetScenarioRoot
