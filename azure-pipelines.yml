@@ -115,17 +115,13 @@ jobs:
     steps:
       - checkout: self
         persistCredentials: true
-      - bash: |
-          set -euo pipefail
-          echo "##vso[task.setvariable variable=release_tag]$(cat VERSION)"
-        name: release
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(unsigned-installer)
           targetPath: $(Build.StagingDirectory)/
       - bash: |
           set -euo pipefail
-          INSTALLER=daml-sdk-$(release_tag)-windows.exe
+          INSTALLER=daml-sdk-$(cat VERSION)-windows.exe
           mv "$(Build.StagingDirectory)/$(unsigned-installer)" "$(Build.StagingDirectory)/$INSTALLER"
           chmod +x "$(Build.StagingDirectory)/$INSTALLER"
           echo "$SIGNING_KEY" | base64 -d > signing_key.pfx
@@ -134,7 +130,6 @@ jobs:
           echo "##vso[task.setvariable variable=artifact-windows-installer;isOutput=true]$INSTALLER"
           echo "##vso[task.setvariable variable=has_released;isOutput=true]true"
         name: signing
-        condition: succeeded()
         env:
           SIGNING_KEY: $(microsoft-code-signing)
       - task: PublishPipelineArtifact@0
