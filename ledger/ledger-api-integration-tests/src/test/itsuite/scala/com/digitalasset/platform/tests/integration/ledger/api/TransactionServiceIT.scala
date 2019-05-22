@@ -122,7 +122,7 @@ class TransactionServiceIT
             getTrackerFlow(context),
             "cancellation-test",
             14,
-            config.assertStaticLedgerId)
+            context.ledgerId)
           transactions <- context.transactionClient
             .getTransactions(ledgerBegin, None, getAllContracts)
             .take(elemsToTake)
@@ -169,7 +169,7 @@ class TransactionServiceIT
             getTrackerFlow(context),
             "stream-completion-test",
             14,
-            config.assertStaticLedgerId)
+            context.ledgerId)
           _ <- resultsF
         } yield {
           succeed // resultF would not complete unless the server terminates the connection
@@ -907,7 +907,7 @@ class TransactionServiceIT
       }
 
       "return NOT_FOUND if ledger Ids don't match" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.assertStaticLedgerId).getLedgerEnd.failed
+        newClient(context.transactionService, "not" + context.ledgerId).getLedgerEnd.failed
           .map(IsStatusException(Status.NOT_FOUND))
 
       }
@@ -924,7 +924,7 @@ class TransactionServiceIT
               getTrackerFlow(context),
               "tree-provenance-by-id",
               1,
-              config.assertStaticLedgerId)
+              context.ledgerId)
             firstTransaction <- context.transactionClient
               .getTransactions(beginOffset, None, transactionFilter)
               .runWith(Sink.head)
@@ -954,7 +954,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.assertStaticLedgerId)
+        newClient(context.transactionService, "not" + context.ledgerId)
           .getTransactionById(transactionId, List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1023,7 +1023,7 @@ class TransactionServiceIT
               getTrackerFlow(context),
               "flat-provenance-by-id",
               1,
-              config.assertStaticLedgerId)
+              context.ledgerId)
             firstTransaction <- context.transactionClient
               .getTransactions(beginOffset, None, transactionFilter)
               .runWith(Sink.head)
@@ -1053,7 +1053,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.assertStaticLedgerId)
+        newClient(context.transactionService, "not" + context.ledgerId)
           .getFlatTransactionById(transactionId, List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1093,7 +1093,7 @@ class TransactionServiceIT
             getTrackerFlow(context),
             "tree-provenance-by-event-id",
             1,
-            config.assertStaticLedgerId)
+            context.ledgerId)
           tx <- context.transactionClient
             .getTransactions(beginOffset, None, transactionFilter)
             .runWith(Sink.head)
@@ -1138,7 +1138,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.assertStaticLedgerId)
+        newClient(context.transactionService, "not" + context.ledgerId)
           .getTransactionByEventId("#42:0", List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1162,7 +1162,7 @@ class TransactionServiceIT
             getTrackerFlow(context),
             "flat-provenance-by-event-id",
             1,
-            config.assertStaticLedgerId)
+            context.ledgerId)
           tx <- context.transactionClient
             .getTransactions(beginOffset, None, transactionFilter)
             .runWith(Sink.head)
@@ -1207,7 +1207,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.assertStaticLedgerId)
+        newClient(context.transactionService, "not" + context.ledgerId)
           .getFlatTransactionByEventId("#42:0", List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1313,7 +1313,7 @@ class TransactionServiceIT
               getTrackerFlow(context),
               "cancellation-test-tree",
               commandsToSend,
-              config.assertStaticLedgerId)
+              context.ledgerId)
             elems <- resultsF
           } yield (elems should have length elemsToTake)
         }
@@ -1376,7 +1376,7 @@ class TransactionServiceIT
               getTrackerFlow(context),
               "complete_test",
               noOfCommands,
-              config.assertStaticLedgerId)
+              context.ledgerId)
             r2 <- context.transactionClient
               .getTransactionTrees(ledgerBegin, Some(ledgerEnd), transactionFilter)
               .runWith(Sink.seq)
@@ -1513,7 +1513,7 @@ class TransactionServiceIT
       prefix: String,
       commandsPerSection: Int,
       context: LedgerContext): Future[Done] = {
-    insertCommands(getTrackerFlow(context), prefix, commandsPerSection, config.assertStaticLedgerId)
+    insertCommands(getTrackerFlow(context), prefix, commandsPerSection, context.ledgerId)
   }
 
   private def lastOffsetIn(secondSection: immutable.Seq[Transaction]): Option[LedgerOffset] = {

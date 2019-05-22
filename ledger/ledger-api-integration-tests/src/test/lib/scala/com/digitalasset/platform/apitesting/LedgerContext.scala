@@ -12,6 +12,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.{MockMessages, Resource}
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
@@ -24,10 +25,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissi
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
-import com.digitalasset.ledger.api.v1.ledger_identity_service.{
-  GetLedgerIdentityRequest,
-  LedgerIdentityServiceGrpc
-}
+import com.digitalasset.ledger.api.v1.ledger_identity_service.{GetLedgerIdentityRequest, LedgerIdentityServiceGrpc}
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
@@ -52,18 +50,26 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 import scala.util.Success
 import scala.concurrent.duration._
-
 import com.digitalasset.ledger.api.domain.LedgerId
-
 import scalaz.syntax.tag._
 
 trait LedgerContext {
   import LedgerContext._
 
   implicit protected def esf: ExecutionSequencerFactory
-  private val logger = LoggerFactory.getLogger(this.getClass)
 
+  /**
+    * Convenience function to either use statically configured ledger id or fetch it from the server under test.
+    * @return
+    */
   def ledgerId: String
+
+  /**
+    *  Reset the ledger server and return a new LedgerContext appropriate to the new state of the ledger API server under test.
+    *  @return the new LedgerContext
+    * */
+  def reset()(implicit system: ActorSystem, mat: Materializer): Future[LedgerContext]
+
   def packageIds: Iterable[Ref.PackageId]
   def ledgerIdentityService: LedgerIdentityService
   def ledgerConfigurationService: LedgerConfigurationService
@@ -78,41 +84,13 @@ trait LedgerContext {
   def packageClient: PackageClient
   def acsClient: ActiveContractSetClient
   def reflectionService: ServerReflectionGrpc.ServerReflectionStub
-  def resetService: ResetService
 
   /**
-    *  Reset the ledger server and wait for it to start again.
-    *  @return the new ledger id
-    * */
-  final def reset()(implicit system: ActorSystem, mat: Materializer): Future[String] = {
-    implicit val ec: ExecutionContext = mat.executionContext
-    def waitForNewLedger(retries: Int): Future[String] =
-      if (retries <= 0)
-        Future.failed(new RuntimeException("waitForNewLedger: out of retries"))
-      else {
-        ledgerIdentityService
-          .getLedgerIdentity(GetLedgerIdentityRequest())
-          .flatMap { resp =>
-            // TODO(JM): Could check that ledger-id has changed. However,
-            // the tests use a static ledger-id...
-            Future.successful(resp.ledgerId)
-          }
-          .recoverWith {
-            case _: StatusRuntimeException =>
-              logger.debug(
-                "waitForNewLedger: retrying identity request in 1 second. {} retries remain",
-                retries - 1)
-              pattern.after(1.seconds, system.scheduler)(waitForNewLedger(retries - 1))
-            case t: Throwable =>
-              logger.warn("waitForNewLedger: failed to reconnect!")
-              throw t
-          }
-      }
-    for {
-      _ <- resetService.reset(ResetRequest(ledgerId))
-      newLedgerId <- waitForNewLedger(10)
-    } yield newLedgerId
-  }
+    * resetService is protected on purpose, to disallow moving an instance of LedgerContext into an invalid state,
+    * where [[ledgerId]] - if cached by implementation - becomes out of sync with the backend.
+    * @return
+    */
+  protected def resetService: ResetService
 
   /**
     * Get a new client with no time provider and the given ledger ID.
@@ -169,7 +147,9 @@ object LedgerContext {
 
     require(esf != null, "ExecutionSequencerFactory must not be null.")
 
-    def ledgerId: String =
+    private val logger = LoggerFactory.getLogger(this.getClass)
+
+    val cachedLedgerId: String =
       configuredLedgerId match {
         case LedgerIdMode.Static(id) => id.unwrap
         case LedgerIdMode.Dynamic() =>
@@ -178,6 +158,38 @@ object LedgerContext {
             .getLedgerIdentity(GetLedgerIdentityRequest())
             .ledgerId
       }
+
+    def ledgerId: String = cachedLedgerId
+
+    final def reset()(implicit system: ActorSystem, mat: Materializer): Future[LedgerContext] = {
+      implicit val ec: ExecutionContext = mat.executionContext
+      def waitForNewLedger(retries: Int): Future[String] =
+        if (retries <= 0)
+          Future.failed(new RuntimeException("waitForNewLedger: out of retries"))
+        else {
+          ledgerIdentityService
+            .getLedgerIdentity(GetLedgerIdentityRequest())
+            .flatMap { resp =>
+              // TODO(JM): Could check that ledger-id has changed. However,
+              // the tests use a static ledger-id...
+              Future.successful(resp.ledgerId)
+            }
+            .recoverWith {
+              case _: StatusRuntimeException =>
+                logger.debug(
+                  "waitForNewLedger: retrying identity request in 1 second. {} retries remain",
+                  retries - 1)
+                pattern.after(1.seconds, system.scheduler)(waitForNewLedger(retries - 1))
+              case t: Throwable =>
+                logger.warn("waitForNewLedger: failed to reconnect!")
+                throw t
+            }
+        }
+      for {
+        _ <- resetService.reset(ResetRequest(ledgerId))
+        newLedgerId <- waitForNewLedger(10)
+      } yield SingleChannelContext(channel, LedgerIdMode.Static(domain.LedgerId(newLedgerId)), packageIds)
+    }
 
     override def ledgerIdentityService: LedgerIdentityService =
       LedgerIdentityServiceGrpc.stub(channel)
@@ -216,3 +228,4 @@ object LedgerContext {
       ResourceExtensions.MultiResource(resource)
   }
 }
+

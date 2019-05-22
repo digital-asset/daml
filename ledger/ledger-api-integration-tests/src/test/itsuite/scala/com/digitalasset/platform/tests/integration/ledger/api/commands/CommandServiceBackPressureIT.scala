@@ -33,21 +33,19 @@ class CommandServiceBackPressureIT
 
   private def submitAndWaitRequest(
       ctx: LedgerContext,
-      id: String = UUID.randomUUID().toString,
-      ledgerId: String = config.assertStaticLedgerId) =
+      id: String = UUID.randomUUID().toString) =
     MockMessages.submitAndWaitRequest
       .update(
-        _.commands.ledgerId := ledgerId,
+        _.commands.ledgerId := ctx.ledgerId,
         _.commands.commandId := id,
         _.optionalTraceContext := None)
 
   private def submitRequest(
       ctx: LedgerContext,
-      id: String = UUID.randomUUID().toString,
-      ledgerId: String = config.assertStaticLedgerId) =
+      id: String = UUID.randomUUID().toString) =
     MockMessages.submitRequest
       .update(
-        _.commands.ledgerId := ledgerId,
+        _.commands.ledgerId := ctx.ledgerId,
         _.commands.commandId := id,
         _.optionalTraceContext := None)
 

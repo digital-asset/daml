@@ -3,8 +3,6 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
-import java.util.UUID
-
 import akka.stream.scaladsl.Sink
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils._
@@ -55,19 +53,16 @@ class ActiveContractsServiceIT
     PatienceConfig(scaled(Span(30000, Millis)), scaled(Span(500, Millis)))
 
   private def client(
-      ctx: LedgerContext,
-      ledgerId: String = config.assertStaticLedgerId): ActiveContractSetClient =
-    new ActiveContractSetClient(domain.LedgerId(ledgerId), ctx.acsService)
+      ctx: LedgerContext): ActiveContractSetClient =
+    new ActiveContractSetClient(domain.LedgerId(ctx.ledgerId), ctx.acsService)
 
   private def commandClient(
-      ctx: LedgerContext,
-      ledgerId: String = config.assertStaticLedgerId): SynchronousCommandClient =
+      ctx: LedgerContext): SynchronousCommandClient =
     new SynchronousCommandClient(ctx.commandService)
 
   private def transactionClient(
-      ctx: LedgerContext,
-      ledgerId: String = config.assertStaticLedgerId): TransactionClient =
-    new TransactionClient(domain.LedgerId(ledgerId), ctx.transactionService)
+      ctx: LedgerContext): TransactionClient =
+    new TransactionClient(domain.LedgerId(ctx.ledgerId), ctx.transactionService)
 
   private def submitRequest(ctx: LedgerContext, request: SubmitAndWaitRequest) =
     commandClient(ctx).submitAndWait(request)
@@ -110,7 +105,7 @@ class ActiveContractsServiceIT
   "Active Contract Set Service" when {
     "asked for active contracts" should {
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        client(context, UUID.randomUUID().toString)
+        new ActiveContractSetClient(domain.LedgerId("not" + context.ledgerId), context.acsService)
           .getActiveContracts(filter)
           .runWith(Sink.head)(materializer)
           .failed map { ex =>

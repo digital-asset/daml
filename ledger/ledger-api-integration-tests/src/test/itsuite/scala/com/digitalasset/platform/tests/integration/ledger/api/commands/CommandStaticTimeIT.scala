@@ -68,21 +68,21 @@ class CommandStaticTimeIT
 
   }
 
-  private def submissionWithTime(time: Instant): SubmitRequest = {
+  private def submissionWithTime(ctx: LedgerContext, time: Instant): SubmitRequest = {
     val let = fromInstant(time)
     val mrt = let.update(_.seconds.modify(_ + ttlSeconds))
     submitRequest
       .update(
         _.commands.ledgerEffectiveTime := let,
         _.commands.maximumRecordTime := mrt,
-        _.commands.ledgerId := config.assertStaticLedgerId,
+        _.commands.ledgerId := ctx.ledgerId,
         _.commands.commandId := newCommandId()
       )
   }
 
   // format: off
-  private def dummyCreateRequest(time: Instant, templateId: Identifier) =
-    submissionWithTime(time)
+  private def dummyCreateRequest(ctx: LedgerContext, time: Instant, templateId: Identifier) =
+    submissionWithTime(ctx, time)
       .update(_.commands.commands := List(
         Command(
           Create(
@@ -90,8 +90,8 @@ class CommandStaticTimeIT
               Some(Record(Some(templateId), List(RecordField("operator", Some(Value(Party("party"))))))))))
       ))
 
-  private def dummyExerciseRequest(time: Instant, templateId: Identifier, contractId: String) =
-    submissionWithTime(time)
+  private def dummyExerciseRequest(ctx: LedgerContext, time: Instant, templateId: Identifier, contractId: String) =
+    submissionWithTime(ctx, time)
       .update(_.commands.commands := List(
         Command(Exercise(ExerciseCommand(Some(templateId), contractId, "DummyChoice1", Some(Value(Sum.Record(Record()))))))
       ))
@@ -107,7 +107,7 @@ class CommandStaticTimeIT
   }
 
   private def timeSource(ctx: LedgerContext) =
-    ClientAdapter.serverStreaming(GetTimeRequest(config.assertStaticLedgerId), ctx.timeService.getTime)
+    ClientAdapter.serverStreaming(GetTimeRequest(ctx.ledgerId), ctx.timeService.getTime)
 
   "Command and Time Services" when {
 
@@ -119,7 +119,7 @@ class CommandStaticTimeIT
           completion <- commandClient
             .withTimeProvider(None)
             .trackSingleCommand(SubmitRequest(
-              Some(submitRequest.getCommands.withLedgerId(config.assertStaticLedgerId).withCommandId(newCommandId()))))
+              Some(submitRequest.getCommands.withLedgerId(ctx.ledgerId).withCommandId(newCommandId()))))
         } yield {
           completion.status.value should have('code (Status.OK.getCode.value()))
         }
@@ -132,7 +132,7 @@ class CommandStaticTimeIT
             commandClient <- ctx.commandClient()
             getTimeResponse <- timeSource(ctx).runWith(Sink.head)
             currentTime = toInstant(getTimeResponse.getCurrentTime)
-            completion <- commandClient.send(submissionWithTime(currentTime.plus(tenDays)))
+            completion <- commandClient.send(submissionWithTime(ctx, currentTime.plus(tenDays)))
           } yield {
             completion.status.value should have('code (Status.ABORTED.getCode.value()))
             completion.status.value.message shouldEqual "TRANSACTION_OUT_OF_TIME_WINDOW: [" +
@@ -152,8 +152,8 @@ class CommandStaticTimeIT
             getTimeResponse <- timeSource(ctx).runWith(Sink.head)
             oldTime = getTimeResponse.getCurrentTime
             newTime = toInstant(oldTime).plus(tenDays)
-            _ <- ctx.timeService.setTime(SetTimeRequest(config.assertStaticLedgerId, Some(oldTime), Some(fromInstant(newTime))))
-            completion <- commandClient.send(submissionWithTime(newTime))
+            _ <- ctx.timeService.setTime(SetTimeRequest(ctx.ledgerId, Some(oldTime), Some(fromInstant(newTime))))
+            completion <- commandClient.send(submissionWithTime(ctx, newTime))
           } yield {
             completion.status.value should have('code (Status.OK.getCode.value()))
           }
@@ -169,8 +169,8 @@ class CommandStaticTimeIT
             getTimeResponse <- timeSource(ctx).runWith(Sink.head)
             oldTime = getTimeResponse.getCurrentTime
             newTime = toInstant(oldTime).plus(tenDays)
-            _ <- ctx.timeService.setTime(SetTimeRequest(config.assertStaticLedgerId, Some(oldTime), Some(fromInstant(newTime))))
-            completion <- commandClient.send(submissionWithTime(toInstant(oldTime)))
+            _ <- ctx.timeService.setTime(SetTimeRequest(ctx.ledgerId, Some(oldTime), Some(fromInstant(newTime))))
+            completion <- commandClient.send(submissionWithTime(ctx, toInstant(oldTime)))
           } yield {
             completion.status.value should have('code (Status.ABORTED.getCode.value()))
             completion.status.value.message shouldEqual "TRANSACTION_OUT_OF_TIME_WINDOW: [" +
@@ -190,7 +190,7 @@ class CommandStaticTimeIT
             currentTime = getTimeResponse.getCurrentTime
             templateId = templateIds.dummy
             txEndOffset <- ctx.transactionClient.getLedgerEnd.map(_.getOffset)
-            comp <- commandClient.send(dummyCreateRequest(toInstant(currentTime), templateId))
+            comp <- commandClient.send(dummyCreateRequest(ctx, toInstant(currentTime), templateId))
             _ = comp.getStatus should have('code(0))
             transaction <- ctx.transactionClient.getTransactions(txEndOffset, None, TransactionFilter(Map(submitRequest.commands.value.party -> Filters.defaultInstance)))
               .take(1)
@@ -200,7 +200,7 @@ class CommandStaticTimeIT
             timeBefore = toInstant(currentTime).minusSeconds(1)
             completion <- commandClient
               .withTimeProvider(None)
-              .trackSingleCommand(dummyExerciseRequest(timeBefore, templateId, contractId))
+              .trackSingleCommand(dummyExerciseRequest(ctx, timeBefore, templateId, contractId))
 
           } yield {
             // INVALID_ARGUMENT, as this should return the same code as exercising a non-existing contract.

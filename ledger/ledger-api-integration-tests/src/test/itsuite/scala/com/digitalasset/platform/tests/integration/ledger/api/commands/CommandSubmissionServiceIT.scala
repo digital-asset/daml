@@ -40,7 +40,7 @@ class CommandSubmissionServiceIT
 
       "successfully submit commands" in allFixtures { implicit c =>
         c.commandSubmissionService.submit(SubmitRequest(
-          Some(submitRequest.getCommands.withLedgerId(config.assertStaticLedgerId)))) map { _ =>
+          Some(submitRequest.getCommands.withLedgerId(c.ledgerId)))) map { _ =>
           succeed
         }
       }
