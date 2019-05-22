@@ -581,5 +581,5 @@ replacements:
       target: "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators"
   org.scala-tools.testing:
     test-interface:
-      lang: scala/unmangled
-      target: "//3rdparty/jvm/org/scala_sbt:test_interface"
+      lang: java
+      target: "//external:jar/org/scala_sbt/test_interface"
