@@ -34,6 +34,8 @@ Java Bindings
 DAML
 ~~~~
 
+- **BREAKING CHANGE - Syntax**: Records with empty update blocks, e.g. ``foo with``, is now an error (the fact it was ever accepted was a bug).
+
 - **BREAKING CHANGE - Contract Keys**: Before, maintainers were incorrectly not checked to be a subset of the signatories, now they are. See `issue #1123 <https://github.com/digital-asset/daml/issues/1123>`__
 
 Sandbox
