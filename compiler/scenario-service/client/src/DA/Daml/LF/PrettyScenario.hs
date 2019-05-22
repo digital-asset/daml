@@ -832,12 +832,20 @@ templateConName (Identifier _ (TL.toStrict -> qualName)) = do
     _ -> error "Bad definition"
   return (LF.Qualified LF.PRSelf  modName tpl)
 
-renderHeader :: LF.World -> Identifier -> [T.Text]
-renderHeader world identifier = case templateConName identifier of 
-  Just qTypeConName -> case LF.lookupDataType qTypeConName world of 
-    Right (LF.DefDataType _ _ _ _ (LF.DataRecord re) ) -> map (LF.unFieldName . fst) re
+
+typeConRec :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
+typeConRec world (LF.FieldName fName, LF.TCon tcn ) = map  (TE.append (TE.append fName ".")) (templateConNameRec tcn world)
+typeConRec _ (LF.FieldName fName, _ ) = [fName]
+
+templateConNameRec :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
+templateConNameRec qName world = case LF.lookupDataType qName world of
+    Right (LF.DefDataType _ _ _ _ (LF.DataRecord re) ) -> concat (map (typeConRec world ) re)
     Right (LF.DefDataType _ _ _ _ (LF.DataVariant re) ) -> map (LF.unVariantConName . fst) re
     Left _ -> []
+
+renderHeader :: LF.World -> Identifier -> [T.Text]
+renderHeader world identifier = case templateConName identifier of 
+  Just qt -> templateConNameRec qt world
   Nothing -> []
 
 
