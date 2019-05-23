@@ -11,15 +11,15 @@ all_files = glob(["**"])
 
 filegroup(
     name = "{tool}",
-    srcs = select({lbrace}
+    srcs = select({{
         ":windows": ["{win_path}"],
         "//conditions:default": ["{nix_path}"],
-    {rbrace}),
+    }}),
 )
 
 config_setting(
     name = "windows",
-    values = {lbrace}"cpu": "x64_windows"{rbrace},
+    values = {{"cpu": "x64_windows"}},
     visibility = ["//visibility:private"],
 )
 """
@@ -35,7 +35,7 @@ def _dev_env_tool_impl(ctx):
         dadew = ps_result.stdout.splitlines(keepends = False)[0]
         tool_home = "%s\\scoop\\apps\\%s\\current" % (dadew, ctx.attr.win_tool)
         for i in ctx.attr.win_include:
-            ctx.symlink("%s\\%s" % (tool_home, i), "%s\\%s" % (ctx.path(""), i))
+            ctx.symlink("%s\\%s" % (tool_home, i), "%s\\%s" % (ctx.path(""), ctx.attr.win_include_as.get(i, i)))
 
     else:
         tool_home = "../%s" % ctx.attr.nix_label.name
@@ -48,8 +48,6 @@ def _dev_env_tool_impl(ctx):
         tool = ctx.attr.tool,
         win_path = ctx.attr.win_path,
         nix_path = ctx.attr.nix_path,
-        lbrace = "{",
-        rbrace = "}",
     )
     ctx.file(build_path, content = build_content, executable = False)
 
@@ -64,6 +62,10 @@ dev_env_tool = repository_rule(
         ),
         "win_include": attr.string_list(
             mandatory = True,
+        ),
+        "win_include_as": attr.string_dict(
+            mandatory = False,
+            default = {},
         ),
         "win_path": attr.string(
             mandatory = False,
