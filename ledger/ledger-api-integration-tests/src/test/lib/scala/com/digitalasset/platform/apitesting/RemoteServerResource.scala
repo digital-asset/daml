@@ -60,7 +60,6 @@ class RemoteServerResource(host: String, port: Int, tlsConfig: Option[TlsConfigu
     channel.awaitTermination(1L, TimeUnit.SECONDS)
     eventLoopGroup
       .shutdownGracefully(0, 0, TimeUnit.SECONDS)
-      .await()
       .await(10L, TimeUnit.SECONDS)
     channel = null
     eventLoopGroup = null
