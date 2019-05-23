@@ -6,7 +6,6 @@ package encoding
 
 import scala.language.higherKinds
 import scala.collection.immutable.Seq
-import scalaz.~>
 import scalaz.Isomorphism.<~>
 
 import com.digitalasset.ledger.api.v1.value.Value.{Sum => VSum}
@@ -144,32 +143,27 @@ object ValuePrimitiveEncoding {
     override def valueBool: G[P.Bool] = fgAxiom(underlyingVpe.valueBool)
   }
 
-  /** Transform all the base cases to a new type. */
+  /** Transform all cases to a new type.
+    *
+    * @note Technically we want a higher-kinded ''lens'' here, not a higher-kinded
+    *       isomorphism (which is a subset of HK lenses), but we don't have monocle
+    *       imported locally.
+    */
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def xmapped[F[_], G[_]](vpe: ValuePrimitiveEncoding[F])(iso: F <~> G): ValuePrimitiveEncoding[G] =
-    mapped(vpe)(iso.to)(Lambda[G ~> Lambda[a => G[P.List[a]]]](ga =>
-      iso.to(vpe.valueList(iso.from(ga)))))(Lambda[G ~> Lambda[a => G[P.Optional[a]]]](ga =>
-      iso.to(vpe.valueOptional(iso.from(ga)))))(Lambda[G ~> Lambda[a => G[P.Map[a]]]](ga =>
-      iso.to(vpe.valueMap(iso.from(ga)))))
-
-  /** Transform all the base cases to a new type, supplying a fresh version of
-    * `valueList` (the only inductive case, and therefore trickier).
-    */
-  def mapped[F[_], G[_]](vpe: ValuePrimitiveEncoding[F])(f: F ~> G)(
-      newList: G ~> Lambda[a => G[P.List[a]]])(newOptional: G ~> Lambda[a => G[P.Optional[a]]])(
-      newMap: G ~> Lambda[a => G[P.Map[a]]]
-  ): ValuePrimitiveEncoding[G] =
     new Mapped[F, G] {
-      override protected[this] def fgAxiom[A](fa: F[A]) = f(fa)
+      override protected[this] def fgAxiom[A](fa: F[A]) = iso.to(fa)
       override protected[this] def underlyingVpe = vpe
 
-      override def valueList[A](implicit ev: G[A]): G[P.List[A]] = newList(ev)
+      override def valueList[A](implicit ev: G[A]): G[P.List[A]] =
+        iso.to(vpe.valueList(iso.from(ev)))
 
       override def valueContractId[Tpl <: Template[Tpl]]: G[P.ContractId[Tpl]] =
-        f(vpe.valueContractId[Tpl])
+        iso.to(vpe.valueContractId)
 
-      override def valueOptional[A](implicit ev: G[A]): G[P.Optional[A]] = newOptional(ev)
+      override def valueOptional[A](implicit ev: G[A]): G[P.Optional[A]] =
+        iso.to(vpe.valueOptional(iso.from(ev)))
 
-      override def valueMap[A](implicit ev: G[A]): G[P.Map[A]] = newMap(ev)
+      override def valueMap[A](implicit ev: G[A]): G[P.Map[A]] = iso.to(vpe.valueMap(iso.from(ev)))
     }
 }
