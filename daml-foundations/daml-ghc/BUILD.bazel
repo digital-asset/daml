@@ -13,9 +13,9 @@ load(
     "daml_ghc_integration_test",
 )
 
-daml_ghc_integration_test("daml-ghc-test-default", "DA.Test.GHC.mainVersionDefault")
+daml_ghc_integration_test("daml-ghc-test-all", "DA.Test.GHC.mainAll")
 
-daml_ghc_integration_test("daml-ghc-test-dev", "DA.Test.GHC.mainVersionDev")
+daml_ghc_integration_test("daml-ghc-test-dev", "DA.Test.GHC.main")
 
 da_haskell_test(
     name = "tasty-test",
