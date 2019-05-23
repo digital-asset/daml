@@ -122,25 +122,28 @@ object ValuePrimitiveEncoding {
         (vpef.valueMap(ev._1), vpeg.valueMap(ev._2))
     }
 
+  /** Transforms all the base cases of `F` to `G`, leaving the inductive cases
+    * abstract.
+    */
   trait Mapped[F[_], G[_]] extends ValuePrimitiveEncoding[G] {
     protected[this] def fgAxiom[A](fa: F[A]): G[A]
     protected[this] def underlyingVpe: ValuePrimitiveEncoding[F]
 
-    override def valueInt64: G[P.Int64] = fgAxiom(underlyingVpe.valueInt64)
+    override final def valueInt64: G[P.Int64] = fgAxiom(underlyingVpe.valueInt64)
 
-    override def valueDecimal: G[P.Decimal] = fgAxiom(underlyingVpe.valueDecimal)
+    override final def valueDecimal: G[P.Decimal] = fgAxiom(underlyingVpe.valueDecimal)
 
-    override def valueParty: G[P.Party] = fgAxiom(underlyingVpe.valueParty)
+    override final def valueParty: G[P.Party] = fgAxiom(underlyingVpe.valueParty)
 
-    override def valueText: G[P.Text] = fgAxiom(underlyingVpe.valueText)
+    override final def valueText: G[P.Text] = fgAxiom(underlyingVpe.valueText)
 
-    override def valueDate: G[P.Date] = fgAxiom(underlyingVpe.valueDate)
+    override final def valueDate: G[P.Date] = fgAxiom(underlyingVpe.valueDate)
 
-    override def valueTimestamp: G[P.Timestamp] = fgAxiom(underlyingVpe.valueTimestamp)
+    override final def valueTimestamp: G[P.Timestamp] = fgAxiom(underlyingVpe.valueTimestamp)
 
-    override def valueUnit: G[P.Unit] = fgAxiom(underlyingVpe.valueUnit)
+    override final def valueUnit: G[P.Unit] = fgAxiom(underlyingVpe.valueUnit)
 
-    override def valueBool: G[P.Bool] = fgAxiom(underlyingVpe.valueBool)
+    override final def valueBool: G[P.Bool] = fgAxiom(underlyingVpe.valueBool)
   }
 
   /** Transform all cases to a new type.
