@@ -828,7 +828,7 @@ renderValue world name = \case
 templateConName :: Identifier -> Maybe (LF.Qualified LF.TypeConName)
 templateConName (Identifier _ (TL.toStrict -> qualName)) = do
   (modName, tpl) <- case T.splitOn ":" qualName of 
-    [mdN, defN] -> Just (LF.ModuleName (T.splitOn "." mdN), LF.TypeConName [defN])
+    [mdN, defN] -> Just (LF.ModuleName (T.splitOn "." mdN), LF.TypeConName (T.splitOn "." defN))
     _ -> error "Bad definition"
   return (LF.Qualified LF.PRSelf  modName tpl)
 
