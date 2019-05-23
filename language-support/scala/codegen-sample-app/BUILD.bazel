@@ -58,7 +58,6 @@ da_scala_library(
         "//3rdparty/jvm/com/typesafe/scala_logging",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//3rdparty/jvm/org/slf4j:slf4j_api",
-        "//daml-foundations/daml-tools/da-hs-damlc-app",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//language-support/scala/codegen-testing",

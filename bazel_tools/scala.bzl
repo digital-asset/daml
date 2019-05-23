@@ -230,15 +230,14 @@ def _scaladoc_jar_impl(ctx):
 
     ctx.actions.run(
         executable = ctx.executable._scaladoc,
-        inputs = ctx.files.srcs + classpath,
+        inputs = ctx.files.srcs + classpath + pluginPaths,
         outputs = [ outdir ],
         arguments = [
             "-d",
             outdir.path,
             "-classpath",
             ":".join([jar.path for jar in classpath]),
-            "-Xplugin:%s" % ",".join([jar.path for jar in  depset(pluginPaths).to_list()]),
-            # ^^ Not sure at all if Scaladoc runs any plugins. Note comma separator
+            "-Xplugin:%s" % ",".join([jar.path for jar in pluginPaths]),
             "-doc-title",
             ctx.attr.doctitle,
             "-no-link-warnings",
