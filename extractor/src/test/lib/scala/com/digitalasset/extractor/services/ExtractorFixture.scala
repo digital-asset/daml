@@ -11,6 +11,7 @@ import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.sandbox.persistence.PostgresAround
 import com.digitalasset.platform.sandbox.services.SandboxFixture
 
+import scalaz.OneAnd
 import cats.effect.{ContextShift, IO}
 import doobie._
 import doobie.implicits._
@@ -30,7 +31,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
     666, // doesn't matter, will/must be overriden in the test cases
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     SnapshotEndSetting.Head,
-    "Bob",
+    OneAnd("Bob", List.empty),
     TlsConfiguration(
       enabled = false,
       None,
