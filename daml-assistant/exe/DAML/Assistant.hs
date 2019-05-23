@@ -140,6 +140,7 @@ handleCommand env@Env{..} = \case
 
     Builtin Version -> do
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
+        availableVersionsE <- tryAssistant $ getAvailableSdkVersions
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
 
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
@@ -167,7 +168,7 @@ handleCommand env@Env{..} = \case
                     <$ guard (not (isInstalled v))
                 ]
 
-            versions = nubSort (envVersions ++ fromRight [] installedVersionsE)
+            versions = nubSort (envVersions ++ fromRight [] installedVersionsE ++ fromRight [] availableVersionsE)
             versionTable = [ (versionToText v, versionAttrs v) | v <- versions ]
             versionWidth = maximum (1 : map (T.length . fst) versionTable)
             versionLines =

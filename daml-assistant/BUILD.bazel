@@ -41,6 +41,7 @@ da_haskell_library(
         "bytestring",
         "conduit",
         "conduit-extra",
+        "containers",
         "directory",
         "extra",
         "filepath",

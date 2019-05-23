@@ -5,6 +5,7 @@
 
 module DAML.Assistant.Version
     ( getInstalledSdkVersions
+    , getAvailableSdkVersions
     , getLatestSdkVersionCached
     , getSdkVersionFromSdkPath
     , getSdkVersionFromProjectPath
@@ -21,10 +22,15 @@ import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
 import System.Directory
 import System.FilePath
 import System.Environment.Blank
+import Control.Exception.Safe
 import Control.Monad.Extra
 import Data.Maybe
+import Data.List
 import Data.Either.Extra
+import Data.Aeson (eitherDecodeStrict')
 import Safe
+import Network.HTTP.Simple
+import qualified Data.Map as M
 
 -- | Get the latest released SDK version. Designed to return Nothing if
 -- anything fails (e.g. machine is offline). The result is cached in
@@ -77,7 +83,6 @@ getInstalledSdkVersions (DamlPath path) = do
         filterM (\p -> doesDirectoryExist (sdkdir </> p)) dirlist
     pure (mapMaybe (eitherToMaybe . parseVersion . pack) subdirs)
 
-
 -- | Get the default SDK version for commands run outside of a
 -- project. This is defined as the latest installed version
 -- without a release tag (e.g. this will prefer version 0.12.17
@@ -92,5 +97,24 @@ getDefaultSdkVersion damlPath = do
     required "There are no installed SDK versions." $
         maximumMay (filter isStableVersion installedVersions)
 
+-- | Get the list of available versions afresh. This will fetch.
+-- https://docs.daml.com/versions.json and parse the obtained list
+-- of versions.
+getAvailableSdkVersions :: IO [SdkVersion]
+getAvailableSdkVersions = wrapErr "Fetching list of avalaible SDK versions" $ do
+    response <- requiredAny "HTTPS connection to docs.daml.com failed" $
+        httpBS "GET http://docs.daml.com/versions.json"
+
+    when (getResponseStatusCode response /= 200) $ do
+        throwIO $ assistantErrorBecause
+            "Fetching list of available SDK versions from docs.daml.com failed"
+            (pack . show $ getResponseStatus response)
+
+    versionsMap :: M.Map Text Text <-
+        fromRightM
+            (throwIO . assistantErrorBecause "Versions list from docs.daml.com does not contain vaild JSON" . pack)
+            (eitherDecodeStrict' (getResponseBody response))
+
+    pure . sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
 
 
