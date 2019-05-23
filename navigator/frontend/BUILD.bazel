@@ -72,8 +72,8 @@ genrule(
     export OUT="$$(pwd)/$(@D)/out"
     export WP_IN={WP_IN}
     export WP_OUT={WP_OUT}
-    [ -d "$$IN" ] || mkdir "$$IN"
-    [ -d "$$OUT" ] || mkdir "$$OUT"
+    rm -rf $$IN $$OUT
+    mkdir "$$IN" "$$OUT"
 
     # Our tools (node.js, webpack, webpack plugins, typescript) do not work nicely
     # with symbolic links and a node_modules directory that is not in the project root.
