@@ -218,6 +218,12 @@ export default class WebIdeRoute {
             cid: sessionId,
             // Event hit type.
             t: 'event',
+            // Document host
+            dh: conf.http.hostname,
+            // page
+            dp: '/webide',
+            // title
+            dt: 'webide',
             // Event category.
             ec: 'webide',
             ea: action,
