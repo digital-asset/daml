@@ -9,6 +9,14 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.20 - 2019-05-23
+--------------------
+
+Sandbox
+~~~~~~~
+
+- **Contract keys**: Support arbitrary key expressions (this was accidentally omitted from 0.12.19).
+
 0.12.19 - 2019-05-22
 --------------------
 
