@@ -100,8 +100,8 @@ getDefaultSdkVersion damlPath = do
 -- | Get the list of available versions afresh. This will fetch.
 -- https://docs.daml.com/versions.json and parse the obtained list
 -- of versions.
-getAvailableSdkVersions :: IO [SdkVersion]
-getAvailableSdkVersions = wrapErr "Fetching list of avalaible SDK versions" $ do
+getAvailableSdkVersions :: DamlPath -> IO [SdkVersion]
+getAvailableSdkVersions damlPath = wrapErr "Fetching list of avalaible SDK versions" $ do
     response <- requiredAny "HTTPS connection to docs.daml.com failed" $
         httpBS "GET http://docs.daml.com/versions.json"
 
@@ -115,6 +115,10 @@ getAvailableSdkVersions = wrapErr "Fetching list of avalaible SDK versions" $ do
             (throwIO . assistantErrorBecause "Versions list from docs.daml.com does not contain vaild JSON" . pack)
             (eitherDecodeStrict' (getResponseBody response))
 
-    pure . sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
+    let versions = sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
 
+    saveToCache damlPath "versions.txt" $
+        unlines (map versionToString versions)
+
+    return versions
 

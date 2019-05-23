@@ -5,6 +5,7 @@
 
 module DAML.Assistant.Cache
     ( cacheLatestSdkVersion
+    , saveToCache
     ) where
 
 import DAML.Assistant.Types
@@ -95,4 +96,13 @@ cacheWith key (CacheTimeout timeout) serialize deserialize damlPath getValue = d
                 createDirectoryIfMissing True (cacheDirPath damlPath)
                 writeFileUTF8 path (serialize value)
             pure value
+
+
+saveToCache :: DamlPath -> CacheKey -> String -> IO ()
+saveToCache damlPath key value =
+    void . tryIO $ do
+        let dirPath = cacheDirPath damlPath
+            filePath = cacheFilePath damlPath key
+        createDirectoryIfMissing True dirPath
+        writeFileUTF8 filePath value
 
