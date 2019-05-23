@@ -826,10 +826,14 @@ renderValue world name = \case
             renderValue world (name ++ [TL.toStrict label]) (fromJust mbValue)
 
 templateConName :: Identifier -> LF.Qualified LF.TypeConName
-templateConName (Identifier _ (TL.toStrict -> qualName)) = (LF.Qualified LF.PRSelf  mdN tpl)
+templateConName (Identifier mbPkgId (TL.toStrict -> qualName)) = (LF.Qualified pkgRef  mdN tpl)
   where (mdN , tpl) = case T.splitOn ":" qualName of
-          (modName : defN : []) -> (LF.ModuleName (T.splitOn "." modName) , LF.TypeConName (T.splitOn "." defN) )
+          [modName, defN] -> (LF.ModuleName (T.splitOn "." modName) , LF.TypeConName (T.splitOn "." defN) )
           _ -> (LF.ModuleName [] , LF.TypeConName [])
+        pkgRef = case mbPkgId of
+                  Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) ->
+                    LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
+                  _ -> LF.PRSelf
 
 typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
 typeConFieldsNames world (LF.FieldName fName, LF.TCon tcn ) = map  (TE.append (TE.append fName ".")) (templateConFields tcn world)
@@ -864,8 +868,6 @@ renderRow world parties NodeInfo{..} =
             ]
     in (header, row)
 
--- TODO(MH): The header should be rendered from the type rather than from the
--- first value.
 renderTable :: LF.World -> Table -> H.Html
 renderTable world Table{..} = H.div H.! A.class_ active $ do
     let parties = S.unions $ map niObservers tRows
