@@ -145,7 +145,7 @@ withProjectRoot act = do
     previousCwd <- getCurrentDirectory
     mbProjectPath <- getProjectPath
     let projectPath = fromMaybe previousCwd mbProjectPath
-    projectPath <- canonicalizePath projectPath
+    projectPath <- makeAbsolute projectPath
     withCurrentDirectory projectPath $ act $ \f -> do
         absF <- makeAbsolute (previousCwd </> f)
         pure $ projectPath `makeRelative` absF
