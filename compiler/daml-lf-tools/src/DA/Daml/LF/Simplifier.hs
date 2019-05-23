@@ -148,6 +148,7 @@ safetyStep = \case
       BEEqualContractId -> Safe 2
       BEPartyToQuotedText -> Safe 1
       BEPartyFromText -> Safe 1
+      BECoerceContractId -> Safe 1
   ERecConF _ fs -> minimum (Safe 0 : map snd fs)
   ERecProjF _ _ s -> s `min` Safe 0
   ERecUpdF _ _ s1 s2 -> s1 `min` s2 `min` Safe 0

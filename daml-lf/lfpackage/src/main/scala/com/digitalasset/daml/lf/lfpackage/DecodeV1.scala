@@ -745,6 +745,7 @@ object DecodeV1 {
       EQUAL_LIST -> (BEqualList -> "0"),
       EQUAL_CONTRACT_ID -> (BEqualContractId -> "0"),
       TRACE -> (BTrace -> "0"),
+      COERCE_CONTRACT_ID -> (BCoerceContractId -> "dev"),
     ).withDefault(_ => throw ParseError("BuiltinFunction.UNRECOGNIZED"))
   }
 

@@ -396,7 +396,9 @@ enum BuiltinFunction {
 
   TRACE = 88;
 
-  // Next id is 102. 101 is MAP_SIZE.
+  COERCE_CONTRACT_ID = 102;
+
+  // Next id is 103. 102 is COERCE_CONTRACT_ID.
 }
 
 // Builtin literals
