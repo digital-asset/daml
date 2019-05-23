@@ -279,7 +279,7 @@ object ConfigParser {
         cliParams.ledgerPort,
         from,
         to,
-        cliParams.party,
+        ExtractorConfig.parties(cliParams.party),
         tlsConfig
       )
 
