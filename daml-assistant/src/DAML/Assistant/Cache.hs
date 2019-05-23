@@ -96,7 +96,7 @@ cacheWith damlPath key timeout ser deser getFresh = do
     case valueAgeM of
         Just (value, Fresh) -> pure value
         Just (value, Stale) -> do
-            valueE <- tryAny $ getFresh
+            valueE <- tryAny getFresh
             case valueE of
                 Left _ -> pure value
                 Right value' -> do
