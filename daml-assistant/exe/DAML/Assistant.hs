@@ -142,7 +142,7 @@ handleCommand env@Env{..} = \case
 
     Builtin (Version VersionOptions{..}) -> do
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
-        availableVersionsE <- tryAssistant $ getAvailableSdkVersions envDamlPath
+        availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envDamlPath
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
 
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion

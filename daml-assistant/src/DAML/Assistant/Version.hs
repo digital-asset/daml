@@ -5,18 +5,19 @@
 
 module DAML.Assistant.Version
     ( getInstalledSdkVersions
-    , getAvailableSdkVersions
-    , getLatestSdkVersionCached
     , getSdkVersionFromSdkPath
     , getSdkVersionFromProjectPath
     , getAssistantSdkVersion
     , getDefaultSdkVersion
+    , getAvailableSdkVersions
+    , getAvailableSdkVersionsCached
+    , refreshAvailableSdkVersions
+    , getLatestSdkVersionCached
     ) where
 
 import DAML.Assistant.Types
 import DAML.Assistant.Util
 import DAML.Assistant.Cache
-import DAML.Assistant.Install
 import DAML.Project.Config
 import DAML.Project.Consts hiding (getDamlPath, getProjectPath)
 import System.Directory
@@ -31,14 +32,6 @@ import Data.Aeson (eitherDecodeStrict')
 import Safe
 import Network.HTTP.Simple
 import qualified Data.Map as M
-
--- | Get the latest released SDK version. Designed to return Nothing if
--- anything fails (e.g. machine is offline). The result is cached in
--- $DAML_HOME/cache/latest-sdk-version.txt and only polled once a day.
-getLatestSdkVersionCached :: DamlPath -> IO (Maybe SdkVersion)
-getLatestSdkVersionCached damlPath =
-    cacheLatestSdkVersion damlPath $ do
-        tryAssistantM getLatestVersion
 
 -- | Determine SDK version of running daml assistant. Fails with an
 -- AssistantError exception if the version cannot be determined.
@@ -100,8 +93,8 @@ getDefaultSdkVersion damlPath = do
 -- | Get the list of available versions afresh. This will fetch.
 -- https://docs.daml.com/versions.json and parse the obtained list
 -- of versions.
-getAvailableSdkVersions :: DamlPath -> IO [SdkVersion]
-getAvailableSdkVersions damlPath = wrapErr "Fetching list of avalaible SDK versions" $ do
+getAvailableSdkVersions :: IO [SdkVersion]
+getAvailableSdkVersions = wrapErr "Fetching list of avalaible SDK versions" $ do
     response <- requiredAny "HTTPS connection to docs.daml.com failed" $
         httpBS "GET http://docs.daml.com/versions.json"
 
@@ -115,10 +108,26 @@ getAvailableSdkVersions damlPath = wrapErr "Fetching list of avalaible SDK versi
             (throwIO . assistantErrorBecause "Versions list from docs.daml.com does not contain vaild JSON" . pack)
             (eitherDecodeStrict' (getResponseBody response))
 
-    let versions = sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
+    pure . sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
 
-    saveToCache damlPath "versions.txt" $
-        unlines (map versionToString versions)
+-- | Same as getAvailableSdkVersions, but writes result to cache.
+refreshAvailableSdkVersions :: DamlPath -> IO [SdkVersion]
+refreshAvailableSdkVersions damlPath = do
+    versions <- getAvailableSdkVersions
+    saveAvailableSdkVersions damlPath versions
+    pure versions
 
-    return versions
+-- | Same as getAvailableSdkVersions, but result is cached based on the duration
+-- of the update-check value in daml-config.yaml (defaults to 1 day).
+getAvailableSdkVersionsCached :: DamlPath -> IO [SdkVersion]
+getAvailableSdkVersionsCached damlPath =
+    cacheAvailableSdkVersions damlPath getAvailableSdkVersions
+
+-- | Get the latest released SDK version, cached as above.
+getLatestSdkVersionCached :: DamlPath -> IO (Maybe SdkVersion)
+getLatestSdkVersionCached damlPath = do
+    versionsE <- tryAssistant $ getAvailableSdkVersionsCached damlPath
+    pure $ do
+        versions <- eitherToMaybe versionsE
+        maximumMay versions
 
