@@ -826,7 +826,7 @@ renderValue world name = \case
             renderValue world (name ++ [TL.toStrict label]) (fromJust mbValue)
 
 templateConName :: Identifier -> LF.Qualified LF.TypeConName
-templateConName (Identifier mbPkgId (TL.toStrict -> qualName)) = (LF.Qualified pkgRef  mdN tpl)
+templateConName (Identifier mbPkgId (TL.toStrict -> qualName)) = LF.Qualified pkgRef  mdN tpl
   where (mdN , tpl) = case T.splitOn ":" qualName of
           [modName, defN] -> (LF.ModuleName (T.splitOn "." modName) , LF.TypeConName (T.splitOn "." defN) )
           _ -> (LF.ModuleName [] , LF.TypeConName [])
