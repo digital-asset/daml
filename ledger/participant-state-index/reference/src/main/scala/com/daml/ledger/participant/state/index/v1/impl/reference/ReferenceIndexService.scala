@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf
-import com.digitalasset.ledger.api.domain.TransactionFilter
+import com.digitalasset.ledger.api.domain.{LedgerOffset, TransactionFilter}
 import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import org.slf4j.LoggerFactory
@@ -162,7 +162,7 @@ final case class ReferenceIndexService(
                     create.coid,
                     create.coinst.template,
                     create.coinst.arg,
-                    witnesses.toList
+                    witnesses
                   )
               )
             case exe: NodeExercises[
@@ -175,7 +175,7 @@ final case class ReferenceIndexService(
                     nodeIdToEventId(acceptedTx.transactionId, nodeId),
                     exe.targetCoid,
                     exe.templateId,
-                    witnesses.toList
+                    witnesses
                   )
               )
             case _ =>
@@ -202,7 +202,8 @@ final case class ReferenceIndexService(
                   (workflowId, create)
               }
               .toIterator)
-      Future.successful(ActiveContractSetSnapshot(state.getUpdateId, events))
+      Future.successful(
+        ActiveContractSetSnapshot(LedgerOffset.Absolute(state.getUpdateId.toString), events))
     }
 
   override def getAcceptedTransactions(

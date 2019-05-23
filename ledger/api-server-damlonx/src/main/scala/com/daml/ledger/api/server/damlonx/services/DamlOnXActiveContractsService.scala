@@ -98,7 +98,7 @@ class DamlOnXActiveContractsService private (
                 throw new RuntimeException(
                   s"Unexpected error when converting stored contract: $err"),
               identity)),
-        a.stakeholders
+        a.stakeholders.toSeq
       ))
   }
 }
