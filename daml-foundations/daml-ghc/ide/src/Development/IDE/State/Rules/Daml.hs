@@ -12,6 +12,7 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import DA.Daml.GHC.Compiler.Options(Options(..))
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
 import qualified Data.Map.Strict as Map
 import Data.Maybe
@@ -19,7 +20,6 @@ import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import Data.Tuple.Extra
 import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
@@ -253,11 +253,8 @@ encodeModule lfVersion m =
 getScenarioRootsRule :: Rules ()
 getScenarioRootsRule =
     defineNoFile $ \GetScenarioRoots -> do
-        alwaysRerun
-        Env{..} <- getServiceEnv
-        DamlEnv{..} <- getDamlServiceEnv
-        filesOfInterest <- liftIO $ readVar envOfInterestVar
-        openVRs <- liftIO $ readVar envOpenVirtualResources
+        filesOfInterest <- use_ GetFilesOfInterest ""
+        openVRs <- use_ GetOpenVirtualResources ""
         let files = Set.toList (filesOfInterest `Set.union` Set.map vrScenarioFile openVRs)
         deps <- forP files $ \file -> do
             transitiveDeps <- maybe [] transitiveModuleDeps <$> use GetDependencies file
@@ -273,7 +270,7 @@ getScenarioRootRule =
         case Map.lookup file ctxRoots of
             Nothing -> liftIO $
                 fail $ "No scenario root for file " <> show file <> "."
-            Just root -> pure (Just $ T.encodeUtf8 $ T.pack root, ([], Just root))
+            Just root -> pure (Just $ BS.fromString root, ([], Just root))
 
 -- A rule that builds the files-of-interest and notifies via the
 -- callback of any errors. NOTE: results may contain errors for any
@@ -285,12 +282,11 @@ ofInterestRule = do
     action $ use OfInterest ""
     defineNoFile $ \OfInterest -> do
         setPriority PriorityFilesOfInterest
-        alwaysRerun
         Env{..} <- getServiceEnv
         DamlEnv{..} <- getDamlServiceEnv
         -- query for files of interest
-        files   <- liftIO $ readVar envOfInterestVar
-        openVRs <- liftIO $ readVar envOpenVirtualResources
+        files   <- use_ GetFilesOfInterest ""
+        openVRs <- use_ GetOpenVirtualResources ""
         let vrFiles = Set.map vrScenarioFile openVRs
         -- We run scenarios for all files of interest to get diagnostics
         -- and for the files for which we have open VRs so that they get
@@ -338,6 +334,23 @@ ofInterestRule = do
                   pure (gcdCtxs, Map.elems gcdCtxs)
               prevCtxRoots <- modifyVar envPreviousScenarioContexts $ \prevCtxs -> pure (ctxRoots, prevCtxs)
               when (prevCtxRoots /= ctxRoots) $ void $ SS.gcCtxs scenarioService ctxRoots
+
+getFilesOfInterestRule :: Rules ()
+getFilesOfInterestRule = do
+    defineEarlyCutoff $ \GetFilesOfInterest _file -> assert (null _file) $ do
+        alwaysRerun
+        Env{..} <- getServiceEnv
+        filesOfInterest <- liftIO $ readVar envOfInterestVar
+        pure (Just $ BS.fromString $ show filesOfInterest, ([], Just filesOfInterest))
+
+getOpenVirtualResourcesRule :: Rules ()
+getOpenVirtualResourcesRule = do
+    defineEarlyCutoff $ \GetOpenVirtualResources _file -> assert (null _file) $ do
+        alwaysRerun
+        DamlEnv{..} <- getDamlServiceEnv
+        openVRs <- liftIO $ readVar envOpenVirtualResources
+        pure (Just $ BS.fromString $ show openVRs, ([], Just openVRs))
+
 
 formatScenarioError :: LF.World -> SS.Error -> Pretty.Doc Pretty.SyntaxClass
 formatScenarioError world  err = case err of
@@ -417,6 +430,8 @@ damlRule opts = do
     ofInterestRule
     encodeModuleRule
     createScenarioContextRule
+    getFilesOfInterestRule
+    getOpenVirtualResourcesRule
 
 mainRule :: Options -> Rules ()
 mainRule options = do

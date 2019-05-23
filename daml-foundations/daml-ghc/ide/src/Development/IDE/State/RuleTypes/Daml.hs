@@ -17,6 +17,7 @@ import Data.Binary
 import qualified Data.ByteString as BS
 import Data.Hashable
 import Data.Map.Strict (Map)
+import Data.Set (Set)
 import Data.Typeable (Typeable)
 import Development.Shake
 import GHC.Generics (Generic)
@@ -56,6 +57,11 @@ type instance RuleResult GetScenarioRoots = Map FilePath FilePath
 -- This is a separate rule so we can avoid rerunning scenarios if
 -- only the roots of other files have changed.
 type instance RuleResult GetScenarioRoot = FilePath
+
+-- | These rules manage access to the global state in
+-- envOfInterestVar and envOpenVirtualResources.
+type instance RuleResult GetFilesOfInterest = Set FilePath
+type instance RuleResult GetOpenVirtualResources = Set VirtualResource
 
 data GenerateDalf = GenerateDalf
     deriving (Eq, Show, Typeable, Generic)
@@ -120,3 +126,13 @@ data GetScenarioRoot = GetScenarioRoot
     deriving (Eq, Show, Typeable, Generic)
 instance Hashable GetScenarioRoot
 instance NFData   GetScenarioRoot
+
+data GetFilesOfInterest = GetFilesOfInterest
+    deriving (Eq, Show, Typeable, Generic)
+instance Hashable GetFilesOfInterest
+instance NFData   GetFilesOfInterest
+
+data GetOpenVirtualResources = GetOpenVirtualResources
+    deriving (Eq, Show, Typeable, Generic)
+instance Hashable GetOpenVirtualResources
+instance NFData   GetOpenVirtualResources
