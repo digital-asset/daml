@@ -17,7 +17,6 @@ import Data.Text.Lazy(Text)
 import qualified Data.UUID as UUID
 import System.Random(randomIO)
 import System.Time.Extra
---import Trace
 
 import qualified DA.Ledger.LowLevel as LL(Completion(..))
 
@@ -44,14 +43,17 @@ tests = testGroup "Haskell Ledger Bindings" [
     t1, t2, t3,
     t4, t4_1,
     t5, t6
-    -- we really need sandboxes shared between tests..
+    -- TODO: we really need sandboxes shared between tests..
     --,t1,t1,t1,t1,t1,t1
     ]
+
+connect :: Port -> IO LedgerHandle
+connect = Ledger.connectLogging putStrLn
 
 t1 :: Tasty.TestTree
 t1 = testCase "connect, ledgerid" $ do
     withSandbox spec1 $ \sandbox -> do
-        h <- Ledger.connect (Sandbox.port sandbox)
+        h <- connect (Sandbox.port sandbox)
         let lid = Ledger.identity h
         let got = Text.unpack $ Ledger.unLedgerId lid
         assertBool "bad ledgerId" (looksLikeSandBoxLedgerId got)
@@ -62,13 +64,13 @@ t2 :: Tasty.TestTree
 t2 = testCase "connect, sandbox dead -> exception" $ do
     withSandbox spec1 $ \sandbox -> do
         shutdownSandbox sandbox -- kill it here
-        e <- expectException (Ledger.connect (Sandbox.port sandbox))
+        e <- expectException (connect (Sandbox.port sandbox))
         assertExceptionTextContains e "ClientIOError"
 
 t4 :: Tasty.TestTree
 t4 = testCase "submit bad package id" $ do
     withSandbox spec1 $ \sandbox -> do
-        h <- Ledger.connect (Sandbox.port sandbox)
+        h <- connect (Sandbox.port sandbox)
         e <- expectException (submitCommand h alice command)
         assertExceptionTextContains e "Couldn't find package"
             where command =  createIOU pid alice "A-coin" 100
@@ -77,7 +79,7 @@ t4 = testCase "submit bad package id" $ do
 t4_1 :: Tasty.TestTree
 t4_1 = testCase "submit good package id" $ do
     withSandbox spec1 $ \sandbox -> do
-        h <- Ledger.connect (Sandbox.port sandbox)
+        h <- connect (Sandbox.port sandbox)
         -- TODO: Use Ledger.getPackage to find the correct package with the "Iou" contract.
         [pid,_,_] <- Ledger.listPackages h -- for now assume it's in the 1st of the 3 listed packages.
         let command =  createIOU pid alice "A-coin" 100
@@ -94,7 +96,7 @@ t4_1 = testCase "submit good package id" $ do
 t3 :: Tasty.TestTree
 t3 = testCase "past/future" $ do
     withSandbox spec1 $ \sandbox -> do
-        h <- Ledger.connect (Sandbox.port sandbox)
+        h <- connect (Sandbox.port sandbox)
         [pid,_,_] <- Ledger.listPackages h
         let command =  createIOU pid alice "A-coin" 100
         PastAndFuture{past=past1,future=future1} <- Ledger.getTransactionsPF h alice
@@ -112,14 +114,14 @@ t3 = testCase "past/future" $ do
 t5 :: Tasty.TestTree
 t5 = testCase "package service, listPackages" $ do
     withSandbox spec1 $ \sandbox -> do
-        h <- Ledger.connect (Sandbox.port sandbox)
+        h <- connect (Sandbox.port sandbox)
         ids <- Ledger.listPackages h
         assertEqual "#packages" 3 (length ids)
 
 t6 :: Tasty.TestTree -- WIP (Ledger.getPackage not working yet)
 t6 = testCase "package service, get Package" $ do
     withSandbox spec1 $ \sandbox -> do
-        h <- Ledger.connect (Sandbox.port sandbox)
+        h <- connect (Sandbox.port sandbox)
         ids <- Ledger.listPackages h
         ps <- mapM (Ledger.getPackage h) ids
         assertEqual "#packages" 3 (length ps)
