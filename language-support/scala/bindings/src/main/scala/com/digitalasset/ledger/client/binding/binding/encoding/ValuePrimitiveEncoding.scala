@@ -123,6 +123,27 @@ object ValuePrimitiveEncoding {
         (vpef.valueMap(ev._1), vpeg.valueMap(ev._2))
     }
 
+  trait Mapped[F[_], G[_]] extends ValuePrimitiveEncoding[G] {
+    protected[this] def fgAxiom[A](fa: F[A]): G[A]
+    protected[this] def underlyingVpe: ValuePrimitiveEncoding[F]
+
+    override def valueInt64: G[P.Int64] = fgAxiom(underlyingVpe.valueInt64)
+
+    override def valueDecimal: G[P.Decimal] = fgAxiom(underlyingVpe.valueDecimal)
+
+    override def valueParty: G[P.Party] = fgAxiom(underlyingVpe.valueParty)
+
+    override def valueText: G[P.Text] = fgAxiom(underlyingVpe.valueText)
+
+    override def valueDate: G[P.Date] = fgAxiom(underlyingVpe.valueDate)
+
+    override def valueTimestamp: G[P.Timestamp] = fgAxiom(underlyingVpe.valueTimestamp)
+
+    override def valueUnit: G[P.Unit] = fgAxiom(underlyingVpe.valueUnit)
+
+    override def valueBool: G[P.Bool] = fgAxiom(underlyingVpe.valueBool)
+  }
+
   /** Transform all the base cases to a new type. */
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def xmapped[F[_], G[_]](vpe: ValuePrimitiveEncoding[F])(iso: F <~> G): ValuePrimitiveEncoding[G] =
@@ -138,22 +159,9 @@ object ValuePrimitiveEncoding {
       newList: G ~> Lambda[a => G[P.List[a]]])(newOptional: G ~> Lambda[a => G[P.Optional[a]]])(
       newMap: G ~> Lambda[a => G[P.Map[a]]]
   ): ValuePrimitiveEncoding[G] =
-    new ValuePrimitiveEncoding[G] {
-      override def valueInt64: G[P.Int64] = f(vpe.valueInt64)
-
-      override def valueDecimal: G[P.Decimal] = f(vpe.valueDecimal)
-
-      override def valueParty: G[P.Party] = f(vpe.valueParty)
-
-      override def valueText: G[P.Text] = f(vpe.valueText)
-
-      override def valueDate: G[P.Date] = f(vpe.valueDate)
-
-      override def valueTimestamp: G[P.Timestamp] = f(vpe.valueTimestamp)
-
-      override def valueUnit: G[P.Unit] = f(vpe.valueUnit)
-
-      override def valueBool: G[P.Bool] = f(vpe.valueBool)
+    new Mapped[F, G] {
+      override protected[this] def fgAxiom[A](fa: F[A]) = f(fa)
+      override protected[this] def underlyingVpe = vpe
 
       override def valueList[A](implicit ev: G[A]): G[P.List[A]] = newList(ev)
 
