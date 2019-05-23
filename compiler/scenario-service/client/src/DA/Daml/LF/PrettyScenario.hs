@@ -829,7 +829,7 @@ templateConName :: Identifier -> LF.Qualified LF.TypeConName
 templateConName (Identifier _ (TL.toStrict -> qualName)) = (LF.Qualified LF.PRSelf  mdN tpl)
   where (mdN , tpl) = case T.splitOn ":" qualName of
           (modName : defN : []) -> (LF.ModuleName (T.splitOn "." modName) , LF.TypeConName (T.splitOn "." defN) )
-          (_) -> (LF.ModuleName [] , LF.TypeConName [])
+          _ -> (LF.ModuleName [] , LF.TypeConName [])
 
 
 typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
