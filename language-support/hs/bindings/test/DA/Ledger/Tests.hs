@@ -5,20 +5,20 @@
 
 module DA.Ledger.Tests (main) where
 
-import Control.Monad(unless)
 import Control.Exception (SomeException, try)
-import DA.Ledger as Ledger
+import Control.Monad(unless)
 import Data.List (isPrefixOf,isInfixOf)
-import qualified Data.Text.Lazy as Text (pack,unpack)
-import DA.Ledger.Sandbox as Sandbox(SandboxSpec (..), port, shutdownSandbox, withSandbox)
-import Test.Tasty as Tasty (TestTree, defaultMain, testGroup)
-import Test.Tasty.HUnit as Tasty (assertEqual, assertBool, assertFailure, testCase)
 import Data.Text.Lazy(Text)
-import qualified Data.UUID as UUID
 import System.Random(randomIO)
 import System.Time.Extra
+import Test.Tasty as Tasty (TestTree, defaultMain, testGroup)
+import Test.Tasty.HUnit as Tasty (assertEqual, assertBool, assertFailure, testCase)
+import qualified Data.Text.Lazy as Text (pack,unpack)
+import qualified Data.UUID as UUID
 
-import qualified DA.Ledger.LowLevel as LL(Completion(..))
+import DA.Ledger as Ledger
+import DA.Ledger.Sandbox as Sandbox(SandboxSpec (..), port, withSandbox)
+import DA.Ledger.LowLevel as LL(Completion(..))
 
 expectException :: IO a -> IO SomeException
 expectException io =
@@ -40,7 +40,7 @@ spec1 = SandboxSpec {dar}
 
 tests :: TestTree
 tests = testGroup "Haskell Ledger Bindings" [
-    t1, t2, t3,
+    t1, t3,
     t4, t4_1,
     t5, t6
     -- TODO: we really need sandboxes shared between tests..
@@ -59,13 +59,6 @@ t1 = testCase "connect, ledgerid" $ do
         assertBool "bad ledgerId" (looksLikeSandBoxLedgerId got)
             where looksLikeSandBoxLedgerId s =
                       "sandbox-" `isPrefixOf` s && length s == 44
-
-t2 :: Tasty.TestTree
-t2 = testCase "connect, sandbox dead -> exception" $ do
-    withSandbox spec1 $ \sandbox -> do
-        shutdownSandbox sandbox -- kill it here
-        e <- expectException (connect (Sandbox.port sandbox))
-        assertExceptionTextContains e "ClientIOError"
 
 t4 :: Tasty.TestTree
 t4 = testCase "submit bad package id" $ do
@@ -92,7 +85,6 @@ t4_1 = testCase "submit good package id" $ do
         let cid1' = CommandId completionCommandId
         assertEqual "submit1" cid1' cid1
 
-
 t3 :: Tasty.TestTree
 t3 = testCase "past/future" $ do
     withSandbox spec1 $ \sandbox -> do
@@ -109,7 +101,6 @@ t3 = testCase "past/future" $ do
         assertEqual "past is initially empty" [] past1
         assertEqual "future becomes the past" [x1] past2
         assertEqual "continuing future matches" y1 y2
-
 
 t5 :: Tasty.TestTree
 t5 = testCase "package service, listPackages" $ do
