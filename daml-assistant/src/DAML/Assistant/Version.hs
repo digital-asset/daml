@@ -31,7 +31,7 @@ import Data.Either.Extra
 import Data.Aeson (eitherDecodeStrict')
 import Safe
 import Network.HTTP.Simple
-import qualified Data.Map as M
+import qualified Data.HashMap.Strict as M
 
 -- | Determine SDK version of running daml assistant. Fails with an
 -- AssistantError exception if the version cannot be determined.
@@ -103,7 +103,7 @@ getAvailableSdkVersions = wrapErr "Fetching list of avalaible SDK versions" $ do
             "Fetching list of available SDK versions from docs.daml.com failed"
             (pack . show $ getResponseStatus response)
 
-    versionsMap :: M.Map Text Text <-
+    versionsMap :: M.HashMap Text Text <-
         fromRightM
             (throwIO . assistantErrorBecause "Versions list from docs.daml.com does not contain vaild JSON" . pack)
             (eitherDecodeStrict' (getResponseBody response))
