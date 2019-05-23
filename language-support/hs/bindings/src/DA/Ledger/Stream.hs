@@ -8,18 +8,19 @@
 -- When closed (at the read-end), elements in flight are dropped, clients are notified
 -- When closure is requested at the write-end, elements in flight are processed. The stream becomes properly closed when the closure request reaches the read-end of the stream. Subsequent writes are dropped.
 
-module Stream(Stream, newStream,
-              Closed(..), onClose, closeStream,
-              takeStream,
-              writeStream,
-              whenClosed, isClosed,
-             ) where
+module DA.Ledger.Stream(
+    Stream, newStream,
+    Closed(..), onClose, closeStream,
+    takeStream,
+    writeStream,
+    whenClosed, isClosed,
+    ) where
 
 import Control.Concurrent
 
 newtype Stream a = Stream {status :: MVar (Either Closed (Open a))}
 
-newtype Closed = Closed { reason :: String }
+data Closed = EOS | Abnormal { reason :: String } deriving Show
 
 data Open a = Open {
     chan :: Chan (Either Closed a),
@@ -48,10 +49,12 @@ closeStream :: Stream a -> Closed -> IO ()
 closeStream Stream{status} closed = do
     takeMVar status >>= \case
         Left alreadyClosed -> putMVar status (Left alreadyClosed) -- do nothing
-        Right Open{clients} -> do
+        Right Open{chan,clients} -> do
             putMVar status (Left closed) -- now can't get new clients
             fs <- readMVar clients
             mapM_ (\f -> f closed) fs
+            -- forward the closure request in case of multiple blocked readers
+            writeChan chan (Left closed)
 
 -- Get the next element from a stream, or find the stream is closed.
 -- (Blocking until one of the above occurs)

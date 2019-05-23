@@ -10,10 +10,11 @@ da_haskell_library(
     hazel_deps = [
         "base",
         "bytestring",
-        "text",
-        "vector",
         "containers",
         "proto3-suite",
+        "text",
+        "time",
+        "vector",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -25,21 +26,10 @@ da_haskell_library(
     ],
 )
 
-da_haskell_binary(
-    name = "play",
-    srcs = ["examples/Play.hs"],
-    compiler_flags = [],
-    hazel_deps = [
-        "base",
-        "extra",
-        "random",
-        "text",
-        "uuid",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//language-support/hs/bindings:hs-ledger",
-    ],
+daml_compile(
+    name = "Nim",
+    srcs = glob(["examples/nim-console/daml/*.daml"]),
+    main_src = "examples/nim-console/daml/Nim.daml",
 )
 
 da_haskell_binary(
@@ -54,6 +44,7 @@ da_haskell_binary(
         "haskeline",
         "random",
         "text",
+        "time",
         "transformers",
         "uuid",
     ],
@@ -82,10 +73,11 @@ da_haskell_test(
         "directory",
         "extra",
         "process",
+        "random",
         "tasty",
         "tasty-hunit",
         "text",
-        "random",
+        "time",
         "uuid",
     ],
     main_function = "DA.Ledger.Tests.main",

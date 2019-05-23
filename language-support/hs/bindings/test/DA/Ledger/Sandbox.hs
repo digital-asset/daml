@@ -9,13 +9,14 @@ module DA.Ledger.Sandbox ( -- Run a sandbox for testing on a dynamically selecte
     withSandbox
     ) where
 
+import Trace
+
 import Control.Monad(when)
 import Control.Exception (bracket, evaluate, onException)
 import DA.Ledger (Port (..), unPort)
 import Data.List (isInfixOf)
 import Data.List.Extra(splitOn)
 import GHC.IO.Handle (Handle, hGetLine)
-import System.IO (hFlush, stdout)
 import System.Process (CreateProcess (..), ProcessHandle, StdStream (CreatePipe), createProcess, getPid, interruptProcessGroupOf, proc, waitForProcess)
 import System.Time.Extra (Seconds, timeout)
 
@@ -49,8 +50,10 @@ shutdownSandboxProcess proh = do
     pidOpt <- getPid proh
     trace $ "Sending INT to sandbox process: " <> show pidOpt
     interruptProcessGroupOf proh
-    x <- timeoutError 30 "Sandbox process didn't exit" (waitForProcess proh)
-    trace $ "Sandbox process exited with: " <> show x
+    -- Sandbox takes ages to shutdown. Not going to wait!
+    let _ = waitForProcess
+    --x <- timeoutError 30 "Sandbox process didn't exit" (waitForProcess proh)
+    --trace $ "Sandbox process exited with: " <> show x
     return ()
 
 parsePortFromListeningLine :: String -> IO Port
@@ -95,7 +98,7 @@ startSandbox spec = do
     return Sandbox { port, proh }
 
 shutdownSandbox :: Sandbox -> IO ()
-shutdownSandbox Sandbox{proh} = do shutdownSandboxProcess proh
+shutdownSandbox Sandbox{proh} = shutdownSandboxProcess proh
 
 withSandbox :: SandboxSpec -> (Sandbox -> IO a) -> IO a
 withSandbox spec f =
@@ -109,7 +112,3 @@ timeoutError n tag io =
         Just x -> return x
         Nothing -> do
             fail $ "Timeout: " <> tag <> ", after " <> show n <> " seconds."
-
-_trace,trace :: String -> IO ()
-_trace s = do putStr ("\n["<>s<>"]"); hFlush stdout -- debugging
-trace _ = return ()
