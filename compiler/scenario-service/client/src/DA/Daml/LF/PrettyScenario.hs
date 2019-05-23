@@ -825,12 +825,11 @@ renderValue world name = \case
         renderField (Field label mbValue) =
             renderValue world (name ++ [TL.toStrict label]) (fromJust mbValue)
 
-templateConName :: Identifier -> Maybe (LF.Qualified LF.TypeConName)
-templateConName (Identifier _ (TL.toStrict -> qualName)) = do
-  (modName, tpl) <- case T.splitOn ":" qualName of 
-    [mdN, defN] -> Just (LF.ModuleName (T.splitOn "." mdN), LF.TypeConName (T.splitOn "." defN))
-    _ -> error "Bad definition"
-  return (LF.Qualified LF.PRSelf  modName tpl)
+templateConName :: Identifier -> LF.Qualified LF.TypeConName
+templateConName (Identifier _ (TL.toStrict -> qualName)) = (LF.Qualified LF.PRSelf  mdN tpl)
+  where (mdN , tpl) = case T.splitOn ":" qualName of
+          (modName : defN : []) -> (LF.ModuleName (T.splitOn "." modName) , LF.TypeConName (T.splitOn "." defN) )
+          (_) -> (LF.ModuleName [] , LF.TypeConName [])
 
 
 typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
@@ -844,9 +843,7 @@ templateConFields qName world = case LF.lookupDataType qName world of
     Left _ -> []
 
 renderHeader :: LF.World -> Identifier -> [T.Text]
-renderHeader world identifier = case templateConName identifier of 
-  Just qt -> templateConFields qt world
-  Nothing -> []
+renderHeader world identifier =  templateConFields (templateConName identifier) world
 
 
 renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
