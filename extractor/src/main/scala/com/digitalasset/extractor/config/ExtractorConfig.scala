@@ -4,6 +4,10 @@
 package com.digitalasset.extractor.config
 
 import java.util.UUID
+import scalaz.OneAnd
+import scalaz.syntax.foldable._
+import scalaz.std.list._
+import scalaz.std.string._
 
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.tls.TlsConfiguration
@@ -20,7 +24,17 @@ final case class ExtractorConfig(
     ledgerPort: Int,
     from: LedgerOffset,
     to: SnapshotEndSetting,
-    party: String,
+    parties: ExtractorConfig.Parties,
     tlsConfig: TlsConfiguration,
     appId: String = s"Extractor-${UUID.randomUUID().toString}"
-)
+) {
+  def partySpec: String = parties intercalate ","
+}
+
+object ExtractorConfig {
+  type Parties = OneAnd[List, String]
+  def parties(spec: String): Parties = {
+    val Array(hd, tl @ _*) = spec split ','
+    OneAnd(hd, tl.toList)
+  }
+}
