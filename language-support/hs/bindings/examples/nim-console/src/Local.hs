@@ -1,67 +1,64 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
-module Local(State(..), Onum(..), Gnum(..), initState, applyTransPureSimple, applyTrans,
-             LCommand(..), externCommand,lookForAnAction,
-             OpenState, getOpenState,
-             LTrans,
+-- The local state maintained non-persistently by the nim-console
+module Local(MatchNumber(..),
+             State(..), initState, prettyState,
+             applyManyTrans,
+             applyTrans, Announce,
+             UserCommand(..), externalizeCommand, possibleActions
              ) where
 
-import Prelude hiding(id)
 import Control.Monad(when)
-import qualified Data.List as List(find,concatMap)
-import Data.List ((\\))
-import Data.Maybe(mapMaybe,listToMaybe)
-import qualified Data.Map.Strict as Map(toList,lookup,empty,adjust,insert,elems,keys)
+import Data.List ((\\),sortBy,intercalate)
 import Data.Map.Strict (Map)
+import Data.Maybe(mapMaybe)
+import qualified Data.List as List(find,concatMap)
+import qualified Data.Map.Strict as Map(toList,lookup,empty,adjust,insert,elems,keys)
 
+import DA.Ledger.Types(ContractId)
 import Domain
-import External
+import NimTrans
+import NimCommand
+import Logging
 
-----------------------------------------------------------------------
--- local command, map to X in context of state
+-- local state, accumulates external transitions
 
-data LCommand
+data State = State {
+    whoami :: Player,
+    knownPlayers :: [Player],
+    offers :: Map Oid (MatchNumber,Offer,Status),
+    games :: Map Gid (MatchNumber,Game,Status),
+    nextMatchNum :: Int
+    }
+    deriving (Show)
+
+data Status = Open | Closed deriving (Eq,Show)
+
+initState :: Player -> [Player] -> State
+initState whoami knownPlayers = State {
+    whoami,
+    knownPlayers, -- TODO: determine automatically
+    offers = Map.empty,
+    games = Map.empty,
+    nextMatchNum = 1
+    }
+
+data MatchNumber = MatchNumber Int deriving (Eq,Ord)
+instance Show MatchNumber where
+    show (MatchNumber n) = "Match-" <> show n
+
+-- user commands, w.r.t the local state
+
+data UserCommand
     = OfferNewGameToAnyone
-    | OfferGameL Player
-    | AcceptOfferL Onum
-    | MakeMoveL Gnum Move
+    | OfferGameL [Player]
+    | AcceptOfferL MatchNumber
+    | MakeMoveL MatchNumber Move
     deriving Show
 
-externCommand :: Player -> State -> LCommand -> Maybe XCommand
-externCommand who state@State{knownPlayers} = \case
-    OfferNewGameToAnyone -> do
-        return $ OfferGame (Offer {from = who, to = knownPlayers \\ [who] })
-    OfferGameL player -> do
-        return $ OfferGame (Offer {from = who, to = [player] }) --can play self!
-    AcceptOfferL lid -> do
-        xid <- externOid state lid
-        return $ AcceptOffer who xid
-    MakeMoveL lid move -> do
-        xid <- externGid state lid
-        return $ MakeMove who xid move
-
-externOid :: State -> Onum -> Maybe Xoid
-externOid State{offers} low = (fmap fst . List.find (\(_,(l,_,status)) -> l==low && status == Open) . Map.toList) offers
-
-externGid :: State -> Gnum -> Maybe Xgid
-externGid State{games} low = (fmap fst . List.find (\(_,(l,_,status)) -> l==low && status == Open) . Map.toList) games
-
-----------------------------------------------------------------------
--- local trans, for reporting what happing in terms of local oid/gid
-data LTrans
-    = NewOfferL Onum Offer
-    | OfferNowUnavailable Onum Offer
-    | NewGameL Gnum Game
-    | GameMoveL Gnum Game
-    deriving Show
-
--- TODO: return list, then caller can make random choice!
-lookForAnAction :: State -> Maybe LCommand
-lookForAnAction State{whoami,offers,games} =
-    listToMaybe $
-        -- prefer to play a game move..
+possibleActions :: State -> [UserCommand]
+possibleActions State{whoami,offers,games} =
         mapMaybe
         (\(onum,offer,status) ->
                 if whoami `elem` to offer && status == Open
@@ -69,120 +66,201 @@ lookForAnAction State{whoami,offers,games} =
                 else Nothing
         ) (Map.elems offers)
         ++
-        -- otherwise accept any pending offer
         List.concatMap
-        -- randomize move order here !
-        (\(gnum,game,status) ->
+        (\(onum,game,status) ->
                 if whoami == p1 game && status == Open
-                then map (MakeMoveL gnum) (legalMovesOfGame game)
+                then map (MakeMoveL onum) (legalMovesOfGame game)
                 else []
         ) (Map.elems games)
 
-----------------------------------------------------------------------
--- local state, accumulates external transitions
+-- externalize a user-centric command into a Nim command
 
-data State = State {
-    whoami :: Player,
-    knownPlayers :: [Player],
-    offers :: Map Xoid (Onum,Offer,Status),
-    games :: Map Xgid (Gnum,Game,Status),
+externalizeCommand :: Player -> State -> UserCommand -> Maybe NimCommand
+externalizeCommand who state@State{knownPlayers} = \case
+    OfferNewGameToAnyone -> do
+        return $ OfferGame (Offer {from = who, to = knownPlayers \\ [who] })
+    OfferGameL players -> do
+        return $ OfferGame (Offer {from = who, to = players }) --can play self!
+    AcceptOfferL lid -> do
+        xid <- externOid state lid
+        return $ AcceptOffer who xid
+    MakeMoveL lid move -> do
+        xid <- externGid state lid
+        return $ MakeMove xid move
 
-    -- TODO: share the next number thing for offers and games
-    -- when an offer is converted to a game, keep the number
-    -- this mean a X-NewGame wil need to refernce the offer is comes from
-    nextOfferId :: Onum,
-    nextGameId :: Gnum
-    }
-    deriving (Show)
+type Oid = ContractId
+type Gid = ContractId
 
-data Status = Open | Closed
-    deriving (Eq,Show)
+externOid :: State -> MatchNumber -> Maybe Oid
+externOid State{offers} low = (fmap fst . List.find (\(_,(l,_,status)) -> l==low && status == Open) . Map.toList) offers
 
-initState :: Player -> [Player] -> State
-initState whoami knownPlayers = State {
-    whoami,
-    knownPlayers, -- TODO: = [] when support Hello
-    offers = Map.empty,
-    games = Map.empty,
-    nextOfferId = Onum 1,
-    nextGameId = Gnum 1
-    }
+externGid :: State -> MatchNumber -> Maybe Gid
+externGid State{games} low = (fmap fst . List.find (\(_,(l,_,status)) -> l==low && status == Open) . Map.toList) games
 
-data Onum = Onum Int deriving (Show,Eq) -- local offer id
-data Gnum = Gnum Int deriving (Show,Eq) -- local game id
 
-incOfferId :: Onum -> Onum
-incOfferId (Onum n) = Onum (n+1)
+-- aaccumulate an external Nim transition into the local state
 
-incGameId :: Gnum -> Gnum
-incGameId (Gnum n) = Gnum (n+1)
+applyManyTrans :: Logger -> State -> [NimTrans] -> IO State
+applyManyTrans log s = \case
+    [] -> return s
+    x:xs -> do
+        case applyTrans s x of
+            Left mes -> do log $ "applyTrans fail: " <> mes; applyManyTrans log s xs
+            Right (_,s) -> applyManyTrans log s xs
 
-applyTransPureSimple :: State -> XTrans -> State
-applyTransPureSimple s xt = either error snd (applyTrans s xt)
-
-applyTrans :: State -> XTrans -> Either String ([LTrans], State)
+applyTrans :: State -> NimTrans -> Either String ([Announce], State)
 applyTrans state0 = \case
-    NewOffer{xoid,offer} -> do
-        let State{offers,nextOfferId=onum} = state0
-        when (xoid `elem` Map.keys offers) $ fail "new offer, dup id"
-        return (
-            [NewOfferL onum offer],
-            state0 { offers = Map.insert xoid (onum,offer,Open) offers,
-                     nextOfferId = incOfferId onum })
 
-    OfferWithdrawn{xoid,offer} -> do
+    NewOffer{oid,offer} -> do
+        let State{offers,nextMatchNum=n} = state0
+        let onum = MatchNumber n
+        when (oid `elem` Map.keys offers) $ Left $ "new offer, dup id: " <> show oid
+        return (
+            [AnnounceNewOffer onum offer],
+            state0 { offers = Map.insert oid (onum,offer,Open) offers,
+                     nextMatchNum = n + 1 })
+
+    OfferWithdrawn{oid} -> do
         let State{offers} = state0
-        case Map.lookup xoid offers of
-            Nothing -> fail "offer withdrawm, unknown id"
+        case Map.lookup oid offers of
+            Nothing -> Left "offer withdrawm, unknown id"
+            Just _ ->
+                return (
+                [],
+                state0 { offers = Map.adjust archive oid offers })
+
+    NewGame {oid,gid,game} -> do
+        let State{games,offers} = state0
+        when (gid `elem` Map.keys games) $ Left "new game, dup id"
+        case Map.lookup oid offers of
+            Nothing -> Left "new game, unknown offer id"
             Just (onum,_,_) ->
                 return (
-                [OfferNowUnavailable onum offer],
-                state0 { offers = Map.adjust archive xoid offers })
+                [AnnounceNewGame onum game],
+                state0 { games = Map.insert gid (onum,game,Open) games })
 
-    NewGame {xgid,game} -> do
-        let State{games,nextGameId=gnum} = state0
-        when (xgid `elem` Map.keys games) $ fail "new game, dup id"
-        return (
-            [NewGameL gnum game],
-            state0 { games = Map.insert xgid (gnum,game,Open) games,
-                     nextGameId = incGameId gnum })
-
-    GameMove {oldXgid,newXgid,game} -> do
+    GameMove {oldGid,newGid,game} -> do
         let State{games} = state0
-        when (newXgid `elem` Map.keys games) $ fail "game move, dup new id"
-        case Map.lookup oldXgid games of
-            Nothing -> fail "game move, unknown old id"
-            Just (gnum,_,_) -> return (
-                [GameMoveL gnum game],
-                state0 { games = Map.insert newXgid (gnum,game,Open) (Map.adjust archive oldXgid games) }
-                )
+        when (newGid `elem` Map.keys games) $ Left "game move, dup new id"
+        case Map.lookup oldGid games of
+            Nothing -> Left "game move, unknown old id"
+            Just (onum,_,_) -> return (
+                [AnnounceGameMove onum game],
+                state0 { games = Map.insert newGid (onum,game,Open) (Map.adjust archive oldGid games)})
 
   where archive (k,v,_) = (k,v,Closed)
 
+-- announce what happened from the perspective of the local player
+-- TODO: distinguish offers/moves by me/others
+data Announce
+    = AnnounceNewOffer MatchNumber Offer
+    | AnnounceNewGame MatchNumber Game
+    | AnnounceGameMove MatchNumber Game
 
-----------------------------------------------------------------------
+instance Show Announce where
+    show = \case
+     AnnounceNewOffer m Offer{from} ->
+         show m <> ": " <> show from <> " has offered to play a new game."
+     AnnounceNewGame m _ ->
+         show m <> ": The game has started."
+     AnnounceGameMove m Game{p2} ->
+         show m <> ": " <> show p2 <> " has played a move."
+
 -- Visualize local open state
+
+prettyState :: State -> String
+prettyState = show . getOpenState
 
 data OpenState = OpenState {
     me :: Player,
-    oOffers :: [(Onum,Offer)],
-    oGames :: [(Gnum,Game)]
+    notStarted :: [(MatchNumber,MatchStatus)],
+    finised :: [(MatchNumber,MatchStatus)],
+    inProgress :: [(MatchNumber,MatchStatus)]
     }
 
 instance Show OpenState where
-    show OpenState{me,oOffers,oGames} = unlines (
-        [show me] ++
-        ["- offers:"] ++
-        map (\(id,offer) -> "- " <> show id <> " = " <> show offer) oOffers ++
-        ["- games:"] ++
-        map (\(id,game) -> "- " <> show id <> " = " <> show game) oGames
+    show OpenState{notStarted,finised,inProgress} = unlines (
+        ["Offers:"] ++
+        map (\(num,m) -> "- " <> show num <> ": " <> show m) notStarted ++
+        ["Finished:"] ++
+        map (\(num,m) -> "- " <> show num <> ": " <> show m) finised ++
+        ["In play:"] ++
+        map (\(num,m) -> "- " <> show num <> ": " <> show m) inProgress
         )
 
 getOpenState :: State -> OpenState
-getOpenState State{whoami=me,offers,games} = OpenState{me,oOffers,oGames}
-    -- TODO: sort the games and offers, by index number
-    -- geerally just make this prettier
-    -- also, maybe have a summary version, which can show when switch whoami
+getOpenState State{whoami=me,offers,games} = OpenState{me,notStarted,finised,inProgress}
     where
-        oOffers = (map (\(id,offer,_) -> (id,offer)) . filter (\(_,_,status) -> status == Open) . Map.elems) offers
-        oGames = (map (\(id,game,_) -> (id,game)) . filter (\(_,_,status) -> status == Open) . Map.elems) games
+        notStarted = filter (\(_,m) -> not (startedMatch m)) allMatches
+        finised = filter (\(_,m) -> finishedMatch m) allMatches
+        inProgress = filter (\(_,m) -> startedMatch m && not (finishedMatch m)) allMatches
+        allMatches = (
+            sortBy (\(a,_) (b,_) -> compare a b)
+            . map (\(id,game,_) -> (id,game))
+            . filter (\(_,_,status) -> status == Open)
+            . map (\(num,og,status) -> (num, matchStatus me og, status))
+            ) (
+            map (\(n,o,s) -> (n,Left o,s)) (Map.elems offers)
+            ++ map (\(n,g,s) -> (n,Right g,s)) (Map.elems games)
+            )
+
+-- MatchStatus
+
+newtype Piles = Piles [Int]
+
+instance Show Piles where
+    show (Piles piles) =
+        "(--" <> intercalate "--" (map showPile piles) <> "--)"
+        where showPile = \case 0 -> "X"; n -> replicate n 'i'
+
+data MatchStatus
+    = YouOffer [Player]
+    | TheyOffer Player [Player]
+    | YouNext Piles Player
+    | ThemNext Piles Player
+    | YouWinner Player
+    | ThemWinner Player
+
+matchStatus :: Player -> Either Offer Game -> MatchStatus
+matchStatus player = \case
+    Left offer -> matchStatusOfOffer player offer
+    Right game -> matchStatusOfGame player game
+
+matchStatusOfGame :: Player -> Game -> MatchStatus
+matchStatusOfGame whoami Game{p1,p2,piles} = do
+    if sum piles == 0
+        then if p1==whoami then YouWinner p2 else ThemWinner p1
+        else if p1==whoami then YouNext (Piles piles) p2 else ThemNext (Piles piles) p1
+
+matchStatusOfOffer :: Player -> Offer -> MatchStatus
+matchStatusOfOffer whoami Offer{from,to} = do
+    if from==whoami
+    then YouOffer to
+    else TheyOffer from (filter (/= whoami) to)
+
+startedMatch :: MatchStatus -> Bool
+startedMatch = \case YouOffer _ -> False; TheyOffer _ _ -> False;  _ -> True
+
+finishedMatch :: MatchStatus -> Bool
+finishedMatch = \case YouWinner _ -> True; ThemWinner _ -> True;  _ -> False
+
+instance Show MatchStatus where
+    show = \case
+        YouOffer players ->
+            "You offered a game against " <> oneOf (map show players) <> "."
+        TheyOffer opp more ->
+            show opp <> " offered a game against " <> oneOf ("you":map show more) <> "."
+        YouNext piles opp ->
+            show piles <> ", you to move, against " <> show opp <> "."
+        ThemNext piles opp ->
+            show piles <> ", " <> show opp <> " to move."
+        YouWinner opp ->
+            "You won (beating " <> show opp <> ")."
+        ThemWinner opp ->
+            "You lost to " <> show opp <> "."
+
+oneOf :: [String] -> String
+oneOf = \case
+    [] -> "no one" -- never!
+    [x] -> x
+    xs -> intercalate ", " (init xs) <> " or " <> last xs

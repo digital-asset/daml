@@ -16,6 +16,8 @@ DAML Assistant
   not specified, all modules in the project are exposed.
   See `#1328 <https://github.com/digital-asset/daml/issues/1328>`_.
 
+- You can now see all available versions with ``daml version`` using the ``--all`` flag.
+
 0.12.20 - 2019-05-23
 --------------------
 

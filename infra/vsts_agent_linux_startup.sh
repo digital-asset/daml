@@ -118,9 +118,6 @@ echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
   ./ci/dev-env-install.sh
   ./build.sh "_$(uname)"
 ) || true
-
-# free some disk space
-rm -rf ~/daml
 CACHE_WARMUP
 
 # Purge old agents

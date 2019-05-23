@@ -9,47 +9,51 @@ module DA.Ledger( -- WIP: High level interface to the Ledger API services
 
     -- services
     listPackages,
-    getPackage, Package,
-    transactions,
+    getPackage,
+    getTransactionsPF,
     completions,
     submitCommands,
 
     module DA.Ledger.Types,
-    LL_Transaction, -- TODO: remove when coded `raise' (LL->HL) operation on Transaction types
+    module DA.Ledger.PastAndFuture,
+    module DA.Ledger.Stream,
 
     Port(..),
 
-    Stream, takeStream, getStreamContents,
-
-    LedgerHandle, connect, identity,
+    LedgerHandle, connectLogging, identity,
 
     ) where
-
-
-import DA.Ledger.Types
 
 import Control.Concurrent
 import Control.Exception (Exception,SomeException,catch,throwIO)
 import Control.Monad.Fix (fix)
 import qualified Data.Map as Map(empty,singleton)
-import qualified Data.Text.Lazy as Text(unpack)
 import qualified Data.Vector as Vector(toList,fromList)
-import DA.Ledger.Convert(lowerCommands)
-import DA.Ledger.LowLevel as LL hiding(Commands)
 
 import qualified Proto3.Suite(fromByteString)
 import qualified DA.Daml.LF.Ast           as LF(Package)
 import qualified DA.Daml.LF.Proto3.Decode as Decode(decodePayload)
 
-data LedgerHandle = LedgerHandle { port :: Port, lid :: LedgerId }
+import DA.Ledger.Stream
+import DA.Ledger.PastAndFuture
+import DA.Ledger.Types
+import DA.Ledger.Convert(lowerCommands,raiseTransaction)
+import DA.Ledger.LowLevel hiding(Commands,Transaction)
+import qualified DA.Ledger.LowLevel as LL
+
+data LedgerHandle = LedgerHandle {
+    log :: String -> IO (),
+    port :: Port,
+    lid :: LedgerId
+    }
 
 identity :: LedgerHandle -> LedgerId
 identity LedgerHandle{lid} = lid
 
-connect :: Port -> IO LedgerHandle
-connect port = wrapE "connect" $ do
+connectLogging :: (String -> IO ()) -> Port -> IO LedgerHandle
+connectLogging log port = wrapE "connect" $ do
     lid <- getLedgerIdentity port
-    return $ LedgerHandle {port, lid}
+    return $ LedgerHandle {log, port, lid}
 
 getLedgerIdentity :: Port -> IO LedgerId
 getLedgerIdentity port = wrapE "getLedgerIdentity" $ do
@@ -108,67 +112,51 @@ mdm :: MetadataMap
 mdm = MetadataMap Map.empty
 
 
-
 ----------------------------------------------------------------------
--- Services with streaming responses
+-- transaction_service
 
-data Elem a = Elem a | Eend | Eerr String
+getLedgerEnd :: LedgerHandle -> IO LedgerOffset
+getLedgerEnd LedgerHandle{port,lid} = wrapE "getLedgerEnd" $ do
+    LL.withGRPCClient (config port) $ \client -> do
+        service <- LL.transactionServiceClient client
+        let TransactionService _ _ _ _ _ _ rpc = service
+        let request = GetLedgerEndRequest (unLedgerId lid) noTrace
+        response <- rpc (ClientNormalRequest request timeout mdm)
+        GetLedgerEndResponse (Just offset) <- unwrap response --TODO: always be a Just?
+        return offset
 
-deElem :: Elem a -> IO a
-deElem = \case
-    Elem a -> return a
-    Eend -> fail "readStream, end"
-    Eerr s -> fail $ "readStream, err: " <> s
-
-newtype Stream a = Stream { mv :: MVar (Elem a) }
-
-newStream :: IO (Stream a)
-newStream = do
-    mv <- newEmptyMVar
-    return Stream{mv}
-
-writeStream :: Stream a -> Elem a -> IO () -- internal use only
-writeStream Stream{mv} elem = putMVar mv elem
-
-takeStream :: Stream a -> IO a
-takeStream Stream{mv} = takeMVar mv >>= deElem
-
-data StreamState = SS -- TODO
-getStreamContents :: Stream a -> IO ([a],StreamState)
-getStreamContents Stream{mv} = do xs <- loop ; return (xs,SS)
-    where
-        loop = do
-            tryTakeMVar mv >>= \case
-                Nothing -> return []
-                Just e -> do
-                    x <- deElem e
-                    xs <- loop
-                    return (x:xs)
-
--- wrap LL.Transaction to show summary
-newtype LL_Transaction = LL_Transaction { low :: LL.Transaction } --TODO: remove
-    deriving Eq
-
-instance Show LL_Transaction where
-    show LL_Transaction{low} = _summary
-        where
-            _summary = "Trans:id=" <> Text.unpack transactionTransactionId
-            _full = show low
-            LL.Transaction{transactionTransactionId} = low
-
-
--- TODO: return (HL) [Transaction]
-transactions :: LedgerHandle -> Party -> IO (Stream LL_Transaction)
-transactions LedgerHandle{port,lid} party = wrapE "transactions" $ do
+runTransRequest :: LedgerHandle -> GetTransactionsRequest -> IO (Stream Transaction)
+runTransRequest LedgerHandle{port} request = wrapE "transactions" $ do
     stream <- newStream
-    let request = mkGetTransactionsRequest lid offsetBegin Nothing (filterEverthingForParty party)
-    _ <- forkIO $ --TODO: dont use forkIO
+    _ <- forkIO $
         LL.withGRPCClient (config port) $ \client -> do
             rpcs <- LL.transactionServiceClient client
             let (TransactionService rpc1 _ _ _ _ _ _) = rpcs
             sendToStream request f stream rpc1
     return stream
-    where f = map LL_Transaction . Vector.toList . getTransactionsResponseTransactions
+    where f = map raise . Vector.toList . getTransactionsResponseTransactions
+          raise x = case raiseTransaction x of
+              Left reason -> Left (Abnormal $ "failed to parse transaction because: " <> show reason <> ":\n" <> show x)
+              Right h -> Right h
+
+getTransactionsPF :: LedgerHandle -> Party -> IO (PastAndFuture Transaction)
+getTransactionsPF h@LedgerHandle{lid} party = do
+    now <- getLedgerEnd h
+    let req1 = transRequestUntil lid now party
+    let req2 = transRequestFrom lid now party
+    s1 <- runTransRequest h req1
+    s2 <- runTransRequest h req2
+    past <- streamToList h s1
+    return PastAndFuture{past, future = s2}
+
+streamToList :: LedgerHandle -> Stream a -> IO [a]
+streamToList h@LedgerHandle{log} stream = do
+    takeStream stream >>= \case
+        Left EOS -> return []
+        Left Abnormal{reason} -> do
+            log $ "streamToList, stream closed because: " <> reason
+            return []
+        Right x -> fmap (x:) $ streamToList h stream
 
 
 -- TODO: return (HL) [Completion]
@@ -176,34 +164,32 @@ completions :: LedgerHandle -> ApplicationId -> [Party] -> IO (Stream LL.Complet
 completions LedgerHandle{port,lid} aid partys = wrapE "completions" $ do
     stream <- newStream
     let request = mkCompletionStreamRequest lid aid partys
-    _ <- forkIO $ --TODO: dont use forkIO
+    _ <- forkIO $
         LL.withGRPCClient (config port) $ \client -> do
             rpcs <- LL.commandCompletionServiceClient client
             let (CommandCompletionService rpc1 _) = rpcs
-            sendToStream request (Vector.toList . completionStreamResponseCompletions) stream rpc1
+            sendToStream request (map Right . Vector.toList . completionStreamResponseCompletions) stream rpc1
     return stream
 
-sendToStream :: a -> (b -> [c]) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
+sendToStream :: a -> (b -> [Either Closed c]) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
 sendToStream request f stream rpc1 = do
     ClientReaderResponse _meta _code _details <- rpc1 $
-        ClientReaderRequest request timeout mdm $ \ _mdm recv -> fix $ -- TODO: whileM better?
+        ClientReaderRequest request timeout mdm $ \ _mdm recv -> fix $
         \again -> do
             either <- recv
             case either of
                 Left e -> do
-                    writeStream stream (Eerr (show e)) -- notify reader of error
+                    writeStream stream (Left (Abnormal (show e)))
                     return ()
                 Right Nothing -> do
-                    writeStream stream Eend -- notify reader of end-of-stream
+                    writeStream stream (Left EOS)
                     return ()
                 Right (Just x) ->
                     do
-                        mapM_ (writeStream stream . Elem) (f x)
+                        mapM_ (writeStream stream) (f x)
                         again
     return ()
-        -- After a minute, we stop collecting the events.
-        -- But we ought to wait indefinitely.
-        where timeout = 60
+        where timeout = 6000 -- TODO: come back and think about this!
 
 config :: Port -> ClientConfig
 config port =
@@ -216,6 +202,15 @@ config port =
 
 -- Low level data mapping for Request
 
+transRequestUntil :: LedgerId -> LedgerOffset -> Party -> GetTransactionsRequest
+transRequestUntil lid offset party =
+    mkGetTransactionsRequest lid offsetBegin (Just offset) (filterEverthingForParty party)
+
+transRequestFrom :: LedgerId -> LedgerOffset -> Party -> GetTransactionsRequest
+transRequestFrom lid offset party =
+    mkGetTransactionsRequest lid offset Nothing (filterEverthingForParty party)
+
+
 mkGetTransactionsRequest :: LedgerId -> LedgerOffset -> Maybe LedgerOffset -> TransactionFilter -> GetTransactionsRequest
 mkGetTransactionsRequest (LedgerId id) begin end filter = GetTransactionsRequest {
     getTransactionsRequestLedgerId = id,
@@ -225,6 +220,7 @@ mkGetTransactionsRequest (LedgerId id) begin end filter = GetTransactionsRequest
     getTransactionsRequestVerbose = False,
     getTransactionsRequestTraceContext = noTrace
     }
+
 
 mkCompletionStreamRequest :: LedgerId -> ApplicationId -> [Party] -> CompletionStreamRequest
 mkCompletionStreamRequest (LedgerId id) aid parties = CompletionStreamRequest {
