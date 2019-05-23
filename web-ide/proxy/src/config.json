@@ -27,5 +27,10 @@
             "DiskQuota" : 2147483648,
             "NetworkMode" : "web-int"
         }
+    },
+    "tracking" : {
+        "enabled" : false,
+        "gaId" : "UA-64532708-2",
+        "gaIdDescription" : "Test id for test portal"
     }
 }
