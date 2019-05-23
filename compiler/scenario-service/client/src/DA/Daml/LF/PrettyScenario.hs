@@ -831,7 +831,6 @@ templateConName (Identifier _ (TL.toStrict -> qualName)) = (LF.Qualified LF.PRSe
           (modName : defN : []) -> (LF.ModuleName (T.splitOn "." modName) , LF.TypeConName (T.splitOn "." defN) )
           _ -> (LF.ModuleName [] , LF.TypeConName [])
 
-
 typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
 typeConFieldsNames world (LF.FieldName fName, LF.TCon tcn ) = map  (TE.append (TE.append fName ".")) (templateConFields tcn world)
 typeConFieldsNames _ (LF.FieldName fName, _ ) = [fName]
@@ -844,7 +843,6 @@ templateConFields qName world = case LF.lookupDataType qName world of
 
 renderHeader :: LF.World -> Identifier -> [T.Text]
 renderHeader world identifier =  templateConFields (templateConName identifier) world
-
 
 renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
 renderRow world parties NodeInfo{..} =
