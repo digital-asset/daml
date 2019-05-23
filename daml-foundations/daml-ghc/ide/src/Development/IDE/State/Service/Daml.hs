@@ -40,11 +40,6 @@ data DamlEnv = DamlEnv
   -- are active so that we can GC inactive scenarios.
   -- This should eventually go away and we should track scenario contexts
   -- in the same way that we track diagnostics.
-  , envScenarioContextRoots :: Var (Map FilePath FilePath)
-  -- ^ This is a map from a file A to a file B whose scenario context should be
-  -- used for executing scenarios in A. We use this when running the scenarios
-  -- in transitive dependencies of the files of interest so that we only need
-  -- one scenario context per file of interest.
   , envPreviousScenarioContexts :: Var [SS.ContextId]
   -- ^ The scenario contexts we used as GC roots in the last iteration.
   -- This is used to avoid unnecessary GC calls.
@@ -57,13 +52,11 @@ mkDamlEnv :: Options -> Maybe SS.Handle -> IO DamlEnv
 mkDamlEnv opts scenarioService = do
     openVRsVar <- newVar Set.empty
     scenarioContextsVar <- newVar Map.empty
-    scenarioContextRootsVar <- newVar Map.empty
     previousScenarioContextsVar <- newVar []
     pure DamlEnv
         { envScenarioService = scenarioService
         , envOpenVirtualResources = openVRsVar
         , envScenarioContexts = scenarioContextsVar
-        , envScenarioContextRoots = scenarioContextRootsVar
         , envPreviousScenarioContexts = previousScenarioContextsVar
         , envDamlLfVersion = optDamlLfVersion opts
         }

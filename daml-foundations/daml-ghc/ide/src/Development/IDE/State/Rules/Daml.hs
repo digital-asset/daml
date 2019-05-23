@@ -19,6 +19,8 @@ import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import Data.Tuple.Extra
 import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module (UnitId, stringToUnitId)
@@ -197,15 +199,6 @@ data ScenarioBackendException = ScenarioBackendException
 
 instance Exception ScenarioBackendException
 
--- | We didn’t find a context root for the given file.
--- This probably means that you haven’t set the files of interest or open VRs
--- such that the given file is included in the transitive dependencies.
-data ScenarioRootException = ScenarioRootException
-    { missingRootFor :: FilePath
-    } deriving Show
-
-instance Exception ScenarioRootException
-
 createScenarioContextRule :: Rules ()
 createScenarioContextRule =
     define $ \CreateScenarioContext file -> do
@@ -241,8 +234,7 @@ runScenariosRule =
                   mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
           toDiagnostic _ (Right _) = Nothing
       Just scenarioService <- envScenarioService <$> getDamlServiceEnv
-      ctxRoots <- liftIO . readVar . envScenarioContextRoots =<< getDamlServiceEnv
-      ctxRoot <- liftIO $ maybe (throwIO $ ScenarioRootException file) pure $ Map.lookup file ctxRoots
+      ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
       scenarioResults <-
           liftIO $ forM scenarios $ \scenario -> do
@@ -258,6 +250,30 @@ encodeModule lfVersion m =
         | isAbsolute file -> use_ EncodeModule file
       _ -> pure $ SS.encodeModule lfVersion m
 
+getScenarioRootsRule :: Rules ()
+getScenarioRootsRule =
+    defineNoFile $ \GetScenarioRoots -> do
+        alwaysRerun
+        Env{..} <- getServiceEnv
+        DamlEnv{..} <- getDamlServiceEnv
+        filesOfInterest <- liftIO $ readVar envOfInterestVar
+        openVRs <- liftIO $ readVar envOpenVirtualResources
+        let files = Set.toList (filesOfInterest `Set.union` Set.map vrScenarioFile openVRs)
+        deps <- forP files $ \file -> do
+            transitiveDeps <- maybe [] transitiveModuleDeps <$> use GetDependencies file
+            pure $ Map.fromList [ (f, file) | f <- transitiveDeps ]
+        -- We want to ensure that files of interest always map to themselves even if there are dependencies
+        -- between files of interest so we union them separately. (`Map.union` is left-biased.)
+        pure $ Map.fromList (map dupe files) `Map.union` Map.unions deps
+
+getScenarioRootRule :: Rules ()
+getScenarioRootRule =
+    defineEarlyCutoff $ \GetScenarioRoot file -> do
+        ctxRoots <- use_ GetScenarioRoots ""
+        case Map.lookup file ctxRoots of
+            Nothing -> liftIO $
+                fail $ "No scenario root for file " <> show file <> "."
+            Just root -> pure (Just $ T.encodeUtf8 $ T.pack root, ([], Just root))
 
 -- A rule that builds the files-of-interest and notifies via the
 -- callback of any errors. NOTE: results may contain errors for any
@@ -292,14 +308,6 @@ ofInterestRule = do
         -- We don’t always have a scenario service (e.g., damlc compile)
         -- so only run scenarios if we have one.
         let shouldRunScenarios = isJust envScenarioService
-        when shouldRunScenarios $ do
-            deps <- forP (Set.toList scenarioFiles) $ \file -> do
-                transitiveDeps <- maybe [] transitiveModuleDeps <$> use GetDependencies file
-                pure $ Map.fromList [ (f, file) | f <- transitiveDeps ]
-            -- We want to ensure that files of interest always map to themselves even if there are dependencies
-            -- between files of interest so we union them separately.
-            liftIO $ writeVar envScenarioContextRoots $
-                Map.fromList [(f,f) | f <- Set.toList scenarioFiles] `Map.union` Map.unions deps
         _ <- parallel $
             map (void . getDalf) (Set.toList scenarioFiles) <>
             [runScenarios file | shouldRunScenarios, file <- Set.toList scenarioFiles]
@@ -404,6 +412,8 @@ damlRule opts = do
     generateRawPackageRule opts
     generatePackageDepsRule opts
     runScenariosRule
+    getScenarioRootsRule
+    getScenarioRootRule
     ofInterestRule
     encodeModuleRule
     createScenarioContextRule
