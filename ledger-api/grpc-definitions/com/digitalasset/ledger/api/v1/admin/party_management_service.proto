@@ -61,7 +61,7 @@ message GetParticipantIdRequest {
 message GetParticipantIdResponse {
 
   // Identifier of the participant, which SHOULD be globally unique.
-  string participant_id = 2;
+  string participant_id = 1;
 }
 
 message ListKnownPartiesRequest {
