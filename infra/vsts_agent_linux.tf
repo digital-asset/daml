@@ -69,6 +69,11 @@ SHUTDOWN_AGENT
     access_config {}
   }
 
+  service_account {
+    email  = "log-writer@da-dev-gcp-daml-language.iam.gserviceaccount.com"
+    scopes = ["cloud-platform"]
+  }
+
   scheduling {
     automatic_restart   = false
     on_host_maintenance = "TERMINATE"
