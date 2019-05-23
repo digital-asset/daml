@@ -8,8 +8,7 @@
 -- typecheck with LF, test it.  Test annotations are documented as 'Ann'.
 module DA.Test.GHC
   ( main
-  , mainVersionDefault
-  , mainVersionDev
+  , mainAll
   ) where
 
 import DA.Daml.GHC.Compiler.Options
@@ -72,22 +71,19 @@ import Test.Tasty.Runners
 newtype TODO = TODO String
 
 main :: IO ()
-main = mainVersionDev
+main = mainWithVersions [versionDev]
 
-mainVersionDefault :: IO ()
-mainVersionDefault = mainWithVersion versionDefault
+mainAll :: IO ()
+mainAll = mainWithVersions (delete versionDev supportedInputVersions)
 
-mainVersionDev :: IO ()
-mainVersionDev = mainWithVersion versionDev
-
-mainWithVersion :: Version -> IO ()
-mainWithVersion version =
+mainWithVersions :: [Version] -> IO ()
+mainWithVersions versions =
   with (SS.startScenarioService (\_ -> pure ()) Logger.makeNopHandle) $ \scenarioService -> do
   setEnv "TASTY_NUM_THREADS" "1" True
   todoRef <- newIORef DList.empty
   let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
-  integrationTest <- getIntegrationTests registerTODO scenarioService version
-  let tests = testGroup "All" [uniqueUniques, integrationTest]
+  integrationTests <- mapM (getIntegrationTests registerTODO scenarioService) versions
+  let tests = testGroup "All" $ uniqueUniques : integrationTests
   defaultMainWithIngredients ingredients tests
     `finally` (do
     todos <- readIORef todoRef
@@ -179,7 +175,7 @@ runJqQuery log qs = do
   forM qs $ \(pkg, q) -> do
     log $ "running jq query: " ++ q
 
-    let jq = "external" </> "jq" </> "bin" </> "jq"
+    let jq = "external" </> "jq_dev_env" </> "bin" </> "jq"
     let json = unpack $ A.encode $ transformOn A._Value numToString $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
     out <- readProcess jq [q] json
     case trim out of

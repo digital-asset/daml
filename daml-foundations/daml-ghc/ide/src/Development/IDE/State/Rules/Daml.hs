@@ -12,6 +12,7 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import DA.Daml.GHC.Compiler.Options(Options(..))
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
 import qualified Data.Map.Strict as Map
 import Data.Maybe
@@ -19,6 +20,7 @@ import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import Data.Tuple.Extra
 import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module (UnitId, stringToUnitId)
@@ -96,7 +98,7 @@ generateDalfRule =
 
         dalf <- withExceptT (pure . ideErrorPretty file)
           $ liftEither
-          $ Serializability.inferModule world rawDalf
+          $ Serializability.inferModule world lfVersion rawDalf
 
         withExceptT (pure . ideErrorPretty file)
           $ liftEither
@@ -197,15 +199,6 @@ data ScenarioBackendException = ScenarioBackendException
 
 instance Exception ScenarioBackendException
 
--- | We didn’t find a context root for the given file.
--- This probably means that you haven’t set the files of interest or open VRs
--- such that the given file is included in the transitive dependencies.
-data ScenarioRootException = ScenarioRootException
-    { missingRootFor :: FilePath
-    } deriving Show
-
-instance Exception ScenarioRootException
-
 createScenarioContextRule :: Rules ()
 createScenarioContextRule =
     define $ \CreateScenarioContext file -> do
@@ -241,8 +234,7 @@ runScenariosRule =
                   mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
           toDiagnostic _ (Right _) = Nothing
       Just scenarioService <- envScenarioService <$> getDamlServiceEnv
-      ctxRoots <- liftIO . readVar . envScenarioContextRoots =<< getDamlServiceEnv
-      ctxRoot <- liftIO $ maybe (throwIO $ ScenarioRootException file) pure $ Map.lookup file ctxRoots
+      ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
       scenarioResults <-
           liftIO $ forM scenarios $ \scenario -> do
@@ -258,6 +250,27 @@ encodeModule lfVersion m =
         | isAbsolute file -> use_ EncodeModule file
       _ -> pure $ SS.encodeModule lfVersion m
 
+getScenarioRootsRule :: Rules ()
+getScenarioRootsRule =
+    defineNoFile $ \GetScenarioRoots -> do
+        filesOfInterest <- use_ GetFilesOfInterest ""
+        openVRs <- use_ GetOpenVirtualResources ""
+        let files = Set.toList (filesOfInterest `Set.union` Set.map vrScenarioFile openVRs)
+        deps <- forP files $ \file -> do
+            transitiveDeps <- maybe [] transitiveModuleDeps <$> use GetDependencies file
+            pure $ Map.fromList [ (f, file) | f <- transitiveDeps ]
+        -- We want to ensure that files of interest always map to themselves even if there are dependencies
+        -- between files of interest so we union them separately. (`Map.union` is left-biased.)
+        pure $ Map.fromList (map dupe files) `Map.union` Map.unions deps
+
+getScenarioRootRule :: Rules ()
+getScenarioRootRule =
+    defineEarlyCutoff $ \GetScenarioRoot file -> do
+        ctxRoots <- use_ GetScenarioRoots ""
+        case Map.lookup file ctxRoots of
+            Nothing -> liftIO $
+                fail $ "No scenario root for file " <> show file <> "."
+            Just root -> pure (Just $ BS.fromString root, ([], Just root))
 
 -- A rule that builds the files-of-interest and notifies via the
 -- callback of any errors. NOTE: results may contain errors for any
@@ -269,12 +282,11 @@ ofInterestRule = do
     action $ use OfInterest ""
     defineNoFile $ \OfInterest -> do
         setPriority PriorityFilesOfInterest
-        alwaysRerun
         Env{..} <- getServiceEnv
         DamlEnv{..} <- getDamlServiceEnv
         -- query for files of interest
-        files   <- liftIO $ readVar envOfInterestVar
-        openVRs <- liftIO $ readVar envOpenVirtualResources
+        files   <- use_ GetFilesOfInterest ""
+        openVRs <- use_ GetOpenVirtualResources ""
         let vrFiles = Set.map vrScenarioFile openVRs
         -- We run scenarios for all files of interest to get diagnostics
         -- and for the files for which we have open VRs so that they get
@@ -292,14 +304,6 @@ ofInterestRule = do
         -- We don’t always have a scenario service (e.g., damlc compile)
         -- so only run scenarios if we have one.
         let shouldRunScenarios = isJust envScenarioService
-        when shouldRunScenarios $ do
-            deps <- forP (Set.toList scenarioFiles) $ \file -> do
-                transitiveDeps <- maybe [] transitiveModuleDeps <$> use GetDependencies file
-                pure $ Map.fromList [ (f, file) | f <- transitiveDeps ]
-            -- We want to ensure that files of interest always map to themselves even if there are dependencies
-            -- between files of interest so we union them separately.
-            liftIO $ writeVar envScenarioContextRoots $
-                Map.fromList [(f,f) | f <- Set.toList scenarioFiles] `Map.union` Map.unions deps
         _ <- parallel $
             map (void . getDalf) (Set.toList scenarioFiles) <>
             [runScenarios file | shouldRunScenarios, file <- Set.toList scenarioFiles]
@@ -330,6 +334,23 @@ ofInterestRule = do
                   pure (gcdCtxs, Map.elems gcdCtxs)
               prevCtxRoots <- modifyVar envPreviousScenarioContexts $ \prevCtxs -> pure (ctxRoots, prevCtxs)
               when (prevCtxRoots /= ctxRoots) $ void $ SS.gcCtxs scenarioService ctxRoots
+
+getFilesOfInterestRule :: Rules ()
+getFilesOfInterestRule = do
+    defineEarlyCutoff $ \GetFilesOfInterest _file -> assert (null _file) $ do
+        alwaysRerun
+        Env{..} <- getServiceEnv
+        filesOfInterest <- liftIO $ readVar envOfInterestVar
+        pure (Just $ BS.fromString $ show filesOfInterest, ([], Just filesOfInterest))
+
+getOpenVirtualResourcesRule :: Rules ()
+getOpenVirtualResourcesRule = do
+    defineEarlyCutoff $ \GetOpenVirtualResources _file -> assert (null _file) $ do
+        alwaysRerun
+        DamlEnv{..} <- getDamlServiceEnv
+        openVRs <- liftIO $ readVar envOpenVirtualResources
+        pure (Just $ BS.fromString $ show openVRs, ([], Just openVRs))
+
 
 formatScenarioError :: LF.World -> SS.Error -> Pretty.Doc Pretty.SyntaxClass
 formatScenarioError world  err = case err of
@@ -404,9 +425,13 @@ damlRule opts = do
     generateRawPackageRule opts
     generatePackageDepsRule opts
     runScenariosRule
+    getScenarioRootsRule
+    getScenarioRootRule
     ofInterestRule
     encodeModuleRule
     createScenarioContextRule
+    getFilesOfInterestRule
+    getOpenVirtualResourcesRule
 
 mainRule :: Options -> Rules ()
 mainRule options = do

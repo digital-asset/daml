@@ -144,5 +144,8 @@ function addSecureHeaders(res :Response, config :any) {
     res.setHeader("X-Frame-Options", "sameorigin")
     res.setHeader("X-XSS-Protection", "1; mode=block")
     res.setHeader("Referrer-Policy", "no-referrer-when-downgrade")
-    res.setHeader("Content-Security-Policy", `default-src 'self'; connect-src 'self' ws://${config.http.hostname}:${config.http.port}/; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;`)
+
+    //host configuration is from the point of view of the service, which always runs on non-secure ports. we add ws:// for local testing
+    const host = config.http.port === 80 ? config.http.hostname : `${config.http.hostname}:${config.http.port}`
+    res.setHeader("Content-Security-Policy", `default-src 'self'; connect-src 'self' wss://${host}/ ws://${host}/ https://v1.extapi.coder.com/extensionquery; script-src 'self' https://storage.googleapis.com/workbox-cdn/releases/ 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; report-uri https://report-uri.digitalasset.com/report-uri`)
 }

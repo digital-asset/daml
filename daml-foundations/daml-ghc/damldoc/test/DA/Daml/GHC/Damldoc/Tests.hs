@@ -6,10 +6,11 @@
 module DA.Daml.GHC.Damldoc.Tests(mkTestTree)
   where
 
-import           DA.Daml.GHC.Damldoc.Types
+import           DA.Bazel.Runfiles
+import           DA.Daml.GHC.Compiler.Options
 import           DA.Daml.GHC.Damldoc.HaddockParse
 import           DA.Daml.GHC.Damldoc.Render
-import DA.Daml.GHC.Compiler.Options
+import           DA.Daml.GHC.Damldoc.Types
 
 import           Control.Monad.Except
 import qualified Data.Aeson.Encode.Pretty as AP
@@ -27,12 +28,10 @@ import qualified Test.Tasty.Extended as Tasty
 import           Test.Tasty.HUnit
 import Data.Maybe
 
-
-testDir :: FilePath
-testDir = "daml-foundations/daml-ghc/tests"
-
 mkTestTree :: IO Tasty.TestTree
 mkTestTree = do
+
+  testDir <- locateRunfiles $ mainWorkspace </> "daml-foundations/daml-ghc/tests"
 
   let isExpectationFile filePath =
         ".EXPECTED" == takeExtensions (dropExtension filePath)

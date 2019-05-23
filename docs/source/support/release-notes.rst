@@ -9,6 +9,23 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- The `exposed-modules` field in `daml.yaml` is now optional. If it is
+  not specified, all modules in the project are exposed.
+  See `#1328 <https://github.com/digital-asset/daml/issues/1328>`_.
+
+- You can now see all available versions with ``daml version`` using the ``--all`` flag.
+
+0.12.20 - 2019-05-23
+--------------------
+
+Sandbox
+~~~~~~~
+
+- **Contract keys**: Support arbitrary key expressions (this was accidentally omitted from 0.12.19).
+
 0.12.19 - 2019-05-22
 --------------------
 

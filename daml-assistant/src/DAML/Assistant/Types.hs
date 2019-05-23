@@ -52,7 +52,7 @@ data Env = Env
     } deriving (Eq, Show)
 
 data BuiltinCommand
-    = Version
+    = Version VersionOptions
     | Exec String [String]
     | Install InstallOptions
     deriving (Eq, Show)
@@ -66,12 +66,18 @@ newtype UserCommandArgs = UserCommandArgs
     { unwrapUserCommandArgs :: [String]
     } deriving (Eq, Show)
 
+-- | Command-line options for daml version command.
+data VersionOptions = VersionOptions
+    { vAll :: Bool -- ^ list all available versions
+    } deriving (Eq, Show)
+
+-- | Command-line options for daml install command.
 data InstallOptions = InstallOptions
-    { iTargetM :: Maybe RawInstallTarget
-    , iActivate :: ActivateInstall
-    , iForce :: ForceInstall
-    , iQuiet :: QuietInstall
-    , iSetPath :: SetPath
+    { iTargetM :: Maybe RawInstallTarget -- ^ version to install
+    , iActivate :: ActivateInstall -- ^ activate the assistant
+    , iForce :: ForceInstall -- ^ force reinstall if already installed
+    , iQuiet :: QuietInstall -- ^ don't print messages
+    , iSetPath :: SetPath -- ^ set the user's PATH (on Windows)
     } deriving (Eq, Show)
 
 -- | An install URL is a fully qualified HTTP[S] URL to an SDK release tarball. For example:

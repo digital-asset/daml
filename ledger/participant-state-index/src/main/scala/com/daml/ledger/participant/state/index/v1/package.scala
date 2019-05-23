@@ -9,6 +9,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.ledger.api.domain.LedgerOffset
 
 package object v1 {
 
@@ -18,7 +19,7 @@ package object v1 {
   type TransactionUpdate = (Offset, (Update.TransactionAccepted, BlindingInfo))
 
   /** ACS event identifier */
-  type EventId = Ref.PackageId
+  type EventId = String
 
   final case class AcsUpdate(
       optSubmitterInfo: Option[SubmitterInfo],
@@ -28,7 +29,11 @@ package object v1 {
       events: List[AcsUpdateEvent]
   )
 
-  sealed trait AcsUpdateEvent extends Product with Serializable
+  sealed trait AcsUpdateEvent extends Product with Serializable {
+    def stakeholders: Set[Party]
+
+    def templateId: Ref.Identifier
+  }
 
   object AcsUpdateEvent {
 
@@ -38,7 +43,7 @@ package object v1 {
         templateId: Ref.Identifier,
         argument: Value.VersionedValue[Value.AbsoluteContractId],
         // TODO(JM,SM): understand witnessing parties
-        stakeholders: List[Party],
+        stakeholders: Set[Party],
     ) extends AcsUpdateEvent
 
     final case class Archive(
@@ -46,7 +51,7 @@ package object v1 {
         contractId: Value.AbsoluteContractId,
         templateId: Ref.Identifier,
         // TODO(JM,SM): understand witnessing parties
-        stakeholders: List[Party],
+        stakeholders: Set[Party],
     ) extends AcsUpdateEvent
 
   }
@@ -71,7 +76,7 @@ package object v1 {
   }
 
   final case class ActiveContractSetSnapshot(
-      takenAt: Offset,
+      takenAt: LedgerOffset.Absolute,
       activeContracts: Source[(WorkflowId, AcsUpdateEvent.Create), NotUsed])
 
 }

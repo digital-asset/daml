@@ -149,6 +149,21 @@ packagingTests tmpDir = testGroup "packaging"
         -- Note that we really want a forward slash here instead of </> since filepaths in
         -- zip files use forward slashes.
         assertBool "A.daml is missing" ("proj/A.daml" `elem` darFiles)
+    , testCase "Project without exposed modules" $ withTempDir $ \projDir -> do
+        writeFileUTF8 (projDir </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A (a) where"
+            , "a : ()"
+            , "a = ()"
+            ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: proj"
+            , "version: \"1.0\""
+            , "source: A.daml"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        withCurrentDirectory projDir $ callProcessQuiet damlName ["build"]
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree

@@ -211,7 +211,14 @@ expectLastRebuilt predicate = ShakeTest $ do
         API.writeProfile service file
         rebuilt <- either error (return . parseShakeProfileJSON testDir) =<< Aeson.eitherDecodeFileStrict' file
         -- ignore those which are set to alwaysRerun - not interesting
-        let alwaysRerun typ = typ `elem` ["OfInterest","GetModificationTime","GetFileExists"]
+        let alwaysRerun typ = typ `elem`
+                [ "GetFileExists"
+                , "GetFilesOfInterest"
+                , "GetModificationTime"
+                , "GetOpenVirtualResources"
+                , "GetScenarioRoots"
+                , "OfInterest"
+                ]
         when (null rebuilt) $
             error "Detected that zero files have rebuilt. Most likely that's a bug and we failed to parse the Shake output file."
         let bad = filter (\(typ, file) -> not $ alwaysRerun typ || predicate typ file) rebuilt
@@ -231,7 +238,7 @@ parseShakeProfileJSON testDir json =
     , Aeson.Array entry <- V.toList entries
      -- Number == 0, built in the last run
     , Aeson.String name : _ : Aeson.Number 0 : _ <- [V.toList entry]
-    , Just res <- [stripInfix "; " $ replace (testDir ++ "/") "" $ T.unpack name]
+    , Just res <- [stripInfix "; " $ replace (FilePath.addTrailingPathSeparator testDir) "" $ T.unpack name]
     ]
 
 
@@ -286,9 +293,9 @@ searchDiagnostics expected@(severity, cursor, message) actuals =
     match :: D.FileDiagnostic -> Bool
     match (fp, d) =
         Just severity == D._severity d
-        && (cursorFilePath cursor) == fp
+        && (FilePath.normalise (cursorFilePath cursor)) == FilePath.normalise fp
         && cursorPosition cursor == D._start ((D._range :: D.Diagnostic -> Range) d)
-        && (T.toLower message `T.isInfixOf` T.toLower ((D._message :: D.Diagnostic -> T.Text) d))
+        && ((standardizeQuotes $ T.toLower message) `T.isInfixOf` (standardizeQuotes $ T.toLower ((D._message :: D.Diagnostic -> T.Text) d)))
 
 expectDiagnostic :: D.DiagnosticSeverity -> Cursor -> T.Text -> ShakeTest ()
 expectDiagnostic severity cursor msg = do
@@ -435,3 +442,11 @@ example = do
         ]
     setFilesOfInterest [fooPath]
     expectNoErrors
+
+standardizeQuotes :: T.Text -> T.Text
+standardizeQuotes msg = let
+        repl '‘' = '\''
+        repl '’' = '\''
+        repl '`' = '\''
+        repl  c   = c
+    in  T.map repl msg

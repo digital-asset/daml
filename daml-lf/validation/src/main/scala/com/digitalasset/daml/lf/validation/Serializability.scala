@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.validation
 
+import com.digitalasset.daml.lf.archive.{LanguageVersion, LanguageMajorVersion}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.lfpackage.Ast._
@@ -11,6 +12,7 @@ import com.digitalasset.daml.lf.lfpackage.Util.{TContractId, TList, TMap, TOptio
 private[validation] object Serializability {
 
   case class Env(
+      languageVersion: LanguageVersion,
       world: World,
       ctx: Context,
       requirement: SerializabilityRequirement,
@@ -19,6 +21,10 @@ private[validation] object Serializability {
   ) {
 
     import world._
+
+    private val supportsSerializablePolymorphicContractIds =
+      LanguageVersion.ordering
+        .gteq(languageVersion, LanguageVersion(LanguageMajorVersion.V1, "dev"))
 
     def unserializable(reason: UnserializabilityReason): Nothing =
       throw EExpectedSerializableType(ctx, requirement, typeToSerialize, reason)
@@ -32,13 +38,23 @@ private[validation] object Serializability {
     def checkType(): Unit = checkType(typeToSerialize)
 
     def checkType(typ0: Type): Unit = typ0 match {
-      case TContractId(TTyCon(tCon)) =>
-        lookupDataType(ctx, tCon) match {
-          case DDataType(_, _, DataRecord(_, Some(_))) =>
-            ()
-          case _ =>
-            unserializable(URContractId)
+      case TContractId(tArg) => {
+        if (supportsSerializablePolymorphicContractIds) {
+          checkType(tArg)
+        } else {
+          tArg match {
+            case TTyCon(tCon) => {
+              lookupDataType(ctx, tCon) match {
+                case DDataType(_, _, DataRecord(_, Some(_))) =>
+                  ()
+                case _ =>
+                  unserializable(URContractId)
+              }
+            }
+            case _ => unserializable(URContractId)
+          }
         }
+      }
       case TVar(name) =>
         if (!vars(name)) unserializable(URFreeVar(name))
       case TTyCon(tycon) =>
@@ -83,12 +99,13 @@ private[validation] object Serializability {
   }
 
   def checkDataType(
+      version: LanguageVersion,
       world: World,
       tyCon: TTyCon,
       params: ImmArray[(TypeVarName, Kind)],
       dataCons: DataCons): Unit = {
     val context = ContextDefDataType(tyCon.tycon)
-    val env = (Env(world, context, SRDataType, tyCon) /: params.iterator)(_.introVar(_))
+    val env = (Env(version, world, context, SRDataType, tyCon) /: params.iterator)(_.introVar(_))
     val typs = dataCons match {
       case DataVariant(variants) if variants.isEmpty =>
         env.unserializable(URUninhabitatedType)
@@ -103,27 +120,32 @@ private[validation] object Serializability {
 
   // Assumes template are well typed,
   // in particular choice argument types and choice return types are of kind KStar
-  def checkTemplate(world: World, tyCon: TTyCon, template: Template): Unit = {
+  def checkTemplate(
+      version: LanguageVersion,
+      world: World,
+      tyCon: TTyCon,
+      template: Template): Unit = {
     val context = ContextTemplate(tyCon.tycon)
-    Env(world, context, SRTemplateArg, tyCon).checkType()
+    Env(version, world, context, SRTemplateArg, tyCon).checkType()
     template.choices.values.foreach { choice =>
-      Env(world, context, SRChoiceArg, choice.argBinder._2).checkType()
-      Env(world, context, SRChoiceRes, choice.returnType).checkType()
+      Env(version, world, context, SRChoiceArg, choice.argBinder._2).checkType()
+      Env(version, world, context, SRChoiceRes, choice.returnType).checkType()
     }
-    template.key.foreach(k => Env(world, context, SRKey, k.typ).checkType())
+    template.key.foreach(k => Env(version, world, context, SRKey, k.typ).checkType())
   }
 
-  def checkModule(world: World, pkgId: PackageId, module: Module): Unit =
+  def checkModule(world: World, pkgId: PackageId, module: Module): Unit = {
+    val version = module.languageVersion
     module.definitions.foreach {
       case (defName, DDataType(serializable, params, dataCons)) =>
         val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-        if (serializable) checkDataType(world, tyCon, params, dataCons)
+        if (serializable) checkDataType(version, world, tyCon, params, dataCons)
         dataCons match {
           case DataRecord(_, Some(template)) =>
-            checkTemplate(world, tyCon, template)
+            checkTemplate(version, world, tyCon, template)
           case _ =>
         }
       case _ =>
     }
-
+  }
 }

@@ -6,11 +6,7 @@ package com.digitalasset.ledger.server.apiserver
 import akka.NotUsed
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v1.{
-  ConfigurationService,
-  IdentityService,
-  PackagesService
-}
+import com.daml.ledger.participant.state.index.v1._
 import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
@@ -72,9 +68,10 @@ object ApiServices {
       config: SandboxConfig,
       ledgerBackend: LedgerBackend, //eventually this should not be needed!
       writeService: WriteService,
-      configService: ConfigurationService,
+      configurationService: ConfigurationService,
       identityService: IdentityService,
       packagesService: PackagesService,
+      activeContractsService: ActiveContractsService,
       engine: Engine,
       timeProvider: TimeProvider,
       optTimeServiceBackend: Option[TimeServiceBackend])(
@@ -91,7 +88,7 @@ object ApiServices {
 
       val identifierResolver: IdentifierResolver = new IdentifierResolver(packageResolver)
 
-      val submissionService =
+      val apiSubmissionService =
         SandboxSubmissionService.createApiService(
           context.packageContainer,
           identifierResolver,
@@ -107,17 +104,17 @@ object ApiServices {
       val transactionService =
         SandboxTransactionService.createApiService(ledgerBackend, identifierResolver)
 
-      val ledgerIdentityService = LedgerIdentityServiceImpl(identityService)
+      val apiLedgerIdentityService = LedgerIdentityServiceImpl(identityService)
 
-      val packageService = SandboxPackageService(packagesService, ledgerId)
+      val apiPackageService = SandboxPackageService(packagesService, ledgerId)
 
-      val configurationService =
-        LedgerConfigurationService.createApiService(configService, ledgerId)
+      val apiConfigurationService =
+        LedgerConfigurationService.createApiService(configurationService, ledgerId)
 
       val completionService =
         SandboxCommandCompletionService(ledgerBackend)
 
-      val commandService = ReferenceCommandService(
+      val apiCommandService = ReferenceCommandService(
         ReferenceCommandService.Configuration(
           ledgerId,
           config.commandConfig.inputBufferSize,
@@ -131,7 +128,7 @@ object ApiServices {
         // Using local services skips the gRPC layer, improving performance.
         ReferenceCommandService.LowLevelCommandServiceAccess.LocalServices(
           CommandSubmissionFlow(
-            submissionService.submit,
+            apiSubmissionService.submit,
             config.commandConfig.maxParallelSubmissions),
           r =>
             completionService.service
@@ -144,8 +141,8 @@ object ApiServices {
         identifierResolver
       )
 
-      val activeContractsService =
-        SandboxActiveContractsService(ledgerBackend, identifierResolver)
+      val apiActiveContractsService =
+        SandboxActiveContractsService(ledgerId, activeContractsService, identifierResolver)
 
       val reflectionService = ProtoReflectionService.newInstance()
 
@@ -161,14 +158,14 @@ object ApiServices {
       new ApiServicesBundle(
         timeServiceOpt.toList :::
           List(
-          ledgerIdentityService,
-          packageService,
-          configurationService,
-          submissionService,
+          apiLedgerIdentityService,
+          apiPackageService,
+          apiConfigurationService,
+          apiSubmissionService,
           transactionService,
           completionService,
-          commandService,
-          activeContractsService,
+          apiCommandService,
+          apiActiveContractsService,
           reflectionService
         ))
     }

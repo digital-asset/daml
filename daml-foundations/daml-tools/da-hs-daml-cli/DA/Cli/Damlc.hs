@@ -245,7 +245,7 @@ newtype DumpPom = DumpPom{unDumpPom :: Bool}
 data PackageConfigFields = PackageConfigFields
     { pName :: String
     , pMain :: String
-    , pExposedModules :: [String]
+    , pExposedModules :: Maybe [String]
     , pVersion :: String
     , pDependencies :: [String]
     , pSdkVersion :: String
@@ -256,8 +256,7 @@ parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields
 parseProjectConfig project = do
     name <- queryProjectConfigRequired ["name"] project
     main <- queryProjectConfigRequired ["source"] project
-    exposedModules <-
-        queryProjectConfigRequired ["exposed-modules"] project
+    exposedModules <- queryProjectConfig ["exposed-modules"] project
     version <- queryProjectConfigRequired ["version"] project
     dependencies <-
         queryProjectConfigRequired ["dependencies"] project
@@ -358,7 +357,7 @@ execBuild options mbOutFile initPkgDb projectCheck = do
                     pExposedModules
                     pName
                     pSdkVersion
-                    [confFile]
+                    (\pkg -> [confFile pkg])
                     (UseDalf False)
             case darOrErr of
                 Left errs ->
@@ -387,10 +386,11 @@ execBuild options mbOutFile initPkgDb projectCheck = do
         mkConfFile ::
                String
             -> String
-            -> [String]
+            -> Maybe [String]
             -> [FilePath]
+            -> LF.Package
             -> (String, B.ByteString)
-        mkConfFile name version exposedMods deps = (confName, bs)
+        mkConfFile name version exposedMods deps pkg = (confName, bs)
           where
             confName = name ++ ".conf"
             bs =
@@ -401,7 +401,7 @@ execBuild options mbOutFile initPkgDb projectCheck = do
                     , "key: " ++ name
                     , "version: " ++ version
                     , "exposed: True"
-                    , "exposed-modules: " ++ unwords exposedMods
+                    , "exposed-modules: " ++ unwords (fromMaybe (map T.unpack $ LF.packageModuleNames pkg) exposedMods)
                     , "import-dirs: ${pkgroot}" </> name
                     , "library-dirs: ${pkgroot}" </> name
                     , "data-dir: ${pkgroot}" </> name
@@ -462,7 +462,7 @@ execPackage filePath opts mbOutFile dumpPom dalfInput = withProjectRoot $ \relat
         -- We leave the sdk version blank and the list of exposed modules empty.
         -- This command is being removed anytime now and not present
         -- in the new daml assistant.
-        darOrErr <- runExceptT $ Compiler.buildDar compilerH path [] name "" [] dalfInput
+        darOrErr <- runExceptT $ Compiler.buildDar compilerH path Nothing name "" (const []) dalfInput
         case darOrErr of
           Left errs
            -> ioError $ userError $ unlines

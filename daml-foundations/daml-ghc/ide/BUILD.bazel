@@ -29,6 +29,7 @@ da_haskell_library(
         "temporary",
         "text",
         "time",
+        "utf8-string",
         "vector",
     ],
     src_strip_prefix = "src",
@@ -62,7 +63,7 @@ da_haskell_library(
         "time",
         "vector",
     ],
-    src_strip_prefix = "src",
+    src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
         ":ide",
