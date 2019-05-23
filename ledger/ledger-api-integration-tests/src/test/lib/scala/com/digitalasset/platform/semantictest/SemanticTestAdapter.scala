@@ -61,11 +61,12 @@ class SemanticTestAdapter(
 
   override def submit(submitterName: Ref.Party, cmds: Commands, opDescription: String)
     : Future[Event.Events[String, Value.AbsoluteContractId, TxValue[Value.AbsoluteContractId]]] = {
+    println("Submitting '" + opDescription + "' on behalf of " + submitterName)
     for {
       tx <- LedgerTestingHelpers
         .sync(
-          lc.commandService.submitAndWaitForTransactionId,
-          lc,
+          lc.forParty(submitterName).commandService.submitAndWaitForTransactionId,
+          lc.forParty(submitterName),
           timeoutScaleFactor = timeoutScaleFactor)
         .submitAndListenForSingleTreeResultOfCommand(
           SubmitRequest(Some(apiCommand(submitterName, cmds))),
@@ -81,13 +82,15 @@ class SemanticTestAdapter(
   override def passTime(dtMicros: Long): Future[Unit] = {
     for {
       time <- getTime
-      _ <- lc.timeService.setTime(
-        SetTimeRequest(
-          ledgerId,
-          Some(time),
-          Some(TimestampConversion.fromInstant(
-            TimestampConversion.toInstant(time).plus(dtMicros, ChronoUnit.MICROS)))
-        ))
+      // set time for all ledger contexts
+      _ <- Future.sequence(parties.map { p =>
+        lc.forParty(Ref.Party.assertFromString(p)).timeService.setTime(
+          SetTimeRequest(
+            ledgerId,
+            Some(time),
+            Some(TimestampConversion.fromInstant(
+              TimestampConversion.toInstant(time).plus(dtMicros, ChronoUnit.MICROS)))
+          ))})
     } yield ()
   }
 

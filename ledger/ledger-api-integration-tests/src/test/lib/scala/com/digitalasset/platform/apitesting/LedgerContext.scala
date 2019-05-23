@@ -10,6 +10,7 @@ import akka.pattern
 import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.testing.utils.{MockMessages, Resource}
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
@@ -23,10 +24,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissi
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
-import com.digitalasset.ledger.api.v1.ledger_identity_service.{
-  GetLedgerIdentityRequest,
-  LedgerIdentityServiceGrpc
-}
+import com.digitalasset.ledger.api.v1.ledger_identity_service.{GetLedgerIdentityRequest, LedgerIdentityServiceGrpc}
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
@@ -73,6 +71,9 @@ trait LedgerContext {
   def acsClient: ActiveContractSetClient
   def reflectionService: ServerReflectionGrpc.ServerReflectionStub
   def resetService: ResetService
+
+  /** Default forParty implementation */
+  def forParty(party: Party): LedgerContext = this
 
   /**
     *  Reset the ledger server and wait for it to start again.

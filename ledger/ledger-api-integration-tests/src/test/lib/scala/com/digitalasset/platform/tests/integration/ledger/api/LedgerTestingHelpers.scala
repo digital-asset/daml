@@ -6,10 +6,7 @@ package com.digitalasset.platform.tests.integration.ledger.api
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
-import com.digitalasset.ledger.api.v1.command_service.{
-  SubmitAndWaitForTransactionIdResponse,
-  SubmitAndWaitRequest
-}
+import com.digitalasset.ledger.api.v1.command_service.{SubmitAndWaitForTransactionIdResponse, SubmitAndWaitRequest}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
 import com.digitalasset.ledger.api.v1.completion.Completion
@@ -51,8 +48,10 @@ class LedgerTestingHelpers(
   implicit def submitAndWait2SubmitReq(sw: SubmitAndWaitRequest): SubmitRequest =
     SubmitRequest(sw.commands, sw.traceContext)
 
-  val submitSuccessfully: SubmitRequest => Future[Assertion] =
-    submitCommand.andThen(_.map(assertCompletionIsSuccessful))
+  val submitSuccessfully: SubmitRequest => Future[Assertion] = req => {
+    Thread.sleep(45000) // FIXME this is a hack to prevent race conditions, this whole class needs to be redesigned !!
+    submitCommand(req).map(assertCompletionIsSuccessful)
+  }
 
   def assertCompletionIsSuccessful(completion: Completion): Assertion = {
     inside(completion) { case c => c.getStatus should have('code (0)) }
@@ -610,23 +609,23 @@ class LedgerTestingHelpers(
 object LedgerTestingHelpers extends OptionValues {
 
   def sync(
-      submitCommand: SubmitAndWaitRequest => Future[SubmitAndWaitForTransactionIdResponse],
-      context: LedgerContext,
-      timeoutScaleFactor: Double = 1.0)(
-      implicit ec: ExecutionContext,
-      mat: ActorMaterializer): LedgerTestingHelpers =
+            submitCommand: SubmitAndWaitRequest => Future[SubmitAndWaitForTransactionIdResponse],
+            context: LedgerContext,
+            timeoutScaleFactor: Double = 1.0)(
+            implicit ec: ExecutionContext,
+            mat: ActorMaterializer): LedgerTestingHelpers =
     async(helper(submitCommand), context, timeoutScaleFactor = timeoutScaleFactor)
 
   def async(
-      submitCommand: SubmitRequest => Future[Completion],
-      context: LedgerContext,
-      timeoutScaleFactor: Double = 1.0)(
-      implicit ec: ExecutionContext,
-      mat: ActorMaterializer): LedgerTestingHelpers =
+             submitCommand: SubmitRequest => Future[Completion],
+             context: LedgerContext,
+             timeoutScaleFactor: Double = 1.0)(
+             implicit ec: ExecutionContext,
+             mat: ActorMaterializer): LedgerTestingHelpers =
     new LedgerTestingHelpers(submitCommand, context, timeoutScaleFactor)
 
   def responseToCompletion(commandId: String, respF: Future[SubmitAndWaitForTransactionIdResponse])(
-      implicit ec: ExecutionContext): Future[Completion] =
+    implicit ec: ExecutionContext): Future[Completion] =
     respF
       .map(
         tx =>
@@ -642,10 +641,11 @@ object LedgerTestingHelpers extends OptionValues {
       }
 
   private def helper(
-      submitCommand: SubmitAndWaitRequest => Future[SubmitAndWaitForTransactionIdResponse])(
-      implicit ec: ExecutionContext) = { req: SubmitRequest =>
+                      submitCommand: SubmitAndWaitRequest => Future[SubmitAndWaitForTransactionIdResponse])(
+                      implicit ec: ExecutionContext) = { req: SubmitRequest =>
     responseToCompletion(
       req.commands.value.commandId,
       submitCommand(SubmitAndWaitRequest(req.commands, req.traceContext)))
   }
 }
+
