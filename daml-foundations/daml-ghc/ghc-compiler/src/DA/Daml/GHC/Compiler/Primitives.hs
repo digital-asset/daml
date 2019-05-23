@@ -123,83 +123,58 @@ convertPrim _ "BEAppendText" (TText :-> TText :-> TText) =
     EBuiltin BEAppendText
 convertPrim _ "BETrace" (TText :-> a1 :-> a2) | a1 == a2 =
     EBuiltin BETrace `ETyApp` a1
-convertPrim version "BESha256Text" (TText :-> TText) =
-    if version `supports` featureSha256Text
-      then EBuiltin BESha256Text
-      -- compile also if we do not support it, so that we can have DA.Text.sha256
-      -- compiled without generating invalid packages regardless.
-      else mkETmLams
-        [(varV1, TText)]
-        (ETmApp
-          (ETyApp (EBuiltin BEError) TText)
-          (EBuiltin (BEText "SHA256_TEXT only supported when compiling to DAML-LF >= 1.2")))
+convertPrim version "BESha256Text" t@(TText :-> TText) =
+    whenRuntimeSupports version featureSha256Text t $ EBuiltin BESha256Text
 convertPrim _ "BEPartyToQuotedText" (TParty :-> TText) =
     EBuiltin BEPartyToQuotedText
-convertPrim version "BEPartyFromText" (TText :-> TOptional TParty) =
-    if version `supports` featurePartyFromText
-      then EBuiltin BEPartyFromText
-      -- compile also if we do not support it, so that we can have DA.Internal.LF.partyFromText
-      -- compiled without generating invalid packages regardless.
-      else runtimeUnsupportedPartyFromText (TOptional TParty)
+convertPrim version "BEPartyFromText" t@(TText :-> TOptional TParty) =
+    whenRuntimeSupports version featurePartyFromText t $ EBuiltin BEPartyFromText
 
 -- Map operations
 
 convertPrim _ "BEMapEmpty" (TMap a) =
   EBuiltin BEMapEmpty `ETyApp` a
-convertPrim _ "BEMapEmpty" t@(TextMap_ _ _) =
-  runtimeUnsupported "BEMapEmpty" "1.3" t
+convertPrim _ "BEMapEmpty" t@(TTextMap _) =
+  runtimeUnsupported featureTextMap t
 convertPrim _ "BEMapInsert"  (TText :-> a1 :-> TMap a2 :-> TMap a3) | a1 == a2, a2 == a3 =
   EBuiltin BEMapInsert `ETyApp` a1
-convertPrim _ "BEMapInsert"  t@(TText :-> a1 :-> TextMap_ _ a2 :-> TextMap_ _ a3) | a1 == a2, a2 == a3 =
-  runtimeUnsupported "BAMapInsert" "1.3" t
+convertPrim _ "BEMapInsert"  t@(TText :-> a1 :-> TTextMap a2 :-> TTextMap a3) | a1 == a2, a2 == a3 =
+  runtimeUnsupported featureTextMap t
 convertPrim _ "BEMapLookup" (TText :-> TMap a1 :-> TOptional a2) | a1 == a2 =
   EBuiltin BEMapLookup `ETyApp` a1
-convertPrim _ "BEMapLookup" t@(TText :-> TextMap_ _ a1 :-> TOptional a2) | a1 == a2 =
-  runtimeUnsupported "BEMapLookup" "1.3" t
-convertPrim _ "BEMapLookup" t@(TText :-> TextMap_ _ a1 :-> TOptional_ _ a2) | a1 == a2 =
-    runtimeUnsupported "BEMapLookup" "1.3" t
+convertPrim _ "BEMapLookup" t@(TText :-> TTextMap a1 :-> TOptional a2) | a1 == a2 =
+  runtimeUnsupported featureTextMap t
 convertPrim _ "BEMapDelete" (TText :-> TMap a1 :-> TMap a2) | a1 == a2 =
   EBuiltin BEMapDelete `ETyApp` a1
-convertPrim _ "BEMapDelete" t@(TText :-> TextMap_ _ a1 :-> TextMap_ _ a2) | a1 == a2 =
-  runtimeUnsupported "BAMapDelete" "1.3" t
+convertPrim _ "BEMapDelete" t@(TText :-> TTextMap a1 :-> TTextMap a2) | a1 == a2 =
+  runtimeUnsupported featureTextMap t
 convertPrim _ "BEMapToList" (TMap a1 :-> TList (TMapEntry a2)) | a1 == a2  =
   EBuiltin BEMapToList `ETyApp` a1
-convertPrim _ "BEMapToList" t@(TextMap_ _ a1 :-> TList (TMapEntry a2)) | a1 == a2 =
-  runtimeUnsupported "BEMapToList" "1.3" t
+convertPrim _ "BEMapToList" t@(TTextMap a1 :-> TList (TMapEntry a2)) | a1 == a2 =
+  runtimeUnsupported featureTextMap t
 convertPrim _ "BEMapSize" (TMap a :-> TInt64) =
   EBuiltin BEMapSize `ETyApp` a
-convertPrim _ "BEMapSize" t@(TextMap_ _ _ :-> TInt64) =
-  runtimeUnsupported "BAMapSize" "1.3" t
+convertPrim _ "BEMapSize" t@(TTextMap _ :-> TInt64) =
+  runtimeUnsupported featureTextMap t
 
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
-pattern TextMap_ :: PackageRef -> Type -> Type
-pattern TextMap_ pkg a =
+pattern TTextMap :: Type -> Type
+pattern TTextMap a <-
   TApp
-  (TCon (Qualified pkg (ModuleName ["DA", "Internal", "Prelude"]) (TypeConName ["TextMap"])))
+  (TCon (Qualified _ (ModuleName ["DA", "Internal", "Prelude"]) (TypeConName ["TextMap"])))
   a
 
-pattern TOptional_ :: PackageRef -> Type -> Type
-pattern TOptional_ pkg a =
-  TApp
-  (TCon (Qualified pkg (ModuleName ["DA", "Internal", "Prelude"]) (TypeConName ["Optional"])))
-  a
+-- | Some builtins are only supported in specific versions of DAML-LF.
+-- Since we don't have conditional compilation in daml-stdlib, we compile
+-- them to calls to `error` in unsupported versions.
+whenRuntimeSupports :: Version -> Feature -> Type -> Expr -> Expr
+whenRuntimeSupports version feature t e
+    | version `supports` feature = e
+    | otherwise = runtimeUnsupported feature t
 
-
-runtimeUnsupported :: T.Text -> T.Text -> Type -> Expr
-runtimeUnsupported msg v (tArg :-> tFun) =
-  mkETmLams
-    [(varV1, tArg)]
-    (runtimeUnsupported msg v tFun)
-runtimeUnsupported msg v t =
+runtimeUnsupported :: Feature -> Type -> Expr
+runtimeUnsupported (Feature name version) t =
   ETmApp
   (ETyApp (EBuiltin BEError) t)
-  (EBuiltin (BEText (msg <> " only supported when compiling to DAML-LF >= " <> v)))
-
-runtimeUnsupportedPartyFromText :: Type -> Expr
-runtimeUnsupportedPartyFromText retType =
-  mkETmLams
-    [(varV1, TText)]
-    (ETmApp
-      (ETyApp (EBuiltin BEError) retType)
-      (EBuiltin (BEText "PARTY_FROM_TEXT only supported when compiling to DAML-LF >= 1.2")))
+  (EBuiltin (BEText (name <> " only supported when compiling to DAML-LF " <> T.pack (renderVersion version) <> " or later")))
