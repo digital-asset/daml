@@ -25,6 +25,8 @@ import Data.List.Extra
 import Data.Either.Extra
 import qualified Data.Text as T
 import Control.Monad.Extra
+import Control.Applicative
+import Safe
 
 -- | Run the assistant and exit.
 main :: IO ()
@@ -138,8 +140,9 @@ autoInstall env@Env{..} = do
 handleCommand :: Env -> Command -> IO ()
 handleCommand env@Env{..} = \case
 
-    Builtin Version -> do
+    Builtin (Version VersionOptions{..}) -> do
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
+        availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envDamlPath
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
 
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
@@ -148,6 +151,10 @@ handleCommand env@Env{..} = \case
                 , envLatestStableSdkVersion
                 , asstVersion
                 ]
+
+            latestVersionM
+                = maximumMay (fromRight [] availableVersionsE)
+                <|> envLatestStableSdkVersion
 
             isInstalled =
                 case installedVersionsE of
@@ -162,12 +169,16 @@ handleCommand env@Env{..} = \case
                 , "assistant"
                     <$ guard (Just v == asstVersion)
                 , "latest release"
-                    <$ guard (Just v == envLatestStableSdkVersion)
+                    <$ guard (Just v == latestVersionM)
                 , "not installed"
                     <$ guard (not (isInstalled v))
                 ]
 
-            versions = nubSort (envVersions ++ fromRight [] installedVersionsE)
+            versions = nubSort . concat $
+                [ envVersions
+                , fromRight [] installedVersionsE
+                , if vAll then fromRight [] availableVersionsE else []
+                ]
             versionTable = [ (versionToText v, versionAttrs v) | v <- versions ]
             versionWidth = maximum (1 : map (T.length . fst) versionTable)
             versionLines =
