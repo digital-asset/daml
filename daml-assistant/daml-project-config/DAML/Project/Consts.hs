@@ -19,7 +19,6 @@ module DAML.Project.Consts
     , getSdkVersion
     , getDamlAssistant
     , withProjectRoot
-    , makeRelativeToRoot
     ) where
 
 import System.Directory
@@ -149,7 +148,3 @@ withProjectRoot act = do
     withCurrentDirectory projectPath $ act $ \f -> do
         absF <- makeAbsolute (previousCwd </> f)
         pure $ projectPath `makeRelative` absF
-
-makeRelativeToRoot :: FilePath -> IO FilePath
-makeRelativeToRoot fp =
-    withProjectRoot ($ fp)

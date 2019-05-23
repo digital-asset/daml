@@ -37,18 +37,18 @@ withRootAt location = withEnv [(projectPathEnvVar, location)]
 fileTests :: Tasty.TestTree
 fileTests = Tasty.testGroup "File Tests"
     [ Tasty.testCase "Absolute and relative files are the same outside of a project" $
-      withRootAt Nothing $ do
-            absolutePath <- makeRelativeToRoot =<< makeAbsolute relPath
-            relative <- makeRelativeToRoot relPath
+      withRootAt Nothing $ withProjectRoot $ \rel -> do
+            absolutePath <- rel =<< makeAbsolute relPath
+            relative <- rel relPath
             assertEqual "Absolute path" relative absolutePath
             assertBool "Path is relative" $ isRelative relative
 
     , Tasty.testCase "All equivalent paths are equal if there is a project root" $ do
             cwd <- getCurrentDirectory
-            withRootAt (Just cwd) $ do
-                absolutePath <- makeRelativeToRoot =<< makeAbsolute relPath
-                differentCwd <- withCurrentDirectory relative (makeRelativeToRoot path)
-                relative <- makeRelativeToRoot relPath
+            withRootAt (Just cwd) $ withProjectRoot $ \rel -> do
+                absolutePath <- rel =<< makeAbsolute relPath
+                differentCwd <- withCurrentDirectory relative (rel relPath)
+                relative <- rel relPath
                 assertEqual "Different cwd" relative differentCwd
                 assertEqual "Absolute path" relative absolutePath
 
