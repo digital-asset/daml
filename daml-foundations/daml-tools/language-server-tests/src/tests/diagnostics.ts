@@ -42,7 +42,7 @@ export function gatherDiagnostics(diagnostics : rxjs.Observable<DT.protocol.Publ
             DT.tryWriteActualJSON(rootPath, actual);
             done(e, [subscription]);
         }
-    }, 7000);
+    }, 50000);
 }
 
 /// File-based tests
