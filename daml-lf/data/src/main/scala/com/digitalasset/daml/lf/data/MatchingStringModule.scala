@@ -23,12 +23,12 @@ sealed abstract class StringModule {
   //  * https://github.com/scala/bug/issues/9565
   val Array: ArrayFactory[T]
 
-  def toStringMap[V](map: Map[T, V]): Map[String, V]
+  final def toStringMap[V](map: Map[T, V]): Map[String, V] = map.toMap
 }
 
-object MatchingStringModule {
+object MatchingStringModule extends (String => StringModule) {
 
-  def apply(string_regex: String): StringModule = new StringModule {
+  override def apply(string_regex: String): StringModule = new StringModule {
     type T = String
 
     private val regex = string_regex.r
@@ -40,24 +40,11 @@ object MatchingStringModule {
     override def equalInstance: Equal[T] = scalaz.std.string.stringInstance
 
     override val Array: ArrayFactory[T] = new ArrayFactory[T]
-
-    // Do not drop the following `toMap` (See https://github.com/scala/bug/issues/10496)
-    override def toStringMap[V](map: Map[T, V]): Map[String, V] = map.toMap
   }
 
 }
 
-/** ConcatenableMatchingString are non empty US-ASCII strings built with letters, digits,
-  * and some other (parameterizable) extra characters.
-  * We use them to represent identifiers. In this way, we avoid
-  * empty identifiers, escaping problems, and other similar pitfalls.
-  *
-  * ConcatenableMatchingString has the advantage over MatchingStringModule of being
-  * concatenable (and can be generate from number) without extra check.
-  * Those properties are heavily use to generate some ids by combining other existing
-  * ids.
-  */
-sealed abstract class ConcatenableMatchingStringModule extends StringModule {
+sealed abstract class ConcatenableStringModule extends StringModule {
 
   def fromLong(i: Long): T
 
@@ -66,40 +53,47 @@ sealed abstract class ConcatenableMatchingStringModule extends StringModule {
   def concat(s: T, ss: T*): T
 }
 
-object ConcatenableMatchingStringModule {
+/** ConcatenableMatchingString are non empty US-ASCII strings built with letters, digits,
+  * and some other (parameterizable) extra characters.
+  * We use them to represent identifiers. In this way, we avoid
+  * empty identifiers, escaping problems, and other similar pitfalls.
+  *
+  * ConcatenableMatchingString has the advantage over MatchingStringModule of being
+  * concatenable and can be generated from numbers without extra checks.
+  * Those properties are heavily use to generate some ids by combining other existing
+  * ids.
+  */
+object ConcatenableMatchingStringModule
+    extends ((Char => Boolean, Int) => ConcatenableStringModule) {
 
-  def apply(
+  override def apply(
       extraAllowedChars: Char => Boolean,
       maxLength: Int = Int.MaxValue
-  ): ConcatenableMatchingStringModule =
-    new ConcatenableMatchingStringModule {
-      type T = String
+  ): ConcatenableStringModule = new ConcatenableStringModule {
+    type T = String
 
-      override def fromString(s: String): Either[String, T] =
-        if (s.isEmpty)
-          Left(s"""empty string""")
-        else if (s.length > maxLength)
-          Left(s"""string too long""")
-        else
-          s.find(c => c > '\u007f' || !(c.isLetterOrDigit || extraAllowedChars(c)))
-            .fold[Either[String, T]](Right(s))(c =>
-              Left(s"""non expected character 0x${c.toInt.toHexString} in "$s""""))
+    override def fromString(s: String): Either[String, T] =
+      if (s.isEmpty)
+        Left(s"""empty string""")
+      else if (s.length > maxLength)
+        Left(s"""string too long""")
+      else
+        s.find(c => c > 0x7f || !(c.isLetterOrDigit || extraAllowedChars(c)))
+          .fold[Either[String, T]](Right(s))(c =>
+            Left(s"""non expected character 0x${c.toInt.toHexString} in "$s""""))
 
-      override def fromLong(i: Long): T = i.toString
+    override def fromLong(i: Long): T = i.toString
 
-      override def equalInstance: Equal[T] = scalaz.std.string.stringInstance
+    override def equalInstance: Equal[T] = scalaz.std.string.stringInstance
 
-      override val Array: ArrayFactory[T] = new ArrayFactory[T]
+    override val Array: ArrayFactory[T] = new ArrayFactory[T]
 
-      override def toStringMap[V](map: Map[T, V]): Map[String, V] = map
-
-      override def concat(s: T, ss: T*): T = {
-        val b = StringBuilder.newBuilder
-        b ++= s
-        ss.foreach(b ++= _)
-        b.result()
-      }
-
+    override def concat(s: T, ss: T*): T = {
+      val b = StringBuilder.newBuilder
+      b ++= s
+      ss.foreach(b ++= _)
+      b.result()
     }
+  }
 
 }
