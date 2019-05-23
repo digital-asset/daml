@@ -148,7 +148,7 @@ object ShrinkEncoding extends ShrinkEncoding {
 
     override def valueList[A: Out]: Out[P.List[A]] = shrinkContainer
 
-    override def valueContractId[A: Out]: Out[P.ContractId[A]] =
+    override def valueContractId[A]: Out[P.ContractId[A]] =
       implicitly[Shrink[P.ContractId[A]]] // don't want to shrink it, so it is shrinkAny
 
     override def valueOptional[A: Out]: Out[P.Optional[A]] = implicitly[Out[P.Optional[A]]]

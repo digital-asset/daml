@@ -81,7 +81,7 @@ object GenEncoding extends GenEncoding {
       arbitrary[P.List[A]]
     }
 
-    override def valueContractId[A: Out]: Out[P.ContractId[A]] =
+    override def valueContractId[A]: Out[P.ContractId[A]] =
       P.substContractId[Gen, A](ApiTypes.ContractId.subst(Gen.identifier))
 
     override def valueOptional[A](implicit ev: Out[A]): Out[P.Optional[A]] = {

@@ -89,7 +89,7 @@ object EqualityEncoding extends EqualityEncoding {
       else a1.view.zip(a2.view).forall(fn.tupled)
     }
 
-    override def valueContractId[A: Fn]: Fn[P.ContractId[A]] = (a1, a2) => a1 == a2
+    override def valueContractId[A]: Fn[P.ContractId[A]] = (a1, a2) => a1 == a2
 
     override def valueOptional[A](implicit ev: Fn[A]): Fn[P.Optional[A]] = {
       case (None, None) => true

@@ -130,7 +130,7 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
       _.list flatMap (gl => seqAlterTraverse(gl.elements)(Value.decode[A](_))),
       as => VSum.List(rpcvalue.List(as map (Value.encode(_)))))
 
-  implicit override def valueContractId[A: Value]: Value[P.ContractId[A]] =
+  implicit override def valueContractId[A]: Value[P.ContractId[A]] =
     Primitive.substContractId(
       ContractId.subst(fromArgumentValueFuns(_.contractId, VSum.ContractId)))
 
