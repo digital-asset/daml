@@ -79,7 +79,7 @@ class SandboxActiveContractsService private (
                         )
                       )
                   }
-                  .concat(Source.single(GetActiveContractsResponse(offset = offset.toString)))
+                  .concat(Source.single(GetActiveContractsResponse(offset = offset.value)))
             }
         }
       )
