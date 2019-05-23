@@ -37,16 +37,14 @@ service PartyManagementService {
   // The list returned contains parties whose ledger access is facilitated by
   // backing participant and the ones maintained elsewhere.
   // This request will always succeed.
-  // TODO: Check what the use case is for listing non-local parties
   rpc ListKnownParties (ListKnownPartiesRequest) returns
     (ListKnownPartiesResponse);
 
   // Adds a new party to the set managed by the backing participant.
   // Caller specifies a party identifier suggestion, the actual identifier
   // allocated might be different and is implementation specific.
-  // This call will either succeed or respond with ALREADY_EXISTS if given party
-  // already exists and the party allocation scheme uses only request data to 
-  // generate new stable identifiers.
+  // This call will either succeed or respond with UNIMPLEMENTED if synchronous
+  // party allocation is not supported by the backing participant.
   // daml-on-sql: suggestion's uniqueness is checked and call rejected if the
   // identifier is already present
   // daml-on-kv-ledger: suggestion's uniqueness is checked bby the validators in
@@ -58,11 +56,6 @@ service PartyManagementService {
 }
 
 message GetParticipantIdRequest {
-
-  // Must correspond to the ledger ID reported by the Ledger Identification
-  // Service.
-  // Required
-  string ledger_id = 1;
 }
 
 message GetParticipantIdResponse {
@@ -72,11 +65,6 @@ message GetParticipantIdResponse {
 }
 
 message ListKnownPartiesRequest {
-
-  // Must correspond to the ledger ID reported by the Ledger Identification
-  // Service.
-  // Required
-  string ledger_id = 1;
 }
 
 message ListKnownPartiesResponse {
@@ -92,39 +80,27 @@ message PartyDetails {
   // Required
   string party = 1;
 
-  // Common name associated with the party.
+  // Human readable name associated with the party. Caution, it might not be
+  // unique.
   // Optional
-  string common_name = 2;
+  string display_name = 2;
 
-  // id of the participant that this party is hosted on
+  // true if party is hosted by the backing participant.
   // Required
-  string participant_id = 3;
-
-  // Future extension: include metadata fields. There will be two categories
-  // of such fields: common and implementation specific.
-  // CommonMetadata common_metadata = 2;
-  // bytes implementation_metadata = 3;
-  
-  // Canton-specific meta-data would contain the following:
-  // string domain = 2;
-  // string participant = 3;
-  // com.digitalasset.canton.identity.v0.ParticipantPrivilege privilege = 4;
-  // com.digitalasset.canton.identity.v0.TrustLevel trustLevel = 5;
+  bool is_local = 3;
 }
 
 message AllocatePartyRequest {
 
-  // Must correspond to the ledger ID reported by the Ledger Identification
-  // Service.
-  // Required
-  string ledger_id = 1;
+  // A hint to the backing participant what party id to allocate. It can be
+  // ignored.
+  // Optional
+  string party_id_hint = 1;
 
-  // Common name of the party to be added to the participant.
-  // Required
-  string common_name = 2;
-
-  // Future extension: augment the request with additional meta-data containing
-  // human readable party name, privileges, organization etc.
+  // Human readable name of the party to be added to the participant. It doesn't
+  // have to be unique.
+  // Optional
+  string display_name = 2;
 }
 
 message AllocatePartyResponse {

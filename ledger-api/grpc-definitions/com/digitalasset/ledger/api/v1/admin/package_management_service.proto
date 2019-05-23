@@ -34,85 +34,51 @@ service PackageManagementService {
   // Depending on the ledger implementation this might also make the package 
   // available on the whole ledger. This call might not be supported by some 
   // ledger implementations. Canton could be an example, where uploading a DAR
-  // is not sufficient to
-  // render it usable, it must be activated first.
+  // is not sufficient to render it usable, it must be activated first.
+  // This method will return UNIMPLEMENTED, if DAR package uploading is not
+  // supported by the backing participant. If DAR file is too big or is 
+  // malformed, the backing participant will respond with INVALID_ARGUMENT.
+  // The maximum supported size is implementation specific.
   rpc UploadDarFile (UploadDarFileRequest) returns (UploadDarFileResponse);
-
-  // TODO: Discuss introduction of two step DAR upload interface. First step
-  // would be performed by a user with basic credentials, it would be the
-  // UploadDarFile from above. It would place DAR into a staging area after
-  // performing some validity checks. ApproveDarFile would be invoked by an
-  // administrator:
-  // ``rpc ApproveDarFile (ApproveDarFileRequest) returns`
-  //   ``(ApproveDarFileResponse);``
-  // Such split would remain scriptable while provimding the necessary semantics
-  // for implementation compatible with canton.
 }
 
 message ListKnownPackagesRequest {
-
-  // Must correspond to the ledger ID reported by the Ledger Identification 
-  // Service.
-  // Required
-  string ledger_id = 1;
 }
 
 message ListKnownPackagesResponse {
 
-  // The IDs of all DAML-LF packages supported by the ledger.
+  // The details of all DAML-LF packages known to backing participant.
   // Required
-  repeated PackageDetails package_details= 1;
+  repeated PackageDetails package_details = 1;
 }
 
 message PackageDetails {
  
-  // The IDs of all DAML-LF packages supported by the ledger.
+  // The identity of the DAML-LF package.
   // Required
   string package_id = 1;
 
-  // Human readable name of a DAML-LF package.
-  // Future extension: We need this field in order to facilitate user interfaces
-  // that list packages in a user understandable manner. Hashes are useless for
-  // that. Commenting out until corresponding changes are introduced in daml-lf
-  // archive format and this functionality becomes supportable by the
-  // implementations.
-  // Required
-  // string package_name = 2;
-
-  // Indicates when the package has been uploaded to the ledger.
-  // Required
-  google.protobuf.Timestamp known_since = 2;
-
   // Size of the package in bytes.
   // Required
-  uint64 package_size = 3;
+  uint64 package_size = 2;
 
-  // Descrioption provided by the original uploader
-  string source_description = 4;
-
-  // Identifier of the participant that uploaded the package.
+  // Indicates since when the package is known to the backing participant.
   // Required
-  string source_participant = 5;
+  google.protobuf.Timestamp known_since = 3;
 
+  // Descrioption provided by the backing participant descnribing where
+  // it got the package from.
+  // Optional
+  string source_description = 4;
 }
 
 message UploadDarFileRequest {
-
-  // Must correspond to the ledger ID reported by the Ledger Identification
-  // Service.
-  // Required
-  string ledger_id = 1;
 
   // Contains a DAML archive DAR file, which in turn is a jar like zipped
   // container for ``daml_lf`` archives. See further details in
   // ``daml_lf.proto``.
   // Required
-  bytes dar_file = 2;
-
-  // Descrioption provided by the uploader, it helps the users of the
-  // ListKnownPackages interface call to make sense of the returned results.
-  // Optional
-  string description = 3;
+  bytes dar_file = 1;
 }
 
 // An empty message that is received when the upload operation succeeded.
