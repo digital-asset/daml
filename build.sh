@@ -28,7 +28,7 @@ tag_filter=""
 if [[ "$execution_log_postfix" == "_Darwin" ]]; then
   tag_filter="-dont-run-on-darwin"
 fi
-bazel test -j 200 //... --test_tag_filter "$tag_filter" --experimental_execution_log_file "$ARTIFACT_DIRS/test_execution${execution_log_postfix}.log"
+bazel test -j 200 //... --test_tag_filters "$tag_filter" --experimental_execution_log_file "$ARTIFACT_DIRS/test_execution${execution_log_postfix}.log"
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' > /dev/null
 # Check that we can load damlc in ghci
