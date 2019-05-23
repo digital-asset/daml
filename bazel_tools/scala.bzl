@@ -201,6 +201,122 @@ def _create_scala_source_jar(**kwargs):
             srcs = kwargs["srcs"],
         )
 
+def _scaladoc_jar_impl(ctx):
+
+    srcFiles = [
+        src.path
+        for src in ctx.files.srcs
+    ]
+
+    # Not sure at all if Scaladoc runs any plugins but it is harmless.
+    pluginPaths = []
+    for p in ctx.attr.plugins:
+        if hasattr(p, "path"):
+            pluginPaths.append(p)
+        elif hasattr(p, "scala"):
+            pluginPaths.extend([j.class_jar for j in p.scala.outputs.jars])
+        elif hasattr(p, "java"):
+            pluginPaths.extend([j.class_jar for j in p.java.outputs.jars])
+            # support http_file pointed at a jar. http_jar uses ijar,
+            # which breaks scala macros
+
+        elif hasattr(p, "files"):
+            pluginPaths.extend([f for f in p.files if "-sources.jar" not in f.basename])
+
+    transitive_deps = [dep[JavaInfo].transitive_deps for dep in ctx.attr.deps]
+    classpath = depset([], transitive = transitive_deps).to_list()
+
+    outdir = ctx.actions.declare_directory(ctx.label.name + "_scaladoc_tmpdir")
+
+    ctx.actions.run(
+        executable = ctx.executable._scaladoc,
+        inputs = ctx.files.srcs + classpath,
+        outputs = [ outdir ],
+        arguments = [
+            "-d",
+            outdir.path,
+            "-classpath",
+            ":".join([jar.path for jar in classpath]),
+            "-Xplugin:%s" % ",".join([jar.path for jar in  depset(pluginPaths).to_list()]),
+            # ^^ Not sure at all if Scaladoc runs any plugins. Note comma separator
+            "-doc-title",
+            ctx.attr.doctitle,
+            "-no-link-warnings",
+        ] + common_scalacopts + srcFiles,
+        mnemonic = "ScaladocGen",
+    )
+
+    # since we only have the output directory of the scaladoc generation we need to find
+    # all the files below sources_out and add them to the zipper args file
+    zipper_args_file = ctx.actions.declare_file(ctx.label.name + ".zipper_args")
+    ctx.actions.run_shell(
+        mnemonic = "ScaladocFindOutputFiles",
+        outputs = [zipper_args_file],
+        inputs = [outdir],
+        command = "find -L {src_path} -type f | sed -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | sort > {args_file}".format(
+            src_path = outdir.path,
+            args_file = zipper_args_file.path,
+        ),
+        progress_message = "find_scaladoc_output_files %s" % zipper_args_file.path,
+        use_default_shell_env = True,
+    )
+
+    ctx.actions.run(
+        executable = ctx.executable._zipper,
+        inputs = ctx.files.srcs + classpath + [ outdir, zipper_args_file ],
+        outputs = [ctx.outputs.out],
+        arguments = ["c", ctx.outputs.out.path, "@" + zipper_args_file.path ],
+        mnemonic = "ScaladocJar",
+    )
+
+scaladoc_jar = rule(
+    implementation = _scaladoc_jar_impl,
+    attrs = {
+        "deps": attr.label_list(),
+        "doctitle": attr.string(default = ""),
+        "plugins": attr.label_list(default = []),
+        "srcs": attr.label_list(allow_files = True),
+
+        "_zipper": attr.label(
+            default = Label("@bazel_tools//tools/zip:zipper"),
+            cfg = "host",
+            executable = True,
+            allow_files = True,
+        ),
+        "_scaladoc": attr.label(
+            default = Label("@scala_nix//:bin/scaladoc"),
+            cfg = "host",
+            executable = True,
+            allow_files = True,
+        ),
+    },
+    outputs = {
+        "out": "%{name}.jar",
+    },
+)
+"""
+Generates a Scaladoc jar path/to/target/<name>.jar.
+
+Arguments:
+  srcs: source files to process
+  deps: targets that contain references to other types referenced in Scaladoc.
+  doctitle: title for Scalaadoc's index.html. Typically the name of the library
+"""
+
+def _create_scaladoc_jar(**kwargs):
+    # Try to not create empty scaladoc jars and limit execution to Linux and MacOS
+    if len(kwargs["srcs"]) > 0 and is_windows == False:
+        plugins = []
+        if "plugins" in kwargs:
+            plugins = kwargs["plugins"]
+
+        scaladoc_jar(
+            name = kwargs["name"] + "_scaladoc",
+            deps = kwargs["deps"],
+            plugins = plugins,
+            srcs = kwargs["srcs"],
+        )
+
 def da_scala_library(name, **kwargs):
     """
     Define a Scala library.
@@ -213,6 +329,7 @@ def da_scala_library(name, **kwargs):
     """
     _wrap_rule(scala_library, name, **kwargs)
     _create_scala_source_jar(name = name, **kwargs)
+    _create_scaladoc_jar(name = name, **kwargs)
 
     if "tags" in kwargs:
         for tag in kwargs["tags"]:
