@@ -13,7 +13,6 @@ module DA.Internal.Template(
     create, exercise, fetch,
     archive, Archive(..),
     lookupByKey, fetchByKey, exerciseByKey,
-    exerciseExplicit,
     IsParties(toParties),
     TemplateKey(key, maintainer)
     ) where
@@ -28,15 +27,11 @@ import DA.Internal.Prelude
 create : Template c => c -> Update (ContractId c)
 create = internalCreate
 
--- | HIDE
-exerciseExplicit : Choice c e r => [Party] -> ContractId c -> e -> Update r
-exerciseExplicit = internalExercise
-
 -- | Exercise a contract choice.
 exercise : forall c e r . Choice c e r => ContractId c -> e -> Update r
 exercise c e = do
     cc <- fetch c
-    exerciseExplicit (choiceController cc e) c e
+    internalExercise (choiceController cc e) c e
 
 -- | Fetch the contract data associated with the given contract id.
 -- This fails and aborts the entire transaction if the `ContractId c`
@@ -90,7 +85,7 @@ fetchByKey k = fmap unpackPair (internalFetchByKey k)
 exerciseByKey : forall c k e r. (TemplateKey c k, Choice c e r) => k -> e -> Update r
 exerciseByKey k e = do
     (c, cc) <- fetchByKey @c k
-    exerciseExplicit (choiceController cc e) c e
+    internalExercise (choiceController cc e) c e
 
 class Template c where
 

@@ -398,7 +398,6 @@ template PaintCounterOffer
       PaintCounterOffer_Accept: (ContractId Iou, ContractId PaintAgree)
         do offerCid <- create PaintOffer with painter; houseOwner; obligor; amount
            -- This is delegation, the painter exercises the offer on behalf of the houseOwner.
-           -- exerciseExplicit [houseOwner] offerCid PaintOffer_Accept with iouCid
            exercise offerCid PaintOffer_Accept with iouCid
 
 template PaintAgree

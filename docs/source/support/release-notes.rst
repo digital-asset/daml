@@ -9,6 +9,13 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+DAML Studio Library
+~~~~~~~~~~~~~~~~~~~
+
+- **BREAKING**: Remove ``exerciseExplicit``. Instead of using
+  ``exerciseExplicit <parties> <contract-id> <choice>``, programs should use
+  ``exercise <contract-id>> <choice>`` now.
+
 DAML Assistant
 ~~~~~~~~~~~~~~
 
