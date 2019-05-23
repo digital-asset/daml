@@ -7,7 +7,7 @@ Installing the SDK
 1. Install the dependencies
 ***************************
 
-The SDK currently runs on MacOS or Linux. For Windows support, we recommend installing the SDK on a virtual machine running Linux.
+The SDK currently runs on Windows, MacOS or Linux.
 
 You need to install:
 
