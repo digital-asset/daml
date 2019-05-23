@@ -4,7 +4,7 @@
 package com.digitalasset.extractor
 
 import akka.actor.ActorSystem
-import akka.stream.{KillSwitches, ActorMaterializer}
+import akka.stream.{ActorMaterializer, KillSwitches}
 import akka.stream.scaladsl.{RestartSource, Sink}
 import com.digitalasset.extractor.Types._
 import com.digitalasset.extractor.Main.log
@@ -15,20 +15,27 @@ import com.digitalasset.extractor.ledger.types.TransactionTree._
 import com.digitalasset.extractor.targets.Target
 import com.digitalasset.extractor.writers.Writer
 import com.digitalasset.extractor.writers.Writer.RefreshPackages
-import com.digitalasset.grpc.adapter.{ExecutionSequencerFactory, AkkaExecutionSequencerPool}
+import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction_filter.{TransactionFilter, Filters}
+import com.digitalasset.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  TransactionFilter
+}
+import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration._
-
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
+
 import scala.collection.breakOut
 import scala.concurrent.duration._
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 import scalaz._
 import Scalaz._
-
+import com.digitalasset.extractor.helpers.TemplateIds
+import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
+import com.digitalasset.extractor.helpers.FutureUtil.toFuture
 import scalaz.syntax.tag._
 
 class Extractor[T <: Target](config: ExtractorConfig, target: T) {
@@ -74,7 +81,12 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
 
       _ = log.trace("Handling packages...")
 
-      _ <- fetchPackages(client, writer)
+      packageStore <- fetchPackages(client, writer)
+
+      templateIds <- Future.successful(
+        TemplateIds.intersection(
+          TemplateIds.getTemplateIds(packageStore.values.toSet),
+          config.templateConfigs.toSet))
 
       streamUntil: Option[LedgerOffset] = config.to match {
         case SnapshotEndSetting.Head => Some(endOffset)
@@ -85,7 +97,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
 
       _ = log.info("Handling transactions...")
 
-      _ <- streamTransactions(client, writer, streamUntil)
+      _ <- streamTransactions(client, writer, streamUntil, templateIds)
 
       _ = log.info("Done...")
     } yield ()
@@ -104,22 +116,28 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
     system.terminate().map(_ => killSwitch.shutdown())
   }
 
-  private def fetchPackages(client: LedgerClient, writer: Writer): Future[Unit] = {
+  private def fetchPackages(client: LedgerClient, writer: Writer): Future[PackageStore] = {
     for {
-      packageStore <- LedgerReader.createPackageStore(client)
-      _ <- writer.handlePackages(packageStore.valueOr(error => throw new RuntimeException(error)))
-    } yield ()
+      packageStoreE <- LedgerReader.createPackageStore(client): Future[String \/ PackageStore]
+      packageStore <- toFuture(packageStoreE): Future[PackageStore]
+      _ <- writer.handlePackages(packageStore)
+    } yield packageStore
   }
 
-  private def selectTransactions: TransactionFilter = {
-    val templateSelection = Filters.defaultInstance
-    TransactionFilter(config.parties.toList.map(_ -> templateSelection)(breakOut))
+  private def selectTransactions(
+      parties: ExtractorConfig.Parties,
+      templateIds: Set[Identifier]): TransactionFilter = {
+    val filters =
+      if (templateIds.isEmpty) Filters.defaultInstance
+      else new Filters(inclusive = Some(InclusiveFilters(templateIds.toSeq)))
+    TransactionFilter(config.parties.toList.map(_ -> filters)(breakOut))
   }
 
   private def streamTransactions(
       client: LedgerClient,
       writer: Writer,
-      streamUntil: Option[LedgerOffset]
+      streamUntil: Option[LedgerOffset],
+      templateIds: Set[Identifier]
   ): Future[Unit] = {
     RestartSource
       .onFailuresWithBackoff(
@@ -132,7 +150,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
           .getTransactionTrees(
             LedgerOffset(startOffSet),
             streamUntil,
-            selectTransactions,
+            selectTransactions(config.parties, templateIds),
             verbose = true
           )
           .via(killSwitch.flow)

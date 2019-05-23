@@ -27,6 +27,7 @@ final case class ExtractorConfig(
     from: LedgerOffset,
     to: SnapshotEndSetting,
     parties: ExtractorConfig.Parties,
+    templateConfigs: Set[TemplateConfig],
     tlsConfig: TlsConfiguration,
     appId: String = s"Extractor-${UUID.randomUUID().toString}"
 ) {
@@ -37,3 +38,5 @@ final case class ExtractorConfig(
 object ExtractorConfig {
   type Parties = OneAnd[List, Party]
 }
+
+final case class TemplateConfig(moduleName: String, entityName: String)

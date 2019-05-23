@@ -4,19 +4,24 @@
 package com.digitalasset.extractor.ledger.types
 
 import com.digitalasset.ledger.api.{v1 => api}
-
-import scalaz._
-import Scalaz._
+import scalaz.\/
 
 final case class Identifier(packageId: String, name: String)
 
 object Identifier {
+  private val separator: Char = ':'
+
   final implicit class ApiIdentifierOps(val apiIdentifier: api.value.Identifier) extends AnyVal {
-    // Even if it couldn't return a `Left`, making it return an `Either` for the sake of consistency
-    def convert: String \/ Identifier =
+    def convert: Identifier =
       Identifier(
         apiIdentifier.packageId,
-        apiIdentifier.moduleName + ":" + apiIdentifier.entityName
-      ).right
+        apiIdentifier.moduleName + separator.toString + apiIdentifier.entityName
+      )
   }
+
+  def product(identifier: Identifier): String \/ (String, String, String) =
+    identifier.name.split(separator) match {
+      case Array(module, entity) => \/.right((identifier.packageId, module, entity))
+      case _ => \/.left(s"Cannot unpack Identifier: $identifier")
+    }
 }
