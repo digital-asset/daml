@@ -277,6 +277,7 @@ encodeBuiltinExpr = \case
 
     BETrace -> builtin P.BuiltinFunctionTRACE
     BEEqualContractId -> builtin P.BuiltinFunctionEQUAL_CONTRACT_ID
+    BECoerceContractId -> builtin P.BuiltinFunctionCOERCE_CONTRACT_ID
 
     where
       builtin = P.ExprSumBuiltin . P.Enumerated . Right

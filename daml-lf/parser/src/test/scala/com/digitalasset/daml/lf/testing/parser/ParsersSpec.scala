@@ -216,7 +216,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "EQUAL_PARTY" -> BEqualParty,
         "EQUAL_BOOL" -> BEqualBool,
         "EQUAL_LIST" -> BEqualList,
-        "EQUAL_CONTRACT_ID" -> BEqualContractId
+        "EQUAL_CONTRACT_ID" -> BEqualContractId,
+        "COERCE_CONTRACT_ID" -> BCoerceContractId,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>

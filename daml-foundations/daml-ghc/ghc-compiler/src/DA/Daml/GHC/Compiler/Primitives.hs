@@ -157,6 +157,9 @@ convertPrim _ "BEMapSize" (TMap a :-> TInt64) =
 convertPrim _ "BEMapSize" t@(TTextMap _ :-> TInt64) =
   runtimeUnsupported featureTextMap t
 
+convertPrim version "BECoerceContractId" t@(TContractId a :-> TContractId b) =
+    whenRuntimeSupports version featureCoerceContractId t $ EBuiltin BECoerceContractId `ETyApp` a `ETyApp` b
+
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
 pattern TTextMap :: Type -> Type
