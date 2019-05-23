@@ -27,7 +27,7 @@ import com.daml.ledger.participant.state.v1.{
   TransactionId => _,
   _
 }
-import com.digitalasset.daml.lf.data.Ref.{LedgerId, Party, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, Party, TransactionIdString}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
@@ -106,7 +106,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       .map {
         case LedgerSnapshot(offset, acsStream) =>
           ActiveContractSetSnapshot(
-            LedgerOffset.Absolute(Ref.LedgerString.fromLong(offset)),
+            LedgerOffset.Absolute(LedgerString.fromLong(offset)),
             acsStream
               .mapConcat {
                 case (cId, ac) =>
@@ -118,9 +118,6 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
                     .toList
               }
           )
-          (LedgerString.fromLong(offset), acsStream.map {
-            case (cid, ac) => toSyncActiveContract(cid, ac)
-          })
       }(mat.executionContext)
 
   override def getCurrentLedgerEnd: Future[LedgerSyncOffset] =

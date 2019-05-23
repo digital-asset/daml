@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v1.{
+  ActiveContractsService,
   ConfigurationService,
   IdentityService,
   PackagesService

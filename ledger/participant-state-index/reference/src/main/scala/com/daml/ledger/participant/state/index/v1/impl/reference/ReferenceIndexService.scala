@@ -203,7 +203,7 @@ final case class ReferenceIndexService(
               }
               .toIterator)
       Future.successful(
-        ActiveContractSetSnapshot(LedgerOffset.Absolute(state.getUpdateId.toString), events))
+        ActiveContractSetSnapshot(LedgerOffset.Absolute(state.getUpdateId.toLedgerString), events))
     }
 
   override def getAcceptedTransactions(
