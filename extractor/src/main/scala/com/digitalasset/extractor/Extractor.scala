@@ -108,6 +108,11 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
     } yield ()
   }
 
+  private def selectTransactions: TransactionFilter = {
+    val templateSelection = Filters.defaultInstance
+    TransactionFilter(Map(config.party -> templateSelection))
+  }
+
   private def streamTransactions(
       client: LedgerClient,
       writer: Writer,
@@ -124,7 +129,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
           .getTransactionTrees(
             LedgerOffset(startOffSet),
             streamUntil,
-            TransactionFilter(Map(config.party -> Filters.defaultInstance)),
+            selectTransactions,
             verbose = true
           )
           .via(killSwitch.flow)
