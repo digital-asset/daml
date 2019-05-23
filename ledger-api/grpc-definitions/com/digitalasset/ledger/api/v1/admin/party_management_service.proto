@@ -12,31 +12,31 @@ option java_package = "com.digitalasset.ledger.api.v1.admin";
 // Status: experimental interface, will change before it is deemed production
 // ready
 
-// Inspect the identity management state of a ledger participant and modify the
+// Inspect the party management state of a ledger participant and modify the
 // parts that are modifiable. We use 'backing participant' to refer to this
 // specific participant in the methods of this API.
-// It is not mandatory to implement this interface on a specific daml-on-x
-// implementation or to implement it in its entirety
-service IdentityManagementService {
+// When the participant is run in mode requiring authentication, all the calls 
+// in this interface will respond with UNAUTHENTICATED, if the caller fails
+// to provide a valid access token, and will respond with PERMISSION_DENIED, if
+// the claims in the token are insufficient to perform a given operation.
+// Subsequently, only specific errors of individual calls not related to 
+// authorization will be described.
+service PartyManagementService {
 
   // Return the identifier of the backing participant.
   // All horizontally scaled replicas should return the same id.
+  // This method is expected to succeed provided the backing participant is 
+  // healthy, otherwise it responds with INTERNAL grpc error.
   // daml-on-sql: returns an identifier supplied on command line at launch time
-  // daml-on-sawtooth: as above
-  // canton: returns globally unique identifier
+  // daml-on-kv-ledger: as above
+  // canton: returns globally unique identifier of the backing participant
   rpc GetParticipantId (GetParticipantIdRequest) returns
     (GetParticipantIdResponse);
 
-  // List the participants known by the backing participant.
-  // TODO: Check what the use case is for listing all participants
-  // Admin tooling in daml-on-sawtooth knows the topology from other sources
-  // daml-on-sql knows only one participant. Suggest to remove it
-  rpc ListKnownParticipants (ListKnownParticipantsRequest) returns
-    (ListKnownParticipantsResponse);
-
   // List the parties known by the backing participant.
   // The list returned contains parties whose ledger access is facilitated by
-  // backing participant and teh ones maintained elsewhere
+  // backing participant and the ones maintained elsewhere.
+  // This request will always succeed.
   // TODO: Check what the use case is for listing non-local parties
   rpc ListKnownParties (ListKnownPartiesRequest) returns
     (ListKnownPartiesResponse);
@@ -44,15 +44,16 @@ service IdentityManagementService {
   // Adds a new party to the set managed by the backing participant.
   // Caller specifies a party identifier suggestion, the actual identifier
   // allocated might be different and is implementation specific.
+  // This call will either succeed or respond with ALREADY_EXISTS if given party
+  // already exists and the party allocation scheme uses only request data to 
+  // generate new stable identifiers.
   // daml-on-sql: suggestion's uniqueness is checked and call rejected if the
   // identifier is already present
-  // daml-on-sawtooth: suggestion is prefixed with backing participant
-  // identifier and the composite is tested for uniqueness
+  // daml-on-kv-ledger: suggestion's uniqueness is checked bby the validators in
+  // the consensus layer and call rejected if the identifier is already present.
   // canton: completely different globally unique identifier is allocated.
   // Behind the scenes calls to an internal protocol are made. As that protocol
   // is richer than the the surface protocol, the arguments take implicit values
-  // Future extension: augment the request with additional meta-data containing
-  // human readable party name, privileges, organization etc.
   rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
 }
 
@@ -65,24 +66,9 @@ message GetParticipantIdRequest {
 }
 
 message GetParticipantIdResponse {
-  ParticipantDetails participant_details = 1;
-}
 
-message ParticipantDetails {
-
-  string participant_id = 1;
-}
-
-message ListKnownParticipantsRequest {
-
-  // Must correspond to the ledger ID reported by the Ledger Identification
-  // Service.
-  // Required
-  string ledger_id = 1;
-}
-
-message ListKnownParticipantsResponse {
-  repeated ParticipantDetails participant_details = 1;
+  // Identifier of the participant, which SHOULD be globally unique.
+  string participant_id = 2;
 }
 
 message ListKnownPartiesRequest {
@@ -102,9 +88,17 @@ message ListKnownPartiesResponse {
 
 message PartyDetails {
 
-  // The ID of a DAML party hosted by the participant.
+  // The stable unique identifier of a DAML party.
   // Required
-  string party_id = 1;
+  string party = 1;
+
+  // Common name associated with the party.
+  // Optional
+  string common_name = 2;
+
+  // id of the participant that this party is hosted on
+  // Required
+  string participant_id = 3;
 
   // Future extension: include metadata fields. There will be two categories
   // of such fields: common and implementation specific.
@@ -125,14 +119,15 @@ message AllocatePartyRequest {
   // Required
   string ledger_id = 1;
 
-  // Party to be added to the participant.
+  // Common name of the party to be added to the participant.
   // Required
-  string party_id_suggestion = 2;
+  string common_name = 2;
+
+  // Future extension: augment the request with additional meta-data containing
+  // human readable party name, privileges, organization etc.
 }
 
 message AllocatePartyResponse {
 
-  // Actual participant id assigned by the backing participant
-  // Required
-  string party_id = 2;
+  PartyDetails party_details = 1;
 }

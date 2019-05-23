@@ -16,21 +16,37 @@ option java_package = "com.digitalasset.ledger.api.v1.admin";
 // Query the DAML-LF packages supported by the ledger participant and upload
 // DAR files. We use 'backing participant' to refer to this specific participant
 // in the methods of this API.
-// It is not mandatory to support this interface on a specific daml-on-x
-// implementation or to implement it in its entirety
+// When the participant is run in mode requiring authentication, all the calls 
+// in this interface will respond with UNAUTHENTICATED, if the caller fails
+// to provide a valid access token, and will respond with PERMISSION_DENIED, if
+// the claims in the token are insufficient to perform a given operation.
+// Subsequently, only specific errors of individual calls not related to 
+// authorization will be described.
 service PackageManagementService {
 
   // Returns the details of all DAML-LF packages known to the backing
   // participant.
+  // This request will always succeed.
   rpc ListKnownPackages (ListKnownPackagesRequest) returns
     (ListKnownPackagesResponse);
 
-  // Upload a DAR file to the backing participant. Depending on the ledger
-  // implementation this might also make the package available on the whole 
-  // ledger. This call might not be supported by some ledger implementations. 
-  // Canton could be an example, where uploading a DAR is not sufficient to
+  // Upload a DAR file to the backing participant.
+  // Depending on the ledger implementation this might also make the package 
+  // available on the whole ledger. This call might not be supported by some 
+  // ledger implementations. Canton could be an example, where uploading a DAR
+  // is not sufficient to
   // render it usable, it must be activated first.
   rpc UploadDarFile (UploadDarFileRequest) returns (UploadDarFileResponse);
+
+  // TODO: Discuss introduction of two step DAR upload interface. First step
+  // would be performed by a user with basic credentials, it would be the
+  // UploadDarFile from above. It would place DAR into a staging area after
+  // performing some validity checks. ApproveDarFile would be invoked by an
+  // administrator:
+  // ``rpc ApproveDarFile (ApproveDarFileRequest) returns`
+  //   ``(ApproveDarFileResponse);``
+  // Such split would remain scriptable while provimding the necessary semantics
+  // for implementation compatible with canton.
 }
 
 message ListKnownPackagesRequest {
@@ -63,31 +79,20 @@ message PackageDetails {
   // Required
   // string package_name = 2;
 
-  // Details of the original upload action
-  PackageUploadDetails upload_details = 2;
-}
-
-message PackageUploadDetails {
-
-  // Identifier of the participant that uploaded the package.
+  // Indicates when the package has been uploaded to the ledger.
   // Required
-  string uploaded_by = 1;
-
-  // Microseconds since the UNIX epoch. Can go backwards. Fixed
-  // since the vast majority of values will be greater than
-  // 2^28, since currently the number of microseconds since the
-  // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
-  // 9999-12-31T23:59:59.999999Z, so that we can convert to/from
-  // https://www.ietf.org/rfc/rfc3339.txt.
-  // Required
-  google.protobuf.Timestamp upload_timestamp = 2;
+  google.protobuf.Timestamp known_since = 2;
 
   // Size of the package in bytes.
   // Required
   uint64 package_size = 3;
 
   // Descrioption provided by the original uploader
-  string description = 4;
+  string source_description = 4;
+
+  // Identifier of the participant that uploaded the package.
+  // Required
+  string source_participant = 5;
 
 }
 
