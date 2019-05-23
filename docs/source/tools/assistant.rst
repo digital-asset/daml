@@ -108,6 +108,7 @@ Here is what each field means:
 - ``parties``: the parties to display in the Navigator when using ``daml start``.
 - ``version``: the project version.
 - ``exposed-modules``: the DAML modules that are exposed by this project, which can be imported in other projects.
+  If this field is not specified all modules in the project are exposed.
 - ``dependencies``: the dependencies of this project.
 
 ..  TODO (@robin-da) document the dependency syntax

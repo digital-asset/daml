@@ -253,6 +253,9 @@ partitionDefinitions = foldr f ([], [], [])
 moduleNameString :: ModuleName -> T.Text
 moduleNameString = T.intercalate "." . unModuleName
 
+packageModuleNames :: Package -> [T.Text]
+packageModuleNames = map (moduleNameString . moduleName) . NM.elems . packageModules
+
 -- | Remove all location information from an expression.
 removeLocations :: Expr -> Expr
 removeLocations = cata $ \case
