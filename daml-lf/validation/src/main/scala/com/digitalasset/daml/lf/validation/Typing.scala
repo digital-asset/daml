@@ -162,7 +162,9 @@ private[validation] object Typing {
       BEqualContractId ->
         TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
       BCoerceContractId ->
-        TForall(alpha.name -> KStar, TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta))),
+        TForall(
+          alpha.name -> KStar,
+          TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta))),
     )
   }
 
