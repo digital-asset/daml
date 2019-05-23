@@ -84,6 +84,7 @@ da_haskell_binary(
         "extra",
         "filepath",
         "process",
+        "safe",
         "safe-exceptions",
         "text",
     ],
