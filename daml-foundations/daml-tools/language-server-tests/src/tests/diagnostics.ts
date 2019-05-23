@@ -12,9 +12,11 @@ import * as rxjs from 'rxjs';
 export function gatherDiagnostics(diagnostics : rxjs.Observable<DT.protocol.PublishDiagnosticsParams>, rootPath: string, expected: any, done) {
     var actual: any = {}; // Gathered diagnostics, keyed by URI
     var markedDone = false;
+    let noDiags = true;
 
     let subscription = diagnostics.subscribe({
         next: (diagnostic) => {
+            let noDiags = false;
             if (diagnostic.uri.search(rootPath) < 0) {
                 // Disregard diagnostics from other test-cases
                 return;
@@ -33,16 +35,26 @@ export function gatherDiagnostics(diagnostics : rxjs.Observable<DT.protocol.Publ
         }
     });
 
-    setTimeout(() => {
-        if (markedDone) return;
-        try {
-            assert.deepEqual(actual, expected);
-            done(undefined, [subscription]);
-        } catch (e) {
-            DT.tryWriteActualJSON(rootPath, actual);
-            done(e, [subscription]);
-        }
-    }, 50000);
+    // This test runs until the collected diagnostics match the expected ones
+    // if there are no diagnostics expected wait 3 seconds, if the diagnostics are
+    // still empty then the test succeeds
+    let isEmptyObject = (obj : any) => Object.keys(obj).length == 0
+    if (isEmptyObject(expected))
+        setTimeout(() => {
+            if (noDiags)
+                done(undefined, [subscription]);
+        } , 3000)
+    else
+        setTimeout(() => {
+            if (markedDone) return;
+            try {
+                assert.deepEqual(actual, expected);
+                done(undefined, [subscription]);
+            } catch (e) {
+                DT.tryWriteActualJSON(rootPath, actual);
+                done(e, [subscription]);
+            }
+        }, 50000);
 }
 
 /// File-based tests
