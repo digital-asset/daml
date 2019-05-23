@@ -109,6 +109,11 @@ object ValueSpec {
         valueChecks.map { vc =>
           Exists(TautologicalValueChecks.valueOptional(vc.run))
         }
+      }),
+      (1, Gen.lzy {
+        valueChecks.map { vc =>
+          Exists(TautologicalValueChecks.valueMap(vc.run))
+        }
       })
     )
 
