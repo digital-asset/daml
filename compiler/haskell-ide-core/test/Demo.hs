@@ -43,7 +43,7 @@ main = do
         mainRule
         (Just $ showEvent lock)
         (makeOneHandle $ withLock lock . T.putStrLn)
-        makeRelativeToRoot
+        (\fp -> withProjectRoot ($ fp))
         IdeOptions
             {optPreprocessor = (,) []
             ,optWriteIface = False
