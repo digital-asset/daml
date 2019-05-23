@@ -75,7 +75,7 @@ object ValueSpec {
     override def valueContractId[A] = {
       implicit val CA: Arbitrary[P.ContractId[A]] =
         Arbitrary(GenEncoding.primitive.valueContractId)
-      ValueCheck[P.ContractId[A]](s"ContractId")
+      ValueCheck[P.ContractId[A]]("ContractId")
     }
 
     override def valueList[A](implicit vc: ValueCheck[A]) = {
@@ -95,9 +95,7 @@ object ValueSpec {
   }
 
   private val tautologicalValueChecks: Seq[Exists[ValueCheck]] =
-    ValuePrimitiveEncoding
-      .roots(TautologicalValueChecks)
-      .map(Exists(_))
+    ValuePrimitiveEncoding.roots(TautologicalValueChecks).map(Exists(_))
 
   private val valueChecks: Gen[Exists[ValueCheck]] =
     Gen.frequency(
