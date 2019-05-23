@@ -63,7 +63,7 @@ object TransactionCoder {
     : Either[DecodeError, ContractInst[Val]] = {
     ValueCoder.decodeIdentifier(protoCoinst.getTemplateId).flatMap { id =>
       decodeVal(protoCoinst.getValue)
-        .map(a => ContractInst(id, a, protoCoinst.getAgreement))
+        .map(a => ContractInst(id, a, (protoCoinst.getAgreement)))
     }
   }
 

@@ -1,5 +1,5 @@
 diff --git a/haskell/private/actions/compile.bzl b/haskell/private/actions/compile.bzl
-index 7fca51c..1e8b78e 100644
+index 530b23a..ca211e6 100644
 --- a/haskell/private/actions/compile.bzl
 +++ b/haskell/private/actions/compile.bzl
 @@ -1,6 +1,6 @@
@@ -43,7 +43,7 @@ index 7fca51c..1e8b78e 100644
      compile_flags.extend(
          pkg_info_to_compile_flags(
              expose_packages(
-@@ -337,6 +347,7 @@ def _compilation_defaults(hs, cc, java, dep_info, plugin_dep_info, srcs, import_
+@@ -346,6 +356,7 @@ def _compilation_defaults(hs, cc, java, dep_info, plugin_dep_info, srcs, import_
              locale_archive_depset,
              depset(transitive = plugin_tool_inputs),
              depset([optp_args_file]),
@@ -52,7 +52,7 @@ index 7fca51c..1e8b78e 100644
          input_manifests = plugin_tool_input_manifests,
          objects_dir = objects_dir,
 diff --git a/haskell/private/packages.bzl b/haskell/private/packages.bzl
-index 91236fc..6d7a073 100644
+index e35fbb2..106330d 100644
 --- a/haskell/private/packages.bzl
 +++ b/haskell/private/packages.bzl
 @@ -41,6 +41,42 @@ def pkg_info_to_compile_flags(pkg_info, for_plugin = False):

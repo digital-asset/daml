@@ -7,7 +7,7 @@ import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.Event.Events
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.daml.lf.lfpackage.Ast._
@@ -194,6 +194,7 @@ class SemanticTester(
                     nextScenarioCoidToLedgerCoid(scenarioCreateNode.coid),
                     scenarioCreateNode.coinst.template,
                     scenarioCreateNode.coinst.arg.mapContractId(nextScenarioCoidToLedgerCoid),
+                    scenarioCreateNode.coinst.agreementText,
                     scenarioCreateNode.stakeholders intersect scenarioWitnesses(scenarioNodeId),
                     scenarioWitnesses(scenarioNodeId),
                   )

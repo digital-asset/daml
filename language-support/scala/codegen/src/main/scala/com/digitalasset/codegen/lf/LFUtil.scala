@@ -201,6 +201,8 @@ final case class LFUtil(
   }
 
   def genTemplateChoiceMethods(
+      templateType: Ident,
+      idType: TypeName,
       choiceId: Ref.ChoiceName,
       choiceInterface: TemplateChoice.FWT): Seq[Tree] = {
     val choiceMethod = TermName(s"exercise$choiceId")
@@ -245,14 +247,15 @@ final case class LFUtil(
           fields.map { case (label, _) => toIdent(escapeIfReservedName(label)) })
     }
     val actorParam = q"${TermName(actorParamName)}: $domainApiAlias.Primitive.Party"
+    val exerciseOnParam = q"` exOn`: $domainApiAlias.encoding.ExerciseOn[$idType, $templateType]"
     val resultType = genTypeToScalaType(choiceInterface.returnType)
     val body = q"` exercise`(id, $choiceId, $namedArguments)"
 
-    Seq(q"""def $choiceMethod($actorParam, ..${typedParam.toList})
+    Seq(q"""def $choiceMethod($actorParam, ..${typedParam.toList})(implicit $exerciseOnParam)
                 : $domainApiAlias.Primitive.Update[$resultType] = $body""") ++
       denominalized.map {
         case (dparams, dctorName, dargs) =>
-          q"""def $choiceMethod($actorParam, ..$dparams)
+          q"""def $choiceMethod($actorParam, ..$dparams)(implicit $exerciseOnParam)
                   : $domainApiAlias.Primitive.Update[$resultType] =
                 $choiceMethod(${TermName(actorParamName)}, $dctorName(..$dargs))"""
       }.toList

@@ -1,0 +1,64 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+    "da_haskell_test",
+)
+
+da_haskell_library(
+    name = "damldoc",
+    srcs = glob(["src/**/*.hs"]),
+    hazel_deps = [
+        "aeson-pretty",
+        "aeson",
+        "base",
+        "blaze-html",
+        "bytestring",
+        "cmark-gfm",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "filepattern",
+        "ghc-lib-parser",
+        "ghc-lib",
+        "hashable",
+        "mtl",
+        "prettyprinter",
+        "text",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/haskell-ide-core",
+        "//daml-foundations/daml-ghc/ghc-compiler",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_library(
+    name = "damldoc-testing",
+    srcs = glob(["test/**/*.hs"]),
+    hazel_deps = [
+        "aeson-pretty",
+        "base",
+        "bytestring",
+        "Diff",
+        "directory",
+        "extra",
+        "filepath",
+        "mtl",
+        "tasty-hunit",
+        "text",
+    ],
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-foundations/daml-ghc/damldoc",
+        "//daml-foundations/daml-ghc/ghc-compiler",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)

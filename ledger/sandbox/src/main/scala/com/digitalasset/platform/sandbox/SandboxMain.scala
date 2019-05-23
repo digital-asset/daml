@@ -5,7 +5,6 @@ package com.digitalasset.platform.sandbox
 
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.digitalasset.platform.sandbox.SandboxApplication.SandboxServer
 import com.digitalasset.platform.sandbox.cli.Cli
 import org.slf4j.LoggerFactory
 
@@ -15,21 +14,22 @@ object SandboxMain extends App {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private val server: SandboxServer =
-    Cli.parse(args).fold(sys.exit(1))(config => SandboxApplication(config))
+  Cli.parse(args).fold(sys.exit(1)) { config =>
+    val server = SandboxServer(config)
 
-  private val closed = new AtomicBoolean(false)
-  private def closeServer(): Unit = {
-    if (closed.compareAndSet(false, true)) server.close()
-  }
+    val closed = new AtomicBoolean(false)
 
-  try {
-    Runtime.getRuntime.addShutdownHook(new Thread(() => closeServer()))
-    server.start()
-  } catch {
-    case NonFatal(t) => {
-      logger.error("Shutting down Sandbox application because of initialization error", t)
-      closeServer()
+    def closeServer(): Unit = {
+      if (closed.compareAndSet(false, true)) server.close()
+    }
+
+    try {
+      Runtime.getRuntime.addShutdownHook(new Thread(() => closeServer()))
+    } catch {
+      case NonFatal(t) => {
+        logger.error("Shutting down Sandbox application because of initialization error", t)
+        closeServer()
+      }
     }
   }
 

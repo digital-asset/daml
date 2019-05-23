@@ -3,7 +3,8 @@
 
 package com.digitalasset.ledger.api
 
-import com.digitalasset.daml.lf.data.{Time, UTF8}
+import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{
   List => ApiList,
@@ -11,16 +12,12 @@ import com.digitalasset.ledger.api.v1.value.{
   Optional => ApiOptional,
   _
 }
-import com.digitalasset.ledger.api.validation.{
-  CommandSubmissionRequestValidator,
-  ValidatorTestUtils
-}
+import com.digitalasset.ledger.api.validation.{CommandsValidator, ValidatorTestUtils}
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.google.protobuf.empty.Empty
 import org.scalatest.WordSpec
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1}
-import com.digitalasset.daml.lf.testing.parser.Implicits._
 
 import scala.concurrent.Future
 
@@ -56,13 +53,14 @@ class ValueConversionRoundTripTest
          }
          """
 
-  private val sut = new CommandSubmissionRequestValidator(
+  private val commandValidator = new CommandsValidator(
     "ledger-id",
-    new IdentifierResolver(_ => Future.successful(Some(pckg))))
+    new IdentifierResolver(_ => Future.successful(Some(pckg)))
+  )
 
   private def roundTrip(v: Value): Either[String, Value] =
     for {
-      lfValue <- sut.validateValue(v).left.map(_.getMessage)
+      lfValue <- commandValidator.validateValue(v).left.map(_.getMessage)
       apiValue <- LfEngineToApi.lfValueToApiValue(true, lfValue)
     } yield apiValue
 
@@ -115,7 +113,7 @@ class ValueConversionRoundTripTest
       val entries = List("‱", "1", "😂", "😃", "a").zipWithIndex.map {
         case (k, v) => ApiMap.Entry(k, Some(Value(Sum.Int64(v.toLong))))
       }
-      val sortedEntries = entries.sortBy(_.key)(UTF8.ordering)
+      val sortedEntries = entries.sortBy(_.key)
 
       // just to be sure we did not write the entries sorted
       assert(entries != sortedEntries)

@@ -5,15 +5,13 @@ package com.digitalasset.navigator.data
 
 import java.sql.DriverManager
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.model._
-import com.digitalasset.navigator.json.ApiCodecCompressed.JsonImplicits._
 import cats.effect.{ContextShift, IO}
 import cats.implicits._
+import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.digitalasset.navigator.model._
 import doobie._
 import doobie.implicits._
 import scalaz.syntax.tag._
-import spray.json._
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
@@ -347,10 +345,7 @@ class DatabaseActions {
   def insertContract(contract: Contract): Try[Int] = {
     Try {
       Queries
-        .insertContract(
-          contract.id.unwrap,
-          contract.template.id.asOpaqueString,
-          contract.argument.toJson.compactPrint)
+        .insertContract(ContractRow.fromContract(contract))
         .update
         .run
         .transact(xa)

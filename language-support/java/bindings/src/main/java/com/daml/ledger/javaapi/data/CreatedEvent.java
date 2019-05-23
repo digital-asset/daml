@@ -4,10 +4,12 @@
 package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.EventOuterClass;
+import com.google.protobuf.StringValue;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public final class CreatedEvent implements Event, TreeEvent {
 
@@ -21,12 +23,15 @@ public final class CreatedEvent implements Event, TreeEvent {
 
     private final Record arguments;
 
-    public CreatedEvent(@NonNull List<@NonNull String> witnessParties, @NonNull String eventId, @NonNull Identifier templateId, @NonNull String contractId, @NonNull Record arguments) {
+    private final Optional<String> agreementText;
+
+    public CreatedEvent(@NonNull List<@NonNull String> witnessParties, @NonNull String eventId, @NonNull Identifier templateId, @NonNull String contractId, @NonNull Record arguments, Optional<String> agreementText) {
         this.witnessParties = witnessParties;
         this.eventId = eventId;
         this.templateId = templateId;
         this.contractId = contractId;
         this.arguments = arguments;
+        this.agreementText = agreementText;
     }
 
     @NonNull
@@ -58,6 +63,11 @@ public final class CreatedEvent implements Event, TreeEvent {
         return arguments;
     }
 
+    @NonNull
+    public Optional<String> getAgreementText() {
+        return agreementText;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -67,13 +77,14 @@ public final class CreatedEvent implements Event, TreeEvent {
                 Objects.equals(eventId, that.eventId) &&
                 Objects.equals(templateId, that.templateId) &&
                 Objects.equals(contractId, that.contractId) &&
-                Objects.equals(arguments, that.arguments);
+                Objects.equals(arguments, that.arguments) &&
+                Objects.equals(agreementText, that.agreementText);
     }
 
     @Override
     public int hashCode() {
 
-        return Objects.hash(witnessParties, eventId, templateId, contractId, arguments);
+        return Objects.hash(witnessParties, eventId, templateId, contractId, arguments, agreementText);
     }
 
     @Override
@@ -84,17 +95,19 @@ public final class CreatedEvent implements Event, TreeEvent {
                 ", templateId=" + templateId +
                 ", contractId='" + contractId + '\'' +
                 ", arguments=" + arguments +
+                ", agreementText='" + agreementText + '\'' +
                 '}';
     }
 
     public EventOuterClass.@NonNull CreatedEvent toProto() {
-        return EventOuterClass.CreatedEvent.newBuilder()
+        EventOuterClass.CreatedEvent.Builder builder = EventOuterClass.CreatedEvent.newBuilder()
                 .setContractId(getContractId())
                 .setCreateArguments(getArguments().toProtoRecord())
                 .setEventId(getEventId())
                 .setTemplateId(getTemplateId().toProto())
-                .addAllWitnessParties(this.getWitnessParties())
-                .build();
+                .addAllWitnessParties(this.getWitnessParties());
+        agreementText.ifPresent(a -> builder.setAgreementText(StringValue.of(a)));
+        return builder.build();
     }
 
     public static CreatedEvent fromProto(EventOuterClass.CreatedEvent createdEvent) {
@@ -103,7 +116,8 @@ public final class CreatedEvent implements Event, TreeEvent {
                 createdEvent.getEventId(),
                 Identifier.fromProto(createdEvent.getTemplateId()),
                 createdEvent.getContractId(),
-                Record.fromProto(createdEvent.getCreateArguments()));
+                Record.fromProto(createdEvent.getCreateArguments()),
+                createdEvent.hasAgreementText() ? Optional.of(createdEvent.getAgreementText().getValue()) : Optional.empty());
 
     }
 }

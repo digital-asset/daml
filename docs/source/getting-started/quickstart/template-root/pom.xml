@@ -31,11 +31,6 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.digitalasset</groupId>
-            <artifactId>daml-lf-archive</artifactId>
-            <version>__VERSION__</version>
-        </dependency>
-        <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>1.2.3</version>

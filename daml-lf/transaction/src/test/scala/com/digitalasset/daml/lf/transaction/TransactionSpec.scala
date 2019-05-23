@@ -145,7 +145,8 @@ object TransactionSpec {
           PackageId.assertFromString("-dummyPkg-"),
           QualifiedName.assertFromString("DummyModule:dummyName")),
         V.ValueUnit,
-        "dummyAgreement"),
+        ("dummyAgreement")
+      ),
       None,
       Set.empty,
       Set.empty,

@@ -63,6 +63,7 @@ object LedgerResource {
               postgres.value.jdbcUrl,
               ledgerId,
               timeProvider,
+              ActiveContractsInMemory.empty,
               ImmArray.empty,
               128,
               SqlStartMode.AlwaysReset))

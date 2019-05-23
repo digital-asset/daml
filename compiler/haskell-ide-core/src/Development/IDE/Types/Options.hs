@@ -9,25 +9,19 @@ module Development.IDE.Types.Options
   , IdePkgLocationOptions(..)
   ) where
 
-import Development.IDE.UtilGHC
+import Development.Shake
 import           GHC hiding (parseModule, typecheckModule)
 import           GhcPlugins                     as GHC hiding (fst3, (<>))
 
 
 data IdeOptions = IdeOptions
   { optPreprocessor :: GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
-  , optRunGhcSession :: forall a. Maybe ParsedModule -> PackageDynFlags -> Ghc a -> IO a
+  , optGhcSession :: Action HscEnv
   -- ^ Setup a GHC session using a given package state. If a `ParsedModule` is supplied,
   -- the import path should be setup for that module.
   , optPkgLocationOpts :: IdePkgLocationOptions
   , optWriteIface :: Bool
   , optExtensions :: [String]
-
-  , optMbPackageName :: Maybe String
-
-  , optPackageDbs :: [FilePath]
-  , optHideAllPkgs :: Bool
-  , optPackageImports :: [(String, ModRenaming)]
 
   , optThreads :: Int
   , optShakeProfiling :: Maybe FilePath

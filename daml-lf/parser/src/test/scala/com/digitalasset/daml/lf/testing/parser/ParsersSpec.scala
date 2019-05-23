@@ -4,8 +4,7 @@
 package com.digitalasset.daml.lf.testing.parser
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -116,9 +115,9 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "string to parse" -> "expected literal",
         "1" -> PLInt64(1),
         "-2" -> PLInt64(-2),
-        "1.0" -> PLDecimal(1),
-        "1.0" -> PLDecimal(1),
-        "-1.0" -> PLDecimal(-1),
+        "1.0" -> PLDecimal(Decimal.assertFromBigDecimal(1)),
+        "1.0" -> PLDecimal(Decimal.assertFromBigDecimal(1)),
+        "-1.0" -> PLDecimal(Decimal.assertFromBigDecimal(-1)),
         """"some text"""" -> PLText("some text"),
         """ " \n\r\"\\ " """ -> PLText(" \n\r\"\\ "),
         """ "français" """ -> PLText("français"),

@@ -21,12 +21,11 @@ import DAML.Project.Util
 import Safe
 import Conduit
 import qualified Data.Conduit.List as List
-import qualified Data.Conduit.Tar as Tar
+import qualified Data.Conduit.Tar.Extra as Tar
 import qualified Data.Conduit.Zlib as Zlib
 import Network.HTTP.Simple
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS.UTF8
-import Data.List.Extra
 import System.Exit
 import System.IO
 import System.IO.Temp
@@ -36,7 +35,6 @@ import Control.Monad.Extra
 import Control.Exception.Safe
 import System.ProgressBar
 import System.Info.Extra (isWindows)
-import Data.Maybe
 
 -- unix specific
 import System.PosixCompat.Types ( FileMode )
@@ -63,11 +61,6 @@ data InstallEnv = InstallEnv
     , projectPathM :: Maybe ProjectPath
     , output :: String -> IO ()
     }
-
--- | Perform action unless user has passed --force flag.
-unlessForce :: InstallEnv -> IO () -> IO ()
-unlessForce InstallEnv{..} | ForceInstall b <- iForce options =
-    unless b
 
 -- | Perform action unless user has passed --quiet flag.
 unlessQuiet :: InstallEnv -> IO () -> IO ()
@@ -118,18 +111,12 @@ installExtracted env@InstallEnv{..} sourcePath =
         let targetPath = defaultSdkPath damlPath sourceVersion
 
         whenM (doesDirectoryExist (unwrapSdkPath targetPath)) $ do
-            unlessForce env $ do
-                throwIO $ assistantErrorBecause
-                    ("SDK version " <> versionToText sourceVersion <> " already installed. Use --force to overwrite.")
-                    ("Directory " <> pack (unwrapSdkPath targetPath) <> " already exists.")
-
             requiredIO "Failed to set file modes for SDK to remove." $ do
                 walkRecursive (unwrapSdkPath targetPath) WalkCallbacks
                     { walkOnFile = setRemoveFileMode
                     , walkOnDirectoryPre = setRemoveFileMode
                     , walkOnDirectoryPost = const (pure ())
                     }
-
 
         when (sourcePath /= targetPath) $ do -- should be true 99.9% of the time,
                                             -- but in that 0.1% this check prevents us
@@ -246,7 +233,6 @@ copyAndInstall env sourcePath =
 
             installExtracted env (SdkPath copyPath)
 
-
 -- | Extract a tarGz bytestring and install it.
 extractAndInstall :: InstallEnv
     -> ConduitT () BS.ByteString (ResourceT IO) () -> IO ()
@@ -258,61 +244,9 @@ extractAndInstall env source =
             runConduitRes
                 $ source
                 .| Zlib.ungzip
-                .| Tar.untar (restoreFile extractPath)
+                .| Tar.untar (Tar.restoreFile throwError extractPath)
             installExtracted env (SdkPath extractPath)
-    where
-        restoreFile :: MonadResource m => FilePath -> Tar.FileInfo
-            -> ConduitT BS.ByteString Void m ()
-        restoreFile extractPath info = do
-            let oldPath = Tar.decodeFilePath (Tar.filePath info)
-                newPath = dropDirectory1 oldPath
-                targetPath = extractPath </> dropTrailingPathSeparator newPath
-                parentPath = takeDirectory targetPath
-
-            when (pathEscapes newPath) $ do
-                liftIO $ throwIO $ assistantErrorBecause
-                    "Invalid SDK release: file path escapes tarball."
-                    ("path = " <> pack oldPath)
-
-            when (notNull newPath) $ do
-                case Tar.fileType info of
-                    Tar.FTNormal -> do
-                        liftIO $ createDirectoryIfMissing True parentPath
-                        sinkFileBS targetPath
-                        liftIO $ setFileMode targetPath (Tar.fileMode info)
-                    Tar.FTDirectory -> do
-                        liftIO $ createDirectoryIfMissing True targetPath
-                    Tar.FTSymbolicLink bs | not isWindows -> do
-                        let path = Tar.decodeFilePath bs
-                        unless (isRelative path) $
-                            liftIO $ throwIO $ assistantErrorBecause
-                                "Invalid SDK release: symbolic link target is absolute."
-                                ("target = " <> pack path <>  ", path = " <> pack oldPath)
-
-                        when (pathEscapes (takeDirectory newPath </> path)) $
-                            liftIO $ throwIO $ assistantErrorBecause
-                                "Invalid SDK release: symbolic link target escapes tarball."
-                                ("target = " <> pack path <> ", path = " <> pack oldPath)
-
-                        liftIO $ createDirectoryIfMissing True parentPath
-                        liftIO $ createSymbolicLink path targetPath
-                    unsupported ->
-                        liftIO $ throwIO $ assistantErrorBecause
-                            "Invalid SDK release: unsupported file type."
-                            ("type = " <> pack (show unsupported) <>  ", path = " <> pack oldPath)
-
-        -- | Check whether a relative path escapes its root.
-        pathEscapes :: FilePath -> Bool
-        pathEscapes path = isNothing $ foldM step "" (splitDirectories path)
-            where
-                step acc "."  = Just acc
-                step ""  ".." = Nothing
-                step acc ".." = Just (takeDirectory acc)
-                step acc name = Just (acc </> name)
-
-        -- | Drop first component from path
-        dropDirectory1 :: FilePath -> FilePath
-        dropDirectory1 = joinPath . tail . splitPath
+    where throwError msg e = liftIO $ throwIO $ assistantErrorBecause ("Invalid SDK release: " <> msg) e
 
 -- | Download an sdk tarball and install it.
 httpInstall :: InstallEnv -> InstallURL -> IO ()
@@ -352,22 +286,37 @@ pathInstall env@InstallEnv{..} sourcePath = do
 -- | Install a specific SDK version.
 versionInstall :: InstallEnv -> SdkVersion -> IO ()
 versionInstall env@InstallEnv{..} version = do
-    unlessQuiet env $ do
-        output ("Installing DAML SDK version " <> versionToString version)
 
     let SdkPath path = defaultSdkPath damlPath version
-    whenM (doesDirectoryExist path) $ do
-        unlessForce env $ do
-            throwIO $ assistantErrorBecause
-                ("SDK version " <> versionToText version <>
-                    " is already installed. Use --force to reinstall.")
-                ("path to existing installation = " <> pack path)
-        unlessQuiet env $ do
-            output ("SDK version " <> versionToString version <>
-                " is already installed. Reinstalling.")
+    alreadyInstalled <- doesDirectoryExist path
 
-    httpInstall env { targetVersionM = Just version }
-        (Github.versionURL version)
+    let forceFlag = unForceInstall (iForce options)
+        activateFlag = unActivateInstall (iActivate options)
+        performInstall = not alreadyInstalled || forceFlag
+
+    unlessQuiet env . output . concat $
+        if alreadyInstalled then
+            [ "SDK version "
+            , versionToString version
+            , " is already installed."
+            , if performInstall
+                then " Reinstalling."
+                else ""
+            ]
+        else
+            [ "Installing SDK version "
+            , versionToString version
+            ]
+
+    when performInstall $
+        httpInstall env { targetVersionM = Just version }
+            (Github.versionURL version)
+
+    -- Need to activate here if we aren't performing the full install.
+    when (not performInstall && activateFlag) $ do
+        unlessQuiet env . output $
+            "Activating assistant version " <> versionToString version
+        activateDaml env (SdkPath path)
 
 -- | Install the latest stable version of the SDK.
 latestInstall :: InstallEnv -> IO ()

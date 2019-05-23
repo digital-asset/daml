@@ -7,8 +7,8 @@ import java.io.File
 import java.time.Duration
 
 import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.BuildInfo
-import com.digitalasset.platform.sandbox.config.LedgerIdMode.Predefined
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import scopt.Read
@@ -69,7 +69,8 @@ object Cli {
       .text(
         "If set, the sandbox will execute the given scenario on startup and store all the contracts created by it. " +
           "Note that when using --postgres-backend the scenario will be ran only if starting from a fresh database, _not_ when resuming from an existing one. " +
-          "Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used).")
+          "Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used)." +
+          "Also note that instructing the sandbox to load a scenario will have the side effect of loading _all_ the .dar files provided eagerly (see --eager-package-loading).")
 
     arg[File]("<archive>...")
       .unbounded()
@@ -114,8 +115,13 @@ object Cli {
     //TODO (robert): Think about all implications of allowing users to set the ledger ID.
     opt[String]("ledgerid")
       .optional()
-      .action((id, c) => c.copy(ledgerIdMode = Predefined(id)))
+      .action((id, c) => c.copy(ledgerIdMode = LedgerIdMode.Static(id)))
       .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.")
+
+    opt[Unit]("eager-package-loading")
+        .optional()
+        .text("Whether to load all the packages in the .dar files provided eagerly, rather than when needed as the commands come.")
+        .action( (_, config) => config.copy(eagerPackageLoading = true))
 
     help("help").text("Print the usage text")
 

@@ -10,7 +10,6 @@ import GHC.Generics
 import           DA.Pretty
 import           Control.DeepSeq
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
 import qualified Text.Read as Read
 
 -- | DAML-LF version of an archive payload.
@@ -33,33 +32,25 @@ version1_2 = V1 $ PointStable 2
 version1_3 :: Version
 version1_3 = V1 $ PointStable 3
 
+-- | DAML-LF version 1.4.
+version1_4 :: Version
+version1_4 = V1 $ PointStable 4
+
+-- TODO(MH): Roll this over when releasing DAML-LF 1.5.
+version1_5 :: Version
+version1_5 = versionDev
+-- version1_5 = V1 $ PointStable 5
+
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_3
+versionDefault = version1_4
 
--- | The newest non-development DAML-LF version.
-versionNewest :: Version
-versionNewest = version1_3
-
-maxV1minor :: Int
-maxV1minor = 3
-
-minorInProtobuf :: MinorVersion -> TL.Text
-minorInProtobuf = TL.pack . \case
-  PointStable minor -> show minor
-  PointDev -> "dev"
-
-minorFromProtobuf :: TL.Text -> Maybe MinorVersion
-minorFromProtobuf = minorFromCliOption . TL.unpack
-
-minorFromCliOption :: String -> Maybe MinorVersion
-minorFromCliOption = \case
-  (Read.readMaybe -> Just i) -> Just $ PointStable i
-  "dev" -> Just PointDev
-  _ -> Nothing
+-- | The DAML-LF development version.
+versionDev :: Version
+versionDev = V1 PointDev
 
 supportedInputVersions :: [Version]
-supportedInputVersions = [version1_1, version1_2, version1_3, V1 PointDev]
+supportedInputVersions = [version1_1, version1_2, version1_3, version1_4, versionDev]
 
 supportedOutputVersions :: [Version]
 supportedOutputVersions = supportedInputVersions
@@ -85,14 +76,34 @@ featureContractKeys = Feature "Contract keys" version1_3
 featurePartyFromText :: Feature
 featurePartyFromText = Feature "partyFromText function" version1_2
 
+featureComplexContractKeys :: Feature
+featureComplexContractKeys = Feature "Complex contract keys" version1_4
+
+featureSerializablePolymorphicContractIds :: Feature
+featureSerializablePolymorphicContractIds = Feature "Serializable polymorphic contract ids" version1_5
+
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature
 
-instance Pretty Version where
-  pPrint = \case
-    V1 minor -> "1." <> pretty minor
+renderMinorVersion :: MinorVersion -> String
+renderMinorVersion = \case
+  PointStable minor -> show minor
+  PointDev -> "dev"
 
-instance Pretty MinorVersion where
-  pPrint = \case
-    PointStable minor -> pretty minor
-    PointDev -> "dev"
+parseMinorVersion :: String -> Maybe MinorVersion
+parseMinorVersion = \case
+  (Read.readMaybe -> Just i) -> Just $ PointStable i
+  "dev" -> Just PointDev
+  _ -> Nothing
+
+renderVersion :: Version -> String
+renderVersion = \case
+    V1 minor -> "1." ++ renderMinorVersion minor
+
+parseVersion :: String -> Maybe Version
+parseVersion = \case
+    '1':'.':minor -> V1 <$> parseMinorVersion minor
+    _ -> Nothing
+
+instance Pretty Version where
+  pPrint = string . renderVersion

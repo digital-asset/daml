@@ -2,22 +2,30 @@
 -- SPDX-License-Identifier: Apache-2.0
 module Main (main) where
 
+import Control.Exception
 import Data.Foldable
-import Options.Applicative
+import Options.Applicative.Extended
+import System.Environment
+import System.Exit
+import System.IO
 
 import DamlHelper
 
 main :: IO ()
-main = runCommand =<< customExecParser parserPrefs (info (commandParser <**> helper) idm)
-  where parserPrefs = prefs showHelpOnError
+main = withProgName "daml" $ go `catch` \(e :: DamlHelperError) -> do
+    hPutStrLn stderr (displayException e)
+    exitFailure
+  where
+      parserPrefs = prefs showHelpOnError
+      go = runCommand =<< customExecParser parserPrefs (info (commandParser <**> helper) idm)
 
 data Command
     = DamlStudio { replaceExtension :: ReplaceExtension, remainingArguments :: [String] }
     | RunJar { jarPath :: FilePath, remainingArguments :: [String] }
-    | New { targetFolder :: FilePath, templateName :: String }
+    | New { targetFolder :: FilePath, templateNameM :: Maybe String }
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
-    | Start
+    | Start { openBrowser :: OpenBrowser }
 
 commandParser :: Parser Command
 commandParser =
@@ -42,10 +50,10 @@ commandParser =
               [ ListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
               , New
                   <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-                  <*> argument str (metavar "TEMPLATE" <> help "Name of the template used to create the project (default: skeleton)" <> value "skeleton")
+                  <*> optional (argument str (metavar "TEMPLATE" <> help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")))
               ]
           initCmd = Init <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
-          startCmd = pure Start
+          startCmd = Start . OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser automatically and point it to navigator."
           readReplacement :: ReadM ReplaceExtension
           readReplacement = maybeReader $ \case
               "never" -> Just ReplaceExtNever
@@ -53,12 +61,10 @@ commandParser =
               "always" -> Just ReplaceExtAlways
               _ -> Nothing
 
-
 runCommand :: Command -> IO ()
 runCommand DamlStudio {..} = runDamlStudio replaceExtension remainingArguments
 runCommand RunJar {..} = runJar jarPath remainingArguments
-runCommand New {..} = runNew targetFolder templateName
+runCommand New {..} = runNew targetFolder templateNameM
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
-runCommand Start = runStart
-
+runCommand Start {..} = runStart openBrowser

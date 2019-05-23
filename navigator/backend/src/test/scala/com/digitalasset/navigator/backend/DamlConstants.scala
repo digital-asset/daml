@@ -3,10 +3,9 @@
 
 package com.digitalasset.navigator
 
-import com.digitalasset.daml.lf.data.SortedLookupList
+import com.digitalasset.daml.lf.data.{SortedLookupList, Ref => DamlLfRef}
 import com.digitalasset.navigator.model._
 import com.digitalasset.daml.lf.{iface => DamlLfIface}
-import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
 
 import scala.language.implicitConversions
 

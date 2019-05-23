@@ -21,7 +21,7 @@ import com.digitalasset.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent
 import com.digitalasset.ledger.api.v1.value.Value.Sum.ContractId
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
-import com.digitalasset.ledger.api.validation.CommandSubmissionRequestValidator
+import com.digitalasset.ledger.api.validation.CommandsValidator
 import com.digitalasset.platform.common.PlatformTypes.asVersionedValueOrThrow
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.damle.SandboxDamle
@@ -48,11 +48,12 @@ class EventConverterSpec
     with TestHelpers
     with AkkaBeforeAndAfterAll
     with Inside {
+
   private implicit def qualifiedNameStr(s: String): QualifiedName =
     QualifiedName.assertFromString(s)
   private implicit def party(s: String): Ref.Party = Ref.Party.assertFromString(s)
   private implicit def pkgId(s: String): Ref.PackageId = Ref.PackageId.assertFromString(s)
-  private implicit def id(s: String): Ref.Name = Ref.Name.assertFromString(s)
+  private implicit def name(s: String): Ref.Name = Ref.Name.assertFromString(s)
 
   type LfTx = com.digitalasset.daml.lf.transaction.Transaction.Transaction
 
@@ -77,9 +78,7 @@ class EventConverterSpec
   private val ledgerId = "ledgerId"
 
   private val validator =
-    new CommandSubmissionRequestValidator(
-      ledgerId,
-      IdentifierResolver(_ => Future.successful(None)))
+    new CommandsValidator(ledgerId, IdentifierResolver(_ => Future.successful(None)))
 
   private val commands = Commands()
     .withParty("Alice")
@@ -353,8 +352,9 @@ class EventConverterSpec
                   (Some("receiver"), Lf.ValueParty("receiver")),
                   (Some("giver"), Lf.ValueParty("giver")))
               )),
+              "I agree",
               Set("operator", "receiver", "giver"),
-              Set("operator", "receiver", "giver")
+              Set("operator", "receiver", "giver"),
             ),
             "#txId:0" -> rootEx
           )
@@ -386,7 +386,8 @@ class EventConverterSpec
               RecordField("giver", Some(Value(Value.Sum.Party("giver"))))
             )
           )),
-        Vector("operator", "receiver", "giver")
+        Vector("operator", "receiver", "giver"),
+        Some("I agree")
       )
       val nestedExercise = ExercisedEvent(
         "#txId:2",

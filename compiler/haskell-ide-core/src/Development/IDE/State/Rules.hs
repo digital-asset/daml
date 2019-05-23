@@ -23,8 +23,6 @@ module Development.IDE.State.Rules(
     fileFromParsedModule
     ) where
 
-import           Control.Concurrent.Extra
-import Control.Exception (evaluate)
 import           Control.Monad.Except
 import Control.Monad.Extra (whenJust)
 import qualified Development.IDE.Functions.Compile             as Compile
@@ -46,7 +44,7 @@ import           Development.IDE.Types.LSP as Compiler
 import Development.IDE.State.RuleTypes
 
 import           GHC
-import HieBin
+import Development.IDE.Compat
 import           UniqSupply
 import           Module                         as M
 import NameCache
@@ -69,16 +67,6 @@ defineNoFile :: IdeRule k v => (k -> Action v) -> Rules ()
 defineNoFile f = define $ \k file -> do
     if file == "" then do res <- f k; return ([], Just res) else
         fail $ "Rule " ++ show k ++ " should always be called with the empty string for a file"
-
-
--- | Return a distinct supply of uniques.
-getUniqSupply :: Action UniqSupply
-getUniqSupply =
-    getServiceEnv >>= liftIO . getUniqSupplyFrom
-
-getUniqSupplyFrom :: Env -> IO UniqSupply
-getUniqSupplyFrom Env{..} =
-    modifyVar envUniqSupplyVar $ evaluate . splitUniqSupply
 
 
 ------------------------------------------------------------
@@ -153,7 +141,7 @@ getAtPointForFile file pos = do
 getDefinitionForFile :: FilePath -> Position -> ExceptT [FileDiagnostic] Action (Maybe Location)
 getDefinitionForFile file pos = do
     spans <- useE GetSpanInfo file
-    pkgState <- useE LoadPackageState ""
+    pkgState <- useE GhcSession ""
     opts <- lift getOpts
     lift $ AtPoint.gotoDefinition opts pkgState spans pos
 
@@ -177,7 +165,7 @@ getParsedModuleRule :: Rules ()
 getParsedModuleRule =
     define $ \GetParsedModule file -> do
         contents <- getFileContents file
-        packageState <- use_ LoadPackageState ""
+        packageState <- use_ GhcSession ""
         opt <- getOpts
         liftIO $ Compile.parseModule opt packageState file contents
 
@@ -187,7 +175,7 @@ getLocatedImportsRule =
         pm <- use_ GetParsedModule file
         let ms = pm_mod_summary pm
         let imports = ms_textual_imps ms
-        packageState <- use_ LoadPackageState ""
+        packageState <- use_ GhcSession ""
         opt <- getOpts
         dflags <- liftIO $ Compile.getGhcDynFlags opt pm packageState
         xs <- forM imports $ \(mbPkgName, modName) ->
@@ -209,7 +197,7 @@ rawDependencyInformation f = go (Set.singleton f) Map.empty Map.empty
                   let modGraph' = Map.insert f (Left ModuleParseError) modGraph
                   in go fs modGraph' pkgs
                 Just imports -> do
-                  packageState <- lift $ use_ LoadPackageState ""
+                  packageState <- lift $ use_ GhcSession ""
                   opt <- lift getOpts
                   modOrPkgImports <- forM imports $ \imp -> do
                     case imp of
@@ -277,7 +265,7 @@ getSpanInfoRule =
         pm <- use_ GetParsedModule file
         tc <- use_ TypeCheck file
         imports <- use_ GetLocatedImports file
-        packageState <- use_ LoadPackageState ""
+        packageState <- use_ GhcSession ""
         opt <- getOpts
         x <- liftIO $ Compile.getSrcSpanInfos opt pm packageState (fileImports imports) tc
         return ([], Just x)
@@ -288,52 +276,30 @@ typeCheckRule =
     define $ \TypeCheck file -> do
         pm <- use_ GetParsedModule file
         deps <- use_ GetDependencies file
-        lps <- mapM (flip use_ "" . LoadPackage) (transitivePkgDeps deps)
         tms <- uses_ TypeCheck (transitiveModuleDeps deps)
         setPriority PriorityTypeCheck
-        us <- getUniqSupply
-        packageState <- use_ LoadPackageState ""
+        packageState <- use_ GhcSession ""
         opt <- getOpts
-        liftIO $ Compile.typecheckModule opt pm packageState us tms lps pm
-
-
-loadPackageRule :: Rules ()
-loadPackageRule =
-  defineNoFile $ \(LoadPackage pkg) -> do
-      packageState <- use_ LoadPackageState ""
-      opt <- getOpts
-      pkgs <- liftIO $ Compile.computePackageDeps opt packageState pkg
-      case pkgs of
-        Left e -> do
-            reportSeriousErrorDie $ "LoadPackage " ++ show pkg ++ " computePackageDeps failed, " ++ show e
-        Right v -> do
-            lps <- mapM (flip use_ "" . LoadPackage) v
-            us <- getUniqSupply
-            res <- liftIO $ Compile.loadPackage opt packageState us lps pkg
-            case res of
-                Left e -> reportSeriousErrorDie $ "LoadPackage " ++ show pkg ++ " loadPackage failed, " ++ show e
-                Right v -> return v
+        liftIO $ Compile.typecheckModule opt pm packageState tms pm
 
 
 generateCoreRule :: Rules ()
 generateCoreRule =
     define $ \GenerateCore file -> do
         deps <- use_ GetDependencies file
-        lps <- mapM (flip use_ "" . LoadPackage) (transitivePkgDeps deps)
         (tm:tms) <- uses_ TypeCheck (file:transitiveModuleDeps deps)
         let pm = tm_parsed_module . Compile.tmrModule $ tm
         setPriority PriorityGenerateDalf
-        us <- getUniqSupply
-        packageState <- use_ LoadPackageState ""
+        packageState <- use_ GhcSession ""
         opt <- getOpts
-        liftIO $ Compile.compileModule opt pm packageState us tms lps tm
+        liftIO $ Compile.compileModule opt pm packageState tms tm
 
-loadPackageStateRule :: Rules ()
-loadPackageStateRule =
-    defineNoFile $ \LoadPackageState -> do
+loadGhcSession :: Rules ()
+loadGhcSession =
+    defineNoFile $ \GhcSession -> do
         opts <- envOptions <$> getServiceEnv
-        liftIO $ Compile.generatePackageState
-            (Compile.optPackageDbs opts) (Compile.optHideAllPkgs opts) (Compile.optPackageImports opts)
+        Compile.optGhcSession opts
+
 
 getHieFileRule :: Rules ()
 getHieFileRule =
@@ -353,8 +319,7 @@ mainRule = do
     typeCheckRule
     getSpanInfoRule
     generateCoreRule
-    loadPackageStateRule
-    loadPackageRule
+    loadGhcSession
     getHieFileRule
 
 ------------------------------------------------------------

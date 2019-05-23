@@ -17,9 +17,11 @@
    you should run on Windows:
 
    1. Download the installer from https://github.com/digital-asset/daml/releases
+   1. Close any running SDK instance in PowerShell (Navigator or Sandbox)
    1. Remove any existing installation: `rm -r -Force $env:AppData\daml`
    1. Run the installer.
    1. Open a new Powershell.
+   1. Remove any existing quickstart directory : `rm -r quickstart` 
    1. Run `daml new quickstart` to create a new project.
    1. Switch to the new project: `cd quickstart`
    1. Run `daml start`.

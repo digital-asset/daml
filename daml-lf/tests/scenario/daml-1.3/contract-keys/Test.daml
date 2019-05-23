@@ -57,6 +57,16 @@ template CreateAndLookup
             disclosedTo = []
           return ()
 
+template MaintainerNotSignatory
+  with
+    p: Party
+    q: Party
+  where
+    signatory p
+
+    key q: Party
+    maintainer q
+
 run = scenario do
   alice <- getParty "Alice"
   bob <- getParty "Bob"
@@ -143,4 +153,10 @@ run = scenario do
     exercise cid TextKeyNonconsumingChoice
     mbCid <- lookupByKey @TextKey (alice, "non-consuming-choice")
     assertMsg ("Some cid == mbCid") (Some cid == mbCid)
+
+  -- maintainers must be signatories
+  submitMustFail alice $ do
+    create MaintainerNotSignatory with
+      p = alice
+      q = bob
 

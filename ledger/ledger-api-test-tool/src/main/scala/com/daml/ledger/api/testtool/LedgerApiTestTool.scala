@@ -15,6 +15,7 @@ import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.platform.apitesting.{LedgerContext, PlatformChannels, RemoteServerResource}
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.semantictest.SemanticTestAdapter
 
 import scala.concurrent.duration._
@@ -53,7 +54,7 @@ object LedgerApiTestTool {
     val ledgerResource = RemoteServerResource(config.host, config.port, config.tlsConfig)
       .map {
         case PlatformChannels(channel) =>
-          LedgerContext.SingleChannelContext(channel, None, packages.keys)
+          LedgerContext.SingleChannelContext(channel, LedgerIdMode.Dynamic(), packages.keys)
       }
     ledgerResource.setup()
     val ledger = ledgerResource.value
@@ -63,8 +64,8 @@ object LedgerApiTestTool {
     }
     var failed = false
 
-    val runSuffix = Random.alphanumeric.take(10).mkString
-    val partyNameMangler = (partyText: String) => s"$partyText-$runSuffix"
+    val runSuffix = "-" + Random.alphanumeric.take(10).mkString
+    val partyNameMangler = (partyText: String) => partyText + runSuffix
     val commandIdMangler: ((QualifiedName, Int, L.NodeId) => String) = (scenario, stepId, nodeId) =>
       s"ledger-api-test-tool-$scenario-$stepId-$nodeId-$runSuffix"
 

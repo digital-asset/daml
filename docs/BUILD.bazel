@@ -186,8 +186,8 @@ genrule(
             exit 1
         fi
 
-        # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary.
-        unzip -f ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java
+        # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
+        unzip -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db
@@ -296,6 +296,7 @@ daml_compile(
     srcs = glob(["source/getting-started/quickstart/template-root/**/*.daml"]),
     main_src = "source/getting-started/quickstart/template-root/daml/Main.daml",
     target = "1.1",
+    visibility = ["//language-support/scala/examples:__subpackages__"],
 )
 
 dar_to_java(

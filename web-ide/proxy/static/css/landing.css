@@ -66,3 +66,16 @@ a {
 a:visited {
     color: #5d86df;
 }
+
+.alert {
+    padding: 20px;
+    background-color: #f44336;
+    color: white;
+    opacity: 0.83;
+    transition: opacity 0.6s;
+    margin-bottom: 15px;
+}
+
+.no-show {
+    display:none
+}

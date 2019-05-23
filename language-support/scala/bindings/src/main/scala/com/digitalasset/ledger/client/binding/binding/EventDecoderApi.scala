@@ -39,6 +39,7 @@ abstract class EventDecoderApi(
     } yield
       Contract(
         Primitive.substContractId[Id, Nothing](ApiTypes.ContractId(createdEvent.contractId)),
-        tadt)
+        tadt,
+        createdEvent.agreementText)
   }
 }

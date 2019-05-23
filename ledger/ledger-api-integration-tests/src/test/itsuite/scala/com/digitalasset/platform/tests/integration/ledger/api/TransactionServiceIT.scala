@@ -69,8 +69,7 @@ class TransactionServiceIT
     with TestTemplateIds {
 
   override protected val config: Config =
-    Config
-      .defaultWithTimeProvider(TimeProviderType.WallClock)
+    Config.default.withTimeProvider(TimeProviderType.WallClock)
 
   override val timeLimit: Span = 300.seconds
 
@@ -116,7 +115,11 @@ class TransactionServiceIT
         val elemsToTake = 10L
 
         for {
-          _ <- insertCommands(getTrackerFlow(context), "cancellation-test", 14, config.getLedgerId)
+          _ <- insertCommands(
+            getTrackerFlow(context),
+            "cancellation-test",
+            14,
+            config.assertStaticLedgerId)
           transactions <- context.transactionClient
             .getTransactions(ledgerBegin, None, getAllContracts)
             .take(elemsToTake)
@@ -142,11 +145,15 @@ class TransactionServiceIT
           }
       }
 
-      "respond with empty stream if TransactionFilter is empty" in allFixtures { context =>
-        context.transactionClient
-          .getTransactions(ledgerBegin, None, TransactionFilter())
-          .runWith(Sink.seq)
-          .map(_ shouldBe empty)
+      "return INVALID_ARGUMENT if TransactionFilter is empty" in allFixtures { context =>
+        for {
+          error <- context.transactionClient
+            .getTransactions(ledgerBegin, None, TransactionFilter())
+            .runWith(Sink.seq)
+            .failed
+        } yield {
+          IsStatusException(Status.INVALID_ARGUMENT)(error)
+        }
       }
 
       "complete the stream by itself as soon as LedgerEnd is hit" in allFixtures { context =>
@@ -159,7 +166,7 @@ class TransactionServiceIT
             getTrackerFlow(context),
             "stream-completion-test",
             14,
-            config.getLedgerId)
+            config.assertStaticLedgerId)
           _ <- resultsF
         } yield {
           succeed // resultF would not complete unless the server terminates the connection
@@ -656,6 +663,25 @@ class TransactionServiceIT
           .map(_.getCreateArguments.fields shouldEqual expectedArgs)
       }
 
+      "expose the agreement text in CreatedEvents for templates with an explicit agreement text" in allFixtures {
+        c =>
+          createAgreement(c, "AgreementTextTest", party1, party2).map(
+            _.agreementText shouldBe Some(
+              s"'$party2' promise to pay the '$party1' on demand the sum of five pounds.")
+          )
+      }
+
+      "expose the default agreement text in CreatedEvents for templates with no explicit agreement text" in allFixtures {
+        c =>
+          val resultF = c.submitCreate(
+            "Creating dummy contract for default agreement text test",
+            templateIds.dummy,
+            List(RecordField("operator", party1.asParty)),
+            party1)
+
+          resultF.map(_.agreementText shouldBe Some(""))
+      }
+
       "accept exercising a well-authorized multi-actor choice" in allFixtures { c =>
         val List(operator, receiver, giver) = List(party1, party2, party3)
         val triProposalArg = mkTriProposalArg(operator, receiver, giver)
@@ -851,7 +877,7 @@ class TransactionServiceIT
       }
 
       "return NOT_FOUND if ledger Ids don't match" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.getLedgerId).getLedgerEnd.failed
+        newClient(context.transactionService, "not" + config.assertStaticLedgerId).getLedgerEnd.failed
           .map(IsStatusException(Status.NOT_FOUND))
 
       }
@@ -868,7 +894,7 @@ class TransactionServiceIT
               getTrackerFlow(context),
               "tree-provenance-by-id",
               1,
-              config.getLedgerId)
+              config.assertStaticLedgerId)
             firstTransaction <- context.transactionClient
               .getTransactions(beginOffset, None, transactionFilter)
               .runWith(Sink.head)
@@ -898,7 +924,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.getLedgerId)
+        newClient(context.transactionService, "not" + config.assertStaticLedgerId)
           .getTransactionById(transactionId, List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -967,7 +993,7 @@ class TransactionServiceIT
               getTrackerFlow(context),
               "flat-provenance-by-id",
               1,
-              config.getLedgerId)
+              config.assertStaticLedgerId)
             firstTransaction <- context.transactionClient
               .getTransactions(beginOffset, None, transactionFilter)
               .runWith(Sink.head)
@@ -997,7 +1023,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.getLedgerId)
+        newClient(context.transactionService, "not" + config.assertStaticLedgerId)
           .getFlatTransactionById(transactionId, List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1037,7 +1063,7 @@ class TransactionServiceIT
             getTrackerFlow(context),
             "tree provenance-by-event-id",
             1,
-            config.getLedgerId)
+            config.assertStaticLedgerId)
           tx <- context.transactionClient
             .getTransactions(beginOffset, None, transactionFilter)
             .runWith(Sink.head)
@@ -1082,7 +1108,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.getLedgerId)
+        newClient(context.transactionService, "not" + config.assertStaticLedgerId)
           .getTransactionByEventId("#42:0", List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1106,7 +1132,7 @@ class TransactionServiceIT
             getTrackerFlow(context),
             "flat-provenance-by-event-id",
             1,
-            config.getLedgerId)
+            config.assertStaticLedgerId)
           tx <- context.transactionClient
             .getTransactions(beginOffset, None, transactionFilter)
             .runWith(Sink.head)
@@ -1151,7 +1177,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + config.getLedgerId)
+        newClient(context.transactionService, "not" + config.assertStaticLedgerId)
           .getFlatTransactionByEventId("#42:0", List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1257,7 +1283,7 @@ class TransactionServiceIT
               getTrackerFlow(context),
               "cancellation-test-tree",
               commandsToSend,
-              config.getLedgerId)
+              config.assertStaticLedgerId)
             elems <- resultsF
           } yield (elems should have length elemsToTake)
         }
@@ -1320,7 +1346,7 @@ class TransactionServiceIT
               getTrackerFlow(context),
               "complete_test",
               noOfCommands,
-              config.getLedgerId)
+              config.assertStaticLedgerId)
             r2 <- context.transactionClient
               .getTransactionTrees(ledgerBegin, Some(ledgerEnd), transactionFilter)
               .runWith(Sink.seq)
@@ -1456,7 +1482,7 @@ class TransactionServiceIT
       prefix: String,
       commandsPerSection: Int,
       context: LedgerContext): Future[Done] = {
-    insertCommands(getTrackerFlow(context), prefix, commandsPerSection, config.getLedgerId)
+    insertCommands(getTrackerFlow(context), prefix, commandsPerSection, config.assertStaticLedgerId)
   }
 
   private def lastOffsetIn(secondSection: immutable.Seq[Transaction]): Option[LedgerOffset] = {

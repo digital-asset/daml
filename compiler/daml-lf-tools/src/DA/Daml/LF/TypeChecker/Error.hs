@@ -12,7 +12,6 @@ module DA.Daml.LF.TypeChecker.Error(
     ) where
 
 import DA.Pretty
-import Data.Tagged(untag)
 import qualified Data.Text as T
 
 import DA.Daml.LF.Ast
@@ -131,7 +130,7 @@ instance Show TemplatePart where
     TPObservers -> "observers"
     TPAgreement -> "agreement"
     TPKey -> "key"
-    TPChoice choice -> "choice " <> T.unpack (untag $ chcName choice)
+    TPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
 
 instance Pretty SerializabilityRequirement where
   pPrint = \case

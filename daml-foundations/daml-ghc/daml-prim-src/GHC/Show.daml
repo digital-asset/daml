@@ -23,97 +23,52 @@ import GHC.Types
 import GHC.Classes ()
 import DA.Types
 
--- | The `shows` functions return a function that prepends the
--- output 'String' to an existing 'String'.  This allows constant-time
--- concatenation of results using function composition.
+-- | `showS` should represent some text, and applying it to some argument
+-- should prepend the argument to the represented text.
 type ShowS = Text -> Text
 
--- | Conversion of values to readable 'String's.
+-- | Use the `Show` class for values that can be converted to a
+-- readable `Text` value.
 --
--- Derived instances of 'Show' have the following properties, which
--- are compatible with derived instances of 'Text.Read.Read':
+-- Derived instances of `Show` have the following properties:
 --
--- * The result of 'show' is a syntactically correct Haskell
---   expression containing only constants, given the fixity
---   declarations in force at the point where the type is declared.
---   It contains only the constructor names defined in the data type,
---   parentheses, and spaces.  When labelled constructor fields are
+-- * The result of `show` is a syntactically correct expression
+--   that only contains constants (given the fixity declarations in
+--   force at the point where the type is declared).
+--   It only contains the constructor names defined in the data type,
+--   parentheses, and spaces. When labelled constructor fields are
 --   used, braces, commas, field names, and equal signs are also used.
 --
 -- * If the constructor is defined to be an infix operator, then
---   'showsPrec' will produce infix applications of the constructor.
+--   `showsPrec` produces infix applications of the constructor.
 --
--- * the representation will be enclosed in parentheses if the
---   precedence of the top-level constructor in `x` is less than `d`
---   (associativity is ignored).  Thus, if `d` is `0` then the result
+-- * If the  precedence of the top-level constructor in `x` is less than `d`
+--   (associativity is ignored), the representation will be enclosed in
+--   parentheses. For example, if `d` is `0` then the result
 --   is never surrounded in parentheses; if `d` is `11` it is always
 --   surrounded in parentheses, unless it is an atomic expression.
 --
--- * If the constructor is defined using record syntax, then 'show'
+-- * If the constructor is defined using record syntax, then `show`
 --   will produce the record-syntax form, with the fields given in the
 --   same order as the original declaration.
---
--- For example, given the declarations
---
--- ```
--- infixr 5 :^:
--- data Tree a =  Leaf a  |  Tree a :^: Tree a
--- ```
---
--- the derived instance of 'Show' is equivalent to
---
--- ```
--- instance (Show a) => Show (Tree a) where
---   showsPrec d (Leaf m) = showParen (d > app_prec) $
---        showString "Leaf " . showsPrec (app_prec+1) m
---     where app_prec = 10
---
---   showsPrec d (u :^: v) = showParen (d > up_prec) $
---        showsPrec (up_prec+1) u .
---        showString " :^: "      .
---        showsPrec (up_prec+1) v
---     where up_prec = 5
--- ```
---
--- Note that right-associativity of `:^:` is ignored.  For example,
---
--- * `show (Leaf 1 :^: Leaf 2 :^: Leaf 3)` produces the string
---   `"Leaf 1 :^: (Leaf 2 :^: Leaf 3)"`.
 
 class  Show a  where
     {-# MINIMAL showsPrec | show #-}
 
-    -- | Convert a value to a readable `String`.
-    --
-    -- `showsPrec` should satisfy the law
-    --
-    -- ```
-    -- showsPrec d x r ++ s  ==  showsPrec d x (r ++ s)
-    -- ```
-    --
-    -- Derived instances of 'Text.Read.Read' and 'Show' satisfy the following:
-    --
-    -- * `(x,"")` is an element of
-    --   `(Text.Read.readsPrec d (showsPrec d x ""))`.
-    --
-    -- That is, `Text.Read.readsPrec` parses the string produced by
-    -- `showsPrec`, and delivers the value that `showsPrec` started with.
+    -- | Convert a value to a readable `Text` value. Unlike `show`,
+    -- `showsPrec` should satisfy the rule
+    -- `showsPrec d x r ++ s == showsPrec d x (r ++ s)`
 
     showsPrec : Int    -- ^ the operator precedence of the enclosing
                         -- context (a number from `0` to `11`).
                         -- Function application has precedence `10`.
-              -> a      -- ^ the value to be converted to a 'String'
+              -> a      -- ^ the value to be converted to a `Text`
               -> ShowS
 
-    -- | A specialised variant of 'showsPrec', using precedence context
-    -- zero, and returning an ordinary 'String'.
+    -- | Convert a value to a readable `Text` value.
     show      : a   -> Text
 
-    -- | The method 'showList' is provided to allow the programmer to
-    -- give a specialised way of showing lists of values.
-    -- For example, this is used by the predefined 'Show' instance of
-    -- the 'Char' type, where values of type 'String' should be shown
-    -- in double quotes, rather than between square brackets.
+    -- | Allows you to show lists of values.
     showList  : [a] -> ShowS
 
     showsPrec _ x s = show x ++ s

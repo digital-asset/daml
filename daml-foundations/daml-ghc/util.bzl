@@ -50,18 +50,20 @@ daml_ghc_compile_test = rule(
 def daml_ghc_integration_test(name, main_function):
     da_haskell_test(
         name = name,
-        srcs = ["src/DA/Test/GHC.hs"],
-        src_strip_prefix = "src",
+        srcs = ["test-src/DA/Test/GHC.hs"],
+        src_strip_prefix = "test-src",
         main_function = main_function,
         data = [
             "//daml-foundations/daml-ghc/package-database:package-db",
             "//compiler/scenario-service/server:scenario_service_jar",
-            "@jq//:bin",
+            "@jq_dev_env//:jq",
             ":tests",
             ":bond-trading",
         ],
         deps = [
-            ":daml-ghc-lib",
+            "//daml-foundations/daml-ghc/daml-compiler",
+            "//daml-foundations/daml-ghc/ghc-compiler",
+            "//daml-foundations/daml-ghc/ide",
             "//compiler/daml-lf-ast",
             "//compiler/daml-lf-proto",
             "//daml-lf/archive:daml_lf_haskell_proto",
@@ -96,6 +98,6 @@ def daml_ghc_integration_test(name, main_function):
             "time",
         ],
         visibility = ["//visibility:public"],
-        # TODO fix flakiness, see #990
+        # TODO fix flakiness, see #1306
         flaky = True,
     )

@@ -37,7 +37,6 @@ import com.digitalasset.ledger.api.v1.value.{
   Value,
   Variant
 }
-import com.digitalasset.platform.testing.LedgerBackend.SandboxInMemory
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
@@ -409,9 +408,7 @@ abstract class CommandTransactionChecks
         }
       }
 
-      // TODO test for all fixtures once <https://github.com/digital-asset/daml/issues/784> is fixed
-      "permit fetching a divulged contract" in forAllMatchingFixtures {
-        case TestFixture(SandboxInMemory, ctx) =>
+      "permit fetching a divulged contract" in allFixtures { ctx =>
         def pf(label: String, party: String) =
           RecordField(label, Some(Value(Value.Sum.Party(party))))
         // TODO currently we run multiple suites with the same sandbox, therefore we must generate
@@ -576,7 +573,7 @@ abstract class CommandTransactionChecks
                 .map(_.event)
                 .collect {
                   case Archived(ArchivedEvent(eventId, _, _, _)) => eventId
-                  case Created(CreatedEvent(eventId, _, _, _, _)) => eventId
+                  case Created(CreatedEvent(eventId, _, _, _, _, _)) => eventId
                 })
             .takeWithin(5.seconds) //TODO: work around as ledger end is broken. see DEL-3151
             .runWith(Sink.seq)
@@ -804,6 +801,14 @@ abstract class CommandTransactionChecks
                   RecordField(value = cid2.contractId.asContractId),
                   RecordField(value = textKeyKey(alice, "test-key-2"))))))
           )
+          // failing create when a maintainer is not a signatory
+          _ <- ctx.testingHelpers.failingCreate(
+            "CK-test-alice-create-maintainer-not-signatory",
+            alice,
+            templateIds.maintainerNotSignatory,
+            Record(fields = List(RecordField(value = alice.asParty), RecordField(value = bob.asParty))),
+            Code.INVALID_ARGUMENT,
+            "are not a subset of the signatories")
         } yield {
           succeed
         }
@@ -854,7 +859,7 @@ abstract class CommandTransactionChecks
 
       def newRequest(cmd: CreateAndExerciseCommand) = submitRequest
         .update(_.commands.commands := Seq[Command](Command(Command.Command.CreateAndExercise(cmd))))
-        .update(_.commands.ledgerId := config.getLedgerId)
+        .update(_.commands.ledgerId := config.assertStaticLedgerId)
 
       "process valid commands successfully" in allFixtures{ c =>
         val request = newRequest(validCreateAndExercise)

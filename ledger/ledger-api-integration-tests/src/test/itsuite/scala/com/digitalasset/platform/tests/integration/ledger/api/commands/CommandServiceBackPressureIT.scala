@@ -34,7 +34,7 @@ class CommandServiceBackPressureIT
   private def submitAndWaitRequest(
       ctx: LedgerContext,
       id: String = UUID.randomUUID().toString,
-      ledgerId: String = config.ledgerId.getOrElse("")) =
+      ledgerId: String = config.assertStaticLedgerId) =
     MockMessages.submitAndWaitRequest
       .update(
         _.commands.ledgerId := ledgerId,
@@ -44,7 +44,7 @@ class CommandServiceBackPressureIT
   private def submitRequest(
       ctx: LedgerContext,
       id: String = UUID.randomUUID().toString,
-      ledgerId: String = config.ledgerId.getOrElse("")) =
+      ledgerId: String = config.assertStaticLedgerId) =
     MockMessages.submitRequest
       .update(
         _.commands.ledgerId := ledgerId,

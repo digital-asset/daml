@@ -11,7 +11,7 @@ load(
     "//rules_daml:daml.bzl",
     "daml_compile",
 )
-load("@os_info//:os_info.bzl", "is_linux")
+load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 
 daml_compile(
     name = "MyMain",
@@ -25,34 +25,20 @@ daml_compile(
     target = "1.3",
 )
 
-genrule(
+dar_to_scala(
     name = "MyMain-codegen",
     srcs = [
-        ":MyMain",
-        ":MySecondMain",
-    ],
-    outs = ["MyMain-codegen-out"],
-    cmd = "$(execpath //language-support/scala/codegen:codegen-main) $(location :MyMain.dar)=com.digitalasset.sample $(location :MySecondMain.dar)=com.digitalasset.sample --output-directory=$@ --verbosity=2",
-    tools = [
         ":MyMain.dar",
         ":MySecondMain.dar",
-        "//language-support/scala/codegen:codegen-main",
     ],
-)
-
-genrule(
-    name = "MyMain-codegen.srcjar",
-    srcs = [":MyMain-codegen"],
-    outs = ["MyMain-codegen-out.srcjar"],
-    cmd = "$(execpath @local_jdk//:bin/jar) -cf $@ -C $(location :MyMain-codegen) .",
-    tools = [
-        "@local_jdk//:bin/jar",
-    ],
+    package_prefix = "com.digitalasset.sample",
+    srcjar_out = "MyMain.srcjar",
+    verbosity = 2,
 )
 
 da_scala_library(
     name = "daml-lf-codegen-sample-app",
-    srcs = ["MyMain-codegen-out.srcjar"] + glob(["src/main/**/*.scala"]),
+    srcs = [":MyMain.srcjar"] + glob(["src/main/**/*.scala"]),
     plugins = [
         # Plugins have to be specified as JARs.
         "//external:jar/org/spire_math/kind_projector_2_12",
@@ -110,6 +96,7 @@ test_dependencies = [
     "//3rdparty/jvm/org/scalaz:scalaz_core",
     "//language-support/scala/codegen-testing",
     "//language-support/scala/bindings",
+    "//ledger/participant-state",
     ":daml-lf-codegen-sample-app",
     ":daml-lf-codegen-sample-app-testing",
 ]

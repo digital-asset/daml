@@ -25,6 +25,7 @@ module DA.TextMap
 
 import Prelude hiding (lookup, null, filter, empty)
 import DA.Foldable qualified as Foldable
+import DA.Internal.Prelude (TextMap)
 import DA.List qualified as List
 import DA.Optional
 import DA.Traversable qualified as Traversable

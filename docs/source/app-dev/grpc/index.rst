@@ -29,7 +29,7 @@ Example project
 
 We have an example project demonstrating the use of the Ledger API with gRPC. To get the example project, ``PingPongGrpc``:
 
-#. Configure your machine to use the example by following the instructions at :ref:`setup-maven-project`.
+#. Configure your machine to use the example by following the instructions at :ref:`bindings-java-setup-maven`.
 #. Clone the `repository from GitHub <https://github.com/digital-asset/ex-java-bindings>`__. 
 #. Follow the `setup instructions in the README <https://github.com/digital-asset/ex-java-bindings/blob/master/README.rst#setting-up-the-example-projects>`__. Use ``examples.pingpong.grpc.PingPongGrpcMain`` as the main class.
 

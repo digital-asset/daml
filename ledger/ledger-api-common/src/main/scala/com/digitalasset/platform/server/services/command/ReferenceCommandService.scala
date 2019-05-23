@@ -31,7 +31,8 @@ import com.digitalasset.ledger.client.services.commands.{
   CommandTrackerFlow
 }
 import com.digitalasset.platform.server.api.ApiException
-import com.digitalasset.platform.server.api.validation.CommandServiceValidation
+import com.digitalasset.platform.server.api.services.grpc.GrpcCommandService
+import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ReferenceCommandService.LowLevelCommandServiceAccess
 import com.digitalasset.util.Ctx
 import com.digitalasset.util.akkastreams.MaxInFlight
@@ -203,14 +204,18 @@ class ReferenceCommandService private (
 
 object ReferenceCommandService {
 
-  def apply(configuration: Configuration, svcAccess: LowLevelCommandServiceAccess)(
+  def apply(
+      configuration: Configuration,
+      svcAccess: LowLevelCommandServiceAccess,
+      identifierResolver: IdentifierResolver)(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: ActorMaterializer,
       esf: ExecutionSequencerFactory
   ): CommandServiceGrpc.CommandService with BindableService with CommandServiceLogging =
-    new CommandServiceValidation(
+    new GrpcCommandService(
       new ReferenceCommandService(svcAccess, configuration),
-      configuration.ledgerId
+      configuration.ledgerId,
+      identifierResolver
     ) with CommandServiceLogging
 
   final case class Configuration(

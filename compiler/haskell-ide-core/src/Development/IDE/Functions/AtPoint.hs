@@ -16,6 +16,7 @@ import Development.IDE.Orphans()
 -- DAML compiler and infrastructure
 import Development.Shake
 import Development.IDE.UtilGHC
+import Development.IDE.Compat
 import Development.IDE.State.Shake
 import Development.IDE.State.RuleTypes
 import           Development.IDE.Types.Diagnostics
@@ -27,7 +28,6 @@ import           Development.IDE.Types.SpanInfo as SpanInfo
 import Avail
 import GHC
 import DynFlags
-import HieTypes
 import FastString
 import Name
 import Outputable hiding ((<>))
@@ -41,7 +41,7 @@ import qualified Data.Text as T
 -- | Locate the definition of the name at a given position.
 gotoDefinition
   :: IdeOptions
-  -> PackageDynFlags
+  -> HscEnv
   -> [SpanInfo]
   -> Position
   -> Action (Maybe Location)
@@ -86,7 +86,7 @@ atPoint tcs srcSpans pos = do
         Just name -> any (`isInfixOf` show name) ["==", "showsPrec"]
         Nothing -> False
 
-locationsAtPoint :: IdeOptions -> PackageDynFlags -> Position -> [SpanInfo] -> Action [Location]
+locationsAtPoint :: IdeOptions -> HscEnv -> Position -> [SpanInfo] -> Action [Location]
 locationsAtPoint IdeOptions{..} pkgState pos =
     fmap (map srcSpanToLocation) .
     mapMaybeM (getSpan . spaninfoSource) .

@@ -19,14 +19,21 @@ da_haskell_binary(
 
 genrule(
     name = "windows-installer",
-    srcs = ["//release:sdk-release-tarball.tar.gz"],
+    # daml-logo.ico was created with the following command:
+    # convert \
+    #   docs/theme/da_theme_skeleton/static/images/favicon/apple-touch-icon.png \
+    #   -define icon:auto-resize=64,48,32,16 release/windows-installer/daml-logo.ico
+    srcs = [
+        "//release:sdk-release-tarball.tar.gz",
+        ":daml-logo.ico",
+    ],
     outs = ["daml-sdk-installer.exe"],
     cmd = """
         set -eou pipefail
         rm -rf release-dir
         mkdir -p release-dir
         tar xf $(location //release:sdk-release-tarball.tar.gz) --strip-components=1 -C release-dir
-        $(location :windows-installer-gen) ./installer.nsi release-dir
+        $(location :windows-installer-gen) ./installer.nsi release-dir $(location :daml-logo.ico)
         $(location @makensis_dev_env//:makensis) ./installer.nsi
         cp ./daml-sdk-installer.exe $(location daml-sdk-installer.exe)
     """,

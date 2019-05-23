@@ -358,7 +358,7 @@ object ValueCoder {
 
           case proto.Value.SumCase.MAP =>
             val entries = ImmArray(protoValue.getMap.getEntriesList.asScala.map(entry =>
-              entry.getKey -> go(newNesting, entry.getValue)))
+              (entry.getKey) -> go(newNesting, entry.getValue)))
 
             val map = SortedLookupList
               .fromImmArray(entries)

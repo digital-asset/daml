@@ -136,6 +136,22 @@ dev_env_tool(
     win_tool = "msys2",
 )
 
+dev_env_tool(
+    name = "mvn_dev_env",
+    nix_include = ["bin/mvn"],
+    nix_label = "@mvn_nix",
+    nix_path = "bin/mvn",
+    tool = "mvn",
+    win_include = [
+        "bin",
+        "boot",
+        "conf",
+        "lib",
+    ],
+    win_path = "bin/mvn",
+    win_tool = "maven-3.6.1",
+)
+
 nixpkgs_package(
     name = "awk_nix",
     attribute_path = "gawk",
@@ -203,9 +219,7 @@ nix_ghc_deps = common_nix_file_deps + [
     "//nix:ghc.nix",
     "//nix:with-packages-wrapper.nix",
     "//nix:overrides/ghc-8.6.5.nix",
-    "//nix:overrides/c2hs-0.28.6.nix",
     "//nix:overrides/ghc-8.6.3-binary.nix",
-    "//nix:overrides/language-c-0.8.2.nix",
 ]
 
 # This is used to get ghc-pkg on Linux.
@@ -223,8 +237,8 @@ exports_files(glob(["lib/**/*"]))
 
 # Used by Darwin and Linux
 haskell_register_ghc_nixpkgs(
-    attribute_path = "ghcWithC2hs",
-    build_file = "@io_tweag_rules_haskell//haskell:ghc.BUILD",
+    attribute_path = "ghcStatic",
+    build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
 
     # -fexternal-dynamic-refs is required so that we produce position-independent
     # relocations against some functions (-fPIC alone isn’t sufficient).
@@ -238,6 +252,7 @@ haskell_register_ghc_nixpkgs(
         "-O1",
         "-fexternal-dynamic-refs",
         "-hide-package=ghc-boot-th",
+        "-hide-package=ghc-boot",
     ],
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
@@ -259,14 +274,29 @@ haskell_register_ghc_bindists(
 nixpkgs_package(
     name = "jq",
     attribute_path = "jq",
+    fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
 
+dev_env_tool(
+    name = "jq_dev_env",
+    nix_include = ["bin/jq"],
+    nix_label = "@jq",
+    nix_path = "bin/jq",
+    tool = "jq",
+    win_include = [
+        "jq.exe",
+    ],
+    win_path = "jq.exe",
+    win_tool = "jq-1.5",
+)
+
 nixpkgs_package(
     name = "mvn_nix",
     attribute_path = "mvn",
+    fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
@@ -399,26 +429,31 @@ bind(
 load("@ai_formation_hazel//:hazel.bzl", "hazel_custom_package_github", "hazel_custom_package_hackage", "hazel_default_extra_libs", "hazel_repositories")
 load("//hazel:packages.bzl", "core_packages", "packages")
 load("//bazel_tools:haskell.bzl", "add_extra_packages")
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
 
 # XXX: We do not have access to an integer-simple version of GHC on Windows.
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "15096280b3542d56d8df728d3bce9ea34141debd"
+HASKELL_LSP_COMMIT = "6e34a2193464dd49b09e223111c57a39c44fb1c7"
 
-HASKELL_LSP_HASH = "170de7aeb1da63198139a667c074a05f7ecd30017d54c78569a6aa1cc565be89"
+HASKELL_LSP_HASH = "5804143e94ede0f99962007f94e7f84268f220c05ac3aeae3dda3cdc186d077f"
 
 hazel_repositories(
-    core_packages = core_packages + {
-        "integer-simple": "0.1.1.1",
+    core_packages = dicts.add(
+        core_packages,
+        {
+            "integer-simple": "0.1.1.1",
 
-        # this is a core package, but not reflected in hazel/packages.bzl.
-        "haskeline": "0.7.4.2",
-        "Win32": "2.6.1.0",
-    },
+            # this is a core package, but not reflected in hazel/packages.bzl.
+            "haskeline": "0.7.4.2",
+            "Win32": "2.6.1.0",
+        },
+    ),
     exclude_packages = [
         "arx",
         "clock",
+        "ghc-paths",
         "streaming-commons",
         "wai-app-static",
         "zlib",
@@ -431,13 +466,16 @@ hazel_repositories(
         "text": {"integer-simple": use_integer_simple},
         "scientific": {"integer-simple": use_integer_simple},
     },
-    extra_libs = hazel_default_extra_libs + {
-        "z": "@com_github_madler_zlib//:z",
-        "ffi": "@com_github_digital_asset_daml//3rdparty/haskell/ffi_windows:ffi" if is_windows else "@libffi_nix//:ffi",
-    },
+    extra_libs = dicts.add(
+        hazel_default_extra_libs,
+        {
+            "z": "@com_github_madler_zlib//:z",
+            "ffi": "" if is_windows else "@libffi_nix//:ffi",
+        },
+    ),
     ghc_workspaces = {
-        "k8": "@io_tweag_rules_haskell_ghc-nixpkgs",
-        "darwin": "@io_tweag_rules_haskell_ghc-nixpkgs",
+        "k8": "@io_tweag_rules_haskell_ghc_nixpkgs",
+        "darwin": "@io_tweag_rules_haskell_ghc_nixpkgs",
         # although windows is not quite supported yet
         "x64_windows": "@io_tweag_rules_haskell_ghc_windows_amd64",
     },
@@ -445,10 +483,12 @@ hazel_repositories(
         extra =
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-            hazel_ghclibs("0.20190509.1", "0d7d89a3762ee95744dbbfd920b18850203d24ce174e72e9fa4210e5e6981069", "c7ff466aa699cad692800a391bfc034f225b163c0552c32d733534650846e87b") +
+            hazel_ghclibs("0.20190514.1", "e6c48de58c7dcdd96ea3a9481108ce0cd0a3e825621eac9b52d28ac38b05bc43", "e757de1bc7aafe782230e24964a841ac7cd793b97cfb5cdee90df183bda4ba0a") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
+            hazel_hackage("happy", "1.19.10", "22eb606c97105b396e1c7dc27e120ca02025a87f3e44d2ea52be6a653a52caed") +
             hazel_hackage("bytestring-nums", "0.3.6", "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd") +
+            hazel_hackage("semver", "0.3.4", "42dbdacb08f30ac8bf2f014981cb080737f793b89d57626cb7e2ab8c3d768e6b") +
             hazel_hackage(
                 "network",
                 "2.8.0.0",
@@ -457,7 +497,7 @@ hazel_repositories(
             ) +
             hazel_hackage("zip-archive", "0.3.3", "988adee77c806e0b497929b24d5526ea68bd3297427da0d0b30b99c094efc84d") +
             hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
-            hazel_hackage("rope-utf16-splay", "0.2.0.0", "83d1961bf55355da49a6b55d6f58d02483eff1f8e6df53f4dccdab1ac49e101d") +
+            hazel_hackage("rope-utf16-splay", "0.3.1.0", "cbf878098355441ed7be445466fcb72d45390073a298b37649d762de2a7f8cc6") +
             hazel_hackage("unix-compat", "0.5.1", "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52") +
             # This is a special version of Haskell LSP without GPL dependencies
             hazel_github(
@@ -474,6 +514,12 @@ hazel_repositories(
             ),
         pkgs = packages,
     ),
+)
+
+hazel_custom_package_hackage(
+    package_name = "ghc-paths",
+    build_file = "@ai_formation_hazel//third_party/haskell:BUILD.ghc-paths",
+    version = "0.1.0.9",
 )
 
 hazel_custom_package_hackage(

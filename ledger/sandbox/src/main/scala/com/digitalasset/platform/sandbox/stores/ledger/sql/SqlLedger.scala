@@ -9,30 +9,36 @@ import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
 import akka.{Done, NotUsed}
+import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.{ImmArray, ImmArrayCons}
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger.backend.api.v1.{
   RejectionReason,
-  SubmissionResult,
   TransactionId,
   TransactionSubmission
 }
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import com.digitalasset.platform.sandbox.config.LedgerIdGenerator
+import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
+import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   AlwaysReset,
   ContinueIfExists
 }
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{LedgerDao, PostgresLedgerDao}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
+  Contract,
+  LedgerDao,
+  PersistenceEntry,
+  PostgresLedgerDao
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   KeyHasher,
@@ -43,7 +49,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
 import org.slf4j.LoggerFactory
 
-import scala.annotation.tailrec
+import scala.collection.immutable
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -70,6 +76,7 @@ object SqlLedger {
       jdbcUrl: String,
       ledgerId: Option[String],
       timeProvider: TimeProvider,
+      acs: ActiveContractsInMemory,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists)(
@@ -92,6 +99,7 @@ object SqlLedger {
       ledgerId,
       timeProvider,
       startMode,
+      acs,
       initialLedgerEntries,
       queueDepth)
   }
@@ -121,15 +129,16 @@ private class SqlLedger(
   // the reason for modelling persistence as a reactive pipeline is to avoid having race-conditions between the
   // moving ledger-end, the async persistence operation and the dispatcher head notification
   private val (checkpointQueue, persistenceQueue): (
-      SourceQueueWithComplete[Long => LedgerEntry],
-      SourceQueueWithComplete[Long => LedgerEntry]) = createQueues()
+      SourceQueueWithComplete[Long => PersistenceEntry],
+      SourceQueueWithComplete[Long => PersistenceEntry]) = createQueues()
 
   private def createQueues(): (
-      SourceQueueWithComplete[Long => LedgerEntry],
-      SourceQueueWithComplete[Long => LedgerEntry]) = {
+      SourceQueueWithComplete[Long => PersistenceEntry],
+      SourceQueueWithComplete[Long => PersistenceEntry]) = {
 
-    val checkpointQueue = Source.queue[Long => LedgerEntry](1, OverflowStrategy.dropHead)
-    val persistenceQueue = Source.queue[Long => LedgerEntry](queueDepth, OverflowStrategy.dropNew)
+    val checkpointQueue = Source.queue[Long => PersistenceEntry](1, OverflowStrategy.dropHead)
+    val persistenceQueue =
+      Source.queue[Long => PersistenceEntry](queueDepth, OverflowStrategy.dropNew)
 
     implicit val ec: ExecutionContext = DEC
 
@@ -138,7 +147,7 @@ private class SqlLedger(
         q1Mat -> q2Mat
     } { implicit b => (s1, s2) =>
       import akka.stream.scaladsl.GraphDSL.Implicits._
-      val merge = b.add(MergePreferred[Long => LedgerEntry](1))
+      val merge = b.add(MergePreferred[Long => PersistenceEntry](1))
 
       s1 ~> merge.preferred
       s2 ~> merge.in(0)
@@ -172,8 +181,8 @@ private class SqlLedger(
       .toMat(Sink.ignore)(
         Keep.left[
           (
-              SourceQueueWithComplete[Long => LedgerEntry],
-              SourceQueueWithComplete[Long => LedgerEntry]),
+              SourceQueueWithComplete[Long => PersistenceEntry],
+              SourceQueueWithComplete[Long => PersistenceEntry]),
           Future[Done]])
       .run()
   }
@@ -205,7 +214,7 @@ private class SqlLedger(
 
   override def publishHeartbeat(time: Instant): Future[Unit] =
     checkpointQueue
-      .offer(_ => LedgerEntry.Checkpoint(time))
+      .offer(_ => PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(time)))
       .map(_ => ())(DEC) //this never pushes back, see createQueues above!
 
   override def publishTransaction(tx: TransactionSubmission): Future[SubmissionResult] =
@@ -225,35 +234,45 @@ private class SqlLedger(
               parties.toSet[String]
         }
 
+      val mappedLocalImplicitDisclosure = tx.blindingInfo.localImplicitDisclosure.map {
+        case (k, v) => SandboxEventIdFormatter.fromTransactionId(transactionId, k) -> v
+      }
+
       val recordTime = timeProvider.getCurrentTime
       if (recordTime.isAfter(tx.maximumRecordTime)) {
         // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
         // than the time window between LET and MRT allows for.
         // See https://github.com/digital-asset/daml/issues/987
-        LedgerEntry.Rejection(
-          recordTime,
-          tx.commandId,
-          tx.applicationId,
-          tx.submitter,
-          RejectionReason.TimedOut(
-            s"RecordTime $recordTime is after MaximumRecordTime ${tx.maximumRecordTime}")
+        PersistenceEntry.Rejection(
+          LedgerEntry.Rejection(
+            recordTime,
+            tx.commandId,
+            tx.applicationId,
+            tx.submitter,
+            RejectionReason.TimedOut(
+              s"RecordTime $recordTime is after MaximumRecordTime ${tx.maximumRecordTime}")
+          )
         )
       } else {
-        LedgerEntry.Transaction(
-          tx.commandId,
-          transactionId,
-          tx.applicationId,
-          tx.submitter,
-          tx.workflowId,
-          tx.ledgerEffectiveTime,
-          recordTime,
-          mappedTx,
-          mappedDisclosure
+        PersistenceEntry.Transaction(
+          LedgerEntry.Transaction(
+            tx.commandId,
+            transactionId,
+            tx.applicationId,
+            tx.submitter,
+            tx.workflowId,
+            tx.ledgerEffectiveTime,
+            recordTime,
+            mappedTx,
+            mappedDisclosure
+          ),
+          mappedLocalImplicitDisclosure,
+          tx.blindingInfo.globalImplicitDisclosure
         )
       }
     }
 
-  private def enqueue(f: Long => LedgerEntry): Future[SubmissionResult] = {
+  private def enqueue(f: Long => PersistenceEntry): Future[SubmissionResult] = {
     persistenceQueue
       .offer(f)
       .transform {
@@ -301,6 +320,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       initialLedgerId: Option[String],
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
+      acs: ActiveContractsInMemory,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int)(implicit mat: Materializer): Future[SqlLedger] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
@@ -310,9 +330,9 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       case AlwaysReset =>
         for {
           _ <- reset()
-          ledgerId <- initialize(initialLedgerId, initialLedgerEntries)
+          ledgerId <- initialize(initialLedgerId, acs, initialLedgerEntries)
         } yield ledgerId
-      case ContinueIfExists => initialize(initialLedgerId, initialLedgerEntries)
+      case ContinueIfExists => initialize(initialLedgerId, acs, initialLedgerEntries)
     }
 
     for {
@@ -326,31 +346,11 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
 
   private def initialize(
       initialLedgerId: Option[String],
+      acs: ActiveContractsInMemory,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Future[String] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
     // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
-    @tailrec
-    def processInitialLedgerEntries(
-        prevResult: Future[Unit],
-        ledgerEnd: Long,
-        entries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Future[Unit] =
-      entries match {
-        case ImmArray() =>
-          prevResult
-        case ImmArrayCons(LedgerEntryWithLedgerEndIncrement(entry, increment), entries) =>
-          processInitialLedgerEntries(
-            prevResult.flatMap { _ =>
-              ledgerDao
-                .storeLedgerEntry(ledgerEnd, ledgerEnd + increment, entry)
-                .map { _ =>
-                  ()
-                }(DEC)
-            }(DEC),
-            ledgerEnd + increment,
-            entries
-          )
-      }
 
     initialLedgerId match {
       case Some(initialId) =>
@@ -373,9 +373,28 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
                 logger.info(
                   s"Initializing ledger with ${initialLedgerEntries.length} ledger entries")
               }
-              processInitialLedgerEntries(doInit(initialId), 0, initialLedgerEntries).map { _ =>
-                initialId
-              }(DEC)
+
+              val contracts = acs.contracts
+                .map(f => Contract.fromActiveContract(f._1, f._2))
+                .to[collection.immutable.Seq]
+              val initialLedgerEnd = 0L
+              val entriesWithOffset = initialLedgerEntries.foldLeft(
+                (initialLedgerEnd, immutable.Seq.empty[(Long, LedgerEntry)]))((acc, le) => {
+                val offset = acc._1
+                val seq = acc._2
+                (offset + le.increment, seq :+ offset -> le.entry)
+              })
+
+              @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
+              implicit val ec = DEC
+              for {
+                _ <- doInit(initialId)
+                _ <- ledgerDao.storeInitialState(
+                  contracts,
+                  entriesWithOffset._2,
+                  entriesWithOffset._1)
+              } yield { initialId }
+
           }(DEC)
 
       case None =>

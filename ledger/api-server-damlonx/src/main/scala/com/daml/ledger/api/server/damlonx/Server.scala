@@ -26,7 +26,7 @@ import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 
 object Server {
@@ -97,7 +97,7 @@ object Server {
     val transactionService =
       DamlOnXTransactionService.create(ledgerId, indexService, identifierResolver)
 
-    val identityService = LedgerIdentityServiceImpl(ledgerId)
+    val identityService = LedgerIdentityServiceImpl(() => Future.successful(ledgerId))
 
     // FIXME(JM): hard-coded values copied from SandboxConfig.
     val commandService = ReferenceCommandService(
@@ -123,7 +123,8 @@ object Server {
         () => commandCompletionService.completionEnd(CompletionEndRequest(ledgerId)),
         transactionService.getTransactionById,
         transactionService.getFlatTransactionById
-      )
+      ),
+      identifierResolver
     )
 
     val packageService = DamlOnXPackageService(indexService, ledgerId)
@@ -145,6 +146,7 @@ object Server {
       identityService,
       packageService,
       timeService,
+      configurationService,
       reflectionService
     )
   }
@@ -197,7 +199,9 @@ final class Server private (
     logger.info("Shutting down server...")
     server.shutdownNow()
     assume(server.awaitTermination(10, TimeUnit.SECONDS))
-    serverEventLoopGroup.shutdownGracefully().await(10L, TimeUnit.SECONDS)
+    serverEventLoopGroup
+      .shutdownGracefully(0, 0, TimeUnit.SECONDS)
+      .await(10, TimeUnit.SECONDS)
     serverEsf.close()
   }
 }

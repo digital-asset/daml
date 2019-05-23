@@ -71,6 +71,7 @@ da_scala_test_suite(
         ],
         exclude = testing_utils,
     ),
+    scalacopts = ["-Xsource:2.13"],
     deps = [
         ":codegen-testing",
         ":codegen-testing-testing",

@@ -7,6 +7,7 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.Node
@@ -14,7 +15,6 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId}
 import com.digitalasset.ledger.backend.api.v1.{
   RejectionReason,
-  SubmissionResult,
   TransactionId,
   TransactionSubmission
 }

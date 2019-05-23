@@ -7,7 +7,7 @@
 # docker build --rm -t digitalasset/daml-webide-proxy:latest
 
 
-FROM node:8.15-alpine
+FROM node:8.16-alpine
 
 RUN mkdir -p /webide-proxy/src
 COPY src /webide-proxy/src/

@@ -5,7 +5,7 @@ package com.daml.ledger.rxjava.grpc.helpers
 
 import java.time.Instant
 import java.util
-import java.util.Collections
+import java.util.{Collections, Optional}
 
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.testkit.services.TransactionServiceImpl
@@ -183,13 +183,27 @@ object TransactionGenerator {
   val createdEventGen: Gen[(Created, data.CreatedEvent)] = for {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
+    agreementText <- Gen.option(Gen.asciiStr)
     (scalaTemplateId, javaTemplateId) <- identifierGen
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
     parties <- Gen.listOf(nonEmptyId)
   } yield
     (
-      Created(CreatedEvent(eventId, contractId, Some(scalaTemplateId), Some(scalaRecord), parties)),
-      new data.CreatedEvent(parties.asJava, eventId, javaTemplateId, contractId, javaRecord)
+      Created(
+        CreatedEvent(
+          eventId,
+          contractId,
+          Some(scalaTemplateId),
+          Some(scalaRecord),
+          parties,
+          agreementText = agreementText)),
+      new data.CreatedEvent(
+        parties.asJava,
+        eventId,
+        javaTemplateId,
+        contractId,
+        javaRecord,
+        agreementText.map(Optional.of[String]).getOrElse(Optional.empty()))
     )
 
   val archivedEventGen: Gen[(Archived, data.ArchivedEvent)] = for {

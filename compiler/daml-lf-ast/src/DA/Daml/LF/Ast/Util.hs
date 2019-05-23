@@ -6,17 +6,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.Ast.Util(module DA.Daml.LF.Ast.Util) where
 
-import Data.Tagged
 import Data.Maybe
 import qualified Data.Text as T
 import           Control.Lens
 import           Control.Lens.Ast
+import           Data.Functor.Foldable
 import qualified Data.Graph as G
 import           Data.List.Extra (nubSort)
 import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Optics
+import DA.Daml.LF.Ast.Recursive
 
 dvalName :: DefValue -> ExprValName
 dvalName = fst . dvalBinder
@@ -142,8 +143,8 @@ mkAnds (x:xs) = mkAnd x $ mkAnds xs
 alpha, beta :: TypeVarName
 -- NOTE(MH): We want to avoid shadowing variables in the environment. That's
 -- what the weird names are for.
-alpha = Tagged "::alpha::"
-beta  = Tagged "::beta::"
+alpha = TypeVarName "::alpha::"
+beta  = TypeVarName "::beta::"
 
 tAlpha, tBeta :: Type
 tAlpha = TVar alpha
@@ -176,7 +177,7 @@ pattern TScenario typ = TApp (TBuiltin BTScenario) typ
 pattern TContractId typ = TApp (TBuiltin BTContractId) typ
 
 pattern TMapEntry :: Type -> Type
-pattern TMapEntry a = TTuple [(Tagged "key", TText), (Tagged "value", a)]
+pattern TMapEntry a = TTuple [(FieldName "key", TText), (FieldName "value", a)]
 
 pattern TConApp :: Qualified TypeConName -> [Type] -> Type
 pattern TConApp tcon targs <- (view (leftSpine _TApp) -> (TCon tcon, targs))
@@ -250,4 +251,10 @@ partitionDefinitions = foldr f ([], [], [])
 -- | This is the analogue of GHC’s moduleNameString for the LF
 -- `ModuleName` type.
 moduleNameString :: ModuleName -> T.Text
-moduleNameString = T.intercalate "." . unTagged
+moduleNameString = T.intercalate "." . unModuleName
+
+-- | Remove all location information from an expression.
+removeLocations :: Expr -> Expr
+removeLocations = cata $ \case
+    ELocationF _loc e -> e
+    b -> embed b

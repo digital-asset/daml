@@ -23,7 +23,11 @@ import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{Contract, PostgresLedgerDao}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
+  Contract,
+  PersistenceEntry,
+  PostgresLedgerDao
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   KeyHasher,
@@ -69,6 +73,8 @@ class PostgresDaoSpec
 
   private val alice = Party.assertFromString("Alice")
   private val bob = Party.assertFromString("Bob")
+  private val someValueText = ValueText("some text")
+  private val agreement = "agreement"
 
   "Postgres Ledger DAO" should {
 
@@ -82,8 +88,8 @@ class PostgresDaoSpec
           Ref.QualifiedName(
             Ref.ModuleName.assertFromString("moduleName"),
             Ref.DottedName.assertFromString("name"))),
-        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some text")),
-        "agreement"
+        VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
+        agreement
       )
       val keyWithMaintainers = KeyWithMaintainers(
         VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key")),
@@ -96,6 +102,7 @@ class PostgresDaoSpec
         "trId1",
         "workflowId",
         Set(alice, bob),
+        Map(alice -> "trId1", bob -> "trId1"),
         contractInstance,
         Some(keyWithMaintainers)
       )
@@ -126,7 +133,16 @@ class PostgresDaoSpec
 
       for {
         result1 <- ledgerDao.lookupActiveContract(absCid)
-        _ <- ledgerDao.storeLedgerEntry(offset, offset + 1, transaction)
+        _ <- ledgerDao.storeLedgerEntry(
+          offset,
+          offset + 1,
+          PersistenceEntry.Transaction(
+            transaction,
+            Map.empty,
+            Map(
+              absCid -> Set(Ref.Party.assertFromString("Alice"), Ref.Party.assertFromString("Bob")))
+          )
+        )
         result2 <- ledgerDao.lookupActiveContract(absCid)
       } yield {
         result1 shouldEqual None
@@ -140,11 +156,11 @@ class PostgresDaoSpec
 
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
-        _ <- ledgerDao.storeLedgerEntry(offset, offset + 1, checkpoint)
+        _ <- ledgerDao.storeLedgerEntry(offset, offset + 1, PersistenceEntry.Checkpoint(checkpoint))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
-        entry shouldEqual (Some(checkpoint))
+        entry shouldEqual Some(checkpoint)
         endingOffset shouldEqual (startingOffset + 1)
       }
     }
@@ -176,7 +192,7 @@ class PostgresDaoSpec
 
         val resultF = for {
           startingOffset <- ledgerDao.lookupLedgerEnd()
-          _ <- ledgerDao.storeLedgerEntry(offset, offset + 1, rejection)
+          _ <- ledgerDao.storeLedgerEntry(offset, offset + 1, PersistenceEntry.Rejection(rejection))
           entry <- ledgerDao.lookupLedgerEntry(offset)
           endingOffset <- ledgerDao.lookupLedgerEnd()
         } yield {
@@ -198,8 +214,8 @@ class PostgresDaoSpec
           Ref.QualifiedName(
             Ref.ModuleName.assertFromString("moduleName"),
             Ref.DottedName.assertFromString("name"))),
-        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some text")),
-        "agreement"
+        VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
+        agreement
       )
 
       val keyWithMaintainers = KeyWithMaintainers(
@@ -213,6 +229,7 @@ class PostgresDaoSpec
         "trId2",
         "workflowId",
         Set(alice, bob),
+        Map(alice -> "trId2", bob -> "trId2"),
         contractInstance,
         Some(keyWithMaintainers)
       )
@@ -243,7 +260,10 @@ class PostgresDaoSpec
 
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
-        _ <- ledgerDao.storeLedgerEntry(offset, offset + 1, transaction)
+        _ <- ledgerDao.storeLedgerEntry(
+          offset,
+          offset + 1,
+          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
@@ -265,8 +285,8 @@ class PostgresDaoSpec
         val let = Instant.now
         val contractInstance = ContractInst(
           templateId,
-          VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some text")),
-          "agreement"
+          VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
+          agreement
         )
         val contract = Contract(
           absCid,
@@ -274,6 +294,7 @@ class PostgresDaoSpec
           txId,
           "workflowId",
           Set(alice, bob),
+          Map(alice -> txId, bob -> txId),
           contractInstance,
           None
         )
@@ -343,13 +364,23 @@ class PostgresDaoSpec
       def storeCreateTransaction() = {
         val offset = nextOffset()
         val t = genCreateTransaction(offset)
-        ledgerDao.storeLedgerEntry(offset, offset + 1, t).map(_ => ())
+        ledgerDao
+          .storeLedgerEntry(
+            offset,
+            offset + 1,
+            PersistenceEntry.Transaction(t, Map.empty, Map.empty))
+          .map(_ => ())
       }
 
       def storeExerciseTransaction(targetCid: AbsoluteContractId) = {
         val offset = nextOffset()
         val t = genExerciseTransaction(offset, targetCid)
-        ledgerDao.storeLedgerEntry(offset, offset + 1, t).map(_ => ())
+        ledgerDao
+          .storeLedgerEntry(
+            offset,
+            offset + 1,
+            PersistenceEntry.Transaction(t, Map.empty, Map.empty))
+          .map(_ => ())
       }
 
       val sumSink = Sink.fold[Int, Int](0)(_ + _)

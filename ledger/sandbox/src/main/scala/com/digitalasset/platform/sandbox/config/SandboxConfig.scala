@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.config
 import java.io.File
 
 import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 
 import scala.concurrent.duration._
@@ -29,7 +30,8 @@ final case class SandboxConfig(
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     ledgerIdMode: LedgerIdMode,
-    jdbcUrl: Option[String]
+    jdbcUrl: Option[String],
+    eagerPackageLoading: Boolean
 )
 
 final case class CommandConfiguration(
@@ -45,7 +47,7 @@ object SandboxConfig {
 
   val DefaultPort = 6865
 
-  def default: SandboxConfig = {
+  def default: SandboxConfig =
     SandboxConfig(
       None,
       DefaultPort,
@@ -55,10 +57,10 @@ object SandboxConfig {
       defaultCommandConfig,
       tlsConfig = None,
       scenario = None,
-      ledgerIdMode = LedgerIdMode.Random,
-      jdbcUrl = None
+      ledgerIdMode = LedgerIdMode.Dynamic(),
+      jdbcUrl = None,
+      eagerPackageLoading = false
     )
-  }
 
   lazy val defaultCommandConfig =
     CommandConfiguration(

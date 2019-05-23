@@ -13,18 +13,30 @@ import SdkVersion
 
 main :: IO ()
 main = do
-    [installerFile, sdkDir] <- getArgs
-    writeFile installerFile $ nsis $ installer sdkDir
+    [installerFile, sdkDir, logo] <- getArgs
+    writeFile installerFile $ nsis $ installer sdkDir logo
 
-installer :: FilePath -> Action SectionId
-installer sdkDir = do
-    name "DAML SDK installer"
+installer :: FilePath -> FilePath -> Action SectionId
+installer sdkDir logo = do
+    name "DAML SDK"
     outFile "daml-sdk-installer.exe"
+    installIcon (fromString logo)
     requestExecutionLevel User
+    unsafeInjectGlobal "!insertmacro MUI_PAGE_WELCOME"
+    page InstFiles
+    page $ Finish finishOptions
+        { finLinkText = "Open the DAML Quickstart guide"
+        , finLink = "https://docs.daml.com/getting-started/quickstart.html"
+        }
     section "" [] $ do
         -- We use PLUGINSDIR as an easy way to get a temporary directory
         -- that nsis will cleanup automatically.
         unsafeInject "InitPluginsDir"
+        iff_ (fileExists "$APPDATA/daml") $ do
+            answer <- messageBox [MB_YESNO] "DAML SDK is already installed. Do you want to remove it?"
+            iff (answer %== "YES")
+                (rmdir [Recursive] "$APPDATA/daml")
+                (abort "Existing installation detected.")
         let dir = "$PLUGINSDIR" </> "daml-sdk-" <> sdkVersion
         setOutPath (fromString dir)
         file [Recursive] (fromString (sdkDir <> "\\*.*"))

@@ -76,16 +76,16 @@ class TlsIT
           Some(privateKeyFilePath),
           Some(trustCertCollectionFilePath))))
 
-  private lazy val sandboxApplication = SandboxApplication(config)
+  private lazy val sandboxServer = SandboxServer(config)
 
   private lazy val clientF = LedgerClient.singleHost(
     "localhost",
-    sandboxApplication.port,
+    sandboxServer.port,
     tlsEnabledConfig
   )
 
-  override protected lazy val suiteResource: Resource[Channel] = new SandboxServerResource(
-    sandboxApplication)
+  override protected lazy val suiteResource: Resource[Channel] =
+    new SandboxServerResource(config)
 
   "A TLS-enabled server" should {
 
@@ -94,7 +94,7 @@ class TlsIT
         LedgerClient
           .singleHost(
             "localhost",
-            sandboxApplication.port,
+            sandboxServer.port,
             tlsEnabledConfig.copy(sslContext = None)
           )
           .flatMap { c =>

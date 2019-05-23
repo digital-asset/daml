@@ -9,6 +9,7 @@ da_haskell_library(
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
         "base",
+        "bytestring",
         "text",
         "vector",
         "containers",
@@ -16,6 +17,9 @@ da_haskell_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//daml-lf/archive:daml_lf_haskell_proto",
         "//ledger-api/grpc-definitions:ledger-api-haskellpb",
         "//nix/third-party/gRPC-haskell:grpc-haskell",
     ],
@@ -30,6 +34,27 @@ da_haskell_binary(
         "extra",
         "random",
         "text",
+        "uuid",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/hs/bindings:hs-ledger",
+    ],
+)
+
+da_haskell_binary(
+    name = "nim",
+    srcs = glob(["examples/nim-console/src/*.hs"]),
+    compiler_flags = [],
+    hazel_deps = [
+        "ansi-terminal",
+        "base",
+        "containers",
+        "extra",
+        "haskeline",
+        "random",
+        "text",
+        "transformers",
         "uuid",
     ],
     visibility = ["//visibility:public"],
@@ -57,10 +82,11 @@ da_haskell_test(
         "directory",
         "extra",
         "process",
-        "split",
         "tasty",
         "tasty-hunit",
         "text",
+        "random",
+        "uuid",
     ],
     main_function = "DA.Ledger.Tests.main",
     src_strip_prefix = "test",

@@ -7,6 +7,7 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.testing.utils.Resource
+import com.digitalasset.platform.common.LedgerIdMode
 import com.typesafe.config.{ConfigFactory, ConfigObject}
 
 import scala.collection.JavaConverters._
@@ -47,7 +48,7 @@ class MultiRemoteServerResource(val mapping: Map[Party, RemoteServerResource],
         server.setup()
         server.value match {
           case PlatformChannels(channel) =>
-            LedgerContext.SingleChannelContext(channel, None, packages.keys)
+            LedgerContext.SingleChannelContext(channel, LedgerIdMode.Dynamic(), packages.keys)
         }}},
         defaultParty,
         _esf)

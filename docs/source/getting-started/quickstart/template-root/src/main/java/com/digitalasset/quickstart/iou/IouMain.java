@@ -7,8 +7,6 @@ import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.LedgerClient;
 import com.daml.ledger.rxjava.PackageClient;
 import com.daml.ledger.javaapi.data.*;
-import com.digitalasset.daml_lf.DamlLf;
-import com.digitalasset.daml_lf.DamlLf1;
 import com.digitalasset.quickstart.model.iou.Iou;
 import com.digitalasset.quickstart.model.iou.Iou_Transfer;
 import com.google.common.collect.BiMap;
@@ -70,7 +68,7 @@ public class IouMain {
                 .blockingForEach(response -> {
                     response.getOffset().ifPresent(offset -> acsOffset.set(new LedgerOffset.Absolute(offset)));
                     response.getCreatedEvents().stream()
-                            .map(e -> Iou.Contract.fromIdAndRecord(e.getContractId(), e.getArguments()))
+                            .map(Iou.Contract::fromCreatedEvent)
                             .forEach(contract -> {
                                 long id = idCounter.getAndIncrement();
                                 contracts.put(id, contract.data);
@@ -85,7 +83,7 @@ public class IouMain {
                         if (event instanceof CreatedEvent) {
                             CreatedEvent createdEvent = (CreatedEvent) event;
                             long id = idCounter.getAndIncrement();
-                            Iou.Contract contract = Iou.Contract.fromIdAndRecord(createdEvent.getContractId(), createdEvent.getArguments());
+                            Iou.Contract contract = Iou.Contract.fromCreatedEvent(createdEvent);
                             contracts.put(id, contract.data);
                             idMap.put(id, contract.id);
                         } else if (event instanceof ArchivedEvent) {

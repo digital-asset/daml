@@ -3,12 +3,13 @@
 
 package com.digitalasset.platform.sandbox.config
 
+import com.daml.ledger.participant.state.index.v1.PackagesService
 import com.digitalasset.platform.sandbox.cli.Cli
 import com.digitalasset.platform.sandbox.damle.SandboxTemplateStore
 
 case class SandboxContext(
     config: SandboxConfig,
-    sandboxTemplateStore: SandboxTemplateStore,
+    packageService: PackagesService,
     packageContainer: DamlPackageContainer)
 
 object SandboxContext {
@@ -16,7 +17,7 @@ object SandboxContext {
     Cli.parse(args).map(fromConfig)
 
   def fromConfig(config: SandboxConfig): SandboxContext = {
-    val ts = new SandboxTemplateStore(config.damlPackageContainer)
+    val ts = SandboxTemplateStore(config.damlPackageContainer)
     SandboxContext(config, ts, config.damlPackageContainer)
   }
 

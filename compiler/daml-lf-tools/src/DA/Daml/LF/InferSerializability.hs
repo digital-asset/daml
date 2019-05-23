@@ -16,8 +16,8 @@ import           Data.Semigroup.FixedPoint (leastFixedPointBy)
 import DA.Daml.LF.Ast
 import DA.Daml.LF.TypeChecker.Serializability (serializabilityConditionsDataType)
 
-inferModule :: World -> Module -> Either String Module
-inferModule world0 mod0 = do
+inferModule :: World -> Version -> Module -> Either String Module
+inferModule world0 version mod0 = do
   let modName = moduleName mod0
   let dataTypes = moduleDataTypes mod0
   let templates1 = NM.namesSet (moduleTemplates mod0)
@@ -25,7 +25,7 @@ inferModule world0 mod0 = do
         [ (dataTypeCon dataType, serializable, deps)
         | dataType <- NM.toList dataTypes
         , let (serializable, deps) =
-                case serializabilityConditionsDataType world0 (Just (modName, templates1)) dataType of
+                case serializabilityConditionsDataType world0 version (Just (modName, templates1)) dataType of
                   Left _ -> (False, [])
                   Right deps0 -> (True, HS.toList deps0)
         ]
@@ -42,6 +42,6 @@ inferModule world0 mod0 = do
 inferPackage :: [(PackageId, Package)] -> Package -> Either String Package
 inferPackage pkgDeps (Package version mods0) = do
       let infer1 (mods1, world0) mod0 = do
-            mod1 <- inferModule world0 mod0
+            mod1 <- inferModule world0 version mod0
             pure (NM.insert mod1 mods1, extendWorldSelf mod1 world0)
       Package version . fst <$> foldlM infer1 (NM.empty, initWorld pkgDeps version) mods0

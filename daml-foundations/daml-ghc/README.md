@@ -25,8 +25,8 @@ bazel build //daml-foundations/daml-ghc:daml-ghc-shake-test-ci
 When working on the compiler:
 
 ```
-da-ghcid //daml-foundations/daml-ghc:daml-ghc-test-newest --reload=daml-foundations/daml-ghc/tests --test=":main --pattern="
-bazel run //daml-foundations/daml-ghc:daml-ghc-test-newest -- --pattern=
+da-ghcid //daml-foundations/daml-ghc:daml-ghc-test-dev --reload=daml-foundations/daml-ghc/tests --test=":main --pattern="
+bazel run //daml-foundations/daml-ghc:daml-ghc-test-dev -- --pattern=
 bazel run damlc -- compile $PWD/MyDaml12File.daml
 ```
 
@@ -34,7 +34,7 @@ When working on the IDE via the test suite:
 
 ```
 bazel run //daml-foundations/daml-ghc:daml-ghc-shake-test-ci -- --pattern=
-da-ghcid daml-foundations/daml-ghc/src/DA/Test/ShakeIdeClient.hs --test=":main --pattern="
+da-ghcid daml-foundations/daml-ghc/test-src/DA/Test/ShakeIdeClient.hs --test=":main --pattern="
 ```
 
 The above commands do not execute scenarios. To do that, use a command like
@@ -171,7 +171,7 @@ bazel build //daml-foundations/daml-ghc/package-database:package-db
 and the daml-prim.dalf for the daml-prim packge with
 
 ```
-bazel build //daml-foundations/daml-ghc/package-database:daml-prim.dalf
+bazel build //daml-foundations/daml-ghc/package-database:daml-prim-1.dev
 ```
 
 ## The `daml-blessed` tag

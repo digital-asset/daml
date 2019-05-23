@@ -47,8 +47,8 @@ class BasicPrimitiveTypesSpec
           "text_field" : "Hey",
           "bool_field" : true,
           "party_field" : "Bob",
-          "date_field" : 18314,
-          "time_field" : 1582373594000000
+          "date_field" : "2020-02-22",
+          "time_field" : "2020-02-22T12:13:14Z"
         }
       """,
       """
@@ -59,8 +59,8 @@ class BasicPrimitiveTypesSpec
           "text_field" : "Hey",
           "bool_field" : true,
           "party_field" : "Bob",
-          "date_field" : 2932896,
-          "time_field" : 253402300799000000
+          "date_field" : "9999-12-31",
+          "time_field" : "9999-12-31T23:59:59Z"
         }
       """,
       """
@@ -71,8 +71,8 @@ class BasicPrimitiveTypesSpec
           "text_field" : "Hey",
           "bool_field" : true,
           "party_field" : "Bob",
-          "date_field" : -719162,
-          "time_field" : -62135596800000000
+          "date_field" : "0001-01-01",
+          "time_field" : "0001-01-01T00:00:00Z"
         }
       """
     ).traverseU(parse)

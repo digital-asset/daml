@@ -1,39 +1,43 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
+load("@os_info//:os_info.bzl", "is_windows")
+
+depends = [
+    "aeson",
+    "base",
+    "binary",
+    "bytestring",
+    "containers",
+    "deepseq",
+    "directory",
+    "either",
+    "extra",
+    "filepath",
+    "hashable",
+    "haskell-lsp",
+    "haskell-lsp-types",
+    "mtl",
+    "pretty",
+    "safe-exceptions",
+    "shake",
+    "stm",
+    "syb",
+    "text",
+    "time",
+    "transformers",
+    "uniplate",
+    "unordered-containers",
+    "uri-encode",
+]
 
 da_haskell_library(
     name = "haskell-ide-core",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
-        "aeson",
-        "base",
-        "binary",
-        "bytestring",
-        "containers",
-        "deepseq",
-        "directory",
-        "either",
-        "extra",
-        "filepath",
+    hazel_deps = depends + [
         "ghc-lib",
         "ghc-lib-parser",
-        "hashable",
-        "haskell-lsp",
-        "haskell-lsp-types",
-        "mtl",
-        "pretty",
-        "safe-exceptions",
-        "shake",
-        "stm",
-        "syb",
-        "text",
-        "time",
-        "transformers",
-        "uniplate",
-        "unordered-containers",
-        "uri-encode",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
@@ -41,3 +45,41 @@ da_haskell_library(
         "//libs-haskell/prettyprinter-syntax",
     ],
 )
+
+da_haskell_library(
+    name = "haskell-ide-core-public",
+    srcs = glob(["src/**/*.hs"]),
+    compiler_flags = ["-DGHC_STABLE"],
+    hazel_deps = depends + [
+        "ghc",
+        "ghc-boot",
+        "ghc-boot-th",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/prettyprinter-syntax",
+    ],
+)
+
+da_haskell_binary(
+    name = "haskell-ide-core-demo",
+    srcs = glob(["test/**/*.hs"]),
+    hazel_deps = [
+        "base",
+        "containers",
+        "extra",
+        "filepath",
+        "ghc-paths",
+        "ghc",
+        "shake",
+        "text",
+    ],
+    main_function = "Demo.main",
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        "haskell-ide-core-public",
+        "//libs-haskell/prettyprinter-syntax",
+    ],
+) if not is_windows else None  # Disable on Windows until ghc-paths is fixed upstream

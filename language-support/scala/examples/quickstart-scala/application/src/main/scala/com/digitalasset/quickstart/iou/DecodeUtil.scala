@@ -13,7 +13,7 @@ object DecodeUtil {
     for {
       event <- transaction.events
       created <- event.event.created.toList
-      a <- decodeCreated(created)
+      a <- decodeCreated(created).toList
     } yield a
 
   def decodeCreated[A <: Template[A]: ValueDecoder](transaction: Transaction): Option[Contract[A]] =
@@ -28,7 +28,7 @@ object DecodeUtil {
     for {
       record <- event.createArguments: Option[V.Record]
       a <- decoder.read(V.Value.Sum.Record(record)): Option[A]
-    } yield Contract(P.ContractId(event.contractId), a)
+    } yield Contract(P.ContractId(event.contractId), a, event.agreementText)
   }
 
   def decodeArchived[A <: Template[A]](transaction: Transaction): Option[P.ContractId[A]] = {

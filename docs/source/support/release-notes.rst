@@ -9,6 +9,67 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.19 - 2019-05-22
+--------------------
+
+Ledger
+~~~~~~
+
+- Transaction filters in `GetTransactionsRequest` without any party are now rejected with `INVALID_ARGUMENT` instead of yielding an empty stream
+
+  See `#1250 <https://github.com/digital-asset/daml/issues/1250>`__ for details.
+
+DAML
+~~~~
+
+- **Contract keys**: The syntactic restriction on contract keys has been removed. They can be arbitray expressions now.
+
+DAML-LF
+~~~~~~~
+
+- Add new version 1.4 and make it the default version produced by ``damlc``. It removes the syntactic restriction on contract keys.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- **Bots**: A class called LedgerTestView was added to make bot unit testing possible
+
+DAML
+~~~~
+
+- **BREAKING CHANGE - Syntax**: Records with empty update blocks, e.g. ``foo with``, is now an error (the fact it was ever accepted was a bug).
+
+- **BREAKING CHANGE - Contract Keys**: Before, maintainers were incorrectly not checked to be a subset of the signatories, now they are. See `issue #1123 <https://github.com/digital-asset/daml/issues/1123>`__
+
+Sandbox
+~~~~~~~
+
+- When loading a scenario with ``--scenario``, the sandbox no longer compiles packages twice, see
+  `issue #1238 <https://github.com/digital-asset/daml/issues/1238>`__.
+- When starting the sandbox, you can now choose to have it load all the ``.dar`` packages immediately
+  with the ``--eager-package-loading`` flag. The default behavior is to load the packages only when
+  a command requires them, which causes a delay for the first command that requires a yet-to-be-compiled
+  package.
+  See `issue #1230 <https://github.com/digital-asset/daml/issues/1230>`__.
+
+SDK tools
+~~~~~~~~~
+
+- The Windows installer is now signed. You might still see Windows
+  defender warnings for some time but the publisher should now show
+  "Digital Asset Holdings, LLC".
+
+.. _release-0-12-18:
+
+0.12.18 - 2019-05-20
+--------------------
+
+Documentation
+~~~~~~~~~~~~~
+
+- Removed unnecessary dependency in the quickstart-java example project.
+- Removed the *Configure Maven* section from the installation instructions. This step is not needed anymore.
+
 SDK tools
 ~~~~~~~~~
 
@@ -19,6 +80,11 @@ SDK tools
 DAML
 ~~~~
 
+- **BREAKING CHANGE - DAML Compiler**: It is now an error to omit method bodies in class ``instance`` s if the method
+  has no default. Almost all instances of such behaviour were an error - add in a suitable definition.
+
+- **Contract keys**: We've added documentation for contract keys, a way of specifying a primary key for contract instances. For information about how to use them, see :doc:`/daml/reference/contract-keys`.
+
 - **BREAKING CHANGE - DAML Standard Library**: Moved the ``Tuple`` and ``Either`` types to ``daml-prim:DA.Types``
   rather than exposing internal locations.
 
@@ -27,6 +93,10 @@ DAML
   - You don't need to change DAML code as a result of this change.
   - People using the Java/Scala codegen need to replace ``import ghc.tuple.*`` or ``import da.internal.prelude.*`` with ``import da.types.*``.
   - People using the Ledger API directly need to replace ``GHC.Tuple`` and ``DA.Internal.Prelude`` with ``DA.Types``.
+
+- **BREAKING CHANGE - DAML Standard Library**: Don't expose the ``TextMap`` type via the ``Prelude`` anymore.
+
+  How to migrate: Always import ``DA.TextMap`` when you want to use the ``TextMap`` type.
 
 - **DAML Standard Library**: Add ``String`` as a compatibility alias for ``Text``.
 
@@ -44,6 +114,16 @@ Ledger API
   How to migrate:
 
   - If you check for the presence of :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
+
+- Added the :ref:`agreement text <daml-ref-agreements>` as a new field ``agreement_text`` to the ``CreatedEvent`` message. This means you now have access to the agreement text of contracts via the Ledger API.
+  The type of this field is ``google.protobuf.StringValue`` to properly reflect the optionality on the wire for full backwards compatibility.
+  See Google's `wrappers.proto <https://github.com/protocolbuffers/protobuf/blob/b4f193788c9f0f05d7e0879ea96cd738630e5d51/src/google/protobuf/wrappers.proto#L31-L34>`__ for more information about ``StringValue``.
+
+  See `#1110 <https://github.com/digital-asset/daml/issues/1110>`__ for details.
+
+- Fixed: the `CommandService.SubmitAndWait` endpoint no longer rejects commands without a workflow identifier.
+
+  See `#572 <https://github.com/digital-asset/daml/issues/572>`__ for details.
 
 Java Bindings
 ~~~~~~~~~~~~~
@@ -72,13 +152,93 @@ Java Bindings
 
   See `issue #1092 <https://github.com/digital-asset/daml/issues/1092>`__ for details.
 
+- Added :ref:`agreement text <daml-ref-agreements>` of contracts: `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
+
+  - **Java Bindings**
+
+    - Added field ``Optional<String> agreementText`` to ``data.CreatedEvent``, to reflect the change in Ledger API.
+
+  - **Java Codegen**
+
+    - Added generated field ``Optional<String> TemplateName.Contract#agreementText``.
+    - Added generated static method ``TemplateName.Contract.fromCreatedEvent(CreatedEvent)``.
+      This is the preferred method to use for converting a ``CreatedEvent`` into a ``Contract``.
+    - Added generated static method ``TemplateName.Contract.fromIdAndRecord(String, Record, Optional<String>)``.
+      This method is useful for setting up tests, when you want to convert a ``Record`` into a contract without having to create a ``CreatedEvent`` first.
+    - Deprecated generated static method ``TemplateName.Contract.fromIdAndRecord(String, Record)`` in favor of the new static methods in the generated ``Contract`` classes.
+    - Changed the generated :ref:`decoder utility class <daml-codegen-java-decoder-class>` to use the new ``fromCreatedEvent`` method.
+    - **BREAKING** Changed the return type of the ``getDecoder`` method in the generated decoder utility class from ``Optional<BiFunction<String, Record, Contract>>`` to ``Optional<Function<CreatedEvent, Contract>>``.
+
+  How to migrate:
+
+  - If you are manually constructing instances of ``data.CreatedEvent`` (for example, for testing), you need to add an ``Optional<String>`` value as constructor parameter for the ``agreementText`` field.
+  - You should change all calls to ``Contract.fromIdAndRecord`` to ``Contract.fromCreatedEvent``.
+
+    .. code-block:: java
+
+        // BEFORE
+        CreatedEvent event = ...;
+        Iou.Contract contract = Iou.Contract.fromIdAndRecord(event.getContractId(), event.getArguments()));
+
+        // AFTER
+        CreatedEvent event = ...;
+        Iou.Contract contract = Iou.Contract.fromCreatedEvent(event);
+
+  - Pass the ``data.CreatedEvent`` directly to the function returned by the decoder's ``getDecoder`` method.
+    If you are using the decoder utility class method ``fromCreatedEvent``, you don't need to change anything.
+
+    .. code-block:: java
+
+        CreatedEvent event = ...;
+        // BEFORE
+        Optional<BiFunction<String, Record, Contract>> decoder = MyDecoderUtility.getDecoder(MyTemplate.TEMPLATE_ID);
+        if (decoder.isPresent()) {
+            return decoder.get().apply(event.getContractId(), event.getArguments();
+        }
+
+        // AFTER
+        Optional<Function<CreatedEvent, Contract>> decoder = MyDecoderUtility.getDecoder(MyTemplate.TEMPLATE_ID);
+        if (decoder.isPresent()) {
+            return decoder.get().apply(event);
+        }
+
+Scala Bindings
+~~~~~~~~~~~~~~
+
+- **BREAKING** You can now access the :ref:`agreement text <daml-ref-agreements>` of a contract with the new field ``Contract#agreementText: Option[String]``.
+
+  How to migrate:
+
+  - If you are pattern matching on ``com.digitalasset.ledger.client.binding.Contract``, you need to add a match clause for the added field.
+  - If you are constructing ``com.digitalasset.ledger.client.binding.Contract`` values, for example for tests, you need to add a constructor parameter for the agreement text.
+
+- ``CreateAndExercise`` support via ``createAnd`` method, e.g. ``MyTemplate(owner, someText).createAnd.exerciseAccept(controller, 42)``.
+  See `issue #1092 <https://github.com/digital-asset/daml/issues/1092>`__ for more information.
+
 Ledger
 ~~~~~~
-
 
 - Renamed ``--jdbcurl`` to ``--sql-backend-jdbcurl``. Left ``--jdbcurl`` in place for backwards compat.
 - Fixed issue when loading scenarios making use of ``pass`` into the sandbox, see
   `#1079 <https://github.com/digital-asset/daml/pull/1079>`_.
+- Fixed issue when loading scenarios that involve contract divulgence, see
+  `#1166 <https://github.com/digital-asset/daml/issues/1166>`_.
+- Contract visibility is now properly checked when looking up contracts in the SQL backend, see
+  `#784 <https://github.com/digital-asset/daml/issues/784>`_.
+- The sandbox now exposes the :ref:`agreement text <daml-ref-agreements>` of contracts in :ref:`CreatedEvents <com.digitalasset.ledger.api.v1.CreatedEvent>`. See `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
+
+Navigator
+~~~~~~~~~
+
+- Non-empty :ref:`agreement texts <daml-ref-agreements>` are now shown on the contract page above the section ``Contract details``, see `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
+
+SQL Extractor
+~~~~~~~~~~~~~
+
+- **BREAKING** In JSON content, dates and timestamps are formatted like
+  ``"2020-02-22"`` and ``"2020-02-22T12:13:14Z"`` rather than UNIX epoch offsets like
+  ``18314`` or ``1582373594000000``. See `#1174 <https://github.com/digital-asset/daml/issues/1174>`__
+  for more details.
 
 .. _release-0-12-17:
 

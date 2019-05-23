@@ -12,12 +12,14 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
   * nodes to communicate to which parties, while implicit disclosure
   * (also known as "divulgence") tells us what to communicate to
   * each participant node so that they can perform post-commit
-  * validation. Note that implicit divulgence can also divulge
+  * validation. Note that implicit disclosure can also divulge
   * absolute contract ids -- e.g. contract ids that were created
   * _outside_ this transaction.
   */
 case class BlindingInfo(
+    /** Also simply known as "disclosure" */
     explicitDisclosure: Relation[Transaction.NodeId, Party],
+    /** Also known as "divulgence" */
     localImplicitDisclosure: Relation[Transaction.NodeId, Party],
     globalImplicitDisclosure: Relation[AbsoluteContractId, Party]) {
   def localDisclosure: Relation[Transaction.NodeId, Party] =

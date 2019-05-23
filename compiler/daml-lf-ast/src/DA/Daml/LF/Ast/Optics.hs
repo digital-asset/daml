@@ -16,13 +16,11 @@ module DA.Daml.LF.Ast.Optics(
     templateExpr
     ) where
 
-import Data.Tagged
 import Control.Lens
 import Control.Lens.Ast
 import Control.Lens.MonoTraversal
 import Data.Functor.Foldable (cata, embed)
 import qualified Data.NameMap as NM
-import qualified Data.Text as T
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Recursive
@@ -98,10 +96,16 @@ instance MonoTraversable ModuleRef (Qualified a) where
   monoTraverse f (Qualified pkg0 mod0 x) =
     (\(pkg1, mod1) -> Qualified pkg1 mod1 x) <$> f (pkg0, mod0)
 
-instance MonoTraversable ModuleRef (Tagged tag T.Text) where monoTraverse _ = pure
-instance MonoTraversable ModuleRef (Tagged tag [T.Text]) where monoTraverse _ = pure
+instance MonoTraversable ModuleRef ChoiceName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef ExprValName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef ExprVarName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef FieldName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef ModuleName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef TypeConName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef TypeVarName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef VariantConName where monoTraverse _ = pure
+
 -- NOTE(MH): This is an optimization to avoid running into a dead end.
-instance {-# OVERLAPPING #-} MonoTraversable ModuleRef [Tagged tag T.Text] where monoTraverse _ = pure
 instance {-# OVERLAPPING #-} MonoTraversable ModuleRef FilePath where monoTraverse _ = pure
 
 -- NOTE(MH): Builtins are not supposed to contain references to other modules.

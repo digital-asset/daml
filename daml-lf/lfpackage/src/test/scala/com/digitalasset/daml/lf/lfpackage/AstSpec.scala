@@ -6,7 +6,6 @@ package com.digitalasset.daml.lf.lfpackage
 import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
-import com.digitalasset.daml.lf.data.Ref.Name.{assertFromString => id}
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Decode.ParseError
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -37,7 +36,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
   "Module.apply" should {
 
     val template = Template(
-      param = id("x"),
+      param = Name.assertFromString("x"),
       precond = eTrue,
       signatories = eParties,
       agreementText = eText,
@@ -154,7 +153,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       name = name,
       consuming = true,
       controllers = eParties,
-      selfBinder = id("self"),
+      selfBinder = Name.assertFromString("self"),
       argBinder = (None, tUnit),
       returnType = tUnit,
       update = EUpdate(UpdatePure(typ, expr)),
@@ -166,7 +165,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     "catch choice name collisions" in {
 
       Template(
-        param = id("x"),
+        param = Name.assertFromString("x"),
         precond = eTrue,
         signatories = eParties,
         agreementText = eText,
@@ -181,7 +180,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
       an[ParseError] shouldBe thrownBy(
         Template(
-          param = id("x"),
+          param = Name.assertFromString("x"),
           precond = eTrue,
           signatories = eParties,
           agreementText = eText,

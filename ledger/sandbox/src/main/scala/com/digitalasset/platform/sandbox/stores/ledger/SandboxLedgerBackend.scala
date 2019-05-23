@@ -3,10 +3,19 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger
 
+import java.util.concurrent.CompletionStage
+
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.v1.{
+  Party => _,
+  SubmittedTransaction => _,
+  TransactionId => _,
+  _
+}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
@@ -19,9 +28,13 @@ import com.digitalasset.ledger.backend.api.v1._
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
 
+import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
 
-class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends LedgerBackend {
+class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
+    extends LedgerBackend //TODO: remove this later so we can rely on sole participant state interfaces
+    with WriteService {
+
   override def ledgerId: String = ledger.ledgerId
 
   private class SandboxSubmissionHandle extends SubmissionHandle {
@@ -35,7 +48,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
         ac: ActiveContracts.ActiveContract): Boolean = {
       // ^ only parties disclosed or divulged to can lookup; see https://github.com/digital-asset/daml/issues/10
       // and https://github.com/digital-asset/daml/issues/751 .
-      Ref.Party fromString submitter exists (p => ac.witnesses(p) || ac.divulgences(p))
+      Ref.Party fromString submitter exists (p => ac.witnesses(p) || ac.divulgences.contains(p))
     }
 
     override def lookupActiveContract(submitter: Party, contractId: Value.AbsoluteContractId)
@@ -118,8 +131,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
         )
     }
 
-  override def close(): Unit =
-    ledger.close()
+  override def close(): Unit = {} // nothing to close here as we do not own Ledger
 
   private def toAcceptedTransaction(offset: Long, t: LedgerEntry.Transaction) = t match {
     case LedgerEntry.Transaction(
@@ -154,5 +166,37 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer) extends L
         case (offset, t) =>
           toAcceptedTransaction(offset, t)
       })(DEC)
+
+  override def submitTransaction(
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction): CompletionStage[SubmissionResult] = {
+
+    implicit val ec: ExecutionContext = mat.executionContext
+
+    //note, that this cannot fail as it's already validated
+    val blindingInfo = Blinding
+      .checkAuthorizationAndBlind(transaction, Set(submitterInfo.submitter))
+      .fold(authorisationError => sys.error(authorisationError.detailMsg), identity)
+
+    val transactionSubmission =
+      TransactionSubmission(
+        submitterInfo.commandId,
+        transactionMeta.workflowId,
+        submitterInfo.submitter,
+        transactionMeta.ledgerEffectiveTime.toInstant,
+        submitterInfo.maxRecordTime.toInstant,
+        submitterInfo.applicationId,
+        blindingInfo,
+        transaction
+      )
+
+    val resultF = for {
+      handle <- beginSubmission()
+      result <- handle.submit(transactionSubmission)
+    } yield result
+
+    FutureConverters.toJava(resultF)
+  }
 
 }

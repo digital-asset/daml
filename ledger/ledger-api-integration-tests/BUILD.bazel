@@ -45,6 +45,7 @@ dependencies = [
     "//ledger/sandbox:sandbox",
     "//ledger/test-common:test-common",
     "//ledger/sandbox:sandbox-scala-tests-lib",
+    "//ledger/participant-state",
 ]
 
 da_scala_library(
@@ -68,8 +69,12 @@ da_scala_test_suite(
     ],
     # this test suite is very intensive, long, and relying on timeouts. Moreover,
     # the test suite already parallelizes each scala test, so we'll still be busy
-    # only with this one.
-    tags = ["exclusive"],
+    # only with this one. for the same reason we do not run it on macos -- it takes
+    # up to 20 minutes on our macOS ci workers.
+    tags = [
+        "dont-run-on-darwin",
+        "exclusive",
+    ],
     deps = [
         ":ledger-api-integration-tests-lib",
     ] + dependencies,

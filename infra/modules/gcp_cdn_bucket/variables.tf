@@ -26,8 +26,3 @@ variable "ssl_certificate" {
 variable "cache_retention_days" {
   description = "The number of days to keep the objects around"
 }
-
-variable "default_file" {
-  description = "The name of the file (from the files folder) to show for unknown paths. Currently one of cache or docs."
-  default     = "cache"
-}

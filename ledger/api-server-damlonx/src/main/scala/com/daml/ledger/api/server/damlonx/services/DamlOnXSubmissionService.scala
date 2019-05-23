@@ -35,6 +35,7 @@ import io.grpc.BindableService
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
+import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -97,23 +98,26 @@ class DamlOnXSubmissionService private (
           Future.failed(invalidArgument(err.detailMsg))
 
         case Right(updateTx) =>
-          Future {
-            logger.debug(
-              s"Submitting transaction from ${commands.submitter} with ${commands.commandId.unwrap}")
-            writeService.submitTransaction(
-              submitterInfo = SubmitterInfo(
-                submitter = commands.submitter,
-                applicationId = commands.applicationId.unwrap,
-                maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
-                commandId = commands.commandId.unwrap
-              ),
-              transactionMeta = TransactionMeta(
-                ledgerEffectiveTime = Timestamp.assertFromInstant(commands.ledgerEffectiveTime),
-                workflowId = commands.workflowId.fold("")(_.unwrap) // FIXME(JM): sensible defaulting?
-              ),
-              transaction = updateTx
+          logger.debug(
+            s"Submitting transaction from ${commands.submitter} with ${commands.commandId.unwrap}")
+          FutureConverters
+            .toScala(
+              writeService
+                .submitTransaction(
+                  submitterInfo = SubmitterInfo(
+                    submitter = commands.submitter,
+                    applicationId = commands.applicationId.unwrap,
+                    maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
+                    commandId = commands.commandId.unwrap
+                  ),
+                  transactionMeta = TransactionMeta(
+                    ledgerEffectiveTime = Timestamp.assertFromInstant(commands.ledgerEffectiveTime),
+                    workflowId = commands.workflowId.fold("")(_.unwrap) // FIXME(JM): sensible defaulting?
+                  ),
+                  transaction = updateTx
+                )
             )
-          }
+            .map(_ => ())
       }
   }
 

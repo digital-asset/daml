@@ -102,7 +102,8 @@ trait TransactionConversion {
               throw new RuntimeException(s"Unexpected error when converting stored contract: $err"),
             identity)),
       if (includeParentWitnesses) convert(create.witnesses)
-      else convert(create.stakeholders)
+      else convert(create.stakeholders),
+      Some(create.agreementText)
     )
   }
 

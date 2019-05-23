@@ -19,7 +19,6 @@ import           Control.Monad.Reader
 import           Control.Monad.Trans.Except
 import           DA.Daml.LF.Decimal  (stringToDecimal)
 import qualified DA.Daml.LF.Ast             as LF
-import Data.Tagged
 import Control.Applicative
 import Text.Read hiding (parens)
 import           DA.Pretty as Pretty
@@ -73,15 +72,15 @@ askWorld = asks snd
 lookupDefLocation :: LF.Module -> T.Text -> Maybe LF.SourceLoc
 lookupDefLocation mod0 defName =
   join $
-    LF.dvalLocation <$> NM.lookup (Tagged defName) (LF.moduleValues mod0)
+    LF.dvalLocation <$> NM.lookup (LF.ExprValName defName) (LF.moduleValues mod0)
     <|>
-    LF.tplLocation <$> NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
+    LF.tplLocation <$> NM.lookup (LF.TypeConName [defName]) (LF.moduleTemplates mod0)
 
 lookupModule :: LF.World -> Maybe PackageIdentifier -> LF.ModuleName -> Maybe LF.Module
 lookupModule world mbPkgId modName = do
   let pkgRef = case mbPkgId of
        Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) ->
-         LF.PRImport $ Tagged $ TL.toStrict pkgId
+         LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
        _ -> LF.PRSelf
   eitherToMaybe (LF.lookupModule (LF.Qualified pkgRef modName ()) world)
 
@@ -90,7 +89,7 @@ lookupModuleFromQualifiedName ::
   -> Maybe (LF.ModuleName, T.Text, LF.Module)
 lookupModuleFromQualifiedName world mbPkgId qualName = do
   let (modName, defName) = case T.splitOn ":" qualName of
-        [modNm, defNm] -> (Tagged (T.splitOn "." modNm), defNm)
+        [modNm, defNm] -> (LF.ModuleName (T.splitOn "." modNm), defNm)
         _ -> error "Bad definition"
   modu <- lookupModule world mbPkgId modName
   return (modName, defName, modu)
@@ -287,6 +286,22 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
              )
             )
 
+        Just (FailedAuthorizationSumMaintainersNotSubsetOfSignatories
+          (FailedAuthorization_MaintainersNotSubsetOfSignatories templateId mbLoc signatories maintainers)) ->
+          "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+          <-> "at" <-> prettyMayLocation world mbLoc
+          $$
+            ("failed due to that some parties are maintainers but not signatories: "
+             <->
+             ( fcommasep
+             $ map (prettyParty . Party)
+             $ S.toList
+             $ S.fromList (mapV partyParty maintainers)
+               `S.difference`
+               S.fromList (mapV partyParty signatories)
+             )
+            )
+
         Just (FailedAuthorizationSumFetchMissingAuthorization
           (FailedAuthorization_FetchMissingAuthorization templateId mbLoc authParties stakeholders)) ->
           "fetch of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
@@ -440,7 +455,7 @@ prettyMayLocation :: LF.World -> Maybe Location -> Doc SyntaxClass
 prettyMayLocation _ Nothing = text "unknown source"
 prettyMayLocation world (Just (Location mbPkgId modName sline scol eline _ecol)) =
       maybe id (\path -> linkSC (url path) title)
-        (lookupModule world mbPkgId (Tagged (T.splitOn "." (TL.toStrict modName))) >>= LF.moduleSource)
+        (lookupModule world mbPkgId (LF.ModuleName (T.splitOn "." (TL.toStrict modName))) >>= LF.moduleSource)
     $ text title
   where
     modName' = TL.toStrict modName
@@ -734,8 +749,8 @@ prettyChoiceId _ Nothing choiceId = ltext choiceId
 prettyChoiceId world (Just (Identifier mbPkgId (TL.toStrict -> qualName))) (TL.toStrict -> choiceId)
   | Just (_modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
   , Just fp <- LF.moduleSource mod0
-  , Just tpl <- NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
-  , Just chc <- NM.lookup (Tagged choiceId) (LF.tplChoices tpl)
+  , Just tpl <- NM.lookup (LF.TypeConName [defName]) (LF.moduleTemplates mod0)
+  , Just chc <- NM.lookup (LF.ChoiceName choiceId) (LF.tplChoices tpl)
   , Just (LF.SourceLoc _mref sline _scol eline _ecol) <- LF.chcLocation chc =
       linkSC (revealLocationUri fp sline eline) choiceId $ text choiceId
   | otherwise =

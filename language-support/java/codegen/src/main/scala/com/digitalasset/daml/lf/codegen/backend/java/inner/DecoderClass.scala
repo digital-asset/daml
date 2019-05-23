@@ -3,8 +3,6 @@
 
 package com.digitalasset.daml.lf.codegen.backend.java.inner
 
-import java.util.function.BiFunction
-
 import com.daml.ledger.javaapi.data._
 import com.squareup.javapoet._
 import javax.lang.model.element.Modifier
@@ -29,9 +27,8 @@ object DecoderClass {
   )
 
   private val decoderFunctionType = ParameterizedTypeName.get(
-    ClassName.get(classOf[BiFunction[_, _, _]]),
-    ClassName.get(classOf[String]),
-    ClassName.get(classOf[Record]),
+    ClassName.get(classOf[java.util.function.Function[_, _]]),
+    ClassName.get(classOf[CreatedEvent]),
     ClassName.get(classOf[Contract])
   )
 
@@ -52,10 +49,10 @@ object DecoderClass {
         .builder()
         .addStatement("Identifier templateId = event.getTemplateId()")
         .addStatement(
-          "BiFunction<String, Record, Contract> fromIdAndRecord = getDecoder(templateId).orElseThrow(() -> new IllegalArgumentException(\"No template found for identifier \" + templateId))")
-        .addStatement("String contractId = event.getContractId()")
-        .addStatement("Record arguments = event.getArguments()")
-        .addStatement("return fromIdAndRecord.apply(contractId, arguments)")
+          "$T decoderFunc = getDecoder(templateId).orElseThrow(() -> new IllegalArgumentException(\"No template found for identifier \" + templateId))",
+          decoderFunctionType
+        )
+        .addStatement("return decoderFunc.apply(event)")
         .build())
     .build()
 
@@ -78,7 +75,7 @@ object DecoderClass {
     b.addStatement("$N = new $T()", decodersField, decodersMapType)
     templateNames.foreach { template =>
       b.addStatement(
-        "$N.put($T.TEMPLATE_ID, $T.Contract::fromIdAndRecord)",
+        "$N.put($T.TEMPLATE_ID, $T.Contract::fromCreatedEvent)",
         decodersField,
         template,
         template)

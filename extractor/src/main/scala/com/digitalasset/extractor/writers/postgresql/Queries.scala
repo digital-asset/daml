@@ -3,25 +3,22 @@
 
 package com.digitalasset.extractor.writers.postgresql
 
+import com.digitalasset.daml.lf.data.{Time => LfTime}
+import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.extractor.json.JsonConverters._
 import com.digitalasset.extractor.Types._
 import com.digitalasset.extractor.ledger.types._
 import doobie._
 import doobie.implicits._
 import java.time.{Instant, LocalDate}
-import java.util.concurrent.TimeUnit
 
 import scalaz._
 import Scalaz._
 
 object Queries {
 
-  implicit val timeStampWrite: Write[LedgerValue.Timestamp] =
-    Write[Instant].contramap[LedgerValue.Timestamp] { micros =>
-      val seconds = TimeUnit.MICROSECONDS.toSeconds(micros.value)
-      val deltaMicros = micros.value - TimeUnit.SECONDS.toMicros(seconds)
-      Instant.ofEpochSecond(seconds, TimeUnit.MICROSECONDS.toNanos(deltaMicros))
-    }
+  implicit val timeStampWrite: Write[V.ValueTimestamp] =
+    Write[Instant].contramap[V.ValueTimestamp](_.value.toInstant)
 
   def createSchema(schema: String): Fragment =
     Fragment.const(s"CREATE SCHEMA IF NOT EXISTS ${schema}")
@@ -254,9 +251,11 @@ object Queries {
         Fragment("?::jsonb", toJsonString(event.witnessParties)) // _witness_parties
       )
 
-      val contractArgColumns = event.createArguments.fields.map(f => toFragmentNullable(f.value))
+      val contractArgColumns = event.createArguments.fields.map {
+        case (_, value) => toFragmentNullable(value)
+      }
 
-      val columns = baseColumns ++ contractArgColumns
+      val columns = baseColumns ++ contractArgColumns.toSeq
 
       val base = Fragment.const(
         s"INSERT INTO ${table} VALUES ("
@@ -269,54 +268,52 @@ object Queries {
 
     private def toFragmentNullable(valueSum: LedgerValue): Fragment = {
       valueSum match {
-        case LedgerValue.Optional(None) => Fragment.const("NULL")
-        case LedgerValue.Optional(Some(innerVal)) => toFragment(innerVal)
+        case V.ValueOptional(None) => Fragment.const("NULL")
+        case V.ValueOptional(Some(innerVal)) => toFragment(innerVal)
         case _ => toFragment(valueSum)
       }
     }
 
     private def toFragment(valueSum: LedgerValue): Fragment = {
       valueSum match {
-        case LedgerValue.Bool(value) =>
+        case V.ValueBool(value) =>
           Fragment.const(if (value) "TRUE" else "FALSE")
-        case LedgerValue.Empty => Fragment.const("")
-        case r @ LedgerValue.Record(_) =>
+        case r @ V.ValueRecord(_, _) =>
           Fragment(
             "?::jsonb",
             toJsonString(r)
           )
-        case v @ LedgerValue.Variant(_, _) =>
+        case v @ V.ValueVariant(_, _, _) =>
           Fragment(
             "?::jsonb",
             toJsonString(v)
           )
-        case o @ LedgerValue.Optional(_) =>
+        case o @ V.ValueOptional(_) =>
           Fragment(
             "?::jsonb",
             toJsonString(o)
           )
-        case LedgerValue.ContractId(value) => Fragment("?", value)
-        case l @ LedgerValue.ValueList(_) =>
+        case V.ValueContractId(value) => Fragment("?", value)
+        case l @ V.ValueList(_) =>
           Fragment(
             "?::jsonb",
             toJsonString(l)
           )
-        case LedgerValue.Int64(value) => Fragment("?", value)
-        case LedgerValue.Decimal(value) => Fragment("?::numeric(38,10)", value)
-        case LedgerValue.Text(value) => Fragment("?", value)
-        case LedgerValue.Timestamp(value) =>
-          Fragment(
-            "?",
-            LedgerValue.Timestamp(value)
-          )
-        case LedgerValue.Party(value) => Fragment("?", value)
-        case LedgerValue.Unit => Fragment.const("FALSE")
-        case LedgerValue.Date(value) => Fragment("?", LocalDate.ofEpochDay(value.toLong))
-        case LedgerValue.ValueMap(m) =>
+        case V.ValueInt64(value) => Fragment("?", value)
+        case V.ValueDecimal(value) => Fragment("?::numeric(38,10)", value: BigDecimal)
+        case V.ValueText(value) => Fragment("?", value)
+        case ts @ V.ValueTimestamp(_) => Fragment("?", ts)
+        case V.ValueParty(value) => Fragment("?", value: String)
+        case V.ValueUnit => Fragment.const("FALSE")
+        case V.ValueDate(LfTime.Date(days)) => Fragment("?", LocalDate.ofEpochDay(days.toLong))
+        case V.ValueMap(m) =>
           Fragment(
             "?::jsonb",
             toJsonString(m)
           )
+        case tuple @ V.ValueTuple(_) =>
+          throw new IllegalArgumentException(
+            s"tuple should not be present in contract, as raw tuples are not serializable: $tuple")
       }
     }
   }

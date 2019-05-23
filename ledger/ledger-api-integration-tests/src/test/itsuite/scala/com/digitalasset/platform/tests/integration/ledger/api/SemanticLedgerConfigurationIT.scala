@@ -43,7 +43,7 @@ class SemanticLedgerConfigurationIT
 
   private def configClient(
       ctx: LedgerContext,
-      ledgerId: String = config.getLedgerId): LedgerConfigurationClient =
+      ledgerId: String = config.assertStaticLedgerId): LedgerConfigurationClient =
     new LedgerConfigurationClient(ledgerId, ctx.ledgerConfigurationService)
 
   private def newSyncClient(commandService: CommandService) =
@@ -67,7 +67,7 @@ class SemanticLedgerConfigurationIT
       changes: Lens[SubmitAndWaitRequest, SubmitAndWaitRequest] => lenses.Mutation[
         SubmitAndWaitRequest]): SubmitAndWaitRequest = {
     submitAndWaitRequest.update(
-      _.commands.ledgerId := config.getLedgerId,
+      _.commands.ledgerId := config.assertStaticLedgerId,
       _.commands.commandId := newCommandId(),
       changes
     )

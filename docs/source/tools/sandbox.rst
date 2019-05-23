@@ -24,7 +24,7 @@ Sandbox can also be run manually as in this example::
   Initialized Static time provider, starting from 1970-01-01T00:00:00Z
   listening on localhost:6865
 
-Here, ``daml sandbox `` tells the SDK Assistant to run ``sandbox`` from the active SDK release and pass it any arguments that follow. The example passes the DAR file to load (``Main.dar``) and the optional ``--scenario`` flag tells Sandbox to run the ``Main:example`` scenario on startup. The scenario must be fully qualified; here ``Main`` is the module and ``example`` is the name of the scenario, separated by a ``:``. The scenario is used for testing and development; it is not run in production.
+Here, ``daml sandbox`` tells the SDK Assistant to run ``sandbox`` from the active SDK release and pass it any arguments that follow. The example passes the DAR file to load (``Main.dar``) and the optional ``--scenario`` flag tells Sandbox to run the ``Main:example`` scenario on startup. The scenario must be fully qualified; here ``Main`` is the module and ``example`` is the name of the scenario, separated by a ``:``. The scenario is used for testing and development; it is not run in production.
 
 
 Running with persistence
@@ -39,7 +39,7 @@ To set this up, you must:
 
   This is because Sandbox manages its own database schema, applying migrations if necessary when upgrading versions. 
 
-To start Sandbox using persistence, pass an ``--postgres-backend <value>`` option, where ``<value>`` is a valid jdbc url containing the username, password and database name to connect to.
+To start Sandbox using persistence, pass an ``--sql-backend-jdbcurl <value>`` option, where ``<value>`` is a valid jdbc url containing the username, password and database name to connect to.
 
 Here is an example for such a url: ``jdbc:postgresql://localhost/test?user=fred&password=secret``
 

@@ -4,6 +4,7 @@ import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.testing.utils.Resource
+import com.digitalasset.platform.common.LedgerIdMode
 
 object SingleRemoteServerResource {
   def fromHostAndPort(host: String, port: Int, packages: Map[PackageId, Ast.Package], _esf: ExecutionSequencerFactory): SingleRemoteServerResource =
@@ -28,7 +29,7 @@ class SingleRemoteServerResource(val ledgerResource: RemoteServerResource,
     ledgerResource.setup()
     ledgerContext = ledgerResource.map {
             case PlatformChannels(channel) =>
-              LedgerContext.SingleChannelContext(channel, None, packages.keys)
+              LedgerContext.SingleChannelContext(channel, LedgerIdMode.Dynamic(), packages.keys)
           }.value
   }
 

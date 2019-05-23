@@ -34,6 +34,7 @@ import DA.Daml.LF.TypeChecker.Error
 -- If no module name is given, the returned set is always empty.
 serializabilityConditionsType
   :: World
+  -> Version
   -> Maybe (ModuleName, HS.HashSet TypeConName)
      -- ^ References to data types in this module are returned rather than
      -- chased. They are considered to have an associated template exactly when
@@ -44,14 +45,16 @@ serializabilityConditionsType
      -- the caller.
   -> Type
   -> Either UnserializabilityReason (HS.HashSet TypeConName)
-serializabilityConditionsType world0 mbModNameTpls vars = go
+serializabilityConditionsType world0 version mbModNameTpls vars = go
   where
     noConditions = Right HS.empty
     go = \case
       -- This is the only way 'ContractId's are allowed. Other cases handled below.
-      TContractId typ@(TCon tcon) | isTemplate -> go typ
+      TContractId typ
+        | version `supports` featureSerializablePolymorphicContractIds -> go typ
+        | TCon tcon <- typ, isTemplate tcon -> go typ
         where
-          isTemplate
+          isTemplate tcon
             | Just (modName, tpls) <- mbModNameTpls
             , Right tconName <- matching (_PRSelfModule modName) tcon =
                 tconName `HS.member` tpls
@@ -89,8 +92,8 @@ serializabilityConditionsType world0 mbModNameTpls vars = go
         BTMap -> Left URMap  -- 'Map' is used as a higher-kinded type constructor.
         BTUpdate -> Left URUpdate
         BTScenario -> Left URScenario
-        BTContractId -> Left URContractId  -- 'ContractId' is used polymorphically or
-                                           -- as a higher-kinded type constructor.
+        BTContractId -> Left URContractId  -- 'ContractId' is used as a higher-kinded type constructor
+                                           -- (or polymorphically in DAML-LF <= 1.4).
         BTArrow -> Left URFunction
       TForall{} -> Left URForall
       TTuple{} -> Left URTuple
@@ -100,26 +103,28 @@ serializabilityConditionsType world0 mbModNameTpls vars = go
 -- up in the world. If no module name is given, the returned set is always empty.
 serializabilityConditionsDataType
   :: World
+  -> Version
   -> Maybe (ModuleName, HS.HashSet TypeConName)
      -- ^ References to data types in this module are returned rather than
      -- chased. They are considered to have an associated template exactly when
      -- they are contained in the hashset.
   -> DefDataType
   -> Either UnserializabilityReason (HS.HashSet TypeConName)
-serializabilityConditionsDataType world0 mbModNameTpls (DefDataType _loc _ _ params cons) =
+serializabilityConditionsDataType world0 version mbModNameTpls (DefDataType _loc _ _ params cons) =
   case find (\(_, k) -> k /= KStar) params of
     Just (v, k) -> Left (URHigherKinded v k)
     Nothing
       | DataVariant [] <- cons -> Left URUninhabitatedType
       | otherwise -> do
           let vars = HS.fromList (map fst params)
-          mconcatMapM (serializabilityConditionsType world0 mbModNameTpls vars) (toListOf dataConsType cons)
+          mconcatMapM (serializabilityConditionsType world0 version mbModNameTpls vars) (toListOf dataConsType cons)
 
 -- | Check whether a type is serializable.
 checkType :: MonadGamma m => SerializabilityRequirement -> Type -> m ()
 checkType req typ = do
+  version <- getLfVersion
   world0 <- getWorld
-  case serializabilityConditionsType world0 Nothing HS.empty typ of
+  case serializabilityConditionsType world0 version Nothing HS.empty typ of
     Left reason -> throwWithContext (EExpectedSerializableType req typ reason)
     Right _ -> pure ()
 
@@ -127,8 +132,9 @@ checkType req typ = do
 checkDataType :: MonadGamma m => ModuleName -> DefDataType -> m ()
 checkDataType modName dataType =
   when (getIsSerializable (dataSerializable dataType)) $ do
+    version <- getLfVersion
     world0 <- getWorld
-    case serializabilityConditionsDataType world0 Nothing dataType of
+    case serializabilityConditionsDataType world0 version Nothing dataType of
       Left reason -> do
         let typ = TCon (Qualified PRSelf modName (dataTypeCon dataType))
         throwWithContext (EExpectedSerializableType SRDataType typ reason)

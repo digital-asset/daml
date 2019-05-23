@@ -8,7 +8,7 @@ import java.io.File
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.lfpackage.Decode
 import com.digitalasset.daml.lf.lfpackage.Util._
@@ -953,6 +953,7 @@ class EngineTest extends WordSpec with Matchers with BazelRunfiles {
                 (Some[Name]("giver"), ValueParty("Alice")),
                 (Some[Name]("receiver"), ValueParty("Clara")))
             )),
+          "",
           Set("Clara", "Alice"),
           Set("Bob", "Clara", "Alice"),
         )

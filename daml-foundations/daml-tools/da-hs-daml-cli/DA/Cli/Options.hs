@@ -7,7 +7,7 @@ module DA.Cli.Options
 
 import qualified Data.Text           as T
 import           Data.List.Extra     (trim, splitOn)
-import           Options.Applicative
+import Options.Applicative.Extended
 import Data.List
 import Text.Read
 import qualified DA.Pretty           as Pretty
@@ -19,7 +19,6 @@ type Document = Pretty.Doc Pretty.SyntaxClass
 -- | Flags
 newtype DontDivulgeContractIdsInCreateArguments = DontDivulgeContractIdsInCreateArguments Bool
 newtype DontDiscloseNonConsumingChoicesToObservers = DontDiscloseNonConsumingChoicesToObservers Bool
-
 
 -- | Document rendering styles for console output.
 data Style
@@ -110,7 +109,6 @@ versionOpt = argument str $
         metavar "VERSION"
     <> help "Artifact's version"
 
-
 lfVersionOpt :: Parser LF.Version
 lfVersionOpt = option (str >>= select) $
        metavar "DAML-LF-VERSION"
@@ -124,8 +122,7 @@ lfVersionOpt = option (str >>= select) $
     versionsStr = intercalate ", " (map renderVersion LF.supportedOutputVersions)
     select = \case
       versionStr
-        | Just minor <- LF.minorFromCliOption =<< stripPrefix "1." versionStr
-        , let version = LF.V1 minor
+        | Just version <- LF.parseVersion versionStr
         , version `elem` LF.supportedOutputVersions
         -> return version
         | otherwise
@@ -234,7 +231,6 @@ ekgPortOpt = option (str >>= parse) $
       Nothing -> readerError $ "Invalid port '" <> cs <> "'."
       p       -> pure p
 
-
 verboseOpt :: Parser Bool
 verboseOpt = switch $
        long "verbose"
@@ -255,6 +251,16 @@ experimentalOpt =
     fmap Experimental $
     switch $
     help "Enable experimental IDE features" <> long "experimental"
+
+newtype ProjectCheck = ProjectCheck Bool
+projectCheckOpt :: Parser ProjectCheck
+projectCheckOpt = fmap ProjectCheck . switch $
+       help "Check if running in DAML project."
+    <> long "project-check"
+
+newtype InitPkgDb = InitPkgDb Bool
+initPkgDbOpt :: Parser InitPkgDb
+initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database"
 
 data Telemetry = OptedIn | OptedOut | Undecided
 telemetryOpt :: Parser Telemetry

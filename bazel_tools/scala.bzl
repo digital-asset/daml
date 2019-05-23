@@ -212,7 +212,7 @@ def da_scala_library(name, **kwargs):
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_library
     """
     _wrap_rule(scala_library, name, **kwargs)
-    _create_scala_source_jar(**(kwargs + {"name": name}))
+    _create_scala_source_jar(name = name, **kwargs)
 
     if "tags" in kwargs:
         for tag in kwargs["tags"]:

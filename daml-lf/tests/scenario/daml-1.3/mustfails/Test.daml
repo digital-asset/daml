@@ -55,7 +55,7 @@ template NoSignatory
   with
     text : Text
   where
-    agreement text
+    signatory ([] : [Party]); agreement text
 
 template X
   with p: Party

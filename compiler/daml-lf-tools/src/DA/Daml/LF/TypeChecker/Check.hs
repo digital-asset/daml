@@ -33,7 +33,6 @@ module DA.Daml.LF.TypeChecker.Check(
     ) where
 
 import Data.Hashable
-import Data.Tagged
 import           Control.Lens hiding (Context)
 import           Control.Monad.Extra
 import           Data.Foldable
@@ -409,7 +408,7 @@ typeOfUpdate = \case
     return (TUpdate typ)
   UFetchByKey retrieveByKey -> do
     (cidType, contractType) <- checkRetrieveByKey retrieveByKey
-    return (TUpdate (TTuple [(Tagged "contractId", cidType), (Tagged "contract", contractType)]))
+    return (TUpdate (TTuple [(FieldName "contractId", cidType), (FieldName "contract", contractType)]))
   ULookupByKey retrieveByKey -> do
     (cidType, _contractType) <- checkRetrieveByKey retrieveByKey
     return (TUpdate (TOptional cidType))
@@ -557,7 +556,9 @@ checkTemplateKey param tcon TemplateKey{..} = do
     checkFeature featureContractKeys
     introExprVar param (TCon tcon) $ do
       checkType tplKeyType KStar
-      checkValidKeyExpr tplKeyBody
+      version <- getLfVersion
+      unless (version `supports` featureComplexContractKeys) $
+          checkValidKeyExpr tplKeyBody
       checkExpr tplKeyBody tplKeyType
     checkExpr tplKeyMaintainers (tplKeyType :-> TList TParty)
 

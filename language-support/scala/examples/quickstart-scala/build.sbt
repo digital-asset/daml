@@ -19,6 +19,7 @@ lazy val parent = project
   )
   .aggregate(`scala-codegen`, `application`)
 
+// <doc-ref:modules>
 lazy val `scala-codegen` = project
   .in(file("scala-codegen"))
   .settings(
@@ -32,7 +33,7 @@ lazy val `scala-codegen` = project
         packageName = "com.digitalasset.quickstart.iou.model",
         outputDir = (sourceManaged in Compile).value,
         cacheDir = streams.value.cacheDirectory / name.value
-      ).toSeq
+      )
     }
   )
 
@@ -44,6 +45,7 @@ lazy val `application` = project
     libraryDependencies ++= codeGenDependencies ++ applicationDependencies,
   )
   .dependsOn(`scala-codegen`)
+// </doc-ref:modules>
 
 lazy val commonSettings = Seq(
   scalacOptions ++= Seq(
@@ -60,22 +62,25 @@ lazy val commonSettings = Seq(
   classpathTypes += "maven-plugin",
 )
 
-lazy val applicationDependencies = Seq(
-  "com.daml.scala" %% "bindings-akka" % daSdkVersion,
-)
-
+// <doc-ref:dependencies>
 lazy val codeGenDependencies = Seq(
   "com.daml.scala" %% "bindings" % daSdkVersion,
 )
 
+lazy val applicationDependencies = Seq(
+  "com.daml.scala" %% "bindings-akka" % daSdkVersion,
+)
+// </doc-ref:dependencies>
+
 lazy val damlScala = taskKey[Seq[File]]("Generate Scala code.")
 damlScala := Seq() // by default, do nothing
 
+// <doc-ref:generate-scala>
 def generateScalaFrom(
     darFile: File,
     packageName: String,
     outputDir: File,
-    cacheDir: File): Set[File] = {
+    cacheDir: File): Seq[File] = {
 
   require(
     darFile.getPath.endsWith(".dar") && darFile.exists(),
@@ -86,5 +91,6 @@ def generateScalaFrom(
     CodeGen.generateCode(List(darFile), packageName, outputDir, Novel)
     (outputDir ** "*.scala").get.toSet
   }
-  cache(Set(darFile))
+  cache(Set(darFile)).toSeq
 }
+// </doc-ref:generate-scala>

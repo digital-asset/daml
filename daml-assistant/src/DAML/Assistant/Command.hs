@@ -11,6 +11,7 @@ module DAML.Assistant.Command
     , SdkCommandArgs(..)
     , SdkCommandPath(..)
     , UserCommandArgs(..)
+    , tryBuiltinCommand
     , getCommand
     ) where
 
@@ -18,12 +19,28 @@ import DAML.Assistant.Types
 import Data.List
 import Data.Maybe
 import Data.Foldable
-import Options.Applicative
+import Options.Applicative.Extended
+import System.Environment
 
+-- | Parse command line arguments without SDK command info. Returns Nothing if
+-- any error occurs, meaning the command may not be parseable without SDK command
+-- info, or it might just be an error.
+tryBuiltinCommand :: IO (Maybe Command)
+tryBuiltinCommand = do
+    args <- getArgs
+    pure $ getParseResult (getCommandPure [] args)
+
+-- | Parse command line arguments with SDK command info, exiting on failure.
 getCommand :: [SdkCommandInfo] -> IO Command
-getCommand sdkCommands =
-    customExecParser parserPrefs $ info (commandParser sdkCommands <**> helper) forwardOptions
-    where parserPrefs = prefs showHelpOnError
+getCommand sdkCommands = do
+    args <- getArgs
+    handleParseResult (getCommandPure sdkCommands args)
+
+getCommandPure :: [SdkCommandInfo] -> [String] -> ParserResult Command
+getCommandPure sdkCommands args =
+    let parserInfo = info (commandParser sdkCommands <**> helper) forwardOptions
+        parserPrefs = prefs showHelpOnError
+    in execParserPure parserPrefs parserInfo args
 
 subcommand :: Text -> Text -> InfoMod Command -> Parser Command -> Mod CommandFields Command
 subcommand name desc infoMod parser =
@@ -57,25 +74,14 @@ commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
         <> foldMap dispatch hidden
     ]
 
-
 installParser :: Parser InstallOptions
 installParser = InstallOptions
     <$> optional (RawInstallTarget <$> argument str (metavar "TARGET" <> help "The SDK version to install. Use 'latest' to download and install the latest stable SDK version available. Run 'daml install' to see the full set of options."))
     <*> iflag ActivateInstall "activate" mempty "Activate installed version of daml"
     <*> iflag ForceInstall "force" (short 'f') "Overwrite existing installation"
     <*> iflag QuietInstall "quiet" (short 'q') "Don't display installation messages"
-    <*> fmap SetPath (flagWithAuto "set-path" True "Adjust PATH automatically. This option only has an effect on Windows.")
+    <*> fmap SetPath (flagYesNoAuto "set-path" True "Adjust PATH automatically. This option only has an effect on Windows.")
     where
         iflag p name opts desc = fmap p (switch (long name <> help desc <> opts))
 
--- | This constructs flags that can be set to yes, no, or auto to control a boolean value
--- with auto using the default.
-flagWithAuto :: String -> Bool -> String -> Parser Bool
-flagWithAuto flagName defaultValue helpText =
-    option reader (long flagName <> value defaultValue <> help (helpText <> commonHelp))
-  where reader = eitherReader $ \case
-            "yes" -> Right True
-            "no" -> Right False
-            "auto" -> Right defaultValue
-            s -> Left ("Expected \"yes\", \"no\" or \"auto\" but got " <> show s)
-        commonHelp = " Can be set to \"yes\", \"no\" or \"auto\" to select the default (" <> show defaultValue <> ")"
+

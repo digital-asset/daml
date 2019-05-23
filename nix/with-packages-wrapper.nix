@@ -52,7 +52,6 @@ let
                   ([ llvmPackages.llvm ]
                    ++ lib.optional targetPlatform.isDarwin llvmPackages.clang);
 in
-if paths == [] && !withLLVM then ghc else
 symlinkJoin {
   # this makes computing paths from the name attribute impossible;
   # if such a feature is needed, the real compiler name should be saved
@@ -111,7 +110,7 @@ symlinkJoin {
         if [ "$filename" != "rts.conf" ]; then
           cp $f $f-tmp
           rm $f
-          sed "s/hs-libraries/extra-libraries/g" $f-tmp > $f
+          sed -e "s/hs-libraries/extra-libraries/g" -e "s,${ghc},$out,g" $f-tmp > $f
           rm $f-tmp
         fi
     done

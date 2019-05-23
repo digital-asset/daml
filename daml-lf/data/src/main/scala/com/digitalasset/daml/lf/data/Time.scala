@@ -23,6 +23,8 @@ object Time {
 
   object Date {
 
+    type T = Date
+
     private def apply(days: Int): Date =
       new Date(days)
 
@@ -59,12 +61,12 @@ object Time {
         .map(_ => s"cannot interpret $str as Date")
         .flatMap(fromDaysSinceEpoch)
 
+    @throws[IllegalArgumentException]
+    final def assertFromString(s: String): T =
+      assert(fromString(s))
+
     def assertFromDaysSinceEpoch(days: Int): Date =
       assert(fromDaysSinceEpoch(days))
-
-    @throws[IllegalArgumentException]
-    def assertFromString(str: String): Date =
-      assert(fromString(str))
 
   }
 
@@ -88,6 +90,8 @@ object Time {
   }
 
   object Timestamp {
+
+    type T = Timestamp
 
     private def apply(micros: Long): Timestamp =
       new Timestamp(micros)
@@ -129,8 +133,8 @@ object Time {
         .flatMap(fromLong)
 
     @throws[IllegalArgumentException]
-    def assertFromString(str: String): Timestamp =
-      assertFromLong(assertMicrosFromString(str))
+    final def assertFromString(s: String): T =
+      assert(fromString(s))
 
     def fromInstant(i: Instant): Either[String, Timestamp] =
       Try(assertMicrosFromInstant(i)).toEither.left
@@ -141,11 +145,5 @@ object Time {
       assertFromLong(assertMicrosFromInstant(i))
 
   }
-
-  private def assert[X](e: Either[String, X]): X =
-    e match {
-      case Left(err) => throw new IllegalArgumentException(err)
-      case Right(date) => date
-    }
 
 }

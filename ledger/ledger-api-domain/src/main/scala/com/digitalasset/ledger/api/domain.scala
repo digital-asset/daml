@@ -73,7 +73,8 @@ object domain {
         contractId: ContractId,
         templateId: Ref.Identifier,
         createArguments: ValueRecord[AbsoluteContractId],
-        witnessParties: immutable.Set[Ref.Party])
+        witnessParties: immutable.Set[Ref.Party],
+        agreementText: String)
         extends Event
         with CreateOrExerciseEvent
         with CreateOrArchiveEvent
@@ -228,6 +229,11 @@ object domain {
 
   type ApplicationId = String @@ ApplicationIdTag
   val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
+
+  sealed trait AbsoluteNodeIdTag
+
+  type AbsoluteNodeId = String @@ AbsoluteNodeIdTag
+  val AbsoluteNodeId: Tag.TagOf[AbsoluteNodeIdTag] = Tag.of[AbsoluteNodeIdTag]
 
   case class Commands(
       ledgerId: LedgerId,

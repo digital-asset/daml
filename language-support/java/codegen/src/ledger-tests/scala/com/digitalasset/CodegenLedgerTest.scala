@@ -31,32 +31,35 @@ import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass.{
   GetTransactionsResponse
 }
 import com.digitalasset.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
-import com.digitalasset.platform.sandbox.SandboxApplication
-import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, LedgerIdMode, SandboxConfig}
+
+import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
+import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
 import com.digitalasset.platform.sandbox.services.SandboxServerResource
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import io.grpc.Channel
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{Assertion, FlatSpec, Matchers}
 import tests.wolpertinger.color.Grey
 import tests.wolpertinger.{Color, Wolpertinger}
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CodegenLedgerTest extends FlatSpec with Matchers {
 
   def testDalf = new File("language-support/java/codegen/ledger-tests-model.dar")
 
   val LedgerID = "ledger-test"
-  def withClient(testCode: Channel => Unit): Unit = {
+  def withClient(testCode: Channel => Assertion): Assertion = {
     val cfg = SandboxConfig.default.copy(
       port = 0,
       damlPackageContainer = DamlPackageContainer(List(testDalf)),
-      ledgerIdMode = LedgerIdMode.Predefined(LedgerID),
+      ledgerIdMode = LedgerIdMode.Static(LedgerID),
       timeProviderType = TimeProviderType.WallClock,
       timeModel = TimeModel.reasonableDefault
     )
-    val sandbox = new SandboxServerResource(SandboxApplication(cfg))
+    val sandbox = new SandboxServerResource(cfg)
     sandbox.setup()
     try {
       testCode(sandbox.value)
@@ -117,8 +120,7 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
       .foldLeft(Map[String, Wolpertinger.Contract]())((acc, event) =>
         event match {
           case e: CreatedEvent =>
-            acc + (e.getContractId -> Wolpertinger.Contract
-              .fromIdAndRecord(e.getContractId, e.getArguments))
+            acc + (e.getContractId -> Wolpertinger.Contract.fromCreatedEvent(e))
           case a: ArchivedEvent => acc - a.getContractId
       })
       .toList
@@ -158,7 +160,6 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
     val glookoflyContract :: Nil = readActiveContracts(client)
 
     glookoflyContract.data shouldEqual glookofly
-    ()
   }
 
   it should "create correct exercise choice commands" in withClient { client =>
@@ -184,7 +185,6 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
     sruq.data.name shouldEqual sruquito.name
     glookosruq.data.name shouldEqual s"${glookofly.name}-${sruquito.name}"
     glookosruq.data.timeOfBirth shouldEqual tob
-    ()
   }
 
   it should "create correct createAndExercise choice commands" in withClient { client =>
@@ -206,6 +206,14 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
     glook.data.name shouldEqual glookofly.name
     glookosruq.data.name shouldEqual s"${sruquito.name}-${glookofly.name}"
     glookosruq.data.timeOfBirth shouldEqual tob
-    ()
+  }
+
+  it should "provide the agreement text" in withClient { client =>
+    sendCmd(client, glookofly.create())
+
+    val wolpertinger :: _ = readActiveContracts(client)
+
+    wolpertinger.agreementText.isPresent shouldBe true
+    wolpertinger.agreementText.get shouldBe s"${wolpertinger.data.name} has ${wolpertinger.data.wings} wings and is ${wolpertinger.data.age} years old."
   }
 }

@@ -3,12 +3,16 @@
 
 package com.digitalasset.daml.lf.validation
 
+import com.digitalasset.daml.lf.archive.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.lfpackage.Ast.Package
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser._
+import com.digitalasset.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
+
+import scala.util.Try
 
 class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
@@ -34,7 +38,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
 
       forEvery(testCases) { typ =>
         Serializability
-          .Env(defaultWorld, NoContext, SRDataType, typ)
+          .Env(LanguageVersion.default, defaultWorld, NoContext, SRDataType, typ)
           .introVar(n"serializableType" -> k"*")
           .checkType()
       }
@@ -61,7 +65,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
       forEvery(testCases) { typ =>
         an[EExpectedSerializableType] should be thrownBy
           Serializability
-            .Env(defaultWorld, NoContext, SRDataType, typ)
+            .Env(LanguageVersion.default, defaultWorld, NoContext, SRDataType, typ)
             .introVar(n"serializableType" -> k"*")
             .checkType()
       }
@@ -152,7 +156,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
               observers Nil @Party,
               agreement "Agreement",
               choices {
-                choice Ch (i : Mod:SerializableType) : Mod:SerializableType by 'Alice' to upure @Unit ()
+                choice Ch (i : Mod:SerializableType) : Mod:SerializableType by $partiesAlice to upure @Mod:SerializableType (Mod:SerializableType {})
               }
             } ;
           }
@@ -167,8 +171,8 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 agreement "Agreement",
                 choices {
                   choice Ch (i : Mod:SerializableType) :
-                    Mod:SerializableType by 'Alice'
-                      to upure @Unit ()
+                    Mod:SerializableType by $partiesAlice
+                      to upure @Mod:SerializableType (Mod:SerializableType {})
                 }
               } ;
             }
@@ -184,7 +188,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 agreement "Agreement",
                 choices {
                   choice Ch (i : Mod:UnserializableType) :     // disallowed unserializable type
-                    Mod:SerializableType by 'Alice' to
+                   Unit by $partiesAlice to
                        upure @Unit ()
                 }
               } ;
@@ -200,8 +204,8 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 agreement "Agreement",
                 choices {
                   choice Ch (i : Mod:SerializableType) :
-                    Mod:UnserializableType by 'Alice' to       // disallowed unserializable type
-                       upure @Unit ()
+                    Mod:UnserializableType by $partiesAlice to       // disallowed unserializable type
+                       upure @Mod:UnserializableType (Mod:UnserializableType {})
                 }
               } ;
             }
@@ -219,6 +223,88 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
         an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, modName))
       }
 
+    }
+
+    "reject unserializable contract id" in {
+
+      val pkg0 =
+        p"""
+          // well-formed module
+          module NegativeTestCase1 {
+            record @serializable SerializableRecord = {};
+
+            template (this : SerializableRecord) =  {
+              precondition True,
+              signatories Nil @Party,
+              observers Nil @Party,
+              agreement "Agreement",
+              choices {
+              }
+            } ;
+
+            record @serializable SerializableContractId = { cid : ContractId NegativeTestCase1:SerializableRecord };
+          }
+
+          module NegativeTestCase2 {
+            record @serializable SerializableContractId = { cid : ContractId NegativeTestCase1:SerializableRecord };
+          }
+
+          module OncePositiveTestCase1 {
+            record @serializable SerializableRecord = {};
+
+            record @serializable OnceUnserializableContractId = { cid : ContractId OncePositiveTestCase1:SerializableRecord };
+          }
+
+          module OncePositiveTestCase2 {
+            record @serializable OnceUnserializableContractId = { cid : ContractId Int64 };
+          }
+
+          module OncePositiveTestCase3 {
+            record @serializable OnceUnserializableContractId (a : *) = { cid : ContractId a };
+          }
+
+          module PositiveTestCase1 {
+            record SerializableRecord = {};
+
+            record @serializable UnserializableContractId = { cid : ContractId PositiveTestCase1:SerializableRecord };
+          }
+
+          module PositiveTestCase2 {
+            record @serializable UnserializableContractId = { cid : ContractId (Int64 -> Int64) };
+          }
+         """
+
+      val version1_4 = LanguageVersion(LanguageMajorVersion.V1, "4")
+      // TODO(MH): We need to roll this over when we freeze DAML-LF 1.5.
+      val version1_5 = LanguageVersion(LanguageMajorVersion.V1, "dev")
+      val versions = Table("version", version1_4, version1_5)
+
+      val neverFail = (_: LanguageVersion) => false
+      val failBefore1_5 =
+        (version: LanguageVersion) => LanguageVersion.ordering.lteq(version, version1_4)
+      val alwaysFail = (_: LanguageVersion) => true
+      val testCases = Table[String, LanguageVersion => Boolean](
+        "module" -> "should fail",
+        "NegativeTestCase1" -> neverFail,
+        "NegativeTestCase2" -> neverFail,
+        "OncePositiveTestCase1" -> failBefore1_5,
+        "OncePositiveTestCase2" -> failBefore1_5,
+        "OncePositiveTestCase3" -> failBefore1_5,
+        "PositiveTestCase1" -> alwaysFail,
+        "PositiveTestCase2" -> alwaysFail,
+      )
+
+      forEvery(versions) { version =>
+        val pkg = pkg0.updateVersion(version)
+        forEvery(testCases) { (modName: String, shouldFail: LanguageVersion => Boolean) =>
+          if (shouldFail(version)) {
+            an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, modName))
+            ()
+          } else {
+            check(pkg, modName)
+          }
+        }
+      }
     }
   }
 
@@ -249,11 +335,14 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
   private def world(pkg: Package) =
     new World(Map(defaultPkgId -> pkg))
 
-  private def check(pkg: Package, modName: String) = {
+  private def check(pkg: Package, modName: String): Unit = {
     val w = world(pkg)
     val longModName = DottedName.assertFromString(modName)
     val mod = w.lookupModule(NoContext, defaultPkgId, longModName)
+    require(Try(Typing.checkModule(w, defaultPkgId, mod)).isSuccess)
     Serializability.checkModule(w, defaultPkgId, mod)
   }
+
+  private val partiesAlice = "(Cons @Party ['Alice'] (Nil @Party))"
 
 }

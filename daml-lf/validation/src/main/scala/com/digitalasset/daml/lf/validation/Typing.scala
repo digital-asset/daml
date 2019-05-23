@@ -202,6 +202,9 @@ private[validation] object Typing {
     private val supportsFlexibleControllers =
       LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "2"))
 
+    private val supportsComplexContractKeys =
+      LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "4"))
+
     private def introTypeVar(v: TypeVarName, k: Kind): Env = {
       if (tVars.isDefinedAt(v))
         throw EShadowingTypeVar(ctx, v)
@@ -285,7 +288,9 @@ private[validation] object Typing {
       mbKey.foreach { key =>
         checkType(key.typ, KStar)
         env.checkExpr(key.body, key.typ)
-        checkValidKeyExpression(key.body)
+        if (!supportsComplexContractKeys) {
+          checkValidKeyExpression(key.body)
+        }
         checkExpr(key.maintainers, TFun(key.typ, TParties))
         ()
       }

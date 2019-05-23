@@ -8,6 +8,9 @@ steps:
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
+  - powershell: '.\ci\windows-diagnostics.ps1'
+    displayName: 'Agent diagnostics'
+
   - powershell: '.\build.ps1'
     displayName: 'Build'
 
@@ -37,9 +40,9 @@ steps:
       ARTIFACT=daml-sdk-$(release_tag)-windows.tar.gz
       cp bazel-genfiles/release/sdk-release-tarball.tar.gz '$(Build.StagingDirectory)'/$ARTIFACT
       echo "##vso[task.setvariable variable=artifact;isOutput=true]$ARTIFACT"
-      WINDOWS_INSTALLER=daml-sdk-$(release_tag)-windows.exe
-      cp bazel-genfiles/release/windows-installer/daml-sdk-installer.exe '$(Build.StagingDirectory)'/$WINDOWS_INSTALLER
-      echo "##vso[task.setvariable variable=artifact-windows-installer;isOutput=true]$WINDOWS_INSTALLER"
+      WINDOWS_INSTALLER=daml-sdk-$(release_tag)-windows-unsigned.exe
+      cp bazel-genfiles/release/windows-installer/daml-sdk-installer.exe "$(Build.StagingDirectory)/$WINDOWS_INSTALLER"
+      echo "##vso[task.setvariable variable=artifact-unsigned-windows-installer;isOutput=true]$WINDOWS_INSTALLER"
     name: publish
     condition: eq(variables['release.has_released'], 'true')
 
@@ -52,5 +55,5 @@ steps:
   - task: PublishPipelineArtifact@0
     condition: eq(variables['release.has_released'], 'true')
     inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.artifact-windows-installer)
-      artifactName: $(publish.artifact-windows-installer)
+      targetPath: $(Build.StagingDirectory)/$(publish.artifact-unsigned-windows-installer)
+      artifactName: $(publish.artifact-unsigned-windows-installer)

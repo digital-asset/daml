@@ -33,6 +33,7 @@ da_scala_test_suite(
     scalacopts = lf_scalacopts,
     deps = [
         ":scenario-interpreter",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/lfpackage",

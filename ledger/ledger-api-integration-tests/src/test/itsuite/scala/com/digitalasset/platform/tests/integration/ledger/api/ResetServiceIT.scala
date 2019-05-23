@@ -17,7 +17,8 @@ import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.ledger.api.v1.testing.reset_service.ResetRequest
-import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
+import com.digitalasset.platform.apitesting.MultiLedgerFixture
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.services.TestCommands
 import com.digitalasset.platform.sandbox.utils.InfiniteRetries
 import io.grpc.Status
@@ -25,8 +26,6 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{AsyncWordSpec, Matchers, Suite}
-
-import scala.concurrent.Future
 
 class ResetServiceIT
     extends AsyncWordSpec
@@ -42,15 +41,10 @@ class ResetServiceIT
 
   override def timeLimit: Span = 30.seconds
 
-  override protected val config: Config = Config.defaultWithLedgerId(None)
+  override protected val config: Config =
+    Config.default.withLedgerIdMode(LedgerIdMode.Dynamic())
 
   override protected def darFile: File = new File("ledger/sandbox/Test.dar")
-
-  private def reset(ctx: LedgerContext): Future[String] =
-    for {
-      _ <- ctx.reset()
-      lid <- ctx.ledgerIdentityService.getLedgerIdentity(GetLedgerIdentityRequest())
-    } yield lid.ledgerId
 
   private val allTemplatesForParty = M.transactionFilter
 
@@ -65,12 +59,12 @@ class ResetServiceIT
           lid1 <- ctx.ledgerIdentityService.getLedgerIdentity(GetLedgerIdentityRequest())
           lid1SecondInstance <- ctx.ledgerIdentityService.getLedgerIdentity(
             GetLedgerIdentityRequest())
-          lid2 <- reset(ctx)
-          lid3 <- reset(ctx)
+          lid2 <- ctx.reset()
+          lid3 <- ctx.reset()
           throwable <- ctx.resetService.reset(ResetRequest(lid1.ledgerId)).failed
         } yield {
           lid1 shouldEqual lid1SecondInstance
-          lid1 should not equal lid2
+          lid1.ledgerId should not equal lid2
           lid2 should not equal lid3
           IsStatusException(Status.Code.NOT_FOUND)(throwable)
         }
@@ -86,7 +80,7 @@ class ResetServiceIT
             val events = responses.flatMap(extractEvents)
             events.size shouldBe 3
           }
-          _ <- reset(ctx)
+          _ <- ctx.reset()
           newSnapshot <- ctx.acsClient.getActiveContracts(allTemplatesForParty).runWith(Sink.seq)
         } yield {
           newSnapshot.size shouldBe 1

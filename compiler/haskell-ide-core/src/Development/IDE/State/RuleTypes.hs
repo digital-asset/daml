@@ -15,7 +15,6 @@ module Development.IDE.State.RuleTypes(
 import           Control.DeepSeq
 import           Development.IDE.Functions.Compile             (TcModuleResult, GhcModule, LoadPackageResult(..))
 import qualified Development.IDE.Functions.Compile             as Compile
-import qualified Development.IDE.UtilGHC as Compile
 import           Development.IDE.Functions.FindImports         (Import(..))
 import           Development.IDE.Functions.DependencyInformation
 import           Data.Hashable
@@ -24,7 +23,7 @@ import           Development.Shake                        hiding (Env, newCache)
 import           GHC.Generics                             (Generic)
 
 import           GHC
-import HieTypes
+import Development.IDE.Compat
 import           Module
 
 import           Development.IDE.Types.SpanInfo
@@ -52,18 +51,14 @@ type instance RuleResult GetDependencies = TransitiveDependencies
 -- | The type checked version of this file, requires TypeCheck+
 type instance RuleResult TypeCheck = TcModuleResult
 
--- | The result of loading a module from a package.
-type instance RuleResult LoadPackage = LoadPackageResult
-
 -- | Information about what spans occur where, requires TypeCheck
 type instance RuleResult GetSpanInfo = [SpanInfo]
 
 -- | Convert to Core, requires TypeCheck*
 type instance RuleResult GenerateCore = GhcModule
 
--- | We capture the subset of `DynFlags` that is computed by package initialization in a rule to
--- make session initialization cheaper by reusing it.
-type instance RuleResult LoadPackageState = Compile.PackageDynFlags
+-- | A GHC session that we reuse.
+type instance RuleResult GhcSession = HscEnv
 
 -- | Resolve the imports in a module to the list of either external packages or absolute file paths
 -- for modules in the same package.
@@ -113,11 +108,6 @@ data TypeCheck = TypeCheck
 instance Hashable TypeCheck
 instance NFData   TypeCheck
 
-data LoadPackage = LoadPackage InstalledUnitId
-    deriving (Eq, Show, Typeable, Generic)
-instance Hashable LoadPackage
-instance NFData   LoadPackage
-
 data GetSpanInfo = GetSpanInfo
     deriving (Eq, Show, Typeable, Generic)
 instance Hashable GetSpanInfo
@@ -128,10 +118,10 @@ data GenerateCore = GenerateCore
 instance Hashable GenerateCore
 instance NFData   GenerateCore
 
-data LoadPackageState = LoadPackageState
+data GhcSession = GhcSession
     deriving (Eq, Show, Typeable, Generic)
-instance Hashable LoadPackageState
-instance NFData   LoadPackageState
+instance Hashable GhcSession
+instance NFData   GhcSession
 
 -- Note that we embed the filepath here instead of using the filepath associated with Shake keys.
 -- Otherwise we will garbage collect the result since files in package dependencies will not be declared reachable.
@@ -159,6 +149,12 @@ instance Show ParsedModule where
     show = show . pm_mod_summary
 
 instance NFData ModSummary where
+    rnf = rwhnf
+
+instance Show HscEnv where
+    show _ = "HscEnv"
+
+instance NFData HscEnv where
     rnf = rwhnf
 
 instance NFData ParsedModule where

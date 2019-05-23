@@ -88,4 +88,7 @@ sh_test(
         "@gzip_dev_env//:gzip",
         "@tar_dev_env//:tar",
     ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )

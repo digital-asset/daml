@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.PureCompiledPackages
+import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
 import com.digitalasset.daml.lf.lfpackage.Ast
@@ -16,8 +16,8 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import org.slf4j.LoggerFactory
-import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.types.Ledger.TransactionId
+import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.breakOut
@@ -42,9 +42,22 @@ object ScenarioLoader {
     */
   case class LedgerEntryWithLedgerEndIncrement(entry: LedgerEntry, increment: Long)
 
-  def fromScenario(packages: DamlPackageContainer, scenario: String)
+  /**
+    * @param packages All the packages where we're going to look for the scenario definition.
+    * @param compiledPackages The above packages, compiled. Note that we require _all_
+    *                         packages to be compiled -- this is just for ease of implementation
+    *                         and might be revised in the future.
+    * @param scenario The scenario to run. The scenario will be looked in all the packages above
+    *                 trying both with the old and new identifier syntax (`Foo.Bar.Baz` vs `Foo.Bar:Baz`).
+    *                 This function will crash if the scenario is not found or if there are multiple
+    *                 matching scenarios.
+    */
+  def fromScenario(
+      packages: DamlPackageContainer,
+      compiledPackages: CompiledPackages,
+      scenario: String)
     : (ActiveContractsInMemory, ImmArray[LedgerEntryWithLedgerEndIncrement], Instant) = {
-    val (scenarioLedger, scenarioRef) = buildScenarioLedger(packages, scenario)
+    val (scenarioLedger, scenarioRef) = buildScenarioLedger(packages, compiledPackages, scenario)
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
     val ledgerEntries =
@@ -78,13 +91,13 @@ object ScenarioLoader {
 
   private def buildScenarioLedger(
       packages: DamlPackageContainer,
+      compiledPackages: CompiledPackages,
       scenario: String): (L.Ledger, Ref.DefinitionRef) = {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
     val candidateScenarios: List[(Ref.DefinitionRef, Definition)] =
       getCandidateScenarios(packages, scenarioQualName)
     val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
     val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
-    val compiledPackages = getCompiledPackages(packages)
     val speedyMachine = getSpeedyMachine(scenarioExpr, compiledPackages)
     val scenarioLedger = getScenarioLedger(scenarioRef, speedyMachine)
     (scenarioLedger, scenarioRef)
@@ -102,17 +115,10 @@ object ScenarioLoader {
 
   private def getSpeedyMachine(
       scenarioExpr: Ast.Expr,
-      compiledPackages: PureCompiledPackages): Speedy.Machine = {
+      compiledPackages: CompiledPackages): Speedy.Machine = {
     Speedy.Machine.newBuilder(compiledPackages) match {
       case Left(err) => throw new RuntimeException(s"Could not build speedy machine: $err")
       case Right(build) => build(scenarioExpr)
-    }
-  }
-
-  private def getCompiledPackages(packages: DamlPackageContainer): PureCompiledPackages = {
-    PureCompiledPackages(packages.packages) match {
-      case Left(err) => throw new RuntimeException(s"Could not compile packages: $err")
-      case Right(x) => x
     }
   }
 
@@ -206,7 +212,7 @@ object ScenarioLoader {
         // copies non-absolute-able node IDs, but IDs that don't match
         // get intersected away later
         val globalizedImplicitDisclosure = richTransaction.implicitDisclosure mapKeys { nid =>
-          AbsoluteContractId(nid.id)
+          absCidWithHash(AbsoluteContractId(nid.id))
         }
         acs.addTransaction[L.NodeId](
           time.toInstant,

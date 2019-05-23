@@ -34,7 +34,7 @@ class LedgerConfigurationServiceIT
 
   private def client(
       ctx: LedgerContext,
-      ledgerId: String = config.getLedgerId): LedgerConfigurationClient =
+      ledgerId: String = config.assertStaticLedgerId): LedgerConfigurationClient =
     new LedgerConfigurationClient(ledgerId, ctx.ledgerConfigurationService)
 
   "Ledger Configuration Service" when {
@@ -50,7 +50,7 @@ class LedgerConfigurationServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        client(context, "not " + config.getLedgerId).getLedgerConfiguration
+        client(context, "not " + config.assertStaticLedgerId).getLedgerConfiguration
           .runWith(Sink.head)(materializer)
           .failed map { ex =>
           IsStatusException(Status.NOT_FOUND.getCode)(ex)

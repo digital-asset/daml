@@ -175,6 +175,34 @@ case class GenTransaction[Nid, Cid, +Val](
     acc
   }
 
+  /**
+    * A fold over the transaction that maintains global and path-specific state.
+    * Takes constant stack space. Returns the global state.
+    *
+    * Used to for example compute the roots of per-party projections from the
+    * transaction.
+    */
+  final def foldWithPathState[A, B](globalState0: A, pathState0: B)(
+      op: (A, B, Nid, GenNode[Nid, Cid, Val]) => (A, B)): A = {
+    var globalState = globalState0
+
+    @tailrec
+    def go(toVisit: FrontStack[(Nid, B)]): Unit = toVisit match {
+      case FrontStack() => ()
+      case FrontStackCons((nodeId, pathState), toVisit) =>
+        val node = nodes(nodeId)
+        val (globalState1, newPathState) = op(globalState, pathState, nodeId, node)
+        globalState = globalState1
+        node match {
+          case _: LeafOnlyNode[Cid, Val] => go(toVisit)
+          case ne: NodeExercises[Nid, Cid, Val] =>
+            go(ne.children.map(_ -> newPathState) ++: toVisit)
+        }
+    }
+    go(FrontStack(roots.map(_ -> pathState0)))
+    globalState
+  }
+
   /** This function checks the following properties:
     *
     * * No dangling references -- all node ids mentioned in the forest are in the nodes map;

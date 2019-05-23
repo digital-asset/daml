@@ -5,7 +5,7 @@ package com.digitalasset.platform.server.services.time
 
 import java.time._
 
-import com.digitalasset.platform.services.time.TimeModel
+import com.digitalasset.platform.services.time.{TimeModel, TimeModelChecker}
 import org.scalatest.{Matchers, WordSpec}
 
 class TimeModelTest extends WordSpec with Matchers {
@@ -14,13 +14,18 @@ class TimeModelTest extends WordSpec with Matchers {
   private val epsilon = Duration.ofMillis(10L)
   private val sut =
     TimeModel(Duration.ofSeconds(1L), Duration.ofSeconds(1L), Duration.ofSeconds(30L)).get
+
+  private val checker = TimeModelChecker(sut)
+
   private val referenceMrt = referenceTime.plus(sut.maxTtl)
 
   private def acceptLet(let: Instant): Boolean =
-    sut.checkLet(referenceTime, let, let.plus(sut.maxTtl))
+    checker.checkLet(referenceTime, let, let.plus(sut.maxTtl))
+
   private def acceptMrt(mrt: Instant): Boolean =
-    sut.checkLet(referenceTime, mrt.minus(sut.maxTtl), mrt)
-  private def acceptTtl(mrt: Instant): Boolean = sut.checkTtl(referenceTime, mrt)
+    checker.checkLet(referenceTime, mrt.minus(sut.maxTtl), mrt)
+
+  private def acceptTtl(mrt: Instant): Boolean = checker.checkTtl(referenceTime, mrt)
 
   "Ledger effective time model checker" when {
     "calculating derived values" should {

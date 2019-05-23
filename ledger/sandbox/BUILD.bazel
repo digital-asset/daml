@@ -36,6 +36,8 @@ compileDependencies = [
     "//ledger/ledger-api-common:ledger-api-common",
     "//ledger/ledger-api-client:ledger-api-client",
     "//ledger/backend-api",
+    "//ledger/participant-state",
+    "//ledger/participant-state-index",
     "//3rdparty/jvm/com/typesafe/scala_logging:scala_logging",
     "//3rdparty/jvm/org/slf4j:slf4j_api",
     "//3rdparty/jvm/org/scalaz:scalaz_core",

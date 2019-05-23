@@ -1,0 +1,73 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "ide",
+    srcs = glob(["src/**/*.hs"]),
+    hazel_deps = [
+        "aeson",
+        "base",
+        "binary",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "directory",
+        "extra",
+        "filepath",
+        "ghc-lib-parser",
+        "ghc-lib",
+        "hashable",
+        "haskell-lsp-types",
+        "mtl",
+        "shake",
+        "stm",
+        "temporary",
+        "text",
+        "time",
+        "vector",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-tools",
+        "//compiler/haskell-ide-core",
+        "//compiler/scenario-service/client",
+        "//daml-foundations/daml-ghc/ghc-compiler",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_library(
+    name = "ide-testing",
+    srcs = glob(["test/**/*.hs"]),
+    hazel_deps = [
+        "aeson",
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "haskell-lsp-types",
+        "mtl",
+        "stm",
+        "temporary",
+        "text",
+        "time",
+        "vector",
+    ],
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":ide",
+        "//compiler/haskell-ide-core",
+        "//daml-foundations/daml-ghc/daml-compiler",
+        "//daml-foundations/daml-ghc/ghc-compiler",
+    ],
+)

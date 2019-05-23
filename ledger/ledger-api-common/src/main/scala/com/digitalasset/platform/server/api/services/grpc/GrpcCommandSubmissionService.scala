@@ -10,7 +10,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   SubmitRequest => ApiSubmitRequest
 }
-import com.digitalasset.ledger.api.validation.CommandSubmissionRequestValidator
+import com.digitalasset.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.common.util.DirectExecutionContext.implicitEC
@@ -33,12 +33,13 @@ class GrpcCommandSubmissionService(
 
   protected val logger: Logger = LoggerFactory.getLogger(ApiCommandSubmissionService.getClass)
 
-  private val validator = new CommandSubmissionRequestValidator(ledgerId, identifierResolver)
+  private val validator = new SubmitRequestValidator(
+    new CommandsValidator(ledgerId, identifierResolver))
 
   override def submit(request: ApiSubmitRequest): Future[Empty] =
     validator
       .validate(request)
-      .fold(Future.failed, req => service.submit(req).map(_ => Empty.defaultInstance))
+      .fold(Future.failed, service.submit(_).map(_ => Empty.defaultInstance))
 
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, DirectExecutionContext)

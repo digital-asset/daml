@@ -24,6 +24,8 @@
 //     -- 2019-03-18: Add flexible controllers (change scoping of controller expressions)
 // * 3 -- 2019-03-25: Add contract key
 //     -- 2019-03-27: Add Map type
+// * 4 -- 2019-05-15: Add complex contract keys
+// dev -- 2019-05-22: Relax serializability constraints for contract ids
 
 
 syntax = "proto3";
@@ -40,7 +42,7 @@ message PackageRef {
   oneof Sum {
 
     // Reference to the package of which the package this referenc
-    // belongs. 
+    // belongs.
     Unit self = 1;
 
     // A `Package identifier` for an imported Package.
@@ -52,7 +54,7 @@ message PackageRef {
 
 // A `name`, e.g. Util.Either.isLeft
 message DottedName {
-  
+
   // *Must be a non-empty list of a valid identifiers*
   repeated string segments = 1;
 
@@ -60,54 +62,54 @@ message DottedName {
 
 // A fully qualified module reference
 message ModuleRef {
-  
+
   // package where the module is defined.
   PackageRef package_ref = 1;
-  
+
   // module name
   DottedName module_name = 2;
-  
+
 }
 
 // A fully qualified reference to a type constructor name.
 message TypeConName {
-  
+
   // Module where the type is defined.
   ModuleRef module = 1;
-  
+
   // type constructor name.
   DottedName name = 2;
-  
+
 }
 
 // A fully qualified reference to a value definition.
 message ValName {
-  
+
   // Module where the value is defined
   ModuleRef module = 1;
-  
+
   // value name.
   repeated string name = 2;
 }
 
 // A field name definition in a record or a variant associated with a type.
 message FieldWithType {
-  
+
   // Name of the field .
   // *Must be a valid identifier*
   string field = 1;
-  
+
   // Type associated
   Type type = 2;
 }
 
 // Binder associated with a type.
 message VarWithType {
-  
+
   // Name of the bound expression variable.
   // *Must be a valid identifier*
   string var = 1;
-  
+
   // Type of the bound variable
   Type type = 2;
 }
@@ -141,11 +143,11 @@ message Binding {
 // Kinds
 message Kind {
 
-  // The kind of polimorphic type. 
+  // The kind of polimorphic type.
   message Arrow {
     // parameter of the kind
     // *Must be non-empty*
-    repeated Kind params = 1; 
+    repeated Kind params = 1;
     Kind result = 2;
   }
 
@@ -165,26 +167,26 @@ enum PrimType {
   // Builtin type 'Bool'
   BOOL = 1;
 
-  // Builtin type 'Int64'  
+  // Builtin type 'Int64'
   INT64 = 2;
 
-  // Buitling type 'Int64' 
+  // Buitling type 'Int64'
   DECIMAL = 3;
 
   // CHAR = 4; // we have removed this in favor of TEXT for everything text related.
 
-  // Builting type 'Text' 
+  // Builting type 'Text'
   TEXT = 5;
 
-  // Builing type 'Timestamp' 
+  // Builing type 'Timestamp'
   TIMESTAMP = 6;
-  
+
   // RELTIME = 7; // we removed this in favor of INT64.
 
-  // Builting tpe 'Party' 
-  PARTY = 8; 
+  // Builting tpe 'Party'
+  PARTY = 8;
 
-  // Builtin type 'List' 
+  // Builtin type 'List'
   LIST = 9;
 
   // Builtin type 'Update'
@@ -196,12 +198,12 @@ enum PrimType {
   // Builin type 'Date'
   DATE = 12;
 
-  // Builtin type 'ContractId' 
+  // Builtin type 'ContractId'
   CONTRACT_ID = 13;
 
   // Builtin type 'Optional'
   // *Available since version 1.1*
-  OPTIONAL = 14; 
+  OPTIONAL = 14;
 
   // Builtin type `TArrow`
   // *Available since version 1.1*
@@ -218,19 +220,19 @@ message Type {
 
   // Possibly applied type variable 'TyVar'
   message Var {
-    
+
     // Name of the variable.
     // *Must be a valid identifier*
     string var = 1;
 
-    // Types to which the variable is applied 
+    // Types to which the variable is applied
     repeated Type args = 2;
   }
 
   // Possibly applied type constructor 'TyCon'
   message Con {
 
-    // Name of the type constructor name 
+    // Name of the type constructor name
     TypeConName tycon = 1;
 
     // Type to which the constructor name is applied.
@@ -254,10 +256,10 @@ message Type {
     // type of the arguments
     // *Must be non-empty*
     repeated Type params = 1;
-    // type of the result 
+    // type of the result
     Type result = 2;
   }
-  
+
   // Universal quantification 'TyForAll'
   message Forall {
     // binders of the quantification
@@ -291,19 +293,19 @@ message Type {
 
 // Primitive constructors
 enum PrimCon {
-  
+
   // Unit value '()'
   CON_UNIT = 0;
 
-  // 'False' boolean value 
+  // 'False' boolean value
   CON_FALSE = 1;
-  
+
   // 'True' boolean value
   CON_TRUE = 2;
 }
 
 // Builtin functions
-// Refer to DAML-LF major version 1 specification for types and behavior of those. 
+// Refer to DAML-LF major version 1 specification for types and behavior of those.
 enum BuiltinFunction {
   ADD_DECIMAL = 0;
   SUB_DECIMAL = 1;
@@ -398,7 +400,7 @@ enum BuiltinFunction {
 }
 
 // Builtin literals
-// FixMe: Renamed 
+// FixMe: Renamed
 message PrimLit {
   oneof Sum {
 
@@ -417,17 +419,17 @@ message PrimLit {
     // one. so, string it is. note that we can't store the whole and
     // decimal part in two numbers either, because 10^28 > 2^63.
     string decimal = 2;
-    
+
     // Unicode string literal ('LitText')
     string text = 4;
 
     // UTC timestamp literal ('LitTimestamp')
-    // 
+    //
     // Microseconds since the UNIX epoch. can go backwards.
     //
     // *Must be in range 001-01-01T00:00:00Z to
     // 9999-12-31T23:59:59.999999Z
-    
+
     // sfixed since the vast majority of values will be greater than
     // 2^28, since currently the number of microseconds since the
     // epoch is greater than that.
@@ -437,9 +439,9 @@ message PrimLit {
     // *Must be a SimpleString*
     string party = 7;
 
-    // Date literal ('Date') 
+    // Date literal ('Date')
     // Serialization of the number of days since the unix epoch. can go backwards.
-    // 
+    //
     // *Must be in range '0001-01-01' to '9999-12-31'*
     int32 date = 8;
   }
@@ -450,7 +452,7 @@ message PrimLit {
 
 // Source code locations
 message Location {
-  
+
   // 0-indexed start and end line and column numbers.
   message Range {
     int32 start_line = 1;
@@ -470,31 +472,31 @@ message Expr {
   // Record construction ('ExpRecCon')
   message RecCon {
 
-    // type of the record being constructed 
+    // type of the record being constructed
     Type.Con tycon = 1;
 
     // Field names and the associated values.
     repeated FieldWithExpr fields = 2;
   }
 
-  // Record projection (ExpRecProj) 
+  // Record projection (ExpRecProj)
   message RecProj {
 
-    // type of the record being projected.  
+    // type of the record being projected.
     Type.Con tycon = 1;
- 
+
     // Name of the record field to be projected on.
     // *must be a valid Identifier*
     string field = 2;
 
-    // projected expression 
+    // projected expression
     Expr record = 3;
   }
 
   // Record update ('ExpRecUp')
   message RecUpd {
 
-    // type of the record being updated 
+    // type of the record being updated
     Type.Con tycon = 1;
 
     // Name of the updated field.
@@ -508,14 +510,14 @@ message Expr {
     Expr update = 4;
   }
 
-  // Variant construction ('ExpVariantCon') 
+  // Variant construction ('ExpVariantCon')
   message VariantCon {
 
     // type of the variant being constructed
     Type.Con tycon = 1;
 
     // name of the variant constructor
-    // *Must be a valid identifier* 
+    // *Must be a valid identifier*
     string variant_con = 2;
 
     // Argument of the variant.
@@ -530,12 +532,12 @@ message Expr {
 
   // Tuple Projection ('ExpTupleProj')
   message TupleProj {
-    
+
     // Name of the field to be projected on.
     // *Must be a valid Identifier*
     string field = 1;
 
-    // tuple to be projected. 
+    // tuple to be projected.
     Expr tuple = 2;
   }
 
@@ -554,21 +556,21 @@ message Expr {
   }
 
 
-  // Application ('ExpApp') 
+  // Application ('ExpApp')
   message App {
 
-    // Function 
+    // Function
     Expr fun = 1;
 
     // Arguments of the function.
     // *Must be non-empty*
     repeated Expr args = 2;
   }
-  
-  // Type application ('ExpTyApp') 
+
+  // Type application ('ExpTyApp')
   message TyApp {
 
-    // Polymorphic expression 
+    // Polymorphic expression
     Expr expr = 1;
 
     // Arguments of the function.
@@ -578,7 +580,7 @@ message Expr {
 
   // Abstraction ('ExpAbs')
   message Abs {
-    
+
     // Abstracted Variables with their kind
     // *Must be non-empty*
     repeated VarWithType param = 1;
@@ -599,12 +601,12 @@ message Expr {
 
   // Empty list ('ExpNil')
   message Nil {
-    
+
     // type of the list elements.
     Type type = 1;
   }
 
-  // Non empty list 
+  // Non empty list
   message Cons {
 
     // type of the list elements.
@@ -619,7 +621,7 @@ message Expr {
   }
 
   // (*Since version 1*)
-  // Empty optional value 
+  // Empty optional value
   message None {
 
     // type of the element
@@ -627,7 +629,7 @@ message Expr {
   }
 
   // (*Since version 1*)
-  // Non empty optional value 
+  // Non empty optional value
   message Some {
 
     // type of the element
@@ -639,8 +641,8 @@ message Expr {
   }
 
   // Location of the expression in the DAML code source.
-  // Optional 
-  Location location = 25; 
+  // Optional
+  Location location = 25;
 
   oneof Sum {
 
@@ -663,13 +665,13 @@ message Expr {
     // Record construction ('ExpRecCon')
     RecCon rec_con = 6;
 
-    // Record projection ('ExpRecProj') 
+    // Record projection ('ExpRecProj')
     RecProj rec_proj = 7;
 
     // Record udpate ('ExpRecUpdate')
     RecUpd rec_upd = 22;
- 
-    // Variant construction ('ExpVariantCon') 
+
+    // Variant construction ('ExpVariantCon')
     VariantCon variant_con = 8;
 
     // Tuple construction ('ExpTupleCon')
@@ -681,7 +683,7 @@ message Expr {
     // Tuple update ('ExpTupleUpdate')
     TupleUpd tuple_upd = 23;
 
-    // Application ('ExpApp') 
+    // Application ('ExpApp')
     App app = 11;
 
     // Type Application ('ExpTyApp')
@@ -704,8 +706,8 @@ message Expr {
 
     // Non Empty list ('ExpCons')
     Cons cons = 18;
-    
-    // Update expression ('ExpUpdate') 
+
+    // Update expression ('ExpUpdate')
     Update update = 20;
 
     // Scenario Expression ('ExpScenario')
@@ -713,11 +715,11 @@ message Expr {
 
     // empty optional valye ('ExpNone')
     // *Available since version 1.1*
-    None none = 26; 
+    None none = 26;
 
     // non empty optional value ('ExpSome')
     // *Available since version 1.1*
-    Some some = 27;  
+    Some some = 27;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*
@@ -730,7 +732,7 @@ message CaseAlt {
   // Variant pattern
   message Variant {
 
-    // name of the type constructor 
+    // name of the type constructor
     TypeConName con = 1;
 
     // name of the variant constructor
@@ -739,7 +741,7 @@ message CaseAlt {
 
     // name of the variant binder
     // *Must be a valid identifier*
-    string binder = 3; 
+    string binder = 3;
   }
 
   // Non empty list pattern
@@ -747,14 +749,14 @@ message CaseAlt {
     // name of the binder for the head
     // *Must be a valid identifier*
     string var_head = 1;
-    
+
     // name of the binder for the tail
     // *Must be a valid identifier*
     string var_tail = 2;
   }
 
   // Non empty option patterm
-  // Available since version 
+  // Available since version
   message Some {
     string var_body = 1;
   }
@@ -810,7 +812,7 @@ message Update {
     string choice = 2;
     // contract id
     Expr cid = 3;
-    // actort 
+    // actort
     Expr actor = 4;
     // argument
     Expr arg = 5;
@@ -833,7 +835,7 @@ message Update {
     Expr body = 2;
   }
 
-  // Retrieve by key Update 
+  // Retrieve by key Update
   // *Available since version 1.2*
   message RetrieveByKey {
     TypeConName template = 1;
@@ -860,7 +862,7 @@ message Scenario {
   message Commit {
     // committing party
     Expr party = 1;
-    // 
+    //
     Expr expr = 2;
     // type of result
     Type ret_type = 3;
@@ -897,7 +899,7 @@ message Scenario {
 message TemplateChoice {
 
   // *Must be a valid identifier*
-  string name = 1; 
+  string name = 1;
 
   // Choice type
   bool consuming = 2;
@@ -957,7 +959,13 @@ message DefTemplate {
 
   message DefKey {
       Type type = 1;
-      KeyExpr key = 2;
+      // NOTE(MH): The first version of contract keys had syntactic
+      // restrictions that key expression had to be "simple". We lifted these
+      // restrictions later and allowed arbitrarily complext key expressions.
+      oneof key_expr {
+          KeyExpr key = 2;
+          Expr complex_key = 4;
+      }
       Expr maintainers = 3; // a function from the key type to [Party]
   }
 
@@ -1026,7 +1034,7 @@ message DefDataType {
   // set correctly and that template and choice argument and result types
   // have this flag set to true.
   bool serializable = 5;
-  
+
   Location location = 6;
 }
 
@@ -1036,7 +1044,7 @@ message DefValue {
   // and type in DefValue is that it was VarWithType before, and we
   // want to be binary-compatible with it.
   message NameWithType {
-    
+
     // Name of the value
     // *each element of name must be a valid identifier*
     repeated string name = 1;
@@ -1046,7 +1054,7 @@ message DefValue {
   }
 
   NameWithType name_with_type = 1;
-  
+
   Expr expr = 2;
 
   // If true, the value must not contain any party literals and not reference
@@ -1083,4 +1091,3 @@ message Module {
 message Package {
   repeated Module modules = 1;
 }
-

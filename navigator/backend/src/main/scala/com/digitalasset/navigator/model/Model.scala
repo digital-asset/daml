@@ -146,7 +146,8 @@ final case class ContractCreated(
     workflowId: ApiTypes.WorkflowId,
     contractId: ApiTypes.ContractId,
     templateId: DamlLfIdentifier,
-    argument: ApiRecord
+    argument: ApiRecord,
+    agreementText: Option[String]
 ) extends Event
 
 final case class ChoiceExercised(
@@ -172,7 +173,8 @@ final case class ChoiceExercised(
 final case class Contract(
     id: ApiTypes.ContractId,
     template: Template,
-    argument: ApiRecord
+    argument: ApiRecord,
+    agreementText: Option[String]
 ) extends TaggedNode[ApiTypes.ContractIdTag]
 
 // ------------------------------------------------------------------------------------------------

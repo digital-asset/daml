@@ -28,7 +28,8 @@ apt-get install -qy \
   git \
   netcat
 
-curl -sSO https://dl.google.com/cloudagents/install-logging-agent.sh | bash
+curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
+systemctl restart google-fluentd.service
 
 ## Install the VSTS agent
 groupadd --gid 3000 vsts
