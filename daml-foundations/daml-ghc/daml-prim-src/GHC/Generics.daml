@@ -724,7 +724,8 @@ module GHC.Generics (
   -- , Datatype(..), Constructor(..), Selector(..)
   , Fixity(..), FixityI(..), Associativity(..), prec
   , SourceUnpackedness(..), SourceStrictness(..), DecidedStrictness(..)
-  , Meta(..)
+  , Meta(..), MetaData0(..), MetaCons0(..), MetaSel0(..)
+  , Maybe(..)
 
   -- * Generic type classes
   , Generic(..), Generic1(..)
@@ -1356,7 +1357,7 @@ data DecidedStrictness = DecidedLazy
 -- 'to' . 'from' ≡ 'Prelude.id'
 -- @
 -- [DA] we replaced the type family @Rep a@ with a second type parameter of the class @rep@.
-class Generic a rep where
+class Generic a rep | a -> rep where
   -- | Generic representation type
 -- type Rep a :: Type -> Type
 -- -- | Convert from the datatype to its representation
@@ -1381,7 +1382,7 @@ class Generic a rep where
 -- 'to1' . 'from1' ≡ 'Prelude.id'
 -- @
 -- [DA] we replaced the type family @Rep1 f@ with a second type paremeter of the class @rep@.
-class Generic1 (f :: * -> Type) rep where
+class Generic1 (f :: * -> Type) rep | f -> rep where
   -- | Generic representation type
 -- type Rep1 f :: k -> Type
 -- -- | Convert from the datatype to its representation
@@ -1420,7 +1421,7 @@ data Meta = MetaData MetaData0
 data MetaData0 = MetaData0 {name :: Symbol, module_ :: Symbol, package :: Symbol, isNewType :: Bool}
 data MetaCons0 = MetaCons0 {name :: Symbol, fixity :: FixityI, hasRecordSelectors :: Bool}
 data MetaSel0 = MetaSel0 {  mbRecordName :: Maybe Symbol
-                          , sourceUnpackedness :: SourceStrictness
+                          , sourceUnpackedness :: SourceUnpackedness
                           , sourceStrictness :: SourceStrictness
                           , decidedStrictness ::DecidedStrictness
                           }
