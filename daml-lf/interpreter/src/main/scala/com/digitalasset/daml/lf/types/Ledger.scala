@@ -19,6 +19,7 @@ import scala.collection.immutable
 object Ledger {
 
   type ScenarioNodeId = LedgerString
+
   object ScenarioNodeId {
     def apply(acoid: AbsoluteContractId): ScenarioNodeId = acoid.coid
 
@@ -35,7 +36,7 @@ object Ledger {
       commitPrefix: LedgerString,
       txnid: Transaction.NodeId
   ): AbsoluteContractId =
-    AbsoluteContractId(LedgerString.concat(commitPrefix, txnid.name))
+    AbsoluteContractId(ContractIdString.concat(commitPrefix, txnid.name))
 
   @inline
   def relativeToAbsoluteContractId(
@@ -59,8 +60,8 @@ object Ledger {
 
   case class ScenarioTransactionId(index: Int) extends Ordered[ScenarioTransactionId] {
     def next: ScenarioTransactionId = ScenarioTransactionId(index + 1)
-    val id: TransactionIdString = LedgerString.assertFromString(index.toString)
-    def compare(that: ScenarioTransactionId): Int = index compare that.index
+    val id: TransactionIdString = TransactionIdString.assertFromString(index.toString)
+    override def compare(that: ScenarioTransactionId): Int = index compare that.index
     def makeCommitPrefix: LedgerString = LedgerString.concat(id, `:`)
   }
 

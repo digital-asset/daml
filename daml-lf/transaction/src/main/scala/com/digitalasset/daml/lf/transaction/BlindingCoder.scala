@@ -92,6 +92,6 @@ object BlindingCoder {
   }
 
   private def toContractId(s: String): Either[DecodeError, ContractIdString] =
-    LedgerString.fromString(s).left.map(err => DecodeError(s"Cannot decode contractId: $err"))
+    ContractIdString.fromString(s).left.map(err => DecodeError(s"Cannot decode contractId: $err"))
 
 }

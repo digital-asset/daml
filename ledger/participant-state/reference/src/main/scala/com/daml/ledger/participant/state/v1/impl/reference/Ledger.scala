@@ -77,7 +77,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     timeModel = timeModel
   )
   private val ledgerId: LedgerIdString =
-    Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
+    Ref.LedgerIdString.assertFromString(UUID.randomUUID().toString)
 
   /**
     * Task to send out transient heartbeat events to subscribers.

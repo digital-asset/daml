@@ -112,12 +112,12 @@ da_scala_binary(
     scalacopts = ["-Xsource:2.13"],
     deps = [
         ":codegen-sbt-example-scala-codegen-lib",
+        "//daml-lf/data",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-common",
         "//ledger/participant-state",
         "//ledger/sandbox",
-        "//daml-lf/data",
     ],
 )

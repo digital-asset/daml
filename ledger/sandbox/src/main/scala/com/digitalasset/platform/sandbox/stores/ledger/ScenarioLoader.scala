@@ -186,7 +186,8 @@ object ScenarioLoader {
     }
   }
 
-  private val transactionIdPrefix = Ref.LedgerString.assertFromString(s"scenario-transaction-")
+  private val transactionIdPrefix =
+    Ref.TransactionIdString.assertFromString(s"scenario-transaction-")
   private val workflowIdPrefix = Ref.LedgerString.assertFromString(s"scenario-workflow-")
   private val scenarioLoader = Ref.LedgerString.assertFromString("scenario-loader")
 
@@ -264,12 +265,12 @@ object ScenarioLoader {
     }
   }
 
-  private val `#` = Ref.LedgerString.assertFromString("#")
+  private val `#` = Ref.ContractIdString.assertFromString("#")
   // currently the scenario interpreter produces the contract ids with no hash prefix,
   // but the sandbox does. add them here too for consistency
   private def absCidWithHash(a: AbsoluteContractId): AbsoluteContractId =
-    AbsoluteContractId(Ref.LedgerString.concat(`#`, a.coid))
+    AbsoluteContractId(Ref.ContractIdString.concat(`#`, a.coid))
 
-  private def nodeIdWithHash(nid: L.ScenarioNodeId): NodeId = Ref.LedgerString.concat(`#`, nid)
+  private def nodeIdWithHash(nid: L.ScenarioNodeId): NodeId = Ref.ContractIdString.concat(`#`, nid)
 
 }

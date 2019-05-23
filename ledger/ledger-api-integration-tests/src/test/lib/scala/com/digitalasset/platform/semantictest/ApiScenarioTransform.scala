@@ -6,7 +6,6 @@ package com.digitalasset.platform.semantictest
 import com.digitalasset.daml.lf.data.Ref.{
   ContractIdString,
   LedgerIdString,
-  LedgerString,
   PackageId,
   QualifiedName
 }
@@ -37,7 +36,7 @@ class ApiScenarioTransform(ledgerId: LedgerIdString, packages: Map[Ref.PackageId
     extends ErrorFactories {
 
   private def toContractId(s: String): Either[StatusRuntimeException, ContractIdString] =
-    LedgerString.fromString(s).left.map(e => invalidArgument(s"Cannot parse contractId: $e"))
+    ContractIdString.fromString(s).left.map(e => invalidArgument(s"Cannot parse contractId: $e"))
 
   private def toLfVersionedValue[Cid](
       record: Record

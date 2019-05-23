@@ -112,7 +112,7 @@ class RefTest extends FreeSpec with Matchers {
 
   "LedgerString" - {
 
-    val ledgerStringChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-#"
+    val ledgerStringChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-# "
 
     "accepts simple characters" in {
       for (c <- ledgerStringChars) {

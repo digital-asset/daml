@@ -1068,7 +1068,7 @@ object EngineTest {
     Party.assertFromString(s)
 
   private implicit def toContractId(s: String): ContractIdString =
-    LedgerString.assertFromString(s)
+    ContractIdString.assertFromString(s)
 
   private def ArrayList[X](as: X*): util.ArrayList[X] = {
     val a = new util.ArrayList[X](as.length)

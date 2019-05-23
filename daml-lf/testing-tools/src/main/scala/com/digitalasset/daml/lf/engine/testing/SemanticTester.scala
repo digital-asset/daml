@@ -428,7 +428,7 @@ object SemanticTester {
       coid match {
         case rcoid: RelativeContractId =>
           AbsoluteContractId(
-            Ref.LedgerString.assertFromString(
+            Ref.ContractIdString.assertFromString(
               submitCounter.toString + "-" + rcoid.txnid.index.toString))
         case acoid: AbsoluteContractId => acoid
       }

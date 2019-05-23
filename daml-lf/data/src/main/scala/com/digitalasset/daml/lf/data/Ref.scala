@@ -162,16 +162,20 @@ object Ref {
     * transactionId, ... We use the same type for those ids, because we
     * construct some by concatenating the others.
     */
-  val LedgerString = ConcatenableMatchingStringModule("._:-#".contains(_), 256)
+  // We allow space because the navigator's applicationId used it.
+  val LedgerString = ConcatenableMatchingStringModule("._:-# ".contains(_), 256)
   type LedgerString = LedgerString.T
 
   /** Identifier for a contractId */
-  type ContractIdString = LedgerString
+  val ContractIdString: LedgerString.type = LedgerString
+  type ContractIdString = ContractIdString.T
 
   /** Identifier for the ledger */
-  type LedgerIdString = LedgerString
+  val LedgerIdString: LedgerString.type = LedgerString
+  type LedgerIdString = LedgerIdString.T
 
   /** Identifiers for transactions. */
-  type TransactionIdString = LedgerString
+  val TransactionIdString: LedgerString.type = LedgerString
+  type TransactionIdString = TransactionIdString.T
 
 }

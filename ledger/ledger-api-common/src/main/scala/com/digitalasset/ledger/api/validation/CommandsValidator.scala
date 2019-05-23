@@ -151,7 +151,7 @@ final class CommandsValidator(ledgerId: LedgerIdString, identifierResolver: Iden
 
   def validateValue(value: Value): Either[StatusRuntimeException, domain.Value] = value.sum match {
     case Sum.ContractId(cId) =>
-      Ref.LedgerString
+      Ref.ContractIdString
         .fromString(cId)
         .left
         .map(invalidArgument)

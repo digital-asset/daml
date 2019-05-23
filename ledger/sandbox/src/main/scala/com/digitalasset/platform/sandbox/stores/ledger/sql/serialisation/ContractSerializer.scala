@@ -42,7 +42,7 @@ object ContractSerializer extends ContractSerializer {
   )
 
   private def toContractId(s: String) =
-    Ref.LedgerString
+    Ref.ContractIdString
       .fromString(s)
       .left
       .map(e => DecodeError(s"cannot decode contractId: $e"))

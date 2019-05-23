@@ -22,7 +22,6 @@ import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason}
 import com.daml.ledger.participant.state.index.v1.{CompletionEvent, IndexService}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerString
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -69,7 +68,7 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
         indexService
           .getCompletions(
             optOffset,
-            LedgerString.assertFromString(request.applicationId),
+            Ref.LedgerIdString.assertFromString(request.applicationId),
             request.parties.toList.map(Ref.Party.assertFromString))
           .map {
             case CompletionEvent.CommandAccepted(offset, commandId, transactionId) =>

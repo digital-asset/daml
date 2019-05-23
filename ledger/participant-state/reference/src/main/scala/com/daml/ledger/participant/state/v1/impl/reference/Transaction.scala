@@ -117,7 +117,7 @@ object Transaction {
     )
 
   private def toAbsoluteContractId(s: String) =
-    Ref.LedgerString
+    Ref.ContractIdString
       .fromString(s)
       .left
       .map(e => DecodeError("cannot parse contractId $e"))

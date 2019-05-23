@@ -65,14 +65,14 @@ object TransientContractRemover {
         if (createdEvent.witnessParties.nonEmpty) {
           resultBuilder.update(indexInList, Some(event))
           val _ = creationByContractId.put(
-            ContractId(Ref.LedgerString.assertFromString(createdEvent.contractId)),
+            ContractId(Ref.ContractIdString.assertFromString(createdEvent.contractId)),
             indexInList -> createdEvent)
         }
 
       case Archived(archivedEvent) =>
         if (archivedEvent.witnessParties.nonEmpty) {
           creationByContractId
-            .get(ContractId(Ref.LedgerString.assertFromString(archivedEvent.contractId)))
+            .get(ContractId(Ref.ContractIdString.assertFromString(archivedEvent.contractId)))
             .fold[Unit] {
               // No matching create for this archive. Insert as is.
               resultBuilder.update(indexInList, Some(event))

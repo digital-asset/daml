@@ -9,5 +9,5 @@ import com.digitalasset.daml.lf.data.Ref
 
 object LedgerIdGenerator {
   def generateRandomId(): Ref.LedgerString =
-    Ref.LedgerString.assertFromString(s"sandbox-${UUID.randomUUID().toString}")
+    Ref.LedgerIdString.assertFromString(s"sandbox-${UUID.randomUUID().toString}")
 }

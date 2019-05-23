@@ -275,7 +275,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "let x:Int64 = 2 in x" ->
           ELet(Binding(Some(x.value), t"Int64", e"2"), e"x"),
         "#id @Mod:T" ->
-          EContractId(LedgerString.assertFromString("#id"), T.tycon),
+          EContractId(ContractIdString.assertFromString("#id"), T.tycon),
         "case e of () -> ()" ->
           ECase(e"e", ImmArray(CaseAlt(CPPrimCon(PCUnit), e"()"))),
         "case e of True -> False" ->

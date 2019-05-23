@@ -8,14 +8,18 @@ import com.digitalasset.daml.lf.data.Ref.LedgerString
 package object ledger {
 
   /** Identifiers used to correlate submission with results. */
-  type CommandId = LedgerString
+  val CommandId: LedgerString.type = LedgerString
+  type CommandId = CommandId.T
 
   /** Identifiers used for correlating submission with a workflow.  */
-  type WorkflowId = LedgerString
+  val WorkflowId: LedgerString.type = LedgerString
+  type WorkflowId = WorkflowId.T
 
   /** Identifiers for submitting client applications. */
-  type ApplicationId = LedgerString
+  val ApplicationId: LedgerString.type = LedgerString
+  type ApplicationId = ApplicationId.T
 
-  type EventId = LedgerString
+  val EventId: LedgerString.type = LedgerString
+  type EventId = EventId.T
 
 }

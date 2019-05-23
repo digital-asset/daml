@@ -87,7 +87,7 @@ class ScalaCodeGenIT
   implicit override lazy val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = Span(20, Seconds), interval = Span(250, Millis))
 
-  private val ledgerId = Ref.LedgerString.assertFromString(this.getClass.getSimpleName)
+  private val ledgerId = Ref.LedgerIdString.assertFromString(this.getClass.getSimpleName)
 
   private val archives = List(
     requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),
