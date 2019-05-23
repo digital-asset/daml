@@ -105,7 +105,7 @@ getAvailableSdkVersions = wrapErr "Fetching list of avalaible SDK versions" $ do
 
     versionsMap :: M.HashMap Text Text <-
         fromRightM
-            (throwIO . assistantErrorBecause "Versions list from docs.daml.com does not contain vaild JSON" . pack)
+            (throwIO . assistantErrorBecause "Versions list from docs.daml.com does not contain valid JSON" . pack)
             (eitherDecodeStrict' (getResponseBody response))
 
     pure . sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
