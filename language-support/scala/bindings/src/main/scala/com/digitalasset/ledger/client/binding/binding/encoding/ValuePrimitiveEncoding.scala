@@ -37,7 +37,7 @@ trait ValuePrimitiveEncoding[TC[_]] {
 
   implicit def valueList[A: TC]: TC[P.List[A]]
 
-  implicit def valueContractId[Tpl <: Template[Tpl]]: TC[P.ContractId[Tpl]]
+  implicit def valueContractId[A: TC]: TC[P.ContractId[A]]
 
   implicit def valueOptional[A: TC]: TC[P.Optional[A]]
 
@@ -45,7 +45,6 @@ trait ValuePrimitiveEncoding[TC[_]] {
 }
 
 object ValuePrimitiveEncoding {
-  private[this] trait CidT extends Template[CidT]
 
   /** Proof that `ValuePrimitiveEncoding`, and therefore the primitive types and
     * Value, have an instance for any possible primitive value.
@@ -65,7 +64,7 @@ object ValuePrimitiveEncoding {
       case Unit(_) => Some(valueUnit)
       case Bool(_) => Some(valueBool)
       case List(_) => Some(valueList(valueText))
-      case ContractId(_) => Some(valueContractId[CidT])
+      case ContractId(_) => Some(valueContractId(valueText))
       case Optional(_) => Some(valueOptional(valueText))
       case Map(_) => Some(valueMap(valueText))
       // types that represent non-primitives only
@@ -83,8 +82,7 @@ object ValuePrimitiveEncoding {
       valueDate,
       valueTimestamp,
       valueUnit,
-      valueBool,
-      valueContractId[CidT])
+      valueBool)
   }
 
   // def const[F[_]](fa: Forall[F]): ValuePrimitiveEncoding[F] =
@@ -112,8 +110,8 @@ object ValuePrimitiveEncoding {
       override def valueList[A](implicit ev: (F[A], G[A])) =
         (vpef.valueList(ev._1), vpeg.valueList(ev._2))
 
-      override def valueContractId[Tpl <: Template[Tpl]] =
-        (vpef.valueContractId[Tpl], vpeg.valueContractId[Tpl])
+      override def valueContractId[A](implicit ev: (F[A], G[A])) =
+        (vpef.valueContractId(ev._1), vpeg.valueContractId(ev._2))
 
       override def valueOptional[A](implicit ev: (F[A], G[A])) =
         (vpef.valueOptional(ev._1), vpeg.valueOptional(ev._2))
@@ -161,8 +159,8 @@ object ValuePrimitiveEncoding {
       override def valueList[A](implicit ev: G[A]): G[P.List[A]] =
         iso.to(vpe.valueList(iso.from(ev)))
 
-      override def valueContractId[Tpl <: Template[Tpl]]: G[P.ContractId[Tpl]] =
-        iso.to(vpe.valueContractId)
+      override def valueContractId[A](implicit ev: G[A]): G[P.ContractId[A]] =
+        iso.to(vpe.valueContractId(iso.from(ev)))
 
       override def valueOptional[A](implicit ev: G[A]): G[P.Optional[A]] =
         iso.to(vpe.valueOptional(iso.from(ev)))

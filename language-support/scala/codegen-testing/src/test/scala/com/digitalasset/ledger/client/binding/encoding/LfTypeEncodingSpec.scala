@@ -261,7 +261,7 @@ object LfTypeEncodingSpec {
     implicit val `CallablePayout arb`: Arbitrary[CallablePayout] = Arbitrary {
       implicit val PA: Arbitrary[P.Party] = Arbitrary(GenEncoding.primitive.valueParty)
       implicit val CA: Arbitrary[P.ContractId[CallablePayout]] =
-        Arbitrary(GenEncoding.primitive.valueContractId)
+        Arbitrary(GenEncoding.primitive.valueContractId(Gen.lzy(`CallablePayout arb`.arbitrary)))
       arbitrary[(
           P.Party,
           TrialSubRec[P.Int64],
