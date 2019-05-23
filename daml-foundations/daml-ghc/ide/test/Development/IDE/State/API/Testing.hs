@@ -211,7 +211,14 @@ expectLastRebuilt predicate = ShakeTest $ do
         API.writeProfile service file
         rebuilt <- either error (return . parseShakeProfileJSON testDir) =<< Aeson.eitherDecodeFileStrict' file
         -- ignore those which are set to alwaysRerun - not interesting
-        let alwaysRerun typ = typ `elem` ["OfInterest","GetModificationTime","GetFileExists", "GetScenarioRoots", "GetScenarioRoot"]
+        let alwaysRerun typ = typ `elem`
+                [ "GetFileExists"
+                , "GetFilesOfInterest"
+                , "GetModificationTime"
+                , "GetOpenVirtualResources"
+                , "GetScenarioRoots"
+                , "OfInterest"
+                ]
         when (null rebuilt) $
             error "Detected that zero files have rebuilt. Most likely that's a bug and we failed to parse the Shake output file."
         let bad = filter (\(typ, file) -> not $ alwaysRerun typ || predicate typ file) rebuilt
