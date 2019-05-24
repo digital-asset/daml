@@ -9,7 +9,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.TransactionId
-import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, Party}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
@@ -83,7 +83,7 @@ trait LedgerDao extends AutoCloseable {
   type LedgerOffset = Long
 
   /** Looks up the ledger id */
-  def lookupLedgerId(): Future[Option[LedgerIdString]]
+  def lookupLedgerId(): Future[Option[String]]
 
   /** Looks up the current ledger end */
   def lookupLedgerEnd(): Future[LedgerOffset]
@@ -143,7 +143,7 @@ trait LedgerDao extends AutoCloseable {
     * @param ledgerId  the ledger id to be stored
     * @param ledgerEnd the ledger end to be stored
     */
-  def initializeLedger(ledgerId: LedgerIdString, ledgerEnd: LedgerOffset): Future[Unit]
+  def initializeLedger(ledgerId: String, ledgerEnd: LedgerOffset): Future[Unit]
 
   /**
     * Stores a ledger entry. The ledger end gets updated as well in the same transaction.

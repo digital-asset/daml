@@ -44,7 +44,7 @@ object ExampleMain extends App {
 
   private val dar = new File("./scala-codegen/target/repository/daml-codegen/Main.dar")
 
-  private val ledgerId = Ref.LedgerIdString.assertFromString("codegen-sbt-example-with-sandbox")
+  private val ledgerId = Ref.LedgerString.assertFromString("codegen-sbt-example-with-sandbox")
 
   private val port: Int = findOpenPort().fold(e => throw new IllegalStateException(e), identity)
 

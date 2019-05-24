@@ -52,7 +52,7 @@ private class PostgresLedgerDao(
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
 
-  override def lookupLedgerId(): Future[Option[LedgerIdString]] =
+  override def lookupLedgerId(): Future[Option[String]] =
     dbDispatcher.executeSql { implicit conn =>
       SQL_SELECT_LEDGER_ID
         .as(ledgerString("ledger_id").singleOpt)
@@ -69,7 +69,7 @@ private class PostgresLedgerDao(
   private val SQL_INITIALIZE = SQL(
     "insert into parameters(ledger_id, ledger_end) VALUES({LedgerId}, {LedgerEnd})")
 
-  override def initializeLedger(ledgerId: LedgerIdString, ledgerEnd: LedgerOffset): Future[Unit] =
+  override def initializeLedger(ledgerId: String, ledgerEnd: LedgerOffset): Future[Unit] =
     dbDispatcher.executeSql { implicit conn =>
       val _ = SQL_INITIALIZE
         .on("LedgerId" -> ledgerId)

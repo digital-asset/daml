@@ -4,11 +4,11 @@
 package com.digitalasset.ledger.api.messages.transaction
 
 import brave.propagation.TraceContext
-import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, Party}
-import com.digitalasset.ledger.api.domain.EventId
+import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.ledger.api.domain.{EventId, LedgerId}
 
 final case class GetTransactionByEventIdRequest(
-    ledgerId: LedgerIdString,
+    ledgerId: LedgerId,
     eventId: EventId,
     requestingParties: Set[Party],
     traceContext: Option[TraceContext])

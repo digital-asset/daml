@@ -20,7 +20,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Optional => ApiOptional,
   _
 }
-import com.digitalasset.ledger.api.DomainMocks
+import com.digitalasset.ledger.api.{DomainMocks, domain}
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.INVALID_ARGUMENT
@@ -36,7 +36,7 @@ class SubmitRequestValidatorTest
     with ValidatorTestUtils
     with TableDrivenPropertyChecks {
 
-  val ledgerId: Ref.LedgerIdString = Ref.LedgerIdString.assertFromString("ledger-id")
+  val ledgerId = "ledger-id"
 
   object api {
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")
@@ -68,7 +68,7 @@ class SubmitRequestValidatorTest
     val mrt = TimestampConversion.toInstant(api.mrt)
 
     val emptyCommands = ApiCommands(
-      ledgerId,
+      domain.LedgerId(ledgerId),
       Some(workflowId),
       applicationId,
       commandId,

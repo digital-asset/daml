@@ -3,8 +3,7 @@
 
 package com.daml.ledger.participant.state.index.v2
 
-import com.digitalasset.daml.lf.data.Ref.LedgerIdString
-
+import com.digitalasset.ledger.api.domain.LedgerId
 import scala.concurrent.Future
 
 /**
@@ -12,5 +11,5 @@ import scala.concurrent.Future
   * [[com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService]]
   **/
 trait IdentityService {
-  def getLedgerId(): Future[LedgerIdString]
+  def getLedgerId(): Future[LedgerId]
 }

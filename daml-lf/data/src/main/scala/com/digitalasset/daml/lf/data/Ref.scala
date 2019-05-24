@@ -170,10 +170,6 @@ object Ref {
   val ContractIdString: LedgerString.type = LedgerString
   type ContractIdString = ContractIdString.T
 
-  /** Identifier for the ledger */
-  val LedgerIdString: LedgerString.type = LedgerString
-  type LedgerIdString = LedgerIdString.T
-
   /** Identifiers for transactions. */
   val TransactionIdString: LedgerString.type = LedgerString
   type TransactionIdString = TransactionIdString.T

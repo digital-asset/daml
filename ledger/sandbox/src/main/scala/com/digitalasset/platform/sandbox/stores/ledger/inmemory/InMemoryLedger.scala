@@ -10,7 +10,7 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.TransactionIdString
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId}
@@ -29,7 +29,7 @@ import scala.concurrent.Future
   *
   */
 class InMemoryLedger(
-    val ledgerId: LedgerIdString,
+    val ledgerId: String,
     timeProvider: TimeProvider,
     acs0: ActiveContractsInMemory,
     ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement])

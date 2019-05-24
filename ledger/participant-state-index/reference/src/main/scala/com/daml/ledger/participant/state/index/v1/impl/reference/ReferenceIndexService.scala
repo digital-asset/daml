@@ -12,7 +12,7 @@ import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.participant
 import com.daml.ledger.participant.state.index.v1._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value
@@ -127,7 +127,7 @@ final case class ReferenceIndexService(
       .fromFuture(futureWithState(state => Future.successful(state.configuration)))
       .concat(Source.fromFuture(Promise[Configuration]().future)) // we should keep the stream open!
 
-  override def getLedgerId(): Future[LedgerIdString] =
+  override def getLedgerId(): Future[LedgerId] =
     Future.successful(StateController.getState.ledgerId)
 
   override def getLedgerBeginning(): Future[Offset] =

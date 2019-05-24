@@ -4,11 +4,10 @@
 package com.digitalasset.ledger.api.messages.transaction
 
 import brave.propagation.TraceContext
-import com.digitalasset.daml.lf.data.Ref.LedgerIdString
-import com.digitalasset.ledger.api.domain.{LedgerOffset, TransactionFilter}
+import com.digitalasset.ledger.api.domain.{LedgerId, LedgerOffset, TransactionFilter}
 
 final case class GetTransactionsRequest(
-    ledgerId: LedgerIdString,
+    ledgerId: LedgerId,
     begin: LedgerOffset,
     end: Option[LedgerOffset],
     filter: TransactionFilter,

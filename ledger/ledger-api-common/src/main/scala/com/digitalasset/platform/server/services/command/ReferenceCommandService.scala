@@ -7,7 +7,6 @@ import akka.NotUsed
 import akka.actor.Cancellable
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
-import com.digitalasset.daml.lf.data.Ref.LedgerIdString
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_completion_service.{
@@ -220,7 +219,7 @@ object ReferenceCommandService {
     ) with CommandServiceLogging
 
   final case class Configuration(
-      ledgerId: LedgerIdString,
+      ledgerId: String,
       inputBufferSize: Int,
       maxParallelSubmissions: Int,
       maxCommandsInFlight: Int,

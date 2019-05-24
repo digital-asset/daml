@@ -3,12 +3,7 @@
 
 package com.digitalasset.platform.semantictest
 
-import com.digitalasset.daml.lf.data.Ref.{
-  ContractIdString,
-  LedgerIdString,
-  PackageId,
-  QualifiedName
-}
+import com.digitalasset.daml.lf.data.Ref.{ContractIdString, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
@@ -32,7 +27,7 @@ import scala.concurrent.Future
   Array(
     "org.wartremover.warts.Any"
   ))
-class ApiScenarioTransform(ledgerId: LedgerIdString, packages: Map[Ref.PackageId, Ast.Package])
+class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Package])
     extends ErrorFactories {
 
   private def toContractId(s: String): Either[StatusRuntimeException, ContractIdString] =
@@ -175,6 +170,6 @@ class ApiScenarioTransform(ledgerId: LedgerIdString, packages: Map[Ref.PackageId
 }
 
 object ApiScenarioTransform {
-  def apply(ledgerId: LedgerIdString, packages: Map[PackageId, Ast.Package]): ApiScenarioTransform =
+  def apply(ledgerId: String, packages: Map[PackageId, Ast.Package]): ApiScenarioTransform =
     new ApiScenarioTransform(ledgerId, packages)
 }

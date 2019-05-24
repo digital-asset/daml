@@ -10,7 +10,6 @@ import com.daml.ledger.participant.state.index.v1.{
   ActiveContractSetSnapshot,
   ActiveContractsService => ACSBackend
 }
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service._
@@ -94,10 +93,7 @@ object SandboxActiveContractsService {
   type TransactionId = String
   type WorkflowId = String
 
-  def apply(
-      ledgerId: Ref.LedgerIdString,
-      backend: ACSBackend,
-      identifierResolver: IdentifierResolver)(
+  def apply(ledgerId: String, backend: ACSBackend, identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)

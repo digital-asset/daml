@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.index.v1.{
   ActiveContractsService
 }
 import com.daml.ledger.participant.state.v1.{SubmittedTransaction => _, _}
-import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, LedgerString, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.daml.ledger.participant.state.index.v1.{
   AcsUpdateEvent,
@@ -27,7 +27,6 @@ import com.daml.ledger.participant.state.v1.{
   TransactionId => _,
   _
 }
-import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, Party, TransactionIdString}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
@@ -50,7 +49,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     with WriteService
     with ActiveContractsService {
 
-  def ledgerId: LedgerIdString = ledger.ledgerId
+  def ledgerId: String = ledger.ledgerId
 
   private class SandboxSubmissionHandle extends SubmissionHandle {
     override def abort: Future[Unit] = Future.successful(())

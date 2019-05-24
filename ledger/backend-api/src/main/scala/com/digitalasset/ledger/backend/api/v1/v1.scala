@@ -23,6 +23,8 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
   */
 package object v1 {
 
+  type LedgerId = String
+
   /** Identifiers used to correlate submission with results, MUST match regexp [a-zA-Z0-9-]. */
   type CommandId = LedgerString
 
