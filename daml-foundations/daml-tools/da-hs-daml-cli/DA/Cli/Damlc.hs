@@ -44,6 +44,7 @@ import qualified Data.List.Split as Split
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.LSP
 import GHC.Conc
 import qualified Network.Socket                    as NS
 import           Options.Applicative
@@ -340,6 +341,7 @@ execBuild options mbOutFile initPkgDb projectCheck = do
         let opts = options'
                     { optMbPackageName = Just pName
                     , optWriteInterface = True
+                    , optScenarioService = False
                     }
         loggerH <- getLogger opts "package"
         let confFile =
@@ -348,7 +350,9 @@ execBuild options mbOutFile initPkgDb projectCheck = do
                     pVersion
                     pExposedModules
                     pDependencies
-        Managed.with (Compiler.newIdeState opts Nothing loggerH) $ \compilerH -> do
+        let eventLogger (EventFileDiagnostics (fp, diags)) = printDiagnostics $ map (fp,) diags
+            eventLogger _ = return ()
+        Managed.with (Compiler.newIdeState opts (Just eventLogger) loggerH) $ \compilerH -> do
             darOrErr <-
                 runExceptT $
                 Compiler.buildDar
@@ -596,6 +600,7 @@ optionsParser numProcessors parsePkgName = Compiler.Options
     <*> lfVersionOpt
     <*> optDebugLog
     <*> (concat <$> many optGhcCustomOptions)
+    <*> optScenarioService
   where
     optImportPath :: Parser [FilePath]
     optImportPath =
@@ -665,6 +670,14 @@ optionsParser numProcessors parsePkgName = Compiler.Options
         long "ghc-option" <>
         metavar "OPTION" <>
         help "Options to pass to the underlying GHC"
+
+    optScenarioService :: Parser Bool
+    optScenarioService = fmap not .
+        switch $
+            help "Disable scenario service." <>
+            long "disable-scenario-service" <>
+            internal
+
 
 options :: Int -> Parser Command
 options numProcessors =
