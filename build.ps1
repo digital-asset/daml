@@ -70,6 +70,8 @@ bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_w
     //navigator/backend/... `
     //daml-assistant/integration-tests/... `
     //daml-foundations/daml-ghc:daml-ghc-deterministic `
-    //daml-foundations/daml-ghc:daml-ghc-shake-test-ci `
     //daml-foundations/daml-tools/da-hs-daml-cli `
     //daml-foundations/daml-tools/da-hs-damlc-app/...
+    # Disabled since there seems to be an issue with starting up the scenario service.
+    # See https://github.com/digital-asset/daml/issues/1354
+    # //daml-foundations/daml-ghc:daml-ghc-shake-test-ci
