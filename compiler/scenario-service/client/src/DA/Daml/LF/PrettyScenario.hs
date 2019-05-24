@@ -847,18 +847,23 @@ templateConFields qName world = case LF.lookupDataType qName world of
     LF.DataVariant _ -> [""]
   Left _ -> error "malformed template constructor"
 
-renderHeader :: LF.World -> Identifier -> [T.Text]
-renderHeader world identifier =  templateConFields (templateConName identifier) world
+renderHeader :: LF.World -> Identifier -> S.Set T.Text -> H.Html
+renderHeader world identifier parties = H.tr $ mconcat
+            [ foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
+            , H.th "id"
+            , H.th "status"
+            , foldMap (H.th . H.text) (templateConFields (templateConName identifier) world)
+            ]
 
 renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
 renderRow world parties NodeInfo{..} =
     let (_, tds) = renderValue world [] niValue
-        ths = renderHeader world niTemplateId
+        -- ths = renderHeader world niTemplateId
         header = H.tr $ mconcat
             [ foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
             , H.th "id"
             , H.th "status"
-            , foldMap (H.th . H.text) ths
+            -- , foldMap (H.th . H.text) ths
             ]
         observed party = if party `S.member` niObservers then "X" else "-"
         active = if niActive then "active" else "archived"
@@ -874,8 +879,9 @@ renderTable :: LF.World -> Table -> H.Html
 renderTable world Table{..} = H.div H.! A.class_ active $ do
     let parties = S.unions $ map niObservers tRows
     H.h1 $ renderPlain $ prettyDefName world tTemplateId
-    let (headers, rows) = unzip $ map (renderRow world parties) tRows
-    H.table $ head headers <> mconcat rows
+    let (_, rows) = unzip $ map (renderRow world parties) tRows
+    let header = renderHeader world tTemplateId parties
+    H.table $ header <> mconcat rows
     where
         active = if any niActive tRows then "active" else "archived"
 
