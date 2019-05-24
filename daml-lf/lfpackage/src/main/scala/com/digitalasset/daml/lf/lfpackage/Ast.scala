@@ -402,7 +402,7 @@ object Ast {
       templateId: TypeConName,
       choice: ChoiceName,
       cidE: Expr,
-      actorsE: Expr,
+      actorsE: Option[Expr],
       argE: Expr)
       extends Update
   case object UpdateGetTime extends Update

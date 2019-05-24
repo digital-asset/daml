@@ -575,12 +575,12 @@ private[validation] object Typing {
         tpl: TypeConName,
         chName: ChoiceName,
         cid: Expr,
-        actors: Expr,
+        actors: Option[Expr],
         arg: Expr
     ): Type = {
       val choice = lookupChoice(ctx, tpl, chName)
       checkExpr(cid, TContractId(TTyCon(tpl)))
-      checkExpr(actors, TParties)
+      actors.foreach(checkExpr(_, TParties))
       checkExpr(arg, choice.argBinder._2)
       TUpdate(choice.returnType)
     }
