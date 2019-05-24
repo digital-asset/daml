@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.server.services.identity
 
-import com.daml.ledger.participant.state.index.v2.IdentityService
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
@@ -16,12 +16,11 @@ import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 import org.slf4j.{Logger, LoggerFactory}
-
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 
-abstract class LedgerIdentityServiceImpl private (identityService: IdentityService)
+abstract class LedgerIdentityServiceImpl private (getLedgerId: () => Future[LedgerId])
     extends LedgerIdentityService
     with GrpcApiService {
 
@@ -37,8 +36,7 @@ abstract class LedgerIdentityServiceImpl private (identityService: IdentityServi
           Status.UNAVAILABLE
             .withDescription("Ledger Identity Service closed.")))
     else
-      identityService
-        .getLedgerId()
+      getLedgerId()
         .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))(DirectExecutionContext)
 
   override def close(): Unit = closed = true
@@ -48,7 +46,7 @@ abstract class LedgerIdentityServiceImpl private (identityService: IdentityServi
 }
 
 object LedgerIdentityServiceImpl {
-  def apply(identityService: IdentityService)
+  def apply(getLedgerId: () => Future[LedgerId])
     : LedgerIdentityService with BindableService with LedgerIdentityServiceLogging =
-    new LedgerIdentityServiceImpl(identityService) with LedgerIdentityServiceLogging
+    new LedgerIdentityServiceImpl(getLedgerId) with LedgerIdentityServiceLogging
 }

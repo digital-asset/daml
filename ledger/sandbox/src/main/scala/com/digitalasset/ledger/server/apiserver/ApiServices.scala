@@ -113,7 +113,7 @@ object ApiServices {
       val transactionService =
         SandboxTransactionService.createApiService(ledgerBackend, identifierResolver)
 
-      val apiLedgerIdentityService = LedgerIdentityServiceImpl(identityService)
+      val apiLedgerIdentityService = LedgerIdentityServiceImpl(() => identityService.getLedgerId())
 
       val apiPackageService = SandboxPackageService(packagesService, ledgerId)
 
