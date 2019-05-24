@@ -837,14 +837,14 @@ templateConName (Identifier mbPkgId (TL.toStrict -> qualName)) = LF.Qualified pk
                   Nothing -> LF.PRSelf
 
 typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
-typeConFieldsNames world (LF.FieldName fName, LF.TCon tcn) = map (\label -> fName <> "." <> label) (templateConFields tcn world)
+typeConFieldsNames world (LF.FieldName fName, LF.TConApp tcn _) = map (\label -> fName <> "." <> label) (templateConFields tcn world)
 typeConFieldsNames _ (LF.FieldName fName, _) = [fName]
 
 templateConFields :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
 templateConFields qName world = case LF.lookupDataType qName world of
   Right dataType -> case LF.dataCons dataType of
     LF.DataRecord re -> concatMap (typeConFieldsNames world) re
-    LF.DataVariant re -> map (LF.unVariantConName . fst) re
+    LF.DataVariant re -> map (LF.unVariantConName . fst) re  -- DataVariant ![(VariantConName, Type)]
   Left _ -> error "malformed template constructor"
 
 renderHeader :: LF.World -> Identifier -> [T.Text]
