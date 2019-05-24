@@ -269,6 +269,7 @@ data BuiltinExpr
 
   | BETrace                      -- :: forall a. Text -> a -> a
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
+  | BECoerceContractId           -- :: forall a b. ContractId a -> ContractId b
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 

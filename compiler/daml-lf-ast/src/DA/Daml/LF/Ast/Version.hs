@@ -82,6 +82,9 @@ featureComplexContractKeys = Feature "Complex contract keys" version1_4
 featureSerializablePolymorphicContractIds :: Feature
 featureSerializablePolymorphicContractIds = Feature "Serializable polymorphic contract ids" version1_5
 
+featureCoerceContractId :: Feature
+featureCoerceContractId = Feature "Coerce function for contract ids" version1_5
+
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature
 

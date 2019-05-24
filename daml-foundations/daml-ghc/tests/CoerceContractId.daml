@@ -1,0 +1,31 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+--
+-- Check that `coerceContractId` works properly.
+-- @SINCE-LF 1.5
+daml 1.2
+module CoerceContractId where
+
+import DA.Assert
+
+template Foo with
+    sign : Party
+  where
+    signatory sign
+
+template Bar with
+    sign : Party
+    cid : ContractId Int
+  where
+    signatory sign
+
+test = scenario do
+  sign <- getParty "Sign"
+  let foo = Foo with sign
+  fooId <- submit sign do create foo
+  barId <- submit sign do create Bar with sign; cid = coerceContractId fooId
+  bar <- submit sign do fetch barId
+  let fooId' = coerceContractId bar.cid
+  fooId' === fooId
+  foo' <- submit sign do fetch fooId'
+  foo' === foo

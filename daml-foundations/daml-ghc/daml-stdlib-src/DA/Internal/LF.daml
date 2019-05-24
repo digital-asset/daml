@@ -13,6 +13,7 @@ module DA.Internal.LF
   , partyFromText
 
   , ContractId
+  , coerceContractId  -- This is temporary for testing.
 
   , Date
 
@@ -110,6 +111,11 @@ instance Ord Time where (<=) = primitive @"BELessEq"
 data ContractId a = ContractId Opaque
 instance Eq (ContractId a) where (==) = primitive @"BEEqualContractId"
 instance Show (ContractId a) where show _ = "<contract-id>"
+
+-- | HIDE We need this for testing while during the implementation of
+-- generic templates. It will most likely disappear thereafter.
+coerceContractId : ContractId a -> ContractId b
+coerceContractId = primitive @"BECoerceContractId"
 
 -- | The `Update a` type represents an action to update or query the ledger,
 --   before returning a value of type `a`.

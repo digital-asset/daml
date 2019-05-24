@@ -201,6 +201,9 @@ typeOfBuiltin = \case
   BEEqualContractId -> pure $
     TForall (alpha, KStar) $
     TContractId tAlpha :-> TContractId tAlpha :-> TBool
+  BECoerceContractId -> do
+    checkFeature featureCoerceContractId
+    pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TContractId tAlpha :-> TContractId tBeta
   where
     tComparison btype = TBuiltin btype :-> TBuiltin btype :-> TBool
     tBinop typ = typ :-> typ :-> typ

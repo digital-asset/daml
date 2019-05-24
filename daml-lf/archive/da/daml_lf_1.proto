@@ -26,6 +26,7 @@
 //     -- 2019-03-27: Add Map type
 // * 4 -- 2019-05-15: Add complex contract keys
 // dev -- 2019-05-22: Relax serializability constraints for contract ids
+//        2019-05-23: Add BuiltinFunction.COERCE_CONTRACT_ID
 
 
 syntax = "proto3";
@@ -396,7 +397,9 @@ enum BuiltinFunction {
 
   TRACE = 88;
 
-  // Next id is 102. 101 is MAP_SIZE.
+  COERCE_CONTRACT_ID = 102;
+
+  // Next id is 103. 102 is COERCE_CONTRACT_ID.
 }
 
 // Builtin literals

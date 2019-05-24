@@ -240,6 +240,7 @@ decodeBuiltinFunction = pure . \case
 
   LF1.BuiltinFunctionTRACE -> BETrace
   LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> BEEqualContractId
+  LF1.BuiltinFunctionCOERCE_CONTRACT_ID -> BECoerceContractId
 
 decodeLocation :: LF1.Location -> Decode SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do

@@ -144,6 +144,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           case BFoldl => SEBuiltinRecursiveDefinition.FoldL
           case BFoldr => SEBuiltinRecursiveDefinition.FoldR
           case BEqualList => SEBuiltinRecursiveDefinition.EqualList
+          case BCoerceContractId => SEAbs(1, SEVar(1))
           case _ =>
             SEBuiltin(bf match {
               case BTrace => SBTrace
@@ -244,6 +245,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BFoldl => throw CompileError(s"unexpected BFoldl")
               case BFoldr => throw CompileError(s"unexpected BFoldr")
               case BEqualList => throw CompileError(s"unexpected BEqualList")
+              case BCoerceContractId => throw CompileError(s"unexpected BCoerceContractId")
             })
         }
 

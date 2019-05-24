@@ -258,7 +258,8 @@ private[parser] object ExprParser {
     "EQUAL_PARTY" -> BEqualParty,
     "EQUAL_BOOL" -> BEqualBool,
     "EQUAL_LIST" -> BEqualList,
-    "EQUAL_CONTRACT_ID" -> BEqualContractId
+    "EQUAL_CONTRACT_ID" -> BEqualContractId,
+    "COERCE_CONTRACT_ID" -> BCoerceContractId,
   )
 
   /* Scenarios */
