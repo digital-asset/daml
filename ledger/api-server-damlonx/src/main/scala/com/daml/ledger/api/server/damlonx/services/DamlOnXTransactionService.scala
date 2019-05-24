@@ -8,6 +8,8 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
+import com.daml.ledger.api.server.damlonx.services.backport.EventFilter.TemplateAwareFilter
+import com.daml.ledger.api.server.damlonx.services.backport._
 import com.daml.ledger.participant.state.index.v1.{IndexService, TransactionAccepted}
 import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.api.util.TimestampConversion._
@@ -17,7 +19,12 @@ import com.digitalasset.daml.lf.transaction.Transaction.NodeId
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain._
-import com.digitalasset.ledger.api.messages.transaction._
+import com.digitalasset.ledger.api.messages.transaction.{
+  GetTransactionByEventIdRequest,
+  GetTransactionByIdRequest,
+  GetTransactionTreesRequest,
+  GetTransactionsRequest
+}
 import com.digitalasset.ledger.api.v1.transaction.{Transaction => PTransaction}
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
@@ -25,13 +32,9 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   TransactionServiceLogging
 }
 import com.digitalasset.ledger.api.validation.PartyNameChecker
-import com.digitalasset.platform.participant.util.EventFilter
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.server.api._
-import com.digitalasset.platform.server.api.services.domain.TransactionService
-import com.digitalasset.platform.server.api.services.grpc.GrpcTransactionService
 import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
-import com.digitalasset.platform.server.services.transaction._
+import com.digitalasset.platform.server.services.transaction.{TransactionConversion => _, _}
 import io.grpc._
 import org.slf4j.LoggerFactory
 import scalaz.Tag
