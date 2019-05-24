@@ -829,11 +829,12 @@ templateConName :: Identifier -> LF.Qualified LF.TypeConName
 templateConName (Identifier mbPkgId (TL.toStrict -> qualName)) = LF.Qualified pkgRef  mdN tpl
   where (mdN, tpl) = case T.splitOn ":" qualName of
           [modName, defN] -> (LF.ModuleName (T.splitOn "." modName) , LF.TypeConName (T.splitOn "." defN) )
-          _ -> (LF.ModuleName [] , LF.TypeConName [])
+          _ -> error "malformed identifier"
         pkgRef = case mbPkgId of
-                  Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) ->
-                    LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
-                  _ -> LF.PRSelf
+                  Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) -> LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
+                  Just (PackageIdentifier (Just (PackageIdentifierSumSelf _))) -> LF.PRSelf
+                  Just (PackageIdentifier Nothing) -> error "malformed identifier"
+                  Nothing -> LF.PRSelf
 
 typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
 typeConFieldsNames world (LF.FieldName fName, LF.TCon tcn) = map (TE.append (TE.append fName ".")) (templateConFields tcn world)
