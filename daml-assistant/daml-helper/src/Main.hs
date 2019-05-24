@@ -53,7 +53,7 @@ commandParser =
                   <*> optional (argument str (metavar "TEMPLATE" <> help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")))
               ]
           initCmd = Init <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
-          startCmd = Start . OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser automatically and point it to navigator."
+          startCmd = Start . OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser automatically and point it to navigator." idm
           readReplacement :: ReadM ReplaceExtension
           readReplacement = maybeReader $ \case
               "never" -> Just ReplaceExtNever

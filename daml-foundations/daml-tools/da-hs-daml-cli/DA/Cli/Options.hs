@@ -260,7 +260,7 @@ projectCheckOpt = fmap ProjectCheck . switch $
 
 newtype InitPkgDb = InitPkgDb Bool
 initPkgDbOpt :: Parser InitPkgDb
-initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database"
+initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database" idm
 
 data Telemetry = OptedIn | OptedOut | Undecided
 telemetryOpt :: Parser Telemetry

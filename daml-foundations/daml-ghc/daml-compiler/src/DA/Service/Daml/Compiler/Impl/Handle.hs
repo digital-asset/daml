@@ -153,15 +153,17 @@ newIdeState :: Options
             -> Logger.Handle IO
             -> Managed IdeState
 newIdeState compilerOpts mbEventHandler loggerH = do
-  mbScenarioService <- for mbEventHandler $ \eventHandler -> Scenario.startScenarioService eventHandler loggerH
+    mbScenarioService <-
+        for (guard (optScenarioService compilerOpts) >> mbEventHandler) $ \eventHandler ->
+            Scenario.startScenarioService eventHandler loggerH
 
-  -- Load the packages from the package database for the scenario service. We swallow errors here
-  -- but shake will report them when typechecking anything.
-  (_diags, pkgMap) <- liftIO $ CompilerService.generatePackageMap (optPackageDbs compilerOpts)
-  let rule = do
-        CompilerService.mainRule compilerOpts
-        Shake.addIdeGlobal $ GlobalPkgMap pkgMap
-  liftIO $ CompilerService.initialise rule mbEventHandler (toIdeLogger loggerH) compilerOpts mbScenarioService
+    -- Load the packages from the package database for the scenario service. We swallow errors here
+    -- but shake will report them when typechecking anything.
+    (_diags, pkgMap) <- liftIO $ CompilerService.generatePackageMap (optPackageDbs compilerOpts)
+    let rule = do
+            CompilerService.mainRule compilerOpts
+            Shake.addIdeGlobal $ GlobalPkgMap pkgMap
+    liftIO $ CompilerService.initialise rule mbEventHandler (toIdeLogger loggerH) compilerOpts mbScenarioService
 
 -- | Adapter to the IDE logger module.
 toIdeLogger :: Logger.Handle IO -> IdeLogger.Handle

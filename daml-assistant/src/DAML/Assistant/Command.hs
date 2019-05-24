@@ -76,7 +76,7 @@ commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
 
 versionParser :: Parser VersionOptions
 versionParser = VersionOptions
-    <$> flagYesNoAuto "all" False "Display all available versions."
+    <$> flagYesNoAuto "all" False "Display all available versions." idm
 
 installParser :: Parser InstallOptions
 installParser = InstallOptions
@@ -84,7 +84,7 @@ installParser = InstallOptions
     <*> iflag ActivateInstall "activate" mempty "Activate installed version of daml"
     <*> iflag ForceInstall "force" (short 'f') "Overwrite existing installation"
     <*> iflag QuietInstall "quiet" (short 'q') "Don't display installation messages"
-    <*> fmap SetPath (flagYesNoAuto "set-path" True "Adjust PATH automatically. This option only has an effect on Windows.")
+    <*> fmap SetPath (flagYesNoAuto "set-path" True "Adjust PATH automatically. This option only has an effect on Windows." idm)
     where
         iflag p name opts desc = fmap p (switch (long name <> help desc <> opts))
 
