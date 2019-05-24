@@ -170,17 +170,19 @@ class PostgresDaoSpec
       }
     }
 
-    val rejectionReasonGen: Gen[RejectionReason] = for {
-      const <- Gen.oneOf[String => RejectionReason](
-        Seq[String => RejectionReason](
-          RejectionReason.Inconsistent.apply(_),
-          RejectionReason.OutOfQuota.apply(_),
-          RejectionReason.TimedOut.apply(_),
-          RejectionReason.Disputed.apply(_),
-          RejectionReason.DuplicateCommandId.apply(_)
-        ))
-      desc <- Arbitrary.arbitrary[String].filter(_.nonEmpty)
-    } yield const(desc)
+    val rejectionReasonGen: Gen[RejectionReason] =
+      for {
+        const <- Gen.oneOf[String => RejectionReason](
+          Seq[String => RejectionReason](
+            RejectionReason.Inconsistent.apply(_),
+            RejectionReason.OutOfQuota.apply(_),
+            RejectionReason.TimedOut.apply(_),
+            RejectionReason.Disputed.apply(_),
+            RejectionReason.DuplicateCommandId.apply(_)
+          ))
+        // need to use Arbitrary.arbString to get only valid unicode characters
+        desc <- Arbitrary.arbitrary[String].map(_.filterNot(_ == 0)).filter(_.nonEmpty)
+      } yield const(desc)
 
     "be able to persist and load a rejection" in {
       forAll(rejectionReasonGen) { rejectionReason =>
