@@ -61,7 +61,7 @@ data UpdateF expr
   = UPureF     !Type !expr
   | UBindF     !(BindingF expr) !expr
   | UCreateF   !(Qualified TypeConName) !expr
-  | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !expr !expr
+  | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !(Maybe expr) !expr
   | UFetchF    !(Qualified TypeConName) !expr
   | UGetTimeF
   | UEmbedExprF !Type !expr

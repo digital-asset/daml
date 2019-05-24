@@ -8,6 +8,7 @@ module DA.Daml.LF.Simplifier(
 
 import Control.Lens hiding (para)
 import Data.Functor.Foldable
+import Data.Maybe
 import qualified Data.Set as Set
 import qualified Safe
 import qualified Safe.Exact as Safe
@@ -60,7 +61,7 @@ freeVarsStep = \case
       UPureF _ s -> s
       UBindF b s -> fvBinding b s
       UCreateF _ s -> s
-      UExerciseF _ _ s1 s2 s3 -> s1 <> s2 <> s3
+      UExerciseF _ _ s1 s2 s3 -> s1 <> fromMaybe Set.empty s2 <> s3
       UFetchF _ s1 -> s1
       UGetTimeF -> mempty
       UEmbedExprF _ s -> s

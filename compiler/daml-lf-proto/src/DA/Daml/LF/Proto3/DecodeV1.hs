@@ -354,7 +354,7 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <$> mayDecode "update_ExerciseTemplate" update_ExerciseTemplate decodeTypeConName
       <*> decodeName ChoiceName update_ExerciseChoice
       <*> mayDecode "update_ExerciseCid" update_ExerciseCid decodeExpr
-      <*> mayDecode "update_ExerciseActor" update_ExerciseActor decodeExpr
+      <*> traverse decodeExpr update_ExerciseActor
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
   LF1.UpdateSumFetch LF1.Update_Fetch{..} ->
     fmap EUpdate $ UFetch

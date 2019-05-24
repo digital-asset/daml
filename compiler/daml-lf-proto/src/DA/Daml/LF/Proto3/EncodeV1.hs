@@ -340,7 +340,7 @@ encodeUpdate version = P.Update . Just . \case
       let (bindings, body) = EUpdate e ^. rightSpine (_EUpdate . _UBind)
       in P.UpdateSumBlock $ encodeBlock version bindings body
     UCreate{..} -> P.UpdateSumCreate $ P.Update_Create (encodeQualTypeConName creTemplate) (encodeExpr version creArg)
-    UExercise{..} -> P.UpdateSumExercise $ P.Update_Exercise (encodeQualTypeConName exeTemplate) (encodeName unChoiceName exeChoice) (encodeExpr version exeContractId) (encodeExpr version exeActors) (encodeExpr version exeArg)
+    UExercise{..} -> P.UpdateSumExercise $ P.Update_Exercise (encodeQualTypeConName exeTemplate) (encodeName unChoiceName exeChoice) (encodeExpr version exeContractId) (fmap (encodeExpr' version) exeActors) (encodeExpr version exeArg)
     UFetch{..} -> P.UpdateSumFetch $ P.Update_Fetch (encodeQualTypeConName fetTemplate) (encodeExpr version fetContractId)
     UGetTime -> P.UpdateSumGetTime P.Unit
     UEmbedExpr typ e -> P.UpdateSumEmbedExpr $ P.Update_EmbedExpr (encodeType version typ) (encodeExpr version e)

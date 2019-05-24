@@ -374,11 +374,13 @@ checkCreate tpl arg = do
   checkExpr arg (TCon tpl)
 
 typeOfExercise :: MonadGamma m =>
-  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> Expr -> m Type
-typeOfExercise tpl chName cid actors arg = do
+  Qualified TypeConName -> ChoiceName -> Expr -> Maybe Expr -> Expr -> m Type
+typeOfExercise tpl chName cid mbActors arg = do
   choice <- inWorld (lookupChoice (tpl, chName))
   checkExpr cid (TContractId (TCon tpl))
-  checkExpr actors (TList TParty)
+  case mbActors of
+    Nothing -> checkFeature featureExerciseActorsOptional
+    Just actors -> checkExpr actors (TList TParty)
   checkExpr arg (chcArgType choice)
   pure (TUpdate (chcReturnType choice))
 

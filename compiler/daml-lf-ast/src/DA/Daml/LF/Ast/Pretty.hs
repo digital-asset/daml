@@ -302,9 +302,13 @@ instance Pretty Update where
           $$ keyword_ "in" <-> pretty body
     UCreate tpl arg ->
       prettyAppKeyword prec "create" [tplArg tpl, TmArg arg]
-    UExercise tpl choice cid actor arg ->
+    UExercise tpl choice cid Nothing arg ->
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       prettyAppKeyword prec "exercise"
+      [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
+    UExercise tpl choice cid (Just actor) arg ->
+      -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
+      prettyAppKeyword prec "exercise_with_actors"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg actor, TmArg arg]
     UFetch tpl cid ->
       prettyAppKeyword prec "fetch" [tplArg tpl, TmArg cid]
