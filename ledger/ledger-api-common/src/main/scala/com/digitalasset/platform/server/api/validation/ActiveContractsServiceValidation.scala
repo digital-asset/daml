@@ -3,7 +3,6 @@
 
 package com.digitalasset.platform.server.api.validation
 
-import com.digitalasset.daml.lf.data.Ref.LedgerIdString
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
@@ -19,7 +18,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 class ActiveContractsServiceValidation(
     protected val service: ActiveContractsService with AutoCloseable,
-    val ledgerId: LedgerIdString
+    val ledgerId: String
 ) extends ActiveContractsService
     with ProxyCloseable
     with GrpcApiService

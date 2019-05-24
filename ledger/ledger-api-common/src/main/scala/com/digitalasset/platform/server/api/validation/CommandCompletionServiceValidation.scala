@@ -3,7 +3,6 @@
 
 package com.digitalasset.platform.server.api.validation
 
-import com.digitalasset.daml.lf.data.Ref.LedgerIdString
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -17,7 +16,7 @@ import scala.concurrent.Future
 
 class CommandCompletionServiceValidation(
     val service: CommandCompletionService with AutoCloseable,
-    val ledgerId: LedgerIdString
+    val ledgerId: String
 ) extends CommandCompletionService
     with FieldValidations
     with GrpcApiService

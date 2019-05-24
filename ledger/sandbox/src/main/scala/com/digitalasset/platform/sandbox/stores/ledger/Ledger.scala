@@ -11,7 +11,7 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.TransactionIdString
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -28,7 +28,7 @@ import scala.concurrent.Future
 /** Defines all the functionalities a Ledger needs to provide */
 trait Ledger extends AutoCloseable {
 
-  def ledgerId: LedgerIdString
+  def ledgerId: String
 
   def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed]
 
@@ -62,7 +62,7 @@ object Ledger {
     * @return an in-memory Ledger
     */
   def inMemory(
-      ledgerId: LedgerIdString,
+      ledgerId: String,
       timeProvider: TimeProvider,
       acs: ActiveContractsInMemory,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Ledger =
@@ -82,7 +82,7 @@ object Ledger {
     */
   def postgres(
       jdbcUrl: String,
-      ledgerId: LedgerIdString,
+      ledgerId: String,
       timeProvider: TimeProvider,
       acs: ActiveContractsInMemory,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],

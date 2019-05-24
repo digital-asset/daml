@@ -4,9 +4,9 @@
 package com.digitalasset.ledger.api.validation
 
 import brave.propagation.TraceContext
-import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, Party}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.LedgerOffset
+import com.digitalasset.ledger.api.domain.{LedgerId, LedgerIdTag, LedgerOffset}
 import com.digitalasset.ledger.api.messages.transaction
 import com.digitalasset.ledger.api.messages.transaction.GetTransactionTreesRequest
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
@@ -21,9 +21,10 @@ import com.digitalasset.platform.server.api.validation.FieldValidations._
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.util.context.TraceContextConversions._
 import io.grpc.StatusRuntimeException
+import scalaz.Tag
 
 class TransactionServiceRequestValidator(
-    ledgerId: LedgerIdString,
+    ledgerId: String,
     partyNameChecker: PartyNameChecker,
     identifierResolver: IdentifierResolver) {
 
@@ -31,12 +32,13 @@ class TransactionServiceRequestValidator(
 
   private val filterValidator = new TransactionFilterValidator(identifierResolver)
 
-  private def matchId(input: String): Result[LedgerIdString] = matchLedgerId(ledgerId)(input)
+  private def matchId(input: String): Result[LedgerId] =
+    Tag.subst[String, Result[?], LedgerIdTag](matchLedgerId(ledgerId)(input))
 
   private val rightNone = Right(None)
 
   case class PartialValidation(
-      ledgerId: LedgerIdString,
+      ledgerId: domain.LedgerId,
       transactionFilter: TransactionFilter,
       begin: domain.LedgerOffset,
       end: Option[domain.LedgerOffset],
@@ -44,7 +46,7 @@ class TransactionServiceRequestValidator(
 
   private def commonValidations(req: GetTransactionsRequest): Result[PartialValidation] = {
     for {
-      ledgerId <- matchId(req.ledgerId)
+      _ <- matchId(req.ledgerId)
       filter <- requirePresence(req.filter, "filter")
       requiredBegin <- requirePresence(req.begin, "begin")
       convertedBegin <- LedgerOffsetValidator.validate(requiredBegin, "begin")
@@ -55,7 +57,7 @@ class TransactionServiceRequestValidator(
     } yield {
 
       PartialValidation(
-        ledgerId,
+        domain.LedgerId(ledgerId),
         filter,
         convertedBegin,
         convertedEnd,
@@ -102,7 +104,6 @@ class TransactionServiceRequestValidator(
 
     for {
       partial <- commonValidations(req)
-      legerId <- requireLedgerString(partial.ledgerId, "ledger_id")
       _ <- offsetIsBeforeEndIfAbsolute("Begin", partial.begin, ledgerEnd, offsetOrdering)
       _ <- partial.end.fold[Result[Unit]](Right(()))(
         offsetIsBeforeEndIfAbsolute("End", _, ledgerEnd, offsetOrdering))
@@ -112,7 +113,7 @@ class TransactionServiceRequestValidator(
       _ <- requireKnownParties(req.getFilter)
     } yield {
       transaction.GetTransactionsRequest(
-        ledgerId,
+        domain.LedgerId(ledgerId),
         partial.begin,
         partial.end,
         convertedFilter,
@@ -128,7 +129,6 @@ class TransactionServiceRequestValidator(
 
     for {
       partial <- commonValidations(req)
-      ledgerId <- requireLedgerString(partial.ledgerId, "ledeger_id")
       _ <- offsetIsBeforeEndIfAbsolute("Begin", partial.begin, ledgerEnd, offsetOrdering)
       _ <- partial.end.fold[Result[Unit]](Right(()))(
         offsetIsBeforeEndIfAbsolute("End", _, ledgerEnd, offsetOrdering))
@@ -137,7 +137,7 @@ class TransactionServiceRequestValidator(
         "filter.filters_by_party")
     } yield {
       transaction.GetTransactionTreesRequest(
-        ledgerId,
+        partial.ledgerId,
         partial.begin,
         partial.end,
         convertedFilter,

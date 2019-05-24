@@ -7,7 +7,7 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.TransactionIdString
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -20,7 +20,7 @@ import scala.concurrent.Future
 
 private class MeteredLedger(ledger: Ledger, mm: MetricsManager) extends Ledger {
 
-  override def ledgerId: LedgerIdString = ledger.ledgerId
+  override def ledgerId: String = ledger.ledgerId
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
     ledger.ledgerEntries(offset)

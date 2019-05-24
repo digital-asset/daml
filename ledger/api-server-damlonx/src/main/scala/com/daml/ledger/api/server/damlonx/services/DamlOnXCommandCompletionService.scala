@@ -68,7 +68,7 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
         indexService
           .getCompletions(
             optOffset,
-            Ref.LedgerIdString.assertFromString(request.applicationId),
+            Ref.LedgerString.assertFromString(request.applicationId),
             request.parties.toList.map(Ref.Party.assertFromString))
           .map {
             case CompletionEvent.CommandAccepted(offset, commandId, transactionId) =>

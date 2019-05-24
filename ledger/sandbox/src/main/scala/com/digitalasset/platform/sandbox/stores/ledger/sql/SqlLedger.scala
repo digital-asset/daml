@@ -11,7 +11,6 @@ import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShap
 import akka.{Done, NotUsed}
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref.LedgerIdString
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
@@ -71,7 +70,7 @@ object SqlLedger {
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def apply(
       jdbcUrl: String,
-      ledgerId: Option[LedgerIdString],
+      ledgerId: Option[String],
       timeProvider: TimeProvider,
       acs: ActiveContractsInMemory,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
@@ -103,7 +102,7 @@ object SqlLedger {
 }
 
 private class SqlLedger(
-    val ledgerId: LedgerIdString,
+    val ledgerId: String,
     headAtInitialization: Long,
     ledgerDao: LedgerDao,
     timeProvider: TimeProvider,
@@ -313,7 +312,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     * @return a compliant Ledger implementation
     */
   def createSqlLedger(
-      initialLedgerId: Option[LedgerIdString],
+      initialLedgerId: Option[String],
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
       acs: ActiveContractsInMemory,
@@ -341,10 +340,9 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     ledgerDao.reset()
 
   private def initialize(
-      initialLedgerId: Option[Ref.LedgerIdString],
+      initialLedgerId: Option[String],
       acs: ActiveContractsInMemory,
-      initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement])
-    : Future[Ref.LedgerIdString] = {
+      initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Future[String] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
     // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
@@ -407,12 +405,12 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     }
   }
 
-  private def ledgerFound(foundLedgerId: LedgerIdString) = {
+  private def ledgerFound(foundLedgerId: String) = {
     logger.info(s"Found existing ledger with id: $foundLedgerId")
     Future.successful(foundLedgerId)
   }
 
-  private def doInit(ledgerId: LedgerIdString): Future[Unit] = {
+  private def doInit(ledgerId: String): Future[Unit] = {
     logger.info(s"Initializing ledger with id: $ledgerId")
     ledgerDao.initializeLedger(ledgerId, 0)
   }

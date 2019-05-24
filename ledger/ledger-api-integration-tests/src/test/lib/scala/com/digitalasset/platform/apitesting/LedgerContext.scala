@@ -59,7 +59,7 @@ trait LedgerContext {
   implicit protected def esf: ExecutionSequencerFactory
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  def ledgerId: Ref.LedgerIdString
+  def ledgerId: String
   def packageIds: Iterable[Ref.PackageId]
   def ledgerIdentityService: LedgerIdentityService
   def ledgerConfigurationService: LedgerConfigurationService
@@ -165,17 +165,15 @@ object LedgerContext {
 
     require(esf != null, "ExecutionSequencerFactory must not be null.")
 
-    def ledgerId: Ref.LedgerIdString =
+    def ledgerId: String =
       configuredLedgerId match {
         case LedgerIdMode.Static(id) =>
           id
         case LedgerIdMode.Dynamic() =>
-          Ref.LedgerIdString.assertFromString(
-            LedgerIdentityServiceGrpc
-              .blockingStub(channel)
-              .getLedgerIdentity(GetLedgerIdentityRequest())
-              .ledgerId
-          )
+          LedgerIdentityServiceGrpc
+            .blockingStub(channel)
+            .getLedgerIdentity(GetLedgerIdentityRequest())
+            .ledgerId
       }
 
     override def ledgerIdentityService: LedgerIdentityService =

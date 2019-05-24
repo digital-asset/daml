@@ -3,7 +3,6 @@
 
 package com.digitalasset.platform.server.api.services.grpc
 
-import com.digitalasset.daml.lf.data.Ref.LedgerIdString
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
   CommandSubmissionService => ApiCommandSubmissionService
 }
@@ -26,7 +25,7 @@ import scala.concurrent.Future
 
 class GrpcCommandSubmissionService(
     protected val service: CommandSubmissionService with AutoCloseable,
-    val ledgerId: LedgerIdString,
+    val ledgerId: String,
     identifierResolver: IdentifierResolver)
     extends ApiCommandSubmissionService
     with ProxyCloseable

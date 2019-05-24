@@ -210,6 +210,11 @@ object domain {
   type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
 
+  sealed trait LedgerIdTag
+
+  type LedgerId = String @@ LedgerIdTag
+  val LedgerId: Tag.TagOf[LedgerIdTag] = Tag.of[LedgerIdTag]
+
   sealed trait ApplicationIdTag
 
   type ApplicationId = Ref.LedgerString @@ ApplicationIdTag
@@ -221,7 +226,7 @@ object domain {
   val AbsoluteNodeId: Tag.TagOf[AbsoluteNodeIdTag] = Tag.of[AbsoluteNodeIdTag]
 
   case class Commands(
-      ledgerId: Ref.LedgerIdString,
+      ledgerId: LedgerId,
       workflowId: Option[WorkflowId],
       applicationId: ApplicationId,
       commandId: CommandId,

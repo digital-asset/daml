@@ -12,7 +12,6 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.codegen.util.TestUtil.{TestContext, findOpenPort, requiredResource}
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
@@ -87,7 +86,7 @@ class ScalaCodeGenIT
   implicit override lazy val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = Span(20, Seconds), interval = Span(250, Millis))
 
-  private val ledgerId = Ref.LedgerIdString.assertFromString(this.getClass.getSimpleName)
+  private val ledgerId = this.getClass.getSimpleName
 
   private val archives = List(
     requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),

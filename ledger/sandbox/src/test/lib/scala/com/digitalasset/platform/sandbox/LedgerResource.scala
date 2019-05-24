@@ -12,7 +12,6 @@ import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.LedgerIdString
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 
 import scala.concurrent.{Await, Future}
@@ -31,7 +30,7 @@ object LedgerResource {
   }
 
   def inMemory(
-      ledgerId: LedgerIdString,
+      ledgerId: String,
       timeProvider: TimeProvider,
       acs: ActiveContractsInMemory = ActiveContractsInMemory.empty,
       entries: ImmArray[LedgerEntryWithLedgerEndIncrement] = ImmArray.empty): Resource[Ledger] =
@@ -42,7 +41,7 @@ object LedgerResource {
       )
     )
 
-  def postgres(ledgerId: LedgerIdString, timeProvider: TimeProvider)(
+  def postgres(ledgerId: String, timeProvider: TimeProvider)(
       implicit mat: Materializer,
       mm: MetricsManager) = {
     new Resource[Ledger] {

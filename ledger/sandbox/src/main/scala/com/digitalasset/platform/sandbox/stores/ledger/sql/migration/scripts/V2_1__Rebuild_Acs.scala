@@ -55,7 +55,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
 
-  private def lookupLedgerId()(implicit conn: Connection): Option[LedgerIdString] =
+  private def lookupLedgerId()(implicit conn: Connection): Option[String] =
     SQL_SELECT_LEDGER_ID
       .as(ledgerString("ledger_id").singleOpt)
 
