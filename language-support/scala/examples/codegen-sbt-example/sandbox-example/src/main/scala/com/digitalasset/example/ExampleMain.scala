@@ -10,6 +10,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.api.util.TimestampConversion.fromInstant
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.example.Util.{findOpenPort, toFuture}
 import com.digitalasset.example.daml.{Main => M}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
@@ -43,7 +44,7 @@ object ExampleMain extends App {
 
   private val dar = new File("./scala-codegen/target/repository/daml-codegen/Main.dar")
 
-  private val ledgerId = "codegen-sbt-example-with-sandbox"
+  private val ledgerId = Ref.LedgerString.assertFromString("codegen-sbt-example-with-sandbox")
 
   private val port: Int = findOpenPort().fold(e => throw new IllegalStateException(e), identity)
 

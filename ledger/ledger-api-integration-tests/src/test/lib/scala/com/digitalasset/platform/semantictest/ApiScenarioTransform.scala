@@ -3,11 +3,12 @@
 
 package com.digitalasset.platform.semantictest
 
-import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{ContractIdString, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.{Value, ValueVersions}
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.event.{
   CreatedEvent => ApiCreatedEvent,
   ExercisedEvent => ApiExercisedEvent
@@ -23,6 +24,7 @@ import scalaz.std.either._
 import scalaz.std.list._
 
 import scala.concurrent.Future
+
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any"
@@ -30,10 +32,13 @@ import scala.concurrent.Future
 class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Package])
     extends ErrorFactories {
 
+  private def toContractId(s: String): Either[StatusRuntimeException, ContractIdString] =
+    ContractIdString.fromString(s).left.map(e => invalidArgument(s"Cannot parse contractId: $e"))
+
   private def toLfVersionedValue[Cid](
-      record: Record): Either[StatusRuntimeException, VersionedValue[AbsoluteContractId]] = {
+      record: Record
+  ): Either[StatusRuntimeException, VersionedValue[AbsoluteContractId]] =
     recordToLfValue(record).flatMap(determineVersion)
-  }
 
   private def toLfVersionedValue[Cid](
       value: ApiValue): Either[StatusRuntimeException, VersionedValue[AbsoluteContractId]] = {
@@ -50,7 +55,7 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
 
   private val commandsValidator =
     new CommandsValidator(
-      ledgerId,
+      LedgerId(ledgerId),
       IdentifierResolver(_ => Future.successful(None))
     )
 
@@ -89,9 +94,12 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
     def toLfCreated(p: Ast.Package, createdEvent: ApiCreatedEvent)
       : Either[StatusRuntimeException, P.CreateEvent[AbsoluteContractId]] = {
       val witnesses = P.parties(createdEvent.witnessParties)
-      toLfVersionedValue(createdEvent.getCreateArguments).map { value =>
+      for {
+        coid <- toContractId(createdEvent.contractId)
+        value <- toLfVersionedValue(createdEvent.getCreateArguments)
+      } yield
         P.CreateEvent(
-          AbsoluteContractId(createdEvent.contractId),
+          AbsoluteContractId(coid),
           Ref.Identifier(
             P.packageId(createdEvent.getTemplateId.packageId),
             QualifiedName(
@@ -104,7 +112,6 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
           witnesses,
           witnesses
         )
-      }
     }
 
     def toLfExercised[EventId](
@@ -114,11 +121,12 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
       : Either[StatusRuntimeException, P.ExerciseEvent[EventId, AbsoluteContractId]] = {
       val witnesses = P.parties(exercisedEvent.witnessParties)
       for {
+        coid <- toContractId(exercisedEvent.contractId)
         value <- toLfVersionedValue(exercisedEvent.getChoiceArgument)
         result <- toLfVersionedValue(exercisedEvent.getExerciseResult)
       } yield {
         P.ExerciseEvent(
-          AbsoluteContractId(exercisedEvent.contractId),
+          AbsoluteContractId(coid),
           Ref.Identifier(
             P.packageId(exercisedEvent.getTemplateId.packageId),
             QualifiedName(
@@ -138,6 +146,7 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
         )
       }
     }
+
     val converted: Either[RuntimeException, Map[String, P.Event[String, AbsoluteContractId]]] =
       Traverse[List]
         .traverseU(transactionTree.eventsById.toList)({

@@ -15,6 +15,7 @@ import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.ledger.EventId
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
@@ -27,7 +28,6 @@ import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.damle.SandboxDamle
 import com.digitalasset.platform.sandbox.services.TestCommands
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.EventId
 import com.digitalasset.platform.sandbox.{TestDar, TestHelpers}
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.transaction.{
@@ -40,6 +40,8 @@ import org.scalatest.{Inside, Matchers, WordSpec}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.language.implicitConversions
+
+import com.digitalasset.ledger.api.domain.LedgerId
 
 @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
 class EventConverterSpec
@@ -54,6 +56,8 @@ class EventConverterSpec
   private implicit def party(s: String): Ref.Party = Ref.Party.assertFromString(s)
   private implicit def pkgId(s: String): Ref.PackageId = Ref.PackageId.assertFromString(s)
   private implicit def name(s: String): Ref.Name = Ref.Name.assertFromString(s)
+  private implicit def ledgerName(s: String): Ref.LedgerString =
+    Ref.LedgerString.assertFromString(s)
 
   type LfTx = com.digitalasset.daml.lf.transaction.Transaction.Transaction
 
@@ -78,7 +82,7 @@ class EventConverterSpec
   private val ledgerId = "ledgerId"
 
   private val validator =
-    new CommandsValidator(ledgerId, IdentifierResolver(_ => Future.successful(None)))
+    new CommandsValidator(LedgerId(ledgerId), IdentifierResolver(_ => Future.successful(None)))
 
   private val commands = Commands()
     .withParty("Alice")
@@ -136,7 +140,8 @@ class EventConverterSpec
               val eventsFromViews =
                 etc.genToApiTransaction(
                   recordTr,
-                  recordBlinding.transform((_, v) => v.toSet[String]))
+                  recordBlinding
+                )
 
               eventsFromViews.eventsById should have size expectedSize.toLong
           })
@@ -169,10 +174,7 @@ class EventConverterSpec
             }
 
             val eventsFromViews =
-              etc.genToApiTransaction(
-                recordTr,
-                recordBlinding.transform((_, v) => v.toSet[String]),
-                true)
+              etc.genToApiTransaction(recordTr, recordBlinding, true)
 
             tx.nodes.size shouldBe 1
             eventsFromViews.eventsById.size shouldBe 1
@@ -262,14 +264,12 @@ class EventConverterSpec
       }
 
       val events =
-        etc.genToApiTransaction(
-          recordTx,
-          recordBlinding.transform((_, v) => v.toSet[String]),
-          verbose = true)
+        etc.genToApiTransaction(recordTx, recordBlinding, verbose = true)
 
       val exercise = events.rootEventIds.headOption.map(events.eventsById).map(_.getExercised)
       val child =
-        exercise.flatMap(_.childEventIds.headOption.map(events.eventsById).map(_.getCreated))
+        exercise.flatMap(
+          _.childEventIds.headOption.map(ledgerName).map(events.eventsById).map(_.getCreated))
       val field1 = RecordField("field", Some(Value(Value.Sum.Text("someText"))))
       val nestedRecord =
         Some(
@@ -309,7 +309,7 @@ class EventConverterSpec
           )),
         Set("giver"),
         true,
-        ImmArray("#txId:2"),
+        ImmArray[EventId]("#txId:2"),
         Set("giver", "receiver"),
         Set("giver", "receiver"),
         Some(
@@ -319,9 +319,9 @@ class EventConverterSpec
       )
       val events: Events[EventId, Lf.AbsoluteContractId, Lf.VersionedValue[Lf.AbsoluteContractId]] =
         Events(
-          ImmArray("#txId:0"),
+          ImmArray[EventId]("#txId:0"),
           Map(
-            "#txId:2" -> ExerciseEvent(
+            ("#txId:2": EventId) -> ExerciseEvent(
               Lf.AbsoluteContractId("#6:0"),
               Ref.Identifier(
                 "0d25e199ed26977b3082864c62f8d154ca6042ed521712e2b3eb172dc79c87a2",
@@ -330,7 +330,7 @@ class EventConverterSpec
               asVersionedValueOrThrow(Lf.ValueUnit),
               Set("receiver", "giver"),
               true,
-              ImmArray("#txId:3"),
+              ImmArray[EventId]("#txId:3"),
               Set("receiver", "giver", "operator"),
               Set("receiver", "giver", "operator"),
               Some(
@@ -338,7 +338,7 @@ class EventConverterSpec
                   Lf.ValueContractId(Lf.AbsoluteContractId("#txId:3"))
                 ))
             ),
-            "#txId:3" -> CreateEvent(
+            ("#txId:3": EventId) -> CreateEvent(
               Lf.AbsoluteContractId("#txId:3"),
               Ref.Identifier(
                 "0d25e199ed26977b3082864c62f8d154ca6042ed521712e2b3eb172dc79c87a2",
@@ -356,7 +356,7 @@ class EventConverterSpec
               Set("operator", "receiver", "giver"),
               Set("operator", "receiver", "giver"),
             ),
-            "#txId:0" -> rootEx
+            ("#txId:0": EventId) -> rootEx
           )
         )
 
@@ -437,9 +437,10 @@ class EventConverterSpec
 
       val expected = TransactionTreeNodes(
         Map(
-          created.eventId -> TreeEvent(TreeEvent.Kind.Created(created)),
-          nestedExercise.eventId -> TreeEvent(TreeEvent.Kind.Exercised(nestedExercise)),
-          topLevelExercise.eventId -> TreeEvent(TreeEvent.Kind.Exercised(topLevelExercise))
+          ledgerName(created.eventId) -> TreeEvent(TreeEvent.Kind.Created(created)),
+          ledgerName(nestedExercise.eventId) -> TreeEvent(TreeEvent.Kind.Exercised(nestedExercise)),
+          ledgerName(topLevelExercise.eventId) -> TreeEvent(
+            TreeEvent.Kind.Exercised(topLevelExercise))
         ),
         List(topLevelExercise.eventId)
       )

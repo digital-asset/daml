@@ -5,6 +5,7 @@ package com.digitalasset.platform.server.services.transaction
 
 import java.util.Comparator
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.LedgerOffset
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 
@@ -13,11 +14,11 @@ import scala.util.{Failure, Success, Try}
 sealed abstract class OffsetSection[+T] extends Product with Serializable
 
 trait OffsetHelper[Offset] extends Comparator[Offset] {
-  def fromOpaque(opaque: String): Try[Offset]
+  def fromOpaque(opaque: Ref.LedgerString): Try[Offset]
 
-  def getLedgerBeginning(): Offset
+  def getLedgerBeginning: Offset
 
-  def getLedgerEnd(): Offset
+  def getLedgerEnd: Offset
 }
 
 object OffsetSection extends ErrorFactories {
@@ -30,13 +31,13 @@ object OffsetSection extends ErrorFactories {
   def apply[Offset](begin: LedgerOffset, end: Option[LedgerOffset])(
       implicit oh: OffsetHelper[Offset]): Try[OffsetSection[Offset]] = {
 
-    lazy val ledgerEnd = oh.getLedgerEnd()
+    lazy val ledgerEnd = oh.getLedgerEnd
 
     val parsedBegin = begin match {
       case LedgerOffset.Absolute(opaqueCursor) =>
         oh.fromOpaque(opaqueCursor)
       case LedgerOffset.LedgerBegin =>
-        Success(oh.getLedgerBeginning())
+        Success(oh.getLedgerBeginning)
       case LedgerOffset.LedgerEnd =>
         Success(ledgerEnd)
     }
@@ -47,7 +48,7 @@ object OffsetSection extends ErrorFactories {
           oh.fromOpaque(opaqueCursor).flatMap(end => checkOrdering(begin, end))
         }
       case LedgerOffset.LedgerBegin =>
-        parsedBegin.flatMap(begin => checkOrdering[Offset](begin, oh.getLedgerBeginning()))
+        parsedBegin.flatMap(begin => checkOrdering[Offset](begin, oh.getLedgerBeginning))
       case LedgerOffset.LedgerEnd =>
         parsedBegin.flatMap(checkOrdering(_, ledgerEnd))
     }

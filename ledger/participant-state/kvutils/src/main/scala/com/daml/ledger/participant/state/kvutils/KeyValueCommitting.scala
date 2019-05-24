@@ -5,7 +5,8 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.{Configuration, PackageId, RejectionReason}
+import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
 import com.digitalasset.daml.lf.lfpackage.Decode
@@ -13,9 +14,9 @@ import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
-  ContractId,
   ContractInst,
   NodeId,
+  ContractId,
   VersionedValue
 }
 import com.digitalasset.platform.services.time.TimeModelChecker
@@ -377,7 +378,8 @@ object KeyValueCommitting {
   private def lookupContractInstanceFromLogEntry(
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,
-      nodeId: Int): Option[ContractInst[Transaction.Value[AbsoluteContractId]]] = {
+      nodeId: Int
+  ): Option[ContractInst[Transaction.Value[AbsoluteContractId]]] = {
     val relTx = Conversions.decodeTransaction(entry.getTransactionEntry.getTransaction)
     relTx.nodes
       .get(NodeId.unsafeFromIndex(nodeId))
@@ -387,6 +389,7 @@ object KeyValueCommitting {
       .flatMap { node: Transaction.Node =>
         node match {
           case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
+            // FixMe (RH) toAbsCoid can throw an IllegalArgumentException
             Some(
               create.coinst.mapValue(
                 _.mapContractId(toAbsCoid(entryId, _))

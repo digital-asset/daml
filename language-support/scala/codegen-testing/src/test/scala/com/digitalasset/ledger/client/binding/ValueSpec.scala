@@ -72,10 +72,10 @@ object ValueSpec {
     override val valueTimestamp = ValueCheck[P.Timestamp]("Timestamp")
     override val valueUnit = ValueCheck[P.Unit]("Unit")
     override val valueBool = ValueCheck[P.Bool]("Bool")
-    override def valueContractId[Tpl <: Template[Tpl]] = {
-      implicit val CA: Arbitrary[P.ContractId[Tpl]] =
+    override def valueContractId[A] = {
+      implicit val CA: Arbitrary[P.ContractId[A]] =
         Arbitrary(GenEncoding.primitive.valueContractId)
-      ValueCheck[P.ContractId[Tpl]]("ContractId")
+      ValueCheck[P.ContractId[A]]("ContractId")
     }
 
     override def valueList[A](implicit vc: ValueCheck[A]) = {
@@ -108,6 +108,11 @@ object ValueSpec {
       (1, Gen.lzy {
         valueChecks.map { vc =>
           Exists(TautologicalValueChecks.valueOptional(vc.run))
+        }
+      }),
+      (1, Gen.lzy {
+        valueChecks.map { vc =>
+          Exists(TautologicalValueChecks.valueMap(vc.run))
         }
       })
     )

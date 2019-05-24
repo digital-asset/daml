@@ -9,6 +9,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimestampConversion._
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.command_completion_service._
@@ -18,13 +19,20 @@ import com.digitalasset.ledger.api.validation.LedgerOffsetValidator
 import com.digitalasset.platform.participant.util.Slf4JLog
 import com.digitalasset.platform.server.api.validation.CommandCompletionServiceValidation
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.ledger.backend.api.v1.{LedgerSyncEvent, RejectionReason, LedgerBackend}
+import com.digitalasset.ledger.backend.api.v1.{
+  LedgerBackend,
+  LedgerSyncEvent,
+  LedgerSyncOffset,
+  RejectionReason
+}
 import com.google.rpc.status.Status
 import io.grpc.Status.Code
 import io.grpc.{BindableService, ServerServiceDefinition}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
+
+import domain.LedgerId
 
 class SandboxCommandCompletionService private (
     ledgerBackend: LedgerBackend
@@ -46,7 +54,7 @@ class SandboxCommandCompletionService private (
       subscriptionId: Any,
       request)
     val offsetOrError =
-      request.offset.fold[Future[Option[String]]](Future.successful(None))(
+      request.offset.fold[Future[Option[Ref.LedgerString]]](Future.successful(None))(
         o =>
           LedgerOffsetValidator
             .validate(o, "offset")
@@ -66,7 +74,7 @@ class SandboxCommandCompletionService private (
 
   private def completionSourceWithOffset(
       request: CompletionStreamRequest,
-      requestedOffset: Option[String],
+      requestedOffset: Option[LedgerSyncOffset],
       subscriptionId: String): Source[CompletionStreamResponse, NotUsed] = {
     val requestingParties = request.parties.toSet
     val requestedApplicationId = request.applicationId
@@ -145,8 +153,8 @@ object SandboxCommandCompletionService {
     with AutoCloseable
     with CommandCompletionServiceLogging = {
     val impl = new SandboxCommandCompletionService(ledgerBackend)
-    new CommandCompletionServiceValidation(impl, ledgerBackend.ledgerId) with BindableService
-    with AutoCloseable with CommandCompletionServiceLogging {
+    new CommandCompletionServiceValidation(impl, LedgerId(ledgerBackend.ledgerId))
+    with BindableService with AutoCloseable with CommandCompletionServiceLogging {
       override def bindService(): ServerServiceDefinition =
         CommandCompletionServiceGrpc.bindService(this, DirectExecutionContext)
 

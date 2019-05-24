@@ -7,6 +7,7 @@ import java.time.{Duration, Instant}
 
 import akka.Done
 import akka.stream.scaladsl.{Flow, Sink}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.EventId
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{party, _}
@@ -53,6 +54,8 @@ import scalaz.{ICons, NonEmptyList, Tag}
 import scala.collection.{breakOut, immutable}
 import scala.concurrent.Future
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionServiceIT
     extends AsyncWordSpec
@@ -74,7 +77,7 @@ class TransactionServiceIT
   override val timeLimit: Span = 300.seconds
 
   private def newClient(stub: TransactionService, ledgerId: String): TransactionClient =
-    new TransactionClient(ledgerId, stub)
+    new TransactionClient(LedgerId(ledgerId), stub)
 
   private val getAllContracts = transactionFilter
 
@@ -320,7 +323,7 @@ class TransactionServiceIT
       "expose transactions to non-submitting stakeholders without the commandId" in allFixtures {
         c =>
           c.submitCreateAndReturnTransaction(
-              "Checking commandId visibility for non-submitter party",
+              "Checking_commandId_visibility_for_non-submitter_party",
               templateIds.agreementFactory,
               List("receiver" -> party1.asParty, "giver" -> party2.asParty).asRecordFields,
               party2,
@@ -331,7 +334,7 @@ class TransactionServiceIT
       }
 
       "expose only the requested templates to the client" in allFixtures { context =>
-        val commandId = "Client should see only the Dummy create."
+        val commandId = "Client_should_see_only_the_Dummy_create."
         val templateInSubscription = templateIds.dummy
         val otherTemplateCreated = templateIds.dummyFactory
         for {
@@ -354,8 +357,8 @@ class TransactionServiceIT
 
       "expose contract Ids that are ready to be used for exercising choices" in allFixtures {
         context =>
-          val factoryCreation = "Creating factory"
-          val exercisingChoice = "Exercising choice on factory"
+          val factoryCreation = "Creating_factory"
+          val exercisingChoice = "Exercising_choice_on_factory"
           val exercisedTemplate = templateIds.dummyFactory
           for {
             createdEvent <- context.submitCreate(
@@ -380,8 +383,8 @@ class TransactionServiceIT
 
       "expose contract Ids that are results of exercising choices when filtering by template" in allFixtures {
         context =>
-          val factoryCreation = "Creating second factory"
-          val exercisingChoice = "Exercising choice on second factory"
+          val factoryCreation = "Creating_second_factory"
+          val exercisingChoice = "Exercising_choice_on_second_factory"
           val exercisedTemplate = templateIds.dummyFactory
           for {
             creation <- context.submitCreate(
@@ -424,13 +427,13 @@ class TransactionServiceIT
       "reject exercising a choice where an assertion fails" in allFixtures { c =>
         for {
           dummy <- c.submitCreate(
-            "Create for assertion failing test",
+            "Create_for_assertion_failing_test",
             templateIds.dummy,
             List("operator" -> party.asParty).asRecordFields,
             party)
           assertion <- failingExercise(
             c,
-            "Assertion failing exercise",
+            "Assertion_failing_exercise",
             party,
             templateIds.dummy,
             dummy.contractId,
@@ -453,7 +456,7 @@ class TransactionServiceIT
         val expectedArg = paramShowcaseArgsWithoutLabels
         for {
           create <- c.submitCreate(
-            "Creating contract with a multitude of param types",
+            "Creating_contract_with_a_multitude_of_param_types",
             template,
             paramShowcaseArgs(templateIds.testPackageId),
             "party",
@@ -471,7 +474,7 @@ class TransactionServiceIT
         val variant = Value(Value.Sum.Variant(Variant(None, "SomeInteger", 1.asInt64)))
         for {
           create <- c.submitCreate(
-            "Creating contract with a multitude of verbose param types",
+            "Creating_contract_with_a_multitude_of_verbose_param_types",
             template,
             arg,
             "party",
@@ -506,7 +509,7 @@ class TransactionServiceIT
         verifyParamShowcaseChoice(
           c,
           "Choice1", // choice name
-          "same args",
+          "same_args",
           paramShowcaseArgumentsToChoice1Argument(Record(None, args)), // submitted choice args
           expectedArg) // expected args
       }
@@ -524,7 +527,7 @@ class TransactionServiceIT
         val template = templateIds.parameterShowcase
         for {
           create <- c.submitCreate(
-            "Huge command with a long list",
+            "Huge_command_with_a_long_list",
             template,
             arg,
             "party"
@@ -539,7 +542,7 @@ class TransactionServiceIT
         val giver = "Alice"
         for {
           created <- c.submitCreateWithListenerAndReturnEvent(
-            "Creating Agreement Factory",
+            "Creating_Agreement_Factory",
             templateIds.agreementFactory,
             List("receiver" -> receiver.asParty, "giver" -> giver.asParty).asRecordFields,
             giver,
@@ -547,7 +550,7 @@ class TransactionServiceIT
 
           choiceResult <- c.testingHelpers.submitAndListenForSingleResultOfCommand(
             c.command(
-                "Calling non-consuming choice",
+                "Calling_non-consuming_choice",
                 List(
                   ExerciseCommand(
                     Some(templateIds.agreementFactory),
@@ -656,7 +659,7 @@ class TransactionServiceIT
         val expectedArgs = createArguments.map(_.copy(label = ""))
 
         c.submitCreate(
-            "Creating contract with a Nothing argument",
+            "Creating_contract_with_a_Nothing_argument",
             templateIds.nothingArgument,
             createArguments,
             "party")
@@ -674,7 +677,7 @@ class TransactionServiceIT
       "expose the default agreement text in CreatedEvents for templates with no explicit agreement text" in allFixtures {
         c =>
           val resultF = c.submitCreate(
-            "Creating dummy contract for default agreement text test",
+            "Creating_dummy_contract_for_default_agreement_text_test",
             templateIds.dummy,
             List(RecordField("operator", party1.asParty)),
             party1)
@@ -795,12 +798,12 @@ class TransactionServiceIT
         val arguments = List("street", "city", "state", "zip")
         for {
           dummy <- c.submitCreate(
-            "Create dummy for creating AddressWrapper",
+            "Create_dummy_for_creating_AddressWrapper",
             templateIds.dummy,
             List("operator" -> party.asParty).asRecordFields,
             party)
           exercise <- c.submitExercise(
-            "Creating AddressWrapper",
+            "Creating_AddressWrapper",
             templateIds.dummy,
             List("address" -> arguments.map(e => e -> e.asText).asRecordValue).asRecordValue,
             "WrapWithAddress",
@@ -1061,7 +1064,7 @@ class TransactionServiceIT
         for {
           _ <- insertCommands(
             getTrackerFlow(context),
-            "tree provenance-by-event-id",
+            "tree-provenance-by-event-id",
             1,
             config.assertStaticLedgerId)
           tx <- context.transactionClient
@@ -1259,7 +1262,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        new TransactionClient("notLedgerId", context.transactionService)
+        new TransactionClient(LedgerId("notLedgerId"), context.transactionService)
           .getTransactionTrees(ledgerBegin, Some(ledgerEnd), transactionFilter)
           .runWith(Sink.head)
           .failed
@@ -1379,7 +1382,8 @@ class TransactionServiceIT
             for {
               (tx, tree) <- txs.iterator.zip(trees.iterator)
 
-              treeEventIds: Set[EventId] = Tag.subst(tree.eventsById.keySet)
+              treeEventIds: Set[EventId] = Tag.subst(
+                tree.eventsById.keySet.map(Ref.LedgerString.assertFromString))
 
               txEvent <- tx.events
             } {
@@ -1573,7 +1577,7 @@ class TransactionServiceIT
   ): Future[CreatedEvent] = {
     for {
       agreementFactory <- c.submitCreate(
-        commandId + "factory creation",
+        commandId + "factory_creation",
         templateIds.agreementFactory,
         List(
           "receiver" -> receiver.asParty,
@@ -1581,7 +1585,7 @@ class TransactionServiceIT
         ).asRecordFields,
         giver)
       tx <- c.submitExercise(
-        commandId + " acceptance",
+        commandId + "_acceptance",
         templateIds.agreementFactory,
         unitArg,
         "AgreementFactoryAccept",
@@ -1623,7 +1627,7 @@ class TransactionServiceIT
 
     for {
       creation <- context.submitCreate(
-        s"Creating contract with a multitude of param types for exercising ($choice, $lbl)",
+        s"Creating_contract_with_a_multitude_of_param_types_for_exercising_$choice#$lbl",
         templateIds.parameterShowcase,
         paramShowcaseArgs(templateIds.testPackageId),
         MockMessages.party
@@ -1636,9 +1640,8 @@ class TransactionServiceIT
         choice,
         exerciseArg).wrap
       exerciseTx <- context.testingHelpers.submitAndListenForSingleResultOfCommand(
-        context.command(
-          s"Exercising with a multitiude of params ($choice, $lbl)",
-          List(exerciseCommand)),
+        context
+          .command(s"Exercising_with_a_multitiude_of_params_$choice#$lbl", List(exerciseCommand)),
         getAllContracts
       )
     } yield {

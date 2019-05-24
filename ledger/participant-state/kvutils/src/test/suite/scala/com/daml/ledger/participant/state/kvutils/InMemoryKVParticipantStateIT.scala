@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.v1.{
   TransactionMeta,
   Update
 }
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
 import com.digitalasset.daml_lf.DamlLf
@@ -26,14 +26,14 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     PartialTransaction.initial.finish.right.get
 
   def submitterInfo(rt: Timestamp) = SubmitterInfo(
-    submitter = Party.assertFromString("Alice"),
-    applicationId = "tests",
-    commandId = "X",
+    submitter = Ref.Party.assertFromString("Alice"),
+    applicationId = Ref.LedgerString.assertFromString("tests"),
+    commandId = Ref.LedgerString.assertFromString("X"),
     maxRecordTime = rt.addMicros(100000)
   )
   def transactionMeta(let: Timestamp) = TransactionMeta(
     ledgerEffectiveTime = let,
-    workflowId = "tests"
+    workflowId = Some(Ref.LedgerString.assertFromString("tests"))
   )
 
   "In-memory implementation" should {

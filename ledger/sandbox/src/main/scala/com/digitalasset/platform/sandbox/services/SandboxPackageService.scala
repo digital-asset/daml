@@ -3,9 +3,10 @@
 
 package com.digitalasset.platform.sandbox.services
 
-import com.daml.ledger.participant.state.index.v1.PackagesService
+import com.daml.ledger.participant.state.index.v2.PackagesService
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf.DamlLf.{Archive, HashFunction}
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.digitalasset.ledger.api.v1.package_service.{
   GetPackageResponse,
@@ -20,6 +21,7 @@ import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
   SHA256 => APISHA256,
   Unrecognized => APIUnrecognized
 }
+
 import scala.concurrent.{ExecutionContext, Future}
 
 class SandboxPackageService private (backend: PackagesService)
@@ -83,7 +85,7 @@ class SandboxPackageService private (backend: PackagesService)
 }
 
 object SandboxPackageService {
-  def apply(backend: PackagesService, ledgerId: String)(implicit ec: ExecutionContext)
+  def apply(backend: PackagesService, ledgerId: LedgerId)(implicit ec: ExecutionContext)
     : PackageService with BindableService with PackageServiceLogging =
     new PackageServiceValidation(new SandboxPackageService(backend), ledgerId) with BindableService
     with PackageServiceLogging {

@@ -56,7 +56,7 @@ private[parser] object ExprParser {
 
   private lazy val contractId =
     accept("ContractId", { case ContractId(cid) => cid }) ~ (`@` ~> fullIdentifier) ^^ {
-      case cid ~ t => EContractId(cid, t)
+      case cid ~ t => EContractId(Ref.ContractIdString.assertFromString(cid), t)
     }
 
   private sealed trait EAppAgr extends Product with Serializable
@@ -258,7 +258,8 @@ private[parser] object ExprParser {
     "EQUAL_PARTY" -> BEqualParty,
     "EQUAL_BOOL" -> BEqualBool,
     "EQUAL_LIST" -> BEqualList,
-    "EQUAL_CONTRACT_ID" -> BEqualContractId
+    "EQUAL_CONTRACT_ID" -> BEqualContractId,
+    "COERCE_CONTRACT_ID" -> BCoerceContractId,
   )
 
   /* Scenarios */
@@ -330,8 +331,13 @@ private[parser] object ExprParser {
     }
 
   private lazy val updateExercise =
-    `exercise` ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ~ expr0 ^^ {
-      case t ~ choice ~ cid ~ actor ~ arg => UpdateExercise(t, choice, cid, actor, arg)
+    `exercise` ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
+      case t ~ choice ~ cid ~ arg => UpdateExercise(t, choice, cid, None, arg)
+    }
+
+  private lazy val updateExerciseWithActors =
+    `exercise_with_actors` ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ~ expr0 ^^ {
+      case t ~ choice ~ cid ~ actor ~ arg => UpdateExercise(t, choice, cid, Some(actor), arg)
     }
 
   private lazy val updateFetchByKey =
@@ -358,6 +364,7 @@ private[parser] object ExprParser {
       updateCreate |
       updateFetch |
       updateExercise |
+      updateExerciseWithActors |
       updateFetchByKey |
       updateLookupByKey |
       updateGetTime |

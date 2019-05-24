@@ -5,6 +5,7 @@ package com.digitalasset.platform.tests.integration.ledger.api
 
 import java.util.UUID
 
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   IsStatusException,
@@ -37,7 +38,7 @@ class PackageServiceIT
   }
 
   private def client(stub: PackageService, ledgerId: String): PackageClient = {
-    new PackageClient(ledgerId, stub)
+    new PackageClient(domain.LedgerId(ledgerId), stub)
   }
 
   private def getARegisteredPackageId(stub: PackageService) =

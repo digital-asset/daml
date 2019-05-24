@@ -8,6 +8,7 @@ import java.util.UUID
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
@@ -29,7 +30,7 @@ trait TestHelper {
 
   val largeTxPackageId: PackageId = DarUtil.getPackageId(darFile)
 
-  val ledgerId: String = "ledger server"
+  val ledgerId: String = "ledger-server"
   val applicationId: String = "app1"
   val ledgerEffectiveTime = Some(Timestamp(0L, 0))
   val maximumRecordTime = ledgerEffectiveTime.map(x => x.copy(seconds = x.seconds + 30L))
@@ -124,7 +125,8 @@ trait TestHelper {
       state: PerfBenchState,
       workflowId: String,
       templateId: Identifier): Source[String, Future[String]] =
-    new ActiveContractSetClient(state.ledger.ledgerId, state.ledger.acsService)(state.esf)
+    new ActiveContractSetClient(domain.LedgerId(state.ledger.ledgerId), state.ledger.acsService)(
+      state.esf)
       .getActiveContracts(transactionFilter)
       .filter(_.workflowId == workflowId)
       .mapConcat(extractContractId(templateId))

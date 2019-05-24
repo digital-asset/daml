@@ -206,7 +206,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"∀ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). Update τ₁ → Update τ₂ → (τ₁ → τ₂ → Update τ) → (( Update τ ))",
         E"λ (e: Mod:T) → (( create @Mod:T e))" ->
           T"Mod:T → (( Update (ContractId Mod:T) ))",
-        E"λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: Int64) → (( exercise @Mod:T Ch e₁ e₂ e₃ ))" ->
+        E"λ (e₁: ContractId Mod:T) (e₂: Int64) → (( exercise @Mod:T Ch e₁ e₂ ))" ->
+          T"ContractId Mod:T → Int64 → (( Update Decimal ))",
+        E"λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: Int64) → (( exercise_with_actors @Mod:T Ch e₁ e₂ e₃ ))" ->
           T"ContractId Mod:T → List Party → Int64 → (( Update Decimal ))",
         E"λ (e: ContractId Mod:T) → (( fetch @Mod:T e ))" ->
           T"ContractId Mod:T → (( Update Mod:T ))",

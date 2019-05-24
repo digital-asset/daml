@@ -161,6 +161,10 @@ private[validation] object Typing {
           (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool),
       BEqualContractId ->
         TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
+      BCoerceContractId ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta))),
     )
   }
 
@@ -571,12 +575,12 @@ private[validation] object Typing {
         tpl: TypeConName,
         chName: ChoiceName,
         cid: Expr,
-        actors: Expr,
+        actors: Option[Expr],
         arg: Expr
     ): Type = {
       val choice = lookupChoice(ctx, tpl, chName)
       checkExpr(cid, TContractId(TTyCon(tpl)))
-      checkExpr(actors, TParties)
+      actors.foreach(checkExpr(_, TParties))
       checkExpr(arg, choice.argBinder._2)
       TUpdate(choice.returnType)
     }

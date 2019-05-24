@@ -38,7 +38,7 @@ class CommandExecutorImpl(engine: Engine, packageContainer: DamlPackageContainer
         } yield
           TransactionSubmission(
             submitted.commandId.unwrap,
-            submitted.workflowId.fold("")(_.unwrap),
+            submitted.workflowId.map(_.unwrap),
             submitted.submitter,
             submitted.ledgerEffectiveTime,
             submitted.maximumRecordTime,

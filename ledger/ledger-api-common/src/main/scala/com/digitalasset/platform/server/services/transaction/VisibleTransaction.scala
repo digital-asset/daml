@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.api.domain.TransactionFilter
 import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter
@@ -11,9 +11,9 @@ import com.digitalasset.platform.common.{PlatformTypes => P}
 
 /** Contains all data that's necessary to assemble a transaction for the API */
 final case class VisibleTransaction(
-    transaction: P.GenTransaction[String, AbsoluteContractId],
+    transaction: P.GenTransaction[LedgerString, AbsoluteContractId],
     meta: TransactionMeta,
-    disclosureByNodeId: Map[String, Set[Party]]) {
+    disclosureByNodeId: Map[LedgerString, Set[Party]]) {
 
   private type MapStringSet[T] = Map[String, Set[T]]
 
@@ -29,7 +29,7 @@ object VisibleTransaction {
       transactionFilter: TransactionFilter,
       transactionWitMeta: TransactionWithMeta): Option[VisibleTransaction] =
     transactionFilter
-      .filter(transactionWitMeta.transaction, identity[String])
+      .filter(transactionWitMeta.transaction, identity[LedgerString])
       .map(
         VisibleTransaction(
           transactionWitMeta.transaction,

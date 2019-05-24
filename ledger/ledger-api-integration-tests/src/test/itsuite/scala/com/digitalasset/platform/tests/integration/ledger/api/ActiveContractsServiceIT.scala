@@ -6,6 +6,7 @@ package com.digitalasset.platform.tests.integration.ledger.api
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils._
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -56,7 +57,7 @@ class ActiveContractsServiceIT
   private def client(
       ctx: LedgerContext,
       ledgerId: String = config.assertStaticLedgerId): ActiveContractSetClient =
-    new ActiveContractSetClient(ledgerId, ctx.acsService)
+    new ActiveContractSetClient(domain.LedgerId(ledgerId), ctx.acsService)
 
   private def commandClient(
       ctx: LedgerContext,
@@ -66,7 +67,7 @@ class ActiveContractsServiceIT
   private def transactionClient(
       ctx: LedgerContext,
       ledgerId: String = config.assertStaticLedgerId): TransactionClient =
-    new TransactionClient(ledgerId, ctx.transactionService)
+    new TransactionClient(domain.LedgerId(ledgerId), ctx.transactionService)
 
   private def submitRequest(ctx: LedgerContext, request: SubmitAndWaitRequest) =
     commandClient(ctx).submitAndWait(request)

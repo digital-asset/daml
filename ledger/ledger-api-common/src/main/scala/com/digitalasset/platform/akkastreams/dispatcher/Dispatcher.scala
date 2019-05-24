@@ -24,7 +24,7 @@ trait Dispatcher[Index, T] extends AutoCloseable {
   def signalNewHead(head: Index): Unit
 
   /** Returns a stream of elements with the next index from start (inclusive) to end (exclusive) */
-  def startingAt(start: Index, requestedEnd: Option[Index]): Source[(Index, T), NotUsed]
+  def startingAt(startInclusive: Index, endExclusive: Option[Index]): Source[(Index, T), NotUsed]
 
   /** Returns a source of all values starting at the given index, in the form (successor index, value) */
   def startingAt(start: Index): Source[(Index, T), NotUsed]

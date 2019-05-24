@@ -3,6 +3,7 @@
 
 package com.digitalasset.ledger.backend.api.v1
 
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}

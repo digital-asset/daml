@@ -36,6 +36,8 @@ import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 object SandboxSubmissionService {
 
   type RecordUpdate = Either[LfError, (Transaction, BlindingInfo)]
@@ -57,7 +59,7 @@ object SandboxSubmissionService {
         timeModel,
         timeProvider,
         commandExecutor),
-      ledgerBackend.ledgerId,
+      LedgerId(ledgerBackend.ledgerId),
       identifierResolver
     ) with CommandSubmissionServiceLogging
 

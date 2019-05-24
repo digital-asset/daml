@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.server.api.validation
 
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -16,7 +17,7 @@ import scala.concurrent.Future
 
 class CommandCompletionServiceValidation(
     val service: CommandCompletionService with AutoCloseable,
-    val ledgerId: String)
+    val ledgerId: LedgerId)
     extends CommandCompletionService
     with FieldValidations
     with GrpcApiService
@@ -29,7 +30,7 @@ class CommandCompletionServiceValidation(
       request: CompletionStreamRequest,
       responseObserver: StreamObserver[CompletionStreamResponse]): Unit = {
     val validation = for {
-      _ <- matchLedgerId(ledgerId)(request.ledgerId)
+      _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       _ <- requireNonEmptyString(request.applicationId, "application_id")
       _ <- requireNonEmpty(request.parties, "parties")
     } yield request
@@ -41,7 +42,7 @@ class CommandCompletionServiceValidation(
   }
 
   override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] = {
-    matchLedgerId(ledgerId)(request.ledgerId)
+    matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .fold(Future.failed, _ => service.completionEnd(request))
   }
 

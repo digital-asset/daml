@@ -16,7 +16,7 @@ import org.scalatest.prop.GeneratorDrivenPropertyChecks
 class UtilTest extends UtilTestHelpers with GeneratorDrivenPropertyChecks {
 
   val packageInterface =
-    I.Interface(packageId = PackageId assertFromString "abcdef", typeDecls = Map.empty)
+    I.Interface(packageId = PackageId.assertFromString("abcdef"), typeDecls = Map.empty)
   val scalaPackageParts = Array("com", "digitalasset")
   val scalaPackage: String = scalaPackageParts.mkString(".")
   val util =

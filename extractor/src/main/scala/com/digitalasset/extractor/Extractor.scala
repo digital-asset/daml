@@ -29,6 +29,8 @@ import scala.util.control.NonFatal
 import scalaz._
 import Scalaz._
 
+import scalaz.syntax.tag._
+
 class Extractor[T <: Target](config: ExtractorConfig, target: T) {
 
   implicit val system: ActorSystem = ActorSystem()
@@ -50,7 +52,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
     val result = for {
       client <- createClient
 
-      writer = Writer(config, target, client.ledgerId)
+      writer = Writer(config, target, client.ledgerId.unwrap)
 
       _ = log.info(s"Connected to ledger ${client.ledgerId}\n\n")
 

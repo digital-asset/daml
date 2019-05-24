@@ -4,6 +4,7 @@
 package com.digitalasset.platform.server.api.validation
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
@@ -18,7 +19,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 class LedgerConfigurationServiceValidation(
     protected val service: LedgerConfigurationService with GrpcApiService,
-    protected val ledgerId: String)
+    protected val ledgerId: LedgerId)
     extends LedgerConfigurationService
     with ProxyCloseable
     with GrpcApiService
@@ -29,7 +30,7 @@ class LedgerConfigurationServiceValidation(
   override def getLedgerConfiguration(
       request: GetLedgerConfigurationRequest,
       responseObserver: StreamObserver[GetLedgerConfigurationResponse]): Unit =
-    matchLedgerId(ledgerId)(request.ledgerId).fold(
+    matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
       t => responseObserver.onError(t),
       _ => service.getLedgerConfiguration(request, responseObserver)
     )

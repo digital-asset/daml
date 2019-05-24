@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.api.validation
+
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
@@ -9,7 +10,7 @@ import com.digitalasset.platform.server.api.validation.ErrorFactories.{
   invalidArgument,
   missingField
 }
-import com.digitalasset.platform.server.api.validation.FieldValidations.requireNonEmptyString
+import com.digitalasset.platform.server.api.validation.FieldValidations.requireLedgerString
 import io.grpc.StatusRuntimeException
 
 object LedgerOffsetValidator {
@@ -21,7 +22,7 @@ object LedgerOffsetValidator {
       fieldName: String): Either[StatusRuntimeException, domain.LedgerOffset] = {
     ledgerOffset match {
       case LedgerOffset(LedgerOffset.Value.Absolute(value)) =>
-        requireNonEmptyString(value, fieldName).map(_ => domain.LedgerOffset.Absolute(value))
+        requireLedgerString(value, fieldName).map(domain.LedgerOffset.Absolute)
       case LedgerOffset(LedgerOffset.Value.Boundary(value)) =>
         convertLedgerBoundary(fieldName, value)
       case LedgerOffset(LedgerOffset.Value.Empty) =>

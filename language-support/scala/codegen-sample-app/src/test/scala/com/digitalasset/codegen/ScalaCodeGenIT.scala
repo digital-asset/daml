@@ -39,16 +39,14 @@ import com.digitalasset.sample.EventDecoder
 import com.digitalasset.sample.MyMain.NameClashRecordVariant.NameClashRecordVariantA
 import com.digitalasset.sample.MyMain.{
   CallablePayout,
-  Maybes,
-  TextMapInt,
-  OptTextMapInt,
-  TextMapTextMapInt,
   ListTextMapInt,
+  Maybes,
   MkListExample,
   MyRecord,
   MyVariant,
   NameClashRecord,
   NameClashVariant,
+  OptTextMapInt,
   PayOut,
   RecordWithNestedMyVariant,
   SimpleListExample,
@@ -57,6 +55,8 @@ import com.digitalasset.sample.MyMain.{
   TemplateWithNestedRecordsAndVariants,
   TemplateWithSelfReference,
   TemplateWithUnitParam,
+  TextMapInt,
+  TextMapTextMapInt,
   VariantWithRecordWithVariant
 }
 import com.digitalasset.sample.MySecondMain
@@ -70,6 +70,8 @@ import org.scalatest.time.{Millis, Seconds, Span}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+
+import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ScalaCodeGenIT
@@ -446,7 +448,7 @@ class ScalaCodeGenIT
 
     val now = timeProvider.getCurrentTime
     val commands = Commands(
-      ledgerId = ledger.ledgerId,
+      ledgerId = ledger.ledgerId.unwrap,
       workflowId = WorkflowId.unwrap(workflowId),
       applicationId = applicationId,
       commandId = CommandId.unwrap(commandId),

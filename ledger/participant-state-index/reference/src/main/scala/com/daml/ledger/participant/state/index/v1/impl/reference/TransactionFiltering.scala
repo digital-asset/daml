@@ -3,11 +3,11 @@
 
 package com.daml.ledger.participant.state.index.v1.impl.reference
 
-import com.daml.ledger.participant.state.v1.{CommittedTransaction, NodeId, Party}
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, NodeId}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.ledger.api.domain.TransactionFilter
 import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter
-
 import scalaz.syntax.std.map._
 
 case class TransactionFiltering(filter: TransactionFilter) {
@@ -17,7 +17,7 @@ case class TransactionFiltering(filter: TransactionFilter) {
     richTxFilter
       .filter[NodeId, Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]](
         tx,
-        n => n.index.toString)
+        _.name)
       .getOrElse(Map.empty)
       .mapKeys(k =>
         // FIXME(JM): Refactor transaction filtering to not go via strings

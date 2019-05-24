@@ -11,15 +11,11 @@ import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShap
 import akka.{Done, NotUsed}
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
-import com.digitalasset.ledger.backend.api.v1.{
-  RejectionReason,
-  TransactionId,
-  TransactionSubmission
-}
+import com.digitalasset.ledger.backend.api.v1.{RejectionReason, TransactionSubmission}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
@@ -219,7 +215,7 @@ private class SqlLedger(
 
   override def publishTransaction(tx: TransactionSubmission): Future[SubmissionResult] =
     enqueue { offset =>
-      val transactionId = offset.toString
+      val transactionId = Ref.LedgerString.fromLong(offset)
       val toAbsCoid: ContractId => AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid(transactionId)
 
@@ -230,8 +226,7 @@ private class SqlLedger(
       val mappedDisclosure = tx.blindingInfo.explicitDisclosure
         .map {
           case (nodeId, parties) =>
-            SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) ->
-              parties.toSet[String]
+            SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
       val mappedLocalImplicitDisclosure = tx.blindingInfo.localImplicitDisclosure.map {
@@ -288,7 +283,7 @@ private class SqlLedger(
   }
 
   override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] =
+      transactionId: Ref.TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
     ledgerDao
       .lookupLedgerEntry(transactionId.toLong)
       .map(_.collect[(Long, LedgerEntry.Transaction)] {

@@ -32,7 +32,7 @@ trait PrinterFunctionWriter { self: Writer =>
     printer("====================")
     printer("Handling packages...")
     printer("====================")
-    packageStore.packages.foreach((handlePackage _).tupled)
+    packageStore.foreach((handlePackage _).tupled)
 
     Future.successful(())
   }

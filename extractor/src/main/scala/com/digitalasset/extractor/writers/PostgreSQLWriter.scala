@@ -110,7 +110,7 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
       else
         (multiTableState, connection.pure(()))
 
-    val updatedWitnessedPackages = packageStore.packages.keySet
+    val updatedWitnessedPackages = packageStore.keySet
 
     val saveStatus = StateHandler.saveStatus(
       ledgerId,
@@ -133,7 +133,7 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
 
   private def handlePackagesWithMultiTable(
       newPackageStore: PackageStore): (MultiTableState, ConnectionIO[Unit]) = {
-    val newPackages: Map[String, Interface] = newPackageStore.packages.filterNot {
+    val newPackages: Map[String, Interface] = newPackageStore.filterNot {
       case (key, _) =>
         witnessedPackages.contains(key)
     }

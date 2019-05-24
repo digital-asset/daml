@@ -20,6 +20,8 @@ import com.digitalasset.ledger.client.binding.{Primitive => P}
 import com.digitalasset.quickstart.iou.FutureUtil.toFuture
 import com.google.protobuf.empty.Empty
 
+import scalaz.syntax.tag._
+
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -51,7 +53,7 @@ class ClientUtil(
       seq: P.Update[P.ContractId[T]]*): SubmitRequest = {
     val now = timeProvider.getCurrentTime
     val commands = Commands(
-      ledgerId = ledgerId,
+      ledgerId = ledgerId.unwrap,
       workflowId = WorkflowId.unwrap(workflowId),
       applicationId = ApplicationId.unwrap(applicationId),
       commandId = uniqueId,

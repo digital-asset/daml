@@ -1,0 +1,23 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Check that `exercise` is compiled to the DAML-LF `exercise` instruction
+-- without actors. Also check that `internalExerciseWithActors` actually
+-- uses actors as a sanity check.
+
+-- @SINCE-LF 1.5
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["$$cinternalExercise"]) | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor") | not
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["$$cinternalExerciseWithActors"]) | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor")
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["$$cinternalArchive"]) | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor") | not
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["$$cinternalArchiveWithActors"]) | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor")
+daml 1.2
+module ExerciseWithoutActors where
+
+template Foo with
+    sign : Party
+  where
+    signatory sign
+
+    choice Bar : ()
+      controller sign
+      do pure ()

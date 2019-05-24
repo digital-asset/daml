@@ -78,6 +78,7 @@ compileDependencies = [
     "//ledger-api/rs-grpc-akka",
     "//language-support/scala/bindings",
     "//ledger/ledger-api-client",
+    "//ledger/ledger-api-domain",
     "//3rdparty/jvm/com/github/pureconfig:pureconfig",
     "//3rdparty/jvm/com/github/scopt:scopt",
     "//3rdparty/jvm/com/typesafe/akka:akka_http",

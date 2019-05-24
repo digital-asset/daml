@@ -12,7 +12,7 @@ import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.participant
 import com.daml.ledger.participant.state.index.v1._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value
@@ -140,7 +140,7 @@ final case class ReferenceIndexService(
       Future.successful(s.getUpdateId)
     }
 
-  private def nodeIdToEventId(txId: TransactionId, nodeId: NodeId): EventId =
+  private def nodeIdToEventId(txId: TransactionIdString, nodeId: NodeId): EventId =
     Ref.PackageId.assertFromString(s"$txId/${nodeId.index}")
 
   private def transactionToAcsUpdateEvents(
@@ -203,7 +203,7 @@ final case class ReferenceIndexService(
               }
               .toIterator)
       Future.successful(
-        ActiveContractSetSnapshot(LedgerOffset.Absolute(state.getUpdateId.toString), events))
+        ActiveContractSetSnapshot(LedgerOffset.Absolute(state.getUpdateId.toLedgerString), events))
     }
 
   override def getAcceptedTransactions(

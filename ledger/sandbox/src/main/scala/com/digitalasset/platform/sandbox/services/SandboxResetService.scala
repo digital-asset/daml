@@ -3,9 +3,9 @@
 
 package com.digitalasset.platform.sandbox.services
 
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
-
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.empty.Empty
 import io.grpc.{BindableService, ServerServiceDefinition}
@@ -38,7 +38,7 @@ class SandboxResetService(
       .cond(
         ledgerId == request.ledgerId,
         request.ledgerId,
-        ErrorFactories.ledgerIdMismatch(ledgerId, request.ledgerId))
+        ErrorFactories.ledgerIdMismatch(LedgerId(ledgerId), LedgerId(request.ledgerId)))
       .fold(Future.failed[Empty], { _ =>
         actuallyReset().map(_ => Empty())(DE)
       })

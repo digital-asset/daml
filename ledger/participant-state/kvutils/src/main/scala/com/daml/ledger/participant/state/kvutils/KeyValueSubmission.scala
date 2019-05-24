@@ -60,7 +60,7 @@ object KeyValueSubmission {
           .setTransaction(Conversions.encodeTransaction(tx))
           .setSubmitterInfo(encodedSubInfo)
           .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
-          .setWorkflowId(meta.workflowId)
+          .setWorkflowId(meta.workflowId.getOrElse(""))
           .build
       )
       .build

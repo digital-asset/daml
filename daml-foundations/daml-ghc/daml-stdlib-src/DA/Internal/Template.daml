@@ -13,7 +13,6 @@ module DA.Internal.Template(
     create, exercise, fetch,
     archive, Archive(..),
     lookupByKey, fetchByKey, exerciseByKey,
-    exerciseExplicit,
     IsParties(toParties),
     TemplateKey(key, maintainer)
     ) where
@@ -28,15 +27,9 @@ import DA.Internal.Prelude
 create : Template c => c -> Update (ContractId c)
 create = internalCreate
 
--- | HIDE
-exerciseExplicit : Choice c e r => [Party] -> ContractId c -> e -> Update r
-exerciseExplicit = internalExercise
-
 -- | Exercise a contract choice.
 exercise : forall c e r . Choice c e r => ContractId c -> e -> Update r
-exercise c e = do
-    cc <- fetch c
-    exerciseExplicit (choiceController cc e) c e
+exercise = internalExercise
 
 -- | Fetch the contract data associated with the given contract id.
 -- This fails and aborts the entire transaction if the `ContractId c`
@@ -90,7 +83,7 @@ fetchByKey k = fmap unpackPair (internalFetchByKey k)
 exerciseByKey : forall c k e r. (TemplateKey c k, Choice c e r) => k -> e -> Update r
 exerciseByKey k e = do
     (c, cc) <- fetchByKey @c k
-    exerciseExplicit (choiceController cc e) c e
+    internalExerciseWithActors (choiceController cc e) c e
 
 class Template c where
 
@@ -118,8 +111,14 @@ class Template c where
     internalFetch = magic @"fetch"
 
     -- | HIDE
-    internalArchive : [Party] -> ContractId c -> Update ()
-    internalArchive = magic @"archive"
+    internalArchive : ContractId c -> Update ()
+    internalArchive c = do
+        cc <- fetch c
+        internalArchiveWithActors (signatory cc) c
+
+    -- | HIDE
+    internalArchiveWithActors : [Party] -> ContractId c -> Update ()
+    internalArchiveWithActors = magic @"archive"
 
 
 -- Deliberately not exported.
@@ -148,8 +147,14 @@ class Template c => Choice c e r | c e -> r where
     choice : c -> ContractId c -> e -> Update r
 
     -- | HIDE
-    internalExercise : [Party] -> ContractId c -> e -> Update r
-    internalExercise = magic @"exercise"
+    internalExercise : ContractId c -> e -> Update r
+    internalExercise c e = do
+        cc <- fetch c
+        internalExerciseWithActors (choiceController cc e) c e
+
+    -- | HIDE
+    internalExerciseWithActors : [Party] -> ContractId c -> e -> Update r
+    internalExerciseWithActors = magic @"exercise"
 
 data Archive = Archive
 
@@ -157,7 +162,8 @@ instance Template c => Choice c Archive () where
     choiceController c _ = signatory c
     choice _ _ _ = return ()
 
-    internalExercise p c _ = internalArchive p c
+    internalExercise c Archive = internalArchive c
+    internalExerciseWithActors p c Archive = internalArchiveWithActors p c
 
 -- | HIDE
 data NoEvent c e = NoEvent

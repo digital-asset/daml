@@ -10,6 +10,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.digitalasset.ledger.api.v1.testing.time_service._
 import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher
@@ -19,14 +20,16 @@ import com.digitalasset.platform.server.api.validation.FieldValidations
 import com.google.protobuf.empty.Empty
 import io.grpc.{BindableService, ServerServiceDefinition, Status, StatusRuntimeException}
 import org.slf4j.LoggerFactory
+import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
 class ReferenceTimeService private (
-    val ledgerId: String,
+    val ledgerId: LedgerId,
     backend: TimeServiceBackend,
-    allowSettingTimeBackwards: Boolean)(
+    allowSettingTimeBackwards: Boolean
+)(
     implicit grpcExecutionContext: ExecutionContext,
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory)
@@ -39,7 +42,7 @@ class ReferenceTimeService private (
   logger.debug(
     "{} initialized with ledger ID {}, start time {}",
     this.getClass.getSimpleName,
-    ledgerId,
+    ledgerId.unwrap,
     backend.getCurrentTime)
 
   private val dispatcher = SignalDispatcher()
@@ -48,7 +51,7 @@ class ReferenceTimeService private (
   override protected def getTimeSource(
       request: GetTimeRequest): Source[GetTimeResponse, NotUsed] = {
 
-    matchLedgerId(ledgerId)(request.ledgerId).fold(
+    matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
       Source.failed, { ledgerId =>
         logger.trace("Request for time with ledger ID {}", ledgerId)
         dispatcher
@@ -88,7 +91,7 @@ class ReferenceTimeService private (
     }
 
     val result = for {
-      _ <- matchLedgerId(ledgerId)(request.ledgerId)
+      _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       expectedTime <- requirePresence(request.currentTime, "current_time").map(toInstant)
       requestedTime <- requirePresence(request.newTime, "new_time").map(toInstant)
       _ <- {
@@ -127,7 +130,7 @@ class ReferenceTimeService private (
 
 object ReferenceTimeService {
   def apply(
-      ledgerId: String,
+      ledgerId: LedgerId,
       backend: TimeServiceBackend,
       allowSettingTimeBackwards: Boolean = false)(
       implicit grpcExecutionContext: ExecutionContext,

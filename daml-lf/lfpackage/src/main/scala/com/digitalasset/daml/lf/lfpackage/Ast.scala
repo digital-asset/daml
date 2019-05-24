@@ -132,7 +132,7 @@ object Ast {
     * in T, and thus it's not the case that `ImmArray[Expr[Nothing]] <: ImmArray[Expr[String]]`. We
     * Might want to revisit this in the future.
     */
-  final case class EContractId(coId: String, tmplId: TypeConName) extends Expr
+  final case class EContractId(coId: ContractIdString, tmplId: TypeConName) extends Expr
 
   /** Location annotations */
   final case class ELocation(loc: Location, expr: Expr) extends Expr
@@ -384,6 +384,7 @@ object Ast {
   final case object BEqualBool extends BuiltinFunction(2) // :: Bool -> Bool -> Bool
   final case object BEqualList extends BuiltinFunction(3) // :: ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
   final case object BEqualContractId extends BuiltinFunction(2) // :: ∀a. ContractId a -> ContractId a -> Bool
+  final case object BCoerceContractId extends BuiltinFunction(1) // :: ∀a b. ContractId a -> ContractId b
 
   //
   // Update expressions
@@ -401,7 +402,7 @@ object Ast {
       templateId: TypeConName,
       choice: ChoiceName,
       cidE: Expr,
-      actorsE: Expr,
+      actorsE: Option[Expr],
       argE: Expr)
       extends Update
   case object UpdateGetTime extends Update

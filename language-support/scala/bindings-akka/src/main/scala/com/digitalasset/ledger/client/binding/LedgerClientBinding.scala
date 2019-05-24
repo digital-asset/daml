@@ -82,7 +82,7 @@ class LedgerClientBinding(
   type CommandTrackingFlow[C] = Flow[Ctx[C, CompositeCommand], Ctx[C, Completion], NotUsed]
 
   private val compositeCommandAdapter = new CompositeCommandAdapter(
-    LedgerId(ledgerClient.ledgerId),
+    LedgerId(ledgerClient.ledgerId.unwrap),
     ApplicationId(ledgerClientConfig.applicationId),
     ledgerClientConfig.commandClient.ttl,
     timeProvider

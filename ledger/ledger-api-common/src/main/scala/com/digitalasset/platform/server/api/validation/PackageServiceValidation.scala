@@ -4,6 +4,7 @@
 package com.digitalasset.platform.server.api.validation
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.digitalasset.ledger.api.v1.package_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -16,7 +17,7 @@ import scala.concurrent.Future
 
 class PackageServiceValidation(
     protected val service: PackageService with AutoCloseable,
-    val ledgerId: String)
+    val ledgerId: LedgerId)
     extends PackageService
     with ProxyCloseable
     with GrpcApiService
@@ -25,7 +26,7 @@ class PackageServiceValidation(
   protected val logger: Logger = LoggerFactory.getLogger(PackageService.getClass)
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
-    matchLedgerId(ledgerId)(request.ledgerId)
+    matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
         Future.failed,
@@ -33,7 +34,7 @@ class PackageServiceValidation(
       )
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
-    matchLedgerId(ledgerId)(request.ledgerId)
+    matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
         Future.failed,
@@ -42,7 +43,7 @@ class PackageServiceValidation(
 
   override def getPackageStatus(
       request: GetPackageStatusRequest): Future[GetPackageStatusResponse] =
-    matchLedgerId(ledgerId)(request.ledgerId)
+    matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
         Future.failed,

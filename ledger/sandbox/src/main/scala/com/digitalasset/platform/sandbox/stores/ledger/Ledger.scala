@@ -11,10 +11,11 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref.TransactionIdString
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.backend.api.v1.{TransactionId, TransactionSubmission}
+import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
@@ -44,7 +45,7 @@ trait Ledger extends AutoCloseable {
   def publishTransaction(transactionSubmission: TransactionSubmission): Future[SubmissionResult]
 
   def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]]
+      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]]
 }
 
 object Ledger {

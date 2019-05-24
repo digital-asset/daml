@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.participant.util
 
-import com.daml.ledger.participant.state.index.v1.AcsUpdateEvent
+import com.daml.ledger.participant.state.index.v2.AcsUpdateEvent
 import com.daml.ledger.participant.state.v1
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party

@@ -10,8 +10,9 @@ import com.digitalasset.daml.lf.command.{Commands => LfCommands}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.value.Value.ValueRecord
 import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.ledger.api.DomainMocks
 import com.digitalasset.ledger.api.DomainMocks.{applicationId, commandId, workflowId}
-import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
+import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.v1.commands.Commands
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{
@@ -20,10 +21,9 @@ import com.digitalasset.ledger.api.v1.value.{
   Optional => ApiOptional,
   _
 }
-import com.digitalasset.ledger.api.{DomainMocks, domain}
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.google.protobuf.empty.Empty
-import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND}
+import io.grpc.Status.Code.INVALID_ARGUMENT
 import org.scalatest.WordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scalaz.syntax.tag._
@@ -36,7 +36,7 @@ class SubmitRequestValidatorTest
     with ValidatorTestUtils
     with TableDrivenPropertyChecks {
 
-  val ledgerId = "ledger-id"
+  val ledgerId = LedgerId("ledger-id")
 
   object api {
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")
@@ -51,7 +51,7 @@ class SubmitRequestValidatorTest
     val mrt = TimestampConversion.fromInstant(Instant.now)
 
     val commands = Commands(
-      ledgerId,
+      ledgerId.unwrap,
       workflowId,
       applicationId,
       commandId,
@@ -68,7 +68,7 @@ class SubmitRequestValidatorTest
     val mrt = TimestampConversion.toInstant(api.mrt)
 
     val emptyCommands = ApiCommands(
-      domain.LedgerId(ledgerId),
+      ledgerId,
       Some(workflowId),
       applicationId,
       commandId,
@@ -99,8 +99,8 @@ class SubmitRequestValidatorTest
       "not allow missing ledgerId" in {
         requestMustFailWith(
           commandsValidator.validateCommands(api.commands.withLedgerId("")),
-          NOT_FOUND,
-          "Ledger ID '' not found. Actual Ledger ID is 'ledger-id'.")
+          INVALID_ARGUMENT,
+          "Missing field: ledger_id")
       }
 
       "tolerate a missing workflowId" in {
@@ -128,7 +128,7 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(api.commands.withParty("")),
           INVALID_ARGUMENT,
-          """Invalid field party: string "" does not match regex "[a-zA-Z0-9\-_ ]+""""
+          """Missing field: party"""
         )
       }
 
@@ -151,7 +151,7 @@ class SubmitRequestValidatorTest
     "validating contractId values" should {
       "succeed" in {
 
-        val coid = "coid"
+        val coid = Ref.ContractIdString.assertFromString("coid")
 
         val input = Value(Sum.ContractId(coid))
         val expected = Lf.ValueContractId(Lf.AbsoluteContractId(coid))
