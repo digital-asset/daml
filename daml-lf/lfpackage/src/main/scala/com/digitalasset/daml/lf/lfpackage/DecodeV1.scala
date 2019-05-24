@@ -509,7 +509,13 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
             templateId = decodeTypeConName(exercise.getTemplate),
             choice = name(exercise.getChoice),
             cidE = decodeExpr(exercise.getCid),
-            actorsE = decodeExpr(exercise.getActor),
+            actorsE =
+              if (exercise.hasActor)
+                Some(decodeExpr(exercise.getActor))
+              else {
+                assertSince("dev", "Update.Exercise.actors optional")
+                None
+              },
             argE = decodeExpr(exercise.getArg)
           )
 

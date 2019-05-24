@@ -375,7 +375,7 @@ convertChoice env signatories
             --     expr this self arg >>= \res ->
             --     archive signatories self >>= \_ ->
             --     return res
-            let archive = EUpdate $ UExercise tmplTyCon' (mkChoiceName "Archive") selfVar signatories EUnit
+            let archive = EUpdate $ UExercise tmplTyCon' (mkChoiceName "Archive") selfVar (Just signatories) EUnit
             in EUpdate $ UBind (Binding (mkVar "res", chcReturnType) expr) $
                EUpdate $ UBind (Binding (mkVar "_", TUnit) archive) $
                EUpdate $ UPure chcReturnType (EVar $ mkVar "res")
@@ -594,13 +594,13 @@ convertExpr env0 e = do
         withTmArg env (varV1, TList TParty) args $ \x1 args ->
             withTmArg env (varV2, TContractId t') args $ \x2 args ->
             withTmArg env (varV3, c') args $ \x3 args ->
-                pure (EUpdate $ UExercise tmpl' (mkChoiceName $ is chc) x2 x1 x3, args)
+                pure (EUpdate $ UExercise tmpl' (mkChoiceName $ is chc) x2 (Just x1) x3, args)
     go env (VarIs "$dminternalArchive") (LType t@(TypeCon tmpl []) : _dict : args) = do
         t' <- convertType env t
         tmpl' <- convertQualified env tmpl
         withTmArg env (varV1, TList TParty) args $ \x1 args ->
             withTmArg env (varV2, TContractId t') args $ \x2 args ->
-                pure (EUpdate $ UExercise tmpl' (mkChoiceName "Archive") x2 x1 EUnit, args)
+                pure (EUpdate $ UExercise tmpl' (mkChoiceName "Archive") x2 (Just x1) EUnit, args)
     go env (VarIs f) (LType t@(TypeCon tmpl []) : LType key : _dict : args)
         | f == "$dminternalFetchByKey" = conv UFetchByKey
         | f == "$dminternalLookupByKey" = conv ULookupByKey

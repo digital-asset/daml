@@ -331,8 +331,13 @@ private[parser] object ExprParser {
     }
 
   private lazy val updateExercise =
-    `exercise` ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ~ expr0 ^^ {
-      case t ~ choice ~ cid ~ actor ~ arg => UpdateExercise(t, choice, cid, actor, arg)
+    `exercise` ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
+      case t ~ choice ~ cid ~ arg => UpdateExercise(t, choice, cid, None, arg)
+    }
+
+  private lazy val updateExerciseWithActors =
+    `exercise_with_actors` ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ~ expr0 ^^ {
+      case t ~ choice ~ cid ~ actor ~ arg => UpdateExercise(t, choice, cid, Some(actor), arg)
     }
 
   private lazy val updateFetchByKey =
@@ -359,6 +364,7 @@ private[parser] object ExprParser {
       updateCreate |
       updateFetch |
       updateExercise |
+      updateExerciseWithActors |
       updateFetchByKey |
       updateLookupByKey |
       updateGetTime |
