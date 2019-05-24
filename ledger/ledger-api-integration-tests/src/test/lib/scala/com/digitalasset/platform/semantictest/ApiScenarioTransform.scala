@@ -8,6 +8,7 @@ import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.{Value, ValueVersions}
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.event.{
   CreatedEvent => ApiCreatedEvent,
   ExercisedEvent => ApiExercisedEvent
@@ -23,6 +24,7 @@ import scalaz.std.either._
 import scalaz.std.list._
 
 import scala.concurrent.Future
+
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any"
@@ -53,7 +55,7 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
 
   private val commandsValidator =
     new CommandsValidator(
-      ledgerId,
+      LedgerId(ledgerId),
       IdentifierResolver(_ => Future.successful(None))
     )
 
@@ -144,6 +146,7 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
         )
       }
     }
+
     val converted: Either[RuntimeException, Map[String, P.Event[String, AbsoluteContractId]]] =
       Traverse[List]
         .traverseU(transactionTree.eventsById.toList)({

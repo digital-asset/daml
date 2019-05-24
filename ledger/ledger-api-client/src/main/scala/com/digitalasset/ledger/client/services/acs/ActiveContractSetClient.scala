@@ -5,6 +5,7 @@ package com.digitalasset.ledger.client.services.acs
 
 import akka.stream.scaladsl.Source
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
@@ -14,13 +15,15 @@ import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 
 import scala.concurrent.Future
 
-class ActiveContractSetClient(ledgerId: String, activeContractsService: ActiveContractsService)(
+import scalaz.syntax.tag._
+
+class ActiveContractSetClient(ledgerId: LedgerId, activeContractsService: ActiveContractsService)(
     implicit esf: ExecutionSequencerFactory) {
   def getActiveContracts(
       filter: TransactionFilter,
       verbose: Boolean = false): Source[GetActiveContractsResponse, Future[String]] = {
     ActiveContractSetSource(
       activeContractsService.getActiveContracts,
-      GetActiveContractsRequest(ledgerId, Some(filter), verbose))
+      GetActiveContractsRequest(ledgerId.unwrap, Some(filter), verbose))
   }
 }

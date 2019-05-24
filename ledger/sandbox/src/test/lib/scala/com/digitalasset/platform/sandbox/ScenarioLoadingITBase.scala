@@ -7,6 +7,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 import akka.stream.scaladsl.Sink
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.MockMessages.transactionFilter
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -50,7 +51,7 @@ abstract class ScenarioLoadingITBase
     with SuiteResourceManagementAroundEach {
 
   private def newACClient(ledgerId: String) =
-    new ActiveContractSetClient(ledgerId, ActiveContractsServiceGrpc.stub(channel))
+    new ActiveContractSetClient(LedgerId(ledgerId), ActiveContractsServiceGrpc.stub(channel))
 
   private def newSyncClient = new SynchronousCommandClient(CommandServiceGrpc.stub(channel))
 
@@ -58,7 +59,7 @@ abstract class ScenarioLoadingITBase
     newSyncClient.submitAndWait(request)
 
   private def newTransactionClient(ledgerId: String): TransactionClient = {
-    new TransactionClient(ledgerId, TransactionServiceGrpc.stub(channel))
+    new TransactionClient(LedgerId(ledgerId), TransactionServiceGrpc.stub(channel))
   }
 
   override implicit def patienceConfig: PatienceConfig =

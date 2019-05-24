@@ -46,7 +46,7 @@ object SandboxTransactionService {
     : GrpcTransactionService with BindableService with TransactionServiceLogging =
     new GrpcTransactionService(
       new SandboxTransactionService(ledgerBackend),
-      ledgerBackend.ledgerId,
+      LedgerId(ledgerBackend.ledgerId),
       PartyNameChecker.AllowAllParties,
       identifierResolver) with TransactionServiceLogging
 }

@@ -6,11 +6,12 @@ package com.digitalasset.platform.sandbox.services
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v1.{
+import com.daml.ledger.participant.state.index.v2.{
   ActiveContractSetSnapshot,
   ActiveContractsService => ACSBackend
 }
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service._
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
@@ -26,6 +27,8 @@ import io.grpc.{BindableService, ServerServiceDefinition}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
+
+import scalaz.syntax.tag._
 
 class SandboxActiveContractsService private (
     backend: ACSBackend,
@@ -57,10 +60,10 @@ class SandboxActiveContractsService private (
                   .map {
                     case (wfId, create) =>
                       GetActiveContractsResponse(
-                        workflowId = wfId.getOrElse(""),
+                        workflowId = wfId.map(_.unwrap).getOrElse(""),
                         activeContracts = List(
                           CreatedEvent(
-                            create.eventId,
+                            create.eventId.unwrap,
                             create.contractId.coid,
                             Some(LfEngineToApi.toApiIdentifier(create.templateId)),
                             Some(
@@ -93,7 +96,7 @@ object SandboxActiveContractsService {
   type TransactionId = String
   type WorkflowId = String
 
-  def apply(ledgerId: String, backend: ACSBackend, identifierResolver: IdentifierResolver)(
+  def apply(ledgerId: LedgerId, backend: ACSBackend, identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)

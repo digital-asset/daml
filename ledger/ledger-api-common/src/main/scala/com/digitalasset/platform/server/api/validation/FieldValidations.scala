@@ -4,6 +4,7 @@
 package com.digitalasset.platform.server.api.validation
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import io.grpc.StatusRuntimeException
 
@@ -12,8 +13,10 @@ import scala.util.Try
 
 trait FieldValidations {
 
-  def matchLedgerId(ledgerId: String)(received: String): Either[StatusRuntimeException, String] =
-    Either.cond(ledgerId == received, ledgerId, ledgerIdMismatch(ledgerId, received))
+  def matchLedgerId(ledgerId: LedgerId)(
+      received: LedgerId): Either[StatusRuntimeException, LedgerId] =
+    if (ledgerId == received) Right(received)
+    else Left(ledgerIdMismatch(ledgerId, received))
 
   def requireNonEmptyString(s: String, fieldName: String): Either[StatusRuntimeException, String] =
     Either.cond(s.nonEmpty, s, missingField(fieldName))

@@ -5,6 +5,7 @@ package com.digitalasset.ledger.api
 
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.testing.parser.Implicits._
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{
   List => ApiList,
@@ -54,7 +55,7 @@ class ValueConversionRoundTripTest
          """
 
   private val commandValidator = new CommandsValidator(
-    "ledger-id",
+    LedgerId("ledger-id"),
     new IdentifierResolver(_ => Future.successful(Some(pkg)))
   )
 

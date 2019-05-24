@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.sandbox.damle
 
-import com.daml.ledger.participant.state.index.v1.PackagesService
+import com.daml.ledger.participant.state.index.v2.PackagesService
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer

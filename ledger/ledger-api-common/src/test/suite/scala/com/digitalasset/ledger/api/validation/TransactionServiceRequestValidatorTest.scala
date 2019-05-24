@@ -59,7 +59,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
     GetTransactionByIdRequest(expectedLedgerId, transactionId, Seq(party), Some(traceContext))
 
   val sut = new TransactionServiceRequestValidator(
-    expectedLedgerId,
+    domain.LedgerId(expectedLedgerId),
     PartyNameChecker.AllowAllParties,
     new IdentifierResolver(_ => Future.successful(None)))
 
@@ -413,7 +413,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
 
       val knowsPartyOnly =
         new TransactionServiceRequestValidator(
-          expectedLedgerId,
+          domain.LedgerId(expectedLedgerId),
           PartyNameChecker.AllowPartySet(Set(party)),
           new IdentifierResolver(_ => Future.successful(None)))
 

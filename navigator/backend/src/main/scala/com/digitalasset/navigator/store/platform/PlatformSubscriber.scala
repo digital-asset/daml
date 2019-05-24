@@ -24,6 +24,7 @@ import com.digitalasset.util.Ctx
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 import scalaz.{Tag, \/-}
+import scalaz.syntax.tag._
 
 object PlatformSubscriber {
   // Actor messages
@@ -316,7 +317,7 @@ class PlatformSubscriber(
 
     // Convert to ledger API command
     converter.LedgerApiV1
-      .writeCommands(party, command, maxRecordDelay, ledgerClient.ledgerId, applicationId)
+      .writeCommands(party, command, maxRecordDelay, ledgerClient.ledgerId.unwrap, applicationId)
       .fold[Unit](
         error => {
           // Failed to convert command. Most likely, the argument is incomplete.

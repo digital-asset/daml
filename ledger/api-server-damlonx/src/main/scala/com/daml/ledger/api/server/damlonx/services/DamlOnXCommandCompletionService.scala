@@ -38,8 +38,6 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
   override def completionStreamSource(
       request: CompletionStreamRequest): Source[CompletionStreamResponse, NotUsed] = {
 
-    val ledgerId = Ref.PackageId.assertFromString(request.ledgerId)
-
     val offsetFuture: Future[Option[Offset]] =
       request.offset match {
         case None => Future.successful(None)
@@ -123,6 +121,7 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
   }
 
 }
+import domain.LedgerId
 
 object DamlOnXCommandCompletionService {
   def create(indexService: IndexService)(
@@ -135,6 +134,6 @@ object DamlOnXCommandCompletionService {
     val ledgerId = Await.result(indexService.getLedgerId(), 5.seconds)
     new CommandCompletionServiceValidation(
       new DamlOnXCommandCompletionService(indexService),
-      ledgerId) with CommandCompletionServiceLogging
+      LedgerId(ledgerId)) with CommandCompletionServiceLogging
   }
 }

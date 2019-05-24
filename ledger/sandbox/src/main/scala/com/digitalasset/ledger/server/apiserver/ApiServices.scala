@@ -6,17 +6,19 @@ package com.digitalasset.ledger.server.apiserver
 import akka.NotUsed
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v1.{
+import com.daml.ledger.participant.state.index.v2.{
   ActiveContractsService,
   ConfigurationService,
   IdentityService,
   PackagesService
 }
-import com.daml.ledger.participant.state.v1.{Configuration, LedgerId, WriteService}
+import com.daml.ledger.participant.state.index.v2._
+import com.daml.ledger.participant.state.v1.WriteService
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.backend.api.v1.LedgerBackend
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
@@ -32,6 +34,7 @@ import com.digitalasset.platform.services.time.TimeProviderType
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import org.slf4j.LoggerFactory
+import scalaz.syntax.tag._
 
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -61,13 +64,14 @@ object ApiServices {
 
   //TODO: this is here only temporarily
   def configurationService(config: SandboxConfig) = new ConfigurationService {
-    override def getLedgerConfiguration(): Source[Configuration, NotUsed] =
+    override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
       Source
-        .single(Configuration(config.timeModel))
-        .concat(Source.fromFuture(Promise[Configuration]().future)) // we should keep the stream open!
+        .single(LedgerConfiguration(config.timeModel.minTtl, config.timeModel.maxTtl))
+        .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
   }
 
-  def identityService(ledgerId: LedgerId): IdentityService = () => Future.successful(ledgerId)
+  def identityService(ledgerId: String): IdentityService =
+    () => Future.successful(LedgerId(ledgerId))
 
   def create(
       config: SandboxConfig,
@@ -109,7 +113,7 @@ object ApiServices {
       val transactionService =
         SandboxTransactionService.createApiService(ledgerBackend, identifierResolver)
 
-      val apiLedgerIdentityService = LedgerIdentityServiceImpl(identityService)
+      val apiLedgerIdentityService = LedgerIdentityServiceImpl(() => identityService.getLedgerId())
 
       val apiPackageService = SandboxPackageService(packagesService, ledgerId)
 
@@ -139,7 +143,7 @@ object ApiServices {
             completionService.service
               .asInstanceOf[SandboxCommandCompletionService]
               .completionStreamSource(r),
-          () => completionService.completionEnd(CompletionEndRequest(ledgerId)),
+          () => completionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
           transactionService.getTransactionById,
           transactionService.getFlatTransactionById
         ),

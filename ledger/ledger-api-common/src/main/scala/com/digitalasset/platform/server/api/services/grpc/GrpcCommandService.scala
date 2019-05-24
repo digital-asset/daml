@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.server.api.services.grpc
 
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.digitalasset.ledger.api.v1.command_service._
 import com.digitalasset.ledger.api.validation.{CommandsValidator, SubmitAndWaitRequestValidator}
@@ -18,7 +19,7 @@ import scala.concurrent.Future
 
 class GrpcCommandService(
     protected val service: CommandService with AutoCloseable,
-    val ledgerId: String,
+    val ledgerId: LedgerId,
     identifierResolver: IdentifierResolver)
     extends CommandService
     with GrpcApiService

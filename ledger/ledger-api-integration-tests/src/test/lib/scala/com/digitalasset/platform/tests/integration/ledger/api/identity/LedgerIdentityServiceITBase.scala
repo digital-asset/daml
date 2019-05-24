@@ -36,7 +36,7 @@ trait LedgerIdentityServiceITBase
 
   protected def getLedgerId(ledgerIdentityService: LedgerIdentityService): Future[String] = {
     val client = new LedgerIdentityClient(ledgerIdentityService)
-    client.getLedgerId()
+    client getLedgerId ()
   }
 
 }
