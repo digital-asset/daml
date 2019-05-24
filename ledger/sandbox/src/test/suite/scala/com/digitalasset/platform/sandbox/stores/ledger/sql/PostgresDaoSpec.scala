@@ -181,7 +181,7 @@ class PostgresDaoSpec
             RejectionReason.DuplicateCommandId.apply(_)
           ))
         // need to use Arbitrary.arbString to get only valid unicode characters
-        desc <- Arbitrary.arbString.arbitrary.filter(_.nonEmpty)
+        desc <- Arbitrary.arbitrary[String].map(_.filterNot(_ == 0)).filter(_.nonEmpty)
       } yield const(desc)
 
     "be able to persist and load a rejection" in {
