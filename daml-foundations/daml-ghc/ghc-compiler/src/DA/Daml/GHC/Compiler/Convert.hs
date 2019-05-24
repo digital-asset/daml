@@ -1188,7 +1188,7 @@ convertTyCon env t
     | t == intTyCon || t == intPrimTyCon = pure TInt64
     | t == charTyCon = unsupported "Type GHC.Types.Char" t
     | t == liftedRepDataConTyCon = pure TUnit
-    | t == typeSymbolKindCon = unsupported "Type GHC.Types.Symbol" t
+    | t == typeSymbolKindCon = pure TUnit
     | Just m <- nameModule_maybe (getName t), m == gHC_TYPES =
         case getOccString t of
             "Text" -> pure TText
@@ -1214,6 +1214,9 @@ convertTyCon env t
 convertType :: Env -> GHC.Type -> ConvertM LF.Type
 convertType env o@(TypeCon t ts)
     | t == listTyCon, ts `eqTypes` [charTy] = pure TText
+    -- TODO (drsk) we need to check that 'MetaData', 'MetaCons', 'MetaSel' are coming from the
+    -- module GHC.Generics.
+    | is t `elem` ["MetaData", "MetaCons", "MetaSel"], [_] <- ts = pure TUnit
     | t == anyTyCon, [_] <- ts = pure TUnit -- used for type-zonking
     | t == funTyCon, _:_:ts' <- ts =
         foldl TApp TArrow <$> mapM (convertType env) ts'
@@ -1243,8 +1246,11 @@ convertKind x@(TypeCon t ts)
     | t == typeSymbolKindCon, null ts = pure KStar
     | t == tYPETyCon, [_] <- ts = pure KStar
     | t == runtimeRepTyCon, null ts = pure KStar
+    -- TODO (drsk): We want to check that the 'Meta' constructor really comes from GHC.Generics.
+    | is t == "Meta", null ts = pure KStar
     | t == funTyCon, [_,_,t1,t2] <- ts = KArrow <$> convertKind t1 <*> convertKind t2
-    | otherwise = unhandled "Kind" x
+convertKind (TyVarTy x) = convertKind $ tyVarKind x
+convertKind x = unhandled "Kind" x
 
 convNameLoc :: NamedThing a => a -> Maybe LF.SourceLoc
 convNameLoc n = case nameSrcSpan (getName n) of
