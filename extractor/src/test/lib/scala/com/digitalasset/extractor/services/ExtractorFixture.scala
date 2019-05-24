@@ -40,6 +40,8 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
     )
   )
 
+  protected def configureExtractor(ec: ExtractorConfig): ExtractorConfig = ec
+
   protected lazy val target: PostgreSQLTarget = PostgreSQLTarget(
     connectUrl = postgresFixture.jdbcUrl,
     user = "test",
@@ -88,7 +90,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
   protected var extractor: Extractor[PostgreSQLTarget] = _
 
   protected def run(): Unit = {
-    val config: ExtractorConfig = baseConfig.copy(ledgerPort = getSandboxPort)
+    val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = getSandboxPort))
 
     extractor = new Extractor(config, target)
 
