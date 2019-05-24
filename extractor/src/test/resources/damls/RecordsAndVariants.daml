@@ -52,3 +52,33 @@ suite =
           baz = RecordAB with
             foo = "foo"
             baz = False
+
+template Solo
+  with
+    party: Party
+    tick: Int
+  where
+    signatory party
+
+template Duo
+  with
+    party: Party
+    other: Party
+    tick: Int
+  where
+    signatory party
+    observer other
+
+multiParty = scenario do
+  bob <- getParty "Bob"
+  alice <- getParty "Alice"
+  quux <- getParty "Quux"
+  -- visible to Bob,Alice: 1, 2, 4, 5, 7
+  submit bob do create (Solo bob 1)
+  submit alice do create (Solo alice 2)
+  submit quux do create (Solo quux 3)
+  submit bob do create (Duo bob quux 4)
+  submit quux do
+    create (Duo quux alice 5)
+    create (Duo quux quux 6)
+  submit bob do create (Duo bob alice 7) -- ensure not seen twice
