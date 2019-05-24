@@ -207,8 +207,6 @@ def _scaladoc_jar_impl(ctx):
         src.path
         for src in ctx.files.srcs
     ]
-
-    # Not sure at all if Scaladoc runs any plugins but it is harmless.
     pluginPaths = []
     for p in ctx.attr.plugins:
         if hasattr(p, "path"):
@@ -304,17 +302,21 @@ Arguments:
 
 def _create_scaladoc_jar(**kwargs):
     # Try to not create empty scaladoc jars and limit execution to Linux and MacOS
+    # Detect an actual scala source file rather than a srcjar or other label
     if len(kwargs["srcs"]) > 0 and is_windows == False:
-        plugins = []
-        if "plugins" in kwargs:
-            plugins = kwargs["plugins"]
+        for src in kwargs["srcs"]:
+            if src.endswith(".scala"):
+                plugins = []
+                if "plugins" in kwargs:
+                    plugins = kwargs["plugins"]
 
-        scaladoc_jar(
-            name = kwargs["name"] + "_scaladoc",
-            deps = kwargs["deps"],
-            plugins = plugins,
-            srcs = kwargs["srcs"],
-        )
+                scaladoc_jar(
+                    name = kwargs["name"] + "_scaladoc",
+                    deps = kwargs["deps"],
+                    plugins = plugins,
+                    srcs = kwargs["srcs"],
+                )
+                break
 
 def da_scala_library(name, **kwargs):
     """
