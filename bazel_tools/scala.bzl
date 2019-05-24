@@ -202,7 +202,6 @@ def _create_scala_source_jar(**kwargs):
         )
 
 def _scaladoc_jar_impl(ctx):
-
     srcFiles = [
         src.path
         for src in ctx.files.srcs
@@ -229,7 +228,7 @@ def _scaladoc_jar_impl(ctx):
     ctx.actions.run(
         executable = ctx.executable._scaladoc,
         inputs = ctx.files.srcs + classpath + pluginPaths,
-        outputs = [ outdir ],
+        outputs = [outdir],
         arguments = [
             "-d",
             outdir.path,
@@ -260,9 +259,9 @@ def _scaladoc_jar_impl(ctx):
 
     ctx.actions.run(
         executable = ctx.executable._zipper,
-        inputs = ctx.files.srcs + classpath + [ outdir, zipper_args_file ],
+        inputs = ctx.files.srcs + classpath + [outdir, zipper_args_file],
         outputs = [ctx.outputs.out],
-        arguments = ["c", ctx.outputs.out.path, "@" + zipper_args_file.path ],
+        arguments = ["c", ctx.outputs.out.path, "@" + zipper_args_file.path],
         mnemonic = "ScaladocJar",
     )
 
@@ -273,7 +272,6 @@ scaladoc_jar = rule(
         "doctitle": attr.string(default = ""),
         "plugins": attr.label_list(default = []),
         "srcs": attr.label_list(allow_files = True),
-
         "_zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
             cfg = "host",
