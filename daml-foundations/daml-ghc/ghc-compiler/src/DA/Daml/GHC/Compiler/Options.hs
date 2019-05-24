@@ -65,7 +65,7 @@ data Options = Options
   , optGhcCustomOpts :: [String]
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScenarioService :: Bool
-    -- ^ disable scenario service when False
+    -- ^ disable scenario service when False, but not necessarily enabled when True
   } deriving Show
 
 -- | Convert to the DAML-independent CompileOpts type.

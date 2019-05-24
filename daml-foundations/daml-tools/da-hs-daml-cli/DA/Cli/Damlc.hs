@@ -47,7 +47,7 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.LSP
 import GHC.Conc
 import qualified Network.Socket                    as NS
-import           Options.Applicative
+import Options.Applicative.Extended
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
 import System.Directory
@@ -666,12 +666,12 @@ optionsParser numProcessors parsePkgName = Compiler.Options
         help "Options to pass to the underlying GHC"
 
     optScenarioService :: Parser Bool
-    optScenarioService = fmap not .
-        switch $
-            help "Disable scenario service." <>
-            long "disable-scenario-service" <>
+    optScenarioService =
+        flagYesNoAuto
+            "scenario-service"
+            True
+            "Run with scenario service."
             internal
-
 
 options :: Int -> Parser Command
 options numProcessors =
