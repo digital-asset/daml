@@ -18,7 +18,7 @@ import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundEach
 }
-import com.digitalasset.ledger.api.v1
+import com.digitalasset.ledger.api.{domain, v1}
 import com.digitalasset.ledger.api.v1.command_service._
 import com.digitalasset.ledger.api.v1.commands._
 import com.digitalasset.ledger.api.v1.ledger_offset._
@@ -56,10 +56,10 @@ class DivulgenceIT
     new SynchronousCommandClient(ctx.commandService)
 
   private def acsClient(ctx: LedgerContext): ActiveContractSetClient =
-    new ActiveContractSetClient(ctx.ledgerId, ctx.acsService)
+    new ActiveContractSetClient(domain.LedgerId(ctx.ledgerId), ctx.acsService)
 
   private def transactionClient(ctx: LedgerContext): TransactionClient =
-    new TransactionClient(ctx.ledgerId, ctx.transactionService)
+    new TransactionClient(domain.LedgerId(ctx.ledgerId), ctx.transactionService)
 
   private val ledgerEffectiveTime = Timestamp(0L, 0)
   private val maximumRecordTime =

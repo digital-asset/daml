@@ -41,6 +41,8 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
 class EventConverterSpec
     extends WordSpec
@@ -80,7 +82,7 @@ class EventConverterSpec
   private val ledgerId = "ledgerId"
 
   private val validator =
-    new CommandsValidator(ledgerId, IdentifierResolver(_ => Future.successful(None)))
+    new CommandsValidator(LedgerId(ledgerId), IdentifierResolver(_ => Future.successful(None)))
 
   private val commands = Commands()
     .withParty("Alice")

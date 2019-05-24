@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.sandbox.config
 
-import com.daml.ledger.participant.state.index.v1.PackagesService
+import com.daml.ledger.participant.state.index.v2.PackagesService
 import com.digitalasset.platform.sandbox.cli.Cli
 import com.digitalasset.platform.sandbox.damle.SandboxTemplateStore
 

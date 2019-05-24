@@ -25,6 +25,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Variant => ApiVariant
 }
 import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.common.PlatformTypes.asVersionedValueOrThrow
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
@@ -34,12 +35,12 @@ import scalaz.syntax.tag._
 
 import scala.collection.immutable
 
-final class CommandsValidator(ledgerId: String, identifierResolver: IdentifierResolver) {
+final class CommandsValidator(ledgerId: LedgerId, identifierResolver: IdentifierResolver) {
 
   def validateCommands(commands: ProtoCommands): Either[StatusRuntimeException, domain.Commands] =
     for {
-      cmdLegerId <- requireLedgerString(commands.ledgerId, "leger_id")
-      _ <- matchLedgerId(ledgerId)(cmdLegerId)
+      cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
+      ledgerId <- matchLedgerId(ledgerId)(LedgerId(cmdLegerId))
       workflowId <- if (commands.workflowId.isEmpty) Right(None)
       else requireLedgerString(commands.workflowId).map(x => Some(domain.WorkflowId(x)))
       appId <- requireLedgerString(commands.applicationId, "application_id")
@@ -56,7 +57,7 @@ final class CommandsValidator(ledgerId: String, identifierResolver: IdentifierRe
         .map(invalidField(_, "ledger_effective_time"))
     } yield
       domain.Commands(
-        domain.LedgerId(ledgerId),
+        ledgerId,
         workflowId,
         appId,
         commandId,

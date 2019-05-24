@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.v1.WriteService
 import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
 import com.digitalasset.daml.lf.lfpackage.Decode
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
@@ -97,12 +98,13 @@ object Server {
     val transactionService =
       DamlOnXTransactionService.create(ledgerId, indexService, identifierResolver)
 
-    val identityService = LedgerIdentityServiceImpl(() => Future.successful(ledgerId))
+    val identityService = LedgerIdentityServiceImpl(
+      () => Future.successful(domain.LedgerId(ledgerId)))
 
     // FIXME(JM): hard-coded values copied from SandboxConfig.
     val commandService = ReferenceCommandService(
       ReferenceCommandService.Configuration(
-        ledgerId,
+        domain.LedgerId(ledgerId),
         512, // config.commandConfig.inputBufferSize,
         128, // config.commandConfig.maxParallelSubmissions,
         256, // config.commandConfig.maxCommandsInFlight,

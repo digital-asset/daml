@@ -4,6 +4,7 @@
 package com.digitalasset.ledger.client.impl
 
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
@@ -25,7 +26,7 @@ private[client] class LedgerClientImpl(
     commandService: CommandService,
     packageService: PackageService,
     ledgerClientConfiguration: LedgerClientConfiguration,
-    override val ledgerId: String
+    override val ledgerId: LedgerId
 )(implicit esf: ExecutionSequencerFactory)
     extends LedgerClient {
 

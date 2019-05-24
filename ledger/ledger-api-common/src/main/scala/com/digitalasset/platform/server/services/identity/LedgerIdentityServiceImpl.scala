@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.server.services.identity
 
-import com.daml.ledger.participant.state.index.v1.IdentityService
+import com.daml.ledger.participant.state.index.v2.IdentityService
 import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
@@ -16,6 +16,8 @@ import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 import org.slf4j.{Logger, LoggerFactory}
+
+import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 
@@ -35,7 +37,9 @@ abstract class LedgerIdentityServiceImpl private (identityService: IdentityServi
           Status.UNAVAILABLE
             .withDescription("Ledger Identity Service closed.")))
     else
-      identityService.getLedgerId().map(GetLedgerIdentityResponse(_))(DirectExecutionContext)
+      identityService
+        .getLedgerId()
+        .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))(DirectExecutionContext)
 
   override def close(): Unit = closed = true
 

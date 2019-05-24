@@ -30,6 +30,7 @@ dependencies = [
     "//ledger/ledger-api-common",
     "//ledger/ledger-api-client",
     "//ledger/participant-state",
+    "//ledger/ledger-api-domain",
     "//3rdparty/jvm/com/google/protobuf:protobuf_java",
     "//3rdparty/jvm/org/scalaz:scalaz_core",
     "//3rdparty/jvm/com/typesafe/akka:akka_stream",

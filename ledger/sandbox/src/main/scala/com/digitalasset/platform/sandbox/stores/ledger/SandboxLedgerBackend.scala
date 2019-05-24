@@ -8,7 +8,7 @@ import java.util.concurrent.CompletionStage
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v1.{
+import com.daml.ledger.participant.state.index.v2.{
   AcsUpdateEvent,
   ActiveContractSetSnapshot,
   ActiveContractsService
@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.index.v1.{
 import com.daml.ledger.participant.state.v1.{SubmittedTransaction => _, _}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
-import com.daml.ledger.participant.state.index.v1.{
+import com.daml.ledger.participant.state.index.v2.{
   AcsUpdateEvent,
   ActiveContractSetSnapshot,
   ActiveContractsService
@@ -30,19 +30,21 @@ import com.daml.ledger.participant.state.v1.{
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.ledger.api.domain
+import com.digitalasset.ledger.api.domain.EventId
 import com.digitalasset.ledger.api.domain.{LedgerOffset, TransactionFilter}
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.{
   AcceptedTransaction,
   Heartbeat,
   RejectedCommand
 }
-import com.digitalasset.ledger.backend.api.v1._
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
+import com.digitalasset.ledger.backend.api.v1._
 
 class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     extends LedgerBackend //TODO: remove this later so we can rely on sole participant state interfaces
@@ -113,7 +115,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
                   EventFilter
                     .byTemplates(filter)
                     .filter(create, parties => create.copy(stakeholders = parties))
-                    .map(ac.workflowId -> _)
+                    .map(create => ac.workflowId.map(domain.WorkflowId(_)) -> create)
                     .toList
               }
           )
@@ -123,12 +125,13 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     Future.successful(LedgerString.fromLong(ledger.ledgerEnd))
 
   private def toUpdateEvent(
-      id: Value.AbsoluteContractId,
+      cId: Value.AbsoluteContractId,
       ac: ActiveContracts.ActiveContract): AcsUpdateEvent.Create =
     AcsUpdateEvent.Create(
       // we use absolute contract ids as event ids throughout the sandbox
-      id.coid,
-      id,
+      domain.TransactionId(cId.coid), //TODO: is this correct?
+      EventId(cId.coid),
+      cId,
       ac.contract.template,
       ac.contract.arg,
       ac.witnesses

@@ -22,27 +22,31 @@ package object v2 {
       events: List[AcsUpdateEvent]
   )
 
-  sealed trait AcsUpdateEvent extends Product with Serializable
+  sealed trait AcsUpdateEvent extends Product with Serializable {
+    def stakeholders: Set[Ref.Party]
+
+    def templateId: Ref.Identifier
+  }
 
   object AcsUpdateEvent {
 
     final case class Create(
         transactionId: TransactionId,
-        nodeId: AbsoluteNodeId,
+        eventId: EventId,
         contractId: Value.AbsoluteContractId,
         templateId: Ref.Identifier,
         argument: Value.VersionedValue[Value.AbsoluteContractId],
         // TODO(JM,SM): understand witnessing parties
-        stakeholders: List[Ref.Party],
+        stakeholders: Set[Ref.Party],
     ) extends AcsUpdateEvent
 
     final case class Archive(
         transactionId: TransactionId,
-        nodeId: AbsoluteNodeId,
+        eventId: EventId,
         contractId: Value.AbsoluteContractId,
         templateId: Ref.Identifier,
         // TODO(JM,SM): understand witnessing parties
-        stakeholders: List[Ref.Party],
+        stakeholders: Set[Ref.Party],
     ) extends AcsUpdateEvent
 
   }
@@ -72,7 +76,7 @@ package object v2 {
 
   final case class ActiveContractSetSnapshot(
       takenAt: LedgerOffset.Absolute,
-      activeContracts: Source[(WorkflowId, AcsUpdateEvent.Create), NotUsed])
+      activeContracts: Source[(Option[WorkflowId], AcsUpdateEvent.Create), NotUsed])
 
   /** A transaction that has been accepted as committed by the Participant
     * node.

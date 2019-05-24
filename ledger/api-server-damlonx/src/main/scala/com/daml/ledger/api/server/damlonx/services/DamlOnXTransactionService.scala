@@ -51,7 +51,7 @@ object DamlOnXTransactionService {
     with TransactionServiceLogging =
     new GrpcTransactionService(
       new DamlOnXTransactionService(indexService),
-      ledgerId,
+      LedgerId(ledgerId),
       PartyNameChecker.AllowAllParties,
       identifierResolver
     ) with TransactionServiceLogging

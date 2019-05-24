@@ -4,6 +4,7 @@
 package com.digitalasset.ledger.client
 
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
@@ -32,7 +33,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 trait LedgerClient {
 
-  def ledgerId: String
+  def ledgerId: LedgerId
 
   def activeContractSetClient: ActiveContractSetClient
 

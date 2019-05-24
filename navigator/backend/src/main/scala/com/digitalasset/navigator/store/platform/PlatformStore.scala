@@ -38,6 +38,8 @@ import scala.util.{Failure, Random, Success, Try}
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
+import scalaz.syntax.tag._
+
 object PlatformStore {
   def props(
       platformHost: String,
@@ -208,7 +210,7 @@ class PlatformStore(
               platformPort,
               tlsConfig.exists(_.enabled),
               applicationId,
-              state.ledgerClient.ledgerId,
+              state.ledgerClient.ledgerId.unwrap,
               state.time,
               actorStatus
             )
@@ -219,7 +221,7 @@ class PlatformStore(
               platformPort,
               tlsConfig.exists(_.enabled),
               applicationId,
-              state.ledgerClient.ledgerId,
+              state.ledgerClient.ledgerId.unwrap,
               state.time,
               List.empty
             )
@@ -320,7 +322,7 @@ class PlatformStore(
 
     for {
       ledgerClient <- LedgerClient.forChannel(configuration, channel)
-      staticTime <- getStaticTime(channel, ledgerClient.ledgerId)
+      staticTime <- getStaticTime(channel, ledgerClient.ledgerId.unwrap)
       time <- getTimeProvider(staticTime)
     } yield ConnectionResult(ledgerClient, staticTime, time)
   }

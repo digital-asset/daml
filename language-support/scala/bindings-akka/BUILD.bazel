@@ -20,6 +20,7 @@ bindings_akka_deps = [
     "//language-support/scala/bindings",
     "//ledger-api/rs-grpc-akka",
     "//ledger/ledger-api-client",
+    "//ledger/ledger-api-domain",
 ]
 
 da_scala_library(

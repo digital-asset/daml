@@ -71,6 +71,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
+import scalaz.syntax.tag._
+
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ScalaCodeGenIT
     extends AsyncWordSpec
@@ -446,7 +448,7 @@ class ScalaCodeGenIT
 
     val now = timeProvider.getCurrentTime
     val commands = Commands(
-      ledgerId = ledger.ledgerId,
+      ledgerId = ledger.ledgerId.unwrap,
       workflowId = WorkflowId.unwrap(workflowId),
       applicationId = applicationId,
       commandId = CommandId.unwrap(commandId),

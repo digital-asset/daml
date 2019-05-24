@@ -106,6 +106,8 @@ class DamlOnXActiveContractsService private (
   }
 }
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 object DamlOnXActiveContractsService {
 
   def create(indexService: IndexService, identifierResolver: IdentifierResolver)(
@@ -118,7 +120,7 @@ object DamlOnXActiveContractsService {
 
     new ActiveContractsServiceValidation(
       new DamlOnXActiveContractsService(indexService, identifierResolver)(ec, mat, esf),
-      ledgerId
+      LedgerId(ledgerId)
     ) with ActiveContractsServiceLogging
   }
 }

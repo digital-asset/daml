@@ -6,9 +6,10 @@ package com.digitalasset.platform.sandbox.services
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v1.ConfigurationService
+import com.daml.ledger.participant.state.index.v2.ConfigurationService
 import com.digitalasset.api.util.DurationConversion._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.ledger_configuration_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.DirectExecutionContext
@@ -32,8 +33,8 @@ class LedgerConfigurationService private (configurationService: ConfigurationSer
           GetLedgerConfigurationResponse(
             Some(
               LedgerConfiguration(
-                Some(toProto(configuration.timeModel.minTtl)),
-                Some(toProto(configuration.timeModel.maxTtl))
+                Some(toProto(configuration.minTTL)),
+                Some(toProto(configuration.maxTTL))
               ))))
 
   override def bindService(): ServerServiceDefinition =
@@ -41,7 +42,7 @@ class LedgerConfigurationService private (configurationService: ConfigurationSer
 }
 
 object LedgerConfigurationService {
-  def createApiService(configurationService: ConfigurationService, ledgerId: String)(
+  def createApiService(configurationService: ConfigurationService, ledgerId: LedgerId)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer)

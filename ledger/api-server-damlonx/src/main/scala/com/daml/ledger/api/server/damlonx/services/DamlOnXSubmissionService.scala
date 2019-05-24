@@ -22,6 +22,7 @@ import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.ledger.api.domain.{LedgerId => ApiLedgerId}
 import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
@@ -53,7 +54,7 @@ object DamlOnXSubmissionService {
     with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new DamlOnXSubmissionService(indexService, writeService, engine),
-      ledgerId,
+      ApiLedgerId(ledgerId),
       identifierResolver
     ) with CommandSubmissionServiceLogging
 

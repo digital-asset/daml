@@ -54,6 +54,8 @@ import scalaz.{ICons, NonEmptyList, Tag}
 import scala.collection.{breakOut, immutable}
 import scala.concurrent.Future
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionServiceIT
     extends AsyncWordSpec
@@ -75,7 +77,7 @@ class TransactionServiceIT
   override val timeLimit: Span = 300.seconds
 
   private def newClient(stub: TransactionService, ledgerId: String): TransactionClient =
-    new TransactionClient(ledgerId, stub)
+    new TransactionClient(LedgerId(ledgerId), stub)
 
   private val getAllContracts = transactionFilter
 
@@ -1260,7 +1262,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        new TransactionClient("notLedgerId", context.transactionService)
+        new TransactionClient(LedgerId("notLedgerId"), context.transactionService)
           .getTransactionTrees(ledgerBegin, Some(ledgerEnd), transactionFilter)
           .runWith(Sink.head)
           .failed

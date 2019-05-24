@@ -8,6 +8,7 @@ import akka.actor.Cancellable
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
@@ -43,6 +44,8 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
+
+import scalaz.syntax.tag._
 
 class ReferenceCommandService private (
     lowLevelCommandServiceAccess: LowLevelCommandServiceAccess,
@@ -125,7 +128,7 @@ class ReferenceCommandService private (
                         offset =>
                           getCompletionSource(
                             CompletionStreamRequest(
-                              configuration.ledgerId,
+                              configuration.ledgerId.unwrap,
                               appId,
                               List(submitter.party),
                               Some(offset)))
@@ -219,7 +222,7 @@ object ReferenceCommandService {
     ) with CommandServiceLogging
 
   final case class Configuration(
-      ledgerId: String,
+      ledgerId: LedgerId,
       inputBufferSize: Int,
       maxParallelSubmissions: Int,
       maxCommandsInFlight: Int,

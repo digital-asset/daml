@@ -8,6 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
@@ -28,6 +29,8 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
 
+import scalaz.syntax.tag._
+
 /**
   * Enables easy access to command services and high level operations on top of them.
   *
@@ -43,7 +46,7 @@ import scala.util.Try
 class CommandClient(
     commandSubmissionService: CommandSubmissionService,
     commandCompletionService: CommandCompletionService,
-    ledgerId: String,
+    ledgerId: LedgerId,
     applicationId: String,
     config: CommandClientConfiguration,
     val timeProviderO: Option[TimeProvider] = None)(implicit esf: ExecutionSequencerFactory) {
@@ -129,7 +132,7 @@ class CommandClient(
       parties,
       offset: Any)
     CommandCompletionSource(
-      CompletionStreamRequest(ledgerId, applicationId, parties, Some(offset)),
+      CompletionStreamRequest(ledgerId.unwrap, applicationId, parties, Some(offset)),
       commandCompletionService.completionStream)
   }
 
@@ -137,7 +140,7 @@ class CommandClient(
     Flow[Ctx[Context, SubmitRequest]]
       .map(_.map { r =>
         val commands = r.getCommands
-        if (commands.ledgerId != ledgerId)
+        if (LedgerId(commands.ledgerId) != ledgerId)
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid ledger ID ${commands.ledgerId} (client expected $ledgerId)")
         else if (commands.applicationId != applicationId)
@@ -157,7 +160,7 @@ class CommandClient(
   }
 
   def getCompletionEnd: Future[CompletionEndResponse] = {
-    commandCompletionService.completionEnd(CompletionEndRequest(ledgerId))
+    commandCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap))
   }
 
   /**

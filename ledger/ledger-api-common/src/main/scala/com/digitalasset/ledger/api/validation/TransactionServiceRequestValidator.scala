@@ -6,7 +6,7 @@ package com.digitalasset.ledger.api.validation
 import brave.propagation.TraceContext
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{LedgerId, LedgerIdTag, LedgerOffset}
+import com.digitalasset.ledger.api.domain.{LedgerId, LedgerOffset}
 import com.digitalasset.ledger.api.messages.transaction
 import com.digitalasset.ledger.api.messages.transaction.GetTransactionTreesRequest
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
@@ -21,10 +21,9 @@ import com.digitalasset.platform.server.api.validation.FieldValidations._
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.util.context.TraceContextConversions._
 import io.grpc.StatusRuntimeException
-import scalaz.Tag
 
 class TransactionServiceRequestValidator(
-    ledgerId: String,
+    ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
     identifierResolver: IdentifierResolver) {
 
@@ -32,8 +31,7 @@ class TransactionServiceRequestValidator(
 
   private val filterValidator = new TransactionFilterValidator(identifierResolver)
 
-  private def matchId(input: String): Result[LedgerId] =
-    Tag.subst[String, Result[?], LedgerIdTag](matchLedgerId(ledgerId)(input))
+  private def matchId(input: LedgerId): Result[LedgerId] = matchLedgerId(ledgerId)(input)
 
   private val rightNone = Right(None)
 
@@ -46,7 +44,7 @@ class TransactionServiceRequestValidator(
 
   private def commonValidations(req: GetTransactionsRequest): Result[PartialValidation] = {
     for {
-      _ <- matchId(req.ledgerId)
+      ledgerId <- matchId(LedgerId(req.ledgerId))
       filter <- requirePresence(req.filter, "filter")
       requiredBegin <- requirePresence(req.begin, "begin")
       convertedBegin <- LedgerOffsetValidator.validate(requiredBegin, "begin")
@@ -57,7 +55,7 @@ class TransactionServiceRequestValidator(
     } yield {
 
       PartialValidation(
-        domain.LedgerId(ledgerId),
+        ledgerId,
         filter,
         convertedBegin,
         convertedEnd,
@@ -113,7 +111,7 @@ class TransactionServiceRequestValidator(
       _ <- requireKnownParties(req.getFilter)
     } yield {
       transaction.GetTransactionsRequest(
-        domain.LedgerId(ledgerId),
+        ledgerId,
         partial.begin,
         partial.end,
         convertedFilter,
@@ -148,7 +146,7 @@ class TransactionServiceRequestValidator(
 
   def validateLedgerEnd(req: GetLedgerEndRequest): Result[transaction.GetLedgerEndRequest] = {
     for {
-      ledgerId <- matchId(req.ledgerId)
+      ledgerId <- matchId(LedgerId(req.ledgerId))
     } yield {
       transaction.GetLedgerEndRequest(ledgerId, req.traceContext.map(toBrave))
     }
@@ -157,7 +155,7 @@ class TransactionServiceRequestValidator(
   def validateTransactionById(
       req: GetTransactionByIdRequest): Result[transaction.GetTransactionByIdRequest] = {
     for {
-      ledgerId <- matchId(req.ledgerId)
+      ledgerId <- matchId(LedgerId(req.ledgerId))
       _ <- requireNumber(req.transactionId, "transaction_id")
       trId <- requireLedgerString(req.transactionId)
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
@@ -175,7 +173,7 @@ class TransactionServiceRequestValidator(
   def validateTransactionByEventId(
       req: GetTransactionByEventIdRequest): Result[transaction.GetTransactionByEventIdRequest] = {
     for {
-      ledgerId <- matchId(req.ledgerId)
+      ledgerId <- matchId(LedgerId(req.ledgerId))
       eventId <- requireLedgerString(req.eventId, "event_id")
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       parties <- requireParties(req.requestingParties)

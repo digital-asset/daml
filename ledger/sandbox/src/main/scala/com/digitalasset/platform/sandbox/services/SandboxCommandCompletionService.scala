@@ -32,6 +32,8 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
+import domain.LedgerId
+
 class SandboxCommandCompletionService private (
     ledgerBackend: LedgerBackend
 )(
@@ -151,8 +153,8 @@ object SandboxCommandCompletionService {
     with AutoCloseable
     with CommandCompletionServiceLogging = {
     val impl = new SandboxCommandCompletionService(ledgerBackend)
-    new CommandCompletionServiceValidation(impl, ledgerBackend.ledgerId) with BindableService
-    with AutoCloseable with CommandCompletionServiceLogging {
+    new CommandCompletionServiceValidation(impl, LedgerId(ledgerBackend.ledgerId))
+    with BindableService with AutoCloseable with CommandCompletionServiceLogging {
       override def bindService(): ServerServiceDefinition =
         CommandCompletionServiceGrpc.bindService(this, DirectExecutionContext)
 
