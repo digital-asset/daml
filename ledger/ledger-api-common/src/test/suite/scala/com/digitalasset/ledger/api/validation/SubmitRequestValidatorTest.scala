@@ -100,7 +100,7 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(api.commands.withLedgerId("")),
           INVALID_ARGUMENT,
-          "Missing field: leger_id")
+          "Missing field: ledger_id")
       }
 
       "tolerate a missing workflowId" in {
