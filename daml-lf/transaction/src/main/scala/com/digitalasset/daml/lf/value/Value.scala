@@ -4,7 +4,13 @@
 package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.archive.LanguageVersion
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, `Name equal instance`}
+import com.digitalasset.daml.lf.data.Ref.{
+  ContractIdString,
+  Identifier,
+  LedgerString,
+  Name,
+  `Name equal instance`
+}
 import com.digitalasset.daml.lf.data._
 
 import scala.annotation.tailrec
@@ -265,7 +271,7 @@ object Value {
     * automatically upcast to ContractId by subtyping.
     */
   sealed trait ContractId extends Product with Serializable
-  final case class AbsoluteContractId(coid: String) extends ContractId
+  final case class AbsoluteContractId(coid: ContractIdString) extends ContractId
   final case class RelativeContractId(txnid: NodeId) extends ContractId
 
   object ContractId {
@@ -288,6 +294,8 @@ object Value {
     override def hashCode() = index.hashCode()
 
     override def toString = "NodeId(" + index.toString + ")"
+
+    val name: LedgerString = LedgerString.assertFromString(index.toString)
   }
 
   object NodeId {

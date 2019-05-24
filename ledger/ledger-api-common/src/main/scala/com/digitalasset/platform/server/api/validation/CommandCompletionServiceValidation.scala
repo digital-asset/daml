@@ -16,8 +16,8 @@ import scala.concurrent.Future
 
 class CommandCompletionServiceValidation(
     val service: CommandCompletionService with AutoCloseable,
-    val ledgerId: String)
-    extends CommandCompletionService
+    val ledgerId: String
+) extends CommandCompletionService
     with FieldValidations
     with GrpcApiService
     with ProxyCloseable

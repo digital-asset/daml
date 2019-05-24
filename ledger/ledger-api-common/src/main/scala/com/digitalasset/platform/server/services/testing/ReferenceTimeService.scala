@@ -26,7 +26,8 @@ import scala.util.control.NoStackTrace
 class ReferenceTimeService private (
     val ledgerId: String,
     backend: TimeServiceBackend,
-    allowSettingTimeBackwards: Boolean)(
+    allowSettingTimeBackwards: Boolean
+)(
     implicit grpcExecutionContext: ExecutionContext,
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory)

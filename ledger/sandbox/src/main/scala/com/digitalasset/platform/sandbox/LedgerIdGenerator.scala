@@ -6,5 +6,6 @@ package com.digitalasset.platform.sandbox
 import java.util.UUID
 
 object LedgerIdGenerator {
-  def generateRandomId(): String = s"sandbox-${UUID.randomUUID().toString}"
+  def generateRandomId(): String =
+    s"sandbox-${UUID.randomUUID().toString}"
 }

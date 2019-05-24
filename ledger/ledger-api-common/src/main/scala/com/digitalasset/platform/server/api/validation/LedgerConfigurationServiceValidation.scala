@@ -18,8 +18,8 @@ import org.slf4j.{Logger, LoggerFactory}
 
 class LedgerConfigurationServiceValidation(
     protected val service: LedgerConfigurationService with GrpcApiService,
-    protected val ledgerId: String)
-    extends LedgerConfigurationService
+    protected val ledgerId: String
+) extends LedgerConfigurationService
     with ProxyCloseable
     with GrpcApiService
     with FieldValidations {

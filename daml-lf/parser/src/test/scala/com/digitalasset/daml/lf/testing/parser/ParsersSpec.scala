@@ -216,7 +216,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "EQUAL_PARTY" -> BEqualParty,
         "EQUAL_BOOL" -> BEqualBool,
         "EQUAL_LIST" -> BEqualList,
-        "EQUAL_CONTRACT_ID" -> BEqualContractId
+        "EQUAL_CONTRACT_ID" -> BEqualContractId,
+        "COERCE_CONTRACT_ID" -> BCoerceContractId,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>
@@ -274,7 +275,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "let x:Int64 = 2 in x" ->
           ELet(Binding(Some(x.value), t"Int64", e"2"), e"x"),
         "#id @Mod:T" ->
-          EContractId("#id", T.tycon),
+          EContractId(ContractIdString.assertFromString("#id"), T.tycon),
         "case e of () -> ()" ->
           ECase(e"e", ImmArray(CaseAlt(CPPrimCon(PCUnit), e"()"))),
         "case e of True -> False" ->
@@ -346,8 +347,10 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           UpdateCreate(T.tycon, e"e"),
         "fetch @Mod:T e" ->
           UpdateFetch(T.tycon, e"e"),
-        "exercise @Mod:T Choice cid actor arg" ->
-          UpdateExercise(T.tycon, n"Choice", e"cid", e"actor", e"arg"),
+        "exercise @Mod:T Choice cid arg" ->
+          UpdateExercise(T.tycon, n"Choice", e"cid", None, e"arg"),
+        "exercise_with_actors @Mod:T Choice cid actor arg" ->
+          UpdateExercise(T.tycon, n"Choice", e"cid", Some(e"actor"), e"arg"),
         "fetch_by_key @Mod:T e" ->
           UpdateFetchByKey(RetrieveByKey(T.tycon, e"e")),
         "lookup_by_key @Mod:T e" ->

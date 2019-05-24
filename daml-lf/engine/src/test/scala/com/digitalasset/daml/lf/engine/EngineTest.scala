@@ -54,7 +54,7 @@ class EngineTest extends WordSpec with Matchers with BazelRunfiles {
   private[this] def makeAbsoluteContractId(coid: ContractId): AbsoluteContractId =
     coid match {
       case rcoid: RelativeContractId =>
-        AbsoluteContractId("0:" + rcoid.txnid.index.toString)
+        AbsoluteContractId(toContractId("0:" + rcoid.txnid.index.toString))
       case acoid: AbsoluteContractId => acoid
     }
 
@@ -180,7 +180,7 @@ class EngineTest extends WordSpec with Matchers with BazelRunfiles {
     }
 
     "translate exercise commands argument including labels" in {
-      val originalCoid = "1"
+      val originalCoid = toContractId("1")
       val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
       val let = Time.Timestamp.now()
       val command = ExerciseCommand(
@@ -1066,6 +1066,9 @@ object EngineTest {
 
   private implicit def toParty(s: String): Party =
     Party.assertFromString(s)
+
+  private implicit def toContractId(s: String): ContractIdString =
+    ContractIdString.assertFromString(s)
 
   private def ArrayList[X](as: X*): util.ArrayList[X] = {
     val a = new util.ArrayList[X](as.length)

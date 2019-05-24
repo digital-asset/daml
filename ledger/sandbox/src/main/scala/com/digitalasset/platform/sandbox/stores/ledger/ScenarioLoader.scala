@@ -16,8 +16,9 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import org.slf4j.LoggerFactory
-import com.digitalasset.daml.lf.types.Ledger.TransactionId
 import com.digitalasset.daml.lf.transaction.GenTransaction
+import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
+import com.digitalasset.ledger.backend.api.v1.NodeId
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.breakOut
@@ -61,8 +62,8 @@ object ScenarioLoader {
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
     val ledgerEntries =
-      new ArrayBuffer[(TransactionId, LedgerEntry)](scenarioLedger.scenarioSteps.size)
-    type Acc = (ActiveContractsInMemory, Time.Timestamp, Option[TransactionId])
+      new ArrayBuffer[(ScenarioTransactionId, LedgerEntry)](scenarioLedger.scenarioSteps.size)
+    type Acc = (ActiveContractsInMemory, Time.Timestamp, Option[ScenarioTransactionId])
     val (acs, time, txId) =
       scenarioLedger.scenarioSteps.iterator
         .foldLeft[Acc]((ActiveContractsInMemory.empty, Time.Timestamp.Epoch, None)) {
@@ -73,7 +74,7 @@ object ScenarioLoader {
     @tailrec
     def decorateWithIncrement(
         processed: BackStack[LedgerEntryWithLedgerEndIncrement],
-        toProcess: ImmArray[(TransactionId, LedgerEntry)])
+        toProcess: ImmArray[(ScenarioTransactionId, LedgerEntry)])
       : ImmArray[LedgerEntryWithLedgerEndIncrement] =
       toProcess match {
         case ImmArray() => processed.toImmArray
@@ -83,7 +84,9 @@ object ScenarioLoader {
           (processed :+ LedgerEntryWithLedgerEndIncrement(entry, 1)).toImmArray
         case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, next), _)) =>
           decorateWithIncrement(
-            processed :+ LedgerEntryWithLedgerEndIncrement(entry, (nextTxId - entryTxId).toLong),
+            processed :+ LedgerEntryWithLedgerEndIncrement(
+              entry,
+              (nextTxId.index - entryTxId.index).toLong),
             entries)
       }
     (acs, decorateWithIncrement(BackStack.empty, ImmArray(ledgerEntries)), time.toInstant)
@@ -183,17 +186,22 @@ object ScenarioLoader {
     }
   }
 
+  private val transactionIdPrefix =
+    Ref.TransactionIdString.assertFromString(s"scenario-transaction-")
+  private val workflowIdPrefix = Ref.LedgerString.assertFromString(s"scenario-workflow-")
+  private val scenarioLoader = Ref.LedgerString.assertFromString("scenario-loader")
+
   private def executeScenarioStep(
-      ledger: ArrayBuffer[(TransactionId, LedgerEntry)],
+      ledger: ArrayBuffer[(ScenarioTransactionId, LedgerEntry)],
       scenarioRef: Ref.DefinitionRef,
       acs: ActiveContractsInMemory,
       time: Time.Timestamp,
-      mbOldTxId: Option[TransactionId],
+      mbOldTxId: Option[ScenarioTransactionId],
       stepId: Int,
       step: L.ScenarioStep
-  ): (ActiveContractsInMemory, Time.Timestamp, Option[TransactionId]) = {
+  ): (ActiveContractsInMemory, Time.Timestamp, Option[ScenarioTransactionId]) = {
     step match {
-      case L.Commit(txId: TransactionId, richTransaction: L.RichTransaction, _) =>
+      case L.Commit(txId: ScenarioTransactionId, richTransaction: L.RichTransaction, _) =>
         mbOldTxId match {
           case None => ()
           case Some(oldTxId) =>
@@ -202,8 +210,10 @@ object ScenarioLoader {
                 s"Non-monotonic transaction ids in ledger results: got $oldTxId first and then $txId")
             }
         }
-        val transactionId = s"scenario-transaction-$txId"
-        val workflowId = s"scenario-workflow-$stepId"
+
+        val transactionId = Ref.LedgerString.concat(transactionIdPrefix, txId.id)
+        val workflowId =
+          Some(Ref.LedgerString.concat(workflowIdPrefix, Ref.LedgerString.fromInt(stepId)))
         // note that it's important that we keep the event ids in line with the contract ids, since
         // the sandbox code assumes that in TransactionConversion.
         val txNoHash = GenTransaction(richTransaction.nodes, richTransaction.roots, Set.empty)
@@ -212,9 +222,9 @@ object ScenarioLoader {
         // copies non-absolute-able node IDs, but IDs that don't match
         // get intersected away later
         val globalizedImplicitDisclosure = richTransaction.implicitDisclosure mapKeys { nid =>
-          absCidWithHash(AbsoluteContractId(nid.id))
+          absCidWithHash(AbsoluteContractId(nid))
         }
-        acs.addTransaction[L.NodeId](
+        acs.addTransaction[L.ScenarioNodeId](
           time.toInstant,
           transactionId,
           workflowId,
@@ -227,6 +237,7 @@ object ScenarioLoader {
             val recordDisclosure = explicitDisclosure.map {
               case (nid, parties) => (nodeIdWithHash(nid), parties)
             }
+
             ledger +=
               (
                 (
@@ -234,13 +245,13 @@ object ScenarioLoader {
                   Transaction(
                     transactionId,
                     transactionId,
-                    "scenario-loader",
+                    scenarioLoader,
                     richTransaction.committer,
                     workflowId,
                     time.toInstant,
                     time.toInstant,
                     recordTx,
-                    recordDisclosure.transform((_, v) => v.toSet[String])
+                    recordDisclosure
                   )))
             (newAcs, time, Some(txId))
           case Left(err) =>
@@ -254,11 +265,12 @@ object ScenarioLoader {
     }
   }
 
+  private val `#` = Ref.ContractIdString.assertFromString("#")
   // currently the scenario interpreter produces the contract ids with no hash prefix,
   // but the sandbox does. add them here too for consistency
   private def absCidWithHash(a: AbsoluteContractId): AbsoluteContractId =
-    AbsoluteContractId("#" + a.coid)
+    AbsoluteContractId(Ref.ContractIdString.concat(`#`, a.coid))
 
-  private def nodeIdWithHash(nid: L.NodeId): String = "#" + nid.id
+  private def nodeIdWithHash(nid: L.ScenarioNodeId): NodeId = Ref.ContractIdString.concat(`#`, nid)
 
 }

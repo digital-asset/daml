@@ -39,16 +39,14 @@ import com.digitalasset.sample.EventDecoder
 import com.digitalasset.sample.MyMain.NameClashRecordVariant.NameClashRecordVariantA
 import com.digitalasset.sample.MyMain.{
   CallablePayout,
-  Maybes,
-  TextMapInt,
-  OptTextMapInt,
-  TextMapTextMapInt,
   ListTextMapInt,
+  Maybes,
   MkListExample,
   MyRecord,
   MyVariant,
   NameClashRecord,
   NameClashVariant,
+  OptTextMapInt,
   PayOut,
   RecordWithNestedMyVariant,
   SimpleListExample,
@@ -57,6 +55,8 @@ import com.digitalasset.sample.MyMain.{
   TemplateWithNestedRecordsAndVariants,
   TemplateWithSelfReference,
   TemplateWithUnitParam,
+  TextMapInt,
+  TextMapTextMapInt,
   VariantWithRecordWithVariant
 }
 import com.digitalasset.sample.MySecondMain

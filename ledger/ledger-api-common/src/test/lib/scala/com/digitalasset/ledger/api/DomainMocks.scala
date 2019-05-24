@@ -17,13 +17,13 @@ object DomainMocks {
     Ref.PackageId.assertFromString("package"),
     Ref.QualifiedName.assertFromString("module:entity"))
 
-  val commandId = CommandId("commandId")
+  val commandId = CommandId(Ref.LedgerString.assertFromString("commandId"))
 
-  val transactionId = TransactionId("deadbeef")
+  val transactionId = TransactionId(Ref.LedgerString.assertFromString("deadbeef"))
 
-  val applicationId = ApplicationId("applicationId")
+  val applicationId = ApplicationId(Ref.LedgerString.assertFromString("applicationId"))
 
-  val workflowId = WorkflowId("workflowId")
+  val workflowId = WorkflowId(Ref.LedgerString.assertFromString("workflowId"))
 
   val label = Ref.Name.assertFromString("label")
 
@@ -38,7 +38,7 @@ object DomainMocks {
     private val invalidPartyString = "p@rty"
     val invalidApiParty = Value(Sum.Party(invalidPartyString))
     val invalidPartyMsg =
-      """Invalid argument: string "p@rty" does not match regex "[a-zA-Z0-9\-_ ]+""""
+      """Invalid argument: non expected character 0x40 in "p@rty""""
   }
 
 }

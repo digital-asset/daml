@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.sandbox.services.transaction
 
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, TransactionIdString}
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.types.Ledger
@@ -11,23 +12,28 @@ import scala.util.Try
 
 object SandboxEventIdFormatter {
 
-  case class TransactionIdWithIndex(transactionId: Long, nodeId: Transaction.NodeId)
+  case class TransactionIdWithIndex(transactionId: TransactionIdString, nodeId: Transaction.NodeId)
 
-  def makeAbsCoid(transactionId: String)(coid: Lf.ContractId): Lf.AbsoluteContractId = coid match {
-    case a @ Lf.AbsoluteContractId(_) => a
-    case Lf.RelativeContractId(txnid) =>
-      Lf.AbsoluteContractId(fromTransactionId(transactionId, txnid))
-  }
-
+  def makeAbsCoid(transactionId: TransactionIdString)(coid: Lf.ContractId): Lf.AbsoluteContractId =
+    coid match {
+      case a @ Lf.AbsoluteContractId(_) => a
+      case Lf.RelativeContractId(txnid) =>
+        Lf.AbsoluteContractId(fromTransactionId(transactionId, txnid))
+    }
   // this method defines the EventId format used by the sandbox
-  def fromTransactionId(transactionId: String, nid: Transaction.NodeId): String =
-    s"#$transactionId:${nid.index}"
+  def fromTransactionId(transactionId: TransactionIdString, nid: Transaction.NodeId): LedgerString =
+    fromTransactionId(transactionId, nid.name)
+
+  private val `#` = LedgerString.assertFromString("#")
+  private val `:` = LedgerString.assertFromString(":")
 
   /** When loading a scenario we get already absolute nids from the ledger -- still prefix them with the transaction
     * id, just to be safe.
     */
-  def fromTransactionId(transactionId: String, nid: Ledger.NodeId): String =
-    s"#$transactionId:${nid.id}"
+  def fromTransactionId(
+      transactionId: TransactionIdString,
+      nid: Ledger.ScenarioNodeId): LedgerString =
+    LedgerString.concat(`#`, transactionId, `:`, nid)
 
   def split(eventId: String): Option[TransactionIdWithIndex] =
     eventId.split(":") match {
@@ -36,8 +42,11 @@ object SandboxEventIdFormatter {
           case ("#", transId) =>
             (for {
               ix <- Try(index.toInt)
-              tId <- Try(transId.toLong)
-            } yield TransactionIdWithIndex(tId, Transaction.NodeId.unsafeFromIndex(ix))).toOption
+              _ <- Try(transId.toLong)
+            } yield
+              TransactionIdWithIndex(
+                LedgerString.assertFromString(transId),
+                Transaction.NodeId.unsafeFromIndex(ix))).toOption
           case _ => None
         }
       case _ => None

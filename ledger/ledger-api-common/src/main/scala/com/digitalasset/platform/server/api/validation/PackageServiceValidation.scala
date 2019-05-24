@@ -16,8 +16,8 @@ import scala.concurrent.Future
 
 class PackageServiceValidation(
     protected val service: PackageService with AutoCloseable,
-    val ledgerId: String)
-    extends PackageService
+    val ledgerId: String
+) extends PackageService
     with ProxyCloseable
     with GrpcApiService
     with FieldValidations {

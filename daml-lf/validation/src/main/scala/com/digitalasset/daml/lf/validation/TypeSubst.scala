@@ -77,7 +77,7 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
     case UpdateFetch(templateId, contractId) =>
       UpdateFetch(templateId, apply(contractId))
     case UpdateExercise(templateId, choice, cidE, actorsE, argE) =>
-      UpdateExercise(templateId, choice, apply(cidE), apply(actorsE), apply(argE))
+      UpdateExercise(templateId, choice, apply(cidE), actorsE.map(apply), apply(argE))
     case UpdateEmbedExpr(typ, body) =>
       UpdateEmbedExpr(apply(typ), apply(body))
     case UpdateLookupByKey(retrieveByKey) =>

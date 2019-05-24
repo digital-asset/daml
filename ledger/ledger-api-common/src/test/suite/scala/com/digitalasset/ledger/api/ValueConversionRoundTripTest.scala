@@ -45,7 +45,7 @@ class ValueConversionRoundTripTest
   private def variant(value: Value): Value =
     Value(Sum.Variant(Variant(Some(recordId), constructor, Some(value))))
 
-  private val pckg = p"""
+  private val pkg = p"""
          module Mod {
            record EmptyRecord = {};
            record Record = { label1: Int64, label2: Int64, label0: Int64 };
@@ -55,7 +55,7 @@ class ValueConversionRoundTripTest
 
   private val commandValidator = new CommandsValidator(
     "ledger-id",
-    new IdentifierResolver(_ => Future.successful(Some(pckg)))
+    new IdentifierResolver(_ => Future.successful(Some(pkg)))
   )
 
   private def roundTrip(v: Value): Either[String, Value] =

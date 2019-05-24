@@ -5,9 +5,11 @@ package com.digitalasset.platform.sandbox.services.transaction
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.TransactionIdString
 import com.digitalasset.ledger.api.domain.LedgerOffset
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction
-import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, LedgerSyncEvent, TransactionId}
+import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, LedgerSyncEvent}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.server.services.transaction.{OffsetHelper, OffsetSection}
 
@@ -38,7 +40,7 @@ protected class TransactionPipeline(ledgerBackend: LedgerBackend) {
         }
       }
 
-  def getTransactionById(transactionId: TransactionId): Future[Option[AcceptedTransaction]] =
+  def getTransactionById(transactionId: TransactionIdString): Future[Option[AcceptedTransaction]] =
     ledgerBackend
       .getTransactionById(transactionId)
       .map(_.map(increaseOffset))(DEC)
@@ -46,17 +48,17 @@ protected class TransactionPipeline(ledgerBackend: LedgerBackend) {
   // the offset we get from LedgerBackend is the actual offset of the entry. We need to return the next one
   // however on the API so clients can resubscribe with the received offset without getting duplicates
   private def increaseOffset(t: AcceptedTransaction) =
-    t.copy(offset = (t.offset.toLong + 1).toString)
+    t.copy(offset = Ref.LedgerString.assertFromString((t.offset.toLong + 1).toString))
 
-  private def getOffsetHelper(ledgerEnd: String) = {
-    new OffsetHelper[String] {
-      override def fromOpaque(opaque: String): Try[String] = Success(opaque)
+  private def getOffsetHelper(ledgerEnd: Ref.LedgerString) = {
+    new OffsetHelper[Ref.LedgerString] {
+      def fromOpaque(opaque: Ref.LedgerString): Try[Ref.LedgerString] = Success(opaque)
 
-      override def getLedgerBeginning(): String = "0"
+      val getLedgerBeginning: Ref.LedgerString = Ref.LedgerString.fromLong(0)
 
-      override def getLedgerEnd(): String = ledgerEnd
+      def getLedgerEnd: Ref.LedgerString = ledgerEnd
 
-      override def compare(o1: String, o2: String): Int =
+      def compare(o1: Ref.LedgerString, o2: Ref.LedgerString): Int =
         java.lang.Long.compare(o1.toLong, o2.toLong)
     }
   }

@@ -4,7 +4,7 @@
 package com.daml.ledger.api.server.damlonx.services
 
 import com.daml.ledger.participant.state.index.v1.IndexService
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.{PackageId}
 import com.digitalasset.daml_lf.DamlLf.{Archive, HashFunction}
 import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
   SHA256 => APISHA256,

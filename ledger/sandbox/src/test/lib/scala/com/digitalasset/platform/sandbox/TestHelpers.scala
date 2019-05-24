@@ -40,7 +40,7 @@ trait TestHelpers {
       implicit ec: ExecutionContext,
       mat: ActorMaterializer) = {
     val ledger = Ledger.inMemory(
-      "sandbox ledger",
+      "sandbox-ledger",
       TimeProvider.Constant(Instant.EPOCH),
       ActiveContractsInMemory.empty,
       ImmArray.empty)

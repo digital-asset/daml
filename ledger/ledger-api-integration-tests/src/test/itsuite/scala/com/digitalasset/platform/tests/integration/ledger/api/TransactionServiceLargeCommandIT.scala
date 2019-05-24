@@ -54,7 +54,7 @@ class TransactionServiceLargeCommandIT
         val targetNumberOfSubCommands = 15000
         val superSizedCommand = c
           .command(
-            "Huge composite command",
+            "Huge-composite-command",
             List.fill(targetNumberOfSubCommands)(
               Command(create(templateIds.dummy, List("operator" -> "party".asParty)))))
           .update(_.commands.maximumRecordTime := Timestamp(60L, 0))

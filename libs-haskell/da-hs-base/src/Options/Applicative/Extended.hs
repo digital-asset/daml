@@ -11,9 +11,9 @@ import Options.Applicative
 
 -- | This constructs flags that can be set to yes, no, or auto to control a boolean value
 -- with auto using the default.
-flagYesNoAuto :: String -> Bool -> String -> Parser Bool
-flagYesNoAuto flagName defaultValue helpText =
-    option reader (long flagName <> value defaultValue <> help (helpText <> commonHelp))
+flagYesNoAuto :: String -> Bool -> String -> Mod OptionFields Bool -> Parser Bool
+flagYesNoAuto flagName defaultValue helpText mods =
+    option reader (long flagName <> value defaultValue <> help (helpText <> commonHelp) <> mods)
   where reader = eitherReader $ \case
             "yes" -> Right True
             "no" -> Right False

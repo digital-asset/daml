@@ -16,7 +16,7 @@ import com.digitalasset.ledger.api.validation.LedgerOffsetValidator
 import com.digitalasset.platform.server.api.validation.CommandCompletionServiceValidation
 import com.google.rpc.status.Status
 import io.grpc.Status.Code
-import io.grpc.{BindableService}
+import io.grpc.BindableService
 import org.slf4j.LoggerFactory
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.daml.ledger.participant.state.v1.{Offset, RejectionReason}
@@ -68,7 +68,7 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
         indexService
           .getCompletions(
             optOffset,
-            request.applicationId,
+            Ref.LedgerString.assertFromString(request.applicationId),
             request.parties.toList.map(Ref.Party.assertFromString))
           .map {
             case CompletionEvent.CommandAccepted(offset, commandId, transactionId) =>
@@ -91,7 +91,7 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
                 Some(
                   Checkpoint(
                     Some(fromInstant(recordTime.toInstant)), // FIXME(JM): conversion
-                    Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
+                    Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toLedgerString)))))
               )
           }
       }
@@ -99,8 +99,10 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
 
   override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =
     indexService.getLedgerEnd
-      .map(offset =>
-        CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
+      .map(
+        offset =>
+          CompletionEndResponse(
+            Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toLedgerString)))))
 
   private def toCompletion(commandId: String, error: RejectionReason): Completion = {
     val code = error match {

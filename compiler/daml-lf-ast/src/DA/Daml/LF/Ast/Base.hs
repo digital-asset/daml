@@ -269,6 +269,7 @@ data BuiltinExpr
 
   | BETrace                      -- :: forall a. Text -> a -> a
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
+  | BECoerceContractId           -- :: forall a b. ContractId a -> ContractId b
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 
@@ -496,7 +497,7 @@ data Update
       -- ^ Choice to exercise.
     , exeContractId :: !Expr
       -- ^ Contract id of the contract template instance to exercise choice on.
-    , exeActors     :: !Expr
+    , exeActors     :: !(Maybe Expr)
       -- ^ Parties exercising the choice.
     , exeArg        :: !Expr
       -- ^ Argument for the choice.

@@ -18,8 +18,8 @@ import org.slf4j.{Logger, LoggerFactory}
 
 class ActiveContractsServiceValidation(
     protected val service: ActiveContractsService with AutoCloseable,
-    val ledgerId: String)
-    extends ActiveContractsService
+    val ledgerId: String
+) extends ActiveContractsService
     with ProxyCloseable
     with GrpcApiService
     with FieldValidations {

@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.index
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.value.Value
@@ -25,7 +26,7 @@ package object v1 {
       optSubmitterInfo: Option[SubmitterInfo],
       offset: Offset,
       transactionMeta: TransactionMeta,
-      transactionId: TransactionId,
+      transactionId: TransactionIdString,
       events: List[AcsUpdateEvent]
   )
 
@@ -67,7 +68,7 @@ package object v1 {
     final case class CommandAccepted(
         offset: Offset,
         commandId: CommandId,
-        transactionId: TransactionId)
+        transactionId: TransactionIdString)
         extends CompletionEvent
 
     final case class CommandRejected(offset: Offset, commandId: CommandId, reason: RejectionReason)
@@ -77,6 +78,6 @@ package object v1 {
 
   final case class ActiveContractSetSnapshot(
       takenAt: LedgerOffset.Absolute,
-      activeContracts: Source[(WorkflowId, AcsUpdateEvent.Create), NotUsed])
+      activeContracts: Source[(Option[WorkflowId], AcsUpdateEvent.Create), NotUsed])
 
 }

@@ -13,12 +13,10 @@ import scala.util.Try
 trait FieldValidations {
 
   def matchLedgerId(ledgerId: String)(received: String): Either[StatusRuntimeException, String] =
-    if (ledgerId == received) Right(received)
-    else Left(ledgerIdMismatch(ledgerId, received))
+    Either.cond(ledgerId == received, ledgerId, ledgerIdMismatch(ledgerId, received))
 
   def requireNonEmptyString(s: String, fieldName: String): Either[StatusRuntimeException, String] =
-    if (s.nonEmpty) Right(s)
-    else Left(missingField(fieldName))
+    Either.cond(s.nonEmpty, s, missingField(fieldName))
 
   def requireIdentifier(s: String): Either[StatusRuntimeException, Ref.Name] =
     Ref.Name.fromString(s).left.map(invalidArgument)
@@ -27,10 +25,10 @@ trait FieldValidations {
       s: String,
       fieldName: String
   ): Either[StatusRuntimeException, Ref.Name] =
-    if (s.nonEmpty)
-      Ref.Name.fromString(s).left.map(invalidField(fieldName, _))
-    else
+    if (s.isEmpty)
       Left(missingField(fieldName))
+    else
+      Ref.Name.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireNumber(s: String, fieldName: String): Either[StatusRuntimeException, Long] =
     for {
@@ -41,16 +39,28 @@ trait FieldValidations {
   def requirePackageId(
       s: String,
       fieldName: String): Either[StatusRuntimeException, Ref.PackageId] =
-    Ref.PackageId.fromString(s).left.map(invalidField(fieldName, _))
+    if (s.isEmpty) Left(missingField(fieldName))
+    else Ref.PackageId.fromString(s).left.map(invalidField(fieldName, _))
 
   def requirePackageId(s: String): Either[StatusRuntimeException, Ref.PackageId] =
     Ref.PackageId.fromString(s).left.map(invalidArgument)
 
   def requireParty(s: String, fieldName: String): Either[StatusRuntimeException, Ref.Party] =
-    Ref.Party.fromString(s).left.map(invalidField(fieldName, _))
+    if (s.isEmpty) Left(missingField(fieldName))
+    else Ref.Party.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireParty(s: String): Either[StatusRuntimeException, Ref.Party] =
     Ref.Party.fromString(s).left.map(invalidArgument)
+
+  def requireLedgerString(
+      s: String,
+      fieldName: String
+  ): Either[StatusRuntimeException, Ref.LedgerString] =
+    if (s.isEmpty) Left(missingField(fieldName))
+    else Ref.LedgerString.fromString(s).left.map(invalidField(fieldName, _))
+
+  def requireLedgerString(s: String): Either[StatusRuntimeException, Ref.LedgerString] =
+    Ref.LedgerString.fromString(s).left.map(invalidArgument)
 
   def requireDottedName(
       s: String,

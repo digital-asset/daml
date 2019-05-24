@@ -25,14 +25,14 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
   protected val includedModule = "includedModule"
   protected val includedTemplate = "includedTemplate"
   protected val expectedLedgerId = "expectedLedgerId"
-  protected val packageId = "packageId"
-  protected val absoluteOffset = "42"
+  protected val packageId = Ref.PackageId.assertFromString("packageId")
+  protected val absoluteOffset = Ref.LedgerString.assertFromString("42")
   protected val party = Ref.Party.assertFromString("party")
   protected val verbose = false
   protected val eventId = "eventId"
   protected val transactionId = "42"
   protected val offsetOrdering = Ordering.by[domain.LedgerOffset.Absolute, Int](_.value.toInt)
-  protected val ledgerEnd = domain.LedgerOffset.Absolute("1000")
+  protected val ledgerEnd = domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString("1000"))
 
   protected def hasExpectedFilters(req: transaction.GetTransactionsRequest) = {
     val filtersByParty = req.filter.filtersByParty

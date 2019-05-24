@@ -27,7 +27,7 @@ package object model {
   type EventId = ApiTypes.EventId
   type ContractId = ApiTypes.ContractId
   type TemplateId = ApiTypes.TemplateId
-  type Party = ApiTypes.Party
+  type Party = DamlLfRef.Party
   type CommandId = ApiTypes.CommandId
   type WorkflowId = ApiTypes.WorkflowId
 

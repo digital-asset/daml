@@ -144,6 +144,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           case BFoldl => SEBuiltinRecursiveDefinition.FoldL
           case BFoldr => SEBuiltinRecursiveDefinition.FoldR
           case BEqualList => SEBuiltinRecursiveDefinition.EqualList
+          case BCoerceContractId => SEAbs(1, SEVar(1))
           case _ =>
             SEBuiltin(bf match {
               case BTrace => SBTrace
@@ -244,6 +245,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BFoldl => throw CompileError(s"unexpected BFoldl")
               case BFoldr => throw CompileError(s"unexpected BFoldr")
               case BEqualList => throw CompileError(s"unexpected BEqualList")
+              case BCoerceContractId => throw CompileError(s"unexpected BCoerceContractId")
             })
         }
 
@@ -419,7 +421,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             compileCreate(tmplId, translate(arg))
 
           case UpdateExercise(tmplId, chId, cidE, actorsE, argE) =>
-            compileExercise(tmplId, translate(cidE), chId, translate(actorsE), translate(argE))
+            compileExercise(tmplId, translate(cidE), chId, actorsE.map(translate), translate(argE))
 
           case UpdateGetTime =>
             SEAbs(1) { SBGetTime(SEVar(1)) }
@@ -1155,14 +1157,18 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       contractId: SExpr,
       choiceId: ChoiceName,
       // actors are either the singleton set of submitter of an exercise command,
-      // or the acting parties of an exercise node
+      // or the acting parties of an exercise node (if present)
       // of a transaction under reconstruction for validation
-      actors: SExpr,
+      optActors: Option[SExpr],
       argument: SExpr): SExpr =
     // Translates 'A does exercise cid Choice with <params>'
     // into:
     // SomeTemplate$SomeChoice <actorsE> <cidE> <argE>
     withEnv { _ =>
+      val actors: SExpr = optActors match {
+        case None => SEValue(SOptional(None))
+        case Some(actors) => SEApp(SEBuiltin(SBSome), Array(actors))
+      }
       SEApp(SEVal(ChoiceDefRef(tmplId, choiceId), None), Array(actors, contractId, argument))
     }
 
@@ -1181,7 +1187,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         SELet(
           SEApp(compileCreate(tmplId, SEValue(createArg)), Array(SEVar(1))),
           SEApp(
-            compileExercise(tmplId, SEVar(1), choiceId, actors, SEValue(choiceArg)),
+            compileExercise(tmplId, SEVar(1), choiceId, Some(actors), SEValue(choiceArg)),
             Array(SEVar(2)))
         ) in SEVar(1)
       }
@@ -1196,7 +1202,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         templateId,
         SEValue(contractId),
         choiceId,
-        SEValue(SList(FrontStack(submitters))),
+        Some(SEValue(SList(FrontStack(submitters)))),
         SEValue(argument))
     case Command.Fetch(templateId, coid) =>
       compileFetch(templateId, SEValue(coid))

@@ -34,6 +34,7 @@ class TransactionServiceRequestValidator(
 
   private def matchId(input: String): Result[LedgerId] =
     Tag.subst[String, Result[?], LedgerIdTag](matchLedgerId(ledgerId)(input))
+
   private val rightNone = Right(None)
 
   case class PartialValidation(
@@ -45,7 +46,7 @@ class TransactionServiceRequestValidator(
 
   private def commonValidations(req: GetTransactionsRequest): Result[PartialValidation] = {
     for {
-      ledgerId <- matchId(req.ledgerId)
+      _ <- matchId(req.ledgerId)
       filter <- requirePresence(req.filter, "filter")
       requiredBegin <- requirePresence(req.begin, "begin")
       convertedBegin <- LedgerOffsetValidator.validate(requiredBegin, "begin")
@@ -56,7 +57,7 @@ class TransactionServiceRequestValidator(
     } yield {
 
       PartialValidation(
-        ledgerId,
+        domain.LedgerId(ledgerId),
         filter,
         convertedBegin,
         convertedEnd,
@@ -112,7 +113,7 @@ class TransactionServiceRequestValidator(
       _ <- requireKnownParties(req.getFilter)
     } yield {
       transaction.GetTransactionsRequest(
-        partial.ledgerId,
+        domain.LedgerId(ledgerId),
         partial.begin,
         partial.end,
         convertedFilter,
@@ -157,14 +158,15 @@ class TransactionServiceRequestValidator(
       req: GetTransactionByIdRequest): Result[transaction.GetTransactionByIdRequest] = {
     for {
       ledgerId <- matchId(req.ledgerId)
-      trId <- requireNumber(req.transactionId, "transaction_id")
+      _ <- requireNumber(req.transactionId, "transaction_id")
+      trId <- requireLedgerString(req.transactionId)
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       parties <- requireParties(req.requestingParties)
       _ <- requireKnownParties(parties)
     } yield {
       transaction.GetTransactionByIdRequest(
         ledgerId,
-        domain.TransactionId(trId.toString),
+        domain.TransactionId(trId),
         parties,
         req.traceContext.map(toBrave))
     }
@@ -174,14 +176,14 @@ class TransactionServiceRequestValidator(
       req: GetTransactionByEventIdRequest): Result[transaction.GetTransactionByEventIdRequest] = {
     for {
       ledgerId <- matchId(req.ledgerId)
-      _ <- requireNonEmptyString(req.eventId, "event_id")
+      eventId <- requireLedgerString(req.eventId, "event_id")
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       parties <- requireParties(req.requestingParties)
       _ <- requireKnownParties(parties)
     } yield {
       transaction.GetTransactionByEventIdRequest(
         ledgerId,
-        domain.EventId(req.eventId),
+        domain.EventId(eventId),
         parties,
         req.traceContext.map(toBrave))
     }

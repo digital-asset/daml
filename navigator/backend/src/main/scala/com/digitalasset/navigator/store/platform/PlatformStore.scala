@@ -12,6 +12,7 @@ import akka.pattern.ask
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.navigator.util.RetryHelper
 import com.digitalasset.navigator.model._
 import com.digitalasset.navigator.store.Store._
@@ -94,9 +95,10 @@ class PlatformStore(
   implicit val esf: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
 
-  private val applicationId = applicationInfo.id + " #" + new Random(System.currentTimeMillis())
-    .nextLong()
-    .toHexString
+  private val applicationId =
+    Ref.LedgerString.assertFromString(
+      applicationInfo.id + "#" + new Random(System.currentTimeMillis()).nextLong().toHexString
+    )
 
   private[this] def userFacingLogger = LoggerFactory.getLogger("user-facing-logs")
 
