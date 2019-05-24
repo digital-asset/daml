@@ -18,6 +18,14 @@ DAML Assistant
 
 - You can now see all available versions with ``daml version`` using the ``--all`` flag.
 
+SQL Extractor
+~~~~~~~~~~~~~
+
+- The extractor ``--party`` option may now specify multiple parties, separated by commas;
+  e.g. instead of ``--party Bob`` you can say ``--party Bob,Bar,Baz`` and get the contracts
+  for all three parties in the database.
+  See `#1360 <https://github.com/digital-asset/daml/pull/1360>`__.
+
 0.12.20 - 2019-05-23
 --------------------
 
