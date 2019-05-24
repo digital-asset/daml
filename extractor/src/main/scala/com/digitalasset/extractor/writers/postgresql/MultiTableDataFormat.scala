@@ -122,7 +122,7 @@ class MultiTableDataFormat(
     if (mergeIdentical) {
       val knownTemplateIds = state.templateToTable.keySet
 
-      val knownTemplateDefs = packageStore.packages
+      val knownTemplateDefs = packageStore
         .map {
           case (packageId, iface) =>
             iface.typeDecls.collect {

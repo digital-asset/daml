@@ -8,13 +8,10 @@ import java.nio.file.Files
 
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.iface.reader.InterfaceReader
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.iface.{DefDataType, InterfaceType, Interface}
+import com.digitalasset.daml.lf.iface.Interface
 import com.digitalasset.daml.lf.archive.Reader
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.extractor.Types._
-import com.digitalasset.extractor.ledger.types._
 import com.digitalasset.ledger.api.v1.package_service.GetPackageResponse
 import com.digitalasset.ledger.client.LedgerClient
 
@@ -24,9 +21,8 @@ import scalaz._
 import Scalaz._
 
 object LedgerReader {
-  final case class PackageStore(
-      packages: Map[String, Interface] = Map.empty,
-      typeDecls: TypeDecls = TypeDecls())
+
+  type PackageStore = Map[String, Interface]
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -54,36 +50,7 @@ object LedgerReader {
           (interface.packageId, interface)
         }
       }
-      .map(packageIdsWithIfaces => {
-        val templateDecls = packageIdsWithIfaces.flatMap {
-          case (packageId, interface) =>
-            interface.typeDecls.collect {
-              case (id, InterfaceType.Template(r, _)) =>
-                Identifier(packageId, id.qualifiedName) -> r
-            }
-        }.toMap
-
-        val recordTypeDecls = packageIdsWithIfaces.flatMap {
-          case (packageId, interface) =>
-            interface.typeDecls.collect {
-              case (id, InterfaceType.Normal(DefDataType(_, r @ iface.Record(_)))) =>
-                Identifier(packageId, id.qualifiedName) -> r
-            }
-        }.toMap
-
-        val variantTypeDecls = packageIdsWithIfaces.flatMap {
-          case (packageId, interface) =>
-            interface.typeDecls.collect {
-              case (id, InterfaceType.Normal(DefDataType(_, v @ iface.Variant(_)))) =>
-                Identifier(packageId, id.qualifiedName) -> v
-            }
-        }.toMap
-
-        PackageStore(
-          packageIdsWithIfaces.toMap,
-          TypeDecls(templateDecls, recordTypeDecls, variantTypeDecls)
-        )
-      })
+      .map(_.toMap)
   }
 
   def readArchiveFromFile(file: File): Archive = {
@@ -97,7 +64,7 @@ object LedgerReader {
       val cos = Reader.damlLfCodedInputStream(archivePayload.newInput)
       val payload = DamlLf.ArchivePayload.parseFrom(cos)
       val (errors, out) = InterfaceReader.readInterface(() =>
-        \/-((PackageId.assertFromString(hash), payload.getDamlLf1())))
+        \/-((PackageId.assertFromString(hash), payload.getDamlLf1)))
       if (!errors.empty) \/.left("Errors reading LF archive:\n" + errors.toString)
       else \/.right(out)
     }.leftMap(_.getLocalizedMessage).join
