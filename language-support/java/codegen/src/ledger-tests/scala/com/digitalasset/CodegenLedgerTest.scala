@@ -25,6 +25,7 @@ import com.daml.ledger.javaapi.data.{
   Transaction,
   Unit => DamlUnit
 }
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass.{
   GetLedgerEndRequest,
@@ -50,7 +51,7 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
 
   def testDalf = new File("language-support/java/codegen/ledger-tests-model.dar")
 
-  val LedgerID = "ledger-test"
+  val LedgerID: Ref.LedgerIdString = Ref.LedgerIdString.assertFromString("ledger-test")
   def withClient(testCode: Channel => Assertion): Assertion = {
     val cfg = SandboxConfig.default.copy(
       port = 0,

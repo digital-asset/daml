@@ -6,9 +6,10 @@ package com.daml.ledger.participant.state.kvutils
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray}
 import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.transaction.Transaction.{ContractId, Transaction}
+import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node}
 import com.digitalasset.daml.lf.value.Value.{
+  ContractId,
   ContractInst,
   NodeId,
   RelativeContractId,

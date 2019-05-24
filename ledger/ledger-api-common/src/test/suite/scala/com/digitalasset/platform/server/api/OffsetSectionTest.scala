@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.server.api
 
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.ledger.api.domain.LedgerOffset
 import com.digitalasset.ledger.api.testing.utils.IsStatusException
 import com.digitalasset.platform.server.services.transaction.{OffsetHelper, OffsetSection}
@@ -15,11 +17,11 @@ import scala.util.{Failure, Success, Try}
 class OffsetSectionTest extends WordSpec with Matchers with Inside {
 
   private val intOH: OffsetHelper[Int] = new OffsetHelper[Int] {
-    def fromOpaque(opaque: String): Try[Int] = Try(opaque.toInt)
+    def fromOpaque(opaque: LedgerString): Try[Int] = Try(opaque.toInt)
 
-    def getLedgerBeginning(): Int = 0
+    def getLedgerBeginning: Int = 0
 
-    def getLedgerEnd(): Int = Int.MaxValue
+    def getLedgerEnd: Int = Int.MaxValue
 
     def compare(o1: Int, o2: Int): Int = o1.compareTo(o2)
   }
@@ -28,9 +30,10 @@ class OffsetSectionTest extends WordSpec with Matchers with Inside {
     OffsetSection(_, _)(intOH)
 
   private val begin = LedgerOffset.LedgerBegin
-  private val absolute0 = LedgerOffset.Absolute("0")
-  private val absolute1 = LedgerOffset.Absolute("1")
-  private val absoluteMax = LedgerOffset.Absolute(Int.MaxValue.toString)
+  private val absolute0 = LedgerOffset.Absolute(Ref.LedgerString.fromLong(0))
+  private val absolute1 = LedgerOffset.Absolute(Ref.LedgerString.fromLong(1))
+  private val absoluteMax =
+    LedgerOffset.Absolute(Ref.LedgerString.assertFromString(Int.MaxValue.toString))
   private val end = LedgerOffset.LedgerEnd
 
   "OffsetSection" when {
@@ -72,7 +75,8 @@ class OffsetSectionTest extends WordSpec with Matchers with Inside {
 
       "return an open-ended section (absolute)" in {
 
-        parse(LedgerOffset.Absolute("5"), None) shouldEqual Success(OffsetSection.NonEmpty(5, None))
+        parse(LedgerOffset.Absolute(Ref.LedgerString.fromLong(5)), None) shouldEqual Success(
+          OffsetSection.NonEmpty(5, None))
       }
 
       "return an open-ended section (end)" in {

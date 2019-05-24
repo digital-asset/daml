@@ -104,10 +104,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       eventFilter: TemplateAwareFilter): Option[PTransaction] = {
     val events =
       TransactionConversion
-        .genToFlatTransaction(
-          trans.transaction,
-          trans.explicitDisclosure.mapValues(set => set.toSet[String]),
-          verbose)
+        .genToFlatTransaction(trans.transaction, trans.explicitDisclosure, verbose)
         .flatMap(eventFilter.filterEvent(_).toList)
 
     val submitterIsSubscriber =
@@ -119,7 +116,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
         PTransaction(
           transactionId = trans.transactionId,
           commandId = if (submitterIsSubscriber) trans.commandId.getOrElse("") else "",
-          workflowId = trans.workflowId,
+          workflowId = trans.workflowId.getOrElse(""),
           effectiveAt = Some(fromInstant(trans.recordTime)),
           events = events,
           offset = trans.offset
@@ -160,9 +157,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
             .withDescription(s"invalid eventId: ${request.eventId}")
             .asRuntimeException())) {
         case TransactionIdWithIndex(transactionId, index) =>
-          lookUpTreeByTransactionId(
-            TransactionId(transactionId.toString),
-            request.requestingParties)
+          lookUpTreeByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
   }
 
@@ -182,9 +177,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
             .withDescription(s"invalid eventId: ${request.eventId}")
             .asRuntimeException())) {
         case TransactionIdWithIndex(transactionId, index) =>
-          lookUpFlatByTransactionId(
-            TransactionId(transactionId.toString),
-            request.requestingParties)
+          lookUpFlatByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
   }
 
@@ -246,7 +239,7 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
       Tag.subst(trans.commandId),
       Tag.subst(trans.applicationId),
       trans.submitter.map(Party.assertFromString),
-      WorkflowId(trans.workflowId),
+      trans.workflowId.map(WorkflowId(_)),
       trans.recordTime,
       None
     )

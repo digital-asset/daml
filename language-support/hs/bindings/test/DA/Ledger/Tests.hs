@@ -150,7 +150,7 @@ submitCommand h party com = do
         mrTime = Timestamp 5 0
 
 myAid :: ApplicationId
-myAid = ApplicationId "<my-application>"
+myAid = ApplicationId ":my-application:"
 
 randomCid :: IO CommandId
 randomCid = do fmap (CommandId . Text.pack . UUID.toString) randomIO

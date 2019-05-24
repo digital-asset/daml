@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.cli
 import java.io.File
 import java.time.Duration
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.BuildInfo
@@ -115,7 +116,7 @@ object Cli {
     //TODO (robert): Think about all implications of allowing users to set the ledger ID.
     opt[String]("ledgerid")
       .optional()
-      .action((id, c) => c.copy(ledgerIdMode = LedgerIdMode.Static(id)))
+      .action((id, c) => c.copy(ledgerIdMode = LedgerIdMode.Static(Ref.LedgerIdString.assertFromString(id))))
       .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.")
 
     opt[Unit]("eager-package-loading")

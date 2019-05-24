@@ -70,7 +70,7 @@ class CommandSubmissionTtlIT
     submitRequest.getCommands
       .withMaximumRecordTime(
         fromInstant(toInstant(submitRequest.getCommands.getLedgerEffectiveTime).plus(ttl)))
-      .withCommandId(s"TTL of $ttl")
+      .withCommandId(s"TTL_of_$ttl")
 
   private def submitSingleCommand(ctx: LedgerContext, commands: Commands): Future[Empty] =
     ctx.commandService.submitAndWait(SubmitAndWaitRequest(Some(commands)))

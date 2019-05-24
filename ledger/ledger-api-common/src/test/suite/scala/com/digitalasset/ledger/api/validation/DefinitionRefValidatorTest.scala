@@ -36,7 +36,7 @@ class DefinitionRefValidatorTest extends AsyncWordSpec with ValidatorTestUtils {
       requestMustFailWith(
         sut.validateIdentifier(api.identifier.withPackageId(""), noneResolver),
         INVALID_ARGUMENT,
-        """Invalid field package_id: string "" does not match regex "[a-zA-Z0-9\-_ ]+""""
+        """Missing field: package_id"""
       )
     }
 

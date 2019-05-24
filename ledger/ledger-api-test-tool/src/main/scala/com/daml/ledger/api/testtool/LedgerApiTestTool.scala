@@ -66,8 +66,8 @@ object LedgerApiTestTool {
 
     val runSuffix = "-" + Random.alphanumeric.take(10).mkString
     val partyNameMangler = (partyText: String) => partyText + runSuffix
-    val commandIdMangler: ((QualifiedName, Int, L.NodeId) => String) = (scenario, stepId, nodeId) =>
-      s"ledger-api-test-tool-$scenario-$stepId-$nodeId-$runSuffix"
+    val commandIdMangler: ((QualifiedName, Int, L.ScenarioNodeId) => String) =
+      (scenario, stepId, nodeId) => s"ledger-api-test-tool-$scenario-$stepId-$nodeId-$runSuffix"
 
     try {
       scenarios.foreach {

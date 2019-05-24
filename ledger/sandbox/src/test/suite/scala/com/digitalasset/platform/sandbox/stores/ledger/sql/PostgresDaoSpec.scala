@@ -19,6 +19,7 @@ import com.digitalasset.daml.lf.value.Value.{
 }
 import com.digitalasset.daml.lf.value.ValueVersions
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.ledger.EventId
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
@@ -41,6 +42,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
+import scala.language.implicitConversions
 
 //TODO: use scalacheck when we have generators available for contracts and transactions
 class PostgresDaoSpec
@@ -78,6 +80,9 @@ class PostgresDaoSpec
 
   "Postgres Ledger DAO" should {
 
+    val event1: EventId = "event1"
+    val event2: EventId = "event2"
+
     "be able to persist and load contracts" in {
       val offset = nextOffset()
       val absCid = AbsoluteContractId("cId1")
@@ -100,7 +105,7 @@ class PostgresDaoSpec
         absCid,
         let,
         "trId1",
-        "workflowId",
+        Some("workflowId"),
         Set(alice, bob),
         Map(alice -> "trId1", bob -> "trId1"),
         contractInstance,
@@ -112,12 +117,12 @@ class PostgresDaoSpec
         "trId1",
         "appID1",
         "Alice",
-        "workflowId",
+        Some("workflowId"),
         let,
         let,
         GenTransaction(
           Map(
-            "event1" -> NodeCreate(
+            event1 -> NodeCreate(
               absCid,
               contractInstance,
               None,
@@ -125,10 +130,10 @@ class PostgresDaoSpec
               Set(alice, bob),
               Some(keyWithMaintainers)
             )),
-          ImmArray("event1"),
+          ImmArray(event1),
           Set.empty
         ),
-        Map("event1" -> Set("Alice", "Bob"), "event2" -> Set("Alice", "In", "Chains"))
+        Map(event1 -> Set[Party]("Alice", "Bob"), event2 -> Set[Party]("Alice", "In", "Chains"))
       )
 
       for {
@@ -227,7 +232,7 @@ class PostgresDaoSpec
         absCid,
         let,
         "trId2",
-        "workflowId",
+        Some("workflowId"),
         Set(alice, bob),
         Map(alice -> "trId2", bob -> "trId2"),
         contractInstance,
@@ -239,12 +244,12 @@ class PostgresDaoSpec
         "trId2",
         "appID2",
         "Alice",
-        "workflowId",
+        Some("workflowId"),
         let,
         let,
         GenTransaction(
           Map(
-            "event1" -> NodeCreate(
+            event1 -> NodeCreate(
               absCid,
               contractInstance,
               None,
@@ -252,10 +257,10 @@ class PostgresDaoSpec
               Set(alice, bob),
               Some(keyWithMaintainers)
             )),
-          ImmArray("event1"),
+          ImmArray(event1),
           Set.empty
         ),
-        Map("event1" -> Set("Alice", "Bob"), "event2" -> Set("Alice", "In", "Chains"))
+        Map(event1 -> Set("Alice", "Bob"), event2 -> Set("Alice", "In", "Chains"))
       )
 
       for {
@@ -292,7 +297,7 @@ class PostgresDaoSpec
           absCid,
           let,
           txId,
-          "workflowId",
+          Some("workflowId"),
           Set(alice, bob),
           Map(alice -> txId, bob -> txId),
           contractInstance,
@@ -304,12 +309,12 @@ class PostgresDaoSpec
           txId,
           "appID1",
           "Alice",
-          "workflowId",
+          Some("workflowId"),
           let,
           let,
           GenTransaction(
             Map(
-              s"event$id" -> NodeCreate(
+              (s"event$id": EventId) -> NodeCreate(
                 absCid,
                 contractInstance,
                 None,
@@ -317,10 +322,10 @@ class PostgresDaoSpec
                 Set(alice, bob),
                 None
               )),
-            ImmArray(s"event$id"),
+            ImmArray[EventId](s"event$id"),
             Set.empty
           ),
-          Map(s"event$id" -> Set("Alice", "Bob"))
+          Map((s"event$id": EventId) -> Set("Alice", "Bob"))
         )
       }
 
@@ -333,12 +338,12 @@ class PostgresDaoSpec
           txId,
           "appID1",
           "Alice",
-          "workflowId",
+          Some("workflowId"),
           let,
           let,
           GenTransaction(
             Map(
-              s"event$id" -> NodeExercises(
+              (s"event$id": EventId) -> NodeExercises(
                 targetCid,
                 templateId,
                 Ref.Name.assertFromString("choice"),
@@ -354,10 +359,10 @@ class PostgresDaoSpec
                     ValueVersions.acceptedVersions.head,
                     ValueText("some exercise result"))),
               )),
-            ImmArray(s"event$id"),
+            ImmArray[EventId](s"event$id"),
             Set.empty
           ),
-          Map(s"event$id" -> Set("Alice", "Bob"))
+          Map((s"event$id": EventId) -> Set("Alice", "Bob"))
         )
       }
 
@@ -427,5 +432,10 @@ class PostgresDaoSpec
     }
 
   }
+
+  private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
+
+  private implicit def toLedgerString(s: String): Ref.LedgerString =
+    Ref.LedgerString.assertFromString(s)
 
 }

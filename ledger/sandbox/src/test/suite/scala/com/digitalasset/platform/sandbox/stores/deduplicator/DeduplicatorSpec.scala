@@ -3,8 +3,8 @@
 
 package com.digitalasset.platform.sandbox.stores.deduplicator
 
+import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.{Matchers, WordSpec}
-
 import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId}
 
 class DeduplicatorSpec extends WordSpec with Matchers {
@@ -13,14 +13,20 @@ class DeduplicatorSpec extends WordSpec with Matchers {
     "catch transactions" in {
       val deduplicator0 = Deduplicator()
       val (deduplicator1, dedupRes1) =
-        deduplicator0.checkAndAdd(ApplicationId("appId0"), CommandId("commandId0"))
+        deduplicator0.checkAndAdd(
+          ApplicationId(Ref.LedgerString.assertFromString("appId0")),
+          CommandId(Ref.LedgerString.assertFromString("commandId0")))
       dedupRes1 shouldBe false
       val (deduplicator2, dedupRes2) =
-        deduplicator1.checkAndAdd(ApplicationId("appId0"), CommandId("commandId0"))
+        deduplicator1.checkAndAdd(
+          ApplicationId(Ref.LedgerString.assertFromString("appId0")),
+          CommandId(Ref.LedgerString.assertFromString("commandId0")))
       dedupRes2 shouldBe true
       deduplicator1 shouldBe deduplicator2
       val (deduplicator3, dedupRes3) =
-        deduplicator2.checkAndAdd(ApplicationId("appId1"), CommandId("commandId1"))
+        deduplicator2.checkAndAdd(
+          ApplicationId(Ref.LedgerString.assertFromString("appId1")),
+          CommandId(Ref.LedgerString.assertFromString("commandId1")))
       dedupRes3 shouldBe false
     }
   }

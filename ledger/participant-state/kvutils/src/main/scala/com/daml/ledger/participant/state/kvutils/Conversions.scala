@@ -4,9 +4,10 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.time.{Duration, Instant}
+
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, SubmittedTransaction, SubmitterInfo}
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.{
   Transaction,
@@ -16,9 +17,9 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
-  ContractId,
   NodeId,
-  RelativeContractId
+  RelativeContractId,
+  ContractId
 }
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.ValueOuterClass
@@ -27,6 +28,7 @@ import com.digitalasset.daml.lf.value.ValueCoder
 import com.digitalasset.platform.services.time.TimeModel
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
+
 import scala.util.Try
 
 /** Internal utilities for converting between protobuf messages and our scala
@@ -42,7 +44,7 @@ private[kvutils] object Conversions {
       case RelativeContractId(txnid) =>
         // NOTE(JM): Must be in sync with [[absoluteContractIdToLogEntryId]] and
         // [[absoluteContractIdToStateKey]].
-        AbsoluteContractId(s"$hexTxId:${txnid.index}")
+        AbsoluteContractId(ContractIdString.assertFromString(s"$hexTxId:${txnid.index}"))
     }
   }
 
@@ -107,8 +109,8 @@ private[kvutils] object Conversions {
   def parseSubmitterInfo(subInfo: DamlSubmitterInfo): SubmitterInfo =
     SubmitterInfo(
       submitter = Party.assertFromString(subInfo.getSubmitter),
-      applicationId = subInfo.getApplicationId,
-      commandId = subInfo.getCommandId,
+      applicationId = LedgerString.assertFromString(subInfo.getApplicationId),
+      commandId = LedgerString.assertFromString(subInfo.getCommandId),
       maxRecordTime = parseTimestamp(subInfo.getMaximumRecordTime)
     )
 
@@ -181,7 +183,11 @@ private[kvutils] object Conversions {
           case Some(i) =>
             Right(RelativeContractId(NodeId.unsafeFromIndex(i)))
         } else
-        Right(AbsoluteContractId(x))
+        ContractIdString
+          .fromString(x)
+          .left
+          .map(e => DecodeError(s"Invalid absolute contract id: $e"))
+          .map(AbsoluteContractId)
     }
 
     ValueCoder.DecodeCid(

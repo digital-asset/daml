@@ -43,7 +43,7 @@ object domain {
 
   object LedgerOffset {
 
-    final case class Absolute(value: String) extends LedgerOffset
+    final case class Absolute(value: Ref.LedgerString) extends LedgerOffset
 
     case object LedgerBegin extends LedgerOffset
 
@@ -92,7 +92,7 @@ object domain {
         contractId: ContractId,
         templateId: Ref.Identifier,
         contractCreatingEventId: EventId,
-        choice: Choice,
+        choice: Ref.ChoiceName,
         choiceArgument: Value,
         actingParties: immutable.Set[Ref.Party],
         consuming: Boolean,
@@ -187,47 +187,32 @@ object domain {
 
   sealed trait WorkflowIdTag
 
-  type WorkflowId = String @@ WorkflowIdTag
+  type WorkflowId = Ref.LedgerString @@ WorkflowIdTag
   val WorkflowId: Tag.TagOf[WorkflowIdTag] = Tag.of[WorkflowIdTag]
 
   sealed trait CommandIdTag
 
-  type CommandId = String @@ CommandIdTag
+  type CommandId = Ref.LedgerString @@ CommandIdTag
   val CommandId: Tag.TagOf[CommandIdTag] = Tag.of[CommandIdTag]
 
   sealed trait TransactionIdTag
 
-  type TransactionId = String @@ TransactionIdTag
+  type TransactionId = Ref.TransactionIdString @@ TransactionIdTag
   val TransactionId: Tag.TagOf[TransactionIdTag] = Tag.of[TransactionIdTag]
-
-  sealed trait ChoiceTag
-
-  type Choice = String @@ ChoiceTag
-  val Choice: Tag.TagOf[ChoiceTag] = Tag.of[ChoiceTag]
 
   sealed trait ContractIdTag
 
-  type ContractId = String @@ ContractIdTag
+  type ContractId = Ref.ContractIdString @@ ContractIdTag
   val ContractId: Tag.TagOf[ContractIdTag] = Tag.of[ContractIdTag]
 
   sealed trait EventIdTag
 
-  type EventId = String @@ EventIdTag
+  type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
-
-  sealed trait PackageIdTag
-
-  type PackageId = String @@ PackageIdTag
-  val PackageId: Tag.TagOf[PackageIdTag] = Tag.of[PackageIdTag]
-
-  sealed trait LedgerIdTag
-
-  type LedgerId = String @@ LedgerIdTag
-  val LedgerId: Tag.TagOf[LedgerIdTag] = Tag.of[LedgerIdTag]
 
   sealed trait ApplicationIdTag
 
-  type ApplicationId = String @@ ApplicationIdTag
+  type ApplicationId = Ref.LedgerString @@ ApplicationIdTag
   val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
 
   sealed trait AbsoluteNodeIdTag
@@ -236,7 +221,7 @@ object domain {
   val AbsoluteNodeId: Tag.TagOf[AbsoluteNodeIdTag] = Tag.of[AbsoluteNodeIdTag]
 
   case class Commands(
-      ledgerId: LedgerId,
+      ledgerId: Ref.LedgerIdString,
       workflowId: Option[WorkflowId],
       applicationId: ApplicationId,
       commandId: CommandId,

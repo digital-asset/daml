@@ -5,6 +5,7 @@ package com.digitalasset.ledger.backend.api.v1
 
 import java.time.Instant
 
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 
 /** A transaction and the meta-data necessary for submitting it to a ledger.
@@ -60,11 +61,12 @@ import com.digitalasset.daml.lf.transaction.BlindingInfo
   *
   */
 case class TransactionSubmission(
-    commandId: String,
-    workflowId: String,
-    submitter: String,
+    commandId: CommandId,
+    workflowId: Option[WorkflowId],
+    submitter: Party,
     ledgerEffectiveTime: Instant,
     maximumRecordTime: Instant,
-    applicationId: String,
+    applicationId: ApplicationId,
     blindingInfo: BlindingInfo,
-    transaction: SubmittedTransaction)
+    transaction: SubmittedTransaction
+)

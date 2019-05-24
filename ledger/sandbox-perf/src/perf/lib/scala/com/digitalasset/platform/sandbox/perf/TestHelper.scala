@@ -29,7 +29,7 @@ trait TestHelper {
 
   val largeTxPackageId: PackageId = DarUtil.getPackageId(darFile)
 
-  val ledgerId: String = "ledger server"
+  val ledgerId: String = "ledger-server"
   val applicationId: String = "app1"
   val ledgerEffectiveTime = Some(Timestamp(0L, 0))
   val maximumRecordTime = ledgerEffectiveTime.map(x => x.copy(seconds = x.seconds + 30L))

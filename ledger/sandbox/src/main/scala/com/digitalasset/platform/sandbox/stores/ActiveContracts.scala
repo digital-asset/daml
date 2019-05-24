@@ -5,11 +5,12 @@ package com.digitalasset.platform.sandbox.stores
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node => N}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
+import com.digitalasset.ledger.WorkflowId
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts._
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
@@ -47,8 +48,8 @@ case class ActiveContractsInMemory(
   }
 
   override def divulgeAlreadyCommittedContract(
-      transactionId: String,
-      global: Relation[AbsoluteContractId, Ref.Party]): ActiveContractsInMemory =
+      transactionId: TransactionIdString,
+      global: Relation[AbsoluteContractId, Party]): ActiveContractsInMemory =
     if (global.nonEmpty)
       copy(
         contracts = contracts ++
@@ -66,12 +67,12 @@ case class ActiveContractsInMemory(
     */
   def addTransaction[Nid](
       let: Instant,
-      transactionId: String,
-      workflowId: String,
+      transactionId: TransactionIdString,
+      workflowId: Option[WorkflowId],
       transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
-      explicitDisclosure: Relation[Nid, Ref.Party],
-      localImplicitDisclosure: Relation[Nid, Ref.Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party]
+      explicitDisclosure: Relation[Nid, Party],
+      localImplicitDisclosure: Relation[Nid, Party],
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Party]
   ): Either[Set[SequencingError], ActiveContractsInMemory] =
     acManager.addTransaction(
       let,
@@ -122,12 +123,12 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
     */
   def addTransaction[Nid](
       let: Instant,
-      transactionId: String,
-      workflowId: String,
+      transactionId: TransactionIdString,
+      workflowId: Option[WorkflowId],
       transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
-      explicitDisclosure: Relation[Nid, Ref.Party],
-      localImplicitDisclosure: Relation[Nid, Ref.Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party])
+      explicitDisclosure: Relation[Nid, Party],
+      localImplicitDisclosure: Relation[Nid, Party],
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Party])
     : Either[Set[SequencingError], ACS] = {
     val st =
       transaction
@@ -219,19 +220,19 @@ trait ActiveContracts[+Self] { this: ActiveContracts[Self] =>
     * method.
     */
   def divulgeAlreadyCommittedContract(
-      transactionId: String,
-      global: Relation[AbsoluteContractId, Ref.Party]): Self
+      transactionId: TransactionIdString,
+      global: Relation[AbsoluteContractId, Party]): Self
 }
 
 object ActiveContracts {
 
   case class ActiveContract(
       let: Instant, // time when the contract was committed
-      transactionId: String, // transaction id where the contract originates
-      workflowId: String, // workflow id from where the contract originates
+      transactionId: TransactionIdString, // transaction id where the contract originates
+      workflowId: Option[WorkflowId], // workflow id from where the contract originates
       contract: ContractInst[VersionedValue[AbsoluteContractId]],
-      witnesses: Set[Ref.Party],
-      divulgences: Map[Ref.Party, String], // for each party, the transaction id at which the contract was divulged
+      witnesses: Set[Party],
+      divulgences: Map[Party, TransactionIdString], // for each party, the transaction id at which the contract was divulged
       key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])
 
 }

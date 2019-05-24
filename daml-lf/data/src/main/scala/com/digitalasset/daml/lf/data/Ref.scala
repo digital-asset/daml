@@ -34,7 +34,7 @@ object Ref {
   // <https://docs.oracle.com/javase/specs/jls/se10/html/jls-3.html#jls-3.8>.
   //
   // In a language like C# you'll need to use some other unicode char for `$`.
-  val Name = MatchingStringModule("""[A-Za-z\$_][A-Za-z0-9\$_]*""".r)
+  val Name = MatchingStringModule("""[A-Za-z\$_][A-Za-z0-9\$_]*""")
   type Name = Name.T
   implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
 
@@ -137,12 +137,12 @@ object Ref {
       underscore. We use them to represent [PackageId]s and [Party] literals. In this way, we avoid
       empty identifiers, escaping problems, and other similar pitfalls.
     */
-  val Party = MatchingStringModule("""[a-zA-Z0-9\-_ ]+""".r)
+  val Party = ConcatenableMatchingStringModule("-_ ".contains(_))
   type Party = Party.T
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
     * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
-  val PackageId = MatchingStringModule("""[a-zA-Z0-9\-_ ]+""".r)
+  val PackageId = ConcatenableMatchingStringModule("-_ ".contains(_))
   type PackageId = PackageId.T
 
   /** Reference to a value defined in the specified module. */
@@ -156,5 +156,26 @@ object Ref {
   /** Reference to a type constructor. */
   type TypeConName = Identifier
   val TypeConName = Identifier
+
+  /**
+    * Used to reference to leger objects like contractIds, ledgerIds,
+    * transactionId, ... We use the same type for those ids, because we
+    * construct some by concatenating the others.
+    */
+  // We allow space because the navigator's applicationId used it.
+  val LedgerString = ConcatenableMatchingStringModule("._:-# ".contains(_), 255)
+  type LedgerString = LedgerString.T
+
+  /** Identifier for a contractId */
+  val ContractIdString: LedgerString.type = LedgerString
+  type ContractIdString = ContractIdString.T
+
+  /** Identifier for the ledger */
+  val LedgerIdString: LedgerString.type = LedgerString
+  type LedgerIdString = LedgerIdString.T
+
+  /** Identifiers for transactions. */
+  val TransactionIdString: LedgerString.type = LedgerString
+  type TransactionIdString = TransactionIdString.T
 
 }

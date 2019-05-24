@@ -8,6 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v1.ConfigurationService
 import com.digitalasset.api.util.DurationConversion._
+import com.digitalasset.daml.lf.data.Ref.LedgerIdString
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.ledger_configuration_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -41,7 +42,7 @@ class LedgerConfigurationService private (configurationService: ConfigurationSer
 }
 
 object LedgerConfigurationService {
-  def createApiService(configurationService: ConfigurationService, ledgerId: String)(
+  def createApiService(configurationService: ConfigurationService, ledgerId: LedgerIdString)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer)

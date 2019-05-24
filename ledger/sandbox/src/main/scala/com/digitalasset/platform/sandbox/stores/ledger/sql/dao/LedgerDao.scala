@@ -8,11 +8,13 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.ledger.participant.state.v1.TransactionId
+import com.digitalasset.daml.lf.data.Ref.{LedgerIdString, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
+import com.digitalasset.ledger._
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
@@ -24,10 +26,10 @@ import scala.concurrent.Future
 final case class Contract(
     contractId: AbsoluteContractId,
     let: Instant,
-    transactionId: String,
-    workflowId: String,
-    witnesses: Set[Ref.Party],
-    divulgences: Map[Ref.Party, String],
+    transactionId: TransactionId,
+    workflowId: Option[WorkflowId],
+    witnesses: Set[Party],
+    divulgences: Map[Party, TransactionId],
     coinst: ContractInst[VersionedValue[AbsoluteContractId]],
     key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]]) {
   def toActiveContract: ActiveContract =
@@ -58,8 +60,8 @@ object PersistenceEntry {
   final case class Rejection(entry: LedgerEntry.Rejection) extends PersistenceEntry
   final case class Transaction(
       entry: LedgerEntry.Transaction,
-      localImplicitDisclosure: Relation[LedgerEntry.EventId, Ref.Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Ref.Party]
+      localImplicitDisclosure: Relation[EventId, Party],
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Party]
   ) extends PersistenceEntry
   final case class Checkpoint(entry: LedgerEntry.Checkpoint) extends PersistenceEntry
 }
@@ -81,7 +83,7 @@ trait LedgerDao extends AutoCloseable {
   type LedgerOffset = Long
 
   /** Looks up the ledger id */
-  def lookupLedgerId(): Future[Option[String]]
+  def lookupLedgerId(): Future[Option[LedgerIdString]]
 
   /** Looks up the current ledger end */
   def lookupLedgerEnd(): Future[LedgerOffset]
@@ -141,7 +143,7 @@ trait LedgerDao extends AutoCloseable {
     * @param ledgerId  the ledger id to be stored
     * @param ledgerEnd the ledger end to be stored
     */
-  def initializeLedger(ledgerId: String, ledgerEnd: LedgerOffset): Future[Unit]
+  def initializeLedger(ledgerId: LedgerIdString, ledgerEnd: LedgerOffset): Future[Unit]
 
   /**
     * Stores a ledger entry. The ledger end gets updated as well in the same transaction.

@@ -270,12 +270,12 @@ class CommandClientIT
       "not accept double spends, return INVALID_ARGUMENT" in allFixtures { c =>
         for {
           contract <- c.submitCreate(
-            "Creating contracts for double spend test",
+            "Creating_contracts_for_double_spend_test",
             templateIds.dummyFactory,
             List("operator" -> submittingParty.asParty).asRecordFields,
             submittingParty)
           _ <- c.submitExercise(
-            "Double spend test exercise 1",
+            "Double_spend_test_exercise_1",
             templateIds.dummyFactory,
             unit,
             "DummyFactoryCall",
@@ -283,7 +283,7 @@ class CommandClientIT
             submittingParty)
           assertion <- c.testingHelpers.assertCommandFailsWithCode(
             c.command(
-              "Double spend test exercise 2",
+              "Double_spend_test_exercise_2",
               List(
                 ExerciseCommand(
                   Some(templateIds.dummyFactory),
@@ -304,7 +304,7 @@ class CommandClientIT
           "Expecting 1 field for record"
         val commandWithInvalidArgs =
           c.command(
-            "Creating contracts for invalid arg test",
+            "Creating_contracts_for_invalid_arg_test",
             List(CreateCommand(Some(templateIds.dummy), Some(Record())).wrap))
 
         c.testingHelpers.assertCommandFailsWithCode(
@@ -320,7 +320,7 @@ class CommandClientIT
             "mismatching type"
           val command =
             c.command(
-              "Boolean param with wrong type",
+              "Boolean_param_with_wrong_type",
               List(
                 CreateCommand(
                   Some(templateIds.dummy),
@@ -340,7 +340,7 @@ class CommandClientIT
           "Missing record label"
         val command =
           c.command(
-            "Param with wrong name",
+            "Param_with_wrong_name",
             List(
               CreateCommand(
                 Some(templateIds.dummy),
@@ -361,7 +361,7 @@ class CommandClientIT
         val expectedMessageSubstring =
           "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:19], partial transaction: root node"
         val command = c.createCommand(
-          "Dummy for failing assert",
+          "Dummy_for_failing_assert",
           templateIds.dummy,
           List("operator" -> "party".asParty).asRecordFields,
           "party")
@@ -372,7 +372,7 @@ class CommandClientIT
           create = c.testingHelpers.findCreatedEventIn(tx, templateIds.dummy)
           res <- c.testingHelpers.assertCommandFailsWithCode(
             c.exerciseCommand(
-              "Failing assert",
+              "Failing_assert",
               templateIds.dummy,
               Nil.asRecordValue,
               "FailingClone",
@@ -386,7 +386,7 @@ class CommandClientIT
       }
 
       "not accept commands with malformed decimals, return INVALID_ARGUMENT" in allFixtures { c =>
-        val commandId = "Malformed decimal"
+        val commandId = "Malformed_decimal"
         val expectedMessageSubString =
           """Could not read Decimal string "1E-19""""
 
@@ -413,7 +413,7 @@ class CommandClientIT
       "not accept commands with bad obligables, return INVALID_ARGUMENT" in allFixtures { c =>
         val command =
           c.command(
-            "Obligable error",
+            "Obligable_error",
             List(
               CreateCommand(
                 Some(templateIds.dummy),
@@ -431,7 +431,7 @@ class CommandClientIT
         val contractId = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef-123"
         val command =
           c.command(
-            "Exercise contract not found",
+            "Exercise_contract_not_found",
             List(
               ExerciseCommand(Some(templateIds.dummy), contractId, "DummyChoice1", Some(unit)).wrap)
           )
@@ -442,13 +442,13 @@ class CommandClientIT
       "not accept exercises of bad choices, return INVALID_ARGUMENT" in allFixtures { c =>
         for {
           contract <- c.submitCreate(
-            "Creating contract for bad choice test",
+            "Creating_contract_for_bad_choice_test",
             templateIds.dummyFactory,
             List("operator" -> submittingParty.asParty).asRecordFields,
             submittingParty)
           assertion <- c.testingHelpers.assertCommandFailsWithCode(
             c.command(
-              "Bad choice test",
+              "Bad_choice_test",
               List(
                 ExerciseCommand(
                   Some(templateIds.dummyFactory),
