@@ -110,8 +110,8 @@ data GoSwap2 = GoSwap2
 instance Choice Swap2 GoSwap2  () where
   choiceController Swap2{..} _ = [p2]
   choice Swap2{..} _self GoSwap2{..} = do
-    exerciseExplicit [p1] cid1 Sell {newOwner = p2}
-    exerciseExplicit [p2] cid2 Sell {newOwner = p1}
+    exercise cid1 Sell {newOwner = p2}
+    exercise cid2 Sell {newOwner = p1}
     pure ()
 
 -- We're testing the classic swap example.
@@ -164,7 +164,7 @@ template D
         -- We create a contract right before exercising. p2 can't know about it and will only learn of
         -- it when he exercises the choice in the validation.
         cid <- create $ E p1 p2
-        exerciseExplicit [p2] cid DoSomething
+        exercise cid DoSomething
         pure cid
 
 template E
