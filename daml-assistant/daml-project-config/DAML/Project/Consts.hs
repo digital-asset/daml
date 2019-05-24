@@ -133,6 +133,16 @@ getSdkVersion = getEnv sdkVersionEnvVar
 getDamlAssistant :: IO FilePath
 getDamlAssistant = getEnv damlAssistantEnvVar
 
+-- | Will make an absolute file path following all symlinks except ones in the file path
+--   this is to solve an issue where files in projects which linked elsewhere were considered
+--   as not being in projects. Just using an absolute path works on Linux but breaks
+--   reproducible builds on OS X
+canonicalizeExceptFile :: FilePath -> IO FilePath
+canonicalizeExceptFile fp = do
+    let (drive, fileName) = splitFileName fp
+    cDrive <- canonicalizePath drive
+    pure $ joinPath [cDrive, fileName]
+
 -- | This function changes the working directory to the project root and calls
 -- the supplied action with a function to transform filepaths relative to the previous
 -- directory into filepaths relative to the project root (absolute file paths will not be modified).
@@ -144,7 +154,7 @@ withProjectRoot act = do
     previousCwd <- getCurrentDirectory
     mbProjectPath <- getProjectPath
     let projectPath = fromMaybe previousCwd mbProjectPath
-    projectPath <- makeAbsolute projectPath
+    projectPath <- canonicalizePath projectPath
     withCurrentDirectory projectPath $ act $ \f -> do
-        absF <- makeAbsolute (previousCwd </> f)
+        absF <- canonicalizeExceptFile (previousCwd </> f)
         pure $ projectPath `makeRelative` absF
