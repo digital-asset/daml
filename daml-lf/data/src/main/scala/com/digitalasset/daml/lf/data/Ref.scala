@@ -163,7 +163,7 @@ object Ref {
     * construct some by concatenating the others.
     */
   // We allow space because the navigator's applicationId used it.
-  val LedgerString = ConcatenableMatchingStringModule("._:-# ".contains(_), 256)
+  val LedgerString = ConcatenableMatchingStringModule("._:-# ".contains(_), 255)
   type LedgerString = LedgerString.T
 
   /** Identifier for a contractId */

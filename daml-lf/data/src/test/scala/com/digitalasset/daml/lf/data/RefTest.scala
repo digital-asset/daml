@@ -125,14 +125,14 @@ class RefTest extends FreeSpec with Matchers {
     }
 
     "reject too long string" in {
-      LedgerString.fromString("a" * 256) shouldBe 'right
-      LedgerString.fromString("a" * 257) shouldBe 'left
+      LedgerString.fromString("a" * 255) shouldBe 'right
+      LedgerString.fromString("a" * 256) shouldBe 'left
       LedgerString.fromString("a" * 500) shouldBe 'left
     }
 
-    "rejects non simple US-ASCII characters" in {
+    "rejects non allowed US-ASCII characters" in {
       for (c <- '\u0001' to '\u007f' if !ledgerStringChars.contains(c)) {
-        LedgerString.fromString(s"the_US-ASCII_character_${c}_should_be_rejected") shouldBe 'left
+        LedgerString.fromString(s"the_character_${c}_should_be_rejected") shouldBe 'left
       }
     }
 
