@@ -364,14 +364,8 @@ execBuild options mbOutFile initPkgDb projectCheck = do
                     (\pkg -> [confFile pkg])
                     (UseDalf False)
             case darOrErr of
-                Left errs ->
-                    ioError $
-                    userError $
-                    unlines
-                        [ "Creation of DAR file failed:"
-                        , T.unpack $
-                          showDiagnosticsColored errs
-                        ]
+                Left _ -> -- Errors already displayed via eventHandler.
+                    ioError $ userError "Creation of DAR file failed"
                 Right dar -> do
                     let fp = targetFilePath pName
                     createDirectoryIfMissing True $ takeDirectory fp
