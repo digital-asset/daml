@@ -87,7 +87,7 @@ sealed abstract class Primitive {
   }
 
   sealed abstract class ContractIdApi {
-    def apply[Tpl <: Template[Tpl]](contractId: String): ContractId[Tpl]
+    def apply[Tpl](contractId: String): ContractId[Tpl]
     def subst[F[_], Tpl](tc: F[ApiTypes.ContractId]): F[ContractId[Tpl]]
   }
 
@@ -198,7 +198,7 @@ private[client] object OnlyPrimitive extends Primitive {
   }
 
   object ContractId extends ContractIdApi {
-    override def apply[Tpl <: Template[Tpl]](contractId: String) =
+    override def apply[Tpl](contractId: String) =
       ApiTypes.ContractId(contractId)
 
     override def subst[F[_], Tpl](tc: F[ApiTypes.ContractId]): F[ContractId[Tpl]] = tc
