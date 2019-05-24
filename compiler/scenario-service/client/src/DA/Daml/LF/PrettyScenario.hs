@@ -855,16 +855,9 @@ renderHeader world identifier parties = H.tr $ mconcat
             , foldMap (H.th . H.text) (templateConFields (templateConName identifier) world)
             ]
 
-renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
+renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> H.Html
 renderRow world parties NodeInfo{..} =
     let (_, tds) = renderValue world [] niValue
-        -- ths = renderHeader world niTemplateId
-        header = H.tr $ mconcat
-            [ foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
-            , H.th "id"
-            , H.th "status"
-            -- , foldMap (H.th . H.text) ths
-            ]
         observed party = if party `S.member` niObservers then "X" else "-"
         active = if niActive then "active" else "archived"
         row = H.tr H.! A.class_ (H.textValue active) $ mconcat
@@ -873,13 +866,13 @@ renderRow world parties NodeInfo{..} =
             , H.td (H.text active)
             , tds
             ]
-    in (header, row)
+    in row
 
 renderTable :: LF.World -> Table -> H.Html
 renderTable world Table{..} = H.div H.! A.class_ active $ do
     let parties = S.unions $ map niObservers tRows
     H.h1 $ renderPlain $ prettyDefName world tTemplateId
-    let (_, rows) = unzip $ map (renderRow world parties) tRows
+    let rows = map (renderRow world parties) tRows
     let header = renderHeader world tTemplateId parties
     H.table $ header <> mconcat rows
     where
