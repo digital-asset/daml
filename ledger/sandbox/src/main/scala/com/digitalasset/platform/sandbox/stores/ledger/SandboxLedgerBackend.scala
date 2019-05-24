@@ -129,7 +129,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       ac: ActiveContracts.ActiveContract): AcsUpdateEvent.Create =
     AcsUpdateEvent.Create(
       // we use absolute contract ids as event ids throughout the sandbox
-      domain.TransactionId(cId.coid), //TODO: is this correct?
+      domain.TransactionId(ac.transactionId),
       EventId(cId.coid),
       cId,
       ac.contract.template,
