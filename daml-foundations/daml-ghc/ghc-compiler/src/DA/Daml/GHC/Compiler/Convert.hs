@@ -269,13 +269,13 @@ convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) N
           [(is x', [b])
           | (a,b) <- binds
           , DFunId _ <- [idDetails a]
-          , TypeCon (Is "Choice") [TypeCon x' [],_,_] <- [varType a]
+          , TypeCon (QIsTpl "Choice") [TypeCon x' [],_,_] <- [varType a]
           ]
         keys = MS.fromListWith (++)
           [(is x', [b])
           | (a,b) <- binds
           , DFunId _ <- [idDetails a]
-          , TypeCon (Is "TemplateKey") [TypeCon x' [],_] <- [varType a]
+          , TypeCon (QIsTpl "TemplateKey") [TypeCon x' [],_] <- [varType a]
           ]
         defMeths = defaultMethods x
         env = Env
@@ -298,7 +298,7 @@ isTypeableInfo _ = False
 
 
 convertTemplate :: Env -> GHC.Expr Var -> ConvertM [Definition]
-convertTemplate env (VarIs "C:Template" `App` Type (TypeCon ty [])
+convertTemplate env (Var (QIsTpl "C:Template") `App` Type (TypeCon ty [])
         `App` ensure `App` signatories `App` observer `App` agreement `App` _create `App` _fetch `App` _archive `App` _archiveWithActors)
     = do
     tplSignatories <- applyTplParam <$> convertExpr env signatories
@@ -339,7 +339,7 @@ data Consuming = PreConsuming
 
 convertChoice :: Env -> LF.Expr -> GHC.Expr Var -> ConvertM TemplateChoice
 convertChoice env signatories
-  (VarIs "C:Choice" `App`
+  (Var (QIsTpl "C:Choice") `App`
      Type tmpl@(TypeCon tmplTyCon []) `App`
        Type (TypeCon chc []) `App`
          Type result `App`
@@ -391,15 +391,15 @@ convertChoice env signatories
         f i (App a _) = f i a
         f i (Tick _ e) = f i e
         f i (VarIs "$dmconsuming") = pure PreConsuming
-        f i (VarIs "preconsuming") = pure PreConsuming
-        f i (VarIs "nonconsuming") = pure NonConsuming
-        f i (VarIs "postconsuming") = pure PostConsuming
+        f i (Var (QIsTpl "preconsuming")) = pure PreConsuming
+        f i (Var (QIsTpl "nonconsuming")) = pure NonConsuming
+        f i (Var (QIsTpl "postconsuming")) = pure PostConsuming
         f i (Var x) | i > 0 = f (i-1) =<< envFindBind env x -- only required to see through the automatic default
         f _ x = unsupported "Unexpected definition of 'consuming'. Expected either absent, 'preconsuming', 'postconsuming' or 'nonconsuming'" x
 convertChoice _ _ x = unhandled "Choice body" x
 
 convertKey :: Env -> GHC.Expr Var -> ConvertM TemplateKey
-convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` Var maintainer `App` _fetch `App` _lookup) = do
+convertKey env o@(Var (QIsTpl "C:TemplateKey") `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` Var maintainer `App` _fetch `App` _lookup) = do
     tmpl' <- convertType env tmpl
     key <- envFindBind env key
     maintainer <- envFindBind env maintainer
@@ -487,7 +487,7 @@ convertCtors env (Ctors name tys cs) = do
 convertBind :: Env -> CoreBind -> ConvertM [Definition]
 convertBind env (NonRec name x)
     | DFunId _ <- idDetails name
-    , TypeCon (Is "Template") [t] <- varType name
+    , TypeCon (QIsTpl "Template") [t] <- varType name
     = withRange (convNameLoc name) $ liftA2 (++) (convertTemplate env x) (convertBind2 env (NonRec name x))
 convertBind env x = convertBind2 env x
 
@@ -1355,3 +1355,6 @@ mkPure env monad dict t x = do
 sourceLocToRange :: SourceLoc -> Range
 sourceLocToRange (SourceLoc _ slin scol elin ecol) =
   Range (Position slin scol) (Position elin ecol)
+
+pattern QIsTpl :: NamedThing a => String -> a
+pattern QIsTpl x <- QIs "DA.Internal.Template" x
