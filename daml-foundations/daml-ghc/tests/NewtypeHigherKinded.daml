@@ -1,0 +1,22 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Check that we can handle higher-kinded coercion axioms like `App f ~ f`.
+-- We currently cannot handle the coercion `App f (Wrap a) ~ f a` in general.
+-- Let's make sure this does not creep up because GHC tries to be smart and
+-- simplifies `fmap coerce` to `coerce`.
+daml 1.2
+module NewtypeHigherKinded where
+
+newtype App f a = App (f a)
+
+newtype Wrap a = Wrap a
+
+wrap : Functor f => f a -> App f (Wrap a)
+wrap xs = App (fmap Wrap xs)
+
+unwrap : Functor f => App f (Wrap a) -> f a
+unwrap (App xs) = fmap (\(Wrap x) -> x) xs
+
+main = scenario do
+  assert (unwrap (wrap [1]) == [1])
