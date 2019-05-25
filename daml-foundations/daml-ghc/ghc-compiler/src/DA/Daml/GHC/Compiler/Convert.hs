@@ -365,14 +365,16 @@ convertGenericTemplate env x
                 let chcConsuming = True
                 let chcSelfBinder = self
                 let applySelf e = ETmApp e unwrapSelf
-                let chcArgBinder = (mkVar "arg", argType)
+                let chcArgBinder = (arg, argType)
                 let applyArg e = e `ETmApp` EVar (fst chcArgBinder)
                 let chcReturnType = resType
                 chcControllers <- applyArg . applyThis <$> convertExpr env (Var controllers)
                 chcUpdate <- applyArg . applyThis . applySelf <$> convertExpr env (Var action)
                 controllers <- convertExpr env (Var controllers)
                 action <- convertExpr env (Var action)
-                exercise <- convertExpr env (Var exercise)
+                let exercise =
+                        mkETmLams [(self, TContractId polyType), (arg, argType)] $
+                          EUpdate $ UExercise monoTyCon chcName wrapSelf Nothing (EVar arg)
                 pure (TemplateChoice{..}, [controllers, action, exercise])
             convertGenericChoice es = unhandled "generic choice" es
         (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 3 choices)
@@ -400,6 +402,7 @@ convertGenericTemplate env x
         t -> snd <$> find (eqType t . fst) (envNewtypes env)
     this = mkVar "this"
     self = mkVar "self"
+    arg = mkVar "arg"
 convertGenericTemplate env x = unhandled "generic template" x
 
 archiveChoice :: LF.Expr -> TemplateChoice
