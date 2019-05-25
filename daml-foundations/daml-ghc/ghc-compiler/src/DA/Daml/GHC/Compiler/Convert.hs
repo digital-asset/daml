@@ -328,10 +328,11 @@ convertTemplate env (Var (QIsTpl "C:Template") `App` Type (TypeCon ty [])
         tplParam = mkVar "this"
 convertTemplate _ x = unsupported "Template definition with unexpected form" x
 
-convertGenericTemplate :: Env -> GHC.Expr Var -> ConvertM [Definition]
+convertGenericTemplate :: Env -> GHC.Expr Var -> ConvertM (Template, LF.Expr)
 convertGenericTemplate env x
-    | (VarIs tpl, args) <- collectArgs x
-    , Just (signatories : create : fetch : choices) <- dropWhile isSuperClassDict <$> mapM isVar_maybe (dropWhile isTypeArg args)
+    | (dictCon, args) <- collectArgs x
+    , (tyArgs, args) <- span isTypeArg args
+    , Just (superClassDicts, signatories : create : fetch : choices) <- span isSuperClassDict <$> mapM isVar_maybe (dropWhile isTypeArg args)
     , Just (polyType, _) <- splitFunTy_maybe (varType create)
     , Just (monoTyCon, unwrapCo) <- findMonoTyp polyType
     = do
@@ -353,7 +354,7 @@ convertGenericTemplate env x
         let tplPrecondition = ETrue
         let tplAgreement = mkEmptyText
         let tplKey = Nothing
-        let convertGenericChoice :: [Var] -> ConvertM TemplateChoice
+        let convertGenericChoice :: [Var] -> ConvertM (TemplateChoice, [LF.Expr])
             convertGenericChoice [controllers, action, exercise] = do
                 TContractId _ :-> _ :-> argType@(TConApp argTCon _) :-> TUpdate resType <- convertType env (varType action)
                 let chcLocation = Nothing
@@ -371,10 +372,22 @@ convertGenericTemplate env x
                 let chcReturnType = resType
                 chcControllers <- fmap applyArg $ applyTplParam =<< convertExpr env (Var controllers)
                 chcUpdate <- fmap applyArg $ applyTplParam =<< fmap applySelf (convertExpr env (Var action))
-                pure TemplateChoice{..}
+                controllers <- convertExpr env (Var controllers)
+                action <- convertExpr env (Var action)
+                exercise <- convertExpr env (Var exercise)
+                pure (TemplateChoice{..}, [controllers, action, exercise])
             convertGenericChoice es = unhandled "generic choice" es
-        tplChoices <- NM.fromList <$> mapM convertGenericChoice (chunksOf 3 choices)
-        pure [DTemplate Template{..}]
+        (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 3 choices)
+        superClassDicts <- mapM (convertExpr env . Var) superClassDicts
+        signatories <- convertExpr env (Var signatories)
+        create <- convertExpr env (Var create)
+        fetch <- convertExpr env (Var fetch)
+        dictCon <- convertExpr env dictCon
+        tyArgs <- mapM (convertArg env) tyArgs
+        -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
+        let tmArgs = map (TmArg . ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, create, fetch] ++ concat choices
+        let dict = mkEApps dictCon $ tyArgs ++ tmArgs
+        pure (Template{..}, dict)
   where
     isVar_maybe :: GHC.Expr Var -> Maybe Var
     isVar_maybe = \case
@@ -560,7 +573,10 @@ convertBind env (NonRec name x)
     | DFunId _ <- idDetails name
     , TypeCon (Is tplInst) _ <- varType name
     , "Instance" `isSuffixOf` tplInst
-    = withRange (convNameLoc name) $ liftA2 (++) (convertGenericTemplate env x) (convertBind2 env (NonRec name x))
+    = withRange (convNameLoc name) $ do
+        (tmpl, dict) <- convertGenericTemplate env x
+        name' <- convValWithType env name
+        pure [DTemplate tmpl, defValue name name' dict]
 convertBind env x = convertBind2 env x
 
 convertBind2 :: Env -> CoreBind -> ConvertM [Definition]
@@ -978,10 +994,10 @@ convertExpr env0 e = do
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
 
-    convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
-    convertArg env = \case
-        Type t -> TyArg <$> convertType env t
-        e -> TmArg <$> convertExpr env e
+convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
+convertArg env = \case
+    Type t -> TyArg <$> convertType env t
+    e -> TmArg <$> convertExpr env e
 
 withTyArg :: Env -> (LF.TypeVarName, LF.Kind) -> [LArg Var] -> (LF.Type -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
 withTyArg env _ (LType t:args) cont = do
