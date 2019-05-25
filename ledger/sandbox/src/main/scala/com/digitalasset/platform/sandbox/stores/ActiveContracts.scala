@@ -27,7 +27,10 @@ import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.{
 
 class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => ActiveContracts[ACS]) {
 
-  private case class AddTransactionState(acc: Option[ACS], errs: Set[SequencingError]) {
+  private case class AddTransactionState(
+      acc: Option[ACS],
+      errs: Set[SequencingError],
+      parties: Set[Party]) {
 
     def mapAcs(f: ACS => ACS): AddTransactionState = copy(acc = acc map f)
 
@@ -50,7 +53,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
 
   private object AddTransactionState {
     def apply(acs: ACS): AddTransactionState =
-      AddTransactionState(Some(acs), Set())
+      AddTransactionState(Some(acs), Set(), Set.empty)
   }
 
   /**
@@ -69,8 +72,8 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
     val st =
       transaction
         .fold[AddTransactionState](GenTransaction.TopDown, AddTransactionState(initialState)) {
-          case (ats @ AddTransactionState(None, _), _) => ats
-          case (ats @ AddTransactionState(Some(acc), errs), (nodeId, node)) =>
+          case (ats @ AddTransactionState(None, _, _), _) => ats
+          case (ats @ AddTransactionState(Some(acc), errs, parties), (nodeId, node)) =>
             // if some node requires a contract, check that we have that contract, and check that that contract is not
             // created after the current let.
             def contractCheck(
@@ -88,9 +91,18 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
 
             node match {
               case nf: N.NodeFetch[AbsoluteContractId] =>
+                val nodeParties = nf.signatories
+                  .union(nf.stakeholders)
+                  .union(nf.actingParties.getOrElse(Set.empty))
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nf.coid)
-                AddTransactionState(Some(acc), contractCheck(absCoid, Fetch).fold(errs)(errs + _))
+                AddTransactionState(
+                  Some(acc),
+                  contractCheck(absCoid, Fetch).fold(errs)(errs + _),
+                  parties.union(nodeParties)
+                )
               case nc: N.NodeCreate.WithTxValue[AbsoluteContractId] =>
+                val nodeParties = nc.signatories
+                  .union(nc.stakeholders)
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
                 val activeContract = ActiveContract(
                   let = let,
@@ -113,12 +125,18 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                   case Some(key) =>
                     val gk = GlobalKey(activeContract.contract.template, key.key)
                     if (acc keyExists gk) {
-                      AddTransactionState(None, errs + DuplicateKey(gk))
+                      AddTransactionState(None, errs + DuplicateKey(gk), parties.union(nodeParties))
                     } else {
-                      ats.copy(acc = Some(acc.addContract(absCoid, activeContract, Some(gk))))
+                      ats.copy(
+                        acc = Some(acc.addContract(absCoid, activeContract, Some(gk))),
+                        parties = parties.union(nodeParties)
+                      )
                     }
                 }
               case ne: N.NodeExercises.WithTxValue[Nid, AbsoluteContractId] =>
+                val nodeParties = ne.signatories
+                  .union(ne.stakeholders)
+                  .union(ne.actingParties)
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(ne.targetCoid)
                 ats.copy(
                   errs = contractCheck(absCoid, Exercise).fold(errs)(errs + _),
@@ -129,7 +147,8 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                     })
                   } else {
                     acc
-                  })
+                  }),
+                  parties = parties.union(nodeParties)
                 )
               case nlkup: N.NodeLookupByKey.WithTxValue[AbsoluteContractId] =>
                 // NOTE(FM) we do not need to check anything, since
@@ -139,7 +158,9 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
             }
         }
 
-    st.mapAcs(_ divulgeAlreadyCommittedContract (transactionId, globalImplicitDisclosure)).result
+    st.mapAcs(_ divulgeAlreadyCommittedContract (transactionId, globalImplicitDisclosure))
+      .mapAcs(_ addParties st.parties)
+      .result
   }
 
 }
@@ -149,6 +170,12 @@ trait ActiveContracts[+Self] { this: ActiveContracts[Self] =>
   def keyExists(key: GlobalKey): Boolean
   def addContract(cid: AbsoluteContractId, c: ActiveContract, keyO: Option[GlobalKey]): Self
   def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]): Self
+
+  /** Called once for each transaction with the set of parties found in that transaction.
+    * As the sandbox has an open world of parties, any party name mentioned in a transaction
+    * will implicitly add that name to the list of known parties.
+    */
+  def addParties(parties: Set[Party]): Self
 
   /** Note that this method is about disclosing contracts _that have already been
     * committed_. Implementors of `ActiveContracts` must take care to also store

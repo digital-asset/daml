@@ -6,9 +6,11 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.v2.PartyAllocationResult
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 
@@ -63,6 +65,14 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends
 
   override def reset(): Future[Unit] =
     ledgerDao.reset()
+
+  override def getParties: Future[List[PartyDetails]] =
+    mm.timedFuture("getParties", ledgerDao.getParties)
+
+  override def storeParty(
+      party: Party,
+      displayName: Option[String]): Future[PartyAllocationResult] =
+    mm.timedFuture("storeParty", ledgerDao.storeParty(party, displayName))
 
   override def close(): Unit = {
     ledgerDao.close()

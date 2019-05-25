@@ -8,6 +8,7 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v2.{
+  PartyAllocationResult,
   SubmissionResult,
   SubmittedTransaction,
   SubmitterInfo,
@@ -15,11 +16,17 @@ import com.daml.ledger.participant.state.v2.{
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.TransactionIdString
+import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
-import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId, LedgerId, RejectionReason}
+import com.digitalasset.ledger.api.domain.{
+  ApplicationId,
+  CommandId,
+  LedgerId,
+  PartyDetails,
+  RejectionReason
+}
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
@@ -199,4 +206,24 @@ class InMemoryLedger(
           case t: LedgerEntry.Transaction =>
             (transactionId.toLong, t) // the transaction id is also the offset
         })
+
+  override def parties: Future[List[PartyDetails]] =
+    Future.successful(this.synchronized {
+      acs.parties.values.toList
+    })
+
+  override def allocateParty(
+      party: Party,
+      displayName: Option[String]): Future[PartyAllocationResult] =
+    Future.successful(this.synchronized {
+      val ids = acs.parties.keySet
+
+      if (ids.contains(party))
+        PartyAllocationResult.AlreadyExists
+      else {
+        val details = PartyDetails(party, displayName, true)
+        acs = acs.addParty(details)
+        PartyAllocationResult.Ok(details)
+      }
+    })
 }
