@@ -77,6 +77,7 @@
 
 module DA.Daml.GHC.Compiler.Convert(convertModule, sourceLocToRange) where
 
+import Debug.Trace
 import           DA.Daml.LF.Simplifier (freeVarsStep)
 import           DA.Daml.GHC.Compiler.Primitives
 import           DA.Daml.GHC.Compiler.UtilGHC
@@ -163,6 +164,7 @@ data Env = Env
     ,envAliases :: MS.Map Var LF.Expr
     ,envPkgMap :: MS.Map GHC.UnitId T.Text
     ,envLfVersion :: LF.Version
+    ,envNewtypes :: [(GHC.Type, (TyCon, Coercion))]
     }
 
 envFindBind :: Env -> Var -> ConvertM (GHC.Expr Var)
@@ -277,6 +279,11 @@ convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) N
           , DFunId _ <- [idDetails a]
           , TypeCon (QIsTpl "TemplateKey") [TypeCon x' [],_] <- [varType a]
           ]
+        newtypes =
+          [ (wrappedT, (t, mkUnbranchedAxInstCo Representational co [] []))
+          | ATyCon t <- eltsUFM (cm_types x)
+          , Just ([], wrappedT, co) <- [unwrapNewTyCon_maybe t]
+          ]
         defMeths = defaultMethods x
         env = Env
           { envLFModuleName = lfModName
@@ -289,6 +296,7 @@ convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) N
           , envAliases = MS.empty
           , envPkgMap = pkgMap
           , envLfVersion = lfVersion
+          , envNewtypes = newtypes
           }
 
 -- | We can't cope with the generated Typeable stuff, so remove those bindings
@@ -319,6 +327,66 @@ convertTemplate env (Var (QIsTpl "C:Template") `App` Type (TypeCon ty [])
         tplTypeCon = mkTypeCon [is ty]
         tplParam = mkVar "this"
 convertTemplate _ x = unsupported "Template definition with unexpected form" x
+
+convertGenericTemplate :: Env -> GHC.Expr Var -> ConvertM [Definition]
+convertGenericTemplate env x
+    | (VarIs tpl, args) <- collectArgs x
+    , Just (signatories : create : fetch : choices) <- dropWhile isSuperClassDict <$> mapM isVar_maybe (dropWhile isTypeArg args)
+    , Just (polyType, _) <- splitFunTy_maybe (varType create)
+    , Just (monoTyCon, unwrapCo) <- findMonoTyp polyType
+    = do
+        traceM $ unlines $
+          [ "found generic template instance for " ++ prettyPrint polyType ++ " as " ++ prettyPrint monoTyCon
+          , "create: " ++ prettyPrint create ++ " :: " ++ prettyPrint (varType create)
+          , "fetch: " ++ prettyPrint fetch ++ " :: " ++ prettyPrint (varType fetch)
+          , "exercises:"
+          ] ++
+          map (\c -> "- " ++ prettyPrint c ++ " :: " ++ prettyPrint (varType c)) choices
+        polyType <- convertType env polyType
+        monoType <- convertTyCon env monoTyCon
+        let tplLocation = Nothing
+        let tplTypeCon = mkTypeCon [is monoTyCon]
+        let tplParam = mkVar "this"
+        let applyTplParam e = ETmApp e <$> convertCast env (EVar tplParam) unwrapCo
+        tplSignatories <- applyTplParam =<< convertExpr env (Var signatories)
+        let tplObservers = ENil TParty
+        let tplPrecondition = ETrue
+        let tplAgreement = mkEmptyText
+        let tplKey = Nothing
+        let convertGenericChoice :: [Var] -> ConvertM TemplateChoice
+            convertGenericChoice [controllers, action, exercise] = do
+                TContractId _ :-> _ :-> argType@(TConApp argTCon _) :-> TUpdate resType <- convertType env (varType action)
+                let chcLocation = Nothing
+                let chcName = ChoiceName $ T.intercalate "." $ unTypeConName $ qualObject argTCon
+                let chcConsuming = True
+                let chcSelfBinder = mkVar "self"
+                let applySelf e =
+                        ETmApp e $ mkEApps (EBuiltin BECoerceContractId)
+                            [ TyArg monoType
+                            , TyArg polyType
+                            , TmArg (EVar chcSelfBinder)
+                            ]
+                let chcArgBinder = (mkVar "arg", argType)
+                let applyArg e = e `ETmApp` EVar (fst chcArgBinder)
+                let chcReturnType = resType
+                chcControllers <- fmap applyArg $ applyTplParam =<< convertExpr env (Var controllers)
+                chcUpdate <- fmap applyArg $ applyTplParam =<< fmap applySelf (convertExpr env (Var action))
+                pure TemplateChoice{..}
+            convertGenericChoice es = unhandled "generic choice" es
+        tplChoices <- NM.fromList <$> mapM convertGenericChoice (chunksOf 3 choices)
+        pure [DTemplate Template{..}]
+  where
+    isVar_maybe :: GHC.Expr Var -> Maybe Var
+    isVar_maybe = \case
+        Var v -> Just v
+        _ -> Nothing
+    isSuperClassDict :: Var -> Bool
+    isSuperClassDict v = "$cp" `isPrefixOf` is v
+    findMonoTyp :: GHC.Type -> Maybe (TyCon, Coercion)
+    findMonoTyp t = case t of
+        TypeCon tcon [] -> Just (tcon, mkNomReflCo t)
+        t -> snd <$> find (eqType t . fst) (envNewtypes env)
+convertGenericTemplate env x = unhandled "generic template" x
 
 archiveChoice :: LF.Expr -> TemplateChoice
 archiveChoice signatories = TemplateChoice{..}
@@ -489,6 +557,10 @@ convertBind env (NonRec name x)
     | DFunId _ <- idDetails name
     , TypeCon (QIsTpl "Template") [t] <- varType name
     = withRange (convNameLoc name) $ liftA2 (++) (convertTemplate env x) (convertBind2 env (NonRec name x))
+    | DFunId _ <- idDetails name
+    , TypeCon (Is tplInst) _ <- varType name
+    , "Instance" `isSuffixOf` tplInst
+    = withRange (convNameLoc name) $ liftA2 (++) (convertGenericTemplate env x) (convertBind2 env (NonRec name x))
 convertBind env x = convertBind2 env x
 
 convertBind2 :: Env -> CoreBind -> ConvertM [Definition]

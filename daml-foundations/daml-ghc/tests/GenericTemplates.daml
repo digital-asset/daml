@@ -1,0 +1,112 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module GenericTemplates where
+
+import Prelude hiding (Template (..), Choice (..), create, fetch, exercise)
+import DA.List
+import DA.Record (Symbol)
+
+-- The type classes.
+class Template t where
+  signatory : t -> [Party]
+
+class Template t => Creatable t where
+  create : t -> Update (ContractId t)
+  fetch : ContractId t -> Update t
+
+class Template t => Choice t c r | t c -> r where
+  choiceController : t -> c -> [Party]
+  action : ContractId t -> t -> c -> Update r
+
+class (Creatable t, Choice t c r) => Exercisable t c r | t c -> r where
+  exercise : ContractId t -> c -> Update r
+
+magic : forall (f : Symbol) a. a
+magic = error "magic"-- deleted by the compiler
+
+-- A manually desugared non-generic example.
+data Iou = Iou with
+  issuer : Party
+  owner : Party
+  amount : Decimal
+
+instance Template Iou where
+  signatory this@Iou{..} = [issuer, owner]
+
+data Burn = Burn{}
+
+instance Choice Iou Burn () where
+  choiceController this@Iou{..} arg@Burn = [owner]
+  action self this@Iou{..} arg@Burn = do
+    pure ()
+
+class IouInstance where
+  -- TODO(MH): Look for another way to transfer the `signatory` clause.
+  signatoryIou : Iou -> [Party]
+  signatoryIou = signatory
+  createIou : Iou -> Update (ContractId Iou)
+  createIou = magic @"create"
+  fetchIou : ContractId Iou -> Update Iou
+  fetchIou = magic @"fetch"
+  controllerIouBurn : Iou -> Burn -> [Party]
+  controllerIouBurn = choiceController
+  actionIouBurn : ContractId Iou -> Iou -> Burn -> Update ()
+  actionIouBurn = action
+  exerciseIouBurn : ContractId Iou -> Burn -> Update ()
+  exerciseIouBurn = magic @"exercise"
+
+instance IouInstance => Creatable Iou where
+  create = createIou
+  fetch = fetchIou
+
+instance IouInstance => Exercisable Iou Burn () where
+  exercise = exerciseIouBurn
+
+instance IouInstance where
+
+
+-- A manually desugared generic example.
+data Proposal t = Proposal with
+  asset : t
+  receivers : [Party]
+
+instance Creatable t => Template (Proposal t) where
+  signatory this@Proposal{..} = signatory asset \\ receivers
+
+
+data Accept = Accept{}
+
+instance Creatable t => Choice (Proposal t) Accept (ContractId t) where
+  choiceController this@Proposal{..} arg@Accept = receivers
+  action self this@Proposal{..} arg@Accept = do
+    create asset
+
+
+class Creatable t => ProposalInstance t where
+    -- TODO(MH): Look for another way to transfer the `signatory` clause.
+    signatoryProposal : Proposal t -> [Party]
+    signatoryProposal = signatory
+    createProposal : Proposal t -> Update (ContractId (Proposal t))
+    createProposal = magic @"create"
+    fetchProposal : ContractId (Proposal t) -> Update (Proposal t)
+    fetchProposal = magic @"fetch"
+    controllerProposalAccept : Proposal t -> Accept -> [Party]
+    controllerProposalAccept = choiceController
+    actionProposalAccept : ContractId (Proposal t) -> Proposal t -> Accept -> Update (ContractId t)
+    actionProposalAccept = action
+    exerciseProposalAccept : ContractId (Proposal t) -> Accept -> Update (ContractId t)
+    exerciseProposalAccept = magic @"exercise"
+
+instance ProposalInstance t => Creatable (Proposal t) where
+    create = createProposal
+    fetch = fetchProposal
+
+instance ProposalInstance t => Exercisable (Proposal t) Accept (ContractId t) where
+    exercise = exerciseProposalAccept
+
+
+newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou
+
+instance ProposalInstance Iou where
