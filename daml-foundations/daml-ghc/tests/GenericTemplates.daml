@@ -2,14 +2,13 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Prototype implementation of the backend for generic templates.
+-- @IGNORE
 -- @SINCE-LF 1.5
 daml 1.2
 module GenericTemplates where
 
 import Prelude hiding (Template (..), Choice (..), create, fetch, exercise)
-import DA.List
 
--- The type classes.
 class Template t where
   signatory : t -> [Party]
   observer : t -> [Party]
@@ -25,113 +24,3 @@ class Template t => Choice t c r | t c -> r where
 
 class (Creatable t, Choice t c r) => Exercisable t c r | t c -> r where
   exercise : ContractId t -> c -> Update r
-
-
--- A manually desugared non-generic template example.
-data Iou = Iou with
-    issuer : Party
-    owner : Party
-    amount : Decimal
-  deriving (Eq, Show)
-
-instance Template Iou where
-  signatory this@Iou{..} = [issuer, owner]
-
-data Burn = Burn{}
-  deriving (Eq, Show)
-
-instance Choice Iou Burn () where
-  choiceController this@Iou{..} arg@Burn = [owner]
-  action self this@Iou{..} arg@Burn = do
-    pure ()
-
-class IouInstance where
-  -- TODO(MH): Look for other ways to transfer the template definition.
-  signatoryIou : Iou -> [Party]
-  signatoryIou = signatory
-  observerIou : Iou -> [Party]
-  observerIou = observer
-  createIou : Iou -> Update (ContractId Iou)
-  createIou = error "code will be injected by the compiler"
-  fetchIou : ContractId Iou -> Update Iou
-  fetchIou = error "code will be injected by the compiler"
-  controllerIouBurn : Iou -> Burn -> [Party]
-  controllerIouBurn = choiceController
-  actionIouBurn : ContractId Iou -> Iou -> Burn -> Update ()
-  actionIouBurn = action
-  exerciseIouBurn : ContractId Iou -> Burn -> Update ()
-  exerciseIouBurn = error "code will be injected by the compiler"
-
-instance IouInstance => Creatable Iou where
-  create = createIou
-  fetch = fetchIou
-
-instance IouInstance => Exercisable Iou Burn () where
-  exercise = exerciseIouBurn
-
-instance IouInstance where
-
-
--- A manually desugared generic template example.
-data Proposal t = Proposal with
-    asset : t
-    receivers : [Party]
-  deriving (Eq, Show)
-
-instance Creatable t => Template (Proposal t) where
-  signatory this@Proposal{..} = signatory asset \\ receivers
-  observer this@Proposal{..} = receivers
-
-
-data Accept = Accept{}
-  deriving (Eq, Show)
-
-instance Creatable t => Choice (Proposal t) Accept (ContractId t) where
-  choiceController this@Proposal{..} arg@Accept = receivers
-  action self this@Proposal{..} arg@Accept = do
-    create asset
-
-
-class Creatable t => ProposalInstance t where
-    signatoryProposal : Proposal t -> [Party]
-    signatoryProposal = signatory
-    observerProposal : Proposal t -> [Party]
-    observerProposal = observer
-    createProposal : Proposal t -> Update (ContractId (Proposal t))
-    createProposal = error "code will be injected by the compiler"
-    fetchProposal : ContractId (Proposal t) -> Update (Proposal t)
-    fetchProposal = error "code will be injected by the compiler"
-    controllerProposalAccept : Proposal t -> Accept -> [Party]
-    controllerProposalAccept = choiceController
-    actionProposalAccept : ContractId (Proposal t) -> Proposal t -> Accept -> Update (ContractId t)
-    actionProposalAccept = action
-    exerciseProposalAccept : ContractId (Proposal t) -> Accept -> Update (ContractId t)
-    exerciseProposalAccept = error "code will be injected by the compiler"
-
-instance ProposalInstance t => Creatable (Proposal t) where
-    create = createProposal
-    fetch = fetchProposal
-
-instance ProposalInstance t => Exercisable (Proposal t) Accept (ContractId t) where
-    exercise = exerciseProposalAccept
-
-
-newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou
-
-instance ProposalInstance Iou where
-
-
--- A scenario.
-test = scenario do
-  alice <- getParty "alice"
-  bank <- getParty "bank"
-  let iou = Iou with issuer = bank; owner = alice; amount = 10.0
-  propId <- submit bank do
-    create Proposal with asset = iou; receivers = [alice]
-  iouId <- submit alice do
-    exercise propId Accept
-  iou' <- submit alice do
-    fetch iouId
-  assert $ iou' == iou
-  submit alice do
-    exercise iouId Burn

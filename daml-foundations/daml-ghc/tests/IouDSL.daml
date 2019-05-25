@@ -1,174 +1,77 @@
--- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
--- All rights reserved.
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
 
+-- An IOU to be proposed using the generic proposal workflow.
+-- @SINCE-LF 1.5
 daml 1.2
 module IouDSL where
 
+import Prelude hiding (Template (..), Choice (..), create, fetch, exercise)
+import GenericTemplates
+import ProposalDSL
+
+
 data Iou = Iou with
-    issuer   : Party
-    owner    : Party
-    currency : Text
-    amount   : Decimal
-  deriving Eq
+    issuer : Party
+    owner : Party
+    amount : Decimal
+  deriving (Eq, Show)
 
 instance Template Iou where
-  ensure this@Iou{..} = amount > 0.0
+  signatory this@Iou{..} = [issuer, owner]
 
-  signatory this@Iou{..} = [issuer]
-  observer this@Iou{..} = [owner]
+data Burn = Burn{}
+  deriving (Eq, Show)
 
-  agreement this@Iou{..} =
-    show issuer <> " promises to pay " <>
-    show amount <> " " <> currency <>
-    " on demand to " <> show owner
+instance Choice Iou Burn () where
+  choiceController this@Iou{..} arg@Burn = [owner]
+  action self this@Iou{..} arg@Burn = do
+    pure ()
 
-data Transfer = Transfer with newOwner : Party
-instance Choice Iou Transfer (ContractId Iou) where
-  choiceController Iou{..} _ = [owner]
-  choice this@Iou{..} self arg@Transfer{..} =
-    -- Transfer the IOU to a new owner.
-    create this with owner = newOwner
+class IouInstance where
+  -- TODO(MH): Look for other ways to transfer the template definition.
+  signatoryIou : Iou -> [Party]
+  signatoryIou = signatory
+  observerIou : Iou -> [Party]
+  observerIou = observer
+  createIou : Iou -> Update (ContractId Iou)
+  createIou = error "code will be injected by the compiler"
+  fetchIou : ContractId Iou -> Update Iou
+  fetchIou = error "code will be injected by the compiler"
+  controllerIouBurn : Iou -> Burn -> [Party]
+  controllerIouBurn = choiceController
+  actionIouBurn : ContractId Iou -> Iou -> Burn -> Update ()
+  actionIouBurn = action
+  exerciseIouBurn : ContractId Iou -> Burn -> Update ()
+  exerciseIouBurn = error "code will be injected by the compiler"
 
-data Split = Split with splitAmount : Decimal
-instance Choice Iou Split (ContractId Iou, ContractId Iou) where
-  choiceController Iou{..} _ = [owner]
-  choice this@Iou{..} self arg@Split{..} = do
-    -- Split the IOU by dividing the amount.
-      let restAmount = amount - splitAmount
-      splitCid <- create this with amount = splitAmount
-      restCid <- create this with amount = restAmount
-      return (splitCid, restCid)
+instance IouInstance => Creatable Iou where
+  create = createIou
+  fetch = fetchIou
 
-data Merge = Merge with otherCid : ContractId Iou
-instance Choice Iou Merge (ContractId Iou) where
-  choiceController Iou{..} _ = [owner]
-  choice this@Iou{..} self arg@Merge{..} = do
-    -- Merge two IOUs by aggregating their amounts.
-      otherIou <- fetch otherCid
-      -- Check the two IOU's are compatible
-      assert (
-        currency == otherIou.currency &&
-        owner == otherIou.owner &&
-        issuer == otherIou.issuer
-        )
-      -- Retire the old Iou by transferring to the
-      -- issuer and archiving
-      transferCid <-
-        exercise otherCid Transfer with newOwner = issuer
-      exercise transferCid Archive
-      -- Return the merged Iou
-      create this with amount = amount + otherIou.amount
+instance IouInstance => Exercisable Iou Burn () where
+  exercise = exerciseIouBurn
+
+instance IouInstance where
 
 
-main = scenario do
-  bank <- getParty "Acme Bank"
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
-  charlie <- getParty "Charlie"
+-- The instantiation of the generic proposal workflow for `Iou`.
+newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou
 
-  -- Bank creates Iou's for Alice and Bob
+instance ProposalInstance Iou where
 
-  iouAliceCid <- submit bank do
-    create Iou with
-      issuer   = bank
-      owner    = alice
-      currency = "USD"
-      amount   = 100.0
 
-  iouBobCid <- submit bank do
-    create Iou with
-      issuer   = bank
-      owner    = bob
-      currency = "USD"
-      amount   = 30.0
-
-  -- Alice transfers some Iou's to Bob
-  (split, rest) <- submit alice do
-    exercise iouAliceCid Split with splitAmount = 40.0
-  iouOtherCid <- submit alice do
-    exercise split Transfer with newOwner = bob
-
-  -- Bob merges them with the ones he had already.
-  iouTotalCid <- submit bob do
-    exercise iouBobCid Merge with otherCid = iouOtherCid
-
-  -- Assert things are as they should be
+-- A scenario.
+test = scenario do
+  alice <- getParty "alice"
+  bank <- getParty "bank"
+  let iou = Iou with issuer = bank; owner = alice; amount = 10.0
+  propId <- submit bank do
+    create Proposal with asset = iou; receivers = [alice]
+  iouId <- submit alice do
+    exercise propId Accept
+  iou' <- submit alice do
+    fetch iouId
+  assert $ iou' == iou
   submit alice do
-    aliceIou <- fetch rest
-    assert $ aliceIou == Iou with
-      issuer   = bank
-      owner    = alice
-      currency = "USD"
-      amount   = 60.0
-
-
-  submit bob do
-    bobIou <- fetch iouTotalCid
-    assert $ bobIou == Iou with
-      issuer   = bank
-      owner    = bob
-      currency = "USD"
-      amount   = 70.0
-
-  -- Issuer can archive Iou's they own
-  iouBankCid <- submit bank do
-    create Iou with
-      issuer   = bank
-      owner    = bank
-      currency = "USD"
-      amount   = 100.0
-
-  submit bank do exercise iouBankCid Archive
-  submitMustFail bank do fetch iouBankCid
-
-  -- some things are broken because we have had to hack signatories
-  -- scheduled fix in DAML-LF for next week
-  let broken x = return ()
-
-  -- Alice can't create IOUs that are backed by Acme Bank.
-  broken $ submitMustFail alice do
-    create Iou with
-      issuer   = bank
-      owner    = alice
-      currency = "USD"
-      amount   = 50.0
-
-  -- Acme Bank can't create IOUs with a negative amount.
-  submitMustFail bank do
-    create Iou with
-      issuer   = bank
-      owner    = alice
-      currency = "USD"
-      amount   = -20.0
-
-  -- SplitAmount needs to be between 0 and amount.
-  submitMustFail alice do exercise rest Split with splitAmount = 80.0
-
-  -- Double spend gets prevented by archiving the contract.
-  submitMustFail alice do exercise split Transfer with newOwner = charlie
-
-  -- Similarly a merged contract gets archived as well.
-  submitMustFail bob do exercise iouOtherCid Transfer with newOwner = charlie
-
-  -- Only the owner can exercise the transfer choice.
-  submitMustFail bank do exercise rest Transfer with newOwner = charlie
-
-  -- Alice can't archive something where issuer is a signatory
-  submitMustFail alice do exercise rest Archive
-
-  -- Alice didn't disclose her remaining IOUs to Bob.
-  submitMustFail bob do fetch rest
-
-  -- Issuer can archive
-  submit bank do archive rest
-
-  -- Only matching IOUs can be merged.
-  iouEURCid <- submit bank do
-    create Iou with
-      issuer   = bank
-      owner    = alice
-      currency = "EUR"
-      amount   = 60.0
-
-  submitMustFail alice do
-    exercise rest Merge with otherCid = iouEURCid
+    exercise iouId Burn

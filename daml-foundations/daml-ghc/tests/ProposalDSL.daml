@@ -1,0 +1,59 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- A generic proposal workflow using generic templates.
+-- @IGNORE
+-- @SINCE-LF 1.5
+daml 1.2
+module ProposalDSL
+  ( Proposal (..)
+  , Accept (..)
+  , ProposalInstance
+  ) where
+
+import Prelude hiding (Template (..), Choice (..), create, fetch, exercise)
+import DA.List
+import GenericTemplates
+
+
+data Proposal t = Proposal with
+    asset : t
+    receivers : [Party]
+  deriving (Eq, Show)
+
+instance Creatable t => Template (Proposal t) where
+  signatory this@Proposal{..} = signatory asset \\ receivers
+  observer this@Proposal{..} = receivers
+
+
+data Accept = Accept{}
+  deriving (Eq, Show)
+
+instance Creatable t => Choice (Proposal t) Accept (ContractId t) where
+  choiceController this@Proposal{..} arg@Accept = receivers
+  action self this@Proposal{..} arg@Accept = do
+    create asset
+
+
+class Creatable t => ProposalInstance t where
+    signatoryProposal : Proposal t -> [Party]
+    signatoryProposal = signatory
+    observerProposal : Proposal t -> [Party]
+    observerProposal = observer
+    createProposal : Proposal t -> Update (ContractId (Proposal t))
+    createProposal = error "code will be injected by the compiler"
+    fetchProposal : ContractId (Proposal t) -> Update (Proposal t)
+    fetchProposal = error "code will be injected by the compiler"
+    controllerProposalAccept : Proposal t -> Accept -> [Party]
+    controllerProposalAccept = choiceController
+    actionProposalAccept : ContractId (Proposal t) -> Proposal t -> Accept -> Update (ContractId t)
+    actionProposalAccept = action
+    exerciseProposalAccept : ContractId (Proposal t) -> Accept -> Update (ContractId t)
+    exerciseProposalAccept = error "code will be injected by the compiler"
+
+instance ProposalInstance t => Creatable (Proposal t) where
+    create = createProposal
+    fetch = fetchProposal
+
+instance ProposalInstance t => Exercisable (Proposal t) Accept (ContractId t) where
+    exercise = exerciseProposalAccept
