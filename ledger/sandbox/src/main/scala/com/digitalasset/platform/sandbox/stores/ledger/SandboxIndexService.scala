@@ -3,12 +3,13 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger
 
-import java.util.concurrent.CompletionStage
+import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, _}
+import com.daml.ledger.participant.state.v1.PartyAllocationResult
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
@@ -351,4 +352,21 @@ class SandboxIndexService(
       key: GlobalKey): Future[Option[AbsoluteContractId]] =
     contractStore.lookupContractKey(submitter, key)
 
+  // WriteService (write part of party management)
+  override def allocateParty(
+      hint: Option[String],
+      displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
+    // TODO: Implement party management
+    CompletableFuture.completedFuture(PartyAllocationResult.NotSupported)
+  }
+
+  // PartyManagementService
+  override def getParticipantId(): Future[ParticipantId] =
+    // In the case of the sandbox, there is only one participant node
+    // TODO: Make the participant ID configurable
+    Future.successful(ParticipantId(ledger.ledgerId.unwrap))
+
+  override def listParties(): Future[List[PartyDetails]] =
+    // TODO: Implement party management
+    Future.failed(new RuntimeException("Not implemented"))
 }
