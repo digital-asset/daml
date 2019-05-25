@@ -344,12 +344,15 @@ convertGenericTemplate env x
           ] ++
           map (\c -> "- " ++ prettyPrint c ++ " :: " ++ prettyPrint (varType c)) choices
         polyType <- convertType env polyType
-        monoType <- convertTyCon env monoTyCon
+        monoType@(TCon monoTyCon) <- convertTyCon env monoTyCon
+        let unwrapSelf = mkEApps (EBuiltin BECoerceContractId) [TyArg monoType, TyArg polyType, TmArg (EVar self)]
+        let wrapSelf = mkEApps (EBuiltin BECoerceContractId) [TyArg polyType, TyArg monoType, TmArg (EVar self)]
         let tplLocation = Nothing
-        let tplTypeCon = mkTypeCon [is monoTyCon]
-        let tplParam = mkVar "this"
-        let applyTplParam e = ETmApp e <$> convertCast env (EVar tplParam) unwrapCo
-        tplSignatories <- applyTplParam =<< convertExpr env (Var signatories)
+        let tplTypeCon = qualObject monoTyCon
+        let tplParam = this
+        unwrapThis <- convertCast env (EVar this) unwrapCo
+        let applyThis e = ETmApp e unwrapThis
+        tplSignatories <- applyThis <$> convertExpr env (Var signatories)
         let tplObservers = ENil TParty
         let tplPrecondition = ETrue
         let tplAgreement = mkEmptyText
@@ -360,18 +363,13 @@ convertGenericTemplate env x
                 let chcLocation = Nothing
                 let chcName = ChoiceName $ T.intercalate "." $ unTypeConName $ qualObject argTCon
                 let chcConsuming = True
-                let chcSelfBinder = mkVar "self"
-                let applySelf e =
-                        ETmApp e $ mkEApps (EBuiltin BECoerceContractId)
-                            [ TyArg monoType
-                            , TyArg polyType
-                            , TmArg (EVar chcSelfBinder)
-                            ]
+                let chcSelfBinder = self
+                let applySelf e = ETmApp e unwrapSelf
                 let chcArgBinder = (mkVar "arg", argType)
                 let applyArg e = e `ETmApp` EVar (fst chcArgBinder)
                 let chcReturnType = resType
-                chcControllers <- fmap applyArg $ applyTplParam =<< convertExpr env (Var controllers)
-                chcUpdate <- fmap applyArg $ applyTplParam =<< fmap applySelf (convertExpr env (Var action))
+                chcControllers <- applyArg . applyThis <$> convertExpr env (Var controllers)
+                chcUpdate <- applyArg . applyThis . applySelf <$> convertExpr env (Var action)
                 controllers <- convertExpr env (Var controllers)
                 action <- convertExpr env (Var action)
                 exercise <- convertExpr env (Var exercise)
@@ -380,8 +378,9 @@ convertGenericTemplate env x
         (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 3 choices)
         superClassDicts <- mapM (convertExpr env . Var) superClassDicts
         signatories <- convertExpr env (Var signatories)
-        create <- convertExpr env (Var create)
-        fetch <- convertExpr env (Var fetch)
+        wrapThis <- convertCast env (EVar this) (SymCo unwrapCo)
+        let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon wrapThis) $ EUpdate $ UPure (TContractId polyType) $ unwrapSelf
+        let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon wrapSelf) $ EUpdate $ UPure polyType $ unwrapThis
         dictCon <- convertExpr env dictCon
         tyArgs <- mapM (convertArg env) tyArgs
         -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
@@ -399,6 +398,8 @@ convertGenericTemplate env x
     findMonoTyp t = case t of
         TypeCon tcon [] -> Just (tcon, mkNomReflCo t)
         t -> snd <$> find (eqType t . fst) (envNewtypes env)
+    this = mkVar "this"
+    self = mkVar "self"
 convertGenericTemplate env x = unhandled "generic template" x
 
 archiveChoice :: LF.Expr -> TemplateChoice
