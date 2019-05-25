@@ -18,6 +18,11 @@ DAML Assistant
 
 - You can now see all available versions with ``daml version`` using the ``--all`` flag.
 
+DAML Standard Library
+~~~~~~~~~~~~~~~~~~~~~
+
+- `parseInt` and `parseDecimal` now work at more extremes of values.
+
 0.12.20 - 2019-05-23
 --------------------
 
