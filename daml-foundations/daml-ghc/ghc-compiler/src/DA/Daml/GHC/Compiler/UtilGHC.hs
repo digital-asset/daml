@@ -37,8 +37,14 @@ import System.IO.Unsafe
 is :: NamedThing a => a -> String
 is = getOccString
 
+qis :: NamedThing a => a -> (Maybe String, String)
+qis x = (moduleNameString . moduleName <$> nameModule_maybe (getName x), getOccString x)
+
 pattern Is :: NamedThing a => String -> a
 pattern Is x <- (is -> x)
+
+pattern QIs :: NamedThing a => String -> String -> a
+pattern QIs modName name <- (qis -> (Just modName, name))
 
 pattern VarIs :: String -> GHC.Expr Var
 pattern VarIs x <- Var (Is x)
