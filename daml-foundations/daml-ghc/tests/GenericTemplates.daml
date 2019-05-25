@@ -11,6 +11,8 @@ import DA.Record (Symbol)
 -- The type classes.
 class Template t where
   signatory : t -> [Party]
+  observer : t -> [Party]
+  observer _ = []
 
 class Template t => Creatable t where
   create : t -> Update (ContractId t)
@@ -24,7 +26,7 @@ class (Creatable t, Choice t c r) => Exercisable t c r | t c -> r where
   exercise : ContractId t -> c -> Update r
 
 magic : forall (f : Symbol) a. a
-magic = error "magic"-- deleted by the compiler
+magic = error "magic"  -- deleted by the compiler
 
 -- A manually desugared non-generic example.
 data Iou = Iou with
@@ -45,9 +47,11 @@ instance Choice Iou Burn () where
     pure ()
 
 class IouInstance where
-  -- TODO(MH): Look for another way to transfer the `signatory` clause.
+  -- TODO(MH): Look for other ways to transfer the template definition.
   signatoryIou : Iou -> [Party]
   signatoryIou = signatory
+  observerIou : Iou -> [Party]
+  observerIou = observer
   createIou : Iou -> Update (ContractId Iou)
   createIou = magic @"create"
   fetchIou : ContractId Iou -> Update Iou
@@ -77,6 +81,7 @@ data Proposal t = Proposal with
 
 instance Creatable t => Template (Proposal t) where
   signatory this@Proposal{..} = signatory asset \\ receivers
+  observer this@Proposal{..} = receivers
 
 
 data Accept = Accept{}
@@ -89,9 +94,10 @@ instance Creatable t => Choice (Proposal t) Accept (ContractId t) where
 
 
 class Creatable t => ProposalInstance t where
-    -- TODO(MH): Look for another way to transfer the `signatory` clause.
     signatoryProposal : Proposal t -> [Party]
     signatoryProposal = signatory
+    observerProposal : Proposal t -> [Party]
+    observerProposal = observer
     createProposal : Proposal t -> Update (ContractId (Proposal t))
     createProposal = magic @"create"
     fetchProposal : ContractId (Proposal t) -> Update (Proposal t)
