@@ -226,6 +226,9 @@ testParseInt = scenario do
   None === parseInt ""
   None === parseInt "-"
   None === parseInt " 0"
+  parseInt (show @Int maxBound) === Some maxBound
+  parseInt (show @Int minBound) === Some minBound
+  None === parseInt "1.1234567890123456789"
 
 testParseDecimal = scenario do
   None === parseDecimal ""
@@ -257,6 +260,9 @@ testParseDecimal = scenario do
   Some 0.0 === parseDecimal "00"
   Some 10.0 === parseDecimal "0010"
   Some 1.0 === parseDecimal "01.00"
+  Some 111111111111111111111111.0 === parseDecimal "111111111111111111111111"
+  Some 1.123456789 === parseDecimal "1.123456789"
+
 
 testReverse = scenario do
   T.reverse "DAML" === "LMAD"
