@@ -92,7 +92,6 @@ import           Control.Monad.Except
 import           Control.Monad.Extra
 import Control.Monad.Fail
 import           Control.Monad.Reader
-import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           Data.Data hiding (TyCon)
 import           Data.Foldable (foldlM)
@@ -1000,7 +999,7 @@ mkProjBindings env recExpr recTyp vsFlds e =
 -- | Convert casts induced by newtype definitions.
 convertCast :: Env -> LF.Expr -> Coercion -> ConvertM LF.Expr
 convertCast env expr co = do
-    (to, _from) <- evalStateT (convertCoercion env co) 0
+    (to, _from) <- convertCoercion env co
     pure (to expr)
 
 -- Convert a coercion @S ~ T@ to a pair of lambdas
@@ -1022,16 +1021,16 @@ convertCast env expr co = do
 -- Coercions induced by newtypes can also occur deeply nested in function
 -- types or forall quantifications. We handle those cases by recursion into
 -- all sub-coercions.
-convertCoercion :: Env -> Coercion -> StateT Int ConvertM (LF.Expr -> LF.Expr, LF.Expr -> LF.Expr)
+convertCoercion :: Env -> Coercion -> ConvertM (LF.Expr -> LF.Expr, LF.Expr -> LF.Expr)
 convertCoercion env co@(coercionKind -> Pair s t)
     | isReflCo co = pure (id, id)
     | Just (aCo, bCo) <- splitFunCo_maybe co = do
         let Pair a a' = coercionKind aCo
         (aTo, aFrom) <- convertCoercion env aCo
         (bTo, bFrom) <- convertCoercion env bCo
-        a <- lift $ convertType env a
-        a' <- lift $ convertType env a'
-        x <- mkLamBinder
+        a <- convertType env a
+        a' <- convertType env a'
+        let x = ExprVarName "$cast"
         let to expr = ETmLam (x, a') $ bTo $ ETmApp expr $ aFrom $ EVar x
         let from expr = ETmLam (x, a) $ bFrom $ ETmApp expr $ aTo $ EVar x
         pure (to, from)
@@ -1040,7 +1039,7 @@ convertCoercion env co@(coercionKind -> Pair s t)
     -- | Just (a, k_co, co') <- splitForAllCo_maybe co
     -- , isReflCo k_co
     -- = do
-    --     (a, k) <- lift $ convTypeVar a
+    --     (a, k) <- convTypeVar a
     --     (to', from') <- convertCoercion env co'
     --     let to expr = ETyLam (a, k) $ to' $ ETyApp expr $ TVar a
     --     let from expr = ETyLam (a, k) $ from' $ ETyApp expr $ TVar a
@@ -1050,11 +1049,11 @@ convertCoercion env co@(coercionKind -> Pair s t)
     | Just (tCon, ts, field, flv) <- isSatNewTyCon t s = swap <$> newtypeCoercion tCon ts field flv
     | SymCo co' <- co = swap <$> convertCoercion env co'
     | SubCo co' <- co = convertCoercion env co'
-    | otherwise = lift $ unhandled "Coercion" co
+    | otherwise = unhandled "Coercion" co
   where
     newtypeCoercion tCon ts field flv = do
-        ts' <- lift $ mapM (convertType env) ts
-        t' <- lift $ convertQualified env tCon
+        ts' <- mapM (convertType env) ts
+        t' <- convertQualified env tCon
         let tcon = TypeConApp t' ts'
         let sanitizeTo x
                 -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
@@ -1067,10 +1066,6 @@ convertCoercion env co@(coercionKind -> Pair s t)
         let to expr = ERecCon tcon [(field, sanitizeTo expr)]
         let from expr = sanitizeFrom $ ERecProj tcon field expr
         pure (to, from)
-
-    mkLamBinder = do
-        n <- state (dupe . succ)
-        pure $ mkVar $ "$cast" ++ show n
 
     isSatNewTyCon :: GHC.Type -> GHC.Type -> Maybe (TyCon, [TyCoRep.Type], FieldName, TyConFlavour)
     isSatNewTyCon s (TypeCon t ts)
