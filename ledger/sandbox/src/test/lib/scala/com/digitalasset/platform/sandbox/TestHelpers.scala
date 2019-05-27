@@ -22,8 +22,7 @@ import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.services.time.TimeModel
 
 import scala.concurrent.{ExecutionContext, Future}
-
-import com.digitalasset.ledger.api.domain.Ledgerid
+import com.digitalasset.ledger.api.domain.LedgerId
 
 object TestDar {
   val dalfFile: File = new File("ledger/sandbox/Test.dar")
@@ -45,7 +44,7 @@ trait TestHelpers {
     val ledgerId = LedgerId("sandbox-ledger")
 
     val ledger = Ledger.inMemory(
-      "sandbox-ledger",
+      ledgerId,
       TimeProvider.Constant(Instant.EPOCH),
       ActiveContractsInMemory.empty,
       ImmArray.empty)

@@ -23,6 +23,7 @@ import org.scalatest._
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
+import scalaz.syntax.tag._
 
 @SuppressWarnings(
   Array(
@@ -49,7 +50,7 @@ class TimeServiceIT
     "querying time" should {
       "return the initial time" in allFixtures { c =>
         val timeSource = ClientAdapter.serverStreaming(
-          GetTimeRequest(Config.defaultLedgerId),
+          GetTimeRequest(Config.defaultLedgerId.unwrap),
           c.timeService.getTime)
 
         timeSource.take(1).runWith(Sink.seq).map { times =>
@@ -66,14 +67,14 @@ class TimeServiceIT
       "return the new time" in allFixtures { c =>
         def timeSource =
           ClientAdapter.serverStreaming(
-            GetTimeRequest(Config.defaultLedgerId),
+            GetTimeRequest(Config.defaultLedgerId.unwrap),
             c.timeService.getTime)
 
         for {
           times1 <- timeSource.take(1).runWith(Sink.seq)
           _ <- c.timeService.setTime(
             SetTimeRequest(
-              Config.defaultLedgerId,
+              Config.defaultLedgerId.unwrap,
               Some(fromInstant(Instant.EPOCH)),
               Some(fromInstant(Instant.EPOCH.plusSeconds(1)))
             ))

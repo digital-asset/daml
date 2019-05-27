@@ -180,8 +180,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
     implicit val mm: MetricsManager = infra.metricsManager
 
     val ledgerId: LedgerId = config.ledgerIdMode match {
-      case LedgerIdMode.Static(id) => LedgerId(id)
-      case LedgerIdMode.Dynamic() => LedgerId(LedgerIdGenerator.generateRandomId())
+      case LedgerIdMode.Static(id) => id
+      case LedgerIdMode.Dynamic() => LedgerIdGenerator.generateRandomId()
     }
 
     val context = SandboxContext.fromConfig(config)

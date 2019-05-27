@@ -25,6 +25,8 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Try
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 trait SandboxFixture extends SuiteResource[Channel] {
   self: Suite =>
 
@@ -54,7 +56,7 @@ trait SandboxFixture extends SuiteResource[Channel] {
         timeProviderType = TimeProviderType.Static,
         timeModel = TimeModel.reasonableDefault,
         scenario = scenario,
-        ledgerIdMode = LedgerIdMode.Static("sandbox-server")
+        ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server"))
       )
 
   protected def packageFiles: List[File] = List(darFile)

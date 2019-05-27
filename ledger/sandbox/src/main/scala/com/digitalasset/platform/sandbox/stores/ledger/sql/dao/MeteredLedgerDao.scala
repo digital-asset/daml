@@ -58,7 +58,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends
       "storeInitialState",
       ledgerDao.storeInitialState(activeContracts, ledgerEntries, newLedgerEnd))
 
-  override def initializeLedger(ledgerId: String, ledgerEnd: LedgerOffset): Future[Unit] =
+  override def initializeLedger(ledgerId: LedgerId, ledgerEnd: LedgerOffset): Future[Unit] =
     ledgerDao.initializeLedger(ledgerId, ledgerEnd)
 
   override def reset(): Future[Unit] =

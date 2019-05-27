@@ -51,6 +51,8 @@ import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+import scalaz.syntax.tag._
+
 sealed abstract class SqlStartMode extends Product with Serializable
 
 object SqlStartMode {
@@ -322,7 +324,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val ec = DEC
 
-    def init() = startMode match {
+    def init(): Future[LedgerId] = startMode match {
       case AlwaysReset =>
         for {
           _ <- reset()
@@ -372,7 +374,8 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
 
               val contracts = acs.contracts
                 .map(f => Contract.fromActiveContract(f._1, f._2))
-                .to[collection.immutable.Seq]
+                .toList
+
               val initialLedgerEnd = 0L
               val entriesWithOffset = initialLedgerEntries.foldLeft(
                 (initialLedgerEnd, immutable.Seq.empty[(Long, LedgerEntry)]))((acc, le) => {
@@ -406,8 +409,8 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     }
   }
 
-  private def ledgerFound(foundLedgerId: String) = {
-    logger.info(s"Found existing ledger with id: $foundLedgerId")
+  private def ledgerFound(foundLedgerId: LedgerId) = {
+    logger.info(s"Found existing ledger with id: ${foundLedgerId.unwrap}")
     Future.successful(foundLedgerId)
   }
 

@@ -12,6 +12,8 @@ import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.scalatest.{Matchers, WordSpec}
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 class CliSpec extends WordSpec with Matchers {
 
   private val archiveName = "whatever.dar"
@@ -101,7 +103,8 @@ class CliSpec extends WordSpec with Matchers {
       val ledgerId = "myledger"
       checkOption(
         Array(s"--ledgerid", ledgerId),
-        _.copy(ledgerIdMode = LedgerIdMode.Static(Ref.LedgerString.assertFromString(ledgerId))))
+        _.copy(ledgerIdMode =
+          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))))
     }
 
     "parse the jdbcurl (deprecated) when given" in {

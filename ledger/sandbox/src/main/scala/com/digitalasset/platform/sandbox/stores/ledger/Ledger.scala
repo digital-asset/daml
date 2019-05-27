@@ -29,7 +29,7 @@ import scala.concurrent.Future
 /** Defines all the functionalities a Ledger needs to provide */
 trait Ledger extends AutoCloseable {
 
-  def ledgerId: String
+  def ledgerId: LedgerId
 
   def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed]
 

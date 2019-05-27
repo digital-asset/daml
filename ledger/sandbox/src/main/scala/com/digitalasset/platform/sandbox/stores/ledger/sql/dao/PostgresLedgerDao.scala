@@ -19,6 +19,8 @@ import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.platform.common.util.DirectExecutionContext
+
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.ledger.backend.api.v1.RejectionReason._
 import com.digitalasset.platform.sandbox.stores._
@@ -40,6 +42,8 @@ import scala.concurrent.Future
 import scala.util.Try
 import scala.util.control.NonFatal
 
+import scalaz.syntax.tag._
+
 private class PostgresLedgerDao(
     dbDispatcher: DbDispatcher,
     contractSerializer: ContractSerializer,
@@ -56,9 +60,8 @@ private class PostgresLedgerDao(
     dbDispatcher
       .executeSql { implicit conn =>
         SQL_SELECT_LEDGER_ID
-          .as(ledgerString("ledger_id").singleOpt)
+          .as(ledgerString("ledger_id").map(id => LedgerId(id.toString)).singleOpt)
       }
-      .map(_.map(LedgerId(_)))(DirectExecutionContext)
 
   private val SQL_SELECT_LEDGER_END = SQL("select ledger_end from parameters")
 
@@ -71,10 +74,10 @@ private class PostgresLedgerDao(
   private val SQL_INITIALIZE = SQL(
     "insert into parameters(ledger_id, ledger_end) VALUES({LedgerId}, {LedgerEnd})")
 
-  override def initializeLedger(ledgerId: String, ledgerEnd: LedgerOffset): Future[Unit] =
+  override def initializeLedger(ledgerId: LedgerId, ledgerEnd: LedgerOffset): Future[Unit] =
     dbDispatcher.executeSql { implicit conn =>
       val _ = SQL_INITIALIZE
-        .on("LedgerId" -> ledgerId)
+        .on("LedgerId" -> ledgerId.unwrap)
         .on("LedgerEnd" -> ledgerEnd)
         .execute()
       ()
