@@ -206,6 +206,7 @@ def _scaladoc_jar_impl(ctx):
         src.path
         for src in ctx.files.srcs
     ]
+
     # The following plugin handling is lifted from a private library of 'rules_scala'.
     # https://github.com/bazelbuild/rules_scala/blob/1cffc5fcae1f553a7619b98bf7d6456d65081665/scala/private/rule_impls.bzl#L130
     pluginPaths = []
@@ -230,8 +231,8 @@ def _scaladoc_jar_impl(ctx):
     args = ctx.actions.args()
     args.add_all(["-d", outdir.path])
     args.add("-classpath")
-    args.add_joined(classpath, join_with=":")
-    args.add_joined(pluginPaths, join_with=",", format_joined="-Xplugin:%s")
+    args.add_joined(classpath, join_with = ":")
+    args.add_joined(pluginPaths, join_with = ",", format_joined = "-Xplugin:%s")
     args.add_all(common_scalacopts)
     args.add_all(srcFiles)
 
@@ -239,7 +240,7 @@ def _scaladoc_jar_impl(ctx):
         executable = ctx.executable._scaladoc,
         inputs = ctx.files.srcs + classpath + pluginPaths,
         outputs = [outdir],
-        arguments = [ args ],
+        arguments = [args],
         mnemonic = "ScaladocGen",
     )
 
