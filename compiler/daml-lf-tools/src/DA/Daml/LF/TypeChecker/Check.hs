@@ -161,6 +161,12 @@ typeOfBuiltin = \case
   BEToText    btype  -> pure $ TBuiltin btype :-> TText
   BEPartyToQuotedText -> pure $ TParty :-> TText
   BEPartyFromText    -> pure $ TText :-> TOptional TParty
+  BEInt64FromText    -> do
+      checkFeature featureNumberFromText
+      pure $ TText :-> TOptional TInt64
+  BEDecimalFromText  -> do
+      checkFeature featureNumberFromText
+      pure $ TText :-> TOptional TDecimal
   BEAddDecimal       -> pure $ tBinop TDecimal
   BESubDecimal       -> pure $ tBinop TDecimal
   BEMulDecimal       -> pure $ tBinop TDecimal

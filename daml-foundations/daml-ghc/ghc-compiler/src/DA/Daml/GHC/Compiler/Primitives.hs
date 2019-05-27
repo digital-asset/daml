@@ -129,6 +129,10 @@ convertPrim _ "BEPartyToQuotedText" (TParty :-> TText) =
     EBuiltin BEPartyToQuotedText
 convertPrim _ "BEPartyFromText" (TText :-> TOptional TParty) =
     EBuiltin BEPartyFromText
+convertPrim version "BEInt64FromText" t@(TText :-> TOptional TInt64) =
+    whenRuntimeSupports version featureNumberFromText t $ EBuiltin BEInt64FromText
+convertPrim version "BEDecimalFromText" t@(TText :-> TOptional TDecimal) =
+    whenRuntimeSupports version featureNumberFromText t $ EBuiltin BEDecimalFromText
 
 -- Map operations
 

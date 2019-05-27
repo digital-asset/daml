@@ -233,6 +233,38 @@ object SBuiltin {
     }
   }
 
+  final case object SBFromTextInt64 extends SBuiltin(1) {
+    private val pattern = """[+-]?\d+""".r.pattern
+
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val s = args.get(0).asInstanceOf[SText].value
+      val int64 =
+        if (pattern.matcher(s).matches())
+          try {
+            Some(SInt64(java.lang.Long.parseLong(s)))
+          } catch {
+            case _: NumberFormatException =>
+              None
+          } else
+          None
+      machine.ctrl = CtrlValue(SOptional(int64))
+    }
+  }
+
+  final case object SBFromTextDecimal extends SBuiltin(1) {
+    private val pattern = """[+-]?[0-9]+(\.[0-9]+)?""".r.pattern
+
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val s = args.get(0).asInstanceOf[SText].value
+      val decimal =
+        if (pattern.matcher(s).matches())
+          Decimal.fromBigDecimal(BigDecimal(s)).fold(_ => None, x => Some(SDecimal(x)))
+        else
+          None
+      machine.ctrl = CtrlValue(SOptional(decimal))
+    }
+  }
+
   final case object SBSHA256Text extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
