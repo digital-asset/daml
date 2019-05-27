@@ -9,6 +9,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{
+  AcsUpdateEvent,
   ActiveContractSetSnapshot,
   ActiveContractsService,
   TransactionsService

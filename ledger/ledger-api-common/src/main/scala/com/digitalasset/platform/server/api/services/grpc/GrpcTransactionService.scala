@@ -105,11 +105,11 @@ class GrpcTransactionService(
     }
   }
 
-  private def getSingleTransaction[Request, Domain, Api, Response](
+  private def getSingleTransaction[Request, DomainRequest, DomainTx, Response](
       req: Request,
-      validate: Request => Result[Request],
-      fetch: Request => Future[Domain],
-      toApi: Domain => Response) = {
+      validate: Request => Result[DomainRequest],
+      fetch: DomainRequest => Future[DomainTx],
+      toApi: DomainTx => Response) = {
     val validation = validate(req)
     validation.fold(Future.failed, fetch(_).map(toApi(_))(DirectExecutionContext))
   }
@@ -120,7 +120,8 @@ class GrpcTransactionService(
       request,
       validator.validateTransactionByEventId,
       service.getTransactionByEventId,
-      tree => GetTransactionResponse(Some(domainTxToApiTree(tree, verbose = true)))
+      (tree: domain.TransactionTree) =>
+        GetTransactionResponse(Some(domainTxToApiTree(tree, verbose = true)))
     )
   }
 
@@ -130,7 +131,8 @@ class GrpcTransactionService(
       request,
       validator.validateTransactionById,
       service.getTransactionById,
-      tree => GetTransactionResponse(Some(domainTxToApiTree(tree, verbose = true)))
+      (tree: domain.TransactionTree) =>
+        GetTransactionResponse(Some(domainTxToApiTree(tree, verbose = true)))
     )
   }
 
@@ -140,7 +142,8 @@ class GrpcTransactionService(
       request,
       validator.validateTransactionByEventId,
       service.getFlatTransactionByEventId,
-      flat => GetFlatTransactionResponse(Some(domainTxToApiFlat(flat, verbose = true)))
+      (flat: domain.Transaction) =>
+        GetFlatTransactionResponse(Some(domainTxToApiFlat(flat, verbose = true)))
     )
   }
 
@@ -150,7 +153,8 @@ class GrpcTransactionService(
       request,
       validator.validateTransactionById,
       service.getFlatTransactionById,
-      flat => GetFlatTransactionResponse(Some(domainTxToApiFlat(flat, verbose = true)))
+      (flat: domain.Transaction) =>
+        GetFlatTransactionResponse(Some(domainTxToApiFlat(flat, verbose = true)))
     )
   }
 
