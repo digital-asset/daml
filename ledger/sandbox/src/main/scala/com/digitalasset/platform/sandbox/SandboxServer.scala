@@ -238,6 +238,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
               ApiServices.identityService(ledgerId),
               context.packageService,
               ledgerBackend,
+              ledgerBackend,
               SandboxServer.engine,
               timeProvider,
               timeServiceBackendO

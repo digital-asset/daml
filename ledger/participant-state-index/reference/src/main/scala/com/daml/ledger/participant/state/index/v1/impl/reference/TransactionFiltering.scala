@@ -15,12 +15,10 @@ case class TransactionFiltering(filter: TransactionFilter) {
 
   def visibleNodes(tx: CommittedTransaction): Map[NodeId, Set[Party]] =
     richTxFilter
-      .filter[NodeId, Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]](
-        tx,
-        _.name)
+      .filter[NodeId, Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]](tx)
       .getOrElse(Map.empty)
       .mapKeys(k =>
         // FIXME(JM): Refactor transaction filtering to not go via strings
-        Value.NodeId.unsafeFromIndex(k.toInt))
+        Value.NodeId.unsafeFromIndex(k.index))
 
 }

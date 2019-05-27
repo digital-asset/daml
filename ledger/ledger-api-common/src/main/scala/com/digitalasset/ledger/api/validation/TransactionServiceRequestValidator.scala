@@ -22,12 +22,16 @@ import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.util.context.TraceContextConversions._
 import io.grpc.StatusRuntimeException
 
+object TransactionServiceRequestValidator {
+  type Result[X] = Either[StatusRuntimeException, X]
+
+}
 class TransactionServiceRequestValidator(
     ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
     identifierResolver: IdentifierResolver) {
 
-  private type Result[X] = Either[StatusRuntimeException, X]
+  import TransactionServiceRequestValidator.Result
 
   private val filterValidator = new TransactionFilterValidator(identifierResolver)
 

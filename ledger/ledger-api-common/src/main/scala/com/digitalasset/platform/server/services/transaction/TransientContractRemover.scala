@@ -3,11 +3,10 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.ContractId
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
-import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
+import com.digitalasset.ledger.api.domain.Event.{ArchivedEvent, CreateOrArchiveEvent, CreatedEvent}
 import com.digitalasset.platform.api.v1.event.EventOps._
+import scalaz.syntax.tag._
 
 import scala.collection.{breakOut, mutable}
 
@@ -19,9 +18,9 @@ object TransientContractRemover {
     * @param nodes Must be sorted by event index.
     * @throws IllegalArgumentException if the argument is not sorted properly.
     */
-  def removeTransients(nodes: List[Event]): List[Event] = {
+  def removeTransients(nodes: List[CreateOrArchiveEvent]): List[CreateOrArchiveEvent] = {
 
-    val resultBuilder = new Array[Option[Event]](nodes.size)
+    val resultBuilder = new Array[Option[CreateOrArchiveEvent]](nodes.size)
     val creationByContractId = new mutable.HashMap[ContractId, (Int, CreatedEvent)]()
 
     nodes.iterator.zipWithIndex
@@ -32,17 +31,17 @@ object TransientContractRemover {
 
           // This defensive code has substantial overhead, because we extract the integer event index of every element
           // from the eventId String. If we received the nodes with integer IDs, it would make this faster.
-          val processedEventIndex = event.eventIndex
+          val processedEventIndex = getEventIndex(event.eventId.unwrap)
           if (processedEventIndex > prevEventIndex) processedEventIndex
           else failOnUnsortedInput(nodes, prevEventIndex, processedEventIndex)
       }
 
-    resultBuilder.collect { case Some(v) if v.witnesses.nonEmpty => v }(breakOut)
+    resultBuilder.collect { case Some(v) if v.witnessParties.nonEmpty => v }(breakOut)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def failOnUnsortedInput(
-      nodes: List[Event],
+      nodes: List[CreateOrArchiveEvent],
       prevEventIndex: Int,
       processedEventIndex: Int): Nothing = {
     throw new IllegalArgumentException(
@@ -55,31 +54,28 @@ object TransientContractRemover {
     * This will insert a new element and possibly update a previous one.
     */
   private def updateResultBuilder(
-      resultBuilder: Array[Option[Event]],
+      resultBuilder: Array[Option[CreateOrArchiveEvent]],
       creationByContractId: mutable.HashMap[ContractId, (Int, CreatedEvent)],
-      event: Event,
+      event: CreateOrArchiveEvent,
       indexInList: Int): Unit = {
-    event.event match {
-
-      case Created(createdEvent) =>
-        if (createdEvent.witnessParties.nonEmpty) {
+    event match {
+      case createdEvent @ CreatedEvent(_, contractId, _, _, witnessParties, _) =>
+        if (witnessParties.nonEmpty) {
           resultBuilder.update(indexInList, Some(event))
-          val _ = creationByContractId.put(
-            ContractId(Ref.ContractIdString.assertFromString(createdEvent.contractId)),
-            indexInList -> createdEvent)
+          val _ = creationByContractId.put(contractId, indexInList -> createdEvent)
         }
 
-      case Archived(archivedEvent) =>
-        if (archivedEvent.witnessParties.nonEmpty) {
+      case archivedEvent @ ArchivedEvent(eventId, contractId, templateId, witnessParties) =>
+        if (witnessParties.nonEmpty) {
           creationByContractId
-            .get(ContractId(Ref.ContractIdString.assertFromString(archivedEvent.contractId)))
+            .get(contractId)
             .fold[Unit] {
               // No matching create for this archive. Insert as is.
               resultBuilder.update(indexInList, Some(event))
             } {
               case (createdEventIndex, createdEvent) =>
                 // Defensive code to ensure that the set of parties the events are disclosed to are not different.
-                if (archivedEvent.witnessParties.toSet != createdEvent.witnessParties.toSet)
+                if (witnessParties.toSet != createdEvent.witnessParties)
                   throw new IllegalArgumentException(
                     s"Created and Archived event stakeholders are different in $createdEvent, $archivedEvent")
 
@@ -87,11 +83,6 @@ object TransientContractRemover {
                 resultBuilder.update(indexInList, None)
             }
         }
-
-      // Illegal cases
-      case Empty =>
-        throw new IllegalArgumentException(
-          s"Received unexpected Empty event in transient contract removal. Only Create and Archive are allowed")
     }
   }
 }

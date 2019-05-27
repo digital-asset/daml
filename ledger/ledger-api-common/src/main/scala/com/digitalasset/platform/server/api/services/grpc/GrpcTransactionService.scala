@@ -7,31 +7,32 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.v1.event.Event.Event.Archived
+import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
+import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.{
   TransactionService => ApiTransactionService
 }
 import com.digitalasset.ledger.api.v1.transaction_service._
+import com.digitalasset.ledger.api.validation.TransactionServiceRequestValidator.Result
 import com.digitalasset.ledger.api.validation.{PartyNameChecker, TransactionServiceRequestValidator}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.participant.util.LfEngineToApi
+import com.digitalasset.platform.server.api.ProxyCloseable
 import com.digitalasset.platform.server.api.services.domain.TransactionService
 import com.digitalasset.platform.server.api.validation.{
   ErrorFactories,
   FieldValidations,
   IdentifierResolver
 }
-import com.digitalasset.platform.server.api.{ApiException, ProxyCloseable}
-import com.digitalasset.platform.server.services.transaction.{
-  TransactionConversion,
-  VisibleTransaction
-}
-import io.grpc.{ServerServiceDefinition, Status}
+import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
+import scalaz.Tag
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future
@@ -70,47 +71,13 @@ class GrpcTransactionService(
         },
         req =>
           if (req.filter.filtersByParty.isEmpty) Source.empty
-          else service.getTransactions(req)
+          else
+            service
+              .getTransactions(req)
+              .map(tx => GetTransactionsResponse(List(domainTxToApiFlat(tx, request.verbose))))
       )
     }
   }
-
-  private def optionalVisibleToApiTx(visibleTxO: Option[VisibleTransaction]) =
-    visibleTxO.fold {
-      throw new ApiException(
-        Status.INVALID_ARGUMENT.withDescription("Transaction not found, or not visible."))
-    }(v => GetTransactionResponse(Some(visibleToApiTxTree(v, "", true))))
-
-  private def visibleToApiTxTree(
-      visibleTx: VisibleTransaction,
-      offset: String,
-      verbose: Boolean): TransactionTree = {
-    val mappedDisclosure =
-      visibleTx.disclosureByNodeId
-
-    val events = TransactionConversion
-      .genToApiTransaction(
-        visibleTx.transaction,
-        mappedDisclosure,
-        verbose
-      )
-    TransactionTree(
-      visibleTx.meta.transactionId.unwrap,
-      visibleTx.meta.commandId.fold("")(_.unwrap),
-      visibleTx.meta.workflowId.fold("")(_.unwrap),
-      Some(TimestampConversion.fromInstant(visibleTx.meta.effectiveAt)),
-      offset,
-      Ref.LedgerString.toStringMap(events.eventsById),
-      events.rootEventIds,
-      visibleTx.meta.traceContext
-    )
-  }
-
-  private def optionalTransactionToApiResponse(txO: Option[Transaction]) =
-    txO.fold {
-      throw new ApiException(
-        Status.INVALID_ARGUMENT.withDescription("Transaction not found, or not visible."))
-    }(t => GetFlatTransactionResponse(Some(t)))
 
   override protected def getTransactionTreesSource(
       request: GetTransactionsRequest): Source[GetTransactionTreesResponse, NotUsed] = {
@@ -128,63 +95,62 @@ class GrpcTransactionService(
           else {
             service
               .getTransactionTrees(req)
-              .map { elem =>
+              .map { tx =>
                 GetTransactionTreesResponse(
-                  List(visibleToApiTxTree(elem.item, elem.offset.toString(), request.verbose)))
+                  List(domainTxToApiTree(tx, request.verbose))
+                )
               }
-
         }
       )
     }
   }
 
+  private def getSingleTransaction[Request, Domain, Api, Response](
+      req: Request,
+      validate: Request => Result[Request],
+      fetch: Request => Future[Domain],
+      toApi: Domain => Response) = {
+    val validation = validate(req)
+    validation.fold(Future.failed, fetch(_).map(toApi(_))(DirectExecutionContext))
+  }
+
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest): Future[GetTransactionResponse] = {
-    val validation = validator.validateTransactionByEventId(request)
-
-    validation.fold(
-      Future.failed,
-      eventId =>
-        service
-          .getTransactionByEventId(eventId)
-          .map(opt => optionalVisibleToApiTx(opt))(DirectExecutionContext))
+    getSingleTransaction(
+      request,
+      validator.validateTransactionByEventId,
+      service.getTransactionByEventId,
+      tree => GetTransactionResponse(Some(domainTxToApiTree(tree, verbose = true)))
+    )
   }
 
   override def getTransactionById(
       request: GetTransactionByIdRequest): Future[GetTransactionResponse] = {
-    val validation = validator.validateTransactionById(request)
-
-    validation.fold(
-      Future.failed,
-      txId =>
-        service
-          .getTransactionById(txId)
-          .map(opt => optionalVisibleToApiTx(opt))(DirectExecutionContext))
+    getSingleTransaction(
+      request,
+      validator.validateTransactionById,
+      service.getTransactionById,
+      tree => GetTransactionResponse(Some(domainTxToApiTree(tree, verbose = true)))
+    )
   }
 
   override def getFlatTransactionByEventId(
       request: GetTransactionByEventIdRequest): Future[GetFlatTransactionResponse] = {
-    val validation = validator.validateTransactionByEventId(request)
-
-    validation.fold(
-      Future.failed,
-      txId =>
-        service
-          .getFlatTransactionByEventId(txId)
-          .map(optionalTransactionToApiResponse)(DirectExecutionContext)
+    getSingleTransaction(
+      request,
+      validator.validateTransactionByEventId,
+      service.getFlatTransactionByEventId,
+      flat => GetFlatTransactionResponse(Some(domainTxToApiFlat(flat, verbose = true)))
     )
   }
 
   override def getFlatTransactionById(
       request: GetTransactionByIdRequest): Future[GetFlatTransactionResponse] = {
-    val validation = validator.validateTransactionById(request)
-
-    validation.fold(
-      Future.failed,
-      txId =>
-        service
-          .getFlatTransactionById(txId)
-          .map(optionalTransactionToApiResponse)(DirectExecutionContext)
+    getSingleTransaction(
+      request,
+      validator.validateTransactionById,
+      service.getFlatTransactionById,
+      flat => GetFlatTransactionResponse(Some(domainTxToApiFlat(flat, verbose = true)))
     )
   }
 
@@ -204,5 +170,89 @@ class GrpcTransactionService(
 
   override def bindService(): ServerServiceDefinition =
     TransactionServiceGrpc.bindService(this, DirectExecutionContext)
+
+  def domainTxToApiFlat(tx: domain.Transaction, verbose: Boolean): Transaction =
+    Transaction(
+      tx.transactionId.unwrap,
+      Tag.unsubst(tx.commandId).getOrElse(""),
+      Tag.unsubst(tx.workflowId).getOrElse(""),
+      Some(TimestampConversion.fromInstant(tx.effectiveAt)),
+      tx.events.map {
+        case create: domain.Event.CreatedEvent =>
+          Event(Event.Event.Created(domainToApiCreate(create, verbose)))
+        case archive: domain.Event.ArchivedEvent => Event(domainToApiArchive(archive))
+      },
+      tx.offset.value
+    )
+
+  def domainTxToApiTree(tx: domain.TransactionTree, verbose: Boolean): TransactionTree =
+    TransactionTree(
+      tx.transactionId.unwrap,
+      Tag.unsubst(tx.commandId).getOrElse(""),
+      Tag.unsubst(tx.workflowId).getOrElse(""),
+      Some(TimestampConversion.fromInstant(tx.effectiveAt)),
+      tx.offset.value,
+      tx.eventsById.map {
+        case (_, create: domain.Event.CreatedEvent) =>
+          create.eventId.unwrap -> TreeEvent(
+            TreeEvent.Kind.Created(domainToApiCreate(create, verbose)))
+        case (_, exercise: domain.Event.ExercisedEvent) =>
+          exercise.eventId.unwrap -> TreeEvent(
+            TreeEvent.Kind.Exercised(domainToApiExercise(exercise, verbose)))
+      },
+      tx.rootEventIds.map(_.unwrap)
+    )
+
+  private def domainToApiCreate(
+      create: domain.Event.CreatedEvent,
+      verbose: Boolean): CreatedEvent = {
+    import create._
+    CreatedEvent(
+      eventId.unwrap,
+      contractId.unwrap,
+      Some(LfEngineToApi.toApiIdentifier(templateId)),
+      Some(
+        LfEngineToApi
+          .lfValueToApiRecord(verbose, createArguments)
+          .fold(_ => throw new RuntimeException("Expected value to be a record."), identity)),
+      witnessParties.toSeq,
+      Some(agreementText)
+    )
+  }
+
+  private def domainToApiExercise(
+      exercise: domain.Event.ExercisedEvent,
+      verbose: Boolean): ExercisedEvent = {
+    import exercise._
+    ExercisedEvent(
+      eventId.unwrap,
+      contractId.unwrap,
+      Some(LfEngineToApi.toApiIdentifier(templateId)),
+      contractCreatingEventId.unwrap,
+      choice,
+      Some(
+        LfEngineToApi
+          .lfValueToApiValue(verbose, choiceArgument)
+          .fold(_ => throw new RuntimeException("Error converting choice argument"), identity)),
+      actingParties.toSeq,
+      consuming,
+      witnessParties.toSeq,
+      children.map(_.unwrap),
+      exerciseResult.map(
+        LfEngineToApi
+          .lfValueToApiValue(verbose, _)
+          .fold(_ => throw new RuntimeException("Error converting exercise result"), identity)),
+    )
+  }
+  private def domainToApiArchive(archive: domain.Event.ArchivedEvent): Archived = {
+    import archive._
+    Archived(
+      ArchivedEvent(
+        eventId.unwrap,
+        contractId.unwrap,
+        Some(LfEngineToApi.toApiIdentifier(templateId)),
+        witnessParties.toSeq
+      ))
+  }
 
 }

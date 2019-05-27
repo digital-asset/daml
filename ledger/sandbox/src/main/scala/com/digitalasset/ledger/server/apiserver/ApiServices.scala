@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.WriteService
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
+import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
@@ -81,6 +81,7 @@ object ApiServices {
       identityService: IdentityService,
       packagesService: PackagesService,
       activeContractsService: ActiveContractsService,
+      transactionsService: TransactionsService,
       engine: Engine,
       timeProvider: TimeProvider,
       optTimeServiceBackend: Option[TimeServiceBackend])(
@@ -112,7 +113,8 @@ object ApiServices {
       logger.info(EngineInfo.show)
 
       val transactionService =
-        SandboxTransactionService.createApiService(ledgerId, ledgerBackend, identifierResolver)
+        SandboxTransactionService
+          .createApiService(ledgerId, transactionsService, identifierResolver)
 
       val apiLedgerIdentityService = LedgerIdentityServiceImpl(() => identityService.getLedgerId())
 

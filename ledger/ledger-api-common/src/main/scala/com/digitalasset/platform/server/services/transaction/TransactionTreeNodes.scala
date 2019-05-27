@@ -3,9 +3,9 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.daml.lf.data.Ref.LedgerString
-import com.digitalasset.ledger.api.v1.transaction.TreeEvent
+import com.digitalasset.ledger.api.domain.Event.CreateOrExerciseEvent
+import com.digitalasset.ledger.api.domain.EventId
 
 final case class TransactionTreeNodes(
-    eventsById: Map[LedgerString, TreeEvent],
-    rootEventIds: List[LedgerString])
+    eventsById: Map[EventId, CreateOrExerciseEvent],
+    rootEventIds: List[EventId])

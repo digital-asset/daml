@@ -2,13 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine
-import com.digitalasset.daml.lf.transaction.Node.{
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey
-}
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
+import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.data.Relation.Relation
@@ -63,7 +58,7 @@ final case class CreateEvent[Cid, Val](
 final case class ExerciseEvent[Nid, Cid, Val](
     contractId: Cid,
     templateId: Identifier,
-    choice: String,
+    choice: ChoiceName,
     choiceArgument: Val,
     actingParties: Set[Party],
     isConsuming: Boolean,
