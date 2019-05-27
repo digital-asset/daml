@@ -135,7 +135,7 @@ The update expressions are:
 
     ``fetchedContract <- fetch IdOfContract``
 
-:ref:`fetch <daml-ref-fetch-by-key>`
+:ref:`fetchByKey <daml-ref-fetch-by-key>`
     Like ``fetch``, but uses a :doc:`contract key </daml/reference/contract-keys>` rather than an ID.
 
     ``fetchedContract <- fetchByKey @ContractType contractKey``
