@@ -63,6 +63,7 @@ da_scala_binary(
     main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
     resources = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "src/main/resources/logback.xml",
     ],
     visibility = ["//visibility:public"],
     tags = [
