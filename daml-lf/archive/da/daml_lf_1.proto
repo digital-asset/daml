@@ -402,7 +402,7 @@ enum BuiltinFunction {
 
   COERCE_CONTRACT_ID = 102;
 
-  // Next id is 105. 104 is PARSE_DECIMAL.
+  // Next id is 105. 104 is FROM_TEXT_DECIMAL.
 }
 
 // Builtin literals
