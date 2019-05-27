@@ -12,6 +12,8 @@ import Prelude hiding (Template (..), Choice (..), create, fetch, exercise)
 class Template t where
   signatory : t -> [Party]
   observer : t -> [Party]
+  ensure : t -> Bool
+  agreement : t -> Text
   create : t -> Update (ContractId t)
   fetch : ContractId t -> Update t
 
