@@ -10,7 +10,7 @@ import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.event.Event.Event.Archived
+import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
@@ -183,8 +183,9 @@ class GrpcTransactionService(
       Some(TimestampConversion.fromInstant(tx.effectiveAt)),
       tx.events.map {
         case create: domain.Event.CreatedEvent =>
-          Event(Event.Event.Created(domainToApiCreate(create, verbose)))
-        case archive: domain.Event.ArchivedEvent => Event(domainToApiArchive(archive))
+          Event(Created(domainToApiCreate(create, verbose)))
+        case archive: domain.Event.ArchivedEvent =>
+          Event(Archived(domainToApiArchive(archive)))
       },
       tx.offset.value
     )
@@ -197,11 +198,10 @@ class GrpcTransactionService(
       Some(TimestampConversion.fromInstant(tx.effectiveAt)),
       tx.offset.value,
       tx.eventsById.map {
-        case (_, create: domain.Event.CreatedEvent) =>
-          create.eventId.unwrap -> TreeEvent(
-            TreeEvent.Kind.Created(domainToApiCreate(create, verbose)))
-        case (_, exercise: domain.Event.ExercisedEvent) =>
-          exercise.eventId.unwrap -> TreeEvent(
+        case (eventId, create: domain.Event.CreatedEvent) =>
+          eventId.unwrap -> TreeEvent(TreeEvent.Kind.Created(domainToApiCreate(create, verbose)))
+        case (eventId, exercise: domain.Event.ExercisedEvent) =>
+          eventId.unwrap -> TreeEvent(
             TreeEvent.Kind.Exercised(domainToApiExercise(exercise, verbose)))
       },
       tx.rootEventIds.map(_.unwrap)
@@ -248,15 +248,14 @@ class GrpcTransactionService(
           .fold(_ => throw new RuntimeException("Error converting exercise result"), identity)),
     )
   }
-  private def domainToApiArchive(archive: domain.Event.ArchivedEvent): Archived = {
+  private def domainToApiArchive(archive: domain.Event.ArchivedEvent): ArchivedEvent = {
     import archive._
-    Archived(
-      ArchivedEvent(
-        eventId.unwrap,
-        contractId.unwrap,
-        Some(LfEngineToApi.toApiIdentifier(templateId)),
-        witnessParties.toSeq
-      ))
+    ArchivedEvent(
+      eventId.unwrap,
+      contractId.unwrap,
+      Some(LfEngineToApi.toApiIdentifier(templateId)),
+      witnessParties.toSeq
+    )
   }
 
 }

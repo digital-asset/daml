@@ -42,7 +42,7 @@ trait TransactionConversion {
     val submitterIsSubscriber =
       trans.submitter
         .map(LfRef.Party.assertFromString)
-        .fold(false)(eventFilter.isSubmitterSubscriber)
+        .exists(eventFilter.isSubmitterSubscriber)
     if (filteredEvents.nonEmpty || submitterIsSubscriber) {
       Some(
         domain.Transaction(
@@ -80,8 +80,9 @@ trait TransactionConversion {
           events,
           allEvents.roots.toList
             .sortBy(evid => getEventIndex(evid.unwrap)))
-      val subscriberIsSubmitter = trans.submitter.forall(sub =>
-        TemplateAwareFilter(filter).isSubmitterSubscriber(LfRef.Party.assertFromString(sub)))
+      val subscriberIsSubmitter = trans.submitter
+        .map(LfRef.Party.assertFromString)
+        .exists(TemplateAwareFilter(filter).isSubmitterSubscriber(_))
 
       domain.TransactionTree(
         domain.TransactionId(trans.transactionId),

@@ -65,7 +65,7 @@ object TransientContractRemover {
           val _ = creationByContractId.put(contractId, indexInList -> createdEvent)
         }
 
-      case archivedEvent @ ArchivedEvent(eventId, contractId, templateId, witnessParties) =>
+      case archivedEvent @ ArchivedEvent(_, contractId, _, witnessParties) =>
         if (witnessParties.nonEmpty) {
           creationByContractId
             .get(contractId)
