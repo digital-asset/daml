@@ -74,6 +74,8 @@ featureCoerceContractId = Feature "Coerce function for contract ids" version1_5
 featureExerciseActorsOptional :: Feature
 featureExerciseActorsOptional = Feature "Optional exercise actors" version1_5
 
+-- TODO(MH): When we remove this because we drop support for DAML-LF 1.4,
+-- we should remove `legacyParse{Int, Decimal}` from `DA.Text` as well.
 featureNumberFromText :: Feature
 featureNumberFromText = Feature "Number parsing functions" version1_5
 
