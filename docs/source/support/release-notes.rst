@@ -23,10 +23,17 @@ DAML Compiler
 
 - **BREAKING CHANGE**: Drop support for DAML-LF 1.1. Compiling to DAML-LF 1.2 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all.
 
+- Make DAML-LF 1.5 the default version produced by the compiler.
+
 DAML Standard Library
 ~~~~~~~~~~~~~~~~~~~~~
 
 - `parseInt` and `parseDecimal` now work at more extremes of values.
+
+DAML-LF
+~~~~~~~
+
+- Add new version 1.5. See `DAML-LF 1 specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst#version-1-5>`_ for details.
 
 0.12.20 - 2019-05-23
 --------------------
