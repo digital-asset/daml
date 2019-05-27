@@ -206,6 +206,8 @@ def _scaladoc_jar_impl(ctx):
         src.path
         for src in ctx.files.srcs
     ]
+    # The following plugin handling is lifted from a private library of 'rules_scala'.
+    # https://github.com/bazelbuild/rules_scala/blob/1cffc5fcae1f553a7619b98bf7d6456d65081665/scala/private/rule_impls.bzl#L130
     pluginPaths = []
     for p in ctx.attr.plugins:
         if hasattr(p, "path"):
@@ -223,22 +225,21 @@ def _scaladoc_jar_impl(ctx):
     transitive_deps = [dep[JavaInfo].transitive_deps for dep in ctx.attr.deps]
     classpath = depset([], transitive = transitive_deps).to_list()
 
-    outdir = ctx.actions.declare_directory(ctx.label.name + "_scaladoc_tmpdir")
+    outdir = ctx.actions.declare_directory(ctx.label.name + "_tmpdir")
+
+    args = ctx.actions.args()
+    args.add_all(["-d", outdir.path])
+    args.add("-classpath")
+    args.add_joined(classpath, join_with=":")
+    args.add_joined(pluginPaths, join_with=",", format_joined="-Xplugin:%s")
+    args.add_all(common_scalacopts)
+    args.add_all(srcFiles)
 
     ctx.actions.run(
         executable = ctx.executable._scaladoc,
         inputs = ctx.files.srcs + classpath + pluginPaths,
         outputs = [outdir],
-        arguments = [
-            "-d",
-            outdir.path,
-            "-classpath",
-            ":".join([jar.path for jar in classpath]),
-            "-Xplugin:%s" % ",".join([jar.path for jar in pluginPaths]),
-            "-doc-title",
-            ctx.attr.doctitle,
-            "-no-link-warnings",
-        ] + common_scalacopts + srcFiles,
+        arguments = [ args ],
         mnemonic = "ScaladocGen",
     )
 
@@ -301,20 +302,25 @@ Arguments:
 def _create_scaladoc_jar(**kwargs):
     # Try to not create empty scaladoc jars and limit execution to Linux and MacOS
     # Detect an actual scala source file rather than a srcjar or other label
+
+    create_scaladoc = False
     if len(kwargs["srcs"]) > 0 and is_windows == False:
         for src in kwargs["srcs"]:
             if src.endswith(".scala"):
-                plugins = []
-                if "plugins" in kwargs:
-                    plugins = kwargs["plugins"]
-
-                scaladoc_jar(
-                    name = kwargs["name"] + "_scaladoc",
-                    deps = kwargs["deps"],
-                    plugins = plugins,
-                    srcs = kwargs["srcs"],
-                )
+                create_scaladoc = True
                 break
+
+    if create_scaladoc:
+        plugins = []
+        if "plugins" in kwargs:
+            plugins = kwargs["plugins"]
+
+        scaladoc_jar(
+            name = kwargs["name"] + "_scaladoc",
+            deps = kwargs["deps"],
+            plugins = plugins,
+            srcs = kwargs["srcs"],
+        )
 
 def da_scala_library(name, **kwargs):
     """
