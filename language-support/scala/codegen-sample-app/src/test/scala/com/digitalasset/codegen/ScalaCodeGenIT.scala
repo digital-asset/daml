@@ -71,6 +71,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -105,7 +107,7 @@ class ScalaCodeGenIT
     port = port,
     damlPackageContainer = DamlPackageContainer(archives),
     timeProviderType = TimeProviderType.WallClock,
-    ledgerIdMode = LedgerIdMode.Static(ledgerId),
+    ledgerIdMode = LedgerIdMode.Static(LedgerId(ledgerId)),
   )
 
   private val sandbox: SandboxServer = SandboxServer(serverConfig)

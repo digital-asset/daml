@@ -40,6 +40,9 @@ import com.google.protobuf.empty.Empty
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
+
 object ExampleMain extends App {
 
   private val dar = new File("./scala-codegen/target/repository/daml-codegen/Main.dar")
@@ -52,7 +55,7 @@ object ExampleMain extends App {
     port = port,
     damlPackageContainer = DamlPackageContainer(List(dar)),
     timeProviderType = TimeProviderType.WallClock,
-    ledgerIdMode = LedgerIdMode.Static(ledgerId),
+    ledgerIdMode = LedgerIdMode.Static(LedgerId(ledgerId)),
   )
 
   private val server = SandboxServer(serverConfig)

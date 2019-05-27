@@ -70,6 +70,7 @@ test_deps = [
     "//language-support/java/bindings:bindings-java",
     "//language-support/codegen-common",
     "//ledger/participant-state",
+    "//ledger/ledger-api-domain:ledger-api-domain",
 ]
 
 ########################################################
