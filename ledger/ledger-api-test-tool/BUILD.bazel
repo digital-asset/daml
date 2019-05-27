@@ -64,6 +64,7 @@ da_scala_binary(
     resources = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
     ],
+    visibility = ["//visibility:public"],
     tags = [
         "maven_coordinates=com.daml.ledger.testtool:ledger-api-test-tool:__VERSION__",
         # We release this as a fat jar so this tag ensures that the dependencies in the generated
