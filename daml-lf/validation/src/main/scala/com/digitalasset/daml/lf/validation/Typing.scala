@@ -121,6 +121,8 @@ private[validation] object Typing {
       BSHA256Text -> (TText ->: TText),
       BToQuotedTextParty -> (TParty ->: TText),
       BFromTextParty -> (TText ->: TOptional(TParty)),
+      BFromTextInt64 -> (TText ->: TOptional(TInt64)),
+      BFromTextDecimal -> (TText ->: TOptional(TDecimal)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
       BLessInt64 -> tComparison(BTInt64),

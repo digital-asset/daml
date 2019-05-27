@@ -160,7 +160,9 @@ typeOfBuiltin = \case
   BEGreaterEq btype  -> pure $ tComparison btype
   BEToText    btype  -> pure $ TBuiltin btype :-> TText
   BEPartyToQuotedText -> pure $ TParty :-> TText
-  BEPartyFromText    -> pure $ TText :-> TOptional TParty
+  BEFromText         -> pure $ TText :-> TOptional TParty
+  BEFromTextInt64    -> pure $ TText :-> TOptional TParty
+  BEFromTextDecimal  -> pure $ TText :-> TOptional TParty
   BEAddDecimal       -> pure $ tBinop TDecimal
   BESubDecimal       -> pure $ tBinop TDecimal
   BEMulDecimal       -> pure $ tBinop TDecimal

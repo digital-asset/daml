@@ -235,6 +235,8 @@ encodeBuiltinExpr = \case
       BTParty -> builtin P.BuiltinFunctionTO_TEXT_PARTY
       other -> error $ "BEToText unexpected type " <> show other
     BEPartyFromText -> builtin P.BuiltinFunctionFROM_TEXT_PARTY
+    BEInt64FromText -> builtin P.BuiltinFunctionFROM_TEXT_INT64
+    BEDecimalFromText-> builtin P.BuiltinFunctionFROM_TEXT_DECIMAL
     BEPartyToQuotedText -> builtin P.BuiltinFunctionTO_QUOTED_TEXT_PARTY
 
     BEAddDecimal -> builtin P.BuiltinFunctionADD_DECIMAL

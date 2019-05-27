@@ -1109,7 +1109,7 @@ for the ``DefTemplate`` rule). ::
    Γ  ⊢  'no_key'
 
     ⊢ₛ τ      Γ  ⊢  eₖ  :  τ
-    ⊢ₖ eₖ                                                               [DAML-LF 1.3]
+    ⊢ₖ eₖ                                                               [DAML-LF < 1.4]
     ε  ⊢  eₘ  :  τ → 'List' 'Party'
   ——————————————————————————————————————————————————————————————— KeyDefSome
     Γ  ⊢  'key' τ eₖ eₘ
@@ -1959,7 +1959,6 @@ Int64 functions
 
   Returns the decimal representation of the integer as a string.
 
-
 Decimal functions
 ~~~~~~~~~~~~~~~~~
 
@@ -2020,7 +2019,6 @@ Decimal functions
 * ``TO_TEXT_DECIMAL : 'Decimal' → 'Text'``
 
   Returns the decimal string representation of the decimal.
-
 
 String functions
 ~~~~~~~~~~~~~~~~

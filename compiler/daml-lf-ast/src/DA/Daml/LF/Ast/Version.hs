@@ -88,6 +88,9 @@ featureCoerceContractId = Feature "Coerce function for contract ids" version1_5
 featureExerciseActorsOptional :: Feature
 featureExerciseActorsOptional = Feature "Optional exercise actors" version1_5
 
+featureNumberFromText :: Feature
+featureNumberFromText = Feature "Number parsing functions" version1_5
+
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature
 

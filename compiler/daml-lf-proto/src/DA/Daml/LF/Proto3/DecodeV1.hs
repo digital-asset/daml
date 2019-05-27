@@ -197,7 +197,9 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionTO_TEXT_TIMESTAMP    -> BEToText BTTimestamp
   LF1.BuiltinFunctionTO_TEXT_PARTY   -> BEToText BTParty
   LF1.BuiltinFunctionTO_TEXT_DATE -> BEToText BTDate
-  LF1.BuiltinFunctionFROM_TEXT_PARTY -> BEPartyFromText
+  LF1.BuiltinFunctionPARSE_PARTY -> BEFromText
+  LF1.BuiltinFunctionPARSE_INT64 -> BEPartyFromInt64
+  LF1.BuiltinFunctionPARSE_DECIMAL -> BEPartyFromDecimal
   LF1.BuiltinFunctionTO_QUOTED_TEXT_PARTY -> BEPartyToQuotedText
 
   LF1.BuiltinFunctionADD_DECIMAL   -> BEAddDecimal

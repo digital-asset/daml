@@ -340,6 +340,8 @@ object Ast {
   final case object BToTextDate extends BuiltinFunction(1) // :: Date -> Text
   final case object BToQuotedTextParty extends BuiltinFunction(1) // :: Party -> Text
   final case object BFromTextParty extends BuiltinFunction(1) // :: Text -> Optional Party
+  final case object BFromTextInt64 extends BuiltinFunction(1) // :: Text -> Optional Int64
+  final case object BFromTextDecimal extends BuiltinFunction(1) // :: Text -> Optional Decimal
 
   final case object BSHA256Text extends BuiltinFunction(arity = 1) // :: Text -> Text
 

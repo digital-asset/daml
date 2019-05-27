@@ -221,8 +221,6 @@ data BuiltinExpr
   | BEGreater    !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BEToText     !BuiltinType    -- :: t -> Text, where t is one of the builtin types
                                  -- {Int64, Decimal, Text, Timestamp, Date, Party}
-  | BEPartyFromText              -- :: Text -> Optional Party
-  | BEPartyToQuotedText          -- :: Party -> Text
 
   -- Decimal arithmetic
   | BEAddDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow
@@ -266,6 +264,10 @@ data BuiltinExpr
   | BEAppendText                 -- :: Text -> Text -> Text
   | BEImplodeText                -- :: List Text -> Text
   | BESha256Text                 -- :: Text -> Text
+  | BEPartyFromText              -- :: Text -> Optional Party
+  | BEInt64FromText              -- :: Text -> Option Int64
+  | BEDecimalFromText            -- :: Text -> Option Decimal
+  | BEPartyToQuotedText          -- :: Party -> Text
 
   | BETrace                      -- :: forall a. Text -> a -> a
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool

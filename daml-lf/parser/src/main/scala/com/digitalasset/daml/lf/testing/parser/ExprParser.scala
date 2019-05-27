@@ -229,6 +229,8 @@ private[parser] object ExprParser {
     "TO_TEXT_DATE" -> BToTextDate,
     "TO_QUOTED_TEXT_PARTY" -> BToQuotedTextParty,
     "FROM_TEXT_PARTY" -> BFromTextParty,
+    "FROM_TEXT_INT64" -> BFromTextInt64,
+    "FROM_TEXT_DECIMAL" -> BFromTextDecimal,
     "ERROR" -> BError,
     "LESS_INT64" -> BLessInt64,
     "LESS_DECIMAL" -> BLessDecimal,
