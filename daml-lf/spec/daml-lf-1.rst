@@ -156,6 +156,9 @@ Version: 1.2
     * **Add** a built-in function to perform `SHA-256
       <https://en.wikipedia.org/wiki/SHA-2>`_ hashing of strings
 
+    * **Add** built-in functions to convert from ``'Party'`` to
+      ``'Text'`` and vice versa.
+
     * **Change** the scope when the controllers of a choice are
       computed. Needed to support the so-called `flexible controllers`_
       in the surface language
@@ -174,7 +177,7 @@ Version: 1.3
 
   * **Add** support for contract keys.
 
-  * **Add** support for built-in Map.
+  * **Add** support for built-in ``'Map'`` type.
 
 Version: 1.4
 ............

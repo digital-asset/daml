@@ -55,6 +55,8 @@ import scala.concurrent.duration._
 
 import com.digitalasset.ledger.api.domain.LedgerId
 
+import scalaz.syntax.tag._
+
 trait LedgerContext {
   import LedgerContext._
 
@@ -169,8 +171,7 @@ object LedgerContext {
 
     def ledgerId: String =
       configuredLedgerId match {
-        case LedgerIdMode.Static(id) =>
-          id
+        case LedgerIdMode.Static(id) => id.unwrap
         case LedgerIdMode.Dynamic() =>
           LedgerIdentityServiceGrpc
             .blockingStub(channel)

@@ -5,11 +5,13 @@ package com.digitalasset.platform.tests.integration.ledger.api.identity
 
 import com.digitalasset.platform.common.LedgerIdMode
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LedgerIdentityServiceGivenIT extends LedgerIdentityServiceITBase {
 
   override protected def config: Config =
-    Config.default.withLedgerIdMode(LedgerIdMode.Static(givenId))
+    Config.default.withLedgerIdMode(LedgerIdMode.Static(LedgerId(givenId)))
 
   "A platform" when {
     "started" should {

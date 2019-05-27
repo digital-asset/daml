@@ -63,5 +63,6 @@ da_scala_benchmark_jmh(
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-perf-lib",
+        "//ledger/ledger-api-integration-tests:default-it-logback-config",
     ] + dependencies,
 )

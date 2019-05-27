@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.semantictest
 
-import com.digitalasset.daml.lf.data.Ref.{ContractIdString, PackageId, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, ContractIdString, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
@@ -134,7 +134,7 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
               Ref.DottedName.fromString(exercisedEvent.getTemplateId.entityName).right.get
             )
           ),
-          exercisedEvent.choice,
+          ChoiceName.assertFromString(exercisedEvent.choice),
           value,
           P.parties(exercisedEvent.actingParties),
           exercisedEvent.consuming,

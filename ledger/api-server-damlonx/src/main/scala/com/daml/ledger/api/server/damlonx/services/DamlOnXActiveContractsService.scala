@@ -6,6 +6,7 @@ package com.daml.ledger.api.server.damlonx.services
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.ledger.api.server.damlonx.services.backport.EventFilter
 import com.daml.ledger.participant.state.index.v1.{
   AcsUpdateEvent,
   ActiveContractSetSnapshot,
@@ -18,7 +19,7 @@ import com.digitalasset.ledger.api.v1.active_contracts_service._
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.validation.TransactionFilterValidator
-import com.digitalasset.platform.participant.util.{EventFilter, LfEngineToApi}
+import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.validation.{
   ActiveContractsServiceValidation,
   ErrorFactories,

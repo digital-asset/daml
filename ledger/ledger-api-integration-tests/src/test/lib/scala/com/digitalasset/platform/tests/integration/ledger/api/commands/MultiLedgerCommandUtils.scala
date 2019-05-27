@@ -15,6 +15,8 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.tests.integration.ledger.api.TransactionServiceHelpers
 import org.scalatest.AsyncTestSuite
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any"
@@ -50,5 +52,5 @@ trait MultiLedgerCommandUtils extends TransactionServiceHelpers with MultiLedger
       .map(_.copy(commandId = "fails", ledgerId = "not ledger id")))
 
   override protected def config: Config =
-    Config.default.withLedgerIdMode(LedgerIdMode.Static(testLedgerId))
+    Config.default.withLedgerIdMode(LedgerIdMode.Static(LedgerId(testLedgerId)))
 }

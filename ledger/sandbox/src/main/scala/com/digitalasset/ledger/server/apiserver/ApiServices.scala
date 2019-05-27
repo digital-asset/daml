@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.WriteService
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
+import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
@@ -70,8 +70,8 @@ object ApiServices {
         .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
   }
 
-  def identityService(ledgerId: String): IdentityService =
-    () => Future.successful(LedgerId(ledgerId))
+  def identityService(ledgerId: LedgerId): IdentityService =
+    () => Future.successful(ledgerId)
 
   def create(
       config: SandboxConfig,
@@ -81,6 +81,7 @@ object ApiServices {
       identityService: IdentityService,
       packagesService: PackagesService,
       activeContractsService: ActiveContractsService,
+      transactionsService: TransactionsService,
       engine: Engine,
       timeProvider: TimeProvider,
       optTimeServiceBackend: Option[TimeServiceBackend])(
@@ -99,6 +100,7 @@ object ApiServices {
 
       val apiSubmissionService =
         SandboxSubmissionService.createApiService(
+          ledgerId,
           context.packageContainer,
           identifierResolver,
           ledgerBackend,
@@ -111,17 +113,18 @@ object ApiServices {
       logger.info(EngineInfo.show)
 
       val transactionService =
-        SandboxTransactionService.createApiService(ledgerBackend, identifierResolver)
+        SandboxTransactionService
+          .createApiService(ledgerId, transactionsService, identifierResolver)
 
       val apiLedgerIdentityService = LedgerIdentityServiceImpl(() => identityService.getLedgerId())
 
-      val apiPackageService = SandboxPackageService(packagesService, ledgerId)
+      val apiPackageService = SandboxPackageService(ledgerId, packagesService)
 
       val apiConfigurationService =
-        LedgerConfigurationService.createApiService(configurationService, ledgerId)
+        LedgerConfigurationService.createApiService(ledgerId, configurationService)
 
       val completionService =
-        SandboxCommandCompletionService(ledgerBackend)
+        SandboxCommandCompletionService(ledgerId, ledgerBackend)
 
       val apiCommandService = ReferenceCommandService(
         ReferenceCommandService.Configuration(

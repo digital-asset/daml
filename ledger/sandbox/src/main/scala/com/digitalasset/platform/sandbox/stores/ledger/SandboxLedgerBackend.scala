@@ -11,52 +11,45 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{
   AcsUpdateEvent,
   ActiveContractSetSnapshot,
-  ActiveContractsService
+  ActiveContractsService,
+  TransactionsService
 }
-import com.daml.ledger.participant.state.v1.{SubmittedTransaction => _, _}
+import com.daml.ledger.participant.state.{v1 => ParticipantState}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
-import com.daml.ledger.participant.state.index.v2.{
-  AcsUpdateEvent,
-  ActiveContractSetSnapshot,
-  ActiveContractsService
-}
-import com.daml.ledger.participant.state.v1.{
-  Party => _,
-  SubmittedTransaction => _,
-  TransactionId => _,
-  _
-}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.EventId
-import com.digitalasset.ledger.api.domain.{LedgerOffset, TransactionFilter}
+import com.digitalasset.ledger.api.domain.{EventId, LedgerOffset, TransactionFilter, TransactionId}
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.{
   AcceptedTransaction,
   Heartbeat,
   RejectedCommand
 }
+import com.digitalasset.ledger.backend.api.v1._
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
+import com.digitalasset.platform.server.api.validation.ErrorFactories
+import com.digitalasset.platform.server.services.transaction.TransactionConversion
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
-import com.digitalasset.ledger.backend.api.v1._
+import scalaz.syntax.tag._
 
 class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     extends LedgerBackend //TODO: remove this later so we can rely on sole participant state interfaces
-    with WriteService
-    with ActiveContractsService {
-
-  def ledgerId: String = ledger.ledgerId
+    with ParticipantState.WriteService
+    with ActiveContractsService
+    with TransactionsService {
 
   private class SandboxSubmissionHandle extends SubmissionHandle {
     override def abort: Future[Unit] = Future.successful(())
 
-    override def submit(submitted: TransactionSubmission): Future[SubmissionResult] =
+    override def submit(
+        submitted: TransactionSubmission): Future[ParticipantState.SubmissionResult] =
       ledger.publishTransaction(submitted)
 
     private[this] def canSeeContract(
@@ -114,7 +107,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
                   val create = toUpdateEvent(cId, ac)
                   EventFilter
                     .byTemplates(filter)
-                    .filter(create, parties => create.copy(stakeholders = parties))
+                    .filterActiveContractWitnesses(create)
                     .map(create => ac.workflowId.map(domain.WorkflowId(_)) -> create)
                     .toList
               }
@@ -193,13 +186,13 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       .lookupTransaction(transactionId)
       .map(_.map {
         case (offset, t) =>
-          toAcceptedTransaction(offset, t)
+          increaseOffset(toAcceptedTransaction(offset, t))
       })(DEC)
 
   override def submitTransaction(
-      submitterInfo: SubmitterInfo,
-      transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): CompletionStage[SubmissionResult] = {
+      submitterInfo: ParticipantState.SubmitterInfo,
+      transactionMeta: ParticipantState.TransactionMeta,
+      transaction: SubmittedTransaction): CompletionStage[ParticipantState.SubmissionResult] = {
 
     implicit val ec: ExecutionContext = mat.executionContext
 
@@ -228,4 +221,95 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     FutureConverters.toJava(resultF)
   }
 
+  override def transactionTrees(
+      begin: LedgerOffset,
+      endAt: Option[LedgerOffset],
+      filter: domain.TransactionFilter): Source[domain.TransactionTree, NotUsed] = {
+    acceptedTransactions(begin, endAt)
+      .mapConcat(TransactionConversion.acceptedToDomainTree(_, filter).toList)
+  }
+
+  override def transactions(
+      begin: domain.LedgerOffset,
+      endAt: Option[domain.LedgerOffset],
+      filter: domain.TransactionFilter): Source[domain.Transaction, NotUsed] = {
+    acceptedTransactions(begin, endAt)
+      .mapConcat(TransactionConversion.acceptedToDomainFlat(_, filter).toList)
+  }
+
+  private def acceptedTransactions(
+      begin: domain.LedgerOffset,
+      endAt: Option[domain.LedgerOffset]): Source[AcceptedTransaction, NotUsed] = {
+    lazy val currentEndF = currentLedgerEnd()
+
+    def toAbsolute(offset: LedgerOffset) = offset match {
+      case LedgerOffset.LedgerBegin =>
+        Source.single(LedgerOffset.Absolute(Ref.LedgerString.assertFromString("0")))
+      case LedgerOffset.LedgerEnd => Source.fromFuture(currentEndF)
+      case off @ LedgerOffset.Absolute(_) => Source.single(off)
+    }
+
+    toAbsolute(begin).flatMapConcat {
+      case LedgerOffset.Absolute(absBegin) =>
+        endAt
+          .map(toAbsolute(_).map(Some(_)))
+          .getOrElse(Source.single(None))
+          .flatMapConcat { endOpt =>
+            lazy val stream = ledgerSyncEvents(Some(absBegin))
+
+            val finalStream = endOpt match {
+              case None => stream
+
+              case Some(LedgerOffset.Absolute(`absBegin`)) =>
+                Source.empty
+
+              case Some(LedgerOffset.Absolute(end)) if absBegin.toLong > end.toLong =>
+                Source.failed(
+                  ErrorFactories.invalidArgument(s"End offset $end is before Begin offset $begin."))
+
+              case Some(LedgerOffset.Absolute(end)) =>
+                stream
+                  .takeWhile(
+                    { item =>
+                      //note that we can have gaps in the increasing offsets!
+                      (item.offset.toLong + 1) < end.toLong //api offsets are +1 compared to backend offsets
+                    },
+                    inclusive = true // we need this to be inclusive otherwise the stream will be hanging until a new element from upstream arrives
+                  )
+                  .filter(_.offset.toLong < end.toLong)
+            }
+            // we MUST do the offset comparison BEFORE collecting only the accepted transactions,
+            // because currentLedgerEnd refers to the offset of the mixed set of LedgerSyncEvents (e.g. completions, transactions, ...).
+            // If we don't do this, the response stream will linger until a transaction is committed AFTER the end offset.
+            // The immediate effect is that integration tests will not complete within the timeout.
+            finalStream.collect {
+              case at: LedgerSyncEvent.AcceptedTransaction => increaseOffset(at)
+            }
+          }
+    }
+  }
+
+  private def increaseOffset(t: AcceptedTransaction) = {
+    t.copy(offset = LedgerString.fromLong(t.offset.toLong + 1))
+  }
+
+  override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
+    getCurrentLedgerEnd.map(LedgerOffset.Absolute)(DEC)
+  override def getTransactionById(
+      transactionId: TransactionId,
+      requestingParties: Set[Ref.Party]): Future[Option[domain.Transaction]] = {
+    val filter =
+      domain.TransactionFilter(requestingParties.map(p => p -> domain.Filters.noFilter).toMap)
+    getTransactionById(transactionId.unwrap)
+      .map(_.flatMap(TransactionConversion.acceptedToDomainFlat(_, filter)))(DEC)
+  }
+
+  override def getTransactionTreeById(
+      transactionId: TransactionId,
+      requestingParties: Set[Ref.Party]): Future[Option[domain.TransactionTree]] = {
+    val filter =
+      domain.TransactionFilter(requestingParties.map(p => p -> domain.Filters.noFilter).toMap)
+    getTransactionById(transactionId.unwrap)
+      .map(_.flatMap(TransactionConversion.acceptedToDomainTree(_, filter)))(DEC)
+  }
 }

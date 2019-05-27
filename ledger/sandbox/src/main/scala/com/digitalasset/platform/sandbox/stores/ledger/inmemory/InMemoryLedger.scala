@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.TransactionIdString
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
-import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId}
+import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId, LedgerId}
 import com.digitalasset.ledger.backend.api.v1.{RejectionReason, TransactionSubmission}
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
@@ -29,7 +29,7 @@ import scala.concurrent.Future
   *
   */
 class InMemoryLedger(
-    val ledgerId: String,
+    val ledgerId: LedgerId,
     timeProvider: TimeProvider,
     acs0: ActiveContractsInMemory,
     ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement])

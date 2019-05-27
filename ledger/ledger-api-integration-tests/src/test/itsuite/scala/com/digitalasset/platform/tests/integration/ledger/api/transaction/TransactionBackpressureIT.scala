@@ -23,6 +23,8 @@ import org.scalatest.time.SpanSugar._
 
 import scala.concurrent.{Await, Future}
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any"
@@ -38,7 +40,7 @@ class TransactionBackpressureIT
 
   override def timeLimit: Span = 300.seconds
 
-  val testLedgerId = Ref.LedgerString.assertFromString("ledgerId")
+  private val testLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
 
   override protected def config: Config =
     Config.default.withLedgerIdMode(LedgerIdMode.Static(testLedgerId))

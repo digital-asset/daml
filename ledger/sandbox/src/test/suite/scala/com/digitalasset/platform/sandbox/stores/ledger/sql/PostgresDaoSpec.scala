@@ -44,6 +44,8 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.language.implicitConversions
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 //TODO: use scalacheck when we have generators available for contracts and transactions
 class PostgresDaoSpec
     extends AsyncWordSpec
@@ -70,7 +72,7 @@ class PostgresDaoSpec
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    Await.result(ledgerDao.initializeLedger("test-ledger", 0), Duration.Inf)
+    Await.result(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0), Duration.Inf)
   }
 
   private val alice = Party.assertFromString("Alice")

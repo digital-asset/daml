@@ -42,7 +42,7 @@ class LedgerConfigurationService private (configurationService: ConfigurationSer
 }
 
 object LedgerConfigurationService {
-  def createApiService(configurationService: ConfigurationService, ledgerId: LedgerId)(
+  def createApiService(ledgerId: LedgerId, configurationService: ConfigurationService)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer)
