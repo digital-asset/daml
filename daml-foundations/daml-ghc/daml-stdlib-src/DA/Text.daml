@@ -275,6 +275,7 @@ parseInt t = case explode t of
   -- remember that negative numbers have greater range than positive numbers
   -- so can't just negate at the end
   "-" :: c :: cs -> parseInt_ (\x -> if x == 10 then 10 else negate x) (c :: cs) 0
+  "+" :: c :: cs -> parseInt_ identity (c :: cs) 0
   cs -> parseInt_ identity cs 0
 
 parsePositiveDecimal : [Text] -> Optional Decimal
