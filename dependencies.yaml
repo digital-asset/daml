@@ -371,6 +371,10 @@ dependencies:
       lang: java
       version: "1.4"
 
+    commons-lang3:
+      lang: java
+      version: "3.9"
+
   org.jboss.logging:
     jboss-logging:
       lang: java
