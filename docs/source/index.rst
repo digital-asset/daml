@@ -27,6 +27,7 @@ DAML SDK documentation
    :hidden:
    :caption: Writing DAML
 
+   daml/intro/0_Intro.rst
    daml/reference/index
    daml/daml-studio
    daml/testing-scenarios
@@ -45,7 +46,7 @@ DAML SDK documentation
    app-dev/bindings-js
    app-dev/grpc/index
    app-dev/app-arch
-   
+
 .. toctree::
    :titlesonly:
    :maxdepth: 2
