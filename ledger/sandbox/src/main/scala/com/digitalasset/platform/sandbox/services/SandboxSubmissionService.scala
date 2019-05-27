@@ -18,7 +18,7 @@ import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
+import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, TransactionSubmission}
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
@@ -43,6 +43,7 @@ object SandboxSubmissionService {
   type RecordUpdate = Either[LfError, (Transaction, BlindingInfo)]
 
   def createApiService(
+      ledgerId: LedgerId,
       packageContainer: DamlPackageContainer,
       identifierResolver: IdentifierResolver,
       ledgerBackend: LedgerBackend,
@@ -59,7 +60,7 @@ object SandboxSubmissionService {
         timeModel,
         timeProvider,
         commandExecutor),
-      LedgerId(ledgerBackend.ledgerId),
+      ledgerId,
       identifierResolver
     ) with CommandSubmissionServiceLogging
 

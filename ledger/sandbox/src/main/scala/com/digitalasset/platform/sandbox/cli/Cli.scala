@@ -14,6 +14,8 @@ import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import scopt.Read
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 // NOTE:
 // The config object should not expose Options for mandatory fields as such
 // validations should not leave this class. Due to limitations of SCOPT as far I
@@ -116,7 +118,7 @@ object Cli {
     //TODO (robert): Think about all implications of allowing users to set the ledger ID.
     opt[String]("ledgerid")
       .optional()
-      .action((id, c) => c.copy(ledgerIdMode = LedgerIdMode.Static(Ref.LedgerString.assertFromString(id))))
+        .action((id, c) => c.copy(ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))))
       .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.")
 
     opt[Unit]("eager-package-loading")

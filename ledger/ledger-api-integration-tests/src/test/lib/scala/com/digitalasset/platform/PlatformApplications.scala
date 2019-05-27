@@ -19,6 +19,8 @@ import scalaz.NonEmptyList
 
 import scala.concurrent.duration.{FiniteDuration, _}
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 object PlatformApplications {
 
   /**
@@ -46,10 +48,12 @@ object PlatformApplications {
       "Max TTL's granularity is subsecond. Ledger Server does not support subsecond granularity for this configuration - please use whole seconds."
     )
 
+    import scalaz.syntax.tag._
+
     @SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
     def assertStaticLedgerId: String =
       ledgerId match {
-        case LedgerIdMode.Static(ledgerId) => ledgerId
+        case LedgerIdMode.Static(ledgerId) => ledgerId.unwrap
         case _ =>
           throw new IllegalArgumentException("Unsupported ledger id config: " + ledgerId)
       }
@@ -76,7 +80,7 @@ object PlatformApplications {
   }
 
   object Config {
-    val defaultLedgerId = Ref.LedgerString.assertFromString("ledger-server")
+    val defaultLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledger-server"))
     val defaultDarFile = new File("ledger/sandbox/Test.dar")
     val defaultParties = NonEmptyList("party", "Alice", "Bob")
     val defaultTimeProviderType = TimeProviderType.Static

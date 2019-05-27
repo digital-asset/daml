@@ -15,6 +15,8 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration._
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 class SqlLedgerSpec
     extends AsyncWordSpec
     with AsyncTimeLimitedTests
@@ -26,6 +28,8 @@ class SqlLedgerSpec
   override val timeLimit: Span = 60.seconds
 
   private val queueDepth = 128
+
+  private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
 
   "SQL Ledger" should {
     "be able to be created from scratch with a random ledger id" in {
@@ -44,8 +48,6 @@ class SqlLedgerSpec
     }
 
     "be able to be created from scratch with a given ledger id" in {
-      val ledgerId = Ref.LedgerString.assertFromString("TheLedger")
-
       val ledgerF = SqlLedger(
         jdbcUrl = postgresFixture.jdbcUrl,
         ledgerId = Some(ledgerId),
@@ -56,12 +58,11 @@ class SqlLedgerSpec
       )
 
       ledgerF.map { ledger =>
-        ledger.ledgerId should not be equal(ledgerId)
+        ledger.ledgerId should not be equal(LedgerId)
       }
     }
 
     "be able to be reused keeping the old ledger id" in {
-      val ledgerId = Ref.LedgerString.assertFromString("TheLedger")
 
       for {
         ledger1 <- SqlLedger(
@@ -92,7 +93,7 @@ class SqlLedgerSpec
         )
 
       } yield {
-        ledger1.ledgerId should not be equal(ledgerId)
+        ledger1.ledgerId should not be equal(LedgerId)
         ledger1.ledgerId shouldEqual ledger2.ledgerId
         ledger2.ledgerId shouldEqual ledger3.ledgerId
       }
@@ -103,7 +104,7 @@ class SqlLedgerSpec
       val ledgerF = for {
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = Some(Ref.LedgerString.assertFromString("TheLedger")),
+          ledgerId = Some(LedgerId(Ref.LedgerString.assertFromString("TheLedger"))),
           timeProvider = TimeProvider.UTC,
           acs = ActiveContractsInMemory.empty,
           initialLedgerEntries = ImmArray.empty,
@@ -111,7 +112,7 @@ class SqlLedgerSpec
         )
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = Some(Ref.LedgerString.assertFromString("AnotherLedger")),
+          ledgerId = Some(LedgerId(Ref.LedgerString.assertFromString("AnotherLedger"))),
           timeProvider = TimeProvider.UTC,
           acs = ActiveContractsInMemory.empty,
           initialLedgerEntries = ImmArray.empty,

@@ -23,6 +23,8 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
@@ -49,7 +51,7 @@ class TransactionMRTComplianceIT
 
   override def timeLimit: Span = 60.seconds
 
-  val ledgerId = Ref.LedgerString.assertFromString("ledgerId")
+  val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
   val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */

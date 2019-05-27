@@ -22,6 +22,8 @@ import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 
+import scalaz.syntax.tag._
+
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any",
@@ -46,10 +48,10 @@ class TimeServiceDisabledIT
   "Time Service" when {
     "server is not in static mode" should {
       "not have getTime available" in forAllFixtures {
-        case TestFixture(ledgerBackend, context) =>
+        case TestFixture(_, context) =>
           val timeSource =
             ClientAdapter.serverStreaming(
-              GetTimeRequest(Config.defaultLedgerId),
+              GetTimeRequest(Config.defaultLedgerId.unwrap),
               context.timeService.getTime)
 
           timeSource
@@ -60,11 +62,11 @@ class TimeServiceDisabledIT
       }
 
       "not have setTime available" in forAllFixtures {
-        case TestFixture(ledgerBackend, context) =>
+        case TestFixture(_, context) =>
           context.timeService
             .setTime(
               SetTimeRequest(
-                Config.defaultLedgerId,
+                Config.defaultLedgerId.unwrap,
                 Some(fromInstant(Instant.EPOCH)),
                 Some(fromInstant(Instant.EPOCH.plusSeconds(1)))
               ))

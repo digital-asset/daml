@@ -51,8 +51,6 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     with WriteService
     with ActiveContractsService {
 
-  def ledgerId: String = ledger.ledgerId
-
   private class SandboxSubmissionHandle extends SubmissionHandle {
     override def abort: Future[Unit] = Future.successful(())
 

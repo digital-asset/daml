@@ -39,14 +39,17 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object SandboxTransactionService {
 
-  def createApiService(ledgerBackend: LedgerBackend, identifierResolver: IdentifierResolver)(
+  def createApiService(
+      ledgerId: LedgerId,
+      ledgerBackend: LedgerBackend,
+      identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
     : GrpcTransactionService with BindableService with TransactionServiceLogging =
     new GrpcTransactionService(
       new SandboxTransactionService(ledgerBackend),
-      LedgerId(ledgerBackend.ledgerId),
+      ledgerId,
       PartyNameChecker.AllowAllParties,
       identifierResolver) with TransactionServiceLogging
 }
