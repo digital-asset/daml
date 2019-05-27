@@ -51,6 +51,7 @@ private[lf] object VersionTimeline {
       This(That(TransactionVersion("6"))),
       This(That(TransactionVersion("7"))),
       That(LanguageVersion(LMV.V1, "4")),
+      That(LanguageVersion(LMV.V1, "5")),
       That(LanguageVersion(LMV.V1, Dev)),
       // add new versions above this line
       // do *not* backfill to make more Boths, because such would
@@ -58,7 +59,7 @@ private[lf] object VersionTimeline {
       // versions; use This and That instead as needed.
       // Backfill *is* appropriate if a release of the last hasn't happened
       //
-      // "Dev" versions float through the timeline with little rationale
+      // "dev" versions float through the timeline with little rationale
       // due to their ephemeral contents; don't worry too much about their exact
       // positioning, except where you desire a temporal implication between dev
       // and some other version you're introducing. Dev always means "the dev

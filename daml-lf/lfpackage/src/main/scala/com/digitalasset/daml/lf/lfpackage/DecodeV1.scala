@@ -513,7 +513,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
               if (exercise.hasActor)
                 Some(decodeExpr(exercise.getActor))
               else {
-                assertSince("dev", "Update.Exercise.actors optional")
+                assertSince("5", "Update.Exercise.actors optional")
                 None
               },
             argE = decodeExpr(exercise.getArg)
@@ -751,7 +751,7 @@ object DecodeV1 {
       EQUAL_LIST -> (BEqualList -> "0"),
       EQUAL_CONTRACT_ID -> (BEqualContractId -> "0"),
       TRACE -> (BTrace -> "0"),
-      COERCE_CONTRACT_ID -> (BCoerceContractId -> "dev"),
+      COERCE_CONTRACT_ID -> (BCoerceContractId -> "5"),
     ).withDefault(_ => throw ParseError("BuiltinFunction.UNRECOGNIZED"))
   }
 

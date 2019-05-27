@@ -189,20 +189,25 @@ Version: 1.4
 
   * **Add** support for complex contract keys.
 
-Version: 1.dev
-..............
+Version: 1.5
+............
 
   * Introduction date:
 
-      2019-05-02
+      2019-05-27
 
   * Last amendment date:
 
-      2019-05-02
+      2019-05-27
 
-  * Description:
+  * **Change** serializability condition for ``ContractId`` such that
+    ``ContractId a`` is serializable whenever ``a`` is so. This is more
+    relaxed than the previous condition.
 
-    * **Change** nothing yet.
+  * **Add** ``COERCE_CONTRACT_ID`` primitive for coercing ``ContractId``s.
+
+  * **Change** ``Update.Exercise`` such that ``actor`` is now optional.
+
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -526,6 +531,7 @@ Then we can define our kinds, types, and expressions::
        |  'create' @Mod:T e                         -- UpdateCreate
        |  'fetch' @Mod:T e                          -- UpdateFetch
        |  'exercise' @Mod:T Ch e₁ e₂ e₃             -- UpdateExercise
+       |  'exercise_without_actors' @Mod:T Ch e₁ e₂ -- UpdateExerciseWithoutActors
        |  'get_time'                                -- UpdateGetTime
        |  'fetch_by_key' @τ e                       -- UpdateFecthByKey
        |  'lookup_by_key' @τ e                      -- UpdateLookUpByKey
@@ -925,6 +931,14 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— UpdExercise
       Γ  ⊢  'exercise' @Mod:T Ch e₁ e₂ e₃  : 'Update' σ
 
+      'tpl' (x : T)
+          ↦ { …, 'choices' { …, 'choice' ChKind Ch (y : τ) (z : 'ContractId' Mod:T) : σ 'by' … ↦ …, … } }
+        ∈ 〚Ξ〛Mod
+      Γ  ⊢  e₁  :  'ContractId' Mod:T
+      Γ  ⊢  e₂  :  τ
+    ——————————————————————————————————————————————————————————————— UpdExerciseWithouActors
+      Γ  ⊢  'exercise_without_actors' @Mod:T Ch e₁ e₂  : 'Update' σ
+
       'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
       Γ  ⊢  e₁  :  'ContractId' Mod:T
     ——————————————————————————————————————————————————————————————— UpdFetch
@@ -955,10 +969,10 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  'embed_expr' @τ e  :  Update' τ
 
 
-Serialized types
-................
+Serializable types
+..................
 
-To defined validity of definitions, modules, and packages, we need to
+To define the validity of definitions, modules, and packages, we need to
 first define *serializable* types. As the name suggests, serializable
 types are the types whose values can be persisted on the ledger. ::
 
@@ -999,8 +1013,12 @@ types are the types whose values can be persisted on the ledger. ::
       ⊢ₛ  'Party'
 
       'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
-    ———————————————————————————————————————————————————————————————— STyCid
+    ———————————————————————————————————————————————————————————————— STyCid [DAML-LF < 1.5]
       ⊢ₛ  'ContractId' Mod:T
+
+      ⊢ₛ  τ
+    ———————————————————————————————————————————————————————————————— STyCid [DAML-LF ≥ 1.5]
+      ⊢ₛ  'ContractId' τ
 
       'record' T α₁ … αₙ ↦ { f₁: σ₁, …, fₘ: σₘ }  ∈  〚Ξ〛Mod
       ⊢ₛ  σ₁[α₁ ↦ τ₁, …, αₙ ↦ τₙ]
@@ -1370,6 +1388,10 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpUpdExercise
      ⊢ᵥ  'exercise' Mod:T.Ch e₁ e₂ e₃
 
+     ⊢ᵥ  e₁      ⊢ᵥ  e₂
+   ——————————————————————————————————————————————————— ValExpUpdExerciseWithoutActors
+     ⊢ᵥ  'exercise_without_actors' Mod:T.Ch e₁ e₂
+
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValExpUpFecthByKey
      ⊢ᵥ  'fetch_by_key' @τ e
@@ -1613,6 +1635,13 @@ exact output.
         ⇓
       Ok ('exercise' @Mod:T Ch v₁ v₂ v₃) ‖ E₃
 
+      e₁ ‖ E₀  ⇓  Ok v₁ ‖ E₁
+      e₂ ‖ E₁  ⇓  Ok v₂ ‖ E₂
+    —————————————————————————————————————————————————————————————————————— EvExpUpExceriseWithoutActors
+      'exercise_without_actors' @Mod:T Ch e₁ e₂ ‖ E₀
+        ⇓
+      Ok ('exercise_without_actors' @Mod:T Ch v₁ v₂) ‖ E₂
+
       e ‖ E₀  ⇓  Ok v ‖ E₁
     —————————————————————————————————————————————————————————————————————— EvExpFetchByKey
       'fetch_by_key' @Mod:T e ‖ E₀
@@ -1821,6 +1850,17 @@ as described by the ledger model::
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ E₀ ; (st; keys)
        ⇓ᵤ
      Err "Exercise actors do not match"  ‖ E₁ ; (st; keys)
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : τ) (z) : σ  'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
+     eₚ[y ↦ v₂, x ↦ vₜ] ‖ E₀  ⇓  Ok vₚ ‖ E₁
+     'exercise' Mod:T.Ch cid vₚ v₁ ‖ E₁ ; (st₀, keys₀)  ⇓ᵤ  ur ‖ E₂ ; (st₁, keys₁)
+   —————————————————————————————————————————————————————————————————————— EvUpdExercWithoutActors
+     'exercise_without_actors' Mod:T.Ch cid v₁ ‖ E₀ ; (st₀, keys₀)
+       ⇓ᵤ
+     ur ‖ E₂ ; (st₁, keys₁)
 
      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
      cid ∈ dom(st)
@@ -2247,6 +2287,12 @@ ContractId functions
 
   Returns ``'True'`` if the first contact id is equal to the second,
   ``'False'`` otherwise.
+
+* ``COERCE_CONTRACT_ID  : ∀ (α : ⋆) (β : ⋆) . 'ContractId' α → 'ContractId' β``
+
+  Returns the given contract id unchanged at a different type.
+
+  [*Available since version 1.5*]
 
 List functions
 ~~~~~~~~~~~~~~

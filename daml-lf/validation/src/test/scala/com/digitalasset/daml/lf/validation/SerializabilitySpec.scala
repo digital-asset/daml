@@ -275,8 +275,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
          """
 
       val version1_4 = LanguageVersion(LanguageMajorVersion.V1, "4")
-      // TODO(MH): We need to roll this over when we freeze DAML-LF 1.5.
-      val version1_5 = LanguageVersion(LanguageMajorVersion.V1, "dev")
+      val version1_5 = LanguageVersion(LanguageMajorVersion.V1, "5")
       val versions = Table("version", version1_4, version1_5)
 
       val neverFail = (_: LanguageVersion) => false
