@@ -24,7 +24,6 @@ module DAML.Project.Consts
 import System.Directory
 import System.Environment
 import System.FilePath
-import Data.Maybe
 
 -- | The DAML_HOME environment variable determines the path of the daml
 -- assistant data directory. This defaults to:
@@ -133,28 +132,20 @@ getSdkVersion = getEnv sdkVersionEnvVar
 getDamlAssistant :: IO FilePath
 getDamlAssistant = getEnv damlAssistantEnvVar
 
--- | Will make an absolute file path following all symlinks except ones in the file path
---   this is to solve an issue where files in projects which linked elsewhere were considered
---   as not being in projects. Just using an absolute path works on Linux but breaks
---   reproducible builds on OS X
-canonicalizeExceptFile :: FilePath -> IO FilePath
-canonicalizeExceptFile fp = do
-    let (drive, fileName) = splitFileName fp
-    cDrive <- canonicalizePath drive
-    pure $ joinPath [cDrive, fileName]
-
 -- | This function changes the working directory to the project root and calls
 -- the supplied action with a function to transform filepaths relative to the previous
 -- directory into filepaths relative to the project root (absolute file paths will not be modified).
 --
 -- When called outside of a project or outside of the environment setup by the assistant,
--- this function will make the filepath relative to the current working directory
+-- this function will not modify the current directory.
 withProjectRoot :: ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot act = do
     previousCwd <- getCurrentDirectory
     mbProjectPath <- getProjectPath
-    let projectPath = fromMaybe previousCwd mbProjectPath
-    projectPath <- canonicalizePath projectPath
-    withCurrentDirectory projectPath $ act $ \f -> do
-        absF <- canonicalizeExceptFile (previousCwd </> f)
-        pure $ projectPath `makeRelative` absF
+    case mbProjectPath of
+        Nothing -> act pure
+        Just projectPath -> do
+            projectPath <- canonicalizePath projectPath
+            withCurrentDirectory projectPath $ act $ \f -> do
+                absF <- canonicalizePath (previousCwd </> f)
+                pure (projectPath `makeRelative` absF)
