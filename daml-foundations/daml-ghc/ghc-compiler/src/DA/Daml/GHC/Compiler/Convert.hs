@@ -342,8 +342,8 @@ convertGenericTemplate env x
         let tplLocation = Nothing
         let tplTypeCon = qualObject monoTyCon
         let tplParam = this
-        unwrapThis <- convertCast env (EVar this) unwrapCo
-        let applyThis e = ETmApp e unwrapThis
+        (unwrapTpl, wrapTpl) <- convertCoercion env unwrapCo
+        let applyThis e = ETmApp e $ unwrapTpl $ EVar this
         tplSignatories <- applyThis <$> convertExpr env (Var signatories)
         tplObservers <- applyThis <$> convertExpr env (Var observers)
         let tplPrecondition = ETrue
@@ -373,9 +373,8 @@ convertGenericTemplate env x
         superClassDicts <- mapM (convertExpr env . Var) superClassDicts
         signatories <- convertExpr env (Var signatories)
         observers <- convertExpr env (Var observers)
-        wrapThis <- convertCast env (EVar this) (SymCo unwrapCo)
-        let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon wrapThis) $ EUpdate $ UPure (TContractId polyType) $ unwrapSelf
-        let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon wrapSelf) $ EUpdate $ UPure polyType $ unwrapThis
+        let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon $ wrapTpl $ EVar this) $ EUpdate $ UPure (TContractId polyType) $ unwrapSelf
+        let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon wrapSelf) $ EUpdate $ UPure polyType $ unwrapTpl $ EVar this
         dictCon <- convertExpr env dictCon
         tyArgs <- mapM (convertArg env) tyArgs
         -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
@@ -923,7 +922,8 @@ convertExpr env0 e = do
         | otherwise = fmap (, args) $ ETmLam <$> convVarWithType env name <*> convertExpr env x
     go env (Cast x co) args = fmap (, args) $ do
         x' <- convertExpr env x
-        convertCast env x' co
+        (to, _from) <- convertCoercion env co
+        pure $ to x'
     go env (Let (NonRec name x) y) args =
         fmap (, args) $ convertLet env name x (\env -> convertExpr env y)
     go env (Case scrutinee bind _ [(DEFAULT, [], x)]) args =
@@ -1082,12 +1082,6 @@ mkProjBindings env recExpr recTyp vsFlds e =
     , not (isDeadOcc (occInfo (idInfo v)))
     ]
 
--- | Convert casts induced by newtype definitions.
-convertCast :: Env -> LF.Expr -> Coercion -> ConvertM LF.Expr
-convertCast env expr co = do
-    (to, _from) <- evalStateT (convertCoercion env co) 0
-    pure (to expr)
-
 -- Convert a coercion @S ~ T@ to a pair of lambdas
 -- @(to :: S -> T, from :: T -> S)@ in higher-order abstract syntax style.
 --
@@ -1107,36 +1101,39 @@ convertCast env expr co = do
 -- Coercions induced by newtypes can also occur deeply nested in function
 -- types or forall quantifications. We handle those cases by recursion into
 -- all sub-coercions.
-convertCoercion :: Env -> Coercion -> StateT Int ConvertM (LF.Expr -> LF.Expr, LF.Expr -> LF.Expr)
-convertCoercion env co@(coercionKind -> Pair s t)
-    | isReflCo co = pure (id, id)
-    | Just (aCo, bCo) <- splitFunCo_maybe co = do
-        let Pair a a' = coercionKind aCo
-        (aTo, aFrom) <- convertCoercion env aCo
-        (bTo, bFrom) <- convertCoercion env bCo
-        a <- lift $ convertType env a
-        a' <- lift $ convertType env a'
-        x <- mkLamBinder
-        let to expr = ETmLam (x, a') $ bTo $ ETmApp expr $ aFrom $ EVar x
-        let from expr = ETmLam (x, a) $ bFrom $ ETmApp expr $ aTo $ EVar x
-        pure (to, from)
-    -- NOTE(MH): This case is commented out because we don't know how to trigger
-    -- it in a test case yet. In theory it should do the right thing though.
-    -- | Just (a, k_co, co') <- splitForAllCo_maybe co
-    -- , isReflCo k_co
-    -- = do
-    --     (a, k) <- lift $ convTypeVar a
-    --     (to', from') <- convertCoercion env co'
-    --     let to expr = ETyLam (a, k) $ to' $ ETyApp expr $ TVar a
-    --     let from expr = ETyLam (a, k) $ from' $ ETyApp expr $ TVar a
-    --     pure (to, from)
-    -- Case (1) & (2)
-    | Just (tCon, ts, field, flv) <- isSatNewTyCon s t = newtypeCoercion tCon ts field flv
-    | Just (tCon, ts, field, flv) <- isSatNewTyCon t s = swap <$> newtypeCoercion tCon ts field flv
-    | SymCo co' <- co = swap <$> convertCoercion env co'
-    | SubCo co' <- co = convertCoercion env co'
-    | otherwise = lift $ unhandled "Coercion" co
+convertCoercion :: Env -> Coercion -> ConvertM (LF.Expr -> LF.Expr, LF.Expr -> LF.Expr)
+convertCoercion env co = evalStateT (go env co) 0
   where
+    go :: Env -> Coercion -> StateT Int ConvertM (LF.Expr -> LF.Expr, LF.Expr -> LF.Expr)
+    go env co@(coercionKind -> Pair s t)
+        | isReflCo co = pure (id, id)
+        | Just (aCo, bCo) <- splitFunCo_maybe co = do
+            let Pair a a' = coercionKind aCo
+            (aTo, aFrom) <- go env aCo
+            (bTo, bFrom) <- go env bCo
+            a <- lift $ convertType env a
+            a' <- lift $ convertType env a'
+            x <- mkLamBinder
+            let to expr = ETmLam (x, a') $ bTo $ ETmApp expr $ aFrom $ EVar x
+            let from expr = ETmLam (x, a) $ bFrom $ ETmApp expr $ aTo $ EVar x
+            pure (to, from)
+        -- NOTE(MH): This case is commented out because we don't know how to trigger
+        -- it in a test case yet. In theory it should do the right thing though.
+        -- | Just (a, k_co, co') <- splitForAllCo_maybe co
+        -- , isReflCo k_co
+        -- = do
+        --     (a, k) <- lift $ convTypeVar a
+        --     (to', from') <- go env co'
+        --     let to expr = ETyLam (a, k) $ to' $ ETyApp expr $ TVar a
+        --     let from expr = ETyLam (a, k) $ from' $ ETyApp expr $ TVar a
+        --     pure (to, from)
+        -- Case (1) & (2)
+        | Just (tCon, ts, field, flv) <- isSatNewTyCon s t = newtypeCoercion tCon ts field flv
+        | Just (tCon, ts, field, flv) <- isSatNewTyCon t s = swap <$> newtypeCoercion tCon ts field flv
+        | SymCo co' <- co = swap <$> go env co'
+        | SubCo co' <- co = go env co'
+        | otherwise = lift $ unhandled "Coercion" co
+
     newtypeCoercion tCon ts field flv = do
         ts' <- lift $ mapM (convertType env) ts
         t' <- lift $ convertQualified env tCon
