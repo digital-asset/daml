@@ -211,6 +211,8 @@ Version: 1.5
 
   * **Change** ``Update.Exercise`` such that ``actor`` is now optional.
 
+  * **Add** ``FROM_TEXT_INT64`` and ``FROM_TEXT_DECIMAL`` primitives for 
+    parsing integer and decimal values.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
