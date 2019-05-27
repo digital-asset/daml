@@ -11,6 +11,7 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.semantictest.SandboxSemanticTestsLfRunner
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.platform.testing.LedgerBackend
+import org.scalatest.Args
 import org.scalatest.time.{Seconds, Span}
 
 object LedgerApiTestTool {
@@ -42,7 +43,11 @@ object LedgerApiTestTool {
         targetPath,
         StandardCopyOption.REPLACE_EXISTING);
 
-      val semanticTestsRunner = new SandboxSemanticTestsLfRunner {
+      val reporter = new ToolReporter
+      val sorter = new ToolSorter
+
+      var semanticTestsRunner = new SandboxSemanticTestsLfRunner {
+        override def suiteName: String = "Semantic Tests"
         override def actorSystemName = "SandboxSemanticTestsLfRunnerTestToolActorSystem"
 
         override def fixtureIdsEnabled: Set[LedgerBackend] =
@@ -62,7 +67,7 @@ object LedgerApiTestTool {
                 .withTlsConfig(toolConfig.tlsConfig))
             .withDarFile(targetPath)
       }
-      semanticTestsRunner.execute()
+      semanticTestsRunner.run(None, Args(reporter = reporter, distributedTestSorter = Some(sorter)))
     } catch {
       case (t: Throwable) =>
         failed = true
@@ -75,9 +80,6 @@ object LedgerApiTestTool {
         throw new RuntimeException(
           "None of the scenarios failed, yet the --must-fail flag was specified!")
     }
-    println("Exiting.")
-    // TODO(gleber): due to a bug in scalatest, a GC is necessary to ensure completion, see https://github.com/digital-asset/daml/issues/1243 for more details.
-    System.gc()
   }
 
   private def extractTestFiles(testResources: List[String]): Unit = {
