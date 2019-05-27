@@ -51,12 +51,19 @@ dependencies = [
 da_scala_library(
     name = "ledger-api-integration-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
-    resources = ["src/test/resources/logback-test.xml"],
     visibility = [
         "//visibility:public",
     ],
     deps = dependencies + [
         "//daml-lf/testing-tools",
+    ],
+)
+
+java_library(
+    name = "default-it-logback-config",
+    resources = ["src/test/resources/logback-test.xml"],
+    visibility = [
+        "//visibility:public",
     ],
 )
 
@@ -76,6 +83,7 @@ da_scala_test_suite(
         "exclusive",
     ],
     deps = [
+        ":default-it-logback-config",
         ":ledger-api-integration-tests-lib",
     ] + dependencies,
 )
@@ -95,6 +103,7 @@ da_scala_binary(
     ],
     visibility = ["//visibility:public"],
     deps = dependencies + [
+        ":default-it-logback-config",
         ":ledger-api-integration-tests-lib",
         "//daml-lf/testing-tools",
     ],
@@ -109,6 +118,7 @@ da_scala_test_suite(
     tags = ["exclusive"],
     deps = [
         ":ledger-api-integration-tests-lib",
+        ":default-it-logback-config",
         "//daml-lf/testing-tools",
     ] + dependencies,
 )
