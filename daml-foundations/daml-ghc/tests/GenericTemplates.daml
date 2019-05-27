@@ -10,18 +10,10 @@ module GenericTemplates where
 import Prelude hiding (Template (..), Choice (..), create, fetch, exercise)
 
 class Template t where
-  -- TODO(MH): Decide if we actually want to provide `signatory` and
-  -- `observer` to DAML devs. If not, we can remove them here since they are
-  -- not required for template desugaring/resugaring anymore.
   signatory : t -> [Party]
   observer : t -> [Party]
   create : t -> Update (ContractId t)
   fetch : ContractId t -> Update t
 
 class Template t => Choice t c r | t c -> r where
-  -- TODO(MH): Decide if we actually want to provide `choiceController` and
-  -- `action` to DAML devs. If not, we can remove them here since they are
-  -- not required for template desugaring/resugaring anymore.
-  choiceController : t -> c -> [Party]
-  action : ContractId t -> t -> c -> Update r
   exercise : ContractId t -> c -> Update r

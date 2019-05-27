@@ -27,8 +27,6 @@ data Burn = Burn{}
   deriving (Eq, Show)
 
 instance IouInstance => Choice Iou Burn () where
-  choiceController = controllerIouBurn
-  action = actionIouBurn
   exercise = exerciseIouBurn
 
 class IouInstance where

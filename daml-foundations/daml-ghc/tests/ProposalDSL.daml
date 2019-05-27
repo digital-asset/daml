@@ -33,8 +33,6 @@ data Accept = Accept{}
   deriving (Eq, Show)
 
 instance ProposalInstance t => Choice (Proposal t) Accept (ContractId t) where
-    choiceController = controllerProposalAccept
-    action = actionProposalAccept
     exercise = exerciseProposalAccept
 
 
