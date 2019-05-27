@@ -251,9 +251,9 @@ isAlpha = isPred (\t -> t >= "a" && t <= "z" || t >= "A" && t <= "Z")
 isAlphaNum : Text -> Bool
 isAlphaNum = isPred (\t -> t >= "0" && t <= "9" || t >= "a" && t <= "z" || t >= "A" && t <= "Z")
 
-parseInt_ : Number a => (Int -> a) -> [Text] -> a -> Optional a
-parseInt_ lift [] s = Some s
-parseInt_ lift (c :: cs) s =
+legacyParseInt_ : Number a => (Int -> a) -> [Text] -> a -> Optional a
+legacyParseInt_ lift [] s = Some s
+legacyParseInt_ lift (c :: cs) s =
   let v = case c of
             "0" -> Some 0
             "1" -> Some 1
@@ -266,32 +266,36 @@ parseInt_ lift (c :: cs) s =
             "8" -> Some 8
             "9" -> Some 9
             _ -> None
-  in optional None (\x -> parseInt_ lift cs ((lift 10 * s) + lift x)) v
+  in optional None (\x -> legacyParseInt_ lift cs ((lift 10 * s) + lift x)) v
 
 -- | Attempt to parse an `Int` value from a given `Text`.
 parseInt : Text -> Optional Int
-parseInt t = case explode t of
+parseInt = primitive @"BEInt64FromText"
+
+-- | HIDE Implementation to use for `parseInt` for DAML-LF < 1.5.
+legacyParseInt : Text -> Optional Int
+legacyParseInt t = case explode t of
   [] -> None
   -- remember that negative numbers have greater range than positive numbers
   -- so can't just negate at the end
-  "-" :: c :: cs -> parseInt_ (\x -> if x == 10 then 10 else negate x) (c :: cs) 0
-  "+" :: c :: cs -> parseInt_ identity (c :: cs) 0
-  cs -> parseInt_ identity cs 0
+  "-" :: c :: cs -> legacyParseInt_ (\x -> if x == 10 then 10 else negate x) (c :: cs) 0
+  "+" :: c :: cs -> legacyParseInt_ identity (c :: cs) 0
+  cs -> legacyParseInt_ identity cs 0
 
-parsePositiveDecimal : [Text] -> Optional Decimal
-parsePositiveDecimal cs =
+legacyParsePositiveDecimal : [Text] -> Optional Decimal
+legacyParsePositiveDecimal cs =
   case L.breakOn ["."] cs of
     ([], _) -> None
     (_, ["."]) -> None
-    (integral, []) -> parseIntToDecimal integral
+    (integral, []) -> legacyParseIntToDecimal integral
     (integral, "." :: fractional) -> do
-      integralParsed <- parseIntToDecimal integral
-      fractionalParsed <- parseIntToDecimal fractional
+      integralParsed <- legacyParseIntToDecimal integral
+      fractionalParsed <- legacyParseIntToDecimal fractional
       let fractionalScaled = fractionalParsed / (intToDecimal $ 10 ^ L.length fractional)
       return $ integralParsed + fractionalScaled
     _ -> None
  where
-  parseIntToDecimal cs = parseInt_ intToDecimal cs 0.0
+  legacyParseIntToDecimal cs = legacyParseInt_ intToDecimal cs 0.0
 
 -- | Attempt to parse a `Decimal` value from a given `Text`.
 -- To get `Some` value, the text must follow the regex '-'?[0-9]+('.'[0-9]+)?
@@ -303,11 +307,15 @@ parsePositiveDecimal cs =
 --   parseDecimal "+12.0" == None
 -- ```
 parseDecimal : Text -> Optional Decimal
-parseDecimal t =
+parseDecimal = primitive @"BEDecimalFromText"
+
+-- | HIDE Implementation to use for `parseDecimal` for DAML-LF < 1.5.
+legacyParseDecimal : Text -> Optional Decimal
+legacyParseDecimal t =
   case explode t of
-    "-" :: cs -> negate <$> parsePositiveDecimal cs
-    "+" :: cs -> parsePositiveDecimal cs
-    cs -> parsePositiveDecimal cs
+    "-" :: cs -> negate <$> legacyParsePositiveDecimal cs
+    "+" :: cs -> legacyParsePositiveDecimal cs
+    cs -> legacyParsePositiveDecimal cs
 
 -- | Computes the SHA256 of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
