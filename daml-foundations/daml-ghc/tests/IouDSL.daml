@@ -17,40 +17,36 @@ data Iou = Iou with
     amount : Decimal
   deriving (Eq, Show)
 
-instance Template Iou where
-  signatory this@Iou{..} = [issuer, owner]
+instance IouInstance => Template Iou where
+  signatory = signatoryIou
+  observer = observerIou
+  create = createIou
+  fetch = fetchIou
 
 data Burn = Burn{}
   deriving (Eq, Show)
 
-instance Choice Iou Burn () where
-  choiceController this@Iou{..} arg@Burn = [owner]
-  action self this@Iou{..} arg@Burn = do
-    pure ()
+instance IouInstance => Choice Iou Burn () where
+  choiceController = controllerIouBurn
+  action = actionIouBurn
+  exercise = exerciseIouBurn
 
 class IouInstance where
-  -- TODO(MH): Look for other ways to transfer the template definition.
   signatoryIou : Iou -> [Party]
-  signatoryIou = signatory
+  signatoryIou this@Iou{..} = [issuer, owner]
   observerIou : Iou -> [Party]
-  observerIou = observer
+  observerIou this@Iou{..} = []
   createIou : Iou -> Update (ContractId Iou)
   createIou = error "code will be injected by the compiler"
   fetchIou : ContractId Iou -> Update Iou
   fetchIou = error "code will be injected by the compiler"
   controllerIouBurn : Iou -> Burn -> [Party]
-  controllerIouBurn = choiceController
+  controllerIouBurn this@Iou{..} arg@Burn = [owner]
   actionIouBurn : ContractId Iou -> Iou -> Burn -> Update ()
-  actionIouBurn = action
+  actionIouBurn self this@Iou{..} arg@Burn = do
+    pure ()
   exerciseIouBurn : ContractId Iou -> Burn -> Update ()
   exerciseIouBurn = error "code will be injected by the compiler"
-
-instance IouInstance => Creatable Iou where
-  create = createIou
-  fetch = fetchIou
-
-instance IouInstance => Exercisable Iou Burn () where
-  exercise = exerciseIouBurn
 
 instance IouInstance where
 

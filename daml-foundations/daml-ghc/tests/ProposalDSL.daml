@@ -21,39 +21,36 @@ data Proposal t = Proposal with
     receivers : [Party]
   deriving (Eq, Show)
 
-instance Creatable t => Template (Proposal t) where
-  signatory this@Proposal{..} = signatory asset \\ receivers
-  observer this@Proposal{..} = receivers
+instance ProposalInstance t => Template (Proposal t) where
+    signatory = signatoryProposal
+    observer = observerProposal
+    create = createProposal
+    fetch = fetchProposal
+
 
 
 data Accept = Accept{}
   deriving (Eq, Show)
 
-instance Creatable t => Choice (Proposal t) Accept (ContractId t) where
-  choiceController this@Proposal{..} arg@Accept = receivers
-  action self this@Proposal{..} arg@Accept = do
-    create asset
+instance ProposalInstance t => Choice (Proposal t) Accept (ContractId t) where
+    choiceController = controllerProposalAccept
+    action = actionProposalAccept
+    exercise = exerciseProposalAccept
 
 
-class Creatable t => ProposalInstance t where
+class Template t => ProposalInstance t where
     signatoryProposal : Proposal t -> [Party]
-    signatoryProposal = signatory
+    signatoryProposal this@Proposal{..} = signatory asset \\ receivers
     observerProposal : Proposal t -> [Party]
-    observerProposal = observer
+    observerProposal this@Proposal{..} = receivers
     createProposal : Proposal t -> Update (ContractId (Proposal t))
     createProposal = error "code will be injected by the compiler"
     fetchProposal : ContractId (Proposal t) -> Update (Proposal t)
     fetchProposal = error "code will be injected by the compiler"
     controllerProposalAccept : Proposal t -> Accept -> [Party]
-    controllerProposalAccept = choiceController
+    controllerProposalAccept this@Proposal{..} arg@Accept = receivers
     actionProposalAccept : ContractId (Proposal t) -> Proposal t -> Accept -> Update (ContractId t)
-    actionProposalAccept = action
+    actionProposalAccept self this@Proposal{..} arg@Accept = do
+        create asset
     exerciseProposalAccept : ContractId (Proposal t) -> Accept -> Update (ContractId t)
     exerciseProposalAccept = error "code will be injected by the compiler"
-
-instance ProposalInstance t => Creatable (Proposal t) where
-    create = createProposal
-    fetch = fetchProposal
-
-instance ProposalInstance t => Exercisable (Proposal t) Accept (ContractId t) where
-    exercise = exerciseProposalAccept
