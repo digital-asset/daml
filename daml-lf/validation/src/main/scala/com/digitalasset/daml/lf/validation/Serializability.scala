@@ -24,7 +24,7 @@ private[validation] object Serializability {
 
     private val supportsSerializablePolymorphicContractIds =
       LanguageVersion.ordering
-        .gteq(languageVersion, LanguageVersion(LanguageMajorVersion.V1, "dev"))
+        .gteq(languageVersion, LanguageVersion(LanguageMajorVersion.V1, "5"))
 
     def unserializable(reason: UnserializabilityReason): Nothing =
       throw EExpectedSerializableType(ctx, requirement, typeToSerialize, reason)
