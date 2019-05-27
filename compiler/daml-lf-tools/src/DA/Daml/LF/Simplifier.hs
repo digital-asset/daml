@@ -148,9 +148,9 @@ safetyStep = \case
       BETrace -> Unsafe -- we make it unsafe so that it never gets erased
       BEEqualContractId -> Safe 2
       BEPartyToQuotedText -> Safe 1
-      BEFromText -> Safe 1
-      BEFromTextInt64 -> Safe 1
-      BEFromTextDecimal -> Safe 1
+      BEPartyFromText -> Safe 1
+      BEInt64FromText -> Safe 1
+      BEDecimalFromText -> Safe 1
       BECoerceContractId -> Safe 1
   ERecConF _ fs -> minimum (Safe 0 : map snd fs)
   ERecProjF _ _ s -> s `min` Safe 0

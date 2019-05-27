@@ -265,8 +265,8 @@ data BuiltinExpr
   | BEImplodeText                -- :: List Text -> Text
   | BESha256Text                 -- :: Text -> Text
   | BEPartyFromText              -- :: Text -> Optional Party
-  | BEInt64FromText              -- :: Text -> Option Int64
-  | BEDecimalFromText            -- :: Text -> Option Decimal
+  | BEInt64FromText              -- :: Text -> Optional Int64
+  | BEDecimalFromText            -- :: Text -> Optional Decimal
   | BEPartyToQuotedText          -- :: Party -> Text
 
   | BETrace                      -- :: forall a. Text -> a -> a
