@@ -3,17 +3,31 @@
 
 package com.digitalasset.ledger.api.testing.utils
 
+import java.util.concurrent.Executors
+
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.scalatest.{BeforeAndAfterAll, Suite}
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
 
-trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll { self: Suite =>
+trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
+  self: Suite =>
   protected def actorSystemName = this.getClass.getSimpleName
 
-  protected implicit val system: ActorSystem = ActorSystem(actorSystemName)
+  private val executorContext = ExecutionContext.fromExecutorService(
+    Executors.newSingleThreadExecutor(
+      new ThreadFactoryBuilder()
+        .setDaemon(true)
+        .setNameFormat(s"${actorSystemName}-thread-pool-worker-%d")
+        .setUncaughtExceptionHandler((thread, _) =>
+          println(s"got an uncaught exception on thread: ${thread.getName}"))
+        .build()))
+
+  protected implicit val system: ActorSystem =
+    ActorSystem(actorSystemName, defaultExecutionContext = Some(executorContext))
 
   protected implicit val materializer: ActorMaterializer = ActorMaterializer()
 
