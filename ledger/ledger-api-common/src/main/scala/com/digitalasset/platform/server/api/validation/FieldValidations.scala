@@ -24,7 +24,7 @@ trait FieldValidations {
   def requireIdentifier(s: String): Either[StatusRuntimeException, Ref.Name] =
     Ref.Name.fromString(s).left.map(invalidArgument)
 
-  def requireIdentifier(
+  def requireName(
       s: String,
       fieldName: String
   ): Either[StatusRuntimeException, Ref.Name] =

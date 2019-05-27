@@ -383,6 +383,15 @@ object Speedy {
               case _ => false
             }
           }
+        case SEnum(_, con1) =>
+          alts.find { alt =>
+            alt.pattern match {
+              case SCPEnum(_, con2) =>
+                con1 == con2
+              case SCPDefault => true
+              case _ => false
+            }
+          }
         case SList(lst) =>
           alts.find { alt =>
             alt.pattern match {
@@ -421,7 +430,8 @@ object Speedy {
               case _ => false
             }
           }
-        case _ =>
+        case _: SContractId | _: SDate | _: SDecimal | _: SInt64 | _: SParty | _: SText |
+            _: STimestamp | _: STuple | _: SMap | _: SRecord | _: SPAP | SToken =>
           crash("Match on non-matchable value")
       }
 

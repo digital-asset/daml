@@ -68,6 +68,7 @@ object KeyHasher extends KeyHasher {
         val z1 = op(z, HashTokenCollectionBegin(1))
         val z2 = foldLeft(v, z1, op)
         op(z2, HashTokenCollectionEnd())
+
       case ValueOptional(None) =>
         val z1 = op(z, HashTokenCollectionBegin(0))
         op(z1, HashTokenCollectionEnd())
@@ -78,6 +79,10 @@ object KeyHasher extends KeyHasher {
         val z2 = op(z1, HashTokenText(variant))
         val z3 = foldLeft(v, z2, op)
         op(z3, HashTokenCollectionEnd())
+
+      // Enum: [Text(variant)]
+      case ValueEnum(_, value_) =>
+        op(z, HashTokenText(value_))
 
       // List: [CollectionBegin(), Token(value)*, CollectionEnd()]
       case ValueList(xs) =>

@@ -92,15 +92,19 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
     }
 
     private[this] def decodeDefDataType(lfDataType: PLF.DefDataType): DDataType = {
+      val params = ImmArray(lfDataType.getParamsList.asScala).map(decodeTypeVarWithKind)
       DDataType(
         lfDataType.getSerializable,
-        ImmArray(lfDataType.getParamsList.asScala)
-          .map(decodeTypeVarWithKind(_)),
+        params,
         lfDataType.getDataConsCase match {
           case PLF.DefDataType.DataConsCase.RECORD =>
             DataRecord(decodeFields(ImmArray(lfDataType.getRecord.getFieldsList.asScala)), None)
           case PLF.DefDataType.DataConsCase.VARIANT =>
             DataVariant(decodeFields(ImmArray(lfDataType.getVariant.getFieldsList.asScala)))
+          case PLF.DefDataType.DataConsCase.ENUM =>
+            assertSince("dev", "DefDataType.DataCons")
+            assertEmpty(params.toSeq, "params")
+            DataEnum(decodeEnumCons(ImmArray(lfDataType.getEnum.getConstructorsList.asScala)))
           case PLF.DefDataType.DataConsCase.DATACONS_NOT_SET =>
             throw ParseError("DefDataType.DATACONS_NOT_SET")
 
@@ -110,6 +114,9 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
     private[this] def decodeFields(lfFields: ImmArray[PLF.FieldWithType]): ImmArray[(Name, Type)] =
       lfFields.map(field => name(field.getField) -> decodeType(field.getType))
+
+    private[this] def decodeEnumCons(cons: ImmArray[String]): ImmArray[EnumConName] =
+      cons.map(name)
 
     private[this] def decodeDefValue(lfValue: PLF.DefValue): DValue =
       DValue(
@@ -183,7 +190,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
     private[this] def decodeTemplate(lfTempl: PLF.DefTemplate): Template =
       Template(
         param = name(lfTempl.getParam),
-        precond = if (lfTempl.hasPrecond) decodeExpr(lfTempl.getPrecond) else EPrimCon(PCTrue),
+        precond = if (lfTempl.hasPrecond) decodeExpr(lfTempl.getPrecond) else ETrue,
         signatories = decodeExpr(lfTempl.getSignatories),
         agreementText = decodeExpr(lfTempl.getAgreement),
         choices = lfTempl.getChoicesList.asScala
@@ -214,7 +221,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
         case PLF.Kind.SumCase.ARROW =>
           val kArrow = lfKind.getArrow
           val params = kArrow.getParamsList.asScala
-          checkNonEmpty(params, "params")
+          assertNonEmpty(params, "params")
           (params :\ decodeKind(kArrow.getResult))((param, kind) => KArrow(decodeKind(param), kind))
         case PLF.Kind.SumCase.SUM_NOT_SET =>
           throw ParseError("Kind.SUM_NOT_SET")
@@ -240,18 +247,18 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           assertUntil("0", "Type.Fun")
           val tFun = lfType.getFun
           val params = tFun.getParamsList.asScala
-          checkNonEmpty(params, "params")
+          assertNonEmpty(params, "params")
           (params :\ decodeType(tFun.getResult))((param, res) => TFun(decodeType(param), res))
         case PLF.Type.SumCase.FORALL =>
           val tForall = lfType.getForall
           val vars = tForall.getVarsList.asScala
-          checkNonEmpty(vars, "vars")
+          assertNonEmpty(vars, "vars")
           (vars :\ decodeType(tForall.getBody))((binder, acc) =>
             TForall(decodeTypeVarWithKind(binder), acc))
         case PLF.Type.SumCase.TUPLE =>
           val tuple = lfType.getTuple
           val fields = tuple.getFieldsList.asScala
-          checkNonEmpty(fields, "fields")
+          assertNonEmpty(fields, "fields")
           TTuple(
             ImmArray(fields.map(ft => name(ft.getField) -> decodeType(ft.getType)))
           )
@@ -314,9 +321,9 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
         case PLF.Expr.SumCase.PRIM_CON =>
           lfExpr.getPrimCon match {
-            case PLF.PrimCon.CON_UNIT => EPrimCon(PCUnit)
-            case PLF.PrimCon.CON_FALSE => EPrimCon(PCFalse)
-            case PLF.PrimCon.CON_TRUE => EPrimCon(PCTrue)
+            case PLF.PrimCon.CON_UNIT => EUnit
+            case PLF.PrimCon.CON_FALSE => EFalse
+            case PLF.PrimCon.CON_TRUE => ETrue
             case PLF.PrimCon.UNRECOGNIZED =>
               throw ParseError("PrimCon.UNRECOGNIZED")
           }
@@ -356,6 +363,13 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
             name(varCon.getVariantCon),
             decodeExpr(varCon.getVariantArg))
 
+        case PLF.Expr.SumCase.ENUM_CON =>
+          val enumCon = lfExpr.getEnumCon
+          EEnumCon(
+            decodeTypeConName(enumCon.getTycon),
+            name(enumCon.getEnumCon)
+          )
+
         case PLF.Expr.SumCase.TUPLE_CON =>
           val tupleCon = lfExpr.getTupleCon
           ETupleCon(
@@ -377,13 +391,13 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
         case PLF.Expr.SumCase.APP =>
           val app = lfExpr.getApp
           val args = app.getArgsList.asScala
-          checkNonEmpty(args, "args")
+          assertNonEmpty(args, "args")
           (decodeExpr(app.getFun) /: args)((e, arg) => EApp(e, decodeExpr(arg)))
 
         case PLF.Expr.SumCase.ABS =>
           val lfAbs = lfExpr.getAbs
           val params = lfAbs.getParamList.asScala
-          checkNonEmpty(params, "params")
+          assertNonEmpty(params, "params")
           // val params = lfAbs.getParamList.asScala.map(decodeBinder)
           (params :\ decodeExpr(lfAbs.getBody))((param, e) =>
             EAbs(decodeBinder(param), e, currentDefinitionRef))
@@ -391,20 +405,20 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
         case PLF.Expr.SumCase.TY_APP =>
           val tyapp = lfExpr.getTyApp
           val args = tyapp.getTypesList.asScala
-          checkNonEmpty(args, "args")
+          assertNonEmpty(args, "args")
           (decodeExpr(tyapp.getExpr) /: args)((e, arg) => ETyApp(e, decodeType(arg)))
 
         case PLF.Expr.SumCase.TY_ABS =>
           val lfTyAbs = lfExpr.getTyAbs
           val params = lfTyAbs.getParamList.asScala
-          checkNonEmpty(params, "params")
+          assertNonEmpty(params, "params")
           (params :\ decodeExpr(lfTyAbs.getBody))((param, e) =>
             ETyAbs(decodeTypeVarWithKind(param), e))
 
         case PLF.Expr.SumCase.LET =>
           val lfLet = lfExpr.getLet
           val bindings = lfLet.getBindingsList.asScala
-          checkNonEmpty(bindings, "bindings")
+          assertNonEmpty(bindings, "bindings")
           (bindings :\ decodeExpr(lfLet.getBody))((binding, e) => {
             val (v, t) = decodeBinder(binding.getBinder)
             ELet(Binding(Some(v), t, decodeExpr(binding.getBound)), e)
@@ -416,7 +430,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
         case PLF.Expr.SumCase.CONS =>
           val cons = lfExpr.getCons
           val front = cons.getFrontList.asScala
-          checkNonEmpty(front, "front")
+          assertNonEmpty(front, "front")
           val typ = decodeType(cons.getType)
           ECons(typ, ImmArray(front.map(decodeExpr)), decodeExpr(cons.getTail))
 
@@ -424,7 +438,8 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           val case_ = lfExpr.getCase
           ECase(
             decodeExpr(case_.getScrut),
-            ImmArray(case_.getAltsList.asScala).map(decodeCaseAlt(_)))
+            ImmArray(case_.getAltsList.asScala).map(decodeCaseAlt)
+          )
 
         case PLF.Expr.SumCase.UPDATE =>
           EUpdate(decodeUpdate(lfExpr.getUpdate))
@@ -644,9 +659,11 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
     if (V1.minorVersionOrdering.lt(minor, minMinorVersion))
       throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
 
-  private def checkNonEmpty(s: Seq[_], description: String): Unit =
-    if (s.isEmpty)
-      throw ParseError(s"Unexpected empty $description")
+  private def assertNonEmpty(s: Seq[_], description: String): Unit =
+    if (s.isEmpty) throw ParseError(s"Unexpected empty $description")
+
+  private def assertEmpty(s: Seq[_], description: String): Unit =
+    if (s.nonEmpty) throw ParseError(s"Unexpected non-empty $description")
 
 }
 

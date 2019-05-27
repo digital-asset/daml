@@ -204,7 +204,10 @@ object SExpr {
   sealed trait SCasePat
 
   /** Match on a variant. On match the value is unboxed and pushed to environment. */
-  final case class SCPVariant(id: Identifier, variant: String) extends SCasePat
+  final case class SCPVariant(id: Identifier, variant: Name) extends SCasePat
+
+  /** Match on a variant. On match the value is unboxed and pushed to environment. */
+  final case class SCPEnum(id: Identifier, contractor: Name) extends SCasePat
 
   /** Match on a primitive constructor, that is on true, false or unit. */
   final case class SCPPrimCon(pc: PrimCon) extends SCasePat

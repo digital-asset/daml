@@ -17,6 +17,7 @@ case class Partitions(
     templates: List[DamlLf1.DefTemplate] = List.empty,
     records: Map[DottedName, DamlLf1.DefDataType] = Map.empty,
     variants: Map[DottedName, DamlLf1.DefDataType] = Map.empty,
+    enums: Map[DottedName, DamlLf1.DefDataType] = Map.empty,
     errors: List[(String, InterfaceReaderError)] = List.empty
 ) {
   def errorTree[Loc: Order](implicit kloc: String => Loc): Errors[Loc, InterfaceReaderError] =
@@ -32,21 +33,30 @@ object Partitions {
     val templates = m.getTemplatesList.asScala.toList
     val dataTypes = m.getDataTypesList.asScala.filter(_.getSerializable)
     val (errors, recsVars) = partitionEithers(dataTypes map (partitionDDT(_)))
-    val (variants, records) = recsVars partition (_._1)
+    val partitions = recsVars.groupBy(_._1)
     Partitions(
       templates = templates,
-      records = records.map { case (_, n, t) => (n, t) }(breakOut),
-      variants = variants.map { case (_, n, t) => (n, t) }(breakOut),
+      records = partitions.getOrElse(DDT.RECORD, List.empty).map(_._2)(breakOut),
+      variants = partitions.getOrElse(DDT.VARIANT, List.empty).map(_._2)(breakOut),
+      enums = partitions.getOrElse(DDT.ENUM, List.empty).map(_._2)(breakOut),
       errors = errors.toList
     )
   }
 
+  private sealed trait DDT
+  private object DDT {
+    case object RECORD extends DDT
+    case object VARIANT extends DDT
+    case object ENUM extends DDT
+  }
+
   private def partitionDDT(a: DamlLf1.DefDataType)
-    : (String, InterfaceReaderError) Either (Boolean, DottedName, DamlLf1.DefDataType) = {
+    : (String, InterfaceReaderError) Either (DDT, (DottedName, DamlLf1.DefDataType)) = {
     import DamlLf1.DefDataType.{DataConsCase => DCC}
     (a.getDataConsCase match {
-      case DCC.RECORD => dottedName(a.getName) map ((false, _, a))
-      case DCC.VARIANT => dottedName(a.getName) map ((true, _, a))
+      case DCC.RECORD => dottedName(a.getName) map (x => (DDT.RECORD, (x, a)))
+      case DCC.VARIANT => dottedName(a.getName) map (x => (DDT.VARIANT, (x, a)))
+      case DCC.ENUM => dottedName(a.getName) map (x => (DDT.ENUM, (x, a)))
       case DCC.DATACONS_NOT_SET =>
         -\/(invalidDataTypeDefinition(a, "DamlLf1.DefDataType.DataConsCase.DATACONS_NOT_SET"))
     }).leftMap((a.toString, _)).toEither

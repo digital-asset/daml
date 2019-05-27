@@ -193,6 +193,9 @@ object Pretty {
           val label = fieldType._1.fold[String](f._1)(n => s"${f._1} [$n]")
           PrettyField(label, fieldType._2)
         }))
+      case e: model.DamlLfEnum =>
+        // FixMe (RH) https://github.com/digital-asset/daml/issues/105
+        throw new NotImplementedError()
     }
   }
 

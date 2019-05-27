@@ -47,7 +47,10 @@ private[inner] object VariantClass extends StrictLogging {
     }
 
   private def isRecord(interfaceType: InterfaceType): Boolean =
-    interfaceType.`type`.dataType.fold(_ => true, _ => false)
+    interfaceType.`type`.dataType match {
+      case _: Record[_] => true
+      case _: Variant[_] | _: Enum => false
+    }
 
   /**
     * A record is a variant record if and only if

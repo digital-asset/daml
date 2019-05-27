@@ -114,6 +114,9 @@ object DamlLfCodec {
             .map(f => JsObject(propName -> JsString(f._1), propValue -> damlLfTypeToJsValue(f._2)))
             .toVector)
       )
+    case e: Model.DamlLfEnum =>
+      // FixMe (RH) https://github.com/digital-asset/daml/issues/105
+      throw new NotImplementedError()
   }
 
   def damlLfDefDataTypeToJsValue(value: Model.DamlLfDefDataType): JsValue = JsObject(

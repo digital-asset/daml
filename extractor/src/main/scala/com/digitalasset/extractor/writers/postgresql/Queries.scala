@@ -288,6 +288,9 @@ object Queries {
             "?::jsonb",
             toJsonString(v)
           )
+        case e @ V.ValueEnum(_, _) =>
+          // FixMe (RH) https://github.com/digital-asset/daml/issues/105
+          throw new NotImplementedError()
         case o @ V.ValueOptional(_) =>
           Fragment(
             "?::jsonb",

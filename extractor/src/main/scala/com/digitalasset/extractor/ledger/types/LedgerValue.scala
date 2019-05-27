@@ -31,6 +31,9 @@ object LedgerValue {
   final implicit class ApiValueSumOps(val apiValueSum: api.value.Value.Sum) extends AnyVal {
     def convert: String \/ LedgerValue = apiValueSum match {
       case Sum.Variant(apiVariant) => convertVariant(apiVariant)
+      case Sum.Enum(value) =>
+        // FixMe (RH) https://github.com/digital-asset/daml/issues/105
+        throw new NotImplementedError()
       case Sum.List(apiList) => convertList(apiList)
       case Sum.Record(apiRecord) => convertRecord(apiRecord)
       case Sum.Optional(apiOptional) => convertOptional(apiOptional)

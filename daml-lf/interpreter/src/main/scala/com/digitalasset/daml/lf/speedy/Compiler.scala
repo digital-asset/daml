@@ -135,6 +135,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     defns
   }
 
+  private def patternNArgs(pat: SCasePat): Int = pat match {
+    case _: SCPEnum | _: SCPPrimCon | SCPNil | SCPDefault | SCPNone => 0
+    case _: SCPVariant | SCPSome => 1
+    case SCPCons => 2
+  }
+
   private def translate(expr: Expr): SExpr =
     expr match {
       case EVar(name) => SEVar(lookupIndex(name))
@@ -362,6 +368,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           SEBuiltin(SBSome),
           Array(translate(body)),
         )
+
+      case EEnumCon(tyCon, value) =>
+        SEValue(SEnum(tyCon, value))
 
       case EVariantCon(tapp, variant, arg) =>
         SBVariantCon(tapp.tycon, variant)(translate(arg))
@@ -782,33 +791,28 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     if (packages.isDefinedAt(pkgId)) packages(pkgId)
     else throw PackageNotFound(pkgId)
 
-  private def lookupTemplate(tycon: TypeConName): Template = {
-    val pkg = lookupPackage(tycon.packageId)
-    pkg.modules
+  private def lookupDefinition(tycon: TypeConName): Option[Definition] =
+    lookupPackage(tycon.packageId).modules
       .get(tycon.qualifiedName.module)
       .flatMap(mod => mod.definitions.get(tycon.qualifiedName.name))
-      .flatMap(defn =>
-        defn match {
-          case DDataType(_, _, DataRecord(_, tmpl)) => tmpl
-          case _ => None
-      })
-      .getOrElse(throw CompileError(s"template $tycon not found"))
-  }
 
-  private def lookupRecordIndex(tapp: TypeConApp, field: FieldName): Int = {
-    val pkg = lookupPackage(tapp.tycon.packageId)
-    pkg.modules
-      .get(tapp.tycon.qualifiedName.module)
-      .flatMap(mod => mod.definitions.get(tapp.tycon.qualifiedName.name))
-      .flatMap(defn =>
-        defn match {
-          case DDataType(_, _, DataRecord(fields, _)) =>
-            val idx = fields.indexWhere(_._1 == field)
-            if (idx < 0) None else Some(idx)
-          case _ => None
-      })
+  private def lookupTemplate(tycon: TypeConName): Template =
+    lookupDefinition(tycon)
+      .flatMap {
+        case DDataType(_, _, DataRecord(_, tmpl)) => tmpl
+        case _ => None
+      }
+      .getOrElse(throw CompileError(s"template $tycon not found"))
+
+  private def lookupRecordIndex(tapp: TypeConApp, field: FieldName): Int =
+    lookupDefinition(tapp.tycon)
+      .flatMap {
+        case DDataType(_, _, DataRecord(fields, _)) =>
+          val idx = fields.indexWhere(_._1 == field)
+          if (idx < 0) None else Some(idx)
+        case _ => None
+      }
       .getOrElse(throw CompileError(s"record type $tapp not found"))
-  }
 
   private def withBinder[A](binder: ExprVarName)(f: Unit => A): A =
     withBinders(Seq(binder))(f)
@@ -907,22 +911,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             case SCaseAlt(pat, body) =>
               SCaseAlt(
                 pat,
-                pat match {
-                  case _: SCPVariant =>
-                    closureConvert(remaps, bound + 1, body)
-                  case _: SCPPrimCon =>
-                    closureConvert(remaps, bound, body)
-                  case SCPNil =>
-                    closureConvert(remaps, bound, body)
-                  case SCPCons =>
-                    closureConvert(remaps, bound + 2, body)
-                  case SCPDefault =>
-                    closureConvert(remaps, bound, body)
-                  case SCPNone =>
-                    closureConvert(remaps, bound, body)
-                  case SCPSome =>
-                    closureConvert(remaps, bound + 1, body)
-                }
+                closureConvert(remaps, bound + patternNArgs(pat), body)
               )
           }
         )
@@ -931,7 +920,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         SELet(bounds.zipWithIndex.map {
           case (b, i) =>
             closureConvert(remaps, bound + i, b)
-        }, closureConvert(remaps, bound + bounds.size, body))
+        }, closureConvert(remaps, bound + bounds.length, body))
 
       case SECatch(body, handler, fin) =>
         SECatch(
@@ -972,16 +961,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           go(scrut)
           alts.foreach {
             case SCaseAlt(pat, body) =>
-              pat match {
-                case _: SCPVariant =>
-                  bound += 1; go(body); bound -= 1
-                case _: SCPPrimCon => go(body)
-                case SCPNil => go(body)
-                case SCPCons => bound += 2; go(body); bound -= 2
-                case SCPDefault => go(body)
-                case SCPNone => go(body)
-                case SCPSome => bound += 1; go(body); bound -= 1
-              }
+              val n = patternNArgs(pat)
+              bound += n; go(body); bound -= n
           }
         case SELet(bounds, body) =>
           bounds.foreach { e =>
@@ -1011,7 +992,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case SMap(map) => map.values.foreach(goV)
         case SRecord(_, _, args) => args.forEach(goV)
         case SVariant(_, _, value) => goV(value)
-        case _ => throw CompileError("validate: unexpected SEValue")
+        case SEnum(_, _) => ()
+        case _: SPAP | SToken | _: STuple =>
+          throw CompileError("validate: unexpected SEValue")
       }
     }
 
@@ -1037,23 +1020,15 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             }
           }
           val oldBound = bound
-          bound = n + fv.size
+          bound = n + fv.length
           go(body)
           bound = oldBound
         case SECase(scrut, alts) =>
           go(scrut)
           alts.foreach {
             case SCaseAlt(pat, body) =>
-              pat match {
-                case _: SCPVariant =>
-                  bound += 1; go(body); bound -= 1
-                case _: SCPPrimCon => go(body)
-                case SCPNil => go(body)
-                case SCPCons => bound += 2; go(body); bound -= 2
-                case SCPDefault => go(body)
-                case SCPNone => go(body)
-                case SCPSome => bound += 1; go(body); bound -= 1
-              }
+              val n = patternNArgs(pat)
+              bound += n; go(body); bound -= n
           }
         case SELet(bounds, body) =>
           bounds.foreach { e =>
@@ -1061,7 +1036,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             bound += 1
           }
           go(body)
-          bound -= bounds.size
+          bound -= bounds.length
         case SECatch(body, handler, fin) =>
           go(body)
           go(handler)

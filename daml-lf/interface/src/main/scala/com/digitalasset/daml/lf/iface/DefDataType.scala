@@ -44,11 +44,6 @@ object DefDataType {
 sealed trait DataType[+RT, +VT] extends Product with Serializable {
   def bimap[C, D](f: RT => C, g: VT => D): DataType[C, D] =
     Bifunctor[DataType].bimap(this)(f, g)
-
-  def fold[Z](record: Record[RT] => Z, variant: Variant[VT] => Z): Z = this match {
-    case r @ Record(_) => record(r)
-    case v @ Variant(_) => variant(v)
-  }
 }
 
 object DataType {
@@ -71,6 +66,8 @@ object DataType {
             Traverse[Record].traverse(r)(f).widen
           case v @ Variant(_) =>
             Traverse[Variant].traverse(v)(g).widen
+          case Enum(vs) =>
+            Applicative[G].pure(Enum(vs))
         }
     }
 
@@ -114,6 +111,12 @@ object Variant extends FWTLike[Variant] {
           f: A => G[B]): G[Variant[B]] =
         Applicative[G].map(fa.fields traverse (_ traverse f))(bs => fa.copy(fields = bs))
     }
+}
+
+final case class Enum(values: ImmArraySeq[Ref.Name]) extends DataType[Nothing, Nothing] {
+
+  /** Widen to DataType, in Java. */
+  def asDataType[RT, PVT]: DataType[RT, PVT] = this
 }
 
 final case class DefTemplate[+Ty](choices: Map[Ref.Name, TemplateChoice[Ty]]) {

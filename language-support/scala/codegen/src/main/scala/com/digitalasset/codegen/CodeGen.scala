@@ -19,7 +19,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.iface.reader.Errors.ErrorLoc
 import com.digitalasset.daml_lf.DamlLf
 import com.typesafe.scalalogging.Logger
-import scalaz._
+import scalaz.{Enum => _, _}
 import scalaz.std.tuple._
 import scalaz.std.list._
 import scalaz.std.set._
@@ -222,6 +222,9 @@ object CodeGen {
         ddt match {
           case r: Record[RT] => Left(((qualName, typeVars.toList), r))
           case v: Variant[VT] => Right(sdt copy (dataType = v))
+          case e: Enum =>
+            // FixMe (RH) https://github.com/digital-asset/daml/issues/105
+            throw new NotImplementedError()
         }
     })(breakOut, breakOut)
 

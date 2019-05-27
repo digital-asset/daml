@@ -163,7 +163,7 @@ class InterpTest extends WordSpec with Matchers {
                 Module(
                   modName,
                   Map(DottedName.assertFromString("bar") ->
-                    DValue(TBuiltin(BTBool), true, EPrimCon(PCTrue), false)),
+                    DValue(TBuiltin(BTBool), true, ETrue, false)),
                   LanguageVersion.default,
                   FeatureFlags.default))))).right.get
     "succeeds" in {

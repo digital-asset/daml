@@ -184,6 +184,7 @@ raiseValue = \case
     LL.Value (Just sum) -> case sum of
         LL.ValueSumRecord r -> (fmap VRecord . raiseRecord) r
         LL.ValueSumVariant _ -> undefined
+        LL.ValueSumEnum _ -> undefined
         LL.ValueSumContractId c -> (return . VContract . ContractId) c
         LL.ValueSumList vs -> (fmap VList . raiseList raiseValue . LL.listElements) vs
         LL.ValueSumInt64 i -> (return . VInt . fromIntegral) i

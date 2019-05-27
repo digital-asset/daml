@@ -9,6 +9,7 @@ import java.time.temporal.ChronoUnit
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList}
+import com.digitalasset.daml.lf.iface
 import com.digitalasset.ledger.api.{v1 => V1}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.{model => Model}
@@ -262,9 +263,10 @@ case object LedgerApiV1 {
       ddt <- ctx.templates
         .damlLfDefDataType(typeCon.name.identifier)
         .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
-      dt <- typeCon
-        .instantiate(ddt)
-        .fold(Right(_), _ => Left(GenericConversionError(s"Variant expected")))
+      dt <- typeCon.instantiate(ddt) match {
+        case r @ iface.Record(_) => Right(r)
+        case iface.Variant(_) | iface.Enum(_) => Left(GenericConversionError(s"Record expected"))
+      }
       fields <- Converter.sequence(
         value.fields.toList
           .zip(dt.fields.toList)
@@ -356,9 +358,11 @@ case object LedgerApiV1 {
       ddt <- ctx.templates
         .damlLfDefDataType(typeCon.name.identifier)
         .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
-      dt <- typeCon
-        .instantiate(ddt)
-        .fold(_ => Left(GenericConversionError(s"Variant expected")), Right(_))
+      dt <- typeCon.instantiate(ddt) match {
+        case v @ iface.Variant(_) => Right(v)
+        case iface.Record(_) | iface.Enum(_) =>
+          Left(GenericConversionError(s"Variant expected"))
+      }
       choice <- dt.fields
         .find(f => f._1 == variant.constructor)
         .toRight(GenericConversionError(s"Unknown choice ${variant.constructor}"))

@@ -31,6 +31,9 @@ object Ast {
   /* Variant constructor name. */
   type VariantConName = Name
 
+  /* Variant constructor name. */
+  type EnumConName = Name
+
   /* Binding in a let/update/scenario block. */
   case class Binding(binder: Option[ExprVarName], typ: Type, bound: Expr)
 
@@ -76,6 +79,9 @@ object Ast {
 
   /** Variant construction. */
   final case class EVariantCon(tycon: TypeConApp, variant: VariantConName, arg: Expr) extends Expr
+
+  /** Variant construction. */
+  final case class EEnumCon(tyConName: TypeConName, con: EnumConName) extends Expr
 
   /** Tuple construction. */
   final case class ETupleCon(fields: ImmArray[(FieldName, Expr)]) extends Expr
@@ -475,6 +481,7 @@ object Ast {
   final case class DataRecord(fields: ImmArray[(FieldName, Type)], optTemplate: Option[Template])
       extends DataCons
   final case class DataVariant(variants: ImmArray[(VariantConName, Type)]) extends DataCons
+  final case class DataEnum(values: ImmArray[EnumConName]) extends DataCons
 
   case class TemplateKey(
       typ: Type,

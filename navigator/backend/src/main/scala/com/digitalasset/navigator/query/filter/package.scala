@@ -50,6 +50,9 @@ package object filter {
             nextField <- damlLfInstantiate(tc, ddt) match {
               case DamlLfRecord(fields) => fields.find(f => f._1 == nextCursor.current)
               case DamlLfVariant(fields) => fields.find(f => f._1 == nextCursor.current)
+              case DamlLfEnum(_) =>
+                // FixMe (RH) https://github.com/digital-asset/daml/issues/105
+                throw new NotImplementedError()
             }
           } yield {
             (nextField._2, nextCursor)

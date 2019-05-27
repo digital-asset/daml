@@ -384,6 +384,16 @@ object Pretty {
             case _ =>
               text(variant) + char('(') + prettyValue(true)(value) + char(')')
           })
+      case ValueEnum(mbId, value) =>
+        (mbId match {
+          case None => text("")
+          case Some(id) =>
+            if (verbose)
+              prettyIdentifier(id) + char(':')
+            else
+              text("")
+        }) +
+          text(value)
       case ValueText(t) => char('"') + text(t) + char('"')
       case ValueContractId(AbsoluteContractId(acoid)) => char('#') + text(acoid)
       case ValueContractId(RelativeContractId(rcoid)) =>
@@ -418,6 +428,8 @@ object Pretty {
         case SCPDefault => (text("default"), index)
         case SCPVariant(_, v) =>
           (text("var") + char('(') + str(v) + char(')'), index + 1)
+        case SCPEnum(_, v) =>
+          (text("enum") + char('(') + str(v) + char(')'), index)
         case SCPPrimCon(pc) =>
           pc match {
             case PCTrue => (text("true"), index)

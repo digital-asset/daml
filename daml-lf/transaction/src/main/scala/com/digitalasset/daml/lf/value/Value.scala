@@ -37,6 +37,7 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
         })
       case ValueVariant(id, variant, value) =>
         ValueVariant(id, variant, value.mapContractId(f))
+      case x @ ValueEnum(_, _) => x
       case ValueList(vs) =>
         ValueList(vs.map(_.mapContractId(f)))
       case x @ ValueInt64(_) => x
@@ -108,8 +109,9 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
               go(exceededNesting, errs, (value, nesting + 1) +: vs)
             }
 
-          case _: ValueContractId[Cid] | _: ValueInt64 | _: ValueDecimal | _: ValueText |
-              _: ValueTimestamp | _: ValueParty | _: ValueBool | _: ValueDate | ValueUnit =>
+          case _: ValueEnum | _: ValueContractId[Cid] | _: ValueInt64 | _: ValueDecimal |
+              _: ValueText | _: ValueTimestamp | _: ValueParty | _: ValueBool | _: ValueDate |
+              ValueUnit =>
             go(exceededNesting, errs, vs)
           case ValueOptional(x) =>
             if (nesting + 1 > MAXIMUM_NESTING) {
@@ -179,6 +181,8 @@ object Value {
       extends Value[Cid]
   final case class ValueVariant[+Cid](tycon: Option[Identifier], variant: Name, value: Value[Cid])
       extends Value[Cid]
+  final case class ValueEnum(tycon: Option[Identifier], value: Name) extends Value[Nothing]
+
   final case class ValueContractId[+Cid](value: Cid) extends Value[Cid]
 
   /**
@@ -216,6 +220,11 @@ object Value {
           case ValueVariant(tycon2, variant2, value2) =>
             import v._
             tycon == tycon2 && variant == variant2 && value === value2
+        }
+        case v: ValueEnum => {
+          case ValueEnum(tycon2, value2) =>
+            import v._
+            tycon == tycon2 && value == value2
         }
         case ValueContractId(value) => {
           case ValueContractId(value2) =>

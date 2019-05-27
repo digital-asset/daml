@@ -5,8 +5,8 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 import com.digitalasset.daml.lf.codegen.TypeWithContext
 import com.digitalasset.daml.lf.codegen.backend.java.JavaEscaper
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.iface.reader.InterfaceType.{Normal, Template}
-import com.digitalasset.daml.lf.iface.{DefDataType, Record, Variant}
+import com.digitalasset.daml.lf.iface.InterfaceType.{Normal, Template}
+import com.digitalasset.daml.lf.iface.{Enum, DefDataType, Record, Variant}
 import com.squareup.javapoet.{ClassName, FieldSpec, JavaFile, TypeSpec}
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
@@ -46,6 +46,10 @@ object ClassForType extends StrictLogging {
             packagePrefixes)
         javaFile(typeWithContext, javaPackage, tpe) ::
           constructors.map(cons => javaFile(typeWithContext, subPackage, cons))
+
+      case Some(Normal(DefDataType(typeVars, enum: Enum))) =>
+        // FixMe (RH) https://github.com/digital-asset/daml/issues/105
+        throw new NotImplementedError()
 
       case Some(Template(record, template)) =>
         val typeSpec =
