@@ -42,7 +42,6 @@ import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Futu
 
 import com.digitalasset.ledger.api.domain.LedgerId
 
-
 object ExampleMain extends App {
 
   private val dar = new File("./scala-codegen/target/repository/daml-codegen/Main.dar")

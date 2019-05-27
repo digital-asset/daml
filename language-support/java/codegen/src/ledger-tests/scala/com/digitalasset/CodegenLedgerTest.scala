@@ -44,8 +44,6 @@ import tests.wolpertinger.{Color, Wolpertinger}
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 import com.digitalasset.ledger.api.domain.LedgerId
-
-
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CodegenLedgerTest extends FlatSpec with Matchers {
 
