@@ -19,6 +19,7 @@ rec {
     nodejs
     patchelf
     protobuf3_5
+    scala
     zip
     ;
 

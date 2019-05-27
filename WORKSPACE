@@ -418,6 +418,15 @@ dev_env_tool(
     win_tool = "nsis-3.04",
 ) if is_windows else None
 
+# Scaladoc
+nixpkgs_package(
+    name = "scala_nix",
+    attribute_path = "scala",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
 # Dummy target //external:python_headers.
 # To avoid query errors due to com_google_protobuf.
 # See https://github.com/protocolbuffers/protobuf/blob/d9ccd0c0e6bbda9bf4476088eeb46b02d7dcd327/util/python/BUILD
