@@ -47,10 +47,10 @@ main =
     withEnv
         [ ("DAML_HOME", Just damlDir)
         , ("PATH", Just $ intercalate [searchPathSeparator] ((damlDir </> "bin") : tarPath : javaPath : mvnPath : oldPath))
-        ] $ defaultMain (tests tmpDir)
+        ] $ defaultMain (tests damlDir tmpDir)
 
-tests :: FilePath -> TestTree
-tests tmpDir = testGroup "Integration tests"
+tests :: FilePath -> FilePath -> TestTree
+tests damlDir tmpDir = testGroup "Integration tests"
     [ testCase "install" $ do
           releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
           createDirectory tarballDir
@@ -62,6 +62,7 @@ tests tmpDir = testGroup "Integration tests"
     , testCase "daml version" $ callProcessQuiet damlName ["version"]
     , testCase "daml --help" $ callProcessQuiet damlName ["--help"]
     , testCase "daml new --list" $ callProcessQuiet damlName ["new", "--list"]
+    , noassistantTests damlDir
     , packagingTests tmpDir
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
@@ -71,6 +72,28 @@ tests tmpDir = testGroup "Integration tests"
           mvnDir = tmpDir </> "m2"
           tarballDir = tmpDir </> "tarball"
           throwError msg e = fail (T.unpack $ msg <> " " <> e)
+
+-- | These tests check that it is possible to invoke (a subset) of damlc
+-- commands outside of the assistant.
+noassistantTests :: FilePath -> TestTree
+noassistantTests damlDir = testGroup "no assistant"
+    [ testCase "damlc build" $ withTempDir $ \projDir -> do
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: a"
+              , "version: \"1.0\""
+              , "source: Main.daml"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          writeFileUTF8 (projDir </> "Main.daml") $ unlines
+              [ "daml 1.2"
+              , "module Main where"
+              , "a : ()"
+              , "a = ()"
+              ]
+          let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "da-hs-damlc-app"
+          callProcess damlcPath ["build", "--project-root", projDir, "--init-package-db", "no"]
+    ]
 
 packagingTests :: FilePath -> TestTree
 packagingTests tmpDir = testGroup "packaging"
