@@ -1,13 +1,14 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.services.transaction
+package com.daml.ledger.api.server.damlonx.services.backport
 
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.api.domain.TransactionFilter
 import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter
 import com.digitalasset.platform.common.{PlatformTypes => P}
+import com.digitalasset.platform.server.services.transaction.{TransactionMeta, TransactionWithMeta}
 
 /** Contains all data that's necessary to assemble a transaction for the API */
 final case class VisibleTransaction(
@@ -29,7 +30,7 @@ object VisibleTransaction {
       transactionFilter: TransactionFilter,
       transactionWitMeta: TransactionWithMeta): Option[VisibleTransaction] =
     transactionFilter
-      .filter(transactionWitMeta.transaction, identity[LedgerString])
+      .filter(transactionWitMeta.transaction)
       .map(
         VisibleTransaction(
           transactionWitMeta.transaction,

@@ -128,7 +128,8 @@ object Ref {
   case class Identifier(packageId: PackageId, qualifiedName: QualifiedName)
 
   /* Choice name in a template. */
-  type ChoiceName = Name
+  val ChoiceName: Name.type = Name
+  type ChoiceName = ChoiceName.T
 
   type ModuleName = DottedName
   val ModuleName = DottedName
