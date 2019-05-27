@@ -2078,7 +2078,7 @@ Decimal functions
   Given a string representation of a decimal returns the decimal
   wrapped in ``Some``. If the input does not match the regexp
   ``[+-]?[0-9]+(\.[0-9]+)?`` or if the result of the conversion
-  cannot be mapped into a decimal without loss of precision, returns None.
+  cannot be mapped into a decimal without loss of precision, returns ``None``.
 
   [*Available since version 1.5*]
 
