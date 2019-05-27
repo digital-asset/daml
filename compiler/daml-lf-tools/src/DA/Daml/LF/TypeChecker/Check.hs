@@ -160,9 +160,7 @@ typeOfBuiltin = \case
   BEGreaterEq btype  -> pure $ tComparison btype
   BEToText    btype  -> pure $ TBuiltin btype :-> TText
   BEPartyToQuotedText -> pure $ TParty :-> TText
-  BEPartyFromText    -> do
-      checkFeature featurePartyFromText
-      pure $ TText :-> TOptional TParty
+  BEPartyFromText    -> pure $ TText :-> TOptional TParty
   BEInt64FromText    -> do
       checkFeature featureNumberFromText
       pure $ TText :-> TOptional TInt64
