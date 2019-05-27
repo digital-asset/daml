@@ -18,6 +18,11 @@ DAML Assistant
 
 - You can now see all available versions with ``daml version`` using the ``--all`` flag.
 
+DAML Compiler
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE**: Drop support for DAML-LF 1.1. Compiling to DAML-LF 1.2 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all.
+
 DAML Standard Library
 ~~~~~~~~~~~~~~~~~~~~~
 

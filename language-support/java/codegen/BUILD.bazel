@@ -180,7 +180,6 @@ daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
     main_src = "src/ledger-tests/daml/Wolpertinger.daml",
-    target = "1.1",
 )
 
 dar_to_java(

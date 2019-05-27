@@ -1,6 +1,6 @@
 -- @SINCE-LF 1.2
 daml 1.2
-module PartyFromText where
+module PartyVsText where
 
 import DA.Assert
 
