@@ -78,7 +78,7 @@ decodeDataCons = \case
     DataVariant <$> mapM (decodeFieldWithType VariantConName) (V.toList fs)
   LF1.DefDataTypeDataConsEnum _ ->
    -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
-    Left (ParseError "NotImplemented")
+    Left (ParseError "Enum type not supported")
 
 decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> Decode (ExprValName, Type)
 decodeDefValueNameWithType LF1.DefValue_NameWithType{..} = (,)

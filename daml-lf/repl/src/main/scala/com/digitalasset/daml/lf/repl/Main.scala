@@ -639,8 +639,8 @@ object Repl {
       case ValueDecimal(d) => EPrimLit(PLDecimal(d))
       case ValueVariant(_, variant, value) =>
         EVariantCon(dummyTyApp, variant, valueToExpr(value))
-      case ValueEnum(_, value) =>
-        EVariantCon(dummyTyApp, value, EUnit)
+      case ValueEnum(_, constructor) =>
+        EVariantCon(dummyTyApp, constructor, EUnit)
       case ValueRecord(_, fs) =>
         ETupleCon(fs.map(kv => (kv._1.get, valueToExpr(kv._2))))
       case ValueTuple(fs) =>

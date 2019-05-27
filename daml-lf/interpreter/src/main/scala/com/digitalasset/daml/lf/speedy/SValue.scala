@@ -59,8 +59,8 @@ sealed trait SValue {
 
       case SVariant(id, variant, sv) =>
         V.ValueVariant(Some(id), variant, sv.toValue)
-      case SEnum(id, alt) =>
-        V.ValueEnum(Some(id), alt)
+      case SEnum(id, constructor) =>
+        V.ValueEnum(Some(id), constructor)
       case SList(lst) =>
         V.ValueList(lst.map(_.toValue))
       case SOptional(mbV) =>
@@ -173,7 +173,7 @@ object SValue {
 
   final case class SVariant(id: Identifier, variant: VariantConName, value: SValue) extends SValue
 
-  final case class SEnum(id: Identifier, alt: Name) extends SValue
+  final case class SEnum(id: Identifier, constructor: Name) extends SValue
 
   final case class SOptional(value: Option[SValue]) extends SValue
 
@@ -243,7 +243,7 @@ object SValue {
       case V.ValueVariant(None, _variant @ _, _value @ _) =>
         throw SErrorCrash("SValue.fromValue: variant without identifier")
 
-      case V.ValueEnum(None, value @ _) =>
+      case V.ValueEnum(None, constructor @ _) =>
         throw SErrorCrash("SValue.fromValue: enum without identifier")
 
       case V.ValueOptional(mbV) =>
@@ -255,8 +255,8 @@ object SValue {
       case V.ValueVariant(Some(id), variant, value) =>
         SVariant(id, variant, fromValue(value))
 
-      case V.ValueEnum(Some(id), value) =>
-        SEnum(id, value)
+      case V.ValueEnum(Some(id), constructor) =>
+        SEnum(id, constructor)
     }
   }
 

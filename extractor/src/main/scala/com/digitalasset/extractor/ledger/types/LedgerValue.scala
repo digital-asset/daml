@@ -33,7 +33,7 @@ object LedgerValue {
       case Sum.Variant(apiVariant) => convertVariant(apiVariant)
       case Sum.Enum(value) =>
         // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-        throw new NotImplementedError()
+        throw new NotImplementedError("Enum types not supported")
       case Sum.List(apiList) => convertList(apiList)
       case Sum.Record(apiRecord) => convertRecord(apiRecord)
       case Sum.Optional(apiOptional) => convertOptional(apiOptional)

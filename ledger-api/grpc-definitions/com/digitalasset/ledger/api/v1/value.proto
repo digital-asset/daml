@@ -143,7 +143,7 @@ message Enum {
 
   // Determines which of the Variant's alternatives is encoded in this message.
   // Required
-  string value = 2;
+  string constructor = 2;
 }
 
 // A homogenous collection of values.

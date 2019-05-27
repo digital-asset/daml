@@ -369,8 +369,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           Array(translate(body)),
         )
 
-      case EEnumCon(tyCon, value) =>
-        SEValue(SEnum(tyCon, value))
+      case EEnumCon(tyCon, constructor) =>
+        SEValue(SEnum(tyCon, constructor))
 
       case EVariantCon(tapp, variant, arg) =>
         SBVariantCon(tapp.tycon, variant)(translate(arg))

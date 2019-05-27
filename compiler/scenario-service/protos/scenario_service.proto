@@ -269,7 +269,7 @@ message Variant {
 
 message Enum {
   Identifier enum_id = 1;
-  string value = 2;
+  string constructor = 2;
 }
 
 message List {

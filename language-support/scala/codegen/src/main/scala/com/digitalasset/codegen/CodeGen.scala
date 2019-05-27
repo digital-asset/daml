@@ -224,7 +224,7 @@ object CodeGen {
           case v: Variant[VT] => Right(sdt copy (dataType = v))
           case e: Enum =>
             // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-            throw new NotImplementedError()
+            throw new NotImplementedError("Enum types not supported")
         }
     })(breakOut, breakOut)
 

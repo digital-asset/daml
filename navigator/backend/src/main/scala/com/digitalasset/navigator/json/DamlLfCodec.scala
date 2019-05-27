@@ -116,7 +116,7 @@ object DamlLfCodec {
       )
     case e: Model.DamlLfEnum =>
       // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-      throw new NotImplementedError()
+      throw new NotImplementedError("Enum types not supported")
   }
 
   def damlLfDefDataTypeToJsValue(value: Model.DamlLfDefDataType): JsValue = JsObject(

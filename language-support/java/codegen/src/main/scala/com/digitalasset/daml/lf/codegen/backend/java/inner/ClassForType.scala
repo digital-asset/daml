@@ -49,7 +49,7 @@ object ClassForType extends StrictLogging {
 
       case Some(Normal(DefDataType(typeVars, enum: Enum))) =>
         // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-        throw new NotImplementedError()
+        throw new NotImplementedError("Enum types not supported")
 
       case Some(Template(record, template)) =>
         val typeSpec =

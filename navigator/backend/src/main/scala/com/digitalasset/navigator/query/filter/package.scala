@@ -52,7 +52,7 @@ package object filter {
               case DamlLfVariant(fields) => fields.find(f => f._1 == nextCursor.current)
               case DamlLfEnum(_) =>
                 // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-                throw new NotImplementedError()
+                throw new NotImplementedError("Enum types not supported")
             }
           } yield {
             (nextField._2, nextCursor)

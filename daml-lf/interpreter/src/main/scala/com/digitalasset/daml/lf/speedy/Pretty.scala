@@ -384,7 +384,7 @@ object Pretty {
             case _ =>
               text(variant) + char('(') + prettyValue(true)(value) + char(')')
           })
-      case ValueEnum(mbId, value) =>
+      case ValueEnum(mbId, constructor) =>
         (mbId match {
           case None => text("")
           case Some(id) =>
@@ -393,7 +393,7 @@ object Pretty {
             else
               text("")
         }) +
-          text(value)
+          text(constructor)
       case ValueText(t) => char('"') + text(t) + char('"')
       case ValueContractId(AbsoluteContractId(acoid)) => char('#') + text(acoid)
       case ValueContractId(RelativeContractId(rcoid)) =>

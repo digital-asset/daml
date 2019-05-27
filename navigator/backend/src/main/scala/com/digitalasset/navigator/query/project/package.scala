@@ -70,7 +70,7 @@ object project {
                   .toRight(UnknownProperty("variant", nextCursor, value))
               case DamlLfEnum(_) =>
                 // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-                throw new NotImplementedError()
+                throw new NotImplementedError("Enum types not supported")
             }
           } yield {
             (nextField._2, nextCursor)

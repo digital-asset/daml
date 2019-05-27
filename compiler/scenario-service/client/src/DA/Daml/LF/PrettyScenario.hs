@@ -682,8 +682,8 @@ prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
   ValueSumVariant (Variant mbVariantId ctor mbValue) ->
         prettyMay "" (\v -> prettyDefName world v <> ":") mbVariantId <> ltext ctor
     <-> prettyMay "<missing value>" (prettyValue' True precHighest world) mbValue
-  ValueSumEnum (Enum mbEnumId value) ->
-        prettyMay ""(\v -> prettyDefName world v <> ":") mbEnumId <> ltext value
+  ValueSumEnum (Enum mbEnumId constructor) ->
+        prettyMay ""(\x -> prettyDefName world x <> ":") mbEnumId <> ltext constructor
   ValueSumList (List elems) ->
     brackets (fcommasep (mapV (prettyValue' True prec world) elems))
   ValueSumContractId coid -> prettyContractId coid

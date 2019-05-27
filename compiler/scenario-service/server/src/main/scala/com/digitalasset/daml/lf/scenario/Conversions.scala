@@ -597,8 +597,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .setValue(convertValue(value))
             .build
         )
-      case V.ValueEnum(tycon, value) =>
-        val eBuilder = Enum.newBuilder.setValue(value)
+      case V.ValueEnum(tycon, constructor) =>
+        val eBuilder = Enum.newBuilder.setConstructor(constructor)
         tycon.foreach(x => eBuilder.setEnumId(convertIdentifier(x)))
         builder.setEnum(eBuilder.build)
       case V.ValueContractId(coid) =>

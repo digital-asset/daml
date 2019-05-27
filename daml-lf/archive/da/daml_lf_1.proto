@@ -28,6 +28,7 @@
 // * 5 -- 2019-05-22: Relax serializability constraints for contract ids
 //        2019-05-23: Add BuiltinFunction.COERCE_CONTRACT_ID
 //        2019-05-24: Make actors in exercise optional
+//        2019-05-27: Add enum type.
 
 
 syntax = "proto3";
@@ -772,7 +773,7 @@ message CaseAlt {
 
     // name of the variant constructor
     // *Must be a valid identifier*
-    string variant = 2;
+    string constructors = 2;
   }
 
   // Non empty list pattern
