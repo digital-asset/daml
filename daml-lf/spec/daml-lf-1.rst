@@ -2002,6 +2002,14 @@ Int64 functions
 
   Returns the decimal representation of the integer as a string.
 
+* ``FROM_TEXT_INT64 : 'Text' → 'Optional' 'Int64'``
+
+  Given a string representation of an integer returns the integer wrapped
+  in ``Some``. If the input does not match the regexp ``[+-]?[0-9]+`` or
+  if the result of the conversion overflows, returns ``None``.
+
+  [*Available since version 1.5*]
+
 Decimal functions
 ~~~~~~~~~~~~~~~~~
 
@@ -2062,6 +2070,15 @@ Decimal functions
 * ``TO_TEXT_DECIMAL : 'Decimal' → 'Text'``
 
   Returns the decimal string representation of the decimal.
+
+* ``FROM_TEXT_DECIMAL : 'Text' → 'Optional' 'DECIMAL'``
+
+  Given a string representation of a decimal returns the decimal
+  wrapped in ``Some``. If the input does not match the regexp
+  ``[+-]?[0-9]+(\.[0-9]+)?`` or if the result of the conversion
+  cannot be mapped into a decimal without lost of precision, returns None.
+
+  [*Available since version 1.5*]
 
 String functions
 ~~~~~~~~~~~~~~~~
