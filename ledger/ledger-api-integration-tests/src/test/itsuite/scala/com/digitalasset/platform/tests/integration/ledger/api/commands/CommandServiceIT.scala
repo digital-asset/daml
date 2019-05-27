@@ -16,6 +16,8 @@ import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import org.scalatest.{AsyncWordSpec, Matchers}
 
+import scalaz.syntax.tag._
+
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandServiceIT
     extends AsyncWordSpec
@@ -24,12 +26,11 @@ class CommandServiceIT
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll {
 
-  private def request(
-                       ctx: LedgerContext,
-                       id: String = UUID.randomUUID().toString,
-                       ledgerId: Option[String] = None) =
+  private def request(ctx: LedgerContext,
+                      id: String = UUID.randomUUID().toString,
+                      ledgerId: Option[String] = None) =
     MockMessages.submitAndWaitRequest
-      .update(_.commands.ledgerId := ledgerId.getOrElse(ctx.ledgerId), _.commands.commandId := id)
+      .update(_.commands.ledgerId := ledgerId.getOrElse(ctx.ledgerId.unwrap), _.commands.commandId := id)
       .copy(traceContext = None)
 
   "Commands Service" when {

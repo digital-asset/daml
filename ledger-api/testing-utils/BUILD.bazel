@@ -18,6 +18,7 @@ da_scala_library(
         "//3rdparty/jvm/io/grpc:grpc_core",
         "//3rdparty/jvm/io/grpc:grpc_netty",
         "//3rdparty/jvm/org/scalatest",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
     ],
 )

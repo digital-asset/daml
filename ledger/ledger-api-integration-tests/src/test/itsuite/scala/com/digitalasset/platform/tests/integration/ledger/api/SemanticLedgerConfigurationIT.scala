@@ -25,6 +25,8 @@ import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
+
+import scalaz.syntax.tag._
 import scalapb.lenses
 import scalapb.lenses.Lens
 
@@ -67,7 +69,7 @@ class SemanticLedgerConfigurationIT
       changes: Lens[SubmitAndWaitRequest, SubmitAndWaitRequest] => lenses.Mutation[
         SubmitAndWaitRequest]): SubmitAndWaitRequest = {
     submitAndWaitRequest.update(
-      _.commands.ledgerId := ctx.ledgerId,
+      _.commands.ledgerId := ctx.ledgerId.unwrap,
       _.commands.commandId := newCommandId(),
       changes
     )

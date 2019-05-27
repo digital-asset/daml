@@ -7,11 +7,8 @@ import java.io.File
 import java.lang
 import java.util.concurrent.Callable
 
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  IsStatusException,
-  SuiteResourceManagementAroundAll
-}
+import com.digitalasset.ledger.api.domain
+import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, IsStatusException, SuiteResourceManagementAroundAll}
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.sandbox.TestExecutionSequencerFactory
@@ -20,6 +17,7 @@ import io.grpc.Status
 import org.awaitility.Awaitility
 import org.scalatest.{Matchers, WordSpec}
 
+import scalaz.syntax.tag._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
@@ -79,7 +77,7 @@ class StaticTimeIT
     "initialized with the wrong ledger ID" should {
 
       "fail during initialization" in {
-        whenReady(StaticTime.updatedVia(clientStub, notLedgerId).failed)(
+        whenReady(StaticTime.updatedVia(clientStub, notLedgerId.unwrap).failed)(
           IsStatusException(Status.NOT_FOUND))
       }
     }
@@ -109,14 +107,14 @@ class StaticTimeIT
     }
   }
 
-  private def withStaticTime[T](ledgerId: String)(action: StaticTime => T) = {
+  private def withStaticTime[T](ledgerId: domain.LedgerId)(action: StaticTime => T) = {
     val staticTime = createStaticTime(ledgerId)
     val res = action(staticTime)
     staticTime.close()
     res
   }
 
-  private def createStaticTime(ledgerId: String) = {
-    Await.result(StaticTime.updatedVia(clientStub, ledgerId), 30.seconds)
+  private def createStaticTime(ledgerId: domain.LedgerId) = {
+    Await.result(StaticTime.updatedVia(clientStub, ledgerId.unwrap), 30.seconds)
   }
 }

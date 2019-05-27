@@ -18,6 +18,7 @@ import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
 
+import scalaz.syntax.tag._
 import scala.collection.immutable
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -36,7 +37,7 @@ class CommandServiceBackPressureIT
       id: String = UUID.randomUUID().toString) =
     MockMessages.submitAndWaitRequest
       .update(
-        _.commands.ledgerId := ctx.ledgerId,
+        _.commands.ledgerId := ctx.ledgerId.unwrap,
         _.commands.commandId := id,
         _.optionalTraceContext := None)
 
@@ -45,7 +46,7 @@ class CommandServiceBackPressureIT
       id: String = UUID.randomUUID().toString) =
     MockMessages.submitRequest
       .update(
-        _.commands.ledgerId := ctx.ledgerId,
+        _.commands.ledgerId := ctx.ledgerId.unwrap,
         _.commands.commandId := id,
         _.optionalTraceContext := None)
 

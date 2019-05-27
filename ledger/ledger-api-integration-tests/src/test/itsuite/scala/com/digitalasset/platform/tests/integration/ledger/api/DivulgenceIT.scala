@@ -18,7 +18,7 @@ import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundEach
 }
-import com.digitalasset.ledger.api.{domain, v1}
+import com.digitalasset.ledger.api.v1
 import com.digitalasset.ledger.api.v1.command_service._
 import com.digitalasset.ledger.api.v1.commands._
 import com.digitalasset.ledger.api.v1.ledger_offset._
@@ -33,6 +33,7 @@ import org.scalatest.{AsyncFreeSpec, Matchers, OptionValues}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.Inside.inside
 
+import scalaz.syntax.tag._
 import scala.language.implicitConversions
 import scala.concurrent.Future
 
@@ -56,10 +57,10 @@ class DivulgenceIT
     new SynchronousCommandClient(ctx.commandService)
 
   private def acsClient(ctx: LedgerContext): ActiveContractSetClient =
-    new ActiveContractSetClient(domain.LedgerId(ctx.ledgerId), ctx.acsService)
+    new ActiveContractSetClient(ctx.ledgerId, ctx.acsService)
 
   private def transactionClient(ctx: LedgerContext): TransactionClient =
-    new TransactionClient(domain.LedgerId(ctx.ledgerId), ctx.transactionService)
+    new TransactionClient(ctx.ledgerId, ctx.transactionService)
 
   private val ledgerEffectiveTime = Timestamp(0L, 0)
   private val maximumRecordTime =
@@ -72,7 +73,7 @@ class DivulgenceIT
     SubmitAndWaitRequest(
       commands = Some(
         Commands(
-          ledgerId = ctx.ledgerId,
+          ledgerId = ctx.ledgerId.unwrap,
           workflowId = "divulgence-test-workflow-id",
           applicationId = "divulgence-test-application-id",
           commandId = commandId,

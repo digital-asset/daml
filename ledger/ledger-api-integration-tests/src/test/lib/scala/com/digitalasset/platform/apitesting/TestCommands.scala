@@ -5,11 +5,8 @@ package com.digitalasset.platform.apitesting
 
 import java.util
 
-import com.digitalasset.ledger.api.testing.utils.MockMessages.{
-  applicationId,
-  ledgerEffectiveTime,
-  maximumRecordTime
-}
+import com.digitalasset.ledger.api.domain
+import com.digitalasset.ledger.api.testing.utils.MockMessages.{applicationId, ledgerEffectiveTime, maximumRecordTime}
 import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
@@ -21,6 +18,8 @@ import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Va
 import com.digitalasset.platform.tests.integration.ledger.api.TransactionServiceHelpers
 import com.google.protobuf.timestamp.Timestamp
 
+import scalaz.syntax.tag._
+
 trait TestTemplateIds extends TransactionServiceHelpers {
   protected lazy val templateIds: TestTemplateIdentifiers = {
     new TestTemplateIdentifiers(parsedPackageId)
@@ -29,7 +28,7 @@ trait TestTemplateIds extends TransactionServiceHelpers {
 
 trait TestCommands extends TestTemplateIds {
   protected def buildRequest(
-      ledgerId: String,
+      ledgerId: domain.LedgerId,
       commandId: String,
       commands: Seq[Command],
       party: String,
@@ -38,7 +37,7 @@ trait TestCommands extends TestTemplateIds {
       appId: String = applicationId): SubmitRequest =
     M.submitRequest.update(
       _.commands.commandId := commandId,
-      _.commands.ledgerId := ledgerId,
+      _.commands.ledgerId := ledgerId.unwrap,
       _.commands.applicationId := appId,
       _.commands.party := party,
       _.commands.commands := commands,
@@ -46,7 +45,7 @@ trait TestCommands extends TestTemplateIds {
       _.commands.maximumRecordTime := maxRecordTime
     )
 
-  protected def dummyCommands(ledgerId: String, commandId: String, party: String = "party") =
+  protected def dummyCommands(ledgerId: domain.LedgerId, commandId: String, party: String = "party") =
     buildRequest(
       ledgerId,
       commandId,
@@ -86,7 +85,7 @@ trait TestCommands extends TestTemplateIds {
         )))
 
   protected def oneKbCommandRequest(
-      ledgerId: String,
+      ledgerId: domain.LedgerId,
       commandId: String,
       party: String = "party"): SubmitRequest =
     buildRequest(ledgerId, commandId, List(oneKbCommand(templateIds.textContainer)), party)

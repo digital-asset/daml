@@ -8,17 +8,16 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.{Done, pattern}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
-import com.digitalasset.ledger.api.v1.active_contracts_service.{
-  GetActiveContractsRequest,
-  GetActiveContractsResponse
-}
+import com.digitalasset.ledger.api.v1.active_contracts_service.{GetActiveContractsRequest, GetActiveContractsResponse}
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetSource
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import org.scalatest.Matchers
 import org.scalatest.concurrent.ScalaFutures
 
+import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future}
 
 trait AcsFutures extends Matchers with ScalaFutures {
@@ -51,7 +50,7 @@ trait AcsFutures extends Matchers with ScalaFutures {
     */
   def waitForActiveContracts(
       service: ActiveContractsService,
-      ledgerId: String,
+      ledgerId: domain.LedgerId,
       transactionFilter: Map[String, Filters],
       expectedCount: Int,
       verbose: Boolean = false)(
@@ -62,7 +61,7 @@ trait AcsFutures extends Matchers with ScalaFutures {
     waitForProperty(Future.successful(Done)) { _ =>
       ActiveContractSetSource(
         service.getActiveContracts,
-        GetActiveContractsRequest(ledgerId, Some(TransactionFilter(transactionFilter)), verbose))
+        GetActiveContractsRequest(ledgerId.unwrap, Some(TransactionFilter(transactionFilter)), verbose))
         .runWith(Sink.collection) flatMap { seq: Seq[GetActiveContractsResponse] =>
         val contractCount = seq.foldLeft(0)({ case (i, resp) => i + resp.activeContracts.length })
 

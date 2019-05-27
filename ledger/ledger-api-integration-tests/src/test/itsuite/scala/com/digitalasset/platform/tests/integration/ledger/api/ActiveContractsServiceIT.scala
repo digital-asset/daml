@@ -28,6 +28,8 @@ import org.scalatest.time.SpanSugar._
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{Assertion, AsyncWordSpec, Matchers, OptionValues}
 
+import scalaz.syntax.tag._
+
 /**
   * There are not many tests here, because restarting the fixtures is very expensive.
   * This will likely remain the case in the near future.
@@ -54,7 +56,7 @@ class ActiveContractsServiceIT
 
   private def client(
       ctx: LedgerContext): ActiveContractSetClient =
-    new ActiveContractSetClient(domain.LedgerId(ctx.ledgerId), ctx.acsService)
+    new ActiveContractSetClient(ctx.ledgerId, ctx.acsService)
 
   private def commandClient(
       ctx: LedgerContext): SynchronousCommandClient =
@@ -62,7 +64,7 @@ class ActiveContractsServiceIT
 
   private def transactionClient(
       ctx: LedgerContext): TransactionClient =
-    new TransactionClient(domain.LedgerId(ctx.ledgerId), ctx.transactionService)
+    new TransactionClient(ctx.ledgerId, ctx.transactionService)
 
   private def submitRequest(ctx: LedgerContext, request: SubmitAndWaitRequest) =
     commandClient(ctx).submitAndWait(request)
@@ -97,7 +99,7 @@ class ActiveContractsServiceIT
       case ce @ CreatedEvent(_, _, Some(`template`), _, _, _) => ce
     }.size should equal(occurrence)
 
-  def threeCommands(ledgerId: String, commandId: String): SubmitAndWaitRequest =
+  def threeCommands(ledgerId: domain.LedgerId, commandId: String): SubmitAndWaitRequest =
     super.dummyCommands(ledgerId, commandId, "Alice").toWait
 
   private def filter = TransactionFilter(Map(config.parties.head -> Filters()))
@@ -105,7 +107,9 @@ class ActiveContractsServiceIT
   "Active Contract Set Service" when {
     "asked for active contracts" should {
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        new ActiveContractSetClient(domain.LedgerId("not" + context.ledgerId), context.acsService)
+        new ActiveContractSetClient(
+          domain.LedgerId(s"not-${context.ledgerId.unwrap}"),
+          context.acsService)
           .getActiveContracts(filter)
           .runWith(Sink.head)(materializer)
           .failed map { ex =>

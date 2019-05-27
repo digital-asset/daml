@@ -6,11 +6,6 @@ package com.digitalasset.platform.tests.integration.ledger.api
 import java.util.UUID
 
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  IsStatusException,
-  SuiteResourceManagementAroundAll
-}
 import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, IsStatusException, SuiteResourceManagementAroundAll}
 import com.digitalasset.ledger.api.v1.package_service.PackageStatus
 import com.digitalasset.ledger.client.services.pkg.PackageClient
@@ -20,6 +15,8 @@ import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
+
+import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class PackageServiceIT
@@ -34,7 +31,7 @@ class PackageServiceIT
   override def timeLimit: Span = 5.seconds
 
   private def client(ctx: LedgerContext): PackageClient = {
-    new PackageClient(domain.LedgerId(ctx.ledgerId), ctx.packageService)
+    new PackageClient(ctx.ledgerId, ctx.packageService)
   }
 
   private def getARegisteredPackageId(ctx: LedgerContext) =
@@ -51,7 +48,7 @@ class PackageServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        new PackageClient(domain.LedgerId("not " + context.ledgerId), context.packageService)
+        new PackageClient(domain.LedgerId(s"not-${context.ledgerId.unwrap}"), context.packageService)
           .listPackages()
           .failed map {
           IsStatusException(Status.NOT_FOUND)(_)
@@ -79,7 +76,9 @@ class PackageServiceIT
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
         getARegisteredPackageId(context)
           .flatMap(
-            new PackageClient(domain.LedgerId("not " + context.ledgerId), context.packageService)
+            new PackageClient(
+              domain.LedgerId(s"not-${context.ledgerId.unwrap}"),
+              context.packageService)
               .getPackage(_)
               .failed) map {
           IsStatusException(Status.NOT_FOUND)(_)
@@ -106,7 +105,9 @@ class PackageServiceIT
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
         getARegisteredPackageId(context)
           .flatMap(
-            new PackageClient(domain.LedgerId("not " + context.ledgerId), context.packageService)
+            new PackageClient(
+              domain.LedgerId(s"not-${context.ledgerId.unwrap}"),
+              context.packageService)
               .getPackageStatus(_)
               .failed) map {
           IsStatusException(Status.NOT_FOUND)(_)

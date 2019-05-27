@@ -44,6 +44,7 @@ import org.scalatest.Inside._
 import org.scalatest._
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 
+import scalaz.syntax.tag._
 import scala.collection.immutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -859,7 +860,7 @@ abstract class CommandTransactionChecks
 
       def newRequest(context: LedgerContext, cmd: CreateAndExerciseCommand) = submitRequest
         .update(_.commands.commands := Seq[Command](Command(Command.Command.CreateAndExercise(cmd))))
-        .update(_.commands.ledgerId := context.ledgerId)
+        .update(_.commands.ledgerId := context.ledgerId.unwrap)
 
       "process valid commands successfully" in allFixtures{ c =>
         val request = newRequest(c, validCreateAndExercise)

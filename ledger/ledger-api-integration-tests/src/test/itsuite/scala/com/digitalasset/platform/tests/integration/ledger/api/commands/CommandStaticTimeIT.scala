@@ -32,6 +32,7 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 
+import scalaz.syntax.tag._
 import scala.concurrent.duration._
 
 @SuppressWarnings(
@@ -75,7 +76,7 @@ class CommandStaticTimeIT
       .update(
         _.commands.ledgerEffectiveTime := let,
         _.commands.maximumRecordTime := mrt,
-        _.commands.ledgerId := ctx.ledgerId,
+        _.commands.ledgerId := ctx.ledgerId.unwrap,
         _.commands.commandId := newCommandId()
       )
   }
@@ -107,7 +108,7 @@ class CommandStaticTimeIT
   }
 
   private def timeSource(ctx: LedgerContext) =
-    ClientAdapter.serverStreaming(GetTimeRequest(ctx.ledgerId), ctx.timeService.getTime)
+    ClientAdapter.serverStreaming(GetTimeRequest(ctx.ledgerId.unwrap), ctx.timeService.getTime)
 
   "Command and Time Services" when {
 
@@ -119,7 +120,7 @@ class CommandStaticTimeIT
           completion <- commandClient
             .withTimeProvider(None)
             .trackSingleCommand(SubmitRequest(
-              Some(submitRequest.getCommands.withLedgerId(ctx.ledgerId).withCommandId(newCommandId()))))
+              Some(submitRequest.getCommands.withLedgerId(ctx.ledgerId.unwrap).withCommandId(newCommandId()))))
         } yield {
           completion.status.value should have('code (Status.OK.getCode.value()))
         }
@@ -152,7 +153,7 @@ class CommandStaticTimeIT
             getTimeResponse <- timeSource(ctx).runWith(Sink.head)
             oldTime = getTimeResponse.getCurrentTime
             newTime = toInstant(oldTime).plus(tenDays)
-            _ <- ctx.timeService.setTime(SetTimeRequest(ctx.ledgerId, Some(oldTime), Some(fromInstant(newTime))))
+            _ <- ctx.timeService.setTime(SetTimeRequest(ctx.ledgerId.unwrap, Some(oldTime), Some(fromInstant(newTime))))
             completion <- commandClient.send(submissionWithTime(ctx, newTime))
           } yield {
             completion.status.value should have('code (Status.OK.getCode.value()))
@@ -169,7 +170,7 @@ class CommandStaticTimeIT
             getTimeResponse <- timeSource(ctx).runWith(Sink.head)
             oldTime = getTimeResponse.getCurrentTime
             newTime = toInstant(oldTime).plus(tenDays)
-            _ <- ctx.timeService.setTime(SetTimeRequest(ctx.ledgerId, Some(oldTime), Some(fromInstant(newTime))))
+            _ <- ctx.timeService.setTime(SetTimeRequest(ctx.ledgerId.unwrap, Some(oldTime), Some(fromInstant(newTime))))
             completion <- commandClient.send(submissionWithTime(ctx, toInstant(oldTime)))
           } yield {
             completion.status.value should have('code (Status.ABORTED.getCode.value()))

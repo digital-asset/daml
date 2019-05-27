@@ -23,7 +23,7 @@ class AcsBench extends TestCommands with InfAwait {
   private def generateCommand(
       sequenceNumber: Int,
       contractId: String,
-      ledgerId: String,
+      ledgerId: domain.LedgerId,
       template: Identifier): SubmitAndWaitRequest = {
     buildRequest(
       ledgerId = ledgerId,
@@ -42,8 +42,8 @@ class AcsBench extends TestCommands with InfAwait {
     }
   }
 
-  private def getContractIds(state: PerfBenchState, template: Identifier, ledgerId: String) =
-    new ActiveContractSetClient(domain.LedgerId(ledgerId), state.ledger.acsService)(state.esf)
+  private def getContractIds(state: PerfBenchState, template: Identifier, ledgerId: domain.LedgerId) =
+    new ActiveContractSetClient(ledgerId, state.ledger.acsService)(state.esf)
       .getActiveContracts(MockMessages.transactionFilter)
       .map(extractContractId(_, template))
 

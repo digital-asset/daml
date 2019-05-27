@@ -9,6 +9,7 @@ import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.digitalasset.daml.lf.UniversalArchiveReader
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages.submitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
@@ -20,7 +21,9 @@ import com.digitalasset.platform.PlatformApplications
 import com.digitalasset.util.Ctx
 import org.scalatest.Matchers
 
+import scalaz.syntax.tag._
 import scala.concurrent.Future
+
 
 trait TransactionServiceHelpers extends Matchers {
   lazy val defaultDar: File = PlatformApplications.Config.defaultDarFile
@@ -45,18 +48,18 @@ trait TransactionServiceHelpers extends Matchers {
         .withTemplateId(dummyTemplate)
         .withCreateArguments(wrongArgs))
 
-  def submitRequestWithId(id: String, command: Command, ledgerId: String) =
+  def submitRequestWithId(id: String, command: Command, ledgerId: domain.LedgerId) =
     submitRequest
       .update(_.commands.commandId := id)
       .update(_.commands.commands := Seq(command))
-      .update(_.commands.ledgerId := ledgerId)
+      .update(_.commands.ledgerId := ledgerId.unwrap)
 
   // TODO command tracking should be used here
   def insertCommands(
       trackingFlow: Flow[Ctx[Int, SubmitRequest], Ctx[Int, Completion], _],
       prefix: String,
       i: Int,
-      ledgerId: String,
+      ledgerId: domain.LedgerId,
       party: String = "party")(implicit materializer: Materializer): Future[Done] = {
     val arg =
       Record(Some(dummyTemplate), Vector(RecordField("operator", Some(Value(Sum.Party(party))))))

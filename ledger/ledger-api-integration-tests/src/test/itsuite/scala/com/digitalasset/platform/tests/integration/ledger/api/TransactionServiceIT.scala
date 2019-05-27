@@ -76,8 +76,8 @@ class TransactionServiceIT
 
   override val timeLimit: Span = 300.seconds
 
-  private def newClient(stub: TransactionService, ledgerId: String): TransactionClient =
-    new TransactionClient(LedgerId(ledgerId), stub)
+  private def newClient(stub: TransactionService, ledgerId: LedgerId): TransactionClient =
+    new TransactionClient(ledgerId, stub)
 
   private val getAllContracts = transactionFilter
 
@@ -891,7 +891,7 @@ class TransactionServiceIT
     "ledger Ids don't match" should {
 
       "fail with the expected status" in allFixtures { context =>
-        newClient(context.transactionService, "notLedgerId")
+        newClient(context.transactionService, LedgerId("notLedgerId"))
           .getTransactions(ledgerBegin, Some(ledgerEnd), getAllContracts)
           .runWith(Sink.head)
           .failed
@@ -907,7 +907,7 @@ class TransactionServiceIT
       }
 
       "return NOT_FOUND if ledger Ids don't match" in allFixtures { context =>
-        newClient(context.transactionService, "not" + context.ledgerId).getLedgerEnd.failed
+        newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}")).getLedgerEnd.failed
           .map(IsStatusException(Status.NOT_FOUND))
 
       }
@@ -954,7 +954,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + context.ledgerId)
+        newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}"))
           .getTransactionById(transactionId, List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1053,7 +1053,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + context.ledgerId)
+        newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}"))
           .getFlatTransactionById(transactionId, List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1138,7 +1138,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + context.ledgerId)
+        newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}"))
           .getTransactionByEventId("#42:0", List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1207,7 +1207,7 @@ class TransactionServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, "not" + context.ledgerId)
+        newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}"))
           .getFlatTransactionByEventId("#42:0", List("party"))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
