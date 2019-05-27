@@ -8,6 +8,7 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+- Fixed a bug where type check errors would persist if there was a subsequent parse error
 
 DAML Assistant
 ~~~~~~~~~~~~~~

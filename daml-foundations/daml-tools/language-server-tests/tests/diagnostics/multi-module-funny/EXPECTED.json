@@ -1,9 +1,4 @@
 {
-  "file:/tests/diagnostics/multi-module-funny/Main.daml": [],
-  "file:/tests/diagnostics/multi-module-funny/Prelude.daml": [],
-  "file:/tests/diagnostics/multi-module-funny/DA/Internal/Desugar.daml": [],
-  "file:/tests/diagnostics/multi-module-funny/DA/Internal/Record.daml": [],
-  "file:/tests/diagnostics/multi-module-funny/DA/Internal/RebindableSyntax.daml": [],
   "file:/tests/diagnostics/multi-module-funny/Libs/A.daml": [
     {
       "severity": 1,
@@ -37,10 +32,5 @@
       "source": "Typechecker",
       "message": "/tests/diagnostics/multi-module-funny/Libs/B.daml:7:1: warning:\n    The import of ‘Libs.C’ is redundant\n      except perhaps to import instances from ‘Libs.C’\n    To import instances alone, use: import Libs.C()"
     }
-  ],
-  "file:/tests/diagnostics/multi-module-funny/Libs/Prelude.daml": [],
-  "file:/tests/diagnostics/multi-module-funny/Libs/DA/Internal/Desugar.daml": [],
-  "file:/tests/diagnostics/multi-module-funny/Libs/DA/Internal/Record.daml": [],
-  "file:/tests/diagnostics/multi-module-funny/Libs/DA/Internal/RebindableSyntax.daml": [],
-  "file:/tests/diagnostics/multi-module-funny/Libs/C.daml": []
+  ]
 }

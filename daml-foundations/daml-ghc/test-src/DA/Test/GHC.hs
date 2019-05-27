@@ -207,7 +207,7 @@ checkDiagnostics log expected got = do
             (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
             expected
     pure $ if
-      | length expected /= length got -> Just $ "Wrong number of diagnostics, expected " ++ show (length expected)
+      | length expected /= length got -> Just $ "Wrong number of diagnostics, expected " ++ show (length expected) ++ ", but got " ++ show (length got)
       | null bad -> Nothing
       | otherwise -> Just $ unlines ("Could not find matching diagnostics:" : map show bad)
     where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool

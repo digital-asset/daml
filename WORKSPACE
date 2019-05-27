@@ -444,9 +444,9 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "6e34a2193464dd49b09e223111c57a39c44fb1c7"
+HASKELL_LSP_COMMIT = "4dfbe392ab235048bb42991a5e259ff5f317244f"
 
-HASKELL_LSP_HASH = "5804143e94ede0f99962007f94e7f84268f220c05ac3aeae3dda3cdc186d077f"
+HASKELL_LSP_HASH = "164311a83a7fc8a733c71354b87e3e6425afbbbba033a64f38e88b81c32c1fbd"
 
 hazel_repositories(
     core_packages = dicts.add(
@@ -508,13 +508,16 @@ hazel_repositories(
             hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
             hazel_hackage("rope-utf16-splay", "0.3.1.0", "cbf878098355441ed7be445466fcb72d45390073a298b37649d762de2a7f8cc6") +
             hazel_hackage("unix-compat", "0.5.1", "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52") +
-            # This is a special version of Haskell LSP without GPL dependencies
-            hazel_github(
+            # This is a version of haskell-lsp that has not yet been released and contains
+            # a few fixes for the uri <-> filepath conversion.
+            hazel_github_external(
+                "alanz",
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
                 HASKELL_LSP_HASH,
             ) +
-            hazel_github(
+            hazel_github_external(
+                "alanz",
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
                 HASKELL_LSP_HASH,
