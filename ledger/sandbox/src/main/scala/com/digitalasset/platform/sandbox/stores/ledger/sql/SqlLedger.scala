@@ -15,6 +15,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.backend.api.v1.{RejectionReason, TransactionSubmission}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
@@ -70,7 +71,7 @@ object SqlLedger {
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def apply(
       jdbcUrl: String,
-      ledgerId: Option[String],
+      ledgerId: Option[LedgerId],
       timeProvider: TimeProvider,
       acs: ActiveContractsInMemory,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
@@ -102,7 +103,7 @@ object SqlLedger {
 }
 
 private class SqlLedger(
-    val ledgerId: String,
+    val ledgerId: LedgerId,
     headAtInitialization: Long,
     ledgerDao: LedgerDao,
     timeProvider: TimeProvider,
@@ -312,7 +313,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     * @return a compliant Ledger implementation
     */
   def createSqlLedger(
-      initialLedgerId: Option[String],
+      initialLedgerId: Option[LedgerId],
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
       acs: ActiveContractsInMemory,
@@ -340,9 +341,9 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     ledgerDao.reset()
 
   private def initialize(
-      initialLedgerId: Option[String],
+      initialLedgerId: Option[LedgerId],
       acs: ActiveContractsInMemory,
-      initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Future[String] = {
+      initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
     // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
@@ -410,8 +411,8 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     Future.successful(foundLedgerId)
   }
 
-  private def doInit(ledgerId: String): Future[Unit] = {
-    logger.info(s"Initializing ledger with id: $ledgerId")
+  private def doInit(ledgerId: LedgerId): Future[Unit] = {
+    logger.info(s"Initializing ledger with id: ${ledgerId.unwrap}")
     ledgerDao.initializeLedger(ledgerId, 0)
   }
 

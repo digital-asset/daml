@@ -15,6 +15,7 @@ import com.digitalasset.daml.lf.data.Ref.TransactionIdString
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
@@ -62,7 +63,7 @@ object Ledger {
     * @return an in-memory Ledger
     */
   def inMemory(
-      ledgerId: String,
+      ledgerId: LedgerId,
       timeProvider: TimeProvider,
       acs: ActiveContractsInMemory,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Ledger =
@@ -82,7 +83,7 @@ object Ledger {
     */
   def postgres(
       jdbcUrl: String,
-      ledgerId: String,
+      ledgerId: LedgerId,
       timeProvider: TimeProvider,
       acs: ActiveContractsInMemory,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],

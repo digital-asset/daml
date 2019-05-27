@@ -8,6 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 
@@ -16,7 +17,7 @@ import scala.concurrent.Future
 
 private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends LedgerDao {
 
-  override def lookupLedgerId(): Future[Option[String]] =
+  override def lookupLedgerId(): Future[Option[LedgerId]] =
     mm.timedFuture("LedgerDao:lookupLedgerId", ledgerDao.lookupLedgerId())
 
   override def lookupLedgerEnd(): Future[Long] =

@@ -18,9 +18,9 @@ import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger._
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.ledger.backend.api.v1.RejectionReason._
-import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
@@ -52,11 +52,13 @@ private class PostgresLedgerDao(
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
 
-  override def lookupLedgerId(): Future[Option[String]] =
-    dbDispatcher.executeSql { implicit conn =>
-      SQL_SELECT_LEDGER_ID
-        .as(ledgerString("ledger_id").singleOpt)
-    }
+  override def lookupLedgerId(): Future[Option[LedgerId]] =
+    dbDispatcher
+      .executeSql { implicit conn =>
+        SQL_SELECT_LEDGER_ID
+          .as(ledgerString("ledger_id").singleOpt)
+      }
+      .map(_.map(LedgerId(_)))(DirectExecutionContext)
 
   private val SQL_SELECT_LEDGER_END = SQL("select ledger_end from parameters")
 

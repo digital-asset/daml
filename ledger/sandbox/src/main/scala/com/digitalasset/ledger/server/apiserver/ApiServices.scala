@@ -70,8 +70,8 @@ object ApiServices {
         .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
   }
 
-  def identityService(ledgerId: String): IdentityService =
-    () => Future.successful(LedgerId(ledgerId))
+  def identityService(ledgerId: LedgerId): IdentityService =
+    () => Future.successful(ledgerId)
 
   def create(
       config: SandboxConfig,
@@ -99,6 +99,7 @@ object ApiServices {
 
       val apiSubmissionService =
         SandboxSubmissionService.createApiService(
+          ledgerId,
           context.packageContainer,
           identifierResolver,
           ledgerBackend,
@@ -111,17 +112,17 @@ object ApiServices {
       logger.info(EngineInfo.show)
 
       val transactionService =
-        SandboxTransactionService.createApiService(ledgerBackend, identifierResolver)
+        SandboxTransactionService.createApiService(ledgerId, ledgerBackend, identifierResolver)
 
       val apiLedgerIdentityService = LedgerIdentityServiceImpl(() => identityService.getLedgerId())
 
-      val apiPackageService = SandboxPackageService(packagesService, ledgerId)
+      val apiPackageService = SandboxPackageService(ledgerId, packagesService)
 
       val apiConfigurationService =
-        LedgerConfigurationService.createApiService(configurationService, ledgerId)
+        LedgerConfigurationService.createApiService(ledgerId, configurationService)
 
       val completionService =
-        SandboxCommandCompletionService(ledgerBackend)
+        SandboxCommandCompletionService(ledgerId, ledgerBackend)
 
       val apiCommandService = ReferenceCommandService(
         ReferenceCommandService.Configuration(

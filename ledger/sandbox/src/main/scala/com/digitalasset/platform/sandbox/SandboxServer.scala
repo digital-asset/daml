@@ -36,6 +36,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 object SandboxServer {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val asyncTolerance = 30.seconds
@@ -103,7 +105,7 @@ object SandboxServer {
 class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends AutoCloseable {
 
   case class ApiServerState(
-      ledgerId: String,
+      ledgerId: LedgerId,
       apiServer: ApiServer,
       ledger: Ledger,
       stopHeartbeats: () => Unit
@@ -177,9 +179,9 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
     implicit val ec: ExecutionContext = infra.executionContext
     implicit val mm: MetricsManager = infra.metricsManager
 
-    val ledgerId = config.ledgerIdMode match {
-      case LedgerIdMode.Static(id) => id
-      case LedgerIdMode.Dynamic() => LedgerIdGenerator.generateRandomId()
+    val ledgerId: LedgerId = config.ledgerIdMode match {
+      case LedgerIdMode.Static(id) => LedgerId(id)
+      case LedgerIdMode.Dynamic() => LedgerId(LedgerIdGenerator.generateRandomId())
     }
 
     val context = SandboxContext.fromConfig(config)
