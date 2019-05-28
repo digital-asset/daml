@@ -14,7 +14,7 @@ A short description of the bug you found.
 Steps to reproduce the problem:
 1. Go to '...'
 2. Attempt to '...'
-3. See error
+3. See error message '...'
 
 **Expected behavior**
 A clear description of what you expected to happen.
