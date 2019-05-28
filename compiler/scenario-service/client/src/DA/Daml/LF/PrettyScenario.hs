@@ -833,8 +833,8 @@ templateConName (Identifier mbPkgId (TL.toStrict -> qualName)) = LF.Qualified pk
         pkgRef = case mbPkgId of
                   Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) -> LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
                   Just (PackageIdentifier (Just (PackageIdentifierSumSelf _))) -> LF.PRSelf
-                  Just (PackageIdentifier Nothing) -> error "malformed identifier"
-                  Nothing -> LF.PRSelf
+                  Just (PackageIdentifier Nothing) -> error "unidentified package reference"
+                  Nothing -> error "unidentified package reference"
 
 labledField :: T.Text -> T.Text -> T.Text
 labledField fname "" = fname
