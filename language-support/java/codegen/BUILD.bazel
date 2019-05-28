@@ -70,6 +70,7 @@ test_deps = [
     "//language-support/java/bindings:bindings-java",
     "//language-support/codegen-common",
     "//ledger/participant-state",
+    "//ledger/ledger-api-domain:ledger-api-domain",
 ]
 
 ########################################################
@@ -105,6 +106,7 @@ pom_file(
 )
 
 daml_lf_target_versions = [
+    "1.0",
     "1.1",
     "1.3",
 ]
@@ -112,6 +114,28 @@ daml_lf_target_versions = [
 ########################################################
 ####  Integration Tests
 ########################################################
+
+# This file was created using
+# DAML_SDK_VERSION=0.12.12 daml damlc package src/it/daml/Lib.daml integration-tests-model-1.0 --target=1.0 --output src/it/dar/integration-tests-model-1.0.dar
+alias(
+    name = "integration-tests-model-1.0.dar",
+    actual = ":src/it/dar/integration-tests-model-1.0.dar",
+)
+
+# This file was created using
+# DAML_SDK_VERSION=0.12.20 daml damlc package src/it/daml/Lib.daml integration-tests-model-1.1 --target=1.1 --output src/it/dar/integration-tests-model-1.1.dar
+alias(
+    name = "integration-tests-model-1.1.dar",
+    actual = ":src/it/dar/integration-tests-model-1.1.dar",
+)
+
+daml_compile(
+    name = "integration-tests-model-1.3",
+    srcs = glob(["src/it/daml/**/*.daml"]),
+    main_src = "src/it/daml/Lib.daml",
+    target = "1.3",
+)
+
 [
     #
     # Compile the DAR files with and without a package to allow
@@ -121,12 +145,6 @@ daml_lf_target_versions = [
     # package name qualified by the DAML-LF version.
     #
     [
-        daml_compile(
-            name = "integration-tests-model-%s" % target,
-            srcs = glob(["src/it/daml/**/*.daml"]),
-            main_src = "src/it/daml/Lib.daml",
-            target = target,
-        ),
         dar_to_java(
             name = "integration-tests-model-noprefix-%s" % target,
             src = ":integration-tests-model-%s.dar" % target,
@@ -170,7 +188,6 @@ daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
     main_src = "src/ledger-tests/daml/Wolpertinger.daml",
-    target = "1.1",
 )
 
 dar_to_java(

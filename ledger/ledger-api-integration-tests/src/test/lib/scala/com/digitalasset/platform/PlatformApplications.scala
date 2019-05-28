@@ -8,6 +8,7 @@ import java.nio.file.Path
 import java.time.Duration
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.{
   CommandConfiguration,
@@ -18,6 +19,8 @@ import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import scalaz.NonEmptyList
 
 import scala.concurrent.duration.{FiniteDuration, _}
+
+import com.digitalasset.ledger.api.domain.LedgerId
 
 object PlatformApplications {
 
@@ -39,17 +42,20 @@ object PlatformApplications {
       heartBeatInterval: FiniteDuration = 5.seconds,
       persistenceEnabled: Boolean = false,
       maxNumberOfAcsContracts: Option[Int] = None,
-      commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig) {
+      commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig,
+      remoteApiEndpoint: Option[RemoteApiEndpoint] = None) {
     require(
       Duration.ofSeconds(timeModel.minTtl.getSeconds) == timeModel.minTtl &&
         Duration.ofSeconds(timeModel.maxTtl.getSeconds) == timeModel.maxTtl,
       "Max TTL's granularity is subsecond. Ledger Server does not support subsecond granularity for this configuration - please use whole seconds."
     )
 
+    import scalaz.syntax.tag._
+
     @SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
     def assertStaticLedgerId: String =
       ledgerId match {
-        case LedgerIdMode.Static(ledgerId) => ledgerId
+        case LedgerIdMode.Static(ledgerId) => ledgerId.unwrap
         case _ =>
           throw new IllegalArgumentException("Unsupported ledger id config: " + ledgerId)
       }
@@ -73,10 +79,26 @@ object PlatformApplications {
     def withMaxNumberOfAcsContracts(cap: Int) = copy(maxNumberOfAcsContracts = Some(cap))
 
     def withCommandConfiguration(cc: CommandConfiguration) = copy(commandConfiguration = cc)
+
+    def withRemoteApiEndpoint(endpoint: RemoteApiEndpoint) =
+      copy(remoteApiEndpoint = Some(endpoint))
+  }
+
+  final case class RemoteApiEndpoint(
+      host: String,
+      port: Integer,
+      tlsConfig: Option[TlsConfiguration]) {
+    def withHost(host: String) = copy(host = host)
+    def withPort(port: Int) = copy(port = port)
+    def withTlsConfig(tlsConfig: Option[TlsConfiguration]) = copy(tlsConfig = tlsConfig)
+  }
+
+  object RemoteApiEndpoint {
+    def default: RemoteApiEndpoint = RemoteApiEndpoint("localhost", 6865, None)
   }
 
   object Config {
-    val defaultLedgerId = Ref.LedgerString.assertFromString("ledger-server")
+    val defaultLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledger-server"))
     val defaultDarFile = new File("ledger/sandbox/Test.dar")
     val defaultParties = NonEmptyList("party", "Alice", "Bob")
     val defaultTimeProviderType = TimeProviderType.Static

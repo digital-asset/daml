@@ -70,5 +70,6 @@ da_haskell_library(
         "//compiler/haskell-ide-core",
         "//daml-foundations/daml-ghc/daml-compiler",
         "//daml-foundations/daml-ghc/ghc-compiler",
+        "//daml-foundations/daml-ghc/test-lib",
     ],
 )

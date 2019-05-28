@@ -295,7 +295,6 @@ daml_compile(
     name = "quickstart-model",
     srcs = glob(["source/getting-started/quickstart/template-root/**/*.daml"]),
     main_src = "source/getting-started/quickstart/template-root/daml/Main.daml",
-    target = "1.1",
     visibility = ["//language-support/scala/examples:__subpackages__"],
 )
 

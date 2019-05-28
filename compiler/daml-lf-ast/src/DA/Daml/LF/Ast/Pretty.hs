@@ -223,7 +223,9 @@ instance Pretty BuiltinExpr where
     BESha256Text -> "SHA256_TEXT"
     BETrace -> "TRACE"
     BEEqualContractId -> "EQUAL_CONTRACT_ID"
-    BEPartyFromText -> "PARTY_FROM_TEXT"
+    BEPartyFromText -> "FROM_TEXT_PARTY"
+    BEInt64FromText -> "FROM_TEXT_INT64"
+    BEDecimalFromText -> "FROM_TEXT_DECIMAL"
     BEPartyToQuotedText -> "PARTY_TO_QUOTED_TEXT"
     BECoerceContractId -> "COERCE_CONTRACT_ID"
     where

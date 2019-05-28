@@ -16,10 +16,6 @@
       "message": "Cyclic module dependency between A, B, Main"
     }
   ],
-  "file:/tests/diagnostics/import-cycle/Prelude.daml": [],
-  "file:/tests/diagnostics/import-cycle/DA/Internal/Desugar.daml": [],
-  "file:/tests/diagnostics/import-cycle/DA/Internal/Record.daml": [],
-  "file:/tests/diagnostics/import-cycle/DA/Internal/RebindableSyntax.daml": [],
   "file:/tests/diagnostics/import-cycle/A.daml": [
     {
       "severity": 1,

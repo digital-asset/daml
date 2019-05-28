@@ -163,6 +163,7 @@ data Env = Env
     ,envAliases :: MS.Map Var LF.Expr
     ,envPkgMap :: MS.Map GHC.UnitId T.Text
     ,envLfVersion :: LF.Version
+    ,envNewtypes :: [(GHC.Type, (TyCon, Coercion))]
     }
 
 envFindBind :: Env -> Var -> ConvertM (GHC.Expr Var)
@@ -269,13 +270,18 @@ convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) N
           [(is x', [b])
           | (a,b) <- binds
           , DFunId _ <- [idDetails a]
-          , TypeCon (Is "Choice") [TypeCon x' [],_,_] <- [varType a]
+          , TypeCon (QIsTpl "Choice") [TypeCon x' [],_,_] <- [varType a]
           ]
         keys = MS.fromListWith (++)
           [(is x', [b])
           | (a,b) <- binds
           , DFunId _ <- [idDetails a]
-          , TypeCon (Is "TemplateKey") [TypeCon x' [],_] <- [varType a]
+          , TypeCon (QIsTpl "TemplateKey") [TypeCon x' [],_] <- [varType a]
+          ]
+        newtypes =
+          [ (wrappedT, (t, mkUnbranchedAxInstCo Representational co [] []))
+          | ATyCon t <- eltsUFM (cm_types x)
+          , Just ([], wrappedT, co) <- [unwrapNewTyCon_maybe t]
           ]
         defMeths = defaultMethods x
         env = Env
@@ -289,6 +295,7 @@ convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) N
           , envAliases = MS.empty
           , envPkgMap = pkgMap
           , envLfVersion = lfVersion
+          , envNewtypes = newtypes
           }
 
 -- | We can't cope with the generated Typeable stuff, so remove those bindings
@@ -298,7 +305,7 @@ isTypeableInfo _ = False
 
 
 convertTemplate :: Env -> GHC.Expr Var -> ConvertM [Definition]
-convertTemplate env (VarIs "C:Template" `App` Type (TypeCon ty [])
+convertTemplate env (Var (QIsTpl "C:Template") `App` Type (TypeCon ty [])
         `App` ensure `App` signatories `App` observer `App` agreement `App` _create `App` _fetch `App` _archive `App` _archiveWithActors)
     = do
     tplSignatories <- applyTplParam <$> convertExpr env signatories
@@ -320,6 +327,87 @@ convertTemplate env (VarIs "C:Template" `App` Type (TypeCon ty [])
         tplParam = mkVar "this"
 convertTemplate _ x = unsupported "Template definition with unexpected form" x
 
+convertGenericTemplate :: Env -> GHC.Expr Var -> ConvertM (Template, LF.Expr)
+convertGenericTemplate env x
+    | (dictCon, args) <- collectArgs x
+    , (tyArgs, args) <- span isTypeArg args
+    , Just (superClassDicts, signatories : observers : ensure : agreement : create : fetch : choices) <- span isSuperClassDict <$> mapM isVar_maybe (dropWhile isTypeArg args)
+    , Just (polyType, _) <- splitFunTy_maybe (varType create)
+    , Just (monoTyCon, unwrapCo) <- findMonoTyp polyType
+    = do
+        polyType <- convertType env polyType
+        monoType@(TCon monoTyCon) <- convertTyCon env monoTyCon
+        let (unwrapSelf, wrapSelf)
+                | isReflCo unwrapCo = (EVar self, EVar self)
+                | otherwise =
+                    ( mkEApps (EBuiltin BECoerceContractId) [TyArg monoType, TyArg polyType, TmArg (EVar self)]
+                    , mkEApps (EBuiltin BECoerceContractId) [TyArg polyType, TyArg monoType, TmArg (EVar self)]
+                    )
+        let tplLocation = Nothing
+        let tplTypeCon = qualObject monoTyCon
+        let tplParam = this
+        (unwrapTpl, wrapTpl) <- convertCoercion env unwrapCo
+        let applyThis e = ETmApp e $ unwrapTpl $ EVar this
+        tplSignatories <- applyThis <$> convertExpr env (Var signatories)
+        tplObservers <- applyThis <$> convertExpr env (Var observers)
+        let tplPrecondition = ETrue
+        let tplAgreement = mkEmptyText
+        let tplKey = Nothing
+        let convertGenericChoice :: [Var] -> ConvertM (TemplateChoice, [LF.Expr])
+            convertGenericChoice [controllers, action, exercise] = do
+                TContractId _ :-> _ :-> argType@(TConApp argTCon _) :-> TUpdate resType <- convertType env (varType action)
+                let chcLocation = Nothing
+                let chcName = ChoiceName $ T.intercalate "." $ unTypeConName $ qualObject argTCon
+                let chcConsuming = True
+                let chcSelfBinder = self
+                let applySelf e = ETmApp e unwrapSelf
+                let chcArgBinder = (arg, argType)
+                let applyArg e = e `ETmApp` EVar (fst chcArgBinder)
+                let chcReturnType = resType
+                chcControllers <- applyArg . applyThis <$> convertExpr env (Var controllers)
+                chcUpdate <- applyArg . applyThis . applySelf <$> convertExpr env (Var action)
+                controllers <- convertExpr env (Var controllers)
+                action <- convertExpr env (Var action)
+                let exercise
+                      | envLfVersion env `supports` featureExerciseActorsOptional =
+                        mkETmLams [(self, TContractId polyType), (arg, argType)] $
+                          EUpdate $ UExercise monoTyCon chcName wrapSelf Nothing (EVar arg)
+                      | otherwise =
+                        mkETmLams [(self, TContractId polyType), (arg, argType)] $
+                          EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon wrapSelf) $
+                          EUpdate $ UExercise monoTyCon chcName wrapSelf (Just chcControllers) (EVar arg)
+                pure (TemplateChoice{..}, [controllers, action, exercise])
+            convertGenericChoice es = unhandled "generic choice" es
+        (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 3 choices)
+        superClassDicts <- mapM (convertExpr env . Var) superClassDicts
+        signatories <- convertExpr env (Var signatories)
+        observers <- convertExpr env (Var observers)
+        ensure <- convertExpr env (Var ensure)
+        agreement <- convertExpr env (Var agreement)
+        let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon $ wrapTpl $ EVar this) $ EUpdate $ UPure (TContractId polyType) $ unwrapSelf
+        let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon wrapSelf) $ EUpdate $ UPure polyType $ unwrapTpl $ EVar this
+        dictCon <- convertExpr env dictCon
+        tyArgs <- mapM (convertArg env) tyArgs
+        -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
+        let tmArgs = map (TmArg . ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch] ++ concat choices
+        let dict = mkEApps dictCon $ tyArgs ++ tmArgs
+        pure (Template{..}, dict)
+  where
+    isVar_maybe :: GHC.Expr Var -> Maybe Var
+    isVar_maybe = \case
+        Var v -> Just v
+        _ -> Nothing
+    isSuperClassDict :: Var -> Bool
+    isSuperClassDict v = "$cp" `isPrefixOf` is v
+    findMonoTyp :: GHC.Type -> Maybe (TyCon, Coercion)
+    findMonoTyp t = case t of
+        TypeCon tcon [] -> Just (tcon, mkNomReflCo t)
+        t -> snd <$> find (eqType t . fst) (envNewtypes env)
+    this = mkVar "this"
+    self = mkVar "self"
+    arg = mkVar "arg"
+convertGenericTemplate env x = unhandled "generic template" x
+
 archiveChoice :: LF.Expr -> TemplateChoice
 archiveChoice signatories = TemplateChoice{..}
     where
@@ -339,7 +427,7 @@ data Consuming = PreConsuming
 
 convertChoice :: Env -> LF.Expr -> GHC.Expr Var -> ConvertM TemplateChoice
 convertChoice env signatories
-  (VarIs "C:Choice" `App`
+  (Var (QIsTpl "C:Choice") `App`
      Type tmpl@(TypeCon tmplTyCon []) `App`
        Type (TypeCon chc []) `App`
          Type result `App`
@@ -391,15 +479,15 @@ convertChoice env signatories
         f i (App a _) = f i a
         f i (Tick _ e) = f i e
         f i (VarIs "$dmconsuming") = pure PreConsuming
-        f i (VarIs "preconsuming") = pure PreConsuming
-        f i (VarIs "nonconsuming") = pure NonConsuming
-        f i (VarIs "postconsuming") = pure PostConsuming
+        f i (Var (QIsTpl "preconsuming")) = pure PreConsuming
+        f i (Var (QIsTpl "nonconsuming")) = pure NonConsuming
+        f i (Var (QIsTpl "postconsuming")) = pure PostConsuming
         f i (Var x) | i > 0 = f (i-1) =<< envFindBind env x -- only required to see through the automatic default
         f _ x = unsupported "Unexpected definition of 'consuming'. Expected either absent, 'preconsuming', 'postconsuming' or 'nonconsuming'" x
 convertChoice _ _ x = unhandled "Choice body" x
 
 convertKey :: Env -> GHC.Expr Var -> ConvertM TemplateKey
-convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` Var maintainer `App` _fetch `App` _lookup) = do
+convertKey env o@(Var (QIsTpl "C:TemplateKey") `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` Var maintainer `App` _fetch `App` _lookup) = do
     tmpl' <- convertType env tmpl
     key <- envFindBind env key
     maintainer <- envFindBind env maintainer
@@ -487,8 +575,15 @@ convertCtors env (Ctors name tys cs) = do
 convertBind :: Env -> CoreBind -> ConvertM [Definition]
 convertBind env (NonRec name x)
     | DFunId _ <- idDetails name
-    , TypeCon (Is "Template") [t] <- varType name
+    , TypeCon (QIsTpl "Template") [t] <- varType name
     = withRange (convNameLoc name) $ liftA2 (++) (convertTemplate env x) (convertBind2 env (NonRec name x))
+    | DFunId _ <- idDetails name
+    , TypeCon (Is tplInst) _ <- varType name
+    , "Instance" `isSuffixOf` tplInst
+    = withRange (convNameLoc name) $ do
+        (tmpl, dict) <- convertGenericTemplate env x
+        name' <- convValWithType env name
+        pure [DTemplate tmpl, defValue name name' dict]
 convertBind env x = convertBind2 env x
 
 convertBind2 :: Env -> CoreBind -> ConvertM [Definition]
@@ -838,7 +933,8 @@ convertExpr env0 e = do
         | otherwise = fmap (, args) $ ETmLam <$> convVarWithType env name <*> convertExpr env x
     go env (Cast x co) args = fmap (, args) $ do
         x' <- convertExpr env x
-        convertCast env x' co
+        (to, _from) <- convertCoercion env co
+        pure $ to x'
     go env (Let (NonRec name x) y) args =
         fmap (, args) $ convertLet env name x (\env -> convertExpr env y)
     go env (Case scrutinee bind _ [(DEFAULT, [], x)]) args =
@@ -906,10 +1002,10 @@ convertExpr env0 e = do
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
 
-    convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
-    convertArg env = \case
-        Type t -> TyArg <$> convertType env t
-        e -> TmArg <$> convertExpr env e
+convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
+convertArg env = \case
+    Type t -> TyArg <$> convertType env t
+    e -> TmArg <$> convertExpr env e
 
 withTyArg :: Env -> (LF.TypeVarName, LF.Kind) -> [LArg Var] -> (LF.Type -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
 withTyArg env _ (LType t:args) cont = do
@@ -997,15 +1093,9 @@ mkProjBindings env recExpr recTyp vsFlds e =
     , not (isDeadOcc (occInfo (idInfo v)))
     ]
 
--- | Convert casts induced by newtype definitions.
-convertCast :: Env -> LF.Expr -> Coercion -> ConvertM LF.Expr
-convertCast env expr co = do
-    (to, _from) <- evalStateT (convertCoercion env co) 0
-    pure (to `ETmApp` expr)
-
--- Convert a coercion to a pair of lambdas (lam1, lam2). A coercion S ~ T gets converted to
--- lam1 :: S -> T and lam2 :: T -> S.
-
+-- Convert a coercion @S ~ T@ to a pair of lambdas
+-- @(to :: S -> T, from :: T -> S)@ in higher-order abstract syntax style.
+--
 -- The definition
 --
 -- > newtype T = MkT S
@@ -1022,117 +1112,58 @@ convertCast env expr co = do
 -- Coercions induced by newtypes can also occur deeply nested in function
 -- types or forall quantifications. We handle those cases by recursion into
 -- all sub-coercions.
-convertCoercion :: Env -> Coercion -> StateT Int ConvertM (LF.Expr, LF.Expr)
-convertCoercion env co
-    | isReflCo co = do
-        s' <- lift $ convertType env s
-        t' <- lift $ convertType env t
-        x <- mkVar <$> mkLamBinder
-        let lamTo = ETmLam (x, s') (EVar x)
-            lamFrom = ETmLam (x, t') (EVar x)
-        pure (lamTo, lamFrom)
-    | Just (xCo, yCo) <- splitFunCo_maybe co = do
-        let Pair a a' = coercionKind xCo
-        (aTo, aFrom) <- convertCoercion env xCo
-        (bTo, bFrom) <- convertCoercion env yCo
-        sLf <- lift $ convertType env s
-        tLf <- lift $ convertType env t
-        aLf <- lift $ convertType env a
-        a'Lf <- lift $ convertType env a'
-        f <- mkVar <$> mkLamBinder
-        g <- mkVar <$> mkLamBinder
-        x <- mkVar <$> mkLamBinder
-        y <- mkVar <$> mkLamBinder
-        let lamTo =
-                ETmLam
-                    (f, sLf)
-                    (ETmLam
-                         (x, a'Lf)
-                         (bTo `ETmApp` (EVar f `ETmApp` (aFrom `ETmApp` EVar x))))
-        let lamFrom =
-                ETmLam
-                    (g, tLf)
-                    (ETmLam
-                         (y, aLf)
-                         (bFrom `ETmApp` (EVar g `ETmApp` (aTo `ETmApp` EVar y))))
-        pure (lamTo, lamFrom)
-    | Just (aGhc, k_co, co') <- splitForAllCo_maybe co
-    , isReflCo k_co
-     = do
-        let Pair _aK a'K = coercionKind k_co
-        (aTo, aFrom) <- convertCoercion env k_co
-        (bTo, bFrom) <- convertCoercion env co'
-        a'KLf <- lift $ convertKind a'K
-        s' <- lift $ convertType env s
-        t' <- lift $ convertType env t
-        f <- mkVar <$> mkLamBinder
-        g <- mkVar <$> mkLamBinder
-        a' <- mkTypeVar <$> mkLamBinder
-        (a, aKLf) <- lift $ convTypeVar aGhc
-        let lamTo =
-                ETmLam
-                    (f, s')
-                    (ETyLam
-                         (a', a'KLf)
-                         (bTo `ETmApp`
-                          (EVar f `ETmApp` (aFrom `ETyApp` (TVar a')))))
-        let lamFrom =
-                ETmLam
-                    (g, t')
-                    (ETyLam
-                         (a, aKLf)
-                         (bFrom `ETmApp`
-                          (EVar g `ETmApp` (aTo `ETyApp` (TVar a)))))
-        pure (lamTo, lamFrom)
-    -- Case (1) & (2)
-    | Just (tCon, ts, field, flv) <- isSatNewTyCon s t = do
-        newtypeCoercion tCon ts field flv s t
-    | Just (tCon, ts, field, flv) <- isSatNewTyCon t s = do
-        (to, from) <- swap <$> newtypeCoercion tCon ts field flv t s
-        pure (to, from)
-    | SymCo co' <- co = do
-      swap <$> convertCoercion env co'
-    | SubCo co' <- co = convertCoercion env co'
-    | Just (coF, coA) <- splitAppCo_maybe co = do
-        (fTo, fFrom) <- convertCoercion env coF
-        (aTo, aFrom) <- convertCoercion env coA
-        pure (fTo `ETmApp` aTo, fFrom `ETmApp` aFrom)
-    | otherwise = lift $ unhandled "Coercion" co
+convertCoercion :: Env -> Coercion -> ConvertM (LF.Expr -> LF.Expr, LF.Expr -> LF.Expr)
+convertCoercion env co = evalStateT (go env co) 0
   where
-    newtypeCoercion tCon ts field flv s0 t0 = do
-        sLf <- lift $ convertType env s0
-        tLf <- lift $ convertType env t0
+    go :: Env -> Coercion -> StateT Int ConvertM (LF.Expr -> LF.Expr, LF.Expr -> LF.Expr)
+    go env co@(coercionKind -> Pair s t)
+        | isReflCo co = pure (id, id)
+        | Just (aCo, bCo) <- splitFunCo_maybe co = do
+            let Pair a a' = coercionKind aCo
+            (aTo, aFrom) <- go env aCo
+            (bTo, bFrom) <- go env bCo
+            a <- lift $ convertType env a
+            a' <- lift $ convertType env a'
+            x <- mkLamBinder
+            let to expr = ETmLam (x, a') $ bTo $ ETmApp expr $ aFrom $ EVar x
+            let from expr = ETmLam (x, a) $ bFrom $ ETmApp expr $ aTo $ EVar x
+            pure (to, from)
+        -- NOTE(MH): This case is commented out because we don't know how to trigger
+        -- it in a test case yet. In theory it should do the right thing though.
+        -- | Just (a, k_co, co') <- splitForAllCo_maybe co
+        -- , isReflCo k_co
+        -- = do
+        --     (a, k) <- lift $ convTypeVar a
+        --     (to', from') <- go env co'
+        --     let to expr = ETyLam (a, k) $ to' $ ETyApp expr $ TVar a
+        --     let from expr = ETyLam (a, k) $ from' $ ETyApp expr $ TVar a
+        --     pure (to, from)
+        -- Case (1) & (2)
+        | Just (tCon, ts, field, flv) <- isSatNewTyCon s t = newtypeCoercion tCon ts field flv
+        | Just (tCon, ts, field, flv) <- isSatNewTyCon t s = swap <$> newtypeCoercion tCon ts field flv
+        | SymCo co' <- co = swap <$> go env co'
+        | SubCo co' <- co = go env co'
+        | otherwise = lift $ unhandled "Coercion" co
+
+    newtypeCoercion tCon ts field flv = do
         ts' <- lift $ mapM (convertType env) ts
         t' <- lift $ convertQualified env tCon
-        exprS <- mkVar <$> mkLamBinder
-        exprT <- mkVar <$> mkLamBinder
         let tcon = TypeConApp t' ts'
         let sanitizeTo x
-                  -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
+                -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
                 | flv == ClassFlavour = ETmLam (mkVar "_", TUnit) x
                 | otherwise = x
             sanitizeFrom x
-                  -- NOTE(MH): This is DICTIONARY SANITIZATION step (2).
+                -- NOTE(MH): This is DICTIONARY SANITIZATION step (2).
                 | flv == ClassFlavour = x `ETmApp` EUnit
                 | otherwise = x
-
-        pure $
-            ( ETmLam
-                  (exprS, sLf)
-                  (ERecCon tcon [(field, sanitizeTo (EVar exprS))])
-            , ETmLam
-                  (exprT, tLf)
-                  (sanitizeFrom (ERecProj tcon field (EVar exprT))))
-
-    Pair s t = coercionKind co
+        let to expr = ERecCon tcon [(field, sanitizeTo expr)]
+        let from expr = sanitizeFrom $ ERecProj tcon field expr
+        pure (to, from)
 
     mkLamBinder = do
-        n <-
-            state
-                (\k ->
-                     let l = k + 1
-                      in (l, l))
-        pure $ "$cast" ++ show n
+        n <- state (dupe . succ)
+        pure $ mkVar $ "$cast" ++ show n
 
     isSatNewTyCon :: GHC.Type -> GHC.Type -> Maybe (TyCon, [TyCoRep.Type], FieldName, TyConFlavour)
     isSatNewTyCon s (TypeCon t ts)
@@ -1417,3 +1448,6 @@ mkPure env monad dict t x = do
 sourceLocToRange :: SourceLoc -> Range
 sourceLocToRange (SourceLoc _ slin scol elin ecol) =
   Range (Position slin scol) (Position elin ecol)
+
+pattern QIsTpl :: NamedThing a => String -> a
+pattern QIsTpl x <- QIs "DA.Internal.Template" x

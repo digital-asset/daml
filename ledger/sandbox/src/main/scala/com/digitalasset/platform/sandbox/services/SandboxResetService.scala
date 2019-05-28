@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class SandboxResetService(
-    getLedgerId: () => String,
+    getLedgerId: () => LedgerId,
     getEc: () => ExecutionContext,
     resetAndRestartServer: () => Future[Unit])
     extends ResetServiceGrpc.ResetService
@@ -36,9 +36,9 @@ class SandboxResetService(
     val ledgerId = getLedgerId()
     Either
       .cond(
-        ledgerId == request.ledgerId,
+        ledgerId == LedgerId(request.ledgerId),
         request.ledgerId,
-        ErrorFactories.ledgerIdMismatch(LedgerId(ledgerId), LedgerId(request.ledgerId)))
+        ErrorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId)))
       .fold(Future.failed[Empty], { _ =>
         actuallyReset().map(_ => Empty())(DE)
       })

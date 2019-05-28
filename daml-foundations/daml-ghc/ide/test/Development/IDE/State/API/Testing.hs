@@ -44,7 +44,8 @@ import Development.IDE.State.Rules.Daml
 import qualified Development.IDE.Logger as Logger
 import           Development.IDE.Types.LSP
 import DA.Daml.GHC.Compiler.Options (defaultOptionsIO)
-import Language.Haskell.LSP.Types (uriToFilePath, Range)
+import DA.Test.Util (standardizeQuotes)
+import Language.Haskell.LSP.Types (Range)
 
 -- * external dependencies
 import Control.Concurrent.STM
@@ -263,7 +264,7 @@ cursorPosition (_absPath,  line,  col) = D.Position line col
 
 locationStartCursor :: D.Location -> Cursor
 locationStartCursor (D.Location path (D.Range (D.Position line col) _)) =
-    (fromMaybe D.noFilePath $ uriToFilePath path, line, col)
+    (fromMaybe D.noFilePath $ D.uriToFilePath' path, line, col)
 
 -- | Same as Cursor, but passing a list of columns, so you can specify a range
 -- such as (foo,1,[10..20]).
@@ -376,7 +377,7 @@ matchGoToDefinitionPattern = \case
     In m -> \l -> fromMaybe False $ do
         l' <- l
         let uri = D._uri l'
-        fp <- uriToFilePath uri
+        fp <- D.uriToFilePath' uri
         pure $ isSuffixOf (moduleNameToFilePath m) fp
 
 -- | Expect "go to definition" to point us at a certain location or to fail.
@@ -442,11 +443,3 @@ example = do
         ]
     setFilesOfInterest [fooPath]
     expectNoErrors
-
-standardizeQuotes :: T.Text -> T.Text
-standardizeQuotes msg = let
-        repl '‘' = '\''
-        repl '’' = '\''
-        repl '`' = '\''
-        repl  c   = c
-    in  T.map repl msg

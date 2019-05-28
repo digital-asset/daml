@@ -35,6 +35,8 @@ trait MultiLedgerFixture
         LedgerFactories.createSandboxResource(config, SandboxStore.InMemory)
       case LedgerBackend.SandboxSql =>
         LedgerFactories.createSandboxResource(config, SandboxStore.Postgres)
+      case LedgerBackend.RemoteApiProxy =>
+        LedgerFactories.createRemoteApiProxyResource(config)
     }
   }
 }

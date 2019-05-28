@@ -58,6 +58,7 @@ import System.Process(callCommand)
 import           System.IO
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 import DA.Cli.Damlc.Test
+import DA.Bazel.Runfiles
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -93,32 +94,35 @@ cmdCompile numProcessors =
 cmdTest :: Int -> Mod CommandFields Command
 cmdTest numProcessors =
     command "test" $ info (helper <*> cmd) $
-       progDesc "Test the given DAML file by running all test declarations."
+       progDesc progDoc
     <> fullDesc
   where
+    progDoc = unlines
+      [ "Test the current DAML project or the given files by running all test declarations."
+      , "Must be in DAML project if --files is not set."
+      ]
     cmd = runTestsInProjectOrFiles
-      <$> many inputFileOpt
+      <$> projectOpts "daml test"
+      <*> filesOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
       <*> optionsParser numProcessors optPackageName
-      <*> projectCheckOpt
+    filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
+    filesDoc = "Only run test declarations in the specified files."
     junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
 
-runTestsInProjectOrFiles :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> ProjectCheck -> IO ()
-runTestsInProjectOrFiles [] color mbJUnitOutput cliOptions projectCheck = do
-    runProjectCheck "daml test" projectCheck
-    projectPath <- getProjectPath
-    case projectPath of
-      Nothing -> execTest [] color mbJUnitOutput cliOptions
-      Just pPath -> do
+runTestsInProjectOrFiles :: ProjectOpts -> Maybe [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
+runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions =
+    withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath _ -> do
         project <- readProjectConfig $ ProjectPath pPath
         case parseProjectConfig project of
-          Left err -> throwIO err
-          Right PackageConfigFields {..} -> execTest [pMain] color mbJUnitOutput cliOptions
-runTestsInProjectOrFiles inFiles color mbJUnitOutput cliOptions projectCheck = do
-    runProjectCheck "daml test" projectCheck
-    execTest inFiles color mbJUnitOutput cliOptions
+            Left err -> throwIO err
+            Right PackageConfigFields {..} -> execTest [pMain] color mbJUnitOutput cliOptions
+runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions =
+    withProjectRoot' projectOpts $ \relativize -> do
+        inFiles' <- mapM relativize inFiles
+        execTest inFiles' color mbJUnitOutput cliOptions
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
@@ -137,10 +141,10 @@ cmdBuild numProcessors =
   where
     cmd =
         execBuild
-            <$> optionsParser numProcessors (pure Nothing)
+            <$> projectOpts "daml build"
+            <*> optionsParser numProcessors (pure Nothing)
             <*> optionalOutputFileOpt
             <*> initPkgDbOpt
-            <*> projectCheckOpt
 
 cmdClean :: Mod CommandFields Command
 cmdClean =
@@ -148,14 +152,14 @@ cmdClean =
     info (helper <*> cmd) $
     progDesc "Remove DAML project build artifacts" <> fullDesc
   where
-    cmd = execClean <$> projectCheckOpt
+    cmd = execClean <$> projectOpts "daml clean"
 
 cmdInit :: Mod CommandFields Command
 cmdInit =
     command "init" $
     info (helper <*> cmd) $ progDesc "Initialize a DAML project" <> fullDesc
   where
-    cmd = pure $ execInit (InitPkgDb True)
+    cmd = execInit <$> projectOpts "daml damlc init" <*> pure (InitPkgDb True)
 
 cmdPackage :: Int -> Mod CommandFields Command
 cmdPackage numProcessors =
@@ -165,7 +169,8 @@ cmdPackage numProcessors =
   where
     dumpPom = fmap DumpPom $ switch $ help "Write out pom and sha256 files" <> long "dump-pom"
     cmd = execPackage
-        <$> inputFileOpt
+        <$> projectOpts "daml damlc package"
+        <*> inputFileOpt
         <*> optionsParser numProcessors (Just <$> packageNameOpt)
         <*> optionalOutputFileOpt
         <*> dumpPom
@@ -221,12 +226,12 @@ execIde telemetry (Debug debug) = NS.withSocketsDo $ Managed.runManaged $ do
     opts <- liftIO $ defaultOptionsIO Nothing
 
     Managed.liftIO $ do
-      execInit (InitPkgDb True)
+      execInit (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
       Daml.LanguageServer.runLanguageServer
         (Compiler.newIdeState opts) loggerH
 
 execCompile :: FilePath -> FilePath -> Compiler.Options -> Command
-execCompile inputFile outputFile opts = withProjectRoot $ \relativize -> do
+execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do
     loggerH <- getLogger opts "compile"
     inputFile <- relativize inputFile
     opts' <- Compiler.mkOptions opts
@@ -264,20 +269,20 @@ parseProjectConfig project = do
     sdkVersion <- queryProjectConfigRequired ["sdk-version"] project
     Right $ PackageConfigFields name main exposedModules version dependencies sdkVersion
 
+-- | We assume that this is only called within `withProjectRoot`.
 withPackageConfig :: (PackageConfigFields -> IO a) -> IO a
 withPackageConfig f = do
-    withProjectRoot $ \_ -> do
-        project <- readProjectConfig $ ProjectPath "."
-        case parseProjectConfig project of
-            Left err -> throwIO err
-            Right pkgConfig -> f pkgConfig
+    project <- readProjectConfig $ ProjectPath "."
+    case parseProjectConfig project of
+        Left err -> throwIO err
+        Right pkgConfig -> f pkgConfig
 
 -- | If we're in a daml project, read the daml.yaml field and create the project local package
 -- database. Otherwise do nothing.
-execInit :: InitPkgDb -> IO ()
-execInit (InitPkgDb shouldInit) =
+execInit :: ProjectOpts -> InitPkgDb -> IO ()
+execInit projectOpts (InitPkgDb shouldInit) =
     when shouldInit $
-    withProjectRoot $ \_relativize -> do
+    withProjectRoot' projectOpts $ \_relativize -> do
         isProject <- doesFileExist projectConfigName
         when isProject $ do
           project <- readProjectConfig $ ProjectPath "."
@@ -320,10 +325,10 @@ createProjectPackageDb lfVersion fps = do
             let path = dbPath </> eRelativePath src
             createDirectoryIfMissing True $ takeDirectory path
             BSL.writeFile path (fromEntry src)
-    sdkRoot <- getSdkPath
+    ghcPkgPath <- locateRunfiles (mainWorkspace </> "daml-foundations" </> "daml-tools" </> "da-hs-damlc-app" </> "ghc-pkg")
     callCommand $
         unwords
-            [ sdkRoot </> "damlc/resources/ghc-pkg"
+            [ ghcPkgPath </> "ghc-pkg"
             , "recache"
             -- ghc-pkg insists on using a global package db and will trie
             -- to find one automatically if we don’t specify it here.
@@ -331,10 +336,9 @@ createProjectPackageDb lfVersion fps = do
             , "--expand-pkgroot"
             ]
 
-execBuild :: Compiler.Options -> Maybe FilePath -> InitPkgDb -> ProjectCheck -> IO ()
-execBuild options mbOutFile initPkgDb projectCheck = do
-    runProjectCheck "daml build" projectCheck
-    execInit initPkgDb
+execBuild :: ProjectOpts -> Compiler.Options -> Maybe FilePath -> InitPkgDb -> IO ()
+execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts $ \_relativize -> do
+    execInit projectOpts initPkgDb
     withPackageConfig $ \PackageConfigFields {..} -> do
         putStrLn $ "Compiling " <> pMain <> " to a DAR."
         options' <- mkOptions options
@@ -408,10 +412,9 @@ execBuild options mbOutFile initPkgDb projectCheck = do
                     ]
 
 -- | Remove any build artifacts if they exist.
-execClean :: ProjectCheck -> IO ()
-execClean projectCheck = do
-    runProjectCheck "daml clean" projectCheck
-    withProjectRoot $ \_relativize -> do
+execClean :: ProjectOpts -> IO ()
+execClean projectOpts = do
+    withProjectRoot' projectOpts $ \_relativize -> do
         isProject <- doesFileExist projectConfigName
         when isProject $ do
             let removeAndWarn path = do
@@ -426,26 +429,17 @@ execClean projectCheck = do
             removeAndWarn "dist"
             putStrLn "Removed build artifacts."
 
--- | If ProjectCheck is true and we are outside a project,
--- print an error message and exit.
-runProjectCheck :: String -> ProjectCheck -> IO ()
-runProjectCheck command (ProjectCheck projectCheck) = do
-    when projectCheck $ do
-        projectPathM <- getProjectPath
-        when (isNothing projectPathM) $ do
-            hPutStrLn stderr (command <> ": Not in project.")
-            exitFailure
-
 lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty
 
-execPackage:: FilePath -- ^ input file
+execPackage:: ProjectOpts
+            -> FilePath -- ^ input file
             -> Compiler.Options
             -> Maybe FilePath
             -> DumpPom
             -> Compiler.UseDalf
             -> IO ()
-execPackage filePath opts mbOutFile dumpPom dalfInput = withProjectRoot $ \relativize -> do
+execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectRoot' projectOpts $ \relativize -> do
     loggerH <- getLogger opts "package"
     filePath <- relativize filePath
     opts' <- Compiler.mkOptions opts
@@ -708,3 +702,7 @@ main :: IO ()
 main = do
     numProcessors <- getNumProcessors
     withProgName "damlc" $ join $ execParserLax (parserInfo numProcessors)
+
+withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
+withProjectRoot' ProjectOpts{..} act =
+    withProjectRoot projectRoot projectCheck (const act)

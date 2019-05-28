@@ -8,15 +8,7 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
-
-DAML Assistant
-~~~~~~~~~~~~~~
-
-- The `exposed-modules` field in `daml.yaml` is now optional. If it is
-  not specified, all modules in the project are exposed.
-  See `#1328 <https://github.com/digital-asset/daml/issues/1328>`_.
-
-- You can now see all available versions with ``daml version`` using the ``--all`` flag.
+- Fixed a bug where type check errors would persist if there was a subsequent parse error
 
 SQL Extractor
 ~~~~~~~~~~~~~
@@ -25,6 +17,35 @@ SQL Extractor
   e.g. instead of ``--party Bob`` you can say ``--party Bob,Bar,Baz`` and get the contracts
   for all three parties in the database.
   See `#1360 <https://github.com/digital-asset/daml/pull/1360>`__.
+
+0.12.21 - 2019-05-28
+--------------------
+
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- The ``exposed-modules`` field in ``daml.yaml`` is now optional. If it is
+  not specified, all modules in the project are exposed.
+  See `#1328 <https://github.com/digital-asset/daml/issues/1328>`_.
+
+- You can now see all available versions with ``daml version`` using the ``--all`` flag.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE**: Drop support for DAML-LF 1.1. Compiling to DAML-LF 1.2 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all.
+
+- Make DAML-LF 1.5 the default version produced by the compiler.
+
+DAML Standard Library
+~~~~~~~~~~~~~~~~~~~~~
+
+- ``parseInt`` and ``parseDecimal`` now work at more extremes of values and accept leading plus signs.
+
+DAML-LF
+~~~~~~~
+
+- Add new version 1.5. See `DAML-LF 1 specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst#version-1-5>`_ for details.
 
 0.12.20 - 2019-05-23
 --------------------

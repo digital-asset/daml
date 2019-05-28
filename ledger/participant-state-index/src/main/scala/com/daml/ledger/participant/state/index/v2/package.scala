@@ -8,25 +8,10 @@ import java.time.{Duration, Instant}
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.api.domain._
 
 package object v2 {
-
-  final case class AcsUpdate(
-      optSubmitterInfo: Option[SubmitterInfo],
-      offset: LedgerOffset.Absolute,
-      transactionMeta: TransactionMeta,
-      events: List[AcsUpdateEvent]
-  )
-
-  sealed trait AcsUpdateEvent extends Product with Serializable {
-    def stakeholders: Set[Ref.Party]
-
-    def templateId: Ref.Identifier
-  }
 
   object AcsUpdateEvent {
 
@@ -38,17 +23,7 @@ package object v2 {
         argument: Value.VersionedValue[Value.AbsoluteContractId],
         // TODO(JM,SM): understand witnessing parties
         stakeholders: Set[Ref.Party],
-    ) extends AcsUpdateEvent
-
-    final case class Archive(
-        transactionId: TransactionId,
-        eventId: EventId,
-        contractId: Value.AbsoluteContractId,
-        templateId: Ref.Identifier,
-        // TODO(JM,SM): understand witnessing parties
-        stakeholders: Set[Ref.Party],
-    ) extends AcsUpdateEvent
-
+    )
   }
 
   sealed trait CompletionEvent extends Product with Serializable {
@@ -77,24 +52,6 @@ package object v2 {
   final case class ActiveContractSetSnapshot(
       takenAt: LedgerOffset.Absolute,
       activeContracts: Source[(Option[WorkflowId], AcsUpdateEvent.Create), NotUsed])
-
-  /** A transaction that has been accepted as committed by the Participant
-    * node.
-    *
-    * @param transactionData: the transaction that was accepted as committed.
-    *
-    * @param transactionMeta: Meta-data of a transaction visible to all parties
-    *                       that can see a part of the transaction.
-    *
-    * @param submitterInfo: information about the original submission of the transaction. Is [[None]]
-    *   if the participant node does not host the submitter.
-    *
-    */
-  final case class Transaction(
-      transactionData: GenTransaction.WithTxValue[AbsoluteNodeId, AbsoluteContractId],
-      transactionMeta: TransactionMeta,
-      submitterInfo: Option[SubmitterInfo]
-  )
 
   /** Information provided by the submitter of changes submitted to the ledger.
     *

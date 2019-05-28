@@ -43,7 +43,7 @@ import tests.wolpertinger.{Color, Wolpertinger}
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
-
+import com.digitalasset.ledger.api.domain.LedgerId
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CodegenLedgerTest extends FlatSpec with Matchers {
 
@@ -54,7 +54,7 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
     val cfg = SandboxConfig.default.copy(
       port = 0,
       damlPackageContainer = DamlPackageContainer(List(testDalf)),
-      ledgerIdMode = LedgerIdMode.Static(LedgerID),
+      ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
       timeProviderType = TimeProviderType.WallClock,
       timeModel = TimeModel.reasonableDefault
     )

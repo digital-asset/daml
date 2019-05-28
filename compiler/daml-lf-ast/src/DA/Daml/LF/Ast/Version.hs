@@ -20,10 +20,6 @@ data Version
 data MinorVersion = PointStable Int | PointDev
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
--- | DAML-LF version 1.1.
-version1_1 :: Version
-version1_1 = V1 $ PointStable 1
-
 -- | DAML-LF version 1.2.
 version1_2 :: Version
 version1_2 = V1 $ PointStable 2
@@ -36,21 +32,20 @@ version1_3 = V1 $ PointStable 3
 version1_4 :: Version
 version1_4 = V1 $ PointStable 4
 
--- TODO(MH): Roll this over when releasing DAML-LF 1.5.
+-- | DAML-LF version 1.5
 version1_5 :: Version
-version1_5 = versionDev
--- version1_5 = V1 $ PointStable 5
+version1_5 = V1 $ PointStable 5
 
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_4
+versionDefault = version1_5
 
 -- | The DAML-LF development version.
 versionDev :: Version
 versionDev = V1 PointDev
 
 supportedInputVersions :: [Version]
-supportedInputVersions = [version1_1, version1_2, version1_3, version1_4, versionDev]
+supportedInputVersions = [version1_2, version1_3, version1_4, version1_5, versionDev]
 
 supportedOutputVersions :: [Version]
 supportedOutputVersions = supportedInputVersions
@@ -64,17 +59,8 @@ data Feature = Feature
 featureTextMap :: Feature
 featureTextMap = Feature "Map type" version1_3
 
-featureSha256Text :: Feature
-featureSha256Text = Feature "sha256 function" version1_2
-
-featureFlexibleControllers :: Feature
-featureFlexibleControllers = Feature "Flexible controllers" version1_2
-
 featureContractKeys :: Feature
 featureContractKeys = Feature "Contract keys" version1_3
-
-featurePartyFromText :: Feature
-featurePartyFromText = Feature "partyFromText function" version1_2
 
 featureComplexContractKeys :: Feature
 featureComplexContractKeys = Feature "Complex contract keys" version1_4
@@ -87,6 +73,11 @@ featureCoerceContractId = Feature "Coerce function for contract ids" version1_5
 
 featureExerciseActorsOptional :: Feature
 featureExerciseActorsOptional = Feature "Optional exercise actors" version1_5
+
+-- TODO(MH): When we remove this because we drop support for DAML-LF 1.4,
+-- we should remove `legacyParse{Int, Decimal}` from `DA.Text` as well.
+featureNumberFromText :: Feature
+featureNumberFromText = Feature "Number parsing functions" version1_5
 
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature

@@ -7,7 +7,16 @@ def _daml_ghc_compile_test_impl(ctx):
     stack_opt = "-K" + ctx.attr.stack_limit if ctx.attr.stack_limit else ""
     heap_opt = "-M" + ctx.attr.heap_limit if ctx.attr.heap_limit else ""
     script = """
-      {damlc} compile {main} -o /dev/null +RTS {stack_opt} {heap_opt}
+      DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
+      MAIN=$(rlocation $TEST_WORKSPACE/{main})
+
+      TMP=$(mktemp -d)
+      function cleanup() {{
+        rm -rf "$TMP"
+      }}
+      trap cleanup EXIT
+
+      $DAMLC compile $MAIN -o $TMP/out +RTS {stack_opt} {heap_opt}
     """.format(
         damlc = ctx.executable.damlc.short_path,
         main = ctx.files.main[0].short_path,
@@ -61,16 +70,18 @@ def daml_ghc_integration_test(name, main_function):
             ":bond-trading",
         ],
         deps = [
+            "//compiler/daml-lf-ast",
+            "//compiler/daml-lf-proto",
+            "//compiler/haskell-ide-core",
             "//daml-foundations/daml-ghc/daml-compiler",
             "//daml-foundations/daml-ghc/ghc-compiler",
             "//daml-foundations/daml-ghc/ide",
-            "//compiler/daml-lf-ast",
-            "//compiler/daml-lf-proto",
+            "//daml-foundations/daml-ghc/test-lib",
             "//daml-lf/archive:daml_lf_haskell_proto",
+            "//libs-haskell/bazel-runfiles",
             "//libs-haskell/da-hs-base",
-            "//libs-haskell/prettyprinter-syntax",
-            "//compiler/haskell-ide-core",
             "//libs-haskell/da-hs-language-server",
+            "//libs-haskell/prettyprinter-syntax",
         ],
         hazel_deps = [
             "aeson",

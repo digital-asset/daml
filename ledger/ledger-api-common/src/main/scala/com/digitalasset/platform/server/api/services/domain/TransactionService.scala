@@ -5,38 +5,31 @@ package com.digitalasset.platform.server.api.services.domain
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.ledger.api.domain.LedgerOffset
+import com.digitalasset.ledger.api.domain.{LedgerOffset, Transaction, TransactionTree}
 import com.digitalasset.ledger.api.messages.transaction.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetTransactionTreesRequest,
   GetTransactionsRequest
 }
-import com.digitalasset.ledger.api.v1.transaction_service.GetTransactionsResponse
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.platform.server.api.WithOffset
-import com.digitalasset.platform.server.services.transaction.VisibleTransaction
 
 import scala.concurrent.Future
 
 trait TransactionService {
 
-  //TODO: DEL-6426 change the output types to domain layer too
-  def getTransactions(req: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed]
+  def getTransactions(req: GetTransactionsRequest): Source[Transaction, NotUsed]
 
-  def getTransactionTrees(
-      req: GetTransactionTreesRequest): Source[WithOffset[String, VisibleTransaction], NotUsed]
+  def getTransactionTrees(req: GetTransactionTreesRequest): Source[TransactionTree, NotUsed]
 
   def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute]
 
   def offsetOrdering: Ordering[LedgerOffset.Absolute]
 
-  def getTransactionById(req: GetTransactionByIdRequest): Future[Option[VisibleTransaction]]
+  def getTransactionById(req: GetTransactionByIdRequest): Future[TransactionTree]
 
-  def getTransactionByEventId(
-      req: GetTransactionByEventIdRequest): Future[Option[VisibleTransaction]]
+  def getTransactionByEventId(req: GetTransactionByEventIdRequest): Future[TransactionTree]
 
-  def getFlatTransactionById(req: GetTransactionByIdRequest): Future[Option[Transaction]]
+  def getFlatTransactionById(req: GetTransactionByIdRequest): Future[Transaction]
 
-  def getFlatTransactionByEventId(req: GetTransactionByEventIdRequest): Future[Option[Transaction]]
+  def getFlatTransactionByEventId(req: GetTransactionByEventIdRequest): Future[Transaction]
 }

@@ -1,5 +1,0 @@
----------------------------
-Copyright Notice
----------------------------
-Copyright (c) 2014-2018, Digital Asset (Switzerland) GmbH and/or its affiliates.
-All rights reserved.

@@ -67,40 +67,6 @@ import scala.concurrent.Future
   */
 trait LedgerBackend extends AutoCloseable {
 
-  /** Return the identifier of the Participant node's state that this
-    * [[LedgerBackend]] reads from and writes to.
-    *
-    * This identifier is used by consumers of the DAML Ledger API to check
-    * on reconnects to the Ledger API that they are connected to the same
-    * ledger and can therefore expect to receive the same data on calls that
-    * return append-only data. It is expected to be:
-    * (1) immutable over the lifetime of a [[LedgerBackend]] instance,
-    * (2) globally unique with high-probability,
-    * (3) matching the regexp [a-zA-Z0-9]+.
-    *
-    * Implementations where Participant nodes share a global view on all
-    * transactions in the ledger (e.g, via a blockchain) are expected to use
-    * the same ledger-id on all Participant nodes. Implementations where
-    * Participant nodes do not share a global view should ensure that the
-    * different participant nodes use different ledger-ids.
-    *
-    * TODO(SM): find a better name than 'ledger-id'.
-    */
-  def ledgerId: LedgerId
-
-  /** Begin the submission of a transaction to the ledger.
-    *
-    * Every write to the ledger is initiated with its own call to this
-    * method. The returned [[SubmissionHandle]] is used by the DAML
-    * interpreter to read from the ledger and construct a transaction. See
-    * [[SubmissionHandle]] for details on its methods.
-    *
-    * This method SHOULD be light-weight on average. Implementors might
-    * for example use a connection pool to avoid high setup costs for
-    * connecting to its Participant node.
-    */
-  def beginSubmission(): Future[SubmissionHandle]
-
   /** Return the stream of ledger events starting from and including the given offset.
     *
     * @param offset : the ledger offset starting from which events should be streamed.

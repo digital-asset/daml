@@ -15,10 +15,5 @@
       "source": "Compiler",
       "message": "/tests/diagnostics/import-error/Main.daml:7:8: error:\n    Could not find module ‘Oops’\nIt is not a module in the current program, or in any known package."
     }
-  ],
-  "file:/tests/diagnostics/import-error/Prelude.daml": [],
-  "file:/tests/diagnostics/import-error/DA/Internal/Desugar.daml": [],
-  "file:/tests/diagnostics/import-error/DA/Internal/Record.daml": [],
-  "file:/tests/diagnostics/import-error/DA/Internal/RebindableSyntax.daml": [],
-  "file:/tests/diagnostics/import-error/Oops.daml": []
+  ]
 }

@@ -62,6 +62,7 @@ da_scala_binary(
     ]),
     main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
     resources = [
+        "src/main/resources/logback.xml",
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
     ],
     tags = [
@@ -70,9 +71,13 @@ da_scala_binary(
         # POM file are set correctly.
         "fat_jar",
     ],
+    visibility = ["//visibility:public"],
     deps = dependencies + [
         "//ledger/ledger-api-integration-tests:ledger-api-integration-tests-lib",
+        "//ledger/ledger-api-integration-tests:ledger-api-integration-tests-as-library",
+        "//ledger/test-common:test-common",
         "//daml-lf/testing-tools",
+        "//3rdparty/jvm/org/apache/commons:commons_lang3",
     ],
 )
 

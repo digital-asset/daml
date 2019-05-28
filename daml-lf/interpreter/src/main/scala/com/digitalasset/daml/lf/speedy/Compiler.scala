@@ -185,6 +185,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BToTextDate => SBToText
               case BToQuotedTextParty => SBToQuotedTextParty
               case BFromTextParty => SBFromTextParty
+              case BFromTextInt64 => SBFromTextInt64
+              case BFromTextDecimal => SBFromTextDecimal
 
               case BSHA256Text => SBSHA256Text
 

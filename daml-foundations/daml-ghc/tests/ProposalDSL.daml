@@ -1,0 +1,65 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- A generic proposal workflow using generic templates.
+-- @IGNORE
+-- @SINCE-LF 1.5
+daml 1.2
+module ProposalDSL
+  ( Proposal (..)
+  , Accept (..)
+  , ProposalInstance
+  ) where
+
+import Prelude hiding (Template (..), Choice (..), create, fetch, exercise)
+import DA.List
+import DA.Text
+import GenericTemplates
+
+
+data Proposal t = Proposal with
+    asset : t
+    receivers : [Party]
+  deriving (Eq, Show)
+
+instance ProposalInstance t => Template (Proposal t) where
+    signatory = signatoryProposal
+    observer = observerProposal
+    ensure = ensureProposal
+    agreement = agreementProposal
+    create = createProposal
+    fetch = fetchProposal
+
+
+data Accept = Accept{}
+  deriving (Eq, Show)
+
+instance ProposalInstance t => Choice (Proposal t) Accept (ContractId t) where
+    exercise = exerciseProposalAccept
+
+
+class Template t => ProposalInstance t where
+    signatoryProposal : Proposal t -> [Party]
+    signatoryProposal this@Proposal{..} = signatory asset \\ receivers
+    observerProposal : Proposal t -> [Party]
+    observerProposal this@Proposal{..} = receivers
+    ensureProposal : Proposal t -> Bool
+    ensureProposal this@Proposal{..} = True
+    agreementProposal : Proposal t -> Text
+    agreementProposal this@Proposal{..} = implode
+        [ "Proposal:\n"
+        , "* proposers: " <> show (signatory this) <> "\n"
+        , "* receivers: " <> show receivers <> "\n"
+        , "* agreement: " <> agreement asset
+        ]
+    createProposal : Proposal t -> Update (ContractId (Proposal t))
+    createProposal = error "code will be injected by the compiler"
+    fetchProposal : ContractId (Proposal t) -> Update (Proposal t)
+    fetchProposal = error "code will be injected by the compiler"
+    controllerProposalAccept : Proposal t -> Accept -> [Party]
+    controllerProposalAccept this@Proposal{..} arg@Accept = receivers
+    actionProposalAccept : ContractId (Proposal t) -> Proposal t -> Accept -> Update (ContractId t)
+    actionProposalAccept self this@Proposal{..} arg@Accept = do
+        create asset
+    exerciseProposalAccept : ContractId (Proposal t) -> Accept -> Update (ContractId t)
+    exerciseProposalAccept = error "code will be injected by the compiler"

@@ -56,16 +56,7 @@ instance Ord Party where
 --   Most users should stick to `show` of the party instead, which also wraps
 --   the party in `'ticks'` making it clear it was a `Party` originally.
 partyToText : Party -> Text
--- Safe because parties aren't allowed to include ' characters
---
--- Note that in DAML-LF 1.2 we have a primitive that has this behavior out of
--- the box -- BEToText for the type `Party`. However we do not have an easy
--- way to generate different code depending on the DAML-LF target at the moment,
--- and thus we keep using `show` for both versions.
-partyToText = implode . filter (/= "\'") . explode . show
-    where
-        implode : [Text] -> Text = primitive @"BEImplodeText"
-        explode : Text -> [Text] = primitive @"BEExplodeText"
+partyToText = primitive @"BEToText"
 
 -- | Converts a `Text` to `Party`. It returns `None` if the provided text contains
 -- any forbidden characters. See DAML-LF spec for a specification on which characters
