@@ -6,7 +6,7 @@ package com.digitalasset.extractor
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.value.ValueGenerators.{party => partyGen}
 import com.digitalasset.extractor.config.ExtractorConfig
-import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
+import com.digitalasset.extractor.services.ExtractorFixtureAroundAll
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 
@@ -30,9 +30,7 @@ class MultiPartySpec
     with PostgresAroundAll
     with SuiteResourceManagementAroundAll
     with ExtractorFixtureAroundAll
-    with Inside
     with Matchers
-    with CustomMatchers
     with GeneratorDrivenPropertyChecks {
 
   override protected def darFile = new File("extractor/RecordsAndVariants.dar")
