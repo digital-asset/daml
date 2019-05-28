@@ -197,8 +197,8 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
           callProcessQuiet damlName ["build", "-o", "target/daml/iou.dar"]
     , testCase "daml test" $ withCurrentDirectory quickstartDir $
           callProcessQuiet damlName ["test"]
-    , testCase "daml damlc test-files" $ withCurrentDirectory quickstartDir $
-          callProcessQuiet damlName ["damlc", "test-files", "daml/Main.daml"]
+    , testCase "daml damlc test --files" $ withCurrentDirectory quickstartDir $
+          callProcessQuiet damlName ["damlc", "test", "--files", "daml/Main.daml"]
     , testCase "sandbox startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do

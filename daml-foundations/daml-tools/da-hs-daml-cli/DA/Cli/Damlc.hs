@@ -94,42 +94,35 @@ cmdCompile numProcessors =
 cmdTest :: Int -> Mod CommandFields Command
 cmdTest numProcessors =
     command "test" $ info (helper <*> cmd) $
-       progDesc "Test the current DAML project by running all test declarations. Must be in DAML project."
+       progDesc progDoc
     <> fullDesc
   where
-    cmd = runTestsInProject
-      <$> projectRootOpt
+    progDoc = unlines
+      [ "Test the current DAML project or the given files by running all test declarations."
+      , "Must be in DAML project if --files is not set."
+      ]
+    cmd = runTestsInProjectOrFiles
+      <$> projectOpts "daml test"
+      <*> filesOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
       <*> optionsParser numProcessors optPackageName
+    filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
+    filesDoc = "Only run test declarations in the specified files."
     junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
 
-runTestsInProject :: Maybe ProjectPath -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
-runTestsInProject mbProjectRoot color mbJUnitOutput cliOptions =
-    withExpectProjectRoot mbProjectRoot "daml test" $ \pPath _ -> do
+runTestsInProjectOrFiles :: ProjectOpts -> Maybe [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
+runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions =
+    withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath _ -> do
         project <- readProjectConfig $ ProjectPath pPath
         case parseProjectConfig project of
             Left err -> throwIO err
             Right PackageConfigFields {..} -> execTest [pMain] color mbJUnitOutput cliOptions
-
-cmdTestFiles :: Int -> Mod CommandFields Command
-cmdTestFiles numProcessors =
-    command "test-files" $ info (helper <*> cmd) $
-       progDesc "Test the given DAML files by running all test declarations."
-    <> fullDesc
-  where
-    cmd = runTestsInFiles
-      <$> many inputFileOpt
-      <*> fmap UseColor colorOutput
-      <*> junitOutput
-      <*> optionsParser numProcessors optPackageName
-    junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
-    colorOutput = switch $ long "color" <> help "Colored test results"
-
-runTestsInFiles :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
-runTestsInFiles inFiles color mbJUnitOutput cliOptions =
-    execTest inFiles color mbJUnitOutput cliOptions
+runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions =
+    withProjectRoot' projectOpts $ \relativize -> do
+        inFiles' <- mapM relativize inFiles
+        execTest inFiles' color mbJUnitOutput cliOptions
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
@@ -683,7 +676,6 @@ options numProcessors =
       <> cmdPackage numProcessors
       <> cmdBuild numProcessors
       <> cmdTest numProcessors
-      <> cmdTestFiles numProcessors
       <> cmdDamlDoc
       <> cmdInspectDar
       )

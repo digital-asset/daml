@@ -298,18 +298,17 @@ data ProjectOpts = ProjectOpts
 projectOpts :: String -> Parser ProjectOpts
 projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
     where
+        projectRootOpt :: Parser (Maybe ProjectPath)
+        projectRootOpt =
+            optional $
+            fmap ProjectPath $
+            strOption $
+            long "project-root" <>
+            help
+                (mconcat
+                     [ "Path to the root of a project containing daml.yaml. "
+                     , "If unspecified this will use the DAML_PROJECT environment variable set by the assistant."
+                     ])
         projectCheckOpt cmdName = fmap (ProjectCheck cmdName) . switch $
                help "Check if running in DAML project."
             <> long "project-check"
-
-projectRootOpt :: Parser (Maybe ProjectPath)
-projectRootOpt =
-    optional $
-    fmap ProjectPath $
-    strOption $
-    long "project-root" <>
-    help
-        (mconcat
-             [ "Path to the root of a project containing daml.yaml. "
-             , "If unspecified this will use the DAML_PROJECT environment variable set by the assistant."
-             ])
