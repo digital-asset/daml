@@ -346,7 +346,7 @@ private class SandboxIndexAndWriteService(
   }
 
   // IndexPackagesService
-  override def listPackages(): Future[Set[PackageId]] =
+  override def listPackages(): Future[Map[PackageId, PackageInfo]] =
     templateStore.listPackages()
 
   override def getPackage(packageId: PackageId): Future[Option[Archive]] =

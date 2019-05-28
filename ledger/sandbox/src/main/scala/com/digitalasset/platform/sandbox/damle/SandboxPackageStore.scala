@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.sandbox.damle
 
-import com.daml.ledger.participant.state.index.v2.IndexPackagesService
+import com.daml.ledger.participant.state.index.v2.{PackageInfo, IndexPackagesService}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
@@ -15,14 +15,19 @@ import scala.concurrent.Future
 private class SandboxPackageStore(packageContainer: DamlPackageContainer)
     extends IndexPackagesService {
 
+  private val packageInfos: Map[PackageId, PackageInfo] =
+    packageContainer.archives.map {
+      case (size, archive) => (PackageId.assertFromString(archive.getHash), PackageInfo(size))
+    }(breakOut)
+
   private val packages: Map[PackageId, Archive] =
     packageContainer.archives.map {
       case (_, archive) =>
         (PackageId.assertFromString(archive.getHash), archive)
     }(breakOut)
 
-  override def listPackages(): Future[Set[PackageId]] =
-    Future.successful(packages.keySet)
+  override def listPackages(): Future[Map[PackageId, PackageInfo]] =
+    Future.successful(packageInfos)
 
   override def getPackage(packageId: PackageId): Future[Option[Archive]] =
     Future.successful(packages.get(packageId))

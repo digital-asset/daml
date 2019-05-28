@@ -8,12 +8,14 @@ import com.digitalasset.daml_lf.DamlLf.Archive
 
 import scala.concurrent.Future
 
+case class PackageInfo(size: Long)
+
 /**
   * Serves as a backend to implement
   * [[com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService]]
   */
 trait IndexPackagesService {
-  def listPackages(): Future[Set[PackageId]]
+  def listPackages(): Future[Map[PackageId, PackageInfo]]
 
   def getPackage(packageId: PackageId): Future[Option[Archive]]
 }

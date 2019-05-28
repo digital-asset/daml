@@ -33,7 +33,7 @@ class ApiPackageService private (backend: IndexPackagesService)
   override def close(): Unit = ()
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
-    backend.listPackages().map(p => ListPackagesResponse(p.toSeq))(DEC)
+    backend.listPackages().map(p => ListPackagesResponse(p.keys.toSeq))(DEC)
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
     withValidatedPackageId(
