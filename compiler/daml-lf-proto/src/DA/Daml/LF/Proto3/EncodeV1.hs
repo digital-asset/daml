@@ -111,7 +111,7 @@ encodeKind version = P.Kind . Just . \case
 ------------------------------------------------------------------------
 
 encodeBuiltinType :: Version -> BuiltinType -> P.Enumerated P.PrimType
-encodeBuiltinType version = P.Enumerated . Right . \case
+encodeBuiltinType _version = P.Enumerated . Right . \case
     BTInt64 -> P.PrimTypeINT64
     BTDecimal -> P.PrimTypeDECIMAL
     BTText -> P.PrimTypeTEXT
@@ -126,7 +126,7 @@ encodeBuiltinType version = P.Enumerated . Right . \case
     BTDate -> P.PrimTypeDATE
     BTContractId -> P.PrimTypeCONTRACT_ID
     BTOptional -> P.PrimTypeOPTIONAL
-    BTMap -> checkFeature featureTextMap version P.PrimTypeMAP
+    BTMap -> P.PrimTypeMAP
     BTArrow -> P.PrimTypeARROW
 
 encodeType' :: Version -> Type -> P.Type
@@ -346,9 +346,9 @@ encodeUpdate version = P.Update . Just . \case
     UFetch{..} -> P.UpdateSumFetch $ P.Update_Fetch (encodeQualTypeConName fetTemplate) (encodeExpr version fetContractId)
     UGetTime -> P.UpdateSumGetTime P.Unit
     UEmbedExpr typ e -> P.UpdateSumEmbedExpr $ P.Update_EmbedExpr (encodeType version typ) (encodeExpr version e)
-    UFetchByKey rbk -> checkFeature featureContractKeys version $
+    UFetchByKey rbk ->
        P.UpdateSumFetchByKey (encodeRetrieveByKey version rbk)
-    ULookupByKey rbk -> checkFeature featureContractKeys version $
+    ULookupByKey rbk ->
        P.UpdateSumLookupByKey (encodeRetrieveByKey version rbk)
 
 encodeRetrieveByKey :: Version -> RetrieveByKey -> P.Update_RetrieveByKey
@@ -432,7 +432,7 @@ encodeTemplate version Template{..} =
     }
 
 encodeTemplateKey :: Version -> ExprVarName -> TemplateKey -> P.DefTemplate_DefKey
-encodeTemplateKey version templateVar TemplateKey{..} = checkFeature featureContractKeys version $ P.DefTemplate_DefKey
+encodeTemplateKey version templateVar TemplateKey{..} = P.DefTemplate_DefKey
   { P.defTemplate_DefKeyType = encodeType version tplKeyType
   , P.defTemplate_DefKeyKeyExpr =
       if version `supports` featureComplexContractKeys
@@ -514,7 +514,7 @@ encodePackage (Package version mods) = P.Package (encodeNameMap encodeModule ver
 
 -- | NOTE(MH): This functions is used for sanity checking. The actual checks
 -- are done in the conversion to DAML-LF.
-checkFeature :: Feature -> Version -> a -> a
-checkFeature feature version x
+_checkFeature :: Feature -> Version -> a -> a
+_checkFeature feature version x
     | version `supports` feature = x
     | otherwise = error $ "DAML-LF " ++ renderPretty version ++ " cannot encode feature: " ++ T.unpack (featureName feature)
