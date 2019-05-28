@@ -24,7 +24,7 @@ If they're relevant, add screenshots to help show us the problem.
 
 **About your system**
  - OS: (are you on Windows, OSX, Linux? Which version?)
- - Version [e.g. 22]
+ - SDK version (e.g. 0.12.18)
 
 **Additional context**
 Is there anything else you can think of that might help us fix this bug?
