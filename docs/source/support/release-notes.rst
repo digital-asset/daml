@@ -9,10 +9,13 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.21 - 2019-05-28
+--------------------
+
 DAML Assistant
 ~~~~~~~~~~~~~~
 
-- The `exposed-modules` field in `daml.yaml` is now optional. If it is
+- The ``exposed-modules`` field in ``daml.yaml`` is now optional. If it is
   not specified, all modules in the project are exposed.
   See `#1328 <https://github.com/digital-asset/daml/issues/1328>`_.
 
