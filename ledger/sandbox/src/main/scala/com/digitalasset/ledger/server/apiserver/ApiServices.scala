@@ -28,7 +28,7 @@ import com.digitalasset.platform.sandbox.services.transaction.SandboxTransaction
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ReferenceCommandService
-import com.digitalasset.platform.server.services.identity.LedgerIdentityServiceImpl
+import com.digitalasset.platform.server.services.identity.LedgerIdentityService
 import com.digitalasset.platform.server.services.testing.{ReferenceTimeService, TimeServiceBackend}
 import com.digitalasset.platform.services.time.TimeProviderType
 import io.grpc.BindableService
@@ -83,6 +83,7 @@ object ApiServices {
       activeContractsService: ActiveContractsService,
       transactionsService: TransactionsService,
       contractStore: ContractStore,
+      completionsService: CompletionsService,
       engine: Engine,
       timeProvider: TimeProvider,
       optTimeServiceBackend: Option[TimeServiceBackend])(
@@ -113,21 +114,22 @@ object ApiServices {
 
       logger.info(EngineInfo.show)
 
-      val transactionService =
+      val apiTransactionService =
         SandboxTransactionService
           .createApiService(ledgerId, transactionsService, identifierResolver)
 
-      val apiLedgerIdentityService = LedgerIdentityServiceImpl(() => identityService.getLedgerId())
+      val apiLedgerIdentityService =
+        LedgerIdentityService.createApiService(() => identityService.getLedgerId())
 
-      val apiPackageService = SandboxPackageService(ledgerId, packagesService)
+      val apiPackageService = SandboxPackageService.createApiService(ledgerId, packagesService)
 
       val apiConfigurationService =
         LedgerConfigurationService.createApiService(ledgerId, configurationService)
 
-      val completionService =
-        SandboxCommandCompletionService(ledgerId, ledgerBackend)
+      val apiCompletionService =
+        SandboxCommandCompletionService.createApiService(ledgerId, completionsService)
 
-      val apiCommandService = ReferenceCommandService(
+      val apiCommandService = ReferenceCommandService.createApiService(
         ReferenceCommandService.Configuration(
           ledgerId,
           config.commandConfig.inputBufferSize,
@@ -144,24 +146,25 @@ object ApiServices {
             apiSubmissionService.submit,
             config.commandConfig.maxParallelSubmissions),
           r =>
-            completionService.service
+            apiCompletionService.service
               .asInstanceOf[SandboxCommandCompletionService]
               .completionStreamSource(r),
-          () => completionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
-          transactionService.getTransactionById,
-          transactionService.getFlatTransactionById
+          () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
+          apiTransactionService.getTransactionById,
+          apiTransactionService.getFlatTransactionById
         ),
         identifierResolver
       )
 
       val apiActiveContractsService =
-        SandboxActiveContractsService(ledgerId, activeContractsService, identifierResolver)
+        SandboxActiveContractsService
+          .createApiService(ledgerId, activeContractsService, identifierResolver)
 
-      val reflectionService = ProtoReflectionService.newInstance()
+      val apiReflectionService = ProtoReflectionService.newInstance()
 
-      val timeServiceOpt =
+      val apiTimeServiceOpt =
         optTimeServiceBackend.map { tsb =>
-          ReferenceTimeService(
+          ReferenceTimeService.createApiService(
             ledgerId,
             tsb,
             config.timeProviderType == TimeProviderType.StaticAllowBackwards
@@ -169,17 +172,17 @@ object ApiServices {
         }
 
       new ApiServicesBundle(
-        timeServiceOpt.toList :::
+        apiTimeServiceOpt.toList :::
           List(
           apiLedgerIdentityService,
           apiPackageService,
           apiConfigurationService,
           apiSubmissionService,
-          transactionService,
-          completionService,
+          apiTransactionService,
+          apiCompletionService,
           apiCommandService,
           apiActiveContractsService,
-          reflectionService
+          apiReflectionService
         ))
     }
   }

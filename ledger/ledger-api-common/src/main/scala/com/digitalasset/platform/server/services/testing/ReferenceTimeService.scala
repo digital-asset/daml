@@ -129,7 +129,7 @@ class ReferenceTimeService private (
 }
 
 object ReferenceTimeService {
-  def apply(
+  def createApiService(
       ledgerId: LedgerId,
       backend: TimeServiceBackend,
       allowSettingTimeBackwards: Boolean = false)(

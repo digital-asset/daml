@@ -4,7 +4,9 @@
 package com.digitalasset.platform.server.services.identity
 
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
+import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.{
+  LedgerIdentityService => GrpcLedgerIdentityService
+}
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   GetLedgerIdentityResponse,
@@ -20,11 +22,11 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 
-abstract class LedgerIdentityServiceImpl private (getLedgerId: () => Future[LedgerId])
-    extends LedgerIdentityService
+abstract class LedgerIdentityService private (getLedgerId: () => Future[LedgerId])
+    extends GrpcLedgerIdentityService
     with GrpcApiService {
 
-  protected val logger: Logger = LoggerFactory.getLogger(LedgerIdentityService.getClass)
+  protected val logger: Logger = LoggerFactory.getLogger(getClass)
 
   @volatile var closed = false
 
@@ -45,8 +47,8 @@ abstract class LedgerIdentityServiceImpl private (getLedgerId: () => Future[Ledg
     LedgerIdentityServiceGrpc.bindService(this, DirectExecutionContext)
 }
 
-object LedgerIdentityServiceImpl {
-  def apply(getLedgerId: () => Future[LedgerId])
+object LedgerIdentityService {
+  def createApiService(getLedgerId: () => Future[LedgerId])
     : LedgerIdentityService with BindableService with LedgerIdentityServiceLogging =
-    new LedgerIdentityServiceImpl(getLedgerId) with LedgerIdentityServiceLogging
+    new LedgerIdentityService(getLedgerId) with LedgerIdentityServiceLogging
 }

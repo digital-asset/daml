@@ -241,6 +241,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
               ledgerBackend,
               ledgerBackend,
               contractStore,
+              ledgerBackend,
               SandboxServer.engine,
               timeProvider,
               timeServiceBackendO
