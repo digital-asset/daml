@@ -27,4 +27,4 @@ If they're relevant, add screenshots to help show us the problem.
  - Version [e.g. 22]
 
 **Additional context**
-Add any other context about the problem here.
+Is there anything else you can think of that might help us fix this bug?
