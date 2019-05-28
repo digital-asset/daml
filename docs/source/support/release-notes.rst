@@ -19,6 +19,14 @@ DAML Compiler
 
 - **BREAKING CHANGE**: Drop support for DAML-LF 1.2. Compiling to DAML-LF 1.3 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all.
 
+SQL Extractor
+~~~~~~~~~~~~~
+
+- The extractor ``--party`` option may now specify multiple parties, separated by commas;
+  e.g. instead of ``--party Bob`` you can say ``--party Bob,Bar,Baz`` and get the contracts
+  for all three parties in the database.
+  See `#1360 <https://github.com/digital-asset/daml/pull/1360>`__.
+
 0.12.21 - 2019-05-28
 --------------------
 

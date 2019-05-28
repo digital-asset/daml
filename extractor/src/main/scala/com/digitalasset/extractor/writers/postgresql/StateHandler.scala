@@ -102,7 +102,7 @@ object StateHandler {
       target.copy(connectUrl = "**masked**", user = "**masked**", password = "**masked**"),
       config.from,
       config.to,
-      config.party
+      config.partySpec
     )
   }
 
@@ -133,7 +133,7 @@ object StateHandler {
       )
       _ <- validateParam(
         previousStatus.startUpParameters.party,
-        config.party,
+        config.partySpec,
         "`--party`"
       )
       _ <- validateParam(

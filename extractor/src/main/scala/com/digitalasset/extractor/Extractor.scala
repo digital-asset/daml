@@ -22,6 +22,7 @@ import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration._
 
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
+import scala.collection.breakOut
 import scala.concurrent.duration._
 import scala.concurrent.Future
 import scala.util.control.NonFatal
@@ -110,6 +111,11 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
     } yield ()
   }
 
+  private def selectTransactions: TransactionFilter = {
+    val templateSelection = Filters.defaultInstance
+    TransactionFilter(config.parties.toList.map(_ -> templateSelection)(breakOut))
+  }
+
   private def streamTransactions(
       client: LedgerClient,
       writer: Writer,
@@ -126,7 +132,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
           .getTransactionTrees(
             LedgerOffset(startOffSet),
             streamUntil,
-            TransactionFilter(Map(config.party -> Filters.defaultInstance)),
+            selectTransactions,
             verbose = true
           )
           .via(killSwitch.flow)
