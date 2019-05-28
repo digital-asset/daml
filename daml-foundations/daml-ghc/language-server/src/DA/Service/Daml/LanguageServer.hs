@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TemplateHaskell    #-}
 
@@ -18,7 +19,6 @@ import qualified Control.Monad.Managed                     as Managed
 import           DA.LanguageServer.Protocol
 import           DA.LanguageServer.Server
 
-import Data.Tagged
 import Control.Monad
 import Data.List.Extra
 import Control.Monad.IO.Class
@@ -26,7 +26,6 @@ import Safe
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified DA.Service.Daml.LanguageServer.CodeLens   as LS.CodeLens
-import           DA.Service.Daml.LanguageServer.Common
 import qualified DA.Service.Daml.LanguageServer.Definition as LS.Definition
 import qualified DA.Service.Daml.LanguageServer.Hover      as LS.Hover
 import qualified DA.Service.Logger                         as Logger
@@ -104,7 +103,7 @@ deriveDAToJSON "_wvp" ''WorkspaceValidationsParams
 
 serverCapabilities :: ServerCapabilities
 serverCapabilities = ServerCapabilities
-    { scTextDocumentSync                 = Just SyncFull
+    { scTextDocumentSync                 = Just TdSyncFull
     , scHoverProvider                    = True
     , scCompletionProvider               = Nothing
     , scSignatureHelpProvider            = Nothing
@@ -125,7 +124,7 @@ serverCapabilities = ServerCapabilities
 -- Request handlers
 ------------------------------------------------------------------------
 
-handleRequest :: IHandle () LF.Package -> ServerRequest -> IO (Either ServerError Aeson.Value)
+handleRequest :: IHandle () LF.Package -> ServerRequest -> IO (Either ErrorCode Aeson.Value)
 handleRequest (IHandle _stateRef loggerH compilerH _notifChan) = \case
     Initialize _params -> do
         pure $ Right $ Aeson.toJSON $ InitializeResult serverCapabilities
@@ -150,10 +149,10 @@ handleNotification :: IHandle () LF.Package -> ServerNotification -> IO ()
 handleNotification (IHandle stateRef loggerH compilerH _notifChan) = \case
 
     DidOpenTextDocument (DidOpenTextDocumentParams item) ->
-        case URI.parseURI $ T.unpack $ unTagged $ tdiUri item of
+        case URI.parseURI $ T.unpack $ getUri $ _uri (item :: TextDocumentItem) of
           Just uri
               | URI.uriScheme uri == "file:"
-              -> handleDidOpenFile (URI.unEscapeString (URI.uriPath uri)) (tdiText item)
+              -> handleDidOpenFile (URI.unEscapeString (URI.uriPath uri)) (_text (item :: TextDocumentItem))
 
               | URI.uriScheme uri == "daml:"
               -> handleDidOpenVirtualResource uri
@@ -163,14 +162,14 @@ handleNotification (IHandle stateRef loggerH compilerH _notifChan) = \case
                     <> T.show uri
 
           _ -> Logger.logError loggerH $ "Invalid URI in DidOpenTextDocument: "
-                    <> T.show (tdiUri item)
+                    <> T.show (_uri (item :: TextDocumentItem))
 
-    DidChangeTextDocument (DidChangeTextDocumentParams docId changes) ->
-        case documentUriToFilePath $ vtdiUri docId of
+    DidChangeTextDocument (DidChangeTextDocumentParams docId (List changes)) ->
+        case Compiler.uriToFilePath' $ _uri (docId :: VersionedTextDocumentIdentifier) of
           Just filePath -> do
             -- ISSUE DEL-3281: Add support for incremental synchronisation
             -- to language server.
-            let newContents = tdcceText <$> lastMay changes
+            let newContents = fmap (\ev -> _text (ev :: TextDocumentContentChangeEvent)) $ lastMay changes
             Compiler.onFileModified compilerH filePath newContents
 
             Logger.logInfo loggerH
@@ -178,10 +177,10 @@ handleNotification (IHandle stateRef loggerH compilerH _notifChan) = \case
 
           Nothing ->
             Logger.logError loggerH
-              $ "Invalid file path: " <> T.show (vtdiUri docId)
+              $ "Invalid file path: " <> T.show (_uri (docId :: VersionedTextDocumentIdentifier))
 
-    DidCloseTextDocument (DidCloseTextDocumentParams docId) ->
-        case URI.parseURI $ T.unpack $ unTagged $ tdidUri docId of
+    DidCloseTextDocument (DidCloseTextDocumentParams (TextDocumentIdentifier uri)) ->
+        case URI.parseURI $ T.unpack $ getUri uri of
           Just uri
               | URI.uriScheme uri == "file:" -> handleDidCloseFile (URI.unEscapeString $ URI.uriPath uri)
               | URI.uriScheme uri == "daml:" -> handleDidCloseVirtualResource uri
@@ -189,7 +188,7 @@ handleNotification (IHandle stateRef loggerH compilerH _notifChan) = \case
 
           _ -> Logger.logError loggerH
                  $    "Invalid URI in DidCloseTextDocument: "
-                   <> T.show (tdidUri docId)
+                   <> T.show uri
 
     DidSaveTextDocument _params ->
       pure ()
@@ -304,8 +303,8 @@ eventSlinger loggerH eventChan notifChan =
                 writeTChan notifChan
                     $ PublishDiagnostics
                     $ PublishDiagnosticsParams
-                    (Tagged $ Compiler.getUri $ Compiler.filePathToUri fp)
-                    (map convertDiagnostic $ nubOrd diags)
+                    (Compiler.filePathToUri fp)
+                    (List $ nubOrd diags)
                 pure Nothing
 
             Compiler.EventVirtualResourceChanged vr content -> do
