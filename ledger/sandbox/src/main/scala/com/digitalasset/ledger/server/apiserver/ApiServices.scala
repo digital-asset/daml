@@ -22,6 +22,7 @@ import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.sandbox.config.{CommandConfiguration, DamlPackageContainer}
 import com.digitalasset.platform.sandbox.services._
 import com.digitalasset.platform.sandbox.services.transaction.ApiTransactionService
+import com.digitalasset.platform.sandbox.services.admin.ApiPartyManagementService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ApiCommandService
@@ -79,6 +80,7 @@ object ApiServices {
     val transactionsService: IndexTransactionsService = indexService
     val contractStore: ContractStore = indexService
     val completionsService: IndexCompletionsService = indexService
+    val partyManagementService: IndexPartyManagementService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
       val packageResolver =
@@ -150,6 +152,9 @@ object ApiServices {
           )
         }
 
+      val apiPartyManagementService =
+        ApiPartyManagementService.createApiService(partyManagementService, writeService)
+
       new ApiServicesBundle(
         apiTimeServiceOpt.toList :::
           List(
@@ -161,7 +166,8 @@ object ApiServices {
           apiCompletionService,
           apiCommandService,
           apiActiveContractsService,
-          apiReflectionService
+          apiReflectionService,
+          apiPartyManagementService
         ))
     }
   }
