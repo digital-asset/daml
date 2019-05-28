@@ -207,7 +207,7 @@ class ReferenceCommandService private (
 
 object ReferenceCommandService {
 
-  def apply(
+  def createApiService(
       configuration: Configuration,
       svcAccess: LowLevelCommandServiceAccess,
       identifierResolver: IdentifierResolver)(

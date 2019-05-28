@@ -825,15 +825,43 @@ renderValue world name = \case
         renderField (Field label mbValue) =
             renderValue world (name ++ [TL.toStrict label]) (fromJust mbValue)
 
-renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
-renderRow world parties NodeInfo{..} =
-    let (ths, tds) = renderValue world [] niValue
-        header = H.tr $ mconcat
+templateConName :: Identifier -> LF.Qualified LF.TypeConName
+templateConName (Identifier mbPkgId (TL.toStrict -> qualName)) = LF.Qualified pkgRef  mdN tpl
+  where (mdN, tpl) = case T.splitOn ":" qualName of
+          [modName, defN] -> (LF.ModuleName (T.splitOn "." modName) , LF.TypeConName (T.splitOn "." defN) )
+          _ -> error "malformed identifier"
+        pkgRef = case mbPkgId of
+                  Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) -> LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
+                  Just (PackageIdentifier (Just (PackageIdentifierSumSelf _))) -> LF.PRSelf
+                  Just (PackageIdentifier Nothing) -> error "unidentified package reference"
+                  Nothing -> error "unidentified package reference"
+
+labledField :: T.Text -> T.Text -> T.Text
+labledField fname "" = fname
+labledField fname label = fname <> "." <> label
+
+typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
+typeConFieldsNames world (LF.FieldName fName, LF.TConApp tcn _) = map (labledField fName) (typeConFields tcn world)
+typeConFieldsNames _ (LF.FieldName fName, _) = [fName]
+
+typeConFields :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
+typeConFields qName world = case LF.lookupDataType qName world of
+  Right dataType -> case LF.dataCons dataType of
+    LF.DataRecord re -> concatMap (typeConFieldsNames world) re
+    LF.DataVariant _ -> [""]
+  Left _ -> error "malformed template constructor"
+
+renderHeader :: LF.World -> Identifier -> S.Set T.Text -> H.Html
+renderHeader world identifier parties = H.tr $ mconcat
             [ foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
             , H.th "id"
             , H.th "status"
-            , ths
+            , foldMap (H.th . H.text) (typeConFields (templateConName identifier) world)
             ]
+
+renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> H.Html
+renderRow world parties NodeInfo{..} =
+    let (_, tds) = renderValue world [] niValue
         observed party = if party `S.member` niObservers then "X" else "-"
         active = if niActive then "active" else "archived"
         row = H.tr H.! A.class_ (H.textValue active) $ mconcat
@@ -842,16 +870,15 @@ renderRow world parties NodeInfo{..} =
             , H.td (H.text active)
             , tds
             ]
-    in (header, row)
+    in row
 
--- TODO(MH): The header should be rendered from the type rather than from the
--- first value.
 renderTable :: LF.World -> Table -> H.Html
 renderTable world Table{..} = H.div H.! A.class_ active $ do
     let parties = S.unions $ map niObservers tRows
     H.h1 $ renderPlain $ prettyDefName world tTemplateId
-    let (headers, rows) = unzip $ map (renderRow world parties) tRows
-    H.table $ head headers <> mconcat rows
+    let rows = map (renderRow world parties) tRows
+    let header = renderHeader world tTemplateId parties
+    H.table $ header <> mconcat rows
     where
         active = if any niActive tRows then "active" else "archived"
 

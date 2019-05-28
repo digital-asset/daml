@@ -18,7 +18,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRe
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ReferenceCommandService
-import com.digitalasset.platform.server.services.identity.LedgerIdentityServiceImpl
+import com.digitalasset.platform.server.services.identity.LedgerIdentityService
 import io.grpc.BindableService
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -98,11 +98,11 @@ object Server {
     val transactionService =
       DamlOnXTransactionService.create(ledgerId, indexService, identifierResolver)
 
-    val identityService = LedgerIdentityServiceImpl(
-      () => Future.successful(domain.LedgerId(ledgerId)))
+    val identityService =
+      LedgerIdentityService.createApiService(() => Future.successful(domain.LedgerId(ledgerId)))
 
     // FIXME(JM): hard-coded values copied from SandboxConfig.
-    val commandService = ReferenceCommandService(
+    val commandService = ReferenceCommandService.createApiService(
       ReferenceCommandService.Configuration(
         domain.LedgerId(ledgerId),
         512, // config.commandConfig.inputBufferSize,

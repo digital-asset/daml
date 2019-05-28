@@ -96,7 +96,10 @@ object SandboxActiveContractsService {
   type TransactionId = String
   type WorkflowId = String
 
-  def apply(ledgerId: LedgerId, backend: ACSBackend, identifierResolver: IdentifierResolver)(
+  def createApiService(
+      ledgerId: LedgerId,
+      backend: ACSBackend,
+      identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)

@@ -140,39 +140,21 @@ convertPrim version "BEDecimalFromText" (TText :-> TOptional TDecimal)
 
 convertPrim _ "BEMapEmpty" (TMap a) =
   EBuiltin BEMapEmpty `ETyApp` a
-convertPrim _ "BEMapEmpty" t@(TTextMap _) =
-  runtimeUnsupported featureTextMap t
 convertPrim _ "BEMapInsert"  (TText :-> a1 :-> TMap a2 :-> TMap a3) | a1 == a2, a2 == a3 =
   EBuiltin BEMapInsert `ETyApp` a1
-convertPrim _ "BEMapInsert"  t@(TText :-> a1 :-> TTextMap a2 :-> TTextMap a3) | a1 == a2, a2 == a3 =
-  runtimeUnsupported featureTextMap t
 convertPrim _ "BEMapLookup" (TText :-> TMap a1 :-> TOptional a2) | a1 == a2 =
   EBuiltin BEMapLookup `ETyApp` a1
-convertPrim _ "BEMapLookup" t@(TText :-> TTextMap a1 :-> TOptional a2) | a1 == a2 =
-  runtimeUnsupported featureTextMap t
 convertPrim _ "BEMapDelete" (TText :-> TMap a1 :-> TMap a2) | a1 == a2 =
   EBuiltin BEMapDelete `ETyApp` a1
-convertPrim _ "BEMapDelete" t@(TText :-> TTextMap a1 :-> TTextMap a2) | a1 == a2 =
-  runtimeUnsupported featureTextMap t
 convertPrim _ "BEMapToList" (TMap a1 :-> TList (TMapEntry a2)) | a1 == a2  =
   EBuiltin BEMapToList `ETyApp` a1
-convertPrim _ "BEMapToList" t@(TTextMap a1 :-> TList (TMapEntry a2)) | a1 == a2 =
-  runtimeUnsupported featureTextMap t
 convertPrim _ "BEMapSize" (TMap a :-> TInt64) =
   EBuiltin BEMapSize `ETyApp` a
-convertPrim _ "BEMapSize" t@(TTextMap _ :-> TInt64) =
-  runtimeUnsupported featureTextMap t
 
 convertPrim version "BECoerceContractId" t@(TContractId a :-> TContractId b) =
     whenRuntimeSupports version featureCoerceContractId t $ EBuiltin BECoerceContractId `ETyApp` a `ETyApp` b
 
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
-
-pattern TTextMap :: Type -> Type
-pattern TTextMap a <-
-  TApp
-  (TCon (Qualified _ (ModuleName ["DA", "Internal", "Prelude"]) (TypeConName ["TextMap"])))
-  a
 
 -- | Some builtins are only supported in specific versions of DAML-LF.
 -- Since we don't have conditional compilation in daml-stdlib, we compile

@@ -12,10 +12,10 @@ import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerOffset}
   * Serves as a backend to implement
   * [[com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService]]
   **/
-trait CompletionsService {
+trait CompletionsService extends LedgerEndService {
   def getCompletions(
-      begin: Option[LedgerOffset],
+      begin: LedgerOffset,
       applicationId: ApplicationId,
-      parties: List[Ref.Party]
+      parties: Set[Ref.Party]
   ): Source[CompletionEvent, NotUsed]
 }

@@ -221,10 +221,6 @@ isBuiltinName expected a
   , GHC.moduleName m == mkModuleName "DA.Internal.Prelude" = True
   | otherwise = False
 
-isBuiltinTextMap :: NamedThing a => Env -> a -> Bool
-isBuiltinTextMap env a =
-    envLfVersion env `supports` featureTextMap && isBuiltinName "TextMap" a
-
 convertInt64 :: Integer -> ConvertM LF.Expr
 convertInt64 x
     | toInteger (minBound :: Int64) <= x && x <= toInteger (maxBound :: Int64) =
@@ -1236,7 +1232,7 @@ convertTyCon env t
             "Time" -> pure TTimestamp
             _ -> defaultTyCon
     | isBuiltinName "Optional" t = pure (TBuiltin BTOptional)
-    | isBuiltinTextMap env t = pure (TBuiltin BTMap)
+    | isBuiltinName "TextMap" t = pure (TBuiltin BTMap)
     | otherwise = defaultTyCon
     where
         arity = tyConArity t
