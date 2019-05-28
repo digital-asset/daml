@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-**Is your feature request related to a problem? Please describe.**
+**Is your feature request related to a problem? Tell us about it.**
 It's really helpful when we understand _why_ you're making a feature request - for example, because it solves a problem you're having. Include A description of the problem here --- eg "I'm always frustrated when [...]"
 
 **What's your preferred solution?**
