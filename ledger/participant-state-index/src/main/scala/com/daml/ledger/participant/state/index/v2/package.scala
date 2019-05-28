@@ -39,7 +39,7 @@ package object v2 {
     final case class CommandAccepted(
         offset: LedgerOffset.Absolute,
         recordTime: Instant,
-        commandId: Option[CommandId],
+        commandId: CommandId,
         transactionId: TransactionId)
         extends CompletionEvent
 

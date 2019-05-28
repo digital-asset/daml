@@ -281,12 +281,23 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     converter.toAbsolute(begin).flatMapConcat {
       case LedgerOffset.Absolute(absBegin) =>
         ledgerSyncEvents(Some(absBegin)).collect {
-          case at: LedgerSyncEvent.AcceptedTransaction =>
+          case LedgerSyncEvent
+                .AcceptedTransaction(
+                _,
+                transactionId,
+                _,
+                _,
+                recordTime,
+                offset,
+                _,
+                _,
+                _,
+                Some(commandId)) =>
             CommandAccepted(
-              domain.LedgerOffset.Absolute(at.offset),
-              at.recordTime,
-              at.commandId.map(domain.CommandId(_)),
-              domain.TransactionId(at.transactionId))
+              domain.LedgerOffset.Absolute(offset),
+              recordTime,
+              domain.CommandId(commandId),
+              domain.TransactionId(transactionId))
           case hb: LedgerSyncEvent.Heartbeat =>
             Checkpoint(domain.LedgerOffset.Absolute(hb.offset), hb.recordTime)
           case rc: LedgerSyncEvent.RejectedCommand =>

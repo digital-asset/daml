@@ -86,11 +86,10 @@ class SandboxCommandCompletionService private (
 
         ce match {
           case CompletionEvent.CommandAccepted(_, _, commandId, transactionId) =>
-            //TODO: code smell, if we don't send anything for empty command IDs, why do we get the event at all?
             CompletionStreamResponse(
               checkpoint,
-              commandId.fold(List.empty[Completion])(cId =>
-                List(Completion(cId.unwrap, Some(Status()), transactionId.unwrap))))
+              List(Completion(commandId.unwrap, Some(Status()), transactionId.unwrap))
+            )
 
           case CompletionEvent.CommandRejected(_, _, commandId, reason) =>
             CompletionStreamResponse(checkpoint, List(rejectionToCompletion(commandId, reason)))
