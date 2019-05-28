@@ -22,7 +22,7 @@ Tell us what you expected to happen (instead of the bug).
 **Screenshots**
 If they're relevant, add screenshots to help show us the problem.
 
-**Desktop (please complete the following information):**
+**About your system**
  - OS: (are you on Windows, OSX, Linux? Which version?)
  - Version [e.g. 22]
 
