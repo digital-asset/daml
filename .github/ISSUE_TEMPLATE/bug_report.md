@@ -11,7 +11,7 @@ assignees: ''
 A short description of the bug you found.
 
 **Steps to reproduce**
-Steps to reproduce the behavior:
+Steps to reproduce the problem:
 1. Go to '...'
 2. Atempt to '....'
 3. See error
