@@ -8,6 +8,11 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.index.v2.{
+  CompletionEvent,
+  CompletionsService,
+  RejectionReason
+}
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -17,25 +22,23 @@ import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.validation.LedgerOffsetValidator
 import com.digitalasset.platform.participant.util.Slf4JLog
-import com.digitalasset.platform.server.api.validation.CommandCompletionServiceValidation
-import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.ledger.backend.api.v1.{
-  LedgerBackend,
-  LedgerSyncEvent,
-  LedgerSyncOffset,
-  RejectionReason
+import com.digitalasset.platform.server.api.validation.{
+  CommandCompletionServiceValidation,
+  FieldValidations
 }
+import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.google.rpc.status.Status
 import io.grpc.Status.Code
 import io.grpc.{BindableService, ServerServiceDefinition}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
+import domain.{CommandId, LedgerId}
+import scalaz.syntax.tag._
 
-import domain.LedgerId
-
+//TODO: use a validator object like in the other services!
 class SandboxCommandCompletionService private (
-    ledgerBackend: LedgerBackend
+    completionsService: CompletionsService
 )(
     implicit ec: ExecutionContext,
     protected val mat: Materializer,
@@ -53,61 +56,46 @@ class SandboxCommandCompletionService private (
       "Received request for completion subscription {}: {}",
       subscriptionId: Any,
       request)
-    val offsetOrError =
-      request.offset.fold[Future[Option[Ref.LedgerString]]](Future.successful(None))(
-        o =>
-          LedgerOffsetValidator
-            .validate(o, "offset")
-            .fold(
-              Future.failed, {
-                case domain.LedgerOffset.Absolute(value) => Future.successful(Some(value))
-                case domain.LedgerOffset.LedgerBegin => Future.successful(None)
-                case domain.LedgerOffset.LedgerEnd =>
-                  ledgerBackend.getCurrentLedgerEnd.map(Some.apply)
-              }
-          ))
 
-    Source
-      .fromFuture(offsetOrError)
-      .flatMapConcat(completionSourceWithOffset(request, _, subscriptionId))
+    val offsetOrError = for {
+      offset <- FieldValidations.requirePresence(request.offset, "offset")
+      convertedOffset <- LedgerOffsetValidator.validate(offset, "offset")
+    } yield convertedOffset
+
+    offsetOrError.fold(
+      Source.failed,
+      offset => completionSourceWithOffset(request, offset, subscriptionId))
   }
 
   private def completionSourceWithOffset(
       request: CompletionStreamRequest,
-      requestedOffset: Option[LedgerSyncOffset],
+      requestedOffset: domain.LedgerOffset,
       subscriptionId: String): Source[CompletionStreamResponse, NotUsed] = {
-    val requestingParties = request.parties.toSet
-    val requestedApplicationId = request.applicationId
-    ledgerBackend
-      .ledgerSyncEvents(requestedOffset)
-      .map { syncEvent =>
-        val checkpoint =
-          Some(
-            Checkpoint(
-              Some(fromInstant(syncEvent.recordTime)),
-              Some(LedgerOffset(LedgerOffset.Value.Absolute(syncEvent.offset)))))
+    //TODO: put these into a proper validator
+    val requestingParties = request.parties.toSet.map(Ref.Party.assertFromString)
+    val requestedApplicationId: domain.ApplicationId =
+      domain.ApplicationId(Ref.LedgerString.assertFromString(request.applicationId))
 
-        syncEvent match {
-          case tx: LedgerSyncEvent.AcceptedTransaction
-              if isRequested(
-                requestedApplicationId,
-                requestingParties,
-                tx.applicationId,
-                tx.submitter) =>
+    completionsService
+      .getCompletions(requestedOffset, requestedApplicationId, requestingParties)
+      .map { ce =>
+        val checkpoint = Some(
+          Checkpoint(
+            Some(fromInstant(ce.recordTime)),
+            Some(LedgerOffset(LedgerOffset.Value.Absolute(ce.offset.value)))))
+
+        ce match {
+          case CompletionEvent.CommandAccepted(_, _, commandId, transactionId) =>
+            //TODO: code smell, if we don't send anything for empty command IDs, why do we get the event at all?
             CompletionStreamResponse(
               checkpoint,
-              tx.commandId.fold(List.empty[Completion])(c =>
-                List(Completion(c, Some(Status()), tx.transactionId))))
-          case err: LedgerSyncEvent.RejectedCommand
-              if isRequested(
-                requestedApplicationId,
-                requestingParties,
-                err.applicationId,
-                Some(err.submitter)) =>
-            CompletionStreamResponse(
-              checkpoint,
-              List(toCompletion(err.commandId, err.rejectionReason)))
-          case _ =>
+              commandId.fold(List.empty[Completion])(cId =>
+                List(Completion(cId.unwrap, Some(Status()), transactionId.unwrap))))
+
+          case CompletionEvent.CommandRejected(_, _, commandId, reason) =>
+            CompletionStreamResponse(checkpoint, List(rejectionToCompletion(commandId, reason)))
+
+          case _: CompletionEvent.Checkpoint =>
             logger.trace("Emitting checkpoint for subscription {}", subscriptionId)
             CompletionStreamResponse(checkpoint)
         }
@@ -115,44 +103,36 @@ class SandboxCommandCompletionService private (
       .via(Slf4JLog(logger, s"Serving response for completion subscription $subscriptionId"))
   }
 
-  private def isRequested(
-      requestedApplicationId: String,
-      requestingParties: Set[String],
-      applicationId: Option[String],
-      submittingParty: Option[String]) =
-    applicationId.contains(requestedApplicationId) && submittingParty.fold(false)(
-      requestingParties.contains)
-
   override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =
-    ledgerBackend.getCurrentLedgerEnd.map(le =>
-      CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(le)))))
+    completionsService.currentLedgerEnd.map(le =>
+      CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(le.value)))))
 
-  private def toCompletion(commandId: String, error: RejectionReason): Completion = {
+  private def rejectionToCompletion(commandId: CommandId, error: RejectionReason): Completion = {
     val code = error match {
-      case RejectionReason.Inconsistent(description) => Code.INVALID_ARGUMENT
-      case RejectionReason.OutOfQuota(description) => Code.ABORTED
-      case RejectionReason.TimedOut(description) => Code.ABORTED
-      case RejectionReason.Disputed(description) => Code.INVALID_ARGUMENT
-      case RejectionReason.DuplicateCommandId(description) => Code.INVALID_ARGUMENT
+      case _: RejectionReason.Inconsistent => Code.INVALID_ARGUMENT
+      case _: RejectionReason.OutOfQuota => Code.ABORTED
+      case _: RejectionReason.TimedOut => Code.ABORTED
+      case _: RejectionReason.Disputed => Code.INVALID_ARGUMENT
+      case _: RejectionReason.DuplicateCommandId => Code.INVALID_ARGUMENT
     }
 
-    Completion(commandId, Some(Status(code.value(), error.description)), traceContext = None)
+    Completion(commandId.unwrap, Some(Status(code.value(), error.description)), traceContext = None)
   }
 
-  override def close(): Unit = {
+  override def close(): Unit =
     super.close()
-  }
+
 }
 
 object SandboxCommandCompletionService {
-  def apply(ledgerId: LedgerId, ledgerBackend: LedgerBackend)(
+  def apply(ledgerId: LedgerId, completionsService: CompletionsService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory): CommandCompletionServiceValidation
     with BindableService
     with AutoCloseable
     with CommandCompletionServiceLogging = {
-    val impl = new SandboxCommandCompletionService(ledgerBackend)
+    val impl = new SandboxCommandCompletionService(completionsService)
     new CommandCompletionServiceValidation(impl, ledgerId) with BindableService with AutoCloseable
     with CommandCompletionServiceLogging {
       override def bindService(): ServerServiceDefinition =

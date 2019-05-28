@@ -28,6 +28,7 @@ package object v2 {
 
   sealed trait CompletionEvent extends Product with Serializable {
     def offset: LedgerOffset.Absolute
+    def recordTime: Instant
   }
 
   object CompletionEvent {
@@ -37,12 +38,14 @@ package object v2 {
 
     final case class CommandAccepted(
         offset: LedgerOffset.Absolute,
+        recordTime: Instant,
         commandId: Option[CommandId],
         transactionId: TransactionId)
         extends CompletionEvent
 
     final case class CommandRejected(
         offset: LedgerOffset.Absolute,
+        recordTime: Instant,
         commandId: CommandId,
         reason: RejectionReason)
         extends CompletionEvent

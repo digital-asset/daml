@@ -277,6 +277,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       applicationId: ApplicationId,
       parties: Set[Ref.Party]
   ): Source[CompletionEvent, NotUsed] = {
+    //TODO: we might need to emit check points for Accepted and Rejected too
     val converter = new OffsetConverter()
     converter.toAbsolute(begin).flatMapConcat {
       case LedgerOffset.Absolute(absBegin) =>
@@ -284,6 +285,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
           case at: LedgerSyncEvent.AcceptedTransaction =>
             CommandAccepted(
               domain.LedgerOffset.Absolute(at.offset),
+              at.recordTime,
               at.commandId.map(domain.CommandId(_)),
               domain.TransactionId(at.transactionId))
           case hb: LedgerSyncEvent.Heartbeat =>
@@ -291,6 +293,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
           case rc: LedgerSyncEvent.RejectedCommand =>
             CommandRejected(
               domain.LedgerOffset.Absolute(rc.offset),
+              rc.recordTime,
               domain.CommandId(rc.commandId),
               convertRejectionReason(rc.rejectionReason))
         }

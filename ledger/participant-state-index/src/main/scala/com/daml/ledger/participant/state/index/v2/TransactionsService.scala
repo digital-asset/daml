@@ -15,7 +15,7 @@ import scala.concurrent.Future
   * Serves as a backend to implement
   * [[com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService]]
   **/
-trait TransactionsService {
+trait TransactionsService extends LedgerEndService {
   def transactions(
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],
@@ -27,8 +27,6 @@ trait TransactionsService {
       endAt: Option[LedgerOffset],
       filter: TransactionFilter
   ): Source[domain.TransactionTree, NotUsed]
-
-  def currentLedgerEnd(): Future[LedgerOffset.Absolute]
 
   def getTransactionById(
       transactionId: TransactionId,
