@@ -28,7 +28,7 @@ DAML Compiler
 DAML Standard Library
 ~~~~~~~~~~~~~~~~~~~~~
 
-- `parseInt` and `parseDecimal` now work at more extremes of values.
+- ``parseInt`` and ``parseDecimal`` now work at more extremes of values and accept leading plus signs.
 
 DAML-LF
 ~~~~~~~
