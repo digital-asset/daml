@@ -840,8 +840,6 @@ labledField :: T.Text -> T.Text -> T.Text
 labledField fname "" = fname
 labledField fname label = fname <> "." <> label
 
-
-
 typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
 typeConFieldsNames world (LF.FieldName fName, LF.TConApp tcn _) = map (\label -> labledField fName label ) (templateConFields tcn world)
 typeConFieldsNames _ (LF.FieldName fName, _) = [fName]
