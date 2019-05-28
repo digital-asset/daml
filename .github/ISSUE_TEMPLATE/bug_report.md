@@ -17,7 +17,7 @@ Steps to reproduce the problem:
 3. See error message '...'
 
 **Expected behavior**
-A clear description of what you expected to happen.
+Tell us what you expected to happen (instead of the bug).
 
 **Screenshots**
 If applicable, add screenshots to help explain your problem.
