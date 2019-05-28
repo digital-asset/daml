@@ -12,7 +12,7 @@ import scala.collection.breakOut
 import scala.collection.immutable.Map
 import scala.concurrent.Future
 
-private class SandboxTemplateStore(packageContainer: DamlPackageContainer)
+private class SandboxPackageStore(packageContainer: DamlPackageContainer)
     extends IndexPackagesService {
 
   private val packages: Map[PackageId, Archive] =
@@ -29,7 +29,7 @@ private class SandboxTemplateStore(packageContainer: DamlPackageContainer)
 
 }
 
-object SandboxTemplateStore {
+object SandboxPackageStore {
   def apply(packageContainer: DamlPackageContainer): IndexPackagesService =
-    new SandboxTemplateStore(packageContainer)
+    new SandboxPackageStore(packageContainer)
 }

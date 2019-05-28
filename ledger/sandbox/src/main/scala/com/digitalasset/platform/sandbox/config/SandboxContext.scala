@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.config
 
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
 import com.digitalasset.platform.sandbox.cli.Cli
-import com.digitalasset.platform.sandbox.damle.SandboxTemplateStore
+import com.digitalasset.platform.sandbox.damle.SandboxPackageStore
 
 case class SandboxContext(
     config: SandboxConfig,
@@ -17,8 +17,8 @@ object SandboxContext {
     Cli.parse(args).map(fromConfig)
 
   def fromConfig(config: SandboxConfig): SandboxContext = {
-    val templateStore = SandboxTemplateStore(config.damlPackageContainer)
-    SandboxContext(config, templateStore, config.damlPackageContainer)
+    val packageStore = SandboxPackageStore(config.damlPackageContainer)
+    SandboxContext(config, packageStore, config.damlPackageContainer)
   }
 
   /** Parses the arguments into a SandboxContext object. In case of failure calls System.exit()! */
