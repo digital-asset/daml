@@ -14,7 +14,7 @@ A description of what the problem is --- "I'm always frustrated when [...]"
 Tell us what you'd want to happen.
 
 **Describe alternatives you've considered**
-Any alternative solutions or features you've considered.
+Tell us about alternative solutions or features you've considered.
 
 **Additional context**
 Add any other context or screenshots about the feature request here.
