@@ -13,6 +13,7 @@ module ProposalDSL
 
 import Prelude hiding (Template (..), Choice (..), create, fetch, exercise)
 import DA.List
+import DA.Text
 import GenericTemplates
 
 
@@ -24,9 +25,10 @@ data Proposal t = Proposal with
 instance ProposalInstance t => Template (Proposal t) where
     signatory = signatoryProposal
     observer = observerProposal
+    ensure = ensureProposal
+    agreement = agreementProposal
     create = createProposal
     fetch = fetchProposal
-
 
 
 data Accept = Accept{}
@@ -41,6 +43,15 @@ class Template t => ProposalInstance t where
     signatoryProposal this@Proposal{..} = signatory asset \\ receivers
     observerProposal : Proposal t -> [Party]
     observerProposal this@Proposal{..} = receivers
+    ensureProposal : Proposal t -> Bool
+    ensureProposal this@Proposal{..} = True
+    agreementProposal : Proposal t -> Text
+    agreementProposal this@Proposal{..} = implode
+        [ "Proposal:\n"
+        , "* proposers: " <> show (signatory this) <> "\n"
+        , "* receivers: " <> show receivers <> "\n"
+        , "* agreement: " <> agreement asset
+        ]
     createProposal : Proposal t -> Update (ContractId (Proposal t))
     createProposal = error "code will be injected by the compiler"
     fetchProposal : ContractId (Proposal t) -> Update (Proposal t)

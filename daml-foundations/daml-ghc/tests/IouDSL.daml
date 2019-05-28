@@ -20,6 +20,8 @@ data Iou = Iou with
 instance IouInstance => Template Iou where
   signatory = signatoryIou
   observer = observerIou
+  ensure = ensureIou
+  agreement = agreementIou
   create = createIou
   fetch = fetchIou
 
@@ -34,6 +36,11 @@ class IouInstance where
   signatoryIou this@Iou{..} = [issuer, owner]
   observerIou : Iou -> [Party]
   observerIou this@Iou{..} = []
+  ensureIou : Iou -> Bool
+  ensureIou this@Iou{..} = amount > 0.0
+  agreementIou : Iou -> Text
+  agreementIou this@Iou{..} =
+      show issuer <> " owns " <> show owner <> " CHF " <> show amount
   createIou : Iou -> Update (ContractId Iou)
   createIou = error "code will be injected by the compiler"
   fetchIou : ContractId Iou -> Update Iou
