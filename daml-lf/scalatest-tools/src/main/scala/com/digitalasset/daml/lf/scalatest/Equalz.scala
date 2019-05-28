@@ -25,11 +25,11 @@ import scalaz.Equal
   * typeclasses this way in Scala.)
   */
 trait Equalz extends Matchers {
-  import Equalz.{EqualzInvocation, Lub}
+  import Equalz.LubEqual
 
-  final def equalz[Ex](expected: Ex): MatcherFactory1[Ex, Equal] =
-    new MatcherFactory1[Ex, Equal] {
-      override def matcher[T <: Ex](implicit ev: Equal[T]): Matcher[T] =
+  final def equalz[Ex](expected: Ex): MatcherFactory1[Ex, LubEqual.Gt[Ex, ?]] =
+    new MatcherFactory1[Ex, LubEqual.Gt[Ex, ?]] {
+      override def matcher[T <: Ex](implicit ev: LubEqual.Gt[Ex, T]): Matcher[T] =
         actual =>
           MatchResult(
             ev.equal(expected, actual),
@@ -40,15 +40,13 @@ trait Equalz extends Matchers {
 }
 
 object Equalz extends Equalz {
-  sealed abstract class Lub[-A, -B, C] {
-    def left(l: A): C
-    def right(r: B): C
+  sealed abstract class LubEqual[-A, C, -B] {
+    def equal(l: A, r: B): Boolean
   }
-  object Lub {
-    final class OnlyInstance[C] extends Lub[C, C, C] {
-      override def left(l: C) = l
-      override def right(r: C) = r
+  object LubEqual {
+    type Gt[-A, -B] = LubEqual[A, _, B]
+    implicit def onlyInstance[C: Equal]: LubEqual[C, C, C] = new LubEqual[C, C, C] {
+      def equal(l: C, r: C) = Equal[C].equal(l, r)
     }
-    implicit def onlyInstance[C]: Lub[C, C, C] = new OnlyInstance
   }
 }
