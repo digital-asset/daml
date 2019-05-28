@@ -13,7 +13,7 @@ A short description of the bug you found.
 **Steps to reproduce**
 Steps to reproduce the problem:
 1. Go to '...'
-2. Atempt to '....'
+2. Attempt to '...'
 3. See error
 
 **Expected behavior**
