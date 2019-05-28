@@ -337,8 +337,12 @@ convertGenericTemplate env x
     = do
         polyType <- convertType env polyType
         monoType@(TCon monoTyCon) <- convertTyCon env monoTyCon
-        let unwrapSelf = mkEApps (EBuiltin BECoerceContractId) [TyArg monoType, TyArg polyType, TmArg (EVar self)]
-        let wrapSelf = mkEApps (EBuiltin BECoerceContractId) [TyArg polyType, TyArg monoType, TmArg (EVar self)]
+        let (unwrapSelf, wrapSelf)
+                | isReflCo unwrapCo = (EVar self, EVar self)
+                | otherwise =
+                    ( mkEApps (EBuiltin BECoerceContractId) [TyArg monoType, TyArg polyType, TmArg (EVar self)]
+                    , mkEApps (EBuiltin BECoerceContractId) [TyArg polyType, TyArg monoType, TmArg (EVar self)]
+                    )
         let tplLocation = Nothing
         let tplTypeCon = qualObject monoTyCon
         let tplParam = this
@@ -364,9 +368,14 @@ convertGenericTemplate env x
                 chcUpdate <- applyArg . applyThis . applySelf <$> convertExpr env (Var action)
                 controllers <- convertExpr env (Var controllers)
                 action <- convertExpr env (Var action)
-                let exercise =
+                let exercise
+                      | envLfVersion env `supports` featureExerciseActorsOptional =
                         mkETmLams [(self, TContractId polyType), (arg, argType)] $
                           EUpdate $ UExercise monoTyCon chcName wrapSelf Nothing (EVar arg)
+                      | otherwise =
+                        mkETmLams [(self, TContractId polyType), (arg, argType)] $
+                          EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon wrapSelf) $
+                          EUpdate $ UExercise monoTyCon chcName wrapSelf (Just chcControllers) (EVar arg)
                 pure (TemplateChoice{..}, [controllers, action, exercise])
             convertGenericChoice es = unhandled "generic choice" es
         (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 3 choices)
