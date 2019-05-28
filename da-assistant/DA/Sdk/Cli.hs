@@ -104,6 +104,20 @@ runAssistant = do
     displayStr $ "Warning: The SDK Assistant should be run as a normal user. " <>
                  "Now it is run as root."
     displayNewLine
+
+
+  IO.hPutStr IO.stderr . unlines $
+    [ "WARNING: The da assistant is deprecated in favor of the new daml assistant."
+    , "Please follow the installation instructions for the new daml assistant:"
+    , ""
+    , "    https://docs.daml.com/getting-started/installation.html"
+    , ""
+    , "And consult the migration guide at:"
+    , ""
+    , "    https://docs.daml.com/support/new-assistant.html"
+    , ""
+    ]
+
   -- First parse CLI argument into a structured command (or exit).
   command <- getCommand
 
