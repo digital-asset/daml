@@ -13,8 +13,6 @@ object NodeToCommand {
   /** a node incoming without use of internal nodeIds */
   type TranslatableNode = GenNode.WithTxValue[_, AbsoluteContractId]
 
-  import Error._
-
   /**
     * Translates a single node to a command for reinterpretation
     *  the caller is expected to provide
@@ -44,17 +42,12 @@ object NodeToCommand {
         val templateId = e.templateId
         val contractId = e.targetCoid.coid
         val argument = e.chosenValue
-        // we take the first acting party to be the submitter,
-        // this assumption needs to be validated
-        // if the commands reinterpretation yields the same acting parties
-        // than it can be accepted by any of them
-        e.actingParties.headOption
-          .errorIfEmpty(Error(
-            s"Exercise node cannot be translated, no acting party in exercise node ($templateId, $contractId, ${e.choiceId}) ; in: $workflowReference"))
-          .map(submitter =>
-            ExerciseCommand(templateId, contractId, e.choiceId, submitter, argument))
+
+        Right(ExerciseCommand(templateId, contractId, e.choiceId, argument))
+
     }
 
-    cmd.map(p => Commands(ImmArray(p), ledgerEffectiveTime, workflowReference))
+    cmd.map(p =>
+      Commands(node.requiredAuthorizers, ImmArray(p), ledgerEffectiveTime, workflowReference))
   }
 }

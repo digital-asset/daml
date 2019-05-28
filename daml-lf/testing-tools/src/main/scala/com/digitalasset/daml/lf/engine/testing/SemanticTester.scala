@@ -310,7 +310,7 @@ class SemanticTester(
                   currentTime <- ledger.currentTime
                   events <- ledger.submit(
                     submitterName,
-                    Commands(ImmArray(cmd), currentTime, reference),
+                    Commands(Set(submitterName), ImmArray(cmd), currentTime, reference),
                     opDescription = s"scenario ${scenario} step ${stepId} node ${nodeId}")
                 } yield
                   checkEvents(
@@ -342,7 +342,6 @@ class SemanticTester(
                       ne.templateId,
                       engineTargetCoid.coid,
                       ne.choiceId,
-                      richTransaction.committer,
                       engineChosenValue)
                     submitCommandCheckAndUpdateMap(richTransaction.committer, cmd, m)
                   })
@@ -466,6 +465,9 @@ object SemanticTester {
 
     override def submit(submitterName: Party, cmds: Commands, opDescription: String)
       : Future[Events[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]]] = Future {
+      assert(
+        cmds.submitters == Set(submitterName),
+        s"submitter and the commands submitter don't match: $submitterName, ${cmds.submitters}")
       val tx = consumeResult(cmds.commandsReference, engine.submit(cmds))
       val blindingInfo =
         Blinding
@@ -473,30 +475,8 @@ object SemanticTester {
           .toOption
           .getOrElse(sys.error(s"authorization failed for ${cmds.commandsReference}"))
       val absTx = tx.mapContractIdAndValue(makeAbsoluteContractId, makeValueWithAbsoluteContractId)
-      val divulged = blindingInfo.localImplicitDisclosure ++ blindingInfo.explicitDisclosure
 
       updatePcs(absTx)
-
-      val parties = blindingInfo.localDisclosure.values.flatten
-      // run post commit validation for the submitter
-
-      for {
-        p <- parties
-        divulgedTx = Blinding
-          .divulgedTransaction(divulged, p, tx)
-          .mapContractIdAndValue(makeAbsoluteContractId, makeValueWithAbsoluteContractId)
-
-        postCommit = consumeResult(
-          s"post-commit: ${cmds.commandsReference}",
-          engine.validatePartial(
-            divulgedTx,
-            if (p == submitterName) Some(submitterName) else None,
-            cmds.ledgerEffectiveTime,
-            p,
-            makeAbsoluteContractId,
-            makeValueWithAbsoluteContractId)
-        )
-      } yield postCommit
 
       val evts = Event.collectEvents(absTx, blindingInfo.explicitDisclosure)
       submitCounter += 1

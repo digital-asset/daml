@@ -57,30 +57,34 @@ final case class ScenarioRunner(
         case SResultMissingDefinition(ref, _) =>
           crash(s"definition $ref not found")
 
-        case SResultNeedContract(coid, tid @ _, optCommitter, cbMissing, cbPresent) =>
-          lookupContract(coid, optCommitter, cbMissing, cbPresent)
+        case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
+          lookupContract(coid, committers, cbMissing, cbPresent)
 
         case SResultNeedTime(callback) =>
           callback(ledger.currentTime)
 
-        case SResultScenarioMustFail(tx, committer, callback) =>
-          mustFail(tx, committer)
+        case SResultScenarioMustFail(tx, committers, callback) =>
+          mustFail(tx, committers)
           callback(())
 
-        case SResultScenarioCommit(value, tx, committer, callback) =>
-          commit(value, tx, committer, callback)
+        case SResultScenarioCommit(value, tx, committers, callback) =>
+          commit(value, tx, committers, callback)
 
         case SResultScenarioPassTime(delta, callback) =>
           passTime(delta, callback)
 
-        case SResultScenarioInsertMustFail(committer, optLocation) =>
+        case SResultScenarioInsertMustFail(committers, optLocation) => {
+          val committer =
+            if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
+
           ledger = ledger.insertAssertMustFail(committer, optLocation)
+        }
 
         case SResultScenarioGetParty(partyText, callback) =>
           getParty(partyText, callback)
 
-        case SResultNeedKey(gk, optCommitter, cbMissing, cbPresent) =>
-          lookupKey(gk, optCommitter, cbMissing, cbPresent)
+        case SResultNeedKey(gk, committers, cbMissing, cbPresent) =>
+          lookupKey(gk, committers, cbMissing, cbPresent)
       }
     }
     val endTime = System.nanoTime()
@@ -99,9 +103,12 @@ final case class ScenarioRunner(
     }
   }
 
-  private def mustFail(tx: Transaction, committer: Party) = {
+  private def mustFail(tx: Transaction, committers: Set[Party]) = {
     // Update expression evaluated successfully,
     // however we might still have an authorization failure.
+    val committer =
+      if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
+
     if (Ledger
         .commitTransaction(
           committer = committer,
@@ -115,7 +122,14 @@ final case class ScenarioRunner(
     ledger = ledger.insertAssertMustFail(committer, machine.commitLocation)
   }
 
-  private def commit(value: SValue, tx: Transaction, committer: Party, callback: SValue => Unit) = {
+  private def commit(
+      value: SValue,
+      tx: Transaction,
+      committers: Set[Party],
+      callback: SValue => Unit) = {
+    val committer =
+      if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
+
     Ledger.commitTransaction(
       committer = committer,
       effectiveAt = ledger.currentTime,
@@ -142,11 +156,12 @@ final case class ScenarioRunner(
 
   private def lookupContract(
       acoid: AbsoluteContractId,
-      optCommitter: Option[Party],
+      committers: Set[Party],
       cbMissing: Unit => Boolean,
       cbPresent: ContractInst[Value[AbsoluteContractId]] => Unit) = {
 
-    val committer = optCommitter.getOrElse(crash("committer missing"))
+    val committer =
+      if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
     val effectiveAt = ledger.currentTime
 
     def missingWith(err: SError) =
@@ -175,10 +190,11 @@ final case class ScenarioRunner(
 
   private def lookupKey(
       gk: GlobalKey,
-      optCommitter: Option[Party],
+      committers: Set[Party],
       cbMissing: Unit => Boolean,
       cbPresent: AbsoluteContractId => Unit) = {
-    val committer = optCommitter.getOrElse(crash("committer missing"))
+    val committer =
+      if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
     val effectiveAt = ledger.currentTime
 
     def missingWith(err: SError) =
@@ -211,4 +227,8 @@ final case class ScenarioRunner(
         }
     }
   }
+
+  private def crashTooManyCommitters(committers: Set[Party]) =
+    crash(s"Expecting one committer for scenario action, but got $committers")
+
 }
