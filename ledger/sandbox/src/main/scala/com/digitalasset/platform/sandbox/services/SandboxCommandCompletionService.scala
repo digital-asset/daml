@@ -125,7 +125,7 @@ class SandboxCommandCompletionService private (
 }
 
 object SandboxCommandCompletionService {
-  def apply(ledgerId: LedgerId, completionsService: CompletionsService)(
+  def createApiService(ledgerId: LedgerId, completionsService: CompletionsService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory): CommandCompletionServiceValidation
