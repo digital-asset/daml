@@ -7,7 +7,7 @@
 daml 1.2
 module GenTemplCompat where
 
-import Prelude hiding (Template (..), Choice (..), create, fetch, exercise)
+import Prelude hiding (Template (..), Choice (..), Archive (..), create, fetch, archive, exercise)
 import DA.Assert
 import GenericTemplates
 
@@ -24,12 +24,13 @@ instance FactInstance => Template Fact where
     agreement = agreementFact
     create = createFact
     fetch = fetchFact
+    archive = archiveFact
 
 data Revoke = Revoke{}
   deriving (Eq, Show)
 
-instance FactInstance => Choice Fact Revoke () where
-    exercise = exerciseFactRevoke
+instance FactInstance => Choice Fact Archive () where
+    exercise = exerciseFactArchive
 
 class FactInstance where
     signatoryFact : Fact -> [Party]
@@ -45,13 +46,16 @@ class FactInstance where
     createFact = error "code will be injected by the compiler"
     fetchFact : ContractId Fact -> Update Fact
     fetchFact = error "code will be injected by the compiler"
-    controllerFactRevoke : Fact -> Revoke -> [Party]
-    controllerFactRevoke this@Fact{..} arg@Revoke = [owner]
-    actionFactRevoke : ContractId Fact -> Fact -> Revoke -> Update ()
-    actionFactRevoke self this@Fact{..} arg@Revoke = do
+    archiveFact : ContractId Fact -> Update ()
+    archiveFact cid = exerciseFactArchive cid Archive
+
+    controllerFactArchive : Fact -> Archive -> [Party]
+    controllerFactArchive this@Fact{..} arg@Archive = signatoryFact this
+    actionFactArchive : ContractId Fact -> Fact -> Archive -> Update ()
+    actionFactArchive self this@Fact{..} arg@Archive = do
         pure ()
-    exerciseFactRevoke : ContractId Fact -> Revoke -> Update ()
-    exerciseFactRevoke = error "code will be injected by the compiler"
+    exerciseFactArchive : ContractId Fact -> Archive -> Update ()
+    exerciseFactArchive = error "code will be injected by the compiler"
 
 instance FactInstance where
 
@@ -62,5 +66,5 @@ test = scenario do
     factId <- submit alice do create fact
     fact' <- submit alice do fetch factId
     fact' === fact
-    submit alice do exercise factId Revoke
+    submit alice do archive factId
     submitMustFail alice do fetch factId

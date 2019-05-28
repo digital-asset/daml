@@ -6,7 +6,7 @@
 daml 1.2
 module IouDSL where
 
-import Prelude hiding (Template (..), Choice (..), create, fetch, exercise)
+import Prelude hiding (Template (..), Choice (..), Archive (..), create, fetch, archive, exercise)
 import GenericTemplates
 import ProposalDSL
 
@@ -24,12 +24,16 @@ instance IouInstance => Template Iou where
   agreement = agreementIou
   create = createIou
   fetch = fetchIou
+  archive = archiveIou
 
 data Burn = Burn{}
   deriving (Eq, Show)
 
 instance IouInstance => Choice Iou Burn () where
   exercise = exerciseIouBurn
+
+instance IouInstance => Choice Iou Archive () where
+  exercise = exerciseIouArchive
 
 class IouInstance where
   signatoryIou : Iou -> [Party]
@@ -45,6 +49,17 @@ class IouInstance where
   createIou = error "code will be injected by the compiler"
   fetchIou : ContractId Iou -> Update Iou
   fetchIou = error "code will be injected by the compiler"
+  archiveIou : ContractId Iou -> Update ()
+  archiveIou cid = exerciseIouArchive cid Archive
+
+  controllerIouArchive : Iou -> Archive -> [Party]
+  controllerIouArchive this@Iou{..} arg@Archive = signatoryIou this
+  actionIouArchive : ContractId Iou -> Iou -> Archive -> Update ()
+  actionIouArchive self this@Iou{..} arg@Archive = do
+    pure ()
+  exerciseIouArchive : ContractId Iou -> Archive -> Update ()
+  exerciseIouArchive = error "code will be injected by the compiler"
+
   controllerIouBurn : Iou -> Burn -> [Party]
   controllerIouBurn this@Iou{..} arg@Burn = [owner]
   actionIouBurn : ContractId Iou -> Iou -> Burn -> Update ()
