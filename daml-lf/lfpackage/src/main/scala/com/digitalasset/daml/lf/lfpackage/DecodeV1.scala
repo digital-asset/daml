@@ -730,7 +730,7 @@ object DecodeV1 {
       TO_QUOTED_TEXT_PARTY -> (BToQuotedTextParty -> "0"),
       FROM_TEXT_PARTY -> (BFromTextParty -> "2"),
       FROM_TEXT_INT64 -> (BFromTextInt64 -> "5"),
-      FROM_TEXT_DECIMAL -> (BFromTextInt64 -> "5"),
+      FROM_TEXT_DECIMAL -> (BFromTextDecimal -> "5"),
       SHA256_TEXT -> (BSHA256Text -> "2"),
       DATE_TO_UNIX_DAYS -> (BDateToUnixDays -> "0"),
       EXPLODE_TEXT -> (BExplodeText -> "0"),
