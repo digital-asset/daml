@@ -26,11 +26,20 @@ instance FactInstance => Template Fact where
     fetch = fetchFact
     archive = archiveFact
 
-data Revoke = Revoke{}
-  deriving (Eq, Show)
-
 instance FactInstance => Choice Fact Archive () where
     exercise = exerciseFactArchive
+
+data Touch = Touch{}
+  deriving (Eq, Show)
+
+instance FactInstance => Choice Fact Touch () where
+    exercise = exerciseFactTouch
+
+data FetchAndArchive = FetchAndArchive{}
+  deriving (Eq, Show)
+
+instance FactInstance => Choice Fact FetchAndArchive Fact where
+    exercise = exerciseFactFetchAndArchive
 
 class FactInstance where
     signatoryFact : Fact -> [Party]
@@ -49,6 +58,8 @@ class FactInstance where
     archiveFact : ContractId Fact -> Update ()
     archiveFact cid = exerciseFactArchive cid Archive
 
+    consumptionFactArchive : PreConsuming Fact
+    consumptionFactArchive = PreConsuming
     controllerFactArchive : Fact -> Archive -> [Party]
     controllerFactArchive this@Fact{..} arg@Archive = signatoryFact this
     actionFactArchive : ContractId Fact -> Fact -> Archive -> Update ()
@@ -57,14 +68,43 @@ class FactInstance where
     exerciseFactArchive : ContractId Fact -> Archive -> Update ()
     exerciseFactArchive = error "code will be injected by the compiler"
 
+    consumptionFactTouch : NonConsuming Fact
+    consumptionFactTouch = NonConsuming
+    controllerFactTouch : Fact -> Touch -> [Party]
+    controllerFactTouch this@Fact{..} arg@Touch = [owner]
+    actionFactTouch : ContractId Fact -> Fact -> Touch -> Update ()
+    actionFactTouch self this@Fact{..} arg@Touch = do
+        pure ()
+    exerciseFactTouch : ContractId Fact -> Touch -> Update ()
+    exerciseFactTouch = error "code will be injected by the compiler"
+
+    consumptionFactFetchAndArchive : PostConsuming Fact
+    consumptionFactFetchAndArchive = PostConsuming
+    controllerFactFetchAndArchive : Fact -> FetchAndArchive -> [Party]
+    controllerFactFetchAndArchive this@Fact{..} arg@FetchAndArchive = [owner]
+    actionFactFetchAndArchive : ContractId Fact -> Fact -> FetchAndArchive -> Update Fact
+    actionFactFetchAndArchive self this@Fact{..} arg@FetchAndArchive = do
+        fetch self
+    exerciseFactFetchAndArchive : ContractId Fact -> FetchAndArchive -> Update Fact
+    exerciseFactFetchAndArchive = error "code will be injected by the compiler"
+
 instance FactInstance where
 
 
 test = scenario do
     alice <- getParty "Alice"
     let fact = Fact with owner = alice; name = "Answer"; value = 42
+
+    -- Check that create, fetch and exercising non- and pre-consuming choices work.
     factId <- submit alice do create fact
+    submit alice do exercise factId Touch
     fact' <- submit alice do fetch factId
     fact' === fact
     submit alice do archive factId
+    submitMustFail alice do fetch factId
+
+    -- Check that post-consuming choices work.
+    factId <- submit alice do create fact
+    fact' <- submit alice do exercise factId FetchAndArchive
+    fact' === fact
     submitMustFail alice do fetch factId

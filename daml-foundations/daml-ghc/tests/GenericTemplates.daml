@@ -23,3 +23,9 @@ class Template t => Choice t c r | t c -> r where
 
 data Archive = Archive{}
   deriving (Eq, Show)
+
+data NonConsuming t = NonConsuming {}
+
+data PreConsuming t = PreConsuming {}
+
+data PostConsuming t = PostConsuming {}

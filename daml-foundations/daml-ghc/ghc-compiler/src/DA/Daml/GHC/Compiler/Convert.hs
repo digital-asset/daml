@@ -349,19 +349,32 @@ convertGenericTemplate env x
         let tplPrecondition = ETrue
         let tplAgreement = mkEmptyText
         let tplKey = Nothing
+        archive <- convertExpr env (Var archive)
         let convertGenericChoice :: [Var] -> ConvertM (TemplateChoice, [LF.Expr])
-            convertGenericChoice [controllers, action, exercise] = do
+            convertGenericChoice [consumption, controllers, action, exercise] = do
                 TContractId _ :-> _ :-> argType@(TConApp argTCon _) :-> TUpdate resType <- convertType env (varType action)
                 let chcLocation = Nothing
                 let chcName = ChoiceName $ T.intercalate "." $ unTypeConName $ qualObject argTCon
-                let chcConsuming = True
+                consumptionType <- case varType consumption of
+                    TypeCon (Is "NonConsuming") _ -> pure NonConsuming
+                    TypeCon (Is "PreConsuming") _ -> pure PreConsuming
+                    TypeCon (Is "PostConsuming") _ -> pure PostConsuming
+                    t -> unhandled "choice consumption type" t
+                let chcConsuming = consumptionType == PreConsuming
                 let chcSelfBinder = self
                 let applySelf e = ETmApp e unwrapSelf
                 let chcArgBinder = (arg, argType)
                 let applyArg e = e `ETmApp` EVar (fst chcArgBinder)
                 let chcReturnType = resType
+                consumption <- convertExpr env (Var consumption)
                 chcControllers <- applyArg . applyThis <$> convertExpr env (Var controllers)
-                chcUpdate <- applyArg . applyThis . applySelf <$> convertExpr env (Var action)
+                update <- applyArg . applyThis . applySelf <$> convertExpr env (Var action)
+                let chcUpdate
+                      | consumptionType /= PostConsuming = update
+                      | otherwise =
+                        EUpdate $ UBind (Binding (res, resType) update) $
+                        EUpdate $ UBind (Binding (mkVar "_", TUnit) $ ETmApp archive $ EVar self) $
+                        EUpdate $ UPure resType $ EVar res
                 controllers <- convertExpr env (Var controllers)
                 action <- convertExpr env (Var action)
                 let exercise
@@ -372,9 +385,9 @@ convertGenericTemplate env x
                         mkETmLams [(self, TContractId polyType), (arg, argType)] $
                           EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon wrapSelf) $
                           EUpdate $ UExercise monoTyCon chcName wrapSelf (Just chcControllers) (EVar arg)
-                pure (TemplateChoice{..}, [controllers, action, exercise])
+                pure (TemplateChoice{..}, [consumption, controllers, action, exercise])
             convertGenericChoice es = unhandled "generic choice" es
-        (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 3 choices)
+        (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 4 choices)
         superClassDicts <- mapM (convertExpr env . Var) superClassDicts
         signatories <- convertExpr env (Var signatories)
         observers <- convertExpr env (Var observers)
@@ -382,7 +395,6 @@ convertGenericTemplate env x
         agreement <- convertExpr env (Var agreement)
         let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon $ wrapTpl $ EVar this) $ EUpdate $ UPure (TContractId polyType) $ unwrapSelf
         let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon wrapSelf) $ EUpdate $ UPure polyType $ unwrapTpl $ EVar this
-        archive <- convertExpr env (Var archive)
         dictCon <- convertExpr env dictCon
         tyArgs <- mapM (convertArg env) tyArgs
         -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
@@ -403,6 +415,7 @@ convertGenericTemplate env x
     this = mkVar "this"
     self = mkVar "self"
     arg = mkVar "arg"
+    res = mkVar "res"
 convertGenericTemplate env x = unhandled "generic template" x
 
 archiveChoice :: LF.Expr -> TemplateChoice
