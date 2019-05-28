@@ -28,9 +28,9 @@ import scalaz.Equal
 trait Equalz extends Matchers {
   import Equalz.{LubEqual, XMatcherFactory1}
 
-  final def equalz[Ex](expected: Ex): XMatcherFactory1[Ex] { type TC[A] = LubEqual.Gt[Ex, A] } =
+  final def equalz[Ex](expected: Ex): XMatcherFactory1[Ex] { type TC[A] = LubEqual[Ex, A] } =
     new XMatcherFactory1[Ex] {
-      type TC[A] = LubEqual.Gt[Ex, A]
+      type TC[A] = LubEqual[Ex, A]
       override def matcher[T <: Ex](implicit ev: TC[T]): Matcher[T] =
         actual =>
           MatchResult(
@@ -49,12 +49,11 @@ trait Equalz extends Matchers {
 }
 
 object Equalz extends Equalz {
-  sealed abstract class LubEqual[-A, C, -B] {
+  sealed abstract class LubEqual[-A, -B] {
     def equal(l: A, r: B): Boolean
   }
   object LubEqual {
-    type Gt[-A, -B] = LubEqual[A, _, B]
-    implicit def onlyInstance[C: Equal]: LubEqual[C, C, C] = new LubEqual[C, C, C] {
+    implicit def onlyInstance[C: Equal]: LubEqual[C, C] = new LubEqual[C, C] {
       def equal(l: C, r: C) = Equal[C].equal(l, r)
     }
   }
