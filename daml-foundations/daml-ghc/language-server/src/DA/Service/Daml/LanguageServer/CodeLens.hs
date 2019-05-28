@@ -14,6 +14,7 @@ import Data.Maybe
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import           DA.Service.Daml.LanguageServer.Common
 import qualified DA.Service.Logger                     as Logger
+import Development.IDE.Types.Diagnostics
 
 import qualified Data.Aeson                            as Aeson
 import qualified Data.Text.Extended                    as T
@@ -25,7 +26,7 @@ handle
     -> CodeLensParams
     -> IO (Either a Aeson.Value)
 handle loggerH compilerH (CodeLensParams (TextDocumentIdentifier uri)) = do
-    mbResult <- case documentUriToFilePath uri of
+    mbResult <- case uriToFilePath' uri of
         Just filePath -> do
           Logger.logInfo loggerH $ "CodeLens request for file: " <> T.pack filePath
           vrs <- Compiler.getAssociatedVirtualResources compilerH filePath

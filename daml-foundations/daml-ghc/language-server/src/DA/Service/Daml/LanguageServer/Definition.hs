@@ -9,9 +9,10 @@ module DA.Service.Daml.LanguageServer.Definition
     ) where
 
 import           DA.LanguageServer.Protocol
+import DA.Pretty
+import Development.IDE.Types.Diagnostics
 
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
-import           DA.Service.Daml.LanguageServer.Common
 import qualified DA.Service.Logger                     as Logger
 
 import qualified Data.Aeson                            as Aeson
@@ -25,15 +26,15 @@ handle
     -> Compiler.IdeState
     -> TextDocumentPositionParams
     -> IO (Either a Aeson.Value)
-handle loggerH compilerH (TextDocumentPositionParams docId pos) = do
+handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = do
 
 
-    mbResult <- case documentUriToFilePath $ tdidUri docId of
+    mbResult <- case uriToFilePath' uri of
         Just filePath -> do
           Logger.logInfo loggerH $
-            "Definition request at position " <> renderPretty pos
+            "Definition request at position " <> renderPlain (prettyPosition pos)
             <> " in file: " <> T.pack filePath
-          Compiler.gotoDefinition compilerH filePath (toAstPosition pos)
+          Compiler.gotoDefinition compilerH filePath pos
         Nothing       -> pure Nothing
 
     case mbResult of
@@ -41,4 +42,4 @@ handle loggerH compilerH (TextDocumentPositionParams docId pos) = do
             pure $ Right $ Aeson.toJSON ([] :: [Base.Location])
 
         Just loc ->
-            pure $ Right $ Aeson.toJSON $ fromAstLocation loc
+            pure $ Right $ Aeson.toJSON loc

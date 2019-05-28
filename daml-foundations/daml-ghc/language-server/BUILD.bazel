@@ -15,6 +15,7 @@ da_haskell_library(
         "base",
         "containers",
         "extra",
+        "haskell-lsp-types",
         "managed",
         "network-uri",
         "safe",

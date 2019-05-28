@@ -88,6 +88,7 @@
 - flags:
   - default: false
   - {name: [-Wno-missing-signatures, -Wno-orphans, -Wno-overlapping-patterns, -Wno-incomplete-patterns, -Wno-missing-fields, -Wno-unused-matches]}
+  - {name: -Wno-deprecations, within: DA.Service.Daml.LanguageServer.Hover}
 
 # - modules:
 #   - {name: [Data.Set, Data.HashSet], as: Set} # if you import Data.Set qualified, it must be as 'Set'
