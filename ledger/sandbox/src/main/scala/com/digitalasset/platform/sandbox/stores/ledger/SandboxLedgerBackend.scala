@@ -285,14 +285,15 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
                 .AcceptedTransaction(
                 _,
                 transactionId,
-                _,
+                Some(submitter),
                 _,
                 recordTime,
                 offset,
                 _,
                 _,
-                _,
-                Some(commandId)) =>
+                Some(appId),
+                Some(commandId))
+              if (appId == applicationId.unwrap && parties.contains(submitter)) =>
             CommandAccepted(
               domain.LedgerOffset.Absolute(offset),
               recordTime,
