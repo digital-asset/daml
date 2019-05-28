@@ -518,3 +518,16 @@ template MaintainerNotSignatory
 
     key q: Party
     maintainer q
+
+template CreateAndFetch
+  with
+    p: Party
+  where
+    signatory p
+
+    controller p can
+      CreateAndFetch_Run: ()
+        do
+            cid <- create CreateAndFetch with p
+            _ <- fetch cid
+            return ()

@@ -27,6 +27,12 @@ SQL Extractor
   for all three parties in the database.
   See `#1360 <https://github.com/digital-asset/daml/pull/1360>`__.
 
+Sandbox
+~~~~~~~
+
+- Fixed a bug in the SQL backend that caused transactions with a fetch node referencing a contract created in the same transaction to be rejected.
+  See [issue #1435](https://github.com/digital-asset/daml/issues/1435).
+
 0.12.21 - 2019-05-28
 --------------------
 
