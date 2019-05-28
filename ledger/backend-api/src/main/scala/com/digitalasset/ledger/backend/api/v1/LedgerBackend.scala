@@ -67,19 +67,6 @@ import scala.concurrent.Future
   */
 trait LedgerBackend extends AutoCloseable {
 
-  /** Begin the submission of a transaction to the ledger.
-    *
-    * Every write to the ledger is initiated with its own call to this
-    * method. The returned [[SubmissionHandle]] is used by the DAML
-    * interpreter to read from the ledger and construct a transaction. See
-    * [[SubmissionHandle]] for details on its methods.
-    *
-    * This method SHOULD be light-weight on average. Implementors might
-    * for example use a connection pool to avoid high setup costs for
-    * connecting to its Participant node.
-    */
-  def beginSubmission(): Future[SubmissionHandle]
-
   /** Return the stream of ledger events starting from and including the given offset.
     *
     * @param offset : the ledger offset starting from which events should be streamed.

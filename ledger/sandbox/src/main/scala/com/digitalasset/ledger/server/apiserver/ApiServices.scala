@@ -82,6 +82,7 @@ object ApiServices {
       packagesService: PackagesService,
       activeContractsService: ActiveContractsService,
       transactionsService: TransactionsService,
+      contractStore: ContractStore,
       engine: Engine,
       timeProvider: TimeProvider,
       optTimeServiceBackend: Option[TimeServiceBackend])(
@@ -103,7 +104,7 @@ object ApiServices {
           ledgerId,
           context.packageContainer,
           identifierResolver,
-          ledgerBackend,
+          contractStore,
           writeService,
           config.timeModel,
           timeProvider,
