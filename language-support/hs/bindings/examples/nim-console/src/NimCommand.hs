@@ -33,7 +33,7 @@ makeLedgerCommands pid = \case
         let ent = EntityName "GameOffer"
         let tid = TemplateId (Identifier pid mod ent)
         let choice = Choice "GameOffer_Accept"
-        let arg = VRecord (Record Nothing [RecordField{label="",value=toValue party}])
+        let arg = VRecord (Record Nothing [RecordField "" (toValue party)])
         ExerciseCommand {tid,cid=oid,choice,arg}
 
     MakeMove gid move -> do
@@ -41,5 +41,5 @@ makeLedgerCommands pid = \case
         let ent = EntityName "GameInProgress"
         let tid = TemplateId (Identifier pid mod ent)
         let choice = Choice "Game_Take"
-        let arg = VRecord (Record Nothing [RecordField{label="",value=toValue move}])
+        let arg = VRecord (Record Nothing [RecordField "" (toValue move)])
         ExerciseCommand {tid,cid=gid,choice,arg}

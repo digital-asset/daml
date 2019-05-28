@@ -44,9 +44,9 @@ instance Valuable Game where
     toValue Game{} = undefined -- we never send games to the ledger
     fromValue = \case
         VList[VRecord Record{fields=[
-                                    RecordField{value=v1},
-                                    RecordField{value=v2},
-                                    RecordField{value=v3}]
+                                    RecordField{fieldValue=v1},
+                                    RecordField{fieldValue=v2},
+                                    RecordField{fieldValue=v3}]
                             }] -> do
             p1 <- fromValue v1
             p2 <- fromValue v2
@@ -61,8 +61,8 @@ instance Valuable Move where
     toValue Move{pileNum,howMany} =
         VRecord(Record{rid=Nothing,
                        fields=[
-                              RecordField{label = "", value = toValue pileNum},
-                              RecordField{label = "", value = toValue howMany}]})
+                              RecordField "" (toValue pileNum),
+                              RecordField "" (toValue howMany)]})
     fromValue = undefined -- we never receive moves from the ledger
 
 legalMovesOfGame :: Game -> [Move]

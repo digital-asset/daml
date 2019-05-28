@@ -60,7 +60,7 @@ getLedgerIdentity port = wrapE "getLedgerIdentity" $ do
     let request = GetLedgerIdentityRequest noTrace
     LL.withGRPCClient (config port) $ \client -> do
         service <- LL.ledgerIdentityServiceClient client
-        let LedgerIdentityService rpc = service
+        let LedgerIdentityService{ledgerIdentityServiceGetLedgerIdentity=rpc} = service
         response <- rpc (ClientNormalRequest request timeout mdm)
         GetLedgerIdentityResponse text <- unwrap response
         return $ LedgerId text
@@ -69,9 +69,9 @@ listPackages :: LedgerHandle -> IO [PackageId]
 listPackages LedgerHandle{port,lid} = wrapE "listPackages" $ do
     LL.withGRPCClient (config port) $ \client -> do
         service <- LL.packageServiceClient client
-        let PackageService rpc1 _ _ = service
+        let PackageService {packageServiceListPackages=rpc} = service
         let request = ListPackagesRequest (unLedgerId lid) noTrace
-        response <- rpc1 (ClientNormalRequest request timeout mdm)
+        response <- rpc (ClientNormalRequest request timeout mdm)
         ListPackagesResponse xs <- unwrap response
         return $ map PackageId $ Vector.toList xs
 
@@ -82,8 +82,8 @@ getPackage LedgerHandle{port,lid} pid = wrapE "getPackage" $ do
     let request = GetPackageRequest (unLedgerId lid) (unPackageId pid) noTrace
     LL.withGRPCClient (config port) $ \client -> do
         service <- LL.packageServiceClient client
-        let PackageService _ rpc2 _ = service
-        response <- rpc2 (ClientNormalRequest request timeout mdm)
+        let PackageService {packageServiceGetPackage=rpc} = service
+        response <- rpc (ClientNormalRequest request timeout mdm)
         GetPackageResponse _ bs _ <- unwrap response
         let ap = either (error . show) id (Proto3.Suite.fromByteString bs)
         case Decode.decodePayload ap of
@@ -119,7 +119,7 @@ getLedgerEnd :: LedgerHandle -> IO LedgerOffset
 getLedgerEnd LedgerHandle{port,lid} = wrapE "getLedgerEnd" $ do
     LL.withGRPCClient (config port) $ \client -> do
         service <- LL.transactionServiceClient client
-        let TransactionService _ _ _ _ _ _ rpc = service
+        let TransactionService{transactionServiceGetLedgerEnd=rpc} = service
         let request = GetLedgerEndRequest (unLedgerId lid) noTrace
         response <- rpc (ClientNormalRequest request timeout mdm)
         GetLedgerEndResponse (Just offset) <- unwrap response --TODO: always be a Just?
@@ -130,9 +130,9 @@ runTransRequest LedgerHandle{port} request = wrapE "transactions" $ do
     stream <- newStream
     _ <- forkIO $
         LL.withGRPCClient (config port) $ \client -> do
-            rpcs <- LL.transactionServiceClient client
-            let (TransactionService rpc1 _ _ _ _ _ _) = rpcs
-            sendToStream request f stream rpc1
+            service <- LL.transactionServiceClient client
+            let TransactionService {transactionServiceGetTransactions=rpc} = service
+            sendToStream request f stream rpc
     return stream
     where f = map raise . Vector.toList . getTransactionsResponseTransactions
           raise x = case raiseTransaction x of
@@ -166,14 +166,14 @@ completions LedgerHandle{port,lid} aid partys = wrapE "completions" $ do
     let request = mkCompletionStreamRequest lid aid partys
     _ <- forkIO $
         LL.withGRPCClient (config port) $ \client -> do
-            rpcs <- LL.commandCompletionServiceClient client
-            let (CommandCompletionService rpc1 _) = rpcs
-            sendToStream request (map Right . Vector.toList . completionStreamResponseCompletions) stream rpc1
+            service <- LL.commandCompletionServiceClient client
+            let CommandCompletionService {commandCompletionServiceCompletionStream=rpc} = service
+            sendToStream request (map Right . Vector.toList . completionStreamResponseCompletions) stream rpc
     return stream
 
 sendToStream :: a -> (b -> [Either Closed c]) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
-sendToStream request f stream rpc1 = do
-    ClientReaderResponse _meta _code _details <- rpc1 $
+sendToStream request f stream rpc = do
+    ClientReaderResponse _meta _code _details <- rpc $
         ClientReaderRequest request timeout mdm $ \ _mdm recv -> fix $
         \again -> do
             either <- recv
