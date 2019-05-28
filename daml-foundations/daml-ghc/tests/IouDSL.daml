@@ -6,7 +6,8 @@
 daml 1.2
 module IouDSL where
 
-import Prelude hiding (Template (..), Choice (..), Archive (..), create, fetch, archive, exercise)
+import Prelude hiding (Template (..), TemplateKey (..), Choice (..), Archive (..), create, fetch, fetchByKey, archive, exercise)
+import DA.Assert
 import GenericTemplates
 import ProposalDSL
 
@@ -86,12 +87,17 @@ test = scenario do
   alice <- getParty "alice"
   bank <- getParty "bank"
   let iou = Iou with issuer = bank; owner = alice; amount = 10.0
+  let prop = Proposal with asset = iou; receivers = [alice]; name = "present"
   propId <- submit bank do
-    create Proposal with asset = iou; receivers = [alice]
+    create prop
+  (propId', prop') <- submit bank do
+    fetchByKey @(Proposal Iou) ([bank], "present")
+  propId' === propId
+  prop' === prop
   iouId <- submit alice do
     exercise propId Accept
   iou' <- submit alice do
     fetch iouId
-  assert $ iou' == iou
+  iou' === iou
   submit alice do
     exercise iouId Burn

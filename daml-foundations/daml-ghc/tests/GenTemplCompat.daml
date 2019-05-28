@@ -7,7 +7,7 @@
 daml 1.2
 module GenTemplCompat where
 
-import Prelude hiding (Template (..), Choice (..), Archive (..), create, fetch, archive, exercise)
+import Prelude hiding (Template (..), TemplateKey (..), Choice (..), Archive (..), create, fetch, fetchByKey, archive, exercise)
 import DA.Assert
 import GenericTemplates
 
@@ -25,6 +25,10 @@ instance FactInstance => Template Fact where
     create = createFact
     fetch = fetchFact
     archive = archiveFact
+
+instance FactInstance => TemplateKey Fact (Party, Text) where
+    key = keyFact
+    fetchByKey = fetchByKeyFact
 
 instance FactInstance => Choice Fact Archive () where
     exercise = exerciseFactArchive
@@ -57,6 +61,15 @@ class FactInstance where
     fetchFact = error "code will be injected by the compiler"
     archiveFact : ContractId Fact -> Update ()
     archiveFact cid = exerciseFactArchive cid Archive
+
+    hasKeyFact : HasKey Fact
+    hasKeyFact = HasKey
+    keyFact : Fact -> (Party, Text)
+    keyFact this@Fact{..} = (owner, name)
+    maintainerFact : HasKey Fact -> (Party, Text) -> [Party]
+    maintainerFact HasKey key = [fst key]
+    fetchByKeyFact : (Party, Text) -> Update (ContractId Fact, Fact)
+    fetchByKeyFact = error "code will be injected by the compiler"
 
     consumptionFactArchive : PreConsuming Fact
     consumptionFactArchive = PreConsuming
@@ -95,10 +108,13 @@ test = scenario do
     alice <- getParty "Alice"
     let fact = Fact with owner = alice; name = "Answer"; value = 42
 
-    -- Check that create, fetch and exercising non- and pre-consuming choices work.
+    -- Check that create, fetch, fetchByKey and exercising non- and pre-consuming choices work.
     factId <- submit alice do create fact
     submit alice do exercise factId Touch
     fact' <- submit alice do fetch factId
+    fact' === fact
+    (factId', fact') <- submit alice do fetchByKey @Fact (alice, "Answer")
+    factId' === factId
     fact' === fact
     submit alice do archive factId
     submitMustFail alice do fetch factId
