@@ -17,4 +17,4 @@ Tell us what you'd want to happen.
 Tell us about alternative solutions or features you've considered.
 
 **Additional context**
-Add any other context or screenshots about the feature request here.
+If there's anything else you'd like to add about the feature request - like any other context, or screenshots - put it here.
