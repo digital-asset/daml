@@ -1,7 +1,0 @@
-{
-  "file:/tests/diagnostics/library-modules/Main.daml": [],
-  "file:/tests/diagnostics/library-modules/Prelude.daml": [],
-  "file:/tests/diagnostics/library-modules/DA/Internal/Desugar.daml": [],
-  "file:/tests/diagnostics/library-modules/DA/Internal/Record.daml": [],
-  "file:/tests/diagnostics/library-modules/DA/Internal/RebindableSyntax.daml": []
-}
