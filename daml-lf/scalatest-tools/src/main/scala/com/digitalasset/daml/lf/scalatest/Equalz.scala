@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import org.scalatest.Matchers
-import org.scalatest.matchers.{MatchResult, Matcher}
+import org.scalatest.matchers.{MatchResult, Matcher, MatcherFactory1}
 import scalaz.Equal
 
 /** Provides the `equalz` [[Matcher]].
@@ -27,27 +27,19 @@ import scalaz.Equal
 trait Equalz extends Matchers {
   import Equalz.{EqualzInvocation, Lub}
 
-  private[this] final def equalzImpl[A](expected: A)(implicit A: Equal[A]): Matcher[A] =
-    actual =>
-      MatchResult(
-        A.equal(expected, actual),
-        s"$actual did not equal $expected",
-        s"$actual equalled $expected"
-    )
-
-  def equalz[Ac](ac: Ac): EqualzInvocation[Ac] = new EqualzInvocation(ac)
-
-  implicit final class AnyShouldzWrapper[Ex](private val expected: Ex) {
-    def should[Ac, T](actual: EqualzInvocation[Ac])(implicit lub: Lub[Ex, Ac, T], eq: Equal[T]) =
-      (lub.left(expected): AnyShouldWrapper[T]) should equalzImpl(lub.right(actual.actual))
-    def shouldNot[Ac, T](actual: EqualzInvocation[Ac])(implicit lub: Lub[Ex, Ac, T], eq: Equal[T]) =
-      (lub.left(expected): AnyShouldWrapper[T]) shouldNot equalzImpl(lub.right(actual.actual))
-  }
+  final def equalz[Ex](expected: Ex): MatcherFactory1[Ex, Equal] =
+    new MatcherFactory1[Ex, Equal] {
+      override def matcher[T <: Ex](implicit ev: Equal[T]): Matcher[T] =
+        actual =>
+          MatchResult(
+            ev.equal(expected, actual),
+            s"$actual did not equal $expected",
+            s"$actual equalled $expected"
+        )
+    }
 }
 
 object Equalz extends Equalz {
-  final class EqualzInvocation[+Ac](private[Equalz] val actual: Ac) extends AnyVal
-
   sealed abstract class Lub[-A, -B, C] {
     def left(l: A): C
     def right(r: B): C
