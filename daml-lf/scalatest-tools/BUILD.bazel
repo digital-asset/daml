@@ -11,15 +11,12 @@ load(
 da_scala_library(
     name = "scalatest-tools",
     srcs = glob(["src/main/**/*.scala"]),
-    plugins = [
-        "//external:jar/org/spire_math/kind_projector_2_12",
-    ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.digitalasset:daml-lf-scalatest-tools:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//3rdparty/jvm/org/scalatest",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/scalatest:scalatest",
     ],
 )
 
@@ -27,9 +24,7 @@ da_scala_test(
     name = "scalatest-tools-test",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
-    scalacopts = lf_scalacopts + [
-        "-Ypartial-unification",
-    ],
+    scalacopts = lf_scalacopts,
     deps = [
         ":scalatest-tools",
         "//3rdparty/jvm/org/scalaz:scalaz_core",

@@ -1,8 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import org.scalatest.Matchers
-import org.scalatest.matchers.{MatchResult, Matcher, MatcherFactory1}
+import org.scalatest.matchers.{MatchResult, Matcher}
 import scalaz.Equal
 
 /** Provides the `equalz` [[Matcher]].
@@ -24,28 +23,28 @@ import scalaz.Equal
   * assemble the instance you meant.  (NB: never design your own
   * typeclasses this way in Scala.)
   */
-trait Equalz extends Matchers {
-  import Equalz.LubEqual
-
-  final def equalz[Ex](expected: Ex): MatcherFactory1[Ex, LubEqual[Ex, ?]] =
-    new MatcherFactory1[Ex, LubEqual[Ex, ?]] {
-      override def matcher[T <: Ex](implicit ev: LubEqual[Ex, T]): Matcher[T] =
-        actual =>
-          MatchResult(
-            ev.equal(expected, actual),
-            s"$actual did not equal $expected",
-            s"$actual equalled $expected"
-        )
-    }
+trait Equalz {
+  import Equalz.LtEqual
+  final def equalz[A, B](expected: A)(implicit B: LtEqual[A]): Matcher[B.B] =
+    actual =>
+      MatchResult(
+        B.evB.equal(expected, actual),
+        s"$actual did not equal $expected",
+        s"$actual equalled $expected"
+    )
 }
 
 object Equalz extends Equalz {
-  sealed abstract class LubEqual[-A, -B] {
-    def equal(l: A, r: B): Boolean
+  sealed abstract class LtEqual[-A] {
+    type B >: A
+    val evB: Equal[B]
   }
-  object LubEqual {
-    implicit def onlyInstance[C: Equal]: LubEqual[C, C] = new LubEqual[C, C] {
-      def equal(l: C, r: C) = Equal[C].equal(l, r)
-    }
+
+  object LtEqual {
+    implicit def onlyInstance[A](implicit ev: Equal[A]): LtEqual[A] {type B = A} =
+      new LtEqual[A] {
+        type B = A
+        val evB = ev
+      }
   }
 }
