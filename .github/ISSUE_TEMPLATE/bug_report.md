@@ -20,7 +20,7 @@ Steps to reproduce the problem:
 Tell us what you expected to happen (instead of the bug).
 
 **Screenshots**
-If applicable, add screenshots to help explain your problem.
+If they're relevant, add screenshots to help show us the problem.
 
 **Desktop (please complete the following information):**
  - OS: [e.g. Windows, OSX, Linux]
