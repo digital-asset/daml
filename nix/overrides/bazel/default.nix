@@ -90,7 +90,7 @@ stdenv.mkDerivation rec {
 
   src = fetchurl {
     url = "https://github.com/bazelbuild/bazel/releases/download/${version}/${name}-dist.zip";
-    sha256 = "11gsc00ghxqkbci8nrflkwq1lcvqawlgkaryj458b24si6bjl7b2";
+    sha256 = "1wmlwjxxbh90n4hy690jzrlgfai2lr439ni3wmc5s9ar57vasvfj";
   };
 
   # Necessary for the tests to pass on Darwin with sandbox enabled.
