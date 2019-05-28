@@ -306,6 +306,7 @@ parseDecimal : Text -> Optional Decimal
 parseDecimal t =
   case explode t of
     "-" :: cs -> negate <$> parsePositiveDecimal cs
+    "+" :: cs -> parsePositiveDecimal cs
     cs -> parsePositiveDecimal cs
 
 -- | Computes the SHA256 of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
