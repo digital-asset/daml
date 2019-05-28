@@ -5,8 +5,9 @@ package com.digitalasset.extractor
 
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.value.ValueGenerators.{party => partyGen}
-import com.digitalasset.extractor.config.ExtractorConfig
-import com.digitalasset.extractor.services.ExtractorFixtureAroundAll
+import config.ExtractorConfig
+import config.CustomScoptReaders._
+import services.ExtractorFixtureAroundAll
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 
@@ -14,6 +15,7 @@ import org.scalacheck.Arbitrary
 import org.scalatest._
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import java.io.File
+import scopt.Read
 
 import scalaz._
 import scalaz.std.list._
@@ -39,18 +41,25 @@ class MultiPartySpec
 
   override def configureExtractor(ec: ExtractorConfig): ExtractorConfig = {
     val ec2 = super.configureExtractor(ec)
-    ec2.copy(parties = OneAnd("Alice", ec2.parties.toList))
+    ec2.copy(parties = OneAnd(Party assertFromString "Alice", ec2.parties.toList))
   }
 
   private[this] implicit def partyArb: Arbitrary[Party] = Arbitrary(partyGen)
+  private[this] val readParties = implicitly[Read[ExtractorConfig.Parties]]
 
   "Party parser" should "permit comma separation" in forAll { parties: OneAnd[List, Party] =>
-    ExtractorConfig.parties(parties.widen[String] intercalate ",") should ===(parties)
+    readParties.reads(parties.widen[String] intercalate ",") should ===(parties)
   }
 
   "Party parser" should "permit spaces in parties" in {
-    ExtractorConfig.parties("foo bar,baz quux, a b ") should ===(
+    readParties.reads("foo bar,baz quux, a b ") should ===(
       OneAnd("foo bar", List("baz quux", " a b ")))
+  }
+
+  "Party parser" should "reject non-comma bad characters" in {
+    an[IllegalArgumentException] should be thrownBy {
+      readParties reads "amazing!"
+    }
   }
 
   "Contracts" should "contain the visible contracts" in {

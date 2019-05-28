@@ -6,9 +6,13 @@ package com.digitalasset.extractor.config
 import java.io.File
 import java.nio.file.Paths
 
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.extractor.targets._
 import com.digitalasset.ledger.api.tls.TlsConfiguration
+import CustomScoptReaders._
+
+import scalaz.OneAnd
 
 import scala.util.Try
 import scopt.OptionParser
@@ -36,7 +40,7 @@ object ConfigParser {
       postgresStripPrefix: Option[String] = None,
       ledgerHost: String = "127.0.0.1",
       ledgerPort: Int = 6865,
-      party: String = "",
+      party: ExtractorConfig.Parties = OneAnd(Party assertFromString "placeholder", Nil),
       from: Option[String] = None,
       to: Option[String] = None,
       tlsPem: Option[String] = None,
@@ -168,7 +172,7 @@ object ConfigParser {
         .valueName("<p>")
         .text("The port of the Ledger host. Default is 6865.")
 
-      opt[String]("party")
+      opt[ExtractorConfig.Parties]("party")
         .required()
         .action((x, c) => c.copy(party = x))
         .text("The party or parties whose contract data should be extracted.\n" +
@@ -280,7 +284,7 @@ object ConfigParser {
         cliParams.ledgerPort,
         from,
         to,
-        ExtractorConfig.parties(cliParams.party),
+        cliParams.party,
         tlsConfig
       )
 

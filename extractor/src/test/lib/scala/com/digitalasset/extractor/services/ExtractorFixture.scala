@@ -6,6 +6,7 @@ package com.digitalasset.extractor.services
 import com.digitalasset.extractor.Extractor
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.digitalasset.extractor.targets.PostgreSQLTarget
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.sandbox.persistence.PostgresAround
@@ -31,7 +32,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
     666, // doesn't matter, will/must be overriden in the test cases
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     SnapshotEndSetting.Head,
-    OneAnd("Bob", List.empty),
+    OneAnd(Party assertFromString "Bob", List.empty),
     TlsConfiguration(
       enabled = false,
       None,
