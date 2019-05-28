@@ -277,7 +277,6 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       applicationId: ApplicationId,
       parties: Set[Ref.Party]
   ): Source[CompletionEvent, NotUsed] = {
-    //TODO: we might need to emit check points for Accepted and Rejected too
     val converter = new OffsetConverter()
     converter.toAbsolute(begin).flatMapConcat {
       case LedgerOffset.Absolute(absBegin) =>
