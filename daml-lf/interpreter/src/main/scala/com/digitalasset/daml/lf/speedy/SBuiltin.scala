@@ -44,13 +44,104 @@ object SBuiltin {
   //
   // Arithmetic
   //
+
+  private def add(x: Long, y: Long): Long =
+    try {
+      Math.addExact(x, y)
+    } catch {
+      case _: ArithmeticException =>
+        throw DamlEArithmeticError(s"Int64 overflow when adding $y to $x.")
+    }
+
+  private def div(x: Long, y: Long): Long =
+    if (y == 0)
+      throw DamlEArithmeticError(s"Attempt to divide $x by 0.")
+    else if (x == Long.MinValue && y == -1)
+      throw DamlEArithmeticError(s"Int64 overflow when dividing $x by $y.")
+    else
+      x / y
+
+  private def mult(x: Long, y: Long): Long =
+    try {
+      Math.multiplyExact(x, y)
+    } catch {
+      case _: ArithmeticException =>
+        throw DamlEArithmeticError(s"Int64 overflow when multiplying $x by $y.")
+    }
+
+  private def sub(x: Long, y: Long): Long =
+    try {
+      Math.subtractExact(x, y)
+    } catch {
+      case _: ArithmeticException =>
+        throw DamlEArithmeticError(s"Int64 overflow when subtracting $y from $x.")
+    }
+
+  private def mod(x: Long, y: Long): Long =
+    if (y == 0)
+      throw DamlEArithmeticError(s"Attempt to compute $x modulo 0.")
+    else
+      x % y
+
+  // Exponentiation by squaring
+  // https://en.wikipedia.org/wiki/Exponentiation_by_squaring
+  private def exp(base: Long, exponent: Long): Long =
+    if (exponent < 0)
+      throw DamlEArithmeticError(s"Attempt to raise $base to the negative exponent $exponent.")
+    else if (exponent == 0) 1
+    else
+      try {
+        var x = base
+        var y = 1L
+        var n = exponent
+
+        while (n > 1) {
+          if (n % 2 == 1)
+            y = Math.multiplyExact(y, x)
+          x = Math.multiplyExact(x, x)
+          n = n >> 1
+        }
+
+        Math.multiplyExact(x, y)
+      } catch {
+        case _: ArithmeticException =>
+          throw DamlEArithmeticError(
+            s"Int64 overflow when raising $base to the exponent $exponent.")
+      }
+
+  private def add(x: Decimal, y: Decimal): Decimal =
+    rightOrArithmeticError(
+      s"Decimal overflow when adding ${Decimal.toString(y)} to ${Decimal.toString(x)}.",
+      Decimal.add(x, y)
+    )
+
+  private def div(x: Decimal, y: Decimal): Decimal =
+    if (y == 0)
+      throw DamlEArithmeticError(s"Attempt to divide ${Decimal.toString(x)} by 0.0.")
+    else
+      rightOrArithmeticError(
+        s"Decimal overflow when dividing ${Decimal.toString(x)} by ${Decimal.toString(y)}.",
+        Decimal.div(x, y)
+      )
+
+  private def mult(x: Decimal, y: Decimal): Decimal =
+    rightOrArithmeticError(
+      s"Decimal overflow when multiplying ${Decimal.toString(x)} by ${Decimal.toString(y)}.",
+      Decimal.mult(x, y)
+    )
+
+  private def sub(x: Decimal, y: Decimal): Decimal =
+    rightOrArithmeticError(
+      s"Decimal overflow when subtracting ${Decimal.toString(y)} from ${Decimal.toString(x)}.",
+      Decimal.sub(x, y)
+    )
+
   final case object SBAdd extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(
         (args.get(0), args.get(1)) match {
-          case (SInt64(a), SInt64(b)) => SInt64(Math.addExact(a, b))
-          case (SDecimal(a), SDecimal(b)) =>
-            SDecimal(Decimal.add(a, b).fold(err => throw DamlEArithmeticError(err), identity))
+          case (SInt64(a), SInt64(b)) => SInt64(add(a, b))
+          case (SDecimal(a), SDecimal(b)) => SDecimal(add(a, b))
           case _ =>
             crash(s"type mismatch add: $args")
         }
@@ -62,9 +153,8 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(
         (args.get(0), args.get(1)) match {
-          case (SInt64(a), SInt64(b)) => SInt64(Math.subtractExact(a, b))
-          case (SDecimal(a), SDecimal(b)) =>
-            SDecimal(Decimal.sub(a, b).fold(err => throw DamlEArithmeticError(err), identity))
+          case (SInt64(a), SInt64(b)) => SInt64(sub(a, b))
+          case (SDecimal(a), SDecimal(b)) => SDecimal(sub(a, b))
           case _ =>
             crash(s"type mismatch sub: $args")
         }
@@ -76,9 +166,8 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(
         (args.get(0), args.get(1)) match {
-          case (SInt64(a), SInt64(b)) => SInt64(Math.multiplyExact(a, b))
-          case (SDecimal(a), SDecimal(b)) =>
-            SDecimal(Decimal.mult(a, b).fold(err => throw DamlEArithmeticError(err), identity))
+          case (SInt64(a), SInt64(b)) => SInt64(mult(a, b))
+          case (SDecimal(a), SDecimal(b)) => SDecimal(mult(a, b))
           case _ =>
             crash(s"type mismatch sub: $args")
         }
@@ -90,12 +179,8 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(
         (args.get(0), args.get(1)) match {
-          case (SInt64(a), SInt64(b)) =>
-            if (a == Long.MinValue && b == -1)
-              throw DamlEArithmeticError("long overflow in division")
-            SInt64(a / b)
-          case (SDecimal(a), SDecimal(b)) =>
-            SDecimal(Decimal.div(a, b).fold(err => throw DamlEArithmeticError(err), identity))
+          case (SInt64(a), SInt64(b)) => SInt64(div(a, b))
+          case (SDecimal(a), SDecimal(b)) => SDecimal(div(a, b))
           case _ =>
             crash(s"type mismatch sub: $args")
         }
@@ -107,7 +192,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(
         (args.get(0), args.get(1)) match {
-          case (SInt64(a), SInt64(b)) => SInt64(a % b)
+          case (SInt64(a), SInt64(b)) => SInt64(mod(a, b))
           case _ =>
             crash(s"type mismatch sub: $args")
         }
@@ -118,33 +203,13 @@ object SBuiltin {
   final case object SBExpInt64 extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue((args.get(0), args.get(1)) match {
-        case (SInt64(a), SInt64(b)) => SInt64(longExpExact(a, b))
+        case (SInt64(a), SInt64(b)) => SInt64(exp(a, b))
         case _ =>
           crash(s"type mismatch expInt64: $args")
       })
     }
 
   }
-
-  // Exponentiation by squaring
-  // https://en.wikipedia.org/wiki/Exponentiation_by_squaring
-  private def longExpExact(base: Long, exponent: Long): Long =
-    if (exponent < 0) throw DamlEArithmeticError("negative exponent")
-    else if (exponent == 0) 1
-    else {
-      var x = base
-      var y = 1L
-      var n = exponent
-
-      while (n > 1) {
-        if (n % 2 == 1)
-          y = Math.multiplyExact(y, x)
-        x = Math.multiplyExact(x, x)
-        n = n >> 1
-      }
-
-      Math.multiplyExact(x, y)
-    }
 
   //
   // Text functions
@@ -384,7 +449,10 @@ object SBuiltin {
       machine.ctrl = CtrlValue(
         args.get(0) match {
           case SDecimal(x) =>
-            SInt64(rightOrArithmeticError("Could not convert Decimal to Int64", Decimal.toLong(x)))
+            SInt64(
+              rightOrArithmeticError(
+                s"Int64 overflow when converting ${Decimal.toString(x)} to Int64",
+                Decimal.toLong(x)))
           case _ => throw SErrorCrash(s"type mismatch decimalToInt64: $args")
         }
       )
@@ -408,7 +476,7 @@ object SBuiltin {
           case SInt64(days) =>
             SDate(
               rightOrArithmeticError(
-                "Could not convert Int64 to Date",
+                s"Could not convert Int64 $days to Date.",
                 Time.Date.asInt(days) flatMap Time.Date.fromDaysSinceEpoch))
           case _ =>
             throw SErrorCrash(s"type mismatch unixDaysToDate: $args")
@@ -436,7 +504,7 @@ object SBuiltin {
           case SInt64(t) =>
             STimestamp(
               rightOrArithmeticError(
-                "Could not convert Int64 to Timestamp",
+                s"Could not convert Int64 $t to Timestamp.",
                 Time.Timestamp.fromLong(t)))
           case _ =>
             throw SErrorCrash(s"type mismatch unixMicrosecondsToTimestamp: $args")
@@ -1187,10 +1255,7 @@ object SBuiltin {
         crash(s"value not a list of parties or party: $v")
     }
 
-  private def rightOrArithmeticError[A](s: String, mb: Either[String, A]): A =
-    mb match {
-      case Left(err) => throw DamlEArithmeticError(s"$s: $err")
-      case Right(x) => x
-    }
+  private def rightOrArithmeticError[A](message: String, mb: Either[String, A]): A =
+    mb.fold(_ => throw DamlEArithmeticError(s"$message"), identity)
 
 }

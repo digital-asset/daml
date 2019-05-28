@@ -32,7 +32,9 @@ object SError {
   sealed trait SErrorDamlException extends SError
 
   /** Arithmetic error such as division by zero */
-  final case class DamlEArithmeticError(message: String) extends SErrorDamlException
+  final case class DamlEArithmeticError(message: String) extends SErrorDamlException {
+    override def toString: String = message
+  }
 
   /** User initiated error, via e.g. 'abort' or 'assert' */
   final case class DamlEUserError(message: String) extends SErrorDamlException
