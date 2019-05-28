@@ -37,7 +37,7 @@ trait TestCommands {
   @transient
   protected def templateIds = {
     val container = DamlPackageContainer(List(darFile))
-    val testArchive = container.archives.head
+    val testArchive = container.archives.head._2
     new TestTemplateIdentifiers(testArchive.getHash)
   }
 

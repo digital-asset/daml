@@ -18,11 +18,11 @@ import scala.util.Try
 
 case class DamlPackageContainer(files: List[File] = Nil) {
 
-  lazy val archives: List[Archive] =
+  lazy val archives: List[(Long, Archive)] =
     files.flatMap { file =>
       val fileName = file.getName
       if (fileName.endsWith(".dalf"))
-        archivesFromDalf(file)
+        List((file.length(), archiveFromDalf(file)))
       else if (fileName.endsWith(".dar")) {
         archivesFromDar(file)
       } else {
@@ -31,20 +31,20 @@ case class DamlPackageContainer(files: List[File] = Nil) {
       }
     }
 
-  private def archivesFromDar(file: File): List[Archive] = {
-    DarReader[Archive](x => Try(Archive.parseFrom(x)))
+  private def archivesFromDar(file: File): List[(Long, Archive)] = {
+    DarReader[(Long, Archive)] { case (size, x) => Try(Archive.parseFrom(x)).map(ar => (size, ar)) }
       .readArchive(new ZipFile(file))
       .fold(t => throw new RuntimeException(s"Failed to parse DAR from $file", t), dar => dar.all)
   }
 
-  private def archivesFromDalf(file: File): List[Archive] = {
+  private def archiveFromDalf(file: File): Archive = {
     var is: BufferedInputStream = null
     if (!file.canRead) {
       sys.error(s"DAML archive ${file} does not exist or is not readable.")
     }
     try {
       is = new BufferedInputStream(new FileInputStream(file))
-      List(Archive.parseFrom(is))
+      Archive.parseFrom(is)
     } catch {
       case NonFatal(t) => sys.error(s"Failed to parse DALF from ${file}: $t")
     } finally {
@@ -53,9 +53,9 @@ case class DamlPackageContainer(files: List[File] = Nil) {
   }
 
   lazy val packages: Map[PackageId, Ast.Package] =
-    archives.map(Decode.decodeArchive)(breakOut)
+    archives.map { case (_, archive) => Decode.decodeArchive(archive) }(breakOut)
 
-  lazy val packageIds: Iterable[String] = archives.map(_.getHash)
+  lazy val packageIds: Iterable[String] = archives.map(_._2.getHash)
 
   def withFile(file: File): DamlPackageContainer = copy(files = file :: files)
 

@@ -58,7 +58,7 @@ object UniversalArchiveReader {
   private def parseDalf(is: InputStream) = Try(Reader.decodeArchiveFromInputStream(is))
 
   private def parseDar[A](parseDalf: InputStream => Try[A]): ZipFile => Try[Dar[A]] =
-    DarReader(parseDalf).readArchive
+    DarReader { case (_, is) => parseDalf(is) }.readArchive
 }
 
 /**

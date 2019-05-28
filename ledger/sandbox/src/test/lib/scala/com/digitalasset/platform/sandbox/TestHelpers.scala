@@ -30,7 +30,7 @@ object TestDar {
   val dalfFile: File = new File(rlocation("ledger/sandbox/Test.dar"))
   // DamlLf1 test package
   lazy val parsedPackage = DamlPackageContainer(List(dalfFile))
-  lazy val parsedArchive = parsedPackage.archives.head
+  lazy val parsedArchive = parsedPackage.archives.head._2
   lazy val parsedPackageId: String = parsedArchive.getHash
 
 }

@@ -16,8 +16,9 @@ private class SandboxTemplateStore(packageContainer: DamlPackageContainer)
     extends IndexPackagesService {
 
   private val packages: Map[PackageId, Archive] =
-    packageContainer.archives.map { archive =>
-      (PackageId.assertFromString(archive.getHash), archive)
+    packageContainer.archives.map {
+      case (_, archive) =>
+        (PackageId.assertFromString(archive.getHash), archive)
     }(breakOut)
 
   override def listPackages(): Future[Set[PackageId]] =

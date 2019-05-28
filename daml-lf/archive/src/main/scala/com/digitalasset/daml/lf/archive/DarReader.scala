@@ -18,7 +18,8 @@ import scala.util.{Failure, Success, Try}
 
 class DarReader[A](
     readDalfNamesFromManifest: InputStream => Try[Dar[String]],
-    parseDalf: InputStream => Try[A]) {
+    // The `Long` is the dalf size in bytes.
+    parseDalf: (Long, InputStream) => Try[A]) {
 
   import Errors._
 
@@ -79,14 +80,16 @@ class DarReader[A](
     sequence(names.map(parseOne(f)))
 
   private def parseOne(f: ZipFile)(s: String): Try[A] =
-    bracket(getZipEntryInputStream(f, s))(close).flatMap(parseDalf)
+    bracket(getZipEntryInputStream(f, s))({ case (_, is) => close(is) }).flatMap({
+      case (size, is) => parseDalf(size, is)
+    })
 
-  private def getZipEntryInputStream(f: ZipFile, name: String): Try[InputStream] =
+  private def getZipEntryInputStream(f: ZipFile, name: String): Try[(Long, InputStream)] =
     for {
       e <- Try(new ZipEntry(name))
       is <- inputStream(f, e)
       bis <- Try(new BufferedInputStream(is))
-    } yield bis
+    } yield (e.getSize(), bis)
 
   private def close(is: InputStream): Try[Unit] = Try(is.close())
 }
@@ -111,13 +114,15 @@ object Errors {
 
 object DarReader {
   def apply(): DarReader[(Ref.PackageId, DamlLf.ArchivePayload)] =
-    new DarReader(DarManifestReader.dalfNames, a => Try(Reader.decodeArchiveFromInputStream(a)))
+    new DarReader(DarManifestReader.dalfNames, {
+      case (_, a) => Try(Reader.decodeArchiveFromInputStream(a))
+    })
 
-  def apply[A](parseDalf: InputStream => Try[A]): DarReader[A] =
+  def apply[A](parseDalf: (Long, InputStream) => Try[A]): DarReader[A] =
     new DarReader(DarManifestReader.dalfNames, parseDalf)
 }
 
 object DarReaderWithVersion
     extends DarReader[((Ref.PackageId, DamlLf.ArchivePayload), LanguageMajorVersion)](
       DarManifestReader.dalfNames,
-      a => Try(Reader.readArchiveAndVersion(a)))
+      { case (_, a) => Try(Reader.readArchiveAndVersion(a)) })
