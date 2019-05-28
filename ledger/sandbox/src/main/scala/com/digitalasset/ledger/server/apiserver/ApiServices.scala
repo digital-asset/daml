@@ -113,7 +113,7 @@ object ApiServices {
 
       logger.info(EngineInfo.show)
 
-      val transactionService =
+      val apiTransactionService =
         SandboxTransactionService
           .createApiService(ledgerId, transactionsService, identifierResolver)
 
@@ -148,8 +148,8 @@ object ApiServices {
               .asInstanceOf[SandboxCommandCompletionService]
               .completionStreamSource(r),
           () => completionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
-          transactionService.getTransactionById,
-          transactionService.getFlatTransactionById
+          apiTransactionService.getTransactionById,
+          apiTransactionService.getFlatTransactionById
         ),
         identifierResolver
       )
@@ -175,7 +175,7 @@ object ApiServices {
           apiPackageService,
           apiConfigurationService,
           apiSubmissionService,
-          transactionService,
+          apiTransactionService,
           completionService,
           apiCommandService,
           apiActiveContractsService,

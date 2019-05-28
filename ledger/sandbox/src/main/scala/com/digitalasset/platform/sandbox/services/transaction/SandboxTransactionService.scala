@@ -109,7 +109,7 @@ class SandboxTransactionService private (
           Status.INVALID_ARGUMENT
             .withDescription(s"invalid eventId: ${request.eventId}")
             .asRuntimeException())) {
-        case TransactionIdWithIndex(transactionId, index) =>
+        case TransactionIdWithIndex(transactionId, _) =>
           lookUpFlatByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
   }

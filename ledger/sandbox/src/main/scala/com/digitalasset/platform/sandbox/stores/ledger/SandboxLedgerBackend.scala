@@ -8,6 +8,12 @@ import java.util.concurrent.CompletionStage
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.index.v2.CompletionEvent.{
+  Checkpoint,
+  CommandAccepted,
+  CommandRejected
+}
+import com.daml.ledger.participant.state.index.v2.RejectionReason._
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.daml.lf.data.Ref
@@ -15,13 +21,13 @@ import com.digitalasset.daml.lf.data.Ref.{LedgerString, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{EventId, LedgerOffset, TransactionFilter, TransactionId}
+import com.digitalasset.ledger.api.domain._
+import com.digitalasset.ledger.backend.api.v1.{ApplicationId => _, RejectionReason => _, _}
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.{
   AcceptedTransaction,
   Heartbeat,
   RejectedCommand
 }
-import com.digitalasset.ledger.backend.api.v1._
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
@@ -36,7 +42,8 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     extends LedgerBackend //TODO: remove this later so we can rely on sole participant state interfaces
     with ParticipantState.WriteService
     with ActiveContractsService
-    with TransactionsService {
+    with TransactionsService
+    with CompletionsService {
 
   override def ledgerSyncEvents(
       offset: Option[LedgerSyncOffset]): Source[LedgerSyncEvent, NotUsed] =
@@ -185,9 +192,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       .mapConcat(TransactionConversion.acceptedToDomainFlat(_, filter).toList)
   }
 
-  private def acceptedTransactions(
-      begin: domain.LedgerOffset,
-      endAt: Option[domain.LedgerOffset]): Source[AcceptedTransaction, NotUsed] = {
+  private class OffsetConverter {
     lazy val currentEndF = currentLedgerEnd()
 
     def toAbsolute(offset: LedgerOffset) = offset match {
@@ -196,11 +201,17 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       case LedgerOffset.LedgerEnd => Source.fromFuture(currentEndF)
       case off @ LedgerOffset.Absolute(_) => Source.single(off)
     }
+  }
 
-    toAbsolute(begin).flatMapConcat {
+  private def acceptedTransactions(
+      begin: domain.LedgerOffset,
+      endAt: Option[domain.LedgerOffset]): Source[AcceptedTransaction, NotUsed] = {
+    val converter = new OffsetConverter()
+
+    converter.toAbsolute(begin).flatMapConcat {
       case LedgerOffset.Absolute(absBegin) =>
         endAt
-          .map(toAbsolute(_).map(Some(_)))
+          .map(converter.toAbsolute(_).map(Some(_)))
           .getOrElse(Source.single(None))
           .flatMapConcat { endOpt =>
             lazy val stream = ledgerSyncEvents(Some(absBegin))
@@ -237,12 +248,12 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     }
   }
 
-  private def increaseOffset(t: AcceptedTransaction) = {
+  private def increaseOffset(t: AcceptedTransaction) =
     t.copy(offset = LedgerString.fromLong(t.offset.toLong + 1))
-  }
 
   override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
     getCurrentLedgerEnd.map(LedgerOffset.Absolute)(DEC)
+
   override def getTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party]): Future[Option[domain.Transaction]] = {
@@ -260,4 +271,46 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     getTransactionById(transactionId.unwrap)
       .map(_.flatMap(TransactionConversion.acceptedToDomainTree(_, filter)))(DEC)
   }
+
+  override def getCompletions(
+      begin: LedgerOffset,
+      applicationId: ApplicationId,
+      parties: Set[Ref.Party]
+  ): Source[CompletionEvent, NotUsed] = {
+    val converter = new OffsetConverter()
+    converter.toAbsolute(begin).flatMapConcat {
+      case LedgerOffset.Absolute(absBegin) =>
+        ledgerSyncEvents(Some(absBegin)).collect {
+          case at: LedgerSyncEvent.AcceptedTransaction =>
+            CommandAccepted(
+              domain.LedgerOffset.Absolute(at.offset),
+              at.commandId.map(domain.CommandId(_)),
+              domain.TransactionId(at.transactionId))
+          case hb: LedgerSyncEvent.Heartbeat =>
+            Checkpoint(domain.LedgerOffset.Absolute(hb.offset), hb.recordTime)
+          case rc: LedgerSyncEvent.RejectedCommand =>
+            CommandRejected(
+              domain.LedgerOffset.Absolute(rc.offset),
+              domain.CommandId(rc.commandId),
+              convertRejectionReason(rc.rejectionReason))
+        }
+    }
+  }
+
+  import com.digitalasset.ledger._
+
+  private def convertRejectionReason(rr: backend.api.v1.RejectionReason): RejectionReason =
+    rr match {
+      case _: backend.api.v1.RejectionReason.Inconsistent =>
+        Inconsistent(rr.description)
+      case _: backend.api.v1.RejectionReason.OutOfQuota =>
+        OutOfQuota(rr.description)
+      case _: backend.api.v1.RejectionReason.TimedOut =>
+        TimedOut(rr.description)
+      case _: backend.api.v1.RejectionReason.Disputed =>
+        Disputed(rr.description)
+      case _: backend.api.v1.RejectionReason.DuplicateCommandId =>
+        DuplicateCommandId(rr.description)
+    }
+
 }

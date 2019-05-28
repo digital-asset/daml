@@ -14,8 +14,8 @@ import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerOffset}
   **/
 trait CompletionsService {
   def getCompletions(
-      begin: Option[LedgerOffset],
+      begin: LedgerOffset,
       applicationId: ApplicationId,
-      parties: List[Ref.Party]
+      parties: Set[Ref.Party]
   ): Source[CompletionEvent, NotUsed]
 }
