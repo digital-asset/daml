@@ -5,11 +5,14 @@ package com.digitalasset.platform.sandbox.cli
 
 import java.io.File
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.scalatest.{Matchers, WordSpec}
+
+import com.digitalasset.ledger.api.domain.LedgerId
 
 class CliSpec extends WordSpec with Matchers {
 
@@ -100,7 +103,8 @@ class CliSpec extends WordSpec with Matchers {
       val ledgerId = "myledger"
       checkOption(
         Array(s"--ledgerid", ledgerId),
-        _.copy(ledgerIdMode = LedgerIdMode.Static(ledgerId)))
+        _.copy(ledgerIdMode =
+          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))))
     }
 
     "parse the jdbcurl (deprecated) when given" in {
@@ -113,6 +117,9 @@ class CliSpec extends WordSpec with Matchers {
       checkOption(Array(s"--sql-backend-jdbcurl", jdbcUrl), _.copy(jdbcUrl = Some(jdbcUrl)))
     }
 
+    "parse the eager package loading flag when given" in {
+      checkOption(Array("--eager-package-loading"), _.copy(eagerPackageLoading = true))
+    }
   }
 
 }

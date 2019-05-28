@@ -3,6 +3,9 @@
 
 package com.daml.ledger.participant.state.v1
 
+import com.digitalasset.daml.lf.data.Ref.LedgerString
+import com.digitalasset.daml.lf.data.Ref
+
 /** Offsets into streams with hierarchical addressing.
   *
   * We use these [[Offset]]'s to address changes to the participant state.
@@ -18,8 +21,11 @@ package com.daml.ledger.participant.state.v1
   *
   */
 final case class Offset(private val xs: Array[Long]) extends Ordered[Offset] {
-  override def toString: String =
-    components.mkString("-")
+  def toLedgerString: Ref.LedgerString =
+    // It is safe to concatenate number and "-" to obtain a valid transactionId
+    Ref.LedgerString.assertFromString(components.mkString("-"))
+
+  override def toString: String = toLedgerString
 
   def components: Iterable[Long] = xs
 
@@ -28,7 +34,7 @@ final case class Offset(private val xs: Array[Long]) extends Ordered[Offset] {
     case _ => false
   }
 
-  override def compare(that: Offset): Int =
+  def compare(that: Offset): Int =
     scala.math.Ordering.Iterable[Long].compare(this.xs.toIterable, that.xs.toIterable)
 }
 
@@ -37,7 +43,7 @@ object Offset {
   /** Create an offset from a string of form 1-2-3. Throws
     * NumberFormatException on misformatted strings.
     */
-  def assertFromString(s: String): Offset =
+  def assertFromString(s: LedgerString): Offset =
     Offset(s.split('-').map(_.toLong))
 
 }

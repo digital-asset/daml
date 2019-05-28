@@ -3,6 +3,7 @@
 
 package com.digitalasset.ledger.client.binding
 
+import encoding.ExerciseOn
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
 import scalaz.syntax.std.boolean._
@@ -86,7 +87,7 @@ sealed abstract class Primitive {
   }
 
   sealed abstract class ContractIdApi {
-    def apply[Tpl <: Template[Tpl]](contractId: String): ContractId[Tpl]
+    def apply[Tpl](contractId: String): ContractId[Tpl]
     def subst[F[_], Tpl](tc: F[ApiTypes.ContractId]): F[ContractId[Tpl]]
   }
 
@@ -127,11 +128,11 @@ sealed abstract class Primitive {
       companion: TemplateCompanion[_ <: Tpl],
       na: rpcvalue.Record): Update[ContractId[Tpl]]
 
-  private[binding] def exercise[Tpl, Out](
+  private[binding] def exercise[ExOn, Tpl, Out](
       templateCompanion: TemplateCompanion[Tpl],
-      contractId: ContractId[Tpl],
+      receiver: ExOn,
       choiceId: String,
-      argument: rpcvalue.Value): Update[Out]
+      argument: rpcvalue.Value)(implicit ev: ExerciseOn[ExOn, Tpl]): Update[Out]
 
   private[binding] def arguments(
       recordId: rpcvalue.Identifier,
@@ -197,7 +198,7 @@ private[client] object OnlyPrimitive extends Primitive {
   }
 
   object ContractId extends ContractIdApi {
-    override def apply[Tpl <: Template[Tpl]](contractId: String) =
+    override def apply[Tpl](contractId: String) =
       ApiTypes.ContractId(contractId)
 
     override def subst[F[_], Tpl](tc: F[ApiTypes.ContractId]): F[ContractId[Tpl]] = tc
@@ -215,20 +216,33 @@ private[client] object OnlyPrimitive extends Primitive {
           .Create(rpccmd.CreateCommand(templateId = Some(companion.id.unwrap), Some(na)))),
       companion)
 
-  private[binding] override def exercise[Tpl, Out](
+  private[binding] override def exercise[ExOn, Tpl, Out](
       templateCompanion: TemplateCompanion[Tpl],
-      contractId: ContractId[Tpl],
+      receiver: ExOn,
       choiceId: String,
-      argument: rpcvalue.Value): Update[Out] =
+      argument: rpcvalue.Value)(implicit ev: ExerciseOn[ExOn, Tpl]): Update[Out] =
     DomainCommand(
-      rpccmd.Command(
-        rpccmd.Command.Command.Exercise(
-          rpccmd.ExerciseCommand(
-            templateId = Some(templateCompanion.id.unwrap),
-            contractId = contractId.unwrap,
-            choice = choiceId,
-            choiceArgument = Some(argument)
-          ))),
+      rpccmd.Command {
+        ev match {
+          case _: ExerciseOn.OnId[Tpl] =>
+            rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                templateId = Some(templateCompanion.id.unwrap),
+                contractId = (receiver: ContractId[Tpl]).unwrap,
+                choice = choiceId,
+                choiceArgument = Some(argument)
+              ))
+          case _: ExerciseOn.CreateAndOnTemplate[Tpl] =>
+            rpccmd.Command.Command.CreateAndExercise(
+              rpccmd.CreateAndExerciseCommand(
+                templateId = Some(templateCompanion.id.unwrap),
+                createArguments = Some((receiver: Template.CreateForExercise[Tpl]).value.arguments),
+                choice = choiceId,
+                choiceArgument = Some(argument)
+              )
+            )
+        }
+      },
       templateCompanion
     )
 

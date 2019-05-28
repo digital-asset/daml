@@ -10,22 +10,23 @@ import Control.Concurrent.Extra
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
+import DA.Daml.GHC.Compiler.Options(Options(..))
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Tagged
 import qualified Data.Text as T
+import Data.Tuple.Extra
 import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module (UnitId, stringToUnitId)
 import System.Directory.Extra (listFilesRecursive)
 import System.FilePath
 
-import Development.IDE.Types.Options (IdeOptions(..))
 import Development.IDE.Functions.DependencyInformation
 import Development.IDE.State.Rules hiding (mainRule)
 import qualified Development.IDE.State.Rules as IDE
@@ -63,7 +64,7 @@ runScenarios file = use RunScenarios file
 -- | Get a list of the scenarios in a given file
 getScenarioNames :: FilePath -> Action (Maybe [VirtualResource])
 getScenarioNames file = fmap f <$> use GenerateRawDalf file
-    where f = map (VRScenario file . unTagged . LF.qualObject) . scenariosInModule
+    where f = map (VRScenario file . LF.unExprValName . LF.qualObject) . scenariosInModule
 
 -- Generates the DALF for a module without adding serializability information
 -- or type checking it.
@@ -75,7 +76,7 @@ generateRawDalfRule =
         setPriority PriorityGenerateDalf
         -- Generate the map from package names to package hashes
         pkgMap <- use_ GeneratePackageMap ""
-        let pkgMap0 = Map.map (\(pId, _pkg, _bs, _fp) -> unTagged pId) pkgMap
+        let pkgMap0 = Map.map (\(pId, _pkg, _bs, _fp) -> LF.unPackageId pId) pkgMap
         -- GHC Core to DAML LF
         case convertModule lfVersion pkgMap0 core of
             Left e -> return ([e], Nothing)
@@ -97,7 +98,7 @@ generateDalfRule =
 
         dalf <- withExceptT (pure . ideErrorPretty file)
           $ liftEither
-          $ Serializability.inferModule world rawDalf
+          $ Serializability.inferModule world lfVersion rawDalf
 
         withExceptT (pure . ideErrorPretty file)
           $ liftEither
@@ -126,12 +127,11 @@ generatePackageMap fps = do
           Right (unitId, (pkgId, package, dalfBS, dalf))
   return (diags, Map.fromList pkgs)
 
-generatePackageMapRule :: Rules ()
-generatePackageMapRule =
+generatePackageMapRule :: Options -> Rules ()
+generatePackageMapRule opts =
     defineNoFile $ \GeneratePackageMap -> do
-        env <- getServiceEnv
         (errs, res) <-
-            liftIO $ generatePackageMap (optPackageDbs $ envOptions env)
+            liftIO $ generatePackageMap (optPackageDbs opts)
         when (errs /= []) $
             reportSeriousError $
             "Rule GeneratePackageMap generated errors " ++ show errs
@@ -146,8 +146,8 @@ generatePackageRule =
 
 -- Generates a DAML-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
-generateRawPackageRule :: Rules ()
-generateRawPackageRule =
+generateRawPackageRule :: Options -> Rules ()
+generateRawPackageRule options =
     define $ \GenerateRawPackage file -> do
         lfVersion <- getDamlLfVersion
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
@@ -155,12 +155,11 @@ generateRawPackageRule =
         dalfs <- uses_ GenerateRawDalf files
 
         -- build package
-        env <- getServiceEnv
-        let pkg = buildPackage (optMbPackageName (envOptions env)) lfVersion dalfs
+        let pkg = buildPackage (optMbPackageName options) lfVersion dalfs
         return ([], Just pkg)
 
-generatePackageDepsRule :: Rules ()
-generatePackageDepsRule =
+generatePackageDepsRule :: Options -> Rules ()
+generatePackageDepsRule options =
     define $ \GeneratePackageDeps file -> do
         lfVersion <- getDamlLfVersion
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
@@ -168,8 +167,7 @@ generatePackageDepsRule =
         dalfs <- uses_ GenerateDalf files
 
         -- build package
-        env <- getServiceEnv
-        return ([], Just $ buildPackage (optMbPackageName (envOptions env)) lfVersion dalfs)
+        return ([], Just $ buildPackage (optMbPackageName options) lfVersion dalfs)
 
 contextForFile :: FilePath -> Action SS.Context
 contextForFile file = do
@@ -200,15 +198,6 @@ data ScenarioBackendException = ScenarioBackendException
     } deriving Show
 
 instance Exception ScenarioBackendException
-
--- | We didn’t find a context root for the given file.
--- This probably means that you haven’t set the files of interest or open VRs
--- such that the given file is included in the transitive dependencies.
-data ScenarioRootException = ScenarioRootException
-    { missingRootFor :: FilePath
-    } deriving Show
-
-instance Exception ScenarioRootException
 
 createScenarioContextRule :: Rules ()
 createScenarioContextRule =
@@ -245,8 +234,7 @@ runScenariosRule =
                   mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
           toDiagnostic _ (Right _) = Nothing
       Just scenarioService <- envScenarioService <$> getDamlServiceEnv
-      ctxRoots <- liftIO . readVar . envScenarioContextRoots =<< getDamlServiceEnv
-      ctxRoot <- liftIO $ maybe (throwIO $ ScenarioRootException file) pure $ Map.lookup file ctxRoots
+      ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
       scenarioResults <-
           liftIO $ forM scenarios $ \scenario -> do
@@ -262,6 +250,27 @@ encodeModule lfVersion m =
         | isAbsolute file -> use_ EncodeModule file
       _ -> pure $ SS.encodeModule lfVersion m
 
+getScenarioRootsRule :: Rules ()
+getScenarioRootsRule =
+    defineNoFile $ \GetScenarioRoots -> do
+        filesOfInterest <- use_ GetFilesOfInterest ""
+        openVRs <- use_ GetOpenVirtualResources ""
+        let files = Set.toList (filesOfInterest `Set.union` Set.map vrScenarioFile openVRs)
+        deps <- forP files $ \file -> do
+            transitiveDeps <- maybe [] transitiveModuleDeps <$> use GetDependencies file
+            pure $ Map.fromList [ (f, file) | f <- transitiveDeps ]
+        -- We want to ensure that files of interest always map to themselves even if there are dependencies
+        -- between files of interest so we union them separately. (`Map.union` is left-biased.)
+        pure $ Map.fromList (map dupe files) `Map.union` Map.unions deps
+
+getScenarioRootRule :: Rules ()
+getScenarioRootRule =
+    defineEarlyCutoff $ \GetScenarioRoot file -> do
+        ctxRoots <- use_ GetScenarioRoots ""
+        case Map.lookup file ctxRoots of
+            Nothing -> liftIO $
+                fail $ "No scenario root for file " <> show file <> "."
+            Just root -> pure (Just $ BS.fromString root, ([], Just root))
 
 -- A rule that builds the files-of-interest and notifies via the
 -- callback of any errors. NOTE: results may contain errors for any
@@ -273,12 +282,11 @@ ofInterestRule = do
     action $ use OfInterest ""
     defineNoFile $ \OfInterest -> do
         setPriority PriorityFilesOfInterest
-        alwaysRerun
         Env{..} <- getServiceEnv
         DamlEnv{..} <- getDamlServiceEnv
         -- query for files of interest
-        files   <- liftIO $ readVar envOfInterestVar
-        openVRs <- liftIO $ readVar envOpenVirtualResources
+        files   <- use_ GetFilesOfInterest ""
+        openVRs <- use_ GetOpenVirtualResources ""
         let vrFiles = Set.map vrScenarioFile openVRs
         -- We run scenarios for all files of interest to get diagnostics
         -- and for the files for which we have open VRs so that they get
@@ -296,14 +304,6 @@ ofInterestRule = do
         -- We don’t always have a scenario service (e.g., damlc compile)
         -- so only run scenarios if we have one.
         let shouldRunScenarios = isJust envScenarioService
-        when shouldRunScenarios $ do
-            deps <- forP (Set.toList scenarioFiles) $ \file -> do
-                transitiveDeps <- maybe [] transitiveModuleDeps <$> use GetDependencies file
-                pure $ Map.fromList [ (f, file) | f <- transitiveDeps ]
-            -- We want to ensure that files of interest always map to themselves even if there are dependencies
-            -- between files of interest so we union them separately.
-            liftIO $ writeVar envScenarioContextRoots $
-                Map.fromList [(f,f) | f <- Set.toList scenarioFiles] `Map.union` Map.unions deps
         _ <- parallel $
             map (void . getDalf) (Set.toList scenarioFiles) <>
             [runScenarios file | shouldRunScenarios, file <- Set.toList scenarioFiles]
@@ -335,6 +335,23 @@ ofInterestRule = do
               prevCtxRoots <- modifyVar envPreviousScenarioContexts $ \prevCtxs -> pure (ctxRoots, prevCtxs)
               when (prevCtxRoots /= ctxRoots) $ void $ SS.gcCtxs scenarioService ctxRoots
 
+getFilesOfInterestRule :: Rules ()
+getFilesOfInterestRule = do
+    defineEarlyCutoff $ \GetFilesOfInterest _file -> assert (null _file) $ do
+        alwaysRerun
+        Env{..} <- getServiceEnv
+        filesOfInterest <- liftIO $ readVar envOfInterestVar
+        pure (Just $ BS.fromString $ show filesOfInterest, ([], Just filesOfInterest))
+
+getOpenVirtualResourcesRule :: Rules ()
+getOpenVirtualResourcesRule = do
+    defineEarlyCutoff $ \GetOpenVirtualResources _file -> assert (null _file) $ do
+        alwaysRerun
+        DamlEnv{..} <- getDamlServiceEnv
+        openVRs <- liftIO $ readVar envOpenVirtualResources
+        pure (Just $ BS.fromString $ show openVRs, ([], Just openVRs))
+
+
 formatScenarioError :: LF.World -> SS.Error -> Pretty.Doc Pretty.SyntaxClass
 formatScenarioError world  err = case err of
     SS.BackendError err -> Pretty.pretty $ "Scenario service backend error: " <> show err
@@ -353,7 +370,7 @@ runScenario :: SS.Handle -> FilePath -> SS.ContextId -> LF.ValueRef -> IO (Virtu
 runScenario scenarioService file ctxId scenario = do
     res <- SS.runScenario scenarioService ctxId scenario
     let scenarioName = LF.qualObject scenario
-    let vr = VRScenario file (unTagged scenarioName)
+    let vr = VRScenario file (LF.unExprValName scenarioName)
     pure (vr, res)
 
 encodeModuleRule :: Rules ()
@@ -399,20 +416,24 @@ modIsInternal m = moduleNameString (moduleName m) `elem` internalModules
   -- modules is that these do not disappear in the LF conversion.
 
 
-damlRule :: Rules ()
-damlRule = do
+damlRule :: Options -> Rules ()
+damlRule opts = do
     generateRawDalfRule
     generateDalfRule
-    generatePackageMapRule
+    generatePackageMapRule opts
     generatePackageRule
-    generateRawPackageRule
-    generatePackageDepsRule
+    generateRawPackageRule opts
+    generatePackageDepsRule opts
     runScenariosRule
+    getScenarioRootsRule
+    getScenarioRootRule
     ofInterestRule
     encodeModuleRule
     createScenarioContextRule
+    getFilesOfInterestRule
+    getOpenVirtualResourcesRule
 
-mainRule :: Rules ()
-mainRule = do
+mainRule :: Options -> Rules ()
+mainRule options = do
     IDE.mainRule
-    damlRule
+    damlRule options

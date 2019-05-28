@@ -175,6 +175,34 @@ case class GenTransaction[Nid, Cid, +Val](
     acc
   }
 
+  /**
+    * A fold over the transaction that maintains global and path-specific state.
+    * Takes constant stack space. Returns the global state.
+    *
+    * Used to for example compute the roots of per-party projections from the
+    * transaction.
+    */
+  final def foldWithPathState[A, B](globalState0: A, pathState0: B)(
+      op: (A, B, Nid, GenNode[Nid, Cid, Val]) => (A, B)): A = {
+    var globalState = globalState0
+
+    @tailrec
+    def go(toVisit: FrontStack[(Nid, B)]): Unit = toVisit match {
+      case FrontStack() => ()
+      case FrontStackCons((nodeId, pathState), toVisit) =>
+        val node = nodes(nodeId)
+        val (globalState1, newPathState) = op(globalState, pathState, nodeId, node)
+        globalState = globalState1
+        node match {
+          case _: LeafOnlyNode[Cid, Val] => go(toVisit)
+          case ne: NodeExercises[Nid, Cid, Val] =>
+            go(ne.children.map(_ -> newPathState) ++: toVisit)
+        }
+    }
+    go(FrontStack(roots.map(_ -> pathState0)))
+    globalState
+  }
+
   /** This function checks the following properties:
     *
     * * No dangling references -- all node ids mentioned in the forest are in the nodes map;
@@ -348,12 +376,12 @@ object Transaction {
   type NodeId = Value.NodeId
   val NodeId = Value.NodeId
 
-  type ContractId = Value.ContractId
+  type TContractId = Value.ContractId
 
   type Value[+Cid] = Value.VersionedValue[Cid]
 
   /** Transaction nodes */
-  type Node = GenNode.WithTxValue[NodeId, ContractId]
+  type Node = GenNode.WithTxValue[NodeId, TContractId]
 
   /** (Complete) transactions, which are the result of interpreting a
     *  ledger-update. These transactions are consumed by either the
@@ -363,7 +391,7 @@ object Transaction {
     *  divulgence of contracts.
     *
     */
-  type Transaction = GenTransaction.WithTxValue[NodeId, ContractId]
+  type Transaction = GenTransaction.WithTxValue[NodeId, TContractId]
 
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable
@@ -376,7 +404,7 @@ object Transaction {
   /** Signals that the contract-id `coid` was expected to be active, but
     *  is not.
     */
-  final case class ContractNotActive(coid: ContractId, templateId: TypeConName, consumedBy: NodeId)
+  final case class ContractNotActive(coid: TContractId, templateId: TypeConName, consumedBy: NodeId)
       extends TransactionError
 
   /** Contexts of the transaction graph builder, which we use to record
@@ -411,13 +439,13 @@ object Transaction {
     *  @param parentRoots The root nodes of the parent context.
     */
   case class ExercisesContext(
-      targetId: ContractId,
+      targetId: TContractId,
       templateId: TypeConName,
       choiceId: ChoiceName,
       optLocation: Option[Location],
       consuming: Boolean,
       actingParties: Set[Party],
-      chosenValue: Value[ContractId],
+      chosenValue: Value[TContractId],
       signatories: Set[Party],
       stakeholders: Set[Party],
       controllers: Set[Party],
@@ -462,10 +490,10 @@ object Transaction {
       nextNodeId: NodeId,
       nodes: Map[NodeId, Node],
       roots: BackStack[NodeId],
-      consumedBy: Map[ContractId, NodeId],
+      consumedBy: Map[TContractId, NodeId],
       context: Context,
       aborted: Option[TransactionError],
-      keys: Map[GlobalKey, Option[ContractId]],
+      keys: Map[GlobalKey, Option[TContractId]],
       usedPackages: Set[PackageId]
   ) {
 
@@ -485,7 +513,7 @@ object Transaction {
 
         def addToStringBuilder(
             nid: NodeId,
-            node: GenNode.WithTxValue[NodeId, ContractId],
+            node: GenNode.WithTxValue[NodeId, TContractId],
             rootPrefix: String): Unit = {
           sb.append(rootPrefix)
             .append("node ")
@@ -544,13 +572,13 @@ object Transaction {
       * consumed if any.
       */
     def lookupLocalContract(lcoid: RelativeContractId)
-      : Option[(ContractInst[Transaction.Value[ContractId]], Option[NodeId])] = {
+      : Option[(ContractInst[Transaction.Value[TContractId]], Option[NodeId])] = {
       def guard(b: Boolean): Option[Unit] = if (b) Some(()) else None
       for {
         _ <- guard(0 <= lcoid.txnid.index)
         node <- nodes.get(lcoid.txnid)
         coinst <- node match {
-          case create: NodeCreate.WithTxValue[ContractId] =>
+          case create: NodeCreate.WithTxValue[TContractId] =>
             Some((create.coinst, consumedBy.get(lcoid)))
           case _: NodeExercises[_, _, _] | _: NodeFetch[_] | _: NodeLookupByKey[_, _] => None
         }
@@ -561,12 +589,12 @@ object Transaction {
       * contract instance.
       */
     def create(
-        coinst: ContractInst[Value[ContractId]],
+        coinst: ContractInst[Value[TContractId]],
         optLocation: Option[Location],
         signatories: Set[Party],
         stakeholders: Set[Party],
-        key: Option[KeyWithMaintainers[Value[ContractId]]])
-      : Either[String, (ContractId, PartialTransaction)] = {
+        key: Option[KeyWithMaintainers[Value[TContractId]]])
+      : Either[String, (TContractId, PartialTransaction)] = {
       val serializableErrs = serializable(coinst.arg)
       if (serializableErrs.nonEmpty) {
         Left(
@@ -612,10 +640,10 @@ object Transaction {
     def markPackage(packageId: PackageId): PartialTransaction =
       this.copy(usedPackages = usedPackages + packageId)
 
-    def serializable(a: Value[ContractId]): ImmArray[String] = a.value.serializable()
+    def serializable(a: Value[TContractId]): ImmArray[String] = a.value.serializable()
 
     def insertFetch(
-        coid: ContractId,
+        coid: TContractId,
         templateId: TypeConName,
         optLocation: Option[Location],
         actingParties: Set[Party],
@@ -639,11 +667,11 @@ object Transaction {
         templateId: TypeConName,
         optLocation: Option[Location],
         key: KeyWithMaintainers[Value.VersionedValue[Nothing]],
-        result: Option[ContractId]): PartialTransaction =
+        result: Option[TContractId]): PartialTransaction =
       insertFreshNode(_ => NodeLookupByKey(templateId, optLocation, key, result), None)._2
 
     def beginExercises(
-        targetId: ContractId,
+        targetId: TContractId,
         templateId: TypeConName,
         choiceId: ChoiceName,
         optLocation: Option[Location],
@@ -653,7 +681,7 @@ object Transaction {
         stakeholders: Set[Party],
         controllers: Set[Party],
         mbKey: Option[Value[AbsoluteContractId]],
-        chosenValue: Value[ContractId]
+        chosenValue: Value[TContractId]
     ): Either[String, PartialTransaction] = {
       val serializableErrs = serializable(chosenValue)
       if (serializableErrs.nonEmpty) {
@@ -704,7 +732,7 @@ object Transaction {
       }
     }
 
-    def endExercises(value: Value[ContractId]): (Option[NodeId], PartialTransaction) = {
+    def endExercises(value: Value[TContractId]): (Option[NodeId], PartialTransaction) = {
       context match {
         case ContextRoot =>
           (None, noteAbort(EndExerciseInRootContext))
@@ -739,13 +767,13 @@ object Transaction {
       copy(aborted = Some(err))
 
     /** `True` iff the given `ContractId` has been consumed already */
-    def isConsumed(coid: ContractId): Boolean = consumedBy.contains(coid)
+    def isConsumed(coid: TContractId): Boolean = consumedBy.contains(coid)
 
     /** Guard the execution of a step with the unconsumedness of a
       * `ContractId`
       */
     def mustBeActive(
-        coid: ContractId,
+        coid: TContractId,
         templateId: TypeConName,
         f: => PartialTransaction): PartialTransaction =
       consumedBy.get(coid) match {
@@ -768,7 +796,7 @@ object Transaction {
     /** Insert the given `Node` under a fresh node-id, and return it */
     def insertFreshNode(
         n: NodeId => Node,
-        optConsumedBy: Option[ContractId]): (NodeId, PartialTransaction) =
+        optConsumedBy: Option[TContractId]): (NodeId, PartialTransaction) =
       withFreshNodeId {
         case (nodeId, ptx) =>
           val ptx2 = ptx.insertNode(nodeId, n(nodeId))

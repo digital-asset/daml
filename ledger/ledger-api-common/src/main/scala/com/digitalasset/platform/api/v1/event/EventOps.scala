@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.api.v1.event
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.{ContractId, EventId}
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent}
@@ -39,8 +40,8 @@ object EventOps {
     def eventIndex: Int = getEventIndex(event.event.eventId.unwrap)
 
     def eventId: EventId = event match {
-      case Archived(value) => EventId(value.eventId)
-      case Created(value) => EventId(value.eventId)
+      case Archived(value) => EventId(Ref.LedgerString.assertFromString(value.eventId))
+      case Created(value) => EventId(Ref.LedgerString.assertFromString(value.eventId))
       case Empty => throw new IllegalArgumentException("Cannot extract Event ID from Empty event.")
     }
 
@@ -57,11 +58,14 @@ object EventOps {
         throw new IllegalArgumentException("Cannot extract Template ID from Empty event.")
     }
 
-    def contractId: ContractId = event match {
-      case Archived(value) => ContractId(value.contractId)
-      case Created(value) => ContractId(value.contractId)
-      case Empty =>
-        throw new IllegalArgumentException("Cannot extract contractId from Empty event.")
+    def contractId: ContractId = {
+      val rawId = event match {
+        case Archived(value) => value.contractId
+        case Created(value) => value.contractId
+        case Empty =>
+          throw new IllegalArgumentException("Cannot extract contractId from Empty event.")
+      }
+      ContractId(Ref.LedgerString.assertFromString(rawId))
     }
 
     def withWitnesses(witnesses: Seq[String]): Event.Event = event match {
@@ -93,8 +97,13 @@ object EventOps {
   }
 
   implicit class TreeEventOps(val event: TreeEvent) {
-    def eventId: EventId = event.kind.fold(e => EventId(e.eventId), c => EventId(c.eventId))
-    def children: Seq[EventId] = event.kind.fold(e => Tag.subst(e.childEventIds), _ => Nil)
+    def eventId: EventId =
+      event.kind.fold(
+        e => EventId(Ref.LedgerString.assertFromString(e.eventId)),
+        c => EventId(Ref.LedgerString.assertFromString(c.eventId)))
+    def children: Seq[EventId] =
+      event.kind
+        .fold(e => Tag.subst(e.childEventIds.map(Ref.LedgerString.assertFromString)), _ => Nil)
     def witnessParties: Seq[String] = event.kind.fold(_.witnessParties, _.witnessParties)
   }
 

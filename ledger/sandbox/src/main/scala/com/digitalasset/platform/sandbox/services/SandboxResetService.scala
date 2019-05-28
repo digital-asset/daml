@@ -3,10 +3,10 @@
 
 package com.digitalasset.platform.sandbox.services
 
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
-
-import com.digitalasset.platform.server.api.validation.CommandValidations
+import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.empty.Empty
 import io.grpc.{BindableService, ServerServiceDefinition}
 import org.slf4j.LoggerFactory
@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class SandboxResetService(
-    getLedgerId: () => String,
+    getLedgerId: () => LedgerId,
     getEc: () => ExecutionContext,
     resetAndRestartServer: () => Future[Unit])
     extends ResetServiceGrpc.ResetService
@@ -33,8 +33,12 @@ class SandboxResetService(
     // * serve the response to the reset request;
     // * then, close all the services so hopefully the graceful shutdown will terminate quickly...
     // * ...but not before serving the request to the reset request itself, which we've already done.
-    CommandValidations
-      .matchLedgerId(getLedgerId())(request.ledgerId)
+    val ledgerId = getLedgerId()
+    Either
+      .cond(
+        ledgerId == LedgerId(request.ledgerId),
+        request.ledgerId,
+        ErrorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId)))
       .fold(Future.failed[Empty], { _ =>
         actuallyReset().map(_ => Empty())(DE)
       })

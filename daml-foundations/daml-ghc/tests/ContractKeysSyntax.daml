@@ -1,4 +1,4 @@
--- @IGNORE-LF 1.2
+-- @SINCE-LF 1.3
 daml 1.2
 module ContractKeysSyntax where
 

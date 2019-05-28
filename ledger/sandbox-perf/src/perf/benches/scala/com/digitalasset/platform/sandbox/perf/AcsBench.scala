@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.perf
 import java.io.File
 
 import akka.stream.scaladsl.Sink
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -26,7 +27,7 @@ class AcsBench extends TestCommands with InfAwait {
       template: Identifier): SubmitAndWaitRequest = {
     buildRequest(
       ledgerId = ledgerId,
-      commandId = s"command-id-exercise-$sequenceNumber'",
+      commandId = s"command-id-exercise-$sequenceNumber",
       commands = Seq(exerciseWithUnit(template, contractId, "DummyChoice1")),
       appId = "app1"
     ).toSync
@@ -37,12 +38,12 @@ class AcsBench extends TestCommands with InfAwait {
       template: Identifier): Option[String] = {
     val events = response.activeContracts.toSet
     events.collectFirst {
-      case CreatedEvent(contractId, _, Some(id), _, _) if id == template => contractId
+      case CreatedEvent(contractId, _, Some(id), _, _, _) if id == template => contractId
     }
   }
 
   private def getContractIds(state: PerfBenchState, template: Identifier, ledgerId: String) =
-    new ActiveContractSetClient(ledgerId, state.ledger.acsService)(state.esf)
+    new ActiveContractSetClient(domain.LedgerId(ledgerId), state.ledger.acsService)(state.esf)
       .getActiveContracts(MockMessages.transactionFilter)
       .map(extractContractId(_, template))
 

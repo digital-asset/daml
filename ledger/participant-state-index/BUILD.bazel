@@ -13,17 +13,28 @@ compileDependencies = [
     "//daml-lf/data",
     "//daml-lf/transaction",
     "//ledger/ledger-api-domain",
-    "//ledger/participant-state",
 ]
 
 da_scala_library(
     name = "participant-state-index",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/index/v1/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
     tags = ["maven_coordinates=com.daml.ledger:participant-state-index:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     runtime_deps = [],
-    deps = compileDependencies,
+    deps = compileDependencies + ["//ledger/participant-state"],
+)
+
+da_scala_library(
+    name = "participant-state-index-v2",
+    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/index/v2/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    #    tags = ["maven_coordinates=com.daml.ledger:participant-state-index:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = compileDependencies + ["//3rdparty/jvm/org/scalaz:scalaz_core"],
 )

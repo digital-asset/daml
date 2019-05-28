@@ -3,14 +3,16 @@
 
 package com.daml.ledger.participant.state.v1.impl.reference
 
-import com.daml.ledger.participant.state.v1.{
-  CommittedTransaction,
-  SubmittedTransaction,
-  TransactionId
-}
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, SubmittedTransaction}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{
+  ContractIdString,
+  LedgerString,
+  Party,
+  TransactionIdString
+}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.transaction.Transaction.ContractId
+import com.digitalasset.daml.lf.transaction.Transaction.TContractId
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
@@ -25,11 +27,11 @@ object Transaction {
   case class TxDelta(
       inputs: Set[AbsoluteContractId], // consumed input contracts
       inputs_nc: Set[AbsoluteContractId], // non-consumed input contracts
-      outputs: Map[ContractId, Contract]) // new contracts are outputs
+      outputs: Map[TContractId, Contract]) // new contracts are outputs
 
   case class Contract(
-      contract: Value.ContractInst[VersionedValue[ContractId]],
-      witnesses: Set[Ref.Party])
+      contract: Value.ContractInst[VersionedValue[TContractId]],
+      witnesses: Set[Party])
 
   def computeTxDelta(transaction: SubmittedTransaction): TxDelta = {
     val emptyDelta = TxDelta(Set.empty, Set.empty, Map.empty)
@@ -66,16 +68,19 @@ object Transaction {
     }
   }
 
-  def toAbsTx(txId: TransactionId, tx: SubmittedTransaction): CommittedTransaction =
+  def toAbsTx(txId: TransactionIdString, tx: SubmittedTransaction): CommittedTransaction =
     tx.mapContractIdAndValue(mkAbsContractId(txId), _.mapContractId(mkAbsContractId(txId)))
 
-  def mkAbsContractId(txId: String): ContractId => AbsoluteContractId = {
+  def mkAbsContractId(txId: TransactionIdString): TContractId => AbsoluteContractId = {
     case RelativeContractId(nid) => AbsoluteContractId(toAbsNodeId(txId, nid))
     case c @ AbsoluteContractId(_) => c
   }
 
-  def toAbsNodeId(txId: String, nid: Value.NodeId): String =
-    s"#$txId:${nid.index}"
+  private val `#` = LedgerString.assertFromString("#")
+  private val `:` = LedgerString.assertFromString(":")
+
+  def toAbsNodeId(txId: TransactionIdString, nid: Value.NodeId): ContractIdString =
+    LedgerString.concat(`#`, txId, `:`, nid.name)
 
   def encodeTransaction(tx: SubmittedTransaction): ByteString =
     TransactionCoder
@@ -100,7 +105,7 @@ object Transaction {
 
   // TODO (SM): document this and the methods below and why they are used that
   // way https://github.com/digital-asset/daml/issues/388
-  val cidEncoder: ValueCoder.EncodeCid[ContractId] =
+  val cidEncoder: ValueCoder.EncodeCid[TContractId] =
     ValueCoder.EncodeCid(
       {
         case AbsoluteContractId(coid) => "abs:" + coid
@@ -111,28 +116,37 @@ object Transaction {
       }
     )
 
-  val cidDecoder: ValueCoder.DecodeCid[ContractId] =
-    ValueCoder.DecodeCid[ContractId](
+  private def toAbsoluteContractId(s: String) =
+    Ref.ContractIdString
+      .fromString(s)
+      .left
+      .map(e => DecodeError("cannot parse contractId $e"))
+      .map(AbsoluteContractId)
+
+  val cidDecoder: ValueCoder.DecodeCid[TContractId] =
+    ValueCoder.DecodeCid[TContractId](
       s => {
         val (prefix, s2) = s.splitAt(4)
         prefix match {
-          case "abs:" => Right(AbsoluteContractId(s2))
+          case "abs:" =>
+            toAbsoluteContractId(s2)
           case "rel:" =>
             Right(RelativeContractId(Value.NodeId.unsafeFromIndex(Integer.parseInt(s2))))
-          case _ => Left(DecodeError("Unexpected prefix: " + prefix))
+          case _ =>
+            Left(DecodeError("Unexpected prefix: " + prefix))
         }
       },
       (s, r) =>
         if (r)
           Right(RelativeContractId(Value.NodeId.unsafeFromIndex(Integer.parseInt(s))))
         else
-          Right(AbsoluteContractId(s))
+          toAbsoluteContractId(s)
     )
 
   val nidDecoder: String => Either[ValueCoder.DecodeError, Value.NodeId] =
     s => Right(Value.NodeId.unsafeFromIndex(Integer.parseInt(s)))
 
   val nidEncoder: TransactionCoder.EncodeNid[Value.NodeId] =
-    nid => nid.index.toString()
+    nid => nid.index.toString
 
 }

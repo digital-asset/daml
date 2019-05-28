@@ -138,7 +138,7 @@ mkExpectRst anchor name descr templates classes adts fcts = T.unlines $
          , T.unlines (map (<> "\n") classes)
          ]
      , if null adts then [] else
-         [ "Data Types"
+         [ "Data types"
          , "^^^^^^^^^^"
          , T.unlines (map (<> "\n") adts)
          ]
@@ -202,7 +202,7 @@ mkExpectMD name descr templates classes adts fcts
       , "", T.unlines classes
       , ""]
   , if null adts then [] else
-      [ "## Data Types"
+      [ "## Data types"
       , "", T.unlines adts
       , ""]
   , if null fcts then [] else

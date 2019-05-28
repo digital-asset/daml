@@ -19,6 +19,7 @@ rec {
     nodejs
     patchelf
     protobuf3_5
+    scala
     zip
     ;
 
@@ -35,8 +36,8 @@ rec {
   # as possible.
   ghc = import ./ghc.nix { inherit pkgs; };
 
-  # GHC with the "c2hs" package included.
-  ghcWithC2hs = ghc.ghcWithPackages (p: [p.c2hs]);
+  # GHC with the package configurations patched for static only linking.
+  ghcStatic = ghc.ghcWithPackages (p: []);
 
 
   # Java 8 development

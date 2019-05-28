@@ -29,6 +29,7 @@ apt-get install -qy \
   netcat
 
 curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
+systemctl restart google-fluentd.service
 
 ## Install the VSTS agent
 groupadd --gid 3000 vsts
@@ -117,9 +118,6 @@ echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
   ./ci/dev-env-install.sh
   ./build.sh "_$(uname)"
 ) || true
-
-# free some disk space
-rm -rf ~/daml
 CACHE_WARMUP
 
 # Purge old agents

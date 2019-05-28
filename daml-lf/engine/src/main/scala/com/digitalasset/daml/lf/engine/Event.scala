@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.transaction.Node.{
   NodeFetch,
   NodeLookupByKey
 }
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.data.Relation.Relation
@@ -37,6 +37,7 @@ final case class CreateEvent[Cid, Val](
     contractId: Cid,
     templateId: Identifier,
     argument: Val,
+    agreementText: String,
     stakeholders: Set[Party],
     witnesses: Set[Party])
     extends Event[Nothing, Cid, Val] {
@@ -62,7 +63,7 @@ final case class CreateEvent[Cid, Val](
 final case class ExerciseEvent[Nid, Cid, Val](
     contractId: Cid,
     templateId: Identifier,
-    choice: String,
+    choice: ChoiceName,
     choiceArgument: Val,
     actingParties: Set[Party],
     isConsuming: Boolean,
@@ -153,6 +154,7 @@ object Event {
                   nc.coid,
                   templateId,
                   nc.coinst.arg,
+                  nc.coinst.agreementText,
                   stakeholders intersect disclosure(nodeId),
                   disclosure(nodeId))
               evts += (nodeId -> evt)

@@ -8,6 +8,7 @@ daml.html -> /daml/reference/index.html
 daml/reference/template-reference.html -> /daml/reference/index.html
 daml/anti-patterns.html
 daml/models-versus-application.html
+daml/stdlib/base.html -> daml/reference/base.html
 concepts.html -> /concepts/ledger-model/index.html
 getting-started.html -> /getting-started/quickstart.html
 packages/da-docs-example-upgrade/index.html -> /examples/upgrade/index.html

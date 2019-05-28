@@ -19,7 +19,6 @@ import           Control.Monad.Reader
 import           Control.Monad.Trans.Except
 import           DA.Daml.LF.Decimal  (stringToDecimal)
 import qualified DA.Daml.LF.Ast             as LF
-import Data.Tagged
 import Control.Applicative
 import Text.Read hiding (parens)
 import           DA.Pretty as Pretty
@@ -73,15 +72,15 @@ askWorld = asks snd
 lookupDefLocation :: LF.Module -> T.Text -> Maybe LF.SourceLoc
 lookupDefLocation mod0 defName =
   join $
-    LF.dvalLocation <$> NM.lookup (Tagged defName) (LF.moduleValues mod0)
+    LF.dvalLocation <$> NM.lookup (LF.ExprValName defName) (LF.moduleValues mod0)
     <|>
-    LF.tplLocation <$> NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
+    LF.tplLocation <$> NM.lookup (LF.TypeConName [defName]) (LF.moduleTemplates mod0)
 
 lookupModule :: LF.World -> Maybe PackageIdentifier -> LF.ModuleName -> Maybe LF.Module
 lookupModule world mbPkgId modName = do
   let pkgRef = case mbPkgId of
        Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) ->
-         LF.PRImport $ Tagged $ TL.toStrict pkgId
+         LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
        _ -> LF.PRSelf
   eitherToMaybe (LF.lookupModule (LF.Qualified pkgRef modName ()) world)
 
@@ -90,7 +89,7 @@ lookupModuleFromQualifiedName ::
   -> Maybe (LF.ModuleName, T.Text, LF.Module)
 lookupModuleFromQualifiedName world mbPkgId qualName = do
   let (modName, defName) = case T.splitOn ":" qualName of
-        [modNm, defNm] -> (Tagged (T.splitOn "." modNm), defNm)
+        [modNm, defNm] -> (LF.ModuleName (T.splitOn "." modNm), defNm)
         _ -> error "Bad definition"
   modu <- lookupModule world mbPkgId modName
   return (modName, defName, modu)
@@ -287,6 +286,22 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
              )
             )
 
+        Just (FailedAuthorizationSumMaintainersNotSubsetOfSignatories
+          (FailedAuthorization_MaintainersNotSubsetOfSignatories templateId mbLoc signatories maintainers)) ->
+          "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+          <-> "at" <-> prettyMayLocation world mbLoc
+          $$
+            ("failed due to that some parties are maintainers but not signatories: "
+             <->
+             ( fcommasep
+             $ map (prettyParty . Party)
+             $ S.toList
+             $ S.fromList (mapV partyParty maintainers)
+               `S.difference`
+               S.fromList (mapV partyParty signatories)
+             )
+            )
+
         Just (FailedAuthorizationSumFetchMissingAuthorization
           (FailedAuthorization_FetchMissingAuthorization templateId mbLoc authParties stakeholders)) ->
           "fetch of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
@@ -440,7 +455,7 @@ prettyMayLocation :: LF.World -> Maybe Location -> Doc SyntaxClass
 prettyMayLocation _ Nothing = text "unknown source"
 prettyMayLocation world (Just (Location mbPkgId modName sline scol eline _ecol)) =
       maybe id (\path -> linkSC (url path) title)
-        (lookupModule world mbPkgId (Tagged (T.splitOn "." (TL.toStrict modName))) >>= LF.moduleSource)
+        (lookupModule world mbPkgId (LF.ModuleName (T.splitOn "." (TL.toStrict modName))) >>= LF.moduleSource)
     $ text title
   where
     modName' = TL.toStrict modName
@@ -734,8 +749,8 @@ prettyChoiceId _ Nothing choiceId = ltext choiceId
 prettyChoiceId world (Just (Identifier mbPkgId (TL.toStrict -> qualName))) (TL.toStrict -> choiceId)
   | Just (_modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
   , Just fp <- LF.moduleSource mod0
-  , Just tpl <- NM.lookup (Tagged [defName]) (LF.moduleTemplates mod0)
-  , Just chc <- NM.lookup (Tagged choiceId) (LF.tplChoices tpl)
+  , Just tpl <- NM.lookup (LF.TypeConName [defName]) (LF.moduleTemplates mod0)
+  , Just chc <- NM.lookup (LF.ChoiceName choiceId) (LF.tplChoices tpl)
   , Just (LF.SourceLoc _mref sline _scol eline _ecol) <- LF.chcLocation chc =
       linkSC (revealLocationUri fp sline eline) choiceId $ text choiceId
   | otherwise =
@@ -810,15 +825,43 @@ renderValue world name = \case
         renderField (Field label mbValue) =
             renderValue world (name ++ [TL.toStrict label]) (fromJust mbValue)
 
-renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
-renderRow world parties NodeInfo{..} =
-    let (ths, tds) = renderValue world [] niValue
-        header = H.tr $ mconcat
+templateConName :: Identifier -> LF.Qualified LF.TypeConName
+templateConName (Identifier mbPkgId (TL.toStrict -> qualName)) = LF.Qualified pkgRef  mdN tpl
+  where (mdN, tpl) = case T.splitOn ":" qualName of
+          [modName, defN] -> (LF.ModuleName (T.splitOn "." modName) , LF.TypeConName (T.splitOn "." defN) )
+          _ -> error "malformed identifier"
+        pkgRef = case mbPkgId of
+                  Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) -> LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
+                  Just (PackageIdentifier (Just (PackageIdentifierSumSelf _))) -> LF.PRSelf
+                  Just (PackageIdentifier Nothing) -> error "unidentified package reference"
+                  Nothing -> error "unidentified package reference"
+
+labledField :: T.Text -> T.Text -> T.Text
+labledField fname "" = fname
+labledField fname label = fname <> "." <> label
+
+typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
+typeConFieldsNames world (LF.FieldName fName, LF.TConApp tcn _) = map (labledField fName) (typeConFields tcn world)
+typeConFieldsNames _ (LF.FieldName fName, _) = [fName]
+
+typeConFields :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
+typeConFields qName world = case LF.lookupDataType qName world of
+  Right dataType -> case LF.dataCons dataType of
+    LF.DataRecord re -> concatMap (typeConFieldsNames world) re
+    LF.DataVariant _ -> [""]
+  Left _ -> error "malformed template constructor"
+
+renderHeader :: LF.World -> Identifier -> S.Set T.Text -> H.Html
+renderHeader world identifier parties = H.tr $ mconcat
             [ foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
             , H.th "id"
             , H.th "status"
-            , ths
+            , foldMap (H.th . H.text) (typeConFields (templateConName identifier) world)
             ]
+
+renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> H.Html
+renderRow world parties NodeInfo{..} =
+    let (_, tds) = renderValue world [] niValue
         observed party = if party `S.member` niObservers then "X" else "-"
         active = if niActive then "active" else "archived"
         row = H.tr H.! A.class_ (H.textValue active) $ mconcat
@@ -827,16 +870,15 @@ renderRow world parties NodeInfo{..} =
             , H.td (H.text active)
             , tds
             ]
-    in (header, row)
+    in row
 
--- TODO(MH): The header should be rendered from the type rather than from the
--- first value.
 renderTable :: LF.World -> Table -> H.Html
 renderTable world Table{..} = H.div H.! A.class_ active $ do
     let parties = S.unions $ map niObservers tRows
     H.h1 $ renderPlain $ prettyDefName world tTemplateId
-    let (headers, rows) = unzip $ map (renderRow world parties) tRows
-    H.table $ head headers <> mconcat rows
+    let rows = map (renderRow world parties) tRows
+    let header = renderHeader world tTemplateId parties
+    H.table $ header <> mconcat rows
     where
         active = if any niActive tRows then "active" else "archived"
 

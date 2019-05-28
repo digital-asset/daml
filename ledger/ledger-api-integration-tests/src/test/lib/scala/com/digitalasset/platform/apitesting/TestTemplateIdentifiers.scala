@@ -113,6 +113,12 @@ final case class TestTemplateIdentifiers(testPackageId: String) {
       "Test.DivulgeWitnesses",
       moduleName = "Test",
       entityName = "DivulgeWitnesses")
+  val maintainerNotSignatory =
+    Identifier(
+      testPackageId,
+      "Test.MaintainerNotSignatory",
+      moduleName = "Test",
+      entityName = "MaintainerNotSignatory")
   val allTemplates =
     List(
       dummy,
@@ -127,6 +133,7 @@ final case class TestTemplateIdentifiers(testPackageId: String) {
       textKeyOperations,
       divulgence1,
       divulgence2,
-      witnesses
+      witnesses,
+      maintainerNotSignatory
     )
 }

@@ -24,6 +24,5 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
         "//daml-lf/transaction/src/main/protobuf:value_java_proto",
-        "//ledger/ledger-api-common",
     ],
 )

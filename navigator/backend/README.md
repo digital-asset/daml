@@ -19,7 +19,7 @@ We can build and run a basic the backend using the following commands:
 
 ```bash
 # Build a distribution archive ("fat jar"):
-bazel build //navigator/backend/navigator-binary_deploy.jar
+bazel build //navigator/backend:navigator-binary_deploy.jar
 
 # Run without arguments to show usage:
 java -jar navigator-binary_deploy.jar --help

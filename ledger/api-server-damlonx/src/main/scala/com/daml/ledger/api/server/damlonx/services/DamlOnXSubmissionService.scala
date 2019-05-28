@@ -5,7 +5,7 @@ package com.daml.ledger.api.server.damlonx.services
 
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v1.IndexService
-import com.daml.ledger.participant.state.v1.{LedgerId, SubmitterInfo, TransactionMeta, WriteService}
+import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta, WriteService}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{
@@ -22,6 +22,7 @@ import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.ledger.api.domain.{LedgerId => ApiLedgerId}
 import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
@@ -35,6 +36,7 @@ import io.grpc.BindableService
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
+import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -42,7 +44,7 @@ object DamlOnXSubmissionService {
 
   def create(
       identifierResolver: IdentifierResolver,
-      ledgerId: LedgerId,
+      ledgerId: String,
       indexService: IndexService,
       writeService: WriteService,
       engine: Engine)(
@@ -52,7 +54,7 @@ object DamlOnXSubmissionService {
     with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new DamlOnXSubmissionService(indexService, writeService, engine),
-      ledgerId,
+      ApiLedgerId(ledgerId),
       identifierResolver
     ) with CommandSubmissionServiceLogging
 
@@ -80,7 +82,6 @@ class DamlOnXSubmissionService private (
   }
 
   private def recordOnLedger(commands: ApiCommands): Future[Unit] = {
-    val ledgerId = Ref.PackageId.assertFromString(commands.ledgerId.unwrap)
     val getPackage =
       (packageId: Ref.PackageId) =>
         indexService
@@ -97,23 +98,26 @@ class DamlOnXSubmissionService private (
           Future.failed(invalidArgument(err.detailMsg))
 
         case Right(updateTx) =>
-          Future {
-            logger.debug(
-              s"Submitting transaction from ${commands.submitter} with ${commands.commandId.unwrap}")
-            writeService.submitTransaction(
-              submitterInfo = SubmitterInfo(
-                submitter = commands.submitter,
-                applicationId = commands.applicationId.unwrap,
-                maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
-                commandId = commands.commandId.unwrap
-              ),
-              transactionMeta = TransactionMeta(
-                ledgerEffectiveTime = Timestamp.assertFromInstant(commands.ledgerEffectiveTime),
-                workflowId = commands.workflowId.fold("")(_.unwrap) // FIXME(JM): sensible defaulting?
-              ),
-              transaction = updateTx
+          logger.debug(
+            s"Submitting transaction from ${commands.submitter} with ${commands.commandId.unwrap}")
+          FutureConverters
+            .toScala(
+              writeService
+                .submitTransaction(
+                  submitterInfo = SubmitterInfo(
+                    submitter = commands.submitter,
+                    applicationId = commands.applicationId.unwrap,
+                    maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
+                    commandId = commands.commandId.unwrap
+                  ),
+                  transactionMeta = TransactionMeta(
+                    ledgerEffectiveTime = Timestamp.assertFromInstant(commands.ledgerEffectiveTime),
+                    workflowId = commands.workflowId.map(_.unwrap)
+                  ),
+                  transaction = updateTx
+                )
             )
-          }
+            .map(_ => ())
       }
   }
 

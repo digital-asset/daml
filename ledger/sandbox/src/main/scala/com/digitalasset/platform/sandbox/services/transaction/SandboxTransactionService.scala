@@ -8,50 +8,43 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.digitalasset.api.util.TimestampConversion._
+import com.daml.ledger.participant.state.index.v2.TransactionsService
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain._
 import com.digitalasset.ledger.api.messages.transaction._
-import com.digitalasset.ledger.api.v1.transaction.{Transaction => PTransaction}
-import com.digitalasset.ledger.api.v1.transaction_service.{
-  GetTransactionsResponse,
-  TransactionServiceLogging
-}
 import com.digitalasset.ledger.api.validation.PartyNameChecker
-import com.digitalasset.ledger.backend.api.v1.LedgerBackend
-import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction
-import com.digitalasset.platform.participant.util.EventFilter
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter.TransactionIdWithIndex
-import com.digitalasset.platform.server.api._
 import com.digitalasset.platform.server.api.services.domain.TransactionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcTransactionService
 import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
-import com.digitalasset.platform.server.services.transaction._
 import io.grpc._
 import org.slf4j.LoggerFactory
-import scalaz.Tag
 import scalaz.syntax.tag._
+import com.digitalasset.ledger.api.v1.transaction_service.{TransactionServiceLogging}
 
-import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 object SandboxTransactionService {
 
-  def createApiService(ledgerBackend: LedgerBackend, identifierResolver: IdentifierResolver)(
+  def createApiService(
+      ledgerId: LedgerId,
+      transactionsService: TransactionsService,
+      identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
     : GrpcTransactionService with BindableService with TransactionServiceLogging =
     new GrpcTransactionService(
-      new SandboxTransactionService(ledgerBackend),
-      ledgerBackend.ledgerId,
+      new SandboxTransactionService(transactionsService),
+      ledgerId,
       PartyNameChecker.AllowAllParties,
       identifierResolver) with TransactionServiceLogging
 }
 
-class SandboxTransactionService private (val ledgerBackend: LedgerBackend, parallelism: Int = 4)(
+class SandboxTransactionService private (
+    transactionsService: TransactionsService,
+    parallelism: Int = 4)(
     implicit executionContext: ExecutionContext,
     materializer: Materializer,
     esf: ExecutionSequencerFactory)
@@ -63,193 +56,105 @@ class SandboxTransactionService private (val ledgerBackend: LedgerBackend, paral
 
   private val subscriptionIdCounter = new AtomicLong()
 
-  private val transactionPipeline = TransactionPipeline(ledgerBackend)
-
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
-  override def getTransactions(
-      request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] = {
+  override def getTransactions(request: GetTransactionsRequest): Source[Transaction, NotUsed] = {
     val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
     logger.debug(
       "Received request for transaction subscription {}: {}",
       subscriptionId: Any,
       request)
 
-    val eventFilter = EventFilter.byTemplates(request.filter)
+    transactionsService
+      .transactions(request.begin, request.end, request.filter)
 
-    transactionPipeline
-      .run(request.begin, request.end)
-      .mapConcat { trans =>
-        acceptedToFlat(trans, request.verbose, eventFilter) match {
-          case Some(transaction) =>
-            val response = GetTransactionsResponse(Seq(transaction))
-            logger.debug(
-              "Serving item {} (offset: {}) in transaction subscription {} to client",
-              transaction.transactionId,
-              transaction.offset,
-              subscriptionId)
-            List(response)
-          case None =>
-            logger.trace(
-              "Not serving item {} for transaction subscription {} as no events are visible",
-              trans.transactionId,
-              subscriptionId: Any)
-            Nil
-        }
-      }
   }
 
-  private def acceptedToFlat(
-      trans: AcceptedTransaction,
-      verbose: Boolean,
-      eventFilter: TemplateAwareFilter): Option[PTransaction] = {
-    val events =
-      TransactionConversion
-        .genToFlatTransaction(
-          trans.transaction,
-          trans.explicitDisclosure.mapValues(set => set.toSet[String]),
-          verbose)
-        .flatMap(eventFilter.filterEvent(_).toList)
-
-    val submitterIsSubscriber =
-      trans.submitter
-        .map(Party.assertFromString)
-        .fold(false)(eventFilter.isSubmitterSubscriber)
-    if (events.nonEmpty || submitterIsSubscriber) {
-      Some(
-        PTransaction(
-          transactionId = trans.transactionId,
-          commandId = if (submitterIsSubscriber) trans.commandId.getOrElse("") else "",
-          workflowId = trans.workflowId,
-          effectiveAt = Some(fromInstant(trans.recordTime)),
-          events = events,
-          offset = trans.offset
-        ))
-    } else None
-  }
-
-  override def getTransactionTrees(request: GetTransactionTreesRequest)
-    : Source[WithOffset[String, VisibleTransaction], NotUsed] = {
+  override def getTransactionTrees(
+      request: GetTransactionTreesRequest): Source[TransactionTree, NotUsed] = {
     logger.debug("Received {}", request)
-    transactionPipeline
-      .run(
+    transactionsService
+      .transactionTrees(
         request.begin,
-        request.end
+        request.end,
+        TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap)
       )
-      .mapConcat { trans =>
-        toResponseIfVisible(request.parties, trans)
-          .fold(List.empty[WithOffset[String, VisibleTransaction]])(e =>
-            List(WithOffset(trans.offset, e)))
-
-      }
-  }
-
-  private def toResponseIfVisible(subscribingParties: Set[Party], trans: AcceptedTransaction) = {
-    val eventFilter = TransactionFilter(subscribingParties.map(_ -> Filters.noFilter)(breakOut))
-    val withMeta = toTransactionWithMeta(trans)
-    VisibleTransaction.toVisibleTransaction(eventFilter, withMeta)
   }
 
   override def getTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[Option[VisibleTransaction]] = {
+      request: GetTransactionByEventIdRequest): Future[TransactionTree] = {
     logger.debug("Received {}", request)
     SandboxEventIdFormatter
       .split(request.eventId.unwrap)
       .fold(
-        Future.failed[Option[VisibleTransaction]](
+        Future.failed[TransactionTree](
           Status.INVALID_ARGUMENT
             .withDescription(s"invalid eventId: ${request.eventId}")
             .asRuntimeException())) {
         case TransactionIdWithIndex(transactionId, index) =>
-          lookUpTreeByTransactionId(
-            TransactionId(transactionId.toString),
-            request.requestingParties)
+          lookUpTreeByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
   }
 
-  override def getTransactionById(
-      request: GetTransactionByIdRequest): Future[Option[VisibleTransaction]] = {
+  override def getTransactionById(request: GetTransactionByIdRequest): Future[TransactionTree] = {
     logger.debug("Received {}", request)
     lookUpTreeByTransactionId(request.transactionId, request.requestingParties)
   }
 
   override def getFlatTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[Option[PTransaction]] = {
+      request: GetTransactionByEventIdRequest): Future[Transaction] = {
     SandboxEventIdFormatter
       .split(request.eventId.unwrap)
       .fold(
-        Future.failed[Option[PTransaction]](
+        Future.failed[Transaction](
           Status.INVALID_ARGUMENT
             .withDescription(s"invalid eventId: ${request.eventId}")
             .asRuntimeException())) {
-        case TransactionIdWithIndex(transactionId, index) =>
-          lookUpFlatByTransactionId(
-            TransactionId(transactionId.toString),
-            request.requestingParties)
+        case TransactionIdWithIndex(transactionId, _) =>
+          lookUpFlatByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
   }
 
-  override def getFlatTransactionById(
-      request: GetTransactionByIdRequest): Future[Option[PTransaction]] = {
+  override def getFlatTransactionById(request: GetTransactionByIdRequest): Future[Transaction] = {
     lookUpFlatByTransactionId(request.transactionId, request.requestingParties)
   }
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
-    ledgerBackend.getCurrentLedgerEnd.map(LedgerOffset.Absolute)
+    transactionsService.currentLedgerEnd()
 
   override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
     Ordering.by(abs => BigInt(abs.value))
 
   private def lookUpTreeByTransactionId(
       transactionId: TransactionId,
-      requestingParties: Set[Party]): Future[Option[VisibleTransaction]] =
-    transactionPipeline
-      .getTransactionById(transactionId.unwrap)
+      requestingParties: Set[Party]): Future[TransactionTree] =
+    transactionsService
+      .getTransactionTreeById(transactionId, requestingParties)
       .flatMap {
         case Some(trans) =>
-          Future.successful(toResponseIfVisible(requestingParties, trans))
+          Future.successful(trans)
 
         case None =>
           Future.failed(
             Status.INVALID_ARGUMENT
-              .withDescription(s"$transactionId could not be found")
+              .withDescription("Transaction not found, or not visible.")
               .asRuntimeException())
       }
 
   private def lookUpFlatByTransactionId(
       transactionId: TransactionId,
-      requestingParties: Set[Party]): Future[Option[PTransaction]] =
-    transactionPipeline
-      .getTransactionById(transactionId.unwrap)
+      requestingParties: Set[Party]): Future[Transaction] =
+    transactionsService
+      .getTransactionById(transactionId, requestingParties)
       .flatMap {
         case Some(trans) =>
-          val eventFilter = EventFilter.byTemplates(
-            TransactionFilter(requestingParties.map(_ -> Filters.noFilter)(breakOut)))
-          val result = acceptedToFlat(trans, verbose = true, eventFilter)
-          Future.successful(result)
+          Future.successful(trans)
 
         case None =>
           Future.failed(
             Status.INVALID_ARGUMENT
-              .withDescription(s"$transactionId could not be found")
+              .withDescription("Transaction not found, or not visible.")
               .asRuntimeException())
       }
-
-  private def toTransactionWithMeta(trans: AcceptedTransaction) =
-    TransactionWithMeta(
-      trans.transaction,
-      extractMeta(trans)
-    )
-
-  private def extractMeta(trans: AcceptedTransaction): TransactionMeta =
-    TransactionMeta(
-      TransactionId(trans.transactionId),
-      Tag.subst(trans.commandId),
-      Tag.subst(trans.applicationId),
-      trans.submitter.map(Party.assertFromString),
-      WorkflowId(trans.workflowId),
-      trans.recordTime,
-      None
-    )
 
   override def close(): Unit = ()
 

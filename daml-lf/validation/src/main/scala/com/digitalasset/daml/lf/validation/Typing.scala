@@ -121,6 +121,8 @@ private[validation] object Typing {
       BSHA256Text -> (TText ->: TText),
       BToQuotedTextParty -> (TParty ->: TText),
       BFromTextParty -> (TText ->: TOptional(TParty)),
+      BFromTextInt64 -> (TText ->: TOptional(TInt64)),
+      BFromTextDecimal -> (TText ->: TOptional(TDecimal)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
       BLessInt64 -> tComparison(BTInt64),
@@ -161,6 +163,10 @@ private[validation] object Typing {
           (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool),
       BEqualContractId ->
         TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
+      BCoerceContractId ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta))),
     )
   }
 
@@ -201,6 +207,9 @@ private[validation] object Typing {
 
     private val supportsFlexibleControllers =
       LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "2"))
+
+    private val supportsComplexContractKeys =
+      LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "4"))
 
     private def introTypeVar(v: TypeVarName, k: Kind): Env = {
       if (tVars.isDefinedAt(v))
@@ -285,7 +294,9 @@ private[validation] object Typing {
       mbKey.foreach { key =>
         checkType(key.typ, KStar)
         env.checkExpr(key.body, key.typ)
-        checkValidKeyExpression(key.body)
+        if (!supportsComplexContractKeys) {
+          checkValidKeyExpression(key.body)
+        }
         checkExpr(key.maintainers, TFun(key.typ, TParties))
         ()
       }
@@ -566,12 +577,12 @@ private[validation] object Typing {
         tpl: TypeConName,
         chName: ChoiceName,
         cid: Expr,
-        actors: Expr,
+        actors: Option[Expr],
         arg: Expr
     ): Type = {
       val choice = lookupChoice(ctx, tpl, chName)
       checkExpr(cid, TContractId(TTyCon(tpl)))
-      checkExpr(actors, TParties)
+      actors.foreach(checkExpr(_, TParties))
       checkExpr(arg, choice.argBinder._2)
       TUpdate(choice.returnType)
     }

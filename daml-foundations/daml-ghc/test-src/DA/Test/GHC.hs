@@ -8,12 +8,13 @@
 -- typecheck with LF, test it.  Test annotations are documented as 'Ann'.
 module DA.Test.GHC
   ( main
-  , mainVersionDefault
-  , mainVersionDev
+  , mainAll
   ) where
 
-import DA.Daml.GHC.Compiler.Options
+import           DA.Bazel.Runfiles
+import           DA.Daml.GHC.Compiler.Options
 import           DA.Daml.GHC.Compiler.UtilLF
+import           DA.Test.Util (standardizeQuotes)
 
 import           DA.Daml.LF.Ast as LF hiding (IsTest)
 import           "ghc-lib-parser" UniqSupply
@@ -49,6 +50,7 @@ import           System.Environment.Blank (setEnv)
 import           System.FilePath
 import           System.Process (readProcess)
 import           System.IO.Extra
+import           System.Info.Extra (isWindows)
 import           Text.Read
 import qualified Data.Set as Set
 import qualified Data.Text as T
@@ -72,22 +74,19 @@ import Test.Tasty.Runners
 newtype TODO = TODO String
 
 main :: IO ()
-main = mainVersionDev
+main = mainWithVersions [versionDev]
 
-mainVersionDefault :: IO ()
-mainVersionDefault = mainWithVersion versionDefault
+mainAll :: IO ()
+mainAll = mainWithVersions (delete versionDev supportedInputVersions)
 
-mainVersionDev :: IO ()
-mainVersionDev = mainWithVersion versionDev
-
-mainWithVersion :: Version -> IO ()
-mainWithVersion version =
+mainWithVersions :: [Version] -> IO ()
+mainWithVersions versions =
   with (SS.startScenarioService (\_ -> pure ()) Logger.makeNopHandle) $ \scenarioService -> do
   setEnv "TASTY_NUM_THREADS" "1" True
   todoRef <- newIORef DList.empty
   let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
-  integrationTest <- getIntegrationTests registerTODO scenarioService version
-  let tests = testGroup "All" [uniqueUniques, integrationTest]
+  integrationTests <- mapM (getIntegrationTests registerTODO scenarioService) versions
+  let tests = testGroup "All" $ uniqueUniques : integrationTests
   defaultMainWithIngredients ingredients tests
     `finally` (do
     todos <- readIORef todoRef
@@ -112,11 +111,12 @@ getIntegrationTests registerTODO scenarioService version = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
-    -- test files are declared as data in BUILD.bazel and are copied over relative to the current run file tree
-    -- this is equivalent to PWD env variable
-    files1 <- filter (".daml" `isExtensionOf`) <$> listFiles "daml-foundations/daml-ghc/tests"
-    let files2 = ["daml-foundations/daml-ghc/bond-trading/Test.daml"] -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
-    let files = files1 ++ files2
+    -- test files are declared as data in BUILD.bazel
+    testsLocation <- locateRunfiles $ mainWorkspace </> "daml-foundations/daml-ghc/tests"
+    damlTestFiles <- filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
+    -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
+    bondTradingLocation <- locateRunfiles $ mainWorkspace </> "daml-foundations/daml-ghc/bond-trading"
+    let allTestFiles = damlTestFiles ++ [bondTradingLocation </> "Test.daml"]
 
     let outdir = "daml-foundations/daml-ghc/output"
     createDirectoryIfMissing True outdir
@@ -126,10 +126,10 @@ getIntegrationTests registerTODO scenarioService version = do
     -- initialise the compiler service
     pure $
       withResource
-      (Compile.initialise Compile.mainRule (Just (\_ -> pure ())) IdeLogger.makeNopHandle opts (Just scenarioService))
+      (Compile.initialise (Compile.mainRule opts) (Just (\_ -> pure ())) IdeLogger.makeNopHandle opts (Just scenarioService))
       Compile.shutdown $ \service ->
       withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
-        map (testCase args version service outdir registerTODO) files
+        map (testCase args version service outdir registerTODO) allTestFiles
 
 newtype TestCase = TestCase ((String -> IO ()) -> IO Result)
 
@@ -149,7 +149,7 @@ testCase :: TestArguments -> LF.Version -> IO Compile.IdeState -> FilePath -> (T
 testCase args version getService outdir registerTODO file = singleTest file . TestCase $ \log -> do
   service <- getService
   anns <- readFileAnns file
-  if any (`elem` [Ignore, IgnoreLfVersion (renderPretty version)]) anns
+  if any (ignoreVersion version) anns
     then pure $ Result
       { resultOutcome = Success
       , resultDescription = ""
@@ -168,14 +168,19 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
       case failures of
         err : _others -> pure $ testFailed err
         [] -> pure $ testPassed ""
+  where
+    ignoreVersion version = \case
+      Ignore -> True
+      SinceLF minVersion -> version < minVersion
+      _ -> False
 
 runJqQuery :: (String -> IO ()) -> [(LF.Package, String)] -> IO [Maybe String]
 runJqQuery log qs = do
   forM qs $ \(pkg, q) -> do
     log $ "running jq query: " ++ q
-
-    let jq = "external" </> "jq" </> "bin" </> "jq"
     let json = unpack $ A.encode $ transformOn A._Value numToString $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
+    let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
+    jq <- locateRunfiles $ mainWorkspace </> jqKey
     out <- readProcess jq [q] json
     case trim out of
       "true" -> pure Nothing
@@ -206,7 +211,7 @@ checkDiagnostics log expected got = do
             (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
             expected
     pure $ if
-      | length expected /= length got -> Just $ "Wrong number of diagnostics, expected " ++ show (length expected)
+      | length expected /= length got -> Just $ "Wrong number of diagnostics, expected " ++ show (length expected) ++ ", but got " ++ show (length got)
       | null bad -> Nothing
       | otherwise -> Just $ unlines ("Could not find matching diagnostics:" : map show bad)
     where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool
@@ -215,7 +220,7 @@ checkDiagnostics log expected got = do
             DRange r -> r == _range
             DSeverity s -> Just s == _severity
             DSource s -> Just (T.pack s) == _source
-            DMessage m -> T.pack m `T.isInfixOf` T.unwords (T.words _message)
+            DMessage m -> standardizeQuotes(T.pack m) `T.isInfixOf` standardizeQuotes(T.unwords (T.words _message))
 
 ------------------------------------------------------------
 -- CLI argument handling
@@ -240,7 +245,7 @@ withTestArguments f =
 -- functionality
 data Ann
     = Ignore                             -- Don't run this test at all
-    | IgnoreLfVersion String             -- Don't run this test when testing the given DAML-LF version
+    | SinceLF LF.Version                 -- Only run this test since the given DAML-LF version
     | DiagnosticFields [DiagnosticField] -- I expect a diagnostic that has the given fields
     | QueryLF String                       -- The jq query against the produced DAML-LF returns "true"
     | Todo String                        -- Just a note that is printed out
@@ -255,7 +260,7 @@ readFileAnns file = do
         f :: String -> Maybe Ann
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
             ("IGNORE",_) -> Just Ignore
-            ("IGNORE-LF", x) -> Just (IgnoreLfVersion (trim x))
+            ("SINCE-LF", x) -> Just $ SinceLF $ fromJust $ LF.parseVersion $ trim x
             ("ERROR",x) -> Just (DiagnosticFields (DSeverity DsError : parseFields x))
             ("WARN",x) -> Just (DiagnosticFields (DSeverity DsWarning : parseFields x))
             ("QUERY-LF", x) -> Just $ QueryLF x
@@ -287,7 +292,7 @@ parseRange s =
         Range
             (Position (rowStart - 1) (colStart - 1))
             (Position (rowEnd - 1) (colEnd - 1))
-    _ -> noRange
+    _ -> error $ "Failed to parse range, got " ++ s
 
 mainProj :: TestArguments -> Compile.IdeState -> FilePath -> (String -> IO ()) -> FilePath -> IO LF.Package
 mainProj TestArguments{..} service outdir log file = do

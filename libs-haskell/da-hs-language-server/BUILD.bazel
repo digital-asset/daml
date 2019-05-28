@@ -15,6 +15,7 @@ da_haskell_library(
         "conduit-extra",
         "containers",
         "exceptions",
+        "haskell-lsp-types",
         "mtl",
         "scientific",
         "stm",

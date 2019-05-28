@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
-import com.digitalasset.daml.lf.data.Utf8
+import com.digitalasset.daml.lf.data.{Decimal, Utf8}
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -20,20 +20,19 @@ trait KeyHasher {
   def hashKeyString(key: GlobalKey): String = hashKey(key).map("%02x" format _).mkString
 }
 
-/**
-  * ADT for data elements that appear in the input stream of the hash function
-  * used to hash DAML-LF values.
-  */
-sealed abstract class HashToken extends Product with Serializable
-final case class HashTokenText(value: String) extends HashToken
-final case class HashTokenByte(value: Byte) extends HashToken
-final case class HashTokenInt(value: Int) extends HashToken
-final case class HashTokenLong(value: Long) extends HashToken
-final case class HashTokenBigDecimal(value: BigDecimal) extends HashToken
-final case class HashTokenCollectionBegin(length: Int) extends HashToken
-final case class HashTokenCollectionEnd() extends HashToken
-
 object KeyHasher extends KeyHasher {
+
+  /**
+    * ADT for data elements that appear in the input stream of the hash function
+    * used to hash DAML-LF values.
+    */
+  private sealed abstract class HashToken extends Product with Serializable
+  private final case class HashTokenText(value: String) extends HashToken
+  private final case class HashTokenByte(value: Byte) extends HashToken
+  private final case class HashTokenInt(value: Int) extends HashToken
+  private final case class HashTokenLong(value: Long) extends HashToken
+  private final case class HashTokenCollectionBegin(length: Int) extends HashToken
+  private final case class HashTokenCollectionEnd() extends HashToken
 
   /**
     * Traverses the given value in a stable way, producing "hash tokens" for any encountered primitive values.
@@ -50,7 +49,7 @@ object KeyHasher extends KeyHasher {
     value match {
       case ValueContractId(v) => op(z, HashTokenText(v.coid))
       case ValueInt64(v) => op(z, HashTokenLong(v))
-      case ValueDecimal(v) => op(z, HashTokenBigDecimal(v))
+      case ValueDecimal(v) => op(z, HashTokenText(Decimal.toString(v)))
       case ValueText(v) => op(z, HashTokenText(v))
       case ValueTimestamp(v) => op(z, HashTokenLong(v.micros))
       case ValueParty(v) => op(z, HashTokenText(v))
@@ -109,13 +108,10 @@ object KeyHasher extends KeyHasher {
   private[this] def putLong(digest: MessageDigest, value: Long): Unit =
     digest.update(ByteBuffer.allocate(8).putLong(value).array())
 
-  private[this] def putStringContent(digest: MessageDigest, value: String): Unit =
-    digest.update(Utf8.getBytes(value))
-
   private[this] def putString(digest: MessageDigest, value: String): Unit = {
-    // FixMe we probably should not use UTF16 length.
-    putInt(digest, value.length)
-    putStringContent(digest, value)
+    val bytes = Utf8.getBytes(value)
+    putInt(digest, bytes.length)
+    digest.update(bytes)
   }
 
   override def hashKey(key: GlobalKey): Array[Byte] = {
@@ -142,9 +138,6 @@ object KeyHasher extends KeyHasher {
           case HashTokenInt(v) => putInt(d, v)
           case HashTokenLong(v) => putLong(d, v)
           case HashTokenText(v) => putString(d, v)
-          // FixMe we probably should use Decimal.toString
-          // Java docs: "The toString() method provides a canonical representation of a BigDecimal."
-          case HashTokenBigDecimal(v) => putString(d, v.toString)
           case HashTokenCollectionBegin(length) => putInt(d, length)
           case HashTokenCollectionEnd() => // no-op
         }

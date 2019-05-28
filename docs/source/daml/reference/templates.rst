@@ -122,3 +122,21 @@ Preconditions
 - ``ensure`` keyword, followed by a boolean condition.
 - Used on contract creation. ``ensure`` limits the values on parameters that can be passed to the contract: the contract can only be created if the boolean condition is true.
 
+.. _daml-ref-contract-keys:
+
+.. _daml-ref-maintainers:
+
+Contract keys and maintainers
+*****************************
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start contract key snippet
+   :end-before: -- end contract key snippet
+
+- ``key`` and ``maintainer`` keywords.
+- This feature lets you specify a "key" that you can use to uniquely identify an instance of this contract template.
+- If you specify a ``key``, you must also specify a ``maintainer``. This is a ``Party`` that will ensure the uniqueness of all the keys it is aware of.
+
+  Because of this, the ``key`` must include the ``maintainer`` ``Party`` or parties (for example, as part of a tuple or record), and the ``maintainer`` must be a signatory or observer of the contract instance.
+- For a full explanation, see :doc:`/daml/reference/contract-keys`.

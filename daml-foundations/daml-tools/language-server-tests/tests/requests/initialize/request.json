@@ -2,6 +2,7 @@
   "method": "initialize",
   "payload": {
     "processId": 1234,
-    "rootPath": "file:///foo/bar/"
+    "rootPath": "file:///foo/bar/",
+    "capabilities": {}
   }
 }

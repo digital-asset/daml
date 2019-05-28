@@ -23,3 +23,11 @@ class (Functor t, FoldableX t) => TraversableX t where
 
   sequenceX : Applicative m => t (m a) -> m (t a)
   sequenceX = traverseX identity
+
+-- Default implementation for the only method on a class. This used to trigger
+-- a value cycle.
+class Id a where
+  id : a -> a
+  id = \x -> x
+
+instance Id Int where

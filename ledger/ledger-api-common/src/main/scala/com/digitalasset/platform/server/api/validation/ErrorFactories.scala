@@ -3,15 +3,18 @@
 
 package com.digitalasset.platform.server.api.validation
 
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.server.api.ApiException
 import io.grpc.{Status, StatusRuntimeException}
 
+import scalaz.syntax.tag._
+
 trait ErrorFactories {
 
-  def ledgerIdMismatch(expected: String, received: String): StatusRuntimeException =
+  def ledgerIdMismatch(expected: LedgerId, received: LedgerId): StatusRuntimeException =
     grpcError(
       Status.NOT_FOUND.withDescription(
-        s"Ledger ID '$received' not found. Actual Ledger ID is '$expected'."))
+        s"Ledger ID '${received.unwrap}' not found. Actual Ledger ID is '${expected.unwrap}'."))
 
   def missingField(fieldName: String): StatusRuntimeException =
     grpcError(Status.INVALID_ARGUMENT.withDescription(s"Missing field: $fieldName"))

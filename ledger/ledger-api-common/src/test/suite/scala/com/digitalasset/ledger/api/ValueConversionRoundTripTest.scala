@@ -5,6 +5,7 @@ package com.digitalasset.ledger.api
 
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.testing.parser.Implicits._
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{
   List => ApiList,
@@ -12,10 +13,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Optional => ApiOptional,
   _
 }
-import com.digitalasset.ledger.api.validation.{
-  CommandSubmissionRequestValidator,
-  ValidatorTestUtils
-}
+import com.digitalasset.ledger.api.validation.{CommandsValidator, ValidatorTestUtils}
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.google.protobuf.empty.Empty
@@ -48,7 +46,7 @@ class ValueConversionRoundTripTest
   private def variant(value: Value): Value =
     Value(Sum.Variant(Variant(Some(recordId), constructor, Some(value))))
 
-  private val pckg = p"""
+  private val pkg = p"""
          module Mod {
            record EmptyRecord = {};
            record Record = { label1: Int64, label2: Int64, label0: Int64 };
@@ -56,13 +54,14 @@ class ValueConversionRoundTripTest
          }
          """
 
-  private val sut = new CommandSubmissionRequestValidator(
-    "ledger-id",
-    new IdentifierResolver(_ => Future.successful(Some(pckg))))
+  private val commandValidator = new CommandsValidator(
+    LedgerId("ledger-id"),
+    new IdentifierResolver(_ => Future.successful(Some(pkg)))
+  )
 
   private def roundTrip(v: Value): Either[String, Value] =
     for {
-      lfValue <- sut.validateValue(v).left.map(_.getMessage)
+      lfValue <- commandValidator.validateValue(v).left.map(_.getMessage)
       apiValue <- LfEngineToApi.lfValueToApiValue(true, lfValue)
     } yield apiValue
 

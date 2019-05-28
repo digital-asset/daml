@@ -20,11 +20,14 @@
 // * 1 -- 2019-01-10: Add Optional type
 //     -- 2019-01-27: Add <, <=, =>, > for Party
 //     -- 2019-01-29: Add PrimType.ARROW
-// * 2 -- 2019-03-18: Add BuiltinFunction.SHA256_TEXT
+// * 2 -- 2019-03-18: Add BuiltinFunction.{SHA256_TEXT, TO_TEXT_PARTY, FROM_TEXT_PARTY}
 //     -- 2019-03-18: Add flexible controllers (change scoping of controller expressions)
-// * 3 -- 2019-03-25: Add contract key
+// * 3 -- 2019-03-25: Add contract keys
 //     -- 2019-03-27: Add Map type
-// dev -- 2019-05-15: Add complex contract keys
+// * 4 -- 2019-05-15: Add complex contract keys
+// * 5 -- 2019-05-22: Relax serializability constraints for contract ids
+//        2019-05-23: Add BuiltinFunction.COERCE_CONTRACT_ID
+//        2019-05-24: Make actors in exercise optional
 
 
 syntax = "proto3";
@@ -369,7 +372,9 @@ enum BuiltinFunction {
   TO_TEXT_DATE = 71;
   TO_QUOTED_TEXT_PARTY = 63; // legacy, remove in next major version
   TO_TEXT_PARTY = 94; // *Available Since version 1.2*
-  FROM_TEXT_PARTY = 95; // *Available Since version 1.2*
+  FROM_TEXT_PARTY = 95; // *Available Since version 1.2*, was named FROM_TEXT_PARTY in 1.2, 1.3 and 1.4
+  FROM_TEXT_INT64 = 103; // *Available Since version 1.5*
+  FROM_TEXT_DECIMAL = 104; // *Available Since version 1.5*
   SHA256_TEXT = 93; // *Available Since version 1.2*
 
   DATE_TO_UNIX_DAYS = 72; // Date -> Int64
@@ -395,7 +400,9 @@ enum BuiltinFunction {
 
   TRACE = 88;
 
-  // Next id is 102. 101 is MAP_SIZE.
+  COERCE_CONTRACT_ID = 102;
+
+  // Next id is 105. 104 is FROM_TEXT_DECIMAL.
 }
 
 // Builtin literals
@@ -811,7 +818,7 @@ message Update {
     string choice = 2;
     // contract id
     Expr cid = 3;
-    // actort
+    // actors, optional since DAML-LF 1.5
     Expr actor = 4;
     // argument
     Expr arg = 5;

@@ -1,0 +1,22 @@
+{
+    "homepage": "http://msys2.github.io",
+    "version": "1.6-2",
+    "url": "http://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-jq-1.6-2-any.pkg.tar.xz#/jq.msys2",
+    "hash": "da8a3b88d6ad1f5d28bc190405de9ca0f802ebcae19080a5b5b2b30a7614272b",
+    "depends": "msys2",
+    "installer": {
+        "script": [
+            "$file = $(cygpath.exe $dir//jq.msys2)",
+            "try { bash.exe -lc \"pacman -U --noconfirm $file\"} catch {}"
+        ]
+    },
+    "uninstaller": {
+        "script": "bash.exe -lc 'pacman -R --noconfirm mingw-w64-x86_64-jq'"
+    },
+    "bin": [
+        [
+            "../../msys2/current/mingw64/bin/jq.exe",
+            "jq"
+        ]
+    ]
+}

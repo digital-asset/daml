@@ -26,11 +26,8 @@ class DamlOnXLedgerConfigurationService private (indexService: IndexService)(
   protected val logger: Logger = LoggerFactory.getLogger(this.getClass.getName)
 
   override protected def getLedgerConfigurationSource(
-      request: GetLedgerConfigurationRequest): Source[GetLedgerConfigurationResponse, NotUsed] = {
-
-    // FIXME(JM): Stream of configurations.
-    Source
-      .fromFuture(indexService.getLedgerConfiguration)
+      request: GetLedgerConfigurationRequest): Source[GetLedgerConfigurationResponse, NotUsed] =
+    indexService.getLedgerConfiguration
       .map { config =>
         GetLedgerConfigurationResponse(
           Some(
@@ -39,7 +36,6 @@ class DamlOnXLedgerConfigurationService private (indexService: IndexService)(
               Some(GrpcApiUtil.durationToProto(config.timeModel.maxTtl))
             )))
       }
-  }
 
   override def bindService(): ServerServiceDefinition =
     LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)

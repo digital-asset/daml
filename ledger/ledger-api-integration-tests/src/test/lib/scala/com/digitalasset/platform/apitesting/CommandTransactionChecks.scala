@@ -111,7 +111,7 @@ abstract class CommandTransactionChecks
     "reading completions" should {
       "return the completion of submitted commands for the submitting application" in allFixtures {
         ctx =>
-          val commandId = cid("Submitting application sees this")
+          val commandId = "Submitting_application_sees_this"
           val request = createCommandWithId(ctx, commandId)
           for {
             commandClient <- ctx.commandClient()
@@ -128,7 +128,7 @@ abstract class CommandTransactionChecks
       }
 
       "not expose completions of submitted commands to other applications" in allFixtures { ctx =>
-        val commandId = cid("The other application does not see this")
+        val commandId = "The_other_application_does_not_see_this"
         val request = createCommandWithId(ctx, commandId)
         for {
           commandClient <- ctx.commandClient()
@@ -147,7 +147,7 @@ abstract class CommandTransactionChecks
       "not expose completions of submitted commands to the application if it down't include the submitting party" in allFixtures {
         ctx =>
           val commandId =
-            cid("The application should subscribe with the submitting party to see this")
+            "The_application_should_subscribe_with_the_submitting_party_to_see_this"
           val request = createCommandWithId(ctx, commandId)
           for {
             commandClient <- ctx.commandClient()
@@ -171,8 +171,8 @@ abstract class CommandTransactionChecks
           // note that the submitting party is not a stakeholder in any event,
           // so this test relies on the sandbox exposing the transactions to the
           // submitter.
-          val factoryCreation = cid("Creating factory (Trees)")
-          val exercisingChoice = cid("Exercising choice on factory (Trees)")
+          val factoryCreation = "Creating_factory_Trees"
+          val exercisingChoice = "Exercising_choice_on_factory_Trees"
           for {
             factoryContractId <- findCreatedEventInResultOf(
               ctx,
@@ -200,7 +200,7 @@ abstract class CommandTransactionChecks
         verifyParamShowcaseChoice(
           ctx,
           "Choice1", // choice name
-          "different args",
+          "different_args",
           paramShowcaseArgumentsToChoice1Argument(newArgs), // submitted choice args
           // Daml-lf-engine integration works with non-verbose setting,
           // because we do not send the verbose flag in the request
@@ -216,7 +216,7 @@ abstract class CommandTransactionChecks
         verifyParamShowcaseChoice(
           ctx,
           "Choice2", // choice name
-          "changing 'integer'",
+          "changing_integer",
           // submitted choice args
           Value(
             Value.Sum.Record(
@@ -230,7 +230,7 @@ abstract class CommandTransactionChecks
        * does not. find out why. this seems to be quadratic
        */
       "accept huge submissions with a large number of commands" ignore allFixtures { ctx =>
-        val commandId = cid("Huge composite command")
+        val commandId = "Huge-composite-command"
         val originalCommand = createCommandWithId(ctx, commandId)
         val targetNumberOfSubCommands = 15000 // That's around the maximum gRPC input size
         val superSizedCommand =
@@ -243,7 +243,7 @@ abstract class CommandTransactionChecks
       }
 
       "run callable payout and return the right events" in allFixtures { ctx =>
-        val commandId = cid("callable payout command")
+        val commandId = "callable_payout_command"
         val arg = Record(
           Some(templateIds.callablePayout),
           List(
@@ -287,7 +287,7 @@ abstract class CommandTransactionChecks
       "expose transactions to non-submitting stakeholders without the commandId" in allFixtures { ctx =>
         val receiver = "receiver"
         val giver = "giver"
-        val commandId = cid("Testing if non-submitting stakeholder sees the commandId")
+        val commandId = "Testing_if_non-submitting_stakeholder_sees_the_commandId"
         val createCmd = createAgreementFactory(ctx, receiver, giver, commandId)
         ctx.testingHelpers.submitAndListenForSingleResultOfCommand(
           createCmd,
@@ -419,17 +419,17 @@ abstract class CommandTransactionChecks
           pf("delegate", delegate)
         )
         val delegatedCreate = ctx.testingHelpers.simpleCreate(
-          cid("SDVl3"),
+          "SDVl3",
           owner,
           templateIds.delegated,
           Record(Some(templateIds.delegated), Seq(pf("owner", owner), RecordField(value = Some(Value(Value.Sum.Text(key)))))))
         val delegationCreate = ctx.testingHelpers.simpleCreate(
-          cid("SDVl4"),
+          "SDVl4",
           owner,
           templateIds.delegation,
           Record(Some(templateIds.delegation), odArgs))
         val showIdCreate = ctx.testingHelpers.simpleCreate(
-          cid("SDVl5"),
+          "SDVl5",
           owner,
           templateIds.showDelegated,
           Record(Some(templateIds.showDelegated), odArgs))
@@ -452,7 +452,7 @@ abstract class CommandTransactionChecks
             )
           )
           _ <- ctx.testingHelpers.simpleExercise(
-            cid("SDVl6"),
+            "SDVl6",
             submitter = owner,
             template = templateIds.showDelegated,
             contractId = showIdEv.contractId,
@@ -460,7 +460,7 @@ abstract class CommandTransactionChecks
             arg = Value(Value.Sum.Record(fetchArg)),
           )
           _ <- ctx.testingHelpers.simpleExercise(
-            cid("SDVl7"),
+            "SDVl7",
             submitter = delegate,
             template = templateIds.delegation,
             contractId = delegationEv.contractId,
@@ -468,7 +468,7 @@ abstract class CommandTransactionChecks
             arg = Value(Value.Sum.Record(fetchArg)),
           )
           _ <- ctx.testingHelpers.simpleExercise(
-            cid("SDVl8"),
+            "SDVl8",
             submitter = delegate,
             template = templateIds.delegation,
             contractId = delegationEv.contractId,
@@ -485,12 +485,12 @@ abstract class CommandTransactionChecks
         // unique keys. This is not so great though, it'd be better to have a clean environment.
         val key = s"${UUID.randomUUID.toString}-key"
         val delegatedCreate = ctx.testingHelpers.simpleCreate(
-          cid("TDVl3"),
+          "TDVl3",
           owner,
           templateIds.delegated,
           Record(Some(templateIds.delegated), Seq(pf("owner", owner), RecordField(value = Some(Value(Value.Sum.Text(key)))))))
         val delegationCreate = ctx.testingHelpers.simpleCreate(
-          cid("TDVl4"),
+          "TDVl4",
           owner,
           templateIds.delegation,
           Record(Some(templateIds.delegation), Seq(pf("owner", owner), pf("delegate", delegate))))
@@ -512,7 +512,7 @@ abstract class CommandTransactionChecks
             )
           )
           fetchResult <- ctx.testingHelpers.failingExercise(
-            cid("TDVl5"),
+            "TDVl5",
             submitter = delegate,
             template = templateIds.delegation,
             contractId = delegationEv.contractId,
@@ -522,7 +522,7 @@ abstract class CommandTransactionChecks
             pattern = "dependency error: couldn't find contract"
           )
           _ <- ctx.testingHelpers.simpleExercise(
-            cid("TDVl6"),
+            "TDVl6",
             submitter = delegate,
             template = templateIds.delegation,
             contractId = delegationEv.contractId,
@@ -533,7 +533,7 @@ abstract class CommandTransactionChecks
       }
 
       "DAML engine returns Unit as argument to Nothing" in allFixtures { ctx =>
-        val commandId = cid("Creating contract with a Nothing argument")
+        val commandId = "Creating_contract_with_a_Nothing_argument"
 
         val variantId = None
 
@@ -573,7 +573,7 @@ abstract class CommandTransactionChecks
                 .map(_.event)
                 .collect {
                   case Archived(ArchivedEvent(eventId, _, _, _)) => eventId
-                  case Created(CreatedEvent(eventId, _, _, _, _)) => eventId
+                  case Created(CreatedEvent(eventId, _, _, _, _, _)) => eventId
                 })
             .takeWithin(5.seconds) //TODO: work around as ledger end is broken. see DEL-3151
             .runWith(Sink.seq)
@@ -801,6 +801,14 @@ abstract class CommandTransactionChecks
                   RecordField(value = cid2.contractId.asContractId),
                   RecordField(value = textKeyKey(alice, "test-key-2"))))))
           )
+          // failing create when a maintainer is not a signatory
+          _ <- ctx.testingHelpers.failingCreate(
+            "CK-test-alice-create-maintainer-not-signatory",
+            alice,
+            templateIds.maintainerNotSignatory,
+            Record(fields = List(RecordField(value = alice.asParty), RecordField(value = bob.asParty))),
+            Code.INVALID_ARGUMENT,
+            "are not a subset of the signatories")
         } yield {
           succeed
         }
@@ -918,9 +926,6 @@ abstract class CommandTransactionChecks
       }
     }
   }
-
-  private def cid(commandId: String) = s"$commandId"
-
   private def createCommandWithId(ctx: LedgerContext, commandId: String) = {
     val reqWithId = ctx.testingHelpers.submitRequestWithId(commandId)
     val arguments = List("operator" -> "party".asParty)
@@ -1056,7 +1061,7 @@ abstract class CommandTransactionChecks
     val command: SubmitRequest =
       createParamShowcaseWith(
         ctx,
-        cid(s"Creating contract with a multitude of param types for exercising ($choice, $lbl)"),
+        s"Creating_contract_with_a_multitude_of_param_types_for_exercising__$choice#$lbl",
         paramShowcaseArgs)
     for {
       tx <- ctx.testingHelpers.submitAndListenForSingleResultOfCommand(command, getAllContracts)
@@ -1068,7 +1073,7 @@ abstract class CommandTransactionChecks
         choice,
         exerciseArg).wrap
       tx <- ctx.testingHelpers.submitAndListenForSingleTreeResultOfCommand(
-        ctx.testingHelpers.submitRequestWithId(cid(s"Exercising with a multitiude of params ($choice, $lbl)"))
+        ctx.testingHelpers.submitRequestWithId(s"Exercising_with_a_multitiude_of_params__$choice#$lbl")
             .update(_.commands.update(_.commands := List(exercise))),
         getAllContracts,
         true

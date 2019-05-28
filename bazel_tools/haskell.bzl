@@ -296,4 +296,6 @@ def c2hs_suite(name, hazel_deps, deps = [], srcs = [], c2hs_srcs = [], c2hs_src_
 # Add extra packages, e.g., packages that are on Hackage but not in Stackage.
 # This cannot be inlined since it is impossible to create a struct in WORKSPACE.
 def add_extra_packages(pkgs, extra):
-    return pkgs + {k: struct(**v) for (k, v) in extra}
+    result = dict(pkgs)
+    result.update({k: struct(**v) for (k, v) in extra})
+    return result

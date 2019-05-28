@@ -38,7 +38,7 @@ renderSimpleMD ModuleDoc{..} = T.unlines $
          , ""
          ]
   , if null md_adts then []
-    else [ "## Data Types"
+    else [ "## Data types"
          , ""
          , T.unlines $ map adt2md md_adts
          , "" ]

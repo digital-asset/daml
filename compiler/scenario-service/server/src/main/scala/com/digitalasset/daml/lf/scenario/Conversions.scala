@@ -197,6 +197,19 @@ case class Conversions(homePackageId: Ref.PackageId) {
               optLocation.map(loc => cmaBuilder.setLocation(convertLocation(loc)))
               faBuilder.setCreateMissingAuthorization(cmaBuilder.build)
 
+            case Ledger.FAMaintainersNotSubsetOfSignatories(
+                templateId,
+                optLocation,
+                signatories,
+                maintainers) =>
+              val maintNotSignBuilder =
+                FailedAuthorization.MaintainersNotSubsetOfSignatories.newBuilder
+                  .setTemplateId(convertIdentifier(templateId))
+                  .addAllSignatories(signatories.map(convertParty).asJava)
+                  .addAllMaintainers(maintainers.map(convertParty).asJava)
+              optLocation.map(loc => maintNotSignBuilder.setLocation(convertLocation(loc)))
+              faBuilder.setMaintainersNotSubsetOfSignatories(maintNotSignBuilder.build)
+
             case fma: Ledger.FAFetchMissingAuthorization =>
               val fmaBuilder =
                 FailedAuthorization.FetchMissingAuthorization.newBuilder
@@ -296,7 +309,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         }
         builder.setCommit(
           commitBuilder
-            .setTxId(txId)
+            .setTxId(txId.index)
             .setTx(convertTransaction(rtx))
             .build)
       case Ledger.PassTime(dt) =>
@@ -311,7 +324,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             assertBuilder
               .setActor(convertParty(actor))
               .setTime(time.micros)
-              .setTxId(txId)
+              .setTxId(txId.index)
               .build)
     }
     builder.build
@@ -352,13 +365,13 @@ case class Conversions(homePackageId: Ref.PackageId) {
     builder.build
   }
 
-  def convertNodeId(nodeId: Ledger.NodeId): NodeId =
-    NodeId.newBuilder.setId(nodeId.id).build
+  def convertNodeId(nodeId: Ledger.ScenarioNodeId): NodeId =
+    NodeId.newBuilder.setId(nodeId).build
 
   def convertTxNodeId(nodeId: Tx.NodeId): NodeId =
     NodeId.newBuilder.setId(nodeId.index.toString).build
 
-  def convertNode(nodeId: Ledger.NodeId, nodeInfo: Ledger.NodeInfo): Node = {
+  def convertNode(nodeId: Ledger.ScenarioNodeId, nodeInfo: Ledger.NodeInfo): Node = {
     val builder = Node.newBuilder
     builder
       .setNodeId(convertNodeId(nodeId))
@@ -368,7 +381,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         case (party, txId) =>
           PartyAndTransactionId.newBuilder
             .setParty(convertParty(party))
-            .setTxId(txId)
+            .setTxId(txId.index)
             .build
       }.asJava)
 
@@ -402,7 +415,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .build
         )
       case ex: N.NodeExercises[
-            Ledger.NodeId,
+            Ledger.ScenarioNodeId,
             V.AbsoluteContractId,
             Tx.Value[V.AbsoluteContractId]] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
@@ -418,7 +431,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .addAllStakeholders(ex.stakeholders.map(convertParty).asJava)
             .addAllControllers(ex.controllers.map(convertParty).asJava)
             .addAllChildren(ex.children
-              .map((nid: Ledger.NodeId) => NodeId.newBuilder.setId(nid.id).build)
+              .map(nid => NodeId.newBuilder.setId(nid).build)
               .toSeq
               .asJava)
             .build

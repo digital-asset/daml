@@ -7,23 +7,20 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref.TransactionIdString
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
-import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId}
-import com.digitalasset.ledger.backend.api.v1.{
-  RejectionReason,
-  SubmissionResult,
-  TransactionId,
-  TransactionSubmission
-}
+import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId, LedgerId}
+import com.digitalasset.ledger.backend.api.v1.{RejectionReason, TransactionSubmission}
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
-import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContractsInMemory}
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
+import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContractsInMemory}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
@@ -32,7 +29,7 @@ import scala.concurrent.Future
   *
   */
 class InMemoryLedger(
-    val ledgerId: String,
+    val ledgerId: LedgerId,
     timeProvider: TimeProvider,
     acs0: ActiveContractsInMemory,
     ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement])
@@ -94,13 +91,15 @@ class InMemoryLedger(
             tx.applicationId: Any,
             tx.commandId)
         else
-          handleSuccessfulTx(entries.ledgerEnd.toString, tx)
+          handleSuccessfulTx(entries.toTransactionId, tx)
 
         SubmissionResult.Acknowledged
       }
     )
 
-  private def handleSuccessfulTx(transactionId: String, tx: TransactionSubmission): Unit = {
+  private def handleSuccessfulTx(
+      transactionId: TransactionIdString,
+      tx: TransactionSubmission): Unit = {
     val recordTime = timeProvider.getCurrentTime
     if (recordTime.isAfter(tx.maximumRecordTime)) {
       // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
@@ -147,7 +146,7 @@ class InMemoryLedger(
               tx.ledgerEffectiveTime,
               recordTime,
               recordTx,
-              recordBlinding.transform((_, v) => v.toSet[String])
+              recordBlinding
             )
           entries.publish(entry)
           ()
@@ -167,7 +166,7 @@ class InMemoryLedger(
   override def close(): Unit = ()
 
   override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] =
+      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
     Future.successful(
       entries
         .getEntryAt(transactionId.toLong)

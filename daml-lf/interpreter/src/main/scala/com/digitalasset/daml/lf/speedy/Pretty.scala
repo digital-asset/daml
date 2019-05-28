@@ -139,6 +139,18 @@ object Pretty {
 
         case (
             nodeId,
+            L.FAMaintainersNotSubsetOfSignatories(
+              templateId @ _,
+              optLoc @ _,
+              signatories,
+              maintainers)) =>
+          str(nodeId) & text(": all the maintainers:") &
+            intercalate(comma + space, maintainers.map(prettyParty)) +
+              text(", need to be signatories:") &
+            intercalate(comma + space, signatories.map(prettyParty))
+
+        case (
+            nodeId,
             L.FAFetchMissingAuthorization(templateId @ _, optLoc @ _, authorizing, stakeholders)) =>
           str(nodeId) & text(": missing authorization for fetch, authorizing parties:") &
             intercalate(comma + space, authorizing.map(prettyParty)) +
@@ -208,7 +220,7 @@ object Pretty {
       case L.Commit(txid, rtx, optLoc) =>
         val children =
           intercalate(line + line, rtx.roots.toList.map(prettyNodeInfo(l)))
-        text("TX") & char('#') + str(txid) & str(rtx.effectiveAt) & prettyLoc(optLoc) /
+        text("TX") & char('#') + str(txid.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) /
           children
       case L.PassTime(dt) =>
         "pass" &: str(dt)
@@ -220,7 +232,7 @@ object Pretty {
     // the maintainers are induced from the key -- so don't clutter
     prettyVersionedValue(false)(key.key)
 
-  def prettyNodeInfo(l: L.Ledger)(nodeId: L.NodeId): Doc = {
+  def prettyNodeInfo(l: L.Ledger)(nodeId: L.ScenarioNodeId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d
     def meta(d: Doc) = text("│  ") & d
 
@@ -234,7 +246,10 @@ object Pretty {
         }
       case ea: NodeFetch[AbsoluteContractId] =>
         "ensure active" &: prettyContractId(ea.coid)
-      case ex: NodeExercises[L.NodeId, AbsoluteContractId, Transaction.Value[AbsoluteContractId]] =>
+      case ex: NodeExercises[
+            L.ScenarioNodeId,
+            AbsoluteContractId,
+            Transaction.Value[AbsoluteContractId]] =>
         val children =
           if (ex.children.nonEmpty)
             text("children:") / stack(ex.children.toList.map(prettyNodeInfo(l)))
@@ -267,7 +282,7 @@ object Pretty {
                 }
                 .map {
                   case (p, txid) =>
-                    text(p) & text("(#") + str(txid) + char(')')
+                    text(p) & text("(#") + str(txid.id) + char(')')
                 }
             )
         )
@@ -292,8 +307,8 @@ object Pretty {
     )
   }
 
-  def prettyLedgerNodeId(n: L.NodeId): Doc =
-    char('#') + text(n.id)
+  def prettyLedgerNodeId(n: L.ScenarioNodeId): Doc =
+    char('#') + text(n)
 
   def prettyContractInst(coinst: ContractInst[Transaction.Value[ContractId]]): Doc =
     (prettyIdentifier(coinst.template) / text("with:") &
@@ -319,7 +334,7 @@ object Pretty {
       comma + space,
       c.activeContracts.toList
         .sortWith(ltNodeId)
-        .map((acoid: AbsoluteContractId) => prettyLedgerNodeId(L.NodeId(acoid))))
+        .map((acoid: AbsoluteContractId) => prettyLedgerNodeId(L.ScenarioNodeId(acoid))))
   }
 
   def prettyPackageId(pkgId: PackageId): Doc =

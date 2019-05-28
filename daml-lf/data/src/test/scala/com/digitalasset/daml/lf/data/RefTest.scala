@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.data
 
-import com.digitalasset.daml.lf.data.Ref.{DottedName, PackageId, Party, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{DottedName, LedgerString, PackageId, Party, QualifiedName}
 import org.scalatest.{FreeSpec, Matchers}
 
 class RefTest extends FreeSpec with Matchers {
@@ -96,8 +96,8 @@ class RefTest extends FreeSpec with Matchers {
 
     "rejects no US-ASCII characters" in {
       for (c <- '\u0080' to '\u00ff') {
-        Party.fromString(s"the character $c is not US-ASCII") shouldBe 'left
-        PackageId.fromString(s"the character $c is not US-ASCII") shouldBe 'left
+        Party.fromString(s"the character '$c' is not US-ASCII") shouldBe 'left
+        PackageId.fromString(s"the character '$c' is not US-ASCII") shouldBe 'left
       }
       for (s <- List(
           "español",
@@ -106,6 +106,46 @@ class RefTest extends FreeSpec with Matchers {
         )) {
         Party.fromString(s) shouldBe 'left
         PackageId.fromString(s) shouldBe 'left
+      }
+    }
+  }
+
+  "LedgerString" - {
+
+    val ledgerStringChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-# "
+
+    "accepts simple characters" in {
+      for (c <- ledgerStringChars) {
+        LedgerString.fromString(s"the_character_${c}_should_be_accepted") shouldBe 'right
+      }
+    }
+
+    "rejects the empty string" in {
+      LedgerString.fromString("") shouldBe 'left
+    }
+
+    "reject too long string" in {
+      LedgerString.fromString("a" * 255) shouldBe 'right
+      LedgerString.fromString("a" * 256) shouldBe 'left
+      LedgerString.fromString("a" * 500) shouldBe 'left
+    }
+
+    "rejects non allowed US-ASCII characters" in {
+      for (c <- '\u0001' to '\u007f' if !ledgerStringChars.contains(c)) {
+        LedgerString.fromString(s"the_character_${c}_should_be_rejected") shouldBe 'left
+      }
+    }
+
+    "rejects no US-ASCII characters" in {
+      for (c <- '\u0080' to '\u00ff') {
+        LedgerString.fromString(s"the_character_${c}_should_be_rejected") shouldBe 'left
+      }
+      for (s <- List(
+          "español",
+          "東京",
+          "Λ (τ : ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → (( e @τ ))"
+        )) {
+        LedgerString.fromString(s) shouldBe 'left
       }
     }
   }

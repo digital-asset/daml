@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api.commands
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.testing.utils.MockMessages
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{applicationId, workflowId}
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -14,6 +15,8 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.tests.integration.ledger.api.TransactionServiceHelpers
 import org.scalatest.AsyncTestSuite
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any"
@@ -24,8 +27,8 @@ trait MultiLedgerCommandUtils extends TransactionServiceHelpers with MultiLedger
   protected final def newSynchronousCommandClient(ctx: LedgerContext): SynchronousCommandClient =
     new SynchronousCommandClient(ctx.commandService)
 
-  protected val testLedgerId = "ledgerId"
-  protected val testNotLedgerId = "hotdog"
+  protected val testLedgerId = Ref.LedgerString.assertFromString("ledgerId")
+  protected val testNotLedgerId = Ref.LedgerString.assertFromString("hotdog")
   protected val submitRequest: SubmitRequest =
     MockMessages.submitRequest.update(_.commands.ledgerId := testLedgerId)
 
@@ -49,5 +52,5 @@ trait MultiLedgerCommandUtils extends TransactionServiceHelpers with MultiLedger
       .map(_.copy(commandId = "fails", ledgerId = "not ledger id")))
 
   override protected def config: Config =
-    Config.default.withLedgerIdMode(LedgerIdMode.Static(testLedgerId))
+    Config.default.withLedgerIdMode(LedgerIdMode.Static(LedgerId(testLedgerId)))
 }

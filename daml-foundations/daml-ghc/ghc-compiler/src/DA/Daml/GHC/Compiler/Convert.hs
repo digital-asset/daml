@@ -103,15 +103,15 @@ import qualified Data.Map.Strict as MS
 import           Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
-import           Data.Tagged
 import qualified Data.Text as T
 import           Data.Tuple.Extra
 import           Data.Ratio
 import           "ghc-lib" GHC
 import           "ghc-lib" GhcPlugins as GHC hiding ((<>))
-import           "ghc-lib-parser" Pair
+import           "ghc-lib-parser" Pair hiding (swap)
 import           "ghc-lib-parser" PrelNames
 import           "ghc-lib-parser" TysPrim
+import           "ghc-lib-parser" TyCoRep
 import qualified "ghc-lib-parser" Name
 import           Safe.Exact (zipExact, zipExactMay)
 
@@ -163,6 +163,7 @@ data Env = Env
     ,envAliases :: MS.Map Var LF.Expr
     ,envPkgMap :: MS.Map GHC.UnitId T.Text
     ,envLfVersion :: LF.Version
+    ,envNewtypes :: [(GHC.Type, (TyCon, Coercion))]
     }
 
 envFindBind :: Env -> Var -> ConvertM (GHC.Expr Var)
@@ -220,10 +221,6 @@ isBuiltinName expected a
   , GHC.moduleName m == mkModuleName "DA.Internal.Prelude" = True
   | otherwise = False
 
-isBuiltinTextMap :: NamedThing a => Env -> a -> Bool
-isBuiltinTextMap env a =
-    envLfVersion env `supports` featureTextMap && isBuiltinName "TextMap" a
-
 convertInt64 :: Integer -> ConvertM LF.Expr
 convertInt64 x
     | toInteger (minBound :: Int64) <= x && x <= toInteger (maxBound :: Int64) =
@@ -269,13 +266,18 @@ convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) N
           [(is x', [b])
           | (a,b) <- binds
           , DFunId _ <- [idDetails a]
-          , TypeCon (Is "Choice") [TypeCon x' [],_,_] <- [varType a]
+          , TypeCon (QIsTpl "Choice") [TypeCon x' [],_,_] <- [varType a]
           ]
         keys = MS.fromListWith (++)
           [(is x', [b])
           | (a,b) <- binds
           , DFunId _ <- [idDetails a]
-          , TypeCon (Is "TemplateKey") [TypeCon x' [],_] <- [varType a]
+          , TypeCon (QIsTpl "TemplateKey") [TypeCon x' [],_] <- [varType a]
+          ]
+        newtypes =
+          [ (wrappedT, (t, mkUnbranchedAxInstCo Representational co [] []))
+          | ATyCon t <- eltsUFM (cm_types x)
+          , Just ([], wrappedT, co) <- [unwrapNewTyCon_maybe t]
           ]
         defMeths = defaultMethods x
         env = Env
@@ -289,6 +291,7 @@ convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) N
           , envAliases = MS.empty
           , envPkgMap = pkgMap
           , envLfVersion = lfVersion
+          , envNewtypes = newtypes
           }
 
 -- | We can't cope with the generated Typeable stuff, so remove those bindings
@@ -298,8 +301,8 @@ isTypeableInfo _ = False
 
 
 convertTemplate :: Env -> GHC.Expr Var -> ConvertM [Definition]
-convertTemplate env (VarIs "C:Template" `App` Type (TypeCon ty [])
-        `App` ensure `App` signatories `App` observer `App` agreement `App` _create `App` _fetch `App` _archive)
+convertTemplate env (Var (QIsTpl "C:Template") `App` Type (TypeCon ty [])
+        `App` ensure `App` signatories `App` observer `App` agreement `App` _create `App` _fetch `App` _archive `App` _archiveWithActors)
     = do
     tplSignatories <- applyTplParam <$> convertExpr env signatories
     tplChoices <- fmap (\cs -> NM.fromList (archiveChoice tplSignatories : cs)) (choices tplSignatories)
@@ -320,6 +323,87 @@ convertTemplate env (VarIs "C:Template" `App` Type (TypeCon ty [])
         tplParam = mkVar "this"
 convertTemplate _ x = unsupported "Template definition with unexpected form" x
 
+convertGenericTemplate :: Env -> GHC.Expr Var -> ConvertM (Template, LF.Expr)
+convertGenericTemplate env x
+    | (dictCon, args) <- collectArgs x
+    , (tyArgs, args) <- span isTypeArg args
+    , Just (superClassDicts, signatories : observers : ensure : agreement : create : fetch : choices) <- span isSuperClassDict <$> mapM isVar_maybe (dropWhile isTypeArg args)
+    , Just (polyType, _) <- splitFunTy_maybe (varType create)
+    , Just (monoTyCon, unwrapCo) <- findMonoTyp polyType
+    = do
+        polyType <- convertType env polyType
+        monoType@(TCon monoTyCon) <- convertTyCon env monoTyCon
+        let (unwrapSelf, wrapSelf)
+                | isReflCo unwrapCo = (EVar self, EVar self)
+                | otherwise =
+                    ( mkEApps (EBuiltin BECoerceContractId) [TyArg monoType, TyArg polyType, TmArg (EVar self)]
+                    , mkEApps (EBuiltin BECoerceContractId) [TyArg polyType, TyArg monoType, TmArg (EVar self)]
+                    )
+        let tplLocation = Nothing
+        let tplTypeCon = qualObject monoTyCon
+        let tplParam = this
+        (unwrapTpl, wrapTpl) <- convertCoercion env unwrapCo
+        let applyThis e = ETmApp e $ unwrapTpl $ EVar this
+        tplSignatories <- applyThis <$> convertExpr env (Var signatories)
+        tplObservers <- applyThis <$> convertExpr env (Var observers)
+        let tplPrecondition = ETrue
+        let tplAgreement = mkEmptyText
+        let tplKey = Nothing
+        let convertGenericChoice :: [Var] -> ConvertM (TemplateChoice, [LF.Expr])
+            convertGenericChoice [controllers, action, exercise] = do
+                TContractId _ :-> _ :-> argType@(TConApp argTCon _) :-> TUpdate resType <- convertType env (varType action)
+                let chcLocation = Nothing
+                let chcName = ChoiceName $ T.intercalate "." $ unTypeConName $ qualObject argTCon
+                let chcConsuming = True
+                let chcSelfBinder = self
+                let applySelf e = ETmApp e unwrapSelf
+                let chcArgBinder = (arg, argType)
+                let applyArg e = e `ETmApp` EVar (fst chcArgBinder)
+                let chcReturnType = resType
+                chcControllers <- applyArg . applyThis <$> convertExpr env (Var controllers)
+                chcUpdate <- applyArg . applyThis . applySelf <$> convertExpr env (Var action)
+                controllers <- convertExpr env (Var controllers)
+                action <- convertExpr env (Var action)
+                let exercise
+                      | envLfVersion env `supports` featureExerciseActorsOptional =
+                        mkETmLams [(self, TContractId polyType), (arg, argType)] $
+                          EUpdate $ UExercise monoTyCon chcName wrapSelf Nothing (EVar arg)
+                      | otherwise =
+                        mkETmLams [(self, TContractId polyType), (arg, argType)] $
+                          EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon wrapSelf) $
+                          EUpdate $ UExercise monoTyCon chcName wrapSelf (Just chcControllers) (EVar arg)
+                pure (TemplateChoice{..}, [controllers, action, exercise])
+            convertGenericChoice es = unhandled "generic choice" es
+        (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 3 choices)
+        superClassDicts <- mapM (convertExpr env . Var) superClassDicts
+        signatories <- convertExpr env (Var signatories)
+        observers <- convertExpr env (Var observers)
+        ensure <- convertExpr env (Var ensure)
+        agreement <- convertExpr env (Var agreement)
+        let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon $ wrapTpl $ EVar this) $ EUpdate $ UPure (TContractId polyType) $ unwrapSelf
+        let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon wrapSelf) $ EUpdate $ UPure polyType $ unwrapTpl $ EVar this
+        dictCon <- convertExpr env dictCon
+        tyArgs <- mapM (convertArg env) tyArgs
+        -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
+        let tmArgs = map (TmArg . ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch] ++ concat choices
+        let dict = mkEApps dictCon $ tyArgs ++ tmArgs
+        pure (Template{..}, dict)
+  where
+    isVar_maybe :: GHC.Expr Var -> Maybe Var
+    isVar_maybe = \case
+        Var v -> Just v
+        _ -> Nothing
+    isSuperClassDict :: Var -> Bool
+    isSuperClassDict v = "$cp" `isPrefixOf` is v
+    findMonoTyp :: GHC.Type -> Maybe (TyCon, Coercion)
+    findMonoTyp t = case t of
+        TypeCon tcon [] -> Just (tcon, mkNomReflCo t)
+        t -> snd <$> find (eqType t . fst) (envNewtypes env)
+    this = mkVar "this"
+    self = mkVar "self"
+    arg = mkVar "arg"
+convertGenericTemplate env x = unhandled "generic template" x
+
 archiveChoice :: LF.Expr -> TemplateChoice
 archiveChoice signatories = TemplateChoice{..}
     where
@@ -339,14 +423,14 @@ data Consuming = PreConsuming
 
 convertChoice :: Env -> LF.Expr -> GHC.Expr Var -> ConvertM TemplateChoice
 convertChoice env signatories
-  (VarIs "C:Choice" `App`
+  (Var (QIsTpl "C:Choice") `App`
      Type tmpl@(TypeCon tmplTyCon []) `App`
        Type (TypeCon chc []) `App`
          Type result `App`
            _templateDict `App`
              consuming `App`
                Var controller `App`
-                 choice `App` _exercise) = do
+                 choice `App` _exercise `App` _exerciseWithActors) = do
     consumption <- f (10 :: Int) consuming
     let chcConsuming = consumption == PreConsuming -- Runtime should auto-archive?
     argType <- convertType env $ TypeCon chc []
@@ -375,7 +459,7 @@ convertChoice env signatories
             --     expr this self arg >>= \res ->
             --     archive signatories self >>= \_ ->
             --     return res
-            let archive = EUpdate $ UExercise tmplTyCon' (mkChoiceName "Archive") selfVar signatories EUnit
+            let archive = EUpdate $ UExercise tmplTyCon' (mkChoiceName "Archive") selfVar (Just signatories) EUnit
             in EUpdate $ UBind (Binding (mkVar "res", chcReturnType) expr) $
                EUpdate $ UBind (Binding (mkVar "_", TUnit) archive) $
                EUpdate $ UPure chcReturnType (EVar $ mkVar "res")
@@ -391,15 +475,15 @@ convertChoice env signatories
         f i (App a _) = f i a
         f i (Tick _ e) = f i e
         f i (VarIs "$dmconsuming") = pure PreConsuming
-        f i (VarIs "preconsuming") = pure PreConsuming
-        f i (VarIs "nonconsuming") = pure NonConsuming
-        f i (VarIs "postconsuming") = pure PostConsuming
+        f i (Var (QIsTpl "preconsuming")) = pure PreConsuming
+        f i (Var (QIsTpl "nonconsuming")) = pure NonConsuming
+        f i (Var (QIsTpl "postconsuming")) = pure PostConsuming
         f i (Var x) | i > 0 = f (i-1) =<< envFindBind env x -- only required to see through the automatic default
         f _ x = unsupported "Unexpected definition of 'consuming'. Expected either absent, 'preconsuming', 'postconsuming' or 'nonconsuming'" x
 convertChoice _ _ x = unhandled "Choice body" x
 
 convertKey :: Env -> GHC.Expr Var -> ConvertM TemplateKey
-convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` Var maintainer `App` _fetch `App` _lookup) = do
+convertKey env o@(Var (QIsTpl "C:TemplateKey") `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` Var maintainer `App` _fetch `App` _lookup) = do
     tmpl' <- convertType env tmpl
     key <- envFindBind env key
     maintainer <- envFindBind env maintainer
@@ -408,8 +492,8 @@ convertKey env o@(VarIs "C:TemplateKey" `App` Type tmpl `App` Type keyType `App`
         keyType <- convertType env keyType
         keyExpr <- convertKeyExpr env keyBinder keyExpr
         maintainerExpr <- convertKeyExpr env maintainerBinder maintainerExpr
-        maintainerExpr <- rewriteMaintainer keyExpr maintainerExpr
-        pure $ TemplateKey keyType keyExpr (ETmLam ("$key", keyType) maintainerExpr)
+        maintainerExpr <- rewriteMaintainer env keyExpr maintainerExpr
+        pure $ TemplateKey keyType keyExpr (ETmLam (mkVar "$key", keyType) maintainerExpr)
       _ -> unhandled "Template key definition" o
 convertKey _ o = unhandled "Template key definition" o
 
@@ -428,7 +512,7 @@ convertKeyExpr env keyBinder keyExpr
             | otherwise -> defaultConv
     | otherwise = defaultConv
   where
-    thisRef = EVar "this"
+    thisRef = EVar (mkVar "this")
     defaultConv = convertExpr (envInsertAlias keyBinder thisRef env) keyExpr
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
@@ -451,13 +535,13 @@ convertCtors :: Env -> Ctors -> ConvertM [Definition]
 convertCtors env (Ctors name tys [o@(Ctor ctor fldNames fldTys)])
   | isRecordCtor o
   = pure [defDataType tconName tys $ DataRecord flds
-    ,defValue name (Tagged $ T.pack $ "$ctor:" ++ getOccString ctor, mkTForalls tys $ mkTFuns fldTys (typeConAppToType tcon)) expr
+    ,defValue name (mkVal $ "$ctor:" ++ getOccString ctor, mkTForalls tys $ mkTFuns fldTys (typeConAppToType tcon)) expr
     ]
     where
         flds = zipExact fldNames fldTys
         tconName = mkTypeCon [getOccString name]
         tcon = TypeConApp (Qualified PRSelf (envLFModuleName env) tconName) $ map (TVar . fst) tys
-        expr = mkETyLams tys $ mkETmLams (map (first retag) flds) $ ERecCon tcon [(l, EVar $ retag l) | l <- fldNames]
+        expr = mkETyLams tys $ mkETmLams (map (first fieldToVar ) flds) $ ERecCon tcon [(l, EVar $ fieldToVar l) | l <- fldNames]
 convertCtors env (Ctors name tys cs) = do
     (constrs, funs) <- mapAndUnzipM convertCtor cs
     pure $ [defDataType tconName tys $ DataVariant constrs] ++ concat funs
@@ -473,27 +557,34 @@ convertCtors env (Ctors name tys cs) = do
             let recName = synthesizeVariantRecord ctorName tconName
                 recData = defDataType recName tys $ DataRecord (zipExact fldNames fldTys)
                 recTCon = TypeConApp (Qualified PRSelf (envLFModuleName env) recName) $ map (TVar . fst) tys
-                recExpr = ERecCon recTCon [(f, EVar (retag f)) | f <- fldNames]
+                recExpr = ERecCon recTCon [(f, EVar (fieldToVar f)) | f <- fldNames]
             in  pure ((ctorName, typeConAppToType recTCon), [recData, ctorFun fldNames recExpr])
           where
             ctorName = mkVariantCon (getOccString ctor)
             tcon = TypeConApp (Qualified PRSelf (envLFModuleName env) tconName) $ map (TVar . fst) tys
             tres = mkTForalls tys $ mkTFuns fldTys (typeConAppToType tcon)
             ctorFun fldNames' ctorArg =
-              defValue ctor (Tagged $ T.pack $ "$ctor:" ++ getOccString ctor, tres) $
-              mkETyLams tys $ mkETmLams (zipExact (map retag fldNames') fldTys) $ EVariantCon tcon ctorName ctorArg
+              defValue ctor (mkVal $ "$ctor:" ++ getOccString ctor, tres) $
+              mkETyLams tys $ mkETmLams (zipExact (map fieldToVar fldNames') fldTys) $ EVariantCon tcon ctorName ctorArg
 
 
 convertBind :: Env -> CoreBind -> ConvertM [Definition]
 convertBind env (NonRec name x)
     | DFunId _ <- idDetails name
-    , TypeCon (Is "Template") [t] <- varType name
+    , TypeCon (QIsTpl "Template") [t] <- varType name
     = withRange (convNameLoc name) $ liftA2 (++) (convertTemplate env x) (convertBind2 env (NonRec name x))
+    | DFunId _ <- idDetails name
+    , TypeCon (Is tplInst) _ <- varType name
+    , "Instance" `isSuffixOf` tplInst
+    = withRange (convNameLoc name) $ do
+        (tmpl, dict) <- convertGenericTemplate env x
+        name' <- convValWithType env name
+        pure [DTemplate tmpl, defValue name name' dict]
 convertBind env x = convertBind2 env x
 
 convertBind2 :: Env -> CoreBind -> ConvertM [Definition]
 convertBind2 env (NonRec name x)
-    | Just internals <- MS.lookup (envGHCModuleName env) internalFunctions
+    | Just internals <- MS.lookup (envGHCModuleName env) (internalFunctions $ envLfVersion env)
     , is name `elem` internals
     = pure []
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
@@ -515,7 +606,9 @@ convertBind2 env (NonRec name x)
     x' <- convertExpr env x
     let sanitize = case idDetails name of
           -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
-          DFunId{} ->
+          -- NOTE (drsk): We only want to do the sanitization for non-newtypes. The sanitization
+          -- step 3 for newtypes is done in the convertCoercion function.
+          DFunId False ->
             over (_ETyLams . _2 . _ETmLams . _2 . _ETmApps . _2 . each) (ETmLam (mkVar "_", TUnit))
           _ -> id
     name' <- convValWithType env name
@@ -530,20 +623,27 @@ convertBind2 env (Rec xs) = concatMapM (\(a, b) -> convertBind env (NonRec a b))
 internalTypes :: [String]
 internalTypes = ["Scenario","Update","ContractId","Time","Date","Party","Pair"]
 
-internalFunctions :: MS.Map GHC.ModuleName [String]
-internalFunctions = MS.fromList $ map (first mkModuleName)
+internalFunctions :: LF.Version -> MS.Map GHC.ModuleName [String]
+internalFunctions version = MS.fromList $ map (first mkModuleName)
     [ ("DA.Internal.Record",
         [ "getFieldPrim"
         , "setFieldPrim"
         ])
     , ("DA.Internal.Template", -- template funcs defined with magic
-        [ "$dminternalExercise"
+        [ "$dminternalExerciseWithActors"
         , "$dminternalFetch"
         , "$dminternalCreate"
-        , "$dminternalArchive"
+        , "$dminternalArchiveWithActors"
         , "$dminternalFetchByKey"
         , "$dminternalLookupByKey"
-        ])
+        ] ++
+        if version `supports` featureExerciseActorsOptional
+          then
+            [ "$dminternalExercise"
+            , "$dminternalArchive"
+            ]
+          else []
+      )
     , ("DA.Internal.LF", "unpackPair" : map ("$W" ++) internalTypes)
     , ("GHC.Base",
         [ "getTag"
@@ -585,20 +685,34 @@ convertExpr env0 e = do
         tmpl' <- convertQualified env tmpl
         withTmArg env (varV1, TContractId t') args $ \x args ->
             pure (EUpdate $ UFetch tmpl' x, args)
-    go env (VarIs "$dminternalExercise") (LType t@(TypeCon tmpl []) : LType c@(TypeCon chc []) : LType _result : _dict : args) = do
+    go env (VarIs "$dminternalExercise") (LType t@(TypeCon tmpl []) : LType c@(TypeCon chc []) : LType _result : _dict : args)
+      | envLfVersion env `supports` featureExerciseActorsOptional = do
+        t' <- convertType env t
+        c' <- convertType env c
+        tmpl' <- convertQualified env tmpl
+        withTmArg env (varV2, TContractId t') args $ \x2 args ->
+            withTmArg env (varV3, c') args $ \x3 args ->
+                pure (EUpdate $ UExercise tmpl' (mkChoiceName $ is chc) x2 Nothing x3, args)
+    go env (VarIs "$dminternalExerciseWithActors") (LType t@(TypeCon tmpl []) : LType c@(TypeCon chc []) : LType _result : _dict : args) = do
         t' <- convertType env t
         c' <- convertType env c
         tmpl' <- convertQualified env tmpl
         withTmArg env (varV1, TList TParty) args $ \x1 args ->
             withTmArg env (varV2, TContractId t') args $ \x2 args ->
             withTmArg env (varV3, c') args $ \x3 args ->
-                pure (EUpdate $ UExercise tmpl' (mkChoiceName $ is chc) x2 x1 x3, args)
-    go env (VarIs "$dminternalArchive") (LType t@(TypeCon tmpl []) : _dict : args) = do
+                pure (EUpdate $ UExercise tmpl' (mkChoiceName $ is chc) x2 (Just x1) x3, args)
+    go env (VarIs "$dminternalArchive") (LType t@(TypeCon tmpl []) : _dict : args)
+      | envLfVersion env `supports` featureExerciseActorsOptional = do
+        t' <- convertType env t
+        tmpl' <- convertQualified env tmpl
+        withTmArg env (varV2, TContractId t') args $ \x2 args ->
+            pure (EUpdate $ UExercise tmpl' (mkChoiceName "Archive") x2 Nothing EUnit, args)
+    go env (VarIs "$dminternalArchiveWithActors") (LType t@(TypeCon tmpl []) : _dict : args) = do
         t' <- convertType env t
         tmpl' <- convertQualified env tmpl
         withTmArg env (varV1, TList TParty) args $ \x1 args ->
             withTmArg env (varV2, TContractId t') args $ \x2 args ->
-                pure (EUpdate $ UExercise tmpl' (mkChoiceName "Archive") x2 x1 EUnit, args)
+                pure (EUpdate $ UExercise tmpl' (mkChoiceName "Archive") x2 (Just x1) EUnit, args)
     go env (VarIs f) (LType t@(TypeCon tmpl []) : LType key : _dict : args)
         | f == "$dminternalFetchByKey" = conv UFetchByKey
         | f == "$dminternalLookupByKey" = conv ULookupByKey
@@ -765,7 +879,7 @@ convertExpr env0 e = do
           withTmArg env (varV1, t) args $ \x args ->
             pure (ESome t x, args)
     go env (Var x) args
-        | Just internals <- MS.lookup modName internalFunctions
+        | Just internals <- MS.lookup modName (internalFunctions $ envLfVersion env)
         , is x `elem` internals
         = unsupported "Direct call to internal function" x
         | is x == "()" = fmap (, args) $ pure EUnit
@@ -815,7 +929,8 @@ convertExpr env0 e = do
         | otherwise = fmap (, args) $ ETmLam <$> convVarWithType env name <*> convertExpr env x
     go env (Cast x co) args = fmap (, args) $ do
         x' <- convertExpr env x
-        convertCast env x' co
+        (to, _from) <- convertCoercion env co
+        pure $ to x'
     go env (Let (NonRec name x) y) args =
         fmap (, args) $ convertLet env name x (\env -> convertExpr env y)
     go env (Case scrutinee bind _ [(DEFAULT, [], x)]) args =
@@ -883,10 +998,10 @@ convertExpr env0 e = do
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
 
-    convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
-    convertArg env = \case
-        Type t -> TyArg <$> convertType env t
-        e -> TmArg <$> convertExpr env e
+convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
+convertArg env = \case
+    Type t -> TyArg <$> convertType env t
+    e -> TmArg <$> convertExpr env e
 
 withTyArg :: Env -> (LF.TypeVarName, LF.Kind) -> [LArg Var] -> (LF.Type -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
 withTyArg env _ (LType t:args) cont = do
@@ -920,7 +1035,7 @@ convertUnitId thisUnitId _pkgMap unitId | unitId == thisUnitId = pure LF.PRSelf
 convertUnitId _thisUnitId pkgMap unitId = case unitId of
   IndefiniteUnitId x -> unsupported "Indefinite unit id's" x
   DefiniteUnitId _ -> case MS.lookup unitId pkgMap of
-    Just hash -> pure $ LF.PRImport $ Tagged hash
+    Just hash -> pure $ LF.PRImport $ PackageId hash
     Nothing -> unknown unitId pkgMap
 
 convertAlt :: Env -> LF.Type -> Alt Var -> ConvertM CaseAlternative
@@ -974,7 +1089,10 @@ mkProjBindings env recExpr recTyp vsFlds e =
     , not (isDeadOcc (occInfo (idInfo v)))
     ]
 
--- | Convert casts induced by newtype definitions. The definition
+-- Convert a coercion @S ~ T@ to a pair of lambdas
+-- @(to :: S -> T, from :: T -> S)@ in higher-order abstract syntax style.
+--
+-- The definition
 --
 -- > newtype T = MkT S
 --
@@ -990,66 +1108,69 @@ mkProjBindings env recExpr recTyp vsFlds e =
 -- Coercions induced by newtypes can also occur deeply nested in function
 -- types or forall quantifications. We handle those cases by recursion into
 -- all sub-coercions.
-convertCast :: Env -> LF.Expr -> Coercion -> ConvertM LF.Expr
-convertCast env expr0 co0 = evalStateT (go expr0 co0) 0
+convertCoercion :: Env -> Coercion -> ConvertM (LF.Expr -> LF.Expr, LF.Expr -> LF.Expr)
+convertCoercion env co = evalStateT (go env co) 0
   where
-    go :: LF.Expr -> Coercion -> StateT Int ConvertM LF.Expr
-    go expr co
-      | isReflCo co
-      = pure expr
+    go :: Env -> Coercion -> StateT Int ConvertM (LF.Expr -> LF.Expr, LF.Expr -> LF.Expr)
+    go env co@(coercionKind -> Pair s t)
+        | isReflCo co = pure (id, id)
+        | Just (aCo, bCo) <- splitFunCo_maybe co = do
+            let Pair a a' = coercionKind aCo
+            (aTo, aFrom) <- go env aCo
+            (bTo, bFrom) <- go env bCo
+            a <- lift $ convertType env a
+            a' <- lift $ convertType env a'
+            x <- mkLamBinder
+            let to expr = ETmLam (x, a') $ bTo $ ETmApp expr $ aFrom $ EVar x
+            let from expr = ETmLam (x, a) $ bFrom $ ETmApp expr $ aTo $ EVar x
+            pure (to, from)
+        -- NOTE(MH): This case is commented out because we don't know how to trigger
+        -- it in a test case yet. In theory it should do the right thing though.
+        -- | Just (a, k_co, co') <- splitForAllCo_maybe co
+        -- , isReflCo k_co
+        -- = do
+        --     (a, k) <- lift $ convTypeVar a
+        --     (to', from') <- go env co'
+        --     let to expr = ETyLam (a, k) $ to' $ ETyApp expr $ TVar a
+        --     let from expr = ETyLam (a, k) $ from' $ ETyApp expr $ TVar a
+        --     pure (to, from)
+        -- Case (1) & (2)
+        | Just (tCon, ts, field, flv) <- isSatNewTyCon s t = newtypeCoercion tCon ts field flv
+        | Just (tCon, ts, field, flv) <- isSatNewTyCon t s = swap <$> newtypeCoercion tCon ts field flv
+        | SymCo co' <- co = swap <$> go env co'
+        | SubCo co' <- co = go env co'
+        | otherwise = lift $ unhandled "Coercion" co
 
-      | Just (xCo, yCo) <- splitFunCo_maybe  co
-      = do
-        let Pair _ t = coercionKind xCo
-        n <- state (\k -> let l = k+1 in (l, l))
-        let var = mkVar ("$cast" ++ show n)
-        -- NOTE(MH): We need @mkSymCo xCo@ here because the arrow type is
-        -- contravariant in its first argument but GHC's coercions
-        -- don't reflect this fact.
-        var' <- go (EVar var) (mkSymCo xCo)
-        t' <- lift (convertType env t)
-        ETmLam (var, t') <$> go (expr `ETmApp` var') yCo
+    newtypeCoercion tCon ts field flv = do
+        ts' <- lift $ mapM (convertType env) ts
+        t' <- lift $ convertQualified env tCon
+        let tcon = TypeConApp t' ts'
+        let sanitizeTo x
+                -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
+                | flv == ClassFlavour = ETmLam (mkVar "_", TUnit) x
+                | otherwise = x
+            sanitizeFrom x
+                -- NOTE(MH): This is DICTIONARY SANITIZATION step (2).
+                | flv == ClassFlavour = x `ETmApp` EUnit
+                | otherwise = x
+        let to expr = ERecCon tcon [(field, sanitizeTo expr)]
+        let from expr = sanitizeFrom $ ERecProj tcon field expr
+        pure (to, from)
 
-      | Just (x, k_co, co') <- splitForAllCo_maybe co
-      , isReflCo k_co
-      = do
-        (x', kind) <- lift $ convTypeVar x
-        ETyLam (x', kind) <$> go (expr `ETyApp` TVar x') co'
+    mkLamBinder = do
+        n <- state (dupe . succ)
+        pure $ mkVar $ "$cast" ++ show n
 
-      -- Case (1) & (2)
-      | Pair s t <- coercionKind co
-      = lift $ do
-        mCase1 <- isSatNewTyCon s t
-        mCase2 <- isSatNewTyCon t s
-        case (mCase1, mCase2) of
-          (Just (tcon, field, flv), _) ->
-            let sanitize x
-                  -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
-                  | flv == ClassFlavour = ETmLam (mkVar "_", TUnit) x
-                  | otherwise = x
-            in pure $ ERecCon tcon [(field, sanitize expr)]
-          (_, Just (tcon, field, flv)) ->
-            let sanitize x
-                  -- NOTE(MH): This is DICTIONARY SANITIZATION step (2).
-                  | flv == ClassFlavour = x `ETmApp` EUnit
-                  | otherwise = x
-            in pure $ sanitize (ERecProj tcon field expr)
-          _ -> unhandled "Coercion" co
-    isSatNewTyCon :: GHC.Type -> GHC.Type -> ConvertM (Maybe (TypeConApp, FieldName, TyConFlavour))
+    isSatNewTyCon :: GHC.Type -> GHC.Type -> Maybe (TyCon, [TyCoRep.Type], FieldName, TyConFlavour)
     isSatNewTyCon s (TypeCon t ts)
-      | Just data_con <- newTyConDataCon_maybe t
-      , (tvs, rhs) <- newTyConRhs t
-      , length ts == length tvs
-      , applyTysX tvs rhs ts `eqType` s
-      , [field] <- ctorLabels flv data_con
-      = do
-      ts' <- mapM (convertType env) ts
-      t' <- convertQualified env t
-      pure $ Just (TypeConApp t' ts', field, flv)
+        | Just data_con <- newTyConDataCon_maybe t
+        , (tvs, rhs) <- newTyConRhs t
+        , length ts == length tvs
+        , applyTysX tvs rhs ts `eqType` s
+        , [field] <- ctorLabels flv data_con = Just (t, ts, field, flv)
       where
         flv = tyConFlavour t
-    isSatNewTyCon _ _
-      = pure Nothing
+    isSatNewTyCon _ _ = Nothing
 
 convertModuleName :: GHC.ModuleName -> LF.ModuleName
 convertModuleName (GHC.moduleNameString -> x)
@@ -1094,7 +1215,7 @@ convertTyCon env t
     | t == intTyCon || t == intPrimTyCon = pure TInt64
     | t == charTyCon = unsupported "Type GHC.Types.Char" t
     | t == liftedRepDataConTyCon = pure TUnit
-    | t == typeSymbolKindCon = unsupported "Type GHC.Types.Symbol" t
+    | t == typeSymbolKindCon = pure TUnit
     | Just m <- nameModule_maybe (getName t), m == gHC_TYPES =
         case getOccString t of
             "Text" -> pure TText
@@ -1111,7 +1232,7 @@ convertTyCon env t
             "Time" -> pure TTimestamp
             _ -> defaultTyCon
     | isBuiltinName "Optional" t = pure (TBuiltin BTOptional)
-    | isBuiltinTextMap env t = pure (TBuiltin BTMap)
+    | isBuiltinName "TextMap" t = pure (TBuiltin BTMap)
     | otherwise = defaultTyCon
     where
         arity = tyConArity t
@@ -1120,6 +1241,9 @@ convertTyCon env t
 convertType :: Env -> GHC.Type -> ConvertM LF.Type
 convertType env o@(TypeCon t ts)
     | t == listTyCon, ts `eqTypes` [charTy] = pure TText
+    -- TODO (drsk) we need to check that 'MetaData', 'MetaCons', 'MetaSel' are coming from the
+    -- module GHC.Generics.
+    | is t `elem` ["MetaData", "MetaCons", "MetaSel"], [_] <- ts = pure TUnit
     | t == anyTyCon, [_] <- ts = pure TUnit -- used for type-zonking
     | t == funTyCon, _:_:ts' <- ts =
         foldl TApp TArrow <$> mapM (convertType env) ts'
@@ -1149,8 +1273,11 @@ convertKind x@(TypeCon t ts)
     | t == typeSymbolKindCon, null ts = pure KStar
     | t == tYPETyCon, [_] <- ts = pure KStar
     | t == runtimeRepTyCon, null ts = pure KStar
+    -- TODO (drsk): We want to check that the 'Meta' constructor really comes from GHC.Generics.
+    | is t == "Meta", null ts = pure KStar
     | t == funTyCon, [_,_,t1,t2] <- ts = KArrow <$> convertKind t1 <*> convertKind t2
-    | otherwise = unhandled "Kind" x
+convertKind (TyVarTy x) = convertKind $ tyVarKind x
+convertKind x = unhandled "Kind" x
 
 convNameLoc :: NamedThing a => a -> Maybe LF.SourceLoc
 convNameLoc n = case nameSrcSpan (getName n) of
@@ -1255,38 +1382,25 @@ isRecordCtor (Ctor _ fldNames fldTys) = not (null fldNames) || null fldTys
 -- then 'maintainer' gets rewritten into
 --
 -- > maintainer = $key._2 ++ $key._1
-rewriteMaintainer :: LF.Expr -> LF.Expr -> ConvertM LF.Expr
-rewriteMaintainer key maintainer = do
-    keyMap <- buildKeyMap key
-    rewriteThisProjections keyMap maintainer
+rewriteMaintainer :: Env -> LF.Expr -> LF.Expr -> ConvertM LF.Expr
+rewriteMaintainer env key maintainer = do
+    let keyMap = buildKeyMap (removeLocations key)
+    rewriteThisProjections keyMap (removeLocations maintainer)
   where
-    unwindProjections :: LF.Expr -> (LF.Expr, [FieldName])
-    unwindProjections = go []
-      where
-        go fields = \case
-            ELocation _ expr -> go fields expr
-            ERecProj _typ field expr -> go (field : fields) expr
-            expr -> (expr, fields)
-
-    -- TODO(#299): The error messages are pretty bad.
-    buildKeyMap :: LF.Expr -> ConvertM (MS.Map [FieldName] LF.Expr)
+    buildKeyMap :: LF.Expr -> MS.Map LF.Expr LF.Expr
     buildKeyMap = \case
-        ELocation _ expr -> buildKeyMap expr
-        ERecCon typ fields -> do
-            keyMaps <- forM fields $ \(fieldName, fieldExpr) ->
-                MS.map (ERecProj typ fieldName) <$> buildKeyMap fieldExpr
-            pure $ MS.unions keyMaps
-        expr
-            | (EVar "this", fields) <- unwindProjections expr -> pure $ MS.singleton fields (EVar "$key")
-        o -> unhandled "Template key expression" o
+        ERecCon typ fields -> MS.unions
+            [ MS.map (ERecProj typ fieldName) (buildKeyMap fieldExpr)
+            | (fieldName, fieldExpr) <- fields
+            ]
+        expr -> MS.singleton expr (EVar $ mkVar "$key")
 
     -- TODO(#299): The error messages are pretty bad.
-    rewriteThisProjections :: MS.Map [FieldName] LF.Expr -> LF.Expr -> ConvertM LF.Expr
-    rewriteThisProjections keyMap expr = case unwindProjections expr of
-        (EVar "this", fields)
-          | Just expr' <- MS.lookup fields keyMap -> pure expr'
-          | null fields -> unhandled "Unbound reference to this in maintainer" expr
-        _ -> embed <$> mapM (rewriteThisProjections keyMap) (project expr)
+    rewriteThisProjections :: MS.Map LF.Expr LF.Expr -> LF.Expr -> ConvertM LF.Expr
+    rewriteThisProjections keyMap expr
+        | Just expr' <- expr `MS.lookup` keyMap = pure expr'
+        | EVar (ExprVarName "this") <- expr = unhandled "Unbound reference to this in maintainer" expr
+        | otherwise = embed <$> mapM (rewriteThisProjections keyMap) (project expr)
 
 
 ---------------------------------------------------------------------
@@ -1330,3 +1444,6 @@ mkPure env monad dict t x = do
 sourceLocToRange :: SourceLoc -> Range
 sourceLocToRange (SourceLoc _ slin scol elin ecol) =
   Range (Position slin scol) (Position elin ecol)
+
+pattern QIsTpl :: NamedThing a => String -> a
+pattern QIsTpl x <- QIs "DA.Internal.Template" x

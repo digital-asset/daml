@@ -56,6 +56,19 @@ object LedgerFactories {
 
   }
 
+  def createRemoteApiProxyResource(config: PlatformApplications.Config)(
+      implicit esf: ExecutionSequencerFactory): Resource[LedgerContext.SingleChannelContext] = {
+    require(config.remoteApiEndpoint.isDefined, "config.remoteApiEndpoint has to be set")
+    val endpoint = config.remoteApiEndpoint.get
+    val packageIds = config.darFiles.map(getPackageIdOrThrow)
+
+    RemoteServerResource(endpoint.host, endpoint.port, endpoint.tlsConfig)
+      .map {
+        case PlatformChannels(channel) =>
+          LedgerContext.SingleChannelContext(channel, config.ledgerId, packageIds)
+      }
+  }
+
   def createSandboxResource(config: PlatformApplications.Config, store: SandboxStore = InMemory)(
       implicit esf: ExecutionSequencerFactory): Resource[LedgerContext.SingleChannelContext] = {
     val packageIds = config.darFiles.map(getPackageIdOrThrow)

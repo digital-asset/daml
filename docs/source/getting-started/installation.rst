@@ -7,7 +7,7 @@ Installing the SDK
 1. Install the dependencies
 ***************************
 
-The SDK currently runs on MacOS or Linux. For Windows support, we recommend installing the SDK on a virtual machine running Linux.
+The SDK currently runs on Windows, MacOS or Linux.
 
 You need to install:
 
@@ -30,18 +30,11 @@ To install the SDK on Mac or Linux:
 Windows
 =======
 
-To install the SDK on Windows, download and run the installer from `github.com/digital-asset/daml/releases/latest <https://github.com/digital-asset/daml/releases/latest>`__.
+.. note::
 
-.. _setup-maven-project:
+  There's currently a known issue where the installer gets flagged as "unrecognized" by Windows Defender, but this will be fixed soon.
 
-3. Configure Maven
-******************
-
-To use the Java bindings (and to follow the quickstart guide), you need to install Maven and configure it to use the Digital Asset repository:
-
-#. Install `Maven <https://maven.apache.org/>`_.
-#. Download `settings.xml <https://bintray.com/repo/downloadMavenRepoSettingsFile/downloadSettings?repoPath=%2Fdigitalassetsdk%2FDigitalAssetSDK>`_.
-#. Copy the downloaded file to ``~/.m2/settings.xml``. If you already have ``~/.m2/settings.xml``, integrate the downloaded file with it instead.
+We support running the SDK on Windows 10. To install the SDK on Windows, download and run the installer from `github.com/digital-asset/daml/releases/latest <https://github.com/digital-asset/daml/releases/latest>`__.
 
 Next steps
 **********

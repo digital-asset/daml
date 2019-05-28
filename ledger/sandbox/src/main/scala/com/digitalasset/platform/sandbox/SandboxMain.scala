@@ -14,22 +14,22 @@ object SandboxMain extends App {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private lazy val sandboxServer: SandboxServer =
-    Cli.parse(args).fold(sys.exit(1))(config => SandboxServer(config))
+  Cli.parse(args).fold(sys.exit(1)) { config =>
+    val server = SandboxServer(config)
 
-  private val closed = new AtomicBoolean(false)
+    val closed = new AtomicBoolean(false)
 
-  private def closeServer(): Unit = {
-    if (closed.compareAndSet(false, true)) sandboxServer.close()
-  }
+    def closeServer(): Unit = {
+      if (closed.compareAndSet(false, true)) server.close()
+    }
 
-  try {
-    Runtime.getRuntime.addShutdownHook(new Thread(() => closeServer()))
-    sandboxServer
-  } catch {
-    case NonFatal(t) => {
-      logger.error("Shutting down Sandbox application because of initialization error", t)
-      closeServer()
+    try {
+      Runtime.getRuntime.addShutdownHook(new Thread(() => closeServer()))
+    } catch {
+      case NonFatal(t) => {
+        logger.error("Shutting down Sandbox application because of initialization error", t)
+        closeServer()
+      }
     }
   }
 

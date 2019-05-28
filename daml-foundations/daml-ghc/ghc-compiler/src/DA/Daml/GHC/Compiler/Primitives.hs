@@ -13,7 +13,6 @@ module DA.Daml.GHC.Compiler.Primitives(convertPrim) where
 import           DA.Daml.GHC.Compiler.UtilLF
 import           DA.Daml.LF.Ast
 import           DA.Pretty (renderPretty)
-import           Data.Tagged
 import qualified Data.Text as T
 
 convertPrim :: Version -> String -> Type -> Expr
@@ -124,83 +123,49 @@ convertPrim _ "BEAppendText" (TText :-> TText :-> TText) =
     EBuiltin BEAppendText
 convertPrim _ "BETrace" (TText :-> a1 :-> a2) | a1 == a2 =
     EBuiltin BETrace `ETyApp` a1
-convertPrim version "BESha256Text" (TText :-> TText) =
-    if version `supports` featureSha256Text
-      then EBuiltin BESha256Text
-      -- compile also if we do not support it, so that we can have DA.Text.sha256
-      -- compiled without generating invalid packages regardless.
-      else mkETmLams
-        [(varV1, TText)]
-        (ETmApp
-          (ETyApp (EBuiltin BEError) TText)
-          (EBuiltin (BEText "SHA256_TEXT only supported when compiling to DAML-LF >= 1.2")))
+convertPrim _ "BESha256Text" (TText :-> TText) =
+    EBuiltin BESha256Text
 convertPrim _ "BEPartyToQuotedText" (TParty :-> TText) =
     EBuiltin BEPartyToQuotedText
-convertPrim version "BEPartyFromText" (TText :-> TOptional TParty) =
-    if version `supports` featurePartyFromText
-      then EBuiltin BEPartyFromText
-      -- compile also if we do not support it, so that we can have DA.Internal.LF.partyFromText
-      -- compiled without generating invalid packages regardless.
-      else runtimeUnsupportedPartyFromText (TOptional TParty)
+convertPrim _ "BEPartyFromText" (TText :-> TOptional TParty) =
+    EBuiltin BEPartyFromText
+convertPrim version "BEInt64FromText" (TText :-> TOptional TInt64)
+    | version `supports` featureNumberFromText = EBuiltin BEInt64FromText
+    | otherwise = EVal $ Qualified PRSelf (mkModName ["DA", "Text"]) (mkVal "legacyParseInt")
+convertPrim version "BEDecimalFromText" (TText :-> TOptional TDecimal)
+    | version `supports` featureNumberFromText = EBuiltin BEDecimalFromText
+    | otherwise = EVal $ Qualified PRSelf (mkModName ["DA", "Text"]) (mkVal "legacyParseDecimal")
 
 -- Map operations
 
 convertPrim _ "BEMapEmpty" (TMap a) =
   EBuiltin BEMapEmpty `ETyApp` a
-convertPrim _ "BEMapEmpty" t@(TextMap_ _ _) =
-  runtimeUnsupported "BEMapEmpty" "1.3" t
 convertPrim _ "BEMapInsert"  (TText :-> a1 :-> TMap a2 :-> TMap a3) | a1 == a2, a2 == a3 =
   EBuiltin BEMapInsert `ETyApp` a1
-convertPrim _ "BEMapInsert"  t@(TText :-> a1 :-> TextMap_ _ a2 :-> TextMap_ _ a3) | a1 == a2, a2 == a3 =
-  runtimeUnsupported "BAMapInsert" "1.3" t
 convertPrim _ "BEMapLookup" (TText :-> TMap a1 :-> TOptional a2) | a1 == a2 =
   EBuiltin BEMapLookup `ETyApp` a1
-convertPrim _ "BEMapLookup" t@(TText :-> TextMap_ _ a1 :-> TOptional a2) | a1 == a2 =
-  runtimeUnsupported "BEMapLookup" "1.3" t
-convertPrim _ "BEMapLookup" t@(TText :-> TextMap_ _ a1 :-> TOptional_ _ a2) | a1 == a2 =
-    runtimeUnsupported "BEMapLookup" "1.3" t
 convertPrim _ "BEMapDelete" (TText :-> TMap a1 :-> TMap a2) | a1 == a2 =
   EBuiltin BEMapDelete `ETyApp` a1
-convertPrim _ "BEMapDelete" t@(TText :-> TextMap_ _ a1 :-> TextMap_ _ a2) | a1 == a2 =
-  runtimeUnsupported "BAMapDelete" "1.3" t
 convertPrim _ "BEMapToList" (TMap a1 :-> TList (TMapEntry a2)) | a1 == a2  =
   EBuiltin BEMapToList `ETyApp` a1
-convertPrim _ "BEMapToList" t@(TextMap_ _ a1 :-> TList (TMapEntry a2)) | a1 == a2 =
-  runtimeUnsupported "BEMapToList" "1.3" t
 convertPrim _ "BEMapSize" (TMap a :-> TInt64) =
   EBuiltin BEMapSize `ETyApp` a
-convertPrim _ "BEMapSize" t@(TextMap_ _ _ :-> TInt64) =
-  runtimeUnsupported "BAMapSize" "1.3" t
+
+convertPrim version "BECoerceContractId" t@(TContractId a :-> TContractId b) =
+    whenRuntimeSupports version featureCoerceContractId t $ EBuiltin BECoerceContractId `ETyApp` a `ETyApp` b
 
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
-pattern TextMap_ :: PackageRef -> Type -> Type
-pattern TextMap_ pkg a =
-  TApp
-  (TCon (Qualified pkg (Tagged ["DA", "Internal", "Prelude"]) (Tagged ["TextMap"])))
-  a
+-- | Some builtins are only supported in specific versions of DAML-LF.
+-- Since we don't have conditional compilation in daml-stdlib, we compile
+-- them to calls to `error` in unsupported versions.
+whenRuntimeSupports :: Version -> Feature -> Type -> Expr -> Expr
+whenRuntimeSupports version feature t e
+    | version `supports` feature = e
+    | otherwise = runtimeUnsupported feature t
 
-pattern TOptional_ :: PackageRef -> Type -> Type
-pattern TOptional_ pkg a =
-  TApp
-  (TCon (Qualified pkg (Tagged ["DA", "Internal", "Prelude"]) (Tagged ["Optional"])))
-  a
-
-
-runtimeUnsupported :: T.Text -> T.Text -> Type -> Expr
-runtimeUnsupported msg v (tArg :-> tFun) =
-  mkETmLams
-    [(varV1, tArg)]
-    (runtimeUnsupported msg v tFun)
-runtimeUnsupported msg v t =
+runtimeUnsupported :: Feature -> Type -> Expr
+runtimeUnsupported (Feature name version) t =
   ETmApp
   (ETyApp (EBuiltin BEError) t)
-  (EBuiltin (BEText (msg <> " only supported when compiling to DAML-LF >= " <> v)))
-
-runtimeUnsupportedPartyFromText :: Type -> Expr
-runtimeUnsupportedPartyFromText retType =
-  mkETmLams
-    [(varV1, TText)]
-    (ETmApp
-      (ETyApp (EBuiltin BEError) retType)
-      (EBuiltin (BEText "PARTY_FROM_TEXT only supported when compiling to DAML-LF >= 1.2")))
+  (EBuiltin (BEText (name <> " only supported when compiling to DAML-LF " <> T.pack (renderVersion version) <> " or later")))

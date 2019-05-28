@@ -55,7 +55,6 @@ import qualified Data.Set                                   as S
 import qualified Data.Text                                  as T
 import Data.List
 import Data.Maybe
-import Data.Tagged
 import Safe
 
 import           Data.Time.Clock
@@ -154,15 +153,17 @@ newIdeState :: Options
             -> Logger.Handle IO
             -> Managed IdeState
 newIdeState compilerOpts mbEventHandler loggerH = do
-  mbScenarioService <- for mbEventHandler $ \eventHandler -> Scenario.startScenarioService eventHandler loggerH
+    mbScenarioService <-
+        for (guard (optScenarioService compilerOpts) >> mbEventHandler) $ \eventHandler ->
+            Scenario.startScenarioService eventHandler loggerH
 
-  -- Load the packages from the package database for the scenario service. We swallow errors here
-  -- but shake will report them when typechecking anything.
-  (_diags, pkgMap) <- liftIO $ CompilerService.generatePackageMap (optPackageDbs compilerOpts)
-  let rule = do
-        CompilerService.mainRule
-        Shake.addIdeGlobal $ GlobalPkgMap pkgMap
-  liftIO $ CompilerService.initialise rule mbEventHandler (toIdeLogger loggerH) compilerOpts mbScenarioService
+    -- Load the packages from the package database for the scenario service. We swallow errors here
+    -- but shake will report them when typechecking anything.
+    (_diags, pkgMap) <- liftIO $ CompilerService.generatePackageMap (optPackageDbs compilerOpts)
+    let rule = do
+            CompilerService.mainRule compilerOpts
+            Shake.addIdeGlobal $ GlobalPkgMap pkgMap
+    liftIO $ CompilerService.initialise rule mbEventHandler (toIdeLogger loggerH) compilerOpts mbScenarioService
 
 -- | Adapter to the IDE logger module.
 toIdeLogger :: Logger.Handle IO -> IdeLogger.Handle
@@ -209,7 +210,7 @@ getAssociatedVirtualResources service filePath = do
             [ (sourceLocToRange loc, "Scenario: " <> name, vr)
             | value@LF.DefValue{dvalLocation = Just loc} <- NM.toList (LF.moduleValues mod0)
             , LF.getIsTest (LF.dvalIsTest value)
-            , let name = unTagged (LF.dvalName value)
+            , let name = LF.unExprValName (LF.dvalName value)
             , let vr = VRScenario filePath name
             ]
 
@@ -269,13 +270,18 @@ newtype UseDalf = UseDalf{unUseDalf :: Bool}
 buildDar ::
      IdeState
   -> FilePath
-  -> [String]
+  -> Maybe [String]
   -> String
   -> String
-  -> [(String, BS.ByteString)]
+  -> (LF.Package -> [(String, BS.ByteString)])
+  -- We allow datafiles to depend on the package being produces to
+  -- allow inference of things like exposedModules.
+  -- Once we kill the old "package" command we could instead just
+  -- pass "PackageConfigFields" to this function and construct the data
+  -- files in here.
   -> UseDalf
   -> ExceptT [FileDiagnostic] IO BS.ByteString
-buildDar service file exposedModules pkgName sdkVersion dataFiles dalfInput = do
+buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInput = do
   liftIO $
     CompilerService.logDebug service $
     "Creating dar: " <> T.pack file
@@ -287,13 +293,13 @@ buildDar service file exposedModules pkgName sdkVersion dataFiles dalfInput = do
         (takeDirectory file)
         []
         []
-        dataFiles
+        []
         pkgName
         sdkVersion
     else do
       pkg <- compileFile service file
-      let pkgModuleNames = S.fromList (map (T.unpack . LF.moduleNameString . LF.moduleName) $ NM.elems $ LF.packageModules pkg)
-      let missingExposed = S.fromList exposedModules S.\\ pkgModuleNames
+      let pkgModuleNames = S.fromList $ map T.unpack $ LF.packageModuleNames pkg
+      let missingExposed = S.fromList (fromMaybe [] mbExposedModules) S.\\ pkgModuleNames
       unless (S.null missingExposed) $ do
           liftIO $ CompilerService.logSeriousError service $
               "The following modules are declared in exposed-modules but are not part of the DALF: " <>
@@ -320,7 +326,7 @@ buildDar service file exposedModules pkgName sdkVersion dataFiles dalfInput = do
               (takeDirectory file)
               dalfDependencies
               (file:fileDependencies)
-              dataFiles
+              (buildDataFiles pkg)
               pkgName
               sdkVersion
 

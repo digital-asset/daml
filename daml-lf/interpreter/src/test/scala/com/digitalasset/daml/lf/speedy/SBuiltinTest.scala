@@ -738,7 +738,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       }
     }
 
-    "TO_TEXT_PARTY & TO_QUOTED_TEXT_PARTY & FROM_TEXT_PARTY" - {
+    "Text Operations" - {
       "TO_QUOTED_TEXT_PARTY single quotes" in {
         eval(e"TO_QUOTED_TEXT_PARTY 'alice'") shouldBe Right(SText("'alice'"))
       }
@@ -752,7 +752,99 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           SOptional(Some(SParty(Ref.Party.assertFromString("alice")))))
         eval(e"""FROM_TEXT_PARTY "bad%char" """) shouldBe Right(SOptional(None))
       }
+
+      "FROM_TEXT_INT64" in {
+        val positiveTestCases =
+          Table(
+            "strings",
+            "-9223372036854775808",
+            "-9223372036854775807",
+            "-22",
+            "0",
+            "42",
+            "9223372036854775806",
+            "9223372036854775807",
+            "+9223372036854775807",
+            "01",
+            "0" * 20 + "42",
+            "-003",
+          )
+        val negativeTestCases =
+          Table(
+            "strings",
+            "pi",
+            "0x11",
+            "1.0",
+            "2.",
+            "1L",
+            "+-1",
+            "9223372036854775808",
+            "9223372036854775809",
+            "-9223372036854775809",
+            "-9223372036854775810",
+            "1" * 20
+          )
+
+        forEvery(positiveTestCases) { s =>
+          eval(e"""FROM_TEXT_INT64 "$s"""") shouldBe Right(SOptional(Some(SInt64(s.toLong))))
+        }
+        forEvery(negativeTestCases) { s =>
+          eval(e"""FROM_TEXT_INT64 "$s"""") shouldBe Right(SOptional(None))
+        }
+      }
     }
+
+    "FROM_TEXT_DECIMAL" in {
+      val positiveTestCases =
+        Table(
+          "strings" -> "canonical string",
+          ("9" * 28 + "." + "9" * 10) -> ("9" * 28 + "." + "9" * 10),
+          ("0" * 20 + "1" * 28) -> ("0" * 20 + "1" * 28),
+          "161803398.87499" -> "161803398.87499",
+          "3.1415926536" -> "3.1415926536",
+          "2.7182818285" -> "2.7182818285",
+          "0.0000000001" -> "0.0000000001",
+          "0.0005" + "0" * 20 -> "0.0005",
+          "+0.0" -> "0.0",
+          "0.0" -> "0.0",
+          "0" -> "0.0",
+          "-0" -> "0.0",
+          "42" -> "42.0",
+          "-0.0005" + "0" * 20 -> "-0.0005",
+          "-0.0000000001" -> "-0.0000000001",
+          "-2.7182818285" -> "-2.7182818285",
+          "-3.1415926536" -> "-3.1415926536",
+          "-161803398.87499" -> "-161803398.87499",
+          ("-" + "0" * 20 + "1" * 28) -> ("-" + "1" * 28),
+          ("-" + "9" * 28 + "." + "9" * 10) -> ("-" + "9" * 28 + "." + "9" * 10)
+        )
+      val negativeTestCases =
+        Table(
+          "strings",
+          "pi",
+          "0x11",
+          "1E10",
+          "2.",
+          "1L",
+          "+-1",
+          "1" * 29,
+          "-" + "1" * 29,
+          "+" + "1" * 29,
+          "1" * 29,
+          "0." + "0" * 10 + "1",
+          "42" + "0" * 24 + "2019",
+        )
+
+      forEvery(positiveTestCases) { (input, expected) =>
+        eval(e"""FROM_TEXT_DECIMAL "$input"""") shouldBe Right(
+          SOptional(
+            Some(SDecimal(Decimal.assertFromBigDecimal(BigDecimal(expected).setScale(10))))))
+      }
+      forEvery(negativeTestCases) { s =>
+        eval(e"""FROM_TEXT_DECIMAL "$s"""") shouldBe Right(SOptional(None))
+      }
+    }
+
   }
 
   "Debugging builtins" - {

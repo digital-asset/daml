@@ -6,24 +6,26 @@ package com.daml.ledger.api.server.damlonx.services
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.ledger.api.server.damlonx.services.backport.EventFilter
 import com.daml.ledger.participant.state.index.v1.{
   AcsUpdateEvent,
   ActiveContractSetSnapshot,
   IndexService
 }
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.WorkflowId
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service._
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.validation.TransactionFilterValidator
-import com.digitalasset.platform.participant.util.{EventFilter, LfEngineToApi}
+import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.validation.{
   ActiveContractsServiceValidation,
   ErrorFactories,
   IdentifierResolver
 }
-import io.grpc.{BindableService}
+import io.grpc.BindableService
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
@@ -64,8 +66,7 @@ class DamlOnXActiveContractsService private (
                       createEvent,
                       request.verbose).toList
                 }
-                .concat(
-                  Source.single(GetActiveContractsResponse(offset = snapshot.takenAt.toString)))
+                .concat(Source.single(GetActiveContractsResponse(offset = snapshot.takenAt.value)))
             }
 
         }
@@ -74,14 +75,17 @@ class DamlOnXActiveContractsService private (
 
   private def filteredApiContract(
       eventFilter: EventFilter.TemplateAwareFilter,
-      workflowId: String,
+      workflowId: Option[WorkflowId],
       a: AcsUpdateEvent.Create,
       verbose: Boolean): Option[GetActiveContractsResponse] = {
     val create = toApiCreated(a, verbose)
     eventFilter
       .filterEvent(Event(create))
-      .map(evt =>
-        GetActiveContractsResponse(workflowId = workflowId, activeContracts = List(evt.getCreated)))
+      .map(
+        evt =>
+          GetActiveContractsResponse(
+            workflowId = workflowId.getOrElse(""),
+            activeContracts = List(evt.getCreated)))
   }
 
   private def toApiCreated(a: AcsUpdateEvent.Create, verbose: Boolean): Created = {
@@ -98,10 +102,12 @@ class DamlOnXActiveContractsService private (
                 throw new RuntimeException(
                   s"Unexpected error when converting stored contract: $err"),
               identity)),
-        a.stakeholders
+        a.stakeholders.toSeq
       ))
   }
 }
+
+import com.digitalasset.ledger.api.domain.LedgerId
 
 object DamlOnXActiveContractsService {
 
@@ -115,7 +121,7 @@ object DamlOnXActiveContractsService {
 
     new ActiveContractsServiceValidation(
       new DamlOnXActiveContractsService(indexService, identifierResolver)(ec, mat, esf),
-      ledgerId
+      LedgerId(ledgerId)
     ) with ActiveContractsServiceLogging
   }
 }

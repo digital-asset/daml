@@ -45,13 +45,13 @@ class ShowEncodingSpec extends WordSpec with Matchers {
       val escapedName = "\"sch\\u00F6n\""
       val expected: String =
         s"""MyMain.CallablePayout(receiver = P@"Alice", subr = TrialSubRec(num = 10, a = 100), lst = [1,2,3], emptyRec = TrialSubRec(), variant = TLeft($escapedName))"""
-      contract1.show.toString should equal(expected)
+      contract1.show.toString should ===(expected)
     }
 
     "show t.CallablePayout 2" in {
       val expected: String =
         """MyMain.CallablePayout(receiver = P@"Alice", subr = TrialSubRec(num = 11, a = 111), lst = [10,20,30], emptyRec = TrialSubRec(), variant = TRight(TrialVariant.TRight(one = CID@abc123, two = CID@def456)))"""
-      contract2.show.toString should equal(expected)
+      contract2.show.toString should ===(expected)
     }
   }
 }

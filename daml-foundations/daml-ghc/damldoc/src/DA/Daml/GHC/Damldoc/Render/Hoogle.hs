@@ -23,7 +23,7 @@ hooglify (Just md) =
             : map ("--   " <>) xs
 
 urlTag :: Anchor -> T.Text
-urlTag = ("@url https://docs.daml.com/daml/stdlib/base.html#" <>)
+urlTag = ("@url https://docs.daml.com/daml/reference/base.html#" <>)
 
 renderSimpleHoogle :: ModuleDoc -> T.Text
 renderSimpleHoogle ModuleDoc{..}

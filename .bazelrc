@@ -67,7 +67,7 @@ build:windows --workspace_status_command=bazel_tools/workspace_status.cmd
 build:linux --host_platform=@io_tweag_rules_haskell//haskell/platforms:linux_x86_64_nixpkgs
 build:darwin --host_platform=@io_tweag_rules_haskell//haskell/platforms:darwin_x86_64_nixpkgs
 # and GHC's gcc on Windows
-build:windows --crosstool_top=@io_tweag_rules_haskell_ghc_windows_amd64//:toolchain
+build:windows --crosstool_top=@io_tweag_rules_haskell_ghc_windows_amd64//:cc_toolchain
 
 # Caching is currently disabled on Windows.
 # See: https://github.com/tweag/rules_haskell/issues/744 for details.
@@ -88,5 +88,14 @@ build:darwin --protocopt=--include_source_info
 #FIXME: it generates stderr, which is causing error in bazel on windows:
 # https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/compiler/command_line_interface.cc#L1363
 #build:windows --protocopt=--include_source_info
+
+# Bazel 0.24 introduced the new flag --incompatible_windows_escape_jvm_flags
+# and modified its Java launcher mechanism. rules_scala needs to be patched
+# to support this. See `bazel_tools/scala-escape-jvmflags.patch`.
+# Without this patch we get the following error on Windows:
+# `LAUNCHER ERROR: Cannot find key "escape_jvmflags" from launch data.`
+# This patch assumes `--noincompatible_windows_escape_jvm_flags`.
+# See https://github.com/bazelbuild/bazel/pull/7490
+build:windows --noincompatible_windows_escape_jvm_flags
 
 try-import %workspace%/.bazelrc.local

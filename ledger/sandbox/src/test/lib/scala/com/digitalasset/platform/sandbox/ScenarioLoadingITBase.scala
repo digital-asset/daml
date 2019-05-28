@@ -7,6 +7,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 import akka.stream.scaladsl.Sink
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.MockMessages.transactionFilter
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -50,7 +51,7 @@ abstract class ScenarioLoadingITBase
     with SuiteResourceManagementAroundEach {
 
   private def newACClient(ledgerId: String) =
-    new ActiveContractSetClient(ledgerId, ActiveContractsServiceGrpc.stub(channel))
+    new ActiveContractSetClient(LedgerId(ledgerId), ActiveContractsServiceGrpc.stub(channel))
 
   private def newSyncClient = new SynchronousCommandClient(CommandServiceGrpc.stub(channel))
 
@@ -58,7 +59,7 @@ abstract class ScenarioLoadingITBase
     newSyncClient.submitAndWait(request)
 
   private def newTransactionClient(ledgerId: String): TransactionClient = {
-    new TransactionClient(ledgerId, TransactionServiceGrpc.stub(channel))
+    new TransactionClient(LedgerId(ledgerId), TransactionServiceGrpc.stub(channel))
   }
 
   override implicit def patienceConfig: PatienceConfig =
@@ -77,7 +78,7 @@ abstract class ScenarioLoadingITBase
       present: Boolean = true): Unit = {
     val occurrence = if (present) 1 else 0
     val _ = events.collect {
-      case ce @ CreatedEvent(_, _, Some(`template`), _, _) =>
+      case ce @ CreatedEvent(_, _, Some(`template`), _, _, _) =>
         // the absolute contract ids are opaque -- they have no specified format. however, for now
         // we like to keep it consistent between the DAML studio and the sandbox. Therefore verify
         // that they have the same format.

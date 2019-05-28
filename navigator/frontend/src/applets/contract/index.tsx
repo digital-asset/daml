@@ -155,6 +155,7 @@ const query = gql`
         archiveEvent {
           id
         }
+        agreementText
         template {
           id topLevelDecl
           choices { name parameter }

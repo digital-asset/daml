@@ -26,6 +26,7 @@ data TypeF typ
   | TBuiltinF  !BuiltinType
   | TForallF   !(TypeVarName, Kind) !typ
   | TTupleF    ![(FieldName, typ)]
+  deriving (Foldable, Functor, Traversable)
 
 data ExprF expr
   = EVarF        !ExprVarName
@@ -51,24 +52,28 @@ data ExprF expr
   | ELocationF   !SourceLoc !expr
   | ENoneF       !Type
   | ESomeF       !Type !expr
+  deriving (Foldable, Functor, Traversable)
 
 data BindingF expr = BindingF !(ExprVarName, Type) !expr
+  deriving (Foldable, Functor, Traversable)
 
 data UpdateF expr
   = UPureF     !Type !expr
   | UBindF     !(BindingF expr) !expr
   | UCreateF   !(Qualified TypeConName) !expr
-  | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !expr !expr
+  | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !(Maybe expr) !expr
   | UFetchF    !(Qualified TypeConName) !expr
   | UGetTimeF
   | UEmbedExprF !Type !expr
   | UFetchByKeyF !(RetrieveByKeyF expr)
   | ULookupByKeyF !(RetrieveByKeyF expr)
+  deriving (Foldable, Functor, Traversable)
 
 data RetrieveByKeyF expr = RetrieveByKeyF
   { retrieveByKeyFTemplate :: !(Qualified TypeConName)
   , retrieveByKeyFKey :: !expr
   }
+  deriving (Foldable, Functor, Traversable)
 
 data ScenarioF expr
   = SPureF       !Type !expr
@@ -79,6 +84,7 @@ data ScenarioF expr
   | SGetTimeF
   | SGetPartyF   !expr
   | SEmbedExprF  !Type !expr
+  deriving (Foldable, Functor, Traversable)
 
 type instance Base Type = TypeF
 
@@ -220,24 +226,3 @@ instance Corecursive Expr where
     ELocationF   a b   -> ELocation a b
     ENoneF       a     -> ENone a
     ESomeF       a b   -> ESome a b
-
-deriving instance Foldable TypeF
-deriving instance Foldable ExprF
-deriving instance Foldable BindingF
-deriving instance Foldable RetrieveByKeyF
-deriving instance Foldable UpdateF
-deriving instance Foldable ScenarioF
-
-deriving instance Functor TypeF
-deriving instance Functor ExprF
-deriving instance Functor BindingF
-deriving instance Functor RetrieveByKeyF
-deriving instance Functor UpdateF
-deriving instance Functor ScenarioF
-
-deriving instance Traversable TypeF
-deriving instance Traversable ExprF
-deriving instance Traversable BindingF
-deriving instance Traversable RetrieveByKeyF
-deriving instance Traversable UpdateF
-deriving instance Traversable ScenarioF

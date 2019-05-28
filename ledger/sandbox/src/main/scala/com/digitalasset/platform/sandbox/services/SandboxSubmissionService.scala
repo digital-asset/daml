@@ -2,18 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.services
-
+import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
 import akka.stream.ActorMaterializer
+import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.v1.SubmissionResult.{Acknowledged, Overloaded}
+import com.daml.ledger.participant.state.v1.{
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta,
+  WriteService
+}
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
+import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
-import com.digitalasset.ledger.backend.api.v1.SubmissionResult.{Acknowledged, Overloaded}
-import com.digitalasset.ledger.backend.api.v1.{LedgerBackend, SubmissionResult}
+import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.stores.ledger.{CommandExecutor, ErrorCause}
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
@@ -25,6 +33,7 @@ import io.grpc.{BindableService, Status}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
+import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -33,9 +42,11 @@ object SandboxSubmissionService {
   type RecordUpdate = Either[LfError, (Transaction, BlindingInfo)]
 
   def createApiService(
+      ledgerId: LedgerId,
       packageContainer: DamlPackageContainer,
       identifierResolver: IdentifierResolver,
-      ledgerBackend: LedgerBackend,
+      contractStore: ContractStore,
+      writeService: WriteService,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
       commandExecutor: CommandExecutor)(implicit ec: ExecutionContext, mat: ActorMaterializer)
@@ -43,11 +54,12 @@ object SandboxSubmissionService {
     new GrpcCommandSubmissionService(
       new SandboxSubmissionService(
         packageContainer,
-        ledgerBackend,
+        contractStore,
+        writeService,
         timeModel,
         timeProvider,
         commandExecutor),
-      ledgerBackend.ledgerId,
+      ledgerId,
       identifierResolver
     ) with CommandSubmissionServiceLogging
 
@@ -59,7 +71,8 @@ object SandboxSubmissionService {
 
 class SandboxSubmissionService private (
     packageContainer: DamlPackageContainer,
-    ledgerBackend: LedgerBackend,
+    contractStore: ContractStore,
+    writeService: WriteService,
     timeModel: TimeModel,
     timeProvider: TimeProvider,
     commandExecutor: CommandExecutor)(implicit ec: ExecutionContext, mat: ActorMaterializer)
@@ -111,24 +124,34 @@ class SandboxSubmissionService private (
   }
 
   private def recordOnLedger(commands: ApiCommands): Future[SubmissionResult] =
-    // translate the commands to LF engine commands
-    ledgerBackend.beginSubmission
-      .flatMap { handle =>
-        commandExecutor
-          .execute(
-            commands.submitter,
-            commands,
-            handle.lookupActiveContract(commands.submitter, _),
-            handle.lookupContractKey(commands.submitter, _),
-            commands.commands
-          )
-          .flatMap {
-            _.left
-              .map(ec => grpcError(toStatus(ec)))
-              .toTry
-              .fold(Future.failed, handle.submit)
-          }
-      }
+    for {
+      res <- commandExecutor
+        .execute(
+          commands.submitter,
+          commands,
+          contractStore.lookupActiveContract(commands.submitter, _),
+          contractStore.lookupContractKey(commands.submitter, _),
+          commands.commands
+        )
+      submissionResult <- handleResult(res)
+    } yield submissionResult
+
+  private def handleResult(res: scala.Either[ErrorCause, TransactionSubmission]) =
+    res match {
+      case Right(ts) =>
+        FutureConverters.toScala(
+          writeService.submitTransaction(
+            SubmitterInfo(
+              Ref.Party.assertFromString(ts.submitter),
+              ts.applicationId,
+              ts.commandId,
+              Timestamp.assertFromInstant(ts.maximumRecordTime)
+            ),
+            TransactionMeta(Timestamp.assertFromInstant(ts.ledgerEffectiveTime), ts.workflowId),
+            ts.transaction
+          ))
+      case Left(err) => Future.failed(grpcError(toStatus(err)))
+    }
 
   private def toStatus(errorCause: ErrorCause) = {
     errorCause match {

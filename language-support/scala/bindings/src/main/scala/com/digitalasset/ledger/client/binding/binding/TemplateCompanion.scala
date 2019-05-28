@@ -8,7 +8,7 @@ import scala.language.higherKinds
 import com.digitalasset.ledger.api.refinements.ApiTypes.{Choice, TemplateId}
 import com.digitalasset.ledger.api.v1.{event => rpcevent, value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}
-import encoding.{LfEncodable, LfTypeEncoding, RecordView}
+import encoding.{ExerciseOn, LfEncodable, LfTypeEncoding, RecordView}
 
 import scalaz.Liskov
 import Liskov.<~<
@@ -73,11 +73,12 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
       (id, _.createArguments flatMap fromNamedArguments))
   }
 
-  protected final def ` exercise`[Out](
-      contractId: Primitive.ContractId[T],
+  protected final def ` exercise`[ExOn, Out](
+      receiver: ExOn,
       choiceId: String,
-      arguments: Option[rpcvalue.Value]): Primitive.Update[Out] =
-    Primitive.exercise(this, contractId, choiceId, arguments getOrElse Value.encode(()))
+      arguments: Option[rpcvalue.Value])(
+      implicit exon: ExerciseOn[ExOn, T]): Primitive.Update[Out] =
+    Primitive.exercise(this, receiver, choiceId, arguments getOrElse Value.encode(()))
 
   protected final def ` arguments`(elems: (String, rpcvalue.Value)*): rpcvalue.Record =
     Primitive.arguments(` recordOrVariantId`, elems)

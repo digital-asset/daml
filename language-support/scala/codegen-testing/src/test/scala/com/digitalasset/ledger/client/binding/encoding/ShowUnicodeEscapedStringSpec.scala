@@ -17,27 +17,27 @@ class ShowUnicodeEscapedStringSpec
   implicit override val generatorDrivenConfig = PropertyCheckConfiguration(minSuccessful = 10000)
 
   "should unicode-escape all non-ascii chars in the format that can compile back to original string" in {
-    "scho\u0308n" shouldNot equal("schön")
-    normalize("scho\u0308n") should equal(normalize("schön"))
+    "scho\u0308n" should !==("schön")
+    normalize("scho\u0308n") should ===(normalize("schön"))
 
     println(ShowUnicodeEscapedString.show("scho\u0308n"))
-    ShowUnicodeEscapedString.show("scho\u0308n").toString should equal("\"scho\\u0308n\"")
+    ShowUnicodeEscapedString.show("scho\u0308n").toString should ===("\"scho\\u0308n\"")
 
     println(ShowUnicodeEscapedString.show("schön"))
-    ShowUnicodeEscapedString.show("schön").toString should equal("\"sch\\u00F6n\"")
-    "sch\u00F6n" should equal("schön")
-    "\u00F6" should equal("ö")
+    ShowUnicodeEscapedString.show("schön").toString should ===("\"sch\\u00F6n\"")
+    "sch\u00F6n" should ===("schön")
+    "\u00F6" should ===("ö")
   }
 
   "normalizing unicode string multiple times does not change it" in {
-    "scho\u0308n" shouldNot equal("schön")
-    normalize("scho\u0308n") should equal(normalize("schön"))
-    normalize(normalize("scho\u0308n")) should equal(normalize("schön"))
-    normalize("scho\u0308n") should equal(normalize(normalize("schön")))
+    "scho\u0308n" should !==("schön")
+    normalize("scho\u0308n") should ===(normalize("schön"))
+    normalize(normalize("scho\u0308n")) should ===(normalize("schön"))
+    normalize("scho\u0308n") should ===(normalize(normalize("schön")))
   }
 
   "ASCII slash should be unicode escaped" in {
-    ShowUnicodeEscapedString.show("\\").toString.getBytes should equal("\"\\u005C\"".getBytes)
+    ShowUnicodeEscapedString.show("\\").toString.getBytes should ===("\"\\u005C\"".getBytes)
   }
 
   "unicode escaped string can be interpreted back to original string one example" in {
@@ -59,7 +59,7 @@ class ShowUnicodeEscapedStringSpec
   private def testUnicodeEscapedStringCanBeUnescapedBackToOriginalString(s0: String): Assertion = {
     val s1: Cord = ShowUnicodeEscapedString.show(s0)
     val s2: String = StringEscapeUtils.unescapeJava(removeWrappingQuotes(s1.toString))
-    s2.getBytes should equal(s0.getBytes)
+    s2.getBytes should ===(s0.getBytes)
   }
 
   private def removeWrappingQuotes(s: String): String = {

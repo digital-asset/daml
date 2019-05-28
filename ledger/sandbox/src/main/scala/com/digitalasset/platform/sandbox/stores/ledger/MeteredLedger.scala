@@ -7,14 +7,13 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.digitalasset.daml.lf.data.Ref.TransactionIdString
+import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.backend.api.v1.{
-  SubmissionResult,
-  TransactionId,
-  TransactionSubmission
-}
+import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 
@@ -22,7 +21,7 @@ import scala.concurrent.Future
 
 private class MeteredLedger(ledger: Ledger, mm: MetricsManager) extends Ledger {
 
-  override def ledgerId: String = ledger.ledgerId
+  override def ledgerId: LedgerId = ledger.ledgerId
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
     ledger.ledgerEntries(offset)
@@ -47,7 +46,7 @@ private class MeteredLedger(ledger: Ledger, mm: MetricsManager) extends Ledger {
     mm.timedFuture("Ledger:publishTransaction", ledger.publishTransaction(transactionSubmission))
 
   override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] =
+      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
     mm.timedFuture("Ledger:lookupTransaction", ledger.lookupTransaction(transactionId))
 
   override def close(): Unit = {

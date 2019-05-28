@@ -59,7 +59,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
     GetTransactionByIdRequest(expectedLedgerId, transactionId, Seq(party), Some(traceContext))
 
   val sut = new TransactionServiceRequestValidator(
-    expectedLedgerId,
+    domain.LedgerId(expectedLedgerId),
     PartyNameChecker.AllowAllParties,
     new IdentifierResolver(_ => Future.successful(None)))
 
@@ -81,21 +81,15 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
           "Missing field: filter")
       }
 
-      "tolerate empty filter" in {
-        inside(
+      "return the correct error on empty filter" in {
+        requestMustFailWith(
           sut.validate(
             txReq.update(_.filter.filtersByParty := Map.empty),
             ledgerEnd,
-            offsetOrdering)) {
-          case Right(req) =>
-            req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
-            val filtersByParty = req.filter.filtersByParty
-            filtersByParty should have size 0
-            req.verbose shouldEqual verbose
-            hasExpectedTraceContext(req)
-        }
+            offsetOrdering),
+          INVALID_ARGUMENT,
+          "Invalid argument: filtersByParty cannot be empty"
+        )
       }
 
       "return the correct error on missing begin" in {
@@ -318,7 +312,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
       "work with missing traceContext" in {
         inside(sut.validateLedgerEnd(endReq.update(_.optionalTraceContext := None))) {
           case Right(out) =>
-            out should have('ledgerId (domain.LedgerId(expectedLedgerId)))
+            out should have('ledgerId (expectedLedgerId))
             out.traceContext shouldBe empty
         }
       }
@@ -326,7 +320,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
       "work with present traceContext" in {
         inside(sut.validateLedgerEnd(endReq)) {
           case Right(out) =>
-            out should have('ledgerId (domain.LedgerId(expectedLedgerId)))
+            out should have('ledgerId (expectedLedgerId))
             isExpectedTraceContext(out.traceContext.value)
         }
       }
@@ -358,7 +352,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
       "work with missing traceContext" in {
         inside(sut.validateTransactionById(txByIdReq.update(_.optionalTraceContext := None))) {
           case Right(out) =>
-            out should have('ledgerId (domain.LedgerId(expectedLedgerId)))
+            out should have('ledgerId (expectedLedgerId))
             out.traceContext shouldBe empty
         }
       }
@@ -366,7 +360,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
       "work with present TraceContext" in {
         inside(sut.validateTransactionById(txByIdReq)) {
           case Right(out) =>
-            out should have('ledgerId (domain.LedgerId(expectedLedgerId)))
+            out should have('ledgerId (expectedLedgerId))
             isExpectedTraceContext(out.traceContext.value)
         }
       }
@@ -400,7 +394,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
       "work with missing traceContext" in {
         inside(sut.validateTransactionByEventId(txByEvIdReq.update(_.optionalTraceContext := None))) {
           case Right(out) =>
-            out should have('ledgerId (domain.LedgerId(expectedLedgerId)))
+            out should have('ledgerId (expectedLedgerId))
             out.traceContext shouldBe empty
         }
       }
@@ -408,7 +402,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
       "work with present TraceContext" in {
         inside(sut.validateTransactionByEventId(txByEvIdReq)) {
           case Right(out) =>
-            out should have('ledgerId (domain.LedgerId(expectedLedgerId)))
+            out should have('ledgerId (expectedLedgerId))
             isExpectedTraceContext(out.traceContext.value)
         }
       }
@@ -419,7 +413,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
 
       val knowsPartyOnly =
         new TransactionServiceRequestValidator(
-          expectedLedgerId,
+          domain.LedgerId(expectedLedgerId),
           PartyNameChecker.AllowPartySet(Set(party)),
           new IdentifierResolver(_ => Future.successful(None)))
 

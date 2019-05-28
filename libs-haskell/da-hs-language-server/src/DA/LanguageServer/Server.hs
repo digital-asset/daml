@@ -27,7 +27,7 @@ import           GHC.IO.Handle                    (hDuplicate, hDuplicateTo)
 
 runServer
     :: Logger.Handle IO
-    -> (ServerRequest -> IO (Either ServerError Aeson.Value))
+    -> (ServerRequest -> IO (Either ErrorCode Aeson.Value))
     -- ^ Request handler for language server requests
     -> (ServerNotification -> IO ())
     -- ^ Notification handler for language server notifications

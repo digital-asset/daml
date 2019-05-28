@@ -13,6 +13,7 @@ module DA.Internal.LF
   , partyFromText
 
   , ContractId
+  , coerceContractId  -- This is temporary for testing.
 
   , Date
 
@@ -55,16 +56,7 @@ instance Ord Party where
 --   Most users should stick to `show` of the party instead, which also wraps
 --   the party in `'ticks'` making it clear it was a `Party` originally.
 partyToText : Party -> Text
--- Safe because parties aren't allowed to include ' characters
---
--- Note that in DAML-LF 1.2 we have a primitive that has this behavior out of
--- the box -- BEToText for the type `Party`. However we do not have an easy
--- way to generate different code depending on the DAML-LF target at the moment,
--- and thus we keep using `show` for both versions.
-partyToText = implode . filter (/= "\'") . explode . show
-    where
-        implode : [Text] -> Text = primitive @"BEImplodeText"
-        explode : Text -> [Text] = primitive @"BEExplodeText"
+partyToText = primitive @"BEToText"
 
 -- | Converts a `Text` to `Party`. It returns `None` if the provided text contains
 -- any forbidden characters. See DAML-LF spec for a specification on which characters
@@ -111,6 +103,11 @@ data ContractId a = ContractId Opaque
 instance Eq (ContractId a) where (==) = primitive @"BEEqualContractId"
 instance Show (ContractId a) where show _ = "<contract-id>"
 
+-- | HIDE We need this for testing while during the implementation of
+-- generic templates. It will most likely disappear thereafter.
+coerceContractId : ContractId a -> ContractId b
+coerceContractId = primitive @"BECoerceContractId"
+
 -- | The `Update a` type represents an action to update or query the ledger,
 --   before returning a value of type `a`.
 data Update a = Update Opaque
@@ -128,9 +125,9 @@ instance Action Update where
 instance ActionFail Update where
     fail = primitive @"UAbort"
 
--- | Places where the time is available - basically `Scenario` and `Update`.
+-- | The `HasTime` class is for where the time is available: `Scenario` and `Update`.
 class HasTime m where
-    -- | Obtain the current time.
+    -- | Get the current time.
     getTime : m Time
 
 instance HasTime Update where
@@ -138,6 +135,7 @@ instance HasTime Update where
 instance HasTime Scenario where
     getTime = primitive @"SGetTime"
 
+-- | The `CanAbort` class is for `Action` s that can be aborted.
 class (Action m) => CanAbort m where
     -- | Abort the current action with a message.
     abort : Text -> m a

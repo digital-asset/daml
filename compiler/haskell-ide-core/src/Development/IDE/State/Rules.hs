@@ -23,8 +23,6 @@ module Development.IDE.State.Rules(
     fileFromParsedModule
     ) where
 
-import           Control.Concurrent.Extra
-import Control.Exception (evaluate)
 import           Control.Monad.Except
 import Control.Monad.Extra (whenJust)
 import qualified Development.IDE.Functions.Compile             as Compile
@@ -35,7 +33,6 @@ import           Development.IDE.State.FileStore
 import           Development.IDE.Types.Diagnostics as Base
 import Data.Bifunctor
 import Data.Either.Extra
-import Development.IDE.UtilGHC
 import Data.Maybe
 import           Data.Foldable
 import qualified Data.Map.Strict                          as Map
@@ -47,7 +44,6 @@ import           Development.IDE.Types.LSP as Compiler
 import Development.IDE.State.RuleTypes
 
 import           GHC
-import HscTypes
 import Development.IDE.Compat
 import           UniqSupply
 import           Module                         as M
@@ -71,16 +67,6 @@ defineNoFile :: IdeRule k v => (k -> Action v) -> Rules ()
 defineNoFile f = define $ \k file -> do
     if file == "" then do res <- f k; return ([], Just res) else
         fail $ "Rule " ++ show k ++ " should always be called with the empty string for a file"
-
-
--- | Return a distinct supply of uniques.
-getUniqSupply :: Action UniqSupply
-getUniqSupply =
-    getServiceEnv >>= liftIO . getUniqSupplyFrom
-
-getUniqSupplyFrom :: Env -> IO UniqSupply
-getUniqSupplyFrom Env{..} =
-    modifyVar envUniqSupplyVar $ evaluate . splitUniqSupply
 
 
 ------------------------------------------------------------
@@ -290,54 +276,29 @@ typeCheckRule =
     define $ \TypeCheck file -> do
         pm <- use_ GetParsedModule file
         deps <- use_ GetDependencies file
-        lps <- mapM (flip use_ "" . LoadPackage) (transitivePkgDeps deps)
         tms <- uses_ TypeCheck (transitiveModuleDeps deps)
         setPriority PriorityTypeCheck
-        us <- getUniqSupply
         packageState <- use_ GhcSession ""
         opt <- getOpts
-        liftIO $ Compile.typecheckModule opt pm packageState us tms lps pm
-
-
-loadPackageRule :: Rules ()
-loadPackageRule =
-  defineNoFile $ \(LoadPackage pkg) -> do
-      packageState <- use_ GhcSession ""
-      opt <- getOpts
-      pkgs <- liftIO $ Compile.computePackageDeps opt packageState pkg
-      case pkgs of
-        Left e -> do
-            reportSeriousErrorDie $ "LoadPackage " ++ show pkg ++ " computePackageDeps failed, " ++ show e
-        Right v -> do
-            lps <- mapM (flip use_ "" . LoadPackage) v
-            us <- getUniqSupply
-            res <- liftIO $ Compile.loadPackage opt packageState us lps pkg
-            case res of
-                Left e -> reportSeriousErrorDie $ "LoadPackage " ++ show pkg ++ " loadPackage failed, " ++ show e
-                Right v -> return v
+        liftIO $ Compile.typecheckModule opt pm packageState tms pm
 
 
 generateCoreRule :: Rules ()
 generateCoreRule =
     define $ \GenerateCore file -> do
         deps <- use_ GetDependencies file
-        lps <- mapM (flip use_ "" . LoadPackage) (transitivePkgDeps deps)
         (tm:tms) <- uses_ TypeCheck (file:transitiveModuleDeps deps)
         let pm = tm_parsed_module . Compile.tmrModule $ tm
         setPriority PriorityGenerateDalf
-        us <- getUniqSupply
         packageState <- use_ GhcSession ""
         opt <- getOpts
-        liftIO $ Compile.compileModule opt pm packageState us tms lps tm
+        liftIO $ Compile.compileModule opt pm packageState tms tm
 
 loadGhcSession :: Rules ()
 loadGhcSession =
     defineNoFile $ \GhcSession -> do
         opts <- envOptions <$> getServiceEnv
-        env <- Compile.optGhcSession opts
-        pkg <- liftIO $ Compile.generatePackageState
-            (Compile.optPackageDbs opts) (Compile.optHideAllPkgs opts) (Compile.optPackageImports opts)
-        return env{hsc_dflags = setPackageDynFlags pkg $ hsc_dflags env}
+        Compile.optGhcSession opts
 
 
 getHieFileRule :: Rules ()
@@ -359,7 +320,6 @@ mainRule = do
     getSpanInfoRule
     generateCoreRule
     loadGhcSession
-    loadPackageRule
     getHieFileRule
 
 ------------------------------------------------------------

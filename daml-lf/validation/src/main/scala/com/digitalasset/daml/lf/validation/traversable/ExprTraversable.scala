@@ -74,7 +74,7 @@ private[validation] object ExprTraversable {
         f(contractId)
       case UpdateExercise(templateId @ _, choice @ _, cid, actors, arg) =>
         f(cid)
-        f(actors)
+        actors.foreach(f)
         f(arg)
       case UpdateGetTime =>
       case UpdateFetchByKey(rbk) =>

@@ -6,11 +6,13 @@ package com.digitalasset.extractor.services
 import com.digitalasset.extractor.Extractor
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.digitalasset.extractor.targets.PostgreSQLTarget
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.sandbox.persistence.PostgresAround
 import com.digitalasset.platform.sandbox.services.SandboxFixture
 
+import scalaz.OneAnd
 import cats.effect.{ContextShift, IO}
 import doobie._
 import doobie.implicits._
@@ -30,7 +32,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
     666, // doesn't matter, will/must be overriden in the test cases
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     SnapshotEndSetting.Head,
-    "Bob",
+    OneAnd(Party assertFromString "Bob", List.empty),
     TlsConfiguration(
       enabled = false,
       None,
@@ -38,6 +40,8 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
       None
     )
   )
+
+  protected def configureExtractor(ec: ExtractorConfig): ExtractorConfig = ec
 
   protected lazy val target: PostgreSQLTarget = PostgreSQLTarget(
     connectUrl = postgresFixture.jdbcUrl,
@@ -87,7 +91,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
   protected var extractor: Extractor[PostgreSQLTarget] = _
 
   protected def run(): Unit = {
-    val config: ExtractorConfig = baseConfig.copy(ledgerPort = getSandboxPort)
+    val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = getSandboxPort))
 
     extractor = new Extractor(config, target)
 

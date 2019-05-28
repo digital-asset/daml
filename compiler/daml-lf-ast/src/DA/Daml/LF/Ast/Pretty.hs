@@ -12,10 +12,10 @@ module DA.Daml.LF.Ast.Pretty(
     (<:>)
     ) where
 
+import           Data.Coerce
 import qualified Data.Ratio                 as Ratio
 import           Control.Lens
 import           Control.Lens.Ast   (rightSpine)
-import Data.Tagged
 import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Text          as T
@@ -41,11 +41,11 @@ kind_ = id
 type_ :: Doc ann -> Doc ann
 type_ = id
 
-prettyName :: Tagged tag T.Text -> Doc ann
-prettyName = pretty . unTagged
+prettyName :: Coercible a T.Text => a -> Doc ann
+prettyName = pretty @T.Text . coerce
 
-prettyDottedName :: Tagged tag [T.Text] -> Doc ann
-prettyDottedName = hcat . punctuate "." . map pretty . unTagged
+prettyDottedName :: Coercible a [T.Text] => a -> Doc ann
+prettyDottedName = hcat . punctuate "." . map (pretty @T.Text) . coerce
 
 instance Pretty TypeConName where
   pPrint = prettyDottedName
@@ -167,7 +167,7 @@ prettyTyLambdaDot = "."
 prettyAltArrow    = "->"
 
 instance Pretty PartyLiteral where
-  pPrint = quotes . pretty . unTagged
+  pPrint = quotes . pretty . unPartyLiteral
 
 instance Pretty EnumCon where
   pPrint = \case
@@ -223,8 +223,11 @@ instance Pretty BuiltinExpr where
     BESha256Text -> "SHA256_TEXT"
     BETrace -> "TRACE"
     BEEqualContractId -> "EQUAL_CONTRACT_ID"
-    BEPartyFromText -> "PARTY_FROM_TEXT"
+    BEPartyFromText -> "FROM_TEXT_PARTY"
+    BEInt64FromText -> "FROM_TEXT_INT64"
+    BEDecimalFromText -> "FROM_TEXT_DECIMAL"
     BEPartyToQuotedText -> "PARTY_TO_QUOTED_TEXT"
+    BECoerceContractId -> "COERCE_CONTRACT_ID"
     where
       epochToText fmt secs =
         T.pack $
@@ -236,12 +239,12 @@ instance Pretty BuiltinExpr where
 
       dateToText days = epochToText "%0Y-%m-%d" ((toInteger days * 24 * 60 * 60) Ratio.% 1)
 
-prettyNameAndKind :: (Tagged tag T.Text, Kind) -> Doc ann
+prettyNameAndKind :: Coercible a T.Text => (a, Kind) -> Doc ann
 prettyNameAndKind (v, k) = case k of
     KStar -> prettyName v
     _ -> parens (prettyName v <-> prettyHasType <-> kind_ (pretty k))
 
-prettyNameAndType :: (Tagged tag T.Text, Type) -> Doc ann
+prettyNameAndType :: Coercible a T.Text => (a, Type) -> Doc ann
 prettyNameAndType (x, t) = prettyName x <-> prettyHasType <-> type_ (pretty t)
 
 instance Pretty CasePattern where
@@ -301,10 +304,14 @@ instance Pretty Update where
           $$ keyword_ "in" <-> pretty body
     UCreate tpl arg ->
       prettyAppKeyword prec "create" [tplArg tpl, TmArg arg]
-    UExercise tpl choice cid actor arg ->
+    UExercise tpl choice cid Nothing arg ->
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       prettyAppKeyword prec "exercise"
-      [tplArg tpl, TmArg (EVar (retag choice)), TmArg cid, TmArg actor, TmArg arg]
+      [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
+    UExercise tpl choice cid (Just actor) arg ->
+      -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
+      prettyAppKeyword prec "exercise_with_actors"
+      [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg actor, TmArg arg]
     UFetch tpl cid ->
       prettyAppKeyword prec "fetch" [tplArg tpl, TmArg cid]
     UGetTime ->

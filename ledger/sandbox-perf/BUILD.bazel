@@ -29,6 +29,8 @@ dependencies = [
     "//ledger/sandbox:sandbox-scala-tests-lib",
     "//ledger/ledger-api-common",
     "//ledger/ledger-api-client",
+    "//ledger/participant-state",
+    "//ledger/ledger-api-domain",
     "//3rdparty/jvm/com/google/protobuf:protobuf_java",
     "//3rdparty/jvm/org/scalaz:scalaz_core",
     "//3rdparty/jvm/com/typesafe/akka:akka_stream",
@@ -61,5 +63,6 @@ da_scala_benchmark_jmh(
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-perf-lib",
+        "//ledger/ledger-api-integration-tests:default-it-logback-config",
     ] + dependencies,
 )

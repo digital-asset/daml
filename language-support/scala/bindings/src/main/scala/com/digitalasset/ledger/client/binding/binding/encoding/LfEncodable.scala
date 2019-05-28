@@ -56,9 +56,9 @@ object LfEncodable extends ValuePrimitiveEncoding[LfEncodable] {
         lte.primitive.valueList(LfEncodable.encoding[A](lte))
     }
 
-  override implicit def valueContractId[Tpl <: Template[Tpl]]: LfEncodable[P.ContractId[Tpl]] =
-    new LfEncodable[P.ContractId[Tpl]] {
-      override def encoding(lte: LfTypeEncoding): lte.Out[P.ContractId[Tpl]] =
+  override implicit def valueContractId[A]: LfEncodable[P.ContractId[A]] =
+    new LfEncodable[P.ContractId[A]] {
+      override def encoding(lte: LfTypeEncoding): lte.Out[P.ContractId[A]] =
         lte.primitive.valueContractId
     }
 

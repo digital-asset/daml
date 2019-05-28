@@ -234,13 +234,13 @@ def process_file(filename, check_only):
           # no copyright header, prepend it.
           fp.write(header + "\n")
           fp.write("".join(before_header))
+      return True
     else:
       if state == 'fail':
         print(f"{filename}s: copyright header out-of-date")
       else:
         print(f"{filename}: copyright header missing")
-
-    return False
+      return False
 
 #########################
 # Main

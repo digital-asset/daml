@@ -54,7 +54,7 @@ renderSimpleRst ModuleDoc{..} = T.unlines $
   , if null md_adts
     then []
     else [ ""
-         , "Data Types"
+         , "Data types"
          , "^^^^^^^^^^"
          , T.unlines $ map (adt2rst md_name) md_adts
          ]

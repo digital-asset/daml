@@ -7,11 +7,13 @@ module DA.Cli.Options
 
 import qualified Data.Text           as T
 import           Data.List.Extra     (trim, splitOn)
-import           Options.Applicative
+import Options.Applicative.Extended
 import Data.List
 import Text.Read
 import qualified DA.Pretty           as Pretty
 import qualified DA.Daml.LF.Ast.Version as LF
+import DAML.Project.Consts
+import DAML.Project.Types
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
@@ -19,7 +21,6 @@ type Document = Pretty.Doc Pretty.SyntaxClass
 -- | Flags
 newtype DontDivulgeContractIdsInCreateArguments = DontDivulgeContractIdsInCreateArguments Bool
 newtype DontDiscloseNonConsumingChoicesToObservers = DontDiscloseNonConsumingChoicesToObservers Bool
-
 
 -- | Document rendering styles for console output.
 data Style
@@ -109,7 +110,6 @@ versionOpt :: Parser String
 versionOpt = argument str $
         metavar "VERSION"
     <> help "Artifact's version"
-
 
 lfVersionOpt :: Parser LF.Version
 lfVersionOpt = option (str >>= select) $
@@ -233,7 +233,6 @@ ekgPortOpt = option (str >>= parse) $
       Nothing -> readerError $ "Invalid port '" <> cs <> "'."
       p       -> pure p
 
-
 verboseOpt :: Parser Bool
 verboseOpt = switch $
        long "verbose"
@@ -254,6 +253,10 @@ experimentalOpt =
     fmap Experimental $
     switch $
     help "Enable experimental IDE features" <> long "experimental"
+
+newtype InitPkgDb = InitPkgDb Bool
+initPkgDbOpt :: Parser InitPkgDb
+initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database" idm
 
 data Telemetry = OptedIn | OptedOut | Undecided
 telemetryOpt :: Parser Telemetry
@@ -284,3 +287,28 @@ stringsSepBy sep = eitherReader sepBy'
           | otherwise = Right items
           where
             items = map trim $ splitOn [sep] input
+
+data ProjectOpts = ProjectOpts
+    { projectRoot :: Maybe ProjectPath
+    -- ^ An explicit project path specified by the user.
+    , projectCheck :: ProjectCheck
+    -- ^ Throw an error if this is not run in a project.
+    }
+
+projectOpts :: String -> Parser ProjectOpts
+projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
+    where
+        projectRootOpt :: Parser (Maybe ProjectPath)
+        projectRootOpt =
+            optional $
+            fmap ProjectPath $
+            strOption $
+            long "project-root" <>
+            help
+                (mconcat
+                     [ "Path to the root of a project containing daml.yaml. "
+                     , "If unspecified this will use the DAML_PROJECT environment variable set by the assistant."
+                     ])
+        projectCheckOpt cmdName = fmap (ProjectCheck cmdName) . switch $
+               help "Check if running in DAML project."
+            <> long "project-check"

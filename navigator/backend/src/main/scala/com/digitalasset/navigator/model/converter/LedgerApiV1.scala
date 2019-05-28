@@ -7,6 +7,7 @@ import java.time.{Instant, LocalDate}
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList}
 import com.digitalasset.ledger.api.{v1 => V1}
 import com.digitalasset.ledger.api.refinements.ApiTypes
@@ -184,7 +185,8 @@ case object LedgerApiV1 {
         workflowId = workflowId,
         contractId = ApiTypes.ContractId(event.contractId),
         templateId = templateIdentifier,
-        argument = arg
+        argument = arg,
+        agreementText = event.agreementText
       )
   }
 
@@ -478,7 +480,7 @@ case object LedgerApiV1 {
       command: Model.Command,
       maxRecordDelay: Long,
       ledgerId: String,
-      applicationId: String
+      applicationId: Ref.LedgerString
   ): Result[V1.commands.Commands] = {
     for {
       ledgerCommand <- writeCommand(party, command)
@@ -505,7 +507,8 @@ case object LedgerApiV1 {
       command: Model.Command
   ): Result[V1.commands.Command] = {
     command match {
-      case cmd: Model.CreateCommand => writeCreateContract(party, cmd.template, cmd.argument)
+      case cmd: Model.CreateCommand =>
+        writeCreateContract(party, cmd.template, cmd.argument)
       case cmd: Model.ExerciseCommand =>
         writeExerciseChoice(party, cmd.contract, cmd.choice, cmd.argument)
     }

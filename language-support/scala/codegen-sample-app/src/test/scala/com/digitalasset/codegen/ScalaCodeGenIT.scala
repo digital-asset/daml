@@ -39,23 +39,24 @@ import com.digitalasset.sample.EventDecoder
 import com.digitalasset.sample.MyMain.NameClashRecordVariant.NameClashRecordVariantA
 import com.digitalasset.sample.MyMain.{
   CallablePayout,
-  Maybes,
-  TextMapInt,
-  OptTextMapInt,
-  TextMapTextMapInt,
   ListTextMapInt,
+  Maybes,
   MkListExample,
   MyRecord,
   MyVariant,
   NameClashRecord,
   NameClashVariant,
+  OptTextMapInt,
   PayOut,
   RecordWithNestedMyVariant,
+  SimpleListExample,
   TemplateWith23Arguments,
   TemplateWithCustomTypes,
   TemplateWithNestedRecordsAndVariants,
   TemplateWithSelfReference,
   TemplateWithUnitParam,
+  TextMapInt,
+  TextMapTextMapInt,
   VariantWithRecordWithVariant
 }
 import com.digitalasset.sample.MySecondMain
@@ -69,6 +70,10 @@ import org.scalatest.time.{Millis, Seconds, Span}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+
+import com.digitalasset.ledger.api.domain.LedgerId
+
+import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ScalaCodeGenIT
@@ -102,7 +107,7 @@ class ScalaCodeGenIT
     port = port,
     damlPackageContainer = DamlPackageContainer(archives),
     timeProviderType = TimeProviderType.WallClock,
-    ledgerIdMode = LedgerIdMode.Static(ledgerId),
+    ledgerIdMode = LedgerIdMode.Static(LedgerId(ledgerId)),
   )
 
   private val sandbox: SandboxServer = SandboxServer(serverConfig)
@@ -117,6 +122,8 @@ class ScalaCodeGenIT
   private val charlie = P.Party("Charlie")
 
   private val emptyCommandId = CommandId("")
+
+  private val emptyAgreementText = Some("") // this is by design, starting from release: 0.12.18 it is a requried field
 
   override protected def afterAll(): Unit = {
     sandbox.close()
@@ -156,7 +163,15 @@ class ScalaCodeGenIT
 
   "alice creates MkListExample contract and receives corresponding event" in {
     val contract = MkListExample(alice, P.List(1, 2, 3))
-    testCreateContractAndReceiveEvent(contract, alice)
+    testCreateContractAndReceiveEvent(
+      contract,
+      alice,
+      expectedAgreementText = Some(expectedAgreementAsDefinedInDaml(contract)))
+  }
+
+  private def expectedAgreementAsDefinedInDaml(contract: MkListExample): String = {
+    val sum: P.Int64 = contract.xs.sum
+    s"I am worth $sum"
   }
 
   "alice creates TemplateWithSelfReference contract and receives corresponding event" in {
@@ -251,10 +266,14 @@ class ScalaCodeGenIT
       inside(tx.events) {
         case Seq(archiveEvent, createEvent) =>
           archiveEvent.event.isArchived shouldBe true
-          assertCreateEvent(createEvent)(PayOut(bob, alice))
+          val payOut = PayOut(receiver = bob, giver = alice)
+          assertCreateEvent(createEvent)(payOut, Some(expectedAgreementAsDefinedInDaml(payOut)))
       }
     }
   }
+
+  private def expectedAgreementAsDefinedInDaml(contract: PayOut): String =
+    s"'${P.Party.unwrap(contract.giver): String}' must pay to '${P.Party.unwrap(contract.receiver): String}' the sum of five pounds."
 
   "alice creates CallablePayout contract, bob exercises Transfer to charlie" in {
 
@@ -292,7 +311,7 @@ class ScalaCodeGenIT
         inside(charlieTx.events) {
           case Seq(createEvent) =>
             createEvent.event.isCreated shouldBe true
-            assertCreateEvent(createEvent)(CallablePayout(alice, charlie))
+            assertCreateEvent(createEvent)(CallablePayout(alice, charlie), emptyAgreementText)
         }
     }
   }
@@ -365,15 +384,35 @@ class ScalaCodeGenIT
     testCreateContractAndReceiveEvent(contract copy (owner = alice), alice)
   }
 
+  "alice creates-and-exercises SimpleListExample with Go and receives corresponding event" in {
+    val contract = SimpleListExample(alice, P.List(42))
+    val exerciseConsequence = MkListExample(alice, P.List(42))
+    testCommandAndReceiveEvent(
+      contract.createAnd.exerciseGo(alice),
+      alice,
+      assertCreateEvent(_)(
+        exerciseConsequence,
+        Some(expectedAgreementAsDefinedInDaml(exerciseConsequence))))
+  }
+
   private def testCreateContractAndReceiveEvent(
       contract: Template[AnyRef],
-      party: P.Party): Assertion = {
+      party: P.Party,
+      expectedAgreementText: Option[String] = emptyAgreementText): Assertion =
+    testCommandAndReceiveEvent(
+      contract.create,
+      party,
+      assertCreateEvent(_)(contract, expectedAgreementText))
+
+  private def testCommandAndReceiveEvent(
+      command: P.Update[_],
+      party: P.Party,
+      checkResult: Event => Assertion): Assertion = {
     val contextId = TestContext(uniqueId)
     val commandId = CommandId(uniqueId)
     val workflowId = WorkflowId(uniqueId)
 
-    val createCommand: P.Update[P.ContractId[AnyRef]] = contract.create
-    val request: SubmitRequest = submitRequest(workflowId, commandId, party, createCommand)
+    val request: SubmitRequest = submitRequest(workflowId, commandId, party, command)
 
     val future = for {
       offset <- ledgerEnd()
@@ -389,8 +428,8 @@ class ScalaCodeGenIT
         }
         assertTransaction(transaction)(commandId, workflowId)
         inside(transaction.events) {
-          case Seq(createEvent) =>
-            assertCreateEvent(createEvent)(contract)
+          case Seq(event) =>
+            checkResult(event)
         }
     }
   }
@@ -407,11 +446,11 @@ class ScalaCodeGenIT
       workflowId: WorkflowId,
       commandId: CommandId,
       party: P.Party,
-      seq: P.Update[P.ContractId[AnyRef]]*): SubmitRequest = {
+      seq: P.Update[_]*): SubmitRequest = {
 
     val now = timeProvider.getCurrentTime
     val commands = Commands(
-      ledgerId = ledger.ledgerId,
+      ledgerId = ledger.ledgerId.unwrap,
       workflowId = WorkflowId.unwrap(workflowId),
       applicationId = applicationId,
       commandId = CommandId.unwrap(commandId),
@@ -484,11 +523,17 @@ class ScalaCodeGenIT
     tx.workflowId shouldBe expectedWorkflowId
   }
 
-  private def assertCreateEvent(event: Event)(expectedContract: Template[AnyRef]): Assertion = {
+  private def assertCreateEvent(event: Event)(
+      expectedContract: Template[AnyRef],
+      expectedAgreement: Option[String]): Assertion = {
     event.event.isCreated shouldBe true
     decoder(event.getCreated) match {
       case Left(e) => fail(e.toString)
-      case Right(Contract(_, contract)) => contract shouldBe expectedContract
+      case Right(Contract(_, contract, agreementText)) =>
+        contract shouldBe expectedContract
+        agreementText shouldBe expectedAgreement
+        agreementText shouldBe event.getCreated.agreementText
+
     }
   }
 

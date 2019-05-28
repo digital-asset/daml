@@ -18,7 +18,6 @@ module Development.IDE.Functions.Compile
   , typecheckModule
   , loadPackage
   , computePackageDeps
-  , generatePackageState
   ) where
 
 import           Development.IDE.Functions.Warnings
@@ -45,8 +44,6 @@ import           MkIface
 import           NameCache
 import           StringBuffer                   as SB
 import           TidyPgm
-import           InstEnv
-import           FamInstEnv
 import qualified GHC.LanguageExtensions as LangExt
 
 import Control.DeepSeq
@@ -139,16 +136,14 @@ typecheckModule
     :: IdeOptions
     -> ParsedModule
     -> HscEnv
-    -> UniqSupply
     -> [TcModuleResult]
-    -> [LoadPackageResult]
     -> ParsedModule
     -> IO ([FileDiagnostic], Maybe TcModuleResult)
-typecheckModule opt mod packageState uniqSupply deps pkgs pm =
+typecheckModule opt mod packageState deps pm =
     fmap (either (, Nothing) (second Just)) $ Ex.runExceptT $
     runGhcSessionExcept opt (Just mod) packageState $
         catchSrcErrors $ do
-            setupEnv uniqSupply deps pkgs
+            setupEnv deps
             (warnings, tcm) <- withWarnings "Typechecker" $ \tweak ->
                 GHC.typecheckModule pm{pm_mod_summary = tweak $ pm_mod_summary pm}
             tcm2 <- mkTcModuleResult (WriteInterface $ optWriteIface opt) tcm
@@ -158,22 +153,13 @@ typecheckModule opt mod packageState uniqSupply deps pkgs pm =
 loadPackage ::
      IdeOptions
   -> HscEnv
-  -> UniqSupply
-  -> [LoadPackageResult]
   -> InstalledUnitId
   -> IO (Either [FileDiagnostic] LoadPackageResult)
-loadPackage opt packageState us lps p =
+loadPackage opt packageState p =
   Ex.runExceptT $
   runGhcSessionExcept opt Nothing packageState $
   catchSrcErrors $ do
-    setupEnv us [] lps
-    dflags <- hsc_dflags <$> getSession
-    exposedMods <- liftIO $ exposedModules <$> getPackage dflags p
-    let mods =
-          [ Module (DefiniteUnitId (DefUnitId p)) mod
-          | (mod, _mbParent) <- exposedMods
-          ]
-    forM_ mods $ \mod -> GHC.getModuleInfo mod
+    setupEnv []
     -- this populates the namecache and external package state
     session <- getSession
     modEnv <- nsNames <$> liftIO (readIORef $ hsc_NC session)
@@ -186,16 +172,14 @@ compileModule
     :: IdeOptions
     -> ParsedModule
     -> HscEnv
-    -> UniqSupply
     -> [TcModuleResult]
-    -> [LoadPackageResult]
     -> TcModuleResult
     -> IO ([FileDiagnostic], Maybe GhcModule)
-compileModule opt mod packageState uniqSupply deps pkgs tmr =
+compileModule opt mod packageState deps tmr =
     fmap (either (, Nothing) (second Just)) $ Ex.runExceptT $
     runGhcSessionExcept opt (Just mod) packageState $
         catchSrcErrors $ do
-            setupEnv uniqSupply (deps ++ [tmr]) pkgs
+            setupEnv (deps ++ [tmr])
 
             let tm = tmrModule tmr
             session <- getSession
@@ -249,7 +233,12 @@ runGhcSession IdeOptions{..} modu env act = runGhcEnv env $ do
 moduleImportPaths :: GHC.ParsedModule -> Maybe FilePath
 moduleImportPaths pm
   | rootModDir == "." = Just rootPathDir
-  | otherwise = dropTrailingPathSeparator <$> stripSuffix rootModDir rootPathDir
+  | otherwise =
+    -- TODO (MK) stripSuffix (normalise rootModDir) (normalise rootPathDir)
+    -- would be a better choice but at the moment we do not consistently
+    -- normalize file paths in the Shake graph so we can end up with the
+    -- same module being represented twice in the Shake graph.
+    Just $ dropTrailingPathSeparator $ dropEnd (length rootModDir) rootPathDir
   where
     ms   = GHC.pm_mod_summary pm
     file = GHC.ms_hspp_file ms
@@ -257,29 +246,6 @@ moduleImportPaths pm
     rootPathDir  = takeDirectory file
     rootModDir   = takeDirectory . moduleNameSlashes . GHC.moduleName $ mod'
 
-
--- When we make a fresh GHC environment, the OrigNameCache comes already partially
--- populated. So to be safe, we simply extend this one.
-mkNameCache :: GhcMonad m => UniqSupply -> [TcModuleResult] -> [LoadPackageResult] -> m NameCache
-mkNameCache uniqSupply tms pkgs = do
-    session    <- getSession
-    onc        <- nsNames <$> liftIO (readIORef $ hsc_NC session)
-    return NameCache
-            { nsUniqs = uniqSupply
-            , nsNames = extendOrigNameCache' onc tms pkgs
-            }
-
--- | Extend the name cache with the names from the typechecked home modules and the loaded packages.
--- If we have two environments containing the same module we take the later one. We do this because
--- the name cache comes prepopulated with modules from daml-prim and we overwrite those with our own
--- daml-prim package.
-extendOrigNameCache' :: OrigNameCache -> [TcModuleResult] -> [LoadPackageResult] -> OrigNameCache
-extendOrigNameCache' onc tms pkgs = foldl (plusModuleEnv_C (\_x y -> y)) onc modEnvs
-  where
-    modEnvs =
-      mkModuleEnv
-         [(ms_mod $ tcModSummary $ tmrModule tm, tmrOccEnvName tm) | tm <- tms] :
-      [lprModuleEnv lm | lm <- pkgs]
 
 newtype WriteInterface = WriteInterface Bool
 
@@ -318,8 +284,8 @@ tcModSummary = pm_mod_summary . tm_parsed_module
 
 -- | Setup the environment that GHC needs according to our
 -- best understanding (!)
-setupEnv :: GhcMonad m => UniqSupply -> [TcModuleResult] -> [LoadPackageResult] -> m ()
-setupEnv uniqSupply tms lps = do
+setupEnv :: GhcMonad m => [TcModuleResult] -> m ()
+setupEnv tms = do
     session <- getSession
 
     let mss = map (pm_mod_summary . tm_parsed_module . tmrModule) tms
@@ -336,63 +302,9 @@ setupEnv uniqSupply tms lps = do
         foldl' (\fc (im, ifr) -> GHC.extendInstalledModuleEnv fc im ifr) fc
             $ zip ims ifrs
 
-    -- construct a new NameCache
-    nc' <- mkNameCache uniqSupply tms lps
-    -- update the name cache
-    liftIO $ modifyIORef (hsc_NC session) $ const nc'
-    -- update the external package state
-    liftIO $ modifyIORef (hsc_EPS session) (updateEps lps)
     -- load dependent modules, which must be in topological order.
     mapM_ loadModuleHome tms
 
--- | Update the external package state given the loaded package results.
-updateEps :: [LoadPackageResult] -> ExternalPackageState -> ExternalPackageState
-updateEps lps eps =
-  eps
-    { eps_inst_env = newInstEnv
-    , eps_PIT = newPIT
-    , eps_PTE = newPTE
-    , eps_rule_base = newRuleBase
-    , eps_complete_matches = newCompleteMatches
-    , eps_fam_inst_env = newFamInst
-    , eps_ann_env = newAnnEnv
-    , eps_mod_fam_inst_env = newModFamInstEnv
-    }
-  where
-    (newInstEnv, (newPIT, (newPTE, (newRuleBase, (newCompleteMatches, (newFamInst, (newAnnEnv, newModFamInstEnv))))))) =
-      foldl
-        (\(instEnv, (pit, (pte, (ruleBase, (completeMatches, (famInst, (annEnv, modFamInstEnv))))))) ->
-           (instEnv `extendInstEnvList0`) ***
-           (pit `plusModuleEnv`) ***
-           (pte `plusTypeEnv`) ***
-           (ruleBase `unionRuleBase`) ***
-           (completeMatches `extendCompleteMatchMap`) ***
-           (famInst `extendFamInstEnvList`) ***
-           (annEnv `plusAnnEnv`) *** (modFamInstEnv `plusModuleEnv`))
-        ( emptyInstEnv
-        , ( emptyPackageIfaceTable
-          , ( emptyTypeEnv
-            , ( emptyRuleBase
-              , (emptyUFM, (emptyFamInstEnv, (emptyAnnEnv, emptyModuleEnv)))))))
-        [ ( instEnvElts $ eps_inst_env e
-          , ( eps_PIT e
-            , ( eps_PTE e
-              , ( eps_rule_base e
-                , ( concat $ eltsUFM $ eps_complete_matches e
-                  , ( famInstEnvElts $ eps_fam_inst_env e
-                    , (eps_ann_env e, eps_mod_fam_inst_env e)))))))
-        | p <- lps
-        , let e = lprEps p
-        ]
-
-    -- TODO (drsk): This is necessary because the EPS that we store include the results of
-    -- previously loaded packages and we end up adding instances several times to the environment.
-    -- It would be better to have pure delta stored in the LoadPackageResult, such that it
-    -- contains only identities/instances/names coming from that specific loaded package, but I
-    -- failed so far in computing the correct delta.
-    extendInstEnvList0 instEnv0 clsInsts =
-      extendInstEnvList emptyInstEnv $
-      nubOrdOn is_dfun_name $ instEnvElts instEnv0 ++ clsInsts
 
 -- | Load a module, quickly. Input doesn't need to be desugared.
 -- A module must be loaded before dependent modules can be typechecked.
@@ -533,12 +445,6 @@ parsePragmasIntoDynFlags fp contents = catchSrcErrors $ do
     let opts = Hdr.getOptions dflags0 contents fp
     (dflags, _, _) <- parseDynamicFilePragma dflags0 opts
     return dflags
-
-generatePackageState :: [FilePath] -> Bool -> [(String, ModRenaming)] -> IO PackageDynFlags
-generatePackageState paths hideAllPkgs pkgImports = do
-  let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs paths fakeDynFlags
-  (newDynFlags, _) <- initPackages dflags
-  pure $ getPackageDynFlags newDynFlags
 
 -- | Run something in a Ghc monad and catch the errors (SourceErrors and
 -- compiler-internal exceptions like Panic or InstallationError).

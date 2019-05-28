@@ -43,7 +43,7 @@ object domain {
 
   object LedgerOffset {
 
-    final case class Absolute(value: String) extends LedgerOffset
+    final case class Absolute(value: Ref.LedgerString) extends LedgerOffset
 
     case object LedgerBegin extends LedgerOffset
 
@@ -60,6 +60,8 @@ object domain {
     def templateId: Ref.Identifier
 
     def witnessParties: immutable.Set[Ref.Party]
+
+    def children: List[EventId] = Nil
   }
 
   object Event {
@@ -73,7 +75,8 @@ object domain {
         contractId: ContractId,
         templateId: Ref.Identifier,
         createArguments: ValueRecord[AbsoluteContractId],
-        witnessParties: immutable.Set[Ref.Party])
+        witnessParties: immutable.Set[Ref.Party],
+        agreementText: String)
         extends Event
         with CreateOrExerciseEvent
         with CreateOrArchiveEvent
@@ -84,21 +87,22 @@ object domain {
         templateId: Ref.Identifier,
         witnessParties: immutable.Set[Ref.Party])
         extends Event
-        with CreateOrExerciseEvent
+        with CreateOrArchiveEvent
 
     final case class ExercisedEvent(
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
         contractCreatingEventId: EventId,
-        choice: Choice,
+        choice: Ref.ChoiceName,
         choiceArgument: Value,
         actingParties: immutable.Set[Ref.Party],
         consuming: Boolean,
-        children: Event,
-        witnessParties: immutable.Set[Ref.Party])
+        override val children: List[EventId],
+        witnessParties: immutable.Set[Ref.Party],
+        exerciseResult: Option[Value])
         extends Event
-        with CreateOrArchiveEvent
+        with CreateOrExerciseEvent
 
   }
 
@@ -106,36 +110,35 @@ object domain {
 
     def transactionId: TransactionId
 
-    def commandId: CommandId
+    def commandId: Option[CommandId]
 
-    def workflowId: WorkflowId
+    def workflowId: Option[WorkflowId]
 
     def effectiveAt: Instant
 
-    def events: immutable.Seq[Event]
-
-    def offset: AbsoluteOffset
+    def offset: LedgerOffset.Absolute
 
     def traceContext: Option[TraceContext]
   }
 
   final case class TransactionTree(
       transactionId: TransactionId,
-      commandId: CommandId,
-      workflowId: WorkflowId,
+      commandId: Option[CommandId],
+      workflowId: Option[WorkflowId],
       effectiveAt: Instant,
-      events: immutable.Seq[CreateOrArchiveEvent],
-      offset: AbsoluteOffset,
+      offset: LedgerOffset.Absolute,
+      eventsById: immutable.Map[EventId, CreateOrExerciseEvent],
+      rootEventIds: immutable.Seq[EventId],
       traceContext: Option[TraceContext])
       extends TransactionBase
 
   final case class Transaction(
       transactionId: TransactionId,
-      commandId: CommandId,
-      workflowId: WorkflowId,
+      commandId: Option[CommandId],
+      workflowId: Option[WorkflowId],
       effectiveAt: Instant,
-      events: immutable.Seq[CreateOrExerciseEvent],
-      offset: AbsoluteOffset,
+      events: immutable.Seq[CreateOrArchiveEvent],
+      offset: LedgerOffset.Absolute,
       traceContext: Option[TraceContext])
       extends TransactionBase
 
@@ -179,45 +182,30 @@ object domain {
   type VariantConstructor = String @@ VariantConstructorTag
   val VariantConstructor: Tag.TagOf[VariantConstructorTag] = Tag.of[VariantConstructorTag]
 
-  sealed trait AbsoluteOffsetTag
-
-  type AbsoluteOffset = String @@ AbsoluteOffsetTag
-  val AbsoluteOffset: Tag.TagOf[AbsoluteOffsetTag] = Tag.of[AbsoluteOffsetTag]
-
   sealed trait WorkflowIdTag
 
-  type WorkflowId = String @@ WorkflowIdTag
+  type WorkflowId = Ref.LedgerString @@ WorkflowIdTag
   val WorkflowId: Tag.TagOf[WorkflowIdTag] = Tag.of[WorkflowIdTag]
 
   sealed trait CommandIdTag
 
-  type CommandId = String @@ CommandIdTag
+  type CommandId = Ref.LedgerString @@ CommandIdTag
   val CommandId: Tag.TagOf[CommandIdTag] = Tag.of[CommandIdTag]
 
   sealed trait TransactionIdTag
 
-  type TransactionId = String @@ TransactionIdTag
+  type TransactionId = Ref.TransactionIdString @@ TransactionIdTag
   val TransactionId: Tag.TagOf[TransactionIdTag] = Tag.of[TransactionIdTag]
-
-  sealed trait ChoiceTag
-
-  type Choice = String @@ ChoiceTag
-  val Choice: Tag.TagOf[ChoiceTag] = Tag.of[ChoiceTag]
 
   sealed trait ContractIdTag
 
-  type ContractId = String @@ ContractIdTag
+  type ContractId = Ref.ContractIdString @@ ContractIdTag
   val ContractId: Tag.TagOf[ContractIdTag] = Tag.of[ContractIdTag]
 
   sealed trait EventIdTag
 
-  type EventId = String @@ EventIdTag
+  type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
-
-  sealed trait PackageIdTag
-
-  type PackageId = String @@ PackageIdTag
-  val PackageId: Tag.TagOf[PackageIdTag] = Tag.of[PackageIdTag]
 
   sealed trait LedgerIdTag
 
@@ -226,8 +214,10 @@ object domain {
 
   sealed trait ApplicationIdTag
 
-  type ApplicationId = String @@ ApplicationIdTag
+  type ApplicationId = Ref.LedgerString @@ ApplicationIdTag
   val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
+
+  sealed trait AbsoluteNodeIdTag
 
   case class Commands(
       ledgerId: LedgerId,

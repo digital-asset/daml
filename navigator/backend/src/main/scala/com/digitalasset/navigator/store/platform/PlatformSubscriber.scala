@@ -24,6 +24,7 @@ import com.digitalasset.util.Ctx
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 import scalaz.{Tag, \/-}
+import scalaz.syntax.tag._
 
 object PlatformSubscriber {
   // Actor messages
@@ -36,13 +37,20 @@ object PlatformSubscriber {
 
   type TrackCommandsSource = SourceQueueWithComplete[Ctx[Command, SubmitRequest]]
 
-  def props(ledgerClient: LedgerClient, party: PartyState, applicationId: String): Props =
+  def props(
+      ledgerClient: LedgerClient,
+      party: PartyState,
+      applicationId: DamlLfRef.LedgerString
+  ) =
     Props(classOf[PlatformSubscriber], ledgerClient, party, applicationId)
 }
 
 /** Actor subscribing to platform event stream of a single DA party. */
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class PlatformSubscriber(ledgerClient: LedgerClient, party: PartyState, applicationId: String)
+class PlatformSubscriber(
+    ledgerClient: LedgerClient,
+    party: PartyState,
+    applicationId: DamlLfRef.LedgerString)
     extends Actor
     with ActorLogging
     with Stash {
@@ -309,7 +317,7 @@ class PlatformSubscriber(ledgerClient: LedgerClient, party: PartyState, applicat
 
     // Convert to ledger API command
     converter.LedgerApiV1
-      .writeCommands(party, command, maxRecordDelay, ledgerClient.ledgerId, applicationId)
+      .writeCommands(party, command, maxRecordDelay, ledgerClient.ledgerId.unwrap, applicationId)
       .fold[Unit](
         error => {
           // Failed to convert command. Most likely, the argument is incomplete.

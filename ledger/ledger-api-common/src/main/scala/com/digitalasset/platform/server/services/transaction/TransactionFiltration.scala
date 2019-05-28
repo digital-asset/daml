@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.transaction.Node.GenNode
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node}
 import com.digitalasset.ledger.api.domain.TransactionFilter
 
-import scala.collection.{breakOut, immutable, mutable}
+import scala.collection.{immutable, mutable}
 
 // This will be tested transitively by the semantic test suite.
 object TransactionFiltration {
@@ -39,9 +39,8 @@ object TransactionFiltration {
       * @return A nonempty map if with NodeId -> String mappings if any of them are visible.
       *         None otherwise.
       */
-    def filter[Nid, Cid, Val](
-        transaction: GenTransaction[Nid, Cid, Val],
-        nidToString: Nid => String): Option[immutable.Map[String, immutable.Set[Party]]] = {
+    def filter[Nid, Cid, Val](transaction: GenTransaction[Nid, Cid, Val])
+      : Option[immutable.Map[Nid, immutable.Set[Party]]] = {
 
       val partiesByTemplate =
         collapse(
@@ -72,9 +71,7 @@ object TransactionFiltration {
       // we check for filteredPartiesByNode.isEmpty so that we also emit empty
       // transaction trees.
       if (filteredPartiesByNode.exists(_._2.nonEmpty) || filteredPartiesByNode.isEmpty) {
-        val nodeIdToParty: Map[String, immutable.Set[Party]] = filteredPartiesByNode.map {
-          case (k, v) => (nidToString(k), v)
-        }(breakOut)
+        val nodeIdToParty = filteredPartiesByNode.toMap
         Some(nodeIdToParty)
       } else None
     }

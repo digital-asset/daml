@@ -6,27 +6,27 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
+import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.transaction.Transaction.{ContractId, NodeId, Value}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.transaction.Transaction.{TContractId, NodeId, Value}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   Resource,
   SuiteResourceManagementAroundEach
 }
-import com.digitalasset.ledger.backend.api.v1.{
-  RejectionReason,
-  SubmissionResult,
-  TransactionSubmission
-}
+import com.digitalasset.ledger.backend.api.v1.{RejectionReason, TransactionSubmission}
 import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
 import com.digitalasset.platform.testing.MultiResourceBase
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
 import scala.concurrent.duration._
+import scala.language.implicitConversions
 
 sealed abstract class BackendType
 
@@ -51,7 +51,7 @@ class TransactionMRTComplianceIT
 
   override def timeLimit: Span = 60.seconds
 
-  val ledgerId = "ledgerId"
+  val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
   val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */
@@ -73,10 +73,13 @@ class TransactionMRTComplianceIT
     "reject transactions with a record time after the MRT" in allFixtures { ledger =>
       val emptyBlinding = BlindingInfo(Map.empty, Map.empty, Map.empty)
       val dummyTransaction =
-        GenTransaction[NodeId, ContractId, Value[ContractId]](Map.empty, ImmArray.empty, Set.empty)
+        GenTransaction[NodeId, TContractId, Value[TContractId]](
+          Map.empty,
+          ImmArray.empty,
+          Set.empty)
       val submission = TransactionSubmission(
         "cmdId",
-        "wfid",
+        Some("wfid"),
         "submitter",
         LET,
         MRT,
@@ -101,4 +104,10 @@ class TransactionMRTComplianceIT
         }
     }
   }
+
+  private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
+
+  private implicit def toLedgerString(s: String): Ref.LedgerString =
+    Ref.LedgerString.assertFromString(s)
+
 }

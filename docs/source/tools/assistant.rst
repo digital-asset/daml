@@ -108,6 +108,7 @@ Here is what each field means:
 - ``parties``: the parties to display in the Navigator when using ``daml start``.
 - ``version``: the project version.
 - ``exposed-modules``: the DAML modules that are exposed by this project, which can be imported in other projects.
+  If this field is not specified all modules in the project are exposed.
 - ``dependencies``: the dependencies of this project.
 
 ..  TODO (@robin-da) document the dependency syntax
@@ -153,9 +154,9 @@ To install the SDK release specified in the project config, run::
 
   daml install project
 
-To install a specific SDK version, for example version ``0.13.0``, run::
+To install a specific SDK version, for example version ``0.12.17``, run::
 
-  daml install 0.13.0
+  daml install 0.12.17
 
 Rarely, you might need to install an SDK release from a downloaded SDK release tarball. **This is an advanced feature**: you should only ever perform this on an SDK release tarball that is released through the official ``digital-asset/daml`` github repository. Otherwise your ``daml`` installation may become inconsistent with everyone else's. To do this, run::
 

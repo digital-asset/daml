@@ -12,6 +12,7 @@ import akka.pattern.ask
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.navigator.util.RetryHelper
 import com.digitalasset.navigator.model._
 import com.digitalasset.navigator.store.Store._
@@ -36,6 +37,8 @@ import org.slf4j.LoggerFactory
 import scala.util.{Failure, Random, Success, Try}
 import scala.concurrent.Future
 import scala.concurrent.duration._
+
+import scalaz.syntax.tag._
 
 object PlatformStore {
   def props(
@@ -94,9 +97,10 @@ class PlatformStore(
   implicit val esf: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
 
-  private val applicationId = applicationInfo.id + " #" + new Random(System.currentTimeMillis())
-    .nextLong()
-    .toHexString
+  private val applicationId =
+    Ref.LedgerString.assertFromString(
+      applicationInfo.id + "#" + new Random(System.currentTimeMillis()).nextLong().toHexString
+    )
 
   private[this] def userFacingLogger = LoggerFactory.getLogger("user-facing-logs")
 
@@ -206,7 +210,7 @@ class PlatformStore(
               platformPort,
               tlsConfig.exists(_.enabled),
               applicationId,
-              state.ledgerClient.ledgerId,
+              state.ledgerClient.ledgerId.unwrap,
               state.time,
               actorStatus
             )
@@ -217,7 +221,7 @@ class PlatformStore(
               platformPort,
               tlsConfig.exists(_.enabled),
               applicationId,
-              state.ledgerClient.ledgerId,
+              state.ledgerClient.ledgerId.unwrap,
               state.time,
               List.empty
             )
@@ -318,7 +322,7 @@ class PlatformStore(
 
     for {
       ledgerClient <- LedgerClient.forChannel(configuration, channel)
-      staticTime <- getStaticTime(channel, ledgerClient.ledgerId)
+      staticTime <- getStaticTime(channel, ledgerClient.ledgerId.unwrap)
       time <- getTimeProvider(staticTime)
     } yield ConnectionResult(ledgerClient, staticTime, time)
   }

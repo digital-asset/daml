@@ -44,10 +44,9 @@ da_scala_binary(
 )
 
 client_server_test(
-    name = "semantic-test",
+    name = "conformance-test",
     timeout = "short",
-    client = "//ledger/ledger-api-integration-tests:semantic-test-runner",
-    client_args = ["ledger/ledger-api-integration-tests/SemanticTests.dar"],
+    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
     data = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
     ],

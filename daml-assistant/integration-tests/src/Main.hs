@@ -47,10 +47,10 @@ main =
     withEnv
         [ ("DAML_HOME", Just damlDir)
         , ("PATH", Just $ intercalate [searchPathSeparator] ((damlDir </> "bin") : tarPath : javaPath : mvnPath : oldPath))
-        ] $ defaultMain (tests tmpDir)
+        ] $ defaultMain (tests damlDir tmpDir)
 
-tests :: FilePath -> TestTree
-tests tmpDir = testGroup "Integration tests"
+tests :: FilePath -> FilePath -> TestTree
+tests damlDir tmpDir = testGroup "Integration tests"
     [ testCase "install" $ do
           releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
           createDirectory tarballDir
@@ -62,13 +62,38 @@ tests tmpDir = testGroup "Integration tests"
     , testCase "daml version" $ callProcessQuiet damlName ["version"]
     , testCase "daml --help" $ callProcessQuiet damlName ["--help"]
     , testCase "daml new --list" $ callProcessQuiet damlName ["new", "--list"]
+    , noassistantTests damlDir
     , packagingTests tmpDir
     , quickstartTests quickstartDir mvnDir
+    , cleanTests cleanDir
     ]
     where quickstartDir = tmpDir </> "quickstart"
+          cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
           tarballDir = tmpDir </> "tarball"
           throwError msg e = fail (T.unpack $ msg <> " " <> e)
+
+-- | These tests check that it is possible to invoke (a subset) of damlc
+-- commands outside of the assistant.
+noassistantTests :: FilePath -> TestTree
+noassistantTests damlDir = testGroup "no assistant"
+    [ testCase "damlc build" $ withTempDir $ \projDir -> do
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: a"
+              , "version: \"1.0\""
+              , "source: Main.daml"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          writeFileUTF8 (projDir </> "Main.daml") $ unlines
+              [ "daml 1.2"
+              , "module Main where"
+              , "a : ()"
+              , "a = ()"
+              ]
+          let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "da-hs-damlc-app"
+          callProcess damlcPath ["build", "--project-root", projDir, "--init-package-db", "no"]
+    ]
 
 packagingTests :: FilePath -> TestTree
 packagingTests tmpDir = testGroup "packaging"
@@ -147,6 +172,21 @@ packagingTests tmpDir = testGroup "packaging"
         -- Note that we really want a forward slash here instead of </> since filepaths in
         -- zip files use forward slashes.
         assertBool "A.daml is missing" ("proj/A.daml" `elem` darFiles)
+    , testCase "Project without exposed modules" $ withTempDir $ \projDir -> do
+        writeFileUTF8 (projDir </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A (a) where"
+            , "a : ()"
+            , "a = ()"
+            ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: proj"
+            , "version: \"1.0\""
+            , "source: A.daml"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        withCurrentDirectory projDir $ callProcessQuiet damlName ["build"]
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
@@ -155,8 +195,10 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
           callProcessQuiet damlName ["new", quickstartDir, "quickstart-java"]
     , testCase "daml build " $ withCurrentDirectory quickstartDir $
           callProcessQuiet damlName ["build", "-o", "target/daml/iou.dar"]
-    , testCase "daml damlc test" $ withCurrentDirectory quickstartDir $
-          callProcessQuiet damlName ["damlc", "test", "daml/Main.daml"]
+    , testCase "daml test" $ withCurrentDirectory quickstartDir $
+          callProcessQuiet damlName ["test"]
+    , testCase "daml damlc test --files" $ withCurrentDirectory quickstartDir $
+          callProcessQuiet damlName ["damlc", "test", "--files", "daml/Main.daml"]
     , testCase "sandbox startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
@@ -212,6 +254,36 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
     ]
     where
         mvnRepoFlag = "-Dmaven.repo.local=" <> mvnDir
+
+-- | Ensure that daml clean removes precisely the files created by daml build.
+cleanTests :: FilePath -> TestTree
+cleanTests baseDir = testGroup "daml clean"
+    [ cleanTestFor "skeleton"
+    , cleanTestFor "quickstart-java"
+    , cleanTestFor "quickstart-scala"
+    ]
+    where
+        cleanTestFor :: String -> TestTree
+        cleanTestFor templateName =
+            testCase ("daml clean test for " <> templateName <> " template") $ do
+                createDirectoryIfMissing True baseDir
+                withCurrentDirectory baseDir $ do
+                    let projectDir = baseDir </> ("proj-" <> templateName)
+                    callProcessQuiet damlName ["new", projectDir, templateName]
+                    withCurrentDirectory projectDir $ do
+                        filesAtStart <- sort <$> listFilesRecursive "."
+                        callProcessQuiet damlName ["build"]
+                        callProcessQuiet damlName ["clean"]
+                        filesAtEnd <- sort <$> listFilesRecursive "."
+                        when (filesAtStart /= filesAtEnd) $
+                            fail $ unlines
+                                [ "daml clean did not remove all files produced by daml build."
+                                , ""
+                                , "    files at start:"
+                                , unlines (map ("       "++) filesAtStart)
+                                , "    files at end:"
+                                , unlines (map ("       "++) filesAtEnd)
+                                ]
 
 -- | Bazel tests are run in a bash environment with cmd.exe not in PATH. This results in ShellCommand
 -- failing so instead we patch ShellCommand and RawCommand to call bash directly.

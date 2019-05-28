@@ -19,6 +19,7 @@ import DAML.Project.Consts
 import DAML.Project.Config
 import DAML.Project.Util
 import Safe
+import Data.List
 import Conduit
 import qualified Data.Conduit.List as List
 import qualified Data.Conduit.Tar.Extra as Tar
@@ -26,6 +27,7 @@ import qualified Data.Conduit.Zlib as Zlib
 import Network.HTTP.Simple
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS.UTF8
+import System.Environment
 import System.Exit
 import System.IO
 import System.IO.Temp
@@ -111,6 +113,22 @@ installExtracted env@InstallEnv{..} sourcePath =
         let targetPath = defaultSdkPath damlPath sourceVersion
 
         whenM (doesDirectoryExist (unwrapSdkPath targetPath)) $ do
+
+            -- Check for overwriting the running executable on Windows.
+            asstExePath <- getExecutablePath
+            when (isWindows && (unwrapSdkPath targetPath `isPrefixOf` asstExePath)) $ do
+                hPutStrLn stderr $ unlines
+                    [  "Failed to reinstall SDK version " <> versionToString sourceVersion
+                    <> " because assistant version " <> versionToString sourceVersion
+                    <> " is currently running."
+                    ,  ""
+                    ,  "Suggested fix:"
+                    ,  "  - Go to https://github.com/digital-asset/daml/releases/latest"
+                    ,  "  - Download and run Windows installer."
+                    ,  "  - Reinstall the DAML SDK from scratch."
+                    ]
+                exitFailure
+
             requiredIO "Failed to set file modes for SDK to remove." $ do
                 walkRecursive (unwrapSdkPath targetPath) WalkCallbacks
                     { walkOnFile = setRemoveFileMode

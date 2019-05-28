@@ -1,0 +1,66 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Check that non-generic templates work with the new de/re-sugaring of
+-- templates for DAML-LF < 1.5 as well. This test can be deleted when
+-- generic templates (#1387) land in master.
+daml 1.2
+module GenTemplCompat where
+
+import Prelude hiding (Template (..), Choice (..), create, fetch, exercise)
+import DA.Assert
+import GenericTemplates
+
+data Fact = Fact with
+    owner : Party
+    name : Text
+    value : Int
+  deriving (Eq, Show)
+
+instance FactInstance => Template Fact where
+    signatory = signatoryFact
+    observer = observerFact
+    ensure = ensureFact
+    agreement = agreementFact
+    create = createFact
+    fetch = fetchFact
+
+data Revoke = Revoke{}
+  deriving (Eq, Show)
+
+instance FactInstance => Choice Fact Revoke () where
+    exercise = exerciseFactRevoke
+
+class FactInstance where
+    signatoryFact : Fact -> [Party]
+    signatoryFact this@Fact{..} = [owner]
+    observerFact : Fact -> [Party]
+    observerFact this@Fact{..} = []
+    ensureFact : Fact -> Bool
+    ensureFact this@Fact{..} = name /= ""
+    agreementFact : Fact -> Text
+    agreementFact this@Fact{..} =
+        show owner <> " provides " <> show name <> ": " <> show value
+    createFact : Fact -> Update (ContractId Fact)
+    createFact = error "code will be injected by the compiler"
+    fetchFact : ContractId Fact -> Update Fact
+    fetchFact = error "code will be injected by the compiler"
+    controllerFactRevoke : Fact -> Revoke -> [Party]
+    controllerFactRevoke this@Fact{..} arg@Revoke = [owner]
+    actionFactRevoke : ContractId Fact -> Fact -> Revoke -> Update ()
+    actionFactRevoke self this@Fact{..} arg@Revoke = do
+        pure ()
+    exerciseFactRevoke : ContractId Fact -> Revoke -> Update ()
+    exerciseFactRevoke = error "code will be injected by the compiler"
+
+instance FactInstance where
+
+
+test = scenario do
+    alice <- getParty "Alice"
+    let fact = Fact with owner = alice; name = "Answer"; value = 42
+    factId <- submit alice do create fact
+    fact' <- submit alice do fetch factId
+    fact' === fact
+    submit alice do exercise factId Revoke
+    submitMustFail alice do fetch factId

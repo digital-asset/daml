@@ -13,7 +13,7 @@
         }
       },
       "source": "Compiler",
-      "message": "/tests/diagnostics/failed-name-resolution/Main.daml:8:11: error:\n    • Variable not in scope: ab : Int\n    • Perhaps you meant one of these:\n        ‘a’ (line 8), ‘b’ (line 8), ‘abs’ (imported from Prelude)"
+      "message": "/tests/diagnostics/failed-name-resolution/Main.daml:8:11: error:\n    • Variable not in scope: ab : Int\n    • Perhaps you meant one of these:\n        ‘a’ (line 8), ‘b’ (line 8), ‘ap’ (imported from Prelude)"
     },
     {
       "severity": 1,
@@ -30,9 +30,5 @@
       "source": "Compiler",
       "message": "/tests/diagnostics/failed-name-resolution/Main.daml:11:10: error:\n    • Variable not in scope: abdd : Int -> Int -> Int\n    • Perhaps you meant ‘add’ (line 8)"
     }
-  ],
-  "file:/tests/diagnostics/failed-name-resolution/Prelude.daml": [],
-  "file:/tests/diagnostics/failed-name-resolution/DA/Internal/Desugar.daml": [],
-  "file:/tests/diagnostics/failed-name-resolution/DA/Internal/Record.daml": [],
-  "file:/tests/diagnostics/failed-name-resolution/DA/Internal/RebindableSyntax.daml": []
+  ]
 }

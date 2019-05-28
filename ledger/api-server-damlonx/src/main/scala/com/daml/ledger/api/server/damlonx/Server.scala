@@ -13,11 +13,12 @@ import com.daml.ledger.participant.state.v1.WriteService
 import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
 import com.digitalasset.daml.lf.lfpackage.Decode
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ReferenceCommandService
-import com.digitalasset.platform.server.services.identity.LedgerIdentityServiceImpl
+import com.digitalasset.platform.server.services.identity.LedgerIdentityService
 import io.grpc.BindableService
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -26,7 +27,7 @@ import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 
 object Server {
@@ -97,12 +98,13 @@ object Server {
     val transactionService =
       DamlOnXTransactionService.create(ledgerId, indexService, identifierResolver)
 
-    val identityService = LedgerIdentityServiceImpl(ledgerId)
+    val identityService =
+      LedgerIdentityService.createApiService(() => Future.successful(domain.LedgerId(ledgerId)))
 
     // FIXME(JM): hard-coded values copied from SandboxConfig.
-    val commandService = ReferenceCommandService(
+    val commandService = ReferenceCommandService.createApiService(
       ReferenceCommandService.Configuration(
-        ledgerId,
+        domain.LedgerId(ledgerId),
         512, // config.commandConfig.inputBufferSize,
         128, // config.commandConfig.maxParallelSubmissions,
         256, // config.commandConfig.maxCommandsInFlight,
@@ -123,7 +125,8 @@ object Server {
         () => commandCompletionService.completionEnd(CompletionEndRequest(ledgerId)),
         transactionService.getTransactionById,
         transactionService.getFlatTransactionById
-      )
+      ),
+      identifierResolver
     )
 
     val packageService = DamlOnXPackageService(indexService, ledgerId)
@@ -145,6 +148,7 @@ object Server {
       identityService,
       packageService,
       timeService,
+      configurationService,
       reflectionService
     )
   }
@@ -197,7 +201,9 @@ final class Server private (
     logger.info("Shutting down server...")
     server.shutdownNow()
     assume(server.awaitTermination(10, TimeUnit.SECONDS))
-    serverEventLoopGroup.shutdownGracefully().await(10L, TimeUnit.SECONDS)
+    serverEventLoopGroup
+      .shutdownGracefully(0, 0, TimeUnit.SECONDS)
+      .await(10, TimeUnit.SECONDS)
     serverEsf.close()
   }
 }

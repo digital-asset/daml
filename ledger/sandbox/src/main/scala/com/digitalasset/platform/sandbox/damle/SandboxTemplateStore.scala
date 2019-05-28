@@ -3,38 +3,31 @@
 
 package com.digitalasset.platform.sandbox.damle
 
-import com.digitalasset.daml_lf.DamlLf.{Archive, HashFunction}
-import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
-  SHA256 => APISHA256,
-  Unrecognized => APIUnrecognized
-}
-import com.digitalasset.ledger.api.v1.package_service.{
-  GetPackageResponse,
-  HashFunction => APIHashFunction
-}
+import com.daml.ledger.participant.state.index.v2.PackagesService
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
-import com.digitalasset.platform.sandbox.services.pkg.PackageServiceBackend
 
 import scala.collection.breakOut
 import scala.collection.immutable.Map
+import scala.concurrent.Future
 
-class SandboxTemplateStore(packageContainer: DamlPackageContainer) extends PackageServiceBackend {
+private class SandboxTemplateStore(packageContainer: DamlPackageContainer) extends PackagesService {
 
-  val packages: Map[String, GetPackageResponse] =
+  private val packages: Map[PackageId, Archive] =
     packageContainer.archives.map { archive =>
-      (archive.getHash, toGetPackageResponse(archive))
+      (PackageId.assertFromString(archive.getHash), archive)
     }(breakOut)
 
-  private def toGetPackageResponse(archive: Archive): GetPackageResponse = {
-    val hashF: APIHashFunction = archive.getHashFunction match {
-      case HashFunction.SHA256 => APISHA256
-      case _ => APIUnrecognized(-1)
-    }
-    GetPackageResponse(hashF, archive.getPayload, archive.getHash)
-  }
+  override def listPackages(): Future[Set[PackageId]] =
+    Future.successful(packages.keySet)
 
-  override val installedPackages: Set[String] = packages.keySet
+  override def getPackage(packageId: PackageId): Future[Option[Archive]] =
+    Future.successful(packages.get(packageId))
 
-  override def getPackage(packageId: String): Option[GetPackageResponse] =
-    packages.get(packageId)
+}
+
+object SandboxTemplateStore {
+  def apply(packageContainer: DamlPackageContainer): PackagesService =
+    new SandboxTemplateStore(packageContainer)
 }

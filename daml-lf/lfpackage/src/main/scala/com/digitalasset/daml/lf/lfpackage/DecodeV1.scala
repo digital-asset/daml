@@ -147,7 +147,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
         case PLF.DefTemplate.DefKey.KeyExprCase.KEY =>
           decodeKeyExpr(key.getKey, tplVar)
         case PLF.DefTemplate.DefKey.KeyExprCase.COMPLEX_KEY => {
-          assertSince("dev", "DefTemplate.DefKey.complex_key")
+          assertSince("4", "DefTemplate.DefKey.complex_key")
           decodeExpr(key.getComplexKey)
         }
         case PLF.DefTemplate.DefKey.KeyExprCase.KEYEXPR_NOT_SET =>
@@ -509,7 +509,13 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
             templateId = decodeTypeConName(exercise.getTemplate),
             choice = name(exercise.getChoice),
             cidE = decodeExpr(exercise.getCid),
-            actorsE = decodeExpr(exercise.getActor),
+            actorsE =
+              if (exercise.hasActor)
+                Some(decodeExpr(exercise.getActor))
+              else {
+                assertSince("5", "Update.Exercise.actors optional")
+                None
+              },
             argE = decodeExpr(exercise.getArg)
           )
 
@@ -723,6 +729,8 @@ object DecodeV1 {
       TO_TEXT_TEXT -> (BToTextText -> "0"),
       TO_QUOTED_TEXT_PARTY -> (BToQuotedTextParty -> "0"),
       FROM_TEXT_PARTY -> (BFromTextParty -> "2"),
+      FROM_TEXT_INT64 -> (BFromTextInt64 -> "5"),
+      FROM_TEXT_DECIMAL -> (BFromTextDecimal -> "5"),
       SHA256_TEXT -> (BSHA256Text -> "2"),
       DATE_TO_UNIX_DAYS -> (BDateToUnixDays -> "0"),
       EXPLODE_TEXT -> (BExplodeText -> "0"),
@@ -745,6 +753,7 @@ object DecodeV1 {
       EQUAL_LIST -> (BEqualList -> "0"),
       EQUAL_CONTRACT_ID -> (BEqualContractId -> "0"),
       TRACE -> (BTrace -> "0"),
+      COERCE_CONTRACT_ID -> (BCoerceContractId -> "5"),
     ).withDefault(_ => throw ParseError("BuiltinFunction.UNRECOGNIZED"))
   }
 

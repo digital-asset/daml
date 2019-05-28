@@ -12,7 +12,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.server.LedgerApiServer.{ApiServices, LedgerApiServer}
+import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer.{
   asyncTolerance,
@@ -35,6 +35,8 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
+
+import com.digitalasset.ledger.api.domain.LedgerId
 
 object SandboxServer {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -73,21 +75,38 @@ object SandboxServer {
 
   // if requested, initialize the ledger state with the given scenario
   private def createInitialState(config: SandboxConfig, context: SandboxContext)
-    : (ActiveContractsInMemory, ImmArray[LedgerEntryWithLedgerEndIncrement], Option[Instant]) =
+    : (ActiveContractsInMemory, ImmArray[LedgerEntryWithLedgerEndIncrement], Option[Instant]) = {
+    // [[ScenarioLoader]] needs all the packages to be already compiled --
+    // make sure that that's the case
+    if (config.eagerPackageLoading || config.scenario.nonEmpty) {
+      for ((pkgId, pkg) <- context.packageContainer.packages) {
+        engine
+          .preloadPackage(pkgId, pkg)
+          .consume(
+            { _ =>
+              sys.error("Unexpected request of contract")
+            },
+            context.packageContainer.packages.get, { _ =>
+              sys.error("Unexpected request of contract key")
+            }
+          )
+      }
+    }
     config.scenario match {
       case None => (ActiveContractsInMemory.empty, ImmArray.empty, None)
       case Some(scenario) =>
         val (acs, records, ledgerTime) =
-          ScenarioLoader.fromScenario(context.packageContainer, scenario)
+          ScenarioLoader.fromScenario(context.packageContainer, engine.compiledPackages(), scenario)
         (acs, records, Some(ledgerTime))
     }
+  }
 }
 
 class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends AutoCloseable {
 
   case class ApiServerState(
-      ledgerId: String,
-      apiServer: LedgerApiServer,
+      ledgerId: LedgerId,
+      apiServer: ApiServer,
       ledger: Ledger,
       stopHeartbeats: () => Unit
   ) extends AutoCloseable {
@@ -160,7 +179,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
     implicit val ec: ExecutionContext = infra.executionContext
     implicit val mm: MetricsManager = infra.metricsManager
 
-    val ledgerId = config.ledgerIdMode match {
+    val ledgerId: LedgerId = config.ledgerIdMode match {
       case LedgerIdMode.Static(id) => id
       case LedgerIdMode.Dynamic() => LedgerIdGenerator.generateRandomId()
     }
@@ -204,28 +223,41 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
     }
 
     val ledgerBackend = new SandboxLedgerBackend(ledger)
+    val contractStore = new SandboxContractStore(ledger)
 
     val stopHeartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
 
-    val apiServer = LedgerApiServer(
-      (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
-        ApiServices
-          .create(
-            config,
-            ledgerBackend,
-            SandboxServer.engine,
-            timeProvider,
-            timeServiceBackendO
-              .map(
-                TimeServiceBackend.withObserver(
-                  _,
-                  ledger.publishHeartbeat
-                )))(am, esf)
-          .withServices(List(resetService)),
-      // NOTE(JM): Re-use the same port after reset.
-      Option(sandboxState).fold(config.port)(_.apiServerState.port),
-      config.address,
-      config.tlsConfig.flatMap(_.server)
+    val apiServer = Await.result(
+      LedgerApiServer.create(
+        (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
+          ApiServices
+            .create(
+              config,
+              ledgerBackend,
+              ledgerBackend,
+              ApiServices.configurationService(config),
+              ApiServices.identityService(ledgerId),
+              context.packageService,
+              ledgerBackend,
+              ledgerBackend,
+              contractStore,
+              ledgerBackend,
+              SandboxServer.engine,
+              timeProvider,
+              timeServiceBackendO
+                .map(
+                  TimeServiceBackend.withObserver(
+                    _,
+                    ledger.publishHeartbeat
+                  ))
+            )(am, esf)
+            .map(_.withServices(List(resetService))),
+        // NOTE(JM): Re-use the same port after reset.
+        Option(sandboxState).fold(config.port)(_.apiServerState.port),
+        config.address,
+        config.tlsConfig.flatMap(_.server)
+      ),
+      asyncTolerance
     )
 
     val newState = ApiServerState(

@@ -5,6 +5,6 @@
 -- All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.
 
 -- | DAML standard library.
-@url https://docs.daml.com/daml/stdlib/base.html
+@url https://docs.daml.com/daml/reference/base.html
 @package base
 @version 1.2.0

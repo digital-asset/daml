@@ -5,7 +5,6 @@ package com.digitalasset.ledger.api.validation
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
-import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.lfpackage.Ast.Package
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.platform.common.util.DirectExecutionContext.implicitEC
@@ -41,7 +40,8 @@ object IdentifierValidator {
     } yield Ref.QualifiedName(mn, en)
 
   // in case the identifier uses the old format with a single string,
-  // we check the deprecated `name` field and do a heuristic separation of module and entity name
+  // we check the deprecated `name` field and look it up through the package resolver, since we
+  // cannot know for sure which dot in the name actually splits the module name from the entity name
   //
   // suppress deprecation warnings because we _need_ to use the deprecated .name here -- the entire
   // point of this method is to process it.
@@ -52,14 +52,10 @@ object IdentifierValidator {
       packageResolver: Ref.PackageId => Future[Option[Package]]): Future[Ref.Identifier] =
     for {
       // if `name` is not empty, we give back the error from validating the non-deprecated fields
-      name <- lift(requireNonEmptyString(identifier.name, "name")).transform(identity, _ => error)
+      _ <- lift(requireNonEmptyString(identifier.name, "name")).transform(identity, _ => error)
       packageId <- lift(requirePackageId(identifier.packageId, "package_id"))
-      pkgOpt <- packageResolver(packageId)
-      pkg <- pkgOpt
-        .map(Future.successful)
-        .getOrElse(
-          Future.failed[Ast.Package](
-            ErrorFactories.notFound(s"packageId: ${identifier.packageId}")))
+      pkg <- packageResolver(packageId).map(
+        _.getOrElse(throw ErrorFactories.notFound(s"packageId: ${identifier.packageId}")))
       result <- lift(
         DeprecatedIdentifier
           .lookup(pkg, identifier.name)

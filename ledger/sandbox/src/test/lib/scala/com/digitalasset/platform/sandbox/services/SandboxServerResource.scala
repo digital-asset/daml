@@ -46,7 +46,13 @@ class SandboxServerResource(config: => SandboxConfig) extends Resource[Channel] 
 
   override def close(): Unit = {
     channel.shutdownNow()
-    eventLoopGroup.shutdownGracefully().await(10L, TimeUnit.SECONDS)
+    if (!channel.awaitTermination(5L, TimeUnit.SECONDS)) {
+      sys.error(
+        "Unable to shutdown channel to a remote API under tests. Unable to recover. Terminating.")
+    }
+    if (!eventLoopGroup.shutdownGracefully(0, 0, TimeUnit.SECONDS).await(10L, TimeUnit.SECONDS)) {
+      sys.error("Unable to shutdown event loop. Unable to recover. Terminating.")
+    }
     sandboxServer.close()
     channel = null
     eventLoopGroup = null

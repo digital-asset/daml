@@ -5,8 +5,8 @@ package com.daml.ledger.participant.state.v1.impl.reference
 
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.{CompletableFuture, CompletionStage, TimeUnit}
 
 import akka.NotUsed
 import akka.stream.ActorMaterializer
@@ -23,6 +23,7 @@ import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.ledger.{ApplicationId, CommandId}
 import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher
 import com.digitalasset.platform.server.services.command.time.TimeModelValidator
 import com.digitalasset.platform.services.time.TimeModel
@@ -38,7 +39,6 @@ import scala.concurrent.duration.FiniteDuration
   * We also maintain an ephemeral cache of active contracts, to efficiently support queries
   * from the backend relating to activeness.
   *
-  * @param packages
   * @param timeModel
   * @param timeProvider
   * @param mat
@@ -67,7 +67,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       stateChangeDispatcher.close()
   }
 
-  private val ec = mat.system.dispatcher
+  private implicit val ec = mat.system.dispatcher
   private val validator = TimeModelValidator(timeModel)
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val initialRecordTime: Timestamp =
@@ -75,7 +75,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   private val ledgerConfig: Configuration = Configuration(
     timeModel = timeModel
   )
-  private val ledgerId: LedgerId = Ref.PackageId.assertFromString(UUID.randomUUID().toString)
+  private val ledgerId: LedgerId = UUID.randomUUID().toString
 
   /**
     * Task to send out transient heartbeat events to subscribers.
@@ -100,13 +100,14 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
   override def submitTransaction(
       submitterInfo: v1.SubmitterInfo,
       transactionMeta: v1.TransactionMeta,
-      transaction: SubmittedTransaction): Unit = {
-    // FIXME (SM): using a Future for the `submitTransaction` method would
-    // allow to do some potentially heavy computation incl. pushing the data
-    // out over the wire. Might be easier to implement than requiring to do a
-    // hand-over between multiple threads.
-    submit(submitterInfo, transactionMeta, transaction)
-  }
+      transaction: SubmittedTransaction): CompletionStage[SubmissionResult] =
+    CompletableFuture.completedFuture({
+      // allow to do some potentially heavy computation incl. pushing the data
+      // out over the wire. Might be easier to implement than requiring to do a
+      // hand-over between multiple threads.
+      submit(submitterInfo, transactionMeta, transaction)
+      SubmissionResult.Acknowledged
+    })
 
   /**
     * Submit the supplied transaction to the ledger.
@@ -115,11 +116,11 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     * an AcceptedTransaction event is written and the transaction is assumed "committed".
     * Note that this happens in two phases:
     * 1) We read the current state of the ledger then perform consistency checks
-    *    and full validation on the transaction. The full validation is relatively
-    *    expensive and we don't want to perform it in phase 2 below.
+    * and full validation on the transaction. The full validation is relatively
+    * expensive and we don't want to perform it in phase 2 below.
     * 2) We then re-read the ledger state using an optimistic lock, perform the
-    *    consistency checks again and then update the ledger state. This phase must
-    *    be side-effect free, as it may get repeated if the optimistic locking fails.
+    * consistency checks again and then update the ledger state. This phase must
+    * be side-effect free, as it may get repeated if the optimistic locking fails.
     */
   private def submit(
       submitterInfo: v1.SubmitterInfo,
@@ -351,7 +352,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       transaction: SubmittedTransaction,
       txDelta: TxDelta,
       offset: Offset): Map[AbsoluteContractId, AbsoluteContractInst] = {
-    val txId = offset.toString
+    val txId = offset.toLedgerString
 
     txDelta.outputs.toList.map {
       case (contractId, contract) =>
@@ -368,7 +369,7 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       offset: Offset,
       recordTime: Instant,
       inputContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
-    val txId = offset.toString // for this ledger, offset is also the transaction id
+    val txId = offset.toLedgerString // for this ledger, offset is also the transaction id
     TransactionAccepted(
       Some(submitterInfo),
       transactionMeta,
@@ -412,4 +413,5 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
       packages: Map[Ref.PackageId, (Ast.Package, Archive)],
       activeContracts: Map[AbsoluteContractId, AbsoluteContractInst],
       duplicationCheck: Set[(ApplicationId, CommandId)])
+
 }

@@ -317,7 +317,8 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
           ListType(ExercisedEventType),
           resolve =
             context => context.ctx.ledger.exercisedEventsOf(context.value, context.ctx.templates)),
-        Field("argument", JsonType.ApiRecordType, resolve = _.value.argument)
+        Field("argument", JsonType.ApiRecordType, resolve = _.value.argument),
+        Field("agreementText", OptionType(StringType), resolve = _.value.agreementText)
     )
   )
 

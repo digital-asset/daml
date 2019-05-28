@@ -6,7 +6,6 @@ package encoding
 
 import scala.language.higherKinds
 import scala.collection.immutable.Seq
-import scalaz.~>
 import scalaz.Isomorphism.<~>
 
 import com.digitalasset.ledger.api.v1.value.Value.{Sum => VSum}
@@ -38,7 +37,7 @@ trait ValuePrimitiveEncoding[TC[_]] {
 
   implicit def valueList[A: TC]: TC[P.List[A]]
 
-  implicit def valueContractId[Tpl <: Template[Tpl]]: TC[P.ContractId[Tpl]]
+  implicit def valueContractId[A]: TC[P.ContractId[A]]
 
   implicit def valueOptional[A: TC]: TC[P.Optional[A]]
 
@@ -46,7 +45,6 @@ trait ValuePrimitiveEncoding[TC[_]] {
 }
 
 object ValuePrimitiveEncoding {
-  private[this] trait CidT extends Template[CidT]
 
   /** Proof that `ValuePrimitiveEncoding`, and therefore the primitive types and
     * Value, have an instance for any possible primitive value.
@@ -66,7 +64,7 @@ object ValuePrimitiveEncoding {
       case Unit(_) => Some(valueUnit)
       case Bool(_) => Some(valueBool)
       case List(_) => Some(valueList(valueText))
-      case ContractId(_) => Some(valueContractId[CidT])
+      case ContractId(_) => Some(valueContractId)
       case Optional(_) => Some(valueOptional(valueText))
       case Map(_) => Some(valueMap(valueText))
       // types that represent non-primitives only
@@ -85,7 +83,7 @@ object ValuePrimitiveEncoding {
       valueTimestamp,
       valueUnit,
       valueBool,
-      valueContractId[CidT])
+      valueContractId[P.Text])
   }
 
   // def const[F[_]](fa: Forall[F]): ValuePrimitiveEncoding[F] =
@@ -113,8 +111,8 @@ object ValuePrimitiveEncoding {
       override def valueList[A](implicit ev: (F[A], G[A])) =
         (vpef.valueList(ev._1), vpeg.valueList(ev._2))
 
-      override def valueContractId[Tpl <: Template[Tpl]] =
-        (vpef.valueContractId[Tpl], vpeg.valueContractId[Tpl])
+      override def valueContractId[A] =
+        (vpef.valueContractId, vpeg.valueContractId)
 
       override def valueOptional[A](implicit ev: (F[A], G[A])) =
         (vpef.valueOptional(ev._1), vpeg.valueOptional(ev._2))
@@ -123,45 +121,51 @@ object ValuePrimitiveEncoding {
         (vpef.valueMap(ev._1), vpeg.valueMap(ev._2))
     }
 
-  /** Transform all the base cases to a new type. */
+  /** Transforms all the base cases of `F` to `G`, leaving the inductive cases
+    * abstract.
+    */
+  trait Mapped[F[_], G[_]] extends ValuePrimitiveEncoding[G] {
+    protected[this] def fgAxiom[A](fa: F[A]): G[A]
+    protected[this] def underlyingVpe: ValuePrimitiveEncoding[F]
+
+    override final def valueInt64: G[P.Int64] = fgAxiom(underlyingVpe.valueInt64)
+
+    override final def valueDecimal: G[P.Decimal] = fgAxiom(underlyingVpe.valueDecimal)
+
+    override final def valueParty: G[P.Party] = fgAxiom(underlyingVpe.valueParty)
+
+    override final def valueText: G[P.Text] = fgAxiom(underlyingVpe.valueText)
+
+    override final def valueDate: G[P.Date] = fgAxiom(underlyingVpe.valueDate)
+
+    override final def valueTimestamp: G[P.Timestamp] = fgAxiom(underlyingVpe.valueTimestamp)
+
+    override final def valueUnit: G[P.Unit] = fgAxiom(underlyingVpe.valueUnit)
+
+    override final def valueBool: G[P.Bool] = fgAxiom(underlyingVpe.valueBool)
+
+    override final def valueContractId[A]: G[P.ContractId[A]] =
+      fgAxiom(underlyingVpe.valueContractId)
+  }
+
+  /** Transform all cases to a new type.
+    *
+    * @note Technically we want a higher-kinded ''lens'' here, not a higher-kinded
+    *       isomorphism (which is a subset of HK lenses), but we don't have monocle
+    *       imported locally.
+    */
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def xmapped[F[_], G[_]](vpe: ValuePrimitiveEncoding[F])(iso: F <~> G): ValuePrimitiveEncoding[G] =
-    mapped(vpe)(iso.to)(Lambda[G ~> Lambda[a => G[P.List[a]]]](ga =>
-      iso.to(vpe.valueList(iso.from(ga)))))(Lambda[G ~> Lambda[a => G[P.Optional[a]]]](ga =>
-      iso.to(vpe.valueOptional(iso.from(ga)))))(Lambda[G ~> Lambda[a => G[P.Map[a]]]](ga =>
-      iso.to(vpe.valueMap(iso.from(ga)))))
+    new Mapped[F, G] {
+      override protected[this] def fgAxiom[A](fa: F[A]) = iso.to(fa)
+      override protected[this] def underlyingVpe = vpe
 
-  /** Transform all the base cases to a new type, supplying a fresh version of
-    * `valueList` (the only inductive case, and therefore trickier).
-    */
-  def mapped[F[_], G[_]](vpe: ValuePrimitiveEncoding[F])(f: F ~> G)(
-      newList: G ~> Lambda[a => G[P.List[a]]])(newOptional: G ~> Lambda[a => G[P.Optional[a]]])(
-      newMap: G ~> Lambda[a => G[P.Map[a]]]
-  ): ValuePrimitiveEncoding[G] =
-    new ValuePrimitiveEncoding[G] {
-      override def valueInt64: G[P.Int64] = f(vpe.valueInt64)
+      override def valueList[A](implicit ev: G[A]): G[P.List[A]] =
+        iso.to(vpe.valueList(iso.from(ev)))
 
-      override def valueDecimal: G[P.Decimal] = f(vpe.valueDecimal)
+      override def valueOptional[A](implicit ev: G[A]): G[P.Optional[A]] =
+        iso.to(vpe.valueOptional(iso.from(ev)))
 
-      override def valueParty: G[P.Party] = f(vpe.valueParty)
-
-      override def valueText: G[P.Text] = f(vpe.valueText)
-
-      override def valueDate: G[P.Date] = f(vpe.valueDate)
-
-      override def valueTimestamp: G[P.Timestamp] = f(vpe.valueTimestamp)
-
-      override def valueUnit: G[P.Unit] = f(vpe.valueUnit)
-
-      override def valueBool: G[P.Bool] = f(vpe.valueBool)
-
-      override def valueList[A](implicit ev: G[A]): G[P.List[A]] = newList(ev)
-
-      override def valueContractId[Tpl <: Template[Tpl]]: G[P.ContractId[Tpl]] =
-        f(vpe.valueContractId[Tpl])
-
-      override def valueOptional[A](implicit ev: G[A]): G[P.Optional[A]] = newOptional(ev)
-
-      override def valueMap[A](implicit ev: G[A]): G[P.Map[A]] = newMap(ev)
+      override def valueMap[A](implicit ev: G[A]): G[P.Map[A]] = iso.to(vpe.valueMap(iso.from(ev)))
     }
 }

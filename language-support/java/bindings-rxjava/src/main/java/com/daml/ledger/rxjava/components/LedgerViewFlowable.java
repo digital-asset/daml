@@ -298,12 +298,12 @@ public class LedgerViewFlowable {
      */
     public static class LedgerView<R> {
 
-        private final PMap<String, PMap<Identifier, PSet<String>>> commandIdToContractIds;
-        private final PMap<Identifier, PMap<String, PSet<String>>> contractIdsToCommandIds;
-        private final PMap<Identifier, PMap<String, R>> pendingContractSet;
-        private final PMap<Identifier, PMap<String, R>> activeContractSet;
+        protected final PMap<String, PMap<Identifier, PSet<String>>> commandIdToContractIds;
+        protected final PMap<Identifier, PMap<String, PSet<String>>> contractIdsToCommandIds;
+        protected final PMap<Identifier, PMap<String, R>> pendingContractSet;
+        protected final PMap<Identifier, PMap<String, R>> activeContractSet;
 
-        private LedgerView(PMap<String, PMap<Identifier, PSet<String>>> commandIdToContractIds,
+        LedgerView(PMap<String, PMap<Identifier, PSet<String>>> commandIdToContractIds,
                            PMap<Identifier, PMap<String, PSet<String>>> contractIdsToCommandIds,
                            PMap<Identifier, PMap<String, R>> pendingContractSet,
                            PMap<Identifier, PMap<String, R>> activeContractSet) {
@@ -507,6 +507,30 @@ public class LedgerViewFlowable {
         public int hashCode() {
 
             return Objects.hash(commandIdToContractIds, contractIdsToCommandIds, pendingContractSet, activeContractSet);
+        }
+    }
+
+    /**
+     * A ledger view for unit testing of bots.
+     *
+     * @param <R> The type of the contracts in this application.
+     */
+    public static class LedgerTestView<R> extends LedgerView<R> {
+        public LedgerTestView(PMap<String, PMap<Identifier, PSet<String>>> commandIdToContractIds,
+                              PMap<Identifier, PMap<String, PSet<String>>> contractIdsToCommandIds,
+                              PMap<Identifier, PMap<String, R>> pendingContractSet,
+                              PMap<Identifier, PMap<String, R>> activeContractSet) {
+            super(commandIdToContractIds, contractIdsToCommandIds, pendingContractSet, activeContractSet);
+        }
+
+        @Override
+        public LedgerTestView<R> addActiveContract(Identifier templateId, String contractId, R r) {
+            LedgerView lv = super.addActiveContract(templateId, contractId, r);
+            return new LedgerTestView<R>(
+                    lv.commandIdToContractIds,
+                    lv.contractIdsToCommandIds,
+                    lv.pendingContractSet,
+                    lv.activeContractSet);
         }
     }
 }

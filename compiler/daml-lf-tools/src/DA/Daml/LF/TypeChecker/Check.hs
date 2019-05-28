@@ -33,7 +33,6 @@ module DA.Daml.LF.TypeChecker.Check(
     ) where
 
 import Data.Hashable
-import Data.Tagged
 import           Control.Lens hiding (Context)
 import           Control.Monad.Extra
 import           Data.Foldable
@@ -162,6 +161,12 @@ typeOfBuiltin = \case
   BEToText    btype  -> pure $ TBuiltin btype :-> TText
   BEPartyToQuotedText -> pure $ TParty :-> TText
   BEPartyFromText    -> pure $ TText :-> TOptional TParty
+  BEInt64FromText    -> do
+      checkFeature featureNumberFromText
+      pure $ TText :-> TOptional TInt64
+  BEDecimalFromText  -> do
+      checkFeature featureNumberFromText
+      pure $ TText :-> TOptional TDecimal
   BEAddDecimal       -> pure $ tBinop TDecimal
   BESubDecimal       -> pure $ tBinop TDecimal
   BEMulDecimal       -> pure $ tBinop TDecimal
@@ -178,9 +183,7 @@ typeOfBuiltin = \case
   BEExplodeText      -> pure $ TText :-> TList TText
   BEAppendText       -> pure $ tBinop TText
   BEImplodeText      -> pure $ TList TText :-> TText
-  BESha256Text       -> do
-      checkFeature featureSha256Text
-      pure $ TText :-> TText
+  BESha256Text       -> pure $ TText :-> TText
   BEFoldl -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
@@ -202,6 +205,9 @@ typeOfBuiltin = \case
   BEEqualContractId -> pure $
     TForall (alpha, KStar) $
     TContractId tAlpha :-> TContractId tAlpha :-> TBool
+  BECoerceContractId -> do
+    checkFeature featureCoerceContractId
+    pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TContractId tAlpha :-> TContractId tBeta
   where
     tComparison btype = TBuiltin btype :-> TBuiltin btype :-> TBool
     tBinop typ = typ :-> typ :-> typ
@@ -372,11 +378,13 @@ checkCreate tpl arg = do
   checkExpr arg (TCon tpl)
 
 typeOfExercise :: MonadGamma m =>
-  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> Expr -> m Type
-typeOfExercise tpl chName cid actors arg = do
+  Qualified TypeConName -> ChoiceName -> Expr -> Maybe Expr -> Expr -> m Type
+typeOfExercise tpl chName cid mbActors arg = do
   choice <- inWorld (lookupChoice (tpl, chName))
   checkExpr cid (TContractId (TCon tpl))
-  checkExpr actors (TList TParty)
+  case mbActors of
+    Nothing -> checkFeature featureExerciseActorsOptional
+    Just actors -> checkExpr actors (TList TParty)
   checkExpr arg (chcArgType choice)
   pure (TUpdate (chcReturnType choice))
 
@@ -388,7 +396,6 @@ checkFetch tpl cid = do
 -- returns the contract id and contract type
 checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
 checkRetrieveByKey RetrieveByKey{..} = do
-  checkFeature featureContractKeys
   tpl <- inWorld (lookupTemplate retrieveByKeyTemplate)
   case tplKey tpl of
     Nothing -> throwWithContext (EKeyOperationOnTemplateWithNoKey retrieveByKeyTemplate)
@@ -409,7 +416,7 @@ typeOfUpdate = \case
     return (TUpdate typ)
   UFetchByKey retrieveByKey -> do
     (cidType, contractType) <- checkRetrieveByKey retrieveByKey
-    return (TUpdate (TTuple [(Tagged "contractId", cidType), (Tagged "contract", contractType)]))
+    return (TUpdate (TTuple [(FieldName "contractId", cidType), (FieldName "contract", contractType)]))
   ULookupByKey retrieveByKey -> do
     (cidType, _contractType) <- checkRetrieveByKey retrieveByKey
     return (TUpdate (TOptional cidType))
@@ -502,11 +509,7 @@ checkTemplateChoice :: MonadGamma m => Qualified TypeConName -> TemplateChoice -
 checkTemplateChoice tpl (TemplateChoice _loc _ _ actors selfBinder (param, paramType) retType upd) = do
   checkType paramType KStar
   checkType retType KStar
-  v <- getLfVersion
-  let checkActors = checkExpr actors (TList TParty)
-  if v `supports` featureFlexibleControllers
-    then introExprVar param paramType checkActors
-    else checkActors
+  introExprVar param paramType $ checkExpr actors (TList TParty)
   introExprVar selfBinder (TContractId (TCon tpl)) $ introExprVar param paramType $
     checkExpr upd (TUpdate retType)
 
@@ -554,10 +557,11 @@ checkFeature feature = do
 
 checkTemplateKey :: MonadGamma m => ExprVarName -> Qualified TypeConName -> TemplateKey -> m ()
 checkTemplateKey param tcon TemplateKey{..} = do
-    checkFeature featureContractKeys
     introExprVar param (TCon tcon) $ do
       checkType tplKeyType KStar
-      checkValidKeyExpr tplKeyBody
+      version <- getLfVersion
+      unless (version `supports` featureComplexContractKeys) $
+          checkValidKeyExpr tplKeyBody
       checkExpr tplKeyBody tplKeyType
     checkExpr tplKeyMaintainers (tplKeyType :-> TList TParty)
 

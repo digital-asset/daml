@@ -53,6 +53,10 @@ import scala.language.implicitConversions
 import scala.util.Success
 import scala.concurrent.duration._
 
+import com.digitalasset.ledger.api.domain.LedgerId
+
+import scalaz.syntax.tag._
+
 trait LedgerContext {
   import LedgerContext._
 
@@ -121,7 +125,7 @@ trait LedgerContext {
     new CommandClient(
       commandSubmissionService,
       commandCompletionService,
-      ledgerId,
+      LedgerId(ledgerId),
       applicationId,
       configuration,
       None
@@ -167,8 +171,7 @@ object LedgerContext {
 
     def ledgerId: String =
       configuredLedgerId match {
-        case LedgerIdMode.Static(id) =>
-          id
+        case LedgerIdMode.Static(id) => id.unwrap
         case LedgerIdMode.Dynamic() =>
           LedgerIdentityServiceGrpc
             .blockingStub(channel)
@@ -193,11 +196,12 @@ object LedgerContext {
       ActiveContractsServiceGrpc.stub(channel)
 
     override def transactionClient: TransactionClient =
-      new TransactionClient(ledgerId, transactionService)
-    override def packageClient: PackageClient = new PackageClient(ledgerId, packageService)
+      new TransactionClient(LedgerId(ledgerId), transactionService)
+    override def packageClient: PackageClient =
+      new PackageClient(LedgerId(ledgerId), packageService)
 
     override def acsClient: ActiveContractSetClient =
-      new ActiveContractSetClient(ledgerId, acsService)
+      new ActiveContractSetClient(LedgerId(ledgerId), acsService)
 
     override def resetService: ResetService = ResetServiceGrpc.stub(channel)
 

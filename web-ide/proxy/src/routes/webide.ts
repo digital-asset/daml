@@ -14,6 +14,7 @@ import request, { HttpArchiveRequest } from "request"
 import zlib from "zlib"
 import { Readable } from "stream"
 
+const got = require('got') //the types had some errors with http types, they also have +2K issues raised in github
 const conf = require('../config').read()
 const debug = require('debug')('webide:route')
 
@@ -41,7 +42,6 @@ export default class WebIdeRoute {
     }
 
     private initProxy() {
-        const route = this
         this.proxy = createProxyServer({})
         this.proxy.on('error', this.proxyError.bind(this))
         this.proxy.on('proxyRes', this.handleProxyResponse.bind(this));
@@ -80,7 +80,7 @@ export default class WebIdeRoute {
             const route = this
             debug("requesting %s", req.url)
             Session.session(req, res, (err :any, state :any, sessionId :string, saveSession :any) => {
-                route.getImage()
+                route.getDockerImage()
                     .then(image => route.ensureDockerContainer(req, state, saveSession, sessionId, image))
                     .then(containerInfo => {
                         const url = route.docker.getContainerUrl(containerInfo, 'http')
@@ -88,15 +88,11 @@ export default class WebIdeRoute {
                     })
                     .catch(err => {
                         console.error(`could not initiate connection to web-ide: ${err}`)
-                        if (err instanceof ProxyError) res.statusCode = err.status
-                        else res.statusCode = 500
-                        res.end()
+                        route.sendErrorResponse(err, req, res)
                     })
             })
         } catch (error) {
-            console.error(error)
-            res.statusCode = 500
-            res.end()
+            this.sendErrorResponse(error, req, res)
         }
     }
 
@@ -125,13 +121,13 @@ export default class WebIdeRoute {
         //doing nothing we let the proxy handle the response
     }
 
-    private getImage() :Promise<ImageInspectInfo> {
+    private getDockerImage() :Promise<ImageInspectInfo> {
         return this.docker.getImage(conf.docker.webIdeReference)
     }
 
-    private proxyError(err :any, req :Request, res :Response) {
+    private proxyError(proxyErr :any, req :Request, res :Response) {
         Session.session(req, res, (err :any, state :any, sessionId :string, saveSession :any) => {
-            console.error("proxy error occurred for session[%s], restarting.", sessionId)
+            console.error("proxy error occurred for session[%s], restarting. Error: %o", sessionId, proxyErr)
             this.proxy.removeAllListeners()
             this.resetState(state, saveSession)
             this.initProxy()
@@ -142,7 +138,7 @@ export default class WebIdeRoute {
         try {
             const route = this
             debug('ws connected %s cookie: %O', req.url, req.headers.cookie)
-            Session.readSession(req, (err, state, sessionId) => {
+            Session.readSession(req, (sessionErr, state, sessionId) => {
                 if (!state.docker) {
                     return
                 }
@@ -152,6 +148,11 @@ export default class WebIdeRoute {
                 })
                 socket.on('error', (err) => {
                     console.error("Socket failure", err)
+                })
+                socket.on('close', () => {
+                    const t = Date.now() - state._started
+                    const sessionLength = Math.floor(t/1000)
+                    this.trackWebIdeInteraction(sessionId, 'close', 'session-length-seconds', sessionLength)
                 })
                 const url = route.docker.getContainerUrl(state.docker, 'ws')
                 route.proxy.ws(req, socket, head, { target: url.href });
@@ -169,7 +170,9 @@ export default class WebIdeRoute {
 
     private ensureDockerContainer(req :Request, state :any, saveSession :Session.SaveSession, sessionId :string, image :ImageInspectInfo) {
         if (!state.docker) {
-            if (!state.initializing) {
+            //double check current state whether it is initializing or not
+            const currentState :any = Session.getStateSync(sessionId) || {}
+            if (!currentState.initializing) {
                 state.initializing = true;
                 saveSession(state);
                 return this.docker.api.listContainers({all: false, filters: { ancestor: [`${conf.docker.webIdeReference}`] }})
@@ -177,9 +180,10 @@ export default class WebIdeRoute {
                         if (containers.length >= conf.docker.maxInstances) {
                             state.initializing = false;
                             saveSession(state);
-                            return Promise.reject(new ProxyError(`Breach max instances ${conf.docker.maxInstances}`, 503)) 
+                            return Promise.reject(new ProxyError(`Breach max instances ${conf.docker.maxInstances}`, 503, "There is unusually high server load. Please try again in a couple of minutes.")) 
                         }
                         return this.docker.startContainer(image.Id).then(c => {
+                            this.trackPageLanding(sessionId)
                             console.log("INFO attaching container %s to session %s", c.Id, sessionId)
                             state.initializing = false
                             state.docker = c
@@ -188,19 +192,80 @@ export default class WebIdeRoute {
                         });
                     });
             } else {
-                //this occurs sporadically (perhaps when developer tools is open) sending another request 
-                //TODO create better promise handling without timeout
                 console.log("INFO request sent during initialization...waiting for docker to come up")
                 return new Promise((resolve, reject) => {
-                    Session.readSession(req, (err, state, sessionId) => {
-                        const wait = setTimeout(() => {
-                            clearTimeout(wait);
-                            resolve(state.docker)
-                        }, 10000)
-                    })
+                    const interval = setInterval(() => {
+                        Session.readSession(req, (err, state, sessionId) => {
+                            if (state.docker && !state.initializing) {
+                                clearInterval(interval);
+                                resolve(state.docker);
+                            }
+                        })
+                    }, 1000)
                 })
             }
         }
         return state.docker
+    }
+
+    private trackWebIdeInteraction(sessionId :String, action :String, label :String, value :Number) {   
+        const data = {
+            // API Version.
+            v: '1',
+            // Tracking ID / Property ID.
+            tid: conf.tracking.gaId,
+            // Anonymous Client Identifier. This service is not authenticated so we use sessionId.
+            cid: sessionId,
+            // Event hit type.
+            t: 'event',
+            // Document host
+            dh: conf.http.hostname,
+            // page
+            dp: '/webide',
+            // title
+            dt: 'webide',
+            // Event category.
+            ec: 'webide',
+            ea: action,
+            el: label,
+            ev: value
+          };
+        
+          return this.trackAnalytics(data)
+    }
+
+    //TODO add info from request object
+    private trackPageLanding(sessionId :String) {   
+        const data = {
+            // API Version.
+            v: '1',
+            // Tracking ID / Property ID.
+            tid: conf.tracking.gaId,
+            // Anonymous Client Identifier. This service is not authenticated so we use sessionId.
+            cid: sessionId,
+            // Event hit type.
+            t: 'pageview',
+            // Document host
+            dh: conf.http.hostname,
+            // page
+            dp: '/webide',
+            // title
+            dt: 'webide'
+          };
+        
+          return this.trackAnalytics(data)
+    }
+
+    private trackAnalytics(data :any) {
+        if (conf.tracking.enabled) {
+            debug("sending analytics %o", data)
+            return got.post('http://www.google-analytics.com/collect', {
+                body: data,
+                form:true
+            })
+            .then((res: Response) => {
+                if (res.statusCode >= 400) console.error("Could not send metric. Response was %s: %s \n%o", res.statusCode, res.statusMessage, data)
+            });
+        }
     }
 }

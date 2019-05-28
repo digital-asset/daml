@@ -501,3 +501,16 @@ template TextMapText
       aMap: TextMap Text
     where
       signatory party
+
+{- can fully test with LF 1.5 supposing that includes https://github.com/digital-asset/daml/pull/1315
+
+data ContractIdNT a = ContractIdNT with unContractIdNT : ContractId a 
+  deriving (Eq, Show)
+
+template SelfContractIdReferent
+    with
+       party: Party
+       it: ContractIdNT SelfContractIdReferent
+     where
+       signatory party
+-}
