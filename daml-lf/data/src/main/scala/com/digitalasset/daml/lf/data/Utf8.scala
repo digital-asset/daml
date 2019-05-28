@@ -10,7 +10,7 @@ import scala.annotation.tailrec
 
 // The DAML-LF strings are supposed to be UTF-8 while standard java strings are UTF16
 // Note number of UTF16 operations are not Utf8 equivalent (for instance length, charAt, ordering ...)
-// This module provide UTF8 emulation functions.
+// This module provides UTF8 emulation functions.
 object Utf8 {
 
   // The DAML-LF strings are supposed to be UTF-8.
@@ -20,12 +20,10 @@ object Utf8 {
     val len = s.length
     val arr = ImmArray.newBuilder[String]
     var i = 0
-    var j = 0
     while (i < len) {
       // if s(i) is a high surrogate the current codepoint uses 2 chars
       val next = if (s(i).isHighSurrogate) i + 2 else i + 1
       arr += s.substring(i, next)
-      j += 1
       i = next
     }
     arr.result()

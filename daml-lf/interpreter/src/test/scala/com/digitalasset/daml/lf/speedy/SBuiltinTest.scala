@@ -8,7 +8,7 @@ import java.util
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.speedy.SError.SError
+import com.digitalasset.daml.lf.speedy.SError.{DamlEArithmeticError, SError}
 import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
@@ -22,6 +22,7 @@ import scala.language.implicitConversions
 class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks {
 
   import SBuiltinTest._
+  import Decimal.{toString => str}
 
   "Integer operations" - {
 
@@ -37,7 +38,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"ADD_INT64 $MaxInt64 1") shouldBe 'left
         eval(e"ADD_INT64 $MinInt64 1") shouldBe Right(SInt64(MinInt64 + 1))
         eval(e"ADD_INT64 $MinInt64 -1") shouldBe 'left
-        eval(e"ADD_INT64 $aBigOddInt64 $aBigOddInt64") shouldBe 'left
+        eval(e"ADD_INT64 $aBigOddInt64 $aBigOddInt64") shouldBe
+          Left(DamlEArithmeticError(s"Int64 overflow when adding $aBigOddInt64 to $aBigOddInt64."))
       }
     }
 
@@ -47,7 +49,9 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"SUB_INT64 $MaxInt64 -1") shouldBe 'left
         eval(e"SUB_INT64 $MinInt64 -1") shouldBe Right(SInt64(MinInt64 + 1))
         eval(e"SUB_INT64 $MinInt64 1") shouldBe 'left
-        eval(e"SUB_INT64 -$aBigOddInt64 $aBigOddInt64") shouldBe 'left
+        eval(e"SUB_INT64 -$aBigOddInt64 $aBigOddInt64") shouldBe Left(
+          DamlEArithmeticError(
+            s"Int64 overflow when subtracting $aBigOddInt64 from -$aBigOddInt64."))
       }
     }
 
@@ -58,14 +62,23 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"MUL_INT64 ${1L << 32} -${1L << 31}") shouldBe Right(SInt64(1L << 63))
         eval(e"MUL_INT64 ${1L << 32} -${1L << 32}") shouldBe 'left
         eval(e"MUL_INT64 ${1L << 32} -${1L << 32}") shouldBe 'left
-        eval(e"MUL_INT64 $aBigOddInt64 10") shouldBe 'left
+        eval(e"MUL_INT64 $aBigOddInt64 42") shouldBe
+          Left(DamlEArithmeticError(s"Int64 overflow when multiplying $aBigOddInt64 by 42."))
       }
     }
 
     "DIV_INT64" - {
       "throws an exception if it overflows" in {
         eval(e"DIV_INT64 $MaxInt64 -1") shouldBe Right(SInt64(-MaxInt64))
-        eval(e"DIV_INT64 $MinInt64 -1") shouldBe 'left
+        eval(e"DIV_INT64 $MinInt64 -1") shouldBe
+          Left(DamlEArithmeticError(s"Int64 overflow when dividing $MinInt64 by -1."))
+      }
+
+      "throws an exception when dividing by 0" in {
+        eval(e"DIV_INT64 1 $MaxInt64") shouldBe Right(SInt64(0))
+        eval(e"DIV_INT64 1 0") shouldBe 'left
+        eval(e"DIV_INT64 $aBigOddInt64 0") shouldBe
+          Left(DamlEArithmeticError(s"Attempt to divide $aBigOddInt64 by 0."))
       }
     }
 
@@ -77,7 +90,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"EXP_INT64 0 -1") shouldBe 'left
         eval(e"EXP_INT64 10 -1") shouldBe 'left
         eval(e"EXP_INT64 10 -20") shouldBe 'left
-        eval(e"EXP_INT64 $aBigOddInt64 -10") shouldBe 'left
+        eval(e"EXP_INT64 $aBigOddInt64 -42") shouldBe Left(
+          DamlEArithmeticError(s"Attempt to raise $aBigOddInt64 to the negative exponent -42."))
       }
 
       "throws an exception if it overflows" in {
@@ -85,7 +99,9 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"EXP_INT64 ${1L << 7} 9") shouldBe 'left
         eval(e"EXP_INT64 ${-(1L << 7)} 9") shouldBe Right(SInt64(1L << 63))
         eval(e"EXP_INT64 ${-(1L << 7)} 10") shouldBe 'left
-        eval(e"EXP_INT64 3 $aBigOddInt64") shouldBe 'left
+        eval(e"EXP_INT64 3 $aBigOddInt64") shouldBe Left(
+          DamlEArithmeticError(s"Int64 overflow when raising 3 to the exponent $aBigOddInt64.")
+        )
       }
 
       "accepts huge exponents for bases -1, 0 and, 1" in {
@@ -195,7 +211,10 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"ADD_DECIMAL $bigBigDecimal 2.0") shouldBe Right(SDecimal(bigBigDecimal + 2))
         eval(e"ADD_DECIMAL $maxDecimal $minPosDecimal") shouldBe 'left
         eval(e"ADD_DECIMAL ${-maxDecimal} ${-minPosDecimal}") shouldBe 'left
-        eval(e"ADD_DECIMAL $bigBigDecimal $bigBigDecimal") shouldBe 'left
+        eval(e"ADD_DECIMAL $bigBigDecimal ${bigBigDecimal - 1}") shouldBe
+          Left(
+            DamlEArithmeticError(
+              s"Decimal overflow when adding ${bigBigDecimal - 1} to $bigBigDecimal."))
       }
     }
 
@@ -204,16 +223,42 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"SUB_DECIMAL $bigBigDecimal 2.0") shouldBe Right(SDecimal(bigBigDecimal - 2))
         eval(e"SUB_DECIMAL $maxDecimal -$minPosDecimal") shouldBe 'left
         eval(e"SUB_DECIMAL ${-maxDecimal} $minPosDecimal") shouldBe 'left
-        eval(e"SUB_DECIMAL ${-bigBigDecimal} $bigBigDecimal") shouldBe 'left
+        eval(e"SUB_DECIMAL ${-bigBigDecimal} $bigBigDecimal") shouldBe
+          Left(DamlEArithmeticError(
+            s"Decimal overflow when subtracting ${str(bigBigDecimal)} from ${str(-bigBigDecimal)}."))
       }
     }
 
     "MUL_DECIMAL" - {
       "throws exception in case of overflow" in {
         eval(e"MUL_DECIMAL 1.1 2.2") shouldBe Right(SDecimal(decimal(2.42)))
-        eval(e"MUL_DECIMAL $bigBigDecimal $bigBigDecimal") shouldBe 'left
         eval(e"MUL_DECIMAL ${1E13} ${1E14}") shouldBe Right(SDecimal(decimal(1E27)))
         eval(e"MUL_DECIMAL ${1E14} ${1E14}") shouldBe 'left
+        eval(e"MUL_DECIMAL $bigBigDecimal ${bigBigDecimal - 1}") shouldBe Left(
+          DamlEArithmeticError(
+            s"Decimal overflow when multiplying ${str(bigBigDecimal)} by ${str(bigBigDecimal - 1)}.")
+        )
+      }
+    }
+
+    "DIV_DECIMAL" - {
+      "throws exception in case of overflow" in {
+        eval(e"DIV_DECIMAL 1.1 2.2") shouldBe Right(SDecimal(decimal(0.5)))
+        eval(e"DIV_DECIMAL $bigBigDecimal ${1E-10}") shouldBe 'left
+        eval(e"DIV_DECIMAL ${1E17} ${1E-10}") shouldBe Right(SDecimal(decimal(1E27)))
+        eval(e"DIV_DECIMAL ${1E18} ${1E-10}") shouldBe Left(
+          DamlEArithmeticError(
+            s"Decimal overflow when dividing ${str(BigDecimal(1E18))} by ${str(BigDecimal(1E-10))}.")
+        )
+      }
+
+      "throws exception when divided by 0" in {
+        eval(e"DIV_DECIMAL 1.0 ${1E-10}") shouldBe Right(SDecimal(decimal(1E10)))
+        eval(e"DIV_DECIMAL 1.0 0.0") shouldBe 'left
+        eval(e"DIV_DECIMAL $bigBigDecimal 0.0") shouldBe Left(
+          DamlEArithmeticError(s"Attempt to divide $bigBigDecimal by 0.0.")
+        )
+
       }
     }
 
@@ -613,7 +658,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
   "Conversion operations" - {
 
-    val almostZero = BigDecimal("0.0000000001")
+    val almostZero = BigDecimal("1E-10")
 
     "DECIMAL_TO_INT64" - {
       "throws exception in case of overflow" in {
@@ -625,7 +670,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"DECIMAL_TO_INT64 ${BigDecimal(2).pow(63) - almostZero}") shouldBe Right(
           SInt64(Long.MaxValue))
         eval(e"DECIMAL_TO_INT64 ${BigDecimal(2).pow(63)}") shouldBe 'left
-        eval(e"DECIMAL_TO_INT64 1000000000000000000000.0") shouldBe 'left
+        eval(e"DECIMAL_TO_INT64 ${1E22}") shouldBe 'left
       }
 
       "works as expected" in {
