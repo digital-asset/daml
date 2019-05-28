@@ -66,7 +66,7 @@ let
 in
 stdenv.mkDerivation rec {
 
-  version = "0.26.0";
+  version = "0.25.0";
 
   meta = with lib; {
     homepage = "https://github.com/bazelbuild/bazel/";
