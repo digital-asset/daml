@@ -58,9 +58,12 @@ TEST_DARS = [
 
 testDependencies = [
     ":extractor",
+    "//daml-lf/transaction-scalacheck",
     "//ledger/sandbox:sandbox",
     "//ledger-api/testing-utils",
     "//ledger/sandbox:sandbox-scala-tests-lib",
+    "//3rdparty/jvm/org/scalacheck",
+    "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
     "//3rdparty/jvm/org/scalatest:scalatest",
 ] + compileDependencies
 
