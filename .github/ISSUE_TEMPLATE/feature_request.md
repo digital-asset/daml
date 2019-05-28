@@ -10,7 +10,7 @@ assignees: ''
 **Is your feature request related to a problem? Please describe.**
 A description of what the problem is --- "I'm always frustrated when [...]"
 
-**Describe the solution you'd like**
+**What's your preferred solution?**
 What you want to happen.
 
 **Describe alternatives you've considered**
