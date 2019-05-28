@@ -12,7 +12,12 @@ import org.scalatest.Reporter
   * Ledger API Test Tool CLI reporter. Implements scalatest's Reporter interface and prints out colorized reports to the
   * stdout. Supports very limited set of scalatest events.
   */
-class ToolReporter extends Reporter {
+class ToolReporter(verbose: Boolean) extends Reporter {
+  case class Statistics(
+      testsStarted: Int,
+      testsSucceeded: Int,
+      testsCancelled: Int,
+      testsFailed: Int)
 
   final val ansiReset = "\u001b[0m"
   final val ansiBlue = "\u001b[34m"
@@ -24,6 +29,10 @@ class ToolReporter extends Reporter {
   private def repeatChar(char: Char, n: Int) = char.toString * n
 
   private var depth = 0
+  private var testsStarted = 0
+  private var testsSucceeded = 0
+  private var testsCancelled = 0
+  private var testsFailed = 0
 
   private def indented(s: String, extra: Integer = 0, prefix: Char = '-') = {
     s.split("\n").map(indentedSingle(_, extra, prefix)).mkString("\n")
@@ -54,6 +63,7 @@ class ToolReporter extends Reporter {
           payload,
           threadName,
           timeStamp) =>
+        testsStarted += 1
         print(indented(ansiBlue + testText + "... "))
 
       case e.TestSucceeded(
@@ -71,6 +81,7 @@ class ToolReporter extends Reporter {
           payload,
           threadName,
           timeStamp) =>
+        testsSucceeded += 1
         println(ansiGreen + "✓")
 
       case e.TestCanceled(
@@ -90,6 +101,7 @@ class ToolReporter extends Reporter {
           payload,
           threadName,
           timeStamp) =>
+        testsCancelled += 1
         println(ansiRed + "cancelled.")
 
       case e.TestFailed(
@@ -109,13 +121,18 @@ class ToolReporter extends Reporter {
           payload,
           threadName,
           timeStamp) =>
+        testsFailed += 1
         println(ansiRed + "✗" + ansiReset)
         throwable match {
           case None =>
             println(indented(ansiRed + s"Exception details missing!", 1, ' '))
           case Some(e) =>
             println(indented(s"Failure details:", 1, ' '))
-            val st = ExceptionUtils.getStackTrace(e)
+            val st = if (verbose) {
+              ExceptionUtils.getStackTrace(e)
+            } else {
+              e.getMessage
+            }
             println(indented(st, 2, '|'))
         }
 
@@ -149,6 +166,24 @@ class ToolReporter extends Reporter {
           s"BUG: Unknown reported event: $event. Report the issue to Digital Asset at https://docs.daml.com/support/support.html")
     }
     print(ansiReset)
+  }
+
+  def statistics = Statistics(testsStarted, testsSucceeded, testsCancelled, testsFailed)
+
+  def printStatistics = {
+    statistics match {
+      case Statistics(0, _, _, _) =>
+        println(ansiYellow + "No tests were run" + ansiReset)
+      case Statistics(a, s, 0, 0) =>
+        println(ansiGreen + s"All ${s}/${a} tests were successful!" + ansiReset)
+      case Statistics(a, s, c, 0) =>
+        println(ansiYellow + s"${s}/${a} tests were successful, but ${c} were skipped." + ansiReset)
+      case Statistics(a, s, 0, f) =>
+        println(ansiRed + s"${s} were successful and ${f} failed out of ${a} tests." + ansiReset)
+      case _ =>
+        println("BUG")
+    }
+
   }
 
 }

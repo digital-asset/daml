@@ -6,18 +6,24 @@ package com.daml.ledger.api.testtool
 import java.io.File
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
+import com.digitalasset.platform.PlatformApplications
 import com.digitalasset.platform.PlatformApplications.RemoteApiEndpoint
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.semantictest.SandboxSemanticTestsLfRunner
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.platform.testing.LedgerBackend
+import com.digitalasset.platform.tests.integration.ledger.api.TransactionServiceIT
 import org.scalatest.Args
 import org.scalatest.time.{Seconds, Span}
 
 object LedgerApiTestTool {
-
   def main(args: Array[String]): Unit = {
-    val testResources = List("/ledger/ledger-api-integration-tests/SemanticTests.dar")
+    val semanticTestsResource = "/ledger/ledger-api-integration-tests/SemanticTests.dar"
+    val integrationTestResource = "/ledger/sandbox/Test.dar"
+    val testResources = List(
+      integrationTestResource,
+      semanticTestsResource,
+    )
 
     val toolConfig = Cli
       .parse(args)
@@ -31,43 +37,43 @@ object LedgerApiTestTool {
     var failed = false
 
     try {
-
-      val integrationTestResourceStream =
-        testResources.headOption.map(getClass.getResourceAsStream(_)).flatMap(Option(_))
-      require(
-        integrationTestResourceStream.isDefined,
-        "Unable to load the required test DAR from resources.")
-      val targetPath: Path = Files.createTempFile("ledger-api-test-tool-", "-test.dar")
-      Files.copy(
-        integrationTestResourceStream.get,
-        targetPath,
-        StandardCopyOption.REPLACE_EXISTING);
-
-      val reporter = new ToolReporter
+      val reporter = new ToolReporter(toolConfig.verbose)
       val sorter = new ToolSorter
+
+      val semanticTestFile = resourceAsFile(semanticTestsResource)
+
+      val commonConfig = PlatformApplications.Config.default
+        .withTimeProvider(TimeProviderType.WallClock)
+        .withLedgerIdMode(LedgerIdMode.Dynamic())
+        .withRemoteApiEndpoint(
+          RemoteApiEndpoint.default
+            .withHost(toolConfig.host)
+            .withPort(toolConfig.port)
+            .withTlsConfig(toolConfig.tlsConfig))
 
       var semanticTestsRunner = new SandboxSemanticTestsLfRunner {
         override def suiteName: String = "Semantic Tests"
         override def actorSystemName = "SandboxSemanticTestsLfRunnerTestToolActorSystem"
 
-        override def fixtureIdsEnabled: Set[LedgerBackend] =
-          Set(LedgerBackend.RemoteApiProxy)
-
+        override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
         override implicit lazy val patienceConfig: PatienceConfig = PatienceConfig(
           Span(60L, Seconds))
 
-        override protected def config: Config =
-          Config.default
-            .withTimeProvider(TimeProviderType.WallClock)
-            .withLedgerIdMode(LedgerIdMode.Dynamic())
-            .withRemoteApiEndpoint(
-              RemoteApiEndpoint.default
-                .withHost(toolConfig.host)
-                .withPort(toolConfig.port)
-                .withTlsConfig(toolConfig.tlsConfig))
-            .withDarFile(targetPath)
+        override protected def config: Config = commonConfig.withDarFile(semanticTestFile)
       }
       semanticTestsRunner.run(None, Args(reporter = reporter, distributedTestSorter = Some(sorter)))
+
+      val integrationTestFile = resourceAsFile(integrationTestResource)
+      val tsit = new TransactionServiceIT {
+        override def suiteName: String = "Transaction Service Tests"
+        override def actorSystemName = "TransactionServiceITTestToolActorSystem"
+        override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+
+        override protected def config: Config = commonConfig.withDarFile(integrationTestFile)
+      }
+      tsit.run(None, Args(reporter = reporter, distributedTestSorter = Some(sorter)))
+
+      reporter.printStatistics
     } catch {
       case (t: Throwable) =>
         failed = true
@@ -80,6 +86,17 @@ object LedgerApiTestTool {
         throw new RuntimeException(
           "None of the scenarios failed, yet the --must-fail flag was specified!")
     }
+  }
+
+  private def resourceAsFile(testResource: String): Path = {
+    val integrationTestResourceStream =
+      Option(getClass.getResourceAsStream(testResource)).flatMap(Option(_))
+    require(
+      integrationTestResourceStream.isDefined,
+      "Unable to load the required test DAR from resources.")
+    val targetPath: Path = Files.createTempFile("ledger-api-test-tool-", "-test.dar")
+    Files.copy(integrationTestResourceStream.get, targetPath, StandardCopyOption.REPLACE_EXISTING);
+    targetPath
   }
 
   private def extractTestFiles(testResources: List[String]): Unit = {

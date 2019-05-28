@@ -64,6 +64,10 @@ object Cli {
           |Defaults to 1.0. Use numbers higher than 1.0 to make test timeouts more lax,
           |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin)
 
+    opt[Unit]("verbose")
+      .action((_, c) => c.copy(verbose = true))
+      .text("Prints full stacktraces on failures.")
+
     opt[Unit]("must-fail")
       .action((_, c) => c.copy(mustFail = true))
       .text("""Reverse success status logic of the tool. Use this flag if you expect one or

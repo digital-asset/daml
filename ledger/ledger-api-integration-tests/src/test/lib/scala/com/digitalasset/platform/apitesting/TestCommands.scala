@@ -3,8 +3,10 @@
 
 package com.digitalasset.platform.apitesting
 
+import java.io.File
 import java.util
 
+import com.digitalasset.daml.lf.UniversalArchiveReader
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{
   applicationId,
@@ -19,19 +21,26 @@ import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, Exercise
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{Party, Text}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.digitalasset.platform.tests.integration.ledger.api.TransactionServiceHelpers
+import com.digitalasset.platform.PlatformApplications
 import com.google.protobuf.timestamp.Timestamp
-
 import scalaz.syntax.tag._
 
-trait TestTemplateIds extends TransactionServiceHelpers {
-  protected lazy val templateIds: TestTemplateIdentifiers = {
+class TestTemplateIds(config: PlatformApplications.Config) {
+  lazy val defaultDar: File = config.darFiles.head.toFile
+  lazy val parsedPackageId: String =
+    UniversalArchiveReader().readFile(defaultDar).get.main._1
+  lazy val templateIds: TestTemplateIdentifiers = {
+    println(defaultDar)
+    println(parsedPackageId)
     new TestTemplateIdentifiers(parsedPackageId)
   }
 }
 
-trait TestCommands extends TestTemplateIds {
-  protected def buildRequest(
+class TestCommands(config: PlatformApplications.Config) {
+  protected val testIds = new TestTemplateIds(config)
+  val templateIds = testIds.templateIds
+
+  def buildRequest(
       ledgerId: domain.LedgerId,
       commandId: String,
       commands: Seq[Command],
@@ -49,10 +58,7 @@ trait TestCommands extends TestTemplateIds {
       _.commands.maximumRecordTime := maxRecordTime
     )
 
-  protected def dummyCommands(
-      ledgerId: domain.LedgerId,
-      commandId: String,
-      party: String = "party") =
+  def dummyCommands(ledgerId: domain.LedgerId, commandId: String, party: String = "party") =
     buildRequest(
       ledgerId,
       commandId,
@@ -64,7 +70,7 @@ trait TestCommands extends TestTemplateIds {
       party
     )
 
-  protected def createWithOperator(templateId: Identifier, party: String = "party") =
+  def createWithOperator(templateId: Identifier, party: String = "party") =
     Command(
       Create(CreateCommand(
         Some(templateId),
@@ -77,7 +83,7 @@ trait TestCommands extends TestTemplateIds {
     new String(array)
   }
 
-  protected def oneKbCommand(templateId: Identifier) =
+  def oneKbCommand(templateId: Identifier) =
     Command(
       Create(
         CreateCommand(
@@ -91,21 +97,19 @@ trait TestCommands extends TestTemplateIds {
               )))
         )))
 
-  protected def oneKbCommandRequest(
+  def oneKbCommandRequest(
       ledgerId: domain.LedgerId,
       commandId: String,
       party: String = "party"): SubmitRequest =
     buildRequest(ledgerId, commandId, List(oneKbCommand(templateIds.textContainer)), party)
 
-  protected def exerciseWithUnit(
+  def exerciseWithUnit(
       templateId: Identifier,
       contractId: String,
       choice: String,
       args: Option[Value] = Some(Value(Sum.Record(Record.defaultInstance)))) =
     Command(Exercise(ExerciseCommand(Some(templateId), contractId, choice, args)))
 
-  implicit class SubmitRequestEnhancer(request: SubmitRequest) {
-    def toWait: SubmitAndWaitRequest = SubmitAndWaitRequest(request.commands)
-  }
+  def toWait(request: SubmitRequest): SubmitAndWaitRequest = SubmitAndWaitRequest(request.commands)
 
 }

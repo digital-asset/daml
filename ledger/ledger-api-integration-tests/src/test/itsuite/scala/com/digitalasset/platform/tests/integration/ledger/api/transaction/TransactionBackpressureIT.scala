@@ -35,8 +35,9 @@ class TransactionBackpressureIT
     with ScalaFutures
     with AkkaBeforeAndAfterAll
     with SuiteResourceManagementAroundAll
-    with MultiLedgerFixture
-    with TestCommands {
+    with MultiLedgerFixture {
+
+  protected val testCommands = new TestCommands(config)
 
   override def timeLimit: Span = 300.seconds
 
@@ -63,7 +64,8 @@ class TransactionBackpressureIT
         Source(1 to noOfCommands)
           .throttle(10, 1.second)
           .mapAsync(10)(i =>
-            commandClient.submitSingleCommand(oneKbCommandRequest(ctx.ledgerId, s"command-$i")))
+            commandClient.submitSingleCommand(
+              testCommands.oneKbCommandRequest(ctx.ledgerId, s"command-$i")))
           .runWith(Sink.ignore)
 
       def subscribe(rate: Int) =

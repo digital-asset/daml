@@ -8,6 +8,8 @@ import java.time.{Duration, Instant}
 import akka.Done
 import akka.stream.scaladsl.{Flow, Sink}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.QualifiedName
+import com.digitalasset.daml.lf.types.Ledger
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.EventId
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{party, _}
@@ -53,8 +55,9 @@ import scalaz.{ICons, NonEmptyList, Tag}
 
 import scala.collection.{breakOut, immutable}
 import scala.concurrent.Future
-
 import com.digitalasset.ledger.api.domain.LedgerId
+
+import scala.util.Random
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionServiceIT
@@ -65,14 +68,24 @@ class TransactionServiceIT
     with Inside
     with AsyncTimeLimitedTests
     with TestExecutionSequencerFactory
-    with TransactionServiceHelpers
     with ParameterShowcaseTesting
     with OptionValues
-    with Matchers
-    with TestTemplateIds {
+    with Matchers {
 
-  override protected val config: Config =
+  override protected def config: Config =
     Config.default.withTimeProvider(TimeProviderType.WallClock)
+
+  protected val helpers = new TransactionServiceHelpers(config)
+  protected val testTemplateIds = new TestTemplateIds(config)
+  protected val templateIds = testTemplateIds.templateIds
+
+  val runSuffix = "-" + Random.alphanumeric.take(10).mkString
+  val partyNameMangler =
+    (partyText: String) => partyText + runSuffix + Random.alphanumeric.take(10).mkString
+  val commandIdMangler: ((QualifiedName, Int, Ledger.ScenarioNodeId) => String) =
+    (testName, stepId, nodeId) => {
+      s"ledger-api-test-tool-$testName-$stepId-$nodeId-$runSuffix"
+    }
 
   override val timeLimit: Span = 300.seconds
 
@@ -118,7 +131,11 @@ class TransactionServiceIT
         val elemsToTake = 10L
 
         for {
-          _ <- insertCommands(getTrackerFlow(context), "cancellation-test", 14, context.ledgerId)
+          _ <- insertCommandsUnique(
+            "cancellation-test",
+            14,
+            context
+          )
           transactions <- context.transactionClient
             .getTransactions(ledgerBegin, None, getAllContracts)
             .take(elemsToTake)
@@ -133,8 +150,8 @@ class TransactionServiceIT
           val client = context.transactionClient
           for {
             le <- client.getLedgerEnd
-            _ <- insertCommands("deduplicated", 1, context)
-            _ = insertCommands("deduplicated", 1, context) // we don't wait for this since the result won't be seen
+            _ <- insertCommandsUnique("deduplicated", 1, context)
+            _ = insertCommandsUnique("deduplicated", 1, context) // we don't wait for this since the result won't be seen
             txs <- client
               .getTransactions(le.getOffset, None, getAllContracts)
               .takeWithin(2.seconds)
@@ -161,11 +178,7 @@ class TransactionServiceIT
           .runWith(Sink.seq)
 
         for {
-          _ <- insertCommands(
-            getTrackerFlow(context),
-            "stream-completion-test",
-            14,
-            context.ledgerId)
+          _ <- insertCommandsUnique("stream-completion-test", 14, context)
           _ <- resultsF
         } yield {
           succeed // resultF would not complete unless the server terminates the connection
@@ -182,7 +195,7 @@ class TransactionServiceIT
 
           for {
             ledgerEndResponse <- client.getLedgerEnd
-            _ <- insertCommands(firstSectionPrefix, commandsPerSection, context)
+            _ <- insertCommandsUnique(firstSectionPrefix, commandsPerSection, context)
             firstSection <- client
               .getTransactions(ledgerEndResponse.getOffset, None, getAllContracts)
               .filter(_.commandId.startsWith(sharedPrefix))
@@ -191,7 +204,7 @@ class TransactionServiceIT
             _ = firstSection should have size commandsPerSection.toLong
             ledgerEndAfterFirstSection = lastOffsetIn(firstSection).value
 
-            _ <- insertCommands(sharedPrefix + "-2", commandsPerSection, context)
+            _ <- insertCommandsUnique(sharedPrefix + "-2", commandsPerSection, context)
 
             secondSection <- client
               .getTransactions(ledgerEndAfterFirstSection, None, getAllContracts)
@@ -223,7 +236,7 @@ class TransactionServiceIT
 
         for {
           ledgerEndOnStart <- client.getLedgerEnd
-          _ <- insertCommands(commandPrefix, smallCommandCount, context)
+          _ <- insertCommandsUnique(commandPrefix, smallCommandCount, context)
           readTransactions = () =>
             client
               .getTransactions(ledgerEndOnStart.getOffset, None, getAllContracts)
@@ -251,7 +264,7 @@ class TransactionServiceIT
         val anotherParty = "Alice"
         for {
           ledgerEndResponse <- client.getLedgerEnd
-          _ <- insertCommands(commandPrefix, 1, context)
+          _ <- insertCommandsUnique(commandPrefix, 1, context)
           // At this point we verified that the value has been written to the submitter's LSM.
           // This test code assumes that the value would be written to other parties' LSMs within 100 ms.
           transactions <- client
@@ -299,7 +312,7 @@ class TransactionServiceIT
 
         for {
           savedLedgerEnd <- client.getLedgerEnd
-          _ <- insertCommands("end-before-start-test", 1, context)
+          _ <- insertCommandsUnique(s"end-before-start-test", 1, context)
           tx <- client
             .getTransactions(savedLedgerEnd.getOffset, None, getAllContracts)
             .runWith(Sink.head)
@@ -319,7 +332,7 @@ class TransactionServiceIT
       "expose transactions to non-submitting stakeholders without the commandId" in allFixtures {
         c =>
           c.submitCreateAndReturnTransaction(
-              "Checking_commandId_visibility_for_non-submitter_party",
+              s"Checking_commandId_visibility_for_non-submitter_party-${runSuffix}",
               templateIds.agreementFactory,
               List("receiver" -> party1.asParty, "giver" -> party2.asParty).asRecordFields,
               party2,
@@ -330,7 +343,7 @@ class TransactionServiceIT
       }
 
       "expose only the requested templates to the client" in allFixtures { context =>
-        val commandId = "Client_should_see_only_the_Dummy_create."
+        val commandId = s"Client_should_see_only_the_Dummy_create-${runSuffix}"
         val templateInSubscription = templateIds.dummy
         val otherTemplateCreated = templateIds.dummyFactory
         for {
@@ -353,8 +366,8 @@ class TransactionServiceIT
 
       "expose contract Ids that are ready to be used for exercising choices" in allFixtures {
         context =>
-          val factoryCreation = "Creating_factory"
-          val exercisingChoice = "Exercising_choice_on_factory"
+          val factoryCreation = s"Creating_factory-${runSuffix}"
+          val exercisingChoice = s"Exercising_choice_on_factory-${runSuffix}"
           val exercisedTemplate = templateIds.dummyFactory
           for {
             createdEvent <- context.submitCreate(
@@ -379,8 +392,8 @@ class TransactionServiceIT
 
       "expose contract Ids that are results of exercising choices when filtering by template" in allFixtures {
         context =>
-          val factoryCreation = "Creating_second_factory"
-          val exercisingChoice = "Exercising_choice_on_second_factory"
+          val factoryCreation = s"Creating_second_factory-${runSuffix}"
+          val exercisingChoice = s"Exercising_choice_on_second_factory-${runSuffix}"
           val exercisedTemplate = templateIds.dummyFactory
           for {
             creation <- context.submitCreate(
@@ -423,7 +436,7 @@ class TransactionServiceIT
       "reject exercising a choice where an assertion fails" in allFixtures { c =>
         for {
           dummy <- c.submitCreate(
-            "Create_for_assertion_failing_test",
+            s"Create_for_assertion_failing_test-${runSuffix}",
             templateIds.dummy,
             List("operator" -> party.asParty).asRecordFields,
             party)
@@ -452,7 +465,7 @@ class TransactionServiceIT
         val expectedArg = paramShowcaseArgsWithoutLabels
         for {
           create <- c.submitCreate(
-            "Creating_contract_with_a_multitude_of_param_types",
+            s"Creating_contract_with_a_multitude_of_param_types-${runSuffix}",
             template,
             paramShowcaseArgs(templateIds.testPackageId),
             "party",
@@ -470,7 +483,7 @@ class TransactionServiceIT
         val variant = Value(Value.Sum.Variant(Variant(None, "SomeInteger", 1.asInt64)))
         for {
           create <- c.submitCreate(
-            "Creating_contract_with_a_multitude_of_verbose_param_types",
+            s"Creating_contract_with_a_multitude_of_verbose_param_types-${runSuffix}",
             template,
             arg,
             "party",
@@ -523,7 +536,7 @@ class TransactionServiceIT
         val template = templateIds.parameterShowcase
         for {
           create <- c.submitCreate(
-            "Huge_command_with_a_long_list",
+            s"Huge_command_with_a_long_list-${runSuffix}",
             template,
             arg,
             "party"
@@ -538,15 +551,16 @@ class TransactionServiceIT
         val giver = "Alice"
         for {
           created <- c.submitCreateWithListenerAndReturnEvent(
-            "Creating_Agreement_Factory",
+            s"Creating_Agreement_Factory-${runSuffix}",
             templateIds.agreementFactory,
             List("receiver" -> receiver.asParty, "giver" -> giver.asParty).asRecordFields,
             giver,
-            giver)
+            giver
+          )
 
           choiceResult <- c.testingHelpers.submitAndListenForSingleResultOfCommand(
             c.command(
-                "Calling_non-consuming_choice",
+                s"Calling_non-consuming_choice-${runSuffix}",
                 List(
                   ExerciseCommand(
                     Some(templateIds.agreementFactory),
@@ -572,7 +586,7 @@ class TransactionServiceIT
 
         for {
           branchingSignatories <- c.submitCreateWithListenerAndReturnEvent(
-            "BranchingSignatoriesTrue",
+            s"BranchingSignatoriesTrue-${runSuffix}",
             templateIds.branchingSignatories,
             branchingSignatoriesArg,
             party1,
@@ -586,7 +600,7 @@ class TransactionServiceIT
         val branchingSignatoriesArg =
           getBranchingSignatoriesArg(false, party1, party2)
         c.submitCreateWithListenerAndAssertNotVisible(
-          "BranchingSignatoriesFalse",
+          s"BranchingSignatoriesFalse-${runSuffix}",
           templateIds.branchingSignatories,
           branchingSignatoriesArg,
           party2,
@@ -599,7 +613,7 @@ class TransactionServiceIT
         val expectedArg = branchingControllersArgs.map(_.copy(label = ""))
         for {
           branchingControllers <- c.submitCreateWithListenerAndReturnEvent(
-            "BranchingControllersTrue",
+            s"BranchingControllersTrue-${runSuffix}",
             templateId,
             branchingControllersArgs,
             party1,
@@ -614,7 +628,7 @@ class TransactionServiceIT
         val branchingControllersArgs =
           getBranchingControllerArgs(party1, party2, party3, false)
         c.submitCreateWithListenerAndAssertNotVisible(
-          "BranchingControllersFalse",
+          s"BranchingControllersFalse-${runSuffix}",
           templateId,
           branchingControllersArgs,
           party1,
@@ -634,7 +648,7 @@ class TransactionServiceIT
           .sequence(observers.map(observer =>
             for {
               withObservers <- c.submitCreateWithListenerAndReturnEvent(
-                "Obs1create:" + observer,
+                s"Obs1create:${observer}-${runSuffix}",
                 templateIds.withObservers,
                 withObserversArg,
                 giver,
@@ -655,7 +669,7 @@ class TransactionServiceIT
         val expectedArgs = createArguments.map(_.copy(label = ""))
 
         c.submitCreate(
-            "Creating_contract_with_a_Nothing_argument",
+            s"Creating_contract_with_a_Nothing_argument-${runSuffix}",
             templateIds.nothingArgument,
             createArguments,
             "party")
@@ -673,7 +687,7 @@ class TransactionServiceIT
       "expose the default agreement text in CreatedEvents for templates with no explicit agreement text" in allFixtures {
         c =>
           val resultF = c.submitCreate(
-            "Creating_dummy_contract_for_default_agreement_text_test",
+            s"Creating_dummy_contract_for_default_agreement_text_test-${runSuffix}",
             templateIds.dummy,
             List(RecordField("operator", party1.asParty)),
             party1)
@@ -690,12 +704,12 @@ class TransactionServiceIT
         for {
           agreement <- createAgreement(c, "MA1", receiver, giver)
           triProposal <- c.submitCreate(
-            "MA1proposal",
+            s"MA1proposal-${runSuffix}",
             templateIds.triProposal,
             triProposalArg,
             operator)
           tx <- c.submitExercise(
-            "MA1acceptance",
+            s"MA1acceptance-${runSuffix}",
             templateIds.agreement,
             List("cid" -> Value(ContractId(triProposal.contractId))).asRecordValue,
             "AcceptTriProposal",
@@ -716,12 +730,12 @@ class TransactionServiceIT
           val expectedArg = triProposalArg.map(_.copy(label = ""))
           for {
             triProposal <- c.submitCreate(
-              "MA2proposal",
+              s"MA2proposal-${runSuffix}",
               templateIds.triProposal,
               triProposalArg,
               operator)
             tx <- c.submitExercise(
-              "MA2acceptance",
+              s"MA2acceptance-${runSuffix}",
               templateIds.triProposal,
               unitArg,
               "TriProposalAccept",
@@ -738,7 +752,7 @@ class TransactionServiceIT
         val triProposalArg = mkTriProposalArg(operator, receiver, giver)
         for {
           triProposal <- c.submitCreate(
-            "MA3proposal",
+            s"MA3proposal-${runSuffix}",
             templateIds.triProposal,
             triProposalArg,
             operator)
@@ -769,7 +783,7 @@ class TransactionServiceIT
         for {
           agreement <- createAgreement(c, "MA4", receiver, giver)
           triProposal <- c.submitCreate(
-            "MA4proposal",
+            s"MA4proposal-${runSuffix}",
             templateIds.triProposal,
             triProposalArg,
             operator)
@@ -794,12 +808,12 @@ class TransactionServiceIT
         val arguments = List("street", "city", "state", "zip")
         for {
           dummy <- c.submitCreate(
-            "Create_dummy_for_creating_AddressWrapper",
+            s"Create_dummy_for_creating_AddressWrapper-${runSuffix}",
             templateIds.dummy,
             List("operator" -> party.asParty).asRecordFields,
             party)
           exercise <- c.submitExercise(
-            "Creating_AddressWrapper",
+            s"Creating_AddressWrapper-${runSuffix}",
             templateIds.dummy,
             List("address" -> arguments.map(e => e -> e.asText).asRecordValue).asRecordValue,
             "WrapWithAddress",
@@ -916,11 +930,7 @@ class TransactionServiceIT
           val beginOffset =
             LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
           for {
-            _ <- insertCommands(
-              getTrackerFlow(context),
-              "tree-provenance-by-id",
-              1,
-              context.ledgerId)
+            _ <- insertCommandsUnique("tree-provenance-by-id", 1, context)
             firstTransaction <- context.transactionClient
               .getTransactions(beginOffset, None, transactionFilter)
               .runWith(Sink.head)
@@ -1015,11 +1025,7 @@ class TransactionServiceIT
           val beginOffset =
             LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
           for {
-            _ <- insertCommands(
-              getTrackerFlow(context),
-              "flat-provenance-by-id",
-              1,
-              context.ledgerId)
+            _ <- insertCommandsUnique("flat-provenance-by-id", 1, context)
             firstTransaction <- context.transactionClient
               .getTransactions(beginOffset, None, transactionFilter)
               .runWith(Sink.head)
@@ -1085,11 +1091,7 @@ class TransactionServiceIT
         val beginOffset =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         for {
-          _ <- insertCommands(
-            getTrackerFlow(context),
-            "tree-provenance-by-event-id",
-            1,
-            context.ledgerId)
+          _ <- insertCommandsUnique("tree-provenance-by-event-id", 1, context)
           tx <- context.transactionClient
             .getTransactions(beginOffset, None, transactionFilter)
             .runWith(Sink.head)
@@ -1154,11 +1156,7 @@ class TransactionServiceIT
         val beginOffset =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         for {
-          _ <- insertCommands(
-            getTrackerFlow(context),
-            "flat-provenance-by-event-id",
-            1,
-            context.ledgerId)
+          _ <- insertCommandsUnique("flat-provenance-by-event-id", 1, context)
           tx <- context.transactionClient
             .getTransactions(beginOffset, None, transactionFilter)
             .runWith(Sink.head)
@@ -1305,11 +1303,7 @@ class TransactionServiceIT
             .runWith(Sink.seq)
 
           for {
-            _ <- insertCommands(
-              getTrackerFlow(context),
-              "cancellation-test-tree",
-              commandsToSend,
-              context.ledgerId)
+            _ <- insertCommandsUnique("cancellation-test-tree", commandsToSend, context)
             elems <- resultsF
           } yield (elems should have length elemsToTake)
         }
@@ -1368,11 +1362,7 @@ class TransactionServiceIT
             r1 <- context.transactionClient
               .getTransactionTrees(ledgerBegin, Some(ledgerEnd), transactionFilter)
               .runWith(Sink.seq)
-            _ <- insertCommands(
-              getTrackerFlow(context),
-              "complete_test",
-              noOfCommands,
-              context.ledgerId)
+            _ <- insertCommandsUnique("complete_test", noOfCommands, context)
             r2 <- context.transactionClient
               .getTransactionTrees(ledgerBegin, Some(ledgerEnd), transactionFilter)
               .runWith(Sink.seq)
@@ -1509,7 +1499,14 @@ class TransactionServiceIT
       prefix: String,
       commandsPerSection: Int,
       context: LedgerContext): Future[Done] = {
-    insertCommands(getTrackerFlow(context), prefix, commandsPerSection, context.ledgerId)
+    helpers.insertCommands(getTrackerFlow(context), prefix, commandsPerSection, context.ledgerId)
+  }
+
+  private def insertCommandsUnique(
+      prefix: String,
+      commandsPerSection: Int,
+      context: LedgerContext): Future[Done] = {
+    insertCommands(s"${prefix}-${runSuffix}", commandsPerSection, context)
   }
 
   private def lastOffsetIn(secondSection: immutable.Seq[Transaction]): Option[LedgerOffset] = {
@@ -1600,15 +1597,16 @@ class TransactionServiceIT
   ): Future[CreatedEvent] = {
     for {
       agreementFactory <- c.submitCreate(
-        commandId + "factory_creation",
+        commandId + s"factory_creation-${runSuffix}",
         templateIds.agreementFactory,
         List(
           "receiver" -> receiver.asParty,
           "giver" -> giver.asParty
         ).asRecordFields,
-        giver)
+        giver
+      )
       tx <- c.submitExercise(
-        commandId + "_acceptance",
+        commandId + s"_acceptance-${runSuffix}",
         templateIds.agreementFactory,
         unitArg,
         "AgreementFactoryAccept",
@@ -1632,7 +1630,7 @@ class TransactionServiceIT
   ): Future[Assertion] =
     c.testingHelpers.assertCommandFailsWithCode(
       c.command(
-          commandId,
+          s"${commandId}-${runSuffix}",
           List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap))
         .update(
           _.commands.party := submitter
@@ -1650,7 +1648,7 @@ class TransactionServiceIT
 
     for {
       creation <- context.submitCreate(
-        s"Creating_contract_with_a_multitude_of_param_types_for_exercising_$choice#$lbl",
+        s"Creating_contract_with_a_multitude_of_param_types_for_exercising-${runSuffix}_$choice#$lbl",
         templateIds.parameterShowcase,
         paramShowcaseArgs(templateIds.testPackageId),
         MockMessages.party
@@ -1664,7 +1662,9 @@ class TransactionServiceIT
         exerciseArg).wrap
       exerciseTx <- context.testingHelpers.submitAndListenForSingleResultOfCommand(
         context
-          .command(s"Exercising_with_a_multitiude_of_params_$choice#$lbl", List(exerciseCommand)),
+          .command(
+            s"Exercising_with_a_multitiude_of_params-${runSuffix}_$choice#$lbl",
+            List(exerciseCommand)),
         getAllContracts
       )
     } yield {
