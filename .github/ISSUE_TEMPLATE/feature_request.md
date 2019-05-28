@@ -11,7 +11,7 @@ assignees: ''
 A description of what the problem is --- "I'm always frustrated when [...]"
 
 **What's your preferred solution?**
-What you want to happen.
+Tell us what you'd want to happen.
 
 **Describe alternatives you've considered**
 Any alternative solutions or features you've considered.
