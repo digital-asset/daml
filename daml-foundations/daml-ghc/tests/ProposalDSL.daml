@@ -11,7 +11,7 @@ module ProposalDSL
   , ProposalInstance
   ) where
 
-import Prelude hiding (Template (..), Choice (..), create, fetch, exercise)
+import Prelude hiding (Template (..), Choice (..), Archive (..), create, fetch, archive, exercise)
 import DA.List
 import DA.Text
 import GenericTemplates
@@ -29,6 +29,7 @@ instance ProposalInstance t => Template (Proposal t) where
     agreement = agreementProposal
     create = createProposal
     fetch = fetchProposal
+    archive = archiveProposal
 
 
 data Accept = Accept{}
@@ -37,6 +38,8 @@ data Accept = Accept{}
 instance ProposalInstance t => Choice (Proposal t) Accept (ContractId t) where
     exercise = exerciseProposalAccept
 
+instance ProposalInstance t => Choice (Proposal t) Archive () where
+    exercise = exerciseProposalArchive
 
 class Template t => ProposalInstance t where
     signatoryProposal : Proposal t -> [Party]
@@ -56,6 +59,17 @@ class Template t => ProposalInstance t where
     createProposal = error "code will be injected by the compiler"
     fetchProposal : ContractId (Proposal t) -> Update (Proposal t)
     fetchProposal = error "code will be injected by the compiler"
+    archiveProposal : ContractId (Proposal t) -> Update ()
+    archiveProposal cid = exerciseProposalArchive cid Archive
+
+    controllerProposalArchive : Proposal t -> Archive -> [Party]
+    controllerProposalArchive this@Proposal{..} arg@Archive = signatoryProposal this
+    actionProposalArchive : ContractId (Proposal t) -> Proposal t -> Archive -> Update ()
+    actionProposalArchive self this@Proposal{..} arg@Archive = do
+        pure ()
+    exerciseProposalArchive : ContractId (Proposal t) -> Archive -> Update ()
+    exerciseProposalArchive = error "code will be injected by the compiler"
+
     controllerProposalAccept : Proposal t -> Accept -> [Party]
     controllerProposalAccept this@Proposal{..} arg@Accept = receivers
     actionProposalAccept : ContractId (Proposal t) -> Proposal t -> Accept -> Update (ContractId t)

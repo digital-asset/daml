@@ -331,7 +331,7 @@ convertGenericTemplate :: Env -> GHC.Expr Var -> ConvertM (Template, LF.Expr)
 convertGenericTemplate env x
     | (dictCon, args) <- collectArgs x
     , (tyArgs, args) <- span isTypeArg args
-    , Just (superClassDicts, signatories : observers : ensure : agreement : create : fetch : choices) <- span isSuperClassDict <$> mapM isVar_maybe (dropWhile isTypeArg args)
+    , Just (superClassDicts, signatories : observers : ensure : agreement : create : fetch : archive : choices) <- span isSuperClassDict <$> mapM isVar_maybe (dropWhile isTypeArg args)
     , Just (polyType, _) <- splitFunTy_maybe (varType create)
     , Just (monoTyCon, unwrapCo) <- findMonoTyp polyType
     = do
@@ -386,10 +386,11 @@ convertGenericTemplate env x
         agreement <- convertExpr env (Var agreement)
         let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon $ wrapTpl $ EVar this) $ EUpdate $ UPure (TContractId polyType) $ unwrapSelf
         let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon wrapSelf) $ EUpdate $ UPure polyType $ unwrapTpl $ EVar this
+        archive <- convertExpr env (Var archive)
         dictCon <- convertExpr env dictCon
         tyArgs <- mapM (convertArg env) tyArgs
         -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
-        let tmArgs = map (TmArg . ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch] ++ concat choices
+        let tmArgs = map (TmArg . ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch, archive] ++ concat choices
         let dict = mkEApps dictCon $ tyArgs ++ tmArgs
         pure (Template{..}, dict)
   where
