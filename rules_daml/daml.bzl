@@ -104,7 +104,7 @@ daml_compile = rule(
 
 def _daml_test_impl(ctx):
     script = """
-      {damlc} test {files}
+      {damlc} test --files {files}
     """.format(damlc = ctx.executable.damlc.short_path, files = " ".join([f.short_path for f in ctx.files.srcs]))
 
     ctx.actions.write(

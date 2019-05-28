@@ -20,6 +20,7 @@ module DAML.Project.Consts
     , getDamlAssistant
     , ProjectCheck(..)
     , withProjectRoot
+    , withExpectProjectRoot
     ) where
 
 import Control.Monad
@@ -142,13 +143,23 @@ getDamlAssistant = getEnv damlAssistantEnvVar
 -- The string is the command name used in error messages
 data ProjectCheck = ProjectCheck String Bool
 
--- | This function changes the working directory to the project root and calls
--- the supplied action with a function to transform filepaths relative to the previous
--- directory into filepaths relative to the project root (absolute file paths will not be modified).
+-- | Execute an action within the project root, if available.
 --
--- If the projectDir argument is `Just` then that will be used as the project root. If it is
--- `Nothing` it will use the information provided by the assistant.
-withProjectRoot :: Maybe ProjectPath -> ProjectCheck -> ((FilePath -> IO FilePath) -> IO a) -> IO a
+-- Determines the project root, if available, using 'getProjectPath' unless it
+-- is passed explicitly.
+--
+-- If no project root is found and 'ProjectCheck' requires a project root, then
+-- an error is printed and the program is terminated before executing the given
+-- action.
+--
+-- The provided action is executed on 'Just' the project root, if available,
+-- otherwise on 'Nothing'. Additionally, it is passed a function to make
+-- filepaths relative to the new working directory.
+withProjectRoot
+    :: Maybe ProjectPath
+    -> ProjectCheck
+    -> (Maybe FilePath -> (FilePath -> IO FilePath) -> IO a)
+    -> IO a
 withProjectRoot mbProjectDir (ProjectCheck cmdName check) act = do
     previousCwd <- getCurrentDirectory
     mbProjectPath <- maybe getProjectPath (pure . Just . unwrapProjectPath) mbProjectDir
@@ -157,9 +168,20 @@ withProjectRoot mbProjectDir (ProjectCheck cmdName check) act = do
             when check $ do
                 hPutStrLn stderr (cmdName <> ": Not in project.")
                 exitFailure
-            act pure
+            act mbProjectPath pure
         Just projectPath -> do
             projectPath <- canonicalizePath projectPath
-            withCurrentDirectory projectPath $ act $ \f -> do
+            withCurrentDirectory projectPath $ act mbProjectPath $ \f -> do
                 absF <- canonicalizePath (previousCwd </> f)
                 pure (projectPath `makeRelative` absF)
+
+-- | Same as 'withProjectRoot' but always requires project root.
+withExpectProjectRoot
+    :: Maybe ProjectPath  -- ^ optionally specified project root
+    -> String  -- ^ command name for error message
+    -> (FilePath -> (FilePath -> IO FilePath) -> IO a)  -- ^ action
+    -> IO a
+withExpectProjectRoot mbProjectDir cmdName act = do
+    withProjectRoot mbProjectDir (ProjectCheck cmdName True) $ \case
+        Nothing -> error "withProjectRoot should terminated the program"
+        Just projectPath -> act projectPath

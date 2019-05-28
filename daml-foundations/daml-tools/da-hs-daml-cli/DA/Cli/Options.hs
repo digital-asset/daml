@@ -298,6 +298,7 @@ data ProjectOpts = ProjectOpts
 projectOpts :: String -> Parser ProjectOpts
 projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
     where
+        projectRootOpt :: Parser (Maybe ProjectPath)
         projectRootOpt =
             optional $
             fmap ProjectPath $
