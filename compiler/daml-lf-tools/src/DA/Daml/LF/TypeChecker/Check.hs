@@ -396,7 +396,6 @@ checkFetch tpl cid = do
 -- returns the contract id and contract type
 checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
 checkRetrieveByKey RetrieveByKey{..} = do
-  checkFeature featureContractKeys
   tpl <- inWorld (lookupTemplate retrieveByKeyTemplate)
   case tplKey tpl of
     Nothing -> throwWithContext (EKeyOperationOnTemplateWithNoKey retrieveByKeyTemplate)
@@ -558,7 +557,6 @@ checkFeature feature = do
 
 checkTemplateKey :: MonadGamma m => ExprVarName -> Qualified TypeConName -> TemplateKey -> m ()
 checkTemplateKey param tcon TemplateKey{..} = do
-    checkFeature featureContractKeys
     introExprVar param (TCon tcon) $ do
       checkType tplKeyType KStar
       version <- getLfVersion
