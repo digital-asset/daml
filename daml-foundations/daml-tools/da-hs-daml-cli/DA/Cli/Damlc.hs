@@ -94,32 +94,41 @@ cmdCompile numProcessors =
 cmdTest :: Int -> Mod CommandFields Command
 cmdTest numProcessors =
     command "test" $ info (helper <*> cmd) $
-       progDesc "Test the given DAML file by running all test declarations."
+       progDesc "Test the current DAML project by running all test declarations. Must be in DAML project."
     <> fullDesc
   where
-    cmd = runTestsInProjectOrFiles
-      <$> projectOpts "daml test"
-      <*> many inputFileOpt
+    cmd = runTestsInProject
+      <$> projectRootOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
       <*> optionsParser numProcessors optPackageName
     junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
 
--- TODO (MK) The logic here is sufficiently convoluted that this should be split up into two commands, e.g.,
--- damlc test and damlc test-files or damlc test --files.
-runTestsInProjectOrFiles :: ProjectOpts -> [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
-runTestsInProjectOrFiles projectOpts [] color mbJUnitOutput cliOptions =
-    withProjectRoot' projectOpts $ \_ -> do
-        projectPath <- maybe getProjectPath (pure . Just . unwrapProjectPath) (projectRoot projectOpts)
-        case projectPath of
-          Nothing -> execTest [] color mbJUnitOutput cliOptions
-          Just pPath -> do
-            project <- readProjectConfig $ ProjectPath pPath
-            case parseProjectConfig project of
-              Left err -> throwIO err
-              Right PackageConfigFields {..} -> execTest [pMain] color mbJUnitOutput cliOptions
-runTestsInProjectOrFiles _ inFiles color mbJUnitOutput cliOptions =
+runTestsInProject :: Maybe ProjectPath -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
+runTestsInProject mbProjectRoot color mbJUnitOutput cliOptions =
+    withExpectProjectRoot mbProjectRoot "daml test" $ \pPath _ -> do
+        project <- readProjectConfig $ ProjectPath pPath
+        case parseProjectConfig project of
+            Left err -> throwIO err
+            Right PackageConfigFields {..} -> execTest [pMain] color mbJUnitOutput cliOptions
+
+cmdTestFiles :: Int -> Mod CommandFields Command
+cmdTestFiles numProcessors =
+    command "test-files" $ info (helper <*> cmd) $
+       progDesc "Test the given DAML files by running all test declarations."
+    <> fullDesc
+  where
+    cmd = runTestsInFiles
+      <$> many inputFileOpt
+      <*> fmap UseColor colorOutput
+      <*> junitOutput
+      <*> optionsParser numProcessors optPackageName
+    junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
+    colorOutput = switch $ long "color" <> help "Colored test results"
+
+runTestsInFiles :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
+runTestsInFiles inFiles color mbJUnitOutput cliOptions =
     execTest inFiles color mbJUnitOutput cliOptions
 
 cmdInspect :: Mod CommandFields Command
@@ -674,6 +683,7 @@ options numProcessors =
       <> cmdPackage numProcessors
       <> cmdBuild numProcessors
       <> cmdTest numProcessors
+      <> cmdTestFiles numProcessors
       <> cmdDamlDoc
       <> cmdInspectDar
       )
@@ -702,4 +712,5 @@ main = do
     withProgName "damlc" $ join $ execParserLax (parserInfo numProcessors)
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
-withProjectRoot' ProjectOpts{..} = withProjectRoot projectRoot projectCheck
+withProjectRoot' ProjectOpts{..} act =
+    withProjectRoot projectRoot projectCheck (const act)

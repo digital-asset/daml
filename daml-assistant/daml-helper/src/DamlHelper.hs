@@ -501,7 +501,7 @@ withNavigator (SandboxPort sandboxPort) navigatorPort config args a = do
 newtype OpenBrowser = OpenBrowser Bool
 
 runStart :: OpenBrowser -> IO ()
-runStart (OpenBrowser shouldOpenBrowser) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ -> do
+runStart (OpenBrowser shouldOpenBrowser) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     projectConfig <- getProjectConfig
     projectName :: String <-
         requiredE "Project must have a name" $
