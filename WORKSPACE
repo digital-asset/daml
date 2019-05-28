@@ -286,11 +286,10 @@ dev_env_tool(
     nix_label = "@jq",
     nix_path = "bin/jq",
     tool = "jq",
-    win_include = [
-        "jq.exe",
-    ],
-    win_path = "jq.exe",
-    win_tool = "jq-1.5",
+    win_include = ["mingw64/bin"],
+    win_include_as = {"mingw64/bin": "bin"},
+    win_path = "bin/jq.exe",
+    win_tool = "msys2",
 )
 
 nixpkgs_package(

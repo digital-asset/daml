@@ -70,8 +70,20 @@ bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_w
     //navigator/backend/... `
     //daml-assistant/integration-tests/... `
     //daml-foundations/daml-ghc:daml-ghc-deterministic `
+    //daml-foundations/daml-ghc:compile-subdir `
+    //daml-foundations/daml-ghc:bond-trading-memory `
+    //daml-foundations/daml-ghc:compile-empty `
+    //daml-foundations/daml-ghc:daml-ghc-deterministic `
+    //daml-foundations/daml-ghc:examples-memory `
+    //daml-foundations/daml-ghc:module-tree-memory `
     //daml-foundations/daml-tools/da-hs-daml-cli `
     //daml-foundations/daml-tools/da-hs-damlc-app/...
     # Disabled since there seems to be an issue with starting up the scenario service.
     # See https://github.com/digital-asset/daml/issues/1354
     # //daml-foundations/daml-ghc:daml-ghc-shake-test-ci
+    #
+    # Disabled due to scenario service issue mentioned above and
+    # encoding issues for daml-foundations/daml-ghc/tests/Unicode.daml
+    # See: https://github.com/digital-asset/daml/issues/1421
+    # //daml-foundations/daml-ghc:daml-ghc-test-all
+    # //daml-foundations/daml-ghc:daml-ghc-test-dev

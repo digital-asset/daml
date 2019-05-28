@@ -44,6 +44,7 @@ import Development.IDE.State.Rules.Daml
 import qualified Development.IDE.Logger as Logger
 import           Development.IDE.Types.LSP
 import DA.Daml.GHC.Compiler.Options (defaultOptionsIO)
+import DA.Test.Util (standardizeQuotes)
 import Language.Haskell.LSP.Types (Range)
 
 -- * external dependencies
@@ -442,11 +443,3 @@ example = do
         ]
     setFilesOfInterest [fooPath]
     expectNoErrors
-
-standardizeQuotes :: T.Text -> T.Text
-standardizeQuotes msg = let
-        repl '‘' = '\''
-        repl '’' = '\''
-        repl '`' = '\''
-        repl  c   = c
-    in  T.map repl msg
