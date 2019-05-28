@@ -52,7 +52,7 @@ token_test_1 = do
 -- TOKEN_TEST_1_END
 
 {-
--- FAILING_TEST_1_BEGIN
+-- FAILURE_TEST_1_BEGIN
 failing_test_1 = do
   alice <- getParty "Alice"
   bob <- getParty "Bob"
@@ -60,7 +60,7 @@ failing_test_1 = do
     create Token with owner = bob
   submit bob do
     create Token with owner = alice
--- FAILING_TEST_1_END
+-- FAILURE_TEST_1_END
 -}
 
 -- TOKEN_TEST_2_BEGIN

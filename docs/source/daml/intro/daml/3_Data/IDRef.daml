@@ -1,0 +1,71 @@
+daml 1.2
+module IDRef where
+
+-- ID_REF_TEST_BEGIN
+data Bank = Bank with
+  party : Party
+  address: Text
+  telephone : Text
+    deriving (Eq, Show)
+
+template Account
+  with
+    accountant : Party
+    owner : Party
+    number : Text
+    bank : Bank
+  where
+    signatory accountant
+
+data Cash = Cash with
+  currency : Text
+  amount : Decimal
+    deriving (Eq, Show)
+
+template CashBalance
+  with
+    accountant : Party
+    cash : Cash
+    account : ContractId Account
+  where
+    signatory accountant
+
+id_ref_test = scenario do
+  accountant <- getParty "Bob"
+  owner <- getParty "Alice"
+  bank_party <- getParty "Bank"
+  let
+    bank = Bank with
+      party = bank_party
+      address = "High Street"
+      telephone = "012 3456 789"
+    cash = Cash with
+      currency = "USD"
+      amount = 100.0
+
+  accountCid <- submit accountant do
+     create Account with
+      accountant
+      owner
+      bank
+      number = "ABC123"
+
+  balanceCid <- submit accountant do
+    create CashBalance with
+      accountant
+      cash
+      account = accountCid
+
+  -- Now the accountant updates the telephone number for the bank on the account
+  new_account <- submit accountant do
+    account <- fetch accountCid
+    archive accountCid
+    create account with
+      bank = account.bank with
+        telephone = "098 7654 321"
+
+  -- The `account` field on the balance is now stale.
+  submitMustFail accountant do
+    balance <- fetch balanceCid
+    fetch balance.account
+-- ID_REF_TEST_END

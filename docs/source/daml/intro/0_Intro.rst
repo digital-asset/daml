@@ -20,3 +20,5 @@ Next: :doc:`1_Token`.
   3_Data
   4_Transformations
   5_Restrictions
+  6_Parties
+  7_Composing
