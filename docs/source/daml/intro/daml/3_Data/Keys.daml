@@ -81,6 +81,6 @@ id_ref_test = scenario do
   -- The `account` field on the balance is now stale.
   submit accountant do
     balance <- fetch balanceCid
-    (cid, account) <- fetchByKey balance.account
+    (cid, account) <- fetchByKey @Account balance.account
     assert (cid == new_accountCid)
 -- KEY_TEST_END

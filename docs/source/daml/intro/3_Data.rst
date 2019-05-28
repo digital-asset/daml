@@ -191,7 +191,7 @@ DAML allows the definition of stable keys using the ``key`` and ``maintainer`` k
 
 Since DAML is a distributed system, there is no global entity that can guarantee uniqueness, which is why each ``key`` expression must come with a ``maintainer`` expression. ``maintainer`` takes one or several parties, all of which have to be signatories of the contract and be part of the key. That way the index can be partitioned amongst sets of maintainers, and each set of maintainers can independently ensure the uniqueness constraint on their piece of the index.
 
-Note how the ``fetch`` in the final ``submit`` block has become a ``fetchByKey``. ``fetchByKey`` returns a tuple ``(ContractId a, a)`` if the lookup was successful or fails the transaction otherwise.
+Note how the ``fetch`` in the final ``submit`` block has become a ``fetchByKey @Account``. ``fetchByKey @Account`` takes a value of type `AccountKey` and returns a tuple ``(ContractId Account, Account)`` if the lookup was successful or fails the transaction otherwise. Since a single type could be used as the key for multiple templates, the compiler needs to be told what type of contract is being fetched using the ``@Account`` notation.
 
 
 Next Up
