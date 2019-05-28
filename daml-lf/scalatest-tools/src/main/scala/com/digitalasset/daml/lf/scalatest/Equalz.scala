@@ -1,7 +1,9 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import org.scalatest.Matchers
 import org.scalatest.matchers.{MatchResult, Matcher}
+import scala.language.higherKinds
 import scalaz.Equal
 
 /** Provides the `equalz` [[Matcher]].
@@ -23,28 +25,42 @@ import scalaz.Equal
   * assemble the instance you meant.  (NB: never design your own
   * typeclasses this way in Scala.)
   */
-trait Equalz {
-  import Equalz.LtEqual
-  final def equalz[A, B](expected: A)(implicit B: LtEqual[A]): Matcher[B.B] =
-    actual =>
-      MatchResult(
-        B.evB.equal(expected, actual),
-        s"$actual did not equal $expected",
-        s"$actual equalled $expected"
-    )
+trait Equalz extends Matchers {
+  import Equalz.{LubEqual, XMatcherFactory1}
+
+  final def equalz[Ex](expected: Ex): XMatcherFactory1[Ex] { type TC[A] = LubEqual.Gt[Ex, A] } =
+    new XMatcherFactory1[Ex] {
+      type TC[A] = LubEqual.Gt[Ex, A]
+      override def matcher[T <: Ex](implicit ev: TC[T]): Matcher[T] =
+        actual =>
+          MatchResult(
+            ev.equal(expected, actual),
+            s"$actual did not equal $expected",
+            s"$actual equalled $expected"
+        )
+    }
+
+  implicit final class XAnyShouldWrapper[L](private val leftHandSide: L) {
+    def shouldx(mf: XMatcherFactory1[L])(implicit ev: mf.TC[L]) =
+      (leftHandSide: AnyShouldWrapper[L]) should mf.matcher[L]
+    def shouldNotx(mf: XMatcherFactory1[L])(implicit ev: mf.TC[L]) =
+      (leftHandSide: AnyShouldWrapper[L]) shouldNot mf.matcher[L]
+  }
 }
 
 object Equalz extends Equalz {
-  sealed abstract class LtEqual[-A] {
-    type B >: A
-    val evB: Equal[B]
+  sealed abstract class LubEqual[-A, C, -B] {
+    def equal(l: A, r: B): Boolean
+  }
+  object LubEqual {
+    type Gt[-A, -B] = LubEqual[A, _, B]
+    implicit def onlyInstance[C: Equal]: LubEqual[C, C, C] = new LubEqual[C, C, C] {
+      def equal(l: C, r: C) = Equal[C].equal(l, r)
+    }
   }
 
-  object LtEqual {
-    implicit def onlyInstance[A](implicit ev: Equal[A]): LtEqual[A] {type B = A} =
-      new LtEqual[A] {
-        type B = A
-        val evB = ev
-      }
+  abstract class XMatcherFactory1[-SC] {
+    type TC[A]
+    def matcher[T <: SC: TC]: Matcher[T]
   }
 }
