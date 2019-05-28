@@ -252,7 +252,7 @@ object SBuiltin {
   }
 
   final case object SBFromTextDecimal extends SBuiltin(1) {
-    private val pattern = """[+-]?[0-9]+(\.[0-9]+)?""".r.pattern
+    private val pattern = """[+-]?\d+(\.\d+)?""".r.pattern
 
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val s = args.get(0).asInstanceOf[SText].value
@@ -333,10 +333,7 @@ object SBuiltin {
 
   final case object SBMapToList extends SBuiltin(1) {
 
-    //  implicit val classTag: ClassTag[Ref.Name.T] = Ref.Name.classTag
-
-    private val entryFields =
-      Name.Array(Ast.keyFieldName, Ast.valueFieldName)
+    private val entryFields = Name.Array(Ast.keyFieldName, Ast.valueFieldName)
 
     private def entry(key: String, value: SValue) = {
       val args = new util.ArrayList[SValue](2)

@@ -67,6 +67,11 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"DIV_INT64 $MaxInt64 -1") shouldBe Right(SInt64(-MaxInt64))
         eval(e"DIV_INT64 $MinInt64 -1") shouldBe 'left
       }
+
+      "throws an exception when dividing by 0" in {
+        eval(e"DIV_INT64 1 $MaxInt64") shouldBe Right(SInt64(0))
+        eval(e"DIV_INT64 1 0") shouldBe 'left
+      }
     }
 
     "EXP_INT64" - {
@@ -214,6 +219,20 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"MUL_DECIMAL $bigBigDecimal $bigBigDecimal") shouldBe 'left
         eval(e"MUL_DECIMAL ${1E13} ${1E14}") shouldBe Right(SDecimal(decimal(1E27)))
         eval(e"MUL_DECIMAL ${1E14} ${1E14}") shouldBe 'left
+      }
+    }
+
+    "DEV_DECIMAL" - {
+      "throws exception in case of overflow" in {
+        eval(e"DIV_DECIMAL 1.1 2.2") shouldBe Right(SDecimal(decimal(0.5)))
+        eval(e"DIV_DECIMAL $bigBigDecimal ${1E-10}") shouldBe 'left
+        eval(e"DIV_DECIMAL ${1E17} ${1E-10}") shouldBe Right(SDecimal(decimal(1E27)))
+        eval(e"DIV_DECIMAL ${1E18} ${1E-10}") shouldBe 'left
+      }
+
+      "throws exception when divided by 0" in {
+        eval(e"DIV_DECIMAL 1.0 ${1E-10}") shouldBe Right(SDecimal(decimal(1E10)))
+        eval(e"DIV_DECIMAL 1.0 0.0") shouldBe 'left
       }
     }
 
@@ -613,7 +632,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
   "Conversion operations" - {
 
-    val almostZero = BigDecimal("0.0000000001")
+    val almostZero = BigDecimal("1E-10")
 
     "DECIMAL_TO_INT64" - {
       "throws exception in case of overflow" in {
@@ -625,7 +644,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"DECIMAL_TO_INT64 ${BigDecimal(2).pow(63) - almostZero}") shouldBe Right(
           SInt64(Long.MaxValue))
         eval(e"DECIMAL_TO_INT64 ${BigDecimal(2).pow(63)}") shouldBe 'left
-        eval(e"DECIMAL_TO_INT64 1000000000000000000000.0") shouldBe 'left
+        eval(e"DECIMAL_TO_INT64 ${1E22}") shouldBe 'left
       }
 
       "works as expected" in {
