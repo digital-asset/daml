@@ -12,6 +12,7 @@ load(
     "daml_ghc_compile_test",
     "daml_ghc_integration_test",
 )
+load("@os_info//:os_info.bzl", "is_windows")
 
 daml_ghc_integration_test("daml-ghc-test-all", "DA.Test.GHC.mainAll")
 
@@ -117,7 +118,7 @@ daml_ghc_compile_test(
 daml_ghc_compile_test(
     name = "bond-trading-memory",
     srcs = [":bond-trading"],
-    heap_limit = "100M",
+    heap_limit = "120M" if is_windows else "100M",
     main = "bond-trading/Test.daml",
     stack_limit = "35K",
 )
