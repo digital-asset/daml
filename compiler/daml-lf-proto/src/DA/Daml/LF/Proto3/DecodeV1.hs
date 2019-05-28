@@ -293,7 +293,8 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
       <*> decodeName VariantConName variant
       <*> mayDecode "Expr_VariantConVariantArg" mbArg decodeExpr
   LF1.ExprSumEnumCon _ ->
-    Left (ParseError "FixMe")
+   -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
+    Left (ParseError "Enum types not supported")
   LF1.ExprSumTupleCon (LF1.Expr_TupleCon fields) ->
     ETupleCon
       <$> mapM decodeFieldWithExpr (V.toList fields)
