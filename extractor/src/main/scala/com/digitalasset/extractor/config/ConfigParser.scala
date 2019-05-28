@@ -171,7 +171,8 @@ object ConfigParser {
       opt[String]("party")
         .required()
         .action((x, c) => c.copy(party = x))
-        .text("The party whose contract data should be extracted.")
+        .text("The party or parties whose contract data should be extracted.\n" +
+          s"${colSpacer}Specify multiple parties separated by a comma, e.g. Foo,Bar")
 
       opt[String]("from")
         .action((x, c) => c.copy(from = Some(x)))
