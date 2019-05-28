@@ -49,7 +49,7 @@ class RemoteServerResource(host: String, port: Int, tlsConfig: Option[TlsConfigu
 
   }
 
-  def createEventLoopGroup(threadPoolName: String): NioEventLoopGroup = {
+  private def createEventLoopGroup(threadPoolName: String): NioEventLoopGroup = {
     val threadFactory = new DefaultThreadFactory(s"$threadPoolName-grpc-eventloop", true)
     val parallelism = Runtime.getRuntime.availableProcessors
     new NioEventLoopGroup(parallelism, threadFactory)
@@ -57,10 +57,13 @@ class RemoteServerResource(host: String, port: Int, tlsConfig: Option[TlsConfigu
 
   override def close(): Unit = {
     channel.shutdownNow()
-    channel.awaitTermination(1L, TimeUnit.SECONDS)
-    eventLoopGroup
-      .shutdownGracefully(0, 0, TimeUnit.SECONDS)
-      .await(10L, TimeUnit.SECONDS)
+    if (!channel.awaitTermination(1L, TimeUnit.SECONDS)) {
+      sys.error(
+        "Unable to shutdown channel to a remote API under tests. Unable to recover. Terminating.")
+    }
+    if (!eventLoopGroup.shutdownGracefully(0, 0, TimeUnit.SECONDS).await(10L, TimeUnit.SECONDS)) {
+      sys.error("Unable to shutdown event loop. Unable to recover. Terminating.")
+    }
     channel = null
     eventLoopGroup = null
   }
