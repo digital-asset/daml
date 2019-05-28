@@ -13,7 +13,7 @@ A description of what the problem is --- "I'm always frustrated when [...]"
 **What's your preferred solution?**
 Tell us what you'd want to happen.
 
-**Describe alternatives you've considered**
+**What alternatives might work for you?**
 Tell us about alternative solutions or features you've considered.
 
 **Additional context**
