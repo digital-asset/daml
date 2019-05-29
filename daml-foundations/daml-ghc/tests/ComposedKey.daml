@@ -1,0 +1,115 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- This is sketch of how the key of a generic template can depend on the key
+-- of the template it is parameterized over. It is not particularly pretty,
+-- but the best I could come up with in the absence of type families in
+-- DAML-LF.
+-- TODO(MH, #1387): Use the new surface syntax.
+-- @SINCE-LF 1.5
+daml 1.2
+module ComposedKey where
+
+import Prelude hiding (Template (..), TemplateKey (..), Choice (..), Archive (..), create, fetch, fetchByKey, archive, exercise)
+import DA.Assert
+import DA.Text
+import GenericTemplates
+import GenTemplCompat
+
+-- For any instantiation, `k` has to be the key type of `t`.
+data Proposal t k = Proposal with
+    asset : t
+    proposers : [Party]
+    receivers : [Party]
+  deriving (Eq, Show)
+
+instance ProposalInstance t k => Template (Proposal t k) where
+    signatory = signatoryProposal
+    observer = observerProposal
+    ensure = ensureProposal
+    agreement = agreementProposal
+    create = createProposal
+    fetch = fetchProposal
+    archive = archiveProposal
+
+instance ProposalInstance t k => TemplateKey (Proposal t k) ([Party], k) where
+    key = keyProposal
+    fetchByKey = fetchByKeyProposal
+
+
+data Accept = Accept{}
+  deriving (Eq, Show)
+
+instance ProposalInstance t k => Choice (Proposal t k) Accept (ContractId t) where
+    exercise = exerciseProposalAccept
+
+instance ProposalInstance t k => Choice (Proposal t k) Archive () where
+    exercise = exerciseProposalArchive
+
+class (Template t, TemplateKey t k) => ProposalInstance t k where
+    signatoryProposal : Proposal t k -> [Party]
+    signatoryProposal this@Proposal{..} = proposers
+    observerProposal : Proposal t k -> [Party]
+    observerProposal this@Proposal{..} = receivers
+    ensureProposal : Proposal t k -> Bool
+    ensureProposal this@Proposal{..} =
+        let authorizers = proposers ++ receivers
+        in all (`elem` authorizers) (signatory asset)
+    agreementProposal : Proposal t k -> Text
+    agreementProposal this@Proposal{..} = unlines
+        [ "Proposal:"
+        , "* proposers: " <> show proposers
+        , "* receivers: " <> show receivers
+        , "* agreement: " <> agreement asset
+        ]
+    createProposal : Proposal t k -> Update (ContractId (Proposal t k))
+    createProposal = error "code will be injected by the compiler"
+    fetchProposal : ContractId (Proposal t k) -> Update (Proposal t k)
+    fetchProposal = error "code will be injected by the compiler"
+    archiveProposal : ContractId (Proposal t k) -> Update ()
+    archiveProposal cid = exerciseProposalArchive cid Archive
+
+    hasKeyProposal : HasKey (Proposal t k)
+    hasKeyProposal = HasKey
+    keyProposal : Proposal t k -> ([Party], k)
+    keyProposal this@Proposal{..} = (proposers, key asset)
+    maintainerProposal : HasKey (Proposal t k) -> ([Party], k) -> [Party]
+    maintainerProposal HasKey key = fst key
+    fetchByKeyProposal : ([Party], k) -> Update (ContractId (Proposal t k), Proposal t k)
+    fetchByKeyProposal = error "code will be injected by the compiler"
+
+    consumptionProposalArchive : PreConsuming (Proposal t k)
+    consumptionProposalArchive = PreConsuming
+    controllerProposalArchive : Proposal t k -> Archive -> [Party]
+    controllerProposalArchive this@Proposal{..} arg@Archive = signatoryProposal this
+    actionProposalArchive : ContractId (Proposal t k) -> Proposal t k -> Archive -> Update ()
+    actionProposalArchive self this@Proposal{..} arg@Archive = do
+        pure ()
+    exerciseProposalArchive : ContractId (Proposal t k) -> Archive -> Update ()
+    exerciseProposalArchive = error "code will be injected by the compiler"
+
+    consumptionProposalAccept : PreConsuming (Proposal t k)
+    consumptionProposalAccept = PreConsuming
+    controllerProposalAccept : Proposal t k -> Accept -> [Party]
+    controllerProposalAccept this@Proposal{..} arg@Accept = receivers
+    actionProposalAccept : ContractId (Proposal t k) -> Proposal t k -> Accept -> Update (ContractId t)
+    actionProposalAccept self this@Proposal{..} arg@Accept = do
+        create asset
+    exerciseProposalAccept : ContractId (Proposal t k) -> Accept -> Update (ContractId t)
+    exerciseProposalAccept = error "code will be injected by the compiler"
+
+
+-- The instantiation of the generic proposal workflow for `Iou`.
+newtype ProposalFact = MkProposalFact with unProposalFact : Proposal Fact (Party, Text)
+
+instance ProposalInstance Fact (Party, Text) where
+
+test = scenario do
+    alice <- getParty "Alice"
+    bob <- getParty "Bob"
+    let fact = Fact with owner = alice; name = "Answer"; value = 23
+    let prop = Proposal with asset = fact; proposers = [bob]; receivers = [alice]
+    propId <- submit bob do create prop
+    (propId', prop') <- submit bob do fetchByKey @(Proposal Fact (Party, Text)) ([bob], (alice, "Answer"))
+    propId' === propId
+    prop' === prop
