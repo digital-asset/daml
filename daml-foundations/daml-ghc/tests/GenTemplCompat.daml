@@ -4,6 +4,9 @@
 -- Check that non-generic templates work with the new de/re-sugaring of
 -- templates for DAML-LF < 1.5 as well. This test can be deleted when
 -- generic templates (#1387) land in master.
+-- Since we need complex contract keys for this, it only works for
+-- DAML-LF >= 1.4.
+-- @SINCE-LF 1.4
 daml 1.2
 module GenTemplCompat where
 
